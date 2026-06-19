@@ -236,7 +236,6 @@ fn shift_bytes_left(data: &[u8], byte_shift: usize) -> Vec<u8> {
 }
 
 fn shift_bytes_and_bits_left(data: &[u8], byte_shift: usize, bit_shift: usize) -> Vec<u8> {
-    use itertools::Position::*;
     debug_assert!(
         (1..8).contains(&bit_shift),
         "Bit shifts of 0 can't be handled by this impl and everything else should be part of the byteshift"
@@ -246,9 +245,9 @@ fn shift_bytes_and_bits_left(data: &[u8], byte_shift: usize, bit_shift: usize) -
         .skip(byte_shift)
         .circular_tuple_windows::<(u8, u8)>()
         .with_position()
-        .map(|(pos, (lhs, rhs))| match pos {
-            Last | Only => lhs << bit_shift,
-            _ => (lhs << bit_shift) | (rhs >> (8 - bit_shift)),
+        .map(|(pos, (lhs, rhs))| match pos.is_last() {
+            true => lhs << bit_shift,
+            false => (lhs << bit_shift) | (rhs >> (8 - bit_shift)),
         })
         .chain(iter::repeat_n(0, byte_shift))
         .collect::<Vec<u8>>()

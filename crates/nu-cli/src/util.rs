@@ -254,6 +254,9 @@ pub fn eval_source(
             code
         }
         Err(err) => {
+            if let ShellError::Exit { code, .. } = &err {
+                std::process::exit(*code)
+            }
             report_shell_error(Some(stack), engine_state, &err);
             let code = err.exit_code();
             stack.set_last_error(&err);
@@ -279,7 +282,7 @@ pub fn eval_source(
     exit_code
 }
 
-fn evaluate_source(
+pub(crate) fn evaluate_source(
     engine_state: &mut EngineState,
     stack: &mut Stack,
     source: &[u8],

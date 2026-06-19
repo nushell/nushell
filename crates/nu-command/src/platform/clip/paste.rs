@@ -3,7 +3,7 @@ use crate::{
     platform::clip::get_config::get_clip_config_with_plugin_fallback, try_json_str_to_value,
 };
 use nu_engine::command_prelude::*;
-use nu_protocol::{Config, shell_error::generic::GenericError};
+use nu_protocol::{Config, Signals, shell_error::generic::GenericError};
 
 #[derive(Clone)]
 pub struct ClipPaste;
@@ -53,7 +53,7 @@ impl Command for ClipPaste {
 
         let trimmed = text.trim_start();
         if trimmed.starts_with('{') || trimmed.starts_with('[') || trimmed.starts_with('"') {
-            return match try_json_str_to_value(trimmed, call.head, false) {
+            return match try_json_str_to_value(trimmed, call.head, false, &Signals::empty()) {
                 Ok(value) => Ok(value.into_pipeline_data()),
                 Err(_) => Ok(Value::string(text, call.head).into_pipeline_data()),
             };

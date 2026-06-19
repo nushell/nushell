@@ -24,6 +24,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aae1277d39aeec15cb388266ecc24b11c80469deae6067e17a1a7aa9e5c1f234"
 
 [[package]]
+name = "aegis-password-generator"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9050b1a8122ca1728e5a21d8d310972979f8eb5cde4ba3b968d644f686043af8"
+dependencies = [
+ "rand 0.9.2",
+ "serde",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "ahash"
 version = "0.8.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -989,9 +1000,9 @@ dependencies = [
 
 [[package]]
 name = "bytesize"
-version = "2.3.1"
+version = "2.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6bd91ee7b2422bcb158d90ef4d14f75ef67f340943fc4149891dcce8f8b972a3"
+checksum = "49e78e506b9d7633710dab98996f22f95f3d0f488e8f1aa162830556ed9fc14d"
 
 [[package]]
 name = "byteyarn"
@@ -3457,6 +3468,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "itertools"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b4baf93f58d4425749ca49a51c50ebab072c5df6994d08fed93541c331481dc"
+dependencies = [
+ "either",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4436,7 +4456,7 @@ dependencies = [
  "reedline",
  "rstest",
  "strum",
- "sysinfo 0.38.4",
+ "sysinfo 0.39.3",
  "tempfile",
  "unicode-segmentation",
  "uuid",
@@ -4461,7 +4481,7 @@ version = "0.113.2"
 dependencies = [
  "fancy-regex",
  "heck",
- "itertools 0.14.0",
+ "itertools 0.15.0",
  "mime",
  "nu-ansi-term",
  "nu-cmd-base",
@@ -4487,7 +4507,7 @@ dependencies = [
 name = "nu-cmd-lang"
 version = "0.113.2"
 dependencies = [
- "itertools 0.14.0",
+ "itertools 0.15.0",
  "miette",
  "nu-cmd-base",
  "nu-engine",
@@ -4506,7 +4526,7 @@ dependencies = [
 name = "nu-cmd-plugin"
 version = "0.113.2"
 dependencies = [
- "itertools 0.14.0",
+ "itertools 0.15.0",
  "nu-engine",
  "nu-path",
  "nu-plugin-engine",
@@ -4529,6 +4549,7 @@ dependencies = [
 name = "nu-command"
 version = "0.113.2"
 dependencies = [
+ "aegis-password-generator",
  "alphanumeric-sort",
  "ansi-str",
  "arboard",
@@ -4562,7 +4583,7 @@ dependencies = [
  "human-date-parser",
  "indexmap 2.14.0",
  "indicatif",
- "itertools 0.14.0",
+ "itertools 0.15.0",
  "kdl",
  "log",
  "lscolors",
@@ -4623,7 +4644,7 @@ dependencies = [
  "serde_yaml 0.9.34+deprecated",
  "sha2",
  "strum",
- "sysinfo 0.38.4",
+ "sysinfo 0.39.3",
  "tabled",
  "tempfile",
  "titlecase",
@@ -4684,7 +4705,7 @@ dependencies = [
 name = "nu-experimental"
 version = "0.113.2"
 dependencies = [
- "itertools 0.14.0",
+ "itertools 0.15.0",
  "thiserror 2.0.18",
 ]
 
@@ -4815,7 +4836,7 @@ version = "0.113.2"
 dependencies = [
  "bytesize",
  "chrono",
- "itertools 0.14.0",
+ "itertools 0.15.0",
  "log",
  "nu-engine",
  "nu-experimental",
@@ -4967,6 +4988,7 @@ dependencies = [
  "web-time",
  "windows 0.62.2",
  "windows-sys 0.61.2",
+ "winnow 1.0.0",
 ]
 
 [[package]]
@@ -4985,7 +5007,7 @@ name = "nu-system"
 version = "0.113.2"
 dependencies = [
  "chrono",
- "itertools 0.14.0",
+ "itertools 0.15.0",
  "libc",
  "libproc",
  "log",
@@ -4994,7 +5016,7 @@ dependencies = [
  "ntapi",
  "nu-utils",
  "procfs",
- "sysinfo 0.38.4",
+ "sysinfo 0.39.3",
  "uucore",
  "web-time",
  "windows 0.62.2",
@@ -5028,7 +5050,7 @@ dependencies = [
  "bytes",
  "derive_more 2.1.1",
  "gatekeeper",
- "itertools 0.14.0",
+ "itertools 0.15.0",
  "kitest",
  "lexopt",
  "linkme",
@@ -5432,6 +5454,17 @@ dependencies = [
  "bitflags 2.11.0",
  "objc2",
  "objc2-core-foundation",
+]
+
+[[package]]
+name = "objc2-open-directory"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bb82bed227edf5201dfedf072bba4015a33d3d4a98519837295a90f0a23f676d"
+dependencies = [
+ "objc2",
+ "objc2-core-foundation",
+ "objc2-foundation",
 ]
 
 [[package]]
@@ -7262,8 +7295,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.48.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "201e8e0160cbe7bb5eb2caccf281e178e77fac95115ab31a2c29edc5593603c8"
+source = "git+https://github.com/nushell/reedline?branch=main#e148b103bd3a74ee62f7546c31b43c547fee2bfe"
 dependencies = [
  "arboard",
  "chrono",
@@ -8531,15 +8563,16 @@ dependencies = [
 
 [[package]]
 name = "sysinfo"
-version = "0.38.4"
+version = "0.39.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "92ab6a2f8bfe508deb3c6406578252e491d299cbbf3bc0529ecc3313aee4a52f"
+checksum = "21d0d938c10fcda3e897e28aaddf4ab462375d411f4378cd63b1c945f69aba96"
 dependencies = [
  "libc",
  "memchr",
  "ntapi",
  "objc2-core-foundation",
  "objc2-io-kit",
+ "objc2-open-directory",
  "windows 0.62.2",
 ]
 

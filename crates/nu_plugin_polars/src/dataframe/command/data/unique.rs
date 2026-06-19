@@ -60,6 +60,10 @@ impl PluginCommand for Unique {
                     PolarsPluginType::NuExpression.into(),
                     PolarsPluginType::NuExpression.into(),
                 ),
+                (
+                    PolarsPluginType::NuSelector.into(),
+                    PolarsPluginType::NuExpression.into(),
+                ),
             ])
             .category(Category::Custom("dataframe or lazyframe".into()))
     }
@@ -203,6 +207,7 @@ impl PluginCommand for Unique {
                     PolarsPluginType::NuDataFrame,
                     PolarsPluginType::NuLazyGroupBy,
                     PolarsPluginType::NuExpression,
+                    PolarsPluginType::NuSelector,
                 ],
             )),
         }

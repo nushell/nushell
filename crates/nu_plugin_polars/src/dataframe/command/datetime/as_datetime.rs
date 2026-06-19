@@ -66,6 +66,10 @@ impl PluginCommand for AsDateTime {
                     PolarsPluginType::NuExpression.into(),
                     PolarsPluginType::NuExpression.into(),
                 ),
+                (
+                    PolarsPluginType::NuSelector.into(),
+                    PolarsPluginType::NuExpression.into(),
+                ),
             ])
             .required("format", SyntaxShape::String, "Formatting date time string.")
             .switch("not-exact", "The format string may be contained in the date (e.g. foo-2021-01-01-bar could match 2021-01-01).", Some('n'))
@@ -336,6 +340,7 @@ fn command(
                 PolarsPluginType::NuDataFrame,
                 PolarsPluginType::NuLazyFrame,
                 PolarsPluginType::NuExpression,
+                PolarsPluginType::NuSelector,
             ],
         )),
     }

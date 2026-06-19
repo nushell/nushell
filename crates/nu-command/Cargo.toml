@@ -95,6 +95,7 @@ pathdiff = { workspace = true }
 percent-encoding = { workspace = true }
 print-positions = { workspace = true }
 quick-xml = { workspace = true }
+aegis-password-generator = { workspace = true, optional = true }
 rand = { workspace = true, optional = true }
 getrandom = { workspace = true, optional = true }
 rayon = { workspace = true }
@@ -222,7 +223,7 @@ os = [
 # The dependencies listed below need 'getrandom'.
 # They work with JS (usually with wasm-bindgen) or regular OS support.
 # Hence they are also put under the 'os' feature to avoid repetition.
-js = ["getrandom", "getrandom/wasm_js", "rand", "uuid"]
+js = ["aegis-password-generator", "getrandom", "getrandom/wasm_js", "rand", "uuid"]
 
 # These dependencies require networking capabilities, especially the http
 # interface requires openssl which is not easy to embed into wasm,

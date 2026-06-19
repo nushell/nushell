@@ -158,7 +158,6 @@ fn get_suggestions_by_value(
 fn get_suggestions_by_type(ty: &Type, current_span: reedline::Span) -> Vec<SemanticSuggestion> {
     match ty {
         Type::Record(columns) | Type::Table(columns) => columns
-            .fields
             .iter()
             .map(|(name, ty)| SemanticSuggestion {
                 suggestion: Suggestion {

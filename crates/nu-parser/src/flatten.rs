@@ -131,6 +131,14 @@ fn flatten_pipeline_element_into(
     pipeline_element: &PipelineElement,
     output: &mut Vec<(Span, FlatShape)>,
 ) {
+    // HACK: `| ls` is considered as valid code,
+    // we should put the pipe in front of the element expression in that case
+    if let Some(span) = pipeline_element.pipe
+        && span.end <= pipeline_element.expr.span.start
+    {
+        output.push((span, FlatShape::Garbage));
+    }
+
     flatten_expression_into(working_set, &pipeline_element.expr, output);
 
     if let Some(redirection) = pipeline_element.redirection.as_ref() {
@@ -171,7 +179,9 @@ fn flatten_pipeline_element_into(
     }
 
     // Pipe token should come after redirection
-    if let Some(span) = pipeline_element.pipe {
+    if let Some(span) = pipeline_element.pipe
+        && span.end > pipeline_element.expr.span.start
+    {
         // NOTE: redirection pipes, e.g. `err>|`/`o+e>|` are parsed as both pipe and redirection,
         // we split each of them into 2 shapes here.
         if let Some((last_span, _)) = output.last_mut()

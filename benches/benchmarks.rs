@@ -6,7 +6,7 @@ use nu_parser::{lex, lite_parse, parse, parse_block};
 use nu_plugin_core::{Encoder, EncodingType};
 use nu_plugin_protocol::{PluginCallResponse, PluginOutput};
 use nu_protocol::{
-    PipelineData, Signals, Span, Spanned, Type, Value,
+    PipelineData, Signals, Span, Spanned, Type, TypeSet, Value,
     engine::{EngineState, Stack, StateWorkingSet},
 };
 use nu_std::load_standard_library;
@@ -672,7 +672,7 @@ fn bench_type_widen_simple() -> impl IntoBenchmarks {
     [benchmark_fn("type_widen_simple", move |bench| {
         let a = a.clone();
         let b = b.clone();
-        bench.iter(move || black_box(a.clone().widen(b.clone())))
+        bench.iter(move || black_box(a.clone().union(b.clone())))
     })]
 }
 
@@ -682,7 +682,7 @@ fn bench_type_widen_large_records() -> impl IntoBenchmarks {
     [benchmark_fn("type_widen_large_records", move |bench| {
         let rec1 = rec1.clone();
         let rec2 = rec2.clone();
-        bench.iter(move || black_box(rec1.clone().widen(rec2.clone())))
+        bench.iter(move || black_box(rec1.clone().union(rec2.clone())))
     })]
 }
 
@@ -700,20 +700,20 @@ fn bench_type_widen_large_oneof() -> impl IntoBenchmarks {
     [benchmark_fn("type_widen_large_oneof", move |bench| {
         let one = one.clone();
         let two = two.clone();
-        bench.iter(move || black_box(one.clone().widen(two.clone())))
+        bench.iter(move || black_box(one.clone().union(two.clone())))
     })]
 }
 
 fn bench_type_widen_chain() -> impl IntoBenchmarks {
     let mut t = Type::String;
     for _ in 0..100 {
-        t = t.widen(Type::Int);
+        t = t.union(Type::Int);
     }
     [benchmark_fn("type_widen_chain", move |bench| {
         let t = t.clone();
         bench.iter(move || {
             let mut tmp = t.clone();
-            tmp = tmp.widen(Type::Int);
+            tmp = tmp.union(Type::Int);
             black_box(tmp)
         })
     })]

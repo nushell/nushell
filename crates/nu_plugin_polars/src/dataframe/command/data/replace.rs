@@ -54,10 +54,16 @@ impl PluginCommand for Replace {
                 "Data type of the resulting expression. If set to `null` (default), the data type is determined automatically based on the other inputs.",
                 Some('t'),
             )
-            .input_output_type(
-                PolarsPluginType::NuExpression.into(),
-                PolarsPluginType::NuExpression.into(),
-            )
+            .input_output_types(vec![
+                (
+                    PolarsPluginType::NuExpression.into(),
+                    PolarsPluginType::NuExpression.into()
+                ),
+                (
+                    PolarsPluginType::NuSelector.into(),
+                    PolarsPluginType::NuExpression.into()
+                )
+             ])
             .category(Category::Custom("expression".into()))
     }
 

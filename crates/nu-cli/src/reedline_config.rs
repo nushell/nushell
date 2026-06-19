@@ -12,11 +12,12 @@ use nu_protocol::{
     extract_value,
 };
 use reedline::{
-    ColumnarMenu, DescriptionMenu, DescriptionMode, EditCommand, EditCommandDiscriminants, IdeMenu,
-    Keybindings, ListMenu, MenuBuilder, PromptEditModeDiscriminants, Reedline, ReedlineEvent,
+    ColumnarMenu, DescriptionMenu, DescriptionMode, DescriptionPosition, Direction, EditCommand,
+    EditCommandDiscriminants, FindStop, Granularity, IdeMenu, InputMode, Keybindings, ListMenu,
+    MenuBuilder, MotionTarget, OutputMode, PromptEditModeDiscriminants, Reedline, ReedlineEvent,
     ReedlineEventDiscriminants, ReedlineMenu, TextObject, TextObjectScope, TextObjectType,
-    TraversalDirection, default_emacs_keybindings, default_vi_insert_keybindings,
-    default_vi_normal_keybindings,
+    TraversalDirection, WordEdge, WordKind, default_emacs_keybindings,
+    default_vi_insert_keybindings, default_vi_normal_keybindings,
 };
 use std::{str::FromStr, sync::Arc};
 
@@ -253,6 +254,93 @@ fn set_menu_style<M: MenuBuilder>(mut menu: M, style: &Value) -> M {
     menu
 }
 
+fn parse_input_mode(value: &Value, config: &Config) -> Result<InputMode, ShellError> {
+    match value
+        .to_expanded_string("", config)
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "diff" => Ok(InputMode::Diff),
+        "cursor_prefix" => Ok(InputMode::CursorPrefix),
+        "full_buffer" => Ok(InputMode::FullBuffer),
+        other => Err(ShellError::InvalidValue {
+            valid: "'diff', 'cursor_prefix', or 'full_buffer'".into(),
+            actual: format!("'{other}'"),
+            span: value.span(),
+        }),
+    }
+}
+
+fn parse_output_mode(value: &Value, config: &Config) -> Result<OutputMode, ShellError> {
+    match value
+        .to_expanded_string("", config)
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "suggested_span" => Ok(OutputMode::SuggestedSpan),
+        "full_buffer" => Ok(OutputMode::FullBuffer),
+        "extend_to_end" => Ok(OutputMode::ExtendToEnd),
+        other => Err(ShellError::InvalidValue {
+            valid: "'suggested_span', 'full_buffer', or 'extend_to_end'".into(),
+            actual: format!("'{other}'"),
+            span: value.span(),
+        }),
+    }
+}
+
+fn parse_description_position(
+    value: &Value,
+    config: &Config,
+) -> Result<DescriptionPosition, ShellError> {
+    match value
+        .to_expanded_string("", config)
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "before" => Ok(DescriptionPosition::Before),
+        "after" => Ok(DescriptionPosition::After),
+        other => Err(ShellError::InvalidValue {
+            valid: "'before' or 'after'".into(),
+            actual: format!("'{other}'"),
+            span: value.span(),
+        }),
+    }
+}
+
+/// Resolve the menu's effective reedline `InputMode` from the optional
+/// `input_mode` and legacy `only_buffer_difference` fields. The result drives
+/// both the reedline menu and `NuMenuCompleter`'s span math, so it must be
+/// resolved exactly once, here.
+fn resolve_input_mode(menu: &ParsedMenu, config: &Config) -> Result<InputMode, ShellError> {
+    match (&menu.input_mode, &menu.only_buffer_difference) {
+        (Some(input_mode), _) => parse_input_mode(input_mode, config),
+        (None, Some(only_buffer_difference)) => {
+            if only_buffer_difference.as_bool()? {
+                Ok(InputMode::Diff)
+            } else {
+                Ok(InputMode::CursorPrefix)
+            }
+        }
+        (None, None) => Err(ShellError::MissingRequiredColumn {
+            column: "input_mode (or only_buffer_difference)",
+            span: menu.name.span(),
+        }),
+    }
+}
+
+/// Apply the optional reedline #1071 `output_mode`. Unset preserves
+/// reedline's default (`suggested_span`).
+fn apply_output_mode<M: MenuBuilder>(
+    mut menu: M,
+    parsed: &ParsedMenu,
+    config: &Config,
+) -> Result<M, ShellError> {
+    if let Some(value) = &parsed.output_mode {
+        menu = menu.with_output_mode(parse_output_mode(value, config)?);
+    }
+    Ok(menu)
+}
+
 // Adds a columnar menu to the editor engine
 pub(crate) fn add_columnar_menu(
     line_editor: Reedline,
@@ -313,8 +401,9 @@ pub(crate) fn add_columnar_menu(
     let marker = menu.marker.to_expanded_string("", config);
     columnar_menu = columnar_menu.with_marker(&marker);
 
-    let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
-    columnar_menu = columnar_menu.with_only_buffer_difference(only_buffer_difference);
+    let input_mode = resolve_input_mode(menu, config)?;
+    columnar_menu = columnar_menu.with_input_mode(input_mode);
+    columnar_menu = apply_output_mode(columnar_menu, menu, config)?;
 
     let completer = if let Some(closure) = &menu.source {
         let menu_completer = NuMenuCompleter::new(
@@ -322,7 +411,7 @@ pub(crate) fn add_columnar_menu(
             span,
             stack.captures_to_stack(closure.captures.clone()),
             engine_state,
-            only_buffer_difference,
+            input_mode,
         );
         ReedlineMenu::WithCompleter {
             menu: Box::new(columnar_menu),
@@ -355,6 +444,13 @@ pub(crate) fn add_list_menu(
             }
             Err(_) => list_menu,
         };
+
+        list_menu = match extract_value("description_position", val, span) {
+            Ok(position) => {
+                list_menu.with_description_position(parse_description_position(position, &config)?)
+            }
+            Err(_) => list_menu,
+        };
     }
 
     list_menu = set_menu_style(list_menu, &menu.style);
@@ -362,8 +458,9 @@ pub(crate) fn add_list_menu(
     let marker = menu.marker.to_expanded_string("", &config);
     list_menu = list_menu.with_marker(&marker);
 
-    let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
-    list_menu = list_menu.with_only_buffer_difference(only_buffer_difference);
+    let input_mode = resolve_input_mode(menu, &config)?;
+    list_menu = list_menu.with_input_mode(input_mode);
+    list_menu = apply_output_mode(list_menu, menu, &config)?;
 
     let completer = if let Some(closure) = &menu.source {
         let menu_completer = NuMenuCompleter::new(
@@ -371,7 +468,7 @@ pub(crate) fn add_list_menu(
             span,
             stack.captures_to_stack(closure.captures.clone()),
             engine_state,
-            only_buffer_difference,
+            input_mode,
         );
         ReedlineMenu::WithCompleter {
             menu: Box::new(list_menu),
@@ -536,8 +633,9 @@ pub(crate) fn add_ide_menu(
     let marker = menu.marker.to_expanded_string("", &config);
     ide_menu = ide_menu.with_marker(&marker);
 
-    let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
-    ide_menu = ide_menu.with_only_buffer_difference(only_buffer_difference);
+    let input_mode = resolve_input_mode(menu, &config)?;
+    ide_menu = ide_menu.with_input_mode(input_mode);
+    ide_menu = apply_output_mode(ide_menu, menu, &config)?;
 
     let completer = if let Some(closure) = &menu.source {
         let menu_completer = NuMenuCompleter::new(
@@ -545,7 +643,7 @@ pub(crate) fn add_ide_menu(
             span,
             stack.captures_to_stack(closure.captures.clone()),
             engine_state,
-            only_buffer_difference,
+            input_mode,
         );
         ReedlineMenu::WithCompleter {
             menu: Box::new(ide_menu),
@@ -617,8 +715,9 @@ pub(crate) fn add_description_menu(
     let marker = menu.marker.to_expanded_string("", &config);
     description_menu = description_menu.with_marker(&marker);
 
-    let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
-    description_menu = description_menu.with_only_buffer_difference(only_buffer_difference);
+    let input_mode = resolve_input_mode(menu, &config)?;
+    description_menu = description_menu.with_input_mode(input_mode);
+    description_menu = apply_output_mode(description_menu, menu, &config)?;
 
     let completer = if let Some(closure) = &menu.source {
         let menu_completer = NuMenuCompleter::new(
@@ -626,7 +725,7 @@ pub(crate) fn add_description_menu(
             span,
             stack.captures_to_stack(closure.captures.clone()),
             engine_state,
-            only_buffer_difference,
+            input_mode,
         );
         ReedlineMenu::WithCompleter {
             menu: Box::new(description_menu),
@@ -1418,6 +1517,23 @@ fn edit_from_record(
         Ok(ECD::CutTextObject) => EditCommand::CutTextObject {
             text_object: parse_text_object(record, config, span)?,
         },
+        // The verb commands take a `MotionTarget` (and, for the operators, a
+        // `Granularity`) parsed from the same record. See `parse_motion_target`.
+        Ok(ECD::Move) => EditCommand::Move(parse_motion_target(record, config, span)?),
+        Ok(ECD::Extend) => EditCommand::Extend(parse_motion_target(record, config, span)?),
+        Ok(ECD::Erase) => EditCommand::Erase(parse_motion_target(record, config, span)?),
+        Ok(ECD::Cut) => EditCommand::Cut {
+            target: parse_motion_target(record, config, span)?,
+            granularity: parse_granularity(record, config, span)?,
+        },
+        Ok(ECD::Copy) => EditCommand::Copy {
+            target: parse_motion_target(record, config, span)?,
+            granularity: parse_granularity(record, config, span)?,
+        },
+        Ok(ECD::Change) => EditCommand::Change {
+            target: parse_motion_target(record, config, span)?,
+            granularity: parse_granularity(record, config, span)?,
+        },
         // `EditCommand::ReplaceChars` - Internal hack not sanely implementable as a
         // standalone binding
         Ok(ECD::ReplaceChars) | Err(_) => {
@@ -1537,6 +1653,24 @@ pub(crate) fn display_edit_command(edit: EditCommandDiscriminants) -> Option<&'s
         ECD::CopyAroundPair => "CopyAroundPair left: <char>, right <char>",
         ECD::CutTextObject => "CutTextObject scope: <string>, object_type: <string>",
         ECD::CopyTextObject => "CopyTextObject scope: <string>, object_type: <string>",
+        ECD::Move => {
+            "Move motion: <string>, direction: <string>, word_kind?: <string>, edge?: <string>, char?: <char>, stop?: <string>"
+        }
+        ECD::Extend => {
+            "Extend motion: <string>, direction: <string>, word_kind?: <string>, edge?: <string>, char?: <char>, stop?: <string>"
+        }
+        ECD::Erase => {
+            "Erase motion: <string>, direction: <string>, word_kind?: <string>, edge?: <string>, char?: <char>, stop?: <string>"
+        }
+        ECD::Cut => {
+            "Cut motion: <string>, direction: <string>, word_kind?: <string>, edge?: <string>, char?: <char>, stop?: <string>, granularity?: <string>"
+        }
+        ECD::Copy => {
+            "Copy motion: <string>, direction: <string>, word_kind?: <string>, edge?: <string>, char?: <char>, stop?: <string>, granularity?: <string>"
+        }
+        ECD::Change => {
+            "Change motion: <string>, direction: <string>, word_kind?: <string>, edge?: <string>, char?: <char>, stop?: <string>, granularity?: <string>"
+        }
         ECD::ReplaceChars => return None,
     })
 }
@@ -1566,41 +1700,168 @@ fn parse_text_object(
     config: &Config,
     span: Span,
 ) -> Result<TextObject, ShellError> {
-    let scope_value = extract_value("scope", record, span)?;
-    let scope_str = scope_value
-        .to_expanded_string("", config)
-        .to_ascii_lowercase();
-    let scope = match scope_str.as_str() {
-        "inner" => TextObjectScope::Inner,
-        "around" => TextObjectScope::Around,
-        str => {
-            return Err(ShellError::InvalidValue {
-                valid: "'inner' or 'around'".into(),
-                actual: format!("'{str}'"),
-                span: scope_value.span(),
-            });
-        }
-    };
+    let scope = extract_enum_field(
+        "scope",
+        record,
+        config,
+        span,
+        "'inner' or 'around'",
+        |name| match name {
+            "inner" => Some(TextObjectScope::Inner),
+            "around" => Some(TextObjectScope::Around),
+            _ => None,
+        },
+    )?;
 
-    let type_value = extract_value("object_type", record, span)?;
-    let type_str = type_value
-        .to_expanded_string("", config)
-        .to_ascii_lowercase();
-    let object_type = match type_str.as_str() {
-        "word" => TextObjectType::Word,
-        "bigword" => TextObjectType::BigWord,
-        "brackets" | "bracket" => TextObjectType::Brackets,
-        "quote" | "quotes" => TextObjectType::Quote,
-        str => {
-            return Err(ShellError::InvalidValue {
-                valid: "'word', 'bigword', 'brackets', or 'quote'".into(),
-                actual: format!("'{str}'"),
-                span: type_value.span(),
-            });
-        }
-    };
+    let object_type = extract_enum_field(
+        "object_type",
+        record,
+        config,
+        span,
+        "'word', 'bigword', 'brackets', or 'quote'",
+        |name| match name {
+            "word" => Some(TextObjectType::Word),
+            "bigword" => Some(TextObjectType::BigWord),
+            "brackets" | "bracket" => Some(TextObjectType::Brackets),
+            "quote" | "quotes" => Some(TextObjectType::Quote),
+            _ => None,
+        },
+    )?;
 
     Ok(TextObject { scope, object_type })
+}
+
+/// Read a lowercased string field from `record` and map it to an enum value,
+/// erroring with `valid` if the field is missing or unrecognized.
+fn extract_enum_field<T>(
+    field: &'static str,
+    record: &Record,
+    config: &Config,
+    span: Span,
+    valid: &str,
+    parse: impl Fn(&str) -> Option<T>,
+) -> Result<T, ShellError> {
+    let value = extract_value(field, record, span)?;
+    let name = value.to_expanded_string("", config).to_ascii_lowercase();
+    parse(&name).ok_or_else(|| ShellError::InvalidValue {
+        valid: valid.into(),
+        actual: format!("'{name}'"),
+        span: value.span(),
+    })
+}
+
+fn parse_direction(record: &Record, config: &Config, span: Span) -> Result<Direction, ShellError> {
+    extract_enum_field(
+        "direction",
+        record,
+        config,
+        span,
+        "'forward' or 'backward'",
+        |name| match name {
+            "forward" => Some(Direction::Forward),
+            "backward" => Some(Direction::Backward),
+            _ => None,
+        },
+    )
+}
+
+/// Operator span granularity; an absent field falls back to
+/// `Granularity::default()` (char-wise).
+fn parse_granularity(
+    record: &Record,
+    config: &Config,
+    span: Span,
+) -> Result<Granularity, ShellError> {
+    if !record.contains("granularity") {
+        return Ok(Granularity::default());
+    }
+    extract_enum_field(
+        "granularity",
+        record,
+        config,
+        span,
+        "'charwise' or 'linewise'",
+        |name| match name {
+            "charwise" => Some(Granularity::CharWise),
+            "linewise" => Some(Granularity::LineWise),
+            _ => None,
+        },
+    )
+}
+
+/// Parse a [`MotionTarget`] from the flat fields of an edit-command record.
+///
+/// `motion` selects the variant; the remaining fields supply its data —
+/// `direction` (forward/backward), `word_kind` (small/big), `edge` (start/end),
+/// `char`, and `stop` (on/before).
+///
+/// `MotionTarget::Offset` is intentionally not exposed; `MoveToPosition`
+/// already covers absolute cursor positions.
+fn parse_motion_target(
+    record: &Record,
+    config: &Config,
+    span: Span,
+) -> Result<MotionTarget, ShellError> {
+    let motion_value = extract_value("motion", record, span)?;
+    let motion = motion_value
+        .to_expanded_string("", config)
+        .to_ascii_lowercase();
+    let target = match motion.as_str() {
+        "grapheme" => MotionTarget::Grapheme(parse_direction(record, config, span)?),
+        "word" => MotionTarget::Word {
+            kind: extract_enum_field(
+                "word_kind",
+                record,
+                config,
+                span,
+                "'small' or 'big'",
+                |name| match name {
+                    "small" => Some(WordKind::Small),
+                    "big" => Some(WordKind::Big),
+                    _ => None,
+                },
+            )?,
+            edge: extract_enum_field("edge", record, config, span, "'start' or 'end'", |name| {
+                match name {
+                    "start" => Some(WordEdge::Start),
+                    "end" => Some(WordEdge::End),
+                    _ => None,
+                }
+            })?,
+            direction: parse_direction(record, config, span)?,
+        },
+        "lineedge" => MotionTarget::LineEdge(parse_direction(record, config, span)?),
+        "bufferedge" => MotionTarget::BufferEdge(parse_direction(record, config, span)?),
+        "line" => MotionTarget::Line(parse_direction(record, config, span)?),
+        "find" => {
+            let ch = extract_char(extract_value("char", record, span)?)?;
+            MotionTarget::Find {
+                ch,
+                direction: parse_direction(record, config, span)?,
+                stop: extract_enum_field(
+                    "stop",
+                    record,
+                    config,
+                    span,
+                    "'on' or 'before'",
+                    |name| match name {
+                        "on" => Some(FindStop::On),
+                        "before" => Some(FindStop::Before),
+                        _ => None,
+                    },
+                )?,
+            }
+        }
+        other => {
+            return Err(ShellError::InvalidValue {
+                valid: "a motion: 'grapheme', 'word', 'lineedge', 'bufferedge', 'line', or 'find'"
+                    .into(),
+                actual: format!("'{other}'"),
+                span: motion_value.span(),
+            });
+        }
+    };
+    Ok(target)
 }
 
 #[cfg(test)]
@@ -1643,6 +1904,171 @@ mod test {
             parsed_event,
             Some(ReedlineEvent::Edit(vec![EditCommand::Clear]))
         );
+    }
+
+    #[test]
+    fn test_edit_move_motion() {
+        let event = Value::test_record(record! {
+            "edit" => Value::test_string("Move"),
+            "motion" => Value::test_string("grapheme"),
+            "direction" => Value::test_string("backward"),
+        });
+        let config = Config::default();
+
+        let parsed_event = parse_event(&event, &config).unwrap();
+        assert_eq!(
+            parsed_event,
+            Some(ReedlineEvent::Edit(vec![EditCommand::Move(
+                MotionTarget::Grapheme(Direction::Backward)
+            )]))
+        );
+    }
+
+    #[test]
+    fn test_edit_cut_word_linewise() {
+        let event = Value::test_record(record! {
+            "edit" => Value::test_string("Cut"),
+            "motion" => Value::test_string("word"),
+            "word_kind" => Value::test_string("big"),
+            "edge" => Value::test_string("end"),
+            "direction" => Value::test_string("forward"),
+            "granularity" => Value::test_string("linewise"),
+        });
+        let config = Config::default();
+
+        let parsed_event = parse_event(&event, &config).unwrap();
+        assert_eq!(
+            parsed_event,
+            Some(ReedlineEvent::Edit(vec![EditCommand::Cut {
+                target: MotionTarget::Word {
+                    kind: WordKind::Big,
+                    edge: WordEdge::End,
+                    direction: Direction::Forward,
+                },
+                granularity: Granularity::LineWise,
+            }]))
+        );
+    }
+
+    #[test]
+    fn test_edit_find_motion() {
+        let event = Value::test_record(record! {
+            "edit" => Value::test_string("Erase"),
+            "motion" => Value::test_string("find"),
+            "char" => Value::test_string("x"),
+            "direction" => Value::test_string("forward"),
+            "stop" => Value::test_string("before"),
+        });
+        let config = Config::default();
+
+        let parsed_event = parse_event(&event, &config).unwrap();
+        assert_eq!(
+            parsed_event,
+            Some(ReedlineEvent::Edit(vec![EditCommand::Erase(
+                MotionTarget::Find {
+                    ch: 'x',
+                    direction: Direction::Forward,
+                    stop: FindStop::Before,
+                }
+            )]))
+        );
+    }
+
+    #[test]
+    fn test_parse_input_mode() {
+        let config = Config::default();
+        assert!(matches!(
+            parse_input_mode(&Value::test_string("full_buffer"), &config),
+            Ok(InputMode::FullBuffer)
+        ));
+        assert!(matches!(
+            parse_input_mode(&Value::test_string("diff"), &config),
+            Ok(InputMode::Diff)
+        ));
+        assert!(parse_input_mode(&Value::test_string("nope"), &config).is_err());
+    }
+
+    fn test_menu(input_mode: Option<Value>, only_buffer_difference: Option<Value>) -> ParsedMenu {
+        ParsedMenu {
+            name: Value::test_string("test_menu"),
+            marker: Value::test_string("| "),
+            only_buffer_difference,
+            input_mode,
+            output_mode: None,
+            style: Value::test_nothing(),
+            r#type: Value::test_nothing(),
+            source: None,
+        }
+    }
+
+    #[test]
+    fn test_resolve_input_mode() {
+        let config = Config::default();
+
+        // input_mode alone
+        assert!(matches!(
+            resolve_input_mode(
+                &test_menu(Some(Value::test_string("full_buffer")), None),
+                &config
+            ),
+            Ok(InputMode::FullBuffer)
+        ));
+
+        // input_mode supersedes a conflicting legacy flag
+        assert!(matches!(
+            resolve_input_mode(
+                &test_menu(
+                    Some(Value::test_string("diff")),
+                    Some(Value::test_bool(false))
+                ),
+                &config
+            ),
+            Ok(InputMode::Diff)
+        ));
+
+        // legacy flag alone maps to the equivalent mode
+        assert!(matches!(
+            resolve_input_mode(&test_menu(None, Some(Value::test_bool(true))), &config),
+            Ok(InputMode::Diff)
+        ));
+        assert!(matches!(
+            resolve_input_mode(&test_menu(None, Some(Value::test_bool(false))), &config),
+            Ok(InputMode::CursorPrefix)
+        ));
+
+        // neither field set is a config error
+        assert!(matches!(
+            resolve_input_mode(&test_menu(None, None), &config),
+            Err(ShellError::MissingRequiredColumn { .. })
+        ));
+    }
+
+    #[test]
+    fn test_parse_output_mode() {
+        let config = Config::default();
+        assert!(matches!(
+            parse_output_mode(&Value::test_string("extend_to_end"), &config),
+            Ok(OutputMode::ExtendToEnd)
+        ));
+        assert!(matches!(
+            parse_output_mode(&Value::test_string("suggested_span"), &config),
+            Ok(OutputMode::SuggestedSpan)
+        ));
+        assert!(parse_output_mode(&Value::test_string("nope"), &config).is_err());
+    }
+
+    #[test]
+    fn test_parse_description_position() {
+        let config = Config::default();
+        assert!(matches!(
+            parse_description_position(&Value::test_string("after"), &config),
+            Ok(DescriptionPosition::After)
+        ));
+        assert!(matches!(
+            parse_description_position(&Value::test_string("before"), &config),
+            Ok(DescriptionPosition::Before)
+        ));
+        assert!(parse_description_position(&Value::test_string("nope"), &config).is_err());
     }
 
     #[test]

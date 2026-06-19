@@ -2,7 +2,8 @@
 
 use crate::{
     lex, lite_parse,
-    parser::{ensure_not_reserved_variable_name, is_variable, parse_value},
+    parse_helpers::is_variable,
+    parser::{ensure_not_reserved_variable_name, parse_value},
 };
 use nu_protocol::{
     ParseError, Span, SyntaxShape, Type, VarId,

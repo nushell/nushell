@@ -12,7 +12,7 @@ use crate::{
     prompt_update,
     reedline_config::{KeybindingsMode, add_menus, create_keybindings},
     syntax_highlight::NoOpHighlighter,
-    util::eval_source,
+    util::{eval_source, evaluate_source},
 };
 use crossterm::cursor::SetCursorStyle;
 use log::{error, trace, warn};
@@ -21,19 +21,19 @@ use nu_cmd_base::util::get_editor;
 use nu_color_config::StyleComputer;
 use nu_engine::env_to_strings;
 use nu_engine::exit::cleanup_exit;
-use nu_parser::{lex, parse, trim_quotes_str};
+use nu_parser::{lex, trim_quotes_str};
 use nu_protocol::shell_error::io::IoError;
 use nu_protocol::{BannerKind, ShellIntegrationConfig, shell_error};
 use nu_protocol::{
     Config, HistoryConfig, HistoryFileFormat, PipelineData, ShellError, Span, Spanned, Value,
     config::NuCursorShape,
-    engine::{EngineState, Stack, StateWorkingSet},
+    engine::{EngineState, Stack},
     report_shell_error,
 };
 use nu_utils::time::Instant;
 use nu_utils::{
     filesystem::{PermissionResult, have_permission},
-    perf, stderr_write_all_and_flush,
+    perf, stderr_write_all_and_flush, stdout_write_all_and_flush,
 };
 #[cfg(feature = "sqlite")]
 use reedline::SqliteBackedHistory;
@@ -807,7 +807,8 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                 shell_integration.osc133,
             );
 
-            println!();
+            // Don't use `println!`: it panics on a broken stdout (parent terminal closed).
+            let _ = stdout_write_all_and_flush("\n");
 
             cleanup_exit((), engine_state, 0);
 
@@ -1053,40 +1054,32 @@ fn do_run_cmd(
 ) -> Reedline {
     trace!("eval source: {s}");
 
-    let mut cmds = s.split_whitespace();
-
     let had_warning_before = engine_state.exit_warning_given.load(Ordering::SeqCst);
-
-    if let Some("exit") = cmds.next() {
-        let mut working_set = StateWorkingSet::new(engine_state);
-        let _ = parse(&mut working_set, None, s.as_bytes(), false);
-
-        if working_set.parse_errors.is_empty() {
-            match cmds.next() {
-                Some(s) => {
-                    if let Ok(n) = s.parse::<i32>() {
-                        return cleanup_exit(line_editor, engine_state, n);
-                    }
-                }
-                None => {
-                    return cleanup_exit(line_editor, engine_state, 0);
-                }
-            }
-        }
-    }
 
     if shell_integration_osc2 {
         run_shell_integration_osc2(Some(s), engine_state, stack, use_color);
     }
 
-    eval_source(
+    match evaluate_source(
         engine_state,
         stack,
         s.as_bytes(),
         &format!("repl_entry #{entry_num}"),
         PipelineData::empty(),
         false,
-    );
+    ) {
+        Err(ShellError::Exit { code, .. }) => {
+            return cleanup_exit(line_editor, engine_state, code);
+        }
+        Err(err) => {
+            report_shell_error(Some(stack), engine_state, &err);
+            stack.set_last_error(&err);
+        }
+        Ok(failed) => {
+            let code: i32 = failed.into();
+            stack.set_last_exit_code(code, Span::unknown());
+        }
+    }
 
     // if there was a warning before, and we got to this point, it means
     // the possible call to cleanup_exit did not occur.
