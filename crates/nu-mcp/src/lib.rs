@@ -46,6 +46,10 @@ pub fn initialize_mcp_server(
         .with_env_filter(EnvFilter::from_default_env().add_directive(tracing::Level::DEBUG.into()))
         .with_writer(std::io::stderr)
         .with_ansi(false)
+        // The MCP host owns our stderr pipe and closes it on exit. Once closed, every
+        // event write returns `Err(BrokenPipe)`, and the default fallback runs `eprintln!`, which
+        // panics on a broken pipe.
+        .log_internal_errors(false)
         .try_init()
     {
         tracing::debug!("tracing subscriber already initialized: {err}");
