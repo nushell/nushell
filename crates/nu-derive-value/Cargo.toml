@@ -10,9 +10,6 @@ version.workspace = true
 
 [lib]
 proc-macro = true
-# we can only use exposed macros in doctests really, 
-# so we cannot test anything useful in a doctest
-doctest = false 
 
 [lints]
 workspace = true
