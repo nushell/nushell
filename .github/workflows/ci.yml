@@ -94,11 +94,11 @@ jobs:
           - name: nu-parser/fuzz
             path: ./crates/nu-parser/fuzz
             profile: dev
-            skip: [build, test]
+            skip: [build, test, doctest]
           - name: nu-path/fuzz
             path: ./crates/nu-path/fuzz
             profile: dev
-            skip: [build, test]
+            skip: [build, test, doctest]
 
         exclude:
           - target: { name: WASM }
