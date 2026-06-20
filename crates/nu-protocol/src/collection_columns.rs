@@ -36,7 +36,7 @@ use crate::SyntaxShape;
 ///     foo.union(bar),
 ///     CollectionColumns::from(vec![
 ///         ("a".to_string(), Type::Number),
-///         ("b".to_string(), Type::OneOf([Type::String, Type::Int].into())),
+///         ("b".to_string(), Type::one_of([Type::String, Type::Int])),
 ///     ])
 /// );
 /// ```
