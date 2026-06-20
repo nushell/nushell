@@ -72,19 +72,27 @@ pub fn handle_tree_input(app: &mut App, key: KeyCode, modifiers: KeyModifiers) -
                 return AppResult::Quit;
             }
         }
-        KeyCode::Up => {
+        KeyCode::Up | KeyCode::Char('k') => {
             app.tree_state.key_up();
             app.force_update_editor();
         }
-        KeyCode::Down => {
+        KeyCode::Char('p') if modifiers.contains(KeyModifiers::CONTROL) => {
+            app.tree_state.key_up();
+            app.force_update_editor();
+        }
+        KeyCode::Down | KeyCode::Char('j') => {
             app.tree_state.key_down();
             app.force_update_editor();
         }
-        KeyCode::Left => {
+        KeyCode::Char('n') if modifiers.contains(KeyModifiers::CONTROL) => {
+            app.tree_state.key_down();
+            app.force_update_editor();
+        }
+        KeyCode::Left | KeyCode::Char('h') => {
             app.tree_state.key_left();
             app.force_update_editor();
         }
-        KeyCode::Right => {
+        KeyCode::Right | KeyCode::Char('l') => {
             app.tree_state.key_right();
             app.force_update_editor();
         }
@@ -146,7 +154,7 @@ pub fn get_tree_status_message(app: &App) -> String {
         )
     } else {
         format!(
-            "↑↓ Navigate | / Search | ←→ Collapse/Expand | Tab Switch pane | Ctrl+S {} | q Quit",
+            "↑↓/jk Navigate | / Search | ←→/hl Collapse/Expand | Tab Switch pane | Ctrl+S {} | q Quit",
             save_action
         )
     }
@@ -156,7 +164,7 @@ pub fn get_tree_status_message(app: &App) -> String {
 pub fn handle_editor_normal_input(
     app: &mut App,
     key: KeyCode,
-    _modifiers: KeyModifiers,
+    modifiers: KeyModifiers,
 ) -> AppResult {
     match key {
         KeyCode::Tab => {
@@ -168,10 +176,16 @@ pub fn handle_editor_normal_input(
             app.editor_cursor = 0;
             app.status_message = String::from("Editing - Ctrl+S to apply, Esc to cancel");
         }
-        KeyCode::Up => {
+        KeyCode::Up | KeyCode::Char('k') => {
             app.scroll_editor(-1);
         }
-        KeyCode::Down => {
+        KeyCode::Char('p') if modifiers.contains(KeyModifiers::CONTROL) => {
+            app.scroll_editor(-1);
+        }
+        KeyCode::Down | KeyCode::Char('j') => {
+            app.scroll_editor(1);
+        }
+        KeyCode::Char('n') if modifiers.contains(KeyModifiers::CONTROL) => {
             app.scroll_editor(1);
         }
         KeyCode::PageUp => {
