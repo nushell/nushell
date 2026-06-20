@@ -11,8 +11,8 @@ env:
   NU_LOG_LEVEL: DEBUG
   CLIPPY_OPTIONS: "-D warnings"
   NUSHELL_CARGO_PROFILE: ci
-  MAIN_OPTIONS: --workspace --exclude nu_plugin_*
-  PLUGIN_OPTIONS: --package nu_plugin_*
+  MAIN_OPTIONS: --workspace --exclude nu_plugin_* --all-targets
+  PLUGIN_OPTIONS: --package nu_plugin_* --all-targets
   WASM_OPTIONS: >-
     --no-default-features
     --target wasm32-unknown-unknown
@@ -162,12 +162,12 @@ jobs:
       - name: cargo test
         if: contains(matrix.target.steps, 'test') && !contains(matrix.workspace.skip, 'test')
         working-directory: ${{ matrix.workspace.path }}
-        run: cargo test ${{ env[matrix.target.options] }} --all-targets --profile ${{ matrix.workspace.profile }}
+        run: cargo test ${{ env[matrix.target.options] }} --profile ${{ matrix.workspace.profile }}
 
       - name: cargo test --doc
         if: contains(matrix.target.steps, 'doctest') && !contains(matrix.workspace.skip, 'doctest')
         working-directory: ${{ matrix.workspace.path }}
-        run: cargo test ${{ env[matrix.target.options] }} --doc --profile ${{ matrix.workspace.profile }}
+        run: cargo test --workspace --doc --profile ${{ matrix.workspace.profile }}
 
       - name: Assert Clean Repo
         run: git diff --quiet && git diff --cached --quiet
