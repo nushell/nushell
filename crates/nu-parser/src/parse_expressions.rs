@@ -1438,7 +1438,7 @@ pub fn parse_math_expression(
 pub fn parse_expression(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
-    input: Option<Type>,
+    input_type: Option<Type>,
 ) -> Expression {
     trace!("parsing: expression");
 
@@ -1510,7 +1510,7 @@ pub fn parse_expression(
                     spans[0],
                 ));
 
-                parse_call(working_set, &spans[pos..], spans[0], input)
+                parse_call(working_set, &spans[pos..], spans[0], input_type)
             }
             b"const" | b"mut" => {
                 working_set.error(ParseError::AssignInPipeline(
@@ -1528,19 +1528,19 @@ pub fn parse_expression(
                     .to_string(),
                     spans[0],
                 ));
-                parse_call(working_set, &spans[pos..], spans[0], input)
+                parse_call(working_set, &spans[pos..], spans[0], input_type)
             }
             b"overlay" => {
                 if spans.len() > 1 && working_set.get_span_contents(spans[1]) == b"list" {
                     // whitelist 'overlay list'
-                    parse_call(working_set, &spans[pos..], spans[0], input)
+                    parse_call(working_set, &spans[pos..], spans[0], input_type)
                 } else {
                     working_set.error(ParseError::BuiltinCommandInPipeline(
                         "overlay".into(),
                         spans[0],
                     ));
 
-                    parse_call(working_set, &spans[pos..], spans[0], input)
+                    parse_call(working_set, &spans[pos..], spans[0], input_type)
                 }
             }
             b"where" => parse_where_expr(working_set, &spans[pos..]),
@@ -1555,10 +1555,10 @@ pub fn parse_expression(
                     ));
                 }
 
-                parse_call(working_set, &spans[pos..], spans[0], input)
+                parse_call(working_set, &spans[pos..], spans[0], input_type)
             }
 
-            _ => parse_call(working_set, &spans[pos..], spans[0], input),
+            _ => parse_call(working_set, &spans[pos..], spans[0], input_type),
         }
     };
 

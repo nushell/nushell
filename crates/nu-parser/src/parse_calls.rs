@@ -882,7 +882,7 @@ pub fn parse_internal_call(
     spans: &[Span],
     decl_id: DeclId,
     arg_parsing_level: ArgumentParsingLevel,
-    input: Option<Type>,
+    input_type: Option<Type>,
 ) -> ParsedInternalCall {
     trace!("parsing: internal call (decl id: {})", decl_id.get());
 
@@ -901,7 +901,7 @@ pub fn parse_internal_call(
     // Incorrect behavior this may cause will be handled by
     // `check_pipeline_type` in crates/nu-parser/src/type_check.rs
     let output = signature
-        .get_output_type(input.map(|ty| ty.union(Type::Nothing)))
+        .get_output_type(input_type.map(|ty| ty.union(Type::Nothing)))
         .unwrap_or(Type::Error);
 
     let deprecation = decl.deprecation_info();
@@ -1299,7 +1299,7 @@ pub fn parse_call(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
     head: Span,
-    input: Option<Type>,
+    input_type: Option<Type>,
 ) -> Expression {
     trace!("parsing: call");
     let call_span = Span::concat(spans);
@@ -1359,7 +1359,7 @@ pub fn parse_call(
         if is_dynamic_head {
             trace!("parsing: dynamic percent builtin dispatch");
 
-            let head_expr = crate::parser::parse_expression(working_set, &[head_span], input);
+            let head_expr = crate::parser::parse_expression(working_set, &[head_span], input_type);
 
             // Create a placeholder call; the IR compiler will rewrite this to `run-internal`.
             let mut call = Call::new(call_span);
@@ -1457,7 +1457,7 @@ pub fn parse_call(
                     &resolution_spans[pos..],
                     decl_id,
                     ArgumentParsingLevel::Full,
-                    input,
+                    input_type,
                 )
             }
         } else {
@@ -1468,7 +1468,7 @@ pub fn parse_call(
                 &resolution_spans[pos..],
                 decl_id,
                 ArgumentParsingLevel::Full,
-                input,
+                input_type,
             )
         };
 

@@ -50,11 +50,11 @@ pub(crate) fn parse_redirection(
 pub(crate) fn parse_pipeline_element(
     working_set: &mut StateWorkingSet,
     command: &LiteCommand,
-    input: Type,
+    input_type: Type,
 ) -> PipelineElement {
     trace!("parsing: pipeline element");
 
-    let expr = parse_expression(working_set, &command.parts, Some(input));
+    let expr = parse_expression(working_set, &command.parts, Some(input_type));
 
     let redirection = command
         .redirection
@@ -87,9 +87,9 @@ pub(crate) fn redirecting_builtin_error(
 pub fn parse_pipeline(
     working_set: &mut StateWorkingSet,
     pipeline: &LitePipeline,
-    input: Option<Type>,
+    input_type: Option<Type>,
 ) -> Pipeline {
-    let mut input = input.unwrap_or(Type::Any);
+    let mut input = input_type.unwrap_or(Type::Any);
 
     if pipeline.commands.len() > 1 {
         // Parse a normal multi command pipeline
