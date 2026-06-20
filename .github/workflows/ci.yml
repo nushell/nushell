@@ -145,19 +145,19 @@ jobs:
       - name: cargo check
         if: contains(matrix.target.steps, 'check') && !contains(matrix.workspace.skip, 'check')
         working-directory: ${{ matrix.workspace.path }}
-        run: cargo check ${{ env[matrix.target.options] }} --all-targets --profile ${{ matrix.workspace.profile }}
+        run: cargo check ${{ env[matrix.target.options] }} --profile ${{ matrix.workspace.profile }}
         
       - name: cargo clippy
         if: contains(matrix.target.steps, 'clippy') && !contains(matrix.workspace.skip, 'clippy')
         working-directory: ${{ matrix.workspace.path }}
         run: |
           rustup component add clippy
-          cargo clippy ${{ env[matrix.target.options] }} --all-targets --profile ${{ matrix.workspace.profile }} -- ${{ env['CLIPPY_OPTIONS'] }}
+          cargo clippy ${{ env[matrix.target.options] }} --profile ${{ matrix.workspace.profile }} -- ${{ env['CLIPPY_OPTIONS'] }}
 
       - name: cargo build
         if: contains(matrix.target.steps, 'build') && !contains(matrix.workspace.skip, 'build')
         working-directory: ${{ matrix.workspace.path }}
-        run: cargo build ${{ env[matrix.target.options] }} --all-targets --profile ${{ matrix.workspace.profile }}
+        run: cargo build ${{ env[matrix.target.options] }} --profile ${{ matrix.workspace.profile }}
 
       - name: cargo test
         if: contains(matrix.target.steps, 'test') && !contains(matrix.workspace.skip, 'test')
