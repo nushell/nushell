@@ -653,23 +653,31 @@ impl Range {
 
     pub fn new_int(
         start: impl Into<Option<i64>>,
-        step: impl Into<Option<i64>>,
+        next: impl Into<Option<i64>>,
         end: impl Into<Option<Bound<i64>>>,
     ) -> Self {
         let start = start.into().unwrap_or(0);
-        let step = step.into().unwrap_or(1);
         let end = end.into().unwrap_or(Bound::Unbounded);
+        let step = next.into().map(|next| next - start).unwrap_or(match end {
+            Bound::Unbounded => 1,
+            Bound::Included(end) | Bound::Excluded(end) if start <= end => 1,
+            _ => -1,
+        });
         Range::IntRange(IntRange { start, step, end })
     }
 
     pub fn new_float(
         start: impl Into<Option<f64>>,
-        step: impl Into<Option<f64>>,
+        next: impl Into<Option<f64>>,
         end: impl Into<Option<Bound<f64>>>,
     ) -> Self {
         let start = start.into().unwrap_or(0.0);
-        let step = step.into().unwrap_or(1.0);
         let end = end.into().unwrap_or(Bound::Unbounded);
+        let step = next.into().map(|next| next - start).unwrap_or(match end {
+            Bound::Unbounded => 1.0,
+            Bound::Included(end) | Bound::Excluded(end) if start <= end => 1.0,
+            _ => -1.0,
+        });
         Range::FloatRange(FloatRange { start, step, end })
     }
 
@@ -824,9 +832,14 @@ mod parse {
 
     // only simple numbers for now
     fn number(input: &mut &str) -> Result<Number> {
-        // TODO: float is too liberal, use more strict alternative
-        // alt((float.map(Number::Float), dec_int.map(Number::Int))).parse_next(input)
-        dec_int.map(Number::Int).parse_next(input)
+        fn float(input: &mut &str) -> Result<f64> {
+            (opt("-"), digit0, ".", digit1)
+                .take()
+                .parse_to()
+                .parse_next(input)
+        }
+
+        alt((float.map(Number::Float), dec_int.map(Number::Int))).parse_next(input)
     }
 
     struct Components {
