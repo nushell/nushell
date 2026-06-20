@@ -1,4 +1,6 @@
 use crate::repl::tests::{TestResult, fail_test, run_test, run_test_contains};
+use nu_experimental::ENFORCE_RUNTIME_ANNOTATIONS;
+use nu_test_support::prelude::*;
 use rstest::rstest;
 
 #[test]
@@ -149,15 +151,18 @@ fn record_subtyping_works() -> TestResult {
 // [ list supertype, table ]
 #[case(
     "let foo = [ [ { a: 1 } ], [ [a, b]; [1, 2] ] ];",
-    "list<list<record<a: int>>>"
+    "list<oneof<list<record<a: int>>, table<a: int, b: int>>>"
 )]
 // [ list, table supertype ]
 #[case(
     "let foo = [ [{ a: 1, b: 2 }], [ [a]; [1] ] ];",
-    "list<list<record<a: int>>>"
+    "list<oneof<list<record<a: int, b: int>>, table<a: int>>>"
 )]
 // disjoint element types: empty element supertype
-#[case("let foo = [[ [bar]; [1] ], [ { baz: 1 } ] ];", "list<list<record>>")]
+#[case(
+    "let foo = [[ [bar]; [1] ], [ { baz: 1 } ] ];",
+    "list<oneof<table<bar: int>, list<record<baz: int>>>>"
+)]
 // `bar: int` and `bar: number` are widened to table<bar: number>
 #[case(
     "let n: number = 1; let foo = [ [bar]; [1], [$n] ];",
@@ -307,4 +312,28 @@ fn array_of_wrong_types() -> TestResult {
         "0..128 | each {} | into string | bytes collect",
         "nu::shell::only_supports_this_input_type",
     )
+}
+
+#[test]
+#[exp(ENFORCE_RUNTIME_ANNOTATIONS)]
+fn optional_parameters_and_flags_are_nullable() -> Result {
+    let mut tester = test();
+
+    let code = "
+        def foo [opt_param?: int] {
+            let var = $opt_param
+        }
+        foo
+    ";
+    let () = tester.run(code)?;
+
+    let code = "
+        def foo [--flag: int] {
+            let var = $flag
+        }
+        foo
+    ";
+    let () = tester.run(code)?;
+
+    Ok(())
 }

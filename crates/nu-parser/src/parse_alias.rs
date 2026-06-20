@@ -106,6 +106,7 @@ pub fn parse_alias(
             rest_spans,
             decl_id,
             ArgumentParsingLevel::Full,
+            None,
         );
 
         working_set
@@ -177,7 +178,7 @@ pub fn parse_alias(
                 && is_math_expression_like(working_set, replacement_spans[0])
             {
                 let starting_error_count = working_set.parse_errors.len();
-                let expr = parse_expression(working_set, replacement_spans);
+                let expr = parse_expression(working_set, replacement_spans, None);
                 working_set.parse_errors.truncate(starting_error_count);
 
                 working_set.error(ParseError::CantAliasExpression(
@@ -190,7 +191,7 @@ pub fn parse_alias(
             let starting_error_count = working_set.parse_errors.len();
             working_set.search_predecls = false;
 
-            let expr = parse_call(working_set, replacement_spans, replacement_spans[0]);
+            let expr = parse_call(working_set, replacement_spans, replacement_spans[0], None);
 
             working_set.search_predecls = true;
 

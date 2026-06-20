@@ -135,48 +135,37 @@ impl Type {
 
     /// Returns supertype of arguments without creating a `oneof`, or falling back to `any` (unless one or both of the arguments are `any`)
     pub(crate) fn flat_widen(lhs: Type, rhs: Type) -> Result<Type, (Type, Type)> {
-        // handle special cases and hot paths
-        let (lhs, rhs) = match (lhs, rhs) {
-            // disjoint glob/string pair. We don't want to consume lhs/rhs here because subsequent code still needs them.
-            tys @ (Type::Glob, Type::String) | tys @ (Type::String, Type::Glob) => return Err(tys),
+        match (lhs, rhs) {
+            // short circuit on `any`
+            (Type::Any, _) | (_, Type::Any) => Ok(Type::Any),
+
             // primitive number hierarchy is extremely common
-            (Type::Int, Type::Float) | (Type::Float, Type::Int) => return Ok(Type::Number),
-            tys => tys,
-        };
+            (Type::Int, Type::Float) | (Type::Float, Type::Int) => Ok(Type::Number),
 
-        // widen structural collections without checking for subtyping
-        let (lhs, rhs) = match (lhs, rhs) {
-            (Type::Record(lhs), Type::Record(rhs)) => {
-                return Ok(Type::Record(lhs.union(rhs)));
-            }
-            (Type::Table(lhs), Type::Table(rhs)) => {
-                return Ok(Type::Table(lhs.union(rhs)));
-            }
-            // We're choosing to lose some information by preferring
-            // - `list<oneof<T, record>>` over
-            // - `oneof<list<T>, table>`
-            (Type::List(list_elem), Type::Table(table_cols))
-            | (Type::Table(table_cols), Type::List(list_elem)) => {
-                return Ok(Type::list(list_elem.union(Type::Record(table_cols))));
-            }
-            // We're choosing to lose some information by preferring
-            // - `list<oneof<T, U>>` over
-            // - `oneof<list<T>, list<U>>`
-            (Type::List(lhs), Type::List(rhs)) => {
-                return Ok(Type::list(lhs.union(*rhs)));
-            }
-            tys => tys,
-        };
+            // despite their subtyping relation, these pairs should not combine into one or the other
+            tys @ ((Type::Glob, Type::String)
+            | (Type::String, Type::Glob)
+            | (Type::String | Type::Int, Type::CellPath)
+            | (Type::CellPath, Type::String | Type::Int)) => Err(tys),
 
-        // If one type is already a subtype of the other, we can skip all of the heavier logic below.
-        match lhs.compare_types(&rhs) {
-            Some(rel) => Ok(match rel {
-                TypeRelation::Subtype => rhs,
-                TypeRelation::Equal => lhs,
-                TypeRelation::Supertype => lhs,
-            }),
-            // Fallback - the two types are unrelated. Move them out so that callers don't have to clone again.
-            _ => Err((lhs, rhs)),
+            // widen structural collections without checking for subtyping
+            (Type::Record(lhs), Type::Record(rhs)) => Ok(Type::Record(lhs.union(rhs))),
+            (Type::Table(lhs), Type::Table(rhs)) => Ok(Type::Table(lhs.union(rhs))),
+
+            // We want to have `oneof<list<T>, table>`, regardless whether one counts as a subtype
+            // of the other.
+            tys @ ((Type::List(_), Type::Table(_)) | (Type::Table(_), Type::List(_))) => Err(tys),
+
+            // If one type is already a subtype of the other, we can skip all of the heavier logic below.
+            (lhs, rhs) => match lhs.compare_types(&rhs) {
+                Some(rel) => Ok(match rel {
+                    TypeRelation::Subtype => rhs,
+                    TypeRelation::Equal => lhs,
+                    TypeRelation::Supertype => lhs,
+                }),
+                // Fallback - the two types are unrelated. Move them out so that callers don't have to clone again.
+                None => Err((lhs, rhs)),
+            },
         }
     }
 
@@ -355,6 +344,8 @@ impl CompareTypes for Type {
             (Type::OneOf(dst_tys), Type::OneOf(src_tys)) => src_tys.is_assignable_to(dst_tys),
             (Type::OneOf(dst_tys), src_ty) => src_ty.is_assignable_to(dst_tys),
             (dst_ty, Type::OneOf(src_tys)) => src_tys.is_assignable_to(dst_ty),
+            // leave it to the runtime
+            (Type::List(_) | Type::Table(_) | Type::Record(_), Type::Custom(_)) => true,
             (lhs, rhs @ Type::CellPath) => rhs.is_subtype_of(lhs),
             (lhs, rhs) => rhs.compare_types(lhs).is_some(),
         }
@@ -408,7 +399,10 @@ impl Display for Type {
 /// Get a string nicely combining multiple types
 ///
 /// Helpful for listing types in errors
-pub fn combined_type_string(types: &[Type], join_word: &str) -> Option<String> {
+pub fn combined_type_string<'a, I>(types: I, join_word: &str) -> Option<String>
+where
+    I: IntoIterator<Item = &'a Type>,
+{
     use std::fmt::Write as _;
 
     // Deduplicate types to avoid confusing repeated entries like
@@ -574,21 +568,13 @@ mod tests {
 
         #[test]
         fn test_list_table_widen_preserves_list() {
-            // verify that list<record> widened with table does not drop the list wrapper.
-            let list_record = Type::List(Box::new(Type::Record(
-                vec![("a".to_string(), Type::Int)].into(),
-            )));
+            let list_record = Type::list(Type::Record(vec![("a".to_string(), Type::Int)].into()));
             let table = Type::Table(vec![("a".to_string(), Type::Int)].into());
 
             let widened = list_record.clone().union(table.clone());
-            let expected = Type::List(Box::new(Type::Record(
-                vec![("a".to_string(), Type::Int)].into(),
-            )));
-            assert_eq!(widened, expected);
+            let expected = Type::one_of([list_record, table]);
 
-            // and the other way around
-            let widened2 = table.union(list_record.clone());
-            assert_eq!(widened2, expected);
+            assert_eq!(widened, expected);
         }
 
         #[test]

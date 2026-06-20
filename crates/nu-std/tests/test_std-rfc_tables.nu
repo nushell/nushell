@@ -295,14 +295,12 @@ def aggregate_default_ops [] {
 
 @test
 def throw_error_on_non-table_input [] {
-    # without --to-table
-    let out = try {
-        $movies | group-by Genre | aggregate Worldwide_Gross
-    } catch {|e|
-        $e.msg
-    }
-
-    assert equal $out "input must be a table"
+    assert error {
+        # without --to-table
+        $movies
+        | group-by Genre
+        | aggregate Worldwide_Gross
+    } "Input type not supported."
 }
 
 @test

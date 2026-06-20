@@ -12,8 +12,8 @@ use crate::{
 };
 use log::trace;
 use nu_protocol::{
-    Flag, ParseError, PositionalArg, Signature, Span, SyntaxShape, Type, Value, VarId, ast::*,
-    engine::StateWorkingSet, eval_const::eval_constant,
+    Flag, ParseError, PositionalArg, Signature, Span, SyntaxShape, Type, TypeSet, Value, VarId,
+    ast::*, engine::StateWorkingSet, eval_const::eval_constant,
 };
 use std::{collections::HashSet, sync::Arc};
 
@@ -1218,10 +1218,39 @@ pub fn parse_signature_helper(
                     }
                     sig.required_positional.push(positional)
                 } else {
+                    // optional parameters can be `null`
+                    // their type within the block should reflect that
+                    if positional.default_value.is_none()
+                        && let Some(var_id) = positional.var_id
+                    {
+                        let ty = working_set
+                            .get_variable(var_id)
+                            .ty
+                            .clone()
+                            .union(Type::Nothing);
+                        working_set.set_variable_type(var_id, ty);
+                    };
                     sig.optional_positional.push(positional)
                 }
             }
-            Arg::Flag { flag, .. } => sig.named.push(flag),
+            Arg::Flag {
+                flag,
+                type_annotated,
+                ..
+            } => {
+                if type_annotated
+                    && flag.default_value.is_none()
+                    && let Some(var_id) = flag.var_id
+                {
+                    let ty = working_set
+                        .get_variable(var_id)
+                        .ty
+                        .clone()
+                        .union(Type::Nothing);
+                    working_set.set_variable_type(var_id, ty);
+                }
+                sig.named.push(flag)
+            }
             Arg::RestPositional(positional) => {
                 if positional.name.is_empty() {
                     working_set.error(ParseError::RestNeedsName(span))

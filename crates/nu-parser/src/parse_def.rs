@@ -194,6 +194,7 @@ pub fn parse_for(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) 
         &spans[1..],
         decl_id,
         ArgumentParsingLevel::Full,
+        None,
     );
 
     if working_set
@@ -469,6 +470,7 @@ fn parse_def_inner(
         rest_spans,
         decl_id,
         ArgumentParsingLevel::Full,
+        None,
     );
 
     if working_set
@@ -706,6 +708,7 @@ fn parse_extern_inner(
                 rest_spans,
                 decl_id,
                 ArgumentParsingLevel::Full,
+                None,
             );
             working_set.exit_scope();
 

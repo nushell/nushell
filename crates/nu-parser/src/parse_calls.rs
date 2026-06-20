@@ -8,7 +8,7 @@ use log::trace;
 use nu_engine::DIR_VAR_PARSER_INFO;
 use nu_protocol::{
     DeclId, Flag, IntoSpanned, ParseError, PositionalArg, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type,
+    SyntaxShape, Type, TypeSet,
     ast::*,
     did_you_mean,
     engine::{CommandType, StateWorkingSet},
@@ -357,7 +357,7 @@ pub fn parse_external_call(
 
     let head = if let [b'$' | b'(', ..] = head_contents {
         // the expression is inside external_call, so it's a subexpression
-        let arg = crate::parser::parse_expression(working_set, &[head_span]);
+        let arg = crate::parser::parse_expression(working_set, &[head_span], None);
         Box::new(arg)
     } else {
         Box::new(parse_external_string(working_set, head_span))
@@ -774,7 +774,7 @@ pub fn parse_multispan_value(
 
             // is it subexpression?
             // Not sure, but let's make it not, so the behavior is the same as previous version of nushell.
-            let arg = crate::parser::parse_expression(working_set, &spans[*spans_idx..]);
+            let arg = crate::parser::parse_expression(working_set, &spans[*spans_idx..], None);
             *spans_idx = spans.len().saturating_sub(1);
 
             arg
@@ -882,6 +882,7 @@ pub fn parse_internal_call(
     spans: &[Span],
     decl_id: DeclId,
     arg_parsing_level: ArgumentParsingLevel,
+    input_type: Option<Type>,
 ) -> ParsedInternalCall {
     trace!("parsing: internal call (decl id: {})", decl_id.get());
 
@@ -892,7 +893,16 @@ pub fn parse_internal_call(
 
     let decl = working_set.get_decl(decl_id);
     let signature = working_set.get_signature(decl);
-    let output = signature.get_output_type();
+    // TODO: Throw an actual error here, instead of leaning on later type checking code
+    //
+    // `Type::Nothing` is added to inputs to allow uses like:
+    // `ls | sort-by { open -r $in.name | lines | length }`
+    // see https://github.com/nushell/nushell/pull/14922
+    // Incorrect behavior this may cause will be handled by
+    // `check_pipeline_type` in crates/nu-parser/src/type_check.rs
+    let output = signature
+        .get_output_type(input_type.map(|ty| ty.union(Type::Nothing)))
+        .unwrap_or(Type::Error);
 
     let deprecation = decl.deprecation_info();
 
@@ -1285,7 +1295,12 @@ pub fn parse_internal_call(
     }
 }
 
-pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span) -> Expression {
+pub fn parse_call(
+    working_set: &mut StateWorkingSet,
+    spans: &[Span],
+    head: Span,
+    input_type: Option<Type>,
+) -> Expression {
     trace!("parsing: call");
     let call_span = Span::concat(spans);
 
@@ -1344,7 +1359,7 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
         if is_dynamic_head {
             trace!("parsing: dynamic percent builtin dispatch");
 
-            let head_expr = crate::parser::parse_expression(working_set, &[head_span]);
+            let head_expr = crate::parser::parse_expression(working_set, &[head_span], input_type);
 
             // Create a placeholder call; the IR compiler will rewrite this to `run-internal`.
             let mut call = Call::new(call_span);
@@ -1442,6 +1457,7 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
                     &resolution_spans[pos..],
                     decl_id,
                     ArgumentParsingLevel::Full,
+                    input_type,
                 )
             }
         } else {
@@ -1452,6 +1468,7 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
                 &resolution_spans[pos..],
                 decl_id,
                 ArgumentParsingLevel::Full,
+                input_type,
             )
         };
 
@@ -1733,6 +1750,7 @@ pub fn parse_attribute(
                     &spans[cmd_end..],
                     decl_id,
                     ArgumentParsingLevel::Full,
+                    None,
                 )
             }
         },
@@ -1744,6 +1762,7 @@ pub fn parse_attribute(
                 &spans[cmd_end..],
                 decl_id,
                 ArgumentParsingLevel::Full,
+                None,
             )
         }
     };
