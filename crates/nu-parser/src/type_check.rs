@@ -75,6 +75,23 @@ where
     }
 }
 
+// covers number types for operand type checking. this is correct for (at least) these operations:
+// - add
+// - subtract
+// - multiply
+// - floor_divide
+// - modulo
+// - pow
+fn number_types(lhs: &Type, rhs: &Type) -> Option<Type> {
+    Some(match (lhs, rhs) {
+        (Type::Int, Type::Int) => Type::Int,
+        (Type::Int | Type::Number, Type::Int | Type::Number) => Type::Number,
+        (Type::Float, Type::Int | Type::Float | Type::Number)
+        | (Type::Int | Type::Number, Type::Float) => Type::Float,
+        _ => return None,
+    })
+}
+
 mod math {
     use super::*;
 
@@ -88,13 +105,7 @@ mod math {
     pub(super) fn add(lhs: &Type, rhs: &Type) -> Option<Type> {
         fn reversible_op(lhs: &Type, rhs: &Type) -> Option<Type> {
             Some(match (lhs, rhs) {
-                (Type::Int, Type::Int) => Type::Int,
-                (Type::Float, Type::Float) => Type::Float,
-                (Type::Number, Type::Number) => Type::Number,
-
-                (Type::Number, Type::Int) => Type::Number,
-                (Type::Number, Type::Float) => Type::Float,
-                (Type::Int, Type::Float) => Type::Float,
+                (lhs, rhs) if let Some(out) = number_types(lhs, rhs) => out,
 
                 (Type::String, Type::String) => Type::String,
                 // TODO: should this include glob
@@ -115,14 +126,7 @@ mod math {
     pub(super) fn subtract(lhs: &Type, rhs: &Type) -> Option<Type> {
         fn op(lhs: &Type, rhs: &Type) -> Option<Type> {
             Some(match (lhs, rhs) {
-                (Type::Int, Type::Int) => Type::Int,
-
-                (Type::Float | Type::Int, Type::Float | Type::Int) => Type::Float,
-
-                (
-                    Type::Int | Type::Float | Type::Number,
-                    Type::Int | Type::Float | Type::Number,
-                ) => Type::Number,
+                (lhs, rhs) if let Some(out) = number_types(lhs, rhs) => out,
 
                 (Type::Date, Type::Date) => Type::Duration,
                 (Type::Date, Type::Duration) => Type::Date,
@@ -142,13 +146,7 @@ mod math {
     pub(super) fn multiply(lhs: &Type, rhs: &Type) -> Option<Type> {
         fn reversible_op(lhs: &Type, rhs: &Type) -> Option<Type> {
             Some(match (lhs, rhs) {
-                (Type::Int, Type::Int) => Type::Int,
-                (Type::Float, Type::Float) => Type::Float,
-                (Type::Number, Type::Number) => Type::Number,
-
-                (Type::Number, Type::Int) => Type::Number,
-                (Type::Number, Type::Float) => Type::Float,
-                (Type::Int, Type::Float) => Type::Float,
+                (lhs, rhs) if let Some(out) = number_types(lhs, rhs) => out,
 
                 (Type::Filesize, Type::Int | Type::Float | Type::Number) => Type::Filesize,
                 (Type::Duration, Type::Int | Type::Float | Type::Number) => Type::Duration,
@@ -188,14 +186,7 @@ mod math {
     pub(super) fn floor_divide(lhs: &Type, rhs: &Type) -> Option<Type> {
         fn op(lhs: &Type, rhs: &Type) -> Option<Type> {
             Some(match (lhs, rhs) {
-                (Type::Int, Type::Int) => Type::Int,
-
-                (Type::Int | Type::Float, Type::Int | Type::Float) => Type::Float,
-
-                (
-                    Type::Int | Type::Float | Type::Number,
-                    Type::Int | Type::Float | Type::Number,
-                ) => Type::Number,
+                (lhs, rhs) if let Some(out) = number_types(lhs, rhs) => out,
 
                 (Type::Filesize, Type::Filesize) => Type::Int,
                 (Type::Duration, Type::Duration) => Type::Int,
@@ -215,14 +206,7 @@ mod math {
     pub(super) fn modulo(lhs: &Type, rhs: &Type) -> Option<Type> {
         fn op(lhs: &Type, rhs: &Type) -> Option<Type> {
             Some(match (lhs, rhs) {
-                (Type::Int, Type::Int) => Type::Int,
-
-                (Type::Float | Type::Int, Type::Float | Type::Int) => Type::Float,
-
-                (
-                    Type::Int | Type::Float | Type::Number,
-                    Type::Int | Type::Float | Type::Number,
-                ) => Type::Number,
+                (lhs, rhs) if let Some(out) = number_types(lhs, rhs) => out,
 
                 (Type::Filesize, Type::Filesize) => Type::Filesize,
                 (Type::Duration, Type::Duration) => Type::Duration,
@@ -242,14 +226,7 @@ mod math {
     pub(super) fn pow(lhs: &Type, rhs: &Type) -> Option<Type> {
         fn op(lhs: &Type, rhs: &Type) -> Option<Type> {
             Some(match (lhs, rhs) {
-                (Type::Int, Type::Int) => Type::Int,
-
-                (Type::Int | Type::Float, Type::Int | Type::Float) => Type::Float,
-
-                (
-                    Type::Int | Type::Float | Type::Number,
-                    Type::Int | Type::Float | Type::Number,
-                ) => Type::Number,
+                (lhs, rhs) if let Some(out) = number_types(lhs, rhs) => out,
 
                 (Type::Custom(a), Type::Custom(b)) if a == b => Type::Custom(a.clone()),
                 (Type::Custom(a), _) => Type::Custom(a.clone()),
