@@ -825,7 +825,14 @@ pub fn parse_value(
     }
 
     if let SyntaxShape::OneOf(possible_shapes) = shape {
-        return parse_oneof(working_set, &[span], &mut 0, possible_shapes, false);
+        return parse_oneof(
+            working_set,
+            &[span],
+            &mut 0,
+            possible_shapes,
+            false,
+            input_type,
+        );
     }
 
     match bytes[0] {

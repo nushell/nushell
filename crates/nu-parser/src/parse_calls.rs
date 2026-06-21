@@ -687,6 +687,7 @@ pub(crate) fn parse_oneof(
     spans_idx: &mut usize,
     possible_shapes: &Vec<SyntaxShape>,
     multispan: bool,
+    input_type: Option<Type>,
 ) -> Expression {
     let starting_spans_idx = *spans_idx;
     let mut best_guess = None;
@@ -697,8 +698,13 @@ pub(crate) fn parse_oneof(
         let starting_error_count = working_set.parse_errors.len();
         *spans_idx = starting_spans_idx;
         let value = match multispan {
-            true => parse_multispan_value(working_set, spans, spans_idx, shape, None),
-            false => crate::parser::parse_value(working_set, spans[*spans_idx], shape, None),
+            true => parse_multispan_value(working_set, spans, spans_idx, shape, input_type.clone()),
+            false => crate::parser::parse_value(
+                working_set,
+                spans[*spans_idx],
+                shape,
+                input_type.clone(),
+            ),
         };
 
         let new_errors = &working_set.parse_errors[starting_error_count..];
@@ -777,16 +783,22 @@ pub fn parse_multispan_value(
 
             arg
         }
-        SyntaxShape::OneOf(possible_shapes) => {
-            parse_oneof(working_set, spans, spans_idx, possible_shapes, true)
-        }
+        SyntaxShape::OneOf(possible_shapes) => parse_oneof(
+            working_set,
+            spans,
+            spans_idx,
+            possible_shapes,
+            true,
+            input_type,
+        ),
 
         SyntaxShape::Expression => {
             trace!("parsing: expression");
 
             // is it subexpression?
             // Not sure, but let's make it not, so the behavior is the same as previous version of nushell.
-            let arg = crate::parser::parse_expression(working_set, &spans[*spans_idx..], None);
+            let arg =
+                crate::parser::parse_expression(working_set, &spans[*spans_idx..], input_type);
             *spans_idx = spans.len().saturating_sub(1);
 
             arg
