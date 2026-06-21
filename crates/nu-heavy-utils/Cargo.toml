@@ -30,10 +30,10 @@ base64.workspace = true
 chrono.workspace = true
 derive_setters.workspace = true
 regex.workspace = true
+scopeguard.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde-saphyr.workspace = true
 strum.workspace = true
-strum_macros.workspace = true
 
 [dev-dependencies]
 nu-test-support = { path = "../nu-test-support" }

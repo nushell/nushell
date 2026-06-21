@@ -377,13 +377,15 @@ fn parse_scalar<'i>(
                 Range::from_str(value).map_err(|err| ShellError::Generic(todo!()))?,
                 span,
             ),
-            KnownTag::Closure => todo!(),
             KnownTag::CellPath => Value::cell_path(
                 CellPath::from_str(value)
                     .map(|cp| cp.with_fallback_span(span))
                     .map_err(|err| ShellError::Generic(todo!()))?,
                 span,
             ),
+
+            // unimplemented tag
+            KnownTag::Closure => todo!(),
 
             // incorrect tag
             KnownTag::Map => todo!(),

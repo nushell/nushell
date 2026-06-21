@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_heavy_utils::yaml::NonRoundtrip;
 use nu_protocol::ast::PathMember;
 use std::borrow::Cow;
 use std::fmt::Write as _;
@@ -55,10 +56,18 @@ impl Command for ToYamlLike {
     ) -> Result<PipelineData, ShellError> {
         let value = input.into_value(call.head)?;
         let spec = call.get_flag(engine_state, stack, "spec")?;
-        let options =
-            nu_heavy_utils::yaml::SerializeOptions::default().spec(spec.unwrap_or_default());
+        let non_roundtrip = call
+            .has_flag(engine_state, stack, "serialize")?
+            .then(|| NonRoundtrip::Lossy {
+                engine_state: engine_state.clone(),
+            })
+            .unwrap_or(NonRoundtrip::Null);
 
-        nu_heavy_utils::yaml::serialize(&value, call.head, &options)
+        let options = nu_heavy_utils::yaml::SerializeOptions::default()
+            .spec(spec.unwrap_or_default())
+            .non_roundtrip(non_roundtrip);
+
+        nu_heavy_utils::yaml::serialize(&value, call.head, options)
             .map(|s| PipelineData::value(Value::string(s, call.head), None))
 
         // let head = call.head;

@@ -4841,10 +4841,10 @@ dependencies = [
  "nu-test-support",
  "nu-utils",
  "regex",
+ "scopeguard",
  "serde",
  "serde-saphyr",
  "strum",
- "strum_macros",
 ]
 
 [[package]]

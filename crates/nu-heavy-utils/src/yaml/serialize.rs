@@ -7,10 +7,13 @@ use crate::yaml::Spec;
 use chrono::{DateTime, FixedOffset};
 use derive_setters::Setters;
 use nu_protocol::{
-    Range, ShellError, Span, Value, ast::CellPath, engine::Closure,
+    Range, ShellError, Span, Value,
+    ast::CellPath,
+    engine::{Closure, EngineState},
     shell_error::generic::GenericError,
 };
 use nu_utils::FmtHandle;
+use scopeguard::defer;
 use serde::{Serialize, ser::SerializeMap};
 use serde_saphyr::{FlowMap, FlowSeq, FoldStr, LitStr, Serializer, ser_options};
 
@@ -18,25 +21,51 @@ use serde_saphyr::{FlowMap, FlowSeq, FoldStr, LitStr, Serializer, ser_options};
 #[derive(Debug, Clone, Default, Setters)]
 pub struct SerializeOptions {
     spec: Spec,
+
+    /// Controls how values are serialized when they cannot be represented in a
+    /// way that can be deserialized back into the original type.
+    non_roundtrip: NonRoundtrip,
+}
+
+/// Controls how non-round-trippable values are serialized.
+///
+/// Some values can be serialized, but cannot be deserialized back into their
+/// original type without losing information. This option decides whether such
+/// values are replaced with `null` or emitted in a lossy representation.
+#[derive(Debug, Clone, Default)]
+pub enum NonRoundtrip {
+    /// Serialize non-round-trippable values as `null`.
+    #[default]
+    Null,
+
+    /// Serialize non-round-trippable values using a lossy representation.
+    Lossy {
+        /// Engine state is required to serialize closures this way.
+        engine_state: EngineState,
+    },
 }
 
 pub fn serialize(
     value: &Value,
     span: Span,
-    options: &SerializeOptions,
+    options: SerializeOptions,
 ) -> Result<String, ShellError> {
-    let mut options = ser_options! {
+    let mut ser_options = ser_options! {
         yaml_12: match options.spec {
             Spec::V1_1 => false,
             Spec::V1_2 => true,
         },
     };
 
+    // set options to thread local but remove it after to free the potential lingering engine state
+    OPTIONS.set(options);
+    defer!(OPTIONS.set(SerializeOptions::default()));
+
     let value = YamlValue::try_from_value(value, span)?;
     let mut writer = FmtHandle::new(String::new());
     WRITER.set(Some(writer.clone()));
     IN_MAP.set(false);
-    let mut serializer = Serializer::with_options(&mut writer, &mut options);
+    let mut serializer = Serializer::with_options(&mut writer, &mut ser_options);
 
     // Clear out any preambles by the serializer
     ().serialize(&mut serializer).unwrap();
@@ -53,6 +82,7 @@ pub fn serialize(
 thread_local! {
     static WRITER: RefCell<Option<FmtHandle<String>>> = RefCell::new(None);
     static IN_MAP: Cell<bool> = Cell::new(false);
+    static OPTIONS: RefCell<SerializeOptions> = RefCell::new(SerializeOptions::default());
 }
 
 #[expect(
@@ -135,7 +165,22 @@ impl Serialize for YamlValue<'_> {
             YamlValue::Duration(duration) => serialize_with_tag(serializer, tag, duration),
             YamlValue::Date(date_time) => serialize_with_tag(serializer, tag, date_time),
             YamlValue::Range(range) => serialize_with_tag(serializer, tag, range),
-            YamlValue::Closure(_closure) => todo!(),
+            YamlValue::Closure(closure) => {
+                OPTIONS.with_borrow(|options| match &options.non_roundtrip {
+                    NonRoundtrip::Null => serializer.serialize_unit(),
+                    NonRoundtrip::Lossy { engine_state } => {
+                        let block = engine_state.get_block(closure.block_id);
+                        if let Some(span) = block.span {
+                            let contents = engine_state.get_span_contents(span);
+                            let contents = String::from_utf8_lossy(contents);
+                            serialize_with_tag(serializer, tag, contents)
+                        }
+                        else {
+                            todo!("throw error that content could not be found")
+                        }
+                    }
+                })
+            }
             YamlValue::Error(shell_error) => serialize_with_tag(serializer, tag, shell_error),
             YamlValue::Binary(items) => serializer.serialize_bytes(items),
             YamlValue::CellPath(cell_path) => serialize_with_tag(serializer, tag, cell_path),
