@@ -3,7 +3,8 @@
 use crate::{ShellError, Signals, Span, Value, ast::RangeInclusion};
 use core::ops::Bound;
 use serde::{Deserialize, Serialize};
-use std::{cmp::Ordering, fmt::Display};
+use std::{cmp::Ordering, fmt::Display, str::FromStr};
+use winnow::Parser;
 
 mod int_range {
     use crate::{FromValue, ShellError, Signals, Span, Value, ast::RangeInclusion};
@@ -625,7 +626,7 @@ mod float_range {
 pub use float_range::FloatRange;
 pub use int_range::IntRange;
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy)]
 pub enum Range {
     IntRange(IntRange),
     FloatRange(FloatRange),
@@ -648,6 +649,36 @@ impl Range {
         } else {
             IntRange::new(start, next, end, inclusion, span).map(Self::IntRange)
         }
+    }
+
+    pub fn new_int(
+        start: impl Into<Option<i64>>,
+        next: impl Into<Option<i64>>,
+        end: impl Into<Option<Bound<i64>>>,
+    ) -> Self {
+        let start = start.into().unwrap_or(0);
+        let end = end.into().unwrap_or(Bound::Unbounded);
+        let step = next.into().map(|next| next - start).unwrap_or(match end {
+            Bound::Unbounded => 1,
+            Bound::Included(end) | Bound::Excluded(end) if start <= end => 1,
+            _ => -1,
+        });
+        Range::IntRange(IntRange { start, step, end })
+    }
+
+    pub fn new_float(
+        start: impl Into<Option<f64>>,
+        next: impl Into<Option<f64>>,
+        end: impl Into<Option<Bound<f64>>>,
+    ) -> Self {
+        let start = start.into().unwrap_or(0.0);
+        let end = end.into().unwrap_or(Bound::Unbounded);
+        let step = next.into().map(|next| next - start).unwrap_or(match end {
+            Bound::Unbounded => 1.0,
+            Bound::Included(end) | Bound::Excluded(end) if start <= end => 1.0,
+            _ => -1.0,
+        });
+        Range::FloatRange(FloatRange { start, step, end })
     }
 
     pub fn contains(&self, value: &Value) -> bool {
@@ -721,6 +752,41 @@ impl Display for Range {
     }
 }
 
+#[derive(Debug, thiserror::Error)]
+#[error("could not parse range {attempted:?}")]
+pub struct RangeParseError {
+    attempted: String,
+}
+
+impl FromStr for Range {
+    type Err = RangeParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        parse::range.parse(s).map_err(|_| RangeParseError {
+            attempted: s.to_owned(),
+        })
+    }
+}
+
+impl Serialize for Range {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.to_string().serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Range {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Range::from_str(&s).map_err(serde::de::Error::custom)
+    }
+}
+
 impl From<IntRange> for Range {
     fn from(range: IntRange) -> Self {
         Self::IntRange(range)
@@ -746,6 +812,157 @@ impl Iterator for Iter {
             Iter::IntIter(iter, span) => iter.next().map(|val| Value::int(val, *span)),
             Iter::FloatIter(iter, span) => iter.next().map(|val| Value::float(val, *span)),
         }
+    }
+}
+
+mod parse {
+    use super::*;
+    use winnow::{
+        Result,
+        ascii::*,
+        combinator::*,
+        error::{StrContext, StrContextValue},
+    };
+
+    #[derive(Copy, Clone)]
+    enum Number {
+        Int(i64),
+        Float(f64),
+    }
+
+    // only simple numbers for now
+    fn number(input: &mut &str) -> Result<Number> {
+        fn float(input: &mut &str) -> Result<f64> {
+            (opt("-"), digit0, ".", digit1)
+                .take()
+                .parse_to()
+                .parse_next(input)
+        }
+
+        alt((float.map(Number::Float), dec_int.map(Number::Int))).parse_next(input)
+    }
+
+    struct Components {
+        start: Option<Number>,
+        step: Option<Number>,
+        end: Option<Number>,
+        exclusive: bool,
+    }
+
+    fn components(input: &mut &str) -> Result<Components> {
+        let start = opt(number).parse_next(input)?;
+        "..".parse_next(input)?;
+        if opt("<").parse_next(input)?.is_some() {
+            let end = opt(number).parse_next(input)?;
+            eof.parse_next(input)?;
+            return Ok(Components {
+                start,
+                step: None,
+                end,
+                exclusive: true,
+            });
+        }
+
+        if opt(eof).parse_next(input)?.is_some() {
+            return Ok(Components {
+                start,
+                step: None,
+                end: None,
+                exclusive: false,
+            });
+        }
+
+        let step_or_end = number.parse_next(input)?;
+        if opt(eof).parse_next(input)?.is_some() {
+            return Ok(Components {
+                start,
+                step: None,
+                end: step_or_end.into(),
+                exclusive: false,
+            });
+        }
+
+        "..".parse_next(input)?;
+        if opt("<").parse_next(input)?.is_some() {
+            let end = opt(number).parse_next(input)?;
+            eof.parse_next(input)?;
+            return Ok(Components {
+                start,
+                step: step_or_end.into(),
+                end,
+                exclusive: true,
+            });
+        }
+
+        let end = opt(number).parse_next(input)?;
+        eof.parse_next(input)?;
+        Ok(Components {
+            start,
+            step: step_or_end.into(),
+            end,
+            exclusive: false,
+        })
+    }
+
+    pub fn range(input: &mut &str) -> Result<Range> {
+        let components = components.parse_next(input)?;
+        if components.start.is_none() && components.end.is_none() {
+            fail.context(StrContext::Expected(StrContextValue::Description(
+                "needs bound either at start or end",
+            )))
+            .parse_next(input)?;
+        }
+
+        let use_float = matches!(components.start, Some(Number::Float(_)))
+            || matches!(components.step, Some(Number::Float(_)))
+            || matches!(components.end, Some(Number::Float(_)));
+
+        let range = if use_float {
+            let start = match components.start {
+                Some(Number::Float(start)) => Some(start),
+                Some(Number::Int(start)) => Some(start as f64),
+                None => None,
+            };
+
+            let step = match components.step {
+                Some(Number::Float(step)) => Some(step),
+                Some(Number::Int(step)) => Some(step as f64),
+                None => None,
+            };
+
+            let end = match (components.end, components.exclusive) {
+                (Some(Number::Float(end)), false) => Bound::Included(end),
+                (Some(Number::Float(end)), true) => Bound::Excluded(end),
+                (Some(Number::Int(end)), false) => Bound::Included(end as f64),
+                (Some(Number::Int(end)), true) => Bound::Excluded(end as f64),
+                (None, _) => Bound::Unbounded,
+            };
+
+            Range::new_float(start, step, end)
+        } else {
+            let start = match components.start {
+                Some(Number::Float(_)) => unreachable!("will use float if this is float"),
+                Some(Number::Int(start)) => Some(start),
+                None => None,
+            };
+
+            let step = match components.step {
+                Some(Number::Float(_)) => unreachable!("will use float if this is float"),
+                Some(Number::Int(step)) => Some(step),
+                None => None,
+            };
+
+            let end = match (components.end, components.exclusive) {
+                (Some(Number::Float(_)), _) => unreachable!("will use float if this is float"),
+                (Some(Number::Int(end)), false) => Bound::Included(end),
+                (Some(Number::Int(end)), true) => Bound::Excluded(end),
+                (None, _) => Bound::Unbounded,
+            };
+
+            Range::new_int(start, step, end)
+        };
+
+        Ok(range)
     }
 }
 
