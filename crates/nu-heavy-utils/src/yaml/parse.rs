@@ -12,7 +12,7 @@ use base64::{Engine, engine::general_purpose::STANDARD as BASE64_STANDARD};
 use chrono::DateTime;
 use derive_setters::Setters;
 use nu_protocol::{
-    FromValue, Range, Record, ShellError, Span, Spanned, Value, ast::CellPath,
+    FromValue, Range, Record, ShellError, Span, Spanned, Value, ast::CellPath, record,
     shell_error::generic::GenericError,
 };
 use regex::Regex;
@@ -31,6 +31,7 @@ pub struct ParseOptions {
     keep_styles: bool,
     multiple: ParseMultiple,
     spec: Spec,
+    ignore_tags: bool,
 }
 
 #[derive(Debug, Clone, Copy, Default, FromValue)]
@@ -308,10 +309,13 @@ fn parse_scalar<'i>(
     scalar_style: ScalarStyle,
     tag: Option<Cow<'i, Tag>>,
 ) -> Result<Value, ShellError> {
-    let tag = tag
-        .map(|tag| KnownTag::from_str(tag.to_string().as_str()))
-        .transpose()
-        .map_err(|err| ctx.unknown_tag_err(err))?;
+    let tag = match ctx.options.ignore_tags {
+        true => None,
+        false => tag
+            .map(|tag| KnownTag::from_str(tag.to_string().as_str()))
+            .transpose()
+            .map_err(|err| ctx.unknown_tag_err(err))?,
+    };
 
     // TODO: handle spec 1.1 and 1.2
 
@@ -411,7 +415,13 @@ fn parse_sequence<'i>(
     _structure_style: StructureStyle,
     tag: Option<Cow<'i, Tag>>,
 ) -> Result<Value, ShellError> {
-    ctx.unhandled_tags(tag)?;
+    let tag = match ctx.options.ignore_tags {
+        true => None,
+        false => tag
+            .map(|tag| KnownTag::from_str(tag.to_string().as_str()))
+            .transpose()
+            .map_err(|err| ctx.unknown_tag_err(err))?,
+    };
 
     let mut values = Vec::new();
     loop {
@@ -433,9 +443,57 @@ fn parse_sequence<'i>(
                 ctx.maybe_set_anchor(anchor_id, &value);
                 values.push(value);
             }
-            Event::SequenceEnd => return Ok(Value::list(values, ctx.parser_span)),
+            Event::SequenceEnd => break,
             event => return Err(ctx.unexpected_event(event)),
         }
+    }
+
+    match tag.unwrap_or(KnownTag::Seq) {
+        KnownTag::Seq => Ok(Value::list(values, ctx.parser_span)),
+        KnownTag::Pairs => {
+            let mut pairs = Vec::with_capacity(values.len());
+            for value in values.into_iter() {
+                let span = value.span();
+                let record = value
+                    .into_record()
+                    .map_err(|_| ShellError::Generic(todo!()))?;
+                let mut iter = record.into_iter();
+                match (iter.next(), iter.next()) {
+                    (None, None) => todo!("throw error for empty record"),
+                    (Some((key, value)), None) => pairs.push(Value::record(
+                        record!(
+                            "key" => Value::string(key, span),
+                            "value" => value
+                        ),
+                        span,
+                    )),
+                    (_, Some(_)) => todo!("too many entries"),
+                }
+            }
+            Ok(Value::list(pairs, ctx.parser_span))
+        }
+        KnownTag::OMap => todo!(),
+
+        KnownTag::Map => todo!(),
+        KnownTag::Str => todo!(),
+        KnownTag::Null => todo!(),
+        KnownTag::Bool => todo!(),
+        KnownTag::Int => todo!(),
+        KnownTag::Float => todo!(),
+        KnownTag::Binary => todo!(),
+        KnownTag::Set => todo!(),
+        KnownTag::Merge => todo!(),
+        KnownTag::Timestamp => todo!(),
+        KnownTag::Value => todo!(),
+        KnownTag::Yaml => todo!(),
+        KnownTag::Glob => todo!(),
+        KnownTag::Filesize => todo!(),
+        KnownTag::Duration => todo!(),
+        KnownTag::Date => todo!(),
+        KnownTag::Range => todo!(),
+        KnownTag::Closure => todo!(),
+        KnownTag::Error => todo!(),
+        KnownTag::CellPath => todo!(),
     }
 }
 

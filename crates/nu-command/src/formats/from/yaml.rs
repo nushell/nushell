@@ -30,6 +30,7 @@ impl Command for FromYamlLike {
                 "Handle multiple documents ('auto', 'list', 'single')",
                 None,
             )
+            .switch("ignore-tags", "Ignore any tags", None)
     }
 
     fn description(&self) -> &str {
@@ -51,9 +52,11 @@ impl Command for FromYamlLike {
         let yaml = yaml.as_str().into_spanned(yaml_span);
         let spec = call.get_flag(engine_state, stack, "spec")?;
         let multiple = call.get_flag(engine_state, stack, "multiple")?;
+        let ignore_tags = call.has_flag(engine_state, stack, "ignore-tags")?;
         let options = nu_heavy_utils::yaml::ParseOptions::default()
             .spec(spec.unwrap_or_default())
-            .multiple(multiple.unwrap_or_default());
+            .multiple(multiple.unwrap_or_default())
+            .ignore_tags(ignore_tags);
         nu_heavy_utils::yaml::parse(yaml, call.head, &options)
             .map(|val| PipelineData::value(val, None))
     }

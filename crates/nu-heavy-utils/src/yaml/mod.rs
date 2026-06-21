@@ -1,5 +1,6 @@
-mod parse;
 use nu_protocol::FromValue;
+
+mod parse;
 pub use parse::*;
 
 mod serialize;

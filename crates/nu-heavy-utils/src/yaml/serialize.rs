@@ -1,9 +1,4 @@
-use std::{
-    cell::{Cell, RefCell},
-    fmt::Write,
-};
-
-use crate::yaml::Spec;
+use crate::yaml::{KnownTag, Spec};
 use chrono::{DateTime, FixedOffset};
 use derive_setters::Setters;
 use nu_protocol::{
@@ -16,6 +11,10 @@ use nu_utils::FmtHandle;
 use scopeguard::defer;
 use serde::{Serialize, ser::SerializeMap};
 use serde_saphyr::{FlowMap, FlowSeq, FoldStr, LitStr, Serializer, ser_options};
+use std::{
+    cell::{Cell, RefCell},
+    fmt::Write,
+};
 
 #[non_exhaustive]
 #[derive(Debug, Clone, Default, Setters)]
@@ -120,7 +119,8 @@ impl Serialize for YamlValue<'_> {
     where
         S: serde::Serializer,
     {
-        let tag = self.tag();
+        let tag = self.tag().to_string();
+        let tag = tag.as_str();
         fn serialize_with_tag<S: serde::Serializer>(
             serializer: S,
             tag: &str,
@@ -174,8 +174,7 @@ impl Serialize for YamlValue<'_> {
                             let contents = engine_state.get_span_contents(span);
                             let contents = String::from_utf8_lossy(contents);
                             serialize_with_tag(serializer, tag, contents)
-                        }
-                        else {
+                        } else {
                             todo!("throw error that content could not be found")
                         }
                     }
@@ -206,25 +205,25 @@ impl Serialize for YamlMap<'_> {
 }
 
 impl<'v> YamlValue<'v> {
-    fn tag(&self) -> &'static str {
+    fn tag(&self) -> KnownTag {
         match self {
-            YamlValue::Bool(_) => "!!bool",
-            YamlValue::Int(_) => "!!int",
-            YamlValue::Float(_) => "!!float",
-            YamlValue::Str(_) | YamlValue::FoldStr(_) | YamlValue::LitStr(_) => "!!str",
-            YamlValue::Map(_) | YamlValue::FlowMap(_) => "!!map",
-            YamlValue::Seq(_) | YamlValue::FlowSeq(_) => "!!seq",
-            YamlValue::Null => "!!null",
+            YamlValue::Bool(_) => KnownTag::Bool,
+            YamlValue::Int(_) => KnownTag::Int,
+            YamlValue::Float(_) => KnownTag::Float,
+            YamlValue::Str(_) | YamlValue::FoldStr(_) | YamlValue::LitStr(_) => KnownTag::Str,
+            YamlValue::Map(_) | YamlValue::FlowMap(_) => KnownTag::Map,
+            YamlValue::Seq(_) | YamlValue::FlowSeq(_) => KnownTag::Seq,
+            YamlValue::Null => KnownTag::Null,
 
-            YamlValue::Glob(_) => "!glob",
-            YamlValue::Filesize(_) => "!filesize",
-            YamlValue::Duration(_) => "!duration",
-            YamlValue::Date(_) => "!date",
-            YamlValue::Range(_) => "!range",
-            YamlValue::Closure(_) => "!closure",
-            YamlValue::Error(_) => "!error",
-            YamlValue::Binary(_) => "!!binary",
-            YamlValue::CellPath(_) => "!cell-path",
+            YamlValue::Glob(_) => KnownTag::Glob,
+            YamlValue::Filesize(_) => KnownTag::Filesize,
+            YamlValue::Duration(_) => KnownTag::Duration,
+            YamlValue::Date(_) => KnownTag::Date,
+            YamlValue::Range(_) => KnownTag::Range,
+            YamlValue::Closure(_) => KnownTag::Closure,
+            YamlValue::Error(_) => KnownTag::Error,
+            YamlValue::Binary(_) => KnownTag::Binary,
+            YamlValue::CellPath(_) => KnownTag::CellPath,
         }
     }
 
