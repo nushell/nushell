@@ -922,6 +922,7 @@ pub fn parse_internal_call(
         Let,
         Def,
         Match,
+        If,
     }
 
     impl SpecialCmd {
@@ -930,6 +931,7 @@ pub fn parse_internal_call(
                 "let" => Self::Let,
                 "def" => Self::Def,
                 "match" => Self::Match,
+                "if" => Self::If,
                 _ => return None,
             })
         }
@@ -1282,6 +1284,7 @@ pub fn parse_internal_call(
                         // in a def block, the pipeline input type should be inferred based on the
                         // command input-output signature
                         Some(SpecialCmd::Def) if &positional.name == "block" => {
+                            // if we're parsing the `block`, the previous item is the signature
                             match call.arguments.last() {
                                 Some(Argument::Positional(Expression {
                                     expr: Expr::Signature(sig),
@@ -1290,6 +1293,7 @@ pub fn parse_internal_call(
                                 _ => None,
                             }
                         }
+                        Some(SpecialCmd::If) if positional_idx >= 1 => input_type.clone(),
                         Some(SpecialCmd::Match) if &positional.name == "match_block" => {
                             input_type.clone()
                         }
@@ -1307,6 +1311,21 @@ pub fn parse_internal_call(
                     match special_cmd {
                         Some(SpecialCmd::Match) if &positional.name == "match_block" => {
                             output_override = Some(expr.ty.clone());
+                        }
+                        Some(SpecialCmd::If) if positional_idx >= 1 => {
+                            let ty = match &expr.expr {
+                                Expr::Block(block_id) => {
+                                    working_set.get_block(*block_id).output_type()
+                                }
+                                Expr::Keyword(kw) if let Expr::Block(block_id) = &kw.expr.expr => {
+                                    working_set.get_block(*block_id).output_type()
+                                }
+                                _ => expr.ty.clone(),
+                            };
+                            output_override = Some(match output_override {
+                                Some(existing_ty) => existing_ty.union(ty),
+                                None => ty,
+                            });
                         }
                         _ => {}
                     };
@@ -1379,6 +1398,14 @@ pub fn parse_internal_call(
 
     if signature.creates_scope {
         working_set.exit_scope();
+    }
+
+    match special_cmd {
+        // Not having an else branch means the output can be `nothing`
+        Some(SpecialCmd::If) if call.arguments.len() < 3 => {
+            output_override = output_override.map(|ty| ty.union(Type::Nothing))
+        }
+        _ => {}
     }
 
     let output = output_override.unwrap_or(output);
