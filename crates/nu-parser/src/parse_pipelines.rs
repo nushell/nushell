@@ -89,32 +89,44 @@ pub fn parse_pipeline(
     pipeline: &LitePipeline,
     input_type: Option<Type>,
 ) -> Pipeline {
-    if pipeline.commands.len() > 1 {
-        let mut input = input_type.unwrap_or(Type::Any);
+    match pipeline.commands.as_slice() {
+        [] => unreachable!("at this point the pipeline must have at least one element"),
+        [single] => parse_builtin_commands(working_set, single, input_type),
+        [first, rest @ ..] => {
+            let mut current_pipeline_type = input_type.unwrap_or(Type::Any);
 
-        // Parse a normal multi command pipeline
-        let elements: Vec<_> = pipeline
-            .commands
-            .iter()
-            .enumerate()
-            .map(|(index, element)| {
-                let input_clone = input.clone();
-                let element =
-                    parse_pipeline_element(working_set, element, std::mem::take(&mut input));
-                input = element.expr.ty.clone();
+            let mut elements = Vec::new();
+            elements.push({
+                let element = parse_pipeline_element(working_set, first, current_pipeline_type);
+                // the output becomes the input for the next pipeline element
+                current_pipeline_type = element.expr.ty.clone();
+
+                element
+            });
+
+            // Parse a normal multi command pipeline
+            let rest_elements = rest.iter().map(|element| {
+                let input_clone = current_pipeline_type.clone();
+                let element = parse_pipeline_element(
+                    working_set,
+                    element,
+                    std::mem::take(&mut current_pipeline_type),
+                );
+                // the output becomes the input for the next pipeline element
+                current_pipeline_type = element.expr.ty.clone();
+
                 // Handle $in for pipeline elements beyond the first one
-                if index > 0 && element.has_in_variable(working_set) {
+                if element.has_in_variable(working_set) {
                     wrap_element_with_collect(working_set, element, Some(input_clone))
                 } else {
                     element
                 }
-            })
-            .collect();
+            });
 
-        Pipeline { elements }
-    } else {
-        // If there's only one command in the pipeline, this could be a builtin command
-        parse_builtin_commands(working_set, &pipeline.commands[0], input_type)
+            elements.extend(rest_elements);
+
+            Pipeline { elements }
+        }
     }
 }
 
