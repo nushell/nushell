@@ -12,7 +12,7 @@ use base64::{Engine, engine::general_purpose::STANDARD as BASE64_STANDARD};
 use chrono::DateTime;
 use derive_setters::Setters;
 use nu_protocol::{
-    FromValue, Record, ShellError, Span, Spanned, Value, ast::CellPath,
+    FromValue, Range, Record, ShellError, Span, Spanned, Value, ast::CellPath,
     shell_error::generic::GenericError,
 };
 use regex::Regex;
@@ -373,7 +373,10 @@ fn parse_scalar<'i>(
                 DateTime::from_str(value).map_err(|err| ShellError::Generic(todo!()))?,
                 span,
             ),
-            KnownTag::Range => todo!(),
+            KnownTag::Range => Value::range(
+                Range::from_str(value).map_err(|err| ShellError::Generic(todo!()))?,
+                span,
+            ),
             KnownTag::Closure => todo!(),
             KnownTag::CellPath => Value::cell_path(
                 CellPath::from_str(value)
