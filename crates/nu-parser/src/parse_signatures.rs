@@ -289,6 +289,7 @@ pub fn expand_to_cell_path(
     working_set: &mut StateWorkingSet,
     expression: &mut Expression,
     var_id: VarId,
+    input_type: Option<Type>,
 ) {
     trace!("parsing: expanding to cell path");
     if let Expression {
@@ -298,7 +299,8 @@ pub fn expand_to_cell_path(
     } = expression
     {
         // Re-parse the string as if it were a cell-path
-        let new_expression = parse_full_cell_path(working_set, Some(var_id), *span, None);
+        let new_expression =
+            parse_full_cell_path(working_set, Some(var_id), *span, input_type.clone());
 
         *expression = new_expression;
     }
@@ -308,7 +310,7 @@ pub fn expand_to_cell_path(
         ..
     } = expression
     {
-        expand_to_cell_path(working_set, inner, var_id);
+        expand_to_cell_path(working_set, inner, var_id, input_type);
     }
 }
 
@@ -473,7 +475,7 @@ pub fn parse_row_condition(working_set: &mut StateWorkingSet, spans: &[Span]) ->
     // New scope in case where there's already a variable named `$it`
     working_set.enter_scope();
     let var_id = working_set.add_variable(b"$it".to_vec(), Span::new(pos, pos), Type::Any, false);
-    let expression = parse_math_expression(working_set, spans, Some(var_id));
+    let expression = parse_math_expression(working_set, spans, Some(var_id), None);
 
     let block_id = match expression.expr {
         Expr::Block(block_id) => block_id,

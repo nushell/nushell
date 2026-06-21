@@ -1234,6 +1234,7 @@ pub fn parse_math_expression(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
     lhs_row_var_id: Option<VarId>,
+    input_type: Option<Type>,
 ) -> Expression {
     trace!("parsing: math expression");
 
@@ -1260,7 +1261,7 @@ pub fn parse_math_expression(
     if first_span == b"if" || first_span == b"match" {
         // If expression
         if spans.len() > 1 {
-            return parse_call(working_set, spans, spans[0], None);
+            return parse_call(working_set, spans, spans[0], input_type);
         } else {
             working_set.error(ParseError::Expected(
                 "expression",
@@ -1291,7 +1292,12 @@ pub fn parse_math_expression(
         }
     }
 
-    let mut lhs = parse_value(working_set, spans[idx], &SyntaxShape::Any, None);
+    let mut lhs = parse_value(
+        working_set,
+        spans[idx],
+        &SyntaxShape::Any,
+        input_type.clone(),
+    );
 
     for not_start_span in not_start_spans.iter().rev() {
         lhs = Expression::new(
@@ -1308,7 +1314,7 @@ pub fn parse_math_expression(
     if idx >= spans.len() {
         // We already found the one part of our expression, so let's expand
         if let Some(row_var_id) = lhs_row_var_id {
-            expand_to_cell_path(working_set, &mut lhs, row_var_id);
+            expand_to_cell_path(working_set, &mut lhs, row_var_id, input_type);
         }
     }
 
@@ -1402,7 +1408,7 @@ pub fn parse_math_expression(
                 .expect("internal error: expression stack empty");
 
             if let Some(row_var_id) = lhs_row_var_id {
-                expand_to_cell_path(working_set, &mut lhs, row_var_id);
+                expand_to_cell_path(working_set, &mut lhs, row_var_id, None);
             }
 
             let (result_ty, err) = math_result_type(working_set, &mut lhs, &mut op, &mut rhs);
@@ -1438,7 +1444,7 @@ pub fn parse_math_expression(
             .expect("internal error: expression stack empty");
 
         if let Some(row_var_id) = lhs_row_var_id {
-            expand_to_cell_path(working_set, &mut lhs, row_var_id);
+            expand_to_cell_path(working_set, &mut lhs, row_var_id, None);
         }
 
         let (result_ty, err) = math_result_type(working_set, &mut lhs, &mut op, &mut rhs);
@@ -1521,7 +1527,7 @@ pub fn parse_expression(
     {
         parse_assignment_expression(working_set, &spans[pos..], input_type)
     } else if is_math_expression_like(working_set, spans[pos]) {
-        parse_math_expression(working_set, &spans[pos..], None)
+        parse_math_expression(working_set, &spans[pos..], None, input_type)
     } else {
         let bytes = working_set.get_span_contents(spans[pos]).to_vec();
 

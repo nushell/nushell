@@ -767,7 +767,12 @@ pub fn parse_multispan_value(
         SyntaxShape::MathExpression => {
             trace!("parsing: math expression");
 
-            let arg = crate::parser::parse_math_expression(working_set, &spans[*spans_idx..], None);
+            let arg = crate::parser::parse_math_expression(
+                working_set,
+                &spans[*spans_idx..],
+                None,
+                input_type,
+            );
             *spans_idx = spans.len() - 1;
 
             arg
@@ -846,7 +851,7 @@ pub fn parse_multispan_value(
             let keyword = Keyword {
                 keyword: keyword.as_slice().into(),
                 span: spans[*spans_idx - 1],
-                expr: parse_multispan_value(working_set, spans, spans_idx, arg, None),
+                expr: parse_multispan_value(working_set, spans, spans_idx, arg, input_type),
             };
 
             Expression::new(
