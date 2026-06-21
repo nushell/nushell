@@ -87,3 +87,22 @@ fn split_column_no_sep_found() -> Result {
         .expect_value_eq(expected.clone())?;
     Ok(())
 }
+
+#[test]
+fn split_column_number_zero() -> Result {
+    let code = r#""x" | split column -n 0 ",""#;
+    let expected = vec![Value::test_record(record! {})];
+    test().run(code).expect_value_eq(expected.clone())?;
+    let code = r#""x" | split column -n 0 --right ",""#;
+    test().run(code).expect_value_eq(expected.clone())?;
+    Ok(())
+}
+
+#[test]
+fn split_column_number_error() -> Result {
+    let code = r#""x" | split column -n -1 ",""#;
+    test().run(code).expect_shell_error()?;
+    let code = r#""x" | split column -n -1 --right ",""#;
+    test().run(code).expect_shell_error()?;
+    Ok(())
+}
