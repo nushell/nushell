@@ -250,6 +250,7 @@ fn split_column_helper(
 ) -> Vec<Value> {
     if let Ok(s) = v.as_str() {
         let split_result: Vec<_> = match (max_split, split_from_right) {
+            (Some(0), _) => vec![],
             (Some(max_split), true) => {
                 let sep_bounds: Vec<_> = separator
                     .find_iter(s)

@@ -226,6 +226,7 @@ fn split_row_helper(
     };
 
     match (max_split, split_from_right) {
+        (Some(0), _) => Ok(vec![]),
         (Some(max_split), true) => regex
             .find_iter(&s)
             .map(|x| x.map(|x| (x.start(), x.end())))
