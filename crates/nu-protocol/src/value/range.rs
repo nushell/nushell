@@ -852,7 +852,7 @@ mod parse {
     fn components(input: &mut &str) -> Result<Components> {
         let start = opt(number).parse_next(input)?;
         "..".parse_next(input)?;
-        if let Some(_) = opt("<").parse_next(input)? {
+        if opt("<").parse_next(input)?.is_some() {
             let end = opt(number).parse_next(input)?;
             eof.parse_next(input)?;
             return Ok(Components {
@@ -863,7 +863,7 @@ mod parse {
             });
         }
 
-        if let Some(_) = opt(eof).parse_next(input)? {
+        if opt(eof).parse_next(input)?.is_some() {
             return Ok(Components {
                 start,
                 step: None,
@@ -873,7 +873,7 @@ mod parse {
         }
 
         let step_or_end = number.parse_next(input)?;
-        if let Some(_) = opt(eof).parse_next(input)? {
+        if opt(eof).parse_next(input)?.is_some() {
             return Ok(Components {
                 start,
                 step: None,
@@ -883,7 +883,7 @@ mod parse {
         }
 
         "..".parse_next(input)?;
-        if let Some(_) = opt("<").parse_next(input)? {
+        if opt("<").parse_next(input)?.is_some() {
             let end = opt(number).parse_next(input)?;
             eof.parse_next(input)?;
             return Ok(Components {
