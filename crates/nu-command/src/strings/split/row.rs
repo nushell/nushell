@@ -35,7 +35,7 @@ impl Command for SplitRow {
             )
             .switch(
                 "right",
-                "When `--number` is used, collect the remainder in the leftmost column.",
+                "When `--number` is used, collect the remainder in the leftmost item.",
                 None,
             )
             .switch("regex", "Use regex syntax for separator.", Some('r'))

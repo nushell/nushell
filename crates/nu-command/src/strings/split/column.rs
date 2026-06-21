@@ -31,7 +31,7 @@ impl Command for SplitColumn {
             .named(
                 "number",
                 SyntaxShape::Int,
-                "Split into maximum number of items.",
+                "Split into maximum number of columns.",
                 Some('n'),
             )
             .switch(
