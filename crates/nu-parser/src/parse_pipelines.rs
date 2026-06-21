@@ -140,19 +140,23 @@ pub fn parse_block(
     // Pre-declare any definition so that definitions
     // that share the same block can see each other
     for pipeline in &lite_block.block {
-        if pipeline.commands.len() == 1 {
-            parse_def_predecl(working_set, pipeline.commands[0].command_parts())
+        if let [lite_command] = pipeline.commands.as_slice() {
+            parse_def_predecl(working_set, lite_command.command_parts())
         }
     }
 
     let mut block = Block::new_with_capacity(lite_block.block.len());
     block.span = Some(span);
 
-    let mut first = input_type.clone();
-
-    for lite_pipeline in &lite_block.block {
-        let pipeline = parse_pipeline(working_set, lite_pipeline, first.take());
+    if let [first, rest @ ..] = lite_block.block.as_slice() {
+        // only the first pipeline receives the block's pipeline input
+        let pipeline = parse_pipeline(working_set, first, input_type.clone());
         block.pipelines.push(pipeline);
+
+        for lite_pipeline in rest {
+            let pipeline = parse_pipeline(working_set, lite_pipeline, None);
+            block.pipelines.push(pipeline);
+        }
     }
 
     // If this is not a subexpression and there are any pipelines where the first element has $in,
@@ -188,9 +192,7 @@ pub fn parse_block(
     }
 
     let errors = type_check::check_block_input_output(working_set, &block);
-    if !errors.is_empty() {
-        working_set.parse_errors.extend_from_slice(&errors);
-    }
+    working_set.parse_errors.extend(errors);
 
     block
 }
