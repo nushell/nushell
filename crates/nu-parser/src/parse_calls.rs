@@ -921,6 +921,7 @@ pub fn parse_internal_call(
     enum SpecialCmd {
         Let,
         Def,
+        Match,
     }
 
     impl SpecialCmd {
@@ -928,6 +929,7 @@ pub fn parse_internal_call(
             Some(match s {
                 "let" => Self::Let,
                 "def" => Self::Def,
+                "match" => Self::Match,
                 _ => return None,
             })
         }
@@ -1288,15 +1290,28 @@ pub fn parse_internal_call(
                                 _ => None,
                             }
                         }
+                        Some(SpecialCmd::Match) if &positional.name == "match_block" => {
+                            input_type.clone()
+                        }
                         _ => None,
                     };
-                    parse_multispan_value(
+
+                    let expr = parse_multispan_value(
                         working_set,
                         &spans[..end],
                         &mut spans_idx,
                         &positional.shape,
                         input_type,
-                    )
+                    );
+
+                    match special_cmd {
+                        Some(SpecialCmd::Match) if &positional.name == "match_block" => {
+                            output_override = Some(expr.ty.clone());
+                        }
+                        _ => {}
+                    };
+
+                    expr
                 }
             };
 

@@ -552,7 +552,7 @@ pub fn parse_brace_expr(
                 parse_closure_expression(working_set, shape, span, input_type)
             }
             SyntaxShape::Block => parse_block_expression(working_set, span, input_type),
-            SyntaxShape::MatchBlock => parse_match_block_expression(working_set, span),
+            SyntaxShape::MatchBlock => parse_match_block_expression(working_set, span, input_type),
             _ => parse_record(working_set, span),
         },
         [
@@ -578,7 +578,9 @@ pub fn parse_brace_expr(
                     parse_closure_expression(working_set, shape, span, input_type)
                 }
                 SyntaxShape::Block => parse_block_expression(working_set, span, input_type),
-                SyntaxShape::MatchBlock => parse_match_block_expression(working_set, span),
+                SyntaxShape::MatchBlock => {
+                    parse_match_block_expression(working_set, span, input_type)
+                }
                 // For edge case of `{}.foo?`, #17896
                 _ if second_bytes == b"}" => parse_full_cell_path(working_set, None, span, None),
                 _ if extract_spread_record(second_bytes.into_spanned(second.span)).is_some() => {

@@ -14,6 +14,10 @@ impl MatchPattern {
     pub fn variables(&self) -> Vec<VarId> {
         self.pattern.variables()
     }
+
+    pub fn is_wildcard(&self) -> bool {
+        self.guard.is_none() && self.pattern.is_wildcard()
+    }
 }
 
 /// AST Node for pattern matching rules
@@ -72,5 +76,13 @@ impl Pattern {
         }
 
         output
+    }
+
+    pub fn is_wildcard(&self) -> bool {
+        match self {
+            Self::Variable(_) | Self::IgnoreValue => true,
+            Self::Or(match_patterns) => match_patterns.iter().any(|x| x.is_wildcard()),
+            _ => false,
+        }
     }
 }

@@ -459,7 +459,11 @@ pub fn parse_block_expression(
     Expression::new(working_set, Expr::Block(block_id), span, Type::Block)
 }
 
-pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Span) -> Expression {
+pub fn parse_match_block_expression(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+    input_type: Option<Type>,
+) -> Expression {
     let bytes = working_set.get_span_contents(span);
 
     let mut start = span.start;
@@ -491,6 +495,7 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
     let mut position = 0;
 
     let mut output_matches = vec![];
+    let mut output_type = Type::one_of([]);
 
     while position < output.len() {
         // Each match gets its own scope
@@ -642,21 +647,32 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
             &[output[position].span],
             &mut 0,
             &SyntaxShape::OneOf(vec![SyntaxShape::Block, SyntaxShape::Expression]),
-            None,
+            input_type.clone(),
         );
         position += 1;
         if is_closed {
             working_set.exit_scope();
         }
 
+        let branch_output_type = match &result.expr {
+            Expr::Block(block_id) => working_set.get_block(*block_id).output_type().clone(),
+            _ => result.ty.clone(),
+        };
+        output_type = output_type.union(branch_output_type);
+
         output_matches.push((pattern, result));
+    }
+
+    let has_wildcard = output_matches.iter().any(|(pat, _)| pat.is_wildcard());
+    if !has_wildcard {
+        output_type = output_type.union(Type::Nothing);
     }
 
     Expression::new(
         working_set,
         Expr::MatchBlock(output_matches),
         span,
-        Type::Any,
+        output_type,
     )
 }
 
