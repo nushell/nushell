@@ -13,7 +13,7 @@ pub use row::SplitRow;
 pub use words::SplitWords;
 
 /// Split `s` given the bounds of the separators in `sep_bounds`.
-fn rsplitn<I>(s: &str, sep_bounds: I) -> impl Iterator<Item = &str>
+fn split<I>(s: &str, sep_bounds: I) -> impl Iterator<Item = &str>
 where
     I: IntoIterator<Item = (usize, usize)>,
 {

@@ -2,7 +2,7 @@ use fancy_regex::{Regex, escape};
 use nu_engine::command_prelude::*;
 use nu_protocol::shell_error::generic::GenericError;
 
-use super::rsplitn;
+use super::split;
 
 #[derive(Clone)]
 pub struct SplitColumn;
@@ -257,7 +257,7 @@ fn split_column_helper(
                     .map(|x| (x.start(), x.end()))
                     .collect();
                 // get the last `max_split` separators and split `s` with them
-                rsplitn(s, sep_bounds.into_iter().rev().take(max_split).rev()).collect()
+                split(s, sep_bounds.into_iter().rev().take(max_split - 1).rev()).collect()
             }
             (Some(max_split), false) => separator
                 .splitn(s, max_split)

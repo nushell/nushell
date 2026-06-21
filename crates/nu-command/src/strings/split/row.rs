@@ -2,7 +2,7 @@ use fancy_regex::{Regex, escape};
 use nu_engine::command_prelude::*;
 use nu_protocol::shell_error::generic::GenericError;
 
-use super::rsplitn;
+use super::split;
 
 #[derive(Clone)]
 pub struct SplitRow;
@@ -231,7 +231,7 @@ fn split_row_helper(
             .map(|x| x.map(|x| (x.start(), x.end())))
             .collect::<Result<Vec<_>, _>>()
             .map(|sep_bounds| {
-                rsplitn(&s, sep_bounds.into_iter().rev().take(max_split).rev())
+                split(&s, sep_bounds.into_iter().rev().take(max_split - 1).rev())
                     .map(|val| Value::string(val, span))
                     .collect()
             }),
