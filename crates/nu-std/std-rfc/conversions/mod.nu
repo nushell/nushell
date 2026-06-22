@@ -5,15 +5,14 @@
     1..10 | into list
 } --result [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 export def "into list" []: any -> list {
-  let input = $in
-  let type = ($input | describe --detailed | get type)
-  match $type {
-    range => {$input | each {||}}
-    list => $input
-    table => $input
-    record => {$input | transpose -d key value}
-    _ => [ $input ]
-  }
+    peek | metadata access {|md|
+        match $md.peek.type {
+            "range" => { each {|| } }
+            "list" => { }
+            "record" => { transpose key value }
+            _ => { [$in] }
+        }
+    }
 }
 
 # Convert a list of columns into a table
