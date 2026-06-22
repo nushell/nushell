@@ -9,8 +9,8 @@
 
 use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
 use fff_search::{
-    FFFMode, FilePicker, FilePickerOptions, FuzzySearchOptions, GrepMode, GrepSearchOptions,
-    MixedItemRef, PaginationArgs, QueryParser, SharedFilePicker, SharedFrecency,
+    FFFMode, FilePicker, FilePickerOptions, FuzzySearchOptions, GrepConfig, GrepMode,
+    GrepSearchOptions, MixedItemRef, PaginationArgs, QueryParser, SharedFilePicker, SharedFrecency,
 };
 use nu_engine::command_prelude::*;
 use nu_protocol::shell_error::generic::GenericError;
@@ -1873,13 +1873,29 @@ pub fn stream_grep(
         ..Default::default()
     };
 
+    // Use GrepConfig so that `[`, `?`, and bare `*` (without `/` or `{...}`)
+    // are treated as literal text rather than glob constraints. Characters
+    // like `[` and `?` are common in source code and must be searchable.
+    let parser = QueryParser::new(GrepConfig);
+
     let result = if patterns.len() == 1 {
-        let parser = QueryParser::default();
         let query = parser.parse(&patterns[0]);
         picker.grep(&query, &options)
     } else {
-        let refs = patterns.iter().map(String::as_str).collect::<Vec<_>>();
-        picker.multi_grep(&refs, &[], &options)
+        // Parse each pattern to extract file constraints (glob, path segment,
+        // extension, etc.) and separate them from the search text.
+        let mut all_constraints = Vec::new();
+        let mut text_patterns: Vec<String> = Vec::new();
+        for pat in patterns {
+            let query = parser.parse(pat.as_str());
+            let text = query.grep_text();
+            all_constraints.extend(query.constraints);
+            if !text.is_empty() {
+                text_patterns.push(text);
+            }
+        }
+        let refs: Vec<&str> = text_patterns.iter().map(|s| s.as_str()).collect();
+        picker.multi_grep(&refs, &all_constraints, &options)
     };
 
     let file_paths = result
