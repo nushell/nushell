@@ -25,8 +25,14 @@ impl Command for ToYamlLike {
             .named(
                 "spec",
                 SyntaxShape::String,
-                "YAML spec version ('1.1' or '1.2')",
+                "YAML spec version ('1.1' or '1.2').",
                 None,
+            )
+            .switch("add-directives", "Add YAML document directives.", Some('d'))
+            .switch(
+                "multiple",
+                "Given a list, serialize a multi document stream.",
+                Some('m'),
             )
             .category(Category::Formats)
     }
@@ -56,6 +62,8 @@ impl Command for ToYamlLike {
     ) -> Result<PipelineData, ShellError> {
         let value = input.into_value(call.head)?;
         let spec = call.get_flag(engine_state, stack, "spec")?;
+        let add_directives = call.has_flag(engine_state, stack, "add-directives")?;
+        let multiple = call.has_flag(engine_state, stack, "multiple")?;
         let non_roundtrip = call
             .has_flag(engine_state, stack, "serialize")?
             .then(|| NonRoundtrip::Lossy {
@@ -65,7 +73,9 @@ impl Command for ToYamlLike {
 
         let options = nu_heavy_utils::yaml::SerializeOptions::default()
             .spec(spec.unwrap_or_default())
-            .non_roundtrip(non_roundtrip);
+            .non_roundtrip(non_roundtrip)
+            .add_directives(add_directives)
+            .multiple(multiple);
 
         nu_heavy_utils::yaml::serialize(&value, call.head, options)
             .map(|s| PipelineData::value(Value::string(s, call.head), None))

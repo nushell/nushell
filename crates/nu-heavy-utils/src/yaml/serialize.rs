@@ -13,7 +13,8 @@ use serde::{Serialize, ser::SerializeMap};
 use serde_saphyr::{FlowMap, FlowSeq, FoldStr, LitStr, Serializer, ser_options};
 use std::{
     cell::{Cell, RefCell},
-    fmt::Write,
+    fmt::{self, Write},
+    io,
 };
 
 #[non_exhaustive]
@@ -24,6 +25,12 @@ pub struct SerializeOptions {
     /// Controls how values are serialized when they cannot be represented in a
     /// way that can be deserialized back into the original type.
     non_roundtrip: NonRoundtrip,
+
+    /// Expect a list of values and then construct a multi document YAML output.
+    multiple: bool,
+
+    /// Add directives to the start of the document that explains YAML version and the nushell tag.
+    add_directives: bool,
 }
 
 /// Controls how non-round-trippable values are serialized.
@@ -49,8 +56,12 @@ pub fn serialize(
     span: Span,
     options: SerializeOptions,
 ) -> Result<String, ShellError> {
+    let spec = options.spec;
+    let multiple = options.multiple;
+    let add_directives = options.add_directives;
+
     let mut ser_options = ser_options! {
-        yaml_12: match options.spec {
+        yaml_12: match spec {
             Spec::V1_1 => false,
             Spec::V1_2 => true,
         },
@@ -60,21 +71,70 @@ pub fn serialize(
     OPTIONS.set(options);
     defer!(OPTIONS.set(SerializeOptions::default()));
 
-    let value = YamlValue::try_from_value(value, span)?;
     let mut writer = FmtHandle::new(String::new());
     WRITER.set(Some(writer.clone()));
     IN_MAP.set(false);
     let mut serializer = Serializer::with_options(&mut writer, &mut ser_options);
 
-    // Clear out any preambles by the serializer
-    ().serialize(&mut serializer).unwrap();
-    WRITER.with_borrow_mut(|writer| {
-        if let Some(writer) = writer {
-            writer.take();
-        }
-    });
+    // attention: suppresses any output from f, also don't call serializer inside this
+    fn with_writer<F: Fn(&mut FmtHandle<String>) -> R, R>(f: F) {
+        WRITER.with_borrow_mut(|writer| {
+            if let Some(writer) = writer {
+                f(writer);
+            }
+        })
+    }
 
-    value.serialize(&mut serializer).unwrap();
+    // clear out any preambles by the serializer
+    ().serialize(&mut serializer).unwrap();
+    with_writer(|writer| writer.take());
+
+    let write_directives = |writer: &mut FmtHandle<String>| {
+        match spec {
+            Spec::V1_1 => writeln!(writer, "%YAML 1.1"),
+            Spec::V1_2 => writeln!(writer, "%YAML 1.2"),
+        }?;
+        writeln!(writer, "%TAG ! {}", KnownTag::NUSHELL_PREFIX)?;
+        fmt::Result::Ok(())
+    };
+
+    if multiple {
+        let values = value.as_list()?;
+        let mut first = true;
+        for value in values {
+            if add_directives {
+                with_writer(|writer| {
+                    write_directives(writer)?;
+                    writeln!(writer, "---")?;
+                    fmt::Result::Ok(())
+                });
+            } else {
+                match first {
+                    true => first = false,
+                    false => with_writer(|writer| writeln!(writer, "---")),
+                }
+            }
+
+            let value = YamlValue::try_from_value(value, span)?;
+            value.serialize(&mut serializer).unwrap();
+
+            if add_directives {
+                with_writer(|writer| writeln!(writer, "..."));
+            }
+        }
+    } else {
+        if add_directives {
+            with_writer(|writer| {
+                write_directives(writer)?;
+                writeln!(writer, "---")?;
+                fmt::Result::Ok(())
+            });
+        }
+
+        let value = YamlValue::try_from_value(value, span)?;
+        value.serialize(&mut serializer).unwrap();
+    }
+
     Ok(writer.take())
 }
 

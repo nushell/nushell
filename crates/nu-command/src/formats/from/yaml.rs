@@ -21,13 +21,13 @@ impl Command for FromYamlLike {
             .named(
                 "spec",
                 SyntaxShape::String,
-                "YAML spec version ('1.1' or '1.2')",
+                "YAML spec version ('1.1' or '1.2').",
                 None,
             )
             .named(
                 "multiple",
                 SyntaxShape::String,
-                "Handle multiple documents ('auto', 'list', 'single')",
+                "Handle multiple documents ('auto', 'list', 'single').",
                 None,
             )
             .switch("ignore-tags", "Ignore any tags", None)
