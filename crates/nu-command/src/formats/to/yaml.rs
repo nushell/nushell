@@ -25,7 +25,7 @@ impl Command for ToYamlLike {
             .named(
                 "spec",
                 SyntaxShape::String,
-                "YAML spec version ('1.1' or '1.2').",
+                "YAML spec version ('1.1' (default) or '1.2').",
                 None,
             )
             .switch("add-directives", "Add YAML document directives.", Some('d'))
