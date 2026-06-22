@@ -1,7 +1,8 @@
 use std::num::{ParseFloatError, ParseIntError};
 
 use nu_protocol::{
-    ParseRangeError, ShellError, Span, ast::ParseCellPathError, shell_error::generic::GenericError,
+    ParseRangeError, ShellError, Span, Type, Value, ast::ParseCellPathError,
+    shell_error::generic::GenericError,
 };
 use nu_utils::location::Location;
 use serde_saphyr::granit_parser::{Event, ScanError};
@@ -18,6 +19,13 @@ pub enum ParseError<'i> {
     },
     Scan {
         source: ScanError,
+        span: Span,
+    },
+    DuplicateKey {
+        duplicate: String,
+        span: Span,
+    },
+    UnexpectedKeyAnchor {
         span: Span,
     },
     NumInt {
@@ -55,6 +63,34 @@ pub enum ParseError<'i> {
         err: ParseCellPathError,
         span: Span,
     },
+    PairsNotARecord {
+        found: Type,
+        span: Span,
+    },
+    PairsEmpty {
+        span: Span,
+    },
+    PairsTooMany {
+        span: Span,
+    },
+    OMapNotARecord {
+        found: Type,
+        span: Span,
+    },
+    OMapEmpty {
+        span: Span,
+    },
+    OMapDuplicateKey {
+        duplicate: String,
+        span: Span,
+    },
+    OMapTooMany {
+        span: Span,
+    },
+    SetFoundNotNull {
+        found: Type,
+        span: Span,
+    },
     UnimplementedTag {
         tag: KnownTag,
         span: Span,
@@ -70,6 +106,15 @@ pub enum ParseError<'i> {
     },
     UnsupportedTag {
         tag: KnownTag,
+        at: NodeKind,
+        span: Span,
+    },
+    InvalidMergeType {
+        found: Type,
+        span: Span,
+    },
+    InvalidMergeList {
+        found: Type,
         span: Span,
     },
     Internal {
@@ -81,10 +126,10 @@ pub enum ParseError<'i> {
 #[derive(strum::Display)]
 #[strum(serialize_all = "snake_case")]
 pub enum NodeKind {
-    Document,
     Scalar,
     Sequence,
     Mapping,
+    Key,
 }
 
 pub enum InternalParserError<'i> {
@@ -121,6 +166,20 @@ impl From<ParseError<'_>> for ShellError {
             )
             .with_code("shell::yaml::parser::scan")
             .with_source(source),
+
+            ParseError::DuplicateKey { duplicate, span } => GenericError::new(
+                "Duplicate Mapping Key",
+                format!("The key {duplicate:?} already appeared in the mapping"),
+                span,
+            )
+            .with_code("shell::yaml::parser::duplicate_key"),
+
+            ParseError::UnexpectedKeyAnchor { span } => GenericError::new(
+                "Found unexpected key anchor",
+                "Merge anchors are not supported in key position",
+                span,
+            )
+            .with_code("shell::yaml::parser::unexpected_key_anchor"),
 
             ParseError::NumInt {
                 base,
@@ -202,6 +261,78 @@ impl From<ParseError<'_>> for ShellError {
             .with_code("shell::yaml::parser::cell_path")
             .with_source(err),
 
+            ParseError::PairsNotARecord { found, span } => GenericError::new(
+                "Pairs has to be a record",
+                format!("Expected {}, found {}", Type::record(), found),
+                span,
+            )
+            .with_code("shell::yaml::parser::pairs::not_a_record"),
+
+            ParseError::PairsEmpty { span } => GenericError::new(
+                "Pairs entry is empty",
+                format!(
+                    "While handling {} tag, found an empty entry",
+                    KnownTag::Pairs
+                ),
+                span,
+            )
+            .with_code("shell::yaml::parser::pairs::empty"),
+
+            ParseError::PairsTooMany { span } => GenericError::new(
+                "Pairs entry has to many entries",
+                format!(
+                    "While handling {} tag, found an entry with too many entries",
+                    KnownTag::Pairs
+                ),
+                span,
+            )
+            .with_code("shell::yaml::parser::pairs::too_many"),
+
+            ParseError::OMapNotARecord { found, span } => GenericError::new(
+                "OMap has to be a record",
+                format!("Expected {}, found {}", Type::record(), found),
+                span,
+            )
+            .with_code("shell::yaml::parser::omap::not_a_record"),
+
+            ParseError::OMapEmpty { span } => GenericError::new(
+                "OMap entry is empty",
+                format!(
+                    "While handling {} tag, found an empty entry",
+                    KnownTag::OMap
+                ),
+                span,
+            )
+            .with_code("shell::yaml::parser::omap::empty"),
+
+            ParseError::OMapDuplicateKey { duplicate, span } => GenericError::new(
+                "Duplicate OMap key found",
+                format!("Found duplicate key {duplicate:?}, OMap does not support duplicate keys"),
+                span,
+            )
+            .with_code("shell::yaml::parser::omap::duplicate_key"),
+
+            ParseError::OMapTooMany { span } => GenericError::new(
+                "OMap entry has to many entries",
+                format!(
+                    r#"While handling "{}" tag, found an entry with too many entries"#,
+                    KnownTag::OMap
+                ),
+                span,
+            )
+            .with_code("shell::yaml::parser::omap::too_many"),
+
+            ParseError::SetFoundNotNull { found, span } => GenericError::new(
+                "Found not null in Set",
+                format!(
+                    r#"While handling "{}", expected values only to be {}, found {found}"#,
+                    KnownTag::Set,
+                    Type::Nothing
+                ),
+                span,
+            )
+            .with_code("shell::yaml::parser::set::not_a_null"),
+
             ParseError::UnknownTag { tag, span } => GenericError::new(
                 "Unknown tag",
                 format!("The tag {:?} is unknown to nushell", tag),
@@ -211,24 +342,42 @@ impl From<ParseError<'_>> for ShellError {
 
             ParseError::UnimplementedTag { tag, span } => GenericError::new(
                 "Unimplemented Tag",
-                format!("The tag {tag} is known but not implemented"),
+                format!(r#"The tag "{tag}" is known but not implemented"#),
                 span,
             )
             .with_code("shell::yaml::parser::tag::unimplemented"),
 
             ParseError::IncorrectTag { tag, at, span } => GenericError::new(
                 "Incorrect tag",
-                format!("Found incorrect tag {tag} while parsing {at}"),
+                format!(r#"Found incorrect tag "{tag}" while parsing a {at}"#),
                 span,
             )
             .with_code("shell::yaml::parser::tag::incorrect"),
 
-            ParseError::UnsupportedTag { tag, span } => GenericError::new(
+            ParseError::UnsupportedTag { tag, at, span } => GenericError::new(
                 "Unsupported tag",
-                format!("The tag {tag} is generally not supported"),
+                format!(r#"The tag "{tag}" is not supported while parsing a {at}"#),
                 span,
             )
             .with_code("shell::yaml::parser::tag::unsupported"),
+
+            ParseError::InvalidMergeType { found, span } => GenericError::new(
+                "Invalid merge type",
+                format!(
+                    "Expected {} or {}, found {found}",
+                    Type::record(),
+                    Type::list(Type::record())
+                ),
+                span,
+            )
+            .with_code("shell::yaml::parser::merge::invalid_type"),
+
+            ParseError::InvalidMergeList { found, span } => GenericError::new(
+                "Invalid merge list type",
+                format!("Expected {} inside the list, found {found}", Type::record()),
+                span,
+            )
+            .with_code("shell::yaml::parser::merge::invalid_list_type"),
 
             ParseError::Internal { error, span } => GenericError::new(
                 "Internal YAML Parser Error",

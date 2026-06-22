@@ -129,10 +129,6 @@ impl<'i> ParseCtx<'i> {
         }
     }
 
-    fn unexpected_key_anchor(&self) -> ShellError {
-        todo!()
-    }
-
     fn unknown_tag_err(&self, err: UnknownTagError) -> ParseError<'i> {
         ParseError::UnknownTag {
             tag: err.0,
@@ -392,7 +388,11 @@ fn parse_scalar<'i>(
 
             // unsupported tag
             KnownTag::Timestamp | KnownTag::Value | KnownTag::Yaml => {
-                return Err(ShellError::from(ParseError::UnsupportedTag { tag, span }));
+                return Err(ShellError::from(ParseError::UnsupportedTag {
+                    tag,
+                    at: NodeKind::Scalar,
+                    span,
+                }));
             }
         }),
     }
@@ -432,27 +432,36 @@ fn parse_sequence<'i>(
         }
     }
 
-    match tag.unwrap_or(KnownTag::Seq) {
+    let tag = tag.unwrap_or(KnownTag::Seq);
+    match tag {
         KnownTag::Seq => Ok(Value::list(values, ctx.parser_span)),
         KnownTag::Pairs => {
             let mut pairs = Vec::with_capacity(values.len());
             for value in values.into_iter() {
                 let span = value.span();
+                let ty = value.get_type();
                 let record = value
                     .into_record()
-                    .map_err(|_| ShellError::Generic(todo!()))?;
+                    .map_err(|_| ParseError::PairsNotARecord {
+                        found: ty,
+                        span: ctx.yaml_span,
+                    })?;
                 let mut iter = record.into_iter();
-                match (iter.next(), iter.next()) {
-                    (None, None) => todo!("throw error for empty record"),
-                    (Some((key, value)), None) => pairs.push(Value::record(
+                pairs.push(match (iter.next(), iter.next()) {
+                    (None, None) => Err(ParseError::PairsEmpty {
+                        span: ctx.yaml_span,
+                    }),
+                    (Some((key, value)), None) => Ok(Value::record(
                         record!(
                             "key" => Value::string(key, span),
                             "value" => value
                         ),
                         span,
                     )),
-                    (_, Some(_)) => todo!("too many entries"),
-                }
+                    (_, Some(_)) => Err(ParseError::PairsTooMany {
+                        span: ctx.yaml_span,
+                    }),
+                }?);
             }
             Ok(Value::list(pairs, ctx.parser_span))
         }
@@ -460,45 +469,73 @@ fn parse_sequence<'i>(
             let mut entries = Vec::with_capacity(values.len());
             let mut keys = HashSet::with_capacity(values.len());
             for value in values.into_iter() {
+                let ty = value.get_type();
                 let record = value
                     .into_record()
-                    .map_err(|_| ShellError::Generic(todo!()))?;
+                    .map_err(|_| ParseError::OMapNotARecord {
+                        found: ty,
+                        span: ctx.yaml_span,
+                    })?;
                 let mut iter = record.into_iter();
                 match (iter.next(), iter.next()) {
-                    (None, None) => todo!("too few entries"),
+                    (None, None) => {
+                        return Err(ShellError::from(ParseError::OMapEmpty {
+                            span: ctx.yaml_span,
+                        }));
+                    }
                     (Some((key, value)), None) => {
                         if !keys.insert(key.clone()) {
-                            todo!("throw error for duplicate key");
+                            return Err(ShellError::from(ParseError::OMapDuplicateKey {
+                                duplicate: key.clone(),
+                                span: ctx.yaml_span,
+                            }));
                         }
 
                         entries.push((key, value))
                     }
-                    (_, Some(_)) => todo!("too many entries"),
+                    (_, Some(_)) => {
+                        return Err(ShellError::from(ParseError::OMapTooMany {
+                            span: ctx.yaml_span,
+                        }));
+                    }
                 }
             }
             Ok(Value::record(Record::from_iter(entries), ctx.parser_span))
         }
 
-        KnownTag::Map => todo!(),
-        KnownTag::Str => todo!(),
-        KnownTag::Null => todo!(),
-        KnownTag::Bool => todo!(),
-        KnownTag::Int => todo!(),
-        KnownTag::Float => todo!(),
-        KnownTag::Binary => todo!(),
-        KnownTag::Set => todo!(),
-        KnownTag::Merge => todo!(),
-        KnownTag::Timestamp => todo!(),
-        KnownTag::Value => todo!(),
-        KnownTag::Yaml => todo!(),
-        KnownTag::Glob => todo!(),
-        KnownTag::Filesize => todo!(),
-        KnownTag::Duration => todo!(),
-        KnownTag::Date => todo!(),
-        KnownTag::Range => todo!(),
-        KnownTag::Closure => todo!(),
-        KnownTag::Error => todo!(),
-        KnownTag::CellPath => todo!(),
+        // incorrect tag
+        KnownTag::Map
+        | KnownTag::Str
+        | KnownTag::Null
+        | KnownTag::Bool
+        | KnownTag::Int
+        | KnownTag::Float
+        | KnownTag::Binary
+        | KnownTag::Set
+        | KnownTag::Merge
+        | KnownTag::Glob
+        | KnownTag::Filesize
+        | KnownTag::Duration
+        | KnownTag::Date
+        | KnownTag::Range
+        | KnownTag::Closure
+        | KnownTag::Error
+        | KnownTag::CellPath => {
+            return Err(ShellError::from(ParseError::IncorrectTag {
+                tag,
+                at: NodeKind::Sequence,
+                span: ctx.yaml_span,
+            }));
+        }
+
+        // unsupported tag
+        KnownTag::Timestamp | KnownTag::Value | KnownTag::Yaml => {
+            return Err(ShellError::from(ParseError::UnsupportedTag {
+                tag,
+                at: NodeKind::Sequence,
+                span: ctx.parser_span,
+            }));
+        }
     }
 }
 
@@ -525,7 +562,9 @@ fn parse_mapping<'i>(
                 Event::Scalar(value, scalar_style, anchor_id, tag) => {
                     let value = parse_key(ctx, value, scalar_style, tag)?;
                     if anchor_id != 0 {
-                        return Err(ctx.unexpected_key_anchor());
+                        return Err(ShellError::from(ParseError::UnexpectedKeyAnchor {
+                            span: ctx.yaml_span,
+                        }));
                     }
                     break 'key value;
                 }
@@ -569,25 +608,29 @@ fn parse_mapping<'i>(
                 Value::List { vals, .. } => {
                     for val in vals.into_iter().rev() {
                         let Value::Record { val, .. } = val else {
-                            todo!("throw error explaining merge is not a record")
+                            return Err(ShellError::from(ParseError::InvalidMergeList {
+                                found: val.get_type(),
+                                span: ctx.yaml_span,
+                            }));
                         };
 
                         merge = merge.merge(val.into_owned(), merge_strategy, ctx.parser_span)?;
                     }
                 }
-                _ => todo!("throw invalid merge objects"),
+                v => {
+                    return Err(ShellError::from(ParseError::InvalidMergeType {
+                        found: v.get_type(),
+                        span: ctx.yaml_span,
+                    }));
+                }
             },
 
             MapKey::Normal(key) => {
                 if !keys.insert(key.clone()) {
-                    return Err(ShellError::Generic(
-                        GenericError::new(
-                            "Duplicate YAML Key",
-                            format!("The key {key:?} already appeared in the mapping"),
-                            ctx.yaml_span,
-                        )
-                        .with_code("shell::yaml::parser::duplicate_key"),
-                    ));
+                    return Err(ShellError::from(ParseError::DuplicateKey {
+                        duplicate: key,
+                        span: ctx.yaml_span,
+                    }));
                 }
 
                 values.push((key, value));
@@ -595,7 +638,8 @@ fn parse_mapping<'i>(
         }
     };
 
-    match tag.unwrap_or(KnownTag::Map) {
+    let tag = tag.unwrap_or(KnownTag::Map);
+    match tag {
         KnownTag::Map => Ok(Value::record(record, ctx.parser_span)),
         KnownTag::Set => {
             let mut values = Vec::with_capacity(record.len());
@@ -603,7 +647,12 @@ fn parse_mapping<'i>(
                 match value {
                     // in a set every values has to be a null value
                     Value::Nothing { .. } => (),
-                    _ => todo!("throw error for not null value"),
+                    v => {
+                        return Err(ShellError::from(ParseError::SetFoundNotNull {
+                            found: v.get_type(),
+                            span: ctx.yaml_span,
+                        }));
+                    }
                 }
 
                 // technically in a set we could represent complexer values than strings but this is
@@ -613,27 +662,40 @@ fn parse_mapping<'i>(
             Ok(Value::list(values, ctx.parser_span))
         }
 
-        KnownTag::Seq => todo!(),
-        KnownTag::Str => todo!(),
-        KnownTag::Null => todo!(),
-        KnownTag::Bool => todo!(),
-        KnownTag::Int => todo!(),
-        KnownTag::Float => todo!(),
-        KnownTag::Binary => todo!(),
-        KnownTag::OMap => todo!(),
-        KnownTag::Pairs => todo!(),
-        KnownTag::Merge => todo!(),
-        KnownTag::Timestamp => todo!(),
-        KnownTag::Value => todo!(),
-        KnownTag::Yaml => todo!(),
-        KnownTag::Glob => todo!(),
-        KnownTag::Filesize => todo!(),
-        KnownTag::Duration => todo!(),
-        KnownTag::Date => todo!(),
-        KnownTag::Range => todo!(),
-        KnownTag::Closure => todo!(),
-        KnownTag::Error => todo!(),
-        KnownTag::CellPath => todo!(),
+        // incorrect tag
+        KnownTag::Seq
+        | KnownTag::Str
+        | KnownTag::Null
+        | KnownTag::Bool
+        | KnownTag::Int
+        | KnownTag::Float
+        | KnownTag::Binary
+        | KnownTag::OMap
+        | KnownTag::Pairs
+        | KnownTag::Merge
+        | KnownTag::Glob
+        | KnownTag::Filesize
+        | KnownTag::Duration
+        | KnownTag::Date
+        | KnownTag::Range
+        | KnownTag::Closure
+        | KnownTag::Error
+        | KnownTag::CellPath => {
+            return Err(ShellError::from(ParseError::IncorrectTag {
+                tag,
+                at: NodeKind::Mapping,
+                span: ctx.yaml_span,
+            }));
+        }
+
+        // unsupported tag
+        KnownTag::Timestamp | KnownTag::Value | KnownTag::Yaml => {
+            return Err(ShellError::from(ParseError::UnsupportedTag {
+                tag,
+                at: NodeKind::Mapping,
+                span: ctx.parser_span,
+            }));
+        }
     }
 }
 
@@ -649,16 +711,26 @@ fn parse_key<'i>(
     tag: Option<Cow<'i, Tag>>,
 ) -> Result<MapKey, ShellError> {
     let tag = ctx.resolve_tag(tag.as_deref())?;
+    match tag {
+        None => Ok(match (value.as_ref(), scalar_style) {
+            ("<<", ScalarStyle::Plain) => MapKey::Merge,
+            _ => MapKey::Normal(value.to_string()),
+        }),
+        Some(tag) => match tag {
+            KnownTag::Str => Ok(MapKey::Normal(value.to_string())),
+            KnownTag::Merge => Ok(MapKey::Merge),
 
-    // According to spec a key node may be just about everything:
-    // https://yaml.org/spec/1.2.2/#mapping
-    // However nushell is only able to represent mappings via `Record`,
-    // therefore we enforce keys as strings.
-
-    Ok(match (value.as_ref(), scalar_style) {
-        ("<<", ScalarStyle::Plain) => MapKey::Merge,
-        _ => MapKey::Normal(value.to_string()),
-    })
+            // According to spec a key node may be just about everything:
+            // https://yaml.org/spec/1.2.2/#mapping
+            // However nushell is only able to represent mappings via `Record`,
+            // therefore we enforce keys as strings.
+            _ => Err(ShellError::from(ParseError::UnsupportedTag {
+                tag,
+                at: NodeKind::Key,
+                span: ctx.parser_span,
+            })),
+        },
+    }
 }
 
 #[cfg(test)]
