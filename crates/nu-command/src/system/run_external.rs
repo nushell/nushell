@@ -6,7 +6,7 @@ use nu_protocol::{
     process::{ChildProcess, PostWaitCallback},
     shell_error::io::IoError,
 };
-use nu_system::{ForegroundChild, kill_by_pid};
+use nu_system::{ForegroundChild, kill_by_pid, prepare_background_command};
 use nu_utils::IgnoreCaseExt;
 use pathdiff::diff_paths;
 #[cfg(windows)]
@@ -255,13 +255,13 @@ If you create a custom command with this name, that will be used instead."
                 }
             },
             PipelineData::Empty => {
-                // MCP servers run non-interactively - use null stdin to prevent commands
-                // from hanging when they prompt for passwords or other input.
-                // In the future, this may become a more general option (e.g., no_stdin)
-                // but needs more testing first. See:
-                // https://github.com/nushell/nushell/pull/17161#discussion_r2761243143
-                if engine_state.is_mcp {
+                // Use null stdin when running non-interactively (MCP) or when the
+                // caller explicitly requests it (mainly background completion threads,
+                // where inheriting the terminal could race with reedline's reads
+                // and cause bad EIO).
+                if engine_state.is_mcp || stack.suppress_stdin {
                     command.stdin(Stdio::null());
+                    prepare_background_command(&mut command);
                 } else {
                     command.stdin(Stdio::inherit());
                 }
@@ -814,5 +814,136 @@ mod test {
         );
         write_pipeline_data(engine_state.clone(), stack.clone(), input, &mut buf).unwrap();
         assert_eq!(buf, b"foo");
+    }
+}
+
+/// Tests for the background-completion terminal-isolation fix.
+///
+/// When `stack.suppress_stdin` is set (used by `NuCompleter::new_for_background`),
+/// subprocesses must:
+///   1. Receive a null device for stdin so they can't steal keystrokes.
+///   2. Be isolated from the parent's terminal/console so tools like carapace
+///      cannot call tcsetattr (Unix) or SetConsoleMode (Windows) and corrupt
+///      reedline's raw-mode state.
+#[cfg(test)]
+mod background_isolation_tests {
+    use nu_system::prepare_background_command;
+    use std::process::{Command, Stdio};
+    use std::time::Duration;
+
+    /// A subprocess whose stdin is the null device should see EOF immediately –
+    /// it must not block waiting for terminal input. Blocking would indicate that
+    /// suppress_stdin isn't working and the subprocess still holds the terminal.
+    #[cfg(unix)]
+    #[test]
+    fn test_suppress_stdin_gives_eof_not_terminal() {
+        // "read line" returns immediately with exit code 1 when stdin is
+        // /dev/null (EOF), but blocks indefinitely if stdin is the terminal.
+        let child = Command::new("sh")
+            .args(["-c", "read line; echo exit:$?"])
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("sh should spawn");
+
+        let start = nu_utils::time::Instant::now();
+        let output = child.wait_with_output().expect("wait failed");
+        assert!(
+            start.elapsed() < Duration::from_secs(2),
+            "subprocess blocked – stdin was not /dev/null"
+        );
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(
+            stdout.contains("exit:1"),
+            "expected EOF on stdin, got: {stdout}"
+        );
+    }
+
+    /// On Windows, `set /p` reads a line from stdin. With NUL for stdin it
+    /// returns immediately with ERRORLEVEL 1 (EOF), but blocks on a terminal.
+    #[cfg(windows)]
+    #[test]
+    fn test_suppress_stdin_gives_eof_not_terminal() {
+        let child = Command::new("cmd")
+            .args(["/c", "set /p x= && echo exit:0 || echo exit:1"])
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("cmd should spawn");
+
+        let start = nu_utils::time::Instant::now();
+        let output = child.wait_with_output().expect("wait failed");
+        assert!(
+            start.elapsed() < Duration::from_secs(2),
+            "subprocess blocked... stdin was not NUL"
+        );
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(
+            stdout.contains("exit:1"),
+            "expected EOF on stdin, got: {stdout}"
+        );
+    }
+
+    /// A subprocess spawned via setsid() must not be able to open /dev/tty.
+    /// If it CAN open /dev/tty it can call tcsetattr and corrupt reedline's
+    /// terminal state, causing EIO ("Input/output error") on the next read.
+    #[cfg(unix)]
+    #[test]
+    fn test_setsid_removes_controlling_terminal() {
+        let mut cmd = Command::new("sh");
+        cmd.args([
+            "-c",
+            // Try to open /dev/tty; if it succeeds write "has_tty", else "no_tty".
+            // Use a subshell so that a failed exec redirect (which exits the
+            // shell on both bash and dash) doesn't silence the outer || branch.
+            "(exec 3>/dev/tty) 2>/dev/null && echo has_tty || echo no_tty",
+        ])
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null());
+
+        prepare_background_command(&mut cmd);
+
+        let output = cmd.output().expect("sh should run");
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert_eq!(
+            stdout.trim(),
+            "no_tty",
+            "subprocess should have no controlling terminal after setsid(); \
+             if it has one it can corrupt reedline's terminal mode and cause EIO"
+        );
+    }
+
+    /// A subprocess launched with DETACHED_PROCESS has no console attached, so
+    /// cmd's built-in `chcp` (which queries the console code page) MUST fail.
+    /// If `chcp` succeeds it would be bad as the child has inherited the parent's console and a
+    /// completer could call SetConsoleMode to corrupt reedline's state.
+    #[cfg(windows)]
+    #[test]
+    fn test_detached_process_removes_console() {
+        let mut cmd = Command::new("cmd");
+
+        // `chcp` with no args queries the console code page via the console API.
+        // It succeeds when a console is attached and fails when there is none.
+        cmd.args([
+            "/c",
+            "(chcp >NUL 2>&1) && echo has_console || echo no_console",
+        ])
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null());
+
+        prepare_background_command(&mut cmd);
+
+        let output = cmd.output().expect("cmd should run");
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert_eq!(
+            stdout.trim(),
+            "no_console",
+            "subprocess should have no console after DETACHED_PROCESS; \
+             if it has one a completer could call SetConsoleMode and corrupt reedline's state"
+        );
     }
 }

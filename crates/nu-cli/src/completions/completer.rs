@@ -9,9 +9,15 @@ use nu_protocol::{
     ast::{Argument, Block, Expr, Expression, PipelineRedirection, RedirectionTarget, Traverse},
     engine::{ArgType, EngineState, Stack, StateWorkingSet},
 };
+use nu_utils::time::Instant;
 use reedline::{Completer as ReedlineCompleter, Suggestion};
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex, mpsc};
+use std::thread;
+use std::time::Duration;
 use std::{borrow::Cow, ops::ControlFlow};
+
+const CACHE_TTL: Duration = Duration::from_secs(5);
 
 use super::{StaticCompletion, custom_completions::CommandWideCompletion};
 
@@ -138,10 +144,22 @@ fn strip_placeholder_if_any<'a>(
     (new_span, prefix)
 }
 
+struct CachedCompletion {
+    suggestions: Vec<Suggestion>,
+    timestamp: Instant,
+}
+
+type CompletionCache = Arc<Mutex<HashMap<(String, usize), CachedCompletion>>>;
+/// Shared slot for the background-thread signal channel receiver.
+/// Wrapped in Arc<Mutex<>> so NuCompleter stays Clone.
+type PendingRx = Arc<Mutex<Option<mpsc::Receiver<()>>>>;
+
 #[derive(Clone)]
 pub struct NuCompleter {
     engine_state: Arc<EngineState>,
-    stack: Stack,
+    stack: Arc<Stack>,
+    cache: CompletionCache,
+    pending_rx: PendingRx,
 }
 
 /// Common arguments required for Completer
@@ -172,7 +190,26 @@ impl NuCompleter {
     pub fn new(engine_state: Arc<EngineState>, stack: Arc<Stack>) -> Self {
         Self {
             engine_state,
-            stack: Stack::with_parent(stack).reset_out_dest().collect_value(),
+            stack,
+            cache: Arc::new(Mutex::new(HashMap::new())),
+            pending_rx: Arc::new(Mutex::new(None)),
+        }
+    }
+
+    fn new_for_background(engine_state: Arc<EngineState>, stack: Arc<Stack>) -> Self {
+        Self {
+            engine_state,
+            stack: Arc::new(
+                Stack::with_parent(stack)
+                    .reset_out_dest()
+                    // We never want to write to the terminal
+                    .suppress_output()
+                    // We don't want races with reedlines own
+                    .suppress_stdin()
+                    .collect_value(),
+            ),
+            cache: Arc::new(Mutex::new(HashMap::new())),
+            pending_rx: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -773,16 +810,199 @@ struct CommandCompletionOptions {
 
 impl ReedlineCompleter for NuCompleter {
     fn complete(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
-        self.fetch_completions_at(line, pos)
-            .into_iter()
-            .map(|s| s.suggestion)
-            .collect()
+        let key = (line.to_string(), pos);
+
+        // Return immediately if the cache has a fresh result for this query.
+        if let Some(suggestions) = get_from_cache(self, &key) {
+            return suggestions;
+        }
+
+        // If the cache misses: alert the background thread and instantly return empty.
+        // Reedline will call `check_pending` / `complete` again to pick up the
+        // results and repaint.
+        let (tx, rx) = mpsc::channel();
+        {
+            let Ok(mut pending_guard) = self.pending_rx.lock() else {
+                // If the mutex is poisoned,
+                // return empty results and pray the next call goes smoothly.
+                return vec![];
+            };
+            pending_guard.replace(rx);
+        }
+
+        let engine_state = self.engine_state.clone();
+        let stack = self.stack.clone();
+        let cache = self.cache.clone();
+        let line_owned = line.to_string();
+
+        thread::spawn(move || {
+            let completer = NuCompleter::new_for_background(engine_state, stack);
+            let suggestions: Vec<Suggestion> = completer
+                .fetch_completions_at(&line_owned, pos)
+                .into_iter()
+                .map(|s| s.suggestion)
+                .collect();
+
+            if let Ok(mut guard) = cache.lock() {
+                guard.insert(
+                    key,
+                    CachedCompletion {
+                        suggestions,
+                        timestamp: Instant::now(),
+                    },
+                );
+            }
+
+            // Results are in the cache!
+            let _ = tx.send(());
+        });
+
+        fn get_from_cache(
+            completer: &NuCompleter,
+            key: &(String, usize),
+        ) -> Option<Vec<Suggestion>> {
+            let cache = completer.cache.lock().ok()?;
+            let entry = cache.get(key)?;
+
+            if entry.timestamp.elapsed() < CACHE_TTL {
+                Some(entry.suggestions.clone())
+            } else {
+                None
+            }
+        }
+
+        vec![]
+    }
+
+    fn has_pending(&mut self) -> bool {
+        self.pending_rx.lock().is_ok_and(|g| g.is_some())
+    }
+
+    fn check_pending(&mut self) -> bool {
+        let Ok(mut guard) = self.pending_rx.lock() else {
+            return false;
+        };
+        let Some(rx) = guard.as_ref() else {
+            return false;
+        };
+
+        match rx.try_recv() {
+            Ok(()) => {
+                *guard = None;
+                true
+            }
+            Err(mpsc::TryRecvError::Empty) => false,
+            Err(mpsc::TryRecvError::Disconnected) => {
+                *guard = None;
+                false
+            }
+        }
     }
 }
 
 #[cfg(test)]
 mod completer_tests {
     use super::*;
+
+    #[test]
+    fn test_non_blocking_completion_cache() {
+        let mut engine_state =
+            nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
+
+        let delta = {
+            let working_set = nu_protocol::engine::StateWorkingSet::new(&engine_state);
+            working_set.render()
+        };
+
+        let result = engine_state.merge_delta(delta);
+        assert!(
+            result.is_ok(),
+            "Error merging delta: {:?}",
+            result.err().unwrap()
+        );
+
+        let mut completer = NuCompleter::new(engine_state.into(), Arc::new(Stack::new()));
+
+        // Get expected results via the direct (non-cached) path.
+        let expected: Vec<Suggestion> = completer
+            .fetch_completions_at("ls | c", 6)
+            .into_iter()
+            .map(|s| s.suggestion)
+            .collect();
+        assert!(!expected.is_empty(), "expected non-empty results");
+        assert!(
+            expected.iter().any(|s| s.value == "cd"),
+            "should contain cd"
+        );
+
+        let first = completer.complete("ls | c", 6);
+        assert!(
+            first.is_empty(),
+            "first call should return empty (cache miss)"
+        );
+        assert!(completer.has_pending(), "should have pending completion");
+
+        // Simulate reedline's polling loop: call check_pending() until results arrive,
+        // then call complete() to retrieve them from the cache.
+        let second = loop {
+            if completer.check_pending() {
+                break completer.complete("ls | c", 6);
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        };
+
+        assert_eq!(
+            expected.len(),
+            second.len(),
+            "cached result should match direct result"
+        );
+        for s in &expected {
+            assert!(
+                second.iter().any(|x| x.value == s.value),
+                "cached result should contain '{}'",
+                s.value
+            );
+        }
+    }
+
+    /// Verifies that the background completion stack NEVER inherits the live terminal's
+    /// stdout/stderr.
+    #[test]
+    fn test_background_completer_suppresses_output() {
+        use nu_protocol::OutDest;
+
+        let engine_state = Arc::new(nu_command::add_shell_command_context(
+            nu_cmd_lang::create_default_context(),
+        ));
+        let stack = Arc::new(Stack::new());
+        let bg = NuCompleter::new_for_background(engine_state, stack);
+
+        assert!(
+            matches!(bg.stack.stdout(), OutDest::Value),
+            "background completer stdout should be collected"
+        );
+        assert!(
+            matches!(bg.stack.stderr(), OutDest::Null),
+            "background completer stderr should be Null"
+        );
+
+        assert!(
+            bg.stack.suppress_stdin,
+            "background completer must suppress child-process stdin"
+        );
+
+        // foreground completer is chill with stdin
+        let fg = NuCompleter::new(
+            Arc::new(nu_command::add_shell_command_context(
+                nu_cmd_lang::create_default_context(),
+            )),
+            Arc::new(Stack::new()),
+        );
+        assert!(
+            !fg.stack.suppress_stdin,
+            "foreground completer must not suppress stdin"
+        );
+    }
 
     #[test]
     fn test_completion_helper() {
