@@ -378,6 +378,7 @@ export def prod [
 ]: [
     nothing -> table
     list -> table
+    range -> table
 ] {
     peek | metadata access {|md|
         match $md.peek {

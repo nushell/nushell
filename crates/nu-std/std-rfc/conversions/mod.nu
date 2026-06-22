@@ -63,6 +63,9 @@ export def table-into-columns []: [table -> list<table>] {
 @example "Name the items in a list" {
     [1, 2, 3] | name-values a b c
 } --result {a: 1, b: 2, c: 3}
-export def name-values [...names: string]: [list -> record] {
+export def name-values [...names: string]: [
+    list -> record
+    range -> record
+] {
     zip 0.. | each { [$in.1 $in.0] } | into record | rename ...$names
 }
