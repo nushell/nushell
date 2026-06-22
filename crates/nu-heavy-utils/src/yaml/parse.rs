@@ -472,7 +472,25 @@ fn parse_sequence<'i>(
             }
             Ok(Value::list(pairs, ctx.parser_span))
         }
-        KnownTag::OMap => todo!(),
+        KnownTag::OMap => {
+            let mut entries = Vec::with_capacity(values.len());
+            let mut keys = HashSet::with_capacity(values.len());
+            for value in values.into_iter() {
+                let record = value.into_record().map_err(|_| ShellError::Generic(todo!()))?;
+                let mut iter = record.into_iter();
+                match (iter.next(), iter.next()) {
+                    (None, None) => todo!("too few entries"),
+                    (Some((key, value)), None) => {
+                        if !keys.insert(key.clone()) {
+                            todo!("throw error for duplicate key");
+                        }
+
+                        entries.push((key, value))},
+                    (_, Some(_)) => todo!("too many entries"),
+                }
+            }
+            Ok(Value::record(Record::from_iter(entries), ctx.parser_span))
+        },
 
         KnownTag::Map => todo!(),
         KnownTag::Str => todo!(),
