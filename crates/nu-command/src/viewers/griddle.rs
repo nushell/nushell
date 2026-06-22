@@ -55,6 +55,7 @@ prints every item of the list in a grid layout. For tables or list
 containing records, it will look for a 'name' column by default; if
 the 'name' column is missing, the entire record is rendered instead."
     }
+
     fn run(
         &self,
         engine_state: &EngineState,
