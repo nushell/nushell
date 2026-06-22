@@ -215,17 +215,17 @@ impl Display for PathMember {
 
 #[derive(Debug, thiserror::Error)]
 #[error("could not parse path member {attempted:?}")]
-pub struct PathMemberParseError {
+pub struct ParsePathMemberError {
     attempted: String,
 }
 
 impl FromStr for PathMember {
-    type Err = PathMemberParseError;
+    type Err = ParsePathMemberError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         parse::path_member
             .parse(s)
-            .map_err(|_| PathMemberParseError {
+            .map_err(|_| ParsePathMemberError {
                 attempted: s.to_owned(),
             })
     }
@@ -387,15 +387,15 @@ impl Display for CellPath {
 
 #[derive(Debug, thiserror::Error)]
 #[error("could not parse cell path {attempted:?}")]
-pub struct CellPathParseError {
+pub struct ParseCellPathError {
     attempted: String,
 }
 
 impl FromStr for CellPath {
-    type Err = CellPathParseError;
+    type Err = ParseCellPathError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        parse::cell_path.parse(s).map_err(|_| CellPathParseError {
+        parse::cell_path.parse(s).map_err(|_| ParseCellPathError {
             attempted: s.to_owned(),
         })
     }
