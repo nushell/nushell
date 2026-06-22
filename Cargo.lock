@@ -2181,9 +2181,9 @@ dependencies = [
 
 [[package]]
 name = "fff-grep"
-version = "0.9.0"
+version = "0.9.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2e3bc72c710fcad66390b4a6f91b04739d8e5d58b808a733bd7775f53c25dd8"
+checksum = "5ac5720676a3e1cb901683073c0bcc0a8f04e1bfe6bea391e1f14b9f95dbdef2"
 dependencies = [
  "bstr",
  "memchr",
@@ -2205,15 +2205,15 @@ dependencies = [
 
 [[package]]
 name = "fff-query-parser"
-version = "0.9.0"
+version = "0.9.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c82a1957c0db1c1a2e4b1471e20cf0c41b13fb69f6aea42aec8a2b8ddd03dfd"
+checksum = "2e83290e48a8e4dc6ff7cfdfcf382b2a07b6ef1f07e7d477427e3ebb60192307"
 
 [[package]]
 name = "fff-search"
-version = "0.9.0"
+version = "0.9.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8202f46b59a35840766815f1c144c71974e8600dcbd2c52f20a00799e36f3a78"
+checksum = "3fdc9cb0a546fa219b073df04bd58884c1b1b43c21d33008a69b785f24819eb2"
 dependencies = [
  "ahash",
  "aho-corasick",
@@ -2239,6 +2239,7 @@ dependencies = [
  "regex",
  "regex-syntax 0.8.10",
  "serde",
+ "signal-hook-registry",
  "smallvec",
  "thiserror 2.0.18",
  "tracing",
@@ -4218,9 +4219,9 @@ dependencies = [
 
 [[package]]
 name = "neo_frizbee"
-version = "0.10.2"
+version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "728e0731ad3a0083b9f72a82df72c298641ba970d4e308e0897ec4c89212c31d"
+checksum = "0dd76fab81213d184cc28a7757791775bdcfd7f2a15e3558d7a4f7e4ee7de864"
 dependencies = [
  "itertools 0.14.0",
  "raw-cpuid",
