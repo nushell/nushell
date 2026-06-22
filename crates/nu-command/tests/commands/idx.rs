@@ -340,6 +340,103 @@ fn idx_search_finds_content() -> Result {
 
 #[test]
 #[serial]
+fn idx_search_bracket_pattern_finds_content() -> Result {
+    Playground::setup(
+        "idx_search_bracket_pattern_finds_content",
+        |dirs, sandbox| {
+            sandbox.with_files(&[
+                FileWithContent("test.txt", "Lyrics["),
+                FileWithContent("other.txt", "unrelated"),
+            ]);
+
+            test()
+                .cwd(dirs.test())
+                .run("idx init . --wait; idx search 'Lyrics[' | length")
+                .expect_value_eq(1)
+        },
+    )
+}
+
+#[test]
+#[serial]
+fn idx_search_question_mark_as_literal_text() -> Result {
+    Playground::setup(
+        "idx_search_question_mark_as_literal_text",
+        |dirs, sandbox| {
+            sandbox.with_files(&[
+                FileWithContent("code.rs", "foo? bar"),
+                FileWithContent("other.rs", "just foo"),
+            ]);
+
+            test()
+                .cwd(dirs.test())
+                .run("idx init . --wait; idx search 'foo?' | length")
+                .expect_value_eq(1)
+        },
+    )
+}
+
+#[test]
+#[serial]
+fn idx_search_bracket_literal_example_finds_content() -> Result {
+    Playground::setup(
+        "idx_search_bracket_literal_example_finds_content",
+        |dirs, sandbox| {
+            sandbox.with_files(&[
+                FileWithContent("example.rs", "arr[0] = value"),
+                FileWithContent("other.txt", "unrelated"),
+            ]);
+
+            test()
+                .cwd(dirs.test())
+                .run("idx init . --wait; idx search 'arr[0]' | length")
+                .expect_value_eq(1)
+        },
+    )
+}
+
+#[test]
+#[serial]
+fn idx_search_glob_with_path_separator_example_filters_files() -> Result {
+    Playground::setup(
+        "idx_search_glob_with_path_separator_example_filters_files",
+        |dirs, sandbox| {
+            sandbox
+                .within("tests")
+                .with_files(&[FileWithContent("search_test.rs", "pattern found here")]);
+            sandbox
+                .within("src")
+                .with_files(&[FileWithContent("main.rs", "pattern found here")]);
+
+            test()
+                .cwd(dirs.test())
+                .run("idx init . --wait; idx search pattern tests/* | length")
+                .expect_value_eq(1)
+        },
+    )
+}
+
+#[test]
+#[serial]
+fn idx_search_brace_glob_still_filters_files() -> Result {
+    Playground::setup(
+        "idx_search_brace_glob_still_filters_files",
+        |dirs, sandbox| {
+            sandbox.with_files(&[
+                FileWithContent("alpha.rs", "pattern found here"),
+                FileWithContent("beta.js", "pattern found here"),
+            ]);
+
+            test()
+                .cwd(dirs.test())
+                .run("idx init . --wait; idx search pattern *.{rs,js} | length")
+                .expect_value_eq(2)
+        },
+    )
+}
+
+#[test]
+#[serial]
 fn idx_drop_clears_runtime() -> Result {
     Playground::setup("idx_drop_clears_runtime", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("alpha.txt")]);
