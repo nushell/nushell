@@ -234,7 +234,6 @@ pub(crate) fn run_lsp(
     use_color: bool,
     start_time: nu_utils::time::Instant,
 ) -> Result<(), miette::ErrReport> {
-    perf!("lsp starting", start_time, use_color);
 
     if parsed_nu_cli_args.no_config_file.is_none() {
         let mut stack = nu_protocol::engine::Stack::new();
@@ -249,5 +248,7 @@ pub(crate) fn run_lsp(
         );
     }
 
-    nu_lsp::LanguageServer::initialize_stdio_connection(engine_state)?.serve_requests()
+    let serve = nu_lsp::LanguageServer::initialize_stdio_connection(engine_state)?.serve_requests();
+    perf!("lsp starting", start_time, use_color);
+    serve
 }
