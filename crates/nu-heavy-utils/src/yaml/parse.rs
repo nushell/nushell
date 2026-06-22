@@ -16,10 +16,9 @@ use chrono::DateTime;
 use derive_setters::Setters;
 use nu_protocol::{
     FromValue, Range, Record, ShellError, Span, Spanned, Value, ast::CellPath, record,
-    shell_error::generic::GenericError,
 };
 use nu_utils::location::Location;
-use regex::Regex;
+use regex::{Captures, Regex};
 use serde_saphyr::granit_parser::{Event, Parser, ScalarStyle, StrInput, StructureStyle, Tag};
 use std::{
     borrow::Cow,
@@ -213,6 +212,8 @@ fn parse_document<'i>(ctx: &mut ParseCtx<'i>) -> Result<Value, ShellError> {
     }
 }
 
+// TODO: add BASE2 for 1.1
+
 static BASE10: LazyLock<Regex> =
     LazyLock::new(|| Regex::new("^[-+]?[0-9]+$").expect("valid base 10 regex"));
 fn parse_base10<'i>(ctx: &mut ParseCtx<'i>, s: &str) -> Result<i64, ParseError<'i>> {
@@ -224,28 +225,75 @@ fn parse_base10<'i>(ctx: &mut ParseCtx<'i>, s: &str) -> Result<i64, ParseError<'
     })
 }
 
-static BASE8: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new("^0o[0-7]+$").expect("valid base 8 regex"));
-fn parse_base8<'i>(ctx: &mut ParseCtx<'i>, s: &str) -> Result<i64, ParseError<'i>> {
-    let (_, digits) = s.split_at(b"0o".len());
-    i64::from_str_radix(digits, 8).map_err(|err| ParseError::NumInt {
-        base: 8,
-        attempted: s.to_owned(),
-        err,
-        span: ctx.yaml_span,
-    })
+static BASE8_11: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new("^(?<sign>[-+]?)0(?<digits>[0-7]+)$").expect("valid base 8 regex"));
+fn parse_base8_11<'i>(
+    ctx: &mut ParseCtx<'i>,
+    s: &str,
+    caps: Captures<'_>,
+) -> Result<Value, ParseError<'i>> {
+    i64::from_str_radix(&caps["digits"], 8)
+        .map_err(|err| ParseError::NumInt {
+            base: 8,
+            attempted: s.to_owned(),
+            err,
+            span: ctx.yaml_span,
+        })
+        .map(|num| match &caps["sign"] {
+            "+" => num * 1,
+            "-" => num * -1,
+            "" => num,
+            _ => unreachable!(r#"only matches "+", "-" and """#),
+        })
+        .map(|num| Value::int(num, ctx.parser_span))
 }
 
-static BASE16: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new("^0x[0-9a-fA-F]+$").expect("valid base 16 regex"));
-fn parse_base16<'i>(ctx: &mut ParseCtx<'i>, s: &str) -> Result<i64, ParseError<'i>> {
-    let (_, digits) = s.split_at(b"0x".len());
-    i64::from_str_radix(digits, 16).map_err(|err| ParseError::NumInt {
-        base: 16,
-        attempted: s.to_owned(),
-        err,
-        span: ctx.yaml_span,
-    })
+static BASE8_12: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new("^(?<sign>[-+]?)0o(?<digits>[0-7]+)$").expect("valid base 8 regex")
+});
+fn parse_base8_12<'i>(
+    ctx: &mut ParseCtx<'i>,
+    s: &str,
+    caps: Captures<'_>,
+) -> Result<Value, ParseError<'i>> {
+    i64::from_str_radix(&caps["digits"], 8)
+        .map_err(|err| ParseError::NumInt {
+            base: 8,
+            attempted: s.to_owned(),
+            err,
+            span: ctx.yaml_span,
+        })
+        .map(|num| match &caps["sign"] {
+            "+" => num * 1,
+            "-" => num * -1,
+            "" => num,
+            _ => unreachable!(r#"only matches "+", "-" and """#),
+        })
+        .map(|num| Value::int(num, ctx.parser_span))
+}
+
+static BASE16: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new("^(?<sign>[-+]?)0x(?<digits>[0-9a-fA-F]+)$").expect("valid base 16 regex")
+});
+fn parse_base16<'i>(
+    ctx: &mut ParseCtx<'i>,
+    s: &str,
+    caps: Captures<'_>,
+) -> Result<Value, ParseError<'i>> {
+    i64::from_str_radix(&caps["digits"], 16)
+        .map_err(|err| ParseError::NumInt {
+            base: 16,
+            attempted: s.to_owned(),
+            err,
+            span: ctx.yaml_span,
+        })
+        .map(|num| match &caps["sign"] {
+            "+" => num * 1,
+            "-" => num * -1,
+            "" => num,
+            _ => unreachable!(r#"only matches "+", "-" and """#),
+        })
+        .map(|num| Value::int(num, ctx.parser_span))
 }
 
 static FLOAT: LazyLock<Regex> = LazyLock::new(|| {
@@ -273,9 +321,6 @@ fn parse_scalar<'i>(
     tag: Option<Cow<'i, Tag>>,
 ) -> Result<Value, ShellError> {
     let tag = ctx.resolve_tag(tag.as_deref())?;
-
-    // TODO: handle spec 1.1 and 1.2
-
     let span = ctx.parser_span;
     let value = value.as_ref();
 
@@ -293,17 +338,23 @@ fn parse_scalar<'i>(
 
             // We resolve values according to the core schema
             // https://yaml.org/spec/1.2.2/#1032-tag-resolution
-            Ok(match value {
-                "null" | "Null" | "NULL" | "~" | "" => Value::nothing(span),
-                "true" | "True" | "TRUE" => Value::bool(true, span),
-                "false" | "False" | "FALSE" => Value::bool(false, span),
-                s if BASE10.is_match(s) => Value::int(parse_base10(ctx, s)?, span),
-                s if BASE8.is_match(s) => Value::int(parse_base8(ctx, s)?, span),
-                s if BASE16.is_match(s) => Value::int(parse_base16(ctx, s)?, span),
-                s if FLOAT.is_match(s) => Value::float(parse_float(ctx, s)?, span),
-                s if INFINITY.is_match(s) => Value::float(f64::INFINITY, span),
-                s if NAN.is_match(s) => Value::float(f64::NAN, span),
-                s => Value::string(s, span),
+            use Spec::{V1_1, V1_2};
+            Ok(match (ctx.options.spec, value) {
+                (_, "null" | "Null" | "NULL" | "~" | "") => Value::nothing(span),
+                (_, "true" | "True" | "TRUE") => Value::bool(true, span),
+                (_, "false" | "False" | "FALSE") => Value::bool(false, span),
+                (V1_1, "yes" | "Yes" | "YES" | "y" | "Y") => Value::bool(true, span),
+                (V1_1, "no" | "No" | "NO" | "n" | "N") => Value::bool(false, span),
+                (V1_1, "on" | "On" | "ON") => Value::bool(true, span),
+                (V1_1, "off" | "Off" | "OFF") => Value::bool(false, span),
+                (V1_1, s) if let Some(caps) = BASE8_11.captures(s) => parse_base8_11(ctx, s, caps)?,
+                (V1_2, s) if let Some(caps) = BASE8_12.captures(s) => parse_base8_12(ctx, s, caps)?,
+                (_, s) if let Some(caps) = BASE16.captures(s) => parse_base16(ctx, s, caps)?,
+                (_, s) if BASE10.is_match(s) => Value::int(parse_base10(ctx, s)?, span),
+                (_, s) if FLOAT.is_match(s) => Value::float(parse_float(ctx, s)?, span),
+                (_, s) if INFINITY.is_match(s) => Value::float(f64::INFINITY, span),
+                (_, s) if NAN.is_match(s) => Value::float(f64::NAN, span),
+                (_, s) => Value::string(s, span),
             })
         }
 
@@ -320,8 +371,21 @@ fn parse_scalar<'i>(
                     }));
                 }
             },
-            KnownTag::Int if BASE8.is_match(value) => Value::int(parse_base8(ctx, value)?, span),
-            KnownTag::Int if BASE16.is_match(value) => Value::int(parse_base16(ctx, value)?, span),
+            KnownTag::Int
+                if ctx.options.spec == Spec::V1_1
+                    && let Some(caps) = BASE8_11.captures(value) =>
+            {
+                parse_base8_11(ctx, value, caps)?
+            }
+            KnownTag::Int
+                if ctx.options.spec == Spec::V1_2
+                    && let Some(caps) = BASE8_12.captures(value) =>
+            {
+                parse_base8_12(ctx, value, caps)?
+            }
+            KnownTag::Int if let Some(caps) = BASE16.captures(value) => {
+                parse_base16(ctx, value, caps)?
+            }
             KnownTag::Int => Value::int(parse_base10(ctx, value)?, span),
             KnownTag::Float if INFINITY.is_match(value) => Value::float(f64::INFINITY, span),
             KnownTag::Float if NAN.is_match(value) => Value::float(f64::NAN, span),

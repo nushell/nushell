@@ -9,7 +9,7 @@ mod serialize;
 pub use serialize::*;
 
 #[non_exhaustive]
-#[derive(Debug, Clone, Copy, Default, FromValue)]
+#[derive(Debug, Clone, Copy, Default, FromValue, PartialEq, Eq)]
 pub enum Spec {
     #[default]
     #[nu_value(rename = "1.1")]
