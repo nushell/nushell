@@ -14,7 +14,6 @@ use serde_saphyr::{FlowMap, FlowSeq, FoldStr, LitStr, Serializer, ser_options};
 use std::{
     cell::{Cell, RefCell},
     fmt::{self, Write},
-    io,
 };
 
 #[non_exhaustive]
@@ -205,6 +204,22 @@ impl Serialize for YamlValue<'_> {
             })
         }
 
+        let serialize_closure = |closure: &Closure, serializer: S| {
+            OPTIONS.with_borrow(|options| match &options.non_roundtrip {
+                NonRoundtrip::Null => serializer.serialize_unit(),
+                NonRoundtrip::Lossy { engine_state } => {
+                    let block = engine_state.get_block(closure.block_id);
+                    if let Some(span) = block.span {
+                        let contents = engine_state.get_span_contents(span);
+                        let contents = String::from_utf8_lossy(contents);
+                        serialize_with_tag(serializer, tag, contents)
+                    } else {
+                        todo!("throw error that content could not be found")
+                    }
+                }
+            })
+        };
+
         match self {
             // untagged types
             YamlValue::Bool(bool) => bool.serialize(serializer),
@@ -225,21 +240,7 @@ impl Serialize for YamlValue<'_> {
             YamlValue::Duration(duration) => serialize_with_tag(serializer, tag, duration),
             YamlValue::Date(date_time) => serialize_with_tag(serializer, tag, date_time),
             YamlValue::Range(range) => serialize_with_tag(serializer, tag, range),
-            YamlValue::Closure(closure) => {
-                OPTIONS.with_borrow(|options| match &options.non_roundtrip {
-                    NonRoundtrip::Null => serializer.serialize_unit(),
-                    NonRoundtrip::Lossy { engine_state } => {
-                        let block = engine_state.get_block(closure.block_id);
-                        if let Some(span) = block.span {
-                            let contents = engine_state.get_span_contents(span);
-                            let contents = String::from_utf8_lossy(contents);
-                            serialize_with_tag(serializer, tag, contents)
-                        } else {
-                            todo!("throw error that content could not be found")
-                        }
-                    }
-                })
-            }
+            YamlValue::Closure(closure) => serialize_closure(closure, serializer),
             YamlValue::Error(shell_error) => serialize_with_tag(serializer, tag, shell_error),
             YamlValue::Binary(items) => serializer.serialize_bytes(items),
             YamlValue::CellPath(cell_path) => serialize_with_tag(serializer, tag, cell_path),

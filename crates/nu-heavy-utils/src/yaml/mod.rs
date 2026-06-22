@@ -1,5 +1,7 @@
 use nu_protocol::FromValue;
 
+mod error;
+
 mod parse;
 pub use parse::*;
 

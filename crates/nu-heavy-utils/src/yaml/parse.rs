@@ -6,7 +6,10 @@
 
 use crate::{
     merge::{Merge, MergeStrategy},
-    yaml::{KnownTag, Spec, UnknownTagError},
+    yaml::{
+        KnownTag, Spec, UnknownTagError,
+        error::{InternalParserError, ParseError},
+    },
 };
 use base64::{Engine, engine::general_purpose::STANDARD as BASE64_STANDARD};
 use chrono::DateTime;
@@ -15,6 +18,7 @@ use nu_protocol::{
     FromValue, Range, Record, ShellError, Span, Spanned, Value, ast::CellPath, record,
     shell_error::generic::GenericError,
 };
+use nu_utils::location::Location;
 use regex::Regex;
 use serde_saphyr::granit_parser::{Event, Parser, ScalarStyle, StrInput, StructureStyle, Tag};
 use std::{
@@ -60,7 +64,7 @@ pub fn parse(yaml: Spanned<&str>, span: Span, options: &ParseOptions) -> Result<
     let start = ctx.next_event()?;
     match start {
         Event::StreamStart => (),
-        event => return Err(ctx.unexpected_event(event)),
+        event => return Err(ctx.unexpected_event(event).into()),
     }
 
     let mut documents = Vec::new();
@@ -69,16 +73,20 @@ pub fn parse(yaml: Spanned<&str>, span: Span, options: &ParseOptions) -> Result<
             Event::DocumentStart(_) => documents.push(parse_document(ctx)?),
             Event::StreamEnd => break,
             Event::Nothing | Event::Comment(..) => continue,
-            event => return Err(ctx.unexpected_event(event)),
+            event => return Err(ctx.unexpected_event(event).into()),
         }
     }
 
     use ParseMultiple as PM;
     let value = match (ctx.options.multiple, documents.len()) {
-        (PM::Auto | PM::ForceSingle, 0) => todo!("handle no document"),
+        (PM::Auto | PM::ForceSingle, 0) => Value::nothing(ctx.parser_span),
         (PM::Auto | PM::ForceSingle, 1) => documents.into_iter().next().expect("non-empty"),
         (PM::Auto | PM::ForceList, _) => Value::list(documents, ctx.parser_span),
-        (PM::ForceSingle, _) => todo!("handle force single when more than 1 document"),
+        (PM::ForceSingle, _) => {
+            return Err(ShellError::from(ParseError::TooManyDocuments {
+                span: ctx.yaml_span,
+            }));
+        }
     };
 
     Ok(value)
@@ -93,95 +101,53 @@ struct ParseCtx<'i> {
 }
 
 impl<'i> ParseCtx<'i> {
-    fn next_event(&mut self) -> Result<Event<'i>, ShellError> {
+    #[track_caller]
+    fn next_event(&mut self) -> Result<Event<'i>, ParseError<'i>> {
         match self.parser.next_event() {
-            None => Err(ShellError::Generic(
-                GenericError::new(
-                    "Unexpected end of YAML events",
-                    "Unexpectedly the event stream of the YAML parser ended",
-                    self.parser_span,
-                )
-                .with_code("shell::yaml::parser::end_of_events")
-                .with_help("This is most likely a bug. Please report it."),
-            )),
-            Some(Err(err)) => Err(ShellError::Generic(
-                GenericError::new(
-                    "Scanning YAML failed",
-                    "Scanning the YAML input failed",
-                    self.yaml_span,
-                )
-                .with_code("shell::yaml::parser::scan_error")
-                .with_source(err),
-            )),
+            None => Err(ParseError::Internal {
+                error: InternalParserError::UnexpectedEventEnd {
+                    location: Location::caller(),
+                },
+                span: self.parser_span,
+            }),
+            Some(Err(err)) => Err(ParseError::Scan {
+                source: err,
+                span: self.yaml_span,
+            }),
             Some(Ok((event, _))) => Ok(event),
         }
     }
 
     #[track_caller]
-    fn unexpected_event(&self, event: Event<'i>) -> ShellError {
-        ShellError::Generic(
-            GenericError::new(
-                "Internal YAML Parser Error",
-                "The YAML parser got into an unexpected state",
-                self.parser_span,
-            )
-            .with_code("shell::yaml::parser::internal")
-            .with_help("This is most likely a bug. Please report it.")
-            .with_inner([ShellError::Generic(
-                GenericError::new_internal(
-                    "Unexpected YAML event",
-                    format!("Unexpected YAML event during parsing: {event:?}"),
-                )
-                .with_code("shell::yaml::parser::unexpected_event"),
-            )]),
-        )
+    fn unexpected_event(&self, event: Event<'i>) -> ParseError<'i> {
+        ParseError::Internal {
+            error: InternalParserError::UnexpectedEvent {
+                event: event,
+                location: Location::caller(),
+            },
+            span: self.parser_span,
+        }
     }
 
     fn unexpected_key_anchor(&self) -> ShellError {
         todo!()
     }
 
-    fn unknown_tag_err(&self, err: UnknownTagError) -> ShellError {
-        ShellError::Generic(
-            GenericError::new(
-                "Unknown tag",
-                format!("The tag {:?} is unknown to nushell", err.0),
-                self.yaml_span,
-            )
-            .with_code("shell::yaml::parser::tag::unknown"),
-        )
-    }
-
-    fn unhandled_tags(&self, tag: Option<Cow<'_, Tag>>) -> Result<(), ShellError> {
-        match tag {
-            None => Ok(()),
-            Some(tag) => Err(ShellError::Generic(
-                GenericError::new(
-                    "Tags not supported",
-                    "The current implementation does not support tags yet",
-                    self.parser_span,
-                )
-                .with_code("shell::yaml::parser::tag::unsupported")
-                .with_inner([GenericError::new(
-                    "Unsupported tag",
-                    format!("The tag {tag} is not supported"),
-                    self.yaml_span,
-                )
-                .into()]),
-            )),
+    fn unknown_tag_err(&self, err: UnknownTagError) -> ParseError<'i> {
+        ParseError::UnknownTag {
+            tag: err.0,
+            span: self.yaml_span,
         }
     }
 
-    fn alias(&self, id: usize) -> Result<NonZeroUsize, ShellError> {
-        NonZeroUsize::new(id).ok_or(ShellError::Generic(
-            GenericError::new(
-                "Invalid Alias ID",
-                "YAML parser generated 0 as an Alias ID",
-                self.parser_span,
-            )
-            .with_code("shell::yaml::parser::zero_alias")
-            .with_help("This error should not occur and is likely a bug. Please report it."),
-        ))
+    #[track_caller]
+    fn alias(&self, id: usize) -> Result<NonZeroUsize, ParseError<'i>> {
+        NonZeroUsize::new(id).ok_or(ParseError::Internal {
+            error: InternalParserError::ZeroAliasID {
+                location: Location::caller(),
+            },
+            span: self.parser_span,
+        })
     }
 
     fn set_anchor(&mut self, anchor_id: NonZeroUsize, value: Value) {
@@ -192,10 +158,16 @@ impl<'i> ParseCtx<'i> {
         NonZeroUsize::new(anchor_id).map(|anchor_id| self.set_anchor(anchor_id, value.clone()));
     }
 
+    #[track_caller]
     fn get_anchor(&self, anchor_id: NonZeroUsize) -> Result<Value, ShellError> {
         match self.anchors.get(&anchor_id) {
             Some(value) => Ok(value.clone()),
-            None => todo!(),
+            None => Err(ShellError::from(ParseError::Internal {
+                error: InternalParserError::MissingAlias {
+                    location: Location::caller(),
+                },
+                span: self.parser_span,
+            })),
         }
     }
 }
@@ -222,7 +194,7 @@ fn parse_document<'i>(ctx: &mut ParseCtx<'i>) -> Result<Value, ShellError> {
                 ctx.maybe_set_anchor(anchor_id, &value);
                 break value;
             }
-            event => return Err(ctx.unexpected_event(event)),
+            event => return Err(ctx.unexpected_event(event).into()),
         }
     };
 
@@ -230,71 +202,54 @@ fn parse_document<'i>(ctx: &mut ParseCtx<'i>) -> Result<Value, ShellError> {
         match ctx.next_event()? {
             Event::Nothing | Event::Comment(..) => continue,
             Event::DocumentEnd => return Ok(value),
-            event => return Err(ctx.unexpected_event(event)),
+            event => return Err(ctx.unexpected_event(event).into()),
         }
     }
 }
 
 static BASE10: LazyLock<Regex> =
     LazyLock::new(|| Regex::new("^[-+]?[0-9]+$").expect("valid base 10 regex"));
-fn parse_base10(ctx: &mut ParseCtx<'_>, s: &str) -> Result<i64, ShellError> {
-    i64::from_str_radix(s, 10).map_err(|err| {
-        ShellError::Generic(
-            GenericError::new(
-                "Parsing Base 10 failed",
-                format!("Parsing {s:?} failed, {err}"),
-                ctx.yaml_span,
-            )
-            .with_code("shell::yaml::parser::num::base10"),
-        )
+fn parse_base10<'i>(ctx: &mut ParseCtx<'i>, s: &str) -> Result<i64, ParseError<'i>> {
+    i64::from_str_radix(s, 10).map_err(|err| ParseError::NumInt {
+        base: 10,
+        attempted: s.to_owned(),
+        err,
+        span: ctx.yaml_span,
     })
 }
 
 static BASE8: LazyLock<Regex> =
     LazyLock::new(|| Regex::new("^0o[0-7]+$").expect("valid base 8 regex"));
-fn parse_base8(ctx: &mut ParseCtx<'_>, s: &str) -> Result<i64, ShellError> {
+fn parse_base8<'i>(ctx: &mut ParseCtx<'i>, s: &str) -> Result<i64, ParseError<'i>> {
     let (_, digits) = s.split_at(b"0o".len());
-    i64::from_str_radix(digits, 8).map_err(|err| {
-        ShellError::Generic(
-            GenericError::new(
-                "Parsing Base 8 failed",
-                format!("Parsing {s:?} failed, {err}"),
-                ctx.yaml_span,
-            )
-            .with_code("shell::yaml::parser::num::base8"),
-        )
+    i64::from_str_radix(digits, 8).map_err(|err| ParseError::NumInt {
+        base: 8,
+        attempted: s.to_owned(),
+        err,
+        span: ctx.yaml_span,
     })
 }
 
 static BASE16: LazyLock<Regex> =
     LazyLock::new(|| Regex::new("^0x[0-9a-fA-F]+$").expect("valid base 16 regex"));
-fn parse_base16(ctx: &mut ParseCtx<'_>, s: &str) -> Result<i64, ShellError> {
+fn parse_base16<'i>(ctx: &mut ParseCtx<'i>, s: &str) -> Result<i64, ParseError<'i>> {
     let (_, digits) = s.split_at(b"0x".len());
-    i64::from_str_radix(digits, 16).map_err(|err| {
-        ShellError::Generic(
-            GenericError::new(
-                "Parsing Base 16 failed",
-                format!("Parsing {s:?} failed, {err}"),
-                ctx.yaml_span,
-            )
-            .with_code("shell::yaml::parser::num::base16"),
-        )
+    i64::from_str_radix(digits, 16).map_err(|err| ParseError::NumInt {
+        base: 16,
+        attempted: s.to_owned(),
+        err,
+        span: ctx.yaml_span,
     })
 }
 
 static FLOAT: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^[-+]?(\.[0-9]+|[0-9]+(\.[0-9]*)?)([eE][-+]?[0-9]+)?$").expect("valid float regex")
 });
-fn parse_float(ctx: &mut ParseCtx<'_>, s: &str) -> Result<f64, ShellError> {
-    f64::from_str(s).map_err(|err| {
-        ShellError::Generic(
-            GenericError::new(
-                "Parsing Float failed",
-                format!("Parsing {s:?} failed, {err}"),
-                ctx.yaml_span,
-            )
-            .with_code("shell::yaml::parser::num::float"),
-        )
+fn parse_float<'i>(ctx: &mut ParseCtx<'i>, s: &str) -> Result<f64, ParseError<'i>> {
+    f64::from_str(s).map_err(|err| ParseError::NumFloat {
+        attempted: s.to_owned(),
+        err,
+        span: ctx.yaml_span,
     })
 }
 
@@ -311,6 +266,7 @@ fn parse_scalar<'i>(
     scalar_style: ScalarStyle,
     tag: Option<Cow<'i, Tag>>,
 ) -> Result<Value, ShellError> {
+    // TODO: make a single function for this
     let tag = match ctx.options.ignore_tags {
         true => None,
         false => tag
@@ -358,7 +314,12 @@ fn parse_scalar<'i>(
             KnownTag::Bool => match value.to_lowercase().as_ref() {
                 "true" => Value::bool(true, span),
                 "false" => Value::bool(false, span),
-                _ => todo!(),
+                _ => {
+                    return Err(ShellError::from(ParseError::Bool {
+                        attempted: value.to_owned(),
+                        span: ctx.yaml_span,
+                    }));
+                }
             },
             KnownTag::Int if BASE8.is_match(value) => Value::int(parse_base8(ctx, value)?, span),
             KnownTag::Int if BASE16.is_match(value) => Value::int(parse_base16(ctx, value)?, span),
@@ -368,30 +329,48 @@ fn parse_scalar<'i>(
             KnownTag::Float => Value::float(parse_float(ctx, value)?, span),
             KnownTag::Binary => Value::binary(
                 BASE64_STANDARD
-                    .decode(value)
-                    .map_err(|err| ShellError::Generic(todo!()))?,
+                    .decode(&value)
+                    .map_err(|err| ParseError::Binary {
+                        attempted: value.to_owned(),
+                        err,
+                        span: ctx.yaml_span,
+                    })?,
                 span,
             ),
             KnownTag::Glob => Value::glob(value, false, span),
             KnownTag::Filesize => Value::filesize(parse_base10(ctx, value)?, span),
             KnownTag::Duration => Value::duration(parse_base10(ctx, value)?, span),
             KnownTag::Date => Value::date(
-                DateTime::from_str(value).map_err(|err| ShellError::Generic(todo!()))?,
+                DateTime::from_str(value).map_err(|err| ParseError::Date {
+                    attempted: value.to_owned(),
+                    err,
+                    span: ctx.yaml_span,
+                })?,
                 span,
             ),
             KnownTag::Range => Value::range(
-                Range::from_str(value).map_err(|err| ShellError::Generic(todo!()))?,
+                Range::from_str(value).map_err(|err| ParseError::Range {
+                    attempted: value.to_owned(),
+                    err,
+                    span: ctx.yaml_span,
+                })?,
                 span,
             ),
             KnownTag::CellPath => Value::cell_path(
                 CellPath::from_str(value)
                     .map(|cp| cp.with_fallback_span(span))
-                    .map_err(|err| ShellError::Generic(todo!()))?,
+                    .map_err(|err| ParseError::CellPath {
+                        attempted: value.to_owned(),
+                        err,
+                        span: ctx.yaml_span,
+                    })?,
                 span,
             ),
 
             // unimplemented tag
-            KnownTag::Closure => todo!(),
+            KnownTag::Closure => {
+                return Err(ShellError::from(ParseError::UnimplementedTag { tag, span }));
+            }
 
             // incorrect tag
             KnownTag::Map => todo!(),
@@ -446,7 +425,7 @@ fn parse_sequence<'i>(
                 values.push(value);
             }
             Event::SequenceEnd => break,
-            event => return Err(ctx.unexpected_event(event)),
+            event => return Err(ctx.unexpected_event(event).into()),
         }
     }
 
@@ -557,7 +536,7 @@ fn parse_mapping<'i>(
                     let record = Record::from_iter(values);
                     break 'record merge.merge(record, merge_strategy, ctx.parser_span)?;
                 }
-                event => return Err(ctx.unexpected_event(event)),
+                event => return Err(ctx.unexpected_event(event).into()),
             }
         };
 
@@ -581,7 +560,7 @@ fn parse_mapping<'i>(
                     ctx.maybe_set_anchor(anchor_id, &value);
                     break 'value value;
                 }
-                event => return Err(ctx.unexpected_event(event)),
+                event => return Err(ctx.unexpected_event(event).into()),
             }
         };
 
@@ -672,7 +651,7 @@ fn parse_key<'i>(
     scalar_style: ScalarStyle,
     tag: Option<Cow<'i, Tag>>,
 ) -> Result<MapKey, ShellError> {
-    ctx.unhandled_tags(tag)?;
+    // ctx.unhandled_tags(tag)?;
 
     // According to spec a key node may be just about everything:
     // https://yaml.org/spec/1.2.2/#mapping
