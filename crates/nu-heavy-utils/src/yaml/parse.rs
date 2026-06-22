@@ -201,6 +201,8 @@ impl<'i> ParseCtx<'i> {
 }
 
 fn parse_document<'i>(ctx: &mut ParseCtx<'i>) -> Result<Value, ShellError> {
+    // TODO: if document version directive gets exposed, read it and override the spec version locally
+
     let value = loop {
         match ctx.next_event()? {
             Event::Nothing | Event::Comment(..) => continue,
