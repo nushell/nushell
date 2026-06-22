@@ -51,10 +51,10 @@ impl Command for Griddle {
 
     fn extra_description(&self) -> &str {
         "The `grid` command creates a concise gridded layout for the input. It
-prints every item of the list in a grid layout. However, for table,
-you need to provide the name of the column you want to put in the grid."
+prints every item of the list in a grid layout. For tables or list
+containing records, it will look for a 'name' column by default; if
+the 'name' column is missing, the entire record is rendered instead."
     }
-
     fn run(
         &self,
         engine_state: &EngineState,
@@ -235,27 +235,58 @@ fn create_grid_output(
     }
 }
 
+/// Converts an iterator of values into a list of expanded strings, suitable for grid layouts.
+///
+/// This function supports two evaluation paths depending on the presence of a cell path:
+///
+/// - **Explicit Path:** If a `cell_path` is specified (e.g., `ls | grid name`), it extracts the
+///   value at that inner path for every item.
+/// - **Implicit Fallback:** If no path is provided (e.g., `ls | grid`), it checks if the item is
+///   a `Value::Record`. If the record contains a `"name"` column, it extracts that value;
+///   otherwise, it falls back to processing the item as-is.
+///
+/// # Errors
+///
+/// Returns a `ShellError` if any item evaluates to a `Value::Error`, or if a provided
+/// `cell_path` fails to resolve against the data structure.
 fn convert_to_list(
     iter: impl IntoIterator<Item = Value>,
     cell_path: Option<CellPath>,
     config: &Config,
 ) -> Result<Vec<String>, ShellError> {
-    iter.into_iter()
-        .map(|item| {
+    let iter = iter.into_iter();
+
+    if let Some(cell_path) = cell_path {
+        // Path A: Explicit cell path provided (e.g., `ls | grid name`)
+        iter.map(|item| {
             if let Value::Error { error, .. } = item {
                 return Err(*error);
             }
 
-            let value = match &cell_path {
-                Some(cell_path) => &item.follow_cell_path(&cell_path.members)?,
-                None => &item,
-            };
+            let string = item
+                .follow_cell_path(&cell_path.members)?
+                .to_expanded_string(", ", config);
 
-            Ok(value.to_expanded_string(", ", config))
+            Ok(string)
         })
         .collect()
-}
+    } else {
+        // Path B: Implicit fallback (e.g., `ls | grid`). Matches the "name" column if present.
 
+        iter.map(|item| {
+            let target_value = match &item {
+                Value::Record { val, .. } => val.get("name").unwrap_or(&item),
+                item => item,
+            };
+
+            match target_value {
+                Value::Error { error, .. } => Err(*error.clone()),
+                val => Ok(val.to_expanded_string(", ", config)),
+            }
+        })
+        .collect()
+    }
+}
 #[cfg(test)]
 mod test {
     #[test]
