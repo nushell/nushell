@@ -285,12 +285,21 @@ export def only [
     --optional # Return `null` if there are no elements (does not affect behavior of the `cell_path` argument)
     cell_path?: cell-path # The cell path to access within the only element.
 ]: [table -> any, list -> any] {
-    let pipe = {in: $in, meta: (metadata $in)}
-    match $pipe.in {
-        [] if $optional => null
-        [] => (only-error "expected non-empty table/list" $pipe.meta "empty")
-        [$one] => ($one | if $cell_path != null { get $cell_path } else { })
-        _ => (only-error "expected only one element in table/list" $pipe.meta "has more than one element")
+    peek 2 | metadata access {|meta|
+        match $meta.peek.value? {
+            [] => {
+                # discard pipeline input
+                null;
+                # had to move it here from the match guard. while the closure
+                # itself has access to `$optional`, for some reason it was not
+                # available to the match guard at runtime
+                if not $optional {
+                    only-error "expected non-empty table/list" $meta "empty"
+                }
+            }
+            [$one] => ($one | if $cell_path != null { get $cell_path } else { })
+            _ => (only-error "expected only one element in table/list" $meta "has more than one element")
+        }
     }
 }
 
