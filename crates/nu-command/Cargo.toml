@@ -24,6 +24,7 @@ harness = false
 workspace = true
 
 [dependencies]
+ansi-str = { workspace = true }
 nu-ansi-term.workspace = true
 nu-cmd-base.workspace = true
 nu-color-config.workspace = true
@@ -94,6 +95,7 @@ pathdiff = { workspace = true }
 percent-encoding = { workspace = true }
 print-positions = { workspace = true }
 quick-xml = { workspace = true }
+aegis-password-generator = { workspace = true, optional = true }
 rand = { workspace = true, optional = true }
 getrandom = { workspace = true, optional = true }
 rayon = { workspace = true }
@@ -120,6 +122,7 @@ tabled = { workspace = true, features = ["ansi"], default-features = false }
 titlecase = { workspace = true }
 toml = { workspace = true, features = ["preserve_order"] }
 toml_edit = { workspace = true }
+kdl = { workspace = true }
 unicode-segmentation = { workspace = true }
 update-informer = { workspace = true, optional = true }
 ureq = { workspace = true, default-features = false, features = [
@@ -220,7 +223,7 @@ os = [
 # The dependencies listed below need 'getrandom'.
 # They work with JS (usually with wasm-bindgen) or regular OS support.
 # Hence they are also put under the 'os' feature to avoid repetition.
-js = ["getrandom", "getrandom/wasm_js", "rand", "uuid"]
+js = ["aegis-password-generator", "getrandom", "getrandom/wasm_js", "rand", "uuid"]
 
 # These dependencies require networking capabilities, especially the http
 # interface requires openssl which is not easy to embed into wasm,

@@ -40,7 +40,7 @@ fn ignore_stderr_consumes_stderr_and_allows_stdout() {
 #[test]
 fn ignore_stderr_allows_stdout_to_continue_in_pipeline() {
     let actual = nu!(
-        r#"with-env { FOO: "message" } { nu --testbin echo_env_mixed out-err FOO FOO | ignore --stderr | str upcase }"#
+        r#"with-env { FOO: "message" } { nu --testbin echo_env_mixed out-err FOO FOO | ignore --stderr | str uppercase }"#
     );
 
     assert_eq!(actual.out, "MESSAGE");

@@ -1,3 +1,10 @@
+[workspace.package]
+authors = ["The Nushell Project Developers"]
+edition = "2024"
+rust-version = "1.95.0"
+license = "MIT"
+version = "0.113.2"
+
 [package]
 authors.workspace = true
 edition.workspace = true
@@ -13,12 +20,7 @@ homepage = "https://www.nushell.sh"
 name = "nu"
 repository = "https://github.com/nushell/nushell"
 autotests = false
-[workspace.package]
-authors = ["The Nushell Project Developers"]
-edition = "2024"
-rust-version = "1.93.1"
-license = "MIT"
-version = "0.113.2"
+
 [[test]]
 name = "tests"
 path = "tests/main.rs"
@@ -127,19 +129,21 @@ nu_plugin_query = { path = "crates/nu_plugin_query", version = "0.113.2", defaul
 nu_plugin_stress_internals = { path = "crates/nu_plugin_stress_internals", version = "0.113.2", default-features = false }
 nuon = { path = "crates/nuon", version = "0.113.2", default-features = false }
 
+aegis-password-generator = "0.1.1"
 alphanumeric-sort = "1.5"
 ansi-str = "0.9"
 anyhow = "1.0.102"
 base64 = "0.22.1"
 bracoxide = "0.1.8"
 brotli = "8.0"
+bstr = "1.12.1"
 byteorder = "1.5"
 bytes = "1"
 bytesize = "2.3.1"
 byteyarn = "0.5"
 calamine = "0.35"
 chardetng = "0.1.17"
-chrono = { default-features = false, version = "0.4.41" } # polars is requiring <= 0.4.41
+chrono = { default-features = false, version = "0.4.42" }
 chrono-humanize = "0.2.3"
 chrono-tz = "0.10"
 crossbeam-channel = "0.5.15"
@@ -157,18 +161,20 @@ encoding_rs = "0.8"
 fancy-regex = "0.18"
 filesize = "0.2"
 filetime = "0.2.27"
-fff-search = { version = "=0.8.4", default-features = false }
+fff-search = { version = "=0.9.6", default-features = false }
 fluent = "0.17.0"
 fuzzy-matcher = { version = "^0.3.7" }
 gatekeeper = "3.0.0"
 heck = "0.5.0"
 http = "1.4.0"
 human-date-parser = "0.3.1"
+humantime = "2.3.0"
 indexmap = "2.14.0"
 indicatif = "0.18.4"
+indoc = "2"
 interprocess = "2.4.2"
 is_executable = "1.0.5"
-itertools = "0.14"
+itertools = "0.15"
 kitest = "0.5.0"
 lean_string = { version = "0.6.0", features = ["serde"] }
 lexopt = "0.3.2"
@@ -186,7 +192,7 @@ md5 = { version = "0.10", package = "md-5" }
 miette = "7.6"
 mime = "0.3.17"
 mime_guess = "2.0"
-mq-markdown = "0.5.26"
+mq-markdown = "0.6.0"
 mockito = { version = "1.7.2", default-features = false }
 multipart-rs = "0.1.13"
 native-tls = "0.2.18"
@@ -248,7 +254,7 @@ strip-ansi-escapes = "0.2.1"
 strum = "0.27.0"
 strum_macros = "0.27.0"
 syn = "2.0.117"
-sysinfo = "0.38.4"
+sysinfo = "0.39.3"
 tabled = { version = "0.21", default-features = false }
 tempfile = "3.27"
 thiserror = "2.0.18"
@@ -256,6 +262,7 @@ titlecase = "3.6"
 tokio = { version = "1.52.1" }
 toml = "1.1.2"
 toml_edit = "0.25.11"
+kdl = "6.7.1"
 trash = "=5.2.5"
 update-informer = { version = "1.3.0", default-features = false, features = ["github", "ureq"] }
 umask = "2.1"
@@ -273,15 +280,16 @@ uu_uname = "0.9.0"
 uucore = "0.9.0"
 uuid = "1.23.1"
 v_htmlescape = "0.15.8"
+memchr = "2.8.0"
 wax = "0.7.0"
 web-time = "1.1.0"
+webpki-roots = "1.0.7"
 which = "8.0.2"
 win_uds = "=0.2.2"
 windows = "0.62.2"
 windows-sys = "0.61.2"
+winnow = "1.0"
 winreg = "0.56"
-memchr = "2.8.0"
-webpki-roots = "1.0.7"
 
 [workspace.lints.clippy]
 # Warning: workspace lints affect library code as well as tests, so don't enable lints that would be too noisy in tests like that.
@@ -463,7 +471,7 @@ bench = false
 # To use a development version of a dependency please use a global override here
 # changing versions in each sub-crate of the workspace is tedious
 [patch.crates-io]
-# reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
+reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
 # nu-ansi-term = { git = "https://github.com/nushell/nu-ansi-term.git", branch = "main" }
 
 # Run all benchmarks with `cargo bench`

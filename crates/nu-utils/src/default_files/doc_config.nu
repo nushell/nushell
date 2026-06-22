@@ -609,6 +609,23 @@ $env.config.abbreviations = {}
 # menus (list): Menu configurations for Reedline.
 # Menus are typically activated via keybindings.
 # See https://www.nushell.sh/book/line_editor.html#menus for details.
+#
+# Each menu must declare its input behavior with one of:
+#   input_mode: "diff", "cursor_prefix", or "full_buffer" -- what text the
+#     menu source receives ("diff": only text typed since the menu opened,
+#     "cursor_prefix": the buffer up to the cursor, "full_buffer": the whole
+#     buffer)
+#   only_buffer_difference (legacy): true is equivalent to input_mode "diff",
+#     false to "cursor_prefix"
+# input_mode supersedes only_buffer_difference when both are set.
+#
+# Menus may also set output_mode: "suggested_span", "full_buffer", or
+# "extend_to_end" -- how an accepted suggestion replaces the buffer.
+# Unset is equivalent to "suggested_span".
+#
+# List-layout menus accept description_position: "before" or "after" in their
+# `type` record, controlling whether an entry's description is shown before or
+# after its value. Unset keeps reedline's default.
 # Default: []
 $env.config.menus = []
 
@@ -622,6 +639,42 @@ $env.config.menus = []
 #         columns: 4
 #         col_width: 20
 #         col_padding: 2
+#     }
+#     style: {
+#         text: green
+#         selected_text: green_reverse
+#         description_text: yellow
+#     }
+# }]
+
+# Example: The same menu using input/output modes instead of the legacy flag:
+# $env.config.menus ++= [{
+#     name: completion_menu
+#     input_mode: cursor_prefix
+#     output_mode: suggested_span
+#     marker: "| "
+#     type: {
+#         layout: columnar
+#         columns: 4
+#         col_width: 20
+#         col_padding: 2
+#     }
+#     style: {
+#         text: green
+#         selected_text: green_reverse
+#         description_text: yellow
+#     }
+# }]
+
+# Example: A list menu placing descriptions after each entry:
+# $env.config.menus ++= [{
+#     name: history_menu
+#     input_mode: diff
+#     marker: "? "
+#     type: {
+#         layout: list
+#         page_size: 10
+#         description_position: after
 #     }
 #     style: {
 #         text: green

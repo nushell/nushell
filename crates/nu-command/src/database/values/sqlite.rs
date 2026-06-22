@@ -761,7 +761,7 @@ pub fn convert_sqlite_value_to_nu_value(
         ValueRef::Real(f) => Value::float(f, span),
         ValueRef::Text(buf) => match (std::str::from_utf8(buf), decl_type) {
             (Ok(txt), Some(DeclType::Json | DeclType::Jsonb)) => {
-                match crate::try_json_str_to_value(txt, span, false) {
+                match crate::try_json_str_to_value(txt, span, false, &Signals::empty()) {
                     Ok(val) => val,
                     Err(err) => Value::error(err, span),
                 }
@@ -804,7 +804,7 @@ pub fn open_connection_in_memory() -> Result<Connection, ShellError> {
 }
 
 /// A lazy query builder for SQLite tables, allowing SQL pushdown optimizations
-/// for commands like `length`, `select`, `first`, and `last`.
+/// for commands like `length`, `select`, `first`, `last`, `skip`, and `uniq`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SQLiteQueryBuilder {
     pub db_path: PathBuf,
@@ -814,6 +814,8 @@ pub struct SQLiteQueryBuilder {
     pub sql_params: Vec<String>,    // parameters for the where clause
     pub sql_order_by: Option<String>, // e.g., "id DESC"
     pub sql_limit: Option<i64>,
+    pub sql_offset: Option<i64>,
+    pub sql_distinct: bool,
     #[serde(default)]
     pub column_adapters: BTreeMap<String, SQLiteColumnAdapter>,
     #[serde(skip, default = "Signals::empty")]
@@ -830,6 +832,8 @@ impl SQLiteQueryBuilder {
             sql_params: Vec::new(),
             sql_order_by: None,
             sql_limit: None,
+            sql_offset: None,
+            sql_distinct: false,
             column_adapters: BTreeMap::new(),
             signals,
         }
@@ -853,6 +857,16 @@ impl SQLiteQueryBuilder {
 
     pub fn with_limit(mut self, limit: i64) -> Self {
         self.sql_limit = Some(limit);
+        self
+    }
+
+    pub fn with_offset(mut self, offset: i64) -> Self {
+        self.sql_offset = Some(offset);
+        self
+    }
+
+    pub fn with_distinct(mut self) -> Self {
+        self.sql_distinct = true;
         self
     }
 
@@ -921,8 +935,9 @@ impl SQLiteQueryBuilder {
     }
 
     pub fn build_sql(&self) -> String {
+        let distinct = if self.sql_distinct { "DISTINCT " } else { "" };
         let select = self.sql_select.as_deref().unwrap_or("*");
-        let mut sql = format!("SELECT {} FROM [{}]", select, self.table_name);
+        let mut sql = format!("SELECT {distinct}{select} FROM [{}]", self.table_name);
 
         if let Some(where_clause) = &self.sql_where {
             write!(sql, " WHERE {}", where_clause).expect("writing to a String is infallible");
@@ -932,8 +947,19 @@ impl SQLiteQueryBuilder {
             write!(sql, " ORDER BY {}", order_by).expect("writing to a String is infallible");
         }
 
-        if let Some(limit) = self.sql_limit {
-            write!(sql, " LIMIT {}", limit).expect("writing to a String is infallible");
+        match (self.sql_limit, self.sql_offset) {
+            (Some(limit), Some(offset)) => {
+                write!(sql, " LIMIT {limit} OFFSET {offset}")
+                    .expect("writing to a String is infallible");
+            }
+            (Some(limit), None) => {
+                write!(sql, " LIMIT {limit}").expect("writing to a String is infallible");
+            }
+            (None, Some(offset)) => {
+                write!(sql, " LIMIT -1 OFFSET {offset}")
+                    .expect("writing to a String is infallible");
+            }
+            (None, None) => {}
         }
 
         sql

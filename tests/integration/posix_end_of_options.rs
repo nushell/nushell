@@ -221,3 +221,27 @@ fn custom_command_mixed_positionals_and_flags_with_end_of_options() -> Result {
         )
         .expect_value_eq(vec!["first", "flagval", "-second", "-third"])
 }
+
+#[test]
+fn wrapped_command_known_flag_after_end_of_options_is_positional() -> Result {
+    // Regression: def --wrapped previously didn't set end_of_options, so known flags
+    // after -- were still parsed as flags and could overwrite values set before --.
+    // Now everything after -- is treated as positional, preserving the pre-- flag value.
+    test()
+        .run(
+            "
+            def --wrapped example [--my-flag: string ...rest] {
+                [$my_flag] ++ $rest
+            }
+            example --my-flag=hi -- true false 001 --my-flag=goodbye
+        ",
+        )
+        .expect_value_eq(vec![
+            "hi",
+            "--",
+            "true",
+            "false",
+            "001",
+            "--my-flag=goodbye",
+        ])
+}

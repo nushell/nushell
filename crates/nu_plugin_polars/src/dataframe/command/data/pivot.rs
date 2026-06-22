@@ -4,6 +4,7 @@ use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 
+use polars::frame::PivotColumnNaming;
 use polars::{
     df,
     frame::DataFrame,
@@ -83,6 +84,11 @@ impl PluginCommand for PivotDF {
             .switch(
                 "stable",
                 "Perform a stable pivot.",
+                None,
+            )
+            .switch(
+                "always-combine-names",
+                "Always combine the values and on-column names.",
                 None,
             )
             .input_output_types(vec![
@@ -294,6 +300,12 @@ fn command_lazy(
         Selector::Wildcard - on.clone() - index.unwrap_or_else(|| Selector::Empty)
     };
 
+    let pivot_column_naming = if call.has_flag("always-combine-names")? {
+        PivotColumnNaming::Combine
+    } else {
+        PivotColumnNaming::Auto
+    };
+
     let result: NuLazyFrame = lazy
         .to_polars()
         .pivot(
@@ -304,6 +316,7 @@ fn command_lazy(
             agg,
             maintain_order,
             separator,
+            pivot_column_naming,
         )
         .into();
 

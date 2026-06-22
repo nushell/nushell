@@ -821,6 +821,22 @@ pub enum ShellError {
         span: Span,
     },
 
+    /// An HTTP request return an error code.
+    ///
+    /// ## Resolution
+    ///
+    /// Check the response body for more details.
+    #[error("HTTP Error {code} ({reason}): {url}")]
+    #[diagnostic(code(nu::shell::http_error))]
+    HttpError {
+        code: u16,
+        reason: &'static str,
+        url: String,
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
+
     #[error(transparent)]
     #[diagnostic(transparent)]
     Network(#[from] network::NetworkError),
@@ -1170,7 +1186,7 @@ pub enum ShellError {
             "This shouldn't happen. Please file an issue: https://github.com/nushell/nushell/issues"
         )
     )]
-    Exit { code: i32 },
+    Exit { code: i32, abort: bool },
 
     /// The code being executed called itself too many times.
     ///

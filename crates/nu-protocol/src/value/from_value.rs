@@ -623,7 +623,7 @@ where
     }
 
     fn expected_type() -> Type {
-        Type::OneOf(vec![A::expected_type(), B::expected_type()].into())
+        Type::one_of([A::expected_type(), B::expected_type()])
     }
 }
 

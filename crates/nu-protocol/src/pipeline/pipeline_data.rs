@@ -1,8 +1,8 @@
 #[cfg(feature = "os")]
 use crate::process::ExitStatusGuard;
 use crate::{
-    ByteStream, ByteStreamSource, ByteStreamType, Config, ListStream, OutDest, PipelineMetadata,
-    Range, ShellError, Signals, Span, Type, Value,
+    ByteStream, ByteStreamSource, ByteStreamType, CompareTypes, Config, ListStream, OutDest,
+    PipelineMetadata, Range, ShellError, Signals, Span, Type, TypeRelation, Value,
     ast::{Call, PathMember},
     engine::{EngineState, Stack},
     shell_error::{generic::GenericError, io::IoError},
@@ -172,47 +172,6 @@ impl PipelineData {
             PipelineData::Value(value, _) => value.get_type(),
             PipelineData::ListStream(_, _) => Type::list(Type::Any),
             PipelineData::ByteStream(stream, _) => stream.type_().into(),
-        }
-    }
-
-    /// Determine if the `PipelineData` is a [subtype](https://en.wikipedia.org/wiki/Subtyping) of `other`.
-    ///
-    /// This check makes no effort to collect a stream, so it may be a different result
-    /// than would be returned by calling [`Value::is_subtype_of()`] on the result of
-    /// [`.into_value()`](Self::into_value).
-    ///
-    /// A `ListStream` acts the same as an empty list type: it is a subtype of any [`list`](Type::List)
-    /// or [`table`](Type::Table) type. After converting to a value, it may become a more specific type.
-    /// For example, a `ListStream` is a subtype of `list<int>` and `list<string>`.
-    /// If calling [`.into_value()`](Self::into_value) results in a `list<int>`,
-    /// then the value would not be a subtype of `list<string>`, in contrast to the original `ListStream`.
-    ///
-    /// A `ByteStream` is a subtype of [`string`](Type::String) if it is coercible into a string.
-    /// Likewise, a `ByteStream` is a subtype of [`binary`](Type::Binary) if it is coercible into a binary value.
-    pub fn is_subtype_of(&self, other: &Type) -> bool {
-        match (self, other) {
-            (_, Type::Any) => true,
-            (data, Type::OneOf(oneof)) => oneof.iter().any(|t| data.is_subtype_of(t)),
-            (PipelineData::Empty, Type::Nothing) => true,
-            (PipelineData::Value(val, ..), ty) => val.is_subtype_of(ty),
-
-            // a list stream could be a list with any type, including a table
-            (PipelineData::ListStream(..), Type::List(..) | Type::Table(..)) => true,
-
-            (PipelineData::ByteStream(stream, ..), Type::String)
-                if stream.type_().is_string_coercible() =>
-            {
-                true
-            }
-            (PipelineData::ByteStream(stream, ..), Type::Binary)
-                if stream.type_().is_binary_coercible() =>
-            {
-                true
-            }
-
-            (PipelineData::Empty, _) => false,
-            (PipelineData::ListStream(..), _) => false,
-            (PipelineData::ByteStream(..), _) => false,
         }
     }
 
@@ -921,6 +880,30 @@ impl PipelineData {
                 }
             },
         }
+    }
+}
+
+impl CompareTypes<Type> for PipelineData {
+    fn compare_types(&self, other: &Type) -> Option<TypeRelation> {
+        self.get_type().compare_types(other)
+    }
+
+    /// Determine if the `PipelineData` can be assigned to `other`.
+    ///
+    /// This check makes no effort to collect a stream, so it may be a different result
+    /// than would be returned by calling [`Value::is_subtype_of()`] on the result of
+    /// [`.into_value()`](Self::into_value).
+    ///
+    /// A `ListStream` acts the same as an empty list type: it is a subtype of any [`list`](Type::List)
+    /// or [`table`](Type::Table) type. After converting to a value, it may become a more specific type.
+    /// For example, a `ListStream` is a subtype of `list<int>` and `list<string>`.
+    /// If calling [`.into_value()`](Self::into_value) results in a `list<int>`,
+    /// then the value would not be a subtype of `list<string>`, in contrast to the original `ListStream`.
+    ///
+    /// A `ByteStream` is a subtype of [`string`](Type::String) if it is coercible into a string.
+    /// Likewise, a `ByteStream` is a subtype of [`binary`](Type::Binary) if it is coercible into a binary value.
+    fn is_assignable_to(&self, dst: &Type) -> bool {
+        self.get_type().is_assignable_to(dst)
     }
 }
 

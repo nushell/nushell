@@ -54,17 +54,17 @@ jobs:
             host: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             options: MAIN_OPTIONS
-            steps: [fmt, clippy, build, test]
+            steps: [fmt, clippy, build, test, doctest]
           - name: Windows
             host: windows-latest
             target: x86_64-pc-windows-msvc
             options: MAIN_OPTIONS
-            steps: [fmt, clippy, build, test]
+            steps: [fmt, clippy, build, test, doctest]
           - name: MacOS
             host: macos-latest
             target: x86_64-apple-darwin
             options: MAIN_OPTIONS
-            steps: [fmt, clippy, build, test]
+            steps: [fmt, clippy, build, test, doctest]
           - name: Ubuntu Plugins
             host: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
@@ -94,11 +94,11 @@ jobs:
           - name: nu-parser/fuzz
             path: ./crates/nu-parser/fuzz
             profile: dev
-            skip: [build, test]
+            skip: [build, test, doctest]
           - name: nu-path/fuzz
             path: ./crates/nu-path/fuzz
             profile: dev
-            skip: [build, test]
+            skip: [build, test, doctest]
 
         exclude:
           - target: { name: WASM }
@@ -163,6 +163,11 @@ jobs:
         if: contains(matrix.target.steps, 'test') && !contains(matrix.workspace.skip, 'test')
         working-directory: ${{ matrix.workspace.path }}
         run: cargo test ${{ env[matrix.target.options] }} --profile ${{ matrix.workspace.profile }}
+
+      - name: cargo test --doc
+        if: contains(matrix.target.steps, 'doctest') && !contains(matrix.workspace.skip, 'doctest')
+        working-directory: ${{ matrix.workspace.path }}
+        run: cargo test --workspace --doc --profile ${{ matrix.workspace.profile }}
 
       - name: Assert Clean Repo
         run: git diff --quiet && git diff --cached --quiet

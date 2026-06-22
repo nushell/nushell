@@ -1,3 +1,5 @@
+#[cfg(feature = "sqlite")]
+use crate::database::QueryPlan;
 use itertools::Itertools;
 use nu_engine::command_prelude::*;
 use nu_protocol::PipelineMetadata;
@@ -57,6 +59,22 @@ impl Command for Uniq {
         mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
+
+        #[cfg(feature = "sqlite")]
+        // Pushdown optimization: bare `uniq` (no flags) via SELECT DISTINCT
+        if !call.has_flag(engine_state, stack, "count")?
+            && !call.has_flag(engine_state, stack, "repeated")?
+            && !call.has_flag(engine_state, stack, "unique")?
+            && !call.has_flag(engine_state, stack, "ignore-case")?
+            && let PipelineData::Value(Value::Custom { val, .. }, metadata) = &input
+            && let Some(plan) = QueryPlan::try_from_any(val.as_any())
+        {
+            let plan = plan.with_distinct();
+            return plan
+                .execute(call.head)
+                .map(|data| data.set_metadata(metadata.clone()));
+        }
+
         let mapper = Box::new(move |ms: ItemMapperState| -> ValueCounter {
             item_mapper(ms.item, ms.flag_ignore_case, ms.index, head)
         });

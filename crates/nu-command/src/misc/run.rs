@@ -1,8 +1,14 @@
 use nu_engine::{
     CallEval, command_prelude::*, get_eval_block_with_early_return, get_eval_expression,
 };
+use nu_parser::{find_main_block_id_in_script, parse};
 use nu_path::{absolute_with, is_windows_device_path};
-use nu_protocol::{BlockId, Value, engine::CommandType, shell_error::io::IoError};
+use nu_protocol::{
+    BlockId, Value,
+    ast::Block,
+    engine::{CommandType, StateWorkingSet},
+    shell_error::{generic::GenericError, io::IoError},
+};
 use std::sync::Arc;
 
 /// Run a script file in an isolated scope as part of a pipeline.
@@ -26,6 +32,11 @@ impl Command for Run {
                 "arguments",
                 SyntaxShape::Any,
                 "Arguments to pass to the script's `def main` if it exists.",
+            )
+            .switch(
+                "full-reparse",
+                "Reload and reparse the script on every invocation instead of using parser-cached blocks.",
+                Some('f'),
             )
             .allows_unknown_args()
             .category(Category::Core)
@@ -60,12 +71,8 @@ impl Command for Run {
         // Parser-time metadata tells us exactly which script block was compiled for this call.
         // We intentionally execute that precompiled block instead of reparsing at runtime.
         //
-        // - `block_id`: block compiled from the resolved script file
-        // - `block_id_name`: script file path string captured at parse time
-        let block_id: i64 = call.req_parser_info(engine_state, stack, "block_id")?;
         let block_id_name: String = call.req_parser_info(engine_state, stack, "block_id_name")?;
-        let block_id = BlockId::new(block_id as usize);
-        let block = engine_state.get_block(block_id).clone();
+        let full_reparse = call.get_parser_info(stack, "full_reparse").is_some();
 
         // Resolve the script path to an absolute path for consistent `CURRENT_FILE` / `FILE_PWD`
         // behavior. Device paths on Windows are already absolute-like and must be preserved.
@@ -87,6 +94,34 @@ impl Command for Run {
             path
         };
 
+        let mut full_reparse_engine_state = None;
+        let (block, main_block) = if full_reparse {
+            let (reparsed_engine_state, reparsed_block, reparsed_main_block_id) =
+                parse_run_script_fresh(engine_state, &file_path, call.head)?;
+            let reparsed_main_block =
+                reparsed_main_block_id.map(|id| reparsed_engine_state.get_block(id).clone());
+            full_reparse_engine_state = Some(reparsed_engine_state);
+            (reparsed_block, reparsed_main_block)
+        } else {
+            // - `block_id`: block compiled from the resolved script file
+            let block_id: i64 = call.req_parser_info(engine_state, stack, "block_id")?;
+            let block_id = BlockId::new(block_id as usize);
+            let block = engine_state.get_block(block_id).clone();
+            let main_block = if call.get_parser_info(stack, "main_block_id").is_some() {
+                let main_block_id: i64 =
+                    call.req_parser_info(engine_state, stack, "main_block_id")?;
+                Some(
+                    engine_state
+                        .get_block(BlockId::new(main_block_id as usize))
+                        .clone(),
+                )
+            } else {
+                None
+            };
+            (block, main_block)
+        };
+        let eval_engine_state = full_reparse_engine_state.as_ref().unwrap_or(engine_state);
+
         // Stash caller values so we can restore them after execution. `run` should expose file
         // context to the script, but must not leak modified values back to the caller.
         let old_file_pwd = stack.get_env_var(engine_state, "FILE_PWD").cloned();
@@ -102,20 +137,13 @@ impl Command for Run {
             Value::string(file_path.to_string_lossy(), call.head),
         );
 
-        let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
+        let eval_block_with_early_return = get_eval_block_with_early_return(eval_engine_state);
         let return_result = (|| {
             // If parser metadata includes a `main` entrypoint, invoke that specific declaration.
             // Otherwise evaluate the full script block as a pipeline transform.
-            if call.get_parser_info(stack, "main_block_id").is_some() {
-                // These IDs are parser-scoped to the resolved script and avoid cross-script `main`
-                // lookup collisions from ambient declarations.
-                let main_block_id: i64 =
-                    call.req_parser_info(engine_state, stack, "main_block_id")?;
-                let main_block = engine_state
-                    .get_block(BlockId::new(main_block_id as usize))
-                    .clone();
+            if let Some(main_block) = main_block.clone() {
                 let signature = (*main_block.signature).clone();
-                let callee_stack = stack.gather_captures(engine_state, &main_block.captures);
+                let callee_stack = stack.gather_captures(eval_engine_state, &main_block.captures);
                 let mut call_eval = CallEval::new(
                     callee_stack,
                     call.head,
@@ -126,7 +154,7 @@ impl Command for Run {
                 // Forward remaining run arguments (`run file.nu ...args`) to `main`.
                 // This helper normalizes long/short flags and supports AST+IR call representations
                 // while delegating actual binding/type validation to CallEval.
-                bind_main_arguments(engine_state, stack, call, &signature, &mut call_eval)?;
+                bind_main_arguments(eval_engine_state, stack, call, &signature, &mut call_eval)?;
                 call_eval.finalize_for_signature(&signature)?;
 
                 // Execute a signature-stripped copy of `main` after manually binding all
@@ -137,14 +165,14 @@ impl Command for Run {
                 let mut executable_main_block = (*main_block).clone();
                 *executable_main_block.signature = Signature::new("main");
 
-                call_eval.run_prebound(engine_state, &executable_main_block, input)
+                call_eval.run_prebound(eval_engine_state, &executable_main_block, input)
             } else {
                 // No explicit `main`: execute the script block directly in an isolated child stack.
                 // Parent scope values remain readable via stack parenting, but script mutations do
                 // not leak back to the caller.
                 let parent_stack = Arc::new(stack.clone());
                 let mut callee_stack = Stack::with_parent(parent_stack);
-                eval_block_with_early_return(engine_state, &mut callee_stack, &block, input)
+                eval_block_with_early_return(eval_engine_state, &mut callee_stack, &block, input)
                     .map(|p| p.body)
             }
         })();
@@ -183,8 +211,58 @@ impl Command for Run {
                 example: "ls | run process.nu | select name size",
                 result: None,
             },
+            Example {
+                description: "Always reload and reparse a script before each invocation.",
+                example: "watch . -g *.nu | each -f { run --full-reparse ./test.nu }",
+                result: None,
+            },
         ]
     }
+}
+
+/// Reload, reparse, and compile a script file against a cloned engine state.
+///
+/// This is used by `run --full-reparse` to bypass parser-time script caching while keeping
+/// declaration resolution and execution isolated from the caller's engine state.
+///
+/// Parse errors are surfaced at runtime as `ShellError::Generic`, which is an intentional behavior
+/// difference from parse-time `run` compilation.
+fn parse_run_script_fresh(
+    engine_state: &EngineState,
+    file_path: &std::path::Path,
+    call_head: Span,
+) -> Result<(EngineState, Arc<Block>, Option<BlockId>), ShellError> {
+    let contents = std::fs::read(file_path)
+        .map_err(|err| IoError::new(err, call_head, file_path.to_path_buf()))?;
+    let mut full_reparse_engine_state = engine_state.clone();
+    let mut working_set = StateWorkingSet::new(&full_reparse_engine_state);
+    working_set
+        .files
+        .push(file_path.to_path_buf(), call_head)
+        .map_err(|err| GenericError::new("Failed to parse script", err.to_string(), call_head))?;
+
+    let filename = file_path.to_string_lossy();
+    let script_block = parse(&mut working_set, Some(filename.as_ref()), &contents, false);
+    let script_main_block_id = find_main_block_id_in_script(&working_set, &script_block);
+    working_set.files.pop();
+
+    if let Some(parse_error) = working_set.parse_errors.first() {
+        return Err(GenericError::new(
+            "Failed to parse script",
+            parse_error.to_string(),
+            call_head,
+        )
+        .into());
+    }
+
+    let delta = working_set.render();
+    full_reparse_engine_state.merge_delta(delta)?;
+
+    Ok((
+        full_reparse_engine_state,
+        script_block,
+        script_main_block_id,
+    ))
 }
 
 /// Parse a source token that looks like a long or short named flag.

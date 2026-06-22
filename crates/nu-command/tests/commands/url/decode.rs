@@ -15,9 +15,8 @@ fn url_decode_special_characters() -> Result {
 fn url_decode_error_invalid_utf8() -> Result {
     let err = test().run("'%99' | url decode").expect_error()?;
     match err {
-        ShellError::Generic(err) => {
-            assert_eq!(err.error, "Failed to decode string");
-            assert_contains("invalid utf-8 sequence", err.msg);
+        ShellError::NonUtf8Custom { msg, .. } => {
+            assert_contains("--binary", msg);
             Ok(())
         }
         err => Err(err.into()),

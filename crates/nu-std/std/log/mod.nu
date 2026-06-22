@@ -84,7 +84,7 @@ const LOG_TYPES = {
 def parse-string-level [
     level: string
 ] {
-    let level = ($level | str upcase)
+    let level = ($level | str uppercase)
 
     if $level in [$LOG_PREFIX.CRITICAL $LOG_SHORT_PREFIX.CRITICAL "CRIT" "CRITICAL"] {
         $LOG_LEVEL.CRITICAL

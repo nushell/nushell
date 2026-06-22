@@ -51,7 +51,7 @@ impl Command for UMkdir {
                             ("created".to_string(), Type::Bool),
                             (
                                 "error".to_string(),
-                                Type::OneOf([Type::Nothing, Type::String].into()),
+                                Type::one_of([Type::Nothing, Type::String]),
                             ),
                         ]
                         .into(),

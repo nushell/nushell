@@ -69,8 +69,8 @@ You can also pipe JSON data to explore arbitrary data structures, or use
 
 TUI Keybindings:
   Tab           Switch between tree and editor panes
-  ↑↓            Navigate tree / scroll editor
-  ←→            Collapse/Expand tree nodes
+  ↑↓/jk         Navigate tree / scroll editor
+  ←→/hl         Collapse/Expand tree nodes
   Enter/Space   Toggle tree node expansion
   Enter/Space   On leaf nodes, open editor pane and start editing
   Enter/e       Start editing (in editor pane)

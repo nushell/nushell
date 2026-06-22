@@ -1,6 +1,6 @@
 use crate::{
-    BlockId, DeclId, DeprecationEntry, Example, FromValue, IntoValue, PipelineData, ShellError,
-    Span, SyntaxShape, Type, Value, VarId,
+    BlockId, CompareTypes, DeclId, DeprecationEntry, Example, FromValue, IntoValue, PipelineData,
+    ShellError, Span, SyntaxShape, Type, TypeSet, Value, VarId,
     engine::{Call, Command, CommandType, EngineState, Stack},
     shell_error::generic::GenericError,
 };
@@ -391,29 +391,29 @@ impl Signature {
         }
     }
 
-    /// Gets the output type from the signature
+    /// Gets the output type from the signature based on `input`
     ///
-    /// If the output was unspecified or the signature has several different
-    /// input types, [`Type::Any`] is returned.  Otherwise, if the signature has
-    /// one or same output types, this type is returned.
+    /// - If the signature's output was unspecified [`Type::Any`] is returned.
+    /// - If `input` is [`None`], it's treated as [`Type::Any`]. i.e. all IO pairs are considered.
+    /// - IO pairs where the given `input` is [assignable to](crate::CompareTypes::is_assignable_to)
+    ///   the input type are considered valid.
+    /// - [Union](TypeSet::union) of all valid outputs are returned.
+    /// - If there are no valid IO pairs for the given `input`, [`None`] is returned.
     // XXX: remove?
-    pub fn get_output_type(&self) -> Type {
-        match self.input_output_types.len() {
-            0 => Type::Any,
-            1 => self.input_output_types[0].1.clone(),
-            _ => {
-                let first = &self.input_output_types[0].1;
-                if self
-                    .input_output_types
-                    .iter()
-                    .all(|(_, output)| output == first)
-                {
-                    first.clone()
-                } else {
-                    Type::Any
-                }
-            }
+    pub fn get_output_type(&self, input_type: Option<Type>) -> Option<Type> {
+        if self.input_output_types.is_empty() {
+            return Some(Type::Any);
         }
+        let input = input_type.unwrap_or(Type::Any);
+        let mut it = self
+            .input_output_types
+            .iter()
+            .filter(|(in_ty, _out_ty)| input.is_assignable_to(in_ty))
+            .map(|(_, out)| out)
+            .peekable();
+
+        it.peek()?;
+        it.cloned().reduce(Type::union)
     }
 
     /// Add a default help option to a signature

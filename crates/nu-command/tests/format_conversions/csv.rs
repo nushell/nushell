@@ -1,3 +1,4 @@
+use nu_protocol::Type;
 use nu_test_support::{fs::Stub::FileWithContentToBeTrimmed, prelude::*};
 
 #[test]
@@ -345,13 +346,11 @@ fn from_csv_text_with_wrong_type_separator() -> Result {
             | from csv --separator ('123' | into int)
         ";
 
-        let outcome = test().cwd(dirs.test()).run(code).expect_error()?;
+        let outcome = test().cwd(dirs.test()).run(code).expect_parse_error()?;
         match outcome {
-            ShellError::CantConvert {
-                to_type, from_type, ..
-            } => {
-                assert_eq!(from_type, "int");
-                assert_eq!(to_type, "string");
+            ParseError::TypeMismatch(expected, got, _) => {
+                assert_eq!(expected, Type::String);
+                assert_eq!(got, Type::Int);
                 Ok(())
             }
             err => Err(err.into()),

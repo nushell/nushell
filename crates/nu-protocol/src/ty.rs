@@ -1,4 +1,6 @@
-use crate::{CollectionColumns, SyntaxShape, ast::PathMember};
+use crate::{
+    CollectionColumns, CompareTypes, OneOf, SyntaxShape, TypeRelation, TypeSet, ast::PathMember,
+};
 use serde::{Deserialize, Serialize};
 use std::{borrow::Cow, fmt::Display};
 #[cfg(test)]
@@ -27,7 +29,7 @@ pub enum Type {
     /// Supertype of Int and Float. Equivalent to `oneof<int, float>`
     Number,
     /// Supertype of all types it contains.
-    OneOf(Box<[Type]>),
+    OneOf(OneOf),
     Range,
     Record(CollectionColumns<Type>),
     String,
@@ -43,11 +45,14 @@ fn follow_cell_path_recursive<'a>(
         return Some(current);
     };
     match (current.as_ref(), first) {
-        (Type::Record(columns), PathMember::String { val, .. }) => {
-            let idx = columns.fields.iter().position(|(name, _)| name == val)?;
+        (Type::Record(_), PathMember::String { val, .. }) => {
             let next = match current {
-                Cow::Borrowed(Type::Record(f)) => Cow::Borrowed(&f.fields[idx].1),
-                Cow::Owned(Type::Record(f)) => Cow::Owned(f.fields[idx].1.to_owned()),
+                Cow::Borrowed(Type::Record(f)) => {
+                    Cow::Borrowed(&f.iter().find(|(name, _)| name == val)?.1)
+                }
+                Cow::Owned(Type::Record(f)) => {
+                    Cow::Owned(f.into_iter().find(|(name, _)| name == val)?.1)
+                }
                 _ => unreachable!(),
             };
             follow_cell_path_recursive(next, path_members)
@@ -60,7 +65,7 @@ fn follow_cell_path_recursive<'a>(
 
         // Table to List (String)
         (Type::Table(columns), PathMember::String { val, .. }) => {
-            let (_, sub_type) = columns.fields.iter().find(|(name, _)| name == val)?;
+            let (_, sub_type) = columns.iter().find(|(name, _)| name == val)?;
             let list_type = Type::List(Box::new(sub_type.clone()));
             follow_cell_path_recursive(Cow::Owned(list_type), path_members)
         }
@@ -113,11 +118,7 @@ impl Type {
     /// Creates a OneOf type from an iterator of types.
     /// Flattens any nested OneOf types and removes duplicates.
     pub fn one_of(types: impl IntoIterator<Item = Type>) -> Self {
-        let mut flattened = Vec::new();
-        for t in types {
-            Self::oneof_add(&mut flattened, t);
-        }
-        Self::OneOf(flattened.into())
+        Self::OneOf(OneOf::from_iter(types))
     }
 
     pub fn record() -> Self {
@@ -132,234 +133,48 @@ impl Type {
         Self::Custom(name.into())
     }
 
-    /// Determine of the [`Type`] is a [subtype](https://en.wikipedia.org/wiki/Subtyping) of `other`.
-    ///
-    /// This should only be used at parse-time.
-    /// If you have a concrete [`Value`](crate::Value) or [`PipelineData`](crate::PipelineData),
-    /// you should use their respective `is_subtype_of` methods instead.
-    pub fn is_subtype_of(&self, other: &Type) -> bool {
-        // Structural subtyping
-        let is_subtype_collection =
-            |this: &CollectionColumns<Type>, that: &CollectionColumns<Type>| {
-                let (this, that) = (this.fields.as_ref(), that.fields.as_ref());
-                if this.is_empty() || that.is_empty() {
-                    true
-                } else if this.len() < that.len() {
-                    false
-                } else {
-                    that.iter().all(|(col_y, ty_y)| {
-                        if let Some((_, ty_x)) = this.iter().find(|(col_x, _)| col_x == col_y) {
-                            ty_x.is_subtype_of(ty_y)
-                        } else {
-                            false
-                        }
-                    })
-                }
-            };
-
-        match (self, other) {
-            (t, u) if t == u => true,
-            (_, Type::Any) => true,
-            // We want `get`/`select`/etc to accept string and int values, so it's convenient to
-            // use them with variables, without having to explicitly convert them into cell-paths
-            (Type::String | Type::Int, Type::CellPath) => true,
-            (Type::OneOf(oneof), Type::CellPath) => {
-                oneof.iter().all(|t| t.is_subtype_of(&Type::CellPath))
-            }
-            (Type::Float | Type::Int, Type::Number) => true,
-            (Type::Glob, Type::String) | (Type::String, Type::Glob) => true,
-            (Type::List(t), Type::List(u)) if t.is_subtype_of(u) => true, // List is covariant
-            (Type::Record(this), Type::Record(that)) | (Type::Table(this), Type::Table(that)) => {
-                is_subtype_collection(this, that)
-            }
-            (Type::Table(_), Type::List(that)) if matches!(**that, Type::Any) => true,
-            (Type::Table(this), Type::List(that)) => {
-                matches!(that.as_ref(), Type::Record(that) if is_subtype_collection(this, that))
-            }
-            (Type::List(this), Type::Table(that)) => {
-                matches!(this.as_ref(), Type::Record(this) if is_subtype_collection(this, that))
-            }
-            (Type::OneOf(this), that @ Type::OneOf(_)) => {
-                this.iter().all(|t| t.is_subtype_of(that))
-            }
-            (this, Type::OneOf(that)) => that.iter().any(|t| this.is_subtype_of(t)),
-            _ => false,
-        }
-    }
-
     /// Returns supertype of arguments without creating a `oneof`, or falling back to `any` (unless one or both of the arguments are `any`)
-    fn flat_widen(lhs: Type, rhs: Type) -> Result<Type, (Type, Type)> {
-        // Fast-paths that don't require cloning.
-        if lhs == rhs {
-            return Ok(lhs);
-        }
+    pub(crate) fn flat_widen(lhs: Type, rhs: Type) -> Result<Type, (Type, Type)> {
+        match (lhs, rhs) {
+            // short circuit on `any`
+            (Type::Any, _) | (_, Type::Any) => Ok(Type::Any),
 
-        // Any value yields the top type.
-        if matches!(lhs, Type::Any) || matches!(rhs, Type::Any) {
-            return Ok(Type::Any);
-        }
+            // primitive number hierarchy is extremely common
+            (Type::Int, Type::Float) | (Type::Float, Type::Int) => Ok(Type::Number),
 
-        // primitive number hierarchy is extremely common; handle it before any more expensive logic (including subtype checks) to keep
-        // `type_widen_simple` fast.
-        if matches!(lhs, Type::Int | Type::Float | Type::Number)
-            && matches!(rhs, Type::Int | Type::Float | Type::Number)
-        {
-            return Ok(Type::Number);
-        }
+            // despite their subtyping relation, these pairs should not combine into one or the other
+            tys @ ((Type::Glob, Type::String)
+            | (Type::String, Type::Glob)
+            | (Type::String | Type::Int, Type::CellPath)
+            | (Type::CellPath, Type::String | Type::Int)) => Err(tys),
 
-        // disjoint glob/string pair. We don't want to consume lhs/rhs here because subsequent code still needs them.
-        if (matches!(lhs, Type::Glob) && matches!(rhs, Type::String))
-            || (matches!(lhs, Type::String) && matches!(rhs, Type::Glob))
-        {
-            return Err((lhs, rhs));
-        }
+            // widen structural collections without checking for subtyping
+            (Type::Record(lhs), Type::Record(rhs)) => Ok(Type::Record(lhs.union(rhs))),
+            (Type::Table(lhs), Type::Table(rhs)) => Ok(Type::Table(lhs.union(rhs))),
 
-        // structural collections; clones are unavoidable because we need owned data for the result, but we only clone
-        // the inner vectors, not the entire `Type` twice.
-        match (&lhs, &rhs) {
-            (Type::Record(this), Type::Record(that)) => {
-                return Ok(Type::Record(this.clone().widen(that.clone())));
-            }
-            (Type::Table(this), Type::Table(that)) => {
-                return Ok(Type::Table(this.clone().widen(that.clone())));
-            }
+            // We want to have `oneof<list<T>, table>`, regardless whether one counts as a subtype
+            // of the other.
+            tys @ ((Type::List(_), Type::Table(_)) | (Type::Table(_), Type::List(_))) => Err(tys),
 
-            (Type::List(_list_item), Type::Table(_table))
-            | (Type::Table(_table), Type::List(_list_item)) => {
-                // `lhs` and `rhs` are still owned, so we can match on the original values once again to avoid needless cloning.
-                let item = match (lhs, rhs) {
-                    (Type::List(list_item), Type::Table(table)) => match *list_item {
-                        Type::Record(record) => Type::Record(record.widen(table)),
-                        list_item => Type::one_of([list_item, Type::Record(table)]),
-                    },
-                    (Type::Table(table), Type::List(list_item)) => match *list_item {
-                        Type::Record(record) => Type::Record(record.widen(table)),
-                        list_item => Type::one_of([list_item, Type::Record(table)]),
-                    },
-                    _ => unreachable!(),
-                };
-                return Ok(Type::List(Box::new(item)));
-            }
-
-            (Type::List(lhs), Type::List(rhs)) => {
-                // We have to take ownership of the inner types, so clone here.
-                let lhs_inner = lhs.clone();
-                let rhs_inner = rhs.clone();
-                return Ok(Type::list(lhs_inner.widen(*rhs_inner)));
-            }
-
-            _ => {}
-        }
-
-        // If one type is already a subtype of the other, we can skip all of the heavier logic below.
-        if lhs.is_subtype_of(&rhs) {
-            return Ok(rhs);
-        }
-        if rhs.is_subtype_of(&lhs) {
-            return Ok(lhs);
-        }
-
-        // Fallback - the two types are unrelated. Move them out so that callers don't have to clone again.
-        Err((lhs, rhs))
-    }
-
-    /// Returns the supertype between `self` and `other`, or `Type::Any` if they're unrelated
-    pub fn widen(self, other: Type) -> Type {
-        // defensive fast-path: if one value is already a subtype of the other, return the supertype immediately.
-        //
-        // A subtle exception: a list-of-records is considered a subtype of a table with matching columns.
-        fn shortcut_allowed(lhs: &Type, rhs: &Type) -> bool {
-            !matches!(
-                (lhs, rhs),
-                (Type::List(_), Type::Table(_)) | (Type::Table(_), Type::List(_))
-            )
-        }
-
-        // only shortcut when the relationship is one-way; for pairs like glob/string `is_subtype_of` returns true both ways,
-        // and we must not collapse them to a single type.
-        if self.is_subtype_of(&other)
-            && !other.is_subtype_of(&self)
-            && shortcut_allowed(&self, &other)
-        {
-            return other;
-        }
-
-        let tu = match Self::flat_widen(self, other) {
-            Ok(t) => return t,
-            Err(tu) => tu,
-        };
-
-        match tu {
-            (Type::OneOf(ts), Type::OneOf(us)) => {
-                let (big, small) = match ts.len() >= us.len() {
-                    true => (ts, us),
-                    false => (us, ts),
-                };
-                let mut out = big.into_vec();
-                for t in small.into_iter() {
-                    Self::oneof_add_widen(&mut out, t);
-                }
-                Type::one_of(out)
-            }
-            (Type::OneOf(oneof), t) | (t, Type::OneOf(oneof)) => {
-                let mut out = oneof.into_vec();
-                Self::oneof_add_widen(&mut out, t);
-                Type::one_of(out)
-            }
-            (this, other) => Type::one_of([this, other]),
+            // If one type is already a subtype of the other, we can skip all of the heavier logic below.
+            (lhs, rhs) => match lhs.compare_types(&rhs) {
+                Some(rel) => Ok(match rel {
+                    TypeRelation::Subtype => rhs,
+                    TypeRelation::Equal => lhs,
+                    TypeRelation::Supertype => lhs,
+                }),
+                // Fallback - the two types are unrelated. Move them out so that callers don't have to clone again.
+                None => Err((lhs, rhs)),
+            },
         }
     }
 
-    /// Adds a type to a OneOf union, flattening nested OneOfs, deduplicating, and attempting to widen existing types.
-    fn oneof_add_widen(oneof: &mut Vec<Type>, mut t: Type) {
-        // handle nested unions first
-        if let Type::OneOf(inner) = t {
-            for sub_t in inner.into_vec() {
-                Self::oneof_add_widen(oneof, sub_t);
-            }
-            return;
-        }
-
-        let mut i = 0;
-        while i < oneof.len() {
-            let one = std::mem::replace(&mut oneof[i], Type::Any);
-            match Self::flat_widen(one, t) {
-                Ok(one_t) => {
-                    oneof[i] = one_t;
-                    return;
-                }
-                Err((one_old, t_old)) => {
-                    oneof[i] = one_old;
-                    t = t_old; // `t` is mutable here
-                    i += 1;
-                }
-            }
-        }
-
-        oneof.push(t);
-    }
-
-    /// Adds a type to a OneOf union, flattening nested OneOfs and deduplicating.
-    fn oneof_add(oneof: &mut Vec<Type>, t: Type) {
-        match t {
-            Type::OneOf(inner) => {
-                for sub_t in inner.into_vec() {
-                    Self::oneof_add(oneof, sub_t);
-                }
-            }
-            t => {
-                if !oneof.contains(&t) {
-                    oneof.push(t);
-                }
-            }
-        }
-    }
-
-    /// Returns the supertype of all types within `it`. Short-circuits on, and falls back to, `Type::Any`.
+    /// Returns a supertype of all types within `it` *that is not `Any`*.
+    /// If `it` contains `Type::Any`, short circuits and returns `None`.
     pub fn supertype_of(it: impl IntoIterator<Item = Type>) -> Option<Self> {
         let mut it = it.into_iter();
         it.next().and_then(|head| {
-            it.try_fold(head, |acc, e| match acc.widen(e) {
+            it.try_fold(head, |acc, e| match acc.union(e) {
                 Type::Any => None,
                 r => Some(r),
             })
@@ -440,6 +255,118 @@ impl Type {
     }
 }
 
+impl CompareTypes for Type {
+    fn compare_types(&self, other: &Self) -> Option<TypeRelation> {
+        match (self, other) {
+            (_, Type::Any) => Some(TypeRelation::Subtype),
+            (Type::Any, _) => Some(TypeRelation::Supertype),
+
+            // I don't know how this was decided but this is the behavior that was present in the
+            // parser
+            (Type::Closure, Type::Block) => Some(TypeRelation::Supertype),
+            (Type::Block, Type::Closure) => Some(TypeRelation::Subtype),
+
+            // We want `get`/`select`/etc to accept string and int values, so it's convenient to
+            // use them with variables, without having to explicitly convert them into cell-paths
+            (Type::String | Type::Int, Type::CellPath) => Some(TypeRelation::Subtype),
+            (Type::CellPath, Type::String | Type::Int) => Some(TypeRelation::Supertype),
+
+            (Type::Float | Type::Int, Type::Number) => Some(TypeRelation::Subtype),
+            (Type::Number, Type::Float | Type::Int) => Some(TypeRelation::Supertype),
+
+            (Type::Glob, Type::String) => Some(TypeRelation::Supertype),
+            (Type::String, Type::Glob) => Some(TypeRelation::Subtype),
+
+            // List is covariant
+            (Type::List(t), Type::List(u)) => t.compare_types(u.as_ref()),
+
+            (Type::Record(this), Type::Record(that)) | (Type::Table(this), Type::Table(that)) => {
+                this.compare_types(that)
+            }
+
+            (Type::Table(table_cols), Type::List(list_elem)) => match list_elem.as_ref() {
+                Type::Any => Some(TypeRelation::Subtype),
+                Type::Record(record_cols) => table_cols.compare_types(record_cols),
+                _ => None,
+            },
+            (Type::List(list_elem), Type::Table(table_cols)) => match list_elem.as_ref() {
+                Type::Any => Some(TypeRelation::Supertype),
+                Type::Record(record_cols) => record_cols.compare_types(table_cols),
+                _ => None,
+            },
+
+            (Type::OneOf(lhs_oneof), Type::OneOf(rhs_oneof)) => lhs_oneof.compare_types(rhs_oneof),
+            (Type::OneOf(lhs_oneof), rhs) => lhs_oneof.compare_types(rhs),
+            (lhs, Type::OneOf(rhs_oneof)) => lhs.compare_types(rhs_oneof),
+
+            (t, u) if t == u => Some(TypeRelation::Equal),
+
+            _ => None,
+        }
+    }
+
+    /// Determine of the [`Type`] is a [subtype](https://en.wikipedia.org/wiki/Subtyping) of `other`.
+    ///
+    /// This should only be used at parse-time.
+    /// If you have a concrete [`Value`](crate::Value) or [`PipelineData`](crate::PipelineData),
+    /// you should use their respective `is_subtype_of` methods instead.
+    // This is identical to this method's default implementation. Written here to attach doccomment.
+    fn is_subtype_of(&self, other: &Self) -> bool {
+        matches!(
+            self.compare_types(other),
+            Some(TypeRelation::Subtype | TypeRelation::Equal)
+        )
+    }
+
+    fn is_any(&self) -> bool {
+        matches!(self, Type::Any)
+    }
+
+    fn is_assignable_to(&self, dst: &Self) -> bool {
+        let src = self;
+        match (dst, src) {
+            (Type::Table(dst_cols), Type::List(src_ty))
+                if let Type::Record(src_cols) = src_ty.as_ref() =>
+            {
+                src_cols.is_assignable_to(dst_cols)
+            }
+            (Type::List(dst_ty), Type::Table(src_cols))
+                if let Type::Record(dst_cols) = dst_ty.as_ref() =>
+            {
+                src_cols.is_assignable_to(dst_cols)
+            }
+            (Type::Record(dst_cols), Type::Record(src_cols))
+            | (Type::Table(dst_cols), Type::Table(src_cols)) => src_cols.is_assignable_to(dst_cols),
+            // strings can be coerced globs
+            (Type::Glob, Type::String) => true,
+            // but not the other way around
+            (Type::String, Type::Glob) => false,
+            (Type::OneOf(dst_tys), Type::OneOf(src_tys)) => src_tys.is_assignable_to(dst_tys),
+            (Type::OneOf(dst_tys), src_ty) => src_ty.is_assignable_to(dst_tys),
+            (dst_ty, Type::OneOf(src_tys)) => src_tys.is_assignable_to(dst_ty),
+            // leave it to the runtime
+            (Type::List(_) | Type::Table(_) | Type::Record(_), Type::Custom(_)) => true,
+            (lhs, rhs @ Type::CellPath) => rhs.is_subtype_of(lhs),
+            (lhs, rhs) => rhs.compare_types(lhs).is_some(),
+        }
+    }
+}
+
+impl TypeSet for Type {
+    fn union(self, other: Self) -> Self {
+        let (lhs, rhs) = match Self::flat_widen(self, other) {
+            Ok(t) => return t,
+            Err(tys) => tys,
+        };
+
+        match (lhs, rhs) {
+            (Type::OneOf(ts), Type::OneOf(us)) => Type::OneOf(ts.union(us)),
+            (Type::OneOf(oneof), t) | (t, Type::OneOf(oneof)) => Type::OneOf(oneof.add_ty(t)),
+            (this, other) => Type::one_of([this, other]),
+        }
+    }
+}
+
 impl Display for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -458,17 +385,7 @@ impl Display for Type {
             Type::List(l) => write!(f, "list<{l}>"),
             Type::Nothing => write!(f, "nothing"),
             Type::Number => write!(f, "number"),
-            Type::OneOf(types) => {
-                write!(f, "oneof")?;
-                let [first, rest @ ..] = &**types else {
-                    return Ok(());
-                };
-                write!(f, "<{first}")?;
-                for t in rest {
-                    write!(f, ", {t}")?;
-                }
-                f.write_str(">")
-            }
+            Type::OneOf(oneof) => write!(f, "{oneof}"),
             Type::String => write!(f, "string"),
             Type::Any => write!(f, "any"),
             Type::Error => write!(f, "error"),
@@ -482,7 +399,10 @@ impl Display for Type {
 /// Get a string nicely combining multiple types
 ///
 /// Helpful for listing types in errors
-pub fn combined_type_string(types: &[Type], join_word: &str) -> Option<String> {
+pub fn combined_type_string<'a, I>(types: I, join_word: &str) -> Option<String>
+where
+    I: IntoIterator<Item = &'a Type>,
+{
     use std::fmt::Write as _;
 
     // Deduplicate types to avoid confusing repeated entries like
@@ -511,7 +431,7 @@ pub fn combined_type_string(types: &[Type], join_word: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::Type;
+    use super::*;
     use strum::IntoEnumIterator;
 
     mod subtype_relation {
@@ -549,6 +469,22 @@ mod tests {
         }
     }
 
+    mod oneof {
+        use super::*;
+
+        #[test]
+        fn oneof_lhs() {
+            let rel = Type::one_of([Type::Int, Type::Nothing]).compare_types(&Type::Int);
+            assert_eq!(rel, Some(TypeRelation::Supertype));
+        }
+
+        #[test]
+        fn oneof_rhs() {
+            let rel = Type::Int.compare_types(&Type::one_of([Type::Int, Type::Nothing]));
+            assert_eq!(rel, Some(TypeRelation::Subtype));
+        }
+    }
+
     mod oneof_flattening {
         use super::*;
 
@@ -559,12 +495,11 @@ mod tests {
                 Type::one_of([Type::Int, Type::Float]),
                 Type::Bool,
             ]);
-            if let Type::OneOf(types) = nested {
-                let types_vec = types.to_vec();
-                assert_eq!(types_vec.len(), 4);
+            if let Type::OneOf(oneof) = nested {
+                let types_vec: Vec<Type> = oneof.into_iter().collect();
+                assert_eq!(types_vec.len(), 3);
                 assert!(types_vec.contains(&Type::String));
-                assert!(types_vec.contains(&Type::Int));
-                assert!(types_vec.contains(&Type::Float));
+                assert!(types_vec.contains(&Type::Number));
                 assert!(types_vec.contains(&Type::Bool));
             } else {
                 panic!("Expected OneOf");
@@ -575,9 +510,9 @@ mod tests {
         fn test_widen_flattens_oneof() {
             let a = Type::one_of([Type::String, Type::Int]);
             let b = Type::one_of([Type::Float, Type::Bool]);
-            let widened = a.widen(b);
-            if let Type::OneOf(types) = widened {
-                let types_vec = types.to_vec();
+            let widened = a.union(b);
+            if let Type::OneOf(oneof) = widened {
+                let types_vec: Vec<Type> = oneof.into_iter().collect();
                 assert_eq!(types_vec.len(), 3);
                 assert!(types_vec.contains(&Type::String));
                 assert!(types_vec.contains(&Type::Number)); // Int + Float -> Number
@@ -592,8 +527,8 @@ mod tests {
             let record_type =
                 Type::Record(vec![("content".to_string(), Type::list(Type::String))].into());
             let oneof = Type::one_of([Type::String, record_type.clone(), record_type.clone()]);
-            if let Type::OneOf(types) = oneof {
-                let types_vec = types.to_vec();
+            if let Type::OneOf(oneof) = oneof {
+                let types_vec: Vec<Type> = oneof.into_iter().collect();
                 assert_eq!(types_vec.len(), 2);
                 assert!(types_vec.contains(&Type::String));
                 assert!(types_vec.contains(&record_type));
@@ -611,12 +546,12 @@ mod tests {
         fn test_widen_subtype_shortcut() {
             // widening a union that already covers the new type should return the original union unchanged.
             let union = Type::one_of([Type::String, Type::Number]);
-            let result = union.clone().widen(Type::Int);
+            let result = union.clone().union(Type::Int);
             assert_eq!(result, union);
 
             // symmetric case where the left side is the subtype
             let union2 = Type::one_of([Type::Int, Type::String]);
-            let result2 = Type::Int.widen(union2.clone());
+            let result2 = Type::Int.union(union2.clone());
             assert_eq!(result2, union2);
         }
 
@@ -625,7 +560,7 @@ mod tests {
             // repeatedly widen the same type pair
             let mut t = Type::String;
             for _ in 0..100 {
-                t = t.widen(Type::Int);
+                t = t.union(Type::Int);
             }
             let expected = Type::one_of([Type::String, Type::Int]);
             assert_eq!(t, expected);
@@ -633,29 +568,21 @@ mod tests {
 
         #[test]
         fn test_list_table_widen_preserves_list() {
-            // verify that list<record> widened with table does not drop the list wrapper.
-            let list_record = Type::List(Box::new(Type::Record(
-                vec![("a".to_string(), Type::Int)].into(),
-            )));
+            let list_record = Type::list(Type::Record(vec![("a".to_string(), Type::Int)].into()));
             let table = Type::Table(vec![("a".to_string(), Type::Int)].into());
 
-            let widened = list_record.clone().widen(table.clone());
-            let expected = Type::List(Box::new(Type::Record(
-                vec![("a".to_string(), Type::Int)].into(),
-            )));
-            assert_eq!(widened, expected);
+            let widened = list_record.clone().union(table.clone());
+            let expected = Type::one_of([list_record, table]);
 
-            // and the other way around
-            let widened2 = table.widen(list_record.clone());
-            assert_eq!(widened2, expected);
+            assert_eq!(widened, expected);
         }
 
         #[test]
         fn test_glob_string_union() {
             let g = Type::Glob;
             let s = Type::String;
-            let w1 = g.clone().widen(s.clone());
-            let w2 = s.clone().widen(g.clone());
+            let w1 = g.clone().union(s.clone());
+            let w2 = s.clone().union(g.clone());
             let expected1 = Type::one_of([Type::Glob, Type::String]);
             let expected2 = Type::one_of([Type::String, Type::Glob]);
             assert_eq!(w1, expected1);

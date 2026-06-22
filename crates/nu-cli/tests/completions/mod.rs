@@ -1044,7 +1044,7 @@ fn module_name_completions() {
 
     assert_eq!(
         suggestions[0].description,
-        Some("# module comment\n# another comment".into())
+        Some("module comment\nanother comment".into())
     );
 }
 
@@ -1069,6 +1069,11 @@ fn exportable_completions() {
     let (_, _, mut engine, mut stack) = new_dotnu_engine();
     let code = r#"export module "🤔🐘" {
         export const foo = "🤔🐘";
+        # meow
+        # meow
+        #
+        # woem
+        export module bar {}
     }"#;
     assert!(support::merge_input(code.as_bytes(), &mut engine, &mut stack).is_ok());
     assert!(load_standard_library(&mut engine).is_ok());
@@ -1094,6 +1099,11 @@ fn exportable_completions() {
     let completion_str = "use 🤔🐘 'foo";
     let suggestions = completer.complete(completion_str, completion_str.len());
     match_suggestions(&vec!["foo"], &suggestions);
+
+    let completion_str = "use 🤔🐘 b";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&vec!["bar"], &suggestions);
+    assert_eq!(suggestions[0].description, Some("meow\nmeow".into()));
 }
 
 #[test]

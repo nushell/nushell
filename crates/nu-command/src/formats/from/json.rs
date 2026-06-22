@@ -2,8 +2,9 @@ use std::io::{BufRead, Cursor};
 
 use nu_engine::command_prelude::*;
 use nu_protocol::{
-    ListStream, Signals,
+    DEFAULT_ERROR_CONTEXT, ListStream, Signals,
     shell_error::{generic::GenericError, io::IoError},
+    truncated_source_window,
 };
 
 #[derive(Clone)]
@@ -99,7 +100,7 @@ impl Command for FromJson {
                 {
                     if let Some(reader) = stream.reader() {
                         Ok(PipelineData::list_stream(
-                            read_json_lines(reader, span, strict, Signals::empty()),
+                            read_json_lines(reader, span, strict, engine_state.signals().clone()),
                             metadata,
                         ))
                     } else {
@@ -121,8 +122,10 @@ impl Command for FromJson {
                 return Ok(Value::nothing(span).into_pipeline_data());
             }
 
-            Ok(try_str_to_value(&string_input, span, strict)?
-                .into_pipeline_data_with_metadata(metadata))
+            Ok(
+                try_str_to_value(&string_input, span, strict, engine_state.signals())?
+                    .into_pipeline_data_with_metadata(metadata),
+            )
         }
     }
 }
@@ -134,27 +137,34 @@ fn read_json_lines(
     strict: bool,
     signals: Signals,
 ) -> ListStream {
+    let iter_signals = signals.clone();
     let iter = input
         .lines()
         .filter(|line| line.as_ref().is_ok_and(|line| !line.trim().is_empty()) || line.is_err())
         .map(move |line| {
             let line = line.map_err(|err| IoError::new(err, span, None))?;
-            try_str_to_value(&line, span, strict)
+            try_str_to_value(&line, span, strict, &iter_signals)
         })
         .map(move |result| result.unwrap_or_else(|err| Value::error(err, span)));
 
     ListStream::new(iter, span, signals)
 }
 
-pub fn try_str_to_value(input: &str, span: Span, strict: bool) -> Result<Value, ShellError> {
+pub fn try_str_to_value(
+    input: &str,
+    span: Span,
+    strict: bool,
+    signals: &Signals,
+) -> Result<Value, ShellError> {
     match strict {
         true => try_str_to_value_impl(
             input,
             span,
+            signals,
             |s| serde_json::from_str(s),
             |err| err.is_syntax().then_some((err.line(), err.column())),
         ),
-        false => try_str_to_value_impl(input, span, nu_json::from_str, |err| match err {
+        false => try_str_to_value_impl(input, span, signals, nu_json::from_str, |err| match err {
             nu_json::Error::Syntax(_, row, col) => Some((*row, *col)),
             _ => None,
         }),
@@ -165,6 +175,7 @@ pub fn try_str_to_value(input: &str, span: Span, strict: bool) -> Result<Value, 
 fn try_str_to_value_impl<E: std::error::Error>(
     input: &str,
     span: Span,
+    signals: &Signals,
     parser: impl Fn(&str) -> Result<nu_json::Value, E>,
     on_syntax_err: impl Fn(&E) -> Option<(usize, usize)>,
 ) -> Result<Value, ShellError> {
@@ -173,7 +184,9 @@ fn try_str_to_value_impl<E: std::error::Error>(
         Err(err) => match on_syntax_err(&err) {
             Some((row, col)) => {
                 let label = err.to_string();
-                let label_span = Span::from_row_column(row, col, input);
+                let byte_span = Span::try_from_row_column(row, col, input, &span, signals)?;
+                let (src, label_span) =
+                    truncated_source_window(input, byte_span, DEFAULT_ERROR_CONTEXT);
                 Err(ShellError::Generic(
                     GenericError::new(
                         "Error while parsing JSON text",
@@ -181,7 +194,7 @@ fn try_str_to_value_impl<E: std::error::Error>(
                         span,
                     )
                     .with_inner([ShellError::OutsideSpannedLabeledError {
-                        src: input.into(),
+                        src,
                         error: "Error while parsing JSON text".into(),
                         msg: label,
                         span: label_span,
@@ -205,5 +218,81 @@ mod test {
     #[test]
     fn test_examples() -> nu_test_support::Result {
         nu_test_support::test().examples(FromJson)
+    }
+
+    #[test]
+    fn json_error_source_is_bounded() {
+        // Build a large string (~100KB) with an error near the end
+        let mut valid_part = String::new();
+        valid_part.push('[');
+        for i in 0..2000 {
+            use std::fmt::Write;
+            write!(&mut valid_part, r#""line {i}","#).unwrap();
+        }
+        // Malformed at the end
+        valid_part.push_str("broken]"); // no closing quote
+
+        let signals = Signals::empty();
+        let result = try_str_to_value(&valid_part, Span::test_data(), true, &signals);
+        assert!(result.is_err(), "should fail to parse");
+
+        let err = result.unwrap_err();
+        match &err {
+            ShellError::Generic(GenericError { inner, .. }) => {
+                let inner_err = inner.first().expect("should have inner error");
+                match inner_err {
+                    ShellError::OutsideSpannedLabeledError { src, .. } => {
+                        // src should be bounded well under the 100KB input
+                        assert!(
+                            src.len() < 20_000,
+                            "error source should be bounded, got {} bytes",
+                            src.len()
+                        );
+                    }
+                    other => panic!("expected OutsideSpannedLabeledError, got {other:?}"),
+                }
+            }
+            other => panic!("expected Generic error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn json_error_source_not_entire_file() {
+        // With a ~50KB input, the error src should be far smaller
+        let mut input = String::with_capacity(50_000);
+        input.push('[');
+        input.push_str(&"0,".repeat(10_000));
+        input.push_str(":]"); // syntax error: `:]` instead of `]`
+
+        let signals = Signals::empty();
+        let result = try_str_to_value(&input, Span::test_data(), true, &signals);
+        assert!(result.is_err());
+
+        let err = result.unwrap_err();
+        match &err {
+            ShellError::Generic(GenericError { inner, .. }) => {
+                let inner_err = inner.first().expect("should have inner error");
+                match inner_err {
+                    ShellError::OutsideSpannedLabeledError { src, .. } => {
+                        // src should be a window around the error, not the whole 50KB
+                        assert!(
+                            src.len() < 20_000,
+                            "error source should be bounded, got {} bytes",
+                            src.len()
+                        );
+                    }
+                    other => panic!("expected OutsideSpannedLabeledError, got {other:?}"),
+                }
+            }
+            other => panic!("expected Generic error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn json_parse_success_not_affected() {
+        let input = r#"{"a": 1, "b": [2, 3]}"#;
+        let signals = Signals::empty();
+        let result = try_str_to_value(input, Span::test_data(), true, &signals);
+        assert!(result.is_ok(), "valid JSON should still parse");
     }
 }

@@ -1,4 +1,5 @@
 use crate::repl::tests::{TestResult, fail_test, run_test, run_test_contains};
+use nu_test_support::prelude::{TestResultExt, test};
 use rstest::rstest;
 
 #[test]
@@ -508,4 +509,18 @@ fn short_flags_2() -> TestResult {
         r#"def foobar [-a: int, -b: string, -c: int] { $a + $c };foobar -b "balh balh" -a 10  -c 1 "#,
         "11",
     )
+}
+
+#[test]
+fn shadowed_variables_in_aliases() -> TestResult {
+    let mut tester = test();
+    tester
+        .run("let x = 10; alias foo = echo $x; foo")
+        .expect_value_eq(10)?;
+    tester.run::<()>("let x = 20")?;
+    tester
+        .engine_state
+        .cleanup_stack_variables(&mut tester.stack);
+    tester.run("foo").expect_value_eq(10)?;
+    Ok(())
 }

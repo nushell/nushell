@@ -13,7 +13,6 @@ use base64::{
     engine::{GeneralPurpose, general_purpose::PAD},
 };
 use dns_lookup::LookupErrorKind;
-use http::StatusCode;
 use log::error;
 use multipart_rs::MultipartWriter;
 use nu_engine::command_prelude::*;
@@ -879,36 +878,27 @@ pub fn request_add_custom_headers<B>(
     Ok(request)
 }
 
-fn handle_status_error(span: Span, requested_url: &str, status: StatusCode) -> ShellError {
-    match status {
-        StatusCode::MOVED_PERMANENTLY => ShellError::NetworkFailure {
-            msg: format!("Resource moved permanently (301): {requested_url:?}"),
-            span,
-        },
-        StatusCode::BAD_REQUEST => ShellError::NetworkFailure {
-            msg: format!("Bad request (400) to {requested_url:?}"),
-            span,
-        },
-        StatusCode::FORBIDDEN => ShellError::NetworkFailure {
-            msg: format!("Access forbidden (403) to {requested_url:?}"),
-            span,
-        },
-        StatusCode::NOT_FOUND => ShellError::NetworkFailure {
-            msg: format!("Requested file not found (404): {requested_url:?}"),
-            span,
-        },
-        StatusCode::REQUEST_TIMEOUT => ShellError::NetworkFailure {
-            msg: format!("Request timeout (408): {requested_url:?}"),
-            span,
-        },
-        c => ShellError::NetworkFailure {
-            msg: format!(
-                "Cannot make request to {:?}. Error is {:?}",
-                requested_url,
-                c.to_string()
-            ),
-            span,
-        },
+fn handle_status_error(span: Span, requested_url: &str, response: &mut Response) -> ShellError {
+    let msg = if response.header("content-type") == Some("application/json") {
+        // We use a json response as a heuristic to mean the body will contain a relevant error message.
+        // This can be widened if the assumption is wrong.
+        response
+            .body_mut()
+            .read_to_string()
+            .unwrap_or("Cannot read body".to_string())
+    } else {
+        response
+            .status()
+            .canonical_reason()
+            .unwrap_or("")
+            .to_string()
+    };
+    ShellError::HttpError {
+        code: response.status().as_u16(),
+        reason: response.status().canonical_reason().unwrap_or(""),
+        url: requested_url.to_string(),
+        msg,
+        span,
     }
 }
 
@@ -1058,7 +1048,7 @@ pub fn check_response_redirection(
 }
 
 pub(crate) fn handle_response_status(
-    resp: &Response,
+    resp: &mut Response,
     redirect_mode: RedirectMode,
     requested_url: &str,
     span: Span,
@@ -1072,7 +1062,7 @@ pub(crate) fn handle_response_status(
     if is_success {
         Ok(())
     } else {
-        Err(handle_status_error(span, requested_url, resp.status()))
+        Err(handle_status_error(span, requested_url, resp))
     }
 }
 
@@ -1094,7 +1084,7 @@ pub(crate) fn request_handle_response(
         redirect_mode,
         flags,
     }: RequestMetadata,
-    resp: Response,
+    mut resp: Response,
 ) -> Result<PipelineData, ShellError> {
     // #response_to_buffer moves "resp" making it impossible to read headers later.
     // Wrapping it into a closure to call when needed
@@ -1115,7 +1105,7 @@ pub(crate) fn request_handle_response(
         }
     };
     handle_response_status(
-        &resp,
+        &mut resp,
         redirect_mode,
         requested_url,
         span,

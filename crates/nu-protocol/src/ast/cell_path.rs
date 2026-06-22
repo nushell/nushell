@@ -2,10 +2,11 @@ use super::Expression;
 use crate::{Span, casing::Casing};
 use nu_utils::{escape_quote_string, needs_quoting};
 use serde::{Deserialize, Serialize};
-use std::{cmp::Ordering, fmt::Display};
+use std::{cmp::Ordering, fmt::Display, str::FromStr};
+use winnow::Parser;
 
 /// One level of access of a [`CellPath`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub enum PathMember {
     /// Accessing a member by string (i.e. columns of a table or [`Record`](crate::Record))
     String {
@@ -173,6 +174,73 @@ impl PartialOrd for PathMember {
     }
 }
 
+impl Display for PathMember {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PathMember::Int { val, optional, .. } => {
+                let question_mark = if *optional { "?" } else { "" };
+                write!(f, "{val}{question_mark}")
+            }
+            PathMember::String {
+                val,
+                optional,
+                casing,
+                ..
+            } => {
+                let question_mark = if *optional { "?" } else { "" };
+                let exclamation_mark = if *casing == Casing::Insensitive {
+                    "!"
+                } else {
+                    ""
+                };
+                let val = if needs_quoting(val) {
+                    &escape_quote_string(val)
+                } else {
+                    val
+                };
+                write!(f, "{val}{exclamation_mark}{question_mark}")
+            }
+        }
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+#[error("could not parse path member {attempted:?}")]
+pub struct PathMemberParseError {
+    attempted: String,
+}
+
+impl FromStr for PathMember {
+    type Err = PathMemberParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        parse::path_member
+            .parse(s)
+            .map_err(|_| PathMemberParseError {
+                attempted: s.to_owned(),
+            })
+    }
+}
+
+impl Serialize for PathMember {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.to_string().serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for PathMember {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Self::from_str(&s).map_err(serde::de::Error::custom)
+    }
+}
+
 /// [`PathMember`] for testing purposes.
 ///
 /// This path member may be converted via [`into_path_member`](Self::into_path_member) into a
@@ -216,12 +284,18 @@ impl TestPathMember<usize> {
 /// col2
 /// 42
 /// ```
-#[derive(Debug, Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct CellPath {
     pub members: Vec<PathMember>,
 }
 
 impl CellPath {
+    pub fn empty() -> Self {
+        Self {
+            members: Vec::new(),
+        }
+    }
+
     pub fn make_optional(&mut self) {
         for member in &mut self.members {
             member.make_optional();
@@ -265,31 +339,7 @@ impl Display for CellPath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "$")?;
         for member in self.members.iter() {
-            match member {
-                PathMember::Int { val, optional, .. } => {
-                    let question_mark = if *optional { "?" } else { "" };
-                    write!(f, ".{val}{question_mark}")?
-                }
-                PathMember::String {
-                    val,
-                    optional,
-                    casing,
-                    ..
-                } => {
-                    let question_mark = if *optional { "?" } else { "" };
-                    let exclamation_mark = if *casing == Casing::Insensitive {
-                        "!"
-                    } else {
-                        ""
-                    };
-                    let val = if needs_quoting(val) {
-                        &escape_quote_string(val)
-                    } else {
-                        val
-                    };
-                    write!(f, ".{val}{exclamation_mark}{question_mark}")?
-                }
-            }
+            write!(f, ".{member}")?;
         }
         // Empty cell-paths are `$.` not `$`
         if self.members.is_empty() {
@@ -299,10 +349,261 @@ impl Display for CellPath {
     }
 }
 
+#[derive(Debug, thiserror::Error)]
+#[error("could not parse cell path {attempted:?}")]
+pub struct CellPathParseError {
+    attempted: String,
+}
+
+impl FromStr for CellPath {
+    type Err = CellPathParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        parse::cell_path.parse(s).map_err(|_| CellPathParseError {
+            attempted: s.to_owned(),
+        })
+    }
+}
+
+impl Serialize for CellPath {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.to_string().serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for CellPath {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Self::from_str(&s).map_err(serde::de::Error::custom)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct FullCellPath {
     pub head: Expression,
     pub tail: Vec<PathMember>,
+}
+
+mod parse {
+    use super::*;
+    use winnow::{
+        Result, Str, combinator::*, error::*, prelude::*, stream::ContainsToken, token::*,
+    };
+
+    pub fn cell_path(input: &mut &str) -> Result<CellPath> {
+        preceded(opt("$."), repeat(0.., terminated(path_member, opt('.'))))
+            .parse_next(input)
+            .map(|members| CellPath { members })
+    }
+
+    pub fn path_member(input: &mut &str) -> Result<PathMember> {
+        if input.is_empty() {
+            return Err(ParserError::from_input(input));
+        }
+
+        let member = alt((int_path_member, string_path_member)).parse_next(input)?;
+
+        // ensure there's no more content after a member
+        peek(alt((".", eof))).parse_next(input)?;
+
+        Ok(member)
+    }
+
+    fn int_path_member(input: &mut &str) -> Result<PathMember> {
+        let int = digits.parse_next(input)?;
+        let modifier = modifier.parse_next(input)?;
+        Ok(PathMember::Int {
+            val: int,
+            span: Span::unknown(),
+            optional: modifier.optional,
+        })
+    }
+
+    fn digits(input: &mut &str) -> Result<usize> {
+        let start = input.checkpoint();
+        if let Ok(prefix) = digit_prefix.parse_next(input) {
+            return match prefix {
+                DigitPrefix::Bin => bin_digits.parse_next(input),
+                DigitPrefix::Oct => oct_digits.parse_next(input),
+                DigitPrefix::Hex => hex_digits.parse_next(input),
+            };
+        }
+
+        input.reset(&start);
+        dec_digits.parse_next(input)
+    }
+
+    enum DigitPrefix {
+        Bin,
+        Oct,
+        Hex,
+    }
+
+    fn digit_prefix(input: &mut &str) -> Result<DigitPrefix> {
+        let prefix = take(2usize).parse_next(input)?;
+        Ok(match prefix {
+            "0b" => DigitPrefix::Bin,
+            "0o" => DigitPrefix::Oct,
+            "Ox" => DigitPrefix::Hex,
+            _ => return fail(input),
+        })
+    }
+
+    fn bin_digits(input: &mut &str) -> Result<usize> {
+        any_radix_digits(2, ('_', '0', '1')).parse_next(input)
+    }
+
+    fn oct_digits(input: &mut &str) -> Result<usize> {
+        any_radix_digits(8, ('_', '0'..='7')).parse_next(input)
+    }
+
+    fn dec_digits(input: &mut &str) -> Result<usize> {
+        any_radix_digits(10, ('_', '0'..='9')).parse_next(input)
+    }
+
+    fn hex_digits(input: &mut &str) -> Result<usize> {
+        any_radix_digits(16, ('_', '0'..='9', 'a'..='f', 'A'..='Z')).parse_next(input)
+    }
+
+    fn any_radix_digits<'i>(
+        radix: u32,
+        tokens: impl ContainsToken<char>,
+    ) -> impl Parser<Str<'i>, usize, ContextError> {
+        take_while(1.., tokens)
+            .map(|d: &str| d.replace('_', ""))
+            .verify(|d: &str| !d.is_empty())
+            .try_map(move |d| usize::from_str_radix(&d, radix))
+    }
+
+    fn string_path_member(input: &mut &str) -> Result<PathMember> {
+        let string = alt((
+            single_quoted_string,
+            bare_word_string,
+            double_quoted_string,
+            unquoted_string,
+        ))
+        .parse_next(input)?;
+
+        let modifier = modifier.parse_next(input)?;
+
+        Ok(PathMember::String {
+            val: string,
+            span: Span::unknown(),
+            optional: modifier.optional,
+            casing: match modifier.case_insensitive {
+                true => Casing::Insensitive,
+                false => Default::default(),
+            },
+        })
+    }
+
+    fn unquoted_string(input: &mut &str) -> Result<String> {
+        struct UnquotedTokens;
+
+        impl ContainsToken<char> for UnquotedTokens {
+            fn contains_token(&self, token: char) -> bool {
+                match token {
+                    // spaces and tabs
+                    ' ' | '\n' | '\t' => false,
+
+                    // syntax characters
+                    '!' | '?' | '.' => false,
+
+                    // brackets
+                    '(' | ')' => false,
+
+                    _ => true,
+                }
+            }
+        }
+
+        take_while(0.., UnquotedTokens)
+            .parse_next(input)
+            .map(|s| s.to_owned())
+    }
+
+    fn single_quoted_string(input: &mut &str) -> Result<String> {
+        delimited("'", take_while(0.., |c| c != '\''), "'")
+            .parse_next(input)
+            .map(|s| s.to_owned())
+    }
+
+    fn bare_word_string(input: &mut &str) -> Result<String> {
+        delimited("`", take_while(0.., |c| c != '`'), "`")
+            .parse_next(input)
+            .map(|s| s.to_owned())
+    }
+
+    fn double_quoted_string(input: &mut &str) -> Result<String> {
+        fn escaped(input: &mut &str) -> Result<char> {
+            preceded(
+                '\\',
+                alt((
+                    'n'.value('\n'),
+                    'r'.value('\r'),
+                    't'.value('\t'),
+                    '\\'.value('\\'),
+                    '/'.value('/'),
+                    '"'.value('"'),
+                )),
+            )
+            .parse_next(input)
+        }
+
+        fn char(input: &mut &str) -> Result<char> {
+            any.verify(|c| *c != '"').parse_next(input)
+        }
+
+        let content = repeat(0.., alt((escaped, char))).fold(String::new, |mut string, char| {
+            string.push(char);
+            string
+        });
+
+        delimited('"', content, '"').parse_next(input)
+    }
+
+    #[derive(Default)]
+    struct Modifier {
+        optional: bool,
+        case_insensitive: bool,
+    }
+
+    fn modifier(input: &mut &str) -> Result<Modifier> {
+        let mut modifier = Modifier::default();
+
+        loop {
+            let Some(next) = opt(alt(('!', '?'))).parse_next(input)? else {
+                break;
+            };
+
+            let expected = match (next, modifier.optional, modifier.case_insensitive) {
+                ('!', _, false) => {
+                    modifier.case_insensitive = true;
+                    continue;
+                }
+                ('?', false, _) => {
+                    modifier.optional = true;
+                    continue;
+                }
+                ('!', false, true) => "'?' or '.'",
+                ('!', true, true) => "'.'",
+                ('?', true, false) => "'!' or '.'",
+                ('?', true, true) => "'.'",
+                (c, _, _) => unreachable!("parser only returns with '!' or '?', got {c:?}"),
+            };
+
+            fail.context(StrContext::Expected(StrContextValue::Description(expected)))
+                .parse_next(input)?
+        }
+
+        Ok(modifier)
+    }
 }
 
 #[cfg(test)]

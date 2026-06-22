@@ -1,4 +1,7 @@
-# Cross-platform unzipping for artifacts
+# Cross-platform unzipping for artifacts.
+@category "toolkit"
+@search-terms unzip extract zip archive binary cross-platform
+@example "Download and extract the nu binary from a PR artifact" { ^gh api https://api.github.com/repos/nushell/nushell/actions/artifacts/1234/zip | toolkit unzip nu }
 export def main [
   filename: string, # Name of file within zip to extract
   span: record # Span for error reporting

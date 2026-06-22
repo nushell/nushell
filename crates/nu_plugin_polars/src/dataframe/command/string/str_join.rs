@@ -39,6 +39,10 @@ impl PluginCommand for StrJoin {
                     PolarsPluginType::NuExpression.into(),
                 ),
                 (
+                    PolarsPluginType::NuSelector.into(),
+                    PolarsPluginType::NuExpression.into(),
+                ),
+                (
                     PolarsPluginType::NuDataFrame.into(),
                     PolarsPluginType::NuDataFrame.into(),
                 ),
@@ -107,7 +111,10 @@ impl PluginCommand for StrJoin {
                 command_df(plugin, engine, call, lazy.collect(call.head)?)
             }
             PolarsPluginObject::NuExpression(expr) => command_expr(plugin, engine, call, expr),
-            _ => Err(cant_convert_err(&value, &[PolarsPluginType::NuExpression])),
+            _ => Err(cant_convert_err(
+                &value,
+                &[PolarsPluginType::NuExpression, PolarsPluginType::NuSelector],
+            )),
         }
         .map_err(LabeledError::from)
         .map(|pd| pd.set_metadata(metadata))

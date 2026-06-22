@@ -9,8 +9,8 @@
 
 use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
 use fff_search::{
-    FFFMode, FilePicker, FilePickerOptions, FuzzySearchOptions, GrepMode, GrepSearchOptions,
-    MixedItemRef, PaginationArgs, QueryParser, SharedFilePicker, SharedFrecency,
+    FFFMode, FilePicker, FilePickerOptions, FuzzySearchOptions, GrepConfig, GrepMode,
+    GrepSearchOptions, MixedItemRef, PaginationArgs, QueryParser, SharedFilePicker, SharedFrecency,
 };
 use nu_engine::command_prelude::*;
 use nu_protocol::shell_error::generic::GenericError;
@@ -437,6 +437,7 @@ pub fn init_runtime(
     watch: bool,
     wait: bool,
     follow_symlinks: bool,
+    enable_content_indexing: bool,
     span: Span,
 ) -> Result<IdxStatus, ShellError> {
     let shared_picker = SharedFilePicker::default();
@@ -447,12 +448,14 @@ pub fn init_runtime(
         shared_frecency,
         FilePickerOptions {
             base_path: path.display().to_string(),
-            enable_mmap_cache: false,
-            enable_content_indexing: false,
-            mode: FFFMode::Ai,
             cache_budget: None,
-            watch,
+            enable_content_indexing,
+            enable_fs_root_scanning: false, // this will error out if executed at /
+            enable_home_dir_scanning: true,
+            enable_mmap_cache: false,
             follow_symlinks,
+            mode: FFFMode::Ai,
+            watch,
         },
     )
     .map_err(|err| fff_error(err, span))?;
@@ -1576,7 +1579,7 @@ pub fn store_snapshot(path: &Path, span: Span) -> Result<Value, ShellError> {
 /// The restored runtime is immediately queryable by `idx files`, `idx dirs`,
 /// `idx find`, and `idx status` without a filesystem scan.
 #[cfg(feature = "sqlite")]
-pub fn restore_snapshot(path: &Path, span: Span) -> Result<Value, ShellError> {
+pub fn restore_snapshot(path: &Path, no_watch: bool, span: Span) -> Result<Value, ShellError> {
     // Open SQLite database
     let conn = Connection::open(path).map_err(|err| {
         ShellError::Generic(GenericError::new(
@@ -1774,12 +1777,14 @@ pub fn restore_snapshot(path: &Path, span: Span) -> Result<Value, ShellError> {
         shared_frecency,
         FilePickerOptions {
             base_path: base_path_str.clone(),
-            enable_mmap_cache: false,
-            enable_content_indexing: false,
-            mode: FFFMode::Ai,
             cache_budget: None,
-            watch: false,
+            enable_content_indexing: false,
+            enable_fs_root_scanning: false,
+            enable_home_dir_scanning: true,
+            enable_mmap_cache: false,
             follow_symlinks: false,
+            mode: FFFMode::Ai,
+            watch: !no_watch,
         },
     );
 
@@ -1851,6 +1856,8 @@ pub fn stream_grep(
     mode: GrepMode,
     page_limit: usize,
     span: Span,
+    before_context: usize,
+    after_context: usize,
     signals: &Signals,
 ) -> Result<PipelineData, ShellError> {
     let snapshot = require_runtime(span)?;
@@ -1861,16 +1868,34 @@ pub fn stream_grep(
     let options = GrepSearchOptions {
         mode,
         page_limit,
+        before_context,
+        after_context,
         ..Default::default()
     };
 
+    // Use GrepConfig so that `[`, `?`, and bare `*` (without `/` or `{...}`)
+    // are treated as literal text rather than glob constraints. Characters
+    // like `[` and `?` are common in source code and must be searchable.
+    let parser = QueryParser::new(GrepConfig);
+
     let result = if patterns.len() == 1 {
-        let parser = QueryParser::default();
         let query = parser.parse(&patterns[0]);
         picker.grep(&query, &options)
     } else {
-        let refs = patterns.iter().map(String::as_str).collect::<Vec<_>>();
-        picker.multi_grep(&refs, &[], &options)
+        // Parse each pattern to extract file constraints (glob, path segment,
+        // extension, etc.) and separate them from the search text.
+        let mut all_constraints = Vec::new();
+        let mut text_patterns: Vec<String> = Vec::new();
+        for pat in patterns {
+            let query = parser.parse(pat.as_str());
+            let text = query.grep_text();
+            all_constraints.extend(query.constraints);
+            if !text.is_empty() {
+                text_patterns.push(text);
+            }
+        }
+        let refs: Vec<&str> = text_patterns.iter().map(|s| s.as_str()).collect();
+        picker.multi_grep(&refs, &all_constraints, &options)
     };
 
     let file_paths = result
@@ -1917,31 +1942,46 @@ pub fn stream_grep(
             })
             .collect::<Vec<_>>();
 
-        Value::record(
-            [
-                ("path".to_string(), Value::string(path, span)),
-                (
-                    "line_number".to_string(),
-                    Value::int(i64::try_from(item.line_number).unwrap_or(i64::MAX), span),
-                ),
-                (
-                    "column".to_string(),
-                    Value::int(usize_to_i64(item.col), span),
-                ),
-                (
-                    "byte_offset".to_string(),
-                    Value::int(i64::try_from(item.byte_offset).unwrap_or(i64::MAX), span),
-                ),
-                (
-                    "line".to_string(),
-                    Value::string(item.line_content.clone(), span),
-                ),
-                ("matches".to_string(), Value::list(offsets, span)),
-            ]
-            .into_iter()
-            .collect(),
-            span,
-        )
+        let mut cols: Vec<(String, Value)> = vec![
+            ("path".to_string(), Value::string(path, span)),
+            (
+                "line_number".to_string(),
+                Value::int(i64::try_from(item.line_number).unwrap_or(i64::MAX), span),
+            ),
+            (
+                "column".to_string(),
+                Value::int(usize_to_i64(item.col), span),
+            ),
+            (
+                "byte_offset".to_string(),
+                Value::int(i64::try_from(item.byte_offset).unwrap_or(i64::MAX), span),
+            ),
+            (
+                "line".to_string(),
+                Value::string(item.line_content.clone(), span),
+            ),
+            ("matches".to_string(), Value::list(offsets, span)),
+        ];
+
+        if !item.context_before.is_empty() || !item.context_after.is_empty() {
+            let context = item
+                .context_before
+                .iter()
+                .map(|l| Value::string(l.clone(), span))
+                .chain(std::iter::once(Value::string(
+                    item.line_content.clone(),
+                    span,
+                )))
+                .chain(
+                    item.context_after
+                        .iter()
+                        .map(|l| Value::string(l.clone(), span)),
+                )
+                .collect::<Vec<_>>();
+            cols.push(("with_context".to_string(), Value::list(context, span)));
+        }
+
+        Value::record(cols.into_iter().collect(), span)
     });
 
     Ok(PipelineData::ListStream(

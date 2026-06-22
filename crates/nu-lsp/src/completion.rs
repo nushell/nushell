@@ -408,6 +408,26 @@ mod tests {
             "kind": 6
         }
     ]))]
+    #[case::use_submodule("use.nu", (20, 4), None, serde_json::json!([
+        {
+            "label": "dirs",
+            "labelDetails": { "description": "custom" },
+            "textEdit": {
+                "newText": "dirs ",
+                "range": { "start": { "character": 0, "line": 20 }, "end": { "character": 4, "line": 20 } }
+            },
+            "kind": 2
+        },
+        {
+            "label": "dirs next",
+            "labelDetails": { "description": "custom" },
+            "textEdit": {
+                "newText": "dirs next ",
+                "range": { "start": { "character": 0, "line": 20 }, "end": { "character": 4, "line": 20 } }
+            },
+            "kind": 2
+        },
+    ]))]
     #[case::command_basic("command.nu", (0, 6), None, serde_json::json!([
         { "label": "config n foo bar", "detail": DETAIL_STR, "kind": 2 },
         {
