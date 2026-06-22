@@ -524,7 +524,13 @@ fn parse_mapping<'i>(
 ) -> Result<Value, ShellError> {
     // TODO: handle merging
 
-    ctx.unhandled_tags(tag)?;
+    let tag = match ctx.options.ignore_tags {
+        true => None,
+        false => tag
+            .map(|tag| KnownTag::from_str(tag.to_string().as_str()))
+            .transpose()
+            .map_err(|err| ctx.unknown_tag_err(err))?,
+    };
 
     let mut values = Vec::new();
     let mut keys = HashSet::new();
@@ -642,7 +648,7 @@ mod tests {
     use nu_protocol::IntoSpanned;
     use nu_test_support::prelude::*;
 
-    const FIXTURE: &str = include_str!("../../../../tests/fixtures/formats/sample.yaml");
+    const FIXTURE: &str = include_str!("../../../../tests/fixtures/formats/yaml/sample.yaml");
     const SPAN: Span = Span::test_data();
 
     #[test]
