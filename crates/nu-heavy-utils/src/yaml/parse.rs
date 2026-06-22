@@ -476,7 +476,9 @@ fn parse_sequence<'i>(
             let mut entries = Vec::with_capacity(values.len());
             let mut keys = HashSet::with_capacity(values.len());
             for value in values.into_iter() {
-                let record = value.into_record().map_err(|_| ShellError::Generic(todo!()))?;
+                let record = value
+                    .into_record()
+                    .map_err(|_| ShellError::Generic(todo!()))?;
                 let mut iter = record.into_iter();
                 match (iter.next(), iter.next()) {
                     (None, None) => todo!("too few entries"),
@@ -485,12 +487,13 @@ fn parse_sequence<'i>(
                             todo!("throw error for duplicate key");
                         }
 
-                        entries.push((key, value))},
+                        entries.push((key, value))
+                    }
                     (_, Some(_)) => todo!("too many entries"),
                 }
             }
             Ok(Value::record(Record::from_iter(entries), ctx.parser_span))
-        },
+        }
 
         KnownTag::Map => todo!(),
         KnownTag::Str => todo!(),
@@ -522,8 +525,6 @@ fn parse_mapping<'i>(
     _structure_style: StructureStyle,
     tag: Option<Cow<'i, Tag>>,
 ) -> Result<Value, ShellError> {
-    // TODO: handle merging
-
     let tag = match ctx.options.ignore_tags {
         true => None,
         false => tag
@@ -538,7 +539,7 @@ fn parse_mapping<'i>(
     let mut merge = Record::new();
     let merge_strategy = MergeStrategy::Shallow;
 
-    loop {
+    let record = 'record: loop {
         let key = 'key: loop {
             // expect a key or end
             match ctx.next_event()? {
@@ -552,8 +553,7 @@ fn parse_mapping<'i>(
                 }
                 Event::MappingEnd => {
                     let record = Record::from_iter(values);
-                    let merged = merge.merge(record, merge_strategy, ctx.parser_span)?;
-                    return Ok(Value::record(merged, ctx.parser_span));
+                    break 'record merge.merge(record, merge_strategy, ctx.parser_span)?;
                 }
                 event => return Err(ctx.unexpected_event(event)),
             }
@@ -615,6 +615,47 @@ fn parse_mapping<'i>(
                 values.push((key, value));
             }
         }
+    };
+
+    match tag.unwrap_or(KnownTag::Map) {
+        KnownTag::Map => Ok(Value::record(record, ctx.parser_span)),
+        KnownTag::Set => {
+            let mut values = Vec::with_capacity(record.len());
+            for (key, value) in record {
+                match value {
+                    // in a set every values has to be a null value
+                    Value::Nothing { .. } => (),
+                    _ => todo!("throw error for not null value"),
+                }
+
+                // technically in a set we could represent complexer values than strings but this is
+                // too much work for that niche of an application
+                values.push(Value::string(key, value.span()));
+            }
+            Ok(Value::list(values, ctx.parser_span))
+        }
+
+        KnownTag::Seq => todo!(),
+        KnownTag::Str => todo!(),
+        KnownTag::Null => todo!(),
+        KnownTag::Bool => todo!(),
+        KnownTag::Int => todo!(),
+        KnownTag::Float => todo!(),
+        KnownTag::Binary => todo!(),
+        KnownTag::OMap => todo!(),
+        KnownTag::Pairs => todo!(),
+        KnownTag::Merge => todo!(),
+        KnownTag::Timestamp => todo!(),
+        KnownTag::Value => todo!(),
+        KnownTag::Yaml => todo!(),
+        KnownTag::Glob => todo!(),
+        KnownTag::Filesize => todo!(),
+        KnownTag::Duration => todo!(),
+        KnownTag::Date => todo!(),
+        KnownTag::Range => todo!(),
+        KnownTag::Closure => todo!(),
+        KnownTag::Error => todo!(),
+        KnownTag::CellPath => todo!(),
     }
 }
 
