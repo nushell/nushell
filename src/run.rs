@@ -234,7 +234,6 @@ pub(crate) fn run_lsp(
     use_color: bool,
     start_time: nu_utils::time::Instant,
 ) -> Result<(), miette::ErrReport> {
-
     if parsed_nu_cli_args.no_config_file.is_none() {
         let mut stack = nu_protocol::engine::Stack::new();
         config_files::setup_config(
