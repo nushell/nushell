@@ -1312,16 +1312,28 @@ pub fn parse_internal_call(
                         Some(SpecialCmd::Match) if &positional.name == "match_block" => {
                             output_override = Some(expr.ty.clone());
                         }
-                        Some(SpecialCmd::If) if positional_idx >= 1 => {
-                            let ty = match &expr.expr {
+                        Some(SpecialCmd::If)
+                            if positional_idx == 1
+                                && let Expr::Block(block_id) = &expr.expr =>
+                        {
+                            let ty = working_set.get_block(*block_id).output_type();
+
+                            output_override = Some(match output_override {
+                                Some(existing_ty) => existing_ty.union(ty),
+                                None => ty,
+                            });
+                        }
+                        Some(SpecialCmd::If)
+                            if positional_idx == 2
+                                && let Expr::Keyword(kw) = &expr.expr =>
+                        {
+                            let ty = match &kw.expr.expr {
                                 Expr::Block(block_id) => {
                                     working_set.get_block(*block_id).output_type()
                                 }
-                                Expr::Keyword(kw) if let Expr::Block(block_id) = &kw.expr.expr => {
-                                    working_set.get_block(*block_id).output_type()
-                                }
-                                _ => expr.ty.clone(),
+                                _ => kw.expr.ty.clone(),
                             };
+
                             output_override = Some(match output_override {
                                 Some(existing_ty) => existing_ty.union(ty),
                                 None => ty,
