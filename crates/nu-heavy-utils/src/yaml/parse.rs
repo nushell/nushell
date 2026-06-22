@@ -8,7 +8,7 @@ use crate::{
     merge::{Merge, MergeStrategy},
     yaml::{
         KnownTag, Spec, UnknownTagError,
-        error::{InternalParserError, ParseError},
+        error::{InternalParserError, NodeKind, ParseError},
     },
 };
 use base64::{Engine, engine::general_purpose::STANDARD as BASE64_STANDARD};
@@ -170,6 +170,16 @@ impl<'i> ParseCtx<'i> {
             })),
         }
     }
+
+    fn resolve_tag(&self, tag: Option<&Tag>) -> Result<Option<KnownTag>, ParseError<'i>> {
+        if self.options.ignore_tags {
+            return Ok(None);
+        }
+
+        tag.map(|tag| KnownTag::from_str(tag.to_string().as_str()))
+            .transpose()
+            .map_err(|err| self.unknown_tag_err(err))
+    }
 }
 
 fn parse_document<'i>(ctx: &mut ParseCtx<'i>) -> Result<Value, ShellError> {
@@ -266,14 +276,7 @@ fn parse_scalar<'i>(
     scalar_style: ScalarStyle,
     tag: Option<Cow<'i, Tag>>,
 ) -> Result<Value, ShellError> {
-    // TODO: make a single function for this
-    let tag = match ctx.options.ignore_tags {
-        true => None,
-        false => tag
-            .map(|tag| KnownTag::from_str(tag.to_string().as_str()))
-            .transpose()
-            .map_err(|err| ctx.unknown_tag_err(err))?,
-    };
+    let tag = ctx.resolve_tag(tag.as_deref())?;
 
     // TODO: handle spec 1.1 and 1.2
 
@@ -373,18 +376,24 @@ fn parse_scalar<'i>(
             }
 
             // incorrect tag
-            KnownTag::Map => todo!(),
-            KnownTag::Seq => todo!(),
-            KnownTag::OMap => todo!(),
-            KnownTag::Pairs => todo!(),
-            KnownTag::Set => todo!(),
-            KnownTag::Merge => todo!(),
-            KnownTag::Error => todo!(),
+            KnownTag::Map
+            | KnownTag::Seq
+            | KnownTag::OMap
+            | KnownTag::Pairs
+            | KnownTag::Set
+            | KnownTag::Merge
+            | KnownTag::Error => {
+                return Err(ShellError::from(ParseError::IncorrectTag {
+                    tag,
+                    at: NodeKind::Scalar,
+                    span: ctx.yaml_span,
+                }));
+            }
 
             // unsupported tag
-            KnownTag::Timestamp => todo!(),
-            KnownTag::Value => todo!(),
-            KnownTag::Yaml => todo!(),
+            KnownTag::Timestamp | KnownTag::Value | KnownTag::Yaml => {
+                return Err(ShellError::from(ParseError::UnsupportedTag { tag, span }));
+            }
         }),
     }
 }
@@ -396,13 +405,7 @@ fn parse_sequence<'i>(
     _structure_style: StructureStyle,
     tag: Option<Cow<'i, Tag>>,
 ) -> Result<Value, ShellError> {
-    let tag = match ctx.options.ignore_tags {
-        true => None,
-        false => tag
-            .map(|tag| KnownTag::from_str(tag.to_string().as_str()))
-            .transpose()
-            .map_err(|err| ctx.unknown_tag_err(err))?,
-    };
+    let tag = ctx.resolve_tag(tag.as_deref())?;
 
     let mut values = Vec::new();
     loop {
@@ -506,13 +509,7 @@ fn parse_mapping<'i>(
     _structure_style: StructureStyle,
     tag: Option<Cow<'i, Tag>>,
 ) -> Result<Value, ShellError> {
-    let tag = match ctx.options.ignore_tags {
-        true => None,
-        false => tag
-            .map(|tag| KnownTag::from_str(tag.to_string().as_str()))
-            .transpose()
-            .map_err(|err| ctx.unknown_tag_err(err))?,
-    };
+    let tag = ctx.resolve_tag(tag.as_deref())?;
 
     let mut values = Vec::new();
     let mut keys = HashSet::new();
@@ -651,7 +648,7 @@ fn parse_key<'i>(
     scalar_style: ScalarStyle,
     tag: Option<Cow<'i, Tag>>,
 ) -> Result<MapKey, ShellError> {
-    // ctx.unhandled_tags(tag)?;
+    let tag = ctx.resolve_tag(tag.as_deref())?;
 
     // According to spec a key node may be just about everything:
     // https://yaml.org/spec/1.2.2/#mapping

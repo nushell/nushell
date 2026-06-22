@@ -8,16 +8,16 @@ use serde_saphyr::granit_parser::{Event, ScanError};
 
 use crate::yaml::KnownTag;
 
+#[expect(
+    private_interfaces,
+    reason = "KnownTag has the same visibility as this error"
+)]
 pub enum ParseError<'i> {
     TooManyDocuments {
         span: Span,
     },
     Scan {
         source: ScanError,
-        span: Span,
-    },
-    UnknownTag {
-        tag: String,
         span: Span,
     },
     NumInt {
@@ -59,10 +59,32 @@ pub enum ParseError<'i> {
         tag: KnownTag,
         span: Span,
     },
+    UnknownTag {
+        tag: String,
+        span: Span,
+    },
+    IncorrectTag {
+        tag: KnownTag,
+        at: NodeKind,
+        span: Span,
+    },
+    UnsupportedTag {
+        tag: KnownTag,
+        span: Span,
+    },
     Internal {
         error: InternalParserError<'i>,
         span: Span,
     },
+}
+
+#[derive(strum::Display)]
+#[strum(serialize_all = "snake_case")]
+pub enum NodeKind {
+    Document,
+    Scalar,
+    Sequence,
+    Mapping,
 }
 
 pub enum InternalParserError<'i> {
@@ -99,13 +121,6 @@ impl From<ParseError<'_>> for ShellError {
             )
             .with_code("shell::yaml::parser::scan")
             .with_source(source),
-
-            ParseError::UnknownTag { tag, span } => GenericError::new(
-                "Unknown tag",
-                format!("The tag {:?} is unknown to nushell", tag),
-                span,
-            )
-            .with_code("shell::yaml::parser::tag::unknown"),
 
             ParseError::NumInt {
                 base,
@@ -187,12 +202,33 @@ impl From<ParseError<'_>> for ShellError {
             .with_code("shell::yaml::parser::cell_path")
             .with_source(err),
 
+            ParseError::UnknownTag { tag, span } => GenericError::new(
+                "Unknown tag",
+                format!("The tag {:?} is unknown to nushell", tag),
+                span,
+            )
+            .with_code("shell::yaml::parser::tag::unknown"),
+
             ParseError::UnimplementedTag { tag, span } => GenericError::new(
                 "Unimplemented Tag",
                 format!("The tag {tag} is known but not implemented"),
                 span,
             )
             .with_code("shell::yaml::parser::tag::unimplemented"),
+
+            ParseError::IncorrectTag { tag, at, span } => GenericError::new(
+                "Incorrect tag",
+                format!("Found incorrect tag {tag} while parsing {at}"),
+                span,
+            )
+            .with_code("shell::yaml::parser::tag::incorrect"),
+
+            ParseError::UnsupportedTag { tag, span } => GenericError::new(
+                "Unsupported tag",
+                format!("The tag {tag} is generally not supported"),
+                span,
+            )
+            .with_code("shell::yaml::parser::tag::unsupported"),
 
             ParseError::Internal { error, span } => GenericError::new(
                 "Internal YAML Parser Error",
