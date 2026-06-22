@@ -64,6 +64,5 @@ export def table-into-columns []: [table -> list<table>] {
     [1, 2, 3] | name-values a b c
 } --result {a: 1, b: 2, c: 3}
 export def name-values [...names: string]: [list -> record] {
-    let IN = $in
-    0.. | zip $IN | into record | rename ...$names
+    zip 0.. | each { [$in.1 $in.0] } | into record | rename ...$names
 }
