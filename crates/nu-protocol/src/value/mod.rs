@@ -17,7 +17,7 @@ pub use from_value::FromValue;
 pub use glob::*;
 pub use into_value::{IntoValue, TryIntoValue};
 pub use nu_utils::MultiLife;
-pub use range::{FloatRange, IntRange, Range, ParseRangeError};
+pub use range::{FloatRange, IntRange, ParseRangeError, Range};
 pub use record::Record;
 
 use crate::{

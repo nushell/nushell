@@ -187,7 +187,7 @@ impl From<ParseError<'_>> for ShellError {
             ParseError::Int {
                 attempted,
                 base_and_err: Some((base, err)),
-                span
+                span,
             } => GenericError::new(
                 format!("Parsing Int Base {base} failed"),
                 format!("Parsing {attempted:?} failed"),
@@ -199,7 +199,7 @@ impl From<ParseError<'_>> for ShellError {
             ParseError::Int {
                 attempted,
                 base_and_err: None,
-                span
+                span,
             } => GenericError::new(
                 format!("Parsing Int failed"),
                 format!("Could not identify {attempted:?} as an int"),
@@ -210,7 +210,7 @@ impl From<ParseError<'_>> for ShellError {
             ParseError::Float {
                 attempted,
                 base_and_err: Some((base, err)),
-                span
+                span,
             } => GenericError::new(
                 format!("Parsing Float Base {base} failed"),
                 format!("Parsing {attempted:?} failed"),
@@ -222,7 +222,7 @@ impl From<ParseError<'_>> for ShellError {
             ParseError::Float {
                 attempted,
                 base_and_err: None,
-                span
+                span,
             } => GenericError::new(
                 format!("Parsing Float failed"),
                 format!("Could not identify {attempted:?} as a float"),
