@@ -50,7 +50,7 @@ pub(crate) fn parse_redirection(
 pub(crate) fn parse_pipeline_element(
     working_set: &mut StateWorkingSet,
     command: &LiteCommand,
-    input_type: Type,
+    input_type: &Type,
 ) -> PipelineElement {
     trace!("parsing: pipeline element");
 
@@ -87,17 +87,17 @@ pub(crate) fn redirecting_builtin_error(
 pub fn parse_pipeline(
     working_set: &mut StateWorkingSet,
     pipeline: &LitePipeline,
-    input_type: Option<Type>,
+    input_type: Option<&Type>,
 ) -> Pipeline {
     match pipeline.commands.as_slice() {
         [] => unreachable!("at this point the pipeline must have at least one element"),
         [single] => parse_builtin_commands(working_set, single, input_type),
         [first, rest @ ..] => {
-            let mut current_pipeline_type = input_type.unwrap_or(Type::Any);
+            let mut current_pipeline_type = input_type.cloned().unwrap_or(Type::Any);
 
             let mut elements = Vec::new();
             elements.push({
-                let element = parse_pipeline_element(working_set, first, current_pipeline_type);
+                let element = parse_pipeline_element(working_set, first, &current_pipeline_type);
                 // the output becomes the input for the next pipeline element
                 current_pipeline_type = element.expr.ty.clone();
 
@@ -107,17 +107,13 @@ pub fn parse_pipeline(
             // Parse a normal multi command pipeline
             let rest_elements = rest.iter().map(|element| {
                 let input_clone = current_pipeline_type.clone();
-                let element = parse_pipeline_element(
-                    working_set,
-                    element,
-                    std::mem::take(&mut current_pipeline_type),
-                );
+                let element = parse_pipeline_element(working_set, element, &current_pipeline_type);
                 // the output becomes the input for the next pipeline element
                 current_pipeline_type = element.expr.ty.clone();
 
                 // Handle $in for pipeline elements beyond the first one
                 if element.has_in_variable(working_set) {
-                    wrap_element_with_collect(working_set, element, Some(input_clone))
+                    wrap_element_with_collect(working_set, element, Some(&input_clone))
                 } else {
                     element
                 }
@@ -136,7 +132,7 @@ pub fn parse_block(
     span: Span,
     scoped: bool,
     is_subexpression: bool,
-    input_type: Option<Type>,
+    input_type: Option<&Type>,
 ) -> Block {
     let (lite_block, err) = lite_parse(tokens, working_set);
     if let Some(err) = err {
@@ -162,7 +158,7 @@ pub fn parse_block(
 
     if let [first, rest @ ..] = lite_block.block.as_slice() {
         // only the first pipeline receives the block's pipeline input
-        let pipeline = parse_pipeline(working_set, first, input_type.clone());
+        let pipeline = parse_pipeline(working_set, first, input_type);
         block.pipelines.push(pipeline);
 
         for lite_pipeline in rest {

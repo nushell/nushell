@@ -389,7 +389,7 @@ fn table_type(head: &[Expression], rows: &[Vec<Expression>]) -> (Type, Vec<Parse
 pub fn parse_block_expression(
     working_set: &mut StateWorkingSet,
     span: Span,
-    input_type: Option<Type>,
+    input_type: Option<&Type>,
 ) -> Expression {
     trace!("parsing: block expression");
 
@@ -423,30 +423,16 @@ pub fn parse_block_expression(
 
     working_set.enter_scope();
 
-    // Check to see if we have parameters
-    let (signature, amt_to_skip): (Option<(Box<Signature>, Span)>, usize) = match output.first() {
-        Some(Token {
-            contents: TokenContents::Pipe,
-            span,
-        }) => {
-            working_set.error(ParseError::Expected("block but found closure", *span));
-            (None, 0)
-        }
-        _ => (None, 0),
-    };
-
-    let mut output = parse_block(
-        working_set,
-        &output[amt_to_skip..],
+    // Check to see if we have closure parameters
+    if let Some(Token {
+        contents: TokenContents::Pipe,
         span,
-        false,
-        false,
-        input_type,
-    );
-
-    if let Some(signature) = signature {
-        output.signature = signature.0;
+    }) = output.first()
+    {
+        working_set.error(ParseError::Expected("block but found closure", *span));
     }
+
+    let mut output = parse_block(working_set, &output, span, false, false, input_type);
 
     output.span = Some(span);
 
@@ -462,7 +448,7 @@ pub fn parse_block_expression(
 pub fn parse_match_block_expression(
     working_set: &mut StateWorkingSet,
     span: Span,
-    input_type: Option<Type>,
+    input_type: Option<&Type>,
 ) -> Expression {
     let bytes = working_set.get_span_contents(span);
 
@@ -647,7 +633,7 @@ pub fn parse_match_block_expression(
             &[output[position].span],
             &mut 0,
             &SyntaxShape::OneOf(vec![SyntaxShape::Block, SyntaxShape::Expression]),
-            input_type.clone(),
+            input_type,
         );
         position += 1;
         if is_closed {
@@ -680,7 +666,7 @@ pub fn parse_closure_expression(
     working_set: &mut StateWorkingSet,
     shape: &SyntaxShape,
     span: Span,
-    input_type: Option<Type>,
+    input_type: Option<&Type>,
 ) -> Expression {
     trace!("parsing: closure expression");
 
@@ -829,7 +815,7 @@ pub fn parse_value(
     working_set: &mut StateWorkingSet,
     span: Span,
     shape: &SyntaxShape,
-    input_type: Option<Type>,
+    input_type: Option<&Type>,
 ) -> Expression {
     trace!("parsing: value: {shape}");
 
@@ -1006,7 +992,7 @@ pub fn parse_assignment_operator(working_set: &mut StateWorkingSet, span: Span) 
 pub fn parse_assignment_expression(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
-    input_type: Option<Type>,
+    input_type: Option<&Type>,
 ) -> Expression {
     trace!("parsing: assignment expression");
     let expr_span = Span::concat(spans);
@@ -1257,7 +1243,7 @@ pub fn parse_math_expression(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
     lhs_row_var_id: Option<VarId>,
-    input_type: Option<Type>,
+    input_type: Option<&Type>,
 ) -> Expression {
     trace!("parsing: math expression");
 
@@ -1315,12 +1301,7 @@ pub fn parse_math_expression(
         }
     }
 
-    let mut lhs = parse_value(
-        working_set,
-        spans[idx],
-        &SyntaxShape::Any,
-        input_type.clone(),
-    );
+    let mut lhs = parse_value(working_set, spans[idx], &SyntaxShape::Any, input_type);
 
     for not_start_span in not_start_spans.iter().rev() {
         lhs = Expression::new(
@@ -1492,7 +1473,7 @@ pub fn parse_math_expression(
 pub fn parse_expression(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
-    input_type: Option<Type>,
+    input_type: Option<&Type>,
 ) -> Expression {
     trace!("parsing: expression");
 
@@ -1667,7 +1648,7 @@ pub fn parse_expression(
 pub fn parse_builtin_commands(
     working_set: &mut StateWorkingSet,
     lite_command: &LiteCommand,
-    input_type: Option<Type>,
+    input_type: Option<&Type>,
 ) -> Pipeline {
     trace!("parsing: builtin commands");
     if !is_math_expression_like(working_set, lite_command.parts[0])
@@ -1772,7 +1753,7 @@ pub fn parse_builtin_commands(
         }
         _ => {
             let element =
-                parse_pipeline_element(working_set, lite_command, input_type.unwrap_or(Type::Any));
+                parse_pipeline_element(working_set, lite_command, input_type.unwrap_or(&Type::Any));
 
             // There is still a chance to make `parse_pipeline_element` parse into
             // some keyword that should apply side effects first, Example:

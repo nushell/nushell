@@ -687,7 +687,7 @@ pub(crate) fn parse_oneof(
     spans_idx: &mut usize,
     possible_shapes: &Vec<SyntaxShape>,
     multispan: bool,
-    input_type: Option<Type>,
+    input_type: Option<&Type>,
 ) -> Expression {
     let starting_spans_idx = *spans_idx;
     let mut best_guess = None;
@@ -698,13 +698,8 @@ pub(crate) fn parse_oneof(
         let starting_error_count = working_set.parse_errors.len();
         *spans_idx = starting_spans_idx;
         let value = match multispan {
-            true => parse_multispan_value(working_set, spans, spans_idx, shape, input_type.clone()),
-            false => crate::parser::parse_value(
-                working_set,
-                spans[*spans_idx],
-                shape,
-                input_type.clone(),
-            ),
+            true => parse_multispan_value(working_set, spans, spans_idx, shape, input_type),
+            false => crate::parser::parse_value(working_set, spans[*spans_idx], shape, input_type),
         };
 
         let new_errors = &working_set.parse_errors[starting_error_count..];
@@ -753,7 +748,7 @@ pub fn parse_multispan_value(
     spans: &[Span],
     spans_idx: &mut usize,
     shape: &SyntaxShape,
-    input_type: Option<Type>,
+    input_type: Option<&Type>,
 ) -> Expression {
     trace!("parse multispan value");
     match shape {
@@ -906,7 +901,7 @@ pub fn parse_internal_call(
     spans: &[Span],
     decl_id: DeclId,
     arg_parsing_level: ArgumentParsingLevel,
-    input_type: Option<Type>,
+    input_type: Option<&Type>,
 ) -> ParsedInternalCall {
     trace!("parsing: internal call (decl id: {})", decl_id.get());
 
@@ -950,7 +945,11 @@ pub fn parse_internal_call(
     // Incorrect behavior this may cause will be handled by
     // `check_pipeline_type` in crates/nu-parser/src/type_check.rs
     let output = signature
-        .get_output_type(input_type.clone().map(|ty| ty.union(Type::Nothing)))
+        .get_output_type(
+            input_type
+                .map(|ty| ty.clone().union(Type::Nothing))
+                .as_ref(),
+        )
         .unwrap_or(Type::Error);
 
     // This is necessary for some keywords to have proper expression types.
@@ -1272,14 +1271,14 @@ pub fn parse_internal_call(
                     Expression::garbage(working_set, spans[spans_idx])
                 }
                 _ => {
-                    let input_type = match special_cmd {
+                    let input_type: Option<Type> = match special_cmd {
                         // `let` can assigned from pipeline input, input type is necessary to infer
                         // the variable's type correctly
                         Some(SpecialCmd::Let)
                             if let SyntaxShape::VarWithOptType = &positional.shape =>
                         {
-                            output_override = input_type.clone();
-                            input_type.clone()
+                            output_override = input_type.cloned();
+                            input_type.cloned()
                         }
                         // in a def block, the pipeline input type should be inferred based on the
                         // command input-output signature
@@ -1293,9 +1292,9 @@ pub fn parse_internal_call(
                                 _ => None,
                             }
                         }
-                        Some(SpecialCmd::If) if positional_idx >= 1 => input_type.clone(),
+                        Some(SpecialCmd::If) if positional_idx >= 1 => input_type.cloned(),
                         Some(SpecialCmd::Match) if &positional.name == "match_block" => {
-                            input_type.clone()
+                            input_type.cloned()
                         }
                         _ => None,
                     };
@@ -1305,7 +1304,7 @@ pub fn parse_internal_call(
                         &spans[..end],
                         &mut spans_idx,
                         &positional.shape,
-                        input_type,
+                        input_type.as_ref(),
                     );
 
                     match special_cmd {
@@ -1433,7 +1432,7 @@ pub fn parse_call(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
     head: Span,
-    input_type: Option<Type>,
+    input_type: Option<&Type>,
 ) -> Expression {
     trace!("parsing: call");
     let call_span = Span::concat(spans);

@@ -20,7 +20,7 @@ use std::{collections::HashMap, sync::Arc};
 pub fn parse_let(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
-    input_type: Option<Type>,
+    input_type: Option<&Type>,
 ) -> Pipeline {
     trace!("parsing: let");
 
@@ -42,17 +42,11 @@ pub fn parse_let(
                     }
 
                     let rvalue_span = Span::concat(&spans[(span.0 + 1)..]);
-                    let rvalue_block = parse_block(
-                        working_set,
-                        &tokens,
-                        rvalue_span,
-                        false,
-                        true,
-                        input_type.clone(),
-                    );
+                    let rvalue_block =
+                        parse_block(working_set, &tokens, rvalue_span, false, true, input_type);
 
                     let output_type = match rvalue_block.pipelines.as_slice() {
-                        [pipeline] if let Some(input) = input_type.clone() => {
+                        [pipeline] if let Some(input) = input_type => {
                             crate::type_check::check_pipeline_type(working_set, pipeline, input).0
                         }
                         _ => rvalue_block.output_type(),

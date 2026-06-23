@@ -388,11 +388,11 @@ impl Signature {
     /// - [Union](TypeSet::union) of all valid outputs are returned.
     /// - If there are no valid IO pairs for the given `input`, [`None`] is returned.
     // XXX: remove?
-    pub fn get_output_type(&self, input_type: Option<Type>) -> Option<Type> {
+    pub fn get_output_type(&self, input_type: Option<&Type>) -> Option<Type> {
         if self.input_output_types.is_empty() {
             return Some(Type::Any);
         }
-        let input = input_type.unwrap_or(Type::Any);
+        let input = input_type.unwrap_or(&Type::Any);
         let mut it = self
             .input_output_types
             .iter()

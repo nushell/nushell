@@ -679,9 +679,9 @@ pub fn math_result_type(
 pub fn check_pipeline_type(
     working_set: &StateWorkingSet,
     pipeline: &Pipeline,
-    input_type: Type,
+    input_type: &Type,
 ) -> (Type, Option<Vec<ParseError>>) {
-    let mut input_type = input_type;
+    let mut input_type = input_type.clone();
     let mut output_errors: Option<Vec<ParseError>> = None;
 
     for elem in &pipeline.elements {
@@ -713,7 +713,7 @@ pub fn check_pipeline_type(
             .get_decl(call.decl_id)
             .signature()
             // NOTE[2]: unlike `parse_internal_call`, `Type::Nothing` is not added to input types.
-            .get_output_type(Some(input_type.clone()));
+            .get_output_type(Some(&input_type));
 
         if let Some(output_type) = output_type {
             input_type = output_type;
@@ -760,7 +760,7 @@ pub fn check_block_input_output(working_set: &StateWorkingSet, block: &Block) ->
                     .iter()
                     .fold((input_type.clone(), Type::Nothing), |(ct, _), pipeline| {
                         let (checked_output_type, err) =
-                            check_pipeline_type(working_set, pipeline, ct);
+                            check_pipeline_type(working_set, pipeline, &ct);
                         if let Some(err) = err {
                             output_errors.extend(err);
                         }

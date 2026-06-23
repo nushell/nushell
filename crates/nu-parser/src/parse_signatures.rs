@@ -170,7 +170,7 @@ pub fn parse_var_with_opt_type(
     spans: &[Span],
     spans_idx: &mut usize,
     mutable: bool,
-    input_type: Option<Type>,
+    input_type: Option<&Type>,
 ) -> (Expression, Option<Type>) {
     let name_span = spans[*spans_idx];
     let bytes = working_set.get_span_contents(name_span);
@@ -257,7 +257,7 @@ pub fn parse_var_with_opt_type(
         let id = working_set.add_variable(
             var_name,
             Span::concat(&spans[*spans_idx..*spans_idx + 1]),
-            input_type.unwrap_or(Type::Any),
+            input_type.cloned().unwrap_or(Type::Any),
             mutable,
         );
 
@@ -289,7 +289,7 @@ pub fn expand_to_cell_path(
     working_set: &mut StateWorkingSet,
     expression: &mut Expression,
     var_id: VarId,
-    input_type: Option<Type>,
+    input_type: Option<&Type>,
 ) {
     trace!("parsing: expanding to cell path");
     if let Expression {
@@ -299,8 +299,7 @@ pub fn expand_to_cell_path(
     } = expression
     {
         // Re-parse the string as if it were a cell-path
-        let new_expression =
-            parse_full_cell_path(working_set, Some(var_id), *span, input_type.clone());
+        let new_expression = parse_full_cell_path(working_set, Some(var_id), *span, input_type);
 
         *expression = new_expression;
     }

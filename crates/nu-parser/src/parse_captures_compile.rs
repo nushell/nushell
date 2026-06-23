@@ -465,7 +465,7 @@ pub(crate) fn wrap_redirection_with_collect(
 pub(crate) fn wrap_element_with_collect(
     working_set: &mut StateWorkingSet,
     element: PipelineElement,
-    input_type: Option<Type>,
+    input_type: Option<&Type>,
 ) -> PipelineElement {
     PipelineElement {
         pipe: element.pipe,
@@ -486,7 +486,7 @@ pub(crate) fn wrap_element_with_collect(
 pub(crate) fn wrap_expr_with_collect(
     working_set: &mut StateWorkingSet,
     mut expr: Expression,
-    input_type: Option<Type>,
+    input_type: Option<&Type>,
 ) -> Expression {
     let span = expr.span;
 
@@ -495,7 +495,7 @@ pub(crate) fn wrap_expr_with_collect(
     let var_id = working_set.add_variable(
         b"$in".into(),
         Span::new(span.start, span.start),
-        input_type.unwrap_or(Type::Any),
+        input_type.cloned().unwrap_or(Type::Any),
         false,
     );
     expr.replace_in_variable(working_set, var_id);

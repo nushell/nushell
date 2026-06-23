@@ -399,7 +399,7 @@ pub(crate) fn parse_dollar_expr(
     working_set: &mut StateWorkingSet,
     span: Span,
     shape: &SyntaxShape,
-    input_type: Option<Type>,
+    input_type: Option<&Type>,
 ) -> Expression {
     trace!("parsing: dollar expression");
     let contents = working_set.get_span_contents(span);
@@ -525,7 +525,7 @@ pub fn parse_brace_expr(
     working_set: &mut StateWorkingSet,
     span: Span,
     shape: &SyntaxShape,
-    input_type: Option<Type>,
+    input_type: Option<&Type>,
 ) -> Expression {
     // Try to detect what kind of value we're about to parse
     // FIXME: In the future, we should work over the token stream so we only have to do this once
@@ -805,7 +805,7 @@ pub fn parse_string_interpolation(working_set: &mut StateWorkingSet, span: Span)
 pub fn parse_variable_expr(
     working_set: &mut StateWorkingSet,
     span: Span,
-    input_type: Option<Type>,
+    input_type: Option<&Type>,
 ) -> Expression {
     let contents = working_set.get_span_contents(span);
 
@@ -821,7 +821,7 @@ pub fn parse_variable_expr(
             working_set,
             Expr::Var(nu_protocol::IN_VARIABLE_ID),
             span,
-            input_type.unwrap_or(Type::Any),
+            input_type.cloned().unwrap_or(Type::Any),
         );
     } else if contents == b"$env" {
         return Expression::new(
@@ -1046,7 +1046,7 @@ pub fn parse_full_cell_path(
     working_set: &mut StateWorkingSet,
     implicit_head: Option<VarId>,
     span: Span,
-    input_type: Option<Type>,
+    input_type: Option<&Type>,
 ) -> Expression {
     trace!("parsing: full cell path");
     let full_cell_span = span;
