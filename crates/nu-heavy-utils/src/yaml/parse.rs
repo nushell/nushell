@@ -212,107 +212,6 @@ fn parse_document<'i>(ctx: &mut ParseCtx<'i>) -> Result<Value, ShellError> {
     }
 }
 
-// TODO: add BASE2 for 1.1
-
-static BASE10: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new("^[-+]?[0-9]+$").expect("valid base 10 regex"));
-fn parse_base10<'i>(ctx: &mut ParseCtx<'i>, s: &str) -> Result<i64, ParseError<'i>> {
-    i64::from_str_radix(s, 10).map_err(|err| ParseError::NumInt {
-        base: 10,
-        attempted: s.to_owned(),
-        err,
-        span: ctx.yaml_span,
-    })
-}
-
-static BASE8_11: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new("^(?<sign>[-+]?)0(?<digits>[0-7]+)$").expect("valid base 8 regex"));
-fn parse_base8_11<'i>(
-    ctx: &mut ParseCtx<'i>,
-    s: &str,
-    caps: Captures<'_>,
-) -> Result<Value, ParseError<'i>> {
-    i64::from_str_radix(&caps["digits"], 8)
-        .map_err(|err| ParseError::NumInt {
-            base: 8,
-            attempted: s.to_owned(),
-            err,
-            span: ctx.yaml_span,
-        })
-        .map(|num| match &caps["sign"] {
-            "+" => num * 1,
-            "-" => num * -1,
-            "" => num,
-            _ => unreachable!(r#"only matches "+", "-" and """#),
-        })
-        .map(|num| Value::int(num, ctx.parser_span))
-}
-
-static BASE8_12: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new("^(?<sign>[-+]?)0o(?<digits>[0-7]+)$").expect("valid base 8 regex")
-});
-fn parse_base8_12<'i>(
-    ctx: &mut ParseCtx<'i>,
-    s: &str,
-    caps: Captures<'_>,
-) -> Result<Value, ParseError<'i>> {
-    i64::from_str_radix(&caps["digits"], 8)
-        .map_err(|err| ParseError::NumInt {
-            base: 8,
-            attempted: s.to_owned(),
-            err,
-            span: ctx.yaml_span,
-        })
-        .map(|num| match &caps["sign"] {
-            "+" => num * 1,
-            "-" => num * -1,
-            "" => num,
-            _ => unreachable!(r#"only matches "+", "-" and """#),
-        })
-        .map(|num| Value::int(num, ctx.parser_span))
-}
-
-static BASE16: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new("^(?<sign>[-+]?)0x(?<digits>[0-9a-fA-F]+)$").expect("valid base 16 regex")
-});
-fn parse_base16<'i>(
-    ctx: &mut ParseCtx<'i>,
-    s: &str,
-    caps: Captures<'_>,
-) -> Result<Value, ParseError<'i>> {
-    i64::from_str_radix(&caps["digits"], 16)
-        .map_err(|err| ParseError::NumInt {
-            base: 16,
-            attempted: s.to_owned(),
-            err,
-            span: ctx.yaml_span,
-        })
-        .map(|num| match &caps["sign"] {
-            "+" => num * 1,
-            "-" => num * -1,
-            "" => num,
-            _ => unreachable!(r#"only matches "+", "-" and """#),
-        })
-        .map(|num| Value::int(num, ctx.parser_span))
-}
-
-static FLOAT: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"^[-+]?(\.[0-9]+|[0-9]+(\.[0-9]*)?)([eE][-+]?[0-9]+)?$").expect("valid float regex")
-});
-fn parse_float<'i>(ctx: &mut ParseCtx<'i>, s: &str) -> Result<f64, ParseError<'i>> {
-    f64::from_str(s).map_err(|err| ParseError::NumFloat {
-        attempted: s.to_owned(),
-        err,
-        span: ctx.yaml_span,
-    })
-}
-
-static INFINITY: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^[-+]?(\.inf|\.Inf|\.INF)$").expect("valid infinity regex"));
-
-static NAN: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^(\.nan|\.NaN|\.NAN)$").expect("valid NaN regex"));
-
 // parse the scalar, this one has to figure out how what type the value might be
 fn parse_scalar<'i>(
     ctx: &mut ParseCtx<'i>,
@@ -321,145 +220,200 @@ fn parse_scalar<'i>(
     tag: Option<Cow<'i, Tag>>,
 ) -> Result<Value, ShellError> {
     let tag = ctx.resolve_tag(tag.as_deref())?;
-    let span = ctx.parser_span;
     let value = value.as_ref();
 
     match tag {
-        None => {
-            match scalar_style {
-                ScalarStyle::Plain => (),
+        None => parse_scalar_untagged(ctx, value, scalar_style),
+        Some(tag) => parse_scalar_tagged(ctx, value, tag),
+    }
+}
 
-                // Without tags, these can only be strings.
-                ScalarStyle::SingleQuoted
-                | ScalarStyle::DoubleQuoted
-                | ScalarStyle::Literal
-                | ScalarStyle::Folded => return Ok(Value::string(value, span)),
-            }
+fn parse_scalar_untagged<'i>(
+    ctx: &mut ParseCtx<'i>,
+    value: &str,
+    scalar_style: ScalarStyle,
+) -> Result<Value, ShellError> {
+    let span = ctx.parser_span;
 
-            // We resolve values according to the core schema
-            // https://yaml.org/spec/1.2.2/#1032-tag-resolution
-            use Spec::{V1_1, V1_2};
-            Ok(match (ctx.options.spec, value) {
-                (_, "null" | "Null" | "NULL" | "~" | "") => Value::nothing(span),
-                (_, "true" | "True" | "TRUE") => Value::bool(true, span),
-                (_, "false" | "False" | "FALSE") => Value::bool(false, span),
-                (V1_1, "yes" | "Yes" | "YES" | "y" | "Y") => Value::bool(true, span),
-                (V1_1, "no" | "No" | "NO" | "n" | "N") => Value::bool(false, span),
-                (V1_1, "on" | "On" | "ON") => Value::bool(true, span),
-                (V1_1, "off" | "Off" | "OFF") => Value::bool(false, span),
-                (V1_1, s) if let Some(caps) = BASE8_11.captures(s) => parse_base8_11(ctx, s, caps)?,
-                (V1_2, s) if let Some(caps) = BASE8_12.captures(s) => parse_base8_12(ctx, s, caps)?,
-                (_, s) if let Some(caps) = BASE16.captures(s) => parse_base16(ctx, s, caps)?,
-                (_, s) if BASE10.is_match(s) => Value::int(parse_base10(ctx, s)?, span),
-                (_, s) if FLOAT.is_match(s) => Value::float(parse_float(ctx, s)?, span),
-                (_, s) if INFINITY.is_match(s) => Value::float(f64::INFINITY, span),
-                (_, s) if NAN.is_match(s) => Value::float(f64::NAN, span),
-                (_, s) => Value::string(s, span),
-            })
+    match scalar_style {
+        ScalarStyle::Plain => (),
+
+        // without tags, these can only be strings.
+        ScalarStyle::SingleQuoted
+        | ScalarStyle::DoubleQuoted
+        | ScalarStyle::Literal
+        | ScalarStyle::Folded => return Ok(Value::string(value, span)),
+    }
+
+    use Spec::{V1_1, V1_2};
+    #[deny(non_snake_case, reason = "ensure we don't suddenly wildcard match")]
+    Ok(match (ctx.options.spec, value) {
+        (_, s) if let Some(()) = v1_x::maybe_parse_null(ctx, s) => Value::nothing(span),
+        (V1_1, s) if let Some(b) = v1_1::maybe_parse_bool(ctx, s) => Value::bool(b, span),
+        (V1_2, s) if let Some(b) = v1_2::maybe_parse_bool(ctx, s) => Value::bool(b, span),
+        (V1_1, s) if let Some(i) = v1_1::maybe_parse_int(ctx, s)? => Value::int(i, span),
+        (V1_2, s) if let Some(i) = v1_2::maybe_parse_int(ctx, s)? => Value::int(i, span),
+        (V1_1, s) if let Some(f) = v1_1::maybe_parse_float(ctx, s)? => Value::float(f, span),
+        (V1_2, s) if let Some(f) = v1_2::maybe_parse_float(ctx, s)? => Value::float(f, span),
+        (_, s) => Value::string(s, span),
+    })
+}
+
+fn parse_scalar_tagged<'i>(
+    ctx: &mut ParseCtx<'i>,
+    value: &str,
+    tag: KnownTag,
+) -> Result<Value, ShellError> {
+    let span = ctx.parser_span;
+
+    use Spec::{V1_1, V1_2};
+    #[deny(non_snake_case, reason = "ensure we don't suddenly wildcard match")]
+    Ok(match (tag, ctx.options.spec) {
+        (KnownTag::Str, _) => Value::string(value, span),
+        (KnownTag::Null, _) => v1_x::maybe_parse_null(ctx, value)
+            .map(|()| Value::nothing(span))
+            .ok_or_else(|| ParseError::Null {
+                attempted: value.to_owned(),
+                span: ctx.yaml_span,
+            })?,
+        (KnownTag::Bool, V1_1) => v1_1::maybe_parse_bool(ctx, value)
+            .map(|bool| Value::bool(bool, span))
+            .ok_or_else(|| ParseError::Bool {
+                attempted: value.to_owned(),
+                span: ctx.yaml_span,
+            })?,
+        (KnownTag::Bool, V1_2) => v1_2::maybe_parse_bool(ctx, value)
+            .map(|bool| Value::bool(bool, span))
+            .ok_or_else(|| ParseError::Bool {
+                attempted: value.to_owned(),
+                span: ctx.yaml_span,
+            })?,
+        (KnownTag::Int, V1_1) => v1_1::maybe_parse_int(ctx, value)?
+            .map(|int| Value::int(int, span))
+            .ok_or_else(|| ParseError::Int {
+                attempted: value.to_owned(),
+                base_and_err: None,
+                span,
+            })?,
+        (KnownTag::Int, V1_2) => v1_2::maybe_parse_int(ctx, value)?
+            .map(|int| Value::int(int, span))
+            .ok_or_else(|| ParseError::Int {
+                attempted: value.to_owned(),
+                base_and_err: None,
+                span,
+            })?,
+        (KnownTag::Float, V1_1) => v1_1::maybe_parse_float(ctx, value)?
+            .map(|float| Value::float(float, span))
+            .ok_or_else(|| ParseError::Float {
+                attempted: value.to_owned(),
+                base_and_err: None,
+                span,
+            })?,
+        (KnownTag::Float, V1_2) => v1_2::maybe_parse_float(ctx, value)?
+            .map(|float| Value::float(float, span))
+            .ok_or_else(|| ParseError::Float {
+                attempted: value.to_owned(),
+                base_and_err: None,
+                span,
+            })?,
+        (KnownTag::Binary, _) => Value::binary(
+            BASE64_STANDARD
+                .decode(&value)
+                .map_err(|err| ParseError::Binary {
+                    attempted: value.to_owned(),
+                    err,
+                    span: ctx.yaml_span,
+                })?,
+            span,
+        ),
+        (KnownTag::Glob, _) => Value::glob(value, false, span),
+        (KnownTag::Filesize, V1_1) => v1_1::maybe_parse_int(ctx, value)?
+            .map(|int| Value::filesize(int, span))
+            .ok_or_else(|| ParseError::Int {
+                attempted: value.to_owned(),
+                base_and_err: None,
+                span,
+            })?,
+        (KnownTag::Filesize, V1_2) => v1_2::maybe_parse_int(ctx, value)?
+            .map(|int| Value::filesize(int, span))
+            .ok_or_else(|| ParseError::Int {
+                attempted: value.to_owned(),
+                base_and_err: None,
+                span,
+            })?,
+        (KnownTag::Duration, V1_1) => v1_1::maybe_parse_int(ctx, value)?
+            .map(|int| Value::duration(int, span))
+            .ok_or_else(|| ParseError::Int {
+                attempted: value.to_owned(),
+                base_and_err: None,
+                span,
+            })?,
+        (KnownTag::Duration, V1_2) => v1_2::maybe_parse_int(ctx, value)?
+            .map(|int| Value::duration(int, span))
+            .ok_or_else(|| ParseError::Int {
+                attempted: value.to_owned(),
+                base_and_err: None,
+                span,
+            })?,
+        (KnownTag::Date, _) => Value::date(
+            DateTime::from_str(value).map_err(|err| ParseError::Date {
+                attempted: value.to_owned(),
+                err,
+                span: ctx.yaml_span,
+            })?,
+            span,
+        ),
+        (KnownTag::Range, _) => Value::range(
+            Range::from_str(value).map_err(|err| ParseError::Range {
+                attempted: value.to_owned(),
+                err,
+                span: ctx.yaml_span,
+            })?,
+            span,
+        ),
+        (KnownTag::CellPath, _) => Value::cell_path(
+            CellPath::from_str(value)
+                .map(|cp| cp.with_fallback_span(span))
+                .map_err(|err| ParseError::CellPath {
+                    attempted: value.to_owned(),
+                    err,
+                    span: ctx.yaml_span,
+                })?,
+            span,
+        ),
+
+        // unimplemented tag
+        (KnownTag::Closure, _) => {
+            return Err(ShellError::from(ParseError::UnimplementedTag { tag, span }));
         }
 
-        Some(tag) => Ok(match tag {
-            KnownTag::Str => Value::string(value, span),
-            KnownTag::Null => Value::nothing(span),
-            KnownTag::Bool => match value.to_lowercase().as_ref() {
-                "true" => Value::bool(true, span),
-                "false" => Value::bool(false, span),
-                _ => {
-                    return Err(ShellError::from(ParseError::Bool {
-                        attempted: value.to_owned(),
-                        span: ctx.yaml_span,
-                    }));
-                }
-            },
-            KnownTag::Int
-                if ctx.options.spec == Spec::V1_1
-                    && let Some(caps) = BASE8_11.captures(value) =>
-            {
-                parse_base8_11(ctx, value, caps)?
-            }
-            KnownTag::Int
-                if ctx.options.spec == Spec::V1_2
-                    && let Some(caps) = BASE8_12.captures(value) =>
-            {
-                parse_base8_12(ctx, value, caps)?
-            }
-            KnownTag::Int if let Some(caps) = BASE16.captures(value) => {
-                parse_base16(ctx, value, caps)?
-            }
-            KnownTag::Int => Value::int(parse_base10(ctx, value)?, span),
-            KnownTag::Float if INFINITY.is_match(value) => Value::float(f64::INFINITY, span),
-            KnownTag::Float if NAN.is_match(value) => Value::float(f64::NAN, span),
-            KnownTag::Float => Value::float(parse_float(ctx, value)?, span),
-            KnownTag::Binary => Value::binary(
-                BASE64_STANDARD
-                    .decode(&value)
-                    .map_err(|err| ParseError::Binary {
-                        attempted: value.to_owned(),
-                        err,
-                        span: ctx.yaml_span,
-                    })?,
-                span,
-            ),
-            KnownTag::Glob => Value::glob(value, false, span),
-            KnownTag::Filesize => Value::filesize(parse_base10(ctx, value)?, span),
-            KnownTag::Duration => Value::duration(parse_base10(ctx, value)?, span),
-            KnownTag::Date => Value::date(
-                DateTime::from_str(value).map_err(|err| ParseError::Date {
-                    attempted: value.to_owned(),
-                    err,
-                    span: ctx.yaml_span,
-                })?,
-                span,
-            ),
-            KnownTag::Range => Value::range(
-                Range::from_str(value).map_err(|err| ParseError::Range {
-                    attempted: value.to_owned(),
-                    err,
-                    span: ctx.yaml_span,
-                })?,
-                span,
-            ),
-            KnownTag::CellPath => Value::cell_path(
-                CellPath::from_str(value)
-                    .map(|cp| cp.with_fallback_span(span))
-                    .map_err(|err| ParseError::CellPath {
-                        attempted: value.to_owned(),
-                        err,
-                        span: ctx.yaml_span,
-                    })?,
-                span,
-            ),
-
-            // unimplemented tag
-            KnownTag::Closure => {
-                return Err(ShellError::from(ParseError::UnimplementedTag { tag, span }));
-            }
-
-            // incorrect tag
+        // incorrect tag
+        (
             KnownTag::Map
             | KnownTag::Seq
             | KnownTag::OMap
             | KnownTag::Pairs
             | KnownTag::Set
             | KnownTag::Merge
-            | KnownTag::Error => {
-                return Err(ShellError::from(ParseError::IncorrectTag {
-                    tag,
-                    at: NodeKind::Scalar,
-                    span: ctx.yaml_span,
-                }));
-            }
+            | KnownTag::Error,
+            _,
+        ) => {
+            return Err(ShellError::from(ParseError::IncorrectTag {
+                tag,
+                at: NodeKind::Scalar,
+                span: ctx.yaml_span,
+            }));
+        }
 
-            // unsupported tag
-            KnownTag::Timestamp | KnownTag::Value | KnownTag::Yaml => {
-                return Err(ShellError::from(ParseError::UnsupportedTag {
-                    tag,
-                    at: NodeKind::Scalar,
-                    span,
-                }));
-            }
-        }),
-    }
+        // unsupported tag
+        (KnownTag::Timestamp | KnownTag::Value | KnownTag::Yaml, _) => {
+            return Err(ShellError::from(ParseError::UnsupportedTag {
+                tag,
+                at: NodeKind::Scalar,
+                span,
+            }));
+        }
+    })
 }
 
 // gets called on Event::SequenceStart, returns on Event::SequenceEnd
@@ -794,6 +748,289 @@ fn parse_key<'i>(
                 span: ctx.parser_span,
             })),
         },
+    }
+}
+
+macro_rules! parse_int {
+    ($re:literal, $base:literal, $spec:literal) => {
+        pastey::paste! {
+            static [<INT_BASE $base>]: ::std::sync::LazyLock<::regex::Regex> =
+                ::std::sync::LazyLock::new(|| ::regex::Regex::new($re)
+                    .expect(concat!("valid int base ", $base, " regex for spec v", $spec)
+            ));
+
+            fn [<parse_int_base $base>]<'i>(
+                ctx: &mut crate::yaml::parse::ParseCtx<'i>,
+                input: &str,
+                caps: ::regex::Captures<'_>
+            ) -> Result<i64, crate::yaml::error::ParseError<'i>> {
+                let sign = match &caps["sign"] {
+                    "+" | "" => 1,
+                    "-" => -1,
+                    _ => unreachable!(r#"regex only matches "+", "-" or "" here"#)
+                };
+
+                let digits = &caps["digits"];
+                let digits = match digits.contains("_") {
+                    false => ::std::borrow::Cow::Borrowed(digits),
+                    true => ::std::borrow::Cow::Owned(digits.replace("_", ""))
+                };
+
+                i64::from_str_radix(&digits, $base)
+                    .map_err(|err| crate::yaml::error::ParseError::Int {
+                        attempted: input.to_owned(),
+                        base_and_err: Some(($base, err)),
+                        span: ctx.yaml_span,
+                    })
+                    .map(|num| num * sign)
+            }
+        }
+    };
+}
+
+// same for v1.1 and v1.2
+mod v1_x {
+    use super::*;
+
+    pub static INFINITY: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"[-+]?\.(inf|Inf|INF)").expect("valid infinity regex for spec v1.x")
+    });
+
+    pub static NAN: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\.(nan|NaN|NAN)").expect("valid NaN regex for spec v1.x"));
+
+    pub fn maybe_parse_null<'i>(_: &mut ParseCtx<'i>, input: &str) -> Option<()> {
+        match input {
+            "null" | "Null" | "NULL" | "~" | "" => Some(()),
+            _ => None,
+        }
+    }
+
+    #[cfg(test)]
+    #[rstest::rstest]
+    #[case::infinity(&INFINITY)]
+    #[case::nan(&NAN)]
+    fn regex_valid(#[case] re: &LazyLock<Regex>) {
+        LazyLock::force(re);
+    }
+}
+
+mod v1_1 {
+    use super::*;
+
+    // TODO: add reference to this once spec is available again
+
+    parse_int!("^(?<sign>[-+]?)0b(?<digits>[0-1_]+)$", 2, "1.1");
+    parse_int!("^(?<sign>[-+]?)0(?<digits>[0-7_]+)$", 8, "1.1");
+    parse_int!("^(?<sign>[-+]?)(?<digits>0|[1-9][0-9_]*)$", 10, "1.1");
+    parse_int!("^(?<sign>[-+]?)0x(?<digits>[0-9a-fA-F_]+)$", 16, "1.1");
+
+    static INT_BASE60: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new("^(?<sign>[-+]?)(?<digits>[1-9][0-9_]*(:[0-5]?[0-9])+)$")
+            .expect("valid int base 60 regex for spec v1.1")
+    });
+    fn parse_int_base60<'i>(
+        ctx: &mut ParseCtx<'i>,
+        input: &str,
+        caps: Captures<'_>,
+    ) -> Result<i64, ParseError<'i>> {
+        let sign = match caps.name("sign").map(|m| m.as_str()).unwrap_or_default() {
+            "+" | "" => 1,
+            "-" => -1,
+            _ => unreachable!(r#"regex only matches "+", "-" or "" here"#),
+        };
+
+        let mut sum = 0;
+        let split: Vec<_> = caps["digits"].split(":").collect();
+        for (pow, digits) in split.into_iter().rev().enumerate() {
+            let digits = match digits.contains("_") {
+                true => Cow::Owned(digits.replace("_", "")),
+                false => Cow::Borrowed(digits),
+            };
+
+            let int = i64::from_str_radix(&digits, 10).map_err(|err| ParseError::Int {
+                attempted: input.to_owned(),
+                base_and_err: Some((60, err)),
+                span: ctx.yaml_span,
+            })?;
+            sum += 60i64.pow(pow as u32) * int;
+        }
+
+        Ok(sum * sign)
+    }
+
+    pub fn maybe_parse_int<'i>(
+        ctx: &mut ParseCtx<'i>,
+        input: &str,
+    ) -> Result<Option<i64>, ParseError<'i>> {
+        Ok(Some(match input {
+            s if let Some(caps) = INT_BASE2.captures(s) => parse_int_base2(ctx, s, caps)?,
+            s if let Some(caps) = INT_BASE8.captures(s) => parse_int_base8(ctx, input, caps)?,
+            s if let Some(caps) = INT_BASE10.captures(s) => parse_int_base10(ctx, input, caps)?,
+            s if let Some(caps) = INT_BASE16.captures(s) => parse_int_base16(ctx, input, caps)?,
+            s if let Some(caps) = INT_BASE60.captures(s) => parse_int_base60(ctx, input, caps)?,
+            _ => return Ok(None),
+        }))
+    }
+
+    static FLOAT_BASE10: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^[-+]?([0-9][0-9_]*)?\.[0-9.]*([eE][-+][0-9]+)?$")
+            .expect("valid float base 10 regex for spec v1.1")
+    });
+    fn parse_float_base10<'i>(ctx: &mut ParseCtx<'i>, input: &str) -> Result<f64, ParseError<'i>> {
+        let no_underscore = match input.contains("_") {
+            true => Cow::Owned(input.replace("_", "to")),
+            false => Cow::Borrowed(input),
+        };
+
+        f64::from_str(&no_underscore).map_err(|err| ParseError::Float {
+            attempted: input.to_owned(),
+            base_and_err: Some((10, err)),
+            span: ctx.yaml_span,
+        })
+    }
+
+    static FLOAT_BASE60: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^(?<sign>[-+]?)(?<digits>[0-9][0-9_]*(:[0-5]?[0-9])+\.[0-9_]*)$")
+            .expect("valid float base 60 regex for spec v1.1")
+    });
+    fn parse_float_base60<'i>(
+        ctx: &mut ParseCtx<'i>,
+        input: &str,
+        caps: Captures<'_>,
+    ) -> Result<f64, ParseError<'i>> {
+        let sign = match caps.name("sign").map(|m| m.as_str()).unwrap_or_default() {
+            "+" | "" => 1.0,
+            "-" => -1.0,
+            _ => unreachable!(r#"regex only matches "+", "-" or "" here"#),
+        };
+
+        let mut sum = 0.0;
+        let split: Vec<_> = caps["digits"].split(":").collect();
+        for (pow, digits) in split.into_iter().rev().enumerate() {
+            let digits = match digits.contains("_") {
+                true => Cow::Owned(digits.replace("_", "")),
+                false => Cow::Borrowed(digits),
+            };
+
+            let float = f64::from_str(&digits).map_err(|err| ParseError::Float {
+                attempted: input.to_owned(),
+                base_and_err: Some((10, err)),
+                span: ctx.yaml_span,
+            })?;
+            sum += 60f64.powf(pow as f64) * float;
+        }
+
+        Ok(sum * sign)
+    }
+
+    pub fn maybe_parse_float<'i>(
+        ctx: &mut ParseCtx<'i>,
+        input: &str,
+    ) -> Result<Option<f64>, ParseError<'i>> {
+        Ok(Some(match input {
+            s if FLOAT_BASE10.is_match(s) => parse_float_base10(ctx, s)?,
+            s if let Some(caps) = FLOAT_BASE60.captures(s) => parse_float_base60(ctx, input, caps)?,
+            s if v1_x::INFINITY.is_match(s) => match s.starts_with("-") {
+                true => f64::NEG_INFINITY,
+                false => f64::INFINITY,
+            },
+            s if v1_x::NAN.is_match(s) => f64::NAN,
+            _ => return Ok(None),
+        }))
+    }
+
+    pub fn maybe_parse_bool<'i>(ctx: &mut ParseCtx<'i>, input: &str) -> Option<bool> {
+        Some(match input {
+            "y" | "Y" | "yes" | "Yes" | "YES" => true,
+            "n" | "N" | "no" | "No" | "NO" => false,
+            "true" | "True" | "TRUE" => true,
+            "false" | "False" | "FALSE" => false,
+            "on" | "On" | "ON" => true,
+            "off" | "Off" | "OFF" => false,
+            _ => return None,
+        })
+    }
+
+    #[cfg(test)]
+    #[rstest::rstest]
+    #[case::int_base2(&INT_BASE2)]
+    #[case::int_base8(&INT_BASE8)]
+    #[case::int_base10(&INT_BASE10)]
+    #[case::int_base16(&INT_BASE16)]
+    #[case::int_base60(&INT_BASE60)]
+    #[case::float_base10(&FLOAT_BASE10)]
+    #[case::float_base60(&FLOAT_BASE60)]
+    fn regex_valid(#[case] re: &LazyLock<Regex>) {
+        LazyLock::force(re);
+    }
+}
+
+mod v1_2 {
+    use super::*;
+
+    // We resolve values according to the core schema.
+    // https://yaml.org/spec/1.2.2/#1032-tag-resolution
+
+    parse_int!("^(?<sign>[-+]?)(?<digits>[0-9]+)$", 10, "1.2");
+    parse_int!("^0o(?<digits>[0-7]+)$", 8, "1.2");
+    parse_int!("^0x(?<digits>[0-9a-fA-F]+)$", 16, "1.2");
+
+    pub fn maybe_parse_int<'i>(
+        ctx: &mut ParseCtx<'i>,
+        input: &str,
+    ) -> Result<Option<i64>, ParseError<'i>> {
+        Ok(Some(match input {
+            s if let Some(caps) = INT_BASE8.captures(s) => parse_int_base8(ctx, input, caps)?,
+            s if let Some(caps) = INT_BASE10.captures(s) => parse_int_base10(ctx, input, caps)?,
+            s if let Some(caps) = INT_BASE16.captures(s) => parse_int_base16(ctx, input, caps)?,
+            _ => return Ok(None),
+        }))
+    }
+
+    static FLOAT: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^[-+]?(\.[0-9]+|[0-9]+(\.[0-9]*)?)([eE][-+]?[0-9]+)?$")
+            .expect("valid float regex for spec v1.2")
+    });
+    fn parse_float<'i>(ctx: &mut ParseCtx<'i>, input: &str) -> Result<f64, ParseError<'i>> {
+        f64::from_str(input).map_err(|err| ParseError::Float {
+            attempted: input.to_owned(),
+            base_and_err: Some((10, err)),
+            span: ctx.yaml_span,
+        })
+    }
+
+    pub fn maybe_parse_float<'i>(
+        ctx: &mut ParseCtx<'i>,
+        input: &str,
+    ) -> Result<Option<f64>, ParseError<'i>> {
+        Ok(Some(match input {
+            s if FLOAT.is_match(s) => parse_float(ctx, s)?,
+            s if v1_x::INFINITY.is_match(s) => match s.starts_with("-") {
+                true => f64::NEG_INFINITY,
+                false => f64::INFINITY,
+            },
+            s if v1_x::NAN.is_match(s) => f64::NAN,
+            _ => return Ok(None),
+        }))
+    }
+
+    pub fn maybe_parse_bool<'i>(ctx: &mut ParseCtx<'i>, input: &str) -> Option<bool> {
+        Some(match input {
+            "true" | "True" | "TRUE" => true,
+            "false" | "False" | "FALSE" => false,
+            _ => return None,
+        })
+    }
+
+    #[cfg(test)]
+    #[rstest::rstest]
+    #[case::int_base8(&INT_BASE8)]
+    #[case::int_base10(&INT_BASE10)]
+    #[case::int_base16(&INT_BASE16)]
+    #[case::float(&FLOAT)]
+    fn regex_valid(#[case] re: &LazyLock<Regex>) {
+        LazyLock::force(re);
     }
 }
 

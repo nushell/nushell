@@ -4840,7 +4840,9 @@ dependencies = [
  "nu-protocol",
  "nu-test-support",
  "nu-utils",
+ "pastey",
  "regex",
+ "rstest",
  "scopeguard",
  "serde",
  "serde-saphyr",
@@ -5813,9 +5815,9 @@ dependencies = [
 
 [[package]]
 name = "pastey"
-version = "0.2.1"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b867cad97c0791bbd3aaa6472142568c6c9e8f71937e98379f584cfb0cf35bec"
+checksum = "2ee67f1008b1ba2321834326597b8e186293b049a023cdef258527550b9935b4"
 
 [[package]]
 name = "pathdiff"

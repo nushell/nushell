@@ -207,6 +207,7 @@ omnipath = "0.1"
 open = "5.3.4"
 os_pipe = { version = "1.2.3", features = ["io_safety"] }
 parking_lot = "0.12.5"
+pastey = "0.2.3"
 pathdiff = "0.2"
 percent-encoding = "2"
 pretty_assertions = "1.4"

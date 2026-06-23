@@ -28,15 +28,18 @@ pub enum ParseError<'i> {
     UnexpectedKeyAnchor {
         span: Span,
     },
-    NumInt {
-        base: u32,
+    Int {
         attempted: String,
-        err: ParseIntError,
+        base_and_err: Option<(u32, ParseIntError)>,
         span: Span,
     },
-    NumFloat {
+    Float {
         attempted: String,
-        err: ParseFloatError,
+        base_and_err: Option<(u32, ParseFloatError)>,
+        span: Span,
+    },
+    Null {
+        attempted: String,
         span: Span,
     },
     Bool {
@@ -181,30 +184,58 @@ impl From<ParseError<'_>> for ShellError {
             )
             .with_code("shell::yaml::parser::unexpected_key_anchor"),
 
-            ParseError::NumInt {
-                base,
+            ParseError::Int {
                 attempted,
-                err,
-                span,
+                base_and_err: Some((base, err)),
+                span
             } => GenericError::new(
-                format!("Parsing Base {base} failed"),
+                format!("Parsing Int Base {base} failed"),
                 format!("Parsing {attempted:?} failed"),
                 span,
             )
-            .with_code(format!("shell::yaml::parser::num::base{base}"))
+            .with_code(format!("shell::yaml::parser::int::base{base}"))
             .with_source(err),
 
-            ParseError::NumFloat {
+            ParseError::Int {
                 attempted,
-                err,
-                span,
+                base_and_err: None,
+                span
             } => GenericError::new(
-                "Parsing Float failed",
+                format!("Parsing Int failed"),
+                format!("Could not identify {attempted:?} as an int"),
+                span,
+            )
+            .with_code(format!("shell::yaml::parser::int::unknown")),
+
+            ParseError::Float {
+                attempted,
+                base_and_err: Some((base, err)),
+                span
+            } => GenericError::new(
+                format!("Parsing Float Base {base} failed"),
                 format!("Parsing {attempted:?} failed"),
                 span,
             )
-            .with_code("shell::yaml::parser::num::float")
+            .with_code(format!("shell::yaml::parser::float::base{base}"))
             .with_source(err),
+
+            ParseError::Float {
+                attempted,
+                base_and_err: None,
+                span
+            } => GenericError::new(
+                format!("Parsing Float failed"),
+                format!("Could not identify {attempted:?} as a float"),
+                span,
+            )
+            .with_code(format!("shell::yaml::parser::float::unknown")),
+
+            ParseError::Null { attempted, span } => GenericError::new(
+                "Parsing Null failed",
+                format!("Parsing {attempted:?} failed"),
+                span,
+            )
+            .with_code("shell::yaml::parser::null"),
 
             ParseError::Bool { attempted, span } => GenericError::new(
                 "Parsing Bool failed",
