@@ -51,3 +51,16 @@ fn for_loops_dont_collect_source() {
     ");
     assert_eq!(actual.out, "1122334455");
 }
+
+// Regression test for https://github.com/nushell/nushell/issues/13746
+// Passing a non-block (e.g. the loop variable) as the `for` block used to panic
+// on the `.expect("internal error: missing block")` in `for`'s `run`. It must
+// surface a clean error instead and never panic.
+#[test]
+fn for_with_non_block_body_errors_without_panic() {
+    for src in ["for i in [1 2 3] $i", "for i in [] $i"] {
+        let actual = nu!(src);
+        assert!(actual.err.contains("invalid_keyword_call"));
+        assert!(!actual.err.to_lowercase().contains("panic"));
+    }
+}
