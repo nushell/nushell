@@ -78,6 +78,7 @@ enum KnownTag {
     #[strum(to_string = "!duration", serialize = "tag:nushell.sh,2026:duration")]
     Duration,
 
+    // TODO: handle date via timestamp tag instead
     #[strum(to_string = "!date", serialize = "tag:nushell.sh,2026:date")]
     Date,
 

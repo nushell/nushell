@@ -27,6 +27,7 @@ nu-protocol.workspace = true
 nu-utils.workspace = true
 
 base64.workspace = true
+better_default.workspace = true
 chrono.workspace = true
 derive_setters.workspace = true
 pastey.workspace = true

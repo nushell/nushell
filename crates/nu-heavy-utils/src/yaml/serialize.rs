@@ -17,7 +17,7 @@ use std::{
 };
 
 #[non_exhaustive]
-#[derive(Debug, Clone, Default, Setters)]
+#[derive(Debug, Clone, Setters, better_default::Default)]
 pub struct SerializeOptions {
     spec: Spec,
 
@@ -30,6 +30,12 @@ pub struct SerializeOptions {
 
     /// Add directives to the start of the document that explains YAML version and the nushell tag.
     add_directives: bool,
+
+    #[default(2)]
+    indent: usize,
+
+    #[default(true)]
+    compact_list_ident: bool,
 }
 
 /// Controls how non-round-trippable values are serialized.
@@ -60,6 +66,8 @@ pub fn serialize(
     let add_directives = options.add_directives;
 
     let mut ser_options = ser_options! {
+        indent_step: options.indent,
+        compact_list_indent: options.compact_list_ident,
         yaml_12: match spec {
             Spec::V1_1 => false,
             Spec::V1_2 => true,

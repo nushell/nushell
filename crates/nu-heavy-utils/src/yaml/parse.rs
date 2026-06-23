@@ -940,7 +940,7 @@ mod v1_1 {
         }))
     }
 
-    pub fn maybe_parse_bool<'i>(ctx: &mut ParseCtx<'i>, input: &str) -> Option<bool> {
+    pub fn maybe_parse_bool<'i>(_: &mut ParseCtx<'i>, input: &str) -> Option<bool> {
         Some(match input {
             "y" | "Y" | "yes" | "Yes" | "YES" => true,
             "n" | "N" | "no" | "No" | "NO" => false,
@@ -1015,7 +1015,7 @@ mod v1_2 {
         }))
     }
 
-    pub fn maybe_parse_bool<'i>(ctx: &mut ParseCtx<'i>, input: &str) -> Option<bool> {
+    pub fn maybe_parse_bool<'i>(_: &mut ParseCtx<'i>, input: &str) -> Option<bool> {
         Some(match input {
             "true" | "True" | "TRUE" => true,
             "false" | "False" | "FALSE" => false,

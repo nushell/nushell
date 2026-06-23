@@ -34,6 +34,17 @@ impl Command for ToYamlLike {
                 "Given a list, serialize a multi document stream.",
                 Some('m'),
             )
+            .named(
+                "indent",
+                SyntaxShape::Int,
+                "Configure the indent.",
+                Some('i'),
+            )
+            .switch(
+                "compact-list-indent",
+                "Emit lists with a more compact indentation style.",
+                None,
+            )
             .category(Category::Formats)
     }
 
@@ -64,6 +75,8 @@ impl Command for ToYamlLike {
         let spec = call.get_flag(engine_state, stack, "spec")?;
         let add_directives = call.has_flag(engine_state, stack, "add-directives")?;
         let multiple = call.has_flag(engine_state, stack, "multiple")?;
+        let indent = call.get_flag(engine_state, stack, "indent")?;
+        let compact_list_indent = call.get_flag(engine_state, stack, "compact-list-indent")?;
         let non_roundtrip = call
             .has_flag(engine_state, stack, "serialize")?
             .then(|| NonRoundtrip::Lossy {
@@ -75,7 +88,9 @@ impl Command for ToYamlLike {
             .spec(spec.unwrap_or_default())
             .non_roundtrip(non_roundtrip)
             .add_directives(add_directives)
-            .multiple(multiple);
+            .multiple(multiple)
+            .indent(indent.unwrap_or(2))
+            .compact_list_ident(compact_list_indent.unwrap_or(true));
 
         nu_heavy_utils::yaml::serialize(&value, call.head, options)
             .map(|s| PipelineData::value(Value::string(s, call.head), None))
