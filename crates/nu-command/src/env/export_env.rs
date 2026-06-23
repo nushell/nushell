@@ -44,11 +44,17 @@ impl Command for ExportEnv {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let block_id = call
-            .positional_nth(caller_stack, 0)
-            .expect("checked through parser")
-            .as_block()
-            .expect("internal error: missing block");
+        let head = call.head;
+        let arg = call.positional_nth(caller_stack, 0).ok_or_else(|| {
+            ShellError::MissingParameter {
+                param_name: "block".into(),
+                span: head,
+            }
+        })?;
+        let block_id = arg.as_block().ok_or_else(|| ShellError::TypeMismatch {
+            err_message: "expected block".into(),
+            span: arg.span,
+        })?;
 
         let block = engine_state.get_block(block_id);
         let mut callee_stack = caller_stack
@@ -89,5 +95,15 @@ mod test {
     #[test]
     fn test_examples() -> nu_test_support::Result {
         nu_test_support::test().examples(ExportEnv)
+    }
+
+    #[test]
+    fn test_missing_block_does_not_panic() -> nu_test_support::Result {
+        // Regression: previously, `export-env` was given a non-block argument
+        // (e.g. a closure) and panicked with "internal error: missing block".
+        // See https://github.com/nushell/nushell/issues/13037.
+        nu_test_support::test()
+            .run("export-env { |x| $x }")
+            .expect_error()
     }
 }
