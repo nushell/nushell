@@ -13,6 +13,7 @@ use nu_protocol::{
 };
 use nu_utils::perf;
 use nu_utils::time::Instant;
+use std::sync::Arc;
 
 pub(crate) fn run_commands(
     engine_state: &mut EngineState,
@@ -167,6 +168,14 @@ pub(crate) fn run_file(
     // Regenerate the $nu constant to contain the startup time and any other potential updates
     engine_state.generate_nu_constant();
 
+    // Apply --table-mode / -m CLI flag override before evaluating the file
+    if let Some(ref t_mode) = parsed_nu_cli_args.table_mode
+        && let Ok(s) = t_mode.coerce_str()
+        && let Ok(mode) = s.parse()
+    {
+        Arc::make_mut(&mut engine_state.config).table.mode = mode;
+    }
+
     let start_time = Instant::now();
     let result = evaluate_file(
         script_name,
@@ -213,6 +222,14 @@ pub(crate) fn run_repl(
         .use_ansi_coloring
         .get(engine_state);
     perf!("setup_config", start_time, use_color);
+
+    // Apply --table-mode / -m CLI flag override before starting the REPL
+    if let Some(ref t_mode) = parsed_nu_cli_args.table_mode
+        && let Ok(s) = t_mode.coerce_str()
+        && let Ok(mode) = s.parse()
+    {
+        Arc::make_mut(&mut engine_state.config).table.mode = mode;
+    }
 
     let start_time = Instant::now();
     let ret_val = evaluate_repl(
