@@ -458,3 +458,15 @@ fn nothing_type_annotation() -> Result {
         .run("help commands | where name == foo | get input_output.0.output.0")
         .expect_value_eq("nothing")
 }
+
+#[test]
+fn custom_command_does_not_show_builtin_subcommand() -> Result {
+    // Regression test for https://github.com/nushell/nushell/issues/18236:
+    // a user-defined `update` must not advertise the built-in `update cells`
+    // as one of its subcommands.
+    let mut tester = test();
+    let () = tester.run("def update [] {}")?;
+    let outcome: String = tester.run("help update")?;
+    assert!(!outcome.contains("update cells"));
+    Ok(())
+}
