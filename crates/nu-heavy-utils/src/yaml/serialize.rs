@@ -2,15 +2,12 @@ use crate::yaml::{KnownTag, Spec};
 use chrono::{DateTime, FixedOffset};
 use derive_setters::Setters;
 use nu_protocol::{
-    Range, ShellError, Span, Value,
-    ast::CellPath,
-    engine::{Closure, EngineState},
-    shell_error::generic::GenericError,
+    FromValue, Range, ShellError, Span, Value, ast::CellPath, engine::{Closure, EngineState}, shell_error::generic::GenericError,
 };
 use nu_utils::FmtHandle;
 use scopeguard::defer;
 use serde::{Serialize, ser::SerializeMap};
-use serde_saphyr::{FlowMap, FlowSeq, FoldStr, LitStr, Serializer, ser_options};
+use serde_saphyr::{FlowMap, FlowSeq, FoldStr, LitStr, Serializer, SingleQuoted, DoubleQuoted, ser_options};
 use std::{
     cell::{Cell, RefCell},
     fmt::{self, Write},
@@ -36,6 +33,8 @@ pub struct SerializeOptions {
 
     #[default(true)]
     compact_list_ident: bool,
+
+    quote_style: QuoteStyle,
 }
 
 /// Controls how non-round-trippable values are serialized.
@@ -54,6 +53,14 @@ pub enum NonRoundtrip {
         /// Engine state is required to serialize closures this way.
         engine_state: EngineState,
     },
+}
+
+#[derive(Debug, Clone, Copy, Default, FromValue)]
+pub enum QuoteStyle {
+    #[default]
+    Auto,
+    Single,
+    Double,
 }
 
 pub fn serialize(
@@ -228,12 +235,20 @@ impl Serialize for YamlValue<'_> {
             })
         };
 
+        let serialize_str = |str: &str, serializer: S| {
+            OPTIONS.with_borrow(|options| match options.quote_style {
+                QuoteStyle::Auto => str.serialize(serializer),
+                QuoteStyle::Single => SingleQuoted(str).serialize(serializer),
+                QuoteStyle::Double => DoubleQuoted(str).serialize(serializer),
+            })
+        };
+
         match self {
             // untagged types
             YamlValue::Bool(bool) => bool.serialize(serializer),
             YamlValue::Int(int) => int.serialize(serializer),
             YamlValue::Float(float) => float.serialize(serializer),
-            YamlValue::Str(str) => str.serialize(serializer),
+            YamlValue::Str(str) => serialize_str(str, serializer),
             YamlValue::FoldStr(fold_str) => fold_str.serialize(serializer),
             YamlValue::LitStr(lit_str) => lit_str.serialize(serializer),
             YamlValue::Map(yaml_map) => yaml_map.serialize(serializer),

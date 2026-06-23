@@ -45,6 +45,7 @@ impl Command for ToYamlLike {
                 "Emit lists with a more compact indentation style.",
                 None,
             )
+            .named("quote", SyntaxShape::String, "String quote style ('auto' (default), 'single' or 'double')", Some('q'))
             .category(Category::Formats)
     }
 
@@ -77,6 +78,7 @@ impl Command for ToYamlLike {
         let multiple = call.has_flag(engine_state, stack, "multiple")?;
         let indent = call.get_flag(engine_state, stack, "indent")?;
         let compact_list_indent = call.get_flag(engine_state, stack, "compact-list-indent")?;
+        let quote_style = call.get_flag(engine_state, stack, "quote")?;
         let non_roundtrip = call
             .has_flag(engine_state, stack, "serialize")?
             .then(|| NonRoundtrip::Lossy {
@@ -90,7 +92,8 @@ impl Command for ToYamlLike {
             .add_directives(add_directives)
             .multiple(multiple)
             .indent(indent.unwrap_or(2))
-            .compact_list_ident(compact_list_indent.unwrap_or(true));
+            .compact_list_ident(compact_list_indent.unwrap_or(true))
+            .quote_style(quote_style.unwrap_or_default());
 
         nu_heavy_utils::yaml::serialize(&value, call.head, options)
             .map(|s| PipelineData::value(Value::string(s, call.head), None))
