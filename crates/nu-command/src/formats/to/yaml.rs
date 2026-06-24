@@ -45,7 +45,12 @@ impl Command for ToYamlLike {
                 "Emit lists with a more compact indentation style.",
                 None,
             )
-            .named("quote", SyntaxShape::String, "String quote style ('auto' (default), 'single' or 'double')", Some('q'))
+            .named(
+                "quote",
+                SyntaxShape::String,
+                "String quote style ('auto' (default), 'single' or 'double')",
+                Some('q'),
+            )
             .category(Category::Formats)
     }
 

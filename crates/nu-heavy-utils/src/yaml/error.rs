@@ -460,4 +460,69 @@ impl From<ParseError<'_>> for ShellError {
     }
 }
 
-pub enum SerializeError {}
+pub enum SerializeError {
+    Serializer {
+        err: serde_saphyr::ser::Error,
+        span: Span,
+    },
+    UnsupportedCustomValue {
+        type_name: String,
+        span: Span,
+    },
+}
+
+impl From<SerializeError> for ShellError {
+    fn from(value: SerializeError) -> Self {
+        let (err, span) = match value {
+            SerializeError::Serializer { err, span } => (err, span),
+            SerializeError::UnsupportedCustomValue { type_name, span } => {
+                return ShellError::Generic(
+                    GenericError::new(
+                        "Unsupported custom values",
+                        format!("Cannot convert custom value `{type_name}` into YAML"),
+                        span,
+                    )
+                    .with_code("shell::yaml::serialize::unsupported_custom_value")
+                    .with_help("Try to call `into value` on the custom value first"),
+                );
+            }
+        };
+
+        use serde_saphyr::ser::Error as SerError;
+        ShellError::Generic(match err {
+            SerError::Message { msg } if msg == SerializeError::CLOSURE_SPAN_NOT_FOUND => {
+                GenericError::new(
+                    "Closure span not found",
+                    "Could not find the span of the closure to serialize it",
+                    span,
+                )
+                .with_code("shell::yaml::serialize::closure_span_not_found")
+            }
+            SerError::Message { msg } => GenericError::new("Serialization failed", msg, span)
+                .with_code("shell::yaml::serialize"),
+            SerError::Format { error } => {
+                GenericError::new("Format error during serialization", error.to_string(), span)
+                    .with_code("shell::yaml::serialize::fmt")
+            }
+            SerError::IO { .. } => unreachable!("we only serialize to a string, so no IO"),
+            SerError::Unexpected { msg } => {
+                GenericError::new("Unexpected serialization error", msg, span)
+                    .with_code("shell::yaml::serialize::unexpected")
+            }
+            SerError::InvalidOptions(msg) => GenericError::new("Invalid options", msg, span)
+                .with_code("shell::yaml::serialize::invalid_options"),
+            SerError::SingleQuotedRequiresEscaping { ch } => GenericError::new(
+                "Single quoted requires escaping",
+                format!("{ch:?} requires escaping"),
+                span,
+            )
+            .with_code("shell::yaml::serialize::requires_escaping"),
+            err => GenericError::new("Serialization failed", err.to_string(), span)
+                .with_code("shell::yaml::serialize"),
+        })
+    }
+}
+
+impl SerializeError {
+    pub const CLOSURE_SPAN_NOT_FOUND: &str = concat!(module_path!(), "::closure_span_not_found");
+}

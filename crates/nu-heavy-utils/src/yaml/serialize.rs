@@ -1,13 +1,20 @@
-use crate::yaml::{KnownTag, Spec};
+use crate::yaml::{KnownTag, Spec, error::SerializeError};
 use chrono::{DateTime, FixedOffset};
 use derive_setters::Setters;
 use nu_protocol::{
-    FromValue, Range, ShellError, Span, Value, ast::CellPath, engine::{Closure, EngineState}, shell_error::generic::GenericError,
+    FromValue, Range, ShellError, Span, Value,
+    ast::CellPath,
+    engine::{Closure, EngineState},
 };
 use nu_utils::FmtHandle;
 use scopeguard::defer;
-use serde::{Serialize, ser::SerializeMap};
-use serde_saphyr::{FlowMap, FlowSeq, FoldStr, LitStr, Serializer, SingleQuoted, DoubleQuoted, ser_options};
+use serde::{
+    Serialize,
+    ser::{Error, SerializeMap},
+};
+use serde_saphyr::{
+    DoubleQuoted, FlowMap, FlowSeq, FoldStr, LitStr, Serializer, SingleQuoted, ser_options,
+};
 use std::{
     cell::{Cell, RefCell},
     fmt::{self, Write},
@@ -68,6 +75,8 @@ pub fn serialize(
     span: Span,
     options: SerializeOptions,
 ) -> Result<String, ShellError> {
+    SERIALIZER_SPAN.set(span);
+
     let spec = options.spec;
     let multiple = options.multiple;
     let add_directives = options.add_directives;
@@ -100,7 +109,8 @@ pub fn serialize(
     }
 
     // clear out any preambles by the serializer
-    ().serialize(&mut serializer).unwrap();
+    ().serialize(&mut serializer)
+        .map_err(|err| SerializeError::Serializer { err, span })?;
     with_writer(|writer| writer.take());
 
     let write_directives = |writer: &mut FmtHandle<String>| {
@@ -130,7 +140,9 @@ pub fn serialize(
             }
 
             let value = YamlValue::try_from_value(value, span)?;
-            value.serialize(&mut serializer).unwrap();
+            value
+                .serialize(&mut serializer)
+                .map_err(|err| SerializeError::Serializer { err, span })?;
 
             if add_directives {
                 with_writer(|writer| writeln!(writer, "..."));
@@ -146,7 +158,9 @@ pub fn serialize(
         }
 
         let value = YamlValue::try_from_value(value, span)?;
-        value.serialize(&mut serializer).unwrap();
+        value
+            .serialize(&mut serializer)
+            .map_err(|err| SerializeError::Serializer { err, span })?;
     }
 
     Ok(writer.take())
@@ -156,6 +170,7 @@ thread_local! {
     static WRITER: RefCell<Option<FmtHandle<String>>> = RefCell::new(None);
     static IN_MAP: Cell<bool> = Cell::new(false);
     static OPTIONS: RefCell<SerializeOptions> = RefCell::new(SerializeOptions::default());
+    static SERIALIZER_SPAN: Cell<Span> = Cell::new(Span::unknown());
 }
 
 #[expect(
@@ -229,7 +244,7 @@ impl Serialize for YamlValue<'_> {
                         let contents = String::from_utf8_lossy(contents);
                         serialize_with_tag(serializer, tag, contents)
                     } else {
-                        todo!("throw error that content could not be found")
+                        Err(S::Error::custom(SerializeError::CLOSURE_SPAN_NOT_FOUND))
                     }
                 }
             })
@@ -342,17 +357,13 @@ impl<'v> YamlValue<'v> {
             Value::Error { error, .. } => YamlValue::Error(&*error),
             Value::Binary { val, .. } => YamlValue::Binary(val.as_slice()),
             Value::CellPath { val, .. } => YamlValue::CellPath(val),
-            Value::Custom { .. } => {
+            Value::Custom { val, .. } => {
                 // TODO: implement structure style values here
-                return Err(ShellError::Generic(
-                    GenericError::new(
-                        "Unsupported custom values",
-                        "Cannot convert custom values into YAML",
-                        span,
-                    )
-                    .with_code("shell::yaml::serialize::unsupported_custom_value")
-                    .with_help("Try to call `into value` on the custom value first"),
-                ));
+
+                return Err(ShellError::from(SerializeError::UnsupportedCustomValue {
+                    type_name: val.type_name(),
+                    span,
+                }));
             }
             Value::Nothing { .. } => YamlValue::Null,
         })
