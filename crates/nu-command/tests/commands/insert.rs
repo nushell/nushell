@@ -190,3 +190,14 @@ fn insert_new_to_table_cell_mixed_rows() {
 
     assert_eq!(actual.out, "z")
 }
+
+#[test]
+fn insert_nested_path_into_empty_list_errors_without_underflow() {
+    // Regression test for #18426: inserting into a nested path of an empty list
+    // used to underflow `pre_elems.len() - 1` to usize::MAX and print a garbage
+    // error containing 18446744073709551615.
+    let actual = nu!("[] | insert 0.0 1");
+
+    assert!(!actual.err.contains("18446744073709551615"));
+    assert!(actual.err.contains("empty content"));
+}
