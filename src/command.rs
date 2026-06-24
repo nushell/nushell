@@ -267,7 +267,7 @@ const CLI_FLAGS: &[CliFlag] = &[
         "log-level",
         None,
         ValueHint::String,
-        "log level for diagnostic logs (error, warn, info, debug, trace). Off by default",
+        "log level for diagnostic logs (error, warn, perf, info, debug, trace). Off by default",
         CliCategory::Logging,
         "nu --log-level info",
     ),
