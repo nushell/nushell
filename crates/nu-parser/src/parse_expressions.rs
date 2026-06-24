@@ -641,7 +641,13 @@ pub fn parse_match_block_expression(
         }
 
         let branch_output_type = match &result.expr {
-            Expr::Block(block_id) => working_set.get_block(*block_id).output_type().clone(),
+            Expr::Block(block_id) => {
+                let block = working_set.get_block(*block_id);
+                match block.pipelines.is_empty() {
+                    false => block.output_type(),
+                    true => input_type.cloned().unwrap_or(Type::Any),
+                }
+            }
             _ => result.ty.clone(),
         };
         output_type = output_type.union(branch_output_type);

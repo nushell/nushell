@@ -1315,7 +1315,11 @@ pub fn parse_internal_call(
                             if positional_idx == 1
                                 && let Expr::Block(block_id) = &expr.expr =>
                         {
-                            let ty = working_set.get_block(*block_id).output_type();
+                            let block = working_set.get_block(*block_id);
+                            let ty = match block.pipelines.is_empty() {
+                                false => block.output_type(),
+                                true => input_type.unwrap_or(Type::Any),
+                            };
 
                             output_override = Some(match output_override {
                                 Some(existing_ty) => existing_ty.union(ty),
@@ -1328,7 +1332,11 @@ pub fn parse_internal_call(
                         {
                             let ty = match &kw.expr.expr {
                                 Expr::Block(block_id) => {
-                                    working_set.get_block(*block_id).output_type()
+                                    let block = working_set.get_block(*block_id);
+                                    match block.pipelines.is_empty() {
+                                        false => block.output_type(),
+                                        true => input_type.unwrap_or(Type::Any),
+                                    }
                                 }
                                 _ => kw.expr.ty.clone(),
                             };
