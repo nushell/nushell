@@ -312,7 +312,7 @@ fn main() -> Result<()> {
     }
 
     if let Some(level) = level_opt {
-        let level = if Level::from_str(&level).is_ok() {
+        let level = if level == "perf" || Level::from_str(&level).is_ok() {
             level
         } else {
             eprintln!(

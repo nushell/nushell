@@ -44,7 +44,7 @@ const TABLE_MODE_VALUES: &[&str] = &[
     "double",
 ];
 const ERROR_STYLE_VALUES: &[&str] = &["fancy", "plain", "short"];
-const LOG_LEVEL_VALUES: &[&str] = &["error", "warn", "info", "debug", "trace"];
+const LOG_LEVEL_VALUES: &[&str] = &["error", "warn", "info", "debug", "trace", "perf"];
 const LOG_TARGET_VALUES: &[&str] = &["stdout", "stderr", "mixed", "file"];
 #[cfg(feature = "mcp")]
 const MCP_TRANSPORT_VALUES: &[&str] = &["stdio", "http"];
@@ -267,7 +267,7 @@ const CLI_FLAGS: &[CliFlag] = &[
         "log-level",
         None,
         ValueHint::String,
-        "log level for diagnostic logs (error, warn, info, debug, trace). Off by default",
+        "log level for diagnostic logs (error, warn, perf, info, debug, trace). Off by default",
         CliCategory::Logging,
         "nu --log-level info",
     ),
