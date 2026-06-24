@@ -1560,7 +1560,7 @@ fn error_style_accepts_all_valid_styles() -> TestResult {
 // Test for log-level with all valid values
 #[test]
 fn log_level_accepts_all_valid_levels() -> TestResult {
-    let levels = ["error", "warn", "info", "debug", "trace"];
+    let levels = ["error", "warn", "info", "debug", "trace", "perf"];
 
     for level in levels {
         let mut cmd = Command::new(cargo_bin!());
