@@ -317,8 +317,8 @@ fn main() -> Result<()> {
         };
         let target = target_opt.unwrap_or_else(|| "stderr".to_string());
 
-        let make_filters = |filters: &Option<Vec<Spanned<String>>>| {
-            filters.as_ref().map(|filters| {
+        let make_filters = |filters: Option<&[Spanned<String>]>| {
+            filters.map(|filters| {
                 filters
                     .iter()
                     .map(|filter| filter.item.clone())
@@ -326,8 +326,8 @@ fn main() -> Result<()> {
             })
         };
         let filters = logger::Filters {
-            include: make_filters(&parsed_nu_cli_args.log_include),
-            exclude: make_filters(&parsed_nu_cli_args.log_exclude),
+            include: make_filters(parsed_nu_cli_args.log_include.as_deref()),
+            exclude: make_filters(parsed_nu_cli_args.log_exclude.as_deref()),
         };
 
         // logger now expects the closure to return a `Result` so that we can surface configuration errors such as missing `--log-file` when the target is `file`.
