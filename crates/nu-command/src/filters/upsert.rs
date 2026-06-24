@@ -234,6 +234,8 @@ fn upsert_recursive(
                         value.upsert_data_at_cell_path(path, replacement)?;
                     }
                     value
+                } else if pre_elems.is_empty() {
+                    return Err(ShellError::AccessEmptyContent { span: path_span });
                 } else {
                     return Err(ShellError::AccessBeyondEnd {
                         max_idx: pre_elems.len() - 1,

@@ -321,3 +321,14 @@ fn list_stream_replacement_closure() -> Result {
         .run("[[a]; [text]] | every 1 | upsert b { default TEXT } | to nuon")
         .expect_value_eq("[[a, b]; [text, TEXT]]")
 }
+
+#[test]
+fn upsert_nested_path_into_empty_list_errors_without_underflow() {
+    // Regression test for #18426: upserting into a nested path of an empty list
+    // used to underflow `pre_elems.len() - 1` to usize::MAX and print a garbage
+    // error containing 18446744073709551615.
+    let actual = nu!("[] | upsert 0.0 1");
+
+    assert!(!actual.err.contains("18446744073709551615"));
+    assert!(actual.err.contains("empty content"));
+}
