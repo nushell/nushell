@@ -291,7 +291,7 @@ const CLI_FLAGS: &[CliFlag] = &[
         ValueHint::ListString,
         "set the Rust module prefixes to include from the log output",
         CliCategory::Logging,
-        "nu --log-include info",
+        "nu --log-include nu_cli",
     ),
     CliFlag::value(
         "log-exclude",
@@ -299,7 +299,7 @@ const CLI_FLAGS: &[CliFlag] = &[
         ValueHint::ListString,
         "set the Rust module prefixes to exclude from the log output",
         CliCategory::Logging,
-        "nu --log-exclude info",
+        "nu --log-exclude nu_cli",
     ),
     CliFlag::switch(
         "stdin",
