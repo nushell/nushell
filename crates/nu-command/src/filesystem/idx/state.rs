@@ -1481,7 +1481,7 @@ pub fn store_snapshot(path: &Path, span: Span) -> Result<Value, ShellError> {
     // Insert metadata
     tx.execute(
         "INSERT INTO metadata (version, base_path, watch, file_count, dir_count) VALUES (?1, ?2, ?3, ?4, ?5)",
-        params![1, snapshot.base_path.display().to_string(), snapshot.watch, files.len(), dirs.len()],
+        params![1, snapshot.base_path.display().to_string(), snapshot.watch, files.len() as i64, dirs.len() as i64],
     )
     .map_err(|err| {
         ShellError::Generic(GenericError::new(
@@ -1500,8 +1500,8 @@ pub fn store_snapshot(path: &Path, span: Span) -> Result<Value, ShellError> {
                 file.full_path,
                 file.file_name,
                 file.directory,
-                file.size,
-                file.modified,
+                file.size as i64,
+                file.modified as i64,
                 file.access_frecency_score,
                 file.modification_frecency_score,
                 file.is_binary,
@@ -1599,8 +1599,8 @@ pub fn restore_snapshot(path: &Path, no_watch: bool, span: Span) -> Result<Value
                     row.get::<_, u32>(0)?,
                     row.get::<_, String>(1)?,
                     row.get::<_, bool>(2)?,
-                    row.get::<_, usize>(3)?,
-                    row.get::<_, usize>(4)?,
+                    row.get::<_, i64>(3)?,
+                    row.get::<_, i64>(4)?,
                 ))
             },
         )
@@ -1648,8 +1648,8 @@ pub fn restore_snapshot(path: &Path, no_watch: bool, span: Span) -> Result<Value
                 full_path: row.get(1)?,
                 file_name: row.get(2)?,
                 directory: row.get(3)?,
-                size: row.get(4)?,
-                modified: row.get(5)?,
+                size: row.get::<_, i64>(4)? as u64,
+                modified: row.get::<_, i64>(5)? as u64,
                 access_frecency_score: row.get(6)?,
                 modification_frecency_score: row.get(7)?,
                 is_binary: row.get(8)?,
