@@ -52,6 +52,7 @@ mod headers;
 mod help;
 mod histogram;
 mod idx;
+mod if_;
 mod ignore;
 mod insert;
 mod inspect;
