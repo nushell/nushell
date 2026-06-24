@@ -293,7 +293,7 @@ const CLI_FLAGS: &[CliFlag] = &[
         ValueHint::ListString,
         "set the Rust module prefixes to include from the log output",
         CliCategory::Logging,
-        "nu --log-include info",
+        "nu --log-include nu_cli",
     ),
     CliFlag::value(
         "log-exclude",
@@ -301,7 +301,7 @@ const CLI_FLAGS: &[CliFlag] = &[
         ValueHint::ListString,
         "set the Rust module prefixes to exclude from the log output",
         CliCategory::Logging,
-        "nu --log-exclude info",
+        "nu --log-exclude nu_cli",
     ),
     CliFlag::switch(
         "stdin",
@@ -631,14 +631,14 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
             }
             Long("log-include") => {
                 let values = parse_list_values(&mut parser, "log-include")?;
-                let parsed = parse_log_filters("log-include", values)?;
+                let parsed = parse_log_filters(values);
                 cli.log_include
                     .get_or_insert_with(Vec::new)
                     .extend(parsed.into_iter().map(spanned_value));
             }
             Long("log-exclude") => {
                 let values = parse_list_values(&mut parser, "log-exclude")?;
-                let parsed = parse_log_filters("log-exclude", values)?;
+                let parsed = parse_log_filters(values);
                 cli.log_exclude
                     .get_or_insert_with(Vec::new)
                     .extend(parsed.into_iter().map(spanned_value));
@@ -968,7 +968,7 @@ fn parse_experimental_options(parser: &mut lexopt::Parser) -> Result<Vec<String>
 
 // Parse log filters and ensure they match known log levels.
 // Supports multiple formats: [error,warn], [error, warn], error warn, etc.
-fn parse_log_filters(name: &str, values: Vec<String>) -> Result<Vec<String>, CliError> {
+fn parse_log_filters(values: Vec<String>) -> Vec<String> {
     let mut parsed = Vec::new();
 
     // Process each value, handling brackets and comma-delimited forms
@@ -983,41 +983,15 @@ fn parse_log_filters(name: &str, values: Vec<String>) -> Result<Vec<String>, Cli
                 let item = item.trim();
                 if !item.is_empty() {
                     let normalized = item.to_ascii_lowercase();
-                    if LOG_LEVEL_VALUES.contains(&normalized.as_str()) {
-                        parsed.push(normalized);
-                    } else {
-                        let suggestion = did_you_mean(LOG_LEVEL_VALUES, &normalized)
-                            .map(|item| format!("Did you mean '{item}'?"));
-                        let help = suggestion.unwrap_or_else(|| {
-                            format!("Valid log levels: {}", LOG_LEVEL_VALUES.join(", "))
-                        });
-                        return Err(CliError::new(
-                            format!("Invalid value for `--{name}`"),
-                            "invalid log level",
-                        )
-                        .with_help(help));
-                    }
+                    parsed.push(normalized);
                 }
             }
         } else if !trimmed.is_empty() {
             let normalized = trimmed.to_ascii_lowercase();
-            if LOG_LEVEL_VALUES.contains(&normalized.as_str()) {
-                parsed.push(normalized);
-            } else {
-                let suggestion = did_you_mean(LOG_LEVEL_VALUES, &normalized)
-                    .map(|item| format!("Did you mean '{item}'?"));
-                let help = suggestion.unwrap_or_else(|| {
-                    format!("Valid log levels: {}", LOG_LEVEL_VALUES.join(", "))
-                });
-                return Err(CliError::new(
-                    format!("Invalid value for `--{name}`"),
-                    "invalid log level",
-                )
-                .with_help(help));
-            }
+            parsed.push(normalized);
         }
     }
-    Ok(parsed)
+    parsed
 }
 
 // Validate an experimental option name against the known list.
