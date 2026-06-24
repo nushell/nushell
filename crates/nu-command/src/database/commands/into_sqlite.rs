@@ -147,7 +147,7 @@ impl Table {
             self.name(),
         );
 
-        let table_count: u64 = self
+        let table_count: i64 = self
             .conn
             .query_row(&table_exists_query, [], |row| row.get(0))
             .map_err(|err| {
