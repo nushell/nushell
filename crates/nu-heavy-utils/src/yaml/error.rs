@@ -160,14 +160,14 @@ impl From<ParseError<'_>> for ShellError {
                 "Found more than one document, but requested only one",
                 span,
             )
-            .with_code("shell::yaml::parser::too_many_documents"),
+            .with_code("shell::yaml::parse::too_many_documents"),
 
             ParseError::Scan { source, span } => GenericError::new(
                 "Scanning YAML failed",
                 "Scanning the YAML input failed",
                 span,
             )
-            .with_code("shell::yaml::parser::scan")
+            .with_code("shell::yaml::parse::scan")
             .with_source(source),
 
             ParseError::DuplicateKey { duplicate, span } => GenericError::new(
@@ -175,14 +175,14 @@ impl From<ParseError<'_>> for ShellError {
                 format!("The key {duplicate:?} already appeared in the mapping"),
                 span,
             )
-            .with_code("shell::yaml::parser::duplicate_key"),
+            .with_code("shell::yaml::parse::duplicate_key"),
 
             ParseError::UnexpectedKeyAnchor { span } => GenericError::new(
                 "Found unexpected key anchor",
                 "Merge anchors are not supported in key position",
                 span,
             )
-            .with_code("shell::yaml::parser::unexpected_key_anchor"),
+            .with_code("shell::yaml::parse::unexpected_key_anchor"),
 
             ParseError::Int {
                 attempted,
@@ -193,7 +193,7 @@ impl From<ParseError<'_>> for ShellError {
                 format!("Parsing {attempted:?} failed"),
                 span,
             )
-            .with_code(format!("shell::yaml::parser::int::base{base}"))
+            .with_code(format!("shell::yaml::parse::int::base{base}"))
             .with_source(err),
 
             ParseError::Int {
@@ -205,7 +205,7 @@ impl From<ParseError<'_>> for ShellError {
                 format!("Could not identify {attempted:?} as an int"),
                 span,
             )
-            .with_code(format!("shell::yaml::parser::int::unknown")),
+            .with_code(format!("shell::yaml::parse::int::unknown")),
 
             ParseError::Float {
                 attempted,
@@ -216,7 +216,7 @@ impl From<ParseError<'_>> for ShellError {
                 format!("Parsing {attempted:?} failed"),
                 span,
             )
-            .with_code(format!("shell::yaml::parser::float::base{base}"))
+            .with_code(format!("shell::yaml::parse::float::base{base}"))
             .with_source(err),
 
             ParseError::Float {
@@ -228,21 +228,21 @@ impl From<ParseError<'_>> for ShellError {
                 format!("Could not identify {attempted:?} as a float"),
                 span,
             )
-            .with_code(format!("shell::yaml::parser::float::unknown")),
+            .with_code(format!("shell::yaml::parse::float::unknown")),
 
             ParseError::Null { attempted, span } => GenericError::new(
                 "Parsing Null failed",
                 format!("Parsing {attempted:?} failed"),
                 span,
             )
-            .with_code("shell::yaml::parser::null"),
+            .with_code("shell::yaml::parse::null"),
 
             ParseError::Bool { attempted, span } => GenericError::new(
                 "Parsing Bool failed",
                 format!("Parsing {attempted:?} failed"),
                 span,
             )
-            .with_code("shell::yaml::parser::bool"),
+            .with_code("shell::yaml::parse::bool"),
 
             ParseError::Binary {
                 attempted,
@@ -253,7 +253,7 @@ impl From<ParseError<'_>> for ShellError {
                 format!("Parsing {attempted:?} failed"),
                 span,
             )
-            .with_code("shell::yaml::parser::binary")
+            .with_code("shell::yaml::parse::binary")
             .with_source(err),
 
             ParseError::Date {
@@ -265,7 +265,7 @@ impl From<ParseError<'_>> for ShellError {
                 format!("Parsing {attempted:?} failed"),
                 span,
             )
-            .with_code("shell::yaml::parser::date")
+            .with_code("shell::yaml::parse::date")
             .with_source(err),
 
             ParseError::Range {
@@ -277,7 +277,7 @@ impl From<ParseError<'_>> for ShellError {
                 format!("Parsing {attempted:?} failed"),
                 span,
             )
-            .with_code("shell::yaml::parser::range")
+            .with_code("shell::yaml::parse::range")
             .with_source(err),
 
             ParseError::CellPath {
@@ -289,7 +289,7 @@ impl From<ParseError<'_>> for ShellError {
                 format!("Parsing {attempted:?} failed"),
                 span,
             )
-            .with_code("shell::yaml::parser::cell_path")
+            .with_code("shell::yaml::parse::cell_path")
             .with_source(err),
 
             ParseError::PairsNotARecord { found, span } => GenericError::new(
@@ -297,7 +297,7 @@ impl From<ParseError<'_>> for ShellError {
                 format!("Expected {}, found {}", Type::record(), found),
                 span,
             )
-            .with_code("shell::yaml::parser::pairs::not_a_record"),
+            .with_code("shell::yaml::parse::pairs::not_a_record"),
 
             ParseError::PairsEmpty { span } => GenericError::new(
                 "Pairs entry is empty",
@@ -307,7 +307,7 @@ impl From<ParseError<'_>> for ShellError {
                 ),
                 span,
             )
-            .with_code("shell::yaml::parser::pairs::empty"),
+            .with_code("shell::yaml::parse::pairs::empty"),
 
             ParseError::PairsTooMany { span } => GenericError::new(
                 "Pairs entry has to many entries",
@@ -317,14 +317,14 @@ impl From<ParseError<'_>> for ShellError {
                 ),
                 span,
             )
-            .with_code("shell::yaml::parser::pairs::too_many"),
+            .with_code("shell::yaml::parse::pairs::too_many"),
 
             ParseError::OMapNotARecord { found, span } => GenericError::new(
                 "OMap has to be a record",
                 format!("Expected {}, found {}", Type::record(), found),
                 span,
             )
-            .with_code("shell::yaml::parser::omap::not_a_record"),
+            .with_code("shell::yaml::parse::omap::not_a_record"),
 
             ParseError::OMapEmpty { span } => GenericError::new(
                 "OMap entry is empty",
@@ -334,14 +334,14 @@ impl From<ParseError<'_>> for ShellError {
                 ),
                 span,
             )
-            .with_code("shell::yaml::parser::omap::empty"),
+            .with_code("shell::yaml::parse::omap::empty"),
 
             ParseError::OMapDuplicateKey { duplicate, span } => GenericError::new(
                 "Duplicate OMap key found",
                 format!("Found duplicate key {duplicate:?}, OMap does not support duplicate keys"),
                 span,
             )
-            .with_code("shell::yaml::parser::omap::duplicate_key"),
+            .with_code("shell::yaml::parse::omap::duplicate_key"),
 
             ParseError::OMapTooMany { span } => GenericError::new(
                 "OMap entry has to many entries",
@@ -351,7 +351,7 @@ impl From<ParseError<'_>> for ShellError {
                 ),
                 span,
             )
-            .with_code("shell::yaml::parser::omap::too_many"),
+            .with_code("shell::yaml::parse::omap::too_many"),
 
             ParseError::SetFoundNotNull { found, span } => GenericError::new(
                 "Found not null in Set",
@@ -362,35 +362,35 @@ impl From<ParseError<'_>> for ShellError {
                 ),
                 span,
             )
-            .with_code("shell::yaml::parser::set::not_a_null"),
+            .with_code("shell::yaml::parse::set::not_a_null"),
 
             ParseError::UnknownTag { tag, span } => GenericError::new(
                 "Unknown tag",
                 format!("The tag {:?} is unknown to nushell", tag),
                 span,
             )
-            .with_code("shell::yaml::parser::tag::unknown"),
+            .with_code("shell::yaml::parse::tag::unknown"),
 
             ParseError::UnimplementedTag { tag, span } => GenericError::new(
                 "Unimplemented Tag",
                 format!(r#"The tag "{tag}" is known but not implemented"#),
                 span,
             )
-            .with_code("shell::yaml::parser::tag::unimplemented"),
+            .with_code("shell::yaml::parse::tag::unimplemented"),
 
             ParseError::IncorrectTag { tag, at, span } => GenericError::new(
                 "Incorrect tag",
                 format!(r#"Found incorrect tag "{tag}" while parsing a {at}"#),
                 span,
             )
-            .with_code("shell::yaml::parser::tag::incorrect"),
+            .with_code("shell::yaml::parse::tag::incorrect"),
 
             ParseError::UnsupportedTag { tag, at, span } => GenericError::new(
                 "Unsupported tag",
                 format!(r#"The tag "{tag}" is not supported while parsing a {at}"#),
                 span,
             )
-            .with_code("shell::yaml::parser::tag::unsupported"),
+            .with_code("shell::yaml::parse::tag::unsupported"),
 
             ParseError::InvalidMergeType { found, span } => GenericError::new(
                 "Invalid merge type",
@@ -401,21 +401,21 @@ impl From<ParseError<'_>> for ShellError {
                 ),
                 span,
             )
-            .with_code("shell::yaml::parser::merge::invalid_type"),
+            .with_code("shell::yaml::parse::merge::invalid_type"),
 
             ParseError::InvalidMergeList { found, span } => GenericError::new(
                 "Invalid merge list type",
                 format!("Expected {} inside the list, found {found}", Type::record()),
                 span,
             )
-            .with_code("shell::yaml::parser::merge::invalid_list_type"),
+            .with_code("shell::yaml::parse::merge::invalid_list_type"),
 
             ParseError::Internal { error, span } => GenericError::new(
                 "Internal YAML Parser Error",
                 "The YAML parser got into an unexpected state",
                 span,
             )
-            .with_code("shell::yaml::parser::internal")
+            .with_code("shell::yaml::parse::internal")
             .with_help("This is most likely a bug. Please report it.")
             .with_inner([ShellError::Generic(match error {
                 InternalParserError::UnexpectedEvent { event, location } => {
@@ -424,7 +424,7 @@ impl From<ParseError<'_>> for ShellError {
                         format!("Unexpected YAML event during parsing: {event:?}"),
                         location,
                     )
-                    .with_code("shell::yaml::parser::internal::unexpected_event")
+                    .with_code("shell::yaml::parse::internal::unexpected_event")
                 }
 
                 InternalParserError::UnexpectedEventEnd { location } => {
@@ -433,7 +433,7 @@ impl From<ParseError<'_>> for ShellError {
                         "Unexpectedly the event stream of the YAML parser ended",
                         location,
                     )
-                    .with_code("shell::yaml::parser::internal::end_of_events")
+                    .with_code("shell::yaml::parse::internal::end_of_events")
                 }
 
                 InternalParserError::ZeroAliasID { location } => {
@@ -442,7 +442,7 @@ impl From<ParseError<'_>> for ShellError {
                         "YAML parser generated 0 as an Alias ID",
                         location,
                     )
-                    .with_code("shell::yaml::parser::internal::zero_alias")
+                    .with_code("shell::yaml::parse::internal::zero_alias")
                 }
 
                 InternalParserError::MissingAlias { location } => {
@@ -451,7 +451,7 @@ impl From<ParseError<'_>> for ShellError {
                         "Could not find value for Alias",
                         location,
                     )
-                    .with_code("shell::yaml::parser::internal::missing_alias")
+                    .with_code("shell::yaml::parse::internal::missing_alias")
                 }
             })]),
         };
