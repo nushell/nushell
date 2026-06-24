@@ -1,4 +1,3 @@
-use ansi_str::AnsiStr;
 use crossterm::{
     cursor::{Hide, MoveDown, MoveToColumn, MoveUp, Show},
     event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
@@ -14,12 +13,15 @@ use nu_ansi_term::{Style, ansi::RESET};
 use nu_color_config::{Alignment, StyleComputer, TextStyle};
 use nu_engine::{ClosureEval, command_prelude::*, get_columns};
 use nu_protocol::engine::Closure;
-use nu_protocol::{Config, ListStream, TableMode, shell_error::io::IoError};
+use nu_protocol::{Config, ListStream, Signals, TableMode, shell_error::io::IoError};
 use nu_table::common::nu_value_to_string;
 use std::{
     borrow::Cow,
     collections::HashSet,
     io::{self, Stderr, Write},
+    sync::mpsc::{self, Receiver, TryRecvError},
+    thread,
+    time::Duration,
 };
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
@@ -59,46 +61,207 @@ const DEFAULT_TABLE_COLUMN_SEPARATOR: char = '│';
 // Streaming behavior tuning knobs.
 //
 // Keeping these as constants makes behavior easy to tweak and avoids hidden magic numbers.
-// - INITIAL_STREAM_ITEMS: eager rows to load before first render.
+// - INITIAL_STREAM_COLLECT_TIMEOUT: maximum time to spend trying to collect a finite input before
+//   falling back to live streaming.
+// - INITIAL_STREAM_MAX_ITEMS: safety cap for very fast unbounded streams during initial collection.
 // - STREAM_LOAD_BATCH: rows to fetch for each incremental refill.
 // - STREAM_PREFETCH_MARGIN: how far from the end we begin prefetching.
-const INITIAL_STREAM_ITEMS: usize = 80;
-const STREAM_LOAD_BATCH: usize = 50;
+// - STREAM_CHANNEL_CAPACITY: rows the background reader can collect before the UI drains them.
+// - STREAM_POLL_INTERVAL: render cadence while a stream is still loading.
+const INITIAL_STREAM_COLLECT_TIMEOUT: Duration = Duration::from_millis(250);
+const INITIAL_STREAM_MAX_ITEMS: usize = 100_000;
+const STREAM_LOAD_BATCH: usize = 512;
 const STREAM_PREFETCH_MARGIN: usize = 2;
+const STREAM_CHANNEL_CAPACITY: usize = 8192;
+const STREAM_SPINNER_FRAMES: &[&str] = &["-", "\\", "|", "/"];
+const STREAM_DRAIN_TIME_BUDGET: Duration = Duration::from_millis(16);
+const STREAM_POLL_INTERVAL: Duration = Duration::from_millis(16);
+const IDLE_POLL_INTERVAL: Duration = Duration::from_millis(100);
 
-fn visible_text_width(text: &str) -> usize {
-    nu_utils::strip_ansi_unlikely(text).width()
+fn io_context(context: &'static str) -> impl FnOnce(io::Error) -> io::Error {
+    move |err| io::Error::new(err.kind(), format!("{context}: {err}"))
 }
 
-fn visible_prefix_byte_len(text: &str, target_width: usize) -> usize {
-    let mut current_width = 0;
-    let mut end_pos = 0;
-
-    for (byte_pos, c) in text.char_indices() {
-        let char_width = UnicodeWidthChar::width(c).unwrap_or(0);
-        if current_width + char_width > target_width {
-            break;
+fn terminal_char_width(c: char, current_column: usize) -> usize {
+    match c {
+        '\t' => {
+            let next_tab_stop = ((current_column / 8) + 1) * 8;
+            next_tab_stop - current_column
         }
-        end_pos = byte_pos + c.len_utf8();
-        current_width += char_width;
+        c if c.is_control() => 0,
+        c => UnicodeWidthChar::width(c).unwrap_or(0),
+    }
+}
+
+fn terminal_text_width_from(text: &str, start_column: usize) -> usize {
+    let mut current_column = start_column;
+    let mut chars = text.chars().peekable();
+
+    while let Some(c) = chars.next() {
+        if c == '\u{1b}' {
+            skip_ansi_escape(&mut chars);
+        } else {
+            current_column += terminal_char_width(c, current_column);
+        }
     }
 
-    end_pos
+    current_column - start_column
 }
 
-fn truncate_ansi_aware_text(text: &str, available_width: usize) -> Cow<'_, str> {
-    let stripped = nu_utils::strip_ansi_unlikely(text);
+struct DisplaySegment {
+    source_index: Option<usize>,
+    text: String,
+}
 
-    if stripped.width() <= available_width {
-        Cow::Borrowed(text)
+struct SanitizedText {
+    segments: Vec<DisplaySegment>,
+    text: String,
+    source_chars: usize,
+    truncated: bool,
+}
+
+fn skip_ansi_escape<I>(chars: &mut std::iter::Peekable<I>)
+where
+    I: Iterator<Item = char>,
+{
+    match chars.next() {
+        Some('[') => {
+            for c in chars.by_ref() {
+                if ('@'..='~').contains(&c) {
+                    break;
+                }
+            }
+        }
+        Some(']') => {
+            while let Some(c) = chars.next() {
+                if c == '\u{7}' {
+                    break;
+                }
+                if c == '\u{1b}' && chars.next_if_eq(&'\\').is_some() {
+                    break;
+                }
+            }
+        }
+        Some(_) | None => {}
+    }
+}
+
+fn collect_ansi_escape<I>(chars: &mut std::iter::Peekable<I>) -> Option<String>
+where
+    I: Iterator<Item = char>,
+{
+    let mut escape = String::from('\u{1b}');
+
+    match chars.next() {
+        Some('[') => {
+            escape.push('[');
+            for c in chars.by_ref() {
+                escape.push(c);
+                if ('@'..='~').contains(&c) {
+                    return Some(escape);
+                }
+            }
+            Some(escape)
+        }
+        Some(']') => {
+            escape.push(']');
+            while let Some(c) = chars.next() {
+                escape.push(c);
+                if c == '\u{7}' {
+                    return Some(escape);
+                }
+                if c == '\u{1b}' && chars.next_if_eq(&'\\').is_some() {
+                    escape.push('\\');
+                    return Some(escape);
+                }
+            }
+            Some(escape)
+        }
+        Some(c) => {
+            escape.push(c);
+            Some(escape)
+        }
+        None => Some(escape),
+    }
+}
+
+fn sanitize_text_for_display(
+    text: &str,
+    target_width: usize,
+    start_column: usize,
+) -> SanitizedText {
+    let mut current_column = start_column;
+    let max_column = start_column + target_width;
+    let mut segments = Vec::new();
+    let mut sanitized = String::new();
+    let mut chars = text.chars().peekable();
+    let mut source_index = 0;
+    let mut truncated = false;
+
+    while let Some(c) = chars.next() {
+        if c == '\u{1b}' {
+            if let Some(escape) = collect_ansi_escape(&mut chars) {
+                sanitized.push_str(&escape);
+                segments.push(DisplaySegment {
+                    source_index: None,
+                    text: escape,
+                });
+            }
+            continue;
+        }
+
+        let char_width = terminal_char_width(c, current_column);
+        if current_column + char_width > max_column {
+            truncated = true;
+            break;
+        }
+
+        let mut display = String::new();
+        if c == '\t' {
+            display.extend(std::iter::repeat_n(' ', char_width));
+        } else if !c.is_control() {
+            display.push(c);
+        }
+
+        if !display.is_empty() {
+            sanitized.push_str(&display);
+            segments.push(DisplaySegment {
+                source_index: Some(source_index),
+                text: display,
+            });
+        }
+        current_column += char_width;
+        source_index += 1;
+    }
+
+    SanitizedText {
+        segments,
+        text: sanitized,
+        source_chars: source_index,
+        truncated,
+    }
+}
+
+#[cfg(test)]
+fn truncate_ansi_aware_text(text: &str, available_width: usize) -> Cow<'_, str> {
+    truncate_ansi_aware_text_at(text, available_width, 0)
+}
+
+fn truncate_ansi_aware_text_at(
+    text: &str,
+    available_width: usize,
+    start_column: usize,
+) -> Cow<'_, str> {
+    let sanitized = sanitize_text_for_display(text, available_width, start_column);
+    if !sanitized.truncated {
+        Cow::Owned(sanitized.text)
     } else if available_width <= 1 {
         Cow::Borrowed("…")
     } else {
         let target_width = available_width - 1;
-        let end_pos = visible_prefix_byte_len(stripped.as_ref(), target_width);
-        let mut truncated = text.ansi_cut(..end_pos).into_owned();
-        truncated.push('…');
-        Cow::Owned(truncated)
+        let mut sanitized = sanitize_text_for_display(text, target_width, start_column).text;
+        sanitized.push('…');
+        Cow::Owned(sanitized)
     }
 }
 
@@ -419,26 +582,8 @@ Use --no-footer and --no-separator to hide the footer and separator line."#
             };
         }
 
-        // Convert input to a ListStream and lazily load initial values
-        let mut input_stream: ListStream = match input {
-            PipelineData::ListStream(stream, ..) => stream,
-            PipelineData::Value(Value::List { .. }, ..)
-            | PipelineData::Value(Value::Range { .. }, ..) => {
-                ListStream::new(input.into_iter(), head, engine_state.signals().clone())
-            }
-            _ => {
-                return Err(ShellError::TypeMismatch {
-                    err_message: "expected a list, a table, or a range".to_string(),
-                    span: head,
-                });
-            }
-        };
-
-        // Prime the widget with a bounded sample so first render is responsive even for
-        // large or infinite streams. Remaining values stay in `input_stream` and are consumed
-        // lazily during navigation and rendering.
-        let (initial_values, has_more_values) =
-            Self::read_initial_stream_chunk(&mut input_stream, INITIAL_STREAM_ITEMS);
+        let (initial_values, pending_stream) =
+            Self::initial_values_from_input(input, head, engine_state.signals().clone())?;
 
         // Map display_mode from display_flag
         let display_mode = match &display_flag {
@@ -481,7 +626,7 @@ Use --no-footer and --no-separator to hide the footer and separator line."#
             None
         };
 
-        if options.is_empty() && !has_more_values {
+        if options.is_empty() && pending_stream.is_none() {
             return Err(ShellError::TypeMismatch {
                 err_message: "expected a list or table, it can also be a problem with the inner type of your list.".to_string(),
                 span: head,
@@ -526,16 +671,13 @@ Use --no-footer and --no-separator to hide the footer and separator line."#
             table_layout,
             per_column,
             StreamState {
-                pending_stream: if has_more_values {
-                    Some(input_stream)
-                } else {
-                    None
-                },
+                stream_reader: pending_stream.map(StreamReader::new),
                 item_generator: Some(item_generator),
             },
         );
         let answer = widget.run().map_err(|err| {
-            IoError::new_with_additional_context(err, call.head, None, INTERACT_ERROR)
+            let context = format!("{INTERACT_ERROR}: {err}");
+            IoError::new_with_additional_context(err, call.head, None, context)
         })?;
 
         Ok(match answer {
@@ -656,26 +798,54 @@ Use --no-footer and --no-separator to hide the footer and separator line."#
 }
 
 impl InputList {
-    /// Read an initial chunk from the upstream stream.
+    /// Extract initial values from supported input.
+    ///
+    /// Already materialized lists are returned directly. Only true streams and ranges go through
+    /// the timed initial read so slow or unbounded input can keep the UI responsive.
+    fn initial_values_from_input(
+        input: PipelineData,
+        head: Span,
+        signals: Signals,
+    ) -> Result<(Vec<Value>, Option<ListStream>), ShellError> {
+        match input {
+            PipelineData::ListStream(mut stream, ..) => {
+                let (values, has_more_values) = Self::read_initial_stream_values(&mut stream);
+                Ok((values, if has_more_values { Some(stream) } else { None }))
+            }
+            PipelineData::Value(Value::List { vals, .. }, ..) => Ok((vals, None)),
+            input @ PipelineData::Value(Value::Range { .. }, ..) => {
+                let mut stream = ListStream::new(input.into_iter(), head, signals);
+                let (values, has_more_values) = Self::read_initial_stream_values(&mut stream);
+                Ok((values, if has_more_values { Some(stream) } else { None }))
+            }
+            _ => Err(ShellError::TypeMismatch {
+                err_message: "expected a list, a table, or a range".to_string(),
+                span: head,
+            }),
+        }
+    }
+
+    /// Read initial values from the upstream stream.
     ///
     /// Returns `(values, stream_may_have_more)` where the boolean is `false` only when
-    /// exhaustion is observed during the initial read. If we fill exactly `chunk_size` rows,
-    /// we intentionally assume there may be more and keep lazy probing in the widget.
-    fn read_initial_stream_chunk(stream: &mut ListStream, chunk_size: usize) -> (Vec<Value>, bool) {
-        let mut values = Vec::with_capacity(chunk_size);
-        let mut stream_may_have_more = true;
+    /// exhaustion is observed during the initial read. Timed-out or capped reads leave the
+    /// remaining stream for the background reader.
+    fn read_initial_stream_values(stream: &mut ListStream) -> (Vec<Value>, bool) {
+        let start = nu_utils::time::Instant::now();
+        let mut values = Vec::new();
 
-        for _ in 0..chunk_size {
+        while values.len() < INITIAL_STREAM_MAX_ITEMS {
             match stream.next_value() {
                 Some(value) => values.push(value),
-                None => {
-                    stream_may_have_more = false;
-                    break;
-                }
+                None => return (values, false),
+            }
+
+            if start.elapsed() >= INITIAL_STREAM_COLLECT_TIMEOUT {
+                return (values, true);
             }
         }
 
-        (values, stream_may_have_more)
+        (values, true)
     }
 
     /// Convert a raw input `Value` into a `SelectItem`, used for streaming growth
@@ -744,24 +914,32 @@ impl InputList {
 
     /// Calculate column widths for table rendering
     fn calculate_table_layout(columns: &[String], options: &[SelectItem]) -> TableLayout {
-        let mut col_widths: Vec<usize> = columns.iter().map(|c| c.width()).collect();
+        let mut layout = TableLayout {
+            columns: columns.to_vec(),
+            col_widths: columns.iter().map(|c| c.width()).collect(),
+            truncated_cols: 0, // Will be calculated when terminal width is known
+        };
 
-        // Find max width for each column from all rows
-        for item in options {
+        Self::update_table_layout_with_items(&mut layout, options);
+        layout
+    }
+
+    fn update_table_layout_with_items(layout: &mut TableLayout, items: &[SelectItem]) -> bool {
+        let mut changed = false;
+        for item in items {
             if let Some(cells) = &item.cells {
                 for (i, (cell_text, _)) in cells.iter().enumerate() {
-                    if i < col_widths.len() {
-                        col_widths[i] = col_widths[i].max(cell_text.width());
+                    if i < layout.col_widths.len() {
+                        let cell_width = terminal_text_width_from(cell_text, 0);
+                        if cell_width > layout.col_widths[i] {
+                            layout.col_widths[i] = cell_width;
+                            changed = true;
+                        }
                     }
                 }
             }
         }
-
-        TableLayout {
-            columns: columns.to_vec(),
-            col_widths,
-            truncated_cols: 0, // Will be calculated when terminal width is known
-        }
+        changed
     }
 }
 
@@ -778,8 +956,82 @@ enum SelectMode {
 /// Keeping stream concerns grouped in one struct reduces constructor parameter noise and
 /// keeps the non-streaming widget state easier to reason about.
 struct StreamState<'a> {
-    pending_stream: Option<ListStream>,
+    stream_reader: Option<StreamReader>,
     item_generator: Option<Box<dyn FnMut(Value) -> SelectItem + 'a>>,
+}
+
+enum StreamMessage {
+    Item(Value),
+    End,
+}
+
+struct StreamReader {
+    receiver: Receiver<StreamMessage>,
+    finished: bool,
+}
+
+impl StreamReader {
+    fn new(stream: ListStream) -> Self {
+        let (sender, receiver) = mpsc::sync_channel(STREAM_CHANNEL_CAPACITY);
+
+        thread::spawn(move || {
+            for value in stream {
+                if sender.send(StreamMessage::Item(value)).is_err() {
+                    return;
+                }
+            }
+
+            let _ = sender.send(StreamMessage::End);
+        });
+
+        Self {
+            receiver,
+            finished: false,
+        }
+    }
+
+    fn is_finished(&self) -> bool {
+        self.finished
+    }
+
+    fn drain_available(&mut self, count: usize) -> Vec<Value> {
+        let mut values = Vec::new();
+
+        while values.len() < count && !self.finished {
+            match self.receiver.try_recv() {
+                Ok(StreamMessage::Item(value)) => values.push(value),
+                Ok(StreamMessage::End) | Err(TryRecvError::Disconnected) => {
+                    self.finished = true;
+                    break;
+                }
+                Err(TryRecvError::Empty) => break,
+            }
+        }
+
+        values
+    }
+
+    fn drain_available_for(&mut self, max_duration: Duration) -> Vec<Value> {
+        let start = nu_utils::time::Instant::now();
+        let mut values = Vec::new();
+
+        while !self.finished {
+            match self.receiver.try_recv() {
+                Ok(StreamMessage::Item(value)) => values.push(value),
+                Ok(StreamMessage::End) | Err(TryRecvError::Disconnected) => {
+                    self.finished = true;
+                    break;
+                }
+                Err(TryRecvError::Empty) => break,
+            }
+
+            if start.elapsed() >= max_duration {
+                break;
+            }
+        }
+
+        values
+    }
 }
 
 struct SelectWidget<'a> {
@@ -791,7 +1043,7 @@ struct SelectWidget<'a> {
     filter_text: String,
     filtered_indices: Vec<usize>,
     scroll_offset: usize,
-    pending_stream: Option<ListStream>,
+    stream_reader: Option<StreamReader>,
     item_generator: Option<Box<dyn FnMut(Value) -> SelectItem + 'a>>,
     visible_height: u16,
     matcher: SkimMatcherV2,
@@ -828,8 +1080,14 @@ struct SelectWidget<'a> {
     horizontal_scroll_changed: bool,
     /// Whether terminal width changed since last render
     width_changed: bool,
+    /// Whether streamed rows changed table column widths since last render
+    table_layout_changed: bool,
     /// Whether the list has been refined to only show selected items (Multi/FuzzyMulti)
     refined: bool,
+    /// Whether streamed rows should keep the cursor pinned to the loaded tail
+    follow_stream_to_end: bool,
+    /// Current footer spinner frame while upstream rows are still pending
+    stream_spinner_frame: usize,
     /// Base indices for refined mode (the subset to filter from in FuzzyMulti)
     refined_base_indices: Vec<usize>,
     /// Whether to match filter text against each column independently (table mode only)
@@ -894,12 +1152,15 @@ impl<'a> SelectWidget<'a> {
             horizontal_offset: 0,
             horizontal_scroll_changed: false,
             width_changed: false,
+            table_layout_changed: false,
             refined: false,
+            follow_stream_to_end: false,
+            stream_spinner_frame: 0,
             refined_base_indices: Vec::new(),
             per_column,
             settings_changed: false,
             selected_marker_cached,
-            pending_stream: stream_state.pending_stream,
+            stream_reader: stream_state.stream_reader,
             item_generator: stream_state.item_generator,
             visible_columns_cache: None,
         }
@@ -971,74 +1232,88 @@ impl<'a> SelectWidget<'a> {
     }
 
     /// Load more items from upstream stream when near the end of the loaded list.
-    fn load_more_items(&mut self, count: usize) {
-        if self.pending_stream.is_none() {
-            return;
+    fn load_more_items(&mut self, count: usize) -> bool {
+        let Some(reader) = self.stream_reader.as_mut() else {
+            return false;
+        };
+
+        let values = reader.drain_available(count);
+        let stream_finished = reader.is_finished();
+        self.append_streamed_values(values, stream_finished)
+    }
+
+    fn load_more_items_for(&mut self, max_duration: Duration) -> bool {
+        let Some(reader) = self.stream_reader.as_mut() else {
+            return false;
+        };
+
+        let values = reader.drain_available_for(max_duration);
+        let stream_finished = reader.is_finished();
+        self.append_streamed_values(values, stream_finished)
+    }
+
+    fn append_streamed_values(&mut self, values: Vec<Value>, stream_finished: bool) -> bool {
+        if stream_finished {
+            self.stream_reader = None;
+            self.settings_changed = true;
         }
 
-        let mut loaded = 0;
-        while loaded < count {
-            let next = self
-                .pending_stream
-                .as_mut()
-                .and_then(|stream| stream.next_value());
-            if let Some(val) = next {
-                let item = self.make_select_item(val);
-                self.items.push(item);
-                loaded += 1;
-            } else {
-                self.pending_stream = None;
-                break;
+        if values.is_empty() {
+            if stream_finished {
+                return true;
             }
+            return false;
         }
 
-        if loaded > 0 {
+        let old_filtered_indices = if self.filter_text.is_empty() && !self.refined {
+            None
+        } else {
+            Some(self.filtered_indices.clone())
+        };
+        let start_index = self.items.len();
+        for value in values {
+            let item = self.make_select_item(value);
+            self.items.push(item);
+        }
+
+        if self.items.len() > start_index {
             // Table widths may have expanded as more rows are loaded
             if self.is_table_mode()
                 && let Some(layout) = &mut self.table_layout
+                && InputList::update_table_layout_with_items(layout, &self.items[start_index..])
             {
-                *layout = InputList::calculate_table_layout(&layout.columns, &self.items);
+                self.table_layout_changed = true;
+                self.update_table_layout();
             }
 
-            let start_len = self.filtered_indices.len();
             if self.filter_text.is_empty() && !self.refined {
-                self.filtered_indices.extend(start_len..self.items.len());
+                self.filtered_indices.extend(start_index..self.items.len());
             } else {
                 self.update_filter();
             }
-        }
-    }
 
-    /// Drain the remaining pending stream into `self.items` without running `update_filter`.
-    ///
-    /// Used by `update_filter` so that fuzzy searches always operate on the complete dataset,
-    /// even when items were not yet loaded by the scroll-based prefetch heuristic.
-    fn drain_pending_stream(&mut self) {
-        if self.pending_stream.is_none() {
-            return;
-        }
-        while let Some(val) = self.pending_stream.as_mut().and_then(|s| s.next_value()) {
-            let item = self.make_select_item(val);
-            self.items.push(item);
-        }
-        self.pending_stream = None;
-        if self.is_table_mode()
-            && let Some(layout) = &mut self.table_layout
-        {
-            *layout = InputList::calculate_table_layout(&layout.columns, &self.items);
+            if let Some(old_filtered_indices) = old_filtered_indices {
+                self.results_changed =
+                    self.results_changed || old_filtered_indices != self.filtered_indices;
+            }
+            true
+        } else {
+            false
         }
     }
 
     /// Ensure we have enough items to show around the cursor; stream if needed.
-    fn maybe_load_more(&mut self) {
-        if self.pending_stream.is_none() {
-            return;
+    fn maybe_load_more(&mut self) -> bool {
+        if self.stream_reader.is_none() {
+            return false;
         }
 
         // Prefetch a little before hitting the end of loaded rows to avoid visible refill latency.
         let threshold = self.scroll_offset + self.visible_height as usize + STREAM_PREFETCH_MARGIN;
-        if threshold >= self.items.len() {
-            self.load_more_items(STREAM_LOAD_BATCH);
+        if self.is_fuzzy_mode() && !self.filter_text.is_empty() || threshold >= self.items.len() {
+            self.load_more_items(STREAM_LOAD_BATCH)
+        } else {
+            false
         }
     }
 
@@ -1098,18 +1373,32 @@ impl<'a> SelectWidget<'a> {
         }
     }
 
+    fn stream_is_pending(&self) -> bool {
+        self.stream_reader.is_some()
+    }
+
+    fn stream_spinner(&self) -> &'static str {
+        STREAM_SPINNER_FRAMES[self.stream_spinner_frame % STREAM_SPINNER_FRAMES.len()]
+    }
+
     /// Generate the footer string, truncating if necessary to fit terminal width
     fn generate_footer(&self) -> String {
         let total_count = self.current_list_len();
         let end = (self.scroll_offset + self.visible_height as usize).min(total_count);
         let settings = self.settings_indicator();
+        let stream_is_pending = self.stream_is_pending();
+        let count_text = if stream_is_pending {
+            format!("{} {}", total_count, self.stream_spinner())
+        } else {
+            total_count.to_string()
+        };
 
         let position_part = if self.is_multi_mode() {
             format!(
                 "[{}-{} of {}, {} selected]",
                 self.scroll_offset + 1,
                 end.min(total_count),
-                total_count,
+                count_text,
                 self.selected.len()
             )
         } else {
@@ -1117,7 +1406,7 @@ impl<'a> SelectWidget<'a> {
                 "[{}-{} of {}]",
                 self.scroll_offset + 1,
                 end.min(total_count),
-                total_count
+                count_text
             )
         };
 
@@ -1185,13 +1474,14 @@ impl<'a> SelectWidget<'a> {
     }
 
     /// Check if footer should be shown
-    /// Footer is always shown in fuzzy modes (for settings display), multi modes (for selection count),
-    /// or when the list is longer than visible height (for scroll position)
+    /// Footer is always shown in fuzzy modes (for settings display), multi modes (for selection
+    /// count), or when the list fills the item area reserved above the footer.
     fn has_footer(&self) -> bool {
         self.config.show_footer
             && (self.is_fuzzy_mode()
                 || self.is_multi_mode()
-                || self.current_list_len() > self.visible_height as usize)
+                || self.current_list_len() >= self.visible_height as usize
+                || self.stream_is_pending())
     }
 
     /// Render just the footer text at current cursor position (for optimized updates)
@@ -1377,55 +1667,73 @@ impl<'a> SelectWidget<'a> {
     fn run(&mut self) -> io::Result<InteractMode> {
         let mut stderr = io::stderr();
 
-        enable_raw_mode()?;
+        enable_raw_mode().map_err(io_context("enable raw mode"))?;
         scopeguard::defer! {
             let _ = disable_raw_mode();
         }
 
         // Only hide cursor for non-fuzzy modes (fuzzy modes need visible cursor for text input)
         if self.mode != SelectMode::Fuzzy && self.mode != SelectMode::FuzzyMulti {
-            execute!(stderr, Hide)?;
+            execute!(stderr, Hide).map_err(io_context("hide terminal cursor"))?;
         }
         scopeguard::defer! {
             let _ = execute!(io::stderr(), Show);
         }
 
         // Get initial terminal size and cache it
-        let (term_width, term_height) = terminal::size()?;
+        let (term_width, term_height) =
+            terminal::size().map_err(io_context("read terminal size"))?;
         self.update_term_size(term_width, term_height);
 
-        self.render(&mut stderr)?;
+        self.render(&mut stderr)
+            .map_err(io_context("render input list"))?;
 
         loop {
-            if event::poll(std::time::Duration::from_millis(100))? {
-                match event::read()? {
+            let poll_interval = if self.stream_is_pending() {
+                STREAM_POLL_INTERVAL
+            } else {
+                IDLE_POLL_INTERVAL
+            };
+            let has_event =
+                event::poll(poll_interval).map_err(io_context("poll terminal event"))?;
+
+            if has_event {
+                match event::read().map_err(io_context("read terminal event"))? {
                     Event::Key(key_event) => {
                         match self.handle_key(key_event) {
                             KeyAction::Continue => {}
                             KeyAction::Cancel => {
-                                self.clear_display(&mut stderr)?;
+                                self.clear_display(&mut stderr)
+                                    .map_err(io_context("clear input list after cancel"))?;
                                 return Ok(match self.mode {
                                     SelectMode::Multi => InteractMode::Multi(None),
                                     _ => InteractMode::Single(None),
                                 });
                             }
                             KeyAction::Confirm => {
-                                self.clear_display(&mut stderr)?;
+                                self.clear_display(&mut stderr)
+                                    .map_err(io_context("clear input list after confirm"))?;
                                 return Ok(self.get_result());
                             }
                         }
-                        self.render(&mut stderr)?;
+                        self.render(&mut stderr)
+                            .map_err(io_context("render input list after key event"))?;
                     }
                     Event::Resize(width, height) => {
                         // Clear old content first - terminal reflow may have corrupted positions
-                        self.clear_display(&mut stderr)?;
+                        self.clear_display(&mut stderr)
+                            .map_err(io_context("clear input list after resize"))?;
                         self.update_term_size(width, height);
                         // Force full redraw on resize
                         self.first_render = true;
-                        self.render(&mut stderr)?;
+                        self.render(&mut stderr)
+                            .map_err(io_context("render input list after resize"))?;
                     }
                     _ => {}
                 }
+            } else if self.stream_is_pending() {
+                self.render(&mut stderr)
+                    .map_err(io_context("render input list after stream update"))?;
             }
         }
     }
@@ -2021,20 +2329,13 @@ impl<'a> SelectWidget<'a> {
 
     /// Move cursor up with wrapping
     fn navigate_up(&mut self) {
+        self.follow_stream_to_end = false;
         let list_len = self.current_list_len();
         if self.cursor > 0 {
             self.cursor -= 1;
             self.adjust_scroll_up();
         } else if list_len > 0 {
-            // Wrap to bottom: drain the full stream first so we land on the true last item.
-            if self.pending_stream.is_some() {
-                self.drain_pending_stream();
-                if !self.filter_text.is_empty() {
-                    self.update_filter();
-                } else if !self.refined {
-                    self.filtered_indices = (0..self.items.len()).collect();
-                }
-            }
+            self.maybe_load_more();
             let list_len = self.current_list_len();
             self.cursor = list_len.saturating_sub(1);
             self.adjust_scroll_down();
@@ -2043,6 +2344,7 @@ impl<'a> SelectWidget<'a> {
 
     /// Move cursor down with wrapping
     fn navigate_down(&mut self) {
+        self.follow_stream_to_end = false;
         self.maybe_load_more();
 
         let list_len = self.current_list_len();
@@ -2051,8 +2353,8 @@ impl<'a> SelectWidget<'a> {
             self.adjust_scroll_down();
         } else {
             // If we still have a pending stream, attempt to load more and stay in place
-            if self.pending_stream.is_some() {
-                self.maybe_load_more();
+            if self.stream_reader.is_some() {
+                self.load_more_items(STREAM_LOAD_BATCH);
                 let list_len = self.current_list_len();
                 if self.cursor + 1 < list_len {
                     self.cursor += 1;
@@ -2091,27 +2393,22 @@ impl<'a> SelectWidget<'a> {
 
     /// Navigate to the start of the list
     fn navigate_home(&mut self) {
+        self.follow_stream_to_end = false;
         self.cursor = 0;
         self.scroll_offset = 0;
     }
 
     /// Navigate to the end of the list
     fn navigate_end(&mut self) {
-        // Drain the full stream so End lands on the true last item.
-        if self.pending_stream.is_some() {
-            self.drain_pending_stream();
-            if !self.filter_text.is_empty() {
-                self.update_filter();
-            } else if !self.refined {
-                self.filtered_indices = (0..self.items.len()).collect();
-            }
-        }
+        self.follow_stream_to_end = true;
+        self.load_more_items(STREAM_CHANNEL_CAPACITY);
         self.cursor = self.current_list_len().saturating_sub(1);
         self.adjust_scroll_down();
     }
 
     /// Navigate page up: go to top of current page, or previous page if already at top
     fn navigate_page_up(&mut self) {
+        self.follow_stream_to_end = false;
         let page_top = self.scroll_offset;
         if self.cursor == page_top {
             // Already at top of page, go to previous page
@@ -2125,6 +2422,7 @@ impl<'a> SelectWidget<'a> {
 
     /// Navigate page down: go to bottom of current page, or next page if already at bottom
     fn navigate_page_down(&mut self) {
+        self.follow_stream_to_end = false;
         self.maybe_load_more();
 
         let list_len = self.current_list_len();
@@ -2464,12 +2762,6 @@ impl<'a> SelectWidget<'a> {
     }
 
     fn update_filter(&mut self) {
-        // When a filter is active, eagerly drain any remaining stream items so searches
-        // operate on the complete dataset, not just the initial prefetch window.
-        if self.pending_stream.is_some() && !self.filter_text.is_empty() {
-            self.drain_pending_stream();
-        }
-
         let old_indices = std::mem::take(&mut self.filtered_indices);
 
         // Determine whether to filter from refined subset or all items
@@ -2621,6 +2913,9 @@ impl<'a> SelectWidget<'a> {
         if self.first_render || self.width_changed || self.mode != SelectMode::Multi {
             return false;
         }
+        if self.table_layout_changed {
+            return false;
+        }
         // If the cursor also moved (e.g. Tab toggles and navigates), a full redraw
         // is needed so the ">" indicator follows the cursor.
         if self.cursor != self.prev_cursor {
@@ -2640,6 +2935,9 @@ impl<'a> SelectWidget<'a> {
     /// (toggled an item and moved cursor, both visible, no scroll change)
     fn can_do_fuzzy_multi_toggle_update(&self) -> bool {
         if self.first_render || self.width_changed || self.mode != SelectMode::FuzzyMulti {
+            return false;
+        }
+        if self.table_layout_changed {
             return false;
         }
         if self.scroll_offset != self.prev_scroll_offset {
@@ -2671,6 +2969,7 @@ impl<'a> SelectWidget<'a> {
             && !self.results_changed
             && self.scroll_offset == self.prev_scroll_offset
             && !self.horizontal_scroll_changed
+            && !self.table_layout_changed
     }
 
     /// Check if we can do a toggle-all update in multi mode
@@ -2680,6 +2979,7 @@ impl<'a> SelectWidget<'a> {
             && !self.width_changed
             && self.mode == SelectMode::Multi
             && self.toggled_all
+            && !self.table_layout_changed
     }
 
     /// FuzzyMulti mode: update toggled row and new cursor row
@@ -2935,7 +3235,19 @@ impl<'a> SelectWidget<'a> {
 
     #[allow(clippy::collapsible_if)]
     fn render(&mut self, stderr: &mut Stderr) -> io::Result<()> {
-        self.maybe_load_more();
+        // Keep streamed rows live-updating even when the user is not scrolling. This only drains
+        // values already delivered by the background reader, so rendering stays responsive for
+        // slow or infinite inputs.
+        let loaded_stream_items = self.load_more_items_for(STREAM_DRAIN_TIME_BUDGET);
+        if loaded_stream_items && self.follow_stream_to_end {
+            self.cursor = self.current_list_len().saturating_sub(1);
+            self.adjust_scroll_down();
+        }
+        if self.stream_is_pending() {
+            self.stream_spinner_frame =
+                (self.stream_spinner_frame + 1) % STREAM_SPINNER_FRAMES.len();
+            self.settings_changed = true;
+        }
 
         // Check for fuzzy multi mode toggle-all optimization
         if self.can_do_fuzzy_multi_toggle_all_update() {
@@ -2970,6 +3282,7 @@ impl<'a> SelectWidget<'a> {
             && !self.results_changed
             && !self.filter_text_changed
             && !self.horizontal_scroll_changed
+            && !self.table_layout_changed
             && !self.settings_changed
             && !self.toggled_all
         {
@@ -3016,6 +3329,17 @@ impl<'a> SelectWidget<'a> {
         if self.fuzzy_cursor_offset > 0 {
             execute!(stderr, MoveDown(self.fuzzy_cursor_offset as u16))?;
             self.fuzzy_cursor_offset = 0;
+        }
+
+        // If streaming added enough rows to grow the rendered area, claim the extra lines before
+        // moving back to the top. Otherwise the terminal may scroll underneath the existing
+        // header/footer and leave stale rows on screen.
+        if !self.first_render && lines_needed > self.rendered_lines {
+            let lines_to_add = lines_needed - self.rendered_lines;
+            for _ in 0..lines_to_add {
+                execute!(stderr, Print("\n"))?;
+            }
+            execute!(stderr, MoveUp(lines_to_add as u16))?;
         }
 
         // Move to start of our render area (first line, column 0)
@@ -3067,10 +3391,11 @@ impl<'a> SelectWidget<'a> {
             }
         }
 
-        // Render table header and separator if in table mode
-        // Only redraw if first render or horizontal scroll changed
+        // Render table header and separator if in table mode.
+        // Redraw when column positioning or widths changed.
         if self.is_table_mode() {
-            let need_header_redraw = self.first_render || self.horizontal_scroll_changed;
+            let need_header_redraw =
+                self.first_render || self.horizontal_scroll_changed || self.table_layout_changed;
             if need_header_redraw {
                 self.render_table_header(stderr)?;
             }
@@ -3195,6 +3520,7 @@ impl<'a> SelectWidget<'a> {
         self.results_changed = false;
         self.horizontal_scroll_changed = false;
         self.width_changed = false;
+        self.table_layout_changed = false;
         self.toggled_item = None;
         self.toggled_all = false;
         self.settings_changed = false;
@@ -3294,15 +3620,47 @@ impl<'a> SelectWidget<'a> {
     }
 
     /// Render text, truncating with ellipsis if it exceeds available width.
+    fn item_text_width(&self, prefix_width: usize) -> usize {
+        // Keep one printable cell free so drawing a full-width item does not leave the terminal in
+        // a wrap-pending state before the footer or next row is rendered.
+        self.term_width
+            .saturating_sub(prefix_width as u16)
+            .saturating_sub(1) as usize
+    }
+
     fn render_truncated_text(
         &self,
         stderr: &mut Stderr,
         text: &str,
         prefix_width: usize,
     ) -> io::Result<()> {
-        let available_width = (self.term_width as usize).saturating_sub(prefix_width);
-        let text = truncate_ansi_aware_text(text, available_width);
+        let available_width = self.item_text_width(prefix_width);
+        let text = truncate_ansi_aware_text_at(text, available_width, prefix_width);
         execute!(stderr, Print(text.as_ref()))?;
+        Ok(())
+    }
+
+    fn render_display_segments(
+        &self,
+        stderr: &mut Stderr,
+        sanitized: &SanitizedText,
+        match_indices: Option<&[usize]>,
+        base_style: Option<Style>,
+    ) -> io::Result<()> {
+        for segment in &sanitized.segments {
+            let is_match = segment
+                .source_index
+                .is_some_and(|idx| match_indices.is_some_and(|indices| indices.contains(&idx)));
+
+            if is_match {
+                execute!(stderr, Print(self.config.match_text.paint(&segment.text)))?;
+            } else if let Some(style) = base_style {
+                execute!(stderr, Print(style.paint(&segment.text)))?;
+            } else {
+                execute!(stderr, Print(&segment.text))?;
+            }
+        }
+
         Ok(())
     }
 
@@ -3315,30 +3673,9 @@ impl<'a> SelectWidget<'a> {
         match_indices: &[usize],
         prefix_width: usize,
     ) -> io::Result<()> {
-        let available_width = (self.term_width as usize).saturating_sub(prefix_width);
-        let text_width = visible_text_width(text);
+        let available_width = self.item_text_width(prefix_width);
 
-        // Reusable single-char buffer for styled output (avoids allocation per char)
-        let mut char_buf = [0u8; 4];
-
-        if text_width <= available_width {
-            // Text fits, render with highlighting.
-            // match_indices is sorted, so use two-pointer approach for O(n) instead of O(n*m)
-            let mut match_iter = match_indices.iter().peekable();
-            for (idx, c) in text.chars().enumerate() {
-                // Advance match_iter past any indices we've passed
-                while match_iter.peek().is_some_and(|&&i| i < idx) {
-                    match_iter.next();
-                }
-                let is_match = match_iter.peek().is_some_and(|&&i| i == idx);
-                if is_match {
-                    let s = c.encode_utf8(&mut char_buf);
-                    execute!(stderr, Print(self.config.match_text.paint(&*s)))?;
-                } else {
-                    execute!(stderr, Print(c))?;
-                }
-            }
-        } else if available_width <= 1 {
+        if available_width <= 1 {
             // Only room for ellipsis
             let has_any_matches = !match_indices.is_empty();
             if has_any_matches {
@@ -3346,47 +3683,25 @@ impl<'a> SelectWidget<'a> {
             } else {
                 execute!(stderr, Print("…"))?;
             }
+            return Ok(());
+        }
+
+        let sanitized = sanitize_text_for_display(text, available_width, prefix_width);
+        if !sanitized.truncated {
+            self.render_display_segments(stderr, &sanitized, Some(match_indices), None)?;
+            return Ok(());
+        }
+
+        let sanitized = sanitize_text_for_display(text, available_width - 1, prefix_width);
+        self.render_display_segments(stderr, &sanitized, Some(match_indices), None)?;
+
+        let has_hidden_matches = match_indices
+            .iter()
+            .any(|&idx| idx >= sanitized.source_chars);
+        if has_hidden_matches {
+            execute!(stderr, Print(self.config.match_text.paint("…")))?;
         } else {
-            // Find how many chars fit in available_width - 1 (reserve 1 for ellipsis)
-            let target_width = available_width - 1;
-            let mut current_width = 0;
-            let mut chars_to_render: usize = 0;
-
-            for c in text.chars() {
-                let char_width = UnicodeWidthChar::width(c).unwrap_or(0);
-                if current_width + char_width > target_width {
-                    break;
-                }
-                current_width += char_width;
-                chars_to_render += 1;
-            }
-
-            // Render the characters that fit, using two-pointer approach for efficiency
-            let mut match_iter = match_indices.iter().peekable();
-            for (idx, c) in text.chars().enumerate() {
-                if idx >= chars_to_render {
-                    break;
-                }
-                while match_iter.peek().is_some_and(|&&i| i < idx) {
-                    match_iter.next();
-                }
-                let is_match = match_iter.peek().is_some_and(|&&i| i == idx);
-                if is_match {
-                    let s = c.encode_utf8(&mut char_buf);
-                    execute!(stderr, Print(self.config.match_text.paint(&*s)))?;
-                } else {
-                    execute!(stderr, Print(c))?;
-                }
-            }
-
-            // Check if any matches are in the truncated portion (remaining in match_iter)
-            let has_hidden_matches = match_iter.any(|&idx| idx >= chars_to_render);
-
-            if has_hidden_matches {
-                execute!(stderr, Print(self.config.match_text.paint("…")))?;
-            } else {
-                execute!(stderr, Print("…"))?;
-            }
+            execute!(stderr, Print("…"))?;
         }
         Ok(())
     }
@@ -3812,7 +4127,7 @@ impl<'a> SelectWidget<'a> {
         col_width: usize,
         match_indices: Option<&[usize]>,
     ) -> io::Result<()> {
-        let cell_width = cell.width();
+        let cell_width = terminal_text_width_from(cell, 0);
         let padding_needed = col_width.saturating_sub(cell_width);
 
         // Calculate left and right padding based on alignment from TextStyle
@@ -3830,37 +4145,8 @@ impl<'a> SelectWidget<'a> {
             execute!(stderr, Print(" ".repeat(left_pad)))?;
         }
 
-        if let Some(indices) = match_indices {
-            // Render with fuzzy highlighting (match highlighting takes priority over type styling)
-            let mut char_buf = [0u8; 4];
-            let mut match_iter = indices.iter().peekable();
-
-            for (idx, c) in cell.chars().enumerate() {
-                while match_iter.peek().is_some_and(|&&i| i < idx) {
-                    match_iter.next();
-                }
-                let is_match = match_iter.peek().is_some_and(|&&i| i == idx);
-                if is_match {
-                    let s = c.encode_utf8(&mut char_buf);
-                    execute!(stderr, Print(self.config.match_text.paint(&*s)))?;
-                } else {
-                    // Apply type-based style for non-match characters
-                    let s = c.encode_utf8(&mut char_buf);
-                    if let Some(color) = cell_style.color_style {
-                        execute!(stderr, Print(color.paint(&*s)))?;
-                    } else {
-                        execute!(stderr, Print(&*s))?;
-                    }
-                }
-            }
-        } else {
-            // Render with type-based styling
-            if let Some(color) = cell_style.color_style {
-                execute!(stderr, Print(color.paint(cell)))?;
-            } else {
-                execute!(stderr, Print(cell))?;
-            }
-        }
+        let sanitized = sanitize_text_for_display(cell, cell_width, left_pad);
+        self.render_display_segments(stderr, &sanitized, match_indices, cell_style.color_style)?;
 
         // Add right padding
         if right_pad > 0 {
@@ -3926,7 +4212,7 @@ mod test {
             None,
             false,
             StreamState {
-                pending_stream: None,
+                stream_reader: None,
                 item_generator: None,
             },
         )
@@ -4020,6 +4306,257 @@ mod test {
             nu_utils::strip_ansi_unlikely(rendered.as_ref()).as_ref(),
             "abc…"
         );
+    }
+
+    #[test]
+    fn tabbed_text_truncates_by_terminal_width() {
+        let rendered = truncate_ansi_aware_text("ab\tcdef", 6);
+
+        assert_eq!(rendered.as_ref(), "ab…");
+    }
+
+    #[test]
+    fn tabbed_text_truncates_from_prefixed_column() {
+        let rendered = truncate_ansi_aware_text_at("\t--hostname-bin", 6, 2);
+
+        assert_eq!(rendered.as_ref(), "…");
+    }
+
+    #[test]
+    fn tabbed_text_expands_when_not_truncated() {
+        let rendered = truncate_ansi_aware_text_at("\t--hostname-bin", 32, 2);
+
+        assert_eq!(rendered.as_ref(), "      --hostname-bin");
+    }
+
+    #[test]
+    fn sanitizer_tracks_source_indices_after_expanding_tabs() {
+        let sanitized = sanitize_text_for_display("a\tb\u{7}c", 16, 0);
+
+        assert_eq!(sanitized.text, "a       bc");
+        assert_eq!(
+            sanitized
+                .segments
+                .iter()
+                .filter_map(|segment| segment.source_index)
+                .collect::<Vec<_>>(),
+            vec![0, 1, 2, 4]
+        );
+    }
+
+    #[test]
+    fn item_text_width_reserves_prefix() {
+        let mut w = make_widget(&[""]);
+        w.term_width = 129;
+
+        let available_width = w.item_text_width(2);
+        let rendered = truncate_ansi_aware_text_at(
+            "\t--hostname-bin # Run a program to get this system's hostname",
+            available_width,
+            2,
+        );
+
+        assert_eq!(available_width, 126);
+        assert!(terminal_text_width_from(rendered.as_ref(), 2) <= available_width);
+    }
+
+    #[test]
+    fn table_layout_uses_sanitized_terminal_width() {
+        let span = nu_protocol::Span::test_data();
+        let columns = vec!["name".to_string()];
+        let items = vec![SelectItem {
+            name: "\tname".to_string(),
+            cells: Some(vec![("\tname".to_string(), TextStyle::default())]),
+            value: Value::nothing(span),
+        }];
+
+        let layout = InputList::calculate_table_layout(&columns, &items);
+
+        assert_eq!(layout.col_widths, vec![12]);
+    }
+
+    #[test]
+    fn fuzzy_filter_does_not_drain_pending_stream() {
+        let span = nu_protocol::Span::test_data();
+        let mut w = make_widget(&["needle"]);
+        w.mode = SelectMode::Fuzzy;
+        w.filter_text = "needle".to_string();
+        w.filter_cursor = w.filter_text.len();
+        w.stream_reader = Some(StreamReader::new(ListStream::new(
+            (0..10_000).map(move |i| Value::string(format!("row-{i}"), span)),
+            span,
+            nu_protocol::Signals::empty(),
+        )));
+
+        w.update_filter();
+
+        assert_eq!(w.items.len(), 1);
+        assert!(w.stream_is_pending());
+    }
+
+    #[test]
+    fn initial_read_collects_fast_finite_stream() {
+        let span = nu_protocol::Span::test_data();
+        let mut stream = ListStream::new(
+            (0..5).map(move |i| Value::int(i, span)),
+            span,
+            nu_protocol::Signals::empty(),
+        );
+
+        let (values, has_more_values) = InputList::read_initial_stream_values(&mut stream);
+
+        assert_eq!(values.len(), 5);
+        assert!(!has_more_values);
+    }
+
+    #[test]
+    fn initial_read_stops_before_exhausting_unbounded_stream() {
+        let span = nu_protocol::Span::test_data();
+        let mut stream = ListStream::new(
+            (0..).map(move |i| Value::int(i, span)),
+            span,
+            nu_protocol::Signals::empty(),
+        );
+
+        let (values, has_more_values) = InputList::read_initial_stream_values(&mut stream);
+
+        assert!(!values.is_empty());
+        assert!(values.len() <= INITIAL_STREAM_MAX_ITEMS);
+        assert!(has_more_values);
+    }
+
+    #[test]
+    fn materialized_list_input_is_not_streamed() {
+        let span = nu_protocol::Span::test_data();
+        let values: Vec<Value> = (0..=INITIAL_STREAM_MAX_ITEMS)
+            .map(|i| Value::int(i as i64, span))
+            .collect();
+        let input = Value::list(values, span).into_pipeline_data();
+
+        let (values, pending_stream) =
+            InputList::initial_values_from_input(input, span, nu_protocol::Signals::empty())
+                .expect("materialized list input should be accepted");
+
+        assert_eq!(values.len(), INITIAL_STREAM_MAX_ITEMS + 1);
+        assert!(pending_stream.is_none());
+    }
+
+    #[test]
+    fn footer_marks_pending_stream() {
+        let span = nu_protocol::Span::test_data();
+        let mut w = make_widget(&["one", "two"]);
+        w.term_width = 80;
+        w.stream_reader = Some(StreamReader::new(ListStream::new(
+            (0..100).map(move |i| Value::string(format!("row-{i}"), span)),
+            span,
+            nu_protocol::Signals::empty(),
+        )));
+
+        assert_eq!(w.generate_footer(), "[1-2 of 2 -]");
+    }
+
+    #[test]
+    fn footer_shows_when_items_fill_reserved_area() {
+        let mut w = make_widget(&["one", "two"]);
+        w.term_width = 80;
+        w.visible_height = 2;
+
+        assert!(w.has_footer());
+        assert_eq!(w.generate_footer(), "[1-2 of 2]");
+    }
+
+    #[test]
+    fn final_stream_drain_marks_footer_dirty() {
+        let span = nu_protocol::Span::test_data();
+        let mut w = make_widget(&["one"]);
+        w.term_width = 80;
+        let (sender, receiver) = mpsc::sync_channel(8);
+        for i in 0..2 {
+            sender
+                .send(StreamMessage::Item(Value::string(format!("row-{i}"), span)))
+                .expect("test stream receiver should be open");
+        }
+        drop(sender);
+        w.stream_reader = Some(StreamReader {
+            receiver,
+            finished: false,
+        });
+        w.settings_changed = false;
+
+        assert!(w.load_more_items(STREAM_LOAD_BATCH));
+
+        assert!(w.stream_reader.is_none());
+        assert!(w.settings_changed);
+        assert_eq!(w.generate_footer(), "[1-3 of 3]");
+    }
+
+    #[test]
+    fn streamed_table_width_growth_marks_header_dirty() {
+        let span = nu_protocol::Span::test_data();
+        let columns = vec!["name".to_string()];
+        let items = vec![SelectItem {
+            name: "sh".to_string(),
+            cells: Some(vec![("sh".to_string(), TextStyle::default())]),
+            value: Value::nothing(span),
+        }];
+        let table_layout = InputList::calculate_table_layout(&columns, &items);
+        let (sender, receiver) = mpsc::sync_channel(1);
+        sender
+            .send(StreamMessage::Item(Value::string(
+                "long-streamed-name",
+                span,
+            )))
+            .expect("test stream receiver should be open");
+        drop(sender);
+
+        let mut w = SelectWidget::new(
+            SelectMode::Single,
+            None,
+            items,
+            InputListConfig::default(),
+            Some(table_layout),
+            false,
+            StreamState {
+                stream_reader: Some(StreamReader {
+                    receiver,
+                    finished: false,
+                }),
+                item_generator: Some(Box::new(move |value| SelectItem {
+                    name: "long-streamed-name".to_string(),
+                    cells: Some(vec![(
+                        "long-streamed-name".to_string(),
+                        TextStyle::default(),
+                    )]),
+                    value,
+                })),
+            },
+        );
+
+        assert!(w.load_more_items(STREAM_LOAD_BATCH));
+        assert!(w.table_layout_changed);
+    }
+
+    #[test]
+    fn end_navigation_uses_available_streamed_rows() {
+        let span = nu_protocol::Span::test_data();
+        let mut w = make_widget(&["initial"]);
+        let (sender, receiver) = mpsc::sync_channel(8);
+        for i in 0..5 {
+            sender
+                .send(StreamMessage::Item(Value::string(format!("row-{i}"), span)))
+                .expect("test stream receiver should be open");
+        }
+        drop(sender);
+        w.stream_reader = Some(StreamReader {
+            receiver,
+            finished: false,
+        });
+
+        w.navigate_end();
+
+        assert_eq!(w.items.len(), 6);
+        assert_eq!(w.cursor, 5);
+        assert!(w.follow_stream_to_end);
     }
 
     #[test]
