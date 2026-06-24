@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::repl::tests::{TestResult, fail_test, run_test, run_test_contains};
 use nu_experimental::ENFORCE_RUNTIME_ANNOTATIONS;
 use nu_test_support::prelude::*;
@@ -334,6 +336,30 @@ fn optional_parameters_and_flags_are_nullable() -> Result {
         foo
     ";
     let () = tester.run(code)?;
+
+    Ok(())
+}
+
+#[test]
+fn pipeline_let_type() -> Result {
+    let mut tester = test();
+
+    let code = "
+        [1, 2, 3]
+        | let list_int
+        | into string
+        | let list_str
+        | str join
+        | let str
+    ";
+    let _: Value = tester.run(code)?;
+
+    let code = "scope variables | select name type | transpose -dr";
+    let out: HashMap<String, String> = tester.run(code)?;
+
+    assert_eq!(out["$list_int"], "list<int>");
+    assert_eq!(out["$list_str"], "list<string>");
+    assert_eq!(out["$str"], "string");
 
     Ok(())
 }
