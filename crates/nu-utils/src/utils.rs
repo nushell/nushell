@@ -490,12 +490,16 @@ pub fn get_ls_colors(lscolors_env_string: Option<String>) -> LsColors {
     }
 }
 
-// Log some performance metrics (green text with yellow timings)
+// Log some performance metrics (green text with yellow timings).
+// Uses a custom target "nu::perf::<module_path>" so that --log-level perf
+// can filter these logs via the simplelog target filter.
 #[macro_export]
 macro_rules! perf {
-    ($msg:expr, $dur:expr, $use_color:expr) => {
+    ($msg:expr, $dur:expr, $use_color:expr) => {{
+        let target = concat!("nu::perf::", module_path!());
         if $use_color {
             log::info!(
+                target: target,
                 "perf: {}:{}:{} \x1b[32m{}\x1b[0m took \x1b[33m{:?}\x1b[0m",
                 file!(),
                 line!(),
@@ -505,6 +509,7 @@ macro_rules! perf {
             );
         } else {
             log::info!(
+                target: target,
                 "perf: {}:{}:{} {} took {:?}",
                 file!(),
                 line!(),
@@ -513,7 +518,7 @@ macro_rules! perf {
                 $dur.elapsed(),
             );
         }
-    };
+    }};
 }
 
 /// Returns the terminal size (columns, rows).

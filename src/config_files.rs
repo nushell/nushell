@@ -1,3 +1,4 @@
+use log::info;
 #[cfg(feature = "plugin")]
 use nu_cli::read_plugin_file;
 use nu_cli::{eval_config_contents, eval_source};
@@ -28,11 +29,11 @@ pub(crate) fn read_config_file(
     create_scaffold: bool,
     strict_mode: bool,
 ) {
-    log::info!("read_config_file() {config_kind:?} at {config_file:?}",);
+    info!("read_config_file() {config_kind:?} at {config_file:?}",);
 
     eval_default_config(engine_state, stack, config_kind);
 
-    log::info!("read_config_file() loading default {config_kind:?}");
+    info!("read_config_file() loading default {config_kind:?}");
 
     // Load config startup file
     if let Some(file) = config_file {
@@ -113,7 +114,7 @@ pub(crate) fn read_loginshell_file(
     stack: &mut Stack,
     strict_mode: bool,
 ) {
-    log::info!(
+    info!(
         "read_loginshell_file() {}:{}:{}",
         file!(),
         line!(),
@@ -124,7 +125,7 @@ pub(crate) fn read_loginshell_file(
     if let Some(mut config_path) = nu_path::nu_config_dir() {
         config_path.push(LOGINSHELL_FILE);
 
-        log::info!("loginshell_file: {}", config_path.display());
+        info!("loginshell_file: {}", config_path.display());
 
         if config_path.exists() {
             eval_config_contents(config_path.into(), engine_state, stack, strict_mode);
@@ -143,7 +144,7 @@ pub(crate) fn read_default_env_file(engine_state: &mut EngineState, stack: &mut 
         false,
     );
 
-    log::info!(
+    info!(
         "read_default_env_file() env_file_contents: {config_file} {}:{}:{}",
         file!(),
         line!(),
@@ -175,7 +176,7 @@ fn read_and_sort_directory(path: &Path) -> Result<Vec<String>> {
 }
 
 pub(crate) fn read_vendor_autoload_files(engine_state: &mut EngineState, stack: &mut Stack) {
-    log::info!(
+    info!(
         "read_vendor_autoload_files() {}:{}:{}",
         file!(),
         line!(),
@@ -190,7 +191,7 @@ pub(crate) fn read_vendor_autoload_files(engine_state: &mut EngineState, stack: 
         // the user can override vendor autoload files
         .chain(get_user_autoload_dirs(engine_state).iter())
         .for_each(|autoload_dir| {
-            log::info!("read_vendor_autoload_files: {}", autoload_dir.display());
+            info!("read_vendor_autoload_files: {}", autoload_dir.display());
 
             if autoload_dir.exists() {
                 // on a second levels files are lexicographically sorted by the string of the filename
@@ -201,7 +202,7 @@ pub(crate) fn read_vendor_autoload_files(engine_state: &mut EngineState, stack: 
                             continue;
                         }
                         let path = autoload_dir.join(entry);
-                        log::info!("AutoLoading: {path:?}");
+                        info!("AutoLoading: {path:?}");
                         eval_config_contents(path, engine_state, stack, false);
                     }
                 }
@@ -214,7 +215,7 @@ fn eval_default_config(
     stack: &mut Stack,
     config_kind: ConfigFileKind,
 ) {
-    log::info!("eval_default_config() {config_kind:?}");
+    info!("eval_default_config() {config_kind:?}");
     eval_source(
         engine_state,
         stack,
@@ -238,11 +239,9 @@ pub(crate) fn setup_config(
     env_file: Option<Spanned<String>>,
     is_login_shell: bool,
 ) {
-    log::info!(
+    info!(
         "setup_config() config_file_specified: {:?}, env_file_specified: {:?}, login: {}",
-        &config_file,
-        &env_file,
-        is_login_shell
+        &config_file, &env_file, is_login_shell
     );
 
     let create_scaffold = nu_path::nu_config_dir().is_some_and(|p| !p.exists());
@@ -289,12 +288,9 @@ pub(crate) fn set_config_path(
     key: &str,
     config_file: Option<&Spanned<String>>,
 ) {
-    log::info!(
+    info!(
         "set_config_path() cwd: {:?}, default_config: {}, key: {}, config_file_specified: {:?}",
-        &cwd,
-        &default_config_name,
-        &key,
-        &config_file
+        &cwd, &default_config_name, &key, &config_file
     );
     let config_path = match config_file {
         Some(s) => absolute_with(&s.item, cwd).ok(),

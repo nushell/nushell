@@ -161,7 +161,7 @@ encoding_rs = "0.8"
 fancy-regex = "0.18"
 filesize = "0.2"
 filetime = "0.2.27"
-fff-search = { version = "=0.9.0", default-features = false }
+fff-search = { version = "=0.9.6", default-features = false }
 fluent = "0.17.0"
 fuzzy-matcher = { version = "^0.3.7" }
 gatekeeper = "3.0.0"
@@ -318,7 +318,7 @@ nu-command = { workspace = true, features = ["os"] }
 nu-engine = { workspace = true, features = ["os"] }
 nu-experimental = { workspace = true }
 nu-explore = { workspace = true }
-nu-lsp = { workspace = true }
+nu-lsp = { workspace = true, optional = true }
 nu-parser = { workspace = true }
 nu-path = { workspace = true }
 nu-plugin-engine = { workspace = true, features = ["local-socket"], optional = true }
@@ -373,13 +373,14 @@ tempfile = { workspace = true }
 # Enable all features while still avoiding mutually exclusive features.
 # Use this if `--all-features` fails.
 full = [
+  "lsp",
+  "mcp",
   "network",
   "plugin",
   "rustls-tls",
   "sqlite",
   "system-clipboard",
   "trash-support",
-  "mcp",
 ]
 
 plugin = [
@@ -396,6 +397,8 @@ plugin = [
   "nu-protocol/plugin",
 ]
 
+lsp = ["dep:nu-lsp"]
+
 mcp = [
   "dep:nu-mcp",
   "nu-mcp/mcp",
@@ -406,12 +409,13 @@ native-tls = ["nu-command/native-tls"]
 rustls-tls = ["nu-command/rustls-tls"]
 
 default = [
-  "plugin",
-  "trash-support",
-  "sqlite",
-  "network",
-  "rustls-tls",
+  "lsp",
   "mcp",
+  "network",
+  "plugin",
+  "rustls-tls",
+  "sqlite",
+  "trash-support",
 ]
 stable = ["default"]
 # NOTE: individual features are also passed to `nu-cmd-lang` that uses them to generate the feature matrix in the `version` command

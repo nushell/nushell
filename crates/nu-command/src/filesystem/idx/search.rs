@@ -67,6 +67,21 @@ impl Command for IdxSearch {
                 example: "idx search error -2..5",
                 result: None,
             },
+            Example {
+                description: "Brackets and question marks are treated as literal text, not glob patterns.",
+                example: "idx search 'arr[0]'",
+                result: None,
+            },
+            Example {
+                description: "Glob patterns with a path separator filter which files to search.",
+                example: "idx search pattern tests/*",
+                result: None,
+            },
+            Example {
+                description: "Brace expansion globs also filter which files to search.",
+                example: "idx search pattern *.{rs,js}",
+                result: None,
+            },
         ]
     }
 

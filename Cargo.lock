@@ -981,9 +981,9 @@ checksum = "8f1fe948ff07f4bd06c30984e69f5b4899c516a3ef74f34df92a2df2ab535495"
 
 [[package]]
 name = "bytes"
-version = "1.11.1"
+version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e748733b7cbc798e1434b6ac524f0c1ff2ab456fe201501e6497c8417a4fc33"
+checksum = "8ae3f5d315924270530207e2a68396c3cc547f6dca3fbdca317cfb1a51edb593"
 dependencies = [
  "serde",
 ]
@@ -2181,9 +2181,9 @@ dependencies = [
 
 [[package]]
 name = "fff-grep"
-version = "0.9.0"
+version = "0.9.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2e3bc72c710fcad66390b4a6f91b04739d8e5d58b808a733bd7775f53c25dd8"
+checksum = "5ac5720676a3e1cb901683073c0bcc0a8f04e1bfe6bea391e1f14b9f95dbdef2"
 dependencies = [
  "bstr",
  "memchr",
@@ -2205,15 +2205,15 @@ dependencies = [
 
 [[package]]
 name = "fff-query-parser"
-version = "0.9.0"
+version = "0.9.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c82a1957c0db1c1a2e4b1471e20cf0c41b13fb69f6aea42aec8a2b8ddd03dfd"
+checksum = "2e83290e48a8e4dc6ff7cfdfcf382b2a07b6ef1f07e7d477427e3ebb60192307"
 
 [[package]]
 name = "fff-search"
-version = "0.9.0"
+version = "0.9.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8202f46b59a35840766815f1c144c71974e8600dcbd2c52f20a00799e36f3a78"
+checksum = "3fdc9cb0a546fa219b073df04bd58884c1b1b43c21d33008a69b785f24819eb2"
 dependencies = [
  "ahash",
  "aho-corasick",
@@ -2239,6 +2239,7 @@ dependencies = [
  "regex",
  "regex-syntax 0.8.10",
  "serde",
+ "signal-hook-registry",
  "smallvec",
  "thiserror 2.0.18",
  "tracing",
@@ -4218,9 +4219,9 @@ dependencies = [
 
 [[package]]
 name = "neo_frizbee"
-version = "0.10.2"
+version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "728e0731ad3a0083b9f72a82df72c298641ba970d4e308e0897ec4c89212c31d"
+checksum = "0dd76fab81213d184cc28a7757791775bdcfd7f2a15e3558d7a4f7e4ee7de864"
 dependencies = [
  "itertools 0.14.0",
  "raw-cpuid",
@@ -6967,9 +6968,9 @@ dependencies = [
 
 [[package]]
 name = "quinn-proto"
-version = "0.11.14"
+version = "0.11.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "434b42fec591c96ef50e21e886936e66d3cc3f737104fdb9b737c40ffb94c098"
+checksum = "4fcb935c5bec503c2f0e306bdd3e58bb9029dcb14fa8d9ac76e3a5256ac0763e"
 dependencies = [
  "bytes",
  "getrandom 0.3.4",
@@ -7295,7 +7296,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.48.0"
-source = "git+https://github.com/nushell/reedline?branch=main#e148b103bd3a74ee62f7546c31b43c547fee2bfe"
+source = "git+https://github.com/nushell/reedline?branch=main#31a91c35fc9045329cedc18ad0ef5c0cd689542f"
 dependencies = [
  "arboard",
  "chrono",
@@ -7475,9 +7476,9 @@ checksum = "3582f63211428f83597b51b2ddb88e2a91a9d52d12831f9d08f5e624e8977422"
 
 [[package]]
 name = "rmcp"
-version = "1.7.0"
+version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0810a9f717d9828f475fe1f629f4c305c8464b7f496c3a854b58d29e65f4058e"
+checksum = "1d1f571c72940a19d9532fe52dbea8bc9912bf1d766c2970bb824056b86f3f59"
 dependencies = [
  "async-trait",
  "base64",
@@ -7506,9 +7507,9 @@ dependencies = [
 
 [[package]]
 name = "rmcp-macros"
-version = "1.7.0"
+version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6aefac48c364756e97f04c0401ba3231e8607882c7c1d92da0437dc16307904d"
+checksum = "1aad0035b69380782d78ea95b508327e6deaa2235909053e596eea8f27b5e1d5"
 dependencies = [
  "darling",
  "proc-macro2",
