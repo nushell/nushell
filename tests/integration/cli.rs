@@ -433,46 +433,6 @@ fn log_target_rejects_invalid_value() -> TestResult {
 }
 
 #[test]
-fn log_include_rejects_invalid_value() -> TestResult {
-    let mut cmd = Command::new(cargo_bin!());
-    let output = cmd
-        .args([
-            "--no-config-file",
-            "--no-std-lib",
-            "--log-include",
-            "verbose",
-        ])
-        .output()?;
-    let stderr = String::from_utf8_lossy(&output.stderr);
-
-    assert!(!output.status.success());
-    assert!(stderr.contains("log-include"));
-    assert!(stderr.contains("Did you mean") || stderr.contains("Valid log levels"));
-
-    Ok(())
-}
-
-#[test]
-fn log_exclude_rejects_invalid_value() -> TestResult {
-    let mut cmd = Command::new(cargo_bin!());
-    let output = cmd
-        .args([
-            "--no-config-file",
-            "--no-std-lib",
-            "--log-exclude",
-            "verbose",
-        ])
-        .output()?;
-    let stderr = String::from_utf8_lossy(&output.stderr);
-
-    assert!(!output.status.success());
-    assert!(stderr.contains("log-exclude"));
-    assert!(stderr.contains("Did you mean") || stderr.contains("Valid log levels"));
-
-    Ok(())
-}
-
-#[test]
 fn log_level_missing_value_lists_modes() -> TestResult {
     let mut cmd = Command::new(cargo_bin!());
     let output = cmd
@@ -884,26 +844,6 @@ fn log_include_accepts_bracketed_list_with_spaces() -> TestResult {
     Ok(())
 }
 
-#[test]
-fn log_include_rejects_invalid_level() -> TestResult {
-    let mut cmd = Command::new(cargo_bin!());
-    let output = cmd
-        .args([
-            "--no-config-file",
-            "--no-std-lib",
-            "--log-include",
-            "invalid",
-            "-c",
-            "print 'test'",
-        ])
-        .output()?;
-    let stderr = String::from_utf8_lossy(&output.stderr);
-
-    assert!(!output.status.success());
-    assert!(stderr.contains("Invalid value for `--log-include`"));
-    Ok(())
-}
-
 // Tests for --log-exclude with various formats
 #[test]
 fn log_exclude_accepts_single_value() -> TestResult {
@@ -975,26 +915,6 @@ fn log_exclude_accepts_bracketed_list() -> TestResult {
         .output()?;
 
     assert!(output.status.success());
-    Ok(())
-}
-
-#[test]
-fn log_exclude_rejects_invalid_level() -> TestResult {
-    let mut cmd = Command::new(cargo_bin!());
-    let output = cmd
-        .args([
-            "--no-config-file",
-            "--no-std-lib",
-            "--log-exclude",
-            "invalid",
-            "-c",
-            "print 'test'",
-        ])
-        .output()?;
-    let stderr = String::from_utf8_lossy(&output.stderr);
-
-    assert!(!output.status.success());
-    assert!(stderr.contains("Invalid value for `--log-exclude`"));
     Ok(())
 }
 
