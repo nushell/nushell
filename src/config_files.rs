@@ -1,4 +1,3 @@
-use log;
 #[cfg(feature = "plugin")]
 use nu_cli::read_plugin_file;
 use nu_cli::{eval_config_contents, eval_source};
