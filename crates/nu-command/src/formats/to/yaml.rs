@@ -91,14 +91,15 @@ impl Command for ToYamlLike {
             })
             .unwrap_or(NonRoundtrip::Null);
 
+        let defaults = nu_heavy_utils::yaml::SerializeOptions::default();
         let options = nu_heavy_utils::yaml::SerializeOptions::default()
-            .spec(spec.unwrap_or_default())
+            .spec(spec.unwrap_or(defaults.spec))
             .non_roundtrip(non_roundtrip)
             .add_directives(add_directives)
             .multiple(multiple)
-            .indent(indent.unwrap_or(2))
-            .compact_list_ident(compact_list_indent.unwrap_or(true))
-            .quote_style(quote_style.unwrap_or_default());
+            .indent(indent.unwrap_or(defaults.indent))
+            .compact_list_indent(compact_list_indent.unwrap_or(defaults.compact_list_indent))
+            .quote_style(quote_style.unwrap_or(defaults.quote_style));
 
         nu_heavy_utils::yaml::serialize(&value, call.head, options)
             .map(|s| PipelineData::value(Value::string(s, call.head), None))

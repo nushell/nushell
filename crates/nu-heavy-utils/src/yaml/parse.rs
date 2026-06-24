@@ -31,10 +31,10 @@ use std::{
 #[non_exhaustive]
 #[derive(Debug, Clone, Default, Setters)]
 pub struct ParseOptions {
-    keep_styles: bool,
-    multiple: ParseMultiple,
-    spec: Spec,
-    ignore_tags: bool,
+    pub keep_styles: bool,
+    pub multiple: ParseMultiple,
+    pub spec: Spec,
+    pub ignore_tags: bool,
 }
 
 #[derive(Debug, Clone, Copy, Default, FromValue)]

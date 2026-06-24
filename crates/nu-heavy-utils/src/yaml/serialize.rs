@@ -23,25 +23,25 @@ use std::{
 #[non_exhaustive]
 #[derive(Debug, Clone, Setters, better_default::Default)]
 pub struct SerializeOptions {
-    spec: Spec,
+    pub spec: Spec,
 
     /// Controls how values are serialized when they cannot be represented in a
     /// way that can be deserialized back into the original type.
-    non_roundtrip: NonRoundtrip,
+    pub non_roundtrip: NonRoundtrip,
 
     /// Expect a list of values and then construct a multi document YAML output.
-    multiple: bool,
+    pub multiple: bool,
 
     /// Add directives to the start of the document that explains YAML version and the nushell tag.
-    add_directives: bool,
+    pub add_directives: bool,
 
     #[default(2)]
-    indent: usize,
+    pub indent: usize,
 
     #[default(true)]
-    compact_list_ident: bool,
+    pub compact_list_indent: bool,
 
-    quote_style: QuoteStyle,
+    pub quote_style: QuoteStyle,
 }
 
 /// Controls how non-round-trippable values are serialized.
@@ -81,7 +81,7 @@ pub fn serialize(
 
     let mut ser_options = ser_options! {
         indent_step: options.indent,
-        compact_list_indent: options.compact_list_ident,
+        compact_list_indent: options.compact_list_indent,
         yaml_12: match spec {
             Spec::V1_1 => false,
             Spec::V1_2 => true,
