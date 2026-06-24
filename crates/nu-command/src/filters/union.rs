@@ -32,7 +32,7 @@ impl Command for Union {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["distinct", "merge", "deduplicate", "combine"]
+        vec!["merge", "deduplicate", "combine"]
     }
 
     fn run(
