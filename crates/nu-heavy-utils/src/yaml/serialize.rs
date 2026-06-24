@@ -218,13 +218,13 @@ impl Serialize for YamlValue<'_> {
                     .expect("writer set before calling any serialization");
 
                 if IN_MAP.get() {
-                    writer.write_char(' ').map_err(|_| todo!())?;
+                    writer.write_char(' ').expect("infallible for writes to string");
                 }
 
-                writer.write_str(tag).map_err(|_| todo!())?;
+                writer.write_str(tag).expect("infallible for writes to string");
 
                 if !IN_MAP.get() {
-                    writer.write_char(' ').map_err(|_| todo!())?;
+                    writer.write_char(' ').expect("infallible for writes to string");
                 }
 
                 value.serialize(serializer)
