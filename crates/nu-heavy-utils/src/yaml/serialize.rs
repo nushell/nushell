@@ -75,8 +75,6 @@ pub fn serialize(
     span: Span,
     options: SerializeOptions,
 ) -> Result<String, ShellError> {
-    SERIALIZER_SPAN.set(span);
-
     let spec = options.spec;
     let multiple = options.multiple;
     let add_directives = options.add_directives;
@@ -170,7 +168,6 @@ thread_local! {
     static WRITER: RefCell<Option<FmtHandle<String>>> = RefCell::new(None);
     static IN_MAP: Cell<bool> = Cell::new(false);
     static OPTIONS: RefCell<SerializeOptions> = RefCell::new(SerializeOptions::default());
-    static SERIALIZER_SPAN: Cell<Span> = Cell::new(Span::unknown());
 }
 
 #[expect(
