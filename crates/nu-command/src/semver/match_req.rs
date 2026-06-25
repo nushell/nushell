@@ -16,7 +16,7 @@ impl Command for SemverMatchReq {
             .required(
                 "requirement",
                 SyntaxShape::String,
-                "the semver requirement to match against (e.g. '>=1.0.0')",
+                "The semver requirement to match against (e.g. '>=1.0.0').",
             )
             .category(Category::Filters)
     }
@@ -26,7 +26,7 @@ impl Command for SemverMatchReq {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["version", "check", "match", "satisfy"]
+        vec!["version", "check", "satisfy"]
     }
 
     fn run(

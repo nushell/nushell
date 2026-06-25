@@ -15,7 +15,7 @@ impl Command for SemverBump {
             .input_output_types(vec![(Type::SemVer, Type::SemVer)])
             .param(Parameter::Required(
                 PositionalArg::new("level", SyntaxShape::String)
-                    .desc("the level to bump: major, minor, patch, alpha, beta, rc, release")
+                    .desc("The level to bump: major, minor, patch, alpha, beta, rc, release.")
                     .completion(Completion::new_list(&[
                         "major", "minor", "patch", "alpha", "beta", "rc", "release",
                     ])),
