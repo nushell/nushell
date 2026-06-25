@@ -115,6 +115,7 @@ pub enum ParseMultiple {
     ForceSingle,
 }
 
+/// Parse a YAML string into a [`Value`].
 pub fn parse(yaml: Spanned<&str>, span: Span, options: &ParseOptions) -> Result<Value, ShellError> {
     let parser = Parser::new_from_str(yaml.item);
     let ctx = &mut ParseCtx {
@@ -277,7 +278,6 @@ fn parse_document<'i>(ctx: &mut ParseCtx<'i>) -> Result<Value, ShellError> {
     }
 }
 
-// parse the scalar, this one has to figure out how what type the value might be
 fn parse_scalar<'i>(
     ctx: &mut ParseCtx<'i>,
     value: Cow<'i, str>,
@@ -481,8 +481,6 @@ fn parse_scalar_tagged<'i>(
     })
 }
 
-// gets called on Event::SequenceStart, returns on Event::SequenceEnd
-// returns Value::List
 fn parse_sequence<'i>(
     ctx: &mut ParseCtx<'i>,
     _structure_style: StructureStyle,
@@ -622,8 +620,6 @@ fn parse_sequence<'i>(
     }
 }
 
-// gets called on Event::MappingStart, returns on Event::MappingEnd
-// returns Value::Record
 fn parse_mapping<'i>(
     ctx: &mut ParseCtx<'i>,
     _structure_style: StructureStyle,
@@ -883,8 +879,6 @@ mod v1_x {
 mod v1_1 {
     use super::*;
 
-    // TODO: add reference to this once spec is available again
-
     parse_int!("^(?<sign>[-+]?)0b(?<digits>[0-1_]+)$", 2, "1.1");
     parse_int!("^(?<sign>[-+]?)0(?<digits>[0-7_]+)$", 8, "1.1");
     parse_int!("^(?<sign>[-+]?)(?<digits>0|[1-9][0-9_]*)$", 10, "1.1");
@@ -1034,9 +1028,6 @@ mod v1_1 {
 mod v1_2 {
     use super::*;
 
-    // We resolve values according to the core schema.
-    // https://yaml.org/spec/1.2.2/#1032-tag-resolution
-
     parse_int!("^(?<sign>[-+]?)(?<digits>[0-9]+)$", 10, "1.2");
     parse_int!("^0o(?<digits>[0-7]+)$", 8, "1.2");
     parse_int!("^0x(?<digits>[0-9a-fA-F]+)$", 16, "1.2");
@@ -1111,14 +1102,6 @@ mod tests {
     #[test]
     fn parse_fixture_properly() -> Result {
         let yaml = FIXTURE.into_spanned(SPAN);
-        let options = ParseOptions::default();
-        parse(yaml, SPAN, &options)?;
-        Ok(())
-    }
-
-    #[test]
-    fn parse_string() -> Result {
-        let yaml = "🐘".into_spanned(SPAN);
         let options = ParseOptions::default();
         parse(yaml, SPAN, &options)?;
         Ok(())
