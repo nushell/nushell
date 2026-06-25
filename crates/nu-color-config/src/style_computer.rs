@@ -90,6 +90,7 @@ impl<'a> StyleComputer<'a> {
             Value::Filesize { .. } => TextStyle::with_style(Right, s),
             Value::Duration { .. } => TextStyle::with_style(Right, s),
             Value::Date { .. } => TextStyle::with_style(Left, s),
+            Value::SemVer { .. } => TextStyle::with_style(Left, s),
             Value::Range { .. } => TextStyle::with_style(Left, s),
             Value::Float { .. } => TextStyle::with_style(Right, s),
             Value::String { .. } => TextStyle::with_style(Left, s),
@@ -137,6 +138,7 @@ impl<'a> StyleComputer<'a> {
             ("block".to_string(), ComputableStyle::Static(Color::Default.normal())),
             ("hints".to_string(), ComputableStyle::Static(Color::DarkGray.normal())),
             ("search_result".to_string(), ComputableStyle::Static(Color::Default.normal().on(Color::Red))),
+            ("semver".to_string(), ComputableStyle::Static(Color::Rgb(0xff, 0xb0, 0x00).bold())),
         ].into_iter().collect();
 
         for (key, value) in &config.color_config {

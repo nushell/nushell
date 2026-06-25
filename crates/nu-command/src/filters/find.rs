@@ -633,6 +633,7 @@ fn value_should_be_printed(
                 value_should_be_printed(pattern, val, &[], config)
             })
         }
+        Value::SemVer { .. } => true,
         Value::Binary { .. } => false,
         Value::Error { .. } => true,
     }

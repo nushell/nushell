@@ -22,8 +22,8 @@ use crate::{
         parse_datetime, parse_directory, parse_dollar_expr, parse_duration, parse_filepath,
         parse_filesize, parse_float, parse_full_cell_path, parse_glob_pattern, parse_int,
         parse_multispan_value, parse_number, parse_oneof, parse_paren_expr, parse_range,
-        parse_raw_string, parse_regular_external_arg, parse_signature, parse_signature_helper,
-        parse_simple_cell_path, parse_string, parse_string_strict,
+        parse_raw_string, parse_regular_external_arg, parse_semver, parse_signature,
+        parse_signature_helper, parse_simple_cell_path, parse_string, parse_string_strict,
     },
     type_check::math_result_type,
 };
@@ -68,6 +68,12 @@ pub fn is_math_expression_like(working_set: &mut StateWorkingSet, span: Span) ->
     working_set.parse_errors.truncate(starting_error_count);
 
     parse_datetime(working_set, span);
+    if working_set.parse_errors.len() == starting_error_count {
+        return true;
+    }
+    working_set.parse_errors.truncate(starting_error_count);
+
+    parse_semver(working_set, span);
     if working_set.parse_errors.len() == starting_error_count {
         return true;
     }
@@ -836,6 +842,7 @@ pub fn parse_value(
         SyntaxShape::Int => parse_int(working_set, span),
         SyntaxShape::Duration => parse_duration(working_set, span),
         SyntaxShape::DateTime => parse_datetime(working_set, span),
+        SyntaxShape::SemVer => parse_semver(working_set, span),
         SyntaxShape::Filesize => parse_filesize(working_set, span),
         SyntaxShape::Range => {
             parse_range(working_set, span).unwrap_or_else(|| garbage(working_set, span))
@@ -900,6 +907,7 @@ pub fn parse_value(
                     SyntaxShape::Filesize,
                     SyntaxShape::Duration,
                     SyntaxShape::DateTime,
+                    SyntaxShape::SemVer,
                     SyntaxShape::Int,
                     SyntaxShape::Number,
                     SyntaxShape::String,

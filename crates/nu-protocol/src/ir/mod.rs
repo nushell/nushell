@@ -4,6 +4,7 @@ use crate::{
     engine::EngineState,
 };
 use chrono::{DateTime, FixedOffset};
+use semver::Version as SemVerVersion;
 use serde::{Deserialize, Serialize};
 use std::{fmt, sync::Arc};
 
@@ -464,6 +465,7 @@ pub enum Literal {
     RawString(DataSlice),
     CellPath(Box<CellPath>),
     Date(Box<DateTime<FixedOffset>>),
+    SemVer(Box<SemVerVersion>),
     Nothing,
     /// Represents an empty pipeline input (distinct from `Nothing` which is the `null` value).
     /// Used by `load_empty` to initialize registers with no input.

@@ -240,6 +240,9 @@ impl std::fmt::Debug for DebuggableValue<'_> {
             Value::Date { val, .. } => {
                 write!(f, "Date({val:?})")
             }
+            Value::SemVer { val, .. } => {
+                write!(f, "SemVer({val})")
+            }
             Value::Range { val, .. } => match **val {
                 Range::IntRange(range) => match range.end() {
                     Bound::Included(end) => write!(

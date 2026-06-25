@@ -127,6 +127,7 @@ pub fn value_to_yaml_value(
                 })
                 .collect::<Result<Vec<serde_yaml::Value>, ShellError>>()?,
         ),
+        Value::SemVer { val, .. } => serde_yaml::Value::String(val.to_string()),
         Value::Custom { .. } => serde_yaml::Value::Null,
     })
 }

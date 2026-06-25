@@ -30,6 +30,7 @@ use chrono::{DateTime, Datelike, Duration, FixedOffset, Local, Locale, TimeZone}
 use chrono_humanize::HumanTime;
 use fancy_regex::Regex;
 use nu_utils::{ObviousFloat, SharedCow, contains_emoji, get_locale_from_env_vars};
+pub use semver::Version as SemVerVersion;
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
@@ -136,6 +137,14 @@ pub enum Value {
     #[non_exhaustive]
     Date {
         val: DateTime<FixedOffset>,
+        /// note: spans are being refactored out of Value
+        /// please use .span() instead of matching this span value
+        #[serde(rename = "span")]
+        internal_span: Span,
+    },
+    #[non_exhaustive]
+    SemVer {
+        val: Box<SemVerVersion>,
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
         #[serde(rename = "span")]
@@ -279,6 +288,11 @@ impl Debug for Value {
                     .field("val", val)
                     .field("internal_span", internal_span)
                     .finish(),
+                Self::SemVer { val, internal_span } => f
+                    .debug_struct("SemVer")
+                    .field("val", val)
+                    .field("internal_span", internal_span)
+                    .finish(),
                 Self::Range {
                     val,
                     signals,
@@ -364,6 +378,7 @@ impl Debug for Value {
             )
             .fmt(f),
             Value::Date { val, .. } => wrap_tuple("Date", val).fmt(f),
+            Value::SemVer { val, .. } => wrap_tuple("SemVer", val).fmt(f),
             Value::Range { val, .. } => wrap_tuple("Range", display_as_debug(val)).fmt(f),
             Value::Record { val, .. } => wrap_tuple("Record", val).fmt(f),
             Value::List { vals, .. } => wrap_tuple("List", vals).fmt(f),
@@ -397,6 +412,10 @@ impl Clone for Value {
             },
             Value::Date { val, internal_span } => Value::Date {
                 val: *val,
+                internal_span: *internal_span,
+            },
+            Value::SemVer { val, internal_span } => Value::SemVer {
+                val: val.clone(),
                 internal_span: *internal_span,
             },
             Value::Range {
@@ -554,6 +573,15 @@ impl Value {
             Ok(*val)
         } else {
             self.cant_convert_to("datetime")
+        }
+    }
+
+    /// Returns a reference to the inner [`SemVerVersion`] value or an error if this `Value` is not a semver
+    pub fn as_semver(&self) -> Result<&SemVerVersion, ShellError> {
+        if let Value::SemVer { val, .. } = self {
+            Ok(val.as_ref())
+        } else {
+            self.cant_convert_to("semver")
         }
     }
 
@@ -950,6 +978,7 @@ impl Value {
             | Value::Filesize { internal_span, .. }
             | Value::Duration { internal_span, .. }
             | Value::Date { internal_span, .. }
+            | Value::SemVer { internal_span, .. }
             | Value::Range { internal_span, .. }
             | Value::String { internal_span, .. }
             | Value::Glob { internal_span, .. }
@@ -973,6 +1002,7 @@ impl Value {
             | Value::Filesize { internal_span, .. }
             | Value::Duration { internal_span, .. }
             | Value::Date { internal_span, .. }
+            | Value::SemVer { internal_span, .. }
             | Value::Range { internal_span, .. }
             | Value::String { internal_span, .. }
             | Value::Glob { internal_span, .. }
@@ -1002,6 +1032,7 @@ impl Value {
             Value::Filesize { .. } => Type::Filesize,
             Value::Duration { .. } => Type::Duration,
             Value::Date { .. } => Type::Date,
+            Value::SemVer { .. } => Type::SemVer,
             Value::Range { .. } => Type::Range,
             Value::String { .. } => Type::String,
             Value::Glob { .. } => Type::Glob,
@@ -1035,6 +1066,7 @@ impl Value {
             Value::Filesize { .. } => Type::Filesize,
             Value::Duration { .. } => Type::Duration,
             Value::Date { .. } => Type::Date,
+            Value::SemVer { .. } => Type::SemVer,
             Value::Range { .. } => Type::Range,
             Value::String { .. } => Type::String,
             Value::Glob { .. } => Type::Glob,
@@ -1117,6 +1149,7 @@ impl Value {
                     )
                 }
             },
+            Value::SemVer { val, .. } => val.to_string(),
             Value::Range { val, .. } => val.to_string(),
             Value::String { val, .. } => val.clone(),
             Value::Glob { val, .. } => val.clone(),
@@ -1786,6 +1819,7 @@ impl Value {
             | Value::Filesize { .. }
             | Value::Duration { .. }
             | Value::Date { .. }
+            | Value::SemVer { .. }
             | Value::Range { .. }
             | Value::String { .. }
             | Value::Glob { .. }
@@ -1852,6 +1886,7 @@ impl Value {
             Value::Filesize { .. } => std::mem::size_of::<Self>(),
             Value::Duration { .. } => std::mem::size_of::<Self>(),
             Value::Date { .. } => std::mem::size_of::<Self>(),
+            Value::SemVer { .. } => std::mem::size_of::<Self>(),
             Value::Range { val, .. } => std::mem::size_of::<Self>() + val.memory_size(),
             Value::String { val, .. } => std::mem::size_of::<Self>() + val.capacity(),
             Value::Glob { val, .. } => std::mem::size_of::<Self>() + val.capacity(),
@@ -1908,6 +1943,13 @@ impl Value {
     pub fn date(val: DateTime<FixedOffset>, span: Span) -> Value {
         Value::Date {
             val,
+            internal_span: span,
+        }
+    }
+
+    pub fn semver(val: SemVerVersion, span: Span) -> Value {
+        Value::SemVer {
+            val: Box::new(val),
             internal_span: span,
         }
     }
@@ -2026,6 +2068,12 @@ impl Value {
     /// when used in errors.
     pub fn test_date(val: DateTime<FixedOffset>) -> Value {
         Value::date(val, Span::test_data())
+    }
+
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
+    pub fn test_semver(val: SemVerVersion) -> Value {
+        Value::semver(val, Span::test_data())
     }
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
@@ -2383,6 +2431,74 @@ fn get_value_member<'a>(
                         }
                     }
                 }
+                Value::SemVer { val, .. } => {
+                    if *optional && column_name.starts_with("semver_") {
+                        return Ok(ControlFlow::Break(*origin_span));
+                    }
+                    match column_name.as_str() {
+                        "major" => Ok(ControlFlow::Continue(Cow::Owned(Value::int(
+                            val.major as i64,
+                            *origin_span,
+                        )))),
+                        "minor" => Ok(ControlFlow::Continue(Cow::Owned(Value::int(
+                            val.minor as i64,
+                            *origin_span,
+                        )))),
+                        "patch" => Ok(ControlFlow::Continue(Cow::Owned(Value::int(
+                            val.patch as i64,
+                            *origin_span,
+                        )))),
+                        "pre" => Ok(ControlFlow::Continue(Cow::Owned(Value::string(
+                            val.pre.to_string(),
+                            *origin_span,
+                        )))),
+                        "build" => Ok(ControlFlow::Continue(Cow::Owned(Value::string(
+                            val.build.to_string(),
+                            *origin_span,
+                        )))),
+                        "pre_identifiers" | "pre-identifiers" => {
+                            let identifiers: Vec<Value> = if val.pre.is_empty() {
+                                Vec::new()
+                            } else {
+                                val.pre
+                                    .split('.')
+                                    .map(|id| Value::string(id.to_string(), *origin_span))
+                                    .collect()
+                            };
+                            let list_span = Span::append(*origin_span, *origin_span);
+                            Ok(ControlFlow::Continue(Cow::Owned(Value::list(
+                                identifiers,
+                                list_span,
+                            ))))
+                        }
+                        "build_identifiers" | "build-identifiers" => {
+                            let identifiers: Vec<Value> = if val.build.is_empty() {
+                                Vec::new()
+                            } else {
+                                val.build
+                                    .split('.')
+                                    .map(|id| Value::string(id.to_string(), *origin_span))
+                                    .collect()
+                            };
+                            let list_span = Span::append(*origin_span, *origin_span);
+                            Ok(ControlFlow::Continue(Cow::Owned(Value::list(
+                                identifiers,
+                                list_span,
+                            ))))
+                        }
+                        _ => {
+                            if *optional {
+                                Ok(ControlFlow::Break(*origin_span))
+                            } else {
+                                Err(ShellError::CantFindColumn {
+                                    col_name: column_name.clone(),
+                                    span: Some(*origin_span),
+                                    src_span: span,
+                                })
+                            }
+                        }
+                    }
+                }
                 Value::Nothing { .. } if *optional => Ok(ControlFlow::Break(*origin_span)),
                 Value::Error { error, .. } => Err(error.as_ref().clone()),
                 x => Err(ShellError::IncompatiblePathAccess {
@@ -2429,6 +2545,7 @@ impl PartialOrd for Value {
                 Value::Filesize { .. } => Some(Ordering::Less),
                 Value::Duration { .. } => Some(Ordering::Less),
                 Value::Date { .. } => Some(Ordering::Less),
+                Value::SemVer { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
@@ -2448,6 +2565,7 @@ impl PartialOrd for Value {
                 Value::Filesize { .. } => Some(Ordering::Less),
                 Value::Duration { .. } => Some(Ordering::Less),
                 Value::Date { .. } => Some(Ordering::Less),
+                Value::SemVer { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
@@ -2467,6 +2585,7 @@ impl PartialOrd for Value {
                 Value::Filesize { .. } => Some(Ordering::Less),
                 Value::Duration { .. } => Some(Ordering::Less),
                 Value::Date { .. } => Some(Ordering::Less),
+                Value::SemVer { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
@@ -2486,6 +2605,7 @@ impl PartialOrd for Value {
                 Value::Filesize { .. } => Some(Ordering::Less),
                 Value::Duration { .. } => Some(Ordering::Less),
                 Value::Date { .. } => Some(Ordering::Less),
+                Value::SemVer { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
@@ -2505,6 +2625,7 @@ impl PartialOrd for Value {
                 Value::Filesize { .. } => Some(Ordering::Less),
                 Value::Duration { .. } => Some(Ordering::Less),
                 Value::Date { .. } => Some(Ordering::Less),
+                Value::SemVer { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
@@ -2524,6 +2645,7 @@ impl PartialOrd for Value {
                 Value::Filesize { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Duration { .. } => Some(Ordering::Less),
                 Value::Date { .. } => Some(Ordering::Less),
+                Value::SemVer { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
@@ -2543,6 +2665,7 @@ impl PartialOrd for Value {
                 Value::Filesize { .. } => Some(Ordering::Greater),
                 Value::Duration { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Date { .. } => Some(Ordering::Less),
+                Value::SemVer { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
@@ -2562,6 +2685,27 @@ impl PartialOrd for Value {
                 Value::Filesize { .. } => Some(Ordering::Greater),
                 Value::Duration { .. } => Some(Ordering::Greater),
                 Value::Date { val: rhs, .. } => lhs.partial_cmp(rhs),
+                Value::SemVer { .. } => Some(Ordering::Less),
+                Value::Range { .. } => Some(Ordering::Less),
+                Value::Record { .. } => Some(Ordering::Less),
+                Value::List { .. } => Some(Ordering::Less),
+                Value::Closure { .. } => Some(Ordering::Less),
+                Value::Error { .. } => Some(Ordering::Less),
+                Value::Binary { .. } => Some(Ordering::Less),
+                Value::CellPath { .. } => Some(Ordering::Less),
+                Value::Custom { .. } => Some(Ordering::Less),
+                Value::Nothing { .. } => Some(Ordering::Less),
+            },
+            (Value::SemVer { val: lhs, .. }, rhs) => match rhs {
+                Value::Bool { .. } => Some(Ordering::Greater),
+                Value::Int { .. } => Some(Ordering::Greater),
+                Value::Float { .. } => Some(Ordering::Greater),
+                Value::String { .. } => Some(Ordering::Greater),
+                Value::Glob { .. } => Some(Ordering::Greater),
+                Value::Filesize { .. } => Some(Ordering::Greater),
+                Value::Duration { .. } => Some(Ordering::Greater),
+                Value::Date { .. } => Some(Ordering::Greater),
+                Value::SemVer { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
@@ -2581,6 +2725,7 @@ impl PartialOrd for Value {
                 Value::Filesize { .. } => Some(Ordering::Greater),
                 Value::Duration { .. } => Some(Ordering::Greater),
                 Value::Date { .. } => Some(Ordering::Greater),
+                Value::SemVer { .. } => Some(Ordering::Greater),
                 Value::Range { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
@@ -2600,6 +2745,7 @@ impl PartialOrd for Value {
                 Value::Filesize { .. } => Some(Ordering::Greater),
                 Value::Duration { .. } => Some(Ordering::Greater),
                 Value::Date { .. } => Some(Ordering::Greater),
+                Value::SemVer { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::Record { val: rhs, .. } => {
                     // reorder cols and vals to make more logically compare.
@@ -2645,6 +2791,7 @@ impl PartialOrd for Value {
                 Value::Filesize { .. } => Some(Ordering::Greater),
                 Value::Duration { .. } => Some(Ordering::Greater),
                 Value::Date { .. } => Some(Ordering::Greater),
+                Value::SemVer { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
                 Value::List { vals: rhs, .. } => lhs.partial_cmp(rhs),
@@ -2664,6 +2811,7 @@ impl PartialOrd for Value {
                 Value::Filesize { .. } => Some(Ordering::Greater),
                 Value::Duration { .. } => Some(Ordering::Greater),
                 Value::Date { .. } => Some(Ordering::Greater),
+                Value::SemVer { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
@@ -2683,6 +2831,7 @@ impl PartialOrd for Value {
                 Value::Filesize { .. } => Some(Ordering::Greater),
                 Value::Duration { .. } => Some(Ordering::Greater),
                 Value::Date { .. } => Some(Ordering::Greater),
+                Value::SemVer { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
@@ -2702,6 +2851,7 @@ impl PartialOrd for Value {
                 Value::Filesize { .. } => Some(Ordering::Greater),
                 Value::Duration { .. } => Some(Ordering::Greater),
                 Value::Date { .. } => Some(Ordering::Greater),
+                Value::SemVer { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
@@ -2721,6 +2871,7 @@ impl PartialOrd for Value {
                 Value::Filesize { .. } => Some(Ordering::Greater),
                 Value::Duration { .. } => Some(Ordering::Greater),
                 Value::Date { .. } => Some(Ordering::Greater),
+                Value::SemVer { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
@@ -2741,6 +2892,7 @@ impl PartialOrd for Value {
                 Value::Filesize { .. } => Some(Ordering::Greater),
                 Value::Duration { .. } => Some(Ordering::Greater),
                 Value::Date { .. } => Some(Ordering::Greater),
+                Value::SemVer { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
@@ -5744,6 +5896,273 @@ mod tests {
             // Verify it's larger than a simple list
             let simple_list = Value::test_list(vec![Value::test_int(1)]);
             assert!(record_size > simple_list.memory_size());
+        }
+    }
+
+    mod semver {
+        use super::*;
+        use crate::{
+            Range, Span, Type,
+            ast::{PathMember, RangeInclusion},
+            casing::Casing,
+        };
+        use ::semver::Version as SemVerVersion;
+        use pretty_assertions::assert_eq;
+        use std::cmp::Ordering;
+
+        fn v(ver: &str) -> Value {
+            Value::test_semver(SemVerVersion::parse(ver).unwrap())
+        }
+
+        #[test]
+        fn test_constructor_and_get_type() {
+            let val = v("1.2.3");
+            assert_eq!(val.get_type(), Type::SemVer);
+            assert_eq!(
+                val.as_semver().unwrap(),
+                &SemVerVersion::parse("1.2.3").unwrap()
+            );
+        }
+
+        #[test]
+        fn test_expanded_string() {
+            let config = crate::Config::default();
+            let val = v("1.2.3");
+            assert_eq!(val.to_expanded_string(", ", &config), "1.2.3");
+
+            let val = v("0.0.0");
+            assert_eq!(val.to_expanded_string(", ", &config), "0.0.0");
+        }
+
+        #[test]
+        fn test_expanded_string_basic() {
+            let val = v("1.2.3");
+            let config = crate::Config::default();
+            assert_eq!(val.to_expanded_string(", ", &config), "1.2.3");
+        }
+
+        #[test]
+        fn test_partial_ord_with_self() {
+            let v1 = v("1.2.3");
+            let v2 = v("1.2.3");
+            assert_eq!(v1.partial_cmp(&v2), Some(Ordering::Equal));
+        }
+
+        #[test]
+        fn test_partial_ord_major() {
+            let v1 = v("2.0.0");
+            let v2 = v("1.0.0");
+            assert_eq!(v1.partial_cmp(&v2), Some(Ordering::Greater));
+            assert_eq!(v2.partial_cmp(&v1), Some(Ordering::Less));
+        }
+
+        #[test]
+        fn test_partial_ord_minor() {
+            let v1 = v("1.2.0");
+            let v2 = v("1.1.0");
+            assert_eq!(v1.partial_cmp(&v2), Some(Ordering::Greater));
+            assert_eq!(v2.partial_cmp(&v1), Some(Ordering::Less));
+        }
+
+        #[test]
+        fn test_partial_ord_patch() {
+            let v1 = v("1.0.2");
+            let v2 = v("1.0.1");
+            assert_eq!(v1.partial_cmp(&v2), Some(Ordering::Greater));
+            assert_eq!(v2.partial_cmp(&v1), Some(Ordering::Less));
+        }
+
+        #[test]
+        fn test_partial_ord_prerelease() {
+            let v1 = v("1.0.0-alpha");
+            let v2 = v("1.0.0");
+            assert_eq!(v1.partial_cmp(&v2), Some(Ordering::Less));
+            assert_eq!(v2.partial_cmp(&v1), Some(Ordering::Greater));
+        }
+
+        #[test]
+        fn test_partial_ord_across_types() {
+            let sem = v("1.0.0");
+
+            // SemVer < Range, Record, List, etc.
+            let range = Value::test_range(
+                Range::new(
+                    Value::test_int(0),
+                    Value::test_int(1),
+                    Value::test_int(10),
+                    RangeInclusion::Inclusive,
+                    Span::test_data(),
+                )
+                .unwrap(),
+            );
+            assert_eq!(sem.partial_cmp(&range), Some(Ordering::Less));
+
+            // Bool, Int, Float, String, etc. < SemVer
+            let bool_val = Value::test_bool(true);
+            assert_eq!(bool_val.partial_cmp(&sem), Some(Ordering::Less));
+            assert_eq!(sem.partial_cmp(&bool_val), Some(Ordering::Greater));
+
+            let int_val = Value::test_int(42);
+            assert_eq!(int_val.partial_cmp(&sem), Some(Ordering::Less));
+
+            let date_val = Value::test_date(
+                chrono::DateTime::parse_from_rfc3339("2024-01-01T00:00:00+00:00").unwrap(),
+            );
+            assert_eq!(date_val.partial_cmp(&sem), Some(Ordering::Less));
+            assert_eq!(sem.partial_cmp(&date_val), Some(Ordering::Greater));
+
+            // SemVer < Range
+            assert_eq!(sem.partial_cmp(&range), Some(Ordering::Less));
+            assert_eq!(range.partial_cmp(&sem), Some(Ordering::Greater));
+        }
+
+        #[test]
+        fn test_cell_path_major_minor_patch() {
+            let val = v("1.2.3");
+            let cell_path = |name: &str| {
+                vec![PathMember::String {
+                    val: name.to_string(),
+                    span: Span::test_data(),
+                    optional: false,
+                    casing: Casing::Sensitive,
+                }]
+            };
+
+            let major = val.follow_cell_path(&cell_path("major")).unwrap();
+            assert_eq!(major.as_ref(), &Value::test_int(1));
+
+            let minor = val.follow_cell_path(&cell_path("minor")).unwrap();
+            assert_eq!(minor.as_ref(), &Value::test_int(2));
+
+            let patch = val.follow_cell_path(&cell_path("patch")).unwrap();
+            assert_eq!(patch.as_ref(), &Value::test_int(3));
+        }
+
+        #[test]
+        fn test_cell_path_pre_and_build() {
+            let val = v("1.0.0-rc.1+build.5");
+            let cell_path = |name: &str| {
+                vec![PathMember::String {
+                    val: name.to_string(),
+                    span: Span::test_data(),
+                    optional: false,
+                    casing: Casing::Sensitive,
+                }]
+            };
+
+            let pre = val.follow_cell_path(&cell_path("pre")).unwrap();
+            assert_eq!(pre.as_ref(), &Value::test_string("rc.1"));
+
+            let build = val.follow_cell_path(&cell_path("build")).unwrap();
+            assert_eq!(build.as_ref(), &Value::test_string("build.5"));
+        }
+
+        #[test]
+        fn test_cell_path_pre_identifiers() {
+            let val = v("1.0.0-rc.1");
+            let cell_path = |name: &str| {
+                vec![PathMember::String {
+                    val: name.to_string(),
+                    span: Span::test_data(),
+                    optional: false,
+                    casing: Casing::Sensitive,
+                }]
+            };
+
+            let idents = val.follow_cell_path(&cell_path("pre_identifiers")).unwrap();
+            let expected =
+                Value::test_list(vec![Value::test_string("rc"), Value::test_string("1")]);
+            assert_eq!(idents.as_ref(), &expected);
+        }
+
+        #[test]
+        fn test_cell_path_build_identifiers() {
+            let val = v("1.0.0+build.5");
+            let cell_path = |name: &str| {
+                vec![PathMember::String {
+                    val: name.to_string(),
+                    span: Span::test_data(),
+                    optional: false,
+                    casing: Casing::Sensitive,
+                }]
+            };
+
+            let idents = val
+                .follow_cell_path(&cell_path("build_identifiers"))
+                .unwrap();
+            let expected =
+                Value::test_list(vec![Value::test_string("build"), Value::test_string("5")]);
+            assert_eq!(idents.as_ref(), &expected);
+        }
+
+        #[test]
+        fn test_cell_path_pre_empty() {
+            let val = v("1.0.0");
+            let cell_path = |name: &str| {
+                vec![PathMember::String {
+                    val: name.to_string(),
+                    span: Span::test_data(),
+                    optional: false,
+                    casing: Casing::Sensitive,
+                }]
+            };
+
+            let pre = val.follow_cell_path(&cell_path("pre")).unwrap();
+            assert_eq!(pre.as_ref(), &Value::test_string(""));
+
+            let idents = val.follow_cell_path(&cell_path("pre_identifiers")).unwrap();
+            assert_eq!(idents.as_ref(), &Value::test_list(vec![]));
+        }
+
+        #[test]
+        fn test_cell_path_unknown_column() {
+            let val = v("1.0.0");
+            let cell_path = vec![PathMember::String {
+                val: "nonexistent".to_string(),
+                span: Span::test_data(),
+                optional: false,
+                casing: Casing::Sensitive,
+            }];
+
+            let result = val.follow_cell_path(&cell_path);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn test_span_and_set_span() {
+            let span = Span::new(10, 20);
+            let val = Value::semver(SemVerVersion::parse("1.2.3").unwrap(), span);
+            assert_eq!(val.span(), span);
+
+            let mut val = val;
+            let new_span = Span::new(30, 40);
+            val.set_span(new_span);
+            assert_eq!(val.span(), new_span);
+        }
+
+        #[test]
+        fn test_memory_size() {
+            let base_size = std::mem::size_of::<Value>();
+            assert_eq!(
+                Value::test_semver(SemVerVersion::parse("1.2.3").unwrap()).memory_size(),
+                base_size
+            );
+        }
+
+        #[test]
+        fn test_to_string_with_prerelease_and_build() {
+            let val = v("1.2.3-alpha.1+build.2");
+            assert_eq!(
+                val.to_expanded_string(", ", &crate::Config::default()),
+                "1.2.3-alpha.1+build.2"
+            );
+        }
+
+        #[test]
+        fn test_debug_output() {
+            let val = v("1.2.3");
+            let debug_str = format!("{val:?}");
+            assert!(debug_str.contains("SemVer"));
         }
     }
 }

@@ -1306,6 +1306,36 @@ pub fn parse_datetime(working_set: &mut StateWorkingSet, span: Span) -> Expressi
     garbage(working_set, span)
 }
 
+pub fn parse_semver(working_set: &mut StateWorkingSet, span: Span) -> Expression {
+    trace!("parsing: semver");
+
+    let bytes = working_set.get_span_contents(span);
+
+    // Quick rejection: must start with a digit and contain at least two dots
+    if bytes.is_empty()
+        || !bytes[0].is_ascii_digit()
+        || bytes.iter().filter(|&&b| b == b'.').count() < 2
+    {
+        working_set.error(ParseError::Expected("semver", span));
+        return garbage(working_set, span);
+    }
+
+    let token = String::from_utf8_lossy(bytes).to_string();
+
+    match semver::Version::parse(&token) {
+        Ok(version) => Expression::new(
+            working_set,
+            Expr::SemVer(Box::new(version)),
+            span,
+            Type::SemVer,
+        ),
+        Err(_) => {
+            working_set.error(ParseError::Expected("semver", span));
+            garbage(working_set, span)
+        }
+    }
+}
+
 /// Parse a duration type, eg '10day'
 pub fn parse_duration(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     trace!("parsing: duration");

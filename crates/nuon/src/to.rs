@@ -242,6 +242,7 @@ fn value_to_string(
             input_span: v.span(),
         }),
         Value::Date { val, .. } => Ok(val.to_rfc3339()),
+        Value::SemVer { val, .. } => Ok(val.to_string()),
         // FIXME: make durations use the shortest lossless representation.
         Value::Duration { val, .. } => Ok(format!("{}ns", *val)),
         // Propagate existing errors

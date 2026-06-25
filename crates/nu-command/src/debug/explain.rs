@@ -260,6 +260,7 @@ pub fn debug_string_without_formatting(engine_state: &EngineState, value: &Value
         Value::Filesize { val, .. } => val.to_string(),
         Value::Duration { val, .. } => val.to_string(),
         Value::Date { val, .. } => format!("{val:?}"),
+        Value::SemVer { val, .. } => val.to_string(),
         Value::Range { val, .. } => val.to_string(),
         Value::String { val, .. } => val.clone(),
         Value::Glob { val, .. } => val.clone(),

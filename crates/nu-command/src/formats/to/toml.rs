@@ -110,6 +110,7 @@ pub(crate) fn nu_value_to_toml_value(
                 })
                 .collect::<Result<Vec<toml::Value>, ShellError>>()?,
         ),
+        Value::SemVer { val, .. } => toml::Value::String(val.to_string()),
         Value::Custom { .. } => toml::Value::String("<Custom Value>".to_string()),
     })
 }

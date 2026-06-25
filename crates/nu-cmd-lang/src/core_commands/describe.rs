@@ -362,6 +362,12 @@ fn describe_value_inner(
             "rust_type" => Value::string(type_of(&val), head),
             "value" => value,
         }),
+        Value::SemVer { ref val, .. } => Description::Record(record! {
+            "type" => Value::string("semver", head),
+            "detailed_type" => Value::string(value_type, head),
+            "rust_type" => Value::string(type_of(&val), head),
+            "value" => value,
+        }),
         Value::Range { ref val, .. } => Description::Record(record! {
             "type" => Value::string("range", head),
             "detailed_type" => Value::string(value_type, head),

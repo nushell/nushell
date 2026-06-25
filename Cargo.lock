@@ -4846,6 +4846,7 @@ dependencies = [
  "nu-protocol",
  "nu-utils",
  "rstest",
+ "semver",
  "serde_json",
 ]
 
@@ -4979,6 +4980,7 @@ dependencies = [
  "pretty_assertions",
  "rmp-serde",
  "rstest",
+ "semver",
  "serde",
  "serde_json",
  "strum",
@@ -7902,6 +7904,10 @@ name = "semver"
 version = "1.0.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d767eb0aabc880b29956c35734170f26ed551a859dbd361d140cdbeca61ab1e2"
+dependencies = [
+ "serde",
+ "serde_core",
+]
 
 [[package]]
 name = "serde"

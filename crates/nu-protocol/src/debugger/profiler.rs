@@ -347,6 +347,7 @@ fn expr_to_string(engine_state: &EngineState, expr: &Expr) -> String {
         Expr::Range(_) => "range".to_string(),
         Expr::Record(_) => "record".to_string(),
         Expr::RowCondition(_) => "row condition".to_string(),
+        Expr::SemVer(_) => "semver".to_string(),
         Expr::Signature(_) => "signature".to_string(),
         Expr::String(_) | Expr::RawString(_) => "string".to_string(),
         Expr::StringInterpolation(_) => "string interpolation".to_string(),

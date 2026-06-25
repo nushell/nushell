@@ -57,6 +57,7 @@ pub fn nu_value_to_json(
         nu_protocol::Value::Filesize { val, .. } => Value::Number(val.get().into()),
         nu_protocol::Value::Duration { val, .. } => Value::Number((*val).into()),
         nu_protocol::Value::Date { val, .. } => Value::String(val.to_string()),
+        nu_protocol::Value::SemVer { val, .. } => Value::String(val.to_string()),
         nu_protocol::Value::Glob { val, .. } => Value::String(val.to_string()),
         nu_protocol::Value::CellPath { val, .. } => {
             let parts: Vec<Value> = val

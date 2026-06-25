@@ -1,4 +1,5 @@
 use chrono::FixedOffset;
+use semver::Version as SemVerVersion;
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -37,6 +38,7 @@ pub enum Expr {
     Keyword(Box<Keyword>),
     ValueWithUnit(Box<ValueWithUnit>),
     DateTime(chrono::DateTime<FixedOffset>),
+    SemVer(Box<SemVerVersion>),
     /// The boolean is `true` if the string is quoted.
     Filepath(String, bool),
     /// The boolean is `true` if the string is quoted.
@@ -94,6 +96,7 @@ impl Expr {
             Expr::Keyword(_) => "a keyword",
             Expr::ValueWithUnit(_) => "a value with unit",
             Expr::DateTime(_) => "a datetime",
+            Expr::SemVer(_) => "a semver version",
             Expr::Filepath(_, _) => "a filepath",
             Expr::Directory(_, _) => "a directory",
             Expr::GlobPattern(_, _) => "a glob pattern",
@@ -140,13 +143,14 @@ impl Expr {
             | Expr::Table(_)
             | Expr::Record(_)
             | Expr::ValueWithUnit(_)
-            | Expr::DateTime(_)
-            | Expr::String(_)
-            | Expr::RawString(_)
-            | Expr::CellPath(_)
-            | Expr::StringInterpolation(_)
-            | Expr::GlobInterpolation(_, _)
-            | Expr::Nothing => {
+                | Expr::DateTime(_)
+                | Expr::SemVer(_)
+                | Expr::String(_)
+                | Expr::RawString(_)
+                | Expr::CellPath(_)
+                | Expr::StringInterpolation(_)
+                | Expr::GlobInterpolation(_, _)
+                | Expr::Nothing => {
                 // These expressions do not use the output of the pipeline in any meaningful way,
                 // but we still need to use the pipeline output, so the previous command
                 // can be stopped with SIGPIPE(in unix).

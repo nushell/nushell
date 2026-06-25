@@ -32,6 +32,7 @@ pub enum Type {
     OneOf(OneOf),
     Range,
     Record(CollectionColumns<Type>),
+    SemVer,
     String,
     Glob,
     Table(CollectionColumns<Type>),
@@ -68,6 +69,19 @@ fn follow_cell_path_recursive<'a>(
             let (_, sub_type) = columns.iter().find(|(name, _)| name == val)?;
             let list_type = Type::List(Box::new(sub_type.clone()));
             follow_cell_path_recursive(Cow::Owned(list_type), path_members)
+        }
+
+        (Type::SemVer, PathMember::String { val, .. }) => {
+            let next = match val.as_str() {
+                "major" | "minor" | "patch" => Type::Int,
+                "pre" | "build" => Type::String,
+                "pre_identifiers" | "build_identifiers" => Type::list(Type::String),
+                _ => return None,
+            };
+            follow_cell_path_recursive(Cow::Owned(next), path_members)
+        }
+        (Type::SemVer, PathMember::Int { .. }) => {
+            follow_cell_path_recursive(Cow::Owned(Type::list(Type::String)), path_members)
         }
 
         (Type::List(_), PathMember::Int { .. }) => {
@@ -217,6 +231,7 @@ impl Type {
             Type::Error => SyntaxShape::Any,
             Type::Binary => SyntaxShape::Binary,
             Type::Custom(_) => SyntaxShape::Any,
+            Type::SemVer => SyntaxShape::SemVer,
             Type::Glob => SyntaxShape::GlobPattern,
         }
     }
@@ -246,6 +261,7 @@ impl Type {
             Type::Error => String::from("error"),
             Type::Binary => String::from("binary"),
             Type::Custom(_) => String::from("custom"),
+            Type::SemVer => String::from("semver"),
             Type::Glob => String::from("glob"),
         }
     }
@@ -276,6 +292,9 @@ impl CompareTypes for Type {
 
             (Type::Glob, Type::String) => Some(TypeRelation::Supertype),
             (Type::String, Type::Glob) => Some(TypeRelation::Subtype),
+
+            (Type::SemVer, Type::String) => Some(TypeRelation::Supertype),
+            (Type::String, Type::SemVer) => Some(TypeRelation::Subtype),
 
             // List is covariant
             (Type::List(t), Type::List(u)) => t.compare_types(u.as_ref()),
@@ -341,6 +360,9 @@ impl CompareTypes for Type {
             (Type::Glob, Type::String) => true,
             // but not the other way around
             (Type::String, Type::Glob) => false,
+            // strings can be coerced to semver
+            (Type::SemVer, Type::String) => true,
+            (Type::String, Type::SemVer) => false,
             (Type::OneOf(dst_tys), Type::OneOf(src_tys)) => src_tys.is_assignable_to(dst_tys),
             (Type::OneOf(dst_tys), src_ty) => src_ty.is_assignable_to(dst_tys),
             (dst_ty, Type::OneOf(src_tys)) => src_tys.is_assignable_to(dst_ty),
@@ -391,6 +413,7 @@ impl Display for Type {
             Type::Error => write!(f, "error"),
             Type::Binary => write!(f, "binary"),
             Type::Custom(custom) => write!(f, "{custom}"),
+            Type::SemVer => write!(f, "semver"),
             Type::Glob => write!(f, "glob"),
         }
     }

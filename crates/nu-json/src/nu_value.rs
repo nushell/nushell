@@ -63,6 +63,7 @@ impl JsonValue {
             NuValue::Filesize { val, .. } => JsonValue::I64(val.get()),
             NuValue::Duration { val, .. } => JsonValue::I64(val),
             NuValue::Date { val, .. } => JsonValue::String(val.to_rfc3339()),
+            NuValue::SemVer { val, .. } => JsonValue::String(val.to_string()),
             NuValue::Range { val, .. } => JsonValue::String(val.to_string()),
             NuValue::Record { val, .. } => record_into_json_value(val.into_owned(), mode)?,
             NuValue::List { vals, .. } => list_into_json_value(vals, mode)?,
