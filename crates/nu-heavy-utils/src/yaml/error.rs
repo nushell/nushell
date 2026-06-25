@@ -1,7 +1,7 @@
 use std::num::{ParseFloatError, ParseIntError};
 
 use nu_protocol::{
-    ParseRangeError, ShellError, Span, Type, Value, ast::ParseCellPathError,
+    ParseRangeError, ShellError, Span, Type, ast::ParseCellPathError,
     shell_error::generic::GenericError,
 };
 use nu_utils::location::Location;

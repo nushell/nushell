@@ -1,8 +1,35 @@
-// Throughout these functions, there are two spans, the yaml_span which is the input value and the
-// parser_span which is the command that does the parsing.
-// All errors that occur through bad parsing or of lack of implementing a yaml feature should refer
-// to the parser_span, all errors that are caused by the value as it is an incorrect yaml, should
-// use the yaml_span.
+//! YAML parsing.
+//!
+//! This module implements the YAML parser at a low level by using
+//! [`granit_parser`](serde_saphyr::granit_parser) instead of the higher-level
+//! [`serde_saphyr`] data types.
+//!
+//! This lets us be a lot more precise and makes it easier to differentiate between
+//! YAML 1.1 and 1.2 spec compliance.
+//!
+//! Only the high-level parsing API should be exposed.
+//! Internal changes should not be considered public API.
+//!
+//! For parsing scalar values, we use the regexes from the
+//! [types of the 1.1 spec](https://yaml.org/type/).
+//! These usually allow a lot more complex formats than 1.2, so they need to be split
+//! carefully.
+//!
+//! For 1.2 scalars, we refer to the
+//! [core schema of YAML](https://yaml.org/spec/1.2.2/#103-core-schema).
+//!
+//! Throughout these functions, we refer to two different spans:
+//!
+//! - `yaml_span` points to the span in the input string.
+//!   Errors caused by bad YAML in any way should use this span.
+//! - `parser_span` points to the parser or implementation span.
+//!   Errors caused by the parser or by our implementation, but while handling
+//!   otherwise correct YAML, should use this span instead.
+//!   For example, this applies when we don't support a certain syntax yet.
+//!
+//! This documentation is private to the implementors, as this module itself is not
+//! public.
+//! Only [`parse`], [`ParseOptions`], and their field types are public.
 
 use crate::{
     merge::{Merge, MergeStrategy},
@@ -28,24 +55,62 @@ use std::{
     sync::LazyLock,
 };
 
+/// Options for parsing YAML.
+///
+/// Use this to configure how the parser works.
+///
+/// This type provides builder-style setters directly, so options can be chained while building it.
+///
+/// ```rust
+/// # use nu_heavy_utils::yaml::*;
+/// #
+/// let options = ParseOptions::default()
+///     .multiple(ParseMultiple::ForceList)
+///     .spec(Spec::V1_1)
+///     .ignore_tags(true);
+/// ```
 #[non_exhaustive]
 #[derive(Debug, Clone, Default, Setters)]
 pub struct ParseOptions {
+    /// Keep the original styles of parsed values.
+    ///
+    /// This allows serializing them later in the same style they were written in.
     pub keep_styles: bool,
+
+    /// Configure how multiple documents in a YAML stream are handled.
     pub multiple: ParseMultiple,
+
+    /// Configure which YAML spec to follow.
     pub spec: Spec,
+
+    /// Ignore any tags found during parsing.
+    ///
+    /// This also ignores Nushell's custom tags.
+    /// Type hints from those tags are removed, so this returns basic types instead of more complex
+    /// variants like [`Value::CellPath`].
     pub ignore_tags: bool,
 }
 
+/// Configure how multiple documents in a YAML stream are handled.
 #[derive(Debug, Clone, Copy, Default, FromValue)]
 pub enum ParseMultiple {
+    /// Use the default automatic behavior.
+    ///
+    /// A single document is returned directly.
+    /// If the YAML input contains multiple documents, they are returned as a list.
     #[default]
     #[nu_value(rename = "auto")]
     Auto,
 
+    /// Always return a list.
+    ///
+    /// Even a single document is wrapped in a list.
     #[nu_value(rename = "list")]
     ForceList,
 
+    /// Always return a single document.
+    ///
+    /// If multiple documents are found, an error is returned.
     #[nu_value(rename = "single")]
     ForceSingle,
 }
