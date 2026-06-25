@@ -75,6 +75,7 @@ pub struct ParseOptions {
     /// Keep the original styles of parsed values.
     ///
     /// This allows serializing them later in the same style they were written in.
+    #[deprecated = "not implemented yet"]
     pub keep_styles: bool,
 
     /// Configure how multiple documents in a YAML stream are handled.
@@ -116,6 +117,10 @@ pub enum ParseMultiple {
 }
 
 /// Parse a YAML string into a [`Value`].
+///
+/// See [`ParseOptions`] for behavior that can change how YAML is interpreted.
+/// `yaml` provides the input span for source errors, `span` is used for parser
+/// errors and parsed values.
 pub fn parse(yaml: Spanned<&str>, span: Span, options: &ParseOptions) -> Result<Value, ShellError> {
     let parser = Parser::new_from_str(yaml.item);
     let ctx = &mut ParseCtx {
