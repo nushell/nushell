@@ -138,7 +138,7 @@ impl<'a> StyleComputer<'a> {
             ("block".to_string(), ComputableStyle::Static(Color::Default.normal())),
             ("hints".to_string(), ComputableStyle::Static(Color::DarkGray.normal())),
             ("search_result".to_string(), ComputableStyle::Static(Color::Default.normal().on(Color::Red))),
-            ("semver".to_string(), ComputableStyle::Static(Color::Rgb(0xff, 0xb0, 0x00).bold())),
+            ("semver".to_string(), ComputableStyle::Static(Color::Cyan.bold())),
         ].into_iter().collect();
 
         for (key, value) in &config.color_config {
