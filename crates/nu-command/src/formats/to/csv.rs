@@ -19,7 +19,6 @@ impl Command for ToCsv {
             .input_output_types(vec![
                 (Type::record(), Type::String),
                 (Type::table(), Type::String),
-                (Type::SemVer, Type::String),
             ])
             .named(
                 "separator",
