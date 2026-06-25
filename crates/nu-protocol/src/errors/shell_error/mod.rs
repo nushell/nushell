@@ -1509,7 +1509,7 @@ impl ShellError {
             "debug" => Value::string(format!("{self:?}"), span),
             "raw" => Value::error(self.clone(), span),
             "rendered" => Value::string(format_cli_error(Some(stack), working_set, &self, Some("nu::shell::error")), span),
-            "json" => Value::string(serde_json::to_string(&self).expect("Could not serialize error"), span),
+            "details" => LabeledError::from(self).into_value(span, working_set),
         };
 
         if let Some(code) = exit_code {
