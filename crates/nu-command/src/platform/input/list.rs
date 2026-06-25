@@ -108,6 +108,10 @@ fn terminal_text_width_from(text: &str, start_column: usize) -> usize {
     current_column - start_column
 }
 
+// These display segments keep terminal control text and user text separate. Existing ANSI helpers
+// like strip_ansi_* are useful when ANSI can be discarded entirely, but input list needs to keep
+// color escapes in the rendered output while still mapping fuzzy matches back to the original
+// source characters.
 struct DisplaySegment {
     source_index: Option<usize>,
     text: String,
@@ -120,6 +124,9 @@ struct SanitizedText {
     truncated: bool,
 }
 
+// Skip ANSI CSI/OSC sequences while measuring terminal width. Existing strip/cut helpers do not
+// account for tab stops from an arbitrary starting column, so width calculation stays local to the
+// input list renderer.
 fn skip_ansi_escape<I>(chars: &mut std::iter::Peekable<I>)
 where
     I: Iterator<Item = char>,
@@ -146,6 +153,8 @@ where
     }
 }
 
+// Preserve ANSI CSI/OSC sequences as zero-width display segments. This lets rendering retain
+// upstream styling without treating escape bytes as searchable/displayable characters.
 fn collect_ansi_escape<I>(chars: &mut std::iter::Peekable<I>) -> Option<String>
 where
     I: Iterator<Item = char>,
