@@ -19,7 +19,7 @@ use std::{
     borrow::Cow,
     collections::HashSet,
     io::{self, Stderr, Write},
-    sync::mpsc::{self, Receiver, TryRecvError},
+    sync::mpsc::{self, Receiver, RecvTimeoutError, TryRecvError},
     thread,
     time::Duration,
 };
@@ -68,6 +68,7 @@ const DEFAULT_TABLE_COLUMN_SEPARATOR: char = '│';
 // - STREAM_PREFETCH_MARGIN: how far from the end we begin prefetching.
 // - STREAM_CHANNEL_CAPACITY: rows the background reader can collect before the UI drains them.
 // - STREAM_POLL_INTERVAL: render cadence while a stream is still loading.
+// - STREAM_FOOTER_UPDATE_INTERVAL: visible footer animation/count cadence while rows stream in.
 const INITIAL_STREAM_COLLECT_TIMEOUT: Duration = Duration::from_millis(250);
 const INITIAL_STREAM_MAX_ITEMS: usize = 100_000;
 const STREAM_LOAD_BATCH: usize = 512;
@@ -76,7 +77,10 @@ const STREAM_CHANNEL_CAPACITY: usize = 8192;
 const STREAM_SPINNER_FRAMES: &[&str] = &["-", "\\", "|", "/"];
 const STREAM_DRAIN_TIME_BUDGET: Duration = Duration::from_millis(16);
 const STREAM_POLL_INTERVAL: Duration = Duration::from_millis(16);
+const STREAM_FOOTER_UPDATE_INTERVAL: Duration = Duration::from_millis(125);
 const IDLE_POLL_INTERVAL: Duration = Duration::from_millis(100);
+const FUZZY_FILTER_INTERRUPT_CHECK_INTERVAL: usize = 1024;
+const FUZZY_FILTER_MIN_INTERRUPT_TIME: Duration = Duration::from_millis(16);
 
 fn io_context(context: &'static str) -> impl FnOnce(io::Error) -> io::Error {
     move |err| io::Error::new(err.kind(), format!("{context}: {err}"))
@@ -680,13 +684,12 @@ Use --no-footer and --no-separator to hide the footer and separator line."#
             table_layout,
             per_column,
             StreamState {
-                stream_reader: pending_stream.map(StreamReader::new),
+                stream_reader: pending_stream,
                 item_generator: Some(item_generator),
             },
         );
         let answer = widget.run().map_err(|err| {
-            let context = format!("{INTERACT_ERROR}: {err}");
-            IoError::new_with_additional_context(err, call.head, None, context)
+            IoError::new_with_additional_context(err, call.head, None, INTERACT_ERROR)
         })?;
 
         Ok(match answer {
@@ -815,17 +818,13 @@ impl InputList {
         input: PipelineData,
         head: Span,
         signals: Signals,
-    ) -> Result<(Vec<Value>, Option<ListStream>), ShellError> {
+    ) -> Result<(Vec<Value>, Option<StreamReader>), ShellError> {
         match input {
-            PipelineData::ListStream(mut stream, ..) => {
-                let (values, has_more_values) = Self::read_initial_stream_values(&mut stream);
-                Ok((values, if has_more_values { Some(stream) } else { None }))
-            }
+            PipelineData::ListStream(stream, ..) => Ok(Self::read_initial_stream_values(stream)),
             PipelineData::Value(Value::List { vals, .. }, ..) => Ok((vals, None)),
             input @ PipelineData::Value(Value::Range { .. }, ..) => {
-                let mut stream = ListStream::new(input.into_iter(), head, signals);
-                let (values, has_more_values) = Self::read_initial_stream_values(&mut stream);
-                Ok((values, if has_more_values { Some(stream) } else { None }))
+                let stream = ListStream::new(input.into_iter(), head, signals);
+                Ok(Self::read_initial_stream_values(stream))
             }
             _ => Err(ShellError::TypeMismatch {
                 err_message: "expected a list, a table, or a range".to_string(),
@@ -836,25 +835,19 @@ impl InputList {
 
     /// Read initial values from the upstream stream.
     ///
-    /// Returns `(values, stream_may_have_more)` where the boolean is `false` only when
-    /// exhaustion is observed during the initial read. Timed-out or capped reads leave the
-    /// remaining stream for the background reader.
-    fn read_initial_stream_values(stream: &mut ListStream) -> (Vec<Value>, bool) {
-        let start = nu_utils::time::Instant::now();
-        let mut values = Vec::new();
+    /// Returns any values available before the initial timeout/cap and a reader for the remaining
+    /// stream when it is not exhausted yet.
+    fn read_initial_stream_values(stream: ListStream) -> (Vec<Value>, Option<StreamReader>) {
+        let mut reader = StreamReader::new(stream);
+        let values =
+            reader.drain_available_until(INITIAL_STREAM_MAX_ITEMS, INITIAL_STREAM_COLLECT_TIMEOUT);
+        let pending_stream = if reader.is_finished() {
+            None
+        } else {
+            Some(reader)
+        };
 
-        while values.len() < INITIAL_STREAM_MAX_ITEMS {
-            match stream.next_value() {
-                Some(value) => values.push(value),
-                None => return (values, false),
-            }
-
-            if start.elapsed() >= INITIAL_STREAM_COLLECT_TIMEOUT {
-                return (values, true);
-            }
-        }
-
-        (values, true)
+        (values, pending_stream)
     }
 
     /// Convert a raw input `Value` into a `SelectItem`, used for streaming growth
@@ -1041,6 +1034,29 @@ impl StreamReader {
 
         values
     }
+
+    fn drain_available_until(&mut self, count: usize, max_duration: Duration) -> Vec<Value> {
+        let start = nu_utils::time::Instant::now();
+        let mut values = Vec::new();
+
+        while values.len() < count && !self.finished {
+            let elapsed = start.elapsed();
+            let Some(remaining) = max_duration.checked_sub(elapsed) else {
+                break;
+            };
+
+            match self.receiver.recv_timeout(remaining) {
+                Ok(StreamMessage::Item(value)) => values.push(value),
+                Ok(StreamMessage::End) | Err(RecvTimeoutError::Disconnected) => {
+                    self.finished = true;
+                    break;
+                }
+                Err(RecvTimeoutError::Timeout) => break,
+            }
+        }
+
+        values
+    }
 }
 
 struct SelectWidget<'a> {
@@ -1056,6 +1072,8 @@ struct SelectWidget<'a> {
     item_generator: Option<Box<dyn FnMut(Value) -> SelectItem + 'a>>,
     visible_height: u16,
     matcher: SkimMatcherV2,
+    last_filter_text: String,
+    force_full_filter: bool,
     rendered_lines: usize,
     /// Previous cursor position for efficient cursor-only updates
     prev_cursor: usize,
@@ -1097,6 +1115,10 @@ struct SelectWidget<'a> {
     follow_stream_to_end: bool,
     /// Current footer spinner frame while upstream rows are still pending
     stream_spinner_frame: usize,
+    /// Last item count shown in the streaming footer
+    stream_footer_item_count: usize,
+    /// Last time the streaming footer spinner/count was advanced
+    last_stream_footer_update: nu_utils::time::Instant,
     /// Base indices for refined mode (the subset to filter from in FuzzyMulti)
     refined_base_indices: Vec<usize>,
     /// Whether to match filter text against each column independently (table mode only)
@@ -1133,6 +1155,7 @@ impl<'a> SelectWidget<'a> {
                 .selected_marker
                 .paint(config.selected_marker_char.to_string())
         );
+        let initial_item_count = items.len();
         Self {
             mode,
             prompt,
@@ -1144,6 +1167,8 @@ impl<'a> SelectWidget<'a> {
             scroll_offset: 0,
             visible_height: 10,
             matcher,
+            last_filter_text: String::new(),
+            force_full_filter: false,
             rendered_lines: 0,
             prev_cursor: 0,
             prev_scroll_offset: 0,
@@ -1165,6 +1190,8 @@ impl<'a> SelectWidget<'a> {
             refined: false,
             follow_stream_to_end: false,
             stream_spinner_frame: 0,
+            stream_footer_item_count: initial_item_count,
+            last_stream_footer_update: nu_utils::time::Instant::now(),
             refined_base_indices: Vec::new(),
             per_column,
             settings_changed: false,
@@ -1264,6 +1291,7 @@ impl<'a> SelectWidget<'a> {
     fn append_streamed_values(&mut self, values: Vec<Value>, stream_finished: bool) -> bool {
         if stream_finished {
             self.stream_reader = None;
+            self.stream_footer_item_count = self.items.len() + values.len();
             self.settings_changed = true;
         }
 
@@ -1298,6 +1326,7 @@ impl<'a> SelectWidget<'a> {
             if self.filter_text.is_empty() && !self.refined {
                 self.filtered_indices.extend(start_index..self.items.len());
             } else {
+                self.force_full_filter = true;
                 self.update_filter();
             }
 
@@ -1336,6 +1365,7 @@ impl<'a> SelectWidget<'a> {
         self.rebuild_matcher();
         // Re-run filter with new matcher
         if !self.filter_text.is_empty() {
+            self.force_full_filter = true;
             self.update_filter();
         }
         self.settings_changed = true;
@@ -1347,6 +1377,7 @@ impl<'a> SelectWidget<'a> {
             self.per_column = !self.per_column;
             // Re-run filter with new matching mode
             if !self.filter_text.is_empty() {
+                self.force_full_filter = true;
                 self.update_filter();
             }
             self.settings_changed = true;
@@ -1390,6 +1421,20 @@ impl<'a> SelectWidget<'a> {
         STREAM_SPINNER_FRAMES[self.stream_spinner_frame % STREAM_SPINNER_FRAMES.len()]
     }
 
+    fn update_stream_footer(&mut self) {
+        if !self.stream_is_pending() {
+            return;
+        }
+
+        if self.last_stream_footer_update.elapsed() >= STREAM_FOOTER_UPDATE_INTERVAL {
+            self.stream_spinner_frame =
+                (self.stream_spinner_frame + 1) % STREAM_SPINNER_FRAMES.len();
+            self.stream_footer_item_count = self.items.len();
+            self.last_stream_footer_update = nu_utils::time::Instant::now();
+            self.settings_changed = true;
+        }
+    }
+
     /// Generate the footer string, truncating if necessary to fit terminal width
     fn generate_footer(&self) -> String {
         let total_count = self.current_list_len();
@@ -1397,7 +1442,11 @@ impl<'a> SelectWidget<'a> {
         let settings = self.settings_indicator();
         let stream_is_pending = self.stream_is_pending();
         let count_text = if stream_is_pending {
-            format!("{} {}", total_count, self.stream_spinner())
+            format!(
+                "{} {}",
+                self.stream_footer_item_count,
+                self.stream_spinner()
+            )
         } else {
             total_count.to_string()
         };
@@ -2596,6 +2645,8 @@ impl<'a> SelectWidget<'a> {
         if self.mode == SelectMode::FuzzyMulti {
             self.filter_text.clear();
             self.filter_cursor = 0;
+            self.last_filter_text.clear();
+            self.force_full_filter = true;
             self.filter_text_changed = true;
         }
 
@@ -2770,8 +2821,38 @@ impl<'a> SelectWidget<'a> {
         }
     }
 
+    fn should_yield_filter(start: nu_utils::time::Instant, checked: usize) -> bool {
+        checked > 0
+            && checked.is_multiple_of(FUZZY_FILTER_INTERRUPT_CHECK_INTERVAL)
+            && start.elapsed() >= FUZZY_FILTER_MIN_INTERRUPT_TIME
+            && event::poll(Duration::ZERO).is_ok_and(|has_event| has_event)
+    }
+
+    fn score_filter_candidates<I>(
+        &self,
+        candidates: I,
+        start: nu_utils::time::Instant,
+    ) -> Option<Vec<(usize, i64)>>
+    where
+        I: Iterator<Item = usize>,
+    {
+        let mut scored = Vec::new();
+        for (checked, i) in candidates.enumerate() {
+            if Self::should_yield_filter(start, checked) {
+                return None;
+            }
+
+            if let Some(score) = self.score_item(&self.items[i]) {
+                scored.push((i, score));
+            }
+        }
+
+        Some(scored)
+    }
+
     fn update_filter(&mut self) {
         let old_indices = std::mem::take(&mut self.filtered_indices);
+        let start = nu_utils::time::Instant::now();
 
         // Determine whether to filter from refined subset or all items
         let use_refined = self.refined && !self.refined_base_indices.is_empty();
@@ -2783,21 +2864,32 @@ impl<'a> SelectWidget<'a> {
             } else {
                 (0..self.items.len()).collect()
             };
+            self.last_filter_text.clear();
+            self.force_full_filter = false;
         } else {
-            // When filtering, iterate without cloning the base indices
-            let mut scored: Vec<(usize, i64)> = if use_refined {
-                self.refined_base_indices
-                    .iter()
-                    .filter_map(|&i| self.score_item(&self.items[i]).map(|score| (i, score)))
-                    .collect()
+            let can_reuse_previous = !self.force_full_filter
+                && !self.last_filter_text.is_empty()
+                && self.filter_text.starts_with(&self.last_filter_text);
+
+            let mut scored = if can_reuse_previous {
+                self.score_filter_candidates(old_indices.iter().copied(), start)
+            } else if use_refined {
+                self.score_filter_candidates(self.refined_base_indices.iter().copied(), start)
             } else {
-                (0..self.items.len())
-                    .filter_map(|i| self.score_item(&self.items[i]).map(|score| (i, score)))
-                    .collect()
+                self.score_filter_candidates(0..self.items.len(), start)
+            };
+
+            let Some(mut scored) = scored.take() else {
+                self.filtered_indices = old_indices;
+                self.results_changed = false;
+                self.filter_text_changed = true;
+                return;
             };
             // Sort by score descending
             scored.sort_by_key(|entry| std::cmp::Reverse(entry.1));
             self.filtered_indices = scored.into_iter().map(|(i, _)| i).collect();
+            self.last_filter_text = self.filter_text.clone();
+            self.force_full_filter = false;
         }
 
         // Check if results actually changed
@@ -3252,11 +3344,7 @@ impl<'a> SelectWidget<'a> {
             self.cursor = self.current_list_len().saturating_sub(1);
             self.adjust_scroll_down();
         }
-        if self.stream_is_pending() {
-            self.stream_spinner_frame =
-                (self.stream_spinner_frame + 1) % STREAM_SPINNER_FRAMES.len();
-            self.settings_changed = true;
-        }
+        self.update_stream_footer();
 
         // Check for fuzzy multi mode toggle-all optimization
         if self.can_do_fuzzy_multi_toggle_all_update() {
@@ -3288,6 +3376,7 @@ impl<'a> SelectWidget<'a> {
             && !self.width_changed
             && self.cursor == self.prev_cursor
             && self.scroll_offset == self.prev_scroll_offset
+            && !loaded_stream_items
             && !self.results_changed
             && !self.filter_text_changed
             && !self.horizontal_scroll_changed
@@ -3656,10 +3745,19 @@ impl<'a> SelectWidget<'a> {
         match_indices: Option<&[usize]>,
         base_style: Option<Style>,
     ) -> io::Result<()> {
+        let mut match_iter = match_indices.map(|indices| indices.iter().peekable());
+
         for segment in &sanitized.segments {
-            let is_match = segment
-                .source_index
-                .is_some_and(|idx| match_indices.is_some_and(|indices| indices.contains(&idx)));
+            let is_match = if let (Some(source_index), Some(match_iter)) =
+                (segment.source_index, match_iter.as_mut())
+            {
+                while match_iter.peek().is_some_and(|&&idx| idx < source_index) {
+                    match_iter.next();
+                }
+                match_iter.peek().is_some_and(|&&idx| idx == source_index)
+            } else {
+                false
+            };
 
             if is_match {
                 execute!(stderr, Print(self.config.match_text.paint(&segment.text)))?;
@@ -4154,7 +4252,9 @@ impl<'a> SelectWidget<'a> {
             execute!(stderr, Print(" ".repeat(left_pad)))?;
         }
 
-        let sanitized = sanitize_text_for_display(cell, cell_width, left_pad);
+        // Keep tab expansion cell-relative so the rendered content width matches the width used
+        // for table layout and padding.
+        let sanitized = sanitize_text_for_display(cell, cell_width, 0);
         self.render_display_segments(stderr, &sanitized, match_indices, cell_style.color_style)?;
 
         // Add right padding
@@ -4406,32 +4506,48 @@ mod test {
     #[test]
     fn initial_read_collects_fast_finite_stream() {
         let span = nu_protocol::Span::test_data();
-        let mut stream = ListStream::new(
+        let stream = ListStream::new(
             (0..5).map(move |i| Value::int(i, span)),
             span,
             nu_protocol::Signals::empty(),
         );
 
-        let (values, has_more_values) = InputList::read_initial_stream_values(&mut stream);
+        let (values, pending_stream) = InputList::read_initial_stream_values(stream);
 
         assert_eq!(values.len(), 5);
-        assert!(!has_more_values);
+        assert!(pending_stream.is_none());
     }
 
     #[test]
     fn initial_read_stops_before_exhausting_unbounded_stream() {
         let span = nu_protocol::Span::test_data();
-        let mut stream = ListStream::new(
+        let stream = ListStream::new(
             (0..).map(move |i| Value::int(i, span)),
             span,
             nu_protocol::Signals::empty(),
         );
 
-        let (values, has_more_values) = InputList::read_initial_stream_values(&mut stream);
+        let (values, pending_stream) = InputList::read_initial_stream_values(stream);
 
         assert!(!values.is_empty());
         assert!(values.len() <= INITIAL_STREAM_MAX_ITEMS);
-        assert!(has_more_values);
+        assert!(pending_stream.is_some());
+    }
+
+    #[test]
+    fn initial_read_timeout_does_not_block_on_slow_stream() {
+        let span = nu_protocol::Span::test_data();
+        let (sender, receiver) = std::sync::mpsc::channel::<Value>();
+        let stream = ListStream::new(receiver.into_iter(), span, nu_protocol::Signals::empty());
+        let start = nu_utils::time::Instant::now();
+
+        let (values, pending_stream) = InputList::read_initial_stream_values(stream);
+
+        assert!(values.is_empty());
+        assert!(pending_stream.is_some());
+        assert!(start.elapsed() < INITIAL_STREAM_COLLECT_TIMEOUT * 2);
+
+        drop(sender);
     }
 
     #[test]
@@ -4462,6 +4578,38 @@ mod test {
         )));
 
         assert_eq!(w.generate_footer(), "[1-2 of 2 -]");
+    }
+
+    #[test]
+    fn streaming_footer_updates_at_slower_interval() {
+        let span = nu_protocol::Span::test_data();
+        let mut w = make_widget(&["one"]);
+        let (_sender, receiver) = mpsc::sync_channel(1);
+        w.stream_reader = Some(StreamReader {
+            receiver,
+            finished: false,
+        });
+        w.items.push(SelectItem {
+            name: "two".to_string(),
+            cells: None,
+            value: Value::string("two", span),
+        });
+        w.settings_changed = false;
+
+        w.update_stream_footer();
+
+        assert_eq!(w.stream_spinner_frame, 0);
+        assert_eq!(w.stream_footer_item_count, 1);
+        assert!(!w.settings_changed);
+
+        w.last_stream_footer_update =
+            nu_utils::time::Instant::now() - STREAM_FOOTER_UPDATE_INTERVAL;
+
+        w.update_stream_footer();
+
+        assert_eq!(w.stream_spinner_frame, 1);
+        assert_eq!(w.stream_footer_item_count, 2);
+        assert!(w.settings_changed);
     }
 
     #[test]
