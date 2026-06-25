@@ -1,3 +1,31 @@
+//! YAML serialization.
+//!
+//! This module implements the YAML serializer by using [`serde_saphyr`].
+//!
+//! Usually, [`serde_saphyr`] is designed without an intermediate YAML value representation.
+//! It serializes application data types directly instead.
+//!
+//! For us, [`Value`] is already the data model we need to preserve pretty much as is.
+//! To get a more controlled conversion into YAML, we use [`YamlValue`] here.
+//! This lets us bypass the [`Serialize`] and [`Deserialize`](serde::Deserialize)
+//! implementations directly on [`Value`] and use our own more specific handling.
+//!
+//! The serializer is built around [`serde`], but that limits how much extra context we can pass
+//! into serialization.
+//! To work around this, we use [`thread_local`]s to keep context data around even though we cannot
+//! pass it through the serializer directly.
+//!
+//! Since serialization never leaves the current thread, this is safe while still allowing multiple
+//! threads to serialize to YAML at the same time.
+//! This design is pretty delicate though, so nothing from the serializer internals is exposed.
+//!
+//! For now, the serializer does not support tags directly.
+//! To handle this, we use [`FmtHandle`] to access the underlying string directly and write to it
+//! around the [`YamlSerializer`](serde_saphyr::ser::YamlSerializer).
+//!
+//! This documentation is private to the implementors, as this module itself is not public.
+//! Only [`serialize`], [`SerializeOptions`], and their field types are public.
+
 use crate::yaml::{KnownTag, Spec, error::SerializeError};
 use chrono::{DateTime, FixedOffset};
 use derive_setters::Setters;
@@ -20,35 +48,55 @@ use std::{
     fmt::{self, Write},
 };
 
+/// Options for serializing YAML.
+///
+/// Use this to configure how the serializer works.
+///
+/// This type provides builder-style setters directly, so options can be chained while building it.
+///
+/// ```rust
+/// # use nu_heavy_utils::yaml::*;
+/// #
+/// let options = SerializeOptions::default()
+///     .spec(Spec::V1_2)
+///     .multiple(true)
+///     .add_directives(true)
+///     .indent(4);
+/// ```
 #[non_exhaustive]
 #[derive(Debug, Clone, Setters, better_default::Default)]
 pub struct SerializeOptions {
+    /// Configure which YAML spec to follow.
     pub spec: Spec,
 
-    /// Controls how values are serialized when they cannot be represented in a
-    /// way that can be deserialized back into the original type.
+    /// Configure how values are serialized when they cannot round-trip cleanly.
+    ///
+    /// Some values can be written to YAML, but cannot be parsed back into the original type without
+    /// losing information.
+    /// This option controls how those values are handled.
     pub non_roundtrip: NonRoundtrip,
 
-    /// Expect a list of values and then construct a multi document YAML output.
+    /// Treat the input as a list of documents and serialize it as a multi-document YAML stream.
     pub multiple: bool,
 
-    /// Add directives to the start of the document that explains YAML version and the nushell tag.
+    /// Add directives at the start of the document.
+    ///
+    /// These include the YAML version and the Nushell tag directive.
     pub add_directives: bool,
 
+    /// Configure how many spaces are used for indentation.
     #[default(2)]
     pub indent: usize,
 
+    /// Use compact indentation for nested lists.
     #[default(true)]
     pub compact_list_indent: bool,
 
+    /// Configure how strings are quoted.
     pub quote_style: QuoteStyle,
 }
 
-/// Controls how non-round-trippable values are serialized.
-///
-/// Some values can be serialized, but cannot be deserialized back into their
-/// original type without losing information. This option decides whether such
-/// values are replaced with `null` or emitted in a lossy representation.
+/// Configure how non-round-trippable values are serialized.
 #[derive(Debug, Clone, Default)]
 pub enum NonRoundtrip {
     /// Serialize non-round-trippable values as `null`.
@@ -56,20 +104,33 @@ pub enum NonRoundtrip {
     Null,
 
     /// Serialize non-round-trippable values using a lossy representation.
+    ///
+    /// This keeps more information in the YAML output, but it might not deserialize back into the
+    /// exact original type.
     Lossy {
         /// Engine state is required to serialize closures this way.
         engine_state: EngineState,
     },
 }
 
+/// Configure how strings are quoted.
 #[derive(Debug, Clone, Copy, Default, FromValue)]
 pub enum QuoteStyle {
+    /// Pick the quote style automatically.
     #[default]
     Auto,
+
+    /// Use single quotes for strings.
     Single,
+
+    /// Use double quotes for strings.
     Double,
 }
 
+/// Serialize a [`Value`] into a YAML string.
+///
+/// See [`SerializeOptions`] for configurable output behavior.
+/// `span` is used for serialization errors.
 pub fn serialize(
     value: &Value,
     span: Span,
