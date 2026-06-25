@@ -19,6 +19,7 @@ impl Command for ToTsv {
             .input_output_types(vec![
                 (Type::record(), Type::String),
                 (Type::table(), Type::String),
+                (Type::SemVer, Type::String),
             ])
             .switch(
                 "noheaders",

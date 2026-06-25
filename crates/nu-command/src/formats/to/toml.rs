@@ -13,7 +13,10 @@ impl Command for ToToml {
 
     fn signature(&self) -> Signature {
         Signature::build("to toml")
-            .input_output_types(vec![(Type::record(), Type::String)])
+            .input_output_types(vec![
+                (Type::record(), Type::String),
+                (Type::SemVer, Type::String),
+            ])
             .switch(
                 "serialize",
                 "Serialize nushell types that cannot be deserialized.",

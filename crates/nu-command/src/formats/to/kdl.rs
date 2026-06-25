@@ -479,6 +479,7 @@ fn convert_nu_value_to_kdl_value(
         Value::Nothing { .. } => Ok(KdlValue::Null),
         Value::Binary { val, .. } => Ok(KdlValue::String(format!("{val:?}"))),
         Value::CellPath { val, .. } => Ok(KdlValue::String(val.to_string())),
+        Value::SemVer { val, .. } => Ok(KdlValue::String(val.to_string())),
         Value::Custom { val, .. } => Ok(KdlValue::String(format!("<{}>", val.type_name()))),
         Value::Error { error, .. } => Err(*(error.clone())),
         _ => Err(ShellError::UnsupportedInput {
