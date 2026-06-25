@@ -4639,6 +4639,7 @@ dependencies = [
  "rustls",
  "rustls-native-certs",
  "scopeguard",
+ "semver",
  "serde",
  "serde_json",
  "serde_urlencoded",

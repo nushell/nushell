@@ -3591,3 +3591,66 @@ fn empty_closure_as_row_condition() {
     };
     assert!(matches!(arg.expr, Expr::RowCondition(_) | Expr::Closure(_)))
 }
+
+#[test]
+fn parse_bare_semver_literal() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let block = parse(&mut working_set, None, b"1.2.3", true);
+    assert!(
+        working_set.parse_errors.is_empty(),
+        "unexpected errors: {:?}",
+        working_set.parse_errors
+    );
+
+    let pipeline = &block.pipelines[0];
+    let element = &pipeline.elements[0];
+    assert!(
+        matches!(&element.expr.expr, Expr::SemVer(_)),
+        "expected Expr::SemVer, got {:?}",
+        &element.expr.expr
+    );
+}
+
+#[test]
+fn parse_bare_semver_literal_with_prerelease() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let block = parse(&mut working_set, None, b"1.2.3-alpha.1+build.2", true);
+    assert!(
+        working_set.parse_errors.is_empty(),
+        "unexpected errors: {:?}",
+        working_set.parse_errors
+    );
+
+    let pipeline = &block.pipelines[0];
+    let element = &pipeline.elements[0];
+    assert!(
+        matches!(&element.expr.expr, Expr::SemVer(_)),
+        "expected Expr::SemVer, got {:?}",
+        &element.expr.expr
+    );
+}
+
+#[test]
+fn parse_bare_semver_literal_quoted_stays_string() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let block = parse(&mut working_set, None, b"'1.2.3'", true);
+    assert!(
+        working_set.parse_errors.is_empty(),
+        "unexpected errors: {:?}",
+        working_set.parse_errors
+    );
+
+    let pipeline = &block.pipelines[0];
+    let element = &pipeline.elements[0];
+    assert!(
+        matches!(&element.expr.expr, Expr::String(_)),
+        "expected Expr::String, got {:?}",
+        &element.expr.expr
+    );
+}

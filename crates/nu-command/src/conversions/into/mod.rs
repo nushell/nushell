@@ -9,6 +9,7 @@ mod float;
 mod glob;
 mod int;
 mod record;
+mod semver;
 mod string;
 mod value;
 
@@ -23,5 +24,6 @@ pub use float::IntoFloat;
 pub use glob::IntoGlob;
 pub use int::IntoInt;
 pub use record::IntoRecord;
+pub use semver::IntoSemver;
 pub use string::IntoString;
 pub use value::IntoValue;

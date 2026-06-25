@@ -376,10 +376,22 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             IntoFilesize,
             IntoInt,
             IntoRecord,
+            IntoSemver,
             IntoString,
             IntoGlob,
             IntoValue,
             SplitCellPath,
+        };
+
+        // Semver
+        bind_command! {
+            Semver,
+            SemverBump,
+            SemverFromRecord,
+            SemverIsValid,
+            SemverMatchReq,
+            SemverSort,
+            SemverToRecord,
         };
 
         // Env

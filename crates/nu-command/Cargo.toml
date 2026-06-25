@@ -33,6 +33,7 @@ nu-experimental.workspace = true
 nu-glob.workspace = true
 nu-json = { workspace = true, features = ["nu-protocol", "preserve_order"] }
 nu-parser.workspace = true
+semver = { workspace = true }
 nu-path.workspace = true
 nu-pretty-hex.workspace = true
 nu-protocol.workspace = true
