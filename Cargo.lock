@@ -4674,6 +4674,7 @@ dependencies = [
  "human-date-parser",
  "indexmap 2.14.0",
  "indicatif",
+ "indoc",
  "itertools 0.15.0",
  "kdl",
  "log",
