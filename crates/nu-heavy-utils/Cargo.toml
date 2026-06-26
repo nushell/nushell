@@ -17,25 +17,37 @@ harness = false
 workspace = true
 
 [features]
-default = ["endian", "merge"]
+default = ["endian", "merge", "yaml"]
 
 endian = []
 merge = []
+yaml = [
+  "dep:base64",
+  "dep:better_default",
+  "dep:chrono",
+  "dep:derive_setters",
+  "dep:pastey",
+  "dep:regex",
+  "dep:scopeguard",
+  "dep:serde-saphyr",
+  "dep:serde",
+  "dep:strum",
+]
 
 [dependencies]
 nu-protocol.workspace = true
 nu-utils.workspace = true
 
-base64.workspace = true
-better_default.workspace = true
-chrono.workspace = true
-derive_setters.workspace = true
-pastey.workspace = true
-regex.workspace = true
-scopeguard.workspace = true
-serde = { workspace = true, features = ["derive"] }
-serde-saphyr.workspace = true
-strum.workspace = true
+base64 = { workspace = true, optional = true }
+better_default = { workspace = true, optional = true }
+chrono = { workspace = true, optional = true }
+derive_setters = { workspace = true, optional = true }
+pastey = { workspace = true, optional = true }
+regex = { workspace = true, optional = true }
+scopeguard = { workspace = true, optional = true }
+serde = { workspace = true, features = ["derive"], optional = true }
+serde-saphyr = { workspace = true, optional = true }
+strum = { workspace = true, optional = true }
 
 [dev-dependencies]
 nu-test-support.path = "../nu-test-support"

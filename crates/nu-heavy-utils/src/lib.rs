@@ -4,6 +4,7 @@
 pub mod endian;
 #[cfg(feature = "merge")]
 pub mod merge;
+#[cfg(feature = "yaml")]
 pub mod yaml;
 
 #[cfg(test)]
