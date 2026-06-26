@@ -318,8 +318,7 @@ mod tests {
 
     #[test]
     fn test_parse_semver_into_record_with_both() {
-        let semver_val =
-            SemverValue::new(semver::Version::parse("1.2.3-alpha.1+build.2").unwrap());
+        let semver_val = SemverValue::new(semver::Version::parse("1.2.3-alpha.1+build.2").unwrap());
         let result = parse_semver_into_record(&semver_val, Span::test_data());
 
         match result {
