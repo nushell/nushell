@@ -54,9 +54,9 @@ impl PathMember {
         }
     }
 
-    pub fn test_string(val: String, optional: bool, casing: Casing) -> Self {
+    pub fn test_string(val: impl Into<String>, optional: bool, casing: Casing) -> Self {
         PathMember::String {
-            val,
+            val: val.into(),
             optional,
             casing,
             span: Span::test_data(),
@@ -670,16 +670,14 @@ mod test {
 
         assert_eq!(
             Some(Greater),
-            PathMember::test_string("e".into(), true, Casing::Sensitive).partial_cmp(
-                &PathMember::test_string("e".into(), false, Casing::Sensitive)
-            )
+            PathMember::test_string("e", true, Casing::Sensitive)
+                .partial_cmp(&PathMember::test_string("e", false, Casing::Sensitive))
         );
 
         assert_eq!(
             Some(Greater),
-            PathMember::test_string("f".into(), true, Casing::Sensitive).partial_cmp(
-                &PathMember::test_string("e".into(), true, Casing::Sensitive)
-            )
+            PathMember::test_string("f", true, Casing::Sensitive)
+                .partial_cmp(&PathMember::test_string("e", true, Casing::Sensitive))
         );
     }
 }

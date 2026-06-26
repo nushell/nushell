@@ -25,6 +25,10 @@ pub enum ParseError<'i> {
         duplicate: String,
         span: Span,
     },
+    TooComplexKey {
+        kind: TooComplexKey,
+        span: Span,
+    },
     UnexpectedKeyAnchor {
         span: Span,
     },
@@ -131,6 +135,13 @@ pub enum ParseError<'i> {
     },
 }
 
+#[derive(strum::Display)]
+#[strum(serialize_all = "snake_case")]
+pub enum TooComplexKey {
+    Mapping,
+    Sequence,
+}
+
 pub enum TimestampIssue {
     InvalidDate,
     InvalidTime,
@@ -187,6 +198,13 @@ impl From<ParseError<'_>> for ShellError {
                 span,
             )
             .with_code("shell::yaml::parse::duplicate_key"),
+
+            ParseError::TooComplexKey { kind, span } => GenericError::new(
+                "Too complex key found",
+                format!("Nushell cannot handle a {kind} as key"),
+                span,
+            )
+            .with_code(format!("shell::yaml::parse::too_complex_key::{kind}")),
 
             ParseError::UnexpectedKeyAnchor { span } => GenericError::new(
                 "Found unexpected key anchor",

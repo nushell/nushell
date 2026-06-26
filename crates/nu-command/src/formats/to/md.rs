@@ -946,11 +946,7 @@ mod tests {
         ]);
 
         let center_columns = Value::test_list(vec![Value::test_cell_path(CellPath {
-            members: vec![PathMember::test_string(
-                "bar".into(),
-                false,
-                Casing::Sensitive,
-            )],
+            members: vec![PathMember::test_string("bar", false, Casing::Sensitive)],
         })]);
 
         let cell_path: Vec<CellPath> = center_columns
@@ -1061,18 +1057,10 @@ mod tests {
 
         let center_columns = Value::test_list(vec![
             Value::test_cell_path(CellPath {
-                members: vec![PathMember::test_string(
-                    "command".into(),
-                    false,
-                    Casing::Sensitive,
-                )],
+                members: vec![PathMember::test_string("command", false, Casing::Sensitive)],
             }),
             Value::test_cell_path(CellPath {
-                members: vec![PathMember::test_string(
-                    "output".into(),
-                    false,
-                    Casing::Sensitive,
-                )],
+                members: vec![PathMember::test_string("output", false, Casing::Sensitive)],
             }),
         ]);
 
@@ -1122,11 +1110,7 @@ mod tests {
         ]);
 
         let center_columns = Value::test_list(vec![Value::test_cell_path(CellPath {
-            members: vec![PathMember::test_string(
-                "none".into(),
-                false,
-                Casing::Sensitive,
-            )],
+            members: vec![PathMember::test_string("none", false, Casing::Sensitive)],
         })]);
 
         let cell_path: Vec<CellPath> = center_columns
@@ -1173,7 +1157,7 @@ mod tests {
         let center_columns = Value::test_list(vec![Value::test_cell_path(CellPath {
             members: vec![
                 PathMember::test_int(1, false),
-                PathMember::test_string("v".into(), false, Casing::Sensitive),
+                PathMember::test_string("v", false, Casing::Sensitive),
             ],
         })]);
 

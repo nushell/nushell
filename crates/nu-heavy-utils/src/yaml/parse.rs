@@ -35,7 +35,7 @@ use crate::{
     merge::{Merge, MergeStrategy},
     yaml::{
         KnownTag, Spec, UnknownTagError,
-        error::{InternalParserError, NodeKind, ParseError, TimestampIssue},
+        error::{InternalParserError, NodeKind, ParseError, TimestampIssue, TooComplexKey},
     },
 };
 use base64::{Engine, engine::general_purpose::STANDARD as BASE64_STANDARD};
@@ -657,6 +657,18 @@ fn parse_mapping<'i>(
                     let record = Record::from_iter(values);
                     break 'record merge.merge(record, merge_strategy, ctx.parser_span)?;
                 }
+                Event::MappingStart(..) => {
+                    return Err(ShellError::from(ParseError::TooComplexKey {
+                        kind: TooComplexKey::Mapping,
+                        span: ctx.parser_span,
+                    }));
+                }
+                Event::SequenceStart(..) => {
+                    return Err(ShellError::from(ParseError::TooComplexKey {
+                        kind: TooComplexKey::Sequence,
+                        span: ctx.yaml_span,
+                    }));
+                }
                 event => return Err(ctx.unexpected_event(event).into()),
             }
         };
@@ -1234,8 +1246,11 @@ mod v1_2 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nu_protocol::IntoSpanned;
+    use indoc::indoc;
+    use miette::Diagnostic;
+    use nu_protocol::{IntoSpanned, test_record};
     use nu_test_support::prelude::*;
+    use rstest::rstest;
 
     const FIXTURE: &str = include_str!("../../../../tests/fixtures/formats/yaml/sample.yaml");
     const SPAN: Span = Span::test_data();
@@ -1246,5 +1261,98 @@ mod tests {
         let options = ParseOptions::default();
         parse(yaml, SPAN, options)?;
         Ok(())
+    }
+
+    #[rstest]
+    #[case::double_curly_braces_with_quotes(
+        r#"value: "{{ something }}""#, 
+        test_record! { "value" => "{{ something }}" }
+    )]
+    fn parse_problematic(#[case] input: &str, #[case] expected: Value) -> Result {
+        let yaml = input.into_spanned(SPAN);
+        let options = ParseOptions::default();
+        let parsed = parse(yaml, SPAN, options)?;
+        assert_eq!(parsed, expected);
+        Ok(())
+    }
+
+    #[rstest]
+    #[case::too_complex_mapping_key(
+        "value: {{ something }}",
+        "shell::yaml::parse::too_complex_key::mapping"
+    )]
+    #[case::too_complex_sequence_key(
+        "value: {[ something ]}",
+        "shell::yaml::parse::too_complex_key::sequence"
+    )]
+    fn parse_error(#[case] input: &str, #[case] expected: &str) {
+        let yaml = input.into_spanned(SPAN);
+        let options = ParseOptions::default();
+        let err = parse(yaml, SPAN, options).unwrap_err();
+        let code = err.code().unwrap().to_string();
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn test_consistent_mapping_ordering() -> Result {
+        let test_yaml = Spanned {
+            span: SPAN,
+            item: indoc! {"
+                - a: b
+                  b: c
+                - a: g
+                  b: h
+            "},
+        };
+
+        let expected = vec![
+            test_record! {
+                "a" => "b",
+                "b" => "c",
+            },
+            test_record! {
+                "a" => "g",
+                "b" => "h"
+            },
+        ];
+
+        // In a previous implementation the ordering of columns was non-deterministic.
+        // It would take a few executions of the YAML conversion to see this ordering difference.
+        // This loop should be fare more than enough to catch a regression.
+        for i in 1..1000 {
+            let parsed = parse(test_yaml, SPAN, ParseOptions::default())?;
+            // Unfortunately the `eq`` function for `Value`` doesn't compare well enough to detect
+            // ordering errors in List columns or values.
+
+            let parsed = parsed.into_list()?;
+            assert_eq!(expected.len(), parsed.len(), "iteration {i}");
+
+            for (j, expected) in expected.iter().enumerate() {
+                let expected = expected.as_record()?;
+                let parsed = parsed[j].as_record()?;
+                assert!(
+                    expected.columns().eq(parsed.columns()),
+                    "record {j}, iteration {i}"
+                );
+                assert!(
+                    expected.values().eq(parsed.values()),
+                    "record {j}, iteration {i}"
+                );
+            }
+        }
+
+        Ok(())
+    }
+
+    #[rstest]
+    #[case("Key: !Value ${TEST}-Test-role")]
+    #[case("Key: !Value test-${TEST}")]
+    #[case("Key: !Value")]
+    #[case("Key: !True")]
+    #[case("Key: !123")]
+    fn ignore_unknown_tags(#[case] input: &str) {
+        let yaml = input.into_spanned(SPAN);
+        let options = ParseOptions::default().ignore_tags(true);
+        assert!(parse(yaml, SPAN, options).is_ok());
     }
 }

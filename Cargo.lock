@@ -4849,6 +4849,8 @@ dependencies = [
  "better_default",
  "chrono",
  "derive_setters",
+ "indoc",
+ "miette",
  "nu-protocol",
  "nu-test-support",
  "nu-utils",
