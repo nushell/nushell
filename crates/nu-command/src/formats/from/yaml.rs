@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_heavy_utils::yaml::ParseOptions;
 use nu_protocol::{ast::PathMember, casing::Casing};
 
 #[derive(Clone)]
@@ -42,7 +43,7 @@ impl Command for FromYamlLike {
                     "from yml" => "'a: 1' | from yml",
                     _ => unreachable!("only implemented for `yaml` and `yml`"),
                 },
-                description: "Converts yaml formatted string to table.",
+                description: "Converts YAML formatted string to table.",
                 result: Some(test_record! {
                     "a" => 1
                 }),
@@ -53,7 +54,7 @@ impl Command for FromYamlLike {
                     "from yml" => "'[ a: 1, b: [1, 2] ]' | from yml",
                     _ => unreachable!("only implemented for `yaml` and `yml`"),
                 },
-                description: "Converts yaml formatted string to table.",
+                description: "Converts YAML formatted string to table.",
                 result: Some(Value::test_list(vec![
                     test_record! { "a" => 1 },
                     test_record! { "b" => [1, 2] },
@@ -65,7 +66,7 @@ impl Command for FromYamlLike {
                     "from yml" => "'!cell-path $1.abc?.def!' | from yml",
                     _ => unreachable!("only implemented for `yaml` and `yml`"),
                 },
-                description: "Convert nushell values from yaml.",
+                description: "Convert nushell values from YAML.",
                 result: Some(Value::test_cell_path(CellPath {
                     members: vec![
                         PathMember::test_int(1, false),
@@ -92,7 +93,7 @@ impl Command for FromYamlLike {
         let spec = call.get_flag(engine_state, stack, "spec")?;
         let multiple = call.get_flag(engine_state, stack, "multiple")?;
         let ignore_tags = call.has_flag(engine_state, stack, "ignore-tags")?;
-        let options = nu_heavy_utils::yaml::ParseOptions::default()
+        let options = ParseOptions::default()
             .spec(spec.unwrap_or_default())
             .multiple(multiple.unwrap_or_default())
             .ignore_tags(ignore_tags);

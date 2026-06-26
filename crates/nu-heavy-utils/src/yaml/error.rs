@@ -201,7 +201,7 @@ impl From<ParseError<'_>> for ShellError {
 
             ParseError::TooComplexKey { kind, span } => GenericError::new(
                 "Too complex key found",
-                format!("Nushell cannot handle a {kind} as key"),
+                format!("Nushell cannot handle a {kind} as a key"),
                 span,
             )
             .with_code(format!("shell::yaml::parse::too_complex_key::{kind}")),
