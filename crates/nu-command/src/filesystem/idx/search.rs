@@ -210,14 +210,17 @@ impl Command for IdxSearch {
         };
 
         let signals = engine_state.signals();
-        stream_grep(
-            &patterns,
+        let cwd = engine_state.cwd(Some(stack))?.into_std_path_buf();
+        let ctx = super::state::GrepSearchContext {
+            patterns: &patterns,
             mode,
-            limit,
-            call.head,
+            page_limit: limit,
+            span: call.head,
             before_context,
             after_context,
+            cwd: Some(cwd.as_path()),
             signals,
-        )
+        };
+        stream_grep(ctx)
     }
 }
