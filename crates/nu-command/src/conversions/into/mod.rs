@@ -10,6 +10,7 @@ mod glob;
 mod int;
 mod record;
 mod semver;
+mod semver_range;
 mod string;
 mod value;
 
@@ -25,5 +26,6 @@ pub use glob::IntoGlob;
 pub use int::IntoInt;
 pub use record::IntoRecord;
 pub use semver::IntoSemver;
+pub use semver_range::IntoSemverRange;
 pub use string::IntoString;
 pub use value::IntoValue;

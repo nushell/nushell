@@ -377,6 +377,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             IntoInt,
             IntoRecord,
             IntoSemver,
+            IntoSemverRange,
             IntoString,
             IntoGlob,
             IntoValue,
@@ -387,11 +388,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         bind_command! {
             Semver,
             SemverBump,
-            SemverFromRecord,
-            SemverIsValid,
-            SemverMatchReq,
-            SemverSort,
-            SemverToRecord,
         };
 
         // Env

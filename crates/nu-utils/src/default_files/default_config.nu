@@ -28,6 +28,7 @@ $env.config.color_config = {
     closure: green_bold
     glob:cyan_bold
     semver: cyan_bold
+    semver-range: cyan_bold
     block: default
     hints: dark_gray
     search_result: { bg: red fg: default }
@@ -57,7 +58,6 @@ $env.config.color_config = {
     shape_operator: yellow
     shape_pipe: purple_bold
     shape_range: yellow_bold
-    shape_semver: cyan_bold
     shape_record: cyan_bold
     shape_redirection: purple_bold
     shape_signature: green_bold

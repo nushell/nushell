@@ -833,10 +833,6 @@ $env.config.color_config.shape_float = "purple_bold"
 # Default: yellow_bold
 $env.config.color_config.shape_range = "yellow_bold"
 
-# color_config.shape_semver: Style for semver literals (e.g., 1.2.3, 1.0.0-alpha).
-# Default: cyan_bold
-$env.config.color_config.shape_semver = "cyan_bold"
-
 # color_config.shape_binary: Style for binary literals (0x[...], 0b[...], 0o[...]).
 # Default: purple_bold
 $env.config.color_config.shape_binary = "purple_bold"
@@ -1042,6 +1038,10 @@ $env.config.color_config.range = "default"
 # color_config.semver: Style for semver values in output.
 # Default: "cyan_bold"
 $env.config.color_config.semver = "cyan_bold"
+
+# color_config.semver-range: Style for semver-range values in output.
+# Default: "cyan_bold"
+$env.config.color_config.semver-range = "cyan_bold"
 
 # color_config.cell-path: Style for cell-path values in output.
 # Default: default

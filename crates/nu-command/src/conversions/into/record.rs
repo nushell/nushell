@@ -1,3 +1,4 @@
+use crate::semver::value::SemverValue;
 use chrono::{DateTime, Datelike, FixedOffset, Timelike};
 use nu_engine::command_prelude::*;
 use nu_protocol::format_duration_as_timeperiod;
@@ -117,6 +118,16 @@ fn into_record(call: &Call, input: PipelineData) -> Result<PipelineData, ShellEr
         PipelineData::Value(Value::Duration { val, .. }, _) => {
             Ok(parse_duration_into_record(val, span).into_pipeline_data())
         }
+        PipelineData::Value(Value::Custom { val, .. }, _) => {
+            if let Some(semver) = val.as_any().downcast_ref::<SemverValue>() {
+                Ok(parse_semver_into_record(semver, span).into_pipeline_data())
+            } else {
+                Err(ShellError::TypeMismatch {
+                    err_message: format!("Can't convert {} to record", val.type_name()),
+                    span,
+                })
+            }
+        }
         PipelineData::Value(Value::List { .. }, _) | PipelineData::ListStream(..) => {
             let mut input = input;
             let mut record = Record::new();
@@ -234,6 +245,169 @@ fn parse_duration_into_record(duration: i64, span: Span) -> Value {
     );
 
     Value::record(record, span)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::semver::value::SemverValue;
+    use nu_protocol::CustomValue;
+
+    fn create_semver_value(version: &str) -> Value {
+        let semver = SemverValue::new(semver::Version::parse(version).unwrap());
+        Value::custom(Box::new(semver), Span::test_data())
+    }
+
+    #[test]
+    fn test_parse_semver_into_record_basic() {
+        let semver_val = SemverValue::new(semver::Version::parse("1.2.3").unwrap());
+        let result = parse_semver_into_record(&semver_val, Span::test_data());
+
+        match result {
+            Value::Record { val, .. } => {
+                assert_eq!(val.get("major").unwrap().as_int().unwrap(), 1);
+                assert_eq!(val.get("minor").unwrap().as_int().unwrap(), 2);
+                assert_eq!(val.get("patch").unwrap().as_int().unwrap(), 3);
+                assert_eq!(val.get("pre").unwrap().as_str().unwrap(), "");
+                assert_eq!(val.get("build").unwrap().as_str().unwrap(), "");
+
+                let pre_identifiers = val.get("pre_identifiers").unwrap().as_list().unwrap();
+                assert_eq!(pre_identifiers.len(), 0);
+
+                let build_identifiers = val.get("build_identifiers").unwrap().as_list().unwrap();
+                assert_eq!(build_identifiers.len(), 0);
+            }
+            _ => panic!("Expected Record value"),
+        }
+    }
+
+    #[test]
+    fn test_parse_semver_into_record_with_prerelease() {
+        let semver_val = SemverValue::new(semver::Version::parse("1.2.3-alpha.1").unwrap());
+        let result = parse_semver_into_record(&semver_val, Span::test_data());
+
+        match result {
+            Value::Record { val, .. } => {
+                assert_eq!(val.get("pre").unwrap().as_str().unwrap(), "alpha.1");
+
+                let pre_identifiers = val.get("pre_identifiers").unwrap().as_list().unwrap();
+                assert_eq!(pre_identifiers.len(), 2);
+                assert_eq!(pre_identifiers[0].as_str().unwrap(), "alpha");
+                assert_eq!(pre_identifiers[1].as_int().unwrap(), 1);
+            }
+            _ => panic!("Expected Record value"),
+        }
+    }
+
+    #[test]
+    fn test_parse_semver_into_record_with_build() {
+        let semver_val = SemverValue::new(semver::Version::parse("1.2.3+build.2").unwrap());
+        let result = parse_semver_into_record(&semver_val, Span::test_data());
+
+        match result {
+            Value::Record { val, .. } => {
+                assert_eq!(val.get("build").unwrap().as_str().unwrap(), "build.2");
+
+                let build_identifiers = val.get("build_identifiers").unwrap().as_list().unwrap();
+                assert_eq!(build_identifiers.len(), 2);
+                assert_eq!(build_identifiers[0].as_str().unwrap(), "build");
+                assert_eq!(build_identifiers[1].as_int().unwrap(), 2);
+            }
+            _ => panic!("Expected Record value"),
+        }
+    }
+
+    #[test]
+    fn test_parse_semver_into_record_with_both() {
+        let semver_val =
+            SemverValue::new(semver::Version::parse("1.2.3-alpha.1+build.2").unwrap());
+        let result = parse_semver_into_record(&semver_val, Span::test_data());
+
+        match result {
+            Value::Record { val, .. } => {
+                assert_eq!(val.get("major").unwrap().as_int().unwrap(), 1);
+                assert_eq!(val.get("minor").unwrap().as_int().unwrap(), 2);
+                assert_eq!(val.get("patch").unwrap().as_int().unwrap(), 3);
+                assert_eq!(val.get("pre").unwrap().as_str().unwrap(), "alpha.1");
+                assert_eq!(val.get("build").unwrap().as_str().unwrap(), "build.2");
+
+                let pre_identifiers = val.get("pre_identifiers").unwrap().as_list().unwrap();
+                assert_eq!(pre_identifiers.len(), 2);
+
+                let build_identifiers = val.get("build_identifiers").unwrap().as_list().unwrap();
+                assert_eq!(build_identifiers.len(), 2);
+            }
+            _ => panic!("Expected Record value"),
+        }
+    }
+
+    #[test]
+    fn test_into_record_with_semver() {
+        let semver_val = create_semver_value("1.2.3");
+        let semver_ref = match &semver_val {
+            Value::Custom { val, .. } => val.as_any().downcast_ref::<SemverValue>().unwrap(),
+            _ => panic!("Expected Custom value"),
+        };
+        let result = parse_semver_into_record(semver_ref, Span::test_data());
+
+        match result {
+            Value::Record { val, .. } => {
+                assert_eq!(val.get("major").unwrap().as_int().unwrap(), 1);
+                assert_eq!(val.get("minor").unwrap().as_int().unwrap(), 2);
+                assert_eq!(val.get("patch").unwrap().as_int().unwrap(), 3);
+            }
+            _ => panic!("Expected Record value"),
+        }
+    }
+}
+
+fn parse_semver_into_record(semver: &SemverValue, span: Span) -> Value {
+    let version = &semver.version;
+
+    let pre_identifiers: Vec<Value> = if version.pre.is_empty() {
+        Vec::new()
+    } else {
+        version
+            .pre
+            .split('.')
+            .map(|id| {
+                if let Ok(num) = id.parse::<i64>() {
+                    Value::int(num, span)
+                } else {
+                    Value::string(id.to_string(), span)
+                }
+            })
+            .collect()
+    };
+
+    let build_identifiers: Vec<Value> = if version.build.is_empty() {
+        Vec::new()
+    } else {
+        version
+            .build
+            .split('.')
+            .map(|id| {
+                if let Ok(num) = id.parse::<i64>() {
+                    Value::int(num, span)
+                } else {
+                    Value::string(id.to_string(), span)
+                }
+            })
+            .collect()
+    };
+
+    Value::record(
+        record! {
+            "major" => Value::int(version.major as i64, span),
+            "minor" => Value::int(version.minor as i64, span),
+            "patch" => Value::int(version.patch as i64, span),
+            "pre" => Value::string(version.pre.to_string(), span),
+            "build" => Value::string(version.build.to_string(), span),
+            "pre_identifiers" => Value::list(pre_identifiers, span),
+            "build_identifiers" => Value::list(build_identifiers, span),
+        },
+        span,
+    )
 }
 
 #[cfg(test)]
