@@ -4725,7 +4725,7 @@ mod tests {
         fn cell_path() {
             let value = Value::test_cell_path(CellPath {
                 members: vec![
-                    PathMember::test_string("name".into(), false, Casing::Sensitive),
+                    PathMember::test_string("name", false, Casing::Sensitive),
                     PathMember::test_int(1, true),
                 ],
             });
@@ -4955,11 +4955,7 @@ mod tests {
             let span = Span::test_data();
             let mut val = record!("a" => Value::test_int(1)).into_value(span);
             let res = val.update_data_at_cell_path(
-                &[PathMember::test_string(
-                    "a".into(),
-                    false,
-                    Casing::Sensitive,
-                )],
+                &[PathMember::test_string("a", false, Casing::Sensitive)],
                 Value::test_int(2),
             );
             assert_eq!(res, Ok(()));
@@ -4983,11 +4979,7 @@ mod tests {
             let span = Span::test_data();
             let mut val = record!("a" => Value::test_int(1)).into_value(span);
             let res = val.update_data_at_cell_path(
-                &[PathMember::test_string(
-                    "b".into(),
-                    false,
-                    Casing::Sensitive,
-                )],
+                &[PathMember::test_string("b", false, Casing::Sensitive)],
                 Value::test_int(2),
             );
             assert!(matches!(res, Err(ShellError::CantFindColumn { .. })));
@@ -5014,7 +5006,7 @@ mod tests {
             let span = Span::test_data();
             let mut val = record!("a" => Value::test_int(1)).into_value(span);
             let res = val.update_data_at_cell_path(
-                &[PathMember::test_string("z".into(), true, Casing::Sensitive)],
+                &[PathMember::test_string("z", true, Casing::Sensitive)],
                 Value::test_int(2),
             );
             assert_eq!(res, Ok(()));
@@ -5039,8 +5031,8 @@ mod tests {
             .into_value(span);
             let res = val.update_data_at_cell_path(
                 &[
-                    PathMember::test_string("a".into(), false, Casing::Sensitive),
-                    PathMember::test_string("b".into(), false, Casing::Sensitive),
+                    PathMember::test_string("a", false, Casing::Sensitive),
+                    PathMember::test_string("b", false, Casing::Sensitive),
                 ],
                 Value::test_int(99),
             );
@@ -5062,11 +5054,7 @@ mod tests {
                 record!("x" => Value::test_int(2)).into_value(span),
             ]);
             let res = val.update_data_at_cell_path(
-                &[PathMember::test_string(
-                    "x".into(),
-                    false,
-                    Casing::Sensitive,
-                )],
+                &[PathMember::test_string("x", false, Casing::Sensitive)],
                 Value::test_int(0),
             );
             assert_eq!(res, Ok(()));
@@ -5085,7 +5073,7 @@ mod tests {
             let mut val =
                 record!("a" => Value::test_int(1), "b" => Value::test_int(2)).into_value(span);
             let res = val.remove_data_at_cell_path(&[PathMember::test_string(
-                "a".into(),
+                "a",
                 false,
                 Casing::Sensitive,
             )]);
@@ -5116,8 +5104,8 @@ mod tests {
             )
             .into_value(span);
             let res = val.remove_data_at_cell_path(&[
-                PathMember::test_string("a".into(), false, Casing::Sensitive),
-                PathMember::test_string("b".into(), false, Casing::Sensitive),
+                PathMember::test_string("a", false, Casing::Sensitive),
+                PathMember::test_string("b", false, Casing::Sensitive),
             ]);
             assert_eq!(res, Ok(()));
             assert_eq!(
@@ -5137,7 +5125,7 @@ mod tests {
                 record!("x" => Value::test_int(3), "y" => Value::test_int(4)).into_value(span),
             ]);
             let res = val.remove_data_at_cell_path(&[PathMember::test_string(
-                "x".into(),
+                "x",
                 false,
                 Casing::Sensitive,
             )]);
@@ -5156,11 +5144,7 @@ mod tests {
             let span = Span::test_data();
             let mut val = record!("a" => Value::test_int(1)).into_value(span);
             let res = val.upsert_data_at_cell_path(
-                &[PathMember::test_string(
-                    "a".into(),
-                    false,
-                    Casing::Sensitive,
-                )],
+                &[PathMember::test_string("a", false, Casing::Sensitive)],
                 Value::test_int(99),
             );
             assert_eq!(res, Ok(()));
@@ -5184,11 +5168,7 @@ mod tests {
             let span = Span::test_data();
             let mut val = record!("a" => Value::test_int(1)).into_value(span);
             let res = val.upsert_data_at_cell_path(
-                &[PathMember::test_string(
-                    "b".into(),
-                    false,
-                    Casing::Sensitive,
-                )],
+                &[PathMember::test_string("b", false, Casing::Sensitive)],
                 Value::test_int(2),
             );
             assert_eq!(res, Ok(()));
@@ -5218,11 +5198,7 @@ mod tests {
                 record!("x" => Value::test_int(2)).into_value(span),
             ]);
             let res = val.upsert_data_at_cell_path(
-                &[PathMember::test_string(
-                    "x".into(),
-                    false,
-                    Casing::Sensitive,
-                )],
+                &[PathMember::test_string("x", false, Casing::Sensitive)],
                 Value::test_int(0),
             );
             assert_eq!(res, Ok(()));
@@ -5240,11 +5216,7 @@ mod tests {
             let span = Span::test_data();
             let mut val = record!("a" => Value::test_int(1)).into_value(span);
             let res = val.insert_data_at_cell_path(
-                &[PathMember::test_string(
-                    "b".into(),
-                    false,
-                    Casing::Sensitive,
-                )],
+                &[PathMember::test_string("b", false, Casing::Sensitive)],
                 Value::test_int(2),
                 span,
             );
@@ -5260,11 +5232,7 @@ mod tests {
             let span = Span::test_data();
             let mut val = record!("a" => Value::test_int(1)).into_value(span);
             let res = val.insert_data_at_cell_path(
-                &[PathMember::test_string(
-                    "a".into(),
-                    false,
-                    Casing::Sensitive,
-                )],
+                &[PathMember::test_string("a", false, Casing::Sensitive)],
                 Value::test_int(2),
                 span,
             );
@@ -5328,11 +5296,7 @@ mod tests {
             let mut val =
                 Value::test_list(vec![record!("x" => Value::test_int(1)).into_value(span)]);
             let res = val.insert_data_at_cell_path(
-                &[PathMember::test_string(
-                    "x".into(),
-                    false,
-                    Casing::Sensitive,
-                )],
+                &[PathMember::test_string("x", false, Casing::Sensitive)],
                 Value::test_int(0),
                 span,
             );
@@ -5345,11 +5309,7 @@ mod tests {
             let mut val =
                 Value::test_list(vec![record!("x" => Value::test_int(1)).into_value(span)]);
             let res = val.insert_data_at_cell_path(
-                &[PathMember::test_string(
-                    "y".into(),
-                    false,
-                    Casing::Sensitive,
-                )],
+                &[PathMember::test_string("y", false, Casing::Sensitive)],
                 Value::test_int(2),
                 span,
             );

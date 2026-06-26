@@ -652,7 +652,7 @@ mod test {
         assert_eq!(
             Some(Greater),
             PathMember::test_int(5, true).partial_cmp(&PathMember::test_string(
-                "e".into(),
+                "e",
                 true,
                 Casing::Sensitive
             ))
