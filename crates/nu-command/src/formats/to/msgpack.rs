@@ -282,9 +282,6 @@ pub(crate) fn write_value(
         Value::Binary { val, .. } => {
             mp::write_bin(out, val).err_span(span)?;
         }
-        Value::SemVer { val, .. } => {
-            mp::write_str(out, &val.to_string()).err_span(span)?;
-        }
         Value::Custom { val, .. } => {
             write_value(
                 out,

@@ -218,7 +218,6 @@ fn local_into_string(
                 format!("closure_{}", val.block_id.get())
             }
         }
-        Value::SemVer { val, .. } => val.to_string(),
         Value::Nothing { .. } => String::new(),
         Value::Error { error, .. } => format!("{error:?}"),
         Value::Binary { val, .. } => format!("{val:?}"),

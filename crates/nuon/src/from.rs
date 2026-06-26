@@ -182,7 +182,6 @@ fn convert_to_value(
         )),
         Expr::CellPath(val) => Ok(Value::cell_path(val, span)),
         Expr::DateTime(dt) => Ok(Value::date(dt, span)),
-        Expr::SemVer(val) => Ok(Value::semver(*val, span)),
         Expr::ExternalCall(..) => Err(truncated_nuon_error(
             original_text,
             expr.span,

@@ -33,8 +33,7 @@ fn to_string_tagged_value(
         | Value::Filesize { .. }
         | Value::CellPath { .. }
         | Value::Float { .. }
-        | Value::SemVer { .. } => Ok(v.clone().to_abbreviated_string(config)),
-        Value::Date { val, .. } => Ok(val.to_string()),
+        | Value::Date { .. } => Ok(v.to_expanded_string(", ", config)),
         Value::Nothing { .. } => Ok(String::new()),
         // Propagate existing errors
         Value::Error { error, .. } => Err(*error.clone()),

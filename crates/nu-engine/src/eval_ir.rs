@@ -1123,7 +1123,6 @@ fn literal_value(
         Literal::RawString(s) => Value::string(ctx.get_str(*s, span)?, span),
         Literal::CellPath(path) => Value::cell_path(CellPath::clone(path), span),
         Literal::Date(dt) => Value::date(**dt, span),
-        Literal::SemVer(v) => Value::semver(*v.clone(), span),
         Literal::Nothing => Value::nothing(span),
         // Empty is handled specially in load_literal and should never reach here
         Literal::Empty => Value::nothing(span),

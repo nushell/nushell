@@ -30,7 +30,6 @@ pub fn default_shape_color(shape: &str) -> Style {
         "shape_nothing" => Style::new().fg(Color::LightCyan),
         "shape_operator" => Style::new().fg(Color::Yellow),
         "shape_pipe" => Style::new().fg(Color::Purple).bold(),
-        "shape_semver" => Style::new().fg(Color::Cyan).bold(),
         "shape_range" => Style::new().fg(Color::Yellow).bold(),
         "shape_raw_string" => Style::new().fg(Color::LightMagenta).bold(),
         "shape_record" => Style::new().fg(Color::Cyan).bold(),

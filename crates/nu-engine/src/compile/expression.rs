@@ -441,7 +441,6 @@ pub(crate) fn compile_expression(
             lit(builder, literal_from_value_with_unit(value_with_unit)?)
         }
         Expr::DateTime(dt) => lit(builder, Literal::Date(Box::new(*dt))),
-        Expr::SemVer(v) => lit(builder, Literal::SemVer(v.clone())),
         Expr::Filepath(path, no_expand) => {
             let val = builder.data(path)?;
             lit(

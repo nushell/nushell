@@ -71,7 +71,6 @@ pub trait Eval {
                 value.follow_cell_path(&tail).map(Cow::into_owned)
             }
             Expr::DateTime(dt) => Ok(Value::date(*dt, expr_span)),
-            Expr::SemVer(v) => Ok(Value::semver(*v.clone(), expr_span)),
             Expr::List(list) => {
                 let mut output = vec![];
                 for item in list {

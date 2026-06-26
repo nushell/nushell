@@ -97,9 +97,6 @@ pub enum SyntaxShape {
     /// An operator, eg `+`
     Operator,
 
-    /// A semver string is allowed (eg `1.2.3` or `1.2.3-alpha.1+build`)
-    SemVer,
-
     /// A range is allowed (eg, `1..3`)
     Range,
 
@@ -168,7 +165,6 @@ impl SyntaxShape {
             SyntaxShape::Number => Type::Number,
             SyntaxShape::OneOf(types) => Type::one_of(types.iter().map(SyntaxShape::to_type)),
             SyntaxShape::Operator => Type::Any,
-            SyntaxShape::SemVer => Type::SemVer,
             SyntaxShape::Range => Type::Range,
             SyntaxShape::Record(entries) => Type::Record(entries.map(SyntaxShape::to_type)),
             SyntaxShape::RowCondition => Type::Bool,
@@ -200,7 +196,6 @@ impl Display for SyntaxShape {
             SyntaxShape::CellPath => write!(f, "cell-path"),
             SyntaxShape::FullCellPath => write!(f, "cell-path"),
             SyntaxShape::Number => write!(f, "number"),
-            SyntaxShape::SemVer => write!(f, "semver"),
             SyntaxShape::Range => write!(f, "range"),
             SyntaxShape::Int => write!(f, "int"),
             SyntaxShape::Float => write!(f, "float"),

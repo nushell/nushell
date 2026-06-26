@@ -296,7 +296,6 @@ pub fn discover_captures_in_expr(
         }
         Expr::CellPath(_) => {}
         Expr::DateTime(_) => {}
-        Expr::SemVer(_) => {}
         Expr::ExternalCall(head, args) => {
             discover_captures_in_expr(working_set, head, seen, seen_blocks, output)?;
 

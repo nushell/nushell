@@ -17,7 +17,7 @@ pub use crate::parse_literals::{
     DURATION_UNIT_GROUPS, parse_binary, parse_brace_expr, parse_datetime, parse_directory,
     parse_duration, parse_filepath, parse_filesize, parse_float, parse_full_cell_path,
     parse_glob_pattern, parse_int, parse_number, parse_paren_expr, parse_range, parse_raw_string,
-    parse_semver, parse_simple_cell_path, parse_string, parse_string_strict, parse_unit_value,
+    parse_simple_cell_path, parse_string, parse_string_strict, parse_unit_value,
     unescape_unquote_string,
 };
 

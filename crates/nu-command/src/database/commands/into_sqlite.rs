@@ -369,7 +369,6 @@ fn nu_value_to_sqlite_type(val: &Value, dst_span: Span) -> Result<&'static str, 
         // [NOTE] On null values, we just assume TEXT. This could end up
         // creating a table where the column type is wrong in the table schema.
         // This means the table could end up with the wrong schema.
-        Type::SemVer => Ok("TEXT"),
         Type::Nothing => Ok("TEXT"),
 
         // intentionally enumerated so that any future types get handled

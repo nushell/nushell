@@ -396,7 +396,6 @@ fn find_matching_block_end_in_expr(
             Expr::Keyword(..) => None,
             Expr::ValueWithUnit(..) => None,
             Expr::DateTime(_) => None,
-            Expr::SemVer(_) => None,
             Expr::Filepath(_, _) => None,
             Expr::Directory(_, _) => None,
             Expr::GlobPattern(_, _) => None,

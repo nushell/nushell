@@ -195,7 +195,6 @@ impl BlockBuilder {
                         | Literal::RawString(_)
                         | Literal::CellPath(_)
                         | Literal::Date(_)
-                        | Literal::SemVer(_)
                         | Literal::Nothing
                         | Literal::Empty => Ok(()),
                     },
