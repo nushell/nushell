@@ -1,7 +1,5 @@
-pub mod endian;
 pub mod merge;
-
-pub use endian::Endian;
+pub mod endian;
 
 #[cfg(test)]
 #[allow(unused_imports)]
