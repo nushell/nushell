@@ -317,7 +317,7 @@ fn idx_search_works_on_imported_snapshot() -> Result {
 
         test()
             .cwd(dirs.test())
-            .run("idx import snapshot.db; idx search hello | where path == searchable.txt | length")
+            .run("idx import snapshot.db; idx search hello | where relative_path == searchable.txt | length")
             .expect_value_eq(1)
     })
 }
@@ -333,9 +333,43 @@ fn idx_search_finds_content() -> Result {
 
         test()
             .cwd(dirs.test())
-            .run("idx init . --wait; idx search hello | get 0.path | str contains searchable.txt")
+            .run("idx init . --wait; idx search hello | get 0.relative_path | str contains searchable.txt")
             .expect_value_eq(true)
     })
+}
+
+#[test]
+#[serial]
+fn idx_search_uses_relative_path_from_current_directory() -> Result {
+    Playground::setup(
+        "idx_search_uses_relative_path_from_current_directory",
+        |dirs, sandbox| {
+            sandbox.mkdir("src");
+            sandbox.with_files(&[FileWithContent("src/main.rs", "pattern found here")]);
+
+            test()
+                .cwd(dirs.test())
+                .run("cd src; idx init .. --wait; idx search pattern | get 0.relative_path")
+                .expect_value_eq("main.rs")
+        },
+    )
+}
+
+#[test]
+#[serial]
+fn idx_find_uses_relative_path_from_current_directory() -> Result {
+    Playground::setup(
+        "idx_find_uses_relative_path_from_current_directory",
+        |dirs, sandbox| {
+            sandbox.mkdir("src");
+            sandbox.with_files(&[EmptyFile("src/main.rs")]);
+
+            test()
+                .cwd(dirs.test())
+                .run("cd src; idx init .. --wait; idx find main | where kind == file | get 0.relative_path")
+                .expect_value_eq("main.rs")
+        },
+    )
 }
 
 #[test]

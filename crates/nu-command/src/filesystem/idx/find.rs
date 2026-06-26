@@ -80,6 +80,17 @@ impl Command for IdxFind {
             .unwrap_or(100);
 
         let signals = engine_state.signals();
-        stream_find(&query, files, dirs, verbose, limit, call.head, signals)
+        let cwd = engine_state.cwd(Some(stack))?.into_std_path_buf();
+        let ctx = super::state::FindSearchContext {
+            query: &query,
+            files_only: files,
+            dirs_only: dirs,
+            verbose,
+            limit,
+            span: call.head,
+            cwd: Some(cwd.as_path()),
+            signals,
+        };
+        stream_find(ctx)
     }
 }
