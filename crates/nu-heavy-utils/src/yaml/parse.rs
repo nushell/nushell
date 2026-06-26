@@ -35,11 +35,12 @@ use crate::{
     merge::{Merge, MergeStrategy},
     yaml::{
         KnownTag, Spec, UnknownTagError,
-        error::{InternalParserError, NodeKind, ParseError},
+        error::{InternalParserError, NodeKind, ParseError, TimestampIssue},
     },
 };
 use base64::{Engine, engine::general_purpose::STANDARD as BASE64_STANDARD};
 use chrono::DateTime;
+use chrono::{FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};
 use derive_setters::Setters;
 use nu_protocol::{
     FromValue, Range, Record, ShellError, Span, Spanned, Value, ast::CellPath, record,
@@ -53,6 +54,7 @@ use std::{
     num::NonZeroUsize,
     str::FromStr,
     sync::LazyLock,
+    time::Duration,
 };
 
 /// Options for parsing YAML.
@@ -325,6 +327,7 @@ fn parse_scalar_untagged<'i>(
         (V1_2, s) if let Some(i) = v1_2::maybe_parse_int(ctx, s)? => Value::int(i, span),
         (V1_1, s) if let Some(f) = v1_1::maybe_parse_float(ctx, s)? => Value::float(f, span),
         (V1_2, s) if let Some(f) = v1_2::maybe_parse_float(ctx, s)? => Value::float(f, span),
+        (V1_1, s) if let Some(ts) = v1_x::maybe_parse_timestamp(ctx, s)? => Value::date(ts, span),
         (_, s) => Value::string(s, span),
     })
 }
@@ -425,14 +428,13 @@ fn parse_scalar_tagged<'i>(
                 base_and_err: None,
                 span,
             })?,
-        (KnownTag::Date, _) => Value::date(
-            DateTime::from_str(value).map_err(|err| ParseError::Date {
+        (KnownTag::Timestamp, _) => v1_x::maybe_parse_timestamp(ctx, value)?
+            .map(|ts| Value::date(ts, span))
+            .ok_or_else(|| ParseError::Timestamp {
                 attempted: value.to_owned(),
-                err,
-                span: ctx.yaml_span,
+                issue: None,
+                span,
             })?,
-            span,
-        ),
         (KnownTag::Range, _) => Value::range(
             Range::from_str(value).map_err(|err| ParseError::Range {
                 attempted: value.to_owned(),
@@ -476,7 +478,7 @@ fn parse_scalar_tagged<'i>(
         }
 
         // unsupported tag
-        (KnownTag::Timestamp | KnownTag::Value | KnownTag::Yaml, _) => {
+        (KnownTag::Value | KnownTag::Yaml, _) => {
             return Err(ShellError::from(ParseError::UnsupportedTag {
                 tag,
                 at: NodeKind::Scalar,
@@ -602,7 +604,6 @@ fn parse_sequence<'i>(
         | KnownTag::Glob
         | KnownTag::Filesize
         | KnownTag::Duration
-        | KnownTag::Date
         | KnownTag::Range
         | KnownTag::Closure
         | KnownTag::Error
@@ -760,7 +761,6 @@ fn parse_mapping<'i>(
         | KnownTag::Glob
         | KnownTag::Filesize
         | KnownTag::Duration
-        | KnownTag::Date
         | KnownTag::Range
         | KnownTag::Closure
         | KnownTag::Error
@@ -872,10 +872,146 @@ mod v1_x {
         }
     }
 
+    pub static TIMESTAMP: LazyLock<Regex> = LazyLock::new(|| {
+        // this regex is slightly modified from the spec to actually accept the examples 
+        // provided in the spec
+        // https://yaml.org/type/timestamp
+        Regex::new(concat!(
+            "^(", // beginning
+            "(?<y>[0-9][0-9][0-9][0-9])-(?<m>[0-9][0-9])-(?<d>[0-9][0-9])", // ymd
+            "|(?<year>[0-9][0-9][0-9][0-9])",                               // year
+            "-(?<month>[0-9][0-9]?)",                                       // month
+            "-(?<day>[0-9][0-9]?)",                                         // day
+            "([Tt]|[ \t]+)(?<hour>[0-9][0-9]?)",                           // hour
+            ":(?<minute>[0-9][0-9])",                                       // minute
+            ":(?<second>[0-9][0-9])",                                       // second
+            r"(?<fraction>\.[0-9]*)?",                                      // fraction
+            "([ \t]*(?:Z|(?<tz_sign>[-+])(?<tz_hour>[0-9][0-9]?)(?::(?<tz_minute>[0-9][0-9]))?))?", // time zone
+            ")$", // end
+        ))
+        .expect("valid timestamp regex for spec v1.x")
+    });
+    fn parse_timestamp<'i>(
+        ctx: &mut ParseCtx<'i>,
+        input: &str,
+        caps: Captures<'_>,
+    ) -> Result<DateTime<FixedOffset>, ParseError<'i>> {
+        let year = caps
+            .name("y")
+            .or(caps.name("year"))
+            .expect("year exists in either capture")
+            .as_str()
+            .parse()
+            .expect("valid year, only 4 digits");
+        let month = caps
+            .name("m")
+            .or(caps.name("month"))
+            .expect("month exists in either capture")
+            .as_str()
+            .parse()
+            .expect("valid month, only 2 digits");
+        let day = caps
+            .name("d")
+            .or(caps.name("day"))
+            .expect("day exists in either capture")
+            .as_str()
+            .parse()
+            .expect("valid day, only 2 digits");
+        let date =
+            NaiveDate::from_ymd_opt(year, month, day).ok_or_else(|| ParseError::Timestamp {
+                attempted: input.to_owned(),
+                issue: Some(TimestampIssue::InvalidDate),
+                span: ctx.yaml_span,
+            })?;
+
+        let (Some(hour), Some(minute), Some(second)) =
+            (caps.name("hour"), caps.name("minute"), caps.name("second"))
+        else {
+            // the TIMESTAMP regex guarantees hour, minute, and second are all present or all absent
+            return Ok(NaiveDateTime::new(date, NaiveTime::MIN)
+                .and_utc()
+                .fixed_offset());
+        };
+
+        let hour = hour
+            .as_str()
+            .parse()
+            .expect("valid hour, only 1 or two digits");
+        let minute = minute
+            .as_str()
+            .parse()
+            .expect("valid minute, only 1 or two digits");
+        let second = second
+            .as_str()
+            .parse()
+            .expect("valid second, only 1 or 2 digits");
+
+        let time = match caps.name("fraction") {
+            None => NaiveTime::from_hms_opt(hour, minute, second),
+            Some(fraction) => {
+                let fraction = f64::from_str(fraction.as_str())
+                    .expect("valid fraction, only 1 dot followed by digits");
+                let nano = Duration::from_secs_f64(fraction).subsec_nanos();
+                NaiveTime::from_hms_nano_opt(hour, minute, second, nano)
+            }
+        }
+        .ok_or_else(|| ParseError::Timestamp {
+            attempted: input.to_owned(),
+            issue: Some(TimestampIssue::InvalidTime),
+            span: ctx.yaml_span,
+        })?;
+
+        let datetime = NaiveDateTime::new(date, time);
+        let Some(tz_hour) = caps.name("tz_hour") else {
+            return Ok(datetime.and_utc().fixed_offset());
+        };
+
+        let mut offset = Duration::from_hours(
+            tz_hour
+                .as_str()
+                .parse()
+                .expect("valid hour, only 1 or 2 digits"),
+        );
+        if let Some(tz_minute) = caps.name("tz_minute") {
+            offset += Duration::from_mins(
+                tz_minute
+                    .as_str()
+                    .parse()
+                    .expect("valid minute, only 2 digits"),
+            );
+        }
+        let offset = match caps.name("tz_sign").map(|m| m.as_str()) {
+            None | Some("+") => FixedOffset::east_opt(offset.as_secs() as i32),
+            Some("-") => FixedOffset::west_opt(offset.as_secs() as i32),
+            _ => unreachable!("regex only matches '+' or '-'"),
+        }
+        .ok_or_else(|| ParseError::Timestamp {
+            attempted: input.to_owned(),
+            issue: Some(TimestampIssue::InvalidOffset),
+            span: ctx.yaml_span,
+        })?;
+
+        // according to the docs, using `unwrap` is safe for `FixedOffset`
+        Ok(datetime.and_local_timezone(offset).unwrap())
+    }
+
+    // this is placed in v1_x as we use for 1.2 parsing too, but not implicitly
+    pub fn maybe_parse_timestamp<'i>(
+        ctx: &mut ParseCtx<'i>,
+        input: &str,
+    ) -> Result<Option<DateTime<FixedOffset>>, ParseError<'i>> {
+        if let Some(caps) = TIMESTAMP.captures(input) {
+            return parse_timestamp(ctx, input, caps).map(|ts| Some(ts));
+        }
+
+        Ok(None)
+    }
+
     #[cfg(test)]
     #[rstest::rstest]
     #[case::infinity(&INFINITY)]
     #[case::nan(&NAN)]
+    #[case::timestamp(&TIMESTAMP)]
     fn regex_valid(#[case] re: &LazyLock<Regex>) {
         LazyLock::force(re);
     }

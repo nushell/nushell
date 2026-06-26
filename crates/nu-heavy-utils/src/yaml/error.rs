@@ -66,6 +66,11 @@ pub enum ParseError<'i> {
         err: ParseCellPathError,
         span: Span,
     },
+    Timestamp {
+        attempted: String,
+        issue: Option<TimestampIssue>,
+        span: Span,
+    },
     PairsNotARecord {
         found: Type,
         span: Span,
@@ -124,6 +129,12 @@ pub enum ParseError<'i> {
         error: InternalParserError<'i>,
         span: Span,
     },
+}
+
+pub enum TimestampIssue {
+    InvalidDate,
+    InvalidTime,
+    InvalidOffset,
 }
 
 #[derive(strum::Display)]
@@ -291,6 +302,33 @@ impl From<ParseError<'_>> for ShellError {
             )
             .with_code("shell::yaml::parse::cell_path")
             .with_source(err),
+
+            ParseError::Timestamp {
+                attempted,
+                issue,
+                span,
+            } => GenericError::new(
+                "Parsing Timestamp failed",
+                match issue {
+                    Some(TimestampIssue::InvalidDate) => {
+                        format!("The date in timestamp {attempted:?} does not exist")
+                    }
+                    Some(TimestampIssue::InvalidTime) => {
+                        format!("The time in timestamp {attempted:?} does not exist")
+                    }
+                    Some(TimestampIssue::InvalidOffset) => {
+                        format!("The timezone offset in timestamp {attempted:?} is out of bounds")
+                    }
+                    None => format!("Parsing {attempted:?} failed"),
+                },
+                span,
+            )
+            .with_code(match issue {
+                Some(TimestampIssue::InvalidDate) => "shell::yaml::parse::timestamp::invalid_date",
+                Some(TimestampIssue::InvalidTime) => "shell::yaml::parse::timestamp::invalid_time",
+                Some(TimestampIssue::InvalidOffset) => "shell::yaml::parse::timestamp::invalid_offset",
+                None => "shell::yaml::parse::timestamp",
+            }),
 
             ParseError::PairsNotARecord { found, span } => GenericError::new(
                 "Pairs has to be a record",

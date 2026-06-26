@@ -1,5 +1,15 @@
 use nu_protocol::FromValue;
 
+// Future Consideration
+//
+// This module is very much built around spanned values, and because of that it hides the
+// `ParseError` and `SerializeError` types.
+// If we ever run into a case where YAML parsing or serialization is not spanned,
+// we can think about exposing the error types instead, work with error sources, and then
+// apply the spans in some way once the commands reach users.
+// But before we get there, we should make sure things stay spanned wherever possible
+// instead of throwing spans away too early.
+
 mod error;
 
 mod parse;
@@ -42,7 +52,6 @@ pub enum Spec {
 #[strum(parse_err_ty = UnknownTagError, parse_err_fn = UnknownTagError::new)]
 enum KnownTag {
     // YAML known tags
-
     /// Unordered mapping language-independent type for YAML, version 1.1
     ///
     /// Reference: <https://yaml.org/type/map.html>
@@ -134,7 +143,6 @@ enum KnownTag {
     Yaml,
 
     // Nushell custom tags
-
     /// Nushell glob value.
     ///
     /// Reference: [`nu_protocol::Value::Glob`]
@@ -152,13 +160,6 @@ enum KnownTag {
     /// Reference: [`nu_protocol::Value::Duration`]
     #[strum(to_string = "!duration", serialize = "tag:nushell.sh,2026:duration")]
     Duration,
-
-    /// Nushell date value.
-    ///
-    /// Reference: [`nu_protocol::Value::Date`]
-    // TODO: handle date via timestamp tag instead
-    #[strum(to_string = "!date", serialize = "tag:nushell.sh,2026:date")]
-    Date,
 
     /// Nushell range value.
     ///
@@ -184,7 +185,6 @@ enum KnownTag {
     #[strum(to_string = "!cell-path", serialize = "tag:nushell.sh,2026:cell-path")]
     CellPath,
 }
-
 
 impl KnownTag {
     /// Nushell custom tag prefix.
