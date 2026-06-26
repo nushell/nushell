@@ -2539,15 +2539,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fuzzy-matcher"
-version = "0.3.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "54614a3312934d066701a80f20f15fa3b56d67ac7722b39eea5b4c9dd1d66c94"
-dependencies = [
- "thread_local",
-]
-
-[[package]]
 name = "gatekeeper"
 version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4578,7 +4569,6 @@ dependencies = [
  "filesize",
  "filetime",
  "fluent",
- "fuzzy-matcher",
  "getrandom 0.4.2",
  "http 1.4.0",
  "human-date-parser",
@@ -4615,6 +4605,7 @@ dependencies = [
  "nu-term-grid",
  "nu-test-support",
  "nu-utils",
+ "nucleo-matcher",
  "num-format",
  "num-traits",
  "nuon",
