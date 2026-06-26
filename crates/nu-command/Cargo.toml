@@ -69,13 +69,13 @@ fancy-regex = { workspace = true }
 filesize = { workspace = true }
 filetime = { workspace = true }
 fluent = { workspace = true }
-fuzzy-matcher = { workspace = true }
 http = { workspace = true }
 human-date-parser = { workspace = true }
 indexmap = { workspace = true }
 indicatif = { workspace = true }
 itertools = { workspace = true }
 log = { workspace = true }
+nucleo-matcher = { workspace = true }
 lscolors = { workspace = true, default-features = false, features = [
 	"nu-ansi-term",
 ] }

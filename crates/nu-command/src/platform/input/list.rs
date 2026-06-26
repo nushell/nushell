@@ -8,13 +8,16 @@ use crossterm::{
         enable_raw_mode,
     },
 };
-use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
 use nu_ansi_term::{Style, ansi::RESET};
 use nu_color_config::{Alignment, StyleComputer, TextStyle};
 use nu_engine::{ClosureEval, command_prelude::*, get_columns};
 use nu_protocol::engine::Closure;
 use nu_protocol::{Config, ListStream, Signals, TableMode, shell_error::io::IoError};
 use nu_table::common::nu_value_to_string;
+use nucleo_matcher::{
+    Config as NucleoConfig, Matcher as NucleoMatcher, Utf32Str,
+    pattern::{Atom, AtomKind, CaseMatching, Normalization},
+};
 use std::{
     borrow::Cow,
     collections::HashSet,
@@ -1071,7 +1074,7 @@ struct SelectWidget<'a> {
     stream_reader: Option<StreamReader>,
     item_generator: Option<Box<dyn FnMut(Value) -> SelectItem + 'a>>,
     visible_height: u16,
-    matcher: SkimMatcherV2,
+    matcher: NucleoMatcher,
     last_filter_text: String,
     force_full_filter: bool,
     rendered_lines: usize,
@@ -1133,6 +1136,14 @@ struct SelectWidget<'a> {
 }
 
 impl<'a> SelectWidget<'a> {
+    fn make_matcher() -> NucleoMatcher {
+        NucleoMatcher::new({
+            let mut config = NucleoConfig::DEFAULT;
+            config.prefer_prefix = true;
+            config
+        })
+    }
+
     fn new(
         mode: SelectMode,
         prompt: Option<&'a str>,
@@ -1143,11 +1154,7 @@ impl<'a> SelectWidget<'a> {
         stream_state: StreamState<'a>,
     ) -> Self {
         let filtered_indices: Vec<usize> = (0..items.len()).collect();
-        let matcher = match config.case_sensitivity {
-            CaseSensitivity::Smart => SkimMatcherV2::default().smart_case(),
-            CaseSensitivity::CaseSensitive => SkimMatcherV2::default().respect_case(),
-            CaseSensitivity::CaseInsensitive => SkimMatcherV2::default().ignore_case(),
-        };
+        let matcher = Self::make_matcher();
         // Pre-compute the selected marker string (doesn't change at runtime)
         let selected_marker_cached = format!(
             "{} ",
@@ -1384,13 +1391,9 @@ impl<'a> SelectWidget<'a> {
         }
     }
 
-    /// Rebuild the fuzzy matcher with current case sensitivity setting
+    /// Reset the fuzzy matcher's scratch state after matching settings change.
     fn rebuild_matcher(&mut self) {
-        self.matcher = match self.config.case_sensitivity {
-            CaseSensitivity::Smart => SkimMatcherV2::default().smart_case(),
-            CaseSensitivity::CaseSensitive => SkimMatcherV2::default().respect_case(),
-            CaseSensitivity::CaseInsensitive => SkimMatcherV2::default().ignore_case(),
-        };
+        self.matcher = Self::make_matcher();
     }
 
     /// Get the settings indicator string for the footer (fuzzy modes only)
@@ -2802,22 +2805,84 @@ impl<'a> SelectWidget<'a> {
         }
     }
 
+    fn case_matching(&self) -> CaseMatching {
+        match self.config.case_sensitivity {
+            CaseSensitivity::Smart => CaseMatching::Smart,
+            CaseSensitivity::CaseSensitive => CaseMatching::Respect,
+            CaseSensitivity::CaseInsensitive => CaseMatching::Ignore,
+        }
+    }
+
+    fn fuzzy_atom(&self) -> Atom {
+        Atom::new(
+            &self.filter_text,
+            self.case_matching(),
+            Normalization::Smart,
+            AtomKind::Fuzzy,
+            false,
+        )
+    }
+
+    fn score_text(
+        matcher: &mut NucleoMatcher,
+        atom: &Atom,
+        text: &str,
+        buf: &mut Vec<char>,
+    ) -> Option<u16> {
+        atom.score(Utf32Str::new(text, buf), matcher)
+    }
+
+    fn fuzzy_text_matches(&self, text: &str) -> bool {
+        let atom = self.fuzzy_atom();
+        let mut matcher = Self::make_matcher();
+        let mut buf = Vec::new();
+        Self::score_text(&mut matcher, &atom, text, &mut buf).is_some()
+    }
+
+    fn fuzzy_match_indices(&self, text: &str) -> Option<Vec<usize>> {
+        let atom = self.fuzzy_atom();
+        let mut matcher = Self::make_matcher();
+        let mut buf = Vec::new();
+        let mut indices = Vec::new();
+        atom.indices(Utf32Str::new(text, &mut buf), &mut matcher, &mut indices)?;
+
+        let mut indices = indices
+            .into_iter()
+            .map(usize::try_from)
+            .collect::<Result<Vec<_>, _>>()
+            .ok()?;
+        indices.sort_unstable();
+        indices.dedup();
+        Some(indices)
+    }
+
     /// Score an item using per-column matching (best column wins)
-    fn score_per_column(&self, item: &SelectItem) -> Option<i64> {
+    fn score_per_column(
+        matcher: &mut NucleoMatcher,
+        atom: &Atom,
+        item: &SelectItem,
+        buf: &mut Vec<char>,
+    ) -> Option<u16> {
         item.cells.as_ref().and_then(|cells| {
             cells
                 .iter()
-                .filter_map(|(cell_text, _)| self.matcher.fuzzy_match(cell_text, &self.filter_text))
+                .filter_map(|(cell_text, _)| Self::score_text(matcher, atom, cell_text, buf))
                 .max()
         })
     }
 
     /// Score an item - uses per-column matching if enabled and in table mode
-    fn score_item(&self, item: &SelectItem) -> Option<i64> {
-        if self.per_column && item.cells.is_some() {
-            self.score_per_column(item)
+    fn score_item(
+        matcher: &mut NucleoMatcher,
+        atom: &Atom,
+        per_column: bool,
+        item: &SelectItem,
+        buf: &mut Vec<char>,
+    ) -> Option<u16> {
+        if per_column && item.cells.is_some() {
+            Self::score_per_column(matcher, atom, item, buf)
         } else {
-            self.matcher.fuzzy_match(&item.name, &self.filter_text)
+            Self::score_text(matcher, atom, &item.name, buf)
         }
     }
 
@@ -2829,20 +2894,28 @@ impl<'a> SelectWidget<'a> {
     }
 
     fn score_filter_candidates<I>(
-        &self,
+        &mut self,
         candidates: I,
+        atom: &Atom,
         start: nu_utils::time::Instant,
-    ) -> Option<Vec<(usize, i64)>>
+    ) -> Option<Vec<(usize, u16)>>
     where
         I: Iterator<Item = usize>,
     {
         let mut scored = Vec::new();
+        let mut buf = Vec::new();
         for (checked, i) in candidates.enumerate() {
             if Self::should_yield_filter(start, checked) {
                 return None;
             }
 
-            if let Some(score) = self.score_item(&self.items[i]) {
+            if let Some(score) = Self::score_item(
+                &mut self.matcher,
+                atom,
+                self.per_column,
+                &self.items[i],
+                &mut buf,
+            ) {
                 scored.push((i, score));
             }
         }
@@ -2867,16 +2940,18 @@ impl<'a> SelectWidget<'a> {
             self.last_filter_text.clear();
             self.force_full_filter = false;
         } else {
+            let atom = self.fuzzy_atom();
             let can_reuse_previous = !self.force_full_filter
                 && !self.last_filter_text.is_empty()
                 && self.filter_text.starts_with(&self.last_filter_text);
 
             let mut scored = if can_reuse_previous {
-                self.score_filter_candidates(old_indices.iter().copied(), start)
+                self.score_filter_candidates(old_indices.iter().copied(), &atom, start)
             } else if use_refined {
-                self.score_filter_candidates(self.refined_base_indices.iter().copied(), start)
+                let refined_base_indices = self.refined_base_indices.clone();
+                self.score_filter_candidates(refined_base_indices.into_iter(), &atom, start)
             } else {
-                self.score_filter_candidates(0..self.items.len(), start)
+                self.score_filter_candidates(0..self.items.len(), &atom, start)
             };
 
             let Some(mut scored) = scored.take() else {
@@ -2927,11 +3002,7 @@ impl<'a> SelectWidget<'a> {
         for (col_idx, (cell_text, _)) in cells.iter().enumerate() {
             if self.per_column {
                 // Per-column mode: check each cell individually
-                if self
-                    .matcher
-                    .fuzzy_match(cell_text, &self.filter_text)
-                    .is_some()
-                {
+                if self.fuzzy_text_matches(cell_text) {
                     first_match_col = Some(col_idx);
                     break;
                 }
@@ -2944,9 +3015,7 @@ impl<'a> SelectWidget<'a> {
                     .sum();
                 let cell_char_count = cell_text.chars().count();
 
-                if let Some((_, indices)) =
-                    self.matcher.fuzzy_indices(&item.name, &self.filter_text)
-                {
+                if let Some(indices) = self.fuzzy_match_indices(&item.name) {
                     // Check if any match indices fall within this cell
                     if indices
                         .iter()
@@ -3683,8 +3752,7 @@ impl<'a> SelectWidget<'a> {
 
         if self.filter_text.is_empty() {
             self.render_truncated_text(stderr, text, prefix_width)?;
-        } else if let Some((_score, indices)) = self.matcher.fuzzy_indices(text, &self.filter_text)
-        {
+        } else if let Some(indices) = self.fuzzy_match_indices(text) {
             self.render_truncated_fuzzy_text(stderr, text, &indices, prefix_width)?;
         } else {
             self.render_truncated_text(stderr, text, prefix_width)?;
@@ -3707,8 +3775,7 @@ impl<'a> SelectWidget<'a> {
 
         if self.filter_text.is_empty() {
             self.render_truncated_text(stderr, text, prefix_width)?;
-        } else if let Some((_score, indices)) = self.matcher.fuzzy_indices(text, &self.filter_text)
-        {
+        } else if let Some(indices) = self.fuzzy_match_indices(text) {
             self.render_truncated_fuzzy_text(stderr, text, &indices, prefix_width)?;
         } else {
             self.render_truncated_text(stderr, text, prefix_width)?;
@@ -3990,9 +4057,7 @@ impl<'a> SelectWidget<'a> {
 
         // Get match indices for highlighting (skip if per_column - handled in render_table_cells)
         let match_indices = if !self.filter_text.is_empty() && !self.per_column {
-            self.matcher
-                .fuzzy_indices(&item.name, &self.filter_text)
-                .map(|(_, indices)| indices)
+            self.fuzzy_match_indices(&item.name)
         } else {
             None
         };
@@ -4016,9 +4081,7 @@ impl<'a> SelectWidget<'a> {
 
         // Get match indices for highlighting (skip if per_column - handled in render_table_cells)
         let match_indices = if !self.filter_text.is_empty() && !self.per_column {
-            self.matcher
-                .fuzzy_indices(&item.name, &self.filter_text)
-                .map(|(_, indices)| indices)
+            self.fuzzy_match_indices(&item.name)
         } else {
             None
         };
@@ -4054,11 +4117,7 @@ impl<'a> SelectWidget<'a> {
             if self.per_column && !self.filter_text.is_empty() {
                 cells
                     .iter()
-                    .map(|(cell_text, _)| {
-                        self.matcher
-                            .fuzzy_indices(cell_text, &self.filter_text)
-                            .map(|(_, indices)| indices)
-                    })
+                    .map(|(cell_text, _)| self.fuzzy_match_indices(cell_text))
                     .collect()
             } else {
                 vec![]
