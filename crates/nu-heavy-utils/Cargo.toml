@@ -16,6 +16,12 @@ harness = false
 [lints]
 workspace = true
 
+[features]
+default = ["endian", "merge"]
+
+endian = []
+merge = []
+
 [dependencies]
 nu-protocol.workspace = true
 
