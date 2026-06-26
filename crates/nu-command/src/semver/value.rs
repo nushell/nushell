@@ -34,10 +34,10 @@ impl nu_protocol::CustomValue for SemverValue {
     }
 
     fn partial_cmp(&self, other: &Value) -> Option<Ordering> {
-        if let Value::Custom { val, .. } = other {
-            if let Some(other_semver) = val.as_any().downcast_ref::<SemverValue>() {
-                return self.version.partial_cmp(&other_semver.version);
-            }
+        if let Value::Custom { val, .. } = other
+            && let Some(other_semver) = val.as_any().downcast_ref::<SemverValue>()
+        {
+            return self.version.partial_cmp(&other_semver.version);
         }
         None
     }
@@ -51,20 +51,19 @@ impl nu_protocol::CustomValue for SemverValue {
     ) -> Result<Value, ShellError> {
         match operator {
             Operator::Comparison(Comparison::In) => {
-                if let Value::Custom { val, .. } = right {
-                    if let Some(range) = val
+                if let Value::Custom { val, .. } = right
+                    && let Some(range) = val
                         .as_any()
                         .downcast_ref::<super::range::SemverRangeValue>()
-                    {
-                        return Ok(Value::bool(range.requirement.matches(&self.version), op));
-                    }
+                {
+                    return Ok(Value::bool(range.requirement.matches(&self.version), op));
                 }
                 Err(ShellError::OperatorIncompatibleTypes {
                     op: operator,
                     lhs: nu_protocol::Type::Custom("semver".into()),
                     rhs: right.get_type(),
                     op_span: op,
-                    lhs_span: lhs_span,
+                    lhs_span,
                     rhs_span: right.span(),
                     help: Some("expected a semver-range on the right side"),
                 })

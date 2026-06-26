@@ -251,7 +251,6 @@ fn parse_duration_into_record(duration: i64, span: Span) -> Value {
 mod tests {
     use super::*;
     use crate::semver::value::SemverValue;
-    use nu_protocol::CustomValue;
 
     fn create_semver_value(version: &str) -> Value {
         let semver = SemverValue::new(semver::Version::parse(version).unwrap());
