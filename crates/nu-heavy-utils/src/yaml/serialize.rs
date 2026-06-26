@@ -340,7 +340,7 @@ impl Serialize for YamlValue<'_> {
             YamlValue::Glob(glob) => serialize_with_tag(serializer, tag, glob),
             YamlValue::Filesize(filesize) => serialize_with_tag(serializer, tag, filesize),
             YamlValue::Duration(duration) => serialize_with_tag(serializer, tag, duration),
-            YamlValue::Date(date_time) => serialize_with_tag(serializer, tag, date_time.to_rfc3339()),
+            YamlValue::Date(date_time) => serialize_with_tag(serializer, tag, date_time),
             YamlValue::Range(range) => serialize_with_tag(serializer, tag, range),
             YamlValue::Closure(closure) => serialize_closure(closure, serializer),
             YamlValue::Error(shell_error) => serialize_with_tag(serializer, tag, shell_error),

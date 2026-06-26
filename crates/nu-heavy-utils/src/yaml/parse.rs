@@ -873,16 +873,16 @@ mod v1_x {
     }
 
     pub static TIMESTAMP: LazyLock<Regex> = LazyLock::new(|| {
-        // this regex is slightly modified from the spec to actually accept the examples 
+        // this regex is slightly modified from the spec to actually accept the examples
         // provided in the spec
         // https://yaml.org/type/timestamp
         Regex::new(concat!(
-            "^(", // beginning
+            "^(",                                                           // beginning
             "(?<y>[0-9][0-9][0-9][0-9])-(?<m>[0-9][0-9])-(?<d>[0-9][0-9])", // ymd
             "|(?<year>[0-9][0-9][0-9][0-9])",                               // year
             "-(?<month>[0-9][0-9]?)",                                       // month
             "-(?<day>[0-9][0-9]?)",                                         // day
-            "([Tt]|[ \t]+)(?<hour>[0-9][0-9]?)",                           // hour
+            "([Tt]|[ \t]+)(?<hour>[0-9][0-9]?)",                            // hour
             ":(?<minute>[0-9][0-9])",                                       // minute
             ":(?<second>[0-9][0-9])",                                       // second
             r"(?<fraction>\.[0-9]*)?",                                      // fraction
@@ -995,7 +995,7 @@ mod v1_x {
         Ok(datetime.and_local_timezone(offset).unwrap())
     }
 
-    // this is placed in v1_x as we use for 1.2 parsing too, but not implicitly
+    // this is placed in v1_x as we use it for 1.2 parsing too, but not implicitly
     pub fn maybe_parse_timestamp<'i>(
         ctx: &mut ParseCtx<'i>,
         input: &str,

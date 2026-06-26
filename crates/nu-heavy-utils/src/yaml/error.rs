@@ -326,7 +326,9 @@ impl From<ParseError<'_>> for ShellError {
             .with_code(match issue {
                 Some(TimestampIssue::InvalidDate) => "shell::yaml::parse::timestamp::invalid_date",
                 Some(TimestampIssue::InvalidTime) => "shell::yaml::parse::timestamp::invalid_time",
-                Some(TimestampIssue::InvalidOffset) => "shell::yaml::parse::timestamp::invalid_offset",
+                Some(TimestampIssue::InvalidOffset) => {
+                    "shell::yaml::parse::timestamp::invalid_offset"
+                }
                 None => "shell::yaml::parse::timestamp",
             }),
 
