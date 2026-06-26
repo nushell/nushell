@@ -46,17 +46,7 @@ fn helper_for_tables(
     // The mathematical function operates over the columns of the table
     let mut column_totals = IndexMap::new();
     for (col_name, col_vals) in column_values {
-        if let Ok(out) = mf(&col_vals, val_span, name) {
-            column_totals.insert(col_name, out);
-        }
-    }
-    if column_totals.keys().len() == 0 {
-        return Err(ShellError::UnsupportedInput {
-            msg: "Unable to give a result with this input".to_string(),
-            input: "value originates from here".into(),
-            msg_span: name,
-            input_span: val_span,
-        });
+        column_totals.insert(col_name, mf(&col_vals, val_span, name)?);
     }
 
     Ok(Value::record(column_totals.into_iter().collect(), name))
