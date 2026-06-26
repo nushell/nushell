@@ -57,7 +57,7 @@ impl Command for FromYamlLike {
             .spec(spec.unwrap_or_default())
             .multiple(multiple.unwrap_or_default())
             .ignore_tags(ignore_tags);
-        nu_heavy_utils::yaml::parse(yaml, call.head, &options)
+        nu_heavy_utils::yaml::parse(yaml, call.head, options)
             .map(|val| PipelineData::value(val, None))
     }
 }

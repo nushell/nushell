@@ -123,14 +123,14 @@ pub enum ParseMultiple {
 /// See [`ParseOptions`] for behavior that can change how YAML is interpreted.
 /// `yaml` provides the input span for source errors, `span` is used for parser
 /// errors and parsed values.
-pub fn parse(yaml: Spanned<&str>, span: Span, options: &ParseOptions) -> Result<Value, ShellError> {
+pub fn parse(yaml: Spanned<&str>, span: Span, options: ParseOptions) -> Result<Value, ShellError> {
     let parser = Parser::new_from_str(yaml.item);
     let ctx = &mut ParseCtx {
         parser,
         parser_span: span,
         yaml_span: yaml.span,
         anchors: HashMap::new(),
-        options,
+        options: &options,
     };
 
     let start = ctx.next_event()?;
@@ -1244,7 +1244,7 @@ mod tests {
     fn parse_fixture_properly() -> Result {
         let yaml = FIXTURE.into_spanned(SPAN);
         let options = ParseOptions::default();
-        parse(yaml, SPAN, &options)?;
+        parse(yaml, SPAN, options)?;
         Ok(())
     }
 }

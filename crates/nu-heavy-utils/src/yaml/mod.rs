@@ -1,3 +1,43 @@
+//! YAML parsing and serialization for Nushell values.
+//!
+//! This module converts between YAML strings and [`nu_protocol::Value`]s through
+//! [`parse`] and [`serialize`].
+//!
+//! The implementation supports YAML 1.1 and YAML 1.2 behavior through [`Spec`].
+//! YAML 1.2 is the default, while YAML 1.1 is available for compatibility with
+//! older configuration files and YAML type resolution rules.
+//!
+//! In addition to standard YAML types, the parser and serializer understand
+//! Nushell-specific tagged values for variants that YAML cannot represent
+//! directly, such as [`CellPath`](nu_protocol::Value::CellPath),
+//! [`Duration`](nu_protocol::Value::Duration), [`Filesize`](nu_protocol::Value::Filesize),
+//! [`Glob`](nu_protocol::Value::Glob), and [`Range`](nu_protocol::Value::Range).
+//! It also recognizes the YAML 1.1
+//! [language-independent types](https://yaml.org/type/).
+//!
+//! Use [`ParseOptions`] and [`SerializeOptions`] to configure spec version,
+//! multi-document streams, tag handling, directives, indentation, and related
+//! parsing or serialization behavior.
+//!
+//! ```rust
+//! # use nu_heavy_utils::yaml::*;
+//! # use nu_protocol::{Span, Spanned, Value};
+//! #
+//! # let value_span = Span::test_data();
+//! # let op_span = Span::test_data();
+//! let input = Spanned {
+//!     item: "name: nushell\nactive: true",
+//!     span: value_span,
+//! };
+//!
+//! let value = parse(input, op_span, ParseOptions::default())?;
+//! let yaml = serialize(&value, op_span, SerializeOptions::default())?;
+//!
+//! assert!(matches!(value, Value::Record { .. }));
+//! assert!(yaml.contains("name: nushell"));
+//! # Ok::<(), nu_protocol::ShellError>(())
+//! ```
+
 use nu_protocol::FromValue;
 
 // Future Consideration
@@ -28,7 +68,7 @@ pub enum Spec {
     /// But it is more widely used and many configuration files depend on that version, so this is
     /// available to use.
     ///
-    /// <https://yaml.org/spec/1.1
+    /// <https://yaml.org/spec/1.1>
     #[nu_value(rename = "1.1")]
     V1_1,
 
