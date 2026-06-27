@@ -180,6 +180,52 @@ fn help_export_alias_name_multi_word() -> Result {
 }
 
 #[test]
+fn help_alias_name_external() -> Result {
+    Playground::setup("help_alias_name_external", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent(
+            "spam.nu",
+            "
+                # line1
+                alias SPAM = ^echo 'spam' # line2
+            ",
+        )]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("source spam.nu")?;
+        let outcome: String = tester.run("help aliases SPAM")?;
+
+        assert_contains("line1", &outcome);
+        assert_contains("line2", &outcome);
+        assert_contains("SPAM", &outcome);
+        assert_contains("^echo 'spam'", &outcome);
+        Ok(())
+    })
+}
+
+#[test]
+fn help_export_alias_name_external() -> Result {
+    Playground::setup("help_export_alias_name_external", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent(
+            "spam.nu",
+            "
+                # line1
+                export alias SPAM = ^echo 'spam' # line2
+            ",
+        )]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("use spam.nu SPAM")?;
+        let outcome: String = tester.run("help aliases SPAM")?;
+
+        assert_contains("line1", &outcome);
+        assert_contains("line2", &outcome);
+        assert_contains("SPAM", &outcome);
+        assert_contains("^echo 'spam'", &outcome);
+        Ok(())
+    })
+}
+
+#[test]
 fn help_module_description_1() -> Result {
     Playground::setup("help_module_description", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
