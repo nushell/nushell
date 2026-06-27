@@ -28,7 +28,7 @@ impl Command for MathSqrt {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["square", "root"]
+        vec!["square", "sqrt", "root"]
     }
 
     fn is_const(&self) -> bool {
