@@ -391,7 +391,13 @@ fn parse_scalar_tagged<'i>(
             })?,
         (KnownTag::Binary, _) => Value::binary(
             BASE64_STANDARD
-                .decode(&value)
+                .decode(
+                    // for the base64 value, we need to filter out any whitespace
+                    value
+                        .chars()
+                        .filter(|c| !c.is_whitespace())
+                        .collect::<String>(),
+                )
                 .map_err(|err| ParseError::Binary {
                     attempted: value.to_owned(),
                     err,
@@ -1354,5 +1360,24 @@ mod tests {
         let yaml = input.into_spanned(SPAN);
         let options = ParseOptions::default().ignore_tags(true);
         assert!(parse(yaml, SPAN, options).is_ok());
+    }
+
+    #[test]
+    fn spec_type_binary() -> Result {
+        let yaml = include_str!("../../../../tests/fixtures/formats/yaml/binary.yaml");
+        let yaml = yaml.into_spanned(SPAN);
+        let options = ParseOptions::default();
+        let parsed = parse(yaml, SPAN, options)?;
+        let record = parsed.into_record()?;
+
+        let expected = include_bytes!("../../../../tests/fixtures/formats/yaml/binary.gif");
+        assert_eq!(record["canonical"].as_binary()?, expected);
+        assert_eq!(record["generic"].as_binary()?, expected);
+        assert_eq!(
+            record["description"].as_str()?,
+            "The binary value above is a tiny arrow encoded as a gif image."
+        );
+
+        Ok(())
     }
 }

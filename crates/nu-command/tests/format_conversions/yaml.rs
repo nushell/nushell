@@ -130,16 +130,6 @@ fn convert_multiline_string_uses_chomping_indicators() -> Result {
 }
 
 #[test]
-#[ignore = "normalization may be not a required feature"]
-fn convert_multiline_string_normalizes_crlf() -> Result {
-    let code = "{string: \"Hello\\r\\nworld\"} | to yaml";
-
-    test()
-        .run(code)
-        .expect_value_eq("string: |-\n  Hello\n  world\n")
-}
-
-#[test]
 fn multiline_string_roundtrips_through_yaml() -> Result {
     let code = "{text: \"foo\\nbar\\n\\n\"} | to yaml | from yaml | get text";
 
