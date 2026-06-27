@@ -1,5 +1,6 @@
 mod abs;
 mod avg;
+mod cbrt;
 mod ceil;
 mod floor;
 mod log;
@@ -19,6 +20,7 @@ mod variance;
 
 pub use abs::MathAbs;
 pub use avg::MathAvg;
+pub use cbrt::MathCbrt;
 pub use ceil::MathCeil;
 pub use floor::MathFloor;
 pub use math_::MathCommand as Math;
