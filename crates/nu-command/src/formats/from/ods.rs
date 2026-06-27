@@ -55,6 +55,11 @@ impl Command for FromOds {
                 example: "open --raw test.ods | from ods --sheets [Spreadsheet1]",
                 result: None,
             },
+            Example {
+                description: "Convert binary .ods data to a table, specifying the tables and specifying no header row.",
+                example: "open --raw test.ods | from ods --sheets [Spreadsheet1] --noheaders",
+                result: None,
+            },
         ]
     }
 }

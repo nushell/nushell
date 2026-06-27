@@ -57,7 +57,7 @@ impl Command for FromXlsx {
             },
             Example {
                 description: "Convert binary .xlsx data to a table, specifying the tables and specifying no header row.",
-                example: "open --raw test.xlsx | from xlsx --sheets [Spreadsheet1] --header-row null",
+                example: "open --raw test.xlsx | from xlsx --sheets [Spreadsheet1] --noheaders",
                 result: None,
             },
         ]
