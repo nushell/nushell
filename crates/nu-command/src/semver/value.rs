@@ -38,13 +38,13 @@ impl nu_protocol::CustomValue for SemverValue {
     fn partial_cmp(&self, other: &Value) -> Option<Ordering> {
         match other {
             Value::Custom { val, .. } if val.type_name() == self.type_name() => {
-                let other_version = val
-                    .to_base_value(other.span())
-                    .ok()
-                    .and_then(|value| match value {
-                        Value::String { val, .. } => semver::Version::parse(&val).ok(),
-                        _ => None,
-                    });
+                let other_version =
+                    val.to_base_value(other.span())
+                        .ok()
+                        .and_then(|value| match value {
+                            Value::String { val, .. } => semver::Version::parse(&val).ok(),
+                            _ => None,
+                        });
 
                 other_version.and_then(|other_version| self.version.partial_cmp(&other_version))
             }
