@@ -1,3 +1,4 @@
+use super::utils;
 #[cfg(feature = "sqlite")]
 use crate::database::QueryPlan;
 use itertools::Itertools;
@@ -202,44 +203,6 @@ fn clone_to_folded_case(value: &Value) -> Value {
     }
 }
 
-fn sort_attributes(val: Value) -> Value {
-    let span = val.span();
-    match val {
-        Value::Record { val, .. } => {
-            // TODO: sort inplace
-            let sorted = val
-                .into_owned()
-                .into_iter()
-                .sorted_by(|a, b| a.0.cmp(&b.0))
-                .collect_vec();
-
-            let record = sorted
-                .into_iter()
-                .map(|(k, v)| (k, sort_attributes(v)))
-                .collect();
-
-            Value::record(record, span)
-        }
-        Value::List { vals, .. } => {
-            Value::list(vals.into_iter().map(sort_attributes).collect_vec(), span)
-        }
-        other => other,
-    }
-}
-
-fn generate_key(
-    engine_state: &EngineState,
-    item: &ValueCounter,
-    head: Span,
-) -> Result<String, ShellError> {
-    let value = sort_attributes(item.val_to_compare.clone()); //otherwise, keys could be different for Records
-    nuon::to_nuon(
-        engine_state,
-        &value,
-        nuon::ToNuonConfig::default().span(Some(head)),
-    )
-}
-
 fn generate_results_with_count(head: Span, uniq_values: Vec<ValueCounter>) -> Vec<Value> {
     uniq_values
         .into_iter()
@@ -290,7 +253,7 @@ pub fn uniq(
         .try_fold(
             HashMap::<String, ValueCounter>::new(),
             |mut counter, item| {
-                let key = generate_key(engine_state, &item, head);
+                let key = utils::value_to_key(engine_state, &item.val_to_compare, head);
 
                 match key {
                     Ok(key) => {
