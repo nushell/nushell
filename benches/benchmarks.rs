@@ -873,7 +873,14 @@ fn bench_parser_parse_block(dataset: &str, source: String) -> impl IntoBenchmark
             let span = Span::new(0, input.len());
             let engine_state = parser_engine_state();
             let mut working_set = StateWorkingSet::new(&engine_state);
-            black_box(parse_block(&mut working_set, &tokens, span, true, false));
+            black_box(parse_block(
+                &mut working_set,
+                &tokens,
+                span,
+                true,
+                false,
+                None,
+            ));
         })
     })]
 }

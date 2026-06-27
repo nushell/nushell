@@ -679,9 +679,9 @@ pub fn math_result_type(
 pub fn check_pipeline_type(
     working_set: &StateWorkingSet,
     pipeline: &Pipeline,
-    input_type: Type,
+    input_type: &Type,
 ) -> (Type, Option<Vec<ParseError>>) {
-    let mut input_type = input_type;
+    let mut input_type = input_type.clone();
     let mut output_errors: Option<Vec<ParseError>> = None;
 
     for elem in &pipeline.elements {
@@ -713,7 +713,7 @@ pub fn check_pipeline_type(
             .get_decl(call.decl_id)
             .signature()
             // NOTE[2]: unlike `parse_internal_call`, `Type::Nothing` is not added to input types.
-            .get_output_type(Some(input_type.clone()));
+            .get_output_type(Some(&input_type));
 
         if let Some(output_type) = output_type {
             input_type = output_type;
@@ -747,7 +747,12 @@ pub fn check_block_input_output(working_set: &StateWorkingSet, block: &Block) ->
     // let inputs = block.input_types();
     let mut output_errors = vec![];
 
-    for (input_type, output_type) in &block.signature.input_output_types {
+    let items = match block.signature.input_output_types.as_slice() {
+        [] => &[(Type::Any, Type::Any)],
+        items => items,
+    };
+
+    for (input_type, output_type) in items {
         let current_output_type = match block.pipelines.as_slice() {
             [] => input_type.clone(),
             pipelines => {
@@ -755,7 +760,7 @@ pub fn check_block_input_output(working_set: &StateWorkingSet, block: &Block) ->
                     .iter()
                     .fold((input_type.clone(), Type::Nothing), |(ct, _), pipeline| {
                         let (checked_output_type, err) =
-                            check_pipeline_type(working_set, pipeline, ct);
+                            check_pipeline_type(working_set, pipeline, &ct);
                         if let Some(err) = err {
                             output_errors.extend(err);
                         }
@@ -802,19 +807,6 @@ pub fn check_block_input_output(working_set: &StateWorkingSet, block: &Block) ->
             current_ty_string,
             span,
         ))
-    }
-
-    if block.signature.input_output_types.is_empty() {
-        let mut current_type = Type::Any;
-
-        for pipeline in &block.pipelines {
-            let (_, err) = check_pipeline_type(working_set, pipeline, current_type);
-            current_type = Type::Nothing;
-
-            if let Some(err) = err {
-                output_errors.extend_from_slice(&err);
-            }
-        }
     }
 
     output_errors
