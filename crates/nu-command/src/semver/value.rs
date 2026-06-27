@@ -36,12 +36,23 @@ impl nu_protocol::CustomValue for SemverValue {
     }
 
     fn partial_cmp(&self, other: &Value) -> Option<Ordering> {
-        if let Value::Custom { val, .. } = other
-            && let Some(other_semver) = val.as_any().downcast_ref::<SemverValue>()
-        {
-            return self.version.partial_cmp(&other_semver.version);
+        match other {
+            Value::Custom { val, .. } if val.type_name() == self.type_name() => {
+                let other_version = val
+                    .to_base_value(other.span())
+                    .ok()
+                    .and_then(|value| match value {
+                        Value::String { val, .. } => semver::Version::parse(&val).ok(),
+                        _ => None,
+                    });
+
+                other_version.and_then(|other_version| self.version.partial_cmp(&other_version))
+            }
+            Value::String { val, .. } => semver::Version::parse(val)
+                .ok()
+                .and_then(|other_version| self.version.partial_cmp(&other_version)),
+            _ => None,
         }
-        None
     }
 
     fn follow_path_string(
@@ -153,7 +164,7 @@ impl SemverValue {
         let current_pre = self.version.pre.as_str();
 
         let new_pre = if current_pre.is_empty() {
-            format!("{}.0", tag)
+            format!("{}.1", tag)
         } else if current_pre.starts_with(tag) {
             if let Some(dot_pos) = current_pre.rfind('.') {
                 let suffix = &current_pre[dot_pos + 1..];
@@ -280,6 +291,32 @@ mod tests {
     use super::*;
     use nu_protocol::CustomValue;
 
+    #[test]
+    fn semver_custom_values_compare_equal_when_versions_match() {
+        let expected = Value::custom(
+            Box::new(SemverValue::new(semver::Version::parse("1.2.3").unwrap())),
+            Span::test_data(),
+        );
+        let got = Value::custom(
+            Box::new(SemverValue::new(semver::Version::parse("1.2.3").unwrap())),
+            Span::test_data(),
+        );
+
+        assert_eq!(expected.partial_cmp(&got), Some(Ordering::Equal));
+        assert_eq!(expected, got);
+    }
+
+    #[test]
+    fn semver_bump_example_result_compares_equal_through_tester() -> nu_test_support::Result {
+        let mut tester = nu_test_support::test();
+        let got: Value = tester.run("'1.2.3' | into semver | semver bump major")?;
+        let expected = SemverValue::test_value("2.0.0");
+
+        assert_eq!(got.partial_cmp(&expected), Some(Ordering::Equal));
+        assert_eq!(got, expected);
+        Ok(())
+    }
+
     fn parse_version(s: &str) -> semver::Version {
         semver::Version::parse(s).unwrap()
     }
@@ -331,7 +368,7 @@ mod tests {
     fn test_bump_prerelease_empty() {
         let semver_val = SemverValue::new(parse_version("1.2.3"));
         let bumped = semver_val.bump_prerelease("alpha").unwrap();
-        assert_eq!(bumped.version.to_string(), "1.2.3-alpha.0");
+        assert_eq!(bumped.version.to_string(), "1.2.3-alpha.1");
     }
 
     #[test]
@@ -387,9 +424,27 @@ mod tests {
         );
         assert_eq!(CustomValue::partial_cmp(&v1, &val3), Some(Ordering::Equal));
 
-        // Test with non-semver value
+        // Test with semver string input
         let string_val = Value::string("1.0.0", Span::test_data());
-        assert_eq!(CustomValue::partial_cmp(&v1, &string_val), None);
+        assert_eq!(
+            CustomValue::partial_cmp(&v1, &string_val),
+            Some(Ordering::Equal)
+        );
+
+        // Test with non-semver string input
+        let invalid_string_val = Value::string("not-a-version", Span::test_data());
+        assert_eq!(CustomValue::partial_cmp(&v1, &invalid_string_val), None);
+    }
+
+    #[test]
+    fn test_value_equality_for_semver_custom_values() {
+        let expected = SemverValue::test_value("2.0.0");
+        let actual = Value::custom(
+            Box::new(SemverValue::new(parse_version("2.0.0"))),
+            Span::test_data(),
+        );
+
+        assert_eq!(expected, actual);
     }
 
     #[test]

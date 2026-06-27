@@ -201,7 +201,7 @@ mod tests {
         let input = create_semver_value("1.2.3");
         let result =
             bump_value_with_options(&input, "alpha", Span::test_data(), false, None).unwrap();
-        assert_eq!(get_semver_from_value(&result), "1.2.3-alpha.0");
+        assert_eq!(get_semver_from_value(&result), "1.2.3-alpha.1");
     }
 
     #[test]
@@ -209,14 +209,14 @@ mod tests {
         let input = create_semver_value("1.2.3");
         let result =
             bump_value_with_options(&input, "beta", Span::test_data(), false, None).unwrap();
-        assert_eq!(get_semver_from_value(&result), "1.2.3-beta.0");
+        assert_eq!(get_semver_from_value(&result), "1.2.3-beta.1");
     }
 
     #[test]
     fn test_bump_rc() {
         let input = create_semver_value("1.2.3");
         let result = bump_value_with_options(&input, "rc", Span::test_data(), false, None).unwrap();
-        assert_eq!(get_semver_from_value(&result), "1.2.3-rc.0");
+        assert_eq!(get_semver_from_value(&result), "1.2.3-rc.1");
     }
 
     #[test]
