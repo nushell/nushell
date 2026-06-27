@@ -27,6 +27,10 @@ impl Command for MathCbrt {
         "Returns the real-valued cube root of the input number."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["cbrt", "cube", "root"]
+    }
+
     fn is_const(&self) -> bool {
         true
     }
@@ -86,12 +90,8 @@ impl Command for MathCbrt {
 fn operate(value: Value, head: Span) -> Value {
     let span = value.span();
     match value {
-        Value::Int { val, .. } => {
-            Value::float((val as f64).cbrt(), span)
-        }
-        Value::Float { val, .. } => {
-            Value::float(val.cbrt(), span)
-        }
+        Value::Int { val, .. } => Value::float((val as f64).cbrt(), span),
+        Value::Float { val, .. } => Value::float(val.cbrt(), span),
         Value::Error { .. } => value,
         other => Value::error(
             ShellError::OnlySupportsThisInputType {
