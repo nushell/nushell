@@ -341,6 +341,7 @@ impl CompareTypes for Type {
             (Type::Glob, Type::String) => true,
             // but not the other way around
             (Type::String, Type::Glob) => false,
+            // strings can be coerced to semver
             (Type::OneOf(dst_tys), Type::OneOf(src_tys)) => src_tys.is_assignable_to(dst_tys),
             (Type::OneOf(dst_tys), src_ty) => src_ty.is_assignable_to(dst_tys),
             (dst_ty, Type::OneOf(src_tys)) => src_tys.is_assignable_to(dst_ty),

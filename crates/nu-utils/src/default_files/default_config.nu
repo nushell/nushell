@@ -27,6 +27,8 @@ $env.config.color_config = {
     list: default
     closure: green_bold
     glob:cyan_bold
+    semver: cyan_bold
+    semver-range: cyan_bold
     block: default
     hints: dark_gray
     search_result: { bg: red fg: default }

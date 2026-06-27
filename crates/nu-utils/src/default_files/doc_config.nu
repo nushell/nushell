@@ -1035,6 +1035,14 @@ $env.config.color_config.duration = "default"
 # Default: default
 $env.config.color_config.range = "default"
 
+# color_config.semver: Style for semver values in output.
+# Default: "cyan_bold"
+$env.config.color_config.semver = "cyan_bold"
+
+# color_config.semver-range: Style for semver-range values in output.
+# Default: "cyan_bold"
+$env.config.color_config.semver-range = "cyan_bold"
+
 # color_config.cell-path: Style for cell-path values in output.
 # Default: default
 $env.config.color_config.cell-path = "default"
