@@ -28,7 +28,7 @@ impl Command for MathCbrt {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["cbrt", "cube", "root"]
+        vec!["cube", "root"]
     }
 
     fn is_const(&self) -> bool {
