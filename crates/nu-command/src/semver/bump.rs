@@ -231,7 +231,7 @@ mod tests {
     fn test_bump_invalid_level() {
         let input = create_semver_value("1.2.3");
         let result = bump_value_with_options(&input, "invalid", Span::test_data(), false, None);
-        assert!(matches!(result, Err(_)));
+        assert!(result.is_err());
     }
 
     #[test]
@@ -264,7 +264,7 @@ mod tests {
         // Create a different custom value (not semver)
         let input = Value::int(42, Span::test_data());
         let result = bump_value_with_options(&input, "major", Span::test_data(), false, None);
-        assert!(matches!(result, Err(_)));
+        assert!(result.is_err());
     }
 
     #[test]

@@ -223,7 +223,9 @@ impl SemverValue {
     /// For use by tests and examples only.
     pub fn test_value(s: &str) -> Value {
         Value::test_custom_value(Box::new(Self {
-            version: s.parse::<semver::Version>().unwrap(),
+            version: s
+                .parse::<semver::Version>()
+                .unwrap_or_else(|_| semver::Version::new(0, 0, 0)),
         }))
     }
 }
