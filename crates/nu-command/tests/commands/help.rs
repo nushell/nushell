@@ -87,6 +87,8 @@ fn help_alias_description_3() -> Result {
 
 #[test]
 fn help_alias_name() -> Result {
+    // Regression test for #18351 — ensure the alias name "SPAM" appears in
+    // `help aliases SPAM` output, not the target command name "print"
     Playground::setup("help_alias_name", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
             "spam.nu",
@@ -131,6 +133,7 @@ fn help_alias_name_f() -> Result {
 
 #[test]
 fn help_export_alias_name_single_word() -> Result {
+    // #18351: same as help_alias_name but for export alias
     Playground::setup("help_export_alias_name_single_word", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
             "spam.nu",
@@ -154,6 +157,7 @@ fn help_export_alias_name_single_word() -> Result {
 
 #[test]
 fn help_export_alias_name_multi_word() -> Result {
+    // #18351: same as help_alias_name but for multi-word export alias
     Playground::setup("help_export_alias_name_multi_word", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
             "spam.nu",
