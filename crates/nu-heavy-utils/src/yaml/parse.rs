@@ -1092,12 +1092,12 @@ mod v1_1 {
     }
 
     static FLOAT_BASE10: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^[-+]?([0-9][0-9_]*)?\.[0-9.]*([eE][-+][0-9]+)?$")
+        Regex::new(r"^[-+]?([0-9][0-9_]*)?\.[0-9_]*([eE][-+][0-9]+)?$")
             .expect("valid float base 10 regex for spec v1.1")
     });
     fn parse_float_base10<'i>(ctx: &mut ParseCtx<'i>, input: &str) -> Result<f64, ParseError<'i>> {
         let no_underscore = match input.contains("_") {
-            true => Cow::Owned(input.replace("_", "to")),
+            true => Cow::Owned(input.replace("_", "")),
             false => Cow::Borrowed(input),
         };
 
@@ -1362,14 +1362,17 @@ mod tests {
         assert!(parse(yaml, SPAN, options).is_ok());
     }
 
+    fn parse_yaml_11_into_record(input: &str) -> Result<Record> {
+        let yaml = input.into_spanned(SPAN);
+        let options = ParseOptions::default().spec(Spec::V1_1);
+        let parsed = parse(yaml, SPAN, options)?;
+        Ok(parsed.into_record()?)
+    }
+
     #[test]
     fn spec_type_binary() -> Result {
         let yaml = include_str!("../../../../tests/fixtures/formats/yaml/binary.yaml");
-        let yaml = yaml.into_spanned(SPAN);
-        let options = ParseOptions::default();
-        let parsed = parse(yaml, SPAN, options)?;
-        let record = parsed.into_record()?;
-
+        let record = parse_yaml_11_into_record(yaml)?;
         let expected = include_bytes!("../../../../tests/fixtures/formats/yaml/binary.gif");
         assert_eq!(record["canonical"].as_binary()?, expected);
         assert_eq!(record["generic"].as_binary()?, expected);
@@ -1378,6 +1381,30 @@ mod tests {
             "The binary value above is a tiny arrow encoded as a gif image."
         );
 
+        Ok(())
+    }
+
+    #[test]
+    fn spec_type_bool() -> Result {
+        let yaml = include_str!("../../../../tests/fixtures/formats/yaml/binary.yaml");
+        let record = parse_yaml_11_into_record(yaml)?;
+        assert_eq!(record["canonical"].as_bool()?, true);
+        assert_eq!(record["answer"].as_bool()?, false);
+        assert_eq!(record["logical"].as_bool()?, true);
+        assert_eq!(record["option"].as_bool()?, true);
+        Ok(())
+    }
+
+    #[test]
+    fn spec_type_float() -> Result {
+        let yaml = include_str!("../../../../tests/fixtures/formats/yaml/float.yaml");
+        let record = parse_yaml_11_into_record(yaml)?;
+        assert_eq!(record["canonical"].as_float()?, 6.8523015e+5);
+        assert_eq!(record["exponential"].as_float()?, 685.230_15e+03);
+        assert_eq!(record["fixed"].as_float()?, 685_230.15);
+        assert_eq!(record["sexagesimal"].as_float()?, 190. * 60. * 60. + 20. * 60. + 30.15);
+        assert_eq!(record["negative infinity"].as_float()?, f64::NEG_INFINITY);
+        assert!(record["not a number"].as_float()?.is_nan());
         Ok(())
     }
 }
