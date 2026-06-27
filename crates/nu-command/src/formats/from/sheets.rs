@@ -17,6 +17,18 @@ pub(super) fn common_sheets_signature(name: &str) -> Signature {
             "Only convert specified sheets.",
             Some('s'),
         )
+        .switch(
+            "noheaders",
+            "Don't treat the first row as column names.",
+            Some('n'),
+        )
+        .named(
+            "first-row",
+            SyntaxShape::Int,
+            "The row to start reading the sheets from. \
+                By default, reading starts from the firsts non empty row.",
+            Some('f'),
+        )
         .category(Category::Formats)
 }
 
@@ -47,6 +59,11 @@ pub(super) fn from_sheets(
 ) -> std::result::Result<PipelineData, ShellError> {
     let head = call.head;
 
+    let noheaders = call.has_flag(engine_state, stack, "noheaders")?;
+    let first_row = call
+        .get_flag::<u32>(engine_state, stack, "first-row")?
+        .map(HeaderRow::Row)
+        .unwrap_or(HeaderRow::FirstNonEmptyRow);
     let sheet_names = {
         let sel_sheets = call
             .get_flag::<Vec<String>>(engine_state, stack, "sheets")?
@@ -63,6 +80,8 @@ pub(super) fn from_sheets(
         _ => Utc.fix(),
     };
 
+    sheets.with_header_row(first_row);
+
     let output = sheet_names
         .into_iter()
         .map(|name| {
@@ -78,16 +97,46 @@ pub(super) fn from_sheets(
 
             let rows = sheet
                 .rows()
-                .map(|row| {
-                    row.iter()
-                        .enumerate()
-                        .map(|(idx, cell)| (format!("column{idx}"), cell_to_data(cell, head, tz)))
-                        .collect::<Record>()
-                        .into_value(head)
-                })
-                .collect::<Vec<_>>();
+                .map(|row| row.iter().map(|cell| cell_to_data(cell, head, tz)));
 
-            Ok((name, rows.into_value(head)))
+            if !noheaders && let Some(headers) = sheet.headers() {
+                let headers = headers
+                    .into_iter()
+                    .chain(std::iter::repeat(String::new()))
+                    .enumerate()
+                    .map(|(idx, s)| {
+                        if s.is_empty() {
+                            format!("column{idx}")
+                        } else {
+                            s
+                        }
+                    });
+
+                // the original iterator must remain immutable. can only be used by cloning
+                let headers = &headers;
+
+                let rows = rows
+                    .skip(1)
+                    .map(|row| {
+                        headers
+                            .clone()
+                            .zip(row)
+                            .collect::<Record>()
+                            .into_value(head)
+                    })
+                    .collect::<Vec<_>>();
+                Ok((name, rows.into_value(head)))
+            } else {
+                let rows = rows
+                    .map(|row| {
+                        row.enumerate()
+                            .map(|(idx, value)| (format!("column{idx}"), value))
+                            .collect::<Record>()
+                            .into_value(head)
+                    })
+                    .collect::<Vec<_>>();
+                Ok((name, rows.into_value(head)))
+            }
         })
         .collect::<Result<Record, ShellError>>()?;
 
