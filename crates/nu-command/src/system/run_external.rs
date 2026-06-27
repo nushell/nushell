@@ -608,14 +608,28 @@ pub fn command_not_found(
 
     // Try to match the name with the search terms of existing commands.
     let signatures = engine_state.get_signatures_and_declids(false);
-    if let Some((sig, _)) = signatures.iter().find(|(sig, _)| {
-        sig.search_terms
-            .iter()
-            .any(|term| term.to_folded_case() == name.to_folded_case())
-    }) {
+    if let Some((last, others)) = signatures
+        .iter()
+        .map(|(sig, _)| sig)
+        .filter(|sig| {
+            sig.search_terms
+                .iter()
+                .any(|term| term.to_folded_case() == name.to_folded_case())
+        })
+        .map(|sig| format!("`{}`", sig.name))
+        .collect::<Vec<_>>()
+        .split_last()
+    {
+        let commands = if others.is_empty() {
+            last
+        } else {
+            // other or last
+            // other, other or last
+            &format!("{} or {last}", others.join(", "))
+        };
         return ShellError::ExternalCommand {
             label: format!("Command `{name}` not found"),
-            help: format!("Did you mean `{}`?", sig.name),
+            help: format!("Did you mean {commands}?"),
             span,
         };
     }

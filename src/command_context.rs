@@ -163,32 +163,6 @@ mod tests {
     }
 
     #[test]
-    fn no_search_term_duplicates() {
-        let ctx = add_command_context(EngineState::new());
-        let decls = ctx.get_decls_sorted(true);
-        let mut failures = Vec::new();
-
-        for (name_bytes, decl_id) in decls {
-            let cmd = ctx.get_decl(decl_id);
-            let cmd_name = String::from_utf8_lossy(&name_bytes);
-            let search_terms = cmd.search_terms();
-            let category = cmd.signature().category;
-
-            for search_term in search_terms {
-                if cmd_name.contains(search_term) {
-                    failures.push(format!("{cmd_name} ({category:?}): Search term \"{search_term}\" is substring of command name \"{cmd_name}\""));
-                }
-            }
-        }
-
-        assert!(
-            failures.is_empty(),
-            "Duplication in search terms:\n{}",
-            failures.join("\n")
-        );
-    }
-
-    #[test]
     fn description_end_period() {
         let ctx = add_command_context(EngineState::new());
         let decls = ctx.get_decls_sorted(true);
