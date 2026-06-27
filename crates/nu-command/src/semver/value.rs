@@ -1,12 +1,14 @@
 use nu_protocol::{
     ShellError, Span, Value,
     ast::{Comparison, Operator},
+    casing::Casing,
 };
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::cmp::Ordering;
+use std::ops::Deref;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct SemverValue {
     pub version: semver::Version,
 }
@@ -40,6 +42,33 @@ impl nu_protocol::CustomValue for SemverValue {
             return self.version.partial_cmp(&other_semver.version);
         }
         None
+    }
+
+    fn follow_path_string(
+        &self,
+        self_span: Span,
+        column_name: String,
+        path_span: Span,
+        _optional: bool,
+        casing: Casing,
+    ) -> Result<Value, ShellError> {
+        let col = match casing {
+            Casing::Sensitive => column_name,
+            Casing::Insensitive => column_name.to_lowercase(),
+        };
+
+        match col.as_str() {
+            "major" => Ok(Value::int(self.version.major as i64, path_span)),
+            "minor" => Ok(Value::int(self.version.minor as i64, path_span)),
+            "patch" => Ok(Value::int(self.version.patch as i64, path_span)),
+            "pre" => Ok(Value::string(self.version.pre.to_string(), path_span)),
+            "build" => Ok(Value::string(self.version.build.to_string(), path_span)),
+            _ => Err(ShellError::CantFindColumn {
+                col_name: col,
+                span: Some(path_span),
+                src_span: self_span,
+            }),
+        }
     }
 
     fn operation(
@@ -170,8 +199,80 @@ impl SemverValue {
             },
         }
     }
+
+    pub fn set_build_metadata(&self, metadata: &str) -> Result<Self, ShellError> {
+        let build = semver::BuildMetadata::new(metadata).map_err(|e| {
+            ShellError::Generic(nu_protocol::shell_error::generic::GenericError::new(
+                "Invalid build metadata",
+                e.to_string(),
+                Span::unknown(),
+            ))
+        })?;
+
+        Ok(Self {
+            version: semver::Version {
+                major: self.version.major,
+                minor: self.version.minor,
+                patch: self.version.patch,
+                pre: self.version.pre.clone(),
+                build,
+            },
+        })
+    }
+
+    /// For use by tests and examples only.
+    pub fn test_value(s: &str) -> Value {
+        Value::test_custom_value(Box::new(Self {
+            version: s.parse::<semver::Version>().unwrap(),
+        }))
+    }
 }
 
+impl<'a> TryFrom<&'a Value> for SemverValue {
+    type Error = ShellError;
+
+    fn try_from(value: &'a Value) -> Result<Self, Self::Error> {
+        let span = value.span();
+
+        match value {
+            Value::String { val, .. } => {
+                semver::Version::parse(val)
+                    .map(SemverValue::new)
+                    .map_err(|e| ShellError::IncorrectValue {
+                        msg: format!("Value is not a valid semver version: {e}"),
+                        val_span: span,
+                        call_span: span,
+                    })
+            }
+            Value::Custom { val, .. } => {
+                if let Some(semver) = val.as_any().downcast_ref::<Self>() {
+                    Ok(semver.clone())
+                } else {
+                    Err(ShellError::CantConvert {
+                        to_type: "semver".into(),
+                        from_type: val.type_name(),
+                        span,
+                        help: None,
+                    })
+                }
+            }
+            x => Err(ShellError::CantConvert {
+                to_type: "semver".into(),
+                from_type: x.get_type().to_string(),
+                span,
+                help: None,
+            }),
+        }
+    }
+}
+
+impl Deref for SemverValue {
+    type Target = semver::Version;
+
+    fn deref(&self) -> &Self::Target {
+        &self.version
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -277,13 +378,16 @@ mod tests {
         let val1 = Value::custom(Box::new(v1.clone()), Span::test_data());
         let val3 = Value::custom(Box::new(v3.clone()), Span::test_data());
 
-        assert_eq!(v1.partial_cmp(&val2), Some(Ordering::Less));
-        assert_eq!(v2.partial_cmp(&val1), Some(Ordering::Greater));
-        assert_eq!(v1.partial_cmp(&val3), Some(Ordering::Equal));
+        assert_eq!(CustomValue::partial_cmp(&v1, &val2), Some(Ordering::Less));
+        assert_eq!(
+            CustomValue::partial_cmp(&v2, &val1),
+            Some(Ordering::Greater)
+        );
+        assert_eq!(CustomValue::partial_cmp(&v1, &val3), Some(Ordering::Equal));
 
         // Test with non-semver value
         let string_val = Value::string("1.0.0", Span::test_data());
-        assert_eq!(v1.partial_cmp(&string_val), None);
+        assert_eq!(CustomValue::partial_cmp(&v1, &string_val), None);
     }
 
     #[test]

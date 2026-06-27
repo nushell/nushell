@@ -12,10 +12,21 @@ impl Command for SemverBump {
 
     fn signature(&self) -> Signature {
         Signature::build("semver bump")
-            .input_output_types(vec![(
-                Type::Custom("semver".into()),
-                Type::Custom("semver".into()),
-            )])
+            .input_output_types(vec![
+                (Type::Custom("semver".into()), Type::Custom("semver".into())),
+                (Type::String, Type::Custom("semver".into())),
+            ])
+            .switch(
+                "ignore-errors",
+                "If the input is not a valid semver version, return the original input unchanged",
+                Some('i'),
+            )
+            .named(
+                "build-metadata",
+                SyntaxShape::String,
+                "Additionally set the build metadata",
+                Some('b'),
+            )
             .param(Parameter::Required(
                 PositionalArg::new("level", SyntaxShape::String)
                     .desc("The level to bump: major, minor, patch, alpha, beta, rc, release.")
@@ -34,6 +45,41 @@ impl Command for SemverBump {
         vec!["version", "increment", "major", "minor", "patch"]
     }
 
+    fn examples(&self) -> Vec<Example<'static>> {
+        vec![
+            Example {
+                description: "Bump major version",
+                example: "'1.2.3' | into semver | semver bump major",
+                result: Some(SemverValue::test_value("2.0.0")),
+            },
+            Example {
+                description: "Bump minor version",
+                example: "'1.2.3' | into semver | semver bump minor",
+                result: Some(SemverValue::test_value("1.3.0")),
+            },
+            Example {
+                description: "Bump patch version",
+                example: "'1.2.3' | into semver | semver bump patch",
+                result: Some(SemverValue::test_value("1.2.4")),
+            },
+            Example {
+                description: "Bump patch version with string input",
+                example: "'1.2.3' | semver bump patch",
+                result: Some(SemverValue::test_value("1.2.4")),
+            },
+            Example {
+                description: "Add alpha prerelease",
+                example: "'1.2.3' | into semver | semver bump alpha",
+                result: Some(SemverValue::test_value("1.2.3-alpha.1")),
+            },
+            Example {
+                description: "Remove prerelease",
+                example: "'1.2.3-alpha' | into semver | semver bump release",
+                result: Some(SemverValue::test_value("1.2.3")),
+            },
+        ]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -42,73 +88,41 @@ impl Command for SemverBump {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let level: String = call.req(engine_state, stack, 0)?;
+        let ignore_errors = call.has_flag(engine_state, stack, "ignore-errors")?;
+        let build_metadata: Option<String> =
+            call.get_flag(engine_state, stack, "build-metadata")?;
         let head = call.head;
 
         input.map(
-            move |value| bump_value(&value, &level, head),
+            move |value| {
+                bump_value_with_options(
+                    &value,
+                    &level,
+                    head,
+                    ignore_errors,
+                    build_metadata.as_deref(),
+                )
+                .unwrap_or_else(|err| Value::error(err, head))
+            },
             engine_state.signals(),
         )
     }
-
-    fn examples(&self) -> Vec<Example<'static>> {
-        vec![
-            Example {
-                description: "Bump major version",
-                example: "'1.2.3' | into semver | semver bump major",
-                result: None,
-            },
-            Example {
-                description: "Bump minor version",
-                example: "'1.2.3' | into semver | semver bump minor",
-                result: None,
-            },
-            Example {
-                description: "Bump patch version",
-                example: "'1.2.3' | into semver | semver bump patch",
-                result: None,
-            },
-            Example {
-                description: "Add alpha prerelease",
-                example: "'1.2.3' | into semver | semver bump alpha",
-                result: None,
-            },
-            Example {
-                description: "Remove prerelease",
-                example: "'1.2.3-alpha' | into semver | semver bump release",
-                result: None,
-            },
-        ]
-    }
 }
 
-fn bump_value(input: &Value, level: &str, head: Span) -> Value {
-    let semver_val = match input {
-        Value::Custom { val, .. } => {
-            if let Some(semver) = val.as_any().downcast_ref::<SemverValue>() {
-                semver
-            } else {
-                return Value::error(
-                    ShellError::Generic(GenericError::new(
-                        "Value is not a semver",
-                        "expected a semver value",
-                        head,
-                    )),
-                    head,
-                );
+fn bump_value_with_options(
+    input: &Value,
+    level: &str,
+    head: Span,
+    ignore_errors: bool,
+    build_metadata: Option<&str>,
+) -> Result<Value, ShellError> {
+    let semver_val = match SemverValue::try_from(input) {
+        Ok(semver) => semver,
+        Err(err) => {
+            if ignore_errors {
+                return Ok(input.clone());
             }
-        }
-        _ => {
-            return Value::error(
-                ShellError::Generic(
-                    GenericError::new(
-                        "Value is not a semver",
-                        format!("expected a semver value, got {}", input.get_type()),
-                        head,
-                    )
-                    .with_help("Use `into semver` to convert a string to a semver value first"),
-                ),
-                head,
-            );
+            return Err(err);
         }
     };
 
@@ -116,27 +130,27 @@ fn bump_value(input: &Value, level: &str, head: Span) -> Value {
         "major" => semver_val.bump_major(),
         "minor" => semver_val.bump_minor(),
         "patch" => semver_val.bump_patch(),
-        "alpha" | "beta" | "rc" => match semver_val.bump_prerelease(level) {
-            Ok(v) => v,
-            Err(e) => return Value::error(e, head),
-        },
+        "alpha" | "beta" | "rc" => semver_val.bump_prerelease(level)?,
         "release" => semver_val.bump_release(),
         _ => {
-            return Value::error(
-                ShellError::Generic(
-                    GenericError::new(
-                        "Invalid bump level",
-                        format!("'{}' is not a valid bump level", level),
-                        head,
-                    )
-                    .with_help("valid levels: major, minor, patch, alpha, beta, rc, release"),
-                ),
-                head,
-            );
+            return Err(ShellError::Generic(
+                GenericError::new(
+                    "Invalid bump level",
+                    format!("'{}' is not a valid bump level", level),
+                    head,
+                )
+                .with_help("valid levels: major, minor, patch, alpha, beta, rc, release"),
+            ));
         }
     };
 
-    Value::custom(Box::new(result), head)
+    let result = if let Some(metadata) = build_metadata {
+        result.set_build_metadata(metadata)?
+    } else {
+        result
+    };
+
+    Ok(Value::custom(Box::new(result), head))
 }
 
 #[cfg(test)]
@@ -161,85 +175,111 @@ mod tests {
     #[test]
     fn test_bump_major() {
         let input = create_semver_value("1.2.3");
-        let result = bump_value(&input, "major", Span::test_data());
+        let result =
+            bump_value_with_options(&input, "major", Span::test_data(), false, None).unwrap();
         assert_eq!(get_semver_from_value(&result), "2.0.0");
     }
 
     #[test]
     fn test_bump_minor() {
         let input = create_semver_value("1.2.3");
-        let result = bump_value(&input, "minor", Span::test_data());
+        let result =
+            bump_value_with_options(&input, "minor", Span::test_data(), false, None).unwrap();
         assert_eq!(get_semver_from_value(&result), "1.3.0");
     }
 
     #[test]
     fn test_bump_patch() {
         let input = create_semver_value("1.2.3");
-        let result = bump_value(&input, "patch", Span::test_data());
+        let result =
+            bump_value_with_options(&input, "patch", Span::test_data(), false, None).unwrap();
         assert_eq!(get_semver_from_value(&result), "1.2.4");
     }
 
     #[test]
     fn test_bump_alpha() {
         let input = create_semver_value("1.2.3");
-        let result = bump_value(&input, "alpha", Span::test_data());
+        let result =
+            bump_value_with_options(&input, "alpha", Span::test_data(), false, None).unwrap();
         assert_eq!(get_semver_from_value(&result), "1.2.3-alpha.0");
     }
 
     #[test]
     fn test_bump_beta() {
         let input = create_semver_value("1.2.3");
-        let result = bump_value(&input, "beta", Span::test_data());
+        let result =
+            bump_value_with_options(&input, "beta", Span::test_data(), false, None).unwrap();
         assert_eq!(get_semver_from_value(&result), "1.2.3-beta.0");
     }
 
     #[test]
     fn test_bump_rc() {
         let input = create_semver_value("1.2.3");
-        let result = bump_value(&input, "rc", Span::test_data());
+        let result = bump_value_with_options(&input, "rc", Span::test_data(), false, None).unwrap();
         assert_eq!(get_semver_from_value(&result), "1.2.3-rc.0");
     }
 
     #[test]
     fn test_bump_release() {
         let input = create_semver_value("1.2.3-alpha.1");
-        let result = bump_value(&input, "release", Span::test_data());
+        let result =
+            bump_value_with_options(&input, "release", Span::test_data(), false, None).unwrap();
         assert_eq!(get_semver_from_value(&result), "1.2.3");
     }
 
     #[test]
     fn test_bump_invalid_level() {
         let input = create_semver_value("1.2.3");
-        let result = bump_value(&input, "invalid", Span::test_data());
-        assert!(matches!(result, Value::Error { .. }));
+        let result = bump_value_with_options(&input, "invalid", Span::test_data(), false, None);
+        assert!(matches!(result, Err(_)));
     }
 
     #[test]
-    fn test_bump_non_semver_value() {
+    fn test_bump_string_input_is_supported() {
         let input = Value::string("1.2.3", Span::test_data());
-        let result = bump_value(&input, "major", Span::test_data());
-        assert!(matches!(result, Value::Error { .. }));
+        let result =
+            bump_value_with_options(&input, "major", Span::test_data(), false, None).unwrap();
+        assert_eq!(get_semver_from_value(&result), "2.0.0");
+    }
+
+    #[test]
+    fn test_bump_string_input_with_build_metadata() {
+        let input = Value::string("1.2.3", Span::test_data());
+        let result =
+            bump_value_with_options(&input, "minor", Span::test_data(), false, Some("build"))
+                .unwrap();
+        assert_eq!(get_semver_from_value(&result), "1.3.0+build");
+    }
+
+    #[test]
+    fn test_bump_ignore_errors_for_invalid_input() {
+        let input = Value::string("not-a-version", Span::test_data());
+        let result =
+            bump_value_with_options(&input, "major", Span::test_data(), true, None).unwrap();
+        assert!(matches!(result, Value::String { .. }));
     }
 
     #[test]
     fn test_bump_wrong_custom_value() {
         // Create a different custom value (not semver)
         let input = Value::int(42, Span::test_data());
-        let result = bump_value(&input, "major", Span::test_data());
-        assert!(matches!(result, Value::Error { .. }));
+        let result = bump_value_with_options(&input, "major", Span::test_data(), false, None);
+        assert!(matches!(result, Err(_)));
     }
 
     #[test]
     fn test_bump_with_prerelease() {
         let input = create_semver_value("1.2.3-alpha.1");
-        let result = bump_value(&input, "major", Span::test_data());
+        let result =
+            bump_value_with_options(&input, "major", Span::test_data(), false, None).unwrap();
         assert_eq!(get_semver_from_value(&result), "2.0.0");
     }
 
     #[test]
     fn test_bump_with_build_metadata() {
         let input = create_semver_value("1.2.3+build.1");
-        let result = bump_value(&input, "minor", Span::test_data());
+        let result =
+            bump_value_with_options(&input, "minor", Span::test_data(), false, None).unwrap();
         assert_eq!(get_semver_from_value(&result), "1.3.0");
     }
 }
