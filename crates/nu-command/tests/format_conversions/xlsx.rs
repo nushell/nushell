@@ -53,3 +53,31 @@ fn fill_in_missing_headers() -> Result {
         .run(code)
         .expect_value_eq(vec!["header0", "column1", "header2", "column3"])
 }
+
+#[test]
+fn from_excel_int_column_is_int() -> Result {
+    let code = "
+        open sample_data.xlsx
+        | get SalesOrders.Units
+        | first
+        | describe
+    ";
+    test()
+        .cwd("tests/fixtures/formats")
+        .run(code)
+        .expect_value_eq("int")
+}
+
+#[test]
+fn from_excel_float_column_is_float() -> Result {
+    let code = "
+        open sample_data.xlsx
+        | get SalesOrders.Total
+        | first
+        | describe
+    ";
+    test()
+        .cwd("tests/fixtures/formats")
+        .run(code)
+        .expect_value_eq("float")
+}

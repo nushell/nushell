@@ -147,7 +147,13 @@ fn cell_to_data(cell: &Data, head: Span, tz: chrono::FixedOffset) -> Value {
     match cell {
         Data::Empty => Value::nothing(head),
         Data::Int(val) => Value::int(*val, head),
-        Data::Float(val) => Value::float(*val, head),
+        Data::Float(val) => {
+            if *val as i64 as f64 == *val {
+                Value::int(*val as i64, head)
+            } else {
+                Value::float(*val, head)
+            }
+        }
         Data::String(val) => Value::string(val, head),
         Data::Bool(val) => Value::bool(*val, head),
         Data::DateTime(d) => excel_datetime_to_value(d, tz, head),
