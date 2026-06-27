@@ -1,8 +1,6 @@
-use std::io::Cursor;
+use calamine::{Reader, Sheets, Xlsx};
 
-use calamine::*;
-
-use super::sheets::{collect_binary, from_sheets};
+use super::sheets::{collect_binary, common_sheets_signature, from_sheets};
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -14,16 +12,7 @@ impl Command for FromXlsx {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from xlsx")
-            .input_output_types(vec![(Type::Binary, Type::record())])
-            .allow_variants_without_examples(true)
-            .named(
-                "sheets",
-                SyntaxShape::List(Box::new(SyntaxShape::String)),
-                "Only convert specified sheets.",
-                Some('s'),
-            )
-            .category(Category::Formats)
+        common_sheets_signature("from xlsx")
     }
 
     fn description(&self) -> &str {
@@ -38,22 +27,20 @@ impl Command for FromXlsx {
         mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let sel_sheets = call
-            .get_flag::<Vec<String>>(engine_state, stack, "sheets")?
-            .unwrap_or_default();
         let metadata = input.take_metadata().map(|md| md.with_content_type(None));
 
         let input_span = input.span().unwrap_or(head);
-        let bytes = collect_binary(input, head)?;
-        let buf: Cursor<Vec<u8>> = Cursor::new(bytes);
-        let sheets = Sheets::Xlsx(Xlsx::new(buf).map_err(|_| ShellError::UnsupportedInput {
+        let reader = collect_binary(input, head)?;
+        let xlsx = Xlsx::new(reader).map_err(|_| ShellError::UnsupportedInput {
             msg: "Could not load XLSX file".to_string(),
             input: "value originates from here".into(),
             msg_span: head,
             input_span,
-        })?);
+        })?;
+        let sheets = Sheets::Xlsx(xlsx);
 
-        from_sheets(sheets, sel_sheets, input_span, head).map(|pd| pd.set_metadata(metadata))
+        from_sheets(sheets, input_span, engine_state, stack, call)
+            .map(|pd| pd.set_metadata(metadata))
     }
 
     fn examples(&self) -> Vec<Example<'_>> {

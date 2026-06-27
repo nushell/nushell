@@ -7,8 +7,24 @@ use chrono::{
 
 use nu_engine::command_prelude::*;
 
-pub(super) fn collect_binary(input: PipelineData, head: Span) -> Result<Vec<u8>, ShellError> {
-    match input {
+pub(super) fn common_sheets_signature(name: &str) -> Signature {
+    Signature::build(name)
+        .input_output_types(vec![(Type::Binary, Type::record())])
+        .allow_variants_without_examples(true)
+        .named(
+            "sheets",
+            SyntaxShape::List(Box::new(SyntaxShape::String)),
+            "Only convert specified sheets.",
+            Some('s'),
+        )
+        .category(Category::Formats)
+}
+
+pub(super) fn collect_binary(
+    input: PipelineData,
+    head: Span,
+) -> Result<Cursor<Vec<u8>>, ShellError> {
+    let buf = match input {
         // Deserialize from a byte buffer
         PipelineData::Value(Value::Binary { val: bytes, .. }, _) => Ok(bytes),
         // Deserialize from a raw stream directly without having to collect it
@@ -18,16 +34,23 @@ pub(super) fn collect_binary(input: PipelineData, head: Span) -> Result<Vec<u8>,
             dst_span: head,
             src_span: input.span().unwrap_or(head),
         }),
-    }
+    };
+    Ok(Cursor::new(buf?))
 }
 
 pub(super) fn from_sheets(
     mut sheets: Sheets<Cursor<Vec<u8>>>,
-    sel_sheets: Vec<String>,
     input_span: Span,
-    head: Span,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
 ) -> std::result::Result<PipelineData, ShellError> {
+    let head = call.head;
+
     let sheet_names = {
+        let sel_sheets = call
+            .get_flag::<Vec<String>>(engine_state, stack, "sheets")?
+            .unwrap_or_default();
         let mut sheets = sheets.sheet_names();
         if !sel_sheets.is_empty() {
             sheets.retain(|e| sel_sheets.contains(e));
