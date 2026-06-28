@@ -1400,7 +1400,7 @@ mod tests {
         assert!(parse(yaml, SPAN, options).is_ok());
     }
 
-    fn parse_yaml_11<T: FromValue>(input: &str) -> Result<T> {
+    fn parse_yaml_v1_1<T: FromValue>(input: &str) -> Result<T> {
         let yaml = input.into_spanned(SPAN);
         let options = ParseOptions::default()
             .spec(Spec::V1_1)
@@ -1412,7 +1412,7 @@ mod tests {
     #[test]
     fn spec_type_binary() -> Result {
         let yaml = include_str!("../../../../tests/fixtures/formats/yaml/binary.yaml");
-        let record: Record = parse_yaml_11(yaml)?;
+        let record: Record = parse_yaml_v1_1(yaml)?;
         let expected = include_bytes!("../../../../tests/fixtures/formats/yaml/binary.gif");
         assert_eq!(record["canonical"].as_binary()?, expected);
         assert_eq!(record["generic"].as_binary()?, expected);
@@ -1427,7 +1427,7 @@ mod tests {
     #[test]
     fn spec_type_bool() -> Result {
         let yaml = include_str!("../../../../tests/fixtures/formats/yaml/binary.yaml");
-        let record: Record = parse_yaml_11(yaml)?;
+        let record: Record = parse_yaml_v1_1(yaml)?;
         assert_eq!(record["canonical"].as_bool()?, true);
         assert_eq!(record["answer"].as_bool()?, false);
         assert_eq!(record["logical"].as_bool()?, true);
@@ -1438,7 +1438,7 @@ mod tests {
     #[test]
     fn spec_type_float() -> Result {
         let yaml = include_str!("../../../../tests/fixtures/formats/yaml/float.yaml");
-        let record: Record = parse_yaml_11(yaml)?;
+        let record: Record = parse_yaml_v1_1(yaml)?;
         assert_eq!(record["canonical"].as_float()?, 6.8523015e+5);
         assert_eq!(record["exponential"].as_float()?, 685.230_15e+03);
         assert_eq!(record["fixed"].as_float()?, 685_230.15);
@@ -1454,7 +1454,7 @@ mod tests {
     #[test]
     fn spec_type_int() -> Result {
         let yaml = include_str!("../../../../tests/fixtures/formats/yaml/int.yaml");
-        let record: Record = parse_yaml_11(yaml)?;
+        let record: Record = parse_yaml_v1_1(yaml)?;
         assert_eq!(record["canonical"].as_int()?, 685230);
         assert_eq!(record["decimal"].as_int()?, 685_230);
         assert_eq!(record["octal"].as_int()?, 0o2472256);
@@ -1470,7 +1470,7 @@ mod tests {
     #[test]
     fn spec_type_map() -> Result {
         let yaml = include_str!("../../../../tests/fixtures/formats/yaml/map.yaml");
-        let record: Record = parse_yaml_11(yaml)?;
+        let record: Record = parse_yaml_v1_1(yaml)?;
         let block_style = record["Block style"].as_record()?;
         assert_eq!(block_style["Clark"].as_str()?, "Evans");
         assert_eq!(block_style["Brian"].as_str()?, "Ingerson");
@@ -1485,7 +1485,7 @@ mod tests {
     #[test]
     fn spec_type_merge() -> Result {
         let yaml = include_str!("../../../../tests/fixtures/formats/yaml/merge.yaml");
-        let list: Vec<Value> = dbg!(parse_yaml_11(yaml)?);
+        let list: Vec<Value> = dbg!(parse_yaml_v1_1(yaml)?);
         let [
             center,
             left,
@@ -1552,7 +1552,7 @@ mod tests {
     #[test]
     fn spec_type_null() -> Result {
         let yaml = include_str!("../../../../tests/fixtures/formats/yaml/null.yaml");
-        let documents: Vec<Value> = parse_yaml_11(yaml)?;
+        let documents: Vec<Value> = parse_yaml_v1_1(yaml)?;
         let [null, mapping, sparse] = documents.try_into().unwrap();
 
         assert!(null.is_nothing());
@@ -1570,6 +1570,32 @@ mod tests {
         assert_eq!(
             sparse.as_record()?["sparse"],
             test_list![NULL, "2nd entry", NULL, "4th entry", NULL]
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn spec_type_omap() -> Result {
+        let yaml = include_str!("../../../../tests/fixtures/formats/yaml/omap.yaml");
+        let record: Record = parse_yaml_v1_1(yaml)?;
+
+        assert_eq!(
+            record["Bestiary"],
+            test_record! {
+                "aardvark" => "African pig-like ant eater. Ugly.",
+                "anteater" => "South-American ant eater. Two species.",
+                "anaconda" => "South-American constrictor snake. Scaly.",
+            }
+        );
+
+        assert_eq!(
+            record["Numbers"],
+            test_record! {
+                "one" => 1,
+                "two" => 2,
+                "three" => 3,
+            }
         );
 
         Ok(())
