@@ -446,3 +446,173 @@ impl<'v> YamlValue<'v> {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::yaml::*;
+    use indoc::*;
+    use nu_protocol::*;
+    use nu_test_support::prelude::*;
+    use rstest::*;
+
+    const SPAN: Span = Span::test_data();
+
+    #[rstest]
+    #[case::yaml_1_1(Spec::V1_1, "%YAML 1.1")]
+    #[case::yaml_1_2(Spec::V1_2, "%YAML 1.2")]
+    fn serialize_spec_controls_directive(
+        #[case] spec: Spec,
+        #[case] expected_directive: &str,
+    ) -> Result {
+        let value = 42.into_value(SPAN);
+        let options = SerializeOptions::default()
+            .with_spec(spec)
+            .with_add_directives(true);
+        let yaml = serialize(&value, SPAN, options)?;
+        assert!(yaml.starts_with(expected_directive));
+        assert_contains("%TAG ! tag:nushell.sh,2026:", yaml);
+        Ok(())
+    }
+
+    #[rstest]
+    #[case::without_directives(SerializeOptions::default(), false)]
+    #[case::with_directives(SerializeOptions::default().with_add_directives(true), true)]
+    fn serialize_add_directives_controls_preamble(
+        #[case] options: SerializeOptions,
+        #[case] has_directives: bool,
+    ) -> Result {
+        let value = 42.into_value(SPAN);
+        let yaml = serialize(&value, SPAN, options)?;
+        assert_eq!(yaml.starts_with("%YAML"), has_directives);
+        if has_directives {
+            assert_contains("%TAG ! tag:nushell.sh,2026:", yaml);
+        } else {
+            assert!(!yaml.lines().any(|line| line.starts_with("%TAG ")));
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn serialize_multiple_writes_document_stream() -> Result {
+        let value = ["first", "second"].into_value(SPAN);
+        let options = SerializeOptions::default().with_multiple(true);
+        let yaml = serialize(&value, SPAN, options)?;
+        assert_eq!(yaml.matches("---").count(), 1);
+
+        let parse_options = ParseOptions::default().with_multiple(ParseMultiple::ForceList);
+        let parsed = parse(yaml.as_str().into_spanned(SPAN), SPAN, parse_options)?;
+        assert_eq!(parsed, value);
+        Ok(())
+    }
+
+    #[test]
+    fn serialize_multiple_and_directives_writes_each_document_with_preamble() -> Result {
+        let value = ["first", "second"].into_value(SPAN);
+        let options = SerializeOptions::default()
+            .with_multiple(true)
+            .with_add_directives(true)
+            .with_spec(Spec::V1_1);
+        let yaml = serialize(&value, SPAN, options)?;
+        assert_eq!(yaml.matches("%YAML 1.1").count(), 2);
+        assert_eq!(yaml.matches("%TAG ! tag:nushell.sh,2026:").count(), 2);
+        assert_eq!(yaml.matches("---").count(), 2);
+        assert_eq!(yaml.matches("...").count(), 2);
+        Ok(())
+    }
+
+    #[rstest]
+    #[case::null(
+        SerializeOptions::default().with_non_roundtrip(NonRoundtrip::Null),
+        "null"
+    )]
+    #[case::lossy(
+        SerializeOptions::default().with_non_roundtrip(NonRoundtrip::Lossy {
+            engine_state: EngineState::new(),
+        }),
+        "!error"
+    )]
+    fn serialize_non_roundtrip_controls_lossy_values(
+        #[case] options: SerializeOptions,
+        #[case] expected: &str,
+    ) -> Result {
+        let value = ShellError::NushellFailed {
+            msg: "test failure".into(),
+        }
+        .into_value(SPAN);
+        let yaml = serialize(&value, SPAN, options)?;
+        assert_contains(expected, yaml);
+        Ok(())
+    }
+
+    #[test]
+    fn serialize_indent_controls_nested_mapping_indent() -> Result {
+        let value = test_record! {
+            "outer" => test_record! {
+                "inner" => 1,
+            },
+        };
+        let options = SerializeOptions::default().with_indent(4);
+        let yaml = serialize(&value, SPAN, options)?;
+        assert_contains("\n    inner: 1", yaml);
+        Ok(())
+    }
+
+    #[test]
+    fn serialize_compact_list_indent_controls_nested_list_layout() -> Result {
+        let value = test_record! {
+            "containers" => [
+                test_record! {
+                    "env" => [
+                        test_record! { "name" => "METHOD", "value" => "WATCH" },
+                    ],
+                },
+            ],
+        };
+        let compact = serialize(
+            &value,
+            SPAN,
+            SerializeOptions::default().with_compact_list_indent(true),
+        )?;
+        let expanded = serialize(
+            &value,
+            SPAN,
+            SerializeOptions::default().with_compact_list_indent(false),
+        )?;
+        assert_ne!(compact, expanded);
+        assert_contains("containers:\n- env:\n  - name: METHOD\n", compact);
+        assert_contains("containers:\n  - env:\n      - name: METHOD\n", expanded);
+        Ok(())
+    }
+
+    #[rstest]
+    #[case::auto(QuoteStyle::Auto, "hello")]
+    #[case::single(QuoteStyle::Single, "'hello'")]
+    #[case::double(QuoteStyle::Double, "\"hello\"")]
+    fn serialize_quote_style_controls_string_quoting(
+        #[case] quote_style: QuoteStyle,
+        #[case] expected: &str,
+    ) -> Result {
+        let value = "hello".into_value(SPAN);
+        let options = SerializeOptions::default().with_quote_style(quote_style);
+        let yaml = serialize(&value, SPAN, options)?;
+        assert_eq!(yaml.trim(), expected);
+        Ok(())
+    }
+
+    #[test]
+    fn serialize_quote_style_and_directives_overlap() -> Result {
+        let value = test_record! { "message" => "hello" };
+        let options = SerializeOptions::default()
+            .with_add_directives(true)
+            .with_quote_style(QuoteStyle::Double);
+        let yaml = serialize(&value, SPAN, options)?;
+        assert!(yaml.starts_with(indoc! {"
+            %YAML 1.2
+            %TAG ! tag:nushell.sh,2026:
+            ---
+        "}));
+        assert_contains("message: \"hello\"", yaml);
+        Ok(())
+    }
+}

@@ -1291,7 +1291,7 @@ mod tests {
     use super::*;
     use indoc::*;
     use miette::Diagnostic;
-    use nu_protocol::{IntoSpanned, test_list, test_record, test_table};
+    use nu_protocol::*;
     use nu_test_support::prelude::*;
     use rstest::*;
 
@@ -1398,6 +1398,101 @@ mod tests {
         let yaml = input.into_spanned(SPAN);
         let options = ParseOptions::default().with_ignore_tags(true);
         assert!(parse(yaml, SPAN, options).is_ok());
+    }
+
+    #[rstest]
+    #[case::auto_single(ParseMultiple::Auto, "value", "value")]
+    #[case::auto_multiple(ParseMultiple::Auto, "--- value\n--- other", ["value", "other"])]
+    #[case::list_single(ParseMultiple::ForceList, "value", ["value"])]
+    #[case::list_multiple(ParseMultiple::ForceList, "--- value\n--- other", ["value", "other"])]
+    fn parse_multiple_documents(
+        #[case] multiple: ParseMultiple,
+        #[case] input: &str,
+        #[case] expected: impl IntoValue,
+    ) -> Result {
+        let yaml = input.into_spanned(SPAN);
+        let options = ParseOptions::default().with_multiple(multiple);
+        let parsed = parse(yaml, SPAN, options)?;
+        assert_eq!(parsed, expected.into_value(SPAN));
+        Ok(())
+    }
+
+    #[test]
+    fn parse_multiple_force_single_rejects_multiple_documents() {
+        let yaml = "--- value\n--- other".into_spanned(SPAN);
+        let options = ParseOptions::default().with_multiple(ParseMultiple::ForceSingle);
+        let err = parse(yaml, SPAN, options).unwrap_err();
+        let code = err.code().unwrap().to_string();
+        assert_eq!(code, "shell::yaml::parse::too_many_documents");
+    }
+
+    #[rstest]
+    #[case::yaml_1_1(Spec::V1_1, true)]
+    #[case::yaml_1_2(Spec::V1_2, "yes")]
+    fn parse_spec_controls_scalar_resolution(
+        #[case] spec: Spec,
+        #[case] expected: impl IntoValue,
+    ) -> Result {
+        let yaml = "yes".into_spanned(SPAN);
+        let options = ParseOptions::default().with_spec(spec);
+        let parsed = parse(yaml, SPAN, options)?;
+        assert_eq!(parsed, expected.into_value(SPAN));
+        Ok(())
+    }
+
+    #[test]
+    fn parse_unknown_tags_are_rejected_by_default() {
+        let yaml = "key: !Unknown value".into_spanned(SPAN);
+        let err = parse(yaml, SPAN, ParseOptions::default()).unwrap_err();
+        let code = err.code().unwrap().to_string();
+        assert_eq!(code, "shell::yaml::parse::tag::unknown");
+    }
+
+    #[rstest]
+    #[case::normal_tags(
+        ParseOptions::default(),
+        test_record! { "size" => Value::test_filesize(1024) }
+    )]
+    #[case::ignored_tags(
+        ParseOptions::default().with_ignore_tags(true),
+        test_record! { "size" => 1024 }
+    )]
+    fn parse_ignore_tags_controls_known_tag_resolution(
+        #[case] options: ParseOptions,
+        #[case] expected: impl IntoValue,
+    ) -> Result {
+        let yaml = "size: !filesize 1024".into_spanned(SPAN);
+        let parsed = parse(yaml, SPAN, options)?;
+        assert_eq!(parsed, expected.into_value(SPAN));
+        Ok(())
+    }
+
+    #[test]
+    fn parse_key_resolution_strict_rejects_non_string_plain_keys() {
+        let yaml = "true: value".into_spanned(SPAN);
+        let err = parse(yaml, SPAN, ParseOptions::default()).unwrap_err();
+        let code = err.code().unwrap().to_string();
+        assert_eq!(code, "shell::yaml::parse::unsupported_key");
+    }
+
+    #[test]
+    fn parse_key_resolution_verbatim_keeps_plain_key_text() -> Result {
+        let yaml = "true: value".into_spanned(SPAN);
+        let options = ParseOptions::default().with_key_resolution(KeyResolution::Verbatim);
+        let parsed = parse(yaml, SPAN, options)?;
+        assert_eq!(parsed, test_record! { "true" => "value" });
+        Ok(())
+    }
+
+    #[test]
+    fn parse_spec_and_key_resolution_overlap() -> Result {
+        let yaml = "yes: value".into_spanned(SPAN);
+        let options = ParseOptions::default()
+            .with_spec(Spec::V1_1)
+            .with_key_resolution(KeyResolution::Verbatim);
+        let parsed = parse(yaml, SPAN, options)?;
+        assert_eq!(parsed, test_record! { "yes" => "value" });
+        Ok(())
     }
 
     fn parse_yaml_v1_1<T: FromValue>(input: &str) -> Result<T> {
