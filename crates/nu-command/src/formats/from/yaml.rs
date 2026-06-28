@@ -19,7 +19,7 @@ impl Command for FromYamlLike {
             .named(
                 "spec",
                 SyntaxShape::String,
-                "YAML spec version ('1.1' (default) or '1.2').",
+                "YAML spec version ('1.1' or '1.2' (default)).",
                 None,
             )
             .named(
@@ -32,7 +32,7 @@ impl Command for FromYamlLike {
             .named(
                 "key-resolution",
                 SyntaxShape::String,
-                "Handle plain scalar keys ('strict', 'verbatim' (default)).",
+                "Handle plain scalar keys ('strict' (default), 'verbatim').",
                 None,
             )
     }
