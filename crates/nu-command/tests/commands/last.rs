@@ -9,7 +9,7 @@ use rstest::rstest;
 fn gets_the_last_row() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        "ls | sort-by name | last 1 | get name.0 | str trim"
+        "ls | sort-by name | where type == file | last 1 | get name.0 | str trim"
     );
 
     assert_eq!(actual.out, "utf16.ini");
