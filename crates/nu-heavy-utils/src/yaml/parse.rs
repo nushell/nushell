@@ -1320,13 +1320,13 @@ mod tests {
     }
 
     #[rstest]
-    #[case::too_complex_mapping_key(
+    #[case::unsupported_key_mapping(
         "value: {{ something }}",
-        "shell::yaml::parse::too_complex_key::mapping"
+        "shell::yaml::parse::unsupported_key"
     )]
-    #[case::too_complex_sequence_key(
+    #[case::unsupported_key_sequence(
         "value: {[ something ]}",
-        "shell::yaml::parse::too_complex_key::sequence"
+        "shell::yaml::parse::unsupported_key"
     )]
     fn parse_error(#[case] input: &str, #[case] expected: &str) {
         let yaml = input.into_spanned(SPAN);
@@ -1425,7 +1425,7 @@ mod tests {
 
     #[test]
     fn spec_type_bool() -> Result {
-        let yaml = include_str!("../../../../tests/fixtures/formats/yaml/binary.yaml");
+        let yaml = include_str!("../../../../tests/fixtures/formats/yaml/bool.yaml");
         let record: Record = parse_yaml_v1_1(yaml)?;
         assert_eq!(record["canonical"].as_bool()?, true);
         assert_eq!(record["answer"].as_bool()?, false);
