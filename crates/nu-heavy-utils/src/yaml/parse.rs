@@ -1531,13 +1531,17 @@ mod tests {
     }
 
     #[test]
+    #[expect(
+        clippy::bool_assert_comparison,
+        reason = "this asserts equality of values, not plain boolean checks"
+    )]
     fn spec_type_bool() -> Result {
         let yaml = include_str!("../../../../tests/fixtures/formats/yaml/bool.yaml");
         let record: Record = parse_yaml_v1_1(yaml)?;
-        assert!(record["canonical"].as_bool()?);
-        assert!(!record["answer"].as_bool()?);
-        assert!(record["logical"].as_bool()?);
-        assert!(record["option"].as_bool()?);
+        assert_eq!(record["canonical"].as_bool()?, true);
+        assert_eq!(record["answer"].as_bool()?, false);
+        assert_eq!(record["logical"].as_bool()?, true);
+        assert_eq!(record["option"].as_bool()?, true);
         Ok(())
     }
 
