@@ -45,7 +45,7 @@ use serde_saphyr::{
     DoubleQuoted, FlowMap, FlowSeq, FoldStr, LitStr, Serializer, SingleQuoted, ser_options,
 };
 use std::{
-    cell::{Cell, RefCell},
+    cell::RefCell,
     fmt::{self, Write},
 };
 
@@ -157,7 +157,7 @@ pub fn serialize(
 
     let mut writer = FmtHandle::new(String::new());
     WRITER.set(Some(writer.clone()));
-    IN_MAP.set(false);
+    CONTAINERS.with_borrow_mut(Vec::clear);
     let mut serializer = Serializer::with_options(&mut writer, &mut ser_options);
 
     // attention: suppresses any output from f, also don't call serializer inside this
@@ -229,8 +229,36 @@ pub fn serialize(
 
 thread_local! {
     static WRITER: RefCell<Option<FmtHandle<String>>> = const { RefCell::new(None) };
-    static IN_MAP: Cell<bool> = const { Cell::new(false) };
+    static CONTAINERS: RefCell<Vec<Container>> = const { RefCell::new(Vec::new()) };
     static OPTIONS: RefCell<SerializeOptions> = RefCell::new(SerializeOptions::default());
+}
+
+// Tags are written directly to the underlying string before handing the value to serde_saphyr.
+// The spacing around a tag depends on whether the value is in a mapping or sequence, so keep a
+// small container stack alongside serde's serializer state.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Container {
+    Map,
+    Seq,
+}
+
+impl Container {
+    fn push(self) {
+        CONTAINERS.with_borrow_mut(|containers| containers.push(self));
+    }
+
+    fn pop(self) {
+        CONTAINERS.with_borrow_mut(|containers| {
+            let popped = containers
+                .pop()
+                .expect("container stack is popped only after a push");
+            debug_assert!(popped == self, "container stack push/pop mismatch");
+        });
+    }
+
+    fn current() -> Option<Self> {
+        CONTAINERS.with_borrow(|containers| containers.last().copied())
+    }
 }
 
 #[expect(
@@ -238,6 +266,10 @@ thread_local! {
     reason = "in the future we may store styles of values, then these would allow restoring them"
 )]
 enum YamlValue<'v> {
+    // Flow variants are not constructed yet.
+    // Once they are, make sure they update the container stack correctly for tagged values
+    // nested inside them.
+
     // untagged types
     Bool(bool),
     Int(i64),
@@ -247,7 +279,7 @@ enum YamlValue<'v> {
     LitStr(LitStr<'v>),
     Map(YamlMap<'v>),
     FlowMap(FlowMap<Vec<(&'v str, YamlValue<'v>)>>),
-    Seq(Vec<YamlValue<'v>>),
+    Seq(YamlSeq<'v>),
     FlowSeq(FlowSeq<Vec<YamlValue<'v>>>),
     Null,
 
@@ -280,7 +312,7 @@ impl Serialize for YamlValue<'_> {
                     .as_mut()
                     .expect("writer set before calling any serialization");
 
-                if IN_MAP.get() {
+                if Container::current() == Some(Container::Map) {
                     writer
                         .write_char(' ')
                         .expect("infallible for writes to string");
@@ -290,7 +322,7 @@ impl Serialize for YamlValue<'_> {
                     .write_str(tag)
                     .expect("infallible for writes to string");
 
-                if !IN_MAP.get() {
+                if Container::current() != Some(Container::Map) {
                     writer
                         .write_char(' ')
                         .expect("infallible for writes to string");
@@ -345,7 +377,7 @@ impl Serialize for YamlValue<'_> {
             YamlValue::LitStr(lit_str) => lit_str.serialize(serializer),
             YamlValue::Map(yaml_map) => yaml_map.serialize(serializer),
             YamlValue::FlowMap(flow_map) => flow_map.serialize(serializer),
-            YamlValue::Seq(yaml_values) => yaml_values.serialize(serializer),
+            YamlValue::Seq(yaml_seq) => yaml_seq.serialize(serializer),
             YamlValue::FlowSeq(flow_seq) => flow_seq.serialize(serializer),
             YamlValue::Null => serializer.serialize_unit(),
 
@@ -371,12 +403,25 @@ impl Serialize for YamlMap<'_> {
         S: serde::Serializer,
     {
         let mut map = serializer.serialize_map(self.0.len().into())?;
-        IN_MAP.set(true);
+        Container::Map.push();
+        defer!(Container::Map.pop());
         for (key, value) in self.0.iter() {
             map.serialize_entry(key, value)?;
         }
-        IN_MAP.set(false);
         map.end()
+    }
+}
+
+struct YamlSeq<'v>(Vec<YamlValue<'v>>);
+
+impl Serialize for YamlSeq<'_> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        Container::Seq.push();
+        defer!(Container::Seq.pop());
+        self.0.serialize(serializer)
     }
 }
 
@@ -428,7 +473,7 @@ impl<'v> YamlValue<'v> {
                     let val = YamlValue::try_from_value(val, span)?;
                     values.push(val);
                 }
-                YamlValue::Seq(values)
+                YamlValue::Seq(YamlSeq(values))
             }
             Value::Closure { val, .. } => YamlValue::Closure(val),
             Value::Error { error, .. } => YamlValue::Error(error),
@@ -582,6 +627,35 @@ mod tests {
         assert_ne!(compact, expanded);
         assert_contains("containers:\n- env:\n  - name: METHOD\n", compact);
         assert_contains("containers:\n  - env:\n      - name: METHOD\n", expanded);
+        Ok(())
+    }
+
+    #[test]
+    fn serialize_tagged_value_after_nested_map_keeps_map_context() -> Result {
+        let value = test_record! {
+            "nested" => test_record! { "inner" => Value::test_duration(5) },
+            "size" => Value::test_filesize(1024),
+        };
+        let yaml = serialize(&value, SPAN, SerializeOptions::default())?;
+        assert_contains("nested:\n  inner: !duration 5\n", yaml.as_str());
+        assert_contains("size: !filesize 1024\n", yaml);
+        Ok(())
+    }
+
+    #[test]
+    fn serialize_tagged_list_items_inside_map_keep_sequence_context() -> Result {
+        let value = test_record! {
+            "items" => [
+                Value::test_filesize(1024),
+                test_record! { "inner" => Value::test_duration(5) },
+                Value::test_duration(5),
+            ],
+        };
+        let yaml = serialize(&value, SPAN, SerializeOptions::default())?;
+        assert_contains("items:\n", yaml.as_str());
+        assert_contains("- !filesize 1024\n", yaml.as_str());
+        assert_contains("- inner: !duration 5\n", yaml.as_str());
+        assert_contains("- !duration 5\n", yaml);
         Ok(())
     }
 
