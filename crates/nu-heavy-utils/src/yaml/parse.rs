@@ -884,9 +884,9 @@ macro_rules! parse_int {
                 input: &str,
                 caps: ::regex::Captures<'_>
             ) -> Result<i64, crate::yaml::error::ParseError<'i>> {
-                let sign = match &caps["sign"] {
-                    "+" | "" => 1,
-                    "-" => -1,
+                let sign = match caps.name("sign").map(|m| m.as_str()) {
+                    Some("+" | "") | None => 1,
+                    Some("-") => -1,
                     _ => unreachable!(r#"regex only matches "+", "-" or "" here"#)
                 };
 
