@@ -96,12 +96,12 @@ impl Command for ToYamlLike {
         let indent = call.get_flag(engine_state, stack, "indent")?;
         let compact_list_indent = call.get_flag(engine_state, stack, "compact-list-indent")?;
         let quote_style = call.get_flag(engine_state, stack, "quote")?;
-        let non_roundtrip = call
-            .has_flag(engine_state, stack, "serialize")?
-            .then(|| NonRoundtrip::Lossy {
-                engine_state: engine_state.clone(),
-            })
-            .unwrap_or(NonRoundtrip::Null);
+        let non_roundtrip = match call.has_flag(engine_state, stack, "serialize")? {
+            true => NonRoundtrip::Lossy {
+                engine_state: Box::new(engine_state.clone()),
+            },
+            false => NonRoundtrip::Null,
+        };
 
         let defaults = SerializeOptions::default();
         let options = SerializeOptions::default()

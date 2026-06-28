@@ -136,6 +136,7 @@ pub enum ParseError<'i> {
     },
 }
 
+#[allow(clippy::enum_variant_names, reason = "clearer semantics")]
 pub enum TimestampIssue {
     InvalidDate,
     InvalidTime,
@@ -236,11 +237,11 @@ impl From<ParseError<'_>> for ShellError {
                 base_and_err: None,
                 span,
             } => GenericError::new(
-                format!("Parsing Int failed"),
+                "Parsing Int failed".to_string(),
                 format!("Could not identify {attempted:?} as an int"),
                 span,
             )
-            .with_code(format!("shell::yaml::parse::int::unknown")),
+            .with_code("shell::yaml::parse::int::unknown".to_string()),
 
             ParseError::Float {
                 attempted,
@@ -259,11 +260,11 @@ impl From<ParseError<'_>> for ShellError {
                 base_and_err: None,
                 span,
             } => GenericError::new(
-                format!("Parsing Float failed"),
+                "Parsing Float failed".to_string(),
                 format!("Could not identify {attempted:?} as a float"),
                 span,
             )
-            .with_code(format!("shell::yaml::parse::float::unknown")),
+            .with_code("shell::yaml::parse::float::unknown".to_string()),
 
             ParseError::Null { attempted, span } => GenericError::new(
                 "Parsing Null failed",

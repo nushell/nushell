@@ -220,7 +220,7 @@ impl<'i> ParseCtx<'i> {
     fn unexpected_event(&self, event: Event<'i>) -> ParseError<'i> {
         ParseError::Internal {
             error: InternalParserError::UnexpectedEvent {
-                event: event,
+                event,
                 location: Location::caller(),
             },
             span: self.parser_span,
@@ -249,7 +249,9 @@ impl<'i> ParseCtx<'i> {
     }
 
     fn maybe_set_anchor(&mut self, anchor_id: usize, value: &Value) {
-        NonZeroUsize::new(anchor_id).map(|anchor_id| self.set_anchor(anchor_id, value.clone()));
+        if let Some(anchor_id) = NonZeroUsize::new(anchor_id) {
+            self.set_anchor(anchor_id, value.clone())
+        }
     }
 
     #[track_caller]
@@ -638,21 +640,19 @@ fn parse_sequence<'i>(
         | KnownTag::Range
         | KnownTag::Closure
         | KnownTag::Error
-        | KnownTag::CellPath => {
-            return Err(ShellError::from(ParseError::IncorrectTag {
-                tag,
-                at: NodeKind::Sequence,
-                span: ctx.yaml_span,
-            }));
-        }
+        | KnownTag::CellPath => Err(ShellError::from(ParseError::IncorrectTag {
+            tag,
+            at: NodeKind::Sequence,
+            span: ctx.yaml_span,
+        })),
 
         // unsupported tag
         KnownTag::Timestamp | KnownTag::Value | KnownTag::Yaml => {
-            return Err(ShellError::from(ParseError::UnsupportedTag {
+            Err(ShellError::from(ParseError::UnsupportedTag {
                 tag,
                 at: NodeKind::Sequence,
                 span: ctx.parser_span,
-            }));
+            }))
         }
     }
 }
@@ -809,21 +809,19 @@ fn parse_mapping<'i>(
         | KnownTag::Range
         | KnownTag::Closure
         | KnownTag::Error
-        | KnownTag::CellPath => {
-            return Err(ShellError::from(ParseError::IncorrectTag {
-                tag,
-                at: NodeKind::Mapping,
-                span: ctx.yaml_span,
-            }));
-        }
+        | KnownTag::CellPath => Err(ShellError::from(ParseError::IncorrectTag {
+            tag,
+            at: NodeKind::Mapping,
+            span: ctx.yaml_span,
+        })),
 
         // unsupported tag
         KnownTag::Timestamp | KnownTag::Value | KnownTag::Yaml => {
-            return Err(ShellError::from(ParseError::UnsupportedTag {
+            Err(ShellError::from(ParseError::UnsupportedTag {
                 tag,
                 at: NodeKind::Mapping,
                 span: ctx.parser_span,
-            }));
+            }))
         }
     }
 }
@@ -880,6 +878,7 @@ macro_rules! parse_int {
                     .expect(concat!("valid int base ", $base, " regex for spec v", $spec)
             ));
 
+            #[allow(clippy::from_str_radix_10, reason = "we do want to invoke this also with 10")]
             fn [<parse_int_base $base>]<'i>(
                 ctx: &mut crate::yaml::parse::ParseCtx<'i>,
                 input: &str,
@@ -1056,7 +1055,7 @@ mod v1_x {
         input: &str,
     ) -> Result<Option<DateTime<FixedOffset>>, ParseError<'i>> {
         if let Some(caps) = TIMESTAMP.captures(input) {
-            return parse_timestamp(ctx, input, caps).map(|ts| Some(ts));
+            return parse_timestamp(ctx, input, caps).map(Some);
         }
 
         Ok(None)
@@ -1103,7 +1102,7 @@ mod v1_1 {
                 false => Cow::Borrowed(digits),
             };
 
-            let int = i64::from_str_radix(&digits, 10).map_err(|err| ParseError::Int {
+            let int = i64::from_str(&digits).map_err(|err| ParseError::Int {
                 attempted: input.to_owned(),
                 base_and_err: Some((60, err)),
                 span: ctx.yaml_span,
@@ -1349,7 +1348,7 @@ mod tests {
             "},
         };
 
-        let expected = vec![
+        let expected = [
             test_record! {
                 "a" => "b",
                 "b" => "c",
@@ -1523,10 +1522,10 @@ mod tests {
     fn spec_type_bool() -> Result {
         let yaml = include_str!("../../../../tests/fixtures/formats/yaml/bool.yaml");
         let record: Record = parse_yaml_v1_1(yaml)?;
-        assert_eq!(record["canonical"].as_bool()?, true);
-        assert_eq!(record["answer"].as_bool()?, false);
-        assert_eq!(record["logical"].as_bool()?, true);
-        assert_eq!(record["option"].as_bool()?, true);
+        assert!(record["canonical"].as_bool()?);
+        assert!(!record["answer"].as_bool()?);
+        assert!(record["logical"].as_bool()?);
+        assert!(record["option"].as_bool()?);
         Ok(())
     }
 

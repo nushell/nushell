@@ -111,7 +111,7 @@ pub enum NonRoundtrip {
     /// exact original type.
     Lossy {
         /// Engine state is required to serialize closures this way.
-        engine_state: EngineState,
+        engine_state: Box<EngineState>,
     },
 }
 
@@ -228,8 +228,8 @@ pub fn serialize(
 }
 
 thread_local! {
-    static WRITER: RefCell<Option<FmtHandle<String>>> = RefCell::new(None);
-    static IN_MAP: Cell<bool> = Cell::new(false);
+    static WRITER: RefCell<Option<FmtHandle<String>>> = const { RefCell::new(None) };
+    static IN_MAP: Cell<bool> = const { Cell::new(false) };
     static OPTIONS: RefCell<SerializeOptions> = RefCell::new(SerializeOptions::default());
 }
 
@@ -413,7 +413,7 @@ impl<'v> YamlValue<'v> {
             Value::Filesize { val, .. } => YamlValue::Filesize(val.get()),
             Value::Duration { val, .. } => YamlValue::Duration(*val),
             Value::Date { val, .. } => YamlValue::Date(val),
-            Value::Range { val, .. } => YamlValue::Range(&*val),
+            Value::Range { val, .. } => YamlValue::Range(val),
             Value::Record { val, .. } => {
                 let mut values = Vec::with_capacity(val.len());
                 for (k, v) in val.iter() {
@@ -430,8 +430,8 @@ impl<'v> YamlValue<'v> {
                 }
                 YamlValue::Seq(values)
             }
-            Value::Closure { val, .. } => YamlValue::Closure(&*val),
-            Value::Error { error, .. } => YamlValue::Error(&*error),
+            Value::Closure { val, .. } => YamlValue::Closure(val),
+            Value::Error { error, .. } => YamlValue::Error(error),
             Value::Binary { val, .. } => YamlValue::Binary(val.as_slice()),
             Value::CellPath { val, .. } => YamlValue::CellPath(val),
             Value::Custom { val, .. } => {
@@ -528,7 +528,7 @@ mod tests {
     )]
     #[case::lossy(
         SerializeOptions::default().with_non_roundtrip(NonRoundtrip::Lossy {
-            engine_state: EngineState::new(),
+            engine_state: Box::new(EngineState::new()),
         }),
         "!error"
     )]
