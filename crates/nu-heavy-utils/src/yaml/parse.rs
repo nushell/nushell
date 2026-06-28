@@ -486,7 +486,7 @@ fn parse_scalar_tagged<'i>(
         ),
 
         // unimplemented tag
-        (KnownTag::Closure, _) => {
+        (KnownTag::Closure | KnownTag::Error, _) => {
             return Err(ShellError::from(ParseError::UnimplementedTag { tag, span }));
         }
 
@@ -497,8 +497,7 @@ fn parse_scalar_tagged<'i>(
             | KnownTag::OMap
             | KnownTag::Pairs
             | KnownTag::Set
-            | KnownTag::Merge
-            | KnownTag::Error,
+            | KnownTag::Merge,
             _,
         ) => {
             return Err(ShellError::from(ParseError::IncorrectTag {

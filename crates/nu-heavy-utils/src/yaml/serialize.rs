@@ -27,6 +27,7 @@
 //! Only [`serialize`], [`SerializeOptions`], and their field types are public.
 
 use crate::yaml::{KnownTag, Spec, error::SerializeError};
+use base64::{Engine, engine::general_purpose::STANDARD as BASE64_STANDARD};
 use chrono::{DateTime, FixedOffset};
 use derive_setters::Setters;
 use nu_protocol::{
@@ -322,6 +323,17 @@ impl Serialize for YamlValue<'_> {
             })
         };
 
+        let serialize_error = |error: &ShellError, serializer: S| {
+            OPTIONS.with_borrow(|options| match &options.non_roundtrip {
+                NonRoundtrip::Null => serializer.serialize_unit(),
+                NonRoundtrip::Lossy { .. } => serialize_with_tag(serializer, tag, error),
+            })
+        };
+
+        let serialize_binary = |bytes: &[u8], serializer: S| {
+            serialize_with_tag(serializer, tag, BASE64_STANDARD.encode(bytes))
+        };
+
         match self {
             // untagged types
             YamlValue::Bool(bool) => bool.serialize(serializer),
@@ -343,8 +355,8 @@ impl Serialize for YamlValue<'_> {
             YamlValue::Date(date_time) => serialize_with_tag(serializer, tag, date_time),
             YamlValue::Range(range) => serialize_with_tag(serializer, tag, range),
             YamlValue::Closure(closure) => serialize_closure(closure, serializer),
-            YamlValue::Error(shell_error) => serialize_with_tag(serializer, tag, shell_error),
-            YamlValue::Binary(items) => serializer.serialize_bytes(items),
+            YamlValue::Error(shell_error) => serialize_error(shell_error, serializer),
+            YamlValue::Binary(bytes) => serialize_binary(bytes, serializer),
             YamlValue::CellPath(cell_path) => serialize_with_tag(serializer, tag, cell_path),
         }
     }
