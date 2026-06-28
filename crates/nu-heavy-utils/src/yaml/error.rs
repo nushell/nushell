@@ -30,7 +30,7 @@ pub enum ParseError<'i> {
         ty: Type,
         span: Span,
     },
-    UnexpectedKeyAnchor {
+    UnsupportedKeyAnchor {
         span: Span,
     },
     Int {
@@ -213,12 +213,12 @@ impl From<ParseError<'_>> for ShellError {
             .with_code("shell::yaml::parse::unsupported_key")
             .with_help("Try `from yaml --key-resolution verbatim`"),
 
-            ParseError::UnexpectedKeyAnchor { span } => GenericError::new(
-                "Found unexpected key anchor",
-                "Merge anchors are not supported in key position",
+            ParseError::UnsupportedKeyAnchor { span } => GenericError::new(
+                "Found unsupported key anchor",
+                "Anchors are not supported in key position",
                 span,
             )
-            .with_code("shell::yaml::parse::unexpected_key_anchor"),
+            .with_code("shell::yaml::parse::unsupported_key_anchor"),
 
             ParseError::Int {
                 attempted,

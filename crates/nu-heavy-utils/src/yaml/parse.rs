@@ -473,9 +473,9 @@ fn parse_scalar_tagged<'i>(
         (KnownTag::Range, _) => Value::range(
             Range::from_str(value).map_err(|err| ParseError::Range {
                 attempted: value.to_owned(),
-                    err,
-                    span: ctx.yaml_span,
-                })?,
+                err,
+                span: ctx.yaml_span,
+            })?,
             ctx.parser_span,
         ),
         (KnownTag::CellPath, _) => Value::cell_path(
@@ -682,7 +682,7 @@ fn parse_mapping<'i>(
                 Event::Scalar(value, scalar_style, anchor_id, tag) => {
                     let value = parse_key(ctx, value, scalar_style, tag)?;
                     if anchor_id != 0 {
-                        return Err(ShellError::from(ParseError::UnexpectedKeyAnchor {
+                        return Err(ShellError::from(ParseError::UnsupportedKeyAnchor {
                             span: ctx.yaml_span,
                         }));
                     }
