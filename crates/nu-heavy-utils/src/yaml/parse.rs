@@ -67,12 +67,13 @@ use std::{
 /// # use nu_heavy_utils::yaml::*;
 /// #
 /// let options = ParseOptions::default()
-///     .multiple(ParseMultiple::ForceList)
-///     .spec(Spec::V1_1)
-///     .ignore_tags(true);
+///     .with_multiple(ParseMultiple::ForceList)
+///     .with_spec(Spec::V1_1)
+///     .with_ignore_tags(true);
 /// ```
 #[non_exhaustive]
 #[derive(Debug, Clone, Default, Setters)]
+#[setters(prefix = "with_")]
 pub struct ParseOptions {
     /// Keep the original styles of parsed values.
     ///
@@ -1395,15 +1396,15 @@ mod tests {
     #[case("Key: !123")]
     fn ignore_unknown_tags(#[case] input: &str) {
         let yaml = input.into_spanned(SPAN);
-        let options = ParseOptions::default().ignore_tags(true);
+        let options = ParseOptions::default().with_ignore_tags(true);
         assert!(parse(yaml, SPAN, options).is_ok());
     }
 
     fn parse_yaml_v1_1<T: FromValue>(input: &str) -> Result<T> {
         let yaml = input.into_spanned(SPAN);
         let options = ParseOptions::default()
-            .spec(Spec::V1_1)
-            .key_resolution(KeyResolution::Verbatim);
+            .with_spec(Spec::V1_1)
+            .with_key_resolution(KeyResolution::Verbatim);
         let parsed = parse(yaml, SPAN, options)?;
         Ok(T::from_value(parsed)?)
     }

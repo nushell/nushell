@@ -68,8 +68,8 @@ impl Command for FromYamlLike {
             },
             Example {
                 example: match self.name() {
-                    "from yaml" => "'!cell-path $1.abc?.def!' | from yaml",
-                    "from yml" => "'!cell-path $1.abc?.def!' | from yml",
+                    "from yaml" => "'!cell-path $.1.abc?.def!' | from yaml",
+                    "from yml" => "'!cell-path $.1.abc?.def!' | from yml",
                     _ => unreachable!("only implemented for `yaml` and `yml`"),
                 },
                 description: "Convert nushell values from YAML.",
@@ -101,10 +101,10 @@ impl Command for FromYamlLike {
         let ignore_tags = call.has_flag(engine_state, stack, "ignore-tags")?;
         let plain_scalar_key_mode = call.get_flag(engine_state, stack, "key-resolution")?;
         let options = ParseOptions::default()
-            .spec(spec.unwrap_or_default())
-            .multiple(multiple.unwrap_or_default())
-            .ignore_tags(ignore_tags)
-            .key_resolution(plain_scalar_key_mode.unwrap_or_default());
+            .with_spec(spec.unwrap_or_default())
+            .with_multiple(multiple.unwrap_or_default())
+            .with_ignore_tags(ignore_tags)
+            .with_key_resolution(plain_scalar_key_mode.unwrap_or_default());
         nu_heavy_utils::yaml::parse(yaml, call.head, options)
             .map(|val| PipelineData::value(val, metadata))
     }

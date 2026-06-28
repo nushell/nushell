@@ -59,13 +59,14 @@ use std::{
 /// # use nu_heavy_utils::yaml::*;
 /// #
 /// let options = SerializeOptions::default()
-///     .spec(Spec::V1_2)
-///     .multiple(true)
-///     .add_directives(true)
-///     .indent(4);
+///     .with_spec(Spec::V1_2)
+///     .with_multiple(true)
+///     .with_add_directives(true)
+///     .with_indent(4);
 /// ```
 #[non_exhaustive]
 #[derive(Debug, Clone, Setters, better_default::Default)]
+#[setters(prefix = "with_")]
 pub struct SerializeOptions {
     /// Configure which YAML spec to follow.
     pub spec: Spec,

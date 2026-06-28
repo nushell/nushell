@@ -105,13 +105,13 @@ impl Command for ToYamlLike {
 
         let defaults = SerializeOptions::default();
         let options = SerializeOptions::default()
-            .spec(spec.unwrap_or(defaults.spec))
-            .non_roundtrip(non_roundtrip)
-            .add_directives(add_directives)
-            .multiple(multiple)
-            .indent(indent.unwrap_or(defaults.indent))
-            .compact_list_indent(compact_list_indent.unwrap_or(defaults.compact_list_indent))
-            .quote_style(quote_style.unwrap_or(defaults.quote_style));
+            .with_spec(spec.unwrap_or(defaults.spec))
+            .with_non_roundtrip(non_roundtrip)
+            .with_add_directives(add_directives)
+            .with_multiple(multiple)
+            .with_indent(indent.unwrap_or(defaults.indent))
+            .with_compact_list_indent(compact_list_indent.unwrap_or(defaults.compact_list_indent))
+            .with_quote_style(quote_style.unwrap_or(defaults.quote_style));
 
         nu_heavy_utils::yaml::serialize(&value, call.head, options)
             .map(|s| PipelineData::value(Value::string(s, call.head), metadata))

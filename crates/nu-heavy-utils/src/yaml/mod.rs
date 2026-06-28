@@ -281,7 +281,7 @@ mod tests {
     #[case::closure(Closure { block_id: BlockId::ZERO, captures: vec![] })]
     fn non_roundtrip(#[case] input: impl IntoValue) -> Result {
         let value = input.into_value(SPAN);
-        let serialize_options = SerializeOptions::default().non_roundtrip(NonRoundtrip::Null);
+        let serialize_options = SerializeOptions::default().with_non_roundtrip(NonRoundtrip::Null);
         let yaml = serialize(&value, SPAN, serialize_options)?;
         let parse_options = ParseOptions::default();
         let parsed = parse(yaml.as_str().into_spanned(SPAN), SPAN, parse_options)?;
