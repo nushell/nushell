@@ -243,15 +243,29 @@ impl UnknownTagError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nu_protocol::*;
+    use chrono::*;
+    use nu_protocol::{engine::Closure, *};
+    use nu_test_support::{prelude::*, test_cell_path};
     use rstest::*;
-    use nu_test_support::prelude::*;
+    use std::ops::Bound;
 
     const SPAN: Span = Span::test_data();
 
     #[rstest]
-    #[case::string("abc")]
     #[case::bool(true)]
+    #[case::int(42)]
+    #[case::float(1.5)]
+    #[case::string("abc")]
+    #[case::glob(Value::test_glob("*.nu"))]
+    #[case::filesize(Value::test_filesize(1024))]
+    #[case::duration(std::time::Duration::from_secs(1))]
+    #[case::date(DateTime::UNIX_EPOCH.fixed_offset())]
+    #[case::range(Range::new_int(Some(1), Some(2), Some(Bound::Included(4)),))]
+    #[case::record(test_record! { "name" => "nushell", "active" => true })]
+    #[case::list(test_list!["nushell", 42, true])]
+    #[case::binary(Value::test_binary([0, 1, 2, 3]))]
+    #[case::cell_path(test_cell_path!(items.0.name))]
+    #[case::nothing(())]
     fn roundtrip(#[case] input: impl IntoValue) -> Result {
         let value = input.into_value(SPAN);
         let serialize_options = SerializeOptions::default();
@@ -259,6 +273,19 @@ mod tests {
         let parse_options = ParseOptions::default();
         let parsed = parse(yaml.as_str().into_spanned(SPAN), SPAN, parse_options)?;
         assert_eq!(value, parsed);
+        Ok(())
+    }
+
+    #[rstest]
+    #[case::error(ShellError::NushellFailed { msg: "test failure".into() })]
+    #[case::closure(Closure { block_id: BlockId::ZERO, captures: vec![] })]
+    fn non_roundtrip(#[case] input: impl IntoValue) -> Result {
+        let value = input.into_value(SPAN);
+        let serialize_options = SerializeOptions::default().non_roundtrip(NonRoundtrip::Null);
+        let yaml = serialize(&value, SPAN, serialize_options)?;
+        let parse_options = ParseOptions::default();
+        let parsed = parse(yaml.as_str().into_spanned(SPAN), SPAN, parse_options)?;
+        assert!(parsed.is_nothing());
         Ok(())
     }
 }
