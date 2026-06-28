@@ -1289,11 +1289,11 @@ mod v1_2 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use indoc::indoc;
+    use indoc::*;
     use miette::Diagnostic;
-    use nu_protocol::{IntoSpanned, test_list, test_record};
+    use nu_protocol::{IntoSpanned, test_list, test_record, test_table};
     use nu_test_support::prelude::*;
-    use rstest::rstest;
+    use rstest::*;
 
     const FIXTURE: &str = include_str!("../../../../tests/fixtures/formats/yaml/sample.yaml");
     const SPAN: Span = Span::test_data();
@@ -1596,6 +1596,123 @@ mod tests {
                 "two" => 2,
                 "three" => 3,
             }
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn spec_type_pairs() -> Result {
+        let yaml = include_str!("../../../../tests/fixtures/formats/yaml/pairs.yaml");
+        let record: Record = parse_yaml_v1_1(yaml)?;
+
+        assert_eq!(
+            record["Block tasks"],
+            test_table![
+                ["key", "value"];
+                ["meeting", "with team."],
+                ["meeting", "with boss."],
+                ["break", "lunch."],
+                ["meeting", "with client."]
+            ]
+        );
+
+        assert_eq!(
+            record["Flow tasks"],
+            test_table![
+                ["key", "value"];
+                ["meeting", "with team"],
+                ["meeting", "with boss"]
+            ]
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn spec_type_seq() -> Result {
+        let yaml = include_str!("../../../../tests/fixtures/formats/yaml/seq.yaml");
+        let record: Record = parse_yaml_v1_1(yaml)?;
+
+        assert_eq!(
+            record["Block style"],
+            test_list![
+                "Mercury", "Venus", "Earth", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune",
+                "Pluto",
+            ]
+        );
+
+        assert_eq!(
+            record["Flow style"],
+            test_list![
+                "Mercury", "Venus", "Earth", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune",
+                "Pluto",
+            ]
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn spec_type_set() -> Result {
+        let yaml = include_str!("../../../../tests/fixtures/formats/yaml/set.yaml");
+        let record: Record = parse_yaml_v1_1(yaml)?;
+
+        assert_eq!(
+            record["baseball players"],
+            test_list!["Mark McGwire", "Sammy Sosa", "Ken Griffey",]
+        );
+
+        assert_eq!(
+            record["baseball teams"],
+            test_list!["Boston Red Sox", "Detroit Tigers", "New York Yankees"]
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn spec_type_str() -> Result {
+        let yaml = include_str!("../../../../tests/fixtures/formats/yaml/str.yaml");
+        let record: Record = parse_yaml_v1_1(yaml)?;
+        assert_eq!(record["string"].as_str()?, "abcd");
+        Ok(())
+    }
+
+    #[test]
+    fn spec_type_timestamp() -> Result {
+        let yaml = include_str!("../../../../tests/fixtures/formats/yaml/timestamp.yaml");
+        let record: Record = parse_yaml_v1_1(yaml)?;
+
+        assert_eq!(
+            record["canonical"].as_date()?,
+            "2001-12-15T02:59:43.1Z"
+                .parse::<DateTime<FixedOffset>>()
+                .unwrap()
+        );
+        assert_eq!(
+            record["valid iso8601"].as_date()?,
+            "2001-12-14T21:59:43.10-05:00"
+                .parse::<DateTime<FixedOffset>>()
+                .unwrap()
+        );
+        assert_eq!(
+            record["space separated"].as_date()?,
+            "2001-12-14T21:59:43.10-05:00"
+                .parse::<DateTime<FixedOffset>>()
+                .unwrap()
+        );
+        assert_eq!(
+            record["no time zone (Z)"].as_date()?,
+            "2001-12-15T02:59:43.10Z"
+                .parse::<DateTime<FixedOffset>>()
+                .unwrap()
+        );
+        assert_eq!(
+            record["date (00:00:00Z)"].as_date()?,
+            "2002-12-14T00:00:00Z"
+                .parse::<DateTime<FixedOffset>>()
+                .unwrap()
         );
 
         Ok(())
