@@ -368,57 +368,55 @@ fn parse_scalar_tagged<'i>(
     value: &str,
     tag: KnownTag,
 ) -> Result<Value, ShellError> {
-    let span = ctx.parser_span;
-
     use Spec::{V1_1, V1_2};
     #[deny(non_snake_case, reason = "ensure we don't suddenly wildcard match")]
     Ok(match (tag, ctx.options.spec) {
-        (KnownTag::Str, _) => Value::string(value, span),
+        (KnownTag::Str, _) => Value::string(value, ctx.parser_span),
         (KnownTag::Null, _) => v1_x::maybe_parse_null(ctx, value)
-            .map(|()| Value::nothing(span))
+            .map(|()| Value::nothing(ctx.parser_span))
             .ok_or_else(|| ParseError::Null {
                 attempted: value.to_owned(),
                 span: ctx.yaml_span,
             })?,
         (KnownTag::Bool, V1_1) => v1_1::maybe_parse_bool(ctx, value)
-            .map(|bool| Value::bool(bool, span))
+            .map(|bool| Value::bool(bool, ctx.parser_span))
             .ok_or_else(|| ParseError::Bool {
                 attempted: value.to_owned(),
                 span: ctx.yaml_span,
             })?,
         (KnownTag::Bool, V1_2) => v1_2::maybe_parse_bool(ctx, value)
-            .map(|bool| Value::bool(bool, span))
+            .map(|bool| Value::bool(bool, ctx.parser_span))
             .ok_or_else(|| ParseError::Bool {
                 attempted: value.to_owned(),
                 span: ctx.yaml_span,
             })?,
         (KnownTag::Int, V1_1) => v1_1::maybe_parse_int(ctx, value)?
-            .map(|int| Value::int(int, span))
+            .map(|int| Value::int(int, ctx.parser_span))
             .ok_or_else(|| ParseError::Int {
                 attempted: value.to_owned(),
                 base_and_err: None,
-                span,
+                span: ctx.yaml_span,
             })?,
         (KnownTag::Int, V1_2) => v1_2::maybe_parse_int(ctx, value)?
-            .map(|int| Value::int(int, span))
+            .map(|int| Value::int(int, ctx.parser_span))
             .ok_or_else(|| ParseError::Int {
                 attempted: value.to_owned(),
                 base_and_err: None,
-                span,
+                span: ctx.yaml_span,
             })?,
         (KnownTag::Float, V1_1) => v1_1::maybe_parse_float(ctx, value)?
-            .map(|float| Value::float(float, span))
+            .map(|float| Value::float(float, ctx.parser_span))
             .ok_or_else(|| ParseError::Float {
                 attempted: value.to_owned(),
                 base_and_err: None,
-                span,
+                span: ctx.yaml_span,
             })?,
         (KnownTag::Float, V1_2) => v1_2::maybe_parse_float(ctx, value)?
-            .map(|float| Value::float(float, span))
+            .map(|float| Value::float(float, ctx.parser_span))
             .ok_or_else(|| ParseError::Float {
                 attempted: value.to_owned(),
                 base_and_err: None,
-                span,
+                span: ctx.yaml_span,
             })?,
         (KnownTag::Binary, _) => Value::binary(
             BASE64_STANDARD
@@ -434,66 +432,69 @@ fn parse_scalar_tagged<'i>(
                     err,
                     span: ctx.yaml_span,
                 })?,
-            span,
+            ctx.parser_span,
         ),
-        (KnownTag::Glob, _) => Value::glob(value, false, span),
+        (KnownTag::Glob, _) => Value::glob(value, false, ctx.parser_span),
         (KnownTag::Filesize, V1_1) => v1_1::maybe_parse_int(ctx, value)?
-            .map(|int| Value::filesize(int, span))
+            .map(|int| Value::filesize(int, ctx.parser_span))
             .ok_or_else(|| ParseError::Int {
                 attempted: value.to_owned(),
                 base_and_err: None,
-                span,
+                span: ctx.yaml_span,
             })?,
         (KnownTag::Filesize, V1_2) => v1_2::maybe_parse_int(ctx, value)?
-            .map(|int| Value::filesize(int, span))
+            .map(|int| Value::filesize(int, ctx.parser_span))
             .ok_or_else(|| ParseError::Int {
                 attempted: value.to_owned(),
                 base_and_err: None,
-                span,
+                span: ctx.yaml_span,
             })?,
         (KnownTag::Duration, V1_1) => v1_1::maybe_parse_int(ctx, value)?
-            .map(|int| Value::duration(int, span))
+            .map(|int| Value::duration(int, ctx.parser_span))
             .ok_or_else(|| ParseError::Int {
                 attempted: value.to_owned(),
                 base_and_err: None,
-                span,
+                span: ctx.yaml_span,
             })?,
         (KnownTag::Duration, V1_2) => v1_2::maybe_parse_int(ctx, value)?
-            .map(|int| Value::duration(int, span))
+            .map(|int| Value::duration(int, ctx.parser_span))
             .ok_or_else(|| ParseError::Int {
                 attempted: value.to_owned(),
                 base_and_err: None,
-                span,
+                span: ctx.yaml_span,
             })?,
         (KnownTag::Timestamp, _) => v1_x::maybe_parse_timestamp(ctx, value)?
-            .map(|ts| Value::date(ts, span))
+            .map(|ts| Value::date(ts, ctx.parser_span))
             .ok_or_else(|| ParseError::Timestamp {
                 attempted: value.to_owned(),
                 issue: None,
-                span,
+                span: ctx.yaml_span,
             })?,
         (KnownTag::Range, _) => Value::range(
             Range::from_str(value).map_err(|err| ParseError::Range {
                 attempted: value.to_owned(),
-                err,
-                span: ctx.yaml_span,
-            })?,
-            span,
+                    err,
+                    span: ctx.yaml_span,
+                })?,
+            ctx.parser_span,
         ),
         (KnownTag::CellPath, _) => Value::cell_path(
             CellPath::from_str(value)
-                .map(|cp| cp.with_fallback_span(span))
+                .map(|cp| cp.with_fallback_span(ctx.parser_span))
                 .map_err(|err| ParseError::CellPath {
                     attempted: value.to_owned(),
                     err,
                     span: ctx.yaml_span,
                 })?,
-            span,
+            ctx.parser_span,
         ),
 
         // unimplemented tag
         (KnownTag::Closure | KnownTag::Error, _) => {
-            return Err(ShellError::from(ParseError::UnimplementedTag { tag, span }));
+            return Err(ShellError::from(ParseError::UnimplementedTag {
+                tag,
+                span: ctx.yaml_span,
+            }));
         }
 
         // incorrect tag
@@ -518,7 +519,7 @@ fn parse_scalar_tagged<'i>(
             return Err(ShellError::from(ParseError::UnsupportedTag {
                 tag,
                 at: NodeKind::Scalar,
-                span,
+                span: ctx.yaml_span,
             }));
         }
     })
