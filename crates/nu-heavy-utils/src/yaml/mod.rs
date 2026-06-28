@@ -239,3 +239,26 @@ impl UnknownTagError {
         Self(tag.to_string())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nu_protocol::*;
+    use rstest::*;
+    use nu_test_support::prelude::*;
+
+    const SPAN: Span = Span::test_data();
+
+    #[rstest]
+    #[case::string("abc")]
+    #[case::bool(true)]
+    fn roundtrip(#[case] input: impl IntoValue) -> Result {
+        let value = input.into_value(SPAN);
+        let serialize_options = SerializeOptions::default();
+        let yaml = serialize(&value, SPAN, serialize_options)?;
+        let parse_options = ParseOptions::default();
+        let parsed = parse(yaml.as_str().into_spanned(SPAN), SPAN, parse_options)?;
+        assert_eq!(value, parsed);
+        Ok(())
+    }
+}
