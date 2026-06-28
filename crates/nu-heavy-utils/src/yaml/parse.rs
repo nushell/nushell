@@ -1402,9 +1402,25 @@ mod tests {
         assert_eq!(record["canonical"].as_float()?, 6.8523015e+5);
         assert_eq!(record["exponential"].as_float()?, 685.230_15e+03);
         assert_eq!(record["fixed"].as_float()?, 685_230.15);
-        assert_eq!(record["sexagesimal"].as_float()?, 190. * 60. * 60. + 20. * 60. + 30.15);
+        assert_eq!(
+            record["sexagesimal"].as_float()?,
+            190. * 60. * 60. + 20. * 60. + 30.15
+        );
         assert_eq!(record["negative infinity"].as_float()?, f64::NEG_INFINITY);
         assert!(record["not a number"].as_float()?.is_nan());
+        Ok(())
+    }
+
+    #[test]
+    fn spec_type_int() -> Result {
+        let yaml = include_str!("../../../../tests/fixtures/formats/yaml/int.yaml");
+        let record = dbg!(parse_yaml_11_into_record(yaml)?);
+        assert_eq!(record["canonical"].as_int()?, 685230);
+        assert_eq!(record["decimal"].as_int()?, 685_230);
+        assert_eq!(record["octal"].as_int()?, 0o2472256);
+        assert_eq!(record["hexadecimal"].as_int()?, 0x_0A_74_AE);
+        assert_eq!(record["binary"].as_int()?, 0b1010_0111_0100_1010_1110);
+        assert_eq!(record["sexagesimal"].as_int()?, 190 * 60 * 60 + 20 * 60 + 30);
         Ok(())
     }
 }
