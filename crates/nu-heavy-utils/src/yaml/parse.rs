@@ -35,7 +35,7 @@ use crate::{
     merge::{Merge, MergeStrategy},
     yaml::{
         KnownTag, Spec, UnknownTagError,
-        error::{InternalParserError, NodeKind, ParseError, TimestampIssue, TooComplexKey},
+        error::{InternalParserError, NodeKind, ParseError, TimestampIssue},
     },
 };
 use base64::{Engine, engine::general_purpose::STANDARD as BASE64_STANDARD};
@@ -43,7 +43,7 @@ use chrono::DateTime;
 use chrono::{FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};
 use derive_setters::Setters;
 use nu_protocol::{
-    FromValue, Range, Record, ShellError, Span, Spanned, Value, ast::CellPath, record,
+    FromValue, Range, Record, ShellError, Span, Spanned, Type, Value, ast::CellPath, record,
 };
 use nu_utils::location::Location;
 use regex::{Captures, Regex};
@@ -92,6 +92,9 @@ pub struct ParseOptions {
     /// Type hints from those tags are removed, so this returns basic types instead of more complex
     /// variants like [`Value::CellPath`].
     pub ignore_tags: bool,
+
+    /// Configure how plain scalar keys are handled.
+    pub key_resolution: KeyResolution,
 }
 
 /// Configure how multiple documents in a YAML stream are handled.
@@ -116,6 +119,28 @@ pub enum ParseMultiple {
     /// If multiple documents are found, an error is returned.
     #[nu_value(rename = "single")]
     ForceSingle,
+}
+
+/// How plain scalar mapping keys are handled when they resolve to non-string values.
+///
+/// YAML plain scalars can resolve to values other than strings, such as `null`, booleans,
+/// or numbers.
+/// A [`Record`] cannot represent those values as mapping keys.
+///
+/// By default, such keys are rejected.
+/// For compatibility with looser YAML usage, [`KeyResolution::Verbatim`] can instead keep the
+/// original plain scalar text as the key.
+#[derive(Debug, Clone, Copy, Default, FromValue, PartialEq, Eq)]
+#[nu_value(rename_all = "snake_case")]
+pub enum KeyResolution {
+    /// Reject plain scalar keys that resolve to non-string values.
+    #[default]
+    Strict,
+
+    /// Use the plain scalar source text as the key when it would resolve to a non-string value.
+    ///
+    /// This is more compatible with loose YAML usage, but does not fully preserve YAML's data model.
+    Verbatim,
 }
 
 /// Parse a YAML string into a [`Value`].
@@ -664,15 +689,17 @@ fn parse_mapping<'i>(
                     break 'record merge.merge(record, merge_strategy, ctx.parser_span)?;
                 }
                 Event::MappingStart(..) => {
-                    return Err(ShellError::from(ParseError::TooComplexKey {
-                        kind: TooComplexKey::Mapping,
+                    return Err(ShellError::from(ParseError::UnsupportedKey {
+                        attempted: None,
+                        ty: Type::record(),
                         span: ctx.parser_span,
                     }));
                 }
                 Event::SequenceStart(..) => {
-                    return Err(ShellError::from(ParseError::TooComplexKey {
-                        kind: TooComplexKey::Sequence,
-                        span: ctx.yaml_span,
+                    return Err(ShellError::from(ParseError::UnsupportedKey {
+                        attempted: None,
+                        ty: Type::list(Type::Any),
+                        span: ctx.parser_span,
                     }));
                 }
                 event => return Err(ctx.unexpected_event(event).into()),
@@ -814,10 +841,20 @@ fn parse_key<'i>(
 ) -> Result<MapKey, ShellError> {
     let tag = ctx.resolve_tag(tag.as_deref())?;
     match tag {
-        None => Ok(match (value.as_ref(), scalar_style) {
-            ("<<", ScalarStyle::Plain) => MapKey::Merge,
-            _ => MapKey::Normal(value.to_string()),
-        }),
+        None => match (value.as_ref(), scalar_style, ctx.options.key_resolution) {
+            ("<<", ScalarStyle::Plain, _) => Ok(MapKey::Merge),
+            (_, ScalarStyle::Plain, KeyResolution::Strict) => {
+                match parse_scalar_untagged(ctx, value.as_ref(), scalar_style)? {
+                    Value::String { val, .. } => Ok(MapKey::Normal(val)),
+                    v => Err(ShellError::from(ParseError::UnsupportedKey {
+                        attempted: Some(value.to_string()),
+                        ty: v.get_type(),
+                        span: ctx.parser_span,
+                    })),
+                }
+            }
+            _ => Ok(MapKey::Normal(value.to_string())),
+        },
         Some(tag) => match tag {
             KnownTag::Str => Ok(MapKey::Normal(value.to_string())),
             KnownTag::Merge => Ok(MapKey::Merge),
@@ -1254,12 +1291,13 @@ mod tests {
     use super::*;
     use indoc::indoc;
     use miette::Diagnostic;
-    use nu_protocol::{IntoSpanned, test_record};
+    use nu_protocol::{IntoSpanned, test_list, test_record};
     use nu_test_support::prelude::*;
     use rstest::rstest;
 
     const FIXTURE: &str = include_str!("../../../../tests/fixtures/formats/yaml/sample.yaml");
     const SPAN: Span = Span::test_data();
+    const NULL: () = ();
 
     #[test]
     fn parse_fixture_properly() -> Result {
@@ -1362,17 +1400,19 @@ mod tests {
         assert!(parse(yaml, SPAN, options).is_ok());
     }
 
-    fn parse_yaml_11_into_record(input: &str) -> Result<Record> {
+    fn parse_yaml_11<T: FromValue>(input: &str) -> Result<T> {
         let yaml = input.into_spanned(SPAN);
-        let options = ParseOptions::default().spec(Spec::V1_1);
+        let options = ParseOptions::default()
+            .spec(Spec::V1_1)
+            .key_resolution(KeyResolution::Verbatim);
         let parsed = parse(yaml, SPAN, options)?;
-        Ok(parsed.into_record()?)
+        Ok(T::from_value(parsed)?)
     }
 
     #[test]
     fn spec_type_binary() -> Result {
         let yaml = include_str!("../../../../tests/fixtures/formats/yaml/binary.yaml");
-        let record = parse_yaml_11_into_record(yaml)?;
+        let record: Record = parse_yaml_11(yaml)?;
         let expected = include_bytes!("../../../../tests/fixtures/formats/yaml/binary.gif");
         assert_eq!(record["canonical"].as_binary()?, expected);
         assert_eq!(record["generic"].as_binary()?, expected);
@@ -1387,7 +1427,7 @@ mod tests {
     #[test]
     fn spec_type_bool() -> Result {
         let yaml = include_str!("../../../../tests/fixtures/formats/yaml/binary.yaml");
-        let record = parse_yaml_11_into_record(yaml)?;
+        let record: Record = parse_yaml_11(yaml)?;
         assert_eq!(record["canonical"].as_bool()?, true);
         assert_eq!(record["answer"].as_bool()?, false);
         assert_eq!(record["logical"].as_bool()?, true);
@@ -1398,7 +1438,7 @@ mod tests {
     #[test]
     fn spec_type_float() -> Result {
         let yaml = include_str!("../../../../tests/fixtures/formats/yaml/float.yaml");
-        let record = parse_yaml_11_into_record(yaml)?;
+        let record: Record = parse_yaml_11(yaml)?;
         assert_eq!(record["canonical"].as_float()?, 6.8523015e+5);
         assert_eq!(record["exponential"].as_float()?, 685.230_15e+03);
         assert_eq!(record["fixed"].as_float()?, 685_230.15);
@@ -1414,13 +1454,124 @@ mod tests {
     #[test]
     fn spec_type_int() -> Result {
         let yaml = include_str!("../../../../tests/fixtures/formats/yaml/int.yaml");
-        let record = dbg!(parse_yaml_11_into_record(yaml)?);
+        let record: Record = parse_yaml_11(yaml)?;
         assert_eq!(record["canonical"].as_int()?, 685230);
         assert_eq!(record["decimal"].as_int()?, 685_230);
         assert_eq!(record["octal"].as_int()?, 0o2472256);
         assert_eq!(record["hexadecimal"].as_int()?, 0x_0A_74_AE);
         assert_eq!(record["binary"].as_int()?, 0b1010_0111_0100_1010_1110);
-        assert_eq!(record["sexagesimal"].as_int()?, 190 * 60 * 60 + 20 * 60 + 30);
+        assert_eq!(
+            record["sexagesimal"].as_int()?,
+            190 * 60 * 60 + 20 * 60 + 30
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn spec_type_map() -> Result {
+        let yaml = include_str!("../../../../tests/fixtures/formats/yaml/map.yaml");
+        let record: Record = parse_yaml_11(yaml)?;
+        let block_style = record["Block style"].as_record()?;
+        assert_eq!(block_style["Clark"].as_str()?, "Evans");
+        assert_eq!(block_style["Brian"].as_str()?, "Ingerson");
+        assert_eq!(block_style["Oren"].as_str()?, "Ben-Kiki");
+        let flow_style = record["Flow style"].as_record()?;
+        assert_eq!(flow_style["Clark"].as_str()?, "Evans");
+        assert_eq!(flow_style["Brian"].as_str()?, "Ingerson");
+        assert_eq!(flow_style["Oren"].as_str()?, "Ben-Kiki");
+        Ok(())
+    }
+
+    #[test]
+    fn spec_type_merge() -> Result {
+        let yaml = include_str!("../../../../tests/fixtures/formats/yaml/merge.yaml");
+        let list: Vec<Value> = dbg!(parse_yaml_11(yaml)?);
+        let [
+            center,
+            left,
+            big,
+            small,
+            explicit_keys,
+            merge_one_map,
+            merge_multiple_maps,
+            override_,
+        ] = list.try_into().unwrap();
+
+        assert_eq!(center, test_record! { "x" => 1, "y" => 2 }, "CENTER");
+        assert_eq!(left, test_record! { "x" => 0, "y" => 2 }, "LEFT");
+        assert_eq!(big, test_record! { "r" => 10 }, "BIG");
+        assert_eq!(small, test_record! { "r" => 1 }, "SMALL");
+
+        assert_eq!(
+            explicit_keys,
+            test_record! {
+                "x" => 1,
+                "y" => 2,
+                "r" => 10,
+                "label" => "center/big",
+            },
+            "Explicit keys"
+        );
+
+        assert_eq!(
+            merge_one_map,
+            test_record! {
+                "x" => 1,
+                "y" => 2,
+                "r" => 10,
+                "label" => "center/big",
+            },
+            "Merge one map"
+        );
+
+        assert_eq!(
+            merge_multiple_maps,
+            test_record! {
+                "x" => 1,
+                "y" => 2,
+                "r" => 10,
+                "label" => "center/big",
+            },
+            "Merge multiple maps"
+        );
+
+        assert_eq!(
+            override_,
+            test_record! {
+                "r" => 10,
+                "x" => 1,
+                "y" => 2,
+                "label" => "center/big",
+            },
+            "Override"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn spec_type_null() -> Result {
+        let yaml = include_str!("../../../../tests/fixtures/formats/yaml/null.yaml");
+        let documents: Vec<Value> = parse_yaml_11(yaml)?;
+        let [null, mapping, sparse] = documents.try_into().unwrap();
+
+        assert!(null.is_nothing());
+
+        assert_eq!(
+            mapping,
+            test_record! {
+                "empty" => NULL,
+                "canonical" => NULL,
+                "english" => NULL,
+                "~" => "null key"
+            }
+        );
+
+        assert_eq!(
+            sparse.as_record()?["sparse"],
+            test_list![NULL, "2nd entry", NULL, "4th entry", NULL]
+        );
+
         Ok(())
     }
 }

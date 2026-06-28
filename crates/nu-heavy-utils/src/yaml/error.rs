@@ -25,8 +25,9 @@ pub enum ParseError<'i> {
         duplicate: String,
         span: Span,
     },
-    TooComplexKey {
-        kind: TooComplexKey,
+    UnsupportedKey {
+        attempted: Option<String>,
+        ty: Type,
         span: Span,
     },
     UnexpectedKeyAnchor {
@@ -135,13 +136,6 @@ pub enum ParseError<'i> {
     },
 }
 
-#[derive(strum::Display)]
-#[strum(serialize_all = "snake_case")]
-pub enum TooComplexKey {
-    Mapping,
-    Sequence,
-}
-
 pub enum TimestampIssue {
     InvalidDate,
     InvalidTime,
@@ -182,7 +176,8 @@ impl From<ParseError<'_>> for ShellError {
                 "Found more than one document, but requested only one",
                 span,
             )
-            .with_code("shell::yaml::parse::too_many_documents"),
+            .with_code("shell::yaml::parse::too_many_documents")
+            .with_help("Try without `--multiple single`"),
 
             ParseError::Scan { source, span } => GenericError::new(
                 "Scanning YAML failed",
@@ -199,12 +194,23 @@ impl From<ParseError<'_>> for ShellError {
             )
             .with_code("shell::yaml::parse::duplicate_key"),
 
-            ParseError::TooComplexKey { kind, span } => GenericError::new(
-                "Too complex key found",
-                format!("Nushell cannot handle a {kind} as a key"),
+            ParseError::UnsupportedKey {
+                attempted,
+                ty,
+                span,
+            } => GenericError::new(
+                "Found unsupported key",
+                match attempted {
+                    Some(attempted) => format!(
+                        "{attempted:?} is an unsupported {ty}-key, expected {}-key",
+                        Type::String
+                    ),
+                    None => format!("Non-string keys are not supported, found {ty}-key"),
+                },
                 span,
             )
-            .with_code(format!("shell::yaml::parse::too_complex_key::{kind}")),
+            .with_code("shell::yaml::parse::unsupported_key")
+            .with_help("Try `from yaml --key-resolution verbatim`"),
 
             ParseError::UnexpectedKeyAnchor { span } => GenericError::new(
                 "Found unexpected key anchor",
