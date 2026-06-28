@@ -281,6 +281,9 @@ impl<'i> ParseCtx<'i> {
 fn parse_document<'i>(ctx: &mut ParseCtx<'i>) -> Result<Value, ShellError> {
     // TODO: if document version directive gets exposed, read it and override the spec version locally
 
+    // Anchors are scoped to a single document, not the whole YAML stream.
+    ctx.anchors.clear();
+
     let value = loop {
         match ctx.next_event()? {
             Event::Nothing | Event::Comment(..) => continue,
@@ -1423,6 +1426,14 @@ mod tests {
         let err = parse(yaml, SPAN, options).unwrap_err();
         let code = err.code().unwrap().to_string();
         assert_eq!(code, "shell::yaml::parse::too_many_documents");
+    }
+
+    #[test]
+    fn parse_anchors_do_not_cross_document_boundaries() {
+        let yaml = "--- &anchor value\n--- *anchor".into_spanned(SPAN);
+        let err = parse(yaml, SPAN, ParseOptions::default()).unwrap_err();
+        let code = err.code().unwrap().to_string();
+        assert_eq!(code, "shell::yaml::parse::scan");
     }
 
     #[rstest]
