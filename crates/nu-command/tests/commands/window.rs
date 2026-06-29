@@ -22,7 +22,7 @@ fn window_size_zero() -> Result {
 #[test]
 fn window_size_not_int() -> Result {
     let err = test()
-        .run("[0 1 2] | window (if true { 1sec })")
+        .run("[0 1 2] | window (echo 1sec)")
         .expect_shell_error()?;
     assert!(matches!(err, ShellError::CantConvert { .. }));
     Ok(())
@@ -52,7 +52,7 @@ fn stride_zero() -> Result {
 #[test]
 fn stride_not_int() -> Result {
     let err = test()
-        .run("[0 1 2] | window 1 -s (if true { 1sec })")
+        .run("[0 1 2] | window 1 -s (echo 1sec)")
         .expect_shell_error()?;
     assert!(matches!(err, ShellError::CantConvert { .. }));
     Ok(())
