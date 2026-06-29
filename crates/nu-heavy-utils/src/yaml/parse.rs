@@ -644,6 +644,7 @@ fn parse_sequence<'i>(
         | KnownTag::Range
         | KnownTag::Closure
         | KnownTag::Error
+        | KnownTag::Timestamp
         | KnownTag::CellPath => Err(ShellError::from(ParseError::IncorrectTag {
             tag,
             at: NodeKind::Sequence,
@@ -651,7 +652,7 @@ fn parse_sequence<'i>(
         })),
 
         // unsupported tag
-        KnownTag::Timestamp | KnownTag::Value | KnownTag::Yaml => {
+        KnownTag::Value | KnownTag::Yaml => {
             Err(ShellError::from(ParseError::UnsupportedTag {
                 tag,
                 at: NodeKind::Sequence,
@@ -813,6 +814,7 @@ fn parse_mapping<'i>(
         | KnownTag::Range
         | KnownTag::Closure
         | KnownTag::Error
+        | KnownTag::Timestamp
         | KnownTag::CellPath => Err(ShellError::from(ParseError::IncorrectTag {
             tag,
             at: NodeKind::Mapping,
@@ -820,7 +822,7 @@ fn parse_mapping<'i>(
         })),
 
         // unsupported tag
-        KnownTag::Timestamp | KnownTag::Value | KnownTag::Yaml => {
+        KnownTag::Value | KnownTag::Yaml => {
             Err(ShellError::from(ParseError::UnsupportedTag {
                 tag,
                 at: NodeKind::Mapping,
