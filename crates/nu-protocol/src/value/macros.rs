@@ -1,17 +1,9 @@
 #[macro_export]
 macro_rules! record {
-    // The macro only compiles if the number of columns equals the number of values,
-    // so it's safe to call `unwrap` below.
-    {$($col:expr => $val:expr),+ $(,)?} => {
-        $crate::Record::from_raw_cols_vals(
-            ::std::vec![$($col.into(),)+],
-            ::std::vec![$($val,)+],
-            $crate::Span::unknown(),
-            $crate::Span::unknown(),
-        ).unwrap()
-    };
-    {} => {
-        $crate::Record::new()
+    {$($col:expr => $val:expr),* $(,)?} => {
+        $crate::Record::from_iter(::std::vec![ $(
+            (::std::string::String::from($col), $val)
+        ),* ])
     };
 }
 
@@ -39,17 +31,15 @@ macro_rules! record {
 /// ```
 #[macro_export]
 macro_rules! test_record {
-    {$($col:expr => $val:expr),+ $(,)?} => {
-        $crate::Value::test_record($crate::record! {
-            $($col => $crate::IntoValue::into_value($val, $crate::Span::test_data())),+
-        })
-    };
-    {} => {
-        $crate::Value::test_record($crate::record! {})
+    {$($col:expr => $val:expr),* $(,)?} => {
+        $crate::Value::test_record($crate::record! { $(
+            $col => $crate::IntoValue::into_value($val, $crate::Span::test_data())
+        ),* })
     };
 }
 
 #[doc(hidden)]
+#[allow(unused)]
 pub const fn count_helper<const N: usize>(_: [(); N]) -> usize {
     N
 }
