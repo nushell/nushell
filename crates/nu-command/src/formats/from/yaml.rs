@@ -16,24 +16,24 @@ impl Command for FromYamlLike {
         Signature::build(self.name())
             .input_output_types(vec![(Type::String, Type::Any)])
             .category(Category::Formats)
-            .named(
-                "spec",
-                SyntaxShape::String,
-                "YAML spec version ('1.1' or '1.2' (default)).",
-                None,
+            .param(
+                Flag::new("spec")
+                    .arg(SyntaxShape::String)
+                    .desc("YAML spec version ('1.1' or '1.2' (default)).")
+                    .completion(Completion::new_list(&["1.1", "1.2"])),
             )
-            .named(
-                "multiple",
-                SyntaxShape::String,
-                "Handle multiple documents ('auto', 'list', 'single').",
-                None,
+            .param(
+                Flag::new("multiple")
+                    .arg(SyntaxShape::String)
+                    .desc("Handle multiple documents ('auto', 'list', 'single').")
+                    .completion(Completion::new_list(&["auto", "list", "single"])),
             )
             .switch("ignore-tags", "Ignore any tags", None)
-            .named(
-                "key-resolution",
-                SyntaxShape::String,
-                "Handle plain scalar keys ('strict' (default), 'verbatim').",
-                None,
+            .param(
+                Flag::new("key-resolution")
+                    .arg(SyntaxShape::String)
+                    .desc("Handle plain scalar keys ('strict' (default), 'verbatim').")
+                    .completion(Completion::new_list(&["strict", "verbatim"])),
             )
     }
 

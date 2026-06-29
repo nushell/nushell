@@ -19,11 +19,11 @@ impl Command for ToYamlLike {
                 "Serialize nushell types that cannot be deserialized.",
                 Some('s'),
             )
-            .named(
-                "spec",
-                SyntaxShape::String,
-                "YAML spec version ('1.1' or '1.2' (default)).",
-                None,
+            .param(
+                Flag::new("spec")
+                    .arg(SyntaxShape::String)
+                    .desc("YAML spec version ('1.1' or '1.2' (default)).")
+                    .completion(Completion::new_list(&["1.1", "1.2"])),
             )
             .switch("add-directives", "Add YAML document directives.", Some('d'))
             .switch(
@@ -42,11 +42,12 @@ impl Command for ToYamlLike {
                 "Emit lists with a more compact indentation style.",
                 None,
             )
-            .named(
-                "quote",
-                SyntaxShape::String,
-                "String quote style ('auto' (default), 'single' or 'double')",
-                Some('q'),
+            .param(
+                Flag::new("quote")
+                    .short('q')
+                    .arg(SyntaxShape::String)
+                    .desc("String quote style ('auto' (default), 'single' or 'double')")
+                    .completion(Completion::new_list(&["auto", "single", "double"])),
             )
             .category(Category::Formats)
     }
