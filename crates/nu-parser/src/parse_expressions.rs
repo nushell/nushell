@@ -1435,10 +1435,25 @@ pub fn parse_math_expression(
         .expect("internal error: expression stack empty")
 }
 
-/// Try to parse a span whose content is an unsplit math expression like `54+127`
-/// or `54/(54+127)`. This handles the case where the user types math without spaces
-/// around operators. On failure, returns `None` and rolls back any parse errors,
-/// so the caller can fall through to the normal command-parsing path.
+/// Returns `true` if `b` is a byte that can appear in a multi-character
+/// operator symbol (`+`, `-`, `*`, `/`, `%`, `<`, `>`, `=`, `!`, `~`).
+fn is_math_operator_symbol(b: u8) -> bool {
+    matches!(
+        b,
+        b'+' | b'-' | b'*' | b'/' | b'%' | b'<' | b'>' | b'=' | b'!' | b'~'
+    )
+}
+
+/// Attempt to parse a span whose content is an unsplit math expression
+/// like `54+127` or `54/(54+127)`.
+///
+/// This handles expressions where operators lack surrounding whitespace, which
+/// the lexer does not split (it only splits on whitespace, `|`, `;`, and
+/// newlines).  The function first checks plausibility (span starts with a digit
+/// or `(` and contains at least one operator byte), then delegates to
+/// [`split_unsplit_math_span`] and [`parse_math_expression`].  On failure all
+/// parse errors are rolled back so the caller can fall through to the normal
+/// command-resolution path without side effects.
 fn try_parse_unsplit_math(working_set: &mut StateWorkingSet, span: Span) -> Option<Expression> {
     let bytes = working_set.get_span_contents(span);
 
@@ -1446,30 +1461,19 @@ fn try_parse_unsplit_math(working_set: &mut StateWorkingSet, span: Span) -> Opti
         return None;
     }
 
-    // Only attempt for spans starting with a digit or '(' — this avoids
-    // interfering with command names that happen to contain operators.
-    match bytes[0] {
-        b'0'..=b'9' => {}
-        b'(' => {}
-        _ => return None,
+    // Plausibility guard: only engage for spans that look like arithmetic.
+    // This avoids interfering with command names like `a+b` or `cmd--flag`.
+    let first = bytes[0];
+    if !first.is_ascii_digit() && first != b'(' {
+        return None;
     }
 
-    // Must contain at least one operator symbol
-    if !bytes.iter().any(|&b| {
-        matches!(
-            b,
-            b'+' | b'-' | b'*' | b'/' | b'%' | b'<' | b'>' | b'=' | b'!' | b'~'
-        )
-    }) {
+    // Quick check that at least one operator byte is present.
+    if !bytes.iter().any(|&b| is_math_operator_symbol(b)) {
         return None;
     }
 
     let sub_spans = split_unsplit_math_span(span, bytes)?;
-
-    // Need at least 3 parts for a binary expression (lhs op rhs)
-    if sub_spans.len() < 3 {
-        return None;
-    }
 
     // Attempt to parse as a math expression; roll back errors on failure
     let starting_error_count = working_set.parse_errors.len();
@@ -1491,6 +1495,9 @@ fn try_parse_unsplit_math(working_set: &mut StateWorkingSet, span: Span) -> Opti
 /// - `-` (binary minus only when preceded by a digit or `)`)
 /// - Matching `()` pairs kept as single spans
 /// - Internal whitespace skipped
+///
+/// Returns `None` when fewer than three parts are produced (no binary operator
+/// found).
 fn split_unsplit_math_span(span: Span, bytes: &[u8]) -> Option<Vec<Span>> {
     let mut parts: Vec<Span> = Vec::new();
     let span_start = span.start;
