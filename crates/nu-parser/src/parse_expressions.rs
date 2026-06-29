@@ -1473,6 +1473,18 @@ fn try_parse_unsplit_math(working_set: &mut StateWorkingSet, span: Span) -> Opti
         return None;
     }
 
+    // ISO 8601 date literals like `2023-04-22` contain hyphens between digit
+    // groups and must not be split into subtractions.
+    if bytes.len() == 10
+        && bytes[0..4].iter().all(u8::is_ascii_digit)
+        && bytes[4] == b'-'
+        && bytes[5..7].iter().all(u8::is_ascii_digit)
+        && bytes[7] == b'-'
+        && bytes[8..10].iter().all(u8::is_ascii_digit)
+    {
+        return None;
+    }
+
     let sub_spans = split_unsplit_math_span(span, bytes)?;
 
     // Attempt to parse as a math expression; roll back errors on failure
@@ -1534,6 +1546,12 @@ fn split_unsplit_math_span(span: Span, bytes: &[u8]) -> Option<Vec<Span>> {
                 }
                 _ => {}
             }
+        }
+
+        // `..<` is a half-open range operator; the `<` must not be split.
+        if c == b'<' && i >= 2 && bytes[i - 2] == b'.' && bytes[i - 1] == b'.' {
+            i += 1;
+            continue;
         }
 
         // Single-char operators
