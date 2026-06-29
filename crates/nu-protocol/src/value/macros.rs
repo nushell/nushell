@@ -116,3 +116,147 @@ macro_rules! test_list {
         ])
     };
 }
+
+#[macro_export]
+macro_rules! test_value {
+    (@recur, [$($item:tt),* $(,)?]) => {
+        $crate::test_list![$(
+            $crate::test_value!(@recur, $item)
+        ),*]
+    };
+    (@recur, {$($col:expr => $val:tt),* $(,)?}) => {
+        $crate::test_record! { $(
+            $col => $crate::test_value!(@recur, $val)
+        ),* }
+    };
+    (@recur, $val:expr) => { $val };
+
+    // top level calls
+    ([$($item:tt),* $(,)?]) => { $crate::test_value!(@recur, [$($item),*]) };
+    ({$($col:expr => $val:tt),* $(,)?}) => { $crate::test_value!(@recur, {$($col => $val),*}) };
+    ($val:expr) => { $crate::IntoValue::into_value($val, $crate::Span::test_data()) };
+}
+
+#[cfg(test)]
+mod test_value_macro_tests {
+    use pretty_assertions::assert_eq;
+
+    use crate::{IntoValue, Span};
+
+    #[test]
+    fn simple_values() {
+        let x = test_value!(10);
+        let expected = 10.into_value(Span::test_data());
+
+        assert_eq!(x, expected);
+
+        let x = test_value!(true);
+        let expected = true.into_value(Span::test_data());
+
+        assert_eq!(x, expected);
+
+        let x = test_value!(());
+        let expected = ().into_value(Span::test_data());
+
+        assert_eq!(x, expected);
+    }
+
+    #[test]
+    fn simple_record() {
+        let x = test_value!({
+            "a" => 1,
+            "b" => 2,
+            "c" => 3,
+        });
+
+        let expected = test_record! {
+            "a" => 1,
+            "b" => 2,
+            "c" => 3,
+        };
+
+        assert_eq!(x, expected);
+    }
+
+    #[test]
+    fn simple_list() {
+        let x = test_value!(["abc", 42, true,]);
+
+        let expected = test_list!["abc", 42, true,];
+
+        assert_eq!(x, expected);
+    }
+
+    #[test]
+    fn nested_records() {
+        let x = test_value!({
+            "a" => 1,
+            "b" => 2,
+            "c" => {
+                "d" => 4,
+                "e" => 5,
+                "f" => {
+                    "g" => 7,
+                    "h" => 8,
+                }
+            },
+        });
+
+        let expected = test_record! {
+            "a" => 1,
+            "b" => 2,
+            "c" => test_record! {
+                "d" => 4,
+                "e" => 5,
+                "f" => test_record! {
+                    "g" => 7,
+                    "h" => 8,
+                }
+            },
+        };
+
+        assert_eq!(x, expected);
+    }
+
+    #[test]
+    fn nested_lists() {
+        let x = test_value!(["a", "b", ["c", "d", ["e", "f",],],]);
+
+        let expected = test_list!["a", "b", test_list!["c", "d", test_list!["e", "f",],],];
+
+        assert_eq!(x, expected);
+    }
+
+    #[test]
+    fn complex_value() {
+        let x = test_value!({
+            "a" => 1,
+            "b" => {
+                "ba" => 3,
+                "bb" => 4,
+            },
+            "c" => [1, "two", ()],
+            "d" => [
+                {"foo" => 1, "bar" => 10},
+                {"foo" => 2, "bar" => 20},
+                {"foo" => 3, "bar" => 30},
+            ],
+        });
+
+        let expected = test_record! {
+            "a" => 1,
+            "b" => test_record! {
+                "ba" => 3,
+                "bb" => 4,
+            },
+            "c" => test_list![1, "two", ()],
+            "d" => test_list![
+                test_record! {"foo" => 1, "bar" => 10},
+                test_record! {"foo" => 2, "bar" => 20},
+                test_record! {"foo" => 3, "bar" => 30},
+            ],
+        };
+
+        assert_eq!(x, expected)
+    }
+}
