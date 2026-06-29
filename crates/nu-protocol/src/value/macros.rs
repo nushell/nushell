@@ -124,16 +124,19 @@ macro_rules! test_value {
             $crate::test_value!(@recur, $item)
         ),*]
     };
-    (@recur, {$($col:expr => $val:tt),* $(,)?}) => {
+    (@recur, {$($col:tt : $val:tt),* $(,)?}) => {
         $crate::test_record! { $(
-            $col => $crate::test_value!(@recur, $val)
+            $crate::test_value!(@col, $col) => $crate::test_value!(@recur, $val)
         ),* }
     };
     (@recur, $val:expr) => { $val };
 
+    (@col, $col:ident) => { stringify!($col) };
+    (@col, $col:expr) => { $col };
+
     // top level calls
     ([$($item:tt),* $(,)?]) => { $crate::test_value!(@recur, [$($item),*]) };
-    ({$($col:expr => $val:tt),* $(,)?}) => { $crate::test_value!(@recur, {$($col => $val),*}) };
+    ({$($col:tt : $val:tt),* $(,)?}) => { $crate::test_value!(@recur, {$($col : $val),*}) };
     ($val:expr) => { $crate::IntoValue::into_value($val, $crate::Span::test_data()) };
 }
 
@@ -142,6 +145,26 @@ mod test_value_macro_tests {
     use pretty_assertions::assert_eq;
 
     use crate::{IntoValue, Span};
+
+    #[test]
+    fn ident_record_columns() {
+        let foo_col = "foo_val";
+        let x = test_value!({
+            a: 2,
+            b: 3,
+            foo_col: foo_col,
+            (foo_col): foo_col,
+        });
+
+        let expected = test_record! {
+            "a" => 2,
+            "b" => 3,
+            "foo_col" => "foo_val",
+            "foo_val" => "foo_val",
+        };
+
+        assert_eq!(x, expected);
+    }
 
     #[test]
     fn simple_values() {
@@ -164,9 +187,9 @@ mod test_value_macro_tests {
     #[test]
     fn simple_record() {
         let x = test_value!({
-            "a" => 1,
-            "b" => 2,
-            "c" => 3,
+            "a": 1,
+            "b": 2,
+            "c": 3,
         });
 
         let expected = test_record! {
@@ -190,14 +213,14 @@ mod test_value_macro_tests {
     #[test]
     fn nested_records() {
         let x = test_value!({
-            "a" => 1,
-            "b" => 2,
-            "c" => {
-                "d" => 4,
-                "e" => 5,
-                "f" => {
-                    "g" => 7,
-                    "h" => 8,
+            "a": 1,
+            "b": 2,
+            "c": {
+                "d": 4,
+                "e": 5,
+                "f": {
+                    "g": 7,
+                    "h": 8,
                 }
             },
         });
@@ -230,16 +253,49 @@ mod test_value_macro_tests {
     #[test]
     fn complex_value() {
         let x = test_value!({
+            "a": 1,
+            "b": {
+                "ba": 3,
+                "bb": 4,
+            },
+            "c": [1, "two", ()],
+            "d": [
+                {"foo": 1, "bar": 10},
+                {"foo": 2, "bar": 20},
+                {"foo": 3, "bar": 30},
+            ],
+        });
+
+        let expected = test_record! {
             "a" => 1,
-            "b" => {
+            "b" => test_record! {
                 "ba" => 3,
                 "bb" => 4,
             },
-            "c" => [1, "two", ()],
-            "d" => [
-                {"foo" => 1, "bar" => 10},
-                {"foo" => 2, "bar" => 20},
-                {"foo" => 3, "bar" => 30},
+            "c" => test_list![1, "two", ()],
+            "d" => test_list![
+                test_record! {"foo" => 1, "bar" => 10},
+                test_record! {"foo" => 2, "bar" => 20},
+                test_record! {"foo" => 3, "bar" => 30},
+            ],
+        };
+
+        assert_eq!(x, expected)
+    }
+
+    #[test]
+    fn complex_value_with_ident_keys() {
+        let x = test_value!({
+            a: 1,
+            b: {
+                ba: 3,
+                bb: 4,
+            },
+            c: [1, "two", ()],
+            d: [
+                {foo: 1, bar: 10},
+                {foo: 2, bar: 20},
+                {foo: 3, bar: 30},
             ],
         });
 
