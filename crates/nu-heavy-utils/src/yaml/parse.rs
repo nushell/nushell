@@ -1365,7 +1365,7 @@ mod tests {
 
         // In a previous implementation the ordering of columns was non-deterministic.
         // It would take a few executions of the YAML conversion to see this ordering difference.
-        // This loop should be fare more than enough to catch a regression.
+        // This loop should be far more than enough to catch a regression.
         for i in 1..1000 {
             let parsed = parse(test_yaml, SPAN, ParseOptions::default())?;
             // Unfortunately the `eq`` function for `Value`` doesn't compare well enough to detect
