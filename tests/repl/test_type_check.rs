@@ -363,3 +363,17 @@ fn pipeline_let_type() -> Result {
 
     Ok(())
 }
+
+#[test]
+fn block_let_rhs_pipeline_input() -> Result {
+    let code = r#"
+        def only-nothing []: nothing -> string { "hello" }
+        def foo []: int -> any { let x = only-nothing; $x + 1 }
+        5 | foo
+    "#;
+
+    let err = test().run(code).expect_parse_error()?;
+    assert!(matches!(err, ParseError::InputMismatch(ty, _) if ty == "int"));
+
+    Ok(())
+}
