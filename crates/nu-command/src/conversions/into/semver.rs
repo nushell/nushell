@@ -159,27 +159,43 @@ fn parse_record_to_semver(record: &nu_protocol::Record, head: Span) -> Value {
         .and_then(|v| v.as_str().ok())
         .unwrap_or("");
 
-    let version_str = if pre.is_empty() && build.is_empty() {
-        format!("{}.{}.{}", major, minor, patch)
-    } else if build.is_empty() {
-        format!("{}.{}.{}-{}", major, minor, patch, pre)
-    } else if pre.is_empty() {
-        format!("{}.{}.{}+{}", major, minor, patch, build)
-    } else {
-        format!("{}.{}.{}-{}+{}", major, minor, patch, pre, build)
+    let pre = match semver::Prerelease::new(pre) {
+        Ok(p) => p,
+        Err(e) => {
+            return Value::error(
+                ShellError::Generic(GenericError::new(
+                    "Cannot convert record to semver",
+                    format!("invalid prerelease: {e}"),
+                    head,
+                )),
+                head,
+            );
+        }
     };
 
-    match semver::Version::parse(&version_str) {
-        Ok(version) => Value::custom(Box::new(SemverValue::new(version)), head),
-        Err(_) => Value::error(
-            ShellError::Generic(GenericError::new(
-                "Cannot convert record to semver",
-                "invalid semver components",
+    let build = match semver::BuildMetadata::new(build) {
+        Ok(b) => b,
+        Err(e) => {
+            return Value::error(
+                ShellError::Generic(GenericError::new(
+                    "Cannot convert record to semver",
+                    format!("invalid build metadata: {e}"),
+                    head,
+                )),
                 head,
-            )),
-            head,
-        ),
-    }
+            );
+        }
+    };
+
+    let version = semver::Version {
+        major,
+        minor,
+        patch,
+        pre,
+        build,
+    };
+
+    Value::custom(Box::new(SemverValue::new(version)), head)
 }
 
 #[cfg(test)]

@@ -21,10 +21,15 @@ impl Command for SemverBump {
                 "If the input is not a valid semver version, return the original input unchanged",
                 Some('i'),
             )
+            .switch(
+                "preserve-build-metadata",
+                "Preserve the existing build metadata from the input version",
+                Some('p'),
+            )
             .named(
                 "build-metadata",
                 SyntaxShape::String,
-                "Additionally set the build metadata",
+                "Additionally set the build metadata. Takes precedence over --preserve-build-metadata",
                 Some('b'),
             )
             .param(Parameter::Required(
@@ -77,6 +82,11 @@ impl Command for SemverBump {
                 example: "'1.2.3-alpha' | into semver | semver bump release",
                 result: Some(SemverValue::test_value("1.2.3")),
             },
+            Example {
+                description: "Bump with preserved build metadata",
+                example: "'1.2.3+build.5' | into semver | semver bump patch --preserve-build-metadata",
+                result: Some(SemverValue::test_value("1.2.4+build.5")),
+            },
         ]
     }
 
@@ -91,6 +101,8 @@ impl Command for SemverBump {
         let ignore_errors = call.has_flag(engine_state, stack, "ignore-errors")?;
         let build_metadata: Option<String> =
             call.get_flag(engine_state, stack, "build-metadata")?;
+        let preserve_build_metadata =
+            call.has_flag(engine_state, stack, "preserve-build-metadata")?;
         let head = call.head;
 
         input.map(
@@ -101,6 +113,7 @@ impl Command for SemverBump {
                     head,
                     ignore_errors,
                     build_metadata.as_deref(),
+                    preserve_build_metadata,
                 )
                 .unwrap_or_else(|err| Value::error(err, head))
             },
@@ -115,6 +128,7 @@ fn bump_value_with_options(
     head: Span,
     ignore_errors: bool,
     build_metadata: Option<&str>,
+    preserve_build_metadata: bool,
 ) -> Result<Value, ShellError> {
     let semver_val = match SemverValue::try_from(input) {
         Ok(semver) => semver,
@@ -125,6 +139,8 @@ fn bump_value_with_options(
             return Err(err);
         }
     };
+
+    let original_build = semver_val.version.build.clone();
 
     let result = match level {
         "major" => semver_val.bump_major(),
@@ -144,10 +160,15 @@ fn bump_value_with_options(
         }
     };
 
-    let result = if let Some(metadata) = build_metadata {
-        result.set_build_metadata(metadata)?
-    } else {
-        result
+    let result = match (build_metadata, preserve_build_metadata) {
+        (Some(metadata), _) => result.set_build_metadata(metadata)?,
+        (None, true) => SemverValue {
+            version: semver::Version {
+                build: original_build,
+                ..result.version
+            },
+        },
+        (None, false) => result,
     };
 
     Ok(Value::custom(Box::new(result), head))
@@ -176,7 +197,8 @@ mod tests {
     fn test_bump_major() {
         let input = create_semver_value("1.2.3");
         let result =
-            bump_value_with_options(&input, "major", Span::test_data(), false, None).unwrap();
+            bump_value_with_options(&input, "major", Span::test_data(), false, None, false)
+                .unwrap();
         assert_eq!(get_semver_from_value(&result), "2.0.0");
     }
 
@@ -184,7 +206,8 @@ mod tests {
     fn test_bump_minor() {
         let input = create_semver_value("1.2.3");
         let result =
-            bump_value_with_options(&input, "minor", Span::test_data(), false, None).unwrap();
+            bump_value_with_options(&input, "minor", Span::test_data(), false, None, false)
+                .unwrap();
         assert_eq!(get_semver_from_value(&result), "1.3.0");
     }
 
@@ -192,7 +215,8 @@ mod tests {
     fn test_bump_patch() {
         let input = create_semver_value("1.2.3");
         let result =
-            bump_value_with_options(&input, "patch", Span::test_data(), false, None).unwrap();
+            bump_value_with_options(&input, "patch", Span::test_data(), false, None, false)
+                .unwrap();
         assert_eq!(get_semver_from_value(&result), "1.2.4");
     }
 
@@ -200,7 +224,8 @@ mod tests {
     fn test_bump_alpha() {
         let input = create_semver_value("1.2.3");
         let result =
-            bump_value_with_options(&input, "alpha", Span::test_data(), false, None).unwrap();
+            bump_value_with_options(&input, "alpha", Span::test_data(), false, None, false)
+                .unwrap();
         assert_eq!(get_semver_from_value(&result), "1.2.3-alpha.1");
     }
 
@@ -208,14 +233,15 @@ mod tests {
     fn test_bump_beta() {
         let input = create_semver_value("1.2.3");
         let result =
-            bump_value_with_options(&input, "beta", Span::test_data(), false, None).unwrap();
+            bump_value_with_options(&input, "beta", Span::test_data(), false, None, false).unwrap();
         assert_eq!(get_semver_from_value(&result), "1.2.3-beta.1");
     }
 
     #[test]
     fn test_bump_rc() {
         let input = create_semver_value("1.2.3");
-        let result = bump_value_with_options(&input, "rc", Span::test_data(), false, None).unwrap();
+        let result =
+            bump_value_with_options(&input, "rc", Span::test_data(), false, None, false).unwrap();
         assert_eq!(get_semver_from_value(&result), "1.2.3-rc.1");
     }
 
@@ -223,14 +249,16 @@ mod tests {
     fn test_bump_release() {
         let input = create_semver_value("1.2.3-alpha.1");
         let result =
-            bump_value_with_options(&input, "release", Span::test_data(), false, None).unwrap();
+            bump_value_with_options(&input, "release", Span::test_data(), false, None, false)
+                .unwrap();
         assert_eq!(get_semver_from_value(&result), "1.2.3");
     }
 
     #[test]
     fn test_bump_invalid_level() {
         let input = create_semver_value("1.2.3");
-        let result = bump_value_with_options(&input, "invalid", Span::test_data(), false, None);
+        let result =
+            bump_value_with_options(&input, "invalid", Span::test_data(), false, None, false);
         assert!(result.is_err());
     }
 
@@ -238,16 +266,23 @@ mod tests {
     fn test_bump_string_input_is_supported() {
         let input = Value::string("1.2.3", Span::test_data());
         let result =
-            bump_value_with_options(&input, "major", Span::test_data(), false, None).unwrap();
+            bump_value_with_options(&input, "major", Span::test_data(), false, None, false)
+                .unwrap();
         assert_eq!(get_semver_from_value(&result), "2.0.0");
     }
 
     #[test]
     fn test_bump_string_input_with_build_metadata() {
         let input = Value::string("1.2.3", Span::test_data());
-        let result =
-            bump_value_with_options(&input, "minor", Span::test_data(), false, Some("build"))
-                .unwrap();
+        let result = bump_value_with_options(
+            &input,
+            "minor",
+            Span::test_data(),
+            false,
+            Some("build"),
+            false,
+        )
+        .unwrap();
         assert_eq!(get_semver_from_value(&result), "1.3.0+build");
     }
 
@@ -255,15 +290,15 @@ mod tests {
     fn test_bump_ignore_errors_for_invalid_input() {
         let input = Value::string("not-a-version", Span::test_data());
         let result =
-            bump_value_with_options(&input, "major", Span::test_data(), true, None).unwrap();
+            bump_value_with_options(&input, "major", Span::test_data(), true, None, false).unwrap();
         assert!(matches!(result, Value::String { .. }));
     }
 
     #[test]
     fn test_bump_wrong_custom_value() {
-        // Create a different custom value (not semver)
         let input = Value::int(42, Span::test_data());
-        let result = bump_value_with_options(&input, "major", Span::test_data(), false, None);
+        let result =
+            bump_value_with_options(&input, "major", Span::test_data(), false, None, false);
         assert!(result.is_err());
     }
 
@@ -271,7 +306,8 @@ mod tests {
     fn test_bump_with_prerelease() {
         let input = create_semver_value("1.2.3-alpha.1");
         let result =
-            bump_value_with_options(&input, "major", Span::test_data(), false, None).unwrap();
+            bump_value_with_options(&input, "major", Span::test_data(), false, None, false)
+                .unwrap();
         assert_eq!(get_semver_from_value(&result), "2.0.0");
     }
 
@@ -279,8 +315,40 @@ mod tests {
     fn test_bump_with_build_metadata() {
         let input = create_semver_value("1.2.3+build.1");
         let result =
-            bump_value_with_options(&input, "minor", Span::test_data(), false, None).unwrap();
+            bump_value_with_options(&input, "minor", Span::test_data(), false, None, false)
+                .unwrap();
         assert_eq!(get_semver_from_value(&result), "1.3.0");
+    }
+
+    #[test]
+    fn test_bump_preserve_build_metadata() {
+        let input = create_semver_value("1.2.3+build.5");
+        let result =
+            bump_value_with_options(&input, "patch", Span::test_data(), false, None, true).unwrap();
+        assert_eq!(get_semver_from_value(&result), "1.2.4+build.5");
+    }
+
+    #[test]
+    fn test_bump_preserve_build_metadata_major() {
+        let input = create_semver_value("1.2.3+build.1");
+        let result =
+            bump_value_with_options(&input, "major", Span::test_data(), false, None, true).unwrap();
+        assert_eq!(get_semver_from_value(&result), "2.0.0+build.1");
+    }
+
+    #[test]
+    fn test_bump_build_metadata_takes_precedence() {
+        let input = create_semver_value("1.2.3+build.1");
+        let result = bump_value_with_options(
+            &input,
+            "patch",
+            Span::test_data(),
+            false,
+            Some("override"),
+            true,
+        )
+        .unwrap();
+        assert_eq!(get_semver_from_value(&result), "1.2.4+override");
     }
 }
 

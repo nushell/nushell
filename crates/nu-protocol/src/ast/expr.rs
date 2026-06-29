@@ -140,13 +140,13 @@ impl Expr {
             | Expr::Table(_)
             | Expr::Record(_)
             | Expr::ValueWithUnit(_)
-                | Expr::DateTime(_)
-                | Expr::String(_)
-                | Expr::RawString(_)
-                | Expr::CellPath(_)
-                | Expr::StringInterpolation(_)
-                | Expr::GlobInterpolation(_, _)
-                | Expr::Nothing => {
+            | Expr::DateTime(_)
+            | Expr::String(_)
+            | Expr::RawString(_)
+            | Expr::CellPath(_)
+            | Expr::StringInterpolation(_)
+            | Expr::GlobInterpolation(_, _)
+            | Expr::Nothing => {
                 // These expressions do not use the output of the pipeline in any meaningful way,
                 // but we still need to use the pipeline output, so the previous command
                 // can be stopped with SIGPIPE(in unix).
