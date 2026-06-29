@@ -32,6 +32,7 @@ export def get-workflow-run [commits: list<string>, span: record]: nothing -> in
       # parse workflow id from url to avoid another request
       | parse "https://github.com/nushell/nushell/actions/runs/{workflow_id}/job/{job_id}"
       | only workflow_id
+      | into int
     )
   }
 
