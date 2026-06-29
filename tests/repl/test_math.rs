@@ -236,3 +236,154 @@ fn gte_null() -> TestResult {
     run_test("null >= 3 | to nuon", "null").unwrap();
     run_test("null >= null | to nuon", "null")
 }
+
+// ── unsplit math (no spaces around operators) ───────────────────────────────
+
+#[test]
+fn unsplit_add() -> TestResult {
+    run_test("54+127", "181")
+}
+
+#[test]
+fn unsplit_sub() -> TestResult {
+    run_test("54-127", "-73")
+}
+
+#[test]
+fn unsplit_mul() -> TestResult {
+    run_test("54*127", "6858")
+}
+
+#[test]
+fn unsplit_div() -> TestResult {
+    run_test("54/127", "0.4251968503937008")
+}
+
+#[test]
+fn unsplit_floor_div() -> TestResult {
+    run_test("8//3", "2")
+}
+
+#[test]
+fn unsplit_pow() -> TestResult {
+    run_test("2**3", "8")
+}
+
+#[test]
+fn unsplit_chained() -> TestResult {
+    run_test("3+2+7+2.25+0.5", "14.75")
+}
+
+#[test]
+fn unsplit_parens() -> TestResult {
+    run_test("54/(54+127)", "0.2983425414364641")
+}
+
+#[test]
+fn unsplit_unary_minus_after_operator() -> TestResult {
+    run_test("1*-2", "-2")
+}
+
+#[test]
+fn unsplit_double_minus() -> TestResult {
+    run_test("1--2", "3")
+}
+
+#[test]
+fn unsplit_eq() -> TestResult {
+    run_test("1==2", "false").unwrap();
+    run_test("1==1", "true")
+}
+
+#[test]
+fn unsplit_neq() -> TestResult {
+    run_test("1!=2", "true").unwrap();
+    run_test("1!=1", "false")
+}
+
+#[test]
+fn unsplit_lt() -> TestResult {
+    run_test("1<2", "true").unwrap();
+    run_test("2<1", "false")
+}
+
+#[test]
+fn unsplit_gt() -> TestResult {
+    run_test("1>2", "false").unwrap();
+    run_test("2>1", "true")
+}
+
+#[test]
+fn unsplit_lte() -> TestResult {
+    run_test("1<=2", "true").unwrap();
+    run_test("2<=1", "false")
+}
+
+#[test]
+fn unsplit_gte() -> TestResult {
+    run_test("1>=2", "false").unwrap();
+    run_test("2>=1", "true")
+}
+
+#[test]
+fn unsplit_pipe() -> TestResult {
+    run_test("54+127|describe", "int")
+}
+
+#[test]
+fn unsplit_mixed_types() -> TestResult {
+    run_test("3.5+2.25", "5.75")
+}
+
+// ── unsplit math with nested parentheses ────────────────────────────────────
+
+#[test]
+fn unsplit_nested_parens_mul() -> TestResult {
+    run_test("(1+2)*3", "9")
+}
+
+#[test]
+fn unsplit_nested_parens_double_group() -> TestResult {
+    run_test("(1+2)*(3+4)", "21")
+}
+
+#[test]
+fn unsplit_nested_parens_double_outer() -> TestResult {
+    run_test("((1+2)*3)", "9")
+}
+
+#[test]
+fn unsplit_nested_parens_triple() -> TestResult {
+    run_test("(((1+2)))", "3")
+}
+
+#[test]
+fn unsplit_nested_parens_div() -> TestResult {
+    run_test("((1+2)*(3+4))/5", "4.2")
+}
+
+#[test]
+fn unsplit_nested_parens_pow() -> TestResult {
+    run_test("2**((1+2)*3)", "512")
+}
+
+#[test]
+fn unsplit_nested_parens_precedence_inside() -> TestResult {
+    run_test("(1+2*(3+4))", "15")
+}
+
+#[test]
+fn unsplit_nested_parens_deep_mixed() -> TestResult {
+    run_test("(((1+2)*3)-(4/(5+6)))", "8.636363636363637")
+}
+
+#[test]
+fn unsplit_nested_parens_double_double_div() -> TestResult {
+    run_test("((1+2)*(3+4))/((5+6)*2)", "0.9545454545454546")
+}
+
+#[test]
+fn unsplit_nested_parens_comparison() -> TestResult {
+    run_test("(1+2)==3", "true").unwrap();
+    run_test("(1+2)!=3", "false")
+}

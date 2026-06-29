@@ -1,10 +1,14 @@
 use nu_parser::*;
 use nu_protocol::{
     DeclId, FilesizeUnit, ParseError, Signature, Span, SyntaxShape, Type, Unit,
-    ast::{Argument, Expr, Expression, ExternalArgument, PathMember, Range},
+    ast::{
+        Argument, Block, Comparison, Expr, Expression, ExternalArgument, Math, Operator,
+        PathMember, Range,
+    },
     engine::{Command, EngineState, Stack, StateWorkingSet},
 };
 use rstest::rstest;
+use std::sync::Arc;
 
 use mock::{Alias, AttrEcho, Const, Def, IfMocked, Let, LsCustom, LsTest, Mut, ToCustom, Where};
 
@@ -3590,4 +3594,401 @@ fn empty_closure_as_row_condition() {
         panic!("Expected exactly one positional argument and no other argument")
     };
     assert!(matches!(arg.expr, Expr::RowCondition(_) | Expr::Closure(_)))
+}
+
+// ---------------------------------------------------------------------------
+// Tests for unsplit math expressions (e.g. `54+127` without spaces).
+// ---------------------------------------------------------------------------
+
+/// Parse `input` using a fresh [`EngineState`].
+/// Returns the resulting block and any parse errors.
+fn parse_input(input: &[u8]) -> (Arc<Block>, Vec<ParseError>) {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = parse(&mut working_set, None, input, true);
+    (block, working_set.parse_errors)
+}
+
+/// Parse `input` and return the top-level expression.  Panics on parse errors.
+fn parse_expr(input: &[u8]) -> Expr {
+    let (block, errors) = parse_input(input);
+    assert!(
+        errors.is_empty(),
+        "unexpected parse errors for `{}`: {:#?}",
+        String::from_utf8_lossy(input),
+        errors,
+    );
+    assert_eq!(block.len(), 1);
+    let pipeline = &block.pipelines[0];
+    assert_eq!(pipeline.len(), 1);
+    let element = &pipeline.elements[0];
+    assert!(element.redirection.is_none());
+    element.expr.expr.clone()
+}
+
+/// Same as [`parse_expr`] but returns errors instead of panicking.
+fn parse_expr_no_panic(input: &[u8]) -> (Expr, Vec<ParseError>) {
+    let (block, errors) = parse_input(input);
+    let expr = block.pipelines[0].elements[0].expr.expr.clone();
+    (expr, errors)
+}
+
+/// Extract the three components of a `BinaryOp` node: `(lhs, op, rhs)`.
+/// Panics if `expr` is not a `BinaryOp`.
+fn unpack_binop(expr: &Expr) -> (&Expr, &Expression, &Expr) {
+    match expr {
+        Expr::BinaryOp(lhs, op, rhs) => (&lhs.expr, op.as_ref(), &rhs.expr),
+        _ => panic!("expected Expr::BinaryOp, got {expr:#?}"),
+    }
+}
+
+/// Assert `expr` is a `BinaryOp` with the given math operator and integer operands.
+fn assert_binop_math(expr: &Expr, op_kind: Math, lhs_val: i64, rhs_val: i64) {
+    let (l, op, r) = unpack_binop(expr);
+    assert_eq!(*l, Expr::Int(lhs_val), "left operand mismatch");
+    assert_eq!(*r, Expr::Int(rhs_val), "right operand mismatch");
+    assert_eq!(
+        op.expr,
+        Expr::Operator(Operator::Math(op_kind)),
+        "operator mismatch"
+    );
+}
+
+/// Assert `expr` is a `BinaryOp` with the given comparison operator and integer operands.
+fn assert_binop_cmp(expr: &Expr, op_kind: Comparison, lhs_val: i64, rhs_val: i64) {
+    let (l, op, r) = unpack_binop(expr);
+    assert_eq!(*l, Expr::Int(lhs_val), "left operand mismatch");
+    assert_eq!(*r, Expr::Int(rhs_val), "right operand mismatch");
+    assert_eq!(
+        op.expr,
+        Expr::Operator(Operator::Comparison(op_kind)),
+        "comparison operator mismatch"
+    );
+}
+
+// ── arithmetic ────────────────────────────────────────────────────────────
+
+#[test]
+fn unsplit_add() {
+    let expr = parse_expr(b"54+127");
+    assert_binop_math(&expr, Math::Add, 54, 127);
+}
+
+#[test]
+fn unsplit_sub() {
+    let expr = parse_expr(b"54-127");
+    assert_binop_math(&expr, Math::Subtract, 54, 127);
+}
+
+#[test]
+fn unsplit_mul() {
+    let expr = parse_expr(b"54*127");
+    assert_binop_math(&expr, Math::Multiply, 54, 127);
+}
+
+#[test]
+fn unsplit_div() {
+    let expr = parse_expr(b"54/127");
+    assert_binop_math(&expr, Math::Divide, 54, 127);
+}
+
+#[test]
+fn unsplit_floor_div() {
+    let expr = parse_expr(b"8//3");
+    assert_binop_math(&expr, Math::FloorDivide, 8, 3);
+}
+
+#[test]
+fn unsplit_pow() {
+    let expr = parse_expr(b"2**3");
+    assert_binop_math(&expr, Math::Pow, 2, 3);
+}
+
+#[test]
+fn unsplit_chained_addition() {
+    let expr = parse_expr(b"3+2+7+2.25+0.5");
+    // The result should be nested BinaryOp nodes.  We just check the top-level
+    // structure: ((3+2)+(7+2.25))+0.5 etc.
+    assert!(matches!(expr, Expr::BinaryOp(..)), "expected BinaryOp");
+}
+
+#[test]
+fn unsplit_parenthesized_subexpr() {
+    let expr = parse_expr(b"54/(54+127)");
+    let (lhs, op, rhs) = unpack_binop(&expr);
+    assert_eq!(*lhs, Expr::Int(54));
+    assert_eq!(op.expr, Expr::Operator(Operator::Math(Math::Divide)));
+    // rhs should be a Subexpression or FullCellPath containing the inner addition
+    assert!(
+        matches!(
+            rhs,
+            Expr::Subexpression(_) | Expr::FullCellPath(_) | Expr::BinaryOp(..)
+        ),
+        "RHS of division should resolve to a subexpression or math, got {rhs:#?}"
+    );
+}
+
+#[test]
+fn unsplit_precedence_mul_before_add() {
+    let expr = parse_expr(b"1+2*3");
+    // Precedence: 1 + (2 * 3), so top-level operator is +
+    let (lhs, op, rhs) = unpack_binop(&expr);
+    assert_eq!(op.expr, Expr::Operator(Operator::Math(Math::Add)));
+    assert_eq!(*lhs, Expr::Int(1));
+    // rhs should be 2*3
+    assert!(
+        matches!(rhs, Expr::BinaryOp(l, o, r) if {
+            l.expr == Expr::Int(2)
+            && o.expr == Expr::Operator(Operator::Math(Math::Multiply))
+            && r.expr == Expr::Int(3)
+        }),
+        "expected 2*3 as RHS, got {rhs:#?}"
+    );
+}
+
+#[test]
+fn unsplit_pow_before_add() {
+    let expr = parse_expr(b"2**3+1");
+    // Precedence: (2**3) + 1
+    let (lhs, op, rhs) = unpack_binop(&expr);
+    assert_eq!(op.expr, Expr::Operator(Operator::Math(Math::Add)));
+    assert_eq!(*rhs, Expr::Int(1));
+    assert!(
+        matches!(lhs, Expr::BinaryOp(l, o, _) if {
+            l.expr == Expr::Int(2)
+            && o.expr == Expr::Operator(Operator::Math(Math::Pow))
+        }),
+        "expected (2**3) as LHS, got {lhs:#?}"
+    );
+}
+
+#[test]
+fn unsplit_unary_minus_after_operator() {
+    let expr = parse_expr(b"1*-2");
+    assert_binop_math(&expr, Math::Multiply, 1, -2);
+}
+
+#[test]
+fn unsplit_double_minus() {
+    let expr = parse_expr(b"1--2");
+    assert_binop_math(&expr, Math::Subtract, 1, -2);
+}
+
+// ── comparisons ────────────────────────────────────────────────────────────
+
+#[test]
+fn unsplit_eq() {
+    let expr = parse_expr(b"1==2");
+    assert_binop_cmp(&expr, Comparison::Equal, 1, 2);
+}
+
+#[test]
+fn unsplit_neq() {
+    let expr = parse_expr(b"1!=2");
+    assert_binop_cmp(&expr, Comparison::NotEqual, 1, 2);
+}
+
+#[test]
+fn unsplit_lt() {
+    let expr = parse_expr(b"1<2");
+    assert_binop_cmp(&expr, Comparison::LessThan, 1, 2);
+}
+
+#[test]
+fn unsplit_gt() {
+    let expr = parse_expr(b"1>2");
+    assert_binop_cmp(&expr, Comparison::GreaterThan, 1, 2);
+}
+
+#[test]
+fn unsplit_lte() {
+    let expr = parse_expr(b"1<=2");
+    assert_binop_cmp(&expr, Comparison::LessThanOrEqual, 1, 2);
+}
+
+#[test]
+fn unsplit_gte() {
+    let expr = parse_expr(b"1>=2");
+    assert_binop_cmp(&expr, Comparison::GreaterThanOrEqual, 1, 2);
+}
+
+// ── negative cases (should NOT be treated as math) ─────────────────────────
+
+#[test]
+fn unsplit_starts_with_letter_not_math() {
+    let (expr, _) = parse_expr_no_panic(b"a+b");
+    assert!(
+        !matches!(expr, Expr::BinaryOp(..)),
+        "a+b should NOT be parsed as BinaryOp"
+    );
+}
+
+#[test]
+fn unsplit_starts_with_hyphen_not_math() {
+    let (expr, _) = parse_expr_no_panic(b"cmd--flag");
+    assert!(
+        !matches!(expr, Expr::BinaryOp(..)),
+        "cmd--flag should NOT be parsed as BinaryOp"
+    );
+}
+
+#[test]
+fn unsplit_word_operators_not_math() {
+    // `5mod3` should NOT be interpreted as `5 mod 3`
+    let (expr, _) = parse_expr_no_panic(b"5mod3");
+    assert!(
+        !matches!(expr, Expr::BinaryOp(..)),
+        "5mod3 should NOT be parsed as BinaryOp"
+    );
+}
+
+#[test]
+fn unsplit_single_number_untouched() {
+    // `42` alone should still parse as Int (existing path)
+    let expr = parse_expr(b"42");
+    assert_eq!(expr, Expr::Int(42));
+}
+
+#[test]
+fn unsplit_negative_number_untouched() {
+    // `-5` alone should still parse as Int (existing path via is_math_expression_like)
+    let expr = parse_expr(b"-5");
+    assert_eq!(expr, Expr::Int(-5));
+}
+
+#[test]
+fn unsplit_math_with_f64() {
+    let expr = parse_expr(b"3.5+2.25");
+    let (l, op, r) = unpack_binop(&expr);
+    assert_eq!(*l, Expr::Float(3.5));
+    assert_eq!(op.expr, Expr::Operator(Operator::Math(Math::Add)));
+    assert_eq!(*r, Expr::Float(2.25));
+}
+
+#[test]
+fn unsplit_math_issue_17982_exact() {
+    // The exact expression from the issue report
+    let expr = parse_expr(b"54/(54+127)");
+    assert!(matches!(expr, Expr::BinaryOp(..)));
+}
+
+// ── nested / double parentheses ───────────────────────────────────────────
+
+#[test]
+fn unsplit_nested_parens_single_add() {
+    // `(1+2)*3` — parens override precedence
+    let expr = parse_expr(b"(1+2)*3");
+    let (_lhs, op, rhs) = unpack_binop(&expr);
+    assert_eq!(op.expr, Expr::Operator(Operator::Math(Math::Multiply)));
+    assert_eq!(*rhs, Expr::Int(3));
+}
+
+#[test]
+fn unsplit_nested_parens_double_group() {
+    // `(1+2)*(3+4)` — two paren groups multiplied
+    let expr = parse_expr(b"(1+2)*(3+4)");
+    let (_lhs, op, _rhs) = unpack_binop(&expr);
+    assert_eq!(op.expr, Expr::Operator(Operator::Math(Math::Multiply)));
+}
+
+#[test]
+fn unsplit_nested_parens_double_outer() {
+    // `((1+2)*3)` — double parens around sum-times-three
+    let expr = parse_expr(b"((1+2)*3)");
+    // The outer paren is consumed by parse_paren_expr / parse_full_cell_path,
+    // yielding a Subexpression containing the inner BinaryOp.
+    assert!(
+        matches!(
+            expr,
+            Expr::Subexpression(_) | Expr::BinaryOp(..) | Expr::FullCellPath(_)
+        ),
+        "expected Subexpression or BinaryOp, got {expr:#?}"
+    );
+}
+
+#[test]
+fn unsplit_nested_parens_triple() {
+    // `(((1+2)))` — triple parens around addition
+    let expr = parse_expr(b"(((1+2)))");
+    assert!(
+        matches!(
+            expr,
+            Expr::Subexpression(_) | Expr::BinaryOp(..) | Expr::FullCellPath(_)
+        ),
+        "expected Subexpression or BinaryOp, got {expr:#?}"
+    );
+}
+
+#[test]
+fn unsplit_nested_parens_complex_precedence() {
+    // `(1+2*(3+4))` — mixed precedence inside parens
+    let expr = parse_expr(b"(1+2*(3+4))");
+    // Should resolve to a single expression (Subexpression or BinaryOp)
+    assert!(
+        matches!(
+            expr,
+            Expr::Subexpression(_) | Expr::BinaryOp(..) | Expr::FullCellPath(_)
+        ),
+        "expected Subexpression or BinaryOp, got {expr:#?}"
+    );
+}
+
+#[test]
+fn unsplit_nested_parens_deep() {
+    // `(((1+2)*3)-(4/(5+6)))` — quadruple parens with mixed operators
+    let expr = parse_expr(b"(((1+2)*3)-(4/(5+6)))");
+    assert!(
+        matches!(
+            expr,
+            Expr::Subexpression(_) | Expr::BinaryOp(..) | Expr::FullCellPath(_)
+        ),
+        "expected Subexpression or BinaryOp, got {expr:#?}"
+    );
+}
+
+#[test]
+fn unsplit_nested_parens_pow() {
+    // `2**((1+2)*3)` — pow with nested parens
+    let expr = parse_expr(b"2**((1+2)*3)");
+    assert!(
+        matches!(expr, Expr::BinaryOp(..)),
+        "expected BinaryOp for '2**((1+2)*3)', got {expr:#?}"
+    );
+}
+
+#[test]
+fn unsplit_nested_parens_div() {
+    // `((1+2)*(3+4))/5` — division with nested parens
+    let expr = parse_expr(b"((1+2)*(3+4))/5");
+    assert!(
+        matches!(expr, Expr::BinaryOp(..)),
+        "expected BinaryOp for '((1+2)*(3+4))/5', got {expr:#?}"
+    );
+}
+
+// ── comparison with parens ────────────────────────────────────────────────
+
+#[test]
+fn unsplit_parens_comparison() {
+    // `(1+2)==3` — equality with paren group on left
+    let expr = parse_expr(b"(1+2)==3");
+    assert!(matches!(expr, Expr::BinaryOp(..)));
+}
+
+#[test]
+fn unsplit_parens_comparison_right() {
+    // `3==(1+2)` — equality with paren group on right
+    let expr = parse_expr(b"3==(1+2)");
+    assert!(matches!(expr, Expr::BinaryOp(..)));
+}
+
+#[test]
+fn unsplit_math_then_pipe() {
+    // `54+127 | describe` should pipe the result of addition
+    let (block, errors) = parse_input(b"54+127 | describe");
+    assert!(errors.is_empty(), "unexpected errors: {errors:#?}");
+    // Should have two pipeline elements: addition then call to `describe`
+    assert_eq!(block.pipelines[0].len(), 2);
+    let first = &block.pipelines[0].elements[0];
+    assert!(matches!(first.expr.expr, Expr::BinaryOp(..)));
 }

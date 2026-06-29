@@ -1435,6 +1435,185 @@ pub fn parse_math_expression(
         .expect("internal error: expression stack empty")
 }
 
+/// Returns `true` if `b` is a byte that can appear in a multi-character
+/// operator symbol (`+`, `-`, `*`, `/`, `%`, `<`, `>`, `=`, `!`, `~`).
+fn is_math_operator_symbol(b: u8) -> bool {
+    matches!(
+        b,
+        b'+' | b'-' | b'*' | b'/' | b'%' | b'<' | b'>' | b'=' | b'!' | b'~'
+    )
+}
+
+/// Attempt to parse a span whose content is an unsplit math expression
+/// like `54+127` or `54/(54+127)`.
+///
+/// This handles expressions where operators lack surrounding whitespace, which
+/// the lexer does not split (it only splits on whitespace, `|`, `;`, and
+/// newlines).  The function first checks plausibility (span starts with a digit
+/// or `(` and contains at least one operator byte), then delegates to
+/// [`split_unsplit_math_span`] and [`parse_math_expression`].  On failure all
+/// parse errors are rolled back so the caller can fall through to the normal
+/// command-resolution path without side effects.
+fn try_parse_unsplit_math(working_set: &mut StateWorkingSet, span: Span) -> Option<Expression> {
+    let bytes = working_set.get_span_contents(span);
+
+    if bytes.is_empty() {
+        return None;
+    }
+
+    // Plausibility guard: only engage for spans that look like arithmetic.
+    // This avoids interfering with command names like `a+b` or `cmd--flag`.
+    let first = bytes[0];
+    if !first.is_ascii_digit() && first != b'(' {
+        return None;
+    }
+
+    // Quick check that at least one operator byte is present.
+    if !bytes.iter().any(|&b| is_math_operator_symbol(b)) {
+        return None;
+    }
+
+    // ISO 8601 date literals like `2023-04-22` contain hyphens between digit
+    // groups and must not be split into subtractions.
+    if bytes.len() == 10
+        && bytes[0..4].iter().all(u8::is_ascii_digit)
+        && bytes[4] == b'-'
+        && bytes[5..7].iter().all(u8::is_ascii_digit)
+        && bytes[7] == b'-'
+        && bytes[8..10].iter().all(u8::is_ascii_digit)
+    {
+        return None;
+    }
+
+    let sub_spans = split_unsplit_math_span(span, bytes)?;
+
+    // Attempt to parse as a math expression; roll back errors on failure
+    let starting_error_count = working_set.parse_errors.len();
+    let result = parse_math_expression(working_set, &sub_spans, None);
+    if working_set.parse_errors.len() > starting_error_count {
+        working_set.parse_errors.truncate(starting_error_count);
+        return None;
+    }
+
+    Some(result)
+}
+
+/// Split a span's bytes at operator boundaries, yielding sub-spans that can be
+/// fed to [`parse_math_expression`].
+///
+/// Handles:
+/// - Two-char operators: `//`, `**`, `==`, `!=`, `<=`, `>=`, `++`, `=~`, `!~`
+/// - Single-char operators: `+`, `*`, `/`, `%`, `<`, `>`
+/// - `-` (binary minus only when preceded by a digit or `)`)
+/// - Matching `()` pairs kept as single spans
+/// - Internal whitespace skipped
+///
+/// Returns `None` when fewer than three parts are produced (no binary operator
+/// found).
+fn split_unsplit_math_span(span: Span, bytes: &[u8]) -> Option<Vec<Span>> {
+    let mut parts: Vec<Span> = Vec::new();
+    let span_start = span.start;
+    let mut part_start = 0;
+    let len = bytes.len();
+    let mut i = 0;
+
+    while i < len {
+        let c = bytes[i];
+
+        // Skip internal whitespace (possible when inside parenthesized groups that
+        // were kept as single tokens due to block-level tracking in the lexer, e.g.
+        // `(54 + 127)` as one token).
+        if c == b' ' || c == b'\t' {
+            if i > part_start {
+                parts.push(Span::new(span_start + part_start, span_start + i));
+            }
+            i += 1;
+            part_start = i;
+            continue;
+        }
+
+        // Two-char operators
+        if i + 1 < len {
+            match &bytes[i..i + 2] {
+                b"//" | b"**" | b"==" | b"!=" | b"<=" | b">=" | b"++" | b"=~" | b"!~" => {
+                    if i > part_start {
+                        parts.push(Span::new(span_start + part_start, span_start + i));
+                    }
+                    parts.push(Span::new(span_start + i, span_start + i + 2));
+                    i += 2;
+                    part_start = i;
+                    continue;
+                }
+                _ => {}
+            }
+        }
+
+        // `..<` is a half-open range operator; the `<` must not be split.
+        if c == b'<' && i >= 2 && bytes[i - 2] == b'.' && bytes[i - 1] == b'.' {
+            i += 1;
+            continue;
+        }
+
+        // Single-char operators
+        if matches!(c, b'+' | b'*' | b'/' | b'%' | b'<' | b'>') {
+            if i > part_start {
+                parts.push(Span::new(span_start + part_start, span_start + i));
+            }
+            parts.push(Span::new(span_start + i, span_start + i + 1));
+            i += 1;
+            part_start = i;
+            continue;
+        }
+
+        // '-' is special: binary minus when preceded by a digit or ')',
+        // otherwise unary minus (part of a negative number)
+        if c == b'-' && i > 0 && (bytes[i - 1].is_ascii_digit() || bytes[i - 1] == b')') {
+            if i > part_start {
+                parts.push(Span::new(span_start + part_start, span_start + i));
+            }
+            parts.push(Span::new(span_start + i, span_start + i + 1));
+            i += 1;
+            part_start = i;
+            continue;
+        }
+        // otherwise unary minus — stay in the number
+
+        // Parenthesized sub-expression: keep the whole (...) as one span
+        if c == b'(' {
+            let mut depth = 1u32;
+            let mut j = i + 1;
+            while j < len && depth > 0 {
+                match bytes[j] {
+                    b'(' => depth += 1,
+                    b')' => depth -= 1,
+                    _ => {}
+                }
+                j += 1;
+            }
+            if i > part_start {
+                parts.push(Span::new(span_start + part_start, span_start + i));
+            }
+            parts.push(Span::new(span_start + i, span_start + j));
+            i = j;
+            part_start = i;
+            continue;
+        }
+
+        i += 1;
+    }
+
+    // Remaining trailing content
+    if part_start < len && bytes[part_start..].iter().any(|&b| b != b' ' && b != b'\t') {
+        parts.push(Span::new(span_start + part_start, span_start + len));
+    }
+
+    if parts.len() < 3 {
+        return None;
+    }
+
+    Some(parts)
+}
+
 pub fn parse_expression(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
@@ -1495,6 +1674,8 @@ pub fn parse_expression(
         .any(|span| is_assignment_operator(working_set.get_span_contents(*span)))
     {
         parse_assignment_expression(working_set, &spans[pos..])
+    } else if let Some(expr) = try_parse_unsplit_math(working_set, spans[pos]) {
+        expr
     } else if is_math_expression_like(working_set, spans[pos]) {
         parse_math_expression(working_set, &spans[pos..], None)
     } else {
