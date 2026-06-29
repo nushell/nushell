@@ -55,6 +55,7 @@ thiserror = { workspace = true }
 typetag = "0.2"
 os_pipe = { workspace = true, optional = true, features = ["io_safety"] }
 log = { workspace = true }
+semver = { version = "1.0", features = ["serde"] }
 web-time = { workspace = true }
 winnow = { workspace = true }
 
