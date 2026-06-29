@@ -8,6 +8,8 @@ mod range;
 #[cfg(test)]
 mod test_derive;
 
+#[doc(hidden)]
+pub mod macros;
 pub mod record;
 use bstr::BStr;
 pub use custom_value::CustomValue;
@@ -4331,35 +4333,6 @@ pub fn human_time_from_now(val: &DateTime<FixedOffset>) -> HumanTime {
             HumanTime::from(Duration::days(delta_years as i64 * 365))
         }
     }
-}
-
-/// Helper macro for constructing [`Value::List`] instances for use in tests and
-/// [Examples](crate::Example)s.
-///
-/// ```rust
-/// # use nu_protocol::*;
-/// #
-/// let test = test_list![
-///     "abc",
-///     42,
-///     true,
-/// ];
-///
-/// let expected = Value::test_list(vec![
-///     Value::test_string("abc"),
-///     Value::test_int(42),
-///     Value::test_bool(true),
-/// ]);
-///
-/// assert_eq!(test, expected);
-/// ```
-#[macro_export]
-macro_rules! test_list {
-    [$($entry:expr),* $(,)?] => {
-        $crate::Value::test_list(::std::vec![
-            $($crate::IntoValue::into_value($entry, $crate::Span::test_data())),*
-        ])
-    };
 }
 
 #[cfg(test)]
