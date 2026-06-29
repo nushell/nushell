@@ -652,13 +652,11 @@ fn parse_sequence<'i>(
         })),
 
         // unsupported tag
-        KnownTag::Value | KnownTag::Yaml => {
-            Err(ShellError::from(ParseError::UnsupportedTag {
-                tag,
-                at: NodeKind::Sequence,
-                span: ctx.parser_span,
-            }))
-        }
+        KnownTag::Value | KnownTag::Yaml => Err(ShellError::from(ParseError::UnsupportedTag {
+            tag,
+            at: NodeKind::Sequence,
+            span: ctx.parser_span,
+        })),
     }
 }
 
@@ -822,13 +820,11 @@ fn parse_mapping<'i>(
         })),
 
         // unsupported tag
-        KnownTag::Value | KnownTag::Yaml => {
-            Err(ShellError::from(ParseError::UnsupportedTag {
-                tag,
-                at: NodeKind::Mapping,
-                span: ctx.parser_span,
-            }))
-        }
+        KnownTag::Value | KnownTag::Yaml => Err(ShellError::from(ParseError::UnsupportedTag {
+            tag,
+            at: NodeKind::Mapping,
+            span: ctx.parser_span,
+        })),
     }
 }
 
