@@ -680,9 +680,9 @@ pub fn check_pipeline_type(
     working_set: &StateWorkingSet,
     pipeline: &Pipeline,
     input_type: &Type,
-) -> (Type, Option<Vec<ParseError>>) {
+) -> Result<Type, (Type, Vec<ParseError>)> {
     let mut input_type = input_type.clone();
-    let mut output_errors: Option<Vec<ParseError>> = None;
+    let mut output_errors: Vec<ParseError> = Vec::new();
 
     for elem in &pipeline.elements {
         if elem.redirection.is_some() {
@@ -709,9 +709,9 @@ pub fn check_pipeline_type(
             continue;
         }
 
-        let output_type = working_set
-            .get_decl(call.decl_id)
-            .signature()
+        let signature = working_set.get_decl(call.decl_id).signature();
+
+        let output_type = signature
             // NOTE[2]: unlike `parse_internal_call`, `Type::Nothing` is not added to input types.
             .get_output_type(Some(&input_type));
 
@@ -726,21 +726,23 @@ pub fn check_pipeline_type(
         };
 
         let Some(types_string) = types_string else {
-            output_errors
-                .get_or_insert_default()
-                .push(ParseError::InternalError(
-                    "Pipeline has no type at this point".to_string(),
-                    elem.expr.span,
-                ));
+            output_errors.push(ParseError::InternalError(
+                "Pipeline has no type at this point".to_string(),
+                elem.expr.span,
+            ));
             continue;
         };
 
-        output_errors
-            .get_or_insert_default()
-            .push(ParseError::InputMismatch(types_string, call.head));
+        output_errors.push(ParseError::InputMismatch(types_string, call.head));
+
+        input_type = signature.get_output_type(None).unwrap_or(Type::Any);
     }
 
-    (input_type, output_errors)
+    if output_errors.is_empty() {
+        Ok(input_type)
+    } else {
+        Err((input_type, output_errors))
+    }
 }
 
 pub fn check_block_input_output(working_set: &StateWorkingSet, block: &Block) -> Vec<ParseError> {
@@ -759,12 +761,14 @@ pub fn check_block_input_output(working_set: &StateWorkingSet, block: &Block) ->
                 pipelines
                     .iter()
                     .fold((input_type.clone(), Type::Nothing), |(ct, _), pipeline| {
-                        let (checked_output_type, err) =
-                            check_pipeline_type(working_set, pipeline, &ct);
-                        if let Some(err) = err {
-                            output_errors.extend(err);
-                        }
-                        (Type::Nothing, checked_output_type)
+                        let output_ty = match check_pipeline_type(working_set, pipeline, &ct) {
+                            Ok(output_ty) => output_ty,
+                            Err((output_ty, errors)) => {
+                                output_errors.extend(errors);
+                                output_ty
+                            }
+                        };
+                        (Type::Nothing, output_ty)
                     })
                     .1
             }

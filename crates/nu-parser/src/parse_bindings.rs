@@ -4,7 +4,7 @@ use crate::{
     parser::{
         ArgumentParsingLevel, ParsedInternalCall, parse_internal_call, parse_var_with_opt_type,
     },
-    type_check::type_compatible,
+    type_check::{check_pipeline_type, type_compatible},
 };
 
 use log::trace;
@@ -47,7 +47,13 @@ pub fn parse_let(
 
                     let output_type = match rvalue_block.pipelines.as_slice() {
                         [pipeline] if let Some(input) = input_type => {
-                            crate::type_check::check_pipeline_type(working_set, pipeline, input).0
+                            match check_pipeline_type(working_set, pipeline, input) {
+                                Ok(output_ty) => output_ty,
+                                Err((output_ty, errors)) => {
+                                    working_set.parse_errors.extend(errors);
+                                    output_ty
+                                }
+                            }
                         }
                         _ => rvalue_block.output_type(),
                     };
