@@ -1,4 +1,5 @@
-use nu_test_support::nu;
+use nu_protocol::test_record;
+use nu_test_support::prelude::*;
 
 #[test]
 fn try_succeed() {
@@ -207,23 +208,34 @@ fn prints_only_if_last_pipeline() {
 }
 
 #[test]
-fn get_error_columns() {
-    let actual = nu!(" try { non_existent_command } catch {|err| $err} | columns | to json -r");
-    assert_eq!(
-        actual.out,
-        "[\"msg\",\"debug\",\"raw\",\"rendered\",\"json\"]"
-    );
+fn get_error_columns() -> Result {
+    test()
+        .run(" try { non_existent_command } catch { columns }")
+        .expect_value_eq(["msg", "debug", "raw", "rendered", "details"])
 }
 
 #[test]
-fn get_json_error() {
-    let actual = nu!(
-        "try { non_existent_command } catch {|err| $err} | get json | from json | update labels.span {{start: 0 end: 0}} | to json -r"
-    );
-    assert_eq!(
-        actual.out,
-        "{\"msg\":\"External command failed\",\"labels\":[{\"text\":\"Command `non_existent_command` not found\",\"span\":{\"start\":0,\"end\":0}}],\"code\":\"nu::shell::external_command\",\"url\":null,\"help\":\"`non_existent_command` is neither a Nushell built-in or a known external command\",\"inner\":[]}"
-    );
+fn get_json_error() -> Result {
+    let empty_list = [(); 0];
+    test()
+        .run("try { non_existent_command } catch { get details | reject labels.span }")
+        .expect_value_eq(test_record! {
+            "msg" => "External command failed",
+            "labels" => [
+                test_record! {
+                    "text" => "Command `non_existent_command` not found",
+                    "location" => test_record! {
+                        "file" => "source",
+                        "start" => 6,
+                        "end" => 26,
+                    },
+                }
+            ],
+            "code" => "nu::shell::external_command",
+            "url" => (),
+            "help" => "`non_existent_command` is neither a Nushell built-in or a known external command",
+            "inner" => empty_list,
+        })
 }
 
 #[test]
