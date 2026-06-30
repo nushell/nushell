@@ -224,12 +224,10 @@ fn get_json_error() -> Result {
             "labels" => [
                 test_record! {
                     "text" => "Command `non_existent_command` not found",
-                    "resolved_span" => test_record! {
+                    "location" => test_record! {
                         "file" => "source",
-                        "span" => test_record! { 
-                            "start" => 6,
-                            "end" => 26,
-                         },
+                        "start" => 6,
+                        "end" => 26,
                     },
                 }
             ],

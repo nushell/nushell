@@ -267,7 +267,7 @@ impl ErrorLabel {
         record! {
             "text" => Value::string(text, span),
             "span" => label_span.into_value(span),
-            "resolved_span" => resolved_span.into_value(span),
+            "location" => resolved_span.into_value(span),
         }
         .into_value(span)
     }

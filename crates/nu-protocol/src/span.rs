@@ -154,7 +154,8 @@ impl<'a> IntoValue for ResolvedSpan<'a> {
     fn into_value(self, span: Span) -> Value {
         let record = record! {
             "file" => self.file.into_value(span),
-            "span" => self.span.into_value(span),
+            "start" => Value::int(self.span.start as i64, span),
+            "end" => Value::int(self.span.end as i64, span),
         };
         record.into_value(span)
     }
