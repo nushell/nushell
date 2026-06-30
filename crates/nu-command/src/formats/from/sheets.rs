@@ -29,6 +29,12 @@ pub(super) fn common_sheets_signature(name: &str) -> Signature {
                 By default, reading starts from the firsts non empty row.",
             Some('f'),
         )
+        .switch(
+            "prefer-integers",
+            "Convert whole-number floats (for example, 40.0) to integers, \
+                leaving non-whole floats unchanged.",
+            Some('i'),
+        )
         .category(Category::Formats)
 }
 
@@ -64,6 +70,7 @@ pub(super) fn from_sheets(
         .get_flag::<u32>(engine_state, stack, "first-row")?
         .map(HeaderRow::Row)
         .unwrap_or(HeaderRow::FirstNonEmptyRow);
+    let prefer_integers = call.has_flag(engine_state, stack, "prefer-integers")?;
     let sheet_names = {
         let sel_sheets = call
             .get_flag::<Vec<String>>(engine_state, stack, "sheets")?
@@ -95,9 +102,10 @@ pub(super) fn from_sheets(
                         input_span,
                     })?;
 
-            let rows = sheet
-                .rows()
-                .map(|row| row.iter().map(|cell| cell_to_data(cell, head, tz)));
+            let rows = sheet.rows().map(|row| {
+                row.iter()
+                    .map(|cell| cell_to_data(cell, head, tz, prefer_integers))
+            });
 
             if !noheaders && let Some(headers) = sheet.headers() {
                 let headers = headers
@@ -143,10 +151,17 @@ pub(super) fn from_sheets(
     Ok(output.into_value(head).into_pipeline_data())
 }
 
-fn cell_to_data(cell: &Data, head: Span, tz: chrono::FixedOffset) -> Value {
+fn cell_to_data(cell: &Data, head: Span, tz: chrono::FixedOffset, prefer_integers: bool) -> Value {
     match cell {
         Data::Empty => Value::nothing(head),
         Data::Int(val) => Value::int(*val, head),
+        // Calamine discards number format information, so numeric cells
+        // come through as Data::Float even when the spreadsheet stores
+        // them as integers. When --prefer-integers is set, check whether
+        // a float is a whole number and convert it to int if so.
+        Data::Float(val) if prefer_integers && *val as i64 as f64 == *val => {
+            Value::int(*val as i64, head)
+        }
         Data::Float(val) => Value::float(*val, head),
         Data::String(val) => Value::string(val, head),
         Data::Bool(val) => Value::bool(*val, head),
