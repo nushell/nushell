@@ -98,14 +98,17 @@ pub struct SerializeOptions {
     pub quote_style: QuoteStyle,
 }
 
-/// Configure how non-round-trippable values are serialized.
+/// Configure how non-roundtrippable values are serialized.
 #[derive(Debug, Clone, Default)]
 pub enum NonRoundtrip {
-    /// Serialize non-round-trippable values as `null`.
+    /// Error on non-roundtrippable values.
     #[default]
+    Error,
+
+    /// Serialize non-roundtrippable values as `null`.
     Null,
 
-    /// Serialize non-round-trippable values using a lossy representation.
+    /// Serialize non-roundtrippable values using a lossy representation.
     ///
     /// This keeps more information in the YAML output, but it might not deserialize back into the
     /// exact original type.
@@ -345,6 +348,9 @@ impl Serialize for YamlValue<'_> {
                         Err(S::Error::custom(SerializeError::CLOSURE_SPAN_NOT_FOUND))
                     }
                 }
+                NonRoundtrip::Error => {
+                    Err(S::Error::custom(SerializeError::NON_ROUNDTRIPPABLE_CLOSURE))
+                }
             })
         };
 
@@ -360,6 +366,9 @@ impl Serialize for YamlValue<'_> {
             OPTIONS.with_borrow(|options| match &options.non_roundtrip {
                 NonRoundtrip::Null => serializer.serialize_unit(),
                 NonRoundtrip::Lossy { .. } => serialize_with_tag(serializer, tag, error),
+                NonRoundtrip::Error => {
+                    Err(S::Error::custom(SerializeError::NON_ROUNDTRIPPABLE_ERROR))
+                }
             })
         };
 

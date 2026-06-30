@@ -244,8 +244,9 @@ impl UnknownTagError {
 mod tests {
     use super::*;
     use chrono::*;
+    use miette::Diagnostic;
     use nu_protocol::{engine::Closure, *};
-    use nu_test_support::{prelude::*, test_cell_path};
+    use nu_test_support::{assertions::assert_contains, prelude::*, test_cell_path};
     use rstest::*;
     use std::ops::Bound;
 
@@ -279,7 +280,7 @@ mod tests {
     #[rstest]
     #[case::error(ShellError::NushellFailed { msg: "test failure".into() })]
     #[case::closure(Closure { block_id: BlockId::ZERO, captures: vec![] })]
-    fn non_roundtrip(#[case] input: impl IntoValue) -> Result {
+    fn non_roundtrip_null(#[case] input: impl IntoValue) -> Result {
         let value = input.into_value(SPAN);
         let serialize_options = SerializeOptions::default().with_non_roundtrip(NonRoundtrip::Null);
         let yaml = serialize(&value, SPAN, serialize_options)?;
@@ -287,5 +288,18 @@ mod tests {
         let parsed = parse(yaml.as_str().into_spanned(SPAN), SPAN, parse_options)?;
         assert!(parsed.is_nothing());
         Ok(())
+    }
+
+    #[rstest]
+    #[case::error(ShellError::NushellFailed { msg: "test failure".into() })]
+    #[case::closure(Closure { block_id: BlockId::ZERO, captures: vec![] })]
+    fn non_roundtrip_error(#[case] input: impl IntoValue) {
+        let value = input.into_value(SPAN);
+        let serialize_options = SerializeOptions::default().with_non_roundtrip(NonRoundtrip::Error);
+        let err = serialize(&value, SPAN, serialize_options).unwrap_err();
+        assert_contains(
+            "shell::yaml::serialize::non_roundtrippable::",
+            err.code().unwrap().to_string(),
+        );
     }
 }

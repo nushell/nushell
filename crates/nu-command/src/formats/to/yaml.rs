@@ -20,6 +20,12 @@ impl Command for ToYamlLike {
                 Some('s'),
             )
             .param(
+                Flag::new("non-roundtrip")
+                    .arg(SyntaxShape::String)
+                    .desc("How to handle values that are non-roundtrippable.")
+                    .completion(Completion::new_list(&["error", "null", "lossy"])),
+            )
+            .param(
                 Flag::new("spec")
                     .arg(SyntaxShape::String)
                     .desc("YAML spec version ('1.1' or '1.2' (default)).")
@@ -97,7 +103,37 @@ impl Command for ToYamlLike {
         let indent = call.get_flag(engine_state, stack, "indent")?;
         let compact_list_indent = call.get_flag(engine_state, stack, "compact-list-indent")?;
         let quote_style = call.get_flag(engine_state, stack, "quote")?;
-        let non_roundtrip = match call.has_flag(engine_state, stack, "serialize")? {
+        let non_roundtrip =
+            call.get_flag::<Spanned<String>>(engine_state, stack, "non-roundtrip")?;
+        let non_roundtrip = match (
+            call.has_flag(engine_state, stack, "serialize")?,
+            non_roundtrip.as_ref().map(|nr| nr.item.as_ref()),
+        ) {
+            // matching the spanned is way less comprehendible here, so we expect spans instead
+            (false, None | Some("error")) => NonRoundtrip::Error,
+            (true, None | Some("lossy")) => NonRoundtrip::Lossy {
+                engine_state: Box::new(engine_state.clone()),
+            },
+            (false, Some("null")) => NonRoundtrip::Null,
+            (false, Some(_)) => {
+                return Err(ShellError::IncompatibleParametersSingle {
+                    msg: "expected `error`, `null` or `lossy`".into(),
+                    span: non_roundtrip.expect("non_roundtrip is some").span,
+                });
+            }
+            (true, Some(_)) => {
+                return Err(ShellError::IncompatibleParameters {
+                    left_message: "this is a shorthand to".into(),
+                    left_span: call
+                        .get_flag_span(stack, "serialize")
+                        .expect("serialize is some"),
+                    right_message: "this with `lossy`".into(),
+                    right_span: non_roundtrip.expect("non_roundtrip is some").span,
+                });
+            }
+        };
+
+        match call.has_flag(engine_state, stack, "serialize")? {
             true => NonRoundtrip::Lossy {
                 engine_state: Box::new(engine_state.clone()),
             },

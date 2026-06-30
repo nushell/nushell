@@ -211,7 +211,7 @@ impl From<ParseError<'_>> for ShellError {
                 span,
             )
             .with_code("shell::yaml::parse::unsupported_key")
-            .with_help("Try `from yaml --key-resolution verbatim`"),
+            .with_help("Try `--key-resolution verbatim`"),
 
             ParseError::UnsupportedKeyAnchor { span } => GenericError::new(
                 "Found unsupported key anchor",
@@ -563,6 +563,24 @@ impl From<SerializeError> for ShellError {
                 )
                 .with_code("shell::yaml::serialize::closure_span_not_found")
             }
+            SerError::Message { msg } if msg == SerializeError::NON_ROUNDTRIPPABLE_CLOSURE => {
+                GenericError::new(
+                    "Found non-roundtrippable closure",
+                    "Closures are currently not deserializable",
+                    span,
+                )
+                .with_code("shell::yaml::serialize::non_roundtrippable::closure")
+                .with_help("Try `--serialize` or `--non-roundtrip`")
+            }
+            SerError::Message { msg } if msg == SerializeError::NON_ROUNDTRIPPABLE_ERROR => {
+                GenericError::new(
+                    "Found non-roundtrippable error",
+                    "Errors as values are currently not deserializable",
+                    span,
+                )
+                .with_code("shell::yaml::serialize::non_roundtrippable::error")
+                .with_help("Try `--serialize` or `--non-roundtrip`")
+            }
             SerError::Message { msg } => GenericError::new("Serialization failed", msg, span)
                 .with_code("shell::yaml::serialize"),
             SerError::Format { error } => {
@@ -590,4 +608,8 @@ impl From<SerializeError> for ShellError {
 
 impl SerializeError {
     pub const CLOSURE_SPAN_NOT_FOUND: &str = concat!(module_path!(), "::closure_span_not_found");
+    pub const NON_ROUNDTRIPPABLE_CLOSURE: &str =
+        concat!(module_path!(), "::non_roundtrippable::closure");
+    pub const NON_ROUNDTRIPPABLE_ERROR: &str =
+        concat!(module_path!(), "::non_roundtrippable::error");
 }
