@@ -17,6 +17,7 @@ futures = "0.3.31"
 miette = { workspace = true }
 nu-protocol = { workspace = true, features = ["plugin"] }
 nu-engine = { workspace = true, features = ["plugin"] }
+nu-json = { workspace = true, features = ["nu-protocol", "preserve_order"] }
 nu-parser.workspace = true
 nuon.workspace = true
 
