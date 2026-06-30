@@ -32,6 +32,7 @@ yaml = [
   "dep:serde-saphyr",
   "dep:serde",
   "dep:strum",
+  "merge",
 ]
 
 [dependencies]
