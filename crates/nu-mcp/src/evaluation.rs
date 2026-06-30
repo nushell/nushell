@@ -294,11 +294,7 @@ impl Evaluator {
     ///
     /// The returned tool result keeps the human-readable NUON text in `content`
     /// and mirrors the same response as JSON `structuredContent` for MCP clients.
-    pub async fn eval_async(
-        &self,
-        nu_source: &str,
-        ct: CancellationToken,
-    ) -> CallToolResult {
+    pub async fn eval_async(&self, nu_source: &str, ct: CancellationToken) -> CallToolResult {
         match self.eval_async_output(nu_source, ct).await {
             Ok(output) => output.into_call_tool_result(),
             Err(err) => error_call_tool_result(err),
@@ -498,11 +494,7 @@ impl EvalOutput {
     }
 }
 
-fn call_tool_result(
-    text: String,
-    structured_content: JsonValue,
-    is_error: bool,
-) -> CallToolResult {
+fn call_tool_result(text: String, structured_content: JsonValue, is_error: bool) -> CallToolResult {
     let mut result = CallToolResult::success(vec![Content::text(text)]);
     result.is_error = Some(is_error);
     result.structured_content = Some(structured_content);
@@ -511,7 +503,9 @@ fn call_tool_result(
 
 fn error_call_tool_result(err: rmcp::ErrorData) -> CallToolResult {
     let message = err.message.to_string();
-    let structured_content = err.data.unwrap_or_else(|| json!({ "msg": message.clone() }));
+    let structured_content = err
+        .data
+        .unwrap_or_else(|| json!({ "msg": message.clone() }));
 
     call_tool_result(message, structured_content, true)
 }
@@ -686,12 +680,8 @@ fn eval_on_state(
         .raw_strings(true)
         .span(Some(block_span));
 
-    let response = nuon::to_nuon(
-        engine_state,
-        &response_value,
-        nuon_config,
-    )
-    .map_err(|e| shell_error_to_mcp_error(e, engine_state, block_span))?;
+    let response = nuon::to_nuon(engine_state, &response_value, nuon_config)
+        .map_err(|e| shell_error_to_mcp_error(e, engine_state, block_span))?;
     let structured_content = structured_json_from_value(response_value, engine_state, block_span)?;
 
     Ok(EvalOutput {
@@ -1010,15 +1000,15 @@ mod tests {
         let output = output.into_record()?;
 
         assert_eq!(
-            output
-                .get("a")
-                .ok_or("missing a field")?
-                .as_int()?,
+            output.get("a").ok_or("missing a field")?.as_int()?,
             1,
             "record output should remain a record, got: {result_nuon}"
         );
         assert!(
-            matches!(output.get("b").ok_or("missing b field")?, Value::List { .. }),
+            matches!(
+                output.get("b").ok_or("missing b field")?,
+                Value::List { .. }
+            ),
             "list field should remain a list, got: {result_nuon}"
         );
 
@@ -1450,7 +1440,11 @@ mod tests {
 
         // Should be promoted to a background job, not just discarded
         let result = evaluator.eval_async("let x = 999", ct).await;
-        assert_eq!(result.is_error, Some(true), "Cancelled evaluation should error");
+        assert_eq!(
+            result.is_error,
+            Some(true),
+            "Cancelled evaluation should error"
+        );
         let err_msg = tool_result_text(&result);
         assert!(
             err_msg.contains("promoted to background job"),
@@ -1458,19 +1452,14 @@ mod tests {
         );
 
         // Original variable should still be 1 (forked state not committed)
-        let result = evaluator
-            .eval_async("$x", CancellationToken::new())
-            .await;
+        let result = evaluator.eval_async("$x", CancellationToken::new()).await;
         assert_tool_success(&result);
         let output = result
             .structured_content
             .and_then(|value| value.get("output").cloned())
             .and_then(|value| value.as_i64())
             .unwrap();
-        assert_eq!(
-            output, 1,
-            "Variable should still be 1 after promoted eval"
-        );
+        assert_eq!(output, 1, "Variable should still be 1 after promoted eval");
     }
 
     #[tokio::test]
