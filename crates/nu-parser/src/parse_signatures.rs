@@ -555,8 +555,21 @@ pub fn parse_signature(
         return garbage(working_set, span);
     }
 
-    if (has_paren && bytes.ends_with(b")")) || (!has_paren && bytes.ends_with(b"]")) {
+    let closing: &[u8] = if has_paren { b")" } else { b"]" };
+    if bytes.ends_with(closing) {
         end -= 1;
+    } else if bytes.ends_with(b":") && bytes[..bytes.len() - 1].ends_with(closing) {
+        // The signature is closed, but a trailing `:` starts an input/output type
+        // annotation whose type is missing — e.g. `def foo []:` with the type on
+        // the next line, which isn't part of the signature argument. Without this
+        // arm `bytes` ("[]:") fails the `ends_with` check above and reports a
+        // misleading "unclosed ] or )". Point at the dangling colon instead, and
+        // strip both it and the closing bracket so the parameters still parse.
+        working_set.error(ParseError::Expected(
+            "a type after ':'",
+            Span::new(end - 1, end),
+        ));
+        end -= 2;
     } else {
         working_set.error(ParseError::Unclosed("] or )", Span::new(end, end)));
     }
