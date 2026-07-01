@@ -316,6 +316,11 @@ fn get_command_documentation(
     let signatures = engine_state.get_signatures_and_declids(true);
     // track which declarations we've already added to `subcommands`
     let mut seen = HashSet::new();
+    // A custom (script-defined) command can never own a built-in subcommand, so a
+    // built-in command that merely shares its name prefix (e.g. the built-in
+    // `update cells` vs a user-defined `update`) must not be listed as a subcommand.
+    // See https://github.com/nushell/nushell/issues/18236
+    let parent_is_custom = command.command_type() == CommandType::Custom;
     for (sig, decl_id) in signatures {
         // Prefer the overlay-visible declaration name (if any) for display and matching.
         // Fall back to the signature's name if not present.
@@ -323,6 +328,7 @@ fn get_command_documentation(
             .find_decl_name(decl_id, &[])
             .map(|bytes| String::from_utf8_lossy(bytes).to_string())
             .unwrap_or_else(|| sig.name.clone());
+        let command_type = engine_state.get_decl(decl_id).command_type();
 
         // Don't display removed/deprecated commands in the Subcommands list. We consider a signature a subcommand when either the overlay-visible
         // `display_name` begins with `cmd_name ` *or* the canonical signature name does; the latter covers cases where `display_name` returns the
@@ -330,10 +336,11 @@ fn get_command_documentation(
         if (display_name.starts_with(&format!("{cmd_name} "))
             || sig.name.starts_with(&format!("{cmd_name} ")))
             && !matches!(sig.category, Category::Removed)
+            // A custom command can never own a built-in subcommand, so skip
+            // built-ins that merely share the prefix (issue #18236).
+            && !(parent_is_custom && command_type == CommandType::Builtin)
             && seen.insert(decl_id)
         {
-            let command_type = engine_state.get_decl(decl_id).command_type();
-
             // choose which name to show: prefer the overlay-visible one if it actually matches the prefix, otherwise fall back to the canonical
             // signature name (which is usually the script-qualified form).
             let name_to_print = if display_name.starts_with(&format!("{cmd_name} ")) {
