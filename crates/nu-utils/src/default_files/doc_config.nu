@@ -1149,14 +1149,14 @@ $env.PROMPT_COMMAND = {||
         $relative_pwd => ([~ $relative_pwd] | path join)
     }
 
-    let colors: record<path: string, seperator: string> = match [(config use-colors), (is-admin)] {
-        [false, _] => {path: '', seperator: ''}
-        [true, true] => {path: (ansi red_bold), seperator: (ansi light_red_bold)}
-        [true, false] => {path: (ansi green_bold), seperator: (ansi light_green_bold)}
+    let colors: record<path: string, separator: string> = match [(config use-colors), (is-admin)] {
+        [false, _] => {path: '', separator: ''}
+        [true, true] => {path: (ansi red_bold), separator: (ansi light_red_bold)}
+        [true, false] => {path: (ansi green_bold), separator: (ansi light_green_bold)}
     }
     let path_segment = $"($colors.path)($dir)(ansi reset)"
 
-    $path_segment | str replace --all (char path_sep) $"($colors.seperator)(char path_sep)($colors.path)"
+    $path_segment | str replace --all (char path_sep) $"($colors.separator)(char path_sep)($colors.path)"
 }
 
 # Example: Static string prompt:
@@ -1169,16 +1169,16 @@ $env.PROMPT_COMMAND = {||
 # Default: A closure that displays the date/time and last exit code.
 $env.PROMPT_COMMAND_RIGHT = {||
     # create a right prompt in magenta with green separators and am/pm underlined
-    let colors: record<date: string, seperator: string, ampm: string, fail: string> = if (config use-colors) {
-        {date: (ansi magenta), seperator: (ansi green), ampm: (ansi magenta_underline), fail: (ansi red_bold)}
+    let colors: record<date: string, separator: string, ampm: string, fail: string> = if (config use-colors) {
+        {date: (ansi magenta), separator: (ansi green), ampm: (ansi magenta_underline), fail: (ansi red_bold)}
     } else {
-        {date: '', seperator: '', ampm: '', fail: ''}
+        {date: '', separator: '', ampm: '', fail: ''}
     }
     let time_segment = ([
         (ansi reset)
         $colors.date
         (date now | format date '%x %X') # try to respect user's locale
-    ] | str join | str replace --regex --all "([/:])" $"($colors.seperator)${1}($colors.date)" |
+    ] | str join | str replace --regex --all "([/:])" $"($colors.separator)${1}($colors.date)" |
         str replace --regex --all "([AP]M)" $"($colors.ampm)${1}")
 
     let last_exit_code = if ($env.LAST_EXIT_CODE != 0) {([
