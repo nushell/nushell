@@ -59,29 +59,29 @@ pub fn value_to_yaml_value(
     engine_state: &EngineState,
     v: &Value,
     serialize_types: bool,
-) -> Result<serde_yaml::Value, ShellError> {
+) -> Result<yaml_serde::Value, ShellError> {
     Ok(match &v {
-        Value::Bool { val, .. } => serde_yaml::Value::Bool(*val),
-        Value::Int { val, .. } => serde_yaml::Value::Number(serde_yaml::Number::from(*val)),
+        Value::Bool { val, .. } => yaml_serde::Value::Bool(*val),
+        Value::Int { val, .. } => yaml_serde::Value::Number(yaml_serde::Number::from(*val)),
         Value::Filesize { val, .. } => {
-            serde_yaml::Value::Number(serde_yaml::Number::from(val.get()))
+            yaml_serde::Value::Number(yaml_serde::Number::from(val.get()))
         }
-        Value::Duration { val, .. } => serde_yaml::Value::String(val.to_string()),
-        Value::Date { val, .. } => serde_yaml::Value::String(val.to_string()),
-        Value::Range { .. } => serde_yaml::Value::Null,
-        Value::Float { val, .. } => serde_yaml::Value::Number(serde_yaml::Number::from(*val)),
+        Value::Duration { val, .. } => yaml_serde::Value::String(val.to_string()),
+        Value::Date { val, .. } => yaml_serde::Value::String(val.to_string()),
+        Value::Range { .. } => yaml_serde::Value::Null,
+        Value::Float { val, .. } => yaml_serde::Value::Number(yaml_serde::Number::from(*val)),
         Value::String { val, .. } | Value::Glob { val, .. } => {
-            serde_yaml::Value::String(val.clone())
+            yaml_serde::Value::String(val.clone())
         }
         Value::Record { val, .. } => {
-            let mut m = serde_yaml::Mapping::new();
+            let mut m = yaml_serde::Mapping::new();
             for (k, v) in &**val {
                 m.insert(
-                    serde_yaml::Value::String(k.clone()),
+                    yaml_serde::Value::String(k.clone()),
                     value_to_yaml_value(engine_state, v, serialize_types)?,
                 );
             }
-            serde_yaml::Value::Mapping(m)
+            yaml_serde::Value::Mapping(m)
         }
         Value::List { vals, .. } => {
             let mut out = vec![];
@@ -90,7 +90,7 @@ pub fn value_to_yaml_value(
                 out.push(value_to_yaml_value(engine_state, value, serialize_types)?);
             }
 
-            serde_yaml::Value::Sequence(out)
+            yaml_serde::Value::Sequence(out)
         }
         Value::Closure { val, .. } => {
             if serialize_types {
@@ -98,36 +98,36 @@ pub fn value_to_yaml_value(
                 if let Some(span) = block.span {
                     let contents_bytes = engine_state.get_span_contents(span);
                     let contents_string = String::from_utf8_lossy(contents_bytes);
-                    serde_yaml::Value::String(contents_string.to_string())
+                    yaml_serde::Value::String(contents_string.to_string())
                 } else {
-                    serde_yaml::Value::String(format!(
+                    yaml_serde::Value::String(format!(
                         "unable to retrieve block contents for yaml block_id {}",
                         val.block_id.get()
                     ))
                 }
             } else {
-                serde_yaml::Value::Null
+                yaml_serde::Value::Null
             }
         }
-        Value::Nothing { .. } => serde_yaml::Value::Null,
+        Value::Nothing { .. } => yaml_serde::Value::Null,
         Value::Error { error, .. } => return Err(*error.clone()),
-        Value::Binary { val, .. } => serde_yaml::Value::Sequence(
+        Value::Binary { val, .. } => yaml_serde::Value::Sequence(
             val.iter()
-                .map(|x| serde_yaml::Value::Number(serde_yaml::Number::from(*x)))
+                .map(|x| yaml_serde::Value::Number(yaml_serde::Number::from(*x)))
                 .collect(),
         ),
-        Value::CellPath { val, .. } => serde_yaml::Value::Sequence(
+        Value::CellPath { val, .. } => yaml_serde::Value::Sequence(
             val.members
                 .iter()
                 .map(|x| match &x {
-                    PathMember::String { val, .. } => Ok(serde_yaml::Value::String(val.clone())),
+                    PathMember::String { val, .. } => Ok(yaml_serde::Value::String(val.clone())),
                     PathMember::Int { val, .. } => {
-                        Ok(serde_yaml::Value::Number(serde_yaml::Number::from(*val)))
+                        Ok(yaml_serde::Value::Number(yaml_serde::Number::from(*val)))
                     }
                 })
-                .collect::<Result<Vec<serde_yaml::Value>, ShellError>>()?,
+                .collect::<Result<Vec<yaml_serde::Value>, ShellError>>()?,
         ),
-        Value::Custom { .. } => serde_yaml::Value::Null,
+        Value::Custom { .. } => yaml_serde::Value::Null,
     })
 }
 
@@ -220,24 +220,24 @@ fn should_quote_yaml_scalar(string: &str) -> bool {
     needs_quotes_due_to_start(string) || has_plain_ambiguity
 }
 
-fn render_yaml_key(key: &serde_yaml::Value) -> String {
+fn render_yaml_key(key: &yaml_serde::Value) -> String {
     match key {
-        serde_yaml::Value::String(key) if should_quote_yaml_scalar(key) => render_yaml_string(key),
-        serde_yaml::Value::String(key) => key.clone(),
+        yaml_serde::Value::String(key) if should_quote_yaml_scalar(key) => render_yaml_string(key),
+        yaml_serde::Value::String(key) => key.clone(),
         _ => render_inline_yaml_value(key),
     }
 }
 
-fn render_inline_yaml_value(value: &serde_yaml::Value) -> String {
+fn render_inline_yaml_value(value: &yaml_serde::Value) -> String {
     match value {
-        serde_yaml::Value::Null => "null".to_string(),
-        serde_yaml::Value::Bool(value) => value.to_string(),
-        serde_yaml::Value::Number(value) => value.to_string(),
-        serde_yaml::Value::String(value) if should_quote_yaml_scalar(value) => {
+        yaml_serde::Value::Null => "null".to_string(),
+        yaml_serde::Value::Bool(value) => value.to_string(),
+        yaml_serde::Value::Number(value) => value.to_string(),
+        yaml_serde::Value::String(value) if should_quote_yaml_scalar(value) => {
             render_yaml_string(value)
         }
-        serde_yaml::Value::String(value) => value.clone(),
-        serde_yaml::Value::Sequence(values) => {
+        yaml_serde::Value::String(value) => value.clone(),
+        yaml_serde::Value::Sequence(values) => {
             let values = values
                 .iter()
                 .map(render_inline_yaml_value)
@@ -245,7 +245,7 @@ fn render_inline_yaml_value(value: &serde_yaml::Value) -> String {
                 .join(", ");
             format!("[{values}]")
         }
-        serde_yaml::Value::Mapping(entries) => {
+        yaml_serde::Value::Mapping(entries) => {
             let entries = entries
                 .iter()
                 .map(|(key, value)| {
@@ -259,7 +259,7 @@ fn render_inline_yaml_value(value: &serde_yaml::Value) -> String {
                 .join(", ");
             format!("{{{entries}}}")
         }
-        serde_yaml::Value::Tagged(tagged) => {
+        yaml_serde::Value::Tagged(tagged) => {
             format!("{} {}", tagged.tag, render_inline_yaml_value(&tagged.value))
         }
     }
@@ -327,12 +327,12 @@ fn write_yaml_block_scalar(output: &mut String, value: &str, body_indent: usize)
     }
 }
 
-fn is_inline_yaml_value(value: &serde_yaml::Value) -> bool {
+fn is_inline_yaml_value(value: &yaml_serde::Value) -> bool {
     match value {
-        serde_yaml::Value::Sequence(values) => values.is_empty(),
-        serde_yaml::Value::Mapping(entries) => entries.is_empty(),
-        serde_yaml::Value::Tagged(tagged) => is_inline_yaml_value(&tagged.value),
-        serde_yaml::Value::String(value) => !is_yaml_block_scalar_candidate(value),
+        yaml_serde::Value::Sequence(values) => values.is_empty(),
+        yaml_serde::Value::Mapping(entries) => entries.is_empty(),
+        yaml_serde::Value::Tagged(tagged) => is_inline_yaml_value(&tagged.value),
+        yaml_serde::Value::String(value) => !is_yaml_block_scalar_candidate(value),
         _ => true,
     }
 }
@@ -343,19 +343,19 @@ fn write_yaml_indent(output: &mut String, indent: usize) {
     }
 }
 
-fn write_yaml_value(output: &mut String, value: &serde_yaml::Value, indent: usize) {
+fn write_yaml_value(output: &mut String, value: &yaml_serde::Value, indent: usize) {
     match value {
-        serde_yaml::Value::Sequence(values) if !values.is_empty() => {
+        yaml_serde::Value::Sequence(values) if !values.is_empty() => {
             write_yaml_sequence(output, values, indent);
         }
-        serde_yaml::Value::Mapping(entries) if !entries.is_empty() => {
+        yaml_serde::Value::Mapping(entries) if !entries.is_empty() => {
             write_yaml_mapping(output, entries, indent, "");
         }
-        serde_yaml::Value::String(value) if is_yaml_block_scalar_candidate(value) => {
+        yaml_serde::Value::String(value) if is_yaml_block_scalar_candidate(value) => {
             write_yaml_indent(output, indent);
             write_yaml_block_scalar(output, value, indent + 2);
         }
-        serde_yaml::Value::Tagged(tagged) => write_yaml_value(output, &tagged.value, indent),
+        yaml_serde::Value::Tagged(tagged) => write_yaml_value(output, &tagged.value, indent),
         _ => {
             write_yaml_indent(output, indent);
             output.push_str(&render_inline_yaml_value(value));
@@ -364,15 +364,15 @@ fn write_yaml_value(output: &mut String, value: &serde_yaml::Value, indent: usiz
     }
 }
 
-fn write_yaml_sequence(output: &mut String, values: &[serde_yaml::Value], indent: usize) {
+fn write_yaml_sequence(output: &mut String, values: &[yaml_serde::Value], indent: usize) {
     for value in values {
         match value {
-            serde_yaml::Value::String(value) if is_yaml_block_scalar_candidate(value) => {
+            yaml_serde::Value::String(value) if is_yaml_block_scalar_candidate(value) => {
                 write_yaml_indent(output, indent);
                 output.push_str("- ");
                 write_yaml_block_scalar(output, value, indent + 2);
             }
-            serde_yaml::Value::Mapping(entries) if !entries.is_empty() => {
+            yaml_serde::Value::Mapping(entries) if !entries.is_empty() => {
                 write_yaml_mapping(output, entries, indent, "- ");
             }
             value if is_inline_yaml_value(value) => {
@@ -392,7 +392,7 @@ fn write_yaml_sequence(output: &mut String, values: &[serde_yaml::Value], indent
 
 fn write_yaml_mapping(
     output: &mut String,
-    entries: &serde_yaml::Mapping,
+    entries: &yaml_serde::Mapping,
     indent: usize,
     first_prefix: &str,
 ) {
@@ -415,7 +415,7 @@ fn write_yaml_mapping(
 
         output.push_str(&render_yaml_key(key));
 
-        if let serde_yaml::Value::String(value) = value
+        if let yaml_serde::Value::String(value) = value
             && is_yaml_block_scalar_candidate(value)
         {
             output.push_str(": ");
@@ -431,7 +431,7 @@ fn write_yaml_mapping(
     }
 }
 
-fn yaml_value_to_string(value: &serde_yaml::Value) -> String {
+fn yaml_value_to_string(value: &yaml_serde::Value) -> String {
     let mut output = String::new();
     write_yaml_value(&mut output, value, 0);
     output
