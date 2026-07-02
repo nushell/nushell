@@ -131,8 +131,8 @@ fn item_mapper_by_col(
     columns: Vec<PathMember>,
 ) -> impl Fn(crate::ItemMapperState) -> Result<crate::ValueCounter, ShellError> {
     move |ms: crate::ItemMapperState| -> Result<crate::ValueCounter, ShellError> {
-        // Use the same cell-path access as `group-by` while building the comparison value.
-        // This preserves `IncompatiblePathAccess` for non-record rows and `CantFindColumn`/`DidYouMean` for missing columns.
+        // Resolve each requested column while building the comparison value.
+        // Validation and extraction share the same access semantics.
         let item_column_values = columns
             .iter()
             .map(|column| {
