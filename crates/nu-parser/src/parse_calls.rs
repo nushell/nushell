@@ -547,6 +547,15 @@ fn parse_long_flag(
     }
 }
 
+/// Check if a syntax shape can accept a negative number (for distinguishing short flags from
+/// negative numeric arguments like `-1`).
+fn shape_allows_negative_number(shape: &SyntaxShape) -> bool {
+    matches!(
+        shape,
+        SyntaxShape::Int | SyntaxShape::Number | SyntaxShape::Float
+    ) || matches!(shape, SyntaxShape::OneOf(shapes) if shapes.iter().any(shape_allows_negative_number))
+}
+
 fn parse_short_flags(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
@@ -584,13 +593,9 @@ fn parse_short_flags(
 
             if found_short_flags.is_empty()
                 // check to see if we have a negative number
-                && matches!(
-                    sig.get_positional(positional_idx),
-                    Some(PositionalArg {
-                        shape: SyntaxShape::Int | SyntaxShape::Number | SyntaxShape::Float,
-                        ..
-                    })
-                )
+                && sig
+                    .get_positional(positional_idx)
+                    .is_some_and(|p| shape_allows_negative_number(&p.shape))
                 && String::from_utf8_lossy(working_set.get_span_contents(arg_span))
                     .parse::<f64>()
                     .is_ok()
