@@ -90,7 +90,7 @@ impl Command for Chunks {
                 ])),
             },
             Example {
-                example: "open foo.bin | chunks 8kib",
+                example: "open --raw foo.bin | chunks 8kib",
                 description: "Open a binary file and make 8 kibibyte chunks",
                 result: None,
             },
