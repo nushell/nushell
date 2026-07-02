@@ -24,13 +24,18 @@ impl CmdArgument for Arguments {
 
 enum Matcher {
     Literal(Spanned<String>),
-    Regex(Result<Regex, Spanned<String>>),
+    Regex(Regex),
 }
 
 impl Matcher {
-    fn new(find: Spanned<String>, regex: bool, multiline: bool) -> Self {
+    fn new(
+        find: Spanned<String>,
+        regex: bool,
+        multiline: bool,
+        head: Span,
+    ) -> Result<Self, ShellError> {
         if !regex && !multiline {
-            Self::Literal(find)
+            Ok(Self::Literal(find))
         } else {
             let Spanned { item, span } = find;
             let pattern = if multiline {
@@ -38,10 +43,13 @@ impl Matcher {
             } else {
                 item
             };
-            Self::Regex(
-                Regex::new(&pattern)
-                    .map_err(|error| format!("Regex error: {error}").into_spanned(span)),
-            )
+            Regex::new(&pattern)
+                .map(Self::Regex)
+                .map_err(|error| ShellError::IncorrectValue {
+                    msg: format!("Regex error: {error}"),
+                    val_span: span,
+                    call_span: head,
+                })
         }
     }
 }
@@ -150,7 +158,7 @@ groups as its argument. It must return a string that will be used as a replaceme
 
         let args = Arguments {
             all: call.has_flag(engine_state, stack, "all")?,
-            matcher: Matcher::new(find, regex, multiline),
+            matcher: Matcher::new(find, regex, multiline, call.head)?,
             replace,
             cell_paths,
             literal_replace,
@@ -174,7 +182,7 @@ groups as its argument. It must return a string that will be used as a replaceme
 
         let args = Arguments {
             all: call.has_flag_const(working_set, "all")?,
-            matcher: Matcher::new(find, regex, multiline),
+            matcher: Matcher::new(find, regex, multiline, call.head)?,
             replace: ReplacementValue::String(Arc::new(replace)),
             cell_paths,
             literal_replace,
@@ -320,95 +328,85 @@ fn action(
                     Err((error, span)) => Value::error(error, span),
                 }
             }
-            Matcher::Regex(regex) => {
-                match (regex, replace) {
-                    (Ok(re), ReplacementValue::String(replace_str)) => {
-                        if *all {
-                            Value::string(
-                                {
-                                    if *literal_replace {
-                                        re.replace_all(val, NoExpand(&replace_str.item)).to_string()
-                                    } else {
-                                        re.replace_all(val, &replace_str.item).to_string()
-                                    }
-                                },
-                                head,
-                            )
-                        } else {
-                            Value::string(
-                                {
-                                    if *literal_replace {
-                                        re.replace(val, NoExpand(&replace_str.item)).to_string()
-                                    } else {
-                                        re.replace(val, &replace_str.item).to_string()
-                                    }
-                                },
-                                head,
-                            )
-                        }
-                    }
-                    (Ok(re), ReplacementValue::Closure(closure)) => {
-                        let span = closure.span;
-                        // TODO: We only need to clone the evaluator here because
-                        //       operate() doesn't allow us to have a mutable reference
-                        //       to Arguments. Would it be worth the effort to change operate()
-                        //       and all commands that use it?
-                        let mut closure_eval = closure.item.clone();
-                        let mut first_error: Option<ShellError> = None;
-                        let replacer = |caps: &Captures| {
-                            for capture in caps.iter().skip(1) {
-                                let arg = match capture {
-                                    Some(m) => Value::string(m.as_str().to_string(), head),
-                                    None => Value::nothing(head),
-                                };
-                                if let Err(error) = closure_eval.add_arg(arg) {
-                                    first_error = Some(error);
-                                    return "".to_string();
+            Matcher::Regex(re) => match replace {
+                ReplacementValue::String(replace_str) => {
+                    if *all {
+                        Value::string(
+                            {
+                                if *literal_replace {
+                                    re.replace_all(val, NoExpand(&replace_str.item)).to_string()
+                                } else {
+                                    re.replace_all(val, &replace_str.item).to_string()
                                 }
-                            }
-                            let value = match caps.get(0) {
+                            },
+                            head,
+                        )
+                    } else {
+                        Value::string(
+                            {
+                                if *literal_replace {
+                                    re.replace(val, NoExpand(&replace_str.item)).to_string()
+                                } else {
+                                    re.replace(val, &replace_str.item).to_string()
+                                }
+                            },
+                            head,
+                        )
+                    }
+                }
+                ReplacementValue::Closure(closure) => {
+                    let span = closure.span;
+                    // TODO: We only need to clone the evaluator here because
+                    //       operate() doesn't allow us to have a mutable reference
+                    //       to Arguments. Would it be worth the effort to change operate()
+                    //       and all commands that use it?
+                    let mut closure_eval = closure.item.clone();
+                    let mut first_error: Option<ShellError> = None;
+                    let replacer = |caps: &Captures| {
+                        for capture in caps.iter().skip(1) {
+                            let arg = match capture {
                                 Some(m) => Value::string(m.as_str().to_string(), head),
                                 None => Value::nothing(head),
                             };
-                            let result: Result<Value, ShellError> = closure_eval
-                                .run_with_input(PipelineData::value(value, None))
-                                .and_then(|result| result.into_value(span));
-                            match result {
-                                Ok(Value::String { val, .. }) => val.to_string(),
-                                Ok(res) => {
-                                    first_error = Some(ShellError::RuntimeTypeMismatch {
-                                        expected: Type::String,
-                                        actual: res.get_type(),
-                                        span: res.span(),
-                                    });
-                                    "".to_string()
-                                }
-                                Err(e) => {
-                                    first_error = Some(e);
-                                    "".to_string()
-                                }
+                            if let Err(error) = closure_eval.add_arg(arg) {
+                                first_error = Some(error);
+                                return "".to_string();
                             }
-                        };
-                        let result = if *all {
-                            Value::string(re.replace_all(val, replacer).to_string(), head)
-                        } else {
-                            Value::string(re.replace(val, replacer).to_string(), head)
-                        };
-                        match first_error {
-                            None => result,
-                            Some(error) => Value::error(error, span),
                         }
+                        let value = match caps.get(0) {
+                            Some(m) => Value::string(m.as_str().to_string(), head),
+                            None => Value::nothing(head),
+                        };
+                        let result: Result<Value, ShellError> = closure_eval
+                            .run_with_input(PipelineData::value(value, None))
+                            .and_then(|result| result.into_value(span));
+                        match result {
+                            Ok(Value::String { val, .. }) => val.to_string(),
+                            Ok(res) => {
+                                first_error = Some(ShellError::RuntimeTypeMismatch {
+                                    expected: Type::String,
+                                    actual: res.get_type(),
+                                    span: res.span(),
+                                });
+                                "".to_string()
+                            }
+                            Err(e) => {
+                                first_error = Some(e);
+                                "".to_string()
+                            }
+                        }
+                    };
+                    let result = if *all {
+                        Value::string(re.replace_all(val, replacer).to_string(), head)
+                    } else {
+                        Value::string(re.replace(val, replacer).to_string(), head)
+                    };
+                    match first_error {
+                        None => result,
+                        Some(error) => Value::error(error, span),
                     }
-                    (Err(error), _) => Value::error(
-                        ShellError::IncorrectValue {
-                            msg: error.item.clone(),
-                            val_span: error.span,
-                            call_span: head,
-                        },
-                        error.span,
-                    ),
                 }
-            }
+            },
         },
         Value::Error { .. } => input.clone(),
         _ => Value::error(
@@ -445,7 +443,13 @@ mod tests {
         let word = Value::test_string("Cargo.toml");
 
         let options = Arguments {
-            matcher: Matcher::new(test_spanned_string("Cargo.(.+)"), true, false),
+            matcher: Matcher::new(
+                test_spanned_string("Cargo.(.+)"),
+                true,
+                false,
+                Span::test_data(),
+            )
+            .unwrap(),
             replace: ReplacementValue::String(Arc::new(test_spanned_string("Carga.$1"))),
             cell_paths: None,
             literal_replace: false,
