@@ -20,11 +20,11 @@ fn chunk_size_zero() -> Result {
 }
 
 #[test]
-fn chunk_size_not_int() -> Result {
+fn chunk_size_not_int_or_filesize() -> Result {
     let err = test()
         .run("[0 1 2] | chunks (echo 1sec)")
         .expect_shell_error()?;
-    assert!(matches!(err, ShellError::CantConvert { .. }));
+    assert!(matches!(err, ShellError::RuntimeTypeMismatch { .. }));
     Ok(())
 }
 

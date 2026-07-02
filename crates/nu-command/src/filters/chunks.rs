@@ -20,12 +20,16 @@ impl Command for Chunks {
                 (Type::list(Type::Any), Type::list(Type::list(Type::Any))),
                 (Type::Binary, Type::list(Type::Binary)),
             ])
-            .required("chunk_size", SyntaxShape::Int, "The size of each chunk.")
+            .required(
+                "chunk_size",
+                SyntaxShape::OneOf(vec![SyntaxShape::Int, SyntaxShape::Filesize]),
+                "The size of each chunk.",
+            )
             .category(Category::Filters)
     }
 
     fn description(&self) -> &str {
-        "Divide a list, table or binary input into chunks of `chunk_size`."
+        "Divide a list, table or binary input into chunks of `chunk_size`. For binary input, `chunk_size` can also be specified as a filesize."
     }
 
     fn extra_description(&self) -> &str {
@@ -85,6 +89,11 @@ impl Command for Chunks {
                     Value::test_binary(vec![0x77, 0x88]),
                 ])),
             },
+            Example {
+                example: "open foo.bin | chunks 8kib",
+                description: "Open a binary file and make 8 kibibyte chunks",
+                result: None,
+            },
         ]
     }
 
@@ -99,10 +108,23 @@ impl Command for Chunks {
         let head = call.head;
         let chunk_size: Value = call.req(engine_state, stack, 0)?;
 
-        let size =
-            usize::try_from(chunk_size.as_int()?).map_err(|_| ShellError::NeedsPositiveValue {
-                span: chunk_size.span(),
-            })?;
+        let size = match chunk_size {
+            Value::Int { val, .. } => {
+                usize::try_from(val).map_err(|_| ShellError::NeedsPositiveValue {
+                    span: chunk_size.span(),
+                })
+            }
+            Value::Filesize { val, .. } => {
+                usize::try_from(val).map_err(|_| ShellError::NeedsPositiveValue {
+                    span: chunk_size.span(),
+                })
+            }
+            ref val => Err(ShellError::RuntimeTypeMismatch {
+                expected: Type::custom("int or filesize"),
+                actual: val.get_type(),
+                span: val.span(),
+            }),
+        }?;
 
         let size = NonZeroUsize::try_from(size).map_err(|_| ShellError::IncorrectValue {
             msg: "`chunk_size` cannot be zero".into(),
