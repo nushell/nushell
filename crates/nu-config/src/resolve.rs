@@ -294,8 +294,7 @@ mod tests {
             env_file: Some(custom_root.join("env.nu")),
             ..Default::default()
         };
-        let (dirs, _warnings) =
-            resolve_paths(&env, &cli).expect("resolve should succeed");
+        let (dirs, _warnings) = resolve_paths(&env, &cli).expect("resolve should succeed");
         assert_eq!(dirs.config_file, custom_root.join("config.nu"));
         assert_eq!(dirs.env_file, custom_root.join("env.nu"));
     }
