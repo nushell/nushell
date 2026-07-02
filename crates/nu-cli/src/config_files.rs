@@ -214,9 +214,10 @@ pub fn add_plugin_file(engine_state: &mut EngineState, plugin_file: Option<Spann
                     ),
                 );
             }
-        } else if let Some(plugin_path) = nu_path::nu_config_dir() {
-            // Path to store plugins signatures
-            let mut plugin_path = absolute_with(&plugin_path, &cwd).unwrap_or(plugin_path.into());
+        } else {
+            // Path to store plugins signatures — use the pre-resolved config dir
+            let mut plugin_path = engine_state.config_dirs.config_home.clone();
+            plugin_path = absolute_with(&plugin_path, &cwd).unwrap_or(plugin_path);
             plugin_path.push(PLUGIN_FILE);
             let plugin_path = absolute_with(&plugin_path, &cwd).unwrap_or(plugin_path);
             engine_state.plugin_path = Some(plugin_path);
@@ -272,17 +273,13 @@ pub fn migrate_old_plugin_file(engine_state: &EngineState) -> bool {
 
     let start_time = Instant::now();
 
-    let Ok(cwd) = engine_state.cwd_as_string(None) else {
+    let Ok(_cwd) = engine_state.cwd_as_string(None) else {
         return false;
     };
 
-    let Some(config_dir) =
-        nu_path::nu_config_dir().and_then(|dir| nu_path::absolute_with(dir, &cwd).ok())
-    else {
-        return false;
-    };
+    let config_dir = &engine_state.config_dirs.config_home;
 
-    let Ok(old_plugin_file_path) = nu_path::absolute_with(OLD_PLUGIN_FILE, &config_dir) else {
+    let Ok(old_plugin_file_path) = nu_path::absolute_with(OLD_PLUGIN_FILE, config_dir) else {
         return false;
     };
 

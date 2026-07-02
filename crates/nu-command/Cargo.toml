@@ -43,6 +43,7 @@ nu-table.workspace = true
 nu-term-grid.workspace = true
 nu-utils.workspace = true
 nu-heavy-utils = { workspace = true, features = ["endian", "merge"] }
+nu-config.workspace = true
 nuon.workspace = true
 
 alphanumeric-sort = { workspace = true }

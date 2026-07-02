@@ -124,11 +124,10 @@ fn new_backend(
     let path = match path {
         Some(path) => path,
         None => {
-            let Some(mut path) = nu_path::nu_config_dir() else {
-                return Err(ShellError::ConfigDirNotFound { span });
-            };
+            let mut path =
+                nu_config::config_home().ok_or(ShellError::ConfigDirNotFound { span })?;
             path.push(format.default_file_name());
-            path.into_std_path_buf()
+            path
         }
     };
 

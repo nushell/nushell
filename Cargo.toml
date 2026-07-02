@@ -58,6 +58,7 @@ members = [
   "crates/nu-cmd-lang",
   "crates/nu-cmd-plugin",
   "crates/nu-color-config",
+  "crates/nu-config",
   "crates/nu-command",
   "crates/nu-derive-value",
   "crates/nu-engine",
@@ -94,6 +95,7 @@ nu-cmd-lang = { path = "crates/nu-cmd-lang", version = "0.113.2", default-featur
 nu-cmd-plugin = { path = "crates/nu-cmd-plugin", version = "0.113.2", default-features = false }
 nu-color-config = { path = "crates/nu-color-config", version = "0.113.2", default-features = false }
 nu-command = { path = "crates/nu-command", version = "0.113.2", default-features = false }
+nu-config = { path = "crates/nu-config", version = "0.113.2", default-features = false }
 nu-derive-value = { path = "crates/nu-derive-value", version = "0.113.2", default-features = false }
 nu-engine = { path = "crates/nu-engine", version = "0.113.2", default-features = false }
 nu-experimental = { path = "crates/nu-experimental", version = "0.113.2", default-features = false }
@@ -325,6 +327,7 @@ nu-protocol = { workspace = true, features = ["os"] }
 nu-std = { workspace = true }
 nu-system = { workspace = true }
 nu-utils = { workspace = true, features = ["os"] }
+nu-config = { workspace = true }
 nu-mcp = { workspace = true, optional = true }
 reedline = { workspace = true, features = ["bashisms"] }
 
@@ -391,6 +394,7 @@ plugin = [
   "nu-cli/plugin",
   "nu-cmd-lang/plugin",
   "nu-command/plugin",
+  "nu-config/plugin",
   "nu-engine/plugin",
   "nu-parser/plugin",
   "nu-protocol/plugin",

@@ -1,0 +1,19 @@
+[package]
+authors.workspace = true
+description = "Nushell configuration infrastructure - path resolution and config file management"
+repository = "https://github.com/nushell/nushell/tree/main/crates/nu-config"
+edition.workspace = true
+license.workspace = true
+name = "nu-config"
+rust-version.workspace = true
+version.workspace = true
+
+[lib]
+bench = false
+
+[features]
+plugin = []
+
+[dependencies]
+dirs = { workspace = true }
+nu-path.workspace = true

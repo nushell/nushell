@@ -15,6 +15,7 @@ use crate::{
 };
 use fancy_regex::Regex;
 use lru::LruCache;
+use nu_config::NushellConfigDirs;
 use nu_path::AbsolutePathBuf;
 use std::{
     collections::{HashMap, HashSet},
@@ -112,7 +113,13 @@ pub struct EngineState {
     #[cfg(feature = "plugin")]
     #[debug("{:?}", plugins.iter().map(|rp| rp.identity().name()).collect::<Vec<_>>())]
     plugins: Vec<Arc<dyn RegisteredPlugin>>,
-    config_path: HashMap<String, PathBuf>,
+    /// Resolved configuration directories and file paths.
+    ///
+    /// Populated once at startup by `nu_config::resolve_paths()` in `main.rs`.
+    /// All downstream code (config-file loading, `$nu` constant generation,
+    /// history backend, etc.) reads from this struct.
+    pub config_dirs: NushellConfigDirs,
+
     pub history_enabled: bool,
     pub history_session_id: i64,
     /// Whether the startup-only `$env.config.history.*` options are locked from further
@@ -209,7 +216,7 @@ impl EngineState {
             plugin_path: None,
             #[cfg(feature = "plugin")]
             plugins: vec![],
-            config_path: HashMap::new(),
+            config_dirs: NushellConfigDirs::empty(),
             history_enabled: true,
             history_session_id: 0,
             history_locked_after_startup: false,
@@ -963,14 +970,6 @@ impl EngineState {
         });
 
         FileId::new(self.num_files() - 1)
-    }
-
-    pub fn set_config_path(&mut self, key: &str, val: PathBuf) {
-        self.config_path.insert(key.to_string(), val);
-    }
-
-    pub fn get_config_path(&self, key: &str) -> Option<&PathBuf> {
-        self.config_path.get(key)
     }
 
     pub fn build_desc(&self, spans: &[Span]) -> (String, String) {

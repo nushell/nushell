@@ -2,14 +2,13 @@ use log::info;
 #[cfg(feature = "plugin")]
 use nu_cli::read_plugin_file;
 use nu_cli::{eval_config_contents, eval_source};
+use nu_config::ConfigFileKind;
 use nu_path::absolute_with;
 use nu_protocol::{
     Config, ParseError, PipelineData, Spanned,
     engine::{EngineState, Stack, StateWorkingSet},
-    eval_const::{get_user_autoload_dirs, get_vendor_autoload_dirs},
     report_parse_error, report_shell_error,
 };
-use nu_utils::ConfigFileKind;
 use std::{
     fs,
     fs::File,
@@ -55,7 +54,8 @@ pub(crate) fn read_config_file(
                 report_shell_error(None, engine_state, &e);
             }
         }
-    } else if let Some(mut config_path) = nu_path::nu_config_dir() {
+    } else {
+        let mut config_path = engine_state.config_dirs.config_home.clone();
         // Create config directory if it does not exist
         if !config_path.exists()
             && let Err(err) = std::fs::create_dir_all(&config_path)
@@ -105,7 +105,7 @@ pub(crate) fn read_config_file(
             }
         }
 
-        eval_config_contents(config_path.into(), engine_state, stack, strict_mode);
+        eval_config_contents(config_path, engine_state, stack, strict_mode);
     }
 }
 
@@ -122,14 +122,13 @@ pub(crate) fn read_loginshell_file(
     );
 
     // read and execute loginshell file if exists
-    if let Some(mut config_path) = nu_path::nu_config_dir() {
-        config_path.push(LOGINSHELL_FILE);
+    let mut config_path = engine_state.config_dirs.config_home.clone();
+    config_path.push(LOGINSHELL_FILE);
 
-        info!("loginshell_file: {}", config_path.display());
+    info!("loginshell_file: {}", config_path.display());
 
-        if config_path.exists() {
-            eval_config_contents(config_path.into(), engine_state, stack, strict_mode);
-        }
+    if config_path.exists() {
+        eval_config_contents(config_path, engine_state, stack, strict_mode);
     }
 }
 
@@ -183,13 +182,16 @@ pub(crate) fn read_vendor_autoload_files(engine_state: &mut EngineState, stack: 
         column!()
     );
 
-    // The evaluation order is first determined by the semantics of `get_vendor_autoload_dirs`
-    // to determine the order of directories to evaluate
-    get_vendor_autoload_dirs(engine_state)
+    // Read from the pre-resolved autoload directories (resolved in
+    // `nu_config::resolve_paths()` during startup).  Vendor dirs are evaluated
+    // first, then user dirs, so users can override vendor autoload files.
+    // Clone the dir lists to avoid borrowing engine_state twice (once for the
+    // iter and again inside the closure for eval_config_contents).
+    let vendor_dirs = engine_state.config_dirs.vendor_autoload_dirs.clone();
+    let user_dirs = engine_state.config_dirs.user_autoload_dirs.clone();
+    vendor_dirs
         .iter()
-        // User autoload directories are evaluated after vendor, which means that
-        // the user can override vendor autoload files
-        .chain(get_user_autoload_dirs(engine_state).iter())
+        .chain(user_dirs.iter())
         .for_each(|autoload_dir| {
             info!("read_vendor_autoload_files: {}", autoload_dir.display());
 
@@ -244,7 +246,7 @@ pub(crate) fn setup_config(
         &config_file, &env_file, is_login_shell
     );
 
-    let create_scaffold = nu_path::nu_config_dir().is_some_and(|p| !p.exists());
+    let create_scaffold = !engine_state.config_dirs.config_home.exists();
 
     let result = catch_unwind(AssertUnwindSafe(|| {
         #[cfg(feature = "plugin")]
@@ -278,30 +280,5 @@ pub(crate) fn setup_config(
             "A panic occurred while reading configuration files, using default configuration."
         );
         engine_state.config = Arc::new(Config::default())
-    }
-}
-
-pub(crate) fn set_config_path(
-    engine_state: &mut EngineState,
-    cwd: &Path,
-    default_config_name: &str,
-    key: &str,
-    config_file: Option<&Spanned<String>>,
-) {
-    info!(
-        "set_config_path() cwd: {:?}, default_config: {}, key: {}, config_file_specified: {:?}",
-        &cwd, &default_config_name, &key, &config_file
-    );
-    let config_path = match config_file {
-        Some(s) => absolute_with(&s.item, cwd).ok(),
-        None => nu_path::nu_config_dir().map(|p| {
-            let mut p = absolute_with(&p, cwd).unwrap_or(p.into());
-            p.push(default_config_name);
-            absolute_with(&p, cwd).unwrap_or(p)
-        }),
-    };
-
-    if let Some(path) = config_path {
-        engine_state.set_config_path(key, path);
     }
 }

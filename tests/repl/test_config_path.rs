@@ -147,8 +147,8 @@ fn test_default_config_path() {
 
 #[test]
 fn test_alternate_config_path() {
-    let config_file = "crates/nu-utils/src/default_files/scaffold_config.nu";
-    let env_file = "crates/nu-utils/src/default_files/scaffold_env.nu";
+    let config_file = "crates/nu-config/src/default_files/scaffold_config.nu";
+    let env_file = "crates/nu-config/src/default_files/scaffold_env.nu";
 
     let cwd = std::env::current_dir().expect("Could not get current working directory");
 
@@ -172,8 +172,8 @@ fn test_alternate_config_path() {
 
 #[test]
 fn use_last_config_path() {
-    let config_file = "crates/nu-utils/src/default_files/scaffold_config.nu";
-    let env_file = "crates/nu-utils/src/default_files/scaffold_env.nu";
+    let config_file = "crates/nu-config/src/default_files/scaffold_config.nu";
+    let env_file = "crates/nu-config/src/default_files/scaffold_env.nu";
 
     let cwd = std::env::current_dir().expect("Could not get current working directory");
 
@@ -372,7 +372,7 @@ fn history_path_custom_string() {
 
 #[test]
 fn history_config_default_path_plaintext() {
-    let config_dir = nu_path::nu_config_dir().unwrap();
+    let config_dir = nu_config::config_home().unwrap();
     let config = HistoryConfig {
         path: HistoryPath::Default,
         file_format: HistoryFileFormat::Plaintext,
@@ -380,12 +380,12 @@ fn history_config_default_path_plaintext() {
     };
 
     let expected_path = config_dir.join("history.txt");
-    assert_eq!(config.file_path(), Some(expected_path.into()));
+    assert_eq!(config.file_path(), Some(expected_path));
 }
 
 #[test]
 fn history_config_default_path_sqlite() {
-    let config_dir = nu_path::nu_config_dir().unwrap();
+    let config_dir = nu_config::config_home().unwrap();
     let config = HistoryConfig {
         path: HistoryPath::Default,
         file_format: HistoryFileFormat::Sqlite,
@@ -393,7 +393,7 @@ fn history_config_default_path_sqlite() {
     };
 
     let expected_path = config_dir.join("history.sqlite3");
-    assert_eq!(config.file_path(), Some(expected_path.into()));
+    assert_eq!(config.file_path(), Some(expected_path));
 }
 
 #[test]
@@ -433,7 +433,7 @@ fn history_path_empty_string_means_default() {
         path: HistoryPath::Default,
         ..Default::default()
     };
-    let config_dir = nu_path::nu_config_dir().unwrap();
+    let config_dir = nu_config::config_home().unwrap();
     let expected = config_dir.join("history.txt");
-    assert_eq!(config.file_path(), Some(expected.into()));
+    assert_eq!(config.file_path(), Some(expected));
 }

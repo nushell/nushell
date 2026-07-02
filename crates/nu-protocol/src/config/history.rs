@@ -99,9 +99,9 @@ impl HistoryConfig {
         let path = match &self.path {
             HistoryPath::Custom(path) => Some(path.clone()),
             HistoryPath::Disabled => None,
-            HistoryPath::Default => nu_path::nu_config_dir().map(|mut history_path| {
+            HistoryPath::Default => nu_config::config_home().map(|mut history_path| {
                 history_path.push(self.file_format.default_file_name());
-                history_path.into()
+                history_path
             }),
         }?;
 

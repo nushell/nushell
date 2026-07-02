@@ -25,8 +25,8 @@ pub mod utils;
 
 pub use locale::{get_locale_from_env_vars, get_system_locale};
 pub use utils::{
-    ConfigFileKind, enable_vt_processing, get_ls_colors, stderr_write_all_and_flush,
-    stdout_write_all_and_flush, terminal_size,
+    enable_vt_processing, get_ls_colors, stderr_write_all_and_flush, stdout_write_all_and_flush,
+    terminal_size,
 };
 
 pub use casing::IgnoreCaseExt;
