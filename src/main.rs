@@ -201,7 +201,6 @@ fn main() -> Result<()> {
             }
             p
         }),
-        ..Default::default()
     };
 
     let (config_dirs, warnings) = match resolve_paths(&SystemEnv, &cli_overrides) {
