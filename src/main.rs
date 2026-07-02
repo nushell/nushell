@@ -193,6 +193,14 @@ fn main() -> Result<()> {
             }
             p
         }),
+        #[cfg(feature = "plugin")]
+        plugin_file: parsed_nu_cli_args.plugin_file.as_ref().map(|s| {
+            let mut p = PathBuf::from(&s.item);
+            if !p.is_absolute() {
+                p = init_cwd.join(&p);
+            }
+            p
+        }),
         ..Default::default()
     };
 

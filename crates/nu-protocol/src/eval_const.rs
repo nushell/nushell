@@ -102,11 +102,14 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
 
     #[cfg(feature = "plugin")]
     {
+        let plugin_path = engine_state
+            .plugin_path
+            .as_ref()
+            .unwrap_or(&engine_state.config_dirs.plugin_file);
         record.push(
             "plugin-path",
             Value::string(
-                canonicalize_path(engine_state, &engine_state.config_dirs.plugin_file)
-                    .to_string_lossy(),
+                canonicalize_path(engine_state, plugin_path).to_string_lossy(),
                 span,
             ),
         );
