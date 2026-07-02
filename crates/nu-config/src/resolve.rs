@@ -237,51 +237,67 @@ fn resolve_vendor_autoload_dirs(env: &dyn EnvAccess) -> Vec<PathBuf> {
 
     dirs
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::env_access::TestEnv;
 
+    /// Helper: an absolute path for use in tests, on any platform.
+    fn abs_path(components: &[&str]) -> PathBuf {
+        let mut p = std::env::temp_dir();
+        for c in components {
+            p.push(c);
+        }
+        p
+    }
+
     #[test]
     fn test_resolve_paths_uses_xdg_config_home() {
+        let xdg_base = abs_path(&["xdg-test"]);
+        let xdg_str = xdg_base.to_string_lossy().to_string();
+
         let mut vars = std::collections::HashMap::new();
-        vars.insert("XDG_CONFIG_HOME".into(), "/tmp/my-xdg".into());
+        vars.insert("XDG_CONFIG_HOME".into(), xdg_str.clone());
         let env = TestEnv::new(vars);
         let (dirs, _warnings) =
             resolve_paths(&env, &CliOverrides::default()).expect("resolve should succeed");
-        assert_eq!(dirs.config_home, PathBuf::from("/tmp/my-xdg/nushell"));
-        assert_eq!(
-            dirs.config_file,
-            PathBuf::from("/tmp/my-xdg/nushell/config.nu")
-        );
-        assert_eq!(dirs.env_file, PathBuf::from("/tmp/my-xdg/nushell/env.nu"));
+
+        let expected_home = xdg_base.join("nushell");
+        assert_eq!(dirs.config_home, expected_home);
+        assert_eq!(dirs.config_file, expected_home.join("config.nu"));
+        assert_eq!(dirs.env_file, expected_home.join("env.nu"));
     }
 
     #[test]
     fn test_resolve_paths_config_home_override() {
+        let ignored = abs_path(&["xdg-ignored"]).to_string_lossy().to_string();
+        let override_path = abs_path(&["my-override"]);
+
         let mut vars = std::collections::HashMap::new();
-        vars.insert("XDG_CONFIG_HOME".into(), "/tmp/ignored-xdg".into());
+        vars.insert("XDG_CONFIG_HOME".into(), ignored);
         let env = TestEnv::new(vars);
         let cli = CliOverrides {
-            config_home: Some("/tmp/my-override".into()),
+            config_home: Some(override_path.clone()),
             ..Default::default()
         };
         let (dirs, _warnings) = resolve_paths(&env, &cli).expect("resolve should succeed");
-        assert_eq!(dirs.config_home, PathBuf::from("/tmp/my-override"));
+        assert_eq!(dirs.config_home, override_path);
     }
 
     #[test]
     fn test_resolve_paths_cli_config_file_override() {
+        let custom_root = abs_path(&["custom", "path"]);
+
         let env = TestEnv::new(std::collections::HashMap::new());
         let cli = CliOverrides {
-            config_file: Some("/custom/path/config.nu".into()),
-            env_file: Some("/custom/path/env.nu".into()),
+            config_file: Some(custom_root.join("config.nu")),
+            env_file: Some(custom_root.join("env.nu")),
             ..Default::default()
         };
-        let (dirs, _warnings) = resolve_paths(&env, &cli).expect("resolve should succeed");
-        assert_eq!(dirs.config_file, PathBuf::from("/custom/path/config.nu"));
-        assert_eq!(dirs.env_file, PathBuf::from("/custom/path/env.nu"));
+        let (dirs, _warnings) =
+            resolve_paths(&env, &cli).expect("resolve should succeed");
+        assert_eq!(dirs.config_file, custom_root.join("config.nu"));
+        assert_eq!(dirs.env_file, custom_root.join("env.nu"));
     }
 
     #[test]
