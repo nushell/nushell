@@ -3890,9 +3890,9 @@ dependencies = [
 
 [[package]]
 name = "lsp-server"
-version = "0.7.9"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d6ada348dbc2703cbe7637b2dda05cff84d3da2819c24abcb305dd613e0ba2e"
+checksum = "0ad8be6fe0ca81b8298bfbbe8a77e9fcd8895ad6c84cd7794d5ebadcbb09ae43"
 dependencies = [
  "crossbeam-channel",
  "log",
@@ -4620,7 +4620,7 @@ dependencies = [
  "pretty_assertions",
  "print-positions",
  "procfs",
- "quick-xml 0.40.1",
+ "quick-xml 0.41.0",
  "rand 0.10.1",
  "rand_chacha 0.10.0",
  "rayon",
@@ -6926,9 +6926,9 @@ dependencies = [
 
 [[package]]
 name = "quick-xml"
-version = "0.40.1"
+version = "0.41.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2474bd2e5029e7ccb6abb2ba48cf2383a333851dedf495901544281590c7da7f"
+checksum = "e660451e55124f798a69a5af3f49ccfbefbd41910eefd25caf2393e1f3473ec1"
 dependencies = [
  "memchr",
 ]

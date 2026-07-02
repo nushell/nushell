@@ -2,23 +2,11 @@ use devicons::icon_for_file;
 use lscolors::Style;
 use nu_color_config::lookup_ansi_color_style;
 use nu_engine::{command_prelude::*, env_to_string};
+use nu_protocol::Config;
 use nu_protocol::shell_error::generic::GenericError;
-use nu_protocol::{Config, ReportMode, report_shell_warning};
 use nu_term_grid::grid::{Alignment, Cell, Direction, Filling, Grid, GridOptions};
 use nu_utils::{get_ls_colors, terminal_size};
 use std::path::Path;
-
-// TODO: there are some deprecated stuff that should be removed after version
-// 0.113.0 is released. Things to do:
-// - remove the `PipelineData::Value(Value::Record { .. }, ..)` arm
-// - remove the `Type::record()` from the command signature
-// - remove the example which showcases record as input
-// - remove the `DeprecationInfo` struct and other associated code
-// - remove the `NAME_COLUMN` const
-// - merge and clean up`convert_to_list` and `convert_to_list_legacy`
-// - and finally update the tests
-
-const NAME_COLUMN: &str = "name";
 
 #[derive(Clone)]
 pub struct Griddle;
@@ -34,10 +22,7 @@ impl Command for Griddle {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("grid")
-            .input_output_types(vec![
-                (Type::List(Box::new(Type::Any)), Type::String),
-                (Type::record(), Type::String),
-            ])
+            .input_output_type(Type::List(Box::new(Type::Any)), Type::String)
             .optional(
                 "column",
                 SyntaxShape::CellPath,
@@ -66,8 +51,9 @@ impl Command for Griddle {
 
     fn extra_description(&self) -> &str {
         "The `grid` command creates a concise gridded layout for the input. It
-prints every item of the list in a grid layout. However, for table,
-you need to provide the name of the column you want to put in the grid."
+prints every item of the list in a grid layout. For tables or list
+containing records, it will look for a 'name' column by default; if
+the 'name' column is missing, the entire record is rendered instead."
     }
 
     fn run(
@@ -91,15 +77,10 @@ you need to provide the name of the column you want to put in the grid."
         let use_color: bool = color_param && config.use_ansi_coloring.get(engine_state);
         let cwd = engine_state.cwd(Some(stack))?;
 
-        let deprecation_info = DeprecationInfo {
-            engine_state,
-            span: call.head,
-        };
-
         match input {
             PipelineData::Value(Value::List { vals, .. }, ..) => {
                 // dbg!("value::list");
-                let items = convert_to_list(vals, cell_path, config, deprecation_info)?;
+                let items = convert_to_list(vals, cell_path, config)?;
                 create_grid_output(
                     items,
                     call,
@@ -113,7 +94,7 @@ you need to provide the name of the column you want to put in the grid."
             }
             PipelineData::ListStream(stream, ..) => {
                 // dbg!("value::stream");
-                let items = convert_to_list(stream, cell_path, config, deprecation_info)?;
+                let items = convert_to_list(stream, cell_path, config)?;
                 create_grid_output(
                     items,
                     call,
@@ -124,44 +105,6 @@ you need to provide the name of the column you want to put in the grid."
                     icons_param,
                     cwd.as_ref(),
                 )
-            }
-            PipelineData::Value(record @ Value::Record { .. }, ..) => {
-                // dbg!("value::record");
-
-                report_shell_warning(
-                    Some(stack),
-                    engine_state,
-                    &ShellWarning::Deprecated {
-                        dep_type: "Behavior".into(),
-                        label: "wrap the record inside a list.".into(),
-                        span: record.span(),
-                        help: Some(
-                            "Since 0.112.2, passing a record to `grid` command is deprecated. \
-                        It is expected to be removed in version 0.114.0"
-                                .into(),
-                        ),
-                        report_mode: ReportMode::FirstUse,
-                    },
-                );
-
-                let items = record
-                    .into_record()
-                    .expect("this is a record")
-                    .get(NAME_COLUMN)
-                    .map(|v| v.to_expanded_string(", ", config))
-                    .into_iter()
-                    .collect();
-
-                Ok(create_grid_output(
-                    items,
-                    call,
-                    width_param,
-                    use_color,
-                    separator_param,
-                    env_str,
-                    icons_param,
-                    cwd.as_ref(),
-                )?)
             }
             x => {
                 // dbg!("other value");
@@ -182,11 +125,6 @@ you need to provide the name of the column you want to put in the grid."
                 description: "The above example is the same as:",
                 example: "[1 2 3 a b c] | wrap name | grid name",
                 result: Some(Value::test_string("1 │ 2 │ 3 │ a │ b │ c\n")),
-            },
-            Example {
-                description: "Render a record to a grid (deprecated)",
-                example: "{name: 'foo', b: 1, c: 2} | grid",
-                result: Some(Value::test_string("foo\n")),
             },
             Example {
                 description: "Render a list of records to a grid",
@@ -298,23 +236,30 @@ fn create_grid_output(
     }
 }
 
-struct DeprecationInfo<'a> {
-    engine_state: &'a EngineState,
-    span: Span,
-}
-
+/// Converts an iterator of values into a list of expanded strings, suitable for grid layouts.
+///
+/// This function supports two evaluation paths depending on the presence of a cell path:
+///
+/// - **Explicit Path:** If a `cell_path` is specified (e.g., `ls | grid name`), it extracts the
+///   value at that inner path for every item.
+/// - **Implicit Fallback:** If no path is provided (e.g., `ls | grid`), it checks if the item is
+///   a `Value::Record`. If the record contains a `"name"` column, it extracts that value;
+///   otherwise, it falls back to processing the item as-is.
+///
+/// # Errors
+///
+/// Returns a `ShellError` if any item evaluates to a `Value::Error`, or if a provided
+/// `cell_path` fails to resolve against the data structure.
 fn convert_to_list(
     iter: impl IntoIterator<Item = Value>,
     cell_path: Option<CellPath>,
     config: &Config,
-    deprecation_info: DeprecationInfo,
 ) -> Result<Vec<String>, ShellError> {
-    let Some(cell_path) = cell_path else {
-        return convert_to_list_legacy(iter, config, deprecation_info);
-    };
+    let iter = iter.into_iter();
 
-    iter.into_iter()
-        .map(|item| {
+    if let Some(cell_path) = cell_path {
+        // Path A: Explicit cell path provided (e.g., `ls | grid name`)
+        iter.map(|item| {
             if let Value::Error { error, .. } = item {
                 return Err(*error);
             }
@@ -326,69 +271,23 @@ fn convert_to_list(
             Ok(string)
         })
         .collect()
-}
+    } else {
+        // Path B: Implicit fallback (e.g., `ls | grid`). Matches the "name" column if present.
 
-fn convert_to_list_legacy(
-    iter: impl IntoIterator<Item = Value>,
-    config: &Config,
-    deprecation_info: DeprecationInfo,
-) -> Result<Vec<String>, ShellError> {
-    let mut iter = iter.into_iter().peekable();
-
-    let Some(first) = iter.peek() else {
-        return Ok(vec![]);
-    };
-
-    let headers = first.columns().collect::<Vec<_>>();
-    let has_name_header = headers.iter().any(|&str| str == NAME_COLUMN);
-
-    if has_name_header {
-        report_shell_warning(
-            None,
-            deprecation_info.engine_state,
-            &ShellWarning::Deprecated {
-                dep_type: "Behavior".into(),
-                label: "add the name of the column you want to display (e.g. name)".into(),
-                span: deprecation_info.span,
-                help: Some("It is expected to be removed in version 0.114.0".into()),
-                report_mode: ReportMode::FirstUse,
-            },
-        );
-    }
-
-    if !headers.is_empty() && !has_name_header {
-        return Ok(vec![]);
-    }
-
-    iter.map(|item| {
-        if let Value::Error { error, .. } = item {
-            return Err(*error);
-        }
-
-        let string = if !has_name_header {
-            item.to_expanded_string(", ", config)
-        } else {
-            let result = match &item {
-                Value::Record { val, .. } => val.get(NAME_COLUMN),
-                item => Some(item),
+        iter.map(|item| {
+            let target_value = match &item {
+                Value::Record { val, .. } => val.get("name").unwrap_or(&item),
+                item => item,
             };
 
-            match result {
-                Some(value) => {
-                    if let Value::Error { error, .. } = item {
-                        return Err(*error);
-                    }
-                    value.to_expanded_string(", ", config)
-                }
-                None => String::new(),
+            match target_value {
+                Value::Error { error, .. } => Err(*error.clone()),
+                val => Ok(val.to_expanded_string(", ", config)),
             }
-        };
-
-        Ok(string)
-    })
-    .collect()
+        })
+        .collect()
+    }
 }
-
 #[cfg(test)]
 mod test {
     #[test]
