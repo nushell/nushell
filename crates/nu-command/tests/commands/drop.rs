@@ -1,3 +1,4 @@
+use nu_protocol::{ParseError, ShellError};
 use nu_test_support::prelude::*;
 
 #[test]
@@ -91,6 +92,24 @@ fn nth_missing_first_argument() -> Result {
 fn fail_on_non_iterator() -> Result {
     let err = test().run("1 | drop 50").expect_parse_error()?;
     assert!(matches!(err, ParseError::InputMismatch { .. }));
+    Ok(())
+}
+
+#[test]
+fn drop_bytes_with_filesize() -> Result {
+    let code = "(0x[aa bb cc] | drop 2b) == 0x[aa]";
+    test().run(code).expect_value_eq(true)
+}
+
+#[test]
+fn drop_filesize_list_error() -> Result {
+    let err = test()
+        .run("[1 2 3] | drop 1kb")
+        .expect_shell_error()?;
+    assert!(
+        matches!(err, ShellError::IncompatibleParametersSingle { .. }),
+        "expected IncompatibleParametersSingle, got {err:?}"
+    );
     Ok(())
 }
 
