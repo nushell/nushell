@@ -132,6 +132,32 @@ fn read_ini_with_indented_multiline_value() {
 }
 
 #[test]
+fn to_ini_roundtrips_through_from_ini() {
+    let actual = nu_with_plugins!(
+        cwd: TEST_CWD,
+        plugin: ("nu_plugin_formats"),
+        "open sample.ini | to ini | from ini | to nuon"
+    );
+
+    assert_eq!(
+        actual.out,
+        r#"{SectionOne: {key: value, integer: "1234", real: "3.14", "string1": "Case 1", "string2": "Case 2"}, SectionTwo: {key: "new value", integer: "5678", real: "3.14", "string1": "Case 1", "string2": "Case 2", "string3": "Case 3"}}"#
+    )
+}
+
+#[test]
+fn to_ini_writes_global_keys_before_sections() {
+    let actual = nu_with_plugins!(
+        cwd: TEST_CWD,
+        plugin: ("nu_plugin_formats"),
+        "{ port: 8080, server: { host: localhost } } | to ini"
+    );
+
+    // the test harness strips newlines; the raw output is "port=8080\n\n[server]\nhost=localhost\n"
+    assert_eq!(actual.out, "port=8080[server]host=localhost");
+}
+
+#[test]
 fn read_ini_with_preserve_key_leading_whitespace() {
     Playground::setup("from ini with key whitespace", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
