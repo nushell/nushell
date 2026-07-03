@@ -94,10 +94,12 @@ impl Command for Last {
                 let span = v.span();
                 match v {
                     Value::Int { val, .. } => Some(
-                        usize::try_from(val).map_err(|_| ShellError::NeedsPositiveValue { span })?,
+                        usize::try_from(val)
+                            .map_err(|_| ShellError::NeedsPositiveValue { span })?,
                     ),
                     Value::Filesize { val, .. } => Some(
-                        usize::try_from(val).map_err(|_| ShellError::NeedsPositiveValue { span })?,
+                        usize::try_from(val)
+                            .map_err(|_| ShellError::NeedsPositiveValue { span })?,
                     ),
                     ref val => {
                         return Err(ShellError::RuntimeTypeMismatch {

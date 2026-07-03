@@ -44,9 +44,7 @@ fn skips_bytes_with_filesize() -> Result {
 
 #[test]
 fn skip_filesize_list_error() -> Result {
-    let err = test()
-        .run("[1 2 3] | skip 1kb")
-        .expect_shell_error()?;
+    let err = test().run("[1 2 3] | skip 1kb").expect_shell_error()?;
     assert!(
         matches!(err, ShellError::IncompatibleParametersSingle { .. }),
         "expected IncompatibleParametersSingle, got {err:?}"

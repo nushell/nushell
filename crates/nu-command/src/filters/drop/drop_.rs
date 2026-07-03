@@ -94,27 +94,26 @@ impl Command for Drop {
             .as_ref()
             .is_some_and(|v| matches!(v, Value::Filesize { .. }));
 
-        let rows: usize = match rows_val {
-            Some(v) => {
-                let span = v.span();
-                match v {
-                    Value::Int { val, .. } => {
-                        usize::try_from(val).map_err(|_| ShellError::NeedsPositiveValue { span })?
-                    }
-                    Value::Filesize { val, .. } => {
-                        usize::try_from(val).map_err(|_| ShellError::NeedsPositiveValue { span })?
-                    }
-                    ref val => {
-                        return Err(ShellError::RuntimeTypeMismatch {
-                            expected: Type::custom("int or filesize"),
-                            actual: val.get_type(),
-                            span: val.span(),
-                        });
+        let rows: usize =
+            match rows_val {
+                Some(v) => {
+                    let span = v.span();
+                    match v {
+                        Value::Int { val, .. } => usize::try_from(val)
+                            .map_err(|_| ShellError::NeedsPositiveValue { span })?,
+                        Value::Filesize { val, .. } => usize::try_from(val)
+                            .map_err(|_| ShellError::NeedsPositiveValue { span })?,
+                        ref val => {
+                            return Err(ShellError::RuntimeTypeMismatch {
+                                expected: Type::custom("int or filesize"),
+                                actual: val.get_type(),
+                                span: val.span(),
+                            });
+                        }
                     }
                 }
-            }
-            None => 1,
-        };
+                None => 1,
+            };
 
         if is_filesize {
             let is_binary = matches!(
@@ -133,15 +132,13 @@ impl Command for Drop {
             PipelineData::Value(Value::Binary { val, .. }, ..) => {
                 let len = val.len();
                 let take = len.saturating_sub(rows);
-                Ok(Value::binary(&val[..take], head)
-                    .into_pipeline_data_with_metadata(metadata))
+                Ok(Value::binary(&val[..take], head).into_pipeline_data_with_metadata(metadata))
             }
             PipelineData::ByteStream(stream, ..) => {
                 let bytes = stream.into_bytes()?;
                 let len = bytes.len();
                 let take = len.saturating_sub(rows);
-                Ok(Value::binary(&bytes[..take], head)
-                    .into_pipeline_data_with_metadata(metadata))
+                Ok(Value::binary(&bytes[..take], head).into_pipeline_data_with_metadata(metadata))
             }
             _ => {
                 let mut values = input.into_iter_strict(head)?.collect::<Vec<_>>();

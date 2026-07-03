@@ -183,9 +183,7 @@ fn first_bytes_with_filesize() -> Result {
 
 #[test]
 fn first_filesize_list_error() -> Result {
-    let err = test()
-        .run("[1 2 3] | first 1kb")
-        .expect_shell_error()?;
+    let err = test().run("[1 2 3] | first 1kb").expect_shell_error()?;
     assert!(
         matches!(err, ShellError::IncompatibleParametersSingle { .. }),
         "expected IncompatibleParametersSingle, got {err:?}"

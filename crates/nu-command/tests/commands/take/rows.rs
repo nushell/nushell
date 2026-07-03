@@ -80,9 +80,7 @@ fn takes_bytes_with_filesize() -> Result {
 
 #[test]
 fn take_filesize_list_error() -> Result {
-    let err = test()
-        .run("[1 2 3] | take 1kb")
-        .expect_shell_error()?;
+    let err = test().run("[1 2 3] | take 1kb").expect_shell_error()?;
     assert!(
         matches!(err, ShellError::IncompatibleParametersSingle { .. }),
         "expected IncompatibleParametersSingle, got {err:?}"

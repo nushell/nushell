@@ -78,33 +78,30 @@ impl Command for Skip {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let n_val: Option<Value> = call.opt(engine_state, stack, 0)?;
-        let is_filesize = n_val.as_ref().is_some_and(|v| matches!(v, Value::Filesize { .. }));
+        let is_filesize = n_val
+            .as_ref()
+            .is_some_and(|v| matches!(v, Value::Filesize { .. }));
 
-        let n: usize = match n_val {
-            Some(v) => {
-                let span = v.span();
-                match v {
-                    Value::Int { val, .. } => {
-                        usize::try_from(val).map_err(|_| ShellError::NeedsPositiveValue {
-                            span,
-                        })?
-                    }
-                    Value::Filesize { val, .. } => {
-                        usize::try_from(val).map_err(|_| ShellError::NeedsPositiveValue {
-                            span,
-                        })?
-                    }
-                    ref val => {
-                        return Err(ShellError::RuntimeTypeMismatch {
-                            expected: Type::custom("int or filesize"),
-                            actual: val.get_type(),
-                            span: val.span(),
-                        });
+        let n: usize =
+            match n_val {
+                Some(v) => {
+                    let span = v.span();
+                    match v {
+                        Value::Int { val, .. } => usize::try_from(val)
+                            .map_err(|_| ShellError::NeedsPositiveValue { span })?,
+                        Value::Filesize { val, .. } => usize::try_from(val)
+                            .map_err(|_| ShellError::NeedsPositiveValue { span })?,
+                        ref val => {
+                            return Err(ShellError::RuntimeTypeMismatch {
+                                expected: Type::custom("int or filesize"),
+                                actual: val.get_type(),
+                                span: val.span(),
+                            });
+                        }
                     }
                 }
-            }
-            None => 1,
-        };
+                None => 1,
+            };
 
         if is_filesize {
             let is_binary = matches!(

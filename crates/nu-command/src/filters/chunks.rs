@@ -149,15 +149,13 @@ pub fn chunks(
     match input {
         PipelineData::Value(Value::List { .. }, _) if is_filesize => {
             Err(ShellError::IncompatibleParametersSingle {
-                msg: "Filesize as chunk size is only supported for binary/byte stream input"
-                    .into(),
+                msg: "Filesize as chunk size is only supported for binary/byte stream input".into(),
                 span,
             })
         }
         PipelineData::ListStream(_, _) if is_filesize => {
             Err(ShellError::IncompatibleParametersSingle {
-                msg: "Filesize as chunk size is only supported for binary/byte stream input"
-                    .into(),
+                msg: "Filesize as chunk size is only supported for binary/byte stream input".into(),
                 span,
             })
         }

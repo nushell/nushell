@@ -47,16 +47,10 @@ impl Command for Take {
         let n_val: Value = call.req(engine_state, stack, 0)?;
         let is_filesize = matches!(n_val, Value::Filesize { .. });
         let rows_desired: usize = match n_val {
-            Value::Int { val, .. } => {
-                usize::try_from(val).map_err(|_| ShellError::NeedsPositiveValue {
-                    span: n_val.span(),
-                })?
-            }
-            Value::Filesize { val, .. } => {
-                usize::try_from(val).map_err(|_| ShellError::NeedsPositiveValue {
-                    span: n_val.span(),
-                })?
-            }
+            Value::Int { val, .. } => usize::try_from(val)
+                .map_err(|_| ShellError::NeedsPositiveValue { span: n_val.span() })?,
+            Value::Filesize { val, .. } => usize::try_from(val)
+                .map_err(|_| ShellError::NeedsPositiveValue { span: n_val.span() })?,
             ref val => Err(ShellError::RuntimeTypeMismatch {
                 expected: Type::custom("int or filesize"),
                 actual: val.get_type(),
@@ -188,8 +182,7 @@ impl Command for Take {
                 ])),
             },
             Example {
-                description:
-                    "Return the first 3 bytes of a binary value, using a filesize argument.",
+                description: "Return the first 3 bytes of a binary value, using a filesize argument.",
                 example: "0x[01 23 45] | take 3b",
                 result: Some(Value::test_binary(vec![0x01, 0x23, 0x45])),
             },
