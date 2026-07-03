@@ -132,7 +132,9 @@ impl Command for Chunks {
             call_span: head,
         })?;
 
-        chunks(engine_state, input, size, head)
+        let is_filesize = matches!(chunk_size, Value::Filesize { .. });
+
+        chunks(engine_state, input, size, head, is_filesize)
     }
 }
 
@@ -141,9 +143,24 @@ pub fn chunks(
     input: PipelineData,
     chunk_size: NonZeroUsize,
     span: Span,
+    is_filesize: bool,
 ) -> Result<PipelineData, ShellError> {
     let from_io_error = IoError::factory(span, None);
     match input {
+        PipelineData::Value(Value::List { .. }, _) if is_filesize => {
+            Err(ShellError::IncompatibleParametersSingle {
+                msg: "Filesize as chunk size is only supported for binary/byte stream input"
+                    .into(),
+                span,
+            })
+        }
+        PipelineData::ListStream(_, _) if is_filesize => {
+            Err(ShellError::IncompatibleParametersSingle {
+                msg: "Filesize as chunk size is only supported for binary/byte stream input"
+                    .into(),
+                span,
+            })
+        }
         PipelineData::Value(Value::List { vals, .. }, metadata) => {
             let chunks = ChunksIter::new(vals, chunk_size, span);
             let stream = ListStream::new(chunks, span, engine_state.signals().clone());
