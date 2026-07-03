@@ -1,4 +1,5 @@
 use std::{
+    collections::HashSet,
     num::NonZeroUsize,
     ops::Deref,
     process::ExitCode,
@@ -6,16 +7,16 @@ use std::{
 };
 
 use crate::{
-    self as nu_test_support,
-    harness::{
-        args::{Args, Format},
-        group::{GroupRunner, Grouper},
-        test::TestRunner,
+    self as nu_test_support, harness::{
+        args::{Args, Format}, deps::Dependency, group::{GroupRunner, Grouper}, test::TestRunner,
     },
 };
 
 use kitest::{
-    filter::{DefaultFilter, TestFilter}, formatter::{pretty::PrettyFormatter, terse::TerseFormatter}, group::TestGroupBTreeMap, ignore::DefaultIgnore,
+    filter::{DefaultFilter, TestFilter},
+    formatter::{pretty::PrettyFormatter, terse::TerseFormatter},
+    group::TestGroupBTreeMap,
+    ignore::DefaultIgnore,
 };
 use nu_ansi_term::Color;
 
@@ -85,7 +86,15 @@ pub fn main() -> ExitCode {
         .with_skip(args.skip)
         .with_only_ignored(args.ignored);
 
-    filter.filter(TESTS.deref()).tests.for_each(|test| {dbg!(&test.meta);});
+    let dependencies: HashSet<&Dependency> = filter
+        .filter(TESTS.deref())
+        .tests
+        .map(|test| test.meta.extra.dependencies)
+        .flatten()
+        .map(|dependency| *dependency)
+        .collect();
+
+    dbg!(dependencies);
 
     let ignore = match args.include_ignored {
         false => DefaultIgnore::Default,
