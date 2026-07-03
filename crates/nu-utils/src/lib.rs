@@ -2,6 +2,7 @@
 mod casing;
 pub mod consts;
 pub mod container;
+pub mod const_str;
 mod deansi;
 mod downcast;
 pub mod emoji;
