@@ -47,6 +47,7 @@ static INITIAL_ENGINE_STATES: KeyedLazyLock<GroupKey, EngineState> = KeyedLazyLo
     [
         ("PWD", Value::test_string(ROOT.to_string_lossy())),
         ("config", Config::default().into_value(Span::unknown())),
+        ("NO_COLOR", Value::test_bool(true)),
     ]
     .into_iter()
     .for_each(|(key, val)| engine_state.add_env_var(key.into(), val));
