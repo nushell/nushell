@@ -1,8 +1,9 @@
-use std::io::Cursor;
+use std::{io::Cursor, str::FromStr};
 
 use calamine::*;
 use chrono::{
-    Local, NaiveDateTime, Offset as _, TimeDelta, TimeZone as _, Utc, offset::LocalResult,
+    DateTime, FixedOffset, Local, NaiveDate, NaiveDateTime, Offset as _, TimeDelta, TimeZone as _,
+    Utc, offset::LocalResult,
 };
 
 use nu_engine::command_prelude::*;
@@ -151,7 +152,7 @@ pub(super) fn from_sheets(
     Ok(output.into_value(head).into_pipeline_data())
 }
 
-fn cell_to_data(cell: &Data, head: Span, tz: chrono::FixedOffset, prefer_integers: bool) -> Value {
+fn cell_to_data(cell: &Data, head: Span, tz: FixedOffset, prefer_integers: bool) -> Value {
     match cell {
         Data::Empty => Value::nothing(head),
         Data::Int(val) => Value::int(*val, head),
@@ -166,29 +167,36 @@ fn cell_to_data(cell: &Data, head: Span, tz: chrono::FixedOffset, prefer_integer
         Data::String(val) => Value::string(val, head),
         Data::Bool(val) => Value::bool(*val, head),
         Data::DateTime(d) => excel_datetime_to_value(d, tz, head),
-        d @ Data::DateTimeIso(_) => d
-            .as_datetime()
-            .map(|naive_datetime| datetime_naive_to_fixed(naive_datetime, tz, head))
-            .unwrap_or(Value::nothing(head)),
-        d @ Data::DurationIso(_) => d
+        Data::DateTimeIso(datetime_str) => parse_iso_datetime(datetime_str, tz)
+            .map(|d| d.into_value(head))
+            .unwrap_or_else(|| datetime_str.as_str().into_value(head)),
+        d @ Data::DurationIso(duration_str) => d
             .as_duration()
             .map(|time_delta| timedelta_to_value(time_delta, head))
-            .unwrap_or(Value::nothing(head)),
+            .unwrap_or(Value::string(duration_str, head)),
 
         // Not great.
         Data::Error(_) => Value::nothing(head),
     }
 }
 
+fn parse_iso_datetime(datetime_str: &str, tz: FixedOffset) -> Option<DateTime<FixedOffset>> {
+    let dt = match datetime_str {
+        s if let Ok(dt) = DateTime::from_str(s) => return Some(dt),
+        s if let Ok(dt) = NaiveDateTime::from_str(s) => dt,
+        s if let Ok(dt) = NaiveDate::from_str(s) => NaiveDateTime::from(dt),
+        _ => return None,
+    };
+    datetime_naive_to_fixed(dt, tz)
+}
+
 fn datetime_naive_to_fixed(
     naive_datetime: NaiveDateTime,
-    tz: chrono::FixedOffset,
-    span: Span,
-) -> Value {
+    tz: FixedOffset,
+) -> Option<DateTime<FixedOffset>> {
     match tz.from_local_datetime(&naive_datetime) {
-        LocalResult::Single(d) => d.into_value(span),
-        LocalResult::Ambiguous(_, d) => d.into_value(span),
-        _ => Value::nothing(span),
+        LocalResult::Single(d) | LocalResult::Ambiguous(_, d) => Some(d),
+        _ => None,
     }
 }
 
@@ -199,16 +207,19 @@ fn timedelta_to_value(time_delta: TimeDelta, span: Span) -> Value {
         .unwrap_or(Value::nothing(span))
 }
 
-fn excel_datetime_to_value(
-    excel_datetime: &ExcelDateTime,
-    tz: chrono::FixedOffset,
-    span: Span,
-) -> Value {
-    match excel_datetime {
-        d if let Some(naive_datetime) = d.as_datetime() => {
-            datetime_naive_to_fixed(naive_datetime, tz, span)
-        }
-        d if let Some(time_delta) = d.as_duration() => timedelta_to_value(time_delta, span),
-        _ => Value::nothing(span),
+fn excel_datetime_to_value(excel_datetime: &ExcelDateTime, tz: FixedOffset, span: Span) -> Value {
+    // `.is_x()` followed by `.as_x()` is weird, but calamine tries its best to return what you ask
+    // for with the `.as_x()` methods even when the result is not the most correct
+    if excel_datetime.is_datetime()
+        && let Some(naive_datetime) = excel_datetime.as_datetime()
+    {
+        datetime_naive_to_fixed(naive_datetime, tz).into_value(span)
+    } else if excel_datetime.is_duration()
+        && let Some(time_delta) = excel_datetime.as_duration()
+    {
+        timedelta_to_value(time_delta, span)
+    } else {
+        // not great, but better than just returning `null`
+        excel_datetime.as_f64().into_value(span)
     }
 }
