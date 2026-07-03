@@ -3,9 +3,9 @@ use crate::FormatCmdsPlugin;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand, SimplePluginCommand};
 use nu_protocol::{Category, Example, LabeledError, Signature, Type, Value};
 
-pub(crate) struct IntoIni;
+pub(crate) struct ToIni;
 
-impl SimplePluginCommand for IntoIni {
+impl SimplePluginCommand for ToIni {
     type Plugin = FormatCmdsPlugin;
 
     fn name(&self) -> &str {
@@ -26,7 +26,7 @@ impl SimplePluginCommand for IntoIni {
         vec![
             Example {
                 example: "{ foo: { a: '1', b: '2' } } | to ini",
-                description: "Convert a record of sections into ini text",
+                description: "Convert a record of sections to ini text",
                 result: Some(Value::test_string("[foo]\na=1\nb=2\n")),
             },
             Example {
@@ -112,5 +112,5 @@ fn property_text(key: &str, value: &Value) -> Result<String, LabeledError> {
 fn test_examples() -> Result<(), nu_protocol::ShellError> {
     use nu_plugin_test_support::PluginTest;
 
-    PluginTest::new("formats", crate::FormatCmdsPlugin.into())?.test_command_examples(&IntoIni)
+    PluginTest::new("formats", crate::FormatCmdsPlugin.into())?.test_command_examples(&ToIni)
 }
