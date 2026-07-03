@@ -579,6 +579,7 @@ pub mod prelude {
     pub use super::{
         Outcome,
         assertions::*,
+        harness::deps::*,
         nu,
         playground::Playground,
         tester::{Result, ShellErrorExt, TestError as Error, TestResultExt, test},

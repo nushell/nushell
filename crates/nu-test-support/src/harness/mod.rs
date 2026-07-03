@@ -15,10 +15,7 @@ use crate::{
 };
 
 use kitest::{
-    filter::DefaultFilter,
-    formatter::{pretty::PrettyFormatter, terse::TerseFormatter},
-    group::TestGroupBTreeMap,
-    ignore::DefaultIgnore,
+    filter::{DefaultFilter, TestFilter}, formatter::{pretty::PrettyFormatter, terse::TerseFormatter}, group::TestGroupBTreeMap, ignore::DefaultIgnore,
 };
 use nu_ansi_term::Color;
 
@@ -33,6 +30,8 @@ pub(crate) mod group;
 pub(crate) mod test;
 
 pub use test::{Extra, IntoTestResult};
+
+pub mod deps;
 
 pub mod macros {
     pub use kitest::{dbg, eprint, eprintln, print, println};
@@ -85,6 +84,8 @@ pub fn main() -> ExitCode {
         .with_filter(args.filter)
         .with_skip(args.skip)
         .with_only_ignored(args.ignored);
+
+    filter.filter(TESTS.deref()).tests.for_each(|test| {dbg!(&test.meta);});
 
     let ignore = match args.include_ignored {
         false => DefaultIgnore::Default,

@@ -49,6 +49,7 @@ lexopt = { workspace = true }
 linkme = { workspace = true }
 nu-ansi-term = { workspace = true }
 num-format = { workspace = true }
+pastey = { workspace = true }
 serde_json = { workspace = true }
 tempfile = { workspace = true }
 thiserror = { workspace = true }
