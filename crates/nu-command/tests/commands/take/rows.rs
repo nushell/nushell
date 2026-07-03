@@ -71,3 +71,21 @@ fn takes_bytes_and_drops_content_type() -> Result {
     assert!(content_type.is_none());
     Ok(())
 }
+
+#[test]
+fn takes_bytes_with_filesize() -> Result {
+    let code = "(0x[aa bb cc] | take 2b) == 0x[aa bb]";
+    test().run(code).expect_value_eq(true)
+}
+
+#[test]
+fn take_filesize_list_error() -> Result {
+    let err = test()
+        .run("[1 2 3] | take 1kb")
+        .expect_shell_error()?;
+    assert!(
+        matches!(err, ShellError::IncompatibleParametersSingle { .. }),
+        "expected IncompatibleParametersSingle, got {err:?}"
+    );
+    Ok(())
+}

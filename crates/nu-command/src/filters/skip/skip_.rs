@@ -20,12 +20,16 @@ impl Command for Skip {
                     Type::List(Box::new(Type::Any)),
                 ),
             ])
-            .optional("n", SyntaxShape::Int, "The number of elements to skip.")
+            .optional(
+                "n",
+                SyntaxShape::OneOf(vec![SyntaxShape::Int, SyntaxShape::Filesize]),
+                "The number of elements to skip.",
+            )
             .category(Category::Filters)
     }
 
     fn description(&self) -> &str {
-        "Skip the first several rows of the input. Counterpart of `drop`. Opposite of `first`."
+        "Skip the first several rows of the input. Counterpart of `drop`. Opposite of `first`. For binary input, n can also be specified as a filesize."
     }
 
     fn extra_description(&self) -> &str {
@@ -59,6 +63,11 @@ impl Command for Skip {
                 example: "0x[01 23 45 67] | skip 2",
                 result: Some(Value::test_binary(vec![0x45, 0x67])),
             },
+            Example {
+                description: "Skip 2 bytes of a binary value, using a filesize argument.",
+                example: "0x[01 23 45 67] | skip 2b",
+                result: Some(Value::test_binary(vec![0x45, 0x67])),
+            },
         ]
     }
     fn run(
@@ -68,28 +77,47 @@ impl Command for Skip {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let n: Option<Value> = call.opt(engine_state, stack, 0)?;
+        let n_val: Option<Value> = call.opt(engine_state, stack, 0)?;
+        let is_filesize = n_val.as_ref().is_some_and(|v| matches!(v, Value::Filesize { .. }));
 
-        let n: usize = match n {
+        let n: usize = match n_val {
             Some(v) => {
                 let span = v.span();
                 match v {
                     Value::Int { val, .. } => {
-                        val.try_into().map_err(|err| ShellError::TypeMismatch {
-                            err_message: format!("Could not convert {val} to unsigned int: {err}"),
+                        usize::try_from(val).map_err(|_| ShellError::NeedsPositiveValue {
                             span,
                         })?
                     }
-                    _ => {
-                        return Err(ShellError::TypeMismatch {
-                            err_message: "expected int".into(),
+                    Value::Filesize { val, .. } => {
+                        usize::try_from(val).map_err(|_| ShellError::NeedsPositiveValue {
                             span,
+                        })?
+                    }
+                    ref val => {
+                        return Err(ShellError::RuntimeTypeMismatch {
+                            expected: Type::custom("int or filesize"),
+                            actual: val.get_type(),
+                            span: val.span(),
                         });
                     }
                 }
             }
             None => 1,
         };
+
+        if is_filesize {
+            let is_binary = matches!(
+                &input,
+                PipelineData::Value(Value::Binary { .. }, _) | PipelineData::ByteStream(..)
+            );
+            if !is_binary {
+                return Err(ShellError::IncompatibleParametersSingle {
+                    msg: "Filesize is only supported for binary/byte stream input".into(),
+                    span: input.span().unwrap_or(call.head),
+                });
+            }
+        }
 
         let input_span = input.span().unwrap_or(call.head);
 
