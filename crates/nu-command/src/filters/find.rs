@@ -263,17 +263,20 @@ impl Command for Find {
 
         let multiline = call.has_flag(engine_state, stack, "multiline")?;
 
+        let dotall = call.has_flag(engine_state, stack, "dotall")?;
+
         let columns_to_search: Vec<_> = call
             .get_flag(engine_state, stack, "columns")?
             .unwrap_or_default();
 
-        let input = if multiline {
+        let input = if multiline || dotall {
             if let PipelineData::ByteStream(..) = input {
                 // ByteStream inputs are processed by iterating over the lines, which necessarily
                 // breaks the multi-line text being streamed into a list of lines.
+                let flag = if dotall { "dotall" } else { "multiline" };
                 return Err(ShellError::IncompatibleParametersSingle {
-                    msg: "Flag `--multiline` currently doesn't work for byte stream inputs. Consider using `collect`".into(),
-                    span: call.get_flag_span(stack, "multiline").expect("has flag"),
+                    msg: format!("Flag `--{flag}` currently doesn't work for byte stream inputs. Consider using `collect`"),
+                    span: call.get_flag_span(stack, flag).expect("has flag"),
                 });
             };
             input

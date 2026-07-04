@@ -303,6 +303,22 @@ fn find_in_nested_list_dont_match_bracket() {
 }
 
 #[test]
+fn find_with_dotall_regex_matches_across_lines() {
+    let actual = nu!(
+        r#""One\nTwo" | find --no-highlight --dotall --regex "One.*Two" | length"#
+    );
+    assert_eq!(actual.out, "1");
+}
+
+#[test]
+fn find_with_regex_no_match_across_lines_without_dotall() {
+    let actual = nu!(
+        r#""One\nTwo" | find --no-highlight --regex "One.*Two" | length"#
+    );
+    assert_eq!(actual.out, "0");
+}
+
+#[test]
 fn find_and_highlight_in_nested_list() {
     let actual = nu!(r#"[ [foo bar] [foo baz] ] | find "foo" | to json -r"#);
 
