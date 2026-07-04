@@ -7,8 +7,12 @@ use std::{
 };
 
 use crate::{
-    self as nu_test_support, harness::{
-        args::{Args, Format}, deps::Dependency, group::{GroupRunner, Grouper}, test::TestRunner,
+    self as nu_test_support,
+    harness::{
+        args::{Args, Format},
+        deps::Dependency,
+        group::{GroupRunner, Grouper},
+        test::TestRunner,
     },
 };
 
@@ -94,7 +98,29 @@ pub fn main() -> ExitCode {
         .map(|dependency| *dependency)
         .collect();
 
-    dbg!(dependencies);
+    if !args.list {
+        for dependency in dependencies {
+            let mut child = match dependency.build_command().spawn() {
+                Ok(child) => child,
+                Err(err) => {
+                    eprintln!("{}: {err}", Color::Red.bold().paint("error"));
+                    eprintln!();
+                    return ExitCode::FAILURE;
+                }
+            };
+
+            let exit_status = child.wait().expect("command wasn't running");
+            if !exit_status.success() {
+                eprintln!(
+                    "{}: compilation of dependency `{}` failed",
+                    Color::Red.bold().paint("error"),
+                    dependency.bin_name
+                );
+                eprintln!();
+                return ExitCode::FAILURE;
+            }
+        }
+    }
 
     let ignore = match args.include_ignored {
         false => DefaultIgnore::Default,

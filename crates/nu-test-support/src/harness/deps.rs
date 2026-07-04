@@ -6,18 +6,18 @@ use std::{
 #[derive(derive_more::Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Dependency<'a> {
     /// Name of the binary without extension.
-    bin_name: Cow<'a, str>,
+    pub bin_name: Cow<'a, str>,
 
     /// Args to build the binary.
-    /// 
+    ///
     /// Do not include `cargo build` for example.
     #[debug("{:?}", format!("cargo build {build_args}"))]
     build_args: Cow<'a, str>,
 
     /// Whether the binary is a plugin.
-    /// 
+    ///
     /// Plugins get automatically loaded.
-    is_plugin: bool,
+    pub is_plugin: bool,
 }
 
 macro_rules! dependency {
@@ -59,9 +59,38 @@ impl Dependency<'static> {
         let mut command = Command::new("cargo");
         command
             .arg("build")
+            // .arg("-vv")
             .args(self.build_args.split(" "))
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit());
+
+        // ensure that cargo is called cleanly to avoid unnecessary rebuilds
+        for (key, _) in std::env::vars() {
+            #[rustfmt::skip]
+            match key.as_ref() {
+                "CARGO"
+                | "CARGO_MANIFEST_DIR"
+                | "CARGO_MANIFEST_PATH"
+                | "CARGO_MANIFEST_LINKS"
+                | "CARGO_CRATE_NAME"
+                | "CARGO_BIN_NAME"
+                | "OUT_DIR"
+                | "PROFILE"
+                | "OPT_LEVEL"
+                | "DEBUG"
+                | "HOST"
+                | "TARGET" => command.env_remove(key),
+
+                key if key.starts_with("CARGO_PKG_")
+                    || key.starts_with("CARGO_CFG_")
+                    || key.starts_with("CARGO_FEATURE_")
+                    || key.starts_with("CARGO_BIN_EXE_")
+                    || key.starts_with("DEP_") => command.env_remove(key),
+
+                _ => &mut command,
+            };
+        }
+
         command
     }
 }
