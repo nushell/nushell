@@ -1113,7 +1113,7 @@ fn let_variable_record_runtime_mismatch() -> TestResult {
     assert!(
         outcome
             .err
-            .contains("can't convert record<a: int> to record<b: int>")
+            .contains("expected record<b: int>, got record<a: int>")
     );
     Ok(())
 }
