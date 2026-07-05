@@ -2,10 +2,11 @@ use nu_engine::{command_prelude::*, env};
 use nu_protocol::PipelineMetadata;
 use nu_protocol::engine::CommandType;
 use std::collections::HashSet;
+use std::ffi::{OsStr, OsString};
 use std::fs;
-use std::{ffi::OsStr, path::Path};
-use which::sys;
-use which::sys::Sys;
+use std::path::{Path, PathBuf};
+use which::WhichConfig;
+use which::sys::{RealSys, Sys};
 
 #[derive(Clone)]
 pub struct Which;
@@ -146,25 +147,110 @@ fn get_entry_in_commands(engine_state: &EngineState, name: &str, span: Span) -> 
     Some(entry(name, "", decl.command_type(), definition, file, span))
 }
 
+/// Reads `$env.PATHEXT` from the shell environment as an `OsString`, mirroring
+/// how `PATH` is read for lookups. The lookup is case-insensitive, matching the
+/// usual `PATHEXT` casing on Windows. When the shell environment has no
+/// `PATHEXT` entry we fall back to the process `PATHEXT` so the default behavior
+/// is unchanged; the shell value only takes over once it is actually set (for
+/// example via `with-env`). Returns `None` when unset everywhere, which is the
+/// normal case on non-Windows systems.
+fn env_path_ext(engine_state: &EngineState, stack: &Stack) -> Option<OsString> {
+    stack
+        .get_env_var(engine_state, "pathext")
+        .and_then(|value| env::env_to_string("PATHEXT", value, engine_state, stack).ok())
+        .map(OsString::from)
+        .or_else(|| std::env::var_os("PATHEXT"))
+}
+
+/// A [`which::sys::Sys`] that behaves like the real system in every respect
+/// except that `PATHEXT` is sourced from nushell's environment (`$env.PATHEXT`)
+/// instead of the process environment. This lets `which` honor in-shell changes
+/// to `PATHEXT` (for example via `with-env`), the same way it already honors
+/// in-shell changes to `PATH` (which is passed in explicitly).
+#[derive(Clone)]
+struct NuWhichSys {
+    path_ext: Option<OsString>,
+}
+
+impl Sys for NuWhichSys {
+    type ReadDirEntry = std::fs::DirEntry;
+    type Metadata = std::fs::Metadata;
+
+    fn is_windows(&self) -> bool {
+        RealSys.is_windows()
+    }
+
+    fn current_dir(&self) -> std::io::Result<PathBuf> {
+        RealSys.current_dir()
+    }
+
+    fn home_dir(&self) -> Option<PathBuf> {
+        RealSys.home_dir()
+    }
+
+    fn env_split_paths(&self, paths: &OsStr) -> Vec<PathBuf> {
+        RealSys.env_split_paths(paths)
+    }
+
+    fn env_path(&self) -> Option<OsString> {
+        RealSys.env_path()
+    }
+
+    fn env_path_ext(&self) -> Option<OsString> {
+        self.path_ext.clone()
+    }
+
+    // `env_windows_path_ext` is deliberately left as the trait default, which
+    // re-parses `self.env_path_ext()` on every call. `RealSys` overrides it to
+    // cache the process `PATHEXT` in a process-wide `OnceLock`, which would
+    // ignore `$env.PATHEXT`; the default keeps our value authoritative.
+
+    fn metadata(&self, path: &Path) -> std::io::Result<Self::Metadata> {
+        RealSys.metadata(path)
+    }
+
+    fn symlink_metadata(&self, path: &Path) -> std::io::Result<Self::Metadata> {
+        RealSys.symlink_metadata(path)
+    }
+
+    fn read_dir(
+        &self,
+        path: &Path,
+    ) -> std::io::Result<Box<dyn Iterator<Item = std::io::Result<Self::ReadDirEntry>>>> {
+        RealSys.read_dir(path)
+    }
+
+    fn is_valid_executable(&self, path: &Path) -> std::io::Result<bool> {
+        RealSys.is_valid_executable(path)
+    }
+}
+
 fn get_first_entry_in_path(
     item: &str,
     span: Span,
     cwd: impl AsRef<Path>,
     paths: impl AsRef<OsStr>,
+    path_ext: &Option<OsString>,
 ) -> Option<Value> {
-    which::which_in(item, Some(paths), cwd)
-        .map(|path| {
-            let full_path = path.to_string_lossy().to_string();
-            entry(
-                item,
-                full_path.clone(),
-                CommandType::External,
-                None,
-                Some(full_path),
-                span,
-            )
-        })
-        .ok()
+    WhichConfig::new_with_sys(NuWhichSys {
+        path_ext: path_ext.clone(),
+    })
+    .binary_name(item.into())
+    .custom_cwd(cwd.as_ref().to_path_buf())
+    .custom_path_list(paths.as_ref().to_os_string())
+    .first_result()
+    .map(|path| {
+        let full_path = path.to_string_lossy().to_string();
+        entry(
+            item,
+            full_path.clone(),
+            CommandType::External,
+            None,
+            Some(full_path),
+            span,
+        )
+    })
+    .ok()
 }
 
 fn get_all_entries_in_path(
@@ -172,35 +258,43 @@ fn get_all_entries_in_path(
     span: Span,
     cwd: impl AsRef<Path>,
     paths: impl AsRef<OsStr>,
+    path_ext: &Option<OsString>,
 ) -> Vec<Value> {
-    // `which_in_all` canonicalizes every result path. On systems where PATH
-    // contains both a real directory and a symlink pointing to the same place
-    // (e.g. `/usr/bin` and `/bin -> /usr/bin` on WSL/Debian), the same
-    // canonical path would appear multiple times. The HashSet deduplicates
-    // those before we build the output rows.
+    // The results may contain the same canonical path more than once. On systems
+    // where PATH contains both a real directory and a symlink pointing to the same
+    // place (e.g. `/usr/bin` and `/bin -> /usr/bin` on WSL/Debian), the same path
+    // would appear multiple times. The HashSet deduplicates those before we build
+    // the output rows.
     let mut seen = HashSet::new();
-    which::which_in_all(item, Some(paths), cwd)
-        .map(|iter| {
-            iter.filter(|path| seen.insert(path.clone()))
-                .map(|path| {
-                    let full_path = path.to_string_lossy().to_string();
-                    entry(
-                        item,
-                        full_path.clone(),
-                        CommandType::External,
-                        None,
-                        Some(full_path),
-                        span,
-                    )
-                })
-                .collect()
-        })
-        .unwrap_or_default()
+    WhichConfig::new_with_sys(NuWhichSys {
+        path_ext: path_ext.clone(),
+    })
+    .binary_name(item.into())
+    .custom_cwd(cwd.as_ref().to_path_buf())
+    .custom_path_list(paths.as_ref().to_os_string())
+    .all_results()
+    .map(|iter| {
+        iter.filter(|path| seen.insert(path.clone()))
+            .map(|path| {
+                let full_path = path.to_string_lossy().to_string();
+                entry(
+                    item,
+                    full_path.clone(),
+                    CommandType::External,
+                    None,
+                    Some(full_path),
+                    span,
+                )
+            })
+            .collect()
+    })
+    .unwrap_or_default()
 }
 
 fn list_all_executables(
     engine_state: &EngineState,
     paths: impl AsRef<OsStr>,
+    path_ext: &Option<OsString>,
     all: bool,
     span: Span,
 ) -> Vec<Value> {
@@ -234,14 +328,14 @@ fn list_all_executables(
     }
 
     // Add PATH executables
-    let path_iter = sys::RealSys
+    let path_iter = RealSys
         .env_split_paths(paths.as_ref())
         .into_iter()
         .filter_map(|dir| fs::read_dir(dir).ok())
         .flat_map(|entries| entries.flatten())
         .map(|entry| entry.path())
         .filter_map(|path| {
-            if !path.is_executable() {
+            if !path.is_executable(path_ext.as_deref()) {
                 return None;
             }
             let filename = path.file_name()?.to_string_lossy().to_string();
@@ -277,6 +371,7 @@ fn which_single(
     engine_state: &EngineState,
     cwd: impl AsRef<Path>,
     paths: impl AsRef<OsStr>,
+    path_ext: &Option<OsString>,
 ) -> Vec<Value> {
     let cwd = cwd.as_ref();
     let paths = paths.as_ref();
@@ -289,7 +384,7 @@ fn which_single(
     // If prog_name is an external command, don't search for nu-specific programs.
     // If all is false, we can save some time by only searching for the first match.
     match (all, external) {
-        (true, true) => get_all_entries_in_path(&prog_name, application.span, cwd, paths),
+        (true, true) => get_all_entries_in_path(&prog_name, application.span, cwd, paths, path_ext),
         (true, false) => {
             let mut output: Vec<Value> = vec![];
             if let Some(entry) = get_entry_in_commands(engine_state, &prog_name, application.span) {
@@ -300,14 +395,17 @@ fn which_single(
                 application.span,
                 cwd,
                 paths,
+                path_ext,
             ));
             output
         }
-        (false, true) => get_first_entry_in_path(&prog_name, application.span, cwd, paths)
-            .into_iter()
-            .collect(),
+        (false, true) => {
+            get_first_entry_in_path(&prog_name, application.span, cwd, paths, path_ext)
+                .into_iter()
+                .collect()
+        }
         (false, false) => get_entry_in_commands(engine_state, &prog_name, application.span)
-            .or_else(|| get_first_entry_in_path(&prog_name, application.span, cwd, paths))
+            .or_else(|| get_first_entry_in_path(&prog_name, application.span, cwd, paths, path_ext))
             .into_iter()
             .collect(),
     }
@@ -333,11 +431,15 @@ fn which(
     // known externals; we just won't find any PATH-based binaries.
     let paths = env::path_str(engine_state, stack, head).unwrap_or_default();
 
+    // Source PATHEXT from the shell environment so `which` honors in-shell
+    // changes to `$env.PATHEXT`, just like it already honors `$env.PATH`.
+    let path_ext = env_path_ext(engine_state, stack);
+
     let metadata = PipelineMetadata::default().with_path_columns(vec!["path".into()]);
 
     if which_args.applications.is_empty() {
         return Ok(
-            list_all_executables(engine_state, &paths, which_args.all, head)
+            list_all_executables(engine_state, &paths, &path_ext, which_args.all, head)
                 .into_iter()
                 .into_pipeline_data(head, engine_state.signals().clone())
                 .set_metadata(Some(metadata)),
@@ -345,7 +447,7 @@ fn which(
     }
 
     for app in which_args.applications {
-        let values = which_single(app, which_args.all, engine_state, &cwd, &paths);
+        let values = which_single(app, which_args.all, engine_state, &cwd, &paths, &path_ext);
         output.extend(values);
     }
 
@@ -376,8 +478,12 @@ pub trait IsExecutable {
     /// Returns `true` if there is a file at the given path and it is
     /// executable. Returns `false` otherwise.
     ///
+    /// On Windows, `path_ext` is the shell's `PATHEXT` (`$env.PATHEXT`) used to
+    /// decide whether a file extension counts as executable; passing `None`
+    /// falls back to checking the binary type. On other platforms it is ignored.
+    ///
     /// See the module documentation for details.
-    fn is_executable(&self) -> bool;
+    fn is_executable(&self, path_ext: Option<&OsStr>) -> bool;
 }
 
 #[cfg(unix)]
@@ -388,7 +494,7 @@ mod unix {
     use super::IsExecutable;
 
     impl IsExecutable for Path {
-        fn is_executable(&self) -> bool {
+        fn is_executable(&self, _path_ext: Option<&std::ffi::OsStr>) -> bool {
             let metadata = match self.metadata() {
                 Ok(metadata) => metadata,
                 Err(_) => return false,
@@ -410,9 +516,9 @@ mod windows {
     use super::IsExecutable;
 
     impl IsExecutable for Path {
-        fn is_executable(&self) -> bool {
-            // Check using file extension
-            if let Some(pathext) = std::env::var_os("PATHEXT")
+        fn is_executable(&self, path_ext: Option<&std::ffi::OsStr>) -> bool {
+            // Check using file extension against the shell's `$env.PATHEXT`.
+            if let Some(pathext) = path_ext
                 && let Some(extension) = self.extension()
             {
                 let extension = extension.to_string_lossy();
@@ -460,7 +566,7 @@ mod wasm {
     use super::IsExecutable;
 
     impl IsExecutable for Path {
-        fn is_executable(&self) -> bool {
+        fn is_executable(&self, _path_ext: Option<&std::ffi::OsStr>) -> bool {
             false
         }
     }
