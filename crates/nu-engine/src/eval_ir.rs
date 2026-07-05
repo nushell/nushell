@@ -1545,13 +1545,20 @@ fn check_assignment_type(
             let expected = target_ty.to_string();
             let actual = val.get_type().to_string();
 
-            let err = LabeledError::new("Type mismatch.")
-                .with_code("nu::shell::type_mismatch")
-                .with_label(format!("the value is a {actual}"), val.span())
-                .with_label(
-                    format!("expected {expected}, got {actual}"),
-                    assignment_span,
-                );
+            let mut err = LabeledError::new("Type mismatch.");
+            err = err.with_code("nu::shell::type_mismatch");
+
+            // Some values, like `$env.CMD_DURATION_MS`, are generated internally and don't have
+            // spans that are relevant to users.
+            // We avoid incorrect error labels by checking for that here.
+            if !(val.span() == Span::unknown() || val.span() == Span::test_data()) {
+                err = err.with_label(format!("the value is a {actual}"), val.span());
+            }
+
+            err = err.with_label(
+                format!("expected {expected}, got {actual}"),
+                assignment_span,
+            );
 
             Err(ShellError::LabeledError(err.into()))
         }
