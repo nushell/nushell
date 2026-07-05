@@ -1522,7 +1522,7 @@ fn gather_arguments(
 fn check_type(val: &Value, ty: &Type) -> Result<(), ShellError> {
     match val {
         Value::Error { error, .. } => Err(*error.clone()),
-        _ if val.is_subtype_of(ty) => Ok(()),
+        _ if val.is_assignable_to(ty) => Ok(()),
         _ => Err(ShellError::CantConvert {
             to_type: ty.to_string(),
             from_type: val.get_type().to_string(),
