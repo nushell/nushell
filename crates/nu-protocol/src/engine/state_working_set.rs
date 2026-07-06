@@ -29,6 +29,11 @@ pub struct StateWorkingSet<'a> {
     pub files: FileStack,
     /// Whether or not predeclarations are searched when looking up a command (used with aliases)
     pub search_predecls: bool,
+    /// When `true`, `parse()` will skip the `find_block_by_span` cache and
+    /// always re-parse the file.  Used by `parse_source()` to avoid returning
+    /// a cached block whose VarIds may be stale when variables were re-declared
+    /// in the current parse session (e.g., REPL `let`/`mut` re-declarations).
+    pub transparent_block_cache: bool,
     pub parse_errors: Vec<ParseError>,
     pub parse_warnings: Vec<ParseWarning>,
     pub compile_errors: Vec<CompileError>,
@@ -48,6 +53,7 @@ impl<'a> StateWorkingSet<'a> {
             permanent_state,
             files,
             search_predecls: true,
+            transparent_block_cache: false,
             parse_errors: vec![],
             parse_warnings: vec![],
             compile_errors: vec![],

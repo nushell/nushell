@@ -122,12 +122,16 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
                             return garbage_pipeline(working_set, spans);
                         }
 
+                        // Bypass the block cache to avoid returning a stale
+                        // block with VarIds from a previous parse session.
+                        working_set.transparent_block_cache = true;
                         let mut block = parse(
                             working_set,
                             Some(&path.path().to_string_lossy()),
                             &contents,
                             scoped,
                         );
+                        working_set.transparent_block_cache = false;
                         if block.ir_block.is_none() {
                             let block_mut = Arc::make_mut(&mut block);
                             compile_block(working_set, block_mut);

@@ -528,11 +528,16 @@ pub fn parse(
 
     let new_span = working_set.get_span_for_file(file_id);
 
-    // Note: we intentionally do NOT check for a previously-parsed block here.
-    // Caching blocks across parse sessions (e.g., across REPL inputs) is unsafe
-    // because variable re-declarations (`let`/`mut`) create new VarIds, but the
-    // cached block would still reference the old VarIds. This causes spurious
-    // "variable not found" errors. See https://github.com/nushell/nushell/issues/18515
+    // Check for a previously-parsed block to avoid re-parsing (same session).
+    // When `transparent_block_cache` is set (by `parse_source`), skip the cache
+    // because variable re-declarations (`let`/`mut`) create new VarIds in the
+    // current session, making cached blocks from previous sessions stale.
+    // See https://github.com/nushell/nushell/issues/18515
+    if !working_set.transparent_block_cache
+        && let Some(block) = working_set.find_block_by_span(new_span)
+    {
+        return block;
+    }
     let mut output = {
         let (output, err) = lex(contents, new_span.start, &[], &[], false);
         if let Some(err) = err {
