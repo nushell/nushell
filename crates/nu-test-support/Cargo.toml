@@ -42,7 +42,7 @@ nu-std.workspace = true
 nu-test-support-macros.workspace = true
 nu-utils.workspace = true
 
-derive_more = { workspace = true }
+derive_more = { workspace = true, features = ["debug"] }
 itertools = { workspace = true }
 kitest = { workspace = true }
 lexopt = { workspace = true }

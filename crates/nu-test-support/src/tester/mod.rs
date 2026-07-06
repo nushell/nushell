@@ -1,9 +1,10 @@
 use std::{
+    cell::RefCell,
     env,
     error::Error,
     fmt::{Debug, Display},
     panic::Location,
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::{Arc, LazyLock},
 };
 
@@ -57,6 +58,11 @@ static INITIAL_ENGINE_STATES: KeyedLazyLock<GroupKey, EngineState> = KeyedLazyLo
     engine_state
 });
 
+thread_local! {
+    /// Paths to be loaded into the PATH env variable of a [`NuTester`].
+    pub static PATH_ENV_AUTO_LOAD: RefCell<Vec<PathBuf>> = RefCell::new(Vec::new());
+}
+
 /// Create a [`NuTester`] for running Nushell snippets in tests.
 ///
 /// Prefer this helper over the `nu!` macro for most tests.
@@ -108,7 +114,15 @@ static INITIAL_ENGINE_STATES: KeyedLazyLock<GroupKey, EngineState> = KeyedLazyLo
 /// # Ok::<(), nu_test_support::tester::TestError>(())
 /// ```
 pub fn test() -> NuTester {
-    NuTester::default()
+    let tester = NuTester {
+        engine_state: INITIAL_ENGINE_STATES.get(&GroupKey::current()).clone(),
+        stack: Stack::new().collect_value(),
+    };
+
+    // TODO: note this behavior in doc comment
+    let tester = PATH_ENV_AUTO_LOAD.with_borrow(|paths| tester.append_path(paths));
+
+    tester
 }
 
 /// Helper for running Nushell code in tests.
@@ -127,10 +141,7 @@ impl Default for NuTester {
     ///
     /// Prefer [`test()`] for a shorter entry point that avoids naming [`NuTester`].
     fn default() -> Self {
-        Self {
-            engine_state: INITIAL_ENGINE_STATES.get(&GroupKey::current()).clone(),
-            stack: Stack::new().collect_value(),
-        }
+        test()
     }
 }
 
@@ -139,7 +150,7 @@ impl NuTester {
     ///
     /// Prefer [`test()`] for a shorter entry point that avoids naming [`NuTester`].
     pub fn new() -> Self {
-        Self::default()
+        test()
     }
 
     /// Set the working directory used for evaluation.
@@ -175,7 +186,44 @@ impl NuTester {
         self.locale("en_US.utf8")
     }
 
-    /// Inherit the `PATH` environment variable from the running process.
+    /// Get the current path env.
+    fn path(&self) -> Vec<Value> {
+        match self.engine_state.get_env_var("PATH") {
+            None => Vec::new(),
+            Some(Value::List { vals, .. }) => vals.clone(),
+            Some(Value::String { val, .. }) => val
+                .split(ENV_PATH_SEPARATOR_CHAR)
+                .map(|entry| Value::test_string(entry))
+                .collect(),
+            Some(v) => panic!("PATH is neither a list nor a string, is {}", v.get_type()),
+        }
+    }
+
+    /// Prepend entries to the PATH.
+    pub fn prepend_path(self, entries: impl IntoIterator<Item = impl AsRef<Path>>) -> Self {
+        let path = entries
+            .into_iter()
+            .map(|item| Value::test_string(item.as_ref().to_string_lossy()))
+            .chain(self.path())
+            .collect();
+        self.env("PATH", Value::test_list(path))
+    }
+
+    /// Append entries to the PATH.
+    pub fn append_path(self, entries: impl IntoIterator<Item = impl AsRef<Path>>) -> Self {
+        let path = self
+            .path()
+            .into_iter()
+            .chain(
+                entries
+                    .into_iter()
+                    .map(|item| Value::test_string(item.as_ref().to_string_lossy())),
+            )
+            .collect();
+        self.env("PATH", Value::test_list(path))
+    }
+
+    /// Inherit the `PATH` environment variable from the running process by appending it.
     ///
     /// This is useful for tests that spawn external commands and should resolve
     /// binaries the same way as the parent test process.
@@ -183,7 +231,7 @@ impl NuTester {
     /// Panics if `PATH` is not set in the current process environment.
     pub fn inherit_path(self) -> Self {
         let path = env::var("PATH").expect("PATH not available in env");
-        self.env("PATH", path)
+        self.append_path(path.split(ENV_PATH_SEPARATOR_CHAR))
     }
 
     /// Inherit an environment variable from the running process, but only if it is set.
@@ -220,7 +268,8 @@ impl NuTester {
     /// This does not guarantee identical behavior to an interactive shell since the
     /// current working directory can still affect rustup toolchain resolution.
     pub fn inherit_rust_toolchain_env(self) -> Self {
-        self.inherit_env_if_set("PATH")
+        self.inherit_path()
+            .inherit_env_if_set("PATH")
             .inherit_env_if_set("CARGO_HOME")
             .inherit_env_if_set("RUSTUP_HOME")
             .inherit_env_if_set("RUSTUP_TOOLCHAIN")
@@ -237,6 +286,7 @@ impl NuTester {
     /// Adds the "nu" binary for testing to the path.
     ///
     /// Calling [`inherit_path`](Self::inherit_path) after this methods removes the path entry.
+    #[deprecated]
     pub fn add_nu_to_path(self) -> Self {
         let nu_home = crate::fs::binaries();
         let path = self.engine_state.get_env_var("PATH");
@@ -253,9 +303,9 @@ impl NuTester {
     }
 
     /// Add a custom environment variable to the engine state.
-    pub fn env(mut self, key: impl Into<String>, val: impl Into<String>) -> Self {
+    pub fn env(mut self, key: impl Into<String>, val: impl IntoValue) -> Self {
         self.engine_state
-            .add_env_var(key.into(), Value::test_string(val.into()));
+            .add_env_var(key.into(), val.into_value(Span::test_data()));
         self
     }
 

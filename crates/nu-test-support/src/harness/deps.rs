@@ -1,5 +1,6 @@
 use std::{
     borrow::Cow,
+    path::{Path, PathBuf},
     process::{Command, Stdio},
 };
 
@@ -94,5 +95,13 @@ impl Dependency<'static> {
         }
 
         command
+    }
+
+    pub fn path(&self, target_dir: impl AsRef<Path>) -> PathBuf {
+        // TODO: instead of blindly using "debug", find actual current profile
+        target_dir
+            .as_ref()
+            .join("debug")
+            .join(self.bin_name.as_ref())
     }
 }

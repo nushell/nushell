@@ -1,16 +1,27 @@
-use std::{any::Any, fmt::Debug, num::NonZeroUsize, sync::atomic::Ordering, thread::Scope};
+use std::{
+    any::Any,
+    collections::HashSet,
+    fmt::Debug,
+    num::NonZeroUsize,
+    path::{Path, PathBuf},
+    sync::atomic::Ordering,
+    thread::Scope,
+};
 
 use kitest::{
     Whatever,
     capture::DefaultPanicHookProvider,
     outcome::TestOutcome,
-    runner::{DefaultRunner, SimpleRunner, scope::NoScopeFactory},
+    runner::{DefaultRunner, SimpleRunner},
     test::{TestMeta, TestResult},
 };
 use nu_experimental::ExperimentalOption;
 use nu_utils::downcast;
 
-use crate::{harness::{deps::Dependency, group::RUN_TEST_GROUP_IN_SERIAL}, tester::TestError};
+use crate::{
+    harness::{deps::Dependency, group::RUN_TEST_GROUP_IN_SERIAL},
+    tester::{PATH_ENV_AUTO_LOAD, TestError},
+};
 
 #[derive(Debug)]
 pub struct Extra {
@@ -20,14 +31,38 @@ pub struct Extra {
     pub dependencies: &'static [&'static Dependency<'static>],
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct TestRunner {
-    parallel: DefaultRunner<DefaultPanicHookProvider, NoScopeFactory>,
-    serial: SimpleRunner<DefaultPanicHookProvider, NoScopeFactory>,
+    parallel: DefaultRunner<DefaultPanicHookProvider, TestScopeFactory>,
+    serial: SimpleRunner<DefaultPanicHookProvider, TestScopeFactory>,
     exact: bool,
 }
 
+impl Default for TestRunner {
+    fn default() -> Self {
+        Self {
+            parallel: DefaultRunner::default().with_test_scope_factory(TestScopeFactory::default()),
+            serial: SimpleRunner::default().with_test_scope_factory(TestScopeFactory::default()),
+            exact: false,
+        }
+    }
+}
+
 impl TestRunner {
+    pub fn with_target_dir(self, target_dir: impl Into<Option<PathBuf>>) -> Self {
+        let test_scope_factory = TestScopeFactory {
+            target_dir: target_dir.into(),
+        };
+
+        Self {
+            parallel: self
+                .parallel
+                .with_test_scope_factory(test_scope_factory.clone()),
+            serial: self.serial.with_test_scope_factory(test_scope_factory),
+            ..self
+        }
+    }
+
     pub fn with_thread_count(self, thread_count: NonZeroUsize) -> Self {
         Self {
             parallel: self.parallel.with_thread_count(thread_count),
@@ -96,6 +131,59 @@ impl<'t> kitest::runner::TestRunner<'t, Extra> for TestRunner {
                 tests_count,
             ),
         }
+    }
+}
+
+#[derive(Debug, Default, Clone)]
+struct TestScopeFactory {
+    target_dir: Option<PathBuf>,
+}
+
+impl<'t> kitest::runner::scope::TestScopeFactory<'t, Extra> for TestScopeFactory {
+    type Scope<'f>
+        = TestScope<'f>
+    where
+        't: 'f,
+        Self: 'f;
+
+    fn make_scope<'f>(&'f self) -> Self::Scope<'f>
+    where
+        't: 'f,
+    {
+        TestScope {
+            target_dir: self.target_dir.as_deref(),
+        }
+    }
+}
+
+#[derive(Debug)]
+struct TestScope<'f> {
+    target_dir: Option<&'f Path>,
+}
+
+impl<'f, 't> kitest::runner::scope::TestScope<'t, Extra> for TestScope<'f> {
+    fn before_test(&mut self, meta: &'t TestMeta<Extra>) {
+        PATH_ENV_AUTO_LOAD.with_borrow_mut(|paths| {
+            paths.clear();
+
+            let Some(target_dir) = self.target_dir else {
+                return;
+            };
+
+            let dependency_paths: HashSet<_> = meta
+                .extra
+                .dependencies
+                .iter()
+                .map(|dep| {
+                    dep.path(target_dir)
+                        .parent()
+                        .expect("bin lives in target dir")
+                        .to_path_buf()
+                })
+                .collect();
+
+            paths.extend(dependency_paths);
+        });
     }
 }
 
