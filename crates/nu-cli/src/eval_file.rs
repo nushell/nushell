@@ -1,14 +1,15 @@
 use crate::util::{eval_source, print_pipeline};
 use log::{info, trace};
-use nu_engine::eval_block;
+use nu_engine::{eval_block, eval_block_with_early_return};
 use nu_parser::parse;
 use nu_path::absolute_with;
 use nu_protocol::{
     PipelineData, ShellError, Span, Value,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
+    process::check_exit_status_future,
     report_error::report_compile_error,
-    report_parse_error, report_parse_warning,
+    report_parse_error, report_parse_warning, report_shell_error,
     shell_error::io::*,
 };
 use std::{path::PathBuf, sync::Arc};
@@ -202,7 +203,62 @@ pub fn evaluate_file(
             true,
         )
     } else {
-        eval_source(engine_state, stack, &file, file_path_str, input, true)
+        // Evaluate the already-parsed block directly instead of re-parsing
+        // the file through eval_source. Re-parsing caches blocks from
+        // `source` commands with VarIds from the first parse; the second
+        // parse creates new VarIds for `let`/`mut` declarations, causing
+        // variable-not-found errors at runtime inside sourced files.
+        // See https://github.com/nushell/nushell/issues/18515
+        let eval_result = (|| -> Result<i32, ShellError> {
+            let pipeline =
+                eval_block_with_early_return::<WithoutDebug>(engine_state, stack, &block, input)?;
+            let pipeline_data = pipeline.body;
+
+            // Mirror evaluate_source's variable-deletion cleanup
+            for var_id in &stack.deletions {
+                if let Some(active_id) = engine_state.scope.active_overlays.last()
+                    && let Some((_, overlay)) =
+                        engine_state.scope.overlays.get_mut((*active_id).get())
+                {
+                    overlay.vars.retain(|_, v| *v != *var_id);
+                }
+            }
+            stack.deletions.clear();
+
+            let no_newline = matches!(&pipeline_data, &PipelineData::ByteStream(..));
+            print_pipeline(engine_state, stack, pipeline_data, no_newline)?;
+
+            let pipefail = nu_experimental::PIPE_FAIL.get();
+            let exit_code = if pipefail {
+                check_exit_status_future(pipeline.exit)
+                    .err()
+                    .and_then(|err| {
+                        report_shell_error(Some(stack), engine_state, &err);
+                        stack.set_last_error(&err);
+                        err.exit_code()
+                    })
+                    .unwrap_or(0)
+            } else {
+                0
+            };
+
+            stack.set_last_exit_code(exit_code, Span::unknown());
+            Ok(exit_code)
+        })();
+
+        match eval_result {
+            Ok(exit_code) => exit_code,
+            Err(err) => {
+                // Report and convert to exit code (mirrors eval_source behavior)
+                if let ShellError::Exit { code, .. } = &err {
+                    std::process::exit(*code)
+                }
+                report_shell_error(Some(stack), engine_state, &err);
+                let code = err.exit_code();
+                stack.set_last_error(&err);
+                code.unwrap_or(0)
+            }
+        }
     };
 
     if exit_code != 0 {

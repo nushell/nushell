@@ -528,26 +528,25 @@ pub fn parse(
 
     let new_span = working_set.get_span_for_file(file_id);
 
-    let previously_parsed_block = working_set.find_block_by_span(new_span);
-
+    // Note: we intentionally do NOT check for a previously-parsed block here.
+    // Caching blocks across parse sessions (e.g., across REPL inputs) is unsafe
+    // because variable re-declarations (`let`/`mut`) create new VarIds, but the
+    // cached block would still reference the old VarIds. This causes spurious
+    // "variable not found" errors. See https://github.com/nushell/nushell/issues/18515
     let mut output = {
-        if let Some(block) = previously_parsed_block {
-            return block;
-        } else {
-            let (output, err) = lex(contents, new_span.start, &[], &[], false);
-            if let Some(err) = err {
-                working_set.error(err)
-            }
-
-            Arc::new(parse_block(
-                working_set,
-                &output,
-                new_span,
-                scoped,
-                false,
-                None,
-            ))
+        let (output, err) = lex(contents, new_span.start, &[], &[], false);
+        if let Some(err) = err {
+            working_set.error(err)
         }
+
+        Arc::new(parse_block(
+            working_set,
+            &output,
+            new_span,
+            scoped,
+            false,
+            None,
+        ))
     };
 
     // Top level `Block`s are compiled eagerly, as they don't have a parent which would cause them
