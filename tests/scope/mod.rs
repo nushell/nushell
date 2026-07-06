@@ -1,3 +1,4 @@
+use nu_protocol::test_value;
 use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::playground::Playground;
 use nu_test_support::prelude::*;
@@ -6,89 +7,84 @@ use pretty_assertions::assert_eq;
 // Note: These tests might slightly overlap with crates/nu-command/tests/commands/help.rs
 
 #[test]
-fn scope_shows_alias() {
-    let actual = nu!("alias xaz = echo alias1
+fn scope_shows_alias() -> Result {
+    let code = "
+        alias xaz = echo alias1
         scope aliases | find xaz | length
-        ");
-
-    let length: i32 = actual.out.parse().unwrap();
-    assert_eq!(length, 1);
+    ";
+    test().run(code).expect_value_eq(1)
 }
 
 #[test]
-fn scope_shows_command() {
-    let actual = nu!("def xaz [] { echo xaz }
+fn scope_shows_command() -> Result {
+    let code = "
+        def xaz [] { echo xaz }
         scope commands | find xaz --columns [name] | length
-        ");
-
-    let length: i32 = actual.out.parse().unwrap();
-    assert_eq!(length, 1);
+    ";
+    test().run(code).expect_value_eq(1)
 }
 
 #[test]
-fn scope_doesnt_show_scoped_hidden_alias() {
-    let actual = nu!("alias xaz = echo alias1
+fn scope_doesnt_show_scoped_hidden_alias() -> Result {
+    let code = "
+        alias xaz = echo alias1
         do {
             hide xaz
             scope aliases | find xaz | length
         }
-        ");
-
-    let length: i32 = actual.out.parse().unwrap();
-    assert_eq!(length, 0);
+    ";
+    test().run(code).expect_value_eq(0)
 }
 
 #[test]
-fn scope_doesnt_show_hidden_alias() {
-    let actual = nu!("alias xaz = echo alias1
+fn scope_doesnt_show_hidden_alias() -> Result {
+    let code = "
+        alias xaz = echo alias1
         hide xaz
         scope aliases | find xaz | length
-        ");
-
-    let length: i32 = actual.out.parse().unwrap();
-    assert_eq!(length, 0);
+    ";
+    test().run(code).expect_value_eq(0)
 }
 
 #[test]
-fn scope_doesnt_show_scoped_hidden_command() {
-    let actual = nu!("def xaz [] { echo xaz }
+fn scope_doesnt_show_scoped_hidden_command() -> Result {
+    let code = "
+        def xaz [] { echo xaz }
         do {
             hide xaz
             scope commands | find xaz --columns [name] | length
         }
-        ");
-
-    let length: i32 = actual.out.parse().unwrap();
-    assert_eq!(length, 0);
+    ";
+    test().run(code).expect_value_eq(0)
 }
 
 #[test]
-fn scope_doesnt_show_hidden_command() {
-    let actual = nu!("def xaz [] { echo xaz }
+fn scope_doesnt_show_hidden_command() -> Result {
+    let code = "
+        def xaz [] { echo xaz }
         hide xaz
         scope commands | find xaz --columns [name] | length
-        ");
-
-    let length: i32 = actual.out.parse().unwrap();
-    assert_eq!(length, 0);
+    ";
+    test().run(code).expect_value_eq(0)
 }
 
 // same problem as 'which' command
 #[ignore = "See https://github.com/nushell/nushell/issues/4837"]
 #[test]
-fn correctly_report_of_shadowed_alias() {
-    let actual = nu!("alias xaz = echo alias1
+fn correctly_report_of_shadowed_alias() -> Result {
+    let code = "
+        alias xaz = echo alias1
         def helper [] {
             alias xaz = echo alias2
             scope aliases
         }
-        helper | where alias == xaz | get expansion.0");
-
-    assert_eq!(actual.out, "echo alias2");
+        helper | where alias == xaz | get expansion.0
+    ";
+    test().run(code).expect_value_eq("echo alias 2")
 }
 
 #[test]
-fn correct_scope_modules_fields() {
+fn correct_scope_modules_fields() -> Result {
     let module_setup = "
         # nice spam
         #
@@ -107,79 +103,47 @@ fn correct_scope_modules_fields() {
 
         export-env { $env.SPAM = 'spam' }
     ";
-
     Playground::setup("correct_scope_modules_fields", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent("spam.nu", module_setup)]);
 
-        let inp = &[
-            "use spam.nu",
-            "scope modules | where name == spam | get 0.name",
-        ];
-        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
-        assert_eq!(actual.out, "spam");
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("use spam.nu")?;
+        #[rustfmt::skip]
+        let () = tester.run("
+            let module = scope modules
+            | where name == 'spam'
+            | first -s
+        ")?;
 
-        let inp = &[
-            "use spam.nu",
-            "scope modules | where name == spam | get 0.description",
-        ];
-        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
-        assert_eq!(actual.out, "nice spam");
+        tester
+            .run("$module | select name description extra_description has_env_block")
+            .expect_value_eq(test_value!({
+                name: "spam",
+                description: "nice spam",
+                extra_description: "and some extra description for spam",
+                has_env_block: true,
+            }))?;
 
-        let inp = &[
-            "use spam.nu",
-            "scope modules | where name == spam | get 0.extra_description",
-        ];
-        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
-        assert_eq!(actual.out, "and some extra description for spam");
+        tester
+            .run("$module.commands.0.name")
+            .expect_value_eq("spam")?;
+        tester
+            .run("$module.aliases.0.name")
+            .expect_value_eq("xaz")?;
+        tester
+            .run("$module.externs.0.name")
+            .expect_value_eq("git")?;
+        tester
+            .run("$module.constants.0.name")
+            .expect_value_eq("X")?;
+        tester
+            .run("$module.submodules.0.submodules.0.name")
+            .expect_value_eq("bacon")?;
+        tester
+            .run("$module.submodules.0.submodules.0.commands.0.name")
+            .expect_value_eq("sausage")?;
 
-        let inp = &[
-            "use spam.nu",
-            "scope modules | where name == spam | get 0.has_env_block",
-        ];
-        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
-        assert_eq!(actual.out, "true");
-
-        let inp = &[
-            "use spam.nu",
-            "scope modules | where name == spam | get 0.commands.0.name",
-        ];
-        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
-        assert_eq!(actual.out, "spam");
-
-        let inp = &[
-            "use spam.nu",
-            "scope modules | where name == spam | get 0.aliases.0.name",
-        ];
-        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
-        assert_eq!(actual.out, "xaz");
-
-        let inp = &[
-            "use spam.nu",
-            "scope modules | where name == spam | get 0.externs.0.name",
-        ];
-        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
-        assert_eq!(actual.out, "git");
-
-        let inp = &[
-            "use spam.nu",
-            "scope modules | where name == spam | get 0.constants.0.name",
-        ];
-        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
-        assert_eq!(actual.out, "X");
-
-        let inp = &[
-            "use spam.nu",
-            "scope modules | where name == spam | get 0.submodules.0.submodules.0.name",
-        ];
-        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
-        assert_eq!(actual.out, "bacon");
-
-        let inp = &[
-            "use spam.nu",
-            "scope modules | where name == spam | get 0.submodules.0.submodules.0.commands.0.name",
-        ];
-        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
-        assert_eq!(actual.out, "sausage");
+        Ok(())
     })
 }
 
@@ -211,165 +175,130 @@ export def foo [] {}
 }
 
 #[test]
-fn correct_scope_aliases_fields() {
-    let module_setup = "
-        # nice alias
-        export alias xaz = print
-    ";
-
+fn correct_scope_aliases_fields() -> Result {
     Playground::setup("correct_scope_aliases_fields", |dirs, sandbox| {
+        let module_setup = "
+            # nice alias
+            export alias xaz = print
+        ";
         sandbox.with_files(&[FileWithContent("spam.nu", module_setup)]);
 
-        let inp = &[
-            "use spam.nu",
-            "scope aliases | where name == 'spam xaz' | get 0.name",
-        ];
-        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
-        assert_eq!(actual.out, "spam xaz");
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("use spam.nu")?;
+        #[rustfmt::skip]
+        let () = tester.run("
+            let alias = scope aliases
+            | where name == 'spam xaz'
+            | first -s
+        ")?;
 
-        let inp = &[
-            "use spam.nu",
-            "scope aliases | where name == 'spam xaz' | get 0.expansion",
-        ];
-        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
-        assert_eq!(actual.out, "print");
+        tester
+            .run("$alias | select name expansion description")
+            .expect_value_eq(test_value!({
+                name: "spam xaz",
+                expansion: "print",
+                description: "nice alias",
+            }))?;
 
-        let inp = &[
-            "use spam.nu",
-            "scope aliases | where name == 'spam xaz' | get 0.description",
-        ];
-        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
-        assert_eq!(actual.out, "nice alias");
+        let _: i64 = tester.run("$alias.decl_id")?;
+        let _: i64 = tester.run("$alias.aliased_decl_id")?;
 
-        let inp = &[
-            "use spam.nu",
-            "scope aliases | where name == 'spam xaz' | get 0.decl_id | is-empty",
-        ];
-        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
-        assert_eq!(actual.out, "false");
-
-        let inp = &[
-            "use spam.nu",
-            "scope aliases | where name == 'spam xaz' | get 0.aliased_decl_id | is-empty",
-        ];
-        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
-        assert_eq!(actual.out, "false");
+        Ok(())
     })
 }
 
 #[test]
-fn scope_alias_aliased_decl_id_external() {
-    let inp = &[
-        "alias c = cargo",
-        "scope aliases | where name == c | get 0.aliased_decl_id | is-empty",
-    ];
-    let actual = nu!(&inp.join("; "));
-    assert_eq!(actual.out, "true");
+fn scope_alias_aliased_decl_id_external() -> Result {
+    let code = "
+        alias c = cargo
+        scope aliases | where name == c | get 0.aliased_decl_id | is-empty
+    ";
+    test().run(code).expect_value_eq(true)
 }
 
 #[test]
-fn correct_scope_externs_fields() {
-    let module_setup = "
-        # nice extern
-        export extern git []
-    ";
-
+fn correct_scope_externs_fields() -> Result {
     Playground::setup("correct_scope_aliases_fields", |dirs, sandbox| {
+        let module_setup = "
+            # nice extern
+            export extern git []
+        ";
         sandbox.with_files(&[FileWithContent("spam.nu", module_setup)]);
 
-        let inp = &[
-            "use spam.nu",
-            "scope externs | where name == 'spam git' | get 0.name",
-        ];
-        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
-        assert_eq!(actual.out, "spam git");
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("use spam.nu")?;
+        #[rustfmt::skip]
+        let () = tester.run("
+            let extern = scope externs
+            | where name == 'spam git'
+            | first -s
+        ")?;
 
-        let inp = &[
-            "use spam.nu",
-            "scope externs | where name == 'spam git' | get 0.description",
-        ];
-        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
-        assert_eq!(actual.out, "nice extern");
+        tester
+            .run("$extern | select name description")
+            .expect_value_eq(test_value!({
+                name: "spam git",
+                description: "nice extern",
+            }))?;
 
-        let inp = &[
-            "use spam.nu",
-            "scope externs | where name == 'spam git' | get 0.description | str contains (char nl)",
-        ];
-        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
-        assert_eq!(actual.out, "false");
+        let _: i64 = tester.run("$extern.decl_id")?;
 
-        let inp = &[
-            "use spam.nu",
-            "scope externs | where name == 'spam git' | get 0.decl_id | is-empty",
-        ];
-        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
-        assert_eq!(actual.out, "false");
+        Ok(())
     })
 }
 
 #[test]
-fn scope_externs_sorted() {
-    let inp = &[
-        "extern a []",
-        "extern b []",
-        "extern c []",
-        "scope externs | get name | str join ''",
-    ];
-
-    let actual = nu!(&inp.join("; "));
-    assert_eq!(actual.out, "abc");
+fn scope_externs_sorted() -> Result {
+    let code = "
+        extern a []
+        extern b []
+        extern c []
+        scope externs | get name
+    ";
+    test().run(code).expect_value_eq(["a", "b", "c"])
 }
 
 #[test]
-fn correct_scope_variables_fields() {
-    let inp = &[
-        "let x = 'x'",
-        "scope variables | where name == '$x' | get 0.type",
-    ];
-    let actual = nu!(&inp.join("; "));
-    assert_eq!(actual.out, "string");
+fn correct_scope_variables_fields() -> Result {
+    let code = r#"
+        let x = "x val"
 
-    let inp = &[
-        "let x = 'x'",
-        "scope variables | where name == '$x' | get 0.value",
-    ];
-    let actual = nu!(&inp.join("; "));
-    assert_eq!(actual.out, "x");
+        let x_var = scope variables | where name == '$x' | first -s
+    "#;
 
-    let inp = &[
-        "let x = 'x'",
-        "scope variables | where name == '$x' | get 0.is_const",
-    ];
-    let actual = nu!(&inp.join("; "));
-    assert_eq!(actual.out, "false");
+    let mut tester = test();
+    let () = tester.run(code)?;
 
-    let inp = &[
-        "const x = 'x'",
-        "scope variables | where name == '$x' | get 0.is_const",
-    ];
-    let actual = nu!(&inp.join("; "));
-    assert_eq!(actual.out, "true");
+    tester
+        .run("$x_var | select name type value is_const")
+        .expect_value_eq(test_value!({
+            name: "$x",
+            "type": "string",
+            value: "x val",
+            is_const: false,
+        }))?;
+    let _: i64 = tester.run("$x_var.var_id")?;
 
-    let inp = &[
-        "let x = 'x'",
-        "scope variables | where name == '$x' | get 0.var_id | is-empty",
-    ];
-    let actual = nu!(&inp.join("; "));
-    assert_eq!(actual.out, "false");
+    let code = r#"
+        const x = 'x'
+        scope variables | where name == '$x' | get 0.is_const
+    "#;
+    test().run(code).expect_value_eq(true)?;
+
+    Ok(())
 }
 
 #[test]
-fn example_results_have_valid_span() {
-    let inp = &[
-        "scope commands",
-        "| where name == 'do'",
-        "| first",
-        "| get examples",
-        "| where result == 177",
-        "| get 0.result",
-        "| metadata",
-        "| view span $in.span.start $in.span.end",
-    ];
-    let actual = nu!(&inp.join(" "));
-    assert_eq!(actual.out, "scope commands");
+fn example_results_have_valid_span() -> Result {
+    let code = "
+        scope commands
+        | where name == 'do'
+        | first
+        | get examples
+        | where result == 177
+        | get 0.result
+        | metadata
+        | view span $in.span.start $in.span.end
+    ";
+    test().run(code).expect_value_eq("scope commands")
 }
