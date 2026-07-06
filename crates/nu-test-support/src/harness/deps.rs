@@ -56,6 +56,8 @@ impl Dependency<'static> {
     }
 
     pub fn build_command(&self) -> Command {
+        // TODO: handle build profiles
+
         let mut command = Command::new("cargo");
         command
             .arg("build")

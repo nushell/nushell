@@ -100,6 +100,8 @@ pub fn main() -> ExitCode {
 
     if !args.list {
         for dependency in dependencies {
+            println!();
+            println!("required binary `{}`: ensuring it is built", dependency.bin_name);
             let mut child = match dependency.build_command().spawn() {
                 Ok(child) => child,
                 Err(err) => {
