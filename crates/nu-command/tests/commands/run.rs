@@ -604,3 +604,51 @@ fn run_script_exporting_run_does_not_override_builtin_run_in_repl_session() -> R
         },
     )
 }
+
+#[test]
+fn run_script_binds_long_flag_by_name_not_declaration_order() {
+    Playground::setup(
+        "run_script_binds_long_flag_by_name_not_declaration_order",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
+                "flags.nu",
+                "
+                def main [--alpha: int, --beta: int, --gamma: int] {
+                    $\"($alpha | default 0)/($beta | default 0)/($gamma | default 0)\"
+                }
+            ",
+            )]);
+
+            // `--gamma` must bind to `--gamma` by name. Previously a long flag
+            // matched the first declared flag that had no short character
+            // (`--alpha`), so the value silently landed in the wrong slot.
+            let actual = nu!(cwd: dirs.test(), "run flags.nu --gamma 3");
+            assert_eq!(actual.out, "0/0/3");
+            assert!(actual.err.is_empty());
+        },
+    );
+}
+
+#[test]
+fn run_script_binds_switch_by_name_without_shifting_positional() {
+    Playground::setup(
+        "run_script_binds_switch_by_name_without_shifting_positional",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
+                "switch.nu",
+                "
+                def main [word: string, --num: int, --verbose] {
+                    $\"word=($word) num=($num | default 0) verbose=($verbose)\"
+                }
+            ",
+            )]);
+
+            // `--verbose` is a switch declared after the value-taking `--num`.
+            // It must bind by name; otherwise it matched `--num`, which then
+            // swallowed `hello` as its (int) value and left `word` unbound.
+            let actual = nu!(cwd: dirs.test(), "run switch.nu hello --verbose");
+            assert_eq!(actual.out, "word=hello num=0 verbose=true");
+            assert!(actual.err.is_empty());
+        },
+    );
+}
