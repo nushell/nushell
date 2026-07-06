@@ -606,7 +606,7 @@ fn run_script_exporting_run_does_not_override_builtin_run_in_repl_session() -> R
 }
 
 #[test]
-fn run_script_binds_long_flag_by_name_not_declaration_order() {
+fn run_script_binds_long_flag_by_name_not_declaration_order() -> Result {
     Playground::setup(
         "run_script_binds_long_flag_by_name_not_declaration_order",
         |dirs, sandbox| {
@@ -622,15 +622,16 @@ fn run_script_binds_long_flag_by_name_not_declaration_order() {
             // `--gamma` must bind to `--gamma` by name. Previously a long flag
             // matched the first declared flag that had no short character
             // (`--alpha`), so the value silently landed in the wrong slot.
-            let actual = nu!(cwd: dirs.test(), "run flags.nu --gamma 3");
-            assert_eq!(actual.out, "0/0/3");
-            assert!(actual.err.is_empty());
+            let mut tester = test().cwd(dirs.test());
+            tester
+                .run("run flags.nu --gamma 3")
+                .expect_value_eq("0/0/3")
         },
-    );
+    )
 }
 
 #[test]
-fn run_script_binds_switch_by_name_without_shifting_positional() {
+fn run_script_binds_switch_by_name_without_shifting_positional() -> Result {
     Playground::setup(
         "run_script_binds_switch_by_name_without_shifting_positional",
         |dirs, sandbox| {
@@ -646,9 +647,10 @@ fn run_script_binds_switch_by_name_without_shifting_positional() {
             // `--verbose` is a switch declared after the value-taking `--num`.
             // It must bind by name; otherwise it matched `--num`, which then
             // swallowed `hello` as its (int) value and left `word` unbound.
-            let actual = nu!(cwd: dirs.test(), "run switch.nu hello --verbose");
-            assert_eq!(actual.out, "word=hello num=0 verbose=true");
-            assert!(actual.err.is_empty());
+            let mut tester = test().cwd(dirs.test());
+            tester
+                .run("run switch.nu hello --verbose")
+                .expect_value_eq("word=hello num=0 verbose=true")
         },
-    );
+    )
 }
