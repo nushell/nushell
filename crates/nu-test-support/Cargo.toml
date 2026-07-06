@@ -55,6 +55,9 @@ tempfile = { workspace = true }
 thiserror = { workspace = true }
 which = { workspace = true }
 
+[target.'cfg(unix)'.dependencies]
+gatekeeper = { workspace = true }
+
 [dev-dependencies]
 # doc tests use the "os" feature of `nu-command`
 nu-cmd-lang = { workspace = true, features = ["default"] }
@@ -63,5 +66,7 @@ nu-command = { workspace = true, features = ["default"] }
 bytes = { workspace = true }
 rstest = { workspace = true }
 
-[target.'cfg(unix)'.dependencies]
-gatekeeper = { workspace = true }
+[build-dependencies]
+heck = { workspace = true }
+quote = { workspace = true }
+toml = { workspace = true }

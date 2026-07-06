@@ -34,11 +34,15 @@ pub use kitest::prelude::*;
 
 mod args;
 pub(crate) mod group;
-pub(crate) mod test;
 
+pub(crate) mod test;
 pub use test::{Extra, IntoTestResult};
 
 pub mod deps;
+
+pub mod build_profile {
+    include!(concat!(env!("OUT_DIR"), "/build_profile.rs"));
+}
 
 pub mod macros {
     pub use kitest::{dbg, eprint, eprintln, print, println};
@@ -172,6 +176,10 @@ pub fn main() -> ExitCode {
         .with_color_setting(args.color)
         .with_group_label_from_ctx();
 
+    dbg!(env!("BUILD_PROFILE"));
+    dbg!(env!("OUT_DIR"));
+    println!("{}", include_str!(concat!(env!("OUT_DIR"), "/build_profile.rs")));
+
     match (args.format, args.list) {
         (Format::Pretty, true) => harness.with_formatter(pretty_formatter).list().exit_code(),
         (Format::Pretty, false) => harness.with_formatter(pretty_formatter).run().exit_code(),
@@ -182,7 +190,7 @@ pub fn main() -> ExitCode {
 
 fn target_dir() -> io::Result<PathBuf> {
     let output = Command::new("cargo")
-        .args(["metadata", "--format-version=1"])
+        .args(["metadata", "--format-version=1", "--no-deps"])
         .stderr(Stdio::inherit())
         .stdout(Stdio::piped())
         .spawn()?
