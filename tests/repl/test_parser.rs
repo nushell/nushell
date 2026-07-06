@@ -1,11 +1,9 @@
-use nu_experimental::{CELL_PATH_TYPES, ENFORCE_RUNTIME_ANNOTATIONS};
-use nu_protocol::{ParseError, Type};
-use nu_test_support::{
-    fs::Stub::{self, FileWithContent},
-    prelude::*,
-};
 use pretty_assertions::assert_matches;
 use rstest::rstest;
+
+use nu_experimental::{CELL_PATH_TYPES, ENFORCE_RUNTIME_ANNOTATIONS};
+use nu_protocol::{ParseError, Type};
+use nu_test_support::{fs::Stub, prelude::*};
 
 #[test]
 fn env_shorthand() -> Result {
@@ -272,7 +270,10 @@ fn bad_var_name2() -> Result {
     assert_matches!(err, ParseError::Expected(expected, _) if expected == "valid variable name");
 
     let err = test().run("foo-bar=4 true").expect_shell_error()?;
-    assert_matches!(err, ShellError::ExternalCommand { label, .. } if label == "Command `foo-bar=4` not found");
+    assert_matches!(
+        err,
+        ShellError::ExternalCommand { label, .. } if label == "Command `foo-bar=4` not found"
+    );
     Ok(())
 }
 
@@ -282,7 +283,10 @@ fn bad_var_name3() -> Result {
     assert_matches!(err, ParseError::Expected(expected, _) if expected == "valid variable name");
 
     let err = test().run("=foo=4 true").expect_shell_error()?;
-    assert_matches!(err, ShellError::ExternalCommand { label, .. } if label == "Command `=foo=4` not found");
+    assert_matches!(
+        err,
+        ShellError::ExternalCommand { label, .. } if label == "Command `=foo=4` not found"
+    );
     Ok(())
 }
 
@@ -351,21 +355,36 @@ fn bad_short_flag() -> Result {
 #[test]
 fn quotes_with_equals() -> Result {
     test()
-        .run(r#"let query_prefix = "https://api.github.com/search/issues?q=repo:nushell/"; $query_prefix"#)
+        .run(
+            r#"
+                let query_prefix = "https://api.github.com/search/issues?q=repo:nushell/"
+                $query_prefix
+            "#,
+        )
         .expect_value_eq("https://api.github.com/search/issues?q=repo:nushell/")
 }
 
 #[test]
 fn string_interp_with_equals() -> Result {
     test()
-        .run(r#"let query_prefix = $"https://api.github.com/search/issues?q=repo:nushell/"; $query_prefix"#)
+        .run(
+            r#"
+                let query_prefix = $"https://api.github.com/search/issues?q=repo:nushell/"
+                $query_prefix
+            "#,
+        )
         .expect_value_eq("https://api.github.com/search/issues?q=repo:nushell/")
 }
 
 #[test]
 fn raw_string_with_equals() -> Result {
     test()
-        .run("let query_prefix = r#'https://api.github.com/search/issues?q=repo:nushell/'#; $query_prefix")
+        .run(
+            "
+            let query_prefix = r#'https://api.github.com/search/issues?q=repo:nushell/'#
+            $query_prefix
+        ",
+        )
         .expect_value_eq("https://api.github.com/search/issues?q=repo:nushell/")
 }
 
@@ -466,7 +485,16 @@ fn assign_expressions() -> Result {
     test()
         .env("VENV_OLD_PATH", "Foobar")
         .env("Path", "Quux")
-        .run(r#"$env.Path = (if ($env | columns | "VENV_OLD_PATH" in $in) { $env.VENV_OLD_PATH } else { $env.Path }); $env.Path"#)
+        .run(
+            r#"
+                $env.Path = if ($env | columns | "VENV_OLD_PATH" in $in) {
+                    $env.VENV_OLD_PATH
+                } else {
+                    $env.Path
+                }
+                $env.Path
+            "#,
+        )
         .expect_value_eq("Foobar")
 }
 
@@ -638,7 +666,12 @@ fn percent_dynamic_dispatch_prefers_builtin_inside_same_name_wrapper() -> Result
 
 #[test]
 fn percent_dynamic_dispatch_alias_to_custom_command_is_not_builtin() -> Result {
-    let code = "def custom_cmd [] { 'shadowed' }; alias maybe_builtin = custom_cmd; let cmd = 'maybe_builtin'; %($cmd)";
+    let code = "
+        def custom_cmd [] { 'shadowed' }
+        alias maybe_builtin = custom_cmd
+        let cmd = 'maybe_builtin'
+        %($cmd)
+    ";
     let err = test().run(code).expect_error()?;
     assert_matches!(err, ShellError::CommandNotFound { .. });
     Ok(())
@@ -658,7 +691,9 @@ fn percent_dynamic_dispatch_with_mixed_positional_and_spread_args() -> Result {
 
 #[test]
 fn percent_dynamic_dispatch_in_wrapped_command_forwards_rest_args() -> Result {
-    let code = "export def --wrapped builtin [arg1, ...args] { %($arg1) ...$args }; builtin echo hello world";
+    let code = "
+        export def --wrapped builtin [arg1, ...args] { %($arg1) ...$args }
+        builtin echo hello world";
     test().run(code).expect_value_eq(["hello", "world"])
 }
 
@@ -851,7 +886,10 @@ fn proper_missing_param() -> Result {
 #[test]
 fn block_arity_check1() -> Result {
     let err = test().run("ls | each { |x, y| 1}").expect_parse_error()?;
-    assert_matches!(err, ParseError::ExpectedWithStringMsg(expected, _) if expected == "1 closure parameter");
+    assert_matches!(
+        err,
+        ParseError::ExpectedWithStringMsg(expected, _) if expected == "1 closure parameter"
+    );
     Ok(())
 }
 
@@ -1056,7 +1094,10 @@ mod plugin_tests {
         let err = test()
             .run("plugin use 'nu-plugin-math'")
             .expect_parse_error()?;
-        assert_matches!(err, ParseError::LabeledErrorWithHelp { error, .. } if error == "Plugin registry file not set");
+        assert_matches!(
+            err,
+            ParseError::LabeledErrorWithHelp { error, .. } if error == "Plugin registry file not set"
+        );
         Ok(())
     }
 
@@ -1068,7 +1109,10 @@ mod plugin_tests {
         ";
         // should not fail with `not a constant`
         let err = test().run(input).expect_parse_error()?;
-        assert_matches!(err, ParseError::LabeledErrorWithHelp { error, .. } if error == "Plugin registry file not set");
+        assert_matches!(
+            err,
+            ParseError::LabeledErrorWithHelp { error, .. } if error == "Plugin registry file not set"
+        );
         Ok(())
     }
 
@@ -1102,14 +1146,20 @@ mod plugin_tests {
 #[test]
 fn extern_errors_with_no_space_between_params_and_name_1() -> Result {
     let err = test().run("extern cmd[]").expect_parse_error()?;
-    assert_matches!(err, ParseError::LabeledErrorWithHelp { label, .. } if label == "expected space");
+    assert_matches!(
+        err,
+        ParseError::LabeledErrorWithHelp { label, .. } if label == "expected space"
+    );
     Ok(())
 }
 
 #[test]
 fn extern_errors_with_no_space_between_params_and_name_2() -> Result {
     let err = test().run("extern cmd(--flag)").expect_parse_error()?;
-    assert_matches!(err, ParseError::LabeledErrorWithHelp { label, .. } if label == "expected space");
+    assert_matches!(
+        err,
+        ParseError::LabeledErrorWithHelp { label, .. } if label == "expected space"
+    );
     Ok(())
 }
 
@@ -1154,14 +1204,20 @@ fn duration_with_underscores_2() -> Result {
 #[test]
 fn duration_with_underscores_3() -> Result {
     let err = test().run("1_000_d_ay").expect_shell_error()?;
-    assert_matches!(err, ShellError::ExternalCommand { label, .. } if label == "Command `1_000_d_ay` not found");
+    assert_matches!(
+        err,
+        ShellError::ExternalCommand { label, .. } if label == "Command `1_000_d_ay` not found"
+    );
     Ok(())
 }
 
 #[test]
 fn duration_with_faulty_number() -> Result {
     let err = test().run("sleep 4-ms").expect_parse_error()?;
-    assert_matches!(err, ParseError::LabeledError(error, _, _) if error == "duration value must be a number");
+    assert_matches!(
+        err,
+        ParseError::LabeledError(error, _, _) if error == "duration value must be a number"
+    );
     Ok(())
 }
 
@@ -1188,7 +1244,10 @@ fn filesize_with_underscores_2() -> Result {
 #[test]
 fn filesize_with_underscores_3() -> Result {
     let err = test().run("42m_b").expect_shell_error()?;
-    assert_matches!(err, ShellError::ExternalCommand { label, .. } if label == "Command `42m_b` not found");
+    assert_matches!(
+        err,
+        ShellError::ExternalCommand { label, .. } if label == "Command `42m_b` not found"
+    );
     Ok(())
 }
 
@@ -1207,18 +1266,20 @@ fn let_variable_type_mismatch() -> Result {
 #[test]
 #[exp(ENFORCE_RUNTIME_ANNOTATIONS)]
 fn let_variable_table_runtime_cast() -> Result {
-    let actual: String =
-        test().run("let x: table = ([[a]; [1]] | to nuon | from nuon); $x | describe")?;
-
-    // Type::Any should be accepted by compatible types (record can convert to table)
-    assert_contains("table<a: int>", actual);
-    Ok(())
+    let code = "
+        let x: table = echo [[a]; [1]]
+        $x | describe
+    ";
+    test().run(code).expect_value_eq("table<a: int>")
 }
 
 #[test]
 #[exp(ENFORCE_RUNTIME_ANNOTATIONS)]
 fn let_variable_table_runtime_mismatch() -> Result {
-    let code = "mut x: table<b: int> = ([[b]; [1]]  | to nuon | from nuon); $x = [[a]; [1]]";
+    let code = "
+        mut x: table<b: int> = echo [[b]; [1]]
+        $x = [[a]; [1]]
+    ";
     let err = test().run(code).expect_parse_error()?;
 
     // This conversion should fail due to a key mismatch
@@ -1233,32 +1294,43 @@ fn let_variable_table_runtime_mismatch() -> Result {
 #[test]
 #[exp(ENFORCE_RUNTIME_ANNOTATIONS)]
 fn mut_variable_table_runtime_mismatch() -> Result {
-    let code = "mut x: table<b: int> = ([[b]; [1]]  | to nuon | from nuon); $x = [[a]; [1]]";
+    let code = "
+        mut x: table<b: int> = echo [[b]; [1]]
+        $x = [[a]; [1]]
+    ";
     let err = test().run(code).expect_parse_error()?;
 
     assert_matches!(
         err,
-        ParseError::OperatorIncompatibleTypes { op, lhs, rhs, .. }
-            if op == "=" && lhs.to_string() == "table<b: int>" && rhs.to_string() == "table<a: int>"
+        ParseError::OperatorIncompatibleTypes {
+            op: "=",
+            lhs: Type::Table(lhs),
+            rhs: Type::Table(rhs),
+            ..
+        } if lhs == [("b".into(), Type::Int)].into_iter().collect()
+            && rhs == [("a".into(), Type::Int)].into_iter().collect()
     );
+
     Ok(())
 }
 
 #[test]
 #[exp(ENFORCE_RUNTIME_ANNOTATIONS)]
 fn let_variable_record_runtime_cast() -> Result {
-    let actual: String =
-        test().run("let x: record<a: int> = ({a: 1} | to nuon | from nuon); $x | describe")?;
-
-    // Records from Type::Any sources should be convertible to tables when field types match
-    assert_contains("record<a: int>", actual);
-    Ok(())
+    let code = "
+        let x: record<a: int> = echo {a: 1}
+        $x | describe
+    ";
+    test().run(code).expect_value_eq("record<a: int>")
 }
 
 #[test]
 #[exp(ENFORCE_RUNTIME_ANNOTATIONS)]
 fn let_variable_record_runtime_mismatch() -> Result {
-    let code = "let x: record<b: int> = ({a: 1} | to nuon | from nuon); $x | describe";
+    let code = "
+        let x: record<b: int> = echo {a: 1}
+        $x | describe
+    ";
     let err = test().run(code).expect_shell_error()?;
 
     // This conversion should fail due to a key mismatch
@@ -1284,9 +1356,11 @@ fn let_assign_record_cell_path_to_wrong_type(
     #[case] cell_path: &str,
     #[case] inferred_type: &str,
 ) -> Result {
-    let code = format!("let foo = {{a: [{{b: 1}}]}}; let bar: string = $foo.{cell_path}");
-    let err = test().run(code).expect_parse_error()?;
-
+    let mut tester = test();
+    let () = tester.run("let foo = {a: [{b: 1}]}")?;
+    let err = tester
+        .run(format!("let bar: string = $foo.{cell_path}"))
+        .expect_parse_error()?;
     assert_matches!(
         err,
         ParseError::TypeMismatch(Type::String, found, _) if found.to_string() == inferred_type
@@ -1311,9 +1385,11 @@ fn let_assign_list_cell_path_to_wrong_type(
     #[case] cell_path: &str,
     #[case] inferred_type: &str,
 ) -> Result {
-    let code = format!("let foo = [{{a: {{b: [1]}}}}]; let bar: string = $foo.{cell_path}");
-    let err = test().run(code).expect_parse_error()?;
-
+    let mut tester = test();
+    let () = tester.run("let foo = [{a: {b: [1]}}]")?;
+    let err = tester
+        .run(format!("let bar: string = $foo.{cell_path}"))
+        .expect_parse_error()?;
     assert_matches!(
         err,
         ParseError::TypeMismatch(Type::String, found, _) if found.to_string() == inferred_type
@@ -1338,9 +1414,11 @@ fn let_assign_table_cell_path_to_wrong_type(
     #[case] cell_path: &str,
     #[case] inferred_type: &str,
 ) -> Result {
-    let code = format!("let foo = [[a]; [{{b: [1]}}]]; let bar: string = $foo.{cell_path}");
-    let err = test().run(code).expect_parse_error()?;
-
+    let mut tester = test();
+    let () = tester.run("let foo = [[a]; [{b: [1]}]]")?;
+    let err = tester
+        .run(format!("let bar: string = $foo.{cell_path}"))
+        .expect_parse_error()?;
     assert_matches!(
         err,
         ParseError::TypeMismatch(Type::String, found, _) if found.to_string() == inferred_type
@@ -1353,7 +1431,10 @@ fn let_variable_disallows_completer() -> Result {
     let err = test()
         .run("let x: int@completer = 42")
         .expect_parse_error()?;
-    assert_matches!(err, ParseError::LabeledError(error, _, _) if error == "Unexpected custom completer in type spec");
+    assert_matches!(
+        err,
+        ParseError::LabeledError(error, _, _) if error == "Unexpected custom completer in type spec"
+    );
     Ok(())
 }
 
@@ -1447,7 +1528,10 @@ fn def_with_input_output_broken_3() -> Result {
     let err = test()
         .run("def foo []: int -> int@completer {}")
         .expect_parse_error()?;
-    assert_matches!(err, ParseError::LabeledError(error, _, _) if error == "Unexpected custom completer in type spec");
+    assert_matches!(
+        err,
+        ParseError::LabeledError(error, _, _) if error == "Unexpected custom completer in type spec"
+    );
     Ok(())
 }
 
@@ -1456,36 +1540,59 @@ fn def_with_input_output_broken_4() -> Result {
     let err = test()
         .run("def foo []: int -> list<int@completer> {}")
         .expect_parse_error()?;
-    assert_matches!(err, ParseError::LabeledError(error, _, _) if error == "Unexpected custom completer in type spec");
+    assert_matches!(
+        err,
+        ParseError::LabeledError(error, _, _) if error == "Unexpected custom completer in type spec"
+    );
     Ok(())
 }
 
 #[test]
 fn def_with_in_var_let_1() -> Result {
-    test()
-        .run(r#"def foo []: [int -> int, string -> int] { let x = $in; if ($x | describe) == "int" { 3 } else { 4 } }; "100" | foo"#)
-        .expect_value_eq(4)
+    let code = r#"
+        def foo []: [int -> int, string -> int] {
+            let x = $in
+            if ($x | describe) == "int" { 3 } else { 4 }
+        }
+        "100" | foo
+    "#;
+    test().run(code).expect_value_eq(4)
 }
 
 #[test]
 fn def_with_in_var_let_2() -> Result {
-    test()
-        .run(r#"def foo []: [int -> int, string -> int] { let x = $in; if ($x | describe) == "int" { 3 } else { 4 } }; 100 | foo"#)
-        .expect_value_eq(3)
+    let code = r#"
+        def foo []: [int -> int, string -> int] {
+            let x = $in
+            if ($x | describe) == "int" { 3 } else { 4 }
+        }
+        100 | foo
+    "#;
+    test().run(code).expect_value_eq(3)
 }
 
 #[test]
 fn def_with_in_var_mut_1() -> Result {
-    test()
-        .run(r#"def foo []: [int -> int, string -> int] { mut x = $in; if ($x | describe) == "int" { 3 } else { 4 } }; "100" | foo"#)
-        .expect_value_eq(4)
+    let code = r#"
+        def foo []: [int -> int, string -> int] {
+            mut x = $in
+            if ($x | describe) == "int" { 3 } else { 4 }
+        }
+        "100" | foo
+    "#;
+    test().run(code).expect_value_eq(4)
 }
 
 #[test]
 fn def_with_in_var_mut_2() -> Result {
-    test()
-        .run(r#"def foo []: [int -> int, string -> int] { mut x = $in; if ($x | describe) == "int" { 3 } else { 4 } }; 100 | foo"#)
-        .expect_value_eq(3)
+    let code = r#"
+        def foo []: [int -> int, string -> int] {
+            mut x = $in
+            if ($x | describe) == "int" { 3 } else { 4 }
+        }
+        100 | foo
+    "#;
+    test().run(code).expect_value_eq(3)
 }
 
 #[test]
@@ -1529,7 +1636,10 @@ fn record_expected_colon() -> Result {
 #[test]
 fn record_missing_value() -> Result {
     let err = test().run("{ a: 2 b: }").expect_parse_error()?;
-    assert_matches!(err, ParseError::Expected(expected, _) if expected == "value for record field");
+    assert_matches!(
+        err,
+        ParseError::Expected(expected, _) if expected == "value for record field"
+    );
     Ok(())
 }
 
@@ -1538,7 +1648,10 @@ fn record_type_inferred() -> Result {
     let err = test()
         .run("let foo: string = { 1: 1 }")
         .expect_parse_error()?;
-    assert_matches!(err, ParseError::TypeMismatch(Type::String, found, _) if found.to_string() == "record<1: int>");
+    assert_matches!(
+        err,
+        ParseError::TypeMismatch(Type::String, found, _) if found.to_string() == "record<1: int>"
+    );
     Ok(())
 }
 
@@ -1550,7 +1663,10 @@ fn record_force_string_key_names() -> Result {
 #[test]
 fn def_requires_body_closure() -> Result {
     let err = test().run("def a [] (echo 4)").expect_parse_error()?;
-    assert_matches!(err, ParseError::Expected(expected, _) if expected == "definition body closure { ... }");
+    assert_matches!(
+        err,
+        ParseError::Expected(expected, _) if expected == "definition body closure { ... }"
+    );
     Ok(())
 }
 
@@ -1713,7 +1829,7 @@ fn keep_variable_it_after_where() -> Result {
 #[deps(NU)]
 fn external_arg_correctness() -> Result {
     Playground::setup("external_arg_correctness", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent(
+        sandbox.with_files(&[Stub::FileWithContent(
             "script.nu",
             "
             def main [
@@ -1741,7 +1857,13 @@ fn external_arg_correctness() -> Result {
         )]);
 
         let code = "
-            nu script.nu --flag=false --flag2=0001 --flag3={fake: null} false 0001 {fake: null} false 0001 {fake: null}
+            (
+                nu script.nu
+                    --flag=false
+                    --flag2=0001
+                    --flag3={fake: null}
+                    false 0001 {fake: null} false 0001 {fake: null}
+            )
             | from nuon
         ";
 
