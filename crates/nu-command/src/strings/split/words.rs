@@ -401,18 +401,20 @@ fn split_words_helper(v: &Value, word_length: Option<usize>, span: Span, graphem
 #[cfg(test)]
 mod test {
     use super::*;
-    use nu_test_support::nu;
+    use nu_test_support::prelude::{Result, *};
 
     #[test]
-    fn test_incompat_flags() {
-        let out = nu!("'a' | split words -bg -l 2");
-        assert!(out.err.contains("incompatible_parameters"));
+    fn test_incompat_flags() -> Result {
+        test()
+            .run("'a' | split words -bg -l 2")
+            .expect_error_code_eq("nu::shell::incompatible_parameters")
     }
 
     #[test]
-    fn test_incompat_flags_2() {
-        let out = nu!("'a' | split words -g");
-        assert!(out.err.contains("incompatible_parameters"));
+    fn test_incompat_flags_2() -> Result {
+        test()
+            .run("'a' | split words -g")
+            .expect_error_code_eq("nu::shell::incompatible_parameters")
     }
 
     #[test]
@@ -420,8 +422,9 @@ mod test {
         nu_test_support::test().examples(SplitWords)
     }
     #[test]
-    fn mixed_letter_number() {
-        let actual = nu!(r#"echo "a1 b2 c3" | split words | str join ','"#);
-        assert_eq!(actual.out, "a1,b2,c3");
+    fn mixed_letter_number() -> Result {
+        test()
+            .run(r#"echo "a1 b2 c3" | split words"#)
+            .expect_value_eq(["a1", "b2", "c3"])
     }
 }
