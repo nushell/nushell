@@ -1,343 +1,325 @@
-use nu_test_support::nu;
-use nu_test_support::playground::Playground;
-use std::fs;
+use pretty_assertions::assert_matches;
+use rstest::rstest;
 
-#[test]
-fn match_for_range() {
-    let actual = nu!(r#"match 3 { 1..10 => { print "success" } }"#);
-    // Make sure we don't see any of these values in the output
-    // As we do not auto-print loops anymore
-    assert_eq!(actual.out, "success");
+use nu_test_support::prelude::*;
+
+#[rstest]
+#[case::inside(3, true)]
+#[case::outside(11, false)]
+fn range(#[case] scrutinee: impl IntoValue, #[case] success: bool) -> Result {
+    let code = r#"
+        match $in {
+            1..10 => { true }
+            _ => { false }
+        }
+    "#;
+    test()
+        .run_with_data(code, scrutinee)
+        .expect_value_eq(success)
 }
 
 #[test]
-fn match_for_range_unmatched() {
-    let actual = nu!(r#"match 11 { 1..10 => { print "failure" }, _ => { print "success" }}"#);
-    // Make sure we don't see any of these values in the output
-    // As we do not auto-print loops anymore
-    assert_eq!(actual.out, "success");
+fn record() -> Result {
+    test()
+        .run(
+            "
+            match {a: 11} {
+                {a: $b} => { $b }
+            }
+            ",
+        )
+        .expect_value_eq(11)
 }
 
 #[test]
-fn match_for_record() {
-    let actual = nu!("match {a: 11} { {a: $b} => { print $b }}");
-    // Make sure we don't see any of these values in the output
-    // As we do not auto-print loops anymore
-    assert_eq!(actual.out, "11");
+fn record_shorthand() -> Result {
+    test()
+        .run(
+            "
+            match {a: 12} {
+                {$a} => { $a }
+            }
+            ",
+        )
+        .expect_value_eq(12)
 }
 
 #[test]
-fn match_for_record_shorthand() {
-    let actual = nu!("match {a: 12} { {$a} => { print $a }}");
-    // Make sure we don't see any of these values in the output
-    // As we do not auto-print loops anymore
-    assert_eq!(actual.out, "12");
+fn list() -> Result {
+    test()
+        .run(
+            r#"
+            match [1, 2] {
+                [$a] => { {single: $a} }
+                [$b, $c] => { {double: [$b, $c] } }
+            }
+            "#,
+        )
+        .expect_value_eq(test_value!({double: [1, 2]}))
 }
 
 #[test]
-fn match_list() {
-    let actual = nu!(
-        r#"match [1, 2] { [$a] => { print $"single: ($a)" }, [$b, $c] => {print $"double: ($b) ($c)"}}"#
-    );
-    // Make sure we don't see any of these values in the output
-    // As we do not auto-print loops anymore
-    assert_eq!(actual.out, "double: 1 2");
+fn list_rest_ignore() -> Result {
+    test()
+        .run(
+            r#"
+            match [1, 2] {
+                [$a, ..] => { {single: $a} }
+                [$b, $c] => { {double: [$b, $c] } }
+            }
+            "#,
+        )
+        .expect_value_eq(test_value!({single: 1}))
 }
 
 #[test]
-fn match_list_rest_ignore() {
-    let actual = nu!(
-        r#"match [1, 2] { [$a, ..] => { print $"single: ($a)" }, [$b, $c] => {print $"double: ($b) ($c)"}}"#
-    );
-    // Make sure we don't see any of these values in the output
-    // As we do not auto-print loops anymore
-    assert_eq!(actual.out, "single: 1");
+fn list_rest_capture() -> Result {
+    test()
+        .run(
+            r#"
+                match [1, 2, 3] {
+                    [$a, ..$remainder] => { {single: $a, remainder: $remainder} }
+                    [$b, $c] => { {double: [$b, $c]} }
+                }
+            "#,
+        )
+        .expect_value_eq(test_value!({
+            single: 1,
+            remainder: [2, 3],
+        }))
 }
 
 #[test]
-fn match_list_rest() {
-    let actual = nu!(
-        r#"match [1, 2, 3] { [$a, ..$remainder] => { print $"single: ($a) ($remainder | math sum)" }, [$b, $c] => {print $"double: ($b) ($c)"}}"#
-    );
-    // Make sure we don't see any of these values in the output
-    // As we do not auto-print loops anymore
-    assert_eq!(actual.out, "single: 1 5");
+fn list_rest_empty() -> Result {
+    test()
+        .run("match [1] { [1 ..$rest] => { $rest == [] } }")
+        .expect_value_eq(true)
+}
+
+#[rstest]
+#[case::int(["1", "2", "3"])]
+#[case::float(["1.4", "2.3", "3"])]
+#[case::bool(["false", "true", "3"])]
+#[case::string(["\"abc\"", "\"def\"", "\"ghi\""])]
+#[case::date(["2010-01-01", "2019-08-23", "2020-02-02"])]
+#[case::duration(["2sec", "6sec", "1min"])]
+#[case::filesize(["1kb", "1kib", "2kb"])]
+fn literal(#[case] patterns: [&str; 3]) -> Result {
+    let [first, second, third] = patterns;
+
+    let mut tester = test();
+    let scrutinee: Value = tester.run(second)?;
+
+    let code = indoc::formatdoc! {r#"
+        match $in {{
+            {first} => false,
+            {second} => true,
+            {third} => false,
+        }}
+    "#};
+    test().run_with_data(code, scrutinee).expect_value_eq(true)
 }
 
 #[test]
-fn match_list_rest_empty() {
-    let actual = nu!("match [1] { [1 ..$rest] => { $rest == [] } }");
-    assert_eq!(actual.out, "true");
+fn literal_raw_string() -> Result {
+    test()
+        .run(
+            r#"
+            match "foo" {
+                r#'foo'# => true,
+                _ => false,
+            }
+        "#,
+        )
+        .expect_value_eq(true)
 }
 
 #[test]
-fn match_constant_1() {
-    let actual = nu!(
-        r#"match 2 { 1 => { print "failure"}, 2 => { print "success" }, 3 => { print "failure" }}"#
-    );
-    // Make sure we don't see any of these values in the output
-    // As we do not auto-print loops anymore
-    assert_eq!(actual.out, "success");
+fn literal_null() -> Result {
+    test()
+        .run(
+            r#"
+            match null {
+                null => true,
+                _ => false,
+            }
+        "#,
+        )
+        .expect_value_eq(true)
 }
 
 #[test]
-fn match_constant_2() {
-    let actual = nu!(
-        r#"match 2.3 { 1.4 => { print "failure"}, 2.3 => { print "success" }, 3 => { print "failure" }}"#
-    );
-    // Make sure we don't see any of these values in the output
-    // As we do not auto-print loops anymore
-    assert_eq!(actual.out, "success");
+fn match_or_pattern() -> Result {
+    test()
+        .run(
+            r#"
+        match {b: 7} {
+            {a: $a} | {b: $b} => { {success: $b} }
+            _ => false
+        }
+    "#,
+        )
+        .expect_value_eq(test_value!({success: 7}))
 }
 
 #[test]
-fn match_constant_3() {
-    let actual = nu!(
-        r#"match true { false => { print "failure"}, true => { print "success" }, 3 => { print "failure" }}"#
-    );
-    // Make sure we don't see any of these values in the output
-    // As we do not auto-print loops anymore
-    assert_eq!(actual.out, "success");
+fn match_or_pattern_overlap_1() -> Result {
+    test()
+        .run(
+            r#"
+        match {a: 7} {
+            {a: $b} | {b: $b} => { {success: $b} }
+            _ => false
+        }
+    "#,
+        )
+        .expect_value_eq(test_value!({success: 7}))
 }
 
 #[test]
-fn match_constant_4() {
-    let actual = nu!(
-        r#"match "def" { "abc" => { print "failure"}, "def" => { print "success" }, "ghi" => { print "failure" }}"#
-    );
-    // Make sure we don't see any of these values in the output
-    // As we do not auto-print loops anymore
-    assert_eq!(actual.out, "success");
+fn match_or_pattern_overlap_2() -> Result {
+    test()
+        .run(
+            r#"
+        match {b: 7} {
+            {a: $b} | {b: $b} => { {success: $b} }
+            _ => { print "failure" }
+        }
+    "#,
+        )
+        .expect_value_eq(test_value!({success: 7}))
 }
 
 #[test]
-fn match_constant_5() {
-    let actual = nu!(
-        r#"match 2019-08-23 { 2010-01-01 => { print "failure"}, 2019-08-23 => { print "success" }, 2020-02-02 => { print "failure" }}"#
-    );
-    // Make sure we don't see any of these values in the output
-    // As we do not auto-print loops anymore
-    assert_eq!(actual.out, "success");
+fn match_doesnt_overwrite_variable() -> Result {
+    test()
+        .run("let b = 100; match 55 { $b => {} }; $b")
+        .expect_value_eq(100)
 }
 
 #[test]
-fn match_constant_6() {
-    let actual = nu!(
-        r#"match 6sec { 2sec => { print "failure"}, 6sec => { print "success" }, 1min => { print "failure" }}"#
-    );
-    // Make sure we don't see any of these values in the output
-    // As we do not auto-print loops anymore
-    assert_eq!(actual.out, "success");
+fn match_with_guard() -> Result {
+    test()
+        .run(
+            "
+        match [1 2 3] {
+            [$x, ..] if $x mod 2 == 0 => false,
+            $x => true,
+        }
+    ",
+        )
+        .expect_value_eq(true)
 }
 
 #[test]
-fn match_constant_7() {
-    let actual = nu!(
-        r#"match 1kib { 1kb => { print "failure"}, 1kib => { print "success" }, 2kb => { print "failure" }}"#
-    );
-    // Make sure we don't see any of these values in the output
-    // As we do not auto-print loops anymore
-    assert_eq!(actual.out, "success");
-}
-
-#[test]
-fn match_constant_8() {
-    let actual =
-        nu!(r#"match "foo" { r#'foo'# => { print "success" }, _ => { print "failure" } }"#);
-    // Make sure we don't see any of these values in the output
-    // As we do not auto-print loops anymore
-    assert_eq!(actual.out, "success");
-}
-
-#[test]
-fn match_null() {
-    let actual = nu!(r#"match null { null => { print "success"}, _ => { print "failure" }}"#);
-    assert_eq!(actual.out, "success");
-}
-
-#[test]
-fn match_or_pattern() {
-    let actual = nu!(
-        r#"match {b: 7} { {a: $a} | {b: $b} => { print $"success: ($b)" }, _ => { print "failure" }}"#
-    );
-    // Make sure we don't see any of these values in the output
-    // As we do not auto-print loops anymore
-    assert_eq!(actual.out, "success: 7");
-}
-
-#[test]
-fn match_or_pattern_overlap_1() {
-    let actual = nu!(
-        r#"match {a: 7} { {a: $b} | {b: $b} => { print $"success: ($b)" }, _ => { print "failure" }}"#
-    );
-    // Make sure we don't see any of these values in the output
-    // As we do not auto-print loops anymore
-    assert_eq!(actual.out, "success: 7");
-}
-
-#[test]
-fn match_or_pattern_overlap_2() {
-    let actual = nu!(
-        r#"match {b: 7} { {a: $b} | {b: $b} => { print $"success: ($b)" }, _ => { print "failure" }}"#
-    );
-    // Make sure we don't see any of these values in the output
-    // As we do not auto-print loops anymore
-    assert_eq!(actual.out, "success: 7");
-}
-
-#[test]
-fn match_doesnt_overwrite_variable() {
-    let actual = nu!("let b = 100; match 55 { $b => {} }; print $b");
-    // Make sure we don't see any of these values in the output
-    // As we do not auto-print loops anymore
-    assert_eq!(actual.out, "100");
-}
-
-#[test]
-fn match_with_guard() {
-    let actual = nu!("match [1 2 3] { [$x, ..] if $x mod 2 == 0 => { $x }, $x => { 2 } }");
-
-    assert_eq!(actual.out, "2");
-}
-
-#[test]
-fn match_with_guard_block_as_guard() {
+fn match_with_guard_block_as_guard() -> Result {
     // this should work?
-    let actual =
-        nu!("match 4 { $x if { $x + 20 > 25 } => { 'good num' }, _ => { 'terrible num' } }");
-
-    assert!(actual.err.contains("Match guard not bool"));
+    test()
+        .run("match 4 { $x if { $x + 20 > 25 } => { 'good num' }, _ => { 'terrible num' } }")
+        .expect_error_code_eq("nu::shell::match_guard_not_bool")
 }
 
 #[test]
-fn match_with_guard_parens_expr_as_guard() {
-    let actual = nu!("match 4 { $x if ($x + 20 > 25) => { 'good num' }, _ => { 'terrible num' } }");
-
-    assert_eq!(actual.out, "terrible num");
+fn match_with_guard_parens_expr_as_guard() -> Result {
+    test()
+        .run("match 4 { $x if ($x + 20 > 25) => { 'good num' }, _ => { 'terrible num' } }")
+        .expect_value_eq("terrible num")
 }
 
 #[test]
-fn match_with_guard_not_bool() {
-    let actual = nu!("match 4 { $x if $x + 1 => { 'err!()' }, _ => { 'unreachable!()' } }");
-
-    assert!(actual.err.contains("Match guard not bool"));
+fn match_with_guard_not_bool() -> Result {
+    test()
+        .run("match 4 { $x if $x + 1 => { 'err!()' }, _ => { 'unreachable!()' } }")
+        .expect_error_code_eq("nu::shell::match_guard_not_bool")
 }
 
 #[test]
-fn match_with_guard_no_expr_after_if() {
-    let actual = nu!("match 4 { $x if  => { 'err!()' }, _ => { 'unreachable!()' } }");
-
-    assert!(actual.err.contains("Match guard without an expression"));
+fn match_with_guard_no_expr_after_if() -> Result {
+    let err = test()
+        .run("match 4 { $x if  => { 'err!()' }, _ => { 'unreachable!()' } }")
+        .expect_parse_error()?;
+    assert_contains("Match guard without an expression", err.to_string());
+    Ok(())
 }
 
 #[test]
-fn match_with_guard_multiarm() {
-    let actual = nu!("match 3 {1 | 2 | 3 if true => 'test'}");
-
-    assert_eq!(actual.out, "test");
+fn match_with_guard_multiarm() -> Result {
+    test()
+        .run("match 3 {1 | 2 | 3 if true => 'test'}")
+        .expect_value_eq("test")
 }
 
 #[test]
-fn match_with_or_missing_expr() {
-    let actual = nu!("match $in { 1 | }");
-
-    assert!(actual.err.contains("expected pattern"));
+fn match_with_or_missing_expr() -> Result {
+    let err = test().run("match $in { 1 | }").expect_parse_error()?;
+    assert_matches!(
+        err,
+        ParseError::Mismatch(expected, found, _) if expected == "pattern" && found == "end of input"
+    );
+    Ok(())
 }
 
 #[test]
-fn match_with_comment_1() {
-    Playground::setup("match_with_comment", |dirs, _| {
-        let data = "
-match 1 {
-    # comment
-    _ => { print 'success' }
-}
-            ";
-        fs::write(dirs.root().join("match_test"), data).expect("Unable to write file");
-        let actual = nu!(
-            cwd: dirs.root(),
-            "source match_test"
-        );
-
-        assert_eq!(actual.out, "success");
-    });
+fn line_comment_in_match_block() -> Result {
+    let code = r#"
+        match 1 {
+            # comment
+            _ => { true }
+        }
+    "#;
+    test().run(code).expect_value_eq(true)
 }
 
 #[test]
-fn match_with_comment_2() {
-    Playground::setup("match_with_comment", |dirs, _| {
-        let data = "
-match 1 {
-    _ => { print 'success' } # comment
-}
-            ";
-        fs::write(dirs.root().join("match_test"), data).expect("Unable to write file");
-        let actual = nu!(
-            cwd: dirs.root(),
-            "source match_test"
-        );
-
-        assert_eq!(actual.out, "success");
-    });
+fn trailing_comment_after_match_arm() -> Result {
+    let code = r#"
+        match 1 {
+            _ => { true } # comment
+        }
+    "#;
+    test().run(code).expect_value_eq(true)
 }
 
-#[test]
-fn match_paren_expression_string_concat() {
-    let actual = nu!("match 'test' { ('t' + 'es' + 't') => { print 'OK' } }");
-    assert_eq!(actual.out, "OK");
+#[rstest]
+#[case::string_concat("match 'test' { ( 't' + 'es' + 't' ) => { true } }")]
+#[case::int_arithmetic("match 42 { (40 + 2) => { true } }")]
+#[case::no_match("match 'nope' { ('t' + 'es' + 't') => { false }, _ => { true } }")]
+#[case::range_literal(r#"match 5 { (1..10) => { true }, _ => { false } }"#)]
+#[case::or_pattern("match 3 { (1 + 1) | 3 => { true }, _ => { false } }")]
+#[case::nested_in_list("match [2] { [(1 + 1)] => { true }, _ => { false } }")]
+fn const_expr_in_paren(#[case] code: &str) -> Result {
+    test().run(code).expect_value_eq(true)
 }
 
 #[test]
-fn match_paren_expression_arithmetic() {
-    let actual = nu!("match 42 { (40 + 2) => { print 'OK' } }");
-    assert_eq!(actual.out, "OK");
-}
-
-#[test]
-fn match_paren_expression_const_var() {
-    let actual = nu!(r#"
+fn const_expr_with_const_var() -> Result {
+    test()
+        .run(
+            r#"
             const BASE = "/Users/fdncred"
             match "/Users/fdncred/src/nushell" {
-                ($BASE + "/other") => { print "other" },
-                ($BASE + "/src/nushell") => { print "nu" },
-                _ => { print "miss" }
+                ($BASE + "/other") => { "other" },
+                ($BASE + "/src/nushell") => { "nu" },
+                _ => { "miss" }
             }
-        "#);
-    assert_eq!(actual.out, "nu");
+        "#,
+        )
+        .expect_value_eq("nu")
 }
 
 #[test]
-fn match_paren_expression_no_match() {
-    let actual =
-        nu!("match 'nope' { ('t' + 'es' + 't') => { print 'FAIL' }, _ => { print 'OK' } }");
-    assert_eq!(actual.out, "OK");
-}
+fn match_paren_expression_non_const_errors() -> Result {
+    let err = test()
+        .run(
+            r#"
+            match 'x' {
+                ($env.HOME) => { "FAIL" }
+                _ => { "OK" }
+            }
+        "#,
+        )
+        .expect_parse_error()?;
 
-#[test]
-fn match_paren_expression_non_const_errors() {
-    let actual = nu!("match 'x' { ($env.HOME) => { print 'FAIL' }, _ => { print 'OK' } }");
-    assert!(
-        !actual.err.is_empty(),
-        "expected non-const pattern to error, got out={:?} err={:?}",
-        actual.out,
-        actual.err
-    );
-}
-
-#[test]
-fn match_paren_range_containment() {
-    let actual = nu!(r#"match 5 { (1..10) => { print "yes" }, _ => { print "no" } }"#);
-    assert_eq!(actual.out, "yes");
-}
-
-#[test]
-fn match_paren_expression_or_pattern() {
-    let actual = nu!("match 3 { (1 + 1) | 3 => { print 'OK' }, _ => { print 'FAIL' } }");
-    assert_eq!(actual.out, "OK");
-}
-
-#[test]
-fn match_paren_expression_in_list_pattern() {
-    let actual = nu!("match [2] { [(1 + 1)] => { print 'OK' }, _ => { print 'FAIL' } }");
-    assert_eq!(actual.out, "OK");
+    assert_contains("not a parse-time constant", err.to_string());
+    Ok(())
 }
