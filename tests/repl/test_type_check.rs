@@ -377,3 +377,26 @@ fn block_let_rhs_pipeline_input() -> Result {
 
     Ok(())
 }
+
+#[test]
+fn closure_body_input_type_not_inherited_from_pipeline_input() -> Result {
+    let mut tester = test();
+
+    let () = tester.run("let fn = 42 | {|| $in ++ 'kB'}")?;
+    tester.run("'10' | do $fn").expect_value_eq("10kB")
+}
+
+#[test]
+fn closure_body_input_type_not_inherited_from_surrounding_command() -> Result {
+    let mut tester = test();
+
+    let code = r#"
+        def cmd [p: string]: nothing -> string {
+            let fn = {|| $in ++ "bar"}
+            $p | do $fn
+        }
+    "#;
+
+    let () = tester.run(code)?;
+    tester.run("cmd foo").expect_value_eq("foobar")
+}

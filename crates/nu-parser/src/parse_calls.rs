@@ -1299,13 +1299,50 @@ pub fn parse_internal_call(
                         _ => None,
                     };
 
-                    let expr = parse_multispan_value(
-                        working_set,
-                        &spans[..end],
-                        &mut spans_idx,
-                        &positional.shape,
-                        input_type.as_ref(),
-                    );
+                    // HACK: `def` block parameter is of type `closure`, which is wrong.
+                    // However, that's used to make sure `def` blocks don't capture mutable
+                    // variables. (Which is also a HACK)
+                    //
+                    // Closure bodies do not get pipeline input type, but `def` bodies should.
+                    // Thus, we work around the mentioned hack with another one here.
+                    //
+                    // This is of course unideal, but it's the way to go to fix the issue without a
+                    // big refactor, which could neither be done in time for the 0.114.1 patch
+                    // release, nor would it be appropriate to include in a patch release.
+                    let expr = match special_cmd {
+                        Some(SpecialCmd::Def) if &positional.name == "block" => {
+                            let starting_error_count = working_set.parse_errors.len();
+
+                            let out = crate::parse_expressions::parse_closure_expression(
+                                working_set,
+                                &positional.shape,
+                                spans[spans_idx],
+                                input_type.as_ref(),
+                            );
+
+                            if let Expr::Closure(_) = out.expr {
+                                out
+                            } else {
+                                // on failure, we fallback to the normal code path to keep errors
+                                // the same as before this hack
+                                working_set.parse_errors.truncate(starting_error_count);
+                                parse_multispan_value(
+                                    working_set,
+                                    &spans[..end],
+                                    &mut spans_idx,
+                                    &positional.shape,
+                                    input_type.as_ref(),
+                                )
+                            }
+                        }
+                        _ => parse_multispan_value(
+                            working_set,
+                            &spans[..end],
+                            &mut spans_idx,
+                            &positional.shape,
+                            input_type.as_ref(),
+                        ),
+                    };
 
                     match special_cmd {
                         Some(SpecialCmd::Match) if &positional.name == "match_block" => {
