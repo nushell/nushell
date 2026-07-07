@@ -174,8 +174,6 @@ pub fn main() -> ExitCode {
         .with_color_setting(args.color)
         .with_group_label_from_ctx();
 
-    dbg!(BUILD_PROFILE);
-
     match (args.format, args.list) {
         (Format::Pretty, true) => harness.with_formatter(pretty_formatter).list().exit_code(),
         (Format::Pretty, false) => harness.with_formatter(pretty_formatter).run().exit_code(),

@@ -16,3 +16,5 @@ fn extract_build_profile() {
     let profile = profile.as_os_str().to_string_lossy();
     println!("cargo::rustc-env=BUILD_PROFILE={profile}");
 }
+
+// TODO: maybe figure out target too

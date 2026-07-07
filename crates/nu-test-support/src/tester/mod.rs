@@ -286,7 +286,7 @@ impl NuTester {
     /// Adds the "nu" binary for testing to the path.
     ///
     /// Calling [`inherit_path`](Self::inherit_path) after this methods removes the path entry.
-    #[deprecated]
+    #[deprecated(note = "use `#[deps(NU)]` instead")]
     pub fn add_nu_to_path(self) -> Self {
         let nu_home = crate::fs::binaries();
         let path = self.engine_state.get_env_var("PATH");
