@@ -101,7 +101,13 @@ impl Command for ParEach {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        fn create_pool(num_threads: usize, head: Span) -> Result<rayon::ThreadPool, ShellError> {
+        fn create_pool(
+            num_threads: usize,
+            head: Span,
+        ) -> Result<Option<rayon::ThreadPool>, ShellError> {
+            if num_threads == 0 {
+                return Ok(None);
+            }
             match rayon::ThreadPoolBuilder::new()
                 .num_threads(num_threads)
                 .build()
@@ -113,7 +119,7 @@ impl Command for ParEach {
                         head,
                     ))
                 }),
-                Ok(pool) => Ok(pool),
+                Ok(pool) => Ok(Some(pool)),
             }
         }
 
@@ -146,13 +152,30 @@ impl Command for ParEach {
                     Value::List { vals, .. } => {
                         let pool = create_pool(max_threads, head)?;
                         if keep_order {
-                            Ok(pool.install(|| {
-                                let par_iter = vals.into_par_iter().enumerate();
-                                let mapped =
-                                    parallel_closure_map(engine_state, stack, &closure, par_iter);
-                                apply_order(mapped.collect())
-                                    .into_pipeline_data(span, signals.clone())
-                            }))
+                            match pool {
+                                Some(pool) => Ok(pool.install(|| {
+                                    let par_iter = vals.into_par_iter().enumerate();
+                                    let mapped = parallel_closure_map(
+                                        engine_state,
+                                        stack,
+                                        &closure,
+                                        par_iter,
+                                    );
+                                    apply_order(mapped.collect())
+                                        .into_pipeline_data(span, signals.clone())
+                                })),
+                                None => {
+                                    let par_iter = vals.into_par_iter().enumerate();
+                                    let mapped = parallel_closure_map(
+                                        engine_state,
+                                        stack,
+                                        &closure,
+                                        par_iter,
+                                    );
+                                    Ok(apply_order(mapped.collect())
+                                        .into_pipeline_data(span, signals.clone()))
+                                }
+                            }
                         } else {
                             let par_iter = vals.into_par_iter();
                             Ok(stream_parallel_values(
@@ -169,16 +192,36 @@ impl Command for ParEach {
                     Value::Range { val, .. } => {
                         let pool = create_pool(max_threads, head)?;
                         if keep_order {
-                            Ok(pool.install(|| {
-                                let par_iter = val
-                                    .into_range_iter(span, signals.clone())
-                                    .enumerate()
-                                    .par_bridge();
-                                let mapped =
-                                    parallel_closure_map(engine_state, stack, &closure, par_iter);
-                                apply_order(mapped.collect())
-                                    .into_pipeline_data(span, signals.clone())
-                            }))
+                            match pool {
+                                Some(pool) => Ok(pool.install(|| {
+                                    let par_iter = val
+                                        .into_range_iter(span, signals.clone())
+                                        .enumerate()
+                                        .par_bridge();
+                                    let mapped = parallel_closure_map(
+                                        engine_state,
+                                        stack,
+                                        &closure,
+                                        par_iter,
+                                    );
+                                    apply_order(mapped.collect())
+                                        .into_pipeline_data(span, signals.clone())
+                                })),
+                                None => {
+                                    let par_iter = val
+                                        .into_range_iter(span, signals.clone())
+                                        .enumerate()
+                                        .par_bridge();
+                                    let mapped = parallel_closure_map(
+                                        engine_state,
+                                        stack,
+                                        &closure,
+                                        par_iter,
+                                    );
+                                    Ok(apply_order(mapped.collect())
+                                        .into_pipeline_data(span, signals.clone()))
+                                }
+                            }
                         } else {
                             let par_iter = val.into_range_iter(span, signals.clone()).par_bridge();
                             Ok(stream_parallel_values(
@@ -202,12 +245,21 @@ impl Command for ParEach {
             PipelineData::ListStream(stream, ..) => {
                 let pool = create_pool(max_threads, head)?;
                 if keep_order {
-                    Ok(pool.install(|| {
-                        let par_iter = stream.into_iter().enumerate().par_bridge();
-                        let mapped = parallel_closure_map(engine_state, stack, &closure, par_iter);
-
-                        apply_order(mapped.collect()).into_pipeline_data(head, signals.clone())
-                    }))
+                    match pool {
+                        Some(pool) => Ok(pool.install(|| {
+                            let par_iter = stream.into_iter().enumerate().par_bridge();
+                            let mapped =
+                                parallel_closure_map(engine_state, stack, &closure, par_iter);
+                            apply_order(mapped.collect()).into_pipeline_data(head, signals.clone())
+                        })),
+                        None => {
+                            let par_iter = stream.into_iter().enumerate().par_bridge();
+                            let mapped =
+                                parallel_closure_map(engine_state, stack, &closure, par_iter);
+                            Ok(apply_order(mapped.collect())
+                                .into_pipeline_data(head, signals.clone()))
+                        }
+                    }
                 } else {
                     let par_iter = stream.into_iter().par_bridge();
                     Ok(stream_parallel_values(
@@ -225,17 +277,32 @@ impl Command for ParEach {
                 if let Some(chunks) = stream.chunks() {
                     let pool = create_pool(max_threads, head)?;
                     if keep_order {
-                        Ok(pool.install(|| {
-                            let par_iter = chunks
-                                .enumerate()
-                                .map(move |(idx, val)| {
-                                    (idx, val.unwrap_or_else(|err| Value::error(err, head)))
-                                })
-                                .par_bridge();
-                            let mapped =
-                                parallel_closure_map(engine_state, stack, &closure, par_iter);
-                            apply_order(mapped.collect()).into_pipeline_data(head, signals.clone())
-                        }))
+                        match pool {
+                            Some(pool) => Ok(pool.install(|| {
+                                let par_iter = chunks
+                                    .enumerate()
+                                    .map(move |(idx, val)| {
+                                        (idx, val.unwrap_or_else(|err| Value::error(err, head)))
+                                    })
+                                    .par_bridge();
+                                let mapped =
+                                    parallel_closure_map(engine_state, stack, &closure, par_iter);
+                                apply_order(mapped.collect())
+                                    .into_pipeline_data(head, signals.clone())
+                            })),
+                            None => {
+                                let par_iter = chunks
+                                    .enumerate()
+                                    .map(move |(idx, val)| {
+                                        (idx, val.unwrap_or_else(|err| Value::error(err, head)))
+                                    })
+                                    .par_bridge();
+                                let mapped =
+                                    parallel_closure_map(engine_state, stack, &closure, par_iter);
+                                Ok(apply_order(mapped.collect())
+                                    .into_pipeline_data(head, signals.clone()))
+                            }
+                        }
                     } else {
                         let par_iter = chunks
                             .map(move |val| val.unwrap_or_else(|err| Value::error(err, head)))
@@ -264,7 +331,7 @@ fn stream_parallel_values(
     engine_state: &EngineState,
     stack: &Stack,
     closure: Closure,
-    pool: rayon::ThreadPool,
+    pool: Option<rayon::ThreadPool>,
     span: Span,
     signals: Signals,
     input: impl ParallelIterator<Item = Value> + 'static,
@@ -274,7 +341,7 @@ fn stream_parallel_values(
     let worker_stack = stack.clone();
     let worker_signals = signals.clone();
 
-    pool.install(|| {
+    let spawn_work = move || {
         rayon::spawn(move || {
             let map_signals = worker_signals.clone();
             let send_signals = worker_signals.clone();
@@ -307,7 +374,12 @@ fn stream_parallel_values(
                     Err(()) => Err(()),
                 });
         });
-    });
+    };
+
+    match pool {
+        Some(pool) => pool.install(spawn_work),
+        None => spawn_work(),
+    }
 
     ReceiverIter::new(rx, signals).into_pipeline_data(span, Signals::empty())
 }
