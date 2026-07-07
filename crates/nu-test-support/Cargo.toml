@@ -65,8 +65,3 @@ nu-command = { workspace = true, features = ["default"] }
 
 bytes = { workspace = true }
 rstest = { workspace = true }
-
-[build-dependencies]
-heck = { workspace = true }
-quote = { workspace = true }
-toml = { workspace = true }

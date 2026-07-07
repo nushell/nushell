@@ -4,6 +4,8 @@ use std::{
     process::{Command, Stdio},
 };
 
+use crate::harness::BUILD_PROFILE;
+
 #[derive(derive_more::Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Dependency<'a> {
     /// Name of the binary without extension.
@@ -62,10 +64,13 @@ impl Dependency<'static> {
         let mut command = Command::new("cargo");
         command
             .arg("build")
-            // .arg("-vv")
             .args(self.build_args.split(" "))
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit());
+
+        if BUILD_PROFILE != "debug" {
+            command.arg(format!("--profile={BUILD_PROFILE}"));
+        }
 
         // ensure that cargo is called cleanly to avoid unnecessary rebuilds
         for (key, _) in std::env::vars() {
@@ -98,10 +103,9 @@ impl Dependency<'static> {
     }
 
     pub fn path(&self, target_dir: impl AsRef<Path>) -> PathBuf {
-        // TODO: instead of blindly using "debug", find actual current profile
         target_dir
             .as_ref()
-            .join("debug")
+            .join(BUILD_PROFILE)
             .join(self.bin_name.as_ref())
     }
 }

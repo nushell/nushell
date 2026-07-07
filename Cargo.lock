@@ -5047,7 +5047,6 @@ dependencies = [
  "bytes",
  "derive_more 2.1.1",
  "gatekeeper",
- "heck",
  "itertools 0.15.0",
  "kitest",
  "lexopt",
@@ -5068,12 +5067,10 @@ dependencies = [
  "nu-utils",
  "num-format",
  "pastey",
- "quote",
  "rstest",
  "serde_json",
  "tempfile",
  "thiserror 2.0.18",
- "toml",
  "which 8.0.2",
 ]
 

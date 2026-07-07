@@ -40,16 +40,14 @@ pub use test::{Extra, IntoTestResult};
 
 pub mod deps;
 
-pub mod build_profile {
-    include!(concat!(env!("OUT_DIR"), "/build_profile.rs"));
-}
-
 pub mod macros {
     pub use kitest::{dbg, eprint, eprintln, print, println};
     pub use linkme::distributed_slice as collect_test;
     pub use nu_test_support_macros::test;
     pub use nu_utils::module_path_without_crate;
 }
+
+pub const BUILD_PROFILE: &str = env!("BUILD_PROFILE");
 
 pub const DEFAULT_THREAD_COUNT_MUL: NonZeroUsize = NonZeroUsize::new(4).unwrap();
 pub static DEFAULT_THREAD_COUNT: LazyLock<NonZeroUsize> = LazyLock::new(|| {
@@ -176,9 +174,7 @@ pub fn main() -> ExitCode {
         .with_color_setting(args.color)
         .with_group_label_from_ctx();
 
-    dbg!(env!("BUILD_PROFILE"));
-    dbg!(env!("OUT_DIR"));
-    println!("{}", include_str!(concat!(env!("OUT_DIR"), "/build_profile.rs")));
+    dbg!(BUILD_PROFILE);
 
     match (args.format, args.list) {
         (Format::Pretty, true) => harness.with_formatter(pretty_formatter).list().exit_code(),
