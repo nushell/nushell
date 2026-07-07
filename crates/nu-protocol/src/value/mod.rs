@@ -3536,7 +3536,16 @@ impl Value {
     pub fn concat(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::List { vals: lhs, .. }, Value::List { vals: rhs, .. }) => {
-                Ok(Value::list([lhs.as_slice(), rhs.as_slice()].concat(), span))
+                if lhs.is_empty() {
+                    Ok(Value::list(rhs.clone(), span))
+                } else if rhs.is_empty() {
+                    Ok(Value::list(lhs.clone(), span))
+                } else {
+                    let mut new_vals = Vec::with_capacity(lhs.len() + rhs.len());
+                    new_vals.extend_from_slice(lhs);
+                    new_vals.extend_from_slice(rhs);
+                    Ok(Value::list(new_vals, span))
+                }
             }
             (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => {
                 Ok(Value::string([lhs.as_str(), rhs.as_str()].join(""), span))
