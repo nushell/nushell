@@ -174,6 +174,7 @@ fn which_plugin_reports_executable() {
 }
 
 #[test]
+#[deps(NU)]
 fn which_external_command_reports_path() -> Result {
     #[derive(Debug, FromValue)]
     struct Outcome {
@@ -181,7 +182,7 @@ fn which_external_command_reports_path() -> Result {
     }
 
     // `nu` itself should be on PATH; PATH-found binaries report a non-empty path.
-    let outcome: (Outcome,) = test().add_nu_to_path().run("which nu")?;
+    let outcome: (Outcome,) = test().run("which nu")?;
     // The path value should be non-empty (not just an empty string)
     assert!(!outcome.0.path.is_empty());
 
