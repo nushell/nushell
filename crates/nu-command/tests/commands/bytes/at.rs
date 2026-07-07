@@ -2,9 +2,10 @@ use nu_protocol::{IntoPipelineData, Span};
 use nu_test_support::prelude::*;
 
 #[test]
+#[deps(NU)]
 pub fn returns_error_for_relative_range_on_infinite_stream() -> Result {
     let code = "nu --testbin iecho 3 | bytes at ..-3";
-    let err = test().add_nu_to_path().run(code).expect_shell_error()?;
+    let err = test().run(code).expect_shell_error()?;
     assert!(matches!(
         err,
         ShellError::RelativeRangeOnInfiniteStream { .. }
