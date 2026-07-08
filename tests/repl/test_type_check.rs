@@ -211,6 +211,23 @@ fn pipeline_oneof() -> TestResult {
     )
 }
 
+#[rstest]
+#[case::filter_output_union(
+    "
+    let pending = ([a] | each {} | collect | skip 0)
+    for item in $pending { print $item }
+    "
+)]
+#[case::union_of_iterables(
+    "
+    def choose []: nothing -> oneof<list<list<string>>, list<int>> { [[a]] }
+    for item in (choose) { print ($item | str join '') }
+    "
+)]
+fn for_loop_item_type_from_iterable_union(#[case] input: &str) -> TestResult {
+    run_test(input, "a")
+}
+
 #[test]
 fn transpose_into_load_env() -> TestResult {
     run_test(
