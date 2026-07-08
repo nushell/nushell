@@ -4668,6 +4668,7 @@ dependencies = [
  "win_uds",
  "windows 0.62.2",
  "winreg",
+ "xattr",
 ]
 
 [[package]]

@@ -450,6 +450,7 @@ fn list_all_columns() {
                     "inode",
                     "user",
                     "group",
+                    "xattrs",
                     "size",
                     "created",
                     "accessed",
@@ -936,4 +937,33 @@ fn ls_literal_empty_directory() -> Result {
     });
 
     Ok(())
+}
+
+
+#[cfg(unix)]
+#[test]
+fn long_shows_extended_attributes() {
+    Playground::setup("ls_test_extended_attributes", |dirs, sandbox| {
+        sandbox.with_files(&[EmptyFile("plain.txt"), EmptyFile("marked.txt")]);
+
+        match xattr::set(
+            dirs.test().join("marked.txt"),
+            "user.nushell.test",
+            b"present",
+        ) {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::Unsupported => return,
+            Err(error) => panic!("failed to set xattr: {error}"),
+        }
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"
+                (ls -l marked.txt).0.xattrs
+                | $in | any { |attr| $attr == 'user.nushell.test' }
+            "#
+        );
+
+        assert_eq!(actual.out, "true");
+    })
 }
