@@ -124,6 +124,17 @@ impl Command for ParEach {
         let keep_order = call.has_flag(engine_state, stack, "keep-order")?;
         let signals = engine_state.signals().clone();
 
+        if matches!(&input, PipelineData::Value(Value::Custom { val, .. }, _) if val.type_name() == "matrix")
+        {
+            return Err(ShellError::Generic(
+                nu_protocol::shell_error::generic::GenericError::new(
+                    "Unsupported type",
+                    "Use `matrix map` for element-wise operations.",
+                    call.head,
+                ),
+            ));
+        }
+
         let mut input = input.into_stream_or_original(engine_state);
         let metadata = input.take_metadata();
 
