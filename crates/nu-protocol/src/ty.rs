@@ -335,6 +335,7 @@ impl CompareTypes for Type {
             {
                 src_cols.is_assignable_to(dst_cols)
             }
+            (Type::List(dst_ty), Type::List(src_ty)) => src_ty.is_assignable_to(dst_ty.as_ref()),
             (Type::Record(dst_cols), Type::Record(src_cols))
             | (Type::Table(dst_cols), Type::Table(src_cols)) => src_cols.is_assignable_to(dst_cols),
             // strings can be coerced globs
