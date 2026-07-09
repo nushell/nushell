@@ -651,9 +651,13 @@ fn bench_upsert_record_clone(n: usize) -> impl IntoBenchmarks {
     })]
 }
 
-/// Benchmark: create a fresh uniquely-owned Record each iteration then upsert
-/// (simulates the optimized path where refcount=1, so `to_mut()` is free).
+/// Benchmark: create a fresh uniquely-owned Record then upsert (simulates
+/// the optimized `get_var_mut` path where we mutate a record that is already
+/// on the stack with refcount 1). The value is created once before timing.
 fn bench_upsert_record_inplace(n: usize) -> impl IntoBenchmarks {
+    let long_string = "x".repeat(n);
+    let original =
+        Value::test_record(nu_protocol::record!("a" => Value::test_string(&long_string)));
     [benchmark_fn(
         format!("upsert_record_inplace_{n}"),
         move |b| {
@@ -664,10 +668,7 @@ fn bench_upsert_record_inplace(n: usize) -> impl IntoBenchmarks {
                 Casing::Sensitive,
             )];
             b.iter(move || {
-                let long_string = "x".repeat(n);
-                let mut value = Value::test_record(
-                    nu_protocol::record!("a" => Value::test_string(&long_string)),
-                );
+                let mut value = original.clone();
                 value
                     .upsert_data_at_cell_path(&cell_path, new_val.clone())
                     .unwrap();
