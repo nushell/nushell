@@ -142,6 +142,7 @@ pub struct TestScopeFactory {
 }
 
 impl TestScopeFactory {
+    #[allow(clippy::needless_update, reason = "with the `plugin` feature we have more fields")]
     pub fn with_target_dir(self, target_dir: impl Into<Option<PathBuf>>) -> Self {
         Self {
             target_dir: target_dir.into(),
