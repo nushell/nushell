@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use crate::repl::tests::{TestResult, fail_test, run_test, run_test_contains};
+use miette::Diagnostic;
 use nu_experimental::ENFORCE_RUNTIME_ANNOTATIONS;
 use nu_test_support::prelude::*;
 use rstest::rstest;
@@ -249,6 +250,36 @@ fn pipeline_oneof() -> TestResult {
 fn for_loop_item_type_from_iterable_union(#[case] input: &str) -> Result {
     // should return nothing
     let () = test().run(input)?;
+    Ok(())
+}
+
+#[test]
+#[exp(ENFORCE_RUNTIME_ANNOTATIONS)]
+fn for_loop_incorrect_type_raises_error() -> Result {
+    let code = "
+        def incorrectly_typed_stream []: nothing -> list<int> {
+            # using `each`:
+            # - erases the type: bypassing parse time type checking
+            # - returns a stream rather than a value: bypassing runtime type checking
+            [a b c] | each {}
+        }
+
+        for item in (incorrectly_typed_stream) {}
+    ";
+    let err = test().run(code).expect_shell_error()?;
+
+    assert_eq!(err.code().unwrap().to_string(), "nu::shell::type_mismatch");
+
+    let labels = err
+        .labels()
+        .into_iter()
+        .flatten()
+        .filter_map(|label| label.label().map(String::from))
+        .collect::<Vec<_>>();
+
+    assert_contains("the value is a string".to_string(), &labels);
+    assert_contains("expected int, got string".to_string(), &labels);
+
     Ok(())
 }
 
