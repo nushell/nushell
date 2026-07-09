@@ -1,5 +1,6 @@
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
+    fmt::Display,
     io,
     num::NonZeroUsize,
     ops::Deref,
@@ -12,12 +13,13 @@ use crate::{
     self as nu_test_support,
     harness::{
         args::{Args, Format},
-        deps::Dependency,
+        deps::{Dependency, PreloadedPlugin},
         group::{GroupRunner, Grouper},
-        test::TestRunner,
+        test::{TestRunner, TestScopeFactory},
     },
 };
 
+use itertools::Itertools;
 use kitest::{
     filter::{DefaultFilter, TestFilter},
     formatter::{pretty::PrettyFormatter, terse::TerseFormatter},
@@ -62,12 +64,10 @@ pub static DEFAULT_THREAD_COUNT: LazyLock<NonZeroUsize> = LazyLock::new(|| {
 pub static TESTS: [kitest::test::Test<Extra>];
 
 pub fn main() -> ExitCode {
-    let red_error = Color::Red.bold().paint("error");
-
     let args = match Args::parse() {
         Ok(args) => args,
         Err(err) => {
-            eprintln!("{red_error}: {err}");
+            eprintln!("{RedError}: {err}");
             eprintln!("help: use `--help` to see valid options");
             eprintln!();
             return ExitCode::FAILURE;
@@ -100,59 +100,22 @@ pub fn main() -> ExitCode {
         .map(|dependency| *dependency)
         .collect();
 
-    let mut runner_target_dir = None;
-    if !args.list {
-        if !dependencies.is_empty() {
-            println!();
-            println!("required cargo binaries: checking target dir");
-            let target_dir = match target_dir() {
-                Ok(target_dir) => target_dir,
-                Err(err) => {
-                    eprintln!("{red_error}: {err}");
-                    eprintln!();
-                    return ExitCode::FAILURE;
-                }
-            };
+    let Ok(preparations) = args
+        .list
+        .then(|| Ok(TestPreparations::default()))
+        .unwrap_or_else(|| TestPreparations::prepare(dependencies.iter().map(|dep| *dep)))
+    else {
+        return ExitCode::FAILURE;
+    };
 
-            println!(
-                "{} target dir is `{}`",
-                Color::Green.bold().paint("    Finished"),
-                target_dir.display()
-            );
-            runner_target_dir = Some(target_dir);
-        }
-
-        for dependency in dependencies {
-            println!();
-            println!(
-                "required binary `{}`: ensuring it is built",
-                dependency.bin_name
-            );
-            let mut child = match dependency.build_command().spawn() {
-                Ok(child) => child,
-                Err(err) => {
-                    eprintln!("{red_error}: {err}");
-                    eprintln!();
-                    return ExitCode::FAILURE;
-                }
-            };
-
-            let exit_status = child.wait().expect("command wasn't running");
-            if !exit_status.success() {
-                eprintln!(
-                    "{red_error}: compilation of dependency `{}` failed",
-                    dependency.bin_name,
-                );
-                eprintln!();
-                return ExitCode::FAILURE;
-            }
-        }
-    }
+    let test_scope_factory = TestScopeFactory::default()
+        .with_target_dir(preparations.target_dir)
+        .with_preloaded_plugins(preparations.preloaded_plugins);
 
     let runner = TestRunner::default()
         .with_thread_count(args.test_threads.unwrap_or(*DEFAULT_THREAD_COUNT))
         .with_exact(args.exact)
-        .with_target_dir(runner_target_dir);
+        .with_test_scope_factory(test_scope_factory);
 
     let ignore = match args.include_ignored {
         false => DefaultIgnore::Default,
@@ -182,6 +145,106 @@ pub fn main() -> ExitCode {
     }
 }
 
+#[derive(Debug, Default)]
+struct TestPreparations {
+    target_dir: Option<PathBuf>,
+    preloaded_plugins: HashMap<&'static Dependency<'static>, PreloadedPlugin>,
+}
+
+impl TestPreparations {
+    fn prepare(
+        dependencies: impl IntoIterator<
+            IntoIter = impl ExactSizeIterator<Item = &'static Dependency<'static>>,
+        >,
+    ) -> Result<Self, ()> {
+        let mut preparations = TestPreparations::default();
+        let dependencies = dependencies.into_iter();
+        if dependencies.len() == 0 {
+            return Ok(preparations);
+        }
+
+        println!();
+        println!("required cargo binaries: checking target dir");
+        let target_dir = match target_dir() {
+            Ok(target_dir) => target_dir,
+            Err(err) => {
+                eprintln!("{RedError}: {err}");
+                eprintln!();
+                return Err(());
+            }
+        };
+
+        println!(
+            "{} target dir is `{}`",
+            Color::Green.bold().paint("    Finished"),
+            target_dir.display()
+        );
+
+        for dependency in dependencies {
+            println!();
+            println!(
+                "required binary `{}`: ensuring it is built",
+                dependency.bin_name
+            );
+            let mut child = match dependency.build_command().spawn() {
+                Ok(child) => child,
+                Err(err) => {
+                    eprintln!("{RedError}: {err}");
+                    eprintln!();
+                    return Err(());
+                }
+            };
+
+            let exit_status = child.wait().expect("command wasn't running");
+            if !exit_status.success() {
+                eprintln!(
+                    "{RedError}: compilation of dependency `{}` failed",
+                    dependency.bin_name,
+                );
+                eprintln!();
+                return Err(());
+            }
+
+            if dependency.is_plugin {
+                let preloaded_plugin = match dependency.preload_plugin(&target_dir) {
+                    Ok(preloaded_plugin) => preloaded_plugin,
+                    Err(err) => {
+                        let err = err.to_string();
+                        let mut err_chars = err.chars();
+                        let first = err_chars.next().unwrap_or_default();
+                        let rest = err_chars.join("");
+                        eprintln!(
+                            "{RedError}: preloading `{}` failed, {first}{rest}",
+                            dependency.bin_name
+                        );
+                        eprintln!();
+                        return Err(());
+                    }
+                };
+
+                println!(
+                    "{} `{name}@{version}` with {sig_count} signatures",
+                    Color::Green.bold().paint("   Preloaded"),
+                    name = dependency.bin_name,
+                    version = preloaded_plugin
+                        .metadata
+                        .version
+                        .as_deref()
+                        .unwrap_or("unknown"),
+                    sig_count = preloaded_plugin.signatures.len(),
+                );
+
+                preparations
+                    .preloaded_plugins
+                    .insert(dependency, preloaded_plugin);
+            }
+        }
+
+        let _ = preparations.target_dir.insert(target_dir);
+        Ok(preparations)
+    }
+}
+
 fn target_dir() -> io::Result<PathBuf> {
     let output = Command::new("cargo")
         .args(["metadata", "--format-version=1", "--no-deps"])
@@ -201,4 +264,12 @@ fn target_dir() -> io::Result<PathBuf> {
         .as_str()
         .expect("target_directory is a string");
     Ok(PathBuf::from(target_dir))
+}
+
+struct RedError;
+
+impl Display for RedError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Color::Red.bold().paint("error").fmt(f)
+    }
 }

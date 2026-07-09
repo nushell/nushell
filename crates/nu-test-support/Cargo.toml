@@ -16,6 +16,9 @@ bench = false
 workspace = true
 
 [features]
+# TODO: remove this once the feature is done
+default = ["plugin"]
+
 os = [
   "nu-cli",
   "nu-cmd-lang/os",
@@ -26,17 +29,25 @@ os = [
 ]
 network = ["nu-command/network"]
 rustls-tls = ["nu-command/rustls-tls"]
+plugin = [
+  "dep:nu-cmd-plugin",
+  "dep:nu-plugin-engine",
+  "nu-protocol/plugin",
+  "os",
+]
 
 [dependencies]
+nu-cli = { workspace = true, optional = true }
 nu-cmd-extra.workspace = true
 nu-cmd-lang.workspace = true
+nu-cmd-plugin = { workspace = true, optional = true }
 nu-command.workspace = true
-nu-cli = { workspace = true, optional = true }
 nu-engine.workspace = true
 nu-experimental.workspace = true
 nu-glob.workspace = true
 nu-parser.workspace = true
 nu-path.workspace = true
+nu-plugin-engine = { workspace = true, optional = true }
 nu-protocol.workspace = true
 nu-std.workspace = true
 nu-test-support-macros.workspace = true

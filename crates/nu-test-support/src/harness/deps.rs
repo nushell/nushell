@@ -4,6 +4,9 @@ use std::{
     process::{Command, Stdio},
 };
 
+#[cfg(feature = "plugin")]
+use nu_protocol::ShellError;
+
 use crate::harness::BUILD_PROFILE;
 
 #[derive(derive_more::Debug, Clone, PartialEq, Eq, Hash)]
@@ -108,4 +111,41 @@ impl Dependency<'static> {
             .join(BUILD_PROFILE)
             .join(self.bin_name.as_ref())
     }
+
+    #[cfg(feature = "plugin")]
+    pub fn preload_plugin(
+        &self,
+        target_dir: impl AsRef<Path>,
+    ) -> Result<PreloadedPlugin, ShellError> {
+        use nu_plugin_engine::{GetPlugin, PersistentPlugin};
+        use nu_protocol::{PluginIdentity, RegisteredPlugin};
+        use std::sync::Arc;
+
+        let filename = self.path(target_dir);
+        let identity = PluginIdentity::new(filename, None).expect("valid plugin name");
+        let plugin = Arc::new(PersistentPlugin::new(identity.clone(), Default::default()));
+
+        let interface = plugin.clone().get_plugin(None)?;
+        let metadata = interface.get_metadata()?;
+        plugin.set_metadata(Some(metadata.clone()));
+        let signatures = Arc::from(interface.get_signature()?);
+        drop(interface);
+
+        Ok(PreloadedPlugin {
+            identity: Arc::new(identity),
+            plugin,
+            metadata,
+            signatures,
+        })
+    }
+}
+
+#[cfg(feature = "plugin")]
+#[non_exhaustive]
+#[derive(Debug, Clone)]
+pub struct PreloadedPlugin {
+    pub(crate) identity: std::sync::Arc<nu_protocol::PluginIdentity>,
+    pub(crate) plugin: std::sync::Arc<nu_plugin_engine::PersistentPlugin>,
+    pub(crate) metadata: nu_protocol::PluginMetadata,
+    pub(crate) signatures: std::sync::Arc<[nu_protocol::PluginSignature]>,
 }

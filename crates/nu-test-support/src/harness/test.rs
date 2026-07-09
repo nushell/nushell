@@ -1,6 +1,6 @@
 use std::{
     any::Any,
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     fmt::Debug,
     num::NonZeroUsize,
     path::{Path, PathBuf},
@@ -19,8 +19,8 @@ use nu_experimental::ExperimentalOption;
 use nu_utils::downcast;
 
 use crate::{
-    harness::{deps::Dependency, group::RUN_TEST_GROUP_IN_SERIAL},
-    tester::{PATH_ENV_AUTO_LOAD, TestError},
+    harness::{deps::*, group::RUN_TEST_GROUP_IN_SERIAL},
+    tester::{PATH_ENV_AUTO_LOAD, PLUGIN_AUTO_LOAD, PluginAutoLoader, TestError},
 };
 
 #[derive(Debug)]
@@ -49,11 +49,7 @@ impl Default for TestRunner {
 }
 
 impl TestRunner {
-    pub fn with_target_dir(self, target_dir: impl Into<Option<PathBuf>>) -> Self {
-        let test_scope_factory = TestScopeFactory {
-            target_dir: target_dir.into(),
-        };
-
+    pub fn with_test_scope_factory(self, test_scope_factory: TestScopeFactory) -> Self {
         Self {
             parallel: self
                 .parallel
@@ -135,8 +131,31 @@ impl<'t> kitest::runner::TestRunner<'t, Extra> for TestRunner {
 }
 
 #[derive(Debug, Default, Clone)]
-struct TestScopeFactory {
+pub struct TestScopeFactory {
     target_dir: Option<PathBuf>,
+
+    #[cfg(feature = "plugin")]
+    preloaded_plugins: HashMap<&'static Dependency<'static>, PreloadedPlugin>,
+}
+
+impl TestScopeFactory {
+    pub fn with_target_dir(self, target_dir: impl Into<Option<PathBuf>>) -> Self {
+        Self {
+            target_dir: target_dir.into(),
+            ..self
+        }
+    }
+
+    #[cfg(feature = "plugin")]
+    pub fn with_preloaded_plugins(
+        self,
+        preloaded_plugins: HashMap<&'static Dependency<'static>, PreloadedPlugin>,
+    ) -> Self {
+        Self {
+            preloaded_plugins,
+            ..self
+        }
+    }
 }
 
 impl<'t> kitest::runner::scope::TestScopeFactory<'t, Extra> for TestScopeFactory {
@@ -152,17 +171,21 @@ impl<'t> kitest::runner::scope::TestScopeFactory<'t, Extra> for TestScopeFactory
     {
         TestScope {
             target_dir: self.target_dir.as_deref(),
+            preloaded_plugins: &self.preloaded_plugins,
         }
     }
 }
 
 #[derive(Debug)]
-struct TestScope<'f> {
+pub struct TestScope<'f> {
     target_dir: Option<&'f Path>,
+    preloaded_plugins: &'f HashMap<&'f Dependency<'f>, PreloadedPlugin>,
 }
 
 impl<'f, 't> kitest::runner::scope::TestScope<'t, Extra> for TestScope<'f> {
     fn before_test(&mut self, meta: &'t TestMeta<Extra>) {
+        // TODO: load preloaded plugins somehow
+
         PATH_ENV_AUTO_LOAD.with_borrow_mut(|paths| {
             paths.clear();
 
@@ -183,6 +206,22 @@ impl<'f, 't> kitest::runner::scope::TestScope<'t, Extra> for TestScope<'f> {
                 .collect();
 
             paths.extend(dependency_paths);
+        });
+
+        PLUGIN_AUTO_LOAD.with_borrow_mut(|auto_loaders| {
+            auto_loaders.clear();
+            auto_loaders.extend(
+                meta.extra
+                    .dependencies
+                    .iter()
+                    .filter(|dep| dep.is_plugin)
+                    .flat_map(|dep| self.preloaded_plugins.get(dep))
+                    .map(|plugin| PluginAutoLoader {
+                        identity: plugin.identity.clone(),
+                        plugin: Some(plugin.plugin.clone()),
+                        signatures: Some(plugin.signatures.clone()),
+                    }),
+            );
         });
     }
 }
