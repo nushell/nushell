@@ -1,5 +1,6 @@
 use std::{
     collections::HashSet,
+    env,
     fmt::Display,
     io,
     num::NonZeroUsize,
@@ -194,23 +195,43 @@ impl TestPreparations {
                 "required binary `{}`: ensuring it is built",
                 dependency.bin_name
             );
-            let mut child = match dependency.build_command().spawn() {
-                Ok(child) => child,
-                Err(err) => {
-                    eprintln!("{RedError}: {err}");
+
+            match env::var_os(format!("CARGO_BIN_EXE_{}", dependency.bin_name)) {
+                Some(path) if path == dependency.path() => {
+                    println!(
+                        "{} by cargo already",
+                        Color::Green.bold().paint("    Prebuilt"),
+                    );
+                }
+                Some(path) => {
+                    eprintln!(
+                        "{RedError}: unexpected path to binary `{}`, got `{}`",
+                        dependency.bin_name,
+                        path.display(),
+                    );
                     eprintln!();
                     return Err(());
                 }
-            };
+                None => {
+                    let mut child = match dependency.build_command().spawn() {
+                        Ok(child) => child,
+                        Err(err) => {
+                            eprintln!("{RedError}: {err}");
+                            eprintln!();
+                            return Err(());
+                        }
+                    };
 
-            let exit_status = child.wait().expect("command wasn't running");
-            if !exit_status.success() {
-                eprintln!(
-                    "{RedError}: compilation of dependency `{}` failed",
-                    dependency.bin_name,
-                );
-                eprintln!();
-                return Err(());
+                    let exit_status = child.wait().expect("command wasn't running");
+                    if !exit_status.success() {
+                        eprintln!(
+                            "{RedError}: compilation of dependency `{}` failed",
+                            dependency.bin_name,
+                        );
+                        eprintln!();
+                        return Err(());
+                    }
+                }
             }
 
             #[cfg(feature = "plugin")]
