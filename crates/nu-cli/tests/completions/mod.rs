@@ -17,6 +17,8 @@ use nu_std::load_standard_library;
 use nu_test_support::fs;
 use reedline::{Completer, Span, Suggestion};
 use rstest::{fixture, rstest};
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
 use support::{
     completions_helpers::{
         new_dotnu_engine, new_engine_helper, new_external_engine, new_partial_engine,
@@ -1566,6 +1568,47 @@ fn file_completions() {
 
     // Match the results
     match_suggestions(&expected_paths, &suggestions)
+}
+
+#[cfg(unix)]
+#[test]
+fn file_completions_traverse_unreadable_exact_parent_components() {
+    struct RestorePermissions(std::path::PathBuf);
+
+    impl Drop for RestorePermissions {
+        fn drop(&mut self) {
+            if self.0.exists() {
+                let _ = std::fs::set_permissions(&self.0, std::fs::Permissions::from_mode(0o700));
+            }
+        }
+    }
+
+    let (_, _, engine, stack) = new_engine();
+    let test_dir = tempfile::tempdir().expect("create tempdir");
+    let unreadable_parent = test_dir.path().join("unreadable");
+    let traversable_child = unreadable_parent.join("child");
+    let target = traversable_child.join("target");
+    std::fs::create_dir_all(&target).expect("create completion fixture");
+
+    let _restore_permissions = RestorePermissions(unreadable_parent.clone());
+    std::fs::set_permissions(&unreadable_parent, std::fs::Permissions::from_mode(0o111))
+        .expect("make parent execute-only");
+
+    if unreadable_parent.read_dir().is_ok() {
+        // The test is only meaningful when the platform enforces execute-only directories.
+        return;
+    }
+
+    // Exact traversal through the unreadable parent still works, just like `ls` on the
+    // complete path does on Android's /data/data/... hierarchy.
+    assert!(traversable_child.read_dir().is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let target_dir = format!("cp {}", folder(&traversable_child));
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+    let expected_paths = [folder(&target)];
+
+    match_suggestions_by_string(&expected_paths, &suggestions);
 }
 
 #[test]
