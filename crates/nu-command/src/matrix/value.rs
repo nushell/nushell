@@ -1,7 +1,7 @@
 use ndarray::ArrayD;
 use nu_protocol::{
-    CustomValue, ShellError, Span, Type, Value,
-    ast::{Comparison, Math, Operator},
+    CellPathMutation, CustomValue, ShellError, Span, Type, Value,
+    ast::{Comparison, Math, Operator, PathMember},
     casing::Casing,
 };
 use serde::{Deserialize, Serialize};
@@ -121,6 +121,23 @@ impl CustomValue for MatrixValue {
             Ok(Value::float(*subview.first().unwrap_or(&0.0), path_span))
         } else {
             Ok(ndarray_to_value(&subview.to_owned(), path_span))
+        }
+    }
+
+    fn update_data_at_cell_path(
+        &self,
+        cell_path: &[PathMember],
+        new_val: Value,
+        action: &CellPathMutation,
+        head: Span,
+    ) -> Result<Value, ShellError> {
+        let mut base = self.to_base_value(head)?;
+        base.mutate_data_at_cell_path(cell_path, new_val, action)?;
+        match base {
+            Value::List { vals, .. } => {
+                MatrixValue::from_list_of_lists(&vals, head).map(|m| m.into_value(head))
+            }
+            other => Ok(other),
         }
     }
 

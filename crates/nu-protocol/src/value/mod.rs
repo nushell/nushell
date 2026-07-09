@@ -464,7 +464,7 @@ impl Clone for Value {
 }
 
 /// Describes the type of mutation to perform when traversing a cell path.
-enum CellPathMutation {
+pub enum CellPathMutation {
     Upsert,
     Update,
     Insert { head_span: Span },
@@ -1560,7 +1560,7 @@ impl Value {
         }
     }
 
-    fn mutate_data_at_cell_path(
+    pub fn mutate_data_at_cell_path(
         &mut self,
         cell_path: &[PathMember],
         new_val: Value,
@@ -1645,6 +1645,14 @@ impl Value {
                     )?;
                 }
                 Value::Error { error, .. } => return Err(*error.clone()),
+                Value::Custom { val, .. } => {
+                    let mut full_path = vec![member.clone()];
+                    full_path.extend(path.iter().cloned());
+                    let result =
+                        val.update_data_at_cell_path(&full_path, new_val, action, v_span)?;
+                    *self = result;
+                    return Ok(());
+                }
                 v => match action {
                     CellPathMutation::Insert { head_span } => {
                         return Err(ShellError::UnsupportedInput {
@@ -1711,6 +1719,14 @@ impl Value {
                     }
                 }
                 Value::Error { error, .. } => return Err(*error.clone()),
+                Value::Custom { val, .. } => {
+                    let mut full_path = vec![member.clone()];
+                    full_path.extend(path.iter().cloned());
+                    let result =
+                        val.update_data_at_cell_path(&full_path, new_val, action, v_span)?;
+                    *self = result;
+                    return Ok(());
+                }
                 _ => {
                     return Err(ShellError::NotAList {
                         dst_span: *span,
