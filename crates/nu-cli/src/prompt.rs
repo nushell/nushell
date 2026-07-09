@@ -1,3 +1,4 @@
+use crossterm::style::Color;
 #[cfg(windows)]
 use nu_utils::enable_vt_processing;
 use reedline::{
@@ -5,6 +6,12 @@ use reedline::{
     PromptViMode,
 };
 use std::borrow::Cow;
+
+/// The default color for the prompt, indicator, and right prompt
+static DEFAULT_PROMPT_COLOR: Color = Color::Green;
+static DEFAULT_PROMPT_MULTILINE_COLOR: nu_ansi_term::Color = nu_ansi_term::Color::LightBlue;
+static DEFAULT_INDICATOR_COLOR: Color = Color::Cyan;
+static DEFAULT_PROMPT_RIGHT_COLOR: Color = Color::AnsiValue(5);
 
 /// Nushell prompt definition
 #[derive(Default, Clone)]
@@ -154,6 +161,42 @@ impl Prompt for NushellPrompt {
             "({}reverse-search: {})",
             prefix, history_search.term
         ))
+    }
+
+    /// A user-supplied prompt piece keeps the terminal foreground so its own
+    /// styling (e.g. starship) isn't tinted; the built-in fallback keeps
+    /// nushell's default color. The methods below follow the same rule.
+    fn get_prompt_color(&self) -> Color {
+        if self.left_prompt.is_some() {
+            Color::Reset
+        } else {
+            DEFAULT_PROMPT_COLOR
+        }
+    }
+    fn get_prompt_multiline_color(&self) -> nu_ansi_term::Color {
+        if self.multiline_indicator.is_some() {
+            nu_ansi_term::Color::Default
+        } else {
+            DEFAULT_PROMPT_MULTILINE_COLOR
+        }
+    }
+    /// Vi-mode indicators count as user-supplied too (see `render_prompt_indicator`).
+    fn get_indicator_color(&self) -> Color {
+        if self.prompt_indicator.is_some()
+            || self.vi_insert_prompt_indicator.is_some()
+            || self.vi_normal_prompt_indicator.is_some()
+        {
+            Color::Reset
+        } else {
+            DEFAULT_INDICATOR_COLOR
+        }
+    }
+    fn get_prompt_right_color(&self) -> Color {
+        if self.right_prompt.is_some() {
+            Color::Reset
+        } else {
+            DEFAULT_PROMPT_RIGHT_COLOR
+        }
     }
 
     fn right_prompt_on_last_line(&self) -> bool {
