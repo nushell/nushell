@@ -469,6 +469,22 @@ mod tests {
                 }
             }
         }
+
+        #[test]
+        fn table_list_oneof_covariance() {
+            let columns = CollectionColumns::<Type>::default();
+
+            let single_ty = Type::Record(columns.clone());
+            let union_ty = Type::one_of([Type::Number, Type::Record(columns.clone())]);
+
+            let direct_cmp = union_ty.compare_types(&single_ty);
+            let list_cmp = Type::list(union_ty.clone()).compare_types(&Type::list(single_ty));
+
+            let table_cmp = Type::list(union_ty).compare_types(&Type::Table(columns));
+
+            assert_eq!(list_cmp, direct_cmp);
+            assert_eq!(table_cmp, list_cmp);
+        }
     }
 
     mod oneof {
