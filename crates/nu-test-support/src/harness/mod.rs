@@ -1,5 +1,12 @@
 use std::{
-    collections::HashSet, fmt::Display, io, num::NonZeroUsize, ops::Deref, path::PathBuf, process::{Command, ExitCode, Stdio}, sync::{LazyLock, OnceLock, atomic::Ordering},
+    collections::HashSet,
+    fmt::Display,
+    io,
+    num::NonZeroUsize,
+    ops::Deref,
+    path::PathBuf,
+    process::{Command, ExitCode, Stdio},
+    sync::{LazyLock, OnceLock, atomic::Ordering},
 };
 
 use crate::{
@@ -96,8 +103,8 @@ pub fn main() -> ExitCode {
         true => TestPreparations::default(),
         false => match TestPreparations::prepare(dependencies.iter().copied()) {
             Ok(preparations) => preparations,
-            Err(()) => return ExitCode::FAILURE
-        }
+            Err(()) => return ExitCode::FAILURE,
+        },
     };
 
     let test_scope_factory = TestScopeFactory::default();
@@ -172,7 +179,9 @@ impl TestPreparations {
             Color::Green.bold().paint("    Finished"),
             target_dir.display()
         );
-        TARGET_DIR.set(target_dir).expect("TARGET_DIR is unset until now");
+        TARGET_DIR
+            .set(target_dir)
+            .expect("TARGET_DIR is unset until now");
 
         for dependency in dependencies {
             println!();

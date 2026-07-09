@@ -112,7 +112,9 @@ impl Dependency<'static> {
         #[cfg(windows)]
         let bin_name = format!("{}.exe", self.bin_name.as_ref());
 
-        TARGET_DIR.get().expect("TARGET_DIR is not set")
+        TARGET_DIR
+            .get()
+            .expect("TARGET_DIR is not set")
             .join(BUILD_PROFILE)
             .join(bin_name)
     }

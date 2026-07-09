@@ -1,9 +1,5 @@
 use std::{
-    any::Any,
-    collections::HashSet,
-    fmt::Debug,
-    num::NonZeroUsize,
-    sync::atomic::Ordering,
+    any::Any, collections::HashSet, fmt::Debug, num::NonZeroUsize, sync::atomic::Ordering,
     thread::Scope,
 };
 
@@ -18,7 +14,8 @@ use nu_experimental::ExperimentalOption;
 use nu_utils::downcast;
 
 use crate::{
-    harness::{deps::*, group::RUN_TEST_GROUP_IN_SERIAL}, tester::*,
+    harness::{deps::*, group::RUN_TEST_GROUP_IN_SERIAL},
+    tester::*,
 };
 
 #[cfg(feature = "plugin")]
