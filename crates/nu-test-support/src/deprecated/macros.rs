@@ -193,7 +193,7 @@ macro_rules! nu_with_std {
     }};
 }
 
-#[deprecated(note = "use `#[deps(...)]` test attribute of `nu-test-support/plugin` instead")]
+// #[deprecated(note = "use `#[deps(...)]` test attribute of `nu-test-support/plugin` instead")]
 #[macro_export]
 macro_rules! nu_with_plugins {
     (cwd: $cwd:expr, plugins: [$(($plugin_name:expr)),*$(,)?], $command:expr) => {{
