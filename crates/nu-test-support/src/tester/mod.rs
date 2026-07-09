@@ -8,10 +8,9 @@ use std::{
     sync::{Arc, LazyLock},
 };
 
-use nu_plugin_engine::{GetPlugin, PersistentPlugin, PluginDeclaration};
 use nu_protocol::{
     CompileError, Config, FromValue, IntoValue, LabeledError, ParseError, PipelineData,
-    PipelineExecutionData, PluginIdentity, PluginSignature, RegisteredPlugin, ShellError, Span,
+    PipelineExecutionData, ShellError, Span,
     Value,
     ast::Block,
     debugger::WithoutDebug,
@@ -21,6 +20,11 @@ use nu_protocol::{
 use nu_utils::{consts::ENV_PATH_SEPARATOR_CHAR, sync::KeyedLazyLock};
 
 use crate::harness::group::GroupKey;
+
+#[cfg(feature = "plugin")]
+use nu_plugin_engine::{GetPlugin, PersistentPlugin, PluginDeclaration};
+#[cfg(feature = "plugin")]
+use nu_protocol::{PluginIdentity, PluginSignature, RegisteredPlugin};
 
 static ROOT: LazyLock<PathBuf> = LazyLock::new(|| {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))

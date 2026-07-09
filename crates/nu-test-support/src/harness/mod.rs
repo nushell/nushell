@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashSet,
     fmt::Display,
     io,
     num::NonZeroUsize,
@@ -13,13 +13,12 @@ use crate::{
     self as nu_test_support,
     harness::{
         args::{Args, Format},
-        deps::{Dependency, PreloadedPlugin},
+        deps::*,
         group::{GroupRunner, Grouper},
         test::{TestRunner, TestScopeFactory},
     },
 };
 
-use itertools::Itertools;
 use kitest::{
     filter::{DefaultFilter, TestFilter},
     formatter::{pretty::PrettyFormatter, terse::TerseFormatter},
@@ -108,9 +107,10 @@ pub fn main() -> ExitCode {
         return ExitCode::FAILURE;
     };
 
-    let test_scope_factory = TestScopeFactory::default()
-        .with_target_dir(preparations.target_dir)
-        .with_preloaded_plugins(preparations.preloaded_plugins);
+    let test_scope_factory = TestScopeFactory::default().with_target_dir(preparations.target_dir);
+    #[cfg(feature = "plugin")]
+    let test_scope_factory =
+        test_scope_factory.with_preloaded_plugins(preparations.preloaded_plugins);
 
     let runner = TestRunner::default()
         .with_thread_count(args.test_threads.unwrap_or(*DEFAULT_THREAD_COUNT))
@@ -148,7 +148,9 @@ pub fn main() -> ExitCode {
 #[derive(Debug, Default)]
 struct TestPreparations {
     target_dir: Option<PathBuf>,
-    preloaded_plugins: HashMap<&'static Dependency<'static>, PreloadedPlugin>,
+
+    #[cfg(feature = "plugin")]
+    preloaded_plugins: std::collections::HashMap<&'static Dependency<'static>, PreloadedPlugin>,
 }
 
 impl TestPreparations {
@@ -205,6 +207,7 @@ impl TestPreparations {
                 return Err(());
             }
 
+            #[cfg(feature = "plugin")]
             if dependency.is_plugin {
                 let preloaded_plugin = match dependency.preload_plugin(&target_dir) {
                     Ok(preloaded_plugin) => preloaded_plugin,
@@ -212,7 +215,7 @@ impl TestPreparations {
                         let err = err.to_string();
                         let mut err_chars = err.chars();
                         let first = err_chars.next().unwrap_or_default();
-                        let rest = err_chars.join("");
+                        let rest = itertools::join(err_chars, "");
                         eprintln!(
                             "{RedError}: preloading `{}` failed, {first}{rest}",
                             dependency.bin_name

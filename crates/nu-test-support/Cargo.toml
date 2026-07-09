@@ -16,9 +16,6 @@ bench = false
 workspace = true
 
 [features]
-# TODO: remove this once the feature is done
-default = ["plugin"]
-
 os = [
   "nu-cli",
   "nu-cmd-lang/os",

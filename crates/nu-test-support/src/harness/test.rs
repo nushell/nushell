@@ -1,6 +1,6 @@
 use std::{
     any::Any,
-    collections::{HashMap, HashSet},
+    collections::HashSet,
     fmt::Debug,
     num::NonZeroUsize,
     path::{Path, PathBuf},
@@ -20,8 +20,11 @@ use nu_utils::downcast;
 
 use crate::{
     harness::{deps::*, group::RUN_TEST_GROUP_IN_SERIAL},
-    tester::{PATH_ENV_AUTO_LOAD, PLUGIN_AUTO_LOAD, PluginAutoLoader, TestError},
+    tester::*,
 };
+
+#[cfg(feature = "plugin")]
+use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct Extra {
@@ -171,6 +174,8 @@ impl<'t> kitest::runner::scope::TestScopeFactory<'t, Extra> for TestScopeFactory
     {
         TestScope {
             target_dir: self.target_dir.as_deref(),
+
+            #[cfg(feature = "plugin")]
             preloaded_plugins: &self.preloaded_plugins,
         }
     }
@@ -179,6 +184,8 @@ impl<'t> kitest::runner::scope::TestScopeFactory<'t, Extra> for TestScopeFactory
 #[derive(Debug)]
 pub struct TestScope<'f> {
     target_dir: Option<&'f Path>,
+
+    #[cfg(feature = "plugin")]
     preloaded_plugins: &'f HashMap<&'f Dependency<'f>, PreloadedPlugin>,
 }
 
@@ -208,6 +215,7 @@ impl<'f, 't> kitest::runner::scope::TestScope<'t, Extra> for TestScope<'f> {
             paths.extend(dependency_paths);
         });
 
+        #[cfg(feature = "plugin")]
         PLUGIN_AUTO_LOAD.with_borrow_mut(|auto_loaders| {
             auto_loaders.clear();
             auto_loaders.extend(
