@@ -5,126 +5,207 @@
 
 // tests in here are marked as serial to improve stability while testing
 
-use nu_test_support::{nu, nu_with_plugins};
+use nu_test_support::{nu_with_plugins, prelude::*};
 
 #[test]
-#[serial]
-fn plugin_list_shows_installed_plugins() {
-    let out = nu_with_plugins!(
-        cwd: ".",
-        plugins: [("nu_plugin_inc"), ("nu_plugin_custom_values")],
-        "(plugin list).name | str join ','"
-    );
-    assert_eq!("custom_values,inc", out.out);
-    assert!(out.status.success());
+#[deps(NU_PLUGIN_INC, NU_PLUGIN_CUSTOM_VALUES)]
+fn plugin_list_shows_installed_plugins() -> Result {
+    test()
+        .run("plugin list | get name | str join ','")
+        .expect_value_eq("custom_values,inc")
 }
 
 #[test]
-#[serial]
-fn plugin_list_shows_installed_plugin_version() {
-    let out = nu_with_plugins!(
-        cwd: ".",
-        plugin: ("nu_plugin_inc"),
-        "(plugin list).version.0"
-    );
-    assert_eq!(env!("CARGO_PKG_VERSION"), out.out);
-    assert!(out.status.success());
+#[deps(NU_PLUGIN_INC)]
+fn plugin_list_shows_installed_plugin_version() -> Result {
+    test()
+        .run("plugin list | get version.0")
+        .expect_value_eq(env!("CARGO_PKG_VERSION"))
 }
 
-#[test]
-#[serial]
-fn plugin_keeps_running_after_calling_it() {
-    let out = nu_with_plugins!(
-        cwd: ".",
-        plugin: ("nu_plugin_inc"),
-        r#"
-            plugin stop inc
-            (plugin list).0.status == running | print
-            print ";"
-            "2.0.0" | inc -m | ignore
-            (plugin list).0.status == running | print
-        "#
-    );
-    assert_eq!(
-        "false;true", out.out,
-        "plugin list didn't show status = running"
-    );
-    assert!(out.status.success());
-}
+// #[test]
+// #[serial]
+// fn plugin_list_shows_installed_plugin_version() {
+//     let out = nu_with_plugins!(
+//         cwd: ".",
+//         plugin: ("nu_plugin_inc"),
+//         "(plugin list).version.0"
+//     );
+//     assert_eq!(env!("CARGO_PKG_VERSION"), out.out);
+//     assert!(out.status.success());
+// }
 
 #[test]
-#[serial]
-fn plugin_process_exits_after_stop() {
-    let out = nu_with_plugins!(
-        cwd: ".",
-        plugin: ("nu_plugin_inc"),
-        r#"
-            "2.0.0" | inc -m | ignore
-            sleep 500ms
-            let pid = (plugin list).0.pid
-            if (ps | where pid == $pid | is-empty) {
-                error make {
-                    msg: "plugin process not running initially"
-                }
+#[deps(NU_PLUGIN_INC)]
+fn plugin_keeps_running_after_calling_it() -> Result {
+    let mut tester = test();
+    let () = tester.run("plugin stop inc")?;
+    tester
+        .run("plugin list | get 0.status")
+        .expect_value_eq("loaded")?;
+    let _: Value = tester.run("'2.0.0' | inc -m")?;
+    tester
+        .run("plugin list | get 0.status")
+        .expect_value_eq("running")
+}
+
+// #[test]
+// #[serial]
+// fn plugin_keeps_running_after_calling_it() {
+//     let out = nu_with_plugins!(
+//         cwd: ".",
+//         plugin: ("nu_plugin_inc"),
+//         r#"
+//             plugin stop inc
+//             (plugin list).0.status == running | print
+//             print ";"
+//             "2.0.0" | inc -m | ignore
+//             (plugin list).0.status == running | print
+//         "#
+//     );
+//     assert_eq!(
+//         "false;true", out.out,
+//         "plugin list didn't show status = running"
+//     );
+//     assert!(out.status.success());
+// }
+
+#[test]
+#[deps(NU_PLUGIN_INC)]
+fn plugin_process_exits_after_stop() -> Result {
+    let code = r#"
+        "2.0.0" | inc -m | ignore
+        sleep 500ms
+
+        let pid = plugin list | get 0.pid
+        if (ps | where pid == $pid | is-empty) {
+            error make {
+                msg: "plugin process not running initially"
             }
-            plugin stop inc
-            let start = (date now)
-            mut cond = true
-            while $cond {
-                sleep 100ms
-                $cond = (
-                    (ps | where pid == $pid | is-not-empty) and
-                    ((date now) - $start) < 5sec
-                )
-            }
-            ((date now) - $start) | into int
-        "#
-    );
+        }
 
-    assert!(out.status.success());
+        plugin stop inc
+        let start = date now
+        mut cond = true
+        while $cond {
+            sleep 100ms
+            $cond = (
+                (ps | where pid == $pid | is-not-empty) and
+                ((date now) - $start) < 5sec
+            )
+        }
 
-    let nanos = out.out.parse::<i64>().expect("not a number");
+        (date now) - $start | into int
+    "#;
+
+    let nanos: i64 = test().run(code)?;
     assert!(
         nanos < 5_000_000_000,
         "not stopped after more than 5 seconds: {nanos} ns"
     );
+
+    Ok(())
 }
+
+// #[test]
+// #[serial]
+// fn plugin_process_exits_after_stop() {
+//     let out = nu_with_plugins!(
+//         cwd: ".",
+//         plugin: ("nu_plugin_inc"),
+//         r#"
+//             "2.0.0" | inc -m | ignore
+//             sleep 500ms
+//             let pid = (plugin list).0.pid
+//             if (ps | where pid == $pid | is-empty) {
+//                 error make {
+//                     msg: "plugin process not running initially"
+//                 }
+//             }
+//             plugin stop inc
+//             let start = (date now)
+//             mut cond = true
+//             while $cond {
+//                 sleep 100ms
+//                 $cond = (
+//                     (ps | where pid == $pid | is-not-empty) and
+//                     ((date now) - $start) < 5sec
+//                 )
+//             }
+//             ((date now) - $start) | into int
+//         "#
+//     );
+
+//     assert!(out.status.success());
+
+//     let nanos = out.out.parse::<i64>().expect("not a number");
+//     assert!(
+//         nanos < 5_000_000_000,
+//         "not stopped after more than 5 seconds: {nanos} ns"
+//     );
+// }
+
+#[test]
+#[deps(NU_PLUGIN_INC)]
+fn plugin_stop_can_find_by_filename() -> Result {
+    test()
+        .run("plugin stop (plugin list | where name == inc).0.filename")
+        .expect_value_eq(())
+}
+
+// #[test]
+// #[serial]
+// fn plugin_stop_can_find_by_filename() {
+//     let result = nu_with_plugins!(
+//         cwd: ".",
+//         plugin: ("nu_plugin_inc"),
+//         "plugin stop (plugin list | where name == inc).0.filename"
+//     );
+//     assert!(result.status.success());
+//     assert!(result.err.is_empty());
+// }
 
 #[test]
 #[serial]
-fn plugin_stop_can_find_by_filename() {
-    let result = nu_with_plugins!(
-        cwd: ".",
-        plugin: ("nu_plugin_inc"),
-        "plugin stop (plugin list | where name == inc).0.filename"
-    );
-    assert!(result.status.success());
-    assert!(result.err.is_empty());
+#[deps(NU, NU_PLUGIN_INC)]
+fn plugin_process_exits_when_nushell_exits() -> Result {
+    // we have to run the nu binary to actually have a process exit
+    let pid: u32 = test().run_with_data(
+        r#"nu -n --plugins $in -c "'2.0.0' | inc -m; (plugin list).0.pid" | into int"#,
+        NU_PLUGIN_INC.path(),
+    )?;
+
+    let mut tester = test();
+    let () = tester.run("sleep 500ms")?;
+    let _: Value = tester.run_with_data("let pid", pid)?;
+    tester
+        .run("ps | where pid == $pid | is-empty")
+        .expect_value_eq(true)
 }
 
-#[test]
-#[serial]
-fn plugin_process_exits_when_nushell_exits() {
-    let out = nu_with_plugins!(
-        cwd: ".",
-        plugin: ("nu_plugin_inc"),
-        r#"
-            "2.0.0" | inc -m | ignore
-            (plugin list).0.pid | print
-        "#
-    );
-    assert!(!out.out.is_empty());
-    assert!(out.status.success());
+// #[test]
+// #[serial]
+// fn plugin_process_exits_when_nushell_exits() {
+//     let out = nu_with_plugins!(
+//         cwd: ".",
+//         plugin: ("nu_plugin_inc"),
+//         r#"
+//             "2.0.0" | inc -m | ignore
+//             (plugin list).0.pid | print
+//         "#
+//     );
+//     assert!(!out.out.is_empty());
+//     assert!(out.status.success());
 
-    let pid = out.out.parse::<u32>().expect("failed to parse pid");
+//     let pid = out.out.parse::<u32>().expect("failed to parse pid");
 
-    // use nu to check if process exists
-    assert_eq!(
-        "0",
-        nu!(format!("sleep 500ms; ps | where pid == {pid} | length")).out,
-        "plugin process {pid} is still running"
-    );
-}
+//     // use nu to check if process exists
+//     assert_eq!(
+//         "0",
+//         nu!(format!("sleep 500ms; ps | where pid == {pid} | length")).out,
+//         "plugin process {pid} is still running"
+//     );
+// }
 
 #[test]
 #[serial]
