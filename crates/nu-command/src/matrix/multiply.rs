@@ -21,16 +21,16 @@ impl Command for MatrixMultiply {
                 SyntaxShape::Any,
                 "The other matrix to multiply with.",
             )
-            .switch("swap", "Swap the left and right operands", Some('s'))
+            .switch("swap", "Swap the left and right operands.", Some('s'))
             .switch(
                 "multall",
-                "Chain-multiply all supplied matrices: input @ other @ rest[0] @ ...",
+                "Multiply the input matrix with all matrices given as arguments, chaining them left to right (e.g., `$a | matrix multiply --multall $b $c` multiplies all three together).",
                 Some('a'),
             )
             .rest(
                 "rest",
                 SyntaxShape::Any,
-                "Additional matrices for chained multiplication (requires --multall)",
+                "Additional matrices for chained multiplication (requires --multall).",
             )
             .category(Category::Filters)
     }
