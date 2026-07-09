@@ -215,17 +215,41 @@ fn pipeline_oneof() -> TestResult {
 #[case::filter_output_union(
     "
     let pending = ([a] | each {} | collect | skip 0)
-    for item in $pending { print $item }
+    for item in $pending {}
     "
 )]
 #[case::union_of_iterables(
     "
-    def choose []: nothing -> oneof<list<list<string>>, list<int>> { [[a]] }
-    for item in (choose) { print ($item | str join '') }
+    def choose []: nothing -> oneof<list<list<string>>, list<int>> {
+        [[a]]
+    }
+    for item in (choose) {}
     "
 )]
-fn for_loop_item_type_from_iterable_union(#[case] input: &str) -> TestResult {
-    run_test(input, "a")
+#[case::static_list_source(
+    "
+    let pending: oneof<table, binary, list<int>> = [1 2 3]
+    for item in $pending {}
+    "
+)]
+#[case::static_table_source(
+    "
+    let pending: oneof<table, binary, list<int>> = [[a b]; [1 2], [3 4]]
+    for item in $pending {}
+    "
+)]
+#[case::static_binary_source(
+    "
+    let pending: oneof<table, binary, list<int>> = 0x[deadbeef]
+    for item in $pending {}
+    "
+)]
+#[test]
+#[exp(ENFORCE_RUNTIME_ANNOTATIONS)]
+fn for_loop_item_type_from_iterable_union(#[case] input: &str) -> Result {
+    // should return nothing
+    let () = test().run(input)?;
+    Ok(())
 }
 
 #[test]
