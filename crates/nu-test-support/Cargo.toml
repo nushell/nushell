@@ -28,6 +28,7 @@ network = ["nu-command/network"]
 rustls-tls = ["nu-command/rustls-tls"]
 plugin = [
   "dep:nu-cmd-plugin",
+  "dep:nu-plugin-core",
   "dep:nu-plugin-engine",
   "nu-protocol/plugin",
   "os",
@@ -44,6 +45,7 @@ nu-experimental.workspace = true
 nu-glob.workspace = true
 nu-parser.workspace = true
 nu-path.workspace = true
+nu-plugin-core = { workspace = true, optional = true }
 nu-plugin-engine = { workspace = true, optional = true }
 nu-protocol.workspace = true
 nu-std.workspace = true

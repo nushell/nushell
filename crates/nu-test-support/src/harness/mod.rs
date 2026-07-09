@@ -86,6 +86,9 @@ pub fn main() -> ExitCode {
     #[cfg(all(feature = "rustls-tls", feature = "network"))]
     nu_command::tls::CRYPTO_PROVIDER.default();
 
+    #[cfg(feature = "plugin")]
+    nu_plugin_core::SUPPRESS_STDERR.store(true, Ordering::Relaxed);
+
     let filter = DefaultFilter::default()
         .with_exact(args.exact)
         .with_filter(args.filter)

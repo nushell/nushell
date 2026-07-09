@@ -5062,6 +5062,7 @@ dependencies = [
  "nu-glob",
  "nu-parser",
  "nu-path",
+ "nu-plugin-core",
  "nu-plugin-engine",
  "nu-protocol",
  "nu-std",

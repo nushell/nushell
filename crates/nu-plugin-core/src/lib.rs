@@ -10,7 +10,7 @@ mod interface;
 mod serializers;
 
 pub use communication_mode::{
-    ClientCommunicationIo, CommunicationMode, PreparedServerCommunication, ServerCommunicationIo,
+    ClientCommunicationIo, CommunicationMode, PreparedServerCommunication, ServerCommunicationIo, SUPPRESS_STDERR
 };
 pub use interface::{
     Interface, InterfaceManager, PipelineDataWriter, PluginRead, PluginWrite,
