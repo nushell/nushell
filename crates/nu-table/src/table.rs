@@ -52,6 +52,11 @@ pub struct NuTable {
     count_cols: usize,
     styles: Styles,
     config: TableConfig,
+
+    /// Per-column alignment state.
+    ///
+    /// Used to detect mixed-type columns and unify them to left-alignment.
+    col_alignments: Vec<Option<ColumnAlignment>>,
 }
 
 impl NuTable {
@@ -82,6 +87,7 @@ impl NuTable {
                 border_color: None,
                 width_priority_columns: vec![],
             },
+            col_alignments: vec![None; count_cols],
         }
     }
 
@@ -135,6 +141,7 @@ impl NuTable {
     pub fn pop_column(&mut self, count: usize) {
         self.count_cols -= count;
         self.widths.truncate(self.count_cols);
+        self.col_alignments.truncate(self.count_cols);
 
         for (row, height) in self.data.iter_mut().zip(self.heights.iter_mut()) {
             row.truncate(self.count_cols);
@@ -185,6 +192,7 @@ impl NuTable {
         }
 
         self.count_cols += 1;
+        self.col_alignments.push(None);
     }
 
     pub fn insert_style(&mut self, pos: (usize, usize), style: TextStyle) {
@@ -195,11 +203,21 @@ impl NuTable {
             self.styles.cfg.set_color(pos.into(), style.into());
         }
 
+        // Trace alignment per-column for mixed-type detection.
+        // Actual alignment is resolved in resolve_column_alignments().
+        let col = pos.1;
         let alignment = convert_alignment(style.alignment);
-        if alignment != self.styles.alignments.data {
-            self.styles
-                .cfg
-                .set_alignment_horizontal(pos.into(), alignment);
+
+        if let Some(Some(existing)) = self.col_alignments.get(col) {
+            if *existing != ColumnAlignment::Uniform(alignment) {
+                // Different alignments seen in the same column -> mixed.
+                self.col_alignments[col] = Some(ColumnAlignment::Mixed);
+            }
+        } else if let Some(state) = self.col_alignments.get_mut(col)
+            && state.is_none()
+        {
+            // Set corresponding alignment for first column.
+            *state = Some(ColumnAlignment::Uniform(alignment));
         }
     }
 
@@ -284,6 +302,27 @@ impl NuTable {
         }
     }
 
+    /// Resolve per-column alignment based on tracked column state.
+    ///
+    /// - Uniform columns: use the uniform alignment.
+    /// - Mixed columns: force left-alignment so that columns with both
+    ///   left-aligned (e.g. String) and right-aligned (e.g. Int) values
+    ///   display consistently.
+    pub fn resolve_column_alignments(&mut self) {
+        for (col, state) in self.col_alignments.iter().enumerate() {
+            let alignment = match state {
+                Some(ColumnAlignment::Uniform(align)) => *align,
+                Some(ColumnAlignment::Mixed) => AlignmentHorizontal::Left,
+                None => continue,
+            };
+            for row in 0..self.count_rows {
+                self.styles
+                    .cfg
+                    .set_alignment_horizontal(Entity::Cell(row, col), alignment);
+            }
+        }
+    }
+
     pub fn clear_border_color(&mut self) {
         self.config.border_color = None;
     }
@@ -303,14 +342,16 @@ impl NuTable {
     /// Converts a table to a String.
     ///
     /// It returns None in case where table cannot be fit to a terminal width.
-    pub fn draw(self, termwidth: usize) -> Option<String> {
+    pub fn draw(mut self, termwidth: usize) -> Option<String> {
+        self.resolve_column_alignments();
         build_table(self, termwidth)
     }
 
     /// Converts a table to a String.
     ///
     /// It returns None in case where table cannot be fit to a terminal width.
-    pub fn draw_unchecked(self, termwidth: usize) -> Option<String> {
+    pub fn draw_unchecked(mut self, termwidth: usize) -> Option<String> {
+        self.resolve_column_alignments();
         build_table_unchecked(self, termwidth)
     }
 
@@ -369,6 +410,15 @@ pub struct TableConfig {
     header_on_border: bool,
     indent: TableIndent,
     width_priority_columns: Vec<usize>,
+}
+
+/// Per-column alignment tracking state.
+#[derive(Debug, Clone, PartialEq)]
+enum ColumnAlignment {
+    /// All cells in this column seen so far share this alignment.
+    Uniform(AlignmentHorizontal),
+    /// Cells with different alignments have been seen in this column.
+    Mixed,
 }
 
 #[derive(Debug, Clone, Copy)]
