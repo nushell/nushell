@@ -102,6 +102,7 @@ pub fn main() -> ExitCode {
         .copied()
         .collect();
 
+    #[allow(unused_variables, reason = "execution is non-pure")]
     let preparations = match args.list {
         true => TestPreparations::default(),
         false => match TestPreparations::prepare(dependencies.iter().copied()) {
@@ -160,6 +161,7 @@ impl TestPreparations {
             IntoIter = impl ExactSizeIterator<Item = &'static Dependency<'static>>,
         >,
     ) -> Result<Self, ()> {
+        #[cfg_attr(not(feature = "plugin"), expect(unused_mut))]
         let mut preparations = TestPreparations::default();
         let dependencies = dependencies.into_iter();
         if dependencies.len() == 0 {

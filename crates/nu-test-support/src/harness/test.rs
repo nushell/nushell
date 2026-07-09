@@ -1,6 +1,6 @@
 use std::{
-    any::Any, collections::HashSet, fmt::Debug, num::NonZeroUsize, sync::atomic::Ordering,
-    thread::Scope,
+    any::Any, collections::HashSet, fmt::Debug, marker::PhantomData, num::NonZeroUsize,
+    sync::atomic::Ordering, thread::Scope,
 };
 
 use kitest::{
@@ -140,10 +140,7 @@ impl TestScopeFactory {
         self,
         preloaded_plugins: HashMap<&'static Dependency<'static>, PreloadedPlugin>,
     ) -> Self {
-        Self {
-            preloaded_plugins,
-            ..self
-        }
+        Self { preloaded_plugins }
     }
 }
 
@@ -159,6 +156,8 @@ impl<'t> kitest::runner::scope::TestScopeFactory<'t, Extra> for TestScopeFactory
         't: 'f,
     {
         TestScope {
+            _lifetime: PhantomData,
+
             #[cfg(feature = "plugin")]
             preloaded_plugins: &self.preloaded_plugins,
         }
@@ -167,6 +166,8 @@ impl<'t> kitest::runner::scope::TestScopeFactory<'t, Extra> for TestScopeFactory
 
 #[derive(Debug)]
 pub struct TestScope<'f> {
+    _lifetime: PhantomData<&'f ()>,
+
     #[cfg(feature = "plugin")]
     preloaded_plugins: &'f HashMap<&'f Dependency<'f>, PreloadedPlugin>,
 }
