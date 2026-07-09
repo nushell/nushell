@@ -1,8 +1,9 @@
 #[cfg(windows)]
 use nu_utils::enable_vt_processing;
 use reedline::{
-    DefaultPrompt, Prompt, PromptEditMode, PromptHistorySearch, PromptHistorySearchStatus,
-    PromptViMode,
+    Color, DEFAULT_INDICATOR_COLOR, DEFAULT_PROMPT_COLOR, DEFAULT_PROMPT_MULTILINE_COLOR,
+    DEFAULT_PROMPT_RIGHT_COLOR, DefaultPrompt, Prompt, PromptEditMode, PromptHistorySearch,
+    PromptHistorySearchStatus, PromptViMode,
 };
 use std::borrow::Cow;
 
@@ -154,6 +155,37 @@ impl Prompt for NushellPrompt {
             "({}reverse-search: {})",
             prefix, history_search.term
         ))
+    }
+
+    // The left and right prompt keep the terminal foreground when the user
+    // supplies them, so their own styling (e.g. starship) isn't tinted, while
+    // the built-in fallback keeps nushell's default color.
+    fn get_prompt_color(&self) -> Color {
+        if self.left_prompt.is_some() {
+            Color::Default
+        } else {
+            DEFAULT_PROMPT_COLOR
+        }
+    }
+
+    // The indicators are nushell's own rather than the user's prompt generator,
+    // thus they always keep the default color. Styling one means putting the
+    // escapes in the indicator value. These override the trait defaults on
+    // purpose, so nushell's appearance doesn't follow reedline's.
+    fn get_prompt_multiline_color(&self) -> Color {
+        DEFAULT_PROMPT_MULTILINE_COLOR
+    }
+
+    fn get_indicator_color(&self) -> Color {
+        DEFAULT_INDICATOR_COLOR
+    }
+
+    fn get_prompt_right_color(&self) -> Color {
+        if self.right_prompt.is_some() {
+            Color::Default
+        } else {
+            DEFAULT_PROMPT_RIGHT_COLOR
+        }
     }
 
     fn right_prompt_on_last_line(&self) -> bool {
