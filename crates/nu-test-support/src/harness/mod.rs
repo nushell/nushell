@@ -94,17 +94,16 @@ pub fn main() -> ExitCode {
     let dependencies: HashSet<&Dependency> = filter
         .filter(TESTS.deref())
         .tests
-        .map(|test| test.meta.extra.dependencies)
-        .flatten()
-        .map(|dependency| *dependency)
+        .flat_map(|test| test.meta.extra.dependencies)
+        .copied()
         .collect();
 
-    let Ok(preparations) = args
-        .list
-        .then(|| Ok(TestPreparations::default()))
-        .unwrap_or_else(|| TestPreparations::prepare(dependencies.iter().map(|dep| *dep)))
-    else {
-        return ExitCode::FAILURE;
+    let preparations = match args.list {
+        true => TestPreparations::default(),
+        false => match TestPreparations::prepare(dependencies.iter().copied()) {
+            Ok(preparations) => preparations,
+            Err(()) => return ExitCode::FAILURE
+        }
     };
 
     let test_scope_factory = TestScopeFactory::default().with_target_dir(preparations.target_dir);

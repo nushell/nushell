@@ -75,11 +75,11 @@ pub struct PluginAutoLoader {
 
 thread_local! {
     /// Paths to be loaded into the PATH env variable of a [`NuTester`].
-    pub static PATH_ENV_AUTO_LOAD: RefCell<Vec<PathBuf>> = RefCell::new(Vec::new());
+    pub static PATH_ENV_AUTO_LOAD: RefCell<Vec<PathBuf>> = const { RefCell::new(Vec::new()) };
 
     /// Plugins to be automatically loaded into a [`NuTester`].
     #[cfg(feature = "plugin")]
-    pub static PLUGIN_AUTO_LOAD: RefCell<Vec<PluginAutoLoader>> = RefCell::new(Vec::new());
+    pub static PLUGIN_AUTO_LOAD: RefCell<Vec<PluginAutoLoader>> = const { RefCell::new(Vec::new()) };
 }
 
 /// Create a [`NuTester`] for running Nushell snippets in tests.
@@ -310,7 +310,7 @@ impl NuTester {
             Some(Value::List { vals, .. }) => vals.clone(),
             Some(Value::String { val, .. }) => val
                 .split(ENV_PATH_SEPARATOR_CHAR)
-                .map(|entry| Value::test_string(entry))
+                .map(Value::test_string)
                 .collect(),
             Some(v) => panic!("PATH is neither a list nor a string, is {}", v.get_type()),
         }
