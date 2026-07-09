@@ -7,6 +7,8 @@ use nu_plugin_core::{Encoder, EncodingType};
 use nu_plugin_protocol::{PluginCallResponse, PluginOutput};
 use nu_protocol::{
     PipelineData, Signals, Span, Spanned, Type, TypeSet, Value,
+    ast::PathMember,
+    casing::Casing,
     engine::{EngineState, Stack, StateWorkingSet},
 };
 use nu_std::load_standard_library;
@@ -578,6 +580,149 @@ fn bench_eval_default_env() -> impl IntoBenchmarks {
     )
 }
 
+fn bench_mut_record_assign(n: usize) -> impl IntoBenchmarks {
+    let setup = format!("mut r = {{a: (1..{n} | each {{|i| $i | into string}} | str join)}}");
+    let (stack, engine) = setup_stack_and_engine_from_command(&setup);
+    // Run 1000 assignments per call to amplify the signal vs. engine clone overhead
+    bench_command(
+        format!("mut_record_assign_{n}"),
+        "for _ in 1..1000 { $r.a = 'x' }",
+        stack,
+        engine,
+    )
+}
+
+fn bench_mut_list_assign(n: usize) -> impl IntoBenchmarks {
+    let setup = format!("mut l = (1..{n} | each {{|i| {{a: $i}}}})");
+    let (stack, engine) = setup_stack_and_engine_from_command(&setup);
+    bench_command(
+        format!("mut_list_assign_{n}"),
+        "for _ in 1..1000 { $l.0 = {a: 999} }",
+        stack,
+        engine,
+    )
+}
+
+fn bench_mut_record_compound_assign(n: usize) -> impl IntoBenchmarks {
+    let setup = format!("mut r = {{a: 0, b: (1..{n} | each {{|i| $i | into string}} | str join)}}");
+    let (stack, engine) = setup_stack_and_engine_from_command(&setup);
+    bench_command(
+        format!("mut_record_compound_assign_{n}"),
+        "for _ in 1..1000 { $r.a += 1 }",
+        stack,
+        engine,
+    )
+}
+
+fn bench_mut_record_update(n: usize) -> impl IntoBenchmarks {
+    let setup = format!("mut r = {{a: (1..{n} | each {{|i| $i | into string}} | str join)}}");
+    let (stack, engine) = setup_stack_and_engine_from_command(&setup);
+    bench_command(
+        format!("mut_record_update_{n}"),
+        "for _ in 1..1000 { $r = ($r | update a { 'x' }) }",
+        stack,
+        engine,
+    )
+}
+
+/// Benchmark the raw upsert operation on a Record value, simulating the current path
+/// (clone + upsert, which causes SharedCow to_mut() deep-copy when refcount > 1).
+/// Benchmark: clone a shared Record then upsert (simulates old `lookup_var` + upsert path).
+/// The `original.clone()` bumps the SharedCow refcount to 2, forcing `to_mut()` to deep-copy.
+fn bench_upsert_record_clone(n: usize) -> impl IntoBenchmarks {
+    let long_string = "x".repeat(n);
+    let original =
+        Value::test_record(nu_protocol::record!("a" => Value::test_string(&long_string)));
+    [benchmark_fn(format!("upsert_record_clone_{n}"), move |b| {
+        let original = original.clone();
+        let new_val = Value::test_string("x");
+        let cell_path = vec![PathMember::test_string(
+            "a".into(),
+            false,
+            Casing::Sensitive,
+        )];
+        b.iter(move || {
+            let mut cloned = original.clone();
+            cloned
+                .upsert_data_at_cell_path(&cell_path, new_val.clone())
+                .unwrap();
+            black_box(cloned);
+        })
+    })]
+}
+
+/// Benchmark: create a fresh uniquely-owned Record each iteration then upsert
+/// (simulates the optimized path where refcount=1, so `to_mut()` is free).
+fn bench_upsert_record_inplace(n: usize) -> impl IntoBenchmarks {
+    [benchmark_fn(
+        format!("upsert_record_inplace_{n}"),
+        move |b| {
+            let new_val = Value::test_string("x");
+            let cell_path = vec![PathMember::test_string(
+                "a".into(),
+                false,
+                Casing::Sensitive,
+            )];
+            b.iter(move || {
+                let long_string = "x".repeat(n);
+                let mut value = Value::test_record(
+                    nu_protocol::record!("a" => Value::test_string(&long_string)),
+                );
+                value
+                    .upsert_data_at_cell_path(&cell_path, new_val.clone())
+                    .unwrap();
+                black_box(value);
+            })
+        },
+    )]
+}
+
+/// Benchmark: clone a shared List then upsert (simulates old path).
+fn bench_upsert_list_clone(n: usize) -> impl IntoBenchmarks {
+    let original = Value::test_list(
+        (0..n)
+            .map(|i| Value::test_record(nu_protocol::record!("a" => Value::test_int(i as i64))))
+            .collect(),
+    );
+    [benchmark_fn(format!("upsert_list_clone_{n}"), move |b| {
+        let original = original.clone();
+        let new_val = Value::test_record(nu_protocol::record!("a" => Value::test_int(999)));
+        let cell_path = vec![PathMember::test_int(0, false)];
+        b.iter(move || {
+            let mut cloned = original.clone();
+            cloned
+                .upsert_data_at_cell_path(&cell_path, new_val.clone())
+                .unwrap();
+            black_box(cloned);
+        })
+    })]
+}
+
+/// Benchmark: upsert on a uniquely-owned List (no clone of shared state needed first).
+/// Similar to the clone benchmark but uses a freshly-created value that happens
+/// to be the same size. The creation cost of 100k records (13ms) is the floor;
+/// the clone benchmark's additional cost (701µs at 100k) represents the deep-copy
+/// overhead of the old `lookup_var` clone path.
+fn bench_upsert_list_inplace(n: usize) -> impl IntoBenchmarks {
+    [benchmark_fn(format!("upsert_list_inplace_{n}"), move |b| {
+        let new_val = Value::test_record(nu_protocol::record!("a" => Value::test_int(999)));
+        let cell_path = vec![PathMember::test_int(0, false)];
+        b.iter(move || {
+            let mut value = Value::test_list(
+                (0..n)
+                    .map(|i| {
+                        Value::test_record(nu_protocol::record!("a" => Value::test_int(i as i64)))
+                    })
+                    .collect(),
+            );
+            value
+                .upsert_data_at_cell_path(&cell_path, new_val.clone())
+                .unwrap();
+            black_box(value);
+        })
+    })]
+}
+
 fn encode_json(row_cnt: usize, col_cnt: usize) -> impl IntoBenchmarks {
     let test_data = Rc::new(PluginOutput::CallResponse(
         0,
@@ -1097,6 +1242,32 @@ tango_benchmarks!(
     bench_eval_default_config(),
     // Env
     bench_eval_default_env(),
+    // Mut variable assignment (via evaluate_commands)
+    bench_mut_record_assign(1_000),
+    bench_mut_record_assign(10_000),
+    bench_mut_record_assign(100_000),
+    bench_mut_list_assign(1_000),
+    bench_mut_list_assign(10_000),
+    bench_mut_list_assign(100_000),
+    bench_mut_record_compound_assign(1_000),
+    bench_mut_record_compound_assign(10_000),
+    bench_mut_record_compound_assign(100_000),
+    bench_mut_record_update(1_000),
+    bench_mut_record_update(10_000),
+    bench_mut_record_update(100_000),
+    // Raw upsert: clone+upsert (old path) vs in-place (new path)
+    bench_upsert_record_clone(1_000),
+    bench_upsert_record_clone(10_000),
+    bench_upsert_record_clone(100_000),
+    bench_upsert_record_inplace(1_000),
+    bench_upsert_record_inplace(10_000),
+    bench_upsert_record_inplace(100_000),
+    bench_upsert_list_clone(1_000),
+    bench_upsert_list_clone(10_000),
+    bench_upsert_list_clone(100_000),
+    bench_upsert_list_inplace(1_000),
+    bench_upsert_list_inplace(10_000),
+    bench_upsert_list_inplace(100_000),
     // Encode
     // Json
     encode_json(100, 5),
