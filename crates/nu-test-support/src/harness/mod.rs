@@ -1,12 +1,5 @@
 use std::{
-    collections::HashSet,
-    fmt::Display,
-    io,
-    num::NonZeroUsize,
-    ops::Deref,
-    path::PathBuf,
-    process::{Command, ExitCode, Stdio},
-    sync::{LazyLock, atomic::Ordering},
+    collections::HashSet, fmt::Display, io, num::NonZeroUsize, ops::Deref, path::PathBuf, process::{Command, ExitCode, Stdio}, sync::{LazyLock, OnceLock, atomic::Ordering},
 };
 
 use crate::{
@@ -49,6 +42,7 @@ pub mod macros {
 }
 
 pub const BUILD_PROFILE: &str = env!("BUILD_PROFILE");
+static TARGET_DIR: OnceLock<PathBuf> = OnceLock::new();
 
 pub const DEFAULT_THREAD_COUNT_MUL: NonZeroUsize = NonZeroUsize::new(4).unwrap();
 pub static DEFAULT_THREAD_COUNT: LazyLock<NonZeroUsize> = LazyLock::new(|| {
@@ -106,7 +100,7 @@ pub fn main() -> ExitCode {
         }
     };
 
-    let test_scope_factory = TestScopeFactory::default().with_target_dir(preparations.target_dir);
+    let test_scope_factory = TestScopeFactory::default();
     #[cfg(feature = "plugin")]
     let test_scope_factory =
         test_scope_factory.with_preloaded_plugins(preparations.preloaded_plugins);
@@ -146,8 +140,6 @@ pub fn main() -> ExitCode {
 
 #[derive(Debug, Default)]
 struct TestPreparations {
-    target_dir: Option<PathBuf>,
-
     #[cfg(feature = "plugin")]
     preloaded_plugins: std::collections::HashMap<&'static Dependency<'static>, PreloadedPlugin>,
 }
@@ -180,6 +172,7 @@ impl TestPreparations {
             Color::Green.bold().paint("    Finished"),
             target_dir.display()
         );
+        TARGET_DIR.set(target_dir).expect("TARGET_DIR is unset until now");
 
         for dependency in dependencies {
             println!();
@@ -208,7 +201,7 @@ impl TestPreparations {
 
             #[cfg(feature = "plugin")]
             if dependency.is_plugin {
-                let preloaded_plugin = match dependency.preload_plugin(&target_dir) {
+                let preloaded_plugin = match dependency.preload_plugin() {
                     Ok(preloaded_plugin) => preloaded_plugin,
                     Err(err) => {
                         let err = err.to_string();
@@ -242,7 +235,6 @@ impl TestPreparations {
             }
         }
 
-        let _ = preparations.target_dir.insert(target_dir);
         Ok(preparations)
     }
 }

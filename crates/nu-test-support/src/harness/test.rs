@@ -3,7 +3,6 @@ use std::{
     collections::HashSet,
     fmt::Debug,
     num::NonZeroUsize,
-    path::{Path, PathBuf},
     sync::atomic::Ordering,
     thread::Scope,
 };
@@ -19,8 +18,7 @@ use nu_experimental::ExperimentalOption;
 use nu_utils::downcast;
 
 use crate::{
-    harness::{deps::*, group::RUN_TEST_GROUP_IN_SERIAL},
-    tester::*,
+    harness::{deps::*, group::RUN_TEST_GROUP_IN_SERIAL}, tester::*,
 };
 
 #[cfg(feature = "plugin")]
@@ -135,21 +133,11 @@ impl<'t> kitest::runner::TestRunner<'t, Extra> for TestRunner {
 
 #[derive(Debug, Default, Clone)]
 pub struct TestScopeFactory {
-    target_dir: Option<PathBuf>,
-
     #[cfg(feature = "plugin")]
     preloaded_plugins: HashMap<&'static Dependency<'static>, PreloadedPlugin>,
 }
 
 impl TestScopeFactory {
-    #[allow(clippy::needless_update, reason = "with the `plugin` feature we have more fields")]
-    pub fn with_target_dir(self, target_dir: impl Into<Option<PathBuf>>) -> Self {
-        Self {
-            target_dir: target_dir.into(),
-            ..self
-        }
-    }
-
     #[cfg(feature = "plugin")]
     pub fn with_preloaded_plugins(
         self,
@@ -174,8 +162,6 @@ impl<'t> kitest::runner::scope::TestScopeFactory<'t, Extra> for TestScopeFactory
         't: 'f,
     {
         TestScope {
-            target_dir: self.target_dir.as_deref(),
-
             #[cfg(feature = "plugin")]
             preloaded_plugins: &self.preloaded_plugins,
         }
@@ -184,8 +170,6 @@ impl<'t> kitest::runner::scope::TestScopeFactory<'t, Extra> for TestScopeFactory
 
 #[derive(Debug)]
 pub struct TestScope<'f> {
-    target_dir: Option<&'f Path>,
-
     #[cfg(feature = "plugin")]
     preloaded_plugins: &'f HashMap<&'f Dependency<'f>, PreloadedPlugin>,
 }
@@ -197,16 +181,12 @@ impl<'f, 't> kitest::runner::scope::TestScope<'t, Extra> for TestScope<'f> {
         PATH_ENV_AUTO_LOAD.with_borrow_mut(|paths| {
             paths.clear();
 
-            let Some(target_dir) = self.target_dir else {
-                return;
-            };
-
             let dependency_paths: HashSet<_> = meta
                 .extra
                 .dependencies
                 .iter()
                 .map(|dep| {
-                    dep.path(target_dir)
+                    dep.path()
                         .parent()
                         .expect("bin lives in target dir")
                         .to_path_buf()

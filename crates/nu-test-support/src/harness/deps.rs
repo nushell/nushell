@@ -1,14 +1,15 @@
 use std::{
     borrow::Cow,
-    path::{Path, PathBuf},
+    path::PathBuf,
     process::{Command, Stdio},
 };
 
 #[cfg(feature = "plugin")]
 use nu_protocol::ShellError;
 
-use crate::harness::BUILD_PROFILE;
+use crate::harness::{BUILD_PROFILE, TARGET_DIR};
 
+#[non_exhaustive]
 #[derive(derive_more::Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Dependency<'a> {
     /// Name of the binary without extension.
@@ -62,8 +63,6 @@ impl Dependency<'static> {
     }
 
     pub fn build_command(&self) -> Command {
-        // TODO: handle build profiles
-
         let mut command = Command::new("cargo");
         command
             .arg("build")
@@ -105,23 +104,26 @@ impl Dependency<'static> {
         command
     }
 
-    pub fn path(&self, target_dir: impl AsRef<Path>) -> PathBuf {
-        target_dir
-            .as_ref()
+    #[track_caller]
+    pub fn path(&self) -> PathBuf {
+        #[cfg(not(windows))]
+        let bin_name = self.bin_name.as_ref();
+
+        #[cfg(windows)]
+        let bin_name = format!("{}.exe", self.bin_name.as_ref());
+
+        TARGET_DIR.get().expect("TARGET_DIR is not set")
             .join(BUILD_PROFILE)
-            .join(self.bin_name.as_ref())
+            .join(bin_name)
     }
 
     #[cfg(feature = "plugin")]
-    pub fn preload_plugin(
-        &self,
-        target_dir: impl AsRef<Path>,
-    ) -> Result<PreloadedPlugin, ShellError> {
+    pub fn preload_plugin(&self) -> Result<PreloadedPlugin, ShellError> {
         use nu_plugin_engine::{GetPlugin, PersistentPlugin};
         use nu_protocol::{PluginIdentity, RegisteredPlugin};
         use std::sync::Arc;
 
-        let filename = self.path(target_dir);
+        let filename = self.path();
         let identity = PluginIdentity::new(filename, None).expect("valid plugin name");
         let plugin = Arc::new(PersistentPlugin::new(identity.clone(), Default::default()));
 
