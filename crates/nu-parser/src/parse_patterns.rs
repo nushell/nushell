@@ -2,6 +2,7 @@
 
 use crate::{
     lex, lite_parse,
+    parse_expressions::parse_expression,
     parse_helpers::is_variable,
     parser::{ensure_not_reserved_variable_name, parse_value},
 };
@@ -9,6 +10,7 @@ use nu_protocol::{
     ParseError, Span, SyntaxShape, Type, VarId,
     ast::{MatchPattern, Pattern},
     engine::StateWorkingSet,
+    eval_const::eval_constant,
 };
 pub fn garbage(span: Span) -> MatchPattern {
     MatchPattern {
@@ -35,6 +37,29 @@ pub fn parse_pattern(working_set: &mut StateWorkingSet, span: Span) -> MatchPatt
             pattern: Pattern::IgnoreValue,
             guard: None,
             span,
+        }
+    } else if bytes.starts_with(b"(") {
+        // Parenthesized expression - try const evaluation at parse time.
+        // Strip the outer parens, lex, and parse the inner content as an expression.
+        let inner_span = Span::new(span.start + 1, span.end - 1);
+        let source = working_set.get_span_contents(inner_span);
+        let (tokens, err) = lex(source, inner_span.start, &[b'\n', b'\r'], &[], true);
+        if let Some(err) = err {
+            working_set.error(err);
+            return garbage(span);
+        }
+        let spans: Vec<Span> = tokens.iter().map(|t| t.span).collect();
+        let expr = parse_expression(working_set, &spans, None);
+        match eval_constant(working_set, &expr) {
+            Ok(val) => MatchPattern {
+                pattern: Pattern::Value(val),
+                guard: None,
+                span,
+            },
+            Err(e) => {
+                working_set.error(e.wrap(working_set, span));
+                garbage(span)
+            }
         }
     } else {
         // Literal value

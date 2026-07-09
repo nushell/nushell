@@ -280,3 +280,34 @@ match 1 {
         assert_eq!(actual.out, "success");
     });
 }
+
+#[test]
+fn match_paren_expression_string_concat() {
+    let actual = nu!("match 'test' { ('t' + 'es' + 't') => { print 'OK' } }");
+    assert_eq!(actual.out, "OK");
+}
+
+#[test]
+fn match_paren_expression_simple() {
+    let actual = nu!("match 42 { (40 + 2) => { print 'OK' } }");
+    assert_eq!(actual.out, "OK");
+}
+
+#[test]
+fn match_paren_expression_arithmetic() {
+    let actual = nu!("match 10 { (2 * 5) => { print 'OK' } }");
+    assert_eq!(actual.out, "OK");
+}
+
+#[test]
+fn match_paren_expression_string_literal() {
+    let actual = nu!("match 'hello' { (\"hello\") => { print 'OK' } }");
+    assert_eq!(actual.out, "OK");
+}
+
+#[test]
+fn match_paren_expression_no_match() {
+    let actual =
+        nu!("match 'nope' { ('t' + 'es' + 't') => { print 'FAIL' }, _ => { print 'OK' } }");
+    assert_eq!(actual.out, "OK");
+}
