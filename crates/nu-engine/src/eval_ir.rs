@@ -910,6 +910,29 @@ fn eval_instruction<D: DebugContext>(
                 })
             }
         }
+        Instruction::UpdateVarCellPath {
+            var_id,
+            cell_path,
+            new_value,
+        } => {
+            let new_val = ctx.collect_reg(*new_value, *span)?;
+            let path = ctx.take_reg(*cell_path);
+            if let PipelineData::Value(Value::CellPath { val: path, .. }, _) = path.body {
+                let value = ctx
+                    .stack
+                    .get_var_mut(*var_id)
+                    .ok_or(ShellError::VariableNotFoundAtRuntime { span: *span })?;
+                value.upsert_data_at_cell_path(&path.members, new_val)?;
+                Ok(Continue)
+            } else if let PipelineData::Value(Value::Error { error, .. }, _) = path.body {
+                Err(*error)
+            } else {
+                Err(ShellError::TypeMismatch {
+                    err_message: "expected cell path".into(),
+                    span: path.span().unwrap_or(*span),
+                })
+            }
+        }
         Instruction::Jump { index } => Ok(Branch(*index)),
         Instruction::BranchIf { cond, index } => {
             let data = ctx.take_reg(*cond);

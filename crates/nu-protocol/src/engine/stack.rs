@@ -255,6 +255,28 @@ impl Stack {
         self.vars.push((var_id, value));
     }
 
+    /// Return a mutable reference to a variable's value for in-place mutation.
+    ///
+    /// Looks up the variable in the current stack frame first. If not found, pulls it
+    /// from the parent chain into the current frame (cloning it once). This enables
+    /// zero-clone mutation for local `mut` variables: use `get_var_mut` + mutate instead
+    /// of `lookup_var` (clone) + mutate + `add_var` (move back).
+    pub fn get_var_mut(&mut self, var_id: VarId) -> Option<&mut Value> {
+        // Use index-based access to avoid conflicting mutable borrows
+        if let Some(pos) = self.vars.iter().position(|(id, _)| var_id == *id) {
+            return Some(&mut self.vars[pos].1);
+        }
+        // Check parent chain
+        if let Some(parent) = &self.parent_stack
+            && !self.parent_deletions.contains(&var_id)
+        {
+            let value = parent.lookup_var(var_id)?;
+            self.vars.push((var_id, value));
+            return self.vars.last_mut().map(|(_, val)| val);
+        }
+        None
+    }
+
     pub fn remove_var(&mut self, var_id: VarId) {
         for (idx, (id, _)) in self.vars.iter().enumerate() {
             if *id == var_id {
