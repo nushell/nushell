@@ -13,7 +13,7 @@ use std::{
         mpsc::{self, RecvTimeoutError},
     },
     thread,
-    time::{Duration, Instant},
+    time::Duration,
 };
 
 use crate::{
@@ -33,6 +33,7 @@ use kitest::{
     ignore::DefaultIgnore,
 };
 use nu_ansi_term::Color;
+use nu_utils::time::Instant;
 
 #[doc(hidden)]
 pub use linkme;
