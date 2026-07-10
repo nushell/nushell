@@ -1,5 +1,4 @@
 #![expect(clippy::test_attr_in_doctest)]
-
 // TODO: add docs about `#[deps(...)]`
 //! Test support for the Nushell crates.
 //!

@@ -55,6 +55,13 @@ pub mod macros {
     pub use nu_utils::module_path_without_crate;
 }
 
+/// Environment variable that skips building required test dependency binaries when set.
+///
+/// Use this when the required binaries have already been built or are otherwise available at their
+/// expected paths.
+/// Tests that need missing dependency binaries may fail after skipping this step.
+pub const SKIP_DEPS_BUILD_ENV: &str = "NU_TEST_SKIP_DEPS_BUILD";
+
 pub const BUILD_PROFILE: &str = env!("BUILD_PROFILE");
 static TARGET_DIR: OnceLock<PathBuf> = OnceLock::new();
 
@@ -204,40 +211,48 @@ impl TestPreparations {
                 dependency.bin_name
             );
 
-            match env::var_os(format!("CARGO_BIN_EXE_{}", dependency.bin_name)) {
-                Some(path) if path == dependency.path() => {
-                    println!(
-                        "{} by cargo already",
-                        Color::Green.bold().paint("    Prebuilt"),
-                    );
-                }
-                Some(path) => {
-                    eprintln!(
-                        "{RedError}: unexpected path to binary `{}`, got `{}`",
-                        dependency.bin_name,
-                        path.display(),
-                    );
-                    eprintln!();
-                    return Err(());
-                }
-                None => {
-                    let mut child = match dependency.build_command().spawn() {
-                        Ok(child) => child,
-                        Err(err) => {
-                            eprintln!("{RedError}: {err}");
-                            eprintln!();
-                            return Err(());
-                        }
-                    };
-
-                    let exit_status = child.wait().expect("command wasn't running");
-                    if !exit_status.success() {
+            if env::var_os(SKIP_DEPS_BUILD_ENV).is_some() {
+                println!(
+                    "{}: found `{}` being set, skipping build",
+                    Color::Yellow.bold().paint("warning"),
+                    SKIP_DEPS_BUILD_ENV,
+                );
+            } else {
+                match env::var_os(format!("CARGO_BIN_EXE_{}", dependency.bin_name)) {
+                    Some(path) if path == dependency.path() => {
+                        println!(
+                            "{} by cargo already",
+                            Color::Green.bold().paint("    Prebuilt"),
+                        );
+                    }
+                    Some(path) => {
                         eprintln!(
-                            "{RedError}: compilation of dependency `{}` failed",
+                            "{RedError}: unexpected path to binary `{}`, got `{}`",
                             dependency.bin_name,
+                            path.display(),
                         );
                         eprintln!();
                         return Err(());
+                    }
+                    None => {
+                        let mut child = match dependency.build_command().spawn() {
+                            Ok(child) => child,
+                            Err(err) => {
+                                eprintln!("{RedError}: {err}");
+                                eprintln!();
+                                return Err(());
+                            }
+                        };
+
+                        let exit_status = child.wait().expect("command wasn't running");
+                        if !exit_status.success() {
+                            eprintln!(
+                                "{RedError}: compilation of dependency `{}` failed",
+                                dependency.bin_name,
+                            );
+                            eprintln!();
+                            return Err(());
+                        }
                     }
                 }
             }
