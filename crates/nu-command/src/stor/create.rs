@@ -1,6 +1,7 @@
-use crate::database::{MEMORY_DB, SQLiteDatabase};
+use crate::database::{MEMORY_DB, SQLiteDatabase, get_shared_mem_conn};
 use nu_engine::command_prelude::*;
 use nu_protocol::shell_error::generic::GenericError;
+use rusqlite::Connection;
 use std::fmt::Write;
 
 #[derive(Clone)]
@@ -63,13 +64,14 @@ impl Command for StorCreate {
         let span = call.head;
         let table_name: Option<String> = call.get_flag(engine_state, stack, "table-name")?;
         let columns: Option<Record> = call.get_flag(engine_state, stack, "columns")?;
+
+        let conn = get_shared_mem_conn()?;
+        process(table_name, span, &conn, columns)?;
+
         let db = Box::new(SQLiteDatabase::new(
             std::path::Path::new(MEMORY_DB),
             engine_state.signals().clone(),
         ));
-
-        process(table_name, span, &db, columns)?;
-        // dbg!(db.clone());
         Ok(Value::custom(db, span).into_pipeline_data())
     }
 }
@@ -77,7 +79,7 @@ impl Command for StorCreate {
 fn process(
     table_name: Option<String>,
     span: Span,
-    db: &SQLiteDatabase,
+    conn: &Connection,
     columns: Option<Record>,
 ) -> Result<(), ShellError> {
     if table_name.is_none() {
@@ -87,85 +89,81 @@ fn process(
         });
     }
     let new_table_name = table_name.unwrap_or("table".into());
-    if let Ok(conn) = db.open_connection() {
-        match columns {
-            Some(record) => {
-                let mut create_stmt = format!("CREATE TABLE {new_table_name} ( ");
-                for (column_name, column_datatype) in record {
-                    match column_datatype.coerce_str()?.to_lowercase().as_ref() {
-                        "int" => {
-                            write!(create_stmt, "{column_name} INTEGER, ")
-                                .expect("writing to a String is infallible");
-                        }
-                        "float" => {
-                            write!(create_stmt, "{column_name} REAL, ")
-                                .expect("writing to a String is infallible");
-                        }
-                        "str" => {
-                            write!(create_stmt, "{column_name} VARCHAR(255), ")
-                                .expect("writing to a String is infallible");
-                        }
-
-                        "bool" => {
-                            write!(create_stmt, "{column_name} BOOLEAN, ")
-                                .expect("writing to a String is infallible");
-                        }
-                        "datetime" => {
-                            write!(
-                                create_stmt,
-                                "{column_name} DATETIME DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')), "
-                            )
+    match columns {
+        Some(record) => {
+            let mut create_stmt = format!("CREATE TABLE {new_table_name} ( ");
+            for (column_name, column_datatype) in record {
+                match column_datatype.coerce_str()?.to_lowercase().as_ref() {
+                    "int" => {
+                        write!(create_stmt, "{column_name} INTEGER, ")
                             .expect("writing to a String is infallible");
-                        }
-                        "json" => {
-                            write!(create_stmt, "{column_name} JSON, ")
-                                .expect("writing to a String is infallible");
-                        }
-                        "jsonb" => {
-                            write!(create_stmt, "{column_name} JSONB, ")
-                                .expect("writing to a String is infallible");
-                        }
+                    }
+                    "float" => {
+                        write!(create_stmt, "{column_name} REAL, ")
+                            .expect("writing to a String is infallible");
+                    }
+                    "str" => {
+                        write!(create_stmt, "{column_name} VARCHAR(255), ")
+                            .expect("writing to a String is infallible");
+                    }
 
-                        _ => {
-                            return Err(ShellError::UnsupportedInput {
-                                msg: "Unsupported column data type. Please use: int, float, str, bool, datetime, json, jsonb".into(),
-                                input: format!("{column_datatype:?}"),
-                                msg_span: column_datatype.span(),
-                                input_span: column_datatype.span(),
-                            });
-                        }
+                    "bool" => {
+                        write!(create_stmt, "{column_name} BOOLEAN, ")
+                            .expect("writing to a String is infallible");
+                    }
+                    "datetime" => {
+                        write!(
+                            create_stmt,
+                            "{column_name} DATETIME DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')), "
+                        )
+                        .expect("writing to a String is infallible");
+                    }
+                    "json" => {
+                        write!(create_stmt, "{column_name} JSON, ")
+                            .expect("writing to a String is infallible");
+                    }
+                    "jsonb" => {
+                        write!(create_stmt, "{column_name} JSONB, ")
+                            .expect("writing to a String is infallible");
+                    }
+
+                    _ => {
+                        return Err(ShellError::UnsupportedInput {
+                            msg: "Unsupported column data type. Please use: int, float, str, bool, datetime, json, jsonb".into(),
+                            input: format!("{column_datatype:?}"),
+                            msg_span: column_datatype.span(),
+                            input_span: column_datatype.span(),
+                        });
                     }
                 }
-                if create_stmt.ends_with(", ") {
-                    create_stmt.pop();
-                    create_stmt.pop();
-                }
-                create_stmt.push_str(" )");
-
-                // dbg!(&create_stmt);
-
-                conn.execute(&create_stmt, []).map_err(|err| {
-                    ShellError::Generic(GenericError::new_internal(
-                        "Failed to open SQLite connection in memory from create",
-                        err.to_string(),
-                    ))
-                })?;
             }
-            None => {
-                return Err(ShellError::MissingParameter {
-                    param_name: "requires at least one column".into(),
-                    span,
-                });
+            if create_stmt.ends_with(", ") {
+                create_stmt.pop();
+                create_stmt.pop();
             }
-        };
-    }
+            create_stmt.push_str(" )");
+
+            // dbg!(&create_stmt);
+
+            conn.execute(&create_stmt, []).map_err(|err| {
+                ShellError::Generic(GenericError::new_internal(
+                    "Failed to open SQLite connection in memory from create",
+                    err.to_string(),
+                ))
+            })?;
+        }
+        None => {
+            return Err(ShellError::MissingParameter {
+                param_name: "requires at least one column".into(),
+                span,
+            });
+        }
+    };
     Ok(())
 }
 
 #[cfg(test)]
 mod test {
-    use nu_protocol::Signals;
-
     use super::*;
 
     #[test]
@@ -177,17 +175,14 @@ mod test {
     fn test_process_with_valid_parameters() {
         let table_name = Some("test_table".to_string());
         let span = Span::test_data();
-        let db = Box::new(SQLiteDatabase::new(
-            std::path::Path::new(MEMORY_DB),
-            Signals::empty(),
-        ));
+        let conn = get_shared_mem_conn().expect("Test was unable to get shared connection.");
         let mut columns = Record::new();
         columns.insert(
             "int_column".to_string(),
             Value::test_string("int".to_string()),
         );
 
-        let result = process(table_name, span, &db, Some(columns));
+        let result = process(table_name, span, &conn, Some(columns));
 
         assert!(result.is_ok());
     }
@@ -196,17 +191,14 @@ mod test {
     fn test_process_with_missing_table_name() {
         let table_name = None;
         let span = Span::test_data();
-        let db = Box::new(SQLiteDatabase::new(
-            std::path::Path::new(MEMORY_DB),
-            Signals::empty(),
-        ));
+        let conn = get_shared_mem_conn().expect("Test was unable to get shared connection.");
         let mut columns = Record::new();
         columns.insert(
             "int_column".to_string(),
             Value::test_string("int".to_string()),
         );
 
-        let result = process(table_name, span, &db, Some(columns));
+        let result = process(table_name, span, &conn, Some(columns));
 
         assert!(result.is_err());
         assert!(
@@ -221,12 +213,9 @@ mod test {
     fn test_process_with_missing_columns() {
         let table_name = Some("test_table".to_string());
         let span = Span::test_data();
-        let db = Box::new(SQLiteDatabase::new(
-            std::path::Path::new(MEMORY_DB),
-            Signals::empty(),
-        ));
+        let conn = get_shared_mem_conn().expect("Test was unable to get shared connection.");
 
-        let result = process(table_name, span, &db, None);
+        let result = process(table_name, span, &conn, None);
 
         assert!(result.is_err());
         assert!(
@@ -241,10 +230,7 @@ mod test {
     fn test_process_with_unsupported_column_data_type() {
         let table_name = Some("test_table".to_string());
         let span = Span::test_data();
-        let db = Box::new(SQLiteDatabase::new(
-            std::path::Path::new(MEMORY_DB),
-            Signals::empty(),
-        ));
+        let conn = get_shared_mem_conn().expect("Test was unable to get shared connection.");
         let mut columns = Record::new();
         let column_datatype = "bogus_data_type".to_string();
         columns.insert(
@@ -252,12 +238,12 @@ mod test {
             Value::test_string(column_datatype.clone()),
         );
 
-        let result = process(table_name, span, &db, Some(columns));
+        let result = process(table_name, span, &conn, Some(columns));
 
         assert!(result.is_err());
 
         let expected_err = ShellError::UnsupportedInput {
-            msg: "unsupported column data type".into(),
+            msg: "Unsupported column data type. Please use: int, float, str, bool, datetime, json, jsonb".into(),
             input: format!("{:?}", column_datatype.clone()),
             msg_span: Span::test_data(),
             input_span: Span::test_data(),

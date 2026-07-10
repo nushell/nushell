@@ -17,11 +17,63 @@ use std::{
     fs::File,
     io::Read,
     path::{Path, PathBuf},
+    sync::{Mutex, MutexGuard, OnceLock},
 };
 
 const SQLITE_MAGIC_BYTES: &[u8] = "SQLite format 3\0".as_bytes();
 pub const MEMORY_DB: &str = "file:memdb1?mode=memory&cache=shared";
 const DATABASE_NAME: &str = "main";
+
+// A single mutex-guarded connection to the shared in-memory SQLite database.
+//
+// Before this existed, every `stor` command and `query db` call to the memory db
+// opened a fresh `rusqlite::Connection` to the same shared-cache URI, ran one statement,
+// then dropped it. That works fine for serial access but breaks down under concurrency
+// (`par-each`, `job spawn`) because SQLite's shared-cache internal locking
+// produces SQLITE_BUSY for every contended read/write, and each retry sleeps
+// 250ms. With 10,000 concurrent tasks you compound 10,000 connection opens +
+// 10,000 possible lock-contentions.
+static SHARED_MEM_CONN: OnceLock<Mutex<Connection>> = OnceLock::new();
+
+/// Returns a lock guard for the single shared in-memory SQLite connection.
+///
+/// The connection is opened lazily on the first call and reused for every
+/// subsequent call across all threads. If the in-memory database has not
+/// been accessed yet (i.e. no prior `stor open` or `stor create`), this
+/// call will create it implicitly.
+///
+/// Because `rusqlite::Connection` is `Send` but not `Sync`, wrapping it
+/// in a `Mutex` is the standard way to share one connection across threads.
+/// The `MutexGuard` implements `Deref<Target = Connection>` and
+/// `DerefMut`, so callers can use it identically to an owned `Connection`.
+///
+/// For file-based SQLite databases (paths that don't equal `MEMORY_DB`),
+/// this shared connection is not used — each caller opens its own connection
+/// as before.
+pub fn get_shared_mem_conn() -> Result<MutexGuard<'static, Connection>, ShellError> {
+    // Fast path: the connection was already initialized by a previous caller.
+    if let Some(conn) = SHARED_MEM_CONN.get() {
+        return conn.lock().map_err(|e| {
+            ShellError::Generic(GenericError::new_internal(
+                "Failed to acquire shared memory DB lock",
+                e.to_string(),
+            ))
+        });
+    }
+
+    // Slow path: we're the first caller (or raced and lost). Open a fresh
+    // connection with a busy handler, then hand it to get_or_init so only
+    // one wins the race. The loser's connection is silently dropped.
+    let conn = open_connection_in_memory_custom()?;
+    let conn = SHARED_MEM_CONN.get_or_init(|| Mutex::new(conn));
+
+    conn.lock().map_err(|e| {
+        ShellError::Generic(GenericError::new_internal(
+            "Failed to acquire shared memory DB lock",
+            e.to_string(),
+        ))
+    })
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SQLiteDatabase {
@@ -102,11 +154,17 @@ impl SQLiteDatabase {
         params: NuSqlParams,
         call_span: Span,
     ) -> Result<Value, ShellError> {
-        let conn = open_sqlite_db(&self.path, call_span)?;
-        let stream = run_sql_query(conn, sql, params, &self.signals, None)
-            .map_err(|e| e.into_shell_error(sql.span, "Failed to query SQLite database"))?;
-
-        Ok(stream)
+        if self.path.to_string_lossy() == MEMORY_DB {
+            let lock = get_shared_mem_conn()?;
+            let stream = run_sql_query(&lock, sql, params, &self.signals, None)
+                .map_err(|e| e.into_shell_error(sql.span, "Failed to query SQLite database"))?;
+            Ok(stream)
+        } else {
+            let conn = open_sqlite_db(&self.path, call_span)?;
+            let stream = run_sql_query(&conn, sql, params, &self.signals, None)
+                .map_err(|e| e.into_shell_error(sql.span, "Failed to query SQLite database"))?;
+            Ok(stream)
+        }
     }
 
     pub fn open_connection(&self) -> Result<Connection, ShellError> {
@@ -361,9 +419,15 @@ impl CustomValue for SQLiteDatabase {
     }
 
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
-        let db = open_sqlite_db(&self.path, span)?;
-        read_entire_sqlite_db(db, span, &self.signals)
-            .map_err(|e| e.into_shell_error(span, "Failed to read from SQLite database"))
+        if self.path.to_string_lossy() == MEMORY_DB {
+            let lock = get_shared_mem_conn()?;
+            read_entire_sqlite_db(&lock, span, &self.signals)
+                .map_err(|e| e.into_shell_error(span, "Failed to read SQLite database"))
+        } else {
+            let db = open_sqlite_db(&self.path, span)?;
+            read_entire_sqlite_db(&db, span, &self.signals)
+                .map_err(|e| e.into_shell_error(span, "Failed to read SQLite database"))
+        }
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -412,18 +476,27 @@ pub fn open_sqlite_db(path: &Path, call_span: Span) -> Result<Connection, ShellE
         open_connection_in_memory_custom()
     } else {
         let path = path.to_string_lossy().to_string();
-        Connection::open(path).map_err(|err| {
+        let conn = Connection::open(path).map_err(|err| {
             ShellError::Generic(GenericError::new(
                 "Failed to open SQLite database",
                 err.to_string(),
                 call_span,
             ))
-        })
+        })?;
+        conn.busy_handler(Some(SQLiteDatabase::sleeper))
+            .map_err(|err| {
+                ShellError::Generic(GenericError::new(
+                    "Failed to set busy handler for SQLite database",
+                    err.to_string(),
+                    call_span,
+                ))
+            })?;
+        Ok(conn)
     }
 }
 
 fn run_sql_query(
-    conn: Connection,
+    conn: &Connection,
     sql: &Spanned<String>,
     params: NuSqlParams,
     signals: &Signals,
@@ -663,7 +736,7 @@ fn prepared_statement_to_nu_list(
 }
 
 fn read_entire_sqlite_db(
-    conn: Connection,
+    conn: &Connection,
     call_span: Span,
     signals: &Signals,
 ) -> Result<Value, SqliteOrShellError> {
@@ -974,7 +1047,7 @@ impl SQLiteQueryBuilder {
             span: call_span,
         };
         run_sql_query(
-            conn,
+            &conn,
             &query,
             params,
             &self.signals,
@@ -1247,7 +1320,8 @@ mod test {
     #[test]
     fn can_read_empty_db() {
         let db = open_connection_in_memory().unwrap();
-        let converted_db = read_entire_sqlite_db(db, Span::test_data(), &Signals::empty()).unwrap();
+        let converted_db =
+            read_entire_sqlite_db(&db, Span::test_data(), &Signals::empty()).unwrap();
 
         let expected = Value::test_record(Record::new());
 
@@ -1267,7 +1341,8 @@ mod test {
             [],
         )
         .unwrap();
-        let converted_db = read_entire_sqlite_db(db, Span::test_data(), &Signals::empty()).unwrap();
+        let converted_db =
+            read_entire_sqlite_db(&db, Span::test_data(), &Signals::empty()).unwrap();
 
         let expected = Value::test_record(record! {
             "person" => Value::test_list(vec![]),
@@ -1296,7 +1371,7 @@ mod test {
         db.execute("INSERT INTO item (id, name) VALUES (456, 'foo bar')", [])
             .unwrap();
 
-        let converted_db = read_entire_sqlite_db(db, span, &Signals::empty()).unwrap();
+        let converted_db = read_entire_sqlite_db(&db, span, &Signals::empty()).unwrap();
 
         let expected = Value::test_record(record! {
             "item" => Value::test_list(
