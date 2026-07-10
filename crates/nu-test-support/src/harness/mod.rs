@@ -7,7 +7,13 @@ use std::{
     ops::Deref,
     path::PathBuf,
     process::{Command, ExitCode, Stdio},
-    sync::{LazyLock, OnceLock, atomic::Ordering},
+    sync::{
+        LazyLock, OnceLock,
+        atomic::Ordering,
+        mpsc::{self, RecvTimeoutError},
+    },
+    thread,
+    time::{Duration, Instant},
 };
 
 use crate::{
@@ -88,13 +94,15 @@ pub fn main() -> ExitCode {
     nu_command::tls::CRYPTO_PROVIDER.default();
 
     #[cfg(feature = "plugin")]
-    nu_plugin_core::SUPPRESS_STDERR.store(true, Ordering::Relaxed);
+    nu_plugin_core::SUPPRESS_STDERR.store(!args.no_capture, Ordering::Relaxed);
 
     let filter = DefaultFilter::default()
         .with_exact(args.exact)
         .with_filter(args.filter)
         .with_skip(args.skip)
         .with_only_ignored(args.ignored);
+
+    nu_with_plugins_compat(&filter);
 
     let dependencies: HashSet<&Dependency> = filter
         .filter(TESTS.deref())
@@ -293,6 +301,47 @@ fn target_dir() -> io::Result<PathBuf> {
         .as_str()
         .expect("target_directory is a string");
     Ok(PathBuf::from(target_dir))
+}
+
+fn nu_with_plugins_compat(filter: &impl kitest::filter::TestFilter<Extra>) {
+    if filter
+        .filter(TESTS.deref())
+        .tests
+        .any(|test| test.meta.extra.uses_nu_with_plugins)
+    {
+        println!();
+        println!("`nu_with_plugins!` is used in some tests, building all plugins",);
+        let start = Instant::now();
+
+        // we use a reporter setup as the `ensure_plugins_built` function internally pipes the
+        // stderr, so we have to give the user at least some output
+        let (stop_tx, stop_rx) = mpsc::channel();
+        let reporter = thread::spawn(move || {
+            loop {
+                match stop_rx.recv_timeout(Duration::from_secs(5)) {
+                    Ok(()) | Err(RecvTimeoutError::Disconnected) => break,
+                    Err(RecvTimeoutError::Timeout) => {
+                        println!(
+                            "{} all plugins, this might take a while",
+                            Color::Cyan.bold().paint("    Building")
+                        );
+                    }
+                }
+            }
+        });
+
+        crate::deprecated::commands::ensure_plugins_built();
+        let took = Instant::now().duration_since(start);
+
+        let _ = stop_tx.send(());
+        let _ = reporter.join();
+
+        println!(
+            "{} building all plugins in {:.2}s",
+            Color::Green.bold().paint("    Finished"),
+            took.as_secs_f64()
+        );
+    }
 }
 
 struct RedError;
