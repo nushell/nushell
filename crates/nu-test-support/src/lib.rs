@@ -1,5 +1,4 @@
 #![expect(clippy::test_attr_in_doctest)]
-// TODO: add docs about `#[deps(...)]`
 //! Test support for the Nushell crates.
 //!
 //! This crate provides tools for testing Nushell crates, including support for both unit and
@@ -82,8 +81,16 @@
 //!   It can also be explicitly disabled with
 //!   `#[exp(nu_experimental::EXAMPLE = false)]`.
 //!
+//! - `#[deps(NU)]`
+//!   Declares required binary dependencies for a test.
+//!   The harness ensures the binaries are built before the test runs and makes them available to
+//!   [`test()`]. Plugin dependencies, such as `#[deps(NU_PLUGIN_EXAMPLE)]`, are preloaded
+//!   automatically when the `plugin` feature is enabled.
+//!
 //! Tests with matching environment configurations or experimental settings are grouped together,
 //! allowing them to run in parallel where possible.
+//! Binary dependencies only affect the preparation phase, the harness builds dependencies for the
+//! filtered test set before execution starts.
 //!
 //! # Writing Integration Tests
 //!
@@ -404,30 +411,52 @@
 //! }
 //! ```
 //!
-//! ### Running the `nu` Binary
+//! ### Depending on Binaries and Plugins
 //!
-//! The [`add_nu_to_path`](tester::NuTester::add_nu_to_path) method adds the compiled `nu` binary
-//! from the `target` directory to the PATH.
-//! This allows invoking `nu` itself from within tests.
-//! This approach requires rebuilding when behavior changes and should generally be avoided unless
-//! necessary.
+//! Tests that need a compiled Nushell binary should declare that requirement with the `#[deps]`
+//! attribute. For example, `#[deps(NU)]` ensures the `nu` binary is built and adds it to the
+//! tester's PATH, making `nu` available as an external command.
 //!
-//! ```
+//! ```no_run
 //! # #[macro_use] extern crate nu_test_support;
 //! use nu_test_support::prelude::*;
 //!
 //! #[test]
+//! #[deps(NU)]
 //! fn cococo() -> Result {
 //! #     unimplemented!()
 //! # }
 //! #
 //! # fn main() -> Result {
 //!     test()
-//!         .add_nu_to_path()
 //!         .run("nu --testbin cococo")
 //!         .expect_value_eq("cococo")
 //! }
 //! ```
+//!
+//! `#[deps]` also replaces plugin-specific setup. Plugin dependencies are preloaded into the
+//! tester, so plugin commands can be used directly without spawning a separate `nu` process.
+//!
+//! ```no_run
+//! # #[macro_use] extern crate nu_test_support;
+//! use nu_test_support::prelude::*;
+//!
+//! #[test]
+//! #[deps(NU_PLUGIN_EXAMPLE)]
+//! fn plugin_command() -> Result {
+//! #     unimplemented!()
+//! # }
+//! #
+//! # fn main() -> Result {
+//!     test().run("42 | example echo").expect_value_eq(42)
+//! }
+//! ```
+//!
+//! Multiple dependencies can be listed when a test needs more than one binary:
+//! `#[deps(NU, NU_PLUGIN_INC)]`.
+//! The dependency constants are exported by the [`prelude`] and from [`harness::deps`].
+//! Set the [`NU_TEST_SKIP_DEPS_BUILD`](harness::SKIP_DEPS_BUILD_ENV) environment variable to skip
+//! the build step when the expected binaries already exist in the target directory.
 //!
 //! ### Setting Environment Variables
 //!

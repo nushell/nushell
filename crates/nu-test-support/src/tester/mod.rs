@@ -108,8 +108,10 @@ thread_local! {
 ///
 /// The `*_AUTO_LOAD` statics automatically prepare the test [`EngineState`].
 /// [`PATH_ENV_AUTO_LOAD`] loads paths into the tester's `PATH` environment variable,
-/// allowing binaries to be found without manually adding them in each [`test`].
-/// [`PLUGIN_AUTO_LOAD`] loads plugins into the tester so they can be called during tests.
+/// allowing binaries to be found without manually adding them in each [`test()`].
+#[cfg_attr(feature = "plugin", doc = "[`PLUGIN_AUTO_LOAD`]")]
+#[cfg_attr(not(feature = "plugin"), doc = "`PLUGIN_AUTO_LOAD`")]
+/// loads plugins into the tester so they can be called during tests.
 ///
 /// Both statics are [thread locals](`thread_local`), allowing multiple `NuTester` instances
 /// to run on different threads with different auto-loaded data.
