@@ -918,6 +918,13 @@ fn eval_instruction<D: DebugContext>(
             let new_val = ctx.collect_reg(*new_value, *span)?;
             let path = ctx.take_reg(*cell_path);
             if let PipelineData::Value(Value::CellPath { val: path, .. }, _) = path.body {
+                if nu_experimental::ENFORCE_RUNTIME_ANNOTATIONS.get() {
+                    let variable = ctx.engine_state.get_var(*var_id);
+                    let expected_ty = variable.ty.follow_cell_path(&path.members);
+                    if let Some(expected_ty) = expected_ty {
+                        check_assignment_type(new_val.clone(), &expected_ty, *span)?;
+                    }
+                }
                 let value = ctx
                     .stack
                     .get_var_mut(*var_id)
