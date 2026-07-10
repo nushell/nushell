@@ -183,8 +183,6 @@ pub struct TestScope<'f> {
 
 impl<'f, 't> kitest::runner::scope::TestScope<'t, Extra> for TestScope<'f> {
     fn before_test(&mut self, meta: &'t TestMeta<Extra>) {
-        // TODO: load preloaded plugins somehow
-
         PATH_ENV_AUTO_LOAD.with_borrow_mut(|paths| {
             paths.clear();
 
