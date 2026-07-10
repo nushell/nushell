@@ -661,6 +661,7 @@ fn bench_upsert_record_inplace(n: usize) -> impl IntoBenchmarks {
     [benchmark_fn(
         format!("upsert_record_inplace_{n}"),
         move |b| {
+            let original = original.clone();
             let new_val = Value::test_string("x");
             let cell_path = vec![PathMember::test_string(
                 "a".into(),
@@ -722,6 +723,67 @@ fn bench_upsert_list_inplace(n: usize) -> impl IntoBenchmarks {
             black_box(value);
         })
     })]
+}
+
+/// Benchmark: concat (++) on two lists of size n (general case, both non-empty).
+fn bench_concat_general(n: usize) -> impl IntoBenchmarks {
+    let engine = setup_engine();
+    let stack = Stack::new();
+    bench_command(
+        format!("concat_general_{n}"),
+        format!("(1..{n} | each {{|i| $i}}) ++ (1..{n} | each {{|i| $i}}) | length"),
+        stack,
+        engine,
+    )
+}
+
+/// Benchmark: concat (++) where the left-hand list is empty (empty-LHS shortcut).
+fn bench_concat_empty_lhs(n: usize) -> impl IntoBenchmarks {
+    let engine = setup_engine();
+    let stack = Stack::new();
+    bench_command(
+        format!("concat_empty_lhs_{n}"),
+        format!("[] ++ (1..{n} | each {{|i| $i}}) | length"),
+        stack,
+        engine,
+    )
+}
+
+/// Benchmark: concat (++) where the right-hand list is empty (empty-RHS shortcut).
+fn bench_concat_empty_rhs(n: usize) -> impl IntoBenchmarks {
+    let engine = setup_engine();
+    let stack = Stack::new();
+    bench_command(
+        format!("concat_empty_rhs_{n}"),
+        format!("(1..{n} | each {{|i| $i}}) ++ [] | length"),
+        stack,
+        engine,
+    )
+}
+
+/// Benchmark: par-each with default thread pool (no --threads flag).
+/// This exercises the global-pool reuse optimization.
+fn bench_par_each_default_pool(n: usize) -> impl IntoBenchmarks {
+    let engine = setup_engine();
+    let stack = Stack::new();
+    bench_command(
+        format!("par_each_default_pool_{n}"),
+        format!("(1..{n}) | par-each {{|_| 1 }} | ignore"),
+        stack,
+        engine,
+    )
+}
+
+/// Benchmark: many sequential small par-each calls (amplifies thread-pool
+/// creation overhead). Each call processes only 10 items.
+fn bench_par_each_many_calls(n: usize) -> impl IntoBenchmarks {
+    let engine = setup_engine();
+    let stack = Stack::new();
+    let cmds = (0..n)
+        .map(|_| "(1..10) | par-each {|_| 1 } | ignore")
+        .collect::<Vec<_>>()
+        .join("; ");
+    bench_command(format!("par_each_many_calls_{n}"), cmds, stack, engine)
 }
 
 fn encode_json(row_cnt: usize, col_cnt: usize) -> impl IntoBenchmarks {
@@ -1239,6 +1301,16 @@ tango_benchmarks!(
     bench_eval_par_each(100),
     bench_eval_par_each(1_000),
     bench_eval_par_each(10_000),
+    // Par-Each: default thread pool (compares with -t 2 above)
+    bench_par_each_default_pool(1),
+    bench_par_each_default_pool(10),
+    bench_par_each_default_pool(100),
+    bench_par_each_default_pool(1_000),
+    bench_par_each_default_pool(10_000),
+    // Par-Each: many sequential small calls (amplifies pool creation overhead)
+    bench_par_each_many_calls(1),
+    bench_par_each_many_calls(10),
+    bench_par_each_many_calls(100),
     // Config
     bench_eval_default_config(),
     // Env
@@ -1256,6 +1328,16 @@ tango_benchmarks!(
     bench_mut_record_update(1_000),
     bench_mut_record_update(10_000),
     bench_mut_record_update(100_000),
+    // Concat (++ operator)
+    bench_concat_general(1_000),
+    bench_concat_general(10_000),
+    bench_concat_general(100_000),
+    bench_concat_empty_lhs(1_000),
+    bench_concat_empty_lhs(10_000),
+    bench_concat_empty_lhs(100_000),
+    bench_concat_empty_rhs(1_000),
+    bench_concat_empty_rhs(10_000),
+    bench_concat_empty_rhs(100_000),
     // Raw upsert: clone+upsert (old path) vs in-place (new path)
     bench_upsert_record_clone(1_000),
     bench_upsert_record_clone(10_000),
