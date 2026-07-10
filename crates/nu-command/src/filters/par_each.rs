@@ -3,7 +3,11 @@ use nu_engine::{ClosureEval, ClosureEvalOnce, command_prelude::*};
 use nu_protocol::{Signals, engine::Closure, shell_error::generic::GenericError};
 use rayon::prelude::*;
 use std::{
-    sync::mpsc::{self, RecvTimeoutError},
+    collections::HashMap,
+    sync::{
+        Arc, Mutex, OnceLock,
+        mpsc::{self, RecvTimeoutError},
+    },
     time::Duration,
 };
 
@@ -101,26 +105,39 @@ impl Command for ParEach {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        /// Cache of thread pools keyed by thread count.
+        /// Reuses an existing pool instead of spawning OS threads on every `par-each` call.
+        static THREAD_POOLS: OnceLock<Mutex<HashMap<usize, Arc<rayon::ThreadPool>>>> =
+            OnceLock::new();
+
         fn create_pool(
             num_threads: usize,
             head: Span,
-        ) -> Result<Option<rayon::ThreadPool>, ShellError> {
+        ) -> Result<Option<Arc<rayon::ThreadPool>>, ShellError> {
             if num_threads == 0 {
                 return Ok(None);
             }
-            match rayon::ThreadPoolBuilder::new()
-                .num_threads(num_threads)
-                .build()
-            {
-                Err(e) => Err(e).map_err(|e| {
-                    ShellError::Generic(GenericError::new(
-                        "Error creating thread pool",
-                        e.to_string(),
-                        head,
-                    ))
-                }),
-                Ok(pool) => Ok(Some(pool)),
-            }
+            let pools = THREAD_POOLS.get_or_init(|| Mutex::new(HashMap::new()));
+            let mut pools = pools.lock().map_err(|e| {
+                ShellError::Generic(GenericError::new(
+                    "Error locking thread pool cache",
+                    e.to_string(),
+                    head,
+                ))
+            })?;
+            Ok(Some(
+                pools
+                    .entry(num_threads)
+                    .or_insert_with(|| {
+                        Arc::new(
+                            rayon::ThreadPoolBuilder::new()
+                                .num_threads(num_threads)
+                                .build()
+                                .expect("Failed to create thread pool"),
+                        )
+                    })
+                    .clone(),
+            ))
         }
 
         let head = call.head;
@@ -331,14 +348,16 @@ fn stream_parallel_values(
     engine_state: &EngineState,
     stack: &Stack,
     closure: Closure,
-    pool: Option<rayon::ThreadPool>,
+    pool: Option<Arc<rayon::ThreadPool>>,
     span: Span,
     signals: Signals,
     input: impl ParallelIterator<Item = Value> + 'static,
 ) -> PipelineData {
     let (tx, rx) = mpsc::sync_channel(STREAM_BUFFER_SIZE);
     let worker_engine_state = engine_state.clone();
-    let worker_stack = stack.clone();
+    // Only clone the captured variables, not the entire stack.
+    // This avoids deep-copying all in-scope variables that the closure does not reference.
+    let worker_stack = stack.captures_to_stack(closure.captures.clone());
     let worker_signals = signals.clone();
 
     let spawn_work = move || {
