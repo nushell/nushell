@@ -1143,7 +1143,7 @@ fn exportable_completions() {
     match_suggestions(&vec!["foo"], &suggestions);
 
     let completion_str = "use 🤔🐘 b";
-    let suggestions = completer.complete(completion_str, completion_str.len());
+    let suggestions = completer.complete_and_wait(completion_str, completion_str.len());
     match_suggestions(&vec!["bar"], &suggestions);
     assert_eq!(suggestions[0].description, Some("meow\nmeow".into()));
 }
@@ -2989,7 +2989,7 @@ fn custom_value_cell_path_completions() {
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
     let completion_str = "$v.";
-    let suggestions = completer.complete(completion_str, completion_str.len());
+    let suggestions = completer.complete_and_wait(completion_str, completion_str.len());
     let expected = ["major", "minor", "patch", "pre", "build"];
     let received: Vec<_> = suggestions.iter().map(|s| s.value.as_str()).collect();
     assert!(
