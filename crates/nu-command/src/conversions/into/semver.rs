@@ -1,4 +1,5 @@
 use crate::semver::value::SemverValue;
+use nu_cmd_base::input_handler::{CellPathOnlyArgs, operate};
 use nu_engine::command_prelude::*;
 use nu_protocol::shell_error::generic::GenericError;
 
@@ -16,7 +17,22 @@ impl Command for IntoSemver {
                 (Type::String, Type::Custom("semver".into())),
                 (Type::Custom("semver".into()), Type::Custom("semver".into())),
                 (Type::record(), Type::Custom("semver".into())),
+                (Type::record(), Type::record()),
+                (Type::table(), Type::table()),
+                (
+                    Type::list(Type::String),
+                    Type::list(Type::Custom("semver".into())),
+                ),
+                (
+                    Type::list(Type::Custom("semver".into())),
+                    Type::list(Type::Custom("semver".into())),
+                ),
             ])
+            .rest(
+                "rest",
+                SyntaxShape::CellPath,
+                "For a data structure input, convert data at the given cell paths.",
+            )
             .category(Category::Conversions)
     }
 
@@ -31,14 +47,17 @@ impl Command for IntoSemver {
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-
-        input.map(
-            move |value| into_semver(&value, head),
+        let cell_paths = call.rest(engine_state, stack, 0)?;
+        operate(
+            into_semver,
+            cell_paths.into(),
+            input,
+            head,
             engine_state.signals(),
         )
     }
@@ -64,7 +83,7 @@ impl Command for IntoSemver {
     }
 }
 
-fn into_semver(input: &Value, head: Span) -> Value {
+fn into_semver(input: &Value, _args: &CellPathOnlyArgs, head: Span) -> Value {
     match input {
         Value::Custom { val, .. } if val.type_name() == "semver" => input.clone(),
         Value::String { val, .. } => match semver::Version::parse(val) {
@@ -202,6 +221,8 @@ fn parse_record_to_semver(record: &nu_protocol::Record, head: Span) -> Value {
 mod tests {
     use super::*;
     use nu_protocol::record;
+    use nu_test_support::Result;
+    use nu_test_support::prelude::*;
 
     fn get_custom_value(value: &Value) -> &SemverValue {
         match value {
@@ -213,7 +234,7 @@ mod tests {
     #[test]
     fn test_into_semver_from_string() {
         let value = Value::string("1.2.3", Span::test_data());
-        let result = into_semver(&value, Span::test_data());
+        let result = into_semver(&value, &vec![].into(), Span::test_data());
 
         assert!(matches!(result, Value::Custom { .. }));
         let semver_val = get_custom_value(&result);
@@ -223,7 +244,7 @@ mod tests {
     #[test]
     fn test_into_semver_from_string_with_prerelease() {
         let value = Value::string("1.2.3-alpha.1+build.2", Span::test_data());
-        let result = into_semver(&value, Span::test_data());
+        let result = into_semver(&value, &vec![].into(), Span::test_data());
 
         let semver_val = get_custom_value(&result);
         assert_eq!(semver_val.version.to_string(), "1.2.3-alpha.1+build.2");
@@ -232,7 +253,7 @@ mod tests {
     #[test]
     fn test_into_semver_from_invalid_string() {
         let value = Value::string("not-a-version", Span::test_data());
-        let result = into_semver(&value, Span::test_data());
+        let result = into_semver(&value, &vec![].into(), Span::test_data());
 
         assert!(matches!(result, Value::Error { .. }));
     }
@@ -241,7 +262,7 @@ mod tests {
     fn test_into_semver_from_semver() {
         let original = SemverValue::new(semver::Version::parse("1.2.3").unwrap());
         let value = Value::custom(Box::new(original), Span::test_data());
-        let result = into_semver(&value, Span::test_data());
+        let result = into_semver(&value, &vec![].into(), Span::test_data());
 
         // Should return the same value
         let semver_val = get_custom_value(&result);
@@ -256,7 +277,7 @@ mod tests {
             "patch" => Value::int(3, Span::test_data()),
         };
         let value = Value::record(record, Span::test_data());
-        let result = into_semver(&value, Span::test_data());
+        let result = into_semver(&value, &vec![].into(), Span::test_data());
 
         let semver_val = get_custom_value(&result);
         assert_eq!(semver_val.version.to_string(), "1.2.3");
@@ -271,7 +292,7 @@ mod tests {
             "pre" => Value::string("alpha.1", Span::test_data()),
         };
         let value = Value::record(record, Span::test_data());
-        let result = into_semver(&value, Span::test_data());
+        let result = into_semver(&value, &vec![].into(), Span::test_data());
 
         let semver_val = get_custom_value(&result);
         assert_eq!(semver_val.version.to_string(), "1.2.3-alpha.1");
@@ -286,7 +307,7 @@ mod tests {
             "build" => Value::string("build.2", Span::test_data()),
         };
         let value = Value::record(record, Span::test_data());
-        let result = into_semver(&value, Span::test_data());
+        let result = into_semver(&value, &vec![].into(), Span::test_data());
 
         let semver_val = get_custom_value(&result);
         assert_eq!(semver_val.version.to_string(), "1.2.3+build.2");
@@ -302,7 +323,7 @@ mod tests {
             "build" => Value::string("build", Span::test_data()),
         };
         let value = Value::record(record, Span::test_data());
-        let result = into_semver(&value, Span::test_data());
+        let result = into_semver(&value, &vec![].into(), Span::test_data());
 
         let semver_val = get_custom_value(&result);
         assert_eq!(semver_val.version.to_string(), "1.2.3-alpha+build");
@@ -315,7 +336,7 @@ mod tests {
             "patch" => Value::int(3, Span::test_data()),
         };
         let value = Value::record(record, Span::test_data());
-        let result = into_semver(&value, Span::test_data());
+        let result = into_semver(&value, &vec![].into(), Span::test_data());
 
         assert!(matches!(result, Value::Error { .. }));
     }
@@ -328,7 +349,7 @@ mod tests {
             "patch" => Value::int(3, Span::test_data()),
         };
         let value = Value::record(record, Span::test_data());
-        let result = into_semver(&value, Span::test_data());
+        let result = into_semver(&value, &vec![].into(), Span::test_data());
 
         assert!(matches!(result, Value::Error { .. }));
     }
@@ -336,9 +357,58 @@ mod tests {
     #[test]
     fn test_into_semver_from_unsupported_type() {
         let value = Value::int(42, Span::test_data());
-        let result = into_semver(&value, Span::test_data());
+        let result = into_semver(&value, &vec![].into(), Span::test_data());
 
         assert!(matches!(result, Value::Error { .. }));
+    }
+
+    #[test]
+    fn test_into_semver_from_list_of_records() -> Result {
+        let value = Value::test_list(vec![
+            Value::test_record(record! {
+                "major" => Value::test_int(1),
+                "minor" => Value::test_int(2),
+                "patch" => Value::test_int(3),
+            }),
+            Value::test_record(record! {
+                "major" => Value::test_int(0),
+                "minor" => Value::test_int(1),
+                "patch" => Value::test_int(6),
+            }),
+        ]);
+
+        test()
+            .run_with_data("into semver", value)
+            .expect_value_eq(vec!["1.2.3", "0.1.6"])
+    }
+
+    #[test]
+    fn test_into_semver_from_list_of_strings() -> Result {
+        let value = Value::test_list(vec![
+            Value::test_string("3.1.0"),
+            Value::test_string("0.10.5"),
+        ]);
+        test()
+            .run_with_data("into semver", value)
+            .expect_value_eq(vec!["3.1.0", "0.10.5"])
+    }
+
+    #[test]
+    fn test_into_semver_at_cell_paths() -> Result {
+        let cell_a = Value::test_record(record! {
+            "major" => Value::test_int(0),
+            "minor" => Value::test_int(10),
+            "patch" => Value::test_int(2),
+        });
+        let value = Value::test_record(record! {
+            "a" => cell_a,
+            "b" => Value::test_string("will not error"),
+            "c" => Value::test_string("5.3.0"),
+        });
+
+        test()
+            .run_with_data("into semver a c | values", value)
+            .expect_value_eq(vec!["0.10.2", "will not error", "5.3.0"])
     }
 }
 
