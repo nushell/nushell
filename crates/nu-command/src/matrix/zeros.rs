@@ -1,4 +1,5 @@
 use crate::matrix::MatrixValue;
+use crate::matrix::value::positive_dim;
 use ndarray::ArrayD;
 use nu_engine::command_prelude::*;
 
@@ -45,32 +46,16 @@ impl Command for MatrixZeros {
         let first_dim: i64 = call.req(engine_state, stack, 0)?;
         let rest_dims: Vec<Value> = call.rest(engine_state, stack, 1)?;
 
-        let mut shape = vec![first_dim as usize];
+        let mut shape = vec![positive_dim(first_dim, head)?];
         for v in rest_dims {
-            match v.as_int() {
-                Ok(d) if d > 0 => shape.push(d as usize),
-                _ => {
-                    return Err(ShellError::Generic(
-                        nu_protocol::shell_error::generic::GenericError::new(
-                            "Invalid dimensions",
-                            "dimensions must be positive integers",
-                            head,
-                        ),
-                    ));
-                }
-            }
-        }
-
-        for &d in &shape {
-            if d == 0 {
-                return Err(ShellError::Generic(
-                    nu_protocol::shell_error::generic::GenericError::new(
-                        "Invalid dimensions",
-                        "dimensions must be positive",
-                        head,
-                    ),
-                ));
-            }
+            let d = v.as_int().map_err(|_| {
+                ShellError::Generic(nu_protocol::shell_error::generic::GenericError::new(
+                    "Invalid dimensions",
+                    "dimensions must be positive integers",
+                    head,
+                ))
+            })?;
+            shape.push(positive_dim(d, head)?);
         }
 
         let array = ArrayD::zeros(shape);

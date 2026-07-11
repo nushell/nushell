@@ -1,4 +1,5 @@
 use crate::matrix::MatrixValue;
+use crate::matrix::value::value_to_f64;
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -42,19 +43,13 @@ impl Command for MatrixScale {
         let scalar: Value = call.req(engine_state, stack, 0)?;
         let matrix = MatrixValue::from_value(&input.into_value(head)?)?;
 
-        let factor = match scalar {
-            Value::Int { val, .. } => val as f64,
-            Value::Float { val, .. } => val,
-            _ => {
-                return Err(ShellError::Generic(
-                    nu_protocol::shell_error::generic::GenericError::new(
-                        "Invalid argument",
-                        "expected a number",
-                        head,
-                    ),
-                ));
-            }
-        };
+        let factor = value_to_f64(&scalar, head).map_err(|_| {
+            ShellError::Generic(nu_protocol::shell_error::generic::GenericError::new(
+                "Invalid argument",
+                "expected a number",
+                head,
+            ))
+        })?;
 
         let result = matrix.array * factor;
         Ok(MatrixValue::new(result)

@@ -149,82 +149,25 @@ impl CustomValue for MatrixValue {
         right: &Value,
     ) -> Result<Value, ShellError> {
         match operator {
-            Operator::Math(Math::Add) => matrix_math_op(self, right, op, lhs_span, |a, b| a + b),
+            Operator::Math(Math::Add) => {
+                matrix_math_op(self, right, operator, op, lhs_span, |a, b| a + b)
+            }
             Operator::Math(Math::Subtract) => {
-                matrix_math_op(self, right, op, lhs_span, |a, b| a - b)
+                matrix_math_op(self, right, operator, op, lhs_span, |a, b| a - b)
             }
             Operator::Math(Math::Multiply) => {
-                matrix_math_op(self, right, op, lhs_span, |a, b| a * b)
+                matrix_math_op(self, right, operator, op, lhs_span, |a, b| a * b)
             }
             Operator::Math(Math::Divide) => {
-                matrix_scalar_op(self, right, op, lhs_span, |a, s| a / s)
+                matrix_math_op(self, right, operator, op, lhs_span, |a, b| a / b)
             }
-            Operator::Comparison(Comparison::Equal) => {
-                compare_matrix(self, right, op, lhs_span, Ordering::Equal)
-            }
-            Operator::Comparison(Comparison::NotEqual) => {
-                compare_matrix(self, right, op, lhs_span, Ordering::Equal)
-                    .map(|v| Value::bool(!matches!(v, Value::Bool { val: true, .. }), op))
-            }
-            Operator::Comparison(Comparison::LessThan) => {
-                compare_matrix(self, right, op, lhs_span, Ordering::Less)
-            }
-            Operator::Comparison(Comparison::GreaterThan) => {
-                compare_matrix(self, right, op, lhs_span, Ordering::Greater)
-            }
-            Operator::Comparison(Comparison::LessThanOrEqual) => {
-                let result: Option<bool> =
-                    compare_matrix(self, right, op, lhs_span, Ordering::Less)
-                        .ok()
-                        .and_then(|v| {
-                            if matches!(v, Value::Bool { val: true, .. }) {
-                                Some(true)
-                            } else if matches!(v, Value::Bool { val: false, .. }) {
-                                Some(false)
-                            } else {
-                                None
-                            }
-                        });
-                let equal = compare_matrix(self, right, op, lhs_span, Ordering::Equal)
-                    .ok()
-                    .and_then(|v| {
-                        if let Value::Bool { val: b, .. } = v {
-                            Some(b)
-                        } else {
-                            None
-                        }
-                    });
-                Ok(Value::bool(
-                    result.unwrap_or(false) || equal.unwrap_or(false),
-                    op,
-                ))
-            }
-            Operator::Comparison(Comparison::GreaterThanOrEqual) => {
-                let result: Option<bool> =
-                    compare_matrix(self, right, op, lhs_span, Ordering::Greater)
-                        .ok()
-                        .and_then(|v| {
-                            if matches!(v, Value::Bool { val: true, .. }) {
-                                Some(true)
-                            } else if matches!(v, Value::Bool { val: false, .. }) {
-                                Some(false)
-                            } else {
-                                None
-                            }
-                        });
-                let equal = compare_matrix(self, right, op, lhs_span, Ordering::Equal)
-                    .ok()
-                    .and_then(|v| {
-                        if let Value::Bool { val: b, .. } = v {
-                            Some(b)
-                        } else {
-                            None
-                        }
-                    });
-                Ok(Value::bool(
-                    result.unwrap_or(false) || equal.unwrap_or(false),
-                    op,
-                ))
+            Operator::Comparison(comparison @ Comparison::Equal)
+            | Operator::Comparison(comparison @ Comparison::NotEqual)
+            | Operator::Comparison(comparison @ Comparison::LessThan)
+            | Operator::Comparison(comparison @ Comparison::GreaterThan)
+            | Operator::Comparison(comparison @ Comparison::LessThanOrEqual)
+            | Operator::Comparison(comparison @ Comparison::GreaterThanOrEqual) => {
+                compare_matrix(self, right, op, lhs_span, comparison)
             }
             _ => Err(ShellError::OperatorUnsupportedType {
                 op: operator,
@@ -395,6 +338,67 @@ impl MatrixValue {
         Self::from_shape_vec(vec![nrows, ncols], data, span)
     }
 
+    /// Apply an element-wise binary operation with another matrix or scalar.
+    ///
+    /// When `broadcast` is true, `other` may be broadcast to this matrix's shape.
+    pub fn elementwise_binary<F, G>(
+        self,
+        other: Value,
+        broadcast: bool,
+        head: Span,
+        f_matrix: F,
+        f_scalar: G,
+    ) -> Result<ArrayD<f64>, ShellError>
+    where
+        F: FnOnce(ArrayD<f64>, ArrayD<f64>) -> ArrayD<f64>,
+        G: FnOnce(ArrayD<f64>, f64) -> ArrayD<f64>,
+    {
+        match other {
+            Value::Int { val, .. } => Ok(f_scalar(self.array, val as f64)),
+            Value::Float { val, .. } => Ok(f_scalar(self.array, val)),
+            Value::Custom { .. } => {
+                let other_matrix = MatrixValue::from_value(&other)?;
+                if broadcast {
+                    let target_shape = self.array.shape().to_vec();
+                    let other_view = other_matrix
+                        .array
+                        .broadcast(target_shape.as_slice())
+                        .ok_or_else(|| {
+                            ShellError::Generic(
+                                nu_protocol::shell_error::generic::GenericError::new(
+                                    "Broadcast error",
+                                    "shapes are not compatible for broadcasting",
+                                    head,
+                                ),
+                            )
+                        })?;
+                    Ok(f_matrix(self.array, other_view.to_owned().into_dyn()))
+                } else if self.array.shape() == other_matrix.array.shape() {
+                    Ok(f_matrix(self.array, other_matrix.array))
+                } else {
+                    Err(ShellError::Generic(
+                        nu_protocol::shell_error::generic::GenericError::new(
+                            "Shape mismatch",
+                            format!(
+                                "shapes do not match: {:?} vs {:?}. Use --broadcast to enable broadcasting.",
+                                self.array.shape(),
+                                other_matrix.array.shape()
+                            ),
+                            head,
+                        ),
+                    ))
+                }
+            }
+            _ => Err(ShellError::Generic(
+                nu_protocol::shell_error::generic::GenericError::new(
+                    "Invalid argument",
+                    "expected a matrix, int, or float",
+                    head,
+                ),
+            )),
+        }
+    }
+
     pub fn test_value(rows: &[&[f64]]) -> Value {
         let nrows = rows.len();
         let ncols = if nrows > 0 { rows[0].len() } else { 0 };
@@ -405,7 +409,8 @@ impl MatrixValue {
     }
 }
 
-fn value_to_f64(value: &Value, span: Span) -> Result<f64, ShellError> {
+/// Convert a numeric Value to f64.
+pub(crate) fn value_to_f64(value: &Value, span: Span) -> Result<f64, ShellError> {
     match value {
         Value::Int { val, .. } => Ok(*val as f64),
         Value::Float { val, .. } => Ok(*val),
@@ -421,6 +426,26 @@ fn value_to_f64(value: &Value, span: Span) -> Result<f64, ShellError> {
             span,
             help: None,
         }),
+    }
+}
+
+/// Convert a list of numeric Values to `Vec<f64>`.
+pub(crate) fn values_to_f64s(vals: &[Value], span: Span) -> Result<Vec<f64>, ShellError> {
+    vals.iter().map(|v| value_to_f64(v, span)).collect()
+}
+
+/// Parse positive dimensions from i64 values, rejecting zero and negatives.
+pub(crate) fn positive_dim(dim: i64, span: Span) -> Result<usize, ShellError> {
+    if dim > 0 {
+        Ok(dim as usize)
+    } else {
+        Err(ShellError::Generic(
+            nu_protocol::shell_error::generic::GenericError::new(
+                "Invalid dimensions",
+                "dimensions must be positive integers",
+                span,
+            ),
+        ))
     }
 }
 
@@ -455,6 +480,7 @@ fn ndarray_to_value(array: &ArrayD<f64>, span: Span) -> Value {
 fn matrix_math_op<F>(
     left: &MatrixValue,
     right: &Value,
+    operator: Operator,
     op_span: Span,
     lhs_span: Span,
     f: F,
@@ -474,7 +500,7 @@ where
         Value::Custom { val, .. } => {
             let other = val.as_any().downcast_ref::<MatrixValue>().ok_or_else(|| {
                 ShellError::OperatorIncompatibleTypes {
-                    op: Operator::Math(Math::Add),
+                    op: operator,
                     lhs: Type::Custom("matrix".into()),
                     rhs: Type::Custom(val.type_name().into()),
                     op_span,
@@ -485,17 +511,17 @@ where
             })?;
             if left.array.shape() != other.array.shape() {
                 return Err(ShellError::OperatorIncompatibleTypes {
-                    op: Operator::Math(Math::Add),
+                    op: operator,
                     lhs: Type::Custom("matrix".into()),
                     rhs: Type::Custom("matrix".into()),
                     op_span,
                     lhs_span,
                     rhs_span: right.span(),
-                    help: None,
+                    help: Some("shapes do not match"),
                 });
             }
             let shape: Vec<usize> = left.array.shape().to_vec();
-            let mut result = ArrayD::zeros(shape.clone());
+            let mut result = ArrayD::zeros(shape);
             ndarray::Zip::from(&mut result)
                 .and(&left.array)
                 .and(&other.array)
@@ -503,69 +529,7 @@ where
             Ok(MatrixValue::new(result).into_value(op_span))
         }
         _ => Err(ShellError::OperatorIncompatibleTypes {
-            op: Operator::Math(Math::Add),
-            lhs: Type::Custom("matrix".into()),
-            rhs: right.get_type(),
-            op_span,
-            lhs_span,
-            rhs_span: right.span(),
-            help: Some("expected a matrix or scalar"),
-        }),
-    }
-}
-
-fn matrix_scalar_op<F>(
-    left: &MatrixValue,
-    right: &Value,
-    op_span: Span,
-    lhs_span: Span,
-    f: F,
-) -> Result<Value, ShellError>
-where
-    F: Fn(f64, f64) -> f64,
-{
-    match right {
-        Value::Int { val, .. } => {
-            let result = left.array.map(|v| f(*v, *val as f64));
-            Ok(MatrixValue::new(result).into_value(op_span))
-        }
-        Value::Float { val, .. } => {
-            let result = left.array.map(|v| f(*v, *val));
-            Ok(MatrixValue::new(result).into_value(op_span))
-        }
-        Value::Custom { val, .. } => {
-            if let Some(other) = val.as_any().downcast_ref::<MatrixValue>() {
-                if left.array.shape() != other.array.shape() {
-                    return Err(ShellError::OperatorIncompatibleTypes {
-                        op: Operator::Math(Math::Divide),
-                        lhs: Type::Custom("matrix".into()),
-                        rhs: Type::Custom("matrix".into()),
-                        op_span,
-                        lhs_span,
-                        rhs_span: right.span(),
-                        help: Some("element-wise division on matrices requires matching shapes"),
-                    });
-                }
-                let shape: Vec<usize> = left.array.shape().to_vec();
-                let mut result = ArrayD::zeros(shape.clone());
-                ndarray::Zip::from(&mut result)
-                    .and(&left.array)
-                    .and(&other.array)
-                    .for_each(|r, &a, &b| *r = f(a, b));
-                return Ok(MatrixValue::new(result).into_value(op_span));
-            }
-            Err(ShellError::OperatorIncompatibleTypes {
-                op: Operator::Math(Math::Divide),
-                lhs: Type::Custom("matrix".into()),
-                rhs: Type::Custom(val.type_name().into()),
-                op_span,
-                lhs_span,
-                rhs_span: right.span(),
-                help: Some("expected a matrix or scalar"),
-            })
-        }
-        _ => Err(ShellError::OperatorIncompatibleTypes {
-            op: Operator::Math(Math::Divide),
+            op: operator,
             lhs: Type::Custom("matrix".into()),
             rhs: right.get_type(),
             op_span,
@@ -581,13 +545,15 @@ fn compare_matrix(
     right: &Value,
     op_span: Span,
     lhs_span: Span,
-    ordering: Ordering,
+    comparison: Comparison,
 ) -> Result<Value, ShellError> {
+    let op = Operator::Comparison(comparison);
+
     match right {
         Value::Custom { val, .. } if val.type_name() == "matrix" => {
             let other = val.as_any().downcast_ref::<MatrixValue>().ok_or_else(|| {
                 ShellError::OperatorIncompatibleTypes {
-                    op: Operator::Comparison(Comparison::Equal),
+                    op,
                     lhs: Type::Custom("matrix".into()),
                     rhs: Type::Custom(val.type_name().into()),
                     op_span,
@@ -598,48 +564,118 @@ fn compare_matrix(
             })?;
 
             if left.array.shape() != other.array.shape() {
-                return Ok(Value::bool(ordering != Ordering::Equal, op_span));
+                return shape_mismatch_comparison(comparison, op, op_span, lhs_span, right.span());
             }
 
-            let all_match = match ordering {
-                Ordering::Equal => ndarray::Zip::from(&left.array)
+            let all_match = match comparison {
+                Comparison::Equal => ndarray::Zip::from(&left.array)
                     .and(&other.array)
                     .all(|a, b| a == b),
-                Ordering::Less => ndarray::Zip::from(&left.array)
+                Comparison::NotEqual => !ndarray::Zip::from(&left.array)
+                    .and(&other.array)
+                    .all(|a, b| a == b),
+                Comparison::LessThan => ndarray::Zip::from(&left.array)
                     .and(&other.array)
                     .all(|a, b| a < b),
-                Ordering::Greater => ndarray::Zip::from(&left.array)
+                Comparison::GreaterThan => ndarray::Zip::from(&left.array)
                     .and(&other.array)
                     .all(|a, b| a > b),
+                Comparison::LessThanOrEqual => ndarray::Zip::from(&left.array)
+                    .and(&other.array)
+                    .all(|a, b| a <= b),
+                Comparison::GreaterThanOrEqual => ndarray::Zip::from(&left.array)
+                    .and(&other.array)
+                    .all(|a, b| a >= b),
+                _ => {
+                    return Err(ShellError::OperatorUnsupportedType {
+                        op,
+                        unsupported: Type::Custom("matrix".into()),
+                        op_span,
+                        unsupported_span: lhs_span,
+                        help: None,
+                    });
+                }
             };
 
             Ok(Value::bool(all_match, op_span))
         }
         Value::Int { val, .. } => {
             let s = *val as f64;
-            let all_match = match ordering {
-                Ordering::Equal => left.array.iter().all(|v| (*v - s).abs() < f64::EPSILON),
-                Ordering::Less => left.array.iter().all(|&v| v < s),
-                Ordering::Greater => left.array.iter().all(|&v| v > s),
-            };
-            Ok(Value::bool(all_match, op_span))
+            Ok(Value::bool(
+                compare_all_to_scalar(&left.array, s, comparison, op, op_span, lhs_span)?,
+                op_span,
+            ))
         }
-        Value::Float { val, .. } => {
-            let all_match = match ordering {
-                Ordering::Equal => left.array.iter().all(|v| (*v - *val).abs() < f64::EPSILON),
-                Ordering::Less => left.array.iter().all(|&v| v < *val),
-                Ordering::Greater => left.array.iter().all(|&v| v > *val),
-            };
-            Ok(Value::bool(all_match, op_span))
-        }
+        Value::Float { val, .. } => Ok(Value::bool(
+            compare_all_to_scalar(&left.array, *val, comparison, op, op_span, lhs_span)?,
+            op_span,
+        )),
         _ => Err(ShellError::OperatorIncompatibleTypes {
-            op: Operator::Comparison(Comparison::Equal),
+            op,
             lhs: Type::Custom("matrix".into()),
             rhs: right.get_type(),
             op_span,
             lhs_span,
             rhs_span: right.span(),
             help: Some("expected a matrix or numeric scalar"),
+        }),
+    }
+}
+
+/// Equality on mismatched shapes is false / not-equal is true; ordering requires matching shapes.
+fn shape_mismatch_comparison(
+    comparison: Comparison,
+    op: Operator,
+    op_span: Span,
+    lhs_span: Span,
+    rhs_span: Span,
+) -> Result<Value, ShellError> {
+    match comparison {
+        Comparison::Equal => Ok(Value::bool(false, op_span)),
+        Comparison::NotEqual => Ok(Value::bool(true, op_span)),
+        Comparison::LessThan
+        | Comparison::GreaterThan
+        | Comparison::LessThanOrEqual
+        | Comparison::GreaterThanOrEqual => Err(ShellError::OperatorIncompatibleTypes {
+            op,
+            lhs: Type::Custom("matrix".into()),
+            rhs: Type::Custom("matrix".into()),
+            op_span,
+            lhs_span,
+            rhs_span,
+            help: Some("cannot compare matrices with different shapes"),
+        }),
+        _ => Err(ShellError::OperatorUnsupportedType {
+            op,
+            unsupported: Type::Custom("matrix".into()),
+            op_span,
+            unsupported_span: lhs_span,
+            help: None,
+        }),
+    }
+}
+
+fn compare_all_to_scalar(
+    array: &ArrayD<f64>,
+    scalar: f64,
+    comparison: Comparison,
+    op: Operator,
+    op_span: Span,
+    lhs_span: Span,
+) -> Result<bool, ShellError> {
+    match comparison {
+        Comparison::Equal => Ok(array.iter().all(|v| (*v - scalar).abs() < f64::EPSILON)),
+        Comparison::NotEqual => Ok(array.iter().any(|v| (*v - scalar).abs() >= f64::EPSILON)),
+        Comparison::LessThan => Ok(array.iter().all(|&v| v < scalar)),
+        Comparison::GreaterThan => Ok(array.iter().all(|&v| v > scalar)),
+        Comparison::LessThanOrEqual => Ok(array.iter().all(|&v| v <= scalar)),
+        Comparison::GreaterThanOrEqual => Ok(array.iter().all(|&v| v >= scalar)),
+        _ => Err(ShellError::OperatorUnsupportedType {
+            op,
+            unsupported: Type::Custom("matrix".into()),
+            op_span,
+            unsupported_span: lhs_span,
+            help: None,
         }),
     }
 }

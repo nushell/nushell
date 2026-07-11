@@ -1,4 +1,5 @@
 use crate::matrix::MatrixValue;
+use crate::matrix::value::positive_dim;
 use ndarray::ArrayD;
 use nu_engine::command_prelude::*;
 
@@ -37,17 +38,7 @@ impl Command for MatrixIdentity {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let size: usize = call.req::<i64>(engine_state, stack, 0)? as usize;
-
-        if size == 0 {
-            return Err(ShellError::Generic(
-                nu_protocol::shell_error::generic::GenericError::new(
-                    "Invalid size",
-                    "size must be positive",
-                    head,
-                ),
-            ));
-        }
+        let size = positive_dim(call.req::<i64>(engine_state, stack, 0)?, head)?;
 
         let mut array = ArrayD::zeros(vec![size, size]);
         for i in 0..size {

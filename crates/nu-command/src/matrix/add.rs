@@ -48,52 +48,8 @@ impl Command for MatrixAdd {
         let broadcast = call.has_flag(engine_state, stack, "broadcast")?;
         let matrix = MatrixValue::from_value(&input.into_value(head)?)?;
 
-        let result = match other {
-            Value::Int { val, .. } => matrix.array + val as f64,
-            Value::Float { val, .. } => matrix.array + val,
-            Value::Custom { .. } => {
-                let other_matrix = MatrixValue::from_value(&other)?;
-                if broadcast {
-                    let target_shape = matrix.array.shape().to_vec();
-                    let other_view = other_matrix
-                        .array
-                        .broadcast(target_shape.as_slice())
-                        .ok_or_else(|| {
-                            ShellError::Generic(
-                                nu_protocol::shell_error::generic::GenericError::new(
-                                    "Broadcast error",
-                                    "shapes are not compatible for broadcasting",
-                                    head,
-                                ),
-                            )
-                        })?;
-                    matrix.array + other_view.to_owned().into_dyn()
-                } else if matrix.array.shape() == other_matrix.array.shape() {
-                    matrix.array + other_matrix.array
-                } else {
-                    return Err(ShellError::Generic(
-                        nu_protocol::shell_error::generic::GenericError::new(
-                            "Shape mismatch",
-                            format!(
-                                "shapes do not match: {:?} vs {:?}. Use --broadcast to enable broadcasting.",
-                                matrix.array.shape(),
-                                other_matrix.array.shape()
-                            ),
-                            head,
-                        ),
-                    ));
-                }
-            }
-            _ => {
-                return Err(ShellError::Generic(
-                    nu_protocol::shell_error::generic::GenericError::new(
-                        "Invalid argument",
-                        "expected a matrix, int, or float",
-                        head,
-                    ),
-                ));
-            }
-        };
+        let result =
+            matrix.elementwise_binary(other, broadcast, head, |a, b| a + b, |a, s| a + s)?;
 
         Ok(MatrixValue::new(result)
             .into_value(head)

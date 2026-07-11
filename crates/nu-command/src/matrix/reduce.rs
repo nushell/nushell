@@ -17,7 +17,7 @@ impl Command for MatrixReduce {
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Number])),
-                "The closure to apply to the accumulation and each element.",
+                "Reducing function. Arguments are the current element, then the accumulator (same order as `reduce`).",
             )
             .named(
                 "fold",
@@ -68,6 +68,7 @@ impl Command for MatrixReduce {
 
         let mut closure_eval = ClosureEval::new(engine_state, stack, closure);
 
+        // Match `reduce`: first arg is the element, second is the accumulator.
         for &val in iter {
             engine_state.signals().check(&head)?;
             let element = Value::float(val, head);
@@ -85,17 +86,17 @@ impl Command for MatrixReduce {
         vec![
             Example {
                 description: "Sum all elements of a 2x2 matrix",
-                example: "[[1 2] [3 4]] | into matrix | matrix reduce --fold 0.0 {|acc e| $acc + $e}",
+                example: "[[1 2] [3 4]] | into matrix | matrix reduce --fold 0.0 {|e, acc| $acc + $e}",
                 result: Some(Value::test_float(10.0)),
             },
             Example {
                 description: "Product of all elements in a matrix",
-                example: "[[1 2] [3 4]] | into matrix | matrix reduce --fold 1.0 {|acc e| $acc * $e}",
+                example: "[[1 2] [3 4]] | into matrix | matrix reduce --fold 1.0 {|e, acc| $acc * $e}",
                 result: Some(Value::test_float(24.0)),
             },
             Example {
                 description: "Sum without an initial value (uses first element as starting accumulator)",
-                example: "[[1 2] [3 4]] | into matrix | matrix reduce {|acc e| $acc + $e}",
+                example: "[[1 2] [3 4]] | into matrix | matrix reduce {|e, acc| $acc + $e}",
                 result: Some(Value::test_float(10.0)),
             },
         ]

@@ -1,4 +1,5 @@
 use crate::matrix::MatrixValue;
+use crate::matrix::value::value_to_f64;
 use ndarray::ArrayD;
 use nu_engine::ClosureEvalOnce;
 use nu_engine::command_prelude::*;
@@ -52,20 +53,13 @@ impl Command for MatrixMap {
             let result = ClosureEvalOnce::new(engine_state, stack, closure.clone())
                 .run_with_value(element)?
                 .into_value(head)?;
-            let new_val = match result {
-                Value::Int { val, .. } => val as f64,
-                Value::Float { val, .. } => val,
-                _ => {
-                    return Err(ShellError::Generic(
-                        nu_protocol::shell_error::generic::GenericError::new(
-                            "Invalid result",
-                            "closure must return a number",
-                            head,
-                        ),
-                    ));
-                }
-            };
-            vals.push(new_val);
+            vals.push(value_to_f64(&result, head).map_err(|_| {
+                ShellError::Generic(nu_protocol::shell_error::generic::GenericError::new(
+                    "Invalid result",
+                    "closure must return a number",
+                    head,
+                ))
+            })?);
         }
 
         let array = ArrayD::from_shape_vec(shape, vals).map_err(|e| {

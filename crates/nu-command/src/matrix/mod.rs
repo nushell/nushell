@@ -1,4 +1,4 @@
-mod value;
+pub(crate) mod value;
 
 mod add;
 mod get_col;

@@ -1,4 +1,5 @@
 use crate::matrix::MatrixValue;
+use crate::matrix::value::values_to_f64s;
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -104,21 +105,7 @@ impl Command for MatrixSetCol {
             ));
         }
 
-        let floats: Result<Vec<f64>, ShellError> = replacement_vals
-            .iter()
-            .map(|v| match v {
-                Value::Int { val, .. } => Ok(*val as f64),
-                Value::Float { val, .. } => Ok(*val),
-                _ => Err(ShellError::Generic(
-                    nu_protocol::shell_error::generic::GenericError::new(
-                        "Invalid element",
-                        "expected a number",
-                        head,
-                    ),
-                )),
-            })
-            .collect();
-        let floats = floats?;
+        let floats = values_to_f64s(&replacement_vals, head)?;
 
         let mut new_array = matrix.array;
         for (i, &val) in floats.iter().enumerate() {
