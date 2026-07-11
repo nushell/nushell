@@ -287,12 +287,12 @@ impl CompareTypes for Type {
             (Type::Table(table_cols), Type::List(list_elem)) => match list_elem.as_ref() {
                 Type::Any => Some(TypeRelation::Subtype),
                 Type::Record(record_cols) => table_cols.compare_types(record_cols),
-                _ => None,
+                ty => Type::Record(table_cols.clone()).compare_types(ty),
             },
             (Type::List(list_elem), Type::Table(table_cols)) => match list_elem.as_ref() {
                 Type::Any => Some(TypeRelation::Supertype),
                 Type::Record(record_cols) => record_cols.compare_types(table_cols),
-                _ => None,
+                ty => ty.compare_types(&Type::Record(table_cols.clone())),
             },
 
             (Type::OneOf(lhs_oneof), Type::OneOf(rhs_oneof)) => lhs_oneof.compare_types(rhs_oneof),
@@ -325,16 +325,17 @@ impl CompareTypes for Type {
     fn is_assignable_to(&self, dst: &Self) -> bool {
         let src = self;
         match (dst, src) {
-            (Type::Table(dst_cols), Type::List(src_ty))
-                if let Type::Record(src_cols) = src_ty.as_ref() =>
-            {
-                src_cols.is_assignable_to(dst_cols)
-            }
-            (Type::List(dst_ty), Type::Table(src_cols))
-                if let Type::Record(dst_cols) = dst_ty.as_ref() =>
-            {
-                src_cols.is_assignable_to(dst_cols)
-            }
+            (Type::Table(dst_cols), Type::List(src_ty)) => match src_ty.as_ref() {
+                Type::Any => true,
+                Type::Record(src_cols) => src_cols.is_assignable_to(dst_cols),
+                src_ty => src_ty.is_assignable_to(&Type::Record(dst_cols.clone())),
+            },
+            (Type::List(dst_ty), Type::Table(src_cols)) => match dst_ty.as_ref() {
+                Type::Any => true,
+                Type::Record(dst_cols) => src_cols.is_assignable_to(dst_cols),
+                dst_ty => Type::Record(src_cols.clone()).is_assignable_to(dst_ty),
+            },
+            (Type::List(dst_ty), Type::List(src_ty)) => src_ty.is_assignable_to(dst_ty.as_ref()),
             (Type::Record(dst_cols), Type::Record(src_cols))
             | (Type::Table(dst_cols), Type::Table(src_cols)) => src_cols.is_assignable_to(dst_cols),
             // strings can be coerced globs
@@ -467,6 +468,22 @@ mod tests {
                     assert_eq!(list_ty1.is_subtype_of(&list_ty2), ty1.is_subtype_of(&ty2));
                 }
             }
+        }
+
+        #[test]
+        fn table_list_oneof_covariance() {
+            let columns = CollectionColumns::<Type>::default();
+
+            let single_ty = Type::Record(columns.clone());
+            let union_ty = Type::one_of([Type::Number, Type::Record(columns.clone())]);
+
+            let direct_cmp = union_ty.compare_types(&single_ty);
+            let list_cmp = Type::list(union_ty.clone()).compare_types(&Type::list(single_ty));
+
+            let table_cmp = Type::list(union_ty).compare_types(&Type::Table(columns));
+
+            assert_eq!(list_cmp, direct_cmp);
+            assert_eq!(table_cmp, list_cmp);
         }
     }
 

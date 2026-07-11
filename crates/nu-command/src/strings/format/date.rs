@@ -23,6 +23,14 @@ impl Command for FormatDate {
                 // which aren't caught by the parser. see https://github.com/nushell/nushell/pull/14922 for more details
                 // only applicable for --list flag
                 (Type::Any, Type::table()),
+                (
+                    Type::List(Box::new(Type::Date)),
+                    Type::List(Box::new(Type::String)),
+                ),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::String)),
+                ),
             ])
             .allow_variants_without_examples(true) // https://github.com/nushell/nushell/issues/7032
             .switch("list", "Lists strftime cheatsheet.", Some('l'))
@@ -82,6 +90,28 @@ impl Command for FormatDate {
                 description: "Format a given date using a given format string.",
                 example: r#""2021-10-22 20:00:12 +01:00" | format date "%Y-%m-%d""#,
                 result: Some(Value::test_string("2021-10-22")),
+            },
+            Example {
+                description: "Format a list of date strings using a given format string.",
+                example: r#"["2021-10-22 20:00:12 +01:00", "2021-10-23 20:00:12 +01:00"] | format date "%Y-%m-%d""#,
+                result: Some(Value::list(
+                    vec![
+                        Value::test_string("2021-10-22"),
+                        Value::test_string("2021-10-23"),
+                    ],
+                    Span::test_data(),
+                )),
+            },
+            Example {
+                description: "Format a list of datetimes using a given format string.",
+                example: r#"[2021-10-22T20:00:12+01:00, 2021-10-23T20:00:12+01:00] | format date "%Y-%m-%d""#,
+                result: Some(Value::list(
+                    vec![
+                        Value::test_string("2021-10-22"),
+                        Value::test_string("2021-10-23"),
+                    ],
+                    Span::test_data(),
+                )),
             },
         ]
     }
