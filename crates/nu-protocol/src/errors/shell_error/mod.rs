@@ -294,7 +294,7 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// The first value in a pect a single interface to using the`..` range must be compatible with the second one.
+    /// The first value in a `..` range must be compatible with the second one.
     ///
     /// ## Resolution
     ///
