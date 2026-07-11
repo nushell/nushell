@@ -691,9 +691,12 @@ fn send_default_request(
     signals: &Signals,
 ) -> Result<Response, ShellErrorOrRequestError> {
     match body {
-        Value::Binary { val, .. } => {
-            send_cancellable_request(request_url, Box::new(move || req.send(&val)), span, signals)
-        }
+        Value::Binary { val, .. } => send_cancellable_request(
+            request_url,
+            Box::new(move || req.send(val.as_slice())),
+            span,
+            signals,
+        ),
         Value::String { val, .. } => {
             send_cancellable_request(request_url, Box::new(move || req.send(&val)), span, signals)
         }

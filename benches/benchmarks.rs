@@ -400,6 +400,36 @@ fn create_example_table_nrows(n: usize) -> String {
     s
 }
 
+fn bench_binary_value_clone(bytes: usize) -> impl IntoBenchmarks {
+    let name = format!("binary_value_clone_{bytes}b");
+    [benchmark_fn(name, move |b| {
+        let value = Value::test_binary(vec![0; bytes]);
+        b.iter(move || {
+            black_box(value.clone());
+        })
+    })]
+}
+
+fn bench_binary_slice_into_int(bytes: usize, reads: usize) -> impl IntoBenchmarks {
+    let (mut stack, engine) = setup_stack_and_engine_from_command(
+        "def bench-u16 [data: binary offset: int] {
+    $data | bytes at $offset..<($offset + 2) | into int --endian big
+}
+let binary = 0x[]",
+    );
+    let binary_id = StateWorkingSet::new(&engine)
+        .find_variable(b"binary")
+        .expect("must exist");
+    stack.add_var(binary_id, Value::test_binary(vec![0; bytes]));
+
+    bench_command(
+        format!("binary_slice_into_int_{bytes}b_{reads}_reads"),
+        format!("0..<{reads} | each {{|offset| bench-u16 $binary $offset }} | math sum | ignore"),
+        stack,
+        engine,
+    )
+}
+
 fn bench_record_create(n: usize) -> impl IntoBenchmarks {
     bench_command(
         format!("record_create_{n}"),
@@ -1013,6 +1043,9 @@ tango_benchmarks!(
     bench_parser_full_parse("medium", parser_input_medium()),
     bench_parser_full_parse("large", parser_input_large()),
     // Data types
+    // Binary
+    bench_binary_value_clone(2 * 1024 * 1024),
+    bench_binary_slice_into_int(2 * 1024 * 1024, 100),
     // Record
     bench_record_create(1),
     bench_record_create(10),

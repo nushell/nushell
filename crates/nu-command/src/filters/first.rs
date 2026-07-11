@@ -150,7 +150,8 @@ fn first_helper(
                         Ok(Value::list(vals, span).into_pipeline_data_with_metadata(input_meta))
                     }
                 }
-                Value::Binary { mut val, .. } => {
+                Value::Binary { val, .. } => {
+                    let mut val = val.into_owned();
                     // A slice (or single byte as int) is not the whole file/stream; drop MIME.
                     let binary_meta = input_meta.map(|m| m.with_content_type(None));
                     if return_single_element {

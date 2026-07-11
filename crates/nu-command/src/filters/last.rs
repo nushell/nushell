@@ -170,7 +170,8 @@ impl Command for Last {
                             Ok(Value::list(vals, span).into_pipeline_data_with_metadata(metadata))
                         }
                     }
-                    Value::Binary { mut val, .. } => {
+                    Value::Binary { val, .. } => {
+                        let mut val = val.into_owned();
                         let binary_meta = metadata.map(|m| m.with_content_type(None));
                         if return_single_element {
                             if let Some(val) = val.pop() {

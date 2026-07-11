@@ -111,3 +111,9 @@ impl<T: Clone> ops::Deref for SharedCow<T> {
         &self.0
     }
 }
+
+impl<T: Clone> AsRef<[T]> for SharedCow<Vec<T>> {
+    fn as_ref(&self) -> &[T] {
+        self.as_slice()
+    }
+}

@@ -126,7 +126,9 @@ fn run(
             let input_span = v.span();
             match v {
                 Value::Binary { val: bytes, .. } => match encoding {
-                    Some(encoding_name) => detect_and_decode(encoding_name, head, bytes),
+                    Some(encoding_name) => {
+                        detect_and_decode(encoding_name, head, bytes.into_owned())
+                    }
                     None => super::encoding::detect_encoding_name(head, input_span, &bytes)
                         .map(|encoding| encoding.decode(&bytes).0.into_owned())
                         .map(|s| Value::string(s, head)),
