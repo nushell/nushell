@@ -317,17 +317,19 @@ fn insert_single_value_by_closure(
     cell_path: &[PathMember],
     cell_value_as_arg: bool,
 ) -> Result<(), ShellError> {
-    // FIXME: this leads to inconsistent behaviors between
-    // `{a: b} | insert c {|x| print $x}` and
-    // `[{a: b}] | insert 0.c {|x| print $x}`
     let arg = if cell_value_as_arg {
-        value
-            .follow_cell_path(cell_path)
-            .map(Cow::into_owned)
-            .unwrap_or(Value::nothing(span))
+        if matches!(cell_path.first(), Some(PathMember::String { .. })) {
+            value.clone()
+        } else {
+            value
+                .follow_cell_path(cell_path)
+                .map(Cow::into_owned)
+                .unwrap_or(Value::nothing(span))
+        }
     } else {
         value.clone()
     };
+
     let new_value = closure.run_with_value(arg)?.into_value(span)?;
     value.insert_data_at_cell_path(cell_path, new_value, span)
 }

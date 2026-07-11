@@ -353,14 +353,15 @@ fn upsert_single_value_by_closure(
 ) -> Result<(), ShellError> {
     let value_at_path = value.follow_cell_path(cell_path);
 
-    // FIXME: this leads to inconsistent behaviors between
-    // `{a: b} | upsert a {|x| print $x}` and
-    // `[{a: b}] | upsert 0.a {|x| print $x}`
     let arg = if cell_value_as_arg {
-        value_at_path
-            .as_deref()
-            .cloned()
-            .unwrap_or(Value::nothing(span))
+        if matches!(cell_path.first(), Some(PathMember::String { .. })) {
+            value.clone()
+        } else {
+            value_at_path
+                .as_deref()
+                .cloned()
+                .unwrap_or(Value::nothing(span))
+        }
     } else {
         value.clone()
     };
