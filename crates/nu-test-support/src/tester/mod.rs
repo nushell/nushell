@@ -686,7 +686,7 @@ pub trait TestResultExt: Sized {
     }
 
     /// Expect the result to be an error with a specific [`code`](miette::Diagnostic::code).
-    fn expect_error_code(self, code: impl AsRef<str>) -> Result<()>;
+    fn expect_error_code(self, code: impl AsRef<str>) -> Result;
 }
 
 impl TestResultExt for Result<Value> {
@@ -797,7 +797,7 @@ impl TestResultExt for Result<Value> {
     }
 
     #[track_caller]
-    fn expect_error_code(self, code: impl AsRef<str>) -> Result<()> {
+    fn expect_error_code(self, code: impl AsRef<str>) -> Result {
         let expected = code.as_ref();
         let got = match self {
             Ok(got) => return Err(TestError {
