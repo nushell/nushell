@@ -206,6 +206,7 @@ omnipath = "0.1"
 open = "5.3.4"
 os_pipe = { version = "1.2.3", features = ["io_safety"] }
 parking_lot = "0.12.5"
+pastey = "0.2.3"
 pathdiff = "0.2"
 percent-encoding = "2"
 pretty_assertions = "1.4"
@@ -356,16 +357,17 @@ nix = { workspace = true, default-features = false, features = [
 ] }
 
 [dev-dependencies]
-nu-test-support = { path = "./crates/nu-test-support", features = ["os"] }
+nu-plugin-core = { path = "./crates/nu-plugin-core", version = "0.114.2" }
 nu-plugin-protocol = { path = "./crates/nu-plugin-protocol", version = "0.114.2" }
 nu-table = { path = "./crates/nu-table", version = "0.114.2" }
-nu-plugin-core = { path = "./crates/nu-plugin-core", version = "0.114.2" }
+nu-test-support = { path = "./crates/nu-test-support", features = ["os", "plugin"] }
+
 assert_cmd = "2.2.1"
 dirs = { workspace = true }
-tango-bench = "0.7.2"
-pretty_assertions = { workspace = true }
 fancy-regex = { workspace = true }
+pretty_assertions = { workspace = true }
 rstest = { workspace = true, default-features = false }
+tango-bench = "0.7.2"
 tempfile = { workspace = true }
 
 [features]

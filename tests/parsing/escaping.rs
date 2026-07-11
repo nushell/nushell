@@ -62,9 +62,9 @@ fn invalid_escape_sequences_report_parse_errors(
 }
 
 #[test]
+#[deps(NU)]
 fn external_command_escape_sequences_work() -> Result {
     test()
-        .add_nu_to_path()
         .run(
             r#"
                 let quoted_text = "hello\nworld"

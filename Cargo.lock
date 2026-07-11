@@ -5055,17 +5055,21 @@ dependencies = [
  "nu-cli",
  "nu-cmd-extra",
  "nu-cmd-lang",
+ "nu-cmd-plugin",
  "nu-command",
  "nu-engine",
  "nu-experimental",
  "nu-glob",
  "nu-parser",
  "nu-path",
+ "nu-plugin-core",
+ "nu-plugin-engine",
  "nu-protocol",
  "nu-std",
  "nu-test-support-macros",
  "nu-utils",
  "num-format",
+ "pastey",
  "rstest",
  "serde_json",
  "tempfile",
@@ -5720,9 +5724,9 @@ dependencies = [
 
 [[package]]
 name = "pastey"
-version = "0.2.1"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b867cad97c0791bbd3aaa6472142568c6c9e8f71937e98379f584cfb0cf35bec"
+checksum = "2ee67f1008b1ba2321834326597b8e186293b049a023cdef258527550b9935b4"
 
 [[package]]
 name = "pathdiff"
@@ -7961,9 +7965,9 @@ dependencies = [
 
 [[package]]
 name = "serde_regex"
-version = "1.1.0"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a8136f1a4ea815d7eac4101cfd0b16dc0cb5e1fe1b8609dfd728058656b7badf"
+checksum = "bafc8d0c5330cecff10f16b459b479fd9acaa5b4acd7167301414e21b0057012"
 dependencies = [
  "regex",
  "serde",
