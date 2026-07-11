@@ -1398,6 +1398,94 @@ fn script_with_nu_flags_before_script_name() -> TestResult {
     Ok(())
 }
 
+// Tests for command-line script with arguments
+#[test]
+fn command_can_receive_arguments() -> TestResult {
+    let mut cmd = Command::new(cargo_bin!());
+    let output = cmd
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "-c",
+            "def main [arg, ...rest] {
+                {arg: $arg, rest: $rest} | to nuon
+            }",
+            "earth",
+            "wind and water",
+            "fire",
+        ])
+        .output()?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    assert!(output.status.success());
+    assert!(
+        stdout.contains(r#"{arg: earth, rest: ["wind and water", fire]}"#),
+        "actual: {stdout:?}"
+    );
+    Ok(())
+}
+
+#[test]
+fn command_can_parse_flags() -> TestResult {
+    let mut cmd = Command::new(cargo_bin!());
+    let output = cmd
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "-c",
+            "def main [--flag, --zip: string, ...rest] {
+                {flag: $flag, zip: $zip, rest: $rest } | to nuon
+            }",
+            "--",
+            "--flag",
+            "--zip=zap",
+            "'foo bar'",
+            "baz",
+        ])
+        .output()?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    assert!(output.status.success());
+    assert!(
+        stdout.contains(r#"{flag: true, zip: zap, rest: ["'foo bar'", baz]"#),
+        "actual: {stdout:?}"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn command_can_wrap_unknown_args() -> TestResult {
+    let mut cmd = Command::new(cargo_bin!());
+    let output = cmd
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "-c",
+            "def --wrapped main [...rest] {
+                $rest | to nuon
+            }",
+            "--",
+            "--flag",
+            "--zip=zap",
+            "'zop zim'",
+            "beep",
+        ])
+        .output()?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    assert!(output.status.success());
+    assert!(
+        stdout.contains(r#"[--flag, "--zip=zap", "'zop zim'", beep]"#),
+        "actual: {stdout:?}"
+    );
+
+    Ok(())
+}
+
 // Tests for combined flags with scripts
 #[test]
 fn combined_short_flags_work_with_commands() -> TestResult {

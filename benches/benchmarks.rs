@@ -58,6 +58,7 @@ fn setup_stack_and_engine_from_command(command: &str) -> (Stack, EngineState) {
         &mut engine,
         &mut stack,
         PipelineData::empty(),
+        Vec::new(),
         Default::default(),
     )
     .unwrap();
@@ -101,6 +102,7 @@ fn bench_command(
                     &mut engine,
                     &mut stack,
                     PipelineData::empty(),
+                    Vec::new(),
                     Default::default(),
                 )
                 .unwrap(),
@@ -241,6 +243,7 @@ fn bench_command_with_dc_glob(
                     &mut engine,
                     &mut stack,
                     PipelineData::empty(),
+                    Vec::new(),
                     Default::default(),
                 )
                 .unwrap(),
@@ -360,6 +363,7 @@ fn bench_load_use_standard_lib() -> impl IntoBenchmarks {
                 &mut engine,
                 &mut stack,
                 PipelineData::empty(),
+                Vec::new(),
                 Default::default(),
             )
         })

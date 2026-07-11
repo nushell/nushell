@@ -1,6 +1,6 @@
 use log::info;
 use nu_engine::eval_block;
-use nu_parser::parse;
+use nu_parser::{find_main_block_id_in_script, parse};
 use nu_protocol::{
     PipelineData, ShellError, Spanned, Value,
     debugger::WithoutDebug,
@@ -27,6 +27,7 @@ pub fn evaluate_commands(
     engine_state: &mut EngineState,
     stack: &mut Stack,
     input: PipelineData,
+    args: Vec<String>,
     opts: EvaluateCommandsOpts,
 ) -> Result<(), ShellError> {
     let EvaluateCommandsOpts {
@@ -60,7 +61,7 @@ pub fn evaluate_commands(
 
         let mut working_set = StateWorkingSet::new(engine_state);
 
-        let output = parse(&mut working_set, None, commands.item.as_bytes(), false);
+        let mut output = parse(&mut working_set, None, commands.item.as_bytes(), false);
         if let Some(warning) = working_set.parse_warnings.first() {
             report_parse_warning(Some(stack), &working_set, warning);
         }
@@ -73,6 +74,17 @@ pub fn evaluate_commands(
         if let Some(err) = working_set.compile_errors.first() {
             report_compile_error(Some(stack), &working_set, err);
             std::process::exit(1);
+        }
+
+        if find_main_block_id_in_script(&working_set, &output).is_some() {
+            // The CLI parser has already escaped script arguments via `args_to_script`, so we must not
+            // escape them again here or we would double-quote values like `"arg 2"`.
+            output = parse(
+                &mut working_set,
+                None,
+                format!("main {}", args.join(" ")).as_bytes(),
+                false,
+            );
         }
 
         (output, working_set.render())

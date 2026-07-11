@@ -730,7 +730,8 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
                     CliError::new("Invalid argument", "argument is not valid unicode")
                         .with_help("Use UTF-8 arguments when calling nushell.")
                 })?;
-                if script_name.is_empty() {
+
+                if script_name.is_empty() && cli.commands.is_none() {
                     script_name = value;
                     let rest = parser
                         .raw_args()
