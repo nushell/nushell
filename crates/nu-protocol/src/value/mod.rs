@@ -5678,6 +5678,20 @@ mod tests {
         }
 
         #[test]
+        fn mutation_is_copy_on_write() {
+            let value = Value::test_binary(vec![1, 2, 3]);
+            let mut clone = value.clone();
+
+            let Value::Binary { val, .. } = &mut clone else {
+                unreachable!();
+            };
+            val.to_mut()[0] = 4;
+
+            assert_eq!(value.as_binary(), Ok([1, 2, 3].as_slice()));
+            assert_eq!(clone.as_binary(), Ok([4, 2, 3].as_slice()));
+        }
+
+        #[test]
         fn into_binary_preserves_shared_value() {
             let value = Value::test_binary(vec![1, 2, 3]);
             let clone = value.clone();

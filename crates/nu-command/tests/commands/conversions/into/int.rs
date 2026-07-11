@@ -8,6 +8,9 @@ fn convert_back_and_forth() -> Result {
 
 #[test]
 fn convert_into_int_little_endian() -> Result {
+    let code = "0x[00 ff] | into int --endian little";
+    test().run(code).expect_value_eq(65280)?;
+
     let code = "0x[01 00 00 00 00 00 00 00] | into int --endian little";
     test().run(code).expect_value_eq(1)?;
 
@@ -17,6 +20,9 @@ fn convert_into_int_little_endian() -> Result {
 
 #[test]
 fn convert_into_int_big_endian() -> Result {
+    let code = "0x[ff 00] | into int --endian big";
+    test().run(code).expect_value_eq(65280)?;
+
     let code = "0x[00 00 00 00 00 00 00 01] | into int --endian big";
     test().run(code).expect_value_eq(1)?;
 
@@ -26,6 +32,9 @@ fn convert_into_int_big_endian() -> Result {
 
 #[test]
 fn convert_into_signed_int_little_endian() -> Result {
+    let code = "0x[00 ff] | into int --endian little --signed";
+    test().run(code).expect_value_eq(-256)?;
+
     let code = "0x[ff 00 00 00 00 00 00 00] | into int --endian little --signed";
     test().run(code).expect_value_eq(255)?;
 
@@ -35,9 +44,12 @@ fn convert_into_signed_int_little_endian() -> Result {
 
 #[test]
 fn convert_into_signed_int_big_endian() -> Result {
-    let code = "0x[00 00 00 00 00 00 00 ff] | into int --endian big";
+    let code = "0x[ff 00] | into int --endian big --signed";
+    test().run(code).expect_value_eq(-256)?;
+
+    let code = "0x[00 00 00 00 00 00 00 ff] | into int --endian big --signed";
     test().run(code).expect_value_eq(255)?;
 
-    let code = "0x[ff 00 00 00 00 00 00 00] | into int --endian big";
+    let code = "0x[ff 00 00 00 00 00 00 00] | into int --endian big --signed";
     test().run(code).expect_value_eq(-72057594037927936_i64)
 }
