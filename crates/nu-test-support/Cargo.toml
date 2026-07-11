@@ -60,6 +60,7 @@ itertools = { workspace = true }
 kitest = { workspace = true }
 lexopt = { workspace = true }
 linkme = { workspace = true }
+miette = { workspace = true }
 nu-ansi-term = { workspace = true }
 num-format = { workspace = true }
 pastey = { workspace = true }

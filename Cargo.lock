@@ -5051,6 +5051,7 @@ dependencies = [
  "kitest",
  "lexopt",
  "linkme",
+ "miette",
  "nu-ansi-term",
  "nu-cli",
  "nu-cmd-extra",
