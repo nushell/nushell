@@ -1,6 +1,6 @@
 use std::{
     any::Any, collections::HashSet, fmt::Debug, marker::PhantomData, num::NonZeroUsize,
-    sync::atomic::Ordering, thread::Scope,
+    path::PathBuf, sync::atomic::Ordering, thread::Scope,
 };
 
 use kitest::{
@@ -183,7 +183,7 @@ pub struct TestScope<'f> {
 
 impl<'f, 't> kitest::runner::scope::TestScope<'t, Extra> for TestScope<'f> {
     fn before_test(&mut self, meta: &'t TestMeta<Extra>) {
-        PATH_ENV_AUTO_LOAD.with_borrow_mut(|paths| {
+        let handle_path_env_auto_loading = |paths: &mut Vec<PathBuf>| {
             paths.clear();
 
             let dependency_paths: HashSet<_> = meta
@@ -199,10 +199,10 @@ impl<'f, 't> kitest::runner::scope::TestScope<'t, Extra> for TestScope<'f> {
                 .collect();
 
             paths.extend(dependency_paths);
-        });
+        };
 
         #[cfg(feature = "plugin")]
-        PLUGIN_AUTO_LOAD.with_borrow_mut(|auto_loaders| {
+        let handle_plugin_auto_loading = |auto_loaders: &mut Vec<PluginAutoLoader>| {
             auto_loaders.clear();
             auto_loaders.extend(
                 meta.extra
@@ -216,7 +216,29 @@ impl<'f, 't> kitest::runner::scope::TestScope<'t, Extra> for TestScope<'f> {
                         signatures: Some(plugin.signatures.clone()),
                     }),
             );
-        });
+        };
+
+        if RUN_TEST_GROUP_IN_SERIAL.load(Ordering::Relaxed) {
+            handle_path_env_auto_loading(&mut GLOBAL_PATH_ENV_AUTO_LOAD.write());
+
+            #[cfg(feature = "plugin")]
+            handle_plugin_auto_loading(&mut GLOBAL_PLUGIN_AUTO_LOAD.write());
+        } else {
+            THREAD_PATH_ENV_AUTO_LOAD.with_borrow_mut(handle_path_env_auto_loading);
+
+            #[cfg(feature = "plugin")]
+            THREAD_PLUGIN_AUTO_LOAD.with_borrow_mut(handle_plugin_auto_loading);
+        }
+    }
+
+    fn after_test(&mut self, _: &'t TestMeta<Extra>, _: &TestOutcome) {
+        THREAD_PATH_ENV_AUTO_LOAD.with_borrow_mut(|paths| paths.clear());
+        GLOBAL_PATH_ENV_AUTO_LOAD.write().clear();
+        #[cfg(feature = "plugin")]
+        {
+            THREAD_PLUGIN_AUTO_LOAD.with_borrow_mut(|auto_loaders| auto_loaders.clear());
+            GLOBAL_PLUGIN_AUTO_LOAD.write().clear();
+        }
     }
 }
 

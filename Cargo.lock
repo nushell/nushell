@@ -5070,6 +5070,7 @@ dependencies = [
  "nu-test-support-macros",
  "nu-utils",
  "num-format",
+ "parking_lot",
  "pastey",
  "rstest",
  "serde_json",

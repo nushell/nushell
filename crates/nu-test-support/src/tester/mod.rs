@@ -18,6 +18,7 @@ use nu_protocol::{
     shell_error::{io::IoError, network::NetworkError},
 };
 use nu_utils::{consts::ENV_PATH_SEPARATOR_CHAR, sync::KeyedLazyLock};
+use parking_lot::{RwLock, const_rwlock};
 
 use crate::harness::group::GroupKey;
 
@@ -74,13 +75,34 @@ pub struct PluginAutoLoader {
 }
 
 thread_local! {
-    /// Paths to be loaded into the PATH env variable of a [`NuTester`].
-    pub static PATH_ENV_AUTO_LOAD: RefCell<Vec<PathBuf>> = const { RefCell::new(Vec::new()) };
+    /// Paths to add to the `PATH` environment variable of each [`NuTester`]
+    /// created on the current thread.
+    ///
+    /// Unlike [`GLOBAL_PATH_ENV_AUTO_LOAD`], changes only affect the current
+    /// thread, which can be useful when running tests in parallel.
+    pub static THREAD_PATH_ENV_AUTO_LOAD: RefCell<Vec<PathBuf>> = const { RefCell::new(Vec::new()) };
 
-    /// Plugins to be automatically loaded into a [`NuTester`].
+    /// Plugins to automatically load into each [`NuTester`] created on the
+    /// current thread.
+    ///
+    /// Unlike [`GLOBAL_PLUGIN_AUTO_LOAD`], changes only affect the current
+    /// thread, which can be useful when running tests in parallel.
     #[cfg(feature = "plugin")]
-    pub static PLUGIN_AUTO_LOAD: RefCell<Vec<PluginAutoLoader>> = const { RefCell::new(Vec::new()) };
+    pub static THREAD_PLUGIN_AUTO_LOAD: RefCell<Vec<PluginAutoLoader>> = const { RefCell::new(Vec::new()) };
 }
+
+/// Paths to add to the `PATH` environment variable of every [`NuTester`]
+/// created in the current process.
+///
+/// Unlike [`THREAD_PATH_ENV_AUTO_LOAD`], changes are shared across all threads.
+pub static GLOBAL_PATH_ENV_AUTO_LOAD: RwLock<Vec<PathBuf>> = const_rwlock(Vec::new());
+
+/// Plugins to automatically load into every [`NuTester`] created in the
+/// current process.
+///
+/// Unlike [`THREAD_PLUGIN_AUTO_LOAD`], changes are shared across all threads.
+#[cfg(feature = "plugin")]
+pub static GLOBAL_PLUGIN_AUTO_LOAD: RwLock<Vec<PluginAutoLoader>> = const_rwlock(Vec::new());
 
 /// Create a [`NuTester`] for running Nushell snippets in tests.
 ///
@@ -108,15 +130,26 @@ thread_local! {
 /// # Auto loaders
 ///
 /// The `*_AUTO_LOAD` statics automatically prepare the test [`EngineState`].
-/// [`PATH_ENV_AUTO_LOAD`] loads paths into the tester's `PATH` environment variable,
-/// allowing binaries to be found without manually adding them in each [`test()`].
-#[cfg_attr(feature = "plugin", doc = "[`PLUGIN_AUTO_LOAD`]")]
-#[cfg_attr(not(feature = "plugin"), doc = "`PLUGIN_AUTO_LOAD`")]
-/// loads plugins into the tester so they can be called during tests.
 ///
-/// Both statics are [thread locals](`thread_local`), allowing multiple `NuTester` instances
-/// to run on different threads with different auto-loaded data.
-/// Make sure to load the appropriate auto-loader for each test function.
+/// [`THREAD_PATH_ENV_AUTO_LOAD`] and [`GLOBAL_PATH_ENV_AUTO_LOAD`] load paths into the tester's
+/// `PATH` environment variable, allowing binaries to be found without adding them manually in
+/// each [`test()`].
+///
+/// When the `plugin` feature is enabled,
+#[cfg_attr(feature = "plugin", doc = "[`THREAD_PLUGIN_AUTO_LOAD`]")]
+#[cfg_attr(not(feature = "plugin"), doc = "`THREAD_PLUGIN_AUTO_LOAD`")]
+/// and
+#[cfg_attr(feature = "plugin", doc = "[`GLOBAL_PLUGIN_AUTO_LOAD`]")]
+#[cfg_attr(not(feature = "plugin"), doc = "`GLOBAL_PLUGIN_AUTO_LOAD`")]
+/// load plugins into the tester so they can be called during tests.
+///
+/// The `THREAD_*` auto loaders are [thread locals](`thread_local`), so their contents only apply
+/// to [`NuTester`] instances created on the current thread.
+/// This allows tests running on different threads to use different auto-loaded paths and plugins.
+///
+/// The `GLOBAL_*` auto loaders are shared across the entire process, so their contents apply to
+/// [`NuTester`] instances created on any thread.
+/// Changes to them may therefore affect tests running in parallel.
 ///
 /// # Examples
 ///
@@ -151,7 +184,8 @@ pub fn test() -> NuTester {
         stack: Stack::new().collect_value(),
     };
 
-    let tester = PATH_ENV_AUTO_LOAD.with_borrow(|paths| tester.append_path(paths));
+    let tester = tester.append_path(&*GLOBAL_PATH_ENV_AUTO_LOAD.read());
+    let tester = THREAD_PATH_ENV_AUTO_LOAD.with_borrow(|paths| tester.append_path(paths));
 
     #[cfg(feature = "plugin")]
     let tester = tester.auto_load_plugins();
@@ -185,12 +219,14 @@ impl NuTester {
     ///
     /// Called in [`test`], do not call somewhere else again.
     fn auto_load_plugins(self) -> Self {
-        PLUGIN_AUTO_LOAD.with_borrow(|auto_loaders| {
+        THREAD_PLUGIN_AUTO_LOAD.with_borrow(|thread_auto_loaders| {
             let mut tester = self;
-            if auto_loaders.is_empty() {
+            let global_auto_loaders = GLOBAL_PLUGIN_AUTO_LOAD.read();
+            if thread_auto_loaders.is_empty() && global_auto_loaders.is_empty() {
                 return tester;
             }
 
+            let auto_loaders = thread_auto_loaders.iter().chain(global_auto_loaders.iter());
             let mut working_set = StateWorkingSet::new(&tester.engine_state);
             for auto_loader in auto_loaders {
                 let plugin = working_set.find_or_create_plugin(&auto_loader.identity, || {
