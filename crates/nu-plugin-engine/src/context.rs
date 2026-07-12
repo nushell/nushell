@@ -106,27 +106,13 @@ impl PluginExecutionContext for PluginExecutionCommandContext<'_> {
     }
 
     fn get_plugin_config(&self) -> Result<Option<Value>, ShellError> {
-        // Fetch the configuration for a plugin
-        //
-        // The `plugin` must match the registered name of a plugin.  For `plugin add
-        // nu_plugin_example` the plugin config lookup uses `"example"`
-        Ok(self
-            .get_config()?
-            .plugins
-            .get(self.identity.name())
-            .cloned()
-            .map(|value| {
-                let span = value.span();
-                match value {
-                    Value::Closure { val, .. } => {
-                        ClosureEvalOnce::new(&self.engine_state, &self.stack, *val)
-                            .run_with_input(PipelineData::empty())
-                            .and_then(|data| data.into_value(span))
-                            .unwrap_or_else(|err| Value::error(err, self.call.head))
-                    }
-                    _ => value.clone(),
-                }
-            }))
+        Ok(plugin_config(
+            self.get_config()?,
+            self.identity.name(),
+            &self.engine_state,
+            &self.stack,
+            self.call.head,
+        ))
     }
 
     fn get_env_var(&self, name: &str) -> Result<Option<&Value>, ShellError> {
@@ -297,6 +283,29 @@ impl PluginExecutionContext for PluginExecutionCommandContext<'_> {
             call: self.call.to_owned(),
         })
     }
+}
+
+// Fetch the configuration for a plugin
+//
+// The `plugin` must match the registered name of a plugin.  For `plugin add nu_plugin_example` the
+// plugin config lookup uses `"example"`
+fn plugin_config(
+    config: Arc<Config>,
+    plugin_name: &str,
+    engine_state: &EngineState,
+    stack: &Stack,
+    head: Span,
+) -> Option<Value> {
+    config.plugins.get(plugin_name).cloned().map(|value| {
+        let span = value.span();
+        match value {
+            Value::Closure { val, .. } => ClosureEvalOnce::new(engine_state, stack, *val)
+                .run_with_input(PipelineData::empty())
+                .and_then(|data| data.into_value(span))
+                .unwrap_or_else(|err| Value::error(err, head)),
+            _ => value.clone(),
+        }
+    })
 }
 
 /// A bogus execution context for testing that doesn't really implement anything properly
