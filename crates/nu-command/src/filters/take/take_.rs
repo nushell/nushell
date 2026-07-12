@@ -22,14 +22,14 @@ impl Command for Take {
             ])
             .required(
                 "n",
-                SyntaxShape::Int,
+                SyntaxShape::OneOf(vec![SyntaxShape::Int, SyntaxShape::Filesize]),
                 "Starting from the front, the number of elements to return.",
             )
             .category(Category::Filters)
     }
 
     fn description(&self) -> &str {
-        "Take only the first n elements of a list, or the first n bytes of a binary value."
+        "Take only the first n elements of a list, or the first n bytes of a binary value. For binary input, n can also be specified as a filesize."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -44,8 +44,33 @@ impl Command for Take {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let rows_desired: usize = call.req(engine_state, stack, 0)?;
+        let n_val: Value = call.req(engine_state, stack, 0)?;
+        let is_filesize = matches!(n_val, Value::Filesize { .. });
+        let rows_desired: usize = match n_val {
+            Value::Int { val, .. } => usize::try_from(val)
+                .map_err(|_| ShellError::NeedsPositiveValue { span: n_val.span() })?,
+            Value::Filesize { val, .. } => usize::try_from(val)
+                .map_err(|_| ShellError::NeedsPositiveValue { span: n_val.span() })?,
+            ref val => Err(ShellError::RuntimeTypeMismatch {
+                expected: Type::custom("int or filesize"),
+                actual: val.get_type(),
+                span: val.span(),
+            })?,
+        };
         let input = input.into_stream_or_original(engine_state);
+
+        if is_filesize {
+            let is_binary = matches!(
+                &input,
+                PipelineData::Value(Value::Binary { .. }, _) | PipelineData::ByteStream(..)
+            );
+            if !is_binary {
+                return Err(ShellError::IncompatibleParametersSingle {
+                    msg: "Filesize is only supported for binary/byte stream input".into(),
+                    span: n_val.span(),
+                });
+            }
+        }
 
         match input {
             PipelineData::Value(val, metadata) => {
@@ -155,6 +180,11 @@ impl Command for Take {
                     Value::test_int(2),
                     Value::test_int(3),
                 ])),
+            },
+            Example {
+                description: "Return the first 3 bytes of a binary value, using a filesize argument.",
+                example: "0x[01 23 45] | take 3b",
+                result: Some(Value::test_binary(vec![0x01, 0x23, 0x45])),
             },
         ]
     }
