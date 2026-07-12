@@ -22,7 +22,7 @@ use crate::{
         args::{Args, Format},
         deps::*,
         group::{GroupRunner, Grouper},
-        test::{TestRunner, TestScopeFactory},
+        test::TestRunner,
     },
 };
 
@@ -128,24 +128,22 @@ pub fn main() -> ExitCode {
         },
     };
 
-    let test_scope_factory = TestScopeFactory::default();
-    #[cfg(feature = "plugin")]
-    let test_scope_factory =
-        test_scope_factory.with_preloaded_plugins(preparations.preloaded_plugins);
-
     let runner = TestRunner::default()
         .with_thread_count(args.test_threads.unwrap_or(*DEFAULT_THREAD_COUNT))
-        .with_exact(args.exact)
-        .with_test_scope_factory(test_scope_factory);
+        .with_exact(args.exact);
 
     let ignore = match args.include_ignored {
         false => DefaultIgnore::Default,
         true => DefaultIgnore::IncludeIgnored,
     };
 
+    let group_runner = GroupRunner::default();
+    #[cfg(feature = "plugin")]
+    let group_runner = group_runner.with_preloaded_plugins(preparations.preloaded_plugins);
+
     let harness = kitest::harness(TESTS.deref())
         .with_grouper(Grouper::default())
-        .with_group_runner(GroupRunner::default())
+        .with_group_runner(group_runner)
         .with_groups(TestGroupBTreeMap::default())
         .with_runner(runner)
         .with_filter(filter)

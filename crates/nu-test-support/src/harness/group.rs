@@ -14,7 +14,13 @@ use std::{
     sync::atomic::{AtomicBool, AtomicU64, Ordering},
 };
 
-use crate::harness::{deps::Dependency, test::Extra};
+use crate::{
+    harness::{
+        deps::{Dependency, PreloadedPlugin},
+        test::Extra,
+    },
+    tester::{GLOBAL_PATH_ENV_AUTO_LOAD, GLOBAL_PLUGIN_AUTO_LOAD, PluginAutoLoader},
+};
 
 pub static RUN_TEST_GROUP_IN_SERIAL: AtomicBool = AtomicBool::new(false);
 static CURRENT_GROUP_KEY: AtomicU64 = AtomicU64::new(0);
@@ -162,7 +168,24 @@ impl TestGrouper<Extra, GroupKey, GroupCtx> for Grouper {
 }
 
 #[derive(Debug, Default)]
-pub struct GroupRunner(SimpleGroupRunner);
+pub struct GroupRunner {
+    runner: SimpleGroupRunner,
+
+    #[cfg(feature = "plugin")]
+    preloaded_plugins: HashMap<&'static Dependency<'static>, PreloadedPlugin>,
+}
+
+impl GroupRunner {
+    pub fn with_preloaded_plugins(
+        self,
+        preloaded_plugins: HashMap<&'static Dependency<'static>, PreloadedPlugin>,
+    ) -> Self {
+        Self {
+            preloaded_plugins,
+            ..self
+        }
+    }
+}
 
 impl<'t> TestGroupRunner<'t, Extra, GroupKey, GroupCtx> for GroupRunner {
     fn run_group<F>(
@@ -194,12 +217,49 @@ impl<'t> TestGroupRunner<'t, Extra, GroupKey, GroupCtx> for GroupRunner {
             .flat_map(|ctx| ctx.environment_variables.iter())
             .for_each(|(key, value)| unsafe { env::set_var(key, value) });
 
+        {
+            // Load this inside a block to ensure the guard is dropped
+            let mut paths = GLOBAL_PATH_ENV_AUTO_LOAD.write();
+            paths.clear();
+            if let Some(ctx) = ctx {
+                paths.extend(ctx.dependencies.iter().map(|dep| {
+                    dep.path()
+                        .parent()
+                        .expect("bin lives in target dir")
+                        .to_path_buf()
+                }));
+            }
+        }
+
+        #[cfg(feature = "plugin")]
+        {
+            // Load this inside a block to ensure the guard is dropped
+            let mut auto_loaders = GLOBAL_PLUGIN_AUTO_LOAD.write();
+            auto_loaders.clear();
+            if let Some(ctx) = ctx {
+                auto_loaders.extend(
+                    ctx.dependencies
+                        .iter()
+                        .filter(|dep| dep.is_plugin)
+                        .flat_map(|dep| self.preloaded_plugins.get(dep))
+                        .map(|plugin| PluginAutoLoader {
+                            identity: plugin.identity.clone(),
+                            plugin: Some(plugin.plugin.clone()),
+                            signatures: Some(plugin.signatures.clone()),
+                        }),
+                );
+            }
+        }
+
         let run_test_group_in_serial = ctx.map(|ctx| ctx.run_in_serial).unwrap_or(false);
         RUN_TEST_GROUP_IN_SERIAL.store(run_test_group_in_serial, Ordering::Relaxed);
 
         let outcomes =
             <SimpleGroupRunner as TestGroupRunner<'t, Extra, GroupKey, GroupCtx>>::run_group::<F>(
-                &self.0, f, key, ctx,
+                &self.runner,
+                f,
+                key,
+                ctx,
             );
 
         old_envs.into_iter().for_each(|(key, value)| unsafe {

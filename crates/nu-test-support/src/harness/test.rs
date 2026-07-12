@@ -1,13 +1,10 @@
-use std::{
-    any::Any, collections::HashSet, fmt::Debug, marker::PhantomData, num::NonZeroUsize,
-    path::PathBuf, sync::atomic::Ordering, thread::Scope,
-};
+use std::{any::Any, fmt::Debug, num::NonZeroUsize, sync::atomic::Ordering, thread::Scope};
 
 use kitest::{
     Whatever,
     capture::DefaultPanicHookProvider,
     outcome::TestOutcome,
-    runner::{DefaultRunner, SimpleRunner},
+    runner::{DefaultRunner, SimpleRunner, scope::NoScopeFactory},
     test::{TestMeta, TestResult},
 };
 use nu_experimental::ExperimentalOption;
@@ -17,9 +14,6 @@ use crate::{
     harness::{deps::*, group::RUN_TEST_GROUP_IN_SERIAL},
     tester::*,
 };
-
-#[cfg(feature = "plugin")]
-use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct Extra {
@@ -38,34 +32,14 @@ pub struct Extra {
     pub uses_nu_with_plugins: bool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct TestRunner {
-    parallel: DefaultRunner<DefaultPanicHookProvider, TestScopeFactory>,
-    serial: SimpleRunner<DefaultPanicHookProvider, TestScopeFactory>,
+    parallel: DefaultRunner<DefaultPanicHookProvider, NoScopeFactory>,
+    serial: SimpleRunner<DefaultPanicHookProvider, NoScopeFactory>,
     exact: bool,
 }
 
-impl Default for TestRunner {
-    fn default() -> Self {
-        Self {
-            parallel: DefaultRunner::default().with_test_scope_factory(TestScopeFactory::default()),
-            serial: SimpleRunner::default().with_test_scope_factory(TestScopeFactory::default()),
-            exact: false,
-        }
-    }
-}
-
 impl TestRunner {
-    pub fn with_test_scope_factory(self, test_scope_factory: TestScopeFactory) -> Self {
-        Self {
-            parallel: self
-                .parallel
-                .with_test_scope_factory(test_scope_factory.clone()),
-            serial: self.serial.with_test_scope_factory(test_scope_factory),
-            ..self
-        }
-    }
-
     pub fn with_thread_count(self, thread_count: NonZeroUsize) -> Self {
         Self {
             parallel: self.parallel.with_thread_count(thread_count),
@@ -133,111 +107,6 @@ impl<'t> kitest::runner::TestRunner<'t, Extra> for TestRunner {
                 &self.parallel,
                 tests_count,
             ),
-        }
-    }
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct TestScopeFactory {
-    #[cfg(feature = "plugin")]
-    preloaded_plugins: HashMap<&'static Dependency<'static>, PreloadedPlugin>,
-}
-
-impl TestScopeFactory {
-    #[cfg(feature = "plugin")]
-    pub fn with_preloaded_plugins(
-        self,
-        preloaded_plugins: HashMap<&'static Dependency<'static>, PreloadedPlugin>,
-    ) -> Self {
-        Self { preloaded_plugins }
-    }
-}
-
-impl<'t> kitest::runner::scope::TestScopeFactory<'t, Extra> for TestScopeFactory {
-    type Scope<'f>
-        = TestScope<'f>
-    where
-        't: 'f,
-        Self: 'f;
-
-    fn make_scope<'f>(&'f self) -> Self::Scope<'f>
-    where
-        't: 'f,
-    {
-        TestScope {
-            _lifetime: PhantomData,
-
-            #[cfg(feature = "plugin")]
-            preloaded_plugins: &self.preloaded_plugins,
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct TestScope<'f> {
-    _lifetime: PhantomData<&'f ()>,
-
-    #[cfg(feature = "plugin")]
-    preloaded_plugins: &'f HashMap<&'f Dependency<'f>, PreloadedPlugin>,
-}
-
-impl<'f, 't> kitest::runner::scope::TestScope<'t, Extra> for TestScope<'f> {
-    fn before_test(&mut self, meta: &'t TestMeta<Extra>) {
-        let handle_path_env_auto_loading = |paths: &mut Vec<PathBuf>| {
-            paths.clear();
-
-            let dependency_paths: HashSet<_> = meta
-                .extra
-                .dependencies
-                .iter()
-                .map(|dep| {
-                    dep.path()
-                        .parent()
-                        .expect("bin lives in target dir")
-                        .to_path_buf()
-                })
-                .collect();
-
-            paths.extend(dependency_paths);
-        };
-
-        #[cfg(feature = "plugin")]
-        let handle_plugin_auto_loading = |auto_loaders: &mut Vec<PluginAutoLoader>| {
-            auto_loaders.clear();
-            auto_loaders.extend(
-                meta.extra
-                    .dependencies
-                    .iter()
-                    .filter(|dep| dep.is_plugin)
-                    .flat_map(|dep| self.preloaded_plugins.get(dep))
-                    .map(|plugin| PluginAutoLoader {
-                        identity: plugin.identity.clone(),
-                        plugin: Some(plugin.plugin.clone()),
-                        signatures: Some(plugin.signatures.clone()),
-                    }),
-            );
-        };
-
-        if RUN_TEST_GROUP_IN_SERIAL.load(Ordering::Relaxed) {
-            handle_path_env_auto_loading(&mut GLOBAL_PATH_ENV_AUTO_LOAD.write());
-
-            #[cfg(feature = "plugin")]
-            handle_plugin_auto_loading(&mut GLOBAL_PLUGIN_AUTO_LOAD.write());
-        } else {
-            THREAD_PATH_ENV_AUTO_LOAD.with_borrow_mut(handle_path_env_auto_loading);
-
-            #[cfg(feature = "plugin")]
-            THREAD_PLUGIN_AUTO_LOAD.with_borrow_mut(handle_plugin_auto_loading);
-        }
-    }
-
-    fn after_test(&mut self, _: &'t TestMeta<Extra>, _: &TestOutcome) {
-        THREAD_PATH_ENV_AUTO_LOAD.with_borrow_mut(|paths| paths.clear());
-        GLOBAL_PATH_ENV_AUTO_LOAD.write().clear();
-        #[cfg(feature = "plugin")]
-        {
-            THREAD_PLUGIN_AUTO_LOAD.with_borrow_mut(|auto_loaders| auto_loaders.clear());
-            GLOBAL_PLUGIN_AUTO_LOAD.write().clear();
         }
     }
 }
