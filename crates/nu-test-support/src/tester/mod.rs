@@ -1,5 +1,4 @@
 use std::{
-    cell::RefCell,
     env,
     error::Error,
     fmt::{Debug, Display},
@@ -74,35 +73,12 @@ pub struct PluginAutoLoader {
     pub signatures: Option<Arc<[PluginSignature]>>,
 }
 
-thread_local! {
-    /// Paths to add to the `PATH` environment variable of each [`NuTester`]
-    /// created on the current thread.
-    ///
-    /// Unlike [`GLOBAL_PATH_ENV_AUTO_LOAD`], changes only affect the current
-    /// thread, which can be useful when running tests in parallel.
-    pub static THREAD_PATH_ENV_AUTO_LOAD: RefCell<Vec<PathBuf>> = const { RefCell::new(Vec::new()) };
+/// Paths to be loaded into the PATH env variable of a [`NuTester`].
+pub static PATH_ENV_AUTO_LOAD: RwLock<Vec<PathBuf>> = const_rwlock(Vec::new());
 
-    /// Plugins to automatically load into each [`NuTester`] created on the
-    /// current thread.
-    ///
-    /// Unlike [`GLOBAL_PLUGIN_AUTO_LOAD`], changes only affect the current
-    /// thread, which can be useful when running tests in parallel.
-    #[cfg(feature = "plugin")]
-    pub static THREAD_PLUGIN_AUTO_LOAD: RefCell<Vec<PluginAutoLoader>> = const { RefCell::new(Vec::new()) };
-}
-
-/// Paths to add to the `PATH` environment variable of every [`NuTester`]
-/// created in the current process.
-///
-/// Unlike [`THREAD_PATH_ENV_AUTO_LOAD`], changes are shared across all threads.
-pub static GLOBAL_PATH_ENV_AUTO_LOAD: RwLock<Vec<PathBuf>> = const_rwlock(Vec::new());
-
-/// Plugins to automatically load into every [`NuTester`] created in the
-/// current process.
-///
-/// Unlike [`THREAD_PLUGIN_AUTO_LOAD`], changes are shared across all threads.
+/// Plugins to be automatically loaded into a [`NuTester`].
 #[cfg(feature = "plugin")]
-pub static GLOBAL_PLUGIN_AUTO_LOAD: RwLock<Vec<PluginAutoLoader>> = const_rwlock(Vec::new());
+pub static PLUGIN_AUTO_LOAD: RwLock<Vec<PluginAutoLoader>> = const_rwlock(Vec::new());
 
 /// Create a [`NuTester`] for running Nushell snippets in tests.
 ///
@@ -131,25 +107,13 @@ pub static GLOBAL_PLUGIN_AUTO_LOAD: RwLock<Vec<PluginAutoLoader>> = const_rwlock
 ///
 /// The `*_AUTO_LOAD` statics automatically prepare the test [`EngineState`].
 ///
-/// [`THREAD_PATH_ENV_AUTO_LOAD`] and [`GLOBAL_PATH_ENV_AUTO_LOAD`] load paths into the tester's
-/// `PATH` environment variable, allowing binaries to be found without adding them manually in
-/// each [`test()`].
+/// [`PATH_ENV_AUTO_LOAD`] loads paths into the tester's `PATH` environment variable, allowing
+/// binaries to be found without adding them manually in each [`test()`].
 ///
 /// When the `plugin` feature is enabled,
-#[cfg_attr(feature = "plugin", doc = "[`THREAD_PLUGIN_AUTO_LOAD`]")]
-#[cfg_attr(not(feature = "plugin"), doc = "`THREAD_PLUGIN_AUTO_LOAD`")]
-/// and
-#[cfg_attr(feature = "plugin", doc = "[`GLOBAL_PLUGIN_AUTO_LOAD`]")]
-#[cfg_attr(not(feature = "plugin"), doc = "`GLOBAL_PLUGIN_AUTO_LOAD`")]
-/// load plugins into the tester so they can be called during tests.
-///
-/// The `THREAD_*` auto loaders are [thread locals](`thread_local`), so their contents only apply
-/// to [`NuTester`] instances created on the current thread.
-/// This allows tests running on different threads to use different auto-loaded paths and plugins.
-///
-/// The `GLOBAL_*` auto loaders are shared across the entire process, so their contents apply to
-/// [`NuTester`] instances created on any thread.
-/// Changes to them may therefore affect tests running in parallel.
+#[cfg_attr(feature = "plugin", doc = "[`PLUGIN_AUTO_LOAD`]")]
+#[cfg_attr(not(feature = "plugin"), doc = "`PLUGIN_AUTO_LOAD`")]
+/// loads plugins into the tester so they can be called during tests.
 ///
 /// # Examples
 ///
@@ -184,8 +148,7 @@ pub fn test() -> NuTester {
         stack: Stack::new().collect_value(),
     };
 
-    let tester = tester.append_path(&*GLOBAL_PATH_ENV_AUTO_LOAD.read());
-    let tester = THREAD_PATH_ENV_AUTO_LOAD.with_borrow(|paths| tester.append_path(paths));
+    let tester = tester.append_path(&*PATH_ENV_AUTO_LOAD.read());
 
     #[cfg(feature = "plugin")]
     let tester = tester.auto_load_plugins();
@@ -219,84 +182,81 @@ impl NuTester {
     ///
     /// Called in [`test`], do not call somewhere else again.
     fn auto_load_plugins(self) -> Self {
-        THREAD_PLUGIN_AUTO_LOAD.with_borrow(|thread_auto_loaders| {
-            let mut tester = self;
-            let global_auto_loaders = GLOBAL_PLUGIN_AUTO_LOAD.read();
-            if thread_auto_loaders.is_empty() && global_auto_loaders.is_empty() {
-                return tester;
-            }
+        let mut tester = self;
+        let auto_loaders = PLUGIN_AUTO_LOAD.read();
+        if auto_loaders.is_empty() {
+            return tester;
+        }
 
-            let auto_loaders = thread_auto_loaders.iter().chain(global_auto_loaders.iter());
-            let mut working_set = StateWorkingSet::new(&tester.engine_state);
-            for auto_loader in auto_loaders {
-                let plugin = working_set.find_or_create_plugin(&auto_loader.identity, || {
-                    auto_loader
-                        .plugin
-                        .as_ref()
-                        .map(|plugin| plugin.clone())
-                        .unwrap_or_else(|| {
-                            Arc::new(PersistentPlugin::new(
-                                (*auto_loader.identity).clone(),
-                                Default::default(),
-                            ))
-                        })
+        let mut working_set = StateWorkingSet::new(&tester.engine_state);
+        for auto_loader in auto_loaders.iter() {
+            let plugin = working_set.find_or_create_plugin(&auto_loader.identity, || {
+                auto_loader
+                    .plugin
+                    .as_ref()
+                    .map(|plugin| plugin.clone())
+                    .unwrap_or_else(|| {
+                        Arc::new(PersistentPlugin::new(
+                            (*auto_loader.identity).clone(),
+                            Default::default(),
+                        ))
+                    })
+            });
+
+            let plugin: Arc<PersistentPlugin> = plugin
+                .as_any()
+                .downcast()
+                .expect("could not downcast to persistent plugin");
+
+            // if preloaded by our test harness, we don't need to construct a plugin
+            // interface here
+            let mut interface = None;
+
+            // our test harness also sets metadata, so we don't have to do again
+            if plugin.metadata().is_none() {
+                let interface = interface.get_or_insert_with(|| {
+                    plugin
+                        .clone()
+                        .get_plugin(None)
+                        .expect("could not get plugin")
                 });
 
-                let plugin: Arc<PersistentPlugin> = plugin
-                    .as_any()
-                    .downcast()
-                    .expect("could not downcast to persistent plugin");
+                plugin.set_metadata(Some(
+                    interface
+                        .get_metadata()
+                        .expect("could not get plugin metadata"),
+                ));
+            }
 
-                // if preloaded by our test harness, we don't need to construct a plugin
-                // interface here
-                let mut interface = None;
-
-                // our test harness also sets metadata, so we don't have to do again
-                if plugin.metadata().is_none() {
+            // our test harness also preloads signatures, assuming they don't change
+            let signatures = auto_loader
+                .signatures
+                .as_deref()
+                .map(|signatures| signatures.to_owned())
+                .unwrap_or_else(|| {
                     let interface = interface.get_or_insert_with(|| {
                         plugin
                             .clone()
                             .get_plugin(None)
                             .expect("could not get plugin")
                     });
+                    interface
+                        .get_signature()
+                        .expect("could not get plugin signatures")
+                });
 
-                    plugin.set_metadata(Some(
-                        interface
-                            .get_metadata()
-                            .expect("could not get plugin metadata"),
-                    ));
-                }
-
-                // our test harness also preloads signatures, assuming they don't change
-                let signatures = auto_loader
-                    .signatures
-                    .as_deref()
-                    .map(|signatures| signatures.to_owned())
-                    .unwrap_or_else(|| {
-                        let interface = interface.get_or_insert_with(|| {
-                            plugin
-                                .clone()
-                                .get_plugin(None)
-                                .expect("could not get plugin")
-                        });
-                        interface
-                            .get_signature()
-                            .expect("could not get plugin signatures")
-                    });
-
-                for signature in signatures {
-                    let decl = PluginDeclaration::new(plugin.clone(), signature);
-                    working_set.add_decl(Box::new(decl));
-                }
+            for signature in signatures {
+                let decl = PluginDeclaration::new(plugin.clone(), signature);
+                working_set.add_decl(Box::new(decl));
             }
+        }
 
-            tester
-                .engine_state
-                .merge_delta(working_set.render())
-                .expect("could not merge plugin working set");
+        tester
+            .engine_state
+            .merge_delta(working_set.render())
+            .expect("could not merge plugin working set");
 
-            tester
-        })
+        tester
     }
 }
 

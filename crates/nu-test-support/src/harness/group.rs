@@ -19,7 +19,7 @@ use crate::{
         deps::{Dependency, PreloadedPlugin},
         test::Extra,
     },
-    tester::{GLOBAL_PATH_ENV_AUTO_LOAD, GLOBAL_PLUGIN_AUTO_LOAD, PluginAutoLoader},
+    tester::{PATH_ENV_AUTO_LOAD, PLUGIN_AUTO_LOAD, PluginAutoLoader},
 };
 
 pub static RUN_TEST_GROUP_IN_SERIAL: AtomicBool = AtomicBool::new(false);
@@ -219,7 +219,7 @@ impl<'t> TestGroupRunner<'t, Extra, GroupKey, GroupCtx> for GroupRunner {
 
         {
             // Load this inside a block to ensure the guard is dropped
-            let mut paths = GLOBAL_PATH_ENV_AUTO_LOAD.write();
+            let mut paths = PATH_ENV_AUTO_LOAD.write();
             paths.clear();
             if let Some(ctx) = ctx {
                 paths.extend(ctx.dependencies.iter().map(|dep| {
@@ -234,7 +234,7 @@ impl<'t> TestGroupRunner<'t, Extra, GroupKey, GroupCtx> for GroupRunner {
         #[cfg(feature = "plugin")]
         {
             // Load this inside a block to ensure the guard is dropped
-            let mut auto_loaders = GLOBAL_PLUGIN_AUTO_LOAD.write();
+            let mut auto_loaders = PLUGIN_AUTO_LOAD.write();
             auto_loaders.clear();
             if let Some(ctx) = ctx {
                 auto_loaders.extend(
