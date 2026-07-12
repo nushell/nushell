@@ -588,6 +588,31 @@
 //!         .expect_value_eq(1)
 //! }
 //! ```
+//!
+//! `rstest` runs tests that use `#[timeout]` on a separate thread. This matters for plugin
+//! dependencies, because plugin preloading normally prepares the tester for the harness thread
+//! that owns the test group. Mark the test `#[serial]` when combining `#[timeout]` with a plugin
+//! `#[deps]` attribute. Serial groups prepare plugins globally, so the timeout thread can use the
+//! preloaded plugin commands too.
+//!
+//! ```no_run
+//! # #[macro_use] extern crate nu_test_support;
+//! use nu_test_support::prelude::*;
+//! use rstest::rstest;
+//!
+//! #[rstest]
+//! #[timeout(std::time::Duration::from_secs(6))]
+//! #[nu_test_support::test]
+//! #[serial]
+//! #[deps(NU_PLUGIN_EXAMPLE)]
+//! fn plugin_test_with_timeout() -> Result {
+//! #     unimplemented!()
+//! # }
+//! #
+//! # fn main() -> Result {
+//!     test().run("42 | example echo").expect_value_eq(42)
+//! }
+//! ```
 
 pub mod assertions;
 pub mod fs;
