@@ -1,7 +1,10 @@
+use std::path::Path;
 use std::{fs::File, path::PathBuf};
 
 use nu_protocol::{PluginRegistryFile, PluginRegistryItem, PluginRegistryItemData};
 use nu_test_support::{fs::Stub, nu, nu_with_plugins, playground::Playground};
+
+use nu_test_support::prelude::*;
 
 fn example_plugin_path() -> PathBuf {
     nu_test_support::commands::ensure_plugins_built();
@@ -25,25 +28,72 @@ fn valid_plugin_item_data() -> PluginRegistryItemData {
     }
 }
 
-#[test]
-fn plugin_add_then_restart_nu() {
-    let result = nu_with_plugins!(
-        cwd: ".",
-        plugins: [],
-        &format!("
-            plugin add '{}'
-            (
-                ^$nu.current-exe
-                    --config $nu.config-path
-                    --env-config $nu.env-path
-                    --plugin-config $nu.plugin-path
-                    --commands 'plugin list --engine | get name | to json --raw'
-            )
-        ", example_plugin_path().display())
-    );
-    assert!(result.status.success());
-    assert_eq!(r#"["example"]"#, result.out);
+struct EmptyConfigs {
+    config: PathBuf,
+    env: PathBuf,
+    plugin: PathBuf,
 }
+
+impl EmptyConfigs {
+    fn new(root: impl AsRef<Path>) -> Self {
+        let root = root.as_ref();
+        let config = root.join("config.nu");
+        let env = root.join("env.nu");
+        let plugin = root.join("plugin.mgspackz");
+        File::create(&config).unwrap();
+        File::create(&env).unwrap();
+        File::create(&plugin).unwrap();
+        Self { config, env, plugin }
+    }
+
+    fn nu(&self) -> String {
+        format!(
+            "nu --config {config} --env-config {env} --plugin-config {plugin} --commands $in",
+            config = self.config.display(),
+            env = self.env.display(),
+            plugin = self.plugin.display()
+        )
+    }
+}
+
+#[test]
+#[deps(NU, NU_PLUGIN_EXAMPLE)]
+fn plugin_add_then_restart_nu() -> Result {
+    Playground::setup(&module_path!().replace("::", "_"), |dirs, _| {
+        let configs = EmptyConfigs::new(dirs.test());
+        let nu = configs.nu();
+        let commands = format!(
+            "plugin add {}",
+            NU_PLUGIN_EXAMPLE.path().display()
+        );
+        let out: String = test().run_with_data(&nu, commands)?;
+        assert!(out.is_empty());
+        let commands = "plugin list --engine | get name | str join ','";
+        test()
+            .run_with_data(&nu, commands)
+            .expect_value_eq("example")
+    })
+}
+
+// #[test]
+// fn plugin_add_then_restart_nu() {
+//     let result = nu_with_plugins!(
+//         cwd: ".",
+//         plugins: [],
+//         &format!("
+//             plugin add '{}'
+//             (
+//                 ^$nu.current-exe
+//                     --config $nu.config-path
+//                     --env-config $nu.env-path
+//                     --plugin-config $nu.plugin-path
+//                     --commands 'plugin list --engine | get name | to json --raw'
+//             )
+//         ", example_plugin_path().display())
+//     );
+//     assert!(result.status.success());
+//     assert_eq!(r#"["example"]"#, result.out);
+// }
 
 #[test]
 fn plugin_add_in_nu_plugin_dirs_const() {
