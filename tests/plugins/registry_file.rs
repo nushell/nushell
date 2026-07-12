@@ -43,7 +43,11 @@ impl EmptyConfigs {
         File::create(&config).unwrap();
         File::create(&env).unwrap();
         File::create(&plugin).unwrap();
-        Self { config, env, plugin }
+        Self {
+            config,
+            env,
+            plugin,
+        }
     }
 
     fn nu(&self) -> String {
@@ -62,10 +66,7 @@ fn plugin_add_then_restart_nu() -> Result {
     Playground::setup(&module_path!().replace("::", "_"), |dirs, _| {
         let configs = EmptyConfigs::new(dirs.test());
         let nu = configs.nu();
-        let commands = format!(
-            "plugin add {}",
-            NU_PLUGIN_EXAMPLE.path().display()
-        );
+        let commands = format!("plugin add {}", NU_PLUGIN_EXAMPLE.path().display());
         let out: String = test().run_with_data(&nu, commands)?;
         assert!(out.is_empty());
         let commands = "plugin list --engine | get name | str join ','";
