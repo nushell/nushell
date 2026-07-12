@@ -15,6 +15,8 @@ updates:
       # version bump and thus consume unnecessary workers during release, thus
       # let's open new ones on Wednesday
       day: "wednesday"
+    cooldown:
+      default-days: 7
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-patch"]
@@ -38,3 +40,5 @@ updates:
     schedule:
       interval: "weekly"
       day: "wednesday"
+    cooldown:
+      default-days: 7
