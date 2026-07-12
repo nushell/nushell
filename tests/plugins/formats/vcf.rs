@@ -1,10 +1,10 @@
 use nu_test_support::fs::Stub::{FileWithContent, FileWithContentToBeTrimmed};
-use nu_test_support::nu_with_plugins;
 use nu_test_support::playground::Playground;
-use pretty_assertions::assert_eq;
+use nu_test_support::prelude::*;
 
 #[test]
-fn infers_types() {
+#[deps(NU_PLUGIN_FORMATS)]
+fn infers_types() -> Result {
     Playground::setup("filter_from_vcf_test_1", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "contacts.vcf",
@@ -31,20 +31,16 @@ fn infers_types() {
                 END:VCARD
             ",
         )]);
-
-        let cwd = dirs.test();
-        let actual = nu_with_plugins!(
-            cwd: cwd,
-            plugin: ("nu_plugin_formats"),
-            "open contacts.vcf | length"
-        );
-
-        assert_eq!(actual.out, "2");
+        test()
+            .cwd(dirs.test())
+            .run("open contacts.vcf | length")
+            .expect_value_eq(2)
     })
 }
 
 #[test]
-fn from_vcf_text_to_table() {
+#[deps(NU_PLUGIN_FORMATS)]
+fn from_vcf_text_to_table() -> Result {
     Playground::setup("filter_from_vcf_test_2", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "contacts.txt",
@@ -65,26 +61,24 @@ fn from_vcf_text_to_table() {
             ",
         )]);
 
-        let cwd = dirs.test();
-        let actual = nu_with_plugins!(
-            cwd: cwd,
-            plugin: ("nu_plugin_formats"),
-            r#"
-                open contacts.txt
-                | from vcf
-                | get properties.0
-                | where name == "EMAIL"
-                | first
-                | get value
-            "#
-        );
-
-        assert_eq!(actual.out, "john.doe99@gmail.com");
+        let code = r#"
+            open contacts.txt
+            | from vcf
+            | get properties.0
+            | where name == "EMAIL"
+            | first
+            | get value
+        "#;
+        test()
+            .cwd(dirs.test())
+            .run(code)
+            .expect_value_eq("john.doe99@gmail.com")
     })
 }
 
 #[test]
-fn from_vcf_text_with_linebreak_to_table() {
+#[deps(NU_PLUGIN_FORMATS)]
+fn from_vcf_text_with_linebreak_to_table() -> Result {
     Playground::setup("filter_from_vcf_test_3", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
             "contacts.txt",
@@ -104,20 +98,17 @@ CATEGORIES:myContacts
 END:VCARD",
         )]);
 
-        let cwd = dirs.test();
-        let actual = nu_with_plugins!(
-            cwd: cwd,
-            plugin: ("nu_plugin_formats"),
-            r#"
-                open contacts.txt
-                | from vcf
-                | get properties.0
-                | where name == "EMAIL"
-                | first
-                | get value
-            "#
-        );
-
-        assert_eq!(actual.out, "john.doe99@gmail.com");
+        let code = r#"
+            open contacts.txt
+            | from vcf
+            | get properties.0
+            | where name == "EMAIL"
+            | first
+            | get value
+        "#;
+        test()
+            .cwd(dirs.test())
+            .run(code)
+            .expect_value_eq("john.doe99@gmail.com")
     })
 }
