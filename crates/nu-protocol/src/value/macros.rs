@@ -315,8 +315,8 @@ mod test_value_macro_tests {
         let x = test_value!({
             "a": 1,
             "b": {
-                "ba": 3,
-                "bb": 4,
+                "b_a": 3,
+                "b_b": 4,
             },
             "c": [1, "two", ()],
             "d": [
@@ -329,8 +329,8 @@ mod test_value_macro_tests {
         let expected = test_record! {
             "a" => 1,
             "b" => test_record! {
-                "ba" => 3,
-                "bb" => 4,
+                "b_a" => 3,
+                "b_b" => 4,
             },
             "c" => test_list![1, "two", ()],
             "d" => test_list![
@@ -348,8 +348,8 @@ mod test_value_macro_tests {
         let x = test_value!({
             a: 1,
             b: {
-                ba: 3,
-                bb: 4,
+                b_a: 3,
+                b_b: 4,
             },
             c: [1, "two", ()],
             d: [
@@ -362,8 +362,8 @@ mod test_value_macro_tests {
         let expected = test_record! {
             "a" => 1,
             "b" => test_record! {
-                "ba" => 3,
-                "bb" => 4,
+                "b_a" => 3,
+                "b_b" => 4,
             },
             "c" => test_list![1, "two", ()],
             "d" => test_list![
