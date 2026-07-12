@@ -590,11 +590,9 @@ fn main() -> Result<()> {
         perf!("load plugins specified in --plugins", start_time, use_color)
     }
 
-    start_time = nu_utils::time::Instant::now();
-
     #[cfg(feature = "mcp")]
     if parsed_nu_cli_args.mcp {
-        perf!("mcp starting", start_time, use_color);
+        start_time = nu_utils::time::Instant::now();
         // Mark MCP mode before config evaluation so startup scripts can adapt behavior.
         engine_state.is_mcp = true;
         let mcp_transport_kind = parsed_nu_cli_args
@@ -630,6 +628,7 @@ fn main() -> Result<()> {
             _ => nu_mcp::McpTransport::Stdio,
         };
         nu_mcp::initialize_mcp_server(engine_state, transport)?;
+        perf!("mcp started", start_time, use_color);
         return Ok(());
     }
 

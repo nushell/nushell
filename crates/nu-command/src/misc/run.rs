@@ -317,7 +317,19 @@ fn parse_flag_token(engine_state: &EngineState, value: &Value) -> Option<(String
 /// Matches on the long name (`--char` → `"char"`) or by comparing the single short character
 /// extracted from a `-c` token against the flag's declared short character.
 fn matches_named_flag(named: &Flag, long: &str, short: Option<&str>) -> bool {
-    named.long == long || short.and_then(|name| name.chars().next()) == named.short
+    if named.long == long {
+        return true;
+    }
+
+    // Only fall back to short-character matching when the token actually was a
+    // short flag (`-c`). A long flag (`--name`) carries `short == None`, and
+    // comparing that directly against `named.short` would treat "no short given"
+    // as equal to "flag declares no short", spuriously matching the first
+    // short-less flag and binding the value to the wrong parameter.
+    match short.and_then(|name| name.chars().next()) {
+        Some(short_char) => named.short == Some(short_char),
+        None => false,
+    }
 }
 
 /// Resolve a parsed flag token to the matching signature flag, if any.

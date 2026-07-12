@@ -232,11 +232,24 @@ pub fn parse_for(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) 
         *block.signature = sig;
     };
 
+    // `oneof` is usually flat, but yielded-type inference is recursive by
+    // definition: every union alternative may itself be an iterable.
+    fn yielded_type(ty: Type) -> Type {
+        match ty {
+            Type::List(item) => *item,
+            Type::Table(columns) => Type::Record(columns),
+            Type::Range => Type::Number,
+            Type::OneOf(types) => Type::one_of(types.into_iter().map(yielded_type)),
+            ty => ty,
+        }
+    }
+
+    // Infer the loop variable from yielded values, not from the iterable itself.
+    // Filter commands can return unions like `oneof<table, binary, list<any>>`,
+    // which yield records, binary chunks, or list items respectively.
     let var_type = match iteration_expr.ty.clone() {
-        Type::List(x) => *x,
-        Type::Table(x) => Type::Record(x),
-        Type::Range => Type::Number,
-        x => x,
+        Type::OneOf(types) => Type::one_of(types.into_iter().map(yielded_type)),
+        ty => yielded_type(ty),
     };
 
     if let (Some(var_id), Some(block_id)) = (var_decl.as_var(), block_expr.as_block()) {

@@ -427,9 +427,11 @@ fn append_assign_takes_pipeline() -> TestResult {
 #[rstest]
 #[case::bare("nu")]
 #[case::quoted("`nu`")]
+#[nu_test_support::test]
+#[deps(NU)]
 fn assign_external_fails(#[case] external: &str) -> Result {
     let code = format!("$env.FOO = {external} --testbin cococo");
-    let err = test().add_nu_to_path().run(code).expect_parse_error()?;
+    let err = test().run(code).expect_parse_error()?;
 
     match err {
         ParseError::LabeledErrorWithHelp { error, .. } => {
@@ -443,9 +445,11 @@ fn assign_external_fails(#[case] external: &str) -> Result {
 #[rstest]
 #[case::with_caret("^nu")]
 #[case::quoted_with_caret("^`nu`")]
+#[nu_test_support::test]
+#[deps(NU)]
 fn assign_external_works(#[case] external: &str) -> Result {
     let code = format!("$env.FOO = {external} --testbin cococo; $env.FOO");
-    test().add_nu_to_path().run(code).expect_value_eq("cococo")
+    test().run(code).expect_value_eq("cococo")
 }
 
 #[test]
@@ -1113,7 +1117,7 @@ fn let_variable_record_runtime_mismatch() -> TestResult {
     assert!(
         outcome
             .err
-            .contains("can't convert record<a: int> to record<b: int>")
+            .contains("expected record<b: int>, got record<a: int>")
     );
     Ok(())
 }
