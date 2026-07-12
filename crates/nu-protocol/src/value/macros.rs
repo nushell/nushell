@@ -91,7 +91,7 @@ macro_rules! test_table {
 /// Helper macro for constructing [`Value::List`] instances for use in tests and
 /// [Examples](crate::Example)s.
 ///
-/// ```rust
+/// ```
 /// # use nu_protocol::*;
 /// #
 /// let test = test_list![
@@ -117,6 +117,66 @@ macro_rules! test_list {
     };
 }
 
+/// Helper macro for constructing [`Value`] instances for use in tests and
+/// [Examples](crate::Example)s.
+///
+/// Can be used to create simple scalar values with anything implementing
+/// [IntoValue](crate::IntoValue):
+/// ```
+/// # use nu_protocol::*;
+/// assert_eq!(test_value!(42),   Value::test_int(42));
+/// assert_eq!(test_value!(true), Value::test_bool(true));
+/// assert_eq!(test_value!(()),   Value::test_nothing());
+/// ```
+///
+/// Can be used in place of [`test_list!`]:
+/// ```
+/// # use nu_protocol::*;
+/// let test =   test_value!(["abc", 42, true]);
+/// let expected = test_list!["abc", 42, true];
+/// assert_eq!(test, expected);
+/// ```
+///
+/// Can be used in place of [`test_record!`], with some differences:
+/// - instead of fat arrows (`=>`), colons are used (`:`).
+/// - keys can be bare identifiers in addition to string literals and variables.
+///   (to use the value of an existing variable, wrap it in parentheses)
+/// ```
+/// # use nu_protocol::*;
+/// let key_in_var = "foo";
+/// let test = test_value!({
+///     a: 1,
+///     "b": 2,
+///     (key_in_var): "bar",
+/// });
+/// let expected = test_record! {
+///     "a" => 1,
+///     "b" => 2,
+///     "foo" => "bar",
+/// };
+/// assert_eq!(test, expected);
+/// ```
+///
+/// The most important feature of [`test_value!`] is that it works recursively for all values.
+/// That makes it very powerful for constructing complex and nested values:
+/// ```
+/// # use nu_protocol::*;
+/// let test = test_value!({
+///     a: 1,
+///     b: {
+///         c: 2,
+///         d: ["e", "f", {g: 3}],
+///     },
+/// });
+/// let expected = test_record! {
+///     "a" => 1,
+///     "b" => test_record! {
+///         "c" => 2,
+///         "d" => test_list! ["e", "f", test_record! { "g" => 3 } ],
+///     },
+/// };
+/// assert_eq!(test, expected);
+/// ```
 #[macro_export]
 macro_rules! test_value {
     (@recur, [$($item:tt),* $(,)?]) => {
