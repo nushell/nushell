@@ -1,9 +1,10 @@
 use std::{
+    cell::RefCell,
     env,
     error::Error,
     fmt::{Debug, Display},
     panic::Location,
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::{Arc, LazyLock},
 };
 
@@ -19,6 +20,11 @@ use nu_utils::{consts::ENV_PATH_SEPARATOR_CHAR, sync::KeyedLazyLock};
 
 use crate::harness::group::GroupKey;
 
+#[cfg(feature = "plugin")]
+use nu_plugin_engine::{GetPlugin, PersistentPlugin, PluginDeclaration};
+#[cfg(feature = "plugin")]
+use nu_protocol::{PluginIdentity, PluginSignature, RegisteredPlugin};
+
 static ROOT: LazyLock<PathBuf> = LazyLock::new(|| {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
@@ -32,8 +38,8 @@ static INITIAL_ENGINE_STATES: KeyedLazyLock<GroupKey, EngineState> = KeyedLazyLo
     // Some modules below are commented out because they don't depend on nu-test-support
     // Copied from `nu::command_context::add_command_context`
     let engine_state = nu_cmd_lang::create_default_context();
-    // #[cfg(feature = "plugin")]
-    // let engine_state = nu_cmd_plugin::add_plugin_command_context(engine_state);
+    #[cfg(feature = "plugin")]
+    let engine_state = nu_cmd_plugin::add_plugin_command_context(engine_state);
     let engine_state = nu_command::add_shell_command_context(engine_state);
     let engine_state = nu_cmd_extra::add_extra_command_context(engine_state);
     #[cfg(feature = "os")]
@@ -47,6 +53,7 @@ static INITIAL_ENGINE_STATES: KeyedLazyLock<GroupKey, EngineState> = KeyedLazyLo
     [
         ("PWD", Value::test_string(ROOT.to_string_lossy())),
         ("config", Config::default().into_value(Span::unknown())),
+        ("NO_COLOR", Value::test_bool(true)),
     ]
     .into_iter()
     .for_each(|(key, val)| engine_state.add_env_var(key.into(), val));
@@ -55,6 +62,24 @@ static INITIAL_ENGINE_STATES: KeyedLazyLock<GroupKey, EngineState> = KeyedLazyLo
 
     engine_state
 });
+
+/// Plugin auto loader for [`PLUGIN_AUTO_LOAD`].
+#[cfg(feature = "plugin")]
+#[derive(Debug, Clone)]
+pub struct PluginAutoLoader {
+    pub identity: Arc<PluginIdentity>,
+    pub plugin: Option<Arc<PersistentPlugin>>,
+    pub signatures: Option<Arc<[PluginSignature]>>,
+}
+
+thread_local! {
+    /// Paths to be loaded into the PATH env variable of a [`NuTester`].
+    pub static PATH_ENV_AUTO_LOAD: RefCell<Vec<PathBuf>> = const { RefCell::new(Vec::new()) };
+
+    /// Plugins to be automatically loaded into a [`NuTester`].
+    #[cfg(feature = "plugin")]
+    pub static PLUGIN_AUTO_LOAD: RefCell<Vec<PluginAutoLoader>> = const { RefCell::new(Vec::new()) };
+}
 
 /// Create a [`NuTester`] for running Nushell snippets in tests.
 ///
@@ -78,6 +103,19 @@ static INITIAL_ENGINE_STATES: KeyedLazyLock<GroupKey, EngineState> = KeyedLazyLo
 ///   [`NuTester::env`] (or convenience helpers like [`NuTester::locale`]).
 /// - Experimental options and other external environment settings are respected
 ///   when constructing the underlying engine state for the current test group.
+///
+/// # Auto loaders
+///
+/// The `*_AUTO_LOAD` statics automatically prepare the test [`EngineState`].
+/// [`PATH_ENV_AUTO_LOAD`] loads paths into the tester's `PATH` environment variable,
+/// allowing binaries to be found without manually adding them in each [`test()`].
+#[cfg_attr(feature = "plugin", doc = "[`PLUGIN_AUTO_LOAD`]")]
+#[cfg_attr(not(feature = "plugin"), doc = "`PLUGIN_AUTO_LOAD`")]
+/// loads plugins into the tester so they can be called during tests.
+///
+/// Both statics are [thread locals](`thread_local`), allowing multiple `NuTester` instances
+/// to run on different threads with different auto-loaded data.
+/// Make sure to load the appropriate auto-loader for each test function.
 ///
 /// # Examples
 ///
@@ -107,7 +145,17 @@ static INITIAL_ENGINE_STATES: KeyedLazyLock<GroupKey, EngineState> = KeyedLazyLo
 /// # Ok::<(), nu_test_support::tester::TestError>(())
 /// ```
 pub fn test() -> NuTester {
-    NuTester::default()
+    let tester = NuTester {
+        engine_state: INITIAL_ENGINE_STATES.get(&GroupKey::current()).clone(),
+        stack: Stack::new().collect_value(),
+    };
+
+    let tester = PATH_ENV_AUTO_LOAD.with_borrow(|paths| tester.append_path(paths));
+
+    #[cfg(feature = "plugin")]
+    let tester = tester.auto_load_plugins();
+
+    tester
 }
 
 /// Helper for running Nushell code in tests.
@@ -126,10 +174,92 @@ impl Default for NuTester {
     ///
     /// Prefer [`test()`] for a shorter entry point that avoids naming [`NuTester`].
     fn default() -> Self {
-        Self {
-            engine_state: INITIAL_ENGINE_STATES.get(&GroupKey::current()).clone(),
-            stack: Stack::new().collect_value(),
-        }
+        test()
+    }
+}
+
+#[cfg(feature = "plugin")]
+impl NuTester {
+    /// Load the plugins from [`PLUGIN_AUTO_LOAD`] into the [`NuTester`].
+    ///
+    /// Called in [`test`], do not call somewhere else again.
+    fn auto_load_plugins(self) -> Self {
+        PLUGIN_AUTO_LOAD.with_borrow(|auto_loaders| {
+            let mut tester = self;
+            if auto_loaders.is_empty() {
+                return tester;
+            }
+
+            let mut working_set = StateWorkingSet::new(&tester.engine_state);
+            for auto_loader in auto_loaders {
+                let plugin = working_set.find_or_create_plugin(&auto_loader.identity, || {
+                    auto_loader
+                        .plugin
+                        .as_ref()
+                        .map(|plugin| plugin.clone())
+                        .unwrap_or_else(|| {
+                            Arc::new(PersistentPlugin::new(
+                                (*auto_loader.identity).clone(),
+                                Default::default(),
+                            ))
+                        })
+                });
+
+                let plugin: Arc<PersistentPlugin> = plugin
+                    .as_any()
+                    .downcast()
+                    .expect("could not downcast to persistent plugin");
+
+                // if preloaded by our test harness, we don't need to construct a plugin
+                // interface here
+                let mut interface = None;
+
+                // our test harness also sets metadata, so we don't have to do again
+                if plugin.metadata().is_none() {
+                    let interface = interface.get_or_insert_with(|| {
+                        plugin
+                            .clone()
+                            .get_plugin(None)
+                            .expect("could not get plugin")
+                    });
+
+                    plugin.set_metadata(Some(
+                        interface
+                            .get_metadata()
+                            .expect("could not get plugin metadata"),
+                    ));
+                }
+
+                // our test harness also preloads signatures, assuming they don't change
+                let signatures = auto_loader
+                    .signatures
+                    .as_deref()
+                    .map(|signatures| signatures.to_owned())
+                    .unwrap_or_else(|| {
+                        let interface = interface.get_or_insert_with(|| {
+                            plugin
+                                .clone()
+                                .get_plugin(None)
+                                .expect("could not get plugin")
+                        });
+                        interface
+                            .get_signature()
+                            .expect("could not get plugin signatures")
+                    });
+
+                for signature in signatures {
+                    let decl = PluginDeclaration::new(plugin.clone(), signature);
+                    working_set.add_decl(Box::new(decl));
+                }
+            }
+
+            tester
+                .engine_state
+                .merge_delta(working_set.render())
+                .expect("could not merge plugin working set");
+
+            tester
+        })
     }
 }
 
@@ -138,7 +268,7 @@ impl NuTester {
     ///
     /// Prefer [`test()`] for a shorter entry point that avoids naming [`NuTester`].
     pub fn new() -> Self {
-        Self::default()
+        test()
     }
 
     /// Set the working directory used for evaluation.
@@ -174,7 +304,44 @@ impl NuTester {
         self.locale("en_US.utf8")
     }
 
-    /// Inherit the `PATH` environment variable from the running process.
+    /// Get the current path env.
+    fn path(&self) -> Vec<Value> {
+        match self.engine_state.get_env_var("PATH") {
+            None => Vec::new(),
+            Some(Value::List { vals, .. }) => vals.clone(),
+            Some(Value::String { val, .. }) => val
+                .split(ENV_PATH_SEPARATOR_CHAR)
+                .map(Value::test_string)
+                .collect(),
+            Some(v) => panic!("PATH is neither a list nor a string, is {}", v.get_type()),
+        }
+    }
+
+    /// Prepend entries to the PATH.
+    pub fn prepend_path(self, entries: impl IntoIterator<Item = impl AsRef<Path>>) -> Self {
+        let path = entries
+            .into_iter()
+            .map(|item| Value::test_string(item.as_ref().to_string_lossy()))
+            .chain(self.path())
+            .collect();
+        self.env("PATH", Value::test_list(path))
+    }
+
+    /// Append entries to the PATH.
+    pub fn append_path(self, entries: impl IntoIterator<Item = impl AsRef<Path>>) -> Self {
+        let path = self
+            .path()
+            .into_iter()
+            .chain(
+                entries
+                    .into_iter()
+                    .map(|item| Value::test_string(item.as_ref().to_string_lossy())),
+            )
+            .collect();
+        self.env("PATH", Value::test_list(path))
+    }
+
+    /// Inherit the `PATH` environment variable from the running process by appending it.
     ///
     /// This is useful for tests that spawn external commands and should resolve
     /// binaries the same way as the parent test process.
@@ -182,7 +349,7 @@ impl NuTester {
     /// Panics if `PATH` is not set in the current process environment.
     pub fn inherit_path(self) -> Self {
         let path = env::var("PATH").expect("PATH not available in env");
-        self.env("PATH", path)
+        self.append_path(path.split(ENV_PATH_SEPARATOR_CHAR))
     }
 
     /// Inherit an environment variable from the running process, but only if it is set.
@@ -219,7 +386,8 @@ impl NuTester {
     /// This does not guarantee identical behavior to an interactive shell since the
     /// current working directory can still affect rustup toolchain resolution.
     pub fn inherit_rust_toolchain_env(self) -> Self {
-        self.inherit_env_if_set("PATH")
+        self.inherit_path()
+            .inherit_env_if_set("PATH")
             .inherit_env_if_set("CARGO_HOME")
             .inherit_env_if_set("RUSTUP_HOME")
             .inherit_env_if_set("RUSTUP_TOOLCHAIN")
@@ -236,6 +404,7 @@ impl NuTester {
     /// Adds the "nu" binary for testing to the path.
     ///
     /// Calling [`inherit_path`](Self::inherit_path) after this methods removes the path entry.
+    #[deprecated(note = "use `#[deps(NU)]` instead")]
     pub fn add_nu_to_path(self) -> Self {
         let nu_home = crate::fs::binaries();
         let path = self.engine_state.get_env_var("PATH");
@@ -252,9 +421,9 @@ impl NuTester {
     }
 
     /// Add a custom environment variable to the engine state.
-    pub fn env(mut self, key: impl Into<String>, val: impl Into<String>) -> Self {
+    pub fn env(mut self, key: impl Into<String>, val: impl IntoValue) -> Self {
         self.engine_state
-            .add_env_var(key.into(), Value::test_string(val.into()));
+            .add_env_var(key.into(), val.into_value(Span::test_data()));
         self
     }
 

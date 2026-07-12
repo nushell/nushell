@@ -93,7 +93,7 @@ fn parse_unknown_arg(
         .map(|arg| arg.shape.clone())
         .unwrap_or(SyntaxShape::Any);
 
-    crate::parser::parse_value(working_set, span, &shape)
+    crate::parser::parse_value(working_set, span, &shape, None)
 }
 
 fn parse_external_string(working_set: &mut StateWorkingSet, span: Span) -> Expression {
@@ -326,6 +326,7 @@ fn parse_external_arg(working_set: &mut StateWorkingSet, span: Span) -> External
             working_set,
             span,
             &SyntaxShape::List(Box::new(SyntaxShape::Any)),
+            None,
         ))
     } else {
         ExternalArgument::Regular(parse_regular_external_arg(working_set, span))
@@ -337,7 +338,7 @@ pub(crate) fn parse_regular_external_arg(
     span: Span,
 ) -> Expression {
     match working_set.get_span_contents(span) {
-        [b'$', ..] => crate::parser::parse_dollar_expr(working_set, span, &SyntaxShape::Any),
+        [b'$', ..] => crate::parser::parse_dollar_expr(working_set, span, &SyntaxShape::Any, None),
         [b'(', ..] => crate::parser::parse_paren_expr(working_set, span, &SyntaxShape::Any),
         [b'[', ..] => crate::parser::parse_list_expression(working_set, span, &SyntaxShape::Any),
         _ => parse_external_string(working_set, span),
@@ -448,7 +449,7 @@ fn parse_long_flag(
                         let mut span = arg_span;
                         span.start += long_name_len + 3; //offset by long flag and '='
 
-                        let arg = crate::parser::parse_value(working_set, span, arg_shape);
+                        let arg = crate::parser::parse_value(working_set, span, arg_shape, None);
                         let (arg_name, val_expression) = ensure_flag_arg_type(
                             working_set,
                             long_name,
@@ -458,7 +459,7 @@ fn parse_long_flag(
                         );
                         LongFlagParseResult::FoundFlag(arg_name, Some(val_expression))
                     } else if let Some(arg) = spans.get(*spans_idx + 1) {
-                        let arg = crate::parser::parse_value(working_set, *arg, arg_shape);
+                        let arg = crate::parser::parse_value(working_set, *arg, arg_shape, None);
 
                         *spans_idx += 1;
                         let (arg_name, val_expression) =
@@ -488,8 +489,12 @@ fn parse_long_flag(
                         let mut span = arg_span;
                         span.start += long_name_len + 3; //offset by long flag and '='
 
-                        let arg =
-                            crate::parser::parse_value(working_set, span, &SyntaxShape::Boolean);
+                        let arg = crate::parser::parse_value(
+                            working_set,
+                            span,
+                            &SyntaxShape::Boolean,
+                            None,
+                        );
 
                         let (arg_name, val_expression) = ensure_flag_arg_type(
                             working_set,
@@ -542,6 +547,15 @@ fn parse_long_flag(
     }
 }
 
+/// Check if a syntax shape can accept a negative number (for distinguishing short flags from
+/// negative numeric arguments like `-1`).
+fn shape_allows_negative_number(shape: &SyntaxShape) -> bool {
+    matches!(
+        shape,
+        SyntaxShape::Int | SyntaxShape::Number | SyntaxShape::Float
+    ) || matches!(shape, SyntaxShape::OneOf(shapes) if shapes.iter().any(shape_allows_negative_number))
+}
+
 fn parse_short_flags(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
@@ -579,13 +593,9 @@ fn parse_short_flags(
 
             if found_short_flags.is_empty()
                 // check to see if we have a negative number
-                && matches!(
-                    sig.get_positional(positional_idx),
-                    Some(PositionalArg {
-                        shape: SyntaxShape::Int | SyntaxShape::Number | SyntaxShape::Float,
-                        ..
-                    })
-                )
+                && sig
+                    .get_positional(positional_idx)
+                    .is_some_and(|p| shape_allows_negative_number(&p.shape))
                 && String::from_utf8_lossy(working_set.get_span_contents(arg_span))
                     .parse::<f64>()
                     .is_ok()
@@ -682,6 +692,7 @@ pub(crate) fn parse_oneof(
     spans_idx: &mut usize,
     possible_shapes: &Vec<SyntaxShape>,
     multispan: bool,
+    input_type: Option<&Type>,
 ) -> Expression {
     let starting_spans_idx = *spans_idx;
     let mut best_guess = None;
@@ -692,8 +703,8 @@ pub(crate) fn parse_oneof(
         let starting_error_count = working_set.parse_errors.len();
         *spans_idx = starting_spans_idx;
         let value = match multispan {
-            true => parse_multispan_value(working_set, spans, spans_idx, shape),
-            false => crate::parser::parse_value(working_set, spans[*spans_idx], shape),
+            true => parse_multispan_value(working_set, spans, spans_idx, shape, input_type),
+            false => crate::parser::parse_value(working_set, spans[*spans_idx], shape, input_type),
         };
 
         let new_errors = &working_set.parse_errors[starting_error_count..];
@@ -742,13 +753,15 @@ pub fn parse_multispan_value(
     spans: &[Span],
     spans_idx: &mut usize,
     shape: &SyntaxShape,
+    input_type: Option<&Type>,
 ) -> Expression {
     trace!("parse multispan value");
     match shape {
         SyntaxShape::VarWithOptType => {
             trace!("parsing: var with opt type");
 
-            crate::parser::parse_var_with_opt_type(working_set, spans, spans_idx, false).0
+            crate::parser::parse_var_with_opt_type(working_set, spans, spans_idx, false, input_type)
+                .0
         }
         SyntaxShape::RowCondition => {
             trace!("parsing: row condition");
@@ -760,21 +773,32 @@ pub fn parse_multispan_value(
         SyntaxShape::MathExpression => {
             trace!("parsing: math expression");
 
-            let arg = crate::parser::parse_math_expression(working_set, &spans[*spans_idx..], None);
+            let arg = crate::parser::parse_math_expression(
+                working_set,
+                &spans[*spans_idx..],
+                None,
+                input_type,
+            );
             *spans_idx = spans.len() - 1;
 
             arg
         }
-        SyntaxShape::OneOf(possible_shapes) => {
-            parse_oneof(working_set, spans, spans_idx, possible_shapes, true)
-        }
+        SyntaxShape::OneOf(possible_shapes) => parse_oneof(
+            working_set,
+            spans,
+            spans_idx,
+            possible_shapes,
+            true,
+            input_type,
+        ),
 
         SyntaxShape::Expression => {
             trace!("parsing: expression");
 
             // is it subexpression?
             // Not sure, but let's make it not, so the behavior is the same as previous version of nushell.
-            let arg = crate::parser::parse_expression(working_set, &spans[*spans_idx..], None);
+            let arg =
+                crate::parser::parse_expression(working_set, &spans[*spans_idx..], input_type);
             *spans_idx = spans.len().saturating_sub(1);
 
             arg
@@ -839,7 +863,7 @@ pub fn parse_multispan_value(
             let keyword = Keyword {
                 keyword: keyword.as_slice().into(),
                 span: spans[*spans_idx - 1],
-                expr: parse_multispan_value(working_set, spans, spans_idx, arg),
+                expr: parse_multispan_value(working_set, spans, spans_idx, arg, input_type),
             };
 
             Expression::new(
@@ -853,7 +877,7 @@ pub fn parse_multispan_value(
             // All other cases are single-span values
             let arg_span = spans[*spans_idx];
 
-            crate::parser::parse_value(working_set, arg_span, shape)
+            crate::parser::parse_value(working_set, arg_span, shape, input_type)
         }
     }
 }
@@ -882,7 +906,7 @@ pub fn parse_internal_call(
     spans: &[Span],
     decl_id: DeclId,
     arg_parsing_level: ArgumentParsingLevel,
-    input_type: Option<Type>,
+    input_type: Option<&Type>,
 ) -> ParsedInternalCall {
     trace!("parsing: internal call (decl id: {})", decl_id.get());
 
@@ -893,6 +917,31 @@ pub fn parse_internal_call(
 
     let decl = working_set.get_decl(decl_id);
     let signature = working_set.get_signature(decl);
+
+    enum SpecialCmd {
+        Let,
+        Def,
+        Match,
+        If,
+    }
+
+    impl SpecialCmd {
+        fn from_str(s: &str) -> Option<Self> {
+            Some(match s {
+                "let" => Self::Let,
+                "def" => Self::Def,
+                "match" => Self::Match,
+                "if" => Self::If,
+                _ => return None,
+            })
+        }
+    }
+
+    let special_cmd = decl
+        .is_keyword()
+        .then(|| decl.name())
+        .and_then(SpecialCmd::from_str);
+
     // TODO: Throw an actual error here, instead of leaning on later type checking code
     //
     // `Type::Nothing` is added to inputs to allow uses like:
@@ -901,8 +950,18 @@ pub fn parse_internal_call(
     // Incorrect behavior this may cause will be handled by
     // `check_pipeline_type` in crates/nu-parser/src/type_check.rs
     let output = signature
-        .get_output_type(input_type.map(|ty| ty.union(Type::Nothing)))
+        .get_output_type(
+            input_type
+                .map(|ty| ty.clone().union(Type::Nothing))
+                .as_ref(),
+        )
         .unwrap_or(Type::Error);
+
+    // This is necessary for some keywords to have proper expression types.
+    // `2 | let x | let y`
+    // - `$x` should be `int`
+    // - `$y` should also be `int`, but for that `let x` as an expression must have the type `int`
+    let mut output_override = None;
 
     let deprecation = decl.deprecation_info();
 
@@ -1053,7 +1112,8 @@ pub fn parse_internal_call(
 
                         if let Some(arg_shape) = flag.arg {
                             if let Some(arg) = spans.get(spans_idx + 1) {
-                                let arg = crate::parser::parse_value(working_set, *arg, &arg_shape);
+                                let arg =
+                                    crate::parser::parse_value(working_set, *arg, &arg_shape, None);
                                 let (arg_name, val_expression) = ensure_flag_arg_type(
                                     working_set,
                                     flag.long.clone(),
@@ -1160,6 +1220,7 @@ pub fn parse_internal_call(
                         working_set,
                         spread_arg_span,
                         &SyntaxShape::List(Box::new(rest_shape)),
+                        None,
                     );
 
                     call.add_spread(args);
@@ -1214,12 +1275,124 @@ pub fn parse_internal_call(
                 ArgumentParsingLevel::FirstK { k } if k <= positional_idx => {
                     Expression::garbage(working_set, spans[spans_idx])
                 }
-                _ => parse_multispan_value(
-                    working_set,
-                    &spans[..end],
-                    &mut spans_idx,
-                    &positional.shape,
-                ),
+                _ => {
+                    let input_type: Option<Type> = match special_cmd {
+                        // `let` can assigned from pipeline input, input type is necessary to infer
+                        // the variable's type correctly
+                        Some(SpecialCmd::Let)
+                            if let SyntaxShape::VarWithOptType = &positional.shape =>
+                        {
+                            output_override = input_type.cloned();
+                            input_type.cloned()
+                        }
+                        // in a def block, the pipeline input type should be inferred based on the
+                        // command input-output signature
+                        Some(SpecialCmd::Def) if &positional.name == "block" => {
+                            // if we're parsing the `block`, the previous item is the signature
+                            match call.arguments.last() {
+                                Some(Argument::Positional(Expression {
+                                    expr: Expr::Signature(sig),
+                                    ..
+                                })) => Some(sig.get_input_type()),
+                                _ => None,
+                            }
+                        }
+                        Some(SpecialCmd::If) if positional_idx >= 1 => input_type.cloned(),
+                        Some(SpecialCmd::Match) if &positional.name == "match_block" => {
+                            input_type.cloned()
+                        }
+                        _ => None,
+                    };
+
+                    // HACK: `def` block parameter is of type `closure`, which is wrong.
+                    // However, that's used to make sure `def` blocks don't capture mutable
+                    // variables. (Which is also a HACK)
+                    //
+                    // Closure bodies do not get pipeline input type, but `def` bodies should.
+                    // Thus, we work around the mentioned hack with another one here.
+                    //
+                    // This is of course unideal, but it's the way to go to fix the issue without a
+                    // big refactor, which could neither be done in time for the 0.114.1 patch
+                    // release, nor would it be appropriate to include in a patch release.
+                    let expr = match special_cmd {
+                        Some(SpecialCmd::Def) if &positional.name == "block" => {
+                            let starting_error_count = working_set.parse_errors.len();
+
+                            let out = crate::parse_expressions::parse_closure_expression(
+                                working_set,
+                                &positional.shape,
+                                spans[spans_idx],
+                                input_type.as_ref(),
+                            );
+
+                            if let Expr::Closure(_) = out.expr {
+                                out
+                            } else {
+                                // on failure, we fallback to the normal code path to keep errors
+                                // the same as before this hack
+                                working_set.parse_errors.truncate(starting_error_count);
+                                parse_multispan_value(
+                                    working_set,
+                                    &spans[..end],
+                                    &mut spans_idx,
+                                    &positional.shape,
+                                    input_type.as_ref(),
+                                )
+                            }
+                        }
+                        _ => parse_multispan_value(
+                            working_set,
+                            &spans[..end],
+                            &mut spans_idx,
+                            &positional.shape,
+                            input_type.as_ref(),
+                        ),
+                    };
+
+                    match special_cmd {
+                        Some(SpecialCmd::Match) if &positional.name == "match_block" => {
+                            output_override = Some(expr.ty.clone());
+                        }
+                        Some(SpecialCmd::If)
+                            if positional_idx == 1
+                                && let Expr::Block(block_id) = &expr.expr =>
+                        {
+                            let block = working_set.get_block(*block_id);
+                            let ty = match block.pipelines.is_empty() {
+                                false => block.output_type(),
+                                true => input_type.unwrap_or(Type::Any),
+                            };
+
+                            output_override = Some(match output_override {
+                                Some(existing_ty) => existing_ty.union(ty),
+                                None => ty,
+                            });
+                        }
+                        Some(SpecialCmd::If)
+                            if positional_idx == 2
+                                && let Expr::Keyword(kw) = &expr.expr =>
+                        {
+                            let ty = match &kw.expr.expr {
+                                Expr::Block(block_id) => {
+                                    let block = working_set.get_block(*block_id);
+                                    match block.pipelines.is_empty() {
+                                        false => block.output_type(),
+                                        true => input_type.unwrap_or(Type::Any),
+                                    }
+                                }
+                                _ => kw.expr.ty.clone(),
+                            };
+
+                            output_override = Some(match output_override {
+                                Some(existing_ty) => existing_ty.union(ty),
+                                None => ty,
+                            });
+                        }
+                        _ => {}
+                    };
+
+                    expr
+                }
             };
 
             // HACK: try-catch's signature defines the catch block as a Closure, even though it's
@@ -1288,6 +1461,16 @@ pub fn parse_internal_call(
         working_set.exit_scope();
     }
 
+    match special_cmd {
+        // Not having an else branch means the output can be `nothing`
+        Some(SpecialCmd::If) if call.arguments.len() < 3 => {
+            output_override = output_override.map(|ty| ty.union(Type::Nothing))
+        }
+        _ => {}
+    }
+
+    let output = output_override.unwrap_or(output);
+
     ParsedInternalCall {
         call: Box::new(call),
         output,
@@ -1299,7 +1482,7 @@ pub fn parse_call(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
     head: Span,
-    input_type: Option<Type>,
+    input_type: Option<&Type>,
 ) -> Expression {
     trace!("parsing: call");
     let call_span = Span::concat(spans);
@@ -1379,11 +1562,12 @@ pub fn parse_call(
                         working_set,
                         arg_span,
                         &SyntaxShape::List(Box::new(SyntaxShape::Any)),
+                        None,
                     );
                     call.arguments.push(Argument::Spread(spread_expr));
                 } else {
                     let arg_expr =
-                        crate::parser::parse_value(working_set, *arg_span, &SyntaxShape::Any);
+                        crate::parser::parse_value(working_set, *arg_span, &SyntaxShape::Any, None);
                     call.arguments.push(Argument::Positional(arg_expr));
                 }
             }

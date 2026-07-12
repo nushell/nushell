@@ -22,7 +22,7 @@ harness = false
 nu-cmd-lang = { workspace = true, features = ["os"] }
 nu-command = { workspace = true, features = ["os"] }
 nu-std.workspace = true
-nu-test-support = { path = "../nu-test-support" }
+nu-test-support = { path = "../nu-test-support", features = ["os"] }
 rstest = { workspace = true, default-features = false }
 tempfile = { workspace = true }
 

@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 mod casing;
+pub mod const_str;
 pub mod consts;
 pub mod container;
 mod deansi;

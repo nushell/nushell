@@ -4,9 +4,9 @@ use nu_path::{dots::expand_ndots_safe, expand_path, expand_path_with, expand_til
 #[cfg(feature = "os")]
 use nu_protocol::process::check_exit_status_future;
 use nu_protocol::{
-    CompareTypes, DeclId, ENV_VARIABLE_ID, Flag, IntoPipelineData, IntoSpanned, ListStream,
-    OutDest, PipelineData, PipelineExecutionData, PositionalArg, Range, Record, RegId, ShellError,
-    Signals, Signature, Span, Spanned, Type, Value, VarId,
+    CompareTypes, DeclId, ENV_VARIABLE_ID, Flag, IntoPipelineData, IntoSpanned, LabeledError,
+    ListStream, OutDest, PipelineData, PipelineExecutionData, PositionalArg, Range, Record, RegId,
+    ShellError, Signals, Signature, Span, Spanned, Type, Value, VarId,
     ast::{Bits, Block, Boolean, CellPath, Comparison, Math, Operator},
     combined_type_string,
     debugger::DebugContext,
@@ -472,7 +472,7 @@ fn eval_instruction<D: DebugContext>(
             // Perform runtime type checking and conversion for variable assignment
             if nu_experimental::ENFORCE_RUNTIME_ANNOTATIONS.get() {
                 let variable = ctx.engine_state.get_var(*var_id);
-                let converted_value = check_assignment_type(value, &variable.ty)?;
+                let converted_value = check_assignment_type(value, &variable.ty, *span)?;
                 ctx.stack.add_var(*var_id, converted_value);
             } else {
                 ctx.stack.add_var(*var_id, value);
@@ -1522,7 +1522,7 @@ fn gather_arguments(
 fn check_type(val: &Value, ty: &Type) -> Result<(), ShellError> {
     match val {
         Value::Error { error, .. } => Err(*error.clone()),
-        _ if val.is_subtype_of(ty) => Ok(()),
+        _ if val.is_assignable_to(ty) => Ok(()),
         _ => Err(ShellError::CantConvert {
             to_type: ty.to_string(),
             from_type: val.get_type().to_string(),
@@ -1533,16 +1533,35 @@ fn check_type(val: &Value, ty: &Type) -> Result<(), ShellError> {
 }
 
 /// Type check and convert value for assignment.
-fn check_assignment_type(val: Value, target_ty: &Type) -> Result<Value, ShellError> {
+fn check_assignment_type(
+    val: Value,
+    target_ty: &Type,
+    assignment_span: Span,
+) -> Result<Value, ShellError> {
     match val {
         Value::Error { error, .. } => Err(*error),
-        _ if val.is_subtype_of(target_ty) => Ok(val), // No conversion needed, but compatible
-        _ => Err(ShellError::CantConvert {
-            to_type: target_ty.to_string(),
-            from_type: val.get_type().to_string(),
-            span: val.span(),
-            help: None,
-        }),
+        _ if val.is_assignable_to(target_ty) => Ok(val), // No conversion needed, but compatible
+        _ => {
+            let expected = target_ty.to_string();
+            let actual = val.get_type().to_string();
+
+            let mut err = LabeledError::new("Type mismatch.");
+            err = err.with_code("nu::shell::type_mismatch");
+
+            // Some values, like `$env.CMD_DURATION_MS`, are generated internally and don't have
+            // spans that are relevant to users.
+            // We avoid incorrect error labels by checking for that here.
+            if !(val.span() == Span::unknown() || val.span() == Span::test_data()) {
+                err = err.with_label(format!("the value is a {actual}"), val.span());
+            }
+
+            err = err.with_label(
+                format!("expected {expected}, got {actual}"),
+                assignment_span,
+            );
+
+            Err(ShellError::LabeledError(err.into()))
+        }
     }
 }
 

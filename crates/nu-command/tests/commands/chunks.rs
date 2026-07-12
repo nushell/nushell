@@ -22,7 +22,7 @@ fn chunk_size_zero() -> Result {
 #[test]
 fn chunk_size_not_int() -> Result {
     let err = test()
-        .run("[0 1 2] | chunks (if true { 1sec })")
+        .run("[0 1 2] | chunks (echo 1sec)")
         .expect_shell_error()?;
     assert!(matches!(err, ShellError::CantConvert { .. }));
     Ok(())

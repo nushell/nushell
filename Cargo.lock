@@ -1489,18 +1489,18 @@ dependencies = [
 
 [[package]]
 name = "crossbeam-channel"
-version = "0.5.15"
+version = "0.5.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "82b8f8f868b36967f9606790d1903570de9ceaf870a7bf9fbbd3016d636a2cb2"
+checksum = "d85363c37faeca707aef026efa9f3b34d077bce547e48f770770625c6013679e"
 dependencies = [
  "crossbeam-utils",
 ]
 
 [[package]]
 name = "crossbeam-deque"
-version = "0.8.6"
+version = "0.8.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9dd111b7b7f7d55b72c0a6ae361660ee5853c9af73f70c3c2ef6858b950e2e51"
+checksum = "5181e0de7b61eb03a81e347d6dd8797bae9da5146707b51077e2d71a54ec0ceb"
 dependencies = [
  "crossbeam-epoch",
  "crossbeam-utils",
@@ -1508,27 +1508,27 @@ dependencies = [
 
 [[package]]
 name = "crossbeam-epoch"
-version = "0.9.18"
+version = "0.9.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b82ac4a3c2ca9c3460964f020e1402edd5753411d7737aa39c3714ad1b5420e"
+checksum = "2d6914041f254d6e9176c01941b21115dcfb7089e55135a35411081bd106ef3f"
 dependencies = [
  "crossbeam-utils",
 ]
 
 [[package]]
 name = "crossbeam-queue"
-version = "0.3.12"
+version = "0.3.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0f58bbc28f91df819d0aa2a2c00cd19754769c2fad90579b3592b1c9ba7a3115"
+checksum = "803d13fb3b09d88be9f4dbc29062c66b19bf7170867ceb746d2a8689bf6c7a26"
 dependencies = [
  "crossbeam-utils",
 ]
 
 [[package]]
 name = "crossbeam-utils"
-version = "0.8.21"
+version = "0.8.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d0a5c400df2834b80a4c3327b3aad3a4c4cd4de0629063962b03235697506a28"
+checksum = "61803da095bee82a81bb1a452ecc25d3b2f1416d1897eb86430c6159ef717c17"
 
 [[package]]
 name = "crossterm"
@@ -3984,9 +3984,9 @@ dependencies = [
 
 [[package]]
 name = "lsp-server"
-version = "0.7.9"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d6ada348dbc2703cbe7637b2dda05cff84d3da2819c24abcb305dd613e0ba2e"
+checksum = "0ad8be6fe0ca81b8298bfbbe8a77e9fcd8895ad6c84cd7794d5ebadcbb09ae43"
 dependencies = [
  "crossbeam-channel",
  "log",
@@ -4461,7 +4461,7 @@ dependencies = [
 
 [[package]]
 name = "nu"
-version = "0.113.2"
+version = "0.114.2"
 dependencies = [
  "assert_cmd",
  "crossterm",
@@ -4519,7 +4519,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cli"
-version = "0.113.2"
+version = "0.114.2"
 dependencies = [
  "chrono",
  "crossterm",
@@ -4557,7 +4557,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-base"
-version = "0.113.2"
+version = "0.114.2"
 dependencies = [
  "indexmap 2.14.0",
  "miette",
@@ -4569,7 +4569,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-extra"
-version = "0.113.2"
+version = "0.114.2"
 dependencies = [
  "fancy-regex",
  "heck",
@@ -4597,7 +4597,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-lang"
-version = "0.113.2"
+version = "0.114.2"
 dependencies = [
  "itertools 0.15.0",
  "miette",
@@ -4616,7 +4616,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-plugin"
-version = "0.113.2"
+version = "0.114.2"
 dependencies = [
  "itertools 0.15.0",
  "nu-engine",
@@ -4627,7 +4627,7 @@ dependencies = [
 
 [[package]]
 name = "nu-color-config"
-version = "0.113.2"
+version = "0.114.2"
 dependencies = [
  "nu-ansi-term",
  "nu-engine",
@@ -4639,7 +4639,7 @@ dependencies = [
 
 [[package]]
 name = "nu-command"
-version = "0.113.2"
+version = "0.114.2"
 dependencies = [
  "aegis-password-generator",
  "alphanumeric-sort",
@@ -4718,7 +4718,7 @@ dependencies = [
  "pretty_assertions",
  "print-positions",
  "procfs",
- "quick-xml 0.40.1",
+ "quick-xml 0.41.0",
  "rand 0.10.1",
  "rand_chacha 0.10.0",
  "rayon",
@@ -4731,6 +4731,7 @@ dependencies = [
  "rustls",
  "rustls-native-certs",
  "scopeguard",
+ "semver",
  "serde",
  "serde_json",
  "serde_urlencoded",
@@ -4743,6 +4744,7 @@ dependencies = [
  "toml",
  "toml_edit",
  "trash",
+ "typetag",
  "umask",
  "unicode-segmentation",
  "unicode-width 0.2.2",
@@ -4770,7 +4772,7 @@ dependencies = [
 
 [[package]]
 name = "nu-derive-value"
-version = "0.113.2"
+version = "0.114.2"
 dependencies = [
  "heck",
  "proc-macro-error2",
@@ -4781,7 +4783,7 @@ dependencies = [
 
 [[package]]
 name = "nu-engine"
-version = "0.113.2"
+version = "0.114.2"
 dependencies = [
  "fancy-regex",
  "log",
@@ -4795,7 +4797,7 @@ dependencies = [
 
 [[package]]
 name = "nu-experimental"
-version = "0.113.2"
+version = "0.114.2"
 dependencies = [
  "itertools 0.15.0",
  "thiserror 2.0.18",
@@ -4803,7 +4805,7 @@ dependencies = [
 
 [[package]]
 name = "nu-explore"
-version = "0.113.2"
+version = "0.114.2"
 dependencies = [
  "ansi-str",
  "anyhow",
@@ -4832,7 +4834,7 @@ dependencies = [
 
 [[package]]
 name = "nu-glob"
-version = "0.113.2"
+version = "0.114.2"
 dependencies = [
  "anyhow",
  "doc-comment",
@@ -4843,7 +4845,7 @@ dependencies = [
 
 [[package]]
 name = "nu-heavy-utils"
-version = "0.113.2"
+version = "0.114.2"
 dependencies = [
  "base64",
  "better_default",
@@ -4865,7 +4867,7 @@ dependencies = [
 
 [[package]]
 name = "nu-json"
-version = "0.113.2"
+version = "0.114.2"
 dependencies = [
  "fancy-regex",
  "linked-hash-map",
@@ -4882,7 +4884,7 @@ dependencies = [
 
 [[package]]
 name = "nu-lsp"
-version = "0.113.2"
+version = "0.114.2"
 dependencies = [
  "assert-json-diff",
  "crossbeam-channel",
@@ -4912,7 +4914,7 @@ dependencies = [
 
 [[package]]
 name = "nu-mcp"
-version = "0.113.2"
+version = "0.114.2"
 dependencies = [
  "bytes",
  "chrono",
@@ -4923,6 +4925,7 @@ dependencies = [
  "nix 0.31.3",
  "nu-cmd-lang",
  "nu-engine",
+ "nu-json",
  "nu-parser",
  "nu-protocol",
  "nuon",
@@ -4938,7 +4941,7 @@ dependencies = [
 
 [[package]]
 name = "nu-parser"
-version = "0.113.2"
+version = "0.114.2"
 dependencies = [
  "bytesize",
  "chrono",
@@ -4951,12 +4954,13 @@ dependencies = [
  "nu-protocol",
  "nu-utils",
  "rstest",
+ "semver",
  "serde_json",
 ]
 
 [[package]]
 name = "nu-path"
-version = "0.113.2"
+version = "0.114.2"
 dependencies = [
  "dirs 6.0.0",
  "omnipath",
@@ -4966,7 +4970,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin"
-version = "0.113.2"
+version = "0.114.2"
 dependencies = [
  "log",
  "nix 0.31.3",
@@ -4982,7 +4986,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin-core"
-version = "0.113.2"
+version = "0.114.2"
 dependencies = [
  "interprocess",
  "log",
@@ -4997,7 +5001,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin-engine"
-version = "0.113.2"
+version = "0.114.2"
 dependencies = [
  "log",
  "nu-engine",
@@ -5013,7 +5017,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin-protocol"
-version = "0.113.2"
+version = "0.114.2"
 dependencies = [
  "nu-protocol",
  "nu-utils",
@@ -5025,7 +5029,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin-test-support"
-version = "0.113.2"
+version = "0.114.2"
 dependencies = [
  "nu-ansi-term",
  "nu-cmd-lang",
@@ -5043,7 +5047,7 @@ dependencies = [
 
 [[package]]
 name = "nu-pretty-hex"
-version = "0.113.2"
+version = "0.114.2"
 dependencies = [
  "heapless",
  "nu-ansi-term",
@@ -5052,7 +5056,7 @@ dependencies = [
 
 [[package]]
 name = "nu-protocol"
-version = "0.113.2"
+version = "0.114.2"
 dependencies = [
  "brotli",
  "bstr",
@@ -5084,6 +5088,7 @@ dependencies = [
  "pretty_assertions",
  "rmp-serde",
  "rstest",
+ "semver",
  "serde",
  "serde_json",
  "strum",
@@ -5099,7 +5104,7 @@ dependencies = [
 
 [[package]]
 name = "nu-std"
-version = "0.113.2"
+version = "0.114.2"
 dependencies = [
  "log",
  "miette",
@@ -5110,7 +5115,7 @@ dependencies = [
 
 [[package]]
 name = "nu-system"
-version = "0.113.2"
+version = "0.114.2"
 dependencies = [
  "chrono",
  "itertools 0.15.0",
@@ -5130,7 +5135,7 @@ dependencies = [
 
 [[package]]
 name = "nu-table"
-version = "0.113.2"
+version = "0.114.2"
 dependencies = [
  "fancy-regex",
  "nu-ansi-term",
@@ -5143,7 +5148,7 @@ dependencies = [
 
 [[package]]
 name = "nu-term-grid"
-version = "0.113.2"
+version = "0.114.2"
 dependencies = [
  "nu-utils",
  "unicode-width 0.2.2",
@@ -5151,7 +5156,7 @@ dependencies = [
 
 [[package]]
 name = "nu-test-support"
-version = "0.113.2"
+version = "0.114.2"
 dependencies = [
  "bytes",
  "derive_more 2.1.1",
@@ -5164,17 +5169,21 @@ dependencies = [
  "nu-cli",
  "nu-cmd-extra",
  "nu-cmd-lang",
+ "nu-cmd-plugin",
  "nu-command",
  "nu-engine",
  "nu-experimental",
  "nu-glob",
  "nu-parser",
  "nu-path",
+ "nu-plugin-core",
+ "nu-plugin-engine",
  "nu-protocol",
  "nu-std",
  "nu-test-support-macros",
  "nu-utils",
  "num-format",
+ "pastey",
  "rstest",
  "serde_json",
  "tempfile",
@@ -5184,7 +5193,7 @@ dependencies = [
 
 [[package]]
 name = "nu-test-support-macros"
-version = "0.113.2"
+version = "0.114.2"
 dependencies = [
  "heck",
  "nu-experimental",
@@ -5196,7 +5205,7 @@ dependencies = [
 
 [[package]]
 name = "nu-utils"
-version = "0.113.2"
+version = "0.114.2"
 dependencies = [
  "byteyarn",
  "crossterm",
@@ -5220,7 +5229,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_custom_values"
-version = "0.113.2"
+version = "0.114.2"
 dependencies = [
  "nu-plugin",
  "nu-plugin-test-support",
@@ -5231,7 +5240,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_example"
-version = "0.113.2"
+version = "0.114.2"
 dependencies = [
  "nu-cmd-lang",
  "nu-plugin",
@@ -5241,7 +5250,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_formats"
-version = "0.113.2"
+version = "0.114.2"
 dependencies = [
  "chrono",
  "eml-parser",
@@ -5256,7 +5265,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_gstat"
-version = "0.113.2"
+version = "0.114.2"
 dependencies = [
  "git2",
  "nu-plugin",
@@ -5265,7 +5274,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_inc"
-version = "0.113.2"
+version = "0.114.2"
 dependencies = [
  "nu-plugin",
  "nu-protocol",
@@ -5274,7 +5283,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_polars"
-version = "0.113.2"
+version = "0.114.2"
 dependencies = [
  "aws-config",
  "aws-credential-types",
@@ -5316,7 +5325,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_query"
-version = "0.113.2"
+version = "0.114.2"
 dependencies = [
  "gjson",
  "nu-plugin",
@@ -5331,7 +5340,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_stress_internals"
-version = "0.113.2"
+version = "0.114.2"
 dependencies = [
  "interprocess",
  "serde",
@@ -5460,7 +5469,7 @@ dependencies = [
 
 [[package]]
 name = "nuon"
-version = "0.113.2"
+version = "0.114.2"
 dependencies = [
  "chrono",
  "nu-engine",
@@ -7022,9 +7031,9 @@ dependencies = [
 
 [[package]]
 name = "quick-xml"
-version = "0.40.1"
+version = "0.41.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2474bd2e5029e7ccb6abb2ba48cf2383a333851dedf495901544281590c7da7f"
+checksum = "e660451e55124f798a69a5af3f49ccfbefbd41910eefd25caf2393e1f3473ec1"
 dependencies = [
  "memchr",
 ]
@@ -7400,8 +7409,9 @@ dependencies = [
 
 [[package]]
 name = "reedline"
-version = "0.48.0"
-source = "git+https://github.com/nushell/reedline?branch=main#4a5ebce9f92793b2d4aa570c581f60d48060b304"
+version = "0.49.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "826c1fc22a2b1f14c3f6a80fc3d56adfbfb913d07f170bce4246700de7adfd50"
 dependencies = [
  "arboard",
  "chrono",
@@ -8007,6 +8017,10 @@ name = "semver"
 version = "1.0.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d767eb0aabc880b29956c35734170f26ed551a859dbd361d140cdbeca61ab1e2"
+dependencies = [
+ "serde",
+ "serde_core",
+]
 
 [[package]]
 name = "serde"
@@ -8084,9 +8098,9 @@ dependencies = [
 
 [[package]]
 name = "serde_regex"
-version = "1.1.0"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a8136f1a4ea815d7eac4101cfd0b16dc0cb5e1fe1b8609dfd728058656b7badf"
+checksum = "bafc8d0c5330cecff10f16b459b479fd9acaa5b4acd7167301414e21b0057012"
 dependencies = [
  "regex",
  "serde",

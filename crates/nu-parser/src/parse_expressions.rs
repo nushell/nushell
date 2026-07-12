@@ -157,6 +157,7 @@ pub fn parse_list_expression(
                         &command.parts,
                         &mut spans_idx,
                         &SyntaxShape::List(Box::new(element_shape.clone())),
+                        None,
                     );
                     let elem_ty = match &spread_arg.ty {
                         Type::List(elem_ty) => *elem_ty.clone(),
@@ -170,6 +171,7 @@ pub fn parse_list_expression(
                         &command.parts,
                         &mut spans_idx,
                         element_shape,
+                        None,
                     );
                     let ty = arg.ty.clone();
                     (ListItem::Item(arg), ty)
@@ -384,7 +386,11 @@ fn table_type(head: &[Expression], rows: &[Vec<Expression>]) -> (Type, Vec<Parse
     (Type::Table(ty), errors)
 }
 
-pub fn parse_block_expression(working_set: &mut StateWorkingSet, span: Span) -> Expression {
+pub fn parse_block_expression(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+    input_type: Option<&Type>,
+) -> Expression {
     trace!("parsing: block expression");
 
     let bytes = working_set.get_span_contents(span);
@@ -417,23 +423,16 @@ pub fn parse_block_expression(working_set: &mut StateWorkingSet, span: Span) -> 
 
     working_set.enter_scope();
 
-    // Check to see if we have parameters
-    let (signature, amt_to_skip): (Option<(Box<Signature>, Span)>, usize) = match output.first() {
-        Some(Token {
-            contents: TokenContents::Pipe,
-            span,
-        }) => {
-            working_set.error(ParseError::Expected("block but found closure", *span));
-            (None, 0)
-        }
-        _ => (None, 0),
-    };
-
-    let mut output = parse_block(working_set, &output[amt_to_skip..], span, false, false);
-
-    if let Some(signature) = signature {
-        output.signature = signature.0;
+    // Check to see if we have closure parameters
+    if let Some(Token {
+        contents: TokenContents::Pipe,
+        span,
+    }) = output.first()
+    {
+        working_set.error(ParseError::Expected("block but found closure", *span));
     }
+
+    let mut output = parse_block(working_set, &output, span, false, false, input_type);
 
     output.span = Some(span);
 
@@ -446,7 +445,11 @@ pub fn parse_block_expression(working_set: &mut StateWorkingSet, span: Span) -> 
     Expression::new(working_set, Expr::Block(block_id), span, Type::Block)
 }
 
-pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Span) -> Expression {
+pub fn parse_match_block_expression(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+    input_type: Option<&Type>,
+) -> Expression {
     let bytes = working_set.get_span_contents(span);
 
     let mut start = span.start;
@@ -478,6 +481,7 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
     let mut position = 0;
 
     let mut output_matches = vec![];
+    let mut output_type = Type::one_of([]);
 
     while position < output.len() {
         // Each match gets its own scope
@@ -594,6 +598,7 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
                 &tokens.iter().map(|tok| tok.span).collect_vec(),
                 &mut start,
                 &SyntaxShape::MathExpression,
+                None,
             );
 
             pattern.guard = Some(Box::new(guard));
@@ -628,20 +633,38 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
             &[output[position].span],
             &mut 0,
             &SyntaxShape::OneOf(vec![SyntaxShape::Block, SyntaxShape::Expression]),
+            input_type,
         );
         position += 1;
         if is_closed {
             working_set.exit_scope();
         }
 
+        let branch_output_type = match &result.expr {
+            Expr::Block(block_id) => {
+                let block = working_set.get_block(*block_id);
+                match block.pipelines.is_empty() {
+                    false => block.output_type(),
+                    true => input_type.cloned().unwrap_or(Type::Any),
+                }
+            }
+            _ => result.ty.clone(),
+        };
+        output_type = output_type.union(branch_output_type);
+
         output_matches.push((pattern, result));
+    }
+
+    let has_wildcard = output_matches.iter().any(|(pat, _)| pat.is_wildcard());
+    if !has_wildcard {
+        output_type = output_type.union(Type::Nothing);
     }
 
     Expression::new(
         working_set,
         Expr::MatchBlock(output_matches),
         span,
-        Type::Any,
+        output_type,
     )
 }
 
@@ -649,6 +672,7 @@ pub fn parse_closure_expression(
     working_set: &mut StateWorkingSet,
     shape: &SyntaxShape,
     span: Span,
+    input_type: Option<&Type>,
 ) -> Expression {
     trace!("parsing: closure expression");
 
@@ -757,7 +781,14 @@ pub fn parse_closure_expression(
         }
     }
 
-    let mut output = parse_block(working_set, &output[amt_to_skip..], span, false, false);
+    let mut output = parse_block(
+        working_set,
+        &output[amt_to_skip..],
+        span,
+        false,
+        false,
+        input_type,
+    );
 
     // NOTE: closures need to be compiled eagerly due to these reasons:
     //  - their `Block`s (which contains their `IrBlock`) are stored in the working_set
@@ -790,6 +821,7 @@ pub fn parse_value(
     working_set: &mut StateWorkingSet,
     span: Span,
     shape: &SyntaxShape,
+    input_type: Option<&Type>,
 ) -> Expression {
     trace!("parsing: value: {shape}");
 
@@ -801,13 +833,20 @@ pub fn parse_value(
     }
 
     if let SyntaxShape::OneOf(possible_shapes) = shape {
-        return parse_oneof(working_set, &[span], &mut 0, possible_shapes, false);
+        return parse_oneof(
+            working_set,
+            &[span],
+            &mut 0,
+            possible_shapes,
+            false,
+            input_type,
+        );
     }
 
     match bytes[0] {
-        b'$' => return parse_dollar_expr(working_set, span, shape),
+        b'$' => return parse_dollar_expr(working_set, span, shape, input_type),
         b'(' => return parse_paren_expr(working_set, span, shape),
-        b'{' => return parse_brace_expr(working_set, span, shape),
+        b'{' => return parse_brace_expr(working_set, span, shape, input_type),
         b'[' => match shape {
             SyntaxShape::Any
             | SyntaxShape::List(_)
@@ -892,7 +931,7 @@ pub fn parse_value(
         SyntaxShape::Any => {
             if bytes.starts_with(b"[") {
                 //parse_value(working_set, span, &SyntaxShape::Table)
-                parse_full_cell_path(working_set, None, span)
+                parse_full_cell_path(working_set, None, span, None)
             } else {
                 let shapes = [
                     SyntaxShape::Binary,
@@ -907,7 +946,7 @@ pub fn parse_value(
                 for shape in shapes.iter() {
                     let starting_error_count = working_set.parse_errors.len();
 
-                    let s = parse_value(working_set, span, shape);
+                    let s = parse_value(working_set, span, shape, None);
 
                     if starting_error_count == working_set.parse_errors.len() {
                         return s;
@@ -959,6 +998,7 @@ pub fn parse_assignment_operator(working_set: &mut StateWorkingSet, span: Span) 
 pub fn parse_assignment_expression(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
+    input_type: Option<&Type>,
 ) -> Expression {
     trace!("parsing: assignment expression");
     let expr_span = Span::concat(spans);
@@ -1022,7 +1062,7 @@ pub fn parse_assignment_expression(
     working_set.parse_errors.extend(rhs_error);
 
     trace!("parsing: assignment right-hand side subexpression");
-    let rhs_block = parse_block(working_set, &rhs_tokens, rhs_span, false, true);
+    let rhs_block = parse_block(working_set, &rhs_tokens, rhs_span, false, true, input_type);
     let rhs_ty = rhs_block.output_type();
 
     // TEMP: double-check that if the RHS block starts with an external call, it must start with a
@@ -1209,6 +1249,7 @@ pub fn parse_math_expression(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
     lhs_row_var_id: Option<VarId>,
+    input_type: Option<&Type>,
 ) -> Expression {
     trace!("parsing: math expression");
 
@@ -1235,7 +1276,7 @@ pub fn parse_math_expression(
     if first_span == b"if" || first_span == b"match" {
         // If expression
         if spans.len() > 1 {
-            return parse_call(working_set, spans, spans[0], None);
+            return parse_call(working_set, spans, spans[0], input_type);
         } else {
             working_set.error(ParseError::Expected(
                 "expression",
@@ -1266,7 +1307,7 @@ pub fn parse_math_expression(
         }
     }
 
-    let mut lhs = parse_value(working_set, spans[idx], &SyntaxShape::Any);
+    let mut lhs = parse_value(working_set, spans[idx], &SyntaxShape::Any, input_type);
 
     for not_start_span in not_start_spans.iter().rev() {
         lhs = Expression::new(
@@ -1283,7 +1324,7 @@ pub fn parse_math_expression(
     if idx >= spans.len() {
         // We already found the one part of our expression, so let's expand
         if let Some(row_var_id) = lhs_row_var_id {
-            expand_to_cell_path(working_set, &mut lhs, row_var_id);
+            expand_to_cell_path(working_set, &mut lhs, row_var_id, input_type);
         }
     }
 
@@ -1337,7 +1378,7 @@ pub fn parse_math_expression(
                 return garbage(working_set, spans[idx - 1]);
             }
         }
-        let mut rhs = parse_value(working_set, spans[idx], &SyntaxShape::Any);
+        let mut rhs = parse_value(working_set, spans[idx], &SyntaxShape::Any, None);
 
         for not_start_span in not_start_spans.iter().rev() {
             rhs = Expression::new(
@@ -1377,7 +1418,7 @@ pub fn parse_math_expression(
                 .expect("internal error: expression stack empty");
 
             if let Some(row_var_id) = lhs_row_var_id {
-                expand_to_cell_path(working_set, &mut lhs, row_var_id);
+                expand_to_cell_path(working_set, &mut lhs, row_var_id, None);
             }
 
             let (result_ty, err) = math_result_type(working_set, &mut lhs, &mut op, &mut rhs);
@@ -1413,7 +1454,7 @@ pub fn parse_math_expression(
             .expect("internal error: expression stack empty");
 
         if let Some(row_var_id) = lhs_row_var_id {
-            expand_to_cell_path(working_set, &mut lhs, row_var_id);
+            expand_to_cell_path(working_set, &mut lhs, row_var_id, None);
         }
 
         let (result_ty, err) = math_result_type(working_set, &mut lhs, &mut op, &mut rhs);
@@ -1438,7 +1479,7 @@ pub fn parse_math_expression(
 pub fn parse_expression(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
-    input_type: Option<Type>,
+    input_type: Option<&Type>,
 ) -> Expression {
     trace!("parsing: expression");
 
@@ -1460,7 +1501,7 @@ pub fn parse_expression(
         let rhs = if spans[pos].start + point < spans[pos].end {
             let rhs_span = Span::new(spans[pos].start + point, spans[pos].end);
             if split[1].starts_with(b"$") {
-                parse_dollar_expr(working_set, rhs_span, &SyntaxShape::Any)
+                parse_dollar_expr(working_set, rhs_span, &SyntaxShape::Any, None)
             } else {
                 parse_string_strict(working_set, rhs_span)
             }
@@ -1494,9 +1535,9 @@ pub fn parse_expression(
         .iter()
         .any(|span| is_assignment_operator(working_set.get_span_contents(*span)))
     {
-        parse_assignment_expression(working_set, &spans[pos..])
+        parse_assignment_expression(working_set, &spans[pos..], input_type)
     } else if is_math_expression_like(working_set, spans[pos]) {
-        parse_math_expression(working_set, &spans[pos..], None)
+        parse_math_expression(working_set, &spans[pos..], None, input_type)
     } else {
         let bytes = working_set.get_span_contents(spans[pos]).to_vec();
 
@@ -1613,6 +1654,7 @@ pub fn parse_expression(
 pub fn parse_builtin_commands(
     working_set: &mut StateWorkingSet,
     lite_command: &LiteCommand,
+    input_type: Option<&Type>,
 ) -> Pipeline {
     trace!("parsing: builtin commands");
     if !is_math_expression_like(working_set, lite_command.parts[0])
@@ -1674,6 +1716,7 @@ pub fn parse_builtin_commands(
             &lite_command
                 .parts_including_redirection()
                 .collect::<Vec<Span>>(),
+            input_type,
         ),
         b"const" => parse_const(working_set, &lite_command.parts).0,
         b"mut" => parse_mut(
@@ -1715,7 +1758,8 @@ pub fn parse_builtin_commands(
             parse_keyword(working_set, lite_command)
         }
         _ => {
-            let element = parse_pipeline_element(working_set, lite_command, Type::Any);
+            let element =
+                parse_pipeline_element(working_set, lite_command, input_type.unwrap_or(&Type::Any));
 
             // There is still a chance to make `parse_pipeline_element` parse into
             // some keyword that should apply side effects first, Example:
@@ -1890,7 +1934,7 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
         if let Some(Spanned { span, .. }) = extract_spread_record(curr_tok.into_spanned(curr_span))
         {
             // Parse spread operator
-            let inner = parse_value(working_set, span, &SyntaxShape::record());
+            let inner = parse_value(working_set, span, &SyntaxShape::record(), None);
             idx += 1;
 
             match &inner.ty {
@@ -1921,7 +1965,7 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
                 ));
                 garbage(working_set, curr_span)
             } else {
-                let field = parse_value(working_set, curr_span, &SyntaxShape::String);
+                let field = parse_value(working_set, curr_span, &SyntaxShape::String, None);
                 if let Some(error) = check_record_key_or_value(working_set, &field, "key") {
                     working_set.error(error);
                     garbage(working_set, field.span)
@@ -1985,7 +2029,7 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
                     Span::new(value_token.span.start, value_token.span.end),
                 )
             } else {
-                let value = parse_value(working_set, tokens[idx].span, &SyntaxShape::Any);
+                let value = parse_value(working_set, tokens[idx].span, &SyntaxShape::Any, None);
                 if let Some(parse_error) = check_record_key_or_value(working_set, &value, "value") {
                     working_set.error(parse_error);
                     garbage(working_set, value.span)

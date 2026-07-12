@@ -193,6 +193,7 @@ macro_rules! nu_with_std {
     }};
 }
 
+// #[deprecated(note = "use `#[deps(...)]` test attribute of `nu-test-support/plugin` instead")]
 #[macro_export]
 macro_rules! nu_with_plugins {
     (cwd: $cwd:expr, plugins: [$(($plugin_name:expr)),*$(,)?], $command:expr) => {{
@@ -384,12 +385,10 @@ where
         .arg("--plugin-config")
         .arg(temp_plugin_file);
 
-    // Add each plugin path as a separate argument after --plugins
-    if !plugin_paths.is_empty() {
+    // Pass each plugin path with its own --plugins flag
+    for path in &plugin_paths {
         cmd.arg("--plugins");
-        for path in &plugin_paths {
-            cmd.arg(path);
-        }
+        cmd.arg(path);
     }
 
     let process = match cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn() {

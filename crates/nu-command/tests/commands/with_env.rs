@@ -15,9 +15,9 @@ fn with_env_shorthand() -> Result {
 }
 
 #[test]
+#[deps(NU)]
 fn shorthand_doesnt_reorder_arguments() -> Result {
     test()
-        .add_nu_to_path()
         .run("FOO=BARRRR nu --testbin cococo first second")
         .expect_value_eq("first second")
 }
@@ -39,9 +39,9 @@ fn with_env_and_shorthand_same_result() -> Result {
 }
 
 #[test]
+#[deps(NU)]
 fn test_redirection2() -> Result {
     test()
-        .add_nu_to_path()
         .run("let x = (FOO=BAR nu --testbin cococo niceenvvar); $x | str trim | str length")
         .expect_value_eq(10)
 }

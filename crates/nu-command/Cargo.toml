@@ -33,6 +33,8 @@ nu-experimental.workspace = true
 nu-glob.workspace = true
 nu-json = { workspace = true, features = ["nu-protocol", "preserve_order"] }
 nu-parser.workspace = true
+semver = { workspace = true }
+typetag = "0.2"
 nu-path.workspace = true
 nu-pretty-hex.workspace = true
 nu-protocol.workspace = true
@@ -222,7 +224,13 @@ os = [
 # The dependencies listed below need 'getrandom'.
 # They work with JS (usually with wasm-bindgen) or regular OS support.
 # Hence they are also put under the 'os' feature to avoid repetition.
-js = ["aegis-password-generator", "getrandom", "getrandom/wasm_js", "rand", "uuid"]
+js = [
+	"aegis-password-generator",
+	"getrandom",
+	"getrandom/wasm_js",
+	"rand",
+	"uuid",
+]
 
 # These dependencies require networking capabilities, especially the http
 # interface requires openssl which is not easy to embed into wasm,
@@ -236,11 +244,7 @@ network = [
 	"uuid",
 ]
 
-native-tls = [
-	"dep:native-tls",
-	"update-informer/native-tls",
-	"ureq/native-tls",
-]
+native-tls = ["dep:native-tls", "update-informer/native-tls", "ureq/native-tls"]
 rustls-tls = [
 	"dep:rustls-native-certs",
 	"dep:rustls",
@@ -250,7 +254,7 @@ rustls-tls = [
 	"ureq/rustls",
 ]
 
-plugin = ["nu-parser/plugin", "os"]
+plugin = ["nu-parser/plugin", "nu-test-support/plugin", "os"]
 sqlite = ["rusqlite"]
 trash-support = ["trash"]
 

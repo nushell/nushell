@@ -18,7 +18,7 @@ fn scope_shows_alias() {
 #[test]
 fn scope_shows_command() {
     let actual = nu!("def xaz [] { echo xaz }
-        scope commands | find xaz | length
+        scope commands | find xaz --columns [name] | length
         ");
 
     let length: i32 = actual.out.parse().unwrap();
@@ -54,7 +54,7 @@ fn scope_doesnt_show_scoped_hidden_command() {
     let actual = nu!("def xaz [] { echo xaz }
         do {
             hide xaz
-            scope commands | find xaz | length
+            scope commands | find xaz --columns [name] | length
         }
         ");
 
@@ -66,7 +66,7 @@ fn scope_doesnt_show_scoped_hidden_command() {
 fn scope_doesnt_show_hidden_command() {
     let actual = nu!("def xaz [] { echo xaz }
         hide xaz
-        scope commands | find xaz | length
+        scope commands | find xaz --columns [name] | length
         ");
 
     let length: i32 = actual.out.parse().unwrap();

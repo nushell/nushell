@@ -2938,6 +2938,25 @@ fn table_cell_path_completions(#[case] input: &str, #[case] expected: Vec<&str>)
 }
 
 #[test]
+fn custom_value_cell_path_completions() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = r#"let v = "1.2.3-alpha.1+build" | into semver"#;
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    let completion_str = "$v.";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    let expected = ["major", "minor", "patch", "pre", "build"];
+    let received: Vec<_> = suggestions.iter().map(|s| s.value.as_str()).collect();
+    assert!(
+        expected
+            .iter()
+            .all(|item| received.contains(&item.to_string().as_str()))
+    );
+    assert_eq!(received.len(), expected.len());
+}
+
+#[test]
 fn quoted_cell_path_completions() {
     let (_, _, mut engine, mut stack) = new_engine();
     let command = r#"let foo = {'foo bar':1 'foo\\"bar"': 1 '.': 1 '|': 1 1: 1 "": 1}"#;

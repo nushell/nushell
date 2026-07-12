@@ -30,6 +30,7 @@ use chrono::{DateTime, Datelike, Duration, FixedOffset, Local, Locale, TimeZone}
 use chrono_humanize::HumanTime;
 use fancy_regex::Regex;
 use nu_utils::{ObviousFloat, SharedCow, contains_emoji, get_locale_from_env_vars};
+pub use semver::Version as SemVerVersion;
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,

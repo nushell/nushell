@@ -8,6 +8,7 @@ mod msgpack;
 mod msgpackz;
 mod nuon;
 mod ods;
+mod sheets;
 mod ssv;
 mod toml;
 mod tsv;

@@ -3,7 +3,7 @@
 # Warning: This file is intended for documentation purposes only and
 # is not intended to be used as an actual configuration file as-is.
 #
-# version = "0.113.2"
+# version = "0.114.2"
 #
 # A `config.nu` file is used to override default Nushell settings,
 # define (or import) custom commands, or run any other startup tasks.
@@ -1034,6 +1034,14 @@ $env.config.color_config.duration = "default"
 # color_config.range: Style for range values in output.
 # Default: default
 $env.config.color_config.range = "default"
+
+# color_config.semver: Style for semver values in output.
+# Default: "cyan_bold"
+$env.config.color_config.semver = "cyan_bold"
+
+# color_config.semver-range: Style for semver-range values in output.
+# Default: "cyan_bold"
+$env.config.color_config.semver-range = "cyan_bold"
 
 # color_config.cell-path: Style for cell-path values in output.
 # Default: default
