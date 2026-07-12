@@ -211,10 +211,7 @@ fn save_custom_values() -> Result {
             .cwd(dirs.test())
             .run("custom-value generate | save file")
             .expect_shell_error()?;
-        assert_contains(
-            "Cannot save custom value",
-            unimplemented.to_string(),
-        );
+        assert_contains("Cannot save custom value", unimplemented.to_string());
 
         let () = test()
             .cwd(dirs.test())
