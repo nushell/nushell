@@ -1,6 +1,7 @@
-use nu_test_support::fs::Stub::{FileWithContent, FileWithContentToBeTrimmed};
-use nu_test_support::playground::Playground;
-use nu_test_support::prelude::*;
+use nu_test_support::{
+    fs::Stub::{FileWithContent, FileWithContentToBeTrimmed},
+    prelude::*,
+};
 
 #[test]
 #[deps(NU_PLUGIN_FORMATS)]

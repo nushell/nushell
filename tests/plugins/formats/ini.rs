@@ -1,10 +1,9 @@
 use miette::Diagnostic;
 use nu_protocol::test_record;
-use nu_test_support::fs::Stub::{FileWithContent, FileWithContentToBeTrimmed};
-use nu_test_support::nu_with_plugins;
-use nu_test_support::playground::Playground;
-use nu_test_support::prelude::*;
-use pretty_assertions::assert_eq;
+use nu_test_support::{
+    fs::Stub::{FileWithContent, FileWithContentToBeTrimmed},
+    prelude::*,
+};
 
 const TEST_CWD: &str = "tests/fixtures/formats";
 
