@@ -3657,6 +3657,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "68ab91017fe16c622486840e4c83c9a37afeff978bd239b5293d61ece587de66"
 
 [[package]]
+name = "libcorn"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4cbe123d43f1351417f3b13e643bfce6c32590ca218226f1dc0c0dc9de2fbcdc"
+dependencies = [
+ "indexmap 2.14.0",
+ "pest",
+ "pest_derive",
+ "serde",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "libflate"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4576,6 +4589,7 @@ dependencies = [
  "indicatif",
  "itertools 0.15.0",
  "kdl",
+ "libcorn",
  "log",
  "lscolors",
  "md-5",

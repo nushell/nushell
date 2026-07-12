@@ -290,6 +290,7 @@ windows = "0.62.2"
 windows-sys = "0.61.2"
 winnow = "1.0"
 winreg = "0.56"
+libcorn = "0.10.1"
 
 [workspace.lints.clippy]
 # Warning: workspace lints affect library code as well as tests, so don't enable lints that would be too noisy in tests like that.
@@ -340,6 +341,7 @@ serde_json = { workspace = true }
 simplelog = "0.12"
 time = "0.3.47"
 same-file = "1.0.6"
+
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 # Our dependencies don't use OpenSSL on Windows

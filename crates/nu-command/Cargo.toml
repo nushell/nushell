@@ -155,6 +155,7 @@ unicode-width = { workspace = true }
 data-encoding = { version = "2.11.0", features = ["alloc"] }
 web-time = { workspace = true }
 webpki-roots = { workspace = true, optional = true }
+libcorn = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
 win_uds = { workspace = true }
