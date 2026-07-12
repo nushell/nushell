@@ -1,6 +1,7 @@
 pub mod support;
 
 use std::{
+    collections::HashMap,
     fs::{ReadDir, read_dir},
     path::MAIN_SEPARATOR,
     sync::Arc,
@@ -11,7 +12,7 @@ use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_path::{AbsolutePathBuf, expand_tilde};
 use nu_protocol::{
-    Config, ParseError, PipelineData, debugger::WithoutDebug, engine::StateWorkingSet,
+    Config, ParseError, PipelineData, Value, debugger::WithoutDebug, engine::StateWorkingSet,
 };
 use nu_std::load_standard_library;
 use nu_test_support::fs;
@@ -76,6 +77,21 @@ fn completer() -> NuCompleter {
     // Add record value as example
     let record = "def tst [--mod -s] {}";
     assert!(support::merge_input(record.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    // Config for plugin fake-cmd
+    let plugin_config = Value::test_record(nu_protocol::record! {
+        "completion" => Value::test_string("from fake-cmd plugin config"),
+    });
+
+    let mut plugins = HashMap::default();
+    plugins.insert("fake-cmd".to_string(), plugin_config);
+
+    let config = Config {
+        plugins,
+        ..Default::default()
+    };
+
+    engine.set_config(config);
 
     // Instantiate a new completer
     NuCompleter::new(Arc::new(engine), Arc::new(stack))
@@ -198,6 +214,7 @@ fn fuzzy_alpha_sort_completer() -> NuCompleter {
 #[case::dynamic_short_flag_value("fake-cmd arg0:0 -f ", None, vec!["flag:0", "flag:1", "flag:2"])]
 #[case::dynamic_1st_positional("fake-cmd -f flag:0 ", None, vec!["arg0:0"])]
 #[case::dynamic_2nd_positional("fake-cmd -f flag:0 foo --unknown ", None, vec!["arg1:0", "arg1:1"])]
+#[case::dynamic_plugin_config("fake-cmd --plugin-config ", None, vec!["from fake-cmd plugin config"])]
 fn misc_command_argument_completions(
     mut completer: NuCompleter,
     #[case] input: &str,
