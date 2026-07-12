@@ -159,10 +159,20 @@ impl Command for PluginDeclaration {
             ArgType::Positional(index) => GetCompletionArgType::Positional(*index),
         };
 
-        plugin.get_dynamic_completion(GetCompletionInfo {
-            name: self.name.clone(),
-            arg_type: arg_info,
-            call: (&call).into(),
-        })
+        let mut context = PluginGetDynamicCompletionContext::new(
+            self.source.identity.clone(),
+            engine_state,
+            stack,
+            &call,
+        );
+
+        plugin.get_dynamic_completion(
+            GetCompletionInfo {
+                name: self.name.clone(),
+                arg_type: arg_info,
+                call: (&call).into(),
+            },
+            &mut context,
+        )
     }
 }
