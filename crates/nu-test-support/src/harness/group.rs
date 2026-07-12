@@ -15,11 +15,14 @@ use std::{
 };
 
 use crate::{
-    harness::{
-        deps::{Dependency, PreloadedPlugin},
-        test::Extra,
-    },
-    tester::{PATH_ENV_AUTO_LOAD, PLUGIN_AUTO_LOAD, PluginAutoLoader},
+    harness::{deps::Dependency, test::Extra},
+    tester::PATH_ENV_AUTO_LOAD,
+};
+
+#[cfg(feature = "plugin")]
+use crate::{
+    harness::deps::PreloadedPlugin,
+    tester::{PLUGIN_AUTO_LOAD, PluginAutoLoader},
 };
 
 pub static RUN_TEST_GROUP_IN_SERIAL: AtomicBool = AtomicBool::new(false);
@@ -128,7 +131,7 @@ impl Display for GroupCtx {
                 make_dyn(&dependencies),
             ]
             .into_iter()
-            .flat_map(|item| item),
+            .flatten(),
             &fmt::from_fn(|f| write!(f, ", ")) as &dyn Display,
         )
         .try_for_each(|item| write!(f, "{item}"))?;
@@ -176,6 +179,7 @@ pub struct GroupRunner {
 }
 
 impl GroupRunner {
+    #[cfg(feature = "plugin")]
     pub fn with_preloaded_plugins(
         self,
         preloaded_plugins: HashMap<&'static Dependency<'static>, PreloadedPlugin>,
