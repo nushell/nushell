@@ -665,6 +665,9 @@ pub trait TestResultExt: Sized {
     /// Expect the result to be a `Value` equal to the provided input.
     fn expect_value_eq<T: IntoValue>(self, value: T) -> Result;
 
+    /// Expect the result to be an error with a specific [`code`](miette::Diagnostic::code).
+    fn expect_error_code_eq(self, code: impl AsRef<str>) -> Result;
+
     /// Expect the result to be a [`ShellError`].
     fn expect_shell_error(self) -> Result<ShellError>;
     /// Expect the result to be a [`ParseError`].
@@ -684,9 +687,6 @@ pub trait TestResultExt: Sized {
     fn expect_error(self) -> Result<ShellError> {
         self.expect_shell_error()
     }
-
-    /// Expect the result to be an error with a specific [`code`](miette::Diagnostic::code).
-    fn expect_error_code(self, code: impl AsRef<str>) -> Result;
 }
 
 impl TestResultExt for Result<Value> {
@@ -701,6 +701,53 @@ impl TestResultExt for Result<Value> {
                 kind: TestErrorKind::UnexpectedValue {
                     expected,
                     got: actual,
+                },
+            }),
+        }
+    }
+
+    #[track_caller]
+    fn expect_error_code_eq(self, code: impl AsRef<str>) -> Result {
+        let expected = code.as_ref();
+        let got = match self {
+            Ok(got) => {
+                return Err(TestError {
+                    location: TestLocation(Location::caller()),
+                    kind: TestErrorKind::GotValue { got },
+                });
+            }
+            Err(TestError {
+                kind: TestErrorKind::Shell(ref err),
+                ..
+            }) => err.code(),
+            Err(TestError {
+                kind: TestErrorKind::Compile(ref err),
+                ..
+            }) => err.code(),
+            Err(TestError {
+                kind: TestErrorKind::Parse(ref err),
+                ..
+            }) => err.code(),
+            Err(err) => return Err(err.update_location()),
+        };
+
+        let Some(got) = got else {
+            return Err(TestError {
+                location: TestLocation(Location::caller()),
+                kind: TestErrorKind::NoCode {
+                    expected: expected.to_string(),
+                },
+            });
+        };
+
+        let got = got.to_string();
+        match got == expected {
+            true => Ok(()),
+            false => Err(TestError {
+                location: TestLocation(Location::caller()),
+                kind: TestErrorKind::UnexpectedCode {
+                    expected: expected.to_string(),
+                    got,
                 },
             }),
         }
@@ -793,34 +840,6 @@ impl TestResultExt for Result<Value> {
                 ..
             }) => Ok(*err),
             Err(err) => Err(err.update_location()),
-        }
-    }
-
-    #[track_caller]
-    fn expect_error_code(self, code: impl AsRef<str>) -> Result {
-        let expected = code.as_ref();
-        let got = match self {
-            Ok(got) => return Err(TestError {
-                location: TestLocation(Location::caller()),
-                kind: TestErrorKind::GotValue { got },
-            }),
-            Err(TestError { kind: TestErrorKind::Shell(ref err), .. }) => err.code(),
-            Err(TestError { kind: TestErrorKind::Compile(ref err), .. }) => err.code(),
-            Err(TestError { kind: TestErrorKind::Parse(ref err), .. }) => err.code(),
-            Err(err) => return Err(err.update_location()),
-        };
-
-        let Some(got) = got else {
-            return Err(TestError { location: TestLocation(Location::caller()), kind: TestErrorKind::NoCode { expected: expected.to_string() } });
-        };
-
-        let got = got.to_string();
-        match got == expected {
-            true => Ok(()),
-            false => Err(TestError {
-                location: TestLocation(Location::caller()),
-                kind: TestErrorKind::UnexpectedCode { expected: expected.to_string(), got },
-            })
         }
     }
 }

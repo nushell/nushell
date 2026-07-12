@@ -57,7 +57,7 @@ fn can_get_plugin_custom_value_int_cell_path() -> Result {
 
     test()
         .run("(custom-value generate).1")
-        .expect_error_code("nu::shell::access_beyond_end")?;
+        .expect_error_code_eq("nu::shell::access_beyond_end")?;
 
     test()
         .run("(custom-value generate).1?")
@@ -75,7 +75,7 @@ fn can_get_plugin_custom_value_string_cell_path() -> Result {
 
     test()
         .run("(custom-value generate).meh")
-        .expect_error_code("nu::shell::column_not_found")?;
+        .expect_error_code_eq("nu::shell::column_not_found")?;
 
     test()
         .run("(custom-value generate).meh?")
@@ -83,7 +83,7 @@ fn can_get_plugin_custom_value_string_cell_path() -> Result {
 
     test()
         .run("(custom-value generate).COOL")
-        .expect_error_code("nu::shell::column_not_found")?;
+        .expect_error_code_eq("nu::shell::column_not_found")?;
 
     test()
         .run("(custom-value generate).COOL!")
