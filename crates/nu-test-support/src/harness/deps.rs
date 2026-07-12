@@ -144,6 +144,18 @@ impl Dependency<'static> {
     }
 }
 
+impl Ord for Dependency<'_> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.bin_name.cmp(&other.bin_name)
+    }
+}
+
+impl PartialOrd for Dependency<'_> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
 #[cfg(feature = "plugin")]
 #[non_exhaustive]
 #[derive(Debug, Clone)]
