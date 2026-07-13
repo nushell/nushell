@@ -68,7 +68,7 @@ impl Command for StorExport {
         db.export_in_memory_database_to_file(&conn, file_name)
             .map_err(|err| {
                 ShellError::Generic(GenericError::new_internal(
-                    "Failed to export the in-memory SQLite database to a file",
+                    "Failed to open SQLite connection to the in-memory database from export",
                     err.to_string(),
                 ))
             })?;

@@ -435,7 +435,7 @@ impl CustomValue for SQLiteDatabase {
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
         let db = open_sqlite_db(&self.path, span)?;
         read_entire_sqlite_db(&db, span, &self.signals)
-            .map_err(|e| e.into_shell_error(span, "Failed to read SQLite database"))
+            .map_err(|e| e.into_shell_error(span, "Failed to read from SQLite database."))
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

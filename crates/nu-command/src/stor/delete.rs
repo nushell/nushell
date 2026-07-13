@@ -105,7 +105,7 @@ impl Command for StorDelete {
             // dbg!(&sql_stmt);
             conn.execute(&sql_stmt, []).map_err(|err| {
                 ShellError::Generic(GenericError::new_internal(
-                    "Failed to delete from the in-memory SQLite database",
+                    "Failed to delete using the SQLite connection to the in-memory database from delete.rs.",
                     err.to_string(),
                 ))
             })?;
