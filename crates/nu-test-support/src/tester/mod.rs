@@ -1,5 +1,4 @@
 use std::{
-    cell::RefCell,
     env,
     error::Error,
     fmt::{Debug, Display},
@@ -8,6 +7,7 @@ use std::{
     sync::{Arc, LazyLock},
 };
 
+use miette::Diagnostic;
 use nu_protocol::{
     CompileError, Config, FromValue, IntoValue, LabeledError, ParseError, PipelineData,
     PipelineExecutionData, ShellError, Span, Value,
@@ -17,6 +17,7 @@ use nu_protocol::{
     shell_error::{io::IoError, network::NetworkError},
 };
 use nu_utils::{consts::ENV_PATH_SEPARATOR_CHAR, sync::KeyedLazyLock};
+use parking_lot::{RwLock, const_rwlock};
 
 use crate::harness::group::GroupKey;
 
@@ -63,7 +64,7 @@ static INITIAL_ENGINE_STATES: KeyedLazyLock<GroupKey, EngineState> = KeyedLazyLo
     engine_state
 });
 
-/// Plugin auto loader for [`PLUGIN_AUTO_LOAD`].
+/// Plugin auto loader for [`THREAD_PLUGIN_AUTO_LOAD`] and [`GLOBAL_PLUGIN_AUTO_LOAD`].
 #[cfg(feature = "plugin")]
 #[derive(Debug, Clone)]
 pub struct PluginAutoLoader {
@@ -72,14 +73,12 @@ pub struct PluginAutoLoader {
     pub signatures: Option<Arc<[PluginSignature]>>,
 }
 
-thread_local! {
-    /// Paths to be loaded into the PATH env variable of a [`NuTester`].
-    pub static PATH_ENV_AUTO_LOAD: RefCell<Vec<PathBuf>> = const { RefCell::new(Vec::new()) };
+/// Paths to be loaded into the PATH env variable of a [`NuTester`].
+pub static PATH_ENV_AUTO_LOAD: RwLock<Vec<PathBuf>> = const_rwlock(Vec::new());
 
-    /// Plugins to be automatically loaded into a [`NuTester`].
-    #[cfg(feature = "plugin")]
-    pub static PLUGIN_AUTO_LOAD: RefCell<Vec<PluginAutoLoader>> = const { RefCell::new(Vec::new()) };
-}
+/// Plugins to be automatically loaded into a [`NuTester`].
+#[cfg(feature = "plugin")]
+pub static PLUGIN_AUTO_LOAD: RwLock<Vec<PluginAutoLoader>> = const_rwlock(Vec::new());
 
 /// Create a [`NuTester`] for running Nushell snippets in tests.
 ///
@@ -107,15 +106,14 @@ thread_local! {
 /// # Auto loaders
 ///
 /// The `*_AUTO_LOAD` statics automatically prepare the test [`EngineState`].
-/// [`PATH_ENV_AUTO_LOAD`] loads paths into the tester's `PATH` environment variable,
-/// allowing binaries to be found without manually adding them in each [`test()`].
+///
+/// [`PATH_ENV_AUTO_LOAD`] loads paths into the tester's `PATH` environment variable, allowing
+/// binaries to be found without adding them manually in each [`test()`].
+///
+/// When the `plugin` feature is enabled,
 #[cfg_attr(feature = "plugin", doc = "[`PLUGIN_AUTO_LOAD`]")]
 #[cfg_attr(not(feature = "plugin"), doc = "`PLUGIN_AUTO_LOAD`")]
 /// loads plugins into the tester so they can be called during tests.
-///
-/// Both statics are [thread locals](`thread_local`), allowing multiple `NuTester` instances
-/// to run on different threads with different auto-loaded data.
-/// Make sure to load the appropriate auto-loader for each test function.
 ///
 /// # Examples
 ///
@@ -148,9 +146,10 @@ pub fn test() -> NuTester {
     let tester = NuTester {
         engine_state: INITIAL_ENGINE_STATES.get(&GroupKey::current()).clone(),
         stack: Stack::new().collect_value(),
+        fname_counter: Counter::default(),
     };
 
-    let tester = PATH_ENV_AUTO_LOAD.with_borrow(|paths| tester.append_path(paths));
+    let tester = tester.append_path(&*PATH_ENV_AUTO_LOAD.read());
 
     #[cfg(feature = "plugin")]
     let tester = tester.auto_load_plugins();
@@ -167,6 +166,20 @@ pub fn test() -> NuTester {
 pub struct NuTester {
     pub engine_state: EngineState,
     pub stack: Stack,
+
+    /// Counter that is used for parsing source code with different "file names".
+    fname_counter: Counter,
+}
+
+#[derive(Default, Clone)]
+struct Counter(u64);
+
+impl Counter {
+    pub fn get(&mut self) -> u64 {
+        let value = self.0;
+        self.0 += 1;
+        value
+    }
 }
 
 impl Default for NuTester {
@@ -184,82 +197,81 @@ impl NuTester {
     ///
     /// Called in [`test`], do not call somewhere else again.
     fn auto_load_plugins(self) -> Self {
-        PLUGIN_AUTO_LOAD.with_borrow(|auto_loaders| {
-            let mut tester = self;
-            if auto_loaders.is_empty() {
-                return tester;
-            }
+        let mut tester = self;
+        let auto_loaders = PLUGIN_AUTO_LOAD.read();
+        if auto_loaders.is_empty() {
+            return tester;
+        }
 
-            let mut working_set = StateWorkingSet::new(&tester.engine_state);
-            for auto_loader in auto_loaders {
-                let plugin = working_set.find_or_create_plugin(&auto_loader.identity, || {
-                    auto_loader
-                        .plugin
-                        .as_ref()
-                        .map(|plugin| plugin.clone())
-                        .unwrap_or_else(|| {
-                            Arc::new(PersistentPlugin::new(
-                                (*auto_loader.identity).clone(),
-                                Default::default(),
-                            ))
-                        })
+        let mut working_set = StateWorkingSet::new(&tester.engine_state);
+        for auto_loader in auto_loaders.iter() {
+            let plugin = working_set.find_or_create_plugin(&auto_loader.identity, || {
+                auto_loader
+                    .plugin
+                    .as_ref()
+                    .map(|plugin| plugin.clone())
+                    .unwrap_or_else(|| {
+                        Arc::new(PersistentPlugin::new(
+                            (*auto_loader.identity).clone(),
+                            Default::default(),
+                        ))
+                    })
+            });
+
+            let plugin: Arc<PersistentPlugin> = plugin
+                .as_any()
+                .downcast()
+                .expect("could not downcast to persistent plugin");
+
+            // if preloaded by our test harness, we don't need to construct a plugin
+            // interface here
+            let mut interface = None;
+
+            // our test harness also sets metadata, so we don't have to do again
+            if plugin.metadata().is_none() {
+                let interface = interface.get_or_insert_with(|| {
+                    plugin
+                        .clone()
+                        .get_plugin(None)
+                        .expect("could not get plugin")
                 });
 
-                let plugin: Arc<PersistentPlugin> = plugin
-                    .as_any()
-                    .downcast()
-                    .expect("could not downcast to persistent plugin");
+                plugin.set_metadata(Some(
+                    interface
+                        .get_metadata()
+                        .expect("could not get plugin metadata"),
+                ));
+            }
 
-                // if preloaded by our test harness, we don't need to construct a plugin
-                // interface here
-                let mut interface = None;
-
-                // our test harness also sets metadata, so we don't have to do again
-                if plugin.metadata().is_none() {
+            // our test harness also preloads signatures, assuming they don't change
+            let signatures = auto_loader
+                .signatures
+                .as_deref()
+                .map(|signatures| signatures.to_owned())
+                .unwrap_or_else(|| {
                     let interface = interface.get_or_insert_with(|| {
                         plugin
                             .clone()
                             .get_plugin(None)
                             .expect("could not get plugin")
                     });
+                    interface
+                        .get_signature()
+                        .expect("could not get plugin signatures")
+                });
 
-                    plugin.set_metadata(Some(
-                        interface
-                            .get_metadata()
-                            .expect("could not get plugin metadata"),
-                    ));
-                }
-
-                // our test harness also preloads signatures, assuming they don't change
-                let signatures = auto_loader
-                    .signatures
-                    .as_deref()
-                    .map(|signatures| signatures.to_owned())
-                    .unwrap_or_else(|| {
-                        let interface = interface.get_or_insert_with(|| {
-                            plugin
-                                .clone()
-                                .get_plugin(None)
-                                .expect("could not get plugin")
-                        });
-                        interface
-                            .get_signature()
-                            .expect("could not get plugin signatures")
-                    });
-
-                for signature in signatures {
-                    let decl = PluginDeclaration::new(plugin.clone(), signature);
-                    working_set.add_decl(Box::new(decl));
-                }
+            for signature in signatures {
+                let decl = PluginDeclaration::new(plugin.clone(), signature);
+                working_set.add_decl(Box::new(decl));
             }
+        }
 
-            tester
-                .engine_state
-                .merge_delta(working_set.render())
-                .expect("could not merge plugin working set");
+        tester
+            .engine_state
+            .merge_delta(working_set.render())
+            .expect("could not merge plugin working set");
 
-            tester
-        })
+        tester
     }
 }
 
@@ -474,12 +486,13 @@ impl NuTester {
     }
 
     #[track_caller]
-    pub fn parse_and_compile(&self, code: impl AsRef<str>) -> Result<(StateDelta, Arc<Block>)> {
+    pub fn parse_and_compile(&mut self, code: impl AsRef<str>) -> Result<(StateDelta, Arc<Block>)> {
         let location = TestLocation(Location::caller());
         let code = code.as_ref().as_bytes();
 
         let mut working_set = StateWorkingSet::new(&self.engine_state);
-        let block = nu_parser::parse(&mut working_set, None, code, false);
+        let fname = format!("nu-tester-{}", self.fname_counter.get());
+        let block = nu_parser::parse(&mut working_set, Some(&fname), code, false);
 
         if let Some(err) = working_set.parse_errors.into_iter().next() {
             return Err(TestError {
@@ -510,7 +523,7 @@ impl NuTester {
 
     /// Test examples of a command.
     #[track_caller]
-    pub fn examples(&self, command: impl Command + 'static) -> Result {
+    pub fn examples(&mut self, command: impl Command + 'static) -> Result {
         let location = TestLocation(Location::caller());
         for example in command.examples() {
             match example.result {
@@ -577,6 +590,13 @@ pub enum TestErrorKind {
     UnexpectedValue {
         expected: Value,
         got: Value,
+    },
+    NoCode {
+        expected: String,
+    },
+    UnexpectedCode {
+        expected: String,
+        got: String,
     },
     ExampleFailed {
         command: String,
@@ -657,6 +677,9 @@ pub trait TestResultExt: Sized {
     /// Expect the result to be a `Value` equal to the provided input.
     fn expect_value_eq<T: IntoValue>(self, value: T) -> Result;
 
+    /// Expect the result to be an error with a specific [`code`](miette::Diagnostic::code).
+    fn expect_error_code_eq(self, code: impl AsRef<str>) -> Result;
+
     /// Expect the result to be a [`ShellError`].
     fn expect_shell_error(self) -> Result<ShellError>;
     /// Expect the result to be a [`ParseError`].
@@ -690,6 +713,53 @@ impl TestResultExt for Result<Value> {
                 kind: TestErrorKind::UnexpectedValue {
                     expected,
                     got: actual,
+                },
+            }),
+        }
+    }
+
+    #[track_caller]
+    fn expect_error_code_eq(self, code: impl AsRef<str>) -> Result {
+        let expected = code.as_ref();
+        let got = match self {
+            Ok(got) => {
+                return Err(TestError {
+                    location: TestLocation(Location::caller()),
+                    kind: TestErrorKind::GotValue { got },
+                });
+            }
+            Err(TestError {
+                kind: TestErrorKind::Shell(ref err),
+                ..
+            }) => err.code(),
+            Err(TestError {
+                kind: TestErrorKind::Compile(ref err),
+                ..
+            }) => err.code(),
+            Err(TestError {
+                kind: TestErrorKind::Parse(ref err),
+                ..
+            }) => err.code(),
+            Err(err) => return Err(err.update_location()),
+        };
+
+        let Some(got) = got else {
+            return Err(TestError {
+                location: TestLocation(Location::caller()),
+                kind: TestErrorKind::NoCode {
+                    expected: expected.to_string(),
+                },
+            });
+        };
+
+        let got = got.to_string();
+        match got == expected {
+            true => Ok(()),
+            false => Err(TestError {
+                location: TestLocation(Location::caller()),
+                kind: TestErrorKind::UnexpectedCode {
+                    expected: expected.to_string(),
+                    got,
                 },
             }),
         }

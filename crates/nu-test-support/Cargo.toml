@@ -60,8 +60,10 @@ itertools = { workspace = true }
 kitest = { workspace = true }
 lexopt = { workspace = true }
 linkme = { workspace = true }
+miette = { workspace = true }
 nu-ansi-term = { workspace = true }
 num-format = { workspace = true }
+parking_lot = { workspace = true }
 pastey = { workspace = true }
 serde_json = { workspace = true }
 tempfile = { workspace = true }
