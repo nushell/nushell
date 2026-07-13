@@ -14,19 +14,19 @@ impl Command for IntoSemver {
     fn signature(&self) -> Signature {
         Signature::build("into semver")
             .input_output_types(vec![
-                (Type::String, Type::Custom("semver".into())),
-                (Type::Custom("semver".into()), Type::Custom("semver".into())),
-                (Type::record(), Type::Custom("semver".into())),
+                (Type::String, Type::custom("semver")),
+                (Type::custom("semver"), Type::custom("semver")),
+                (Type::record(), Type::custom("semver")),
                 (Type::record(), Type::record()),
                 (Type::table(), Type::table()),
+                (Type::list(Type::String), Type::list(Type::custom("semver"))),
                 (
-                    Type::list(Type::String),
-                    Type::list(Type::Custom("semver".into())),
+                    Type::list(Type::custom("semver")),
+                    Type::list(Type::custom("semver")),
                 ),
-                (
-                    Type::list(Type::Custom("semver".into())),
-                    Type::list(Type::Custom("semver".into())),
-                ),
+                (Type::table(), Type::list(Type::custom("semver"))),
+                // Relaxed case to support heterogeneous lists
+                (Type::Any, Type::custom("semver")),
             ])
             .rest(
                 "rest",
