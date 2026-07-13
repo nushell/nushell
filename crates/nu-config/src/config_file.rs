@@ -17,8 +17,8 @@ impl ConfigFileKind {
     /// The compiled-in default content (evaluated before the user's file).
     pub const fn default(self) -> &'static str {
         match self {
-            Self::Config => include_str!("default_files/default_config.nu"),
-            Self::Env => include_str!("default_files/default_env.nu"),
+            Self::Config => include_str!("../default_files/default_config.nu"),
+            Self::Env => include_str!("../default_files/default_env.nu"),
         }
     }
 
@@ -26,16 +26,16 @@ impl ConfigFileKind {
     /// startup.
     pub const fn scaffold(self) -> &'static str {
         match self {
-            Self::Config => include_str!("default_files/scaffold_config.nu"),
-            Self::Env => include_str!("default_files/scaffold_env.nu"),
+            Self::Config => include_str!("../default_files/scaffold_config.nu"),
+            Self::Env => include_str!("../default_files/scaffold_env.nu"),
         }
     }
 
     /// The full doc-commented template written by `config nu` / `config env`.
     pub const fn doc(self) -> &'static str {
         match self {
-            Self::Config => include_str!("default_files/doc_config.nu"),
-            Self::Env => include_str!("default_files/doc_env.nu"),
+            Self::Config => include_str!("../default_files/doc_config.nu"),
+            Self::Env => include_str!("../default_files/doc_env.nu"),
         }
     }
 
