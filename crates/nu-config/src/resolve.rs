@@ -225,6 +225,9 @@ fn resolve_vendor_autoload_dirs(env: &dyn EnvAccess) -> Vec<PathBuf> {
         }
     }
 
+    // Compile-time NU_VENDOR_AUTOLOAD_DIR: baked into the binary when `nu` is
+    // built (e.g. distro packaging). Inserted before the data-home path so
+    // packaged vendor scripts load early in the autoload order.
     if let Some(path) = option_env!("NU_VENDOR_AUTOLOAD_DIR") {
         append(PathBuf::from(path));
     }
@@ -233,6 +236,10 @@ fn resolve_vendor_autoload_dirs(env: &dyn EnvAccess) -> Vec<PathBuf> {
         append(into_autoload_path(data_dir));
     }
 
+    // Runtime NU_VENDOR_AUTOLOAD_DIR: process environment when `nu` starts.
+    // Inserted last so a user/admin can override compile-time and data-home
+    // vendor dirs without rebuilding. Same path as compile-time is deduped by
+    // `append`. Not the same source as `option_env!` above.
     if let Some(path) = env.var_os("NU_VENDOR_AUTOLOAD_DIR")
         && !path.is_empty()
     {
