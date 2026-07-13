@@ -2,6 +2,7 @@ use crate::env_access::EnvAccess;
 use crate::errors::{ConfigError, ConfigWarning};
 use crate::overrides::CliOverrides;
 use crate::paths::{ConfigPath, NushellConfigDirs};
+#[cfg(unix)]
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
