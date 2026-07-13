@@ -396,8 +396,8 @@ fn test_default_config_path() {
 
 #[test]
 fn test_alternate_config_path() -> Result {
-    let config_file = "crates/nu-config/src/default_files/scaffold_config.nu";
-    let env_file = "crates/nu-config/src/default_files/scaffold_env.nu";
+    let config_file = "crates/nu-config/default_files/scaffold_config.nu";
+    let env_file = "crates/nu-config/default_files/scaffold_env.nu";
     let cwd = std::env::current_dir().expect("cwd");
 
     let config_path =
@@ -429,8 +429,8 @@ fn test_alternate_config_path() -> Result {
 
 #[test]
 fn use_last_config_path() -> Result {
-    let config_file = "crates/nu-config/src/default_files/scaffold_config.nu";
-    let env_file = "crates/nu-config/src/default_files/scaffold_env.nu";
+    let config_file = "crates/nu-config/default_files/scaffold_config.nu";
+    let env_file = "crates/nu-config/default_files/scaffold_env.nu";
     let cwd = std::env::current_dir().expect("cwd");
 
     let config_path =

@@ -25,7 +25,7 @@ use nu_path::absolute_with;
 use nu_protocol::{
     ByteStream, Config, IntoValue, PipelineData, ShellError, Span, Spanned, Type, Value,
     engine::{EngineState, Stack},
-    record, report_shell_error,
+    record, report_shell_error, report_shell_warning,
     shell_error::generic::GenericError,
 };
 use nu_std::load_standard_library;
