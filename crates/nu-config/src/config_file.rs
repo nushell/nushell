@@ -1,5 +1,3 @@
-use std::fmt::Display;
-
 /// Metadata about the two kinds of Nushell configuration files.
 ///
 /// Each variant knows its file name, its embedded default content, and
@@ -7,7 +5,8 @@ use std::fmt::Display;
 ///
 /// This was moved here from `nu-utils` because it is config infrastructure,
 /// not a general utility.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, derive_more::Display)]
+#[display("{}", self.name())]
 pub enum ConfigFileKind {
     Config,
     Env,
@@ -62,11 +61,5 @@ impl ConfigFileKind {
             Self::Config => "default_config.nu",
             Self::Env => "default_env.nu",
         }
-    }
-}
-
-impl Display for ConfigFileKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.name())
     }
 }
