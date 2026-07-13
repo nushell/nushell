@@ -80,7 +80,10 @@ impl EnvAccess for SystemEnv {
 ///
 /// Build with [`TestEnv::new`] or [`TestEnv::with_os_vars`], then chain
 /// `with_*_dir` helpers for platform fallbacks.
+#[derive(derive_setters::Setters)]
+#[setters(prefix = "with_", strip_option, into)]
 pub struct TestEnv {
+    #[setters(skip)]
     vars: HashMap<String, OsString>,
     config_dir: Option<PathBuf>,
     data_dir: Option<PathBuf>,
@@ -118,32 +121,6 @@ impl TestEnv {
             #[cfg(windows)]
             program_data_dir: None,
         }
-    }
-
-    pub fn with_config_dir(mut self, path: impl Into<PathBuf>) -> Self {
-        self.config_dir = Some(path.into());
-        self
-    }
-
-    pub fn with_data_dir(mut self, path: impl Into<PathBuf>) -> Self {
-        self.data_dir = Some(path.into());
-        self
-    }
-
-    pub fn with_cache_dir(mut self, path: impl Into<PathBuf>) -> Self {
-        self.cache_dir = Some(path.into());
-        self
-    }
-
-    pub fn with_home_dir(mut self, path: impl Into<PathBuf>) -> Self {
-        self.home_dir = Some(path.into());
-        self
-    }
-
-    #[cfg(windows)]
-    pub fn with_program_data_dir(mut self, path: impl Into<PathBuf>) -> Self {
-        self.program_data_dir = Some(path.into());
-        self
     }
 
     /// Insert or replace an env var as an [`OsStr`].

@@ -17,6 +17,7 @@ plugin = []
 
 [dependencies]
 derive_more = { workspace = true, features = ["display"] }
+derive_setters = { workspace = true }
 dirs = { workspace = true }
 thiserror = { workspace = true }
 
