@@ -221,6 +221,7 @@ mod tests {
     use nu_test_support::prelude::*;
 
     #[test]
+    #[deps(NU)]
     fn evaluate_file_arg_with_various_characters_escape_properly() -> Result {
         Playground::setup("evaluate_file_various_characters", |dirs, sandbox| {
             sandbox.with_files(&[FileWithContent(
@@ -233,7 +234,6 @@ mod tests {
 
             test()
                 .cwd(dirs.test())
-                .add_nu_to_path()
                 .run(format!("nu test.nu {args} | from json"))
                 .expect_value_eq(expected)
         })

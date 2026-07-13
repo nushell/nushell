@@ -9,7 +9,7 @@ use rstest::rstest;
 fn gets_the_last_row() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        "ls | sort-by name | last 1 | get name.0 | str trim"
+        "ls | sort-by name | where type == file | last 1 | get name.0 | str trim"
     );
 
     assert_eq!(actual.out, "utf16.ini");
@@ -136,6 +136,22 @@ fn wrapping_last_with_optional_null_rows() -> Result {
 fn wrapping_last_with_optional_explicit_rows() -> Result {
     let code = "def wraps-last [rows?: int] { [1, 2, 3] | last $rows }; wraps-last 2 | length";
     test().run(code).expect_value_eq(2)
+}
+
+#[test]
+fn last_bytes_with_filesize() -> Result {
+    let code = "(0x[aa bb cc] | last 2b) == 0x[bb cc]";
+    test().run(code).expect_value_eq(true)
+}
+
+#[test]
+fn last_filesize_list_error() -> Result {
+    let err = test().run("[1 2 3] | last 1kb").expect_shell_error()?;
+    assert!(
+        matches!(err, ShellError::IncompatibleParametersSingle { .. }),
+        "expected IncompatibleParametersSingle, got {err:?}"
+    );
+    Ok(())
 }
 
 #[derive(Clone, Copy)]

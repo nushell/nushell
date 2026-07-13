@@ -233,6 +233,7 @@ fn add_overlay_from_const_module_name_decl() {
 }
 
 #[test]
+#[deps(NU)]
 fn add_overlay_from_file_with_stored_where_condition() -> Result {
     Playground::setup(
         "add_overlay_from_file_with_stored_where_condition",
@@ -251,7 +252,7 @@ fn add_overlay_from_file_with_stored_where_condition() -> Result {
 
             let inp = &["overlay use mod.nu", "helper | to nuon --raw"];
 
-            let mut tester = test().cwd(dirs.test()).add_nu_to_path();
+            let mut tester = test().cwd(dirs.test());
             tester.run(inp.join("; ")).expect_value_eq("[[a];[1]]")?;
             tester.run(nu_repl_code(inp)).expect_value_eq("[[a];[1]]")
         },

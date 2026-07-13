@@ -447,10 +447,11 @@ fn str_reverse() -> Result {
 }
 
 #[test]
+#[deps(NU)]
 fn test_redirection_trim() -> Result {
     let code = "
         let x = (nu --testbin cococo niceone); $x | str trim | str length
         ";
 
-    test().add_nu_to_path().run(code).expect_value_eq(7)
+    test().run(code).expect_value_eq(7)
 }
