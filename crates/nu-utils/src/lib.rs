@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 mod casing;
+pub mod const_str;
 pub mod consts;
 pub mod container;
 mod deansi;
@@ -45,3 +46,6 @@ pub use split_read::SplitRead;
 
 #[cfg(unix)]
 pub use filesystem::users;
+
+mod fmt_handle;
+pub use fmt_handle::*;

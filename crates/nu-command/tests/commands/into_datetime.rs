@@ -330,3 +330,20 @@ fn list_flag_produces_available_format_entries() -> Result {
     assert_ne!(len, 0);
     Ok(())
 }
+
+#[test]
+fn into_datetime_list_of_strings() -> Result {
+    let code =
+        r#"["2023-03-30 10:10:07 -05:00", "2023-05-05 13:43:49 -05:00"] | into datetime | length"#;
+    let actual: i64 = test().run(code)?;
+    assert_eq!(actual, 2);
+    Ok(())
+}
+
+#[test]
+fn into_datetime_list_of_dates_is_noop_keeps_length() -> Result {
+    let code = r#"["2023-03-30 10:10:07 -05:00", "2023-05-05 13:43:49 -05:00"] | into datetime | into datetime | length"#;
+    let actual: i64 = test().run(code)?;
+    assert_eq!(actual, 2);
+    Ok(())
+}

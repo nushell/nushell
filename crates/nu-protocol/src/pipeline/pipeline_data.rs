@@ -885,7 +885,13 @@ impl PipelineData {
 
 impl CompareTypes<Type> for PipelineData {
     fn compare_types(&self, other: &Type) -> Option<TypeRelation> {
-        self.get_type().compare_types(other)
+        let self_ty = match self {
+            PipelineData::Empty => Type::Nothing,
+            PipelineData::ListStream(_, _) => Type::list(Type::Any),
+            PipelineData::ByteStream(stream, _) => stream.type_().into(),
+            PipelineData::Value(value, _) => return value.compare_types(other),
+        };
+        self_ty.compare_types(other)
     }
 
     /// Determine if the `PipelineData` can be assigned to `other`.
@@ -903,7 +909,13 @@ impl CompareTypes<Type> for PipelineData {
     /// A `ByteStream` is a subtype of [`string`](Type::String) if it is coercible into a string.
     /// Likewise, a `ByteStream` is a subtype of [`binary`](Type::Binary) if it is coercible into a binary value.
     fn is_assignable_to(&self, dst: &Type) -> bool {
-        self.get_type().is_assignable_to(dst)
+        let self_ty = match self {
+            PipelineData::Empty => Type::Nothing,
+            PipelineData::ListStream(_, _) => Type::list(Type::Any),
+            PipelineData::ByteStream(stream, _) => stream.type_().into(),
+            PipelineData::Value(value, _) => return value.is_assignable_to(dst),
+        };
+        self_ty.is_assignable_to(dst)
     }
 }
 

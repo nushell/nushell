@@ -64,7 +64,7 @@ impl Command for IdxSearch {
             },
             Example {
                 description: "Include 2 lines of context before and 5 lines after each match.",
-                example: "idx search error -2..5",
+                example: "idx search --context -2..5 error",
                 result: None,
             },
             Example {

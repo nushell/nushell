@@ -54,9 +54,9 @@ impl PathMember {
         }
     }
 
-    pub fn test_string(val: String, optional: bool, casing: Casing) -> Self {
+    pub fn test_string(val: impl Into<String>, optional: bool, casing: Casing) -> Self {
         PathMember::String {
-            val,
+            val: val.into(),
             optional,
             casing,
             span: Span::test_data(),
@@ -81,6 +81,15 @@ impl PathMember {
         match self {
             PathMember::String { span, .. } => *span,
             PathMember::Int { span, .. } => *span,
+        }
+    }
+
+    /// Update the span of a path member with a new span if the current span is unknown or test data.
+    pub fn fallback_span(&mut self, span: Span) -> Span {
+        let fallback = span;
+        match self {
+            PathMember::String { span, .. } => span.fallback(fallback),
+            PathMember::Int { span, .. } => span.fallback(fallback),
         }
     }
 
@@ -206,17 +215,17 @@ impl Display for PathMember {
 
 #[derive(Debug, thiserror::Error)]
 #[error("could not parse path member {attempted:?}")]
-pub struct PathMemberParseError {
+pub struct ParsePathMemberError {
     attempted: String,
 }
 
 impl FromStr for PathMember {
-    type Err = PathMemberParseError;
+    type Err = ParsePathMemberError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         parse::path_member
             .parse(s)
-            .map_err(|_| PathMemberParseError {
+            .map_err(|_| ParsePathMemberError {
                 attempted: s.to_owned(),
             })
     }
@@ -333,6 +342,33 @@ impl CellPath {
     pub fn memory_size(&self) -> usize {
         std::mem::size_of::<Self>() + self.members.iter().map(|m| m.memory_size()).sum::<usize>()
     }
+
+    /// Update all path members with a new span if their current span is either unknown or test data.
+    pub fn fallback_span(&mut self, span: Span) {
+        for member in self.members.iter_mut() {
+            member.fallback_span(span);
+        }
+    }
+
+    /// Like [`fallback_span`] but allows chaining.
+    ///
+    /// This method is often used in parsing of data formats and therefore is constructed newly
+    /// where chaining is more ergonomic.
+    ///
+    /// # Example
+    /// ```
+    /// # use std::str::FromStr;
+    /// # use nu_protocol::{ast::CellPath, Span};
+    /// #
+    /// # let span = Span::test_data();
+    /// #
+    /// let cell_path = CellPath::from_str("$.abc").unwrap().with_fallback_span(span);
+    /// assert_eq!(cell_path.members[0].span(), span);
+    /// ```
+    pub fn with_fallback_span(mut self, span: Span) -> Self {
+        self.fallback_span(span);
+        self
+    }
 }
 
 impl Display for CellPath {
@@ -351,15 +387,15 @@ impl Display for CellPath {
 
 #[derive(Debug, thiserror::Error)]
 #[error("could not parse cell path {attempted:?}")]
-pub struct CellPathParseError {
+pub struct ParseCellPathError {
     attempted: String,
 }
 
 impl FromStr for CellPath {
-    type Err = CellPathParseError;
+    type Err = ParseCellPathError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        parse::cell_path.parse(s).map_err(|_| CellPathParseError {
+        parse::cell_path.parse(s).map_err(|_| ParseCellPathError {
             attempted: s.to_owned(),
         })
     }
@@ -616,7 +652,7 @@ mod test {
         assert_eq!(
             Some(Greater),
             PathMember::test_int(5, true).partial_cmp(&PathMember::test_string(
-                "e".into(),
+                "e",
                 true,
                 Casing::Sensitive
             ))
@@ -634,16 +670,14 @@ mod test {
 
         assert_eq!(
             Some(Greater),
-            PathMember::test_string("e".into(), true, Casing::Sensitive).partial_cmp(
-                &PathMember::test_string("e".into(), false, Casing::Sensitive)
-            )
+            PathMember::test_string("e", true, Casing::Sensitive)
+                .partial_cmp(&PathMember::test_string("e", false, Casing::Sensitive))
         );
 
         assert_eq!(
             Some(Greater),
-            PathMember::test_string("f".into(), true, Casing::Sensitive).partial_cmp(
-                &PathMember::test_string("e".into(), true, Casing::Sensitive)
-            )
+            PathMember::test_string("f", true, Casing::Sensitive)
+                .partial_cmp(&PathMember::test_string("e", true, Casing::Sensitive))
         );
     }
 }

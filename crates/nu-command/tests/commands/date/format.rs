@@ -114,3 +114,15 @@ fn locale_with_different_format_specifiers() -> Result {
     assert_contains("26-10-23 22:52:14", actual);
     Ok(())
 }
+
+#[test]
+fn format_date_list_of_strings() -> Result {
+    let code = r#"["2021-10-22 20:00:12 +01:00", "2021-10-23 20:00:12 +01:00"] | format date "%Y-%m-%d" | str join ",""#;
+    test().run(code).expect_value_eq("2021-10-22,2021-10-23")
+}
+
+#[test]
+fn format_date_list_of_datetimes() -> Result {
+    let code = "[2021-10-22T20:00:12+01:00, 2021-10-23T20:00:12+01:00] | format date \"%Y-%m-%d\" | str join \",\"";
+    test().run(code).expect_value_eq("2021-10-22,2021-10-23")
+}

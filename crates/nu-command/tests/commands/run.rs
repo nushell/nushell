@@ -604,3 +604,53 @@ fn run_script_exporting_run_does_not_override_builtin_run_in_repl_session() -> R
         },
     )
 }
+
+#[test]
+fn run_script_binds_long_flag_by_name_not_declaration_order() -> Result {
+    Playground::setup(
+        "run_script_binds_long_flag_by_name_not_declaration_order",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
+                "flags.nu",
+                "
+                def main [--alpha: int, --beta: int, --gamma: int] {
+                    $\"($alpha | default 0)/($beta | default 0)/($gamma | default 0)\"
+                }
+            ",
+            )]);
+
+            // `--gamma` must bind to `--gamma` by name. Previously a long flag
+            // matched the first declared flag that had no short character
+            // (`--alpha`), so the value silently landed in the wrong slot.
+            let mut tester = test().cwd(dirs.test());
+            tester
+                .run("run flags.nu --gamma 3")
+                .expect_value_eq("0/0/3")
+        },
+    )
+}
+
+#[test]
+fn run_script_binds_switch_by_name_without_shifting_positional() -> Result {
+    Playground::setup(
+        "run_script_binds_switch_by_name_without_shifting_positional",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
+                "switch.nu",
+                "
+                def main [word: string, --num: int, --verbose] {
+                    $\"word=($word) num=($num | default 0) verbose=($verbose)\"
+                }
+            ",
+            )]);
+
+            // `--verbose` is a switch declared after the value-taking `--num`.
+            // It must bind by name; otherwise it matched `--num`, which then
+            // swallowed `hello` as its (int) value and left `word` unbound.
+            let mut tester = test().cwd(dirs.test());
+            tester
+                .run("run switch.nu hello --verbose")
+                .expect_value_eq("word=hello num=0 verbose=true")
+        },
+    )
+}

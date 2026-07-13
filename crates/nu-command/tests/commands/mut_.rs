@@ -138,7 +138,7 @@ fn mut_path_operator_assign_should_error_enforce_runtime() {
         "mut a: record<b: int> = {b:1}; $a.b += 3; $a.b -= 2; $a.b *= 10; $a.b /= 4; $a.b",
     );
 
-    assert!(actual.err.contains("nu::shell::cant_convert"));
+    assert!(actual.err.contains("nu::shell::type_mismatch"));
 }
 
 #[test]
