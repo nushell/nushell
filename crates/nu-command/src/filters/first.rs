@@ -26,7 +26,7 @@ impl Command for First {
             ])
             .optional(
                 "rows",
-                SyntaxShape::Int,
+                SyntaxShape::OneOf(vec![SyntaxShape::Int, SyntaxShape::Filesize]),
                 "Starting from the front, the number of rows to return.",
             )
             .switch("strict", "Throw an error if input is empty.", Some('s'))
@@ -39,7 +39,7 @@ impl Command for First {
     }
 
     fn description(&self) -> &str {
-        "Return only the first several rows of the input. Counterpart of `last`. Opposite of `skip`."
+        "Return only the first several rows of the input. Counterpart of `last`. Opposite of `skip`. For binary input, rows can also be specified as a filesize."
     }
 
     fn run(
@@ -77,6 +77,11 @@ impl Command for First {
                 example: "1..3 | first",
                 result: Some(Value::test_int(1)),
             },
+            Example {
+                description: "Return the first 2 bytes of a binary value, using a filesize argument.",
+                example: "0x[01 23 45] | first 2b",
+                result: Some(Value::test_binary(vec![0x01, 0x23])),
+            },
         ]
     }
 }
@@ -88,8 +93,33 @@ fn first_helper(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let head = call.head;
-    let rows: Option<usize> = call.opt(engine_state, stack, 0)?;
+    let rows_val: Option<Value> = call.opt(engine_state, stack, 0)?;
+    let is_filesize = rows_val
+        .as_ref()
+        .is_some_and(|v| matches!(v, Value::Filesize { .. }));
     let strict_mode = call.has_flag(engine_state, stack, "strict")?;
+
+    let rows: Option<usize> = match rows_val {
+        Some(v) => {
+            let span = v.span();
+            match v {
+                Value::Int { val, .. } => Some(
+                    usize::try_from(val).map_err(|_| ShellError::NeedsPositiveValue { span })?,
+                ),
+                Value::Filesize { val, .. } => Some(
+                    usize::try_from(val).map_err(|_| ShellError::NeedsPositiveValue { span })?,
+                ),
+                ref val => {
+                    return Err(ShellError::RuntimeTypeMismatch {
+                        expected: Type::custom("int or filesize"),
+                        actual: val.get_type(),
+                        span: val.span(),
+                    });
+                }
+            }
+        }
+        None => None,
+    };
 
     // FIXME: for backwards compatibility reasons, if `rows` is not specified we
     // return a single element and otherwise we return a single list. We should probably
@@ -100,6 +130,19 @@ fn first_helper(
 
     let mut input = input;
     let input_meta = input.take_metadata();
+
+    if is_filesize {
+        let is_binary = matches!(
+            &input,
+            PipelineData::Value(Value::Binary { .. }, _) | PipelineData::ByteStream(..)
+        );
+        if !is_binary {
+            return Err(ShellError::IncompatibleParametersSingle {
+                msg: "Filesize is only supported for binary/byte stream input".into(),
+                span: head,
+            });
+        }
+    }
 
     // Count is 0: return empty data immediately.
     //

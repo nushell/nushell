@@ -175,6 +175,22 @@ fn wrapping_first_with_optional_explicit_rows() -> Result {
     test().run(code).expect_value_eq(2)
 }
 
+#[test]
+fn first_bytes_with_filesize() -> Result {
+    let code = "(0x[aa bb cc] | first 2b) == 0x[aa bb]";
+    test().run(code).expect_value_eq(true)
+}
+
+#[test]
+fn first_filesize_list_error() -> Result {
+    let err = test().run("[1 2 3] | first 1kb").expect_shell_error()?;
+    assert!(
+        matches!(err, ShellError::IncompatibleParametersSingle { .. }),
+        "expected IncompatibleParametersSingle, got {err:?}"
+    );
+    Ok(())
+}
+
 #[rstest]
 #[case::list_first(InputKind::List, "first")]
 #[case::list_first_n(InputKind::List, "first 2")]

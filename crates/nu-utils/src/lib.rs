@@ -46,3 +46,6 @@ pub use split_read::SplitRead;
 
 #[cfg(unix)]
 pub use filesystem::users;
+
+mod fmt_handle;
+pub use fmt_handle::*;

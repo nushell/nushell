@@ -4,6 +4,8 @@ on:
     branches:
       - main
       - 'patch-release-*'
+  pull_request_target:
+    types: [ready_for_review]
 
 name: continuous-integration
 
@@ -42,6 +44,7 @@ concurrency:
 
 jobs:
   cargo:
+    if: ${{ !github.event.pull_request.draft }}
     name: "`cargo` in ${{ matrix.workspace.name }} (${{ matrix.target.name }})"
     strategy:
       fail-fast: true
@@ -146,6 +149,7 @@ jobs:
         run: git diff --quiet && git diff --cached --quiet
 
   std-lib-and-python-virtualenv:
+    if: ${{ !github.event.pull_request.draft }}
     strategy:
       fail-fast: true
       matrix:

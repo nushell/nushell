@@ -3,7 +3,7 @@ use std::{
     fmt::Debug,
     iter::FusedIterator,
     marker::PhantomData,
-    ops::{Deref, DerefMut, RangeBounds},
+    ops::{Deref, DerefMut, Index, RangeBounds},
 };
 
 use crate::{
@@ -138,6 +138,17 @@ impl Deref for Record {
 impl DerefMut for Record {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.case_sensitive()
+    }
+}
+
+impl<S: AsRef<str>> Index<S> for Record {
+    type Output = Value;
+
+    #[inline]
+    #[track_caller]
+    fn index(&self, index: S) -> &Self::Output {
+        self.get(index.as_ref())
+            .expect("no entry found for key in record")
     }
 }
 
