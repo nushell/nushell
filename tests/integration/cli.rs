@@ -1427,6 +1427,34 @@ fn command_can_receive_arguments() -> TestResult {
 }
 
 #[test]
+fn command_can_receive_wrapped_arguments() -> TestResult {
+    let mut cmd = Command::new(cargo_bin!());
+    let output = cmd
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "-c",
+            "def --wrapped main [...rest] {
+                $rest | to nuon
+            }",
+            "--",
+            "earth",
+            "wind and water",
+            "fire",
+        ])
+        .output()?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    assert!(output.status.success());
+    assert!(
+        stdout.contains(r#"[--, earth, "wind and water", fire]"#),
+        "actual: {stdout:?}"
+    );
+    Ok(())
+}
+
+#[test]
 fn command_can_parse_flags() -> TestResult {
     let mut cmd = Command::new(cargo_bin!());
     let output = cmd
@@ -1437,7 +1465,6 @@ fn command_can_parse_flags() -> TestResult {
             "def main [--flag, --zip: string, ...rest] {
                 {flag: $flag, zip: $zip, rest: $rest } | to nuon
             }",
-            "--",
             "--flag",
             "--zip=zap",
             "'foo bar'",
@@ -1479,7 +1506,7 @@ fn command_can_wrap_unknown_args() -> TestResult {
 
     assert!(output.status.success());
     assert!(
-        stdout.contains(r#"[--flag, "--zip=zap", "'zop zim'", beep]"#),
+        stdout.contains(r#"[--, --flag, "--zip=zap", "'zop zim'", beep]"#),
         "actual: {stdout:?}"
     );
 

@@ -373,8 +373,6 @@ where
 
     let mut cmd = setup_command(&executable_path, &target_cwd);
     cmd.envs(envs)
-        .arg("--commands")
-        .arg(command)
         // Use plain errors to help make error text matching more consistent
         .args(["--error-style", "plain"])
         .arg("--config")
@@ -389,6 +387,8 @@ where
         cmd.arg("--plugins");
         cmd.arg(path);
     }
+
+    cmd.arg("--commands").arg(command);
 
     let process = match cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn() {
         Ok(child) => child,

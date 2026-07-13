@@ -1,5 +1,5 @@
 use crate::{
-    command::{self},
+    command,
     config_files::{self, setup_config},
 };
 use log::trace;
