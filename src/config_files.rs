@@ -89,40 +89,34 @@ pub(crate) fn read_config_file(
 
     if !config_path.exists() {
         let scaffold_config_file = config_kind.scaffold();
+        if !create_scaffold {
+            return;
+        }
 
-        match create_scaffold {
-            true => {
-                if let Ok(mut output) = File::create(&config_path) {
-                    if write!(output, "{scaffold_config_file}").is_ok() {
-                        let config_name = config_kind.name();
-                        if engine_state.is_mcp {
-                            eprintln!(
-                                "{} file created at: {}",
-                                config_name,
-                                config_path.to_string_lossy()
-                            );
-                        } else {
-                            println!(
-                                "{} file created at: {}",
-                                config_name,
-                                config_path.to_string_lossy()
-                            );
-                        }
-                    } else {
-                        eprintln!(
-                            "Unable to write to {}, sourcing default file instead",
-                            config_path.to_string_lossy(),
-                        );
-                        return;
-                    }
-                } else {
-                    eprintln!("Unable to create {scaffold_config_file}");
-                    return;
-                }
-            }
-            _ => {
-                return;
-            }
+        let Ok(mut output) = File::create(&config_path) else {
+            return eprintln!("Unable to create {scaffold_config_file}");
+        };
+
+        if write!(output, "{scaffold_config_file}").is_err() {
+            return eprintln!(
+                "Unable to write to {}, sourcing default file instead",
+                config_path.to_string_lossy(),
+            );
+        }
+
+        let config_name = config_kind.name();
+        if engine_state.is_mcp {
+            eprintln!(
+                "{} file created at: {}",
+                config_name,
+                config_path.to_string_lossy()
+            );
+        } else {
+            println!(
+                "{} file created at: {}",
+                config_name,
+                config_path.to_string_lossy()
+            );
         }
     }
 
