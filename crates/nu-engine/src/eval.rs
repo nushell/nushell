@@ -785,9 +785,12 @@ impl Eval for EvalRuntime {
                             } else {
                                 // Optimized: mutate the variable in-place on the stack,
                                 // avoiding the clone from lookup_var and the move-back from add_var.
-                                if let Some(lhs) = stack.get_var_mut(*var_id) {
-                                    lhs.upsert_data_at_cell_path(&cell_path.tail, rhs)?;
-                                }
+                                stack.upsert_var_cell_path(
+                                    *var_id,
+                                    &cell_path.tail,
+                                    rhs,
+                                    cell_path.head.span(&engine_state),
+                                )?;
                             }
                             Ok(Value::nothing(cell_path.head.span(&engine_state)))
                         } else {

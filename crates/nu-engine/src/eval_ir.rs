@@ -918,18 +918,19 @@ fn eval_instruction<D: DebugContext>(
             let new_val = ctx.collect_reg(*new_value, *span)?;
             let path = ctx.take_reg(*cell_path);
             if let PipelineData::Value(Value::CellPath { val: path, .. }, _) = path.body {
-                if nu_experimental::ENFORCE_RUNTIME_ANNOTATIONS.get() {
+                let new_val = if nu_experimental::ENFORCE_RUNTIME_ANNOTATIONS.get() {
                     let variable = ctx.engine_state.get_var(*var_id);
                     let expected_ty = variable.ty.follow_cell_path(&path.members);
                     if let Some(expected_ty) = expected_ty {
-                        check_assignment_type(new_val.clone(), &expected_ty, *span)?;
+                        check_assignment_type(new_val, &expected_ty, *span)?
+                    } else {
+                        new_val
                     }
-                }
-                let value = ctx
-                    .stack
-                    .get_var_mut(*var_id)
-                    .ok_or(ShellError::VariableNotFoundAtRuntime { span: *span })?;
-                value.upsert_data_at_cell_path(&path.members, new_val)?;
+                } else {
+                    new_val
+                };
+                ctx.stack
+                    .upsert_var_cell_path(*var_id, &path.members, new_val, *span)?;
                 Ok(Continue)
             } else if let PipelineData::Value(Value::Error { error, .. }, _) = path.body {
                 Err(*error)

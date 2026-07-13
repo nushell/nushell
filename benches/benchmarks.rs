@@ -580,10 +580,12 @@ fn bench_eval_default_env() -> impl IntoBenchmarks {
     )
 }
 
+/// End-to-end mut field assign via IR `UpdateVarCellPath`.
+/// Setup builds a large record once; the timed body only reassigns the field
+/// many times so assign cost dominates engine/stack clone overhead.
 fn bench_mut_record_assign(n: usize) -> impl IntoBenchmarks {
     let setup = format!("mut r = {{a: (1..{n} | each {{|i| $i | into string}} | str join)}}");
     let (stack, engine) = setup_stack_and_engine_from_command(&setup);
-    // Run 1000 assignments per call to amplify the signal vs. engine clone overhead
     bench_command(
         format!("mut_record_assign_{n}"),
         "for _ in 1..1000 { $r.a = 'x' }",
@@ -592,6 +594,7 @@ fn bench_mut_record_assign(n: usize) -> impl IntoBenchmarks {
     )
 }
 
+/// End-to-end mut list element assign (same IR path as record fields).
 fn bench_mut_list_assign(n: usize) -> impl IntoBenchmarks {
     let setup = format!("mut l = (1..{n} | each {{|i| {{a: $i}}}})");
     let (stack, engine) = setup_stack_and_engine_from_command(&setup);
@@ -603,6 +606,8 @@ fn bench_mut_list_assign(n: usize) -> impl IntoBenchmarks {
     )
 }
 
+/// Compound field assign (`+=`) still ends in in-place update; payload is large
+/// so a clone-on-write regression would show up even though only `a` changes.
 fn bench_mut_record_compound_assign(n: usize) -> impl IntoBenchmarks {
     let setup = format!("mut r = {{a: 0, b: (1..{n} | each {{|i| $i | into string}} | str join)}}");
     let (stack, engine) = setup_stack_and_engine_from_command(&setup);
@@ -614,6 +619,8 @@ fn bench_mut_record_compound_assign(n: usize) -> impl IntoBenchmarks {
     )
 }
 
+/// Slow baseline: full value replace via pipeline `update` (not the optimized path).
+/// Compare against `mut_record_assign_*` on the same `n` to quantify the win.
 fn bench_mut_record_update(n: usize) -> impl IntoBenchmarks {
     let setup = format!("mut r = {{a: (1..{n} | each {{|i| $i | into string}} | str join)}}");
     let (stack, engine) = setup_stack_and_engine_from_command(&setup);
@@ -625,10 +632,63 @@ fn bench_mut_record_update(n: usize) -> impl IntoBenchmarks {
     )
 }
 
-/// Benchmark the raw upsert operation on a Record value, simulating the current path
-/// (clone + upsert, which causes SharedCow to_mut() deep-copy when refcount > 1).
+/// Stack-level: old path = clone value + upsert + add_var (forces SharedCow deep-copy).
+fn bench_stack_upsert_clone(n: usize) -> impl IntoBenchmarks {
+    use nu_protocol::VarId;
+    let long_string = "x".repeat(n);
+    let cell_path = vec![PathMember::test_string("a", false, Casing::Sensitive)];
+    [benchmark_fn(format!("stack_upsert_clone_{n}"), move |b| {
+        let mut stack = Stack::new();
+        let var_id = VarId::new(0);
+        stack.add_var(
+            var_id,
+            Value::test_record(nu_protocol::record!("a" => Value::test_string(&long_string))),
+        );
+        let new_val = Value::test_string("x");
+        let cell_path = cell_path.clone();
+        b.iter(move || {
+            // Simulate pre-optimization: lookup clones, mutate copy, write back.
+            let mut value = stack
+                .get_var(var_id, Span::test_data())
+                .expect("var present");
+            value
+                .upsert_data_at_cell_path(&cell_path, new_val.clone())
+                .expect("upsert");
+            stack.add_var(var_id, value);
+            black_box(&stack);
+        })
+    })]
+}
+
+/// Stack-level: new path = get_var_mut / upsert_var_cell_path (unique ownership).
+fn bench_stack_upsert_inplace(n: usize) -> impl IntoBenchmarks {
+    use nu_protocol::VarId;
+    let long_string = "x".repeat(n);
+    let cell_path = vec![PathMember::test_string("a", false, Casing::Sensitive)];
+    [benchmark_fn(
+        format!("stack_upsert_inplace_{n}"),
+        move |b| {
+            let mut stack = Stack::new();
+            let var_id = VarId::new(0);
+            stack.add_var(
+                var_id,
+                Value::test_record(nu_protocol::record!("a" => Value::test_string(&long_string))),
+            );
+            let new_val = Value::test_string("x");
+            let cell_path = cell_path.clone();
+            b.iter(move || {
+                stack
+                    .upsert_var_cell_path(var_id, &cell_path, new_val.clone(), Span::test_data())
+                    .expect("upsert");
+                black_box(&stack);
+            })
+        },
+    )]
+}
+
 /// Benchmark: clone a shared Record then upsert (simulates old `lookup_var` + upsert path).
-/// The `original.clone()` bumps the SharedCow refcount to 2, forcing `to_mut()` to deep-copy.
+/// `original` is retained, so each `clone()` bumps SharedCow refcount and forces a deep-copy
+/// on `to_mut()` during upsert.
 fn bench_upsert_record_clone(n: usize) -> impl IntoBenchmarks {
     let long_string = "x".repeat(n);
     let original =
@@ -636,11 +696,7 @@ fn bench_upsert_record_clone(n: usize) -> impl IntoBenchmarks {
     [benchmark_fn(format!("upsert_record_clone_{n}"), move |b| {
         let original = original.clone();
         let new_val = Value::test_string("x");
-        let cell_path = vec![PathMember::test_string(
-            "a".into(),
-            false,
-            Casing::Sensitive,
-        )];
+        let cell_path = vec![PathMember::test_string("a", false, Casing::Sensitive)];
         b.iter(move || {
             let mut cloned = original.clone();
             cloned
@@ -651,29 +707,22 @@ fn bench_upsert_record_clone(n: usize) -> impl IntoBenchmarks {
     })]
 }
 
-/// Benchmark: create a fresh uniquely-owned Record then upsert (simulates
-/// the optimized `get_var_mut` path where we mutate a record that is already
-/// on the stack with refcount 1). The value is created once before timing.
+/// Benchmark: upsert a uniquely-owned Record in place (simulates `get_var_mut` when the
+/// stack value is not shared). Setup builds one value; timed loop only mutates it.
 fn bench_upsert_record_inplace(n: usize) -> impl IntoBenchmarks {
     let long_string = "x".repeat(n);
-    let original =
-        Value::test_record(nu_protocol::record!("a" => Value::test_string(&long_string)));
     [benchmark_fn(
         format!("upsert_record_inplace_{n}"),
         move |b| {
-            let original = original.clone();
+            let mut value =
+                Value::test_record(nu_protocol::record!("a" => Value::test_string(&long_string)));
             let new_val = Value::test_string("x");
-            let cell_path = vec![PathMember::test_string(
-                "a".into(),
-                false,
-                Casing::Sensitive,
-            )];
+            let cell_path = vec![PathMember::test_string("a", false, Casing::Sensitive)];
             b.iter(move || {
-                let mut value = original.clone();
                 value
                     .upsert_data_at_cell_path(&cell_path, new_val.clone())
                     .unwrap();
-                black_box(value);
+                black_box(&value);
             })
         },
     )]
@@ -700,69 +749,120 @@ fn bench_upsert_list_clone(n: usize) -> impl IntoBenchmarks {
     })]
 }
 
-/// Benchmark: upsert on a uniquely-owned List (no clone of shared state needed first).
-/// Similar to the clone benchmark but uses a freshly-created value that happens
-/// to be the same size. The creation cost of 100k records (13ms) is the floor;
-/// the clone benchmark's additional cost (701µs at 100k) represents the deep-copy
-/// overhead of the old `lookup_var` clone path.
+/// Benchmark: upsert a uniquely-owned List in place (no shared clone). Construction is
+/// outside the timed loop so this isolates mutation cost vs `upsert_list_clone_*`.
 fn bench_upsert_list_inplace(n: usize) -> impl IntoBenchmarks {
     [benchmark_fn(format!("upsert_list_inplace_{n}"), move |b| {
+        let mut value = Value::test_list(
+            (0..n)
+                .map(|i| Value::test_record(nu_protocol::record!("a" => Value::test_int(i as i64))))
+                .collect(),
+        );
         let new_val = Value::test_record(nu_protocol::record!("a" => Value::test_int(999)));
         let cell_path = vec![PathMember::test_int(0, false)];
         b.iter(move || {
-            let mut value = Value::test_list(
-                (0..n)
-                    .map(|i| {
-                        Value::test_record(nu_protocol::record!("a" => Value::test_int(i as i64)))
-                    })
-                    .collect(),
-            );
             value
                 .upsert_data_at_cell_path(&cell_path, new_val.clone())
                 .unwrap();
-            black_box(value);
+            black_box(&value);
         })
     })]
 }
 
-/// Benchmark: concat (++) on two lists of size n (general case, both non-empty).
-fn bench_concat_general(n: usize) -> impl IntoBenchmarks {
-    let engine = setup_engine();
-    let stack = Stack::new();
+/// Pure `Value::concat` (both sides non-empty). Isolates operator cost from pipeline setup.
+fn bench_value_concat_general(n: usize) -> impl IntoBenchmarks {
+    let lhs = Value::test_list((0..n).map(|i| Value::test_int(i as i64)).collect());
+    let rhs = Value::test_list((0..n).map(|i| Value::test_int(i as i64)).collect());
+    [benchmark_fn(
+        format!("value_concat_general_{n}"),
+        move |b| {
+            let lhs = lhs.clone();
+            let rhs = rhs.clone();
+            b.iter(move || {
+                black_box(
+                    lhs.concat(Span::test_data(), &rhs, Span::test_data())
+                        .expect("concat"),
+                );
+            })
+        },
+    )]
+}
+
+/// Pure `Value::concat` empty-LHS shortcut (`[] ++ xs`).
+fn bench_value_concat_empty_lhs(n: usize) -> impl IntoBenchmarks {
+    let empty = Value::test_list(vec![]);
+    let rhs = Value::test_list((0..n).map(|i| Value::test_int(i as i64)).collect());
+    [benchmark_fn(
+        format!("value_concat_empty_lhs_{n}"),
+        move |b| {
+            let empty = empty.clone();
+            let rhs = rhs.clone();
+            b.iter(move || {
+                black_box(
+                    empty
+                        .concat(Span::test_data(), &rhs, Span::test_data())
+                        .expect("concat"),
+                );
+            })
+        },
+    )]
+}
+
+/// Pure `Value::concat` empty-RHS shortcut (`xs ++ []`).
+fn bench_value_concat_empty_rhs(n: usize) -> impl IntoBenchmarks {
+    let lhs = Value::test_list((0..n).map(|i| Value::test_int(i as i64)).collect());
+    let empty = Value::test_list(vec![]);
+    [benchmark_fn(
+        format!("value_concat_empty_rhs_{n}"),
+        move |b| {
+            let lhs = lhs.clone();
+            let empty = empty.clone();
+            b.iter(move || {
+                black_box(
+                    lhs.concat(Span::test_data(), &empty, Span::test_data())
+                        .expect("concat"),
+                );
+            })
+        },
+    )]
+}
+
+/// Command-level concat with **prebuilt** lists on the stack (no `1..n | each` in the timed path).
+fn bench_concat_prebuilt_general(n: usize) -> impl IntoBenchmarks {
+    let setup = format!("let a = 1..{n} | each {{|i| $i}}; let b = 1..{n} | each {{|i| $i}}");
+    let (stack, engine) = setup_stack_and_engine_from_command(&setup);
     bench_command(
-        format!("concat_general_{n}"),
-        format!("(1..{n} | each {{|i| $i}}) ++ (1..{n} | each {{|i| $i}}) | length"),
+        format!("concat_prebuilt_general_{n}"),
+        // Amplify: 100 concats per iter so operator work exceeds engine clone noise.
+        "for _ in 1..100 { $a ++ $b | ignore }",
         stack,
         engine,
     )
 }
 
-/// Benchmark: concat (++) where the left-hand list is empty (empty-LHS shortcut).
-fn bench_concat_empty_lhs(n: usize) -> impl IntoBenchmarks {
-    let engine = setup_engine();
-    let stack = Stack::new();
+fn bench_concat_prebuilt_empty_lhs(n: usize) -> impl IntoBenchmarks {
+    let setup = format!("let a = []; let b = 1..{n} | each {{|i| $i}}");
+    let (stack, engine) = setup_stack_and_engine_from_command(&setup);
     bench_command(
-        format!("concat_empty_lhs_{n}"),
-        format!("[] ++ (1..{n} | each {{|i| $i}}) | length"),
+        format!("concat_prebuilt_empty_lhs_{n}"),
+        "for _ in 1..100 { $a ++ $b | ignore }",
         stack,
         engine,
     )
 }
 
-/// Benchmark: concat (++) where the right-hand list is empty (empty-RHS shortcut).
-fn bench_concat_empty_rhs(n: usize) -> impl IntoBenchmarks {
-    let engine = setup_engine();
-    let stack = Stack::new();
+fn bench_concat_prebuilt_empty_rhs(n: usize) -> impl IntoBenchmarks {
+    let setup = format!("let a = 1..{n} | each {{|i| $i}}; let b = []");
+    let (stack, engine) = setup_stack_and_engine_from_command(&setup);
     bench_command(
-        format!("concat_empty_rhs_{n}"),
-        format!("(1..{n} | each {{|i| $i}}) ++ [] | length"),
+        format!("concat_prebuilt_empty_rhs_{n}"),
+        "for _ in 1..100 { $a ++ $b | ignore }",
         stack,
         engine,
     )
 }
 
-/// Benchmark: par-each with default thread pool (no --threads flag).
-/// This exercises the global-pool reuse optimization.
+/// Single large `par-each` without `--threads` (global pool; work dominates for large n).
 fn bench_par_each_default_pool(n: usize) -> impl IntoBenchmarks {
     let engine = setup_engine();
     let stack = Stack::new();
@@ -774,8 +874,8 @@ fn bench_par_each_default_pool(n: usize) -> impl IntoBenchmarks {
     )
 }
 
-/// Benchmark: many sequential small par-each calls (amplifies thread-pool
-/// creation overhead). Each call processes only 10 items.
+/// Many sequential small `par-each` calls: amplifies pool create/reuse.
+/// Compare branch vs main — main paid a new private pool per call.
 fn bench_par_each_many_calls(n: usize) -> impl IntoBenchmarks {
     let engine = setup_engine();
     let stack = Stack::new();
@@ -784,6 +884,22 @@ fn bench_par_each_many_calls(n: usize) -> impl IntoBenchmarks {
         .collect::<Vec<_>>()
         .join("; ");
     bench_command(format!("par_each_many_calls_{n}"), cmds, stack, engine)
+}
+
+/// Same as many_calls but with an explicit `-t 2` (cached custom pool path).
+fn bench_par_each_many_calls_threads(n: usize) -> impl IntoBenchmarks {
+    let engine = setup_engine();
+    let stack = Stack::new();
+    let cmds = (0..n)
+        .map(|_| "(1..10) | par-each -t 2 {|_| 1 } | ignore")
+        .collect::<Vec<_>>()
+        .join("; ");
+    bench_command(
+        format!("par_each_many_calls_threads_{n}"),
+        cmds,
+        stack,
+        engine,
+    )
 }
 
 fn encode_json(row_cnt: usize, col_cnt: usize) -> impl IntoBenchmarks {
@@ -1301,21 +1417,22 @@ tango_benchmarks!(
     bench_eval_par_each(100),
     bench_eval_par_each(1_000),
     bench_eval_par_each(10_000),
-    // Par-Each: default thread pool (compares with -t 2 above)
-    bench_par_each_default_pool(1),
-    bench_par_each_default_pool(10),
+    // Par-Each: default global pool (work-dominated for large n)
     bench_par_each_default_pool(100),
     bench_par_each_default_pool(1_000),
     bench_par_each_default_pool(10_000),
-    // Par-Each: many sequential small calls (amplifies pool creation overhead)
-    bench_par_each_many_calls(1),
+    // Par-Each: many sequential small calls (pool create/reuse — strongest par-each signal)
     bench_par_each_many_calls(10),
+    bench_par_each_many_calls(50),
     bench_par_each_many_calls(100),
+    bench_par_each_many_calls_threads(10),
+    bench_par_each_many_calls_threads(50),
+    bench_par_each_many_calls_threads(100),
     // Config
     bench_eval_default_config(),
     // Env
     bench_eval_default_env(),
-    // Mut variable assignment (via evaluate_commands)
+    // Mut field assign (IR UpdateVarCellPath) — compare vs mut_record_update_* baseline
     bench_mut_record_assign(1_000),
     bench_mut_record_assign(10_000),
     bench_mut_record_assign(100_000),
@@ -1328,17 +1445,34 @@ tango_benchmarks!(
     bench_mut_record_update(1_000),
     bench_mut_record_update(10_000),
     bench_mut_record_update(100_000),
-    // Concat (++ operator)
-    bench_concat_general(1_000),
-    bench_concat_general(10_000),
-    bench_concat_general(100_000),
-    bench_concat_empty_lhs(1_000),
-    bench_concat_empty_lhs(10_000),
-    bench_concat_empty_lhs(100_000),
-    bench_concat_empty_rhs(1_000),
-    bench_concat_empty_rhs(10_000),
-    bench_concat_empty_rhs(100_000),
-    // Raw upsert: clone+upsert (old path) vs in-place (new path)
+    // Stack-level mut path: clone+add_var vs upsert_var_cell_path
+    bench_stack_upsert_clone(1_000),
+    bench_stack_upsert_clone(10_000),
+    bench_stack_upsert_clone(100_000),
+    bench_stack_upsert_inplace(1_000),
+    bench_stack_upsert_inplace(10_000),
+    bench_stack_upsert_inplace(100_000),
+    // Pure Value::concat (no engine noise)
+    bench_value_concat_general(1_000),
+    bench_value_concat_general(10_000),
+    bench_value_concat_general(100_000),
+    bench_value_concat_empty_lhs(1_000),
+    bench_value_concat_empty_lhs(10_000),
+    bench_value_concat_empty_lhs(100_000),
+    bench_value_concat_empty_rhs(1_000),
+    bench_value_concat_empty_rhs(10_000),
+    bench_value_concat_empty_rhs(100_000),
+    // Command-level concat with prebuilt stack vars
+    bench_concat_prebuilt_general(1_000),
+    bench_concat_prebuilt_general(10_000),
+    bench_concat_prebuilt_general(100_000),
+    bench_concat_prebuilt_empty_lhs(1_000),
+    bench_concat_prebuilt_empty_lhs(10_000),
+    bench_concat_prebuilt_empty_lhs(100_000),
+    bench_concat_prebuilt_empty_rhs(1_000),
+    bench_concat_prebuilt_empty_rhs(10_000),
+    bench_concat_prebuilt_empty_rhs(100_000),
+    // Raw Value upsert: clone path vs unique-ownership path
     bench_upsert_record_clone(1_000),
     bench_upsert_record_clone(10_000),
     bench_upsert_record_clone(100_000),
