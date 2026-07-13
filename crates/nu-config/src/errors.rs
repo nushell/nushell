@@ -4,19 +4,17 @@ use std::path::PathBuf;
 /// Errors that can occur during config-path resolution.
 ///
 /// These are deliberately **not** `ShellError` — this crate sits below
-/// `nu-protocol` in the dependency graph.  Callers convert to `ShellError` at
+/// `nu-protocol` in the dependency graph. Callers convert to `ShellError` at
 /// the boundary.
-#[derive(Debug, Clone)]
+///
+/// Non-fatal XDG issues are **not** errors — they are [`ConfigWarning`]s.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ConfigError {
     /// No config directory could be resolved (no XDG env var and the platform
     /// fallback returned `None`).
     ConfigDirNotFound,
 
-    /// `$XDG_CONFIG_HOME` was set to a value that could not be used (relative
-    /// path, empty string, etc.) and the platform default was used instead.
-    InvalidXdgConfig { xdg: String, resolved: PathBuf },
-
-    /// No home directory could be found via `dirs::home_dir()`.
+    /// No home directory could be found via the platform home-dir lookup.
     NoHomeDir,
 }
 
@@ -26,13 +24,6 @@ impl fmt::Display for ConfigError {
             Self::ConfigDirNotFound => {
                 write!(f, "Could not determine a config directory")
             }
-            Self::InvalidXdgConfig { xdg, resolved } => {
-                write!(
-                    f,
-                    "$env.XDG_CONFIG_HOME ({xdg}) is invalid, using default config directory instead: {}",
-                    resolved.display(),
-                )
-            }
             Self::NoHomeDir => {
                 write!(f, "Could not determine the home directory")
             }
@@ -40,8 +31,10 @@ impl fmt::Display for ConfigError {
     }
 }
 
+impl std::error::Error for ConfigError {}
+
 /// Non-fatal warnings produced during config-path resolution.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ConfigWarning {
     /// `$XDG_CONFIG_HOME` was set to a value that was ignored (relative path,
     /// empty string) and the platform default was used instead.
@@ -64,14 +57,11 @@ impl fmt::Display for ConfigWarning {
                 )
             }
             Self::OldConfigDirHasFiles { old, new } => {
-                writeln!(
-                    f,
-                    "WARNING: XDG_CONFIG_HOME has been set but {} is empty.",
-                    new.display(),
-                )?;
                 write!(
                     f,
-                    "Nushell will not move your configuration files from {}",
+                    "WARNING: XDG_CONFIG_HOME has been set but {} is empty.\n\
+                     Nushell will not move your configuration files from {}",
+                    new.display(),
                     old.display(),
                 )
             }

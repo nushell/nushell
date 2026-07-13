@@ -169,39 +169,31 @@ fn main() -> Result<()> {
     nu_command::tls::CRYPTO_PROVIDER.default();
 
     // ── Resolve all config paths ──────────────────────────────────────────
-    // This replaces the old ad-hoc XDG_CONFIG_HOME validation and
-    // `nu_path::nu_config_dir()` / `nu_path::data_dir()` calls.
-    let cli_overrides = CliOverrides {
-        config_home: parsed_nu_cli_args.config_home.as_ref().map(|s| {
-            let mut p = PathBuf::from(&s.item);
-            if !p.is_absolute() {
-                p = init_cwd.join(&p);
-            }
-            p
-        }),
-        config_file: parsed_nu_cli_args.config_file.as_ref().map(|s| {
-            let mut p = PathBuf::from(&s.item);
-            if !p.is_absolute() {
-                p = init_cwd.join(&p);
-            }
-            p
-        }),
-        env_file: parsed_nu_cli_args.env_file.as_ref().map(|s| {
-            let mut p = PathBuf::from(&s.item);
-            if !p.is_absolute() {
-                p = init_cwd.join(&p);
-            }
-            p
-        }),
+    // Path ownership (read this before changing startup):
+    //   1. CliOverrides::from_path_strings — only place that absolute-izes CLI paths
+    //   2. resolve_paths — only place that reads XDG/env/platform dirs
+    //   3. engine_state.config_dirs — single source of truth for the rest of the process
+    // Do not call free path helpers (env / dirs) after this block.
+    let cli_overrides = CliOverrides::from_path_strings(
+        parsed_nu_cli_args
+            .config_home
+            .as_ref()
+            .map(|s| s.item.as_str()),
+        parsed_nu_cli_args
+            .config_file
+            .as_ref()
+            .map(|s| s.item.as_str()),
+        parsed_nu_cli_args
+            .env_file
+            .as_ref()
+            .map(|s| s.item.as_str()),
         #[cfg(feature = "plugin")]
-        plugin_file: parsed_nu_cli_args.plugin_file.as_ref().map(|s| {
-            let mut p = PathBuf::from(&s.item);
-            if !p.is_absolute() {
-                p = init_cwd.join(&p);
-            }
-            p
-        }),
-    };
+        parsed_nu_cli_args
+            .plugin_file
+            .as_ref()
+            .map(|s| s.item.as_str()),
+        &init_cwd,
+    );
 
     let (config_dirs, warnings) = match resolve_paths(&SystemEnv, &cli_overrides) {
         Ok(result) => result,
@@ -213,44 +205,50 @@ fn main() -> Result<()> {
                     span: Span::unknown(),
                 },
             );
-            // Use a minimal fallback so the engine can still start
+            // Minimal fallback so the engine can still start
             (nu_config::NushellConfigDirs::empty(), vec![])
         }
-        Err(e) => {
+        Err(ConfigError::NoHomeDir) => {
             report_shell_error(
                 None,
                 &engine_state,
                 &ShellError::Generic(GenericError::new_internal(
                     "Config path resolution failed",
-                    e.to_string(),
+                    ConfigError::NoHomeDir.to_string(),
                 )),
             );
             (nu_config::NushellConfigDirs::empty(), vec![])
         }
     };
 
-    // Emit non-fatal warnings
+    // Emit non-fatal warnings via their Display impl (single message source).
     for w in &warnings {
         match w {
             ConfigWarning::XdgConfigIgnored { xdg, resolved } => {
+                // Keep the structured shell error so existing tests/matchers work.
                 let err = ShellError::InvalidXdgConfig {
                     xdg: xdg.clone(),
                     default: resolved.display().to_string(),
                 };
                 report_shell_error(None, &engine_state, &err);
             }
-            ConfigWarning::OldConfigDirHasFiles { old, new } => {
-                eprintln!(
-                    "WARNING: XDG_CONFIG_HOME has been set but {} is empty.\n\
-                     Nushell will not move your configuration files from {}",
-                    new.display(),
-                    old.display(),
-                );
+            ConfigWarning::OldConfigDirHasFiles { .. } => {
+                eprintln!("{w}");
             }
         }
     }
 
     engine_state.config_dirs = config_dirs;
+    // Do NOT set `engine_state.plugin_path` here.
+    //
+    // `plugin_path` is only set when the plugin registry is actually loaded
+    // (`read_plugin_file` / `add_plugin_file`), which is skipped under
+    // `--no-config-file` (`-n`). Leaving it `None` in that case preserves the
+    // existing `plugin use` error ("Plugin registry file not set") and matches
+    // pre-`nu-config` behavior.
+    //
+    // `$nu.plugin-path` still reports the resolved default via
+    // `config_dirs.plugin_file` when `plugin_path` is unset (see `create_nu_constant`).
 
     // Begin: Default NU_LIB_DIRS, NU_PLUGIN_DIRS
     let default_nushell_completions_path = engine_state.config_dirs.data_home.join("completions");
@@ -630,10 +628,6 @@ fn main() -> Result<()> {
             config_files::setup_config(
                 &mut engine_state,
                 &mut stack,
-                #[cfg(feature = "plugin")]
-                parsed_nu_cli_args.plugin_file,
-                parsed_nu_cli_args.config_file,
-                parsed_nu_cli_args.env_file,
                 parsed_nu_cli_args.login_shell.is_some(),
             );
         }

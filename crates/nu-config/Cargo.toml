@@ -10,10 +10,18 @@ version.workspace = true
 
 [lib]
 bench = false
+harness = false
 
 [features]
 plugin = []
 
 [dependencies]
 dirs = { workspace = true }
-nu-path.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+dirs-sys = { workspace = true }
+windows-sys = { workspace = true, features = ["Win32_UI_Shell"] }
+
+[dev-dependencies]
+nu-test-support = { path = "../nu-test-support", default-features = false }
+tempfile = { workspace = true }

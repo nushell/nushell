@@ -1,6 +1,6 @@
 use super::{config_update_string_enum, prelude::*};
 use crate::{self as nu_protocol, ConfigWarning};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Clone, Copy, Debug, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
 pub enum HistoryFileFormat {
@@ -95,14 +95,28 @@ impl IntoValue for HistoryConfig {
 }
 
 impl HistoryConfig {
-    pub fn file_path(&self) -> Option<PathBuf> {
+    /// Resolve the history file path.
+    ///
+    /// For [`HistoryPath::Default`], joins the history file name under
+    /// `config_home`. Callers **must** pass the session's already-resolved
+    /// config directory (`EngineState.config_dirs.config_home`) so that CLI
+    /// overrides such as `--config-home` are honored.
+    ///
+    /// Do **not** re-resolve config location from the process environment here —
+    /// that would break session isolation.
+    ///
+    /// # Arguments
+    ///
+    /// * `config_home` — resolved nushell config directory for this session.
+    pub fn file_path(&self, config_home: &Path) -> Option<PathBuf> {
         let path = match &self.path {
             HistoryPath::Custom(path) => Some(path.clone()),
             HistoryPath::Disabled => None,
-            HistoryPath::Default => nu_config::config_home().map(|mut history_path| {
+            HistoryPath::Default => {
+                let mut history_path = config_home.to_path_buf();
                 history_path.push(self.file_format.default_file_name());
-                history_path
-            }),
+                Some(history_path)
+            }
         }?;
 
         if path.is_dir() {

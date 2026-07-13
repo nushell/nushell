@@ -77,7 +77,8 @@ Note that history item IDs are ignored when importing from file."
         let Some(history) = engine_state.history_config() else {
             return ok;
         };
-        let Some(current_history_path) = history.file_path() else {
+        let Some(current_history_path) = history.file_path(&engine_state.config_dirs.config_home)
+        else {
             return Err(ShellError::ConfigDirNotFound { span });
         };
         if let Some(bak_path) = backup(&current_history_path, span)? {
@@ -89,9 +90,18 @@ Note that history item IDs are ignored when importing from file."
                     HistoryFileFormat::Sqlite => HistoryFileFormat::Plaintext,
                     HistoryFileFormat::Plaintext => HistoryFileFormat::Sqlite,
                 };
-                let src = new_backend(other_format, None, call.head)?;
-                let mut dst =
-                    new_backend(history.file_format, Some(current_history_path), call.head)?;
+                let src = new_backend(
+                    other_format,
+                    None,
+                    &engine_state.config_dirs.config_home,
+                    call.head,
+                )?;
+                let mut dst = new_backend(
+                    history.file_format,
+                    Some(current_history_path),
+                    &engine_state.config_dirs.config_home,
+                    call.head,
+                )?;
                 let items = src
                     .search(SearchQuery::everything(
                         reedline::SearchDirection::Forward,
@@ -105,8 +115,13 @@ Note that history item IDs are ignored when importing from file."
             _ => {
                 let input = input.into_iter().map(item_from_value);
                 import(
-                    new_backend(history.file_format, Some(current_history_path), call.head)?
-                        .as_mut(),
+                    new_backend(
+                        history.file_format,
+                        Some(current_history_path),
+                        &engine_state.config_dirs.config_home,
+                        call.head,
+                    )?
+                    .as_mut(),
                     input,
                 )
             }
@@ -119,13 +134,16 @@ Note that history item IDs are ignored when importing from file."
 fn new_backend(
     format: HistoryFileFormat,
     path: Option<PathBuf>,
+    config_home: &std::path::Path,
     span: Span,
 ) -> Result<Box<dyn History>, ShellError> {
     let path = match path {
         Some(path) => path,
         None => {
-            let mut path =
-                nu_config::config_home().ok_or(ShellError::ConfigDirNotFound { span })?;
+            if config_home.as_os_str().is_empty() {
+                return Err(ShellError::ConfigDirNotFound { span });
+            }
+            let mut path = config_home.to_path_buf();
             path.push(format.default_file_name());
             path
         }

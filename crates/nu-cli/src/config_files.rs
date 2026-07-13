@@ -4,7 +4,7 @@ use nu_path::absolute_with;
 #[cfg(feature = "plugin")]
 use nu_protocol::shell_error::generic::GenericError;
 #[cfg(feature = "plugin")]
-use nu_protocol::{ParseError, PluginRegistryFile, Spanned, engine::StateWorkingSet};
+use nu_protocol::{ParseError, PluginRegistryFile, Span, engine::StateWorkingSet};
 use nu_protocol::{
     PipelineData,
     engine::{EngineState, Stack},
@@ -21,17 +21,24 @@ const PLUGIN_FILE: &str = "plugin.msgpackz";
 #[cfg(feature = "plugin")]
 const OLD_PLUGIN_FILE: &str = "plugin.nu";
 
+/// Load the plugin registry file from the already-resolved path in
+/// `engine_state.config_dirs.plugin_file`.
+///
+/// `override_span` is the CLI span for `--plugin-config` when provided, used
+/// only for error reporting.
 #[cfg(feature = "plugin")]
-pub fn read_plugin_file(engine_state: &mut EngineState, plugin_file: Option<Spanned<String>>) {
+pub fn read_plugin_file(engine_state: &mut EngineState, override_span: Option<Span>) {
     use nu_protocol::{ShellError, shell_error::io::IoError};
-    use std::path::Path;
 
-    let span = plugin_file.as_ref().map(|s| s.span);
+    let span = override_span;
+    let is_override = engine_state.config_dirs.plugin_file.is_override();
 
     // Check and warn + abort if this is a .nu plugin file
-    if plugin_file
-        .as_ref()
-        .and_then(|p| Path::new(&p.item).extension())
+    if engine_state
+        .config_dirs
+        .plugin_file
+        .as_path()
+        .extension()
         .is_some_and(|ext| ext == "nu")
     {
         let error = "Wrong plugin file format";
@@ -51,9 +58,8 @@ pub fn read_plugin_file(engine_state: &mut EngineState, plugin_file: Option<Span
     }
 
     let mut start_time = Instant::now();
-    // Reading signatures from plugin registry file
-    // The plugin.msgpackz file stores the parsed signature collected from each registered plugin
-    add_plugin_file(engine_state, plugin_file.clone());
+    // Sync engine_state.plugin_path from the single resolved config_dirs path.
+    add_plugin_file(engine_state, override_span);
     perf!(
         "add plugin file to engine_state",
         start_time,
@@ -74,7 +80,7 @@ pub fn read_plugin_file(engine_state: &mut EngineState, plugin_file: Option<Span
                     log::warn!("Plugin file not found: {}", plugin_path.display());
 
                     // Try migration of an old plugin file if this wasn't a custom plugin file
-                    if plugin_file.is_none() && migrate_old_plugin_file(engine_state) {
+                    if !is_override && migrate_old_plugin_file(engine_state) {
                         let Ok(file) = std::fs::File::open(&plugin_path) else {
                             log::warn!("Failed to load newly migrated plugin file");
                             return;
@@ -184,44 +190,48 @@ pub fn read_plugin_file(engine_state: &mut EngineState, plugin_file: Option<Span
     }
 }
 
+/// Ensure `engine_state.plugin_path` matches the resolved
+/// `config_dirs.plugin_file`.
+///
+/// For CLI overrides, reports an error if the parent directory does not exist.
 #[cfg(feature = "plugin")]
-pub fn add_plugin_file(engine_state: &mut EngineState, plugin_file: Option<Spanned<String>>) {
+pub fn add_plugin_file(engine_state: &mut EngineState, override_span: Option<Span>) {
     use std::path::Path;
 
     use nu_protocol::report_parse_error;
 
-    if let Ok(cwd) = engine_state.cwd_as_string(None) {
-        if let Some(plugin_file) = plugin_file {
-            let path = Path::new(&plugin_file.item);
-            let path_dir = path.parent().unwrap_or(path);
-            // Just try the absolute directory of the plugin file first.
-            if let Ok(path_dir) = absolute_with(path_dir, &cwd)
-                && path_dir.exists()
-            {
-                // Get an absolute path to the file.
-                // We don't need to check if it exists.
-                let path = path_dir.join(path.file_name().unwrap_or(path.as_os_str()));
-                let path = absolute_with(&path, &cwd).unwrap_or(path);
-                engine_state.plugin_path = Some(path)
-            } else {
-                // It's an error if the directory for the plugin file doesn't exist.
-                report_parse_error(
-                    None,
-                    &StateWorkingSet::new(engine_state),
-                    &ParseError::FileNotFound(
-                        path_dir.to_string_lossy().into_owned(),
-                        plugin_file.span,
-                    ),
-                );
-            }
+    let plugin_path = engine_state.config_dirs.plugin_file.to_path_buf();
+    if plugin_path.as_os_str().is_empty() {
+        return;
+    }
+
+    let Ok(cwd) = engine_state.cwd_as_string(None) else {
+        return;
+    };
+
+    if engine_state.config_dirs.plugin_file.is_override() {
+        let path = Path::new(&plugin_path);
+        let path_dir = path.parent().unwrap_or(path);
+        if let Ok(path_dir) = absolute_with(path_dir, &cwd)
+            && path_dir.exists()
+        {
+            let path = path_dir.join(path.file_name().unwrap_or(path.as_os_str()));
+            let path = absolute_with(&path, &cwd).unwrap_or(path);
+            engine_state.plugin_path = Some(path);
         } else {
-            // Path to store plugins signatures — use the pre-resolved config dir
-            let mut plugin_path = engine_state.config_dirs.config_home.clone();
-            plugin_path = absolute_with(&plugin_path, &cwd).unwrap_or(plugin_path);
-            plugin_path.push(PLUGIN_FILE);
-            let plugin_path = absolute_with(&plugin_path, &cwd).unwrap_or(plugin_path);
-            engine_state.plugin_path = Some(plugin_path);
+            report_parse_error(
+                None,
+                &StateWorkingSet::new(engine_state),
+                &ParseError::FileNotFound(
+                    path_dir.to_string_lossy().into_owned(),
+                    override_span.unwrap_or_else(Span::unknown),
+                ),
+            );
         }
+    } else {
+        // Default registry path — already resolved; just absolute-ize for cwd.
+        let plugin_path = absolute_with(&plugin_path, &cwd).unwrap_or(plugin_path);
+        engine_state.plugin_path = Some(plugin_path);
     }
 }
 
@@ -273,11 +283,10 @@ pub fn migrate_old_plugin_file(engine_state: &EngineState) -> bool {
 
     let start_time = Instant::now();
 
-    let Ok(_cwd) = engine_state.cwd_as_string(None) else {
-        return false;
-    };
-
     let config_dir = &engine_state.config_dirs.config_home;
+    if config_dir.as_os_str().is_empty() {
+        return false;
+    }
 
     let Ok(old_plugin_file_path) = nu_path::absolute_with(OLD_PLUGIN_FILE, config_dir) else {
         return false;

@@ -849,6 +849,15 @@ impl EngineState {
         self.history_enabled.then(|| self.config.history.clone())
     }
 
+    /// Resolve the history file path using the already-resolved config dirs.
+    ///
+    /// Returns `None` when history is disabled or the history path is set to
+    /// [`HistoryPath::Disabled`].
+    pub fn history_path(&self) -> Option<std::path::PathBuf> {
+        self.history_config()?
+            .file_path(&self.config_dirs.config_home)
+    }
+
     pub fn get_var(&self, var_id: VarId) -> &Variable {
         self.vars
             .get(var_id.get())

@@ -81,8 +81,8 @@ pub(super) fn start_editor(
         })?;
 
     let config_path = match kind {
-        ConfigFileKind::Config => &engine_state.config_dirs.config_file,
-        ConfigFileKind::Env => &engine_state.config_dirs.env_file,
+        ConfigFileKind::Config => engine_state.config_dirs.config_file.as_path(),
+        ConfigFileKind::Env => engine_state.config_dirs.env_file.as_path(),
     };
     let config_path = config_path.to_string_lossy().to_string();
 

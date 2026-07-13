@@ -4678,7 +4678,10 @@ name = "nu-config"
 version = "0.113.2"
 dependencies = [
  "dirs 6.0.0",
- "nu-path",
+ "dirs-sys 0.5.0",
+ "nu-test-support",
+ "tempfile",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

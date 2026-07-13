@@ -8,7 +8,7 @@ use nu_cli::read_plugin_file;
 use nu_cli::{EvaluateCommandsOpts, evaluate_commands, evaluate_file, evaluate_repl};
 use nu_config::ConfigFileKind;
 use nu_protocol::{
-    PipelineData, ShellError, Spanned,
+    PipelineData, ShellError,
     engine::{EngineState, Stack},
     report_shell_error,
 };
@@ -21,7 +21,7 @@ pub(crate) fn run_commands(
     mut stack: Stack,
     parsed_nu_cli_args: command::NushellCliArgs,
     use_color: bool,
-    commands: &Spanned<String>,
+    commands: &nu_protocol::Spanned<String>,
     input: PipelineData,
     entire_start_time: nu_utils::time::Instant,
 ) {
@@ -31,26 +31,31 @@ pub(crate) fn run_commands(
     let create_scaffold = !engine_state.config_dirs.config_home.exists();
 
     // if the --no-config-file(-n) option is NOT passed, load the plugin file,
-    // load the default env file or custom (depending on parsed_nu_cli_args.env_file),
-    // and maybe a custom config file (depending on parsed_nu_cli_args.config_file)
+    // load the default env file or custom (depending on whether env was overridden),
+    // and maybe a custom config file
     //
     // if the --no-config-file(-n) flag is passed, do not load plugin, env, or config files
     if parsed_nu_cli_args.no_config_file.is_none() {
         #[cfg(feature = "plugin")]
-        read_plugin_file(engine_state, parsed_nu_cli_args.plugin_file);
+        read_plugin_file(
+            engine_state,
+            parsed_nu_cli_args.plugin_file.as_ref().map(|s| s.span),
+        );
 
         perf!("read plugins", start_time, use_color);
 
         let start_time = Instant::now();
-        // If we have a env file parameter *OR* we have a login shell parameter, read the env file
-        if parsed_nu_cli_args.env_file.is_some() || parsed_nu_cli_args.login_shell.is_some() {
+        // If we have an env file override *OR* we have a login shell parameter, read the env file
+        if engine_state.config_dirs.env_file.is_override()
+            || parsed_nu_cli_args.login_shell.is_some()
+        {
             config_files::read_config_file(
                 engine_state,
                 &mut stack,
-                parsed_nu_cli_args.env_file,
                 ConfigFileKind::Env,
                 create_scaffold,
                 true,
+                parsed_nu_cli_args.env_file.as_ref(),
             );
         } else {
             config_files::read_default_env_file(engine_state, &mut stack)
@@ -59,17 +64,18 @@ pub(crate) fn run_commands(
         perf!("read env.nu", start_time, use_color);
 
         let start_time = Instant::now();
-        let create_scaffold = !engine_state.config_dirs.config_home.exists();
 
-        // If we have a config file parameter *OR* we have a login shell parameter, read the config file
-        if parsed_nu_cli_args.config_file.is_some() || parsed_nu_cli_args.login_shell.is_some() {
+        // If we have a config file override *OR* we have a login shell parameter, read the config file
+        if engine_state.config_dirs.config_file.is_override()
+            || parsed_nu_cli_args.login_shell.is_some()
+        {
             config_files::read_config_file(
                 engine_state,
                 &mut stack,
-                parsed_nu_cli_args.config_file,
                 ConfigFileKind::Config,
                 create_scaffold,
                 true,
+                parsed_nu_cli_args.config_file.as_ref(),
             );
         }
 
@@ -125,27 +131,30 @@ pub(crate) fn run_file(
     trace!("run_file");
 
     // if the --no-config-file(-n) option is NOT passed, load the plugin file,
-    // load the default env file or custom (depending on parsed_nu_cli_args.env_file),
-    // and maybe a custom config file (depending on parsed_nu_cli_args.config_file)
+    // load the default env file or custom (depending on whether env was overridden),
+    // and maybe a custom config file
     //
     // if the --no-config-file(-n) flag is passed, do not load plugin, env, or config files
     if parsed_nu_cli_args.no_config_file.is_none() {
         let start_time = Instant::now();
         let create_scaffold = !engine_state.config_dirs.config_home.exists();
         #[cfg(feature = "plugin")]
-        read_plugin_file(engine_state, parsed_nu_cli_args.plugin_file);
+        read_plugin_file(
+            engine_state,
+            parsed_nu_cli_args.plugin_file.as_ref().map(|s| s.span),
+        );
         perf!("read plugins", start_time, use_color);
 
         let start_time = Instant::now();
         // only want to load config and env if relative argument is provided.
-        if parsed_nu_cli_args.env_file.is_some() {
+        if engine_state.config_dirs.env_file.is_override() {
             config_files::read_config_file(
                 engine_state,
                 &mut stack,
-                parsed_nu_cli_args.env_file,
                 ConfigFileKind::Env,
                 create_scaffold,
                 true,
+                parsed_nu_cli_args.env_file.as_ref(),
             );
         } else {
             config_files::read_default_env_file(engine_state, &mut stack)
@@ -153,14 +162,14 @@ pub(crate) fn run_file(
         perf!("read env.nu", start_time, use_color);
 
         let start_time = Instant::now();
-        if parsed_nu_cli_args.config_file.is_some() {
+        if engine_state.config_dirs.config_file.is_override() {
             config_files::read_config_file(
                 engine_state,
                 &mut stack,
-                parsed_nu_cli_args.config_file,
                 ConfigFileKind::Config,
                 create_scaffold,
                 true,
+                parsed_nu_cli_args.config_file.as_ref(),
             );
         }
         perf!("read config.nu", start_time, use_color);
@@ -209,10 +218,6 @@ pub(crate) fn run_repl(
         setup_config(
             engine_state,
             &mut stack,
-            #[cfg(feature = "plugin")]
-            parsed_nu_cli_args.plugin_file,
-            parsed_nu_cli_args.config_file,
-            parsed_nu_cli_args.env_file,
             parsed_nu_cli_args.login_shell.is_some(),
         );
     }
@@ -254,15 +259,7 @@ pub(crate) fn run_lsp(
 ) -> Result<(), miette::ErrReport> {
     if parsed_nu_cli_args.no_config_file.is_none() {
         let mut stack = nu_protocol::engine::Stack::new();
-        config_files::setup_config(
-            &mut engine_state,
-            &mut stack,
-            #[cfg(feature = "plugin")]
-            parsed_nu_cli_args.plugin_file,
-            parsed_nu_cli_args.config_file,
-            parsed_nu_cli_args.env_file,
-            false,
-        );
+        config_files::setup_config(&mut engine_state, &mut stack, false);
     }
 
     let serve = nu_lsp::LanguageServer::initialize_stdio_connection(engine_state)?.serve_requests();

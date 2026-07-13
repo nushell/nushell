@@ -3,8 +3,7 @@
 //! This enables you to assign `const`-constants and execute parse-time code dependent on this.
 //! e.g. `source $my_const`
 use crate::{
-    BlockId, Config, HistoryFileFormat, HistoryPath, PipelineData, Record, ShellError, Span, Value,
-    VarId,
+    BlockId, Config, HistoryPath, PipelineData, Record, ShellError, Span, Value, VarId,
     ast::{Assignment, Block, Call, Expr, Expression, ExternalArgument},
     debugger::{DebugContext, WithoutDebug},
     engine::{EngineState, StateWorkingSet},
@@ -49,7 +48,7 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
     record.push(
         "config-path",
         Value::string(
-            canonicalize_path(engine_state, &engine_state.config_dirs.config_file)
+            canonicalize_path(engine_state, engine_state.config_dirs.config_file.as_path())
                 .to_string_lossy(),
             span,
         ),
@@ -58,7 +57,8 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
     record.push(
         "env-path",
         Value::string(
-            canonicalize_path(engine_state, &engine_state.config_dirs.env_file).to_string_lossy(),
+            canonicalize_path(engine_state, engine_state.config_dirs.env_file.as_path())
+                .to_string_lossy(),
             span,
         ),
     );
@@ -77,15 +77,16 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
                 Value::string(canon_hist_path.to_string_lossy(), span)
             }
             HistoryPath::Default => {
-                let mut hist_path = config_home.clone();
-                match engine_state.config.history.file_format {
-                    HistoryFileFormat::Sqlite => {
-                        hist_path.push("history.sqlite3");
-                    }
-                    HistoryFileFormat::Plaintext => {
-                        hist_path.push("history.txt");
-                    }
-                }
+                // Use the same resolution path as history backends so `$nu.history-path`
+                // always matches the file reedline opens.
+                let hist_path = engine_state
+                    .config
+                    .history
+                    .file_path(config_home)
+                    .unwrap_or_else(|| {
+                        config_home
+                            .join(engine_state.config.history.file_format.default_file_name())
+                    });
                 let canon_hist_path = canonicalize_path(engine_state, &hist_path);
                 Value::string(canon_hist_path.to_string_lossy(), span)
             }
@@ -102,10 +103,11 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
 
     #[cfg(feature = "plugin")]
     {
+        // Prefer the live plugin_path (set once at startup from config_dirs).
         let plugin_path = engine_state
             .plugin_path
-            .as_ref()
-            .unwrap_or(&engine_state.config_dirs.plugin_file);
+            .as_deref()
+            .unwrap_or_else(|| engine_state.config_dirs.plugin_file.as_path());
         record.push(
             "plugin-path",
             Value::string(

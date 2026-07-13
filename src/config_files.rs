@@ -3,7 +3,6 @@ use log::info;
 use nu_cli::read_plugin_file;
 use nu_cli::{eval_config_contents, eval_source};
 use nu_config::ConfigFileKind;
-use nu_path::absolute_with;
 use nu_protocol::{
     Config, ParseError, PipelineData, Spanned,
     engine::{EngineState, Stack, StateWorkingSet},
@@ -20,93 +19,114 @@ use std::{
 
 const LOGINSHELL_FILE: &str = "login.nu";
 
+/// Load a config/env file from the already-resolved path in `config_dirs`.
+///
+/// Paths come only from `engine_state.config_dirs` — never re-resolved.
+/// When the path is a CLI override (`ConfigPath::Override`), a missing file is
+/// reported as an error. `cli_override` is the original CLI path string/span
+/// used only for error messages (so the user sees the path they typed, not the
+/// absolute form). Otherwise first-run scaffolding may create the default file
+/// under `config_home`.
 pub(crate) fn read_config_file(
     engine_state: &mut EngineState,
     stack: &mut Stack,
-    config_file: Option<Spanned<String>>,
     config_kind: ConfigFileKind,
     create_scaffold: bool,
     strict_mode: bool,
+    cli_override: Option<&Spanned<String>>,
 ) {
-    info!("read_config_file() {config_kind:?} at {config_file:?}",);
+    info!("read_config_file() {config_kind:?}");
 
     eval_default_config(engine_state, stack, config_kind);
 
     info!("read_config_file() loading default {config_kind:?}");
 
-    // Load config startup file
-    if let Some(file) = config_file {
-        match engine_state.cwd_as_string(Some(stack)) {
-            Ok(cwd) => {
-                if let Ok(path) = absolute_with(&file.item, cwd)
-                    && path.exists()
-                {
-                    eval_config_contents(path, engine_state, stack, strict_mode);
-                } else {
-                    let e = ParseError::FileNotFound(file.item, file.span);
-                    report_parse_error(None, &StateWorkingSet::new(engine_state), &e);
-                    if strict_mode {
-                        std::process::exit(1);
-                    }
-                }
-            }
-            Err(e) => {
-                report_shell_error(None, engine_state, &e);
+    let resolved = match config_kind {
+        ConfigFileKind::Config => &engine_state.config_dirs.config_file,
+        ConfigFileKind::Env => &engine_state.config_dirs.env_file,
+    };
+    let is_override = resolved.is_override();
+    let config_path = resolved.to_path_buf();
+
+    if is_override {
+        if config_path.exists() {
+            eval_config_contents(config_path, engine_state, stack, strict_mode);
+        } else {
+            // Prefer the original CLI path string for the error (matches historical
+            // behavior and tests). Fall back to the resolved absolute path.
+            let (display_path, span) = match cli_override {
+                Some(s) => (s.item.clone(), s.span),
+                None => (
+                    config_path.display().to_string(),
+                    nu_protocol::Span::unknown(),
+                ),
+            };
+            let e = ParseError::FileNotFound(display_path, span);
+            report_parse_error(None, &StateWorkingSet::new(engine_state), &e);
+            if strict_mode {
+                std::process::exit(1);
             }
         }
+        return;
+    }
+
+    // Default path under config_home — may scaffold on first run.
+    let mut config_dir = engine_state.config_dirs.config_home.clone();
+    if !config_dir.exists()
+        && let Err(err) = std::fs::create_dir_all(&config_dir)
+    {
+        eprintln!("Failed to create config directory: {err}");
+        return;
+    }
+
+    // Prefer the resolved path; fall back to config_home + kind if empty.
+    let config_path = if config_path.as_os_str().is_empty() {
+        config_dir.push(config_kind.path());
+        config_dir
     } else {
-        let mut config_path = engine_state.config_dirs.config_home.clone();
-        // Create config directory if it does not exist
-        if !config_path.exists()
-            && let Err(err) = std::fs::create_dir_all(&config_path)
-        {
-            eprintln!("Failed to create config directory: {err}");
-            return;
-        }
+        config_path
+    };
 
-        config_path.push(config_kind.path());
+    if !config_path.exists() {
+        let scaffold_config_file = config_kind.scaffold();
 
-        if !config_path.exists() {
-            let scaffold_config_file = config_kind.scaffold();
-
-            match create_scaffold {
-                true => {
-                    if let Ok(mut output) = File::create(&config_path) {
-                        if write!(output, "{scaffold_config_file}").is_ok() {
-                            let config_name = config_kind.name();
-                            if engine_state.is_mcp {
-                                eprintln!(
-                                    "{} file created at: {}",
-                                    config_name,
-                                    config_path.to_string_lossy()
-                                );
-                            } else {
-                                println!(
-                                    "{} file created at: {}",
-                                    config_name,
-                                    config_path.to_string_lossy()
-                                );
-                            }
-                        } else {
+        match create_scaffold {
+            true => {
+                if let Ok(mut output) = File::create(&config_path) {
+                    if write!(output, "{scaffold_config_file}").is_ok() {
+                        let config_name = config_kind.name();
+                        if engine_state.is_mcp {
                             eprintln!(
-                                "Unable to write to {}, sourcing default file instead",
-                                config_path.to_string_lossy(),
+                                "{} file created at: {}",
+                                config_name,
+                                config_path.to_string_lossy()
                             );
-                            return;
+                        } else {
+                            println!(
+                                "{} file created at: {}",
+                                config_name,
+                                config_path.to_string_lossy()
+                            );
                         }
                     } else {
-                        eprintln!("Unable to create {scaffold_config_file}");
+                        eprintln!(
+                            "Unable to write to {}, sourcing default file instead",
+                            config_path.to_string_lossy(),
+                        );
                         return;
                     }
-                }
-                _ => {
+                } else {
+                    eprintln!("Unable to create {scaffold_config_file}");
                     return;
                 }
             }
+            _ => {
+                return;
+            }
         }
-
-        eval_config_contents(config_path, engine_state, stack, strict_mode);
     }
+
+    eval_config_contents(config_path, engine_state, stack, strict_mode);
 }
 
 pub(crate) fn read_loginshell_file(
@@ -183,7 +203,7 @@ pub(crate) fn read_vendor_autoload_files(engine_state: &mut EngineState, stack: 
     );
 
     // Read from the pre-resolved autoload directories (resolved in
-    // `nu_config::resolve_paths()` during startup).  Vendor dirs are evaluated
+    // `nu_config::resolve_paths()` during startup). Vendor dirs are evaluated
     // first, then user dirs, so users can override vendor autoload files.
     // Clone the dir lists to avoid borrowing engine_state twice (once for the
     // iter and again inside the closure for eval_config_contents).
@@ -236,37 +256,31 @@ fn eval_default_config(
 pub(crate) fn setup_config(
     engine_state: &mut EngineState,
     stack: &mut Stack,
-    #[cfg(feature = "plugin")] plugin_file: Option<Spanned<String>>,
-    config_file: Option<Spanned<String>>,
-    env_file: Option<Spanned<String>>,
     is_login_shell: bool,
 ) {
-    info!(
-        "setup_config() config_file_specified: {:?}, env_file_specified: {:?}, login: {}",
-        &config_file, &env_file, is_login_shell
-    );
+    info!("setup_config() login: {is_login_shell}");
 
     let create_scaffold = !engine_state.config_dirs.config_home.exists();
 
     let result = catch_unwind(AssertUnwindSafe(|| {
         #[cfg(feature = "plugin")]
-        read_plugin_file(engine_state, plugin_file);
+        read_plugin_file(engine_state, None);
 
         read_config_file(
             engine_state,
             stack,
-            env_file,
             ConfigFileKind::Env,
             create_scaffold,
             false,
+            None,
         );
         read_config_file(
             engine_state,
             stack,
-            config_file,
             ConfigFileKind::Config,
             create_scaffold,
             false,
+            None,
         );
 
         if is_login_shell {
