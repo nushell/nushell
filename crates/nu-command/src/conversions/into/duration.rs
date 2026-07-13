@@ -208,12 +208,36 @@ fn split_whitespace_indices(s: &str, span: Span) -> impl Iterator<Item = (&str, 
     })
 }
 
+/// Multiply a value by a nanosecond factor, returning a helpful error instead of
+/// overflowing (which panics in debug builds and silently wraps in release).
+fn checked_ns_mul(value: i64, factor: i64, span: Span) -> Result<i64, ShellError> {
+    value
+        .checked_mul(factor)
+        .ok_or_else(|| ShellError::OperatorOverflow {
+            msg: "duration too large".into(),
+            span,
+            help: Some(format!(
+                "{value} times {factor} nanoseconds overflows the 64-bit duration range"
+            )),
+        })
+}
+
+/// Add two nanosecond durations, returning a helpful error instead of overflowing.
+fn checked_ns_add(a: i64, b: i64, span: Span) -> Result<i64, ShellError> {
+    a.checked_add(b)
+        .ok_or_else(|| ShellError::OperatorOverflow {
+            msg: "duration too large".into(),
+            span,
+            help: Some("the combined duration overflows the 64-bit duration range".into()),
+        })
+}
+
 fn compound_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
     let mut duration_ns: i64 = 0;
 
     for (substring, substring_span) in split_whitespace_indices(s, span) {
         let sub_ns = string_to_duration(substring, substring_span)?;
-        duration_ns += sub_ns;
+        duration_ns = checked_ns_add(duration_ns, sub_ns, span)?;
     }
 
     Ok(duration_ns)
@@ -287,9 +311,11 @@ fn parse_clock_duration(s: &str, span: Span) -> Result<Option<i64>, ShellError> 
         return Err(clock_range_error(span));
     }
 
-    Ok(Some(
-        hours * NS_PER_HOUR + minutes * NS_PER_MINUTE + seconds * NS_PER_SEC + fractional_ns,
-    ))
+    let ns = checked_ns_mul(hours, NS_PER_HOUR, span)?;
+    let ns = checked_ns_add(ns, checked_ns_mul(minutes, NS_PER_MINUTE, span)?, span)?;
+    let ns = checked_ns_add(ns, checked_ns_mul(seconds, NS_PER_SEC, span)?, span)?;
+    let ns = checked_ns_add(ns, fractional_ns, span)?;
+    Ok(Some(ns))
 }
 
 fn string_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
@@ -307,16 +333,11 @@ fn string_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
     ) && let Expr::ValueWithUnit(value) = expression.expr
         && let Expr::Int(x) = value.expr.expr
     {
-        match value.unit.item {
-            Unit::Nanosecond => return Ok(x),
-            Unit::Microsecond => return Ok(x * 1000),
-            Unit::Millisecond => return Ok(x * 1000 * 1000),
-            Unit::Second => return Ok(x * NS_PER_SEC),
-            Unit::Minute => return Ok(x * 60 * NS_PER_SEC),
-            Unit::Hour => return Ok(x * 60 * 60 * NS_PER_SEC),
-            Unit::Day => return Ok(x * 24 * 60 * 60 * NS_PER_SEC),
-            Unit::Week => return Ok(x * 7 * 24 * 60 * 60 * NS_PER_SEC),
-            _ => {}
+        // `unit_to_ns_factor` returns 0 for units that are not durations; every
+        // valid duration unit (including nanosecond) has a non-zero factor.
+        let factor = unit_to_ns_factor(&value.unit.item);
+        if factor != 0 {
+            return checked_ns_mul(x, factor, span);
         }
     }
 
@@ -370,7 +391,10 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         }
         Value::Int { val, .. } => {
             let ns = unit_to_ns_factor(unit);
-            Value::duration(*val * ns, head)
+            match checked_ns_mul(*val, ns, head) {
+                Ok(duration) => Value::duration(duration, head),
+                Err(err) => Value::error(err, head),
+            }
         }
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => input.clone(),
@@ -617,6 +641,68 @@ mod test {
         let span = Span::test_data();
         let parsed = parse_clock_duration("78.797877879789789sec", span).unwrap();
         assert!(parsed.is_none());
+    }
+
+    fn args_with_unit(unit: Unit) -> Arguments {
+        Arguments {
+            unit: Some(Spanned {
+                item: unit,
+                span: Span::test_data(),
+            }),
+            cell_paths: None,
+        }
+    }
+
+    fn assert_overflow(actual: Value) {
+        match actual {
+            Value::Error { error, .. } => {
+                assert!(
+                    matches!(*error, ShellError::OperatorOverflow { .. }),
+                    "wrong error variant: {error:?}"
+                );
+            }
+            other => panic!("expected overflow error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn unit_string_overflow_errors_instead_of_panicking() {
+        // `9999999999 * NS_PER_WEEK` overflows i64; this must error, not panic
+        // (debug) or silently wrap to a garbage value (release).
+        let args = args_with_unit(Unit::Nanosecond);
+        let actual = action(
+            &Value::test_string("9999999999wk"),
+            &args,
+            Span::test_data(),
+        );
+        assert_overflow(actual);
+    }
+
+    #[test]
+    fn compound_string_overflow_errors_instead_of_panicking() {
+        let args = args_with_unit(Unit::Nanosecond);
+        let phrase = format!("{max}ns {max}ns", max = i64::MAX);
+        let actual = action(&Value::test_string(&phrase), &args, Span::test_data());
+        assert_overflow(actual);
+    }
+
+    #[test]
+    fn clock_string_overflow_errors_instead_of_panicking() {
+        let args = args_with_unit(Unit::Nanosecond);
+        let actual = action(
+            &Value::test_string("2562047788015216:00:00"),
+            &args,
+            Span::test_data(),
+        );
+        assert_overflow(actual);
+    }
+
+    #[test]
+    fn int_with_unit_overflow_errors_instead_of_panicking() {
+        // `i64::MAX * NS_PER_WEEK` overflows.
+        let args = args_with_unit(Unit::Week);
+        let actual = action(&Value::test_int(i64::MAX), &args, Span::test_data());
+        assert_overflow(actual);
     }
 
     #[test]
