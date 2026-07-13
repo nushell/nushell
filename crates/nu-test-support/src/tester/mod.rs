@@ -4,9 +4,7 @@ use std::{
     fmt::{Debug, Display},
     panic::Location,
     path::{Path, PathBuf},
-    sync::{
-        Arc, LazyLock,
-    },
+    sync::{Arc, LazyLock},
 };
 
 use miette::Diagnostic;
