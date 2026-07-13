@@ -120,7 +120,7 @@ $env.config.rm.always_trash = false
 $env.config.recursion_limit = 50
 
 # auto_cd_implicit (bool): Gives precedence to auto-cd when command string is
-# an existing directory path.  
+# an existing directory path.
 # false: A relative (e.g.  './dirname') or absolute path is required to auto-cd.
 # true: If the command string matches a subdirectory in the current directory
 # (e.g. 'src'), auto-cd will be triggered without needing './' or '/'.
@@ -595,7 +595,7 @@ $env.config.keybindings = []
 # Default: {}
 $env.config.abbreviations = {}
 
-# Example: add abbreviations for common commands: 
+# Example: add abbreviations for common commands:
 # $env.config.abbreviations = {
 #   gs: "git status",
 #   ll: "ls -l",
@@ -1143,21 +1143,20 @@ $env.config.explore = {}
 # Note: PROMPT_INDICATOR is appended to this value.
 # Default: A closure that displays the current directory with colors.
 $env.PROMPT_COMMAND = {||
-    let dir = match (
-        do -i {
-            $env.PWD | path relative-to $nu.home-dir
-        }
-    ) {
+    let dir = match (do -i { $env.PWD | path relative-to $nu.home-dir }) {
         null => $env.PWD
         '' => '~'
         $relative_pwd => ([~ $relative_pwd] | path join)
     }
 
-    let path_color = (if (is-admin) { ansi red_bold } else { ansi green_bold })
-    let separator_color = (if (is-admin) { ansi light_red_bold } else { ansi light_green_bold })
-    let path_segment = $"($path_color)($dir)(ansi reset)"
+    let colors: record<path: string, separator: string> = match [(config use-colors), (is-admin)] {
+        [false, _] => {path: '', separator: ''}
+        [true, true] => {path: (ansi red_bold), separator: (ansi light_red_bold)}
+        [true, false] => {path: (ansi green_bold), separator: (ansi light_green_bold)}
+    }
+    let path_segment = $"($colors.path)($dir)(ansi reset)"
 
-    $path_segment | str replace --all (char path_sep) $"($separator_color)(char path_sep)($path_color)"
+    $path_segment | str replace --all (char path_sep) $"($colors.separator)(char path_sep)($colors.path)"
 }
 
 # Example: Static string prompt:
@@ -1170,25 +1169,25 @@ $env.PROMPT_COMMAND = {||
 # Default: A closure that displays the date/time and last exit code.
 $env.PROMPT_COMMAND_RIGHT = {||
     # create a right prompt in magenta with green separators and am/pm underlined
+    let colors: record<date: string, separator: string, ampm: string, fail: string> = if (config use-colors) {
+        {date: (ansi magenta), separator: (ansi green), ampm: (ansi magenta_underline), fail: (ansi red_bold)}
+    } else {
+        {date: '', separator: '', ampm: '', fail: ''}
+    }
     let time_segment = ([
         (ansi reset)
-        (ansi magenta)
+        $colors.date
         (date now | format date '%x %X') # try to respect user's locale
-    ] | str join | str replace --regex --all "([/:])" $"(ansi green)${1}(ansi magenta)" |
-        str replace --regex --all "([AP]M)" $"(ansi magenta_underline)${1}")
+    ] | str join | str replace --regex --all "([/:])" $"($colors.separator)${1}($colors.date)" |
+        str replace --regex --all "([AP]M)" $"($colors.ampm)${1}")
 
-    let last_exit_code = if $env.LAST_EXIT_CODE != 0 {
-        ([
-        (ansi rb)
-        ($env.LAST_EXIT_CODE)
+    let last_exit_code = if ($env.LAST_EXIT_CODE != 0) {([
+        $colors.fail
+        $env.LAST_EXIT_CODE
     ] | str join)
     } else { "" }
 
-    ([
-        $last_exit_code
-        (char space)
-        $time_segment
-    ] | str join)
+    ([$last_exit_code, (char space), $time_segment] | str join)
 }
 
 # Example: Simple right prompt with just date/time:
