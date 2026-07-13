@@ -6,7 +6,6 @@ use std::{
     path::{Path, PathBuf},
     sync::{
         Arc, LazyLock,
-        atomic::{AtomicU64, Ordering},
     },
 };
 
@@ -149,6 +148,7 @@ pub fn test() -> NuTester {
     let tester = NuTester {
         engine_state: INITIAL_ENGINE_STATES.get(&GroupKey::current()).clone(),
         stack: Stack::new().collect_value(),
+        fname_counter: Counter::default(),
     };
 
     let tester = tester.append_path(&*PATH_ENV_AUTO_LOAD.read());
@@ -168,6 +168,20 @@ pub fn test() -> NuTester {
 pub struct NuTester {
     pub engine_state: EngineState,
     pub stack: Stack,
+
+    /// Counter that is used for parsing source code with different "file names".
+    fname_counter: Counter,
+}
+
+#[derive(Default, Clone)]
+struct Counter(u64);
+
+impl Counter {
+    pub fn get(&mut self) -> u64 {
+        let value = self.0;
+        self.0 += 1;
+        value
+    }
 }
 
 impl Default for NuTester {
@@ -474,17 +488,12 @@ impl NuTester {
     }
 
     #[track_caller]
-    pub fn parse_and_compile(&self, code: impl AsRef<str>) -> Result<(StateDelta, Arc<Block>)> {
+    pub fn parse_and_compile(&mut self, code: impl AsRef<str>) -> Result<(StateDelta, Arc<Block>)> {
         let location = TestLocation(Location::caller());
         let code = code.as_ref().as_bytes();
 
-        static FNAME_COUNTER: AtomicU64 = AtomicU64::new(0);
-        let fname = format!(
-            "nu-tester-{}",
-            FNAME_COUNTER.fetch_add(1, Ordering::Relaxed)
-        );
-
         let mut working_set = StateWorkingSet::new(&self.engine_state);
+        let fname = format!("nu-tester-{}", self.fname_counter.get());
         let block = nu_parser::parse(&mut working_set, Some(&fname), code, false);
 
         if let Some(err) = working_set.parse_errors.into_iter().next() {
@@ -516,7 +525,7 @@ impl NuTester {
 
     /// Test examples of a command.
     #[track_caller]
-    pub fn examples(&self, command: impl Command + 'static) -> Result {
+    pub fn examples(&mut self, command: impl Command + 'static) -> Result {
         let location = TestLocation(Location::caller());
         for example in command.examples() {
             match example.result {
