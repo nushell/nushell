@@ -13,7 +13,7 @@
 
 use nu_config::{CliOverrides, ConfigPath, NushellConfigDirs, SystemEnv, resolve_paths};
 use nu_path::{AbsolutePath, AbsolutePathBuf, Path as NuPath};
-use nu_protocol::{HistoryConfig, HistoryFileFormat, HistoryPath};
+use nu_protocol::{Config, HistoryConfig, HistoryFileFormat, HistoryPath};
 use nu_test_support::fs::executable_path;
 use nu_test_support::playground::{Executable, Playground};
 use nu_test_support::prelude::*;
@@ -395,73 +395,69 @@ fn test_default_config_path() {
 }
 
 #[test]
-fn test_alternate_config_path() {
+fn test_alternate_config_path() -> Result {
     let config_file = "crates/nu-config/src/default_files/scaffold_config.nu";
     let env_file = "crates/nu-config/src/default_files/scaffold_env.nu";
     let cwd = std::env::current_dir().expect("cwd");
 
     let config_path =
         nu_path::canonicalize_with(config_file, &cwd).expect("Could not get config path");
-    let (out, _) = run_nu(
-        &cwd,
-        &[
-            "--config",
-            &config_path.to_string_lossy(),
-            "-c",
-            "$nu.config-path",
-        ],
-    );
-    assert_eq!(out, config_path.to_string_lossy());
-
     let env_path = nu_path::canonicalize_with(env_file, &cwd).expect("Could not get env path");
-    let (out, _) = run_nu(
-        &cwd,
-        &[
-            "--env-config",
-            &env_path.to_string_lossy(),
-            "-c",
-            "$nu.env-path",
-        ],
-    );
-    assert_eq!(out, env_path.to_string_lossy());
+
+    let dirs = NushellConfigDirs {
+        config_home: cwd.join("test-home"),
+        config_file: ConfigPath::Override(config_path.clone()),
+        env_file: ConfigPath::Override(env_path.clone()),
+        data_home: cwd.join("data"),
+        cache_home: cwd.join("cache"),
+        home_dir: cwd.to_path_buf(),
+        vendor_autoload_dirs: vec![],
+        user_autoload_dirs: vec![],
+        #[cfg(feature = "plugin")]
+        plugin_file: ConfigPath::Default(cwd.join("plugin.msgpackz")),
+    };
+
+    let mut tester = tester_with_dirs(dirs);
+    let config_path_out: String = tester.run("$nu.config-path")?;
+    assert_eq!(config_path_out, config_path.to_string_lossy());
+
+    let env_path_out: String = tester.run("$nu.env-path")?;
+    assert_eq!(env_path_out, env_path.to_string_lossy());
+
+    Ok(())
 }
 
 #[test]
-fn use_last_config_path() {
+fn use_last_config_path() -> Result {
     let config_file = "crates/nu-config/src/default_files/scaffold_config.nu";
     let env_file = "crates/nu-config/src/default_files/scaffold_env.nu";
     let cwd = std::env::current_dir().expect("cwd");
 
     let config_path =
         nu_path::canonicalize_with(config_file, &cwd).expect("Could not get config path");
-    let (out, _) = run_nu(
-        &cwd,
-        &[
-            "--config",
-            "non-existing-path",
-            "--config",
-            "another-random-path.nu",
-            "--config",
-            &config_path.to_string_lossy(),
-            "-c",
-            "$nu.config-path",
-        ],
-    );
-    assert_eq!(out, config_path.to_string_lossy());
-
     let env_path = nu_path::canonicalize_with(env_file, &cwd).expect("Could not get env path");
-    let (out, _) = run_nu(
-        &cwd,
-        &[
-            "--env-config",
-            "non-existing-path",
-            "--env-config",
-            &env_path.to_string_lossy(),
-            "-c",
-            "$nu.env-path",
-        ],
-    );
-    assert_eq!(out, env_path.to_string_lossy());
+
+    let dirs = NushellConfigDirs {
+        config_home: cwd.join("test-home"),
+        config_file: ConfigPath::Override(config_path.clone()),
+        env_file: ConfigPath::Override(env_path.clone()),
+        data_home: cwd.join("data"),
+        cache_home: cwd.join("cache"),
+        home_dir: cwd.to_path_buf(),
+        vendor_autoload_dirs: vec![],
+        user_autoload_dirs: vec![],
+        #[cfg(feature = "plugin")]
+        plugin_file: ConfigPath::Default(cwd.join("plugin.msgpackz")),
+    };
+
+    let mut tester = tester_with_dirs(dirs);
+    let config_path_out: String = tester.run("$nu.config-path")?;
+    assert_eq!(config_path_out, config_path.to_string_lossy());
+
+    let env_path_out: String = tester.run("$nu.env-path")?;
+    assert_eq!(env_path_out, env_path.to_string_lossy());
+
+    Ok(())
 }
 
 #[test]
@@ -600,49 +596,72 @@ fn commandstring_populates_config_record() {
 }
 
 #[test]
-fn history_path_disabled_null() {
-    Playground::setup("history_null", |_, playground| {
-        let config_path = playground.cwd().join("config.nu");
-        std::fs::write(&config_path, "$env.config.history.path = null").unwrap();
+fn history_path_disabled_null() -> Result {
+    let home = abs_join(&std::env::temp_dir(), &["nu-history-null-home"]);
+    let _ = fs::create_dir_all(&home);
 
-        let (out, _) = run_nu(
-            playground.cwd(),
-            &[
-                "--config",
-                &config_path.to_string_lossy(),
-                "-c",
-                "$nu.history-path",
-            ],
-        );
-        assert_eq!(out, "");
+    let dirs = NushellConfigDirs {
+        config_home: home.clone(),
+        config_file: ConfigPath::Default(home.join("config.nu")),
+        env_file: ConfigPath::Default(home.join("env.nu")),
+        data_home: home.join("data"),
+        cache_home: home.join("cache"),
+        home_dir: home.clone(),
+        vendor_autoload_dirs: vec![],
+        user_autoload_dirs: vec![],
+        #[cfg(feature = "plugin")]
+        plugin_file: ConfigPath::Default(home.join("plugin.msgpackz")),
+    };
+
+    let mut tester = tester_with_dirs(dirs);
+    tester.engine_state.set_config(Config {
+        history: HistoryConfig {
+            path: HistoryPath::Disabled,
+            ..Default::default()
+        },
+        ..Default::default()
     });
+    tester.engine_state.generate_nu_constant();
+
+    let history_path: String = tester.run("$nu.history-path")?;
+    assert_eq!(history_path, "");
+
+    Ok(())
 }
 
 #[test]
-fn history_path_custom_string() {
-    Playground::setup("history_custom", |_, playground| {
-        let custom_file = playground.cwd().join("my_history.txt");
-        let config_path = playground.cwd().join("config.nu");
-        std::fs::write(
-            &config_path,
-            format!(
-                "$env.config.history.path = '{}'",
-                custom_file.to_string_lossy()
-            ),
-        )
-        .unwrap();
+fn history_path_custom_string() -> Result {
+    let home = abs_join(&std::env::temp_dir(), &["nu-history-custom-home"]);
+    let _ = fs::create_dir_all(&home);
+    let custom_file = home.join("my_history.txt");
 
-        let (out, _) = run_nu(
-            playground.cwd(),
-            &[
-                "--config",
-                &config_path.to_string_lossy(),
-                "-c",
-                "$nu.history-path",
-            ],
-        );
-        assert_eq!(out, custom_file.to_string_lossy());
+    let dirs = NushellConfigDirs {
+        config_home: home.clone(),
+        config_file: ConfigPath::Default(home.join("config.nu")),
+        env_file: ConfigPath::Default(home.join("env.nu")),
+        data_home: home.join("data"),
+        cache_home: home.join("cache"),
+        home_dir: home.clone(),
+        vendor_autoload_dirs: vec![],
+        user_autoload_dirs: vec![],
+        #[cfg(feature = "plugin")]
+        plugin_file: ConfigPath::Default(home.join("plugin.msgpackz")),
+    };
+
+    let mut tester = tester_with_dirs(dirs);
+    tester.engine_state.set_config(Config {
+        history: HistoryConfig {
+            path: HistoryPath::Custom(custom_file.clone()),
+            ..Default::default()
+        },
+        ..Default::default()
     });
+    tester.engine_state.generate_nu_constant();
+
+    let history_path: String = tester.run("$nu.history-path")?;
+    assert_eq!(history_path, custom_file.to_string_lossy());
+
+    Ok(())
 }
 
 #[test]
@@ -655,54 +674,65 @@ fn history_path_default_shows_in_config() {
 }
 
 #[test]
-fn config_home_cli_affects_default_config_dir() {
+fn config_home_cli_affects_default_config_dir() -> Result {
     Playground::setup("config_home_cli", |_, playground| {
         let alt_home = playground.cwd().join("alt-config-home");
         std::fs::create_dir_all(&alt_home).unwrap();
 
-        let (out, _) = run_nu(
-            playground.cwd(),
-            &[
-                "--no-std-lib",
-                "-n",
-                "--config-home",
-                &alt_home.to_string_lossy(),
-                "-c",
-                "$nu.default-config-dir",
-            ],
-        );
+        let dirs = NushellConfigDirs {
+            config_home: alt_home.clone().into(),
+            config_file: ConfigPath::Default(alt_home.join("config.nu").into()),
+            env_file: ConfigPath::Default(alt_home.join("env.nu").into()),
+            data_home: alt_home.join("data").into(),
+            cache_home: alt_home.join("cache").into(),
+            home_dir: alt_home.clone().into(),
+            vendor_autoload_dirs: vec![],
+            user_autoload_dirs: vec![],
+            #[cfg(feature = "plugin")]
+            plugin_file: ConfigPath::Default(alt_home.join("plugin.msgpackz").into()),
+        };
 
+        let mut tester = tester_with_dirs(dirs);
+        let actual: String = tester.run("$nu.default-config-dir")?;
         let expected = match alt_home.canonicalize() {
             Ok(canon) => adjust_canonicalization(canon),
             Err(_) => adjust_canonicalization(&alt_home),
         };
-        assert_eq!(out, expected);
-    });
+        assert_eq!(actual, expected);
+
+        Ok(())
+    })
 }
 
 #[test]
-fn config_home_cli_affects_history_path() {
+fn config_home_cli_affects_history_path() -> Result {
     Playground::setup("config_home_history", |_, playground| {
         let alt_home = playground.cwd().join("alt-hist-home");
         std::fs::create_dir_all(&alt_home).unwrap();
 
-        let (out, _) = run_nu(
-            playground.cwd(),
-            &[
-                "--no-std-lib",
-                "-n",
-                "--config-home",
-                &alt_home.to_string_lossy(),
-                "-c",
-                "$nu.history-path",
-            ],
-        );
+        let dirs = NushellConfigDirs {
+            config_home: alt_home.clone().into(),
+            config_file: ConfigPath::Default(alt_home.join("config.nu").into()),
+            env_file: ConfigPath::Default(alt_home.join("env.nu").into()),
+            data_home: alt_home.join("data").into(),
+            cache_home: alt_home.join("cache").into(),
+            home_dir: alt_home.clone().into(),
+            vendor_autoload_dirs: vec![],
+            user_autoload_dirs: vec![],
+            #[cfg(feature = "plugin")]
+            plugin_file: ConfigPath::Default(alt_home.join("plugin.msgpackz").into()),
+        };
+
+        let mut tester = tester_with_dirs(dirs);
+        let history_path: String = tester.run("$nu.history-path")?;
 
         assert!(
-            out.contains("alt-hist-home") && out.contains("history"),
-            "history-path should live under --config-home, got: {out}"
+            history_path.contains("alt-hist-home") && history_path.contains("history"),
+            "history-path should live under config_home, got: {history_path}"
         );
-    });
+
+        Ok(())
+    })
 }
 
 /// Smoke: `resolve_paths` via system env still succeeds (no panic / empty crash).
