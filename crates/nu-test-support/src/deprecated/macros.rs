@@ -196,9 +196,7 @@ macro_rules! nu_with_std {
 use crate::Outcome;
 use nu_path::{AbsolutePath, AbsolutePathBuf, PathBuf};
 use nu_utils::consts::NATIVE_PATH_ENV_VAR;
-use std::{
-    process::{Command, Stdio},
-};
+use std::process::{Command, Stdio};
 
 #[derive(Default)]
 pub struct NuOpts {
