@@ -1,7 +1,7 @@
 use chrono::Local;
+use nu_config::ConfigFileKind;
 use nu_engine::command_prelude::*;
-use nu_utils::ConfigFileKind;
-use std::{io::Write, path::PathBuf};
+use std::io::Write;
 
 #[derive(Clone)]
 pub struct ConfigReset;
@@ -44,9 +44,7 @@ impl Command for ConfigReset {
         let only_env = call.has_flag(engine_state, stack, "env")?;
         let no_backup = call.has_flag(engine_state, stack, "without-backup")?;
         let span = call.head;
-        let Some(config_path) = nu_path::nu_config_dir() else {
-            return Err(ShellError::ConfigDirNotFound { span: call.head });
-        };
+        let config_path = &engine_state.config_dirs.config_home;
         if !only_env {
             let kind = ConfigFileKind::Config;
             let mut nu_config = config_path.clone();
@@ -62,7 +60,7 @@ impl Command for ConfigReset {
                     return Err(ShellError::Io(IoError::new_with_additional_context(
                         err.not_found_as(NotFound::Directory),
                         span,
-                        PathBuf::from(backup_path),
+                        backup_path,
                         "config.nu could not be backed up",
                     )));
                 }
@@ -73,7 +71,7 @@ impl Command for ConfigReset {
                 return Err(ShellError::Io(IoError::new_with_additional_context(
                     err.not_found_as(NotFound::File),
                     span,
-                    PathBuf::from(nu_config),
+                    nu_config,
                     "config.nu could not be written to",
                 )));
             }
@@ -90,7 +88,7 @@ impl Command for ConfigReset {
                     return Err(ShellError::Io(IoError::new_with_additional_context(
                         err.not_found_as(NotFound::Directory),
                         span,
-                        PathBuf::from(backup_path),
+                        backup_path,
                         "env.nu could not be backed up",
                     )));
                 }
@@ -101,7 +99,7 @@ impl Command for ConfigReset {
                 return Err(ShellError::Io(IoError::new_with_additional_context(
                     err.not_found_as(NotFound::File),
                     span,
-                    PathBuf::from(env_config),
+                    env_config,
                     "env.nu could not be written to",
                 )));
             }

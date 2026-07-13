@@ -4479,6 +4479,7 @@ dependencies = [
  "nu-cmd-lang",
  "nu-cmd-plugin",
  "nu-command",
+ "nu-config",
  "nu-engine",
  "nu-experimental",
  "nu-explore",
@@ -4533,6 +4534,7 @@ dependencies = [
  "nu-cmd-lang",
  "nu-color-config",
  "nu-command",
+ "nu-config",
  "nu-engine",
  "nu-experimental",
  "nu-glob",
@@ -4692,6 +4694,7 @@ dependencies = [
  "nu-cmd-base",
  "nu-cmd-lang",
  "nu-color-config",
+ "nu-config",
  "nu-engine",
  "nu-experimental",
  "nu-glob",
@@ -4771,6 +4774,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "nu-config"
+version = "0.114.2"
+dependencies = [
+ "derive_more 2.1.1",
+ "derive_setters",
+ "dirs 6.0.0",
+ "dirs-sys 0.5.0",
+ "nu-test-support",
+ "tempfile",
+ "thiserror 2.0.18",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
 name = "nu-derive-value"
 version = "0.114.2"
 dependencies = [
@@ -4816,6 +4833,7 @@ dependencies = [
  "lscolors",
  "nu-ansi-term",
  "nu-color-config",
+ "nu-config",
  "nu-engine",
  "nu-json",
  "nu-parser",
@@ -5076,6 +5094,7 @@ dependencies = [
  "memchr",
  "miette",
  "nix 0.31.3",
+ "nu-config",
  "nu-derive-value",
  "nu-experimental",
  "nu-glob",

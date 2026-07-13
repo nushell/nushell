@@ -262,6 +262,14 @@ const CLI_FLAGS: &[CliFlag] = &[
         "nu --env-config env.nu",
     ),
     CliFlag::value(
+        "config-home",
+        None,
+        ValueHint::Path,
+        "start with an alternate config directory (e.g. ~/.config/nushell)",
+        CliCategory::Config,
+        "nu --config-home /path/to/config",
+    ),
+    CliFlag::value(
         "log-level",
         None,
         ValueHint::String,
@@ -434,6 +442,7 @@ struct CliValues {
     no_std_lib: Option<Spanned<String>>,
     config_file: Option<Spanned<String>>,
     env_file: Option<Spanned<String>>,
+    config_home: Option<Spanned<String>>,
     log_level: Option<Spanned<String>>,
     log_target: Option<Spanned<String>>,
     log_file: Option<Spanned<String>>,
@@ -605,6 +614,10 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
                 let value = parse_string_value(&mut parser, "env-config")?;
                 cli.env_file = Some(spanned_value(value));
             }
+            Long("config-home") => {
+                let value = parse_string_value(&mut parser, "config-home")?;
+                cli.config_home = Some(spanned_value(value));
+            }
             Long("log-level") => {
                 let value = parse_validated_option(
                     &mut parser,
@@ -765,6 +778,7 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
             no_std_lib: cli.no_std_lib,
             config_file: cli.config_file,
             env_file: cli.env_file,
+            config_home: cli.config_home,
             log_level: cli.log_level,
             log_target: cli.log_target,
             log_file: cli.log_file,
@@ -1448,6 +1462,7 @@ pub(crate) struct NushellCliArgs {
     pub(crate) no_std_lib: Option<Spanned<String>>,
     pub(crate) config_file: Option<Spanned<String>>,
     pub(crate) env_file: Option<Spanned<String>>,
+    pub(crate) config_home: Option<Spanned<String>>,
     pub(crate) log_level: Option<Spanned<String>>,
     pub(crate) log_target: Option<Spanned<String>>,
     pub(crate) log_file: Option<Spanned<String>>,
