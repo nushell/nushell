@@ -932,25 +932,29 @@ mod background_isolation_tests {
     fn test_detached_process_removes_console() {
         let mut cmd = Command::new("cmd");
 
-        // `chcp` with no args queries the console code page via the console API.
-        // It succeeds when a console is attached and fails when there is none.
+        // We deliberately use only cmd built-ins (no external .exe/.com) to avoid
+        // Windows auto-allocating a console for console-subsystem children
+        // This would produce a false "has_console" result even
+        // when DETACHED_PROCESS is working correctly.
         cmd.args([
             "/c",
-            "(chcp >NUL 2>&1) && echo has_console || echo no_console",
+            "(echo.>CON 2>NUL && echo has_console) || echo no_console",
         ])
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
-        .stderr(Stdio::null());
+        .stderr(Stdio::piped()); // Capture instead of null so we can show diagnostics 
 
         prepare_background_command(&mut cmd);
 
         let output = cmd.output().expect("cmd should run");
-        let stdout = String::from_utf8_lossy(&output.stdout);
+
+        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        let stderr = String::from_utf8_lossy(&output.stderr);
+
         assert_eq!(
-            stdout.trim(),
-            "no_console",
-            "subprocess should have no console after DETACHED_PROCESS; \
-             if it has one a completer could call SetConsoleMode and corrupt reedline's state"
+            stdout, "no_console",
+            "Subprocess should have no console after DETACHED_PROCESS.\n\
+         stderr was: {stderr}"
         );
     }
 }
