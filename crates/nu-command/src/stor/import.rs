@@ -66,7 +66,7 @@ impl Command for StorImport {
         db.restore_database_from_file(&mut conn, file_name)
             .map_err(|err| {
                 ShellError::Generic(GenericError::new_internal(
-                    "Failed to open SQLite connection in memory from import",
+                    "Failed to import a SQLite database file into the in-memory database",
                     err.to_string(),
                 ))
             })?;

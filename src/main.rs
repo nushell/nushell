@@ -257,10 +257,12 @@ fn main() -> Result<()> {
     // lifetime of the program. If it's created with how MEMORY_DB is defined
     // you'll be able to access this open connection from anywhere in the program
     // by using the identical connection string.
+    //
+    // Initialize the process-wide shared in-memory SQLite connection. The static
+    // connection is the lifetime anchor for `mode=memory&cache=shared` and is the
+    // only connection used by `stor` / memdb `query db` (serialized via a mutex).
     #[cfg(feature = "sqlite")]
-    let db = nu_command::open_connection_in_memory_custom()?;
-    #[cfg(feature = "sqlite")]
-    db.last_insert_rowid();
+    nu_command::init_shared_memory_db()?;
 
     #[cfg(feature = "lsp")]
     let is_lsp = parsed_nu_cli_args.lsp;

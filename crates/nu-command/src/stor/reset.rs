@@ -54,19 +54,21 @@ impl Command for StorReset {
             std::path::Path::new(MEMORY_DB),
             engine_state.signals().clone(),
         ));
-        db.drop_all_tables(&conn).map_err(|err| {
+        // Always restore foreign_keys: this connection is process-global.
+        let drop_result = db.drop_all_tables(&conn);
+        let restore_result = conn.execute("PRAGMA foreign_keys = ON", []);
+        drop_result.map_err(|err| {
             ShellError::Generic(GenericError::new_internal(
                 "Failed to drop all tables in memory from reset",
                 err.to_string(),
             ))
         })?;
-        conn.execute("PRAGMA foreign_keys = ON", [])
-            .map_err(|err| {
-                ShellError::Generic(GenericError::new_internal(
-                    "Failed to turn on foreign_key protections for reset",
-                    err.to_string(),
-                ))
-            })?;
+        restore_result.map_err(|err| {
+            ShellError::Generic(GenericError::new_internal(
+                "Failed to turn on foreign_key protections for reset",
+                err.to_string(),
+            ))
+        })?;
 
         Ok(Value::custom(db, span).into_pipeline_data())
     }

@@ -16,6 +16,7 @@ use std::{
     fmt::Write,
     fs::File,
     io::Read,
+    ops::{Deref, DerefMut},
     path::{Path, PathBuf},
     sync::{Mutex, MutexGuard, OnceLock},
 };
@@ -26,53 +27,89 @@ const DATABASE_NAME: &str = "main";
 
 // A single mutex-guarded connection to the shared in-memory SQLite database.
 //
-// Before this existed, every `stor` command and `query db` call to the memory db
-// opened a fresh `rusqlite::Connection` to the same shared-cache URI, ran one statement,
-// then dropped it. That works fine for serial access but breaks down under concurrency
-// (`par-each`, `job spawn`) because SQLite's shared-cache internal locking
-// produces SQLITE_BUSY for every contended read/write, and each retry sleeps
-// 250ms. With 10,000 concurrent tasks you compound 10,000 connection opens +
-// 10,000 possible lock-contentions.
+// Every `stor` command, `query db`, `schema`, cell-path access, etc. must go
+// through this connection (via `open_sqlite_db` / `OpenedConnection`). Opening
+// additional connections to the same shared-cache URI under concurrency
+// (`par-each`, `job spawn`) produces SQLITE_BUSY and can drop statements.
+// The static connection also acts as the process lifetime anchor for
+// `mode=memory&cache=shared` (the DB lives as long as at least one connection
+// remains open).
 static SHARED_MEM_CONN: OnceLock<Mutex<Connection>> = OnceLock::new();
+
+/// True when `path` is the process-wide in-memory shared-cache database URI.
+pub fn is_memory_db(path: &Path) -> bool {
+    path.to_string_lossy() == MEMORY_DB
+}
+
+fn map_lock_error(err: impl std::fmt::Display) -> ShellError {
+    ShellError::Generic(GenericError::new_internal(
+        "Failed to acquire shared memory DB lock",
+        err.to_string(),
+    ))
+}
+
+/// Returns the process-wide mutex around the shared in-memory connection,
+/// initializing it on first use.
+fn shared_mem_mutex() -> Result<&'static Mutex<Connection>, ShellError> {
+    if let Some(mutex) = SHARED_MEM_CONN.get() {
+        return Ok(mutex);
+    }
+
+    // First open (or race: losers drop their connection; one Mutex remains).
+    let conn = open_connection_in_memory_custom()?;
+    let _ = SHARED_MEM_CONN.set(Mutex::new(conn));
+    SHARED_MEM_CONN.get().ok_or_else(|| {
+        ShellError::Generic(GenericError::new_internal(
+            "Failed to initialize shared memory DB connection",
+            "shared memory connection was not set",
+        ))
+    })
+}
+
+/// Ensures the shared in-memory connection exists without holding the mutex.
+///
+/// Call this early in process startup so the static connection is the lifetime
+/// anchor for the shared-cache memory DB.
+pub fn init_shared_memory_db() -> Result<(), ShellError> {
+    shared_mem_mutex().map(|_| ())
+}
 
 /// Returns a lock guard for the single shared in-memory SQLite connection.
 ///
-/// The connection is opened lazily on the first call and reused for every
-/// subsequent call across all threads. If the in-memory database has not
-/// been accessed yet (i.e. no prior `stor open` or `stor create`), this
-/// call will create it implicitly.
+/// Prefer [`open_sqlite_db`] for path-based access so file and memory DBs share
+/// one call site. Available crate-wide for `stor` commands that always target memdb.
+pub(crate) fn get_shared_mem_conn() -> Result<MutexGuard<'static, Connection>, ShellError> {
+    shared_mem_mutex()?.lock().map_err(map_lock_error)
+}
+
+/// Either the process-wide shared in-memory connection (mutex held for the
+/// lifetime of this value), or an owned file connection.
 ///
-/// Because `rusqlite::Connection` is `Send` but not `Sync`, wrapping it
-/// in a `Mutex` is the standard way to share one connection across threads.
-/// The `MutexGuard` implements `Deref<Target = Connection>` and
-/// `DerefMut`, so callers can use it identically to an owned `Connection`.
-///
-/// For file-based SQLite databases (paths that don't equal `MEMORY_DB`),
-/// this shared connection is not used — each caller opens its own connection
-/// as before.
-pub fn get_shared_mem_conn() -> Result<MutexGuard<'static, Connection>, ShellError> {
-    // Fast path: the connection was already initialized by a previous caller.
-    if let Some(conn) = SHARED_MEM_CONN.get() {
-        return conn.lock().map_err(|e| {
-            ShellError::Generic(GenericError::new_internal(
-                "Failed to acquire shared memory DB lock",
-                e.to_string(),
-            ))
-        });
+/// All SQLite access should go through this type so the memory DB cannot be
+/// opened a second time outside the process-wide mutex.
+pub enum OpenedConnection {
+    Shared(MutexGuard<'static, Connection>),
+    Owned(Connection),
+}
+
+impl Deref for OpenedConnection {
+    type Target = Connection;
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            Self::Shared(guard) => guard,
+            Self::Owned(conn) => conn,
+        }
     }
+}
 
-    // Slow path: we're the first caller (or raced and lost). Open a fresh
-    // connection with a busy handler, then hand it to get_or_init so only
-    // one wins the race. The loser's connection is silently dropped.
-    let conn = open_connection_in_memory_custom()?;
-    let conn = SHARED_MEM_CONN.get_or_init(|| Mutex::new(conn));
-
-    conn.lock().map_err(|e| {
-        ShellError::Generic(GenericError::new_internal(
-            "Failed to acquire shared memory DB lock",
-            e.to_string(),
-        ))
-    })
+impl DerefMut for OpenedConnection {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        match self {
+            Self::Shared(guard) => guard,
+            Self::Owned(conn) => conn,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -154,38 +191,15 @@ impl SQLiteDatabase {
         params: NuSqlParams,
         call_span: Span,
     ) -> Result<Value, ShellError> {
-        if self.path.to_string_lossy() == MEMORY_DB {
-            let lock = get_shared_mem_conn()?;
-            let stream = run_sql_query(&lock, sql, params, &self.signals, None)
-                .map_err(|e| e.into_shell_error(sql.span, "Failed to query SQLite database"))?;
-            Ok(stream)
-        } else {
-            let conn = open_sqlite_db(&self.path, call_span)?;
-            let stream = run_sql_query(&conn, sql, params, &self.signals, None)
-                .map_err(|e| e.into_shell_error(sql.span, "Failed to query SQLite database"))?;
-            Ok(stream)
-        }
+        let conn = open_sqlite_db(&self.path, call_span)?;
+        let stream = run_sql_query(&conn, sql, params, &self.signals, None)
+            .map_err(|e| e.into_shell_error(sql.span, "Failed to query SQLite database"))?;
+        Ok(stream)
     }
 
-    pub fn open_connection(&self) -> Result<Connection, ShellError> {
-        if self.path.to_string_lossy() == MEMORY_DB {
-            open_connection_in_memory_custom()
-        } else {
-            let conn = Connection::open(&self.path).map_err(|e| {
-                ShellError::Generic(GenericError::new_internal(
-                    "Failed to open SQLite database from open_connection",
-                    e.to_string(),
-                ))
-            })?;
-            conn.busy_handler(Some(SQLiteDatabase::sleeper))
-                .map_err(|e| {
-                    ShellError::Generic(GenericError::new_internal(
-                        "Failed to set busy handler for SQLite database",
-                        e.to_string(),
-                    ))
-                })?;
-            Ok(conn)
-        }
+    /// Opens this database for use. Memory DB access holds the process-wide mutex.
+    pub fn open_connection(&self, call_span: Span) -> Result<OpenedConnection, ShellError> {
+        open_sqlite_db(&self.path, call_span)
     }
 
     fn sleeper(attempts: i32) -> bool {
@@ -419,15 +433,9 @@ impl CustomValue for SQLiteDatabase {
     }
 
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
-        if self.path.to_string_lossy() == MEMORY_DB {
-            let lock = get_shared_mem_conn()?;
-            read_entire_sqlite_db(&lock, span, &self.signals)
-                .map_err(|e| e.into_shell_error(span, "Failed to read SQLite database"))
-        } else {
-            let db = open_sqlite_db(&self.path, span)?;
-            read_entire_sqlite_db(&db, span, &self.signals)
-                .map_err(|e| e.into_shell_error(span, "Failed to read SQLite database"))
-        }
+        let db = open_sqlite_db(&self.path, span)?;
+        read_entire_sqlite_db(&db, span, &self.signals)
+            .map_err(|e| e.into_shell_error(span, "Failed to read SQLite database"))
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -471,28 +479,32 @@ impl CustomValue for SQLiteDatabase {
     }
 }
 
-pub fn open_sqlite_db(path: &Path, call_span: Span) -> Result<Connection, ShellError> {
-    if path.to_string_lossy() == MEMORY_DB {
-        open_connection_in_memory_custom()
-    } else {
-        let path = path.to_string_lossy().to_string();
-        let conn = Connection::open(path).map_err(|err| {
+/// Opens a SQLite database for the given path.
+///
+/// - [`MEMORY_DB`]: returns the process-wide shared connection under a mutex.
+/// - File paths: opens an owned connection with a busy handler.
+pub fn open_sqlite_db(path: &Path, call_span: Span) -> Result<OpenedConnection, ShellError> {
+    if is_memory_db(path) {
+        return Ok(OpenedConnection::Shared(get_shared_mem_conn()?));
+    }
+
+    let path = path.to_string_lossy().to_string();
+    let conn = Connection::open(path).map_err(|err| {
+        ShellError::Generic(GenericError::new(
+            "Failed to open SQLite database",
+            err.to_string(),
+            call_span,
+        ))
+    })?;
+    conn.busy_handler(Some(SQLiteDatabase::sleeper))
+        .map_err(|err| {
             ShellError::Generic(GenericError::new(
-                "Failed to open SQLite database",
+                "Failed to set busy handler for SQLite database",
                 err.to_string(),
                 call_span,
             ))
         })?;
-        conn.busy_handler(Some(SQLiteDatabase::sleeper))
-            .map_err(|err| {
-                ShellError::Generic(GenericError::new(
-                    "Failed to set busy handler for SQLite database",
-                    err.to_string(),
-                    call_span,
-                ))
-            })?;
-        Ok(conn)
-    }
+    Ok(OpenedConnection::Owned(conn))
 }
 
 fn run_sql_query(
@@ -1689,5 +1701,75 @@ mod test {
                 .project_output_columns(&["missing".to_string()])
                 .is_none()
         );
+    }
+
+    /// Regression for concurrent memdb access (#17041 / shared-connection design).
+    /// Writers and readers all go through the process-wide mutex; no SQLITE_BUSY.
+    #[test]
+    fn shared_mem_conn_is_safe_under_concurrency() {
+        const TABLE: &str = "shared_mem_conn_concurrency";
+        const WRITERS: usize = 8;
+        const INSERTS_PER_WRITER: usize = 50;
+
+        {
+            let conn = get_shared_mem_conn().expect("shared conn");
+            conn.execute(&format!("DROP TABLE IF EXISTS {TABLE}"), [])
+                .expect("drop");
+            conn.execute(
+                &format!("CREATE TABLE {TABLE} (id INTEGER PRIMARY KEY, val INTEGER)"),
+                [],
+            )
+            .expect("create");
+        }
+
+        let mut handles = Vec::with_capacity(WRITERS + 2);
+        for writer in 0..WRITERS {
+            handles.push(std::thread::spawn(move || {
+                for i in 0..INSERTS_PER_WRITER {
+                    let conn = get_shared_mem_conn().expect("shared conn");
+                    let val = (writer * INSERTS_PER_WRITER + i) as i64;
+                    conn.execute(&format!("INSERT INTO {TABLE} (val) VALUES (?1)"), [val])
+                        .expect("insert under concurrency");
+                }
+            }));
+        }
+
+        for _ in 0..2 {
+            handles.push(std::thread::spawn(|| {
+                for _ in 0..INSERTS_PER_WRITER {
+                    let conn = get_shared_mem_conn().expect("shared conn");
+                    let _: i64 = conn
+                        .query_row(&format!("SELECT COUNT(*) FROM {TABLE}"), [], |row| {
+                            row.get(0)
+                        })
+                        .expect("select under concurrency");
+                }
+            }));
+        }
+
+        for handle in handles {
+            handle.join().expect("thread panicked");
+        }
+
+        let conn = get_shared_mem_conn().expect("shared conn");
+        let count: i64 = conn
+            .query_row(&format!("SELECT COUNT(*) FROM {TABLE}"), [], |row| {
+                row.get(0)
+            })
+            .expect("final count");
+        assert_eq!(count, (WRITERS * INSERTS_PER_WRITER) as i64);
+    }
+
+    #[test]
+    fn open_sqlite_db_memory_uses_shared_connection() {
+        let path = Path::new(MEMORY_DB);
+        let a = open_sqlite_db(path, Span::test_data()).expect("open a");
+        drop(a);
+        let b = open_sqlite_db(path, Span::test_data()).expect("open b");
+        // Second open after drop should re-lock the same process-wide connection.
+        let one: i64 = b
+            .query_row("SELECT 1", [], |row| row.get(0))
+            .expect("query shared conn");
+        assert_eq!(one, 1);
     }
 }

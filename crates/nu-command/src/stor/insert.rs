@@ -195,7 +195,7 @@ fn process(
     conn.execute(&create_stmt, params_from_iter(params))
         .map_err(|err| {
             ShellError::Generic(GenericError::new_internal(
-                "Failed to insert using the SQLite connection in memory from insert.rs.",
+                "Failed to insert into the in-memory SQLite database",
                 err.to_string(),
             ))
         })?;

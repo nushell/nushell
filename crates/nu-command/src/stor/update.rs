@@ -193,7 +193,7 @@ fn process(
     conn.execute(&update_stmt, params_from_iter(params))
         .map_err(|err| {
             ShellError::Generic(GenericError::new_internal(
-                "Failed to open SQLite connection in memory from update",
+                "Failed to update rows in the in-memory SQLite database",
                 err.to_string(),
             ))
         })?;

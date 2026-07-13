@@ -147,7 +147,7 @@ fn process(
 
             conn.execute(&create_stmt, []).map_err(|err| {
                 ShellError::Generic(GenericError::new_internal(
-                    "Failed to open SQLite connection in memory from create",
+                    "Failed to create table in the in-memory SQLite database",
                     err.to_string(),
                 ))
             })?;
