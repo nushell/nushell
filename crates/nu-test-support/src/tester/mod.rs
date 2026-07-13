@@ -4,7 +4,10 @@ use std::{
     fmt::{Debug, Display},
     panic::Location,
     path::{Path, PathBuf},
-    sync::{Arc, LazyLock},
+    sync::{
+        Arc, LazyLock,
+        atomic::{AtomicU64, Ordering},
+    },
 };
 
 use miette::Diagnostic;
@@ -475,8 +478,14 @@ impl NuTester {
         let location = TestLocation(Location::caller());
         let code = code.as_ref().as_bytes();
 
+        static FNAME_COUNTER: AtomicU64 = AtomicU64::new(0);
+        let fname = format!(
+            "nu-tester-{}",
+            FNAME_COUNTER.fetch_add(1, Ordering::Relaxed)
+        );
+
         let mut working_set = StateWorkingSet::new(&self.engine_state);
-        let block = nu_parser::parse(&mut working_set, None, code, false);
+        let block = nu_parser::parse(&mut working_set, Some(&fname), code, false);
 
         if let Some(err) = working_set.parse_errors.into_iter().next() {
             return Err(TestError {
