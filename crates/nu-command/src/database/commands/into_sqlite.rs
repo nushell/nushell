@@ -2,8 +2,8 @@ use crate::{
     MEMORY_DB,
     database::values::sqlite::{OpenedConnection, open_sqlite_db, values_to_sql},
 };
-use nu_engine::command_prelude::*;
 use itertools::Itertools;
+use nu_engine::command_prelude::*;
 use nu_protocol::{Signals, shell_error::generic::GenericError};
 use std::{borrow::Cow, path::Path};
 
