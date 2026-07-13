@@ -25,7 +25,7 @@ use std::path::{Path, PathBuf};
 /// determined. Non-fatal warnings (e.g. an empty XDG config dir) are returned
 /// in the [`ConfigWarning`] vec.
 pub fn resolve_paths(
-    env: &dyn EnvAccess,
+    env: &impl EnvAccess,
     cli: &CliOverrides,
 ) -> Result<(NushellConfigDirs, Vec<ConfigWarning>), ConfigError> {
     let mut warnings = Vec::new();
@@ -124,7 +124,7 @@ fn config_path_from_cli(cli: Option<&PathBuf>, default: PathBuf) -> ConfigPath {
 /// Resolve the nushell config directory and track whether an absolute
 /// XDG_CONFIG_HOME was the source.
 fn resolve_config_home_with_source(
-    env: &dyn EnvAccess,
+    env: &impl EnvAccess,
     cli: &CliOverrides,
 ) -> Result<(PathBuf, bool), ConfigError> {
     // 1. CLI override takes highest priority.
@@ -148,10 +148,10 @@ fn resolve_config_home_with_source(
 }
 
 /// Resolve an XDG base directory (CONFIG, DATA, CACHE) with fallback.
-fn resolve_xdg_base(
-    env: &dyn EnvAccess,
+fn resolve_xdg_base<E: EnvAccess>(
+    env: &E,
     var_name: &str,
-    fallback: impl FnOnce(&dyn EnvAccess) -> Option<PathBuf>,
+    fallback: impl FnOnce(&E) -> Option<PathBuf>,
 ) -> Option<PathBuf> {
     if let Some(val) = env.var(var_name)
         && !val.is_empty()
@@ -170,7 +170,7 @@ fn resolve_xdg_base(
 ///
 /// This logic was moved from `nu-protocol/src/eval_const.rs` /
 /// `get_vendor_autoload_dirs()` so that all path resolution is in one place.
-fn resolve_vendor_autoload_dirs(env: &dyn EnvAccess) -> Vec<PathBuf> {
+fn resolve_vendor_autoload_dirs(env: &impl EnvAccess) -> Vec<PathBuf> {
     let into_autoload_path = |mut path: PathBuf| {
         path.push("nushell");
         path.push("vendor");
