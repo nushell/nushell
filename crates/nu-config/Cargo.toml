@@ -16,7 +16,9 @@ harness = false
 plugin = []
 
 [dependencies]
+derive_more = { workspace = true, features = ["display"] }
 dirs = { workspace = true }
+thiserror = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
 dirs-sys = { workspace = true }

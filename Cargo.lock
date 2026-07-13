@@ -4777,10 +4777,12 @@ dependencies = [
 name = "nu-config"
 version = "0.114.2"
 dependencies = [
+ "derive_more 2.1.1",
  "dirs 6.0.0",
  "dirs-sys 0.5.0",
  "nu-test-support",
  "tempfile",
+ "thiserror 2.0.18",
  "windows-sys 0.61.2",
 ]
 
