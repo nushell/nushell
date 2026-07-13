@@ -25,7 +25,8 @@ use std::path::{Path, PathBuf};
 /// assert!(r#override.is_override());
 /// assert_eq!(r#override.as_path(), PathBuf::from("/tmp/custom.nu"));
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, derive_more::Display)]
+#[display("{}", self.as_path().display())]
 pub enum ConfigPath {
     /// Path derived from the resolved config home (e.g. `config_home/config.nu`).
     /// First-run scaffolding is allowed when the file is missing.
@@ -70,12 +71,6 @@ impl ConfigPath {
 impl AsRef<Path> for ConfigPath {
     fn as_ref(&self) -> &Path {
         self.as_path()
-    }
-}
-
-impl std::fmt::Display for ConfigPath {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.as_path().display().fmt(f)
     }
 }
 
