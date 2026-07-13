@@ -27,7 +27,7 @@ pub enum ConfigWarning {
     #[display(
         "$env.XDG_CONFIG_HOME ({xdg}) is set to a non-absolute path, \
         using default config directory instead: {}", 
-        resolved.display()
+        resolved.display(),
     )]
     XdgConfigIgnored { xdg: String, resolved: PathBuf },
 
@@ -37,8 +37,8 @@ pub enum ConfigWarning {
     #[display(
         "WARNING: XDG_CONFIG_HOME has been set but {} is empty.\n\
         Nushell will not move your configuration files from {}", 
-        new.display(), 
-        old.display()
+        new.display(),
+        old.display(),
     )]
     OldConfigDirHasFiles { old: PathBuf, new: PathBuf },
 }
