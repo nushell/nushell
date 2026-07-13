@@ -39,7 +39,6 @@ macro_rules! test_record {
 }
 
 #[doc(hidden)]
-#[allow(unused)]
 pub const fn count_helper<const N: usize>(_: [(); N]) -> usize {
     N
 }
