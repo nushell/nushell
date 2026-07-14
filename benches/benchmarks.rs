@@ -430,6 +430,25 @@ let binary = 0x[]",
     )
 }
 
+fn bench_binary_skip_shared_half(bytes: usize, reads: usize) -> impl IntoBenchmarks {
+    let (mut stack, engine) = setup_stack_and_engine_from_command("let binary = 0x[]");
+    let binary_id = StateWorkingSet::new(&engine)
+        .find_variable(b"binary")
+        .expect("must exist");
+    // Keep the original in the stack so each `$binary` lookup exercises shared backing storage.
+    stack.add_var(binary_id, Value::test_binary(vec![0; bytes]));
+
+    bench_command(
+        format!("binary_skip_shared_{bytes}b_half_{reads}_reads"),
+        format!(
+            "0..<{reads} | each {{ $binary | skip {} | ignore }} | ignore",
+            bytes / 2
+        ),
+        stack,
+        engine,
+    )
+}
+
 fn bench_record_create(n: usize) -> impl IntoBenchmarks {
     bench_command(
         format!("record_create_{n}"),
@@ -1046,6 +1065,7 @@ tango_benchmarks!(
     // Binary
     bench_binary_value_clone(2 * 1024 * 1024),
     bench_binary_slice_into_int(2 * 1024 * 1024, 100),
+    bench_binary_skip_shared_half(2 * 1024 * 1024, 100),
     // Record
     bench_record_create(1),
     bench_record_create(10),

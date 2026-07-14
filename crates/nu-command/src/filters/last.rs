@@ -171,10 +171,9 @@ impl Command for Last {
                         }
                     }
                     Value::Binary { val, .. } => {
-                        let mut val = val.into_owned();
                         let binary_meta = metadata.map(|m| m.with_content_type(None));
                         if return_single_element {
-                            if let Some(val) = val.pop() {
+                            if let Some(&val) = val.last() {
                                 Ok(Value::int(val.into(), span)
                                     .into_pipeline_data_with_metadata(binary_meta))
                             } else if strict_mode {
@@ -186,6 +185,7 @@ impl Command for Last {
                                     .into_pipeline_data_with_metadata(binary_meta))
                             }
                         } else {
+                            let mut val = val.into_owned();
                             let i = val.len().saturating_sub(rows);
                             val.drain(..i);
                             Ok(Value::binary(val, span)
