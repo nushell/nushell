@@ -67,6 +67,11 @@ impl Command for Match {
                 result: Some(Value::test_string("yes!")),
             },
             Example {
+                description: "Match on a constant expression.",
+                example: "match 42 { (40 + 2) => 'yes!' }",
+                result: Some(Value::test_string("yes!")),
+            },
+            Example {
                 description: "Match on a field in a record.",
                 example: "match {a: 100} { {a: $my_value} => { $my_value } }",
                 result: Some(Value::test_int(100)),
