@@ -204,6 +204,15 @@ fn regex_error_in_pattern() -> Result {
 }
 
 #[test]
+fn regex_error_in_pattern_without_input() -> Result {
+    let code = r#"[] | str replace -r '[' "destination""#;
+
+    let err = test().run(code).expect_shell_error()?;
+    assert_contains("Incorrect value", err.to_string());
+    Ok(())
+}
+
+#[test]
 fn find_and_replaces_with_closure() -> Result {
     let code = "
          'source string'
