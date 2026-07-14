@@ -84,6 +84,7 @@ members = [
   "crates/nu-heavy-utils",
   "crates/nuon",
   "crates/nu-mcp",
+  "crates/testbins",
 ]
 
 [workspace.dependencies]
