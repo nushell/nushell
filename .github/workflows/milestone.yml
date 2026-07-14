@@ -15,7 +15,7 @@ jobs:
     name: Milestone Update
     steps:
       - name: Set Milestone for PR
-        uses: hustcer/milestone-action@7b69c4cad6b4ad7a5be55e7704146dfcce59a432 # v3
+        uses: hustcer/milestone-action@v3
         if: github.event.pull_request.merged == true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
