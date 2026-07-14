@@ -124,7 +124,6 @@ mod try_;
 mod ucp;
 #[cfg(unix)]
 mod ulimit;
-mod uln;
 #[cfg(unix)]
 mod umask_;
 mod unlet;
