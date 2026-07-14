@@ -163,7 +163,7 @@ mod tests {
     }
 
     #[test]
-    fn no_search_term_duplicates() {
+    fn no_command_name_contains_search_terms() {
         let ctx = add_command_context(EngineState::new());
         let decls = ctx.get_decls_sorted(true);
         let mut failures = Vec::new();
@@ -183,7 +183,7 @@ mod tests {
 
         assert!(
             failures.is_empty(),
-            "Duplication in search terms:\n{}",
+            "Command names contain their search terms:\n{}",
             failures.join("\n")
         );
     }

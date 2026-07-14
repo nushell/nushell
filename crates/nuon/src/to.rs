@@ -295,14 +295,78 @@ fn value_to_string(
                 };
 
                 if indent.is_some_and(|i| !i.is_empty()) {
-                    let header_row = format!("[{}];", headers.join(c));
+                    // Recompute headers without idt prefix for proper alignment
+                    let col_names: Vec<String> = get_columns(vals)
+                        .iter()
+                        .map(|s| {
+                            if needs_quoting(s) {
+                                escape_quote_string(s)
+                            } else {
+                                s.clone()
+                            }
+                        })
+                        .collect();
 
-                    let value_rows = record_rows(&|row| format!("[{}]", row.join(c)))?
-                        .join(&format!(",{nl}{idt_po}"));
+                    // Pre-render all cell values for column width computation
+                    let num_cols = col_names.len();
+                    let mut all_rows: Vec<Vec<String>> = Vec::new();
+                    for val in vals {
+                        let Value::Record { val, .. } = val else {
+                            continue;
+                        };
+                        let row: Vec<String> = val
+                            .values()
+                            .map(|v| {
+                                value_to_string_without_quotes(
+                                    engine_state,
+                                    v,
+                                    span,
+                                    depth + 2,
+                                    indent,
+                                    options,
+                                )
+                            })
+                            .collect::<Result<Vec<_>, _>>()?;
+                        all_rows.push(row);
+                    }
+
+                    // Column widths = max of header and cell widths per column
+                    let mut widths: Vec<usize> = col_names.iter().map(|h| h.len()).collect();
+                    for row in &all_rows {
+                        for (i, cell) in row.iter().enumerate() {
+                            widths[i] = widths[i].max(cell.len());
+                        }
+                    }
+
+                    // Per-cell trailing separator: comma (if enabled) plus padding to column
+                    // width + 2 keeps columns aligned in both `--pretty` and
+                    // `--pretty --no-commas` modes.
+                    let pad_row = |items: &[String]| -> String {
+                        let mut out = String::new();
+                        for (i, item) in items.iter().enumerate() {
+                            if i < num_cols - 1 {
+                                let _ = write!(
+                                    out,
+                                    "{:<width$}",
+                                    format!("{item}{c}"),
+                                    width = widths[i] + 2
+                                );
+                            } else {
+                                out.push_str(item);
+                            }
+                        }
+                        out
+                    };
+
+                    let header_row = format!("[{}];", pad_row(&col_names));
+                    let value_rows: Vec<String> = all_rows
+                        .iter()
+                        .map(|row| format!("[{}]", pad_row(row)))
+                        .collect();
+                    let value_rows_str = value_rows.join(&format!("{c}{nl}{idt_po}"));
 
                     Ok(format!(
-                        "[{nl}{idt_po}{}{sep}{nl}{idt_po}{}{nl}{idt}]",
-                        header_row, value_rows
+                        "[{nl}{idt_po}{header_row}{sep}{nl}{idt_po}{value_rows_str}{nl}{idt}]"
                     ))
                 } else {
                     let headers_output = headers.join(&format!("{c}{sep}{nl}{idt_pt}"));

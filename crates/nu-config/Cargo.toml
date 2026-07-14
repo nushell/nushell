@@ -1,0 +1,30 @@
+[package]
+authors.workspace = true
+description = "Nushell configuration infrastructure - path resolution and config file management"
+repository = "https://github.com/nushell/nushell/tree/main/crates/nu-config"
+edition.workspace = true
+license.workspace = true
+name = "nu-config"
+rust-version.workspace = true
+version.workspace = true
+
+[lib]
+bench = false
+harness = false
+
+[features]
+plugin = []
+
+[dependencies]
+derive_more = { workspace = true, features = ["display"] }
+derive_setters = { workspace = true }
+dirs = { workspace = true }
+thiserror = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+dirs-sys = { workspace = true }
+windows-sys = { workspace = true, features = ["Win32_UI_Shell"] }
+
+[dev-dependencies]
+nu-test-support = { path = "../nu-test-support", default-features = false }
+tempfile = { workspace = true }

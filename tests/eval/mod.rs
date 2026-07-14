@@ -122,7 +122,7 @@ fn literal_closure_to_toml() {
 
 #[test]
 fn literal_closure_to_yaml() {
-    test_eval("{||} | to yaml --serialize", Eq("'{||}'"))
+    test_eval("{||} | to yaml --serialize", Eq(r#"!closure "{||}""#))
 }
 
 #[test]
@@ -181,6 +181,24 @@ fn binary_op_example() {
         "(([1 2] ++ [3 4]) == [1 2 3 4]) and (([1] ++ [2 3 4]) == [1 2 3 4])",
         Eq("true"),
     )
+}
+
+#[test]
+fn binary_op_rhs_collects_in_variable() {
+    // Regression test for #18323: a binary op whose RHS collects `$in` (e.g. through `not`,
+    // a list literal, or a subexpression) used to clobber the LHS register and emit a
+    // `register_uninitialized` compiler error.
+    //
+    // `$in` (not `$it`) is deliberate: it is the form that triggers the bug. The `$it`
+    // equivalent compiles fine on `main`, so it would not guard this regression.
+    test_eval(
+        "[[v]; [1] [2] [6]] | where $in.v > 0 and not ($in.v > 5) | get v | to nuon",
+        Eq("[1, 2]"),
+    );
+    test_eval(
+        "[[v]; [1] [2] [6]] | where ($in.v == 1) or (0..($in.v) | is-empty) | get v | to nuon",
+        Eq("[1]"),
+    );
 }
 
 #[test]

@@ -736,3 +736,22 @@ fn mv_verbose_message_mentions_source_and_destination() {
         assert!(!dirs.test().join("before.txt").exists());
     });
 }
+
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn mv_literal_directory() {
+    Playground::setup("mv_literal_dir_dc", |dirs, sandbox| {
+        sandbox
+            .within("subdir")
+            .with_files(&[EmptyFile("test.txt")]);
+        sandbox.mkdir("dest");
+
+        nu!(
+            cwd: dirs.root(),
+            "mv mv_literal_dir_dc/subdir mv_literal_dir_dc/dest"
+        );
+
+        assert!(!dirs.test().join("subdir").exists());
+        assert!(dirs.test().join("dest/subdir/test.txt").exists());
+    })
+}

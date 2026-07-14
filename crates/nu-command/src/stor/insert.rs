@@ -30,7 +30,7 @@ impl Command for StorInsert {
             )
             .named(
                 "data-record",
-                SyntaxShape::Record(vec![]),
+                SyntaxShape::record(),
                 "A record of column names and column values to insert into the specified table.",
                 Some('d'),
             )

@@ -1,9 +1,3 @@
-use std::{
-    path::{Path, PathBuf},
-    sync::mpsc::{Receiver, RecvTimeoutError, channel},
-    time::Duration,
-};
-
 use itertools::Either;
 use notify_debouncer_full::{
     DebouncedEvent, Debouncer, FileIdMap, new_debouncer,
@@ -12,7 +6,6 @@ use notify_debouncer_full::{
         event::{DataChange, ModifyKind, RenameMode},
     },
 };
-
 use nu_engine::{ClosureEval, command_prelude::*};
 use nu_protocol::{
     Signals,
@@ -20,10 +13,30 @@ use nu_protocol::{
     report_shell_error, report_shell_warning,
     shell_error::{generic::GenericError, io::IoError},
 };
+use std::{
+    path::{Path, PathBuf},
+    sync::mpsc::{Receiver, RecvTimeoutError, channel},
+    time::Duration,
+};
 
 // durations chosen mostly arbitrarily
 const CHECK_CTRL_C_FREQUENCY: Duration = Duration::from_millis(100);
 const DEFAULT_WATCH_DEBOUNCE_DURATION: Duration = Duration::from_millis(100);
+
+/// Unified glob pattern for watch --glob, routing between legacy and dc_glob backends.
+enum WatchGlob {
+    Legacy(nu_glob::Pattern),
+    DcGlob(nu_glob::dc_glob::DcPattern),
+}
+
+impl WatchGlob {
+    fn matches_path(&self, path: &Path) -> bool {
+        match self {
+            WatchGlob::Legacy(p) => p.matches_path(path),
+            WatchGlob::DcGlob(p) => p.matches_path(path),
+        }
+    }
+}
 
 #[derive(Clone)]
 pub struct Watch;
@@ -54,16 +67,13 @@ impl Command for Watch {
                     Type::Table(
                         vec![
                             ("operation".into(), Type::String),
-                            (
-                                "path".into(),
-                                Type::OneOf([Type::String, Type::Nothing].into()),
-                            ),
+                            ("path".into(), Type::one_of([Type::String, Type::Nothing])),
                             (
                                 "new_path".into(),
-                                Type::OneOf([Type::String, Type::Nothing].into()),
+                                Type::one_of([Type::String, Type::Nothing]),
                             ),
                         ]
-                        .into_boxed_slice(),
+                        .into(),
                     ),
                 ),
             ])
@@ -154,13 +164,22 @@ impl Command for Watch {
                 if verbose {
                     eprintln!("Absolute glob path: {absolute_path:?}");
                 }
-
-                nu_glob::Pattern::new(&absolute_path.to_string_lossy()).map_err(|_| {
-                    ShellError::TypeMismatch {
-                        err_message: "Glob pattern is invalid".to_string(),
-                        span: glob.span,
-                    }
-                })
+                let path_str = absolute_path.to_string_lossy();
+                if nu_experimental::DC_GLOB.get() {
+                    nu_glob::dc_glob::DcPattern::new(path_str.as_ref())
+                        .map(WatchGlob::DcGlob)
+                        .map_err(|_| ShellError::TypeMismatch {
+                            err_message: "Glob pattern is invalid".to_string(),
+                            span: glob.span,
+                        })
+                } else {
+                    nu_glob::Pattern::new(path_str.as_ref())
+                        .map(WatchGlob::Legacy)
+                        .map_err(|_| ShellError::TypeMismatch {
+                            err_message: "Glob pattern is invalid".to_string(),
+                            span: glob.span,
+                        })
+                }
             })
             .transpose()?;
 
@@ -176,6 +195,7 @@ impl Command for Watch {
 
         let iter = {
             let (tx, rx) = channel();
+
             let mut debouncer = new_debouncer(debounce_duration, None, tx)
                 .and_then(|mut debouncer| {
                     debouncer.watcher().watch(&path, recursive_mode)?;
@@ -188,8 +208,10 @@ impl Command for Watch {
                         call.head,
                     ))
                 })?;
+
             // need to cache to make sure that rename event works.
             debouncer.cache().add_root(&path, recursive_mode);
+
             WatchIterator::new(debouncer, rx, engine_state.signals().clone())
         };
 
@@ -279,13 +301,12 @@ impl Command for Watch {
     }
 }
 
-fn glob_filter(glob: Option<&nu_glob::Pattern>, ev: &WatchEvent) -> bool {
+fn glob_filter(glob: Option<&WatchGlob>, ev: &WatchEvent) -> bool {
     let Some(glob) = glob else { return true };
-    let path = ev
-        .path
-        .as_deref()
-        .or(ev.new_path.as_deref())
-        .expect("at least one of path or new_path should be present");
+    let Some(path) = ev.path.as_deref().or(ev.new_path.as_deref()) else {
+        return false;
+    };
+
     glob.matches_path(path)
 }
 
@@ -299,7 +320,7 @@ fn run_closure(
     quiet: bool,
     verbose: bool,
     path: &Path,
-    glob_pattern: Option<nu_glob::Pattern>,
+    glob_pattern: Option<WatchGlob>,
     iter: WatchIterator,
     closure: Closure,
 ) -> Result<PipelineData, ShellError> {

@@ -340,6 +340,11 @@ fn list_quotes_with_equals() -> TestResult {
 }
 
 #[test]
+fn list_raw_string_unit_value_like() -> TestResult {
+    run_test("[.foons] | get 0", ".foons")
+}
+
+#[test]
 fn record_quotes_with_equals() -> TestResult {
     run_test(r#"{"a=":b} | get a="#, "b")?;
     run_test(r#"{"=a":b} | get =a"#, "b")?;
@@ -422,9 +427,11 @@ fn append_assign_takes_pipeline() -> TestResult {
 #[rstest]
 #[case::bare("nu")]
 #[case::quoted("`nu`")]
+#[nu_test_support::test]
+#[deps(NU)]
 fn assign_external_fails(#[case] external: &str) -> Result {
     let code = format!("$env.FOO = {external} --testbin cococo");
-    let err = test().add_nu_to_path().run(code).expect_parse_error()?;
+    let err = test().run(code).expect_parse_error()?;
 
     match err {
         ParseError::LabeledErrorWithHelp { error, .. } => {
@@ -438,9 +445,11 @@ fn assign_external_fails(#[case] external: &str) -> Result {
 #[rstest]
 #[case::with_caret("^nu")]
 #[case::quoted_with_caret("^`nu`")]
+#[nu_test_support::test]
+#[deps(NU)]
 fn assign_external_works(#[case] external: &str) -> Result {
     let code = format!("$env.FOO = {external} --testbin cococo; $env.FOO");
-    test().add_nu_to_path().run(code).expect_value_eq("cococo")
+    test().run(code).expect_value_eq("cococo")
 }
 
 #[test]
@@ -587,7 +596,7 @@ fn percent_dynamic_dispatch_with_mixed_positional_and_spread_args() -> Result {
 #[test]
 fn percent_dynamic_dispatch_in_wrapped_command_forwards_rest_args() -> Result {
     let code = "export def --wrapped builtin [arg1, ...args] { %($arg1) ...$args }; builtin echo hello world | to nuon";
-    test().run(code).expect_value_eq(r#"["hello", "world"]"#)
+    test().run(code).expect_value_eq("[hello, world]")
 }
 
 #[test]
@@ -1108,7 +1117,7 @@ fn let_variable_record_runtime_mismatch() -> TestResult {
     assert!(
         outcome
             .err
-            .contains("can't convert record<a: int> to record<b: int>")
+            .contains("expected record<b: int>, got record<a: int>")
     );
     Ok(())
 }

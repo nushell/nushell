@@ -23,10 +23,21 @@ impl PluginCommand for ExprImplode {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_output_type(
-                PolarsPluginType::NuExpression.into(),
-                PolarsPluginType::NuExpression.into(),
+            .switch(
+                "maintain-order",
+                "Maintains the order of the original values in the list",
+                Some('o'),
             )
+            .input_output_types(vec![
+                (
+                    PolarsPluginType::NuExpression.into(),
+                    PolarsPluginType::NuExpression.into(),
+                ),
+                (
+                    PolarsPluginType::NuSelector.into(),
+                    PolarsPluginType::NuExpression.into(),
+                ),
+            ])
             .category(Category::Custom("dataframe".into()))
     }
 
@@ -58,7 +69,10 @@ impl PluginCommand for ExprImplode {
         let value = input.into_value(call.head)?;
         match PolarsPluginObject::try_from_value(plugin, &value)? {
             PolarsPluginObject::NuExpression(expr) => command_expr(plugin, engine, call, expr),
-            _ => Err(cant_convert_err(&value, &[PolarsPluginType::NuExpression])),
+            _ => Err(cant_convert_err(
+                &value,
+                &[PolarsPluginType::NuExpression, PolarsPluginType::NuSelector],
+            )),
         }
         .map_err(LabeledError::from)
         .map(|pd| pd.set_metadata(metadata))
@@ -71,7 +85,8 @@ fn command_expr(
     call: &EvaluatedCall,
     expr: NuExpression,
 ) -> Result<PipelineData, ShellError> {
-    let res: NuExpression = expr.into_polars().implode().into();
+    let maintain_order = call.has_flag("maintain-order")?;
+    let res: NuExpression = expr.into_polars().implode(maintain_order).into();
     res.to_pipeline_data(plugin, engine, call.head)
 }
 

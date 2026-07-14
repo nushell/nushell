@@ -1,6 +1,6 @@
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
-use nu_heavy_utils::Endian;
+use nu_heavy_utils::endian::Endian;
 
 struct Arguments {
     cell_paths: Option<Vec<CellPath>>,

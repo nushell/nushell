@@ -18,7 +18,7 @@ impl Command for IdxFind {
             .named(
                 "limit",
                 SyntaxShape::Int,
-                "Maximum number of rows to return.",
+                "Maximum number of rows to return (default 100).",
                 Some('l'),
             )
             .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::record())))])
@@ -36,17 +36,17 @@ impl Command for IdxFind {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Fuzzy search for files and directories matching 'main'",
+                description: "Fuzzy search for files and directories matching 'main'.",
                 example: "idx find main",
                 result: None,
             },
             Example {
-                description: "Search only files with verbose scoring output",
+                description: "Search only files with verbose scoring output.",
                 example: "idx find config --files --verbose",
                 result: None,
             },
             Example {
-                description: "Search only directories, limited to top 10 results",
+                description: "Search only directories, limited to top 10 results.",
                 example: "idx find src --dirs --limit 10",
                 result: None,
             },
@@ -80,6 +80,17 @@ impl Command for IdxFind {
             .unwrap_or(100);
 
         let signals = engine_state.signals();
-        stream_find(&query, files, dirs, verbose, limit, call.head, signals)
+        let cwd = engine_state.cwd(Some(stack))?.into_std_path_buf();
+        let ctx = super::state::FindSearchContext {
+            query: &query,
+            files_only: files,
+            dirs_only: dirs,
+            verbose,
+            limit,
+            span: call.head,
+            cwd: Some(cwd.as_path()),
+            signals,
+        };
+        stream_find(ctx)
     }
 }

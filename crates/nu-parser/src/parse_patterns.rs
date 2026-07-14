@@ -2,7 +2,8 @@
 
 use crate::{
     lex, lite_parse,
-    parser::{ensure_not_reserved_variable_name, is_variable, parse_value},
+    parse_helpers::is_variable,
+    parser::{ensure_not_reserved_variable_name, parse_value},
 };
 use nu_protocol::{
     ParseError, Span, SyntaxShape, Type, VarId,
@@ -37,7 +38,7 @@ pub fn parse_pattern(working_set: &mut StateWorkingSet, span: Span) -> MatchPatt
         }
     } else {
         // Literal value
-        let value = parse_value(working_set, span, &SyntaxShape::Any);
+        let value = parse_value(working_set, span, &SyntaxShape::Any, None);
 
         MatchPattern {
             pattern: Pattern::Expression(Box::new(value)),
@@ -90,7 +91,7 @@ pub fn parse_list_pattern(working_set: &mut StateWorkingSet, span: Span) -> Matc
     if bytes.ends_with(b"]") {
         end -= 1;
     } else {
-        working_set.error(ParseError::Unclosed("]".into(), Span::new(end, end)));
+        working_set.error(ParseError::Unclosed("]", Span::new(end, end)));
     }
 
     let inner_span = Span::new(start, end);
@@ -176,7 +177,7 @@ pub fn parse_record_pattern(working_set: &mut StateWorkingSet, span: Span) -> Ma
     if bytes.ends_with(b"}") {
         end -= 1;
     } else {
-        working_set.error(ParseError::Unclosed("}".into(), Span::new(end, end)));
+        working_set.error(ParseError::Unclosed("}", Span::new(end, end)));
     }
 
     let inner_span = Span::new(start, end);

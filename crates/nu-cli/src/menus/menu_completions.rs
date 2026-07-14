@@ -4,7 +4,7 @@ use nu_protocol::{
     debugger::WithoutDebug,
     engine::{EngineState, Stack},
 };
-use reedline::{Completer, Suggestion, menu_functions::parse_selection_char};
+use reedline::{Completer, InputMode, Suggestion, menu_functions::parse_selection_char};
 use std::sync::Arc;
 
 const SELECTION_CHAR: char = '!';
@@ -14,7 +14,7 @@ pub struct NuMenuCompleter {
     span: Span,
     stack: Stack,
     engine_state: Arc<EngineState>,
-    only_buffer_difference: bool,
+    input_mode: InputMode,
 }
 
 impl NuMenuCompleter {
@@ -23,14 +23,14 @@ impl NuMenuCompleter {
         span: Span,
         stack: Stack,
         engine_state: Arc<EngineState>,
-        only_buffer_difference: bool,
+        input_mode: InputMode,
     ) -> Self {
         Self {
             block_id,
             span,
             stack: stack.reset_out_dest().collect_value(),
             engine_state,
-            only_buffer_difference,
+            input_mode,
         }
     }
 }
@@ -61,10 +61,29 @@ impl Completer for NuMenuCompleter {
             .map(|p| p.body);
 
         if let Ok(values) = res.and_then(|data| data.into_value(self.span)) {
-            convert_to_suggestions(values, line, pos, self.only_buffer_difference)
+            convert_to_suggestions(values, line, pos, self.input_mode)
         } else {
             Vec::new()
         }
+    }
+}
+
+/// Replacement span used when the menu source doesn't provide one, matching
+/// what reedline feeds the completer in each input mode.
+fn default_span(line: &str, pos: usize, input_mode: InputMode) -> reedline::Span {
+    match input_mode {
+        // `line` is only the text typed since the menu opened; replace it in place
+        InputMode::Diff => reedline::Span {
+            start: pos - line.len(),
+            end: pos,
+        },
+        // CursorPrefix (buffer up to cursor), FullBuffer (entire buffer), and
+        // any future mode (`InputMode` is non_exhaustive): the suggestion
+        // replaces everything the completer received
+        _ => reedline::Span {
+            start: 0,
+            end: line.len(),
+        },
     }
 }
 
@@ -72,7 +91,7 @@ fn convert_to_suggestions(
     value: Value,
     line: &str,
     pos: usize,
-    only_buffer_difference: bool,
+    input_mode: InputMode,
 ) -> Vec<Suggestion> {
     match value {
         Value::Record { val, .. } => {
@@ -97,32 +116,10 @@ fn convert_to_suggestions(
                                 end: end as usize,
                             }
                         }
-                        _ => reedline::Span {
-                            start: if only_buffer_difference {
-                                pos - line.len()
-                            } else {
-                                0
-                            },
-                            end: if only_buffer_difference {
-                                pos
-                            } else {
-                                line.len()
-                            },
-                        },
+                        _ => default_span(line, pos, input_mode),
                     }
                 }
-                _ => reedline::Span {
-                    start: if only_buffer_difference {
-                        pos - line.len()
-                    } else {
-                        0
-                    },
-                    end: if only_buffer_difference {
-                        pos
-                    } else {
-                        line.len()
-                    },
-                },
+                _ => default_span(line, pos, input_mode),
             };
 
             let extra = match val.get("extra") {
@@ -150,22 +147,11 @@ fn convert_to_suggestions(
         }
         Value::List { vals, .. } => vals
             .into_iter()
-            .flat_map(|val| convert_to_suggestions(val, line, pos, only_buffer_difference))
+            .flat_map(|val| convert_to_suggestions(val, line, pos, input_mode))
             .collect(),
         _ => vec![Suggestion {
             value: format!("Not a record: {value:?}"),
-            span: reedline::Span {
-                start: if only_buffer_difference {
-                    pos - line.len()
-                } else {
-                    0
-                },
-                end: if only_buffer_difference {
-                    pos
-                } else {
-                    line.len()
-                },
-            },
+            span: default_span(line, pos, input_mode),
             ..Suggestion::default()
         }],
     }

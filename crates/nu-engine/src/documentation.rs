@@ -66,7 +66,6 @@ pub fn get_full_help(
         CommandType::Alias => get_alias_documentation(
             &mut long_desc,
             command,
-            &sig,
             &help_style,
             engine_state,
             stack,
@@ -239,7 +238,6 @@ fn highlight_code<'a>(
 fn get_alias_documentation(
     long_desc: &mut String,
     command: &dyn Command,
-    sig: &Signature,
     help_style: &HelpStyle,
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -248,7 +246,7 @@ fn get_alias_documentation(
     let help_section_name = &help_style.section_name;
     let help_subcolor_one = &help_style.subcolor_one;
 
-    let alias_name = &sig.name;
+    let alias_name = command.name();
 
     write!(
         long_desc,
@@ -655,7 +653,7 @@ fn get_argument_for_color_value(
                 span,
                 span_id,
                 Type::Record(
-                    [
+                    vec![
                         ("fg".to_string(), Type::String),
                         ("attr".to_string(), Type::String),
                     ]

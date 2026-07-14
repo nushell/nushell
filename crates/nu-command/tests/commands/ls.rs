@@ -1,6 +1,7 @@
 use nu_test_support::fs::Stub::EmptyFile;
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
+use nu_test_support::prelude::*;
 
 #[test]
 fn lists_regular_files() {
@@ -801,4 +802,138 @@ fn consistent_list_order() {
 
         assert_eq!(no_arg.out, with_arg.out);
     })
+}
+
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn ls_dc_glob_literal_prefix_wildcard() -> Result {
+    Playground::setup("ls_dc_literal_prefix_wildcard", |dirs, sandbox| {
+        sandbox.mkdir("subdir");
+        sandbox.within("subdir").with_files(&[
+            EmptyFile("nu_test1"),
+            EmptyFile("nu_test2"),
+            EmptyFile("other"),
+        ]);
+
+        // Unquoted glob patterns (bare words) parse as Expand
+        test()
+            .cwd(dirs.test())
+            .run("ls subdir/nu* | length")
+            .expect_value_eq(2)
+            .expect("ls subdir/nu* should list both nu_test files with dc-glob");
+    });
+
+    Ok(())
+}
+
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn ls_dc_glob_literal_prefix_wildcard_metadata_populated() -> Result {
+    Playground::setup("ls_dc_literal_prefix_meta", |dirs, sandbox| {
+        sandbox.mkdir("subdir");
+        sandbox
+            .within("subdir")
+            .with_files(&[EmptyFile("nu_test.txt")]);
+
+        test()
+            .cwd(dirs.test())
+            .run("ls subdir/nu* | get type.0")
+            .expect_value_eq("file")
+            .expect("ls subdir/nu* should populate type column with dc-glob");
+
+        test()
+            .cwd(dirs.test())
+            .run("ls subdir/nu* | get size.0 | into int")
+            .expect_value_eq(0)
+            .expect("ls subdir/nu* should populate size column with dc-glob");
+
+        // modified column should be "datetime", not "nothing", when metadata is available
+        test()
+            .cwd(dirs.test())
+            .run("ls subdir/nu* | get modified.0 | describe")
+            .expect_value_eq("datetime")
+            .expect("ls subdir/nu* should populate modified column with dc-glob");
+    });
+
+    Ok(())
+}
+
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn ls_dc_glob_wildcard_then_literal() -> Result {
+    Playground::setup("ls_dc_wildcard_literal", |dirs, sandbox| {
+        sandbox.mkdir("subdir");
+        sandbox.within("subdir").with_files(&[
+            EmptyFile("nu_test1"),
+            EmptyFile("nu_test2"),
+            EmptyFile("other"),
+        ]);
+
+        test()
+            .cwd(dirs.test())
+            .run("ls subdir/*nu* | length")
+            .expect_value_eq(2)
+            .expect("ls subdir/*nu* should list both nu_test files with dc-glob");
+    });
+
+    Ok(())
+}
+
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn ls_dc_glob_wildcard_then_literal_metadata_populated() -> Result {
+    Playground::setup("ls_dc_wildcard_literal_meta", |dirs, sandbox| {
+        sandbox.mkdir("subdir");
+        sandbox
+            .within("subdir")
+            .with_files(&[EmptyFile("nu_test.txt")]);
+
+        test()
+            .cwd(dirs.test())
+            .run("ls subdir/*nu* | get type.0")
+            .expect_value_eq("file")
+            .expect("ls subdir/*nu* should populate type column with dc-glob");
+
+        test()
+            .cwd(dirs.test())
+            .run("ls subdir/*nu* | get size.0 | into int")
+            .expect_value_eq(0)
+            .expect("ls subdir/*nu* should populate size column with dc-glob");
+    });
+
+    Ok(())
+}
+
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn ls_literal_directory() -> Result {
+    Playground::setup("ls_literal_dir_dc", |dirs, sandbox| {
+        sandbox
+            .within("subdir")
+            .with_files(&[EmptyFile("test.txt")]);
+
+        test()
+            .cwd(dirs.root())
+            .run("ls ls_literal_dir_dc/subdir | length")
+            .expect_value_eq(1)
+            .expect("ls literal directory should list its contents with dc-glob");
+    });
+
+    Ok(())
+}
+
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn ls_literal_empty_directory() -> Result {
+    Playground::setup("ls_literal_empty_dir_dc", |dirs, sandbox| {
+        sandbox.mkdir("emptydir");
+
+        test()
+            .cwd(dirs.root())
+            .run("ls ls_literal_empty_dir_dc/emptydir | length")
+            .expect_value_eq(0)
+            .expect("ls literal empty directory should not error with dc-glob");
+    });
+
+    Ok(())
 }

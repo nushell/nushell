@@ -550,6 +550,7 @@ pub(crate) fn compile_try(
     // Put the error handler instruction. If we have a catch expression then we should capture the
     // error.
     let mut has_try_comment = false;
+    let mut pushed_error_handler = false;
     if catch_type.is_some() {
         builder.push(
             Instruction::OnErrorInto {
@@ -560,12 +561,14 @@ pub(crate) fn compile_try(
         )?;
         builder.add_comment("try");
         has_try_comment = true;
+        pushed_error_handler = true;
     } else if finally_expr.is_none() {
         // Simply try, without `catch` and `finally` block, need to set up OnErrorHandler.
         // so `try { 1 / 0 }` works
         builder.push(Instruction::OnError { index: err_label.0 }.into_spanned(call.head))?;
         builder.add_comment("try");
         has_try_comment = true;
+        pushed_error_handler = true;
     };
 
     builder.begin_try();
@@ -616,7 +619,10 @@ pub(crate) fn compile_try(
     } else {
         builder.push(Instruction::DrainIfEnd { src: io_reg }.into_spanned(call.head))?;
     }
-    builder.push(Instruction::PopErrorHandler.into_spanned(call.head))?;
+
+    if pushed_error_handler {
+        builder.push(Instruction::PopErrorHandler.into_spanned(call.head))?;
+    }
 
     builder.end_try()?;
 

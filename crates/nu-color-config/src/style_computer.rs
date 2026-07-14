@@ -98,8 +98,11 @@ impl<'a> StyleComputer<'a> {
             Value::Binary { .. } => TextStyle::with_style(Left, s),
             Value::CellPath { .. } => TextStyle::with_style(Left, s),
             Value::Record { .. } | Value::List { .. } => TextStyle::with_style(Left, s),
-            Value::Closure { .. } | Value::Custom { .. } | Value::Error { .. } => {
-                TextStyle::basic_left()
+            Value::Closure { .. } | Value::Error { .. } => TextStyle::basic_left(),
+            Value::Custom { ref val, .. } => {
+                let type_name = val.type_name();
+                let custom_style = self.compute(&type_name, value);
+                TextStyle::with_style(Left, custom_style)
             }
         }
     }
@@ -137,6 +140,8 @@ impl<'a> StyleComputer<'a> {
             ("block".to_string(), ComputableStyle::Static(Color::Default.normal())),
             ("hints".to_string(), ComputableStyle::Static(Color::DarkGray.normal())),
             ("search_result".to_string(), ComputableStyle::Static(Color::Default.normal().on(Color::Red))),
+            ("semver".to_string(), ComputableStyle::Static(Color::Cyan.bold())),
+            ("semver-range".to_string(), ComputableStyle::Static(Color::Cyan.bold())),
         ].into_iter().collect();
 
         for (key, value) in &config.color_config {

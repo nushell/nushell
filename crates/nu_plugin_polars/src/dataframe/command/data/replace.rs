@@ -29,7 +29,7 @@ impl PluginCommand for Replace {
         Signature::build(self.name())
             .required(
                 "old",
-                SyntaxShape::OneOf(vec![SyntaxShape::Record(vec![]), SyntaxShape::List(Box::new(SyntaxShape::Any))]),
+                SyntaxShape::OneOf(vec![SyntaxShape::record(), SyntaxShape::List(Box::new(SyntaxShape::Any))]),
                 "Values to be replaced.",
             )
             .optional(
@@ -54,10 +54,16 @@ impl PluginCommand for Replace {
                 "Data type of the resulting expression. If set to `null` (default), the data type is determined automatically based on the other inputs.",
                 Some('t'),
             )
-            .input_output_type(
-                PolarsPluginType::NuExpression.into(),
-                PolarsPluginType::NuExpression.into(),
-            )
+            .input_output_types(vec![
+                (
+                    PolarsPluginType::NuExpression.into(),
+                    PolarsPluginType::NuExpression.into()
+                ),
+                (
+                    PolarsPluginType::NuSelector.into(),
+                    PolarsPluginType::NuExpression.into()
+                )
+             ])
             .category(Category::Custom("expression".into()))
     }
 
@@ -137,7 +143,7 @@ impl PluginCommand for Replace {
                 description: "Replace column with different values using a record",
                 example: "[[a]; [1] [1] [2] [2]]
                 | polars into-df
-                | polars select (polars col a | polars replace {1: a, 2: b} --strict --return-dtype str)
+                | polars select (polars col a | polars replace {1: a, 2: b} --default c --strict --return-dtype str)
                 | polars collect",
                 result: Some(
                     NuDataFrame::from(
@@ -177,7 +183,6 @@ impl PluginCommand for Replace {
                 )));
             }
         };
-        // let new_vals: Vec<Value> = call.req(1)?;
 
         let old = values_to_expr(plugin, call.head, old_vals)?;
         let new = values_to_expr(plugin, call.head, new_vals)?;

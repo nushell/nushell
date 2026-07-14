@@ -1,7 +1,9 @@
 #![allow(clippy::unwrap_used)]
 
+mod cell_path;
 mod into_config;
 mod pipeline;
+mod range;
 mod test_config;
 mod test_pipeline_data;
 mod test_signature;

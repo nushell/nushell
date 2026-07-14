@@ -28,14 +28,14 @@ def "assert formatted" [
 ] {
     let output = (run-command "debug" $command_level $message --format $format)
     let prefix = if $short {
-            (log-short-prefix | get ($command_level | str upcase))
+            (log-short-prefix | get ($command_level | str uppercase))
         } else {
-            (log-prefix | get ($command_level | str upcase))
+            (log-prefix | get ($command_level | str uppercase))
         }
     let ansi = if $short {
-            (log-ansi | get ($command_level | str upcase))
+            (log-ansi | get ($command_level | str uppercase))
         } else {
-            (log-ansi | get ($command_level | str upcase))
+            (log-ansi | get ($command_level | str uppercase))
         }
 
     assert equal ($output | str trim --right) (format-message $message $format $prefix $ansi)

@@ -821,6 +821,22 @@ pub enum ShellError {
         span: Span,
     },
 
+    /// An HTTP request return an error code.
+    ///
+    /// ## Resolution
+    ///
+    /// Check the response body for more details.
+    #[error("HTTP Error {code} ({reason}): {url}")]
+    #[diagnostic(code(nu::shell::http_error))]
+    HttpError {
+        code: u16,
+        reason: &'static str,
+        url: String,
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
+
     #[error(transparent)]
     #[diagnostic(transparent)]
     Network(#[from] network::NetworkError),
@@ -1170,7 +1186,7 @@ pub enum ShellError {
             "This shouldn't happen. Please file an issue: https://github.com/nushell/nushell/issues"
         )
     )]
-    Exit { code: i32 },
+    Exit { code: i32, abort: bool },
 
     /// The code being executed called itself too many times.
     ///
@@ -1493,7 +1509,7 @@ impl ShellError {
             "debug" => Value::string(format!("{self:?}"), span),
             "raw" => Value::error(self.clone(), span),
             "rendered" => Value::string(format_cli_error(Some(stack), working_set, &self, Some("nu::shell::error")), span),
-            "json" => Value::string(serde_json::to_string(&self).expect("Could not serialize error"), span),
+            "details" => LabeledError::from(self).into_value(span, working_set),
         };
 
         if let Some(code) = exit_code {

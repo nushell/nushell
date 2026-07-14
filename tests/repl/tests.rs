@@ -7,6 +7,7 @@ use tempfile::NamedTempFile;
 
 pub type TestResult = Result<(), Box<dyn std::error::Error>>;
 
+#[track_caller]
 pub fn run_test_with_env(input: &str, expected: &str, env: &HashMap<&str, &str>) -> TestResult {
     let mut file = NamedTempFile::new()?;
     let name = file.path();
@@ -21,6 +22,7 @@ pub fn run_test_with_env(input: &str, expected: &str, env: &HashMap<&str, &str>)
 }
 
 #[cfg(test)]
+#[track_caller]
 pub fn run_test(input: &str, expected: &str) -> TestResult {
     let mut file = NamedTempFile::new()?;
     let name = file.path();
@@ -40,6 +42,7 @@ pub fn run_test(input: &str, expected: &str) -> TestResult {
 }
 
 #[cfg(test)]
+#[track_caller]
 pub fn run_test_std(input: &str, expected: &str) -> TestResult {
     let mut file = NamedTempFile::new()?;
     let name = file.path();
@@ -58,6 +61,7 @@ pub fn run_test_std(input: &str, expected: &str) -> TestResult {
 }
 
 #[cfg(test)]
+#[track_caller]
 fn run_cmd_and_assert(mut cmd: Command, expected: &str) -> TestResult {
     let output = cmd.output()?;
 
@@ -75,6 +79,7 @@ fn run_cmd_and_assert(mut cmd: Command, expected: &str) -> TestResult {
 }
 
 #[cfg(test)]
+#[track_caller]
 pub fn run_test_contains(input: &str, expected: &str) -> TestResult {
     let mut file = NamedTempFile::new()?;
     let name = file.path();
@@ -103,6 +108,7 @@ pub fn run_test_contains(input: &str, expected: &str) -> TestResult {
 }
 
 #[cfg(test)]
+#[track_caller]
 pub fn test_ide_contains(input: &str, ide_commands: &[&str], expected: &str) -> TestResult {
     let mut file = NamedTempFile::new()?;
     let name = file.path();
@@ -134,6 +140,7 @@ pub fn test_ide_contains(input: &str, ide_commands: &[&str], expected: &str) -> 
 }
 
 #[cfg(test)]
+#[track_caller]
 pub fn fail_test(input: &str, expected: &str) -> TestResult {
     let mut file = NamedTempFile::new()?;
     let name = file.path();

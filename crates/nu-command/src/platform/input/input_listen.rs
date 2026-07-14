@@ -46,9 +46,11 @@ impl Command for InputListen {
             )
             .input_output_types(vec![(
                 Type::Nothing,
-                Type::Record([
-                    ("keycode".to_string(), Type::String),
-                    ("modifiers".to_string(), Type::List(Box::new(Type::String))),
+                Type::Record(vec![
+                    ("type".to_string(), Type::String),
+                    ("key_type".to_string(), Type::String),
+                    ("code".to_string(), Type::String),
+                    ("modifiers".to_string(), Type::list(Type::String)),
                 ].into()),
             )])
     }

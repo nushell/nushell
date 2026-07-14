@@ -1,4 +1,9 @@
+use std::collections::HashMap;
+
 use crate::repl::tests::{TestResult, fail_test, run_test, run_test_contains};
+use miette::Diagnostic;
+use nu_experimental::ENFORCE_RUNTIME_ANNOTATIONS;
+use nu_test_support::prelude::*;
 use rstest::rstest;
 
 #[test]
@@ -149,15 +154,18 @@ fn record_subtyping_works() -> TestResult {
 // [ list supertype, table ]
 #[case(
     "let foo = [ [ { a: 1 } ], [ [a, b]; [1, 2] ] ];",
-    "list<list<record<a: int>>>"
+    "list<oneof<list<record<a: int>>, table<a: int, b: int>>>"
 )]
 // [ list, table supertype ]
 #[case(
     "let foo = [ [{ a: 1, b: 2 }], [ [a]; [1] ] ];",
-    "list<list<record<a: int>>>"
+    "list<oneof<list<record<a: int, b: int>>, table<a: int>>>"
 )]
 // disjoint element types: empty element supertype
-#[case("let foo = [[ [bar]; [1] ], [ { baz: 1 } ] ];", "list<list<record>>")]
+#[case(
+    "let foo = [[ [bar]; [1] ], [ { baz: 1 } ] ];",
+    "list<oneof<table<bar: int>, list<record<baz: int>>>>"
+)]
 // `bar: int` and `bar: number` are widened to table<bar: number>
 #[case(
     "let n: number = 1; let foo = [ [bar]; [1], [$n] ];",
@@ -202,6 +210,77 @@ fn pipeline_oneof() -> TestResult {
         "def f []: [oneof<string, list<int>> -> nothing] { describe }; [1] | each {} | f",
         "list<int> (stream)",
     )
+}
+
+#[rstest]
+#[case::filter_output_union(
+    "
+    let pending = ([a] | each {} | collect | skip 0)
+    for item in $pending {}
+    "
+)]
+#[case::union_of_iterables(
+    "
+    def choose []: nothing -> oneof<list<list<string>>, list<int>> {
+        [[a]]
+    }
+    for item in (choose) {}
+    "
+)]
+#[case::static_list_source(
+    "
+    let pending: oneof<table, binary, list<int>> = [1 2 3]
+    for item in $pending {}
+    "
+)]
+#[case::static_table_source(
+    "
+    let pending: oneof<table, binary, list<int>> = [[a b]; [1 2], [3 4]]
+    for item in $pending {}
+    "
+)]
+#[case::static_binary_source(
+    "
+    let pending: oneof<table, binary, list<int>> = 0x[deadbeef]
+    for item in $pending {}
+    "
+)]
+#[test]
+#[exp(ENFORCE_RUNTIME_ANNOTATIONS)]
+fn for_loop_item_type_from_iterable_union(#[case] input: &str) -> Result {
+    // should return nothing
+    let () = test().run(input)?;
+    Ok(())
+}
+
+#[test]
+#[exp(ENFORCE_RUNTIME_ANNOTATIONS)]
+fn for_loop_incorrect_type_raises_error() -> Result {
+    let code = "
+        def incorrectly_typed_stream []: nothing -> list<int> {
+            # using `each`:
+            # - erases the type: bypassing parse time type checking
+            # - returns a stream rather than a value: bypassing runtime type checking
+            [a b c] | each {}
+        }
+
+        for item in (incorrectly_typed_stream) {}
+    ";
+    let err = test().run(code).expect_shell_error()?;
+
+    assert_eq!(err.code().unwrap().to_string(), "nu::shell::type_mismatch");
+
+    let labels = err
+        .labels()
+        .into_iter()
+        .flatten()
+        .filter_map(|label| label.label().map(String::from))
+        .collect::<Vec<_>>();
+
+    assert_contains("the value is a string".to_string(), &labels);
+    assert_contains("expected int, got string".to_string(), &labels);
+
+    Ok(())
 }
 
 #[test]
@@ -307,4 +386,89 @@ fn array_of_wrong_types() -> TestResult {
         "0..128 | each {} | into string | bytes collect",
         "nu::shell::only_supports_this_input_type",
     )
+}
+
+#[test]
+#[exp(ENFORCE_RUNTIME_ANNOTATIONS)]
+fn optional_parameters_and_flags_are_nullable() -> Result {
+    let mut tester = test();
+
+    let code = "
+        def foo [opt_param?: int] {
+            let var = $opt_param
+        }
+        foo
+    ";
+    let () = tester.run(code)?;
+
+    let code = "
+        def foo [--flag: int] {
+            let var = $flag
+        }
+        foo
+    ";
+    let () = tester.run(code)?;
+
+    Ok(())
+}
+
+#[test]
+fn pipeline_let_type() -> Result {
+    let mut tester = test();
+
+    let code = "
+        [1, 2, 3]
+        | let list_int
+        | into string
+        | let list_str
+        | str join
+        | let str
+    ";
+    let _: Value = tester.run(code)?;
+
+    let code = "scope variables | select name type | transpose -dr";
+    let out: HashMap<String, String> = tester.run(code)?;
+
+    assert_eq!(out["$list_int"], "list<int>");
+    assert_eq!(out["$list_str"], "list<string>");
+    assert_eq!(out["$str"], "string");
+
+    Ok(())
+}
+
+#[test]
+fn block_let_rhs_pipeline_input() -> Result {
+    let code = r#"
+        def only-nothing []: nothing -> string { "hello" }
+        def foo []: int -> any { let x = only-nothing; $x + 1 }
+        5 | foo
+    "#;
+
+    let err = test().run(code).expect_parse_error()?;
+    assert!(matches!(err, ParseError::InputMismatch(ty, _) if ty == "int"));
+
+    Ok(())
+}
+
+#[test]
+fn closure_body_input_type_not_inherited_from_pipeline_input() -> Result {
+    let mut tester = test();
+
+    let () = tester.run("let fn = 42 | {|| $in ++ 'kB'}")?;
+    tester.run("'10' | do $fn").expect_value_eq("10kB")
+}
+
+#[test]
+fn closure_body_input_type_not_inherited_from_surrounding_command() -> Result {
+    let mut tester = test();
+
+    let code = r#"
+        def cmd [p: string]: nothing -> string {
+            let fn = {|| $in ++ "bar"}
+            $p | do $fn
+        }
+    "#;
+
+    let () = tester.run(code)?;
+    tester.run("cmd foo").expect_value_eq("foobar")
 }

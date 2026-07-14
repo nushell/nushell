@@ -1,3 +1,6 @@
+use super::utils;
+#[cfg(feature = "sqlite")]
+use crate::database::QueryPlan;
 use itertools::Itertools;
 use nu_engine::command_prelude::*;
 use nu_protocol::PipelineMetadata;
@@ -57,6 +60,22 @@ impl Command for Uniq {
         mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
+
+        #[cfg(feature = "sqlite")]
+        // Pushdown optimization: bare `uniq` (no flags) via SELECT DISTINCT
+        if !call.has_flag(engine_state, stack, "count")?
+            && !call.has_flag(engine_state, stack, "repeated")?
+            && !call.has_flag(engine_state, stack, "unique")?
+            && !call.has_flag(engine_state, stack, "ignore-case")?
+            && let PipelineData::Value(Value::Custom { val, .. }, metadata) = &input
+            && let Some(plan) = QueryPlan::try_from_any(val.as_any())
+        {
+            let plan = plan.with_distinct();
+            return plan
+                .execute(call.head)
+                .map(|data| data.set_metadata(metadata.clone()));
+        }
+
         let mapper = Box::new(move |ms: ItemMapperState| -> ValueCounter {
             item_mapper(ms.item, ms.flag_ignore_case, ms.index, head)
         });
@@ -184,44 +203,6 @@ fn clone_to_folded_case(value: &Value) -> Value {
     }
 }
 
-fn sort_attributes(val: Value) -> Value {
-    let span = val.span();
-    match val {
-        Value::Record { val, .. } => {
-            // TODO: sort inplace
-            let sorted = val
-                .into_owned()
-                .into_iter()
-                .sorted_by(|a, b| a.0.cmp(&b.0))
-                .collect_vec();
-
-            let record = sorted
-                .into_iter()
-                .map(|(k, v)| (k, sort_attributes(v)))
-                .collect();
-
-            Value::record(record, span)
-        }
-        Value::List { vals, .. } => {
-            Value::list(vals.into_iter().map(sort_attributes).collect_vec(), span)
-        }
-        other => other,
-    }
-}
-
-fn generate_key(
-    engine_state: &EngineState,
-    item: &ValueCounter,
-    head: Span,
-) -> Result<String, ShellError> {
-    let value = sort_attributes(item.val_to_compare.clone()); //otherwise, keys could be different for Records
-    nuon::to_nuon(
-        engine_state,
-        &value,
-        nuon::ToNuonConfig::default().span(Some(head)),
-    )
-}
-
 fn generate_results_with_count(head: Span, uniq_values: Vec<ValueCounter>) -> Vec<Value> {
     uniq_values
         .into_iter()
@@ -272,7 +253,7 @@ pub fn uniq(
         .try_fold(
             HashMap::<String, ValueCounter>::new(),
             |mut counter, item| {
-                let key = generate_key(engine_state, &item, head);
+                let key = utils::value_to_key(engine_state, &item.val_to_compare, head);
 
                 match key {
                     Ok(key) => {

@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use nu_cmd_base::hook::eval_hook;
 use nu_engine::{command_prelude::*, env_to_strings};
 use nu_path::{AbsolutePath, dots::expand_ndots_safe, expand_tilde};
@@ -426,7 +427,7 @@ fn expand_glob(
 ) -> Result<Vec<OsString>, ShellError> {
     // For an argument that isn't a glob, just do the `expand_tilde`
     // and `expand_ndots` expansion
-    if !nu_glob::is_glob(arg) {
+    if !nu_glob::is_glob_with_backend(arg) {
         let path = expand_ndots_safe(expand_tilde(arg));
         return Ok(vec![path.into()]);
     }
@@ -520,7 +521,7 @@ fn write_pipeline_data(
     Ok(())
 }
 
-/// Returns a helpful error message given an invalid command name,
+/// Returns a helpful error message given an invalid command name.
 pub fn command_not_found(
     name: &str,
     span: Span,
@@ -584,75 +585,81 @@ pub fn command_not_found(
         };
     }
 
-    // The command might be from another module. Try to find it.
-    if let Some(module) = engine_state.which_module_has_decl(name.as_bytes(), &[]) {
-        let module = String::from_utf8_lossy(module);
-        // Is the command already imported?
-        let full_name = format!("{module} {name}");
-        if engine_state.find_decl(full_name.as_bytes(), &[]).is_some() {
-            return ShellError::ExternalCommand {
-                label: format!("Command `{name}` not found"),
-                help: format!("Did you mean `{full_name}`?"),
-                span,
-            };
-        } else {
-            return ShellError::ExternalCommand {
-                label: format!("Command `{name}` not found"),
-                help: format!(
-                    "A command with that name exists in module `{module}`. Try importing it with `use`"
-                ),
-                span,
-            };
-        }
-    }
+    // Making this a closure allows using return inside instead of nesting if-else's
+    let help = (|| {
+        // The command might be from another module. Try to find it.
+        // Note that built-in command categories are not modules,
+        // hence this won't find `math sqrt` if the user types `sqrt`.
+        if let Some(module) = engine_state.which_module_has_decl(name.as_bytes(), &[]) {
+            let module = String::from_utf8_lossy(module);
 
-    // Try to match the name with the search terms of existing commands.
-    let signatures = engine_state.get_signatures_and_declids(false);
-    if let Some((sig, _)) = signatures.iter().find(|(sig, _)| {
-        sig.search_terms
+            // Is the command already imported?
+            let full_name = format!("{module} {name}");
+            if engine_state.find_decl(full_name.as_bytes(), &[]).is_some() {
+                return format!("Did you mean `{full_name}`?");
+            }
+
+            return format!(
+                "A command with that name exists in module `{module}`. Try importing it with `use`"
+            );
+        }
+
+        // Try to match the name with the search terms of existing commands.
+        let signatures = engine_state.get_signatures_and_declids(false);
+        if let Some((last, others)) = signatures
             .iter()
-            .any(|term| term.to_folded_case() == name.to_folded_case())
-    }) {
-        return ShellError::ExternalCommand {
-            label: format!("Command `{name}` not found"),
-            help: format!("Did you mean `{}`?", sig.name),
-            span,
-        };
-    }
-
-    // Try a fuzzy search on the names of all existing commands.
-    if let Some(cmd) = did_you_mean(signatures.iter().map(|(sig, _)| &sig.name), name) {
-        // The user is invoking an external command with the same name as a
-        // built-in command. Remind them of this.
-        if cmd == name {
-            return ShellError::ExternalCommand {
-                label: format!("Command `{name}` not found"),
-                help: "There is a built-in command with the same name".into(),
-                span,
+            .map(|(sig, _)| sig)
+            .filter(|sig| {
+                let name = name.to_folded_case(); // do not allocate new strings in any()
+                sig.name
+                    .to_folded_case()
+                    .split_ascii_whitespace() // basically split into words
+                    .contains(name.as_str()) // find this one `math sqrt` from the example above
+                    || sig
+                        .search_terms
+                        .iter()
+                        .any(|term| term.to_folded_case() == name)
+            })
+            .map(|sig| format!("`{}`", sig.name))
+            .collect::<Vec<_>>()
+            .split_last()
+        {
+            let commands = if others.is_empty() {
+                last
+            } else {
+                // other or last
+                // other, other or last
+                &format!("{} or {last}", others.join(", "))
             };
+
+            return format!("Did you mean {commands}?");
         }
-        return ShellError::ExternalCommand {
-            label: format!("Command `{name}` not found"),
-            help: format!("Did you mean `{cmd}`?"),
-            span,
-        };
-    }
 
-    // If we find a file, it's likely that the user forgot to set permissions
-    if cwd.join(name).is_file() {
-        return ShellError::ExternalCommand {
-            label: format!("Command `{name}` not found"),
-            help: format!(
+        // Try a fuzzy search on the names of all existing commands.
+        if let Some(cmd) = did_you_mean(signatures.iter().map(|(sig, _)| &sig.name), name) {
+            // The user is invoking an external command with the same name as a
+            // built-in command. Remind them of this.
+            if cmd == name {
+                return "There is a built-in command with the same name".to_string();
+            }
+
+            return format!("Did you mean `{cmd}`?");
+        }
+
+        // If we find a file, it's likely that the user forgot to set permissions
+        if cwd.join(name).is_file() {
+            return format!(
                 "`{name}` refers to a file that is not executable. Did you forget to set execute permissions?"
-            ),
-            span,
-        };
-    }
+            );
+        }
 
-    // We found nothing useful. Give up and return a generic error message.
+        // We found nothing useful. Give up and return a generic error message.
+        format!("`{name}` is neither a Nushell built-in or a known external command")
+    })();
+
     ShellError::ExternalCommand {
         label: format!("Command `{name}` not found"),
-        help: format!("`{name}` is neither a Nushell built-in or a known external command"),
+        help,
         span,
     }
 }

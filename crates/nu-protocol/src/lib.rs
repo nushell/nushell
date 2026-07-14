@@ -11,6 +11,7 @@
 mod alias;
 pub mod ast;
 pub mod casing;
+mod collection_columns;
 mod completion;
 pub mod config;
 pub mod debugger;
@@ -25,6 +26,7 @@ mod id;
 pub mod ir;
 mod lev_distance;
 mod module;
+mod one_of;
 pub mod parser_path;
 mod pipeline;
 #[cfg(feature = "plugin")]
@@ -35,10 +37,12 @@ mod signature;
 pub mod span;
 mod syntax_shape;
 mod ty;
+mod ty_relation;
 mod value;
 
 pub use alias::*;
 pub use ast::unit::*;
+pub use collection_columns::*;
 pub use completion::*;
 pub use config::*;
 pub use deprecation::*;
@@ -49,6 +53,7 @@ pub use example::*;
 pub use id::*;
 pub use lev_distance::levenshtein_distance;
 pub use module::*;
+pub use one_of::*;
 pub use pipeline::*;
 #[cfg(feature = "plugin")]
 pub use plugin::*;
@@ -56,6 +61,7 @@ pub use signature::*;
 pub use span::*;
 pub use syntax_shape::*;
 pub use ty::*;
+pub use ty_relation::*;
 pub use value::*;
 
 pub use nu_derive_value::*;

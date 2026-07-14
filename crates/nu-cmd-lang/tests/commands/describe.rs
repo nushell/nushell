@@ -7,7 +7,7 @@ fn test_oneof_flattening_in_describe() {
         nu!("[ ...(0..4 | each { {content:[{content:[any]}]} }), {content:[any]} ] | describe");
     assert_eq!(
         result.out,
-        "table<content: list<oneof<string, record<content: list<string>>>>>"
+        "table<content: oneof<table<content: list<string>>, list<string>>>"
     );
 }
 
@@ -19,7 +19,7 @@ fn test_oneof_flattening_in_describe_reverse_order() {
     assert!(
         result
             .out
-            .contains("table<content: list<oneof<string, record<content: list<string>>")
+            .contains("table<content: oneof<list<string>, table<content: list<string>>>>",)
     );
     assert!(!result.out.contains("oneof<oneof<"));
 }
@@ -36,6 +36,6 @@ fn test_oneof_flattening_in_describe_glob_string() {
 fn test_oneof_flattening_in_describe_glob_string_reverse_order() {
     let result =
         nu!("do { let g: glob = \"*.rs\"; [ {content: \"README.rs\"} {content: $g} ] | describe }");
-    assert!(result.out.contains("table<content: oneof<string, glob>>"));
+    assert_eq!("table<content: oneof<string, glob>>", result.out);
     assert!(!result.out.contains("oneof<oneof<"));
 }

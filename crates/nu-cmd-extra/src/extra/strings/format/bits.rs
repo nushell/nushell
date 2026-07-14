@@ -4,7 +4,7 @@ use std::io::{self, Read, Write as IoWrite};
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
 
-use nu_heavy_utils::Endian;
+use nu_heavy_utils::endian::Endian;
 use nu_protocol::{Signals, shell_error::io::IoError};
 use num_traits::ToPrimitive;
 

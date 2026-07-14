@@ -3,7 +3,7 @@ use nu_engine::command_prelude::*;
 #[cfg(not(feature = "sqlite"))]
 use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{
-    HistoryFileFormat, PipelineMetadata,
+    HistoryFileFormat,
     shell_error::{self, io::IoError},
 };
 #[cfg(feature = "sqlite")]
@@ -73,7 +73,7 @@ impl Command for History {
             return Ok(PipelineData::empty());
         };
         // todo for sqlite history this command should be an alias to `open ~/.config/nushell/history.sqlite3 | get history`
-        let Some(history_path) = history.file_path() else {
+        let Some(history_path) = history.file_path(&engine_state.config_dirs.config_home) else {
             return Err(ShellError::ConfigDirNotFound { span: head });
         };
 
@@ -177,7 +177,10 @@ impl Command for History {
 
                 Ok(PipelineData::Value(
                     Value::custom(Box::new(table), head),
-                    Some(PipelineMetadata::default().with_path_columns(vec!["cwd".into()])),
+                    Some(
+                        nu_protocol::PipelineMetadata::default()
+                            .with_path_columns(vec!["cwd".into()]),
+                    ),
                 ))
             }
         }

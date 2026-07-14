@@ -137,7 +137,7 @@ def local-return_value_only [] {
     let key = (random uuid)
 
     let expected = 'VALUE'
-    let actual = ('value' | kv set -r v $key {str upcase})
+    let actual = ('value' | kv set -r v $key {str uppercase})
 
     assert equal $actual $expected
 
@@ -295,7 +295,7 @@ def universal-return_value_only [] {
     let key = (random uuid)
 
     let expected = 'VALUE'
-    let actual = ('value' | kv set --universal -r v $key {str upcase})
+    let actual = ('value' | kv set --universal -r v $key {str uppercase})
 
     assert equal $actual $expected
 

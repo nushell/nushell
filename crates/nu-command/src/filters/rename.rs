@@ -18,7 +18,7 @@ impl Command for Rename {
             ])
             .named(
                 "column",
-                SyntaxShape::Record(vec![]),
+                SyntaxShape::record(),
                 "Column name to be changed.",
                 Some('c'),
             )

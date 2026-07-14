@@ -124,16 +124,6 @@ pub fn get_value_style(value: &Value, config: &Config, style_computer: &StyleCom
     }
 }
 
-pub fn get_empty_style(text: String, style_computer: &StyleComputer) -> NuText {
-    (
-        text,
-        TextStyle::with_style(
-            Alignment::Right,
-            style_computer.compute("empty", &Value::nothing(Span::unknown())),
-        ),
-    )
-}
-
 fn make_styled_value(
     text: String,
     value: &Value,

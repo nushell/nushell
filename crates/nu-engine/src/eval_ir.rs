@@ -4,9 +4,9 @@ use nu_path::{dots::expand_ndots_safe, expand_path, expand_path_with, expand_til
 #[cfg(feature = "os")]
 use nu_protocol::process::check_exit_status_future;
 use nu_protocol::{
-    DeclId, ENV_VARIABLE_ID, Flag, IntoPipelineData, IntoSpanned, ListStream, OutDest,
-    PipelineData, PipelineExecutionData, PositionalArg, Range, Record, RegId, ShellError, Signals,
-    Signature, Span, Spanned, Type, Value, VarId,
+    CompareTypes, DeclId, ENV_VARIABLE_ID, Flag, IntoPipelineData, IntoSpanned, LabeledError,
+    ListStream, OutDest, PipelineData, PipelineExecutionData, PositionalArg, Range, Record, RegId,
+    ShellError, Signals, Signature, Span, Spanned, Type, Value, VarId,
     ast::{Bits, Block, Boolean, CellPath, Comparison, Math, Operator},
     combined_type_string,
     debugger::DebugContext,
@@ -15,8 +15,7 @@ use nu_protocol::{
         StateWorkingSet,
     },
     ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
-    shell_error::generic::GenericError,
-    shell_error::io::IoError,
+    shell_error::{generic::GenericError, io::IoError},
 };
 use nu_utils::IgnoreCaseExt;
 
@@ -24,10 +23,11 @@ use crate::{
     ENV_CONVERSIONS, convert_env_vars, eval::is_automatic_env_var, eval_block_with_early_return,
 };
 
-/// For `def --wrapped` and `known extern` rest params (`SyntaxShape::ExternalArgument`), expand
-/// tilde and ndots in bare glob values that are not actual glob patterns. This mirrors what
-/// `run-external` does in `eval_external_arguments`, so that `$args | to nuon` returns expanded
-/// paths instead of the raw `~` / `...` tokens.
+/// For `def --wrapped` and `known extern` rest params (`SyntaxShape::ExternalArgument`), convert
+/// non-glob `Value::Glob` values to `Value::String`, expanding tilde and ndots in the process.
+/// This mirrors what `run-external` does in `eval_external_arguments`, so that `$args | to nuon`
+/// returns expanded paths instead of the raw `~` / `...` tokens, while also ensuring that plain
+/// bare-word strings (e.g. `test`) are reported as strings rather than globs.
 fn expand_external_glob_arg(val: Value) -> Value {
     if let Value::Glob {
         val: ref s,
@@ -39,10 +39,7 @@ fn expand_external_glob_arg(val: Value) -> Value {
         && !nu_glob::is_glob(s)
     {
         let expanded = expand_ndots_safe(expand_tilde(s.as_str()));
-        let expanded_str = expanded.to_string_lossy().into_owned();
-        if expanded_str != *s {
-            return Value::string(expanded_str, internal_span);
-        }
+        return Value::string(expanded.to_string_lossy().into_owned(), internal_span);
     }
     val
 }
@@ -282,7 +279,7 @@ fn eval_ir_block_impl<D: DebugContext>(
             Err(err @ (ShellError::Continue { .. } | ShellError::Break { .. })) => {
                 return Err(err);
             }
-            Err(err @ (ShellError::Return { .. } | ShellError::Exit { .. })) => {
+            Err(err @ (ShellError::Return { .. } | ShellError::Exit { abort: false, .. })) => {
                 if let Some(always_run_handler) =
                     ctx.stack.finally_run_handlers.pop(ctx.finally_handler_base)
                 {
@@ -295,6 +292,9 @@ fn eval_ir_block_impl<D: DebugContext>(
                     // These block control related errors should be passed through
                     return Err(err);
                 }
+            }
+            Err(err @ ShellError::Exit { abort: true, .. }) => {
+                return Err(err);
             }
             Err(err) => {
                 #[cfg(unix)]
@@ -472,7 +472,7 @@ fn eval_instruction<D: DebugContext>(
             // Perform runtime type checking and conversion for variable assignment
             if nu_experimental::ENFORCE_RUNTIME_ANNOTATIONS.get() {
                 let variable = ctx.engine_state.get_var(*var_id);
-                let converted_value = check_assignment_type(value, &variable.ty)?;
+                let converted_value = check_assignment_type(value, &variable.ty, *span)?;
                 ctx.stack.add_var(*var_id, converted_value);
             } else {
                 ctx.stack.add_var(*var_id, value);
@@ -1230,6 +1230,12 @@ fn eval_call<D: DebugContext>(
 
     let args_len = caller_stack.arguments.get_len(*args_base);
     let decl = engine_state.get_decl(decl_id);
+    // Commands such as `ignore --stderr` need errors as pipeline values so they can decide
+    // whether to suppress or rethrow.
+    let stderr_pipe_separate = matches!(
+        redirect_err.as_ref(),
+        Some(Redirection::Pipe(OutDest::PipeSeparate))
+    );
 
     // Set up redirect modes
     let mut caller_stack = caller_stack.push_redirection(redirect_out.take(), redirect_err.take());
@@ -1270,7 +1276,16 @@ fn eval_call<D: DebugContext>(
 
             result
         } else {
-            check_input_types(&input, &decl.signature(), head)?;
+            // `ignore` intentionally handles upstream error values at command level.
+            // Skip early input-error propagation for the built-in `ignore` command so
+            // `run()` can apply `--stderr`/`--show-errors` semantics.
+            let allow_error_input = matches!(input, PipelineData::Value(Value::Error { .. }, ..))
+                && engine_state
+                    .find_decl(b"ignore", &[])
+                    .is_some_and(|ignore_decl_id| ignore_decl_id == decl_id);
+            if !allow_error_input {
+                check_input_types(&input, &decl.signature(), head)?;
+            }
             // FIXME: precalculate this and save it somewhere
             let span = Span::merge_many(
                 std::iter::once(head).chain(
@@ -1307,7 +1322,10 @@ fn eval_call<D: DebugContext>(
     ctx.redirect_out = None;
     ctx.redirect_err = None;
 
-    result
+    match result {
+        Err(err) if stderr_pipe_separate => Ok(PipelineData::Value(Value::error(err, head), None)),
+        result => result,
+    }
 }
 
 fn find_named_var_id(
@@ -1504,7 +1522,7 @@ fn gather_arguments(
 fn check_type(val: &Value, ty: &Type) -> Result<(), ShellError> {
     match val {
         Value::Error { error, .. } => Err(*error.clone()),
-        _ if val.is_subtype_of(ty) => Ok(()),
+        _ if val.is_assignable_to(ty) => Ok(()),
         _ => Err(ShellError::CantConvert {
             to_type: ty.to_string(),
             from_type: val.get_type().to_string(),
@@ -1515,16 +1533,35 @@ fn check_type(val: &Value, ty: &Type) -> Result<(), ShellError> {
 }
 
 /// Type check and convert value for assignment.
-fn check_assignment_type(val: Value, target_ty: &Type) -> Result<Value, ShellError> {
+fn check_assignment_type(
+    val: Value,
+    target_ty: &Type,
+    assignment_span: Span,
+) -> Result<Value, ShellError> {
     match val {
         Value::Error { error, .. } => Err(*error),
-        _ if val.is_subtype_of(target_ty) => Ok(val), // No conversion needed, but compatible
-        _ => Err(ShellError::CantConvert {
-            to_type: target_ty.to_string(),
-            from_type: val.get_type().to_string(),
-            span: val.span(),
-            help: None,
-        }),
+        _ if val.is_assignable_to(target_ty) => Ok(val), // No conversion needed, but compatible
+        _ => {
+            let expected = target_ty.to_string();
+            let actual = val.get_type().to_string();
+
+            let mut err = LabeledError::new("Type mismatch.");
+            err = err.with_code("nu::shell::type_mismatch");
+
+            // Some values, like `$env.CMD_DURATION_MS`, are generated internally and don't have
+            // spans that are relevant to users.
+            // We avoid incorrect error labels by checking for that here.
+            if !(val.span() == Span::unknown() || val.span() == Span::test_data()) {
+                err = err.with_label(format!("the value is a {actual}"), val.span());
+            }
+
+            err = err.with_label(
+                format!("expected {expected}, got {actual}"),
+                assignment_span,
+            );
+
+            Err(ShellError::LabeledError(err.into()))
+        }
     }
 }
 
@@ -1557,7 +1594,7 @@ fn check_input_types(
     // Check if the input type is compatible with *any* of the command's possible input types
     if io_types
         .iter()
-        .any(|(command_type, _)| input.is_subtype_of(command_type))
+        .any(|(command_type, _)| input.is_assignable_to(command_type))
     {
         return Ok(());
     }

@@ -1,9 +1,9 @@
 //! Conversion utilities between Nu values and JSON, and config documentation parsing.
 
 use crate::explore_config::types::NuValueType;
+use nu_config::ConfigFileKind;
 use nu_protocol::engine::EngineState;
 use nu_protocol::{ShellError, shell_error::generic::GenericError};
-use nu_utils::ConfigFileKind;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::error::Error;

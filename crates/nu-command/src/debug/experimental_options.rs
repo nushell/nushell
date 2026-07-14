@@ -13,14 +13,17 @@ impl Command for DebugExperimentalOptions {
         Signature::build(self.name())
             .input_output_type(
                 Type::Nothing,
-                Type::Table(Box::from([
-                    (String::from("identifier"), Type::String),
-                    (String::from("enabled"), Type::Bool),
-                    (String::from("status"), Type::String),
-                    (String::from("description"), Type::String),
-                    (String::from("since"), Type::String),
-                    (String::from("issue"), Type::String),
-                ])),
+                Type::Table(
+                    vec![
+                        (String::from("identifier"), Type::String),
+                        (String::from("enabled"), Type::Bool),
+                        (String::from("status"), Type::String),
+                        (String::from("description"), Type::String),
+                        (String::from("since"), Type::String),
+                        (String::from("issue"), Type::String),
+                    ]
+                    .into(),
+                ),
             )
             .category(Category::Debug)
     }

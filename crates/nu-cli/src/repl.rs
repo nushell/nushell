@@ -10,10 +10,10 @@ use crate::{
     NuHighlighter, NuValidator, NushellPrompt,
     completions::NuCompleter,
     hints::ExternalHinter,
-    nu_highlight::NoOpHighlighter,
     prompt_update,
     reedline_config::{CommandMap, KeybindingsMode, add_menus, create_keybindings},
-    util::eval_source,
+    syntax_highlight::NoOpHighlighter,
+    util::{eval_source, evaluate_source},
 };
 use crossterm::cursor::SetCursorStyle;
 use log::{error, trace, warn};
@@ -22,19 +22,19 @@ use nu_cmd_base::util::get_editor;
 use nu_color_config::StyleComputer;
 use nu_engine::env_to_strings;
 use nu_engine::exit::cleanup_exit;
-use nu_parser::{lex, parse, trim_quotes_str};
+use nu_parser::{lex, trim_quotes_str};
 use nu_protocol::shell_error::io::IoError;
 use nu_protocol::{BannerKind, ShellIntegrationConfig, shell_error};
 use nu_protocol::{
     Config, HistoryConfig, HistoryFileFormat, PipelineData, ShellError, Span, Spanned, Value,
     config::NuCursorShape,
-    engine::{EngineState, Stack, StateWorkingSet},
+    engine::{EngineState, Stack},
     report_shell_error,
 };
 use nu_utils::time::Instant;
 use nu_utils::{
     filesystem::{PermissionResult, have_permission},
-    perf, stderr_write_all_and_flush,
+    perf, stderr_write_all_and_flush, stdout_write_all_and_flush,
 };
 #[cfg(feature = "sqlite")]
 use reedline::SqliteBackedHistory;
@@ -304,6 +304,12 @@ fn get_line_editor(engine_state: &mut EngineState, use_color: bool) -> Result<Re
 
         line_editor = setup_history(engine_state, line_editor, history)?;
 
+        // Lock the startup-only `$env.config.history.*` options (`path`, `max_size`,
+        // `file_format`, `isolation`) against further changes. Reedline owns the history
+        // backend from this point on, so runtime mutations of these fields would silently do
+        // nothing — better to reject them outright.
+        engine_state.history_locked_after_startup = true;
+
         perf!("setup history", start_time, use_color);
     }
     Ok(line_editor)
@@ -535,6 +541,13 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     perf!("reset signals", start_time, use_color);
 
     start_time = Instant::now();
+
+    // Juhan said to do this :)
+    let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
+    repl.cursor_pos = line_editor.current_insertion_point();
+    repl.buffer = line_editor.current_buffer_contents().to_string();
+    drop(repl);
+
     // Check all the environment variables they ask for
     // fire the "env_change" hook
     if let Err(error) = hook::eval_env_change_hook(
@@ -585,11 +598,11 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         // try to enable bracketed paste
         // It doesn't work on windows system: https://github.com/crossterm-rs/crossterm/issues/737
         .use_bracketed_paste(cfg!(not(target_os = "windows")) && config.bracketed_paste)
-        .with_highlighter(Box::new(NuHighlighter {
-            engine_state: engine_reference.clone(),
+        .with_highlighter(Box::new(NuHighlighter::new(
+            engine_reference.clone(),
             // STACK-REFERENCE 1
-            stack: stack_arc.clone(),
-        }))
+            stack_arc.clone(),
+        )))
         .with_validator(Box::new(NuValidator {
             engine_state: engine_reference.clone(),
         }))
@@ -610,6 +623,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                 .to_string(),
         ))
         .with_cursor_config(cursor_config)
+        .with_abbreviations(config.abbreviations.clone())
         .with_visual_selection_style(nu_ansi_term::Style {
             is_reverse: true,
             ..Default::default()
@@ -836,7 +850,8 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                 shell_integration.osc133,
             );
 
-            println!();
+            // Don't use `println!`: it panics on a broken stdout (parent terminal closed).
+            let _ = stdout_write_all_and_flush("\n");
 
             cleanup_exit((), engine_state, 0);
 
@@ -1082,40 +1097,32 @@ fn do_run_cmd(
 ) -> Reedline {
     trace!("eval source: {s}");
 
-    let mut cmds = s.split_whitespace();
-
     let had_warning_before = engine_state.exit_warning_given.load(Ordering::SeqCst);
-
-    if let Some("exit") = cmds.next() {
-        let mut working_set = StateWorkingSet::new(engine_state);
-        let _ = parse(&mut working_set, None, s.as_bytes(), false);
-
-        if working_set.parse_errors.is_empty() {
-            match cmds.next() {
-                Some(s) => {
-                    if let Ok(n) = s.parse::<i32>() {
-                        return cleanup_exit(line_editor, engine_state, n);
-                    }
-                }
-                None => {
-                    return cleanup_exit(line_editor, engine_state, 0);
-                }
-            }
-        }
-    }
 
     if shell_integration_osc2 {
         run_shell_integration_osc2(Some(s), engine_state, stack, use_color);
     }
 
-    eval_source(
+    match evaluate_source(
         engine_state,
         stack,
         s.as_bytes(),
         &format!("repl_entry #{entry_num}"),
         PipelineData::empty(),
         false,
-    );
+    ) {
+        Err(ShellError::Exit { code, .. }) => {
+            return cleanup_exit(line_editor, engine_state, code);
+        }
+        Err(err) => {
+            report_shell_error(Some(stack), engine_state, &err);
+            stack.set_last_error(&err);
+        }
+        Ok(failed) => {
+            let code: i32 = failed.into();
+            stack.set_last_exit_code(code, Span::unknown());
+        }
+    }
 
     // if there was a warning before, and we got to this point, it means
     // the possible call to cleanup_exit did not occur.
@@ -1312,7 +1319,7 @@ fn setup_history(
         None
     };
 
-    if let Some(path) = history.file_path() {
+    if let Some(path) = history.file_path(&engine_state.config_dirs.config_home) {
         return update_line_editor_history(
             engine_state,
             path,
@@ -1648,8 +1655,12 @@ fn trailing_slash_looks_like_path() {
 #[test]
 fn are_session_ids_in_sync() {
     let engine_state = &mut EngineState::new();
+    // Tests need a resolved config home; use a temp-style path under the process cwd.
+    engine_state.config_dirs.config_home = std::env::temp_dir().join("nushell-repl-history-test");
     let history = engine_state.history_config().unwrap();
-    let history_path = history.file_path().unwrap();
+    let history_path = history
+        .file_path(&engine_state.config_dirs.config_home)
+        .unwrap();
     let line_editor = reedline::Reedline::create();
     let history_session_id = reedline::Reedline::create_history_session_id();
     let line_editor = update_line_editor_history(

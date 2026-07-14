@@ -32,6 +32,11 @@ impl HashDigest for Sha256 {
                 )),
             },
             Example {
+                description: "Return the sha256 hash of binary data",
+                example: "0x[deadbeef] | hash sha256",
+                result: None,
+            },
+            Example {
                 description: "Return the sha256 hash of a file's contents",
                 example: "open ./nu_0_24_1_windows.zip | hash sha256",
                 result: None,
