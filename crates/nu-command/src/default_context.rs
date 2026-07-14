@@ -341,7 +341,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             FromTsv,
             FromXlsx,
             FromXml,
-            FromCorn,
             FROM_YAML,
             FROM_YML,
             FromKdl,
