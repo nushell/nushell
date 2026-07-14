@@ -339,64 +339,62 @@ fn get_match_pattern_from_arguments(
     let highlight_style =
         style_computer.compute("search_result", &Value::string("search result", span));
 
-    let (regex_str, search_terms) = if let Some(regex) = regex {
-        if !terms.is_empty() {
+    let (regex_str, search_terms) = match (regex, terms.as_slice()) {
+        (Some(_), [_, ..]) => {
             return Err(ShellError::IncompatibleParametersSingle {
                 msg: "Cannot use a `--regex` parameter with additional search terms".into(),
                 span: call.get_flag_span(stack, "regex").expect("has flag"),
             });
         }
+        (Some(regex), []) => {
+            let flags = match (ignore_case, dotall) {
+                (false, false) => "",
+                (true, false) => "(?i)", // case insensitive
+                (false, true) => "(?s)", // allow . to match \n
+                (true, true) => "(?is)", // case insensitive and allow . to match \n
+            };
 
-        let flags = match (ignore_case, dotall) {
-            (false, false) => "",
-            (true, false) => "(?i)", // case insensitive
-            (false, true) => "(?s)", // allow . to match \n
-            (true, true) => "(?is)", // case insensitive and allow . to match \n
-        };
-
-        (flags.to_string() + regex.as_str(), Vec::new())
-    } else {
-        if dotall {
+            (flags.to_string() + regex.as_str(), Vec::new())
+        }
+        (None, _) if dotall => {
             return Err(ShellError::IncompatibleParametersSingle {
                 msg: "Flag --dotall only works for regex search".into(),
                 span: call.get_flag_span(stack, "dotall").expect("has flag"),
             });
         }
+        // NOTE: Should this be an error? It doesn't make sense to call `find` with no arguments.
+        // (None, []) => {}
+        (None, terms) => {
+            let mut regex = String::new();
 
-        let mut regex = String::new();
+            if ignore_case {
+                regex += "(?i)";
+            }
 
-        if ignore_case {
-            regex += "(?i)";
-        }
+            let search_terms = terms
+                .iter()
+                .map(|v| {
+                    if ignore_case {
+                        v.to_expanded_string("", &config).to_lowercase()
+                    } else {
+                        v.to_expanded_string("", &config)
+                    }
+                })
+                .collect::<Vec<String>>();
 
-        let search_terms = terms
-            .iter()
-            .map(|v| {
-                if ignore_case {
-                    v.to_expanded_string("", &config).to_lowercase()
-                } else {
-                    v.to_expanded_string("", &config)
+            if let [first, rest @ ..] = search_terms.as_slice() {
+                regex.push_str(escape(first).as_ref());
+                for term in rest {
+                    regex.push('|');
+                    regex.push_str(escape(term).as_ref());
                 }
-            })
-            .collect::<Vec<String>>();
+            }
 
-        let escaped_terms = search_terms
-            .iter()
-            .map(|v| escape(v).into())
-            .collect::<Vec<String>>();
-
-        if let Some(term) = escaped_terms.first() {
-            regex += term;
+            (regex, search_terms)
         }
-
-        for term in escaped_terms.iter().skip(1) {
-            regex += "|";
-            regex += term;
-        }
-
-        (regex, search_terms)
     };
 
+    // TODO: Should be InvalidValue
     let regex = Regex::new(regex_str.as_str()).map_err(|e| ShellError::TypeMismatch {
         err_message: format!("invalid regex: {e}"),
         span,
@@ -454,15 +452,11 @@ fn highlight_all_matches(pattern: &MatchPattern, text: &str) -> String {
     let mut highlighted = String::new();
 
     for cap in pattern.regex.captures_iter(text) {
-        let capture = match cap {
-            Ok(capture) => capture,
-            Err(_) => return pattern.string_style.paint(text).to_string(),
+        let Ok(capture) = cap else {
+            return pattern.string_style.paint(text).to_string();
         };
 
-        let m = match capture.get(0) {
-            Some(m) => m,
-            None => continue,
-        };
+        let Some(m) = capture.get(0) else { continue };
 
         highlighted.push_str(
             &pattern

@@ -13,7 +13,7 @@ def build-msi [] {
     let target = $env.TARGET
     # We should read the version from the environment variable first
     # As we may build the MSI package for a specific version not the latest one
-    let version = $env.MSI_VERSION? | default (open Cargo.toml | get package.version)
+    let version = $env.MSI_VERSION? | default (open Cargo.toml | get workspace.package.version)
     let arch = if $nu.os-info.arch =~ 'x86_64' { 'x64' } else { 'arm64' }
 
     print $'Building msi package for (ansi g)($target)(ansi reset) with version (ansi g)($version)(ansi reset) from tag (ansi g)($env.REF)(ansi reset)...'

@@ -1,12 +1,12 @@
 [package]
-authors = ["The Nushell Project Developers"]
+authors.workspace = true
 description = "CLI-related functionality for Nushell"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-cli"
 edition.workspace = true
-license = "MIT"
+license.workspace = true
 name = "nu-cli"
 rust-version.workspace = true
-version = "0.112.3"
+version.workspace = true
 autotests = false
 
 [lib]
@@ -19,26 +19,26 @@ path = "tests/main.rs"
 harness = false
 
 [dev-dependencies]
-nu-cmd-lang = { path = "../nu-cmd-lang" }
-nu-command = { path = "../nu-command" }
-nu-std = { path = "../nu-std" }
+nu-cmd-lang = { workspace = true, features = ["os"] }
+nu-command = { workspace = true, features = ["os"] }
+nu-std.workspace = true
 nu-test-support = { path = "../nu-test-support" }
 rstest = { workspace = true, default-features = false }
 tempfile = { workspace = true }
 
 [dependencies]
-nu-cmd-base = { path = "../nu-cmd-base", version = "0.112.3" }
-nu-command = { path = "../nu-command", version = "0.112.3", features = ["os"], default-features = false }
-nu-engine = { path = "../nu-engine", version = "0.112.3", features = ["os"] }
-nu-glob = { path = "../nu-glob", version = "0.112.3" }
-nu-path = { path = "../nu-path", version = "0.112.3" }
-nu-parser = { path = "../nu-parser", version = "0.112.3" }
-nu-plugin-engine = { path = "../nu-plugin-engine", version = "0.112.3", optional = true }
-nu-protocol = { path = "../nu-protocol", version = "0.112.3", features = ["os"] }
-nu-utils = { path = "../nu-utils", version = "0.112.3" }
-nu-color-config = { path = "../nu-color-config", version = "0.112.3" }
-nu-experimental = { path = "../nu-experimental", version = "0.112.3" }
-nu-ansi-term = { workspace = true }
+nu-cmd-base.workspace = true
+nu-command = { workspace = true, features = ["os"] }
+nu-engine = { workspace = true, features = ["os"] }
+nu-glob.workspace = true
+nu-path.workspace = true
+nu-parser.workspace = true
+nu-plugin-engine = { workspace = true, optional = true }
+nu-protocol = { workspace = true, features = ["os"] }
+nu-utils.workspace = true
+nu-color-config.workspace = true
+nu-experimental.workspace = true
+nu-ansi-term.workspace = true
 reedline = { workspace = true, features = ["bashisms"] }
 
 chrono = { default-features = false, features = ["std"], workspace = true }

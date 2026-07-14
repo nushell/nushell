@@ -5,6 +5,8 @@ use rstest::rstest;
 #[rstest]
 #[case::mb("MB")]
 #[case::mib("MiB")]
+#[nu_test_support::test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "en_US.UTF-8")]
 fn filesize(#[case] unit: &str) -> Result {
     let mut tester = test();
     let () = tester.run_with_data("$env.config.filesize.unit = $in", unit)?;
@@ -16,6 +18,8 @@ fn filesize(#[case] unit: &str) -> Result {
 #[rstest]
 #[case::metric("metric", "[2MB, 2GB, 2TB]", &["2.0 MB", "2.0 GB", "2.0 TB"])]
 #[case::binary("binary", "[2MiB, 2GiB, 2TiB]", &["2.0 MiB", "2.0 GiB", "2.0 TiB"])]
+#[nu_test_support::test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "en_US.UTF-8")]
 fn filesize_format(#[case] unit: &str, #[case] input: &str, #[case] expected: &[&str]) -> Result {
     let mut tester = test();
     let () = tester.run_with_data("$env.config.filesize.unit = $in", unit)?;
@@ -84,6 +88,17 @@ diagnostic code: nu::shell::error
     );
 
     Ok(())
+}
+
+#[test]
+fn abbreviations() -> Result {
+    let mut tester = test();
+    let () = tester.run(r#"$env.config = { abbreviations: { g: "git --no-pager" } }"#)?;
+    tester
+        .run("$env.config.abbreviations")
+        .expect_value_eq(test_record! {
+            "g" => "git --no-pager"
+        })
 }
 
 #[test]

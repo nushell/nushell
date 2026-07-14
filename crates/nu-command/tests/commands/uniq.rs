@@ -106,17 +106,19 @@ fn uniq_when_keys_out_of_order() -> Result {
 #[case::a("B", 1)]
 fn uniq_counting(#[case] item: &str, #[case] value: u32) -> Result {
     #[rustfmt::skip]
-    let code = format!(r#"
+    let code = r#"
+        let item = $in
+
         ["A", "B", "A"]
         | wrap item
         | uniq --count
         | flatten
-        | where item == {item}
+        | where item == $item
         | get count
         | get 0
-    "#);
+    "#;
 
-    test().run(code).expect_value_eq(value)
+    test().run_with_data(code, item).expect_value_eq(value)
 }
 
 #[test]

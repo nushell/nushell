@@ -16,14 +16,14 @@ impl Command for IntoCellPath {
                 (Type::Int, Type::CellPath),
                 (Type::List(Box::new(Type::Any)), Type::CellPath),
                 (
-                    Type::List(Box::new(Type::Record(
-                        [
+                    Type::Table(
+                        vec![
                             ("value".into(), Type::Any),
                             ("optional".into(), Type::Bool),
                             ("insensitive".into(), Type::Bool),
                         ]
                         .into(),
-                    ))),
+                    ),
                     Type::CellPath,
                 ),
             ])

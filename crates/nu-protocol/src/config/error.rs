@@ -5,6 +5,7 @@ use crate::{Config, ConfigError, ConfigWarning, ShellError, ShellWarning, Span, 
 #[must_use]
 pub(super) struct ConfigErrors<'a> {
     config: &'a Config,
+    history_locked_after_startup: bool,
     errors: Vec<ConfigError>,
     warnings: Vec<ConfigWarning>,
 }
@@ -13,9 +14,23 @@ impl<'a> ConfigErrors<'a> {
     pub fn new(config: &'a Config) -> Self {
         Self {
             config,
+            history_locked_after_startup: false,
             errors: Vec::new(),
             warnings: Vec::new(),
         }
+    }
+
+    pub fn with_history_locked_after_startup(mut self, locked: bool) -> Self {
+        self.history_locked_after_startup = locked;
+        self
+    }
+
+    pub fn config(&self) -> &Config {
+        self.config
+    }
+
+    pub fn history_locked_after_startup(&self) -> bool {
+        self.history_locked_after_startup
     }
 
     pub fn has_errors(&self) -> bool {
@@ -73,6 +88,13 @@ impl<'a> ConfigErrors<'a> {
         self.error(ConfigError::UnknownOption {
             path: path.to_string(),
             span: value.span(),
+        });
+    }
+
+    pub fn locked_after_startup(&mut self, path: &ConfigPath, span: Span) {
+        self.error(ConfigError::LockedAfterStartup {
+            path: path.to_string(),
+            span,
         });
     }
 

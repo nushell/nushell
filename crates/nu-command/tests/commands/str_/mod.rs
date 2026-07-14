@@ -1,7 +1,10 @@
 mod into_string;
 mod join;
 
-use nu_test_support::{fs::Stub::FileWithContent, prelude::*};
+use nu_test_support::{
+    fs::{Stub::FileWithContent, fixtures},
+    prelude::*,
+};
 
 #[test]
 fn trims() -> Result {
@@ -423,11 +426,13 @@ fn substring_of_empty_string() -> Result {
 
 #[test]
 fn substring_drops_content_type() -> Result {
-    let code = format!(
-        "open {} | str substring 0..2 | metadata | get content_type? | describe",
-        file!(),
-    );
-    test().run(code).expect_value_eq("nothing")
+    let code = "
+        open --raw formats/cargo_sample.toml
+        | str substring 0..2
+        | metadata
+        | $in.content_type?
+    ";
+    test().cwd(fixtures()).run(code).expect_value_eq(())
 }
 
 #[test]

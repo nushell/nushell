@@ -7,16 +7,18 @@ use std::{thread, time::Duration};
 fn http_get_is_success() -> Result {
     let mut server = Server::new();
     let _mock = server.mock("GET", "/").with_body("foo").create();
-    let code = format!("http get {url}", url = server.url());
-    test().run(code).expect_value_eq("foo")
+    test()
+        .run_with_data("http get $in", server.url())
+        .expect_value_eq("foo")
 }
 
 #[test]
 fn http_get_failed_due_to_server_error() -> Result {
     let mut server = Server::new();
     let _mock = server.mock("GET", "/").with_status(400).create();
-    let code = format!("http get {url}", url = server.url());
-    let err = test().run(code).expect_shell_error()?;
+    let err = test()
+        .run_with_data("http get $in", server.url())
+        .expect_shell_error()?;
     match err {
         ShellError::NetworkFailure { msg, .. } => {
             assert_contains("Bad request (400)", msg);
@@ -36,8 +38,9 @@ fn http_get_with_accept_errors() -> Result {
         .with_body("error body")
         .create();
 
-    let code = format!("http get -e {url}", url = server.url());
-    test().run(code).expect_value_eq("error body")
+    test()
+        .run_with_data("http get -e $in", server.url())
+        .expect_value_eq("error body")
 }
 
 #[test]
@@ -56,8 +59,7 @@ fn http_get_with_accept_errors_and_full_raw_response() -> Result {
         body: String,
     }
 
-    let code = format!("http get -e -f {url}", url = server.url());
-    let response: Response = test().run(code)?;
+    let response: Response = test().run_with_data("http get -e -f $in", server.url())?;
     assert_eq!(response.status, 400);
     assert_eq!(response.body, "error body");
     Ok(())
@@ -85,8 +87,7 @@ fn http_get_with_accept_errors_and_full_json_response() -> Result {
         msg: String,
     }
 
-    let code = format!("http get -e -f {url}", url = server.url());
-    let response: Response = test().run(code)?;
+    let response: Response = test().run_with_data("http get -e -f $in", server.url())?;
     assert_eq!(response.status, 400);
     assert_eq!(response.body.msg, "error body");
     Ok(())
@@ -108,18 +109,12 @@ fn http_get_with_custom_headers_as_records() -> Result {
         .with_body("world")
         .create();
 
-    let json_code = format!(
-        "http get -H {{content-type: application/json}} {url}",
-        url = server.url()
-    );
-
-    let text_code = format!(
-        "http get -H {{content-type: text/plain}} {url}",
-        url = server.url()
-    );
-
-    let _: String = test().run(json_code)?;
-    let _: String = test().run(text_code)?;
+    let _: String = test().run_with_data(
+        "http get -H {content-type: application/json} $in",
+        server.url(),
+    )?;
+    let _: String =
+        test().run_with_data("http get -H {content-type: text/plain} $in", server.url())?;
 
     mock1.assert();
     mock2.assert();
@@ -132,12 +127,10 @@ fn http_get_full_response() -> Result {
 
     let _mock = server.mock("GET", "/").with_body("foo").create();
 
-    let code = format!(
-        "http get --full {url} --headers [foo bar] | to json",
-        url = server.url()
-    );
-
-    let outcome: String = test().run(code)?;
+    let outcome: String = test().run_with_data(
+        "http get --full $in --headers [foo bar] | to json",
+        server.url(),
+    )?;
     let output: serde_json::Value =
         serde_json::from_str(&outcome).expect("full response should be valid JSON");
 
@@ -170,8 +163,9 @@ fn http_get_follows_redirect() -> Result {
         .with_header("Location", "/bar")
         .create();
 
-    let code = format!("http get {url}/foo", url = server.url());
-    test().run(code).expect_value_eq("bar")
+    test()
+        .run_with_data("let url = $in; http get $'($url)/foo'", server.url())
+        .expect_value_eq("bar")
 }
 
 #[test]
@@ -185,12 +179,12 @@ fn http_get_redirect_mode_manual() -> Result {
         .with_header("Location", "/bar")
         .create();
 
-    let code = format!(
-        "http get --redirect-mode manual {url}/foo",
-        url = server.url()
-    );
-
-    test().run(code).expect_value_eq("foo")
+    test()
+        .run_with_data(
+            "let url = $in; http get --redirect-mode manual $'($url)/foo'",
+            server.url(),
+        )
+        .expect_value_eq("foo")
 }
 
 #[test]
@@ -204,12 +198,13 @@ fn http_get_redirect_mode_error() -> Result {
         .with_header("Location", "/bar")
         .create();
 
-    let code = format!(
-        "http get --redirect-mode error {url}/foo",
-        url = server.url()
-    );
+    let err = test()
+        .run_with_data(
+            "let url = $in; http get --redirect-mode error $'($url)/foo'",
+            server.url(),
+        )
+        .expect_shell_error()?;
 
-    let err = test().run(code).expect_shell_error()?;
     match err {
         ShellError::NetworkFailure { msg, .. } => {
             assert_eq!(
@@ -276,9 +271,9 @@ fn http_get_with_invalid_mime_type() -> Result {
         .create();
 
     // but `from nuon` is a known command in nu, so we take `foo.{ext}` and pass it to `from {ext}`
-    let code = format!("http get {url}/foo.nuon", url = server.url());
-
-    test().run(code).expect_value_eq([1, 2, 3])
+    test()
+        .run_with_data("let url = $in; http get $'($url)/foo.nuon'", server.url())
+        .expect_value_eq([1, 2, 3])
 }
 
 #[test]

@@ -655,7 +655,7 @@ fn get_argument_for_color_value(
                 span,
                 span_id,
                 Type::Record(
-                    [
+                    vec![
                         ("fg".to_string(), Type::String),
                         ("attr".to_string(), Type::String),
                     ]

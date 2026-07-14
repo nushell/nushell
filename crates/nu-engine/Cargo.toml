@@ -1,12 +1,12 @@
 [package]
-authors = ["The Nushell Project Developers"]
+authors.workspace = true
 description = "Nushell's evaluation engine"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-engine"
 edition.workspace = true
-license = "MIT"
+license.workspace = true
 name = "nu-engine"
 rust-version.workspace = true
-version = "0.112.3"
+version.workspace = true
 
 [lib]
 bench = false
@@ -15,11 +15,11 @@ bench = false
 workspace = true
 
 [dependencies]
-nu-protocol = { path = "../nu-protocol", version = "0.112.3", default-features = false }
-nu-experimental = { path = "../nu-experimental", version = "0.112.3" }
-nu-path = { path = "../nu-path", version = "0.112.3" }
-nu-glob = { path = "../nu-glob", version = "0.112.3" }
-nu-utils = { path = "../nu-utils", version = "0.112.3", default-features = false }
+nu-protocol.workspace = true
+nu-experimental.workspace = true
+nu-path.workspace = true
+nu-glob.workspace = true
+nu-utils.workspace = true
 fancy-regex = { workspace = true }
 log = { workspace = true }
 

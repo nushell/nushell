@@ -94,32 +94,19 @@ impl Command for IntoDuration {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let cell_paths = call.rest(engine_state, stack, 0)?;
-        let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
+        let unit = call
+            .get_flag::<Spanned<String>>(engine_state, stack, "unit")?
+            .map(|Spanned { item, span }| match Unit::from_str(&item) {
+                Err(_) | Ok(Unit::Filesize(_)) => Err(ShellError::InvalidUnit {
+                    span,
+                    supported_units: SUPPORTED_DURATION_UNITS.join(", "),
+                }),
+                Ok(u) => Ok(u.into_spanned(span)),
+            })
+            .transpose()?;
 
-        let unit = match call.get_flag::<Spanned<String>>(engine_state, stack, "unit")? {
-            Some(spanned_unit) => match Unit::from_str(&spanned_unit.item) {
-                Ok(u) => match u {
-                    Unit::Filesize(_) => {
-                        return Err(ShellError::InvalidUnit {
-                            span: spanned_unit.span,
-                            supported_units: SUPPORTED_DURATION_UNITS.join(", "),
-                        });
-                    }
-                    _ => Some(Spanned {
-                        item: u,
-                        span: spanned_unit.span,
-                    }),
-                },
-                Err(_) => {
-                    return Err(ShellError::InvalidUnit {
-                        span: spanned_unit.span,
-                        supported_units: SUPPORTED_DURATION_UNITS.join(", "),
-                    });
-                }
-            },
-            None => None,
-        };
+        let cell_paths = Some(call.rest(engine_state, stack, 0)?).filter(|x| !x.is_empty());
+
         let args = Arguments { unit, cell_paths };
         operate(action, args, input, call.head, engine_state.signals())
     }

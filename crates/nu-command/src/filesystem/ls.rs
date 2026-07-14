@@ -366,16 +366,7 @@ fn ls_for_one_pattern(
                     "empty string('') directory or file does not exist",
                 )));
             }
-            match path.item {
-                NuGlob::DoNotExpand(p) => Some(Spanned {
-                    item: NuGlob::DoNotExpand(nu_utils::strip_ansi_string_unlikely(p)),
-                    span: path.span,
-                }),
-                NuGlob::Expand(p) => Some(Spanned {
-                    item: NuGlob::Expand(nu_utils::strip_ansi_string_unlikely(p)),
-                    span: path.span,
-                }),
-            }
+            Some(path.map(NuGlob::strip_ansi_string_unlikely))
         } else {
             pattern_arg
         }

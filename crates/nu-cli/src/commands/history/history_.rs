@@ -174,9 +174,13 @@ impl Command for History {
                     .with_order_by("rowid ASC".to_string())
                     .with_unix_millis_datetime_column(fields::START_TIMESTAMP.to_string())
                     .with_millis_duration_column(fields::DURATION.to_string());
+
                 Ok(PipelineData::Value(
                     Value::custom(Box::new(table), head),
-                    None,
+                    Some(
+                        nu_protocol::PipelineMetadata::default()
+                            .with_path_columns(vec!["cwd".into()]),
+                    ),
                 ))
             }
         }

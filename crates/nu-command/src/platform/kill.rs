@@ -51,10 +51,26 @@ impl Command for Kill {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let pids: Vec<i64> = call.rest(engine_state, stack, 0)?;
+        let pids: Vec<Spanned<i64>> = call.rest(engine_state, stack, 0)?;
         let force: bool = call.has_flag(engine_state, stack, "force")?;
         let signal: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "signal")?;
         let quiet: bool = call.has_flag(engine_state, stack, "quiet")?;
+
+        if cfg!(unix)
+            && signal.is_none()
+            && let Some((span, signal_number)) = pids.iter().find_map(|pid| {
+                inferred_signal_number(engine_state.get_span_contents(pid.span), pid.item)
+                    .map(|signal_number| (pid.span, signal_number))
+            })
+        {
+            return Err(ShellError::IncorrectValue {
+                msg: format!(
+                    "negative pid shorthand is not supported; use `kill -s {signal_number} <pid>`"
+                ),
+                val_span: span,
+                call_span: call.head,
+            });
+        }
 
         if pids.is_empty() {
             return Err(ShellError::MissingParameter {
@@ -88,7 +104,7 @@ impl Command for Kill {
 
         let mut cmd = build_kill_command(
             force,
-            pids.iter().copied(),
+            pids.iter().copied().map(|spanned| spanned.item),
             signal.map(|spanned| spanned.item as u32),
         );
 
@@ -154,12 +170,35 @@ impl Command for Kill {
     }
 }
 
+fn inferred_signal_number(raw: &[u8], pid: i64) -> Option<u64> {
+    if pid < 0 {
+        return Some(pid.unsigned_abs());
+    }
+
+    let stripped = std::str::from_utf8(raw).ok()?.strip_prefix('-')?;
+
+    if stripped.is_empty() || !stripped.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+
+    stripped.parse().ok()
+}
+
 #[cfg(test)]
 mod tests {
-    use super::Kill;
+    use super::*;
 
     #[test]
     fn examples_work_as_expected() -> nu_test_support::Result {
         nu_test_support::test().examples(Kill)
+    }
+
+    #[test]
+    fn inferred_signal_number_detects_negative_pid_shorthand() {
+        assert_eq!(inferred_signal_number(b"-0", 0), Some(0));
+        assert_eq!(inferred_signal_number(b"-00", 0), Some(0));
+        assert_eq!(inferred_signal_number(b"-9", -9), Some(9));
+        assert_eq!(inferred_signal_number(b"0", 0), None);
+        assert_eq!(inferred_signal_number(b"9", 9), None);
     }
 }

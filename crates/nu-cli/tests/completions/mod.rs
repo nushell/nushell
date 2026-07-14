@@ -352,6 +352,51 @@ fn custom_completions_override_display_value() {
 }
 
 #[test]
+fn custom_completions_filter_by_description() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = r#"
+        def comp [] {
+            {
+                completions: [
+                    { value: red,   description: "warm color" },
+                    { value: blue,  description: "cool color" },
+                    { value: green, description: "warm-ish color" },
+                    { value: cyan,  description: "another cool one" },
+                ],
+                options: { match_description: true }
+            }
+        }
+        def my-command [arg: string@comp] {}"#;
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let completion_str = "my-command warm";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&vec!["red", "green"], &suggestions);
+}
+
+#[test]
+fn custom_completions_match_description_disabled_by_default() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = r#"
+        def comp [] {
+            [
+                { value: red,   description: "warm color" },
+                { value: blue,  description: "cool color" },
+                { value: green, description: "warm-ish color" },
+                { value: cyan,  description: "another cool one" },
+            ]
+        }
+        def my-command [arg: string@comp] {}"#;
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let completion_str = "my-command warm";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&Vec::<&str>::new(), &suggestions);
+}
+
+#[test]
 fn custom_completions_strip_ansi_from_values() {
     let (_, _, mut engine, mut stack) = new_engine();
     let command = r#"
@@ -1142,6 +1187,30 @@ fn command_wide_completion_custom(#[case] return_code: &str) {
 
     let suggestions = completer.complete(&sample, sample.len());
     let expected = vec!["foo", "bar", "baz", "some", "more"];
+    match_suggestions(&expected, &suggestions);
+}
+
+#[test]
+fn command_wide_completion_wrapped_untyped_equals_flag_value() {
+    let mut completer = custom_completer();
+
+    let sample = r#"
+        def "nu-complete wt" [spans: list<string>] {
+            let last = ($spans | last)
+            if ($last | str starts-with "--base=") {
+                [--base=releases/4.x.x --base=main]
+            } else {
+                [switch --base]
+            }
+        }
+
+        @complete "nu-complete wt"
+        def --wrapped "wt" [...args] {}
+
+        wt switch --base=rel"#;
+
+    let suggestions = completer.complete(sample, sample.len());
+    let expected = vec!["--base=releases/4.x.x", "--base=main"];
     match_suggestions(&expected, &suggestions);
 }
 
@@ -2486,8 +2555,6 @@ fn variables_completions() {
     // Test completions for $nu
     let suggestions = completer.complete("$nu.", 4);
 
-    assert_eq!(21, suggestions.len());
-
     let expected: Vec<_> = vec![
         "cache-dir",
         "config-path",
@@ -2505,12 +2572,15 @@ fn variables_completions() {
         "loginshell-path",
         "os-info",
         "pid",
+        #[cfg(feature = "plugin")]
         "plugin-path",
         "startup-time",
         "temp-dir",
         "user-autoload-dirs",
         "vendor-autoload-dirs",
     ];
+
+    assert_eq!(expected.len(), suggestions.len());
 
     // Match results
     match_suggestions(&expected, &suggestions);

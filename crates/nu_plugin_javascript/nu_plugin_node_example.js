@@ -10,7 +10,7 @@
  */
 
 // Configuration constants
-const NUSHELL_VERSION = '0.112.3';
+const NUSHELL_VERSION = '0.103.2';
 const PLUGIN_PROTOCOL_VERSION = '0.93.0';
 const PLUGIN_VERSION = '0.1.1';
 

@@ -190,3 +190,33 @@ fn mkdir_with_interpolation() {
         assert!(!dirs.test().join("xxx/($in)").exists());
     })
 }
+
+#[test]
+#[cfg(not(windows))]
+fn mkdir_continues_creating_directories_after_error() {
+    Playground::setup("mkdir_continues_after_error", |dirs, _| {
+        let actual = nu!(
+            cwd: dirs.test(),
+            "mkdir before /etc/ack after"
+        );
+
+        assert!(dirs.test().join("before").exists());
+        assert!(dirs.test().join("after").exists());
+        assert!(!actual.status.success());
+    })
+}
+
+#[test]
+#[cfg(not(windows))]
+fn mkdir_verbose_reports_errors_without_failing() {
+    Playground::setup("mkdir_verbose_reports_errors_without_failing", |dirs, _| {
+        let actual = nu!(
+            cwd: dirs.test(),
+            "mkdir -v before /etc/ack after"
+        );
+
+        assert!(dirs.test().join("before").exists());
+        assert!(dirs.test().join("after").exists());
+        assert!(actual.status.success());
+    })
+}
