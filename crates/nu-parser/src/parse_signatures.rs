@@ -562,7 +562,7 @@ pub fn parse_signature(
         // the next line, which isn't part of the signature argument. Without this
         // arm `bytes` ("[]:") fails the `ends_with` check above and reports a
         // misleading "unclosed ] or )". Point at the dangling colon instead, and
-        // strip both it and the closing bracket so the parameters still parse.
+        // strip both it and the closing `]` or `)` so the parameters still parse.
         working_set.error(ParseError::Expected(
             "a type after ':'",
             Span::new(end - 1, end),

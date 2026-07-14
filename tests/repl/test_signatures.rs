@@ -431,6 +431,8 @@ fn closure_param_list_not_terminated(#[case] input: &str) -> TestResult {
 #[rstest]
 #[case("def hello []:\n  nothing -> string { \"hi\" }")]
 #[case("def hello [x]:\n  int -> int { $x }")]
+#[case("def hello ():\n  nothing -> string { \"hi\" }")]
+#[case("def hello (x):\n  int -> int { $x }")]
 fn def_dangling_type_colon(#[case] input: &str) -> TestResult {
     fail_test(input, "a type after ':'")
 }
