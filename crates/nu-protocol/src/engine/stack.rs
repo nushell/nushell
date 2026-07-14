@@ -1,5 +1,6 @@
 use crate::{
     Config, ENV_VARIABLE_ID, IntoValue, NU_VARIABLE_ID, OutDest, ShellError, Span, Value, VarId,
+    ast::PathMember,
     engine::{
         ArgumentStack, DEFAULT_OVERLAY_NAME, EngineState, EnvName, ErrorHandlerStack, Redirection,
         StackCallArgGuard, StackCollectValueGuard, StackIoGuard, StackOutDest,
@@ -253,6 +254,45 @@ impl Stack {
             }
         }
         self.vars.push((var_id, value));
+    }
+
+    /// Return a mutable reference to a variable's value for in-place mutation.
+    ///
+    /// Looks up the variable in the current stack frame first. If not found, pulls it
+    /// from the parent chain into the current frame (cloning it once). This enables
+    /// zero-clone mutation for local `mut` variables: use `get_var_mut` + mutate instead
+    /// of `lookup_var` (clone) + mutate + `add_var` (move back).
+    pub fn get_var_mut(&mut self, var_id: VarId) -> Option<&mut Value> {
+        // Use index-based access to avoid conflicting mutable borrows
+        if let Some(pos) = self.vars.iter().position(|(id, _)| var_id == *id) {
+            return Some(&mut self.vars[pos].1);
+        }
+        // Check parent chain
+        if let Some(parent) = &self.parent_stack
+            && !self.parent_deletions.contains(&var_id)
+        {
+            let value = parent.lookup_var(var_id)?;
+            self.vars.push((var_id, value));
+            return self.vars.last_mut().map(|(_, val)| val);
+        }
+        None
+    }
+
+    /// Upsert a cell path on a variable in place (shared by AST and IR assignment paths).
+    ///
+    /// Errors with [`ShellError::VariableNotFoundAtRuntime`] if the variable is not on
+    /// this stack or its parent chain.
+    pub fn upsert_var_cell_path(
+        &mut self,
+        var_id: VarId,
+        members: &[PathMember],
+        new_value: Value,
+        span: Span,
+    ) -> Result<(), ShellError> {
+        let value = self
+            .get_var_mut(var_id)
+            .ok_or(ShellError::VariableNotFoundAtRuntime { span })?;
+        value.upsert_data_at_cell_path(members, new_value)
     }
 
     pub fn remove_var(&mut self, var_id: VarId) {
@@ -1047,5 +1087,96 @@ mod test {
                 .cloned(),
             Some(Value::test_string("New Env Var")),
         );
+    }
+
+    #[test]
+    fn test_get_var_mut_local_in_place() {
+        use crate::ast::PathMember;
+        use crate::casing::Casing;
+        use crate::record;
+
+        let mut stack = Stack::new();
+        let var_id = VarId::new(0);
+        stack.add_var(
+            var_id,
+            Value::test_record(record! { "a" => Value::test_int(1) }),
+        );
+
+        let path = vec![PathMember::test_string("a", false, Casing::Sensitive)];
+        stack
+            .upsert_var_cell_path(var_id, &path, Value::test_int(2), Span::test_data())
+            .expect("upsert should succeed");
+
+        assert_eq!(
+            stack.get_var(var_id, Span::test_data()),
+            Ok(Value::test_record(record! { "a" => Value::test_int(2) }))
+        );
+        // Still a single local binding (no extra shadow entries).
+        assert_eq!(stack.vars.len(), 1);
+    }
+
+    #[test]
+    fn test_get_var_mut_pulls_from_parent() {
+        use crate::ast::PathMember;
+        use crate::casing::Casing;
+        use crate::record;
+
+        let mut parent = Stack::new();
+        let var_id = VarId::new(0);
+        parent.add_var(
+            var_id,
+            Value::test_record(record! { "a" => Value::test_int(1) }),
+        );
+
+        let mut child = Stack::with_parent(Arc::new(parent));
+        assert!(child.vars.is_empty());
+
+        let path = vec![PathMember::test_string("a", false, Casing::Sensitive)];
+        child
+            .upsert_var_cell_path(var_id, &path, Value::test_int(9), Span::test_data())
+            .expect("upsert should succeed");
+
+        // Value was pulled into the child frame, then mutated.
+        assert_eq!(child.vars.len(), 1);
+        assert_eq!(
+            child.get_var(var_id, Span::test_data()),
+            Ok(Value::test_record(record! { "a" => Value::test_int(9) }))
+        );
+
+        // Second mutation hits the local copy.
+        child
+            .upsert_var_cell_path(var_id, &path, Value::test_int(10), Span::test_data())
+            .expect("second upsert should succeed");
+        assert_eq!(child.vars.len(), 1);
+        assert_eq!(
+            child.get_var(var_id, Span::test_data()),
+            Ok(Value::test_record(record! { "a" => Value::test_int(10) }))
+        );
+    }
+
+    #[test]
+    fn test_upsert_var_cell_path_missing_and_deleted() {
+        use crate::ast::PathMember;
+        use crate::casing::Casing;
+
+        let mut stack = Stack::new();
+        let var_id = VarId::new(0);
+        let path = vec![PathMember::test_string("a", false, Casing::Sensitive)];
+
+        assert!(matches!(
+            stack.upsert_var_cell_path(var_id, &path, Value::test_int(1), Span::test_data()),
+            Err(crate::ShellError::VariableNotFoundAtRuntime { .. })
+        ));
+
+        let mut parent = Stack::new();
+        parent.add_var(var_id, Value::test_int(1));
+        let mut child = Stack::with_parent(Arc::new(parent));
+        child.remove_var(var_id);
+
+        assert!(matches!(
+            child.upsert_var_cell_path(var_id, &path, Value::test_int(2), Span::test_data()),
+            Err(crate::ShellError::VariableNotFoundAtRuntime { .. })
+        ));
+        assert!(child.get_var_mut(var_id).is_none());
     }
 }

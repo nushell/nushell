@@ -33,6 +33,7 @@ nu-experimental.workspace = true
 nu-glob.workspace = true
 nu-json = { workspace = true, features = ["nu-protocol", "preserve_order"] }
 nu-parser.workspace = true
+ndarray = { workspace = true }
 semver = { workspace = true }
 typetag = "0.2"
 nu-path.workspace = true
@@ -135,7 +136,6 @@ ureq = { workspace = true, default-features = false, features = [
 ], optional = true }
 url = { workspace = true }
 uu_cp = { workspace = true, optional = true }
-uu_ln = { workspace = true, optional = true }
 uu_mkdir = { workspace = true, optional = true }
 uu_mktemp = { workspace = true, optional = true }
 uu_mv = { workspace = true, optional = true }
@@ -214,7 +214,6 @@ os = [
 	"os_pipe",
 	"reedline",
 	"uu_cp",
-	"uu_ln",
 	"uu_mkdir",
 	"uu_mktemp",
 	"uu_mv",

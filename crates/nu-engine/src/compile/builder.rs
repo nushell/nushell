@@ -268,6 +268,11 @@ impl BlockBuilder {
                 path,
                 new_value,
             } => allocate(&[*src_dst, *path, *new_value], &[*src_dst]),
+            Instruction::UpdateVarCellPath {
+                cell_path,
+                new_value,
+                ..
+            } => allocate(&[*cell_path, *new_value], &[]),
             Instruction::Jump { index: _ } => Ok(()),
             Instruction::BranchIf { cond, index: _ } => allocate(&[*cond], &[]),
             Instruction::BranchIfEmpty { src, index: _ } => allocate(&[*src], &[*src]),

@@ -1,5 +1,6 @@
-use nu_protocol::ShellError;
+use nu_protocol::{ParseError, ShellError, parser_path::MAX_RUN_SCRIPT_BYTES};
 use nu_test_support::{fs::Stub::FileWithContentToBeTrimmed, prelude::*};
+use std::io::Write;
 
 #[test]
 fn run_script_without_main_in_pipeline() {
@@ -653,4 +654,124 @@ fn run_script_binds_switch_by_name_without_shifting_positional() -> Result {
                 .expect_value_eq("word=hello num=0 verbose=true")
         },
     )
+}
+
+/// Oversized paths must not be loaded by `run` (REPL hang / multi-GiB RAM; #18597).
+#[test]
+fn run_oversized_file_errors_without_loading() -> Result {
+    Playground::setup("run_oversized_file_errors_without_loading", |dirs, _| {
+        let path = dirs.test().join("huge.bin");
+        let file = std::fs::File::create(&path).expect("create huge.bin");
+        // Sparse size only — do not write MAX_RUN_SCRIPT_BYTES of data.
+        file.set_len(MAX_RUN_SCRIPT_BYTES + 1)
+            .expect("set oversized length");
+
+        let err = test()
+            .cwd(dirs.test())
+            .run("run huge.bin")
+            .expect_parse_error()?;
+        assert!(
+            matches!(
+                err,
+                ParseError::ScriptFileTooLarge {
+                    size,
+                    max_size,
+                    ..
+                } if size == MAX_RUN_SCRIPT_BYTES + 1 && max_size == MAX_RUN_SCRIPT_BYTES
+            ),
+            "expected ScriptFileTooLarge, got: {err:?}"
+        );
+        Ok(())
+    })
+}
+
+/// Binary files must be rejected before the Nu parser runs (#18597).
+#[test]
+fn run_binary_file_with_nul_errors_without_parsing() -> Result {
+    Playground::setup(
+        "run_binary_file_with_nul_errors_without_parsing",
+        |dirs, _| {
+            let path = dirs.test().join("binary.bin");
+            let mut file = std::fs::File::create(&path).expect("create binary.bin");
+            file.write_all(b"not\0a\0script")
+                .expect("write binary content");
+
+            let err = test()
+                .cwd(dirs.test())
+                .run("run binary.bin")
+                .expect_parse_error()?;
+            assert!(
+                matches!(err, ParseError::ScriptFileNotText { .. }),
+                "expected ScriptFileNotText, got: {err:?}"
+            );
+            Ok(())
+        },
+    )
+}
+
+/// Invalid UTF-8 (no NULs) must also be rejected as non-text for `run`.
+#[test]
+fn run_invalid_utf8_file_errors_without_parsing() -> Result {
+    Playground::setup("run_invalid_utf8_file_errors_without_parsing", |dirs, _| {
+        let path = dirs.test().join("bad_utf8.bin");
+        // Lone continuation bytes: invalid UTF-8, no NULs.
+        std::fs::write(&path, [0x80, 0x81, 0x82, 0x83, 0xFF]).expect("write invalid utf-8");
+
+        let err = test()
+            .cwd(dirs.test())
+            .run("run bad_utf8.bin")
+            .expect_parse_error()?;
+        assert!(
+            matches!(err, ParseError::ScriptFileNotText { .. }),
+            "expected ScriptFileNotText, got: {err:?}"
+        );
+        Ok(())
+    })
+}
+
+/// Dense C0 control characters (no NULs, valid UTF-8 bytes) look like binary to `run`.
+#[test]
+fn run_control_heavy_file_errors_without_parsing() -> Result {
+    Playground::setup(
+        "run_control_heavy_file_errors_without_parsing",
+        |dirs, _| {
+            let path = dirs.test().join("controls.bin");
+            // Mostly BEL/SOH-style controls; still valid UTF-8 single bytes, no NULs.
+            let mut bytes = vec![0x01u8; 100];
+            bytes.extend_from_slice(b"\n");
+            std::fs::write(&path, bytes).expect("write control-heavy file");
+
+            let err = test()
+                .cwd(dirs.test())
+                .run("run controls.bin")
+                .expect_parse_error()?;
+            assert!(
+                matches!(err, ParseError::ScriptFileNotText { .. }),
+                "expected ScriptFileNotText, got: {err:?}"
+            );
+            Ok(())
+        },
+    )
+}
+
+/// `--full-reparse` skips parse-time load, so oversized files must still be rejected at runtime.
+#[test]
+fn run_full_reparse_oversized_file_errors() -> Result {
+    Playground::setup("run_full_reparse_oversized_file_errors", |dirs, _| {
+        let path = dirs.test().join("huge.bin");
+        let file = std::fs::File::create(&path).expect("create huge.bin");
+        file.set_len(MAX_RUN_SCRIPT_BYTES + 1)
+            .expect("set oversized length");
+
+        let err = test()
+            .cwd(dirs.test())
+            .run("run --full-reparse huge.bin")
+            .expect_shell_error()?;
+        let msg = err.to_string();
+        assert!(
+            msg.contains("too large") || msg.contains("Script file is too large"),
+            "expected too-large shell error, got: {msg}"
+        );
+        Ok(())
+    })
 }

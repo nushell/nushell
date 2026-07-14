@@ -420,6 +420,7 @@
 //! ```no_run
 //! # #[macro_use] extern crate nu_test_support;
 //! use nu_test_support::prelude::*;
+//! use nu_test_support::value_types::CompleteResult;
 //!
 //! #[test]
 //! #[deps(NU)]
@@ -428,9 +429,12 @@
 //! # }
 //! #
 //! # fn main() -> Result {
-//!     test()
-//!         .run("nu --testbin cococo")
-//!         .expect_value_eq("cococo")
+//!     let code = r#"nu -n -c 'print -e "cococo"; exit 1' | complete"#;
+//!     let result: CompleteResult = test().run(code)?;
+//!
+//!     assert_eq!(result.exit_code, 1);
+//!     assert_eq!(result.stderr, "cococo");
+//!     Ok(())
 //! }
 //! ```
 //!
@@ -594,6 +598,7 @@ pub mod fs;
 pub mod harness;
 pub mod net;
 pub mod playground;
+pub mod value_types;
 
 pub mod deprecated;
 #[doc(no_inline)]
@@ -612,6 +617,7 @@ pub mod prelude {
         nu,
         playground::Playground,
         tester::{Result, ShellErrorExt, TestError as Error, TestResultExt, test},
+        value_types::*,
     };
 
     #[doc(no_inline)]

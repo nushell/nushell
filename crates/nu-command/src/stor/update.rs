@@ -1,8 +1,7 @@
-use crate::database::{MEMORY_DB, SQLiteDatabase, values_to_sql};
+use crate::database::{MEMORY_DB, SQLiteDatabase, get_shared_mem_conn, values_to_sql};
 use nu_engine::command_prelude::*;
-use nu_protocol::Signals;
 use nu_protocol::shell_error::generic::GenericError;
-use rusqlite::params_from_iter;
+use rusqlite::{Connection, params_from_iter};
 use std::fmt::Write;
 
 #[derive(Clone)]
@@ -85,11 +84,7 @@ impl Command for StorUpdate {
         let where_clause_opt: Option<Spanned<String>> =
             call.get_flag(engine_state, stack, "where-clause")?;
 
-        // Open the in-mem database
-        let db = Box::new(SQLiteDatabase::new(
-            std::path::Path::new(MEMORY_DB),
-            Signals::empty(),
-        ));
+        let conn = get_shared_mem_conn()?;
 
         // Check if the record is being passed as input or using the update record parameter
         let columns = handle(span, update_record, input)?;
@@ -98,11 +93,15 @@ impl Command for StorUpdate {
             engine_state,
             table_name,
             span,
-            &db,
+            &conn,
             columns,
             where_clause_opt,
         )?;
 
+        let db = Box::new(SQLiteDatabase::new(
+            std::path::Path::new(MEMORY_DB),
+            engine_state.signals().clone(),
+        ));
         Ok(Value::custom(db, span).into_pipeline_data())
     }
 }
@@ -158,7 +157,7 @@ fn process(
     engine_state: &EngineState,
     table_name: Option<String>,
     span: Span,
-    db: &SQLiteDatabase,
+    conn: &Connection,
     record: Record,
     where_clause_opt: Option<Spanned<String>>,
 ) -> Result<(), ShellError> {
@@ -169,38 +168,35 @@ fn process(
         });
     }
     let new_table_name = table_name.unwrap_or("table".into());
-    if let Ok(conn) = db.open_connection() {
-        let mut update_stmt = format!("UPDATE {new_table_name} ");
+    let mut update_stmt = format!("UPDATE {new_table_name} ");
 
-        update_stmt.push_str("SET ");
-        let mut placeholders: Vec<String> = Vec::new();
+    update_stmt.push_str("SET ");
+    let mut placeholders: Vec<String> = Vec::new();
 
-        for (index, (key, _)) in record.iter().enumerate() {
-            placeholders.push(format!("{} = ?{}", key, index + 1));
-        }
-        update_stmt.push_str(&placeholders.join(", "));
-
-        // Yup, this is a bit janky, but I'm not sure a better way to do this without having
-        // --and and --or flags as well as supporting ==, !=, <>, is null, is not null, etc.
-        // and other sql syntax. So, for now, just type a sql where clause as a string.
-        if let Some(where_clause) = where_clause_opt {
-            write!(update_stmt, " WHERE {}", where_clause.item)
-                .expect("writing to a String is infallible");
-        }
-        // dbg!(&update_stmt);
-
-        // Get the params from the passed values
-        let params = values_to_sql(engine_state, record.values().cloned(), span)?;
-
-        conn.execute(&update_stmt, params_from_iter(params))
-            .map_err(|err| {
-                ShellError::Generic(GenericError::new_internal(
-                    "Failed to open SQLite connection in memory from update",
-                    err.to_string(),
-                ))
-            })?;
+    for (index, (key, _)) in record.iter().enumerate() {
+        placeholders.push(format!("{} = ?{}", key, index + 1));
     }
-    // dbg!(db.clone());
+    update_stmt.push_str(&placeholders.join(", "));
+
+    // Yup, this is a bit janky, but I'm not sure a better way to do this without having
+    // --and and --or flags as well as supporting ==, !=, <>, is null, is not null, etc.
+    // and other sql syntax. So, for now, just type a sql where clause as a string.
+    if let Some(where_clause) = where_clause_opt {
+        write!(update_stmt, " WHERE {}", where_clause.item)
+            .expect("writing to a String is infallible");
+    }
+    // dbg!(&update_stmt);
+
+    // Get the params from the passed values
+    let params = values_to_sql(engine_state, record.values().cloned(), span)?;
+
+    conn.execute(&update_stmt, params_from_iter(params))
+        .map_err(|err| {
+            ShellError::Generic(GenericError::new_internal(
+                "Failed to open SQLite connection to the in-memory database from update",
+                err.to_string(),
+            ))
+        })?;
     Ok(())
 }
 
