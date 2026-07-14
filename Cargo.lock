@@ -4765,6 +4765,7 @@ dependencies = [
  "ureq",
  "url",
  "uu_cp",
+ "uu_ln",
  "uu_mkdir",
  "uu_mktemp",
  "uu_mv",
@@ -9595,6 +9596,19 @@ dependencies = [
  "thiserror 2.0.18",
  "uucore",
  "walkdir",
+]
+
+[[package]]
+name = "uu_ln"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a3dc07df27e9caf1ba8160007cc52e38b34b93e2309250f57cb440e9b50db4c2"
+dependencies = [
+ "clap",
+ "fluent",
+ "rustix 1.1.4",
+ "thiserror 2.0.18",
+ "uucore",
 ]
 
 [[package]]
