@@ -41,6 +41,7 @@ pub fn parse_shape_name(
         b"directory" => SyntaxShape::Directory,
         b"duration" => SyntaxShape::Duration,
         b"error" => SyntaxShape::Error,
+        b"external_arg" => SyntaxShape::ExternalArgument,
         b"float" => SyntaxShape::Float,
         b"filesize" => SyntaxShape::Filesize,
         b"glob" => SyntaxShape::GlobPattern,
