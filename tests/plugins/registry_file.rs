@@ -1,553 +1,394 @@
-use std::{fs::File, path::PathBuf};
+use std::{
+    fs::File,
+    path::{Path, PathBuf},
+};
 
-use nu_protocol::{PluginRegistryFile, PluginRegistryItem, PluginRegistryItemData};
-use nu_test_support::{fs::Stub, nu, nu_with_plugins, playground::Playground};
+use nu_protocol::{PluginRegistryFile, PluginRegistryItem, PluginRegistryItemData, Record};
+use nu_test_support::prelude::*;
+use rstest::rstest;
 
-fn example_plugin_path() -> PathBuf {
-    nu_test_support::commands::ensure_plugins_built();
-
-    let bins_path = nu_test_support::fs::binaries();
-    nu_path::canonicalize_with(
-        if cfg!(windows) {
-            "nu_plugin_example.exe"
-        } else {
-            "nu_plugin_example"
-        },
-        bins_path,
-    )
-    .expect("nu_plugin_example not found")
+#[derive(Debug)]
+struct EmptyConfigs {
+    config: PathBuf,
+    env: PathBuf,
+    plugin: PathBuf,
 }
 
-fn valid_plugin_item_data() -> PluginRegistryItemData {
-    PluginRegistryItemData::Valid {
-        metadata: Default::default(),
-        commands: vec![],
+impl EmptyConfigs {
+    #[track_caller]
+    fn new(root: impl AsRef<Path>) -> Self {
+        let root = root.as_ref();
+        let config = root.join("config.nu");
+        let env = root.join("env.nu");
+        let plugin = root.join("plugin.msgpackz");
+        File::create(&config).unwrap();
+        File::create(&env).unwrap();
+        File::create(&plugin).unwrap();
+        Self {
+            config,
+            env,
+            plugin,
+        }
+    }
+
+    fn nu(&self) -> String {
+        format!(
+            "
+                let commands = $in
+                (
+                    nu --no-std-lib
+                       --config {config} 
+                       --env-config {env} 
+                       --plugin-config {plugin} 
+                       --commands $commands
+                )
+            ",
+            config = self.config.display(),
+            env = self.env.display(),
+            plugin = self.plugin.display()
+        )
     }
 }
 
 #[test]
-fn plugin_add_then_restart_nu() {
-    let result = nu_with_plugins!(
-        cwd: ".",
-        plugins: [],
-        &format!("
-            plugin add '{}'
-            (
-                ^$nu.current-exe
-                    --config $nu.config-path
-                    --env-config $nu.env-path
-                    --plugin-config $nu.plugin-path
-                    --commands 'plugin list --engine | get name | to json --raw'
-            )
-        ", example_plugin_path().display())
-    );
-    assert!(result.status.success());
-    assert_eq!(r#"["example"]"#, result.out);
+#[deps(NU, NU_PLUGIN_EXAMPLE)]
+fn plugin_add_then_restart_nu() -> Result {
+    Playground::setup(&module_path!().replace("::", "_"), |dirs, _| {
+        let configs = EmptyConfigs::new(dirs.test());
+        let nu = configs.nu();
+        let commands = format!("plugin add {}", NU_PLUGIN_EXAMPLE.path().display());
+        test().run_with_data(&nu, commands).expect_value_eq("")?;
+        let commands = "plugin list --engine | get name | str join ','";
+        test()
+            .run_with_data(&nu, commands)
+            .expect_value_eq("example")
+    })
 }
 
 #[test]
-fn plugin_add_in_nu_plugin_dirs_const() {
-    let example_plugin_path = example_plugin_path();
+#[deps(NU, NU_PLUGIN_EXAMPLE)]
+fn plugin_add_in_nu_plugin_dirs_consts() -> Result {
+    Playground::setup(&module_path!().replace("::", "_"), |dirs, _| {
+        let configs = EmptyConfigs::new(dirs.test());
+        let nu = configs.nu();
 
-    let dirname = example_plugin_path.parent().expect("no parent");
-    let filename = example_plugin_path
-        .file_name()
-        .expect("no file_name")
-        .to_str()
-        .expect("not utf-8");
-
-    let result = nu_with_plugins!(
-        cwd: ".",
-        plugins: [],
-        &format!(
+        let commands = format!(
             "
                 $env.NU_PLUGIN_DIRS = null
-                const NU_PLUGIN_DIRS = ['{0}']
-                plugin add '{1}'
-                (
-                    ^$nu.current-exe
-                        --config $nu.config-path
-                        --env-config $nu.env-path
-                        --plugin-config $nu.plugin-path
-                        --commands 'plugin list --engine | get name | to json --raw'
-                )
+                const NU_PLUGIN_DIRS = ['{}']
+                plugin add {}
             ",
-            dirname.display(),
-            filename
-        )
-    );
-    assert!(result.status.success());
-    assert_eq!(r#"["example"]"#, result.out);
+            NU_PLUGIN_EXAMPLE.path().parent().unwrap().display(),
+            NU_PLUGIN_EXAMPLE.path().file_name().unwrap().display()
+        );
+
+        let mut tester = test();
+        tester.run_with_data(&nu, commands).expect_value_eq("")?;
+        tester
+            .run_with_data("open $in | get plugins.name ", configs.plugin.as_path())
+            .expect_value_eq(["example"])
+    })
 }
 
 #[test]
-fn plugin_add_in_nu_plugin_dirs_env() {
-    let example_plugin_path = example_plugin_path();
+#[deps(NU, NU_PLUGIN_EXAMPLE)]
+fn plugin_add_in_nu_plugin_dirs_env() -> Result {
+    Playground::setup(&module_path!().replace("::", "_"), |dirs, _| {
+        let configs = EmptyConfigs::new(dirs.test());
+        let nu = configs.nu();
 
-    let dirname = example_plugin_path.parent().expect("no parent");
-    let filename = example_plugin_path
-        .file_name()
-        .expect("no file_name")
-        .to_str()
-        .expect("not utf-8");
-
-    let result = nu_with_plugins!(
-        cwd: ".",
-        plugins: [],
-        &format!(
+        let commands = format!(
             "
-                $env.NU_PLUGIN_DIRS = ['{0}']
-                plugin add '{1}'
-                (
-                    ^$nu.current-exe
-                        --config $nu.config-path
-                        --env-config $nu.env-path
-                        --plugin-config $nu.plugin-path
-                        --commands 'plugin list --engine | get name | to json --raw'
-                )
+                $env.NU_PLUGIN_DIRS = ['{}']
+                plugin add {}
             ",
-            dirname.display(),
-            filename
-        )
-    );
-    assert!(result.status.success());
-    assert_eq!(r#"["example"]"#, result.out);
-}
-
-#[test]
-fn plugin_add_to_custom_path() {
-    let example_plugin_path = example_plugin_path();
-    Playground::setup("plugin add to custom path", |dirs, _playground| {
-        let result = nu!(
-            cwd: dirs.test(),
-            &format!("
-                plugin add --plugin-config test-plugin-file.msgpackz '{}'
-            ", example_plugin_path.display())
+            NU_PLUGIN_EXAMPLE.path().parent().unwrap().display(),
+            NU_PLUGIN_EXAMPLE.path().file_name().unwrap().display()
         );
 
-        assert!(result.status.success());
+        let mut tester = test();
+        tester.run_with_data(&nu, commands).expect_value_eq("")?;
+        tester
+            .run_with_data("open $in | get plugins.name ", configs.plugin.as_path())
+            .expect_value_eq(["example"])
+    })
+}
 
-        let contents = PluginRegistryFile::read_from(
-            File::open(dirs.test().join("test-plugin-file.msgpackz"))
-                .expect("failed to open plugin file"),
-            None,
-        )
-        .expect("failed to read plugin file");
+#[rstest]
+#[case::unnested("test-plugin-file.msgpackz")]
+#[case::nested("nested/dirs/test-plugin-file.msgpackz")]
+#[nu_test_support::test]
+#[deps(NU_PLUGIN_EXAMPLE)]
+fn plugin_add_to_custom_path(#[case] plugin_config_path_tail: &str) -> Result {
+    Playground::setup(&module_path!().replace("::", "_"), |dirs, _| {
+        let plugin_config = dirs.test().join(plugin_config_path_tail);
+        let code = format!(
+            "
+                plugin add --plugin-config '{plugin_config}' '{plugin}'
+                open '{plugin_config}' | get plugins.name
+            ",
+            plugin_config = plugin_config.display(),
+            plugin = NU_PLUGIN_EXAMPLE.path().display(),
+        );
 
-        assert_eq!(1, contents.plugins.len());
-        assert_eq!("example", contents.plugins[0].name);
+        test().run(code).expect_value_eq(["example"])
     })
 }
 
 #[test]
-fn plugin_add_creates_missing_parent_directories() {
-    let example_plugin_path = example_plugin_path();
-    Playground::setup("plugin add creates parent dirs", |dirs, _playground| {
-        // Use a nested path where parent directories don't exist
-        let nested_path = "nested/dirs/test-plugin-file.msgpackz";
+#[deps(NU, NU_PLUGIN_EXAMPLE, NU_PLUGIN_INC)]
+fn plugin_rm_then_restart_nu() -> Result {
+    Playground::setup(&module_path!().replace("::", "_"), |dirs, _| {
+        let configs = EmptyConfigs::new(dirs.test());
+        let nu = configs.nu();
+        let mut tester = test();
 
-        let result = nu!(
-            cwd: dirs.test(),
-            &format!("
-                plugin add --plugin-config {} '{}'
-            ", nested_path, example_plugin_path.display())
-        );
+        // fill plugin config with something
+        let () = tester.run(format!(
+            "
+                plugin add --plugin-config '{plugin_config}' '{example_plugin}'
+                plugin add --plugin-config '{plugin_config}' '{inc_plugin}'
+                ignore
+            ",
+            plugin_config = configs.plugin.display(),
+            example_plugin = NU_PLUGIN_EXAMPLE.path().display(),
+            inc_plugin = NU_PLUGIN_INC.path().display(),
+        ))?;
 
-        // Should succeed instead of failing
-        assert!(result.status.success());
+        // remove the plugin
+        tester
+            .run_with_data(&nu, "plugin rm example")
+            .expect_value_eq("")?;
 
-        // Verify the parent directories were actually created
-        assert!(dirs.test().join("nested/dirs").exists());
-
-        // Verify the plugin file was created with correct contents
-        let contents = PluginRegistryFile::read_from(
-            File::open(dirs.test().join(nested_path)).expect("failed to open plugin file"),
-            None,
-        )
-        .expect("failed to read plugin file");
-
-        assert_eq!(1, contents.plugins.len());
-        assert_eq!("example", contents.plugins[0].name);
+        // verify plugin got removed
+        tester
+            .run_with_data(&nu, "plugin list | get name | to json --raw")
+            .expect_value_eq(r#"["inc"]"#)
     })
 }
 
 #[test]
-fn plugin_rm_then_restart_nu() {
-    let example_plugin_path = example_plugin_path();
-    Playground::setup("plugin rm from custom path", |dirs, playground| {
-        playground.with_files(&[
-            Stub::FileWithContent("config.nu", ""),
-            Stub::FileWithContent("env.nu", ""),
-        ]);
-
-        let file = File::create(dirs.test().join("test-plugin-file.msgpackz"))
-            .expect("failed to create file");
-        let mut contents = PluginRegistryFile::new();
-
-        contents.upsert_plugin(PluginRegistryItem {
-            name: "example".into(),
-            filename: example_plugin_path,
-            shell: None,
-            data: valid_plugin_item_data(),
-        });
-
-        contents.upsert_plugin(PluginRegistryItem {
-            name: "foo".into(),
-            // this doesn't exist, but it should be ok
-            filename: dirs.test().join("nu_plugin_foo").into(),
-            shell: None,
-            data: valid_plugin_item_data(),
-        });
-
-        contents
-            .write_to(file, None)
-            .expect("failed to write plugin file");
-
-        assert_cmd::Command::new(nu_test_support::fs::executable_path())
-            .current_dir(dirs.test())
-            .args([
-                "--no-std-lib",
-                "--config",
-                "config.nu",
-                "--env-config",
-                "env.nu",
-                "--plugin-config",
-                "test-plugin-file.msgpackz",
-                "--commands",
-                "plugin rm example",
-            ])
-            .assert()
-            .success()
-            .stderr("");
-
-        assert_cmd::Command::new(nu_test_support::fs::executable_path())
-            .current_dir(dirs.test())
-            .args([
-                "--no-std-lib",
-                "--config",
-                "config.nu",
-                "--env-config",
-                "env.nu",
-                "--plugin-config",
-                "test-plugin-file.msgpackz",
-                "--commands",
-                "plugin list --engine | get name | to json --raw",
-            ])
-            .assert()
-            .success()
-            .stdout("[\"foo\"]\n");
+#[deps(NU)]
+fn plugin_rm_not_found() -> Result {
+    Playground::setup(&module_path!().replace("::", "_"), |dirs, _| {
+        let configs = EmptyConfigs::new(dirs.test());
+        let outcome: Record =
+            test().run_with_data(format!("{} | complete", configs.nu()), "plugin rm example")?;
+        assert_ne!(outcome["exit_code"], Value::test_int(0));
+        assert_contains("example", outcome["stderr"].as_str().unwrap());
+        Ok(())
     })
 }
 
+#[rstest]
+#[case::by_name("example".to_string())]
+#[case::by_filename(NU_PLUGIN_EXAMPLE.path().display().to_string())]
 #[test]
-fn plugin_rm_not_found() {
-    let result = nu_with_plugins!(
-        cwd: ".",
-        plugins: [],
-        "
-            plugin rm example
-        "
-    );
-    assert!(!result.status.success());
-    assert!(result.err.contains("example"));
-}
+#[deps(NU, NU_PLUGIN_EXAMPLE, NU_PLUGIN_INC)]
+fn plugin_rm_from_custom_path(#[case] plugin_to_remove: String) -> Result {
+    Playground::setup(&module_path!().replace("::", "_"), |dirs, _| {
+        let configs = EmptyConfigs::new(dirs.test());
+        let mut tester = test();
 
-#[test]
-fn plugin_rm_from_custom_path() {
-    let example_plugin_path = example_plugin_path();
-    Playground::setup("plugin rm from custom path", |dirs, _playground| {
-        let file = File::create(dirs.test().join("test-plugin-file.msgpackz"))
-            .expect("failed to create file");
-        let mut contents = PluginRegistryFile::new();
+        // fill plugin config with something
+        let () = tester.run(format!(
+            "
+                plugin add --plugin-config '{plugin_config}' '{example_plugin}'
+                plugin add --plugin-config '{plugin_config}' '{inc_plugin}'
+                ignore
+            ",
+            plugin_config = configs.plugin.display(),
+            example_plugin = NU_PLUGIN_EXAMPLE.path().display(),
+            inc_plugin = NU_PLUGIN_INC.path().display(),
+        ))?;
 
-        contents.upsert_plugin(PluginRegistryItem {
-            name: "example".into(),
-            filename: example_plugin_path,
-            shell: None,
-            data: valid_plugin_item_data(),
-        });
+        let () = tester.run(format!(
+            "plugin rm --plugin-config '{}' '{}'",
+            configs.plugin.display(),
+            plugin_to_remove,
+        ))?;
 
-        contents.upsert_plugin(PluginRegistryItem {
-            name: "foo".into(),
-            // this doesn't exist, but it should be ok
-            filename: dirs.test().join("nu_plugin_foo").into(),
-            shell: None,
-            data: valid_plugin_item_data(),
-        });
-
-        contents
-            .write_to(file, None)
-            .expect("failed to write plugin file");
-
-        let result = nu!(
-            cwd: dirs.test(),
-            "plugin rm --plugin-config test-plugin-file.msgpackz example",
-        );
-        assert!(result.status.success());
-        assert!(result.err.trim().is_empty());
-
-        // Check the contents after running
-        let contents = PluginRegistryFile::read_from(
-            File::open(dirs.test().join("test-plugin-file.msgpackz")).expect("failed to open file"),
-            None,
-        )
-        .expect("failed to read file");
-
-        assert!(!contents.plugins.iter().any(|p| p.name == "example"));
-
-        // Shouldn't remove anything else
-        assert!(contents.plugins.iter().any(|p| p.name == "foo"));
-    })
-}
-
-#[test]
-fn plugin_rm_using_filename() {
-    let example_plugin_path = example_plugin_path();
-    Playground::setup("plugin rm using filename", |dirs, _playground| {
-        let file = File::create(dirs.test().join("test-plugin-file.msgpackz"))
-            .expect("failed to create file");
-        let mut contents = PluginRegistryFile::new();
-
-        contents.upsert_plugin(PluginRegistryItem {
-            name: "example".into(),
-            filename: example_plugin_path.clone(),
-            shell: None,
-            data: valid_plugin_item_data(),
-        });
-
-        contents.upsert_plugin(PluginRegistryItem {
-            name: "foo".into(),
-            // this doesn't exist, but it should be ok
-            filename: dirs.test().join("nu_plugin_foo").into(),
-            shell: None,
-            data: valid_plugin_item_data(),
-        });
-
-        contents
-            .write_to(file, None)
-            .expect("failed to write plugin file");
-
-        let result = nu!(
-            cwd: dirs.test(),
-            &format!(
-                "plugin rm --plugin-config test-plugin-file.msgpackz '{}'",
-                example_plugin_path.display()
-            )
-        );
-        assert!(result.status.success());
-        assert!(result.err.trim().is_empty());
-
-        // Check the contents after running
-        let contents = PluginRegistryFile::read_from(
-            File::open(dirs.test().join("test-plugin-file.msgpackz")).expect("failed to open file"),
-            None,
-        )
-        .expect("failed to read file");
-
-        assert!(!contents.plugins.iter().any(|p| p.name == "example"));
-
-        // Shouldn't remove anything else
-        assert!(contents.plugins.iter().any(|p| p.name == "foo"));
+        tester
+            .run_with_data("open $in | get plugins.name", configs.plugin.as_path())
+            .expect_value_eq(["inc"])
     })
 }
 
 /// Running nu with a test plugin file that fails to parse on one plugin should just cause a warning
 /// but the others should be loaded
 #[test]
-fn warning_on_invalid_plugin_item() {
-    let example_plugin_path = example_plugin_path();
-    Playground::setup("warning on invalid plugin item", |dirs, playground| {
-        playground.with_files(&[
-            Stub::FileWithContent("config.nu", ""),
-            Stub::FileWithContent("env.nu", ""),
-        ]);
+#[deps(NU, NU_PLUGIN_EXAMPLE)]
+fn warning_on_invalid_plugin_item() -> Result {
+    Playground::setup(&module_path!().replace("::", "_"), |dirs, _| {
+        let configs = EmptyConfigs::new(dirs.test());
 
-        let file = File::create(dirs.test().join("test-plugin-file.msgpackz"))
-            .expect("failed to create file");
-        let mut contents = PluginRegistryFile::new();
-
-        contents.upsert_plugin(PluginRegistryItem {
+        let mut registry = PluginRegistryFile::new();
+        registry.upsert_plugin(PluginRegistryItem {
             name: "example".into(),
-            filename: example_plugin_path,
+            filename: NU_PLUGIN_EXAMPLE.path(),
             shell: None,
-            data: valid_plugin_item_data(),
+            data: PluginRegistryItemData::Valid {
+                metadata: Default::default(),
+                commands: Default::default(),
+            },
         });
-
-        contents.upsert_plugin(PluginRegistryItem {
+        registry.upsert_plugin(PluginRegistryItem {
             name: "badtest".into(),
-            // this doesn't exist, but it should be ok
             filename: dirs.test().join("nu_plugin_badtest").into(),
             shell: None,
             data: PluginRegistryItemData::Invalid,
         });
+        registry
+            .write_to(File::create(configs.plugin.as_path()).unwrap(), None)
+            .unwrap();
 
-        contents
-            .write_to(file, None)
-            .expect("failed to write plugin file");
+        let outcome: Record = test().run_with_data(
+            format!("{} | complete", configs.nu()),
+            "plugin list --engine | get name | to nuon --raw",
+        )?;
 
-        let result = assert_cmd::Command::new(nu_test_support::fs::executable_path())
-            .current_dir(dirs.test())
-            .args([
-                "--no-std-lib",
-                "--config",
-                "config.nu",
-                "--env-config",
-                "env.nu",
-                "--plugin-config",
-                "test-plugin-file.msgpackz",
-                "--commands",
-                "plugin list --engine | get name | to json --raw",
-            ])
-            .output()
-            .expect("failed to run nu");
+        assert_eq!(outcome["exit_code"], Value::test_int(0));
+        assert_eq!(outcome["stdout"], Value::test_string("[example]\n"));
+        let stderr = outcome["stderr"].as_str().unwrap();
+        assert_contains("registered plugin data", stderr);
+        assert_contains("badtest", stderr);
+        assert_contains("Failed to load 1 plugin entry", stderr);
 
-        let out = String::from_utf8_lossy(&result.stdout).trim().to_owned();
-        let err = String::from_utf8_lossy(&result.stderr).trim().to_owned();
-
-        println!("=== stdout\n{out}\n=== stderr\n{err}");
-
-        // The code should still execute successfully
-        assert!(result.status.success());
-        // The "example" plugin should be unaffected
-        assert_eq!(r#"["example"]"#, out);
-        // The warning should be in there. In some terminals stderr may be unavailable,
-        // in which case diagnostics can be emitted via stdout.
-        let combined_output = format!("{out}\n{err}");
-        assert!(combined_output.contains("registered plugin data"));
-        assert!(combined_output.contains("badtest"));
-        assert!(combined_output.contains("Failed to load 1 plugin entry"));
+        Ok(())
     })
 }
 
 #[test]
-fn plugin_use_error_not_found() {
-    Playground::setup("plugin use error not found", |dirs, playground| {
-        playground.with_files(&[
-            Stub::FileWithContent("config.nu", ""),
-            Stub::FileWithContent("env.nu", ""),
-        ]);
+#[deps(NU)]
+fn plugin_use_error_not_found() -> Result {
+    Playground::setup(&module_path!().replace("::", "_"), |dirs, _| {
+        let configs = EmptyConfigs::new(dirs.test());
+        PluginRegistryFile::new()
+            .write_to(File::create(&configs.plugin).unwrap(), None)
+            .unwrap();
 
-        // Make an empty msgpackz
-        let file = File::create(dirs.test().join("plugin.msgpackz"))
-            .expect("failed to open plugin.msgpackz");
-        PluginRegistryFile::default()
-            .write_to(file, None)
-            .expect("failed to write empty registry file");
+        let outcome: Record = test().run_with_data(
+            format!("{} | complete", configs.nu()),
+            "plugin use custom_values",
+        )?;
+        assert_contains("Plugin not found", outcome["stderr"].as_str().unwrap());
 
-        let output = assert_cmd::Command::new(nu_test_support::fs::executable_path())
-            .current_dir(dirs.test())
-            .args(["--config", "config.nu"])
-            .args(["--env-config", "env.nu"])
-            .args(["--plugin-config", "plugin.msgpackz"])
-            .args(["--commands", "plugin use custom_values"])
-            .output()
-            .expect("failed to run nu");
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        assert!(stderr.contains("Plugin not found"));
+        Ok(())
     })
 }
 
 #[test]
-fn plugin_shows_up_in_default_plugin_list_after_add() {
-    let example_plugin_path = example_plugin_path();
-    let result = nu_with_plugins!(
-        cwd: ".",
-        plugins: [],
-        &format!("
-            plugin add '{}'
-            plugin list | get status | to json --raw
-        ", example_plugin_path.display())
-    );
-    assert!(result.status.success());
-    assert_eq!(r#"["added"]"#, result.out);
-}
-
-#[test]
-fn plugin_shows_removed_after_removing() {
-    let example_plugin_path = example_plugin_path();
-    let result = nu_with_plugins!(
-        cwd: ".",
-        plugins: [],
-        &format!("
-            plugin add '{}'
-            plugin list | get status | to json --raw
-            (
-                ^$nu.current-exe
-                    --config $nu.config-path
-                    --env-config $nu.env-path
-                    --plugin-config $nu.plugin-path
-                    --commands 'plugin rm example; plugin list | get status | to json --raw'
-            )
-        ", example_plugin_path.display())
-    );
-    assert!(result.status.success());
-    assert_eq!(r#"["removed"]"#, result.out);
-}
-
-#[test]
-fn plugin_add_and_then_use() {
-    let example_plugin_path = example_plugin_path();
-    let result = nu_with_plugins!(
-        cwd: ".",
-        plugins: [],
-        &format!("
-            plugin add '{}'
-            (
-                ^$nu.current-exe
-                    --config $nu.config-path
-                    --env-config $nu.env-path
-                    --plugin-config $nu.plugin-path
-                    --commands 'plugin use example; plugin list --engine | get name | to json --raw'
-            )
-        ", example_plugin_path.display())
-    );
-    assert!(result.status.success());
-    assert_eq!(r#"["example"]"#, result.out);
-}
-
-#[test]
-fn plugin_add_and_then_use_by_filename() {
-    let example_plugin_path = example_plugin_path();
-    let result = nu_with_plugins!(
-        cwd: ".",
-        plugins: [],
-        &format!("
-            plugin add '{0}'
-            (
-                ^$nu.current-exe
-                    --config $nu.config-path
-                    --env-config $nu.env-path
-                    --plugin-config $nu.plugin-path
-                    --commands 'plugin use '{0}'; plugin list --engine | get name | to json --raw'
-            )
-        ", example_plugin_path.display())
-    );
-    assert!(result.status.success());
-    assert_eq!(r#"["example"]"#, result.out);
-}
-
-#[test]
-fn plugin_add_then_use_with_custom_path() {
-    let example_plugin_path = example_plugin_path();
-    Playground::setup("plugin add to custom path", |dirs, _playground| {
-        let result_add = nu!(
-            cwd: dirs.test(),
-            &format!("
-                plugin add --plugin-config test-plugin-file.msgpackz '{}'
-            ", example_plugin_path.display())
+#[deps(NU, NU_PLUGIN_EXAMPLE)]
+fn plugin_shows_up_in_default_plugin_list_after_add() -> Result {
+    Playground::setup(&module_path!().replace("::", "_"), |dirs, _| {
+        let configs = EmptyConfigs::new(dirs.test());
+        let commands = format!(
+            "plugin add '{}'; plugin list | get status | to nuon --raw",
+            NU_PLUGIN_EXAMPLE.path().display()
         );
+        test()
+            .run_with_data(configs.nu(), commands)
+            .expect_value_eq("[added]")
+    })
+}
 
-        assert!(result_add.status.success());
+#[test]
+#[deps(NU, NU_PLUGIN_EXAMPLE)]
+fn plugin_shows_removed_after_removing() -> Result {
+    Playground::setup(&module_path!().replace("::", "_"), |dirs, _| {
+        let configs = EmptyConfigs::new(dirs.test());
+        let mut tester = test();
 
-        let result_use = nu!(
-            cwd: dirs.test(),
+        let () = tester.run(format!(
+            "plugin add --plugin-config '{}' '{}' | null",
+            configs.plugin.display(),
+            NU_PLUGIN_EXAMPLE.path().display()
+        ))?;
+
+        test()
+            .run_with_data(
+                configs.nu(),
+                "plugin rm example; plugin list | get status | to nuon --raw",
+            )
+            .expect_value_eq("[removed]")
+    })
+}
+
+#[test]
+#[deps(NU, NU_PLUGIN_EXAMPLE)]
+fn plugin_add_and_then_use() -> Result {
+    Playground::setup(&module_path!().replace("::", "_"), |dirs, _| {
+        let configs = EmptyConfigs::new(dirs.test());
+        let nu = configs.nu();
+        let mut tester = test();
+
+        let plugin_add = format!("plugin add '{}'", NU_PLUGIN_EXAMPLE.path().display());
+        test()
+            .run_with_data(configs.nu(), plugin_add)
+            .expect_value_eq("")?;
+
+        let plugin_use = "
+            plugin use example
+            plugin list --engine | get name | to nuon --raw
+        ";
+        tester
+            .run_with_data(&nu, plugin_use)
+            .expect_value_eq("[example]")
+    })
+}
+
+#[test]
+#[deps(NU, NU_PLUGIN_EXAMPLE)]
+fn plugin_add_and_then_use_by_filename() -> Result {
+    Playground::setup(&module_path!().replace("::", "_"), |dirs, _| {
+        let configs = EmptyConfigs::new(dirs.test());
+        let nu = configs.nu();
+        let mut tester = test();
+
+        let plugin_add = format!("plugin add '{}'", NU_PLUGIN_EXAMPLE.path().display());
+        test()
+            .run_with_data(configs.nu(), plugin_add)
+            .expect_value_eq("")?;
+
+        let plugin_use = format!(
             "
-                plugin use --plugin-config test-plugin-file.msgpackz example
-                plugin list --engine | get name | to json --raw
-            "
+                plugin use '{}'
+                plugin list --engine | get name | to nuon --raw
+            ",
+            NU_PLUGIN_EXAMPLE.path().display()
         );
+        tester
+            .run_with_data(&nu, plugin_use)
+            .expect_value_eq("[example]")
+    })
+}
 
-        assert!(result_use.status.success());
-        assert_eq!(r#"["example"]"#, result_use.out);
+#[test]
+#[deps(NU, NU_PLUGIN_EXAMPLE)]
+fn plugin_add_then_use_with_custom_path() -> Result {
+    Playground::setup(&module_path!().replace("::", "_"), |dirs, _| {
+        let configs = EmptyConfigs::new(dirs.test());
+        let nu = configs.nu();
+        let mut tester = test();
+
+        let plugin_add = format!(
+            "plugin add --plugin-config '{}' '{}'",
+            configs.plugin.display(),
+            NU_PLUGIN_EXAMPLE.path().display()
+        );
+        test()
+            .run_with_data(configs.nu(), plugin_add)
+            .expect_value_eq("")?;
+
+        let plugin_use = format!(
+            "
+                plugin use --plugin-config '{0}' example
+                plugin list --engine | get name | to nuon --raw
+            ",
+            configs.plugin.display()
+        );
+        tester
+            .run_with_data(&nu, plugin_use)
+            .expect_value_eq("[example]")
     })
 }

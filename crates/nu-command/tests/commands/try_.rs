@@ -225,7 +225,7 @@ fn get_json_error() -> Result {
                 test_record! {
                     "text" => "Command `non_existent_command` not found",
                     "location" => test_record! {
-                        "file" => "source",
+                        "file" => "nu-tester-0",
                         "start" => 6,
                         "end" => 26,
                     },

@@ -331,6 +331,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "atoi_simd"
+version = "0.18.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f3cdb3708a128e559a30fb830e8a77a5022ee6902806925c216658652b452a44"
+dependencies = [
+ "debug_unsafe",
+ "rustversion",
+]
+
+[[package]]
 name = "atomic"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1043,18 +1053,18 @@ dependencies = [
 
 [[package]]
 name = "calamine"
-version = "0.35.0"
+version = "0.36.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8822fe6253ca47aa5ad9a3be09f6fe7cd20c6a74e41b0aa42e8f4e3d523508df"
+checksum = "6975084f43060e56343ffba7f9731fa52a7dcf2e1cd8e2459fd4c6bf4a1bff59"
 dependencies = [
- "atoi_simd",
+ "atoi_simd 0.18.1",
  "byteorder",
  "chrono",
  "codepage",
  "encoding_rs",
  "fast-float2",
  "log",
- "quick-xml 0.39.4",
+ "quick-xml 0.41.0",
  "serde",
  "zip",
 ]
@@ -2163,9 +2173,9 @@ dependencies = [
 
 [[package]]
 name = "ethnum"
-version = "1.5.2"
+version = "1.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ca81e6b4777c89fd810c25a4be2b1bd93ea034fbe58e6a75216a34c6b82c539b"
+checksum = "40404c3f5f511ec4da6fe866ddf6a717c309fdbb69fbbad7b0f3edab8f2e835f"
 
 [[package]]
 name = "event-listener"
@@ -3083,9 +3093,9 @@ dependencies = [
 
 [[package]]
 name = "humantime"
-version = "2.3.0"
+version = "2.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "135b12329e5e3ce057a9f972339ea52bc954fe1e9358ef27f95e89716fbc5424"
+checksum = "15cdd26707701c53297e2fa6afb323d55fbc1d0810c3aec078ae3ef0424c3c15"
 
 [[package]]
 name = "hyper"
@@ -4479,6 +4489,7 @@ dependencies = [
  "nu-cmd-lang",
  "nu-cmd-plugin",
  "nu-command",
+ "nu-config",
  "nu-engine",
  "nu-experimental",
  "nu-explore",
@@ -4533,6 +4544,7 @@ dependencies = [
  "nu-cmd-lang",
  "nu-color-config",
  "nu-command",
+ "nu-config",
  "nu-engine",
  "nu-experimental",
  "nu-glob",
@@ -4692,6 +4704,7 @@ dependencies = [
  "nu-cmd-base",
  "nu-cmd-lang",
  "nu-color-config",
+ "nu-config",
  "nu-engine",
  "nu-experimental",
  "nu-glob",
@@ -4752,6 +4765,7 @@ dependencies = [
  "ureq",
  "url",
  "uu_cp",
+ "uu_ln",
  "uu_mkdir",
  "uu_mktemp",
  "uu_mv",
@@ -4768,6 +4782,20 @@ dependencies = [
  "win_uds",
  "windows 0.62.2",
  "winreg",
+]
+
+[[package]]
+name = "nu-config"
+version = "0.114.2"
+dependencies = [
+ "derive_more 2.1.1",
+ "derive_setters",
+ "dirs 6.0.0",
+ "dirs-sys 0.5.0",
+ "nu-test-support",
+ "tempfile",
+ "thiserror 2.0.18",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -4816,6 +4844,7 @@ dependencies = [
  "lscolors",
  "nu-ansi-term",
  "nu-color-config",
+ "nu-config",
  "nu-engine",
  "nu-json",
  "nu-parser",
@@ -5076,6 +5105,7 @@ dependencies = [
  "memchr",
  "miette",
  "nix 0.31.3",
+ "nu-config",
  "nu-derive-value",
  "nu-experimental",
  "nu-glob",
@@ -5165,6 +5195,7 @@ dependencies = [
  "kitest",
  "lexopt",
  "linkme",
+ "miette",
  "nu-ansi-term",
  "nu-cli",
  "nu-cmd-extra",
@@ -5183,6 +5214,7 @@ dependencies = [
  "nu-test-support-macros",
  "nu-utils",
  "num-format",
+ "parking_lot",
  "pastey",
  "rstest",
  "serde_json",
@@ -6114,13 +6146,13 @@ dependencies = [
 
 [[package]]
 name = "plist"
-version = "1.8.0"
+version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "740ebea15c5d1428f910cd1a5f52cebf8d25006245ed8ade92702f4943d91e07"
+checksum = "7da1d65da6dd5d1e44199ac0f58712d241c0f439f80adea8924d832384087f85"
 dependencies = [
  "base64",
  "indexmap 2.14.0",
- "quick-xml 0.38.4",
+ "quick-xml 0.41.0",
  "serde",
  "time",
 ]
@@ -6169,7 +6201,7 @@ version = "0.54.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "87d4892d5cc6461bb4a184d18e6fa03a5d316ee1d6de06a33dfa08d479fbc2db"
 dependencies = [
- "atoi_simd",
+ "atoi_simd 0.17.0",
  "avro-schema",
  "bitflags 2.11.0",
  "bytemuck",
@@ -6248,7 +6280,7 @@ version = "0.54.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c55d41642a9ee887ac394c5a310af3256fa8340a86cde2cb624c515aa963461c"
 dependencies = [
- "atoi_simd",
+ "atoi_simd 0.17.0",
  "bytemuck",
  "chrono",
  "either",
@@ -6384,7 +6416,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6363a1c44a65fe8d73cce7fe4d77c9b6fea3a0da44007012e755e5b4e65aa078"
 dependencies = [
  "async-trait",
- "atoi_simd",
+ "atoi_simd 0.17.0",
  "blake3",
  "bytes",
  "chrono",
@@ -6742,7 +6774,7 @@ version = "0.54.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e1063fe074c4212a54917be604377c6e6bfbc8b6c942a5c57be214e4ccaaafdf"
 dependencies = [
- "atoi_simd",
+ "atoi_simd 0.17.0",
  "bytemuck",
  "chrono",
  "chrono-tz",
@@ -7025,7 +7057,6 @@ version = "0.39.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cdcc8dd4e2f670d309a5f0e83fe36dfdc05af317008fea29144da1a2ac858e5e"
 dependencies = [
- "encoding_rs",
  "memchr",
 ]
 
@@ -7035,6 +7066,7 @@ version = "0.41.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e660451e55124f798a69a5af3f49ccfbefbd41910eefd25caf2393e1f3473ec1"
 dependencies = [
+ "encoding_rs",
  "memchr",
 ]
 
@@ -9567,6 +9599,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "uu_ln"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a3dc07df27e9caf1ba8160007cc52e38b34b93e2309250f57cb440e9b50db4c2"
+dependencies = [
+ "clap",
+ "fluent",
+ "rustix 1.1.4",
+ "thiserror 2.0.18",
+ "uucore",
+]
+
+[[package]]
 name = "uu_mkdir"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11046,9 +11091,9 @@ dependencies = [
 
 [[package]]
 name = "zip"
-version = "7.2.0"
+version = "8.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c42e33efc22a0650c311c2ef19115ce232583abbe80850bc8b66509ebef02de0"
+checksum = "2d04a6b5381502aa6087c94c669499eb1602eb9c5e8198e534de571f7154809b"
 dependencies = [
  "crc32fast",
  "flate2",

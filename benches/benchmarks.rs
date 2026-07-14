@@ -1,6 +1,7 @@
 #![allow(clippy::unwrap_used)]
 
 use nu_cli::{eval_source, evaluate_commands};
+use nu_config::ConfigFileKind;
 use nu_experimental::DC_GLOB;
 use nu_parser::{lex, lite_parse, parse, parse_block};
 use nu_plugin_core::{Encoder, EncodingType};
@@ -11,7 +12,6 @@ use nu_protocol::{
 };
 use nu_std::load_standard_library;
 use nu_table::{NuTable, TableTheme};
-use nu_utils::ConfigFileKind;
 use std::{
     env,
     fmt::Write,
@@ -494,6 +494,54 @@ fn bench_table_insert_col(n: usize, m: usize) -> impl IntoBenchmarks {
     }
     insert.push_str(" | ignore");
     bench_command(format!("table_insert_col_{n}_{m}"), insert, stack, engine)
+}
+
+fn setup_str_replace_strings(n: usize) -> (Stack, EngineState) {
+    setup_stack_and_engine_from_command(&format!(
+        r#"let strings = 0..<{n} | each {{ |i| $"abc($i) xyz 123" }}"#
+    ))
+}
+
+fn setup_str_replace_multiline_strings(n: usize) -> (Stack, EngineState) {
+    setup_stack_and_engine_from_command(&format!(
+        r#"let strings = 0..<{n} | each {{ |i| $"($i). first\n($i). second\nplain" }}"#
+    ))
+}
+
+fn setup_str_replace_table(n: usize) -> (Stack, EngineState) {
+    setup_stack_and_engine_from_command(&format!(
+        r#"let table = 0..<{n} | each {{ |i| {{ a: $"abc($i)", b: $"def($i)", c: untouched }} }}"#
+    ))
+}
+
+fn bench_str_replace_regex_list(n: usize) -> impl IntoBenchmarks {
+    let (stack, engine) = setup_str_replace_strings(n);
+    bench_command(
+        format!("str_replace_regex_list_{n}"),
+        r#"$strings | str replace -a -r '\d+' 'N' | ignore"#,
+        stack,
+        engine,
+    )
+}
+
+fn bench_str_replace_regex_table(n: usize) -> impl IntoBenchmarks {
+    let (stack, engine) = setup_str_replace_table(n);
+    bench_command(
+        format!("str_replace_regex_table_{n}_2cols"),
+        r#"$table | str replace -a -r '\d+' 'N' a b | ignore"#,
+        stack,
+        engine,
+    )
+}
+
+fn bench_str_replace_multiline_list(n: usize) -> impl IntoBenchmarks {
+    let (stack, engine) = setup_str_replace_multiline_strings(n);
+    bench_command(
+        format!("str_replace_multiline_list_{n}"),
+        r#"$strings | str replace -a --multiline '^[0-9]+\. ' '' | ignore"#,
+        stack,
+        engine,
+    )
 }
 
 fn bench_eval_interleave(n: usize) -> impl IntoBenchmarks {
@@ -1067,6 +1115,10 @@ tango_benchmarks!(
     bench_table_insert_col(10, 10),
     bench_table_insert_col(100, 10),
     bench_table_insert_col(1000, 10),
+    // Strings
+    bench_str_replace_regex_list(1_000),
+    bench_str_replace_regex_table(500),
+    bench_str_replace_multiline_list(1_000),
     // Eval
     // Interleave
     bench_eval_interleave(100),

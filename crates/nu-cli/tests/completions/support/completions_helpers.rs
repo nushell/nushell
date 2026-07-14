@@ -38,12 +38,18 @@ impl Command for FakeCmd {
                 "Example flag which support auto completion.",
                 Some('f'),
             )
+            .named(
+                "plugin-config",
+                SyntaxShape::Int,
+                "Example flag which support auto completion from plugin config.",
+                None,
+            )
     }
 
     #[expect(deprecated, reason = "example usage")]
     fn get_dynamic_completion(
         &self,
-        _engine_state: &EngineState,
+        engine_state: &EngineState,
         _stack: &mut Stack,
         _call: DynamicCompletionCallRef,
         arg_type: &ArgType,
@@ -83,6 +89,18 @@ impl Command for FakeCmd {
                         })
                         .collect(),
                 ),
+                "plugin-config" => engine_state
+                    .get_plugin_config("fake-cmd")
+                    .and_then(|config| {
+                        config.get_data_by_key("completion").map(|completion| {
+                            vec![DynamicSuggestion {
+                                value: completion.into_string().unwrap_or_else(|_| {
+                                    "fake-cmd plugin config incorrect".to_string()
+                                }),
+                                ..Default::default()
+                            }]
+                        })
+                    }),
                 _ => None,
             },
         })

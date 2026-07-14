@@ -7,13 +7,7 @@ use std::{
     ops::Deref,
     path::PathBuf,
     process::{Command, ExitCode, Stdio},
-    sync::{
-        LazyLock, OnceLock,
-        atomic::Ordering,
-        mpsc::{self, RecvTimeoutError},
-    },
-    thread,
-    time::Duration,
+    sync::{LazyLock, OnceLock, atomic::Ordering},
 };
 
 use crate::{
@@ -22,7 +16,7 @@ use crate::{
         args::{Args, Format},
         deps::*,
         group::{GroupRunner, Grouper},
-        test::{TestRunner, TestScopeFactory},
+        test::TestRunner,
     },
 };
 
@@ -33,7 +27,6 @@ use kitest::{
     ignore::DefaultIgnore,
 };
 use nu_ansi_term::Color;
-use nu_utils::time::Instant;
 
 #[doc(hidden)]
 pub use linkme;
@@ -110,8 +103,6 @@ pub fn main() -> ExitCode {
         .with_skip(args.skip)
         .with_only_ignored(args.ignored);
 
-    nu_with_plugins_compat(&filter);
-
     let dependencies: HashSet<&Dependency> = filter
         .filter(TESTS.deref())
         .tests
@@ -128,24 +119,22 @@ pub fn main() -> ExitCode {
         },
     };
 
-    let test_scope_factory = TestScopeFactory::default();
-    #[cfg(feature = "plugin")]
-    let test_scope_factory =
-        test_scope_factory.with_preloaded_plugins(preparations.preloaded_plugins);
-
     let runner = TestRunner::default()
         .with_thread_count(args.test_threads.unwrap_or(*DEFAULT_THREAD_COUNT))
-        .with_exact(args.exact)
-        .with_test_scope_factory(test_scope_factory);
+        .with_exact(args.exact);
 
     let ignore = match args.include_ignored {
         false => DefaultIgnore::Default,
         true => DefaultIgnore::IncludeIgnored,
     };
 
+    let group_runner = GroupRunner::default();
+    #[cfg(feature = "plugin")]
+    let group_runner = group_runner.with_preloaded_plugins(preparations.preloaded_plugins);
+
     let harness = kitest::harness(TESTS.deref())
         .with_grouper(Grouper::default())
-        .with_group_runner(GroupRunner::default())
+        .with_group_runner(group_runner)
         .with_groups(TestGroupBTreeMap::default())
         .with_runner(runner)
         .with_filter(filter)
@@ -317,47 +306,6 @@ fn target_dir() -> io::Result<PathBuf> {
         .as_str()
         .expect("target_directory is a string");
     Ok(PathBuf::from(target_dir))
-}
-
-fn nu_with_plugins_compat(filter: &impl kitest::filter::TestFilter<Extra>) {
-    if filter
-        .filter(TESTS.deref())
-        .tests
-        .any(|test| test.meta.extra.uses_nu_with_plugins)
-    {
-        println!();
-        println!("`nu_with_plugins!` is used in some tests, building all plugins",);
-        let start = Instant::now();
-
-        // we use a reporter setup as the `ensure_plugins_built` function internally pipes the
-        // stderr, so we have to give the user at least some output
-        let (stop_tx, stop_rx) = mpsc::channel();
-        let reporter = thread::spawn(move || {
-            loop {
-                match stop_rx.recv_timeout(Duration::from_secs(5)) {
-                    Ok(()) | Err(RecvTimeoutError::Disconnected) => break,
-                    Err(RecvTimeoutError::Timeout) => {
-                        println!(
-                            "{} all plugins, this might take a while",
-                            Color::Cyan.bold().paint("    Building")
-                        );
-                    }
-                }
-            }
-        });
-
-        crate::deprecated::commands::ensure_plugins_built();
-        let took = Instant::now().duration_since(start);
-
-        let _ = stop_tx.send(());
-        let _ = reporter.join();
-
-        println!(
-            "{} building all plugins in {:.2}s",
-            Color::Green.bold().paint("    Finished"),
-            took.as_secs_f64()
-        );
-    }
 }
 
 struct RedError;
