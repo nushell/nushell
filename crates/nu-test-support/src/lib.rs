@@ -429,7 +429,7 @@
 //! # }
 //! #
 //! # fn main() -> Result {
-//!     let code = r#"nu -n -c 'print -e "cococo"; exit 1' | complete"#
+//!     let code = r#"nu -n -c 'print -e "cococo"; exit 1' | complete"#;
 //!     let result: CompleteResult = test().run(code)?;
 //!
 //!     assert_eq!(result.exit_code, 1);
