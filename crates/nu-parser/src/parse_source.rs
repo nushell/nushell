@@ -4,7 +4,7 @@ use crate::{
     parse_helpers::{garbage, garbage_pipeline},
     parse_pipelines::{parse_redirection, redirecting_builtin_error},
     parser::{
-        ArgumentParsingLevel, CallKind, ParsedInternalCall, compile_block, parse,
+        ArgumentParsingLevel, CallKind, ParsedInternalCall, compile_block, parse, parse_fresh,
         parse_internal_call,
     },
 };
@@ -122,16 +122,14 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
                             return garbage_pipeline(working_set, spans);
                         }
 
-                        // Bypass the block cache to avoid returning a stale
-                        // block with VarIds from a previous parse session.
-                        working_set.transparent_block_cache = true;
-                        let mut block = parse(
+                        // Re-parse so free vars bind to current VarIds, not a
+                        // span-cached block from an earlier parse (#18515).
+                        let mut block = parse_fresh(
                             working_set,
                             Some(&path.path().to_string_lossy()),
                             &contents,
                             scoped,
                         );
-                        working_set.transparent_block_cache = false;
                         if block.ir_block.is_none() {
                             let block_mut = Arc::make_mut(&mut block);
                             compile_block(working_set, block_mut);

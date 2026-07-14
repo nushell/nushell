@@ -517,6 +517,30 @@ pub fn parse(
     contents: &[u8],
     scoped: bool,
 ) -> Arc<Block> {
+    parse_with_block_cache(working_set, fname, contents, scoped, true)
+}
+
+/// Like [`parse`], but never returns a span-matched cached block.
+///
+/// Required for `source` / `source-env`: free variables rebind to new VarIds
+/// when `let`/`mut` are re-declared, so a block cached by span alone is stale.
+/// See https://github.com/nushell/nushell/issues/18515
+pub fn parse_fresh(
+    working_set: &mut StateWorkingSet,
+    fname: Option<&str>,
+    contents: &[u8],
+    scoped: bool,
+) -> Arc<Block> {
+    parse_with_block_cache(working_set, fname, contents, scoped, false)
+}
+
+fn parse_with_block_cache(
+    working_set: &mut StateWorkingSet,
+    fname: Option<&str>,
+    contents: &[u8],
+    scoped: bool,
+    use_block_cache: bool,
+) -> Arc<Block> {
     trace!("parse");
 
     let file_id = {
@@ -528,14 +552,9 @@ pub fn parse(
 
     let new_span = working_set.get_span_for_file(file_id);
 
-    // Check for a previously-parsed block to avoid re-parsing (same session).
-    // When `transparent_block_cache` is set (by `parse_source`), skip the cache
-    // because variable re-declarations (`let`/`mut`) create new VarIds in the
-    // current session, making cached blocks from previous sessions stale.
-    // See https://github.com/nushell/nushell/issues/18515
-    if !working_set.transparent_block_cache
-        && let Some(block) = working_set.find_block_by_span(new_span)
-    {
+    // Reuse a previously-parsed block with the same span when safe (e.g. LSP).
+    // Callers that need fresh free-variable bindings use `parse_fresh`.
+    if use_block_cache && let Some(block) = working_set.find_block_by_span(new_span) {
         return block;
     }
     let mut output = {
