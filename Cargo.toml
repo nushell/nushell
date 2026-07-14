@@ -250,6 +250,7 @@ rustls = { version = "~0.23.38", default-features = false, features = ["std", "t
 rustls-native-certs = "0.8"
 serde-saphyr = "0.0.28"
 scopeguard = { version = "1.2.0" }
+ndarray = { version = "0.17", features = ["serde", "approx", "rayon", "matrixmultiply-threading"] }
 semver = "1.0"
 serde = { version = "1.0" }
 serde_json = "1.0.149"

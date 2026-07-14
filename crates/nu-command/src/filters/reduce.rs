@@ -105,6 +105,17 @@ impl Command for Reduce {
         let fold: Option<Value> = call.get_flag(engine_state, stack, "fold")?;
         let closure: Closure = call.req(engine_state, stack, 0)?;
 
+        if matches!(&input, PipelineData::Value(Value::Custom { val, .. }, _) if val.type_name() == "matrix")
+        {
+            return Err(ShellError::Generic(
+                nu_protocol::shell_error::generic::GenericError::new(
+                    "Unsupported type",
+                    "Use `matrix reduce --fold <initial> { ... }`.",
+                    call.head,
+                ),
+            ));
+        }
+
         let mut iter = input.into_iter();
 
         let mut acc = fold.or_else(|| iter.next()).ok_or_else(|| {
