@@ -1,19 +1,20 @@
 #![allow(clippy::unwrap_used)]
 
-use nu_cli::{eval_source, evaluate_commands};
+use nu_cli::{NuCompleter, eval_source, evaluate_commands};
 use nu_config::ConfigFileKind;
 use nu_experimental::DC_GLOB;
 use nu_parser::{lex, lite_parse, parse, parse_block};
 use nu_plugin_core::{Encoder, EncodingType};
 use nu_plugin_protocol::{PluginCallResponse, PluginOutput};
 use nu_protocol::{
-    PipelineData, Signals, Span, Spanned, Type, TypeSet, Value,
+    Config, PipelineData, Signals, Span, Spanned, Type, TypeSet, Value,
     ast::PathMember,
     casing::Casing,
     engine::{EngineState, Stack, StateWorkingSet},
 };
 use nu_std::load_standard_library;
 use nu_table::{NuTable, TableTheme};
+use reedline::Completer;
 use std::{
     env,
     fmt::Write,
@@ -1408,7 +1409,187 @@ fn bench_table_render_wide(cols: usize) -> impl IntoBenchmarks {
     })]
 }
 
+#[derive(Clone, Copy)]
+enum XsimBenchKind {
+    DisabledAscii,
+    EnabledAscii,
+    Romanization,
+    Pinyin,
+}
+
+struct XsimBenchFixture {
+    _temp_dir: TempDir,
+    completer: NuCompleter,
+    input: String,
+}
+
+fn setup_xsim_bench(count: usize, kind: XsimBenchKind, hit: bool) -> XsimBenchFixture {
+    let temp_dir = TempDirBuilder::new()
+        .prefix("nu-xsim-bench")
+        .tempdir()
+        .unwrap();
+    for index in 0..count {
+        let name = match kind {
+            XsimBenchKind::DisabledAscii | XsimBenchKind::EnabledAscii => {
+                format!("candidate-{index:05}")
+            }
+            XsimBenchKind::Romanization => format!("ドキュメント-{index:05}"),
+            XsimBenchKind::Pinyin => format!("下载-{index:05}"),
+        };
+        fs::create_dir(temp_dir.path().join(name)).unwrap();
+    }
+
+    let mut config = Config::default();
+    match kind {
+        XsimBenchKind::DisabledAscii => {}
+        XsimBenchKind::EnabledAscii | XsimBenchKind::Romanization => {
+            config.completions.xsim.enabled = true;
+        }
+        XsimBenchKind::Pinyin => {
+            config.completions.xsim.enabled = true;
+            config.completions.xsim.romanization.enabled = false;
+            config.completions.xsim.pinyin.enabled = true;
+        }
+    }
+
+    let mut engine = nu_cli::add_cli_context(load_bench_commands());
+    engine.set_config(config);
+    engine.generate_nu_constant();
+    let mut stack = Stack::new();
+    stack.add_env_var(
+        "PWD".into(),
+        Value::string(temp_dir.path().to_string_lossy(), Span::unknown()),
+    );
+    engine.merge_env(&mut stack).unwrap();
+
+    let last = count.saturating_sub(1);
+    let query = if hit {
+        match kind {
+            XsimBenchKind::DisabledAscii | XsimBenchKind::EnabledAscii => {
+                format!("candidate-{last:05}")
+            }
+            XsimBenchKind::Romanization => format!("dokyumento-{last:05}"),
+            XsimBenchKind::Pinyin => format!("xiazai{last:05}"),
+        }
+    } else {
+        "no-matching-candidate".to_string()
+    };
+
+    XsimBenchFixture {
+        _temp_dir: temp_dir,
+        completer: NuCompleter::new(Arc::new(engine), Arc::new(stack)),
+        input: format!("cd {query}"),
+    }
+}
+
+fn bench_xsim_completion(
+    name: impl Into<String>,
+    count: usize,
+    kind: XsimBenchKind,
+    hit: bool,
+) -> impl IntoBenchmarks {
+    [benchmark_fn(name, move |bench| {
+        let mut fixture = setup_xsim_bench(count, kind, hit);
+        let warmup = fixture
+            .completer
+            .complete(&fixture.input, fixture.input.len());
+        assert_eq!(hit, !warmup.is_empty());
+        black_box(warmup);
+        bench.iter(move || {
+            black_box(
+                fixture
+                    .completer
+                    .complete(&fixture.input, fixture.input.len()),
+            );
+        })
+    })]
+}
+
 tango_benchmarks!(
+    // Native path-completion overhead and cross-script provider scaling.
+    bench_xsim_completion(
+        "xsim_disabled_ascii_100_miss",
+        100,
+        XsimBenchKind::DisabledAscii,
+        false
+    ),
+    bench_xsim_completion(
+        "xsim_disabled_ascii_1000_miss",
+        1_000,
+        XsimBenchKind::DisabledAscii,
+        false
+    ),
+    bench_xsim_completion(
+        "xsim_disabled_ascii_10000_miss",
+        10_000,
+        XsimBenchKind::DisabledAscii,
+        false
+    ),
+    bench_xsim_completion(
+        "xsim_enabled_ascii_100_miss",
+        100,
+        XsimBenchKind::EnabledAscii,
+        false
+    ),
+    bench_xsim_completion(
+        "xsim_enabled_ascii_1000_miss",
+        1_000,
+        XsimBenchKind::EnabledAscii,
+        false
+    ),
+    bench_xsim_completion(
+        "xsim_enabled_ascii_10000_miss",
+        10_000,
+        XsimBenchKind::EnabledAscii,
+        false
+    ),
+    bench_xsim_completion(
+        "xsim_romanization_100_hit",
+        100,
+        XsimBenchKind::Romanization,
+        true
+    ),
+    bench_xsim_completion(
+        "xsim_romanization_1000_hit",
+        1_000,
+        XsimBenchKind::Romanization,
+        true
+    ),
+    bench_xsim_completion(
+        "xsim_romanization_10000_hit",
+        10_000,
+        XsimBenchKind::Romanization,
+        true
+    ),
+    bench_xsim_completion(
+        "xsim_romanization_100_miss",
+        100,
+        XsimBenchKind::Romanization,
+        false
+    ),
+    bench_xsim_completion(
+        "xsim_romanization_1000_miss",
+        1_000,
+        XsimBenchKind::Romanization,
+        false
+    ),
+    bench_xsim_completion(
+        "xsim_romanization_10000_miss",
+        10_000,
+        XsimBenchKind::Romanization,
+        false
+    ),
+    bench_xsim_completion("xsim_pinyin_100_hit", 100, XsimBenchKind::Pinyin, true),
+    bench_xsim_completion("xsim_pinyin_1000_hit", 1_000, XsimBenchKind::Pinyin, true),
+    bench_xsim_completion("xsim_pinyin_10000_hit", 10_000, XsimBenchKind::Pinyin, true),
+    bench_xsim_completion("xsim_pinyin_100_miss", 100, XsimBenchKind::Pinyin, false),
+    bench_xsim_completion("xsim_pinyin_1000_miss", 1_000, XsimBenchKind::Pinyin, false),
+    bench_xsim_completion(
+        "xsim_pinyin_10000_miss",
+        10_000,
+        XsimBenchKind::Pinyin,
+        false
+    ),
     bench_load_standard_lib(),
     bench_load_use_standard_lib(),
     bench_ls_recursive_legacy(),
