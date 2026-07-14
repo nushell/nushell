@@ -1,5 +1,3 @@
-#![expect(clippy::test_attr_in_doctest)]
-
 use nu_protocol::FromValue;
 
 /// Output of the `complete` command as a struct.
@@ -7,14 +5,14 @@ use nu_protocol::FromValue;
 /// Working with external processes in tests often require inspecting all of `stdin`, `stdout` and
 /// the exit code separately.
 /// This is easy to achieve using `complete`:
-/// ```
+/// ```no_run
 /// # #[macro_use] extern crate nu_test_support;
 /// use nu_protocol::Record;
 /// use nu_test_support::prelude::*;
 ///
 /// #[test]
 /// #[deps(NU)]
-/// fn run_non-existent_script() -> Result {
+/// fn run_non_existent_script() -> Result {
 /// #     unimplemented!()
 /// # }
 /// #
@@ -32,13 +30,13 @@ use nu_protocol::FromValue;
 /// ```
 ///
 /// This type exists to avoid repetition and to make it more convenient to work with `complete`:
-/// ```
+/// ```no_run
 /// # #[macro_use] extern crate nu_test_support;
 /// use nu_test_support::prelude::*;
 ///
 /// #[test]
 /// #[deps(NU)]
-/// fn run_non-existent_script() -> Result {
+/// fn run_non_existent_script() -> Result {
 /// #     unimplemented!()
 /// # }
 /// #
