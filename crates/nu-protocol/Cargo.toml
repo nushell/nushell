@@ -30,6 +30,7 @@ nu-path.workspace = true
 nu-system.workspace = true
 nu-utils.workspace = true
 nu-experimental.workspace = true
+nu-config.workspace = true
 
 brotli = { workspace = true, optional = true }
 bstr = { workspace = true }
@@ -76,6 +77,7 @@ os = [
 
 plugin = [
   "brotli",
+  "nu-config/plugin",
   "os",
   "rmp-serde",
 ]

@@ -225,7 +225,7 @@ fn get_json_error() -> Result {
                 test_record! {
                     "text" => "Command `non_existent_command` not found",
                     "location" => test_record! {
-                        "file" => "source",
+                        "file" => "nu-tester-0",
                         "start" => 6,
                         "end" => 26,
                     },
@@ -434,4 +434,19 @@ fn try_wont_run_twice_when_no_catch_and_finally_block() {
         }"#
     );
     assert_eq!(actual.out, "aa")
+}
+
+#[test]
+fn try_with_just_finally_wont_pop_enclosing_error_handler() {
+    let actual = nu!(
+        experimental: vec!["pipefail".to_string()],
+        r#"
+        try {
+            try { print "inner" } finally { print "finally" }
+            error make { msg: "error" }
+        }
+        print "outer"
+        "#
+    );
+    assert!(actual.out.contains("outer"));
 }

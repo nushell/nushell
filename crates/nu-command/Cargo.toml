@@ -42,7 +42,8 @@ nu-system.workspace = true
 nu-table.workspace = true
 nu-term-grid.workspace = true
 nu-utils.workspace = true
-nu-heavy-utils = { workspace = true, features = ["endian", "merge"] }
+nu-heavy-utils = { workspace = true, features = ["endian", "merge", "yaml"] }
+nu-config.workspace = true
 nuon.workspace = true
 
 alphanumeric-sort = { workspace = true }
@@ -116,7 +117,6 @@ scopeguard = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true, features = ["preserve_order"] }
 serde_urlencoded = { workspace = true }
-serde_yaml = { workspace = true }
 sha2 = { workspace = true }
 strum = { workspace = true }
 sysinfo = { workspace = true }
@@ -225,7 +225,13 @@ os = [
 # The dependencies listed below need 'getrandom'.
 # They work with JS (usually with wasm-bindgen) or regular OS support.
 # Hence they are also put under the 'os' feature to avoid repetition.
-js = ["aegis-password-generator", "getrandom", "getrandom/wasm_js", "rand", "uuid"]
+js = [
+	"aegis-password-generator",
+	"getrandom",
+	"getrandom/wasm_js",
+	"rand",
+	"uuid",
+]
 
 # These dependencies require networking capabilities, especially the http
 # interface requires openssl which is not easy to embed into wasm,
@@ -239,11 +245,7 @@ network = [
 	"uuid",
 ]
 
-native-tls = [
-	"dep:native-tls",
-	"update-informer/native-tls",
-	"ureq/native-tls",
-]
+native-tls = ["dep:native-tls", "update-informer/native-tls", "ureq/native-tls"]
 rustls-tls = [
 	"dep:rustls-native-certs",
 	"dep:rustls",
@@ -253,7 +255,7 @@ rustls-tls = [
 	"ureq/rustls",
 ]
 
-plugin = ["nu-parser/plugin", "os"]
+plugin = ["nu-parser/plugin", "nu-test-support/plugin", "os"]
 sqlite = ["rusqlite"]
 trash-support = ["trash"]
 
@@ -262,9 +264,10 @@ nu-cmd-lang.workspace = true
 nu-test-support = { path = "../nu-test-support" }
 
 dirs = { workspace = true }
+indoc = { workspace = true }
 mockito = { workspace = true, default-features = false }
+pretty_assertions = { workspace = true }
+rand_chacha = { workspace = true }
 rstest = { workspace = true, default-features = false }
 rstest_reuse = { workspace = true }
-pretty_assertions = { workspace = true }
 tempfile = { workspace = true }
-rand_chacha = { workspace = true }
