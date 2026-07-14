@@ -79,9 +79,48 @@ impl UpdateFromValue for XsimPinyinConfig {
     }
 }
 
+#[derive(Clone, Debug, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
+pub struct XsimTargetsConfig {
+    pub paths: bool,
+    pub commands: bool,
+}
+
+impl Default for XsimTargetsConfig {
+    fn default() -> Self {
+        Self {
+            paths: true,
+            commands: false,
+        }
+    }
+}
+
+impl UpdateFromValue for XsimTargetsConfig {
+    fn update<'a>(
+        &mut self,
+        value: &'a Value,
+        path: &mut ConfigPath<'a>,
+        errors: &mut ConfigErrors,
+    ) {
+        let Value::Record { val: record, .. } = value else {
+            errors.type_mismatch(path, Type::record(), value);
+            return;
+        };
+
+        for (col, val) in record.iter() {
+            let path = &mut path.push(col);
+            match col.as_str() {
+                "paths" => self.paths.update(val, path, errors),
+                "commands" => self.commands.update(val, path, errors),
+                _ => errors.unknown_option(path, val),
+            }
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
 pub struct XsimConfig {
     pub enabled: bool,
+    pub targets: XsimTargetsConfig,
     pub romanization: XsimRomanizationConfig,
     pub pinyin: XsimPinyinConfig,
 }
@@ -102,6 +141,7 @@ impl UpdateFromValue for XsimConfig {
             let path = &mut path.push(col);
             match col.as_str() {
                 "enabled" => self.enabled.update(val, path, errors),
+                "targets" => self.targets.update(val, path, errors),
                 "romanization" => self.romanization.update(val, path, errors),
                 "pinyin" => self.pinyin.update(val, path, errors),
                 _ => errors.unknown_option(path, val),
@@ -274,6 +314,8 @@ mod tests {
         let xsim = XsimConfig::default();
 
         assert!(!xsim.enabled);
+        assert!(xsim.targets.paths);
+        assert!(!xsim.targets.commands);
         assert!(xsim.romanization.enabled);
         assert!(xsim.romanization.language_hints.is_empty());
         assert!(!xsim.pinyin.enabled);
@@ -287,6 +329,9 @@ mod tests {
             "completions" => Value::test_record(record! {
                 "xsim" => Value::test_record(record! {
                     "enabled" => Value::test_bool(true),
+                    "targets" => Value::test_record(record! {
+                        "commands" => Value::test_bool(true),
+                    }),
                     "romanization" => Value::test_record(record! {
                         "language_hints" => Value::test_list(vec![
                             Value::test_string("rus"),
@@ -299,6 +344,8 @@ mod tests {
 
         assert!(config.update_from_value(&old, &value).is_ok());
         assert!(config.completions.xsim.enabled);
+        assert!(config.completions.xsim.targets.paths);
+        assert!(config.completions.xsim.targets.commands);
         assert!(config.completions.xsim.romanization.enabled);
         assert_eq!(
             ["rus", "ell"],

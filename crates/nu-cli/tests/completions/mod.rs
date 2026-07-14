@@ -2394,7 +2394,29 @@ fn new_xsim_engine(
     assert!(std::fs::create_dir(root.join("父 目录").join("下载")).is_ok());
 
     let pwd = AbsolutePathBuf::try_from(root.to_path_buf()).unwrap();
-    let (_, _, mut engine, stack) = new_engine_helper(pwd);
+    let (_, _, mut engine, mut stack) = new_engine_helper(pwd);
+    let commands = "
+        def ni-literal [] {}
+        def 你好 [] {}
+        def 您好世界 [] {}
+        def こんにちは [] {}
+        def 한글 [] {}
+        def привет [] {}
+        def ни [] {}
+        def γειά [] {}
+        def مرحبا [] {}
+        def नमस्ते [] {}
+        alias 你好别名 = 你好
+        extern 你好外部 []
+        module 问候 {
+            export def 你好导入 [] {}
+        }
+        module 隐藏问候 {
+            export def 你好未加载 [] {}
+        }
+        use 问候 *
+    ";
+    assert!(support::merge_input(commands.as_bytes(), &mut engine, &mut stack).is_ok());
     let mut config = Config::default();
     config.completions.algorithm = algorithm;
     config.completions.xsim = xsim;
@@ -2413,6 +2435,13 @@ fn enabled_xsim() -> XsimConfig {
 }
 
 #[cfg(feature = "xsim")]
+fn command_xsim() -> XsimConfig {
+    let mut xsim = enabled_xsim();
+    xsim.targets.commands = true;
+    xsim
+}
+
+#[cfg(feature = "xsim")]
 #[test]
 fn xsim_disabled_preserves_literal_completion() {
     let (_temp_dir, mut completer) =
@@ -2420,6 +2449,189 @@ fn xsim_disabled_preserves_literal_completion() {
 
     assert!(completer.complete("cd xiazai", 9).is_empty());
     match_suggestions_by_string(&[folder("下载")], &completer.complete("cd 下载", 9));
+}
+
+#[cfg(feature = "xsim-pinyin")]
+#[test]
+fn xsim_command_completion_is_disabled_by_default() {
+    let mut xsim = enabled_xsim();
+    xsim.pinyin.enabled = true;
+    let (_temp_dir, mut completer) = new_xsim_engine(xsim, CompletionAlgorithm::Prefix);
+
+    assert!(completer.complete("nihao", 5).is_empty());
+    match_suggestions_by_string(&[folder("下载")], &completer.complete("cd xiazai", 9));
+}
+
+#[cfg(feature = "xsim-pinyin")]
+#[test]
+fn xsim_paths_and_commands_are_independent_targets() {
+    let mut commands_only = command_xsim();
+    commands_only.targets.paths = false;
+    commands_only.romanization.enabled = false;
+    commands_only.pinyin.enabled = true;
+    let (_temp_dir, mut completer) = new_xsim_engine(commands_only, CompletionAlgorithm::Prefix);
+
+    assert!(
+        completer
+            .complete("nihao", 5)
+            .iter()
+            .any(|suggestion| suggestion.value == "你好")
+    );
+    assert!(completer.complete("cd xiazai", 9).is_empty());
+
+    let mut paths_only = enabled_xsim();
+    paths_only.romanization.enabled = false;
+    paths_only.pinyin.enabled = true;
+    let (_temp_dir, mut completer) = new_xsim_engine(paths_only, CompletionAlgorithm::Prefix);
+
+    assert!(completer.complete("nihao", 5).is_empty());
+    match_suggestions_by_string(&[folder("下载")], &completer.complete("cd xiazai", 9));
+}
+
+#[cfg(feature = "xsim-pinyin")]
+#[test]
+fn xsim_command_completion_matches_chinese_visible_declarations() {
+    let mut xsim = command_xsim();
+    xsim.romanization.enabled = false;
+    xsim.pinyin.enabled = true;
+    let (_temp_dir, mut completer) = new_xsim_engine(xsim, CompletionAlgorithm::Prefix);
+
+    let suggestions = completer.complete("ni", 2);
+    assert_eq!(
+        Some("ni-literal"),
+        suggestions
+            .first()
+            .map(|suggestion| suggestion.value.as_str())
+    );
+    for command in ["你好", "您好世界"] {
+        assert!(
+            suggestions
+                .iter()
+                .any(|suggestion| suggestion.value == command),
+            "missing command completion for {command}"
+        );
+    }
+
+    for (input, command) in [
+        ("nihaobieming", "你好别名"),
+        ("nihaodaoru", "你好导入"),
+        ("nihaowaibu", "你好外部"),
+    ] {
+        assert!(
+            completer
+                .complete(input, input.len())
+                .iter()
+                .any(|suggestion| suggestion.value == command),
+            "missing command completion for {command}"
+        );
+    }
+
+    let unloaded = "nihaoweijiazai";
+    assert!(completer.complete(unloaded, unloaded.len()).is_empty());
+}
+
+#[cfg(feature = "xsim-romanization")]
+#[test]
+fn xsim_command_completion_romanizes_supported_scripts() {
+    let (_temp_dir, mut completer) = new_xsim_engine(command_xsim(), CompletionAlgorithm::Prefix);
+    let cases = [
+        ("konnichi", "こんにちは"),
+        ("hangeul", "한글"),
+        ("privet", "привет"),
+        ("geia", "γειά"),
+        ("mrhba", "مرحبا"),
+        ("namaste", "नमस्ते"),
+    ];
+
+    for (input, command) in cases {
+        assert!(
+            completer
+                .complete(input, input.len())
+                .iter()
+                .any(|suggestion| suggestion.value == command),
+            "missing command completion for {command}"
+        );
+    }
+}
+
+#[cfg(feature = "xsim-pinyin")]
+#[test]
+fn xsim_command_completion_uses_all_native_match_algorithms() {
+    let cases = [
+        (CompletionAlgorithm::Prefix, "ni"),
+        (CompletionAlgorithm::Substring, "iha"),
+        (CompletionAlgorithm::Fuzzy, "nho"),
+    ];
+
+    for (algorithm, input) in cases {
+        let mut xsim = command_xsim();
+        xsim.romanization.enabled = false;
+        xsim.pinyin.enabled = true;
+        let (_temp_dir, mut completer) = new_xsim_engine(xsim, algorithm);
+        assert!(
+            completer
+                .complete(input, input.len())
+                .iter()
+                .any(|suggestion| suggestion.value == "你好")
+        );
+    }
+}
+
+#[cfg(all(feature = "xsim-pinyin", feature = "xsim-romanization"))]
+#[test]
+fn xsim_command_completion_deduplicates_generated_keys() {
+    let mut xsim = command_xsim();
+    xsim.pinyin.enabled = true;
+    let (_temp_dir, mut completer) = new_xsim_engine(xsim, CompletionAlgorithm::Prefix);
+
+    let suggestions = completer.complete("nihao", 5);
+    assert_eq!(
+        1,
+        suggestions
+            .iter()
+            .filter(|suggestion| suggestion.value == "你好")
+            .count()
+    );
+}
+
+#[cfg(all(feature = "xsim-pinyin", feature = "xsim-romanization"))]
+#[test]
+fn xsim_command_completion_orders_literal_pinyin_then_romanization() {
+    let mut xsim = command_xsim();
+    xsim.pinyin.enabled = true;
+    let (_temp_dir, mut completer) = new_xsim_engine(xsim, CompletionAlgorithm::Prefix);
+
+    let suggestions = completer.complete("ni", 2);
+    let position = |value: &str| {
+        suggestions
+            .iter()
+            .position(|suggestion| suggestion.value == value)
+    };
+
+    assert!(matches!(
+        (position("ni-literal"), position("你好"), position("ни")),
+        (Some(literal), Some(pinyin), Some(romanization))
+            if literal < pinyin && pinyin < romanization
+    ));
+}
+
+#[cfg(feature = "xsim-pinyin")]
+#[test]
+fn xsim_command_completion_inserts_unicode_without_generated_indices() {
+    let mut xsim = command_xsim();
+    xsim.romanization.enabled = false;
+    xsim.pinyin.enabled = true;
+    let (_temp_dir, mut completer) = new_xsim_engine(xsim, CompletionAlgorithm::Prefix);
+
+    let suggestions = completer.complete("nihao", 5);
+    let suggestion = suggestions
+        .iter()
+        .find(|suggestion| suggestion.value == "你好");
+    assert!(suggestion.is_some());
+    if let Some(suggestion) = suggestion {
+        assert_eq!("你好", suggestion.value);
+        assert_eq!(Some(Vec::new()), suggestion.match_indices);
+    }
 }
 
 #[cfg(feature = "xsim-romanization")]

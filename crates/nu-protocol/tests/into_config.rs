@@ -145,6 +145,12 @@ fn xsim_config_defaults_and_deep_mutations() -> Result {
         .run("$env.config.completions.xsim.enabled")
         .expect_value_eq(false)?;
     tester
+        .run("$env.config.completions.xsim.targets.paths")
+        .expect_value_eq(true)?;
+    tester
+        .run("$env.config.completions.xsim.targets.commands")
+        .expect_value_eq(false)?;
+    tester
         .run("$env.config.completions.xsim.romanization.enabled")
         .expect_value_eq(true)?;
     tester
@@ -155,12 +161,19 @@ fn xsim_config_defaults_and_deep_mutations() -> Result {
         .expect_value_eq(false)?;
 
     let () = tester.run("$env.config.completions.xsim.enabled = true")?;
+    let () = tester.run("$env.config.completions.xsim.targets.commands = true")?;
     let () = tester.run("$env.config.completions.xsim.pinyin.enabled = true")?;
     let () =
         tester.run("$env.config.completions.xsim.romanization.language_hints = ['rus' 'ell']")?;
 
     tester
         .run("$env.config.completions.xsim.enabled")
+        .expect_value_eq(true)?;
+    tester
+        .run("$env.config.completions.xsim.targets.paths")
+        .expect_value_eq(true)?;
+    tester
+        .run("$env.config.completions.xsim.targets.commands")
         .expect_value_eq(true)?;
     tester
         .run("$env.config.completions.xsim.pinyin.enabled")

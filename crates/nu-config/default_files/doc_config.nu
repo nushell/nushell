@@ -256,11 +256,15 @@ $env.config.completions.partial = true
 # Default: true
 $env.config.completions.use_ls_colors = true
 
-# Cross-script Input Match (XSIM) supplements native file and directory completion.
+# Cross-script Input Match (XSIM) supplements native path and command completion.
 # Provider settings remain valid in builds that omit the corresponding Cargo feature.
-# Default: disabled; enabling XSIM enables Romanization only.
+# Default: disabled; paths are the default target and commands are opt-in.
 $env.config.completions.xsim = {
     enabled: false
+    targets: {
+        paths: true
+        commands: false
+    }
     romanization: {
         enabled: true
         language_hints: [] # Optional ISO 639-3 codes, for example: ["rus" "ell"]

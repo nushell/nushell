@@ -375,7 +375,7 @@ fn complete_item_with_options(
     #[cfg(feature = "xsim")]
     let xsim_providers = xsim_config
         .as_ref()
-        .and_then(|config| ProviderRegistry::new(&config.completions.xsim));
+        .and_then(|config| ProviderRegistry::for_paths(&config.completions.xsim));
 
     complete_rec(
         partial.as_slice(),

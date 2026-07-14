@@ -63,7 +63,23 @@ pub(crate) struct ProviderRegistry {
 }
 
 impl ProviderRegistry {
-    pub(crate) fn new(config: &XsimConfig) -> Option<Self> {
+    pub(crate) fn for_paths(config: &XsimConfig) -> Option<Self> {
+        if config.targets.paths {
+            Self::new(config)
+        } else {
+            None
+        }
+    }
+
+    pub(crate) fn for_commands(config: &XsimConfig) -> Option<Self> {
+        if config.targets.commands {
+            Self::new(config)
+        } else {
+            None
+        }
+    }
+
+    fn new(config: &XsimConfig) -> Option<Self> {
         if !config.enabled || !has_enabled_provider(config) {
             return None;
         }
@@ -274,7 +290,8 @@ mod tests {
 
     #[test]
     fn disabled_registry_is_unavailable() {
-        assert!(ProviderRegistry::new(&XsimConfig::default()).is_none());
+        assert!(ProviderRegistry::for_paths(&XsimConfig::default()).is_none());
+        assert!(ProviderRegistry::for_commands(&XsimConfig::default()).is_none());
     }
 
     #[cfg(not(any(feature = "xsim-pinyin", feature = "xsim-romanization")))]
@@ -286,7 +303,7 @@ mod tests {
         };
         config.pinyin.enabled = true;
 
-        assert!(ProviderRegistry::new(&config).is_none());
+        assert!(ProviderRegistry::for_paths(&config).is_none());
     }
 
     #[cfg(all(feature = "xsim-pinyin", feature = "xsim-romanization"))]
@@ -299,7 +316,7 @@ mod tests {
             ..XsimConfig::default()
         };
         config.pinyin.enabled = true;
-        let Some(providers) = ProviderRegistry::new(&config) else {
+        let Some(providers) = ProviderRegistry::for_paths(&config) else {
             panic!("both providers should be compiled and enabled");
         };
 
