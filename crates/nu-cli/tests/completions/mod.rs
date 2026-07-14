@@ -11,6 +11,8 @@ use nu_cli::NuCompleter;
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_path::{AbsolutePathBuf, expand_tilde};
+#[cfg(feature = "xsim")]
+use nu_protocol::{CompletionAlgorithm, XsimConfig};
 use nu_protocol::{
     Config, ParseError, PipelineData, Value, debugger::WithoutDebug, engine::StateWorkingSet,
 };
@@ -2352,6 +2354,285 @@ fn file_completion_quoted_match_indices(
             );
         }
     }
+}
+
+#[cfg(feature = "xsim")]
+fn new_xsim_engine(
+    xsim: XsimConfig,
+    algorithm: CompletionAlgorithm,
+) -> (tempfile::TempDir, NuCompleter) {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let root = temp_dir.path();
+
+    for dir in [
+        "下载",
+        "项目资料",
+        "ドキュメント",
+        "ひらがな",
+        "xz-literal",
+        "学习 资料",
+        "包含 空格",
+        ".下载",
+    ] {
+        assert!(std::fs::create_dir(root.join(dir)).is_ok());
+    }
+    for file in [
+        "москва.txt",
+        "αθήνα.md",
+        "한글-파일",
+        "مرحبا.txt",
+        "नमस्ते-दुनिया",
+        "notes_ドキュメント-v2.txt",
+        "елена.txt",
+        "下载.nu",
+    ] {
+        assert!(std::fs::write(root.join(file), []).is_ok());
+    }
+    assert!(std::fs::create_dir(root.join("alpha")).is_ok());
+    assert!(std::fs::create_dir(root.join("alpha").join("下载")).is_ok());
+    assert!(std::fs::create_dir(root.join("父 目录")).is_ok());
+    assert!(std::fs::create_dir(root.join("父 目录").join("下载")).is_ok());
+
+    let pwd = AbsolutePathBuf::try_from(root.to_path_buf()).unwrap();
+    let (_, _, mut engine, stack) = new_engine_helper(pwd);
+    let mut config = Config::default();
+    config.completions.algorithm = algorithm;
+    config.completions.xsim = xsim;
+    engine.set_config(config);
+    let completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    (temp_dir, completer)
+}
+
+#[cfg(feature = "xsim")]
+fn enabled_xsim() -> XsimConfig {
+    XsimConfig {
+        enabled: true,
+        ..XsimConfig::default()
+    }
+}
+
+#[cfg(feature = "xsim")]
+#[test]
+fn xsim_disabled_preserves_literal_completion() {
+    let (_temp_dir, mut completer) =
+        new_xsim_engine(XsimConfig::default(), CompletionAlgorithm::Prefix);
+
+    assert!(completer.complete("cd xiazai", 9).is_empty());
+    match_suggestions_by_string(&[folder("下载")], &completer.complete("cd 下载", 9));
+}
+
+#[cfg(feature = "xsim-romanization")]
+#[test]
+fn xsim_default_enabled_configuration_is_romanization_only() {
+    let (_temp_dir, mut completer) = new_xsim_engine(enabled_xsim(), CompletionAlgorithm::Prefix);
+
+    let cases = [
+        ("ls dokyumento", vec![folder("ドキュメント")]),
+        ("open hiragana", vec![folder("ひらがな")]),
+        ("open moskva", vec![file("москва.txt")]),
+        ("open athena", vec![file("αθήνα.md")]),
+        ("open hangeul", vec![file("한글-파일")]),
+        ("open mrhba", vec![file("مرحبا.txt")]),
+        ("open namaste", vec![file("नमस्ते-दुनिया")]),
+        (
+            "open notes_dokyumento",
+            vec![file("notes_ドキュメント-v2.txt")],
+        ),
+    ];
+
+    for (input, expected) in cases {
+        let suggestions = completer.complete(input, input.len());
+        match_suggestions_by_string(&expected, &suggestions);
+    }
+
+    // Pinyin initials are provided only by the specialized Pinyin provider.
+    assert!(completer.complete("cd xmzl", 7).is_empty());
+}
+
+#[cfg(feature = "xsim-pinyin")]
+#[test]
+fn xsim_pinyin_explicitly_enabled_matches_full_and_initial_keys() {
+    let mut xsim = enabled_xsim();
+    xsim.romanization.enabled = false;
+    xsim.pinyin.enabled = true;
+    let (_temp_dir, mut completer) = new_xsim_engine(xsim, CompletionAlgorithm::Prefix);
+
+    let cases = [
+        ("cd xz", vec![folder("xz-literal"), folder("下载")]),
+        ("cd xiazai", vec![folder("下载")]),
+        ("cd xmzl", vec![folder("项目资料")]),
+        ("cd baohan", vec![format!("`{}`", folder("包含 空格"))]),
+        (
+            "cd alpha/xz",
+            vec![folder(std::path::Path::new("alpha").join("下载"))],
+        ),
+    ];
+
+    for (input, expected) in cases {
+        match_suggestions_by_string(&expected, &completer.complete(input, input.len()));
+    }
+}
+
+#[cfg(feature = "xsim")]
+#[test]
+fn xsim_all_providers_disabled_is_a_no_op() {
+    let mut xsim = enabled_xsim();
+    xsim.romanization.enabled = false;
+    xsim.pinyin.enabled = false;
+    let (_temp_dir, mut completer) = new_xsim_engine(xsim, CompletionAlgorithm::Prefix);
+
+    assert!(completer.complete("cd xiazai", 9).is_empty());
+    match_suggestions_by_string(&[folder("xz-literal")], &completer.complete("cd xz", 5));
+}
+
+#[cfg(all(
+    feature = "xsim",
+    not(any(feature = "xsim-pinyin", feature = "xsim-romanization"))
+))]
+#[test]
+fn xsim_unavailable_provider_features_are_a_no_op() {
+    let mut xsim = enabled_xsim();
+    xsim.pinyin.enabled = true;
+    let (_temp_dir, mut completer) = new_xsim_engine(xsim, CompletionAlgorithm::Prefix);
+
+    assert!(completer.complete("cd xiazai", 9).is_empty());
+}
+
+#[cfg(feature = "xsim-pinyin")]
+#[test]
+fn xsim_pinyin_uses_all_native_match_algorithms() {
+    let mut xsim = enabled_xsim();
+    xsim.romanization.enabled = false;
+    xsim.pinyin.enabled = true;
+    let cases = [
+        (CompletionAlgorithm::Prefix, "cd xiazai"),
+        (CompletionAlgorithm::Substring, "cd azai"),
+        (CompletionAlgorithm::Fuzzy, "cd xai"),
+    ];
+
+    for (algorithm, input) in cases {
+        let (_temp_dir, mut completer) = new_xsim_engine(xsim.clone(), algorithm);
+        let suggestions = completer.complete(input, input.len());
+        assert!(
+            suggestions
+                .iter()
+                .any(|suggestion| suggestion.value == folder("下载"))
+        );
+    }
+}
+
+#[cfg(feature = "xsim-romanization")]
+#[test]
+fn xsim_romanization_uses_all_native_match_algorithms() {
+    let cases = [
+        (CompletionAlgorithm::Prefix, "cd hiragana"),
+        (CompletionAlgorithm::Substring, "cd rag"),
+        (CompletionAlgorithm::Fuzzy, "cd hrgn"),
+    ];
+
+    for (algorithm, input) in cases {
+        let (_temp_dir, mut completer) = new_xsim_engine(enabled_xsim(), algorithm);
+        match_suggestions_by_string(
+            &[folder("ひらがな")],
+            &completer.complete(input, input.len()),
+        );
+    }
+}
+
+#[cfg(feature = "xsim-romanization")]
+#[test]
+fn xsim_language_hint_adds_an_improved_key() {
+    let (_temp_dir, mut unhinted) = new_xsim_engine(enabled_xsim(), CompletionAlgorithm::Prefix);
+    assert!(unhinted.complete("open yelena", 11).is_empty());
+
+    let mut xsim = enabled_xsim();
+    xsim.romanization.language_hints = vec!["rus".into()];
+    let (_temp_dir, mut hinted) = new_xsim_engine(xsim, CompletionAlgorithm::Prefix);
+    match_suggestions_by_string(&[file("елена.txt")], &hinted.complete("open yelena", 11));
+}
+
+#[cfg(feature = "xsim-pinyin")]
+#[test]
+fn xsim_path_completion_preserves_unicode_values_and_empty_match_indices() {
+    let mut xsim = enabled_xsim();
+    xsim.pinyin.enabled = true;
+    let (_temp_dir, mut completer) = new_xsim_engine(xsim, CompletionAlgorithm::Prefix);
+
+    let suggestions = completer.complete("cd xiazai", 9);
+    assert_eq!(1, suggestions.len());
+    assert_eq!(folder("下载"), suggestions[0].value);
+    assert_eq!(Some(Vec::new()), suggestions[0].match_indices);
+}
+
+#[cfg(all(feature = "xsim-pinyin", feature = "xsim-romanization"))]
+#[test]
+fn xsim_path_completion_keeps_literal_matches_before_xsim_matches() {
+    let mut xsim = enabled_xsim();
+    xsim.pinyin.enabled = true;
+    let (_temp_dir, mut completer) = new_xsim_engine(xsim, CompletionAlgorithm::Prefix);
+
+    let suggestions = completer.complete("cd xz", 5);
+    match_suggestions_by_string(&[folder("xz-literal"), folder("下载")], &suggestions);
+}
+
+#[cfg(feature = "xsim-pinyin")]
+#[test]
+fn xsim_path_completion_handles_spaces_quotes_and_path_segments() {
+    let mut xsim = enabled_xsim();
+    xsim.romanization.enabled = false;
+    xsim.pinyin.enabled = true;
+    let (_temp_dir, mut completer) = new_xsim_engine(xsim, CompletionAlgorithm::Prefix);
+
+    let suggestions = completer.complete("cd xuexi", 8);
+    match_suggestions_by_string(&[format!("`{}`", folder("学习 资料"))], &suggestions);
+
+    let input = "cd `父 目录/xz";
+    let suggestions = completer.complete(input, input.len());
+    match_suggestions_by_string(
+        &[format!(
+            "`{}`",
+            folder(std::path::Path::new("父 目录").join("下载"))
+        )],
+        &suggestions,
+    );
+
+    let input = format!("cd alpha{MAIN_SEPARATOR}xz");
+    let suggestions = completer.complete(&input, input.len());
+    match_suggestions_by_string(
+        &[folder(std::path::Path::new("alpha").join("下载"))],
+        &suggestions,
+    );
+}
+
+#[cfg(feature = "xsim-pinyin")]
+#[test]
+fn xsim_path_completion_preserves_hidden_file_behavior() {
+    let mut xsim = enabled_xsim();
+    xsim.romanization.enabled = false;
+    xsim.pinyin.enabled = true;
+    let (_temp_dir, mut completer) = new_xsim_engine(xsim, CompletionAlgorithm::Prefix);
+
+    let suggestions = completer.complete("cd xiazai", 9);
+    match_suggestions_by_string(&[folder("下载")], &suggestions);
+
+    let suggestions = completer.complete("cd .xz", 6);
+    match_suggestions_by_string(&[folder(".下载")], &suggestions);
+}
+
+#[cfg(feature = "xsim-pinyin")]
+#[test]
+fn xsim_does_not_affect_dotnu_completion() {
+    let mut xsim = enabled_xsim();
+    xsim.pinyin.enabled = true;
+    let (_temp_dir, mut completer) = new_xsim_engine(xsim, CompletionAlgorithm::Prefix);
+
+    let suggestions = completer.complete("use xiazai", 10);
+    assert!(
+        suggestions
+            .iter()
+            .all(|suggestion| suggestion.value != "下载.nu")
+    );
 }
 
 #[test]
