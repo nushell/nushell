@@ -25,7 +25,7 @@ use nu_protocol::FromValue;
 ///     let exit_code = result["exit_code"].as_int()?;
 ///
 ///     assert_ne!(exit_code, 0);
-///     assert!(stderr.contains("nu::shell::io::file_not_found"));
+///     assert_contains("nu::shell::io::file_not_found", stderr);
 ///
 ///     Ok(())
 /// }
@@ -46,7 +46,7 @@ use nu_protocol::FromValue;
 ///     let result: CompleteResult = test().run("nu non-existent-script.nu | complete")?;
 ///
 ///     assert_ne!(result.exit_code, 0);
-///     assert!(result.stderr.contains("nu::shell::io::file_not_found"));
+///     assert_contains("nu::shell::io::file_not_found", result.stderr);
 ///
 ///     Ok(())
 /// }
