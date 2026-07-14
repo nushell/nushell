@@ -70,7 +70,7 @@ static INITIAL_ENGINE_STATES: KeyedLazyLock<GroupKey, EngineState> = KeyedLazyLo
     engine_state
 });
 
-/// Plugin auto loader for [`THREAD_PLUGIN_AUTO_LOAD`] and [`GLOBAL_PLUGIN_AUTO_LOAD`].
+/// Plugin auto loader for [`PLUGIN_AUTO_LOAD`].
 #[cfg(feature = "plugin")]
 #[derive(Debug, Clone)]
 pub struct PluginAutoLoader {
