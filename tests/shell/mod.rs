@@ -452,6 +452,7 @@ fn source_use_null(#[case] code: &str) -> Result {
 }
 
 #[test]
+#[deps(NU)]
 fn source_script_with_let_variable() -> Result {
     Playground::setup("source_script_with_let", |dirs, sandbox| -> Result {
         sandbox.with_files(&[
@@ -459,16 +460,14 @@ fn source_script_with_let_variable() -> Result {
             FileWithContent("lll.nu", "let xxx = 'let in script'\nsource sss.nu"),
         ]);
 
-        let out: String = test()
-            .cwd(dirs.test())
-            .add_nu_to_path()
-            .run("nu lll.nu | to text")?;
+        let out: String = test().cwd(dirs.test()).run("nu lll.nu | to text")?;
         assert_eq!(out, "let in script\n13");
         Ok(())
     })
 }
 
 #[test]
+#[deps(NU)]
 fn source_script_with_mut_variable() -> Result {
     Playground::setup("source_script_with_mut", |dirs, sandbox| -> Result {
         sandbox.with_files(&[
@@ -476,16 +475,14 @@ fn source_script_with_mut_variable() -> Result {
             FileWithContent("mmm.nu", "mut xxx = 'mut in script'\nsource sss.nu"),
         ]);
 
-        let out: String = test()
-            .cwd(dirs.test())
-            .add_nu_to_path()
-            .run("nu mmm.nu | to text")?;
+        let out: String = test().cwd(dirs.test()).run("nu mmm.nu | to text")?;
         assert_eq!(out, "mut in script");
         Ok(())
     })
 }
 
 #[test]
+#[deps(NU)]
 fn source_script_can_modify_outer_variable() -> Result {
     Playground::setup(
         "source_script_can_modify_outer",
@@ -498,10 +495,7 @@ fn source_script_can_modify_outer_variable() -> Result {
                 ),
             ]);
 
-            let out: String = test()
-                .cwd(dirs.test())
-                .add_nu_to_path()
-                .run("nu counter.nu | to text")?;
+            let out: String = test().cwd(dirs.test()).run("nu counter.nu | to text")?;
             assert_eq!(out, "2");
             Ok(())
         },
@@ -509,6 +503,7 @@ fn source_script_can_modify_outer_variable() -> Result {
 }
 
 #[test]
+#[deps(NU)]
 fn source_script_variable_visible_after_source() -> Result {
     Playground::setup("source_var_visible_after", |dirs, sandbox| -> Result {
         sandbox.with_files(&[
@@ -516,10 +511,7 @@ fn source_script_variable_visible_after_source() -> Result {
             FileWithContent("main.nu", "mut y = 'original'\nsource helper.nu\nprint $y"),
         ]);
 
-        let out: String = test()
-            .cwd(dirs.test())
-            .add_nu_to_path()
-            .run("nu main.nu | to text")?;
+        let out: String = test().cwd(dirs.test()).run("nu main.nu | to text")?;
         assert_eq!(out, "set in source");
         Ok(())
     })
@@ -568,6 +560,7 @@ fn source_redeclared_mut_variable() -> Result {
 }
 
 #[test]
+#[deps(NU)]
 fn source_script_with_let_and_main_command() -> Result {
     // Regression: scripts with both `def main` and `source` should still work
     Playground::setup("source_script_with_main", |dirs, sandbox| -> Result {
@@ -579,16 +572,14 @@ fn source_script_with_let_and_main_command() -> Result {
             ),
         ]);
 
-        let out: String = test()
-            .cwd(dirs.test())
-            .add_nu_to_path()
-            .run("nu app.nu | to text")?;
+        let out: String = test().cwd(dirs.test()).run("nu app.nu | to text")?;
         assert_eq!(out, "hello");
         Ok(())
     })
 }
 
 #[test]
+#[deps(NU)]
 fn source_nested_free_variable_visible() -> Result {
     // Outer free var must resolve through nested source chains (A → B → C).
     Playground::setup("source_nested_free_var", |dirs, sandbox| -> Result {
@@ -598,10 +589,7 @@ fn source_nested_free_variable_visible() -> Result {
             FileWithContent("a.nu", "let xxx = 'nested'\nsource b.nu"),
         ]);
 
-        let out: String = test()
-            .cwd(dirs.test())
-            .add_nu_to_path()
-            .run("nu a.nu | to text")?;
+        let out: String = test().cwd(dirs.test()).run("nu a.nu | to text")?;
         assert_eq!(out, "nested");
         Ok(())
     })
