@@ -8,6 +8,7 @@ use from::ics::FromIcs;
 use from::ini::FromIni;
 use from::plist::FromPlist;
 use from::vcf::FromVcf;
+use from::corn::FromCorn;
 use to::plist::IntoPlist;
 
 pub struct FormatCmdsPlugin;
@@ -23,6 +24,7 @@ impl Plugin for FormatCmdsPlugin {
             Box::new(FromIcs),
             Box::new(FromIni),
             Box::new(FromVcf),
+            Box::new(FromCorn),
             Box::new(FromPlist),
             Box::new(IntoPlist),
         ]
