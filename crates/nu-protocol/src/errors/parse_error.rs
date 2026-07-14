@@ -480,6 +480,34 @@ pub enum ParseError {
     )]
     SourcedFileNotFound(String, #[label("File not found: {0}")] Span),
 
+    #[error("Script file is too large to load with `run`")]
+    #[diagnostic(
+        code(nu::parser::script_file_too_large),
+        help(
+            "The `run` command refuses files larger than {max_size} bytes at parse time (file is {size} bytes). Use a smaller script, or invoke large scripts with `nu path/to/script.nu`."
+        )
+    )]
+    ScriptFileTooLarge {
+        path: String,
+        size: u64,
+        max_size: u64,
+        #[label("file too large for `run`: {path}")]
+        span: Span,
+    },
+
+    #[error("Script file does not appear to be text")]
+    #[diagnostic(
+        code(nu::parser::script_file_not_text),
+        help(
+            "The `run` command only loads UTF-8 text scripts. Binary data (NUL bytes, invalid UTF-8, or dense control characters) is rejected."
+        )
+    )]
+    ScriptFileNotText {
+        path: String,
+        #[label("not a text script for `run`: {path}")]
+        span: Span,
+    },
+
     #[error("File not found")]
     #[diagnostic(
         code(nu::parser::registered_file_not_found),
@@ -644,6 +672,8 @@ impl ParseError {
             ParseError::WrongImportPattern(_, s) => *s,
             ParseError::ExportNotFound(s) => *s,
             ParseError::SourcedFileNotFound(_, s) => *s,
+            ParseError::ScriptFileTooLarge { span, .. } => *span,
+            ParseError::ScriptFileNotText { span, .. } => *span,
             ParseError::RegisteredFileNotFound(_, s) => *s,
             ParseError::FileNotFound(_, s) => *s,
             ParseError::PluginNotFound { name_span, .. } => *name_span,
