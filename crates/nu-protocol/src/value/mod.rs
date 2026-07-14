@@ -76,7 +76,6 @@ use std::{
 // from being constructed (outside of this crate) with the struct
 // expression syntax. This makes using the constructor methods the
 // only way to construct `Value`'s
-#[derive(Debug)]
 pub enum Value {
     #[non_exhaustive]
     Bool {
