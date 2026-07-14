@@ -1,5 +1,5 @@
 #!/usr/bin/env nu
-use std assert
+use std/assert
 
 # Usage:
 #   docker run -it --rm -v $"(pwd):/work" nushell:alpine /work/test_docker.nu
