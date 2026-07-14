@@ -213,6 +213,7 @@ parking_lot = "0.12.5"
 pastey = "0.2.3"
 pathdiff = "0.2"
 percent-encoding = "2"
+pinyin = "0.11.0"
 pretty_assertions = "1.4"
 print-positions = "0.6"
 proc-macro-error2 = "2.0"
@@ -274,6 +275,7 @@ update-informer = { version = "1.3.0", default-features = false, features = ["gi
 umask = "2.1"
 unicode-segmentation = "1.13"
 unicode-width = "0.2"
+uroman-rs = { package = "uroman", version = "0.6.6", default-features = false }
 ureq = { version = "~3.3.0", default-features = false, features = ["socks-proxy"] }
 url = "2.5"
 uu_cp = "0.9.0"
@@ -389,6 +391,8 @@ full = [
   "sqlite",
   "system-clipboard",
   "trash-support",
+  "xsim-pinyin",
+  "xsim-romanization",
 ]
 
 plugin = [
@@ -451,6 +455,11 @@ sqlite = [
   "nu-protocol/sqlite",
   "reedline/sqlite",
 ]
+
+# Cross-script Input Match for native file and directory completion.
+xsim = ["nu-cli/xsim"]
+xsim-romanization = ["xsim", "nu-cli/xsim-romanization"]
+xsim-pinyin = ["xsim", "nu-cli/xsim-pinyin"]
 
 [profile.release]
 opt-level = "s"     # Optimize for size

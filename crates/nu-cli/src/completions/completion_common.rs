@@ -1,3 +1,5 @@
+#[cfg(feature = "xsim")]
+use super::xsim::{ProviderRegistry, XsimMatcher};
 use super::{MatchAlgorithm, completion_options::NuMatcher};
 use crate::completions::CompletionOptions;
 use nu_ansi_term::Style;
@@ -27,6 +29,13 @@ pub struct MatchedPart {
     match_indices: Vec<usize>,
 }
 
+#[derive(Clone, Copy)]
+struct PathCompletionOptions {
+    want_directory: bool,
+    #[cfg(feature = "xsim")]
+    enable_xsim: bool,
+}
+
 /// Recursively goes through paths that match a given `partial`.
 /// * `built_paths`: State struct for a valid matching path built so far.
 /// * `want_directory`: Whether we want only directories as completion matches.
@@ -40,7 +49,8 @@ fn complete_rec(
     partial: &[&str],
     built_paths: &[PathBuiltFromString],
     options: &CompletionOptions,
-    want_directory: bool,
+    path_options: PathCompletionOptions,
+    #[cfg(feature = "xsim")] xsim_providers: Option<&ProviderRegistry>,
     isdir: bool,
     enable_exact_match: bool,
 ) -> Vec<PathBuiltFromString> {
@@ -66,7 +76,9 @@ fn complete_rec(
             rest,
             &built_paths,
             options,
-            want_directory,
+            path_options,
+            #[cfg(feature = "xsim")]
+            xsim_providers,
             isdir,
             enable_exact_match,
         );
@@ -74,6 +86,9 @@ fn complete_rec(
 
     let prefix = partial.first().unwrap_or(&"");
     let mut matcher = NuMatcher::new(prefix, options, true);
+    #[cfg(feature = "xsim")]
+    let mut xsim_matcher =
+        xsim_providers.and_then(|providers| XsimMatcher::new(prefix, options, providers));
 
     let mut exact_match = None;
     // Only relevant for case insensitive matching
@@ -94,7 +109,7 @@ fn complete_rec(
             let mut built = built.clone();
             built.isdir = entry_isdir;
 
-            if !want_directory || entry_isdir {
+            if !path_options.want_directory || entry_isdir {
                 if enable_exact_match && !multiple_exact_matches && has_more {
                     let matches = if options.case_sensitive {
                         entry_name.eq(prefix)
@@ -116,7 +131,15 @@ fn complete_rec(
                     }
                 }
 
+                #[cfg(feature = "xsim")]
+                let literal_added =
+                    matcher.add(entry_name.clone(), (built.clone(), entry_name.clone()));
+                #[cfg(not(feature = "xsim"))]
                 matcher.add(entry_name.clone(), (built, entry_name));
+                #[cfg(feature = "xsim")]
+                if !literal_added && let Some(xsim_matcher) = &mut xsim_matcher {
+                    xsim_matcher.add(&entry_name, (built, entry_name.clone()));
+                }
             }
         }
     }
@@ -127,23 +150,44 @@ fn complete_rec(
             &partial[1..],
             &[built],
             options,
-            want_directory,
+            path_options,
+            #[cfg(feature = "xsim")]
+            xsim_providers,
             isdir,
             true,
         );
     }
 
-    let completion_iter =
-        matcher
-            .results()
-            .into_iter()
-            .map(|((mut built, last_entry_name), last_match_indices)| {
-                built.parts.push(MatchedPart {
-                    text: last_entry_name,
-                    match_indices: last_match_indices,
-                });
-                built
+    let completions = matcher
+        .results()
+        .into_iter()
+        .map(|((mut built, last_entry_name), last_match_indices)| {
+            built.parts.push(MatchedPart {
+                text: last_entry_name,
+                match_indices: last_match_indices,
             });
+            built
+        })
+        .collect::<Vec<_>>();
+
+    #[cfg(feature = "xsim")]
+    let completions = {
+        let mut completions = completions;
+        if let Some(xsim_matcher) = xsim_matcher {
+            completions.extend(xsim_matcher.results().into_iter().map(
+                |(mut built, last_entry_name)| {
+                    built.parts.push(MatchedPart {
+                        text: last_entry_name,
+                        match_indices: Vec::new(),
+                    });
+                    built
+                },
+            ));
+        }
+        completions
+    };
+
+    let completion_iter = completions.into_iter();
 
     if has_more {
         completion_iter
@@ -152,7 +196,9 @@ fn complete_rec(
                     &partial[1..],
                     &[completion],
                     options,
-                    want_directory,
+                    path_options,
+                    #[cfg(feature = "xsim")]
+                    xsim_providers,
                     isdir,
                     false,
                 )
@@ -204,6 +250,54 @@ pub fn complete_item(
     options: &CompletionOptions,
     engine_state: &EngineState,
     stack: &Stack,
+) -> Vec<FileSuggestion> {
+    complete_item_with_options(
+        span,
+        partial,
+        cwds,
+        options,
+        engine_state,
+        stack,
+        PathCompletionOptions {
+            want_directory,
+            #[cfg(feature = "xsim")]
+            enable_xsim: true,
+        },
+    )
+}
+
+pub fn complete_item_without_xsim(
+    want_directory: bool,
+    span: nu_protocol::Span,
+    partial: &str,
+    cwds: &[impl AsRef<str>],
+    options: &CompletionOptions,
+    engine_state: &EngineState,
+    stack: &Stack,
+) -> Vec<FileSuggestion> {
+    complete_item_with_options(
+        span,
+        partial,
+        cwds,
+        options,
+        engine_state,
+        stack,
+        PathCompletionOptions {
+            want_directory,
+            #[cfg(feature = "xsim")]
+            enable_xsim: false,
+        },
+    )
+}
+
+fn complete_item_with_options(
+    span: nu_protocol::Span,
+    partial: &str,
+    cwds: &[impl AsRef<str>],
+    options: &CompletionOptions,
+    engine_state: &EngineState,
+    stack: &Stack,
+    path_options: PathCompletionOptions,
 ) -> Vec<FileSuggestion> {
     let cleaned_partial = surround_remove(partial);
     let isdir = cleaned_partial.ends_with(is_separator);
@@ -274,6 +368,15 @@ pub fn complete_item(
         .filter(|s| !s.is_empty())
         .collect();
 
+    #[cfg(feature = "xsim")]
+    let xsim_config = path_options
+        .enable_xsim
+        .then(|| stack.get_config(engine_state));
+    #[cfg(feature = "xsim")]
+    let xsim_providers = xsim_config
+        .as_ref()
+        .and_then(|config| ProviderRegistry::new(&config.completions.xsim));
+
     complete_rec(
         partial.as_slice(),
         &cwds
@@ -285,7 +388,9 @@ pub fn complete_item(
             })
             .collect::<Vec<_>>(),
         options,
-        want_directory,
+        path_options,
+        #[cfg(feature = "xsim")]
+        xsim_providers.as_ref(),
         isdir,
         options.match_algorithm == MatchAlgorithm::Prefix,
     )

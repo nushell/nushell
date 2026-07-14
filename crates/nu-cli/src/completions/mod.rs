@@ -16,6 +16,8 @@ mod flag_completions;
 mod operator_completions;
 mod static_completions;
 mod variable_completions;
+#[cfg(feature = "xsim")]
+mod xsim;
 
 pub(crate) use completer::Context;
 
