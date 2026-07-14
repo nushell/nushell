@@ -43,6 +43,7 @@ nu-table.workspace = true
 nu-term-grid.workspace = true
 nu-utils.workspace = true
 nu-heavy-utils = { workspace = true, features = ["endian", "merge", "yaml"] }
+nu-config.workspace = true
 nuon.workspace = true
 
 alphanumeric-sort = { workspace = true }
@@ -134,6 +135,7 @@ ureq = { workspace = true, default-features = false, features = [
 ], optional = true }
 url = { workspace = true }
 uu_cp = { workspace = true, optional = true }
+uu_ln = { workspace = true, optional = true }
 uu_mkdir = { workspace = true, optional = true }
 uu_mktemp = { workspace = true, optional = true }
 uu_mv = { workspace = true, optional = true }
@@ -212,6 +214,7 @@ os = [
 	"os_pipe",
 	"reedline",
 	"uu_cp",
+	"uu_ln",
 	"uu_mkdir",
 	"uu_mktemp",
 	"uu_mv",

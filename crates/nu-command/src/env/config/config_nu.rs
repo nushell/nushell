@@ -1,5 +1,5 @@
+use nu_config::ConfigFileKind;
 use nu_engine::command_prelude::*;
-use nu_utils::ConfigFileKind;
 
 #[derive(Clone)]
 pub struct ConfigNu;

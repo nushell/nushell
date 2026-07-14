@@ -1,7 +1,7 @@
 use nu_protocol::{ConfigError, Record, Type};
 use nu_test_support::prelude::*;
 
-const DEFAULT_FILES_DIR: &str = "crates/nu-utils/src/default_files";
+const DEFAULT_FILES_DIR: &str = "crates/nu-config/default_files";
 
 #[track_caller]
 fn config_error<const N: usize>(err: &ShellError) -> Result<&[ConfigError; N]> {

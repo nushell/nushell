@@ -11,7 +11,7 @@ fn which_ls() -> Result {
 fn which_alias_ls() -> Result {
     test()
         .run("alias ls = ls -a; which ls | get path.0 | str trim")
-        .expect_value_eq("source")
+        .expect_value_eq("nu-tester-0")
 }
 
 #[test]
@@ -19,7 +19,7 @@ fn which_custom_alias() -> Result {
     test()
         .run(r#"alias foo = print "foo!"; which foo | to nuon"#)
         .expect_value_eq(
-            r#"[[command, path, type, definition]; [foo, source, alias, "print \"foo!\""]]"#,
+            r#"[[command, path, type, definition]; [foo, "nu-tester-0", alias, "print \"foo!\""]]"#,
         )
 }
 
@@ -37,7 +37,7 @@ fn correct_precedence_alias_def_custom() -> Result {
     // when an alias exists, so returning both entries would be misleading.
     test()
         .run("def ls [] {echo def}; alias ls = echo alias; which ls | get path.0 | str trim")
-        .expect_value_eq("source")
+        .expect_value_eq("nu-tester-0")
 }
 
 // `get_aliases_with_name` and `get_custom_commands_with_name` don't return the correct count of

@@ -58,6 +58,7 @@ members = [
   "crates/nu-cmd-lang",
   "crates/nu-cmd-plugin",
   "crates/nu-color-config",
+  "crates/nu-config",
   "crates/nu-command",
   "crates/nu-derive-value",
   "crates/nu-engine",
@@ -94,6 +95,7 @@ nu-cmd-lang = { path = "crates/nu-cmd-lang", version = "0.114.2", default-featur
 nu-cmd-plugin = { path = "crates/nu-cmd-plugin", version = "0.114.2", default-features = false }
 nu-color-config = { path = "crates/nu-color-config", version = "0.114.2", default-features = false }
 nu-command = { path = "crates/nu-command", version = "0.114.2", default-features = false }
+nu-config = { path = "crates/nu-config", version = "0.114.2", default-features = false }
 nu-derive-value = { path = "crates/nu-derive-value", version = "0.114.2", default-features = false }
 nu-engine = { path = "crates/nu-engine", version = "0.114.2", default-features = false }
 nu-experimental = { path = "crates/nu-experimental", version = "0.114.2", default-features = false }
@@ -142,7 +144,7 @@ byteorder = "1.5"
 bytes = "1"
 bytesize = "2.3.1"
 byteyarn = "0.5"
-calamine = "0.35"
+calamine = "0.36"
 chardetng = "0.1.17"
 chrono = { default-features = false, version = "0.4.42" }
 chrono-humanize = "0.2.3"
@@ -281,6 +283,7 @@ uu_touch = "0.9.0"
 uu_whoami = "0.9.0"
 uu_uname = "0.9.0"
 uucore = "0.9.0"
+uu_ln =  "0.9.0"
 uuid = "1.23.1"
 v_htmlescape = "0.15.8"
 memchr = "2.8.0"
@@ -329,6 +332,7 @@ nu-protocol = { workspace = true, features = ["os"] }
 nu-std = { workspace = true }
 nu-system = { workspace = true }
 nu-utils = { workspace = true, features = ["os"] }
+nu-config = { workspace = true }
 nu-mcp = { workspace = true, optional = true }
 reedline = { workspace = true, features = ["bashisms"] }
 
@@ -396,6 +400,7 @@ plugin = [
   "nu-cli/plugin",
   "nu-cmd-lang/plugin",
   "nu-command/plugin",
+  "nu-config/plugin",
   "nu-engine/plugin",
   "nu-parser/plugin",
   "nu-protocol/plugin",
