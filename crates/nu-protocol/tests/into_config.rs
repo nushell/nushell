@@ -136,3 +136,49 @@ fn config_unsupported_value_reverted() -> Result {
         .run("$env.config.history.file_format")
         .expect_value_eq("plaintext")
 }
+
+#[test]
+fn xsim_config_defaults_and_deep_mutations() -> Result {
+    let mut tester = test();
+
+    tester
+        .run("$env.config.completions.xsim.enabled")
+        .expect_value_eq(false)?;
+    tester
+        .run("$env.config.completions.xsim.romanization.enabled")
+        .expect_value_eq(true)?;
+    tester
+        .run("$env.config.completions.xsim.romanization.language_hints | is-empty")
+        .expect_value_eq(true)?;
+    tester
+        .run("$env.config.completions.xsim.pinyin.enabled")
+        .expect_value_eq(false)?;
+
+    let () = tester.run("$env.config.completions.xsim.enabled = true")?;
+    let () = tester.run("$env.config.completions.xsim.pinyin.enabled = true")?;
+    let () =
+        tester.run("$env.config.completions.xsim.romanization.language_hints = ['rus' 'ell']")?;
+
+    tester
+        .run("$env.config.completions.xsim.enabled")
+        .expect_value_eq(true)?;
+    tester
+        .run("$env.config.completions.xsim.pinyin.enabled")
+        .expect_value_eq(true)?;
+    tester
+        .run("$env.config.completions.xsim.romanization.language_hints | str join ','")
+        .expect_value_eq("rus,ell")
+}
+
+#[test]
+fn xsim_invalid_language_hints_are_reverted() -> Result {
+    let mut tester = test();
+    let () = tester.run("$env.config.completions.xsim.romanization.language_hints = ['jpn']")?;
+    let _ = tester
+        .run("$env.config.completions.xsim.romanization.language_hints = ['rus' 42]")
+        .expect_shell_error()?;
+
+    tester
+        .run("$env.config.completions.xsim.romanization.language_hints | str join ','")
+        .expect_value_eq("jpn")
+}
