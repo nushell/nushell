@@ -222,6 +222,27 @@ fn checked_ns_mul(value: i64, factor: i64, span: Span) -> Result<i64, ShellError
         })
 }
 
+/// Multiply a floating-point quantity by a nanosecond factor, returning a helpful
+/// error instead of silently saturating.
+///
+/// Casting `f64` to `i64` saturates to `i64::MIN`/`i64::MAX` in Rust, so an
+/// out-of-range product (or a non-finite one) would otherwise be clamped to a
+/// bogus duration instead of reported. `i64::MAX as f64` rounds up to `2^63`, so
+/// the upper bound is exclusive to reject values that would saturate.
+fn checked_ns_mul_f64(value: f64, factor: i64, span: Span) -> Result<i64, ShellError> {
+    let product = value * factor as f64;
+    if !product.is_finite() || product < i64::MIN as f64 || product >= i64::MAX as f64 {
+        return Err(ShellError::OperatorOverflow {
+            msg: "duration too large".into(),
+            span,
+            help: Some(format!(
+                "{value} times {factor} nanoseconds overflows the 64-bit duration range"
+            )),
+        });
+    }
+    Ok(product as i64)
+}
+
 /// Add two nanosecond durations, returning a helpful error instead of overflowing.
 fn checked_ns_add(a: i64, b: i64, span: Span) -> Result<i64, ShellError> {
     a.checked_add(b)
@@ -378,7 +399,10 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         Value::String { val, .. } => {
             if let Ok(num) = val.parse::<f64>() {
                 let ns = unit_to_ns_factor(unit);
-                return Value::duration((num * (ns as f64)) as i64, head);
+                return match checked_ns_mul_f64(num, ns, value_span) {
+                    Ok(duration) => Value::duration(duration, head),
+                    Err(err) => Value::error(err, value_span),
+                };
             }
             match compound_to_duration(val, value_span) {
                 Ok(val) => Value::duration(val, head),
@@ -387,13 +411,18 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         }
         Value::Float { val, .. } => {
             let ns = unit_to_ns_factor(unit);
-            Value::duration((*val * (ns as f64)) as i64, head)
+            match checked_ns_mul_f64(*val, ns, value_span) {
+                Ok(duration) => Value::duration(duration, head),
+                Err(err) => Value::error(err, value_span),
+            }
         }
         Value::Int { val, .. } => {
             let ns = unit_to_ns_factor(unit);
-            match checked_ns_mul(*val, ns, head) {
+            // Report the overflow against the input value's span (not the call
+            // span) so the error highlights the offending cell.
+            match checked_ns_mul(*val, ns, value_span) {
                 Ok(duration) => Value::duration(duration, head),
-                Err(err) => Value::error(err, head),
+                Err(err) => Value::error(err, value_span),
             }
         }
         // Propagate errors by explicitly matching them before the final case.
@@ -426,40 +455,27 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<Value, ShellE
         });
     };
 
-    let mut duration: i64 = 0;
+    // (column, nanoseconds-per-unit) for every numeric duration field. The
+    // accumulation is checked so a large record field errors with
+    // `OperatorOverflow` instead of panicking in debug or wrapping in release.
+    const FIELD_FACTORS: &[(&str, i64)] = &[
+        ("week", NS_PER_WEEK),
+        ("day", NS_PER_DAY),
+        ("hour", NS_PER_HOUR),
+        ("minute", NS_PER_MINUTE),
+        ("second", NS_PER_SEC),
+        ("millisecond", NS_PER_MS),
+        ("microsecond", NS_PER_US),
+        ("nanosecond", 1),
+    ];
 
-    if let Some(col_val) = record.get("week") {
-        let week = parse_number_from_record(col_val, &head)?;
-        duration += week * NS_PER_WEEK;
-    };
-    if let Some(col_val) = record.get("day") {
-        let day = parse_number_from_record(col_val, &head)?;
-        duration += day * NS_PER_DAY;
-    };
-    if let Some(col_val) = record.get("hour") {
-        let hour = parse_number_from_record(col_val, &head)?;
-        duration += hour * NS_PER_HOUR;
-    };
-    if let Some(col_val) = record.get("minute") {
-        let minute = parse_number_from_record(col_val, &head)?;
-        duration += minute * NS_PER_MINUTE;
-    };
-    if let Some(col_val) = record.get("second") {
-        let second = parse_number_from_record(col_val, &head)?;
-        duration += second * NS_PER_SEC;
-    };
-    if let Some(col_val) = record.get("millisecond") {
-        let millisecond = parse_number_from_record(col_val, &head)?;
-        duration += millisecond * NS_PER_MS;
-    };
-    if let Some(col_val) = record.get("microsecond") {
-        let microsecond = parse_number_from_record(col_val, &head)?;
-        duration += microsecond * NS_PER_US;
-    };
-    if let Some(col_val) = record.get("nanosecond") {
-        let nanosecond = parse_number_from_record(col_val, &head)?;
-        duration += nanosecond;
-    };
+    let mut duration: i64 = 0;
+    for (column, factor) in FIELD_FACTORS {
+        if let Some(col_val) = record.get(column) {
+            let amount = parse_number_from_record(col_val, &head)?;
+            duration = checked_ns_add(duration, checked_ns_mul(amount, *factor, span)?, span)?;
+        }
+    }
 
     if let Some(sign) = record.get("sign") {
         match sign {
@@ -702,6 +718,39 @@ mod test {
         // `i64::MAX * NS_PER_WEEK` overflows.
         let args = args_with_unit(Unit::Week);
         let actual = action(&Value::test_int(i64::MAX), &args, Span::test_data());
+        assert_overflow(actual);
+    }
+
+    #[test]
+    fn record_field_overflow_errors_instead_of_panicking() {
+        // A record accumulates its fields in nanoseconds; a huge field must
+        // error rather than panic (debug) or wrap (release). Records take their
+        // units from the columns, so no unit argument is supplied.
+        let args = Arguments {
+            unit: None,
+            cell_paths: None,
+        };
+        let input = Value::test_record(record! {
+            "week" => Value::test_int(i64::MAX),
+        });
+        let actual = action(&input, &args, Span::test_data());
+        assert_overflow(actual);
+    }
+
+    #[test]
+    fn float_with_unit_overflow_errors_instead_of_panicking() {
+        // `1e300 * NS_PER_SEC` is far outside the i64 range; the float-to-int
+        // cast would otherwise saturate silently to i64::MAX.
+        let args = args_with_unit(Unit::Second);
+        let actual = action(&Value::test_float(1e300), &args, Span::test_data());
+        assert_overflow(actual);
+    }
+
+    #[test]
+    fn float_string_with_unit_overflow_errors_instead_of_panicking() {
+        // A numeric string parsed as f64 goes through the same saturating cast.
+        let args = args_with_unit(Unit::Second);
+        let actual = action(&Value::test_string("1e300"), &args, Span::test_data());
         assert_overflow(actual);
     }
 
