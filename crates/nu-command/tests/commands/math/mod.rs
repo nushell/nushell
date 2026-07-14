@@ -413,6 +413,27 @@ fn compound_where_paren() -> Result {
 // TODO: these ++ tests are not really testing *math* functionality, maybe find another place for them
 
 #[test]
+fn concat_empty_lhs_list() -> Result {
+    let code = "[] ++ [1 2 3]";
+
+    test().run(code).expect_value_eq([1, 2, 3])
+}
+
+#[test]
+fn concat_empty_rhs_list() -> Result {
+    let code = "[1 2 3] ++ []";
+
+    test().run(code).expect_value_eq([1, 2, 3])
+}
+
+#[test]
+fn concat_both_empty_lists() -> Result {
+    let code = "[] ++ []";
+
+    test().run(code).expect_value_eq(Vec::<i64>::new())
+}
+
+#[test]
 fn concat_lists() -> Result {
     let code = "
         [1 3] ++ [5 6] | to nuon

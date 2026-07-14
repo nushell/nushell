@@ -3538,7 +3538,16 @@ impl Value {
     pub fn concat(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::List { vals: lhs, .. }, Value::List { vals: rhs, .. }) => {
-                Ok(Value::list([lhs.as_slice(), rhs.as_slice()].concat(), span))
+                if lhs.is_empty() {
+                    Ok(Value::list(rhs.clone(), span))
+                } else if rhs.is_empty() {
+                    Ok(Value::list(lhs.clone(), span))
+                } else {
+                    let mut new_vals = Vec::with_capacity(lhs.len() + rhs.len());
+                    new_vals.extend_from_slice(lhs);
+                    new_vals.extend_from_slice(rhs);
+                    Ok(Value::list(new_vals, span))
+                }
             }
             (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => {
                 Ok(Value::string([lhs.as_str(), rhs.as_str()].join(""), span))
@@ -5707,6 +5716,54 @@ mod tests {
             // Verify it's larger than a simple list
             let simple_list = Value::test_list(vec![Value::test_int(1)]);
             assert!(record_size > simple_list.memory_size());
+        }
+    }
+
+    mod concat {
+        use super::*;
+        use crate::Span;
+        use pretty_assertions::assert_eq;
+
+        #[test]
+        fn empty_lhs_clones_rhs() {
+            let empty = Value::test_list(vec![]);
+            let rhs = Value::test_list(vec![Value::test_int(1), Value::test_int(2)]);
+            let out = empty
+                .concat(Span::test_data(), &rhs, Span::test_data())
+                .expect("concat");
+            assert_eq!(out, rhs.with_span(Span::test_data()));
+        }
+
+        #[test]
+        fn empty_rhs_clones_lhs() {
+            let lhs = Value::test_list(vec![Value::test_int(1), Value::test_int(2)]);
+            let empty = Value::test_list(vec![]);
+            let out = lhs
+                .concat(Span::test_data(), &empty, Span::test_data())
+                .expect("concat");
+            assert_eq!(out, lhs.with_span(Span::test_data()));
+        }
+
+        #[test]
+        fn both_nonempty_appends() {
+            let lhs = Value::test_list(vec![Value::test_int(1)]);
+            let rhs = Value::test_list(vec![Value::test_int(2)]);
+            let out = lhs
+                .concat(Span::test_data(), &rhs, Span::test_data())
+                .expect("concat");
+            assert_eq!(
+                out,
+                Value::test_list(vec![Value::test_int(1), Value::test_int(2)])
+            );
+        }
+
+        #[test]
+        fn both_empty() {
+            let empty = Value::test_list(vec![]);
+            let out = empty
+                .concat(Span::test_data(), &empty, Span::test_data())
+                .expect("concat");
+            assert_eq!(out, Value::test_list(vec![]));
         }
     }
 }
