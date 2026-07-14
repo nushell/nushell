@@ -15,7 +15,8 @@ const STREAM_BUFFER_SIZE: usize = 64;
 const CTRL_C_CHECK_INTERVAL: Duration = Duration::from_millis(100);
 
 /// Cache of thread pools keyed by thread count.
-/// Reuses an existing pool instead of spawning OS threads on every `par-each` call.
+/// Reuses an existing pool instead of spawning OS threads on every top-level `par-each`.
+/// Nested calls intentionally bypass this cache (see [`create_pool`]).
 /// Distinct `-t` sizes are rare in practice, so the map is not bounded.
 static THREAD_POOLS: OnceLock<Mutex<HashMap<usize, Arc<rayon::ThreadPool>>>> = OnceLock::new();
 
@@ -32,17 +33,41 @@ fn lock_pool_cache(
     })
 }
 
-/// Get or create a cached pool for an explicit `--threads` count.
+fn build_pool(num_threads: usize, head: Span) -> Result<Arc<rayon::ThreadPool>, ShellError> {
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(num_threads)
+        .build()
+        .map(Arc::new)
+        .map_err(|e| {
+            ShellError::Generic(GenericError::new(
+                "Error creating thread pool",
+                e.to_string(),
+                head,
+            ))
+        })
+}
+
+/// Get or create a thread pool for this `par-each` invocation.
 ///
-/// `num_threads == 0` means use Rayon's global pool (`None`), avoiding a private pool
-/// when the user did not request a custom size.
+/// - `num_threads == 0` at top level: use Rayon's global pool (`None`).
+/// - `num_threads > 0` at top level: reuse a process-wide cached pool of that size.
+/// - **Nested** calls (already running on a Rayon worker): always build a **private,
+///   uncached** pool. Sharing the outer pool deadlocks because the streaming path
+///   blocks the caller on a channel while holding a worker of that same pool.
 ///
-/// Pool construction runs outside the cache lock so concurrent `par-each` callers are
-/// not blocked while OS threads are spawned. A second lookup after build handles races.
+/// Pool construction for the cache path runs outside the cache lock so concurrent
+/// top-level callers are not blocked while OS threads are spawned. A second lookup
+/// after build handles races.
 fn create_pool(
     num_threads: usize,
     head: Span,
 ) -> Result<Option<Arc<rayon::ThreadPool>>, ShellError> {
+    // Nested: never share a pool with the outer `par-each` (cached or global).
+    if rayon::current_thread_index().is_some() {
+        // `num_threads == 0` => Rayon default (logical CPU count), same as a fresh builder.
+        return Ok(Some(build_pool(num_threads, head)?));
+    }
+
     if num_threads == 0 {
         return Ok(None);
     }
@@ -54,17 +79,7 @@ fn create_pool(
         }
     }
 
-    let built = rayon::ThreadPoolBuilder::new()
-        .num_threads(num_threads)
-        .build()
-        .map_err(|e| {
-            ShellError::Generic(GenericError::new(
-                "Error creating thread pool",
-                e.to_string(),
-                head,
-            ))
-        })?;
-    let built = Arc::new(built);
+    let built = build_pool(num_threads, head)?;
 
     let mut pools = lock_pool_cache(head)?;
     // Another caller may have inserted the same key while we were building.
@@ -91,7 +106,11 @@ impl Command for ParEach {
     }
 
     fn description(&self) -> &str {
-        "Run a closure on each row of the input list in parallel, creating a new list with the results. Without --threads, uses the process-wide Rayon pool; with --threads, reuses a cached pool of that size."
+        "Run a closure on each row of the input list in parallel, creating a new list with the results."
+    }
+
+    fn extra_description(&self) -> &str {
+        " Without --threads, uses the process-wide Rayon pool; with --threads, reuses a cached pool of that size. Nested par-each calls use a private pool so they cannot deadlock on the outer pool."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
