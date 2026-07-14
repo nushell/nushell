@@ -89,7 +89,7 @@ fn derive_struct_from_value(
 /// These examples show what the macro would generate.
 ///
 /// Struct with named fields:
-/// ```rust
+/// ```rust,ignore
 /// #[derive(IntoValue)]
 /// struct Pet {
 ///     name: String,
@@ -133,7 +133,7 @@ fn derive_struct_from_value(
 /// ```
 ///
 /// Struct with unnamed fields:
-/// ```rust
+/// ```rust,ignore
 /// #[derive(IntoValue)]
 /// struct Color(u8, u8, u8);
 ///
@@ -184,7 +184,7 @@ fn derive_struct_from_value(
 /// ```
 ///
 /// Unit struct:
-/// ```rust
+/// ```rust,ignore
 /// #[derive(IntoValue)]
 /// struct Unicorn;
 ///
@@ -232,7 +232,7 @@ fn struct_from_value(data: &DataStruct, container_attrs: &ContainerAttributes) -
 /// These examples show what the macro would generate.
 ///
 /// Struct with named fields:
-/// ```rust
+/// ```rust,ignore
 /// #[derive(FromValue)]
 /// struct Pet {
 ///     name: String,
@@ -264,7 +264,7 @@ fn struct_from_value(data: &DataStruct, container_attrs: &ContainerAttributes) -
 /// ```
 ///
 /// Struct with unnamed fields:
-/// ```rust
+/// ```rust,ignore
 /// #[derive(FromValue)]
 /// struct Color(u8, u8, u8);
 ///
@@ -284,7 +284,7 @@ fn struct_from_value(data: &DataStruct, container_attrs: &ContainerAttributes) -
 /// ```
 ///
 /// Unit struct:
-/// ```rust
+/// ```rust,ignore
 /// #[derive(FromValue)]
 /// struct Unicorn;
 ///
@@ -296,7 +296,7 @@ fn struct_from_value(data: &DataStruct, container_attrs: &ContainerAttributes) -
 /// ```
 ///
 /// Struct with passed type name:
-/// ```rust
+/// ```rust,ignore
 /// #[derive(FromValue)]
 /// #[nu_value(type_name = "bird")]
 /// struct Parrot;
@@ -412,7 +412,7 @@ fn derive_enum_from_value(
 /// If no matching variant is found, `ShellError::CantConvert` is returned.
 ///
 /// This is how such a derived implementation looks:
-/// ```rust
+/// ```rust,ignore
 /// #[derive(IntoValue)]
 /// enum Weather {
 ///     Sunny,
@@ -493,7 +493,7 @@ fn enum_from_value(data: &DataEnum, attrs: &[Attribute]) -> Result {
 /// Since it's difficult to name the type of an enum in the current type system, we want to use the
 /// default implementation if `#[nu_value(type_name = "...")]` was *not* given.
 /// For that, a `None` value is returned, for a passed type name we return something like this:
-/// ```rust
+/// ```rust,ignore
 /// #[derive(IntoValue)]
 /// #[nu_value(type_name = "sunny | cloudy | raining")]
 /// enum Weather {

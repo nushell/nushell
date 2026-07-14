@@ -1,25 +1,28 @@
 #![allow(clippy::unwrap_used)]
 
 use nu_cli::{eval_source, evaluate_commands};
+use nu_config::ConfigFileKind;
+use nu_experimental::DC_GLOB;
 use nu_parser::{lex, lite_parse, parse, parse_block};
 use nu_plugin_core::{Encoder, EncodingType};
 use nu_plugin_protocol::{PluginCallResponse, PluginOutput};
 use nu_protocol::{
-    PipelineData, Signals, Span, Spanned, Type, Value,
+    PipelineData, Signals, Span, Spanned, Type, TypeSet, Value,
     engine::{EngineState, Stack, StateWorkingSet},
 };
 use nu_std::load_standard_library;
 use nu_table::{NuTable, TableTheme};
-use nu_utils::ConfigFileKind;
 use std::{
+    env,
     fmt::Write,
     fs,
     hint::black_box,
     path::{Path, PathBuf},
     rc::Rc,
-    sync::{Arc, atomic::AtomicBool},
+    sync::{Arc, OnceLock, atomic::AtomicBool},
 };
 use tango_bench::{IntoBenchmarks, benchmark_fn, tango_benchmarks, tango_main};
+use tempfile::{Builder as TempDirBuilder, TempDir};
 
 fn load_bench_commands() -> EngineState {
     nu_command::add_shell_command_context(nu_cmd_lang::create_default_context())
@@ -90,6 +93,7 @@ fn bench_command(
         b.iter(move || {
             let mut stack = stack.clone();
             let mut engine = engine.clone();
+            engine.signals().reset();
             #[allow(clippy::unit_arg)]
             black_box(
                 evaluate_commands(
@@ -103,6 +107,199 @@ fn bench_command(
             );
         })
     })]
+}
+
+struct ExperimentalOptionGuard {
+    previous: bool,
+}
+
+impl ExperimentalOptionGuard {
+    fn set_dc_glob(value: bool) -> Self {
+        let previous = DC_GLOB.get();
+        // SAFETY: Benchmarks run in a controlled process and restore the previous value on drop.
+        unsafe { DC_GLOB.set(value) };
+        Self { previous }
+    }
+}
+
+impl Drop for ExperimentalOptionGuard {
+    fn drop(&mut self) {
+        // SAFETY: Restores the previous process-global benchmark state.
+        unsafe { DC_GLOB.set(self.previous) };
+    }
+}
+
+struct GlobBenchFixture {
+    _tempdir: TempDir,
+    root: PathBuf,
+}
+
+impl GlobBenchFixture {
+    fn from_repo_snapshot(prefix: &str, source_root: &Path) -> Self {
+        let tempdir = TempDirBuilder::new().prefix(prefix).tempdir().unwrap();
+        copy_repo_snapshot(source_root, tempdir.path());
+
+        Self {
+            root: tempdir.path().to_path_buf(),
+            _tempdir: tempdir,
+        }
+    }
+}
+
+fn should_skip_repo_entry(name: &str) -> bool {
+    matches!(name, ".git" | "target")
+}
+
+fn copy_repo_snapshot(source: &Path, destination: &Path) {
+    fs::create_dir_all(destination).unwrap();
+
+    for entry in fs::read_dir(source).unwrap() {
+        let entry = entry.unwrap();
+        let path = entry.path();
+        let file_name = entry.file_name();
+        let file_name = file_name.to_string_lossy();
+
+        if should_skip_repo_entry(&file_name) {
+            continue;
+        }
+
+        let target = destination.join(file_name.as_ref());
+        let metadata = fs::symlink_metadata(&path).unwrap();
+        let file_type = metadata.file_type();
+
+        if file_type.is_symlink() {
+            continue;
+        }
+
+        if file_type.is_dir() {
+            copy_repo_snapshot(&path, &target);
+        } else if file_type.is_file() {
+            fs::copy(&path, &target).unwrap();
+        }
+    }
+}
+
+fn nu_string_literal(path: &Path) -> String {
+    format!("{:?}", path.to_string_lossy())
+}
+
+fn setup_stack_and_engine_in_dir(path: &Path) -> (Stack, EngineState) {
+    setup_stack_and_engine_from_command(&format!("cd {}", nu_string_literal(path)))
+}
+
+// Running benchmarks like this allow you to set the glob/ls benchmarks root folder
+// NU_GLOB_BENCH_ROOT=/Users/fdncred/src/nushell cargo bench --bench benchmarks -- solo --filter '*recursive*'
+fn glob_bench_source_root() -> PathBuf {
+    env::var_os("NU_GLOB_BENCH_ROOT")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| env::current_dir().unwrap())
+}
+
+fn shared_glob_bench_fixture() -> Arc<GlobBenchFixture> {
+    static FIXTURE: OnceLock<Arc<GlobBenchFixture>> = OnceLock::new();
+
+    FIXTURE
+        .get_or_init(|| {
+            let source_root = glob_bench_source_root();
+            Arc::new(GlobBenchFixture::from_repo_snapshot(
+                "nu_glob_repo_snapshot",
+                &source_root,
+            ))
+        })
+        .clone()
+}
+
+fn bench_command_with_dc_glob(
+    name: impl Into<String>,
+    command: impl Into<String> + Clone,
+    dc_glob_enabled: bool,
+    stack: Stack,
+    engine: EngineState,
+    fixture: Arc<GlobBenchFixture>,
+) -> impl IntoBenchmarks {
+    let commands = Spanned {
+        span: Span::test_data(),
+        item: command.into(),
+    };
+
+    [benchmark_fn(name, move |b| {
+        let commands = commands.clone();
+        let stack = stack.clone();
+        let engine = engine.clone();
+        let _fixture = &fixture;
+
+        b.iter(move || {
+            let _dc_glob_guard = ExperimentalOptionGuard::set_dc_glob(dc_glob_enabled);
+            let mut stack = stack.clone();
+            let mut engine = engine.clone();
+            engine.signals().reset();
+
+            #[allow(clippy::unit_arg)]
+            black_box(
+                evaluate_commands(
+                    &commands,
+                    &mut engine,
+                    &mut stack,
+                    PipelineData::empty(),
+                    Default::default(),
+                )
+                .unwrap(),
+            );
+        })
+    })]
+}
+
+fn bench_recursive_glob_command(
+    name: &str,
+    command: &str,
+    dc_glob_enabled: bool,
+) -> impl IntoBenchmarks {
+    let fixture = shared_glob_bench_fixture();
+    let (stack, engine) = setup_stack_and_engine_in_dir(&fixture.root);
+
+    bench_command_with_dc_glob(
+        name,
+        format!("{command} | length | ignore"),
+        dc_glob_enabled,
+        stack,
+        engine,
+        fixture,
+    )
+}
+
+fn ls_recursive_pattern(root: &Path) -> String {
+    let mut root = root.to_string_lossy().replace('\\', "/");
+    if root.ends_with('/') {
+        root.pop();
+    }
+    format!("{root}/**/*")
+}
+
+fn bench_ls_recursive_command(name: &str, dc_glob_enabled: bool) -> impl IntoBenchmarks {
+    let fixture = shared_glob_bench_fixture();
+    let (stack, engine) = setup_stack_and_engine_in_dir(&fixture.root);
+    let command = format!(
+        "ls {} | length | ignore",
+        ls_recursive_pattern(&fixture.root)
+    );
+
+    bench_command_with_dc_glob(name, command, dc_glob_enabled, stack, engine, fixture)
+}
+
+fn bench_ls_recursive_legacy() -> impl IntoBenchmarks {
+    bench_ls_recursive_command("ls_recursive_legacy", false)
+}
+
+fn bench_ls_recursive_dc() -> impl IntoBenchmarks {
+    bench_ls_recursive_command("ls_recursive_dc", true)
+}
+
+fn bench_glob_recursive_legacy_wax() -> impl IntoBenchmarks {
+    bench_recursive_glob_command("glob_recursive_legacy_wax", "glob '**/*'", false)
+}
+
+fn bench_glob_recursive_dc_glob() -> impl IntoBenchmarks {
+    bench_recursive_glob_command("glob_recursive_dc_glob", "glob '**/*'", true)
 }
 
 fn bench_eval_source(
@@ -299,6 +496,54 @@ fn bench_table_insert_col(n: usize, m: usize) -> impl IntoBenchmarks {
     bench_command(format!("table_insert_col_{n}_{m}"), insert, stack, engine)
 }
 
+fn setup_str_replace_strings(n: usize) -> (Stack, EngineState) {
+    setup_stack_and_engine_from_command(&format!(
+        r#"let strings = 0..<{n} | each {{ |i| $"abc($i) xyz 123" }}"#
+    ))
+}
+
+fn setup_str_replace_multiline_strings(n: usize) -> (Stack, EngineState) {
+    setup_stack_and_engine_from_command(&format!(
+        r#"let strings = 0..<{n} | each {{ |i| $"($i). first\n($i). second\nplain" }}"#
+    ))
+}
+
+fn setup_str_replace_table(n: usize) -> (Stack, EngineState) {
+    setup_stack_and_engine_from_command(&format!(
+        r#"let table = 0..<{n} | each {{ |i| {{ a: $"abc($i)", b: $"def($i)", c: untouched }} }}"#
+    ))
+}
+
+fn bench_str_replace_regex_list(n: usize) -> impl IntoBenchmarks {
+    let (stack, engine) = setup_str_replace_strings(n);
+    bench_command(
+        format!("str_replace_regex_list_{n}"),
+        r#"$strings | str replace -a -r '\d+' 'N' | ignore"#,
+        stack,
+        engine,
+    )
+}
+
+fn bench_str_replace_regex_table(n: usize) -> impl IntoBenchmarks {
+    let (stack, engine) = setup_str_replace_table(n);
+    bench_command(
+        format!("str_replace_regex_table_{n}_2cols"),
+        r#"$table | str replace -a -r '\d+' 'N' a b | ignore"#,
+        stack,
+        engine,
+    )
+}
+
+fn bench_str_replace_multiline_list(n: usize) -> impl IntoBenchmarks {
+    let (stack, engine) = setup_str_replace_multiline_strings(n);
+    bench_command(
+        format!("str_replace_multiline_list_{n}"),
+        r#"$strings | str replace -a --multiline '^[0-9]+\. ' '' | ignore"#,
+        stack,
+        engine,
+    )
+}
+
 fn bench_eval_interleave(n: usize) -> impl IntoBenchmarks {
     let engine = setup_engine();
     let stack = Stack::new();
@@ -475,7 +720,7 @@ fn bench_type_widen_simple() -> impl IntoBenchmarks {
     [benchmark_fn("type_widen_simple", move |bench| {
         let a = a.clone();
         let b = b.clone();
-        bench.iter(move || black_box(a.clone().widen(b.clone())))
+        bench.iter(move || black_box(a.clone().union(b.clone())))
     })]
 }
 
@@ -485,7 +730,7 @@ fn bench_type_widen_large_records() -> impl IntoBenchmarks {
     [benchmark_fn("type_widen_large_records", move |bench| {
         let rec1 = rec1.clone();
         let rec2 = rec2.clone();
-        bench.iter(move || black_box(rec1.clone().widen(rec2.clone())))
+        bench.iter(move || black_box(rec1.clone().union(rec2.clone())))
     })]
 }
 
@@ -503,20 +748,20 @@ fn bench_type_widen_large_oneof() -> impl IntoBenchmarks {
     [benchmark_fn("type_widen_large_oneof", move |bench| {
         let one = one.clone();
         let two = two.clone();
-        bench.iter(move || black_box(one.clone().widen(two.clone())))
+        bench.iter(move || black_box(one.clone().union(two.clone())))
     })]
 }
 
 fn bench_type_widen_chain() -> impl IntoBenchmarks {
     let mut t = Type::String;
     for _ in 0..100 {
-        t = t.widen(Type::Int);
+        t = t.union(Type::Int);
     }
     [benchmark_fn("type_widen_chain", move |bench| {
         let t = t.clone();
         bench.iter(move || {
             let mut tmp = t.clone();
-            tmp = tmp.widen(Type::Int);
+            tmp = tmp.union(Type::Int);
             black_box(tmp)
         })
     })]
@@ -676,7 +921,14 @@ fn bench_parser_parse_block(dataset: &str, source: String) -> impl IntoBenchmark
             let span = Span::new(0, input.len());
             let engine_state = parser_engine_state();
             let mut working_set = StateWorkingSet::new(&engine_state);
-            black_box(parse_block(&mut working_set, &tokens, span, true, false));
+            black_box(parse_block(
+                &mut working_set,
+                &tokens,
+                span,
+                true,
+                false,
+                None,
+            ));
         })
     })]
 }
@@ -786,6 +1038,10 @@ fn bench_table_render_wide(cols: usize) -> impl IntoBenchmarks {
 tango_benchmarks!(
     bench_load_standard_lib(),
     bench_load_use_standard_lib(),
+    bench_ls_recursive_legacy(),
+    bench_ls_recursive_dc(),
+    bench_glob_recursive_legacy_wax(),
+    bench_glob_recursive_dc_glob(),
     // type-widening microbenchmarks (run on both branch & main to compare)
     bench_type_widen_simple(),
     bench_type_widen_large_records(),
@@ -859,6 +1115,10 @@ tango_benchmarks!(
     bench_table_insert_col(10, 10),
     bench_table_insert_col(100, 10),
     bench_table_insert_col(1000, 10),
+    // Strings
+    bench_str_replace_regex_list(1_000),
+    bench_str_replace_regex_table(500),
+    bench_str_replace_multiline_list(1_000),
     // Eval
     // Interleave
     bench_eval_interleave(100),

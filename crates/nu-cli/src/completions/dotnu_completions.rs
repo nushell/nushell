@@ -41,13 +41,15 @@ impl Completer for DotNuCompletion {
 
         for (module_name_bytes, module_id) in modules_map.into_iter() {
             let value = String::from_utf8_lossy(module_name_bytes).to_string();
-            let description = working_set.get_module_comments(*module_id).map(|spans| {
-                spans
-                    .iter()
-                    .map(|sp| String::from_utf8_lossy(working_set.get_span_contents(*sp)).into())
-                    .collect::<Vec<String>>()
-                    .join("\n")
-            });
+            // TODO: this is a quickfix. just like `help modules`, this constructs the module
+            // description from scratch each time. we should construct module descriptions when the
+            // module is first parsed and store it for later use (like we do with custom commands)
+            // TODO: we need to provide descriptions not just for modules that are already in scope,
+            // but for modules that haven't been imported yet.
+            // (importing a new file like `use foo.nu`)
+            let description = working_set
+                .get_module_comments(*module_id)
+                .map(|spans| working_set.build_desc(spans).0);
 
             matcher.add_semantic_suggestion(SemanticSuggestion {
                 suggestion: Suggestion {

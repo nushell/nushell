@@ -2,7 +2,9 @@ use std::sync::Arc;
 
 use crate::PolarsPlugin;
 use crate::dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame};
-use crate::values::{CustomValueSupport, NuSelector, PolarsPluginObject, PolarsPluginType};
+use crate::values::{
+    CustomValueSupport, NuSelector, PolarsPluginObject, PolarsPluginType, cant_convert_err,
+};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
@@ -36,6 +38,10 @@ impl PluginCommand for LazyExplode {
             .input_output_types(vec![
                 (
                     PolarsPluginType::NuExpression.into(),
+                    PolarsPluginType::NuExpression.into(),
+                ),
+                (
+                    PolarsPluginType::NuSelector.into(),
                     PolarsPluginType::NuExpression.into(),
                 ),
                 (
@@ -158,12 +164,15 @@ pub(crate) fn explode(
         PolarsPluginObject::NuExpression(expr) => {
             explode_expr(plugin, engine, call, expr, explode_options)
         }
-        _ => Err(ShellError::CantConvert {
-            to_type: "dataframe or expression".into(),
-            from_type: value.get_type().to_string(),
-            span: call.head,
-            help: None,
-        }),
+        _ => Err(cant_convert_err(
+            &value,
+            &[
+                PolarsPluginType::NuDataFrame,
+                PolarsPluginType::NuLazyFrame,
+                PolarsPluginType::NuExpression,
+                PolarsPluginType::NuSelector,
+            ],
+        )),
     }
 }
 

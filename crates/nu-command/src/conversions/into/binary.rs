@@ -1,6 +1,6 @@
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
-use nu_heavy_utils::Endian;
+use nu_heavy_utils::endian::Endian;
 
 struct Arguments {
     cell_paths: Option<Vec<CellPath>>,
@@ -31,6 +31,7 @@ impl Command for IntoBinary {
                 (Type::String, Type::Binary),
                 (Type::Bool, Type::Binary),
                 (Type::Filesize, Type::Binary),
+                (Type::Duration, Type::Binary),
                 (Type::Date, Type::Binary),
                 (Type::table(), Type::table()),
                 (Type::record(), Type::record()),
@@ -135,6 +136,14 @@ impl Command for IntoBinary {
                 description: "convert an int to a nushell binary primitive with compact enabled.",
                 example: "10 | into binary --compact",
                 result: Some(Value::binary(vec![10], Span::test_data())),
+            },
+            Example {
+                description: "convert a duration to a nushell binary primitive.",
+                example: "1sec | into binary",
+                result: Some(Value::binary(
+                    1_000_000_000i64.to_ne_bytes().to_vec(),
+                    Span::test_data(),
+                )),
             },
         ]
     }

@@ -1,0 +1,13 @@
+# Explicitly typed set.
+
+baseball players: !!set
+# we don't support explicit keys yet
+#  ? Mark McGwire
+#  ? Sammy Sosa
+#  ? Ken Griffey
+  Mark McGwire:
+  Sammy Sosa:
+  Ken Griffey:
+
+# Flow style
+baseball teams: !!set { Boston Red Sox, Detroit Tigers, New York Yankees }

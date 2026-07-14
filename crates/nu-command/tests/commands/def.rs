@@ -361,6 +361,26 @@ fn def_wrapped_explicit_string_rest_keeps_tilde_literal() {
 }
 
 #[test]
+fn def_wrapped_untyped_rest_bare_word_is_string_type() {
+    // Regression test: `def --wrapped [...rest]` should report bare words as strings, not globs
+    let actual = nu!("def --wrapped foo [...rest] { print ($rest.0 | describe) }; foo test");
+    assert_eq!(actual.out, "string");
+}
+
+#[test]
+fn def_wrapped_untyped_rest_multiple_bare_words() {
+    let actual = nu!("def --wrapped foo [...rest] { print ($rest.2 | describe) }; foo a b c");
+    assert_eq!(actual.out, "string");
+}
+
+#[test]
+fn def_wrapped_untyped_rest_glob_pattern_stays_glob() {
+    // Glob patterns with wildcards should remain as globs
+    let actual = nu!("def --wrapped foo [...rest] { print ($rest.0 | describe) }; foo *.rs");
+    assert_eq!(actual.out, "glob");
+}
+
+#[test]
 fn def_wrapped_dynamic_percent_builtin_preserves_no_arg_defaults() {
     Playground::setup(
         "def_wrapped_dynamic_percent_builtin_preserves_no_arg_defaults",

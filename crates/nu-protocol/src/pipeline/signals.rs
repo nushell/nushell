@@ -82,6 +82,14 @@ impl Signals {
             signals.store(false, Ordering::Relaxed);
         }
     }
+
+    /// Returns the underlying interrupt flag, if any.
+    ///
+    /// This can be passed to external iterators (e.g. dc-glob) that need raw access to the
+    /// same flag so they can be cancelled when Ctrl+C is pressed.
+    pub fn interrupt_flag(&self) -> Option<Arc<AtomicBool>> {
+        self.signals.clone()
+    }
 }
 
 impl Interruptible for Signals {

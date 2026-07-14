@@ -112,6 +112,20 @@ fn flatten_row_columns_having_same_column_names_flats_separately() {
 }
 
 #[test]
+fn flatten_nested_table_renames_conflicting_column_after_flattened_column() {
+    let actual = nu!("[[b, a]; [[[a]; [9]], 1]] | flatten --all b | to nuon");
+
+    assert_eq!(actual.out, "[[b_a, a]; [9, 1]]");
+}
+
+#[test]
+fn flatten_nested_record_renames_conflicting_column_after_flattened_column() {
+    let actual = nu!("{b: {a: 9}, a: 1} | flatten b | to nuon");
+
+    assert_eq!(actual.out, "[[b_a, a]; [9, 1]]");
+}
+
+#[test]
 fn flatten_table_columns_explicitly() {
     let sample = r#"
                 [

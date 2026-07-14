@@ -1,3 +1,4 @@
+use nu_protocol::Type;
 use nu_test_support::{fs::Stub::FileWithContentToBeTrimmed, prelude::*};
 
 #[test]
@@ -345,13 +346,11 @@ fn from_csv_text_with_wrong_type_separator() -> Result {
             | from csv --separator ('123' | into int)
         ";
 
-        let outcome = test().cwd(dirs.test()).run(code).expect_error()?;
+        let outcome = test().cwd(dirs.test()).run(code).expect_parse_error()?;
         match outcome {
-            ShellError::CantConvert {
-                to_type, from_type, ..
-            } => {
-                assert_eq!(from_type, "int");
-                assert_eq!(to_type, "string");
+            ParseError::TypeMismatch(expected, got, _) => {
+                assert_eq!(expected, Type::String);
+                assert_eq!(got, Type::Int);
                 Ok(())
             }
             err => Err(err.into()),
@@ -372,6 +371,10 @@ fn table_with_record_error() -> Result {
 }
 
 #[test]
+#[ignore = "\
+    After relaxing type checking of table and `list<oneof<record, ...>>` \
+    this is a runtime error, which is checked by the following test.\
+"]
 fn list_not_table_parse_time_error() -> Result {
     let code = "
         [{a: 1 b: 2} {a: 3 b: 4} 1]

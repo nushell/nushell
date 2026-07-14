@@ -1009,8 +1009,9 @@ impl PluginInterface {
     pub fn get_dynamic_completion(
         &self,
         info: GetCompletionInfo,
+        context: &mut dyn PluginExecutionContext,
     ) -> Result<Option<Vec<DynamicSuggestion>>, ShellError> {
-        match self.plugin_call(PluginCall::GetCompletion(info), None)? {
+        match self.plugin_call(PluginCall::GetCompletion(info), Some(context))? {
             PluginCallResponse::CompletionItems(items) => Ok(items),
             PluginCallResponse::Error(err) => Err(err),
             _ => Err(ShellError::PluginFailedToDecode {

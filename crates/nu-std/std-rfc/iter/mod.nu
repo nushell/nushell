@@ -270,28 +270,37 @@ def only-error [msg: string, meta: record, label: string]: nothing -> error {
 @search-terms first single
 @category filters
 @example "Get the only item in a list, ensuring it exists and there's no additional items" --result 5 {
-  [5] | only
+    [5] | only
 }
 @example "Get the item (if present) from a list that has no more than one item" --result null {
-  [] | only
+    [] | only
 }
 @example "Get the `name` column of the only row in a table" --result "foo" {
-  [{name: foo, id: 5}] | only name
+    [{name: foo, id: 5}] | only name
 }
 @example "Get the modification time of the file named foo.txt" {
-  ls | where name == "foo.txt" | only modified
+    ls | where name == "foo.txt" | only modified
 }
 export def only [
-  --optional # Return `null` if there are no elements (does not affect behavior of the `cell_path` argument)
-  cell_path?: cell-path # The cell path to access within the only element.
+    --optional # Return `null` if there are no elements (does not affect behavior of the `cell_path` argument)
+    cell_path?: cell-path # The cell path to access within the only element.
 ]: [table -> any, list -> any] {
-  let pipe = {in: $in, meta: (metadata $in)}
-  match $pipe.in {
-    [] if $optional => null
-    [] => (only-error "expected non-empty table/list" $pipe.meta "empty")
-    [$one] => ($one | if $cell_path != null { get $cell_path } else { })
-    _ => (only-error "expected only one element in table/list" $pipe.meta "has more than one element")
-  }
+    peek 2 | metadata access {|meta|
+        match $meta.peek.value? {
+            [] => {
+                # discard pipeline input
+                null;
+                # had to move it here from the match guard. while the closure
+                # itself has access to `$optional`, for some reason it was not
+                # available to the match guard at runtime
+                if not $optional {
+                    only-error "expected non-empty table/list" $meta "empty"
+                }
+            }
+            [$one] => ($one | if $cell_path != null { get $cell_path } else { })
+            _ => (only-error "expected only one element in table/list" $meta "has more than one element")
+        }
+    }
 }
 
 def prod-error-helper [] {
@@ -369,6 +378,7 @@ export def prod [
 ]: [
     nothing -> table
     list -> table
+    range -> table
 ] {
     peek | metadata access {|md|
         match $md.peek {

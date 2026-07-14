@@ -22,7 +22,7 @@ harness = false
 nu-cmd-lang = { workspace = true, features = ["os"] }
 nu-command = { workspace = true, features = ["os"] }
 nu-std.workspace = true
-nu-test-support = { path = "../nu-test-support" }
+nu-test-support = { path = "../nu-test-support", features = ["os"] }
 rstest = { workspace = true, default-features = false }
 tempfile = { workspace = true }
 
@@ -35,6 +35,7 @@ nu-path.workspace = true
 nu-parser.workspace = true
 nu-plugin-engine = { workspace = true, optional = true }
 nu-protocol = { workspace = true, features = ["os"] }
+nu-config.workspace = true
 nu-utils.workspace = true
 nu-color-config.workspace = true
 nu-experimental.workspace = true

@@ -2,8 +2,8 @@
 use crate::get_full_help;
 use crate::{EvalBlockWithEarlyReturnFn, eval_ir::eval_ir_block};
 use nu_protocol::{
-    BlockId, Config, ENV_VARIABLE_ID, IntoPipelineData, PipelineData, PipelineExecutionData,
-    ShellError, Signature, Span, Value, VarId,
+    BlockId, CompareTypes, Config, ENV_VARIABLE_ID, IntoPipelineData, PipelineData,
+    PipelineExecutionData, ShellError, Signature, Span, Value, VarId,
     ast::{Assignment, Block, Call, Expr, Expression, ExternalArgument, PathMember},
     debugger::{DebugContext, WithDebug, WithoutDebug},
     engine::{Closure, EngineState, EnvName, EnvVars, Stack},
@@ -182,6 +182,30 @@ impl CallEval {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         self.finalize_arguments(&block.signature)?;
+        self.arg_index = 0;
+        self.rest_args.clear();
+        (self.eval)(engine_state, &mut self.callee_stack, block, input).map(|p| p.body)
+    }
+
+    /// Finalize missing/default/rest arguments without evaluating the block yet.
+    ///
+    /// This is useful for callers that need to bind arguments against one signature and then
+    /// evaluate a modified copy of the block without re-running the argument finalization step.
+    pub fn finalize_for_signature(
+        &mut self,
+        signature: &Signature,
+    ) -> Result<&mut Self, ShellError> {
+        self.finalize_arguments(signature)?;
+        Ok(self)
+    }
+
+    /// Run a block after arguments have already been fully bound onto the callee stack.
+    pub fn run_prebound(
+        &mut self,
+        engine_state: &EngineState,
+        block: &Block,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
         self.arg_index = 0;
         self.rest_args.clear();
         (self.eval)(engine_state, &mut self.callee_stack, block, input).map(|p| p.body)
@@ -483,9 +507,6 @@ pub fn eval_block<D: DebugContext>(
     input: PipelineData,
 ) -> Result<PipelineExecutionData, ShellError> {
     let result = eval_ir_block::<D>(engine_state, stack, block, input);
-    if let Err(ShellError::Exit { code }) = &result {
-        std::process::exit(*code)
-    }
     if let Err(err) = &result {
         stack.set_last_error(err);
     }
@@ -502,7 +523,6 @@ pub fn eval_block_with_early_return<D: DebugContext>(
         Err(ShellError::Return { span: _, value }) => Ok(PipelineExecutionData::from(
             PipelineData::value(*value, None),
         )),
-        Err(ShellError::Exit { code }) => std::process::exit(code),
         x => x,
     }
 }

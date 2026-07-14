@@ -9,13 +9,14 @@
 
 use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
 use fff_search::{
-    FFFMode, FilePicker, FilePickerOptions, FuzzySearchOptions, GrepMode, GrepSearchOptions,
-    MixedItemRef, PaginationArgs, QueryParser, SharedFilePicker, SharedFrecency,
+    FFFMode, FilePicker, FilePickerOptions, FuzzySearchOptions, GrepConfig, GrepMode,
+    GrepSearchOptions, MixedItemRef, PaginationArgs, QueryParser, SharedFilePicker, SharedFrecency,
 };
 use nu_engine::command_prelude::*;
 use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{ListStream, PipelineMetadata, Signals};
 use nu_utils::time::Instant;
+use pathdiff::diff_paths;
 #[cfg(feature = "sqlite")]
 use rusqlite::{Connection, OptionalExtension, params};
 #[cfg(feature = "sqlite")]
@@ -437,6 +438,7 @@ pub fn init_runtime(
     watch: bool,
     wait: bool,
     follow_symlinks: bool,
+    enable_content_indexing: bool,
     span: Span,
 ) -> Result<IdxStatus, ShellError> {
     let shared_picker = SharedFilePicker::default();
@@ -447,12 +449,14 @@ pub fn init_runtime(
         shared_frecency,
         FilePickerOptions {
             base_path: path.display().to_string(),
-            enable_mmap_cache: false,
-            enable_content_indexing: false,
-            mode: FFFMode::Ai,
             cache_budget: None,
-            watch,
+            enable_content_indexing,
+            enable_fs_root_scanning: false, // this will error out if executed at /
+            enable_home_dir_scanning: true,
+            enable_mmap_cache: false,
             follow_symlinks,
+            mode: FFFMode::Ai,
+            watch,
         },
     )
     .map_err(|err| fff_error(err, span))?;
@@ -1048,20 +1052,23 @@ fn usize_to_i64(value: usize) -> i64 {
     i64::try_from(value).unwrap_or(i64::MAX)
 }
 
+pub struct FindSearchContext<'a> {
+    pub query: &'a str,
+    pub files_only: bool,
+    pub dirs_only: bool,
+    pub verbose: bool,
+    pub limit: usize,
+    pub span: Span,
+    pub cwd: Option<&'a Path>,
+    pub signals: &'a Signals,
+}
+
 /// Run a fuzzy find across indexed files and/or directories.
 ///
 /// For imported snapshots this uses lightweight in-memory ranking over
 /// restored path metadata.
-pub fn stream_find(
-    query: &str,
-    files_only: bool,
-    dirs_only: bool,
-    verbose: bool,
-    limit: usize,
-    span: Span,
-    signals: &Signals,
-) -> Result<PipelineData, ShellError> {
-    let snapshot = require_runtime(span)?;
+pub fn stream_find(context: FindSearchContext<'_>) -> Result<PipelineData, ShellError> {
+    let snapshot = require_runtime(context.span)?;
 
     if let (Some(restored_files), Some(restored_dirs)) = (
         snapshot.restored_files.clone(),
@@ -1071,7 +1078,8 @@ pub fn stream_find(
             .iter()
             .enumerate()
             .filter_map(|(idx, item)| {
-                score_snapshot_match(&item.relative_path, query).map(|score| ("file", idx, score))
+                score_snapshot_match(&item.relative_path, context.query)
+                    .map(|score| ("file", idx, score))
             })
             .collect::<Vec<_>>();
 
@@ -1079,14 +1087,15 @@ pub fn stream_find(
             .iter()
             .enumerate()
             .filter_map(|(idx, item)| {
-                score_snapshot_match(&item.relative_path, query).map(|score| ("dir", idx, score))
+                score_snapshot_match(&item.relative_path, context.query)
+                    .map(|score| ("dir", idx, score))
             })
             .collect::<Vec<_>>();
 
-        if files_only {
+        if context.files_only {
             ranked_dirs.clear();
         }
-        if dirs_only {
+        if context.dirs_only {
             ranked_files.clear();
         }
 
@@ -1101,7 +1110,7 @@ pub fn stream_find(
                     .then_with(|| lhs_idx.cmp(rhs_idx))
             },
         );
-        combined.truncate(limit);
+        combined.truncate(context.limit);
 
         let find_data = combined
             .into_iter()
@@ -1110,59 +1119,75 @@ pub fn stream_find(
                 let path = if kind == "file" {
                     restored_files
                         .get(idx)
-                        .map(|row| row.relative_path.clone())
+                        .map(|row| {
+                            path_for_cwd(Path::new(&row.full_path), context.cwd, &row.relative_path)
+                        })
                         .unwrap_or_default()
                 } else {
                     restored_dirs
                         .get(idx)
-                        .map(|row| row.relative_path.clone())
+                        .map(|row| {
+                            path_for_cwd(Path::new(&row.full_path), context.cwd, &row.relative_path)
+                        })
                         .unwrap_or_default()
                 };
 
                 let mut cols = vec![
-                    ("kind".to_string(), Value::string(kind, span)),
-                    ("path".to_string(), Value::string(path, span)),
-                    ("rank".to_string(), Value::int(usize_to_i64(rank + 1), span)),
-                    ("score".to_string(), Value::int(score, span)),
+                    ("kind".to_string(), Value::string(kind, context.span)),
+                    (
+                        "relative_path".to_string(),
+                        Value::string(path, context.span),
+                    ),
+                    (
+                        "rank".to_string(),
+                        Value::int(usize_to_i64(rank + 1), context.span),
+                    ),
+                    ("score".to_string(), Value::int(score, context.span)),
                 ];
 
-                if verbose {
-                    if !files_only && !dirs_only {
+                if context.verbose {
+                    if !context.files_only && !context.dirs_only {
                         cols.push((
                             "score_details".to_string(),
                             Value::record(
                                 [
-                                    ("base_score".to_string(), Value::int(score, span)),
-                                    ("filename_bonus".to_string(), Value::int(0, span)),
-                                    ("special_filename_bonus".to_string(), Value::int(0, span)),
-                                    ("frecency_boost".to_string(), Value::int(0, span)),
+                                    ("base_score".to_string(), Value::int(score, context.span)),
+                                    ("filename_bonus".to_string(), Value::int(0, context.span)),
+                                    (
+                                        "special_filename_bonus".to_string(),
+                                        Value::int(0, context.span),
+                                    ),
+                                    ("frecency_boost".to_string(), Value::int(0, context.span)),
                                 ]
                                 .into_iter()
                                 .collect(),
-                                span,
+                                context.span,
                             ),
                         ));
-                    } else if files_only {
-                        cols.push(("match_type".to_string(), Value::string("snapshot", span)));
+                    } else if context.files_only {
+                        cols.push((
+                            "match_type".to_string(),
+                            Value::string("snapshot", context.span),
+                        ));
                     } else {
-                        cols.push(("exact_match".to_string(), Value::bool(false, span)));
+                        cols.push(("exact_match".to_string(), Value::bool(false, context.span)));
                     }
                 }
 
-                Value::record(cols.into_iter().collect(), span)
+                Value::record(cols.into_iter().collect(), context.span)
             })
             .collect::<Vec<_>>();
 
-        let stream_signals = signals.clone();
+        let stream_signals = context.signals.clone();
         let stream = find_data.into_iter().map(move |value| {
-            if let Err(err) = stream_signals.check(&span) {
-                return Value::error(err, span);
+            if let Err(err) = stream_signals.check(&context.span) {
+                return Value::error(err, context.span);
             }
             value
         });
 
         return Ok(PipelineData::ListStream(
-            ListStream::new(stream, span, signals.clone()),
+            ListStream::new(stream, context.span, context.signals.clone()),
             Some(PipelineMetadata::default()),
         ));
     }
@@ -1170,27 +1195,30 @@ pub fn stream_find(
     let guard = snapshot
         .shared_picker
         .read()
-        .map_err(|err| fff_error(err, span))?;
+        .map_err(|err| fff_error(err, context.span))?;
     let picker = guard.as_ref().ok_or_else(|| {
         ShellError::Generic(GenericError::new(
             "idx is not initialized",
             "run `idx init <path>` first",
-            span,
+            context.span,
         ))
     })?;
 
     let parser = QueryParser::default();
-    let parsed = parser.parse(query);
+    let parsed = parser.parse(context.query);
     let options = FuzzySearchOptions {
         max_threads: 0,
         current_file: None,
         project_path: None,
         combo_boost_score_multiplier: 0,
         min_combo_count: 0,
-        pagination: PaginationArgs { offset: 0, limit },
+        pagination: PaginationArgs {
+            offset: 0,
+            limit: context.limit,
+        },
     };
 
-    let find_data: Vec<Value> = if !files_only && !dirs_only {
+    let find_data: Vec<Value> = if !context.files_only && !context.dirs_only {
         let result = picker.fuzzy_search_mixed(&parsed, None, options);
 
         result
@@ -1200,53 +1228,68 @@ pub fn stream_find(
             .enumerate()
             .map(|(rank, (item, score))| {
                 let (kind, path) = match item {
-                    MixedItemRef::File(file) => ("file", file.relative_path(picker)),
-                    MixedItemRef::Dir(dir) => ("dir", dir.relative_path(picker)),
+                    MixedItemRef::File(file) => (
+                        "file",
+                        file_path_for_cwd(file, picker, &snapshot.base_path, context.cwd),
+                    ),
+                    MixedItemRef::Dir(dir) => (
+                        "dir",
+                        dir_path_for_cwd(dir, picker, &snapshot.base_path, context.cwd),
+                    ),
                 };
 
                 let mut cols = vec![
-                    ("kind".to_string(), Value::string(kind, span)),
-                    ("path".to_string(), Value::string(path, span)),
-                    ("rank".to_string(), Value::int(usize_to_i64(rank + 1), span)),
+                    ("kind".to_string(), Value::string(kind, context.span)),
+                    (
+                        "relative_path".to_string(),
+                        Value::string(path, context.span),
+                    ),
+                    (
+                        "rank".to_string(),
+                        Value::int(usize_to_i64(rank + 1), context.span),
+                    ),
                     (
                         "score".to_string(),
-                        Value::int(i64::from(score.total), span),
+                        Value::int(i64::from(score.total), context.span),
                     ),
                 ];
 
-                if verbose {
+                if context.verbose {
                     cols.push((
                         "score_details".to_string(),
                         Value::record(
                             [
                                 (
                                     "base_score".to_string(),
-                                    Value::int(i64::from(score.base_score), span),
+                                    Value::int(i64::from(score.base_score), context.span),
                                 ),
                                 (
                                     "filename_bonus".to_string(),
-                                    Value::int(i64::from(score.filename_bonus), span),
+                                    Value::int(i64::from(score.filename_bonus), context.span),
                                 ),
                                 (
                                     "special_filename_bonus".to_string(),
-                                    Value::int(i64::from(score.special_filename_bonus), span),
+                                    Value::int(
+                                        i64::from(score.special_filename_bonus),
+                                        context.span,
+                                    ),
                                 ),
                                 (
                                     "frecency_boost".to_string(),
-                                    Value::int(i64::from(score.frecency_boost), span),
+                                    Value::int(i64::from(score.frecency_boost), context.span),
                                 ),
                             ]
                             .into_iter()
                             .collect(),
-                            span,
+                            context.span,
                         ),
                     ));
                 }
 
-                Value::record(cols.into_iter().collect(), span)
+                Value::record(cols.into_iter().collect(), context.span)
             })
             .collect()
-    } else if dirs_only {
+    } else if context.dirs_only {
         let result = picker.fuzzy_search_directories(&parsed, options);
         result
             .items
@@ -1255,26 +1298,32 @@ pub fn stream_find(
             .enumerate()
             .map(|(rank, (item, score))| {
                 let mut cols = vec![
-                    ("kind".to_string(), Value::string("dir", span)),
+                    ("kind".to_string(), Value::string("dir", context.span)),
                     (
-                        "path".to_string(),
-                        Value::string(item.relative_path(picker), span),
+                        "relative_path".to_string(),
+                        Value::string(
+                            dir_path_for_cwd(item, picker, &snapshot.base_path, context.cwd),
+                            context.span,
+                        ),
                     ),
-                    ("rank".to_string(), Value::int(usize_to_i64(rank + 1), span)),
+                    (
+                        "rank".to_string(),
+                        Value::int(usize_to_i64(rank + 1), context.span),
+                    ),
                     (
                         "score".to_string(),
-                        Value::int(i64::from(score.total), span),
+                        Value::int(i64::from(score.total), context.span),
                     ),
                 ];
 
-                if verbose {
+                if context.verbose {
                     cols.push((
                         "exact_match".to_string(),
-                        Value::bool(score.exact_match, span),
+                        Value::bool(score.exact_match, context.span),
                     ));
                 }
 
-                Value::record(cols.into_iter().collect(), span)
+                Value::record(cols.into_iter().collect(), context.span)
             })
             .collect()
     } else {
@@ -1286,42 +1335,48 @@ pub fn stream_find(
             .enumerate()
             .map(|(rank, (item, score))| {
                 let mut cols = vec![
-                    ("kind".to_string(), Value::string("file", span)),
+                    ("kind".to_string(), Value::string("file", context.span)),
                     (
-                        "path".to_string(),
-                        Value::string(item.relative_path(picker), span),
+                        "relative_path".to_string(),
+                        Value::string(
+                            file_path_for_cwd(item, picker, &snapshot.base_path, context.cwd),
+                            context.span,
+                        ),
                     ),
-                    ("rank".to_string(), Value::int(usize_to_i64(rank + 1), span)),
+                    (
+                        "rank".to_string(),
+                        Value::int(usize_to_i64(rank + 1), context.span),
+                    ),
                     (
                         "score".to_string(),
-                        Value::int(i64::from(score.total), span),
+                        Value::int(i64::from(score.total), context.span),
                     ),
                 ];
 
-                if verbose {
+                if context.verbose {
                     cols.push((
                         "match_type".to_string(),
-                        Value::string(score.match_type, span),
+                        Value::string(score.match_type, context.span),
                     ));
                 }
 
-                Value::record(cols.into_iter().collect(), span)
+                Value::record(cols.into_iter().collect(), context.span)
             })
             .collect()
     };
 
     drop(guard);
 
-    let stream_signals = signals.clone();
+    let stream_signals = context.signals.clone();
     let stream = find_data.into_iter().map(move |value| {
-        if let Err(err) = stream_signals.check(&span) {
-            return Value::error(err, span);
+        if let Err(err) = stream_signals.check(&context.span) {
+            return Value::error(err, context.span);
         }
         value
     });
 
     Ok(PipelineData::ListStream(
-        ListStream::new(stream, span, signals.clone()),
+        ListStream::new(stream, context.span, context.signals.clone()),
         Some(PipelineMetadata::default()),
     ))
 }
@@ -1478,7 +1533,7 @@ pub fn store_snapshot(path: &Path, span: Span) -> Result<Value, ShellError> {
     // Insert metadata
     tx.execute(
         "INSERT INTO metadata (version, base_path, watch, file_count, dir_count) VALUES (?1, ?2, ?3, ?4, ?5)",
-        params![1, snapshot.base_path.display().to_string(), snapshot.watch, files.len(), dirs.len()],
+        params![1, snapshot.base_path.display().to_string(), snapshot.watch, files.len() as i64, dirs.len() as i64],
     )
     .map_err(|err| {
         ShellError::Generic(GenericError::new(
@@ -1497,8 +1552,8 @@ pub fn store_snapshot(path: &Path, span: Span) -> Result<Value, ShellError> {
                 file.full_path,
                 file.file_name,
                 file.directory,
-                file.size,
-                file.modified,
+                file.size as i64,
+                file.modified as i64,
                 file.access_frecency_score,
                 file.modification_frecency_score,
                 file.is_binary,
@@ -1576,7 +1631,7 @@ pub fn store_snapshot(path: &Path, span: Span) -> Result<Value, ShellError> {
 /// The restored runtime is immediately queryable by `idx files`, `idx dirs`,
 /// `idx find`, and `idx status` without a filesystem scan.
 #[cfg(feature = "sqlite")]
-pub fn restore_snapshot(path: &Path, span: Span) -> Result<Value, ShellError> {
+pub fn restore_snapshot(path: &Path, no_watch: bool, span: Span) -> Result<Value, ShellError> {
     // Open SQLite database
     let conn = Connection::open(path).map_err(|err| {
         ShellError::Generic(GenericError::new(
@@ -1596,8 +1651,8 @@ pub fn restore_snapshot(path: &Path, span: Span) -> Result<Value, ShellError> {
                     row.get::<_, u32>(0)?,
                     row.get::<_, String>(1)?,
                     row.get::<_, bool>(2)?,
-                    row.get::<_, usize>(3)?,
-                    row.get::<_, usize>(4)?,
+                    row.get::<_, i64>(3)?,
+                    row.get::<_, i64>(4)?,
                 ))
             },
         )
@@ -1645,8 +1700,8 @@ pub fn restore_snapshot(path: &Path, span: Span) -> Result<Value, ShellError> {
                 full_path: row.get(1)?,
                 file_name: row.get(2)?,
                 directory: row.get(3)?,
-                size: row.get(4)?,
-                modified: row.get(5)?,
+                size: row.get::<_, i64>(4)? as u64,
+                modified: row.get::<_, i64>(5)? as u64,
                 access_frecency_score: row.get(6)?,
                 modification_frecency_score: row.get(7)?,
                 is_binary: row.get(8)?,
@@ -1774,12 +1829,14 @@ pub fn restore_snapshot(path: &Path, span: Span) -> Result<Value, ShellError> {
         shared_frecency,
         FilePickerOptions {
             base_path: base_path_str.clone(),
-            enable_mmap_cache: false,
-            enable_content_indexing: false,
-            mode: FFFMode::Ai,
             cache_budget: None,
-            watch: false,
+            enable_content_indexing: false,
+            enable_fs_root_scanning: false,
+            enable_home_dir_scanning: true,
+            enable_mmap_cache: false,
             follow_symlinks: false,
+            mode: FFFMode::Ai,
+            watch: !no_watch,
         },
     );
 
@@ -1842,53 +1899,76 @@ pub fn restore_snapshot(path: &Path, span: Span) -> Result<Value, ShellError> {
     ))
 }
 
+pub struct GrepSearchContext<'a> {
+    pub patterns: &'a [String],
+    pub mode: GrepMode,
+    pub page_limit: usize,
+    pub span: Span,
+    pub before_context: usize,
+    pub after_context: usize,
+    pub cwd: Option<&'a Path>,
+    pub signals: &'a Signals,
+}
+
 /// Search indexed file contents (`idx search`).
 ///
 /// When backed by an imported snapshot, grep searches the live filesystem for the base_path.
 /// If the base_path no longer exists or files have been moved, grep will return no results.
-pub fn stream_grep(
-    patterns: &[String],
-    mode: GrepMode,
-    page_limit: usize,
-    span: Span,
-    signals: &Signals,
-) -> Result<PipelineData, ShellError> {
-    let snapshot = require_runtime(span)?;
+pub fn stream_grep(context: GrepSearchContext<'_>) -> Result<PipelineData, ShellError> {
+    let snapshot = require_runtime(context.span)?;
 
-    let guard = read_picker_guard(&snapshot.shared_picker, span)?;
-    let picker = picker_from_guard(&guard, span)?;
+    let guard = read_picker_guard(&snapshot.shared_picker, context.span)?;
+    let picker = picker_from_guard(&guard, context.span)?;
 
     let options = GrepSearchOptions {
-        mode,
-        page_limit,
+        mode: context.mode,
+        page_limit: context.page_limit,
+        before_context: context.before_context,
+        after_context: context.after_context,
         ..Default::default()
     };
 
-    let result = if patterns.len() == 1 {
-        let parser = QueryParser::default();
-        let query = parser.parse(&patterns[0]);
+    // Use GrepConfig so that `[`, `?`, and bare `*` (without `/` or `{...}`)
+    // are treated as literal text rather than glob constraints. Characters
+    // like `[` and `?` are common in source code and must be searchable.
+    let parser = QueryParser::new(GrepConfig);
+
+    let result = if context.patterns.len() == 1 {
+        let query = parser.parse(&context.patterns[0]);
         picker.grep(&query, &options)
     } else {
-        let refs = patterns.iter().map(String::as_str).collect::<Vec<_>>();
-        picker.multi_grep(&refs, &[], &options)
+        // Parse each pattern to extract file constraints (glob, path segment,
+        // extension, etc.) and separate them from the search text.
+        let mut all_constraints = Vec::new();
+        let mut text_patterns: Vec<String> = Vec::new();
+        for pat in context.patterns {
+            let query = parser.parse(pat.as_str());
+            let text = query.grep_text();
+            all_constraints.extend(query.constraints);
+            if !text.is_empty() {
+                text_patterns.push(text);
+            }
+        }
+        let refs: Vec<&str> = text_patterns.iter().map(|s| s.as_str()).collect();
+        picker.multi_grep(&refs, &all_constraints, &options)
     };
 
     let file_paths = result
         .files
         .iter()
-        .map(|f| f.relative_path(picker))
+        .map(|file| file_path_for_cwd(file, picker, &snapshot.base_path, context.cwd))
         .collect::<Vec<_>>();
     let matches = result.matches;
 
     drop(guard);
 
-    let stream_signals = signals.clone();
+    let stream_signals = context.signals.clone();
     let stream = matches.into_iter().map(move |item| {
-        if let Err(err) = stream_signals.check(&span) {
-            return Value::error(err, span);
+        if let Err(err) = stream_signals.check(&context.span) {
+            return Value::error(err, context.span);
         }
 
-        let path = file_paths
+        let relative_path = file_paths
             .get(item.file_index)
             .cloned()
             .unwrap_or_else(|| "<unknown>".to_string());
@@ -1903,49 +1983,112 @@ pub fn stream_grep(
                     [
                         (
                             "start".to_string(),
-                            Value::int(start + item.byte_offset as i64, span),
+                            Value::int(start + item.byte_offset as i64, context.span),
                         ),
                         (
                             "end".to_string(),
-                            Value::int(item.byte_offset as i64 + end, span),
+                            Value::int(item.byte_offset as i64 + end, context.span),
                         ),
                     ]
                     .into_iter()
                     .collect(),
-                    span,
+                    context.span,
                 )
             })
             .collect::<Vec<_>>();
 
-        Value::record(
-            [
-                ("path".to_string(), Value::string(path, span)),
-                (
-                    "line_number".to_string(),
-                    Value::int(i64::try_from(item.line_number).unwrap_or(i64::MAX), span),
+        let mut cols: Vec<(String, Value)> = vec![
+            (
+                "relative_path".to_string(),
+                Value::string(relative_path, context.span),
+            ),
+            (
+                "line_number".to_string(),
+                Value::int(
+                    i64::try_from(item.line_number).unwrap_or(i64::MAX),
+                    context.span,
                 ),
-                (
-                    "column".to_string(),
-                    Value::int(usize_to_i64(item.col), span),
+            ),
+            (
+                "column".to_string(),
+                Value::int(usize_to_i64(item.col), context.span),
+            ),
+            (
+                "byte_offset".to_string(),
+                Value::int(
+                    i64::try_from(item.byte_offset).unwrap_or(i64::MAX),
+                    context.span,
                 ),
-                (
-                    "byte_offset".to_string(),
-                    Value::int(i64::try_from(item.byte_offset).unwrap_or(i64::MAX), span),
-                ),
-                (
-                    "line".to_string(),
-                    Value::string(item.line_content.clone(), span),
-                ),
-                ("matches".to_string(), Value::list(offsets, span)),
-            ]
-            .into_iter()
-            .collect(),
-            span,
-        )
+            ),
+            (
+                "line".to_string(),
+                Value::string(item.line_content.clone(), context.span),
+            ),
+            ("matches".to_string(), Value::list(offsets, context.span)),
+        ];
+
+        if !item.context_before.is_empty() || !item.context_after.is_empty() {
+            let context_lines = item
+                .context_before
+                .iter()
+                .map(|l| Value::string(l.clone(), context.span))
+                .chain(std::iter::once(Value::string(
+                    item.line_content.clone(),
+                    context.span,
+                )))
+                .chain(
+                    item.context_after
+                        .iter()
+                        .map(|l| Value::string(l.clone(), context.span)),
+                )
+                .collect::<Vec<_>>();
+            cols.push((
+                "with_context".to_string(),
+                Value::list(context_lines, context.span),
+            ));
+        }
+
+        Value::record(cols.into_iter().collect(), context.span)
     });
 
     Ok(PipelineData::ListStream(
-        ListStream::new(stream, span, signals.clone()),
+        ListStream::new(stream, context.span, context.signals.clone()),
         Some(PipelineMetadata::default()),
     ))
+}
+
+fn path_for_cwd(path: &Path, cwd: Option<&Path>, fallback: &str) -> String {
+    let Some(cwd) = cwd else {
+        return fallback.to_string();
+    };
+
+    diff_paths(path, cwd)
+        .map(|path| {
+            if path.as_os_str().is_empty() {
+                ".".to_string()
+            } else {
+                path.to_string_lossy().into_owned()
+            }
+        })
+        .unwrap_or_else(|| fallback.to_string())
+}
+
+fn file_path_for_cwd(
+    file: &fff_search::FileItem,
+    picker: &FilePicker,
+    base_path: &Path,
+    cwd: Option<&Path>,
+) -> String {
+    let absolute_path = file.absolute_path(picker, base_path);
+    path_for_cwd(&absolute_path, cwd, &file.relative_path(picker))
+}
+
+fn dir_path_for_cwd(
+    dir: &fff_search::DirItem,
+    picker: &FilePicker,
+    base_path: &Path,
+    cwd: Option<&Path>,
+) -> String {
+    let absolute_path = dir.absolute_path(picker, base_path);
+    path_for_cwd(&absolute_path, cwd, &dir.relative_path(picker))
 }

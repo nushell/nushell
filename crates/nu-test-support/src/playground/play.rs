@@ -1,6 +1,5 @@
 use super::Director;
 use crate::fs::{self, Stub};
-use nu_glob::{Uninterruptible, glob};
 #[cfg(not(target_arch = "wasm32"))]
 use nu_path::Path;
 use nu_path::{AbsolutePath, AbsolutePathBuf};
@@ -229,16 +228,15 @@ impl Playground<'_> {
     }
 
     pub fn glob_vec(pattern: &str) -> Vec<std::path::PathBuf> {
-        let glob = glob(pattern, Uninterruptible);
-
-        glob.expect("invalid pattern")
-            .map(|path| {
-                if let Ok(path) = path {
-                    path
-                } else {
-                    unreachable!()
-                }
-            })
-            .collect()
+        let cwd = std::env::current_dir().expect("current directory should be available");
+        if nu_experimental::DC_GLOB.get() {
+            let glob = nu_glob::dc_glob::glob_from(&cwd, pattern).expect("invalid pattern");
+            glob.map(|path| path.expect("glob entry should resolve"))
+                .collect()
+        } else {
+            let glob = nu_glob::glob(pattern, nu_glob::Uninterruptible).expect("invalid pattern");
+            glob.map(|path| path.expect("glob entry should resolve"))
+                .collect()
+        }
     }
 }

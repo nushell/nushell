@@ -15,13 +15,10 @@ pub struct ExportableCompletion<'a> {
 
 /// If name contains space, wrap it in quotes
 fn wrapped_name(name: String) -> String {
-    if !name.contains(' ') {
-        return name;
-    }
-    if name.contains('\'') {
-        format!("\"{}\"", name.replace('"', r#"\""#))
+    if nu_utils::needs_quoting(&name) {
+        nu_utils::escape_quote_string(&name)
     } else {
-        format!("'{name}'")
+        name
     }
 }
 
@@ -80,18 +77,14 @@ impl Completer for ExportableCompletion<'_> {
         for (name, module_id) in &module.submodules {
             let name = String::from_utf8_lossy(name).to_string();
             if let Some(match_indices) = matcher.check_match(&name) {
-                let comments = working_set.get_module_comments(*module_id).map(|spans| {
-                    spans
-                        .iter()
-                        .map(|sp| {
-                            String::from_utf8_lossy(working_set.get_span_contents(*sp)).into()
-                        })
-                        .collect::<Vec<String>>()
-                });
+                let (desc, extra) = working_set
+                    .get_module_comments(*module_id)
+                    .map(|spans| working_set.build_desc(spans))
+                    .unzip();
                 add_suggestion(
                     wrapped_name(name),
-                    Some("Submodule".into()),
-                    comments,
+                    desc.or_else(|| Some("Submodule".into())),
+                    extra.map(|s| vec![s]),
                     match_indices,
                     SuggestionKind::Module,
                 );

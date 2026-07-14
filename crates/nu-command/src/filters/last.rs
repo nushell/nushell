@@ -1,9 +1,8 @@
+#[cfg(feature = "sqlite")]
+use crate::database::QueryPlan;
 use nu_engine::command_prelude::*;
 use nu_protocol::shell_error::io::IoError;
 use std::{collections::VecDeque, io::Read};
-
-#[cfg(feature = "sqlite")]
-use crate::database::SQLiteQueryBuilder;
 
 #[derive(Clone)]
 pub struct Last;
@@ -27,7 +26,7 @@ impl Command for Last {
             ])
             .optional(
                 "rows",
-                SyntaxShape::Int,
+                SyntaxShape::OneOf(vec![SyntaxShape::Int, SyntaxShape::Filesize]),
                 "Starting from the back, the number of rows to return.",
             )
             .allow_variants_without_examples(true)
@@ -40,7 +39,7 @@ impl Command for Last {
     }
 
     fn description(&self) -> &str {
-        "Return only the last several rows of the input. Counterpart of `first`. Opposite of `drop`."
+        "Return only the last several rows of the input. Counterpart of `first`. Opposite of `drop`. For binary input, rows can also be specified as a filesize."
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -68,6 +67,11 @@ impl Command for Last {
                 description: "Return the last item of a range.",
                 result: Some(Value::test_int(3)),
             },
+            Example {
+                example: "0x[01 23 45] | last 2b",
+                description: "Return the last 2 bytes of a binary value, using a filesize argument.",
+                result: Some(Value::test_binary(vec![0x23, 0x45])),
+            },
         ]
     }
 
@@ -79,8 +83,35 @@ impl Command for Last {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let rows = call.opt::<usize>(engine_state, stack, 0)?;
+        let rows_val: Option<Value> = call.opt(engine_state, stack, 0)?;
+        let is_filesize = rows_val
+            .as_ref()
+            .is_some_and(|v| matches!(v, Value::Filesize { .. }));
         let strict_mode = call.has_flag(engine_state, stack, "strict")?;
+
+        let rows: Option<usize> = match rows_val {
+            Some(v) => {
+                let span = v.span();
+                match v {
+                    Value::Int { val, .. } => Some(
+                        usize::try_from(val)
+                            .map_err(|_| ShellError::NeedsPositiveValue { span })?,
+                    ),
+                    Value::Filesize { val, .. } => Some(
+                        usize::try_from(val)
+                            .map_err(|_| ShellError::NeedsPositiveValue { span })?,
+                    ),
+                    ref val => {
+                        return Err(ShellError::RuntimeTypeMismatch {
+                            expected: Type::custom("int or filesize"),
+                            actual: val.get_type(),
+                            span: val.span(),
+                        });
+                    }
+                }
+            }
+            None => None,
+        };
 
         // FIXME: Please read the FIXME message in `first.rs`'s `first_helper` implementation.
         // It has the same issue.
@@ -89,6 +120,19 @@ impl Command for Last {
 
         let mut input = input;
         let metadata = input.take_metadata();
+
+        if is_filesize {
+            let is_binary = matches!(
+                &input,
+                PipelineData::Value(Value::Binary { .. }, _) | PipelineData::ByteStream(..)
+            );
+            if !is_binary {
+                return Err(ShellError::IncompatibleParametersSingle {
+                    msg: "Filesize is only supported for binary/byte stream input".into(),
+                    span: head,
+                });
+            }
+        }
 
         // Count is 0: return empty data immediately.
         //
@@ -195,22 +239,18 @@ impl Command for Last {
                     // Propagate errors by explicitly matching them before the final case.
                     Value::Error { error, .. } => Err(*error),
                     #[cfg(feature = "sqlite")]
-                    // Pushdown optimization: handle 'last' on SQLiteQueryBuilder for lazy SQL execution
+                    // Pushdown optimization: handle 'last' via QueryPlan for lazy SQL execution
                     Value::Custom {
                         val: custom_val,
                         internal_span,
                         ..
                     } => {
-                        if let Some(table) =
-                            custom_val.as_any().downcast_ref::<SQLiteQueryBuilder>()
-                        {
+                        if let Some(plan) = QueryPlan::try_from_any(custom_val.as_any()) {
                             if return_single_element {
                                 // For single element, ORDER BY rowid DESC LIMIT 1
-                                let new_table = table
-                                    .clone()
-                                    .with_order_by("rowid DESC".to_string())
-                                    .with_limit(1);
-                                let result = new_table.execute(head)?;
+                                let plan =
+                                    plan.with_order_by("rowid DESC".to_string()).with_limit(1);
+                                let result = plan.execute(head)?;
                                 let value = result.into_value(head)?;
                                 if let Value::List { vals, .. } = value {
                                     if let Some(val) = vals.into_iter().next() {
@@ -225,16 +265,15 @@ impl Command for Last {
                                     }
                                 } else {
                                     Err(ShellError::NushellFailed {
-                                        msg: "Expected list from SQLiteQueryBuilder".into(),
+                                        msg: "Expected list from query plan".into(),
                                     })
                                 }
                             } else {
                                 // For multiple, ORDER BY rowid DESC LIMIT rows
-                                let new_table = table
-                                    .clone()
+                                let plan = plan
                                     .with_order_by("rowid DESC".to_string())
                                     .with_limit(rows as i64);
-                                let result = new_table.execute(head)?;
+                                let result = plan.execute(head)?;
                                 let value = result.into_value(head)?;
 
                                 if let Value::List { mut vals, .. } = value {

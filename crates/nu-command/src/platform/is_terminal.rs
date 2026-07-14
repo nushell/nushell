@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::OutDest;
 use std::io::IsTerminal as _;
 
 #[derive(Clone)]
@@ -23,11 +24,28 @@ impl Command for IsTerminal {
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
-        vec![Example {
-            description: r#"Return "terminal attached" if standard input is attached to a terminal, and "no terminal" if not."#,
-            example: r#"if (is-terminal --stdin) { "terminal attached" } else { "no terminal" }"#,
-            result: Some(Value::test_string("terminal attached")),
-        }]
+        vec![
+            Example {
+                description: "Check if stdout is a terminal (default when no flag is specified).",
+                example: "is-terminal",
+                result: None,
+            },
+            Example {
+                description: "Return false when output is piped to another command.",
+                example: "is-terminal | to text",
+                result: Some(Value::test_string("false")),
+            },
+            Example {
+                description: "Return false when output is collected into a variable.",
+                example: "let x = (is-terminal); $x",
+                result: Some(Value::test_bool(false)),
+            },
+            Example {
+                description: r#"Return "terminal attached" if standard input is attached to a terminal, and "no terminal" if not."#,
+                example: r#"if (is-terminal --stdin) { "terminal attached" } else { "no terminal" }"#,
+                result: Some(Value::test_string("terminal attached")),
+            },
+        ]
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -47,14 +65,9 @@ impl Command for IsTerminal {
 
         let is_terminal = match (stdin, stdout, stderr) {
             (true, false, false) => std::io::stdin().is_terminal(),
-            (false, true, false) => std::io::stdout().is_terminal(),
-            (false, false, true) => std::io::stderr().is_terminal(),
-            (false, false, false) => {
-                return Err(ShellError::MissingParameter {
-                    param_name: "one of --stdin, --stdout, --stderr".into(),
-                    span: call.head,
-                });
-            }
+            (false, true, false) => stream_is_terminal(stack, Stream::Stdout),
+            (false, false, true) => stream_is_terminal(stack, Stream::Stderr),
+            (false, false, false) => stream_is_terminal(stack, Stream::Stdout),
             _ => {
                 return Err(ShellError::IncompatibleParametersSingle {
                     msg: "Only one stream may be checked".into(),
@@ -67,5 +80,32 @@ impl Command for IsTerminal {
             Value::bool(is_terminal, call.head),
             None,
         ))
+    }
+}
+
+enum Stream {
+    Stdout,
+    Stderr,
+}
+
+fn stream_is_terminal(stack: &Stack, stream: Stream) -> bool {
+    let pipe_dest = match stream {
+        Stream::Stdout => stack.pipe_stdout(),
+        Stream::Stderr => stack.pipe_stderr(),
+    };
+
+    match pipe_dest {
+        Some(
+            OutDest::Pipe
+            | OutDest::PipeSeparate
+            | OutDest::Value
+            | OutDest::Null
+            | OutDest::File(_)
+            | OutDest::Inherit,
+        ) => false,
+        Some(OutDest::Print) | None => match stream {
+            Stream::Stdout => std::io::stdout().is_terminal(),
+            Stream::Stderr => std::io::stderr().is_terminal(),
+        },
     }
 }

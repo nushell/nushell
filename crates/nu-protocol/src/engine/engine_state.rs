@@ -2,7 +2,7 @@ use crate::{
     BlockId, Config, DeclId, FileId, GetSpan, Handlers, HistoryConfig, JobId, Module, ModuleId,
     OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type, Value, VarId,
     VirtualPathId,
-    ast::Block,
+    ast::{Block, Expr},
     debugger::{Debugger, NoopDebugger},
     engine::{
         CachedFile, Command, DEFAULT_OVERLAY_NAME, EnvName, EnvVars, OverlayFrame, ScopeFrame,
@@ -15,9 +15,10 @@ use crate::{
 };
 use fancy_regex::Regex;
 use lru::LruCache;
+use nu_config::NushellConfigDirs;
 use nu_path::AbsolutePathBuf;
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     num::NonZeroUsize,
     path::PathBuf,
     sync::{
@@ -112,7 +113,13 @@ pub struct EngineState {
     #[cfg(feature = "plugin")]
     #[debug("{:?}", plugins.iter().map(|rp| rp.identity().name()).collect::<Vec<_>>())]
     plugins: Vec<Arc<dyn RegisteredPlugin>>,
-    config_path: HashMap<String, PathBuf>,
+    /// Resolved configuration directories and file paths.
+    ///
+    /// Populated once at startup by `nu_config::resolve_paths()` in `main.rs`.
+    /// All downstream code (config-file loading, `$nu` constant generation,
+    /// history backend, etc.) reads from this struct.
+    pub config_dirs: NushellConfigDirs,
+
     pub history_enabled: bool,
     pub history_session_id: i64,
     /// Whether the startup-only `$env.config.history.*` options are locked from further
@@ -209,7 +216,7 @@ impl EngineState {
             plugin_path: None,
             #[cfg(feature = "plugin")]
             plugins: vec![],
-            config_path: HashMap::new(),
+            config_dirs: NushellConfigDirs::empty(),
             history_enabled: true,
             history_session_id: 0,
             history_locked_after_startup: false,
@@ -392,20 +399,31 @@ impl EngineState {
     }
 
     /// Clean up unused variables from a Stack to prevent memory leaks.
-    /// This removes variables that are no longer referenced by any overlay.
+    /// This removes variables that are no longer referenced by any overlay or alias.
     pub fn cleanup_stack_variables(&mut self, stack: &mut Stack) {
-        use std::collections::HashSet;
-
         let mut shadowed_vars = HashSet::new();
         for (_, frame) in self.scope.overlays.iter_mut() {
-            shadowed_vars.extend(frame.shadowed_vars.to_owned());
-            frame.shadowed_vars.clear();
+            shadowed_vars.extend(frame.shadowed_vars.drain(..));
         }
 
-        // Remove variables from stack that are no longer referenced
-        stack
-            .vars
-            .retain(|(var_id, _)| !shadowed_vars.contains(var_id));
+        if shadowed_vars.is_empty() {
+            return;
+        }
+
+        // Collect VarIds still referenced by alias definitions so we don't
+        // remove them — doing so would cause a VariableNotFoundAtRuntime error
+        // when the alias is invoked after the variable has been re-bound.
+        let mut alias_var_ids = HashSet::new();
+        for decl in self.decls.iter() {
+            if let Some(alias) = decl.as_alias() {
+                collect_alias_var_ids(&alias.wrapped_call, &mut alias_var_ids);
+            }
+        }
+
+        // Remove variables from stack that are shadowed and not referenced by any alias
+        stack.vars.retain(|(var_id, _)| {
+            !shadowed_vars.contains(var_id) || alias_var_ids.contains(var_id)
+        });
     }
 
     pub fn active_overlay_ids<'a, 'b>(
@@ -831,6 +849,15 @@ impl EngineState {
         self.history_enabled.then(|| self.config.history.clone())
     }
 
+    /// Resolve the history file path using the already-resolved config dirs.
+    ///
+    /// Returns `None` when history is disabled or the history path is set to
+    /// [`HistoryPath::Disabled`].
+    pub fn history_path(&self) -> Option<std::path::PathBuf> {
+        self.history_config()?
+            .file_path(&self.config_dirs.config_home)
+    }
+
     pub fn get_var(&self, var_id: VarId) -> &Variable {
         self.vars
             .get(var_id.get())
@@ -952,14 +979,6 @@ impl EngineState {
         });
 
         FileId::new(self.num_files() - 1)
-    }
-
-    pub fn set_config_path(&mut self, key: &str, val: PathBuf) {
-        self.config_path.insert(key.to_string(), val);
-    }
-
-    pub fn get_config_path(&self, key: &str) -> Option<&PathBuf> {
-        self.config_path.get(key)
     }
 
     pub fn build_desc(&self, spans: &[Span]) -> (String, String) {
@@ -1119,6 +1138,36 @@ impl EngineState {
     // Gets the thread job entry
     pub fn current_thread_job(&self) -> Option<&ThreadJob> {
         self.current_job.background_thread_job.as_ref()
+    }
+}
+
+/// Collect all `VarId`s referenced by `Expr::Var` nodes in `expr`.
+/// This is used by [`EngineState::cleanup_stack_variables`] to avoid removing
+/// variables that are still referenced by alias definitions.
+fn collect_alias_var_ids(expr: &crate::ast::Expression, var_ids: &mut HashSet<VarId>) {
+    let mut queue = vec![expr];
+
+    while let Some(e) = queue.pop() {
+        match &e.expr {
+            Expr::Var(id) => {
+                var_ids.insert(*id);
+            }
+            Expr::Call(call) => {
+                for arg in &call.arguments {
+                    if let Some(sub_expr) = arg.expr() {
+                        queue.push(sub_expr);
+                    }
+                }
+            }
+            Expr::ExternalCall(head, args) => {
+                queue.push(head);
+                for arg in args.iter() {
+                    queue.push(arg.expr());
+                }
+            }
+            Expr::FullCellPath(fcp) => queue.push(&fcp.head),
+            _ => {}
+        }
     }
 }
 

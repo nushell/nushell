@@ -41,6 +41,7 @@ pub fn parse_shape_name(
         b"directory" => SyntaxShape::Directory,
         b"duration" => SyntaxShape::Duration,
         b"error" => SyntaxShape::Error,
+        b"external_arg" => SyntaxShape::ExternalArgument,
         b"float" => SyntaxShape::Float,
         b"filesize" => SyntaxShape::Filesize,
         b"glob" => SyntaxShape::GlobPattern,
@@ -86,6 +87,7 @@ pub fn parse_completer(
             SyntaxShape::List(Box::new(SyntaxShape::String)),
             SyntaxShape::String,
         ]),
+        None,
     );
 
     if working_set.parse_errors.len() > error_count {
@@ -209,10 +211,8 @@ fn split_generic_params<'a>(
     bytes: &'a [u8],
     span: Span,
 ) -> (&'a [u8], Option<Spanned<&'a [u8]>>) {
-    let n = bytes.iter().position(|&c| c == b'<');
-    let (open_delim_pos, close_delim) = match n.and_then(|n| Some((n, bytes.get(n)?))) {
-        Some((n, b'<')) => (n, b'>'),
-        _ => return (bytes, None),
+    let Some(open_delim_pos) = bytes.iter().position(|&c| c == b'<') else {
+        return (bytes, None);
     };
 
     let type_name = &bytes[..(open_delim_pos)];
@@ -220,13 +220,13 @@ fn split_generic_params<'a>(
 
     let start = span.start + type_name.len() + 1;
 
-    if params.ends_with(&[close_delim]) {
+    if params.ends_with(b">") {
         let end = span.end - 1;
         (
             type_name,
             Some((&params[..(params.len() - 1)]).into_spanned(Span::new(start, end))),
         )
-    } else if let Some(close_delim_pos) = params.iter().position(|it| it == &close_delim) {
+    } else if let Some(close_delim_pos) = params.iter().position(|it| *it == b'>') {
         let span = Span::new(span.start + close_delim_pos, span.end);
 
         working_set.error(ParseError::LabeledError(
@@ -237,7 +237,7 @@ fn split_generic_params<'a>(
 
         (bytes, None)
     } else {
-        working_set.error(ParseError::Unclosed((close_delim as char).into(), span));
+        working_set.error(ParseError::Unclosed(">", span));
         (bytes, None)
     }
 }
@@ -280,7 +280,7 @@ fn parse_named_type_params(
         }
 
         let Some(key) =
-            parse_value(working_set, tokens[idx].span, &SyntaxShape::String).as_string()
+            parse_value(working_set, tokens[idx].span, &SyntaxShape::String, None).as_string()
         else {
             working_set.error(key_error(tokens[idx].span));
             return CollectionColumns::default();

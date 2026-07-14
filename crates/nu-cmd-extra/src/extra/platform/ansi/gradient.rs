@@ -102,6 +102,18 @@ static NAMED_GRADIENTS: [(&str, &[Rgb]); 15] = [
     ("instagram", &GRADIENT_INSTAGRAM),
 ];
 
+static NAMES: [&str; 15] = const {
+    let mut buf = [""; 15];
+    let mut dst = buf.as_mut_slice();
+    let mut src = NAMED_GRADIENTS.as_slice();
+    while let ([d, d_rest @ ..], [s, s_rest @ ..]) = (dst, src) {
+        *d = s.0;
+        dst = d_rest;
+        src = s_rest;
+    }
+    buf
+};
+
 /// `ansi gradient` command implementation.
 ///
 /// Supports raw foreground/background color gradients and named palettes.
@@ -127,11 +139,12 @@ impl Command for SubCommand {
                 "Foreground gradient end color in hex.",
                 Some('b'),
             )
-            .named(
-                "fgnamed",
-                SyntaxShape::String,
-                "Named foreground gradient.",
-                Some('F'),
+            .param(
+                Flag::new("fgnamed")
+                    .short('F')
+                    .arg(SyntaxShape::String)
+                    .desc("Named foreground gradient.")
+                    .completion(Completion::new_list(&NAMES)),
             )
             .named(
                 "bgstart",
@@ -145,11 +158,12 @@ impl Command for SubCommand {
                 "Background gradient end color in hex.",
                 Some('d'),
             )
-            .named(
-                "bgnamed",
-                SyntaxShape::String,
-                "Named background gradient.",
-                Some('B'),
+            .param(
+                Flag::new("bgnamed")
+                    .short('B')
+                    .arg(SyntaxShape::String)
+                    .desc("Named background gradient.")
+                    .completion(Completion::new_list(&NAMES)),
             )
             .switch(
                 "list",

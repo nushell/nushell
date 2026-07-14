@@ -151,6 +151,12 @@ fn get_suggestions_by_value(
                 to_suggestion(s, sub_val)
             })
             .collect(),
+        Value::Custom { val, .. } if val.type_name() == "semver" => {
+            ["major", "minor", "patch", "pre", "build"]
+                .into_iter()
+                .map(|s| to_suggestion(s.to_string(), None))
+                .collect()
+        }
         _ => vec![],
     }
 }
@@ -158,7 +164,6 @@ fn get_suggestions_by_value(
 fn get_suggestions_by_type(ty: &Type, current_span: reedline::Span) -> Vec<SemanticSuggestion> {
     match ty {
         Type::Record(columns) | Type::Table(columns) => columns
-            .fields
             .iter()
             .map(|(name, ty)| SemanticSuggestion {
                 suggestion: Suggestion {

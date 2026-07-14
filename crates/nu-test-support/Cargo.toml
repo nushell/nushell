@@ -8,6 +8,9 @@ license.workspace = true
 name = "nu-test-support"
 version.workspace = true
 
+[package.metadata.docs.rs]
+all-features = true
+
 [lib]
 doctest = false
 bench = false
@@ -17,6 +20,7 @@ workspace = true
 
 [features]
 os = [
+  "nu-cli",
   "nu-cmd-lang/os",
   "nu-command/os",
   "nu-engine/os",
@@ -25,32 +29,49 @@ os = [
 ]
 network = ["nu-command/network"]
 rustls-tls = ["nu-command/rustls-tls"]
+plugin = [
+  "dep:nu-cmd-plugin",
+  "dep:nu-plugin-core",
+  "dep:nu-plugin-engine",
+  "nu-protocol/plugin",
+  "os",
+]
 
 [dependencies]
+nu-cli = { workspace = true, optional = true }
 nu-cmd-extra.workspace = true
 nu-cmd-lang.workspace = true
+nu-cmd-plugin = { workspace = true, optional = true }
 nu-command.workspace = true
 nu-engine.workspace = true
 nu-experimental.workspace = true
 nu-glob.workspace = true
 nu-parser.workspace = true
 nu-path.workspace = true
+nu-plugin-core = { workspace = true, optional = true }
+nu-plugin-engine = { workspace = true, optional = true }
 nu-protocol.workspace = true
 nu-std.workspace = true
 nu-test-support-macros.workspace = true
 nu-utils.workspace = true
 
-derive_more = { workspace = true }
+derive_more = { workspace = true, features = ["debug"] }
 itertools = { workspace = true }
 kitest = { workspace = true }
 lexopt = { workspace = true }
 linkme = { workspace = true }
+miette = { workspace = true }
 nu-ansi-term = { workspace = true }
 num-format = { workspace = true }
+parking_lot = { workspace = true }
+pastey = { workspace = true }
 serde_json = { workspace = true }
 tempfile = { workspace = true }
 thiserror = { workspace = true }
 which = { workspace = true }
+
+[target.'cfg(unix)'.dependencies]
+gatekeeper = { workspace = true }
 
 [dev-dependencies]
 # doc tests use the "os" feature of `nu-command`
@@ -59,6 +80,3 @@ nu-command = { workspace = true, features = ["default"] }
 
 bytes = { workspace = true }
 rstest = { workspace = true }
-
-[target.'cfg(unix)'.dependencies]
-gatekeeper = { workspace = true }

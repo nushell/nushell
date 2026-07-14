@@ -21,7 +21,7 @@ impl Command for IdxStatus {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Show the current idx runtime status",
+            description: "Show the current idx runtime status.",
             example: "idx status",
             result: None,
         }]

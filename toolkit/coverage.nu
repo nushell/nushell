@@ -23,7 +23,7 @@ def compute-coverage [] {
     ^cargo llvm-cov report --lcov --output-path lcov.info --profile=ci
 }
 
-# Script to generate coverage locally
+# Script to generate coverage locally.
 #
 # Output: `lcov.info` file
 #
@@ -47,6 +47,9 @@ def compute-coverage [] {
 # - https://marketplace.visualstudio.com/items?itemName=ryanluker.vscode-coverage-gutters
 # - https://github.com/umaumax/vim-lcov
 # - https://github.com/andythigpen/nvim-coverage (probably needs some additional config)
+@category "toolkit"
+@search-terms coverage lcov llvm-cov cargo-llvm-cov code-coverage
+@example "Generate a coverage report" { toolkit cov }
 export def cov [] {
     let start = (date now)
     $env.NUSHELL_CARGO_PROFILE = "ci"

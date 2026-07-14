@@ -131,31 +131,6 @@ impl Module {
             let mut const_rows = vec![];
             let mut errors = vec![];
 
-            for (_, id) in &self.submodules {
-                let submodule = working_set.get_module(*id);
-                let span = submodule.span.or(self.span).unwrap_or(backup_span);
-
-                let (sub_results, sub_errors) = submodule.resolve_import_pattern(
-                    working_set,
-                    *id,
-                    &[],
-                    None,
-                    span,
-                    imported_modules,
-                );
-                errors.extend(sub_errors);
-
-                for (sub_name, sub_decl_id) in sub_results.decls {
-                    let mut new_name = final_name.clone();
-                    new_name.push(b' ');
-                    new_name.extend(sub_name);
-
-                    decls.push((new_name, sub_decl_id));
-                }
-
-                const_rows.extend(sub_results.constant_values);
-            }
-
             decls.extend(self.decls_with_head(&final_name));
 
             for (name, var_id) in self.consts() {

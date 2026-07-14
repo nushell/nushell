@@ -38,6 +38,14 @@ impl PluginCommand for LazyFillNA {
                     PolarsPluginType::NuLazyFrame.into(),
                     PolarsPluginType::NuLazyFrame.into(),
                 ),
+                (
+                    PolarsPluginType::NuExpression.into(),
+                    PolarsPluginType::NuExpression.into(),
+                ),
+                (
+                    PolarsPluginType::NuSelector.into(),
+                    PolarsPluginType::NuExpression.into(),
+                ),
             ])
             .category(Category::Custom("lazyframe".into()))
     }
@@ -123,6 +131,7 @@ impl PluginCommand for LazyFillNA {
                     PolarsPluginType::NuDataFrame,
                     PolarsPluginType::NuLazyFrame,
                     PolarsPluginType::NuExpression,
+                    PolarsPluginType::NuSelector,
                 ],
             )),
         }
