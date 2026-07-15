@@ -314,6 +314,8 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         // Date
         bind_command! {
             Date,
+            DateCeil,
+            DateFloor,
             DateFromHuman,
             DateHumanize,
             DateListTimezones,
