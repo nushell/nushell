@@ -714,6 +714,21 @@ impl Stack {
             .is_some_and(|hidden_vars| hidden_vars.contains(env_name))
     }
 
+    /// Returns `true` if `name` was hidden in this stack context (e.g. by `hide-env`), either by
+    /// masking an `engine_state` baseline value or by removing a stack-level value.
+    ///
+    /// A variable that was re-added after being hidden is still reported as hidden here, so only
+    /// use this after a failed lookup to distinguish "hidden" from "never set".
+    pub fn is_env_var_hidden(&self, name: &str) -> bool {
+        let env_name = EnvName::from(name);
+
+        self.active_overlays
+            .iter()
+            .rev()
+            .any(|overlay| self.is_env_hidden_in_overlay(overlay, &env_name))
+            || self.is_env_var_hide_recorded(&env_name)
+    }
+
     /// Hides `name` so it is no longer visible to subsequent lookups. Removes it from the stack
     /// and, if no stack shadowing remains, also marks the `engine_state` baseline as hidden in
     /// `env_hidden`. Returns `true` if the variable was found.
