@@ -1090,8 +1090,9 @@ pub(crate) fn compile_return(
         builder.load_empty(io_reg)?;
     }
 
-    // TODO: It would be nice if this could be `return` instead, but there is a little bit of
-    // behaviour remaining that still depends on `ShellError::Return`
+    // This is distinct from the terminal `return` instruction: it runs pending `finally`
+    // handlers, and marks the result as an early return so boundaries can observe it (e.g. a
+    // top-level `return` in a script prevents `main` from running).
     builder.push(Instruction::ReturnEarly { src: io_reg }.into_spanned(call.head))?;
 
     // io_reg is supposed to remain allocated

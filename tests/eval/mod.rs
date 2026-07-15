@@ -418,6 +418,108 @@ fn early_return_from_for() {
 }
 
 #[test]
+fn early_return_keeps_metadata() {
+    // An early `return` used to drop pipeline metadata that a value in tail position kept.
+    // https://github.com/nushell/nushell/issues/18552
+    test_eval(
+        r#"def foo [] { if true { return ("body" | metadata set { merge {my: 302} }) } };
+        foo | metadata | get my"#,
+        Eq("302"),
+    )
+}
+
+#[test]
+fn early_return_keeps_stream() {
+    // An early `return` used to collect its value; it should stay a stream like a value in
+    // tail position does.
+    test_eval(
+        "def foo [] { return (1..3 | each { |x| $x }) }; foo | describe",
+        Eq("list<int> (stream)"),
+    )
+}
+
+#[test]
+fn early_return_with_finally_runs_cleanup_and_keeps_value() {
+    test_eval(
+        "def foo [] { try { return 1 } finally { print cleanup } }; foo | print",
+        Eq("cleanup1"),
+    )
+}
+
+#[test]
+fn early_return_with_finally_keeps_metadata() {
+    test_eval(
+        r#"def foo [] { try { return ("body" | metadata set { merge {my: 302} }) } finally { } };
+        foo | metadata | get my"#,
+        Eq("302"),
+    )
+}
+
+#[test]
+fn early_return_not_intercepted_by_catch() {
+    test_eval(
+        "def foo [] { try { return early } catch { 'caught' } }; foo",
+        Eq("early"),
+    )
+}
+
+#[test]
+fn early_return_in_export_env_stays_in_env_block() {
+    // `return` inside `export-env` ends the environment block; it used to unwind further and
+    // abort the enclosing command.
+    test_eval(
+        "def foo [] { export-env { return }; 'after' }; foo",
+        Eq("after"),
+    )
+}
+
+#[test]
+fn early_return_in_export_env_guard_skips_rest_of_env_block() {
+    test_eval(
+        "def foo [] { export-env { if true { return }; $env.FOO = 'set' }; $env.FOO? | default 'unset' };
+        foo",
+        Eq("unset"),
+    )
+}
+
+#[test]
+fn early_return_inside_command_does_not_skip_main() {
+    // A `return` inside a command called at the top level of a script is consumed at the call
+    // boundary; only a top-level `return` should prevent `main` from running.
+    Playground::setup(
+        "return_in_command_does_not_skip_main",
+        |dirs, playground| {
+            playground.with_files(&[nu_test_support::fs::Stub::FileWithContent(
+                "script.nu",
+                "def helper [] { return 1 }\nhelper\ndef main [] { print 'main ran' }",
+            )]);
+            let actual = nu!(
+                cwd: dirs.test(),
+                "nu -n script.nu"
+            );
+            assert!(actual.out.contains("main ran"), "out: {}", actual.out);
+            assert!(actual.status.success());
+        },
+    );
+}
+
+#[test]
+fn early_return_in_module_export_env_does_not_abort_caller() {
+    Playground::setup("return_in_module_export_env", |dirs, playground| {
+        playground.with_files(&[nu_test_support::fs::Stub::FileWithContent(
+            "mod.nu",
+            "export-env { return }\nexport def hi [] { 'hi' }",
+        )]);
+        let actual = nu!(
+            cwd: dirs.test(),
+            "def foo [] { use mod.nu *; hi }; foo"
+        );
+        assert_eq!(actual.out, "hi");
+        assert!(actual.status.success());
+    });
+}
+
+#[test]
 fn try_no_catch() {
     test_eval("try { error make { msg: foo } }; 'pass'", Eq("pass"))
 }

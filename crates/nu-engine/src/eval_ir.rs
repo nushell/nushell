@@ -242,7 +242,10 @@ fn eval_ir_block_impl<D: DebugContext>(
     // Program counter, starts at zero.
     let mut pc = 0;
     let need_backtrace = ctx.engine_state.get_env_var("NU_BACKTRACE").is_some();
-    let mut ret_val = None;
+    // The result of an early exit (`return` or an error) that must still run pending `finally`
+    // handlers before it can leave the block. It takes precedence over the register contents at
+    // the terminal `Return` instruction.
+    let mut ret_val: Option<Result<PipelineExecutionData, ShellError>> = None;
 
     while pc < ir_block.instructions.len() {
         let instruction = &ir_block.instructions[pc];
@@ -269,25 +272,50 @@ fn eval_ir_block_impl<D: DebugContext>(
                 pc = next_pc;
             }
             Ok(InstructionResult::Return(reg_id)) => {
-                // need to check if the return value is set by
-                // `Shell::Return` first. If so, we need to respect that value.
+                // need to check if the return value was stashed by an early `return` or an error
+                // that ran a `finally` handler first. If so, we need to respect that value.
                 match ret_val {
-                    Some(err) => return Err(err),
+                    Some(res) => return res,
                     None => return Ok(ctx.take_reg(reg_id)),
+                }
+            }
+            Ok(InstructionResult::ReturnEarly(reg_id)) => {
+                if let Some(always_run_handler) =
+                    ctx.stack.finally_run_handlers.pop(ctx.finally_handler_base)
+                {
+                    // A `finally` block is pending: collect the value first (mirroring the
+                    // `try-collect` the compiler emits on the fall-through path, which also
+                    // preserves metadata), stash it, and run the `finally` block. The stashed
+                    // value is returned at the terminal `Return` instruction.
+                    let data = ctx.take_reg(reg_id);
+                    #[cfg(feature = "os")]
+                    let collected = collect(data, *span, false);
+                    #[cfg(not(feature = "os"))]
+                    let collected = collect(data, *span);
+                    ret_val = Some(
+                        collected.map(|body| PipelineExecutionData::from(body).with_early_return()),
+                    );
+                    prepare_error_handler(ctx, always_run_handler, None);
+                    pc = always_run_handler.handler_index;
+                } else {
+                    // No `finally` pending: this is the same as a tail return, keeping streams
+                    // and metadata intact, except the data is marked as an early return so that
+                    // boundaries can observe it.
+                    return Ok(ctx.take_reg(reg_id).with_early_return());
                 }
             }
             Err(err @ (ShellError::Continue { .. } | ShellError::Break { .. })) => {
                 return Err(err);
             }
-            Err(err @ (ShellError::Return { .. } | ShellError::Exit { abort: false, .. })) => {
+            Err(err @ ShellError::Exit { abort: false, .. }) => {
                 if let Some(always_run_handler) =
                     ctx.stack.finally_run_handlers.pop(ctx.finally_handler_base)
                 {
-                    // need to run finally block before return.
-                    // and record the return value firstly.
+                    // need to run finally block before exiting.
+                    // and record the exit error firstly.
                     prepare_error_handler(ctx, always_run_handler, None);
                     pc = always_run_handler.handler_index;
-                    ret_val = Some(err);
+                    ret_val = Some(Err(err));
                 } else {
                     // These block control related errors should be passed through
                     return Err(err);
@@ -323,7 +351,7 @@ fn eval_ir_block_impl<D: DebugContext>(
                         Some(err.clone().into_spanned(*span)),
                     );
                     pc = always_run_handler.handler_index;
-                    ret_val = Some(err);
+                    ret_val = Some(Err(err));
                 } else if need_backtrace {
                     let err = ShellError::into_chained(err, *span);
                     return Err(err);
@@ -381,6 +409,12 @@ enum InstructionResult {
     Continue,
     Branch(usize),
     Return(RegId),
+    /// Return from the block before reaching the end, carrying the full register contents.
+    ///
+    /// Unlike `Return`, this runs any pending `finally` handlers before the value leaves the
+    /// block, and marks the resulting data as an early return so that boundaries (custom command
+    /// calls, closures, file evaluation) can observe it.
+    ReturnEarly(RegId),
 }
 
 /// Perform an instruction
@@ -708,11 +742,18 @@ fn eval_instruction<D: DebugContext>(
                     PipelineExecutionData {
                         body: result,
                         exit: original_exit,
+                        early_return: false,
                     },
                 );
             }
             #[cfg(not(feature = "os"))]
-            ctx.put_reg(*src_dst, PipelineExecutionData { body: result });
+            ctx.put_reg(
+                *src_dst,
+                PipelineExecutionData {
+                    body: result,
+                    early_return: false,
+                },
+            );
             Ok(Continue)
         }
         Instruction::StringAppend { src_dst, val } => {
@@ -1045,13 +1086,7 @@ fn eval_instruction<D: DebugContext>(
             ctx.stack.finally_run_handlers.pop(ctx.finally_handler_base);
             Ok(Continue)
         }
-        Instruction::ReturnEarly { src } => {
-            let val = ctx.collect_reg(*src, *span)?;
-            Err(ShellError::Return {
-                span: *span,
-                value: Box::new(val),
-            })
-        }
+        Instruction::ReturnEarly { src } => Ok(InstructionResult::ReturnEarly(*src)),
         Instruction::Return { src } => Ok(Return(*src)),
     }
 }
