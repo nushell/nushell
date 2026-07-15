@@ -1,6 +1,8 @@
+//! Universal romanization search-key generation.
+
 use std::sync::OnceLock;
 
-use uroman_rs::{Uroman, rom_format};
+use uroman::{Uroman, rom_format};
 
 use super::{SearchKeyKind, SearchKeyProvider, SearchKeys};
 

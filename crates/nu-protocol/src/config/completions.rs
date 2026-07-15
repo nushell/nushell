@@ -2,22 +2,13 @@ use super::{config_update_string_enum, prelude::*};
 use crate as nu_protocol;
 use crate::engine::Closure;
 
-#[derive(Clone, Debug, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
-pub struct XsimRomanizationConfig {
+#[derive(Clone, Debug, Default, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CrossScriptInputMatchCompletionRomanizationConfig {
     pub enabled: bool,
     pub language_hints: Vec<String>,
 }
 
-impl Default for XsimRomanizationConfig {
-    fn default() -> Self {
-        Self {
-            enabled: true,
-            language_hints: Vec::new(),
-        }
-    }
-}
-
-impl UpdateFromValue for XsimRomanizationConfig {
+impl UpdateFromValue for CrossScriptInputMatchCompletionRomanizationConfig {
     fn update<'a>(
         &mut self,
         value: &'a Value,
@@ -53,11 +44,11 @@ impl UpdateFromValue for XsimRomanizationConfig {
 }
 
 #[derive(Clone, Debug, Default, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
-pub struct XsimPinyinConfig {
+pub struct CrossScriptInputMatchCompletionPinyinConfig {
     pub enabled: bool,
 }
 
-impl UpdateFromValue for XsimPinyinConfig {
+impl UpdateFromValue for CrossScriptInputMatchCompletionPinyinConfig {
     fn update<'a>(
         &mut self,
         value: &'a Value,
@@ -80,21 +71,21 @@ impl UpdateFromValue for XsimPinyinConfig {
 }
 
 #[derive(Clone, Debug, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
-pub struct XsimTargetsConfig {
+pub struct CrossScriptInputMatchCompletionTargetsConfig {
     pub paths: bool,
     pub commands: bool,
 }
 
-impl Default for XsimTargetsConfig {
+impl Default for CrossScriptInputMatchCompletionTargetsConfig {
     fn default() -> Self {
         Self {
             paths: true,
-            commands: false,
+            commands: true,
         }
     }
 }
 
-impl UpdateFromValue for XsimTargetsConfig {
+impl UpdateFromValue for CrossScriptInputMatchCompletionTargetsConfig {
     fn update<'a>(
         &mut self,
         value: &'a Value,
@@ -117,15 +108,26 @@ impl UpdateFromValue for XsimTargetsConfig {
     }
 }
 
-#[derive(Clone, Debug, Default, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
-pub struct XsimConfig {
+#[derive(Clone, Debug, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CrossScriptInputMatchCompletionConfig {
     pub enabled: bool,
-    pub targets: XsimTargetsConfig,
-    pub romanization: XsimRomanizationConfig,
-    pub pinyin: XsimPinyinConfig,
+    pub targets: CrossScriptInputMatchCompletionTargetsConfig,
+    pub romanization: CrossScriptInputMatchCompletionRomanizationConfig,
+    pub pinyin: CrossScriptInputMatchCompletionPinyinConfig,
 }
 
-impl UpdateFromValue for XsimConfig {
+impl Default for CrossScriptInputMatchCompletionConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            targets: CrossScriptInputMatchCompletionTargetsConfig::default(),
+            romanization: CrossScriptInputMatchCompletionRomanizationConfig::default(),
+            pinyin: CrossScriptInputMatchCompletionPinyinConfig::default(),
+        }
+    }
+}
+
+impl UpdateFromValue for CrossScriptInputMatchCompletionConfig {
     fn update<'a>(
         &mut self,
         value: &'a Value,
@@ -256,7 +258,7 @@ pub struct CompletionConfig {
     pub algorithm: CompletionAlgorithm,
     pub external: ExternalCompleterConfig,
     pub use_ls_colors: bool,
-    pub xsim: XsimConfig,
+    pub xsimc: CrossScriptInputMatchCompletionConfig,
 }
 
 impl Default for CompletionConfig {
@@ -269,7 +271,7 @@ impl Default for CompletionConfig {
             algorithm: CompletionAlgorithm::default(),
             external: ExternalCompleterConfig::default(),
             use_ls_colors: true,
-            xsim: XsimConfig::default(),
+            xsimc: CrossScriptInputMatchCompletionConfig::default(),
         }
     }
 }
@@ -296,7 +298,7 @@ impl UpdateFromValue for CompletionConfig {
                 "case_sensitive" => self.case_sensitive.update(val, path, errors),
                 "external" => self.external.update(val, path, errors),
                 "use_ls_colors" => self.use_ls_colors.update(val, path, errors),
-                "xsim" => self.xsim.update(val, path, errors),
+                "xsimc" => self.xsimc.update(val, path, errors),
                 _ => errors.unknown_option(path, val),
             }
         }
@@ -307,30 +309,30 @@ impl UpdateFromValue for CompletionConfig {
 mod tests {
     use crate::{Config, Value, record};
 
-    use super::XsimConfig;
+    use super::CrossScriptInputMatchCompletionConfig;
 
     #[test]
-    fn xsim_defaults_are_disabled_with_romanization_ready() {
-        let xsim = XsimConfig::default();
+    fn xsimc_defaults_enable_targets_without_providers() {
+        let xsimc = CrossScriptInputMatchCompletionConfig::default();
 
-        assert!(!xsim.enabled);
-        assert!(xsim.targets.paths);
-        assert!(!xsim.targets.commands);
-        assert!(xsim.romanization.enabled);
-        assert!(xsim.romanization.language_hints.is_empty());
-        assert!(!xsim.pinyin.enabled);
+        assert!(xsimc.enabled);
+        assert!(xsimc.targets.paths);
+        assert!(xsimc.targets.commands);
+        assert!(!xsimc.romanization.enabled);
+        assert!(xsimc.romanization.language_hints.is_empty());
+        assert!(!xsimc.pinyin.enabled);
     }
 
     #[test]
-    fn xsim_partial_update_preserves_nested_defaults() {
+    fn xsimc_partial_update_preserves_nested_defaults() {
         let old = Config::default();
         let mut config = old.clone();
         let value = Value::test_record(record! {
             "completions" => Value::test_record(record! {
-                "xsim" => Value::test_record(record! {
-                    "enabled" => Value::test_bool(true),
+                "xsimc" => Value::test_record(record! {
+                    "enabled" => Value::test_bool(false),
                     "targets" => Value::test_record(record! {
-                        "commands" => Value::test_bool(true),
+                        "paths" => Value::test_bool(false),
                     }),
                     "romanization" => Value::test_record(record! {
                         "language_hints" => Value::test_list(vec![
@@ -343,30 +345,30 @@ mod tests {
         });
 
         assert!(config.update_from_value(&old, &value).is_ok());
-        assert!(config.completions.xsim.enabled);
-        assert!(config.completions.xsim.targets.paths);
-        assert!(config.completions.xsim.targets.commands);
-        assert!(config.completions.xsim.romanization.enabled);
+        assert!(!config.completions.xsimc.enabled);
+        assert!(!config.completions.xsimc.targets.paths);
+        assert!(config.completions.xsimc.targets.commands);
+        assert!(!config.completions.xsimc.romanization.enabled);
         assert_eq!(
             ["rus", "ell"],
             config
                 .completions
-                .xsim
+                .xsimc
                 .romanization
                 .language_hints
                 .as_slice()
         );
-        assert!(!config.completions.xsim.pinyin.enabled);
+        assert!(!config.completions.xsimc.pinyin.enabled);
     }
 
     #[test]
-    fn xsim_invalid_language_hint_list_is_rejected_atomically() {
+    fn xsimc_invalid_language_hint_list_is_rejected_atomically() {
         let mut old = Config::default();
-        old.completions.xsim.romanization.language_hints = vec!["jpn".into()];
+        old.completions.xsimc.romanization.language_hints = vec!["jpn".into()];
         let mut config = old.clone();
         let value = Value::test_record(record! {
             "completions" => Value::test_record(record! {
-                "xsim" => Value::test_record(record! {
+                "xsimc" => Value::test_record(record! {
                     "romanization" => Value::test_record(record! {
                         "language_hints" => Value::test_list(vec![
                             Value::test_string("rus"),
@@ -382,7 +384,7 @@ mod tests {
             ["jpn"],
             config
                 .completions
-                .xsim
+                .xsimc
                 .romanization
                 .language_hints
                 .as_slice()

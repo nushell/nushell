@@ -138,60 +138,64 @@ fn config_unsupported_value_reverted() -> Result {
 }
 
 #[test]
-fn xsim_config_defaults_and_deep_mutations() -> Result {
+fn xsimc_config_defaults_and_deep_mutations() -> Result {
     let mut tester = test();
 
     tester
-        .run("$env.config.completions.xsim.enabled")
+        .run("$env.config.completions.xsimc.enabled")
+        .expect_value_eq(true)?;
+    tester
+        .run("$env.config.completions.xsimc.targets.paths")
+        .expect_value_eq(true)?;
+    tester
+        .run("$env.config.completions.xsimc.targets.commands")
+        .expect_value_eq(true)?;
+    tester
+        .run("$env.config.completions.xsimc.romanization.enabled")
         .expect_value_eq(false)?;
     tester
-        .run("$env.config.completions.xsim.targets.paths")
+        .run("$env.config.completions.xsimc.romanization.language_hints | is-empty")
         .expect_value_eq(true)?;
     tester
-        .run("$env.config.completions.xsim.targets.commands")
-        .expect_value_eq(false)?;
-    tester
-        .run("$env.config.completions.xsim.romanization.enabled")
-        .expect_value_eq(true)?;
-    tester
-        .run("$env.config.completions.xsim.romanization.language_hints | is-empty")
-        .expect_value_eq(true)?;
-    tester
-        .run("$env.config.completions.xsim.pinyin.enabled")
+        .run("$env.config.completions.xsimc.pinyin.enabled")
         .expect_value_eq(false)?;
 
-    let () = tester.run("$env.config.completions.xsim.enabled = true")?;
-    let () = tester.run("$env.config.completions.xsim.targets.commands = true")?;
-    let () = tester.run("$env.config.completions.xsim.pinyin.enabled = true")?;
+    let () = tester.run("$env.config.completions.xsimc.enabled = false")?;
+    let () = tester.run("$env.config.completions.xsimc.targets.commands = false")?;
+    let () = tester.run("$env.config.completions.xsimc.romanization.enabled = true")?;
+    let () = tester.run("$env.config.completions.xsimc.pinyin.enabled = true")?;
     let () =
-        tester.run("$env.config.completions.xsim.romanization.language_hints = ['rus' 'ell']")?;
+        tester.run("$env.config.completions.xsimc.romanization.language_hints = ['rus' 'ell']")?;
 
     tester
-        .run("$env.config.completions.xsim.enabled")
+        .run("$env.config.completions.xsimc.enabled")
+        .expect_value_eq(false)?;
+    tester
+        .run("$env.config.completions.xsimc.targets.paths")
         .expect_value_eq(true)?;
     tester
-        .run("$env.config.completions.xsim.targets.paths")
+        .run("$env.config.completions.xsimc.targets.commands")
+        .expect_value_eq(false)?;
+    tester
+        .run("$env.config.completions.xsimc.romanization.enabled")
         .expect_value_eq(true)?;
     tester
-        .run("$env.config.completions.xsim.targets.commands")
+        .run("$env.config.completions.xsimc.pinyin.enabled")
         .expect_value_eq(true)?;
     tester
-        .run("$env.config.completions.xsim.pinyin.enabled")
-        .expect_value_eq(true)?;
-    tester
-        .run("$env.config.completions.xsim.romanization.language_hints | str join ','")
+        .run("$env.config.completions.xsimc.romanization.language_hints | str join ','")
         .expect_value_eq("rus,ell")
 }
 
 #[test]
-fn xsim_invalid_language_hints_are_reverted() -> Result {
+fn xsimc_invalid_language_hints_are_reverted() -> Result {
     let mut tester = test();
-    let () = tester.run("$env.config.completions.xsim.romanization.language_hints = ['jpn']")?;
+    let () = tester.run("$env.config.completions.xsimc.romanization.language_hints = ['jpn']")?;
     let _ = tester
-        .run("$env.config.completions.xsim.romanization.language_hints = ['rus' 42]")
+        .run("$env.config.completions.xsimc.romanization.language_hints = ['rus' 42]")
         .expect_shell_error()?;
 
     tester
-        .run("$env.config.completions.xsim.romanization.language_hints | str join ','")
+        .run("$env.config.completions.xsimc.romanization.language_hints | str join ','")
         .expect_value_eq("jpn")
 }

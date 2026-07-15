@@ -1410,45 +1410,48 @@ fn bench_table_render_wide(cols: usize) -> impl IntoBenchmarks {
 }
 
 #[derive(Clone, Copy)]
-enum XsimBenchKind {
+enum XsimcBenchKind {
     DisabledAscii,
     EnabledAscii,
     Romanization,
     Pinyin,
 }
 
-struct XsimBenchFixture {
+struct XsimcBenchFixture {
     _temp_dir: TempDir,
     completer: NuCompleter,
     input: String,
 }
 
-fn setup_xsim_bench(count: usize, kind: XsimBenchKind, hit: bool) -> XsimBenchFixture {
+fn setup_xsimc_bench(count: usize, kind: XsimcBenchKind, hit: bool) -> XsimcBenchFixture {
     let temp_dir = TempDirBuilder::new()
-        .prefix("nu-xsim-bench")
+        .prefix("nu-xsimc-bench")
         .tempdir()
-        .unwrap();
+        .expect("completion benchmarks should create a temporary directory");
     for index in 0..count {
         let name = match kind {
-            XsimBenchKind::DisabledAscii | XsimBenchKind::EnabledAscii => {
+            XsimcBenchKind::DisabledAscii | XsimcBenchKind::EnabledAscii => {
                 format!("candidate-{index:05}")
             }
-            XsimBenchKind::Romanization => format!("ドキュメント-{index:05}"),
-            XsimBenchKind::Pinyin => format!("下载-{index:05}"),
+            XsimcBenchKind::Romanization => format!("ドキュメント-{index:05}"),
+            XsimcBenchKind::Pinyin => format!("下载-{index:05}"),
         };
-        fs::create_dir(temp_dir.path().join(name)).unwrap();
+        fs::create_dir(temp_dir.path().join(name))
+            .expect("completion benchmark fixture directories should be unique");
     }
 
     let mut config = Config::default();
     match kind {
-        XsimBenchKind::DisabledAscii => {}
-        XsimBenchKind::EnabledAscii | XsimBenchKind::Romanization => {
-            config.completions.xsim.enabled = true;
+        XsimcBenchKind::DisabledAscii => {
+            config.completions.xsimc.enabled = false;
         }
-        XsimBenchKind::Pinyin => {
-            config.completions.xsim.enabled = true;
-            config.completions.xsim.romanization.enabled = false;
-            config.completions.xsim.pinyin.enabled = true;
+        XsimcBenchKind::EnabledAscii | XsimcBenchKind::Romanization => {
+            config.completions.xsimc.romanization.enabled = true;
+        }
+        XsimcBenchKind::Pinyin => {
+            config.completions.xsimc.enabled = true;
+            config.completions.xsimc.romanization.enabled = false;
+            config.completions.xsimc.pinyin.enabled = true;
         }
     }
 
@@ -1460,36 +1463,38 @@ fn setup_xsim_bench(count: usize, kind: XsimBenchKind, hit: bool) -> XsimBenchFi
         "PWD".into(),
         Value::string(temp_dir.path().to_string_lossy(), Span::unknown()),
     );
-    engine.merge_env(&mut stack).unwrap();
+    engine
+        .merge_env(&mut stack)
+        .expect("the benchmark PWD should be a valid environment value");
 
     let last = count.saturating_sub(1);
     let query = if hit {
         match kind {
-            XsimBenchKind::DisabledAscii | XsimBenchKind::EnabledAscii => {
+            XsimcBenchKind::DisabledAscii | XsimcBenchKind::EnabledAscii => {
                 format!("candidate-{last:05}")
             }
-            XsimBenchKind::Romanization => format!("dokyumento-{last:05}"),
-            XsimBenchKind::Pinyin => format!("xiazai{last:05}"),
+            XsimcBenchKind::Romanization => format!("dokyumento-{last:05}"),
+            XsimcBenchKind::Pinyin => format!("xiazai{last:05}"),
         }
     } else {
         "no-matching-candidate".to_string()
     };
 
-    XsimBenchFixture {
+    XsimcBenchFixture {
         _temp_dir: temp_dir,
         completer: NuCompleter::new(Arc::new(engine), Arc::new(stack)),
         input: format!("cd {query}"),
     }
 }
 
-fn bench_xsim_completion(
+fn bench_xsimc_completion(
     name: impl Into<String>,
     count: usize,
-    kind: XsimBenchKind,
+    kind: XsimcBenchKind,
     hit: bool,
 ) -> impl IntoBenchmarks {
     [benchmark_fn(name, move |bench| {
-        let mut fixture = setup_xsim_bench(count, kind, hit);
+        let mut fixture = setup_xsimc_bench(count, kind, hit);
         let warmup = fixture
             .completer
             .complete(&fixture.input, fixture.input.len());
@@ -1507,87 +1512,97 @@ fn bench_xsim_completion(
 
 tango_benchmarks!(
     // Native path-completion overhead and cross-script provider scaling.
-    bench_xsim_completion(
-        "xsim_disabled_ascii_100_miss",
+    bench_xsimc_completion(
+        "xsimc_disabled_ascii_100_miss",
         100,
-        XsimBenchKind::DisabledAscii,
+        XsimcBenchKind::DisabledAscii,
         false
     ),
-    bench_xsim_completion(
-        "xsim_disabled_ascii_1000_miss",
+    bench_xsimc_completion(
+        "xsimc_disabled_ascii_1000_miss",
         1_000,
-        XsimBenchKind::DisabledAscii,
+        XsimcBenchKind::DisabledAscii,
         false
     ),
-    bench_xsim_completion(
-        "xsim_disabled_ascii_10000_miss",
+    bench_xsimc_completion(
+        "xsimc_disabled_ascii_10000_miss",
         10_000,
-        XsimBenchKind::DisabledAscii,
+        XsimcBenchKind::DisabledAscii,
         false
     ),
-    bench_xsim_completion(
-        "xsim_enabled_ascii_100_miss",
+    bench_xsimc_completion(
+        "xsimc_enabled_ascii_100_miss",
         100,
-        XsimBenchKind::EnabledAscii,
+        XsimcBenchKind::EnabledAscii,
         false
     ),
-    bench_xsim_completion(
-        "xsim_enabled_ascii_1000_miss",
+    bench_xsimc_completion(
+        "xsimc_enabled_ascii_1000_miss",
         1_000,
-        XsimBenchKind::EnabledAscii,
+        XsimcBenchKind::EnabledAscii,
         false
     ),
-    bench_xsim_completion(
-        "xsim_enabled_ascii_10000_miss",
+    bench_xsimc_completion(
+        "xsimc_enabled_ascii_10000_miss",
         10_000,
-        XsimBenchKind::EnabledAscii,
+        XsimcBenchKind::EnabledAscii,
         false
     ),
-    bench_xsim_completion(
-        "xsim_romanization_100_hit",
+    bench_xsimc_completion(
+        "xsimc_romanization_100_hit",
         100,
-        XsimBenchKind::Romanization,
+        XsimcBenchKind::Romanization,
         true
     ),
-    bench_xsim_completion(
-        "xsim_romanization_1000_hit",
+    bench_xsimc_completion(
+        "xsimc_romanization_1000_hit",
         1_000,
-        XsimBenchKind::Romanization,
+        XsimcBenchKind::Romanization,
         true
     ),
-    bench_xsim_completion(
-        "xsim_romanization_10000_hit",
+    bench_xsimc_completion(
+        "xsimc_romanization_10000_hit",
         10_000,
-        XsimBenchKind::Romanization,
+        XsimcBenchKind::Romanization,
         true
     ),
-    bench_xsim_completion(
-        "xsim_romanization_100_miss",
+    bench_xsimc_completion(
+        "xsimc_romanization_100_miss",
         100,
-        XsimBenchKind::Romanization,
+        XsimcBenchKind::Romanization,
         false
     ),
-    bench_xsim_completion(
-        "xsim_romanization_1000_miss",
+    bench_xsimc_completion(
+        "xsimc_romanization_1000_miss",
         1_000,
-        XsimBenchKind::Romanization,
+        XsimcBenchKind::Romanization,
         false
     ),
-    bench_xsim_completion(
-        "xsim_romanization_10000_miss",
+    bench_xsimc_completion(
+        "xsimc_romanization_10000_miss",
         10_000,
-        XsimBenchKind::Romanization,
+        XsimcBenchKind::Romanization,
         false
     ),
-    bench_xsim_completion("xsim_pinyin_100_hit", 100, XsimBenchKind::Pinyin, true),
-    bench_xsim_completion("xsim_pinyin_1000_hit", 1_000, XsimBenchKind::Pinyin, true),
-    bench_xsim_completion("xsim_pinyin_10000_hit", 10_000, XsimBenchKind::Pinyin, true),
-    bench_xsim_completion("xsim_pinyin_100_miss", 100, XsimBenchKind::Pinyin, false),
-    bench_xsim_completion("xsim_pinyin_1000_miss", 1_000, XsimBenchKind::Pinyin, false),
-    bench_xsim_completion(
-        "xsim_pinyin_10000_miss",
+    bench_xsimc_completion("xsimc_pinyin_100_hit", 100, XsimcBenchKind::Pinyin, true),
+    bench_xsimc_completion("xsimc_pinyin_1000_hit", 1_000, XsimcBenchKind::Pinyin, true),
+    bench_xsimc_completion(
+        "xsimc_pinyin_10000_hit",
         10_000,
-        XsimBenchKind::Pinyin,
+        XsimcBenchKind::Pinyin,
+        true
+    ),
+    bench_xsimc_completion("xsimc_pinyin_100_miss", 100, XsimcBenchKind::Pinyin, false),
+    bench_xsimc_completion(
+        "xsimc_pinyin_1000_miss",
+        1_000,
+        XsimcBenchKind::Pinyin,
+        false
+    ),
+    bench_xsimc_completion(
+        "xsimc_pinyin_10000_miss",
+        10_000,
+        XsimcBenchKind::Pinyin,
         false
     ),
     bench_load_standard_lib(),

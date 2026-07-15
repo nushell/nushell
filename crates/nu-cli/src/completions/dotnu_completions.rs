@@ -10,7 +10,7 @@ use nu_protocol::{
 use reedline::Suggestion;
 use std::collections::{HashMap, HashSet};
 
-use super::completion_common::{complete_item_without_xsim, surround_remove};
+use super::completion_common::{complete_item_for_dotnu, surround_remove};
 
 pub struct DotNuCompletion {
     /// e.g. use std/a<tab>
@@ -124,7 +124,7 @@ impl Completer for DotNuCompletion {
         }
 
         // Fetch the files
-        let module_file_results = complete_item_without_xsim(
+        let module_file_results = complete_item_for_dotnu(
             false,
             span,
             prefix.as_ref(),

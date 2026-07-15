@@ -256,23 +256,37 @@ $env.config.completions.partial = true
 # Default: true
 $env.config.completions.use_ls_colors = true
 
-# Cross-script Input Match (XSIM) supplements native path and command completion.
-# Provider settings remain valid in builds that omit the corresponding Cargo feature.
-# Default: disabled; paths are the default target and commands are opt-in.
-$env.config.completions.xsim = {
-    enabled: false
-    targets: {
-        paths: true
-        commands: false
-    }
-    romanization: {
-        enabled: true
-        language_hints: [] # Optional ISO 639-3 codes, for example: ["rus" "ell"]
-    }
-    pinyin: {
-        enabled: false
-    }
-}
+# Cross-script input match completion (XSIMC) supplements path and command completion.
+# Romanization is the general-purpose provider for many scripts. Builds needing only Chinese Pinyin
+# matching can include Pinyin alone to reduce binary size.
+
+# completions.xsimc.enabled (bool): Enable cross-script input match completion.
+# Has no effect unless a compiled provider is enabled.
+# Default: true
+$env.config.completions.xsimc.enabled = true
+
+# completions.xsimc.targets.paths (bool): Apply XSIMC to path completions.
+# Default: true
+$env.config.completions.xsimc.targets.paths = true
+
+# completions.xsimc.targets.commands (bool): Apply XSIMC to command completions.
+# Default: true
+$env.config.completions.xsimc.targets.commands = true
+
+# completions.xsimc.romanization.enabled (bool): Enable general-purpose Romanization matching.
+# Requires the `xsimc-romanization` Cargo feature.
+# Default: false
+$env.config.completions.xsimc.romanization.enabled = false
+
+# completions.xsimc.romanization.language_hints (list): Additional ISO 639-3 language codes.
+# Example: ["rus" "ell"]
+# Default: []
+$env.config.completions.xsimc.romanization.language_hints = []
+
+# completions.xsimc.pinyin.enabled (bool): Enable Chinese Pinyin matching.
+# Requires the `xsimc-pinyin` Cargo feature.
+# Default: false
+$env.config.completions.xsimc.pinyin.enabled = false
 
 # --------------------
 # External Completions

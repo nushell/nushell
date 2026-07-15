@@ -7,8 +7,8 @@ use nu_protocol::{
 };
 use reedline::Suggestion;
 
-#[cfg(feature = "xsim")]
-use super::xsim::{ProviderRegistry, XsimMatcher};
+#[cfg(feature = "xsimc")]
+use super::cross_script_input_match_completion::{CrossScriptInputMatcher, ProviderRegistry};
 use super::{SemanticSuggestion, completion_options::NuMatcher};
 
 fn formatted_name(name: &str, wrap: bool) -> String {
@@ -187,19 +187,19 @@ impl Completer for CommandCompletion {
 
         let sugg_span = reedline::Span::new(span.start - offset, span.end - offset);
 
-        #[cfg(not(feature = "xsim"))]
+        #[cfg(not(feature = "xsimc"))]
         let _ = stack;
-        #[cfg(feature = "xsim")]
-        let xsim_config = stack.get_config(working_set.permanent_state);
-        #[cfg(feature = "xsim")]
-        let xsim_providers = ProviderRegistry::for_commands(&xsim_config.completions.xsim);
-        #[cfg(feature = "xsim")]
-        let mut xsim_matcher = xsim_providers
-            .as_ref()
-            .and_then(|providers| XsimMatcher::new(prefix.as_ref(), options, providers));
+        #[cfg(feature = "xsimc")]
+        let xsimc_config = stack.get_config(working_set.permanent_state);
+        #[cfg(feature = "xsimc")]
+        let xsimc_providers = ProviderRegistry::for_commands(&xsimc_config.completions.xsimc);
+        #[cfg(feature = "xsimc")]
+        let mut xsimc_matcher = xsimc_providers.as_ref().and_then(|providers| {
+            CrossScriptInputMatcher::new(prefix.as_ref(), options, providers)
+        });
 
         let mut internal_suggs = HashSet::new();
-        #[cfg(feature = "xsim")]
+        #[cfg(feature = "xsimc")]
         let mut internal_collisions = HashSet::new();
         if self.internals {
             let mut matcher = NuMatcher::new(prefix.as_ref(), options, true);
@@ -233,9 +233,9 @@ impl Completer for CommandCompletion {
                     if matched {
                         internal_suggs.insert(name.to_string());
                     } else {
-                        #[cfg(feature = "xsim")]
-                        if let Some(xsim_matcher) = &mut xsim_matcher
-                            && xsim_matcher.add(
+                        #[cfg(feature = "xsimc")]
+                        if let Some(xsimc_matcher) = &mut xsimc_matcher
+                            && xsimc_matcher.add(
                                 name,
                                 command_suggestion(
                                     name,
@@ -269,9 +269,9 @@ impl Completer for CommandCompletion {
                     if matched {
                         internal_suggs.insert(name);
                     } else {
-                        #[cfg(feature = "xsim")]
-                        if let Some(xsim_matcher) = &mut xsim_matcher
-                            && xsim_matcher.add(
+                        #[cfg(feature = "xsimc")]
+                        if let Some(xsimc_matcher) = &mut xsimc_matcher
+                            && xsimc_matcher.add(
                                 &raw_name,
                                 command_suggestion(
                                     &name,
@@ -292,7 +292,7 @@ impl Completer for CommandCompletion {
 
             if self.externals {
                 let collisions = self.external_command_collisions(working_set, &internal_suggs);
-                #[cfg(feature = "xsim")]
+                #[cfg(feature = "xsimc")]
                 internal_collisions.clone_from(&collisions);
 
                 if !collisions.is_empty() {
@@ -326,9 +326,9 @@ impl Completer for CommandCompletion {
             res.extend(external_suggs);
         }
 
-        #[cfg(feature = "xsim")]
-        if let Some(xsim_matcher) = xsim_matcher {
-            for mut suggestion in xsim_matcher.results() {
+        #[cfg(feature = "xsimc")]
+        if let Some(xsimc_matcher) = xsimc_matcher {
+            for mut suggestion in xsimc_matcher.results() {
                 suggestion.suggestion.match_indices = Some(Vec::new());
                 let percent_prefixed = internal_collisions
                     .contains(&suggestion.suggestion.value)

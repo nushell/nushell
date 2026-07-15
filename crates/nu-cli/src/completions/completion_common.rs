@@ -1,5 +1,5 @@
-#[cfg(feature = "xsim")]
-use super::xsim::{ProviderRegistry, XsimMatcher};
+#[cfg(feature = "xsimc")]
+use super::cross_script_input_match_completion::{CrossScriptInputMatcher, ProviderRegistry};
 use super::{MatchAlgorithm, completion_options::NuMatcher};
 use crate::completions::CompletionOptions;
 use nu_ansi_term::Style;
@@ -32,8 +32,8 @@ pub struct MatchedPart {
 #[derive(Clone, Copy)]
 struct PathCompletionOptions {
     want_directory: bool,
-    #[cfg(feature = "xsim")]
-    enable_xsim: bool,
+    #[cfg(feature = "xsimc")]
+    enable_xsimc: bool,
 }
 
 /// Recursively goes through paths that match a given `partial`.
@@ -50,7 +50,7 @@ fn complete_rec(
     built_paths: &[PathBuiltFromString],
     options: &CompletionOptions,
     path_options: PathCompletionOptions,
-    #[cfg(feature = "xsim")] xsim_providers: Option<&ProviderRegistry>,
+    #[cfg(feature = "xsimc")] xsimc_providers: Option<&ProviderRegistry>,
     isdir: bool,
     enable_exact_match: bool,
 ) -> Vec<PathBuiltFromString> {
@@ -77,8 +77,8 @@ fn complete_rec(
             &built_paths,
             options,
             path_options,
-            #[cfg(feature = "xsim")]
-            xsim_providers,
+            #[cfg(feature = "xsimc")]
+            xsimc_providers,
             isdir,
             enable_exact_match,
         );
@@ -86,9 +86,9 @@ fn complete_rec(
 
     let prefix = partial.first().unwrap_or(&"");
     let mut matcher = NuMatcher::new(prefix, options, true);
-    #[cfg(feature = "xsim")]
-    let mut xsim_matcher =
-        xsim_providers.and_then(|providers| XsimMatcher::new(prefix, options, providers));
+    #[cfg(feature = "xsimc")]
+    let mut xsimc_matcher = xsimc_providers
+        .and_then(|providers| CrossScriptInputMatcher::new(prefix, options, providers));
 
     let mut exact_match = None;
     // Only relevant for case insensitive matching
@@ -131,14 +131,14 @@ fn complete_rec(
                     }
                 }
 
-                #[cfg(feature = "xsim")]
+                #[cfg(feature = "xsimc")]
                 let literal_added =
                     matcher.add(entry_name.clone(), (built.clone(), entry_name.clone()));
-                #[cfg(not(feature = "xsim"))]
+                #[cfg(not(feature = "xsimc"))]
                 matcher.add(entry_name.clone(), (built, entry_name));
-                #[cfg(feature = "xsim")]
-                if !literal_added && let Some(xsim_matcher) = &mut xsim_matcher {
-                    xsim_matcher.add(&entry_name, (built, entry_name.clone()));
+                #[cfg(feature = "xsimc")]
+                if !literal_added && let Some(xsimc_matcher) = &mut xsimc_matcher {
+                    xsimc_matcher.add(&entry_name, (built, entry_name.clone()));
                 }
             }
         }
@@ -151,8 +151,8 @@ fn complete_rec(
             &[built],
             options,
             path_options,
-            #[cfg(feature = "xsim")]
-            xsim_providers,
+            #[cfg(feature = "xsimc")]
+            xsimc_providers,
             isdir,
             true,
         );
@@ -170,11 +170,11 @@ fn complete_rec(
         })
         .collect::<Vec<_>>();
 
-    #[cfg(feature = "xsim")]
+    #[cfg(feature = "xsimc")]
     let completions = {
         let mut completions = completions;
-        if let Some(xsim_matcher) = xsim_matcher {
-            completions.extend(xsim_matcher.results().into_iter().map(
+        if let Some(xsimc_matcher) = xsimc_matcher {
+            completions.extend(xsimc_matcher.results().into_iter().map(
                 |(mut built, last_entry_name)| {
                     built.parts.push(MatchedPart {
                         text: last_entry_name,
@@ -197,8 +197,8 @@ fn complete_rec(
                     &[completion],
                     options,
                     path_options,
-                    #[cfg(feature = "xsim")]
-                    xsim_providers,
+                    #[cfg(feature = "xsimc")]
+                    xsimc_providers,
                     isdir,
                     false,
                 )
@@ -260,13 +260,14 @@ pub fn complete_item(
         stack,
         PathCompletionOptions {
             want_directory,
-            #[cfg(feature = "xsim")]
-            enable_xsim: true,
+            #[cfg(feature = "xsimc")]
+            enable_xsimc: true,
         },
     )
 }
 
-pub fn complete_item_without_xsim(
+/// Completes module paths without applying XSIMC to `.nu` filenames.
+pub(super) fn complete_item_for_dotnu(
     want_directory: bool,
     span: nu_protocol::Span,
     partial: &str,
@@ -284,8 +285,8 @@ pub fn complete_item_without_xsim(
         stack,
         PathCompletionOptions {
             want_directory,
-            #[cfg(feature = "xsim")]
-            enable_xsim: false,
+            #[cfg(feature = "xsimc")]
+            enable_xsimc: false,
         },
     )
 }
@@ -368,14 +369,14 @@ fn complete_item_with_options(
         .filter(|s| !s.is_empty())
         .collect();
 
-    #[cfg(feature = "xsim")]
-    let xsim_config = path_options
-        .enable_xsim
+    #[cfg(feature = "xsimc")]
+    let xsimc_config = path_options
+        .enable_xsimc
         .then(|| stack.get_config(engine_state));
-    #[cfg(feature = "xsim")]
-    let xsim_providers = xsim_config
+    #[cfg(feature = "xsimc")]
+    let xsimc_providers = xsimc_config
         .as_ref()
-        .and_then(|config| ProviderRegistry::for_paths(&config.completions.xsim));
+        .and_then(|config| ProviderRegistry::for_paths(&config.completions.xsimc));
 
     complete_rec(
         partial.as_slice(),
@@ -389,8 +390,8 @@ fn complete_item_with_options(
             .collect::<Vec<_>>(),
         options,
         path_options,
-        #[cfg(feature = "xsim")]
-        xsim_providers.as_ref(),
+        #[cfg(feature = "xsimc")]
+        xsimc_providers.as_ref(),
         isdir,
         options.match_algorithm == MatchAlgorithm::Prefix,
     )

@@ -1,45 +1,47 @@
-#[cfg(feature = "xsim-pinyin")]
+//! Cross-script input match completion (XSIMC) for native completion candidates.
+
+#[cfg(feature = "xsimc-pinyin")]
 mod pinyin;
-#[cfg(feature = "xsim-romanization")]
+#[cfg(feature = "xsimc-romanization")]
 mod romanization;
 
-use nu_protocol::XsimConfig;
+use nu_protocol::CrossScriptInputMatchCompletionConfig;
 
 use super::CompletionOptions;
-#[cfg(any(feature = "xsim-pinyin", feature = "xsim-romanization"))]
+#[cfg(any(feature = "xsimc-pinyin", feature = "xsimc-romanization"))]
 use super::completion_options::NuMatcher;
 
-#[cfg(feature = "xsim-pinyin")]
+#[cfg(feature = "xsimc-pinyin")]
 use self::pinyin::PinyinProvider;
-#[cfg(feature = "xsim-romanization")]
+#[cfg(feature = "xsimc-romanization")]
 use self::romanization::RomanizationProvider;
 
-#[cfg(any(feature = "xsim-pinyin", feature = "xsim-romanization"))]
+#[cfg(any(feature = "xsimc-pinyin", feature = "xsimc-romanization"))]
 const QUOTES: [char; 3] = ['"', '\'', '`'];
 
-#[cfg(any(feature = "xsim-pinyin", feature = "xsim-romanization"))]
+#[cfg(any(feature = "xsimc-pinyin", feature = "xsimc-romanization"))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum SearchKeyKind {
-    #[cfg(feature = "xsim-pinyin")]
+    #[cfg(feature = "xsimc-pinyin")]
     Pinyin,
-    #[cfg(feature = "xsim-pinyin")]
+    #[cfg(feature = "xsimc-pinyin")]
     PinyinInitials,
-    #[cfg(feature = "xsim-romanization")]
+    #[cfg(feature = "xsimc-romanization")]
     Romanization,
 }
 
-#[cfg(any(feature = "xsim-pinyin", feature = "xsim-romanization"))]
+#[cfg(any(feature = "xsimc-pinyin", feature = "xsimc-romanization"))]
 #[derive(Debug, PartialEq, Eq)]
 struct SearchKey {
     kind: SearchKeyKind,
     text: String,
 }
 
-#[cfg(any(feature = "xsim-pinyin", feature = "xsim-romanization"))]
+#[cfg(any(feature = "xsimc-pinyin", feature = "xsimc-romanization"))]
 #[derive(Default)]
 struct SearchKeys(Vec<SearchKey>);
 
-#[cfg(any(feature = "xsim-pinyin", feature = "xsim-romanization"))]
+#[cfg(any(feature = "xsimc-pinyin", feature = "xsimc-romanization"))]
 impl SearchKeys {
     fn push(&mut self, kind: SearchKeyKind, text: String) {
         if text.is_empty() || self.0.iter().any(|key| key.text == text) {
@@ -49,21 +51,21 @@ impl SearchKeys {
     }
 }
 
-#[cfg(any(feature = "xsim-pinyin", feature = "xsim-romanization"))]
+#[cfg(any(feature = "xsimc-pinyin", feature = "xsimc-romanization"))]
 trait SearchKeyProvider {
     fn search_keys(&self, candidate: &str, output: &mut SearchKeys);
 }
 
 /// The statically dispatched providers enabled for one completion request.
 pub(crate) struct ProviderRegistry {
-    #[cfg(feature = "xsim-pinyin")]
+    #[cfg(feature = "xsimc-pinyin")]
     pinyin: Option<PinyinProvider>,
-    #[cfg(feature = "xsim-romanization")]
+    #[cfg(feature = "xsimc-romanization")]
     romanization: Option<RomanizationProvider>,
 }
 
 impl ProviderRegistry {
-    pub(crate) fn for_paths(config: &XsimConfig) -> Option<Self> {
+    pub(crate) fn for_paths(config: &CrossScriptInputMatchCompletionConfig) -> Option<Self> {
         if config.targets.paths {
             Self::new(config)
         } else {
@@ -71,7 +73,7 @@ impl ProviderRegistry {
         }
     }
 
-    pub(crate) fn for_commands(config: &XsimConfig) -> Option<Self> {
+    pub(crate) fn for_commands(config: &CrossScriptInputMatchCompletionConfig) -> Option<Self> {
         if config.targets.commands {
             Self::new(config)
         } else {
@@ -79,15 +81,15 @@ impl ProviderRegistry {
         }
     }
 
-    fn new(config: &XsimConfig) -> Option<Self> {
+    fn new(config: &CrossScriptInputMatchCompletionConfig) -> Option<Self> {
         if !config.enabled || !has_enabled_provider(config) {
             return None;
         }
 
         Some(Self {
-            #[cfg(feature = "xsim-pinyin")]
+            #[cfg(feature = "xsimc-pinyin")]
             pinyin: config.pinyin.enabled.then_some(PinyinProvider),
-            #[cfg(feature = "xsim-romanization")]
+            #[cfg(feature = "xsimc-romanization")]
             romanization: config
                 .romanization
                 .enabled
@@ -95,16 +97,16 @@ impl ProviderRegistry {
         })
     }
 
-    #[cfg(any(feature = "xsim-pinyin", feature = "xsim-romanization"))]
+    #[cfg(any(feature = "xsimc-pinyin", feature = "xsimc-romanization"))]
     fn search_keys(&self, candidate: &str) -> SearchKeys {
         let mut output = SearchKeys::default();
 
-        #[cfg(feature = "xsim-pinyin")]
+        #[cfg(feature = "xsimc-pinyin")]
         if let Some(provider) = &self.pinyin {
             provider.search_keys(candidate, &mut output);
         }
 
-        #[cfg(feature = "xsim-romanization")]
+        #[cfg(feature = "xsimc-romanization")]
         if let Some(provider) = &self.romanization {
             provider.search_keys(candidate, &mut output);
         }
@@ -113,42 +115,42 @@ impl ProviderRegistry {
     }
 }
 
-#[cfg(all(feature = "xsim-pinyin", feature = "xsim-romanization"))]
-fn has_enabled_provider(config: &XsimConfig) -> bool {
+#[cfg(all(feature = "xsimc-pinyin", feature = "xsimc-romanization"))]
+fn has_enabled_provider(config: &CrossScriptInputMatchCompletionConfig) -> bool {
     config.pinyin.enabled || config.romanization.enabled
 }
 
-#[cfg(all(feature = "xsim-pinyin", not(feature = "xsim-romanization")))]
-fn has_enabled_provider(config: &XsimConfig) -> bool {
+#[cfg(all(feature = "xsimc-pinyin", not(feature = "xsimc-romanization")))]
+fn has_enabled_provider(config: &CrossScriptInputMatchCompletionConfig) -> bool {
     config.pinyin.enabled
 }
 
-#[cfg(all(not(feature = "xsim-pinyin"), feature = "xsim-romanization"))]
-fn has_enabled_provider(config: &XsimConfig) -> bool {
+#[cfg(all(not(feature = "xsimc-pinyin"), feature = "xsimc-romanization"))]
+fn has_enabled_provider(config: &CrossScriptInputMatchCompletionConfig) -> bool {
     config.romanization.enabled
 }
 
-#[cfg(not(any(feature = "xsim-pinyin", feature = "xsim-romanization")))]
-fn has_enabled_provider(_config: &XsimConfig) -> bool {
+#[cfg(not(any(feature = "xsimc-pinyin", feature = "xsimc-romanization")))]
+fn has_enabled_provider(_config: &CrossScriptInputMatchCompletionConfig) -> bool {
     false
 }
 
 /// Matches generated keys with Nushell's native algorithms while retaining real candidates.
-#[cfg(any(feature = "xsim-pinyin", feature = "xsim-romanization"))]
-pub(crate) struct XsimMatcher<'options, 'providers, T> {
+#[cfg(any(feature = "xsimc-pinyin", feature = "xsimc-romanization"))]
+pub(crate) struct CrossScriptInputMatcher<'options, 'providers, T> {
     providers: &'providers ProviderRegistry,
     hidden: bool,
     candidates: Vec<Option<T>>,
-    #[cfg(feature = "xsim-pinyin")]
+    #[cfg(feature = "xsimc-pinyin")]
     pinyin: Option<NuMatcher<'options, usize>>,
-    #[cfg(feature = "xsim-pinyin")]
+    #[cfg(feature = "xsimc-pinyin")]
     pinyin_initials: Option<NuMatcher<'options, usize>>,
-    #[cfg(feature = "xsim-romanization")]
+    #[cfg(feature = "xsimc-romanization")]
     romanization: Option<NuMatcher<'options, usize>>,
 }
 
-#[cfg(any(feature = "xsim-pinyin", feature = "xsim-romanization"))]
-impl<'options, 'providers, T> XsimMatcher<'options, 'providers, T> {
+#[cfg(any(feature = "xsimc-pinyin", feature = "xsimc-romanization"))]
+impl<'options, 'providers, T> CrossScriptInputMatcher<'options, 'providers, T> {
     pub(crate) fn new(
         input: &str,
         options: &'options CompletionOptions,
@@ -168,17 +170,17 @@ impl<'options, 'providers, T> XsimMatcher<'options, 'providers, T> {
             providers,
             hidden,
             candidates: Vec::new(),
-            #[cfg(feature = "xsim-pinyin")]
+            #[cfg(feature = "xsimc-pinyin")]
             pinyin: providers
                 .pinyin
                 .as_ref()
                 .map(|_| NuMatcher::new(input, options, true)),
-            #[cfg(feature = "xsim-pinyin")]
+            #[cfg(feature = "xsimc-pinyin")]
             pinyin_initials: providers
                 .pinyin
                 .as_ref()
                 .map(|_| NuMatcher::new(input, options, true)),
-            #[cfg(feature = "xsim-romanization")]
+            #[cfg(feature = "xsimc-romanization")]
             romanization: providers
                 .romanization
                 .as_ref()
@@ -202,17 +204,17 @@ impl<'options, 'providers, T> XsimMatcher<'options, 'providers, T> {
         let mut matched = false;
         for key in self.providers.search_keys(candidate).0 {
             let added = match key.kind {
-                #[cfg(feature = "xsim-pinyin")]
+                #[cfg(feature = "xsimc-pinyin")]
                 SearchKeyKind::Pinyin => self
                     .pinyin
                     .as_mut()
                     .is_some_and(|matcher| matcher.add(key.text, candidate_id)),
-                #[cfg(feature = "xsim-pinyin")]
+                #[cfg(feature = "xsimc-pinyin")]
                 SearchKeyKind::PinyinInitials => self
                     .pinyin_initials
                     .as_mut()
                     .is_some_and(|matcher| matcher.add(key.text, candidate_id)),
-                #[cfg(feature = "xsim-romanization")]
+                #[cfg(feature = "xsimc-romanization")]
                 SearchKeyKind::Romanization => self
                     .romanization
                     .as_mut()
@@ -232,18 +234,18 @@ impl<'options, 'providers, T> XsimMatcher<'options, 'providers, T> {
         let mut candidates = self.candidates;
         let mut output = Vec::with_capacity(candidates.len());
 
-        #[cfg(feature = "xsim-pinyin")]
+        #[cfg(feature = "xsimc-pinyin")]
         append_results(self.pinyin, &mut candidates, &mut output);
-        #[cfg(feature = "xsim-pinyin")]
+        #[cfg(feature = "xsimc-pinyin")]
         append_results(self.pinyin_initials, &mut candidates, &mut output);
-        #[cfg(feature = "xsim-romanization")]
+        #[cfg(feature = "xsimc-romanization")]
         append_results(self.romanization, &mut candidates, &mut output);
 
         output
     }
 }
 
-#[cfg(any(feature = "xsim-pinyin", feature = "xsim-romanization"))]
+#[cfg(any(feature = "xsimc-pinyin", feature = "xsimc-romanization"))]
 fn append_results<T>(
     matcher: Option<NuMatcher<'_, usize>>,
     candidates: &mut [Option<T>],
@@ -260,11 +262,11 @@ fn append_results<T>(
     }
 }
 
-#[cfg(not(any(feature = "xsim-pinyin", feature = "xsim-romanization")))]
-pub(crate) struct XsimMatcher<T>(std::marker::PhantomData<T>);
+#[cfg(not(any(feature = "xsimc-pinyin", feature = "xsimc-romanization")))]
+pub(crate) struct CrossScriptInputMatcher<T>(std::marker::PhantomData<T>);
 
-#[cfg(not(any(feature = "xsim-pinyin", feature = "xsim-romanization")))]
-impl<T> XsimMatcher<T> {
+#[cfg(not(any(feature = "xsimc-pinyin", feature = "xsimc-romanization")))]
+impl<T> CrossScriptInputMatcher<T> {
     pub(crate) fn new(
         _input: &str,
         _options: &CompletionOptions,
@@ -284,41 +286,46 @@ impl<T> XsimMatcher<T> {
 
 #[cfg(test)]
 mod tests {
-    use nu_protocol::XsimConfig;
+    use nu_protocol::CrossScriptInputMatchCompletionConfig;
 
     use super::ProviderRegistry;
 
     #[test]
-    fn disabled_registry_is_unavailable() {
-        assert!(ProviderRegistry::for_paths(&XsimConfig::default()).is_none());
-        assert!(ProviderRegistry::for_commands(&XsimConfig::default()).is_none());
+    fn registry_is_unavailable_without_enabled_providers() {
+        assert!(
+            ProviderRegistry::for_paths(&CrossScriptInputMatchCompletionConfig::default())
+                .is_none()
+        );
+        assert!(
+            ProviderRegistry::for_commands(&CrossScriptInputMatchCompletionConfig::default())
+                .is_none()
+        );
     }
 
-    #[cfg(not(any(feature = "xsim-pinyin", feature = "xsim-romanization")))]
+    #[cfg(not(any(feature = "xsimc-pinyin", feature = "xsimc-romanization")))]
     #[test]
     fn registry_is_unavailable_without_compiled_providers() {
-        let mut config = XsimConfig {
+        let mut config = CrossScriptInputMatchCompletionConfig {
             enabled: true,
-            ..XsimConfig::default()
+            ..CrossScriptInputMatchCompletionConfig::default()
         };
         config.pinyin.enabled = true;
 
         assert!(ProviderRegistry::for_paths(&config).is_none());
     }
 
-    #[cfg(all(feature = "xsim-pinyin", feature = "xsim-romanization"))]
+    #[cfg(all(feature = "xsimc-pinyin", feature = "xsimc-romanization"))]
     #[test]
     fn duplicate_keys_keep_the_higher_priority_provider() {
         use super::SearchKeyKind;
 
-        let mut config = XsimConfig {
+        let mut config = CrossScriptInputMatchCompletionConfig {
             enabled: true,
-            ..XsimConfig::default()
+            ..CrossScriptInputMatchCompletionConfig::default()
         };
         config.pinyin.enabled = true;
-        let Some(providers) = ProviderRegistry::for_paths(&config) else {
-            panic!("both providers should be compiled and enabled");
-        };
+        let providers = ProviderRegistry::for_paths(&config)
+            .expect("both provider features are enabled for this test");
 
         let keys = providers.search_keys("下载").0;
         assert_eq!(2, keys.len());

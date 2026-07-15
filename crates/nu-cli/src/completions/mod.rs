@@ -6,6 +6,8 @@ mod command_completions;
 mod completer;
 mod completion_common;
 mod completion_options;
+#[cfg(feature = "xsimc")]
+mod cross_script_input_match_completion;
 mod custom_completions;
 mod directory_completions;
 mod dotnu_completions;
@@ -16,8 +18,6 @@ mod flag_completions;
 mod operator_completions;
 mod static_completions;
 mod variable_completions;
-#[cfg(feature = "xsim")]
-mod xsim;
 
 pub(crate) use completer::Context;
 

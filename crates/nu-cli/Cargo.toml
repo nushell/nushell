@@ -55,7 +55,7 @@ pinyin = { workspace = true, optional = true }
 sysinfo = { workspace = true }
 strum = { workspace = true }
 unicode-segmentation = { workspace = true }
-uroman-rs = { workspace = true, optional = true }
+uroman = { workspace = true, optional = true }
 uuid = { workspace = true, features = ["v4"] }
 which = { workspace = true }
 
@@ -63,9 +63,9 @@ which = { workspace = true }
 plugin = ["nu-plugin-engine"]
 system-clipboard = ["reedline/system_clipboard"]
 sqlite = ["reedline/sqlite", "nu-protocol/sqlite", "nu-command/sqlite"]
-xsim = []
-xsim-romanization = ["xsim", "dep:uroman-rs"]
-xsim-pinyin = ["xsim", "dep:pinyin"]
+xsimc = []
+xsimc-romanization = ["xsimc", "dep:uroman"]
+xsimc-pinyin = ["xsimc", "dep:pinyin"]
 
 [lints]
 workspace = true

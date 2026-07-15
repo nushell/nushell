@@ -1,3 +1,5 @@
+//! Pinyin search-key generation.
+
 use pinyin::ToPinyin;
 
 use super::{SearchKeyKind, SearchKeyProvider, SearchKeys};
