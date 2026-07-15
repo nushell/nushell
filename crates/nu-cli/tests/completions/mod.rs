@@ -2370,6 +2370,14 @@ fn new_xsimc_engine(
         "项目资料",
         "ドキュメント",
         "ひらがな",
+        "日本語",
+        "東京",
+        "こんにちは",
+        "日本語ファイル",
+        "関西空港",
+        "東京-file_2026!",
+        "ni-literal",
+        "泥",
         "xz-literal",
         "学习 资料",
         "包含 空格",
@@ -2402,6 +2410,8 @@ fn new_xsimc_engine(
         def 你好 [] {}
         def 您好世界 [] {}
         def こんにちは [] {}
+        def 日本語 [] {}
+        def 東京コマンド [] {}
         def 한글 [] {}
         def привет [] {}
         def ни [] {}
@@ -2440,6 +2450,14 @@ fn enabled_xsimc() -> CrossScriptInputMatchCompletionConfig {
 fn command_xsimc() -> CrossScriptInputMatchCompletionConfig {
     let mut xsimc = enabled_xsimc();
     xsimc.targets.commands = true;
+    xsimc
+}
+
+#[cfg(feature = "xsim-japanese-romaji")]
+fn japanese_xsimc() -> CrossScriptInputMatchCompletionConfig {
+    let mut xsimc = enabled_xsimc();
+    xsimc.romanization.enabled = false;
+    xsimc.japanese_romaji.enabled = true;
     xsimc
 }
 
@@ -2700,6 +2718,7 @@ fn xsimc_all_providers_disabled_is_a_no_op() {
     let mut xsimc = enabled_xsimc();
     xsimc.romanization.enabled = false;
     xsimc.pinyin.enabled = false;
+    xsimc.japanese_romaji.enabled = false;
     let (_temp_dir, mut completer) = new_xsimc_engine(xsimc, CompletionAlgorithm::Prefix);
 
     assert!(completer.complete("cd xiazai", 9).is_empty());
@@ -2708,12 +2727,17 @@ fn xsimc_all_providers_disabled_is_a_no_op() {
 
 #[cfg(all(
     feature = "xsimc",
-    not(any(feature = "xsimc-pinyin", feature = "xsimc-romanization"))
+    not(any(
+        feature = "xsim-japanese-romaji",
+        feature = "xsimc-pinyin",
+        feature = "xsimc-romanization"
+    ))
 ))]
 #[test]
 fn xsimc_unavailable_provider_features_are_a_no_op() {
     let mut xsimc = enabled_xsimc();
     xsimc.pinyin.enabled = true;
+    xsimc.japanese_romaji.enabled = true;
     let (_temp_dir, mut completer) = new_xsimc_engine(xsimc, CompletionAlgorithm::Prefix);
 
     assert!(completer.complete("cd xiazai", 9).is_empty());
@@ -2853,6 +2877,134 @@ fn xsimc_does_not_affect_dotnu_completion() {
             .iter()
             .all(|suggestion| suggestion.value != "下载.nu")
     );
+}
+
+#[cfg(feature = "xsim-japanese-romaji")]
+#[test]
+fn xsim_japanese_romaji_matches_required_path_cases() {
+    let (_temp_dir, mut completer) =
+        new_xsimc_engine(japanese_xsimc(), CompletionAlgorithm::Prefix);
+    let cases = [
+        ("cd nihongo", "日本語"),
+        ("cd toukyou", "東京"),
+        ("cd konnichiwa", "こんにちは"),
+        ("cd dokyumento", "ドキュメント"),
+        ("cd nihongofairu", "日本語ファイル"),
+        ("cd kansaikuukou", "関西空港"),
+        ("cd toukyou-file_2026!", "東京-file_2026!"),
+    ];
+
+    for (input, expected) in cases {
+        let suggestions = completer.complete(input, input.len());
+        assert!(
+            suggestions
+                .iter()
+                .any(|suggestion| suggestion.value == folder(expected)),
+            "missing path completion for {expected}"
+        );
+    }
+}
+
+#[cfg(feature = "xsim-japanese-romaji")]
+#[test]
+fn xsim_japanese_romaji_uses_all_native_match_algorithms() {
+    let cases = [
+        (CompletionAlgorithm::Prefix, "cd nihongo"),
+        (CompletionAlgorithm::Substring, "cd hongo"),
+        (CompletionAlgorithm::Fuzzy, "cd nhng"),
+    ];
+
+    for (algorithm, input) in cases {
+        let (_temp_dir, mut completer) = new_xsimc_engine(japanese_xsimc(), algorithm);
+        assert!(
+            completer
+                .complete(input, input.len())
+                .iter()
+                .any(|suggestion| suggestion.value == folder("日本語"))
+        );
+    }
+}
+
+#[cfg(feature = "xsim-japanese-romaji")]
+#[test]
+fn xsim_japanese_romaji_supports_commands_and_unicode_insertion() {
+    let mut xsimc = japanese_xsimc();
+    xsimc.targets.commands = true;
+    let (_temp_dir, mut completer) = new_xsimc_engine(xsimc, CompletionAlgorithm::Prefix);
+
+    let command = completer
+        .complete("nihongo", 7)
+        .into_iter()
+        .find(|suggestion| suggestion.value == "日本語")
+        .expect("Japanese command should be completed from its reading");
+    assert_eq!("日本語", command.value);
+    assert_eq!(Some(Vec::new()), command.match_indices);
+
+    let path = completer
+        .complete("cd toukyou", 10)
+        .into_iter()
+        .find(|suggestion| suggestion.value == folder("東京"))
+        .expect("Japanese path should be completed from its reading");
+    assert_eq!(folder("東京"), path.value);
+    assert_eq!(Some(Vec::new()), path.match_indices);
+}
+
+#[cfg(feature = "xsim-japanese-romaji")]
+#[test]
+fn xsim_japanese_romaji_is_disabled_by_default() {
+    let mut xsimc = enabled_xsimc();
+    xsimc.romanization.enabled = false;
+    let (_temp_dir, mut completer) = new_xsimc_engine(xsimc, CompletionAlgorithm::Prefix);
+
+    assert!(completer.complete("cd nihongo", 10).is_empty());
+}
+
+#[cfg(all(feature = "xsim-japanese-romaji", feature = "xsimc-romanization"))]
+#[test]
+fn xsim_japanese_romaji_deduplicates_general_romanization_keys() {
+    let mut xsimc = japanese_xsimc();
+    xsimc.romanization.enabled = true;
+    let (_temp_dir, mut completer) = new_xsimc_engine(xsimc, CompletionAlgorithm::Prefix);
+
+    assert_eq!(
+        1,
+        completer
+            .complete("cd dokyumento", 13)
+            .iter()
+            .filter(|suggestion| suggestion.value == folder("ドキュメント"))
+            .count()
+    );
+}
+
+#[cfg(all(
+    feature = "xsim-japanese-romaji",
+    feature = "xsimc-pinyin",
+    feature = "xsimc-romanization"
+))]
+#[test]
+fn xsim_orders_literal_pinyin_japanese_romaji_then_romanization() {
+    let mut xsimc = japanese_xsimc();
+    xsimc.targets.commands = true;
+    xsimc.pinyin.enabled = true;
+    xsimc.romanization.enabled = true;
+    let (_temp_dir, mut completer) = new_xsimc_engine(xsimc, CompletionAlgorithm::Prefix);
+
+    let suggestions = completer.complete("ni", 2);
+    let position = |value: &str| {
+        suggestions
+            .iter()
+            .position(|suggestion| suggestion.value == value)
+    };
+    assert!(matches!(
+        (
+            position("ni-literal"),
+            position("你好"),
+            position("日本語"),
+            position("ни")
+        ),
+        (Some(literal), Some(pinyin), Some(japanese), Some(romanization))
+            if literal < pinyin && pinyin < japanese && japanese < romanization
+    ));
 }
 
 #[test]

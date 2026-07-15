@@ -159,11 +159,15 @@ fn xsimc_config_defaults_and_deep_mutations() -> Result {
     tester
         .run("$env.config.completions.xsimc.pinyin.enabled")
         .expect_value_eq(false)?;
+    tester
+        .run("$env.config.completions.xsimc.japanese_romaji.enabled")
+        .expect_value_eq(false)?;
 
     let () = tester.run("$env.config.completions.xsimc.enabled = false")?;
     let () = tester.run("$env.config.completions.xsimc.targets.commands = false")?;
     let () = tester.run("$env.config.completions.xsimc.romanization.enabled = true")?;
     let () = tester.run("$env.config.completions.xsimc.pinyin.enabled = true")?;
+    let () = tester.run("$env.config.completions.xsimc.japanese_romaji.enabled = true")?;
     let () =
         tester.run("$env.config.completions.xsimc.romanization.language_hints = ['rus' 'ell']")?;
 
@@ -181,6 +185,9 @@ fn xsimc_config_defaults_and_deep_mutations() -> Result {
         .expect_value_eq(true)?;
     tester
         .run("$env.config.completions.xsimc.pinyin.enabled")
+        .expect_value_eq(true)?;
+    tester
+        .run("$env.config.completions.xsimc.japanese_romaji.enabled")
         .expect_value_eq(true)?;
     tester
         .run("$env.config.completions.xsimc.romanization.language_hints | str join ','")

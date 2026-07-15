@@ -288,6 +288,11 @@ $env.config.completions.xsimc.romanization.language_hints = []
 # Default: false
 $env.config.completions.xsimc.pinyin.enabled = false
 
+# completions.xsimc.japanese_romaji.enabled (bool): Enable Japanese dictionary-reading matching.
+# Requires the `xsim-japanese-romaji` Cargo feature.
+# Default: false
+$env.config.completions.xsimc.japanese_romaji.enabled = false
+
 # --------------------
 # External Completions
 # --------------------

@@ -178,6 +178,7 @@ indoc = "2"
 interprocess = "2.4.2"
 is_executable = "1.0.5"
 itertools = "0.15"
+lindera = { version = "4.0.0", default-features = false, features = ["embed-ipadic"] }
 kitest = "0.5.0"
 lean_string = { version = "0.6.0", features = ["serde"] }
 lexopt = "0.3.2"
@@ -276,6 +277,7 @@ umask = "2.1"
 unicode-segmentation = "1.13"
 unicode-width = "0.2"
 uroman = { version = "0.6.6", default-features = false }
+wana_kana = "5.0.0"
 ureq = { version = "~3.3.0", default-features = false, features = ["socks-proxy"] }
 url = "2.5"
 uu_cp = "0.9.0"
@@ -391,6 +393,7 @@ full = [
   "sqlite",
   "system-clipboard",
   "trash-support",
+  "xsim-japanese-romaji",
   "xsimc-pinyin",
   "xsimc-romanization",
 ]
@@ -460,6 +463,7 @@ sqlite = [
 xsimc = ["nu-cli/xsimc"]
 xsimc-romanization = ["xsimc", "nu-cli/xsimc-romanization"]
 xsimc-pinyin = ["xsimc", "nu-cli/xsimc-pinyin"]
+xsim-japanese-romaji = ["xsimc", "nu-cli/xsim-japanese-romaji"]
 
 [profile.release]
 opt-level = "s"     # Optimize for size

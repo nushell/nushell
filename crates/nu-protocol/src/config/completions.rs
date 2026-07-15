@@ -70,6 +70,33 @@ impl UpdateFromValue for CrossScriptInputMatchCompletionPinyinConfig {
     }
 }
 
+#[derive(Clone, Debug, Default, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CrossScriptInputMatchCompletionJapaneseReadingConfig {
+    pub enabled: bool,
+}
+
+impl UpdateFromValue for CrossScriptInputMatchCompletionJapaneseReadingConfig {
+    fn update<'a>(
+        &mut self,
+        value: &'a Value,
+        path: &mut ConfigPath<'a>,
+        errors: &mut ConfigErrors,
+    ) {
+        let Value::Record { val: record, .. } = value else {
+            errors.type_mismatch(path, Type::record(), value);
+            return;
+        };
+
+        for (col, val) in record.iter() {
+            let path = &mut path.push(col);
+            match col.as_str() {
+                "enabled" => self.enabled.update(val, path, errors),
+                _ => errors.unknown_option(path, val),
+            }
+        }
+    }
+}
+
 #[derive(Clone, Debug, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CrossScriptInputMatchCompletionTargetsConfig {
     pub paths: bool,
@@ -114,6 +141,7 @@ pub struct CrossScriptInputMatchCompletionConfig {
     pub targets: CrossScriptInputMatchCompletionTargetsConfig,
     pub romanization: CrossScriptInputMatchCompletionRomanizationConfig,
     pub pinyin: CrossScriptInputMatchCompletionPinyinConfig,
+    pub japanese_romaji: CrossScriptInputMatchCompletionJapaneseReadingConfig,
 }
 
 impl Default for CrossScriptInputMatchCompletionConfig {
@@ -123,6 +151,7 @@ impl Default for CrossScriptInputMatchCompletionConfig {
             targets: CrossScriptInputMatchCompletionTargetsConfig::default(),
             romanization: CrossScriptInputMatchCompletionRomanizationConfig::default(),
             pinyin: CrossScriptInputMatchCompletionPinyinConfig::default(),
+            japanese_romaji: CrossScriptInputMatchCompletionJapaneseReadingConfig::default(),
         }
     }
 }
@@ -146,6 +175,7 @@ impl UpdateFromValue for CrossScriptInputMatchCompletionConfig {
                 "targets" => self.targets.update(val, path, errors),
                 "romanization" => self.romanization.update(val, path, errors),
                 "pinyin" => self.pinyin.update(val, path, errors),
+                "japanese_romaji" => self.japanese_romaji.update(val, path, errors),
                 _ => errors.unknown_option(path, val),
             }
         }
@@ -321,6 +351,7 @@ mod tests {
         assert!(!xsimc.romanization.enabled);
         assert!(xsimc.romanization.language_hints.is_empty());
         assert!(!xsimc.pinyin.enabled);
+        assert!(!xsimc.japanese_romaji.enabled);
     }
 
     #[test]
@@ -359,6 +390,7 @@ mod tests {
                 .as_slice()
         );
         assert!(!config.completions.xsimc.pinyin.enabled);
+        assert!(!config.completions.xsimc.japanese_romaji.enabled);
     }
 
     #[test]
