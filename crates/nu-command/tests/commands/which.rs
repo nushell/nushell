@@ -218,3 +218,34 @@ fn which_respects_pathext_from_env() -> Result {
         Ok(())
     })
 }
+
+// A `PATHEXT` removed with `hide-env` must stay hidden: `which` must not fall
+// back to the process `PATHEXT`, which would resurrect the hidden value (the
+// process `PATHEXT` includes `.CMD` by default, so `foo.cmd` would be found
+// again).
+#[cfg(windows)]
+#[test]
+fn which_respects_hidden_pathext() -> Result {
+    Playground::setup("which_pathext_hidden", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContentToBeTrimmed("foo.cmd", "")]);
+        let dir = dirs.test().display().to_string();
+
+        let found: i32 = test().cwd(dirs.test()).run(format!(
+            "with-env {{ Path: '{dir}', PATHEXT: '.CMD' }} {{ which foo | length }}"
+        ))?;
+        assert_eq!(
+            found, 1,
+            "which should find foo.cmd when $env.PATHEXT has .CMD"
+        );
+
+        let hidden: i32 = test().cwd(dirs.test()).run(format!(
+            "with-env {{ Path: '{dir}', PATHEXT: '.CMD' }} {{ hide-env PATHEXT; which foo | length }}"
+        ))?;
+        assert_eq!(
+            hidden, 0,
+            "which should not resurrect a hidden $env.PATHEXT from the process environment"
+        );
+
+        Ok(())
+    })
+}

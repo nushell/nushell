@@ -149,17 +149,25 @@ fn get_entry_in_commands(engine_state: &EngineState, name: &str, span: Span) -> 
 
 /// Reads `$env.PATHEXT` from the shell environment as an `OsString`, mirroring
 /// how `PATH` is read for lookups. The lookup is case-insensitive, matching the
-/// usual `PATHEXT` casing on Windows. When the shell environment has no
-/// `PATHEXT` entry we fall back to the process `PATHEXT` so the default behavior
-/// is unchanged; the shell value only takes over once it is actually set (for
-/// example via `with-env`). Returns `None` when unset everywhere, which is the
-/// normal case on non-Windows systems.
+/// usual `PATHEXT` casing on Windows.
+///
+/// When the shell environment has no visible `PATHEXT`, a value that was
+/// explicitly hidden (e.g. `hide-env PATHEXT`) stays hidden: `None` is
+/// returned rather than resurrecting the hidden value from the process
+/// environment. Only when the shell has never seen `PATHEXT` do we fall back
+/// to the process `PATHEXT`, so default behavior is unchanged. Returns `None`
+/// when unset everywhere, which is the normal case on non-Windows systems.
 fn env_path_ext(engine_state: &EngineState, stack: &Stack) -> Option<OsString> {
-    stack
-        .get_env_var(engine_state, "pathext")
-        .and_then(|value| env::env_to_string("PATHEXT", value, engine_state, stack).ok())
-        .map(OsString::from)
-        .or_else(|| std::env::var_os("PATHEXT"))
+    if let Some(value) = stack.get_env_var(engine_state, "pathext") {
+        return env::env_to_string("PATHEXT", value, engine_state, stack)
+            .ok()
+            .map(OsString::from);
+    }
+    if stack.is_env_var_hidden("PATHEXT") {
+        None
+    } else {
+        std::env::var_os("PATHEXT")
+    }
 }
 
 /// A [`which::sys::Sys`] that behaves like the real system in every respect
