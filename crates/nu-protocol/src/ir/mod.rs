@@ -277,8 +277,9 @@ pub enum Instruction {
     /// Return early from the block with the value in the register.
     ///
     /// Unlike `return`, this runs pending `finally` handlers first (collecting the value in that
-    /// case, like the `try-collect` on the fall-through path), and marks the result as an early
-    /// return so that boundaries can observe it.
+    /// case, like the `try-collect` on the fall-through path), and flags the result as an early
+    /// return. Custom command and closure calls clear that flag; only top-level file evaluation
+    /// reads it, to skip `main`.
     ReturnEarly { src: RegId },
     /// Return from the block with the value in the register
     Return { src: RegId },

@@ -527,8 +527,9 @@ pub fn eval_block<D: DebugContext>(
 /// an ordinary result.
 ///
 /// This is used for blocks that `return` should not escape from, such as custom command bodies
-/// and closures. In contrast, [`eval_block`] leaves the flag intact so that direct callers (such
-/// as file evaluation) can observe that the block returned early.
+/// and closures: clearing the flag keeps an early `return` from leaking into the calling block.
+/// In contrast, [`eval_block`] leaves the flag intact, so its one consumer (top-level file
+/// evaluation) can see a top-level `return` and skip running `main`.
 pub fn eval_block_with_early_return<D: DebugContext>(
     engine_state: &EngineState,
     stack: &mut Stack,

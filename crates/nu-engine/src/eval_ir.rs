@@ -299,8 +299,9 @@ fn eval_ir_block_impl<D: DebugContext>(
                     pc = always_run_handler.handler_index;
                 } else {
                     // No `finally` pending: this is the same as a tail return, keeping streams
-                    // and metadata intact, except the data is marked as an early return so that
-                    // boundaries can observe it.
+                    // and metadata intact, except the data is flagged as an early return. The
+                    // nearest custom command or closure call clears that flag; top-level file
+                    // evaluation reads it to skip `main`.
                     return Ok(ctx.take_reg(reg_id).with_early_return());
                 }
             }
@@ -412,8 +413,10 @@ enum InstructionResult {
     /// Return from the block before reaching the end, carrying the full register contents.
     ///
     /// Unlike `Return`, this runs any pending `finally` handlers before the value leaves the
-    /// block, and marks the resulting data as an early return so that boundaries (custom command
-    /// calls, closures, file evaluation) can observe it.
+    /// block, and flags the resulting data as an early return. The flag exists for one consumer:
+    /// top-level file evaluation, which reads it to skip `main`. Custom command calls and closure
+    /// invocations clear the flag instead, so a `return` in a nested call can't leak out and be
+    /// mistaken for a `return` at the current level.
     ReturnEarly(RegId),
 }
 

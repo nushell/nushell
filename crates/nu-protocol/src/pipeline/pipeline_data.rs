@@ -1134,10 +1134,11 @@ pub struct PipelineExecutionData {
     /// Whether this data was produced by an early `return` from the block, rather than by
     /// evaluating to the end of the block.
     ///
-    /// Early return boundaries (custom command calls, closure invocations) consume this flag via
+    /// The flag exists for a single consumer: top-level file evaluation reads it to detect a
+    /// top-level `return` in a script and skip running `main`. Custom command calls and closure
+    /// invocations instead clear it via
     /// [`eval_block_with_early_return`](https://docs.rs/nu-engine/latest/nu_engine/fn.eval_block_with_early_return.html),
-    /// so it only propagates out of direct block evaluations. This is used to detect a top-level
-    /// `return` in a script, which should prevent `main` from running.
+    /// so it never leaks past a nested call and only ever reflects a `return` at the current level.
     pub early_return: bool,
 }
 
