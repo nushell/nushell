@@ -317,13 +317,30 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                 );
             }
 
-            match (endian, signed) {
-                (Endian::Little, true) => Value::int(LittleEndian::read_int(val, size), head),
-                (Endian::Big, true) => Value::int(BigEndian::read_int(val, size), head),
-                (Endian::Little, false) => {
-                    Value::int(LittleEndian::read_uint(val, size) as i64, head)
-                }
-                (Endian::Big, false) => Value::int(BigEndian::read_uint(val, size) as i64, head),
+            if signed {
+                let val = match endian {
+                    Endian::Little => LittleEndian::read_int(val, size),
+                    Endian::Big => BigEndian::read_int(val, size),
+                };
+
+                return Value::int(val, head);
+            }
+
+            let val = match endian {
+                Endian::Little => LittleEndian::read_uint(val, size),
+                Endian::Big => BigEndian::read_uint(val, size),
+            };
+
+            match i64::try_from(val) {
+                Ok(val) => Value::int(val, head),
+                Err(_) => Value::error(
+                    ShellError::IncorrectValue {
+                        msg: "unsigned binary input is too large to convert to int".into(),
+                        val_span,
+                        call_span: head,
+                    },
+                    head,
+                ),
             }
         }
         // Propagate errors by explicitly matching them before the final case.
