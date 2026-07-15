@@ -3,12 +3,12 @@ mod to;
 
 use nu_plugin::{Plugin, PluginCommand};
 
+use from::corn::FromCorn;
 use from::eml::FromEml;
 use from::ics::FromIcs;
 use from::ini::FromIni;
 use from::plist::FromPlist;
 use from::vcf::FromVcf;
-use from::corn::FromCorn;
 use to::plist::IntoPlist;
 
 pub struct FormatCmdsPlugin;

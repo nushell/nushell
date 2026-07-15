@@ -1,8 +1,8 @@
 use crate::FormatCmdsPlugin;
-use nu_protocol::{
-    Category, Example, LabeledError, ShellError, Signature, Span, Type, Value, record
-};
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
+use nu_protocol::{
+    Category, Example, LabeledError, ShellError, Signature, Span, Type, Value, record,
+};
 
 #[derive(Clone)]
 pub struct FromCorn;
@@ -52,28 +52,17 @@ impl SimplePluginCommand for FromCorn {
     ) -> Result<Value, LabeledError> {
         let span = call.head;
 
+        let string_input = input.coerce_str()?;
 
+        if string_input.is_empty() {
+            return Ok(Value::nothing(span));
+        }
 
-
-
-       let string_input = input.coerce_str()?;
-
-       if string_input.is_empty() {
-           return Ok(Value::nothing(span));
-       }
-
-       Ok(
-           try_str_to_value(&string_input, span)?
-       )
+        Ok(try_str_to_value(&string_input, span)?)
     }
 }
 
-
-pub fn try_str_to_value(
-    input: &str,
-    span: Span,
-) -> Result<Value, LabeledError> {
-
+pub fn try_str_to_value(input: &str, span: Span) -> Result<Value, LabeledError> {
     let result = corn::parse(input);
     match result {
         Ok(value) => Ok(convert_corn_to_value(&value, span)),
@@ -83,7 +72,8 @@ pub fn try_str_to_value(
             from_type: "string".into(),
             span,
             help: Some(err.to_string()),
-        }.into()),
+        }
+        .into()),
     }
 }
 
@@ -127,5 +117,3 @@ mod test {
         assert!(result.is_ok(), "valid CORN should still parse");
     }
 }
-
-
