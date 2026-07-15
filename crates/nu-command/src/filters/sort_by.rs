@@ -1,4 +1,5 @@
 use nu_engine::{ClosureEval, command_prelude::*};
+use nu_protocol::ast::CellPath;
 
 use crate::Comparator;
 
@@ -144,7 +145,7 @@ impl Command for SortBy {
             });
         }
 
-        let comparators = comparator_vals
+        let comparators: Vec<Comparator> = comparator_vals
             .into_iter()
             .map(|val| match val {
                 Value::CellPath { val, .. } => Ok(Comparator::CellPath(val)),
@@ -163,6 +164,21 @@ impl Command for SortBy {
                 }),
             })
             .collect::<Result<_, _>>()?;
+
+        let cell_paths: Vec<CellPath> = comparators
+            .iter()
+            .filter_map(|c| {
+                if let Comparator::CellPath(cp) = c {
+                    Some(cp.clone())
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        if !cell_paths.is_empty() {
+            crate::validate_columns_exist(&vec, &cell_paths, head)?;
+        }
 
         crate::sort_by(&mut vec, comparators, head, insensitive, natural)?;
 

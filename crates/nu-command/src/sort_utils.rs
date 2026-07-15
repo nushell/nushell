@@ -294,6 +294,24 @@ pub fn compare_custom_closure(
         })
 }
 
+/// Check that every value in `vec` has the columns specified by `cell_paths`.
+///
+/// This mirrors the validation that `uniq-by` performs eagerly before processing,
+/// ensuring `sort-by` produces consistent errors for missing columns regardless of
+/// the order of elements in the input.
+pub fn validate_columns_exist(
+    vec: &[Value],
+    cell_paths: &[CellPath],
+    _span: Span,
+) -> Result<(), ShellError> {
+    for v in vec {
+        for cell_path in cell_paths {
+            v.follow_cell_path(&cell_path.members)?;
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

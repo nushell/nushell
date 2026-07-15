@@ -1,6 +1,7 @@
 pub use super::uniq;
 use nu_engine::command_prelude::*;
-use nu_protocol::{ast::PathMember, casing::Casing};
+use nu_protocol::ast::{CellPath, PathMember};
+use nu_protocol::casing::Casing;
 
 #[derive(Clone)]
 pub struct UniqBy;
@@ -75,13 +76,21 @@ impl Command for UniqBy {
 
         let metadata = input.take_metadata();
 
-        let columns = columns
+        let columns: Vec<PathMember> = columns
             .into_iter()
             .map(|col| PathMember::string(col, false, Casing::Sensitive, call.head))
             .collect();
-        let mapper = Box::new(item_mapper_by_col(columns));
 
         let vec: Vec<_> = input.into_iter().collect();
+        let cell_paths: Vec<CellPath> = columns
+            .iter()
+            .map(|pm| CellPath {
+                members: vec![pm.clone()],
+            })
+            .collect();
+        crate::validate_columns_exist(&vec, &cell_paths, call.head)?;
+
+        let mapper = Box::new(item_mapper_by_col(columns));
         uniq(engine_state, stack, call, vec, mapper, metadata)
     }
 
@@ -131,8 +140,6 @@ fn item_mapper_by_col(
     columns: Vec<PathMember>,
 ) -> impl Fn(crate::ItemMapperState) -> Result<crate::ValueCounter, ShellError> {
     move |ms: crate::ItemMapperState| -> Result<crate::ValueCounter, ShellError> {
-        // Resolve each requested column while building the comparison value.
-        // Validation and extraction share the same access semantics.
         let item_column_values = columns
             .iter()
             .map(|column| {

@@ -110,3 +110,33 @@ fn fail_on_non_iterator() {
 
     assert!(actual.err.contains("command doesn't support"));
 }
+
+#[test]
+fn missing_column_in_some_rows_errors() {
+    let actual = nu!("[{a: 1} {b: 2}] | sort-by a");
+
+    assert!(actual.err.contains("Cannot find column"));
+    assert!(actual.err.contains("value originates here"));
+}
+
+#[test]
+fn missing_column_in_some_rows_with_multiple_columns_errors() {
+    let actual = nu!("[{a: 1, b: 3} {b: 2}] | sort-by a b");
+
+    assert!(actual.err.contains("Cannot find column"));
+}
+
+#[test]
+fn sort_by_closure_not_affected_by_column_validation() {
+    let actual =
+        nu!("[[name val]; [b 2] [a 1]] | sort-by { |row| $row.name } | get name | str join ','");
+
+    assert_eq!(actual.out, "a,b");
+}
+
+#[test]
+fn sort_by_mixed_cell_path_and_closure_validates_cell_paths() {
+    let actual = nu!("[{a: 1} {b: 2}] | sort-by a { |row| $row | reject a }");
+
+    assert!(actual.err.contains("Cannot find column"));
+}
