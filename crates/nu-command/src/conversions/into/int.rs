@@ -317,21 +317,14 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                 );
             }
 
-            if signed {
-                let val = match endian {
-                    Endian::Little => LittleEndian::read_int(val, size),
-                    Endian::Big => BigEndian::read_int(val, size),
-                };
-
-                return Value::int(val, head);
-            }
-
-            let val = match endian {
-                Endian::Little => LittleEndian::read_uint(val, size),
-                Endian::Big => BigEndian::read_uint(val, size),
+            let val = match (endian, signed) {
+                (Endian::Little, true) => Ok(LittleEndian::read_int(val, size)),
+                (Endian::Big, true) => Ok(BigEndian::read_int(val, size)),
+                (Endian::Little, false) => i64::try_from(LittleEndian::read_uint(val, size)),
+                (Endian::Big, false) => i64::try_from(BigEndian::read_uint(val, size)),
             };
 
-            match i64::try_from(val) {
+            match val {
                 Ok(val) => Value::int(val, head),
                 Err(_) => Value::error(
                     ShellError::IncorrectValue {
