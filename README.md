@@ -224,6 +224,7 @@ Please submit an issue or PR to be added to this list.
 -   [x-cmd](https://x-cmd.com/mod/nu)
 -   [vfox](https://github.com/version-fox/vfox)
 -   [Windmill](https://www.windmill.dev/docs/getting_started/scripts_quickstart/bash)
+-   [Lacy](https://github.com/timothebot/lacy)
 
 ## Contributing
 
