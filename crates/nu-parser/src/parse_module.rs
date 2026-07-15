@@ -1044,6 +1044,28 @@ pub fn parse_module(
     )
 }
 
+/// A module named after a parser keyword cannot have its `main` command invoked,
+/// because `main` is the module's default entry point (called as `module_name`),
+/// and parser keywords are intercepted by the parser before any command lookup.
+///
+/// Emits a `KeywordShadowModuleMain` error and returns `true` when this conflict is detected.
+fn check_main_keyword_shadow(
+    working_set: &mut StateWorkingSet,
+    has_main: bool,
+    name: &[u8],
+    span: Span,
+) -> bool {
+    if has_main && crate::parse_keywords::is_parser_keyword(name) {
+        working_set.error(ParseError::KeywordShadowModuleMain(
+            String::from_utf8_lossy(name).to_string(),
+            span,
+        ));
+        true
+    } else {
+        false
+    }
+}
+
 pub fn parse_use(
     working_set: &mut StateWorkingSet,
     lite_command: &LiteCommand,
@@ -1208,6 +1230,15 @@ pub fn parse_use(
             vec![],
         );
     };
+
+    if check_main_keyword_shadow(
+        working_set,
+        module.main.is_some(),
+        &module.name,
+        import_pattern.head.span,
+    ) {
+        return (garbage_pipeline(working_set, &[call_span]), vec![]);
+    }
 
     let mut imported_modules = vec![];
     let (definitions, errors) = module.resolve_import_pattern(
@@ -1672,6 +1703,15 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
                 return pipeline;
             }
         };
+
+    if check_main_keyword_shadow(
+        working_set,
+        origin_module.main.is_some(),
+        final_overlay_name.as_bytes(),
+        overlay_name_span,
+    ) {
+        return pipeline;
+    }
 
     let (definitions, errors) = if is_module_updated {
         if has_prefix {

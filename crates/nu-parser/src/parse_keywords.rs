@@ -65,6 +65,14 @@ pub fn is_unaliasable_parser_keyword(working_set: &StateWorkingSet, spans: &[Spa
     }
 }
 
+/// Returns true if the given name matches a parser keyword (aliasable or not).
+///
+/// Multi-word keywords (e.g. `b"export def"`, `b"overlay use"`) are included but
+/// will never match a single-word module name.
+pub fn is_parser_keyword(name: &[u8]) -> bool {
+    ALIASABLE_PARSER_KEYWORDS.contains(&name) || UNALIASABLE_PARSER_KEYWORDS.contains(&name)
+}
+
 /// This is a new more compact method of calling parse_xxx() functions without repeating the
 /// parse_call() in each function. Remaining keywords can be moved here.
 pub fn parse_keyword(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) -> Pipeline {
