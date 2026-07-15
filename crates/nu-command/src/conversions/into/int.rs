@@ -300,7 +300,6 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         Value::Binary { val, .. } => {
             use byteorder::{BigEndian, ByteOrder, LittleEndian};
 
-            let mut val = val.to_vec();
             let size = val.len();
 
             if size == 0 {
@@ -319,24 +318,12 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
             }
 
             match (endian, signed) {
-                (Endian::Little, true) => Value::int(LittleEndian::read_int(&val, size), head),
-                (Endian::Big, true) => Value::int(BigEndian::read_int(&val, size), head),
+                (Endian::Little, true) => Value::int(LittleEndian::read_int(val, size), head),
+                (Endian::Big, true) => Value::int(BigEndian::read_int(val, size), head),
                 (Endian::Little, false) => {
-                    while val.len() < 8 {
-                        val.push(0);
-                    }
-                    val.resize(8, 0);
-
-                    Value::int(LittleEndian::read_i64(&val), head)
+                    Value::int(LittleEndian::read_uint(val, size) as i64, head)
                 }
-                (Endian::Big, false) => {
-                    while val.len() < 8 {
-                        val.insert(0, 0);
-                    }
-                    val.resize(8, 0);
-
-                    Value::int(BigEndian::read_i64(&val), head)
-                }
+                (Endian::Big, false) => Value::int(BigEndian::read_uint(val, size) as i64, head),
             }
         }
         // Propagate errors by explicitly matching them before the final case.

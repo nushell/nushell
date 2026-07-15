@@ -328,6 +328,32 @@ macro_rules! generate_tests {
         }
 
         #[test]
+        fn response_round_trip_binary_value() {
+            let value = Value::binary(vec![0, 1, 0x80, 0xff], Span::new(2, 30));
+
+            let response = PluginCallResponse::value(value.clone());
+            let output = PluginOutput::CallResponse(4, response);
+
+            let encoder = $encoder;
+            let mut buffer = Vec::new();
+            encoder
+                .encode(&output, &mut buffer)
+                .expect("unable to serialize message");
+            let returned = encoder
+                .decode(&mut buffer.as_slice())
+                .expect("unable to deserialize message")
+                .expect("eof");
+
+            match returned {
+                PluginOutput::CallResponse(
+                    4,
+                    PluginCallResponse::PipelineData(PipelineDataHeader::Value(returned_value, _)),
+                ) => assert_eq!(value, returned_value),
+                _ => panic!("decoded into wrong value: {returned:?}"),
+            }
+        }
+
+        #[test]
         fn response_round_trip_plugin_custom_value() {
             let name = "test";
 

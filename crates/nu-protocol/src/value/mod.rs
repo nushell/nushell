@@ -190,7 +190,7 @@ pub enum Value {
     },
     #[non_exhaustive]
     Binary {
-        val: Vec<u8>,
+        val: SharedCow<Vec<u8>>,
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
         #[serde(rename = "span")]
@@ -372,7 +372,7 @@ impl Debug for Value {
             Value::List { vals, .. } => wrap_tuple("List", vals).fmt(f),
             Value::Closure { val, .. } => wrap_tuple("Closure", val.compact_debug()).fmt(f),
             Value::Error { error, .. } => wrap_tuple("Error", error).fmt(f),
-            Value::Binary { val, .. } => wrap_tuple("Binary", BStr::new(val)).fmt(f),
+            Value::Binary { val, .. } => wrap_tuple("Binary", BStr::new(val.as_slice())).fmt(f),
             Value::CellPath { val, .. } => wrap_tuple("CellPath", display_as_debug(val)).fmt(f),
             Value::Custom { val, .. } => wrap_tuple("Custom", val).fmt(f),
             Value::Nothing { .. } => write!(f, "Nothing"),
@@ -722,7 +722,7 @@ impl Value {
             Value::Float { val, .. } => Ok(val.to_string()),
             Value::String { val, .. } => Ok(val),
             Value::Glob { val, .. } => Ok(val),
-            Value::Binary { val, .. } => match String::from_utf8(val) {
+            Value::Binary { val, .. } => match String::from_utf8(val.into_owned()) {
                 Ok(s) => Ok(s),
                 Err(err) => Value::binary(err.into_bytes(), span).cant_convert_to("string"),
             },
@@ -823,7 +823,7 @@ impl Value {
     /// Unwraps the inner binary `Vec` or returns an error if this `Value` is not a binary value
     pub fn into_binary(self) -> Result<Vec<u8>, ShellError> {
         if let Value::Binary { val, .. } = self {
-            Ok(val)
+            Ok(val.into_owned())
         } else {
             self.cant_convert_to("binary")
         }
@@ -872,7 +872,7 @@ impl Value {
     /// ```
     pub fn coerce_into_binary(self) -> Result<Vec<u8>, ShellError> {
         match self {
-            Value::Binary { val, .. } => Ok(val),
+            Value::Binary { val, .. } => Ok(val.into_owned()),
             Value::String { val, .. } => Ok(val.into_bytes()),
             val => val.cant_convert_to("binary"),
         }
@@ -1992,7 +1992,7 @@ impl Value {
 
     pub fn binary(val: impl Into<Vec<u8>>, span: Span) -> Value {
         Value::Binary {
-            val: val.into(),
+            val: SharedCow::new(val.into()),
             internal_span: span,
         }
     }
@@ -5639,6 +5639,53 @@ mod tests {
         assert!(Value::test_glob("*.rs").coerce_bool().is_err());
         assert!(Value::test_binary(vec![1, 2, 3]).coerce_bool().is_err());
         assert!(Value::test_duration(3600).coerce_bool().is_err());
+    }
+
+    mod binary {
+        use super::*;
+        use nu_utils::SharedCow;
+
+        #[test]
+        fn clone_shares_data() {
+            let value = Value::test_binary(vec![1, 2, 3]);
+            let clone = value.clone();
+
+            let (
+                Value::Binary { val, .. },
+                Value::Binary {
+                    val: cloned_val, ..
+                },
+            ) = (&value, &clone)
+            else {
+                unreachable!();
+            };
+
+            assert_eq!(SharedCow::ref_count(val), 2);
+            assert!(std::ptr::eq(val.as_ptr(), cloned_val.as_ptr()));
+        }
+
+        #[test]
+        fn mutation_is_copy_on_write() {
+            let value = Value::test_binary(vec![1, 2, 3]);
+            let mut clone = value.clone();
+
+            let Value::Binary { val, .. } = &mut clone else {
+                unreachable!();
+            };
+            val.to_mut()[0] = 4;
+
+            assert_eq!(value.as_binary(), Ok([1, 2, 3].as_slice()));
+            assert_eq!(clone.as_binary(), Ok([4, 2, 3].as_slice()));
+        }
+
+        #[test]
+        fn into_binary_preserves_shared_value() {
+            let value = Value::test_binary(vec![1, 2, 3]);
+            let clone = value.clone();
+
+            assert_eq!(clone.into_binary(), Ok(vec![1, 2, 3]));
+            assert_eq!(value.as_binary(), Ok([1, 2, 3].as_slice()));
+        }
     }
 
     mod memory_size {

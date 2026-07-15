@@ -532,7 +532,7 @@ pub fn value_to_sql(
         Value::Duration { val, .. } => Ok(Box::new(val)),
         Value::Date { val, .. } => Ok(Box::new(val)),
         Value::String { val, .. } => Ok(Box::new(val)),
-        Value::Binary { val, .. } => Ok(Box::new(val)),
+        Value::Binary { val, .. } => Ok(Box::new(val.into_owned())),
         Value::Nothing { .. } => Ok(Box::new(rusqlite::types::Null)),
         val => {
             let span = val.span();

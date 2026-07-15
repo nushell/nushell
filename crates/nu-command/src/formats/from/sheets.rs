@@ -45,7 +45,7 @@ pub(super) fn collect_binary(
 ) -> Result<Cursor<Vec<u8>>, ShellError> {
     let buf = match input {
         // Deserialize from a byte buffer
-        PipelineData::Value(Value::Binary { val: bytes, .. }, _) => Ok(bytes),
+        PipelineData::Value(Value::Binary { val: bytes, .. }, _) => Ok(bytes.into_owned()),
         // Deserialize from a raw stream directly without having to collect it
         PipelineData::ByteStream(stream, ..) => stream.into_bytes(),
         input => Err(ShellError::PipelineMismatch {
