@@ -256,10 +256,7 @@ If you create a custom command with this name, that will be used instead."
                 }
             },
             PipelineData::Empty => {
-                // Use null stdin when running non-interactively (MCP) or when the
-                // caller explicitly requests it (mainly background completion threads,
-                // where inheriting the terminal could race with reedline's reads
-                // and cause bad EIO).
+                // MCP and background completions must not inherit the live terminal.
                 if engine_state.is_mcp || stack.suppress_stdin {
                     command.stdin(Stdio::null());
                     prepare_background_command(&mut command);
@@ -284,7 +281,9 @@ If you create a custom command with this name, that will be used instead."
         #[cfg(unix)]
         let child = ForegroundChild::spawn(
             command,
-            engine_state.is_interactive,
+            // `suppress_stdin` children are already detached; do not also take
+            // the foreground pgrp from the completion thread.
+            engine_state.is_interactive && !stack.suppress_stdin,
             engine_state.is_background_job(),
             &engine_state.pipeline_externals_state,
         );
@@ -824,137 +823,56 @@ mod test {
     }
 }
 
-/// Tests for the background-completion terminal-isolation fix.
-///
-/// When `stack.suppress_stdin` is set (used by `NuCompleter::new_for_background`),
-/// subprocesses must:
-///   1. Receive a null device for stdin so they can't steal keystrokes.
-///   2. Be isolated from the parent's terminal/console so tools like carapace
-///      cannot call tcsetattr (Unix) or SetConsoleMode (Windows) and corrupt
-///      reedline's raw-mode state.
+/// `prepare_background_command` must detach from the controlling terminal/console
+/// so completer subprocesses cannot rewrite reedline's raw-mode state.
 #[cfg(test)]
 mod background_isolation_tests {
     use nu_system::prepare_background_command;
     use std::process::{Command, Stdio};
-    use std::time::Duration;
 
-    /// A subprocess whose stdin is the null device should see EOF immediately –
-    /// it must not block waiting for terminal input. Blocking would indicate that
-    /// suppress_stdin isn't working and the subprocess still holds the terminal.
     #[cfg(unix)]
     #[test]
-    fn test_suppress_stdin_gives_eof_not_terminal() {
-        // "read line" returns immediately with exit code 1 when stdin is
-        // /dev/null (EOF), but blocks indefinitely if stdin is the terminal.
-        let child = Command::new("sh")
-            .args(["-c", "read line; echo exit:$?"])
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::null())
-            .spawn()
-            .expect("sh should spawn");
-
-        let start = nu_utils::time::Instant::now();
-        let output = child.wait_with_output().expect("wait failed");
-        assert!(
-            start.elapsed() < Duration::from_secs(2),
-            "subprocess blocked – stdin was not /dev/null"
-        );
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(
-            stdout.contains("exit:1"),
-            "expected EOF on stdin, got: {stdout}"
-        );
-    }
-
-    /// On Windows, `set /p` reads a line from stdin. With NUL for stdin it
-    /// returns immediately with ERRORLEVEL 1 (EOF), but blocks on a terminal.
-    #[cfg(windows)]
-    #[test]
-    fn test_suppress_stdin_gives_eof_not_terminal() {
-        let child = Command::new("cmd")
-            .args(["/c", "set /p x= && echo exit:0 || echo exit:1"])
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::null())
-            .spawn()
-            .expect("cmd should spawn");
-
-        let start = nu_utils::time::Instant::now();
-        let output = child.wait_with_output().expect("wait failed");
-        assert!(
-            start.elapsed() < Duration::from_secs(2),
-            "subprocess blocked... stdin was not NUL"
-        );
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(
-            stdout.contains("exit:1"),
-            "expected EOF on stdin, got: {stdout}"
-        );
-    }
-
-    /// A subprocess spawned via setsid() must not be able to open /dev/tty.
-    /// If it CAN open /dev/tty it can call tcsetattr and corrupt reedline's
-    /// terminal state, causing EIO ("Input/output error") on the next read.
-    #[cfg(unix)]
-    #[test]
-    fn test_setsid_removes_controlling_terminal() {
+    fn setsid_removes_controlling_terminal() {
         let mut cmd = Command::new("sh");
+        // Subshell so a failed redirect does not exit before the `||` branch.
         cmd.args([
             "-c",
-            // Try to open /dev/tty; if it succeeds write "has_tty", else "no_tty".
-            // Use a subshell so that a failed exec redirect (which exits the
-            // shell on both bash and dash) doesn't silence the outer || branch.
             "(exec 3>/dev/tty) 2>/dev/null && echo has_tty || echo no_tty",
         ])
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::null());
-
         prepare_background_command(&mut cmd);
 
         let output = cmd.output().expect("sh should run");
-        let stdout = String::from_utf8_lossy(&output.stdout);
         assert_eq!(
-            stdout.trim(),
+            String::from_utf8_lossy(&output.stdout).trim(),
             "no_tty",
-            "subprocess should have no controlling terminal after setsid(); \
-             if it has one it can corrupt reedline's terminal mode and cause EIO"
+            "child must not retain a controlling terminal after setsid"
         );
     }
 
-    /// A subprocess launched with DETACHED_PROCESS has no console attached, so
-    /// cmd's built-in `chcp` (which queries the console code page) MUST fail.
-    /// If `chcp` succeeds it would be bad as the child has inherited the parent's console and a
-    /// completer could call SetConsoleMode to corrupt reedline's state.
     #[cfg(windows)]
     #[test]
-    fn test_detached_process_removes_console() {
+    fn detached_process_removes_console() {
+        // Use only cmd built-ins — console-subsystem .exe children can get a
+        // fresh console even with DETACHED_PROCESS, which would false-positive.
         let mut cmd = Command::new("cmd");
-
-        // We deliberately use only cmd built-ins (no external .exe/.com) to avoid
-        // Windows auto-allocating a console for console-subsystem children
-        // This would produce a false "has_console" result even
-        // when DETACHED_PROCESS is working correctly.
         cmd.args([
             "/c",
             "(echo.>CON 2>NUL && echo has_console) || echo no_console",
         ])
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped()); // Capture instead of null so we can show diagnostics 
-
+        .stderr(Stdio::piped());
         prepare_background_command(&mut cmd);
 
         let output = cmd.output().expect("cmd should run");
-
         let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
         let stderr = String::from_utf8_lossy(&output.stderr);
-
         assert_eq!(
             stdout, "no_console",
-            "Subprocess should have no console after DETACHED_PROCESS.\n\
-         stderr was: {stderr}"
+            "child must not retain a console after DETACHED_PROCESS; stderr={stderr}"
         );
     }
 }

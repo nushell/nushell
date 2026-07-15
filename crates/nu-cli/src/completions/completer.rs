@@ -144,22 +144,55 @@ fn strip_placeholder_if_any<'a>(
     (new_span, prefix)
 }
 
-struct CachedCompletion {
-    suggestions: Vec<Suggestion>,
-    timestamp: Instant,
+/// Cache key and worker message identity: (line buffer, cursor byte offset).
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct CompletionQuery {
+    line: String,
+    pos: usize,
 }
 
-type CompletionCache = Arc<Mutex<HashMap<(String, usize), CachedCompletion>>>;
-/// Shared slot for the background-thread signal channel receiver.
-/// Wrapped in Arc<Mutex<>> so NuCompleter stays Clone.
-type PendingRx = Arc<Mutex<Option<mpsc::Receiver<()>>>>;
+struct CacheEntry {
+    suggestions: Vec<Suggestion>,
+    at: Instant,
+}
 
-#[derive(Clone)]
+/// Reedline-side handle to the single background worker for this completer.
+///
+/// `pending` is the latest enqueued request; the worker may only wake reedline
+/// when it finishes that generation (stale ready signals are drained/ignored).
+struct CompletionWorker {
+    request_tx: mpsc::Sender<(CompletionQuery, u64)>,
+    ready_rx: mpsc::Receiver<u64>,
+    next_generation: u64,
+    /// `(query, generation)` still awaited from the worker, if any.
+    pending: Option<(CompletionQuery, u64)>,
+}
+
+/// Isolate a stack for completion evaluation.
+///
+/// Completions may run arbitrary code; output is always captured so it cannot
+/// corrupt reedline / LSP. Background workers also null child stdin and detach
+/// from the terminal (via `Stack::suppress_stdin`) so subprocesses cannot race
+/// the line editor.
+fn isolated_stack(parent: Arc<Stack>, background: bool) -> Arc<Stack> {
+    let stack = Stack::with_parent(parent)
+        .reset_out_dest()
+        .suppress_output()
+        .collect_value();
+    Arc::new(if background {
+        stack.suppress_stdin()
+    } else {
+        stack
+    })
+}
+
 pub struct NuCompleter {
     engine_state: Arc<EngineState>,
     stack: Arc<Stack>,
-    cache: CompletionCache,
-    pending_rx: PendingRx,
+    /// Shared with the background worker; reedline thread only.
+    cache: Arc<Mutex<HashMap<CompletionQuery, CacheEntry>>>,
+    /// Lazily spawned on the first cache miss; reedline thread only (no lock).
+    worker: Option<CompletionWorker>,
 }
 
 /// Common arguments required for Completer
@@ -188,28 +221,20 @@ impl Context<'_> {
 
 impl NuCompleter {
     pub fn new(engine_state: Arc<EngineState>, stack: Arc<Stack>) -> Self {
+        Self::with_stack(engine_state, isolated_stack(stack, false))
+    }
+
+    /// Background worker: same isolation as [`Self::new`], plus suppressed stdin.
+    fn for_background(engine_state: Arc<EngineState>, stack: Arc<Stack>) -> Self {
+        Self::with_stack(engine_state, isolated_stack(stack, true))
+    }
+
+    fn with_stack(engine_state: Arc<EngineState>, stack: Arc<Stack>) -> Self {
         Self {
             engine_state,
             stack,
             cache: Arc::new(Mutex::new(HashMap::new())),
-            pending_rx: Arc::new(Mutex::new(None)),
-        }
-    }
-
-    fn new_for_background(engine_state: Arc<EngineState>, stack: Arc<Stack>) -> Self {
-        Self {
-            engine_state,
-            stack: Arc::new(
-                Stack::with_parent(stack)
-                    .reset_out_dest()
-                    // We never want to write to the terminal
-                    .suppress_output()
-                    // We don't want races with reedlines own
-                    .suppress_stdin()
-                    .collect_value(),
-            ),
-            cache: Arc::new(Mutex::new(HashMap::new())),
-            pending_rx: Arc::new(Mutex::new(None)),
+            worker: None,
         }
     }
 
@@ -792,7 +817,7 @@ impl NuCompleter {
 
         completer.fetch(
             ctx.working_set,
-            &self.stack,
+            self.stack.as_ref(),
             String::from_utf8_lossy(ctx.prefix),
             ctx.span,
             ctx.offset,
@@ -808,221 +833,281 @@ struct CommandCompletionOptions {
     quote_internals: bool,
 }
 
+impl NuCompleter {
+    fn cached(&self, query: &CompletionQuery) -> Option<Vec<Suggestion>> {
+        let cache = self.cache.lock().ok()?;
+        let entry = cache.get(query)?;
+        (entry.at.elapsed() < CACHE_TTL).then(|| entry.suggestions.clone())
+    }
+
+    /// Spawn the long-lived worker. Takes field refs so callers can hold
+    /// `&mut self.worker` while building it.
+    fn spawn_worker(
+        engine_state: &Arc<EngineState>,
+        stack: &Arc<Stack>,
+        cache: &Arc<Mutex<HashMap<CompletionQuery, CacheEntry>>>,
+    ) -> CompletionWorker {
+        let (request_tx, request_rx) = mpsc::channel::<(CompletionQuery, u64)>();
+        let (ready_tx, ready_rx) = mpsc::channel::<u64>();
+
+        let completer = NuCompleter::for_background(engine_state.clone(), Arc::clone(stack));
+        let cache = Arc::clone(cache);
+
+        thread::spawn(move || {
+            let mut queued = None;
+            loop {
+                // Prefer a request that arrived during the previous compute;
+                // otherwise block for the next one.
+                let (query, generation) = match queued.take().or_else(|| request_rx.recv().ok()) {
+                    Some(req) => req,
+                    None => return,
+                };
+
+                // Coalesce: only the latest query is worth computing.
+                let mut latest = (query, generation);
+                while let Ok(newer) = request_rx.try_recv() {
+                    latest = newer;
+                }
+                let (query, generation) = latest;
+
+                let suggestions: Vec<Suggestion> = completer
+                    .fetch_completions_at(&query.line, query.pos)
+                    .into_iter()
+                    .map(|s| s.suggestion)
+                    .collect();
+
+                if let Ok(mut guard) = cache.lock() {
+                    guard.retain(|_, e| e.at.elapsed() < CACHE_TTL);
+                    guard.insert(
+                        query,
+                        CacheEntry {
+                            suggestions,
+                            at: Instant::now(),
+                        },
+                    );
+                }
+
+                // If more work arrived while we computed, process it next and
+                // do NOT signal ready!
+                match request_rx.try_recv() {
+                    Ok(newer) => queued = Some(newer),
+                    Err(mpsc::TryRecvError::Empty) => {
+                        if ready_tx.send(generation).is_err() {
+                            return;
+                        }
+                    }
+                    Err(mpsc::TryRecvError::Disconnected) => return,
+                }
+            }
+        });
+
+        CompletionWorker {
+            request_tx,
+            ready_rx,
+            next_generation: 0,
+            pending: None,
+        }
+    }
+}
+
 impl ReedlineCompleter for NuCompleter {
     fn complete(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
-        let key = (line.to_string(), pos);
+        let query = CompletionQuery {
+            line: line.to_string(),
+            pos,
+        };
 
-        // Return immediately if the cache has a fresh result for this query.
-        if let Some(suggestions) = get_from_cache(self, &key) {
+        if let Some(suggestions) = self.cached(&query) {
+            if let Some(worker) = self.worker.as_mut()
+                && worker.pending.as_ref().is_some_and(|(q, _)| q == &query)
+            {
+                worker.pending = None;
+            }
             return suggestions;
         }
 
-        // If the cache misses: alert the background thread and instantly return empty.
-        // Reedline will call `check_pending` / `complete` again to pick up the
-        // results and repaint.
-        let (tx, rx) = mpsc::channel();
-        {
-            let Ok(mut pending_guard) = self.pending_rx.lock() else {
-                // If the mutex is poisoned,
-                // return empty results and pray the next call goes smoothly.
-                return vec![];
-            };
-            pending_guard.replace(rx);
-        }
-
-        let engine_state = self.engine_state.clone();
-        let stack = self.stack.clone();
-        let cache = self.cache.clone();
-        let line_owned = line.to_string();
-
-        thread::spawn(move || {
-            let completer = NuCompleter::new_for_background(engine_state, stack);
-            let suggestions: Vec<Suggestion> = completer
-                .fetch_completions_at(&line_owned, pos)
-                .into_iter()
-                .map(|s| s.suggestion)
-                .collect();
-
-            if let Ok(mut guard) = cache.lock() {
-                guard.insert(
-                    key,
-                    CachedCompletion {
-                        suggestions,
-                        timestamp: Instant::now(),
-                    },
-                );
-            }
-
-            // Results are in the cache!
-            let _ = tx.send(());
+        let worker = self.worker.get_or_insert_with(|| {
+            Self::spawn_worker(&self.engine_state, &self.stack, &self.cache)
         });
 
-        fn get_from_cache(
-            completer: &NuCompleter,
-            key: &(String, usize),
-        ) -> Option<Vec<Suggestion>> {
-            let cache = completer.cache.lock().ok()?;
-            let entry = cache.get(key)?;
+        // Already waiting on this exact query.
+        if worker.pending.as_ref().is_some_and(|(q, _)| q == &query) {
+            return vec![];
+        }
 
-            if entry.timestamp.elapsed() < CACHE_TTL {
-                Some(entry.suggestions.clone())
-            } else {
-                None
-            }
+        worker.next_generation = worker.next_generation.wrapping_add(1);
+        let generation = worker.next_generation;
+
+        if worker.request_tx.send((query.clone(), generation)).is_ok() {
+            worker.pending = Some((query, generation));
+        } else {
+            worker.pending = None;
         }
 
         vec![]
     }
 
     fn has_pending(&mut self) -> bool {
-        self.pending_rx.lock().is_ok_and(|g| g.is_some())
+        self.worker.as_ref().is_some_and(|w| w.pending.is_some())
     }
 
     fn check_pending(&mut self) -> bool {
-        let Ok(mut guard) = self.pending_rx.lock() else {
-            return false;
-        };
-        let Some(rx) = guard.as_ref() else {
+        let Some(worker) = self.worker.as_mut() else {
             return false;
         };
 
-        match rx.try_recv() {
-            Ok(()) => {
-                *guard = None;
-                true
-            }
-            Err(mpsc::TryRecvError::Empty) => false,
-            Err(mpsc::TryRecvError::Disconnected) => {
-                *guard = None;
-                false
+        let Some(expected) = worker.pending.as_ref().map(|(_, generation)| *generation) else {
+            // Drain any late signals so the channel does not fill up.
+            while worker.ready_rx.try_recv().is_ok() {}
+            return false;
+        };
+
+        let mut matched = false;
+        while let Ok(generation) = worker.ready_rx.try_recv() {
+            if generation == expected {
+                matched = true;
             }
         }
+
+        if matched {
+            worker.pending = None;
+        }
+        matched
     }
 }
 
 #[cfg(test)]
 mod completer_tests {
     use super::*;
+    use nu_protocol::OutDest;
+
+    fn test_engine() -> Arc<EngineState> {
+        let mut engine =
+            nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
+        let delta = StateWorkingSet::new(&engine).render();
+        engine.merge_delta(delta).expect("merge_delta");
+        Arc::new(engine)
+    }
+
+    /// Poll like reedline until the latest request is ready (or fail the test).
+    fn wait_for(completer: &mut NuCompleter, line: &str, pos: usize) -> Vec<Suggestion> {
+        let deadline = Instant::now() + Duration::from_secs(30);
+        loop {
+            if completer.check_pending() {
+                return completer.complete(line, pos);
+            }
+            assert!(
+                Instant::now() < deadline,
+                "background completion timed out for {line:?}"
+            );
+            thread::sleep(Duration::from_millis(10));
+        }
+    }
 
     #[test]
-    fn test_non_blocking_completion_cache() {
-        let mut engine_state =
-            nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
+    fn non_blocking_complete_fills_cache() {
+        let mut completer = NuCompleter::new(test_engine(), Arc::new(Stack::new()));
 
-        let delta = {
-            let working_set = nu_protocol::engine::StateWorkingSet::new(&engine_state);
-            working_set.render()
-        };
-
-        let result = engine_state.merge_delta(delta);
-        assert!(
-            result.is_ok(),
-            "Error merging delta: {:?}",
-            result.err().unwrap()
-        );
-
-        let mut completer = NuCompleter::new(engine_state.into(), Arc::new(Stack::new()));
-
-        // Get expected results via the direct (non-cached) path.
-        let expected: Vec<Suggestion> = completer
+        let expected: Vec<_> = completer
             .fetch_completions_at("ls | c", 6)
             .into_iter()
             .map(|s| s.suggestion)
             .collect();
-        assert!(!expected.is_empty(), "expected non-empty results");
-        assert!(
-            expected.iter().any(|s| s.value == "cd"),
-            "should contain cd"
-        );
+        assert!(expected.iter().any(|s| s.value == "cd"));
 
-        let first = completer.complete("ls | c", 6);
-        assert!(
-            first.is_empty(),
-            "first call should return empty (cache miss)"
-        );
-        assert!(completer.has_pending(), "should have pending completion");
+        assert!(completer.complete("ls | c", 6).is_empty());
+        assert!(completer.has_pending());
 
-        // Simulate reedline's polling loop: call check_pending() until results arrive,
-        // then call complete() to retrieve them from the cache.
-        let second = loop {
-            if completer.check_pending() {
-                break completer.complete("ls | c", 6);
-            }
-            std::thread::sleep(Duration::from_millis(10));
-        };
-
-        assert_eq!(
-            expected.len(),
-            second.len(),
-            "cached result should match direct result"
-        );
+        let cached = wait_for(&mut completer, "ls | c", 6);
+        assert_eq!(expected.len(), cached.len());
         for s in &expected {
             assert!(
-                second.iter().any(|x| x.value == s.value),
-                "cached result should contain '{}'",
+                cached.iter().any(|x| x.value == s.value),
+                "missing {}",
                 s.value
             );
         }
     }
 
-    /// Verifies that the background completion stack NEVER inherits the live terminal's
-    /// stdout/stderr.
+    /// Only the latest enqueued generation may return true from `check_pending`.
     #[test]
-    fn test_background_completer_suppresses_output() {
-        use nu_protocol::OutDest;
+    fn only_latest_generation_wakes_pending() {
+        let mut engine =
+            nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
+        let setup = r#"
+            $env.config.completions.external = {
+                enable: true
+                completer: {|spans|
+                    sleep 80ms
+                    [{value: $"got-($spans | last)"}]
+                }
+            }
+        "#;
+        let mut stack = Stack::new();
+        let mut working_set = StateWorkingSet::new(&engine);
+        let block = parse(&mut working_set, None, setup.as_bytes(), false);
+        assert!(working_set.parse_errors.is_empty());
+        engine
+            .merge_delta(working_set.render())
+            .expect("merge setup");
+        nu_engine::eval_block::<nu_protocol::debugger::WithoutDebug>(
+            &engine,
+            &mut stack,
+            &block,
+            nu_protocol::PipelineData::empty(),
+        )
+        .expect("eval setup");
 
-        let engine_state = Arc::new(nu_command::add_shell_command_context(
-            nu_cmd_lang::create_default_context(),
-        ));
-        let stack = Arc::new(Stack::new());
-        let bg = NuCompleter::new_for_background(engine_state, stack);
+        let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+        let first = "somecmd a";
+        let second = "somecmd ab";
 
-        assert!(
-            matches!(bg.stack.stdout(), OutDest::Value),
-            "background completer stdout should be collected"
-        );
-        assert!(
-            matches!(bg.stack.stderr(), OutDest::Null),
-            "background completer stderr should be Null"
-        );
+        assert!(completer.complete(first, first.len()).is_empty());
+        // Let the worker start first before superseding it.
+        thread::sleep(Duration::from_millis(20));
+        assert!(completer.complete(second, second.len()).is_empty());
+        assert!(completer.has_pending());
 
-        assert!(
-            bg.stack.suppress_stdin,
-            "background completer must suppress child-process stdin"
-        );
+        let deadline = Instant::now() + Duration::from_secs(30);
+        let mut premature_wakes = 0;
+        let result = loop {
+            if completer.check_pending() {
+                let suggestions = completer.complete(second, second.len());
+                if suggestions.is_empty() {
+                    premature_wakes += 1;
+                    assert!(completer.has_pending());
+                } else {
+                    break suggestions;
+                }
+            }
+            assert!(
+                Instant::now() < deadline,
+                "latest completion never ready (premature_wakes={premature_wakes})"
+            );
+            thread::sleep(Duration::from_millis(10));
+        };
 
-        // foreground completer is chill with stdin
-        let fg = NuCompleter::new(
-            Arc::new(nu_command::add_shell_command_context(
-                nu_cmd_lang::create_default_context(),
-            )),
-            Arc::new(Stack::new()),
-        );
-        assert!(
-            !fg.stack.suppress_stdin,
-            "foreground completer must not suppress stdin"
-        );
+        assert_eq!(premature_wakes, 0);
+        assert!(result.iter().any(|s| s.value == "got-ab"), "{result:?}");
+    }
+
+    #[test]
+    fn isolation_contracts() {
+        let engine = test_engine();
+        let bg = NuCompleter::for_background(engine.clone(), Arc::new(Stack::new()));
+        assert!(matches!(bg.stack.stdout(), OutDest::Value));
+        assert!(matches!(bg.stack.stderr(), OutDest::Null));
+        assert!(bg.stack.suppress_stdin);
+
+        let fg = NuCompleter::new(engine, Arc::new(Stack::new()));
+        assert!(matches!(fg.stack.stdout(), OutDest::Value));
+        assert!(matches!(fg.stack.stderr(), OutDest::Null));
+        assert!(!fg.stack.suppress_stdin);
     }
 
     #[test]
     fn test_completion_helper() {
-        let mut engine_state =
-            nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
-
-        // Custom additions
-        let delta = {
-            let working_set = nu_protocol::engine::StateWorkingSet::new(&engine_state);
-            working_set.render()
-        };
-
-        let result = engine_state.merge_delta(delta);
-        assert!(
-            result.is_ok(),
-            "Error merging delta: {:?}",
-            result.err().unwrap()
-        );
-
-        let completer = NuCompleter::new(engine_state.into(), Arc::new(Stack::new()));
+        let completer = NuCompleter::new(test_engine(), Arc::new(Stack::new()));
         let dataset = [
             ("1 bit-sh", true, "b", vec!["bit-shl", "bit-shr"]),
             ("1.0 bit-sh", false, "b", vec![]),

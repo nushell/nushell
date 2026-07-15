@@ -1,5 +1,8 @@
 pub mod support;
 
+use core::time::Duration;
+
+use nu_utils::time::Instant;
 use std::{
     collections::HashMap,
     fs::{ReadDir, read_dir},
@@ -26,28 +29,31 @@ use support::{
     file, folder, match_suggestions, match_suggestions_by_string, new_engine,
 };
 
-/// Extension trait for test completions.
-///
-/// Since the background completion kicks off a thread and immediately returns an empty vector
-/// on a cache miss, integration tests that don't spin the `reedline` event loop will fail.
-/// This helper simulates the loop synchronously so the legacy integration tests require minimal modification
+/// Sync wrapper for the async reedline completion path used by integration tests.
 pub trait CompleterExt {
     fn complete_and_wait(&mut self, line: &str, pos: usize) -> Vec<Suggestion>;
 }
 
 impl CompleterExt for NuCompleter {
     fn complete_and_wait(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
-        let mut suggestions = self.complete(line, pos);
-        if suggestions.is_empty() && self.has_pending() {
-            loop {
-                if self.check_pending() {
-                    suggestions = self.complete(line, pos);
-                    break;
-                }
-                std::thread::sleep(std::time::Duration::from_millis(10));
-            }
+        let suggestions = self.complete(line, pos);
+        if !suggestions.is_empty() || !self.has_pending() {
+            return suggestions;
         }
-        suggestions
+
+        const WINDOW: Duration = std::time::Duration::from_secs(30);
+
+        let deadline = Instant::now() + WINDOW;
+        loop {
+            if self.check_pending() {
+                return self.complete(line, pos);
+            }
+            assert!(
+                Instant::now() < deadline,
+                "complete_and_wait timed out for {line:?}"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
     }
 }
 
@@ -185,6 +191,27 @@ fn custom_completer_with_options(
     assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
 
     NuCompleter::new(Arc::new(engine), Arc::new(stack))
+}
+
+/// External completer errors must fall back to file completion (not empty menu).
+#[test]
+fn external_completer_error_falls_back_to_file_completion() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let record = r#"
+        $env.config.completions.external = {
+            enable: true
+            completer: {|spans| error make {msg: "simulated completer failure"} }
+        }
+    "#;
+    assert!(support::merge_input(record.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let suggestions = completer.complete_and_wait("somecmd test", 12);
+    let values: Vec<&str> = suggestions.iter().map(|s| s.value.as_str()).collect();
+    assert!(
+        values.iter().any(|v| v.starts_with("test")),
+        "expected file-completion fallback, got: {values:?}"
+    );
 }
 
 #[fixture]

@@ -12,13 +12,11 @@ use std::{io::IsTerminal, sync::atomic::Ordering};
 #[cfg(unix)]
 pub use child_pgroup::stdin_fd;
 
-/// Prepare a command to run in background isolation: no controlling terminal,
-/// so tools like carapace cannot call `tcsetattr` on `/dev/tty` and corrupt
-/// reedline's terminal state. (bad)
+/// Detach `command` from the parent's controlling terminal/console.
 ///
-/// Call this before spawning the command. This caller is responsible for also
-/// redirecting stdin to `/dev/null` so the subprocess cannot steal keystrokes.
-/// Will fall through to nothing on WASM and friends, which is O.K
+/// Used for background completion subprocesses so they cannot call
+/// `tcsetattr` / `SetConsoleMode` and corrupt reedline. Caller must also
+/// redirect stdin to null. No-op on platforms without a process API.
 pub fn prepare_background_command(command: &mut Command) {
     #[cfg(unix)]
     child_pgroup::prepare_isolated_command(command);
@@ -26,8 +24,7 @@ pub fn prepare_background_command(command: &mut Command) {
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
-        // disables opening CONIN$/CONOUT$ the call-ability of SetConsoleMode
-        // basically setsid() from Unix.
+        // DETACHED_PROCESS: no console to no SetConsoleMode (Unix setsid analogue).
         const DETACHED_PROCESS: u32 = 0x0000_0008;
         command.creation_flags(DETACHED_PROCESS);
     }
@@ -389,25 +386,17 @@ mod child_pgroup {
         unsafe { BorrowedFd::borrow_raw(nix::libc::STDIN_FILENO) }
     }
 
-    /// Isolate `command` from the parent's controlling terminal so it cannot call
-    /// `tcsetattr` on `/dev/tty` and corrupt reedline's raw-mode state.
+    /// `setsid` in `pre_exec`: new session, no controlling terminal.
     ///
-    /// The caller is responsible for also redirecting stdin to `/dev/null` so
-    /// the subprocess cannot steal keystrokes.
-    ///
-    /// Disclaimer: this is NOT just [`prepare_command`] with `background = true`!
-    /// This calls `setsid` to start a brand-new session with no controlling terminal at
-    /// all. It also skips the signal-handler resets that [`prepare_command`] applies, since
-    /// the completions don't participate in job control.
+    /// Not the same as [`prepare_command`] with `background = true` (that only
+    /// skips `tcsetpgrp`; this fully detaches). Completions skip job-control
+    /// signal resets intentionally.
     pub fn prepare_isolated_command(command: &mut Command) {
-        // SAFETY: `setsid` is async-signal-safe per [POSIX signal-safety(7)](https://man7.org/linux/man-pages/man7/signal-safety.7.html), so
-        // it is legal to call from the `pre_exec` hook that runs after `fork`
-        // as long as it hits before `exec`.
+        // SAFETY: `setsid` is async-signal-safe (POSIX signal-safety(7)); legal
+        // in `pre_exec` between fork and exec.
         unsafe {
             command.pre_exec(|| {
-                // Creates a new session without a controlling terminal, so
-                // `/dev/tty` will fail to open.  Ignore EPERM as we may
-                // already be a session leader.
+                // Ignore EPERM if we are already a session leader.
                 let _ = unistd::setsid();
                 Ok(())
             });
