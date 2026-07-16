@@ -155,29 +155,46 @@ impl Command for PathSplit {
     }
 }
 
+#[cfg(windows)]
+fn split_components(path: &Path) -> Vec<String> {
+    let mut components = path.components().peekable();
+    let mut parts = Vec::new();
+
+    while let Some(component) = components.next() {
+        match component {
+            Component::Prefix(_) => {
+                let mut prefix = component.as_os_str().to_string_lossy().to_string();
+                if matches!(components.peek(), Some(Component::RootDir)) {
+                    prefix.push('\\');
+                    components.next();
+                }
+                parts.push(prefix);
+            }
+            Component::RootDir => {}
+            component => parts.push(component.as_os_str().to_string_lossy().to_string()),
+        }
+    }
+
+    parts
+}
+
 fn split(path: &Path, span: Span, _: &Arguments) -> Value {
+    #[cfg(windows)]
+    let parts = split_components(path);
+
+    #[cfg(not(windows))]
+    let parts = path
+        .components()
+        .filter_map(process_component)
+        .collect::<Vec<_>>();
+
     Value::list(
-        path.components()
-            .filter_map(|comp| {
-                let comp = process_component(comp);
-                comp.map(|s| Value::string(s, span))
-            })
+        parts
+            .into_iter()
+            .map(|part| Value::string(part, span))
             .collect(),
         span,
     )
-}
-
-#[cfg(windows)]
-fn process_component(comp: Component) -> Option<String> {
-    match comp {
-        Component::RootDir => None,
-        Component::Prefix(_) => {
-            let mut s = comp.as_os_str().to_string_lossy().to_string();
-            s.push('\\');
-            Some(s)
-        }
-        comp => Some(comp.as_os_str().to_string_lossy().to_string()),
-    }
 }
 
 #[cfg(not(windows))]
@@ -192,5 +209,17 @@ mod tests {
     #[test]
     fn test_examples() -> nu_test_support::Result {
         nu_test_support::test().examples(PathSplit)
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn keeps_drive_relative_prefix_without_root_separator() {
+        assert_eq!(split_components(Path::new("C:Desktop")), ["C:", "Desktop"]);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn keeps_root_separator_for_absolute_drive_path() {
+        assert_eq!(split_components(Path::new(r"C:\\Users")), [r"C:\", "Users"]);
     }
 }
