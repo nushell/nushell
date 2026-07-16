@@ -122,36 +122,44 @@ This command will bubble up any errors encountered when running the closure. The
                 description: "Time a closure and also return the output.",
                 example: "timeit --output { 'example text' }",
                 result: Some(Value::test_record(record! {
-                "time" => Value::test_duration(14328),
-                "output" => Value::test_string("example text")})),
+                    "time" => Value::test_duration(14328),
+                    "output" => Value::test_string("example text")
+                })),
             },
         ]
     }
 }
 
-#[test]
-// Due to difficulty in observing side-effects from time closures,
-// checks that the closures have run correctly must use the filesystem.
-fn test_time_block() {
-    use nu_test_support::{nu, nu_repl_code, playground::Playground};
-    Playground::setup("test_time_block", |dirs, _| {
-        let inp = ["[2 3 4] | timeit {to nuon | save foo.txt }", "open foo.txt"];
-        let actual_repl = nu!(cwd: dirs.test(), nu_repl_code(&inp));
-        assert_eq!(actual_repl.err, "");
-        assert_eq!(actual_repl.out, "[2, 3, 4]");
-    });
-}
+#[cfg(test)]
+mod tests {
+    use std::fs;
 
-#[test]
-fn test_time_block_2() {
-    use nu_test_support::{nu, nu_repl_code, playground::Playground};
-    Playground::setup("test_time_block", |dirs, _| {
-        let inp = [
-            "[2 3 4] | timeit {{result: $in} | to nuon | save foo.txt }",
-            "open foo.txt",
-        ];
-        let actual_repl = nu!(cwd: dirs.test(), nu_repl_code(&inp));
-        assert_eq!(actual_repl.err, "");
-        assert_eq!(actual_repl.out, "{result: [2, 3, 4]}");
-    });
+    use nu_test_support::prelude::*;
+
+    // Due to difficulty in observing side-effects from time closures,
+    // checks that the closures have run correctly must use the filesystem.
+
+    #[test]
+    fn test_time_block() -> Result {
+        Playground::setup("test_time_block", |dirs, _| {
+            let _: Value = test()
+                .cwd(dirs.test())
+                .run("[2 3 4] | timeit {to nuon | save foo.txt }")?;
+            let content = fs::read_to_string(dirs.test().join("foo.txt")).unwrap();
+            assert_eq!(content, "[2, 3, 4]");
+            Ok(())
+        })
+    }
+
+    #[test]
+    fn test_time_block_2() -> Result {
+        Playground::setup("test_time_block", |dirs, _| {
+            let _: Value = test()
+                .cwd(dirs.test())
+                .run("[2 3 4] | timeit {{result: $in} | to nuon | save foo.txt }")?;
+            let content = fs::read_to_string(dirs.test().join("foo.txt")).unwrap();
+            assert_eq!(content, "{result: [2, 3, 4]}");
+            Ok(())
+        })
+    }
 }
