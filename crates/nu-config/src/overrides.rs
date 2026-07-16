@@ -124,8 +124,7 @@ mod tests {
         );
         assert_eq!(cli.config_home.as_deref(), Some(cwd.as_path()));
         assert!(
-            !cli
-                .config_home
+            !cli.config_home
                 .as_ref()
                 .unwrap()
                 .components()
@@ -185,11 +184,7 @@ mod tests {
         );
         // Must remain the logical home path (no accidental cwd prefix).
         assert!(
-            !cli
-                .config_home
-                .as_ref()
-                .unwrap()
-                .starts_with(&cwd),
+            !cli.config_home.as_ref().unwrap().starts_with(&cwd),
             "must not resolve under cwd"
         );
     }
