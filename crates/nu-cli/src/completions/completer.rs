@@ -1,7 +1,7 @@
 use crate::completions::{
     ArgValueCompletion, AttributableCompletion, AttributeCompletion, CellPathCompletion,
     CommandCompletion, Completer, CompletionOptions, CustomCompletion, FileCompletion,
-    FlagCompletion, OperatorCompletion, VariableCompletion, base::SemanticSuggestion,
+    FlagCompletion, NuMatcher, OperatorCompletion, VariableCompletion, base::SemanticSuggestion,
 };
 use nu_parser::parse;
 use nu_protocol::{
@@ -11,11 +11,11 @@ use nu_protocol::{
 };
 use nu_utils::time::Instant;
 use reedline::{Completer as ReedlineCompleter, Suggestion};
-use std::collections::HashMap;
 use std::sync::{Arc, Mutex, mpsc};
 use std::thread;
 use std::time::Duration;
 use std::{borrow::Cow, ops::ControlFlow};
+use std::{collections::HashMap, path::is_separator};
 
 const CACHE_TTL: Duration = Duration::from_secs(5);
 
@@ -148,7 +148,27 @@ fn strip_placeholder_if_any<'a>(
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct CompletionQuery {
     line: String,
-    pos: usize,
+    current_position: usize,
+}
+
+impl CompletionQuery {
+    /// Returns the buffer text up to the cursor.
+    /// This represents the only portion of the text that completion depends on.
+    fn input_text(&self) -> &str {
+        let fallback = &self.line; // full buffer is where cursor is
+
+        self.line.get(..self.current_position).unwrap_or(fallback)
+    }
+
+    /// Determines if this query is a strict narrowing of a previous query,
+    /// meaning the base's results are a superset that can be filtered in place.
+    fn strictly_narrows(&self, base_query: &CompletionQuery) -> bool {
+        let Some(appended) = self.input_text().strip_prefix(base_query.input_text()) else {
+            return false;
+        };
+
+        !appended.is_empty() && !appended.contains(|c: char| c.is_whitespace() || is_separator(c))
+    }
 }
 
 struct CacheEntry {
@@ -834,10 +854,90 @@ struct CommandCompletionOptions {
 }
 
 impl NuCompleter {
+    const EMPTY: Vec<Suggestion> = vec![];
+
     fn cached(&self, query: &CompletionQuery) -> Option<Vec<Suggestion>> {
         let cache = self.cache.lock().ok()?;
         let entry = cache.get(query)?;
         (entry.at.elapsed() < CACHE_TTL).then(|| entry.suggestions.clone())
+    }
+
+    /// Best-effort suggestions for a cache miss: reuse the freshest still-valid
+    /// cache entry that `query` narrows,
+    /// filtered down to the longer prefix the user has since typed.
+    fn stale_fallback(&self, query: &CompletionQuery) -> Vec<Suggestion> {
+        self.narrow(self.fetch_closest_cached_suggestions(query), query)
+    }
+
+    /// Safely locks the cache and extracts the suggestions from the tightest valid superset.
+    fn fetch_closest_cached_suggestions(&self, query: &CompletionQuery) -> Vec<Suggestion> {
+        let Ok(cache) = self.cache.lock() else {
+            return Self::EMPTY;
+        };
+
+        cache
+            .iter()
+            .filter(|(base_query, cache_entry)| {
+                cache_entry.at.elapsed() < CACHE_TTL && query.strictly_narrows(base_query)
+            })
+            // Prefer the closest superset: most already typed = tightest existing filter
+            .max_by_key(|(base_query, _)| base_query.current_position)
+            .map(|(_, cache_entry)| cache_entry.suggestions.clone())
+            .unwrap_or_default()
+    }
+
+    /// Re-filters a superset of suggestions to match the current query.
+    fn narrow(&self, suggestions: Vec<Suggestion>, query: &CompletionQuery) -> Vec<Suggestion> {
+        let Some((reference_span, search_token)) = suggestions.first().and_then(|suggestion| {
+            let span = suggestion.span;
+            let token = query.input_text().get(span.start..)?;
+            Some((span, token))
+        }) else {
+            // Bail if there are no suggestions, or the span exceeds the input length.
+            return Self::EMPTY;
+        };
+
+        // Stretch the span from the original start point to the user's current cursor position.
+        let updated_span = reedline::Span::new(reference_span.start, query.current_position);
+        let options = self.build_completion_options();
+        let mut matcher = NuMatcher::new(search_token, &options, true);
+
+        // If the spans that produced past suggestions mirror the ones that produced this one, they're fit as matches.
+        for mut suggestion in suggestions
+            .into_iter()
+            .filter(|suggestion| suggestion.span == reference_span)
+        {
+            suggestion.span = updated_span;
+            // Owned because `suggestion` is moved into the matcher on the same line.
+            let haystack = suggestion.display_value().to_string();
+            matcher.add(haystack, suggestion);
+        }
+
+        Self::extract_matcher_results(matcher)
+    }
+
+    /// Constructs completion options from the engine state configuration.
+    fn build_completion_options(&self) -> CompletionOptions {
+        let configuration = self.engine_state.get_config();
+
+        CompletionOptions {
+            case_sensitive: configuration.completions.case_sensitive,
+            match_algorithm: configuration.completions.algorithm.into(),
+            sort: configuration.completions.sort,
+            match_description: false,
+        }
+    }
+
+    /// Maps the raw matcher output back into finalized `Suggestion` objects.
+    fn extract_matcher_results(matcher: NuMatcher<Suggestion>) -> Vec<Suggestion> {
+        matcher
+            .results()
+            .into_iter()
+            .map(|(mut suggestion, match_indices)| {
+                suggestion.match_indices = Some(match_indices);
+                suggestion
+            })
+            .collect()
     }
 
     /// Spawn the long-lived worker. Takes field refs so callers can hold
@@ -871,7 +971,7 @@ impl NuCompleter {
                 let (query, generation) = latest;
 
                 let suggestions: Vec<Suggestion> = completer
-                    .fetch_completions_at(&query.line, query.pos)
+                    .fetch_completions_at(&query.line, query.current_position)
                     .into_iter()
                     .map(|s| s.suggestion)
                     .collect();
@@ -914,7 +1014,7 @@ impl ReedlineCompleter for NuCompleter {
     fn complete(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
         let query = CompletionQuery {
             line: line.to_string(),
-            pos,
+            current_position: pos,
         };
 
         if let Some(suggestions) = self.cached(&query) {
@@ -926,13 +1026,16 @@ impl ReedlineCompleter for NuCompleter {
             return suggestions;
         }
 
+        // Cache miss: keep the menu populated with the last shown results
+        let fallback = self.stale_fallback(&query);
+
         let worker = self.worker.get_or_insert_with(|| {
             Self::spawn_worker(&self.engine_state, &self.stack, &self.cache)
         });
 
-        // Already waiting on this exact query.
+        // Already waiting on this exact query; keep showing the fallback.
         if worker.pending.as_ref().is_some_and(|(q, _)| q == &query) {
-            return vec![];
+            return fallback;
         }
 
         worker.next_generation = worker.next_generation.wrapping_add(1);
@@ -944,7 +1047,7 @@ impl ReedlineCompleter for NuCompleter {
             worker.pending = None;
         }
 
-        vec![]
+        fallback
     }
 
     fn has_pending(&mut self) -> bool {
@@ -1029,21 +1132,81 @@ mod completer_tests {
         }
     }
 
+    /// A cache miss while typing more of the same token narrows the previously
+    /// shown results in place instead of returning an empty ("NO RECORDS FOUND")
+    /// menu while the background worker recomputes.
+    #[test]
+    fn cache_miss_narrows_previous_results() {
+        let mut completer = NuCompleter::new(test_engine(), Arc::new(Stack::new()));
+
+        // Prime the cache with the results for `ls | c`.
+        assert!(completer.complete("ls | c", 6).is_empty());
+        let primed = wait_for(&mut completer, "ls | c", 6);
+        assert!(primed.iter().any(|s| s.value == "config"));
+        assert!(primed.iter().any(|s| s.value == "cd"));
+
+        // Typing another char is a cache miss, but the menu should immediately
+        // narrow the cached results rather than flashing empty.
+        let narrowed = completer.complete("ls | co", 7);
+        assert!(
+            !narrowed.is_empty(),
+            "expected stale fallback, got empty menu"
+        );
+        assert!(narrowed.iter().any(|s| s.value == "config"));
+        assert!(narrowed.iter().any(|s| s.value == "const"));
+        assert!(!narrowed.iter().any(|s| s.value == "cd"));
+        // Spans are re-anchored to cover the freshly typed token.
+        for s in &narrowed {
+            assert_eq!(s.span.end, 7, "span not re-anchored for {}", s.value);
+        }
+
+        // The accurate async result still lands afterwards.
+        let fresh = wait_for(&mut completer, "ls | co", 7);
+        assert!(fresh.iter().any(|s| s.value == "config"));
+    }
+
     /// Only the latest enqueued generation may return true from `check_pending`.
     #[test]
     fn only_latest_generation_wakes_pending() {
+        // A private directory of gate files shared with the completer closure.
+        // Instead of racing on sleep durations, the worker announces when it
+        // begins a token and blocks until the test releases it, so each
+        // generation finishes exactly when we say so.
+        let gate_dir = std::env::temp_dir().join(format!(
+            "nu-completion-generation-test-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0),
+        ));
+        std::fs::create_dir_all(&gate_dir).expect("create gate dir");
+        let gate = gate_dir.to_string_lossy().replace('\\', "/");
+
+        let setup = format!(
+            r#"
+            $env.config.completions.external = {{
+                enable: true
+                completer: {{|spans|
+                    let token = ($spans | last)
+                    touch ('{gate}' | path join $"started-($token)")
+                    while not ('{gate}' | path join $"release-($token)" | path exists) {{
+                        sleep 10ms
+                    }}
+                    [{{value: $"got-($token)"}}]
+                }}
+            }}
+            "#
+        );
         let mut engine =
             nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
-        let setup = r#"
-            $env.config.completions.external = {
-                enable: true
-                completer: {|spans|
-                    sleep 80ms
-                    [{value: $"got-($spans | last)"}]
-                }
-            }
-        "#;
         let mut stack = Stack::new();
+        // `merge_env` (below) requires a valid `$env.PWD`; it can't be set from
+        // script, so seed it directly on the stack.
+        stack.add_env_var(
+            "PWD".to_string(),
+            nu_protocol::Value::string(&gate, nu_protocol::Span::unknown()),
+        );
         let mut working_set = StateWorkingSet::new(&engine);
         let block = parse(&mut working_set, None, setup.as_bytes(), false);
         assert!(working_set.parse_errors.is_empty());
@@ -1057,38 +1220,61 @@ mod completer_tests {
             nu_protocol::PipelineData::empty(),
         )
         .expect("eval setup");
+        // Propagate `$env.config` (the external completer) into the permanent
+        // state the completer reads via `engine_state.get_config()`.
+        engine.merge_env(&mut stack).expect("merge env");
+
+        // Gate helpers, keyed by the token the closure reports.
+        let started = |token: &str| gate_dir.join(format!("started-{token}"));
+        let release = |token: &str| {
+            std::fs::write(gate_dir.join(format!("release-{token}")), b"").expect("release token");
+        };
+        let wait_for_file = |path: std::path::PathBuf| {
+            let deadline = Instant::now() + Duration::from_secs(30);
+            while !path.exists() {
+                assert!(Instant::now() < deadline, "timed out waiting for {path:?}");
+                thread::sleep(Duration::from_millis(5));
+            }
+        };
 
         let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
         let first = "somecmd a";
         let second = "somecmd ab";
 
+        // Enqueue `first` and wait until the worker is actually computing it.
         assert!(completer.complete(first, first.len()).is_empty());
-        // Let the worker start first before superseding it.
-        thread::sleep(Duration::from_millis(20));
+        assert!(completer.has_pending());
+        wait_for_file(started("a"));
+
+        // Supersede with `second` while `first` is still in flight.
         assert!(completer.complete(second, second.len()).is_empty());
         assert!(completer.has_pending());
 
-        let deadline = Instant::now() + Duration::from_secs(30);
-        let mut premature_wakes = 0;
-        let result = loop {
-            if completer.check_pending() {
-                let suggestions = completer.complete(second, second.len());
-                if suggestions.is_empty() {
-                    premature_wakes += 1;
-                    assert!(completer.has_pending());
-                } else {
-                    break suggestions;
-                }
-            }
-            assert!(
-                Instant::now() < deadline,
-                "latest completion never ready (premature_wakes={premature_wakes})"
-            );
-            thread::sleep(Duration::from_millis(10));
-        };
+        // Let `first` finish. Because `second` is already queued, the worker
+        // must move straight on to it without signaling the stale generation.
+        release("a");
+        wait_for_file(started("ab"));
 
-        assert_eq!(premature_wakes, 0);
+        // `first` has now completed, yet `check_pending` must stay false: only
+        // the latest generation is allowed to wake it.
+        assert!(
+            !completer.check_pending(),
+            "a superseded generation woke check_pending"
+        );
+        assert!(completer.has_pending());
+
+        // Releasing `second` finally wakes the latest generation, which yields
+        // the latest result.
+        release("ab");
+        let deadline = Instant::now() + Duration::from_secs(30);
+        while !completer.check_pending() {
+            assert!(Instant::now() < deadline, "latest completion never ready");
+            thread::sleep(Duration::from_millis(5));
+        }
+        let result = completer.complete(second, second.len());
         assert!(result.iter().any(|s| s.value == "got-ab"), "{result:?}");
+
+        let _ = std::fs::remove_dir_all(&gate_dir);
     }
 
     #[test]
