@@ -500,20 +500,18 @@ fn table_collapse_hearts() -> Result {
 }
 
 #[test]
-fn table_collapse_does_wrapping_for_long_strings() {
-    let actual = nu!(
-        "[[a]; [11111111111111111111111111111111111111111111111111111111111111111111111111111111]] | table --width=80 --collapse"
-    );
-    assert_eq!(
-        actual.out,
-        "╭────────────────────────────────╮\
-         │ a                              │\
-         ├────────────────────────────────┤\
-         │ 111111111111111109312339230430 │\
-         │ 179149313814687359833671239329 │\
-         │ 01313323321729744896.00        │\
-         ╰────────────────────────────────╯"
-    );
+fn table_collapse_does_wrapping_for_long_strings() -> Result {
+    test()
+        .run("[[a]; [11111111111111111111111111111111111111111111111111111111111111111111111111111111]] | table --width=80 --collapse")
+        .expect_value_eq(indoc! {"
+            ╭────────────────────────────────╮
+            │ a                              │
+            ├────────────────────────────────┤
+            │ 111111111111111109312339230430 │
+            │ 179149313814687359833671239329 │
+            │ 01313323321729744896.00        │
+            ╰────────────────────────────────╯
+        "})
 }
 
 #[test]
@@ -543,229 +541,244 @@ fn table_expand_0() -> Result {
 
 // I am not sure whether the test is platform dependent, cause we don't set a term_width on our own
 #[test]
-fn table_expand_exceed_overlap_0() {
+fn table_expand_exceed_overlap_0() -> Result {
     // no expand
 
-    let actual =
-        nu!("[[a b, c]; [xxxxxxxxxxxxxxxxxxxxxx 2 3] [4 5 [1 2 3]]] | table --width=80 --expand");
-
-    assert_eq!(
-        actual.out,
-        "╭───┬────────────────────────┬───┬───────────╮\
-         │ # │           a            │ b │     c     │\
-         ├───┼────────────────────────┼───┼───────────┤\
-         │ 0 │ xxxxxxxxxxxxxxxxxxxxxx │ 2 │         3 │\
-         │ 1 │                      4 │ 5 │ ╭───┬───╮ │\
-         │   │                        │   │ │ 0 │ 1 │ │\
-         │   │                        │   │ │ 1 │ 2 │ │\
-         │   │                        │   │ │ 2 │ 3 │ │\
-         │   │                        │   │ ╰───┴───╯ │\
-         ╰───┴────────────────────────┴───┴───────────╯",
-    );
+    test()
+        .run("[[a b, c]; [xxxxxxxxxxxxxxxxxxxxxx 2 3] [4 5 [1 2 3]]] | table --width=80 --expand")
+        .expect_value_eq(indoc! {"
+            ╭───┬────────────────────────┬───┬───────────╮
+            │ # │           a            │ b │     c     │
+            ├───┼────────────────────────┼───┼───────────┤
+            │ 0 │ xxxxxxxxxxxxxxxxxxxxxx │ 2 │         3 │
+            │ 1 │                      4 │ 5 │ ╭───┬───╮ │
+            │   │                        │   │ │ 0 │ 1 │ │
+            │   │                        │   │ │ 1 │ 2 │ │
+            │   │                        │   │ │ 2 │ 3 │ │
+            │   │                        │   │ ╰───┴───╯ │
+            ╰───┴────────────────────────┴───┴───────────╯
+        "})?;
 
     // expand
 
-    let actual = nu!(
-        "[[a b, c]; [xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 2 3] [4 5 [1 2 3]]] | table --width=80 --expand"
-    );
-
-    assert_eq!(
-        actual.out,
-        "╭──────┬───────────────────────────────────────────────────┬─────┬─────────────╮\
-         │    # │                         a                         │  b  │      c      │\
-         ├──────┼───────────────────────────────────────────────────┼─────┼─────────────┤\
-         │    0 │ xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    │   2 │           3 │\
-         │    1 │                                                 4 │   5 │ ╭───┬───╮   │\
-         │      │                                                   │     │ │ 0 │ 1 │   │\
-         │      │                                                   │     │ │ 1 │ 2 │   │\
-         │      │                                                   │     │ │ 2 │ 3 │   │\
-         │      │                                                   │     │ ╰───┴───╯   │\
-         ╰──────┴───────────────────────────────────────────────────┴─────┴─────────────╯"
-    );
+    test()
+        .run("[[a b, c]; [xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 2 3] [4 5 [1 2 3]]] | table --width=80 --expand")
+        .expect_value_eq(indoc! {"
+            ╭──────┬───────────────────────────────────────────────────┬─────┬─────────────╮
+            │    # │                         a                         │  b  │      c      │
+            ├──────┼───────────────────────────────────────────────────┼─────┼─────────────┤
+            │    0 │ xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    │   2 │           3 │
+            │    1 │                                                 4 │   5 │ ╭───┬───╮   │
+            │      │                                                   │     │ │ 0 │ 1 │   │
+            │      │                                                   │     │ │ 1 │ 2 │   │
+            │      │                                                   │     │ │ 2 │ 3 │   │
+            │      │                                                   │     │ ╰───┴───╯   │
+            ╰──────┴───────────────────────────────────────────────────┴─────┴─────────────╯
+        "})
 }
 
 #[test]
-fn table_expand_deep_0() {
-    let actual =
-        nu!("[[a b, c]; [1 2 3] [4 5 [1 2 [1 2 3]]]] | table --width=80 --expand --expand-deep=1");
-    assert_eq!(
-        actual.out,
-        "╭───┬───┬───┬────────────────────────╮\
-         │ # │ a │ b │           c            │\
-         ├───┼───┼───┼────────────────────────┤\
-         │ 0 │ 1 │ 2 │                      3 │\
-         │ 1 │ 4 │ 5 │ ╭───┬────────────────╮ │\
-         │   │   │   │ │ 0 │              1 │ │\
-         │   │   │   │ │ 1 │              2 │ │\
-         │   │   │   │ │ 2 │ [list 3 items] │ │\
-         │   │   │   │ ╰───┴────────────────╯ │\
-         ╰───┴───┴───┴────────────────────────╯"
-    );
+fn table_expand_deep_0() -> Result {
+    test()
+        .run_with_data(
+            "table --width=80 --expand --expand-deep=1",
+            test_value!([{ a: 1, b: 2, c: 3 }, { a: 4, b: 5, c: [1, 2, [1, 2, 3]] }]),
+        )
+        .expect_value_eq(indoc! {"
+            ╭───┬───┬───┬────────────────────────╮
+            │ # │ a │ b │           c            │
+            ├───┼───┼───┼────────────────────────┤
+            │ 0 │ 1 │ 2 │                      3 │
+            │ 1 │ 4 │ 5 │ ╭───┬────────────────╮ │
+            │   │   │   │ │ 0 │              1 │ │
+            │   │   │   │ │ 1 │              2 │ │
+            │   │   │   │ │ 2 │ [list 3 items] │ │
+            │   │   │   │ ╰───┴────────────────╯ │
+            ╰───┴───┴───┴────────────────────────╯
+        "})
 }
 
 #[test]
-fn table_expand_deep_1() {
-    let actual =
-        nu!("[[a b, c]; [1 2 3] [4 5 [1 2 [1 2 3]]]] | table --width=80 --expand --expand-deep=0");
-    assert_eq!(
-        actual.out,
-        "╭───┬───┬───┬────────────────╮\
-         │ # │ a │ b │       c        │\
-         ├───┼───┼───┼────────────────┤\
-         │ 0 │ 1 │ 2 │              3 │\
-         │ 1 │ 4 │ 5 │ [list 3 items] │\
-         ╰───┴───┴───┴────────────────╯"
-    );
+fn table_expand_deep_1() -> Result {
+    test()
+        .run_with_data(
+            "table --width=80 --expand --expand-deep=0",
+            test_value!([{ a: 1, b: 2, c: 3 }, { a: 4, b: 5, c: [1, 2, [1, 2, 3]] }]),
+        )
+        .expect_value_eq(indoc! {"
+            ╭───┬───┬───┬────────────────╮
+            │ # │ a │ b │       c        │
+            ├───┼───┼───┼────────────────┤
+            │ 0 │ 1 │ 2 │              3 │
+            │ 1 │ 4 │ 5 │ [list 3 items] │
+            ╰───┴───┴───┴────────────────╯
+        "})
 }
 
 #[test]
-fn table_expand_flatten_0() {
-    let actual =
-        nu!("[[a b, c]; [1 2 3] [4 5 [1 2 [1 1 1]]]] | table --width=80 --expand --flatten ");
-    assert_eq!(
-        actual.out,
-        "╭───┬───┬───┬───────────────╮\
-         │ # │ a │ b │       c       │\
-         ├───┼───┼───┼───────────────┤\
-         │ 0 │ 1 │ 2 │             3 │\
-         │ 1 │ 4 │ 5 │ ╭───┬───────╮ │\
-         │   │   │   │ │ 0 │     1 │ │\
-         │   │   │   │ │ 1 │     2 │ │\
-         │   │   │   │ │ 2 │ 1 1 1 │ │\
-         │   │   │   │ ╰───┴───────╯ │\
-         ╰───┴───┴───┴───────────────╯"
-    );
+fn table_expand_flatten_0() -> Result {
+    test()
+        .run_with_data(
+            "table --width=80 --expand --flatten",
+            test_value!([{ a: 1, b: 2, c: 3 }, { a: 4, b: 5, c: [1, 2, [1, 1, 1]] }]),
+        )
+        .expect_value_eq(indoc! {"
+            ╭───┬───┬───┬───────────────╮
+            │ # │ a │ b │       c       │
+            ├───┼───┼───┼───────────────┤
+            │ 0 │ 1 │ 2 │             3 │
+            │ 1 │ 4 │ 5 │ ╭───┬───────╮ │
+            │   │   │   │ │ 0 │     1 │ │
+            │   │   │   │ │ 1 │     2 │ │
+            │   │   │   │ │ 2 │ 1 1 1 │ │
+            │   │   │   │ ╰───┴───────╯ │
+            ╰───┴───┴───┴───────────────╯
+        "})
 }
 
 #[test]
-fn table_expand_flatten_1() {
-    let actual = nu!(
-        "[[a b, c]; [1 2 3] [4 5 [1 2 [1 1 1]]]] | table --width=80 --expand --flatten --flatten-separator=,"
-    );
-    assert_eq!(
-        actual.out,
-        "╭───┬───┬───┬───────────────╮\
-         │ # │ a │ b │       c       │\
-         ├───┼───┼───┼───────────────┤\
-         │ 0 │ 1 │ 2 │             3 │\
-         │ 1 │ 4 │ 5 │ ╭───┬───────╮ │\
-         │   │   │   │ │ 0 │     1 │ │\
-         │   │   │   │ │ 1 │     2 │ │\
-         │   │   │   │ │ 2 │ 1,1,1 │ │\
-         │   │   │   │ ╰───┴───────╯ │\
-         ╰───┴───┴───┴───────────────╯"
-    );
+fn table_expand_flatten_1() -> Result {
+    test()
+        .run_with_data(
+            "table --width=80 --expand --flatten --flatten-separator=,",
+            test_value!([{ a: 1, b: 2, c: 3 }, { a: 4, b: 5, c: [1, 2, [1, 1, 1]] }]),
+        )
+        .expect_value_eq(indoc! {"
+            ╭───┬───┬───┬───────────────╮
+            │ # │ a │ b │       c       │
+            ├───┼───┼───┼───────────────┤
+            │ 0 │ 1 │ 2 │             3 │
+            │ 1 │ 4 │ 5 │ ╭───┬───────╮ │
+            │   │   │   │ │ 0 │     1 │ │
+            │   │   │   │ │ 1 │     2 │ │
+            │   │   │   │ │ 2 │ 1,1,1 │ │
+            │   │   │   │ ╰───┴───────╯ │
+            ╰───┴───┴───┴───────────────╯
+        "})
 }
 
 #[test]
-fn table_expand_flatten_and_deep_1() {
-    let actual = nu!(
-        "[[a b, c]; [1 2 3] [4 5 [1 2 [1 [1 1 1] 1]]]] | table --width=80 --expand --expand-deep=2 --flatten --flatten-separator=,"
-    );
-
-    assert_eq!(
-        actual.out,
-        "╭───┬───┬───┬────────────────────────────────╮\
-         │ # │ a │ b │               c                │\
-         ├───┼───┼───┼────────────────────────────────┤\
-         │ 0 │ 1 │ 2 │                              3 │\
-         │ 1 │ 4 │ 5 │ ╭───┬────────────────────────╮ │\
-         │   │   │   │ │ 0 │                      1 │ │\
-         │   │   │   │ │ 1 │                      2 │ │\
-         │   │   │   │ │ 2 │ ╭───┬────────────────╮ │ │\
-         │   │   │   │ │   │ │ 0 │              1 │ │ │\
-         │   │   │   │ │   │ │ 1 │ [list 3 items] │ │ │\
-         │   │   │   │ │   │ │ 2 │              1 │ │ │\
-         │   │   │   │ │   │ ╰───┴────────────────╯ │ │\
-         │   │   │   │ ╰───┴────────────────────────╯ │\
-         ╰───┴───┴───┴────────────────────────────────╯"
-    );
+fn table_expand_flatten_and_deep_1() -> Result {
+    test()
+        .run_with_data(
+            "table --width=80 --expand --expand-deep=2 --flatten --flatten-separator=,",
+            test_value!([
+                { a: 1, b: 2, c: 3 },
+                { a: 4, b: 5, c: [1, 2, [1, [1, 1, 1], 1]] }
+            ]),
+        )
+        .expect_value_eq(indoc! {"
+            ╭───┬───┬───┬────────────────────────────────╮
+            │ # │ a │ b │               c                │
+            ├───┼───┼───┼────────────────────────────────┤
+            │ 0 │ 1 │ 2 │                              3 │
+            │ 1 │ 4 │ 5 │ ╭───┬────────────────────────╮ │
+            │   │   │   │ │ 0 │                      1 │ │
+            │   │   │   │ │ 1 │                      2 │ │
+            │   │   │   │ │ 2 │ ╭───┬────────────────╮ │ │
+            │   │   │   │ │   │ │ 0 │              1 │ │ │
+            │   │   │   │ │   │ │ 1 │ [list 3 items] │ │ │
+            │   │   │   │ │   │ │ 2 │              1 │ │ │
+            │   │   │   │ │   │ ╰───┴────────────────╯ │ │
+            │   │   │   │ ╰───┴────────────────────────╯ │
+            ╰───┴───┴───┴────────────────────────────────╯
+        "})
 }
 
 #[test]
-fn table_expand_record_0() {
-    let actual = nu!("[{c: {d: 1}}] | table --width=80 --expand");
-
-    assert_eq!(
-        actual.out,
-        "╭───┬───────────╮\
-         │ # │     c     │\
-         ├───┼───────────┤\
-         │ 0 │ ╭───┬───╮ │\
-         │   │ │ d │ 1 │ │\
-         │   │ ╰───┴───╯ │\
-         ╰───┴───────────╯"
-    );
+fn table_expand_record_0() -> Result {
+    test()
+        .run_with_data("table --width=80 --expand", [test_value!({ c: { d: 1 } })])
+        .expect_value_eq(indoc! {"
+            ╭───┬───────────╮
+            │ # │     c     │
+            ├───┼───────────┤
+            │ 0 │ ╭───┬───╮ │
+            │   │ │ d │ 1 │ │
+            │   │ ╰───┴───╯ │
+            ╰───┴───────────╯
+        "})
 }
 
 #[test]
-fn table_expand_record_1() {
-    let actual =
-        nu!("[[a b, c]; [1 2 3] [4 5 [1 2 {a: 123, b: 234, c: 345}]]] | table --width=80 --expand");
-
-    assert_eq!(
-        actual.out,
-        "╭───┬───┬───┬─────────────────────╮\
-         │ # │ a │ b │          c          │\
-         ├───┼───┼───┼─────────────────────┤\
-         │ 0 │ 1 │ 2 │                   3 │\
-         │ 1 │ 4 │ 5 │ ╭───┬─────────────╮ │\
-         │   │   │   │ │ 0 │           1 │ │\
-         │   │   │   │ │ 1 │           2 │ │\
-         │   │   │   │ │ 2 │ ╭───┬─────╮ │ │\
-         │   │   │   │ │   │ │ a │ 123 │ │ │\
-         │   │   │   │ │   │ │ b │ 234 │ │ │\
-         │   │   │   │ │   │ │ c │ 345 │ │ │\
-         │   │   │   │ │   │ ╰───┴─────╯ │ │\
-         │   │   │   │ ╰───┴─────────────╯ │\
-         ╰───┴───┴───┴─────────────────────╯"
-    );
+fn table_expand_record_1() -> Result {
+    test()
+        .run_with_data(
+            "table --width=80 --expand",
+            test_value!([
+                { a: 1, b: 2, c: 3 },
+                { a: 4, b: 5, c: [1, 2, { a: 123, b: 234, c: 345 }] }
+            ]),
+        )
+        .expect_value_eq(indoc! {"
+            ╭───┬───┬───┬─────────────────────╮
+            │ # │ a │ b │          c          │
+            ├───┼───┼───┼─────────────────────┤
+            │ 0 │ 1 │ 2 │                   3 │
+            │ 1 │ 4 │ 5 │ ╭───┬─────────────╮ │
+            │   │   │   │ │ 0 │           1 │ │
+            │   │   │   │ │ 1 │           2 │ │
+            │   │   │   │ │ 2 │ ╭───┬─────╮ │ │
+            │   │   │   │ │   │ │ a │ 123 │ │ │
+            │   │   │   │ │   │ │ b │ 234 │ │ │
+            │   │   │   │ │   │ │ c │ 345 │ │ │
+            │   │   │   │ │   │ ╰───┴─────╯ │ │
+            │   │   │   │ ╰───┴─────────────╯ │
+            ╰───┴───┴───┴─────────────────────╯
+        "})
 }
 
 #[test]
-fn table_expand_record_2() {
-    let structure = "{
-        field1: [ a, b, c ],
-        field2: [ 123, 234, 345 ],
-        field3: [ [ head1, head2, head3 ]; [ 1 2 3 ] [ 79 79 79 ] [ { f1: 'a string', f2: 1000 }, 1, 2 ] ],
-        field4: { f1: 1, f2: 3, f3: { f1: f1, f2: f2, f3: f3 } }
-    }";
-    let actual = nu!(format!("{structure} | table --width=80 --expand"));
+fn table_expand_record_2() -> Result {
+    let field3 = test_table![
+        ["head1", "head2", "head3"];
+        [1, 2, 3],
+        [79, 79, 79],
+        [test_value!({ f1: "a string", f2: 1000 }), 1, 2],
+    ];
 
-    assert_eq!(
-        actual.out,
-        "╭────────┬───────────────────────────────────────────╮\
-         │        │ ╭───┬───╮                                 │\
-         │ field1 │ │ 0 │ a │                                 │\
-         │        │ │ 1 │ b │                                 │\
-         │        │ │ 2 │ c │                                 │\
-         │        │ ╰───┴───╯                                 │\
-         │        │ ╭───┬─────╮                               │\
-         │ field2 │ │ 0 │ 123 │                               │\
-         │        │ │ 1 │ 234 │                               │\
-         │        │ │ 2 │ 345 │                               │\
-         │        │ ╰───┴─────╯                               │\
-         │        │ ╭───┬───────────────────┬───────┬───────╮ │\
-         │ field3 │ │ # │       head1       │ head2 │ head3 │ │\
-         │        │ ├───┼───────────────────┼───────┼───────┤ │\
-         │        │ │ 0 │                 1 │     2 │     3 │ │\
-         │        │ │ 1 │                79 │    79 │    79 │ │\
-         │        │ │ 2 │ ╭────┬──────────╮ │     1 │     2 │ │\
-         │        │ │   │ │ f1 │ a string │ │       │       │ │\
-         │        │ │   │ │ f2 │ 1000     │ │       │       │ │\
-         │        │ │   │ ╰────┴──────────╯ │       │       │ │\
-         │        │ ╰───┴───────────────────┴───────┴───────╯ │\
-         │        │ ╭────┬─────────────╮                      │\
-         │ field4 │ │ f1 │ 1           │                      │\
-         │        │ │ f2 │ 3           │                      │\
-         │        │ │    │ ╭────┬────╮ │                      │\
-         │        │ │ f3 │ │ f1 │ f1 │ │                      │\
-         │        │ │    │ │ f2 │ f2 │ │                      │\
-         │        │ │    │ │ f3 │ f3 │ │                      │\
-         │        │ │    │ ╰────┴────╯ │                      │\
-         │        │ ╰────┴─────────────╯                      │\
-         ╰────────┴───────────────────────────────────────────╯"
-    );
+    test()
+        .run_with_data(
+            "table --width=80 --expand",
+            test_value!({
+                field1: ["a", "b", "c"],
+                field2: [123, 234, 345],
+                field3: (field3),
+                field4: { f1: 1, f2: 3, f3: { f1: "f1", f2: "f2", f3: "f3" } }
+            }),
+        )
+        .expect_value_eq(indoc! {"
+            ╭────────┬───────────────────────────────────────────╮
+            │        │ ╭───┬───╮                                 │
+            │ field1 │ │ 0 │ a │                                 │
+            │        │ │ 1 │ b │                                 │
+            │        │ │ 2 │ c │                                 │
+            │        │ ╰───┴───╯                                 │
+            │        │ ╭───┬─────╮                               │
+            │ field2 │ │ 0 │ 123 │                               │
+            │        │ │ 1 │ 234 │                               │
+            │        │ │ 2 │ 345 │                               │
+            │        │ ╰───┴─────╯                               │
+            │        │ ╭───┬───────────────────┬───────┬───────╮ │
+            │ field3 │ │ # │       head1       │ head2 │ head3 │ │
+            │        │ ├───┼───────────────────┼───────┼───────┤ │
+            │        │ │ 0 │                 1 │     2 │     3 │ │
+            │        │ │ 1 │                79 │    79 │    79 │ │
+            │        │ │ 2 │ ╭────┬──────────╮ │     1 │     2 │ │
+            │        │ │   │ │ f1 │ a string │ │       │       │ │
+            │        │ │   │ │ f2 │ 1000     │ │       │       │ │
+            │        │ │   │ ╰────┴──────────╯ │       │       │ │
+            │        │ ╰───┴───────────────────┴───────┴───────╯ │
+            │        │ ╭────┬─────────────╮                      │
+            │ field4 │ │ f1 │ 1           │                      │
+            │        │ │ f2 │ 3           │                      │
+            │        │ │    │ ╭────┬────╮ │                      │
+            │        │ │ f3 │ │ f1 │ f1 │ │                      │
+            │        │ │    │ │ f2 │ f2 │ │                      │
+            │        │ │    │ │ f3 │ f3 │ │                      │
+            │        │ │    │ ╰────┴────╯ │                      │
+            │        │ ╰────┴─────────────╯                      │
+            ╰────────┴───────────────────────────────────────────╯"})
 }
 
 #[test]
@@ -4144,22 +4157,35 @@ fn table_expand_inner_index_0() {
 }
 
 #[test]
-fn table_theme_arg() {
-    let actual = nu!("[[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3]] | table --width=80 --theme light");
-    assert_eq!(
-        actual.out,
-        " #   a   b         c        ──────────────────────────── 0   1   2                3  1   4   5   [list 3 items]  2   1   2                3 "
-    );
+fn table_theme_arg() -> Result {
+    let mut tester = test();
 
-    let actual = nu!(theme_cmd(
-        "basic",
-        false,
-        "[[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3]] | table --width=80 --theme light"
-    ));
-    assert_eq!(
-        actual.out,
-        "─#───a───b─────────c──────── 0   1   2                3  1   4   5   [list 3 items]  2   1   2                3 "
-    );
+    tester
+        .run_with_data(
+            "table --width=80 --theme light",
+            test_table![
+                ["a", "b", "c"];
+                [1, 2, 3],
+                [4, 5, [1, 2, 3]],
+                [1, 2, 3],
+            ],
+        )
+        .expect_value_eq(" #   a   b         c        \n────────────────────────────\n 0   1   2                3 \n 1   4   5   [list 3 items] \n 2   1   2                3 \n")?;
+
+    tester
+        .run_with_data(
+            format!(
+                "let data = $in\n{}",
+                theme_cmd("basic", false, "$data | table --width=80 --theme light")
+            ),
+            test_table![
+                ["a", "b", "c"];
+                [1, 2, 3],
+                [4, 5, [1, 2, 3]],
+                [1, 2, 3],
+            ],
+        )
+        .expect_value_eq("─#───a───b─────────c────────\n 0   1   2                3 \n 1   4   5   [list 3 items] \n 2   1   2                3 \n")
 }
 
 #[rstest]
@@ -4275,24 +4301,42 @@ fn table_expand_index_arg(#[case] command: &str, #[case] expected: &str) -> Resu
 }
 
 #[test]
-fn table_list() {
-    let actual = nu!("table --list");
-    assert_eq!(
-        actual.out,
-        "╭────┬────────────────╮│  0 │ basic          ││  1 │ compact        ││  2 │ compact_double ││  3 │ default        ││  4 │ frameless      ││  5 │ heavy          ││  6 │ light          ││  7 │ none           ││  8 │ reinforced     ││  9 │ rounded        ││ 10 │ thin           ││ 11 │ with_love      ││ 12 │ psql           ││ 13 │ markdown       ││ 14 │ dots           ││ 15 │ restructured   ││ 16 │ ascii_rounded  ││ 17 │ basic_compact  ││ 18 │ single         ││ 19 │ double         │╰────┴────────────────╯"
-    );
+fn table_list() -> Result {
+    let expected = indoc! {"
+        ╭────┬────────────────╮
+        │  0 │ basic          │
+        │  1 │ compact        │
+        │  2 │ compact_double │
+        │  3 │ default        │
+        │  4 │ frameless      │
+        │  5 │ heavy          │
+        │  6 │ light          │
+        │  7 │ none           │
+        │  8 │ reinforced     │
+        │  9 │ rounded        │
+        │ 10 │ thin           │
+        │ 11 │ with_love      │
+        │ 12 │ psql           │
+        │ 13 │ markdown       │
+        │ 14 │ dots           │
+        │ 15 │ restructured   │
+        │ 16 │ ascii_rounded  │
+        │ 17 │ basic_compact  │
+        │ 18 │ single         │
+        │ 19 │ double         │
+        ╰────┴────────────────╯
+    "};
+    let mut tester = test();
 
-    let actual = nu!("ls | table --list");
-    assert_eq!(
-        actual.out,
-        "╭────┬────────────────╮│  0 │ basic          ││  1 │ compact        ││  2 │ compact_double ││  3 │ default        ││  4 │ frameless      ││  5 │ heavy          ││  6 │ light          ││  7 │ none           ││  8 │ reinforced     ││  9 │ rounded        ││ 10 │ thin           ││ 11 │ with_love      ││ 12 │ psql           ││ 13 │ markdown       ││ 14 │ dots           ││ 15 │ restructured   ││ 16 │ ascii_rounded  ││ 17 │ basic_compact  ││ 18 │ single         ││ 19 │ double         │╰────┴────────────────╯"
-    );
-
-    let actual = nu!("table --list --theme basic");
-    assert_eq!(
-        actual.out,
-        "╭────┬────────────────╮│  0 │ basic          ││  1 │ compact        ││  2 │ compact_double ││  3 │ default        ││  4 │ frameless      ││  5 │ heavy          ││  6 │ light          ││  7 │ none           ││  8 │ reinforced     ││  9 │ rounded        ││ 10 │ thin           ││ 11 │ with_love      ││ 12 │ psql           ││ 13 │ markdown       ││ 14 │ dots           ││ 15 │ restructured   ││ 16 │ ascii_rounded  ││ 17 │ basic_compact  ││ 18 │ single         ││ 19 │ double         │╰────┴────────────────╯"
-    );
+    tester
+        .run("table --list | table")
+        .expect_value_eq(expected)?;
+    tester
+        .run("ls | table --list | table")
+        .expect_value_eq(expected)?;
+    tester
+        .run("table --list --theme basic | table")
+        .expect_value_eq(expected)
 }
 
 #[test]
@@ -4546,79 +4590,111 @@ fn table_footer_inheritance_list_rows() {
 
 /// Test checking whether automatic table rendering correctly uses ansi coloring.
 #[test]
-fn table_colors() {
-    let actual = nu!(concat!(
-        "$env.config.use_ansi_coloring = true;",
-        "{a: 1, b: 2}",
-    ));
-    assert_eq!(
-        actual.out,
-        "\u{1b}[39m╭───┬───╮\u{1b}[0m\u{1b}[39m│\u{1b}[0m \u{1b}[1;32ma\u{1b}[0m \u{1b}[39m│\u{1b}[0m \u{1b}[39m1\u{1b}[0m \u{1b}[39m│\u{1b}[0m\u{1b}[39m│\u{1b}[0m \u{1b}[1;32mb\u{1b}[0m \u{1b}[39m│\u{1b}[0m \u{1b}[39m2\u{1b}[0m \u{1b}[39m│\u{1b}[0m\u{1b}[39m╰───┴───╯\u{1b}[0m"
-    );
+fn table_colors() -> Result {
+    let mut tester = test();
+    let colored = "\u{1b}[39m╭───┬───╮\u{1b}[0m\n\u{1b}[39m│\u{1b}[0m \u{1b}[1;32ma\u{1b}[0m \u{1b}[39m│\u{1b}[0m \u{1b}[39m1\u{1b}[0m \u{1b}[39m│\u{1b}[0m\n\u{1b}[39m│\u{1b}[0m \u{1b}[1;32mb\u{1b}[0m \u{1b}[39m│\u{1b}[0m \u{1b}[39m2\u{1b}[0m \u{1b}[39m│\u{1b}[0m\n\u{1b}[39m╰───┴───╯\u{1b}[0m";
 
-    let actual = nu!(concat!(
-        "$env.config.use_ansi_coloring = false;",
-        "{a: 1, b: 2}",
-    ));
-    assert_eq!(actual.out, "╭───┬───╮│ a │ 1 ││ b │ 2 │╰───┴───╯");
+    tester
+        .run_with_data(
+            "
+                let data = $in
+                $env.config.use_ansi_coloring = true
+                $data | table
+            ",
+            test_value!({a: 1, b: 2}),
+        )
+        .expect_value_eq(colored)?;
+
+    tester
+        .run_with_data(
+            "
+                let data = $in
+                $env.config.use_ansi_coloring = false
+                $data | table
+            ",
+            test_value!({a: 1, b: 2}),
+        )
+        .expect_value_eq(indoc! {"
+            ╭───┬───╮
+            │ a │ 1 │
+            │ b │ 2 │
+            ╰───┴───╯"})
 }
 
 #[test]
-fn table_empty_colors() {
-    let actual = nu!("$env.config.use_ansi_coloring = true; []");
-    assert_eq!(
-        actual.out,
-        "\u{1b}[39m╭────────────╮\u{1b}[0m\u{1b}[39m│\u{1b}[0m \u{1b}[2mempty list\u{1b}[0m \u{1b}[39m│\u{1b}[0m\u{1b}[39m╰────────────╯\u{1b}[0m"
-    );
+fn table_empty_colors() -> Result {
+    let mut tester = test();
+    let empty_list_colored = "\u{1b}[39m╭────────────╮\u{1b}[0m\n\u{1b}[39m│\u{1b}[0m \u{1b}[2mempty list\u{1b}[0m \u{1b}[39m│\u{1b}[0m\n\u{1b}[39m╰────────────╯\u{1b}[0m\n";
+    let empty_record_colored = "\u{1b}[39m╭──────────────╮\u{1b}[0m\n\u{1b}[39m│\u{1b}[0m \u{1b}[2mempty record\u{1b}[0m \u{1b}[39m│\u{1b}[0m\n\u{1b}[39m╰──────────────╯\u{1b}[0m";
 
-    let actual = nu!("$env.config.use_ansi_coloring = true; {}");
-    assert_eq!(
-        actual.out,
-        "\u{1b}[39m╭──────────────╮\u{1b}[0m\u{1b}[39m│\u{1b}[0m \u{1b}[2mempty record\u{1b}[0m \u{1b}[39m│\u{1b}[0m\u{1b}[39m╰──────────────╯\u{1b}[0m"
-    );
+    tester
+        .run("$env.config.use_ansi_coloring = true; [] | table")
+        .expect_value_eq(empty_list_colored)?;
 
-    let actual = nu!("$env.config.use_ansi_coloring = false; []");
-    assert_eq!(actual.out, "╭────────────╮│ empty list │╰────────────╯");
+    tester
+        .run("$env.config.use_ansi_coloring = true; {} | table")
+        .expect_value_eq(empty_record_colored)?;
 
-    let actual = nu!("$env.config.use_ansi_coloring = false; {}");
-    assert_eq!(
-        actual.out,
-        "╭──────────────╮│ empty record │╰──────────────╯",
-    );
+    tester
+        .run("$env.config.use_ansi_coloring = false; [] | table")
+        .expect_value_eq(indoc! {"
+            ╭────────────╮
+            │ empty list │
+            ╰────────────╯
+        "})?;
+
+    tester
+        .run("$env.config.use_ansi_coloring = false; {} | table")
+        .expect_value_eq(indoc! {"
+            ╭──────────────╮
+            │ empty record │
+            ╰──────────────╯"})
 }
 
 #[test]
-fn table_index() {
-    let actual = nu!(
-        "[[ index     var ]; [ abc         1 ] [ def         2 ] [ ghi         3 ]] | table --width=80"
-    );
-    assert_eq!(
-        actual.out,
-        "╭─────┬─────╮\
-         │   # │ var │\
-         ├─────┼─────┤\
-         │ abc │   1 │\
-         │ def │   2 │\
-         │ ghi │   3 │\
-         ╰─────┴─────╯"
-    );
+fn table_index() -> Result {
+    test()
+        .run_with_data(
+            "table --width=80",
+            test_table![
+                ["index", "var"];
+                ["abc", 1],
+                ["def", 2],
+                ["ghi", 3],
+            ],
+        )
+        .expect_value_eq(indoc! {"
+            ╭─────┬─────╮
+            │   # │ var │
+            ├─────┼─────┤
+            │ abc │   1 │
+            │ def │   2 │
+            │ ghi │   3 │
+            ╰─────┴─────╯
+        "})
 }
 
 #[test]
-fn table_index_expand() {
-    let actual = nu!(
-        "[[ index     var ]; [ abc         1 ] [ def         2 ] [ ghi         3 ]] | table --width=80 --expand"
-    );
-    assert_eq!(
-        actual.out,
-        "╭─────┬─────╮\
-         │   # │ var │\
-         ├─────┼─────┤\
-         │ abc │   1 │\
-         │ def │   2 │\
-         │ ghi │   3 │\
-         ╰─────┴─────╯"
-    );
+fn table_index_expand() -> Result {
+    test()
+        .run_with_data(
+            "table --width=80 --expand",
+            test_table![
+                ["index", "var"];
+                ["abc", 1],
+                ["def", 2],
+                ["ghi", 3],
+            ],
+        )
+        .expect_value_eq(indoc! {"
+            ╭─────┬─────╮
+            │   # │ var │
+            ├─────┼─────┤
+            │ abc │   1 │
+            │ def │   2 │
+            │ ghi │   3 │
+            ╰─────┴─────╯
+        "})
 }
 
 #[test]
@@ -4712,21 +4788,25 @@ fn horizontal_alignment_with_header_on_separator(
 }
 
 #[test]
-fn table_missing_value_custom() {
-    let actual = nu!(r###"
-        $env.config.table.missing_value_symbol = "NULL";
-        [{foo: null} {} {}] | table
-    "###);
-    assert_eq!(
-        actual.out,
-        "╭───┬──────╮\
-         │ # │ foo  │\
-         ├───┼──────┤\
-         │ 0 │      │\
-         │ 1 │ NULL │\
-         │ 2 │ NULL │\
-         ╰───┴──────╯",
-    )
+fn table_missing_value_custom() -> Result {
+    test()
+        .run_with_data(
+            "
+                let data = $in
+                $env.config.table.missing_value_symbol = 'NULL'
+                $data | table
+            ",
+            test_value!([{foo: ()}, {}, {}]),
+        )
+        .expect_value_eq(indoc! {"
+            ╭───┬──────╮
+            │ # │ foo  │
+            ├───┼──────┤
+            │ 0 │      │
+            │ 1 │ NULL │
+            │ 2 │ NULL │
+            ╰───┴──────╯
+        "})
 }
 
 #[test]
@@ -4814,38 +4894,63 @@ fn configure_stream_size() {
 // Regression test for https://github.com/nushell/nushell/issues/17032
 // `table -i false` should not panic when there's an `index` column
 #[test]
-fn table_index_column_with_index_flag_false() {
-    let actual = nu!("[{index: 0, data: yes}] | table --index false --width 80");
-    assert_eq!(
-        actual.out,
-        "╭───────┬──────╮\
-         │ index │ data │\
-         ├───────┼──────┤\
-         │     0 │ yes  │\
-         ╰───────┴──────╯"
+fn table_index_column_with_index_flag_false() -> Result {
+    test()
+        .run_with_data(
+            "table --index false --width 80",
+            test_value!([{index: 0, data: "yes"}]),
+        )
+        .expect_value_eq(indoc! {"
+            ╭───────┬──────╮
+            │ index │ data │
+            ├───────┼──────┤
+            │     0 │ yes  │
+            ╰───────┴──────╯
+        "})
+}
+
+#[test]
+fn metadata_path_columns_single() -> Result {
+    let expected = concat!(
+        "\u{1b}[39m╭───┬──────╮\u{1b}[0m\n",
+        "\u{1b}[39m│\u{1b}[0m \u{1b}[1;32m#\u{1b}[0m \u{1b}[39m│\u{1b}[0m \u{1b}[1;32mname\u{1b}[0m \u{1b}[39m│\u{1b}[0m\n",
+        "\u{1b}[39m├───┼──────┤\u{1b}[0m\n",
+        "\u{1b}[39m│\u{1b}[0m \u{1b}[1;32m0\u{1b}[0m \u{1b}[39m│\u{1b}[0m \u{1b}[39m\u{1b}[38;5;81msrc\u{1b}[0m\u{1b}[0m  \u{1b}[39m│\u{1b}[0m\n",
+        "\u{1b}[39m╰───┴──────╯\u{1b}[0m\n",
     );
+    test()
+        .run_with_data(
+            "
+                let data = $in
+                $env.config.use_ansi_coloring = true
+                $env.config.shell_integration.osc8 = false
+                $data | metadata set --path-columns [name] | table
+            ",
+            test_value!([{name: "src"}]),
+        )
+        .expect_value_eq(expected)
 }
 
 #[test]
-fn metadata_path_columns_single() {
-    let actual = nu!(concat!(
-        "$env.config.use_ansi_coloring = true;",
-        "$env.config.shell_integration.osc8 = false;",
-        r#"[{"name":"src"}] | metadata set --path-columns [name]"#
-    ));
-    let expected = "\u{1b}[39m╭───┬──────╮\u{1b}[0m\u{1b}[39m│\u{1b}[0m \u{1b}[1;32m#\u{1b}[0m \u{1b}[39m│\u{1b}[0m \u{1b}[1;32mname\u{1b}[0m \u{1b}[39m│\u{1b}[0m\u{1b}[39m├───┼──────┤\u{1b}[0m\u{1b}[39m│\u{1b}[0m \u{1b}[1;32m0\u{1b}[0m \u{1b}[39m│\u{1b}[0m \u{1b}[39m\u{1b}[38;5;81msrc\u{1b}[0m\u{1b}[0m  \u{1b}[39m│\u{1b}[0m\u{1b}[39m╰───┴──────╯\u{1b}[0m";
-    assert_eq!(actual.out, expected);
-}
-
-#[test]
-fn metadata_path_columns_multiple() {
-    let actual = nu!(concat!(
-        "$env.config.use_ansi_coloring = true;",
-        "$env.config.shell_integration.osc8 = false;",
-        r#"[{"dir":"src","file":"main.rs"}] | metadata set --path-columns [dir file]"#
-    ));
-    let expected = "\u{1b}[39m╭───┬─────┬─────────╮\u{1b}[0m\u{1b}[39m│\u{1b}[0m \u{1b}[1;32m#\u{1b}[0m \u{1b}[39m│\u{1b}[0m \u{1b}[1;32mdir\u{1b}[0m \u{1b}[39m│\u{1b}[0m  \u{1b}[1;32mfile\u{1b}[0m   \u{1b}[39m│\u{1b}[0m\u{1b}[39m├───┼─────┼─────────┤\u{1b}[0m\u{1b}[39m│\u{1b}[0m \u{1b}[1;32m0\u{1b}[0m \u{1b}[39m│\u{1b}[0m \u{1b}[39m\u{1b}[38;5;81msrc\u{1b}[0m\u{1b}[0m \u{1b}[39m│\u{1b}[0m \u{1b}[39m\u{1b}[38;5;48mmain.rs\u{1b}[0m\u{1b}[0m \u{1b}[39m│\u{1b}[0m\u{1b}[39m╰───┴─────┴─────────╯\u{1b}[0m";
-    assert_eq!(actual.out, expected);
+fn metadata_path_columns_multiple() -> Result {
+    let expected = concat!(
+        "\u{1b}[39m╭───┬─────┬─────────╮\u{1b}[0m\n",
+        "\u{1b}[39m│\u{1b}[0m \u{1b}[1;32m#\u{1b}[0m \u{1b}[39m│\u{1b}[0m \u{1b}[1;32mdir\u{1b}[0m \u{1b}[39m│\u{1b}[0m  \u{1b}[1;32mfile\u{1b}[0m   \u{1b}[39m│\u{1b}[0m\n",
+        "\u{1b}[39m├───┼─────┼─────────┤\u{1b}[0m\n",
+        "\u{1b}[39m│\u{1b}[0m \u{1b}[1;32m0\u{1b}[0m \u{1b}[39m│\u{1b}[0m \u{1b}[39m\u{1b}[38;5;81msrc\u{1b}[0m\u{1b}[0m \u{1b}[39m│\u{1b}[0m \u{1b}[39m\u{1b}[38;5;48mmain.rs\u{1b}[0m\u{1b}[0m \u{1b}[39m│\u{1b}[0m\n",
+        "\u{1b}[39m╰───┴─────┴─────────╯\u{1b}[0m\n",
+    );
+    test()
+        .run_with_data(
+            "
+                let data = $in
+                $env.config.use_ansi_coloring = true
+                $env.config.shell_integration.osc8 = false
+                $data | metadata set --path-columns [dir file] | table
+            ",
+            test_value!([{dir: "src", file: "main.rs"}]),
+        )
+        .expect_value_eq(expected)
 }
 
 #[test]
