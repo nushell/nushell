@@ -871,7 +871,7 @@ fn table_expand_record_2() -> Result {
 }
 
 #[test]
-#[cfg(not(windows))]
+#[deps(TESTBIN_MEOW)]
 fn external_with_too_much_stdout_should_not_hang_nu() -> Result {
     use nu_test_support::fs::Stub::FileWithContent;
 
@@ -886,7 +886,7 @@ fn external_with_too_much_stdout_should_not_hang_nu() -> Result {
 
         let actual: String = test().cwd(dirs.test()).run(
             "
-            cat a_large_file.txt | table --width=80
+            meow a_large_file.txt | table --width=80
         ",
         )?;
 
@@ -894,7 +894,7 @@ fn external_with_too_much_stdout_should_not_hang_nu() -> Result {
 
         let actual: String = test()
             .cwd(dirs.test())
-            .run("let x = cat a_large_file.txt; $x")?;
+            .run("let x = meow a_large_file.txt; $x")?;
         assert_eq!(actual, large_file_body);
         Ok(())
     })
