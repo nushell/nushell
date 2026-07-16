@@ -937,3 +937,37 @@ fn ls_literal_empty_directory() -> Result {
 
     Ok(())
 }
+
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn ls_with_file_named_star_lists_all_entries() -> Result {
+    // Regression for #18631: with dc-glob, a file named `*` must not hide
+    // every other entry when `ls` expands the default `*` pattern.
+    // Use distinct names that stay unique on case-insensitive filesystems.
+    Playground::setup("ls_file_named_star_dc", |dirs, sandbox| {
+        sandbox
+            .with_files(&[
+                EmptyFile("file_a"),
+                EmptyFile("file_b"),
+                EmptyFile("file_c"),
+                EmptyFile("*"),
+            ])
+            .mkdir("dir_a")
+            .mkdir("dir_b")
+            .mkdir("dir_c");
+
+        test()
+            .cwd(dirs.test())
+            .run("ls | length")
+            .expect_value_eq(7)
+            .expect("ls with a file named * should list all entries under dc-glob");
+
+        test()
+            .cwd(dirs.test())
+            .run("ls * | length")
+            .expect_value_eq(7)
+            .expect("ls * with a file named * should list all entries under dc-glob");
+    });
+
+    Ok(())
+}
