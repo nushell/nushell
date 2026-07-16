@@ -19,6 +19,20 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+#[cfg(unix)]
+fn xattr_names(path: &std::path::Path, span: Span) -> Value {
+    match xattr::list(path) {
+        Ok(names) => Value::list(
+            names
+                .filter_map(|name| name.into_string().ok())
+                .map(|name| Value::string(name, span))
+                .collect(),
+            span,
+        ),
+        Err(_) => Value::list(Vec::new(), span),
+    }
+}
+
 /// Entry from directory listing with cached metadata/file type to avoid repeated syscalls.
 /// On Windows, DirEntry::metadata() is free (no extra syscalls).
 /// On Unix, DirEntry::file_type() is usually free, but metadata requires stat().
@@ -811,6 +825,8 @@ pub(crate) fn dir_entry_dict(
                     Value::int(md.gid().into(), span)
                 },
             );
+
+            record.push("xattrs", xattr_names(filename, span));
         }
     }
 
