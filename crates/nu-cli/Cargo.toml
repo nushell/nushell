@@ -56,6 +56,7 @@ strum = { workspace = true }
 unicode-segmentation = { workspace = true }
 uuid = { workspace = true, features = ["v4"] }
 which = { workspace = true }
+slotmap = { workspace = true }
 
 [features]
 plugin = ["nu-plugin-engine"]

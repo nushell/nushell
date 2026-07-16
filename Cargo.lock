@@ -4605,6 +4605,7 @@ dependencies = [
  "percent-encoding",
  "reedline",
  "rstest",
+ "slotmap",
  "strum",
  "sysinfo 0.39.3",
  "tempfile",
