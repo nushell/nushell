@@ -938,6 +938,8 @@ fn ls_literal_empty_directory() -> Result {
     Ok(())
 }
 
+// Windows does not allow `*` in filenames, so this regression only applies on Unix.
+#[cfg(not(windows))]
 #[test]
 #[exp(nu_experimental::DC_GLOB)]
 fn ls_with_file_named_star_lists_all_entries() -> Result {

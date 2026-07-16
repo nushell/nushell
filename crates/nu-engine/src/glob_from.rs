@@ -329,6 +329,8 @@ mod tests {
         let _ = fs::remove_dir_all(&root);
     }
 
+    // Windows does not allow `*` in filenames, so this regression only applies on Unix.
+    #[cfg(not(windows))]
     #[test]
     #[exp(nu_experimental::DC_GLOB)]
     fn glob_from_dc_glob_star_with_literal_star_file() {
@@ -373,6 +375,8 @@ mod tests {
         let _ = fs::remove_dir_all(&root);
     }
 
+    // Windows does not allow `*` in filenames, so this regression only applies on Unix.
+    #[cfg(not(windows))]
     #[test]
     #[exp(nu_experimental::DC_GLOB)]
     fn glob_from_dc_glob_prefix_wildcard_with_literal_match_name() {
