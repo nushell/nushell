@@ -31,7 +31,7 @@ pub fn resolve_paths(
     let mut warnings = Vec::new();
 
     // ── config_home ──────────────────────────────────────────────────────
-    let (config_home, xdg_was_absolute) = resolve_config_home_with_source(env, cli)?;
+    let (config_home, config_home_source) = resolve_config_home_with_source(env, cli)?;
 
     // ── config_file / env_file ───────────────────────────────────────────
     let config_file = config_path_from_cli(cli.config_file.as_ref(), config_home.join("config.nu"));
@@ -64,31 +64,35 @@ pub fn resolve_paths(
     );
 
     // ── XDG validation (moved from main.rs) ──────────────────────────────
-    // If the user set XDG_CONFIG_HOME but the platform default was used
-    // (because the value was empty or non-absolute), emit a warning.
-    if let Some(xdg_raw) = env.var("XDG_CONFIG_HOME") {
-        if !xdg_raw.is_empty() && !xdg_was_absolute {
-            warnings.push(ConfigWarning::XdgConfigIgnored {
-                xdg: xdg_raw,
-                resolved: config_home.clone(),
-            });
-        }
+    // Warn only when we fell back to the platform default because XDG was
+    // set but unusable (relative / non-absolute). Do not warn when CLI
+    // `--config-home` simply took priority over a valid XDG value.
+    if matches!(config_home_source, ConfigHomeSource::PlatformDefault)
+        && let Some(xdg_raw) = env.var("XDG_CONFIG_HOME")
+        && !xdg_raw.is_empty()
+    {
+        warnings.push(ConfigWarning::XdgConfigIgnored {
+            xdg: xdg_raw,
+            resolved: config_home.clone(),
+        });
+    }
 
-        // If XDG_CONFIG_HOME was used but the old dir still has files while
-        // the new one is empty, warn about the migration.
-        if xdg_was_absolute && let Some(old_config) = env.config_dir().map(|p| p.join("nushell")) {
-            let new_config_empty = config_home
-                .read_dir()
-                .map_or(true, |mut dir| dir.next().is_none());
-            let old_config_empty = old_config
-                .read_dir()
-                .map_or(true, |mut dir| dir.next().is_none());
-            if !old_config_empty && new_config_empty {
-                warnings.push(ConfigWarning::OldConfigDirHasFiles {
-                    old: old_config,
-                    new: config_home.clone(),
-                });
-            }
+    // If XDG_CONFIG_HOME was used but the old dir still has files while
+    // the new one is empty, warn about the migration.
+    if matches!(config_home_source, ConfigHomeSource::Xdg)
+        && let Some(old_config) = env.config_dir().map(|p| p.join("nushell"))
+    {
+        let new_config_empty = config_home
+            .read_dir()
+            .map_or(true, |mut dir| dir.next().is_none());
+        let old_config_empty = old_config
+            .read_dir()
+            .map_or(true, |mut dir| dir.next().is_none());
+        if !old_config_empty && new_config_empty {
+            warnings.push(ConfigWarning::OldConfigDirHasFiles {
+                old: old_config,
+                new: config_home.clone(),
+            });
         }
     }
 
@@ -121,15 +125,28 @@ fn config_path_from_cli(cli: Option<&PathBuf>, default: PathBuf) -> ConfigPath {
     }
 }
 
-/// Resolve the nushell config directory and track whether an absolute
-/// XDG_CONFIG_HOME was the source.
+/// Where the resolved config home came from.
+///
+/// Used to decide which non-fatal XDG warnings apply. CLI override must not
+/// be treated as “XDG was invalid.”
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ConfigHomeSource {
+    /// `--config-home` CLI flag.
+    Cli,
+    /// Absolute non-empty `$XDG_CONFIG_HOME`.
+    Xdg,
+    /// Platform config dir fallback (dirs crate / no usable XDG).
+    PlatformDefault,
+}
+
+/// Resolve the nushell config directory and record which source won.
 fn resolve_config_home_with_source(
     env: &impl EnvAccess,
     cli: &CliOverrides,
-) -> Result<(PathBuf, bool), ConfigError> {
+) -> Result<(PathBuf, ConfigHomeSource), ConfigError> {
     // 1. CLI override takes highest priority.
     if let Some(ref home) = cli.config_home {
-        return Ok((home.clone(), false));
+        return Ok((home.clone(), ConfigHomeSource::Cli));
     }
 
     // 2. XDG_CONFIG_HOME env var.
@@ -139,12 +156,12 @@ fn resolve_config_home_with_source(
     {
         let mut home = PathBuf::from(xdg);
         home.push("nushell");
-        return Ok((home, true));
+        return Ok((home, ConfigHomeSource::Xdg));
     }
 
     // 3. Platform default.
     let base = env.config_dir().ok_or(ConfigError::ConfigDirNotFound)?;
-    Ok((base.join("nushell"), false))
+    Ok((base.join("nushell"), ConfigHomeSource::PlatformDefault))
 }
 
 /// Resolve an XDG base directory (CONFIG, DATA, CACHE) with fallback.
@@ -313,7 +330,7 @@ mod tests {
             config_home: Some(override_path.clone()),
             ..Default::default()
         };
-        let (dirs, _warnings) = resolve_paths(&env, &cli).expect("resolve should succeed");
+        let (dirs, warnings) = resolve_paths(&env, &cli).expect("resolve should succeed");
         assert_eq!(dirs.config_home, override_path);
         assert_eq!(
             dirs.config_file,
@@ -322,6 +339,62 @@ mod tests {
         assert_eq!(
             dirs.user_autoload_dirs,
             vec![override_path.join("autoload")]
+        );
+        // CLI wins over a valid absolute XDG — must not claim XDG was invalid.
+        assert!(
+            !warnings
+                .iter()
+                .any(|w| matches!(w, ConfigWarning::XdgConfigIgnored { .. })),
+            "unexpected XdgConfigIgnored with --config-home: {warnings:?}"
+        );
+    }
+
+    #[test]
+    fn test_cli_config_home_suppresses_xdg_ignored_even_with_relative_xdg() {
+        let override_path = abs_path(&["cli-wins"]);
+        let mut vars = HashMap::new();
+        vars.insert("XDG_CONFIG_HOME".into(), "relative/path".into());
+        let env = test_env_with_platform(vars);
+        let cli = CliOverrides {
+            config_home: Some(override_path.clone()),
+            ..Default::default()
+        };
+        let (dirs, warnings) = resolve_paths(&env, &cli).expect("resolve should succeed");
+        assert_eq!(dirs.config_home, override_path);
+        assert!(
+            !warnings
+                .iter()
+                .any(|w| matches!(w, ConfigWarning::XdgConfigIgnored { .. })),
+            "CLI override should not emit XdgConfigIgnored: {warnings:?}"
+        );
+    }
+
+    #[test]
+    fn test_cli_dot_config_home_has_no_curdir_in_derived_paths() {
+        let cwd = abs_path(&["dot-config-home-cwd"]);
+        let cli = CliOverrides::from_path_strings(
+            Some("."),
+            None,
+            None,
+            #[cfg(feature = "plugin")]
+            None,
+            &cwd,
+        );
+        let env = test_env_with_platform(HashMap::new());
+        let (dirs, _) = resolve_paths(&env, &cli).expect("resolve should succeed");
+        assert_eq!(dirs.config_home, cwd);
+        assert_eq!(
+            dirs.env_file.as_path(),
+            cwd.join("env.nu").as_path(),
+            "env path must not contain a /./ segment"
+        );
+        assert_eq!(dirs.user_autoload_dirs, vec![cwd.join("autoload")]);
+        assert!(
+            !dirs
+                .env_file
+                .as_path()
+                .components()
+                .any(|c| { matches!(c, std::path::Component::CurDir) })
         );
     }
 

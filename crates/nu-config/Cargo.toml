@@ -19,6 +19,7 @@ plugin = []
 derive_more = { workspace = true, features = ["display"] }
 derive_setters = { workspace = true }
 dirs = { workspace = true }
+nu-path = { path = "../nu-path" }
 thiserror = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
