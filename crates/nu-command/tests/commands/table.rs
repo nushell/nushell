@@ -8,21 +8,45 @@ use rstest::rstest;
 const WIDTH_PRIORITY_EIGHT_COL_INPUT: &str = indoc! {"
     [
         [a b c d e f g h];
-        [value_0000000000000000 value_1111111111111111 value_2222222222222222 value_3333333333333333 value_4444444444444444 value_5555555555555555 priority_value_12345 value_7777777777777777]
-        [value_0000000000000000 value_1111111111111111 value_2222222222222222 value_3333333333333333 value_4444444444444444 value_5555555555555555 priority_value_12345 value_7777777777777777]
+        [
+            value_0000000000000000 value_1111111111111111 value_2222222222222222
+            value_3333333333333333 value_4444444444444444 value_5555555555555555
+            priority_value_12345 value_7777777777777777
+        ]
+        [
+            value_0000000000000000 value_1111111111111111 value_2222222222222222
+            value_3333333333333333 value_4444444444444444 value_5555555555555555
+            priority_value_12345 value_7777777777777777
+        ]
     ]
 "};
 const WIDTH_PRIORITY_RECORD_INPUT: &str = indoc! {"
     [
-        {c0: v00000000000 c1: v11111111111 c2: v22222222222 c3: v33333333333 c4: v44444444444 c5: v55555555555 c6: v66666666666 c7: v77777777777 c8: v88888888888 c9: v99999999999}
-        {c0: v00000000000 c1: v11111111111 c2: v22222222222 c3: v33333333333 c4: v44444444444 c5: v55555555555 c6: v66666666666 c7: v77777777777 c8: v88888888888 c9: v99999999999}
+        {
+            c0: v00000000000 c1: v11111111111 c2: v22222222222 c3: v33333333333
+            c4: v44444444444 c5: v55555555555 c6: v66666666666 c7: v77777777777
+            c8: v88888888888 c9: v99999999999
+        }
+        {
+            c0: v00000000000 c1: v11111111111 c2: v22222222222 c3: v33333333333
+            c4: v44444444444 c5: v55555555555 c6: v66666666666 c7: v77777777777
+            c8: v88888888888 c9: v99999999999
+        }
     ]
 "};
 const WIDTH_PRIORITY_NAME_INPUT: &str = indoc! {"
     [
         [name type target readonly mode num_links inode user group size created accessed modified];
-        [very_very_very_long_filename_that_should_get_priority_and_avoid_wrapping.txt file '' false rw-r--r-- 1 12345 me staff 1234 '2 years ago' '2 years ago' '2 years ago']
-        [another_extremely_long_name_for_priority_column_display.txt file '' false rw-r--r-- 1 54321 me staff 5678 '2 years ago' '2 years ago' '2 years ago']
+        [
+            very_very_very_long_filename_that_should_get_priority_and_avoid_wrapping.txt
+            file '' false rw-r--r-- 1 12345 me staff 1234
+            '2 years ago' '2 years ago' '2 years ago'
+        ]
+        [
+            another_extremely_long_name_for_priority_column_display.txt
+            file '' false rw-r--r-- 1 54321 me staff 5678
+            '2 years ago' '2 years ago' '2 years ago'
+        ]
     ]
 "};
 const TABLE_CFG_HEADER_SEPARATOR: &str = "{ table: { header_on_separator: true } }";
@@ -615,7 +639,10 @@ fn table_expand_deep_0() -> Result {
     test()
         .run_with_data(
             "table --width=80 --expand --expand-deep=1",
-            test_value!([{ a: 1, b: 2, c: 3 }, { a: 4, b: 5, c: [1, 2, [1, 2, 3]] }]),
+            test_value!([
+                { a: 1, b: 2, c: 3 },
+                { a: 4, b: 5, c: [1, 2, [1, 2, 3]] },
+            ]),
         )
         .expect_value_eq(indoc! {"
             ╭───┬───┬───┬────────────────────────╮
@@ -636,7 +663,10 @@ fn table_expand_deep_1() -> Result {
     test()
         .run_with_data(
             "table --width=80 --expand --expand-deep=0",
-            test_value!([{ a: 1, b: 2, c: 3 }, { a: 4, b: 5, c: [1, 2, [1, 2, 3]] }]),
+            test_value!([
+                { a: 1, b: 2, c: 3 },
+                { a: 4, b: 5, c: [1, 2, [1, 2, 3]] },
+            ]),
         )
         .expect_value_eq(indoc! {"
             ╭───┬───┬───┬────────────────╮
@@ -653,7 +683,10 @@ fn table_expand_flatten_0() -> Result {
     test()
         .run_with_data(
             "table --width=80 --expand --flatten",
-            test_value!([{ a: 1, b: 2, c: 3 }, { a: 4, b: 5, c: [1, 2, [1, 1, 1]] }]),
+            test_value!([
+                { a: 1, b: 2, c: 3 },
+                { a: 4, b: 5, c: [1, 2, [1, 1, 1]] },
+            ]),
         )
         .expect_value_eq(indoc! {"
             ╭───┬───┬───┬───────────────╮
@@ -674,7 +707,10 @@ fn table_expand_flatten_1() -> Result {
     test()
         .run_with_data(
             "table --width=80 --expand --flatten --flatten-separator=,",
-            test_value!([{ a: 1, b: 2, c: 3 }, { a: 4, b: 5, c: [1, 2, [1, 1, 1]] }]),
+            test_value!([
+                { a: 1, b: 2, c: 3 },
+                { a: 4, b: 5, c: [1, 2, [1, 1, 1]] },
+            ]),
         )
         .expect_value_eq(indoc! {"
             ╭───┬───┬───┬───────────────╮
@@ -697,7 +733,7 @@ fn table_expand_flatten_and_deep_1() -> Result {
             "table --width=80 --expand --expand-deep=2 --flatten --flatten-separator=,",
             test_value!([
                 { a: 1, b: 2, c: 3 },
-                { a: 4, b: 5, c: [1, 2, [1, [1, 1, 1], 1]] }
+                { a: 4, b: 5, c: [1, 2, [1, [1, 1, 1], 1]] },
             ]),
         )
         .expect_value_eq(indoc! {"
@@ -721,7 +757,12 @@ fn table_expand_flatten_and_deep_1() -> Result {
 #[test]
 fn table_expand_record_0() -> Result {
     test()
-        .run_with_data("table --width=80 --expand", [test_value!({ c: { d: 1 } })])
+        .run_with_data(
+            "table --width=80 --expand",
+            [test_value!({
+                c: { d: 1 },
+            })],
+        )
         .expect_value_eq(indoc! {"
             ╭───┬───────────╮
             │ # │     c     │
@@ -740,7 +781,7 @@ fn table_expand_record_1() -> Result {
             "table --width=80 --expand",
             test_value!([
                 { a: 1, b: 2, c: 3 },
-                { a: 4, b: 5, c: [1, 2, { a: 123, b: 234, c: 345 }] }
+                { a: 4, b: 5, c: [1, 2, { a: 123, b: 234, c: 345 }] },
             ]),
         )
         .expect_value_eq(indoc! {"
@@ -767,7 +808,14 @@ fn table_expand_record_2() -> Result {
         ["head1", "head2", "head3"];
         [1, 2, 3],
         [79, 79, 79],
-        [test_value!({ f1: "a string", f2: 1000 }), 1, 2],
+        [
+            test_value!({
+                f1: "a string",
+                f2: 1000,
+            }),
+            1,
+            2,
+        ],
     ];
 
     test()
@@ -777,7 +825,15 @@ fn table_expand_record_2() -> Result {
                 field1: ["a", "b", "c"],
                 field2: [123, 234, 345],
                 field3: (field3),
-                field4: { f1: 1, f2: 3, f3: { f1: "f1", f2: "f2", f3: "f3" } }
+                field4: {
+                    f1: 1,
+                    f2: 3,
+                    f3: {
+                        f1: "f1",
+                        f2: "f2",
+                        f3: "f3",
+                    },
+                },
             }),
         )
         .expect_value_eq(indoc! {"
@@ -4233,7 +4289,9 @@ fn table_abbreviation_cut() -> Result {
         .map(|i| format!("│{i:>5} │{i:>5} │"))
         .collect::<Vec<_>>()
         .join("\n");
-    let output = format!("{}\n{}\n{}\n", "╭──────┬──────╮", rows, "╰──────┴──────╯");
+    let top = "╭──────┬──────╮";
+    let bottom = "╰──────┴──────╯";
+    let output = format!("{top}\n{rows}\n{bottom}\n");
 
     let actual: String = test().run("0..2000 | table --width=80 -a 2000")?;
     assert_eq!(actual, output);
@@ -4573,18 +4631,38 @@ fn table_footer_inheritance() -> Result {
         ["y1", "y2", "y3"];
         [1, 2, 3],
         [79, 79, 79],
-        [test_value!({ f1: "a string", f2: 1000 }), 1, 2],
+        [
+            test_value!({
+                f1: "a string",
+                f2: 1000,
+            }),
+            1,
+            2,
+        ],
     ];
     let field3 = Value::test_list(
         (0..212)
-            .map(|_| test_record! { "head1" => 79, "head2" => 79, "head3" => 79 })
+            .map(|_| {
+                test_record! {
+                    "head1" => 79,
+                    "head2" => 79,
+                    "head3" => 79,
+                }
+            })
             .collect(),
     );
     let field5 = test_table![
         ["x1", "x2", "x3"];
         [1, 2, 3],
         [79, 79, 79],
-        [test_value!({ f1: "a string", f2: 1000 }), 1, 2],
+        [
+            test_value!({
+                f1: "a string",
+                f2: 1000,
+            }),
+            1,
+            2,
+        ],
     ];
 
     let actual: String = test().run_with_data(
@@ -4599,7 +4677,15 @@ fn table_footer_inheritance() -> Result {
             field1: ["a", "b", "c"],
             field2: [123, 234, 345],
             field3: (field3),
-            field4: { f1: 1, f2: 3, f3: { f1: "f1", f2: "f2", f3: "f3" } },
+            field4: {
+                f1: 1,
+                f2: 3,
+                f3: {
+                    f1: "f1",
+                    f2: "f2",
+                    f3: "f3",
+                },
+            },
             field5: (field5),
         }),
     )?;
@@ -4631,7 +4717,16 @@ fn table_footer_inheritance_kv_rows() -> Result {
         .run_with_data(
             code,
             test_value!([
-                { a: "kv", b: { "0": 0, "1": 1, "2": 2, "3": 3, "4": 4 } },
+                {
+                    a: "kv",
+                    b: {
+                        "0": 0,
+                        "1": 1,
+                        "2": 2,
+                        "3": 3,
+                        "4": 4,
+                    },
+                },
                 { a: "data", b: 0 },
                 { a: "data", b: 0 },
             ]),
@@ -4656,7 +4751,17 @@ fn table_footer_inheritance_kv_rows() -> Result {
         .run_with_data(
             code,
             test_value!([
-                { a: "kv", b: { "0": 0, "1": 1, "2": 2, "3": 3, "4": 4, "5": 5 } },
+                {
+                    a: "kv",
+                    b: {
+                        "0": 0,
+                        "1": 1,
+                        "2": 2,
+                        "3": 3,
+                        "4": 4,
+                        "5": 5,
+                    },
+                },
                 { a: "data", b: 0 },
                 { a: "data", b: 0 },
             ]),
@@ -4696,7 +4801,19 @@ fn table_footer_inheritance_list_rows() -> Result {
         .run_with_data(
             code,
             test_value!([
-                { a: "kv", b: { "0": (test_table![["field"]; [0], [1], [2], [3], [4]]) } },
+                {
+                    a: "kv",
+                    b: {
+                        "0": (test_table![
+                            ["field"];
+                            [0],
+                            [1],
+                            [2],
+                            [3],
+                            [4],
+                        ]),
+                    },
+                },
                 { a: "data", b: 0 },
                 { a: "data", b: 0 },
             ]),
@@ -4725,7 +4842,20 @@ fn table_footer_inheritance_list_rows() -> Result {
         .run_with_data(
             code,
             test_value!([
-                { a: "kv", b: { "0": (test_table![["field"]; [0], [1], [2], [3], [4], [5]]) } },
+                {
+                    a: "kv",
+                    b: {
+                        "0": (test_table![
+                            ["field"];
+                            [0],
+                            [1],
+                            [2],
+                            [3],
+                            [4],
+                            [5],
+                        ]),
+                    },
+                },
                 { a: "data", b: 0 },
                 { a: "data", b: 0 },
             ]),
@@ -4770,7 +4900,10 @@ fn table_colors() -> Result {
                 $env.config.use_ansi_coloring = true
                 $data | table
             ",
-            test_value!({a: 1, b: 2}),
+            test_value!({
+                a: 1,
+                b: 2,
+            }),
         )
         .expect_value_eq(colored)?;
 
@@ -4781,7 +4914,10 @@ fn table_colors() -> Result {
                 $env.config.use_ansi_coloring = false
                 $data | table
             ",
-            test_value!({a: 1, b: 2}),
+            test_value!({
+                a: 1,
+                b: 2,
+            }),
         )
         .expect_value_eq(indoc! {"
             ╭───┬───╮
@@ -4979,7 +5115,11 @@ fn table_missing_value_custom() -> Result {
                 $env.config.table.missing_value_symbol = 'NULL'
                 $data | table
             ",
-            test_value!([{foo: ()}, {}, {}]),
+            test_value!([
+                { foo: () },
+                {},
+                {},
+            ]),
         )
         .expect_value_eq(indoc! {"
             ╭───┬──────╮
@@ -5087,7 +5227,9 @@ fn table_index_column_with_index_flag_false() -> Result {
     test()
         .run_with_data(
             "table --index false --width 80",
-            test_value!([{index: 0, data: "yes"}]),
+            test_value!([
+                { index: 0, data: "yes" },
+            ]),
         )
         .expect_value_eq(indoc! {"
             ╭───────┬──────╮
@@ -5115,7 +5257,9 @@ fn metadata_path_columns_single() -> Result {
                 $env.config.shell_integration.osc8 = false
                 $data | metadata set --path-columns [name] | table
             ",
-            test_value!([{name: "src"}]),
+            test_value!([
+                { name: "src" },
+            ]),
         )
         .expect_value_eq(expected)
 }
@@ -5137,7 +5281,9 @@ fn metadata_path_columns_multiple() -> Result {
                 $env.config.shell_integration.osc8 = false
                 $data | metadata set --path-columns [dir file] | table
             ",
-            test_value!([{dir: "src", file: "main.rs"}]),
+            test_value!([
+                { dir: "src", file: "main.rs" },
+            ]),
         )
         .expect_value_eq(expected)
 }
@@ -5159,7 +5305,9 @@ fn metadata_path_columns_multiple_with_icons() -> Result {
                 $env.config.shell_integration.osc8 = false
                 $data | metadata set --path-columns [dir file] | table --icons
             ",
-            test_value!([{dir: "src", file: "main.rs"}]),
+            test_value!([
+                { dir: "src", file: "main.rs" },
+            ]),
         )
         .expect_value_eq(expected)
 }
