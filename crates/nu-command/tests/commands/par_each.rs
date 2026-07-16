@@ -32,7 +32,7 @@ fn par_each_keep_order_preserves_input_order() -> Result {
     test().run(code).expect_value_eq([3, 1, 2])
 }
 
-/// Default pool path (no `--threads`): global Rayon pool reuse.
+/// Default pool path (no `--threads`): dedicated cached pool of default size.
 #[test]
 fn par_each_default_pool_works() -> Result {
     let code = "[1 2 3 4] | par-each {|x| $x * 2 } | sort";
@@ -67,12 +67,69 @@ fn par_each_threads_flag_repeated() -> Result {
     test().run(code).expect_value_eq(true)
 }
 
-/// Default pool with keep-order (no private pool install).
+/// Default pool with keep-order.
 #[test]
 fn par_each_default_pool_keep_order() -> Result {
     let code = "[5 4 3 2 1] | par-each --keep-order {|x| $x }";
 
     test().run(code).expect_value_eq([5, 4, 3, 2, 1])
+}
+
+/// Streaming `par-each` after a ListStream producer that also uses Rayon (`ls`).
+///
+/// Regression for #18566 comment: sharing Rayon's global pool between a producer
+/// (`ls`/`glob`) and the streaming `par-each` path can hang. `par-each` must use a
+/// dedicated pool so producer and consumer never starve each other.
+#[test]
+fn par_each_after_ls_stream_does_not_deadlock() -> Result {
+    // Compare against a sequential path so the test is independent of cwd contents.
+    let code = "
+        let n = ls | length
+        let m = ls | wrap name | par-each {} | length
+        $n == $m
+    ";
+
+    test().run(code).expect_value_eq(true)
+}
+
+/// Same producer/consumer separation with an identity closure and `--threads`.
+#[test]
+fn par_each_after_ls_stream_with_threads() -> Result {
+    let code = "
+        let n = ls | length
+        let m = ls | wrap name | par-each --threads 2 {} | length
+        $n == $m
+    ";
+
+    test().run(code).expect_value_eq(true)
+}
+
+/// `each` produces a ListStream; streaming `par-each` must still complete.
+#[test]
+fn par_each_after_each_stream_matches_length() -> Result {
+    let code = "
+        let data = 0..199 | each {|x| $x}
+        let n = $data | length
+        let m = $data | each {|x| {name: $x}} | par-each {} | length
+        $n == $m
+    ";
+
+    test().run(code).expect_value_eq(true)
+}
+
+/// dc-glob schedules work on Rayon's global pool; `par-each` must not share it.
+///
+/// Mirrors the reported hang: `glob … | wrap name | par-each {}`.
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn par_each_after_dc_glob_stream_does_not_deadlock() -> Result {
+    let code = "
+        let n = glob '*' | length
+        let m = glob '*' | wrap name | par-each {} | length
+        $n == $m
+    ";
+
+    test().run(code).expect_value_eq(true)
 }
 
 /// Nested `par-each --threads` must not deadlock by sharing one cached pool.
@@ -107,7 +164,7 @@ fn par_each_nested_keep_order_same_threads() -> Result {
     test().run(code).expect_value_eq(100)
 }
 
-/// Nested default pools (global outer would also deadlock if nested reused it).
+/// Nested default pools (shared outer would deadlock if nested reused it).
 #[test]
 fn par_each_nested_default_pool_does_not_deadlock() -> Result {
     let code = "
