@@ -1165,54 +1165,41 @@ mod completer_tests {
         assert!(fresh.iter().any(|s| s.value == "config"));
     }
 
-    /// Only the latest enqueued generation may return true from `check_pending`.
+    /// A superseded in-flight generation must never wake `check_pending`; only
+    /// the latest enqueued generation may.
     #[test]
     fn only_latest_generation_wakes_pending() {
-        // A private directory of gate files shared with the completer closure.
-        // Instead of racing on sleep durations, the worker announces when it
-        // begins a token and blocks until the test releases it, so each
-        // generation finishes exactly when we say so.
-        let gate_dir = std::env::temp_dir().join(format!(
-            "nu-completion-generation-test-{}-{}",
-            std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map(|d| d.as_nanos())
-                .unwrap_or(0),
-        ));
-        std::fs::create_dir_all(&gate_dir).expect("create gate dir");
-        let gate = gate_dir.to_string_lossy().replace('\\', "/");
+        // The external completer runs on the worker thread. For each token it
+        // touches `started-<token>` and then blocks until `release-<token>`
+        // appears, letting the test drive exactly when each generation finishes
+        // instead of racing on sleeps.
+        let gate = std::env::temp_dir().join(format!("nu-gen-test-{}", std::process::id()));
+        std::fs::create_dir_all(&gate).expect("create gate dir");
+        let gate_str = gate.to_string_lossy().replace('\\', "/");
 
-        let setup = format!(
-            r#"
-            $env.config.completions.external = {{
-                enable: true
-                completer: {{|spans|
-                    let token = ($spans | last)
-                    touch ('{gate}' | path join $"started-($token)")
-                    while not ('{gate}' | path join $"release-($token)" | path exists) {{
-                        sleep 10ms
-                    }}
-                    [{{value: $"got-($token)"}}]
-                }}
-            }}
-            "#
-        );
         let mut engine =
             nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
         let mut stack = Stack::new();
-        // `merge_env` (below) requires a valid `$env.PWD`; it can't be set from
-        // script, so seed it directly on the stack.
+        // `merge_env` needs a valid `$env.PWD`, which can't be set from script.
         stack.add_env_var(
             "PWD".to_string(),
-            nu_protocol::Value::string(&gate, nu_protocol::Span::unknown()),
+            nu_protocol::Value::string(&gate_str, nu_protocol::Span::unknown()),
+        );
+        let setup = format!(
+            r#"$env.config.completions.external = {{
+                enable: true
+                completer: {{|spans|
+                    let t = $spans | last
+                    touch ('{gate_str}' | path join $"started-($t)")
+                    while not ('{gate_str}' | path join $"release-($t)" | path exists) {{ sleep 10ms }}
+                    [{{value: $"got-($t)"}}]
+                }}
+            }}"#
         );
         let mut working_set = StateWorkingSet::new(&engine);
         let block = parse(&mut working_set, None, setup.as_bytes(), false);
         assert!(working_set.parse_errors.is_empty());
-        engine
-            .merge_delta(working_set.render())
-            .expect("merge setup");
+        engine.merge_delta(working_set.render()).expect("merge");
         nu_engine::eval_block::<nu_protocol::debugger::WithoutDebug>(
             &engine,
             &mut stack,
@@ -1220,61 +1207,45 @@ mod completer_tests {
             nu_protocol::PipelineData::empty(),
         )
         .expect("eval setup");
-        // Propagate `$env.config` (the external completer) into the permanent
-        // state the completer reads via `engine_state.get_config()`.
         engine.merge_env(&mut stack).expect("merge env");
 
-        // Gate helpers, keyed by the token the closure reports.
-        let started = |token: &str| gate_dir.join(format!("started-{token}"));
-        let release = |token: &str| {
-            std::fs::write(gate_dir.join(format!("release-{token}")), b"").expect("release token");
-        };
-        let wait_for_file = |path: std::path::PathBuf| {
+        let started = |t: &str| gate.join(format!("started-{t}"));
+        let release =
+            |t: &str| std::fs::write(gate.join(format!("release-{t}")), b"").expect("release");
+        let await_file = |p: std::path::PathBuf| {
             let deadline = Instant::now() + Duration::from_secs(30);
-            while !path.exists() {
-                assert!(Instant::now() < deadline, "timed out waiting for {path:?}");
+            while !p.exists() {
+                assert!(Instant::now() < deadline, "timed out waiting for {p:?}");
                 thread::sleep(Duration::from_millis(5));
             }
         };
 
         let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
-        let first = "somecmd a";
-        let second = "somecmd ab";
 
-        // Enqueue `first` and wait until the worker is actually computing it.
-        assert!(completer.complete(first, first.len()).is_empty());
-        assert!(completer.has_pending());
-        wait_for_file(started("a"));
+        // Enqueue gen1 and wait until the worker is actually computing it, so
+        // gen2 can't be coalesced in before gen1 starts.
+        assert!(completer.complete("somecmd a", 9).is_empty());
+        await_file(started("a"));
 
-        // Supersede with `second` while `first` is still in flight.
-        assert!(completer.complete(second, second.len()).is_empty());
-        assert!(completer.has_pending());
+        // Supersede with gen2 while gen1 is still blocked.
+        assert!(completer.complete("somecmd ab", 10).is_empty());
 
-        // Let `first` finish. Because `second` is already queued, the worker
-        // must move straight on to it without signaling the stale generation.
+        // Let gen1 finish. Because gen2 is already queued, the worker moves
+        // straight to it without signaling gen1's stale generation.
         release("a");
-        wait_for_file(started("ab"));
-
-        // `first` has now completed, yet `check_pending` must stay false: only
-        // the latest generation is allowed to wake it.
+        await_file(started("ab"));
         assert!(
             !completer.check_pending(),
             "a superseded generation woke check_pending"
         );
         assert!(completer.has_pending());
 
-        // Releasing `second` finally wakes the latest generation, which yields
-        // the latest result.
+        // gen2 finishing wakes the latest generation with the latest result.
         release("ab");
-        let deadline = Instant::now() + Duration::from_secs(30);
-        while !completer.check_pending() {
-            assert!(Instant::now() < deadline, "latest completion never ready");
-            thread::sleep(Duration::from_millis(5));
-        }
-        let result = completer.complete(second, second.len());
+        let result = wait_for(&mut completer, "somecmd ab", 10);
         assert!(result.iter().any(|s| s.value == "got-ab"), "{result:?}");
 
-        let _ = std::fs::remove_dir_all(&gate_dir);
+        let _ = std::fs::remove_dir_all(&gate);
     }
 
     #[test]
