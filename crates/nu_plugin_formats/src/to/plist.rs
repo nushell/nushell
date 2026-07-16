@@ -67,7 +67,7 @@ fn convert_nu_value(nu_val: &NuValue) -> Result<PlistValue, LabeledError> {
         NuValue::Bool { val, .. } => Ok(PlistValue::Boolean(*val)),
         NuValue::Float { val, .. } => Ok(PlistValue::Real(*val)),
         NuValue::Int { val, .. } => Ok(PlistValue::Integer((*val).into())),
-        NuValue::Binary { val, .. } => Ok(PlistValue::Data(val.to_owned())),
+        NuValue::Binary { val, .. } => Ok(PlistValue::Data(val.to_vec())),
         NuValue::Record { val, .. } => convert_nu_dict(val),
         NuValue::List { vals, .. } => Ok(PlistValue::Array(
             vals.iter()

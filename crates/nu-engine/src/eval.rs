@@ -729,9 +729,10 @@ impl Eval for EvalRuntime {
                         // As such, give it special treatment here.
                         let is_env = var_id == &ENV_VARIABLE_ID;
                         if is_env || engine_state.get_var(*var_id).mutable {
-                            let mut lhs =
-                                eval_expression::<D>(engine_state, stack, &cell_path.head)?;
                             if is_env {
+                                let mut lhs =
+                                    eval_expression::<D>(engine_state, stack, &cell_path.head)?;
+
                                 // Reject attempts to assign to the entire $env
                                 if cell_path.tail.is_empty() {
                                     return Err(ShellError::CannotReplaceEnv {
@@ -782,8 +783,14 @@ impl Eval for EvalRuntime {
                                     stack.update_config(engine_state)?;
                                 }
                             } else {
-                                lhs.upsert_data_at_cell_path(&cell_path.tail, rhs)?;
-                                stack.add_var(*var_id, lhs);
+                                // Optimized: mutate the variable in-place on the stack,
+                                // avoiding the clone from lookup_var and the move-back from add_var.
+                                stack.upsert_var_cell_path(
+                                    *var_id,
+                                    &cell_path.tail,
+                                    rhs,
+                                    cell_path.head.span(&engine_state),
+                                )?;
                             }
                             Ok(Value::nothing(cell_path.head.span(&engine_state)))
                         } else {

@@ -792,7 +792,7 @@ impl EngineInterface {
     pub fn get_span_contents(&self, span: Span) -> Result<Vec<u8>, ShellError> {
         match self.engine_call(EngineCall::GetSpanContents(span))? {
             EngineCallResponse::PipelineData(PipelineData::Value(Value::Binary { val, .. }, _)) => {
-                Ok(val)
+                Ok(val.into_owned())
             }
             _ => Err(ShellError::PluginFailedToDecode {
                 msg: "Received unexpected response type for EngineCall::GetSpanContents".into(),

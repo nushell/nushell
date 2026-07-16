@@ -85,7 +85,8 @@ impl Command for Take {
                             metadata,
                         )),
                     Value::Binary { val, .. } => {
-                        let slice: Vec<u8> = val.into_iter().take(rows_desired).collect();
+                        let slice: Vec<u8> =
+                            val.into_owned().into_iter().take(rows_desired).collect();
                         Ok(PipelineData::value(
                             Value::binary(slice, span),
                             // first 5 bytes of an image/png stream are not image/png themselves
