@@ -316,7 +316,10 @@ impl From<ValueDef> for Value {
                 error,
                 internal_span,
             },
-            ValueDef::Binary { val, internal_span } => Self::Binary { val, internal_span },
+            ValueDef::Binary { val, internal_span } => Self::Binary {
+                val: val.into(),
+                internal_span,
+            },
             ValueDef::CellPath { val, internal_span } => Self::CellPath { val, internal_span },
             ValueDef::Custom { val, internal_span } => Self::Custom { val, internal_span },
             ValueDef::Nothing { internal_span } => Self::Nothing { internal_span },
