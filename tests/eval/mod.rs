@@ -202,6 +202,14 @@ fn binary_op_rhs_collects_in_variable() {
 }
 
 #[test]
+fn binary_op_subexpression_receives_pipeline_input() {
+    test_eval(
+        "'wow' | (is-not-empty) and ($in not-starts-with '#')",
+        Eq("true"),
+    );
+}
+
+#[test]
 fn range_from_expressions() {
     test_eval("(1 + 1)..(2 + 2)", Matches("2.*3.*4"))
 }
