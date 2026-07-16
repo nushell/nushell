@@ -37,7 +37,10 @@ pub trait CompleterExt {
 impl CompleterExt for NuCompleter {
     fn complete_and_wait(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
         let suggestions = self.complete(line, pos);
-        if !suggestions.is_empty() || !self.has_pending() {
+
+        // With nothing pending, `suggestions` is the settled result (a cache hit
+        // or a genuine empty).
+        if !self.has_pending() {
             return suggestions;
         }
 
