@@ -1,5 +1,6 @@
 use fancy_regex::Regex;
-use nu_test_support::{nu, playground::Playground};
+use nu_protocol::PipelineData;
+use nu_test_support::{fs::Stub::FileWithContent, prelude::*, tester::TestError};
 
 #[test]
 fn record_with_redefined_key() {
@@ -418,105 +419,129 @@ fn early_return_from_for() {
 }
 
 #[test]
-fn early_return_keeps_metadata() {
+fn early_return_keeps_metadata() -> Result {
     // An early `return` used to drop pipeline metadata that a value in tail position kept.
     // https://github.com/nushell/nushell/issues/18552
-    test_eval(
-        r#"def foo [] { if true { return ("body" | metadata set { merge {my: 302} }) } };
-        foo | metadata | get my"#,
-        Eq("302"),
-    )
+    test()
+        .run(
+            r#"def foo [] { if true { return ("body" | metadata set { merge {my: 302} }) } };
+            foo | metadata | get my"#,
+        )
+        .expect_value_eq(302)
 }
 
 #[test]
-fn early_return_keeps_stream() {
+fn early_return_keeps_stream() -> Result {
     // An early `return` used to collect its value; it should stay a stream like a value in
-    // tail position does.
-    test_eval(
-        "def foo [] { return (1..3 | each { |x| $x }) }; foo | describe",
-        Eq("list<int> (stream)"),
-    )
+    // tail position does. Assert on the pipeline structure rather than `describe` output, so a
+    // regression that collects the stream into a list is caught directly.
+    let output = test().run_raw("def foo [] { return (1..3 | each { |x| $x }) }; foo")?;
+    let PipelineData::ListStream(stream, _) = output.body else {
+        panic!("early return should stay a stream")
+    };
+    stream
+        .into_value()
+        .map_err(TestError::from)
+        .expect_value_eq(vec![1i64, 2, 3])
 }
 
 #[test]
-fn early_return_with_finally_runs_cleanup_and_keeps_value() {
-    test_eval(
-        "def foo [] { try { return 1 } finally { print cleanup } }; foo | print",
-        Eq("cleanup1"),
-    )
+fn early_return_with_finally_runs_cleanup_and_keeps_value() -> Result {
+    // In-process `print` output isn't captured, so the `finally` block reports through the root
+    // job's mailbox (`job send 0`) instead. Interpolating the recovered message with the returned
+    // value yields "cleanup1", proving the cleanup ran and the early-return value survived it.
+    test()
+        .run(
+            r#"def foo [] { try { return 1 } finally { "cleanup" | job send 0 } };
+            let val = foo;
+            $"(job recv --timeout 10sec)($val)""#,
+        )
+        .expect_value_eq("cleanup1")
 }
 
 #[test]
-fn early_return_with_finally_keeps_metadata() {
-    test_eval(
-        r#"def foo [] { try { return ("body" | metadata set { merge {my: 302} }) } finally { } };
-        foo | metadata | get my"#,
-        Eq("302"),
-    )
+fn early_return_with_finally_keeps_metadata() -> Result {
+    test()
+        .run(
+            r#"def foo [] { try { return ("body" | metadata set { merge {my: 302} }) } finally { } };
+            foo | metadata | get my"#,
+        )
+        .expect_value_eq(302)
 }
 
 #[test]
-fn early_return_not_intercepted_by_catch() {
-    test_eval(
-        "def foo [] { try { return early } catch { 'caught' } }; foo",
-        Eq("early"),
-    )
+fn early_return_not_intercepted_by_catch() -> Result {
+    test()
+        .run("def foo [] { try { return early } catch { 'caught' } }; foo")
+        .expect_value_eq("early")
 }
 
 #[test]
-fn early_return_in_export_env_stays_in_env_block() {
+fn early_return_in_export_env_stays_in_env_block() -> Result {
     // `return` inside `export-env` ends the environment block; it used to unwind further and
     // abort the enclosing command.
-    test_eval(
-        "def foo [] { export-env { return }; 'after' }; foo",
-        Eq("after"),
-    )
+    test()
+        .run("def foo [] { export-env { return }; 'after' }; foo")
+        .expect_value_eq("after")
 }
 
 #[test]
-fn early_return_in_export_env_guard_skips_rest_of_env_block() {
-    test_eval(
-        "def foo [] { export-env { if true { return }; $env.FOO = 'set' }; $env.FOO? | default 'unset' };
-        foo",
-        Eq("unset"),
-    )
+fn early_return_in_export_env_guard_skips_rest_of_env_block() -> Result {
+    test()
+        .run(
+            "def foo [] { export-env { if true { return }; $env.FOO = 'set' }; $env.FOO? | default 'unset' };
+            foo",
+        )
+        .expect_value_eq("unset")
+}
+
+/// Subset of the record `complete` returns, captured in a single `nu` run rather than re-running
+/// the binary once per field.
+#[derive(FromValue)]
+struct CompleteResult {
+    exit_code: i64,
+    stdout: String,
 }
 
 #[test]
-fn early_return_inside_command_does_not_skip_main() {
-    // A `return` inside a command called at the top level of a script is consumed at the call
-    // boundary; only a top-level `return` should prevent `main` from running.
+#[deps(NU)]
+fn early_return_inside_command_does_not_skip_main() -> Result {
+    // A `return` inside a command called at the top level of a script is consumed where the
+    // command is called; only a top-level `return` should prevent `main` from running. This runs
+    // the `nu` binary because that "skip main" decision lives in file evaluation, not in the
+    // in-process engine.
     Playground::setup(
-        "return_in_command_does_not_skip_main",
-        |dirs, playground| {
-            playground.with_files(&[nu_test_support::fs::Stub::FileWithContent(
+        "early_return_inside_command_does_not_skip_main",
+        |dirs, sandbox| -> Result {
+            sandbox.with_files(&[FileWithContent(
                 "script.nu",
                 "def helper [] { return 1 }\nhelper\ndef main [] { print 'main ran' }",
             )]);
-            let actual = nu!(
-                cwd: dirs.test(),
-                "nu -n script.nu"
-            );
-            assert!(actual.out.contains("main ran"), "out: {}", actual.out);
-            assert!(actual.status.success());
+
+            let result: CompleteResult =
+                test().cwd(dirs.test()).run("nu -n script.nu | complete")?;
+            assert_eq!(result.exit_code, 0);
+            assert_contains("main ran", result.stdout);
+            Ok(())
         },
-    );
+    )
 }
 
 #[test]
-fn early_return_in_module_export_env_does_not_abort_caller() {
-    Playground::setup("return_in_module_export_env", |dirs, playground| {
-        playground.with_files(&[nu_test_support::fs::Stub::FileWithContent(
-            "mod.nu",
-            "export-env { return }\nexport def hi [] { 'hi' }",
-        )]);
-        let actual = nu!(
-            cwd: dirs.test(),
-            "def foo [] { use mod.nu *; hi }; foo"
-        );
-        assert_eq!(actual.out, "hi");
-        assert!(actual.status.success());
-    });
+fn early_return_in_module_export_env_does_not_abort_caller() -> Result {
+    Playground::setup(
+        "early_return_in_module_export_env_does_not_abort_caller",
+        |dirs, sandbox| -> Result {
+            sandbox.with_files(&[FileWithContent(
+                "mod.nu",
+                "export-env { return }\nexport def hi [] { 'hi' }",
+            )]);
+            test()
+                .cwd(dirs.test())
+                .run("def foo [] { use mod.nu *; hi }; foo")
+                .expect_value_eq("hi")
+        },
+    )
 }
 
 #[test]
