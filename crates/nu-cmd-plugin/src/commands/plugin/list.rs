@@ -1,10 +1,7 @@
 use itertools::{EitherOrBoth, Itertools};
 use nu_engine::command_prelude::*;
-use nu_plugin_engine::{GetPlugin, PersistentPlugin};
-use nu_protocol::{
-    IntoValue, PluginGcConfig, PluginIdentity, PluginMetadata, PluginRegistryItemData,
-};
-use std::sync::Arc;
+use nu_plugin_protocol::PLUGIN_PROTOCOL_VERSION;
+use nu_protocol::{IntoValue, PluginRegistryItemData};
 
 use crate::util::read_plugin_file;
 
@@ -89,6 +86,15 @@ or the plugin has not been loaded yet, the values of `version`, `filename`,
 `shell`, and `commands` reflect the values in the engine and not the ones in
 the plugin registry file.
 
+Version columns:
+
+- `version`: the plugin's own self-reported version
+- `protocol_version`: plugin protocol the binary was built for (compatibility)
+- `nushell_version`: Nushell SDK version used to build the plugin (informational)
+
+Missing protocol/nushell version fields usually mean the plugin was registered
+before those fields existed; re-add the plugin to refresh registry metadata.
+
 See also: `plugin use`
 "
         .trim()
@@ -106,7 +112,7 @@ See also: `plugin use`
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "name" => Value::test_string("inc"),
                     "version" => Value::test_string(env!("CARGO_PKG_VERSION")),
-                    "protocol_version" => Value::test_string("0.93.0"),
+                    "protocol_version" => Value::test_string(PLUGIN_PROTOCOL_VERSION),
                     "nushell_version" => Value::test_string(env!("CARGO_PKG_VERSION")),
                     "status" => Value::test_string("running"),
                     "pid" => Value::test_int(106480),
@@ -145,16 +151,16 @@ See also: `plugin use`
             // --engine and --registry together is equivalent to the default.
             (false, false) | (true, true) => {
                 if engine_state.plugin_path.is_some() || custom_path.is_some() {
-                    let plugins_in_engine = get_plugins_in_engine(engine_state, stack);
+                    let plugins_in_engine = get_plugins_in_engine(engine_state);
                     let plugins_in_registry =
                         get_plugins_in_registry(engine_state, stack, call.head, &custom_path)?;
                     merge_plugin_info(plugins_in_engine, plugins_in_registry)
                 } else {
                     // Don't produce error when running nu --no-config-file
-                    get_plugins_in_engine(engine_state, stack)
+                    get_plugins_in_engine(engine_state)
                 }
             }
-            (true, false) => get_plugins_in_engine(engine_state, stack),
+            (true, false) => get_plugins_in_engine(engine_state),
             (false, true) => get_plugins_in_registry(engine_state, stack, call.head, &custom_path)?,
         };
 
@@ -192,8 +198,8 @@ enum PluginStatus {
     Invalid,
 }
 
-// Builds plugin info for plugins currently loaded in the engine.
-fn get_plugins_in_engine(engine_state: &EngineState, stack: &mut Stack) -> Vec<PluginInfo> {
+// Builds plugin info for plugins currently loaded in the engine (cached metadata only).
+fn get_plugins_in_engine(engine_state: &EngineState) -> Vec<PluginInfo> {
     // Group plugin decls by plugin identity
     let decls = engine_state.plugin_decls().into_group_map_by(|decl| {
         decl.plugin_identity()
@@ -205,23 +211,7 @@ fn get_plugins_in_engine(engine_state: &EngineState, stack: &mut Stack) -> Vec<P
         .plugins()
         .iter()
         .map(|plugin| {
-            let cached_metadata = plugin.metadata();
-            let needs_live_metadata = cached_metadata
-                .as_ref()
-                .map(|m| {
-                    m.version.is_none()
-                        || m.protocol_version.is_none()
-                        || m.nushell_version.is_none()
-                })
-                .unwrap_or(true);
-            let live_metadata = if needs_live_metadata {
-                fetch_current_plugin_metadata(engine_state, stack, plugin.identity())
-            } else {
-                None
-            };
-
-            let (version, protocol_version, nushell_version) =
-                metadata_fields_with_fallback(cached_metadata.as_ref(), live_metadata.as_ref());
+            let metadata = plugin.metadata();
 
             // Find commands that belong to the plugin
             let commands: Vec<(String, String)> = decls
@@ -237,9 +227,9 @@ fn get_plugins_in_engine(engine_state: &EngineState, stack: &mut Stack) -> Vec<P
 
             PluginInfo {
                 name: plugin.identity().name().into(),
-                version,
-                protocol_version,
-                nushell_version,
+                version: metadata.as_ref().and_then(|m| m.version.clone()),
+                protocol_version: metadata.as_ref().and_then(|m| m.protocol_version.clone()),
+                nushell_version: metadata.as_ref().and_then(|m| m.nushell_version.clone()),
                 status: if plugin.pid().is_some() {
                     PluginStatus::Running
                 } else {
@@ -262,51 +252,6 @@ fn get_plugins_in_engine(engine_state: &EngineState, stack: &mut Stack) -> Vec<P
         })
         .sorted()
         .collect()
-}
-
-// Merges cached metadata with live metadata, preferring cached fields when present.
-fn metadata_fields_with_fallback(
-    cached: Option<&PluginMetadata>,
-    live: Option<&PluginMetadata>,
-) -> (Option<String>, Option<String>, Option<String>) {
-    let mut version = cached.and_then(|m| m.version.clone());
-    let mut protocol_version = cached.and_then(|m| m.protocol_version.clone());
-    let mut nushell_version = cached.and_then(|m| m.nushell_version.clone());
-
-    if let Some(live) = live {
-        if version.is_none() {
-            version = live.version.clone();
-        }
-        if protocol_version.is_none() {
-            protocol_version = live.protocol_version.clone();
-        }
-        if nushell_version.is_none() {
-            nushell_version = live.nushell_version.clone();
-        }
-    }
-
-    (version, protocol_version, nushell_version)
-}
-
-// Starts a temporary plugin instance and asks it for current metadata.
-fn fetch_current_plugin_metadata(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    identity: &PluginIdentity,
-) -> Option<PluginMetadata> {
-    let plugin = Arc::new(PersistentPlugin::new(
-        identity.clone(),
-        PluginGcConfig {
-            enabled: true,
-            stop_after: 0,
-        },
-    ));
-
-    plugin
-        .get_plugin(Some((engine_state, stack)))
-        .ok()?
-        .get_metadata()
-        .ok()
 }
 
 // Reads plugin entries from the registry file and maps them to display rows.
@@ -361,7 +306,7 @@ fn get_plugins_in_registry(
 /// in the registry file. We need to reconcile the two to set the proper states and make sure that
 /// new plugins that were added to the plugin registry file show up.
 ///
-/// Engine fields remain authoritative, while metadata may be backfilled from registry/live data.
+/// Engine fields remain authoritative, while missing metadata may be backfilled from the registry.
 fn merge_plugin_info(
     from_engine: Vec<PluginInfo>,
     from_registry: Vec<PluginInfo>,
@@ -437,7 +382,6 @@ impl PluginInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nu_protocol::PluginMetadata;
 
     // Creates minimal plugin info for targeted merge behavior tests.
     fn plugin_info(name: &str) -> PluginInfo {
@@ -460,7 +404,7 @@ mod tests {
         let engine = plugin_info("gstat");
         let registry = PluginInfo {
             version: Some("0.112.3".into()),
-            protocol_version: Some("0.93.0".into()),
+            protocol_version: Some(PLUGIN_PROTOCOL_VERSION.into()),
             nushell_version: Some("0.112.3".into()),
             ..plugin_info("gstat")
         };
@@ -472,7 +416,10 @@ mod tests {
             .expect("expected merged plugin info");
 
         assert_eq!(Some("0.112.3"), merged.version.as_deref());
-        assert_eq!(Some("0.93.0"), merged.protocol_version.as_deref());
+        assert_eq!(
+            Some(PLUGIN_PROTOCOL_VERSION),
+            merged.protocol_version.as_deref()
+        );
         assert_eq!(Some("0.112.3"), merged.nushell_version.as_deref());
         assert_eq!(PluginStatus::Loaded, merged.status);
     }
@@ -490,7 +437,7 @@ mod tests {
         };
         let registry = PluginInfo {
             filename: "/registry/nu_plugin_gstat".into(),
-            protocol_version: Some("0.93.0".into()),
+            protocol_version: Some(PLUGIN_PROTOCOL_VERSION.into()),
             nushell_version: Some("0.112.3".into()),
             ..plugin_info("gstat")
         };
@@ -503,38 +450,11 @@ mod tests {
 
         assert_eq!("/engine/nu_plugin_gstat", merged.filename);
         assert_eq!(1, merged.commands.len());
-        assert_eq!(Some("0.93.0"), merged.protocol_version.as_deref());
+        assert_eq!(
+            Some(PLUGIN_PROTOCOL_VERSION),
+            merged.protocol_version.as_deref()
+        );
         assert_eq!(Some("0.112.3"), merged.nushell_version.as_deref());
         assert_eq!(PluginStatus::Modified, merged.status);
-    }
-
-    // Ensures live metadata fills protocol/nushell fields when cache only has version.
-    #[test]
-    fn metadata_fields_with_fallback_fills_missing_fields_from_live_metadata() {
-        let cached = PluginMetadata::new().with_version("0.111.1");
-        let live = PluginMetadata::new()
-            .with_version("0.112.3")
-            .with_protocol_version("0.93.0")
-            .with_nushell_version("0.112.3");
-
-        let (version, protocol_version, nushell_version) =
-            metadata_fields_with_fallback(Some(&cached), Some(&live));
-
-        assert_eq!(Some("0.111.1"), version.as_deref());
-        assert_eq!(Some("0.93.0"), protocol_version.as_deref());
-        assert_eq!(Some("0.112.3"), nushell_version.as_deref());
-    }
-
-    // Ensures missing fields remain empty when no live metadata is available.
-    #[test]
-    fn metadata_fields_with_fallback_keeps_missing_fields_when_live_metadata_unavailable() {
-        let cached = PluginMetadata::new().with_version("0.111.1");
-
-        let (version, protocol_version, nushell_version) =
-            metadata_fields_with_fallback(Some(&cached), None);
-
-        assert_eq!(Some("0.111.1"), version.as_deref());
-        assert_eq!(None, protocol_version.as_deref());
-        assert_eq!(None, nushell_version.as_deref());
     }
 }

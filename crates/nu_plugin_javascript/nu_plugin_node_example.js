@@ -11,7 +11,7 @@
 
 // Configuration constants
 const NUSHELL_VERSION = '0.114.2';
-const PLUGIN_PROTOCOL_VERSION = '0.93.0';
+const PLUGIN_PROTOCOL_VERSION = '0.1.0';
 const PLUGIN_VERSION = '0.1.1';
 
 // Core protocol functions

@@ -13,6 +13,9 @@ pub struct PluginMetadata {
     pub protocol_version: Option<String>,
 
     /// The version of Nushell that the plugin was compiled with, if available.
+    ///
+    /// Informational only: Hello handshake compatibility uses the plugin **protocol** version,
+    /// not this field.
     pub nushell_version: Option<String>,
 }
 

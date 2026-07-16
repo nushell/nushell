@@ -8,10 +8,17 @@
 //! crate explicitly avoids implementing any functionality that depends on I/O, so the exact
 //! byte-level encoding scheme is not implemented here. See the protocol ref or `nu_plugin_core` for
 //! more details on how that works.
+//!
+//! # Protocol version vs Nushell version
+//!
+//! Compatibility is based on [`PLUGIN_PROTOCOL_VERSION`] (the `Hello` handshake), not the Nushell
+//! package version. Nested engine types that still serialize via derive remain a known coupling;
+//! prefer wire serialization snapshots when changing anything that travels over the plugin wire.
 
 mod evaluated_call;
 mod plugin_custom_value;
 mod protocol_info;
+#[cfg(feature = "schema")]
 pub mod schema;
 mod serde_impl;
 

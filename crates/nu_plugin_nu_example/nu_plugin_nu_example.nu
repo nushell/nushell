@@ -7,7 +7,7 @@
 # language without adding any extra dependencies to our tests.
 
 const NUSHELL_VERSION = "0.114.2"
-const PLUGIN_PROTOCOL_VERSION = "0.93.0"
+const PLUGIN_PROTOCOL_VERSION = "0.1.0"
 const PLUGIN_VERSION = "0.1.1" # bump if you change commands!
 
 def main [--stdio] {

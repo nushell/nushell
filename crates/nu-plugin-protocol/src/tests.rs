@@ -96,11 +96,11 @@ fn protocol_info_default_uses_protocol_version_constant() {
 }
 
 #[test]
-fn protocol_info_default_is_compatible_with_same_protocol_major() -> Result<(), ShellError> {
+fn protocol_info_default_is_compatible_with_same_protocol_minor() -> Result<(), ShellError> {
     let current = ProtocolInfo::default();
     let compatible = ProtocolInfo {
         protocol: Protocol::NuPlugin,
-        version: "0.93.1".into(),
+        version: "0.1.1".into(),
         features: vec![],
     };
 
@@ -247,6 +247,7 @@ fn plugin_output_engine_call_matches_snapshot() {
     assert_json_snapshot(actual, expected);
 }
 
+#[cfg(feature = "schema")]
 #[test]
 fn protocol_schema_matches_snapshot() {
     let actual = crate::schema::plugin_protocol_schema_json()
@@ -254,4 +255,149 @@ fn protocol_schema_matches_snapshot() {
     let expected = include_str!("../protocol_schema/plugin_protocol.schema.json");
 
     assert_json_snapshot(actual, expected);
+}
+
+#[test]
+fn plugin_input_signal_json_shape_is_explicit() {
+    let input = PluginInput::Signal(nu_protocol::SignalAction::Interrupt);
+    let actual = serde_json::to_value(&input).expect("signal should serialize");
+    assert_eq!(actual, json!({ "Signal": "Interrupt" }));
+}
+
+#[test]
+fn plugin_output_hello_roundtrips() {
+    let output = PluginOutput::Hello(ProtocolInfo::default());
+    let json = serde_json::to_value(&output).expect("hello should serialize");
+    let back: PluginOutput = serde_json::from_value(json).expect("hello should deserialize");
+    match back {
+        PluginOutput::Hello(info) => {
+            assert_eq!(info.version, PLUGIN_PROTOCOL_VERSION);
+            assert!(matches!(info.protocol, Protocol::NuPlugin));
+        }
+        other => panic!("unexpected {other:?}"),
+    }
+}
+
+#[test]
+fn plugin_call_response_metadata_includes_protocol_fields() {
+    use nu_protocol::PluginMetadata;
+    let meta = PluginMetadata::new()
+        .with_version("1.2.3")
+        .with_protocol_version(PLUGIN_PROTOCOL_VERSION)
+        .with_nushell_version("0.114.2");
+    let response = PluginCallResponse::<PipelineDataHeader>::Metadata(meta);
+    let actual = serde_json::to_value(&response).expect("metadata response should serialize");
+    assert_eq!(
+        actual,
+        json!({
+            "Metadata": {
+                "version": "1.2.3",
+                "protocol_version": PLUGIN_PROTOCOL_VERSION,
+                "nushell_version": "0.114.2",
+            }
+        })
+    );
+}
+
+fn sample_plugin_call_signature() -> PluginInput {
+    PluginInput::Call(2, PluginCall::Signature)
+}
+
+fn sample_plugin_call_get_completion() -> PluginInput {
+    use nu_protocol::ast::Call;
+    PluginInput::Call(
+        3,
+        PluginCall::GetCompletion(GetCompletionInfo {
+            name: "demo".into(),
+            arg_type: GetCompletionArgType::Flag("path".into()),
+            call: DynamicCompletionCall {
+                call: Call::new(Span::new(0, 4)),
+                strip: true,
+                pos: 4,
+            },
+        }),
+    )
+}
+
+fn sample_plugin_call_custom_value_op() -> PluginInput {
+    PluginInput::Call(
+        4,
+        PluginCall::CustomValueOp(
+            Spanned {
+                item: PluginCustomValue::new("MyType".into(), vec![1, 2, 3], false),
+                span: Span::new(5, 12),
+            },
+            CustomValueOp::ToBaseValue,
+        ),
+    )
+}
+
+fn sample_plugin_call_response_signature() -> PluginOutput {
+    use nu_protocol::PluginSignature;
+    PluginOutput::CallResponse(
+        5,
+        PluginCallResponse::Signature(vec![PluginSignature::build("demo")]),
+    )
+}
+
+#[test]
+fn plugin_input_signature_matches_snapshot() {
+    let actual = serde_json::to_value(sample_plugin_call_signature())
+        .expect("signature call should serialize");
+    let expected = include_str!("../protocol_snapshots/plugin_input_signature.json");
+    assert_json_snapshot(actual, expected);
+}
+
+#[test]
+fn plugin_input_get_completion_matches_snapshot() {
+    let actual = serde_json::to_value(sample_plugin_call_get_completion())
+        .expect("get completion should serialize");
+    let expected = include_str!("../protocol_snapshots/plugin_input_get_completion.json");
+    assert_json_snapshot(actual, expected);
+}
+
+#[test]
+fn plugin_input_custom_value_op_matches_snapshot() {
+    let actual = serde_json::to_value(sample_plugin_call_custom_value_op())
+        .expect("custom value op should serialize");
+    let expected = include_str!("../protocol_snapshots/plugin_input_custom_value_op.json");
+    assert_json_snapshot(actual, expected);
+}
+
+#[test]
+fn plugin_output_signature_response_matches_snapshot() {
+    let actual = serde_json::to_value(sample_plugin_call_response_signature())
+        .expect("signature response should serialize");
+    let expected = include_str!("../protocol_snapshots/plugin_output_signature_response.json");
+    assert_json_snapshot(actual, expected);
+}
+
+#[test]
+#[ignore = "run with --ignored to regenerate protocol_snapshots JSON fixtures"]
+fn dump_new_protocol_snapshots() {
+    use std::path::PathBuf;
+    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("protocol_snapshots");
+    let fixtures = [
+        (
+            "plugin_input_signature.json",
+            serde_json::to_value(sample_plugin_call_signature()).unwrap(),
+        ),
+        (
+            "plugin_input_get_completion.json",
+            serde_json::to_value(sample_plugin_call_get_completion()).unwrap(),
+        ),
+        (
+            "plugin_input_custom_value_op.json",
+            serde_json::to_value(sample_plugin_call_custom_value_op()).unwrap(),
+        ),
+        (
+            "plugin_output_signature_response.json",
+            serde_json::to_value(sample_plugin_call_response_signature()).unwrap(),
+        ),
+    ];
+    for (name, value) in fixtures {
+        let pretty = serde_json::to_string_pretty(&value).unwrap() + "\n";
+        std::fs::write(dir.join(name), pretty).unwrap();
+        println!("wrote {}", dir.join(name).display());
+    }
 }

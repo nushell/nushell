@@ -1,0 +1,26 @@
+{
+  "Call": [
+    3,
+    {
+      "GetCompletion": {
+        "arg_type": {
+          "Flag": "path"
+        },
+        "call": {
+          "call": {
+            "arguments": [],
+            "decl_id": 0,
+            "head": {
+              "end": 4,
+              "start": 0
+            },
+            "parser_info": {}
+          },
+          "pos": 4,
+          "strip": true
+        },
+        "name": "demo"
+      }
+    }
+  ]
+}

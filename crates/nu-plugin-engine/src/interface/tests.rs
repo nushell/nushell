@@ -303,6 +303,14 @@ fn manager_consume_errors_on_wrong_protocol_version() -> Result<(), ShellError> 
         err_text.contains("not compatible"),
         "expected compatibility failure, got: {err_text}"
     );
+    assert!(
+        err_text.contains("plugin protocol"),
+        "error should mention plugin protocol (not nushell version), got: {err_text}"
+    );
+    assert!(
+        !err_text.to_lowercase().contains("nushell version"),
+        "error should not claim nushell version incompatibility, got: {err_text}"
+    );
     Ok(())
 }
 

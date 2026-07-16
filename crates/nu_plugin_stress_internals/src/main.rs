@@ -10,7 +10,7 @@ use interprocess::local_socket::{
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-const PLUGIN_PROTOCOL_VERSION: &str = "0.93.0";
+const PLUGIN_PROTOCOL_VERSION: &str = "0.1.0";
 
 #[derive(Debug)]
 struct Options {
