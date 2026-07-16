@@ -6,7 +6,6 @@
 
 use std::process::ExitStatus;
 
-pub mod commands;
 pub mod locale_override;
 pub mod macros;
 

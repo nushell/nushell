@@ -80,7 +80,7 @@ fn get_binary(input: PipelineData, call_span: Span) -> Result<(Vec<u8>, Span), S
         PipelineData::Value(val, ..) => {
             let span = val.span();
             match val {
-                Value::Binary { val, .. } => Ok((val, span)),
+                Value::Binary { val, .. } => Ok((val.into_owned(), span)),
                 Value::String { val, .. } => Ok((val.into_bytes(), span)),
 
                 value => Err(ShellError::TypeMismatch {

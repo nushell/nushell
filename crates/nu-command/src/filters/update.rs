@@ -18,6 +18,7 @@ impl Command for Update {
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::Any)),
                 ),
+                (Type::Custom("matrix".into()), Type::Custom("matrix".into())),
             ])
             .required(
                 "field",
@@ -97,6 +98,11 @@ When updating a specific index, the closure will instead be run once. The first 
                     Value::test_int(4),
                     Value::test_int(3),
                 ])),
+            },
+            Example {
+                description: "Update a row in a matrix",
+                example: "[[1 2] [3 4]] | into matrix | update 0 [5 6] | matrix into-nu | to nuon",
+                result: Some(Value::test_string("[[5.0, 6.0], [3.0, 4.0]]")),
             },
         ]
     }
@@ -245,7 +251,12 @@ fn update(
     let head = call.head;
     let cell_path: CellPath = call.req(engine_state, stack, 0)?;
     let replacement: Value = call.req(engine_state, stack, 1)?;
-    let input = input.into_stream_or_original(engine_state);
+    let is_custom = matches!(&input, PipelineData::Value(Value::Custom { .. }, _));
+    let input = if is_custom {
+        input
+    } else {
+        input.into_stream_or_original(engine_state)
+    };
 
     update_recursive(
         engine_state,

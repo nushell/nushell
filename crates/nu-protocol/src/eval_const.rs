@@ -3,8 +3,7 @@
 //! This enables you to assign `const`-constants and execute parse-time code dependent on this.
 //! e.g. `source $my_const`
 use crate::{
-    BlockId, Config, HistoryFileFormat, HistoryPath, PipelineData, Record, ShellError, Span, Value,
-    VarId,
+    BlockId, Config, HistoryPath, PipelineData, Record, ShellError, Span, Value, VarId,
     ast::{Assignment, Block, Call, Expr, Expression, ExternalArgument},
     debugger::{DebugContext, WithoutDebug},
     engine::{EngineState, StateWorkingSet},
@@ -38,51 +37,30 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
 
     let mut record = Record::new();
 
-    let config_path = match nu_path::nu_config_dir() {
-        Some(path) => Ok(canonicalize_path(engine_state, path.as_ref())),
-        None => Err(Value::error(ShellError::ConfigDirNotFound { span }, span)),
-    };
+    let config_home = &engine_state.config_dirs.config_home;
+    let canon_config_home = canonicalize_path(engine_state, config_home);
 
     record.push(
         "default-config-dir",
-        config_path.as_ref().map_or_else(
-            |e| e.clone(),
-            |path| Value::string(path.to_string_lossy(), span),
-        ),
+        Value::string(canon_config_home.to_string_lossy(), span),
     );
 
     record.push(
         "config-path",
-        if let Some(path) = engine_state.get_config_path("config-path") {
-            let canon_config_path = canonicalize_path(engine_state, path);
-            Value::string(canon_config_path.to_string_lossy(), span)
-        } else {
-            config_path.clone().map_or_else(
-                |e| e,
-                |mut path| {
-                    path.push("config.nu");
-                    let canon_config_path = canonicalize_path(engine_state, &path);
-                    Value::string(canon_config_path.to_string_lossy(), span)
-                },
-            )
-        },
+        Value::string(
+            canonicalize_path(engine_state, engine_state.config_dirs.config_file.as_path())
+                .to_string_lossy(),
+            span,
+        ),
     );
 
     record.push(
         "env-path",
-        if let Some(path) = engine_state.get_config_path("env-path") {
-            let canon_env_path = canonicalize_path(engine_state, path);
-            Value::string(canon_env_path.to_string_lossy(), span)
-        } else {
-            config_path.clone().map_or_else(
-                |e| e,
-                |mut path| {
-                    path.push("env.nu");
-                    let canon_env_path = canonicalize_path(engine_state, &path);
-                    Value::string(canon_env_path.to_string_lossy(), span)
-                },
-            )
-        },
+        Value::string(
+            canonicalize_path(engine_state, engine_state.config_dirs.env_file.as_path())
+                .to_string_lossy(),
+            span,
+        ),
     );
 
     record.push(
@@ -98,114 +76,77 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
                 let canon_hist_path = canonicalize_path(engine_state, &effective_path);
                 Value::string(canon_hist_path.to_string_lossy(), span)
             }
-            HistoryPath::Default => config_path.clone().map_or_else(
-                |e| e,
-                |mut path| {
-                    match engine_state.config.history.file_format {
-                        HistoryFileFormat::Sqlite => {
-                            path.push("history.sqlite3");
-                        }
-                        HistoryFileFormat::Plaintext => {
-                            path.push("history.txt");
-                        }
-                    }
-                    let canon_hist_path = canonicalize_path(engine_state, &path);
-                    Value::string(canon_hist_path.to_string_lossy(), span)
-                },
-            ),
+            HistoryPath::Default => {
+                // Use the same resolution path as history backends so `$nu.history-path`
+                // always matches the file reedline opens.
+                let hist_path = engine_state
+                    .config
+                    .history
+                    .file_path(config_home)
+                    .unwrap_or_else(|| {
+                        config_home
+                            .join(engine_state.config.history.file_format.default_file_name())
+                    });
+                let canon_hist_path = canonicalize_path(engine_state, &hist_path);
+                Value::string(canon_hist_path.to_string_lossy(), span)
+            }
         },
     );
 
     record.push(
         "loginshell-path",
-        config_path.clone().map_or_else(
-            |e| e,
-            |mut path| {
-                path.push("login.nu");
-                let canon_login_path = canonicalize_path(engine_state, &path);
-                Value::string(canon_login_path.to_string_lossy(), span)
-            },
+        Value::string(
+            canonicalize_path(engine_state, &config_home.join("login.nu")).to_string_lossy(),
+            span,
         ),
     );
 
     #[cfg(feature = "plugin")]
     {
+        // Prefer the live plugin_path (set once at startup from config_dirs).
+        let plugin_path = engine_state
+            .plugin_path
+            .as_deref()
+            .unwrap_or_else(|| engine_state.config_dirs.plugin_file.as_path());
         record.push(
             "plugin-path",
-            if let Some(path) = &engine_state.plugin_path {
-                let canon_plugin_path = canonicalize_path(engine_state, path);
-                Value::string(canon_plugin_path.to_string_lossy(), span)
-            } else {
-                // If there are no signatures, we should still populate the plugin path
-                config_path.clone().map_or_else(
-                    |e| e,
-                    |mut path| {
-                        path.push("plugin.msgpackz");
-                        let canonical_plugin_path = canonicalize_path(engine_state, &path);
-                        Value::string(canonical_plugin_path.to_string_lossy(), span)
-                    },
-                )
-            },
+            Value::string(
+                canonicalize_path(engine_state, plugin_path).to_string_lossy(),
+                span,
+            ),
         );
     }
 
     record.push(
         "home-dir",
-        if let Some(path) = nu_path::home_dir() {
-            let canon_home_path = canonicalize_path(engine_state, path.as_ref());
-            Value::string(canon_home_path.to_string_lossy(), span)
-        } else {
-            Value::error(
-                ShellError::Generic(GenericError::new(
-                    "setting $nu.home-dir failed",
-                    "Could not get home directory",
-                    span,
-                )),
-                span,
-            )
-        },
+        Value::string(
+            canonicalize_path(engine_state, &engine_state.config_dirs.home_dir).to_string_lossy(),
+            span,
+        ),
     );
 
     record.push(
         "data-dir",
-        if let Some(path) = nu_path::data_dir() {
-            let mut canon_data_path = canonicalize_path(engine_state, path.as_ref());
-            canon_data_path.push("nushell");
-            Value::string(canon_data_path.to_string_lossy(), span)
-        } else {
-            Value::error(
-                ShellError::Generic(GenericError::new(
-                    "setting $nu.data-dir failed",
-                    "Could not get data path",
-                    span,
-                )),
-                span,
-            )
-        },
+        Value::string(
+            canonicalize_path(engine_state, &engine_state.config_dirs.data_home).to_string_lossy(),
+            span,
+        ),
     );
 
     record.push(
         "cache-dir",
-        if let Some(path) = nu_path::cache_dir() {
-            let mut canon_cache_path = canonicalize_path(engine_state, path.as_ref());
-            canon_cache_path.push("nushell");
-            Value::string(canon_cache_path.to_string_lossy(), span)
-        } else {
-            Value::error(
-                ShellError::Generic(GenericError::new(
-                    "setting $nu.cache-dir failed",
-                    "Could not get cache path",
-                    span,
-                )),
-                span,
-            )
-        },
+        Value::string(
+            canonicalize_path(engine_state, &engine_state.config_dirs.cache_home).to_string_lossy(),
+            span,
+        ),
     );
 
     record.push(
         "vendor-autoload-dirs",
         Value::list(
-            get_vendor_autoload_dirs(engine_state)
+            engine_state
+                .config_dirs
+                .vendor_autoload_dirs
                 .iter()
                 .map(|path| Value::string(path.to_string_lossy(), span))
                 .collect(),
@@ -216,7 +157,9 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
     record.push(
         "user-autoload-dirs",
         Value::list(
-            get_user_autoload_dirs(engine_state)
+            engine_state
+                .config_dirs
+                .user_autoload_dirs
                 .iter()
                 .map(|path| Value::string(path.to_string_lossy(), span))
                 .collect(),
@@ -281,113 +224,6 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
     record.push("is-mcp", Value::bool(engine_state.is_mcp, span));
 
     Value::record(record, span)
-}
-
-/// Generates the list of vendor autoload dirs
-///
-/// - *macOS only*: `/Library/Application Support/nushell/vendor/autoload`
-/// - *non-Windows*:
-///   ```nu
-///   if $env.XDG_DATA_DIRS? != null {
-///       $env.XDG_DATA_DIRS
-///       | split row ":"
-///       | reverse
-///   } else if $PREFIX ends-with "local" {
-///       [
-///           $'($PREFIX)/share'
-///       ]
-///   } else {
-///       [
-///           $'($PREFIX)/local/share'
-///           $'($PREFIX)/share'
-///       ]
-///   }
-///   | each {|dir| $'($dir)/nushell/vendor' }
-///   ```
-/// - *Windows only*: `%ProgramData%\nushell\vendor\autoload`
-/// - *compile time*: `$env.NU_VENDOR_AUTOLOAD_DIR` if it is set
-/// - `($nu.data_dir)/vendor/autoload`
-/// - `$env.NU_VENDOR_AUTOLOAD_DIR` if it is set _before_ `nu` is run
-pub fn get_vendor_autoload_dirs(_engine_state: &EngineState) -> Vec<PathBuf> {
-    let into_autoload_path_fn = |mut path: PathBuf| {
-        path.push("nushell");
-        path.push("vendor");
-        path.push("autoload");
-        path
-    };
-
-    let mut dirs = Vec::new();
-
-    let mut append_fn = |path: PathBuf| {
-        if !dirs.contains(&path) {
-            dirs.push(path)
-        }
-    };
-
-    #[cfg(target_os = "macos")]
-    std::iter::once("/Library/Application Support")
-        .map(PathBuf::from)
-        .map(into_autoload_path_fn)
-        .for_each(&mut append_fn);
-    #[cfg(unix)]
-    {
-        use std::os::unix::ffi::OsStrExt;
-
-        std::env::var_os("XDG_DATA_DIRS")
-            .or_else(|| {
-                option_env!("PREFIX").map(|prefix| {
-                    if prefix.ends_with("local") {
-                        std::ffi::OsString::from(format!("{prefix}/share"))
-                    } else {
-                        std::ffi::OsString::from(format!("{prefix}/local/share:{prefix}/share"))
-                    }
-                })
-            })
-            .unwrap_or_else(|| std::ffi::OsString::from("/usr/local/share/:/usr/share/"))
-            .as_encoded_bytes()
-            .split(|b| *b == b':')
-            .map(|split| into_autoload_path_fn(PathBuf::from(std::ffi::OsStr::from_bytes(split))))
-            .rev()
-            .for_each(&mut append_fn);
-    }
-
-    #[cfg(target_os = "windows")]
-    dirs_sys::known_folder(windows_sys::Win32::UI::Shell::FOLDERID_ProgramData)
-        .into_iter()
-        .map(into_autoload_path_fn)
-        .for_each(&mut append_fn);
-
-    if let Some(path) = option_env!("NU_VENDOR_AUTOLOAD_DIR") {
-        append_fn(PathBuf::from(path));
-    }
-
-    if let Some(data_dir) = nu_path::data_dir() {
-        append_fn(into_autoload_path_fn(PathBuf::from(data_dir)));
-    }
-
-    if let Some(path) = std::env::var_os("NU_VENDOR_AUTOLOAD_DIR") {
-        append_fn(PathBuf::from(path));
-    }
-
-    dirs
-}
-
-pub fn get_user_autoload_dirs(_engine_state: &EngineState) -> Vec<PathBuf> {
-    // User autoload directories - Currently just `autoload` in the default
-    // configuration directory
-    let mut dirs = Vec::new();
-
-    let mut append_fn = |path: PathBuf| {
-        if !dirs.contains(&path) {
-            dirs.push(path)
-        }
-    };
-
-    if let Some(config_dir) = nu_path::nu_config_dir() {
-        append_fn(config_dir.join("autoload").into());
-    }
-
-    dirs
 }
 
 fn eval_const_call(

@@ -98,3 +98,43 @@ fn unique_env_each_iteration() -> Result {
         .run(code)
         .expect_value_eq(false)
 }
+
+#[test]
+fn works_with_row_condition_it() -> Result {
+    test()
+        .run("[5 10 15 20] | any $it / 4 == 5")
+        .expect_value_eq(true)
+}
+
+#[test]
+fn works_with_row_condition_column() -> Result {
+    test()
+        .run("[[abc xyz]; [A a] [B b]] | any abc like '[a-z]'")
+        .expect_value_eq(false)
+}
+
+#[test]
+fn row_condition_subshell() -> Result {
+    test()
+        .run("[bash fish nu] | enumerate | any ($it.item | str length) == $it.index")
+        .expect_value_eq(true)
+}
+
+#[test]
+fn any_invalid_type_error() -> Result {
+    let err = test()
+        .run("[nushell bash fish] | any 1wk")
+        .expect_parse_error()?;
+    match err {
+        ParseError::TypeMismatch {
+            0: expected,
+            1: found,
+            ..
+        } => {
+            assert_eq!(expected, nu_protocol::Type::Bool);
+            assert_eq!(found, nu_protocol::Type::Duration);
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
+}

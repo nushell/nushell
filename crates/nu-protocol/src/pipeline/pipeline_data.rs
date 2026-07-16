@@ -351,7 +351,9 @@ impl PipelineData {
                     ),
                     Value::Binary { val, .. } => PipelineIteratorInner::ListStream(
                         ListStream::new(
-                            val.into_iter().map(move |x| Value::int(x as i64, val_span)),
+                            val.into_owned()
+                                .into_iter()
+                                .map(move |x| Value::int(x as i64, val_span)),
                             val_span,
                             Signals::empty(),
                         )
@@ -770,7 +772,7 @@ impl PipelineData {
         if let PipelineData::Value(Value::Binary { val: bytes, .. }, _) = self {
             if to_stderr {
                 write_all_and_flush(
-                    bytes,
+                    bytes.as_slice(),
                     &mut std::io::stderr().lock(),
                     "stderr",
                     span,
@@ -778,7 +780,7 @@ impl PipelineData {
                 )?;
             } else {
                 write_all_and_flush(
-                    bytes,
+                    bytes.as_slice(),
                     &mut std::io::stdout().lock(),
                     "stdout",
                     span,
@@ -1103,7 +1105,7 @@ where
 fn value_to_bytes(value: Value) -> Result<Vec<u8>, ShellError> {
     let bytes = match value {
         Value::String { val, .. } => val.into_bytes(),
-        Value::Binary { val, .. } => val,
+        Value::Binary { val, .. } => val.into_owned(),
         Value::List { vals, .. } => {
             let val = vals
                 .into_iter()

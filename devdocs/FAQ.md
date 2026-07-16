@@ -33,6 +33,15 @@ Approximate flow:
         - depending on whether you have access to a `StateWorkingSet`
     - if only relevant to in the field debugging: `log`-crate macros.
 
+## Which upstream projects power some of Nu's built-in commands?
+
+A number of Nu's file and system commands are built on
+[uutils/coreutils](https://github.com/uutils/coreutils), a cross-platform Rust
+reimplementation of the GNU coreutils. These currently include `cp`, `mv`,
+`mkdir`, `mktemp`, `touch`, `whoami`, and `uname` (see the `uu_*` workspace
+dependencies in the root `Cargo.toml`). Relying on uutils lets these commands
+behave consistently across Windows, macOS, and Linux.
+
 ## How do I check an environment variable?
 TODO
 

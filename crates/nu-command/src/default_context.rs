@@ -314,6 +314,8 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         // Date
         bind_command! {
             Date,
+            DateCeil,
+            DateFloor,
             DateFromHuman,
             DateHumanize,
             DateListTimezones,
@@ -380,6 +382,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             IntoFloat,
             IntoFilesize,
             IntoInt,
+            IntoMatrix,
             IntoRecord,
             IntoSemver,
             IntoSemverRange,
@@ -393,6 +396,29 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         bind_command! {
             Semver,
             SemverBump,
+        };
+
+        // Matrix
+        bind_command! {
+            Matrix,
+            MatrixZeros,
+            MatrixIdentity,
+            MatrixGetRow,
+            MatrixGetCol,
+            MatrixSetRow,
+            MatrixSetCol,
+            MatrixAdd,
+            MatrixSubtract,
+            MatrixScale,
+            MatrixMultiply,
+            MatrixTranspose,
+            MatrixReshape,
+            MatrixMap,
+            MatrixReduce,
+            MatrixSum,
+            MatrixMean,
+            MatrixMax,
+            MatrixIntoNu,
         };
 
         // Env

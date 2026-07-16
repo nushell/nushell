@@ -1,8 +1,7 @@
-use crate::database::{MEMORY_DB, SQLiteDatabase, values_to_sql};
+use crate::database::{MEMORY_DB, SQLiteDatabase, get_shared_mem_conn, values_to_sql};
 use nu_engine::command_prelude::*;
-use nu_protocol::Signals;
 use nu_protocol::shell_error::generic::GenericError;
-use rusqlite::params_from_iter;
+use rusqlite::{Connection, params_from_iter};
 
 #[derive(Clone)]
 pub struct StorInsert;
@@ -86,18 +85,18 @@ impl Command for StorInsert {
         let span = call.head;
         let table_name: Option<String> = call.get_flag(engine_state, stack, "table-name")?;
         let data_record: Option<Record> = call.get_flag(engine_state, stack, "data-record")?;
-        // let config = stack.get_config(engine_state);
-        let db = Box::new(SQLiteDatabase::new(
-            std::path::Path::new(MEMORY_DB),
-            Signals::empty(),
-        ));
 
         let records = handle(span, data_record, input)?;
 
+        let conn = get_shared_mem_conn()?;
         for record in records {
-            process(engine_state, table_name.clone(), span, &db, record)?;
+            process(engine_state, table_name.clone(), span, &conn, record)?;
         }
 
+        let db = Box::new(SQLiteDatabase::new(
+            std::path::Path::new(MEMORY_DB),
+            engine_state.signals().clone(),
+        ));
         Ok(Value::custom(db, span).into_pipeline_data())
     }
 }
@@ -158,7 +157,7 @@ fn process(
     engine_state: &EngineState,
     table_name: Option<String>,
     span: Span,
-    db: &SQLiteDatabase,
+    conn: &Connection,
     record: Record,
 ) -> Result<(), ShellError> {
     if table_name.is_none() {
@@ -193,16 +192,13 @@ fn process(
     // Get the params from the passed values
     let params = values_to_sql(engine_state, record.values().cloned(), span)?;
 
-    if let Ok(conn) = db.open_connection() {
-        conn.execute(&create_stmt, params_from_iter(params))
-            .map_err(|err| {
-                ShellError::Generic(GenericError::new_internal(
-                    "Failed to insert using the SQLite connection in memory from insert.rs.",
-                    err.to_string(),
-                ))
-            })?;
-    };
-    // dbg!(db.clone());
+    conn.execute(&create_stmt, params_from_iter(params))
+        .map_err(|err| {
+            ShellError::Generic(GenericError::new_internal(
+                "Failed to insert using the SQLite connection to the in-memory database from insert.rs.",
+                err.to_string(),
+            ))
+        })?;
     Ok(())
 }
 
@@ -219,10 +215,7 @@ mod test {
 
     #[test]
     fn test_process_with_simple_parameters() {
-        let db = Box::new(SQLiteDatabase::new(
-            std::path::Path::new(MEMORY_DB),
-            Signals::empty(),
-        ));
+        let conn = get_shared_mem_conn().expect("Test was unable to get shared connection.");
         let create_stmt = "CREATE TABLE test_process_with_simple_parameters (
             int_column INTEGER,
             real_column REAL,
@@ -231,9 +224,6 @@ mod test {
             date_column DATETIME DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW'))
         )";
 
-        let conn = db
-            .open_connection()
-            .expect("Test was unable to open connection.");
         conn.execute(create_stmt, [])
             .expect("Failed to create table as part of test.");
         let table_name = Some("test_process_with_simple_parameters".to_string());
@@ -254,24 +244,18 @@ mod test {
             ),
         );
 
-        let result = process(&EngineState::new(), table_name, span, &db, columns);
+        let result = process(&EngineState::new(), table_name, span, &conn, columns);
 
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_process_string_with_space() {
-        let db = Box::new(SQLiteDatabase::new(
-            std::path::Path::new(MEMORY_DB),
-            Signals::empty(),
-        ));
+        let conn = get_shared_mem_conn().expect("Test was unable to get shared connection.");
         let create_stmt = "CREATE TABLE test_process_string_with_space (
             str_column VARCHAR(255)
         )";
 
-        let conn = db
-            .open_connection()
-            .expect("Test was unable to open connection.");
         conn.execute(create_stmt, [])
             .expect("Failed to create table as part of test.");
         let table_name = Some("test_process_string_with_space".to_string());
@@ -282,24 +266,18 @@ mod test {
             Value::test_string("String With Spaces".to_string()),
         );
 
-        let result = process(&EngineState::new(), table_name, span, &db, columns);
+        let result = process(&EngineState::new(), table_name, span, &conn, columns);
 
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_no_errors_when_string_too_long() {
-        let db = Box::new(SQLiteDatabase::new(
-            std::path::Path::new(MEMORY_DB),
-            Signals::empty(),
-        ));
+        let conn = get_shared_mem_conn().expect("Test was unable to get shared connection.");
         let create_stmt = "CREATE TABLE test_errors_when_string_too_long (
             str_column VARCHAR(8)
         )";
 
-        let conn = db
-            .open_connection()
-            .expect("Test was unable to open connection.");
         conn.execute(create_stmt, [])
             .expect("Failed to create table as part of test.");
         let table_name = Some("test_errors_when_string_too_long".to_string());
@@ -310,24 +288,18 @@ mod test {
             Value::test_string("ThisIsALongString".to_string()),
         );
 
-        let result = process(&EngineState::new(), table_name, span, &db, columns);
+        let result = process(&EngineState::new(), table_name, span, &conn, columns);
         // SQLite uses dynamic typing, making any length acceptable for a varchar column
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_no_errors_when_param_is_wrong_type() {
-        let db = Box::new(SQLiteDatabase::new(
-            std::path::Path::new(MEMORY_DB),
-            Signals::empty(),
-        ));
+        let conn = get_shared_mem_conn().expect("Test was unable to get shared connection.");
         let create_stmt = "CREATE TABLE test_errors_when_param_is_wrong_type (
             int_column INT
         )";
 
-        let conn = db
-            .open_connection()
-            .expect("Test was unable to open connection.");
         conn.execute(create_stmt, [])
             .expect("Failed to create table as part of test.");
         let table_name = Some("test_errors_when_param_is_wrong_type".to_string());
@@ -338,24 +310,18 @@ mod test {
             Value::test_string("ThisIsTheWrongType".to_string()),
         );
 
-        let result = process(&EngineState::new(), table_name, span, &db, columns);
+        let result = process(&EngineState::new(), table_name, span, &conn, columns);
         // SQLite uses dynamic typing, making any type acceptable for a column
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_errors_when_column_doesnt_exist() {
-        let db = Box::new(SQLiteDatabase::new(
-            std::path::Path::new(MEMORY_DB),
-            Signals::empty(),
-        ));
+        let conn = get_shared_mem_conn().expect("Test was unable to get shared connection.");
         let create_stmt = "CREATE TABLE test_errors_when_column_doesnt_exist (
             int_column INT
         )";
 
-        let conn = db
-            .open_connection()
-            .expect("Test was unable to open connection.");
         conn.execute(create_stmt, [])
             .expect("Failed to create table as part of test.");
         let table_name = Some("test_errors_when_column_doesnt_exist".to_string());
@@ -366,17 +332,14 @@ mod test {
             Value::test_string("ThisIsALongString".to_string()),
         );
 
-        let result = process(&EngineState::new(), table_name, span, &db, columns);
+        let result = process(&EngineState::new(), table_name, span, &conn, columns);
 
         assert!(result.is_err());
     }
 
     #[test]
     fn test_errors_when_table_doesnt_exist() {
-        let db = Box::new(SQLiteDatabase::new(
-            std::path::Path::new(MEMORY_DB),
-            Signals::empty(),
-        ));
+        let conn = get_shared_mem_conn().expect("Test was unable to get shared connection.");
 
         let table_name = Some("test_errors_when_table_doesnt_exist".to_string());
         let span = Span::test_data();
@@ -386,26 +349,20 @@ mod test {
             Value::test_string("ThisIsALongString".to_string()),
         );
 
-        let result = process(&EngineState::new(), table_name, span, &db, columns);
+        let result = process(&EngineState::new(), table_name, span, &conn, columns);
 
         assert!(result.is_err());
     }
 
     #[test]
     fn test_insert_json() {
-        let db = Box::new(SQLiteDatabase::new(
-            std::path::Path::new(MEMORY_DB),
-            Signals::empty(),
-        ));
+        let conn = get_shared_mem_conn().expect("Test was unable to get shared connection.");
 
         let create_stmt = "CREATE TABLE test_insert_json (
             json_field JSON,
             jsonb_field JSONB 
         )";
 
-        let conn = db
-            .open_connection()
-            .expect("Test was unable to open connection.");
         conn.execute(create_stmt, [])
             .expect("Failed to create table as part of test.");
 
@@ -428,7 +385,7 @@ mod test {
             &EngineState::new(),
             Some("test_insert_json".to_owned()),
             Span::test_data(),
-            &db,
+            &conn,
             row,
         );
 
