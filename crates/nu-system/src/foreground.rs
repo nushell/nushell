@@ -12,6 +12,24 @@ use std::{io::IsTerminal, sync::atomic::Ordering};
 #[cfg(unix)]
 pub use child_pgroup::stdin_fd;
 
+/// Detach `command` from the parent's controlling terminal/console.
+///
+/// Used for background completion subprocesses so they cannot call
+/// `tcsetattr` / `SetConsoleMode` and corrupt reedline. Caller must also
+/// redirect stdin to null. No-op on platforms without a process API.
+pub fn prepare_background_command(command: &mut Command) {
+    #[cfg(unix)]
+    child_pgroup::prepare_isolated_command(command);
+
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        // DETACHED_PROCESS: no console to no SetConsoleMode (Unix setsid analogue).
+        const DETACHED_PROCESS: u32 = 0x0000_0008;
+        command.creation_flags(DETACHED_PROCESS);
+    }
+}
+
 #[cfg(unix)]
 use nix::{sys::signal, sys::wait, unistd::Pid};
 
@@ -366,6 +384,23 @@ mod child_pgroup {
     /// interface.
     pub unsafe fn stdin_fd() -> impl AsFd {
         unsafe { BorrowedFd::borrow_raw(nix::libc::STDIN_FILENO) }
+    }
+
+    /// `setsid` in `pre_exec`: new session, no controlling terminal.
+    ///
+    /// Not the same as [`prepare_command`] with `background = true` (that only
+    /// skips `tcsetpgrp`; this fully detaches). Completions skip job-control
+    /// signal resets intentionally.
+    pub fn prepare_isolated_command(command: &mut Command) {
+        // SAFETY: `setsid` is async-signal-safe (POSIX signal-safety(7)); legal
+        // in `pre_exec` between fork and exec.
+        unsafe {
+            command.pre_exec(|| {
+                // Ignore EPERM if we are already a session leader.
+                let _ = unistd::setsid();
+                Ok(())
+            });
+        }
     }
 
     pub fn prepare_command(external_command: &mut Command, existing_pgrp: u32, background: bool) {

@@ -65,6 +65,9 @@ pub struct Stack {
     /// Locally updated config. Use [`.get_config()`](Self::get_config) to access correctly.
     pub config: Option<Arc<Config>>,
     pub(crate) out_dest: StackOutDest,
+    /// When `true`, external processes spawned with `PipelineData::Empty` input
+    /// receive `/dev/null` for stdin instead of inheriting the terminal.
+    pub suppress_stdin: bool,
 }
 
 impl Default for Stack {
@@ -97,6 +100,7 @@ impl Stack {
             deletions: vec![],
             config: None,
             out_dest: StackOutDest::new(),
+            suppress_stdin: false,
         }
     }
 
@@ -120,6 +124,7 @@ impl Stack {
             deletions: vec![],
             config: parent.config.clone(),
             out_dest: parent.out_dest.clone(),
+            suppress_stdin: parent.suppress_stdin,
             parent_stack: Some(parent),
         }
     }
@@ -393,6 +398,7 @@ impl Stack {
             deletions: vec![],
             config: self.config.clone(),
             out_dest: self.out_dest.clone(),
+            suppress_stdin: self.suppress_stdin,
         }
     }
 
@@ -429,6 +435,7 @@ impl Stack {
             deletions: vec![],
             config: self.config.clone(),
             out_dest: self.out_dest.clone(),
+            suppress_stdin: self.suppress_stdin,
         }
     }
 
@@ -878,6 +885,29 @@ impl Stack {
     /// (which is why this function does not take `&mut self`).
     pub fn reset_out_dest(mut self) -> Self {
         self.out_dest = StackOutDest::new();
+        self
+    }
+
+    /// Redirects stdout and stderr to [`OutDest::Null`], discarding all output.
+    ///
+    /// Use this for background evaluation tasks (e.g., completion) that must
+    /// never write to the terminal while reedline owns it.
+    pub fn suppress_output(mut self) -> Self {
+        self.out_dest.stdout = OutDest::Null;
+        self.out_dest.stderr = OutDest::Null;
+        self
+    }
+
+    /// Causes external processes spawned with empty input to receive
+    /// `/dev/null` for stdin instead of inheriting the terminal.
+    ///
+    /// Use this together with [`suppress_output`](Self::suppress_output) for
+    /// background tasks (e.g. completion threads).  Without it, subprocesses
+    /// spawned by closure-based completers (carapace, fish_complete, etc.)
+    /// inherit the live terminal fd and can race with reedline's reads,
+    /// causing `Input/output error` (EIO).
+    pub fn suppress_stdin(mut self) -> Self {
+        self.suppress_stdin = true;
         self
     }
 
