@@ -1,5 +1,5 @@
 use fancy_regex::Regex;
-use nu_protocol::PipelineData;
+use nu_protocol::{PipelineData, test_value};
 use nu_test_support::{fs::Stub::FileWithContent, prelude::*, tester::TestError};
 
 #[test]
@@ -448,15 +448,22 @@ fn early_return_keeps_stream() -> Result {
 #[test]
 fn early_return_with_finally_runs_cleanup_and_keeps_value() -> Result {
     // In-process `print` output isn't captured, so the `finally` block reports through the root
-    // job's mailbox (`job send 0`) instead. Interpolating the recovered message with the returned
-    // value yields "cleanup1", proving the cleanup ran and the early-return value survived it.
+    // job's mailbox (`job send 0`) instead. The recovered message and the returned value confirm
+    // the cleanup ran and the early-return value survived it. The pipeline is single-threaded, so
+    // by the time `job recv` runs the message is already queued and no timeout is needed.
     test()
         .run(
             r#"def foo [] { try { return 1 } finally { "cleanup" | job send 0 } };
             let val = foo;
-            $"(job recv --timeout 10sec)($val)""#,
+            {
+                finally: (job recv --timeout 0sec),
+                returned: $val,
+            }"#,
         )
-        .expect_value_eq("cleanup1")
+        .expect_value_eq(test_value!({
+            finally: "cleanup",
+            returned: 1,
+        }))
 }
 
 #[test]
@@ -489,10 +496,10 @@ fn early_return_in_export_env_stays_in_env_block() -> Result {
 fn early_return_in_export_env_guard_skips_rest_of_env_block() -> Result {
     test()
         .run(
-            "def foo [] { export-env { if true { return }; $env.FOO = 'set' }; $env.FOO? | default 'unset' };
+            "def foo [] { export-env { if true { return }; $env.FOO = 'set' }; $env.FOO? };
             foo",
         )
-        .expect_value_eq("unset")
+        .expect_value_eq(())
 }
 
 /// Subset of the record `complete` returns, captured in a single `nu` run rather than re-running
