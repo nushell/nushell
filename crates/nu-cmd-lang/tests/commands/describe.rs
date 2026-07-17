@@ -1,4 +1,3 @@
-use nu_test_support::nu;
 use nu_test_support::prelude::*;
 
 #[test]

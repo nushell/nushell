@@ -17,7 +17,7 @@ fn test_computable_style_closure_basic() -> Result {
 
         $env.config = {
             color_config: {
-                string: {|e| $e | job send $id; 'red' }
+                string: {|e| $e | job send $id; "red" }
             }
         }
     "#;

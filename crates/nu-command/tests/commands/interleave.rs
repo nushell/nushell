@@ -9,12 +9,12 @@ fn interleave_external_commands() -> Result {
             {
                 nu -n -c 'print hello; print world'
                 | lines
-                | each { 'greeter: ' ++ $in }
+                | each { "greeter: " ++ $in }
             }
             {
                 nu -n -c 'print nushell; print rocks'
                 | lines
-                | each { 'evangelist: ' ++ $in }
+                | each { "evangelist: " ++ $in }
             }
         )
     "#;
