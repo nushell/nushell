@@ -180,9 +180,7 @@ fn first_helper(
                 Value::List { vals, .. } => {
                     if return_single_element {
                         if let Some(val) = vals.first() {
-                            Ok(val
-                                .clone()
-                                .into_pipeline_data_with_metadata(input_meta))
+                            Ok(val.clone().into_pipeline_data_with_metadata(input_meta))
                         } else if strict_mode {
                             Err(ShellError::AccessEmptyContent { span: head })
                         } else {

@@ -434,7 +434,11 @@ fn bench_stack_list_get_var(items: usize) -> impl IntoBenchmarks {
             Value::test_list((0..items).map(|i| Value::test_int(i as i64)).collect()),
         );
         b.iter(move || {
-            black_box(stack.get_var(var_id, Span::test_data()).expect("var present"));
+            black_box(
+                stack
+                    .get_var(var_id, Span::test_data())
+                    .expect("var present"),
+            );
         })
     })]
 }

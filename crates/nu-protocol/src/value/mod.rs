@@ -5663,8 +5663,7 @@ mod tests {
             let (
                 Value::List { vals, .. },
                 Value::List {
-                    vals: cloned_vals,
-                    ..
+                    vals: cloned_vals, ..
                 },
             ) = (&value, &clone)
             else {
@@ -5681,14 +5680,17 @@ mod tests {
             let mut clone = value.clone();
 
             clone
-                .upsert_data_at_cell_path(
-                    &[PathMember::test_int(0, false)],
-                    Value::test_int(3),
-                )
+                .upsert_data_at_cell_path(&[PathMember::test_int(0, false)], Value::test_int(3))
                 .unwrap();
 
-            assert_eq!(value.as_list(), Ok([Value::test_int(1), Value::test_int(2)].as_slice()));
-            assert_eq!(clone.as_list(), Ok([Value::test_int(3), Value::test_int(2)].as_slice()));
+            assert_eq!(
+                value.as_list(),
+                Ok([Value::test_int(1), Value::test_int(2)].as_slice())
+            );
+            assert_eq!(
+                clone.as_list(),
+                Ok([Value::test_int(3), Value::test_int(2)].as_slice())
+            );
         }
 
         #[test]
@@ -5696,8 +5698,14 @@ mod tests {
             let value = Value::test_list(vec![Value::test_int(1), Value::test_int(2)]);
             let clone = value.clone();
 
-            assert_eq!(clone.into_list(), Ok(vec![Value::test_int(1), Value::test_int(2)]));
-            assert_eq!(value.as_list(), Ok([Value::test_int(1), Value::test_int(2)].as_slice()));
+            assert_eq!(
+                clone.into_list(),
+                Ok(vec![Value::test_int(1), Value::test_int(2)])
+            );
+            assert_eq!(
+                value.as_list(),
+                Ok([Value::test_int(1), Value::test_int(2)].as_slice())
+            );
         }
     }
 

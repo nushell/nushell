@@ -240,10 +240,7 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                                     Value::list_shared(vals, span),
                                 );
                             } else {
-                                out.insert(
-                                    column,
-                                    Value::list_shared(vals, span),
-                                );
+                                out.insert(column, Value::list_shared(vals, span));
                             }
                         } else if !columns.is_empty() {
                             let cell_path =
@@ -253,17 +250,13 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                                 });
 
                             if let Some(r) = cell_path {
-                                inner_table =
-                                    Some(TableInside::Entries(
-                                        r.clone(),
-                                        vals.into_owned(),
-                                        column_index,
-                                    ));
+                                inner_table = Some(TableInside::Entries(
+                                    r.clone(),
+                                    vals.into_owned(),
+                                    column_index,
+                                ));
                             } else {
-                                out.insert(
-                                    column,
-                                    Value::list_shared(vals, span),
-                                );
+                                out.insert(column, Value::list_shared(vals, span));
                             }
                         } else {
                             inner_table = Some(TableInside::Entries(
