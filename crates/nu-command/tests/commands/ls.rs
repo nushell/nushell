@@ -967,7 +967,7 @@ fn ls_with_file_named_star_lists_all_entries() -> Result {
             .cwd(dirs.test())
             .run("ls * | length")
             .expect_value_eq(7)?;
-    });
 
-    Ok(())
+        Ok(())
+    })
 }
