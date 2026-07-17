@@ -4838,6 +4838,7 @@ dependencies = [
  "derive_setters",
  "dirs 6.0.0",
  "dirs-sys 0.5.0",
+ "nu-path",
  "nu-test-support",
  "tempfile",
  "thiserror 2.0.18",
