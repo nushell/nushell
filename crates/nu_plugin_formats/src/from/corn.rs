@@ -58,7 +58,7 @@ impl SimplePluginCommand for FromCorn {
             return Ok(Value::nothing(span));
         }
 
-        Ok(try_str_to_value(&string_input, span)?)
+        try_str_to_value(&string_input, span)
     }
 }
 
