@@ -43,10 +43,7 @@ where
 {
     let item = needle.borrow();
 
-    assert!(
-        !haystack.contains(item),
-        "{haystack:?} contains {item:?}"
-    );
+    assert!(!haystack.contains(item), "{haystack:?} contains {item:?}");
 }
 
 #[cfg(test)]
