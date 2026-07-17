@@ -7,7 +7,7 @@ use nu_protocol::{
     process::{ChildProcess, PostWaitCallback},
     shell_error::io::IoError,
 };
-use nu_system::{ForegroundChild, kill_by_pid, prepare_background_command};
+use nu_system::{ForegroundChild, kill_by_pid};
 use nu_utils::IgnoreCaseExt;
 use pathdiff::diff_paths;
 #[cfg(windows)]
@@ -256,10 +256,13 @@ If you create a custom command with this name, that will be used instead."
                 }
             },
             PipelineData::Empty => {
-                // MCP and background completions must not inherit the live terminal.
-                if engine_state.is_mcp || stack.suppress_stdin {
+                // MCP servers run non-interactively - use null stdin to prevent commands
+                // from hanging when they prompt for passwords or other input.
+                // In the future, this may become a more general option (e.g., no_stdin)
+                // but needs more testing first. See:
+                // https://github.com/nushell/nushell/pull/17161#discussion_r2761243143
+                if engine_state.is_mcp {
                     command.stdin(Stdio::null());
-                    prepare_background_command(&mut command);
                 } else {
                     command.stdin(Stdio::inherit());
                 }
@@ -281,9 +284,7 @@ If you create a custom command with this name, that will be used instead."
         #[cfg(unix)]
         let child = ForegroundChild::spawn(
             command,
-            // `suppress_stdin` children are already detached; do not also take
-            // the foreground pgrp from the completion thread.
-            engine_state.is_interactive && !stack.suppress_stdin,
+            engine_state.is_interactive,
             engine_state.is_background_job(),
             &engine_state.pipeline_externals_state,
         );
@@ -820,59 +821,5 @@ mod test {
         );
         write_pipeline_data(engine_state.clone(), stack.clone(), input, &mut buf).unwrap();
         assert_eq!(buf, b"foo");
-    }
-}
-
-/// `prepare_background_command` must detach from the controlling terminal/console
-/// so completer subprocesses cannot rewrite reedline's raw-mode state.
-#[cfg(test)]
-mod background_isolation_tests {
-    use nu_system::prepare_background_command;
-    use std::process::{Command, Stdio};
-
-    #[cfg(unix)]
-    #[test]
-    fn setsid_removes_controlling_terminal() {
-        let mut cmd = Command::new("sh");
-        // Subshell so a failed redirect does not exit before the `||` branch.
-        cmd.args([
-            "-c",
-            "(exec 3>/dev/tty) 2>/dev/null && echo has_tty || echo no_tty",
-        ])
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null());
-        prepare_background_command(&mut cmd);
-
-        let output = cmd.output().expect("sh should run");
-        assert_eq!(
-            String::from_utf8_lossy(&output.stdout).trim(),
-            "no_tty",
-            "child must not retain a controlling terminal after setsid"
-        );
-    }
-
-    #[cfg(windows)]
-    #[test]
-    fn detached_process_removes_console() {
-        // Use only cmd built-ins — console-subsystem .exe children can get a
-        // fresh console even with DETACHED_PROCESS, which would false-positive.
-        let mut cmd = Command::new("cmd");
-        cmd.args([
-            "/c",
-            "(echo.>CON 2>NUL && echo has_console) || echo no_console",
-        ])
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
-        prepare_background_command(&mut cmd);
-
-        let output = cmd.output().expect("cmd should run");
-        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        assert_eq!(
-            stdout, "no_console",
-            "child must not retain a console after DETACHED_PROCESS; stderr={stderr}"
-        );
     }
 }

@@ -458,9 +458,7 @@ fn convert_whole_command_completion_results(
                     .with_inner([err]),
                 )
             );
-            // Error does not equal empty success: fall back so file completion
-            // still runs when an external completer fails.
-            return None;
+            return Some(vec![]);
         }
     };
 
