@@ -173,12 +173,12 @@ fn table_collapse_padding_zero() -> Result {
 fn table_leading_trailing_space_bg() -> Result {
     test()
         .run_with_data(
-            r#"
+            "
                 let data = $in
                 $env.config.color_config.leading_trailing_space_bg = { bg: 'default' }
                 $data
                 | table --width=80
-            "#,
+            ",
             test_value!([
                 { a: "  1  ", b: "    2", "c   ": "3    " },
                 { a: "  4  ", b: "hello\nworld", "c   ": ["  1  ", 2, [1, "  2  ", 3]] }
@@ -199,12 +199,12 @@ fn table_leading_trailing_space_bg() -> Result {
 fn table_leading_trailing_space_bg_expand() -> Result {
     test()
         .run_with_data(
-            r#"
+            "
                 let data = $in
                 $env.config.color_config.leading_trailing_space_bg = { bg: 'default' }
                 $data
                 | table --width=80 --expand
-            "#,
+            ",
             test_value!([
                 { a: "  1  ", b: "    2", "c   ": "3    " },
                 { a: "  4  ", b: "hello\nworld", "c   ": ["  1  ", 2, [1, "  2  ", 3]] }
