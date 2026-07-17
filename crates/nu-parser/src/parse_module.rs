@@ -816,7 +816,7 @@ pub fn parse_module_file_or_dir(
 
         let mod_nu_path = match module_path.clone().join("mod.nu") {
             path @ ParserPath::RealPath(_) => path,
-            path => path.normalize_slashes_forward()
+            path => path.normalize_slashes_forward(),
         };
 
         if !(mod_nu_path.exists() && mod_nu_path.is_file()) {
