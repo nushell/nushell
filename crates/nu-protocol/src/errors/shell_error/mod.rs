@@ -1,10 +1,7 @@
 #![allow(unused_assignments)]
 use super::chained_error::ChainedError;
 use crate::{
-    ConfigError, FromValue, LabeledError, ParseError, Span, Spanned, Type, Value,
-    ast::Operator,
-    engine::{Stack, StateWorkingSet},
-    format_cli_error, record,
+    ConfigError, FromValue, LabeledError, ParseError, PipelineMetadata, Span, Spanned, Type, Value, ast::Operator, engine::{Stack, StateWorkingSet}, format_cli_error, record
 };
 use generic::GenericError;
 use job::JobError;
@@ -1176,6 +1173,7 @@ pub enum ShellError {
         #[label("used outside of custom command or closure")]
         span: Span,
         value: Box<Value>,
+        metadata: Option<PipelineMetadata>
     },
 
     /// Exit event, it can still be caught by `try {..} finally {..}` block.

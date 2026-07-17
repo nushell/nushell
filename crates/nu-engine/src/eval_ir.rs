@@ -1046,10 +1046,12 @@ fn eval_instruction<D: DebugContext>(
             Ok(Continue)
         }
         Instruction::ReturnEarly { src } => {
+            let metadata = ctx.borrow_reg(*src).metadata_ref().cloned();
             let val = ctx.collect_reg(*src, *span)?;
             Err(ShellError::Return {
                 span: *span,
                 value: Box::new(val),
+                metadata,
             })
         }
         Instruction::Return { src } => Ok(Return(*src)),
