@@ -10,11 +10,11 @@ fn module_private_import_decl() -> Result {
         sandbox
             .with_files(&[FileWithContentToBeTrimmed(
                 "main.nu",
-                r#"
+                "
                     use spam.nu foo-helper
 
                     export def foo [] { foo-helper }
-                "#,
+                ",
             )])
             .with_files(&[FileWithContentToBeTrimmed(
                 "spam.nu",
@@ -36,11 +36,11 @@ fn module_private_import_alias() -> Result {
         sandbox
             .with_files(&[FileWithContentToBeTrimmed(
                 "main.nu",
-                r#"
+                "
                     use spam.nu foo-helper
 
                     export def foo [] { foo-helper }
-                "#,
+                ",
             )])
             .with_files(&[FileWithContentToBeTrimmed(
                 "spam.nu",
@@ -244,10 +244,10 @@ fn module_nested_imports_in_dirs_prefixed() -> Result {
             .with_files(&[FileWithContent("spam/spam.nu", "export use spam2/spam2.nu")])
             .with_files(&[FileWithContentToBeTrimmed(
                 "spam/spam2/spam2.nu",
-                r#"
+                "
                     export use ../spam3/spam3.nu
                     export use ../spam3/spam3.nu foo
-                "#,
+                ",
             )])
             .with_files(&[FileWithContentToBeTrimmed(
                 "spam/spam3/spam3.nu",
@@ -273,11 +273,11 @@ fn module_import_env_1() -> Result {
         sandbox
             .with_files(&[FileWithContentToBeTrimmed(
                 "main.nu",
-                r#"
+                "
                     export-env { source-env spam.nu }
 
                     export def foo [] { $env.FOO_HELPER }
-                "#,
+                ",
             )])
             .with_files(&[FileWithContentToBeTrimmed(
                 "spam.nu",
@@ -450,12 +450,12 @@ fn module_invalid_known_external_name() -> Result {
 fn main_inside_module_is_main() -> Result {
     let mut tester = test();
     let () = tester.run(
-        r#"
+        "
         module spam {
             export def main [] { 'foo' };
             export def foo [] { main }
         }
-        "#,
+        ",
     )?;
     let () = tester.run("use spam foo")?;
     tester.run("foo").expect_value_eq("foo")
@@ -479,7 +479,7 @@ fn export_module_as_file() -> Result {
 
 #[test]
 fn deep_import_patterns() -> Result {
-    let module_decl = r#"
+    let module_decl = "
         module spam {
             export module eggs {
                 export module beans {
@@ -488,7 +488,7 @@ fn deep_import_patterns() -> Result {
                 }; export use beans
             }; export use eggs
         }
-    "#;
+    ";
 
     let mut tester = test();
     let () = tester.run(module_decl)?;
@@ -521,7 +521,7 @@ fn deep_import_aliased_external_args(
     )]
     input: &str,
 ) -> Result {
-    let module_decl = r#"
+    let module_decl = "
         module spam {
             export module eggs {
                 export module beans {
@@ -529,7 +529,7 @@ fn deep_import_aliased_external_args(
                 }; export use beans
             }; export use eggs
         }
-    "#;
+    ";
     let mut tester = test().inherit_path();
     let () = tester.run(module_decl)?;
     tester.run(input).expect_value_eq("bar")
@@ -595,7 +595,7 @@ fn module_self_name() -> Result {
 fn module_self_name_main_not_allowed() -> Result {
     test()
         .run(
-            r#"
+            "
             module spam {
                 export def main [] { 'main spam' };
 
@@ -603,13 +603,13 @@ fn module_self_name_main_not_allowed() -> Result {
                     export def main [] { 'mod spam' }
                 }
             }
-            "#,
+            ",
         )
         .expect_error_code_eq("nu::parser::module_double_main")?;
 
     test()
         .run(
-            r#"
+            "
             module spam {
                 export module mod {
                     export def main [] { 'mod spam' }
@@ -617,7 +617,7 @@ fn module_self_name_main_not_allowed() -> Result {
 
                 export def main [] { 'main spam' }
             }
-            "#,
+            ",
         )
         .expect_error_code_eq("nu::parser::module_double_main")
 }
@@ -639,7 +639,7 @@ fn module_main_not_found() -> Result {
 
 #[test]
 fn nested_list_export_works() -> Result {
-    let module = r#"
+    let module = "
         module spam {
             export module eggs {
                 export def bacon [] { 'bacon' }
@@ -647,7 +647,7 @@ fn nested_list_export_works() -> Result {
 
             export def sausage [] { 'sausage' }
         }
-    "#;
+    ";
 
     let mut tester = test();
     let () = tester.run(module)?;
