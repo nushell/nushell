@@ -477,7 +477,7 @@ fn table(
     let vec_of_values = input
         .into_iter()
         .flat_map(|val| match val {
-            Value::List { vals, .. } => vals,
+            Value::List { vals, .. } => vals.into_owned(),
             other => vec![other],
         })
         .collect::<Vec<Value>>();

@@ -175,7 +175,7 @@ impl PluginCommand for Replace {
                 .into_iter()
                 .unzip(),
             (Value::List { vals: old_vals, .. }, Some(Value::List { vals: new_vals, .. })) => {
-                (old_vals, new_vals)
+                (old_vals.into_owned(), new_vals.into_owned())
             }
             (_, _) => {
                 return Err(LabeledError::from(ShellError::Generic(

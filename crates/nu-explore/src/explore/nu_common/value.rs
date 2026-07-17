@@ -104,7 +104,7 @@ pub fn collect_input(value: Value) -> Result<(Vec<String>, Vec<Vec<Value>>)> {
         }
         Value::List { vals, .. } => {
             let mut columns = get_columns(&vals);
-            let data = convert_records_to_dataset(&columns, vals);
+            let data = convert_records_to_dataset(&columns, vals.into_owned());
 
             if columns.is_empty() && !data.is_empty() {
                 columns = vec![String::from("")];
