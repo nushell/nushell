@@ -1,6 +1,5 @@
 use nu_protocol::ParseError;
 use nu_test_support::fs::Stub::EmptyFile;
-use nu_test_support::nu;
 use nu_test_support::playground::Playground;
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_matches;
@@ -544,8 +543,8 @@ fn can_list_system_folder() -> Result {
     "#;
     let out: nu_protocol::Record = test().cwd("C:\\Windows\\System32").run(code)?;
 
-    assert_eq!(out["name"].into_string()?, "Configuration");
-    assert_eq!(out["type"].into_string()?, "dir");
+    assert_eq!(out["name"].as_str().unwrap(), "Configuration");
+    assert_eq!(out["type"].as_str().unwrap(), "dir");
 
     let _ = out["size"].as_filesize()?;
     let _ = out["modified"].as_date()?;
