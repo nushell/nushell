@@ -692,7 +692,10 @@ fn list_with_tilde() -> Result {
         test()
             .cwd(dirs.test())
             .run("(ls '~tilde').name")
-            .expect_value_eq(["~tilde/f1.txt", "~tilde/f2.txt"])?;
+            .expect_value_eq(cfg_select! {
+                unix => ["~tilde/f1.txt", "~tilde/f2.txt"],
+                windows => ["~tilde\\f1.txt", "~tilde\\f2.txt"],
+            })?;
 
         test()
             .cwd(dirs.test())
@@ -703,7 +706,10 @@ fn list_with_tilde() -> Result {
         test()
             .cwd(dirs.test())
             .run("let f = '~tilde'; (ls $f).name")
-            .expect_value_eq(["~tilde/f1.txt", "~tilde/f2.txt"])?;
+            .expect_value_eq(cfg_select! {
+                unix => ["~tilde/f1.txt", "~tilde/f2.txt"],
+                windows => ["~tilde\\f1.txt", "~tilde\\f2.txt"],
+            })?;
 
         Ok(())
     })
