@@ -502,14 +502,6 @@ fn early_return_in_export_env_guard_skips_rest_of_env_block() -> Result {
         .expect_value_eq(())
 }
 
-/// Subset of the record `complete` returns, captured in a single `nu` run rather than re-running
-/// the binary once per field.
-#[derive(FromValue)]
-struct CompleteResult {
-    exit_code: i64,
-    stdout: String,
-}
-
 #[test]
 #[deps(NU)]
 fn early_return_inside_command_does_not_skip_main() -> Result {
