@@ -136,3 +136,58 @@ fn config_unsupported_value_reverted() -> Result {
         .run("$env.config.history.file_format")
         .expect_value_eq("plaintext")
 }
+
+#[test]
+fn config_duration_format_valid() -> Result {
+    let mut tester = test();
+    for unit in ["wk", "day", "hr", "min", "sec", "ms", "us", "ns"] {
+        let () = tester.run(format!("$env.config.duration_format = '{unit}'"))?;
+        let () = tester
+            .run("$env.config.duration_format")
+            .expect_value_eq(unit)?;
+    }
+    // µs is accepted by FromStr but normalizes to "us" on output
+    let () = tester.run("$env.config.duration_format = 'µs'")?;
+    tester
+        .run("$env.config.duration_format")
+        .expect_value_eq("us")?;
+    Ok(())
+}
+
+#[test]
+fn config_duration_format_invalid() -> Result {
+    let mut tester = test();
+    let shell_error = tester
+        .run("$env.config.duration_format = 'years'")
+        .expect_shell_error()?;
+    let [err] = config_error(&shell_error)?;
+    match err {
+        ConfigError::InvalidValue { .. } => Ok(()),
+        _ => Err(shell_error.into()),
+    }
+}
+
+#[test]
+fn config_duration_format_wrong_type() -> Result {
+    let mut tester = test();
+    let shell_error = tester
+        .run("$env.config.duration_format = 42")
+        .expect_shell_error()?;
+    let [err] = config_error(&shell_error)?;
+    match err {
+        ConfigError::TypeMismatch { .. } => Ok(()),
+        _ => Err(shell_error.into()),
+    }
+}
+
+#[test]
+fn config_duration_format_reverted_on_invalid() -> Result {
+    let mut tester = test();
+    let () = tester.run("$env.config.duration_format = 'day'")?;
+    let _ = tester
+        .run("$env.config.duration_format = 'bogus'")
+        .expect_shell_error()?;
+    tester
+        .run("$env.config.duration_format")
+        .expect_value_eq("day")
+}
