@@ -514,8 +514,9 @@ $env.config.render_right_prompt_on_last_line = false
 $env.config.float_precision = 2
 
 # duration_format (string): Largest unit when displaying durations.
-# Durations are decomposed from this unit downward. Smaller values produce more
-# granular output (e.g., "day" shows 365day instead of 52wk 1day for one year).
+# Durations are decomposed from this unit downward. A smaller value excludes
+# larger units from the output (e.g., "day" shows 365day instead of
+# 52wk 1day for one year).
 # Options: "wk", "day", "hr", "min", "sec", "ms", "us", "ns".
 # Default: "wk"
 $env.config.duration_format = "wk"
