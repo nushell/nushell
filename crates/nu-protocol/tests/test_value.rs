@@ -140,8 +140,16 @@ fn config_with_duration_max_unit(format: DurationMaxUnit) -> Config {
     DurationMaxUnit::Day,
     "9day 3hr 4min 5sec 6ms 7µs 8ns"
 )]
-#[case::mixed_hr_max(MIXED_DURATION_NS, DurationMaxUnit::Hour, "219hr 4min 5sec 6ms 7µs 8ns")]
-#[case::mixed_min_max(MIXED_DURATION_NS, DurationMaxUnit::Minute, "13144min 5sec 6ms 7µs 8ns")]
+#[case::mixed_hr_max(
+    MIXED_DURATION_NS,
+    DurationMaxUnit::Hour,
+    "219hr 4min 5sec 6ms 7µs 8ns"
+)]
+#[case::mixed_min_max(
+    MIXED_DURATION_NS,
+    DurationMaxUnit::Minute,
+    "13144min 5sec 6ms 7µs 8ns"
+)]
 #[case::mixed_sec_max(MIXED_DURATION_NS, DurationMaxUnit::Second, "788645sec 6ms 7µs 8ns")]
 #[case::mixed_ms_max(MIXED_DURATION_NS, DurationMaxUnit::Millisecond, "788645006ms 7µs 8ns")]
 #[case::mixed_us_max(MIXED_DURATION_NS, DurationMaxUnit::Microsecond, "788645006007µs 8ns")]
