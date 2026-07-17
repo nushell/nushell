@@ -9,7 +9,7 @@ use crate::{self as nu_protocol};
 #[derive(
     Clone, Copy, Default, Debug, IntoValue, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize,
 )]
-pub enum DurationFormat {
+pub enum DurationMaxUnit {
     #[default]
     #[nu_value(rename = "wk")]
     Week,
@@ -29,7 +29,7 @@ pub enum DurationFormat {
     Nanosecond,
 }
 
-impl FromStr for DurationFormat {
+impl FromStr for DurationMaxUnit {
     type Err = &'static str;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -47,7 +47,7 @@ impl FromStr for DurationFormat {
     }
 }
 
-impl UpdateFromValue for DurationFormat {
+impl UpdateFromValue for DurationMaxUnit {
     fn update(&mut self, value: &Value, path: &mut ConfigPath, errors: &mut ConfigErrors) {
         config_update_string_enum(self, value, path, errors)
     }

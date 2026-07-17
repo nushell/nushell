@@ -1105,7 +1105,7 @@ impl Value {
             Value::Int { val, .. } => val.to_string(),
             Value::Float { val, .. } => ObviousFloat(*val).to_string(),
             Value::Filesize { val, .. } => config.filesize.format(*val).to_string(),
-            Value::Duration { val, .. } => format_duration(*val, config.duration_format),
+            Value::Duration { val, .. } => format_duration(*val, config.duration_max_unit),
             Value::Date { val, .. } => match &config.datetime_format.normal {
                 Some(format) => self.format_datetime(val, format),
                 None => {

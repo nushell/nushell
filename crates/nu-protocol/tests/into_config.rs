@@ -138,27 +138,27 @@ fn config_unsupported_value_reverted() -> Result {
 }
 
 #[test]
-fn config_duration_format_valid() -> Result {
+fn config_duration_max_unit_valid() -> Result {
     let mut tester = test();
     for unit in ["wk", "day", "hr", "min", "sec", "ms", "us", "ns"] {
-        let () = tester.run(format!("$env.config.duration_format = '{unit}'"))?;
+        let () = tester.run(format!("$env.config.duration_max_unit = '{unit}'"))?;
         let () = tester
-            .run("$env.config.duration_format")
+            .run("$env.config.duration_max_unit")
             .expect_value_eq(unit)?;
     }
     // µs is accepted by FromStr but normalizes to "us" on output
-    let () = tester.run("$env.config.duration_format = 'µs'")?;
+    let () = tester.run("$env.config.duration_max_unit = 'µs'")?;
     tester
-        .run("$env.config.duration_format")
+        .run("$env.config.duration_max_unit")
         .expect_value_eq("us")?;
     Ok(())
 }
 
 #[test]
-fn config_duration_format_invalid() -> Result {
+fn config_duration_max_unit_invalid() -> Result {
     let mut tester = test();
     let shell_error = tester
-        .run("$env.config.duration_format = 'years'")
+        .run("$env.config.duration_max_unit = 'years'")
         .expect_shell_error()?;
     let [err] = config_error(&shell_error)?;
     match err {
@@ -168,10 +168,10 @@ fn config_duration_format_invalid() -> Result {
 }
 
 #[test]
-fn config_duration_format_wrong_type() -> Result {
+fn config_duration_max_unit_wrong_type() -> Result {
     let mut tester = test();
     let shell_error = tester
-        .run("$env.config.duration_format = 42")
+        .run("$env.config.duration_max_unit = 42")
         .expect_shell_error()?;
     let [err] = config_error(&shell_error)?;
     match err {
@@ -181,13 +181,13 @@ fn config_duration_format_wrong_type() -> Result {
 }
 
 #[test]
-fn config_duration_format_reverted_on_invalid() -> Result {
+fn config_duration_max_unit_reverted_on_invalid() -> Result {
     let mut tester = test();
-    let () = tester.run("$env.config.duration_format = 'day'")?;
+    let () = tester.run("$env.config.duration_max_unit = 'day'")?;
     let _ = tester
-        .run("$env.config.duration_format = 'bogus'")
+        .run("$env.config.duration_max_unit = 'bogus'")
         .expect_shell_error()?;
     tester
-        .run("$env.config.duration_format")
+        .run("$env.config.duration_max_unit")
         .expect_value_eq("day")
 }

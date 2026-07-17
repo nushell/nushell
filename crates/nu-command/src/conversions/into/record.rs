@@ -1,7 +1,7 @@
 use crate::semver::value::SemverValue;
 use chrono::{DateTime, Datelike, FixedOffset, Timelike};
 use nu_engine::command_prelude::*;
-use nu_protocol::{DurationFormat, format_duration_as_timeperiod};
+use nu_protocol::{DurationMaxUnit, format_duration_as_timeperiod};
 
 #[derive(Clone)]
 pub struct IntoRecord;
@@ -217,7 +217,7 @@ fn parse_date_into_record(date: DateTime<FixedOffset>, span: Span) -> Value {
 }
 
 fn parse_duration_into_record(duration: i64, span: Span) -> Value {
-    let (sign, periods) = format_duration_as_timeperiod(duration, DurationFormat::default());
+    let (sign, periods) = format_duration_as_timeperiod(duration, DurationMaxUnit::default());
 
     let mut record = Record::new();
     for p in periods {

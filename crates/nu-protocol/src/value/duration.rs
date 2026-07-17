@@ -4,7 +4,7 @@ use std::{
     fmt::{Display, Formatter},
 };
 
-use crate::DurationFormat;
+use crate::DurationMaxUnit;
 
 #[derive(Clone, Copy)]
 pub enum TimePeriod {
@@ -43,7 +43,7 @@ impl Display for TimePeriod {
     }
 }
 
-pub fn format_duration(duration: i64, max_unit: DurationFormat) -> String {
+pub fn format_duration(duration: i64, max_unit: DurationMaxUnit) -> String {
     let (sign, periods) = format_duration_as_timeperiod(duration, max_unit);
 
     let text = periods
@@ -60,7 +60,7 @@ pub fn format_duration(duration: i64, max_unit: DurationFormat) -> String {
 
 pub fn format_duration_as_timeperiod(
     duration: i64,
-    max_unit: DurationFormat,
+    max_unit: DurationMaxUnit,
 ) -> (i32, Vec<TimePeriod>) {
     // Attribution: most of this is taken from chrono-humanize-rs. Thanks!
     // https://gitlab.com/imp/chrono-humanize-rs/-/blob/master/src/humantime.rs
@@ -139,7 +139,7 @@ pub fn format_duration_as_timeperiod(
     let mut periods = vec![];
     let mut remainder = dur;
 
-    if max_unit <= DurationFormat::Week {
+    if max_unit <= DurationMaxUnit::Week {
         let (weeks, rem) = split_weeks(remainder);
         remainder = rem;
         if let Some(weeks) = weeks {
@@ -147,7 +147,7 @@ pub fn format_duration_as_timeperiod(
         }
     }
 
-    if max_unit <= DurationFormat::Day {
+    if max_unit <= DurationMaxUnit::Day {
         let (days, rem) = split_days(remainder);
         remainder = rem;
         if let Some(days) = days {
@@ -155,7 +155,7 @@ pub fn format_duration_as_timeperiod(
         }
     }
 
-    if max_unit <= DurationFormat::Hour {
+    if max_unit <= DurationMaxUnit::Hour {
         let (hours, rem) = split_hours(remainder);
         remainder = rem;
         if let Some(hours) = hours {
@@ -163,7 +163,7 @@ pub fn format_duration_as_timeperiod(
         }
     }
 
-    if max_unit <= DurationFormat::Minute {
+    if max_unit <= DurationMaxUnit::Minute {
         let (minutes, rem) = split_minutes(remainder);
         remainder = rem;
         if let Some(minutes) = minutes {
@@ -171,7 +171,7 @@ pub fn format_duration_as_timeperiod(
         }
     }
 
-    if max_unit <= DurationFormat::Second {
+    if max_unit <= DurationMaxUnit::Second {
         let (seconds, rem) = split_seconds(remainder);
         remainder = rem;
         if let Some(seconds) = seconds {
@@ -179,7 +179,7 @@ pub fn format_duration_as_timeperiod(
         }
     }
 
-    if max_unit <= DurationFormat::Millisecond {
+    if max_unit <= DurationMaxUnit::Millisecond {
         let (millis, rem) = split_milliseconds(remainder);
         remainder = rem;
         if let Some(millis) = millis {
@@ -187,7 +187,7 @@ pub fn format_duration_as_timeperiod(
         }
     }
 
-    if max_unit <= DurationFormat::Microsecond {
+    if max_unit <= DurationMaxUnit::Microsecond {
         let (micros, rem) = split_microseconds(remainder);
         remainder = rem;
         if let Some(micros) = micros {
@@ -195,7 +195,7 @@ pub fn format_duration_as_timeperiod(
         }
     }
 
-    if max_unit <= DurationFormat::Nanosecond {
+    if max_unit <= DurationMaxUnit::Nanosecond {
         let (nanos, _rem) = split_nanoseconds(remainder);
         if let Some(nanos) = nanos {
             periods.push(TimePeriod::Nanos(nanos));
