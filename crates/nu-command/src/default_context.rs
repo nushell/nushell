@@ -268,6 +268,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             IdxStatus,
             IdxFind,
             IdxSearch,
+            IdxWatch,
             IdxDrop,
             IdxDirs,
             IdxFiles,
