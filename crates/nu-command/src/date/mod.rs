@@ -1,6 +1,4 @@
-mod ceil;
 mod date_;
-mod floor;
 mod from_human;
 mod humanize;
 mod list_timezone;
@@ -9,9 +7,7 @@ mod parser;
 mod to_timezone;
 mod utils;
 
-pub use ceil::DateCeil;
 pub use date_::Date;
-pub use floor::DateFloor;
 pub use from_human::DateFromHuman;
 pub use humanize::DateHumanize;
 pub use list_timezone::DateListTimezones;
