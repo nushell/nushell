@@ -63,7 +63,8 @@ impl Command for DateCeil {
                         let offset_ns = val.timezone().local_minus_utc() as i64 * 1_000_000_000;
                         Value::date(
                             DateTime::<Utc>::from_timestamp_nanos(
-                                nanos - ((nanos + offset_ns) % duration_ns) + duration_ns - 1,
+                                nanos - ((nanos + offset_ns).rem_euclid(duration_ns)) + duration_ns
+                                    - 1,
                             )
                             .with_timezone(&val.timezone()),
                             internal_span,
@@ -125,6 +126,18 @@ impl Command for DateCeil {
                             Span::test_data(),
                         ),
                     ],
+                    Span::test_data(),
+                )),
+            },
+            Example {
+                description: "Round a date before the Unix epoch up to the nearest hour",
+                example: "1969-12-31T23:30:00+00:00 | date ceil 1hr",
+                result: Some(Value::date(
+                    DateTime::parse_from_str(
+                        "1969-12-31 23:59:59.999999999 +0000",
+                        "%Y-%m-%d %H:%M:%S.%f %z",
+                    )
+                    .expect("date calculation should not fail in test"),
                     Span::test_data(),
                 )),
             },
