@@ -11,6 +11,7 @@ use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
 use fff_search::{
     FFFMode, FilePicker, FilePickerOptions, FuzzySearchOptions, GrepConfig, GrepMode,
     GrepSearchOptions, MixedItemRef, PaginationArgs, QueryParser, SharedFilePicker, SharedFrecency,
+    watch::{WatchEvent, WatchId, WatchOptions},
 };
 use nu_engine::command_prelude::*;
 use nu_protocol::shell_error::generic::GenericError;
@@ -23,6 +24,7 @@ use rusqlite::{Connection, OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender, channel};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
@@ -1843,9 +1845,10 @@ pub fn restore_snapshot(path: &Path, no_watch: bool, span: Span) -> Result<Value
     // Wait for the picker scan to complete so grep can search indexed content.
     let _ = shared_picker.wait_for_scan(Duration::from_secs(300));
 
+    let watch = !no_watch;
     let previous = guard.replace(IdxRuntime {
         base_path: PathBuf::from(&base_path_str),
-        watch: false,
+        watch,
         shared_picker: shared_picker.clone(),
         scan_start_time: Instant::now(),
         scan_completed: Arc::new(AtomicBool::new(true)),
@@ -1874,7 +1877,7 @@ pub fn restore_snapshot(path: &Path, no_watch: bool, span: Span) -> Result<Value
                 "base_path".to_string(),
                 Value::string(base_path_str.clone(), span),
             ),
-            ("watch".to_string(), Value::bool(false, span)),
+            ("watch".to_string(), Value::bool(watch, span)),
             (
                 "rehydration_mode".to_string(),
                 Value::string("snapshot_runtime_restored", span),
@@ -2055,6 +2058,194 @@ pub fn stream_grep(context: GrepSearchContext<'_>) -> Result<PipelineData, Shell
         ListStream::new(stream, context.span, context.signals.clone()),
         Some(PipelineMetadata::default()),
     ))
+}
+
+/// How often the watch stream polls for Ctrl-C / timeout while waiting on events.
+const WATCH_POLL_INTERVAL: Duration = Duration::from_millis(100);
+/// How long `idx watch` waits for the background OS watcher after a non-blocking init.
+const WATCHER_READY_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// Options for [`stream_watch`].
+pub struct WatchStreamOptions {
+    /// Base-relative glob, exact path, directory, or empty for the whole tree.
+    pub pattern: String,
+    /// Additional glob or path-prefix exclusions (fff `WatchOptions.ignore`).
+    pub ignore: Vec<String>,
+    /// Optional duration after which the stream ends cleanly.
+    pub timeout: Option<Duration>,
+    /// Optional cap on the number of events emitted before the stream ends.
+    pub max_events: Option<usize>,
+    pub span: Span,
+    pub signals: Signals,
+}
+
+/// Subscribe to filesystem changes on the live idx runtime and stream events as records.
+///
+/// Requires an initialized runtime with watching enabled (`idx init` / `idx import` without
+/// `--no-watch`). Each event is a record `{ kind, path }` with lowercase kind strings and a
+/// path-typed absolute path. Batches from fff-search are flattened to one pipeline item each.
+pub fn stream_watch(options: WatchStreamOptions) -> Result<PipelineData, ShellError> {
+    let snapshot = require_runtime(options.span)?;
+
+    if !snapshot.watch {
+        return Err(ShellError::Generic(GenericError::new(
+            "idx watching is disabled",
+            "re-run `idx init` or `idx import` without `--no-watch` to enable filesystem watching",
+            options.span,
+        )));
+    }
+
+    if !snapshot
+        .shared_picker
+        .wait_for_watcher(WATCHER_READY_TIMEOUT)
+    {
+        return Err(ShellError::Generic(GenericError::new(
+            "idx watcher not ready",
+            "timed out waiting for the background filesystem watcher to become ready (30 s). Try `idx init <path> --wait` first.",
+            options.span,
+        )));
+    }
+
+    let (tx, rx): (Sender<Vec<WatchEvent>>, Receiver<Vec<WatchEvent>>) = channel();
+    let shared_picker = snapshot.shared_picker.clone();
+
+    let watch_id = shared_picker
+        .watch(
+            &options.pattern,
+            WatchOptions {
+                ignore: options.ignore,
+            },
+            move |_id, events| {
+                // Best-effort: if the receiver is gone the stream already ended.
+                let _ = tx.send(events.to_vec());
+            },
+        )
+        .map_err(|err| fff_error(err, options.span))?;
+
+    let stream = WatchEventStream {
+        rx: Some(rx),
+        pending: Vec::new(),
+        pending_idx: 0,
+        events_emitted: 0,
+        max_events: options.max_events,
+        deadline: options.timeout.map(|d| Instant::now() + d),
+        signals: options.signals.clone(),
+        span: options.span,
+        cleanup: Some(WatchSubscription {
+            shared_picker,
+            watch_id,
+        }),
+    };
+
+    Ok(PipelineData::ListStream(
+        ListStream::new(stream, options.span, options.signals),
+        Some(PipelineMetadata::default()),
+    ))
+}
+
+/// RAII guard that unsubscribes a fff-search watch when the stream ends.
+struct WatchSubscription {
+    shared_picker: SharedFilePicker,
+    watch_id: WatchId,
+}
+
+impl Drop for WatchSubscription {
+    fn drop(&mut self) {
+        let _ = self.shared_picker.unwatch(self.watch_id);
+    }
+}
+
+/// Blocking iterator that flattens debounced watch batches into Nushell records.
+struct WatchEventStream {
+    rx: Option<Receiver<Vec<WatchEvent>>>,
+    pending: Vec<WatchEvent>,
+    pending_idx: usize,
+    events_emitted: usize,
+    max_events: Option<usize>,
+    deadline: Option<Instant>,
+    signals: Signals,
+    span: Span,
+    cleanup: Option<WatchSubscription>,
+}
+
+impl WatchEventStream {
+    fn finished(&mut self) -> Option<Value> {
+        // Drop the receiver first so the callback channel closes, then unwatch.
+        self.rx = None;
+        self.cleanup.take();
+        None
+    }
+
+    fn next_pending(&mut self) -> Option<Value> {
+        if self.pending_idx < self.pending.len() {
+            let event = self.pending[self.pending_idx].clone();
+            self.pending_idx += 1;
+            self.events_emitted += 1;
+            return Some(watch_event_to_value(&event, self.span));
+        }
+        None
+    }
+
+    fn reached_max_events(&self) -> bool {
+        self.max_events
+            .is_some_and(|max| self.events_emitted >= max)
+    }
+
+    fn timed_out(&self) -> bool {
+        self.deadline.is_some_and(|d| Instant::now() >= d)
+    }
+}
+
+impl Iterator for WatchEventStream {
+    type Item = Value;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            if self.reached_max_events() || self.timed_out() {
+                return self.finished();
+            }
+
+            if let Err(err) = self.signals.check(&self.span) {
+                self.rx = None;
+                self.cleanup.take();
+                return Some(Value::error(err, self.span));
+            }
+
+            // Emit the last allowed event when max-events is reached; the next
+            // call hits reached_max_events() and tears the subscription down.
+            if let Some(value) = self.next_pending() {
+                return Some(value);
+            }
+
+            let rx = self.rx.as_ref()?;
+            match rx.recv_timeout(WATCH_POLL_INTERVAL) {
+                Ok(batch) => {
+                    self.pending = batch;
+                    self.pending_idx = 0;
+                }
+                Err(RecvTimeoutError::Timeout) => continue,
+                Err(RecvTimeoutError::Disconnected) => {
+                    return self.finished();
+                }
+            }
+        }
+    }
+}
+
+fn watch_event_to_value(event: &WatchEvent, span: Span) -> Value {
+    // Paths are absolute (fff WatchEvent); Nu represents filesystem paths as strings.
+    Value::record(
+        [
+            ("kind".to_string(), Value::string(event.kind.as_str(), span)),
+            (
+                "path".to_string(),
+                Value::string(event.path.to_string_lossy(), span),
+            ),
+        ]
+        .into_iter()
+        .collect(),
+        span,
+    )
 }
 
 fn path_for_cwd(path: &Path, cwd: Option<&Path>, fallback: &str) -> String {

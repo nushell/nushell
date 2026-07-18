@@ -18,7 +18,7 @@ impl Command for IdxImport {
             )
             .switch(
                 "no-watch",
-                "Disable filesystem watching after import (watching is enabled by default).",
+                "Disable filesystem watching after import (watching is enabled by default; required for `idx watch`).",
                 None,
             )
             .input_output_types(vec![(Type::Nothing, Type::record())])
@@ -30,7 +30,8 @@ impl Command for IdxImport {
     }
 
     fn extra_description(&self) -> &str {
-        "Reads a SQLite snapshot created by `idx export` and auto-initializes idx runtime for immediate queries."
+        "Reads a SQLite snapshot created by `idx export` and auto-initializes idx runtime for immediate queries. \
+Filesystem watching is enabled by default (needed for `idx watch`); pass `--no-watch` to keep a static restored snapshot."
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
