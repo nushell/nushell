@@ -23,22 +23,12 @@ use nu_test_support::prelude::*;
 // https://github.com/nushell/nushell/issues/18369
 #[case::leading_pipe("| ls", "garbage")]
 fn nu_highlight_color_detection(#[case] cmd: &str, #[case] shape: &str) -> Result {
-    use std::fmt::Write;
-
-    let color = "#112233";
-
-    let mut buf = String::new();
-    writeln!(&mut buf, "let color = '{color}'").unwrap();
-    writeln!(
-        &mut buf,
-        "$env.config.color_config.shape_{} = $color",
-        shape
-    )
-    .unwrap();
-    writeln!(&mut buf, "let highlight = '{cmd}' | nu-highlight").unwrap();
-    write!(&mut buf, "$highlight has (ansi $color)").unwrap();
-
-    test().run(buf).expect_value_eq(true)
+    let mut tester = test();
+    let () = tester.run_with_data("let color = $in", "#112233")?;
+    let () = tester.run(format!("$env.config.color_config.shape_{} = $color", shape))?;
+    tester
+        .run_with_data("nu-highlight | $in has (ansi $color)", cmd)
+        .expect_value_eq(true)
 }
 
 #[test]
