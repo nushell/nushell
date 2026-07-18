@@ -1,26 +1,37 @@
 use nu_test_support::fs::Stub::FileWithContent;
-use nu_test_support::nu;
-use nu_test_support::playground::Playground;
+use nu_test_support::prelude::*;
 
 #[test]
-fn length_columns_in_cal_table() {
-    let actual = nu!("cal --as-table | columns | length");
-
-    assert_eq!(actual.out, "7");
+fn length_columns_in_cal_table() -> Result {
+    test()
+        .run("cal --as-table | columns | length")
+        .expect_value_eq(7)
 }
 
 #[test]
-fn length_columns_no_rows() {
-    let actual = nu!("echo [] | length");
-
-    assert_eq!(actual.out, "0");
+fn length_columns_no_rows() -> Result {
+    test().run("echo [] | length").expect_value_eq(0)
 }
 
 #[test]
-fn length_fails_on_echo_record() {
-    let actual = nu!("echo {a:1 b:2} | length");
+fn length_fails_on_echo_record() -> Result {
+    let err = test().run("echo {a:1 b:2} | length").expect_shell_error()?;
 
-    assert!(actual.err.contains("only_supports_this_input_type"));
+    match err {
+        ShellError::OnlySupportsThisInputType {
+            exp_input_type,
+            wrong_type,
+            ..
+        } => {
+            assert_eq!(
+                exp_input_type,
+                "list<any>, binary, nothing, and SQLiteQueryBuilder"
+            );
+            assert_eq!(wrong_type, "record<a: int, b: int>");
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
 }
 
 #[test]
