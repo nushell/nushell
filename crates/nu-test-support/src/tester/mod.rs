@@ -467,6 +467,21 @@ impl NuTester {
         Self::extract_value(self.run_raw_with_data(code, input)?)
     }
 
+    /// Run multiple Nushell command pipelines after each other and extract the value into `T`.
+    /// 
+    /// This shortcircuits if any pipeline fails.
+    #[track_caller]
+    pub fn run_multiple<T: FromValue>(
+        &mut self,
+        pipelines: impl IntoIterator<Item = impl AsRef<str>>,
+    ) -> Result<T> {
+        let last = pipelines
+            .into_iter()
+            .map(|pipeline| self.run(pipeline))
+            .try_fold(Value::test_nothing(), |_, value| value)?;
+        Ok(T::from_value(last)?)
+    }
+
     /// Run Nushell code and return the raw [`PipelineExecutionData`].
     #[track_caller]
     pub fn run_raw(&mut self, code: impl AsRef<str>) -> Result<PipelineExecutionData> {
