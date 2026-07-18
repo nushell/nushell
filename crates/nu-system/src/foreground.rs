@@ -25,8 +25,10 @@ pub fn prepare_background_command(command: &mut Command) {
     {
         use std::os::windows::process::CommandExt;
         // CREATE_NO_WINDOW: run console apps without creating a console window at all
-        // (stronger isolation than DETACHED_PROCESS; prevents SetConsoleMode /
-        // AttachConsole / AllocConsole tricks that could corrupt the parent's reedline).
+        // (required for non-blocking completions so completer subprocesses cannot
+        // SetConsoleMode / AttachConsole / AllocConsole and corrupt the parent's reedline).
+        // Do not use DETACHED_PROCESS here: completions rely on CREATE_NO_WINDOW, and
+        // MSDN documents that CREATE_NO_WINDOW is ignored when combined with DETACHED_PROCESS.
         const CREATE_NO_WINDOW: u32 = 0x0800_0000;
         command.creation_flags(CREATE_NO_WINDOW);
     }

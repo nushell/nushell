@@ -3,7 +3,7 @@ use crate::{
     ast::PathMember,
     engine::{
         ArgumentStack, DEFAULT_OVERLAY_NAME, EngineState, EnvName, ErrorHandlerStack, Redirection,
-        StackCallArgGuard, StackCollectValueGuard, StackIoGuard, StackOutDest,
+        StackCallArgGuard, StackCollectValueGuard, StackIoGuard, StackOutDest, StackWithInvocation,
     },
     report_shell_warning,
     shell_error::generic::GenericError,
@@ -828,6 +828,47 @@ impl Stack {
     /// Returns the [`OutDest`] of the pipe redirection applied to the current command's stderr.
     pub fn pipe_stderr(&self) -> Option<&OutDest> {
         self.out_dest.pipe_stderr.as_ref()
+    }
+
+    /// Returns the stdout destination of the innermost active custom-command invocation, if any.
+    ///
+    /// This is the destination of that command's *return value*. It stays stable even when
+    /// intermediate expressions temporarily set [`OutDest::Value`] (e.g. `if (…)`), so callers
+    /// can answer "where does *this command* go?" from anywhere in the body.
+    ///
+    /// See also [`Self::is_stdout_redirected`] and [`StackWithInvocation`].
+    pub fn invocation_stdout(&self) -> Option<&OutDest> {
+        self.out_dest.invocation_stdout.last()
+    }
+
+    /// Whether the current custom command's return value is redirected away from display.
+    ///
+    /// Uses the active [`Self::invocation_stdout`] frame when inside a custom command so the
+    /// answer is stable across nested `if` / `let` collection. Outside a custom command, falls
+    /// back to [`Self::stdout`].
+    ///
+    /// Semantics match [`OutDest::is_redirected`] (only [`OutDest::Print`] is not redirected).
+    /// This is the engine-side helper behind the `is-redirected` command.
+    #[must_use]
+    pub fn is_stdout_redirected(&self) -> bool {
+        self.invocation_stdout()
+            .unwrap_or_else(|| self.stdout())
+            .is_redirected()
+    }
+
+    /// Wrap this stack with an invocation-stdout frame for a custom command about to run.
+    ///
+    /// Push the destination of the call's *return value* (typically
+    /// `caller_stack.stdout().clone()` after redirections are applied). The frame is popped when
+    /// the returned [`StackWithInvocation`] is dropped.
+    ///
+    /// # Why a separate frame?
+    ///
+    /// Intermediate evaluation sets [`OutDest::Value`] via [`Self::start_collect_value`]. Without
+    /// an invocation frame, queries like `is-redirected` inside `if (…)` would always see
+    /// `Value` and report redirected—even when the enclosing custom command's result is printed.
+    pub fn with_invocation_stdout(self, dest: OutDest) -> StackWithInvocation {
+        StackWithInvocation::new(self, dest)
     }
 
     /// Temporarily set the pipe stdout redirection to [`OutDest::Value`].

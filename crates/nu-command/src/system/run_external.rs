@@ -854,25 +854,45 @@ mod background_isolation_tests {
 
     #[cfg(windows)]
     #[test]
-    fn detached_process_removes_console() {
-        // Use only cmd built-ins — console-subsystem .exe children can get a
-        // fresh console even with DETACHED_PROCESS, which would false-positive.
-        let mut cmd = Command::new("cmd");
+    fn create_no_window_has_no_console_window() {
+        // prepare_background_command uses CREATE_NO_WINDOW (required for completions).
+        //
+        // Do **not** probe with `echo.>CON`: opening CON can allocate a console even when
+        // the process was started with CREATE_NO_WINDOW, which false-positives on GHA
+        // (the old DETACHED_PROCESS-oriented check).
+        //
+        // GetConsoleWindow() reports whether a console is associated without allocating one.
+        let mut cmd = Command::new("powershell.exe");
         cmd.args([
-            "/c",
-            "(echo.>CON 2>NUL && echo has_console) || echo no_console",
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            concat!(
+                "Add-Type -Namespace NuBg -Name Native -MemberDefinition '",
+                "[DllImport(\"kernel32.dll\")] public static extern System.IntPtr GetConsoleWindow();",
+                "'; ",
+                "if ([NuBg.Native]::GetConsoleWindow() -eq [System.IntPtr]::Zero) { ",
+                "[Console]::Out.Write('no_console') ",
+                "} else { ",
+                "[Console]::Out.Write('has_console') ",
+                "}",
+            ),
         ])
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
         prepare_background_command(&mut cmd);
 
-        let output = cmd.output().expect("cmd should run");
-        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        let output = cmd.output().expect("powershell should run");
+        let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
+        let token = stdout
+            .split_whitespace()
+            .find(|t| *t == "no_console" || *t == "has_console")
+            .unwrap_or("");
         assert_eq!(
-            stdout, "no_console",
-            "child must not retain a console after DETACHED_PROCESS; stderr={stderr}"
+            token, "no_console",
+            "child must have no console window under CREATE_NO_WINDOW; stdout={stdout:?} stderr={stderr}"
         );
     }
 }
