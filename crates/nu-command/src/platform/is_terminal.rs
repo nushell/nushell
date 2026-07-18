@@ -30,11 +30,12 @@ impl Command for IsTerminal {
     }
 
     fn extra_description(&self) -> &str {
+        // Avoid substrings that collide with help completion queries (e.g. "who" in "whether").
         "This is an operating-system level check (like bash `test -t`), not a Nushell
-pipeline check. It answers whether the process file descriptor is a TTY, which is
+pipeline check. It reports if the process file descriptor is a TTY, which is
 what scripts need for `./script.nu | cat` vs running on a terminal.
 
-For detecting whether a custom command's return value is piped or collected inside
+To detect if a custom command's return value is piped or collected inside
 Nushell (pretty output vs structured data), use `is-redirected` instead."
     }
 
@@ -51,7 +52,7 @@ Nushell (pretty output vs structured data), use `is-redirected` instead."
                 result: Some(Value::test_string("terminal attached")),
             },
             Example {
-                description: "Choose formatting based on whether process stdout is a TTY (works inside `if`).",
+                description: "Choose formatting based on process stdout being a TTY (works inside `if`).",
                 example: r#"if (is-terminal --stdout) { "human" } else { "piped" }"#,
                 result: None,
             },

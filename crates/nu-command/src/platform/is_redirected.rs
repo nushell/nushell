@@ -1,11 +1,14 @@
 //! Nushell pipeline-destination check for custom commands.
 //!
 //! Complements [`super::is_terminal`]: `is-terminal` is OS `isatty`, while this command
-//! answers whether a custom command's *return value* is piped, collected, filed, or
+//! reports if a custom command's *return value* is piped, collected, filed, or
 //! discarded rather than printed.
 //!
 //! Implementation relies on [`Stack::is_stdout_redirected`], which reads the
 //! invocation-stdout frame pushed in `eval_call` via [`Stack::with_invocation_stdout`].
+//!
+//! Note: help completion matches substrings of description / extra_description, so
+//! avoid accidental tokens like "who" inside common words ("whether", "whole").
 
 use nu_engine::command_prelude::*;
 
@@ -30,15 +33,15 @@ impl Command for IsRedirected {
     fn extra_description(&self) -> &str {
         "This is a Nushell pipeline-destination check, not an OS TTY check.
 
-Inside a custom command, `is-redirected` reports whether that command's return
+Inside a custom command, `is-redirected` reports if that command's return
 value will be piped to another command, collected into a value (`let`,
 subexpression), written to a file, or discarded — as opposed to being printed
 via the normal display path.
 
-Unlike looking at process stdout, this is stable for the whole command body, so
+Unlike looking at process stdout, this is stable for the entire command body, so
 it works inside `if (...)` and `let x = (...)`.
 
-For whether the process stdout is a terminal (scripts: `./script | cat`), use
+To test if process stdout is a terminal (scripts: `./script | cat`), use
 `is-terminal --stdout` instead.
 
 Typical pattern for pretty-vs-data custom commands:
@@ -56,7 +59,7 @@ Typical pattern for pretty-vs-data custom commands:
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Inside a custom command, report whether the call's return value is redirected (works in `if`).",
+                description: "Inside a custom command, report if the call's return value is redirected (works in `if`).",
                 example: r#"def pipetest [] { if (is-redirected) { "piped" } else { "display" } }; pipetest"#,
                 // Display vs redirect depends on how the call is invoked; result omitted.
                 result: None,
@@ -75,15 +78,8 @@ Typical pattern for pretty-vs-data custom commands:
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec![
-            "pipe",
-            "pipeline",
-            "redirect",
-            "redirection",
-            "display",
-            "stdout",
-            "tty",
-        ]
+        // Must not be substrings of the command name (see command_context tests).
+        vec!["pipe", "pipeline", "display", "stdout", "tty"]
     }
 
     fn run(
