@@ -35,17 +35,10 @@ fn overlay_use_success<const C: usize>(
     #[case] commands: [&str; C],
     #[case] expected: impl IntoValue + Clone,
 ) -> Result {
-    let actual: Result<Value> = test().run(commands.iter().join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    actual.expect_value_eq(expected.clone())?;
-    actual_repl.expect_value_eq(expected)?;
+    test()
+        .run(commands.iter().join("; "))
+        .expect_value_eq(expected.clone())?;
+    test().run_multiple(commands).expect_value_eq(expected)?;
     Ok(())
 }
 
@@ -61,17 +54,12 @@ fn overlay_use_success<const C: usize>(
     "overlay use --prefix spam",
 ])]
 fn overlay_prefix_mismatch<const C: usize>(#[case] commands: [&str; C]) -> Result {
-    let actual: Result<Value> = test().run(commands.iter().join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    assert!(actual.is_err());
-    actual_repl.expect_error_code_eq("nu::parser::overlay_prefix_mismatch")?;
+    test()
+        .run(commands.iter().join("; "))
+        .expect_parse_error()?;
+    test()
+        .run_multiple(commands)
+        .expect_error_code_eq("nu::parser::overlay_prefix_mismatch")?;
     Ok(())
 }
 
@@ -85,17 +73,8 @@ fn prefixed_overlay_keeps_custom_decl() -> Result {
         "bar",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    actual.expect_value_eq("bar")?;
-    actual_repl.expect_value_eq("bar")?;
+    test().run(commands.join("; ")).expect_value_eq("bar")?;
+    test().run_multiple(commands).expect_value_eq("bar")?;
     Ok(())
 }
 
@@ -110,17 +89,11 @@ fn def_before_overlay_use_should_work() -> Result {
         "bar",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    assert!(actual.is_err());
-    assert!(format!("{actual_repl:?}").contains("Command `bar` not found"));
+    test().run(commands.join("; ")).expect_shell_error()?;
+    let error = test()
+        .run_multiple::<Value>(commands)
+        .expect_shell_error()?;
+    assert_contains("Command `bar` not found", format!("{error:?}"));
     Ok(())
 }
 
@@ -139,9 +112,7 @@ fn define_module_before_overlay_inside_func_should_work() -> Result {
         "main",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-
-    assert!(actual.is_err());
+    test().run(commands.join("; ")).expect_shell_error()?;
     Ok(())
 }
 
@@ -153,17 +124,8 @@ fn add_overlay_env() -> Result {
         "$env.FOO",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    actual.expect_value_eq("foo")?;
-    actual_repl.expect_value_eq("foo")?;
+    test().run(commands.join("; ")).expect_value_eq("foo")?;
+    test().run_multiple(commands).expect_value_eq("foo")?;
     Ok(())
 }
 
@@ -175,17 +137,8 @@ fn add_prefixed_overlay_env_no_prefix() -> Result {
         "$env.FOO",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    actual.expect_value_eq("foo")?;
-    actual_repl.expect_value_eq("foo")?;
+    test().run(commands.join("; ")).expect_value_eq("foo")?;
+    test().run_multiple(commands).expect_value_eq("foo")?;
     Ok(())
 }
 
@@ -197,17 +150,14 @@ fn overlay_use_from_file<const C: usize>(
     #[case] commands: [&str; C],
     #[case] expected: impl IntoValue + Clone,
 ) -> Result {
-    let actual: Result<Value> = test().cwd("tests/overlays").run(commands.iter().join("; "));
-    let actual_repl = {
-        let mut tester = test().cwd("tests/overlays");
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    actual.expect_value_eq(expected.clone())?;
-    actual_repl.expect_value_eq(expected)?;
+    test()
+        .cwd("tests/overlays")
+        .run(commands.iter().join("; "))
+        .expect_value_eq(expected.clone())?;
+    test()
+        .cwd("tests/overlays")
+        .run_multiple(commands)
+        .expect_value_eq(expected)?;
     Ok(())
 }
 
@@ -215,9 +165,10 @@ fn overlay_use_from_file<const C: usize>(
 fn add_overlay_from_const_file_decl() -> Result {
     let commands = ["const file = 'samples/spam.nu'", "overlay use $file", "foo"];
 
-    let actual: Result<Value> = test().cwd("tests/overlays").run(commands.join("; "));
-
-    actual.expect_value_eq("foo")?;
+    test()
+        .cwd("tests/overlays")
+        .run(commands.join("; "))
+        .expect_value_eq("foo")?;
     Ok(())
 }
 
@@ -230,9 +181,7 @@ fn add_overlay_from_const_module_name_decl() -> Result {
         "foo",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-
-    actual.expect_value_eq("foo")?;
+    test().run(commands.join("; ")).expect_value_eq("foo")?;
     Ok(())
 }
 
@@ -255,15 +204,13 @@ fn add_overlay_from_file_with_stored_where_condition() -> Result {
 
             let commands = ["overlay use mod.nu", "helper | to nuon --raw"];
 
-            let mut tester = test().cwd(dirs.test());
-            tester
+            test()
+                .cwd(dirs.test())
                 .run(commands.join("; "))
                 .expect_value_eq("[[a];[1]]")?;
-            let mut repl_tester = test().cwd(dirs.test());
-            commands
-                .iter()
-                .map(|line| repl_tester.run(*line))
-                .try_fold(Value::test_nothing(), |_, value| value)
+            test()
+                .cwd(dirs.test())
+                .run_multiple(commands)
                 .expect_value_eq("[[a];[1]]")
         },
     )
@@ -277,10 +224,7 @@ fn new_overlay_from_const_name() -> Result {
         "overlay list | last | get name",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-
-    actual.expect_value_eq("spam")?;
-    Ok(())
+    test().run_multiple(commands).expect_value_eq("spam")
 }
 
 #[test]
@@ -292,16 +236,12 @@ fn hide_overlay_from_const_name() -> Result {
         "overlay list | where active == true | get name | str join ' '",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-
-    let Value::String { val: actual, .. } = actual.unwrap() else {
-        panic!("expected string value")
-    };
-    assert!(!actual.contains("spam"));
+    let out: String = test().run_multiple(commands)?;
+    assert_contains_not("spam", out);
     Ok(())
 }
 
-// This one tests that the `nu_repl()` loop works correctly
+// This one tests that separate pipeline execution updates the working directory
 #[test]
 fn add_overlay_from_file_decl_cd() -> Result {
     let mut tester = test().cwd("tests/overlays");
@@ -320,17 +260,8 @@ fn add_overlay_scoped() -> Result {
         "foo",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    assert!(actual.is_err());
-    assert!(actual_repl.is_err());
+    test().run(commands.join("; ")).expect_shell_error()?;
+    test().run_multiple(commands).expect_shell_error()?;
     Ok(())
 }
 
@@ -344,17 +275,8 @@ fn update_overlay_from_module() -> Result {
         "foo",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    actual.expect_value_eq("bar")?;
-    actual_repl.expect_value_eq("bar")?;
+    test().run(commands.join("; ")).expect_value_eq("bar")?;
+    test().run_multiple(commands).expect_value_eq("bar")?;
     Ok(())
 }
 
@@ -368,17 +290,8 @@ fn update_overlay_from_module_env() -> Result {
         "$env.FOO",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    actual.expect_value_eq("bar")?;
-    actual_repl.expect_value_eq("bar")?;
+    test().run(commands.join("; ")).expect_value_eq("bar")?;
+    test().run_multiple(commands).expect_value_eq("bar")?;
     Ok(())
 }
 
@@ -393,17 +306,8 @@ fn overlay_use_do_not_eval_twice() -> Result {
         "$env.FOO",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    actual.expect_value_eq("bar")?;
-    actual_repl.expect_value_eq("bar")?;
+    test().run(commands.join("; ")).expect_value_eq("bar")?;
+    test().run_multiple(commands).expect_value_eq("bar")?;
     Ok(())
 }
 
@@ -416,17 +320,8 @@ fn hide_overlay() -> Result {
         "foo",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    assert!(actual.is_err());
-    assert!(actual_repl.is_err());
+    test().run(commands.join("; ")).expect_shell_error()?;
+    test().run_multiple(commands).expect_shell_error()?;
     Ok(())
 }
 
@@ -439,17 +334,8 @@ fn hide_last_overlay() -> Result {
         "foo",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    assert!(actual.is_err());
-    assert!(actual_repl.is_err());
+    test().run(commands.join("; ")).expect_parse_error()?;
+    test().run_multiple(commands).expect_shell_error()?;
     Ok(())
 }
 
@@ -462,17 +348,8 @@ fn hide_overlay_scoped() -> Result {
         "foo",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    actual.expect_value_eq("foo")?;
-    actual_repl.expect_value_eq("foo")?;
+    test().run(commands.join("; ")).expect_value_eq("foo")?;
+    test().run_multiple(commands).expect_value_eq("foo")?;
     Ok(())
 }
 
@@ -485,17 +362,8 @@ fn hide_overlay_env() -> Result {
         "$env.FOO",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    assert!(actual.is_err());
-    assert!(actual_repl.is_err());
+    test().run(commands.join("; ")).expect_shell_error()?;
+    test().run_multiple(commands).expect_shell_error()?;
     Ok(())
 }
 
@@ -508,17 +376,8 @@ fn hide_overlay_scoped_env() -> Result {
         "$env.FOO",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    actual.expect_value_eq("foo")?;
-    actual_repl.expect_value_eq("foo")?;
+    test().run(commands.join("; ")).expect_value_eq("foo")?;
+    test().run_multiple(commands).expect_value_eq("foo")?;
     Ok(())
 }
 
@@ -526,17 +385,8 @@ fn hide_overlay_scoped_env() -> Result {
 fn list_default_overlay() -> Result {
     let commands = ["overlay list | last | get name"];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    actual.expect_value_eq("zero")?;
-    actual_repl.expect_value_eq("zero")?;
+    test().run(commands.join("; ")).expect_value_eq("zero")?;
+    test().run_multiple(commands).expect_value_eq("zero")?;
     Ok(())
 }
 
@@ -548,17 +398,8 @@ fn list_last_overlay() -> Result {
         "overlay list | last | get name",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    actual.expect_value_eq("spam")?;
-    actual_repl.expect_value_eq("spam")?;
+    test().run(commands.join("; ")).expect_value_eq("spam")?;
+    test().run_multiple(commands).expect_value_eq("spam")?;
     Ok(())
 }
 
@@ -570,17 +411,8 @@ fn list_overlay_scoped() -> Result {
         "do { overlay list | last | get name }",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    actual.expect_value_eq("spam")?;
-    actual_repl.expect_value_eq("spam")?;
+    test().run(commands.join("; ")).expect_value_eq("spam")?;
+    test().run_multiple(commands).expect_value_eq("spam")?;
     Ok(())
 }
 
@@ -593,17 +425,8 @@ fn hide_overlay_discard_decl() -> Result {
         "bagr",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    assert!(actual.is_err());
-    assert!(actual_repl.is_err());
+    test().run(commands.join("; ")).expect_parse_error()?;
+    test().run_multiple(commands).expect_parse_error()?;
     Ok(())
 }
 
@@ -616,17 +439,8 @@ fn hide_overlay_discard_alias() -> Result {
         "bagr",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    assert!(actual.is_err());
-    assert!(actual_repl.is_err());
+    test().run(commands.join("; ")).expect_parse_error()?;
+    test().run_multiple(commands).expect_parse_error()?;
     Ok(())
 }
 
@@ -639,17 +453,8 @@ fn hide_overlay_discard_env() -> Result {
         "$env.BAGR",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    assert!(actual.is_err());
-    assert!(actual_repl.is_err());
+    test().run(commands.join("; ")).expect_parse_error()?;
+    test().run_multiple(commands).expect_parse_error()?;
     Ok(())
 }
 
@@ -662,17 +467,14 @@ fn hide_overlay_keep_decl() -> Result {
         "bagr",
     ];
 
-    let actual: Result<Value> = test().cwd("tests/overlays").run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test().cwd("tests/overlays");
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    actual.expect_value_eq("bagr")?;
-    actual_repl.expect_value_eq("bagr")?;
+    test()
+        .cwd("tests/overlays")
+        .run(commands.join("; "))
+        .expect_value_eq("bagr")?;
+    test()
+        .cwd("tests/overlays")
+        .run_multiple(commands)
+        .expect_value_eq("bagr")?;
     Ok(())
 }
 
@@ -685,17 +487,14 @@ fn hide_overlay_keep_alias() -> Result {
         "bagr",
     ];
 
-    let actual: Result<Value> = test().cwd("tests/overlays").run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test().cwd("tests/overlays");
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    actual.expect_value_eq("bagr")?;
-    actual_repl.expect_value_eq("bagr")?;
+    test()
+        .cwd("tests/overlays")
+        .run(commands.join("; "))
+        .expect_value_eq("bagr")?;
+    test()
+        .cwd("tests/overlays")
+        .run_multiple(commands)
+        .expect_value_eq("bagr")?;
     Ok(())
 }
 
@@ -708,17 +507,8 @@ fn hide_overlay_dont_keep_env() -> Result {
         "$env.BAGR",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    assert!(actual.is_err());
-    assert!(actual_repl.is_err());
+    test().run(commands.join("; ")).expect_parse_error()?;
+    test().run_multiple(commands).expect_parse_error()?;
     Ok(())
 }
 
@@ -731,17 +521,8 @@ fn hide_overlay_dont_keep_overwritten_decl() -> Result {
         "foo",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    assert!(actual.is_err());
-    assert!(actual_repl.is_err());
+    test().run(commands.join("; ")).expect_parse_error()?;
+    test().run_multiple(commands).expect_parse_error()?;
     Ok(())
 }
 
@@ -754,17 +535,8 @@ fn hide_overlay_dont_keep_overwritten_alias() -> Result {
         "bar",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    assert!(actual.is_err());
-    assert!(actual_repl.is_err());
+    test().run(commands.join("; ")).expect_parse_error()?;
+    test().run_multiple(commands).expect_parse_error()?;
     Ok(())
 }
 
@@ -777,17 +549,8 @@ fn hide_overlay_dont_keep_overwritten_env() -> Result {
         "$env.BAZ",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    assert!(actual.is_err());
-    assert!(actual_repl.is_err());
+    test().run(commands.join("; ")).expect_parse_error()?;
+    test().run_multiple(commands).expect_parse_error()?;
     Ok(())
 }
 
@@ -802,17 +565,14 @@ fn hide_overlay_keep_decl_in_latest_overlay() -> Result {
         "bagr",
     ];
 
-    let actual: Result<Value> = test().cwd("tests/overlays").run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test().cwd("tests/overlays");
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    actual.expect_value_eq("bagr")?;
-    actual_repl.expect_value_eq("bagr")?;
+    test()
+        .cwd("tests/overlays")
+        .run(commands.join("; "))
+        .expect_value_eq("bagr")?;
+    test()
+        .cwd("tests/overlays")
+        .run_multiple(commands)
+        .expect_value_eq("bagr")?;
     Ok(())
 }
 
@@ -827,17 +587,14 @@ fn hide_overlay_keep_alias_in_latest_overlay() -> Result {
         "bagr",
     ];
 
-    let actual: Result<Value> = test().cwd("tests/overlays").run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test().cwd("tests/overlays");
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    actual.expect_value_eq("bagr")?;
-    actual_repl.expect_value_eq("bagr")?;
+    test()
+        .cwd("tests/overlays")
+        .run(commands.join("; "))
+        .expect_value_eq("bagr")?;
+    test()
+        .cwd("tests/overlays")
+        .run_multiple(commands)
+        .expect_value_eq("bagr")?;
     Ok(())
 }
 
@@ -852,17 +609,8 @@ fn hide_overlay_dont_keep_env_in_latest_overlay() -> Result {
         "$env.BAGR",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    assert!(actual.is_err());
-    assert!(actual_repl.is_err());
+    test().run(commands.join("; ")).expect_parse_error()?;
+    test().run_multiple(commands).expect_parse_error()?;
     Ok(())
 }
 
@@ -876,17 +624,14 @@ fn preserve_overrides() -> Result {
         "foo",
     ];
 
-    let actual: Result<Value> = test().cwd("tests/overlays").run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test().cwd("tests/overlays");
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    actual.expect_value_eq("new-foo")?;
-    actual_repl.expect_value_eq("new-foo")?;
+    test()
+        .cwd("tests/overlays")
+        .run(commands.join("; "))
+        .expect_value_eq("new-foo")?;
+    test()
+        .cwd("tests/overlays")
+        .run_multiple(commands)
+        .expect_value_eq("new-foo")?;
     Ok(())
 }
 
@@ -900,17 +645,14 @@ fn reset_overrides() -> Result {
         "foo",
     ];
 
-    let actual: Result<Value> = test().cwd("tests/overlays").run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test().cwd("tests/overlays");
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    actual.expect_value_eq("foo")?;
-    actual_repl.expect_value_eq("foo")?;
+    test()
+        .cwd("tests/overlays")
+        .run(commands.join("; "))
+        .expect_value_eq("foo")?;
+    test()
+        .cwd("tests/overlays")
+        .run_multiple(commands)
+        .expect_value_eq("foo")?;
     Ok(())
 }
 
@@ -918,17 +660,8 @@ fn reset_overrides() -> Result {
 fn overlay_new() -> Result {
     let commands = ["overlay new spam", "overlay list | last | get name"];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    actual.expect_value_eq("spam")?;
-    actual_repl.expect_value_eq("spam")?;
+    test().run(commands.join("; ")).expect_value_eq("spam")?;
+    test().run_multiple(commands).expect_value_eq("spam")?;
     Ok(())
 }
 
@@ -941,17 +674,14 @@ fn overlay_keep_pwd() -> Result {
         "$env.PWD | path basename",
     ];
 
-    let actual: Result<Value> = test().cwd("tests/overlays").run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test().cwd("tests/overlays");
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    actual.expect_value_eq("samples")?;
-    actual_repl.expect_value_eq("samples")?;
+    test()
+        .cwd("tests/overlays")
+        .run(commands.join("; "))
+        .expect_value_eq("samples")?;
+    test()
+        .cwd("tests/overlays")
+        .run_multiple(commands)
+        .expect_value_eq("samples")?;
     Ok(())
 }
 
@@ -966,19 +696,14 @@ fn overlay_reactivate_with_nufile_should_not_change_pwd() -> Result {
         "$env.PWD | path basename",
     ];
 
-    let actual: Result<Value> = test()
+    test()
         .cwd("tests/overlays/samples")
-        .run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test().cwd("tests/overlays/samples");
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    actual.expect_value_eq("samples")?;
-    actual_repl.expect_value_eq("samples")?;
+        .run(commands.join("; "))
+        .expect_value_eq("samples")?;
+    test()
+        .cwd("tests/overlays/samples")
+        .run_multiple(commands)
+        .expect_value_eq("samples")?;
     Ok(())
 }
 
@@ -993,19 +718,14 @@ fn overlay_reactivate_with_module_name_should_change_pwd() -> Result {
         "$env.PWD | path basename",
     ];
 
-    let actual: Result<Value> = test()
+    test()
         .cwd("tests/overlays/samples")
-        .run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test().cwd("tests/overlays/samples");
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    actual.expect_value_eq("overlays")?;
-    actual_repl.expect_value_eq("overlays")?;
+        .run(commands.join("; "))
+        .expect_value_eq("overlays")?;
+    test()
+        .cwd("tests/overlays/samples")
+        .run_multiple(commands)
+        .expect_value_eq("overlays")?;
     Ok(())
 }
 
@@ -1013,9 +733,7 @@ fn overlay_reactivate_with_module_name_should_change_pwd() -> Result {
 fn overlay_wrong_rename_type() -> Result {
     let commands = ["module spam {}", "overlay use spam as { echo foo }"];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-
-    assert!(actual.is_err());
+    test().run(commands.join("; ")).expect_parse_error()?;
     Ok(())
 }
 
@@ -1027,17 +745,8 @@ fn overlay_add_renamed() -> Result {
         "eggs foo",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    actual.expect_value_eq("foo")?;
-    actual_repl.expect_value_eq("foo")?;
+    test().run(commands.join("; ")).expect_value_eq("foo")?;
+    test().run_multiple(commands).expect_value_eq("foo")?;
     Ok(())
 }
 
@@ -1051,17 +760,8 @@ fn overlay_add_renamed_const() -> Result {
         "eggs foo",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    actual.expect_value_eq("foo")?;
-    actual_repl.expect_value_eq("foo")?;
+    test().run(commands.join("; ")).expect_value_eq("foo")?;
+    test().run_multiple(commands).expect_value_eq("foo")?;
     Ok(())
 }
 
@@ -1069,17 +769,14 @@ fn overlay_add_renamed_const() -> Result {
 fn overlay_add_renamed_from_file() -> Result {
     let commands = ["overlay use samples/spam.nu as eggs --prefix", "eggs foo"];
 
-    let actual: Result<Value> = test().cwd("tests/overlays").run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test().cwd("tests/overlays");
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    actual.expect_value_eq("foo")?;
-    actual_repl.expect_value_eq("foo")?;
+    test()
+        .cwd("tests/overlays")
+        .run(commands.join("; "))
+        .expect_value_eq("foo")?;
+    test()
+        .cwd("tests/overlays")
+        .run_multiple(commands)
+        .expect_value_eq("foo")?;
     Ok(())
 }
 
@@ -1092,17 +789,10 @@ fn overlay_cant_rename_existing_overlay() -> Result {
         "overlay use spam as eggs",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    assert!(actual.is_err());
-    actual_repl.expect_error_code_eq("nu::parser::cant_add_overlay_help")?;
+    test().run(commands.join("; ")).expect_parse_error()?;
+    test()
+        .run_multiple(commands)
+        .expect_error_code_eq("nu::parser::cant_add_overlay_help")?;
     Ok(())
 }
 
@@ -1115,17 +805,8 @@ fn overlay_can_add_renamed_overlay() -> Result {
         "(spam foo) + (eggs foo)",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    actual.expect_value_eq("foofoo")?;
-    actual_repl.expect_value_eq("foofoo")?;
+    test().run(commands.join("; ")).expect_value_eq("foofoo")?;
+    test().run_multiple(commands).expect_value_eq("foofoo")?;
     Ok(())
 }
 
@@ -1138,17 +819,10 @@ fn overlay_hide_renamed_overlay() -> Result {
         "foo-command-which-does-not-conflict",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    assert!(actual.is_err());
-    actual_repl.expect_error_code_eq("nu::shell::external_command")?;
+    test().run(commands.join("; ")).expect_shell_error()?;
+    test()
+        .run_multiple(commands)
+        .expect_error_code_eq("nu::shell::external_command")?;
     Ok(())
 }
 
@@ -1171,15 +845,7 @@ fn overlay_hide_dont_restore_hidden_env_which_is_introduce_currently() -> Result
         "'foo' in $env",
     ];
 
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    actual_repl.expect_value_eq(false)?;
+    test().run_multiple(commands).expect_value_eq(false)?;
     Ok(())
 }
 
@@ -1193,17 +859,8 @@ fn overlay_hide_and_add_renamed_overlay() -> Result {
         "foo",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    actual.expect_value_eq("foo")?;
-    actual_repl.expect_value_eq("foo")?;
+    test().run(commands.join("; ")).expect_value_eq("foo")?;
+    test().run_multiple(commands).expect_value_eq("foo")?;
     Ok(())
 }
 
@@ -1215,17 +872,8 @@ fn overlay_use_export_env() -> Result {
         "$env.FOO",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    actual.expect_value_eq("foo")?;
-    actual_repl.expect_value_eq("foo")?;
+    test().run(commands.join("; ")).expect_value_eq("foo")?;
+    test().run_multiple(commands).expect_value_eq("foo")?;
     Ok(())
 }
 
@@ -1241,20 +889,11 @@ fn overlay_use_export_env_config_affected() -> Result {
         "$out | to json --raw",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    let Value::String { val, .. } = actual.unwrap() else {
+    let Value::String { val, .. } = test().run(commands.join("; "))? else {
         panic!("expected string value")
     };
     assert_eq!(val.replace(",0 ", ".0 "), r#"["20.0 MB","20.0 MiB"]"#);
-    let Value::String { val, .. } = actual_repl.unwrap() else {
+    let Value::String { val, .. } = test().run_multiple(commands)? else {
         panic!("expected string value")
     };
     assert_eq!(val.replace(",0 ", ".0 "), r#"["20.0 MB","20.0 MiB"]"#);
@@ -1262,6 +901,7 @@ fn overlay_use_export_env_config_affected() -> Result {
 }
 
 #[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "en_US.UTF-8")]
 fn overlay_hide_config_affected() -> Result {
     let commands = [
         "mut out = []",
@@ -1272,31 +912,17 @@ fn overlay_hide_config_affected() -> Result {
         "$out ++= [(20MiB | into string)]",
         "overlay hide",
         "$out ++= [(20MB | into string)]",
-        "$out | to json --raw",
+        "$out",
     ];
 
-    // Can't hide overlay within the same source file
-    // let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    // actual.expect_value_eq(r#"["20.0 MB","20.0 MiB","20.0 MB"]"#)?;
-    let Value::String { val, .. } = actual_repl.unwrap() else {
-        panic!("expected string value")
-    };
-    assert_eq!(
-        val.replace(",0 ", ".0 "),
-        r#"["20.0 MB","20.0 MiB","20.0 MB"]"#
-    );
-    Ok(())
+    // Can't hide overlay within the same source file.
+    test()
+        .run_multiple(commands)
+        .expect_value_eq(["20.0 MB", "20.0 MiB", "20.0 MB"])
 }
 
 #[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "en_US.UTF-8")]
 fn overlay_use_after_hide_config_affected() -> Result {
     let commands = [
         "mut out = []",
@@ -1309,28 +935,13 @@ fn overlay_use_after_hide_config_affected() -> Result {
         "$out ++= [(20MB | into string)]",
         "overlay use spam",
         "$out ++= [(20MiB | into string)]",
-        "$out | to json --raw",
+        "$out",
     ];
 
-    // Can't hide overlay within the same source file
-    // let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    // actual.expect_value_eq(r#"["20.0 MB","20.0 MiB","20.0 MB"]"#)?;
-    let Value::String { val, .. } = actual_repl.unwrap() else {
-        panic!("expected string value")
-    };
-    assert_eq!(
-        val.replace(",0 ", ".0 "),
-        r#"["20.0 MB","20.0 MiB","20.0 MB","20.0 MiB"]"#
-    );
-    Ok(())
+    // Can't hide overlay within the same source file.
+    test()
+        .run_multiple(commands)
+        .expect_value_eq(["20.0 MB", "20.0 MiB", "20.0 MB", "20.0 MiB"])
 }
 
 #[test]
@@ -1342,41 +953,25 @@ fn overlay_use_export_env_hide() -> Result {
         "$env.FOO",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    assert!(actual.is_err());
-    assert!(actual_repl.is_err());
+    test().run(commands.join("; ")).expect_shell_error()?;
+    test().run_multiple(commands).expect_shell_error()?;
     Ok(())
 }
 
 #[test]
 fn overlay_use_do_cd() -> Result {
     Playground::setup("overlay_use_do_cd", |dirs, sandbox| -> Result {
-        sandbox
-            .mkdir("test1/test2")
-            .with_files(&[FileWithContentToBeTrimmed(
-                "test1/test2/spam.nu",
-                "
-                    export-env { cd test1/test2 }
-                ",
-            )]);
+        sandbox.mkdir("test1/test2").with_files(&[FileWithContent(
+            "test1/test2/spam.nu",
+            "export-env { cd test1/test2 }",
+        )]);
 
-        let commands = [
-            "overlay use test1/test2/spam.nu",
-            "$env.PWD | path basename",
-        ];
+        let code = "
+            overlay use test1/test2/spam.nu
+            $env.PWD | path basename
+        ";
 
-        let actual: Result<Value> = test().cwd(dirs.test()).run(commands.join("; "));
-
-        actual.expect_value_eq("test2")?;
-        Ok(())
+        test().cwd(dirs.test()).run(code).expect_value_eq("test2")
     })
 }
 
@@ -1385,24 +980,17 @@ fn overlay_use_do_cd_file_relative() -> Result {
     Playground::setup(
         "overlay_use_do_cd_file_relative",
         |dirs, sandbox| -> Result {
-            sandbox
-                .mkdir("test1/test2")
-                .with_files(&[FileWithContentToBeTrimmed(
-                    "test1/test2/spam.nu",
-                    "
-                    export-env { cd ($env.FILE_PWD | path join '..') }
-                ",
-                )]);
+            sandbox.mkdir("test1/test2").with_files(&[FileWithContent(
+                "test1/test2/spam.nu",
+                "export-env { cd ($env.FILE_PWD | path join '..') }",
+            )]);
 
-            let commands = [
-                "overlay use test1/test2/spam.nu",
-                "$env.PWD | path basename",
-            ];
+            let code = "
+                overlay use test1/test2/spam.nu
+                $env.PWD | path basename
+            ";
 
-            let actual: Result<Value> = test().cwd(dirs.test()).run(commands.join("; "));
-
-            actual.expect_value_eq("test1")?;
-            Ok(())
+            test().cwd(dirs.test()).run(code).expect_value_eq("test1")
         },
     )
 }
@@ -1423,19 +1011,22 @@ fn overlay_use_dont_cd_overlay() -> Result {
                 ",
             )]);
 
-        let commands = ["source-env test1/test2/spam.nu", "$env.PWD | path basename"];
+        let code = "
+           source-env test1/test2/spam.nu
+           $env.PWD | path basename
+        ";
 
-        let actual: Result<Value> = test().cwd(dirs.test()).run(commands.join("; "));
-
-        actual.expect_value_eq("overlay_use_dont_cd_overlay")?;
-        Ok(())
+        test()
+            .cwd(dirs.test())
+            .run(code)
+            .expect_value_eq("overlay_use_dont_cd_overlay")
     })
 }
 
 #[test]
 fn overlay_use_find_scoped_module() -> Result {
     Playground::setup("overlay_use_find_module_scoped", |dirs, _| -> Result {
-        let commands = "
+        let code = "
                 do {
                     module spam { }
 
@@ -1444,9 +1035,7 @@ fn overlay_use_find_scoped_module() -> Result {
                 }
             ";
 
-        let actual: Result<Value> = test().cwd(dirs.test()).run(commands);
-
-        actual.expect_value_eq("spam")
+        test().cwd(dirs.test()).run(code).expect_value_eq("spam")
     })
 }
 
@@ -1462,17 +1051,8 @@ fn overlay_preserve_hidden_env_1() -> Result {
         "$env.FOO",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    actual.expect_value_eq("foo")?;
-    actual_repl.expect_value_eq("foo")?;
+    test().run(commands.join("; ")).expect_value_eq("foo")?;
+    test().run_multiple(commands).expect_value_eq("foo")?;
     Ok(())
 }
 
@@ -1491,17 +1071,8 @@ fn overlay_preserve_hidden_env_2() -> Result {
         "$env.FOO",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    actual.expect_value_eq("foo")?;
-    actual_repl.expect_value_eq("foo")?;
+    test().run(commands.join("; ")).expect_value_eq("foo")?;
+    test().run_multiple(commands).expect_value_eq("foo")?;
     Ok(())
 }
 
@@ -1518,17 +1089,8 @@ fn overlay_reset_hidden_env() -> Result {
         "$env.FOO",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    actual.expect_value_eq("bar")?;
-    actual_repl.expect_value_eq("bar")?;
+    test().run(commands.join("; ")).expect_value_eq("bar")?;
+    test().run_multiple(commands).expect_value_eq("bar")?;
     Ok(())
 }
 
@@ -1545,17 +1107,8 @@ fn overlay_preserve_hidden_decl() -> Result {
         "foo",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    actual.expect_value_eq("foo")?;
-    actual_repl.expect_value_eq("foo")?;
+    test().run(commands.join("; ")).expect_value_eq("foo")?;
+    test().run_multiple(commands).expect_value_eq("foo")?;
     Ok(())
 }
 
@@ -1572,32 +1125,20 @@ fn overlay_preserve_hidden_alias() -> Result {
         "foo",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    actual.expect_value_eq("foo")?;
-    actual_repl.expect_value_eq("foo")?;
+    test().run(commands.join("; ")).expect_value_eq("foo")?;
+    test().run_multiple(commands).expect_value_eq("foo")?;
     Ok(())
 }
 
 #[test]
 fn overlay_trim_single_quote() -> Result {
-    let commands = [
-        r#"module spam { export def foo [] { "foo" } }"#,
-        "overlay use 'spam'",
-        "overlay list | last | get name",
-    ];
+    let code = r#"
+        module spam { export def foo [] { "foo" } }
+        overlay use 'spam'
+        overlay list | last | get name
+    "#;
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-
-    actual.expect_value_eq("spam")?;
-    Ok(())
+    test().run(code).expect_value_eq("spam")
 }
 
 #[test]
@@ -1608,32 +1149,20 @@ fn overlay_trim_single_quote_hide() -> Result {
         "overlay hide spam ",
         "foo",
     ];
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    assert!(actual.is_err());
-    assert!(actual_repl.is_err());
+    test().run(commands.join("; ")).expect_shell_error()?;
+    test().run_multiple(commands).expect_shell_error()?;
     Ok(())
 }
 
 #[test]
 fn overlay_trim_double_quote() -> Result {
-    let commands = [
-        r#"module spam { export def foo [] { "foo" } }"#,
-        r#"overlay use "spam" "#,
-        "overlay list | last | get name",
-    ];
+    let code = r#"
+        module spam { export def foo [] { "foo" } }
+        overlay use "spam"
+        overlay list | last | get name
+    "#;
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-
-    actual.expect_value_eq("spam")?;
-    Ok(())
+    test().run(code).expect_value_eq("spam")
 }
 
 #[test]
@@ -1644,17 +1173,8 @@ fn overlay_trim_double_quote_hide() -> Result {
         "overlay hide spam ",
         "foo",
     ];
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    assert!(actual.is_err());
-    assert!(actual_repl.is_err());
+    test().run(commands.join("; ")).expect_shell_error()?;
+    test().run_multiple(commands).expect_shell_error()?;
     Ok(())
 }
 
@@ -1675,17 +1195,12 @@ fn overlay_use_and_restore_older_env_vars() -> Result {
         "$env.BAZ",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    actual.expect_value_eq("new-bazbaz")?;
-    actual_repl.expect_value_eq("new-bazbaz")?;
+    test()
+        .run(commands.join("; "))
+        .expect_value_eq("new-bazbaz")?;
+    test()
+        .run_multiple(commands)
+        .expect_value_eq("new-bazbaz")?;
     Ok(())
 }
 
@@ -1707,17 +1222,10 @@ fn overlay_use_and_reload() -> Result {
         "$'(foo)(fooalias)($env.FOO)'",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    actual.expect_value_eq("foofoofoo")?;
-    actual_repl.expect_value_eq("foofoofoo")?;
+    test()
+        .run(commands.join("; "))
+        .expect_value_eq("foofoofoo")?;
+    test().run_multiple(commands).expect_value_eq("foofoofoo")?;
     Ok(())
 }
 
@@ -1732,61 +1240,47 @@ fn overlay_use_and_reolad_keep_custom() -> Result {
         "$'(foo)(fooalias)($env.FOO)'",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    actual.expect_value_eq("newfoonewfoonewfoo")?;
-    actual_repl.expect_value_eq("newfoonewfoonewfoo")?;
+    test()
+        .run(commands.join("; "))
+        .expect_value_eq("newfoonewfoonewfoo")?;
+    test()
+        .run_multiple(commands)
+        .expect_value_eq("newfoonewfoonewfoo")?;
     Ok(())
 }
 
 #[test]
 fn overlay_use_main() -> Result {
-    let commands = [
-        r#"module spam { export def main [] { "spam" } }"#,
-        "overlay use spam",
-        "spam",
-    ];
+    let code = r#"
+        module spam { export def main [] { "spam" } }
+        overlay use spam
+        spam
+    "#;
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-
-    actual.expect_value_eq("spam")?;
-    Ok(())
+    test().run(code).expect_value_eq("spam")
 }
 
 #[test]
 fn overlay_use_main_prefix() -> Result {
-    let commands = [
-        r#"module spam { export def main [] { "spam" } }"#,
-        "overlay use spam --prefix",
-        "spam",
-    ];
+    let code = r#"
+        module spam { export def main [] { "spam" } }
+        overlay use spam --prefix
+        spam
+    "#;
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-
-    actual.expect_value_eq("spam")?;
-    Ok(())
+    test().run(code).expect_value_eq("spam")
 }
 
 #[test]
 fn overlay_use_main_def_env() -> Result {
-    let commands = [
-        r#"module spam { export def --env main [] { $env.SPAM = "spam" } }"#,
-        "overlay use spam",
-        "spam",
-        "$env.SPAM",
-    ];
+    let code = r#"
+        module spam { export def --env main [] { $env.SPAM = "spam" } }
+        overlay use spam
+        spam
+        $env.SPAM
+    "#;
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-
-    actual.expect_value_eq("spam")?;
-    Ok(())
+    test().run(code).expect_value_eq("spam")
 }
 
 #[test]
@@ -1798,26 +1292,20 @@ fn overlay_use_main_def_known_external() -> Result {
         "cargo --version",
     ];
 
-    let actual: Result<Value> = test().inherit_rust_toolchain_env().run(commands.join("; "));
-
-    let Value::String { val: actual, .. } = actual.unwrap() else {
-        panic!("expected string value")
-    };
-    assert!(actual.contains("cargo"));
+    let out: String = test().inherit_rust_toolchain_env().run_multiple(commands)?;
+    assert_contains("cargo", out);
     Ok(())
 }
 
 #[test]
 fn overlay_use_main_not_exported() -> Result {
-    let commands = [
-        r#"module my-super-cool-and-unique-module-name { def main [] { "hi" } }"#,
-        "overlay use my-super-cool-and-unique-module-name",
-        "my-super-cool-and-unique-module-name",
-    ];
+    let code = r#"
+        module my-super-cool-and-unique-module-name { def main [] { "hi" } }
+        overlay use my-super-cool-and-unique-module-name
+        my-super-cool-and-unique-module-name
+    "#;
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-
-    assert!(actual.is_err());
+    test().run(code).expect_shell_error()?;
     Ok(())
 }
 
@@ -1832,17 +1320,12 @@ fn alias_overlay_hide() -> Result {
         "my-epic-command-name",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    assert!(actual.is_err());
-    actual_repl.expect_error_code_eq("nu::shell::external_command")?;
+    test()
+        .run(commands.join("; "))
+        .expect_error_code_eq("nu::shell::external_command")?;
+    test()
+        .run_multiple(commands)
+        .expect_error_code_eq("nu::shell::external_command")?;
     Ok(())
 }
 
@@ -1855,17 +1338,8 @@ fn alias_overlay_use() -> Result {
         "foo",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    actual.expect_value_eq("foo")?;
-    actual_repl.expect_value_eq("foo")?;
+    test().run(commands.join("; ")).expect_value_eq("foo")?;
+    test().run_multiple(commands).expect_value_eq("foo")?;
     Ok(())
 }
 
@@ -1879,19 +1353,8 @@ fn alias_overlay_use_2() -> Result {
         "overlay list | get 1.name",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    assert!(actual.is_ok());
-    assert!(actual_repl.is_ok());
-    actual.expect_value_eq("inner")?;
-    actual_repl.expect_value_eq("inner")?;
+    test().run(commands.join("; ")).expect_value_eq("inner")?;
+    test().run_multiple(commands).expect_value_eq("inner")?;
     Ok(())
 }
 
@@ -1905,19 +1368,8 @@ fn alias_overlay_use_3() -> Result {
         "overlay list | get 1.name",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    assert!(actual.is_ok());
-    assert!(actual_repl.is_ok());
-    actual.expect_value_eq("inner")?;
-    actual_repl.expect_value_eq("inner")?;
+    test().run(commands.join("; ")).expect_value_eq("inner")?;
+    test().run_multiple(commands).expect_value_eq("inner")?;
     Ok(())
 }
 
@@ -1930,17 +1382,8 @@ fn alias_overlay_new() -> Result {
         "overlay list | last | get name",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    actual.expect_value_eq("eggs")?;
-    actual_repl.expect_value_eq("eggs")?;
+    test().run(commands.join("; ")).expect_value_eq("eggs")?;
+    test().run_multiple(commands).expect_value_eq("eggs")?;
     Ok(())
 }
 
@@ -1954,17 +1397,8 @@ fn overlay_new_with_reload() -> Result {
         "'foo' in $env",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    actual.expect_value_eq(false)?;
-    actual_repl.expect_value_eq(false)?;
+    test().run(commands.join("; ")).expect_value_eq(false)?;
+    test().run_multiple(commands).expect_value_eq(false)?;
     Ok(())
 }
 
@@ -1977,8 +1411,10 @@ fn overlay_new_with_reload() -> Result {
 #[case::baz("baz", "spambaz")]
 fn overlay_use_module_dir(#[case] code: &str, #[case] expected: impl IntoValue) -> Result {
     let commands = ["overlay use samples/spam", code];
-    let actual: Result<Value> = test().cwd("tests/modules").run(commands.iter().join("; "));
-    actual.expect_value_eq(expected)
+    test()
+        .cwd("tests/modules")
+        .run(commands.iter().join("; "))
+        .expect_value_eq(expected)
 }
 
 #[rstest]
@@ -2015,11 +1451,10 @@ fn test_overlay_use_with_printing_file_pwd() -> Result {
             ",
         )]);
 
-        let actual: Result<Value> = test()
+        test()
             .cwd(dirs.test())
-            .run("overlay use foo; $env.OVERLAY_FILE_PWD");
-        actual.expect_value_eq(dirs.test().join("foo").to_string_lossy())?;
-        Ok(())
+            .run("overlay use foo; $env.OVERLAY_FILE_PWD")
+            .expect_value_eq(dirs.test().join("foo"))
     })
 }
 
@@ -2036,11 +1471,10 @@ fn test_overlay_use_with_printing_current_file() -> Result {
             ",
         )]);
 
-        let actual: Result<Value> = test()
+        test()
             .cwd(dirs.test())
-            .run("overlay use foo; $env.OVERLAY_CURRENT_FILE");
-        actual.expect_value_eq(dirs.test().join("foo").join("mod.nu").to_string_lossy())?;
-        Ok(())
+            .run("overlay use foo; $env.OVERLAY_CURRENT_FILE")
+            .expect_value_eq(dirs.test().join("foo").join("mod.nu"))
     })
 }
 
@@ -2051,16 +1485,8 @@ fn report_errors_in_export_env() -> Result {
         "overlay use spam",
     ];
 
-    let actual: Result<Value> = test().run(commands.join("; "));
-    let actual_repl = {
-        let mut tester = test();
-        commands
-            .iter()
-            .map(|line| tester.run(*line))
-            .try_fold(Value::test_nothing(), |_, value| value)
-    };
-
-    assert!(actual.is_err());
-    assert!(format!("{actual_repl:?}").contains("reported"));
+    test().run(commands.join("; ")).expect_shell_error()?;
+    let error = test().run_multiple(commands).expect_shell_error()?;
+    assert_contains("reported", format!("{error:?}"));
     Ok(())
 }
