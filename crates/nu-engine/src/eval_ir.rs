@@ -1330,6 +1330,13 @@ fn eval_call<D: DebugContext>(
                 head,
             )?;
 
+            // Snapshot the call's return destination onto the callee stack. Intermediate
+            // expressions in the body may temporarily set OutDest::Value (e.g. `if (…)`);
+            // Stack::is_stdout_redirected / `is-redirected` read this frame instead.
+            // See Stack::with_invocation_stdout for details.
+            let mut callee_stack =
+                callee_stack.with_invocation_stdout(caller_stack.stdout().clone());
+
             // Add one to the recursion count, so we don't recurse too deep. Stack overflows are not
             // recoverable in Rust.
             callee_stack.recursion_count += 1;
