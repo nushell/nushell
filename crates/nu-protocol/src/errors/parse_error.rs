@@ -214,6 +214,15 @@ pub enum ParseError {
     )]
     NameIsBuiltinVar(String, #[label("already a builtin variable")] Span),
 
+    #[error("Can't use parser keyword `{0}` as {1} name.")]
+    #[diagnostic(
+        code(nu::parser::name_is_keyword),
+        help(
+            "Parser keywords cannot be shadowed (including via module exports and `use *`). Choose a different {1} name so language constructs keep working."
+        )
+    )]
+    NameIsKeyword(String, String, #[label("'{0}' is a parser keyword")] Span),
+
     #[error("Incorrect value")]
     #[diagnostic(code(nu::parser::incorrect_value), help("{2}"))]
     IncorrectValue(String, #[label("unexpected {0}")] Span, String),
@@ -622,6 +631,7 @@ impl ParseError {
             ParseError::BuiltinCommandInPipeline(_, s) => *s,
             ParseError::AssignInPipeline(_, _, _, s) => *s,
             ParseError::NameIsBuiltinVar(_, s) => *s,
+            ParseError::NameIsKeyword(_, _, s) => *s,
             ParseError::CaptureOfMutableVar(s) => *s,
             ParseError::IncorrectValue(_, s, _) => *s,
             ParseError::InvalidBinaryString(s, _) => *s,
