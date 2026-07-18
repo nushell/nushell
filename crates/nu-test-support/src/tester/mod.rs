@@ -468,7 +468,7 @@ impl NuTester {
     }
 
     /// Run multiple Nushell command pipelines after each other and extract the value into `T`.
-    /// 
+    ///
     /// This shortcircuits if any pipeline fails.
     #[track_caller]
     pub fn run_multiple<T: FromValue>(
