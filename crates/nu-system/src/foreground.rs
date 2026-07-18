@@ -24,9 +24,11 @@ pub fn prepare_background_command(command: &mut Command) {
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
-        // DETACHED_PROCESS: no console to no SetConsoleMode (Unix setsid analogue).
-        const DETACHED_PROCESS: u32 = 0x0000_0008;
-        command.creation_flags(DETACHED_PROCESS);
+        // CREATE_NO_WINDOW: run console apps without creating a console window at all
+        // (stronger isolation than DETACHED_PROCESS; prevents SetConsoleMode /
+        // AttachConsole / AllocConsole tricks that could corrupt the parent's reedline).
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        command.creation_flags(CREATE_NO_WINDOW);
     }
 }
 
