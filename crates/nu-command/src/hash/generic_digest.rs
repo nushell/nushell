@@ -50,8 +50,14 @@ where
             .input_output_types(vec![
                 (Type::String, Type::one_of([Type::String, Type::Binary])),
                 (Type::Binary, Type::one_of([Type::String, Type::Binary])),
-                (Type::list(Type::String), Type::list(Type::one_of([Type::String, Type::Binary]))),
-                (Type::list(Type::Binary), Type::list(Type::one_of([Type::String, Type::Binary]))),
+                (
+                    Type::list(Type::String),
+                    Type::list(Type::one_of([Type::String, Type::Binary])),
+                ),
+                (
+                    Type::list(Type::Binary),
+                    Type::list(Type::one_of([Type::String, Type::Binary])),
+                ),
                 (Type::table(), Type::table()),
                 (Type::record(), Type::record()),
             ])
