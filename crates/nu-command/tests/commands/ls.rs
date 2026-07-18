@@ -1,48 +1,46 @@
+use nu_protocol::ParseError;
 use nu_test_support::fs::Stub::EmptyFile;
-use nu_test_support::nu;
 use nu_test_support::playground::Playground;
 use nu_test_support::prelude::*;
+use pretty_assertions::assert_matches;
 
 #[test]
-fn lists_regular_files() {
+fn lists_regular_files() -> Result {
     Playground::setup("ls_test_1", |dirs, sandbox| {
         sandbox.with_files(&[
-            EmptyFile("yehuda.txt"),
-            EmptyFile("jttxt"),
             EmptyFile("andres.txt"),
+            EmptyFile("jt.txt"),
+            EmptyFile("yehuda.txt"),
         ]);
 
-        let actual = nu!(cwd: dirs.test(), "
-            ls
-            | length
-        ");
-
-        assert_eq!(actual.out, "3");
+        test().cwd(dirs.test()).run("(ls).name").expect_value_eq([
+            "andres.txt",
+            "jt.txt",
+            "yehuda.txt",
+        ])
     })
 }
 
 #[test]
-fn lists_regular_files_using_asterisk_wildcard() {
+fn lists_regular_files_using_asterisk_wildcard() -> Result {
     Playground::setup("ls_test_2", |dirs, sandbox| {
         sandbox.with_files(&[
-            EmptyFile("los.txt"),
-            EmptyFile("tres.txt"),
             EmptyFile("amigos.txt"),
             EmptyFile("arepas.clu"),
+            EmptyFile("los.txt"),
+            EmptyFile("tres.txt"),
         ]);
 
-        let actual = nu!(cwd: dirs.test(), "
-            ls *.txt
-            | length
-        ");
-
-        assert_eq!(actual.out, "3");
+        test()
+            .cwd(dirs.test())
+            .run("(ls *.txt).name")
+            .expect_value_eq(["amigos.txt", "los.txt", "tres.txt"])
     })
 }
 
 #[cfg(not(target_os = "windows"))]
 #[test]
-fn lists_regular_files_in_special_folder() {
+fn lists_regular_files_in_special_folder() -> Result {
     Playground::setup("ls_test_3", |dirs, sandbox| {
         sandbox
             .mkdir("[abcd]")
@@ -51,42 +49,65 @@ fn lists_regular_files_in_special_folder() {
             .mkdir("abcd")
             .mkdir("abcd/*")
             .mkdir("abcd/?")
-            .with_files(&[EmptyFile("[abcd]/test.txt")])
-            .with_files(&[EmptyFile("abcd]/test.txt")])
-            .with_files(&[EmptyFile("abcd/*/test.txt")])
-            .with_files(&[EmptyFile("abcd/?/test.txt")])
-            .with_files(&[EmptyFile("abcd/?/test2.txt")]);
+            .with_files(&[
+                EmptyFile("[abcd]/test.txt"),
+                EmptyFile("abcd]/test.txt"),
+                EmptyFile("abcd/*/test.txt"),
+                EmptyFile("abcd/?/test.txt"),
+                EmptyFile("abcd/?/test2.txt"),
+            ]);
 
-        let actual = nu!(
-            cwd: dirs.test().join("abcd]"), format!("ls | length"));
-        assert_eq!(actual.out, "1");
-        let actual = nu!(
-            cwd: dirs.test(), format!("ls abcd] | length"));
-        assert_eq!(actual.out, "1");
-        let actual = nu!(
-            cwd: dirs.test().join("[abcd]"), format!("ls | length"));
-        assert_eq!(actual.out, "1");
-        let actual = nu!(
-            cwd: dirs.test().join("[bbcd]"), format!("ls | length"));
-        assert_eq!(actual.out, "0");
-        let actual = nu!(
-            cwd: dirs.test().join("abcd/*"), format!("ls | length"));
-        assert_eq!(actual.out, "1");
-        let actual = nu!(
-            cwd: dirs.test().join("abcd/?"), format!("ls | length"));
-        assert_eq!(actual.out, "2");
-        let actual = nu!(
-            cwd: dirs.test().join("abcd/*"), format!("ls -D ../* | length"));
-        assert_eq!(actual.out, "2");
-        let actual = nu!(
-            cwd: dirs.test().join("abcd/*"), format!("ls ../* | length"));
-        assert_eq!(actual.out, "2");
-        let actual = nu!(
-            cwd: dirs.test().join("abcd/?"), format!("ls -D ../* | length"));
-        assert_eq!(actual.out, "2");
-        let actual = nu!(
-            cwd: dirs.test().join("abcd/?"), format!("ls ../* | length"));
-        assert_eq!(actual.out, "2");
+        test()
+            .cwd(dirs.test().join("abcd]"))
+            .run("(ls).name")
+            .expect_value_eq(["test.txt"])?;
+
+        test()
+            .cwd(dirs.test())
+            .run("(ls abcd]).name")
+            .expect_value_eq(["abcd]/test.txt"])?;
+
+        test()
+            .cwd(dirs.test().join("[abcd]"))
+            .run("(ls).name")
+            .expect_value_eq(["test.txt"])?;
+
+        test()
+            .cwd(dirs.test().join("[bbcd]"))
+            .run("ls")
+            .expect_value_eq([(); 0])?;
+
+        test()
+            .cwd(dirs.test().join("abcd/*"))
+            .run("(ls).name")
+            .expect_value_eq(["test.txt"])?;
+
+        test()
+            .cwd(dirs.test().join("abcd/?"))
+            .run("(ls).name")
+            .expect_value_eq(["test.txt", "test2.txt"])?;
+
+        test()
+            .cwd(dirs.test().join("abcd/*"))
+            .run("ls -D ../* | length")
+            .expect_value_eq(2)?;
+
+        test()
+            .cwd(dirs.test().join("abcd/*"))
+            .run("ls ../* | length")
+            .expect_value_eq(2)?;
+
+        test()
+            .cwd(dirs.test().join("abcd/?"))
+            .run("ls -D ../* | length")
+            .expect_value_eq(2)?;
+
+        test()
+            .cwd(dirs.test().join("abcd/?"))
+            .run("ls ../* | length")
+            .expect_value_eq(2)?;
+
+        Ok(())
     })
 }
 
@@ -112,7 +133,7 @@ fn lists_regular_files_in_special_folder() {
 #[case("[[][abcd]bcd[]].txt", 2)]
 #[case("'[abcd].txt'", 1)]
 #[case("'[bbcd].txt'", 1)]
-fn lists_regular_files_using_question_mark(#[case] command: &str, #[case] expected: usize) {
+fn lists_regular_files_using_question_mark(#[case] ls_arg: &str, #[case] expected: i64) -> Result {
     Playground::setup("ls_test_3", |dirs, sandbox| {
         sandbox.mkdir("abcd").mkdir("bbcd").with_files(&[
             EmptyFile("abcd/xy.txt"),
@@ -127,14 +148,15 @@ fn lists_regular_files_using_question_mark(#[case] command: &str, #[case] expect
             EmptyFile("chicken_not_to_be_picked_up.100.txt"),
         ]);
 
-        let actual = nu!(
-            cwd: dirs.test(), format!("ls {command} | length"));
-        assert_eq!(actual.out, expected.to_string());
+        test()
+            .cwd(dirs.test())
+            .run(format!("ls {ls_arg} | length"))
+            .expect_value_eq(expected)
     })
 }
 
 #[test]
-fn lists_regular_files_using_question_mark_wildcard() {
+fn lists_regular_files_using_question_mark_wildcard() -> Result {
     Playground::setup("ls_test_3", |dirs, sandbox| {
         sandbox.with_files(&[
             EmptyFile("yehuda.10.txt"),
@@ -143,17 +165,15 @@ fn lists_regular_files_using_question_mark_wildcard() {
             EmptyFile("chicken_not_to_be_picked_up.100.txt"),
         ]);
 
-        let actual = nu!(cwd: dirs.test(), "
-            ls *.??.txt
-            | length
-        ");
-
-        assert_eq!(actual.out, "3");
+        test()
+            .cwd(dirs.test())
+            .run("ls *.??.txt | length")
+            .expect_value_eq(3)
     })
 }
 
 #[test]
-fn lists_all_files_in_directories_from_stream() {
+fn lists_all_files_in_directories_from_stream() -> Result {
     Playground::setup("ls_test_4", |dirs, sandbox| {
         sandbox
             .with_files(&[EmptyFile("root1.txt"), EmptyFile("root2.txt")])
@@ -165,46 +185,46 @@ fn lists_all_files_in_directories_from_stream() {
                 EmptyFile("chicken_not_to_be_picked_up.100.txt"),
             ]);
 
-        let actual = nu!(cwd: dirs.test(), "
+        let code = "
             echo dir_a dir_b
             | each { |it| ls $it }
-            | flatten | length
-        ");
-
-        assert_eq!(actual.out, "4");
+            | flatten
+            | length
+        ";
+        test().cwd(dirs.test()).run(code).expect_value_eq(4)
     })
 }
 
 #[test]
-fn does_not_fail_if_glob_matches_empty_directory() {
+fn does_not_fail_if_glob_matches_empty_directory() -> Result {
     Playground::setup("ls_test_5", |dirs, sandbox| {
         sandbox.within("dir_a");
 
-        let actual = nu!(cwd: dirs.test(), "
-            ls dir_a
-            | length
-        ");
-
-        assert_eq!(actual.out, "0");
+        test()
+            .cwd(dirs.test())
+            .run("ls dir_a | length")
+            .expect_value_eq(0)
     })
 }
 
 #[test]
-fn fails_when_glob_doesnt_match() {
+fn fails_when_glob_doesnt_match() -> Result {
     Playground::setup("ls_test_5", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("root1.txt"), EmptyFile("root2.txt")]);
 
-        let actual = nu!(
-            cwd: dirs.test(),
-            "ls root3*"
-        );
+        let err = test()
+            .cwd(dirs.test())
+            .run("ls root3*")
+            .expect_shell_error()?;
+        let err_msg = err.generic_msg()?;
+        assert_contains("file or folder not found", err_msg);
 
-        assert!(actual.err.contains("no matches found"));
+        Ok(())
     })
 }
 
 #[test]
-fn list_files_from_two_parents_up_using_multiple_dots() {
+fn list_files_from_two_parents_up_using_multiple_dots() -> Result {
     Playground::setup("ls_test_6", |dirs, sandbox| {
         sandbox.with_files(&[
             EmptyFile("yahuda.yaml"),
@@ -215,47 +235,44 @@ fn list_files_from_two_parents_up_using_multiple_dots() {
 
         sandbox.within("foo").mkdir("bar");
 
-        let actual = nu!(
-            cwd: dirs.test().join("foo/bar"),
-            "
-                ls ... | length
-            "
-        );
+        test()
+            .cwd(dirs.test().join("foo/bar"))
+            .run("ls ... | length")
+            .expect_value_eq(5)?;
 
-        assert_eq!(actual.out, "5");
-
-        let actual = nu!(
-            cwd: dirs.test().join("foo/bar"),
-            r#"ls ... | sort-by name | get name.0 | str replace -a '\' '/'"#
-        );
-        assert_eq!(actual.out, "../../andres.xml");
+        test()
+            .cwd(dirs.test().join("foo/bar"))
+            .run(r#"ls ... | sort-by name | get name.0 | str replace -a '\' '/'"#)
+            .expect_value_eq("../../andres.xml")
     })
 }
 
 #[test]
-fn let_typed_glob_expands_in_ls() {
+fn let_typed_glob_expands_in_ls() -> Result {
     Playground::setup("ls_let_glob_expand", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("a.toml"), EmptyFile("b.toml"), EmptyFile("c.txt")]);
 
-        let actual = nu!(cwd: dirs.test(), r#"let g: glob = "*.toml"; ls $g | length"#);
-
-        assert_eq!(actual.out, "2");
+        test()
+            .cwd(dirs.test())
+            .run(r#"let g: glob = "*.toml"; ls $g | length"#)
+            .expect_value_eq(2)
     })
 }
 
 #[test]
-fn let_into_glob_still_works_in_ls() {
+fn let_into_glob_still_works_in_ls() -> Result {
     Playground::setup("ls_into_glob_regression", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("a.toml"), EmptyFile("b.toml"), EmptyFile("c.txt")]);
 
-        let actual = nu!(cwd: dirs.test(), r#"let g = "*.toml" | into glob; ls $g | length"#);
-
-        assert_eq!(actual.out, "2");
+        test()
+            .cwd(dirs.test())
+            .run(r#"let g = "*.toml" | into glob; ls $g | length"#)
+            .expect_value_eq(2)
     })
 }
 
 #[test]
-fn lists_hidden_file_when_explicitly_specified() {
+fn lists_hidden_file_when_explicitly_specified() -> Result {
     Playground::setup("ls_test_7", |dirs, sandbox| {
         sandbox.with_files(&[
             EmptyFile("los.txt"),
@@ -265,17 +282,15 @@ fn lists_hidden_file_when_explicitly_specified() {
             EmptyFile(".testdotfile"),
         ]);
 
-        let actual = nu!(cwd: dirs.test(), "
-            ls .testdotfile
-            | length
-        ");
-
-        assert_eq!(actual.out, "1");
+        test()
+            .cwd(dirs.test())
+            .run("ls .testdotfile | length")
+            .expect_value_eq(1)
     })
 }
 
 #[test]
-fn lists_all_hidden_files_when_glob_contains_dot() {
+fn lists_all_hidden_files_when_glob_contains_dot() -> Result {
     Playground::setup("ls_test_8", |dirs, sandbox| {
         sandbox
             .with_files(&[
@@ -296,12 +311,10 @@ fn lists_all_hidden_files_when_glob_contains_dot() {
                 EmptyFile(".dotfile3"),
             ]);
 
-        let actual = nu!(cwd: dirs.test(), "
-            ls **/.*
-            | length
-        ");
-
-        assert_eq!(actual.out, "3");
+        test()
+            .cwd(dirs.test())
+            .run("ls **/.* | length")
+            .expect_value_eq(3)
     })
 }
 
@@ -309,7 +322,7 @@ fn lists_all_hidden_files_when_glob_contains_dot() {
 // TODO Remove this cfg value when we have an OS-agnostic way
 // of creating hidden files using the playground.
 #[cfg(unix)]
-fn lists_all_hidden_files_when_glob_does_not_contain_dot() {
+fn lists_all_hidden_files_when_glob_does_not_contain_dot() -> Result {
     Playground::setup("ls_test_8", |dirs, sandbox| {
         sandbox
             .with_files(&[
@@ -330,12 +343,10 @@ fn lists_all_hidden_files_when_glob_does_not_contain_dot() {
                 EmptyFile(".dotfile3"),
             ]);
 
-        let actual = nu!(cwd: dirs.test(), "
-            ls **/*
-            | length
-        ");
-
-        assert_eq!(actual.out, "5");
+        test()
+            .cwd(dirs.test())
+            .run("ls **/* | length")
+            .expect_value_eq(5)
     })
 }
 
@@ -343,7 +354,7 @@ fn lists_all_hidden_files_when_glob_does_not_contain_dot() {
 // TODO Remove this cfg value when we have an OS-agnostic way
 // of creating hidden files using the playground.
 #[cfg(unix)]
-fn glob_with_hidden_directory() {
+fn glob_with_hidden_directory() -> Result {
     Playground::setup("ls_test_8", |dirs, sandbox| {
         sandbox.within(".dir_b").with_files(&[
             EmptyFile("andres.10.txt"),
@@ -351,21 +362,18 @@ fn glob_with_hidden_directory() {
             EmptyFile(".dotfile3"),
         ]);
 
-        let actual = nu!(cwd: dirs.test(), "
-            ls **/*
-            | length
-        ");
-
-        assert_eq!(actual.out, "");
-        assert!(actual.err.contains("No matches found"));
+        let err = test()
+            .cwd(dirs.test())
+            .run("ls **/* | length")
+            .expect_shell_error()?;
+        let err_msg = err.generic_msg()?;
+        assert_contains("file or folder not found", err_msg);
 
         // will list files if provide `-a` flag.
-        let actual = nu!(cwd: dirs.test(), "
-            ls -a **/*
-            | length
-        ");
-
-        assert_eq!(actual.out, "4");
+        test()
+            .cwd(dirs.test())
+            .run("ls -a **/* | length")
+            .expect_value_eq(4)
     })
 }
 
@@ -397,7 +405,7 @@ fn fails_with_permission_denied() {
 }
 
 #[test]
-fn lists_files_including_starting_with_dot() {
+fn lists_files_including_starting_with_dot() -> Result {
     Playground::setup("ls_test_9", |dirs, sandbox| {
         sandbox.with_files(&[
             EmptyFile("yehuda.txt"),
@@ -407,17 +415,15 @@ fn lists_files_including_starting_with_dot() {
             EmptyFile(".hidden2.txt"),
         ]);
 
-        let actual = nu!(cwd: dirs.test(), "
-            ls -a
-            | length
-        ");
-
-        assert_eq!(actual.out, "5");
+        test()
+            .cwd(dirs.test())
+            .run("ls -a | length")
+            .expect_value_eq(5)
     })
 }
 
 #[test]
-fn list_all_columns() {
+fn list_all_columns() -> Result {
     Playground::setup("ls_test_all_columns", |dirs, sandbox| {
         sandbox.with_files(&[
             EmptyFile("Leonardo.yaml"),
@@ -425,21 +431,15 @@ fn list_all_columns() {
             EmptyFile("Donatello.xml"),
             EmptyFile("Michelangelo.txt"),
         ]);
+
         // Normal Operation
-        let actual = nu!(
-            cwd: dirs.test(),
-            "ls | columns | to md --list none"
-        );
-        let expected = ["name", "type", "size", "modified"].join("");
-        assert_eq!(actual.out, expected, "column names are incorrect for ls");
+        test()
+            .cwd(dirs.test())
+            .run("ls | columns")
+            .expect_value_eq(["name", "type", "size", "modified"])?;
         // Long
-        let actual = nu!(
-            cwd: dirs.test(),
-            "ls -l | columns | to md --list none"
-        );
-        let expected = {
-            #[cfg(unix)]
-            {
+        let expected = cfg_select! {
+            unix => {
                 [
                     "name",
                     "type",
@@ -455,81 +455,74 @@ fn list_all_columns() {
                     "accessed",
                     "modified",
                 ]
-                .join("")
             }
-
-            #[cfg(windows)]
-            {
+            windows => {
                 [
-                    "name", "type", "target", "readonly", "size", "created", "accessed", "modified",
+                    "name",
+                    "type",
+                    "target",
+                    "readonly",
+                    "size",
+                    "created",
+                    "accessed",
+                    "modified",
                 ]
-                .join("")
             }
         };
-        assert_eq!(
-            actual.out, expected,
-            "column names are incorrect for ls long"
-        );
-    });
+        test()
+            .cwd(dirs.test())
+            .run("ls -l | columns")
+            .expect_value_eq(expected)
+    })
 }
 
 #[test]
-fn lists_with_directory_flag() {
+fn lists_with_directory_flag() -> Result {
     Playground::setup("ls_test_flag_directory_1", |dirs, sandbox| {
         sandbox
             .within("dir_files")
             .with_files(&[EmptyFile("nushell.json")])
             .within("dir_empty");
-        let actual = nu!(cwd: dirs.test(), "
-            cd dir_empty;
+
+        let code = "
             ['.' '././.' '..' '../dir_files' '../dir_files/*']
             | each { |it| ls --directory ($it | into glob) }
             | flatten
             | get name
-            | to text
-        ");
-        let expected = [".", ".", "..", "../dir_files", "../dir_files/nushell.json"].join("");
+        ";
+        let expected = [".", ".", "..", "../dir_files", "../dir_files/nushell.json"];
         #[cfg(windows)]
-        let expected = expected.replace('/', "\\");
-        assert_eq!(
-            actual.out, expected,
-            "column names are incorrect for ls --directory (-D)"
-        );
-    });
+        let expected = expected.map(|e| e.replace('/', "\\"));
+
+        test()
+            .cwd(dirs.test().join("dir_empty"))
+            .run(code)
+            .expect_value_eq(expected)
+    })
 }
 
 #[test]
-fn lists_with_directory_flag_without_argument() {
+fn lists_with_directory_flag_without_argument() -> Result {
     Playground::setup("ls_test_flag_directory_2", |dirs, sandbox| {
         sandbox
             .within("dir_files")
             .with_files(&[EmptyFile("nushell.json")])
             .within("dir_empty");
+
         // Test if there are some files in the current directory
-        let actual = nu!(cwd: dirs.test(), "
-            cd dir_files;
-            ls --directory
-            | get name
-            | to text
-        ");
-        let expected = ".";
-        assert_eq!(
-            actual.out, expected,
-            "column names are incorrect for ls --directory (-D)"
-        );
+        test()
+            .cwd(dirs.test().join("dir_files"))
+            .run("ls --directory | get name")
+            .expect_value_eq(["."])?;
+
         // Test if there is no file in the current directory
-        let actual = nu!(cwd: dirs.test(), "
-            cd dir_empty;
-            ls -D
-            | get name
-            | to text
-        ");
-        let expected = ".";
-        assert_eq!(
-            actual.out, expected,
-            "column names are incorrect for ls --directory (-D)"
-        );
-    });
+        test()
+            .cwd(dirs.test().join("dir_empty"))
+            .run("ls -D | get name")
+            .expect_value_eq(["."])?;
+
+        Ok(())
+    })
 }
 
 /// Rust's fs::metadata function is unable to read info for certain system files on Windows,
@@ -537,40 +530,48 @@ fn lists_with_directory_flag_without_argument() {
 /// This test confirms that Nu can work around this successfully.
 #[test]
 #[cfg(windows)]
-fn can_list_system_folder() {
+fn can_list_system_folder() -> Result {
     // the awkward `ls Configuration* | where name == "Configuration"` thing is for speed;
     // listing the entire System32 folder is slow and `ls Configuration*` alone
     // might return more than 1 file someday
-    let file_type = nu!(cwd: "C:\\Windows\\System32", r#"ls Configuration* | where name == "Configuration" | get type.0"#);
-    assert_eq!(file_type.out, "dir");
 
-    let file_size = nu!(cwd: "C:\\Windows\\System32", r#"ls Configuration* | where name == "Configuration" | get size.0"#);
-    assert_ne!(file_size.out.trim(), "");
+    let code = r#"
+        ls -l Configuration*
+        | where name == "Configuration"
+        | first -s 
+        | select name type size modified accessed created
+    "#;
+    let out: nu_protocol::Record = test().cwd("C:\\Windows\\System32").run(code)?;
 
-    let file_modified = nu!(cwd: "C:\\Windows\\System32", r#"ls Configuration* | where name == "Configuration" | get modified.0"#);
-    assert_ne!(file_modified.out.trim(), "");
+    assert_eq!(out["name"].as_str().unwrap(), "Configuration");
+    assert_eq!(out["type"].as_str().unwrap(), "dir");
 
-    let file_accessed = nu!(cwd: "C:\\Windows\\System32", r#"ls -l Configuration* | where name == "Configuration" | get accessed.0"#);
-    assert_ne!(file_accessed.out.trim(), "");
+    let _ = out["size"].as_filesize()?;
+    let _ = out["modified"].as_date()?;
+    let _ = out["accessed"].as_date()?;
+    let _ = out["created"].as_date()?;
 
-    let file_created = nu!(cwd: "C:\\Windows\\System32", r#"ls -l Configuration* | where name == "Configuration" | get created.0"#);
-    assert_ne!(file_created.out.trim(), "");
+    let _: Value = test()
+        .cwd("C:\\Windows\\System32")
+        .run("ls | where size > 10mb")?;
 
-    let ls_with_filter = nu!(cwd: "C:\\Windows\\System32", "ls | where size > 10mb");
-    assert_eq!(ls_with_filter.err, "");
+    Ok(())
 }
 
 #[test]
-fn list_a_directory_not_exists() {
+fn list_a_directory_not_exists() -> Result {
     Playground::setup("ls_test_directory_not_exists", |dirs, _sandbox| {
-        let actual = nu!(cwd: dirs.test(), "ls a_directory_not_exists");
-        assert!(actual.err.contains("nu::shell::io::not_found"));
+        test()
+            .cwd(dirs.test())
+            .run("ls a_directory_not_exists")
+            .expect_error_code_eq("nu::shell::io::not_found")
     })
 }
 
 #[cfg(any(target_os = "linux", target_os = "freebsd"))]
 #[test]
-fn list_directory_contains_invalid_utf8() {
+#[deps(NU)]
+fn list_directory_contains_invalid_utf8() -> Result {
     use std::ffi::OsStr;
     use std::os::unix::ffi::OsStrExt;
 
@@ -585,16 +586,19 @@ fn list_directory_contains_invalid_utf8() {
 
             std::fs::create_dir_all(path).expect("failed to create directory");
 
-            let actual = nu!(cwd: cwd, "ls");
+            // unfortunately `ls` prints warning on stdout for this
+            let result: CompleteResult = test().cwd(cwd).run("nu -n -c 'ls' | complete")?;
 
-            assert!(actual.out.contains("warning: get non-utf8 filename"));
-            assert!(actual.err.contains("No matches found for"));
+            assert_contains("warning: get non-utf8 filename", result.stdout);
+            assert_contains("No matches found for", result.stderr);
+
+            Ok(())
         },
     )
 }
 
 #[test]
-fn list_ignores_ansi() {
+fn list_ignores_ansi() -> Result {
     Playground::setup("ls_test_ansi", |dirs, sandbox| {
         sandbox.with_files(&[
             EmptyFile("los.txt"),
@@ -603,30 +607,37 @@ fn list_ignores_ansi() {
             EmptyFile("arepas.clu"),
         ]);
 
-        let actual = nu!(cwd: dirs.test(), "
-            ls | find .txt | each {|| ls $in.name }
-        ");
+        // asserting no errors are raised
+        let _: Value = test()
+            .cwd(dirs.test())
+            .run("ls | find .txt | each {|| ls $in.name }")?;
 
-        assert!(actual.err.is_empty());
+        Ok(())
     })
 }
 
 #[test]
-fn list_unknown_long_flag() {
-    let actual = nu!("ls --full-path");
-
-    assert!(actual.err.contains("Did you mean: `--full-paths`?"));
+fn list_unknown_long_flag() -> Result {
+    let err = test().run("ls --full-path").expect_parse_error()?;
+    assert_matches!(
+        err,
+        ParseError::UnknownFlag(_, _, _, help) if help == "Did you mean: `--full-paths`?"
+    );
+    Ok(())
 }
 
 #[test]
-fn list_unknown_short_flag() {
-    let actual = nu!("ls -r");
-
-    assert!(actual.err.contains("Use `--help` to see available flags"));
+fn list_unknown_short_flag() -> Result {
+    let err = test().run("ls -r").expect_parse_error()?;
+    assert_matches!(
+        err,
+        ParseError::UnknownFlag(_, _, _, help) if help == "Use `--help` to see available flags"
+    );
+    Ok(())
 }
 
 #[test]
-fn list_flag_false() {
+fn list_flag_false() -> Result {
     // Check that ls flags respect explicit values
     Playground::setup("ls_test_false_flag", |dirs, sandbox| {
         sandbox.with_files(&[
@@ -639,61 +650,73 @@ fn list_flag_false() {
         // of creating hidden files using the playground.
         #[cfg(unix)]
         {
-            let actual = nu!(cwd: dirs.test(), "
-            ls --all=false | length
-                        ");
-
-            assert_eq!(actual.out, "2");
+            test()
+                .cwd(dirs.test())
+                .run("ls --all=false | length")
+                .expect_value_eq(2)?;
         }
 
-        let actual = nu!(cwd: dirs.test(), "
-            ls --long=false | columns | length
-        ");
+        test()
+            .cwd(dirs.test())
+            .run("ls --long=false | columns | length")
+            .expect_value_eq(4)?;
 
-        assert_eq!(actual.out, "4");
+        test()
+            .cwd(dirs.test())
+            .run("ls --full-paths=false | get name | any { $in =~ / }")
+            .expect_value_eq(false)?;
 
-        let actual = nu!(cwd: dirs.test(), "
-            ls --full-paths=false | get name | any { $in =~ / }
-        ");
-
-        assert_eq!(actual.out, "false");
+        Ok(())
     })
 }
 
 #[test]
-fn list_empty_string() {
+fn list_empty_string() -> Result {
     Playground::setup("ls_empty_string", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("yehuda.txt")]);
 
-        let actual = nu!(cwd: dirs.test(), "ls ''");
-        assert!(actual.err.contains("does not exist"));
+        test()
+            .cwd(dirs.test())
+            .run("ls ''")
+            .expect_error_code_eq("nu::shell::io::not_found")
     })
 }
 
 #[test]
-fn list_with_tilde() {
+fn list_with_tilde() -> Result {
     Playground::setup("ls_tilde", |dirs, sandbox| {
         sandbox
             .within("~tilde")
             .with_files(&[EmptyFile("f1.txt"), EmptyFile("f2.txt")]);
 
-        let actual = nu!(cwd: dirs.test(), "ls '~tilde'");
-        assert!(actual.out.contains("f1.txt"));
-        assert!(actual.out.contains("f2.txt"));
-        assert!(actual.out.contains("~tilde"));
-        let actual = nu!(cwd: dirs.test(), "ls ~tilde");
-        assert!(actual.err.contains("nu::shell::io::not_found"));
+        test()
+            .cwd(dirs.test())
+            .run("(ls '~tilde').name")
+            .expect_value_eq(cfg_select! {
+                unix => ["~tilde/f1.txt", "~tilde/f2.txt"],
+                windows => ["~tilde\\f1.txt", "~tilde\\f2.txt"],
+            })?;
+
+        test()
+            .cwd(dirs.test())
+            .run("ls ~tilde")
+            .expect_error_code_eq("nu::shell::io::not_found")?;
 
         // pass variable
-        let actual = nu!(cwd: dirs.test(), "let f = '~tilde'; ls $f");
-        assert!(actual.out.contains("f1.txt"));
-        assert!(actual.out.contains("f2.txt"));
-        assert!(actual.out.contains("~tilde"));
+        test()
+            .cwd(dirs.test())
+            .run("let f = '~tilde'; (ls $f).name")
+            .expect_value_eq(cfg_select! {
+                unix => ["~tilde/f1.txt", "~tilde/f2.txt"],
+                windows => ["~tilde\\f1.txt", "~tilde\\f2.txt"],
+            })?;
+
+        Ok(())
     })
 }
 
 #[test]
-fn list_with_multiple_path() {
+fn list_with_multiple_path() -> Result {
     Playground::setup("ls_multiple_path", |dirs, sandbox| {
         sandbox.with_files(&[
             EmptyFile("f1.txt"),
@@ -701,41 +724,44 @@ fn list_with_multiple_path() {
             EmptyFile("f3.txt"),
         ]);
 
-        let actual = nu!(cwd: dirs.test(), "ls f1.txt f2.txt");
-        assert!(actual.out.contains("f1.txt"));
-        assert!(actual.out.contains("f2.txt"));
-        assert!(!actual.out.contains("f3.txt"));
-        assert!(actual.status.success());
+        test()
+            .cwd(dirs.test())
+            .run("(ls f1.txt f2.txt).name")
+            .expect_value_eq(["f1.txt", "f2.txt"])?;
 
         // report errors if one path not exists
-        let actual = nu!(cwd: dirs.test(), "ls asdf f1.txt");
-        assert!(actual.err.contains("nu::shell::io::not_found"));
-        assert!(!actual.status.success());
+        test()
+            .cwd(dirs.test())
+            .run("ls asdf f1.txt")
+            .expect_error_code_eq("nu::shell::io::not_found")?;
 
         // ls with spreading empty list should returns nothing.
-        let actual = nu!(cwd: dirs.test(), "ls ...[] | length");
-        assert_eq!(actual.out, "0");
+        test()
+            .cwd(dirs.test())
+            .run("ls ...[]")
+            .expect_value_eq([(); 0])?;
+
+        Ok(())
     })
 }
 
 #[test]
-fn list_inside_glob_metachars_dir() {
+fn list_inside_glob_metachars_dir() -> Result {
     Playground::setup("list_files_inside_glob_metachars_dir", |dirs, sandbox| {
         let sub_dir = "test[]";
         sandbox
             .within(sub_dir)
             .with_files(&[EmptyFile("test_file.txt")]);
 
-        let actual = nu!(
-            cwd: dirs.test().join(sub_dir),
-            "ls test_file.txt | get name.0 | path basename",
-        );
-        assert!(actual.out.contains("test_file.txt"));
-    });
+        test()
+            .cwd(dirs.test().join(sub_dir))
+            .run("(ls test_file.txt).name.0 | path basename")
+            .expect_value_eq("test_file.txt")
+    })
 }
 
 #[test]
-fn list_inside_tilde_glob_metachars_dir() {
+fn list_inside_tilde_glob_metachars_dir() -> Result {
     Playground::setup(
         "list_files_inside_tilde_glob_metachars_dir",
         |dirs, sandbox| {
@@ -744,25 +770,25 @@ fn list_inside_tilde_glob_metachars_dir() {
                 .within(sub_dir)
                 .with_files(&[EmptyFile("test_file.txt")]);
 
-            // need getname.0 | path basename because the output path
+            // need name.0 | path basename because the output path
             // might be too long to output as a single line.
-            let actual = nu!(
-                cwd: dirs.test().join(sub_dir),
-                "ls test_file.txt | get name.0 | path basename",
-            );
-            assert!(actual.out.contains("test_file.txt"));
+            test()
+                .cwd(dirs.test().join(sub_dir))
+                .run("(ls test_file.txt).name.0 | path basename")
+                .expect_value_eq("test_file.txt")?;
 
-            let actual = nu!(
-                cwd: dirs.test(),
-                "ls '~test[]' | get name.0 | path basename"
-            );
-            assert!(actual.out.contains("test_file.txt"));
+            test()
+                .cwd(dirs.test())
+                .run("(ls '~test[]').name.0 | path basename")
+                .expect_value_eq("test_file.txt")?;
+
+            Ok(())
         },
-    );
+    )
 }
 
 #[test]
-fn list_symlink_with_full_path() {
+fn list_symlink_with_full_path() -> Result {
     Playground::setup("list_symlink_with_full_path", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("test_file.txt")]);
 
@@ -770,24 +796,23 @@ fn list_symlink_with_full_path() {
         let _ = std::os::unix::fs::symlink("test_file.txt", dirs.test().join("test_link1"));
         #[cfg(windows)]
         let _ = std::os::windows::fs::symlink_file("test_file.txt", dirs.test().join("test_link1"));
-        let actual = nu!(
-            cwd: dirs.test(),
-            "ls -l test_link1 | get target.0"
-        );
-        assert_eq!(actual.out, "test_file.txt");
-        let actual = nu!(
-            cwd: dirs.test(),
-            "ls -lf test_link1 | get target.0"
-        );
-        assert_eq!(
-            actual.out,
-            dirs.test().join("test_file.txt").to_string_lossy()
-        );
+
+        test()
+            .cwd(dirs.test())
+            .run("(ls -l test_link1).target.0")
+            .expect_value_eq("test_file.txt")?;
+
+        test()
+            .cwd(dirs.test())
+            .run("(ls -lf test_link1).target.0")
+            .expect_value_eq(dirs.test().join("test_file.txt").to_string_lossy())?;
+
+        Ok(())
     })
 }
 
 #[test]
-fn consistent_list_order() {
+fn consistent_list_order() -> Result {
     Playground::setup("ls_test_order", |dirs, sandbox| {
         sandbox.with_files(&[
             EmptyFile("los.txt"),
@@ -796,11 +821,12 @@ fn consistent_list_order() {
             EmptyFile("arepas.clu"),
         ]);
 
-        let no_arg = nu!(cwd: dirs.test(), "ls");
+        let no_arg: Value = test().cwd(dirs.test()).run("ls")?;
+        let with_arg: Value = test().cwd(dirs.test()).run("ls .")?;
 
-        let with_arg = nu!(cwd: dirs.test(), "ls .");
+        assert_eq!(no_arg, with_arg);
 
-        assert_eq!(no_arg.out, with_arg.out);
+        Ok(())
     })
 }
 

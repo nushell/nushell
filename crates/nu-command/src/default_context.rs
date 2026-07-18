@@ -297,6 +297,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Input,
             InputList,
             InputListen,
+            IsRedirected,
             IsTerminal,
             Kill,
             Sleep,
