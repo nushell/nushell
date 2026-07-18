@@ -9,7 +9,9 @@ use std::collections::HashMap;
 pub use ansi_coloring::UseAnsiColoring;
 pub use clip::ClipConfig;
 pub use completions::{
-    CompletionAlgorithm, CompletionConfig, CompletionSort, ExternalCompleterConfig,
+    CompletionAlgorithm, CompletionConfig, CompletionSort, CrossScriptInputMatchCompletionConfig,
+    CrossScriptInputMatchCompletionPinyinConfig, CrossScriptInputMatchCompletionRomanizationConfig,
+    CrossScriptInputMatchCompletionTargetsConfig, ExternalCompleterConfig,
 };
 pub use datetime_format::DatetimeFormatConfig;
 pub use display_errors::DisplayErrors;

@@ -1,19 +1,20 @@
 #![allow(clippy::unwrap_used)]
 
-use nu_cli::{eval_source, evaluate_commands};
+use nu_cli::{NuCompleter, eval_source, evaluate_commands};
 use nu_config::ConfigFileKind;
 use nu_experimental::DC_GLOB;
 use nu_parser::{lex, lite_parse, parse, parse_block};
 use nu_plugin_core::{Encoder, EncodingType};
 use nu_plugin_protocol::{PluginCallResponse, PluginOutput};
 use nu_protocol::{
-    PipelineData, Signals, Span, Spanned, Type, TypeSet, Value,
+    Config, PipelineData, Signals, Span, Spanned, Type, TypeSet, Value,
     ast::PathMember,
     casing::Casing,
     engine::{EngineState, Stack, StateWorkingSet},
 };
 use nu_std::load_standard_library;
 use nu_table::{NuTable, TableTheme};
+use reedline::Completer;
 use std::{
     env,
     fmt::Write,
@@ -1408,7 +1409,202 @@ fn bench_table_render_wide(cols: usize) -> impl IntoBenchmarks {
     })]
 }
 
+#[derive(Clone, Copy)]
+enum XsimcBenchKind {
+    DisabledAscii,
+    EnabledAscii,
+    Romanization,
+    Pinyin,
+}
+
+struct XsimcBenchFixture {
+    _temp_dir: TempDir,
+    completer: NuCompleter,
+    input: String,
+}
+
+fn setup_xsimc_bench(count: usize, kind: XsimcBenchKind, hit: bool) -> XsimcBenchFixture {
+    let temp_dir = TempDirBuilder::new()
+        .prefix("nu-xsimc-bench")
+        .tempdir()
+        .expect("completion benchmarks should create a temporary directory");
+    for index in 0..count {
+        let name = match kind {
+            XsimcBenchKind::DisabledAscii | XsimcBenchKind::EnabledAscii => {
+                format!("candidate-{index:05}")
+            }
+            XsimcBenchKind::Romanization => format!("ドキュメント-{index:05}"),
+            XsimcBenchKind::Pinyin => format!("下载-{index:05}"),
+        };
+        fs::create_dir(temp_dir.path().join(name))
+            .expect("completion benchmark fixture directories should be unique");
+    }
+
+    let mut config = Config::default();
+    match kind {
+        XsimcBenchKind::DisabledAscii => {
+            config.completions.xsimc.enabled = false;
+        }
+        XsimcBenchKind::EnabledAscii | XsimcBenchKind::Romanization => {
+            config.completions.xsimc.romanization.enabled = true;
+        }
+        XsimcBenchKind::Pinyin => {
+            config.completions.xsimc.enabled = true;
+            config.completions.xsimc.romanization.enabled = false;
+            config.completions.xsimc.pinyin.enabled = true;
+        }
+    }
+
+    let mut engine = nu_cli::add_cli_context(load_bench_commands());
+    engine.set_config(config);
+    engine.generate_nu_constant();
+    let mut stack = Stack::new();
+    stack.add_env_var(
+        "PWD".into(),
+        Value::string(temp_dir.path().to_string_lossy(), Span::unknown()),
+    );
+    engine
+        .merge_env(&mut stack)
+        .expect("the benchmark PWD should be a valid environment value");
+
+    let last = count.saturating_sub(1);
+    let query = if hit {
+        match kind {
+            XsimcBenchKind::DisabledAscii | XsimcBenchKind::EnabledAscii => {
+                format!("candidate-{last:05}")
+            }
+            XsimcBenchKind::Romanization => format!("dokyumento-{last:05}"),
+            XsimcBenchKind::Pinyin => format!("xiazai{last:05}"),
+        }
+    } else {
+        "no-matching-candidate".to_string()
+    };
+
+    XsimcBenchFixture {
+        _temp_dir: temp_dir,
+        completer: NuCompleter::new(Arc::new(engine), Arc::new(stack)),
+        input: format!("cd {query}"),
+    }
+}
+
+fn bench_xsimc_completion(
+    name: impl Into<String>,
+    count: usize,
+    kind: XsimcBenchKind,
+    hit: bool,
+) -> impl IntoBenchmarks {
+    [benchmark_fn(name, move |bench| {
+        let mut fixture = setup_xsimc_bench(count, kind, hit);
+        let warmup = fixture
+            .completer
+            .complete(&fixture.input, fixture.input.len());
+        assert_eq!(hit, !warmup.is_empty());
+        black_box(warmup);
+        bench.iter(move || {
+            black_box(
+                fixture
+                    .completer
+                    .complete(&fixture.input, fixture.input.len()),
+            );
+        })
+    })]
+}
+
 tango_benchmarks!(
+    // Native path-completion overhead and cross-script provider scaling.
+    bench_xsimc_completion(
+        "xsimc_disabled_ascii_100_miss",
+        100,
+        XsimcBenchKind::DisabledAscii,
+        false
+    ),
+    bench_xsimc_completion(
+        "xsimc_disabled_ascii_1000_miss",
+        1_000,
+        XsimcBenchKind::DisabledAscii,
+        false
+    ),
+    bench_xsimc_completion(
+        "xsimc_disabled_ascii_10000_miss",
+        10_000,
+        XsimcBenchKind::DisabledAscii,
+        false
+    ),
+    bench_xsimc_completion(
+        "xsimc_enabled_ascii_100_miss",
+        100,
+        XsimcBenchKind::EnabledAscii,
+        false
+    ),
+    bench_xsimc_completion(
+        "xsimc_enabled_ascii_1000_miss",
+        1_000,
+        XsimcBenchKind::EnabledAscii,
+        false
+    ),
+    bench_xsimc_completion(
+        "xsimc_enabled_ascii_10000_miss",
+        10_000,
+        XsimcBenchKind::EnabledAscii,
+        false
+    ),
+    bench_xsimc_completion(
+        "xsimc_romanization_100_hit",
+        100,
+        XsimcBenchKind::Romanization,
+        true
+    ),
+    bench_xsimc_completion(
+        "xsimc_romanization_1000_hit",
+        1_000,
+        XsimcBenchKind::Romanization,
+        true
+    ),
+    bench_xsimc_completion(
+        "xsimc_romanization_10000_hit",
+        10_000,
+        XsimcBenchKind::Romanization,
+        true
+    ),
+    bench_xsimc_completion(
+        "xsimc_romanization_100_miss",
+        100,
+        XsimcBenchKind::Romanization,
+        false
+    ),
+    bench_xsimc_completion(
+        "xsimc_romanization_1000_miss",
+        1_000,
+        XsimcBenchKind::Romanization,
+        false
+    ),
+    bench_xsimc_completion(
+        "xsimc_romanization_10000_miss",
+        10_000,
+        XsimcBenchKind::Romanization,
+        false
+    ),
+    bench_xsimc_completion("xsimc_pinyin_100_hit", 100, XsimcBenchKind::Pinyin, true),
+    bench_xsimc_completion("xsimc_pinyin_1000_hit", 1_000, XsimcBenchKind::Pinyin, true),
+    bench_xsimc_completion(
+        "xsimc_pinyin_10000_hit",
+        10_000,
+        XsimcBenchKind::Pinyin,
+        true
+    ),
+    bench_xsimc_completion("xsimc_pinyin_100_miss", 100, XsimcBenchKind::Pinyin, false),
+    bench_xsimc_completion(
+        "xsimc_pinyin_1000_miss",
+        1_000,
+        XsimcBenchKind::Pinyin,
+        false
+    ),
+    bench_xsimc_completion(
+        "xsimc_pinyin_10000_miss",
+        10_000,
+        XsimcBenchKind::Pinyin,
+        false
+    ),
     bench_load_standard_lib(),
     bench_load_use_standard_lib(),
     bench_ls_recursive_legacy(),

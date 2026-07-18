@@ -7,6 +7,8 @@ use nu_protocol::{
 };
 use reedline::Suggestion;
 
+#[cfg(feature = "xsimc")]
+use super::cross_script_input_match_completion::{CrossScriptInputMatcher, ProviderRegistry};
 use super::{SemanticSuggestion, completion_options::NuMatcher};
 
 fn formatted_name(name: &str, wrap: bool) -> String {
@@ -14,6 +16,25 @@ fn formatted_name(name: &str, wrap: bool) -> String {
         nu_utils::escape_quote_string(name)
     } else {
         name.to_string()
+    }
+}
+
+fn command_suggestion(
+    name: &str,
+    description: &str,
+    span: reedline::Span,
+    command_type: CommandType,
+    decl_id: DeclId,
+) -> SemanticSuggestion {
+    SemanticSuggestion {
+        suggestion: Suggestion {
+            value: name.to_string(),
+            description: Some(description.to_string()),
+            span,
+            append_whitespace: true,
+            ..Suggestion::default()
+        },
+        kind: Some(SuggestionKind::Command(command_type, Some(decl_id))),
     }
 }
 
@@ -156,7 +177,7 @@ impl Completer for CommandCompletion {
     fn fetch(
         &mut self,
         working_set: &StateWorkingSet,
-        _stack: &Stack,
+        stack: &Stack,
         prefix: impl AsRef<str>,
         span: Span,
         offset: usize,
@@ -166,7 +187,20 @@ impl Completer for CommandCompletion {
 
         let sugg_span = reedline::Span::new(span.start - offset, span.end - offset);
 
+        #[cfg(not(feature = "xsimc"))]
+        let _ = stack;
+        #[cfg(feature = "xsimc")]
+        let xsimc_config = stack.get_config(working_set.permanent_state);
+        #[cfg(feature = "xsimc")]
+        let xsimc_providers = ProviderRegistry::for_commands(&xsimc_config.completions.xsimc);
+        #[cfg(feature = "xsimc")]
+        let mut xsimc_matcher = xsimc_providers.as_ref().and_then(|providers| {
+            CrossScriptInputMatcher::new(prefix.as_ref(), options, providers)
+        });
+
         let mut internal_suggs = HashSet::new();
+        #[cfg(feature = "xsimc")]
+        let mut internal_collisions = HashSet::new();
         if self.internals {
             let mut matcher = NuMatcher::new(prefix.as_ref(), options, true);
             if self.builtins_only {
@@ -189,43 +223,67 @@ impl Completer for CommandCompletion {
                         continue;
                     }
 
-                    let matched = matcher.add_semantic_suggestion(SemanticSuggestion {
-                        suggestion: Suggestion {
-                            value: name.to_string(),
-                            description: Some(command.description().to_string()),
-                            span: sugg_span,
-                            append_whitespace: true,
-                            ..Suggestion::default()
-                        },
-                        kind: Some(SuggestionKind::Command(CommandType::Builtin, Some(decl_id))),
-                    });
+                    let matched = matcher.add_semantic_suggestion(command_suggestion(
+                        name,
+                        command.description(),
+                        sugg_span,
+                        CommandType::Builtin,
+                        decl_id,
+                    ));
                     if matched {
                         internal_suggs.insert(name.to_string());
+                    } else {
+                        #[cfg(feature = "xsimc")]
+                        if let Some(xsimc_matcher) = &mut xsimc_matcher
+                            && xsimc_matcher.add(
+                                name,
+                                command_suggestion(
+                                    name,
+                                    command.description(),
+                                    sugg_span,
+                                    CommandType::Builtin,
+                                    decl_id,
+                                ),
+                            )
+                        {
+                            internal_suggs.insert(name.to_string());
+                        }
                     }
                 }
             } else {
                 working_set.traverse_commands(|name, decl_id| {
-                    let name = formatted_name(&String::from_utf8_lossy(name), self.quote_internals);
+                    let raw_name = String::from_utf8_lossy(name);
+                    let name = formatted_name(&raw_name, self.quote_internals);
                     let command = working_set.get_decl(decl_id);
                     if command.signature().category == Category::Removed {
                         return;
                     }
 
-                    let matched = matcher.add_semantic_suggestion(SemanticSuggestion {
-                        suggestion: Suggestion {
-                            value: name.clone(),
-                            description: Some(command.description().to_string()),
-                            span: sugg_span,
-                            append_whitespace: true,
-                            ..Suggestion::default()
-                        },
-                        kind: Some(SuggestionKind::Command(
-                            command.command_type(),
-                            Some(decl_id),
-                        )),
-                    });
+                    let matched = matcher.add_semantic_suggestion(command_suggestion(
+                        &name,
+                        command.description(),
+                        sugg_span,
+                        command.command_type(),
+                        decl_id,
+                    ));
                     if matched {
                         internal_suggs.insert(name);
+                    } else {
+                        #[cfg(feature = "xsimc")]
+                        if let Some(xsimc_matcher) = &mut xsimc_matcher
+                            && xsimc_matcher.add(
+                                &raw_name,
+                                command_suggestion(
+                                    &name,
+                                    command.description(),
+                                    sugg_span,
+                                    command.command_type(),
+                                    decl_id,
+                                ),
+                            )
+                        {
+                            internal_suggs.insert(name);
+                        }
                     }
                 });
             }
@@ -234,6 +292,8 @@ impl Completer for CommandCompletion {
 
             if self.externals {
                 let collisions = self.external_command_collisions(working_set, &internal_suggs);
+                #[cfg(feature = "xsimc")]
+                internal_collisions.clone_from(&collisions);
 
                 if !collisions.is_empty() {
                     let mut percent_prefixed = Vec::new();
@@ -264,6 +324,28 @@ impl Completer for CommandCompletion {
                 NuMatcher::new(prefix, options, true),
             );
             res.extend(external_suggs);
+        }
+
+        #[cfg(feature = "xsimc")]
+        if let Some(xsimc_matcher) = xsimc_matcher {
+            for mut suggestion in xsimc_matcher.results() {
+                suggestion.suggestion.match_indices = Some(Vec::new());
+                let percent_prefixed = internal_collisions
+                    .contains(&suggestion.suggestion.value)
+                    .then(|| {
+                        let mut prefixed = suggestion.suggestion.clone();
+                        prefixed.value = format!("%{}", suggestion.suggestion.value);
+                        SemanticSuggestion {
+                            suggestion: prefixed,
+                            kind: suggestion.kind.clone(),
+                        }
+                    });
+
+                res.push(suggestion);
+                if let Some(percent_prefixed) = percent_prefixed {
+                    res.push(percent_prefixed);
+                }
+            }
         }
 
         res
