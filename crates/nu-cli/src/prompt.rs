@@ -1,87 +1,32 @@
+use nu_protocol::engine::{PromptContents, PromptState};
 #[cfg(windows)]
 use nu_utils::enable_vt_processing;
 use reedline::{
     DefaultPrompt, Prompt, PromptEditMode, PromptHistorySearch, PromptHistorySearchStatus,
     PromptViMode,
 };
-use std::borrow::Cow;
+use std::{borrow::Cow, sync::Arc};
 
-/// Nushell prompt definition
-#[derive(Default, Clone)]
+/// The reedline-facing view over the shared [`PromptState`].
+///
+/// This holds no prompt content of its own: every render reads the current
+/// [`PromptContents`] through the shared handle, so text a background job pushes
+/// via `commandline set-prompt` is picked up the next time reedline redraws. A
+/// transient prompt is simply a `NushellPrompt` over a private, detached
+/// `PromptState` that never receives async pushes.
 pub struct NushellPrompt {
-    left_prompt: Option<String>,
-    right_prompt: Option<String>,
-    prompt_indicator: Option<String>,
-    vi_insert_prompt_indicator: Option<String>,
-    vi_normal_prompt_indicator: Option<String>,
-    multiline_indicator: Option<String>,
-    render_right_prompt_on_last_line: bool,
+    pub state: Arc<PromptState>,
 }
 
-impl NushellPrompt {
-    pub fn new() -> NushellPrompt {
-        NushellPrompt {
-            left_prompt: None,
-            right_prompt: None,
-            prompt_indicator: None,
-            vi_insert_prompt_indicator: None,
-            vi_normal_prompt_indicator: None,
-            multiline_indicator: None,
-            render_right_prompt_on_last_line: false,
-        }
-    }
+/// Render `content` for the terminal, or fall back to reedline's default via
+/// `default` when nothing has been set. reedline needs `\r\n` line breaks.
+fn render_or<'a>(content: Option<&str>, default: impl FnOnce() -> Cow<'a, str>) -> Cow<'a, str> {
+    const NEWLINE: char = '\n';
+    const LINEBREAK: &'static str = "\r\n";
 
-    pub fn update_prompt_left(&mut self, left_prompt_string: Option<String>) {
-        self.left_prompt = left_prompt_string;
-    }
-
-    pub fn update_prompt_right(
-        &mut self,
-        right_prompt_string: Option<String>,
-        render_right_prompt_on_last_line: bool,
-    ) {
-        self.right_prompt = right_prompt_string;
-        self.render_right_prompt_on_last_line = render_right_prompt_on_last_line;
-    }
-
-    pub fn update_prompt_indicator(&mut self, prompt_indicator_string: Option<String>) {
-        self.prompt_indicator = prompt_indicator_string;
-    }
-
-    pub fn update_prompt_vi_insert(&mut self, prompt_vi_insert_string: Option<String>) {
-        self.vi_insert_prompt_indicator = prompt_vi_insert_string;
-    }
-
-    pub fn update_prompt_vi_normal(&mut self, prompt_vi_normal_string: Option<String>) {
-        self.vi_normal_prompt_indicator = prompt_vi_normal_string;
-    }
-
-    pub fn update_prompt_multiline(&mut self, prompt_multiline_indicator_string: Option<String>) {
-        self.multiline_indicator = prompt_multiline_indicator_string;
-    }
-
-    pub fn update_all_prompt_strings(
-        &mut self,
-        left_prompt_string: Option<String>,
-        right_prompt_string: Option<String>,
-        prompt_indicator_string: Option<String>,
-        prompt_multiline_indicator_string: Option<String>,
-        prompt_vi: (Option<String>, Option<String>),
-        render_right_prompt_on_last_line: bool,
-    ) {
-        let (prompt_vi_insert_string, prompt_vi_normal_string) = prompt_vi;
-
-        self.left_prompt = left_prompt_string;
-        self.right_prompt = right_prompt_string;
-        self.prompt_indicator = prompt_indicator_string;
-        self.multiline_indicator = prompt_multiline_indicator_string;
-        self.vi_insert_prompt_indicator = prompt_vi_insert_string;
-        self.vi_normal_prompt_indicator = prompt_vi_normal_string;
-        self.render_right_prompt_on_last_line = render_right_prompt_on_last_line;
-    }
-
-    fn default_wrapped_custom_string(&self, str: String) -> String {
-        format!("({str})")
+    match content {
+        Some(content) => content.replace(NEWLINE, LINEBREAK).into(),
+        None => default().replace(NEWLINE, LINEBREAK).into(),
     }
 }
 
@@ -92,53 +37,37 @@ impl Prompt for NushellPrompt {
             let _ = enable_vt_processing();
         }
 
-        if let Some(prompt_string) = &self.left_prompt {
-            prompt_string.replace('\n', "\r\n").into()
-        } else {
-            let default = DefaultPrompt::default();
-            default
-                .render_prompt_left()
-                .to_string()
-                .replace('\n', "\r\n")
-                .into()
-        }
+        self.state.with_contents(|c| {
+            render_or(c.left.as_deref(), || {
+                DefaultPrompt::default()
+                    .render_prompt_left()
+                    .into_owned()
+                    .into()
+            })
+        })
     }
 
     fn render_prompt_right(&self) -> Cow<'_, str> {
-        if let Some(prompt_string) = &self.right_prompt {
-            prompt_string.replace('\n', "\r\n").into()
-        } else {
-            let default = DefaultPrompt::default();
-            default
-                .render_prompt_right()
-                .to_string()
-                .replace('\n', "\r\n")
-                .into()
-        }
+        self.state.with_contents(|c| {
+            render_or(c.right.as_deref(), || {
+                DefaultPrompt::default()
+                    .render_prompt_right()
+                    .into_owned()
+                    .into()
+            })
+        })
     }
 
     fn render_prompt_indicator(&self, edit_mode: PromptEditMode) -> Cow<'_, str> {
-        let indicator: &str = match edit_mode {
-            PromptEditMode::Default => self.prompt_indicator.as_deref().unwrap_or("> "),
-            PromptEditMode::Emacs => self.prompt_indicator.as_deref().unwrap_or("> "),
-            PromptEditMode::Vi(vi_mode) => match vi_mode {
-                PromptViMode::Normal => self.vi_normal_prompt_indicator.as_deref().unwrap_or("> "),
-                PromptViMode::Insert => self.vi_insert_prompt_indicator.as_deref().unwrap_or(": "),
-                PromptViMode::Visual => self.vi_normal_prompt_indicator.as_deref().unwrap_or("v "),
-            },
-            PromptEditMode::Custom(str) => &self.default_wrapped_custom_string(str),
-        };
-
-        indicator.to_string().into()
+        self.state
+            .with_contents(|c| indicator_for(c, edit_mode).to_string())
+            .into()
     }
 
     fn render_prompt_multiline_indicator(&self) -> Cow<'_, str> {
-        let indicator = match &self.multiline_indicator {
-            Some(indicator) => indicator.as_str(),
-            None => "::: ",
-        };
-
-        indicator.to_string().into()
+        self.state
+            .with_contents(|c| c.multiline.clone().unwrap_or_else(|| "::: ".into()))
+            .into()
     }
 
     fn render_prompt_history_search_indicator(
@@ -157,7 +86,26 @@ impl Prompt for NushellPrompt {
     }
 
     fn right_prompt_on_last_line(&self) -> bool {
-        self.render_right_prompt_on_last_line
+        self.state.with_contents(|c| c.render_right_on_last_line)
+    }
+}
+
+/// The indicator string for the given edit mode, with the built-in defaults.
+fn indicator_for(contents: &PromptContents, edit_mode: PromptEditMode) -> String {
+    match edit_mode {
+        PromptEditMode::Default | PromptEditMode::Emacs => {
+            contents.indicator.clone().unwrap_or_else(|| "> ".into())
+        }
+        PromptEditMode::Vi(PromptViMode::Normal) => {
+            contents.vi_normal.clone().unwrap_or_else(|| "> ".into())
+        }
+        PromptEditMode::Vi(PromptViMode::Insert) => {
+            contents.vi_insert.clone().unwrap_or_else(|| ": ".into())
+        }
+        PromptEditMode::Vi(PromptViMode::Visual) => {
+            contents.vi_normal.clone().unwrap_or_else(|| "v ".into())
+        }
+        PromptEditMode::Custom(str) => format!("({str})"),
     }
 }
 
@@ -167,7 +115,7 @@ mod tests {
 
     #[test]
     fn default_prompt_does_not_embed_osc_markers() {
-        let prompt = NushellPrompt::new();
+        let prompt = NushellPrompt { state: Arc::new(PromptState::new()) };
         let rendered = prompt.render_prompt_left().to_string();
 
         assert!(!rendered.contains("\x1b]133;"));
