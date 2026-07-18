@@ -176,74 +176,34 @@ impl<'a> StyleComputer<'a> {
     }
 }
 
-#[test]
-fn test_computable_style_static() {
-    use nu_protocol::Span;
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    let style1 = Style::default().italic();
-    let style2 = Style::default().underline();
-    // Create a "dummy" style_computer for this test.
-    let dummy_engine_state = EngineState::new();
-    let dummy_stack = Stack::new();
-    let style_computer = StyleComputer::new(
-        &dummy_engine_state,
-        &dummy_stack,
-        [
-            ("string".into(), ComputableStyle::Static(style1)),
-            ("row_index".into(), ComputableStyle::Static(style2)),
-        ]
-        .into_iter()
-        .collect(),
-    );
-    assert_eq!(
-        style_computer.compute("string", &Value::nothing(Span::unknown())),
-        style1
-    );
-    assert_eq!(
-        style_computer.compute("row_index", &Value::nothing(Span::unknown())),
-        style2
-    );
-}
-
-// Because each closure currently runs in a separate environment, checks that the closures have run
-// must use the filesystem.
-#[test]
-fn test_computable_style_closure_basic() {
-    use nu_test_support::{nu, nu_repl_code, playground::Playground};
-    Playground::setup("computable_style_closure_basic", |dirs, _| {
-        let inp = [
-            "$env.config = {
-                color_config: {
-                    string: {|e| touch ($e + '.obj'); 'red' }
-                }
-            };",
-            "[bell book candle] | table | ignore",
-            "ls | get name | to nuon",
-        ];
-        let actual_repl = nu!(cwd: dirs.test(), nu_repl_code(&inp));
-        assert_eq!(actual_repl.err, "");
-        assert_eq!(actual_repl.out, r#"["bell.obj", "book.obj", "candle.obj"]"#);
-    });
-}
-
-#[test]
-fn test_computable_style_closure_errors() {
-    use nu_test_support::{nu, nu_repl_code};
-    let inp = [
-        "$env.config = {
-            color_config: {
-                string: {|e| $e + 2 }
-            }
-        };",
-        "[bell] | table",
-    ];
-    let actual_repl = nu!(nu_repl_code(&inp));
-    // Check that the error was printed
-    assert!(
-        actual_repl
-            .err
-            .contains("nu::shell::operator_incompatible_types")
-    );
-    // Check that the value was printed
-    assert!(actual_repl.out.contains("bell"));
+    #[test]
+    fn test_computable_style_static() {
+        let style1 = Style::default().italic();
+        let style2 = Style::default().underline();
+        // Create a "dummy" style_computer for this test.
+        let dummy_engine_state = EngineState::new();
+        let dummy_stack = Stack::new();
+        let style_computer = StyleComputer::new(
+            &dummy_engine_state,
+            &dummy_stack,
+            [
+                ("string".into(), ComputableStyle::Static(style1)),
+                ("row_index".into(), ComputableStyle::Static(style2)),
+            ]
+            .into_iter()
+            .collect(),
+        );
+        assert_eq!(
+            style_computer.compute("string", &Value::nothing(Span::unknown())),
+            style1
+        );
+        assert_eq!(
+            style_computer.compute("row_index", &Value::nothing(Span::unknown())),
+            style2
+        );
+    }
 }

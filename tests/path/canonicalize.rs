@@ -1,7 +1,7 @@
 use nu_path::canonicalize_with;
 use nu_test_support::fs::Stub::EmptyFile;
-use nu_test_support::nu;
 use nu_test_support::playground::Playground;
+use nu_test_support::prelude::*;
 use pretty_assertions::assert_eq;
 use std::path::Path;
 
@@ -182,13 +182,15 @@ fn canonicalize_path_with_many_double_dots_relative_to() {
 }
 
 #[test]
-fn canonicalize_ndots2() {
+fn canonicalize_ndots2() -> Result {
     // This test will fail if you have the nushell repo on the root partition
     // So, let's start in a nested folder before trying to canonicalize_with "..."
     Playground::setup("nu_path_test_1", |dirs, sandbox| {
         sandbox.mkdir("aaa/bbb/ccc");
-        let output = nu!( cwd: dirs.root(), "cd nu_path_test_1/aaa/bbb/ccc; $env.PWD");
-        let cwd = Path::new(&output.out);
+        let output: String = test()
+            .cwd(dirs.root())
+            .run("cd nu_path_test_1/aaa/bbb/ccc; $env.PWD")?;
+        let cwd = Path::new(&output);
 
         let actual = canonicalize_with("...", cwd).expect("Failed to canonicalize");
         let expected = cwd
@@ -198,7 +200,9 @@ fn canonicalize_ndots2() {
             .expect("Could not get parent of a parent of current directory");
 
         assert_eq!(actual, expected);
-    });
+
+        Ok(())
+    })
 }
 
 #[test]
