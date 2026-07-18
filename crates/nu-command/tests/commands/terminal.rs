@@ -10,6 +10,7 @@ use nu_protocol::{
     engine::{Call, Command, EngineState, Stack},
 };
 use nu_test_support::prelude::*;
+use rstest::rstest;
 
 #[test]
 fn is_terminal_rejects_multiple_streams() -> Result {
@@ -21,15 +22,13 @@ fn is_terminal_rejects_multiple_streams() -> Result {
 
 #[test]
 fn is_terminal_accepts_stdin_flag() -> Result {
-    let value = test().run("is-terminal --stdin")?;
-    assert!(matches!(value, Value::Bool { .. }));
+    let _: bool = test().run("is-terminal --stdin")?;
     Ok(())
 }
 
 #[test]
 fn is_terminal_defaults_to_stdout() -> Result {
-    let value = test().run("is-terminal")?;
-    assert!(matches!(value, Value::Bool { .. }));
+    let _: bool = test().run("is-terminal")?;
     Ok(())
 }
 
@@ -63,32 +62,40 @@ fn is_redirected_true_when_custom_command_collected() -> Result {
 fn is_redirected_works_inside_if() -> Result {
     // Harness collect_value makes the call redirected; the assertion is that
     // `if (is-redirected)` sees the *call* frame, not the subexpression's Value dest.
-    test()
-        .run(r#"def pipetest [] { if (is-redirected) { "piped" } else { "display" } }; pipetest"#)
-        .expect_value_eq("piped")
+    let code = r#"
+        def pipetest [] {
+            if (is-redirected) { "piped" } else { "display" }
+        }
+
+        pipetest
+    "#;
+
+    test().run(code).expect_value_eq("piped")
 }
 
 #[test]
 fn is_redirected_true_when_piped_with_if() -> Result {
-    test()
-        .run(
-            r#"def pipetest [] { if (is-redirected) { "piped" } else { "display" } }; pipetest | $in"#,
-        )
-        .expect_value_eq("piped")
+    let code = r#"
+        def pipetest [] {
+            if (is-redirected) { "piped" } else { "display" }
+        }
+
+        pipetest | $in
+    "#;
+
+    test().run(code).expect_value_eq("piped")
 }
 
 #[test]
 fn is_redirected_nested_inner_sees_own_destination() -> Result {
     // `inner` is collected by `let`, so its own frame is redirected.
-    test()
-        .run(
-            "
-            def inner [] { is-redirected }
-            def outer [] { let x = (inner); $x }
-            outer
-            ",
-        )
-        .expect_value_eq(true)
+    let code = "
+        def inner [] { is-redirected }
+        def outer [] { let x = (inner); $x }
+        outer
+    ";
+
+    test().run(code).expect_value_eq(true)
 }
 
 /// Run the `is-redirected` builtin against a prepared stack.
@@ -104,29 +111,28 @@ fn run_is_redirected(stack: &mut Stack) -> bool {
     }
 }
 
-#[test]
-fn is_redirected_respects_invocation_frame() {
+#[rstest]
+#[case::print(OutDest::Print, true, false)]
+#[case::pipe(OutDest::Pipe, true, true)]
+#[case::value(OutDest::Value, false, true)]
+#[case::null(OutDest::Null, false, true)]
+#[case::inherit(OutDest::Inherit, false, true)]
+fn is_redirected_respects_invocation_frame(
+    #[case] dest: OutDest,
+    #[case] collect: bool,
+    #[case] expected: bool,
+) {
     // (invocation destination, simulate if-subexpression collect?, expected)
-    let cases = [
-        (OutDest::Print, true, false),
-        (OutDest::Pipe, true, true),
-        (OutDest::Value, false, true),
-        (OutDest::Null, false, true),
-        (OutDest::Inherit, false, true),
-    ];
-
-    for (dest, collect, expected) in cases {
-        let mut owned = Stack::new().with_invocation_stdout(dest);
-        if collect {
-            // Simulate `if (is-redirected)`: pipe_stdout becomes Value, but the
-            // invocation frame must still control the answer.
-            let mut collected = owned.start_collect_value();
-            assert_eq!(collected.is_stdout_redirected(), expected);
-            assert_eq!(run_is_redirected(&mut collected), expected);
-        } else {
-            assert_eq!(owned.is_stdout_redirected(), expected);
-            assert_eq!(run_is_redirected(&mut owned), expected);
-        }
+    let mut owned = Stack::new().with_invocation_stdout(dest);
+    if collect {
+        // Simulate `if (is-redirected)`: pipe_stdout becomes Value, but the
+        // invocation frame must still control the answer.
+        let mut collected = owned.start_collect_value();
+        assert_eq!(collected.is_stdout_redirected(), expected);
+        assert_eq!(run_is_redirected(&mut collected), expected);
+    } else {
+        assert_eq!(owned.is_stdout_redirected(), expected);
+        assert_eq!(run_is_redirected(&mut owned), expected);
     }
 }
 
