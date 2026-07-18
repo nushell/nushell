@@ -2,6 +2,7 @@ use std::{
     env,
     error::Error,
     fmt::{Debug, Display},
+    io,
     panic::Location,
     path::{Path, PathBuf},
     sync::{Arc, LazyLock},
@@ -610,6 +611,10 @@ pub enum TestErrorKind {
         code: String,
         err: Box<TestErrorKind>,
     },
+    Io {
+        message: String,
+        kind: io::ErrorKind,
+    },
 }
 
 impl Display for TestError {
@@ -636,6 +641,19 @@ impl From<ParseError> for TestError {
         Self {
             location: TestLocation(Location::caller()),
             kind: TestErrorKind::Parse(err),
+        }
+    }
+}
+
+impl From<io::Error> for TestError {
+    #[track_caller]
+    fn from(value: io::Error) -> Self {
+        Self {
+            location: TestLocation(Location::caller()),
+            kind: TestErrorKind::Io {
+                message: value.to_string(),
+                kind: value.kind(),
+            },
         }
     }
 }
