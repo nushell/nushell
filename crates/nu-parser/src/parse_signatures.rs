@@ -553,10 +553,10 @@ pub fn parse_signature(
         return garbage(working_set, span);
     }
 
-    let closing: &[u8] = if has_paren { b")" } else { b"]" };
-    if bytes.ends_with(closing) {
+    let closing = if has_paren { b')' } else { b']' };
+    if bytes.ends_with(&[closing]) {
         end -= 1;
-    } else if bytes.ends_with(b":") && bytes[..bytes.len() - 1].ends_with(closing) {
+    } else if bytes.ends_with(&[closing, b':']) {
         // The signature is closed, but a trailing `:` starts an input/output type
         // annotation whose type is missing — e.g. `def foo []:` with the type on
         // the next line, which isn't part of the signature argument. Without this
