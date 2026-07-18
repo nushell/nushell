@@ -301,7 +301,7 @@ fn module_import_env_2() -> Result {
                 "main.nu",
                 "export-env { source-env spam.nu }",
             )])
-            .with_files(&[FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContent(
                 "spam.nu",
                 r#"export-env { $env.FOO = "foo" }"#,
             )]);
