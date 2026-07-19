@@ -1,4 +1,6 @@
-use crate::values::{Column, NuDataFrame, PolarsPluginObject, PolarsPluginType, cant_convert_err};
+use crate::values::{
+    Column, NuDataFrame, NuExpression, PolarsPluginObject, PolarsPluginType, cant_convert_err,
+};
 use crate::{PolarsPlugin, values::CustomValueSupport};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -122,6 +124,31 @@ impl PluginCommand for Rolling {
                     .into_value(Span::test_data()),
                 ),
             },
+            Example {
+                description: "Rolling sum for an expression in a lazy frame",
+                example: "[[a]; [1] [2] [3] [4] [5]]
+                    | polars into-df
+                    | polars select (polars col a | polars rolling sum 2 | polars as roll_a)
+                    | polars collect
+                    | polars drop-nulls",
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![Column::new(
+                            "roll_a".to_string(),
+                            vec![
+                                Value::test_int(3),
+                                Value::test_int(5),
+                                Value::test_int(7),
+                                Value::test_int(9),
+                            ],
+                        )],
+                        None,
+                        Span::test_data(),
+                    )
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
         ]
     }
 
@@ -134,9 +161,20 @@ impl PluginCommand for Rolling {
     ) -> Result<PipelineData, LabeledError> {
         let metadata = input.take_metadata();
         let value = input.into_value(call.head)?;
+        let roll_type: Spanned<String> = call.req(0)?;
+        let roll_type = RollType::from_str(&roll_type.item, roll_type.span)
+            .map_err(LabeledError::from)?;
 
         match PolarsPluginObject::try_from_value(plugin, &value)? {
-            PolarsPluginObject::NuDataFrame(df) => command_eager(plugin, engine, call, df),
+            PolarsPluginObject::NuDataFrame(df) => {
+                command_eager(plugin, engine, call, roll_type, df)
+            }
+            PolarsPluginObject::NuLazyFrame(lazy) => {
+                command_eager(plugin, engine, call, roll_type, lazy.collect(call.head)?)
+            }
+            PolarsPluginObject::NuExpression(expr) => {
+                command_expr(plugin, engine, call, roll_type, expr)
+            }
             _ => Err(cant_convert_err(
                 &value,
                 &[
@@ -151,13 +189,39 @@ impl PluginCommand for Rolling {
     }
 }
 
+fn command_expr(
+    plugin: &PolarsPlugin,
+    engine: &EngineInterface,
+    call: &EvaluatedCall,
+    roll_type: RollType,
+    expr: NuExpression,
+) -> Result<PipelineData, ShellError> {
+    let window_size: usize = call.req(1)?;
+    let rolling_opts = RollingOptionsFixedWindow {
+        window_size,
+        min_periods: window_size,
+        ..RollingOptionsFixedWindow::default()
+    };
+
+    let polars_expr = expr.into_polars();
+    let res: NuExpression = match roll_type {
+        RollType::Max => polars_expr.rolling_max(rolling_opts),
+        RollType::Min => polars_expr.rolling_min(rolling_opts),
+        RollType::Sum => polars_expr.rolling_sum(rolling_opts),
+        RollType::Mean => polars_expr.rolling_mean(rolling_opts),
+    }
+    .into();
+
+    res.to_pipeline_data(plugin, engine, call.head)
+}
+
 fn command_eager(
     plugin: &PolarsPlugin,
     engine: &EngineInterface,
     call: &EvaluatedCall,
+    roll_type: RollType,
     df: NuDataFrame,
 ) -> Result<PipelineData, ShellError> {
-    let roll_type: Spanned<String> = call.req(0)?;
     let window_size: usize = call.req(1)?;
 
     let series = df.as_series(call.head)?;
@@ -169,8 +233,6 @@ fn command_eager(
             call.head,
         )));
     }
-
-    let roll_type = RollType::from_str(&roll_type.item, roll_type.span)?;
 
     let rolling_opts = RollingOptionsFixedWindow {
         window_size,
