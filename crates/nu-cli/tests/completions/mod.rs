@@ -16,7 +16,7 @@ use nu_protocol::{
 };
 use nu_std::load_standard_library;
 use nu_test_support::fs;
-use reedline::{Span, Suggestion};
+use reedline::{Span, Suggestion, Suggestions};
 use rstest::{fixture, rstest};
 use support::{
     completions_helpers::{
@@ -527,7 +527,7 @@ fn custom_completions_wraps_builtin_commandline_complete_path() {
         &suggestions,
     );
 
-    let spans: Vec<_> = suggestions.into_iter().map(|sugg| sugg.span).collect();
+    let spans: Vec<_> = suggestions.iter().map(|sugg| sugg.span).collect();
     assert_eq!(vec![Span::new(6, 8); 6], spans);
 }
 
@@ -1255,12 +1255,12 @@ fn external_completer_override_span(
 
     let suggestions = run_external_completion(&block, input);
     let (start, end) = expected_span;
-    let expected = vec![Suggestion {
+    let expected = [Suggestion {
         value: "foobarbaz".to_string(),
         span: Span::new(start, end),
         ..Default::default()
     }];
-    assert_eq!(expected, suggestions);
+    assert_eq!(expected.as_slice(), suggestions.as_ref());
 }
 
 #[test]
@@ -2347,8 +2347,14 @@ fn file_completion_quoted_match_indices(
             })
             .collect::<Vec<_>>(),
         suggestions
-            .into_iter()
-            .map(|s| (s.value, s.display_override, s.match_indices))
+            .iter()
+            .map(|s| {
+                (
+                    s.value.clone(),
+                    s.display_override.clone(),
+                    s.match_indices.clone(),
+                )
+            })
             .collect::<Vec<_>>()
     );
 
@@ -3089,7 +3095,7 @@ fn run_external_completion_within_pwd(
     completer: &str,
     input: &str,
     pwd: AbsolutePathBuf,
-) -> Vec<Suggestion> {
+) -> Suggestions {
     let completer = format!("$env.config.completions.external.completer = {completer}");
 
     // Create a new engine
@@ -3125,7 +3131,7 @@ fn run_external_completion_within_pwd(
     completer.complete_blocking(input, input.len())
 }
 
-fn run_external_completion(completer: &str, input: &str) -> Vec<Suggestion> {
+fn run_external_completion(completer: &str, input: &str) -> Suggestions {
     run_external_completion_within_pwd(completer, input, fs::fixtures().join("completions"))
 }
 

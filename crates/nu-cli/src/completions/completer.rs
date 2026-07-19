@@ -10,7 +10,9 @@ use nu_protocol::{
     engine::{ArgType, EngineState, Stack, StateWorkingSet},
 };
 use nu_utils::time::Instant;
-use reedline::{Completer as ReedlineCompleter, CompletionResult, CompletionStatus, Suggestion};
+use reedline::{
+    Completer as ReedlineCompleter, CompletionResult, CompletionStatus, Suggestion, Suggestions,
+};
 use std::sync::{Arc, Mutex, mpsc};
 use std::thread;
 use std::time::Duration;
@@ -172,7 +174,9 @@ impl CompletionQuery {
 }
 
 struct CacheEntry {
-    suggestions: Vec<Suggestion>,
+    /// Held as the shared `Arc` so a cache hit hands the list to reedline (and on
+    /// to the menu) with a refcount bump instead of copying it into a `Vec`.
+    suggestions: Suggestions,
     at: Instant,
 }
 
@@ -854,25 +858,25 @@ struct CommandCompletionOptions {
 }
 
 impl NuCompleter {
-    const EMPTY: Vec<Suggestion> = vec![];
-
-    fn cached(&self, query: &CompletionQuery) -> Option<Vec<Suggestion>> {
+    fn cached(&self, query: &CompletionQuery) -> Option<Suggestions> {
         let cache = self.cache.lock().ok()?;
         let entry = cache.get(query)?;
+        // `Arc` clone: a refcount bump, not a copy of the list.
         (entry.at.elapsed() < CACHE_TTL).then(|| entry.suggestions.clone())
     }
 
     /// Best-effort suggestions for a cache miss: reuse the freshest still-valid
     /// cache entry that `query` narrows,
     /// filtered down to the longer prefix the user has since typed.
-    fn stale_fallback(&self, query: &CompletionQuery) -> Vec<Suggestion> {
-        self.narrow(self.fetch_closest_cached_suggestions(query), query)
+    fn stale_fallback(&self, query: &CompletionQuery) -> Suggestions {
+        let closest = self.fetch_closest_cached_suggestions(query);
+        self.narrow(&closest, query)
     }
 
     /// Safely locks the cache and extracts the suggestions from the tightest valid superset.
-    fn fetch_closest_cached_suggestions(&self, query: &CompletionQuery) -> Vec<Suggestion> {
+    fn fetch_closest_cached_suggestions(&self, query: &CompletionQuery) -> Suggestions {
         let Ok(cache) = self.cache.lock() else {
-            return Self::EMPTY;
+            return Suggestions::default();
         };
 
         cache
@@ -882,19 +886,20 @@ impl NuCompleter {
             })
             // Prefer the closest superset: most already typed = tightest existing filter
             .max_by_key(|(base_query, _)| base_query.current_position)
+            // `Arc` clone: a refcount bump; `narrow` re-filters without mutating it.
             .map(|(_, cache_entry)| cache_entry.suggestions.clone())
             .unwrap_or_default()
     }
 
     /// Re-filters a superset of suggestions to match the current query.
-    fn narrow(&self, suggestions: Vec<Suggestion>, query: &CompletionQuery) -> Vec<Suggestion> {
+    fn narrow(&self, suggestions: &[Suggestion], query: &CompletionQuery) -> Suggestions {
         let Some((reference_span, search_token)) = suggestions.first().and_then(|suggestion| {
             let span = suggestion.span;
             let token = query.input_text().get(span.start..)?;
             Some((span, token))
         }) else {
             // Bail if there are no suggestions, or the span exceeds the input length.
-            return Self::EMPTY;
+            return Suggestions::default();
         };
 
         // Stretch the span from the original start point to the user's current cursor position.
@@ -904,8 +909,9 @@ impl NuCompleter {
 
         // If the spans that produced past suggestions mirror the ones that produced this one, they're fit as matches.
         for mut suggestion in suggestions
-            .into_iter()
+            .iter()
             .filter(|suggestion| suggestion.span == reference_span)
+            .cloned()
         {
             suggestion.span = updated_span;
             // Owned because `suggestion` is moved into the matcher on the same line.
@@ -929,7 +935,7 @@ impl NuCompleter {
     }
 
     /// Maps the raw matcher output back into finalized `Suggestion` objects.
-    fn extract_matcher_results(matcher: NuMatcher<Suggestion>) -> Vec<Suggestion> {
+    fn extract_matcher_results(matcher: NuMatcher<Suggestion>) -> Suggestions {
         matcher
             .results()
             .into_iter()
@@ -970,7 +976,9 @@ impl NuCompleter {
                 }
                 let (query, generation) = latest;
 
-                let suggestions: Vec<Suggestion> = completer
+                // Build the shared `Arc` once, here, so every later cache hit and
+                // menu refresh is a refcount bump rather than a copy.
+                let suggestions: Suggestions = completer
                     .fetch_completions_at(&query.line, query.current_position)
                     .into_iter()
                     .map(|s| s.suggestion)
@@ -1015,19 +1023,22 @@ impl NuCompleter {
     /// immediately with a `Stale`/`Pending` placeholder and relies on the reedline
     /// event loop to poll [`poll_completion`](ReedlineCompleter::poll_completion)
     /// Others don't have this mechanism, and this helper is for them.
-    pub fn complete_blocking(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
+    pub fn complete_blocking(&mut self, line: &str, pos: usize) -> Suggestions {
         // Upper bound on how long a single completion may take before we give up
         const BLOCKING_TIMEOUT: Duration = Duration::from_secs(30);
 
+        // `Fresh` is settled and hands over its `Arc` directly. `Stale`/`Pending`
+        // mean a compute is still in flight; keep the best-effort `Arc` (empty for
+        // `Pending`) as a fallback while we wait for the settled result.
         let fallback = match self.complete(line, pos) {
-            result @ CompletionResult::Fresh(_) => return result.into_suggestions(),
-            in_flight => in_flight.into_suggestions(),
+            CompletionResult::Fresh(values) => return values,
+            in_flight => in_flight.into_shared().unwrap_or_default(),
         };
 
         let deadline = Instant::now() + BLOCKING_TIMEOUT;
         while Instant::now() < deadline {
             if self.poll_completion() == CompletionStatus::Ready {
-                return self.complete(line, pos).into_suggestions();
+                return self.complete(line, pos).into_shared().unwrap_or_default();
             }
             thread::sleep(Duration::from_millis(10));
         }
@@ -1157,7 +1168,8 @@ mod completer_tests {
 
         // Typing another char is a cache miss, but the menu should immediately
         // narrow the cached results rather than flashing empty.
-        let narrowed = completer.complete("ls | co", 7).into_suggestions();
+        let narrowed_result = completer.complete("ls | co", 7);
+        let narrowed = narrowed_result.suggestions();
         assert!(
             !narrowed.is_empty(),
             "expected stale fallback, got empty menu"
@@ -1166,7 +1178,7 @@ mod completer_tests {
         assert!(narrowed.iter().any(|s| s.value == "const"));
         assert!(!narrowed.iter().any(|s| s.value == "cd"));
         // Spans are re-anchored to cover the freshly typed token.
-        for s in &narrowed {
+        for s in narrowed {
             assert_eq!(s.span.end, 7, "span not re-anchored for {}", s.value);
         }
 

@@ -638,7 +638,7 @@ pub fn complete(engine_reference: Arc<EngineState>, file_path: &str, location: &
         );
         print!("{{\"completions\": [");
         let mut first = true;
-        for result in results {
+        for result in results.iter() {
             if !first {
                 print!(", ")
             } else {

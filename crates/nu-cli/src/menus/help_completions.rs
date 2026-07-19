@@ -155,7 +155,8 @@ mod test {
             nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
         let config = engine_state.get_config().clone();
         let mut completer = NuHelpCompleter::new(engine_state.into(), config);
-        let suggestions = completer.complete(line, end).into_suggestions();
+        let completion = completer.complete(line, end);
+        let suggestions = completion.suggestions();
 
         assert_eq!(
             expected.len(),
