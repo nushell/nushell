@@ -133,11 +133,10 @@ pub fn run_seq(
     let stream = if !contains_decimals {
         ListStream::new(
             IntSeq {
-                count: first as i64,
+                count: Some(first as i64),
                 step: step as i64,
                 last: last as i64,
                 span,
-                done: false,
             },
             span,
             engine_state.signals().clone(),
@@ -182,32 +181,23 @@ impl Iterator for FloatSeq {
 }
 
 struct IntSeq {
-    count: i64,
+    count: Option<i64>,
     step: i64,
     last: i64,
     span: Span,
-    // Set once advancing `count` would overflow i64, so the final in-range value
-    // is still emitted but the iterator terminates on the following call.
-    done: bool,
 }
 
 impl Iterator for IntSeq {
     type Item = Value;
     fn next(&mut self) -> Option<Value> {
-        if self.done
-            || (self.count > self.last && self.step >= 0)
-            || (self.count < self.last && self.step <= 0)
-        {
+        let count = self.count?;
+        if (count > self.last && self.step >= 0) || (count < self.last && self.step <= 0) {
+            self.count = None;
             return None;
         }
-        let ret = Some(Value::int(self.count, self.span));
-        match self.count.checked_add(self.step) {
-            Some(next) => self.count = next,
-            // The next value would be outside i64 (and therefore past `last`), so
-            // stop after this element instead of panicking or wrapping around.
-            None => self.done = true,
-        }
-        ret
+        // None on overflow: emit this value, then end (avoids panic/wrap).
+        self.count = count.checked_add(self.step);
+        Some(Value::int(count, self.span))
     }
 }
 
