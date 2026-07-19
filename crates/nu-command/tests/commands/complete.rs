@@ -1,24 +1,23 @@
 use nu_experimental::PIPE_FAIL;
 use nu_test_support::prelude::*;
 use rstest::rstest;
-use std::collections::HashMap;
 
 #[test]
-#[deps(NU)]
+#[deps(TESTBIN_COCOCO)]
 fn basic_stdout() -> Result {
     let mut tester = test();
-    let without_complete: String = tester.run("nu --testbin cococo test")?;
-    let with_complete: String = tester.run("(nu --testbin cococo test | complete).stdout")?;
-    assert_eq!(without_complete.trim(), with_complete.trim());
+    let without_complete: String = tester.run("cococo test")?;
+    let with_complete: CompleteResult = tester.run("cococo test | complete")?;
+    assert_eq!(without_complete.trim(), with_complete.stdout.trim());
     Ok(())
 }
 
 #[test]
-#[deps(NU)]
+#[deps(TESTBIN_COCOCO)]
 fn basic_exit_code() -> Result {
-    test()
-        .run("(nu --testbin cococo test | complete).exit_code")
-        .expect_value_eq(0)
+    let result: CompleteResult = test().run("cococo test | complete")?;
+    assert_eq!(result.exit_code, 0);
+    Ok(())
 }
 
 #[test]
@@ -114,22 +113,22 @@ fn capture_error_with_both_stdout_stderr_messages_not_hang_nushell() -> Result {
 }
 
 #[test]
-#[deps(NU)]
+#[deps(TESTBIN_ECHO_ENV_MIXED)]
 fn combined_pipe_redirection() -> Result {
     let code = "
         $env.FOO = 'hello'; 
         $env.BAR = 'world'; 
-        nu --testbin echo_env_mixed out-err FOO BAR o+e>| complete | get stdout
+        echo_env_mixed out-err FOO BAR o+e>| complete | get stdout
     ";
 
     test().run(code).expect_value_eq("hello\nworld\n")
 }
 
 #[test]
-#[deps(NU)]
+#[deps(TESTBIN_ECHO_ENV_STDERR)]
 fn err_pipe_redirection() -> Result {
     test()
-        .run("$env.FOO = 'hello'; nu --testbin echo_env_stderr FOO e>| complete | get stdout")
+        .run("$env.FOO = 'hello'; echo_env_stderr FOO e>| complete | get stdout")
         .expect_value_eq("hello\n")
 }
 
@@ -143,10 +142,10 @@ fn err_pipe_redirection() -> Result {
 fn pipefail_let(#[case] assignment: &str) -> Result {
     let mut tester = test();
     let _: Value = tester.run(assignment)?;
-    let outcome: HashMap<String, Value> = tester.run("$result")?;
-    outcome["stdout"].assert_eq("");
-    outcome["stderr"].assert_eq("");
-    outcome["exit_code"].assert_eq(1);
+    let outcome: CompleteResult = tester.run("$result")?;
+    assert_eq!(outcome.stdout, "");
+    assert_eq!(outcome.stderr, "");
+    assert_eq!(outcome.exit_code, 1);
     Ok(())
 }
 
