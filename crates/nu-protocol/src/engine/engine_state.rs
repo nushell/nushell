@@ -36,6 +36,12 @@ use crate::{PluginRegistryFile, PluginRegistryItem, RegisteredPlugin};
 
 use super::{CurrentJob, Jobs, Mail, Mailbox, ThreadJob};
 
+/// Configure whether the current working directory may be updated when [`EngineState::merge_env`]
+/// is called.
+///
+/// During testing, this is causing issues, so this may disable it.
+pub static UPDATE_CWD: AtomicBool = AtomicBool::new(true);
+
 #[derive(Clone, Debug)]
 pub enum VirtualPath {
     File(FileId),
@@ -382,9 +388,11 @@ impl EngineState {
             }
         }
 
-        let cwd = self.cwd(Some(stack))?;
-        std::env::set_current_dir(cwd)
-            .map_err(|err| IoError::new_internal(err, "Could not set current dir"))?;
+        if UPDATE_CWD.load(Ordering::Relaxed) {
+            let cwd = self.cwd(Some(stack))?;
+            std::env::set_current_dir(cwd)
+                .map_err(|err| IoError::new_internal(err, "Could not set current dir"))?;
+        }
 
         if let Some(config) = stack.config.take() {
             // If config was updated in the stack, replace it.

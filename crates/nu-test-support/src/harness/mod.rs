@@ -96,6 +96,9 @@ pub fn main() -> ExitCode {
     nu_protocol::report_error::SUPPRESS_REPORTING.store(!args.no_capture, Ordering::Relaxed);
     kitest::capture::CAPTURE_OUTPUT_MACROS.store(!args.no_capture, Ordering::Relaxed);
 
+    // do not allow updating the cwd via `EngineState::merge_env`
+    nu_protocol::engine::UPDATE_CWD.store(false, Ordering::Relaxed);
+
     let filter = DefaultFilter::default()
         .with_exact(args.exact)
         .with_filter(args.filter)
