@@ -1,243 +1,247 @@
-use nu_test_support::fs::Stub::FileWithContent;
-use nu_test_support::playground::Playground;
-use nu_test_support::{nu, nu_repl_code, nu_with_std};
+use nu_test_support::{fs::Stub::FileWithContent, prelude::*};
 use pretty_assertions::assert_eq;
 
 #[test]
-fn env_shorthand() {
-    let actual = nu!("
-        FOO=bar echo $env.FOO
-        ");
-    assert_eq!(actual.out, "bar");
+fn env_shorthand() -> Result {
+    test().run("FOO=bar echo $env.FOO").expect_value_eq("bar")
 }
 
 #[test]
-fn env_shorthand_with_equals() {
-    let actual = nu!("
-        RUST_LOG=my_module=info $env.RUST_LOG
-    ");
-    assert_eq!(actual.out, "my_module=info");
+fn env_shorthand_with_equals() -> Result {
+    test()
+        .run("RUST_LOG=my_module=info $env.RUST_LOG")
+        .expect_value_eq("my_module=info")
 }
 
 #[test]
-fn env_shorthand_with_interpolation() {
-    let actual = nu!(r#"
+fn env_shorthand_with_interpolation() -> Result {
+    let code = r#"
         let num = 123
         FOO=$"($num) bar" echo $env.FOO
-        "#);
-    assert_eq!(actual.out, "123 bar");
+    "#;
+
+    test().run(code).expect_value_eq("123 bar")
 }
 
 #[test]
-fn env_shorthand_with_comma_equals() {
-    let actual = nu!("
-        RUST_LOG=info,my_module=info $env.RUST_LOG
-    ");
-    assert_eq!(actual.out, "info,my_module=info");
+fn env_shorthand_with_comma_equals() -> Result {
+    test()
+        .run("RUST_LOG=info,my_module=info $env.RUST_LOG")
+        .expect_value_eq("info,my_module=info")
 }
 
 #[test]
-fn env_shorthand_with_comma_colons_equals() {
-    let actual = nu!("
-        RUST_LOG=info,my_module=info,lib_crate::lib_mod=trace $env.RUST_LOG
-    ");
-    assert_eq!(actual.out, "info,my_module=info,lib_crate::lib_mod=trace");
+fn env_shorthand_with_comma_colons_equals() -> Result {
+    test()
+        .run("RUST_LOG=info,my_module=info,lib_crate::lib_mod=trace $env.RUST_LOG")
+        .expect_value_eq("info,my_module=info,lib_crate::lib_mod=trace")
 }
 
 #[test]
-fn env_shorthand_multi_second_with_comma_colons_equals() {
-    let actual = nu!("
-        FOO=bar RUST_LOG=info,my_module=info,lib_crate::lib_mod=trace $env.FOO + $env.RUST_LOG
-    ");
-    assert_eq!(
-        actual.out,
-        "barinfo,my_module=info,lib_crate::lib_mod=trace"
-    );
+fn env_shorthand_multi_second_with_comma_colons_equals() -> Result {
+    test()
+        .run("FOO=bar RUST_LOG=info,my_module=info,lib_crate::lib_mod=trace $env.FOO + $env.RUST_LOG")
+        .expect_value_eq("barinfo,my_module=info,lib_crate::lib_mod=trace")
 }
 
 #[test]
-fn env_shorthand_multi_first_with_comma_colons_equals() {
-    let actual = nu!("
-        RUST_LOG=info,my_module=info,lib_crate::lib_mod=trace FOO=bar $env.FOO + $env.RUST_LOG
-    ");
-    assert_eq!(
-        actual.out,
-        "barinfo,my_module=info,lib_crate::lib_mod=trace"
-    );
+fn env_shorthand_multi_first_with_comma_colons_equals() -> Result {
+    test()
+        .run("RUST_LOG=info,my_module=info,lib_crate::lib_mod=trace FOO=bar $env.FOO + $env.RUST_LOG")
+        .expect_value_eq("barinfo,my_module=info,lib_crate::lib_mod=trace")
 }
 
 #[test]
-fn env_shorthand_multi() {
-    let actual = nu!("
-        FOO=bar BAR=baz $env.FOO + $env.BAR
-    ");
-    assert_eq!(actual.out, "barbaz");
+fn env_shorthand_multi() -> Result {
+    test()
+        .run("FOO=bar BAR=baz $env.FOO + $env.BAR")
+        .expect_value_eq("barbaz")
 }
 
 #[test]
-fn env_assignment() {
-    let actual = nu!(r#"
-        $env.FOOBAR = "barbaz"; $env.FOOBAR
-    "#);
-    assert_eq!(actual.out, "barbaz");
+fn env_assignment() -> Result {
+    test()
+        .run(r#"$env.FOOBAR = "barbaz"; $env.FOOBAR"#)
+        .expect_value_eq("barbaz")
 }
 
 #[test]
-fn env_assignment_with_if() {
-    let actual = nu!(r#"$env.FOOBAR = if 3 == 4 { "bar" } else { "baz" }; $env.FOOBAR"#);
-    assert_eq!(actual.out, "baz");
+fn env_assignment_with_if() -> Result {
+    test()
+        .run(r#"$env.FOOBAR = if 3 == 4 { "bar" } else { "baz" }; $env.FOOBAR"#)
+        .expect_value_eq("baz")
 }
 
 #[test]
-fn env_assignment_with_match() {
-    let actual = nu!("$env.FOOBAR = match 1 { 1 => { 'yes!' }, _ => { 'no!' } }; $env.FOOBAR");
-    assert_eq!(actual.out, "yes!");
+fn env_assignment_with_match() -> Result {
+    test()
+        .run("$env.FOOBAR = match 1 { 1 => { 'yes!' }, _ => { 'no!' } }; $env.FOOBAR")
+        .expect_value_eq("yes!")
 }
 
 #[test]
-fn mutate_env_file_pwd_env_var_fails() {
-    let actual = nu!("$env.FILE_PWD = 'foo'");
-
-    assert!(actual.err.contains("automatic_env_var_set_manually"));
+fn mutate_env_file_pwd_env_var_fails() -> Result {
+    test()
+        .run("$env.FILE_PWD = 'foo'")
+        .expect_error_code_eq("nu::compile::automatic_env_var_set_manually")
 }
 
 #[test]
-fn load_env_file_pwd_env_var_fails() {
-    let actual = nu!("load-env { FILE_PWD : 'foo' }");
-
-    assert!(actual.err.contains("automatic_env_var_set_manually"));
+fn load_env_file_pwd_env_var_fails() -> Result {
+    test()
+        .run("load-env { FILE_PWD : 'foo' }")
+        .expect_error_code_eq("nu::shell::automatic_env_var_set_manually")
 }
 
 #[test]
-fn load_env_pwd_env_var_fails() {
-    let actual = nu!("load-env { PWD : 'foo' }");
-
-    assert!(actual.err.contains("automatic_env_var_set_manually"));
+fn load_env_pwd_env_var_fails() -> Result {
+    test()
+        .run("load-env { PWD : 'foo' }")
+        .expect_error_code_eq("nu::shell::automatic_env_var_set_manually")
 }
 
 #[test]
-fn passes_with_env_env_var_to_external_process() {
-    let actual = nu!("
-        with-env { FOO: foo } {nu --testbin echo_env FOO}
-        ");
-    assert_eq!(actual.out, "foo");
+#[deps(TESTBIN_ECHO_ENV)]
+fn passes_with_env_env_var_to_external_process() -> Result {
+    test()
+        .run("with-env { FOO: foo } { echo_env FOO }")
+        .expect_value_eq("foo")
 }
 
 #[test]
-fn hides_environment_from_child() {
-    let actual = nu!(r#"
-        $env.TEST = 1; ^$nu.current-exe -c "hide-env TEST; ^$nu.current-exe -c '$env.TEST'"
-    "#);
-    assert!(actual.out.is_empty());
-    assert!(actual.err.contains("column_not_found") || actual.err.contains("name_not_found"));
+#[deps(NU)]
+fn hides_environment_from_child() -> Result {
+    let result: CompleteResult = test()
+        .env("TEST", 1)
+        .run(r#"nu -c 'hide-env TEST; nu -c "$env.TEST"' | complete"#)?;
+
+    assert!(result.stdout.is_empty());
+    assert!(result.stderr.contains("column_not_found") || result.stderr.contains("name_not_found"));
+    Ok(())
 }
 
 #[test]
-fn has_file_pwd() {
+#[deps(NU)]
+fn has_file_pwd() -> Result {
     Playground::setup("has_file_pwd", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent("spam.nu", "$env.FILE_PWD")]);
 
-        let actual = nu!(cwd: dirs.test(), "nu spam.nu");
-
-        assert!(actual.out.ends_with("has_file_pwd"));
+        test()
+            .cwd(dirs.test())
+            .run("nu spam.nu | to text | str trim")
+            .expect_value_eq(dirs.test().to_string_lossy())
     })
 }
 
 #[test]
-fn has_file_loc() {
-    Playground::setup("has_file_pwd", |dirs, sandbox| {
+#[deps(NU)]
+fn has_file_loc() -> Result {
+    Playground::setup("has_file_loc", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent("spam.nu", "$env.CURRENT_FILE")]);
 
-        let actual = nu!(cwd: dirs.test(), "nu spam.nu");
+        let actual: String = test()
+            .cwd(dirs.test())
+            .run("nu spam.nu | to text | str trim")?;
 
-        assert!(actual.out.ends_with("spam.nu"));
+        assert!(actual.ends_with("spam.nu"));
+        Ok(())
     })
 }
 
 #[test]
-fn hides_env_in_block() {
-    let inp = &[
+fn hides_env_in_block() -> Result {
+    let pipelines = [
         "$env.foo = 'foo'",
         "hide-env foo",
         "let b = {|| $env.foo }",
         "do $b",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
+    test()
+        .run(pipelines.join("; "))
+        .expect_error_code_eq("nu::shell::column_not_found")?;
 
-    assert!(actual.err.contains("column_not_found"));
-    assert!(actual_repl.err.contains("column_not_found"));
+    test()
+        .run_multiple(pipelines)
+        .expect_error_code_eq("nu::shell::column_not_found")
 }
 
 #[test]
-fn env_var_not_var() {
-    let actual = nu!("
-        echo $PWD
-        ");
-    assert!(actual.err.contains("use $env.PWD instead of $PWD"));
+fn env_var_not_var() -> Result {
+    let err = test().run("echo $PWD").expect_parse_error()?;
+    assert_contains("Use $env.PWD instead of $PWD", err.to_string());
+    Ok(())
 }
 
 #[test]
-fn env_var_case_insensitive() {
-    let actual = nu!("
+fn env_var_case_insensitive() -> Result {
+    let code = "
         $env.foo = 111
-        print $env.Foo
+        let first = $env.Foo
         $env.FOO = 222
-        print $env.foo
-    ");
-    assert!(actual.out.contains("111"));
-    assert!(actual.out.contains("222"));
+        [$first, $env.foo]
+    ";
+
+    test().run(code).expect_value_eq([111, 222])
 }
 
 #[test]
-fn env_conversion_on_assignment() {
-    let actual = nu!(r#"
+fn env_conversion_on_assignment() -> Result {
+    let code = r#"
         $env.FOO = "bar:baz:quox"
         $env.ENV_CONVERSIONS = { FOO: { from_string: {|| split row ":"} } }
-        $env.FOO | to nuon
-    "#);
-    assert_eq!(actual.out, "[bar, baz, quox]");
+        $env.FOO
+    "#;
+
+    test().run(code).expect_value_eq(["bar", "baz", "quox"])
 }
 
 #[test]
-fn std_log_env_vars_are_not_overridden() {
-    let actual = nu_with_std!(
-        envs: vec![
-            ("NU_LOG_FORMAT".to_string(), "%MSG%".to_string()),
-            ("NU_LOG_DATE_FORMAT".to_string(), "%Y".to_string()),
-        ],
+#[deps(NU)]
+fn std_log_env_vars_are_not_overridden() -> Result {
+    let result: CompleteResult = test()
+        .env("NU_LOG_FORMAT", "%MSG%")
+        .env("NU_LOG_DATE_FORMAT", "%Y")
+        .run(
+            r#"
+                nu -n -c '
+                    use std/log
+                    print -e $env.NU_LOG_FORMAT
+                    print -e $env.NU_LOG_DATE_FORMAT
+                    log error "err"
+                ' | complete
+            "#,
+        )?;
+
+    assert_eq!(result.stderr, "%MSG%\n%Y\nerr\n");
+    Ok(())
+}
+
+#[test]
+#[deps(NU)]
+fn std_log_env_vars_have_defaults() -> Result {
+    let result: CompleteResult = test().run(
         r#"
-            use std/log
-            print -e $env.NU_LOG_FORMAT
-            print -e $env.NU_LOG_DATE_FORMAT
-            log error "err"
-        "#
-    );
-    assert_eq!(actual.err, "%MSG%\n%Y\nerr\n");
+                nu -n -c '
+                    use std/log
+                    print -e $env.NU_LOG_FORMAT
+                    print -e $env.NU_LOG_DATE_FORMAT
+                ' | complete
+            "#,
+    )?;
+
+    assert_contains("%MSG%", &result.stderr);
+    assert_contains("%Y-", &result.stderr);
+    Ok(())
 }
 
 #[test]
-fn std_log_env_vars_have_defaults() {
-    let actual = nu_with_std!(
-        "
-            use std/log
-            print -e $env.NU_LOG_FORMAT
-            print -e $env.NU_LOG_DATE_FORMAT
-        "
-    );
-    assert!(actual.err.contains("%MSG%"));
-    assert!(actual.err.contains("%Y-"));
-}
-
-#[test]
-fn env_shlvl_commandstring_does_not_increment() {
-    let actual = nu!("
-        $env.SHLVL = 5
-        nu -c 'print $env.SHLVL; exit'
-    ");
-
-    assert_eq!(actual.out, "5");
+#[deps(NU)]
+fn env_shlvl_commandstring_does_not_increment() -> Result {
+    test()
+        .env("SHLVL", 5)
+        .run("nu -c '$env.SHLVL | to text | str trim'")
+        .expect_value_eq("5")
 }
 
 // Note: Do not use -i / --interactive in tests.
@@ -251,91 +255,83 @@ fn env_shlvl_commandstring_does_not_increment() {
 // prevent failures entirely. For now we're going to ignore
 // these tests until we can find a better solution.
 #[test]
-#[serial]
-fn env_shlvl_in_repl() {
-    let actual = nu!(r#"
-        $env.SHLVL = 5
-        nu --no-std-lib -n -e 'print $"SHLVL:($env.SHLVL)"; exit'
-    "#);
+#[deps(NU)]
+fn env_shlvl_in_repl() -> Result {
+    let out: String = test()
+        .env("SHLVL", 5)
+        .run(r#"nu --no-std-lib -n -e 'print $"SHLVL:($env.SHLVL)"; exit' | to text"#)?;
 
-    assert!(actual.out.ends_with("SHLVL:6"));
+    assert!(out.trim_end().ends_with("SHLVL:6"));
+    Ok(())
 }
 
 #[test]
-#[serial]
-fn env_shlvl_in_exec_repl() {
-    let actual = nu!(r#"
-        $env.SHLVL = 29
-        nu -c 'exec nu --no-std-lib -n -e `print $"SHLVL:($env.SHLVL)"; exit`'
-    "#);
+#[deps(NU)]
+fn env_shlvl_in_exec_repl() -> Result {
+    let out: String = test().env("SHLVL", 29).run(
+        r#"nu -c 'exec nu --no-std-lib -n -e `print $"SHLVL:($env.SHLVL)"; exit`' | to text"#,
+    )?;
 
-    assert!(actual.out.ends_with("SHLVL:30"));
+    assert!(out.trim_end().ends_with("SHLVL:30"));
+    Ok(())
 }
 
 #[test]
-fn path_is_a_list_in_repl() {
-    let actual = nu!(r#"
-        nu -c "exec nu --no-std-lib -n -e `print $'path:($env.pATh | describe)'; exit`"
-    "#);
-
-    assert_eq!(actual.out, "path:list<string>");
+#[deps(NU)]
+fn path_is_a_list_in_repl() -> Result {
+    test()
+        .run(r#"nu -c "exec nu --no-std-lib -n -e `print $'path:($env.pATh | describe)'; exit`" | to text | str trim"#)
+        .expect_value_eq("path:list<string>")
 }
 
 #[test]
-fn path_is_a_list() {
-    let actual = nu!("
-        print ($env.path | describe)
-    ");
-
-    assert_eq!(actual.out, "list<string>");
+#[deps(NU)]
+fn path_is_a_list() -> Result {
+    test()
+        .run("nu -c '$env.path | describe' | to text | str trim")
+        .expect_value_eq("list<string>")
 }
 
 #[test]
-fn path_is_a_list_in_script() {
-    Playground::setup("has_file_pwd", |dirs, sandbox| {
+#[deps(NU)]
+fn path_is_a_list_in_script() -> Result {
+    Playground::setup("path_is_a_list_in_script", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent("checkpath.nu", "$env.path | describe")]);
 
-        let actual = nu!(cwd: dirs.test(), "nu checkpath.nu");
-
-        assert!(actual.out.ends_with("list<string>"));
+        test()
+            .cwd(dirs.test())
+            .run("nu checkpath.nu | to text | str trim")
+            .expect_value_eq("list<string>")
     })
 }
 
 #[test]
-fn case_insensitive_env_load_env() {
-    let actual = nu!("
+fn case_insensitive_env_load_env() -> Result {
+    let code = "
         load-env {testvar: 'value1', TESTVAR: 'value2'}
-        print $env.testvar
-        print $env.TESTVAR
-    ");
-    // TESTVAR should override testvar due to case-insensitivity
-    assert!(actual.out.contains("value2"));
-    assert!(actual.out.contains("value2"));
+        [$env.testvar, $env.TESTVAR]
+    ";
+
+    test().run(code).expect_value_eq(["value2", "value2"])
 }
 
 #[test]
-fn case_insensitive_env_http_proxy() {
-    let actual = nu!("
-        $env.http_proxy = 'http://proxy.example.com'
-        $env.HTTP_PROXY
-    ");
-    assert_eq!(actual.out, "http://proxy.example.com");
+fn case_insensitive_env_http_proxy() -> Result {
+    test()
+        .run("$env.http_proxy = 'http://proxy.example.com'; $env.HTTP_PROXY")
+        .expect_value_eq("http://proxy.example.com")
 }
 
 #[test]
-fn case_insensitive_env_date_locale() {
-    let actual = nu!("
-        $env.lc_all = 'C'
-        $env.LC_ALL
-    ");
-    assert_eq!(actual.out, "C");
+fn case_insensitive_env_date_locale() -> Result {
+    test()
+        .run("$env.lc_all = 'C'; $env.LC_ALL")
+        .expect_value_eq("C")
 }
 
 #[test]
-fn case_insensitive_env_record_access() {
-    let actual = nu!("
-        $env.test = 'value'
-        $env.TEST
-    ");
-    assert_eq!(actual.out, "value");
+fn case_insensitive_env_record_access() -> Result {
+    test()
+        .run("$env.test = 'value'; $env.TEST")
+        .expect_value_eq("value")
 }
