@@ -1,4 +1,4 @@
-use crate::values::{Column, NuDataFrame, PolarsPluginType};
+use crate::values::{Column, NuDataFrame, PolarsPluginObject, PolarsPluginType, cant_convert_err};
 use crate::{PolarsPlugin, values::CustomValueSupport};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -70,6 +70,10 @@ impl PluginCommand for Rolling {
                     PolarsPluginType::NuLazyFrame.into(),
                     PolarsPluginType::NuLazyFrame.into(),
                 ),
+                (
+                    PolarsPluginType::NuExpression.into(),
+                    PolarsPluginType::NuExpression.into(),
+                ),
             ])
             .category(Category::Custom("dataframe".into()))
     }
@@ -129,22 +133,33 @@ impl PluginCommand for Rolling {
         mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let metadata = input.take_metadata();
-        command(plugin, engine, call, input)
-            .map_err(LabeledError::from)
-            .map(|pd| pd.set_metadata(metadata))
+        let value = input.into_value(call.head)?;
+
+        match PolarsPluginObject::try_from_value(plugin, &value)? {
+            PolarsPluginObject::NuDataFrame(df) => command_eager(plugin, engine, call, df),
+            _ => Err(cant_convert_err(
+                &value,
+                &[
+                    PolarsPluginType::NuDataFrame,
+                    PolarsPluginType::NuLazyFrame,
+                    PolarsPluginType::NuExpression,
+                ],
+            )),
+        }
+        .map_err(LabeledError::from)
+        .map(|pd| pd.set_metadata(metadata))
     }
 }
 
-fn command(
+fn command_eager(
     plugin: &PolarsPlugin,
     engine: &EngineInterface,
     call: &EvaluatedCall,
-    input: PipelineData,
+    df: NuDataFrame,
 ) -> Result<PipelineData, ShellError> {
     let roll_type: Spanned<String> = call.req(0)?;
     let window_size: usize = call.req(1)?;
 
-    let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
     let series = df.as_series(call.head)?;
 
     if let DataType::Object(..) = series.dtype() {
