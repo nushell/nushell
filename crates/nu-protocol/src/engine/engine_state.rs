@@ -42,7 +42,7 @@ pub enum VirtualPath {
     Dir(Vec<VirtualPathId>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct ReplState {
     pub buffer: String,
     // A byte position, as `EditCommand::MoveToPosition` is also a byte position
@@ -1114,6 +1114,28 @@ impl EngineState {
                 NonZeroUsize::new(REGEX_CACHE_SIZE).expect("tried to create cache of size zero"),
             )));
         }
+    }
+
+    /// Reset mutable per-session state after cloning a shared engine template.
+    pub fn make_session_state_unique(&mut self) {
+        let (send, recv) = channel();
+
+        self.pipeline_externals_state = Arc::new((AtomicU32::new(0), AtomicU32::new(0)));
+        self.repl_state = Default::default();
+        self.report_log = Default::default();
+        self.jobs = Default::default();
+        self.current_job = CurrentJob {
+            id: JobId::new(0),
+            background_thread_job: None,
+            mailbox: Arc::new(Mutex::new(Mailbox::new(recv))),
+        };
+        self.root_job_sender = send;
+        self.exit_warning_given = Default::default();
+        self.regex_cache = Arc::new(Mutex::new(LruCache::new(
+            NonZeroUsize::new(REGEX_CACHE_SIZE).expect("tried to create cache of size zero"),
+        )));
+        self.is_debugging = IsDebugging::new(false);
+        self.debugger = Arc::new(Mutex::new(Box::new(NoopDebugger)));
     }
 
     /// Add new span and return its ID

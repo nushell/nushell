@@ -150,8 +150,11 @@ pub static PLUGIN_AUTO_LOAD: RwLock<Vec<PluginAutoLoader>> = const_rwlock(Vec::n
 /// # Ok::<(), nu_test_support::tester::TestError>(())
 /// ```
 pub fn test() -> NuTester {
+    let mut engine_state = INITIAL_ENGINE_STATES.get(&GroupKey::current()).clone();
+    engine_state.make_session_state_unique();
+
     let tester = NuTester {
-        engine_state: INITIAL_ENGINE_STATES.get(&GroupKey::current()).clone(),
+        engine_state,
         stack: Stack::new().collect_value(),
         fname_counter: Counter::default(),
     };
