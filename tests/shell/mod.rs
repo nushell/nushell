@@ -1,6 +1,5 @@
 use nu_test_support::{
     fs::Stub::{FileWithContent, FileWithContentToBeTrimmed},
-    nu_repl_code,
     prelude::*,
 };
 use pretty_assertions::assert_eq;
@@ -46,20 +45,13 @@ fn plugins_are_declared_with_wix() -> Result {
 }
 
 #[test]
-#[cfg(not(windows))]
-fn do_not_panic_if_broken_pipe() {
-    // `nu -h | false`
-    // used to panic with a BrokenPipe error
-    let child_output = std::process::Command::new("sh")
-        .arg("-c")
-        .arg(format!(
-            "{:?} -h | false",
-            nu_test_support::fs::executable_path()
-        ))
-        .output()
-        .expect("failed to execute process");
-
-    assert!(child_output.stderr.is_empty());
+#[deps(NU, TESTBIN_FAIL)]
+fn do_not_panic_if_broken_pipe() -> Result {
+    // `nu -h | fail` used to panic with a BrokenPipe error.
+    let result: CompleteResult = test().run("nu -h | ^fail | complete")?;
+    assert_eq!(result.exit_code, 1);
+    assert!(result.stderr.is_empty());
+    Ok(())
 }
 
 #[test]
@@ -129,31 +121,25 @@ fn exit_failure_if_stderr_full() {
 }
 
 #[test]
-#[deps(NU)]
 fn nu_lib_dirs_repl() -> Result {
     Playground::setup("nu_lib_dirs_repl", |dirs, sandbox| -> Result {
         sandbox
             .mkdir("scripts")
-            .with_files(&[FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContent(
                 "scripts/foo.nu",
-                r#"
-                    $env.FOO = "foo"
-                "#,
+                "$env.FOO = 'foo'",
             )]);
 
-        let inp_lines = &[
-            "$env.NU_LIB_DIRS = [ ('scripts' | path expand) ]",
-            "source-env foo.nu",
-            "$env.FOO",
-        ];
-
-        let command = format!("{} | to text | str trim", nu_repl_code(inp_lines));
-        test().cwd(dirs.test()).run(command).expect_value_eq("foo")
+        let scripts = dirs.test().join("scripts");
+        let mut tester = test()
+            .cwd(dirs.test())
+            .env("NU_LIB_DIRS", [scripts.to_string_lossy().to_string()]);
+        let () = tester.run("source-env foo.nu")?;
+        tester.run("$env.FOO").expect_value_eq("foo")
     })
 }
 
 #[test]
-#[deps(NU)]
 fn nu_lib_dirs_script() -> Result {
     Playground::setup("nu_lib_dirs_script", |dirs, sandbox| -> Result {
         sandbox
@@ -171,19 +157,16 @@ fn nu_lib_dirs_script() -> Result {
                 ",
             )]);
 
-        let inp_lines = &[
-            "$env.NU_LIB_DIRS = [ ('scripts' | path expand) ]",
-            "source-env main.nu",
-            "$env.FOO",
-        ];
-
-        let command = format!("{} | to text | str trim", nu_repl_code(inp_lines));
-        test().cwd(dirs.test()).run(command).expect_value_eq("foo")
+        let scripts = dirs.test().join("scripts");
+        let mut tester = test()
+            .cwd(dirs.test())
+            .env("NU_LIB_DIRS", [scripts.to_string_lossy().to_string()]);
+        let () = tester.run("source-env main.nu")?;
+        tester.run("$env.FOO").expect_value_eq("foo")
     })
 }
 
 #[test]
-#[deps(NU)]
 fn nu_lib_dirs_relative_repl() -> Result {
     Playground::setup("nu_lib_dirs_relative_repl", |dirs, sandbox| -> Result {
         sandbox
@@ -195,14 +178,9 @@ fn nu_lib_dirs_relative_repl() -> Result {
                 "#,
             )]);
 
-        let inp_lines = &[
-            "$env.NU_LIB_DIRS = [ 'scripts' ]",
-            "source-env foo.nu",
-            "$env.FOO",
-        ];
-
-        let command = format!("{} | to text | str trim", nu_repl_code(inp_lines));
-        test().cwd(dirs.test()).run(command).expect_value_eq("foo")
+        let mut tester = test().cwd(dirs.test()).env("NU_LIB_DIRS", ["scripts"]);
+        let () = tester.run("source-env foo.nu")?;
+        tester.run("$env.FOO").expect_value_eq("foo")
     })
 }
 
