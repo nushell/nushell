@@ -222,4 +222,13 @@ mod tests {
     fn keeps_root_separator_for_absolute_drive_path() {
         assert_eq!(split_components(Path::new(r"C:\\Users")), [r"C:\", "Users"]);
     }
+
+    #[cfg(windows)]
+    #[test]
+    fn keeps_unc_share_as_rooted_prefix() {
+        assert_eq!(
+            split_components(Path::new(r"\\server\share\some\path")),
+            [r"\\server\share\", "some", "path"]
+        );
+    }
 }
