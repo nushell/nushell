@@ -239,14 +239,14 @@ fn env_change_block_dont_preserve_command() -> Result {
 
 #[test]
 fn env_change_block_condition_pwd() -> Result {
-    let hook_config = r#"
+    let hook_config = "
         $env.config.hooks.env_change.PWD = [
             {
                 condition: {|before, after| ($after | path basename) == samples }
                 code: 'source-env .nu-env'
             }
         ]
-    "#;
+    ";
     let mut tester = test().cwd("tests/hooks");
     let () = tester.run_with_hooks(hook_config)?;
     let () = tester.run_with_hooks("cd samples")?;
@@ -256,14 +256,14 @@ fn env_change_block_condition_pwd() -> Result {
 
 #[test]
 fn env_change_block_condition_pwd_is_case_insensitive() -> Result {
-    let hook_config = r#"
+    let hook_config = "
         $env.config.hooks.env_change.pWD = [
             {
                 condition: {|before, after| ($after | path basename) == samples }
                 code: 'source-env .nu-env'
             }
         ]
-    "#;
+    ";
     let mut tester = test().cwd("tests/hooks");
     let () = tester.run_with_hooks(hook_config)?;
     let () = tester.run_with_hooks("cd samples")?;
@@ -273,14 +273,14 @@ fn env_change_block_condition_pwd_is_case_insensitive() -> Result {
 
 #[test]
 fn env_change_block_condition_correct_args() -> Result {
-    let hook_config = r#"
+    let hook_config = "
         $env.config.hooks.env_change.FOO = [
             {
                 condition: {|before, after| $before == 1 and $after == 2}
                 code: {|before, after| $env.SPAM = ($before == 1 and $after == 2) }
             }
         ]
-    "#;
+    ";
     let mut tester = test();
     let () = tester.run_with_hooks("$env.FOO = 1")?;
     let () = tester.run_with_hooks(hook_config)?;
@@ -305,7 +305,7 @@ fn env_change_dont_panic_with_many_args() -> Result {
 
 #[test]
 fn err_hook_wrong_env_type_1() -> Result {
-    let code = r#"
+    let code = "
         $env.config = {
             hooks: {
                 env_change: {
@@ -313,7 +313,7 @@ fn err_hook_wrong_env_type_1() -> Result {
                 }
             }
         }
-    "#;
+    ";
 
     test()
         .run_with_hooks::<Value>(code)
@@ -337,7 +337,7 @@ fn err_hook_wrong_env_type_2() -> Result {
 
 #[test]
 fn err_hook_wrong_env_type_3() -> Result {
-    let code = r#"
+    let code = "
         $env.config = {
             hooks: {
                 env_change: {
@@ -347,7 +347,7 @@ fn err_hook_wrong_env_type_3() -> Result {
                 }
             }
         }
-    "#;
+    ";
 
     test()
         .run_with_hooks::<Value>(code)

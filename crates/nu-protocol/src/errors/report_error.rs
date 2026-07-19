@@ -210,10 +210,10 @@ fn report_warning(
         CliError::new(stack, warning, working_set, Some(default_code))
     );
 
-    if !SUPPRESS_REPORTING.load(Ordering::Relaxed) {
-        if writeln!(std::io::stderr(), "{report}").is_err() {
-            let _ = writeln!(std::io::stdout(), "{report}");
-        }
+    if !SUPPRESS_REPORTING.load(Ordering::Relaxed)
+        && writeln!(std::io::stderr(), "{report}").is_err()
+    {
+        let _ = writeln!(std::io::stdout(), "{report}");
     }
 
     // reset vt processing, aka ansi because illbehaved externals can break it
