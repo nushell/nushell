@@ -1,25 +1,10 @@
 use assert_cmd::cargo_bin;
 use pretty_assertions::assert_eq;
-use std::collections::HashMap;
 use std::io::Write;
 use std::process::Command;
 use tempfile::NamedTempFile;
 
 pub type TestResult = Result<(), Box<dyn std::error::Error>>;
-
-#[track_caller]
-pub fn run_test_with_env(input: &str, expected: &str, env: &HashMap<&str, &str>) -> TestResult {
-    let mut file = NamedTempFile::new()?;
-    let name = file.path();
-
-    let mut cmd = Command::new(cargo_bin!());
-    cmd.arg("--no-config-file");
-    cmd.arg(name).envs(env);
-
-    writeln!(file, "{input}")?;
-
-    run_cmd_and_assert(cmd, expected)
-}
 
 #[cfg(test)]
 #[track_caller]
