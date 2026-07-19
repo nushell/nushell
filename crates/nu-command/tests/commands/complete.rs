@@ -1,5 +1,6 @@
 use nu_experimental::PIPE_FAIL;
 use nu_test_support::prelude::*;
+use pretty_assertions::assert_matches;
 use rstest::rstest;
 
 #[test]
@@ -23,13 +24,11 @@ fn basic_exit_code() -> Result {
 #[test]
 fn error() -> Result {
     let err = test().run("not-found | complete").expect_shell_error()?;
-    match err {
-        ShellError::ExternalCommand { label, .. } => {
-            assert_eq!(label, "Command `not-found` not found");
-            Ok(())
-        }
-        err => Err(err.into()),
-    }
+    assert_matches!(
+        err,
+        ShellError::ExternalCommand { label, .. } if label == "Command `not-found` not found"
+    );
+    Ok(())
 }
 
 #[test]
@@ -45,12 +44,14 @@ fn capture_error_with_too_much_stderr_not_hang_nushell() -> Result {
         }
         sandbox.with_files(&[FileWithContent("a_large_file.txt", &large_file_body)]);
 
-        let actual: String = test()
+        let actual: CompleteResult = test()
             .inherit_path()
             .cwd(dirs.test())
-            .run("sh -c 'cat a_large_file.txt 1>&2' | complete | get stderr")?;
+            .run("sh -c 'cat a_large_file.txt 1>&2' | complete")?;
 
-        assert_eq!(actual, large_file_body);
+        assert_eq!(actual.stdout, "");
+        assert_eq!(actual.stderr, large_file_body);
+        assert_eq!(actual.exit_code, 0);
         Ok(())
     })
 }
@@ -68,12 +69,14 @@ fn capture_error_with_too_much_stdout_not_hang_nushell() -> Result {
         }
         sandbox.with_files(&[FileWithContent("a_large_file.txt", &large_file_body)]);
 
-        let actual: String = test()
+        let actual: CompleteResult = test()
             .inherit_path()
             .cwd(dirs.test())
-            .run("sh -c 'cat a_large_file.txt' | complete | get stdout")?;
+            .run("sh -c 'cat a_large_file.txt' | complete")?;
 
-        assert_eq!(actual, large_file_body);
+        assert_eq!(actual.stdout, large_file_body);
+        assert_eq!(actual.stderr, "");
+        assert_eq!(actual.exit_code, 0);
         Ok(())
     })
 }
@@ -95,18 +98,14 @@ fn capture_error_with_both_stdout_stderr_messages_not_hang_nushell() -> Result {
 
             sandbox.with_files(&[FileWithContent("test.sh", script_body)]);
 
-            // check for stdout
-            let actual: String = test()
+            let actual: CompleteResult = test()
                 .inherit_path()
                 .cwd(dirs.test())
-                .run("sh test.sh | complete | get stdout | str trim")?;
-            assert_eq!(actual, expect_body);
-            // check for stderr
-            let actual: String = test()
-                .inherit_path()
-                .cwd(dirs.test())
-                .run("sh test.sh | complete | get stderr | str trim")?;
-            assert_eq!(actual, expect_body);
+                .run("sh test.sh | complete")?;
+
+            assert_eq!(actual.stdout.trim(), expect_body);
+            assert_eq!(actual.stderr.trim(), expect_body);
+            assert_eq!(actual.exit_code, 0);
             Ok(())
         },
     )
@@ -127,9 +126,12 @@ fn combined_pipe_redirection() -> Result {
 #[test]
 #[deps(TESTBIN_ECHO_ENV_STDERR)]
 fn err_pipe_redirection() -> Result {
-    test()
-        .run("$env.FOO = 'hello'; echo_env_stderr FOO e>| complete | get stdout")
-        .expect_value_eq("hello\n")
+    let actual: CompleteResult =
+        test().run("$env.FOO = 'hello'; echo_env_stderr FOO e>| complete")?;
+    assert_eq!(actual.stdout, "hello\n");
+    assert_eq!(actual.stderr, "");
+    assert_eq!(actual.exit_code, 0);
+    Ok(())
 }
 
 #[rstest]
