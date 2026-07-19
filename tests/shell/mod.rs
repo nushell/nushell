@@ -125,10 +125,7 @@ fn nu_lib_dirs_repl() -> Result {
     Playground::setup("nu_lib_dirs_repl", |dirs, sandbox| -> Result {
         sandbox
             .mkdir("scripts")
-            .with_files(&[FileWithContent(
-                "scripts/foo.nu",
-                "$env.FOO = 'foo'",
-            )]);
+            .with_files(&[FileWithContent("scripts/foo.nu", "$env.FOO = 'foo'")]);
 
         let scripts = dirs.test().join("scripts");
         let mut tester = test()
