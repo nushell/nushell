@@ -634,6 +634,41 @@ fn string_interpolation_paren_test3() -> TestResult {
 }
 
 #[test]
+fn bare_interpolation_does_not_hide_redefined_command() -> TestResult {
+    let cases = [
+        ("subexpression", "(do {0})-str"),
+        ("closure", "({|| })-str"),
+        ("ambiguous block", r#"(if true { "T" } else { "F" })-str"#),
+        ("spaced subexpression", "(do {0} )-str"),
+        ("spaced closure", "({|| } )-str"),
+        (
+            "spaced ambiguous block",
+            r#"(if true { "T" } else { "F" } )-str"#,
+        ),
+        ("unambiguous block", r#"(if true { "T" })-str"#),
+    ];
+    let mut observations = vec![];
+
+    for (name, body) in cases {
+        let mut tester = test();
+        tester.run::<()>(r#"def cmd [] { "fallback" }"#)?;
+        let same_entry: String = tester.run(format!("def cmd [] {{ {body} }}; cmd"))?;
+        let later_entry: String = tester.run("cmd")?;
+        observations.push((name, same_entry, later_entry));
+    }
+
+    assert_eq!(observations[0].1, "0-str");
+    assert!(
+        observations
+            .iter()
+            .all(|(_, same_entry, later_entry)| same_entry != "fallback"
+                && same_entry == later_entry),
+        "command definitions did not persist across entries: {observations:?}"
+    );
+    Ok(())
+}
+
+#[test]
 fn string_interpolation_escaping() -> TestResult {
     run_test(r#"$"hello\nworld" | lines | length"#, "2")
 }
