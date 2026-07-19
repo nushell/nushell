@@ -4,7 +4,7 @@ use std::{
     fmt::{Debug, Display},
     io,
     panic::Location,
-    path::{Path, PathBuf},
+    path::{self, Path, PathBuf},
     sync::{Arc, LazyLock},
 };
 
@@ -29,10 +29,8 @@ use nu_plugin_engine::{GetPlugin, PersistentPlugin, PluginDeclaration};
 use nu_protocol::{PluginIdentity, PluginSignature, RegisteredPlugin};
 
 static ROOT: LazyLock<PathBuf> = LazyLock::new(|| {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .expect("could not canonicalize root")
+    path::absolute(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."))
+        .expect("could not absolutize root")
 });
 
 // By using different engine states depending on the group key, we can ensure that behavior from
