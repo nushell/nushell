@@ -87,15 +87,14 @@ pub fn main() -> ExitCode {
         return ExitCode::SUCCESS;
     }
 
-    if args.no_capture {
-        kitest::capture::CAPTURE_OUTPUT_MACROS.store(false, Ordering::Relaxed);
-    }
-
     #[cfg(all(feature = "rustls-tls", feature = "network"))]
     nu_command::tls::CRYPTO_PROVIDER.default();
 
+    // suppress direct output if `--no-capture` is *not* used
     #[cfg(feature = "plugin")]
     nu_plugin_core::SUPPRESS_STDERR.store(!args.no_capture, Ordering::Relaxed);
+    nu_protocol::report_error::SUPPRESS_REPORTING.store(!args.no_capture, Ordering::Relaxed);
+    kitest::capture::CAPTURE_OUTPUT_MACROS.store(!args.no_capture, Ordering::Relaxed);
 
     let filter = DefaultFilter::default()
         .with_exact(args.exact)
