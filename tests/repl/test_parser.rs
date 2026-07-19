@@ -36,6 +36,7 @@ fn ints_with_underscores() -> Result {
 }
 
 #[test]
+#[expect(clippy::approx_constant, reason = "easier to reason this way")]
 fn floats_with_underscores() -> Result {
     test()
         .run("3.1415_9265_3589_793 * 2")
