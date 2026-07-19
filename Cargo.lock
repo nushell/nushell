@@ -5341,6 +5341,7 @@ dependencies = [
  "miette",
  "nu-ansi-term",
  "nu-cli",
+ "nu-cmd-base",
  "nu-cmd-extra",
  "nu-cmd-lang",
  "nu-cmd-plugin",

@@ -9,6 +9,7 @@ use std::{
 };
 
 use miette::Diagnostic;
+use nu_cmd_base::hook::eval_repl_hooks;
 use nu_protocol::{
     CompileError, Config, FromValue, IntoValue, LabeledError, ParseError, PipelineData,
     PipelineExecutionData, ShellError, Span, Value,
@@ -483,6 +484,25 @@ impl NuTester {
             .map(|pipeline| self.run(pipeline))
             .try_fold(Value::test_nothing(), |_, value| value)?;
         Ok(T::from_value(last)?)
+    }
+
+    /// Run Nushell code after evaluating the REPL hook checkpoints for that source.
+    ///
+    /// This is for behavior that specifically depends on `pre_prompt`, `env_change`, or
+    /// `pre_execution` hooks.
+    /// For ordinary shared-state tests, prefer repeated [`run`](Self::run) calls or
+    /// [`run_multiple`](Self::run_multiple).
+    #[track_caller]
+    pub fn run_with_hooks<T: FromValue>(&mut self, code: impl AsRef<str>) -> Result<T> {
+        let location = TestLocation(Location::caller());
+        let code = code.as_ref();
+
+        eval_repl_hooks(&mut self.engine_state, &mut self.stack, code)
+            .map_err(|err| TestError {
+                location,
+                kind: TestErrorKind::Shell(err),
+            })
+            .and_then(|()| self.run(code))
     }
 
     /// Run Nushell code and return the raw [`PipelineExecutionData`].
