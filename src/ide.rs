@@ -632,7 +632,7 @@ pub fn complete(engine_reference: Arc<EngineState>, file_path: &str, location: &
         });
 
     if let Ok(location) = location.as_int() {
-        let results = completer.complete(
+        let results = completer.complete_blocking(
             &String::from_utf8_lossy(&file)[..location as usize],
             location as usize,
         );
