@@ -221,13 +221,13 @@ fn std_log_env_vars_are_not_overridden() -> Result {
 #[deps(NU)]
 fn std_log_env_vars_have_defaults() -> Result {
     let result: CompleteResult = test().run(
-        r#"
+        "
                 nu -n -c '
                     use std/log
                     print -e $env.NU_LOG_FORMAT
                     print -e $env.NU_LOG_DATE_FORMAT
                 ' | complete
-            "#,
+            ",
     )?;
 
     assert_contains("%MSG%", &result.stderr);
