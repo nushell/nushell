@@ -339,7 +339,7 @@ fn try_exit_runs_finally() -> Result {
     assert_eq!(result.stdout.trim_end(), "this finally");
     assert_eq!(result.exit_code, 3);
 
-    let code = r#"
+    let code = "
         try {
             try {
                 exit 3
@@ -349,7 +349,7 @@ fn try_exit_runs_finally() -> Result {
         } finally {
             print 'outer finally'
         }
-    "#;
+    ";
     let result: CompleteResult =
         test().run_with_data("let code; nu -n -c $code | complete", code)?;
     assert_contains("inner finally", &result.stdout);
