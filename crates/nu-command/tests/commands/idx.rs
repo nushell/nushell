@@ -270,20 +270,18 @@ fn idx_import_auto_initializes_runtime_for_queries() -> Result {
 #[test]
 #[serial]
 fn idx_watched_import_uses_live_picker() -> Result {
-    Playground::setup(
-        "idx_watched_import_uses_live_picker",
-        |dirs, sandbox| {
-            sandbox.with_files(&[EmptyFile("seed.txt")]);
+    Playground::setup("idx_watched_import_uses_live_picker", |dirs, sandbox| {
+        sandbox.with_files(&[EmptyFile("seed.txt")]);
 
-            let mut tester = test().cwd(dirs.test());
+        let mut tester = test().cwd(dirs.test());
 
-            // Restore the snapshot with the default filesystem watcher enabled.
-            let (): () = tester.run(
+        // Restore the snapshot with the default filesystem watcher enabled.
+        let (): () = tester.run(
                 "idx init . --wait --no-content-indexing | ignore; idx export snapshot.db | ignore; idx drop | ignore; idx import snapshot.db | ignore",
             )?;
 
-            // Once content search sees the watcher update, every live view should see the same file and dir.
-            tester
+        // Once content search sees the watcher update, every live view should see the same file and dir.
+        tester
                 .run(
                     r#"
                         let before = idx status
@@ -309,8 +307,7 @@ fn idx_watched_import_uses_live_picker() -> Result {
                     "#,
                 )
                 .expect_value_eq(true)
-        },
-    )
+    })
 }
 
 #[test]
