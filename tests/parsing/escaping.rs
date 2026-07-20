@@ -62,16 +62,14 @@ fn invalid_escape_sequences_report_parse_errors(
 }
 
 #[test]
-#[deps(NU)]
+#[deps(TESTBIN_COCOCO)]
 fn external_command_escape_sequences_work() -> Result {
-    test()
-        .run(
-            r#"
-                let quoted_text = "hello\nworld"
-                nu --testbin cococo $quoted_text | str contains (char newline)
-            "#,
-        )
-        .expect_value_eq(true)
+    let code = r#"
+        let quoted_text = "hello\nworld"
+        cococo $quoted_text | str contains (char newline)
+    "#;
+
+    test().run(code).expect_value_eq(true)
 }
 
 #[test]
