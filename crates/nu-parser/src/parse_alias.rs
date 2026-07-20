@@ -2,6 +2,7 @@ use crate::{
     is_math_expression_like,
     lite_parser::LiteCommand,
     parse_helpers::{garbage, garbage_pipeline},
+    parse_keywords::reject_parser_keyword_name,
     parse_pipelines::redirecting_builtin_error,
     parser::{
         ArgumentParsingLevel, CallKind, ParsedInternalCall, parse_call, parse_expression,
@@ -140,6 +141,9 @@ pub fn parse_alias(
                 || name.parse::<f64>().is_ok()
             {
                 working_set.error(ParseError::AliasNotValid(alias_name_expr.span));
+                return garbage_pipeline(working_set, spans);
+            } else if reject_parser_keyword_name(working_set, &name, "alias", alias_name_expr.span)
+            {
                 return garbage_pipeline(working_set, spans);
             } else {
                 name

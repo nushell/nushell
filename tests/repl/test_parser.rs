@@ -1452,9 +1452,11 @@ fn quote_escape_but_not_env_shorthand() -> TestResult {
 }
 
 // https://github.com/nushell/nushell/issues/16586
+// Shadowing the `def` keyword used to panic in the REPL; it is now rejected cleanly.
 #[test]
 fn redefine_def_should_not_panic() -> TestResult {
-    fail_test("def def (=a|s)>", "Unclosed delimiter")
+    fail_test("def def (=a|s)>", "name_is_keyword")?;
+    fail_test("def def [] {}", "name_is_keyword")
 }
 
 #[test]

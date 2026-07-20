@@ -2,6 +2,7 @@ use crate::{
     known_external::KnownExternal,
     lite_parser::LiteCommand,
     parse_helpers::{SPREAD_OPERATOR, garbage},
+    parse_keywords::{find_keyword_decl, reject_parser_keyword_name},
     parse_pipelines::redirecting_builtin_error,
     parser::{
         ArgumentParsingLevel, CallKind, ParsedInternalCall, compile_block_with_id, parse_attribute,
@@ -90,6 +91,10 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
         || name.parse::<f64>().is_ok()
     {
         working_set.error(ParseError::CommandDefNotValid(spans[name_pos]));
+        return;
+    }
+
+    if reject_parser_keyword_name(working_set, &name, "command", spans[name_pos]) {
         return;
     }
 
@@ -445,7 +450,11 @@ fn parse_def_inner(
         return garbage_result(working_set);
     }
 
-    let Some(decl_id) = working_set.permanent_state.find_decl(def_call, &[]) else {
+    // Prefer the keyword declaration so a previously-shadowed `def` command cannot
+    // hijack parsing (which previously panicked on incomplete input in the REPL).
+    let Some(decl_id) = find_keyword_decl(working_set, def_call)
+        .or_else(|| working_set.permanent_state.find_decl(def_call, &[]))
+    else {
         working_set.error(ParseError::UnknownState(
             "internal error: def declaration not found".into(),
             Span::concat(spans),
@@ -531,10 +540,13 @@ fn parse_def_inner(
         return garbage_result(working_set);
     };
 
-    let [name_expr, sig_expr, block_expr] = call
-        .positional_iter()
-        .next_array()
-        .expect("def call already checked");
+    let Some([name_expr, sig_expr, block_expr]) = call.positional_iter().next_array() else {
+        working_set.error(ParseError::UnknownState(
+            "internal error: def call missing required positionals".into(),
+            call_span,
+        ));
+        return garbage_result(working_set);
+    };
 
     let Some(name) = name_expr.as_string() else {
         working_set.error(ParseError::UnknownState(
@@ -543,6 +555,13 @@ fn parse_def_inner(
         ));
         return garbage_result(working_set);
     };
+
+    if reject_parser_keyword_name(working_set, &name, "command", name_expr.span) {
+        return (
+            Expression::new(working_set, Expr::Call(call), call_span, Type::Any),
+            None,
+        );
+    }
 
     if let Some(mod_name) = module_name
         && name.as_bytes() == mod_name
@@ -695,10 +714,12 @@ fn parse_extern_inner(
         return garbage(working_set, Span::concat(spans));
     }
 
-    let (call, call_span) = match working_set.permanent().find_decl(extern_call, &[]) {
+    let (call, call_span) = match find_keyword_decl(working_set, extern_call)
+        .or_else(|| working_set.permanent().find_decl(extern_call, &[]))
+    {
         None => {
             working_set.error(ParseError::UnknownState(
-                "internal error: def declaration not found".into(),
+                "internal error: extern declaration not found".into(),
                 Span::concat(spans),
             ));
             return garbage(working_set, Span::concat(spans));
@@ -738,6 +759,10 @@ fn parse_extern_inner(
 
     if let Some([name_expr, sig]) = name_and_sig_exprs {
         if let (Some(name), Some(mut signature)) = (&name_expr.as_string(), sig.as_signature()) {
+            if reject_parser_keyword_name(working_set, name, "command", name_expr.span) {
+                return Expression::new(working_set, Expr::Call(call), call_span, Type::Any);
+            }
+
             if let Some(mod_name) = module_name
                 && name.as_bytes() == mod_name
             {
