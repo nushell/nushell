@@ -7,7 +7,6 @@ use nu_protocol::{
     report_shell_error,
     shell_error::io::{IoError, IoErrorExt, NotFound},
 };
-use reedline::Completer;
 use serde_json::{Value as JsonValue, json};
 use std::{fmt::Write, path::PathBuf, sync::Arc};
 
