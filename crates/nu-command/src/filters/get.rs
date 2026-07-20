@@ -34,12 +34,7 @@ If multiple cell paths are given, this will produce a list of values."
                 (Type::record(), Type::Any),
                 (Type::Nothing, Type::Nothing),
             ])
-            .required(
-                "cell_path",
-                SyntaxShape::CellPath,
-                "The cell path to the data.",
-            )
-            .rest("rest", SyntaxShape::CellPath, "Additional cell paths.")
+            .rest("rest", SyntaxShape::CellPath, "The cell paths to the data.")
             .switch(
                 "optional",
                 "Make all cell path members optional (returns `null` for missing values).",
@@ -70,6 +65,15 @@ If multiple cell paths are given, this will produce a list of values."
                 description: "Get an item from a list.",
                 example: "[0 1 2] | get 1",
                 result: Some(Value::test_int(1)),
+            },
+            Example {
+                description: "Return the input unchanged if no cell path is given.",
+                example: "[0 1 2] | get",
+                result: Some(Value::test_list(vec![
+                    Value::test_int(0),
+                    Value::test_int(1),
+                    Value::test_int(2),
+                ])),
             },
             Example {
                 description: "Get a column from a table.",
@@ -168,7 +172,9 @@ If multiple cell paths are given, this will produce a list of values."
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let (cell_path, rest) = split_cell_paths(call.rest_const(working_set, 0)?, call.head)?;
+        let Some((cell_path, rest)) = split_cell_paths(call.rest_const(working_set, 0)?) else {
+            return Ok(input);
+        };
         let optional = call.has_flag_const(working_set, "optional")?
             || call.has_flag_const(working_set, "ignore-errors")?;
         let ignore_case = call.has_flag_const(working_set, "ignore-case")?;
@@ -190,7 +196,9 @@ If multiple cell paths are given, this will produce a list of values."
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let (cell_path, rest) = split_cell_paths(call.rest(engine_state, stack, 0)?, call.head)?;
+        let Some((cell_path, rest)) = split_cell_paths(call.rest(engine_state, stack, 0)?) else {
+            return Ok(input);
+        };
         let optional = call.has_flag(engine_state, stack, "optional")?
             || call.has_flag(engine_state, stack, "ignore-errors")?;
         let ignore_case = call.has_flag(engine_state, stack, "ignore-case")?;
@@ -225,19 +233,11 @@ If multiple cell paths are given, this will produce a list of values."
     }
 }
 
-fn split_cell_paths(
-    cell_paths: Vec<CellPath>,
-    span: Span,
-) -> Result<(CellPath, Vec<CellPath>), ShellError> {
+fn split_cell_paths(cell_paths: Vec<CellPath>) -> Option<(CellPath, Vec<CellPath>)> {
     let mut cell_paths = cell_paths.into_iter();
-    let Some(cell_path) = cell_paths.next() else {
-        return Err(ShellError::MissingParameter {
-            param_name: "cell_path".into(),
-            span,
-        });
-    };
-
-    Ok((cell_path, cell_paths.collect()))
+    cell_paths
+        .next()
+        .map(|cell_path| (cell_path, cell_paths.collect()))
 }
 
 fn action(

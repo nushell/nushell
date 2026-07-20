@@ -200,10 +200,7 @@ pub(crate) fn check_call(
         return CallKind::Help;
     }
 
-    let positional_count = call.positional_iter().count();
-    if positional_count < sig.required_positional.len()
-        && !call_has_spread_for_required_positionals(sig, call, positional_count)
-    {
+    if call.positional_iter().count() < sig.required_positional.len() {
         let end_offset = call
             .positional_iter()
             .last()
@@ -230,7 +227,7 @@ pub(crate) fn check_call(
             }
         }
 
-        let missing = &sig.required_positional[positional_count];
+        let missing = &sig.required_positional[call.positional_iter().count()];
         working_set.error(ParseError::MissingPositional(
             missing.name.clone(),
             Span::new(end_offset, end_offset),
@@ -249,19 +246,6 @@ pub(crate) fn check_call(
         }
     }
     CallKind::Valid
-}
-
-fn call_has_spread_for_required_positionals(sig: &Signature, call: &Call, start: usize) -> bool {
-    call.rest_iter(start).any(|(_, is_spread)| is_spread)
-        && spread_can_fill_required_positionals(sig, start)
-}
-
-fn spread_can_fill_required_positionals(sig: &Signature, start: usize) -> bool {
-    sig.rest_positional.as_ref().is_some_and(|rest| {
-        sig.required_positional[start..]
-            .iter()
-            .all(|positional| positional.shape == rest.shape)
-    })
 }
 
 /// Parses an unknown argument for the given signature. This handles the parsing as appropriate to
@@ -1272,9 +1256,7 @@ pub fn parse_internal_call(
                         arg_span,
                     ));
                     call.add_positional(Expression::garbage(working_set, arg_span));
-                } else if positional_idx < signature.required_positional.len()
-                    && !spread_can_fill_required_positionals(&signature, positional_idx)
-                {
+                } else if positional_idx < signature.required_positional.len() {
                     working_set.error(ParseError::MissingPositional(
                         signature.required_positional[positional_idx].name.clone(),
                         Span::new(spans[spans_idx].start, spans[spans_idx].start),

@@ -133,6 +133,13 @@ fn fetches_columns_with_variable_list_spread() {
 }
 
 #[test]
+fn no_cell_path_returns_input_unchanged() {
+    let actual = nu!("[1 2 3] | get | to nuon");
+
+    assert_eq!(actual.out, "[1, 2, 3]");
+}
+
+#[test]
 fn errors_fetching_by_column_not_present() {
     Playground::setup("get_test_6", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
@@ -228,12 +235,19 @@ fn test_const() {
     assert_eq!(actual.out, "2");
 }
 
+#[test]
+fn test_const_with_no_cell_path() {
+    let actual = nu!("const x = [1 2 3] | get; $x | to nuon");
+    assert_eq!(actual.out, "[1, 2, 3]");
+}
+
 enum Metadata {
     Keep,
     Drop,
 }
 
 #[rstest]
+#[case::no_cell_path("get", Metadata::Keep)]
 #[case::index_only("get 1", Metadata::Keep)]
 #[case::two_indices("get 1 0", Metadata::Keep)]
 #[case::index_and_column("get name 1", Metadata::Keep)]
