@@ -168,7 +168,7 @@ pub fn parse(yaml: Spanned<&str>, span: Span, options: ParseOptions) -> Result<V
     let mut documents = Vec::new();
     loop {
         match ctx.next_event()? {
-            Event::DocumentStart(_) => documents.push(parse_document(ctx)?),
+            Event::DocumentStart(..) => documents.push(parse_document(ctx)?),
             Event::StreamEnd => break,
             Event::Nothing | Event::Comment(..) => continue,
             event => return Err(ctx.unexpected_event(event).into()),

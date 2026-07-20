@@ -325,7 +325,7 @@ fn html_table(table: Vec<Value>, headers: Vec<String>, raw: bool, config: &Confi
     output_string.push_str("<thead><tr>");
     for header in &headers {
         output_string.push_str("<th>");
-        output_string.push_str(&v_htmlescape::escape(header).to_string());
+        output_string.push_str(&v_htmlescape::escape_fmt(header).to_string());
         output_string.push_str("</th>");
     }
     output_string.push_str("</tr></thead><tbody>");
@@ -370,7 +370,7 @@ fn html_value(value: Value, raw: bool, config: &Config) -> String {
                 )
             } else {
                 output_string.push_str(
-                    &v_htmlescape::escape(&other.to_abbreviated_string(config))
+                    &v_htmlescape::escape_fmt(&other.to_abbreviated_string(config))
                         .to_string()
                         .replace('\n', "<br>"),
                 )

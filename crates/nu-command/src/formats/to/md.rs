@@ -390,7 +390,7 @@ fn escape_markdown_characters(input: String, escape_md: bool, for_table: bool) -
 fn escape_value(value: String, escape_md: bool, escape_html: bool, for_table: bool) -> String {
     escape_markdown_characters(
         if escape_html {
-            v_htmlescape::escape(&value).to_string()
+            v_htmlescape::escape_fmt(&value).to_string()
         } else {
             value
         },
@@ -452,7 +452,7 @@ fn collect_headers(headers: &[String], escape_md: bool) -> (Vec<String>, Vec<usi
     if !headers.is_empty() && (headers.len() > 1 || !headers[0].is_empty()) {
         for header in headers {
             let escaped_header_string = escape_markdown_characters(
-                v_htmlescape::escape(header).to_string(),
+                v_htmlescape::escape_fmt(header).to_string(),
                 escape_md,
                 true,
             );
@@ -515,7 +515,7 @@ fn table(
                         .to_expanded_string(", ", config);
                     let escaped_string = escape_markdown_characters(
                         if escape_html {
-                            v_htmlescape::escape(&value_string).to_string()
+                            v_htmlescape::escape_fmt(&value_string).to_string()
                         } else {
                             value_string
                         },
@@ -536,7 +536,7 @@ fn table(
             }
             p => {
                 let value_string =
-                    v_htmlescape::escape(&p.to_abbreviated_string(config)).to_string();
+                    v_htmlescape::escape_fmt(&p.to_abbreviated_string(config)).to_string();
                 escaped_row.push(value_string);
             }
         }
