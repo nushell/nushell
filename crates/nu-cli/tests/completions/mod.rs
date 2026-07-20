@@ -2375,8 +2375,14 @@ fn file_completion_quoted_match_indices(
                     })
                     .collect::<Vec<_>>(),
                 suggestions
-                    .into_iter()
-                    .map(|s| (s.value, s.display_override, s.match_indices))
+                    .iter()
+                    .map(|s| {
+                        (
+                            s.value.clone(),
+                            s.display_override.clone(),
+                            s.match_indices.clone(),
+                        )
+                    })
                     .collect::<Vec<_>>()
             );
         }
