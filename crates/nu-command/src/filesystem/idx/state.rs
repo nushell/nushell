@@ -1,10 +1,11 @@
 //! In-process file indexing runtime for the `idx` command family.
 //!
 //! This module manages two types of index backends:
-//! - **Live mode** (after `idx init`): Backed by a `fff-search` FilePicker that scans and watches the filesystem
-//! - **Snapshot mode** (after `idx import`): Backed by pre-computed file/directory metadata restored from a snapshot
+//! - **Live mode** (after `idx init` or watched `idx import`): Uses `fff-search`'s FilePicker that scans and watches the filesystem
+//! - **Snapshot mode** (after `idx import --no-watch`): Backed by pre-computed file/directory metadata restored from a snapshot
 //!
-//! The runtime is stored as a thread-safe singleton (`IDX_RUNTIME`) and can be accessed by all idx subcommands.
+//! The runtime is stored as a thread-safe singleton (`IDX_RUNTIME`) and can be accessed by all
+//! idx subcommands.
 //! Public functions handle initialization, status reporting, and streaming results to Nushell.
 
 use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
@@ -30,9 +31,8 @@ use std::time::Duration;
 
 /// Global in-process runtime for idx commands.
 ///
-/// The runtime is shared by all idx subcommands and can be backed either by
-/// a live `fff-search` picker (after `idx init`) or by restored snapshot rows
-/// (after `idx import`).
+/// The runtime is shared by all idx subcommands and can be backed either by a live `fff-search`
+/// picker or by restored snapshot rows after `idx import --no-watch`.
 pub struct IdxRuntime {
     pub base_path: PathBuf,
     pub watch: bool,
@@ -550,8 +550,7 @@ pub fn drop_runtime(span: Span) -> Result<Value, ShellError> {
 
 /// Stream indexed directories, optionally filtered by a fuzzy query.
 ///
-/// Uses snapshot-backed rows when runtime comes from `idx import`, otherwise
-/// reads from the live picker.
+/// Uses snapshot-backed rows after `idx import --no-watch`; watched runtimes read from the live picker.
 pub fn stream_dirs(
     query: Option<String>,
     span: Span,
@@ -700,8 +699,7 @@ pub fn stream_dirs(
 
 /// Stream indexed files, optionally filtered by a fuzzy query.
 ///
-/// Uses snapshot-backed rows when runtime comes from `idx import`, otherwise
-/// reads from the live picker.
+/// Uses snapshot-backed rows after `idx import --no-watch`; watched runtimes read from the live picker.
 pub fn stream_files(
     query: Option<String>,
     span: Span,
@@ -1079,8 +1077,8 @@ pub struct FindSearchContext<'a> {
 
 /// Run a fuzzy find across indexed files and/or directories.
 ///
-/// For imported snapshots this uses lightweight in-memory ranking over
-/// restored path metadata.
+/// For imports without filesystem watching, this uses lightweight in-memory ranking over restored
+/// path metadata.
 pub fn stream_find(context: FindSearchContext<'_>) -> Result<PipelineData, ShellError> {
     let snapshot = require_runtime(context.span)?;
 
@@ -1642,10 +1640,46 @@ pub fn store_snapshot(path: &Path, span: Span) -> Result<Value, ShellError> {
     ))
 }
 
+#[cfg(feature = "sqlite")]
+fn build_restore_result(
+    path: &Path,
+    base_path: &str,
+    status: &IdxStatus,
+    restored_files: i64,
+    restored_dirs: i64,
+    span: Span,
+) -> Value {
+    Value::record(
+        [
+            ("restored".to_string(), Value::bool(true, span)),
+            (
+                "source_path".to_string(),
+                Value::string(path.to_string_lossy().to_string(), span),
+            ),
+            ("base_path".to_string(), Value::string(base_path, span)),
+            ("watch".to_string(), Value::bool(status.watch, span)),
+            (
+                "rehydration_mode".to_string(),
+                Value::string("snapshot_runtime_restored", span),
+            ),
+            ("status".to_string(), status.to_value(span)),
+            (
+                "restored_files".to_string(),
+                Value::int(restored_files, span),
+            ),
+            ("restored_dirs".to_string(), Value::int(restored_dirs, span)),
+            ("format".to_string(), Value::string("sqlite", span)),
+        ]
+        .into_iter()
+        .collect(),
+        span,
+    )
+}
+
 /// Restore idx runtime from a SQLite snapshot file.
 ///
-/// The restored runtime is immediately queryable by `idx files`, `idx dirs`,
-/// `idx find`, and `idx status` without a filesystem scan.
+/// Imports with filesystem watching use the live picker after its initial scan. Imports with
+/// `no_watch` serve path queries from restored rows.
 #[cfg(feature = "sqlite")]
 pub fn restore_snapshot(path: &Path, no_watch: bool, span: Span) -> Result<Value, ShellError> {
     // Open SQLite database
@@ -1688,7 +1722,7 @@ pub fn restore_snapshot(path: &Path, no_watch: bool, span: Span) -> Result<Value
             ))
         })?;
 
-    let (version, base_path_str, _watch, _file_count, _dir_count) = metadata;
+    let (version, base_path_str, _watch, file_count, dir_count) = metadata;
 
     if version != 1 {
         return Err(ShellError::Generic(GenericError::new(
@@ -1698,7 +1732,25 @@ pub fn restore_snapshot(path: &Path, no_watch: bool, span: Span) -> Result<Value
         )));
     }
 
-    // Read all files from snapshot (offline restoration)
+    if !no_watch {
+        // A watched import uses the snapshot only to recover its base path. The live picker is the
+        // single source of truth for every command.
+        //
+        // FFF can finish scanning before its watcher is ready, so keep the waited init path.
+        let status = init_runtime(Path::new(&base_path_str), true, true, false, false, span)?;
+
+        // These counts describe the snapshot; status describes the fresh live scan.
+        return Ok(build_restore_result(
+            path,
+            &base_path_str,
+            &status,
+            file_count,
+            dir_count,
+            span,
+        ));
+    }
+
+    // Without watching, restored rows stay authoritative even if the original tree changes.
     let mut stmt = conn
         .prepare("SELECT relative_path, full_path, file_name, directory, size, modified, access_frecency_score, modification_frecency_score, is_binary, is_deleted, is_overflow FROM files WHERE NOT is_deleted")
         .map_err(|err| {
@@ -1778,68 +1830,58 @@ pub fn restore_snapshot(path: &Path, no_watch: bool, span: Span) -> Result<Value
             ))
         })?;
 
-    // Compute arena memory from restored data
     let mut arena_bytes_base = 0usize;
     let mut arena_bytes_overflow = 0usize;
 
-    for file in &files {
-        let size = file.relative_path.len()
-            + file.full_path.len()
-            + file.file_name.len()
-            + file.directory.len();
-        if file.is_overflow {
-            arena_bytes_overflow = arena_bytes_overflow.saturating_add(size);
-        } else {
-            arena_bytes_base = arena_bytes_base.saturating_add(size);
-        }
-    }
-
-    for dir in &dirs {
-        let size = dir.relative_path.len() + dir.full_path.len();
-        if dir.is_overflow {
-            arena_bytes_overflow = arena_bytes_overflow.saturating_add(size);
-        } else {
-            arena_bytes_base = arena_bytes_base.saturating_add(size);
-        }
-    }
-
     let restored_files = Arc::new(
         files
-            .iter()
-            .map(|row| IdxRestoredFile {
-                relative_path: row.relative_path.clone(),
-                full_path: row.full_path.clone(),
-                file_name: row.file_name.clone(),
-                directory: row.directory.clone(),
-                size: row.size,
-                modified: row.modified,
+            .into_iter()
+            .map(|row| {
+                let size = row.relative_path.len()
+                    + row.full_path.len()
+                    + row.file_name.len()
+                    + row.directory.len();
+                if row.is_overflow {
+                    arena_bytes_overflow = arena_bytes_overflow.saturating_add(size);
+                } else {
+                    arena_bytes_base = arena_bytes_base.saturating_add(size);
+                }
+
+                IdxRestoredFile {
+                    relative_path: row.relative_path,
+                    full_path: row.full_path,
+                    file_name: row.file_name,
+                    directory: row.directory,
+                    size: row.size,
+                    modified: row.modified,
+                }
             })
             .collect::<Vec<_>>(),
     );
 
     let restored_dirs = Arc::new(
-        dirs.iter()
-            .map(|row| IdxRestoredDir {
-                relative_path: row.relative_path.clone(),
-                full_path: row.full_path.clone(),
+        dirs.into_iter()
+            .map(|row| {
+                let size = row.relative_path.len() + row.full_path.len();
+                if row.is_overflow {
+                    arena_bytes_overflow = arena_bytes_overflow.saturating_add(size);
+                } else {
+                    arena_bytes_base = arena_bytes_base.saturating_add(size);
+                }
+
+                IdxRestoredDir {
+                    relative_path: row.relative_path,
+                    full_path: row.full_path,
+                }
             })
             .collect::<Vec<_>>(),
     );
 
-    let mut guard = runtime().lock().map_err(|_| {
-        ShellError::Generic(GenericError::new(
-            "idx runtime lock failed",
-            "idx runtime lock poisoned",
-            span,
-        ))
-    })?;
-
     let shared_picker = SharedFilePicker::default();
     let shared_frecency = SharedFrecency::noop();
 
-    // Try to initialize a live picker for the base_path to enable grep search.
-    // This happens in the background; if the path no longer exists, grep will
-    // simply return no results.
+    // Restored rows are authoritative. This picker only enables content search against files
+    // that still exist.
     let _ = FilePicker::new_with_shared_state(
         shared_picker.clone(),
         shared_frecency,
@@ -1852,17 +1894,24 @@ pub fn restore_snapshot(path: &Path, no_watch: bool, span: Span) -> Result<Value
             enable_mmap_cache: false,
             follow_symlinks: false,
             mode: FFFMode::Ai,
-            watch: !no_watch,
+            watch: false,
         },
     );
 
-    // Wait for the picker scan to complete so grep can search indexed content.
-    let _ = shared_picker.wait_for_scan(Duration::from_secs(300));
+    const WAIT_TIMEOUT: Duration = Duration::from_secs(300);
+    let _ = shared_picker.wait_for_scan(WAIT_TIMEOUT);
 
-    let watch = !no_watch;
+    let mut guard = runtime().lock().map_err(|_| {
+        ShellError::Generic(GenericError::new(
+            "idx runtime lock failed",
+            "idx runtime lock poisoned",
+            span,
+        ))
+    })?;
+
     let previous = guard.replace(IdxRuntime {
         base_path: PathBuf::from(&base_path_str),
-        watch,
+        watch: false,
         shared_picker: shared_picker.clone(),
         scan_start_time: Instant::now(),
         scan_completed: Arc::new(AtomicBool::new(true)),
@@ -1880,38 +1929,12 @@ pub fn restore_snapshot(path: &Path, no_watch: bool, span: Span) -> Result<Value
 
     let status = current_status(None);
 
-    Ok(Value::record(
-        [
-            ("restored".to_string(), Value::bool(true, span)),
-            (
-                "source_path".to_string(),
-                Value::string(path.to_string_lossy().to_string(), span),
-            ),
-            (
-                "base_path".to_string(),
-                Value::string(base_path_str.clone(), span),
-            ),
-            ("watch".to_string(), Value::bool(watch, span)),
-            (
-                "rehydration_mode".to_string(),
-                Value::string("snapshot_runtime_restored", span),
-            ),
-            ("status".to_string(), status.to_value(span)),
-            (
-                "restored_files".to_string(),
-                Value::int(
-                    i64::try_from(restored_files.len()).unwrap_or(i64::MAX),
-                    span,
-                ),
-            ),
-            (
-                "restored_dirs".to_string(),
-                Value::int(i64::try_from(restored_dirs.len()).unwrap_or(i64::MAX), span),
-            ),
-            ("format".to_string(), Value::string("sqlite", span)),
-        ]
-        .into_iter()
-        .collect(),
+    Ok(build_restore_result(
+        path,
+        &base_path_str,
+        &status,
+        i64::try_from(restored_files.len()).unwrap_or(i64::MAX),
+        i64::try_from(restored_dirs.len()).unwrap_or(i64::MAX),
         span,
     ))
 }
