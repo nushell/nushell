@@ -35,7 +35,7 @@ impl Command for IdxStatus {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         Ok(PipelineData::value(
-            current_status(None).to_value(call.head),
+            current_status().to_value(call.head),
             None,
         ))
     }

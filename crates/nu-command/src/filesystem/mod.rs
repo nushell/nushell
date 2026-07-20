@@ -20,8 +20,6 @@ pub use cd::Cd;
 pub use du::Du;
 pub use glob::Glob;
 pub use idx::{Idx, IdxDirs, IdxDrop, IdxFiles, IdxFind, IdxInit, IdxSearch, IdxStatus, IdxWatch};
-#[cfg(feature = "sqlite")]
-pub use idx::{IdxExport, IdxImport};
 pub use ls::Ls;
 pub use mktemp::Mktemp;
 pub use rm::Rm;

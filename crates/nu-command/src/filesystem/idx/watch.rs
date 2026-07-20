@@ -53,7 +53,7 @@ impl Command for IdxWatch {
     }
 
     fn extra_description(&self) -> &str {
-        "Requires a live runtime with watching enabled (`idx init` or `idx import` without `--no-watch`). \
+        "Requires a live runtime initialized without `--no-watch`. \
 Events are debounced by fff-search and emitted as records with `kind` (`created`, `modified`, `removed`, `rescan`) \
 and absolute `path`. Gitignored and other index-ignored files do not produce events. \
 Patterns must be inside the indexed base path. Use plain `watch` for ad-hoc path watching without an index."
@@ -108,12 +108,9 @@ Patterns must be inside the indexed base path. Use plain `watch` for ad-hoc path
         let max_events: Option<i64> = call.get_flag(engine_state, stack, "max-events")?;
 
         let max_events = max_events
-            .map(|n| {
-                if n < 0 {
-                    Err(ShellError::NeedsPositiveValue { span: call.head })
-                } else {
-                    Ok(n as usize)
-                }
+            .map(|value| {
+                usize::try_from(value)
+                    .map_err(|_| ShellError::NeedsPositiveValue { span: call.head })
             })
             .transpose()?;
 
