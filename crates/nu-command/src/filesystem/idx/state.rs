@@ -261,8 +261,12 @@ fn idx_status_from_picker(
         watch,
         scanning: picker.is_scan_active(),
         scan_duration_ns,
-        files: picker.get_files().len(),
-        dirs: picker.get_dirs().len(),
+        files: picker.live_file_count(),
+        dirs: picker
+            .get_dirs()
+            .iter()
+            .filter(|item| !item.is_deleted())
+            .count(),
         arena_bytes_base: picker.arena_bytes().0,
         arena_bytes_overflow: picker.arena_bytes().1,
         arena_bytes_untracked: picker.arena_bytes().2,
@@ -654,7 +658,7 @@ pub fn stream_dirs(
                 let item = picker
                     .get_dirs()
                     .iter()
-                    .find(|item| item.relative_path(picker) == path);
+                    .find(|item| !item.is_deleted() && item.relative_path(picker) == path);
                 if let Some(item) = item {
                     return Some(build_dir_record(item, picker, &base_path, span));
                 }
@@ -678,9 +682,13 @@ pub fn stream_dirs(
                 Err(err) => return Some(Value::error(err, span)),
             };
 
-            let item = picker.get_dirs().get(idx)?;
-            idx = idx.saturating_add(1);
-            Some(build_dir_record(item, picker, &base_path, span))
+            loop {
+                let item = picker.get_dirs().get(idx)?;
+                idx = idx.saturating_add(1);
+                if !item.is_deleted() {
+                    return Some(build_dir_record(item, picker, &base_path, span));
+                }
+            }
         }))
     };
 
@@ -800,7 +808,7 @@ pub fn stream_files(
                 let item = picker
                     .get_files()
                     .iter()
-                    .find(|item| item.relative_path(picker) == path);
+                    .find(|item| !item.is_deleted() && item.relative_path(picker) == path);
                 if let Some(item) = item {
                     return Some(build_file_record(item, picker, &base_path, span));
                 }
@@ -824,9 +832,13 @@ pub fn stream_files(
                 Err(err) => return Some(Value::error(err, span)),
             };
 
-            let item = picker.get_files().get(idx)?;
-            idx = idx.saturating_add(1);
-            Some(build_file_record(item, picker, &base_path, span))
+            loop {
+                let item = picker.get_files().get(idx)?;
+                idx = idx.saturating_add(1);
+                if !item.is_deleted() {
+                    return Some(build_file_record(item, picker, &base_path, span));
+                }
+            }
         }))
     };
 
@@ -1419,6 +1431,7 @@ pub fn store_snapshot(path: &Path, span: Span) -> Result<Value, ShellError> {
     let files = picker
         .get_files()
         .iter()
+        .filter(|item| !item.is_deleted())
         .map(|item| IdxSnapshotFile {
             relative_path: item.relative_path(picker),
             full_path: item
@@ -1440,6 +1453,7 @@ pub fn store_snapshot(path: &Path, span: Span) -> Result<Value, ShellError> {
     let dirs = picker
         .get_dirs()
         .iter()
+        .filter(|item| !item.is_deleted())
         .map(|item| IdxSnapshotDir {
             relative_path: item.relative_path(picker),
             full_path: item
@@ -1686,7 +1700,7 @@ pub fn restore_snapshot(path: &Path, no_watch: bool, span: Span) -> Result<Value
 
     // Read all files from snapshot (offline restoration)
     let mut stmt = conn
-        .prepare("SELECT relative_path, full_path, file_name, directory, size, modified, access_frecency_score, modification_frecency_score, is_binary, is_deleted, is_overflow FROM files")
+        .prepare("SELECT relative_path, full_path, file_name, directory, size, modified, access_frecency_score, modification_frecency_score, is_binary, is_deleted, is_overflow FROM files WHERE NOT is_deleted")
         .map_err(|err| {
             ShellError::Generic(GenericError::new(
                 "idx snapshot file query failed",
