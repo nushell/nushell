@@ -145,7 +145,7 @@ bytes = "1"
 bytesize = "2.3.1"
 byteyarn = "0.5"
 calamine = "0.36"
-chardetng = "0.1.17"
+chardetng = "1.0.0"
 chrono = { default-features = false, version = "0.4.42" }
 chrono-humanize = "0.2.3"
 chrono-tz = "0.10"
@@ -156,7 +156,7 @@ ctrlc = "3.5"
 derive_more = "2.1.1"
 derive_setters = "0.1.9"
 devicons = "0.6.12"
-digest = { default-features = false, version = "0.10" }
+digest = { default-features = false, version = "0.11.3" }
 dirs = "6.0"
 dirs-sys = "0.5"
 dns-lookup = "3.0.1"
@@ -191,16 +191,16 @@ lsp-types = { version = "0.97.0", features = ["proposed"] }
 lsp-textdocument = "0.5.0"
 linkme = "0.3.36"
 mach2 = "0.6"
-md5 = { version = "0.10", package = "md-5" }
+md5 = { version = "0.11.0", package = "md-5" }
 miette = "7.6"
 mime = "0.3.17"
 mime_guess = "2.0"
 mq-markdown = "0.6.0"
 mockito = { version = "1.7.2", default-features = false }
-multipart-rs = "0.1.13"
+multipart-rs = "0.2.2"
 native-tls = "0.2.18"
 nix = { version = "0.31.3", default-features = false }
-notify-debouncer-full = { version = "0.3", default-features = false }
+notify-debouncer-full = { version = "0.7.0", default-features = false }
 nu-ansi-term = "0.50.3"
 nucleo-matcher = "0.3"
 num-format = "0.4"
@@ -255,11 +255,11 @@ semver = "1.0"
 serde = { version = "1.0" }
 serde_json = "1.0.149"
 serde_urlencoded = "0.7.1"
-sha2 = "0.10"
+sha2 = "0.11.0"
 strip-ansi-escapes = "0.2.1"
 strum = { version = "0.27.0", features = ["derive"] }
 strum_macros = "0.27.0"
-syn = "2.0.117"
+syn = "3.0.2"
 sysinfo = "0.39.3"
 tabled = { version = "0.21", default-features = false }
 tempfile = "3.27"
