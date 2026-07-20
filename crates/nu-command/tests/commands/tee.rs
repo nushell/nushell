@@ -1,4 +1,5 @@
-use nu_test_support::{fs::file_contents, playground::Playground, prelude::*};
+use nu_test_support::{playground::Playground, prelude::*};
+use std::fs;
 
 #[test]
 fn tee_save_values_to_file() -> Result {
@@ -9,7 +10,7 @@ fn tee_save_values_to_file() -> Result {
             .expect_value_eq([1, 2, 3, 4, 5])?;
         assert_eq!(
             "1\n2\n3\n4\n5\n",
-            file_contents(dirs.test().join("copy.txt"))
+            fs::read_to_string(dirs.test().join("copy.txt"))?
         );
 
         Ok(())
@@ -17,12 +18,12 @@ fn tee_save_values_to_file() -> Result {
 }
 
 #[test]
-#[deps(NU)]
+#[deps(TESTBIN_ECHO_ENV)]
 fn tee_save_stdout_to_file() -> Result {
     Playground::setup("tee_save_stdout_to_file_test", |dirs, _sandbox| {
         let code = r#"
             $env.FOO = "teststring"
-            nu --testbin echo_env FOO | tee { save copy.txt }
+            echo_env FOO | tee { save copy.txt }
         "#;
 
         test()
@@ -30,19 +31,22 @@ fn tee_save_stdout_to_file() -> Result {
             .run(code)
             .expect_value_eq("teststring")?;
 
-        assert_eq!("teststring\n", file_contents(dirs.test().join("copy.txt")));
+        assert_eq!(
+            "teststring\n",
+            fs::read_to_string(dirs.test().join("copy.txt"))?
+        );
 
         Ok(())
     })
 }
 
 #[test]
-#[deps(NU)]
+#[deps(TESTBIN_ECHO_ENV_STDERR)]
 fn tee_save_stderr_to_file() -> Result {
     Playground::setup("tee_save_stderr_to_file_test", |dirs, _sandbox| {
         let code = r#"
             $env.FOO = "teststring"
-            do { nu --testbin echo_env_stderr FOO }
+            do { echo_env_stderr FOO }
             | tee --stderr { save copy.txt }
             | complete
             | get stderr
@@ -53,7 +57,10 @@ fn tee_save_stderr_to_file() -> Result {
             .run(code)
             .expect_value_eq("teststring\n")?;
 
-        assert_eq!("teststring\n", file_contents(dirs.test().join("copy.txt")));
+        assert_eq!(
+            "teststring\n",
+            fs::read_to_string(dirs.test().join("copy.txt"))?
+        );
 
         Ok(())
     })
