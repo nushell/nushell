@@ -432,18 +432,14 @@ impl LanguageServer {
         match serde_json::from_value::<P>(req.params) {
             Ok(params) => Response {
                 id: req.id,
-                result: Some(
-                    param_handler(&params)
-                        .and_then(|response| serde_json::to_value(response).ok())
-                        .unwrap_or(serde_json::Value::Null),
-                ),
-                error: None,
+                response_result: Ok(param_handler(&params)
+                    .and_then(|response| serde_json::to_value(response).ok())
+                    .unwrap_or(serde_json::Value::Null)),
             },
 
             Err(err) => Response {
                 id: req.id,
-                result: None,
-                error: Some(ResponseError {
+                response_result: Err(ResponseError {
                     code: 1,
                     message: err.to_string(),
                     data: None,
@@ -661,7 +657,9 @@ mod tests {
 
     pub(crate) fn result_from_message(message: lsp_server::Message) -> serde_json::Value {
         match message {
-            Message::Response(Response { result, .. }) => result.expect("Empty result!"),
+            Message::Response(Response {
+                response_result, ..
+            }) => response_result.expect("Empty result!"),
             _ => panic!("Unexpected message type!"),
         }
     }
