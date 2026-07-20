@@ -35,7 +35,7 @@ fn loop_break_on_external_failed() -> Result {
 
     test()
         .run(code)
-        .expect_error_code_eq("nu::shell::external_command")
+        .expect_error_code_eq("nu::shell::non_zero_exit_code")
 }
 
 #[test]
