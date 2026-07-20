@@ -240,6 +240,104 @@ fn idx_export_and_import_roundtrip() -> Result {
 
 #[test]
 #[serial]
+fn idx_live_views_and_export_exclude_tombstones() -> Result {
+    Playground::setup(
+        "idx_live_views_and_export_exclude_tombstones",
+        |dirs, sandbox| {
+            sandbox.mkdir("removed-tree");
+            sandbox.with_files(&[EmptyFile("kept.txt"), EmptyFile("removed-tree/deleted.txt")]);
+
+            let mut tester = test().cwd(dirs.test());
+
+            // Wait through fuzzy queries (the watcher applies removals asynchronously)
+            let (): () = tester.run(
+                r#"
+                    idx init . --wait --no-content-indexing | ignore
+                    rm --recursive removed-tree
+                    mut attempts = 0
+                    loop {
+                        if (idx find deleted --files | is-empty) and (idx find removed-tree --dirs | is-empty) { break }
+                        if $attempts >= 100 { error make { msg: "idx watcher did not process deletion" } }
+                        $attempts += 1
+                        sleep 20ms
+                    }
+                "#,
+            )?;
+
+            // Unfiltered views/status should only show live entries.
+            tester
+                .run(
+                    r#"
+                        let files = idx files
+                        let dirs = idx dirs
+                        let status = idx status
+                        [
+                            (($files | where file_name == "deleted.txt") | is-empty)
+                            (($dirs | where relative_path =~ "removed-tree") | is-empty)
+                            ($status.files == ($files | length))
+                            ($status.dirs == ($dirs | length))
+                        ] | all {|value| $value }
+                    "#,
+                )
+                .expect_value_eq(true)?;
+
+            // Inspect the db directly, so import filtering can't hide bad exports.
+            tester
+                .run(
+                    r#"
+                        idx export snapshot.db | ignore
+                        let files = open snapshot.db | query db "SELECT file_name FROM files"
+                        let dirs = open snapshot.db | query db "SELECT relative_path FROM dirs"
+                        [
+                            (($files | where file_name == "deleted.txt") | is-empty)
+                            (($dirs | where relative_path =~ "removed-tree") | is-empty)
+                        ] | all {|value| $value }
+                    "#,
+                )
+                .expect_value_eq(true)
+        },
+    )
+}
+
+#[test]
+#[serial]
+fn idx_import_ignores_tombstoned_file_rows() -> Result {
+    Playground::setup(
+        "idx_import_ignores_tombstoned_file_rows",
+        |dirs, sandbox| {
+            sandbox.with_files(&[EmptyFile("legacy-deleted.txt")]);
+
+            let mut tester = test().cwd(dirs.test());
+
+            // Create a v1 snapshot, then simulate one written with a tombstoned file row.
+            let (): () = tester.run(
+                "idx init . --wait --no-content-indexing | ignore; idx export snapshot.db | ignore; idx drop | ignore",
+            )?;
+            let (): () = tester.run(
+                "open snapshot.db | query db \"UPDATE files SET is_deleted = TRUE WHERE file_name = 'legacy-deleted.txt'\" | ignore",
+            )?;
+
+            // Restored listing, search, and status should all treat the row as absent.
+            tester
+                .run(
+                    r#"
+                        idx import snapshot.db --no-watch | ignore
+                        let files = idx files
+                        let status = idx status
+                        [
+                            (($files | where file_name == "legacy-deleted.txt") | is-empty)
+                            (idx find legacy-deleted --files | is-empty)
+                            ($status.files == 0)
+                        ] | all {|value| $value }
+                    "#,
+                )
+                .expect_value_eq(true)
+        },
+    )
+}
+
+#[test]
+#[serial]
 fn idx_import_auto_initializes_runtime_for_queries() -> Result {
     Playground::setup(
         "idx_import_auto_initializes_runtime_for_queries",
