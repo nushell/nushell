@@ -1,165 +1,170 @@
-use nu_protocol::test_record;
+use nu_experimental::PIPE_FAIL;
 use nu_test_support::prelude::*;
 
 #[test]
-fn try_succeed() {
-    let output = nu!("try { 345 } catch { echo 'hello' }");
-
-    assert!(output.out.contains("345"));
+fn try_succeed() -> Result {
+    test()
+        .run("try { 345 } catch { 'hello' }")
+        .expect_value_eq(345)
 }
 
 #[test]
-fn try_catch() {
-    let output = nu!("try { foobarbaz } catch { echo 'hello' }");
-
-    assert!(output.out.contains("hello"));
+fn try_catch() -> Result {
+    test()
+        .run("try { foobarbaz } catch { 'hello' }")
+        .expect_value_eq("hello")
 }
 
 #[test]
-fn catch_can_access_error() {
-    let output = nu!("try { foobarbaz } catch { |err| $err | get raw }");
-
-    assert!(output.err.contains("External command failed"));
+fn catch_can_access_error() -> Result {
+    test()
+        .run("try { foobarbaz } catch { |err| $err | get raw }")
+        .expect_error_code_eq("nu::shell::external_command")
 }
 
 #[test]
-fn catch_can_access_error_as_dollar_in() {
-    let output = nu!("try { foobarbaz } catch { $in | get raw }");
-
-    assert!(output.err.contains("External command failed"));
+fn catch_can_access_error_as_dollar_in() -> Result {
+    test()
+        .run("try { foobarbaz } catch { $in | get raw }")
+        .expect_error_code_eq("nu::shell::external_command")
 }
 
 #[test]
-fn external_failed_should_be_caught() {
-    let output = nu!("try { nu --testbin fail; echo 'success' } catch { echo 'fail' }");
-
-    assert!(output.out.contains("fail"));
+#[deps(TESTBIN_FAIL)]
+fn external_failed_should_be_caught() -> Result {
+    test()
+        .run("try { fail; 'success' } catch { 'fail' }")
+        .expect_value_eq("fail")
 }
 
 #[test]
-fn loop_try_break_should_be_successful() {
-    let output =
-        nu!("loop { try { print 'successful'; break } catch { print 'failed'; continue } }");
-
-    assert_eq!(output.out, "successful");
+fn loop_try_break_should_be_successful() -> Result {
+    test()
+        .run("loop { try { break } catch { 'failed'; continue } }; 'successful'")
+        .expect_value_eq("successful")
 }
 
 #[test]
-fn loop_try_break_should_pop_error_handlers() {
-    let output = nu!(r#"
-    do {
-        loop {
-            try {
-                break
-            } catch {
-                print 'jumped to catch block'
-                return
-            }
-        }
-        error make -u {msg: "success"}
-    }
-    "#);
-
-    assert!(!output.status.success(), "error was caught");
-    assert!(output.err.contains("success"));
-}
-
-#[test]
-fn loop_nested_try_break_should_pop_error_handlers() {
-    let output = nu!(r#"
-    do {
-        loop {
-            try {
+fn loop_try_break_should_pop_error_handlers() -> Result {
+    let code = r#"
+        do {
+            loop {
                 try {
                     break
                 } catch {
-                    print 'jumped to inner catch block'
-                    return
+                    return 'jumped to catch block'
                 }
-            } catch {
-                print 'jumped to outer catch block'
-                return
             }
+            error make -u {msg: "success"}
         }
-        error make -u {msg: "success"}
-    }
-    "#);
+    "#;
 
-    assert!(!output.status.success(), "error was caught");
-    assert!(output.err.contains("success"));
+    let err = test().run(code).expect_error()?;
+    assert_contains("success", err.to_string());
+    Ok(())
 }
 
 #[test]
-fn loop_try_continue_should_pop_error_handlers() {
-    let output = nu!(r#"
-    do {
-        mut error = false
+fn loop_nested_try_break_should_pop_error_handlers() -> Result {
+    let code = r#"
+        do {
+            loop {
+                try {
+                    try {
+                        break
+                    } catch {
+                        return 'jumped to inner catch block'
+                    }
+                } catch {
+                    return 'jumped to outer catch block'
+                }
+            }
+            error make -u {msg: "success"}
+        }
+    "#;
 
+    let err = test().run(code).expect_error()?;
+    assert_contains("success", err.to_string());
+    Ok(())
+}
+
+#[test]
+fn loop_try_continue_should_pop_error_handlers() -> Result {
+    let code = r#"
+        do {
+            mut error = false
+
+            loop {
+                if $error {
+                    error make -u {msg: "success"}
+                }
+
+                try {
+                    $error = true
+                    continue
+                } catch {
+                    return 'jumped to catch block'
+                }
+            }
+        }
+    "#;
+
+    let err = test().run(code).expect_error()?;
+    assert_contains("success", err.to_string());
+    Ok(())
+}
+
+#[test]
+fn loop_catch_break_should_show_failed() -> Result {
+    let code = "
         loop {
-            if $error {
-                error make -u {msg: "success"}
-            }
-
-            try {
-                $error = true
-                continue
-            } catch {
-                print 'jumped to catch block'
-                return
-            }
+            try { invalid 1; continue } catch { break }
         }
-    }
-    "#);
+        'failed'
+    ";
 
-    assert!(!output.status.success(), "error was caught");
-    assert!(output.err.contains("success"));
+    test().run(code).expect_value_eq("failed")
 }
 
 #[test]
-fn loop_catch_break_should_show_failed() {
-    let output = nu!("loop {
-            try { invalid 1;
-            continue; } catch { print 'failed'; break }
-        }
-        ");
-
-    assert_eq!(output.out, "failed");
-}
-
-#[test]
-fn loop_try_ignores_continue() {
-    let output = nu!("mut total = 0;
+fn loop_try_ignores_continue() -> Result {
+    let code = "
+        mut total = 0
         for i in 0..10 {
-            try { if ($i mod 2) == 0 {
-            continue;}
-            $total += 1
-        } catch { echo 'failed'; break }
+            try {
+                if ($i mod 2) == 0 { continue }
+                $total += 1
+            } catch {
+                break
+            }
         }
-        echo $total
-        ");
+        $total
+    ";
 
-    assert_eq!(output.out, "5");
+    test().run(code).expect_value_eq(5)
 }
 
 #[test]
-fn loop_try_break_on_command_should_show_successful() {
-    let output = nu!("loop { try { ls; break } catch { echo 'failed';continue }}");
-
-    assert!(!output.out.contains("failed"));
+fn loop_try_break_on_command_should_show_successful() -> Result {
+    test()
+        .run("loop { try { ls; break } catch { 'failed'; continue } }")
+        .expect_value_eq(())
 }
 
 #[test]
-fn catch_block_can_use_error_object() {
-    let output = nu!("try {1 / 0} catch {|err| print ($err | get msg)}");
-    assert_eq!(output.out, "Division by zero.")
+fn catch_block_can_use_error_object() -> Result {
+    test()
+        .run("try {1 / 0} catch {|err| $err | get msg}")
+        .expect_value_eq("Division by zero.")
 }
 
 #[test]
-fn catch_input_type_mismatch_and_rethrow() {
-    let actual = nu!(
-        "let x: any = 1; try { $x | get 1 } catch {|err| error make { msg: ($err | get msg) } }"
-    );
-    assert!(actual.err.contains("Input type not supported"));
+fn catch_input_type_mismatch_and_rethrow() -> Result {
+    let err = test()
+        .run("let x: any = 1; try { $x | get 1 } catch {|err| error make { msg: ($err | get msg) } }")
+        .expect_error()?;
+    assert_contains("Input type not supported", err.to_string());
+    Ok(())
 }
 
 // This test is disabled on Windows because they cause a stack overflow in CI (but not locally!).
@@ -167,44 +172,53 @@ fn catch_input_type_mismatch_and_rethrow() {
 // TODO: investigate so we can enable on Windows
 #[cfg(not(target_os = "windows"))]
 #[test]
-fn can_catch_infinite_recursion() {
-    let actual = nu!(r#"
-            def bang [] { try { bang } catch { "Caught infinite recursion" } }; bang
-        "#);
-    assert_eq!(actual.out, "Caught infinite recursion");
+fn can_catch_infinite_recursion() -> Result {
+    test()
+        .run(r#"def bang [] { try { bang } catch { "Caught infinite recursion" } }; bang"#)
+        .expect_value_eq("Caught infinite recursion")
 }
 
 #[test]
-fn exit_code_available_in_catch_env() {
-    let actual = nu!("try { nu -c 'exit 42' } catch { $env.LAST_EXIT_CODE }");
-    assert_eq!(actual.out, "42");
+#[deps(NU)]
+fn exit_code_available_in_catch_env() -> Result {
+    test()
+        .run("try { nu -c 'exit 42' } catch { $env.LAST_EXIT_CODE }")
+        .expect_value_eq(42)
 }
 
 #[test]
-fn exit_code_available_in_catch() {
-    let actual = nu!("try { nu -c 'exit 42' } catch { |e| $e.exit_code }");
-    assert_eq!(actual.out, "42");
+#[deps(NU)]
+fn exit_code_available_in_catch() -> Result {
+    test()
+        .run("try { nu -c 'exit 42' } catch { |e| $e.exit_code }")
+        .expect_value_eq(42)
 }
 
 #[test]
-fn catches_exit_code_in_assignment() {
-    let actual = nu!("let x = try { nu -c 'exit 42' } catch { |e| $e.exit_code }; $x");
-    assert_eq!(actual.out, "42");
+#[deps(NU)]
+fn catches_exit_code_in_assignment() -> Result {
+    test()
+        .run("let x = try { nu -c 'exit 42' } catch { |e| $e.exit_code }; $x")
+        .expect_value_eq(42)
 }
 
 #[test]
-fn catches_exit_code_in_expr() {
-    let actual = nu!("print (try { nu -c 'exit 42' } catch { |e| $e.exit_code })");
-    assert_eq!(actual.out, "42");
+#[deps(NU)]
+fn catches_exit_code_in_expr() -> Result {
+    test()
+        .run("try { nu -c 'exit 42' } catch { |e| $e.exit_code }")
+        .expect_value_eq(42)
 }
 
 #[test]
-fn prints_only_if_last_pipeline() {
-    let actual = nu!("try { 'should not print' }; 'last value'");
-    assert_eq!(actual.out, "last value");
+fn prints_only_if_last_pipeline() -> Result {
+    test()
+        .run("try { 'should not print' }; 'last value'")
+        .expect_value_eq("last value")?;
 
-    let actual = nu!("try { ['should not print'] | every 1 }; 'last value'");
-    assert_eq!(actual.out, "last value");
+    test()
+        .run("try { ['should not print'] | every 1 }; 'last value'")
+        .expect_value_eq("last value")
 }
 
 #[test]
@@ -239,214 +253,211 @@ fn get_json_error() -> Result {
 }
 
 #[test]
-fn pipefail_works() {
-    // the print 'bbb' should not run because the previous command failed
-    // So no output should be printed
-    let actual = nu!(
-        experimental: vec!["pipefail".to_string()],
-        "nu --testbin fail | lines | length; print 'bbb'"
-    );
-    assert_eq!(actual.out, "")
+#[exp(PIPE_FAIL)]
+#[deps(TESTBIN_FAIL)]
+fn pipefail_works() -> Result {
+    test()
+        .run("fail | lines | length; 'bbb'")
+        .expect_error_code_eq("nu::shell::non_zero_exit_code")
 }
 
 #[test]
-fn let_ignores_pipefail() {
-    let actual = nu!(
-        experimental: vec!["pipefail".to_string()],
-        "try { let x = nu --testbin fail | lines | length; print $x } catch {|e| print $e.exit_code}"
-    );
-    assert_eq!(actual.out, "0")
+#[exp(PIPE_FAIL)]
+#[deps(TESTBIN_FAIL)]
+fn let_ignores_pipefail() -> Result {
+    test()
+        .run("try { let x = fail | lines | length; $x } catch {|e| $e.exit_code}")
+        .expect_value_eq(0)
 }
 
 #[test]
-fn try_catch_finally() {
-    // catch should run because try failed, then finally should run.
-    let actual =
-        nu!("try { 1 / 0 } catch { print 'inside catch' } finally { print 'this finally' }");
-    assert!(actual.out.contains("inside catch"));
-    assert!(actual.out.contains("this finally"));
-    assert!(!actual.err.contains("division by zero"));
+fn try_catch_finally() -> Result {
+    test()
+        .run("try { 1 / 0 } catch { 'inside catch' } finally { 'this finally' }")
+        .expect_value_eq("inside catch")?;
 
-    // catch should not run because try success, then finally should run.
-    let actual = nu!(
-        "try { print 'inside try' } catch { print 'inside catch' } finally { print 'this finally' }"
-    );
-    assert!(actual.out.contains("inside try"));
-    assert!(actual.out.contains("this finally"));
-    assert!(!actual.out.contains("inside catch"));
+    test()
+        .run("try { 'inside try' } catch { 'inside catch' } finally { 'this finally' }")
+        .expect_value_eq("inside try")?;
 
-    // catch should run even if error inside catch.
-    let actual =
-        nu!("try { 1 / 0 } catch { 1 / 0; print 'inside catch' } finally { print 'this finally' }");
-    assert!(actual.out.contains("this finally"));
-    assert!(!actual.out.contains("inside catch"));
-    assert!(actual.err.contains("division by zero"));
+    let err = test()
+        .run("try { 1 / 0 } catch { 1 / 0; 'inside catch' } finally { 'this finally' }")
+        .expect_error()?;
+    assert_contains("division by zero", err.to_string().to_lowercase());
+    Ok(())
 }
 
 #[test]
-fn try_finally() {
-    let actual = nu!("try { 0 } finally { 3 }");
-    assert_eq!(actual.out, "0");
+fn try_finally() -> Result {
+    test().run("try { 0 } finally { 3 }").expect_value_eq(0)?;
 
-    let actual = nu!("try { 1 / 0 } finally { print 'this finally' }");
-    assert!(actual.out.contains("this finally"));
-    assert!(actual.err.contains("division by zero"));
+    let err = test()
+        .run("try { 1 / 0 } finally { 'this finally' }")
+        .expect_error()?;
+    assert_contains("division by zero", err.to_string().to_lowercase());
 
-    let actual = nu!("try { print 'inside try' } finally { print 'this finally' }");
-    assert!(actual.out.contains("inside try"));
-    assert!(actual.out.contains("this finally"));
+    test()
+        .run("try { 'inside try' } finally { 'this finally' }")
+        .expect_value_eq("inside try")
 }
 
 #[test]
-fn finally_should_run_before_return() {
-    // finally should run after return.
-    let actual =
-        nu!("def aa [] { try { return 3 } finally { print 'this finally' } }; let x = aa; $x == 3");
-    assert!(actual.out.contains("this finally"));
-    assert!(actual.out.contains("true"));
+fn finally_should_run_before_return() -> Result {
+    test()
+        .run("def aa [] { try { return 3 } finally { 'this finally' } }; let x = aa; $x == 3")
+        .expect_value_eq(true)?;
 
-    let actual = nu!(
-        "def aa [] { try { 1 / 0 } catch { return 44 } finally { print 'this finally' } }; let x = aa; $x == 44"
-    );
-    assert!(actual.out.contains("this finally"));
-    assert!(actual.out.contains("true"));
+    test()
+        .run("def aa [] { try { 1 / 0 } catch { return 44 } finally { 'this finally' } }; let x = aa; $x == 44")
+        .expect_value_eq(true)
 }
 
 #[test]
-fn return_statement_in_finally_should_be_used() {
-    // finally should run before return.
-    let actual = nu!("def aa [] { try { return 3 } finally { return 4 } }; let x = aa; $x == 4");
-    assert!(actual.out.contains("true"));
+fn return_statement_in_finally_should_be_used() -> Result {
+    test()
+        .run("def aa [] { try { return 3 } finally { return 4 } }; let x = aa; $x == 4")
+        .expect_value_eq(true)
 }
 
 #[test]
-fn try_finally_with_variable() {
-    // try failed with finally
-    let actual = nu!("try { 1 / 0 } finally {|x| print $x.msg }");
-    assert_eq!(actual.out, "Division by zero.");
+fn try_finally_with_variable() -> Result {
+    test()
+        .run("try { 1 / 0 } finally {|x| $x.msg }")
+        .expect_error_code_eq("nu::shell::division_by_zero")?;
 
-    let actual = nu!("try { 3 } finally {|x| print ($x == 3) }");
-    assert!(actual.out.contains("true"));
-    assert!(actual.out.ends_with('3'));
+    test()
+        .run("let x = try { 3 } finally {|x| $x == 3 }; $x")
+        .expect_value_eq(3)
 }
 
 #[test]
-fn try_exit_runs_finally() {
-    let actual = nu!("try { exit 3 } finally { print 'this finally' }");
-    assert_eq!(actual.out, "this finally");
-    assert_eq!(actual.status.code(), Some(3));
+#[deps(NU)]
+fn try_exit_runs_finally() -> Result {
+    let code = "try { exit 3 } finally { print 'this finally' }";
+    let result: CompleteResult =
+        test().run_with_data("let code; nu -n -c $code | complete", code)?;
+    assert_eq!(result.stdout.trim_end(), "this finally");
+    assert_eq!(result.exit_code, 3);
 
-    // nested try with exit should run all finally block
-    let actual = nu!("
-    try {
+    let code = r#"
         try {
-            exit 3
-        } finally { 
-            print 'inner finally'
-        }
-    } finally {
-        print 'outer finally'
-    }");
-    assert!(actual.out.contains("inner finally"));
-    assert!(actual.out.contains("outer finally"));
-    assert_eq!(actual.status.code(), Some(3));
-}
-
-#[test]
-fn try_abort_not_run_finally() {
-    let actual = nu!("try { exit 3 --abort} finally { print 'this finally' }");
-    assert!(!actual.out.contains("this finally"));
-    assert_eq!(actual.status.code(), Some(3));
-}
-#[test]
-fn catch_finally_with_variable() {
-    // try catch with finally
-    let actual = nu!("try { 1 / 0 } catch { 33 } finally {|x| print ($x == 33) }");
-    assert!(actual.out.contains("true"));
-    assert!(actual.out.ends_with("33"));
-
-    let actual = nu!(
-        "try { 1 / 0 } catch { 33; error make 'err in catch' } finally {|x| print ($x.msg == 'err in catch')}"
-    );
-    assert_eq!(actual.out, "true");
-}
-
-#[test]
-fn finally_should_not_run_before_try_finished() {
-    let actual = nu!(
-        experimental: vec!["pipefail".to_string()],
-        "
-        with-env { FOO: 'bar' } {
-            try { nu --testbin echo_env FOO } finally { print 'bb' }
-        }
-        "
-    );
-    assert_eq!(actual.out, "barbb")
-}
-
-#[test]
-fn finally_should_not_run_before_catch_finished() {
-    let actual = nu!(
-        experimental: vec!["pipefail".to_string()],
-        "
-        with-env { FOO: 'bar' } {
-            try { 1 / 0 } catch { nu --testbin echo_env FOO } finally { print 'bb' }
-        }
-        "
-    );
-    assert_eq!(actual.out, "barbb")
-}
-
-#[test]
-fn finally_should_not_run_twice_when_error_in_finally() {
-    let actual = nu!(
-        experimental: vec!["pipefail".to_string()],
-        r#"
-        try {
-            ^true
+            try {
+                exit 3
+            } finally {
+                print 'inner finally'
+            }
         } finally {
-            print "inside finally"
+            print 'outer finally'
+        }
+    "#;
+    let result: CompleteResult =
+        test().run_with_data("let code; nu -n -c $code | complete", code)?;
+    assert_contains("inner finally", &result.stdout);
+    assert_contains("outer finally", &result.stdout);
+    assert_eq!(result.exit_code, 3);
+    Ok(())
+}
+
+#[test]
+#[deps(NU)]
+fn try_abort_not_run_finally() -> Result {
+    let code = "try { exit 3 --abort} finally { print 'this finally' }";
+    let result: CompleteResult =
+        test().run_with_data("let code; nu -n -c $code | complete", code)?;
+    assert_contains_not("this finally", &result.stdout);
+    assert_eq!(result.exit_code, 3);
+    Ok(())
+}
+
+#[test]
+fn catch_finally_with_variable() -> Result {
+    test()
+        .run("try { 1 / 0 } catch { 33 } finally {|x| $x == 33 }")
+        .expect_value_eq(33)?;
+
+    test()
+        .run("try { 1 / 0 } catch { 33; error make 'err in catch' } finally {|x| $x.msg == 'err in catch'}")
+        .expect_error_code_eq("nu::shell::error")
+}
+
+#[test]
+#[exp(PIPE_FAIL)]
+#[deps(TESTBIN_ECHO_ENV)]
+fn finally_should_not_run_before_try_finished() -> Result {
+    let code = "
+        with-env { FOO: 'bar' } {
+            try { echo_env FOO } finally { 'bb' }
+        }
+    ";
+
+    test().run(code).expect_value_eq("bar")
+}
+
+#[test]
+#[exp(PIPE_FAIL)]
+#[deps(TESTBIN_ECHO_ENV)]
+fn finally_should_not_run_before_catch_finished() -> Result {
+    let code = "
+        with-env { FOO: 'bar' } {
+            try { 1 / 0 } catch { echo_env FOO } finally { 'bb' }
+        }
+    ";
+
+    test().run(code).expect_value_eq("bar")
+}
+
+#[test]
+#[exp(PIPE_FAIL)]
+#[deps(TESTBIN_FAIL)]
+fn finally_should_not_run_twice_when_error_in_finally() -> Result {
+    let code = r#"
+        try {
+            fail 0
+        } finally {
             error make -u "oh no"
         }
-        "#
-    );
-    assert_eq!(actual.out, "inside finally")
+    "#;
+
+    let err = test().run(code).expect_error()?;
+    assert_contains("oh no", err.to_string());
+    Ok(())
 }
 
 #[test]
-fn try_wont_generate_extra_output() {
-    let actual = nu!(
-        experimental: vec!["pipefail".to_string()],
-        "try { nu --testbin fail | is-empty } catch { 'here' }"
-    );
-    assert_eq!(actual.out, "here")
+#[exp(PIPE_FAIL)]
+#[deps(TESTBIN_FAIL)]
+fn try_wont_generate_extra_output() -> Result {
+    test()
+        .run("try { fail | is-empty } catch { 'here' }")
+        .expect_value_eq("here")
 }
 
 #[test]
-fn try_wont_run_twice_when_no_catch_and_finally_block() {
-    let actual = nu!(
-        experimental: vec!["pipefail".to_string()],
-        r#"
+#[exp(PIPE_FAIL)]
+fn try_wont_run_twice_when_no_catch_and_finally_block() -> Result {
+    let code = r#"
         do {
             try {}
             print "aa"
             not_real_cmd
-        }"#
-    );
-    assert_eq!(actual.out, "aa")
+        }
+    "#;
+
+    let err = test().run(code).expect_error()?;
+    assert_contains("External command failed", err.to_string());
+    Ok(())
 }
 
 #[test]
-fn try_with_just_finally_wont_pop_enclosing_error_handler() {
-    let actual = nu!(
-        experimental: vec!["pipefail".to_string()],
-        r#"
+#[exp(PIPE_FAIL)]
+fn try_with_just_finally_wont_pop_enclosing_error_handler() -> Result {
+    let code = r#"
         try {
             try { print "inner" } finally { print "finally" }
             error make { msg: "error" }
         }
-        print "outer"
-        "#
-    );
-    assert!(actual.out.contains("outer"));
+        "outer"
+    "#;
+
+    test().run(code).expect_value_eq("outer")
 }
