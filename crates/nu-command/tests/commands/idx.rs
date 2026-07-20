@@ -269,6 +269,52 @@ fn idx_import_auto_initializes_runtime_for_queries() -> Result {
 
 #[test]
 #[serial]
+fn idx_watched_import_uses_live_picker() -> Result {
+    Playground::setup(
+        "idx_watched_import_uses_live_picker",
+        |dirs, sandbox| {
+            sandbox.with_files(&[EmptyFile("seed.txt")]);
+
+            let mut tester = test().cwd(dirs.test());
+
+            // Restore the snapshot with the default filesystem watcher enabled.
+            let (): () = tester.run(
+                "idx init . --wait --no-content-indexing | ignore; idx export snapshot.db | ignore; idx drop | ignore; idx import snapshot.db | ignore",
+            )?;
+
+            // Once content search sees the watcher update, every live view should see the same file and dir.
+            tester
+                .run(
+                    r#"
+                        let before = idx status
+                        mkdir watched-dir
+                        "importwatchprobe" | save watched-dir/watched.txt
+                        mut attempts = 0
+                        loop {
+                            if not (idx search importwatchprobe | is-empty) { break }
+                            if $attempts >= 100 { error make { msg: "idx watcher did not process creation" } }
+                            $attempts += 1
+                            sleep 20ms
+                        }
+
+                        let status = idx status
+                        [
+                            (idx files watched | length)
+                            (idx dirs watched | length)
+                            (idx find watched --files | length)
+                            (idx find watched --dirs | length)
+                            ($status.files - $before.files)
+                            ($status.dirs - $before.dirs)
+                        ] | all {|count| $count > 0 }
+                    "#,
+                )
+                .expect_value_eq(true)
+        },
+    )
+}
+
+#[test]
+#[serial]
 fn idx_import_restores_queryable_snapshot_when_files_are_gone() -> Result {
     Playground::setup(
         "idx_import_restores_queryable_snapshot_when_files_are_gone",
@@ -290,7 +336,7 @@ fn idx_import_restores_queryable_snapshot_when_files_are_gone() -> Result {
 
             test()
                 .cwd(dirs.test())
-                .run("rm searchable.txt other.txt; idx import snapshot.db; idx files searchable | where file_name == searchable.txt | length")
+                .run("rm searchable.txt other.txt; idx import snapshot.db --no-watch; idx files searchable | where file_name == searchable.txt | length")
                 .expect_value_eq(1)
         },
     )
