@@ -633,6 +633,25 @@ fn string_interpolation_paren_test3() -> TestResult {
     run_test(r#"$"('(')("test")test(')')""#, "(testtest)")
 }
 
+#[rstest]
+#[case::subexpression("(do {0})-str")]
+#[case::closure("({|| })-str")]
+#[case::ambiguous_block(r#"(if true { "T" } else { "F" })-str"#)]
+#[case::spaced_subexpression("(do {0} )-str")]
+#[case::spaced_closure("({|| } )-str")]
+#[case::spaced_ambiguous_block(r#"(if true { "T" } else { "F" } )-str"#)]
+#[case::unambiguous_block(r#"(if true { "T" })-str"#)]
+fn bare_interpolation_does_not_hide_redefined_command(#[case] body: &str) -> TestResult {
+    let mut tester = test();
+    tester.run::<()>(r#"def cmd [] { "fallback" }"#)?;
+    let same_entry: String = tester.run(format!("def cmd [] {{ {body} }}; cmd"))?;
+    let later_entry: String = tester.run("cmd")?;
+
+    assert_ne!(same_entry, "fallback");
+    assert_eq!(same_entry, later_entry);
+    Ok(())
+}
+
 #[test]
 fn string_interpolation_escaping() -> TestResult {
     run_test(r#"$"hello\nworld" | lines | length"#, "2")
