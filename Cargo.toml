@@ -299,11 +299,13 @@ winreg = "0.56"
 
 [workspace.lints.clippy]
 # Warning: workspace lints affect library code as well as tests, so don't enable lints that would be too noisy in tests like that.
+# equivalent to -D warnings
+warnings = "deny"
 # todo = "warn"
 format_push_string = "warn"
 needless_raw_strings = "warn"
 result_large_err = "allow"
-unchecked_time_subtraction = "warn"
+unchecked_time_subtraction = "deny"
 unwrap_used = "deny"
 used_underscore_binding = "warn"
 # need to allow this temporarily because it may change code logic.
