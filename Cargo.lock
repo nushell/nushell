@@ -7548,7 +7548,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.49.0"
-source = "git+https://github.com/nushell/reedline?branch=main#a2c6e124529a1c46c0da32b8fcc28244a966d534"
+source = "git+https://github.com/nushell/reedline?branch=main#c5f8b26ca07e1298170c77eb0a3a15e2231a4e22"
 dependencies = [
  "arboard",
  "chrono",
