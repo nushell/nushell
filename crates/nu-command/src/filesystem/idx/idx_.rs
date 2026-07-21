@@ -19,9 +19,9 @@ impl Command for Idx {
     }
 
     fn extra_description(&self) -> &str {
-        "Use one of the subcommands: init, status, find, search, watch, export, import, drop, dirs, files. \
-By default `idx init` enables filesystem watching so the index stays warm as files change; pass `--no-watch` for a static snapshot. \
-Use `idx watch` to stream change events from that live index into a pipeline (distinct from the plain `watch` command)."
+        "Use one of the subcommands: init, status, find, search, watch, drop, dirs, files. \
+By default `idx init` enables filesystem watching so the index updates as files change; pass `--no-watch` for a static index. \
+Use `idx watch` to stream change events from that live index into a pipeline."
     }
 
     fn run(

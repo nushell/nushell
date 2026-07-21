@@ -45,8 +45,10 @@ impl Command for IdxDirs {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let query = call.opt::<String>(engine_state, stack, 0)?;
-        let signals = engine_state.signals();
-        stream_dirs(query, call.head, signals)
+        stream_dirs(
+            call.opt::<String>(engine_state, stack, 0)?,
+            call.head,
+            engine_state.signals(),
+        )
     }
 }

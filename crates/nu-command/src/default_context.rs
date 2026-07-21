@@ -274,12 +274,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             IdxFiles,
         };
 
-        #[cfg(all(feature = "os", feature = "sqlite"))]
-        bind_command! {
-            IdxExport,
-            IdxImport,
-        };
-
         // Platform
         #[cfg(all(feature = "os", not(target_arch = "wasm32")))]
         if nu_experimental::NATIVE_CLIP.get() {
