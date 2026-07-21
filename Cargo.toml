@@ -297,10 +297,13 @@ windows-sys = "0.61.2"
 winnow = "1.0"
 winreg = "0.56"
 
-[workspace.lints.clippy]
-# Warning: workspace lints affect library code as well as tests, so don't enable lints that would be too noisy in tests like that.
+[workspace.lints.rust]
+# This denies all rustc warnings (including the ones that were causing noise)
 # equivalent to -D warnings
 warnings = "deny"
+
+[workspace.lints.clippy]
+# Warning: workspace lints affect library code as well as tests, so don't enable lints that would be too noisy in tests like that.
 # todo = "warn"
 format_push_string = "warn"
 needless_raw_strings = "warn"

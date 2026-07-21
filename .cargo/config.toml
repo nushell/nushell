@@ -34,10 +34,10 @@ rustflags = ["-Ctarget-cpu=apple-m1"]
 
 [alias]
 # Default clippy for library + bin code (no tests)
-clippy = "clippy --workspace --exclude nu_plugin_* --profile ci --all-targets -- -D warnings -D clippy::unwrap_used -D clippy::unchecked_time_subtraction"
+nuclippy = "clippy --workspace --exclude nu_plugin_* --profile ci --all-targets -- -D warnings -D clippy::unwrap_used -D clippy::unchecked_time_subtraction"
 
 # Clippy just for tests
-clippy-tests = "clippy --workspace --tests --exclude nu_plugin_* --profile ci --all-targets -- -D warnings -D clippy::unchecked_time_subtraction"
+nuclippy-tests = "clippy --workspace --tests --exclude nu_plugin_* --profile ci --all-targets -- -D warnings -D clippy::unchecked_time_subtraction"
 
 # Even stricter / full workspace (if you want one command)
-clippy-all = "clippy --workspace --exclude nu_plugin_* --profile ci --all-targets --all-features -- -D warnings -D clippy::unwrap_used -D clippy::unchecked_time_subtraction"
+nuclippy-all = "clippy --workspace --profile ci --all-targets --all-features -- -D warnings -D clippy::unwrap_used -D clippy::unchecked_time_subtraction"
