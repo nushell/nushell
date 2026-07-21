@@ -62,8 +62,40 @@ pub fn eval_ir_block<D: DebugContext>(
         });
     }
 
+    // Whole-block locals (closures / custom commands / top-level script).
+    let pushed_scope = if let Some(bindings) = &block.scope_bindings {
+        stack.push_scope_bindings(bindings.clone());
+        true
+    } else {
+        false
+    };
+
+    // Install this IR block's inlined-scope regions; restore any outer IR state on leave
+    // so nested `eval_ir_block` (e.g. custom command call) does not clobber the caller.
+    let saved_regions = std::mem::take(&mut stack.ir_scope_regions);
+    let saved_pc = stack.ir_instruction_index.take();
+
+    let result = eval_ir_block_inner::<D>(engine_state, stack, block, input);
+
+    stack.ir_scope_regions = saved_regions;
+    stack.ir_instruction_index = saved_pc;
+    if pushed_scope {
+        stack.pop_scope_bindings();
+    }
+    result
+}
+
+fn eval_ir_block_inner<D: DebugContext>(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    block: &Block,
+    input: PipelineData,
+) -> Result<PipelineExecutionData, ShellError> {
     if let Some(ir_block) = &block.ir_block {
         D::enter_block(engine_state, block);
+
+        stack.ir_scope_regions = ir_block.scope_regions.clone();
+        stack.ir_instruction_index = None;
 
         let args_base = stack.arguments.get_base();
         let error_handler_base = stack.error_handlers.get_base();
@@ -101,6 +133,7 @@ pub fn eval_ir_block<D: DebugContext>(
         stack.error_handlers.leave_frame(error_handler_base);
         stack.finally_run_handlers.leave_frame(finally_handler_base);
         stack.arguments.leave_frame(args_base);
+        stack.ir_instruction_index = None;
 
         D::leave_block(engine_state, block);
 
@@ -251,6 +284,9 @@ fn eval_ir_block_impl<D: DebugContext>(
         let instruction = &ir_block.instructions[pc];
         let span = &ir_block.spans[pc];
         let ast = &ir_block.ast[pc];
+
+        // So `scope` can match inlined keyword-body bindings via ScopeRegion.
+        ctx.stack.ir_instruction_index = Some(pc);
 
         D::enter_instruction(ctx.engine_state, ir_block, pc, ctx.registers);
 

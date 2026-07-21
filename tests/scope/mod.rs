@@ -373,3 +373,251 @@ fn example_results_have_valid_span() {
     let actual = nu!(&inp.join(" "));
     assert_eq!(actual.out, "scope commands");
 }
+
+// --- Local scope visibility (#14071) ---
+
+#[test]
+fn scope_variables_shows_locals_in_closure() -> Result {
+    let code = "
+        do {
+            let b = 2
+            scope variables | where name == '$b' | get 0.value
+        }
+    ";
+
+    test().run(code).expect_value_eq(2)
+}
+
+#[test]
+fn scope_variables_shows_outer_and_local_in_closure() -> Result {
+    // Issue #14071: inner scope should still see the global/outer scope.
+    let code = "
+        let a = 1
+        do {
+            let b = 2
+            scope variables | where name in ['$a', '$b'] | get name | sort
+        }
+    ";
+
+    test().run(code).expect_value_eq(["$a", "$b"])?;
+
+    let code = "
+        let a = 1
+        do {
+            let b = 2
+            [
+                (scope variables | where name == '$a' | get 0.value)
+                (scope variables | where name == '$b' | get 0.value)
+            ]
+        }
+    ";
+
+    test().run(code).expect_value_eq([1, 2])
+}
+
+#[test]
+fn scope_variables_shows_locals_in_block() -> Result {
+    let code = "
+        let a = 1
+        if true {
+            let c = 3
+            scope variables | where name == '$c' | get 0.value
+        }
+    ";
+
+    test().run(code).expect_value_eq(3)
+}
+
+#[test]
+fn scope_variables_shows_outer_and_local_in_block() -> Result {
+    let code = "
+        let a = 1
+        if true {
+            let c = 3
+            scope variables | where name in ['$a', '$c'] | get name | sort
+        }
+    ";
+
+    test().run(code).expect_value_eq(["$a", "$c"])
+}
+
+#[test]
+fn scope_variables_shows_for_loop_var() -> Result {
+    // `for` does not return the last pipeline value of its block.
+    let code = "
+        mut val = -1
+        for i in 1..1 {
+            $val = (scope variables | where name == '$i' | get 0.value)
+        }
+        $val
+    ";
+
+    test().run(code).expect_value_eq(1)
+}
+
+#[test]
+fn scope_variables_shows_def_params() -> Result {
+    let code = "
+        def f [x] {
+            scope variables | where name == '$x' | get 0.value
+        }
+        f 42
+    ";
+
+    test().run(code).expect_value_eq(42)
+}
+
+#[test]
+fn scope_variables_shadowed_let_shows_current_value() -> Result {
+    // Related to #17414: name maps keep the final VarId, but the live value is earlier.
+    let code = "
+        let x = 'first'
+        let seen = (scope variables | where name == '$x' | get 0.value)
+        let x = 'second'
+        [$seen $x]
+    ";
+
+    test().run(code).expect_value_eq(["first", "second"])
+}
+
+#[test]
+fn scope_commands_shows_local_def_in_closure() -> Result {
+    let code = "
+        do {
+            def local-cmd [] { 'hi' }
+            scope commands | where name == 'local-cmd' | length
+        }
+    ";
+
+    test().run(code).expect_value_eq(1)
+}
+
+#[test]
+fn scope_commands_local_def_not_visible_after_closure() -> Result {
+    let code = "
+        do { def local-cmd [] { 'hi' } }
+        scope commands | where name == 'local-cmd' | length
+    ";
+
+    test().run(code).expect_value_eq(0)
+}
+
+#[test]
+fn scope_aliases_shows_local_alias_in_closure() -> Result {
+    let code = "
+        do {
+            alias la = ls
+            scope aliases | where name == 'la' | length
+        }
+    ";
+
+    test().run(code).expect_value_eq(1)
+}
+
+#[test]
+fn scope_modules_shows_local_use_in_closure() -> Result {
+    Playground::setup("scope_modules_local_use", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent("spam.nu", "export def foo [] { 'foo' }")]);
+
+        let code = "
+            do {
+                use spam.nu
+                scope modules | where name == 'spam' | length
+            }
+        ";
+
+        test().cwd(dirs.test()).run(code).expect_value_eq(1)
+    })
+}
+
+#[test]
+fn scope_commands_nested_closure_sees_outer_local_def() -> Result {
+    let code = "
+        do {
+            def outer-cmd [] { 'hi' }
+            do {
+                scope commands | where name == 'outer-cmd' | length
+            }
+        }
+    ";
+
+    test().run(code).expect_value_eq(1)
+}
+
+#[test]
+fn scope_commands_shows_local_def_in_if_block() -> Result {
+    let code = "
+        if true {
+            def local-cmd [] { 'hi' }
+            scope commands | where name == 'local-cmd' | length
+        }
+    ";
+
+    test().run(code).expect_value_eq(1)
+}
+
+#[test]
+fn scope_commands_local_def_not_visible_after_if_block() -> Result {
+    let code = "
+        if true {
+            def local-cmd [] { 'hi' }
+        }
+        scope commands | where name == 'local-cmd' | length
+    ";
+
+    test().run(code).expect_value_eq(0)
+}
+
+#[test]
+fn scope_commands_shows_local_def_in_for_block() -> Result {
+    let code = "
+        mut n = 0
+        for i in 1..1 {
+            def local-cmd [] { 'hi' }
+            $n = (scope commands | where name == 'local-cmd' | length)
+        }
+        $n
+    ";
+
+    test().run(code).expect_value_eq(1)
+}
+
+#[test]
+fn scope_externs_shows_local_extern_in_closure() -> Result {
+    let code = "
+        do {
+            extern local-ext []
+            scope externs | where name == 'local-ext' | length
+        }
+    ";
+
+    test().run(code).expect_value_eq(1)
+}
+
+#[test]
+fn scope_modules_shows_local_use_in_if_block() -> Result {
+    Playground::setup("scope_modules_local_use_if", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent("spam.nu", "export def foo [] { 'foo' }")]);
+
+        let code = "
+            if true {
+                use spam.nu
+                scope modules | where name == 'spam' | length
+            }
+        ";
+
+        test().cwd(dirs.test()).run(code).expect_value_eq(1)
+    })
+}
+
+#[test]
+fn scope_aliases_shows_local_alias_in_if_block() -> Result {
+    let code = "
+        if true {
+            alias la = ls
+            scope aliases | where name == 'la' | length
+        }
+    ";
+
+    test().run(code).expect_value_eq(1)
+}

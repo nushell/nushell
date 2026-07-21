@@ -4,8 +4,8 @@ use crate::{
     Value, VarId, VirtualPathId,
     ast::Block,
     engine::{
-        CachedFile, Command, CommandType, EngineState, OverlayFrame, StateDelta, Variable,
-        VirtualPath, Visibility, description::build_desc,
+        CachedFile, Command, CommandType, EngineState, OverlayFrame, ScopeBindings, StateDelta,
+        Variable, VirtualPath, Visibility, description::build_desc,
     },
 };
 use core::panic;
@@ -143,13 +143,8 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     pub fn use_variables(&mut self, variables: Vec<(Vec<u8>, VarId)>) {
-        let overlay_frame = self.last_overlay_mut();
-
-        for (mut name, var_id) in variables {
-            if !name.starts_with(b"$") {
-                name.insert(0, b'$');
-            }
-            overlay_frame.insert_variable(name, var_id);
+        for (name, var_id) in variables {
+            self.insert_variable_into_scope(name, var_id);
         }
     }
 
@@ -636,6 +631,12 @@ impl<'a> StateWorkingSet<'a> {
         if !name.starts_with(b"$") {
             name.insert(0, b'$');
         }
+        // Record the name on delta variables so `scope variables` can list stack locals
+        // that never enter permanent overlays. Permanent vars keep `name: None` here;
+        // their names remain available through permanent overlay maps.
+        if let Some(var) = self.get_variable_mut(var_id) {
+            var.name = Some(name.clone());
+        }
         self.last_overlay_mut().insert_variable(name, var_id);
     }
 
@@ -693,12 +694,48 @@ impl<'a> StateWorkingSet<'a> {
         }
     }
 
+    /// Mutable access to a variable that still lives in the working-set delta.
+    ///
+    /// Returns `None` for variables that already belong to the permanent engine state.
+    pub fn get_variable_mut(&mut self, var_id: VarId) -> Option<&mut Variable> {
+        let num_permanent_vars = self.permanent_state.num_vars();
+        if var_id.get() < num_permanent_vars {
+            None
+        } else {
+            self.delta.vars.get_mut(var_id.get() - num_permanent_vars)
+        }
+    }
+
     pub fn get_variable_if_possible(&self, var_id: VarId) -> Option<&Variable> {
         let num_permanent_vars = self.permanent_state.num_vars();
         if var_id.get() < num_permanent_vars {
             Some(self.permanent_state.get_var(var_id))
         } else {
             self.delta.vars.get(var_id.get() - num_permanent_vars)
+        }
+    }
+
+    /// Snapshot command/module bindings from the **innermost** scope frame.
+    ///
+    /// # Invariant
+    ///
+    /// Must run on the scope frame that owns the block's locals, **immediately before** the
+    /// matching `exit_scope` (which discards that frame). Call sites:
+    /// `parse_block_expression`, `parse_closure_expression`, and scoped `parse_block`.
+    /// Keep those three call sites explicit so a new scoped construct is forced to opt in.
+    pub fn snapshot_scope_bindings(&self) -> Option<Arc<ScopeBindings>> {
+        let frame = self.delta.last_scope_frame();
+        let mut bindings = ScopeBindings::default();
+        let mut removed_overlays = vec![];
+
+        for overlay in frame.active_overlays(&mut removed_overlays) {
+            bindings.extend_from_overlay(overlay);
+        }
+
+        if bindings.is_empty() {
+            None
+        } else {
+            Some(Arc::new(bindings))
         }
     }
 

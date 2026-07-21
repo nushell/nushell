@@ -2,7 +2,7 @@ use nu_protocol::{
     CompileError, IntoSpanned, RegId, Span,
     ast::{Block, Expr, Pipeline, PipelineRedirection, RedirectionSource, RedirectionTarget},
     engine::StateWorkingSet,
-    ir::{Instruction, IrBlock, RedirectMode},
+    ir::{Instruction, IrBlock, RedirectMode, ScopeRegion},
 };
 
 mod builder;
@@ -27,10 +27,12 @@ pub fn compile(working_set: &StateWorkingSet, block: &Block) -> Result<IrBlock, 
 
     let span = block.span.unwrap_or(Span::unknown());
 
+    // Top-level: no scope region — `eval_ir_block` pushes this block's `scope_bindings`.
     compile_block(
         working_set,
         &mut builder,
         block,
+        false,
         RedirectModes::caller(span),
         Some(BLOCK_INPUT),
         BLOCK_INPUT,
@@ -45,15 +47,23 @@ pub fn compile(working_set: &StateWorkingSet, block: &Block) -> Result<IrBlock, 
 /// Compiles a [`Block`] in-place into an IR block. This can be used in a nested manner, for example
 /// by [`compile_if()`][keyword::compile_if], where the instructions for the blocks for the if/else
 /// are inlined into the top-level IR block.
+///
+/// When `record_scope_region` is true and the block has parse-time `scope_bindings`, records a
+/// [`ScopeRegion`] covering the inlined instructions so `scope` can see those locals by program
+/// counter (keyword bodies never enter `eval_ir_block`). Pass `false` for the outer block from
+/// [`compile`] (bindings activated at eval entry instead).
 fn compile_block(
     working_set: &StateWorkingSet,
     builder: &mut BlockBuilder,
     block: &Block,
+    record_scope_region: bool,
     redirect_modes: RedirectModes,
     in_reg: Option<RegId>,
     out_reg: RegId,
 ) -> Result<(), CompileError> {
     let span = block.span.unwrap_or(Span::unknown());
+    let region_start = builder.instructions.len();
+
     let mut redirect_modes = Some(redirect_modes);
     if !block.pipelines.is_empty() {
         let last_index = block.pipelines.len() - 1;
@@ -85,12 +95,24 @@ fn compile_block(
                 builder.load_empty(out_reg)?;
             }
         }
-        Ok(())
     } else if in_reg.is_none() {
-        builder.load_empty(out_reg)
-    } else {
-        Ok(())
+        builder.load_empty(out_reg)?;
     }
+
+    if record_scope_region && let Some(bindings) = &block.scope_bindings {
+        let region_end = builder.instructions.len();
+        // Empty inlined bodies produce no instructions; still record a zero-width region
+        // is useless for PC matching, so only store non-empty ranges.
+        if region_start < region_end {
+            builder.scope_regions.push(ScopeRegion {
+                start: region_start,
+                end: region_end,
+                bindings: bindings.clone(),
+            });
+        }
+    }
+
+    Ok(())
 }
 
 fn compile_pipeline(

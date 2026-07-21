@@ -3,8 +3,10 @@ use crate::{
     ast::PathMember,
     engine::{
         ArgumentStack, DEFAULT_OVERLAY_NAME, EngineState, EnvName, ErrorHandlerStack, Redirection,
-        StackCallArgGuard, StackCollectValueGuard, StackIoGuard, StackOutDest, StackWithInvocation,
+        ScopeBindings, StackCallArgGuard, StackCollectValueGuard, StackIoGuard, StackOutDest,
+        StackWithInvocation,
     },
+    ir::ScopeRegion,
     report_shell_warning,
     shell_error::generic::GenericError,
 };
@@ -68,6 +70,15 @@ pub struct Stack {
     /// When `true`, external processes spawned with `PipelineData::Empty` input
     /// receive `/dev/null` for stdin instead of inheriting the terminal.
     pub suppress_stdin: bool,
+    /// Active block-local scope bindings (commands/modules), outer → inner.
+    ///
+    /// Pushed when evaluating a whole block via `eval_ir_block` (closures, custom commands).
+    /// Used by `scope` together with [`Self::ir_scope_regions`].
+    pub active_scope_bindings: Vec<Arc<ScopeBindings>>,
+    /// Scope regions of the IR block currently being evaluated (inlined keyword bodies).
+    pub ir_scope_regions: Vec<ScopeRegion>,
+    /// Current program counter while evaluating IR (for matching [`Self::ir_scope_regions`]).
+    pub ir_instruction_index: Option<usize>,
 }
 
 impl Default for Stack {
@@ -101,6 +112,9 @@ impl Stack {
             config: None,
             out_dest: StackOutDest::new(),
             suppress_stdin: false,
+            active_scope_bindings: vec![],
+            ir_scope_regions: vec![],
+            ir_instruction_index: None,
         }
     }
 
@@ -125,8 +139,27 @@ impl Stack {
             config: parent.config.clone(),
             out_dest: parent.out_dest.clone(),
             suppress_stdin: parent.suppress_stdin,
+            // Child inherits outer block bindings so nested `scope` still sees them.
+            active_scope_bindings: parent.active_scope_bindings.clone(),
+            // Nested IR evaluation installs its own regions/pc.
+            ir_scope_regions: vec![],
+            ir_instruction_index: None,
             parent_stack: Some(parent),
         }
+    }
+
+    /// Push block-local scope bindings for the duration of evaluating a whole block.
+    pub fn push_scope_bindings(&mut self, bindings: Arc<ScopeBindings>) {
+        self.active_scope_bindings.push(bindings);
+    }
+
+    /// Pop the most recently pushed whole-block scope bindings.
+    pub fn pop_scope_bindings(&mut self) {
+        let popped = self.active_scope_bindings.pop();
+        debug_assert!(
+            popped.is_some(),
+            "pop_scope_bindings with empty active_scope_bindings (unbalanced push/pop)"
+        );
     }
 
     /// Take an [`Arc`] parent, and a child, and apply all the changes from a child back to the parent.
@@ -379,6 +412,10 @@ impl Stack {
     }
 
     /// Creates a derived stack for a new scope, with the given captures.
+    ///
+    /// The caller is retained as [`Self::parent_stack`] so outer variables remain visible to
+    /// `scope variables` (and other stack lookups that walk parents). Captured values are still
+    /// copied onto this stack for isolation of the closure’s own locals.
     pub fn captures_to_stack_preserve_out_dest(&self, captures: Vec<(VarId, Value)>) -> Stack {
         let mut env_vars = self.env_vars.clone();
         env_vars.push(Arc::new(HashMap::new()));
@@ -393,12 +430,18 @@ impl Stack {
             error_handlers: ErrorHandlerStack::new(),
             finally_run_handlers: ErrorHandlerStack::new(),
             recursion_count: self.recursion_count,
-            parent_stack: None,
+            // Keep the caller as parent so global/outer locals stay nameable for `scope`
+            // (values are still resolved via the parent chain when not captured).
+            parent_stack: Some(Arc::new(self.clone())),
             parent_deletions: vec![],
             deletions: vec![],
             config: self.config.clone(),
             out_dest: self.out_dest.clone(),
             suppress_stdin: self.suppress_stdin,
+            // Inherit caller block bindings so nested closures still see outer local defs.
+            active_scope_bindings: self.active_scope_bindings.clone(),
+            ir_scope_regions: vec![],
+            ir_instruction_index: None,
         }
     }
 
@@ -430,12 +473,16 @@ impl Stack {
             error_handlers: ErrorHandlerStack::new(),
             finally_run_handlers: ErrorHandlerStack::new(),
             recursion_count: self.recursion_count,
-            parent_stack: None,
+            parent_stack: Some(Arc::new(self.clone())),
             parent_deletions: vec![],
             deletions: vec![],
             config: self.config.clone(),
             out_dest: self.out_dest.clone(),
             suppress_stdin: self.suppress_stdin,
+            // Inherit caller block bindings so nested closures still see outer local defs.
+            active_scope_bindings: self.active_scope_bindings.clone(),
+            ir_scope_regions: vec![],
+            ir_instruction_index: None,
         }
     }
 

@@ -1,6 +1,11 @@
 use super::Pipeline;
-use crate::{OutDest, Signature, Span, Type, VarId, engine::StateWorkingSet, ir::IrBlock};
+use crate::{
+    OutDest, Signature, Span, Type, VarId,
+    engine::{ScopeBindings, StateWorkingSet},
+    ir::IrBlock,
+};
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Block {
@@ -11,6 +16,14 @@ pub struct Block {
     /// The block compiled to IR instructions. Not available for subexpressions.
     pub ir_block: Option<IrBlock>,
     pub span: Option<Span>, // None option encodes no span to avoid using test_span()
+    /// Local command/module name bindings introduced while parsing this block.
+    ///
+    /// Nested parse scopes discard their name maps on exit; this snapshot lets `scope`
+    /// subcommands report those locals while the block is being evaluated.
+    ///
+    /// Not serialized: only meaningful within the process that parsed the block.
+    #[serde(skip)]
+    pub scope_bindings: Option<Arc<ScopeBindings>>,
 }
 
 impl Block {
@@ -49,6 +62,7 @@ impl Block {
             redirect_env: false,
             ir_block: None,
             span: None,
+            scope_bindings: None,
         }
     }
 
@@ -60,6 +74,7 @@ impl Block {
             redirect_env: false,
             ir_block: None,
             span: None,
+            scope_bindings: None,
         }
     }
 
@@ -97,6 +112,7 @@ where
             redirect_env: false,
             ir_block: None,
             span: None,
+            scope_bindings: None,
         }
     }
 }
