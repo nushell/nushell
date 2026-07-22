@@ -2443,7 +2443,7 @@ dependencies = [
  "serde",
  "signal-hook-registry",
  "smallvec",
- "thiserror 2.0.18",
+ "thiserror 2.0.19",
  "tracing",
  "tracing-appender",
  "tracing-subscriber",
@@ -2563,7 +2563,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "54f0d287c53ffd184d04d8677f590f4ac5379785529e5e08b1c8083acdd5c198"
 dependencies = [
  "memchr",
- "thiserror 2.0.18",
+ "thiserror 2.0.19",
 ]
 
 [[package]]
@@ -3294,7 +3294,7 @@ dependencies = [
  "libc",
  "percent-encoding",
  "pin-project-lite",
- "socket2 0.5.10",
+ "socket2 0.6.3",
  "tokio",
  "tower-service",
  "tracing",
@@ -3792,7 +3792,7 @@ checksum = "8fe90c1150662e858c7d5f945089b7517b0a80d8bf7ba4b1b5ffc984e7230a5b"
 dependencies = [
  "hashbrown 0.16.1",
  "portable-atomic",
- "thiserror 2.0.18",
+ "thiserror 2.0.19",
 ]
 
 [[package]]
@@ -4701,7 +4701,7 @@ dependencies = [
  "percent-encoding",
  "reedline",
  "rstest",
- "strum",
+ "strum 0.28.0",
  "sysinfo 0.39.3",
  "tempfile",
  "unicode-segmentation",
@@ -4892,7 +4892,7 @@ dependencies = [
  "serde_json",
  "serde_urlencoded",
  "sha2 0.11.0",
- "strum",
+ "strum 0.28.0",
  "sysinfo 0.39.3",
  "tabled",
  "tempfile",
@@ -4936,7 +4936,7 @@ dependencies = [
  "nu-path",
  "nu-test-support",
  "tempfile",
- "thiserror 2.0.18",
+ "thiserror 2.0.19",
  "windows-sys 0.61.2",
 ]
 
@@ -4970,7 +4970,7 @@ name = "nu-experimental"
 version = "0.114.2"
 dependencies = [
  "itertools 0.15.0",
- "thiserror 2.0.18",
+ "thiserror 2.0.19",
 ]
 
 [[package]]
@@ -5033,7 +5033,7 @@ dependencies = [
  "scopeguard",
  "serde",
  "serde-saphyr",
- "strum",
+ "strum 0.28.0",
 ]
 
 [[package]]
@@ -5151,7 +5151,7 @@ dependencies = [
  "nu-protocol",
  "nu-utils",
  "serde",
- "thiserror 2.0.18",
+ "thiserror 2.0.19",
  "typetag",
 ]
 
@@ -5263,10 +5263,10 @@ dependencies = [
  "semver",
  "serde",
  "serde_json",
- "strum",
- "strum_macros",
+ "strum 0.28.0",
+ "strum_macros 0.28.0",
  "tempfile",
- "thiserror 2.0.18",
+ "thiserror 2.0.19",
  "typetag",
  "web-time",
  "windows 0.62.2",
@@ -5361,7 +5361,7 @@ dependencies = [
  "rstest",
  "serde_json",
  "tempfile",
- "thiserror 2.0.18",
+ "thiserror 2.0.19",
  "which 8.0.2",
 ]
 
@@ -5805,7 +5805,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_urlencoded",
- "thiserror 2.0.18",
+ "thiserror 2.0.19",
  "tokio",
  "tracing",
  "url",
@@ -6378,7 +6378,7 @@ dependencies = [
  "serde",
  "simdutf8",
  "streaming-iterator",
- "strum_macros",
+ "strum_macros 0.27.2",
  "version_check",
  "zstd",
 ]
@@ -6447,7 +6447,7 @@ dependencies = [
  "rand 0.9.2",
  "serde",
  "strength_reduce",
- "strum_macros",
+ "strum_macros 0.27.2",
  "version_check",
  "zmij",
 ]
@@ -6496,7 +6496,7 @@ dependencies = [
  "regex",
  "serde",
  "serde_json",
- "strum_macros",
+ "strum_macros 0.27.2",
  "tokio",
  "uuid",
  "version_check",
@@ -6738,7 +6738,7 @@ dependencies = [
  "regex-syntax 0.8.11",
  "serde",
  "serde_json",
- "strum_macros",
+ "strum_macros 0.27.2",
  "unicode-normalization",
  "unicode-reverse",
  "version_check",
@@ -6822,7 +6822,7 @@ dependencies = [
  "serde",
  "sha2 0.10.9",
  "slotmap",
- "strum_macros",
+ "strum_macros 0.27.2",
  "tokio",
  "version_check",
 ]
@@ -6941,7 +6941,7 @@ dependencies = [
  "rayon",
  "regex",
  "serde",
- "strum_macros",
+ "strum_macros 0.27.2",
 ]
 
 [[package]]
@@ -7248,8 +7248,8 @@ dependencies = [
  "quinn-udp",
  "rustc-hash",
  "rustls",
- "socket2 0.5.10",
- "thiserror 2.0.18",
+ "socket2 0.6.3",
+ "thiserror 2.0.19",
  "tokio",
  "tracing",
  "web-time",
@@ -7270,7 +7270,7 @@ dependencies = [
  "rustls",
  "rustls-pki-types",
  "slab",
- "thiserror 2.0.18",
+ "thiserror 2.0.19",
  "tinyvec",
  "tracing",
  "web-time",
@@ -7285,7 +7285,7 @@ dependencies = [
  "cfg_aliases",
  "libc",
  "once_cell",
- "socket2 0.5.10",
+ "socket2 0.6.3",
  "tracing",
  "windows-sys 0.60.2",
 ]
@@ -7439,8 +7439,8 @@ dependencies = [
  "itertools 0.14.0",
  "kasuari",
  "lru 0.16.3",
- "strum",
- "thiserror 2.0.18",
+ "strum 0.27.2",
+ "thiserror 2.0.19",
  "unicode-segmentation",
  "unicode-truncate",
  "unicode-width 0.2.2",
@@ -7481,7 +7481,7 @@ dependencies = [
  "itertools 0.14.0",
  "line-clipping",
  "ratatui-core",
- "strum",
+ "strum 0.27.2",
  "time",
  "unicode-segmentation",
  "unicode-width 0.2.2",
@@ -7585,26 +7585,26 @@ checksum = "a4e608c6638b9c18977b00b475ac1f28d14e84b27d8d42f70e0bf1e3dec127ac"
 dependencies = [
  "getrandom 0.2.17",
  "libredox",
- "thiserror 2.0.18",
+ "thiserror 2.0.19",
 ]
 
 [[package]]
 name = "reedline"
 version = "0.49.0"
-source = "git+https://github.com/nushell/reedline?branch=main#83c17a25ed3f1fe5d045a37e56e9fc28eb0a02d5"
+source = "git+https://github.com/nushell/reedline?branch=main#7eb9bf219456202052aaa976842e9e790b88ed85"
 dependencies = [
  "arboard",
  "chrono",
  "crossterm",
  "fd-lock",
- "itertools 0.13.0",
+ "itertools 0.15.0",
  "nu-ansi-term",
  "rusqlite",
  "serde",
  "serde_json",
  "strip-ansi-escapes",
- "strum",
- "thiserror 2.0.18",
+ "strum 0.28.0",
+ "thiserror 2.0.19",
  "unicase",
  "unicode-segmentation",
  "unicode-width 0.2.2",
@@ -7746,7 +7746,7 @@ dependencies = [
  "chumsky",
  "memchr",
  "quoted_printable",
- "thiserror 2.0.18",
+ "thiserror 2.0.19",
 ]
 
 [[package]]
@@ -7791,7 +7791,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sse-stream",
- "thiserror 2.0.18",
+ "thiserror 2.0.19",
  "tokio",
  "tokio-stream",
  "tokio-util",
@@ -7848,7 +7848,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c51c9ae4df8a7fba42103df5c621fa3c37eccf3a3c650879e90fc48b11cc192c"
 dependencies = [
  "hashbrown 0.16.1",
- "thiserror 2.0.18",
+ "thiserror 2.0.19",
 ]
 
 [[package]]
@@ -8204,9 +8204,9 @@ dependencies = [
 
 [[package]]
 name = "serde"
-version = "1.0.228"
+version = "1.0.229"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9a8e94ea7f378bd32cbbd37198a4a91436180c5bb472411e48b5ec2e2124ae9e"
+checksum = "4148590afebada386688f18773da617792bf2ef03ffc1e4cbd2b1d45b023e0ba"
 dependencies = [
  "serde_core",
  "serde_derive",
@@ -8233,22 +8233,22 @@ dependencies = [
 
 [[package]]
 name = "serde_core"
-version = "1.0.228"
+version = "1.0.229"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "41d385c7d4ca58e59fc732af25c3983b67ac852c1a25000afe1175de458b67ad"
+checksum = "67dca2c9c51e58a4791a4b1ed58308b39c64224d349a935ab5039aa360942a48"
 dependencies = [
  "serde_derive",
 ]
 
 [[package]]
 name = "serde_derive"
-version = "1.0.228"
+version = "1.0.229"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d540f220d3187173da220f885ab66608367b6574e925011a9353e4badda91d79"
+checksum = "e7a5d71263a5a7d47b41f6b3f06ba276f10cc18b0931f1799f710578e2309348"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.117",
+ "syn 3.0.2",
 ]
 
 [[package]]
@@ -8264,9 +8264,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.149"
+version = "1.0.151"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "83fc039473c5595ace860d8c4fafa220ff474b3fc6bfdb4293327f1a37e94d86"
+checksum = "c841b55ecdae098c80dcae9cf767f6f8a0c2cdb3416bbef72181df4d0fe73f14"
 dependencies = [
  "indexmap 2.14.0",
  "itoa",
@@ -8758,7 +8758,16 @@ version = "0.27.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af23d6f6c1a224baef9d3f61e287d2761385a5b88fdab4eb4c6f11aeb54c4bcf"
 dependencies = [
- "strum_macros",
+ "strum_macros 0.27.2",
+]
+
+[[package]]
+name = "strum"
+version = "0.28.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9628de9b8791db39ceda2b119bbe13134770b56c138ec1d3af810d045c04f9bd"
+dependencies = [
+ "strum_macros 0.28.0",
 ]
 
 [[package]]
@@ -8766,6 +8775,18 @@ name = "strum_macros"
 version = "0.27.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7695ce3845ea4b33927c055a39dc438a45b059f7c1b3d91d38d10355fb8cbca7"
+dependencies = [
+ "heck",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
+]
+
+[[package]]
+name = "strum_macros"
+version = "0.28.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ab85eea0270ee17587ed4156089e10b9e6880ee688791d45a905f5b1ca36f664"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -9052,11 +9073,11 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "2.0.18"
+version = "2.0.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4288b5bcbc7920c07a1149a35cf9590a2aa808e0bc1eafaade0b80947865fbc4"
+checksum = "09a43598840e33d5b0331f38c5e30d13bb11c11210a4b58f0d9b18a5a5eefcd9"
 dependencies = [
- "thiserror-impl 2.0.18",
+ "thiserror-impl 2.0.19",
 ]
 
 [[package]]
@@ -9072,13 +9093,13 @@ dependencies = [
 
 [[package]]
 name = "thiserror-impl"
-version = "2.0.18"
+version = "2.0.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ebc4ee7f67670e9b64d05fa4253e753e016c6c95ff35b89b7941d6b856dec1d5"
+checksum = "43cbfe0cf76104d42a574802844187e84a305e531ed54455f11fbde0f10541cd"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.117",
+ "syn 3.0.2",
 ]
 
 [[package]]
@@ -9379,7 +9400,7 @@ checksum = "050686193eb999b4bb3bc2acfa891a13da00f79734704c4b8b4ef1a10b368a3c"
 dependencies = [
  "crossbeam-channel",
  "symlink",
- "thiserror 2.0.18",
+ "thiserror 2.0.19",
  "time",
  "tracing-subscriber",
 ]
@@ -9614,9 +9635,9 @@ dependencies = [
 
 [[package]]
 name = "unicode-segmentation"
-version = "1.13.2"
+version = "1.13.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9629274872b2bfaf8d66f5f15725007f635594914870f65218920345aa11aa8c"
+checksum = "c6f5d3c3b1bf09027a88a6bc961fc00497d651009560b5463668dc81b0fa87a8"
 
 [[package]]
 name = "unicode-truncate"
@@ -9772,7 +9793,7 @@ dependencies = [
  "libc",
  "nix 0.31.3",
  "rustix 1.1.4",
- "thiserror 2.0.18",
+ "thiserror 2.0.19",
  "uucore",
  "walkdir",
 ]
@@ -9799,7 +9820,7 @@ dependencies = [
  "fluent",
  "rand 0.10.1",
  "tempfile",
- "thiserror 2.0.18",
+ "thiserror 2.0.19",
  "uucore",
 ]
 
@@ -9817,7 +9838,7 @@ dependencies = [
  "nix 0.31.3",
  "rustc-hash",
  "rustix 1.1.4",
- "thiserror 2.0.18",
+ "thiserror 2.0.19",
  "uucore",
  "windows-sys 0.61.2",
 ]
@@ -9835,7 +9856,7 @@ dependencies = [
  "libc",
  "parse_datetime",
  "rustix 1.1.4",
- "thiserror 2.0.18",
+ "thiserror 2.0.19",
  "uucore",
  "windows-sys 0.61.2",
 ]
@@ -9884,7 +9905,7 @@ dependencies = [
  "procfs",
  "rustc-hash",
  "rustix 1.1.4",
- "thiserror 2.0.18",
+ "thiserror 2.0.19",
  "unic-langid",
  "uucore_procs",
  "walkdir",
@@ -10155,7 +10176,7 @@ dependencies = [
  "nom 7.1.3",
  "pori",
  "regex",
- "thiserror 2.0.18",
+ "thiserror 2.0.19",
  "walkdir",
 ]
 
@@ -11060,7 +11081,7 @@ dependencies = [
  "log",
  "os_pipe",
  "rustix 1.1.4",
- "thiserror 2.0.18",
+ "thiserror 2.0.19",
  "tree_magic_mini",
  "wayland-backend",
  "wayland-client",
