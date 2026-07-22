@@ -223,14 +223,14 @@ impl Command for ParEach {
                         let pool = create_pool(max_threads, head)?;
                         if keep_order {
                             Ok(pool.install(|| {
-                                let par_iter = vals.into_par_iter().enumerate();
+                                let par_iter = vals.into_owned().into_par_iter().enumerate();
                                 let mapped =
                                     parallel_closure_map(engine_state, stack, &closure, par_iter);
                                 apply_order(mapped.collect())
                                     .into_pipeline_data(span, signals.clone())
                             }))
                         } else {
-                            let par_iter = vals.into_par_iter();
+                            let par_iter = vals.into_owned().into_par_iter();
                             Ok(stream_parallel_values(
                                 engine_state,
                                 stack,

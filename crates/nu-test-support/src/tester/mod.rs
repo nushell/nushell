@@ -326,7 +326,7 @@ impl NuTester {
     fn path(&self) -> Vec<Value> {
         match self.engine_state.get_env_var("PATH") {
             None => Vec::new(),
-            Some(Value::List { vals, .. }) => vals.clone(),
+            Some(Value::List { vals, .. }) => vals.to_vec(),
             Some(Value::String { val, .. }) => val
                 .split(ENV_PATH_SEPARATOR_CHAR)
                 .map(Value::test_string)

@@ -412,6 +412,37 @@ fn bench_binary_value_clone(bytes: usize) -> impl IntoBenchmarks {
     })]
 }
 
+fn bench_list_value_clone(items: usize) -> impl IntoBenchmarks {
+    let name = format!("list_value_clone_{items}");
+    [benchmark_fn(name, move |b| {
+        let value = Value::test_list((0..items).map(|i| Value::test_int(i as i64)).collect());
+        b.iter(move || {
+            black_box(value.clone());
+        })
+    })]
+}
+
+fn bench_stack_list_get_var(items: usize) -> impl IntoBenchmarks {
+    use nu_protocol::VarId;
+
+    let name = format!("stack_list_get_var_{items}");
+    [benchmark_fn(name, move |b| {
+        let mut stack = Stack::new();
+        let var_id = VarId::new(0);
+        stack.add_var(
+            var_id,
+            Value::test_list((0..items).map(|i| Value::test_int(i as i64)).collect()),
+        );
+        b.iter(move || {
+            black_box(
+                stack
+                    .get_var(var_id, Span::test_data())
+                    .expect("var present"),
+            );
+        })
+    })]
+}
+
 fn bench_binary_slice_into_int(bytes: usize, reads: usize) -> impl IntoBenchmarks {
     let (mut stack, engine) = setup_stack_and_engine_from_command(
         "def bench-u16 [data: binary offset: int] {
@@ -1438,6 +1469,9 @@ tango_benchmarks!(
     bench_binary_value_clone(2 * 1024 * 1024),
     bench_binary_slice_into_int(2 * 1024 * 1024, 100),
     bench_binary_skip_shared_half(2 * 1024 * 1024, 100),
+    // List
+    bench_list_value_clone(100_000),
+    bench_stack_list_get_var(100_000),
     // Record
     bench_record_create(1),
     bench_record_create(10),

@@ -324,7 +324,7 @@ fn update_value_by_closure_recursive(
             let path_span = Span::new(path_span.start, path_span.end);
             match value {
                 Value::List { vals, .. } => {
-                    for val in vals.iter_mut() {
+                    for val in vals.to_mut() {
                         // Each nested record becomes the new row context so that `|row|`
                         // refers to the immediately-enclosing record, not the outer row.
                         let row_context = val.clone();
@@ -396,7 +396,8 @@ fn update_value_by_closure_recursive(
             let path_span = Span::new(path_span.start, path_span.end);
             match value {
                 Value::List { vals, .. } => {
-                    if let Some(cell) = vals.get_mut(*row_num) {
+                    if *row_num < vals.len() {
+                        let cell = &mut vals.to_mut()[*row_num];
                         update_value_by_closure_recursive(
                             cell, row_value, closure, path_span, path,
                         )?;

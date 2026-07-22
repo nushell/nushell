@@ -125,6 +125,24 @@ impl<T: Clone> AsRef<[T]> for SharedCow<Vec<T>> {
     }
 }
 
+impl<T: Clone> IntoIterator for SharedCow<Vec<T>> {
+    type Item = T;
+    type IntoIter = std::vec::IntoIter<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.into_owned().into_iter()
+    }
+}
+
+impl<'a, T: Clone> IntoIterator for &'a SharedCow<Vec<T>> {
+    type Item = &'a T;
+    type IntoIter = std::slice::Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

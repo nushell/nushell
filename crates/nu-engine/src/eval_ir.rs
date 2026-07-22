@@ -814,7 +814,7 @@ fn eval_instruction<D: DebugContext>(
             let list_span = list_value.span();
             let items_span = items.span();
             let items = match items {
-                Value::List { vals, .. } => vals,
+                Value::List { vals, .. } => vals.into_owned(),
                 Value::Nothing { .. } => Vec::new(),
                 _ => return Err(ShellError::CannotSpreadAsList { span: items_span }),
             };

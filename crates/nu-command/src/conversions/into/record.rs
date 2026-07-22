@@ -151,10 +151,11 @@ fn into_record(call: &Call, input: PipelineData) -> Result<PipelineData, ShellEr
                         }
                         expected_type = Some(ExpectedType::Record);
                     }
-                    Value::List { mut vals, .. }
+                    Value::List { vals, .. }
                         if matches!(expected_type, None | Some(ExpectedType::Pair)) =>
                     {
                         if vals.len() == 2 {
+                            let mut vals = vals.into_owned();
                             let (val, key) = vals.pop().zip(vals.pop()).expect("length is < 2");
                             record.insert(key.coerce_into_string()?, val);
                         } else {

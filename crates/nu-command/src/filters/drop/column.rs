@@ -123,13 +123,14 @@ fn drop_cols(
             let span = v.span();
             match v {
                 Value::List { mut vals, .. } => {
-                    if let Some((first, rest)) = vals.split_first_mut() {
+                    if let Some((first, rest)) = vals.to_mut().split_first_mut() {
                         let drop_cols = drop_cols_set(first, head, columns, from_left)?;
                         for val in rest {
                             drop_record_cols(val, head, &drop_cols)?
                         }
                     }
-                    Ok(Value::list(vals, span).into_pipeline_data_with_metadata(metadata))
+                    Ok(Value::list(vals.into_owned(), span)
+                        .into_pipeline_data_with_metadata(metadata))
                 }
                 Value::Record {
                     val: ref mut record,
