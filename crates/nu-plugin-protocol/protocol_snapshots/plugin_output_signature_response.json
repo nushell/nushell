@@ -1,0 +1,40 @@
+{
+  "CallResponse": [
+    5,
+    {
+      "Signature": [
+        {
+          "examples": [],
+          "sig": {
+            "allow_variants_without_examples": false,
+            "allows_unknown_args": false,
+            "category": "Default",
+            "complete": null,
+            "creates_scope": false,
+            "description": "",
+            "extra_description": "",
+            "input_output_types": [],
+            "is_filter": false,
+            "name": "demo",
+            "named": [
+              {
+                "arg": null,
+                "completion": null,
+                "default_value": null,
+                "desc": "Display the help message for this command",
+                "long": "help",
+                "required": false,
+                "short": "h",
+                "var_id": null
+              }
+            ],
+            "optional_positional": [],
+            "required_positional": [],
+            "rest_positional": null,
+            "search_terms": []
+          }
+        }
+      ]
+    }
+  ]
+}

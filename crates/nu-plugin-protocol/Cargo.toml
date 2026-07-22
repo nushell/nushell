@@ -19,10 +19,20 @@ nu-protocol = { workspace = true, features = ["plugin"] }
 nu-utils.workspace = true
 
 rmp-serde = { workspace = true }
+# Optional: incomplete JSON Schema mirror for documentation tooling only.
+# Wire stability is enforced by protocol_snapshots + unit tests, not this schema.
+schemars = { version = "1.2.1", optional = true }
 serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true, optional = true }
 semver = "1.0"
 typetag = "0.2"
 
 [features]
 default = ["local-socket"]
 local-socket = []
+# Dev/docs helper: generate an incomplete JSON Schema of the protocol envelope.
+# Many nested engine payloads are modeled as free-form JSON; do not treat as a full contract.
+schema = ["dep:schemars", "dep:serde_json"]
+
+[dev-dependencies]
+serde_json = { workspace = true }

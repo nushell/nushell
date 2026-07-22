@@ -120,7 +120,8 @@ fn test_wrong_version() -> Result {
         .run(CODE_STRESS_INTERNALS_COMPLETE)?;
 
     assert_ne!(result.exit_code, 0);
-    assert_contains("version", &result.stderr);
+    // Error reports the incompatible plugin *protocol* version (not the Nushell package version).
+    assert_contains("protocol", &result.stderr);
     assert_contains("0.0.0", &result.stderr);
 
     Ok(())

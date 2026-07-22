@@ -4724,6 +4724,7 @@ dependencies = [
  "nu-engine",
  "nu-path",
  "nu-plugin-engine",
+ "nu-plugin-protocol",
  "nu-protocol",
 ]
 
@@ -5142,8 +5143,10 @@ dependencies = [
  "nu-protocol",
  "nu-utils",
  "rmp-serde",
+ "schemars",
  "semver",
  "serde",
+ "serde_json",
  "typetag",
 ]
 
