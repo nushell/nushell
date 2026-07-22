@@ -165,6 +165,15 @@ pub enum ParseError {
     )]
     UnexpectedKeyword(String, #[label("unexpected {0}")] Span),
 
+    #[error("Module `{0}` has a `main` command but `{0}` is a built-in parser keyword.")]
+    #[diagnostic(
+        code(nu::parser::keyword_shadow_module_main),
+        help(
+            "The `main` command cannot be invoked because `{0}` is intercepted by the parser. Either rename the module file, or remove `export def main` and use `use {0}.nu *` to import other commands."
+        )
+    )]
+    KeywordShadowModuleMain(String, #[label("`{0}` is a parser keyword")] Span),
+
     #[error("Can't create alias to parser keyword.")]
     #[diagnostic(
         code(nu::parser::cant_alias_keyword),
@@ -703,6 +712,7 @@ impl ParseError {
             ParseError::AssignmentRequiresVar(s) => *s,
             ParseError::AssignmentRequiresMutableVar(s) => *s,
             ParseError::AttributeRequiresDefinition(s) => *s,
+            ParseError::KeywordShadowModuleMain(_, s) => *s,
         }
     }
 }

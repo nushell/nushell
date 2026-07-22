@@ -72,8 +72,12 @@ pub fn is_unaliasable_parser_keyword(working_set: &StateWorkingSet, spans: &[Spa
 /// panicked in the REPL. This applies everywhere, including module exports —
 /// `use mod *` would otherwise bring a bare keyword-named command into scope.
 ///
+/// Also used when a module is named after a keyword and exports `main`: invoking
+/// that entry point would use the module name as a bare command, which the parser
+/// intercepts before command lookup.
+///
 /// Multi-word keywords such as `export def` and `overlay use` are included in the
-/// lists; they will not match normal single-token definition names. See
+/// lists; they will not match normal single-token definition or module names. See
 /// [`single_word_parser_keywords`].
 pub fn is_parser_keyword(name: &[u8]) -> bool {
     ALIASABLE_PARSER_KEYWORDS.contains(&name) || UNALIASABLE_PARSER_KEYWORDS.contains(&name)
