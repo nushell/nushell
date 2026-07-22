@@ -165,7 +165,7 @@ encoding_rs = "0.8"
 fancy-regex = "0.18"
 filesize = "0.2"
 filetime = "0.2.27"
-fff-search = { version = "=0.10.0", default-features = false, features = ["ripgrep"] }
+fff-search = { version = "=0.10.1", default-features = false, features = ["ripgrep"] }
 fluent = "0.17.0"
 gatekeeper = "3.0.0"
 heck = "0.5.0"
@@ -265,7 +265,7 @@ tabled = { version = "0.21", default-features = false }
 tempfile = "3.27"
 thiserror = "2.0.18"
 titlecase = "3.6"
-tokio = { version = "1.52.1" }
+tokio = { version = "1.53.1" }
 toml = "1.1.2"
 toml_edit = "0.25.11"
 kdl = "6.7.1"
