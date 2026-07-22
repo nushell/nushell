@@ -21,14 +21,14 @@ fn gcp_configs_from_env() -> Vec<(GoogleConfigKey, String)> {
     }
 
     for (key, value) in std::env::vars() {
-        if key.starts_with("GOOGLE_") {
-            if let Ok(config_key) = GoogleConfigKey::from_str(&key.to_ascii_lowercase()) {
-                // Later GOOGLE_* values override earlier entries (including SERVICE_ACCOUNT).
-                if let Some(existing) = configs.iter_mut().find(|(k, _)| *k == config_key) {
-                    existing.1 = value;
-                } else {
-                    configs.push((config_key, value));
-                }
+        if key.starts_with("GOOGLE_")
+            && let Ok(config_key) = GoogleConfigKey::from_str(&key.to_ascii_lowercase())
+        {
+            // Later GOOGLE_* values override earlier entries (including SERVICE_ACCOUNT).
+            if let Some(existing) = configs.iter_mut().find(|(k, _)| *k == config_key) {
+                existing.1 = value;
+            } else {
+                configs.push((config_key, value));
             }
         }
     }
