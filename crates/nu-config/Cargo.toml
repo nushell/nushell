@@ -23,8 +23,14 @@ nu-path = { path = "../nu-path" }
 thiserror = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
-dirs-sys = { workspace = true }
-windows-sys = { workspace = true, features = ["Win32_UI_Shell"] }
+# Resolve ProgramData via SHGetKnownFolderPath on the workspace windows-sys only.
+# Do not pass GUIDs into dirs-sys::known_folder — dirs-sys may link a different
+# windows-sys 0.x and GUID types are not compatible across those crate versions.
+windows-sys = { workspace = true, features = [
+  "Win32_UI_Shell",
+  "Win32_Globalization",
+  "Win32_System_Com",
+] }
 
 [dev-dependencies]
 nu-test-support = { path = "../nu-test-support", default-features = false }
