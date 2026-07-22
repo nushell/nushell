@@ -59,6 +59,12 @@ static INITIAL_ENGINE_STATES: KeyedLazyLock<GroupKey, EngineState> = KeyedLazyLo
     .into_iter()
     .for_each(|(key, val)| engine_state.add_env_var(key.into(), val));
 
+    // Should this be inherited or do we want tighter testing?
+    #[cfg(windows)]
+    if let Ok(path_ext) = env::var("PATHEXT") {
+        engine_state.add_env_var("PATHEXT".into(), Value::test_string(path_ext));
+    }
+
     nu_std::load_standard_library(&mut engine_state).expect("could not load standard library");
 
     engine_state
@@ -320,7 +326,7 @@ impl NuTester {
     fn path(&self) -> Vec<Value> {
         match self.engine_state.get_env_var("PATH") {
             None => Vec::new(),
-            Some(Value::List { vals, .. }) => vals.clone(),
+            Some(Value::List { vals, .. }) => vals.to_vec(),
             Some(Value::String { val, .. }) => val
                 .split(ENV_PATH_SEPARATOR_CHAR)
                 .map(Value::test_string)

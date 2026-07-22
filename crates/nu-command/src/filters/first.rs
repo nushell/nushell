@@ -177,10 +177,10 @@ fn first_helper(
         PipelineData::Value(val, _) => {
             let span = val.span();
             match val {
-                Value::List { mut vals, .. } => {
+                Value::List { vals, .. } => {
                     if return_single_element {
-                        if let Some(val) = vals.first_mut() {
-                            Ok(std::mem::take(val).into_pipeline_data_with_metadata(input_meta))
+                        if let Some(val) = vals.first() {
+                            Ok(val.clone().into_pipeline_data_with_metadata(input_meta))
                         } else if strict_mode {
                             Err(ShellError::AccessEmptyContent { span: head })
                         } else {
@@ -189,8 +189,12 @@ fn first_helper(
                             Ok(Value::nothing(head).into_pipeline_data_with_metadata(input_meta))
                         }
                     } else {
-                        vals.truncate(rows);
-                        Ok(Value::list(vals, span).into_pipeline_data_with_metadata(input_meta))
+                        let value = if rows >= vals.len() {
+                            Value::list_shared(vals, span)
+                        } else {
+                            Value::list(vals.iter().take(rows).cloned().collect(), span)
+                        };
+                        Ok(value.into_pipeline_data_with_metadata(input_meta))
                     }
                 }
                 Value::Binary { val, .. } => {

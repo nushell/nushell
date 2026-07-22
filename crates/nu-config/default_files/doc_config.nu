@@ -513,6 +513,14 @@ $env.config.render_right_prompt_on_last_line = false
 # Default: 2
 $env.config.float_precision = 2
 
+# duration_max_unit (string): Largest unit when displaying durations.
+# Durations are decomposed from this unit downward. A smaller value excludes
+# larger units from the output (e.g., "day" shows 365day instead of
+# 52wk 1day for one year).
+# Options: "wk", "day", "hr", "min", "sec", "ms", "us", "ns".
+# Default: "wk"
+$env.config.duration_max_unit = "wk"
+
 # ls.use_ls_colors (bool): Apply LS_COLORS to filenames in `ls` output.
 # true: Use LS_COLORS environment variable for styling.
 # false: Use color_config string style.

@@ -824,7 +824,7 @@ impl InputList {
     ) -> Result<(Vec<Value>, Option<StreamReader>), ShellError> {
         match input {
             PipelineData::ListStream(stream, ..) => Ok(Self::read_initial_stream_values(stream)),
-            PipelineData::Value(Value::List { vals, .. }, ..) => Ok((vals, None)),
+            PipelineData::Value(Value::List { vals, .. }, ..) => Ok((vals.into_owned(), None)),
             input @ PipelineData::Value(Value::Range { .. }, ..) => {
                 let stream = ListStream::new(input.into_iter(), head, signals);
                 Ok(Self::read_initial_stream_values(stream))

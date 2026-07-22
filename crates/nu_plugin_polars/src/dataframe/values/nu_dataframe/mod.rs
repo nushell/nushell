@@ -231,7 +231,11 @@ impl NuDataFrame {
         add_missing_columns(df, &maybe_schema, span)
     }
 
-    pub fn fill_list_nan(list: Vec<Value>, list_span: Span, fill: Value) -> Value {
+    pub fn fill_list_nan(
+        list: impl IntoIterator<Item = Value>,
+        list_span: Span,
+        fill: Value,
+    ) -> Value {
         let newlist = list
             .into_iter()
             .map(|value| {

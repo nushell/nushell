@@ -108,12 +108,17 @@ pub fn glob_from(
 
     if nu_experimental::DC_GLOB.get() {
         let pattern_path = PathBuf::from(&pattern);
-        // If the resolved pattern is an existing path, return it directly.
-        // Passing a plain path to glob_from_interruptible makes the traversal engine
-        // call read_dir() on it, which either fails with "Not a directory" (for files)
-        // or iterates the directory's contents instead of matching the directory itself
-        // (for directories), both of which produce incorrect empty results.
-        if pattern_path.exists() {
+        // If the resolved pattern is an existing *literal* path (no active glob
+        // metacharacters), return it directly. Passing a plain path to
+        // glob_from_interruptible makes the traversal engine call read_dir() on it,
+        // which either fails with "Not a directory" (for files) or iterates the
+        // directory's contents instead of matching the directory itself (for
+        // directories), both of which produce incorrect empty results.
+        //
+        // Patterns that still contain glob metacharacters must go through the
+        // walker even when a same-named path exists (e.g. a file named `*` must
+        // not make bare `*` / `ls` return only that one entry). See #18631.
+        if pattern_path.exists() && !nu_glob::is_glob_with_backend(&pattern) {
             return Ok((prefix, Box::new(std::iter::once(Ok(pattern_path)))));
         }
 
@@ -320,6 +325,98 @@ mod tests {
             "expected directory path itself, got: {first:?}"
         );
         assert!(iter.next().is_none(), "expected exactly one result");
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    // Windows does not allow `*` in filenames, so this regression only applies on Unix.
+    #[cfg(not(windows))]
+    #[test]
+    #[exp(nu_experimental::DC_GLOB)]
+    fn glob_from_dc_glob_star_with_literal_star_file() {
+        // Regression for #18631: a file named `*` must not make pattern `*`
+        // short-circuit to only that path.
+        let root = unique_test_dir("star_file");
+        fs::create_dir_all(&root).expect("failed to create root");
+        write_file(&root.join("a"));
+        write_file(&root.join("b"));
+        write_file(&root.join("*"));
+
+        let ctrlc = Arc::new(AtomicBool::new(false));
+        let signals = Signals::new(ctrlc);
+        let pattern = Spanned {
+            item: NuGlob::Expand("*".to_string()),
+            span: Span::test_data(),
+        };
+
+        let result = glob_from(&pattern, &root, Span::test_data(), None, signals);
+        assert!(result.is_ok(), "glob_from failed");
+
+        let (_, iter) = match result {
+            Ok(v) => v,
+            Err(err) => panic!("glob_from failed unexpectedly: {err}"),
+        };
+        let mut names: Vec<String> = iter
+            .map(|r| {
+                r.expect("glob path ok")
+                    .file_name()
+                    .expect("basename")
+                    .to_string_lossy()
+                    .into_owned()
+            })
+            .collect();
+        names.sort();
+
+        assert_eq!(
+            names,
+            vec!["*".to_string(), "a".to_string(), "b".to_string()]
+        );
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    // Windows does not allow `*` in filenames, so this regression only applies on Unix.
+    #[cfg(not(windows))]
+    #[test]
+    #[exp(nu_experimental::DC_GLOB)]
+    fn glob_from_dc_glob_prefix_wildcard_with_literal_match_name() {
+        // Pattern `foo*` must still expand when a file literally named `foo*` exists.
+        let root = unique_test_dir("foo_star");
+        fs::create_dir_all(&root).expect("failed to create root");
+        write_file(&root.join("foo1"));
+        write_file(&root.join("foo2"));
+        write_file(&root.join("foo*"));
+        write_file(&root.join("other"));
+
+        let ctrlc = Arc::new(AtomicBool::new(false));
+        let signals = Signals::new(ctrlc);
+        let pattern = Spanned {
+            item: NuGlob::Expand("foo*".to_string()),
+            span: Span::test_data(),
+        };
+
+        let result = glob_from(&pattern, &root, Span::test_data(), None, signals);
+        assert!(result.is_ok(), "glob_from failed");
+
+        let (_, iter) = match result {
+            Ok(v) => v,
+            Err(err) => panic!("glob_from failed unexpectedly: {err}"),
+        };
+        let mut names: Vec<String> = iter
+            .map(|r| {
+                r.expect("glob path ok")
+                    .file_name()
+                    .expect("basename")
+                    .to_string_lossy()
+                    .into_owned()
+            })
+            .collect();
+        names.sort();
+
+        assert_eq!(
+            names,
+            vec!["foo*".to_string(), "foo1".to_string(), "foo2".to_string()]
+        );
 
         let _ = fs::remove_dir_all(&root);
     }

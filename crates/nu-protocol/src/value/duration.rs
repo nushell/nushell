@@ -4,6 +4,8 @@ use std::{
     fmt::{Display, Formatter},
 };
 
+use crate::DurationMaxUnit;
+
 #[derive(Clone, Copy)]
 pub enum TimePeriod {
     Nanos(i64),
@@ -41,8 +43,8 @@ impl Display for TimePeriod {
     }
 }
 
-pub fn format_duration(duration: i64) -> String {
-    let (sign, periods) = format_duration_as_timeperiod(duration);
+pub fn format_duration(duration: i64, max_unit: DurationMaxUnit) -> String {
+    let (sign, periods) = format_duration_as_timeperiod(duration, max_unit);
 
     let text = periods
         .into_iter()
@@ -56,7 +58,10 @@ pub fn format_duration(duration: i64) -> String {
     )
 }
 
-pub fn format_duration_as_timeperiod(duration: i64) -> (i32, Vec<TimePeriod>) {
+pub fn format_duration_as_timeperiod(
+    duration: i64,
+    max_unit: DurationMaxUnit,
+) -> (i32, Vec<TimePeriod>) {
     // Attribution: most of this is taken from chrono-humanize-rs. Thanks!
     // https://gitlab.com/imp/chrono-humanize-rs/-/blob/master/src/humantime.rs
     // Current duration doesn't know a date it's based on, weeks is the max time unit it can normalize into.
@@ -106,13 +111,13 @@ pub fn format_duration_as_timeperiod(duration: i64) -> (i32, Vec<TimePeriod>) {
         normalize_split(millis, Duration::try_milliseconds(millis), duration)
     }
 
-    /// Split this a duration into number of whole seconds and the remainder
+    /// Split this a duration into number of whole microseconds and the remainder
     fn split_microseconds(duration: Duration) -> (Option<i64>, Duration) {
         let micros = duration.num_microseconds().unwrap_or_default();
         normalize_split(micros, Duration::microseconds(micros), duration)
     }
 
-    /// Split this a duration into number of whole seconds and the remainder
+    /// Split this a duration into number of whole nanoseconds and the remainder
     fn split_nanoseconds(duration: Duration) -> (Option<i64>, Duration) {
         let nanos = duration.num_nanoseconds().unwrap_or_default();
         normalize_split(nanos, Duration::nanoseconds(nanos), duration)
@@ -132,45 +137,69 @@ pub fn format_duration_as_timeperiod(duration: i64) -> (i32, Vec<TimePeriod>) {
     }
 
     let mut periods = vec![];
+    let mut remainder = dur;
 
-    let (weeks, remainder) = split_weeks(dur);
-    if let Some(weeks) = weeks {
-        periods.push(TimePeriod::Weeks(weeks));
+    if max_unit <= DurationMaxUnit::Week {
+        let (weeks, rem) = split_weeks(remainder);
+        remainder = rem;
+        if let Some(weeks) = weeks {
+            periods.push(TimePeriod::Weeks(weeks));
+        }
     }
 
-    let (days, remainder) = split_days(remainder);
-    if let Some(days) = days {
-        periods.push(TimePeriod::Days(days));
+    if max_unit <= DurationMaxUnit::Day {
+        let (days, rem) = split_days(remainder);
+        remainder = rem;
+        if let Some(days) = days {
+            periods.push(TimePeriod::Days(days));
+        }
     }
 
-    let (hours, remainder) = split_hours(remainder);
-    if let Some(hours) = hours {
-        periods.push(TimePeriod::Hours(hours));
+    if max_unit <= DurationMaxUnit::Hour {
+        let (hours, rem) = split_hours(remainder);
+        remainder = rem;
+        if let Some(hours) = hours {
+            periods.push(TimePeriod::Hours(hours));
+        }
     }
 
-    let (minutes, remainder) = split_minutes(remainder);
-    if let Some(minutes) = minutes {
-        periods.push(TimePeriod::Minutes(minutes));
+    if max_unit <= DurationMaxUnit::Minute {
+        let (minutes, rem) = split_minutes(remainder);
+        remainder = rem;
+        if let Some(minutes) = minutes {
+            periods.push(TimePeriod::Minutes(minutes));
+        }
     }
 
-    let (seconds, remainder) = split_seconds(remainder);
-    if let Some(seconds) = seconds {
-        periods.push(TimePeriod::Seconds(seconds));
+    if max_unit <= DurationMaxUnit::Second {
+        let (seconds, rem) = split_seconds(remainder);
+        remainder = rem;
+        if let Some(seconds) = seconds {
+            periods.push(TimePeriod::Seconds(seconds));
+        }
     }
 
-    let (millis, remainder) = split_milliseconds(remainder);
-    if let Some(millis) = millis {
-        periods.push(TimePeriod::Millis(millis));
+    if max_unit <= DurationMaxUnit::Millisecond {
+        let (millis, rem) = split_milliseconds(remainder);
+        remainder = rem;
+        if let Some(millis) = millis {
+            periods.push(TimePeriod::Millis(millis));
+        }
     }
 
-    let (micros, remainder) = split_microseconds(remainder);
-    if let Some(micros) = micros {
-        periods.push(TimePeriod::Micros(micros));
+    if max_unit <= DurationMaxUnit::Microsecond {
+        let (micros, rem) = split_microseconds(remainder);
+        remainder = rem;
+        if let Some(micros) = micros {
+            periods.push(TimePeriod::Micros(micros));
+        }
     }
 
-    let (nanos, _remainder) = split_nanoseconds(remainder);
-    if let Some(nanos) = nanos {
-        periods.push(TimePeriod::Nanos(nanos));
+    if max_unit <= DurationMaxUnit::Nanosecond {
+        let (nanos, _rem) = split_nanoseconds(remainder);
+        if let Some(nanos) = nanos {
+            periods.push(TimePeriod::Nanos(nanos));
+        }
     }
 
     if periods.is_empty() {

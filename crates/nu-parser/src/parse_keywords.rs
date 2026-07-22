@@ -1,6 +1,6 @@
 use crate::{lite_parser::LiteCommand, parser::parse_call};
 use nu_protocol::{
-    Span, Type,
+    DeclId, ParseError, Span, Type,
     ast::{Expr, Expression, Pipeline},
     engine::StateWorkingSet,
 };
@@ -65,12 +65,72 @@ pub fn is_unaliasable_parser_keyword(working_set: &StateWorkingSet, spans: &[Spa
     }
 }
 
-/// Returns true if the given name matches a parser keyword (aliasable or not).
+/// Returns true if `name` matches any parser keyword (aliasable or unaliasable).
 ///
-/// Multi-word keywords (e.g. `b"export def"`, `b"overlay use"`) are included but
-/// will never match a single-word module name.
+/// Used to prevent custom commands and aliases from shadowing language keywords
+/// (e.g. `def def [] {}`), which can break subsequent parsing and previously
+/// panicked in the REPL. This applies everywhere, including module exports —
+/// `use mod *` would otherwise bring a bare keyword-named command into scope.
+///
+/// Also used when a module is named after a keyword and exports `main`: invoking
+/// that entry point would use the module name as a bare command, which the parser
+/// intercepts before command lookup.
+///
+/// Multi-word keywords such as `export def` and `overlay use` are included in the
+/// lists; they will not match normal single-token definition or module names. See
+/// [`single_word_parser_keywords`].
 pub fn is_parser_keyword(name: &[u8]) -> bool {
     ALIASABLE_PARSER_KEYWORDS.contains(&name) || UNALIASABLE_PARSER_KEYWORDS.contains(&name)
+}
+
+/// Single-token parser keyword names that cannot be used as command or alias names.
+///
+/// Multi-word entries (`export def`, `overlay use`, …) are omitted because they
+/// cannot appear as a single definition name token.
+pub fn single_word_parser_keywords() -> impl Iterator<Item = &'static str> {
+    ALIASABLE_PARSER_KEYWORDS
+        .iter()
+        .chain(UNALIASABLE_PARSER_KEYWORDS.iter())
+        .filter_map(|bytes| {
+            let name = std::str::from_utf8(bytes).ok()?;
+            (!name.contains(' ')).then_some(name)
+        })
+}
+
+/// If `name` is a parser keyword, records [`ParseError::NameIsKeyword`] and returns `true`.
+///
+/// `kind` is embedded in the error (e.g. `"command"` or `"alias"`). Callers should
+/// abort the definition when this returns `true`.
+pub fn reject_parser_keyword_name(
+    working_set: &mut StateWorkingSet,
+    name: &str,
+    kind: &str,
+    span: Span,
+) -> bool {
+    if is_parser_keyword(name.as_bytes()) {
+        working_set.error(ParseError::NameIsKeyword(
+            name.to_owned(),
+            kind.to_owned(),
+            span,
+        ));
+        true
+    } else {
+        false
+    }
+}
+
+/// Find a keyword declaration by name, ignoring any non-keyword decls that may
+/// have shadowed it in normal name lookup.
+///
+/// Prefer this when resolving parser-keyword commands such as `def`, `extern`,
+/// or `run`, so a user-defined command of the same name cannot hijack parsing.
+pub(crate) fn find_keyword_decl(working_set: &StateWorkingSet, name: &[u8]) -> Option<DeclId> {
+    (0..working_set.num_decls())
+        .map(DeclId::new)
+        .find(|decl_id| {
+            let decl = working_set.get_decl(*decl_id);
+            decl.name().as_bytes() == name && decl.is_keyword()
+        })
 }
 
 /// This is a new more compact method of calling parse_xxx() functions without repeating the
@@ -138,3 +198,46 @@ pub use crate::parse_source::{
 };
 #[cfg(feature = "plugin")]
 pub use crate::parse_source::{PLUGIN_DIRS_VAR, parse_plugin_use};
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn is_parser_keyword_matches_single_word_keywords() {
+        assert!(is_parser_keyword(b"def"));
+        assert!(is_parser_keyword(b"let"));
+        assert!(is_parser_keyword(b"if")); // aliasable
+        assert!(is_parser_keyword(b"overlay")); // aliasable
+        assert!(is_parser_keyword(b"where"));
+    }
+
+    #[test]
+    fn is_parser_keyword_rejects_ordinary_command_names() {
+        assert!(!is_parser_keyword(b"ls"));
+        assert!(!is_parser_keyword(b"my-command"));
+        assert!(!is_parser_keyword(b""));
+    }
+
+    #[test]
+    fn is_parser_keyword_includes_multi_word_entries() {
+        // Present in the tables; normal `def`/`alias` names are single tokens so
+        // these only matter for completeness of the keyword set.
+        assert!(is_parser_keyword(b"export def"));
+        assert!(is_parser_keyword(b"overlay use"));
+    }
+
+    #[test]
+    fn single_word_parser_keywords_excludes_multi_word_and_matches_is_parser_keyword() {
+        let names: Vec<_> = single_word_parser_keywords().collect();
+        assert!(names.contains(&"def"));
+        assert!(names.contains(&"if"));
+        assert!(!names.iter().any(|n| n.contains(' ')));
+        for name in &names {
+            assert!(
+                is_parser_keyword(name.as_bytes()),
+                "{name} should be a parser keyword"
+            );
+        }
+    }
+}

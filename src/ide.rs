@@ -7,7 +7,6 @@ use nu_protocol::{
     report_shell_error,
     shell_error::io::{IoError, IoErrorExt, NotFound},
 };
-use reedline::Completer;
 use serde_json::{Value as JsonValue, json};
 use std::{fmt::Write, path::PathBuf, sync::Arc};
 
@@ -632,13 +631,13 @@ pub fn complete(engine_reference: Arc<EngineState>, file_path: &str, location: &
         });
 
     if let Ok(location) = location.as_int() {
-        let results = completer.complete(
+        let results = completer.complete_blocking(
             &String::from_utf8_lossy(&file)[..location as usize],
             location as usize,
         );
         print!("{{\"completions\": [");
         let mut first = true;
-        for result in results {
+        for result in results.iter() {
             if !first {
                 print!(", ")
             } else {

@@ -274,9 +274,12 @@ pub enum Instruction {
     PopErrorHandler,
     /// Pop an finally handler.
     PopFinallyRun,
-    /// Return early from the block, raising a `ShellError::Return` instead.
+    /// Return early from the block with the value in the register.
     ///
-    /// Collecting the value is unavoidable.
+    /// Unlike `return`, this runs pending `finally` handlers first (collecting the value in that
+    /// case, like the `try-collect` on the fall-through path), and flags the result as an early
+    /// return. Custom command and closure calls clear that flag; only top-level file evaluation
+    /// reads it, to skip `main`.
     ReturnEarly { src: RegId },
     /// Return from the block with the value in the register
     Return { src: RegId },

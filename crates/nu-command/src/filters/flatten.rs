@@ -235,9 +235,12 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                                     parent_column_index: column_index,
                                 });
                             } else if out.contains_key(&column) {
-                                out.insert(format!("{column}_{column}"), Value::list(vals, span));
+                                out.insert(
+                                    format!("{column}_{column}"),
+                                    Value::list_shared(vals, span),
+                                );
                             } else {
-                                out.insert(column, Value::list(vals, span));
+                                out.insert(column, Value::list_shared(vals, span));
                             }
                         } else if !columns.is_empty() {
                             let cell_path =
@@ -247,13 +250,20 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                                 });
 
                             if let Some(r) = cell_path {
-                                inner_table =
-                                    Some(TableInside::Entries(r.clone(), vals, column_index));
+                                inner_table = Some(TableInside::Entries(
+                                    r.clone(),
+                                    vals.into_owned(),
+                                    column_index,
+                                ));
                             } else {
-                                out.insert(column, Value::list(vals, span));
+                                out.insert(column, Value::list_shared(vals, span));
                             }
                         } else {
-                            inner_table = Some(TableInside::Entries(column, vals, column_index));
+                            inner_table = Some(TableInside::Entries(
+                                column,
+                                vals.into_owned(),
+                                column_index,
+                            ));
                         }
                     }
                     _ => {
@@ -338,7 +348,7 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
             }
             expanded
         }
-        Value::List { vals, .. } => vals,
+        Value::List { vals, .. } => vals.into_owned(),
         item => vec![item],
     }
 }

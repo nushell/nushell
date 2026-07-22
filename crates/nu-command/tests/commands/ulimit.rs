@@ -1,139 +1,153 @@
-use nu_test_support::nu;
-use nu_test_support::playground::Playground;
+use nu_test_support::prelude::*;
 
-#[test]
-fn limit_set_soft1() {
-    Playground::setup("limit_set_soft1", |dirs, _sandbox| {
-        let actual = nu!(cwd: dirs.test(), "
-            let soft = (ulimit -s | first | get soft);
-            ulimit -s -H $soft;
-            let hard = (ulimit -s | first | get hard);
-            $soft == $hard
-        ");
-
-        assert!(actual.out.contains("true"));
-    });
+// Keep resource-limit mutations out of the shared in-process test runner.
+fn run_ulimit(code: &str) -> Result<CompleteResult> {
+    test()
+        .env("NU_TEST_ULIMIT_CODE", code)
+        .run("nu -n -c $env.NU_TEST_ULIMIT_CODE | complete")
 }
 
 #[test]
-fn limit_set_soft2() {
-    Playground::setup("limit_set_soft2", |dirs, _sandbox| {
-        let actual = nu!(cwd: dirs.test(), "
-            let soft = (ulimit -s | first | get soft);
-            ulimit -s -H soft;
-            let hard = (ulimit -s | first | get hard);
-            $soft == $hard
-        ");
+#[deps(NU)]
+fn limit_set_soft1() -> Result {
+    let actual = run_ulimit(
+        "
+        let soft = (ulimit -s | first | get soft);
+        ulimit -s -H $soft;
+        let hard = (ulimit -s | first | get hard);
+        $soft == $hard
+    ",
+    )?;
 
-        assert!(actual.out.contains("true"));
-    });
+    assert!(actual.stdout.contains("true"));
+    Ok(())
 }
 
 #[test]
-fn limit_set_hard1() {
-    Playground::setup("limit_set_hard1", |dirs, _sandbox| {
-        let actual = nu!(cwd: dirs.test(), "
-            let hard = (ulimit -s | first | get hard);
-            ulimit -s $hard;
-            let soft = (ulimit -s | first | get soft);
-            $soft == $hard
-                   ");
+#[deps(NU)]
+fn limit_set_soft2() -> Result {
+    let actual = run_ulimit(
+        "
+        let soft = (ulimit -s | first | get soft);
+        ulimit -s -H soft;
+        let hard = (ulimit -s | first | get hard);
+        $soft == $hard
+    ",
+    )?;
 
-        assert!(actual.out.contains("true"));
-    });
+    assert!(actual.stdout.contains("true"));
+    Ok(())
 }
 
 #[test]
-fn limit_set_hard2() {
-    Playground::setup("limit_set_hard2", |dirs, _sandbox| {
-        let actual = nu!(cwd: dirs.test(), "
-            let hard = (ulimit -s | first | get hard);
-            ulimit -s hard;
-            let soft = (ulimit -s | first | get soft);
-            $soft == $hard
-        ");
+#[deps(NU)]
+fn limit_set_hard1() -> Result {
+    let actual = run_ulimit(
+        "
+        let hard = (ulimit -s | first | get hard);
+        ulimit -s $hard;
+        let soft = (ulimit -s | first | get soft);
+        $soft == $hard
+    ",
+    )?;
 
-        assert!(actual.out.contains("true"));
-    });
+    assert!(actual.stdout.contains("true"));
+    Ok(())
 }
 
 #[test]
-fn limit_set_invalid1() {
-    Playground::setup("limit_set_invalid1", |dirs, _sandbox| {
-        let actual = nu!(cwd: dirs.test(), "
-            let hard = (ulimit -s | first | get hard);
-            match $hard {
-                \"unlimited\" => { echo \"unlimited\" },
-                $x => {
-                    let new = $x + 1;
-                    ulimit -s $new
-                }
+#[deps(NU)]
+fn limit_set_hard2() -> Result {
+    let actual = run_ulimit(
+        "
+        let hard = (ulimit -s | first | get hard);
+        ulimit -s hard;
+        let soft = (ulimit -s | first | get soft);
+        $soft == $hard
+    ",
+    )?;
+
+    assert!(actual.stdout.contains("true"));
+    Ok(())
+}
+
+#[test]
+#[deps(NU)]
+fn limit_set_invalid1() -> Result {
+    let actual = run_ulimit(
+        "
+        let hard = (ulimit -s | first | get hard);
+        match $hard {
+            \"unlimited\" => { echo \"unlimited\" },
+            $x => {
+                let new = $x + 1;
+                ulimit -s $new
             }
-        ");
+        }
+    ",
+    )?;
 
-        assert!(
-            actual.out.contains("unlimited")
-                || actual.err.contains("EPERM: Operation not permitted")
-        );
-    });
+    assert!(
+        actual.stdout.contains("unlimited")
+            || actual.stderr.contains("EPERM: Operation not permitted")
+    );
+    Ok(())
 }
 
 #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "macos"))]
 #[test]
-fn limit_set_invalid2() {
-    Playground::setup("limit_set_invalid2", |dirs, _sandbox| {
-        let actual = nu!(
-            cwd: dirs.test(),
-            "
-                let val = -100;
-                ulimit -c $val
-            "
-        );
+#[deps(NU)]
+fn limit_set_invalid2() -> Result {
+    let actual = run_ulimit(
+        "
+        let val = -100;
+        ulimit -c $val
+    ",
+    )?;
 
-        assert!(actual.err.contains("can't convert i64 to rlim_t"));
-    });
+    assert!(actual.stderr.contains("can't convert i64 to rlim_t"));
+    Ok(())
 }
 
 #[test]
-fn limit_set_invalid3() {
-    Playground::setup("limit_set_invalid3", |dirs, _sandbox| {
-        let actual = nu!(
-            cwd: dirs.test(),
-            "
-                ulimit -c abcd
-            "
-        );
+#[deps(NU)]
+fn limit_set_invalid3() -> Result {
+    let actual = run_ulimit(
+        "
+        ulimit -c abcd
+    ",
+    )?;
 
-        assert!(
-            actual
-                .err
-                .contains("Only unlimited, soft and hard are supported for strings")
-        );
-    });
+    assert!(
+        actual
+            .stderr
+            .contains("Only unlimited, soft and hard are supported for strings")
+    );
+    Ok(())
 }
 
 #[test]
-fn limit_set_invalid4() {
-    Playground::setup("limit_set_invalid4", |dirs, _sandbox| {
-        let actual = nu!(
-            cwd: dirs.test(),
-            "
-                ulimit -c 100.0
-            "
-        );
+#[deps(NU)]
+fn limit_set_invalid4() -> Result {
+    let actual = run_ulimit(
+        "
+        ulimit -c 100.0
+    ",
+    )?;
 
-        assert!(actual.err.contains("string, int or filesize required"));
-    });
+    assert!(actual.stderr.contains("string, int or filesize required"));
+    Ok(())
 }
 
 #[test]
-fn limit_set_invalid5() {
+#[deps(NU)]
+fn limit_set_invalid5() -> Result {
     use nix::sys::resource::rlim_t;
 
     let max = (rlim_t::MAX / 1024) + 1;
 
-    Playground::setup("limit_set_invalid5", |dirs, _sandbox| {
-        let actual = nu!(cwd: dirs.test(), format!(r#"
+    let actual = run_ulimit(&format!(
+        r#"
             let hard = (ulimit -c | first | get hard)
             match $hard {{
                 "unlimited" => {{
@@ -147,54 +161,57 @@ fn limit_set_invalid5() {
                     echo "unlimited"
                 }}
             }}
-        "#));
+        "#
+    ))?;
 
-        assert!(actual.out.eq("unlimited"));
-    });
+    assert_eq!(actual.stdout.trim(), "unlimited");
+    Ok(())
 }
 
 #[test]
-fn limit_set_filesize1() {
-    Playground::setup("limit_set_filesize1", |dirs, _sandbox| {
-        let actual = nu!(cwd: dirs.test(), "
-            let hard = (ulimit -c | first | get hard);
-            match $hard {
-                \"unlimited\" => {
-                    ulimit -c 1Mib;
-                    ulimit -c
-                    | first
-                    | get soft
-                },
-                $x if $x >= 1024 * 1024 => {
-                    ulimit -c 1Mib;
-                    ulimit -c
-                    | first
-                    | get soft
-                }
-                _ => {
-                    echo \"hard limit too small\"
-                }
+#[deps(NU)]
+fn limit_set_filesize1() -> Result {
+    let actual = run_ulimit(
+        "
+        let hard = (ulimit -c | first | get hard);
+        match $hard {
+            \"unlimited\" => {
+                ulimit -c 1Mib;
+                ulimit -c
+                | first
+                | get soft
+            },
+            $x if $x >= 1024 * 1024 => {
+                ulimit -c 1Mib;
+                ulimit -c
+                | first
+                | get soft
             }
-        ");
+            _ => {
+                echo \"hard limit too small\"
+            }
+        }
+    ",
+    )?;
 
-        assert!(actual.out.eq("1024") || actual.out.eq("hard limit too small"));
-    });
+    let stdout = actual.stdout.trim();
+    assert!(stdout == "1024" || stdout == "hard limit too small");
+    Ok(())
 }
 
 #[test]
-fn limit_set_filesize2() {
-    Playground::setup("limit_set_filesize2", |dirs, _sandbox| {
-        let actual = nu!(
-            cwd: dirs.test(),
-            "
-                ulimit -n 10Kib
-            "
-        );
+#[deps(NU)]
+fn limit_set_filesize2() -> Result {
+    let actual = run_ulimit(
+        "
+        ulimit -n 10Kib
+    ",
+    )?;
 
-        assert!(
-            actual
-                .err
-                .contains("filesize is not compatible with resource RLIMIT_NOFILE")
-        );
-    });
+    assert!(
+        actual
+            .stderr
+            .contains("filesize is not compatible with resource RLIMIT_NOFILE")
+    );
+    Ok(())
 }

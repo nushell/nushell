@@ -401,6 +401,7 @@ fn describe_value_inner(
             })
         }
         Value::List { ref mut vals, .. } => {
+            let vals = vals.to_mut();
             for val in &mut *vals {
                 *val =
                     describe_value_inner(std::mem::take(val), head, engine_state).into_value(head);
