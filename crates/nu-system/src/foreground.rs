@@ -32,6 +32,12 @@ pub fn prepare_background_command(command: &mut Command) {
         const CREATE_NO_WINDOW: u32 = 0x0800_0000;
         command.creation_flags(CREATE_NO_WINDOW);
     }
+
+    // cover the wasm case
+    #[cfg(target_family = "wasm")]
+    {
+        let _ = command;
+    }
 }
 
 #[cfg(unix)]
