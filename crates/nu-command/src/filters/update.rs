@@ -444,11 +444,12 @@ fn update_single_value_by_closure(
         return Ok(());
     }
 
-    // FIXME: this leads to inconsistent behaviors between
-    // `{a: b} | update a {|x| print $x}` and
-    // `[{a: b}] | update 0.a {|x| print $x}`
     let arg = if cell_value_as_arg {
-        value_at_path.as_ref()
+        if matches!(cell_path.first(), Some(PathMember::String { .. })) {
+            &*value
+        } else {
+            value_at_path.as_ref()
+        }
     } else {
         &*value
     };
