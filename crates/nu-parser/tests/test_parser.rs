@@ -1,9 +1,12 @@
 use nu_parser::*;
+use nu_path::PathBuf;
 use nu_protocol::{
-    DeclId, FilesizeUnit, ParseError, Signature, Span, SyntaxShape, Type, Unit,
+    DeclId, FilesizeUnit, IntoValue, ParseError, Signature, Span, SyntaxShape, Type, Unit,
+    VirtualPathId,
     ast::{Argument, Expr, Expression, ExternalArgument, PathMember, Range},
-    engine::{Command, EngineState, Stack, StateWorkingSet},
+    engine::{Command, EngineState, Stack, StateWorkingSet, VirtualPath},
 };
+use nu_test_support::fs;
 use rstest::rstest;
 
 use mock::{
@@ -1097,6 +1100,71 @@ fn parse_percent_prefixed_unknown_command_does_not_fallback_to_external() {
     let pipeline = &block.pipelines[0];
     let element = &pipeline.elements[0];
     assert!(matches!(element.expr.expr, Expr::ExternalCall(..)));
+}
+
+#[rstest]
+#[case("internal/lib", "internal/lib/mod.nu")]
+#[case(
+    &PathBuf::from_iter(["internal", "lib"]).to_string_lossy().to_string(),
+    "internal/lib/mod.nu"
+)]
+#[case(
+    "test_module",
+    &fs::fixtures().join("parse_module_path").join("test_module").join("mod.nu").to_string_lossy().to_string()
+)]
+#[case(
+    "test_module/sub",
+    &fs::fixtures().join("parse_module_path").join("test_module").join("sub").join("mod.nu").to_string_lossy().to_string()
+)]
+#[case(
+    &PathBuf::from_iter(["test_module", "sub"]).to_string_lossy().to_string(),
+    &fs::fixtures().join("parse_module_path").join("test_module").join("sub").join("mod.nu").to_string_lossy().to_string()
+)]
+fn parse_module_path(#[case] import_specifier: &str, #[case] expected_output: &str) {
+    let test_root = fs::fixtures().join("parse_module_path");
+    let mut engine_state = EngineState::new();
+    engine_state.add_env_var(
+        "PWD".into(),
+        test_root
+            .to_string_lossy()
+            .to_string()
+            .into_value(Span::test_data()),
+    );
+
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    fn add_virtual_file(
+        working_set: &mut StateWorkingSet,
+        name: &str,
+        content: &str,
+    ) -> VirtualPathId {
+        let file = working_set.add_file(name, content.as_bytes());
+        working_set.add_virtual_path(name.into(), VirtualPath::File(file))
+    }
+
+    let files = vec![add_virtual_file(
+        &mut working_set,
+        "internal/lib/mod.nu",
+        "",
+    )];
+
+    let mod_dir = working_set.add_virtual_path("internal/lib".into(), VirtualPath::Dir(files));
+    let _ = working_set.add_virtual_path("internal".into(), VirtualPath::Dir(vec![mod_dir]));
+    let _ = working_set.add_file("this/is/a/path/mod.nu", &[]);
+
+    let module_id = parse_module_file_or_dir(
+        &mut working_set,
+        &import_specifier.to_string().into_bytes(),
+        Span::test_data(),
+        None,
+    )
+    .unwrap();
+
+    let module = working_set.get_module(module_id);
+    assert_eq!(
+        module.file.clone().unwrap().0.path().to_string_lossy(),
+        expected_output
+    );
 }
 
 fn test_external_call(input: &str, tag: &str, f: impl FnOnce(&Expression, &[ExternalArgument])) {
