@@ -448,21 +448,23 @@ pub fn parse_raw_string(working_set: &mut StateWorkingSet, span: Span) -> Expres
     // the whole raw string should contains at least
     // 1(r) + prefix_sharp_cnt + 1(') + 1(') + postfix_sharp characters
     if bytes.len() < prefix_sharp_cnt + expect_postfix_sharp_cnt + 3 {
-        working_set.error(ParseError::Unclosed("'", span));
+        let open = Span::new(span.start, span.start.saturating_add(1).min(span.end));
+        working_set.error(ParseError::unclosed("'", open, span));
         return garbage(working_set, span);
     }
 
     // check for unbalanced # and single quotes.
     let postfix_bytes = &bytes[bytes.len() - expect_postfix_sharp_cnt..bytes.len()];
     if postfix_bytes.iter().any(|b| *b != b'#') {
-        working_set.error(ParseError::Unbalanced("prefix #", "postfix #", span));
+        working_set.error(ParseError::unbalanced("prefix #", "postfix #", span));
         return garbage(working_set, span);
     }
     // check for unblanaced single quotes.
     if bytes[1 + prefix_sharp_cnt] != b'\''
         || bytes[bytes.len() - expect_postfix_sharp_cnt - 1] != b'\''
     {
-        working_set.error(ParseError::Unclosed("'", span));
+        let open = Span::new(span.start, span.start.saturating_add(1).min(span.end));
+        working_set.error(ParseError::unclosed("'", open, span));
         return garbage(working_set, span);
     }
 
@@ -503,8 +505,14 @@ pub fn parse_paren_expr(
         let malformed_subexpr = working_set.parse_errors[starting_error_count..]
             .first()
             .is_some_and(|e| match e {
-                ParseError::Unclosed(right, _) if (*right == ")") => true,
-                ParseError::Unbalanced(left, right, _) if *left == "(" && *right == ")" => true,
+                ParseError::Unclosed(right, ..) if (*right == ")") => true,
+                ParseError::Unbalanced(left, right, ..) if *left == "(" && *right == ")" => true,
+                // Lex presentation may reshape an unexpected `)` into "Missing `(`"
+                // (lookback labels). That is still a paren-delimiter failure and
+                // should fall back to bare-word string interpolation the same way.
+                ParseError::LabeledErrorWithHelp { error, .. } if error.contains("Missing `(`") => {
+                    true
+                }
                 _ => false,
             });
         if malformed_subexpr {
@@ -845,6 +853,20 @@ pub fn parse_variable_expr(
             working_set.get_span_contents(span),
         )
     };
+
+    // Bare `$` (often from `$ env` with a space) is a very common config typo.
+    if bytes == b"$" || bytes == b"$\"\"" {
+        working_set.error(ParseError::LabeledErrorWithHelp {
+            error: "Incomplete variable".into(),
+            label: "expected a variable name after `$`".into(),
+            help: "Variable names must be attached to `$` with no space (e.g. `$env`, `$in`). \
+                   Did you mean `$env`?"
+                .into(),
+            span,
+        });
+        return garbage(working_set, span);
+    }
+
     if !is_variable(bytes) {
         working_set.error(ParseError::ExpectedWithDidYouMean(
             "valid variable name",
@@ -1080,7 +1102,11 @@ pub fn parse_full_cell_path(
             if bytes.ends_with(b")") {
                 end -= 1;
             } else {
-                working_set.error(ParseError::Unclosed(")", Span::new(end, end)));
+                let open = Span::new(
+                    head_span.start,
+                    head_span.start.saturating_add(1).min(head_span.end),
+                );
+                working_set.error(ParseError::unclosed(")", open, Span::new(end, end)));
                 is_closed = false;
             }
 
@@ -1966,15 +1992,18 @@ pub fn parse_string_strict(working_set: &mut StateWorkingSet, span: Span) -> Exp
             bytes
         };
         if bytes.starts_with(b"\"") && (bytes.len() == 1 || !bytes.ends_with(b"\"")) {
-            working_set.error(ParseError::Unclosed("\"", span));
+            let open = Span::new(span.start, span.start.saturating_add(1).min(span.end));
+            working_set.error(ParseError::unclosed("\"", open, span));
             return garbage(working_set, span);
         }
         if bytes.starts_with(b"\'") && (bytes.len() == 1 || !bytes.ends_with(b"\'")) {
-            working_set.error(ParseError::Unclosed("\'", span));
+            let open = Span::new(span.start, span.start.saturating_add(1).min(span.end));
+            working_set.error(ParseError::unclosed("\'", open, span));
             return garbage(working_set, span);
         }
         if bytes.starts_with(b"r#") && (bytes.len() == 1 || !bytes.ends_with(b"#")) {
-            working_set.error(ParseError::Unclosed("r#", span));
+            let open = Span::new(span.start, span.start.saturating_add(2).min(span.end));
+            working_set.error(ParseError::unclosed("r#", open, span));
             return garbage(working_set, span);
         }
     }

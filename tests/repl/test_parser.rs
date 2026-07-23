@@ -834,7 +834,7 @@ fn row_condition_non_boolean() -> TestResult {
 fn performance_nested_lists() -> TestResult {
     // Parser used to be exponential on deeply nested lists
     // TODO: Add a timeout
-    fail_test("[[[[[[[[[[[[[[[[[[[[[[[[[[[[", "Unexpected end of code")
+    fail_test("[[[[[[[[[[[[[[[[[[[[[[[[[[[[", "Unclosed delimiter")
 }
 
 #[test]
@@ -925,32 +925,32 @@ fn or_and_xor() -> TestResult {
 
 #[test]
 fn unbalanced_delimiter() -> TestResult {
-    fail_test("{a:{b:5}}}", "unbalanced { and }")
+    fail_test("{a:{b:5}}}", "unbalanced with `{`")
 }
 
 #[test]
 fn unbalanced_delimiter2() -> TestResult {
-    fail_test("{}#.}", "unbalanced { and }")
+    fail_test("{}#.}", "unbalanced with `{`")
 }
 
 #[test]
 fn unbalanced_delimiter3() -> TestResult {
-    fail_test("{", "Unexpected end of code")
+    fail_test("{", "Unclosed delimiter")
 }
 
 #[test]
 fn unbalanced_delimiter4() -> TestResult {
-    fail_test("}", "unbalanced { and }")
+    fail_test("}", "unbalanced with `{`")
 }
 
 #[test]
 fn unbalanced_parens1() -> TestResult {
-    fail_test(")", "unbalanced ( and )")
+    fail_test(")", "unbalanced with `(`")
 }
 
 #[test]
 fn unbalanced_parens2() -> TestResult {
-    fail_test(r#"("("))"#, "unbalanced ( and )")
+    fail_test(r#"("("))"#, "unbalanced with `(`")
 }
 
 #[cfg(feature = "plugin")]
@@ -1371,8 +1371,8 @@ fn implied_collect_has_compatible_type() -> TestResult {
 
 #[test]
 fn record_expected_colon() -> TestResult {
-    fail_test("{ a: 2 b }", "expected ':'")?;
-    fail_test("{ a: 2 b 3 }", "expected ':'")
+    fail_test("{ a: 2 b }", "expected `:`")?;
+    fail_test("{ a: 2 b 3 }", "expected `:`")
 }
 
 #[test]
@@ -1442,7 +1442,7 @@ fn external_argument_with_subexpressions() -> TestResult {
     run_test("^echo foo( ('bar') | $in ++ 'baz' )", "foobarbaz")?;
     run_test("^echo foo( 'bar' )('baz')", "foobarbaz")?;
     run_test(r#"^echo ")('foo')(""#, ")('foo')(")?;
-    fail_test("^echo foo( 'bar'", "Unexpected end of code")
+    fail_test("^echo foo( 'bar'", "Unclosed delimiter")
 }
 
 // https://github.com/nushell/nushell/issues/16332

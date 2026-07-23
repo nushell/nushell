@@ -1067,6 +1067,7 @@ fn do_run_cmd(
         &format!("repl_entry #{entry_num}"),
         PipelineData::empty(),
         false,
+        None,
     ) {
         Err(ShellError::Exit { code, .. }) => {
             return cleanup_exit(line_editor, engine_state, code);

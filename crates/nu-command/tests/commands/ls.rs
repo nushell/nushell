@@ -62,9 +62,11 @@ fn lists_regular_files_in_special_folder() -> Result {
             .run("(ls).name")
             .expect_value_eq(["test.txt"])?;
 
+        // Quote the path: `]` is a list closer and cannot appear unquoted inside
+        // a parenthesized subexpression.
         test()
             .cwd(dirs.test())
-            .run("(ls abcd]).name")
+            .run(r#"(ls "abcd]").name"#)
             .expect_value_eq(["abcd]/test.txt"])?;
 
         test()

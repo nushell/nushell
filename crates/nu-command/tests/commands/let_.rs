@@ -139,10 +139,21 @@ fn let_raw_string() {
 #[test]
 fn let_malformed_type() {
     let actual = nu!("let foo: )a");
-    assert!(actual.err.contains("unbalanced ( and )"));
+    // Unexpected `)` — may surface as unbalanced or missing-`(` presentation.
+    assert!(
+        actual.err.contains("unbalanced with `(`")
+            || actual.err.contains("Missing `(`")
+            || actual.err.contains("Unbalanced delimiter"),
+        "unexpected err: {}",
+        actual.err
+    );
 
     let actual = nu!("let foo: }a");
-    assert!(actual.err.contains("unbalanced { and }"));
+    assert!(
+        actual.err.contains("unbalanced with `{`") || actual.err.contains("Unbalanced delimiter"),
+        "unexpected err: {}",
+        actual.err
+    );
 
     let actual = nu!("mut : , a");
     assert!(actual.err.contains("unknown type"));

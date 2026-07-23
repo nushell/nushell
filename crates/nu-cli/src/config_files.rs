@@ -1,4 +1,5 @@
-use crate::util::eval_source;
+use crate::startup_context::{StartupFileKind, StartupLoadContext, report_startup_shell_error};
+use crate::util::{eval_source, eval_source_with_startup};
 #[cfg(feature = "plugin")]
 use nu_path::absolute_with;
 #[cfg(feature = "plugin")]
@@ -6,7 +7,7 @@ use nu_protocol::shell_error::generic::GenericError;
 #[cfg(feature = "plugin")]
 use nu_protocol::{ParseError, PluginRegistryFile, Span, engine::StateWorkingSet};
 use nu_protocol::{
-    PipelineData,
+    PipelineData, ShellError,
     engine::{EngineState, Stack},
     report_shell_error,
 };
@@ -241,33 +242,66 @@ pub fn eval_config_contents(
     stack: &mut Stack,
     strict_mode: bool,
 ) {
+    eval_config_contents_with_kind(
+        config_path,
+        engine_state,
+        stack,
+        strict_mode,
+        StartupFileKind::Config,
+    )
+}
+
+/// Evaluate a startup configuration file with a specific role for error framing.
+pub fn eval_config_contents_with_kind(
+    config_path: PathBuf,
+    engine_state: &mut EngineState,
+    stack: &mut Stack,
+    strict_mode: bool,
+    kind: StartupFileKind,
+) {
     if config_path.exists() & config_path.is_file() {
         let config_filename = config_path.to_string_lossy();
+        let startup = StartupLoadContext::new(kind, config_path.clone());
 
-        if let Ok(contents) = std::fs::read(&config_path) {
-            // Set the current active file to the config file.
-            let prev_file = engine_state.file.take();
-            engine_state.file = Some(config_path.clone());
+        match std::fs::read(&config_path) {
+            Ok(contents) => {
+                // Set the current active file to the config file.
+                let prev_file = engine_state.file.take();
+                engine_state.file = Some(config_path.clone());
 
-            // TODO: ignore this error?
-            let exit_code = eval_source(
-                engine_state,
-                stack,
-                &contents,
-                &config_filename,
-                PipelineData::empty(),
-                false,
-            );
-            if exit_code != 0 && strict_mode {
-                std::process::exit(exit_code)
+                let exit_code = eval_source_with_startup(
+                    engine_state,
+                    stack,
+                    &contents,
+                    &config_filename,
+                    PipelineData::empty(),
+                    false,
+                    Some(&startup),
+                );
+                if exit_code != 0 && strict_mode {
+                    std::process::exit(exit_code)
+                }
+
+                // Restore the current active file.
+                engine_state.file = prev_file;
+
+                // Merge the environment in case env vars changed in the config
+                if let Err(e) = engine_state.merge_env(stack) {
+                    report_startup_shell_error(Some(stack), engine_state, &e, Some(&startup));
+                }
             }
-
-            // Restore the current active file.
-            engine_state.file = prev_file;
-
-            // Merge the environment in case env vars changed in the config
-            if let Err(e) = engine_state.merge_env(stack) {
-                report_shell_error(Some(stack), engine_state, &e);
+            Err(err) => {
+                report_startup_shell_error(
+                    None,
+                    engine_state,
+                    &ShellError::Generic(
+                        nu_protocol::shell_error::generic::GenericError::new_internal(
+                            format!("Could not read {}", config_path.display()),
+                            err.to_string(),
+                        ),
+                    ),
+                    Some(&startup),
+                );
             }
         }
     }
