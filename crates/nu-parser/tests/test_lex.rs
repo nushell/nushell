@@ -383,9 +383,7 @@ fn delimiter_structure_hint_unsure() {
 #[case::multiline_closed_double_quoted_string(b"let x = \"hello\nworld\"\n")]
 #[case::multiline_closed_single_quoted_string(b"let x = 'hello\nworld'\n")]
 #[case::multiline_closed_list(b"let y = [1, 2, 3\n4, 5, 6]\n")]
-#[case::multiline_closed_list_with_nested(
-    b"let y = [\n  1,\n  (2 + 3),\n  {a: 4}\n]\n"
-)]
+#[case::multiline_closed_list_with_nested(b"let y = [\n  1,\n  (2 + 3),\n  {a: 4}\n]\n")]
 #[case::multiline_closed_record(b"let r = {\n  a: 1\n  b: 2\n}\n")]
 #[case::multiline_closed_parens(b"let n = (\n  1 + 2\n)\n")]
 fn lex_valid_code_never_errors_from_indent_style(#[case] file: &[u8]) {
