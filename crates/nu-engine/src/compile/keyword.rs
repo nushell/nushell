@@ -74,6 +74,7 @@ pub(crate) fn compile_if(
         working_set,
         builder,
         true_block,
+        true,
         redirect_modes.clone(),
         Some(io_reg),
         io_reg,
@@ -109,6 +110,7 @@ pub(crate) fn compile_if(
                     working_set,
                     builder,
                     false_block,
+                    true,
                     redirect_modes,
                     Some(io_reg),
                     io_reg,
@@ -264,6 +266,7 @@ pub(crate) fn compile_match(
                 working_set,
                 builder,
                 block,
+                true,
                 redirect_modes.clone(),
                 Some(io_reg),
                 io_reg,
@@ -352,6 +355,7 @@ pub(crate) fn compile_let(
                 working_set,
                 builder,
                 block,
+                true,
                 RedirectModes::value(call.head),
                 input_reg,
                 io_reg,
@@ -464,10 +468,8 @@ pub(crate) fn compile_try(
         .and_then(|mut iter| Some((iter.next()?, iter.next(), iter.next())))
         .ok_or_else(invalid)?;
 
-    let block = {
-        let block_id = try_block.as_block().ok_or_else(invalid)?;
-        working_set.get_block(block_id)
-    };
+    let try_block_id = try_block.as_block().ok_or_else(invalid)?;
+    let block = working_set.get_block(try_block_id);
 
     let (catch_expr, finally_expr) = {
         let catch_or_finally = catch_or_finally
@@ -595,6 +597,7 @@ pub(crate) fn compile_try(
         working_set,
         builder,
         block,
+        true,
         redirect_modes.clone(),
         Some(io_reg),
         io_reg,
@@ -663,6 +666,7 @@ pub(crate) fn compile_try(
                 working_set,
                 builder,
                 block,
+                true,
                 redirect_modes.clone(),
                 Some(io_reg),
                 io_reg,
@@ -705,6 +709,7 @@ pub(crate) fn compile_try(
             working_set,
             builder,
             finally_part.block,
+            true,
             redirect_modes,
             Some(io_reg),
             io_reg,
@@ -786,14 +791,12 @@ pub(crate) fn compile_loop(
         span: call.head,
     };
 
-    let block = {
-        let block_id = call
-            .positional_iter()
-            .next()
-            .and_then(Expression::as_block)
-            .ok_or_else(invalid)?;
-        working_set.get_block(block_id)
-    };
+    let block_id = call
+        .positional_iter()
+        .next()
+        .and_then(Expression::as_block)
+        .ok_or_else(invalid)?;
+    let block = working_set.get_block(block_id);
 
     let loop_ = builder.begin_loop();
     builder.load_empty(io_reg)?;
@@ -804,6 +807,7 @@ pub(crate) fn compile_loop(
         working_set,
         builder,
         block,
+        true,
         RedirectModes::default(),
         None,
         io_reg,
@@ -853,10 +857,8 @@ pub(crate) fn compile_while(
         .and_then(|mut iter| Some((iter.next()?, iter.next()?)))
         .ok_or_else(invalid)?;
 
-    let block = {
-        let block_id = block_arg.as_block().ok_or_else(invalid)?;
-        working_set.get_block(block_id)
-    };
+    let block_id = block_arg.as_block().ok_or_else(invalid)?;
+    let block = working_set.get_block(block_id);
 
     let loop_ = builder.begin_loop();
     builder.set_label(loop_.continue_label, builder.here())?;
@@ -885,6 +887,7 @@ pub(crate) fn compile_while(
         working_set,
         builder,
         block,
+        true,
         RedirectModes::default(),
         None,
         io_reg,
@@ -990,6 +993,7 @@ pub(crate) fn compile_for(
         working_set,
         builder,
         block,
+        true,
         RedirectModes::default(),
         None,
         io_reg,
