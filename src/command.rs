@@ -544,6 +544,17 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
     }
 
     while let Some(arg) = parser.next().map_err(map_lexopt_error)? {
+        let mut consume_remaining_args = |parser: &mut lexopt::Parser| {
+            let rest = parser
+                .raw_args()
+                .map_err(map_lexopt_error)?
+                .map(|arg| arg.to_string_lossy().to_string())
+                .map(|arg| escape_for_script_arg(&arg))
+                .collect::<Vec<_>>();
+            args_to_script.extend(rest);
+            Ok(())
+        };
+
         match arg {
             Short('h') | Long("help") => {
                 let help = cli_help_text();
@@ -562,6 +573,8 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
             Short('c') | Long("commands") => {
                 let value = parse_string_value(&mut parser, "commands")?;
                 cli.commands = Some(spanned_value(value));
+                consume_remaining_args(&mut parser)?;
+                break;
             }
             Short('e') | Long("execute") => {
                 let value = parse_string_value(&mut parser, "execute")?;
@@ -743,15 +756,10 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
                     CliError::new("Invalid argument", "argument is not valid unicode")
                         .with_help("Use UTF-8 arguments when calling nushell.")
                 })?;
-                if script_name.is_empty() {
+
+                if script_name.is_empty() && cli.commands.is_none() {
                     script_name = value;
-                    let rest = parser
-                        .raw_args()
-                        .map_err(map_lexopt_error)?
-                        .map(|arg| arg.to_string_lossy().to_string())
-                        .map(|arg| escape_for_script_arg(&arg))
-                        .collect::<Vec<_>>();
-                    args_to_script.extend(rest);
+                    consume_remaining_args(&mut parser)?;
                     break;
                 } else {
                     args_to_script.push(escape_for_script_arg(&value));

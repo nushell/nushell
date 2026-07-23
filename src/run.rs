@@ -19,13 +19,19 @@ use std::sync::Arc;
 pub(crate) fn run_commands(
     engine_state: &mut EngineState,
     mut stack: Stack,
-    parsed_nu_cli_args: command::NushellCliArgs,
+    parsed_cli: command::ParsedCli,
     use_color: bool,
     commands: &nu_protocol::Spanned<String>,
     input: PipelineData,
     entire_start_time: nu_utils::time::Instant,
 ) {
     trace!("run_commands");
+
+    let command::ParsedCli {
+        nu: parsed_nu_cli_args,
+        args_to_script,
+        ..
+    } = parsed_cli;
 
     let start_time = nu_utils::time::Instant::now();
     let create_scaffold = !engine_state.config_dirs.config_home.exists();
@@ -102,6 +108,7 @@ pub(crate) fn run_commands(
         engine_state,
         &mut stack,
         input,
+        args_to_script,
         EvaluateCommandsOpts {
             table_mode: parsed_nu_cli_args.table_mode,
             error_style: parsed_nu_cli_args.error_style,
