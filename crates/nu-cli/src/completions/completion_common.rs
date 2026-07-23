@@ -78,6 +78,7 @@ fn complete_rec(
     let mut exact_match = None;
     // Only relevant for case insensitive matching
     let mut multiple_exact_matches = false;
+    let mut unreadable_exact_matches = Vec::new();
     for built in built_paths {
         let mut path = built.cwd.clone();
         for part in &built.parts {
@@ -85,6 +86,19 @@ fn complete_rec(
         }
 
         let Ok(result) = path.read_dir() else {
+            if has_more && !prefix.is_empty() {
+                let candidate = path.join(prefix);
+                if candidate.is_dir() {
+                    let mut built_exact = built.clone();
+                    let match_indices = (0..prefix.graphemes(true).count()).collect();
+                    built_exact.parts.push(MatchedPart {
+                        text: prefix.to_string(),
+                        match_indices,
+                    });
+                    built_exact.isdir = true;
+                    unreadable_exact_matches.push(built_exact);
+                }
+            }
             continue;
         };
 
@@ -146,7 +160,7 @@ fn complete_rec(
             });
 
     if has_more {
-        completion_iter
+        let mut completions: Vec<_> = completion_iter
             .flat_map(|completion| {
                 complete_rec(
                     &partial[1..],
@@ -157,7 +171,18 @@ fn complete_rec(
                     false,
                 )
             })
-            .collect()
+            .collect();
+        completions.extend(unreadable_exact_matches.into_iter().flat_map(|completion| {
+            complete_rec(
+                &partial[1..],
+                &[completion],
+                options,
+                want_directory,
+                isdir,
+                true,
+            )
+        }));
+        completions
     } else {
         completion_iter.collect()
     }
