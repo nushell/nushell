@@ -145,7 +145,7 @@ bytes = "1"
 bytesize = "2.3.1"
 byteyarn = "0.5"
 calamine = "0.36"
-chardetng = "0.1.17"
+chardetng = "1.0.0"
 chrono = { default-features = false, version = "0.4.42" }
 chrono-humanize = "0.2.3"
 chrono-tz = "0.10"
@@ -156,7 +156,7 @@ ctrlc = "3.5"
 derive_more = "2.1.1"
 derive_setters = "0.1.9"
 devicons = "0.6.12"
-digest = { default-features = false, version = "0.10" }
+digest = { default-features = false, version = "0.11.3" }
 dirs = "6.0"
 dirs-sys = "0.5"
 dns-lookup = "3.0.1"
@@ -165,7 +165,7 @@ encoding_rs = "0.8"
 fancy-regex = "0.18"
 filesize = "0.2"
 filetime = "0.2.27"
-fff-search = { version = "=0.9.6", default-features = false }
+fff-search = { version = "=0.10.1", default-features = false, features = ["ripgrep"] }
 fluent = "0.17.0"
 gatekeeper = "3.0.0"
 heck = "0.5.0"
@@ -186,21 +186,21 @@ libproc = "0.14.11"
 log = "0.4"
 lru = "0.18.0"
 lscolors = { version = "0.21", default-features = false }
-lsp-server = "0.8.0"
+lsp-server = "0.10.0"
 lsp-types = { version = "0.97.0", features = ["proposed"] }
 lsp-textdocument = "0.5.0"
 linkme = "0.3.36"
 mach2 = "0.6"
-md5 = { version = "0.10", package = "md-5" }
+md5 = { version = "0.11.0", package = "md-5" }
 miette = "7.6"
 mime = "0.3.17"
 mime_guess = "2.0"
 mq-markdown = "0.6.0"
 mockito = { version = "1.7.2", default-features = false }
-multipart-rs = "0.1.13"
+multipart-rs = "0.2.2"
 native-tls = "0.2.18"
 nix = { version = "0.31.3", default-features = false }
-notify-debouncer-full = { version = "0.3", default-features = false }
+notify-debouncer-full = { version = "0.7.0", default-features = false }
 nu-ansi-term = "0.50.3"
 nucleo-matcher = "0.3"
 num-format = "0.4"
@@ -213,7 +213,7 @@ parking_lot = "0.12.5"
 pastey = "0.2.3"
 pathdiff = "0.2"
 percent-encoding = "2"
-pretty_assertions = "1.4"
+pretty_assertions = { version = "1.4", features = ["unstable"] }
 print-positions = "0.6"
 proc-macro-error2 = "2.0"
 proc-macro2 = "1.0"
@@ -248,28 +248,28 @@ rusqlite = "0.40.1"
 # Patch updates are allowed though.
 rustls = { version = "~0.23.38", default-features = false, features = ["std", "tls12"] }
 rustls-native-certs = "0.8"
-serde-saphyr = "0.0.28"
+serde-saphyr = "0.0.29"
 scopeguard = { version = "1.2.0" }
 ndarray = { version = "0.17", features = ["serde", "approx", "rayon", "matrixmultiply-threading"] }
 semver = "1.0"
 serde = { version = "1.0" }
 serde_json = "1.0.149"
 serde_urlencoded = "0.7.1"
-sha2 = "0.10"
+sha2 = "0.11.0"
 strip-ansi-escapes = "0.2.1"
-strum = { version = "0.27.0", features = ["derive"] }
-strum_macros = "0.27.0"
-syn = "2.0.117"
+strum = { version = "0.28.0", features = ["derive"] }
+strum_macros = "0.28.0"
+syn = "3.0.2"
 sysinfo = "0.39.3"
 tabled = { version = "0.21", default-features = false }
 tempfile = "3.27"
-thiserror = "2.0.18"
+thiserror = "2.0.19"
 titlecase = "3.6"
-tokio = { version = "1.52.1" }
+tokio = { version = "1.53.1" }
 toml = "1.1.2"
 toml_edit = "0.25.11"
 kdl = "6.7.1"
-trash = "=5.2.5"
+trash = "=5.2.6"
 update-informer = { version = "1.3.0", default-features = false, features = ["github", "ureq"] }
 umask = "2.1"
 unicode-segmentation = "1.13"
@@ -285,17 +285,22 @@ uu_whoami = "0.9.0"
 uu_uname = "0.9.0"
 uucore = "0.9.0"
 uuid = "1.23.1"
-v_htmlescape = "0.15.8"
+v_htmlescape = "0.17.0"
 memchr = "2.8.0"
 wax = "0.7.0"
 web-time = "1.1.0"
 webpki-roots = "1.0.7"
 which = "8.0.2"
-win_uds = "=0.2.2"
+win_uds = "=0.2.4"
 windows = "0.62.2"
 windows-sys = "0.61.2"
 winnow = "1.0"
 winreg = "0.56"
+
+[workspace.lints.rust]
+# This denies all rustc warnings (including the ones that were causing noise)
+# equivalent to -D warnings
+warnings = "warn"
 
 [workspace.lints.clippy]
 # Warning: workspace lints affect library code as well as tests, so don't enable lints that would be too noisy in tests like that.
@@ -303,7 +308,7 @@ winreg = "0.56"
 format_push_string = "warn"
 needless_raw_strings = "warn"
 result_large_err = "allow"
-unchecked_time_subtraction = "warn"
+unchecked_time_subtraction = "deny"
 unwrap_used = "deny"
 used_underscore_binding = "warn"
 # need to allow this temporarily because it may change code logic.
@@ -480,7 +485,7 @@ bench = false
 # To use a development version of a dependency please use a global override here
 # changing versions in each sub-crate of the workspace is tedious
 [patch.crates-io]
-# reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
+reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
 # nu-ansi-term = { git = "https://github.com/nushell/nu-ansi-term.git", branch = "main" }
 
 # Run all benchmarks with `cargo bench`

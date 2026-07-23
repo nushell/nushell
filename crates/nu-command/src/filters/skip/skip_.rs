@@ -150,7 +150,10 @@ impl Command for Skip {
                 }
             }
             PipelineData::Value(Value::Binary { val, .. }, metadata) => {
-                let bytes = val.into_iter().skip(n).collect::<Vec<_>>();
+                let bytes = match val.try_into_owned() {
+                    Ok(bytes) => bytes.into_iter().skip(n).collect(),
+                    Err(val) => val.as_slice().get(n..).unwrap_or_default().to_vec(),
+                };
                 // if we've skipped over n (greater than 0) amount of binary data and we're
                 // looking at y bytes, the data is really no longer a png image, it's just
                 // some raw bytes. so, in that case there's no need to still have a

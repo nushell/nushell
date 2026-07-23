@@ -240,7 +240,7 @@ pub fn new_partial_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
 
 /// match a list of suggestions with the expected values
 #[track_caller]
-pub fn match_suggestions(expected: &Vec<&str>, suggestions: &Vec<Suggestion>) {
+pub fn match_suggestions(expected: &Vec<&str>, suggestions: &[Suggestion]) {
     let expected_len = expected.len();
     let suggestions_len = suggestions.len();
     if expected_len != suggestions_len {
@@ -261,7 +261,7 @@ pub fn match_suggestions(expected: &Vec<&str>, suggestions: &Vec<Suggestion>) {
 
 /// match a list of suggestions with the expected values
 #[track_caller]
-pub fn match_suggestions_by_string(expected: &[String], suggestions: &Vec<Suggestion>) {
+pub fn match_suggestions_by_string(expected: &[String], suggestions: &[Suggestion]) {
     let expected = expected.iter().map(|it| it.as_str()).collect::<Vec<_>>();
     match_suggestions(&expected, suggestions);
 }

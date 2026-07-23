@@ -98,7 +98,7 @@ impl HashableValue {
                 span: val_span,
             }),
             Value::Binary { val, .. } => Ok(HashableValue::Binary {
-                val,
+                val: val.into_owned(),
                 span: val_span,
             }),
 

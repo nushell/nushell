@@ -22,7 +22,7 @@ nu-plugin-core.workspace = true
 nu-utils.workspace = true
 
 log = { workspace = true }
-thiserror = "2.0.18"
+thiserror = { workspace = true}
 
 [dev-dependencies]
 serde = { workspace = true }

@@ -26,7 +26,7 @@ fn vertical_rotate_value(
     match value {
         Value::List { mut vals, .. } => {
             let rotations = by.map(|n| n % vals.len()).unwrap_or(1);
-            let values = vals.as_mut_slice();
+            let values = vals.to_mut().as_mut_slice();
 
             match direction {
                 VerticalDirection::Up => values.rotate_left(rotations),

@@ -1,6 +1,9 @@
 use std::{fs::File, io, process::Stdio, sync::Arc};
 
-/// Describes where to direct the stdout or stderr output stream of external command to.
+/// Describes where to direct a command's stdout or stderr.
+///
+/// Used both for external-process stdio wiring and for Nushell's internal
+/// pipeline destination (print vs pipe vs collect-to-value, etc.).
 #[derive(Debug, Clone)]
 pub enum OutDest {
     /// Redirect the stdout and/or stderr of one command as the input for the next command in the pipeline.
@@ -34,9 +37,36 @@ pub enum OutDest {
     ///
     /// This is just like `Inherit`, except that [`ListStream`](crate::ListStream)s and
     /// [`Value`](crate::Value)s are also printed.
+    ///
+    /// This is the only destination treated as "not redirected" by
+    /// [`OutDest::is_redirected`] / the `is-redirected` command.
     Print,
     /// Redirect output to a file.
     File(Arc<File>), // Arc<File>, since we sometimes need to clone `OutDest` into iterators, etc.
+}
+
+impl OutDest {
+    /// Returns `true` when output is *not* sent through the interactive display path.
+    ///
+    /// Only [`OutDest::Print`] is treated as displayed. Every other variant means the
+    /// pipeline result is consumed elsewhere (next command, `let`/subexpression,
+    /// file, null device, or inherit-without-printing).
+    ///
+    /// This is **not** an OS-level TTY check. For whether process stdio is a terminal,
+    /// use the `is-terminal` command (`std::io::IsTerminal`).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use nu_protocol::OutDest;
+    /// assert!(!OutDest::Print.is_redirected());
+    /// assert!(OutDest::Pipe.is_redirected());
+    /// assert!(OutDest::Value.is_redirected());
+    /// ```
+    #[must_use]
+    pub fn is_redirected(&self) -> bool {
+        !matches!(self, Self::Print)
+    }
 }
 
 impl From<File> for OutDest {

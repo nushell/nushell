@@ -177,10 +177,10 @@ fn first_helper(
         PipelineData::Value(val, _) => {
             let span = val.span();
             match val {
-                Value::List { mut vals, .. } => {
+                Value::List { vals, .. } => {
                     if return_single_element {
-                        if let Some(val) = vals.first_mut() {
-                            Ok(std::mem::take(val).into_pipeline_data_with_metadata(input_meta))
+                        if let Some(val) = vals.first() {
+                            Ok(val.clone().into_pipeline_data_with_metadata(input_meta))
                         } else if strict_mode {
                             Err(ShellError::AccessEmptyContent { span: head })
                         } else {
@@ -189,11 +189,15 @@ fn first_helper(
                             Ok(Value::nothing(head).into_pipeline_data_with_metadata(input_meta))
                         }
                     } else {
-                        vals.truncate(rows);
-                        Ok(Value::list(vals, span).into_pipeline_data_with_metadata(input_meta))
+                        let value = if rows >= vals.len() {
+                            Value::list_shared(vals, span)
+                        } else {
+                            Value::list(vals.iter().take(rows).cloned().collect(), span)
+                        };
+                        Ok(value.into_pipeline_data_with_metadata(input_meta))
                     }
                 }
-                Value::Binary { mut val, .. } => {
+                Value::Binary { val, .. } => {
                     // A slice (or single byte as int) is not the whole file/stream; drop MIME.
                     let binary_meta = input_meta.map(|m| m.with_content_type(None));
                     if return_single_element {
@@ -208,6 +212,7 @@ fn first_helper(
                             Ok(Value::nothing(head).into_pipeline_data_with_metadata(binary_meta))
                         }
                     } else {
+                        let mut val = val.into_owned();
                         val.truncate(rows);
                         Ok(Value::binary(val, span).into_pipeline_data_with_metadata(binary_meta))
                     }

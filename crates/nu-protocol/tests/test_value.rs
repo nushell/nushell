@@ -1,5 +1,5 @@
 use nu_protocol::{
-    Config, Span, Value,
+    Config, DurationMaxUnit, Span, Value,
     engine::{EngineState, Stack},
 };
 use rstest::rstest;
@@ -113,6 +113,59 @@ fn test_duration_to_string(#[case] in_ns: i64, #[case] expected: &str) {
         expected,
         dur.to_expanded_string("", &Config::default()),
         "expected != observed"
+    );
+}
+
+// 365 days = 52wk 1day with default (wk) max unit
+const ONE_YEAR_NS: i64 = 365 * 24 * 3600 * 1_000_000_000;
+// 1wk 2day 3hr 4min 5sec 6ms 7µs 8ns
+const MIXED_DURATION_NS: i64 =
+    ((((((7 + 2) * 24 + 3) * 60 + 4) * 60 + 5) * 1000 + 6) * 1000 + 7) * 1000 + 8;
+
+fn config_with_duration_max_unit(format: DurationMaxUnit) -> Config {
+    Config {
+        duration_max_unit: format,
+        ..Default::default()
+    }
+}
+
+#[rstest]
+#[case::day_max(ONE_YEAR_NS, DurationMaxUnit::Day, "365day")]
+#[case::hr_max(ONE_YEAR_NS, DurationMaxUnit::Hour, "8760hr")]
+#[case::min_max(ONE_YEAR_NS, DurationMaxUnit::Minute, "525600min")]
+#[case::sec_max(ONE_YEAR_NS, DurationMaxUnit::Second, "31536000sec")]
+#[case::ms_max(3_000_000_000, DurationMaxUnit::Millisecond, "3000ms")]
+#[case::mixed_day_max(
+    MIXED_DURATION_NS,
+    DurationMaxUnit::Day,
+    "9day 3hr 4min 5sec 6ms 7µs 8ns"
+)]
+#[case::mixed_hr_max(
+    MIXED_DURATION_NS,
+    DurationMaxUnit::Hour,
+    "219hr 4min 5sec 6ms 7µs 8ns"
+)]
+#[case::mixed_min_max(
+    MIXED_DURATION_NS,
+    DurationMaxUnit::Minute,
+    "13144min 5sec 6ms 7µs 8ns"
+)]
+#[case::mixed_sec_max(MIXED_DURATION_NS, DurationMaxUnit::Second, "788645sec 6ms 7µs 8ns")]
+#[case::mixed_ms_max(MIXED_DURATION_NS, DurationMaxUnit::Millisecond, "788645006ms 7µs 8ns")]
+#[case::mixed_us_max(MIXED_DURATION_NS, DurationMaxUnit::Microsecond, "788645006007µs 8ns")]
+#[case::mixed_ns_max(MIXED_DURATION_NS, DurationMaxUnit::Nanosecond, "788645006007008ns")]
+#[case::wk_max_unchanged(ONE_YEAR_NS, DurationMaxUnit::Week, "52wk 1day")]
+fn test_duration_max_unit_config(
+    #[case] in_ns: i64,
+    #[case] max_unit: DurationMaxUnit,
+    #[case] expected: &str,
+) {
+    let dur = Value::test_duration(in_ns);
+    let config = config_with_duration_max_unit(max_unit);
+    assert_eq!(
+        expected,
+        dur.to_expanded_string("", &config),
+        "duration_max_unit={max_unit:?} for {in_ns}ns"
     );
 }
 

@@ -496,6 +496,7 @@ pub fn parse_paren_expr(
         return parse_signature(working_set, span, true);
     }
 
+    let starting_scope_count = working_set.delta.scope.len();
     let fcp_expr = parse_full_cell_path(working_set, None, span, None);
     let fcp_error_count = working_set.parse_errors.len();
     if fcp_error_count > starting_error_count {
@@ -508,6 +509,9 @@ pub fn parse_paren_expr(
             });
         if malformed_subexpr {
             working_set.parse_errors.truncate(starting_error_count);
+            while working_set.delta.scope.len() > starting_scope_count {
+                working_set.exit_scope();
+            }
             if matches!(shape, SyntaxShape::GlobPattern) {
                 parse_glob_pattern(working_set, span)
             } else {

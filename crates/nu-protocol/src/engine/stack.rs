@@ -3,7 +3,7 @@ use crate::{
     ast::PathMember,
     engine::{
         ArgumentStack, DEFAULT_OVERLAY_NAME, EngineState, EnvName, ErrorHandlerStack, Redirection,
-        StackCallArgGuard, StackCollectValueGuard, StackIoGuard, StackOutDest,
+        StackCallArgGuard, StackCollectValueGuard, StackIoGuard, StackOutDest, StackWithInvocation,
     },
     report_shell_warning,
     shell_error::generic::GenericError,
@@ -65,6 +65,9 @@ pub struct Stack {
     /// Locally updated config. Use [`.get_config()`](Self::get_config) to access correctly.
     pub config: Option<Arc<Config>>,
     pub(crate) out_dest: StackOutDest,
+    /// When `true`, external processes spawned with `PipelineData::Empty` input
+    /// receive `/dev/null` for stdin instead of inheriting the terminal.
+    pub suppress_stdin: bool,
 }
 
 impl Default for Stack {
@@ -97,6 +100,7 @@ impl Stack {
             deletions: vec![],
             config: None,
             out_dest: StackOutDest::new(),
+            suppress_stdin: false,
         }
     }
 
@@ -120,6 +124,7 @@ impl Stack {
             deletions: vec![],
             config: parent.config.clone(),
             out_dest: parent.out_dest.clone(),
+            suppress_stdin: parent.suppress_stdin,
             parent_stack: Some(parent),
         }
     }
@@ -393,6 +398,7 @@ impl Stack {
             deletions: vec![],
             config: self.config.clone(),
             out_dest: self.out_dest.clone(),
+            suppress_stdin: self.suppress_stdin,
         }
     }
 
@@ -429,6 +435,7 @@ impl Stack {
             deletions: vec![],
             config: self.config.clone(),
             out_dest: self.out_dest.clone(),
+            suppress_stdin: self.suppress_stdin,
         }
     }
 
@@ -714,6 +721,21 @@ impl Stack {
             .is_some_and(|hidden_vars| hidden_vars.contains(env_name))
     }
 
+    /// Returns `true` if `name` was hidden in this stack context (e.g. by `hide-env`), either by
+    /// masking an `engine_state` baseline value or by removing a stack-level value.
+    ///
+    /// A variable that was re-added after being hidden is still reported as hidden here, so only
+    /// use this after a failed lookup to distinguish "hidden" from "never set".
+    pub fn is_env_var_hidden(&self, name: &str) -> bool {
+        let env_name = EnvName::from(name);
+
+        self.active_overlays
+            .iter()
+            .rev()
+            .any(|overlay| self.is_env_hidden_in_overlay(overlay, &env_name))
+            || self.is_env_var_hide_recorded(&env_name)
+    }
+
     /// Hides `name` so it is no longer visible to subsequent lookups. Removes it from the stack
     /// and, if no stack shadowing remains, also marks the `engine_state` baseline as hidden in
     /// `env_hidden`. Returns `true` if the variable was found.
@@ -808,6 +830,47 @@ impl Stack {
         self.out_dest.pipe_stderr.as_ref()
     }
 
+    /// Returns the stdout destination of the innermost active custom-command invocation, if any.
+    ///
+    /// This is the destination of that command's *return value*. It stays stable even when
+    /// intermediate expressions temporarily set [`OutDest::Value`] (e.g. `if (…)`), so callers
+    /// can answer "where does *this command* go?" from anywhere in the body.
+    ///
+    /// See also [`Self::is_stdout_redirected`] and [`StackWithInvocation`].
+    pub fn invocation_stdout(&self) -> Option<&OutDest> {
+        self.out_dest.invocation_stdout.last()
+    }
+
+    /// Whether the current custom command's return value is redirected away from display.
+    ///
+    /// Uses the active [`Self::invocation_stdout`] frame when inside a custom command so the
+    /// answer is stable across nested `if` / `let` collection. Outside a custom command, falls
+    /// back to [`Self::stdout`].
+    ///
+    /// Semantics match [`OutDest::is_redirected`] (only [`OutDest::Print`] is not redirected).
+    /// This is the engine-side helper behind the `is-redirected` command.
+    #[must_use]
+    pub fn is_stdout_redirected(&self) -> bool {
+        self.invocation_stdout()
+            .unwrap_or_else(|| self.stdout())
+            .is_redirected()
+    }
+
+    /// Wrap this stack with an invocation-stdout frame for a custom command about to run.
+    ///
+    /// Push the destination of the call's *return value* (typically
+    /// `caller_stack.stdout().clone()` after redirections are applied). The frame is popped when
+    /// the returned [`StackWithInvocation`] is dropped.
+    ///
+    /// # Why a separate frame?
+    ///
+    /// Intermediate evaluation sets [`OutDest::Value`] via [`Self::start_collect_value`]. Without
+    /// an invocation frame, queries like `is-redirected` inside `if (…)` would always see
+    /// `Value` and report redirected—even when the enclosing custom command's result is printed.
+    pub fn with_invocation_stdout(self, dest: OutDest) -> StackWithInvocation {
+        StackWithInvocation::new(self, dest)
+    }
+
     /// Temporarily set the pipe stdout redirection to [`OutDest::Value`].
     ///
     /// This is used before evaluating an expression into a `Value`.
@@ -863,6 +926,29 @@ impl Stack {
     /// (which is why this function does not take `&mut self`).
     pub fn reset_out_dest(mut self) -> Self {
         self.out_dest = StackOutDest::new();
+        self
+    }
+
+    /// Redirects stdout and stderr to [`OutDest::Null`], discarding all output.
+    ///
+    /// Use this for background evaluation tasks (e.g., completion) that must
+    /// never write to the terminal while reedline owns it.
+    pub fn suppress_output(mut self) -> Self {
+        self.out_dest.stdout = OutDest::Null;
+        self.out_dest.stderr = OutDest::Null;
+        self
+    }
+
+    /// Causes external processes spawned with empty input to receive
+    /// `/dev/null` for stdin instead of inheriting the terminal.
+    ///
+    /// Use this together with [`suppress_output`](Self::suppress_output) for
+    /// background tasks (e.g. completion threads).  Without it, subprocesses
+    /// spawned by closure-based completers (carapace, fish_complete, etc.)
+    /// inherit the live terminal fd and can race with reedline's reads,
+    /// causing `Input/output error` (EIO).
+    pub fn suppress_stdin(mut self) -> Self {
+        self.suppress_stdin = true;
         self
     }
 

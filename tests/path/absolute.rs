@@ -1,7 +1,7 @@
 use nu_path::absolute_with;
 use nu_test_support::fs::Stub::EmptyFile;
-use nu_test_support::nu;
 use nu_test_support::playground::Playground;
+use nu_test_support::prelude::*;
 use pretty_assertions::assert_eq;
 use std::path::Path;
 
@@ -176,13 +176,15 @@ fn absolute_path_with_many_double_dots_relative_to() {
 }
 
 #[test]
-fn absolute_ndots2() {
+fn absolute_ndots2() -> Result {
     // This test will fail if you have the nushell repo on the root partition
     // So, let's start in a nested folder before trying to absolute_with "..."
     Playground::setup("nu_path_test_1", |dirs, sandbox| {
         sandbox.mkdir("aaa/bbb/ccc");
-        let output = nu!( cwd: dirs.root(), "cd nu_path_test_1/aaa/bbb/ccc; $env.PWD");
-        let cwd = Path::new(&output.out);
+        let output: String = test()
+            .cwd(dirs.root())
+            .run("cd nu_path_test_1/aaa/bbb/ccc; $env.PWD")?;
+        let cwd = Path::new(&output);
 
         let actual = absolute_with("...", cwd).expect("Failed to make absolute");
         // On Windows .. components are resolved. On Unix they are not.
@@ -196,7 +198,9 @@ fn absolute_ndots2() {
         let expected = cwd.join("../..");
 
         assert_eq!(actual, expected);
-    });
+
+        Ok(())
+    })
 }
 
 #[test]

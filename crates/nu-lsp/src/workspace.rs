@@ -304,8 +304,13 @@ impl LanguageServer {
             .sender
             .send(lsp_server::Message::Response(lsp_server::Response {
                 id: request.id,
-                result: serde_json::to_value(response).ok(),
-                error: None,
+                response_result: serde_json::to_value(response).map_err(|e| {
+                    lsp_server::ResponseError {
+                        code: 0,
+                        message: e.to_string(),
+                        data: None,
+                    }
+                }),
             }))
             .into_diagnostic()?;
 
@@ -851,7 +856,7 @@ mod tests {
                 Message::Notification(n) => assert_eq!(n.method, Progress::METHOD),
                 Message::Response(r) => {
                     has_response = true;
-                    let result = r.result.unwrap();
+                    let result = r.response_result.unwrap();
                     let array = result.as_array().unwrap();
 
                     for expected_ref in &expected_refs {
@@ -940,7 +945,7 @@ mod tests {
                 Message::Notification(n) => assert_eq!(n.method, Progress::METHOD),
                 Message::Response(r) => {
                     has_response = true;
-                    assert_json_eq!(r.result, expected_prepare)
+                    assert_json_eq!(r.response_result.unwrap(), expected_prepare)
                 }
                 _ => panic!("unexpected message type"),
             }
@@ -951,7 +956,7 @@ mod tests {
         if let Message::Response(r) =
             send_rename_request(&client_connection, script.clone(), rename_line, rename_char)
         {
-            let changes = r.result.unwrap()["changes"].clone();
+            let changes = r.response_result.unwrap()["changes"].clone();
 
             for (file_suffix, expected_file_changes) in expected_changes {
                 let file_uri = if file_suffix == main_file.strip_suffix(".nu").unwrap() {
@@ -1027,7 +1032,7 @@ mod tests {
                 Message::Response(r) => {
                     has_response = true;
                     assert_json_eq!(
-                        r.result,
+                        r.response_result.unwrap(),
                         serde_json::json!({
                                 "contents": {
                                 "kind": "markdown",
@@ -1043,7 +1048,7 @@ mod tests {
 
         if let Message::Response(r) = send_rename_request(&client_connection, script, 6, 11) {
             // should not return any changes
-            assert_json_eq!(r.result.unwrap()["changes"], serde_json::json!({}));
+            assert_json_eq!(r.response_result.unwrap()["changes"], serde_json::json!({}));
         } else {
             panic!()
         }
@@ -1130,6 +1135,6 @@ mod tests {
         let Message::Response(r) = message else {
             panic!("unexpected message type");
         };
-        assert_json_eq!(r.result, expected);
+        assert_json_eq!(r.response_result.unwrap(), expected);
     }
 }

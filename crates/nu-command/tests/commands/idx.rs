@@ -219,107 +219,98 @@ fn idx_find_defaults_to_files_and_dirs() -> Result {
 
 #[test]
 #[serial]
-fn idx_export_and_import_roundtrip() -> Result {
-    Playground::setup("idx_export_and_import_roundtrip", |dirs, sandbox| {
-        sandbox.with_files(&[
-            FileWithContent("searchable.txt", "hello from idx search"),
-            FileWithContent("other.txt", "unrelated"),
-        ]);
+fn idx_limits_must_be_non_negative() -> Result {
+    for command in ["idx find target --limit -1", "idx search target --limit -1"] {
+        let err = test().run(command).expect_error()?;
+        assert!(matches!(err, ShellError::NeedsPositiveValue { .. }));
+    }
+    Ok(())
+}
 
-        test()
-            .cwd(dirs.test())
-            .run("idx init . --wait; idx export snapshot.json | get stored")
-            .expect_value_eq(true)?;
+#[test]
+#[serial]
+fn idx_live_views_exclude_tombstones() -> Result {
+    Playground::setup("idx_live_views_exclude_tombstones", |dirs, sandbox| {
+        sandbox.mkdir("removed-tree");
+        sandbox.with_files(&[EmptyFile("kept.txt"), EmptyFile("removed-tree/deleted.txt")]);
 
-        test()
-            .cwd(dirs.test())
-            .run("idx import snapshot.json | get restored")
+        let mut tester = test().cwd(dirs.test());
+
+        // Wait through fuzzy queries (the watcher applies removals asynchronously)
+        let (): () = tester.run(
+                r#"
+                    idx init . --wait --no-content-indexing | ignore
+                    rm --recursive removed-tree
+                    mut attempts = 0
+                    loop {
+                        if (idx find deleted --files | is-empty) and (idx find removed-tree --dirs | is-empty) { break }
+                        if $attempts >= 100 { error make { msg: "idx watcher did not process deletion" } }
+                        $attempts += 1
+                        sleep 20ms
+                    }
+                "#,
+            )?;
+
+        // Unfiltered views/status should only show live entries.
+        tester
+            .run(
+                r#"
+                        let files = idx files
+                        let dirs = idx dirs
+                        let status = idx status
+                        [
+                            (($files | where file_name == "deleted.txt") | is-empty)
+                            (($dirs | where relative_path =~ "removed-tree") | is-empty)
+                            ($status.files == ($files | length))
+                            ($status.dirs == ($dirs | length))
+                        ] | all {|value| $value }
+                    "#,
+            )
             .expect_value_eq(true)
     })
 }
 
 #[test]
 #[serial]
-fn idx_import_auto_initializes_runtime_for_queries() -> Result {
+fn idx_watched_runtime_uses_one_live_picker() -> Result {
     Playground::setup(
-        "idx_import_auto_initializes_runtime_for_queries",
+        "idx_watched_runtime_uses_one_live_picker",
         |dirs, sandbox| {
-            sandbox.with_files(&[
-                FileWithContent("searchable.txt", "hello from idx import"),
-                FileWithContent("other.txt", "unrelated"),
-            ]);
+            sandbox.with_files(&[EmptyFile("seed.txt")]);
 
-            test()
-                .cwd(dirs.test())
-                .run("idx init . --wait; idx export snapshot.db | get stored")
-                .expect_value_eq(true)?;
+            let mut tester = test().cwd(dirs.test());
 
-            test()
-                .cwd(dirs.test())
-                .run("idx drop | get dropped")
-                .expect_value_eq(true)?;
+            let (): () = tester.run("idx init . --wait --no-content-indexing | ignore")?;
 
-            test()
-                .cwd(dirs.test())
-                .run("idx import snapshot.db; idx files searchable | where file_name == searchable.txt | length")
-                .expect_value_eq(1)
+            // Once content search sees the watcher update, every live view should see the same file and dir.
+            tester
+                .run(
+                    r#"
+                        let before = idx status
+                        mkdir watched-dir
+                        "watchprobe" | save watched-dir/watched.txt
+                        mut attempts = 0
+                        loop {
+                            if not (idx search watchprobe | is-empty) { break }
+                            if $attempts >= 100 { error make { msg: "idx watcher did not process creation" } }
+                            $attempts += 1
+                            sleep 20ms
+                        }
+
+                        let status = idx status
+                        [
+                            (idx files watched | length)
+                            (idx dirs watched | length)
+                            (idx find watched --files | length)
+                            (idx find watched --dirs | length)
+                            ($status.files - $before.files)
+                            ($status.dirs - $before.dirs)
+                        ] | all {|count| $count > 0 }
+                    "#,
+                )
+                .expect_value_eq(true)
         },
     )
-}
-
-#[test]
-#[serial]
-fn idx_import_restores_queryable_snapshot_when_files_are_gone() -> Result {
-    Playground::setup(
-        "idx_import_restores_queryable_snapshot_when_files_are_gone",
-        |dirs, sandbox| {
-            sandbox.with_files(&[
-                FileWithContent("searchable.txt", "hello from idx import"),
-                FileWithContent("other.txt", "unrelated"),
-            ]);
-
-            test()
-                .cwd(dirs.test())
-                .run("idx init . --wait; idx export snapshot.db | get stored")
-                .expect_value_eq(true)?;
-
-            test()
-                .cwd(dirs.test())
-                .run("idx drop | get dropped")
-                .expect_value_eq(true)?;
-
-            test()
-                .cwd(dirs.test())
-                .run("rm searchable.txt other.txt; idx import snapshot.db; idx files searchable | where file_name == searchable.txt | length")
-                .expect_value_eq(1)
-        },
-    )
-}
-
-#[test]
-#[serial]
-fn idx_search_works_on_imported_snapshot() -> Result {
-    Playground::setup("idx_search_works_on_imported_snapshot", |dirs, sandbox| {
-        sandbox.with_files(&[
-            FileWithContent("searchable.txt", "hello from idx import"),
-            FileWithContent("other.txt", "unrelated content"),
-        ]);
-
-        test()
-            .cwd(dirs.test())
-            .run("idx init . --wait; idx export snapshot.db | get stored")
-            .expect_value_eq(true)?;
-
-        test()
-            .cwd(dirs.test())
-            .run("idx drop | get dropped")
-            .expect_value_eq(true)?;
-
-        test()
-            .cwd(dirs.test())
-            .run("idx import snapshot.db; idx search hello | where relative_path == searchable.txt | length")
-            .expect_value_eq(1)
-    })
 }
 
 #[test]

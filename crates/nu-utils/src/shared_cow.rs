@@ -17,12 +17,19 @@ impl<T: Clone> SharedCow<T> {
         SharedCow(Arc::new(value))
     }
 
+    /// Take ownership of the shared value if it has no other references.
+    ///
+    /// If the value is still shared, returns this [`SharedCow`] unchanged without cloning its
+    /// contents.
+    pub fn try_into_owned(self: SharedCow<T>) -> Result<T, SharedCow<T>> {
+        Arc::try_unwrap(self.0).map_err(SharedCow)
+    }
+
     /// Take an exclusive clone of the shared value, or move and take ownership if it wasn't shared.
     pub fn into_owned(self: SharedCow<T>) -> T {
-        // Optimized: if the Arc is not shared, just unwraps the Arc
-        match Arc::try_unwrap(self.0) {
+        match self.try_into_owned() {
             Ok(value) => value,
-            Err(arc) => (*arc).clone(),
+            Err(shared) => (*shared.0).clone(),
         }
     }
 
@@ -109,5 +116,61 @@ impl<T: Clone> ops::Deref for SharedCow<T> {
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl<T: Clone> AsRef<[T]> for SharedCow<Vec<T>> {
+    fn as_ref(&self) -> &[T] {
+        self.as_slice()
+    }
+}
+
+impl<T: Clone> IntoIterator for SharedCow<Vec<T>> {
+    type Item = T;
+    type IntoIter = std::vec::IntoIter<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.into_owned().into_iter()
+    }
+}
+
+impl<'a, T: Clone> IntoIterator for &'a SharedCow<Vec<T>> {
+    type Item = &'a T;
+    type IntoIter = std::slice::Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn try_into_owned_returns_unique_value() {
+        let value = vec![1, 2, 3];
+        let original_ptr = value.as_ptr();
+        let shared = SharedCow::new(value);
+
+        let Ok(owned) = shared.try_into_owned() else {
+            panic!("value should be uniquely owned");
+        };
+
+        assert_eq!(owned.as_ptr(), original_ptr);
+    }
+
+    #[test]
+    fn try_into_owned_returns_shared_value_without_cloning() {
+        let shared = SharedCow::new(vec![1, 2, 3]);
+        let original_ptr = shared.as_ptr();
+        let clone = shared.clone();
+
+        let Err(still_shared) = clone.try_into_owned() else {
+            panic!("value should still be shared");
+        };
+
+        assert_eq!(still_shared.as_ptr(), original_ptr);
+        assert_eq!(SharedCow::ref_count(&still_shared), 2);
     }
 }

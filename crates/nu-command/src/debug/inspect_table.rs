@@ -230,7 +230,7 @@ mod util {
             }
             Value::List { vals, .. } => {
                 let mut columns = get_columns(&vals);
-                let data = convert_records_to_dataset(engine_state, &columns, vals);
+                let data = convert_records_to_dataset(engine_state, &columns, vals.into_owned());
 
                 if columns.is_empty() {
                     columns = vec![String::from("")];

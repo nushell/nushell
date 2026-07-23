@@ -13,6 +13,7 @@ pub use completions::{
 };
 pub use datetime_format::DatetimeFormatConfig;
 pub use display_errors::DisplayErrors;
+pub use duration_max_unit::DurationMaxUnit;
 pub use filesize::FilesizeConfig;
 pub use helper::extract_value;
 pub use hinter::HinterConfig;
@@ -31,6 +32,7 @@ mod clip;
 mod completions;
 mod datetime_format;
 mod display_errors;
+mod duration_max_unit;
 mod error;
 mod filesize;
 mod helper;
@@ -81,6 +83,7 @@ pub struct Config {
     pub use_kitty_protocol: bool,
     pub highlight_resolved_externals: bool,
     pub auto_cd_implicit: bool,
+    pub duration_max_unit: DurationMaxUnit,
     /// Configuration for plugins.
     ///
     /// Users can provide configuration for a plugin through this entry.  The entry name must
@@ -145,6 +148,7 @@ impl Default for Config {
             highlight_resolved_externals: false,
 
             auto_cd_implicit: false,
+            duration_max_unit: DurationMaxUnit::default(),
 
             plugins: HashMap::new(),
             plugin_gc: PluginGcConfigs::default(),
@@ -210,6 +214,7 @@ impl UpdateFromValue for Config {
                     self.highlight_resolved_externals.update(val, path, errors)
                 }
                 "auto_cd_implicit" => self.auto_cd_implicit.update(val, path, errors),
+                "duration_max_unit" => self.duration_max_unit.update(val, path, errors),
                 "plugins" => self.plugins.update(val, path, errors),
                 "plugin_gc" => self.plugin_gc.update(val, path, errors),
                 "menus" => match Vec::from_value(val.clone()) {
