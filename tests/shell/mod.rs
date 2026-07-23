@@ -452,6 +452,171 @@ fn source_use_null(#[case] code: &str) -> Result {
 }
 
 #[test]
+#[deps(NU)]
+fn source_script_with_let_variable() -> Result {
+    Playground::setup("source_script_with_let", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[
+            FileWithContent("sss.nu", "print $xxx; print ($xxx | str length)"),
+            FileWithContent("lll.nu", "let xxx = 'let in script'\nsource sss.nu"),
+        ]);
+
+        let out: String = test().cwd(dirs.test()).run("nu lll.nu | to text")?;
+        assert_eq!(out, "let in script\n13");
+        Ok(())
+    })
+}
+
+#[test]
+#[deps(NU)]
+fn source_script_with_mut_variable() -> Result {
+    Playground::setup("source_script_with_mut", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[
+            FileWithContent("sss.nu", "print $xxx"),
+            FileWithContent("mmm.nu", "mut xxx = 'mut in script'\nsource sss.nu"),
+        ]);
+
+        let out: String = test().cwd(dirs.test()).run("nu mmm.nu | to text")?;
+        assert_eq!(out, "mut in script");
+        Ok(())
+    })
+}
+
+#[test]
+#[deps(NU)]
+fn source_script_can_modify_outer_variable() -> Result {
+    Playground::setup(
+        "source_script_can_modify_outer",
+        |dirs, sandbox| -> Result {
+            sandbox.with_files(&[
+                FileWithContent("inc.nu", "$xxx = ($xxx + 1)"),
+                FileWithContent(
+                    "counter.nu",
+                    "mut xxx = 0\nsource inc.nu\nsource inc.nu\nprint $xxx",
+                ),
+            ]);
+
+            let out: String = test().cwd(dirs.test()).run("nu counter.nu | to text")?;
+            assert_eq!(out, "2");
+            Ok(())
+        },
+    )
+}
+
+#[test]
+#[deps(NU)]
+fn source_script_variable_visible_after_source() -> Result {
+    Playground::setup("source_var_visible_after", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[
+            FileWithContent("helper.nu", "$y = 'set in source'"),
+            FileWithContent("main.nu", "mut y = 'original'\nsource helper.nu\nprint $y"),
+        ]);
+
+        let out: String = test().cwd(dirs.test()).run("nu main.nu | to text")?;
+        assert_eq!(out, "set in source");
+        Ok(())
+    })
+}
+
+#[test]
+fn source_redeclared_let_variable() -> Result {
+    // Regression: re-declaring a `let` variable should not break subsequent
+    // `source` calls.  The sourced file's block was previously cached with
+    // the old VarId across parse sessions (e.g. across REPL inputs),
+    // causing spurious variable-not-found errors.
+    // See https://github.com/nushell/nushell/issues/18515
+    Playground::setup("source_redeclared_let", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent("sss.nu", "$xxx")]);
+
+        let mut tester = test().cwd(dirs.test());
+
+        let out1: String = tester.run("let xxx = 'first'; source sss.nu")?;
+        assert_eq!(out1, "first");
+
+        // Re-declare $xxx then source again.  Each run() creates a new
+        // parse session; the second call must re-parse sss.nu with the
+        // new VarId instead of using a stale cached block.
+        let out2: String = tester.run("let xxx = 'second'; source sss.nu")?;
+        assert_eq!(out2, "second");
+
+        Ok(())
+    })
+}
+
+#[test]
+fn source_redeclared_mut_variable() -> Result {
+    Playground::setup("source_redeclared_mut", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent("sss.nu", "$xxx")]);
+
+        let mut tester = test().cwd(dirs.test());
+
+        let out1: String = tester.run("mut xxx = 'first'; source sss.nu")?;
+        assert_eq!(out1, "first");
+
+        let out2: String = tester.run("mut xxx = 'second'; source sss.nu")?;
+        assert_eq!(out2, "second");
+
+        Ok(())
+    })
+}
+
+#[test]
+#[deps(NU)]
+fn source_script_with_let_and_main_command() -> Result {
+    // Regression: scripts with both `def main` and `source` should still work
+    Playground::setup("source_script_with_main", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[
+            FileWithContent("lib.nu", "print $greeting"),
+            FileWithContent(
+                "app.nu",
+                "let greeting = 'hello'\nsource lib.nu\ndef main [] {}",
+            ),
+        ]);
+
+        let out: String = test().cwd(dirs.test()).run("nu app.nu | to text")?;
+        assert_eq!(out, "hello");
+        Ok(())
+    })
+}
+
+#[test]
+#[deps(NU)]
+fn source_nested_free_variable_visible() -> Result {
+    // Outer free var must resolve through nested source chains (A → B → C).
+    Playground::setup("source_nested_free_var", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[
+            FileWithContent("c.nu", "print $xxx"),
+            FileWithContent("b.nu", "source c.nu"),
+            FileWithContent("a.nu", "let xxx = 'nested'\nsource b.nu"),
+        ]);
+
+        let out: String = test().cwd(dirs.test()).run("nu a.nu | to text")?;
+        assert_eq!(out, "nested");
+        Ok(())
+    })
+}
+
+#[test]
+fn source_env_redeclared_let_variable() -> Result {
+    // Same span-cache / VarId issue as `source` when re-declaring across parse sessions.
+    Playground::setup("source_env_redeclared_let", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent(
+            "env.nu",
+            "export-env { $env.FROM_SOURCE = $xxx }",
+        )]);
+
+        let mut tester = test().cwd(dirs.test());
+
+        let out1: String = tester.run("let xxx = 'first'; source-env env.nu; $env.FROM_SOURCE")?;
+        assert_eq!(out1, "first");
+
+        let out2: String = tester.run("let xxx = 'second'; source-env env.nu; $env.FROM_SOURCE")?;
+        assert_eq!(out2, "second");
+
+        Ok(())
+    })
+}
+
+#[test]
 fn source_use_file_named_null() -> Result {
     Playground::setup("source_file_named_null", |dirs, sandbox| -> Result {
         sandbox.with_files(&[FileWithContent(

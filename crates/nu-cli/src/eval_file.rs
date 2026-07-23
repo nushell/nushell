@@ -1,4 +1,4 @@
-use crate::util::{eval_source, print_pipeline};
+use crate::util::{eval_parsed_block_source, eval_source, print_pipeline};
 use log::{info, trace};
 use nu_engine::eval_block;
 use nu_parser::parse;
@@ -200,7 +200,11 @@ pub fn evaluate_file(
             true,
         )
     } else {
-        eval_source(engine_state, stack, &file, file_path_str, input, true)
+        // Evaluate the already-parsed block instead of re-parsing through
+        // eval_source. Re-parsing can return stale `source` blocks whose
+        // VarIds no longer match re-declared `let`/`mut` variables.
+        // See https://github.com/nushell/nushell/issues/18515
+        eval_parsed_block_source(engine_state, stack, &block, file_path_str, input, true)
     };
 
     if exit_code != 0 {

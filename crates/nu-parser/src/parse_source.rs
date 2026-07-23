@@ -5,7 +5,7 @@ use crate::{
     parse_keywords::find_keyword_decl,
     parse_pipelines::{parse_redirection, redirecting_builtin_error},
     parser::{
-        ArgumentParsingLevel, CallKind, ParsedInternalCall, compile_block, parse,
+        ArgumentParsingLevel, CallKind, ParsedInternalCall, compile_block, parse, parse_fresh,
         parse_internal_call,
     },
 };
@@ -150,7 +150,9 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
                             return garbage_pipeline(working_set, spans);
                         }
 
-                        let mut block = parse(
+                        // Re-parse so free vars bind to current VarIds, not a
+                        // span-cached block from an earlier parse (#18515).
+                        let mut block = parse_fresh(
                             working_set,
                             Some(&path.path().to_string_lossy()),
                             &contents,
