@@ -113,9 +113,67 @@ pub fn glob_with_options(
             fast_path: fast_path.as_ref(),
         };
 
+        // Patterns ending in bare `**` match the directory where traversal
+        // begins (rust-lang/glob / nu-glob recursive-ending behavior). For bare
+        // `**` that is the empty relative path; for `foo/**` it is `foo` (the
+        // literal prefix that `traversal_start_dir` advanced into). Apply the
+        // same exclude / depth / directory-only rules as complete-match emission.
+        if program.trailing_recursive {
+            maybe_emit_trailing_recursive_start(&current_dir, &state);
+        }
+
         glob_to(&current_dir, 0, state)
     });
     rx.into_iter()
+}
+
+/// Emit the traversal-start directory for patterns ending in bare `**`.
+///
+/// Walk depth for this candidate is 0 (the walk root). Uses the same exclude
+/// and `max_depth` gates as [`handle_path_candidate`].
+fn maybe_emit_trailing_recursive_start(current_dir: &Path, state: &WalkState<'_>) {
+    let program = state.program;
+    let match_path = if program.absolute_prefix.is_some() {
+        current_dir.to_path_buf()
+    } else {
+        current_dir
+            .strip_prefix(state.match_relative_to)
+            .map(|p| p.to_path_buf())
+            .unwrap_or_default()
+    };
+    let output_path = if program.absolute_prefix.is_some() {
+        current_dir.to_path_buf()
+    } else {
+        match_path.clone()
+    };
+
+    let result = path_matches(&match_path, program);
+    if !result.valid_as_complete_match {
+        return;
+    }
+
+    let match_options = MatchOptions::default();
+    let excluded = state.has_excludes
+        && state
+            .exclude_patterns
+            .iter()
+            .any(|exclude| exclude.matches_path_with(&match_path, match_options));
+    if excluded {
+        return;
+    }
+
+    // Walk depth for the start directory is 0. `max_depth` is `Option<usize>`,
+    // so depth 0 is always within range (same as `candidate_depth <= max` with 0).
+
+    // Trailing `**` is directory-only; only emit if the start path is a dir.
+    let is_dir = fs::metadata(current_dir)
+        .map(|m| m.is_dir())
+        .unwrap_or(false);
+    if !is_dir {
+        return;
+    }
+
+    let _ = state.tx.send(Ok(output_path));
 }
 
 fn traversal_start_dir(program: &Program, base: &Path) -> PathBuf {
@@ -423,10 +481,12 @@ fn handle_path_candidate<'a>(
         }
     }
 
-    // If it is valid as a complete match, send it out
+    // If it is valid as a complete match, send it out.
+    // Trailing bare `**` is directory-only (matches rust-lang/glob and nu-glob).
     if result.valid_as_complete_match
         && !excluded
         && options.max_depth.is_none_or(|max| candidate_depth <= max)
+        && (!program.trailing_recursive || is_dir)
     {
         state.tx.send(Ok(output_path_candidate.to_owned()))?;
     }

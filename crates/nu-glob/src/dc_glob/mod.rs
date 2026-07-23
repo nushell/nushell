@@ -659,6 +659,50 @@ mod tests {
                 .any(|i| matches!(i, Instruction::Separator)),
             "recurse must produce Separator instruction"
         );
+        assert!(
+            prog.trailing_recursive,
+            "bare ** must set trailing_recursive"
+        );
+    }
+
+    #[test]
+    fn compiler_star_star_slash_star_is_not_trailing_recursive() {
+        let prog = compile_pattern("**/*");
+        assert!(
+            !prog.trailing_recursive,
+            "**/* must not be treated as directory-only trailing **"
+        );
+    }
+
+    #[test]
+    fn compiler_prefixed_trailing_recursive_sets_flag() {
+        let prog = compile_pattern("foo/**");
+        assert!(
+            prog.trailing_recursive,
+            "foo/** must set trailing_recursive"
+        );
+    }
+
+    #[test]
+    fn compiler_nested_terminal_recurse_in_alternatives() {
+        // `{**}` should compile a terminal recurse gadget and be dir-only.
+        let prog = compile_pattern("{**}");
+        assert!(
+            prog.trailing_recursive,
+            "{{**}} must set trailing_recursive"
+        );
+        // Mixed alternatives: do not force directory-only for non-** branches.
+        let mixed = compile_pattern("{**,README.md}");
+        assert!(
+            !mixed.trailing_recursive,
+            "mixed {{**,file}} must not force directory-only expansion"
+        );
+        // Prefixed alternative of only trailing **.
+        let nested = compile_pattern("foo/{**}");
+        assert!(
+            nested.trailing_recursive,
+            "foo/{{**}} must set trailing_recursive"
+        );
     }
 
     #[test]
@@ -819,6 +863,73 @@ mod tests {
     }
 
     #[test]
+    fn matcher_bare_double_star_matches_any_depth() {
+        // Bare ** matches the empty path (start dir) and nested components.
+        assert!(matches_complete("**", ""));
+        assert!(matches_complete("**", "1"));
+        assert!(matches_complete("**", "1/2"));
+        assert!(matches_complete("**", "1/2/3"));
+    }
+
+    #[test]
+    fn matcher_star_slash_star_requires_two_components() {
+        // Regression for #18600: empty `*` must not skip a path component.
+        assert!(!matches_complete("*/*", "1"));
+        assert!(matches_complete("*/*", "1/2"));
+        assert!(!matches_complete("*/*", "1/2/3"));
+    }
+
+    #[test]
+    fn matcher_prefixed_trailing_double_star_matches_directory_itself() {
+        // `foo/**` must complete-match `foo` (zero further components after Separator).
+        assert!(matches_complete("foo/**", "foo"));
+        assert!(matches_complete("foo/**", "foo/bar"));
+        assert!(matches_complete("foo/**", "foo/bar/baz"));
+        assert!(!matches_complete("foo/**", "bar"));
+        assert!(!matches_complete("foo/**", "foobar"));
+        // #18600 guard still holds after Separator-at-EOF advance.
+        assert!(!matches_complete("*/*", "1"));
+    }
+
+    #[test]
+    fn matcher_nested_terminal_double_star_in_alternatives() {
+        assert!(matches_complete("{**}", ""));
+        assert!(matches_complete("{**}", "a/b"));
+        assert!(matches_complete("foo/{**}", "foo"));
+        assert!(matches_complete("foo/{**}", "foo/bar"));
+        assert!(!matches_complete("foo/{**}", "bar"));
+    }
+
+    #[test]
+    fn matcher_nested_recursive_stars_enforce_min_depth() {
+        // **/* matches paths at any depth (rust-lang/glob also matches the empty
+        // string; filesystem expansion still omits the start directory).
+        assert!(matches_complete("**/*", "1"));
+        assert!(matches_complete("**/*", "1/2"));
+        assert!(matches_complete("**/*", "1/2/3"));
+
+        // **/*/* requires at least two components
+        assert!(!matches_complete("**/*/*", "1"));
+        assert!(matches_complete("**/*/*", "1/2"));
+        assert!(matches_complete("**/*/*", "1/2/3"));
+
+        // **/*/*/* requires at least three components
+        assert!(!matches_complete("**/*/*/*", "1"));
+        assert!(!matches_complete("**/*/*/*", "1/2"));
+        assert!(matches_complete("**/*/*/*", "1/2/3"));
+        assert!(matches_complete("**/*/*/*", "1/2/3/4"));
+    }
+
+    #[test]
+    fn matcher_double_star_slash_literal_matches_at_any_depth() {
+        assert!(matches_complete("**/foo", "foo"));
+        assert!(matches_complete("**/foo", "a/foo"));
+        assert!(matches_complete("**/foo", "a/b/foo"));
+        assert!(!matches_complete("**/foo", "foo/bar"));
+        assert!(!matches_complete("**/foo", "bar"));
+    }
+
+    #[test]
     fn matcher_literal_multi_component_path() {
         assert!(matches_complete("foo/bar/baz", "foo/bar/baz"));
         assert!(!matches_complete("foo/bar/baz", "foo/bar"));
@@ -843,6 +954,144 @@ mod tests {
     //
     // These test that traversal_start_dir correctly excludes filename-pattern
     // literals from the starting directory (Bug #1 in the dc-glob regression report).
+
+    #[test]
+    fn glob_with_issue_18600_nested_depth_and_bare_double_star() {
+        // Fixture from https://github.com/nushell/nushell/issues/18600
+        // mkdir 0/1/2/3 && cd 0
+        let root = unique_test_dir("issue_18600");
+        fs::create_dir_all(root.join("1/2/3")).expect("failed to create nested dirs");
+        write_file(&root.join("1/2/3/file.txt"));
+
+        let options = GlobWalkOptions::default();
+
+        // bare ** → start dir + nested directories only (not files)
+        let paths = collect_ok_paths(
+            glob_with(root.as_path(), "**", &options).expect("glob ** should succeed"),
+        )
+        .expect("collect **");
+        assert!(
+            paths.iter().any(|p| p.is_empty()),
+            "bare ** should include the start directory, got {paths:?}"
+        );
+        assert!(paths.contains(&expected_path(&["1"])));
+        assert!(paths.contains(&expected_path(&["1", "2"])));
+        assert!(paths.contains(&expected_path(&["1", "2", "3"])));
+        assert!(
+            !paths.iter().any(|p| p.ends_with("file.txt")),
+            "bare ** must not list files, got {paths:?}"
+        );
+
+        // **/* → all entries under start, not including start itself
+        let paths = collect_ok_paths(
+            glob_with(root.as_path(), "**/*", &options).expect("glob **/* should succeed"),
+        )
+        .expect("collect **/*");
+        assert!(
+            !paths.iter().any(|p| p.is_empty()),
+            "**/* must not include the start directory, got {paths:?}"
+        );
+        assert!(paths.contains(&expected_path(&["1"])));
+        assert!(paths.contains(&expected_path(&["1", "2"])));
+        assert!(paths.contains(&expected_path(&["1", "2", "3"])));
+        assert!(paths.contains(&expected_path(&["1", "2", "3", "file.txt"])));
+
+        // **/*/* → min depth 2
+        let paths = collect_ok_paths(
+            glob_with(root.as_path(), "**/*/*", &options).expect("glob **/*/* should succeed"),
+        )
+        .expect("collect **/*/*");
+        assert!(!paths.contains(&expected_path(&["1"])));
+        assert!(paths.contains(&expected_path(&["1", "2"])));
+        assert!(paths.contains(&expected_path(&["1", "2", "3"])));
+        assert!(paths.contains(&expected_path(&["1", "2", "3", "file.txt"])));
+
+        // **/*/*/* → min depth 3
+        let paths = collect_ok_paths(
+            glob_with(root.as_path(), "**/*/*/*", &options)
+                .expect("glob **/*/*/* should succeed"),
+        )
+        .expect("collect **/*/*/*");
+        assert!(!paths.contains(&expected_path(&["1"])));
+        assert!(!paths.contains(&expected_path(&["1", "2"])));
+        assert!(paths.contains(&expected_path(&["1", "2", "3"])));
+        assert!(paths.contains(&expected_path(&["1", "2", "3", "file.txt"])));
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn glob_with_prefixed_trailing_double_star_emits_prefix_dir() {
+        // `foo/**` must include `foo` itself (not only descendants), directories only.
+        let root = unique_test_dir("prefixed_trailing");
+        fs::create_dir_all(root.join("foo/bar")).expect("failed to create nested dirs");
+        write_file(&root.join("foo/bar/file.txt"));
+        write_file(&root.join("foo/sibling.txt"));
+
+        let paths = collect_ok_paths(
+            glob_with(root.as_path(), "foo/**", &GlobWalkOptions::default())
+                .expect("glob foo/** should succeed"),
+        )
+        .expect("collect foo/**");
+
+        assert!(
+            paths.contains(&expected_path(&["foo"])),
+            "foo/** should include the prefix directory itself, got {paths:?}"
+        );
+        assert!(paths.contains(&expected_path(&["foo", "bar"])));
+        assert!(
+            !paths.iter().any(|p| p.ends_with("file.txt") || p.ends_with("sibling.txt")),
+            "foo/** must not list files, got {paths:?}"
+        );
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn glob_with_trailing_double_star_respects_excludes_on_start() {
+        // Start-dir emit for trailing `**` must consult exclude_patterns.
+        let root = unique_test_dir("trailing_exclude");
+        fs::create_dir_all(root.join("foo/bar")).expect("create foo/bar");
+        fs::create_dir_all(root.join("other")).expect("create other");
+        fs::create_dir_all(root.join("1")).expect("create 1");
+
+        // Prefixed `foo/**`: excluding `foo` must suppress the start-dir emit and descendants.
+        let options = GlobWalkOptions {
+            excludes: vec!["foo".to_string(), "foo/**".to_string()],
+            ..Default::default()
+        };
+        let paths = collect_ok_paths(
+            glob_with(root.as_path(), "foo/**", &options).expect("glob foo/** should succeed"),
+        )
+        .expect("collect foo/** with excludes");
+
+        assert!(
+            !paths.iter().any(|p| {
+                p == &expected_path(&["foo"])
+                    || p.starts_with(&format!("foo{}", std::path::MAIN_SEPARATOR))
+            }),
+            "excluded foo/** must not emit foo or descendants, got {paths:?}"
+        );
+
+        // Bare `**` with nested excludes still emits the start directory.
+        let options = GlobWalkOptions {
+            excludes: vec!["1".to_string(), "1/**".to_string()],
+            ..Default::default()
+        };
+        let paths = collect_ok_paths(
+            glob_with(root.as_path(), "**", &options).expect("glob ** should succeed"),
+        )
+        .expect("collect ** with excludes");
+        assert!(
+            paths.iter().any(|p| p.is_empty()),
+            "bare ** should still emit start dir when only nested paths are excluded, got {paths:?}"
+        );
+        assert!(!paths.contains(&expected_path(&["1"])));
+        assert!(paths.contains(&expected_path(&["other"])));
+        assert!(paths.contains(&expected_path(&["foo"])));
+
+        let _ = fs::remove_dir_all(&root);
+    }
 
     #[test]
     fn glob_with_dir_prefix_literal_then_wildcard() {
