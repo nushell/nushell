@@ -250,6 +250,15 @@ $env.config.completions.partial = true
 # typing "ls " and pressing Tab will partially complete the first matching letters.
 # If the directory also includes "faster", only "f" would be partially completed.
 
+# completions.persistent_menus (bool): Controls whether active menus stay open while editing.
+# true: Erasing characters (or emptying the commandline) refilters the menu instead of
+# closing it; the menu closes on Esc, Ctrl-C, or when a value is accepted.
+# Applies to all menus, including the history menu.
+# false: A backspace closes the menu when completions.quick is enabled, and any edit
+# that empties the commandline closes it.
+# Default: false
+$env.config.completions.persistent_menus = false
+
 # completions.use_ls_colors (bool): Apply LS_COLORS to file/path completions.
 # true: Use LS_COLORS for styling file completions.
 # false: Don't use LS_COLORS.
