@@ -40,6 +40,11 @@ impl HashDigest for Md5 {
                 example: "open ./nu_0_24_1_windows.zip | hash md5",
                 result: None,
             },
+            Example {
+                description: "Return the md5 hash of a list of strings",
+                example: "[abc def ghi] | hash md5",
+                result: None,
+            },
         ]
     }
 }
