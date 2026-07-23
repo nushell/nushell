@@ -423,3 +423,16 @@ fn oneof_annotations_with_extra_characters() -> TestResult {
 fn closure_param_list_not_terminated(#[case] input: &str) -> TestResult {
     fail_test(input, "unclosed |")
 }
+
+// A trailing `:` after the signature starts an input/output type annotation. When
+// the type is missing (e.g. written on the next line, which isn't part of the
+// signature), the error should point at the dangling colon instead of reporting a
+// bogus "unclosed ] or )". Regression test for #13926.
+#[rstest]
+#[case("def hello []:\n  nothing -> string { \"hi\" }")]
+#[case("def hello [x]:\n  int -> int { $x }")]
+#[case("def hello ():\n  nothing -> string { \"hi\" }")]
+#[case("def hello (x):\n  int -> int { $x }")]
+fn def_dangling_type_colon(#[case] input: &str) -> TestResult {
+    fail_test(input, "a type after ':'")
+}
