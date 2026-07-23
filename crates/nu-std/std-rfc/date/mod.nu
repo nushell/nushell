@@ -13,6 +13,14 @@ def assert-duration-positive [value: duration metadata: record]: nothing -> dura
     }
 }
 
+def replace-timezone [tz: string]: datetime -> datetime {
+	into record | upsert timezone $tz | into datetime
+}
+
+def extract-offset []: datetime -> duration {
+	($in | replace-timezone "+00:00") - $in
+}
+
 # Round to the nearest specified datetime boundary before the input date.
 @category date
 @example "Round date up to nearest hour" "2026-07-15T12:11:10-04:00 | date floor 1hr" --result 2026-07-15T12:00:00-04:00
@@ -26,10 +34,11 @@ export def "date floor" [
 
     let input_nanos = $input | into int
     let timezone: string = ($input | into record).timezone
+    let offset_nanos = $input | extract-offset | into int
 
     let period_nanos = $period | into int
 
-    $input_nanos - ($input_nanos mod $period_nanos)
+    $input_nanos - (($input_nanos + $offset_nanos) mod $period_nanos)
     | into datetime
     | date to-timezone $timezone
 }
