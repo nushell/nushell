@@ -1008,8 +1008,7 @@ mod tests {
 
         // **/*/*/* → min depth 3
         let paths = collect_ok_paths(
-            glob_with(root.as_path(), "**/*/*/*", &options)
-                .expect("glob **/*/*/* should succeed"),
+            glob_with(root.as_path(), "**/*/*/*", &options).expect("glob **/*/*/* should succeed"),
         )
         .expect("collect **/*/*/*");
         assert!(!paths.contains(&expected_path(&["1"])));
@@ -1040,7 +1039,9 @@ mod tests {
         );
         assert!(paths.contains(&expected_path(&["foo", "bar"])));
         assert!(
-            !paths.iter().any(|p| p.ends_with("file.txt") || p.ends_with("sibling.txt")),
+            !paths
+                .iter()
+                .any(|p| p.ends_with("file.txt") || p.ends_with("sibling.txt")),
             "foo/** must not list files, got {paths:?}"
         );
 
