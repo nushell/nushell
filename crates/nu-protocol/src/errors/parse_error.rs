@@ -14,13 +14,18 @@ pub enum ParseError {
     /// finished. You should remove these or finish adding what you intended
     /// to add.
     #[error("Extra tokens in code.")]
-    #[diagnostic(code(nu::parser::extra_tokens), help("Try removing them."))]
+    #[diagnostic(
+        code(nu::parser::extra_tokens),
+        help(
+            "Remove the unexpected tokens, or check for a missing operator, delimiter, or newline above."
+        )
+    )]
     ExtraTokens(#[label = "extra tokens"] Span),
 
     #[error("Invalid characters after closing delimiter")]
     #[diagnostic(
         code(nu::parser::extra_token_after_closing_delimiter),
-        help("Try removing them.")
+        help("Remove these characters, or check that a delimiter closed too early above.")
     )]
     ExtraTokensAfterClosingDelimiter(#[label = "invalid characters"] Span),
 
@@ -39,28 +44,63 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::unexpected_eof))]
     UnexpectedEof(String, #[label("expected closing {0}")] Span),
 
+    /// A delimiter was opened but never closed.
+    ///
+    /// - `0`: expected closer (e.g. `"}"`, `"]"`, `")"`)
+    /// - `1`: span of the **opening** delimiter
+    /// - `2`: span where the closer was expected (primary — often mid-file or EOF)
+    /// - `3`: help text (generic or heuristic structure hint)
+    ///
+    /// Primary label is the **expected closer** location so a deleted `}` near
+    /// line N points the user at (or near) line N, not only at a distant opener.
     #[error("Unclosed delimiter.")]
-    #[diagnostic(code(nu::parser::unclosed_delimiter))]
-    Unclosed(&'static str, #[label("unclosed {0}")] Span),
+    #[diagnostic(code(nu::parser::unclosed_delimiter), help("{3}"))]
+    Unclosed(
+        &'static str,
+        #[label("unclosed — opens here (need `{0}`)")] Span,
+        #[label(primary, "expected `{0}` here")] Span,
+        String,
+    ),
 
+    /// A closer appeared without a matching opener (or mismatched kind).
+    ///
+    /// - `0` / `1`: open and close delimiter characters (e.g. `"{"`, `"}"`)
+    /// - `2`: span of the unexpected closer (primary label)
+    /// - `3`: help text
     #[error("Unbalanced delimiter.")]
-    #[diagnostic(code(nu::parser::unbalanced_delimiter))]
+    #[diagnostic(code(nu::parser::unbalanced_delimiter), help("{3}"))]
     Unbalanced(
         &'static str,
         &'static str,
-        #[label("unbalanced {0} and {1}")] Span,
+        #[label("unexpected `{1}` (unbalanced with `{0}`)")] Span,
+        String,
     ),
 
-    #[error("Parse mismatch during operation.")]
-    #[diagnostic(code(nu::parser::parse_mismatch))]
+    #[error("Parse mismatch: expected {0}.")]
+    #[diagnostic(
+        code(nu::parser::parse_mismatch),
+        help(
+            "Check the syntax around this position — a typo, missing delimiter, or wrong separator is common."
+        )
+    )]
     Expected(&'static str, #[label("expected {0}")] Span),
 
-    #[error("Parse mismatch during operation.")]
-    #[diagnostic(code(nu::parser::parse_mismatch_with_full_string_msg))]
+    #[error("Parse mismatch: expected {0}.")]
+    #[diagnostic(
+        code(nu::parser::parse_mismatch_with_full_string_msg),
+        help(
+            "Check the syntax around this position — a typo, missing delimiter, or wrong separator is common."
+        )
+    )]
     ExpectedWithStringMsg(String, #[label("expected {0}")] Span),
 
-    #[error("Parse mismatch during operation.")]
-    #[diagnostic(code(nu::parser::parse_mismatch_with_did_you_mean))]
+    #[error("Parse mismatch: expected {0}.")]
+    #[diagnostic(
+        code(nu::parser::parse_mismatch_with_did_you_mean),
+        help(
+            "Check the syntax around this position — a typo, missing delimiter, or wrong separator is common."
+        )
+    )]
     ExpectedWithDidYouMean(&'static str, DidYouMean, #[label("expected {0}. {1}")] Span),
 
     #[error("Command does not support {0} input.")]
@@ -620,13 +660,50 @@ pub enum ParseError {
 }
 
 impl ParseError {
+    /// Build an [`Unclosed`](ParseError::Unclosed) with default help text.
+    pub fn unclosed(delimiter: &'static str, open_span: Span, end_span: Span) -> Self {
+        Self::Unclosed(
+            delimiter,
+            open_span,
+            end_span,
+            default_unclosed_help(delimiter, None),
+        )
+    }
+
+    /// Build an [`Unclosed`](ParseError::Unclosed) with an optional structure hint
+    /// (e.g. `record field ls`, `def foo`). Empty/`None` uses generic help.
+    pub fn unclosed_with_hint(
+        delimiter: &'static str,
+        open_span: Span,
+        end_span: Span,
+        structure_hint: Option<&str>,
+    ) -> Self {
+        Self::Unclosed(
+            delimiter,
+            open_span,
+            end_span,
+            default_unclosed_help(delimiter, structure_hint),
+        )
+    }
+
+    /// Build an [`Unbalanced`](ParseError::Unbalanced) with default help text.
+    pub fn unbalanced(open: &'static str, close: &'static str, close_span: Span) -> Self {
+        Self::Unbalanced(
+            open,
+            close,
+            close_span,
+            default_unbalanced_help(open, close),
+        )
+    }
+
     pub fn span(&self) -> Span {
         match self {
             ParseError::ExtraTokens(s) => *s,
             ParseError::ExtraPositional(_, s) => *s,
             ParseError::UnexpectedEof(_, s) => *s,
-            ParseError::Unclosed(_, s) => *s,
-            ParseError::Unbalanced(_, _, s) => *s,
+            // Jump-to-error: prefer where the closer was expected (mid-file or EOF).
+            ParseError::Unclosed(_, _open, end, _) => *end,
+            ParseError::Unbalanced(_, _, close, _) => *close,
             ParseError::Expected(_, s) => *s,
             ParseError::ExpectedWithStringMsg(_, s) => *s,
             ParseError::ExpectedWithDidYouMean(_, _, s) => *s,
@@ -715,6 +792,23 @@ impl ParseError {
             ParseError::KeywordShadowModuleMain(_, s) => *s,
         }
     }
+}
+
+fn default_unclosed_help(delimiter: &str, structure_hint: Option<&str>) -> String {
+    match structure_hint {
+        Some(hint) if !hint.is_empty() => format!(
+            "Add a matching `{delimiter}` to close {hint}, or check that an earlier closer closed the wrong block."
+        ),
+        _ => format!(
+            "Add a matching `{delimiter}` to close this delimiter, or check that an earlier closer closed the wrong block."
+        ),
+    }
+}
+
+fn default_unbalanced_help(open: &str, close: &str) -> String {
+    format!(
+        "Remove this `{close}`, or add a matching `{open}` earlier. If you closed a block too early, the real mistake may be above."
+    )
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]

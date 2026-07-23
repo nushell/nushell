@@ -237,7 +237,8 @@ fn split_generic_params<'a>(
 
         (bytes, None)
     } else {
-        working_set.error(ParseError::Unclosed(">", span));
+        let open = Span::new(span.start, span.start.saturating_add(1).min(span.end));
+        working_set.error(ParseError::unclosed(">", open, span));
         (bytes, None)
     }
 }

@@ -63,7 +63,11 @@ fn parse_script_failure() {
             nu-check --debug script.nu
         ");
 
-        assert!(actual.err.contains("Unexpected end of code"));
+        assert!(
+            actual.err.contains("Unclosed delimiter") || actual.err.contains("expected `]`"),
+            "unexpected err: {}",
+            actual.err
+        );
     })
 }
 
@@ -140,7 +144,11 @@ fn parse_module_failure() {
             nu-check --debug --as-module foo.nu
         ");
 
-        assert!(actual.err.contains("Unexpected end of code"));
+        assert!(
+            actual.err.contains("Unclosed delimiter") || actual.err.contains("expected `]`"),
+            "unexpected err: {}",
+            actual.err
+        );
     })
 }
 

@@ -118,7 +118,8 @@ pub fn parse_list_expression(
     if bytes.ends_with(b"]") {
         end -= 1;
     } else {
-        working_set.error(ParseError::Unclosed("]", Span::new(end, end)));
+        let open = Span::new(span.start, span.start.saturating_add(1).min(span.end));
+        working_set.error(ParseError::unclosed("]", open, Span::new(end, end)));
     }
 
     let inner_span = Span::new(start, end);
@@ -241,7 +242,8 @@ pub(crate) fn parse_table_expression(
             span.end - 1
         } else {
             let end = span.end;
-            working_set.error(ParseError::Unclosed("]", Span::new(end, end)));
+            let open = Span::new(span.start, span.start.saturating_add(1).min(span.end));
+            working_set.error(ParseError::unclosed("]", open, Span::new(end, end)));
             span.end
         };
 
@@ -408,7 +410,8 @@ pub fn parse_block_expression(
     if bytes.ends_with(b"}") {
         end -= 1;
     } else {
-        working_set.error(ParseError::Unclosed("}", Span::new(end, end)));
+        let open = Span::new(span.start, span.start.saturating_add(1).min(span.end));
+        working_set.error(ParseError::unclosed("}", open, Span::new(end, end)));
         is_closed = false;
     }
 
@@ -465,7 +468,8 @@ pub fn parse_match_block_expression(
     if bytes.ends_with(b"}") {
         end -= 1;
     } else {
-        working_set.error(ParseError::Unclosed("}", Span::new(end, end)));
+        let open = Span::new(span.start, span.start.saturating_add(1).min(span.end));
+        working_set.error(ParseError::unclosed("}", open, Span::new(end, end)));
         is_closed = false;
     }
 
@@ -691,7 +695,8 @@ pub fn parse_closure_expression(
     if bytes.ends_with(b"}") {
         end -= 1;
     } else {
-        working_set.error(ParseError::Unclosed("}", Span::new(end, end)));
+        let open = Span::new(span.start, span.start.saturating_add(1).min(span.end));
+        working_set.error(ParseError::unclosed("}", open, Span::new(end, end)));
         is_closed = false;
     }
 
@@ -733,7 +738,8 @@ pub fn parse_closure_expression(
             let end_point = if let Some(span) = end_span {
                 span.end
             } else {
-                working_set.error(ParseError::Unclosed("|", Span::new(end, end)));
+                let open = Span::new(start_point, start_point.saturating_add(1).min(end));
+                working_set.error(ParseError::unclosed("|", open, Span::new(end, end)));
                 end
             };
 
@@ -1848,6 +1854,29 @@ fn check_record_key_or_value(
     }
 }
 
+/// Help text when a non-key token appears where a record key is expected.
+fn record_key_position_help(found: &[u8]) -> String {
+    match found {
+        b";" => "Records use newlines or commas between fields, not `;`. \
+                 `;` separates pipelines/statements in Nushell."
+            .into(),
+        b"," => "Unexpected comma here. Put commas between fields as `key: value, key2: value2`, \
+                 or use a newline instead."
+            .into(),
+        b"|" | b"||" => "Unexpected pipe in a record. Use `key: value` fields, or write a \
+                         closure with `|params|` if you meant a block."
+            .into(),
+        b"=" => "Record fields use `key: value` (colon), not `key = value`.".into(),
+        other => {
+            let token = String::from_utf8_lossy(other);
+            format!(
+                "Expected a record key, found `{token}`. Fields look like `key: value` \
+                 separated by newlines or commas."
+            )
+        }
+    }
+}
+
 pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     let bytes = working_set.get_span_contents(span);
 
@@ -1878,7 +1907,7 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
         span_offset: start,
     };
     while !lex_state.input.is_empty() {
-        if let Some(ParseError::Unbalanced(left, right, _)) = lex_state.error.as_ref()
+        if let Some(ParseError::Unbalanced(left, right, ..)) = lex_state.error.as_ref()
             && *left == "{"
             && *right == "}"
         {
@@ -1912,7 +1941,8 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
     let (tokens, err) = (lex_state.output, lex_state.error);
 
     if unclosed {
-        working_set.error(ParseError::Unclosed("}", Span::new(end, end)));
+        let open = Span::new(span.start, span.start.saturating_add(1).min(span.end));
+        working_set.error(ParseError::unclosed("}", open, Span::new(end, end)));
     } else if extra_tokens {
         working_set.error(ParseError::ExtraTokensAfterClosingDelimiter(Span::new(
             lex_state.span_offset,
@@ -1959,10 +1989,14 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
             // Normal key-value pair
             let field_token = &tokens[idx];
             let field = if field_token.contents != TokenContents::Item {
-                working_set.error(ParseError::Expected(
-                    "item in record key position",
-                    Span::new(field_token.span.start, field_token.span.end),
-                ));
+                let found = working_set.get_span_contents(field_token.span);
+                let help = record_key_position_help(found);
+                working_set.error(ParseError::LabeledErrorWithHelp {
+                    error: "Unexpected token in record".into(),
+                    label: "expected a record key here".into(),
+                    help,
+                    span: field_token.span,
+                });
                 garbage(working_set, curr_span)
             } else {
                 let field = parse_value(working_set, curr_span, &SyntaxShape::String, None);
@@ -1976,10 +2010,12 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
 
             idx += 1;
             if idx == tokens.len() {
-                working_set.error(ParseError::Expected(
-                    "':'",
-                    Span::new(curr_span.end, curr_span.end),
-                ));
+                working_set.error(ParseError::LabeledErrorWithHelp {
+                    error: "Incomplete record field".into(),
+                    label: "expected `:` after this key".into(),
+                    help: "Record fields look like `key: value`. Add a colon after the key.".into(),
+                    span: Span::new(curr_span.end, curr_span.end),
+                });
                 output.push(RecordItem::Pair(
                     garbage(working_set, curr_span),
                     garbage(working_set, Span::new(curr_span.end, curr_span.end)),
@@ -1990,10 +2026,14 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
             let colon = working_set.get_span_contents(colon_span);
             idx += 1;
             if colon != b":" {
-                working_set.error(ParseError::Expected(
-                    "':'",
-                    Span::new(colon_span.start, colon_span.start),
-                ));
+                let found = String::from_utf8_lossy(colon);
+                working_set.error(ParseError::LabeledErrorWithHelp {
+                    error: "Expected `:` after record key".into(),
+                    label: format!("expected `:`, found `{found}`"),
+                    help: "Record fields look like `key: value`. A missing colon often causes this field to be parsed as a block or closure."
+                        .into(),
+                    span: colon_span,
+                });
                 output.push(RecordItem::Pair(
                     field,
                     garbage(
@@ -2020,10 +2060,14 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
 
             let value_token = &tokens[idx];
             let value = if value_token.contents != TokenContents::Item {
-                working_set.error(ParseError::Expected(
-                    "item in record value position",
-                    Span::new(value_token.span.start, value_token.span.end),
-                ));
+                let found = working_set.get_span_contents(value_token.span);
+                let found_disp = String::from_utf8_lossy(found);
+                working_set.error(ParseError::LabeledErrorWithHelp {
+                    error: "Unexpected token in record value".into(),
+                    label: format!("expected a value, found `{found_disp}`"),
+                    help: "After `key:`, provide a value (string, number, record, list, …).".into(),
+                    span: value_token.span,
+                });
                 garbage(
                     working_set,
                     Span::new(value_token.span.start, value_token.span.end),

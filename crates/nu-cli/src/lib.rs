@@ -12,21 +12,23 @@ mod prompt;
 mod prompt_update;
 mod reedline_config;
 mod repl;
+mod startup_context;
 mod syntax_highlight;
 mod util;
 mod validation;
 
 pub use commands::add_cli_context;
 pub use completions::{FileCompletion, NuCompleter, SemanticSuggestion, SuggestionKind};
-pub use config_files::eval_config_contents;
+pub use config_files::{eval_config_contents, eval_config_contents_with_kind};
 pub use eval_cmds::{EvaluateCommandsOpts, evaluate_commands};
 pub use eval_file::evaluate_file;
 pub use menus::NuHelpCompleter;
 pub use prompt::NushellPrompt;
 pub use prompt_update::update_prompt;
 pub use repl::evaluate_repl;
+pub use startup_context::{StartupFileKind, StartupLoadContext, report_startup_file_not_found};
 pub use syntax_highlight::NuHighlighter;
-pub use util::{eval_source, gather_parent_env_vars};
+pub use util::{eval_source, eval_source_with_startup, gather_parent_env_vars};
 pub use validation::NuValidator;
 
 #[cfg(feature = "plugin")]

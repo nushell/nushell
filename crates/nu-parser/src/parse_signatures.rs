@@ -558,7 +558,8 @@ pub fn parse_signature(
     if (has_paren && bytes.ends_with(b")")) || (!has_paren && bytes.ends_with(b"]")) {
         end -= 1;
     } else {
-        working_set.error(ParseError::Unclosed("] or )", Span::new(end, end)));
+        let open = Span::new(span.start, span.start.saturating_add(1).min(span.end));
+        working_set.error(ParseError::unclosed("] or )", open, Span::new(end, end)));
     }
 
     let sig = parse_signature_helper(working_set, Span::new(start, end), is_external);

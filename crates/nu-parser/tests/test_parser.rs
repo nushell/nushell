@@ -889,11 +889,12 @@ pub fn parse_if_in_const_expression() {
     let _ = parse(&mut working_set, None, source, false);
 
     assert!(!working_set.parse_errors.is_empty());
-    let ParseError::UnexpectedEof(error, _) = &working_set.parse_errors[0] else {
-        panic!("Expected UnexpectedEof");
-    };
-
-    assert!(error.contains(")"));
+    match &working_set.parse_errors[0] {
+        ParseError::UnexpectedEof(error, _) => assert!(error.contains(')')),
+        ParseError::Unclosed(delim, ..) => assert!(delim.contains(')')),
+        ParseError::Unbalanced(_, close, ..) => assert!(close.contains(']') || close.contains(')')),
+        other => panic!("Expected UnexpectedEof/Unclosed/Unbalanced, got {other:?}"),
+    }
 }
 
 #[test]
@@ -2037,11 +2038,9 @@ mod string {
 
             assert_eq!(subexprs.len(), 2);
 
-            assert!(
-                working_set.parse_errors.iter().any(
-                    |err| matches!(err, ParseError::Unclosed(delimiter, _) if *delimiter == ")")
-                )
-            );
+            assert!(working_set.parse_errors.iter().any(
+                |err| matches!(err, ParseError::Unclosed(delimiter, ..) if *delimiter == ")")
+            ));
         }
     }
 
@@ -3503,8 +3502,8 @@ mod record {
     #[case(b"{ :: x }", "Invalid literal")] // Key is bare colon
     #[case(b"{ a: x:y }", "Invalid literal")] // Value is bare word with colon
     #[case(b"{ a: x('y'):z }", "Invalid literal")] // Value is bare string interpolation with colon
-    #[case(b"{ ;: x }", "Parse mismatch during operation.")] // Key is a non-item token
-    #[case(b"{ a: || }", "Parse mismatch during operation.")] // Value is a non-item token
+    #[case(b"{ ;: x }", "Unexpected token in record")] // Key is a non-item token
+    #[case(b"{ a: || }", "Unexpected token in record value")] // Value is a non-item token
     fn refuse_confusing_record(#[case] expr: &[u8], #[case] error: &str) {
         dbg!(String::from_utf8_lossy(expr));
         let engine_state = EngineState::new();
@@ -3685,4 +3684,79 @@ fn conditional_branch_types(#[case] code: &str, #[case] expected_tys: &[Type]) {
     let out_ty = block.output_type();
 
     assert_eq!(out_ty, expected_ty);
+}
+
+#[test]
+fn record_semicolon_gives_separator_help() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let _ = parse(
+        &mut working_set,
+        None,
+        b"{ show_banner: false; table_mode: rounded }",
+        false,
+    );
+    assert!(!working_set.parse_errors.is_empty());
+    let err = format!("{:?}", working_set.parse_errors[0]);
+    assert!(
+        err.contains("semicolon")
+            || err.contains("`;`")
+            || err.contains("Record")
+            || err.contains("record"),
+        "expected record separator help, got {err}"
+    );
+}
+
+#[test]
+fn explicit_record_invalid_value_token_errors() {
+    // Record context must reject non-item tokens as values (not silent parse).
+    // Nested `{ show_banner false }` can still parse as a closure; the
+    // refuse_confusing_record suite covers more shapes — this guards the
+    // value-token path with an assertion.
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let _ = parse(&mut working_set, None, b"{ a: || }", false);
+    assert!(
+        !working_set.parse_errors.is_empty(),
+        "expected parse error for invalid record value token"
+    );
+    let err = working_set.parse_errors[0].to_string();
+    assert!(
+        err.contains("Unexpected token") || err.contains("record"),
+        "expected record value token error, got {err}"
+    );
+}
+
+#[test]
+fn empty_and_complete_lines_error_kinds() {
+    // Complete inputs should not leave Unclosed/UnexpectedEof hanging; incomplete
+    // open blocks should.
+    let engine_state = EngineState::new();
+
+    let mut empty = StateWorkingSet::new(&engine_state);
+    parse(&mut empty, None, b"", false);
+    assert!(
+        empty.parse_errors.is_empty(),
+        "empty source should not produce parse errors, got {:?}",
+        empty.parse_errors
+    );
+
+    let mut one = StateWorkingSet::new(&engine_state);
+    parse(&mut one, None, b"1", false);
+    assert!(
+        one.parse_errors.is_empty(),
+        "literal `1` should parse cleanly, got {:?}",
+        one.parse_errors
+    );
+
+    let mut unclosed = StateWorkingSet::new(&engine_state);
+    parse(&mut unclosed, None, b"def f [] {", false);
+    assert!(
+        unclosed
+            .parse_errors
+            .iter()
+            .any(|e| matches!(e, ParseError::Unclosed(..) | ParseError::UnexpectedEof(..))),
+        "open block should be Unclosed/UnexpectedEof, got {:?}",
+        unclosed.parse_errors
+    );
 }

@@ -28,7 +28,9 @@ pub use flatten::{
     FlatShape, flatten_block, flatten_expression, flatten_pipeline, flatten_pipeline_element,
 };
 pub use known_external::KnownExternal;
-pub use lex::{LexState, Token, TokenContents, lex, lex_n_tokens, lex_signature};
+pub use lex::{
+    LexState, Token, TokenContents, delimiter_structure_hint, lex, lex_n_tokens, lex_signature,
+};
 pub use lite_parser::{LiteBlock, LiteCommand, lite_parse};
 pub use nu_protocol::parser_path::*;
 pub use parse_keywords::*;

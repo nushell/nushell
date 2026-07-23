@@ -1,5 +1,9 @@
 #![allow(clippy::byte_char_slices)]
 
+use crate::startup_context::{
+    StartupLoadContext, report_startup_compile_error, report_startup_parse_error,
+    report_startup_shell_error,
+};
 use nu_cmd_base::hook::eval_hook;
 use nu_engine::{eval_block, eval_block_with_early_return};
 use nu_parser::{Token, TokenContents, lex, parse, unescape_unquote_string};
@@ -8,8 +12,7 @@ use nu_protocol::{
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
     process::check_exit_status_future,
-    report_error::report_compile_error,
-    report_parse_error, report_parse_warning, report_shell_error,
+    report_parse_warning, report_shell_error,
     shell_error::generic::GenericError,
 };
 #[cfg(windows)]
@@ -244,9 +247,44 @@ pub fn eval_source(
     input: PipelineData,
     allow_return: bool,
 ) -> i32 {
+    eval_source_with_startup(
+        engine_state,
+        stack,
+        source,
+        fname,
+        input,
+        allow_return,
+        None,
+    )
+}
+
+/// Like [`eval_source`], but accepts optional [`StartupLoadContext`] for path-level
+/// startup loads (config/env/etc.).
+///
+/// Parse/compile/shell diagnostics still use the standard miette reporters; the
+/// source `fname` and error spans supply location. The context is reserved for
+/// call sites that need the file role/path when reporting non-span failures
+/// (see `startup_context` module docs).
+pub fn eval_source_with_startup(
+    engine_state: &mut EngineState,
+    stack: &mut Stack,
+    source: &[u8],
+    fname: &str,
+    input: PipelineData,
+    allow_return: bool,
+    startup: Option<&StartupLoadContext>,
+) -> i32 {
     let start_time = Instant::now();
 
-    let exit_code = match evaluate_source(engine_state, stack, source, fname, input, allow_return) {
+    let exit_code = match evaluate_source(
+        engine_state,
+        stack,
+        source,
+        fname,
+        input,
+        allow_return,
+        startup,
+    ) {
         Ok(failed) => {
             let code = failed.into();
             // No call span available in eval_source — this wraps generic source evaluation
@@ -257,7 +295,7 @@ pub fn eval_source(
             if let ShellError::Exit { code, .. } = &err {
                 std::process::exit(*code)
             }
-            report_shell_error(Some(stack), engine_state, &err);
+            report_startup_shell_error(Some(stack), engine_state, &err, startup);
             let code = err.exit_code();
             stack.set_last_error(&err);
             code.unwrap_or(0)
@@ -289,6 +327,7 @@ pub(crate) fn evaluate_source(
     fname: &str,
     input: PipelineData,
     allow_return: bool,
+    startup: Option<&StartupLoadContext>,
 ) -> Result<bool, ShellError> {
     let (block, delta) = {
         let mut working_set = StateWorkingSet::new(engine_state);
@@ -303,12 +342,12 @@ pub(crate) fn evaluate_source(
         }
 
         if let Some(err) = working_set.parse_errors.first() {
-            report_parse_error(Some(stack), &working_set, err);
+            report_startup_parse_error(Some(stack), &working_set, err, startup);
             return Ok(true);
         }
 
         if let Some(err) = working_set.compile_errors.first() {
-            report_compile_error(Some(stack), &working_set, err);
+            report_startup_compile_error(Some(stack), &working_set, err, startup);
             return Ok(true);
         }
 

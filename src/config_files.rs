@@ -1,12 +1,15 @@
 use log::info;
 #[cfg(feature = "plugin")]
 use nu_cli::read_plugin_file;
-use nu_cli::{eval_config_contents, eval_source};
+use nu_cli::{
+    StartupFileKind, StartupLoadContext, eval_config_contents_with_kind, eval_source_with_startup,
+    report_startup_file_not_found,
+};
 use nu_config::ConfigFileKind;
 use nu_protocol::{
-    Config, ParseError, PipelineData, Spanned,
-    engine::{EngineState, Stack, StateWorkingSet},
-    report_parse_error, report_shell_error,
+    Config, PipelineData, Spanned,
+    engine::{EngineState, Stack},
+    report_shell_error,
 };
 use std::{
     fs,
@@ -48,21 +51,29 @@ pub(crate) fn read_config_file(
     let is_override = resolved.is_override();
     let config_path = resolved.to_path_buf();
 
+    let startup_kind = match config_kind {
+        ConfigFileKind::Config => StartupFileKind::Config,
+        ConfigFileKind::Env => StartupFileKind::Env,
+    };
+
     if is_override {
         if config_path.exists() {
-            eval_config_contents(config_path, engine_state, stack, strict_mode);
+            eval_config_contents_with_kind(
+                config_path,
+                engine_state,
+                stack,
+                strict_mode,
+                startup_kind,
+            );
         } else {
             // Prefer the original CLI path string for the error (matches historical
             // behavior and tests). Fall back to the resolved absolute path.
             let (display_path, span) = match cli_override {
-                Some(s) => (s.item.clone(), s.span),
-                None => (
-                    config_path.display().to_string(),
-                    nu_protocol::Span::unknown(),
-                ),
+                Some(s) => (s.item.clone(), Some(s.span)),
+                None => (config_path.display().to_string(), None),
             };
-            let e = ParseError::FileNotFound(display_path, span);
-            report_parse_error(None, &StateWorkingSet::new(engine_state), &e);
+            let startup = StartupLoadContext::new(startup_kind, config_path.clone());
+            report_startup_file_not_found(engine_state, &display_path, span, Some(&startup));
             if strict_mode {
                 std::process::exit(1);
             }
@@ -120,7 +131,7 @@ pub(crate) fn read_config_file(
         }
     }
 
-    eval_config_contents(config_path, engine_state, stack, strict_mode);
+    eval_config_contents_with_kind(config_path, engine_state, stack, strict_mode, startup_kind);
 }
 
 pub(crate) fn read_loginshell_file(
@@ -142,19 +153,27 @@ pub(crate) fn read_loginshell_file(
     info!("loginshell_file: {}", config_path.display());
 
     if config_path.exists() {
-        eval_config_contents(config_path, engine_state, stack, strict_mode);
+        eval_config_contents_with_kind(
+            config_path,
+            engine_state,
+            stack,
+            strict_mode,
+            StartupFileKind::Login,
+        );
     }
 }
 
 pub(crate) fn read_default_env_file(engine_state: &mut EngineState, stack: &mut Stack) {
     let config_file = ConfigFileKind::Env.default();
-    eval_source(
+    let startup = StartupLoadContext::new(StartupFileKind::DefaultEnv, "default_env.nu");
+    eval_source_with_startup(
         engine_state,
         stack,
         config_file.as_bytes(),
         "default_env.nu",
         PipelineData::empty(),
         false,
+        Some(&startup),
     );
 
     info!(
@@ -219,7 +238,13 @@ pub(crate) fn read_vendor_autoload_files(engine_state: &mut EngineState, stack: 
                         }
                         let path = autoload_dir.join(entry);
                         info!("AutoLoading: {path:?}");
-                        eval_config_contents(path, engine_state, stack, false);
+                        eval_config_contents_with_kind(
+                            path,
+                            engine_state,
+                            stack,
+                            false,
+                            StartupFileKind::Autoload,
+                        );
                     }
                 }
             }
@@ -232,13 +257,19 @@ fn eval_default_config(
     config_kind: ConfigFileKind,
 ) {
     info!("eval_default_config() {config_kind:?}");
-    eval_source(
+    let kind = match config_kind {
+        ConfigFileKind::Config => StartupFileKind::DefaultConfig,
+        ConfigFileKind::Env => StartupFileKind::DefaultEnv,
+    };
+    let startup = StartupLoadContext::new(kind, config_kind.default_path());
+    eval_source_with_startup(
         engine_state,
         stack,
         config_kind.default().as_bytes(),
         config_kind.default_path(),
         PipelineData::empty(),
         false,
+        Some(&startup),
     );
 
     // Merge the environment in case env vars changed in the config
