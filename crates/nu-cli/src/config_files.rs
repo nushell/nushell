@@ -1,15 +1,19 @@
 use crate::startup_context::{StartupFileKind, StartupLoadContext, report_startup_shell_error};
-use crate::util::{eval_source, eval_source_with_startup};
+#[cfg(feature = "plugin")]
+use crate::util::eval_source;
+use crate::util::eval_source_with_startup;
 #[cfg(feature = "plugin")]
 use nu_path::absolute_with;
 #[cfg(feature = "plugin")]
+use nu_protocol::report_shell_error;
+#[cfg(feature = "plugin")]
 use nu_protocol::shell_error::generic::GenericError;
+use nu_protocol::shell_error::io::IoError;
 #[cfg(feature = "plugin")]
 use nu_protocol::{ParseError, PluginRegistryFile, Span, engine::StateWorkingSet};
 use nu_protocol::{
     PipelineData, ShellError,
     engine::{EngineState, Stack},
-    report_shell_error,
 };
 #[cfg(feature = "plugin")]
 use nu_utils::perf;
@@ -291,17 +295,17 @@ pub fn eval_config_contents_with_kind(
                 }
             }
             Err(err) => {
-                report_startup_shell_error(
-                    None,
-                    engine_state,
-                    &ShellError::Generic(
-                        nu_protocol::shell_error::generic::GenericError::new_internal(
-                            format!("Could not read {}", config_path.display()),
-                            err.to_string(),
-                        ),
-                    ),
-                    Some(&startup),
-                );
+                // Path-aware I/O error (not `new_internal`, which attributes the
+                // problem to a Rust call site). Honor strict mode like parse/eval.
+                let shell_err = ShellError::Io(IoError::new_internal_with_path(
+                    err,
+                    format!("Could not read {}", startup.kind.display_name()),
+                    config_path.clone(),
+                ));
+                report_startup_shell_error(None, engine_state, &shell_err, Some(&startup));
+                if strict_mode {
+                    std::process::exit(shell_err.exit_code().unwrap_or(1));
+                }
             }
         }
     }

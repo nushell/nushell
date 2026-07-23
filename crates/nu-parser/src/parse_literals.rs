@@ -855,7 +855,7 @@ pub fn parse_variable_expr(
     };
 
     // Bare `$` (often from `$ env` with a space) is a very common config typo.
-    if bytes == b"$" || bytes == b"$\"\"" {
+    if bytes == b"$" {
         working_set.error(ParseError::LabeledErrorWithHelp {
             error: "Incomplete variable".into(),
             label: "expected a variable name after `$`".into(),

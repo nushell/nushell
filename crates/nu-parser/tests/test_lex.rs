@@ -379,6 +379,15 @@ fn delimiter_structure_hint_unsure() {
 #[case::multiline_pipeline_no_invented_missing_brace(b"ls\n| where type == file\n| get name\n")]
 #[case::continued_pipeline_after_pipe(b"ls |\n  get name\n")]
 #[case::balanced_quoted_record_keys(b"{ \"type\": 1, name: 2 }\n")]
+// Multi-line constructs with matching closers are valid in scripts and the REPL.
+#[case::multiline_closed_double_quoted_string(b"let x = \"hello\nworld\"\n")]
+#[case::multiline_closed_single_quoted_string(b"let x = 'hello\nworld'\n")]
+#[case::multiline_closed_list(b"let y = [1, 2, 3\n4, 5, 6]\n")]
+#[case::multiline_closed_list_with_nested(
+    b"let y = [\n  1,\n  (2 + 3),\n  {a: 4}\n]\n"
+)]
+#[case::multiline_closed_record(b"let r = {\n  a: 1\n  b: 2\n}\n")]
+#[case::multiline_closed_parens(b"let n = (\n  1 + 2\n)\n")]
 fn lex_valid_code_never_errors_from_indent_style(#[case] file: &[u8]) {
     let output = lex(file, 0, &[], &[], true);
     assert!(
@@ -415,6 +424,10 @@ fn lex_truly_unclosed_still_reports() {
 #[rstest]
 #[case::unclosed_paren(b"print (1 + 2", b'(', ")")]
 #[case::unclosed_bracket(b"let x = [1, 2", b'[', "]")]
+// Multi-line without a closer is still unclosed (not confused with valid multi-line forms).
+#[case::multiline_unclosed_list(b"let y = [1, 2, 3\n4, 5, 6", b'[', "]")]
+#[case::multiline_unclosed_paren(b"let n = (\n  1 + 2", b'(', ")")]
+#[case::multiline_unclosed_record(b"let r = {\n  a: 1\n  b: 2", b'{', "}")]
 fn lex_unclosed_paren_and_bracket_report_correct_delim(
     #[case] src: &[u8],
     #[case] open_byte: u8,
@@ -598,6 +611,35 @@ fn parse_missing_open_paren_points_at_grouped_expr() {
 }
 
 #[test]
+fn parse_balanced_parens_with_extra_close_stays_unbalanced() {
+    // `print (ansi green))` has a balanced group then an extra `)` — must not
+    // reshape into "Missing `(`".
+    let file = b"def f [] { print (ansi green)) }\n";
+    let err = parse_first_error(file);
+    match &err {
+        ParseError::Unbalanced(open, close, ..) => {
+            assert_eq!(*close, ")");
+            assert!(
+                *open == "(" || *open == "{",
+                "unexpected open kind {open:?} in {err:?}"
+            );
+        }
+        ParseError::LabeledErrorWithHelp { error, .. } => {
+            panic!("extra `)` must not reshape to missing open: {error}");
+        }
+        other => panic!("expected Unbalanced for extra `)`, got {other:?}"),
+    }
+}
+
+#[test]
+fn parse_try_identifier_prefix_not_missing_brace() {
+    // `try_this` must not match the bare-`try` missing-`{` lookback.
+    let file = b"def f [] {\n  try_this\n  1\n}\n}\n";
+    let err = parse_first_error(file);
+    assert_unbalanced(&err, "{", "}");
+}
+
+#[test]
 fn parse_missing_list_open_bracket_points_at_list_start() {
     // `2 (x - 2) 0]` inside an if block — missing leading `[`.
     let file = b"def f [] {\n  if $x {\n      2 ($in_ten - 2) 0]\n  }\n}\n";
@@ -634,6 +676,33 @@ fn parse_unclosed_quotes_still_report() {
             || msg.contains('\"'),
         "expected quote-related error, got {err:?}"
     );
+}
+
+#[rstest]
+#[case::single_line(b"let x = \"hello")]
+#[case::multiline(b"let x = \"hello\nworld")]
+#[case::multiline_single_quotes(b"let x = 'hello\nworld")]
+fn parse_unclosed_quotes_multiline_still_report(#[case] file: &[u8]) {
+    // Multi-line string content is fine only when closed; missing closer is Unclosed.
+    let err = parse_first_error(file);
+    let msg = format!("{err:?}");
+    assert!(
+        matches!(err, ParseError::Unclosed(d, ..) if d.contains('"') || d.contains('\''))
+            || msg.to_lowercase().contains("quote")
+            || msg.contains('\"')
+            || msg.contains('\''),
+        "expected unclosed quote for {:?}, got {err:?}",
+        std::str::from_utf8(file)
+    );
+}
+
+#[test]
+fn parse_multiline_unclosed_list_reports_unclosed() {
+    // Same shape as a valid multi-line list, but without the closing `]`.
+    let file = b"let y = [1, 2, 3\n4, 5, 6";
+    let err = parse_first_error(file);
+    let (open, _) = assert_unclosed(&err, "]");
+    assert_eq!(file[open.start], b'[');
 }
 
 /// `}` and `)` always diagnose on empty stack. Bare `]` is not treated as a

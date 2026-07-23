@@ -39,18 +39,6 @@ pub enum BlockKind {
     AngleBracket,
 }
 
-impl BlockKind {
-    #[allow(dead_code)]
-    fn closing(self) -> u8 {
-        match self {
-            BlockKind::Paren => b')',
-            BlockKind::SquareBracket => b']',
-            BlockKind::CurlyBracket => b'}',
-            BlockKind::AngleBracket => b'>',
-        }
-    }
-}
-
 /// An open delimiter on the lexer's nesting stack (kind + opener span only).
 ///
 /// Opener spans are used only to *label* a real unclosed/unbalanced error for
@@ -248,11 +236,14 @@ fn find_missing_list_open_bracket(
     Some(Span::new(abs, abs + 1))
 }
 
-/// On a line ending with an unexpected `)`, if there is no unmatched `(` before
-/// it, the human almost always forgot the opening paren.
+/// On a line ending with an unexpected `)`, if there is no `(` before it on
+/// that line, the human almost always forgot the opening paren.
 ///
 /// Returns a span where `(` should be inserted — preferably before the
 /// expression being closed (e.g. before `ansi` in `print -n ansi green)`).
+///
+/// If the line already contains `(`, do not reshape: balanced groups with an
+/// extra `)` (e.g. `print (ansi green))`) must stay plain `Unbalanced`.
 fn find_missing_open_paren(input: &[u8], span_offset: usize, close_span: Span) -> Option<Span> {
     let close_local = close_span.start.checked_sub(span_offset)?;
     if close_local > input.len() {
@@ -265,10 +256,9 @@ fn find_missing_open_paren(input: &[u8], span_offset: usize, close_span: Span) -
         .unwrap_or(0);
     let line = &input[line_start..close_local];
 
-    let opens = line.iter().filter(|&&b| b == b'(').count();
-    let closes = line.iter().filter(|&&b| b == b')').count();
-    // Line already has balanced or extra opens before this `)` — not a simple miss.
-    if opens > closes {
+    // Any `(` on this line before the `)` means this is not a simple missing open
+    // (balanced group + extra closer, nested mismatch, etc.).
+    if line.contains(&b'(') {
         return None;
     }
 
@@ -455,7 +445,8 @@ fn line_looks_like_control_flow_without_brace(trimmed_line: &[u8]) -> bool {
     if trimmed_line.contains(&b'{') {
         return false;
     }
-    // `else` alone may take a following `if` on same line (`else if …`).
+    // Keyword forms require a boundary so identifiers like `try_this` / `trying`
+    // are not treated as bare `try`.
     let keywords: &[&[u8]] = &[
         b"else if ",
         b"else if\t",
@@ -467,20 +458,31 @@ fn line_looks_like_control_flow_without_brace(trimmed_line: &[u8]) -> bool {
         b"while(",
         b"for ",
         b"for\t",
-        b"try",
         b"match ",
         b"match\t",
         b"match(",
     ];
     let is_kw = keywords.iter().any(|kw| trimmed_line.starts_with(kw))
-        || trimmed_line == b"else"
-        || trimmed_line.starts_with(b"else ")
-        || trimmed_line.starts_with(b"else\t");
-    if !is_kw {
+        || is_keyword_with_boundary(trimmed_line, b"try")
+        || is_keyword_with_boundary(trimmed_line, b"else");
+    // Bare `else` / `try` without `{` on the same line is incomplete for a block form.
+    is_kw
+}
+
+/// True when `line` is exactly `keyword`, or `keyword` followed by a non-identifier
+/// boundary (whitespace, `#`, etc.). Prevents `try_this` matching `try`.
+fn is_keyword_with_boundary(line: &[u8], keyword: &[u8]) -> bool {
+    if !line.starts_with(keyword) {
         return false;
     }
-    // Bare `else` / `try` without `{` on the same line is incomplete for a block form.
-    true
+    match line.get(keyword.len()) {
+        None => true,
+        Some(b) => !is_ascii_ident_continue(*b),
+    }
+}
+
+fn is_ascii_ident_continue(b: u8) -> bool {
+    b.is_ascii_alphanumeric() || b == b'_'
 }
 
 /// `type: $lst.0}` or similar — record fields without an opening `{` on the line.

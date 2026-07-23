@@ -258,7 +258,13 @@ pub fn eval_source(
     )
 }
 
-/// Like [`eval_source`], but frames errors with startup-load context when provided.
+/// Like [`eval_source`], but accepts optional [`StartupLoadContext`] for path-level
+/// startup loads (config/env/etc.).
+///
+/// Parse/compile/shell diagnostics still use the standard miette reporters; the
+/// source `fname` and error spans supply location. The context is reserved for
+/// call sites that need the file role/path when reporting non-span failures
+/// (see `startup_context` module docs).
 pub fn eval_source_with_startup(
     engine_state: &mut EngineState,
     stack: &mut Stack,

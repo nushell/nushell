@@ -3708,34 +3708,55 @@ fn record_semicolon_gives_separator_help() {
 }
 
 #[test]
-fn explicit_record_missing_colon_errors() {
-    // When the parser is already in record context (`key: { ... }`), missing
-    // colons surface as parse errors rather than silent closures.
+fn explicit_record_invalid_value_token_errors() {
+    // Record context must reject non-item tokens as values (not silent parse).
+    // Nested `{ show_banner false }` can still parse as a closure; the
+    // refuse_confusing_record suite covers more shapes — this guards the
+    // value-token path with an assertion.
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
-    let _ = parse(
-        &mut working_set,
-        None,
-        b"{ outer: { show_banner false } }",
-        false,
+    let _ = parse(&mut working_set, None, b"{ a: || }", false);
+    assert!(
+        !working_set.parse_errors.is_empty(),
+        "expected parse error for invalid record value token"
     );
-    // Nested untyped braces may still parse as closures; at minimum outer record is fine.
-    // Direct parse_record path is covered by refuse_confusing_record cases.
-    let _ = working_set;
+    let err = working_set.parse_errors[0].to_string();
+    assert!(
+        err.contains("Unexpected token") || err.contains("record"),
+        "expected record value token error, got {err}"
+    );
 }
 
 #[test]
 fn empty_and_complete_lines_error_kinds() {
-    for (src, label) in [
-        ("", "empty"),
-        ("ls", "ls"),
-        ("1", "one"),
-        ("def f [] {", "unclosed"),
-    ] {
-        let engine_state = EngineState::new();
-        let mut ws = StateWorkingSet::new(&engine_state);
-        parse(&mut ws, None, src.as_bytes(), false);
-        let kind = ws.parse_errors.first().map(|e| format!("{e:?}"));
-        println!("{label:?} => {kind:?}");
-    }
+    // Complete inputs should not leave Unclosed/UnexpectedEof hanging; incomplete
+    // open blocks should.
+    let engine_state = EngineState::new();
+
+    let mut empty = StateWorkingSet::new(&engine_state);
+    parse(&mut empty, None, b"", false);
+    assert!(
+        empty.parse_errors.is_empty(),
+        "empty source should not produce parse errors, got {:?}",
+        empty.parse_errors
+    );
+
+    let mut one = StateWorkingSet::new(&engine_state);
+    parse(&mut one, None, b"1", false);
+    assert!(
+        one.parse_errors.is_empty(),
+        "literal `1` should parse cleanly, got {:?}",
+        one.parse_errors
+    );
+
+    let mut unclosed = StateWorkingSet::new(&engine_state);
+    parse(&mut unclosed, None, b"def f [] {", false);
+    assert!(
+        unclosed
+            .parse_errors
+            .iter()
+            .any(|e| matches!(e, ParseError::Unclosed(..) | ParseError::UnexpectedEof(..))),
+        "open block should be Unclosed/UnexpectedEof, got {:?}",
+        unclosed.parse_errors
+    );
 }
