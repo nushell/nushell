@@ -118,15 +118,42 @@ struct Matcher<'a> {
 impl<'a> Matcher<'a> {
     fn advance(&mut self, program: &Program) -> bool {
         match &program.instructions[self.state.pc.0] {
-            Instruction::Separator if !self.has_string() => {
-                self.state.current_string = None;
-                if self.state.path_components.peek().is_some() {
-                    self.next()
-                } else {
-                    self.end_of_input()
+            // Separator between path components. Require that the previous
+            // component was opened and fully consumed (`Some(b"")`). A bare
+            // `None` means no component was bound yet — allowing Separator to
+            // succeed here used to make `*/*` match a single path segment by
+            // combining an empty `*` with a free Separator (issue #18600).
+            //
+            // At EOF after a finished component we do **not** advance the PC:
+            // that would let a following empty `*` complete-match (regressing
+            // #18600). Prefixed trailing `**` (`foo/**`) is handled by the
+            // compiler, which omits the Separator before a terminal recurse so
+            // path `foo` reaches the terminal gadget with `Some([])` and can
+            // complete without a Separator.
+            Instruction::Separator if !self.has_string() => match self.state.current_string {
+                // Finished matching inside a component; advance to the next path
+                // component when one remains.
+                Some([]) => {
+                    self.state.current_string = None;
+                    self.state.fresh_string = false;
+                    if self.state.path_components.peek().is_some() {
+                        self.next()
+                    } else {
+                        self.end_of_input()
+                    }
                 }
-            }
-            // Collapse multiple separators with no consumption in between
+                // No finished component — do not invent path segments.
+                None => self.try_alternative(),
+                // Unreachable under `!has_string()` (non-empty is handled above).
+                Some(_) => {
+                    debug_assert!(
+                        false,
+                        "Separator with non-empty current_string under !has_string()"
+                    );
+                    self.try_alternative()
+                }
+            },
+            // Collapse multiple separators when a new component was just loaded.
             Instruction::Separator if self.state.fresh_string => self.next(),
             Instruction::Prefix(string) if !self.has_string() => {
                 match self.state.path_components.next() {
@@ -264,6 +291,17 @@ impl<'a> Matcher<'a> {
                     self.state.pc = *index;
                     true
                 } else {
+                    self.next()
+                }
+            }
+            Instruction::ComponentBoundary => {
+                // Require a path-component boundary: no unconsumed bytes in the
+                // current component. Clear a finished `Some([])` to `None`.
+                if self.has_string() {
+                    self.try_alternative()
+                } else {
+                    self.state.current_string = None;
+                    self.state.fresh_string = false;
                     self.next()
                 }
             }
