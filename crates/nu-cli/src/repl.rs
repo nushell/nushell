@@ -67,6 +67,30 @@ fn semantic_markers_from_config(
     }
 }
 
+type RepaintCallback = Arc<dyn Fn() + Send + Sync>;
+
+/// Prepares the engine's prompt state and constructs the interactive view.
+/// Injects a live repainter only if background jobs are currently active.
+fn build_interactive_prompt(
+    engine_state: &EngineState,
+    line_editor: &mut Reedline,
+) -> NushellPrompt {
+    let background_repainter = engine_state
+        .jobs
+        .lock()
+        .is_ok_and(|active_jobs| !active_jobs.is_empty())
+        .then(|| {
+            let repaint_signal = line_editor.repaint_signal();
+            Arc::new(move || repaint_signal.request_repaint()) as RepaintCallback
+        });
+
+    engine_state
+        .prompt_state
+        .set_repainter(background_repainter);
+
+    NushellPrompt { state: engine_state.prompt_state.clone() }
+}
+
 /// The main REPL loop, including spinning up the prompt itself.
 pub fn evaluate_repl(
     engine_state: &mut EngineState,
@@ -92,8 +116,6 @@ pub fn evaluate_repl(
     let shell_integration_osc7 = config.shell_integration.osc7;
     let shell_integration_osc9_9 = config.shell_integration.osc9_9;
     let shell_integration_osc633 = config.shell_integration.osc633;
-
-    let nu_prompt = NushellPrompt::new();
 
     // Seed env vars — no source span exists at REPL startup
     unique_stack.add_env_var(
@@ -195,14 +217,12 @@ pub fn evaluate_repl(
         // avoiding an expensive copy
         let current_stack = Stack::with_parent(previous_stack_arc.clone());
         let temp_file_cloned = temp_file.clone();
-        let mut nu_prompt_cloned = nu_prompt.clone();
 
         let iteration_panic_state = catch_unwind(AssertUnwindSafe(|| {
             let (continue_loop, current_stack, line_editor) = loop_iteration(LoopContext {
                 engine_state: &mut current_engine_state,
                 stack: current_stack,
                 line_editor,
-                nu_prompt: &mut nu_prompt_cloned,
                 temp_file: &temp_file_cloned,
                 use_color,
                 entry_num: &mut entry_num,
@@ -317,7 +337,6 @@ struct LoopContext<'a> {
     engine_state: &'a mut EngineState,
     stack: Stack,
     line_editor: Reedline,
-    nu_prompt: &'a mut NushellPrompt,
     temp_file: &'a Path,
     use_color: bool,
     entry_num: &'a mut usize,
@@ -518,7 +537,6 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         engine_state,
         mut stack,
         line_editor,
-        nu_prompt,
         temp_file,
         use_color,
         entry_num,
@@ -712,17 +730,17 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
     start_time = Instant::now();
     let config = &engine_state.get_config().clone();
+    // Re-evaluate the prompt into the shared `prompt_state`; this also resets any
+    // segment a background job pushed during the previous cycle.
     prompt_update::update_prompt(
         config,
         engine_state,
         &mut Stack::with_parent(stack_arc.clone()),
-        nu_prompt,
     );
     let transient_prompt = prompt_update::make_transient_prompt(
         config,
         engine_state,
         &mut Stack::with_parent(stack_arc.clone()),
-        nu_prompt,
     );
 
     perf!("update_prompt", start_time, use_color);
@@ -740,8 +758,10 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
     start_time = Instant::now();
     line_editor = line_editor.with_transient_prompt(transient_prompt);
-    let input = line_editor.read_line(nu_prompt);
-    // we got our inputs, we can now drop our stack references
+
+    let interactive_prompt = build_interactive_prompt(&engine_state, &mut line_editor);
+    let input = line_editor.read_line(&interactive_prompt);
+
     // This lists all of the stack references that we have cleaned up
     line_editor = line_editor
         // CLEAR STACK-REFERENCE 1

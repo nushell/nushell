@@ -3,10 +3,11 @@ use log::{info, trace};
 use nu_engine::ClosureEvalOnce;
 use nu_protocol::{
     Config, PipelineData, Value,
-    engine::{EngineState, Stack},
+    engine::{EngineState, PromptContents, PromptState, Stack},
     report_shell_error,
 };
 use reedline::Prompt;
+use std::sync::Arc;
 
 // Name of environment variable where the prompt could be stored
 pub(crate) const PROMPT_COMMAND: &str = "PROMPT_COMMAND";
@@ -89,38 +90,35 @@ fn get_prompt_string(
     Some(output)
 }
 
-pub fn update_prompt(
+/// Re-evaluate `$env.PROMPT_COMMAND` and friends and install the result as the
+/// prompt's per-cycle baseline. This overwrites anything a background job pushed
+/// during the previous cycle, resetting the prompt for the next line.
+pub fn update_prompt(config: &Config, engine_state: &EngineState, stack: &mut Stack) {
+    let new_contents = build_prompt_contents(config, engine_state, stack);
+
+    // reedline handles semantic markers itself.
+    engine_state.prompt_state.set_contents(new_contents);
+
+    trace!("update_prompt {}:{}:{}", file!(), line!(), column!());
+}
+
+fn build_prompt_contents(
     config: &Config,
     engine_state: &EngineState,
     stack: &mut Stack,
-    nu_prompt: &mut NushellPrompt,
-) {
-    // Get the configured prompts - reedline now handles semantic markers
-    let left_prompt_string = get_prompt_string(PROMPT_COMMAND, config, engine_state, stack);
+) -> PromptContents {
+    let mut fetch_prompt =
+        |prompt_type| get_prompt_string(prompt_type, config, engine_state, stack);
 
-    let right_prompt_string = get_prompt_string(PROMPT_COMMAND_RIGHT, config, engine_state, stack);
-
-    let prompt_indicator_string = get_prompt_string(PROMPT_INDICATOR, config, engine_state, stack);
-
-    let prompt_multiline_string =
-        get_prompt_string(PROMPT_MULTILINE_INDICATOR, config, engine_state, stack);
-
-    let prompt_vi_insert_string =
-        get_prompt_string(PROMPT_INDICATOR_VI_INSERT, config, engine_state, stack);
-
-    let prompt_vi_normal_string =
-        get_prompt_string(PROMPT_INDICATOR_VI_NORMAL, config, engine_state, stack);
-
-    // apply the other indicators
-    nu_prompt.update_all_prompt_strings(
-        left_prompt_string,
-        right_prompt_string,
-        prompt_indicator_string,
-        prompt_multiline_string,
-        (prompt_vi_insert_string, prompt_vi_normal_string),
-        config.render_right_prompt_on_last_line,
-    );
-    trace!("update_prompt {}:{}:{}", file!(), line!(), column!());
+    PromptContents {
+        left: fetch_prompt(PROMPT_COMMAND),
+        right: fetch_prompt(PROMPT_COMMAND_RIGHT),
+        indicator: fetch_prompt(PROMPT_INDICATOR),
+        vi_insert: fetch_prompt(PROMPT_INDICATOR_VI_INSERT),
+        vi_normal: fetch_prompt(PROMPT_INDICATOR_VI_NORMAL),
+        multiline: fetch_prompt(PROMPT_MULTILINE_INDICATOR),
+        render_right_on_last_line: config.render_right_prompt_on_last_line,
+    }
 }
 
 /// Construct the transient prompt based on the normal nu_prompt
@@ -130,49 +128,44 @@ pub(crate) fn make_transient_prompt(
     config: &Config,
     engine_state: &EngineState,
     stack: &mut Stack,
-    nu_prompt: &NushellPrompt,
 ) -> Box<dyn Prompt> {
-    let mut nu_prompt = nu_prompt.clone();
+    // Start from the current baseline.
+    let mut prompt_contents = engine_state.prompt_state.contents();
 
-    if let Some(s) = get_prompt_string(TRANSIENT_PROMPT_COMMAND, config, engine_state, stack) {
-        nu_prompt.update_prompt_left(Some(s))
-    }
+    // Map mutable references of the prompt contents to their corresponding config variables.
+    let transient_overrides = [
+        (&mut prompt_contents.left, TRANSIENT_PROMPT_COMMAND),
+        (&mut prompt_contents.right, TRANSIENT_PROMPT_COMMAND_RIGHT),
+        (&mut prompt_contents.indicator, TRANSIENT_PROMPT_INDICATOR),
+        (
+            &mut prompt_contents.vi_insert,
+            TRANSIENT_PROMPT_INDICATOR_VI_INSERT,
+        ),
+        (
+            &mut prompt_contents.vi_normal,
+            TRANSIENT_PROMPT_INDICATOR_VI_NORMAL,
+        ),
+        (
+            &mut prompt_contents.multiline,
+            TRANSIENT_PROMPT_MULTILINE_INDICATOR,
+        ),
+    ]
+    .into_iter();
 
-    if let Some(s) = get_prompt_string(TRANSIENT_PROMPT_COMMAND_RIGHT, config, engine_state, stack)
-    {
-        nu_prompt.update_prompt_right(Some(s), config.render_right_prompt_on_last_line)
-    }
+    transient_overrides.for_each(|(field, env_var)| {
+        let val = get_prompt_string(env_var, config, engine_state, stack);
 
-    if let Some(s) = get_prompt_string(TRANSIENT_PROMPT_INDICATOR, config, engine_state, stack) {
-        nu_prompt.update_prompt_indicator(Some(s))
-    }
-    if let Some(s) = get_prompt_string(
-        TRANSIENT_PROMPT_INDICATOR_VI_INSERT,
-        config,
-        engine_state,
-        stack,
-    ) {
-        nu_prompt.update_prompt_vi_insert(Some(s))
-    }
-    if let Some(s) = get_prompt_string(
-        TRANSIENT_PROMPT_INDICATOR_VI_NORMAL,
-        config,
-        engine_state,
-        stack,
-    ) {
-        nu_prompt.update_prompt_vi_normal(Some(s))
-    }
+        // Apply overide
+        if val.is_some() {
+            *field = val;
+        }
+    });
 
-    if let Some(s) = get_prompt_string(
-        TRANSIENT_PROMPT_MULTILINE_INDICATOR,
-        config,
-        engine_state,
-        stack,
-    ) {
-        nu_prompt.update_prompt_multiline(Some(s))
-    }
+    // Package
+    let detached_state = PromptState::new();
+    detached_state.set_contents(prompt_contents);
 
-    Box::new(nu_prompt)
+    Box::new(NushellPrompt { state: Arc::new(detached_state) })
 }
 
 #[cfg(test)]
@@ -192,10 +185,9 @@ mod tests {
             Value::string("test", Span::test_data()),
         );
 
-        let mut nu_prompt = NushellPrompt::new();
+        update_prompt(&config, &engine_state, &mut stack);
 
-        update_prompt(&config, &engine_state, &mut stack, &mut nu_prompt);
-
+        let nu_prompt = NushellPrompt { state: engine_state.prompt_state.clone() };
         assert_eq!(nu_prompt.render_prompt_left(), "test");
     }
 }
