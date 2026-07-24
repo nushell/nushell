@@ -52,6 +52,37 @@ dependency!("nu_plugin_polars");
 dependency!("nu_plugin_query");
 dependency!("nu_plugin_stress_internals");
 
+macro_rules! testbin_dependency {
+    ($bin:literal) => { pastey::paste! {
+        /// Test binary dependency
+        #[doc = concat!("`", $bin, "`.")]
+        ///
+        /// Before executing this test, we automatically run
+        #[doc = concat!("`cargo build --package testbins --bin ", $bin, "`.")]
+        /// The binary will also automatically made available to use via
+        /// [`test()`](crate::prelude::test).
+        pub const [< TESTBIN_$bin:snake:upper>]: &'static Dependency<'static> = &[<TESTBIN_ $bin:snake:upper _DEP>];
+        static [<TESTBIN_ $bin:snake:upper _DEP>]: Dependency<'static> =
+            Dependency::new($bin, concat!("--package testbins --bin ", $bin));
+    }}
+}
+
+testbin_dependency!("chop");
+testbin_dependency!("cococo");
+testbin_dependency!("echo_env");
+testbin_dependency!("echo_env_mixed");
+testbin_dependency!("echo_env_stderr");
+testbin_dependency!("echo_env_stderr_fail");
+testbin_dependency!("fail");
+testbin_dependency!("iecho");
+testbin_dependency!("input_bytes_length");
+testbin_dependency!("meow");
+testbin_dependency!("meowb");
+testbin_dependency!("nonu");
+testbin_dependency!("relay");
+testbin_dependency!("repeat_bytes");
+testbin_dependency!("repeater");
+
 impl Dependency<'static> {
     const fn new(bin_name: &'static str, build_args: &'static str) -> Self {
         Dependency {
