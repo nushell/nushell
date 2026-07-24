@@ -4,7 +4,8 @@
 //! `enter_instruction` before every instruction (while holding the
 //! `EngineState.debugger` mutex — see the concurrency rule in state.rs).
 //! That callback is where we:
-//!   1. shadow-capture variable stores (the trait never sees the Stack),
+//!   1. snapshot this frame's locals/env from the real `Stack` (nushell
+//!      #18708) into shared state (`sync_locals_from_stack`),
 //!   2. check breakpoints / step conditions,
 //!   3. on pause: build a snapshot, emit `stopped`, and block this thread
 //!      on a condvar until the DAP server thread resumes us.
@@ -39,6 +40,10 @@ struct Frame {
     /// global) so returning from a callee back onto the same line doesn't
     /// count as a fresh arrival and re-fire breakpoints/logpoints.
     last_line: Option<u64>,
+    /// `$in` for this frame: register 0 at block entry. `$in` is
+    /// register-based, not stored on the Stack, so it's the one local we
+    /// still capture from IR rather than read from `stack.vars`.
+    in_value: Option<nu_protocol::Value>,
 }
 
 pub struct DapDebugger {
@@ -66,17 +71,6 @@ pub struct DapDebugger {
     /// call instruction re-reports the same error via `leave_instruction`;
     /// pause only on the innermost one. Cleared when a new instruction runs.
     in_error_unwind: bool,
-    /// Argument values collected from `push-positional` instructions,
-    /// waiting for the `call` that consumes them.
-    pending_args: Vec<nu_protocol::Value>,
-    /// Flag/named-argument values from `push-flag` (switch → true) and
-    /// `push-named` instructions, keyed by the flag's long name.
-    pending_flags: Vec<(String, nu_protocol::Value)>,
-    /// Parameter shadow-vars for the block we are about to enter: built at a
-    /// `call` to a user-defined command by pairing `pending_args` with the
-    /// decl signature (real var-ids). Consumed by `enter_block`, cleared by
-    /// any other instruction — exactly like `pending_frame_name`.
-    pending_param_shadows: Vec<(usize, String, nu_protocol::Value)>,
     /// True between enter_block and its first instruction: register 0 holds
     /// the block's pipeline input there, which is `$in` — capture it.
     just_entered_block: bool,
@@ -98,6 +92,24 @@ impl std::fmt::Debug for DapDebugger {
     }
 }
 
+/// Resolve a variable's source name. Nushell stores no name on a `VarId`, but
+/// the variable's declaration span points at the identifier in source. Trims
+/// the leading `$` and any type annotation (`x: int` → `x`).
+fn var_name(engine_state: &EngineState, var_id: nu_protocol::VarId) -> String {
+    let var = engine_state.get_var(var_id);
+    let bytes = engine_state.get_span_contents(var.declaration_span);
+    let s = String::from_utf8_lossy(bytes);
+    // `$x` / `x: int` / `--verbose` / `--tag: string` → `x` / `verbose` / `tag`.
+    let s = s.trim().trim_start_matches('$');
+    let s = s.split([':', ' ', '\t']).next().unwrap_or(s);
+    let s = s.trim_start_matches('-');
+    if s.is_empty() {
+        format!("var{}", var_id.get())
+    } else {
+        s.to_string()
+    }
+}
+
 impl DapDebugger {
     pub fn new(state: Arc<DebugState>, writer: DapWriter) -> Self {
         Self {
@@ -109,9 +121,6 @@ impl DapDebugger {
             pending_frame_name: None,
             last_line: None,
             in_error_unwind: false,
-            pending_args: Vec::new(),
-            pending_flags: Vec::new(),
-            pending_param_shadows: Vec::new(),
             just_entered_block: false,
             last_result: None,
             last_depth: None,
@@ -122,61 +131,47 @@ impl DapDebugger {
         self.frames.len()
     }
 
-    /// Shadow-capture: on `store-variable`, the source register still holds
-    /// the value about to be stored. Streams can't be cloned; we record a
-    /// placeholder for those.
-    fn capture_store(
-        &mut self,
-        engine_state: &EngineState,
-        ir_block: &IrBlock,
-        instruction_index: usize,
-        registers: &[PipelineExecutionData],
-    ) {
-        let (var_id, src) = match &ir_block.instructions[instruction_index] {
-            Instruction::StoreVariable { var_id, src } => (var_id, src),
-            // `$env.X = …`: shadow the runtime env mutation for the
-            // Environment scope.
-            Instruction::StoreEnv { key, src } => {
-                let name = String::from_utf8_lossy(&ir_block.data[*key]).to_string();
-                if let Some(reg) = registers.get(src.get() as usize)
-                    && let PipelineData::Value(v, _) = &reg.body
-                {
-                    let mut inner = self.state.inner.lock().expect("debug state poisoned");
-                    inner.env_shadow.insert(name, v.clone());
-                }
-                return;
+    /// Snapshot the current frame's locals and environment from the real
+    /// evaluation `Stack` (nushell #18708) into shared state. Called at every
+    /// steppable line we might pause on, evaluate a condition/logpoint at, or
+    /// record for time-travel — so the pause snapshot, scratch eval, and the
+    /// tape all read genuine values (params, closure captures, mutations)
+    /// rather than the old IR reconstruction. `$in` is the one exception:
+    /// register-based, injected from the frame's captured value.
+    fn sync_locals_from_stack(&self, engine_state: &EngineState, stack: &Stack) {
+        let mut vars: std::collections::HashMap<usize, ShadowVar> =
+            std::collections::HashMap::new();
+        for (var_id, value) in &stack.vars {
+            // Nushell's reserved specials: $nu/$env live in Globals, $in is
+            // injected below from register 0.
+            if *var_id == nu_protocol::NU_VARIABLE_ID
+                || *var_id == nu_protocol::ENV_VARIABLE_ID
+                || *var_id == nu_protocol::IN_VARIABLE_ID
+            {
+                continue;
             }
-            _ => return,
-        };
-        let reg_idx = src.get() as usize;
-        let Some(reg) = registers.get(reg_idx) else {
-            return;
-        };
-        let value = match &reg.body {
-            PipelineData::Value(v, _) => v.clone(),
-            PipelineData::Empty => nu_protocol::Value::nothing(Span::unknown()),
-            other => nu_protocol::Value::string(
-                crate::variables::describe_stream(other),
-                Span::unknown(),
-            ),
-        };
-        // Variable name: nu doesn't store names on VarId, but the variable's
-        // declaration span points at the identifier in source.
-        let name = {
-            let var = engine_state.get_var(*var_id);
-            let bytes = engine_state.get_span_contents(var.declaration_span);
-            let s = String::from_utf8_lossy(bytes).to_string();
-            if s.is_empty() {
-                format!("var{}", var_id.get())
-            } else {
-                s.trim_start_matches('$').to_string()
-            }
-        };
-        let depth = self.depth();
+            vars.insert(
+                var_id.get(),
+                ShadowVar {
+                    name: var_name(engine_state, *var_id),
+                    value: value.clone(),
+                },
+            );
+        }
+        if let Some(v) = self.frames.last().and_then(|f| f.in_value.clone()) {
+            vars.insert(
+                nu_protocol::IN_VARIABLE_ID.get(),
+                ShadowVar {
+                    name: "in".to_string(),
+                    value: v,
+                },
+            );
+        }
+        // Full runtime env (engine baseline + this stack's overlays/mutations).
+        let env = stack.get_env_vars(engine_state);
         let mut inner = self.state.inner.lock().expect("debug state poisoned");
-        inner
-            .shadow_vars
-            .insert(var_id.get(), ShadowVar { name, value, depth });
+        inner.shadow_vars = vars;
+        inner.env_shadow = env;
     }
 
     /// Decide whether the current run mode wants to pause at this position
@@ -338,25 +333,20 @@ impl DapDebugger {
             .insert(PauseSnapshot::PROCESS_REF, process_children);
 
         // Globals scope: nushell's special variables as expandable records.
-        // `$nu` (config/paths/pid/os-info) and `$env` (same data as the flat
-        // Environment scope, but as the record scripts actually reference).
+        // `$nu` (config/paths/pid/os-info) and `$env` — the latter is the full
+        // runtime env snapshotted from the Stack (`env_shadow`), as the record
+        // scripts actually reference.
         let mut globals_children = Vec::new();
         if let Some(nu) = engine_state.get_constant(nu_protocol::NU_VARIABLE_ID) {
             let v = nu.clone();
             globals_children.push(add_value(&mut snap, "$nu".to_string(), &v, 0));
         }
         {
-            let mut env_map: std::collections::BTreeMap<String, nu_protocol::Value> = engine_state
-                .render_env_vars()
-                .into_iter()
-                .map(|(k, v)| (k.to_string(), v.clone()))
-                .collect();
-            for (k, v) in &inner.env_shadow {
-                env_map.insert(k.clone(), v.clone());
-            }
+            let env_map: std::collections::BTreeMap<&String, &nu_protocol::Value> =
+                inner.env_shadow.iter().collect();
             let mut rec = nu_protocol::Record::new();
             for (k, v) in env_map {
-                rec.push(k, v);
+                rec.push(k.clone(), v.clone());
             }
             let env_val = nu_protocol::Value::record(rec, Span::unknown());
             globals_children.push(add_value(&mut snap, "$env".to_string(), &env_val, 0));
@@ -500,32 +490,17 @@ impl Debugger for DapDebugger {
             span: block.span,
             at: None,
             last_line: None,
+            in_value: None,
         });
         // Fresh frame: no line executed in it yet.
         self.last_line = None;
 
         self.just_entered_block = true;
-
-        // Parameters captured at the call site become locals of this block,
-        // keyed by their real var-ids (so watch expressions see them too).
-        if !self.pending_param_shadows.is_empty() {
-            let depth = self.depth();
-            let mut inner = self.state.inner.lock().expect("debug state poisoned");
-            for (var_id, name, value) in self.pending_param_shadows.drain(..) {
-                inner
-                    .shadow_vars
-                    .insert(var_id, ShadowVar { name, value, depth });
-            }
-        }
+        // Params and locals for this block now come straight from the real
+        // Stack at each pause (see `sync_locals_from_stack`) — no pre-binding.
     }
 
     fn leave_block(&mut self, _engine_state: &EngineState, _block: &Block) {
-        let depth = self.depth();
-        // Best-effort scope cleanup of shadow vars declared at this depth.
-        {
-            let mut inner = self.state.inner.lock().expect("debug state poisoned");
-            inner.shadow_vars.retain(|_, sv| sv.depth < depth);
-        }
         self.frames.pop();
         // Back in the caller: restore its line tracking so returning onto
         // the call line doesn't re-fire breakpoints there.
@@ -535,10 +510,10 @@ impl Debugger for DapDebugger {
     fn enter_instruction(
         &mut self,
         engine_state: &EngineState,
-        // Real evaluation stack (nushell #18708). Not yet used — a follow-up
-        // pass replaces the shadow-variable reconstruction below with direct
-        // reads from here.
-        _stack: &Stack,
+        // Real evaluation stack (nushell #18708): the source of truth for this
+        // frame's locals and environment. Read at each steppable line by
+        // `sync_locals_from_stack`.
+        stack: &Stack,
         ir_block: &IrBlock,
         instruction_index: usize,
         registers: &[PipelineExecutionData],
@@ -550,141 +525,29 @@ impl Debugger for DapDebugger {
 
         // First instruction of a freshly-entered block: register 0 holds the
         // block's pipeline input — that's `$in` (per element for closures
-        // driven by each/where). Registered under nu's reserved var id.
+        // driven by each/where). `$in` is register-based, not on the Stack, so
+        // stash it on the frame; `sync_locals_from_stack` injects it later.
         if self.just_entered_block {
             self.just_entered_block = false;
             if let Some(PipelineData::Value(v, _)) = registers.first().map(|r| &r.body)
                 && !matches!(v, nu_protocol::Value::Nothing { .. })
+                && let Some(frame) = self.frames.last_mut()
             {
-                let depth = self.depth();
-                let mut inner = self.state.inner.lock().expect("debug state poisoned");
-                inner.shadow_vars.insert(
-                    nu_protocol::IN_VARIABLE_ID.get(),
-                    ShadowVar {
-                        name: "in".to_string(),
-                        value: v.clone(),
-                        depth,
-                    },
-                );
+                frame.in_value = Some(v.clone());
             }
         }
 
-        self.capture_store(engine_state, ir_block, instruction_index, registers);
-
-        // Call-tracking: `push-positional` instructions load argument values
-        // into registers before a `call`. Collect them so a call to a
-        // user-defined command can pre-register its parameters as shadow
-        // variables (the Debugger trait never sees the callee's Stack).
-        // `pending_frame_name`/`pending_param_shadows` are consumed by the
-        // callee's enter_block and cleared by any other instruction, so a
-        // builtin call (no block follows) can't leak into a later block.
+        // Frame naming only: a `Call` to a named decl labels the block the
+        // callee's `enter_block` is about to push; any other instruction
+        // clears it so a builtin call (no block follows) can't mislabel a
+        // later block. Parameter/local values are no longer reconstructed
+        // here — they come from the real Stack at pause time.
         match &ir_block.instructions[instruction_index] {
-            Instruction::PushPositional { src } => {
-                let value = registers
-                    .get(src.get() as usize)
-                    .map(|reg| match &reg.body {
-                        PipelineData::Value(v, _) => v.clone(),
-                        PipelineData::Empty => nu_protocol::Value::nothing(Span::unknown()),
-                        other => nu_protocol::Value::string(
-                            crate::variables::describe_stream(other),
-                            Span::unknown(),
-                        ),
-                    })
-                    .unwrap_or_else(|| nu_protocol::Value::nothing(Span::unknown()));
-                self.pending_args.push(value);
-                self.pending_frame_name = None;
-                self.pending_param_shadows.clear();
-            }
-            // Switch flag: presence means true.
-            Instruction::PushFlag { name } => {
-                let flag = String::from_utf8_lossy(&ir_block.data[*name]).to_string();
-                self.pending_flags
-                    .push((flag, nu_protocol::Value::bool(true, Span::unknown())));
-                self.pending_frame_name = None;
-                self.pending_param_shadows.clear();
-            }
-            // Named argument: --name <value>, value in a register.
-            Instruction::PushNamed { name, src } => {
-                let flag = String::from_utf8_lossy(&ir_block.data[*name]).to_string();
-                let value = registers
-                    .get(src.get() as usize)
-                    .map(|reg| match &reg.body {
-                        PipelineData::Value(v, _) => v.clone(),
-                        PipelineData::Empty => nu_protocol::Value::nothing(Span::unknown()),
-                        other => nu_protocol::Value::string(
-                            crate::variables::describe_stream(other),
-                            Span::unknown(),
-                        ),
-                    })
-                    .unwrap_or_else(|| nu_protocol::Value::nothing(Span::unknown()));
-                self.pending_flags.push((flag, value));
-                self.pending_frame_name = None;
-                self.pending_param_shadows.clear();
-            }
             Instruction::Call { decl_id, .. } => {
-                let decl = engine_state.get_decl(*decl_id);
-                self.pending_frame_name = Some(decl.name().to_string());
-                self.pending_param_shadows.clear();
-                let args = std::mem::take(&mut self.pending_args);
-                if decl.block_id().is_some() {
-                    let sig = decl.signature();
-                    let positional = sig
-                        .required_positional
-                        .iter()
-                        .chain(sig.optional_positional.iter());
-                    let mut idx = 0;
-                    for param in positional {
-                        if idx >= args.len() {
-                            break;
-                        }
-                        if let Some(var_id) = param.var_id {
-                            self.pending_param_shadows.push((
-                                var_id.get(),
-                                param.name.clone(),
-                                args[idx].clone(),
-                            ));
-                        }
-                        idx += 1;
-                    }
-                    if let (Some(rest), true) = (&sig.rest_positional, idx < args.len())
-                        && let Some(var_id) = rest.var_id
-                    {
-                        self.pending_param_shadows.push((
-                            var_id.get(),
-                            rest.name.clone(),
-                            nu_protocol::Value::list(args[idx..].to_vec(), Span::unknown()),
-                        ));
-                    }
-                    // Flags: every named parameter gets a binding — the
-                    // provided value, or `false` for absent switches, or the
-                    // declared default. This is what the engine does
-                    // internally, invisibly to the Debugger trait.
-                    let flags = std::mem::take(&mut self.pending_flags);
-                    for named in &sig.named {
-                        let Some(var_id) = named.var_id else { continue };
-                        let provided = flags
-                            .iter()
-                            .find(|(n, _)| *n == named.long)
-                            .map(|(_, v)| v.clone());
-                        let value = provided.unwrap_or_else(|| {
-                            if named.arg.is_none() {
-                                nu_protocol::Value::bool(false, Span::unknown())
-                            } else {
-                                named
-                                    .default_value
-                                    .clone()
-                                    .unwrap_or_else(|| nu_protocol::Value::nothing(Span::unknown()))
-                            }
-                        });
-                        self.pending_param_shadows
-                            .push((var_id.get(), named.long.clone(), value));
-                    }
-                }
-                self.pending_flags.clear();
+                self.pending_frame_name = Some(engine_state.get_decl(*decl_id).name().to_string());
             }
             _ => {
                 self.pending_frame_name = None;
-                self.pending_param_shadows.clear();
             }
         }
 
@@ -695,10 +558,11 @@ impl Debugger for DapDebugger {
         let span = ir_block.spans[instruction_index];
         let pos = self.source_map.resolve_steppable(span);
 
-        // Single lock: terminate check, breakpoint-at-this-line lookup, and
-        // the current run mode. Condition/logpoint evaluation happens after
-        // the lock is dropped (the scratch engine has its own).
-        let (bp_props, run_mode) = {
+        // Single lock: terminate check, breakpoint-at-this-line lookup, the
+        // current run mode, and whether time-travel recording is on.
+        // Condition/logpoint evaluation happens after the lock is dropped
+        // (the scratch engine has its own).
+        let (bp_props, run_mode, time_travel) = {
             let inner = self.state.inner.lock().expect("debug state poisoned");
             if inner.terminate_requested {
                 engine_state.signals().trigger();
@@ -715,8 +579,18 @@ impl Debugger for DapDebugger {
                     .and_then(|m| m.get(&(p.line as i64)))
                     .cloned()
             });
-            (props, inner.run_mode)
+            (props, inner.run_mode, inner.time_travel)
         };
+
+        // Snapshot this frame's real locals + env from the Stack for any line
+        // we might pause on, evaluate a condition/logpoint at, or record on the
+        // time-travel tape. Skipped on the fast path (plain `continue`, no
+        // breakpoint here, time-travel off) so hot loops don't clone per line.
+        if pos.is_some()
+            && (bp_props.is_some() || !matches!(run_mode, RunMode::Continue) || time_travel)
+        {
+            self.sync_locals_from_stack(engine_state, stack);
+        }
 
         let mut reason: Option<&'static str> = None;
         let mut note: Option<String> = None;
@@ -850,7 +724,7 @@ impl Debugger for DapDebugger {
     fn leave_instruction(
         &mut self,
         engine_state: &EngineState,
-        _stack: &Stack,
+        stack: &Stack,
         ir_block: &IrBlock,
         instruction_index: usize,
         registers: &[PipelineExecutionData],
@@ -926,6 +800,9 @@ impl Debugger for DapDebugger {
                 description = format!("{description}\n\n{}", &tail[cut..]);
             }
         }
+        // Refresh locals/env from the failing frame's Stack so the exception
+        // snapshot shows real values (this path skips the enter_instruction sync).
+        self.sync_locals_from_stack(engine_state, stack);
         {
             let mut inner = self.state.inner.lock().expect("debug state poisoned");
             inner.exception_info = Some((exception_id, description.clone()));

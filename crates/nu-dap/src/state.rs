@@ -123,12 +123,13 @@ pub struct Inner {
     /// thread needs these to construct StepOver/StepOut run modes.
     pub paused_line: u64,
     pub paused_depth: usize,
-    /// Shadow map of variable values, keyed by nu VarId's inner usize.
-    /// Maintained by watching StoreVariable instructions — the Debugger
-    /// trait has no access to the Stack, so this is our only view of locals.
+    /// The current frame's locals, keyed by nu VarId's inner usize. Snapshotted
+    /// from the real evaluation `Stack` at each pause/record point (nushell
+    /// #18708) by `debugger::sync_locals_from_stack`; read here by the server
+    /// thread, which must never touch the Stack directly.
     pub shadow_vars: HashMap<usize, ShadowVar>,
-    /// Runtime `$env.X = …` mutations, captured from StoreEnv instructions.
-    /// Overlaid on the engine's baseline env in the Environment scope.
+    /// The current frame's full runtime environment (`stack.get_env_vars`),
+    /// snapshotted alongside `shadow_vars`. Rendered as `$env` in Globals.
     pub env_shadow: HashMap<String, nu_protocol::Value>,
 
     // --- Time-travel ("recorded tape") ---
@@ -210,9 +211,6 @@ impl Inner {
 pub struct ShadowVar {
     pub name: String,
     pub value: nu_protocol::Value,
-    /// Block depth at which the variable was stored; used to drop
-    /// out-of-scope variables when leaving blocks (best effort).
-    pub depth: usize,
 }
 
 /// One recorded moment on the time-travel tape: everything needed to rebuild

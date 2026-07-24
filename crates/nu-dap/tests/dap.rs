@@ -355,6 +355,35 @@ fn custom_command_frame_and_parameters() {
 }
 
 #[test]
+fn closure_params_and_in_are_visible() {
+    // Reading the real Stack (nushell #18708) exposes a closure's own
+    // parameter — impossible under the old IR shadow reconstruction, which
+    // never saw the callee's bindings.
+    let script = example("closure.nu");
+    let mut d = Dap::spawn();
+    d.start(&script, json!({}), &[3]); // `let doubled = $elt * 2`, first iteration
+
+    assert_eq!(d.event("stopped")["body"]["reason"], "breakpoint");
+    let loc = d.locals();
+    assert_eq!(
+        loc.get("elt").map(String::as_str),
+        Some("10"),
+        "closure param visible: {loc:?}"
+    );
+    assert_eq!(
+        loc.get("in").map(String::as_str),
+        Some("10"),
+        "$in is the current element: {loc:?}"
+    );
+    // And it resolves in watch expressions through the scratch engine.
+    d.send(
+        "evaluate",
+        json!({ "expression": "$elt + 5", "context": "watch" }),
+    );
+    assert_eq!(d.response("evaluate")["body"]["result"], "15");
+}
+
+#[test]
 fn stepping_never_lands_on_line_one() {
     let demo = example("demo.nu");
     let mut d = Dap::spawn();
