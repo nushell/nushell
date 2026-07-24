@@ -279,10 +279,10 @@ fn correct_scope_variables_fields() -> Result {
         }))?;
     let _: i64 = tester.run("$x_var.var_id")?;
 
-    let code = r#"
+    let code = "
         const x = 'x'
         scope variables | where name == '$x' | get 0.is_const
-    "#;
+    ";
     test().run(code).expect_value_eq(true)?;
 
     Ok(())

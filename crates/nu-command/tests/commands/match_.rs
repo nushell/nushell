@@ -7,12 +7,12 @@ use nu_test_support::prelude::*;
 #[case::inside(3, true)]
 #[case::outside(11, false)]
 fn range(#[case] scrutinee: impl IntoValue, #[case] success: bool) -> Result {
-    let code = r#"
+    let code = "
         match $in {
             1..10 => { true }
             _ => { false }
         }
-    "#;
+    ";
     test()
         .run_with_data(code, scrutinee)
         .expect_value_eq(success)
@@ -48,12 +48,12 @@ fn record_shorthand() -> Result {
 fn list() -> Result {
     test()
         .run(
-            r#"
+            "
             match [1, 2] {
                 [$a] => { {single: $a} }
                 [$b, $c] => { {double: [$b, $c] } }
             }
-            "#,
+            ",
         )
         .expect_value_eq(test_value!({double: [1, 2]}))
 }
@@ -62,12 +62,12 @@ fn list() -> Result {
 fn list_rest_ignore() -> Result {
     test()
         .run(
-            r#"
+            "
             match [1, 2] {
                 [$a, ..] => { {single: $a} }
                 [$b, $c] => { {double: [$b, $c] } }
             }
-            "#,
+            ",
         )
         .expect_value_eq(test_value!({single: 1}))
 }
@@ -76,12 +76,12 @@ fn list_rest_ignore() -> Result {
 fn list_rest_capture() -> Result {
     test()
         .run(
-            r#"
+            "
                 match [1, 2, 3] {
                     [$a, ..$remainder] => { {single: $a, remainder: $remainder} }
                     [$b, $c] => { {double: [$b, $c]} }
                 }
-            "#,
+            ",
         )
         .expect_value_eq(test_value!({
             single: 1,
@@ -110,13 +110,13 @@ fn literal(#[case] patterns: [&str; 3]) -> Result {
     let mut tester = test();
     let scrutinee: Value = tester.run(second)?;
 
-    let code = indoc::formatdoc! {r#"
+    let code = indoc::formatdoc! {"
         match $in {{
             {first} => false,
             {second} => true,
             {third} => false,
         }}
-    "#};
+    "};
     test().run_with_data(code, scrutinee).expect_value_eq(true)
 }
 
@@ -138,12 +138,12 @@ fn literal_raw_string() -> Result {
 fn literal_null() -> Result {
     test()
         .run(
-            r#"
+            "
             match null {
                 null => true,
                 _ => false,
             }
-        "#,
+        ",
         )
         .expect_value_eq(true)
 }
@@ -152,12 +152,12 @@ fn literal_null() -> Result {
 fn match_or_pattern() -> Result {
     test()
         .run(
-            r#"
+            "
         match {b: 7} {
             {a: $a} | {b: $b} => { {success: $b} }
             _ => false
         }
-    "#,
+    ",
         )
         .expect_value_eq(test_value!({success: 7}))
 }
@@ -166,12 +166,12 @@ fn match_or_pattern() -> Result {
 fn match_or_pattern_overlap_1() -> Result {
     test()
         .run(
-            r#"
+            "
         match {a: 7} {
             {a: $b} | {b: $b} => { {success: $b} }
             _ => false
         }
-    "#,
+    ",
         )
         .expect_value_eq(test_value!({success: 7}))
 }
@@ -261,22 +261,22 @@ fn match_with_or_missing_expr() -> Result {
 
 #[test]
 fn line_comment_in_match_block() -> Result {
-    let code = r#"
+    let code = "
         match 1 {
             # comment
             _ => { true }
         }
-    "#;
+    ";
     test().run(code).expect_value_eq(true)
 }
 
 #[test]
 fn trailing_comment_after_match_arm() -> Result {
-    let code = r#"
+    let code = "
         match 1 {
             _ => { true } # comment
         }
-    "#;
+    ";
     test().run(code).expect_value_eq(true)
 }
 
@@ -284,7 +284,7 @@ fn trailing_comment_after_match_arm() -> Result {
 #[case::string_concat("match 'test' { ( 't' + 'es' + 't' ) => { true } }")]
 #[case::int_arithmetic("match 42 { (40 + 2) => { true } }")]
 #[case::no_match("match 'nope' { ('t' + 'es' + 't') => { false }, _ => { true } }")]
-#[case::range_literal(r#"match 5 { (1..10) => { true }, _ => { false } }"#)]
+#[case::range_literal("match 5 { (1..10) => { true }, _ => { false } }")]
 #[case::or_pattern("match 3 { (1 + 1) | 3 => { true }, _ => { false } }")]
 #[case::nested_in_list("match [2] { [(1 + 1)] => { true }, _ => { false } }")]
 fn const_expr_in_paren(#[case] code: &str) -> Result {

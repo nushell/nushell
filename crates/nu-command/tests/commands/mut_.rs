@@ -166,7 +166,7 @@ fn mut_typed_glob_expands_in_ls() -> Result {
 }
 
 #[rstest]
-#[case(r#"r#'abc'#"#, "abc")]
+#[case("r#'abc'#", "abc")]
 #[case(r#"r#'abcde""fghi"''''jkl'#"#, r#"abcde""fghi"''''jkl"#)]
 #[case(r#"r##'abcde""fghi"''''#jkl'##"#, r#"abcde""fghi"''''#jkl"#)]
 #[case(r#"r###'abcde""fghi"'''##'#jkl'###"#, r#"abcde""fghi"'''##'#jkl"#)]

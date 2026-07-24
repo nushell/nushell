@@ -2,11 +2,11 @@ use nu_test_support::prelude::*;
 
 #[test]
 fn reduce_table_column() -> Result {
-    let code = r#"
+    let code = "
         [[month, total]; [2, 30], [3, 10], [4, 3], [5, 60]]
         | get total
         | reduce --fold 20 { |it, acc| $it + $acc * 2 }
-    "#;
+    ";
     test().run(code).expect_value_eq(666)
 }
 
