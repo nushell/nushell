@@ -54,15 +54,15 @@ fn do_not_panic_if_broken_pipe() -> Result {
     Ok(())
 }
 
-#[test]
 #[cfg(unix)]
+#[test]
+#[serial]
+#[deps(NU)]
 fn exit_failure_if_stdout_full() {
     let mut child = std::process::Command::new("sh")
         .arg("-c")
-        .arg(format!(
-            "{:?} -n > /dev/full",
-            nu_test_support::fs::executable_path()
-        ))
+        .arg(format!("{:?} -n > /dev/full", NU.path()))
+        .stderr(std::process::Stdio::null())
         .spawn()
         .expect("failed to spawn process");
 
@@ -87,15 +87,13 @@ fn exit_failure_if_stdout_full() {
     );
 }
 
-#[test]
 #[cfg(unix)]
+#[test]
+#[deps(NU)]
 fn exit_failure_if_stderr_full() {
     let mut child = std::process::Command::new("sh")
         .arg("-c")
-        .arg(format!(
-            "{:?} -n 2>/dev/full",
-            nu_test_support::fs::executable_path()
-        ))
+        .arg(format!("{:?} -n 2>/dev/full", NU.path()))
         .spawn()
         .expect("failed to spawn process");
 
@@ -258,8 +256,9 @@ fn run_export_extern() -> Result {
 }
 
 #[test]
+#[deps(NU)]
 fn run_in_login_mode() {
-    let child_output = std::process::Command::new(nu_test_support::fs::executable_path())
+    let child_output = std::process::Command::new(NU.path())
         .args(["-n", "-l", "-c", "echo $nu.is-login"])
         .output()
         .expect("failed to run nu");
@@ -269,8 +268,9 @@ fn run_in_login_mode() {
 }
 
 #[test]
+#[deps(NU)]
 fn run_in_not_login_mode() {
-    let child_output = std::process::Command::new(nu_test_support::fs::executable_path())
+    let child_output = std::process::Command::new(NU.path())
         .args(["-n", "-c", "echo $nu.is-login"])
         .output()
         .expect("failed to run nu");
@@ -280,8 +280,9 @@ fn run_in_not_login_mode() {
 }
 
 #[test]
+#[deps(NU)]
 fn run_in_interactive_mode() {
-    let child_output = std::process::Command::new(nu_test_support::fs::executable_path())
+    let child_output = std::process::Command::new(NU.path())
         .args(["-n", "-i", "-c", "echo $nu.is-interactive"])
         .output()
         .expect("failed to run nu");
@@ -291,8 +292,9 @@ fn run_in_interactive_mode() {
 }
 
 #[test]
+#[deps(NU)]
 fn run_in_noninteractive_mode() {
-    let child_output = std::process::Command::new(nu_test_support::fs::executable_path())
+    let child_output = std::process::Command::new(NU.path())
         .args(["-n", "-c", "echo $nu.is-interactive"])
         .output()
         .expect("failed to run nu");
@@ -302,8 +304,9 @@ fn run_in_noninteractive_mode() {
 }
 
 #[test]
+#[deps(NU)]
 fn run_with_no_newline() {
-    let child_output = std::process::Command::new(nu_test_support::fs::executable_path())
+    let child_output = std::process::Command::new(NU.path())
         .args(["-n", "--no-newline", "-c", "\"hello world\""])
         .output()
         .expect("failed to run nu");
@@ -585,6 +588,7 @@ fn builtin_commands_can_be_shadowed_and_extended() -> Result {
 
 #[cfg(not(target_arch = "wasm32"))]
 #[test]
+#[deps(NU)]
 fn nu_env_pwd_symlink() {
     Playground::setup("nu_env_pwd_symlink", |_, sandbox| {
         // Test that the value of PWD in the environment takes precedence
@@ -594,7 +598,7 @@ fn nu_env_pwd_symlink() {
 
         let pwd = sandbox.cwd().join(pwd);
         let current_dir = std::fs::canonicalize(&pwd).unwrap();
-        let child_output = std::process::Command::new(nu_test_support::fs::executable_path())
+        let child_output = std::process::Command::new(NU.path())
             .args(["-c", "echo $env.PWD"])
             .current_dir(current_dir)
             .env("PWD", &pwd)
@@ -611,7 +615,7 @@ fn nu_env_pwd_symlink() {
 
         let pwd = sandbox.cwd().join(pwd);
         let current_dir = sandbox.cwd().canonicalize().unwrap();
-        let child_output = std::process::Command::new(nu_test_support::fs::executable_path())
+        let child_output = std::process::Command::new(NU.path())
             .args(["-c", "echo $env.PWD"])
             .current_dir(&current_dir)
             .env("PWD", &pwd)
