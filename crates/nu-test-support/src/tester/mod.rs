@@ -917,6 +917,10 @@ pub trait ShellErrorExt {
     /// Extract the [`LabeledError`] from [`ShellError::LabeledError`], if it is one.
     fn into_labeled(self) -> Result<LabeledError>;
 
+    /// Extract the iterator on the sources of the [`ChainedError`] from
+    /// [`ShellError::ChainedError`], it it is one.
+    fn into_chained_iter(self) -> Result<impl Iterator<Item = ShellError>>;
+
     /// Extract the error field from [`ShellError::Generic`], if it is one.
     fn generic_error(self) -> Result<String>;
 
@@ -962,6 +966,20 @@ impl ShellErrorExt for ShellError {
                 location: TestLocation(Location::caller()),
                 kind: TestErrorKind::UnexpectedErrorKind {
                     expected: "Labeled",
+                    got,
+                },
+            }),
+        }
+    }
+
+    #[track_caller]
+    fn into_chained_iter(self) -> Result<impl Iterator<Item = ShellError>> {
+        match self {
+            ShellError::ChainedError(err) => Ok(err.sources_iter()),
+            got => Err(TestError {
+                location: TestLocation(Location::caller()),
+                kind: TestErrorKind::UnexpectedErrorKind {
+                    expected: "Chained",
                     got,
                 },
             }),
