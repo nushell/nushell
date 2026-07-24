@@ -139,6 +139,15 @@ fn main() -> Result<()> {
     let script_name = parsed.script_name;
     let args_to_script = parsed.args_to_script;
 
+    // `nu --dap`: hand off to the embedded Debug Adapter Protocol server. It
+    // builds its own engine and owns process stdio, so nothing else in `main`
+    // applies — return as soon as the DAP client disconnects.
+    #[cfg(feature = "dap")]
+    if parsed_nu_cli_args.dap {
+        nu_dap::run_stdio();
+        return Ok(());
+    }
+
     experimental_options::load(&engine_state, &parsed_nu_cli_args, !script_name.is_empty());
 
     let mut engine_state = command_context::add_command_context(engine_state);

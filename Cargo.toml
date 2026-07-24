@@ -104,6 +104,7 @@ nu-explore = { path = "crates/nu-explore", version = "0.114.2", default-features
 nu-glob = { path = "crates/nu-glob", version = "0.114.2", default-features = false }
 nu-heavy-utils = { path = "crates/nu-heavy-utils", version = "0.114.2", default-features = false }
 nu-json = { path = "crates/nu-json", version = "0.114.2", default-features = false }
+nu-dap = { path = "crates/nu-dap", version = "0.114.2", default-features = false }
 nu-lsp = { path = "crates/nu-lsp", version = "0.114.2", default-features = false }
 nu-mcp = { path = "crates/nu-mcp", version = "0.114.2", default-features = false }
 nu-parser = { path = "crates/nu-parser", version = "0.114.2", default-features = false }
@@ -328,6 +329,7 @@ nu-cmd-lang = { workspace = true, features = ["os"] }
 nu-cmd-plugin = { workspace = true, optional = true }
 nu-command = { workspace = true, features = ["os"] }
 nu-engine = { workspace = true, features = ["os"] }
+nu-dap = { workspace = true, optional = true }
 nu-experimental = { workspace = true }
 nu-explore = { workspace = true }
 nu-lsp = { workspace = true, optional = true }
@@ -387,6 +389,7 @@ tempfile = { workspace = true }
 # Enable all features while still avoiding mutually exclusive features.
 # Use this if `--all-features` fails.
 full = [
+  "dap",
   "lsp",
   "mcp",
   "network",
@@ -412,6 +415,8 @@ plugin = [
   "nu-protocol/plugin",
 ]
 
+dap = ["dep:nu-dap"]
+
 lsp = ["dep:nu-lsp"]
 
 mcp = [
@@ -424,6 +429,7 @@ native-tls = ["nu-command/native-tls"]
 rustls-tls = ["nu-command/rustls-tls"]
 
 default = [
+  "dap",
   "lsp",
   "mcp",
   "network",
