@@ -280,7 +280,7 @@ fn env_shlvl_in_exec_repl() -> Result {
 #[deps(NU)]
 fn path_is_a_list_in_repl() -> Result {
     test()
-        .run(r#"nu -c "exec nu --no-std-lib -n -e `print $'path:($env.pATh | describe)'; exit`" | to text | str trim"#)
+        .run(r#"nu --no-std-lib -n -c `print $'path:($env.pATh | describe)'; exit`"#)
         .expect_value_eq("path:list<string>")
 }
 
