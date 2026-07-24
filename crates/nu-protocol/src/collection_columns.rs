@@ -47,6 +47,12 @@ pub struct CollectionColumns<T> {
 }
 
 impl<T> CollectionColumns<T> {
+    pub fn get<'s>(&'s self, key: &'_ str) -> Option<&'s T> {
+        self.iter()
+            .find(|(name, _)| name == key)
+            .map(|(_, val)| val)
+    }
+
     pub fn map<U>(&self, f: impl Fn(&T) -> U) -> CollectionColumns<U> {
         self.iter().map(|(k, v)| (k.clone(), f(v))).collect()
     }
@@ -61,18 +67,6 @@ impl<T> CollectionColumns<T> {
 
     pub fn len(&self) -> usize {
         self.fields.len()
-    }
-}
-
-impl<T> CollectionColumns<T> {
-    pub fn new(fields: Box<[(String, T)]>) -> Self {
-        Self { fields }
-    }
-
-    pub fn get<'s>(&'s self, key: &'_ str) -> Option<&'s T> {
-        self.iter()
-            .find(|(name, _)| name == key)
-            .map(|(_, val)| val)
     }
 }
 
@@ -104,13 +98,18 @@ impl<T> FromIterator<(String, T)> for CollectionColumns<T> {
 
 impl<T> From<Vec<(String, T)>> for CollectionColumns<T> {
     fn from(value: Vec<(String, T)>) -> Self {
-        value.into_boxed_slice().into()
+        Self {
+            fields: value.into_boxed_slice(),
+        }
     }
 }
 
-impl<T> From<Box<[(String, T)]>> for CollectionColumns<T> {
-    fn from(value: Box<[(String, T)]>) -> Self {
-        Self { fields: value }
+impl<'a, T, const N: usize> From<[(&'a str, T); N]> for CollectionColumns<T> {
+    fn from(value: [(&'a str, T); N]) -> Self {
+        value
+            .into_iter()
+            .map(|(k, v)| (String::from(k), v))
+            .collect()
     }
 }
 
