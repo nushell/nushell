@@ -1,5 +1,5 @@
 use nu_protocol::{
-    ShellError, Span, Value,
+    CustomValue, ShellError, Span, Value,
     ast::{Comparison, Operator},
     casing::Casing,
 };
@@ -37,16 +37,25 @@ impl nu_protocol::CustomValue for SemverValue {
 
     fn partial_cmp(&self, other: &Value) -> Option<Ordering> {
         match other {
-            Value::Custom { val, .. } if val.type_name() == self.type_name() => {
-                let other_version =
-                    val.to_base_value(other.span())
+            Value::Custom { val, .. } => {
+                // Prefer a direct downcast when both values share the same crate instance.
+                // Fall back to type_name + base-value parse so comparison still works when
+                // TypeIds diverge (e.g. unit tests that pull nu-command in twice via
+                // nu-test-support).
+                if let Some(other) = val.as_any().downcast_ref::<SemverValue>() {
+                    return self.version.partial_cmp(&other.version);
+                }
+                if val.type_name() == self.type_name() {
+                    return val
+                        .to_base_value(other.span())
                         .ok()
                         .and_then(|value| match value {
                             Value::String { val, .. } => semver::Version::parse(&val).ok(),
                             _ => None,
-                        });
-
-                other_version.and_then(|other_version| self.version.partial_cmp(&other_version))
+                        })
+                        .and_then(|other_version| self.version.partial_cmp(&other_version));
+                }
+                None
             }
             Value::String { val, .. } => semver::Version::parse(val)
                 .ok()
@@ -108,6 +117,40 @@ impl nu_protocol::CustomValue for SemverValue {
                     help: Some("expected a semver-range on the right side"),
                 })
             }
+            Operator::Comparison(
+                comparison @ (Comparison::Equal
+                | Comparison::NotEqual
+                | Comparison::LessThan
+                | Comparison::LessThanOrEqual
+                | Comparison::GreaterThan
+                | Comparison::GreaterThanOrEqual),
+            ) => match CustomValue::partial_cmp(self, right) {
+                Some(ordering) => {
+                    let result = match comparison {
+                        Comparison::Equal => ordering == Ordering::Equal,
+                        Comparison::NotEqual => ordering != Ordering::Equal,
+                        Comparison::LessThan => ordering == Ordering::Less,
+                        Comparison::LessThanOrEqual => {
+                            matches!(ordering, Ordering::Less | Ordering::Equal)
+                        }
+                        Comparison::GreaterThan => ordering == Ordering::Greater,
+                        Comparison::GreaterThanOrEqual => {
+                            matches!(ordering, Ordering::Greater | Ordering::Equal)
+                        }
+                        _ => unreachable!("matched only equality/ordering comparisons above"),
+                    };
+                    Ok(Value::bool(result, op))
+                }
+                None => Err(ShellError::OperatorIncompatibleTypes {
+                    op: operator,
+                    lhs: nu_protocol::Type::Custom("semver".into()),
+                    rhs: right.get_type(),
+                    op_span: op,
+                    lhs_span,
+                    rhs_span: right.span(),
+                    help: Some("expected another semver or a valid version string"),
+                }),
+            },
             _ => Err(ShellError::OperatorUnsupportedType {
                 op: operator,
                 unsupported: nu_protocol::Type::Custom(self.type_name().into()),
@@ -496,6 +539,127 @@ mod tests {
         );
 
         assert!(result.is_err());
+    }
+
+    fn assert_bool_op(left: &SemverValue, comparison: Comparison, right: &Value, expected: bool) {
+        let result = left
+            .operation(
+                Span::test_data(),
+                Operator::Comparison(comparison),
+                Span::test_data(),
+                right,
+            )
+            .unwrap();
+        assert!(matches!(result, Value::Bool { val, .. } if val == expected));
+    }
+
+    #[test]
+    fn test_operation_comparisons() {
+        let v201 = SemverValue::new(parse_version("2.0.1"));
+        let v199 = SemverValue::new(parse_version("1.9.9"));
+        let v100 = SemverValue::new(parse_version("1.0.0"));
+        let v100_again = SemverValue::new(parse_version("1.0.0"));
+        let v200 = SemverValue::new(parse_version("2.0.0"));
+        let v100_alpha = SemverValue::new(parse_version("1.0.0-alpha"));
+
+        let val201 = Value::custom(Box::new(v201.clone()), Span::test_data());
+        let val199 = Value::custom(Box::new(v199.clone()), Span::test_data());
+        let val100 = Value::custom(Box::new(v100.clone()), Span::test_data());
+        let val100_again = Value::custom(Box::new(v100_again.clone()), Span::test_data());
+        let val200 = Value::custom(Box::new(v200.clone()), Span::test_data());
+        let val100_alpha = Value::custom(Box::new(v100_alpha.clone()), Span::test_data());
+
+        // Discussion #18705 case: 2.0.1 is not less than 1.9.9
+        assert_bool_op(&v201, Comparison::LessThan, &val199, false);
+        assert_bool_op(&v201, Comparison::GreaterThan, &val199, true);
+        assert_bool_op(&v199, Comparison::LessThan, &val201, true);
+
+        // Equality / inequality
+        assert_bool_op(&v100, Comparison::Equal, &val100_again, true);
+        assert_bool_op(&v100, Comparison::NotEqual, &val200, true);
+        assert_bool_op(&v100, Comparison::Equal, &val200, false);
+
+        // Inclusive bounds
+        assert_bool_op(&v100, Comparison::LessThanOrEqual, &val100_again, true);
+        assert_bool_op(&v100, Comparison::GreaterThanOrEqual, &val100_again, true);
+        assert_bool_op(&v100, Comparison::LessThanOrEqual, &val200, true);
+        assert_bool_op(&v200, Comparison::GreaterThanOrEqual, &val100, true);
+
+        // Prerelease is less than the corresponding release (semver spec)
+        assert_bool_op(&v100_alpha, Comparison::LessThan, &val100, true);
+        assert_bool_op(&v100, Comparison::GreaterThan, &val100_alpha, true);
+
+        // String RHS
+        let string_eq = Value::string("1.2.3", Span::test_data());
+        let v123 = SemverValue::new(parse_version("1.2.3"));
+        assert_bool_op(&v123, Comparison::Equal, &string_eq, true);
+        assert_bool_op(
+            &v123,
+            Comparison::LessThan,
+            &Value::string("2.0.0", Span::test_data()),
+            true,
+        );
+        assert_bool_op(
+            &v201,
+            Comparison::GreaterThan,
+            &Value::string("1.9.9", Span::test_data()),
+            true,
+        );
+
+        // Incompatible RHS
+        let int_rhs = Value::int(42, Span::test_data());
+        assert!(
+            v100.operation(
+                Span::test_data(),
+                Operator::Comparison(Comparison::Equal),
+                Span::test_data(),
+                &int_rhs,
+            )
+            .is_err()
+        );
+        let invalid_string = Value::string("not-a-version", Span::test_data());
+        assert!(
+            v100.operation(
+                Span::test_data(),
+                Operator::Comparison(Comparison::LessThan),
+                Span::test_data(),
+                &invalid_string,
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn test_value_comparison_methods() {
+        // Exercise the Value::{lt,gt,eq,...} path that dispatches to operation for custom values.
+        let left = SemverValue::test_value("2.0.1");
+        let right = SemverValue::test_value("1.9.9");
+        let span = Span::test_data();
+
+        assert!(matches!(
+            left.gt(span, &right, span).unwrap(),
+            Value::Bool { val: true, .. }
+        ));
+        assert!(matches!(
+            left.lt(span, &right, span).unwrap(),
+            Value::Bool { val: false, .. }
+        ));
+        assert!(matches!(
+            left.eq(span, &left, span).unwrap(),
+            Value::Bool { val: true, .. }
+        ));
+        assert!(matches!(
+            left.ne(span, &right, span).unwrap(),
+            Value::Bool { val: true, .. }
+        ));
+        assert!(matches!(
+            left.gte(span, &right, span).unwrap(),
+            Value::Bool { val: true, .. }
+        ));
+        assert!(matches!(
+            right.lte(span, &left, span).unwrap(),
+            Value::Bool { val: true, .. }
+        ));
     }
 
     #[test]
