@@ -605,6 +605,9 @@ pub enum TestErrorKind {
         got: Value,
     },
     NoInner,
+    MultipleInner {
+        count: usize,
+    },
     UnexpectedErrorKind {
         expected: &'static str,
         got: ShellError,
@@ -902,12 +905,13 @@ pub trait ShellErrorExt {
     /// Useful if the error is expected to be a generic error that contains an inner error or a
     /// chained error that chained another error.
     ///
-    /// However, this function returns [`None`]
+    /// However, this function returns [`TestErrorKind::NoInner`]
     /// - if `inner` of [`ShellError::Generic`] is empty
     /// - if `sources` of [`ShellError::ChainedError`] is empty
+    /// - if `sources` of [`ShellError::EvalBlockWithInput`] is empty
     /// - the error is none of the above types
     ///
-    /// So make sure that a [`None`] value is not surprise.
+    /// Also if multiple inner values are found a [`TestErrorKind::MultipleInner`] is returned.
     fn into_inner(self) -> Result<ShellError>;
 
     /// Extract the [`LabeledError`] from [`ShellError::LabeledError`], if it is one.
@@ -927,11 +931,27 @@ impl ShellErrorExt for ShellError {
             location: TestLocation(Location::caller()),
             kind: TestErrorKind::NoInner,
         };
-        match self {
-            ShellError::Generic(err) => err.inner.into_iter().next().ok_or(no_inner),
-            ShellError::ChainedError(err) => err.sources_iter().next().ok_or(no_inner),
-            _ => Err(no_inner),
+
+        let iter: &mut dyn Iterator<Item = ShellError> = match self {
+            ShellError::Generic(err) => &mut err.inner.into_iter(),
+            ShellError::ChainedError(err) => &mut err.sources_iter(),
+            ShellError::EvalBlockWithInput { sources, .. } => &mut sources.into_iter(),
+            _ => return Err(no_inner),
+        };
+
+        let Some(inner) = iter.next() else {
+            return Err(no_inner);
+        };
+
+        let rest = iter.count();
+        if rest != 0 {
+            return Err(TestError {
+                location: TestLocation(Location::caller()),
+                kind: TestErrorKind::MultipleInner { count: rest + 1 },
+            });
         }
+
+        Ok(inner)
     }
 
     #[track_caller]
