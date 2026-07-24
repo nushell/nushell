@@ -4,11 +4,12 @@ use std::{
     fmt::{Debug, Display},
     io,
     panic::Location,
-    path::{Path, PathBuf},
+    path::{self, Path, PathBuf},
     sync::{Arc, LazyLock},
 };
 
 use miette::Diagnostic;
+use nu_cmd_base::hook::eval_repl_hooks;
 use nu_protocol::{
     CompileError, Config, FromValue, IntoValue, LabeledError, ParseError, PipelineData,
     PipelineExecutionData, ShellError, Span, Value,
@@ -28,10 +29,8 @@ use nu_plugin_engine::{GetPlugin, PersistentPlugin, PluginDeclaration};
 use nu_protocol::{PluginIdentity, PluginSignature, RegisteredPlugin};
 
 static ROOT: LazyLock<PathBuf> = LazyLock::new(|| {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .expect("could not canonicalize root")
+    path::absolute(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."))
+        .expect("could not absolutize root")
 });
 
 // By using different engine states depending on the group key, we can ensure that behavior from
@@ -150,8 +149,11 @@ pub static PLUGIN_AUTO_LOAD: RwLock<Vec<PluginAutoLoader>> = const_rwlock(Vec::n
 /// # Ok::<(), nu_test_support::tester::TestError>(())
 /// ```
 pub fn test() -> NuTester {
+    let mut engine_state = INITIAL_ENGINE_STATES.get(&GroupKey::current()).clone();
+    engine_state.make_session_state_unique();
+
     let tester = NuTester {
-        engine_state: INITIAL_ENGINE_STATES.get(&GroupKey::current()).clone(),
+        engine_state,
         stack: Stack::new().collect_value(),
         fname_counter: Counter::default(),
     };
@@ -480,6 +482,25 @@ impl NuTester {
             .map(|pipeline| self.run(pipeline))
             .try_fold(Value::test_nothing(), |_, value| value)?;
         Ok(T::from_value(last)?)
+    }
+
+    /// Run Nushell code after evaluating the REPL hook checkpoints for that source.
+    ///
+    /// This is for behavior that specifically depends on `pre_prompt`, `env_change`, or
+    /// `pre_execution` hooks.
+    /// For ordinary shared-state tests, prefer repeated [`run`](Self::run) calls or
+    /// [`run_multiple`](Self::run_multiple).
+    #[track_caller]
+    pub fn run_with_hooks<T: FromValue>(&mut self, code: impl AsRef<str>) -> Result<T> {
+        let location = TestLocation(Location::caller());
+        let code = code.as_ref();
+
+        eval_repl_hooks(&mut self.engine_state, &mut self.stack, code)
+            .map_err(|err| TestError {
+                location,
+                kind: TestErrorKind::Shell(err),
+            })
+            .and_then(|()| self.run(code))
     }
 
     /// Run Nushell code and return the raw [`PipelineExecutionData`].

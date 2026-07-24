@@ -366,19 +366,7 @@ fn run_command(ctx: RunContext) -> Reedline {
     // Right before we start running the code the user gave us, fire the `pre_execution`
     // hook
     {
-        // Set the REPL buffer to the current command for the "pre_execution" hook
-        let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
-        repl.buffer = command.clone();
-        drop(repl);
-
-        if let Err(err) = hook::eval_hooks(
-            engine_state,
-            // &mut stack,
-            stack,
-            vec![],
-            &engine_state.get_config().hooks.pre_execution.clone(),
-            "pre_execution",
-        ) {
+        if let Err(err) = hook::eval_pre_execution_hooks(engine_state, stack, command.clone()) {
             report_shell_error(None, engine_state, &err);
         }
     }
@@ -559,13 +547,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
     start_time = Instant::now();
     // Next, right before we start our prompt and take input from the user, fire the "pre_prompt" hook
-    if let Err(err) = hook::eval_hooks(
-        engine_state,
-        &mut stack,
-        vec![],
-        &engine_state.get_config().hooks.pre_prompt.clone(),
-        "pre_prompt",
-    ) {
+    if let Err(err) = hook::eval_pre_prompt_hooks(engine_state, &mut stack) {
         report_shell_error(None, engine_state, &err);
     }
     perf!("pre-prompt hook", start_time, use_color);

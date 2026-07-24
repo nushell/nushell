@@ -1,4 +1,4 @@
-use nu_cmd_base::hook::{eval_env_change_hook, eval_hooks};
+use nu_cmd_base::hook::eval_repl_hooks;
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::{
@@ -376,43 +376,7 @@ pub fn nu_repl() {
     for (i, line) in source_lines.iter().enumerate() {
         let mut stack = Stack::with_parent(top_stack.clone());
 
-        // Before doing anything, merge the environment from the previous REPL iteration into the
-        // permanent state.
-        if let Err(err) = engine_state.merge_env(&mut stack) {
-            outcome_err(None, &engine_state, &err);
-        }
-
-        // Check for pre_prompt hook
-        let hook = engine_state.get_config().hooks.pre_prompt.clone();
-        if let Err(err) = eval_hooks(&mut engine_state, &mut stack, vec![], &hook, "pre_prompt") {
-            outcome_err(None, &engine_state, &err);
-        }
-
-        // Check for env change hook
-        if let Err(err) = eval_env_change_hook(
-            &engine_state.get_config().hooks.env_change.clone(),
-            &mut engine_state,
-            &mut stack,
-        ) {
-            outcome_err(None, &engine_state, &err);
-        }
-
-        // Check for pre_execution hook
-
-        engine_state
-            .repl_state
-            .lock()
-            .expect("repl state mutex")
-            .buffer = line.to_string();
-
-        let hook = engine_state.get_config().hooks.pre_execution.clone();
-        if let Err(err) = eval_hooks(
-            &mut engine_state,
-            &mut stack,
-            vec![],
-            &hook,
-            "pre_execution",
-        ) {
+        if let Err(err) = eval_repl_hooks(&mut engine_state, &mut stack, line) {
             outcome_err(None, &engine_state, &err);
         }
 

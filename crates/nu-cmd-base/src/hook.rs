@@ -37,6 +37,44 @@ pub fn eval_env_change_hook(
     Ok(())
 }
 
+pub fn eval_pre_prompt_hooks(
+    engine_state: &mut EngineState,
+    stack: &mut Stack,
+) -> Result<(), ShellError> {
+    let hook = engine_state.get_config().hooks.pre_prompt.clone();
+    eval_hooks(engine_state, stack, vec![], &hook, "pre_prompt")
+}
+
+pub fn eval_pre_execution_hooks(
+    engine_state: &mut EngineState,
+    stack: &mut Stack,
+    commandline: impl Into<String>,
+) -> Result<(), ShellError> {
+    engine_state
+        .repl_state
+        .lock()
+        .expect("repl state mutex")
+        .buffer = commandline.into();
+
+    let hook = engine_state.get_config().hooks.pre_execution.clone();
+    eval_hooks(engine_state, stack, vec![], &hook, "pre_execution")
+}
+
+pub fn eval_repl_hooks(
+    engine_state: &mut EngineState,
+    stack: &mut Stack,
+    commandline: impl Into<String>,
+) -> Result<(), ShellError> {
+    engine_state.merge_env(stack)?;
+
+    eval_pre_prompt_hooks(engine_state, stack)?;
+
+    let hook = engine_state.get_config().hooks.env_change.clone();
+    eval_env_change_hook(&hook, engine_state, stack)?;
+
+    eval_pre_execution_hooks(engine_state, stack, commandline)
+}
+
 pub fn eval_hooks(
     engine_state: &mut EngineState,
     stack: &mut Stack,
