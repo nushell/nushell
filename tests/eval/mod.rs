@@ -218,9 +218,7 @@ fn early_return_keeps_metadata() -> Result {
         foo | metadata | get my
     "#;
 
-    test()
-        .run(code)
-        .expect_value_eq(302)
+    test().run(code).expect_value_eq(302)
 }
 
 #[test]
@@ -253,12 +251,10 @@ fn early_return_with_finally_runs_cleanup_and_keeps_value() -> Result {
         }
     "#;
 
-    test()
-        .run(code)
-        .expect_value_eq(test_value!({
-            finally: "cleanup",
-            returned: 1,
-        }))
+    test().run(code).expect_value_eq(test_value!({
+        finally: "cleanup",
+        returned: 1,
+    }))
 }
 
 #[test]
@@ -268,9 +264,7 @@ fn early_return_with_finally_keeps_metadata() -> Result {
         foo | metadata | get my
     "#;
 
-    test()
-        .run(code)
-        .expect_value_eq(302)
+    test().run(code).expect_value_eq(302)
 }
 
 #[test]
@@ -296,9 +290,7 @@ fn early_return_in_export_env_guard_skips_rest_of_env_block() -> Result {
         foo
     ";
 
-    test()
-        .run(code)
-        .expect_value_eq(())
+    test().run(code).expect_value_eq(())
 }
 
 #[test]
