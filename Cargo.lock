@@ -4941,6 +4941,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "nu-dap"
+version = "0.114.2"
+dependencies = [
+ "libc",
+ "nu-cmd-lang",
+ "nu-command",
+ "nu-engine",
+ "nu-parser",
+ "nu-protocol",
+ "nu-utils",
+ "pretty_assertions",
+ "rstest",
+ "serde",
+ "serde_json",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
 name = "nu-derive-value"
 version = "0.114.2"
 dependencies = [

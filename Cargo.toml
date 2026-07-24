@@ -60,6 +60,7 @@ members = [
   "crates/nu-color-config",
   "crates/nu-config",
   "crates/nu-command",
+  "crates/nu-dap",
   "crates/nu-derive-value",
   "crates/nu-engine",
   "crates/nu-experimental",
