@@ -11,7 +11,7 @@ use nu_protocol::{PipelineData, Span, Value};
 use serde_json::json;
 use std::sync::Arc;
 
-pub fn spawn_eval_thread(
+pub(crate) fn spawn_eval_thread(
     launch: LaunchArgs,
     state: Arc<DebugState>,
     writer: DapWriter,

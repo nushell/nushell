@@ -10,10 +10,10 @@ use nu_protocol::engine::EngineState;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
-pub struct SourcePos {
-    pub path: String,
-    pub line: u64,   // 1-based
-    pub column: u64, // 1-based
+pub(crate) struct SourcePos {
+    pub(crate) path: String,
+    pub(crate) line: u64,   // 1-based
+    pub(crate) column: u64, // 1-based
 }
 
 struct FileIndex {
@@ -24,14 +24,14 @@ struct FileIndex {
 }
 
 #[derive(Default)]
-pub struct SourceMap {
+pub(crate) struct SourceMap {
     files: HashMap<String, FileIndex>,
 }
 
 impl SourceMap {
     /// Refresh from the engine state. Cheap to call repeatedly; only
     /// indexes files it hasn't seen. Call after every merge_delta.
-    pub fn refresh(&mut self, engine_state: &EngineState) {
+    pub(crate) fn refresh(&mut self, engine_state: &EngineState) {
         for cached in engine_state.files() {
             // Canonicalize so `source helper.nu` (recorded however nu opened
             // it) compares equal to the client's absolute breakpoint paths.
@@ -60,7 +60,7 @@ impl SourceMap {
         }
     }
 
-    pub fn resolve(&self, span: Span) -> Option<SourcePos> {
+    pub(crate) fn resolve(&self, span: Span) -> Option<SourcePos> {
         for (path, fi) in &self.files {
             if span.start < fi.span_start || span.start >= fi.span_end {
                 continue;
@@ -83,7 +83,7 @@ impl SourceMap {
     /// whole enclosing block — resolving those lands on the block's first
     /// line (line 1 for the top-level script), which made stepping visibly
     /// jump around. Such spans return None here.
-    pub fn resolve_steppable(&self, span: Span) -> Option<SourcePos> {
+    pub(crate) fn resolve_steppable(&self, span: Span) -> Option<SourcePos> {
         if span.end <= span.start {
             return None; // empty / synthetic (Span::unknown is 0..0)
         }

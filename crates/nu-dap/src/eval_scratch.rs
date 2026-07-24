@@ -16,7 +16,7 @@ use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::{Stack, StateWorkingSet};
 use nu_protocol::{PipelineData, Span, Type, Value};
 
-pub struct Scratch {
+pub(crate) struct Scratch {
     engine: nu_protocol::engine::EngineState,
 }
 
@@ -27,7 +27,7 @@ impl std::fmt::Debug for Scratch {
 }
 
 impl Scratch {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         let mut engine = nu_cmd_lang::create_default_context();
         engine = nu_command::add_shell_command_context(engine);
         engine.set_signals(nu_protocol::Signals::new(std::sync::Arc::new(
@@ -62,7 +62,7 @@ impl Scratch {
     }
 
     /// Evaluate `expr` with the given variables in scope.
-    pub fn eval(&mut self, expr: &str, vars: &[(String, Value)]) -> Result<Value, String> {
+    pub(crate) fn eval(&mut self, expr: &str, vars: &[(String, Value)]) -> Result<Value, String> {
         let block = {
             let mut working_set = StateWorkingSet::new(&self.engine);
             // Declare each shadow variable so the parser resolves `$name`.
@@ -111,7 +111,11 @@ impl Scratch {
 
 /// Interpolate a DAP logpoint message: text with `{expression}` segments.
 /// Unmatched braces are passed through verbatim.
-pub fn interpolate(scratch: &mut Scratch, template: &str, vars: &[(String, Value)]) -> String {
+pub(crate) fn interpolate(
+    scratch: &mut Scratch,
+    template: &str,
+    vars: &[(String, Value)],
+) -> String {
     use std::fmt::Write;
     let mut out = String::new();
     let mut rest = template;

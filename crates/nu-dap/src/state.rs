@@ -13,7 +13,7 @@ use std::sync::{Condvar, Mutex};
 
 /// What the eval thread should do when it reaches the next instruction.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum RunMode {
+pub(crate) enum RunMode {
     /// Run until a breakpoint (or end).
     Continue,
     /// Pause at the next instruction on a *different source line*, at
@@ -32,39 +32,39 @@ pub enum RunMode {
 /// A snapshot of one variable at pause time. Children are pre-flattened
 /// into the arena (see `PauseSnapshot::var_arena`).
 #[derive(Debug, Clone)]
-pub struct VarNode {
-    pub var: Variable,
+pub(crate) struct VarNode {
+    pub(crate) var: Variable,
     /// Indices into the arena for this node's children (empty for leaves).
-    pub children: Vec<usize>,
+    pub(crate) children: Vec<usize>,
     /// The full underlying value, kept so `nuDapVisualize` can serve
     /// complete data for any node — including leaves like strings and
     /// binaries, which have no variablesReference of their own.
-    pub value: nu_protocol::Value,
+    pub(crate) value: nu_protocol::Value,
 }
 
 /// Everything the DAP client may ask about while we are paused.
 /// Built by the eval thread inside the Debugger callback, read by the
 /// server thread. Replaced wholesale on every pause.
 #[derive(Debug, Default)]
-pub struct PauseSnapshot {
-    pub frames: Vec<StackFrame>,
+pub(crate) struct PauseSnapshot {
+    pub(crate) frames: Vec<StackFrame>,
     /// variablesReference -> children indices in `var_arena`.
     /// Reference 1 is reserved for the "Locals" scope root,
     /// reference 2 for the "Pipeline" scope root.
-    pub var_refs: HashMap<i64, Vec<usize>>,
-    pub var_arena: Vec<VarNode>,
-    pub next_ref: i64,
+    pub(crate) var_refs: HashMap<i64, Vec<usize>>,
+    pub(crate) var_arena: Vec<VarNode>,
+    pub(crate) next_ref: i64,
 }
 
 impl PauseSnapshot {
-    pub const LOCALS_REF: i64 = 1;
-    pub const PIPELINE_REF: i64 = 2;
+    pub(crate) const LOCALS_REF: i64 = 1;
+    pub(crate) const PIPELINE_REF: i64 = 2;
     // 3 was the removed flat "Environment" scope; $env now lives in Globals.
-    pub const REGISTERS_REF: i64 = 4;
-    pub const PROCESS_REF: i64 = 5;
-    pub const GLOBALS_REF: i64 = 6;
+    pub(crate) const REGISTERS_REF: i64 = 4;
+    pub(crate) const PROCESS_REF: i64 = 5;
+    pub(crate) const GLOBALS_REF: i64 = 6;
 
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             frames: Vec::new(),
             var_refs: HashMap::new(),
@@ -73,7 +73,7 @@ impl PauseSnapshot {
         }
     }
 
-    pub fn alloc_ref(&mut self) -> i64 {
+    pub(crate) fn alloc_ref(&mut self) -> i64 {
         let r = self.next_ref;
         self.next_ref += 1;
         r
@@ -83,72 +83,72 @@ impl PauseSnapshot {
 /// One breakpoint's properties, keyed in `Inner::breakpoints` by its
 /// (possibly snapped) line.
 #[derive(Debug, Clone, Default)]
-pub struct BpProps {
-    pub id: i64,
-    pub verified: bool,
+pub(crate) struct BpProps {
+    pub(crate) id: i64,
+    pub(crate) verified: bool,
     /// nu expression; the breakpoint only pauses when it evaluates truthy.
-    pub condition: Option<String>,
+    pub(crate) condition: Option<String>,
     /// Logpoint: emit this message (with {expr} interpolation) and keep going.
-    pub log_message: Option<String>,
+    pub(crate) log_message: Option<String>,
 }
 
 #[derive(Debug)]
-pub struct Inner {
+pub(crate) struct Inner {
     /// file path (canonicalized) -> line -> breakpoint properties.
-    pub breakpoints: HashMap<String, BTreeMap<i64, BpProps>>,
+    pub(crate) breakpoints: HashMap<String, BTreeMap<i64, BpProps>>,
     /// file path -> set of lines that have at least one steppable
     /// instruction. Populated by the eval thread after parsing.
-    pub valid_lines: HashMap<String, BTreeSet<i64>>,
+    pub(crate) valid_lines: HashMap<String, BTreeSet<i64>>,
     /// True once `valid_lines` is populated (breakpoints can be verified).
-    pub parse_done: bool,
+    pub(crate) parse_done: bool,
     /// Monotonic id source for breakpoints.
-    pub next_bp_id: i64,
+    pub(crate) next_bp_id: i64,
     /// Whether to pause when a command raises an error.
-    pub break_on_error: bool,
+    pub(crate) break_on_error: bool,
     /// (exceptionId, description) of the error we are currently paused on.
-    pub exception_info: Option<(String, String)>,
-    pub run_mode: RunMode,
+    pub(crate) exception_info: Option<(String, String)>,
+    pub(crate) run_mode: RunMode,
     /// True while the eval thread is blocked inside a Debugger callback.
-    pub paused: bool,
+    pub(crate) paused: bool,
     /// Set by the server thread to release the eval thread.
-    pub resume_requested: bool,
+    pub(crate) resume_requested: bool,
     /// Set on `disconnect`/`terminate`: the eval thread should bail out.
-    pub terminate_requested: bool,
+    pub(crate) terminate_requested: bool,
     /// Set on `restart`: this state's eval thread is being torn down to be
     /// replaced. Suppresses its terminated/exited events so the DAP session
     /// survives the swap.
-    pub restarting: bool,
-    pub snapshot: PauseSnapshot,
+    pub(crate) restarting: bool,
+    pub(crate) snapshot: PauseSnapshot,
     /// Source line and block depth at the most recent pause; the server
     /// thread needs these to construct StepOver/StepOut run modes.
-    pub paused_line: u64,
-    pub paused_depth: usize,
+    pub(crate) paused_line: u64,
+    pub(crate) paused_depth: usize,
     /// The current frame's locals, keyed by nu VarId's inner usize. Snapshotted
     /// from the real evaluation `Stack` at each pause/record point (nushell
     /// #18708) by `debugger::sync_locals_from_stack`; read here by the server
     /// thread, which must never touch the Stack directly.
-    pub shadow_vars: HashMap<usize, ShadowVar>,
+    pub(crate) shadow_vars: HashMap<usize, ShadowVar>,
     /// The current frame's full runtime environment (`stack.get_env_vars`),
     /// snapshotted alongside `shadow_vars`. Rendered as `$env` in Globals.
-    pub env_shadow: HashMap<String, nu_protocol::Value>,
+    pub(crate) env_shadow: HashMap<String, nu_protocol::Value>,
 
     // --- Time-travel ("recorded tape") ---
     /// Recorded execution history. Bounded ring buffer: the frontier (live
     /// position) is the last entry.
-    pub timeline: VecDeque<TimelineEntry>,
+    pub(crate) timeline: VecDeque<TimelineEntry>,
     /// Navigation cursor. `None` = at the live frontier (serve `snapshot`);
     /// `Some(i)` = viewing `timeline[i]` (serve `history_snapshot`).
-    pub view_index: Option<usize>,
+    pub(crate) view_index: Option<usize>,
     /// Snapshot rebuilt from the timeline when viewing the past.
-    pub history_snapshot: PauseSnapshot,
+    pub(crate) history_snapshot: PauseSnapshot,
     /// Record every steppable line (true) vs. only pause points (false).
-    pub time_travel: bool,
+    pub(crate) time_travel: bool,
     /// Ring-buffer cap.
-    pub tt_max: usize,
+    pub(crate) tt_max: usize,
     /// `$nu` constant and baseline env, cached once by the eval thread so the
     /// server can rebuild historical Globals without `engine_state`.
-    pub nu_constant: Option<nu_protocol::Value>,
-    pub baseline_env: Option<HashMap<String, nu_protocol::Value>>,
+    pub(crate) nu_constant: Option<nu_protocol::Value>,
+    pub(crate) baseline_env: Option<HashMap<String, nu_protocol::Value>>,
 }
 
 impl Inner {
@@ -157,7 +157,7 @@ impl Inner {
     /// next line that does (like other debuggers snap forward), or the
     /// original line unverified when nothing follows. Before parsing
     /// completes we optimistically verify in place.
-    pub fn snap_line(&self, path: &str, line: i64) -> (i64, bool) {
+    pub(crate) fn snap_line(&self, path: &str, line: i64) -> (i64, bool) {
         if !self.parse_done {
             return (line, true);
         }
@@ -172,7 +172,7 @@ impl Inner {
 
     /// Snapshot the client should be served right now: the rebuilt history
     /// view when scrubbing the past, else the live one.
-    pub fn active_snapshot(&self) -> &PauseSnapshot {
+    pub(crate) fn active_snapshot(&self) -> &PauseSnapshot {
         if self.view_index.is_some() {
             &self.history_snapshot
         } else {
@@ -180,7 +180,7 @@ impl Inner {
         }
     }
 
-    pub fn active_snapshot_mut(&mut self) -> &mut PauseSnapshot {
+    pub(crate) fn active_snapshot_mut(&mut self) -> &mut PauseSnapshot {
         if self.view_index.is_some() {
             &mut self.history_snapshot
         } else {
@@ -191,7 +191,7 @@ impl Inner {
     /// Append a recorded moment, evicting the oldest when over the cap. On
     /// eviction the cursor shifts with the buffer so it keeps pointing at the
     /// same logical entry (saturating at 0).
-    pub fn push_timeline(&mut self, entry: TimelineEntry) {
+    pub(crate) fn push_timeline(&mut self, entry: TimelineEntry) {
         self.timeline.push_back(entry);
         while self.timeline.len() > self.tt_max {
             self.timeline.pop_front();
@@ -202,15 +202,15 @@ impl Inner {
     }
 
     /// Index of the live frontier (last recorded entry), if any.
-    pub fn frontier(&self) -> Option<usize> {
+    pub(crate) fn frontier(&self) -> Option<usize> {
         self.timeline.len().checked_sub(1)
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct ShadowVar {
-    pub name: String,
-    pub value: nu_protocol::Value,
+pub(crate) struct ShadowVar {
+    pub(crate) name: String,
+    pub(crate) value: nu_protocol::Value,
 }
 
 /// One recorded moment on the time-travel tape: everything needed to rebuild
@@ -218,63 +218,63 @@ pub struct ShadowVar {
 /// (which the server thread must never do). Recorded on the eval thread at
 /// every steppable line; navigated by the server thread.
 #[derive(Debug, Clone)]
-pub struct TimelineEntry {
+pub(crate) struct TimelineEntry {
     /// Stack frames already resolved to file/line (the server can't resolve
     /// spans — the SourceMap lives on the eval thread).
-    pub frames: Vec<StackFrame>,
-    pub shadow_vars: HashMap<usize, ShadowVar>,
-    pub env_shadow: HashMap<String, nu_protocol::Value>,
-    pub last_result: Option<nu_protocol::Value>,
+    pub(crate) frames: Vec<StackFrame>,
+    pub(crate) shadow_vars: HashMap<usize, ShadowVar>,
+    pub(crate) env_shadow: HashMap<String, nu_protocol::Value>,
+    pub(crate) last_result: Option<nu_protocol::Value>,
     /// At a call/pipe-stage boundary: (command name, value flowing in) — shown
     /// as `in → cmd` in the past view's Pipeline scope.
-    pub pipe_input: Option<(String, nu_protocol::Value)>,
-    pub depth: usize,
+    pub(crate) pipe_input: Option<(String, nu_protocol::Value)>,
+    pub(crate) depth: usize,
     /// True if execution actually paused here on a breakpoint (used by
     /// reverse-continue to find prior stops).
-    pub is_breakpoint: bool,
+    pub(crate) is_breakpoint: bool,
 }
 
 /// Answer to a UI request (QuickPick / InputBox) shown by the client.
 #[derive(Debug, Clone, Default)]
-pub struct UiReply {
-    pub cancelled: bool,
-    pub index: Option<usize>,
-    pub indices: Option<Vec<usize>>,
-    pub value: Option<String>,
+pub(crate) struct UiReply {
+    pub(crate) cancelled: bool,
+    pub(crate) index: Option<usize>,
+    pub(crate) indices: Option<Vec<usize>>,
+    pub(crate) value: Option<String>,
 }
 
 /// Bridge for interactive prompts: the eval thread (inside an `input`-family
 /// shim) blocks here until the client answers a `nu-dap-ui` event via the
 /// `nuDapUiReply` request handled on the server thread.
 #[derive(Debug, Default)]
-pub struct UiBridge {
-    pub replies: Mutex<HashMap<u64, UiReply>>,
-    pub cv: Condvar,
-    pub next_id: std::sync::atomic::AtomicU64,
+pub(crate) struct UiBridge {
+    pub(crate) replies: Mutex<HashMap<u64, UiReply>>,
+    pub(crate) cv: Condvar,
+    pub(crate) next_id: std::sync::atomic::AtomicU64,
 }
 
-pub struct DebugState {
-    pub inner: Mutex<Inner>,
-    pub ui: UiBridge,
+pub(crate) struct DebugState {
+    pub(crate) inner: Mutex<Inner>,
+    pub(crate) ui: UiBridge,
     /// Mirror of Inner::terminate_requested readable without the lock — the
     /// UI wait loop polls it so the stop button interrupts a pending dialog.
-    pub terminate_flag: std::sync::atomic::AtomicBool,
+    pub(crate) terminate_flag: std::sync::atomic::AtomicBool,
     /// Scratch engine for watch/hover/console expressions, breakpoint
     /// conditions, and logpoint interpolation. Lazily initialized (building
     /// a full command context isn't free). Lock discipline: never taken
     /// while holding `inner`.
-    pub scratch: Mutex<Option<crate::eval_scratch::Scratch>>,
+    pub(crate) scratch: Mutex<Option<crate::eval_scratch::Scratch>>,
     /// Eval thread waits on this while paused; server thread notifies
     /// after setting `resume_requested` + new `run_mode`.
-    pub resume_cv: Condvar,
+    pub(crate) resume_cv: Condvar,
     /// Server thread can wait on this for "the eval thread has paused and
     /// the snapshot is ready" if it ever needs to (not required for v1:
     /// the `stopped` event is only sent after the snapshot is built).
-    pub paused_cv: Condvar,
+    pub(crate) paused_cv: Condvar,
 }
 
 impl DebugState {
-    pub fn new(stop_on_entry: bool, time_travel: bool, tt_max: usize) -> Self {
+    pub(crate) fn new(stop_on_entry: bool, time_travel: bool, tt_max: usize) -> Self {
         Self {
             inner: Mutex::new(Inner {
                 breakpoints: HashMap::new(),
@@ -314,7 +314,7 @@ impl DebugState {
     }
 
     /// Called by the server thread to resume with a new run mode.
-    pub fn resume(&self, mode: RunMode) {
+    pub(crate) fn resume(&self, mode: RunMode) {
         let mut inner = self.inner.lock().expect("debug state poisoned");
         inner.run_mode = mode;
         inner.resume_requested = true;
@@ -322,7 +322,7 @@ impl DebugState {
         self.resume_cv.notify_all();
     }
 
-    pub fn request_terminate(&self) {
+    pub(crate) fn request_terminate(&self) {
         let mut inner = self.inner.lock().expect("debug state poisoned");
         inner.terminate_requested = true;
         inner.resume_requested = true;
@@ -335,7 +335,7 @@ impl DebugState {
 
     /// Like `request_terminate`, but marks this state as being replaced by a
     /// restart so the dying eval thread keeps quiet about it.
-    pub fn request_restart_teardown(&self) {
+    pub(crate) fn request_restart_teardown(&self) {
         let mut inner = self.inner.lock().expect("debug state poisoned");
         inner.restarting = true;
         inner.terminate_requested = true;
@@ -347,7 +347,7 @@ impl DebugState {
         self.ui.cv.notify_all();
     }
 
-    pub fn is_restarting(&self) -> bool {
+    pub(crate) fn is_restarting(&self) -> bool {
         self.inner.lock().expect("debug state poisoned").restarting
     }
 }

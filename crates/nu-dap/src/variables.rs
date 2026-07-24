@@ -24,7 +24,7 @@ fn is_table(value: &Value) -> bool {
     }
 }
 
-pub fn short_render(value: &Value) -> String {
+pub(crate) fn short_render(value: &Value) -> String {
     match value {
         Value::String { val, .. } => {
             // chars(), not byte slicing: a byte index can land mid-codepoint
@@ -111,7 +111,7 @@ pub fn short_render(value: &Value) -> String {
 
 /// Describe a stream without consuming it (draining would eat the
 /// program's data): kind, origin, and size when known.
-pub fn describe_stream(data: &nu_protocol::PipelineData) -> String {
+pub(crate) fn describe_stream(data: &nu_protocol::PipelineData) -> String {
     use nu_protocol::PipelineData;
     use nu_protocol::byte_stream::ByteStreamSource;
     match data {
@@ -162,7 +162,12 @@ fn type_name(value: &Value) -> String {
 
 /// Adds `value` to the snapshot arena under `name`, returning the arena index.
 /// Expandable values get a fresh variablesReference registered in var_refs.
-pub fn add_value(snapshot: &mut PauseSnapshot, name: String, value: &Value, depth: usize) -> usize {
+pub(crate) fn add_value(
+    snapshot: &mut PauseSnapshot,
+    name: String,
+    value: &Value,
+    depth: usize,
+) -> usize {
     // Containers are always expandable — children materialize lazily.
     let expandable = matches!(value, Value::List { .. } | Value::Record { .. });
 
@@ -217,7 +222,7 @@ fn materialize_at(snapshot: &mut PauseSnapshot, node_idx: usize, depth: usize) {
 /// On-demand hydration: called by the server thread when the client expands
 /// a node whose children were never materialized. No effect on refs that are
 /// already populated or unknown.
-pub fn materialize_children(snapshot: &mut PauseSnapshot, var_ref: i64) {
+pub(crate) fn materialize_children(snapshot: &mut PauseSnapshot, var_ref: i64) {
     if var_ref == 0 || snapshot.var_refs.contains_key(&var_ref) {
         return;
     }
@@ -235,7 +240,7 @@ pub fn materialize_children(snapshot: &mut PauseSnapshot, var_ref: i64) {
 /// Rebuild a Locals+Globals snapshot for a past timeline entry — pure, no
 /// `engine_state` (the server thread must never touch it). Pipeline /
 /// Registers / Process are live-only and intentionally omitted.
-pub fn build_history_snapshot(
+pub(crate) fn build_history_snapshot(
     entry: &crate::state::TimelineEntry,
     baseline_env: Option<&std::collections::HashMap<String, Value>>,
     nu_constant: Option<&Value>,
@@ -301,7 +306,7 @@ const JSON_MAX_DEPTH: usize = 8;
 
 /// Converts a nu Value to JSON for the visualizer webview. Sets `truncated`
 /// when any bound was hit.
-pub fn to_json(value: &Value, depth: usize, truncated: &mut bool) -> serde_json::Value {
+pub(crate) fn to_json(value: &Value, depth: usize, truncated: &mut bool) -> serde_json::Value {
     use serde_json::{Value as J, json};
     if depth >= JSON_MAX_DEPTH {
         *truncated = true;

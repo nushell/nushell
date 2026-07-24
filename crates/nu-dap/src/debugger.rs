@@ -46,7 +46,7 @@ struct Frame {
     in_value: Option<nu_protocol::Value>,
 }
 
-pub struct DapDebugger {
+pub(crate) struct DapDebugger {
     state: Arc<DebugState>,
     writer: DapWriter,
     source_map: SourceMap,
@@ -111,7 +111,7 @@ fn var_name(engine_state: &EngineState, var_id: nu_protocol::VarId) -> String {
 }
 
 impl DapDebugger {
-    pub fn new(state: Arc<DebugState>, writer: DapWriter) -> Self {
+    pub(crate) fn new(state: Arc<DebugState>, writer: DapWriter) -> Self {
         Self {
             state,
             writer,

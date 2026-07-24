@@ -15,7 +15,7 @@ use std::io::BufRead;
 use std::sync::Arc;
 
 /// nu evaluation is single-threaded from DAP's perspective.
-pub const THREAD_ID: i64 = 1;
+pub(crate) const THREAD_ID: i64 = 1;
 
 /// The transport-agnostic DAP dispatch loop: read framed requests from
 /// `reader`, dispatch them, and write responses/events through `writer`.

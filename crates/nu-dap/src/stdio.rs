@@ -62,7 +62,7 @@ fn record_recent(category: &str, text: &str) {
 
 /// Tail of everything the process (externals, drains) recently wrote to the
 /// given stream ("stdout"/"stderr").
-pub fn recent_output(category: &str) -> String {
+pub(crate) fn recent_output(category: &str) -> String {
     let guard = recent_state().lock().expect("recent state");
     if category == "stderr" {
         guard.1.clone()
@@ -71,14 +71,14 @@ pub fn recent_output(category: &str) -> String {
     }
 }
 
-pub struct OutputCapture {
+pub(crate) struct OutputCapture {
     /// The real stdout, for the DAP protocol.
-    pub dap_out: File,
+    pub(crate) dap_out: File,
     stdout_rx: PipeReader,
     stderr_rx: PipeReader,
 }
 
-pub fn detach_stdin() -> File {
+pub(crate) fn detach_stdin() -> File {
     #[cfg(windows)]
     {
         use std::os::windows::io::{AsHandle, AsRawHandle, OwnedHandle};
@@ -116,7 +116,7 @@ pub fn detach_stdin() -> File {
 /// Swap process stdout/stderr for capture pipes; returns the real stdout
 /// (for DAP) and the pipe read ends. Call `spawn_forwarders` once a
 /// DapWriter exists.
-pub fn install_output_capture() -> OutputCapture {
+pub(crate) fn install_output_capture() -> OutputCapture {
     let (stdout_rx, stdout_tx) = std::io::pipe().expect("stdout capture pipe");
     let (stderr_rx, stderr_tx) = std::io::pipe().expect("stderr capture pipe");
 
@@ -163,7 +163,7 @@ pub fn install_output_capture() -> OutputCapture {
 
 /// Start the forwarder threads translating captured process output into DAP
 /// `output` events.
-pub fn spawn_forwarders(capture: OutputCapture, writer: &DapWriter) {
+pub(crate) fn spawn_forwarders(capture: OutputCapture, writer: &DapWriter) {
     forward(capture.stdout_rx, "stdout", writer.clone());
     forward(capture.stderr_rx, "stderr", writer.clone());
 }
@@ -223,7 +223,7 @@ fn marker_prefix_len(data: &[u8]) -> usize {
 /// Push a marker through both captured streams and wait until the
 /// forwarders processed it — everything written before the marker has been
 /// emitted as output events. Bounded by `timeout`.
-pub fn flush_output(timeout: Duration) {
+pub(crate) fn flush_output(timeout: Duration) {
     use std::io::Write;
     let (count, cv) = flush_state();
     let target = { *count.lock().expect("flush state") + 2 };

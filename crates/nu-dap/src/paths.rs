@@ -11,14 +11,14 @@ use std::path::Path;
 
 /// Canonicalize and de-verbatim. Falls back to the input when the file
 /// doesn't exist (or the name isn't a real path).
-pub fn canonical(p: &Path) -> String {
+pub(crate) fn canonical(p: &Path) -> String {
     match std::fs::canonicalize(p) {
         Ok(c) => strip_verbatim(&c.to_string_lossy()),
         Err(_) => p.to_string_lossy().to_string(),
     }
 }
 
-pub fn canonical_str(p: &str) -> String {
+pub(crate) fn canonical_str(p: &str) -> String {
     canonical(Path::new(p))
 }
 
