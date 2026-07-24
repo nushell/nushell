@@ -5,8 +5,8 @@
 //! entries, each with a `covered_span` giving its offset range in the
 //! global span space. We index line starts per file once, lazily.
 
-use nu_protocol::engine::EngineState;
 use nu_protocol::Span;
+use nu_protocol::engine::EngineState;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]

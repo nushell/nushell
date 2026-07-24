@@ -130,7 +130,7 @@ pub fn install_output_capture() -> OutputCapture {
             .expect("duplicate stdout handle");
         unsafe {
             use windows_sys::Win32::System::Console::{
-                SetStdHandle, STD_ERROR_HANDLE, STD_OUTPUT_HANDLE,
+                STD_ERROR_HANDLE, STD_OUTPUT_HANDLE, SetStdHandle,
             };
             // into_raw_handle: the pipe write ends must live forever — they
             // are the process's std handles now.

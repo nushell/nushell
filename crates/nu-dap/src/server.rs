@@ -6,11 +6,11 @@
 //!   -> [threads/stackTrace/scopes/variables while paused]
 //!   -> continue/next/stepIn/stepOut/pause -> ... -> disconnect
 
-use crate::dap::protocol::{read_message, DapWriter, Request};
+use crate::dap::protocol::{DapWriter, Request, read_message};
 use crate::dap::types::*;
 use crate::engine::spawn_eval_thread;
 use crate::state::{DebugState, PauseSnapshot, RunMode};
-use serde_json::{json, Value as Json};
+use serde_json::{Value as Json, json};
 use std::io::BufRead;
 use std::sync::Arc;
 

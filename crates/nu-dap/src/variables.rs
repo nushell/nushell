@@ -112,8 +112,8 @@ pub fn short_render(value: &Value) -> String {
 /// Describe a stream without consuming it (draining would eat the
 /// program's data): kind, origin, and size when known.
 pub fn describe_stream(data: &nu_protocol::PipelineData) -> String {
-    use nu_protocol::byte_stream::ByteStreamSource;
     use nu_protocol::PipelineData;
+    use nu_protocol::byte_stream::ByteStreamSource;
     match data {
         PipelineData::ByteStream(bs, _) => {
             let kind = match bs.type_() {
@@ -302,7 +302,7 @@ const JSON_MAX_DEPTH: usize = 8;
 /// Converts a nu Value to JSON for the visualizer webview. Sets `truncated`
 /// when any bound was hit.
 pub fn to_json(value: &Value, depth: usize, truncated: &mut bool) -> serde_json::Value {
-    use serde_json::{json, Value as J};
+    use serde_json::{Value as J, json};
     if depth >= JSON_MAX_DEPTH {
         *truncated = true;
         return J::String("…".into());
