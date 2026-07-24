@@ -2,6 +2,7 @@ use std::{
     env,
     error::Error,
     fmt::{Debug, Display},
+    io,
     panic::Location,
     path::{Path, PathBuf},
     sync::{Arc, LazyLock},
@@ -466,6 +467,21 @@ impl NuTester {
         Self::extract_value(self.run_raw_with_data(code, input)?)
     }
 
+    /// Run multiple Nushell command pipelines after each other and extract the value into `T`.
+    ///
+    /// This shortcircuits if any pipeline fails.
+    #[track_caller]
+    pub fn run_multiple<T: FromValue>(
+        &mut self,
+        pipelines: impl IntoIterator<Item = impl AsRef<str>>,
+    ) -> Result<T> {
+        let last = pipelines
+            .into_iter()
+            .map(|pipeline| self.run(pipeline))
+            .try_fold(Value::test_nothing(), |_, value| value)?;
+        Ok(T::from_value(last)?)
+    }
+
     /// Run Nushell code and return the raw [`PipelineExecutionData`].
     #[track_caller]
     pub fn run_raw(&mut self, code: impl AsRef<str>) -> Result<PipelineExecutionData> {
@@ -610,6 +626,10 @@ pub enum TestErrorKind {
         code: String,
         err: Box<TestErrorKind>,
     },
+    Io {
+        message: String,
+        kind: io::ErrorKind,
+    },
 }
 
 impl Display for TestError {
@@ -636,6 +656,19 @@ impl From<ParseError> for TestError {
         Self {
             location: TestLocation(Location::caller()),
             kind: TestErrorKind::Parse(err),
+        }
+    }
+}
+
+impl From<io::Error> for TestError {
+    #[track_caller]
+    fn from(value: io::Error) -> Self {
+        Self {
+            location: TestLocation(Location::caller()),
+            kind: TestErrorKind::Io {
+                message: value.to_string(),
+                kind: value.kind(),
+            },
         }
     }
 }
