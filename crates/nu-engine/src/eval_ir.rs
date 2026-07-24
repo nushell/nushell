@@ -252,12 +252,13 @@ fn eval_ir_block_impl<D: DebugContext>(
         let span = &ir_block.spans[pc];
         let ast = &ir_block.ast[pc];
 
-        D::enter_instruction(ctx.engine_state, ir_block, pc, ctx.registers);
+        D::enter_instruction(ctx.engine_state, ctx.stack, ir_block, pc, ctx.registers);
 
         let result = eval_instruction::<D>(ctx, instruction, span, ast, need_backtrace);
 
         D::leave_instruction(
             ctx.engine_state,
+            ctx.stack,
             ir_block,
             pc,
             ctx.registers,
