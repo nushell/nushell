@@ -218,8 +218,9 @@ fn explain_spread_args() -> Result {
 }
 
 #[test]
+#[deps(TESTBIN_MEOW)]
 fn disallow_implicit_spread_for_externals() -> Result {
-    let err = test().run("^echo [1 2]").expect_shell_error()?;
+    let err = test().run("^meow [1 2]").expect_shell_error()?;
     assert_matches!(err, ShellError::CannotPassListToExternal { .. });
     Ok(())
 }
