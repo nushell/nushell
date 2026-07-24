@@ -621,7 +621,10 @@ pub mod prelude {
     };
 
     #[doc(no_inline)]
-    pub use nu_protocol::{CompileError, FromValue, IntoValue, ParseError, ShellError, Value};
+    pub use nu_protocol::{
+        CompileError, FromValue, IntoValue, ParseError, ShellError, Value, test_list, test_record,
+        test_table, test_value,
+    };
 }
 
 // Expose macros to be used for the test harness.
