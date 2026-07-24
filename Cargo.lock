@@ -4620,6 +4620,7 @@ dependencies = [
  "ctrlc",
  "dirs 6.0.0",
  "fancy-regex",
+ "itertools 0.15.0",
  "lexopt",
  "log",
  "miette",
