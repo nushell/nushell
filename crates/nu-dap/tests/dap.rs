@@ -251,7 +251,7 @@ fn breakpoints_scopes_variables_and_visualize() {
 
     // The IR panel event is emitted just before `stopped`, with the current
     // instruction index present in the listing.
-    let ir = d.event("nu-dap-ir");
+    let ir = d.event("nuDapIr");
     let idx = ir["body"]["instructionIndex"].as_i64().unwrap();
     let text = ir["body"]["text"].as_str().unwrap();
     assert!(
@@ -1041,7 +1041,7 @@ fn interactive_input_becomes_a_prompt() {
 
     let mut d = Dap::spawn();
     d.start(&script, json!({}), &[]);
-    let ui = d.event("nu-dap-ui");
+    let ui = d.event("nuDapUi");
     assert_eq!(ui["body"]["kind"], "list");
     assert_eq!(ui["body"]["items"][1], "beta");
     let id = ui["body"]["id"].clone();
@@ -1076,7 +1076,7 @@ fn input_box_returns_typed_text_and_listen_is_unsupported() {
     let box_script = box_script.to_string_lossy().into_owned();
     let mut d = Dap::spawn();
     d.start(&box_script, json!({}), &[]);
-    let ui = d.event("nu-dap-ui");
+    let ui = d.event("nuDapUi");
     assert_eq!(ui["body"]["kind"], "text");
     d.send(
         "nuDapUiReply",

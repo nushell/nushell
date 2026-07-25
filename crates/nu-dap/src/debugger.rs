@@ -401,7 +401,7 @@ impl DapDebugger {
         // IR listing for the extension's "Show IR" panel. Custom DAP event;
         // clients that don't know it simply ignore it.
         self.writer.event(
-            "nu-dap-ir",
+            "nuDapIr",
             json!({
                 "text": format!("{}", ir_block.display(engine_state)),
                 "instructionIndex": instruction_index,

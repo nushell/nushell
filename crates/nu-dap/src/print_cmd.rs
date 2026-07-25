@@ -84,7 +84,7 @@ impl Command for DapPrint {
 
 /// Interactive prompts under the debugger have no terminal (stdin is NUL,
 /// the real one carries DAP) — but there IS a UI on the other end of the
-/// wire. `input` and `input list` emit a `nu-dap-ui` event; the extension
+/// wire. `input` and `input list` emit a `nuDapUi` event; the extension
 /// shows an InputBox/QuickPick and answers via the `nuDapUiReply` request;
 /// the eval thread blocks in between and returns the answer to the script.
 use crate::state::DebugState;
@@ -190,7 +190,7 @@ impl Command for DapInput {
             .next_id
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         self.writer.event(
-            "nu-dap-ui",
+            "nuDapUi",
             serde_json::json!({
                 "id": id,
                 "kind": "text",
@@ -277,7 +277,7 @@ impl Command for DapInputList {
             .next_id
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         self.writer.event(
-            "nu-dap-ui",
+            "nuDapUi",
             serde_json::json!({
                 "id": id,
                 "kind": "list",

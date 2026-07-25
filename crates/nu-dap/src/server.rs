@@ -556,7 +556,7 @@ impl Session {
                 }
             }
 
-            // Answer to a `nu-dap-ui` prompt event: hand it to the eval
+            // Answer to a `nuDapUi` prompt event: hand it to the eval
             // thread blocked inside the input shim.
             "nuDapUiReply" => {
                 let id = req.arguments.get("id").and_then(|v| v.as_u64());

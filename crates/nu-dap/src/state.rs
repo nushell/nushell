@@ -244,7 +244,7 @@ pub(crate) struct UiReply {
 }
 
 /// Bridge for interactive prompts: the eval thread (inside an `input`-family
-/// shim) blocks here until the client answers a `nu-dap-ui` event via the
+/// shim) blocks here until the client answers a `nuDapUi` event via the
 /// `nuDapUiReply` request handled on the server thread.
 #[derive(Debug, Default)]
 pub(crate) struct UiBridge {
