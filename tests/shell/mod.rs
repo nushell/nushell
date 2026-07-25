@@ -51,7 +51,7 @@ fn do_not_panic_if_broken_pipe() -> Result {
     Ok(())
 }
 
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 #[rstest]
 #[case::stdout(std::fs::File::create("/dev/full").unwrap(), std::process::Stdio::null())]
 #[case::stderr(std::process::Stdio::null(), std::fs::File::create("/dev/full").unwrap())]
