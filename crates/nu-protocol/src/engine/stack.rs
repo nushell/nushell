@@ -1,5 +1,6 @@
 use crate::{
-    Config, ENV_VARIABLE_ID, IntoValue, NU_VARIABLE_ID, OutDest, ShellError, Span, Value, VarId,
+    Config, ENV_VARIABLE_ID, IntoValue, LAST_VARIABLE_ID, NU_VARIABLE_ID, OutDest, PipelineData,
+    PipelineMetadata, ShellError, Span, Value, VarId,
     ast::PathMember,
     engine::{
         ArgumentStack, DEFAULT_OVERLAY_NAME, EngineState, EnvName, ErrorHandlerStack, Redirection,
@@ -7,13 +8,29 @@ use crate::{
     },
     report_shell_warning,
     shell_error::generic::GenericError,
+    truncate_value_to_budget,
 };
 use std::{
     collections::{HashMap, HashSet},
     fs::File,
     path::{Component, MAIN_SEPARATOR},
-    sync::Arc,
+    sync::{Arc, Mutex},
 };
+
+/// Shared interactive last-result storage.
+///
+/// Held in an [`Arc`] so REPL child stacks from [`Stack::with_parent`] see the same
+/// payload and can clear `warn_pending` without mutating an immutable parent frame.
+#[derive(Debug, Default)]
+struct LastResultSlot {
+    value: Option<Value>,
+    metadata: Option<PipelineMetadata>,
+    truncated: bool,
+    /// Set when a store was truncated; moved to `warn_deferred` on first access.
+    warn_pending: bool,
+    /// Set when `$last` was accessed after a truncated store; reported after output prints.
+    warn_deferred: bool,
+}
 
 /// Environment variables per overlay
 pub type EnvVars = HashMap<String, HashMap<EnvName, Value>>;
@@ -68,6 +85,11 @@ pub struct Stack {
     /// When `true`, external processes spawned with `PipelineData::Empty` input
     /// receive `/dev/null` for stdin instead of inheriting the terminal.
     pub suppress_stdin: bool,
+    /// Interactive last-result payload for [`LAST_VARIABLE_ID`] (e.g. `$last`).
+    ///
+    /// Shared across parent/child stacks so REPL iterations (which use
+    /// [`Stack::with_parent`]) can store and clear truncation warnings correctly.
+    last_result: Arc<Mutex<LastResultSlot>>,
 }
 
 impl Default for Stack {
@@ -101,6 +123,7 @@ impl Stack {
             config: None,
             out_dest: StackOutDest::new(),
             suppress_stdin: false,
+            last_result: Arc::new(Mutex::new(LastResultSlot::default())),
         }
     }
 
@@ -125,6 +148,8 @@ impl Stack {
             config: parent.config.clone(),
             out_dest: parent.out_dest.clone(),
             suppress_stdin: parent.suppress_stdin,
+            // Share last-result with the parent (REPL uses with_parent every iteration).
+            last_result: parent.last_result.clone(),
             parent_stack: Some(parent),
         }
     }
@@ -152,6 +177,7 @@ impl Stack {
         unique_stack.env_hide_history = child.env_hide_history;
         unique_stack.active_overlays = child.active_overlays;
         unique_stack.config = child.config;
+        // last_result is Arc-shared with the child; no merge needed.
         unique_stack
     }
 
@@ -172,6 +198,10 @@ impl Stack {
 
     /// Lookup a variable, returning None if it is not present
     fn lookup_var(&self, var_id: VarId) -> Option<Value> {
+        if var_id == LAST_VARIABLE_ID {
+            return self.with_last_result_slot(|slot| slot.value.clone());
+        }
+
         for (id, val) in &self.vars {
             if var_id == *id {
                 return Some(val.clone());
@@ -186,12 +216,159 @@ impl Stack {
         None
     }
 
+    fn with_last_result_slot<R>(&self, f: impl FnOnce(&LastResultSlot) -> R) -> R {
+        let slot = self
+            .last_result
+            .lock()
+            .expect("last_result lock is poisoned");
+        f(&slot)
+    }
+
+    fn with_last_result_slot_mut<R>(&self, f: impl FnOnce(&mut LastResultSlot) -> R) -> R {
+        let mut slot = self
+            .last_result
+            .lock()
+            .expect("last_result lock is poisoned");
+        f(&mut slot)
+    }
+
+    /// Drop any previously stored last-result before installing a new one.
+    pub fn clear_last_result(&mut self) {
+        self.with_last_result_slot_mut(|slot| {
+            if let Some(old) = slot.value.take() {
+                drop(old);
+            }
+            slot.metadata = None;
+            slot.truncated = false;
+            slot.warn_pending = false;
+            slot.warn_deferred = false;
+        });
+    }
+
+    /// Store `value` as the interactive last-result, enforcing `budget` via truncation.
+    ///
+    /// Drops any previous last-result first. When `budget == 0`, capture is disabled
+    /// (clears storage and does not store). Preserves pipeline `metadata` (e.g. `path_columns`
+    /// used for `ls` coloring) so replaying `$last` matches the original display.
+    pub fn set_last_result(
+        &mut self,
+        value: Value,
+        metadata: Option<PipelineMetadata>,
+        budget: usize,
+    ) {
+        self.clear_last_result();
+        if budget == 0 {
+            return;
+        }
+
+        let (stored, truncated) = truncate_value_to_budget(value, budget);
+        self.store_last_result_raw(stored, metadata, truncated);
+    }
+
+    /// Install an already-budgeted last-result value (caller handled truncation).
+    ///
+    /// Does **not** clear first; call [`clear_last_result`] when replacing an older value.
+    pub fn store_last_result_raw(
+        &mut self,
+        value: Value,
+        metadata: Option<PipelineMetadata>,
+        truncated: bool,
+    ) {
+        self.with_last_result_slot_mut(|slot| {
+            slot.value = Some(value);
+            slot.metadata = metadata;
+            slot.truncated = truncated;
+            slot.warn_pending = truncated;
+            // Fresh store replaces any not-yet-shown deferred warning.
+            slot.warn_deferred = false;
+        });
+    }
+
+    /// Pipeline metadata associated with the stored last-result, if any.
+    pub fn last_result_metadata(&self) -> Option<PipelineMetadata> {
+        self.with_last_result_slot(|slot| slot.metadata.clone())
+    }
+
+    /// Estimated memory size of the stored last-result value (`0` if unset).
+    pub fn last_result_memory_size(&self) -> usize {
+        self.with_last_result_slot(|slot| slot.value.as_ref().map(|v| v.memory_size()).unwrap_or(0))
+    }
+
+    /// Build [`PipelineData`] for `$last`, restoring stored pipeline metadata.
+    pub fn last_result_pipeline_data(&self, span: Span) -> PipelineData {
+        self.with_last_result_slot(|slot| {
+            let value = slot
+                .value
+                .as_ref()
+                .map(|v| v.clone().with_span(span))
+                .unwrap_or_else(|| Value::nothing(span));
+            PipelineData::value(value, slot.metadata.clone())
+        })
+    }
+
+    /// Whether the currently stored last-result was truncated.
+    pub fn last_result_was_truncated(&self) -> bool {
+        self.with_last_result_slot(|slot| slot.truncated)
+    }
+
+    /// On `$last` access after a truncated store: schedule a warning for after output prints.
+    ///
+    /// Does not print anything. Call [`Self::take_last_result_warn_deferred`] after display
+    /// so the truncated value is shown first, then the warning.
+    pub fn defer_last_result_truncation_warning(&self) {
+        self.with_last_result_slot_mut(|slot| {
+            if slot.warn_pending {
+                slot.warn_pending = false;
+                slot.warn_deferred = true;
+            }
+        });
+    }
+
+    /// Whether a truncation warning is waiting to be shown after print (does not clear).
+    pub fn last_result_warn_pending(&self) -> bool {
+        self.with_last_result_slot(|slot| slot.warn_pending)
+    }
+
+    /// Take the deferred truncation warning flag (clears it).
+    ///
+    /// Returns `true` once after a truncated `$last` was accessed; intended to be called
+    /// after the pipeline has been printed so the warning appears below the data.
+    pub fn take_last_result_warn_deferred(&self) -> bool {
+        self.with_last_result_slot_mut(|slot| std::mem::take(&mut slot.warn_deferred))
+    }
+
+    /// Report a deferred last-result truncation warning, if any.
+    ///
+    /// Prefer calling this after printing so output is not scrolled away by the warning.
+    pub fn flush_last_result_truncation_warning(&self, engine_state: &EngineState, span: Span) {
+        if !self.take_last_result_warn_deferred() {
+            return;
+        }
+        let limit_bytes = self.get_config(engine_state).last_result_size_bytes();
+        report_shell_warning(
+            Some(self),
+            engine_state,
+            &crate::ShellWarning::LastResultTruncated {
+                span,
+                limit_bytes,
+                help: Some(format!(
+                    "Increase $env.config.last_result_size or use a smaller command result. Variable name is `${}`.",
+                    crate::LAST_RESULT_VAR_NAME
+                )),
+                // EveryUse: once-per-access is handled by warn_pending/warn_deferred flags.
+                report_mode: crate::ReportMode::EveryUse,
+            },
+        );
+    }
+
     /// Lookup a variable, erroring if it is not found
     ///
     /// The passed-in span will be used to tag the value
     pub fn get_var(&self, var_id: VarId, span: Span) -> Result<Value, ShellError> {
         match self.lookup_var(var_id) {
             Some(v) => Ok(v.with_span(span)),
+            // Unset last-result behaves like `nothing` rather than a missing variable.
+            None if var_id == LAST_VARIABLE_ID => Ok(Value::nothing(span)),
             None => Err(ShellError::VariableNotFoundAtRuntime { span }),
         }
     }
@@ -399,6 +576,8 @@ impl Stack {
             config: self.config.clone(),
             out_dest: self.out_dest.clone(),
             suppress_stdin: self.suppress_stdin,
+            // Share last-result so closures can still read `$last`.
+            last_result: self.last_result.clone(),
         }
     }
 
@@ -436,6 +615,7 @@ impl Stack {
             config: self.config.clone(),
             out_dest: self.out_dest.clone(),
             suppress_stdin: self.suppress_stdin,
+            last_result: self.last_result.clone(),
         }
     }
 

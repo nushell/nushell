@@ -2,7 +2,8 @@ use std::collections::HashMap;
 
 use crate::completions::{Completer, CompletionOptions, SemanticSuggestion};
 use nu_protocol::{
-    ENV_VARIABLE_ID, IN_VARIABLE_ID, NU_VARIABLE_ID, Span, SuggestionKind,
+    ENV_VARIABLE_ID, IN_VARIABLE_ID, LAST_RESULT_VAR_NAME, LAST_VARIABLE_ID, NU_VARIABLE_ID, Span,
+    SuggestionKind,
     engine::{Stack, StateWorkingSet},
 };
 use reedline::Suggestion;
@@ -32,6 +33,7 @@ impl Completer for VariableCompletion {
         variables.insert("$nu".into(), &NU_VARIABLE_ID);
         variables.insert("$in".into(), &IN_VARIABLE_ID);
         variables.insert("$env".into(), &ENV_VARIABLE_ID);
+        variables.insert(format!("${LAST_RESULT_VAR_NAME}"), &LAST_VARIABLE_ID);
 
         // TODO: The following can be refactored (see find_commands_by_predicate() used in
         // command_completions).

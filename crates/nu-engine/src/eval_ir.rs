@@ -498,11 +498,16 @@ fn eval_instruction<D: DebugContext>(
             Ok(Continue)
         }
         Instruction::LoadVariable { dst, var_id } => {
-            let value = get_var(ctx, *var_id, *span)?;
-            ctx.put_reg(
-                *dst,
-                PipelineExecutionData::from(value.into_pipeline_data()),
-            );
+            // Restore pipeline metadata for `$last` (e.g. ls path_columns / colors).
+            // Truncation warning is deferred until after print so data is visible first.
+            let data = if *var_id == nu_protocol::LAST_VARIABLE_ID {
+                ctx.stack.defer_last_result_truncation_warning();
+                ctx.stack.last_result_pipeline_data(*span)
+            } else {
+                let value = get_var(ctx, *var_id, *span)?;
+                value.into_pipeline_data()
+            };
+            ctx.put_reg(*dst, PipelineExecutionData::from(data));
             Ok(Continue)
         }
         Instruction::StoreVariable { var_id, src } => {
@@ -1695,7 +1700,7 @@ fn check_input_types(
 }
 
 /// Get variable from [`Stack`] or [`EngineState`]
-fn get_var(ctx: &EvalContext<'_>, var_id: VarId, span: Span) -> Result<Value, ShellError> {
+fn get_var(ctx: &mut EvalContext<'_>, var_id: VarId, span: Span) -> Result<Value, ShellError> {
     match var_id {
         // $env
         ENV_VARIABLE_ID => {
@@ -1711,6 +1716,11 @@ fn get_var(ctx: &EvalContext<'_>, var_id: VarId, span: Span) -> Result<Value, Sh
             pairs.sort_by(|a, b| a.0.cmp(&b.0));
 
             Ok(Value::record(pairs.into_iter().collect(), span))
+        }
+        id if id == nu_protocol::LAST_VARIABLE_ID => {
+            // Truncation warning is deferred until after print (see evaluate_source).
+            ctx.stack.defer_last_result_truncation_warning();
+            ctx.stack.get_var(var_id, span)
         }
         _ => ctx.stack.get_var(var_id, span).or_else(|err| {
             // $nu is handled by getting constant

@@ -268,7 +268,11 @@ pub fn parse_var_with_opt_type(
     }
 }
 
-const RESERVED_VARIABLE_NAMES: [&[u8]; 3] = [b"in", b"nu", b"env"];
+// Note: `LAST_RESULT_VAR_NAME` (`last`) is intentionally *not* reserved.
+// `$last` is still wired via `parse_variable_expr` to `LAST_VARIABLE_ID`, but
+// scripts commonly use `let last = ...` (e.g. custom completers) and that must
+// keep working. Those bindings do not affect `$last` resolution.
+const RESERVED_VARIABLE_NAMES: &[&[u8]] = &[b"in", b"nu", b"env"];
 
 pub(crate) fn ensure_not_reserved_variable_name(
     working_set: &mut StateWorkingSet,

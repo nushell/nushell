@@ -830,6 +830,24 @@ pub fn parse_variable_expr(
             span,
             Type::Any,
         );
+    } else if contents.strip_prefix(b"$") == Some(nu_protocol::LAST_RESULT_VAR_NAME.as_bytes()) {
+        // Prefer a user binding from `let last = ...` when present so scripts and custom
+        // completers keep working. Otherwise `$last` is the interactive last-result special
+        // (LAST_VARIABLE_ID). Rename via LAST_RESULT_VAR_NAME.
+        if let Some(id) = working_set.find_variable(contents) {
+            return Expression::new(
+                working_set,
+                Expr::Var(id),
+                span,
+                working_set.get_variable(id).ty.clone(),
+            );
+        }
+        return Expression::new(
+            working_set,
+            Expr::Var(nu_protocol::LAST_VARIABLE_ID),
+            span,
+            Type::Any,
+        );
     }
 
     let name = if contents.starts_with(b"$") {

@@ -2816,7 +2816,7 @@ fn variables_completions() {
     match_suggestions(&expected, &suggestions);
 
     let suggestions = completer.complete_blocking("$", 1);
-    let expected: Vec<_> = vec!["$actor", "$env", "$in", "$nu"];
+    let expected: Vec<_> = vec!["$actor", "$env", "$in", "$last", "$nu"];
 
     match_suggestions(&expected, &suggestions);
 }
