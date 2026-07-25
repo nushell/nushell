@@ -536,6 +536,78 @@ $env.config.ls.use_ls_colors = true
 # Default: true
 $env.config.ls.clickable_links = true
 
+# -----------------
+# Prompt Indicators
+# -----------------
+# The indicator is appended to the prompt produced by $env.PROMPT_COMMAND.
+# Which one is shown depends on the line editor's current mode, so unlike
+# $env.PROMPT_COMMAND these cannot be derived inside the prompt closure.
+#
+# The legacy $env.PROMPT_INDICATOR, $env.PROMPT_INDICATOR_VI_INSERT,
+# $env.PROMPT_INDICATOR_VI_NORMAL and $env.PROMPT_MULTILINE_INDICATOR
+# variables still take precedence when set, but are deprecated.
+#
+# Indicators are colored by the line editor. To style one yourself, include
+# the escape codes in the value, e.g. $"(ansi light_red)> ".
+
+# prompt.indicator (string): Shown in emacs mode and whenever no edit mode applies.
+# Default: "> "
+$env.config.prompt.indicator = "> "
+
+# prompt.vi_insert (string): Shown in vi insert mode.
+# Default: ": "
+$env.config.prompt.vi_insert = ": "
+
+# prompt.vi_normal (string): Shown in vi normal mode.
+# Default: "> "
+$env.config.prompt.vi_normal = "> "
+
+# prompt.vi_visual (string): Shown in vi visual mode.
+# Note: This key has no environment variable equivalent.
+# Default: "v "
+$env.config.prompt.vi_visual = "v "
+
+# prompt.multiline (string): Shown on continuation lines of a multiline entry.
+# Default: "::: "
+$env.config.prompt.multiline = "::: "
+
+# The transient prompt replaces the real one in scrollback once a line is
+# submitted, which is useful for condensing a multi-line prompt into something
+# compact. Every key below mirrors one above.
+#
+# Setting a key to null keeps whatever the live prompt showed, so only the
+# segments worth condensing need spelling out.
+#
+# The legacy $env.TRANSIENT_PROMPT_INDICATOR,
+# $env.TRANSIENT_PROMPT_INDICATOR_VI_INSERT,
+# $env.TRANSIENT_PROMPT_INDICATOR_VI_NORMAL and
+# $env.TRANSIENT_PROMPT_MULTILINE_INDICATOR variables still take precedence
+# when set, but are deprecated.
+
+# prompt.transient.indicator (string|null): Replaces prompt.indicator.
+# Default: null
+$env.config.prompt.transient.indicator = null
+
+# prompt.transient.vi_insert (string|null): Replaces prompt.vi_insert.
+# Default: null
+$env.config.prompt.transient.vi_insert = null
+
+# prompt.transient.vi_normal (string|null): Replaces prompt.vi_normal.
+# Default: null
+$env.config.prompt.transient.vi_normal = null
+
+# prompt.transient.vi_visual (string|null): Replaces prompt.vi_visual.
+# Note: This key has no environment variable equivalent.
+# Default: null
+$env.config.prompt.transient.vi_visual = null
+
+# prompt.transient.multiline (string|null): Replaces prompt.multiline.
+# Unlike the others this defaults to empty rather than null: dropping the
+# continuation marker keeps submitted multiline entries copyable out of
+# scrollback.
+# Default: ""
+$env.config.prompt.transient.multiline = ""
+
 # -----
 # Hooks
 # -----
@@ -1210,7 +1282,7 @@ $env.config.explore.try.reactive = false
 # PROMPT_ variables accept either a string or a closure that returns a string.
 
 # PROMPT_COMMAND: Defines the primary prompt.
-# Note: PROMPT_INDICATOR is appended to this value.
+# Note: $env.config.prompt.indicator is appended to this value.
 # Default: A closure that displays the current directory with colors.
 $env.PROMPT_COMMAND = {||
     let dir = match (do -i { $env.PWD | path relative-to $nu.home-dir }) {
@@ -1263,17 +1335,25 @@ $env.PROMPT_COMMAND_RIGHT = {||
 # Example: Simple right prompt with just date/time:
 # $env.PROMPT_COMMAND_RIGHT = {|| date now | format date "%d-%a %r" }
 
+# The indicator variables below, transient ones included, are deprecated since
+# 0.115.0. They still take precedence when set, but $env.config.prompt is the
+# supported way to configure them. See the "Prompt Indicators" section above.
+
 # PROMPT_INDICATOR: Characters shown after PROMPT_COMMAND in emacs mode.
-$env.PROMPT_INDICATOR = "> "
+# Deprecated: use $env.config.prompt.indicator
+# $env.PROMPT_INDICATOR = "> "
 
 # PROMPT_INDICATOR_VI_NORMAL: Prompt indicator in vi normal mode.
-$env.PROMPT_INDICATOR_VI_NORMAL = "> "
+# Deprecated: use $env.config.prompt.vi_normal
+# $env.PROMPT_INDICATOR_VI_NORMAL = "> "
 
 # PROMPT_INDICATOR_VI_INSERT: Prompt indicator in vi insert mode.
-$env.PROMPT_INDICATOR_VI_INSERT = ": "
+# Deprecated: use $env.config.prompt.vi_insert
+# $env.PROMPT_INDICATOR_VI_INSERT = ": "
 
 # PROMPT_MULTILINE_INDICATOR: Prompt indicator for multi-line commands.
-$env.PROMPT_MULTILINE_INDICATOR = "::: "
+# Deprecated: use $env.config.prompt.multiline
+# $env.PROMPT_MULTILINE_INDICATOR = "::: "
 
 # ----------------
 # Transient Prompt
@@ -1285,16 +1365,20 @@ $env.PROMPT_MULTILINE_INDICATOR = "::: "
 $env.TRANSIENT_PROMPT_COMMAND = "🚀 "
 
 # TRANSIENT_PROMPT_INDICATOR: Transient version of PROMPT_INDICATOR.
-$env.TRANSIENT_PROMPT_INDICATOR = ""
+# Deprecated: use $env.config.prompt.transient.indicator
+# $env.TRANSIENT_PROMPT_INDICATOR = ""
 
 # TRANSIENT_PROMPT_INDICATOR_VI_INSERT: Transient version of vi insert indicator.
-$env.TRANSIENT_PROMPT_INDICATOR_VI_INSERT = ""
+# Deprecated: use $env.config.prompt.transient.vi_insert
+# $env.TRANSIENT_PROMPT_INDICATOR_VI_INSERT = ""
 
 # TRANSIENT_PROMPT_INDICATOR_VI_NORMAL: Transient version of vi normal indicator.
-$env.TRANSIENT_PROMPT_INDICATOR_VI_NORMAL = ""
+# Deprecated: use $env.config.prompt.transient.vi_normal
+# $env.TRANSIENT_PROMPT_INDICATOR_VI_NORMAL = ""
 
 # TRANSIENT_PROMPT_MULTILINE_INDICATOR: Transient version of multiline indicator.
-$env.TRANSIENT_PROMPT_MULTILINE_INDICATOR = ""
+# Deprecated: use $env.config.prompt.transient.multiline
+# $env.TRANSIENT_PROMPT_MULTILINE_INDICATOR = ""
 
 # TRANSIENT_PROMPT_COMMAND_RIGHT: Transient version of right prompt.
 $env.TRANSIENT_PROMPT_COMMAND_RIGHT = ""

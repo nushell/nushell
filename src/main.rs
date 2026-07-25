@@ -650,23 +650,11 @@ fn main() -> Result<()> {
         cleanup_exit(0, &engine_state, 0);
     } else {
         // Environment variables that apply only when in REPL
-        engine_state.add_env_var("PROMPT_INDICATOR".to_string(), Value::test_string("> "));
-        engine_state.add_env_var(
-            "PROMPT_INDICATOR_VI_NORMAL".to_string(),
-            Value::test_string("> "),
-        );
-        engine_state.add_env_var(
-            "PROMPT_INDICATOR_VI_INSERT".to_string(),
-            Value::test_string(": "),
-        );
-        engine_state.add_env_var(
-            "PROMPT_MULTILINE_INDICATOR".to_string(),
-            Value::test_string("::: "),
-        );
-        engine_state.add_env_var(
-            "TRANSIENT_PROMPT_MULTILINE_INDICATOR".to_string(),
-            Value::test_string(""),
-        );
+        //
+        // The prompt indicators, transient ones included, are no longer seeded
+        // here: they default from `$env.config.prompt`. Seeding them would pin
+        // every session to the environment variable, which still wins when set,
+        // leaving the config keys with no way to take effect.
         engine_state.add_env_var(
             "TRANSIENT_PROMPT_COMMAND_RIGHT".to_string(),
             Value::test_string(""),
