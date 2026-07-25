@@ -111,8 +111,10 @@ impl Prompt for NushellPrompt {
             PromptHistorySearchStatus::Failing => "failing ",
         };
 
+        // Trailing space keeps the indicator off the matched entry:
+        // `(reverse-search: ls) ls -la` rather than `(reverse-search: ls)ls -la`.
         Cow::Owned(format!(
-            "({}reverse-search: {})",
+            "({}reverse-search: {}) ",
             prefix, history_search.term
         ))
     }
@@ -122,7 +124,12 @@ impl Prompt for NushellPrompt {
     }
 }
 
-/// The indicator string for the given edit mode, with the built-in defaults.
+/// The indicator string for the given edit mode.
+///
+/// `update_prompt` resolves every indicator from `$env.config.prompt` before a
+/// prompt is drawn, so a `None` here only happens on a `PromptState` that has
+/// not been through a prompt cycle yet. The fallbacks mirror
+/// `PromptConfig::default()`; `defaults_match_prompt_config` keeps them honest.
 fn indicator_for(contents: &PromptContents, edit_mode: PromptEditMode) -> String {
     match edit_mode {
         PromptEditMode::Default | PromptEditMode::Emacs => {
@@ -135,7 +142,7 @@ fn indicator_for(contents: &PromptContents, edit_mode: PromptEditMode) -> String
             contents.vi_insert.as_deref().unwrap_or(": ").to_string()
         }
         PromptEditMode::Vi(PromptViMode::Visual) => {
-            contents.vi_normal.as_deref().unwrap_or("v ").to_string()
+            contents.vi_visual.as_deref().unwrap_or("v ").to_string()
         }
         // Helix reuses the vi indicators; normal and select share one, as they
         // share a keybinding table.
@@ -160,5 +167,46 @@ mod tests {
 
         assert!(!rendered.contains("\x1b]133;"));
         assert!(!rendered.contains("\x1b]633;"));
+    }
+
+    /// The fallbacks in `indicator_for` and `render_prompt_multiline_indicator`
+    /// exist only for a `PromptContents` that never went through a prompt
+    /// cycle. They must still agree with the config they stand in for, or the
+    /// two would drift apart silently.
+    #[test]
+    fn defaults_match_prompt_config() {
+        use nu_protocol::PromptConfig;
+
+        let config = PromptConfig::default();
+        let empty = PromptContents::default();
+        let prompt = NushellPrompt::shared(Arc::new(PromptState::new()));
+
+        for (mode, expected) in [
+            (PromptEditMode::Emacs, &config.indicator),
+            (PromptEditMode::Vi(PromptViMode::Normal), &config.vi_normal),
+            (PromptEditMode::Vi(PromptViMode::Insert), &config.vi_insert),
+            (PromptEditMode::Vi(PromptViMode::Visual), &config.vi_visual),
+        ] {
+            assert_eq!(&indicator_for(&empty, mode), expected);
+        }
+
+        assert_eq!(
+            prompt.render_prompt_multiline_indicator(),
+            config.multiline.as_str()
+        );
+    }
+
+    #[test]
+    fn visual_mode_does_not_reuse_the_normal_indicator() {
+        let contents = PromptContents {
+            vi_normal: Some("normal> ".into()),
+            vi_visual: Some("visual> ".into()),
+            ..Default::default()
+        };
+
+        assert_eq!(
+            indicator_for(&contents, PromptEditMode::Vi(PromptViMode::Visual)),
+            "visual> "
+        );
     }
 }

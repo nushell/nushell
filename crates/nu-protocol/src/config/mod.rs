@@ -24,6 +24,7 @@ pub use hooks::Hooks;
 pub use ls::LsConfig;
 pub use output::{BannerKind, ErrorStyle};
 pub use plugin_gc::{PluginGcConfig, PluginGcConfigs};
+pub use prompt::PromptConfig;
 pub use reedline::{CursorShapeConfig, EditBindings, NuCursorShape, ParsedKeybinding, ParsedMenu};
 pub use rm::RmConfig;
 pub use shell_integration::ShellIntegrationConfig;
@@ -46,6 +47,7 @@ mod ls;
 mod output;
 mod plugin_gc;
 mod prelude;
+mod prompt;
 mod reedline;
 mod rm;
 mod shell_integration;
@@ -103,6 +105,7 @@ pub struct Config {
     pub plugins: HashMap<String, Value>,
     /// Configuration for plugin garbage collection.
     pub plugin_gc: PluginGcConfigs,
+    pub prompt: PromptConfig,
 }
 
 impl Default for Config {
@@ -166,6 +169,7 @@ impl Default for Config {
 
             plugins: HashMap::new(),
             plugin_gc: PluginGcConfigs::default(),
+            prompt: PromptConfig::default(),
         }
     }
 }
@@ -219,6 +223,7 @@ impl UpdateFromValue for Config {
                 "duration_max_unit" => self.duration_max_unit.update(val, current_path, errors),
                 "plugins" => self.plugins.update(val, current_path, errors),
                 "plugin_gc" => self.plugin_gc.update(val, current_path, errors),
+                "prompt" => self.prompt.update(val, current_path, errors),
                 "abbreviations" => self.abbreviations.update(val, current_path, errors),
                 "hooks" => self.hooks.update(val, current_path, errors),
                 "datetime_format" => self.datetime_format.update(val, current_path, errors),
