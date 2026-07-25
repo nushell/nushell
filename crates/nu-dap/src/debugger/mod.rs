@@ -57,16 +57,13 @@ pub(crate) struct DapDebugger {
     /// Span of the instruction we are currently paused/last stopped on,
     /// so frames[top] can report an accurate line.
     current_span: Option<Span>,
-    /// Name to give the next block we enter, set when the previous
-    /// instruction was a `Call` to a named decl (e.g. a custom command).
-    /// Consumed by `enter_block`; cleared at the top of every
-    /// `enter_instruction` so a builtin call (which enters no block) can't
-    /// mislabel an unrelated later block.
+    /// Name for the next block, set at a `Call` to a named decl. Consumed by
+    /// `enter_block`; cleared each `enter_instruction` so a builtin call can't
+    /// mislabel a later block.
     pending_frame_name: Option<String>,
-    /// Source line of the previously executed instruction in the current
-    /// frame (mirror of frames.last().last_line, kept for the pre-frame
-    /// window and step math). A single source line compiles to several IR
-    /// instructions, so breakpoints fire only when the line *changes*.
+    /// Previously executed source line in the current frame (mirrors
+    /// frames.last().last_line). A line compiles to several IR instructions,
+    /// so breakpoints fire only when the line *changes*.
     last_line: Option<u64>,
     /// True while an error is unwinding through nested frames. Each frame's
     /// call instruction re-reports the same error via `leave_instruction`;
@@ -219,9 +216,8 @@ impl DapDebugger {
 impl Debugger for DapDebugger {
     fn enter_block(&mut self, engine_state: &EngineState, block: &Block) {
         self.source_map.refresh(engine_state);
-        // Prefer the name of the decl we're about to enter (custom command),
-        // captured from the preceding `Call` instruction. Otherwise fall back
-        // to the block's `file.nu:line`.
+
+        // Name from the preceding `Call` (custom command), else `file.nu:line`.
         let name = self.pending_frame_name.take().unwrap_or_else(|| {
             block
                 .span
@@ -238,10 +234,12 @@ impl Debugger for DapDebugger {
                 })
                 .unwrap_or_else(|| "block".to_string())
         });
+
         // The caller pauses at its call instruction while this block runs.
         if let Some(caller) = self.frames.last_mut() {
             caller.at = self.current_span;
         }
+
         self.frames.push(Frame {
             name,
             span: block.span,
@@ -249,40 +247,34 @@ impl Debugger for DapDebugger {
             last_line: None,
             in_value: None,
         });
-        // Fresh frame: no line executed in it yet.
-        self.last_line = None;
+        self.last_line = None; // fresh frame: no line executed yet
 
+        // Locals/params come from the real Stack at each pause, not pre-binding.
         self.just_entered_block = true;
-        // Params and locals for this block now come straight from the real
-        // Stack at each pause (see `sync_locals_from_stack`) — no pre-binding.
     }
 
     fn leave_block(&mut self, _engine_state: &EngineState, _block: &Block) {
         self.frames.pop();
-        // Back in the caller: restore its line tracking so returning onto
-        // the call line doesn't re-fire breakpoints there.
+        // Restore the caller's line so returning onto the call line doesn't refire.
         self.last_line = self.frames.last().and_then(|f| f.last_line);
     }
 
     fn enter_instruction(
         &mut self,
         engine_state: &EngineState,
-        // Real evaluation stack (nushell #18708): the source of truth for this
-        // frame's locals and environment. Read at each steppable line by
-        // `sync_locals_from_stack`.
+        // Real evaluation stack (#18708): source of truth for this frame's
+        // locals/env, read at each steppable line by `sync_locals_from_stack`.
         stack: &Stack,
         ir_block: &IrBlock,
         instruction_index: usize,
         registers: &[PipelineExecutionData],
     ) {
         self.source_map.refresh(engine_state);
-        // A new instruction is executing, so any previous error was handled
-        // (caught by try/catch) — future errors are fresh pauses again.
+        // New instruction running, so a prior error was caught — future ones pause.
         self.in_error_unwind = false;
 
-        // First instruction of a freshly-entered block: register 0 holds the
-        // block's pipeline input — that's `$in` (per element for closures
-        // driven by each/where). `$in` is register-based, not on the Stack, so
+        // First instruction of a fresh block: register 0 is `$in` (per element
+        // for each/where closures). It's register-based, not on the Stack, so
         // stash it on the frame; `sync_locals_from_stack` injects it later.
         if self.just_entered_block {
             self.just_entered_block = false;
@@ -294,11 +286,9 @@ impl Debugger for DapDebugger {
             }
         }
 
-        // Frame naming only: a `Call` to a named decl labels the block the
-        // callee's `enter_block` is about to push; any other instruction
-        // clears it so a builtin call (no block follows) can't mislabel a
-        // later block. Parameter/local values are no longer reconstructed
-        // here — they come from the real Stack at pause time.
+        // Frame naming only: a `Call` to a named decl labels the block its
+        // `enter_block` will push; anything else clears it so a builtin call
+        // (no block follows) can't mislabel a later block.
         match &ir_block.instructions[instruction_index] {
             Instruction::Call { decl_id, .. } => {
                 self.pending_frame_name = Some(engine_state.get_decl(*decl_id).name().to_string());
@@ -308,17 +298,13 @@ impl Debugger for DapDebugger {
             }
         }
 
-        // Only instructions whose span sits on a single source line are valid
-        // stop locations. Structural glue (drain / load-empty / return) carries
-        // the whole enclosing block's span; pausing there or letting it advance
-        // line tracking made the UI jump to the block's first line.
+        // Only single-line spans are valid stop locations; block-wide glue spans
+        // would make the UI jump to line 1.
         let span = ir_block.spans[instruction_index];
         let pos = self.source_map.resolve_steppable(span);
 
-        // Single lock: terminate check, breakpoint-at-this-line lookup, the
-        // current run mode, and whether time-travel recording is on.
-        // Condition/logpoint evaluation happens after the lock is dropped
-        // (the scratch engine has its own).
+        // One lock: terminate check, breakpoint lookup, run mode, time-travel flag.
+        // Condition/logpoint eval happens after, off-lock (scratch has its own).
         let (bp_props, run_mode, time_travel) = {
             let inner = self.state.inner.lock().expect("debug state poisoned");
             if inner.terminate_requested {
@@ -339,10 +325,9 @@ impl Debugger for DapDebugger {
             (props, inner.run_mode, inner.time_travel)
         };
 
-        // Snapshot this frame's real locals + env from the Stack for any line
-        // we might pause on, evaluate a condition/logpoint at, or record on the
-        // time-travel tape. Skipped on the fast path (plain `continue`, no
-        // breakpoint here, time-travel off) so hot loops don't clone per line.
+        // Snapshot locals+env from the Stack whenever we might pause, eval a
+        // condition/logpoint, or record. Skipped on the plain-`continue` fast
+        // path so hot loops don't clone per line.
         if pos.is_some()
             && (bp_props.is_some() || !matches!(run_mode, RunMode::Continue) || time_travel)
         {
@@ -363,8 +348,7 @@ impl Debugger for DapDebugger {
                     }
                     Ok(nu_protocol::Value::Bool { val: false, .. }) => {}
                     Ok(v) => {
-                        // Pausing on a broken condition beats silently
-                        // running past the breakpoint.
+                        // Pause on a broken condition rather than skip the breakpoint.
                         reason = Some("breakpoint");
                         note = Some(format!(
                             "condition `{cond}` returned {} (expected bool) — pausing",
@@ -380,6 +364,7 @@ impl Debugger for DapDebugger {
                 reason = Some("breakpoint");
             }
         }
+
         if reason.is_none() && pos.is_some() {
             let is_call = matches!(
                 &ir_block.instructions[instruction_index],
@@ -392,10 +377,9 @@ impl Debugger for DapDebugger {
             self.current_span = Some(span);
         }
 
-        // Time-travel: record on the tape at the SAME granularity forward
-        // stepping stops (line change, depth change, or a call / pipe-stage
-        // boundary) so Step Back can reach every point F11 would — including
-        // pipeline stages and closure bodies on the same source line.
+        // Record on the tape at the same granularity forward stepping stops
+        // (line/depth change or a call boundary), so Step Back reaches every
+        // point F11 would — pipe stages and same-line closure bodies included.
         if let Some(p) = &pos {
             let depth = self.depth();
             let line_changed = self.last_line != Some(p.line);
@@ -404,8 +388,8 @@ impl Debugger for DapDebugger {
                 &ir_block.instructions[instruction_index],
                 Instruction::Call { .. }
             );
-            // At a call boundary, capture the value flowing into the command
-            // ($in for the next stage) so the past view can show `in → cmd`.
+            // At a call boundary, capture the value flowing in so the past
+            // view can show `in → cmd`.
             let pipe_input = match &ir_block.instructions[instruction_index] {
                 Instruction::Call {
                     decl_id, src_dst, ..
@@ -466,9 +450,8 @@ impl Debugger for DapDebugger {
             );
         }
 
-        // Remember the line we just processed so the next instruction on the
-        // same source line doesn't re-trigger a breakpoint. Non-steppable
-        // instructions never touch line tracking.
+        // Remember this line so later instructions on it don't refire the
+        // breakpoint. Non-steppable instructions never touch line tracking.
         if let Some(p) = &pos {
             self.last_line = Some(p.line);
             self.last_depth = Some(self.depth());
@@ -487,9 +470,8 @@ impl Debugger for DapDebugger {
         registers: &[PipelineExecutionData],
         error: Option<&ShellError>,
     ) {
-        // Capture the "latest expression result" for the Locals `return`
-        // entry: a completed Call writes its result to src_dst; a Return
-        // block-output is in src. Streams are described, never drained.
+        // Latest result for the Locals `return` entry: a Call writes to src_dst,
+        // a Return's output is in src. Streams are described, never drained.
         if error.is_none() {
             let reg = match &ir_block.instructions[instruction_index] {
                 Instruction::Call { src_dst, .. } => Some(src_dst.get() as usize),
@@ -557,8 +539,7 @@ impl Debugger for DapDebugger {
                 description = format!("{description}\n\n{}", &tail[cut..]);
             }
         }
-        // Refresh locals/env from the failing frame's Stack so the exception
-        // snapshot shows real values (this path skips the enter_instruction sync).
+        // This path skips the enter_instruction sync, so refresh from the Stack.
         self.sync_locals_from_stack(engine_state, stack);
         {
             let mut inner = self.state.inner.lock().expect("debug state poisoned");

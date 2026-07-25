@@ -72,16 +72,14 @@ impl Session {
     }
 
     pub(super) fn on_restart(&mut self, seq: i64, cmd: &str) {
-        // Hot restart: tear down the current run quietly and respawn
-        // from the stored launch args. The script file is re-read from
-        // disk, so edits made while debugging take effect. Breakpoints
-        // carry over; VS Code re-sends them if the file changed.
+        // Hot restart: tear down the run quietly and respawn from the stored
+        // launch args. The script is re-read from disk (edits take effect);
+        // breakpoints carry over.
         match (self.launch_args.clone(), self.state.take()) {
             (Some(args), Some(old_state)) => {
                 old_state.request_restart_teardown();
-                // Not joined: the old thread unwinds on its own via the
-                // interrupt signal. Joining here could block the DAP
-                // loop behind a long-running native command.
+                // Not joined: the old thread unwinds itself via the interrupt
+                // signal; joining could block the DAP loop behind a native call.
                 let _ = self.eval_handle.take();
 
                 let new_state = Arc::new(DebugState::new(

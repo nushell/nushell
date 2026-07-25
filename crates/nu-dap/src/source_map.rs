@@ -33,11 +33,9 @@ impl SourceMap {
     /// indexes files it hasn't seen. Call after every merge_delta.
     pub(crate) fn refresh(&mut self, engine_state: &EngineState) {
         for cached in engine_state.files() {
-            // Canonicalize so `source helper.nu` (recorded however nu opened
-            // it) compares equal to the client's absolute breakpoint paths.
-            // Relative names resolve against the process cwd, which engine.rs
-            // sets to the launch cwd. Non-file names (e.g. internal buffers)
-            // fail canonicalization and are kept as-is.
+            // Canonicalize so `source helper.nu` compares equal to the client's
+            // absolute breakpoint paths (relative names resolve against the
+            // launch cwd; non-file names fail and are kept as-is).
             let name = crate::paths::canonical_str(&cached.name);
             if self.files.contains_key(&name) {
                 continue;
@@ -77,12 +75,10 @@ impl SourceMap {
         None
     }
 
-    /// Like `resolve`, but only for spans that are valid *stop locations*:
-    /// non-empty and confined to a single source line. The IR compiler emits
-    /// structural glue (drain / load-empty / return) carrying the span of the
-    /// whole enclosing block — resolving those lands on the block's first
-    /// line (line 1 for the top-level script), which made stepping visibly
-    /// jump around. Such spans return None here.
+    /// Like `resolve`, but only for valid *stop locations*: non-empty spans
+    /// confined to a single source line. Structural glue (drain/load-empty/
+    /// return) carries the whole block's span, which would resolve to line 1
+    /// and make stepping jump around — such spans return None here.
     pub(crate) fn resolve_steppable(&self, span: Span) -> Option<SourcePos> {
         if span.end <= span.start {
             return None; // empty / synthetic (Span::unknown is 0..0)

@@ -73,19 +73,15 @@ fn run(launch: LaunchArgs, state: Arc<DebugState>, writer: &DapWriter) -> Result
     let mut engine_state = nu_cmd_lang::create_default_context();
     engine_state = nu_command::add_shell_command_context(engine_state);
 
-    // `print` renders records/tables through the `table` command, but only
-    // if this id is set (nu-cli does it during startup; embedding must too).
-    // Without it, printing any record fails with CantConvert.
+    // `print` renders records via the `table` command only if this id is set
+    // (nu-cli sets it at startup; without it, printing a record fails).
     engine_state.table_decl_id = engine_state.find_decl(b"table", &[]);
 
-    // Populate the `$nu` constant (paths, pid, os-info, …). nu-cli does this
-    // at startup; without it `$nu` is empty and the Globals scope has nothing
-    // to show for it.
+    // Populate the `$nu` constant (paths, pid, os-info, …); else it's empty.
     engine_state.generate_nu_constant();
 
-    // Nushell's `print` lives in nu-cli, which we don't embed — without a
-    // decl of that name the parser treats `print` as an external command.
-    // Register our own, which writes to the DAP client (see print_cmd.rs).
+    // `print`/`input` live in nu-cli, which we don't embed, so the parser would
+    // treat them as externals. Register our own DAP-aware shims (print_cmd.rs).
     {
         let mut working_set = StateWorkingSet::new(&engine_state);
         working_set.add_decl(Box::new(crate::print_cmd::DapPrint {
@@ -117,14 +113,13 @@ fn run(launch: LaunchArgs, state: Arc<DebugState>, writer: &DapWriter) -> Result
     // Minimal environment. A fuller implementation should mirror what
     // nu-cli's gather_parent_env_vars does (inherit the parent process env).
     for (k, v) in std::env::vars() {
-        // Never inherit PWD: shells export it in their own format (Git Bash
-        // gives `/e/...`), which nu rejects as non-absolute — and then
-        // `source`/`use` resolution breaks. Ours is set below.
+        // Never inherit PWD: shells export it in a format nu rejects as
+        // non-absolute (Git Bash `/e/...`), breaking source/use. Set ours below.
         if k.eq_ignore_ascii_case("pwd") {
             continue;
         }
-        // nu convention: PATH is a list, not a delimited string — scripts
-        // read `$env.PATH | ...` and `path add` expects a list.
+
+        // nu convention: PATH is a list, not a delimited string.
         let value = if k.eq_ignore_ascii_case("path") {
             Value::list(
                 std::env::split_paths(&v)
@@ -137,6 +132,7 @@ fn run(launch: LaunchArgs, state: Arc<DebugState>, writer: &DapWriter) -> Result
         };
         engine_state.add_env_var(k, value);
     }
+
     engine_state.add_env_var(
         "PWD".to_string(),
         Value::string(cwd.clone(), Span::unknown()),
@@ -173,10 +169,9 @@ fn run(launch: LaunchArgs, state: Arc<DebugState>, writer: &DapWriter) -> Result
     let mut stack = Stack::new();
     stack.add_env_var("PWD".to_string(), Value::string(cwd, Span::unknown()));
 
-    // Script/external output handling: process-level stdout/stderr were
-    // swapped for capture pipes at startup (stdio.rs), so Inherit — the
-    // default destination everywhere — already lands in the DAP output
-    // forwarders. No stack redirection needed.
+    // Process stdout/stderr were swapped for capture pipes at startup
+    // (stdio.rs), so the default Inherit destination already reaches the DAP
+    // forwarders — no stack redirection needed.
 
     let result = nu_engine::eval_block::<WithDebug>(
         &engine_state,
@@ -185,11 +180,9 @@ fn run(launch: LaunchArgs, state: Arc<DebugState>, writer: &DapWriter) -> Result
         PipelineData::empty(),
     );
 
-    // After the top-level code, call an entry-point command with the launch
-    // args: an explicitly chosen `entry_point` (for scripts that are function
-    // libraries with no `main`), otherwise `main` if the script defines one
-    // (like `nu` itself). Missing explicit entry points are an error; a
-    // missing default `main` just means "top-level only".
+    // After the top-level code, call an entry point with the launch args: an
+    // explicit `entry_point` (for no-`main` libraries), else `main` if defined.
+    // A missing explicit entry is an error; a missing `main` means top-level only.
     let (entry_name, explicit) = match &launch.entry_point {
         Some(name) if !name.trim().is_empty() => (name.trim().to_string(), true),
         _ => ("main".to_string(), false),
@@ -209,13 +202,10 @@ fn run(launch: LaunchArgs, state: Arc<DebugState>, writer: &DapWriter) -> Result
         err => err,
     };
 
-    // Drain and render the final pipeline output *while the debugger is still
-    // active*. A bare top-level lazy pipeline like `ls | each { … }` compiles
-    // with no `drain` instruction — its stream is the block's return value and
-    // only runs its closures when consumed here. Draining after
-    // deactivate_debugger() (as we used to) meant those closures ran with the
-    // debugger off, so breakpoints inside them never fired. `into_value` can
-    // itself raise (e.g. an error inside a closure), so fold that into result.
+    // Drain the final pipeline *while the debugger is still active*: a bare
+    // lazy pipeline (`ls | each { … }`) only runs its closures when consumed
+    // here, so draining after deactivate would fire no breakpoints inside them.
+    // `into_value` can itself raise (error in a closure), so fold it into result.
     let outcome = match result {
         Ok(exec_data) => match exec_data.body.into_value(Span::unknown()) {
             Ok(v) => {
@@ -280,9 +270,8 @@ fn call_entry(
         return Ok(None); // no `main`: top-level only
     }
 
-    // Mirror nu itself: synthesize `<name> <args...>` with the same escaping
-    // the nu CLI applies (escape_for_script_arg keeps `3` an int literal so
-    // typed parameters accept it, while quoting what must be quoted).
+    // Synthesize `<name> <args...>` with nu's own arg escaping
+    // (escape_for_script_arg keeps `3` an int literal, quotes what must be).
     let mut source = String::from(name);
     for a in args {
         source.push(' ');
@@ -318,11 +307,9 @@ fn call_entry(
     nu_engine::eval_block::<WithDebug>(engine_state, stack, &block, PipelineData::empty()).map(Some)
 }
 
-/// After parsing: collect, per source file, every line that carries at least
-/// one steppable instruction; store them for breakpoint verification and
-/// reconcile any breakpoints that were set before parsing — snapping them to
-/// the next valid line (emitting `breakpoint` changed events) or marking
-/// them unverified.
+/// Collect every line carrying a steppable instruction (per file) for
+/// breakpoint verification, and reconcile breakpoints set before parsing —
+/// snapping to the next valid line (`breakpoint` changed events) or unverifying.
 fn publish_valid_lines(
     engine_state: &nu_protocol::engine::EngineState,
     top_block: &nu_protocol::ast::Block,

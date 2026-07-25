@@ -24,9 +24,8 @@ fn var_name(engine_state: &EngineState, var_id: nu_protocol::VarId) -> String {
 }
 
 impl DapDebugger {
-    /// Decide whether the current run mode wants to pause at this position
-    /// (breakpoints are handled separately in `enter_instruction`).
-    /// `is_call` marks call instructions — pipe-stage boundaries — where
+    /// Whether the run mode wants to pause here (breakpoints are handled in
+    /// `enter_instruction`). `is_call` marks pipe-stage boundaries where
     /// step-into also stops, so F11 walks a builtin pipeline stage by stage.
     pub(super) fn should_pause_mode(
         &self,
@@ -56,13 +55,10 @@ impl DapDebugger {
         }
     }
 
-    /// Snapshot the current frame's locals and environment from the real
-    /// evaluation `Stack` (nushell #18708) into shared state. Called at every
-    /// steppable line we might pause on, evaluate a condition/logpoint at, or
-    /// record for time-travel — so the pause snapshot, scratch eval, and the
-    /// tape all read genuine values (params, closure captures, mutations)
-    /// rather than the old IR reconstruction. `$in` is the one exception:
-    /// register-based, injected from the frame's captured value.
+    /// Snapshot this frame's locals + env from the real `Stack` (#18708) into
+    /// shared state, so the pause snapshot, scratch eval, and time-travel tape
+    /// read genuine values (params, closure captures, mutations). `$in` is the
+    /// exception: register-based, injected from the frame's captured value.
     pub(super) fn sync_locals_from_stack(&self, engine_state: &EngineState, stack: &Stack) {
         let mut vars: std::collections::HashMap<usize, ShadowVar> =
             std::collections::HashMap::new();
@@ -94,6 +90,7 @@ impl DapDebugger {
         }
         // Full runtime env (engine baseline + this stack's overlays/mutations).
         let env = stack.get_env_vars(engine_state);
+
         let mut inner = self.state.inner.lock().expect("debug state poisoned");
         inner.shadow_vars = vars;
         inner.env_shadow = env;

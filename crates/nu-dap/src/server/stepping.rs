@@ -8,9 +8,8 @@ use serde_json::{Value as Json, json};
 
 impl Session {
     pub(super) fn on_continue(&mut self, seq: i64, cmd: &str) {
-        // In the past: replay forward to the next recorded breakpoint,
-        // else return to the live frontier. Only at the frontier do we
-        // resume real execution.
+        // In the past: forward to the next recorded breakpoint, else to the
+        // frontier. Only at the frontier do we resume real execution.
         if let Some(Some(cur)) = self.with_state(|i| i.view_index) {
             let target = self
                 .with_state(|inner| {

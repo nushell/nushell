@@ -182,12 +182,14 @@ fn forward(mut rx: PipeReader, category: &'static str, writer: DapWriter) {
                     Ok(n) => n,
                 };
                 pending.extend_from_slice(&buf[..n]);
+
                 // Strip and count flush markers.
                 let mut seen = 0u64;
                 while let Some(at) = find(&pending, MARKER) {
                     pending.drain(at..at + MARKER.len());
                     seen += 1;
                 }
+
                 // Hold back a potential marker prefix at the tail.
                 let keep = marker_prefix_len(&pending);
                 let emit = pending.len() - keep;
@@ -197,6 +199,7 @@ fn forward(mut rx: PipeReader, category: &'static str, writer: DapWriter) {
                     writer.output(category, text);
                     pending.drain(..emit);
                 }
+
                 if seen > 0 {
                     let (count, cv) = flush_state();
                     *count.lock().expect("flush state") += seen;
@@ -234,6 +237,7 @@ pub(crate) fn flush_output(timeout: Duration) {
         let _ = std::io::stderr().write_all(MARKER);
         let _ = std::io::stderr().flush();
     }
+
     let deadline = nu_utils::time::Instant::now() + timeout;
     let mut guard = count.lock().expect("flush state");
     while *guard < target {

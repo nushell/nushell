@@ -7,11 +7,9 @@ use crate::dap::types::VisualizeArgs;
 use serde_json::{Value as Json, json};
 
 impl Session {
-    // Custom request from the extension's "Visualize" action: return
-    // the complete value behind a variable as JSON (the Variables
-    // tree itself is depth/width-bounded; this is not). Expandable
-    // nodes are addressed by variablesReference; leaves (strings,
-    // binaries) by containerReference + name.
+    // "Visualize" action: return the full value as JSON (unlike the bounded
+    // Variables tree). Expandable nodes are keyed by variablesReference;
+    // leaves (strings, binaries) by containerReference + name.
     pub(super) fn on_visualize(&mut self, seq: i64, cmd: &str, req: Request) {
         let args: VisualizeArgs = match serde_json::from_value(req.arguments) {
             Ok(a) => a,

@@ -1,16 +1,13 @@
-//! Expression evaluation while paused — without touching the paused engine.
+//! Expression evaluation while paused — without re-entering the paused engine.
 //!
-//! The Debugger trait never exposes the `Stack`, and the real `EngineState`
-//! is mutably unavailable while the eval thread sits inside a callback. So
-//! watch/hover/console expressions (and breakpoint conditions / logpoint
-//! interpolations) run against a *separate* scratch engine: the expression
-//! is parsed with the current shadow variables pre-declared, their captured
-//! values are bound on a fresh stack, and the block runs undebugged.
+//! The real `EngineState` can't be used to evaluate while the eval thread sits
+//! inside a Debugger callback, so watch/hover/console expressions (and
+//! breakpoint conditions / logpoint interpolation) run against a *separate*
+//! scratch engine: the expression is parsed with the snapshotted shadow
+//! variables pre-declared, their values bound on a fresh stack, run undebugged.
 //!
-//! Honest limitations: custom commands from the debugged script are not
-//! visible here, mutations don't affect the real program, and variables
-//! whose values couldn't be shadow-captured (streams) evaluate to their
-//! placeholder.
+//! Limitations: the script's own commands aren't visible here, mutations don't
+//! affect the real program, and stream-valued variables show their placeholder.
 
 use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::{Stack, StateWorkingSet};
@@ -34,8 +31,7 @@ impl Scratch {
             std::sync::atomic::AtomicBool::new(false),
         )));
         // Seed the environment so console expressions can run externals and
-        // path-dependent commands — e.g. re-running a pipeline stage by hand
-        // to inspect data that only exists as a stream in the debuggee.
+        // path-dependent commands (e.g. re-run a pipeline stage by hand).
         for (k, v) in std::env::vars() {
             if k.eq_ignore_ascii_case("pwd") {
                 continue;

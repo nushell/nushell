@@ -24,9 +24,8 @@ impl Session {
             for bp in &args.breakpoints {
                 let id = inner.next_bp_id;
                 inner.next_bp_id += 1;
-                // Snap to the next line with instructions (no-op with
-                // optimistic verification before parsing finishes —
-                // the eval thread reconciles + re-announces then).
+                // Snap to the next line with instructions (optimistic before
+                // parsing; the eval thread reconciles + re-announces then).
                 let (snapped, ok) = inner.snap_line(&path, bp.line);
                 let line = if map.contains_key(&snapped) {
                     bp.line

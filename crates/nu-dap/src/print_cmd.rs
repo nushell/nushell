@@ -82,11 +82,9 @@ impl Command for DapPrint {
     }
 }
 
-/// Interactive prompts under the debugger have no terminal (stdin is NUL,
-/// the real one carries DAP) — but there IS a UI on the other end of the
-/// wire. `input` and `input list` emit a `nuDapUi` event; the extension
-/// shows an InputBox/QuickPick and answers via the `nuDapUiReply` request;
-/// the eval thread blocks in between and returns the answer to the script.
+/// Interactive prompts have no terminal under the debugger (stdin is NUL), but
+/// there's a UI on the wire: `input`/`input list` emit a `nuDapUi` event, the
+/// extension answers via `nuDapUiReply`, and the eval thread blocks in between.
 use crate::state::DebugState;
 use std::sync::Arc;
 
@@ -189,6 +187,7 @@ impl Command for DapInput {
             .ui
             .next_id
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+
         self.writer.event(
             "nuDapUi",
             serde_json::json!({
@@ -198,6 +197,7 @@ impl Command for DapInput {
                 "default": default,
             }),
         );
+
         let reply = wait_ui_reply(&self.state, id, call.head)?;
         if reply.cancelled {
             return Ok(Value::nothing(call.head).into_pipeline_data());
@@ -276,6 +276,7 @@ impl Command for DapInputList {
             .ui
             .next_id
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+
         self.writer.event(
             "nuDapUi",
             serde_json::json!({
@@ -287,10 +288,12 @@ impl Command for DapInputList {
                 "truncated": items.len() > MAX_ITEMS,
             }),
         );
+
         let reply = wait_ui_reply(&self.state, id, call.head)?;
         if reply.cancelled {
             return Ok(Value::nothing(call.head).into_pipeline_data());
         }
+
         let value = if multi {
             let picked = reply.indices.unwrap_or_default();
             if as_index {
@@ -364,9 +367,8 @@ impl Command for DapInputUnsupported {
 }
 
 impl DapPrint {
-    /// Render one pipeline's worth of data the way nu's `print` does —
-    /// through the `table` command when registered — and forward the text to
-    /// the DAP client.
+    /// Render data like nu's `print` (through `table` when registered) and
+    /// forward the text to the DAP client.
     fn emit(
         &self,
         engine_state: &EngineState,
@@ -388,6 +390,7 @@ impl DapPrint {
             }
             None => data,
         };
+
         let config = engine_state.get_config();
         for value in data {
             let mut out = match value {

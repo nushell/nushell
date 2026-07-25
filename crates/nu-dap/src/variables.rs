@@ -8,10 +8,8 @@ use nu_protocol::Value;
 
 /// Max children materialized per list/record level to keep responses bounded.
 const MAX_CHILDREN: usize = 200;
-/// Levels materialized eagerly at pause time. Deeper levels hydrate on
-/// demand: the server thread materializes a node's children into the
-/// snapshot when the client first expands it (`materialize_children`), so
-/// there is no depth limit on inspection.
+/// Levels materialized eagerly at pause time; deeper levels hydrate on demand
+/// (`materialize_children` when the client expands a node), so no depth limit.
 const EAGER_DEPTH: usize = 1;
 
 /// A list whose elements are all records is a nu table.
@@ -291,6 +289,7 @@ pub(crate) fn build_history_snapshot(
         pipeline.push(add_value(&mut snap, format!("in → {cmd}"), v, 0));
     }
     snap.var_refs.insert(PauseSnapshot::PIPELINE_REF, pipeline);
+
     // Registers/Process are live-only; empty in the past.
     snap.var_refs
         .insert(PauseSnapshot::REGISTERS_REF, Vec::new());

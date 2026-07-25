@@ -80,10 +80,8 @@ impl DapDebugger {
         snap.var_refs
             .insert(PauseSnapshot::LOCALS_REF, locals_children);
 
-        // Pipeline scope: semantic view only. Paused at a call instruction —
-        // a pipe-stage boundary — it shows the value about to flow INTO that
-        // command: nu's `$in` for the next stage. Raw registers live in
-        // their own collapsed scope below.
+        // Pipeline scope: at a call (pipe-stage boundary), the value flowing
+        // INTO that command — nu's `$in` for the next stage. Raw registers below.
         let mut pipeline_children = Vec::new();
         if let Instruction::Call {
             decl_id, src_dst, ..
@@ -136,10 +134,8 @@ impl DapDebugger {
         snap.var_refs
             .insert(PauseSnapshot::PROCESS_REF, process_children);
 
-        // Globals scope: nushell's special variables as expandable records.
-        // `$nu` (config/paths/pid/os-info) and `$env` — the latter is the full
-        // runtime env snapshotted from the Stack (`env_shadow`), as the record
-        // scripts actually reference.
+        // Globals scope: `$nu` (config/paths/pid/os-info) and `$env` (the full
+        // runtime env snapshotted from the Stack as `env_shadow`).
         let mut globals_children = Vec::new();
         if let Some(nu) = engine_state.get_constant(nu_protocol::NU_VARIABLE_ID) {
             let v = nu.clone();

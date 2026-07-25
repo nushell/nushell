@@ -36,9 +36,8 @@ pub(crate) struct VarNode {
     pub(crate) var: Variable,
     /// Indices into the arena for this node's children (empty for leaves).
     pub(crate) children: Vec<usize>,
-    /// The full underlying value, kept so `nuDapVisualize` can serve
-    /// complete data for any node — including leaves like strings and
-    /// binaries, which have no variablesReference of their own.
+    /// Full value, kept so `nuDapVisualize` can serve complete data even for
+    /// leaves (strings, binaries) that have no variablesReference of their own.
     pub(crate) value: nu_protocol::Value,
 }
 
@@ -123,10 +122,9 @@ pub(crate) struct Inner {
     /// thread needs these to construct StepOver/StepOut run modes.
     pub(crate) paused_line: u64,
     pub(crate) paused_depth: usize,
-    /// The current frame's locals, keyed by nu VarId's inner usize. Snapshotted
-    /// from the real evaluation `Stack` at each pause/record point (nushell
-    /// #18708) by `debugger::sync_locals_from_stack`; read here by the server
-    /// thread, which must never touch the Stack directly.
+    /// Current frame's locals (keyed by VarId), snapshotted from the real
+    /// `Stack` (#18708) by `debugger::sync_locals_from_stack` and read here by
+    /// the server thread, which must never touch the Stack directly.
     pub(crate) shadow_vars: HashMap<usize, ShadowVar>,
     /// The current frame's full runtime environment (`stack.get_env_vars`),
     /// snapshotted alongside `shadow_vars`. Rendered as `$env` in Globals.
@@ -152,11 +150,9 @@ pub(crate) struct Inner {
 }
 
 impl Inner {
-    /// Where should a breakpoint requested at `line` in `path` actually live?
-    /// Returns (line, verified): the line itself if it has instructions, the
-    /// next line that does (like other debuggers snap forward), or the
-    /// original line unverified when nothing follows. Before parsing
-    /// completes we optimistically verify in place.
+    /// Where a breakpoint at `line` actually lands. Returns (line, verified):
+    /// the line itself if steppable, else the next line that is (snap forward),
+    /// else unverified. Optimistically verified in place before parsing.
     pub(crate) fn snap_line(&self, path: &str, line: i64) -> (i64, bool) {
         if !self.parse_done {
             return (line, true);

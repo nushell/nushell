@@ -93,11 +93,9 @@ impl Session {
     }
 
     pub(super) fn on_evaluate(&mut self, seq: i64, cmd: &str, req: Request) {
-        // Fast path: a bare `$name` serves straight from the shadow
-        // snapshot (hover stays cheap). Anything else runs in the
-        // scratch engine with the shadow variables in scope.
-        // Limitation (documented): custom commands from the debugged
-        // script are not visible to the scratch engine.
+        // Fast path: a bare `$name` serves straight from the snapshot (cheap
+        // hover); anything else runs in the scratch engine with the shadow vars
+        // in scope. Limitation: the script's own commands aren't visible there.
         let args: EvaluateArgs = match serde_json::from_value(req.arguments) {
             Ok(a) => a,
             Err(e) => {
@@ -106,6 +104,7 @@ impl Session {
                 return;
             }
         };
+
         let expr = args.expression.trim().to_string();
         let bare = expr.strip_prefix('$').unwrap_or(&expr);
         let is_bare_name =
