@@ -122,10 +122,8 @@ fn command_not_found_error_suggests_typo_fix() -> Result {
 #[test]
 fn command_not_found_error_recognizes_non_executable_file() -> Result {
     let err = test().run("./Cargo.toml").expect_shell_error()?;
-    assert_contains(
-        "refers to a file that is not executable. Did you forget to set execute permissions?",
-        err.to_string(),
-    );
+    let expected = "`./Cargo.toml` refers to a file that is not executable. Did you forget to set execute permissions?";
+    assert_matches!(err, ShellError::ExternalCommand {help, ..} if help == expected);
     Ok(())
 }
 
