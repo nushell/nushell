@@ -22,28 +22,12 @@ pub(crate) fn canonical_str(p: &str) -> String {
     canonical(Path::new(p))
 }
 
-fn strip_verbatim(s: &str) -> String {
+pub(crate) fn strip_verbatim(s: &str) -> String {
     if let Some(rest) = s.strip_prefix(r"\\?\UNC\") {
         format!(r"\\{rest}")
     } else if let Some(rest) = s.strip_prefix(r"\\?\") {
         rest.to_string()
     } else {
         s.to_string()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::strip_verbatim;
-    use pretty_assertions::assert_eq;
-    use rstest::rstest;
-
-    #[rstest]
-    #[case(r"\\?\C:\scripts\demo.nu", r"C:\scripts\demo.nu")]
-    #[case(r"\\?\UNC\server\share\demo.nu", r"\\server\share\demo.nu")]
-    #[case(r"C:\scripts\demo.nu", r"C:\scripts\demo.nu")]
-    #[case("/home/user/demo.nu", "/home/user/demo.nu")]
-    fn strips_windows_verbatim_prefixes(#[case] input: &str, #[case] expected: &str) {
-        assert_eq!(strip_verbatim(input), expected);
     }
 }
