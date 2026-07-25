@@ -55,36 +55,26 @@ fn do_not_panic_if_broken_pipe() -> Result {
 }
 
 #[cfg(unix)]
-#[test]
+#[rstest]
+#[timeout(std::time::Duration::from_secs(5))]
+#[nu_test_support::test]
 #[serial]
 #[deps(NU)]
-fn exit_failure_if_stdout_full() {
-    let mut child = std::process::Command::new("sh")
-        .arg("-c")
-        .arg(format!("{:?} -n > /dev/full", NU.path()))
-        .stderr(std::process::Stdio::null())
-        .spawn()
-        .expect("failed to spawn process");
-
-    let start = Instant::now();
-    let status = loop {
-        if let Some(status) = child.try_wait().expect("failed to query child status") {
-            break status;
-        }
-
-        if start.elapsed() > std::time::Duration::from_secs(5) {
-            let _ = child.kill();
-            panic!("child did not exit within 5 seconds");
-        }
-
-        std::thread::sleep(std::time::Duration::from_millis(10));
+fn exit_failure_if_stdout_full() -> Result {
+    use std::{
+        fs::File,
+        process::{Command, Stdio},
     };
 
-    assert!(!status.success(), "expected failure status");
-    assert!(
-        status.code().is_some(),
-        "expected process to exit normally rather than by signal"
-    );
+    let dev_full = File::create("/dev/full")?;
+    let output = Command::new(NU.path())
+        .arg("-n")
+        .stdout(dev_full)
+        .stderr(Stdio::null())
+        .output()?;
+
+    pretty_assertions::assert_matches!(output.status.code(), Some(code) if code != 0);
+    Ok(())
 }
 
 #[cfg(unix)]
