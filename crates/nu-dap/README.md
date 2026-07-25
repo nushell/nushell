@@ -1,0 +1,295 @@
+# nu-dap
+
+A [Debug Adapter Protocol][dap] (DAP) server for Nushell scripts. It embeds the
+Nushell engine and speaks DAP over stdio, so any DAP-capable editor — VS Code,
+Zed, Neovim, … — can debug a `.nu` script: breakpoints, stepping, variable
+inspection, watch expressions, interactive prompts, and recorded time-travel.
+
+The debugger is normally reached through the CLI:
+
+```sh
+nu --dap        # start the DAP server on stdin/stdout
+```
+
+[dap]: https://microsoft.github.io/debug-adapter-protocol/
+
+---
+
+## The Debug Adapter Protocol, in brief
+
+DAP is the protocol behind VS Code's generic debugger UI (and its ports in Zed,
+Neovim, etc.). An **editor** talks to a **debug adapter** — this crate — which
+drives the actual runtime. The parts that matter here:
+
+- **Transport & framing.** JSON messages over a byte stream (our stdin/stdout),
+  each prefixed with an HTTP-style header:
+
+  ```
+  Content-Length: 128\r\n\r\n{"seq":1,"type":"request","command":"initialize", …}
+  ```
+
+  `dap/protocol.rs` reads and writes these frames.
+
+- **Three message types.**
+  - `request` — the editor asks for something (`launch`, `setBreakpoints`,
+    `stackTrace`, `continue`, …).
+  - `response` — our reply to a request (`success` + a `body`).
+  - `event` — something we push unprompted (`stopped`, `output`, `terminated`).
+
+- **The handshake, then a loop.** The editor negotiates capabilities, sets
+  breakpoints, and launches; from then on it is a request/response loop
+  punctuated by events. When the program hits a breakpoint we emit `stopped`;
+  the editor asks for `threads` → `stackTrace` → `scopes` → `variables` to paint
+  its UI, then sends `continue`/`next`/`stepIn`/`stepOut` to resume us. The full
+  lifecycle is the sequence diagram in [Flow of a debug
+  session](#flow-of-a-debug-session).
+
+- **The `variablesReference` tree.** DAP has no nested-value type. Instead every
+  expandable value gets an integer handle; the editor calls `variables` with
+  that reference to fetch the children, which may themselves carry references.
+  A reference of `0` means "leaf, not expandable." We build this tree in
+  `variables.rs` and hand out references lazily.
+
+- **Capabilities.** In the `initialize` response we advertise exactly what we
+  support, so the editor only shows working UI. We report:
+  `supportsConfigurationDoneRequest`, `supportsConditionalBreakpoints`,
+  `supportsFunctionBreakpoints`, `supportsLogPoints`,
+  `supportsEvaluateForHovers`, `supportsExceptionInfoRequest`,
+  `supportsTerminateRequest`, `supportsRestartRequest`, and `supportsStepBack`
+  (time-travel), plus an exception-breakpoint filter.
+
+---
+
+## Architecture
+
+The adapter runs two threads over one shared state object.
+
+```mermaid
+flowchart LR
+    editor(["Editor / DAP client"])
+
+    subgraph proc["nu-dap process"]
+        direction TB
+        server["server thread<br/>server::run_loop<br/>· reads requests<br/>· serves snapshot when paused<br/>· never locks the debugger"]
+        state[("Arc&lt;DebugState&gt;<br/>breakpoints · run mode<br/>snapshot · timeline · UI bridge")]
+        eval["eval thread<br/>engine::run<br/>· runs nushell (WithDebug)<br/>· blocks on a condvar at each pause"]
+        dbg["DapDebugger<br/>impl nu_protocol Debugger"]
+
+        server <--> state
+        eval <--> state
+        eval -->|"callback per instruction"| dbg
+        dbg -->|"snapshot / record"| state
+    end
+
+    editor <-->|"DAP frames over stdio"| server
+```
+
+The **server thread** answers read-only requests from the snapshot; the **eval
+thread** runs the script and, while paused, is frozen on a condvar. They share
+only `DebugState` — never the live engine (see the concurrency rule below).
+
+- **`server.rs`** — the DAP dispatcher (`run_loop`). It reads requests, mutates
+  shared state (set breakpoints, choose a run mode, request resume), and answers
+  read-only requests (`stackTrace`, `scopes`, `variables`, `evaluate`) from the
+  snapshot the eval thread published at the last pause.
+
+- **`engine.rs`** — builds the `EngineState`, registers the command shims, and
+  spawns the **eval thread**, which parses the script and runs it with the
+  debugger activated (`eval_block::<WithDebug>`). The IR evaluator calls our
+  `Debugger` callbacks before every instruction.
+
+- **`debugger.rs`** — `DapDebugger`, the `Debugger` impl. This is where stepping
+  decisions, breakpoint checks, the pause loop, and snapshot building happen.
+
+- **`state.rs`** — `Arc<DebugState>`: all cross-thread state, with its own locks.
+
+### The concurrency rule (deadlock hazard)
+
+The eval thread runs our `Debugger` impl **while holding
+`EngineState.debugger`** (the IR evaluator takes that lock before every
+callback). Therefore the **server thread must never touch
+`EngineState.debugger`** — it would deadlock against a paused eval thread. All
+cross-thread communication goes through `DebugState`, which lives in its own
+`Arc` with independent locks. The server answers `stackTrace`/`variables`/… from
+a *snapshot* the eval thread copied into `DebugState` at the pause, never by
+reaching into the live engine.
+
+---
+
+## Flow of a debug session
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant E as Editor
+    participant S as server thread
+    participant V as eval thread
+
+    Note over E,V: Handshake
+    E->>S: initialize
+    S-->>E: capabilities
+    S--)E: initialized (event)
+    E->>S: setBreakpoints
+    E->>S: configurationDone
+    E->>S: launch (program + args)
+    S->>V: start evaluating
+
+    Note over E,V: Pause / inspect / resume
+    V->>V: enter_instruction · breakpoint? snapshot locals from the Stack
+    V--)E: stopped (event) · V now blocked on condvar
+    E->>S: stackTrace / scopes / variables
+    S-->>E: served from the pause snapshot
+    E->>S: continue / next / stepIn / stepOut
+    S->>V: set run mode · signal condvar
+    V->>V: resume until the next stop
+
+    Note over E,V: End
+    V--)E: terminated (event)
+```
+
+1. **Launch.** The editor sends `launch` with the script path and args. The eval
+   thread parses the file, then runs the top-level block — followed by an entry
+   point: `main` if defined, an explicitly chosen function (for libraries with no
+   `main`), or nothing (top-level only).
+
+2. **Per-instruction callbacks.** As the IR evaluator runs, it calls
+   `enter_instruction` before each instruction. There we:
+   - map the instruction's span to a source line (`source_map.rs`;
+     only single-line spans are valid stop locations);
+   - decide whether the current run mode or a breakpoint wants to pause here;
+   - snapshot this frame's variables (see below) when we might pause, evaluate a
+     condition/logpoint, or record for time-travel.
+
+3. **Pause.** On a stop we build a `PauseSnapshot` (frames + all scopes) into
+   `DebugState`, emit a `stopped` event, and **block the eval thread on a
+   condvar**. The engine is now frozen mid-evaluation.
+
+4. **Inspection.** While paused, the editor's `stackTrace`/`scopes`/`variables`/
+   `evaluate` requests are answered by the **server thread** from that snapshot —
+   no engine access.
+
+5. **Resume.** A `continue`/`next`/`stepIn`/`stepOut` sets the run mode and
+   signals the condvar; the eval thread wakes and evaluation continues until the
+   next stop. When the script ends we drain its output and emit `terminated`.
+
+---
+
+## How "seeing variables" works
+
+Nushell stores local variables on the evaluator's `Stack`. Since
+[#18708][pr18708] the `Debugger` callbacks receive `&Stack`, so at each pause (or
+time-travel recording point) `sync_locals_from_stack` reads this frame's
+variables straight from `stack.vars` — names resolved from each variable's
+declaration span — and its environment from `stack.get_env_vars()`. These are
+snapshotted into `DebugState` so the server thread can serve them without
+touching the engine. Closure parameters and command arguments appear correctly,
+because they are real bindings on the stack.
+
+The one value not on the stack is `$in` (the pipeline input), which is
+register-based; we capture it from register 0 at block entry.
+
+[pr18708]: https://github.com/nushell/nushell/pull/18708
+
+### Scopes
+
+The `scopes` response exposes several roots, each a `variablesReference`:
+
+| Scope | What it holds |
+|-------|---------------|
+| **Locals** | in-scope variables + a synthetic `return` (latest result) + `$in` |
+| **Pipeline** | the value flowing `in → <command>` at a pipe-stage boundary |
+| **Globals** | `$nu` (config/paths/pid/os-info) and `$env` |
+| **Registers** | the IR evaluator's raw working slots (`%0`, `%1`, …) |
+| **Process** | rolling tails of the script's captured stdout/stderr |
+
+Values hydrate lazily: a scope lists its immediate children, and each expandable
+child is fetched only when the editor expands it — no depth cap. Every node
+carries a `variablesReference` (0 = leaf); the editor calls `variables` with a
+reference to fetch that node's children:
+
+```mermaid
+flowchart TD
+    L["Locals · ref 1"] --> a["total = 42<br/>ref 0 · leaf"]
+    L --> b["config<br/>ref 7 · expandable"]
+    b --> c["path = /tmp/x<br/>ref 0 · leaf"]
+    b --> d["items<br/>ref 8 · expandable"]
+    d -. "variables(ref 8) only when expanded" .-> e["children fetched on demand"]
+```
+
+Streams are *described* (kind/origin/size), never drained, so inspecting them
+can't consume the program's data.
+
+---
+
+## Time-travel (the "tape")
+
+Nushell can't reverse-execute, so time-travel is **recorded state**, not replay.
+When enabled, `enter_instruction` records a `TimelineEntry` (resolved frames +
+the locals/env snapshot) at every executed line into a bounded ring buffer.
+`stepBack`/`reverseContinue` move a cursor over that tape and rebuild a past view
+— they never resume the eval thread; only stepping past the live frontier
+resumes real execution. The rebuild happens on the server thread without the
+engine, so the eval thread caches `$nu` and the baseline env for it.
+
+---
+
+## Process stdio ownership
+
+An embedded engine's `print`, and any external command, write to the process's
+real stdout — which would corrupt the DAP frame stream. `run_stdio` therefore
+takes ownership of process stdio (`stdio.rs`): it detaches child stdin to the
+null device, swaps stdout/stderr for capture pipes, and sends DAP frames over a
+*duplicated* real stdout. Captured output is forwarded to the editor as `output`
+events. `print`/`input` are Nushell CLI commands (not library ones), so an
+embedded engine would treat them as externals; `print_cmd.rs` registers
+replacements that route to DAP output and native editor prompts.
+
+---
+
+## Public API
+
+The crate is a thin facade; everything else is `pub(crate)`.
+
+```rust
+// Default: speak DAP over this process's stdin/stdout, with full stdio setup.
+// This is what `nu --dap` calls.
+nu_dap::run_stdio();
+
+// Transport-agnostic core: run the DAP loop over any BufRead + Write, for
+// embedding behind a socket or pipe. Does no process-level stdio setup.
+nu_dap::serve(reader, writer);
+```
+
+The `dap` module exposes the wire types (framing + request/response/event
+payloads) for integrators that build atop `serve`.
+
+---
+
+## Module map
+
+```
+src/
+  lib.rs          public API (run_stdio / serve) + the dap module
+  main.rs         the `nu-dap` binary: fn main() { nu_dap::run_stdio() }
+  server.rs       DAP dispatcher run_loop — never locks the debugger
+  engine.rs       builds EngineState, registers shims, runs the script
+  debugger.rs     DapDebugger: the Debugger impl (stepping, pause, snapshot)
+  state.rs        Arc<DebugState>: breakpoints, run mode, snapshot, timeline
+  variables.rs    nu Value → DAP variable tree (lazy) + stream describe
+  source_map.rs   span → file/line; single-line-span stop locations
+  print_cmd.rs    print / input / input list command shims
+  eval_scratch.rs separate engine for watch / condition / logpoint expressions
+  stdio.rs        stdin detach + stdout/stderr capture pipes
+  paths.rs        canonicalize + strip Windows \\?\ verbatim prefix
+  dap/            protocol framing + typed payloads
+```
+
+## Testing
+
+```sh
+cargo test -p nu-dap
+```
+
+Unit tests live inline in the modules; `tests/dap.rs` drives the built binary
+over the real protocol (it plays the editor side) against `example/*.nu`. Some
+tests spawn `^python` as an external, so Python must be on `PATH`.
