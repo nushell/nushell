@@ -5,9 +5,6 @@ use nu_test_support::{
 use pretty_assertions::assert_eq;
 use rstest::rstest;
 
-#[cfg(unix)]
-use nu_utils::time::Instant;
-
 mod environment;
 mod pipeline;
 mod repl;
@@ -56,56 +53,24 @@ fn do_not_panic_if_broken_pipe() -> Result {
 
 #[cfg(unix)]
 #[rstest]
+#[case::stdout(std::fs::File::create("/dev/full").unwrap(), std::process::Stdio::null())]
+#[case::stderr(std::process::Stdio::null(), std::fs::File::create("/dev/full").unwrap())]
 #[timeout(std::time::Duration::from_secs(5))]
 #[nu_test_support::test]
 #[serial]
 #[deps(NU)]
-fn exit_failure_if_stdout_full() -> Result {
-    use std::{
-        fs::File,
-        process::{Command, Stdio},
-    };
-
-    let dev_full = File::create("/dev/full")?;
-    let output = Command::new(NU.path())
+fn exit_failure_if_output_full(
+    #[case] stdout: impl Into<std::process::Stdio>,
+    #[case] stderr: impl Into<std::process::Stdio>,
+) -> Result {
+    let output = std::process::Command::new(NU.path())
         .arg("-n")
-        .stdout(dev_full)
-        .stderr(Stdio::null())
+        .stdout(stdout)
+        .stderr(stderr)
         .output()?;
 
     pretty_assertions::assert_matches!(output.status.code(), Some(code) if code != 0);
     Ok(())
-}
-
-#[cfg(unix)]
-#[test]
-#[deps(NU)]
-fn exit_failure_if_stderr_full() {
-    let mut child = std::process::Command::new("sh")
-        .arg("-c")
-        .arg(format!("{:?} -n 2>/dev/full", NU.path()))
-        .spawn()
-        .expect("failed to spawn process");
-
-    let start = Instant::now();
-    let status = loop {
-        if let Some(status) = child.try_wait().expect("failed to query child status") {
-            break status;
-        }
-
-        if start.elapsed() > std::time::Duration::from_secs(5) {
-            let _ = child.kill();
-            panic!("child did not exit within 5 seconds");
-        }
-
-        std::thread::sleep(std::time::Duration::from_millis(10));
-    };
-
-    assert!(!status.success(), "expected failure status");
-    assert!(
-        status.code().is_some(),
-        "expected process to exit normally rather than by signal"
-    );
 }
 
 #[test]
