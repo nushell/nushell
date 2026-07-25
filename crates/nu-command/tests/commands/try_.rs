@@ -172,7 +172,9 @@ fn catch_input_type_mismatch_and_rethrow() -> Result {
 fn can_catch_infinite_recursion() -> Result {
     let runner = "let commands = $in; nu -n -c $commands";
     let code = r#"def bang [] { try { bang } catch { "Caught infinite recursion" } }; bang"#;
-    test().run_with_data(runner, code).expect_value_eq("Caught infinite recursion")
+    test()
+        .run_with_data(runner, code)
+        .expect_value_eq("Caught infinite recursion")
 }
 
 #[test]
