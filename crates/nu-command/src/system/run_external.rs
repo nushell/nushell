@@ -3,7 +3,7 @@ use nu_cmd_base::hook::eval_hook;
 use nu_engine::{command_prelude::*, env_to_strings};
 use nu_path::{AbsolutePath, dots::expand_ndots_safe, expand_tilde};
 use nu_protocol::{
-    ByteStream, NuGlob, OutDest, Signals, UseAnsiColoring, did_you_mean,
+    ByteStream, DeclId, NuGlob, OutDest, Signals, UseAnsiColoring, did_you_mean,
     process::{ChildProcess, PostWaitCallback},
     shell_error::io::IoError,
 };
@@ -604,7 +604,21 @@ pub fn command_not_found(
         }
 
         // Try to match the name with the search terms of existing commands.
-        let signatures = engine_state.get_signatures_and_declids(false);
+        let signatures = engine_state
+            .get_signatures_and_declids(false)
+            .into_iter()
+            .filter(|(_, decl_id)| {
+                if let Some(sugg_span) = suggestion_span(engine_state, *decl_id) {
+                    // avoid suggesting commands declared after this command
+                    sugg_span.start < span.start
+                } else {
+                    // we can't determine declaration order,
+                    // so default to keeping this suggestion
+                    true
+                }
+            })
+            .collect_vec();
+
         if let Some((last, others)) = signatures
             .iter()
             .map(|(sig, _)| sig)
@@ -692,6 +706,15 @@ fn has_cmd_special_character(s: impl AsRef<[u8]>) -> bool {
     s.as_ref()
         .iter()
         .any(|b| matches!(b, b'<' | b'>' | b'&' | b'|' | b'^'))
+}
+
+fn suggestion_span(engine_state: &EngineState, decl_id: DeclId) -> Option<Span> {
+    let decl = engine_state.get_decl(decl_id);
+
+    decl.decl_span().or_else(|| {
+        let block_id = decl.block_id()?;
+        engine_state.get_block(block_id).span
+    })
 }
 
 /// Escape an argument for CMD internal commands. The result can be safely passed to `raw_arg()`.
