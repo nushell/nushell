@@ -246,8 +246,7 @@ pub fn eval_source(
 ) -> i32 {
     let start_time = Instant::now();
 
-    let exit_code = match evaluate_source(engine_state, stack, source, fname, input, allow_return)
-    {
+    let exit_code = match evaluate_source(engine_state, stack, source, fname, input, allow_return) {
         Ok(failed) => {
             let code = failed.into();
             // No call span available in eval_source — this wraps generic source evaluation

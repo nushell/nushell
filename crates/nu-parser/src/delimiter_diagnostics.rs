@@ -312,7 +312,11 @@ fn find_missing_list_open_bracket(
     if !looks_like_list_elems {
         return None;
     }
-    Some(span_at_line_offset(span_offset, ctx.line_start, ctx.content_start))
+    Some(span_at_line_offset(
+        span_offset,
+        ctx.line_start,
+        ctx.content_start,
+    ))
 }
 
 /// On a line ending with an unexpected `)`, if there is no `(` before it on
@@ -351,7 +355,11 @@ fn find_missing_open_paren(input: &[u8], span_offset: usize, close_span: Span) -
     if !is_in_code_context(input, abs_local) {
         return None;
     }
-    Some(span_at_line_offset(span_offset, ctx.line_start, ctx.content_start))
+    Some(span_at_line_offset(
+        span_offset,
+        ctx.line_start,
+        ctx.content_start,
+    ))
 }
 
 /// Byte offset into `line` of the trailing expression that should be wrapped in
@@ -639,7 +647,6 @@ fn is_simple_record_key(key: &[u8]) -> bool {
     key.iter().all(|&b| is_ident_char(b, true))
 }
 
-
 pub(super) fn quote_delimiter_str(quote: u8) -> &'static str {
     match quote {
         b'"' => "\"",
@@ -776,7 +783,6 @@ pub(super) fn unclosed_from_open(
     });
     ParseError::unclosed_with_hint(delimiter, open_span, end_span, hint.as_deref())
 }
-
 
 #[cfg(test)]
 mod tests {
