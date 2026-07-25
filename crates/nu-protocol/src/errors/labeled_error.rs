@@ -1,5 +1,5 @@
 use super::{ShellError, shell_error::io::IoError};
-use crate::{FromValue, IntoValue, Span, Type, Value, record};
+use crate::{FromValue, IntoValue, Span, Type, Value, engine::StateWorkingSet, record};
 use miette::{Diagnostic, LabeledSpan, NamedSource, SourceSpan};
 use serde::{Deserialize, Serialize};
 use std::{fmt, fs};
@@ -245,9 +245,29 @@ impl FromValue for ErrorLabel {
 
 impl IntoValue for ErrorLabel {
     fn into_value(self, span: Span) -> Value {
+        let ErrorLabel {
+            text,
+            span: label_span,
+        } = self;
         record! {
-            "text" => Value::string(self.text, span),
-            "span" => span.into_value(span),
+            "text" => Value::string(text, span),
+            "span" => label_span.into_value(span),
+        }
+        .into_value(span)
+    }
+}
+
+impl ErrorLabel {
+    fn into_value_with_resolved_span(self, span: Span, working_set: &StateWorkingSet) -> Value {
+        let ErrorLabel {
+            text,
+            span: label_span,
+        } = self;
+        let resolved_span = working_set.resolve_span(label_span);
+        record! {
+            "text" => Value::string(text, span),
+            "span" => label_span.into_value(span),
+            "location" => resolved_span.into_value(span),
         }
         .into_value(span)
     }
@@ -424,6 +444,38 @@ impl From<ShellError> for LabeledError {
 impl From<IoError> for LabeledError {
     fn from(err: IoError) -> Self {
         Self::from_diagnostic(&err)
+    }
+}
+
+impl LabeledError {
+    pub fn into_value(self, span: Span, working_set: &StateWorkingSet) -> Value {
+        let LabeledError {
+            msg,
+            labels,
+            code,
+            url,
+            help,
+            inner,
+        } = self;
+        let inner = inner
+            .into_iter()
+            .map(|err| Self::from(err).into_value(span, working_set))
+            .collect::<Vec<_>>()
+            .into_value(span);
+        let labels = labels
+            .into_iter()
+            .map(|e| e.into_value_with_resolved_span(span, working_set))
+            .collect::<Vec<_>>()
+            .into_value(span);
+        let record = record! {
+            "msg" => msg.into_value(span),
+            "labels" => labels,
+            "code" => code.into_value(span),
+            "url" => url.into_value(span),
+            "help" => help.into_value(span),
+            "inner" => inner,
+        };
+        Value::record(record, span)
     }
 }
 

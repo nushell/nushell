@@ -5,15 +5,14 @@
     1..10 | into list
 } --result [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 export def "into list" []: any -> list {
-  let input = $in
-  let type = ($input | describe --detailed | get type)
-  match $type {
-    range => {$input | each {||}}
-    list => $input
-    table => $input
-    record => {$input | transpose -d key value}
-    _ => [ $input ]
-  }
+    peek | metadata access {|md|
+        match $md.peek.type {
+            "range" => { each {|| } }
+            "list" => { }
+            "record" => { transpose key value }
+            _ => { [$in] }
+        }
+    }
 }
 
 # Convert a list of columns into a table
@@ -64,7 +63,9 @@ export def table-into-columns []: [table -> list<table>] {
 @example "Name the items in a list" {
     [1, 2, 3] | name-values a b c
 } --result {a: 1, b: 2, c: 3}
-export def name-values [...names: string]: [list -> record] {
-    let IN = $in
-    0.. | zip $IN | into record | rename ...$names
+export def name-values [...names: string]: [
+    list -> record
+    range -> record
+] {
+    zip 0.. | each { [$in.1 $in.0] } | into record | rename ...$names
 }

@@ -71,7 +71,7 @@ fn concat_assign_type_mismatch() -> Result {
 fn concat_assign_runtime_type_mismatch() -> Result {
     let code = "
         mut a = [];
-        $a ++= if true { 'str' }
+        $a ++= (echo 'str')
     ";
 
     let err = test().run(code).expect_shell_error()?;

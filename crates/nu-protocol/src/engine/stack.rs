@@ -1,8 +1,9 @@
 use crate::{
     Config, ENV_VARIABLE_ID, IntoValue, NU_VARIABLE_ID, OutDest, ShellError, Span, Value, VarId,
+    ast::PathMember,
     engine::{
         ArgumentStack, DEFAULT_OVERLAY_NAME, EngineState, EnvName, ErrorHandlerStack, Redirection,
-        StackCallArgGuard, StackCollectValueGuard, StackIoGuard, StackOutDest,
+        StackCallArgGuard, StackCollectValueGuard, StackIoGuard, StackOutDest, StackWithInvocation,
     },
     report_shell_warning,
     shell_error::generic::GenericError,
@@ -64,6 +65,9 @@ pub struct Stack {
     /// Locally updated config. Use [`.get_config()`](Self::get_config) to access correctly.
     pub config: Option<Arc<Config>>,
     pub(crate) out_dest: StackOutDest,
+    /// When `true`, external processes spawned with `PipelineData::Empty` input
+    /// receive `/dev/null` for stdin instead of inheriting the terminal.
+    pub suppress_stdin: bool,
 }
 
 impl Default for Stack {
@@ -96,6 +100,7 @@ impl Stack {
             deletions: vec![],
             config: None,
             out_dest: StackOutDest::new(),
+            suppress_stdin: false,
         }
     }
 
@@ -119,6 +124,7 @@ impl Stack {
             deletions: vec![],
             config: parent.config.clone(),
             out_dest: parent.out_dest.clone(),
+            suppress_stdin: parent.suppress_stdin,
             parent_stack: Some(parent),
         }
     }
@@ -255,6 +261,45 @@ impl Stack {
         self.vars.push((var_id, value));
     }
 
+    /// Return a mutable reference to a variable's value for in-place mutation.
+    ///
+    /// Looks up the variable in the current stack frame first. If not found, pulls it
+    /// from the parent chain into the current frame (cloning it once). This enables
+    /// zero-clone mutation for local `mut` variables: use `get_var_mut` + mutate instead
+    /// of `lookup_var` (clone) + mutate + `add_var` (move back).
+    pub fn get_var_mut(&mut self, var_id: VarId) -> Option<&mut Value> {
+        // Use index-based access to avoid conflicting mutable borrows
+        if let Some(pos) = self.vars.iter().position(|(id, _)| var_id == *id) {
+            return Some(&mut self.vars[pos].1);
+        }
+        // Check parent chain
+        if let Some(parent) = &self.parent_stack
+            && !self.parent_deletions.contains(&var_id)
+        {
+            let value = parent.lookup_var(var_id)?;
+            self.vars.push((var_id, value));
+            return self.vars.last_mut().map(|(_, val)| val);
+        }
+        None
+    }
+
+    /// Upsert a cell path on a variable in place (shared by AST and IR assignment paths).
+    ///
+    /// Errors with [`ShellError::VariableNotFoundAtRuntime`] if the variable is not on
+    /// this stack or its parent chain.
+    pub fn upsert_var_cell_path(
+        &mut self,
+        var_id: VarId,
+        members: &[PathMember],
+        new_value: Value,
+        span: Span,
+    ) -> Result<(), ShellError> {
+        let value = self
+            .get_var_mut(var_id)
+            .ok_or(ShellError::VariableNotFoundAtRuntime { span })?;
+        value.upsert_data_at_cell_path(members, new_value)
+    }
+
     pub fn remove_var(&mut self, var_id: VarId) {
         for (idx, (id, _)) in self.vars.iter().enumerate() {
             if *id == var_id {
@@ -353,6 +398,7 @@ impl Stack {
             deletions: vec![],
             config: self.config.clone(),
             out_dest: self.out_dest.clone(),
+            suppress_stdin: self.suppress_stdin,
         }
     }
 
@@ -389,6 +435,7 @@ impl Stack {
             deletions: vec![],
             config: self.config.clone(),
             out_dest: self.out_dest.clone(),
+            suppress_stdin: self.suppress_stdin,
         }
     }
 
@@ -674,6 +721,21 @@ impl Stack {
             .is_some_and(|hidden_vars| hidden_vars.contains(env_name))
     }
 
+    /// Returns `true` if `name` was hidden in this stack context (e.g. by `hide-env`), either by
+    /// masking an `engine_state` baseline value or by removing a stack-level value.
+    ///
+    /// A variable that was re-added after being hidden is still reported as hidden here, so only
+    /// use this after a failed lookup to distinguish "hidden" from "never set".
+    pub fn is_env_var_hidden(&self, name: &str) -> bool {
+        let env_name = EnvName::from(name);
+
+        self.active_overlays
+            .iter()
+            .rev()
+            .any(|overlay| self.is_env_hidden_in_overlay(overlay, &env_name))
+            || self.is_env_var_hide_recorded(&env_name)
+    }
+
     /// Hides `name` so it is no longer visible to subsequent lookups. Removes it from the stack
     /// and, if no stack shadowing remains, also marks the `engine_state` baseline as hidden in
     /// `env_hidden`. Returns `true` if the variable was found.
@@ -768,6 +830,47 @@ impl Stack {
         self.out_dest.pipe_stderr.as_ref()
     }
 
+    /// Returns the stdout destination of the innermost active custom-command invocation, if any.
+    ///
+    /// This is the destination of that command's *return value*. It stays stable even when
+    /// intermediate expressions temporarily set [`OutDest::Value`] (e.g. `if (…)`), so callers
+    /// can answer "where does *this command* go?" from anywhere in the body.
+    ///
+    /// See also [`Self::is_stdout_redirected`] and [`StackWithInvocation`].
+    pub fn invocation_stdout(&self) -> Option<&OutDest> {
+        self.out_dest.invocation_stdout.last()
+    }
+
+    /// Whether the current custom command's return value is redirected away from display.
+    ///
+    /// Uses the active [`Self::invocation_stdout`] frame when inside a custom command so the
+    /// answer is stable across nested `if` / `let` collection. Outside a custom command, falls
+    /// back to [`Self::stdout`].
+    ///
+    /// Semantics match [`OutDest::is_redirected`] (only [`OutDest::Print`] is not redirected).
+    /// This is the engine-side helper behind the `is-redirected` command.
+    #[must_use]
+    pub fn is_stdout_redirected(&self) -> bool {
+        self.invocation_stdout()
+            .unwrap_or_else(|| self.stdout())
+            .is_redirected()
+    }
+
+    /// Wrap this stack with an invocation-stdout frame for a custom command about to run.
+    ///
+    /// Push the destination of the call's *return value* (typically
+    /// `caller_stack.stdout().clone()` after redirections are applied). The frame is popped when
+    /// the returned [`StackWithInvocation`] is dropped.
+    ///
+    /// # Why a separate frame?
+    ///
+    /// Intermediate evaluation sets [`OutDest::Value`] via [`Self::start_collect_value`]. Without
+    /// an invocation frame, queries like `is-redirected` inside `if (…)` would always see
+    /// `Value` and report redirected—even when the enclosing custom command's result is printed.
+    pub fn with_invocation_stdout(self, dest: OutDest) -> StackWithInvocation {
+        StackWithInvocation::new(self, dest)
+    }
+
     /// Temporarily set the pipe stdout redirection to [`OutDest::Value`].
     ///
     /// This is used before evaluating an expression into a `Value`.
@@ -823,6 +926,29 @@ impl Stack {
     /// (which is why this function does not take `&mut self`).
     pub fn reset_out_dest(mut self) -> Self {
         self.out_dest = StackOutDest::new();
+        self
+    }
+
+    /// Redirects stdout and stderr to [`OutDest::Null`], discarding all output.
+    ///
+    /// Use this for background evaluation tasks (e.g., completion) that must
+    /// never write to the terminal while reedline owns it.
+    pub fn suppress_output(mut self) -> Self {
+        self.out_dest.stdout = OutDest::Null;
+        self.out_dest.stderr = OutDest::Null;
+        self
+    }
+
+    /// Causes external processes spawned with empty input to receive
+    /// `/dev/null` for stdin instead of inheriting the terminal.
+    ///
+    /// Use this together with [`suppress_output`](Self::suppress_output) for
+    /// background tasks (e.g. completion threads).  Without it, subprocesses
+    /// spawned by closure-based completers (carapace, fish_complete, etc.)
+    /// inherit the live terminal fd and can race with reedline's reads,
+    /// causing `Input/output error` (EIO).
+    pub fn suppress_stdin(mut self) -> Self {
+        self.suppress_stdin = true;
         self
     }
 
@@ -1047,5 +1173,96 @@ mod test {
                 .cloned(),
             Some(Value::test_string("New Env Var")),
         );
+    }
+
+    #[test]
+    fn test_get_var_mut_local_in_place() {
+        use crate::ast::PathMember;
+        use crate::casing::Casing;
+        use crate::record;
+
+        let mut stack = Stack::new();
+        let var_id = VarId::new(0);
+        stack.add_var(
+            var_id,
+            Value::test_record(record! { "a" => Value::test_int(1) }),
+        );
+
+        let path = vec![PathMember::test_string("a", false, Casing::Sensitive)];
+        stack
+            .upsert_var_cell_path(var_id, &path, Value::test_int(2), Span::test_data())
+            .expect("upsert should succeed");
+
+        assert_eq!(
+            stack.get_var(var_id, Span::test_data()),
+            Ok(Value::test_record(record! { "a" => Value::test_int(2) }))
+        );
+        // Still a single local binding (no extra shadow entries).
+        assert_eq!(stack.vars.len(), 1);
+    }
+
+    #[test]
+    fn test_get_var_mut_pulls_from_parent() {
+        use crate::ast::PathMember;
+        use crate::casing::Casing;
+        use crate::record;
+
+        let mut parent = Stack::new();
+        let var_id = VarId::new(0);
+        parent.add_var(
+            var_id,
+            Value::test_record(record! { "a" => Value::test_int(1) }),
+        );
+
+        let mut child = Stack::with_parent(Arc::new(parent));
+        assert!(child.vars.is_empty());
+
+        let path = vec![PathMember::test_string("a", false, Casing::Sensitive)];
+        child
+            .upsert_var_cell_path(var_id, &path, Value::test_int(9), Span::test_data())
+            .expect("upsert should succeed");
+
+        // Value was pulled into the child frame, then mutated.
+        assert_eq!(child.vars.len(), 1);
+        assert_eq!(
+            child.get_var(var_id, Span::test_data()),
+            Ok(Value::test_record(record! { "a" => Value::test_int(9) }))
+        );
+
+        // Second mutation hits the local copy.
+        child
+            .upsert_var_cell_path(var_id, &path, Value::test_int(10), Span::test_data())
+            .expect("second upsert should succeed");
+        assert_eq!(child.vars.len(), 1);
+        assert_eq!(
+            child.get_var(var_id, Span::test_data()),
+            Ok(Value::test_record(record! { "a" => Value::test_int(10) }))
+        );
+    }
+
+    #[test]
+    fn test_upsert_var_cell_path_missing_and_deleted() {
+        use crate::ast::PathMember;
+        use crate::casing::Casing;
+
+        let mut stack = Stack::new();
+        let var_id = VarId::new(0);
+        let path = vec![PathMember::test_string("a", false, Casing::Sensitive)];
+
+        assert!(matches!(
+            stack.upsert_var_cell_path(var_id, &path, Value::test_int(1), Span::test_data()),
+            Err(crate::ShellError::VariableNotFoundAtRuntime { .. })
+        ));
+
+        let mut parent = Stack::new();
+        parent.add_var(var_id, Value::test_int(1));
+        let mut child = Stack::with_parent(Arc::new(parent));
+        child.remove_var(var_id);
+
+        assert!(matches!(
+            child.upsert_var_cell_path(var_id, &path, Value::test_int(2), Span::test_data()),
+            Err(crate::ShellError::VariableNotFoundAtRuntime { .. })
+        ));
+        assert!(child.get_var_mut(var_id).is_none());
     }
 }

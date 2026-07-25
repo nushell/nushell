@@ -36,6 +36,22 @@ fn skips_bytes_and_drops_content_type() -> Result {
     Ok(())
 }
 
+#[test]
+fn skips_bytes_with_filesize() -> Result {
+    let code = "(0x[aa bb cc] | skip 2b) == 0x[cc]";
+    test().run(code).expect_value_eq(true)
+}
+
+#[test]
+fn skip_filesize_list_error() -> Result {
+    let err = test().run("[1 2 3] | skip 1kb").expect_shell_error()?;
+    assert!(
+        matches!(err, ShellError::IncompatibleParametersSingle { .. }),
+        "expected IncompatibleParametersSingle, got {err:?}"
+    );
+    Ok(())
+}
+
 enum InputType {
     Binary,
     List,

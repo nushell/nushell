@@ -72,7 +72,12 @@ pub enum BodyType {
 impl From<Option<ContentType>> for BodyType {
     fn from(content_type: Option<ContentType>) -> Self {
         match content_type {
-            Some(it) if it.contains("application/json") => BodyType::Json,
+            Some(it)
+                if mime::Mime::from_str(&it)
+                    .is_ok_and(|m| m.type_() == mime::APPLICATION && m.subtype() == "json") =>
+            {
+                BodyType::Json
+            }
             Some(it) if it.contains("application/x-www-form-urlencoded") => BodyType::Form,
             Some(it) if it.contains("multipart/form-data") => BodyType::Multipart,
             Some(it) => BodyType::Unknown(Some(it)),
@@ -659,7 +664,7 @@ fn send_multipart_request(
                         .map_err(err)?;
                 }
             }
-            builder.finish();
+            builder.finish().map_err(err)?;
 
             let (boundary, data) = (builder.boundary, builder.data);
             let content_type = format!("multipart/form-data; boundary={boundary}");
@@ -686,9 +691,12 @@ fn send_default_request(
     signals: &Signals,
 ) -> Result<Response, ShellErrorOrRequestError> {
     match body {
-        Value::Binary { val, .. } => {
-            send_cancellable_request(request_url, Box::new(move || req.send(&val)), span, signals)
-        }
+        Value::Binary { val, .. } => send_cancellable_request(
+            request_url,
+            Box::new(move || req.send(val.as_slice())),
+            span,
+            signals,
+        ),
         Value::String { val, .. } => {
             send_cancellable_request(request_url, Box::new(move || req.send(&val)), span, signals)
         }
@@ -1355,6 +1363,24 @@ mod test {
 
         let multipart = Some("multipart/form-data".to_string());
         assert_eq!(BodyType::Multipart, BodyType::from(multipart));
+
+        let json_patch = Some("application/json-patch+json".to_string());
+        assert_eq!(
+            BodyType::Unknown(json_patch.clone()),
+            BodyType::from(json_patch)
+        );
+
+        let json_api = Some("application/vnd.api+json".to_string());
+        assert_eq!(
+            BodyType::Unknown(json_api.clone()),
+            BodyType::from(json_api)
+        );
+
+        let merge_patch = Some("application/merge-patch+json".to_string());
+        assert_eq!(
+            BodyType::Unknown(merge_patch.clone()),
+            BodyType::from(merge_patch)
+        );
 
         let unknown = Some("application/octet-stream".to_string());
         assert_eq!(BodyType::Unknown(unknown.clone()), BodyType::from(unknown));

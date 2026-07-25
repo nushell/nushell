@@ -41,7 +41,8 @@ impl Command for IdxInit {
     }
 
     fn extra_description(&self) -> &str {
-        "By default idx init returns immediately and indexing continues in the background. Use `idx status` to check when scanning completes. Pass `--wait` to block until the initial scan finishes. Filesystem watching is enabled by default; pass `--no-watch` to disable it."
+        "By default idx init returns immediately and indexing continues in the background. Use `idx status` to check when scanning completes. Pass `--wait` to block until the initial scan finishes. \
+Filesystem watching is enabled by default so the index stays warm and `idx watch` can stream events; pass `--no-watch` to disable both."
     }
 
     fn examples(&self) -> Vec<Example<'_>> {

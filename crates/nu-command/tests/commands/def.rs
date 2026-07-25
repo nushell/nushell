@@ -139,6 +139,61 @@ fn def_fails_with_invalid_name(#[case] alias: &str) -> Result {
     Ok(())
 }
 
+fn assert_name_is_keyword_command(err: &ParseError, name: &str) {
+    assert!(
+        matches!(err, ParseError::NameIsKeyword(keyword, kind, _) if keyword == name && kind == "command"),
+        "expected NameIsKeyword command for `{name}`, got {err:?}"
+    );
+}
+
+#[test]
+fn def_fails_with_all_single_word_keyword_names() -> Result {
+    // Driven by the canonical keyword tables so new keywords stay covered.
+    for name in nu_parser::single_word_parser_keywords() {
+        let code = format!("def {name} [] {{}}");
+        let err = test().run(code).expect_parse_error()?;
+        assert_name_is_keyword_command(&err, name);
+    }
+    Ok(())
+}
+
+#[test]
+fn def_keyword_name_does_not_panic_on_subsequent_parse() -> Result {
+    // Regression for the original panic: defining a command named `def` used to
+    // shadow the keyword, then re-parsing incomplete `def` input (REPL / `ast`)
+    // hit `expect("def call already checked")`. Shadowing is now rejected first.
+    let err = test()
+        .run(r#"def def [] {}; ast "def""#)
+        .expect_parse_error()?;
+    assert_name_is_keyword_command(&err, "def");
+    Ok(())
+}
+
+#[test]
+fn export_def_fails_with_keyword_name() -> Result {
+    let err = test()
+        .run("module m { export def def [] {} }")
+        .expect_parse_error()?;
+    assert_name_is_keyword_command(&err, "def");
+    Ok(())
+}
+
+#[test]
+fn extern_fails_with_keyword_name() -> Result {
+    let err = test().run("extern def []").expect_parse_error()?;
+    assert_name_is_keyword_command(&err, "def");
+    Ok(())
+}
+
+#[test]
+fn non_keyword_command_names_are_still_allowed() -> Result {
+    // Built-in *commands* (not parser keywords) may still be shadowed.
+    test()
+        .run("def ls [] { 'shadowed' }; ls")
+        .expect_value_eq("shadowed")?;
+    Ok(())
+}
+
 #[test]
 fn def_with_list() {
     Playground::setup("def_with_list", |dirs, _| {

@@ -1,4 +1,4 @@
-use super::state::stream_find;
+use super::state::{FindSearchContext, stream_find};
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -76,10 +76,23 @@ impl Command for IdxFind {
 
         let limit = call
             .get_flag::<i64>(engine_state, stack, "limit")?
-            .and_then(|v| usize::try_from(v).ok())
+            .map(|value| {
+                usize::try_from(value)
+                    .map_err(|_| ShellError::NeedsPositiveValue { span: call.head })
+            })
+            .transpose()?
             .unwrap_or(100);
 
-        let signals = engine_state.signals();
-        stream_find(&query, files, dirs, verbose, limit, call.head, signals)
+        let cwd = engine_state.cwd(Some(stack))?.into_std_path_buf();
+        stream_find(FindSearchContext {
+            query: &query,
+            files_only: files,
+            dirs_only: dirs,
+            verbose,
+            limit,
+            span: call.head,
+            cwd: Some(cwd.as_path()),
+            signals: engine_state.signals(),
+        })
     }
 }

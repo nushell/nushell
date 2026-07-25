@@ -1,9 +1,7 @@
-use calamine::*;
-use chrono::{Local, LocalResult, Offset, TimeZone, Utc};
-use indexmap::IndexMap;
-use nu_engine::command_prelude::*;
+use calamine::{Reader, Sheets, Xlsx};
 
-use std::io::Cursor;
+use super::sheets::{collect_binary, common_sheets_signature, from_sheets};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct FromXlsx;
@@ -14,22 +12,7 @@ impl Command for FromXlsx {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from xlsx")
-            .input_output_types(vec![(Type::Binary, Type::table())])
-            .allow_variants_without_examples(true)
-            .named(
-                "sheets",
-                SyntaxShape::List(Box::new(SyntaxShape::String)),
-                "Only convert specified sheets.",
-                Some('s'),
-            )
-            .named(
-                "header-row",
-                SyntaxShape::OneOf(vec![SyntaxShape::Int, SyntaxShape::Nothing]),
-                "Specify row (0-indexed) to designate the header (default first non-empty row) or null for no header",
-                Some('r'),
-            )
-            .category(Category::Formats)
+        common_sheets_signature("from xlsx")
     }
 
     fn description(&self) -> &str {
@@ -44,26 +27,20 @@ impl Command for FromXlsx {
         mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-
-        let sel_sheets = if let Some(Value::List { vals: columns, .. }) =
-            call.get_flag(engine_state, stack, "sheets")?
-        {
-            convert_columns(columns.as_slice())?
-        } else {
-            vec![]
-        };
-
-        let header_row = match call.get_flag(engine_state, stack, "header-row")? {
-            Some(Value::Int { val, .. }) => Some(HeaderRow::Row(
-                val.try_into()
-                    .expect("Header row index should not exceed u32"),
-            )),
-            Some(Value::Nothing { .. }) => None,
-            _ => Some(HeaderRow::FirstNonEmptyRow),
-        };
-
         let metadata = input.take_metadata().map(|md| md.with_content_type(None));
-        from_xlsx(input, head, sel_sheets, header_row).map(|pd| pd.set_metadata(metadata))
+
+        let input_span = input.span().unwrap_or(head);
+        let reader = collect_binary(input, head)?;
+        let xlsx = Xlsx::new(reader).map_err(|_| ShellError::UnsupportedInput {
+            msg: "Could not load XLSX file".to_string(),
+            input: "value originates from here".into(),
+            msg_span: head,
+            input_span,
+        })?;
+        let sheets = Sheets::Xlsx(xlsx);
+
+        from_sheets(sheets, input_span, engine_state, stack, call)
+            .map(|pd| pd.set_metadata(metadata))
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -80,158 +57,11 @@ impl Command for FromXlsx {
             },
             Example {
                 description: "Convert binary .xlsx data to a table, specifying the tables and specifying no header row.",
-                example: "open --raw test.xlsx | from xlsx --sheets [Spreadsheet1] --header-row null",
+                example: "open --raw test.xlsx | from xlsx --sheets [Spreadsheet1] --noheaders",
                 result: None,
             },
         ]
     }
-}
-
-fn convert_columns(columns: &[Value]) -> Result<Vec<String>, ShellError> {
-    let res = columns
-        .iter()
-        .map(|value| match &value {
-            Value::String { val: s, .. } => Ok(s.clone()),
-            _ => Err(ShellError::IncompatibleParametersSingle {
-                msg: "Incorrect column format, Only string as column name".to_string(),
-                span: value.span(),
-            }),
-        })
-        .collect::<Result<Vec<String>, _>>()?;
-
-    Ok(res)
-}
-
-fn collect_binary(input: PipelineData, span: Span) -> Result<Vec<u8>, ShellError> {
-    if let PipelineData::ByteStream(stream, ..) = input {
-        stream.into_bytes()
-    } else {
-        let mut bytes = vec![];
-        let mut values = input.into_iter();
-
-        loop {
-            match values.next() {
-                Some(Value::Binary { val: b, .. }) => {
-                    bytes.extend_from_slice(&b);
-                }
-                Some(x) => {
-                    return Err(ShellError::UnsupportedInput {
-                        msg: "Expected binary from pipeline".to_string(),
-                        input: "value originates from here".into(),
-                        msg_span: span,
-                        input_span: x.span(),
-                    });
-                }
-                None => break,
-            }
-        }
-
-        Ok(bytes)
-    }
-}
-
-fn from_xlsx(
-    input: PipelineData,
-    head: Span,
-    sel_sheets: Vec<String>,
-    header_row: Option<HeaderRow>,
-) -> Result<PipelineData, ShellError> {
-    let span = input.span();
-    let bytes = collect_binary(input, head)?;
-    let buf: Cursor<Vec<u8>> = Cursor::new(bytes);
-    let mut xlsx = Xlsx::<_>::new(buf).map_err(|_| ShellError::UnsupportedInput {
-        msg: "Could not load XLSX file".to_string(),
-        input: "value originates from here".into(),
-        msg_span: head,
-        input_span: span.unwrap_or(head),
-    })?;
-
-    let mut dict = IndexMap::new();
-
-    let mut sheet_names = xlsx.sheet_names();
-    if !sel_sheets.is_empty() {
-        sheet_names.retain(|e| sel_sheets.contains(e));
-    }
-
-    let tz = match Local.timestamp_opt(0, 0) {
-        LocalResult::Single(tz) => *tz.offset(),
-        _ => Utc.fix(),
-    };
-
-    for sheet_name in sheet_names {
-        let mut sheet_output = vec![];
-
-        if let Some(hr) = header_row {
-            xlsx.with_header_row(hr);
-        }
-
-        if let Ok(current_sheet) = xlsx.worksheet_range(&sheet_name) {
-            let sheet_width = current_sheet.width();
-            let default_headers = (0..sheet_width)
-                .map(|i| {
-                    format!(
-                        "column{:0width$}",
-                        i,
-                        width = (sheet_width.ilog10() + 1) as usize
-                    )
-                })
-                .collect::<Vec<String>>();
-
-            let headers = current_sheet
-                .headers()
-                .unwrap_or_else(|| vec!["".to_string(); sheet_width])
-                .into_iter()
-                .zip(default_headers)
-                .map(
-                    |(name, default)| {
-                        if name.is_empty() { default } else { name }
-                    },
-                );
-
-            for row in current_sheet.rows().skip(header_row.is_some() as usize) {
-                let record = headers
-                    .clone()
-                    .zip(row.iter())
-                    .map(|(header_name, cell)| {
-                        let value = match cell {
-                            Data::Empty => Value::nothing(head),
-                            Data::String(s) => Value::string(s, head),
-                            Data::Float(f) => Value::float(*f, head),
-                            Data::Int(i) => Value::int(*i, head),
-                            Data::Bool(b) => Value::bool(*b, head),
-                            Data::DateTime(d) => d
-                                .as_datetime()
-                                .and_then(|d| match tz.from_local_datetime(&d) {
-                                    LocalResult::Single(d) => Some(d),
-                                    _ => None,
-                                })
-                                .map(|d| Value::date(d, head))
-                                .unwrap_or(Value::nothing(head)),
-                            _ => Value::nothing(head),
-                        };
-
-                        (header_name, value)
-                    })
-                    .collect();
-
-                sheet_output.push(Value::record(record, head));
-            }
-
-            dict.insert(sheet_name, Value::list(sheet_output, head));
-        } else {
-            return Err(ShellError::UnsupportedInput {
-                msg: "Could not load sheet".to_string(),
-                input: "value originates from here".into(),
-                msg_span: head,
-                input_span: span.unwrap_or(head),
-            });
-        }
-    }
-
-    Ok(PipelineData::value(
-        Value::record(dict.into_iter().collect(), head),
-        None,
-    ))
 }
 
 #[cfg(test)]

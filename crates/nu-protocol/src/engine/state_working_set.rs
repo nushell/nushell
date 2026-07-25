@@ -1,7 +1,7 @@
 use crate::{
     BlockId, Category, CompileError, Config, DeclId, FileId, GetSpan, Module, ModuleId, OverlayId,
-    ParseError, ParseWarning, ResolvedImportPattern, Signature, Span, SpanId, Type, Value, VarId,
-    VirtualPathId,
+    ParseError, ParseWarning, ResolvedImportPattern, ResolvedSpan, Signature, Span, SpanId, Type,
+    Value, VarId, VirtualPathId,
     ast::Block,
     engine::{
         CachedFile, Command, CommandType, EngineState, OverlayFrame, StateDelta, Variable,
@@ -314,7 +314,7 @@ impl<'a> StateWorkingSet<'a> {
         }
     }
 
-    pub fn files(&self) -> impl Iterator<Item = &CachedFile> {
+    pub fn files(&self) -> impl DoubleEndedIterator<Item = &CachedFile> {
         self.permanent_state.files().chain(self.delta.files.iter())
     }
 
@@ -1042,6 +1042,14 @@ impl<'a> StateWorkingSet<'a> {
         None
     }
 
+    /// Find the file which contains the given [`Span`]
+    pub fn find_file_by_span(&self, span: Span) -> Option<&CachedFile> {
+        self.files()
+            // the span we're looking for is much more likely to be in a recently added file
+            .rev()
+            .find(|file| file.covered_span.contains_span(span))
+    }
+
     pub fn find_virtual_path(&self, name: &str) -> Option<&VirtualPath> {
         // Platform appropriate virtual path (slashes or backslashes)
         let virtual_path_name = Path::new(name);
@@ -1077,6 +1085,13 @@ impl<'a> StateWorkingSet<'a> {
         let num_permanent_spans = self.permanent_state.spans.len();
         self.delta.spans.push(span);
         SpanId::new(num_permanent_spans + self.delta.spans.len() - 1)
+    }
+
+    pub fn resolve_span<'s>(&'s self, span: Span) -> Option<ResolvedSpan<'s>> {
+        let cached_file = self.find_file_by_span(span)?;
+        let file = cached_file.name.as_ref().into();
+        let span = span.offset(cached_file.covered_span.start);
+        Some(ResolvedSpan { file, span })
     }
 }
 

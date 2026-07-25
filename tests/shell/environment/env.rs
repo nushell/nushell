@@ -278,7 +278,7 @@ fn path_is_a_list_in_repl() {
         nu -c "exec nu --no-std-lib -n -e `print $'path:($env.pATh | describe)'; exit`"
     "#);
 
-    assert!(actual.out.ends_with("path:list<string>"));
+    assert_eq!(actual.out, "path:list<string>");
 }
 
 #[test]

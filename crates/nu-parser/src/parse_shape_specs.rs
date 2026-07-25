@@ -41,6 +41,7 @@ pub fn parse_shape_name(
         b"directory" => SyntaxShape::Directory,
         b"duration" => SyntaxShape::Duration,
         b"error" => SyntaxShape::Error,
+        b"external_arg" => SyntaxShape::ExternalArgument,
         b"float" => SyntaxShape::Float,
         b"filesize" => SyntaxShape::Filesize,
         b"glob" => SyntaxShape::GlobPattern,
@@ -86,6 +87,7 @@ pub fn parse_completer(
             SyntaxShape::List(Box::new(SyntaxShape::String)),
             SyntaxShape::String,
         ]),
+        None,
     );
 
     if working_set.parse_errors.len() > error_count {
@@ -278,7 +280,7 @@ fn parse_named_type_params(
         }
 
         let Some(key) =
-            parse_value(working_set, tokens[idx].span, &SyntaxShape::String).as_string()
+            parse_value(working_set, tokens[idx].span, &SyntaxShape::String, None).as_string()
         else {
             working_set.error(key_error(tokens[idx].span));
             return CollectionColumns::default();

@@ -4,8 +4,9 @@ use rstest::rstest;
 use std::collections::HashMap;
 
 #[test]
+#[deps(NU)]
 fn basic_stdout() -> Result {
-    let mut tester = test().add_nu_to_path();
+    let mut tester = test();
     let without_complete: String = tester.run("nu --testbin cococo test")?;
     let with_complete: String = tester.run("(nu --testbin cococo test | complete).stdout")?;
     assert_eq!(without_complete.trim(), with_complete.trim());
@@ -13,9 +14,9 @@ fn basic_stdout() -> Result {
 }
 
 #[test]
+#[deps(NU)]
 fn basic_exit_code() -> Result {
     test()
-        .add_nu_to_path()
         .run("(nu --testbin cococo test | complete).exit_code")
         .expect_value_eq(0)
 }
@@ -113,6 +114,7 @@ fn capture_error_with_both_stdout_stderr_messages_not_hang_nushell() -> Result {
 }
 
 #[test]
+#[deps(NU)]
 fn combined_pipe_redirection() -> Result {
     let code = "
         $env.FOO = 'hello'; 
@@ -120,16 +122,13 @@ fn combined_pipe_redirection() -> Result {
         nu --testbin echo_env_mixed out-err FOO BAR o+e>| complete | get stdout
     ";
 
-    test()
-        .add_nu_to_path()
-        .run(code)
-        .expect_value_eq("hello\nworld\n")
+    test().run(code).expect_value_eq("hello\nworld\n")
 }
 
 #[test]
+#[deps(NU)]
 fn err_pipe_redirection() -> Result {
     test()
-        .add_nu_to_path()
         .run("$env.FOO = 'hello'; nu --testbin echo_env_stderr FOO e>| complete | get stdout")
         .expect_value_eq("hello\n")
 }
@@ -140,8 +139,9 @@ fn err_pipe_redirection() -> Result {
 #[case::into_let(r#"nu -n -c "exit 1" | complete | let result"#)]
 #[nu_test_support::test]
 #[exp(PIPE_FAIL)]
+#[deps(NU)]
 fn pipefail_let(#[case] assignment: &str) -> Result {
-    let mut tester = test().add_nu_to_path();
+    let mut tester = test();
     let _: Value = tester.run(assignment)?;
     let outcome: HashMap<String, Value> = tester.run("$result")?;
     outcome["stdout"].assert_eq("");
@@ -152,13 +152,14 @@ fn pipefail_let(#[case] assignment: &str) -> Result {
 
 #[test]
 #[exp(PIPE_FAIL)]
+#[deps(NU)]
 fn pipefail_parenthesized_pipeline_let_keeps_scope() -> Result {
     let code = r#"
         (nu --no-config-file --commands "exit 1" | complete | let result);
         $result
     "#;
 
-    let err = test().add_nu_to_path().run(code).expect_parse_error()?;
+    let err = test().run(code).expect_parse_error()?;
     assert!(matches!(err, ParseError::VariableNotFound { .. }));
     Ok(())
 }

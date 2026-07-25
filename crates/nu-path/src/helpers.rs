@@ -1,46 +1,11 @@
+use std::path::Path;
 #[cfg(windows)]
 use std::path::{Component, Prefix};
-use std::path::{Path, PathBuf, absolute};
 
 use crate::AbsolutePathBuf;
 
 pub fn home_dir() -> Option<AbsolutePathBuf> {
     dirs::home_dir().and_then(|home| AbsolutePathBuf::try_from(home).ok())
-}
-
-/// Return the data directory for the current platform or XDG_DATA_HOME if specified.
-pub fn data_dir() -> Option<AbsolutePathBuf> {
-    configurable_dir_path("XDG_DATA_HOME", dirs::data_dir)
-}
-
-/// Return the cache directory for the current platform or XDG_CACHE_HOME if specified.
-pub fn cache_dir() -> Option<AbsolutePathBuf> {
-    configurable_dir_path("XDG_CACHE_HOME", dirs::cache_dir)
-}
-
-/// Return the nushell config directory.
-pub fn nu_config_dir() -> Option<AbsolutePathBuf> {
-    configurable_dir_path("XDG_CONFIG_HOME", dirs::config_dir).map(|mut p| {
-        p.push("nushell");
-        p
-    })
-}
-
-fn configurable_dir_path(
-    name: &'static str,
-    dir: impl FnOnce() -> Option<PathBuf>,
-) -> Option<AbsolutePathBuf> {
-    // If the environment variable is not empty and contains an absolute path
-    // then use it. Otherwise use dir().
-    let path = if let Ok(path) = std::env::var(name)
-        && !path.is_empty()
-        && Path::new(&path).is_absolute()
-    {
-        PathBuf::from(path)
-    } else {
-        dir()?
-    };
-    AbsolutePathBuf::try_from(absolute(&path).unwrap_or(path)).ok()
 }
 
 // List of special paths that can be written to and/or read from, even though they

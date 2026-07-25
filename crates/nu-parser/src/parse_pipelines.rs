@@ -23,7 +23,7 @@ fn parse_redirection_target(
             file,
             append,
         } => RedirectionTarget::File {
-            expr: parse_value(working_set, *file, &SyntaxShape::Any),
+            expr: parse_value(working_set, *file, &SyntaxShape::Any, None),
             append: *append,
             span: *connector,
         },
@@ -50,7 +50,7 @@ pub(crate) fn parse_redirection(
 pub(crate) fn parse_pipeline_element(
     working_set: &mut StateWorkingSet,
     command: &LiteCommand,
-    input_type: Type,
+    input_type: &Type,
 ) -> PipelineElement {
     trace!("parsing: pipeline element");
 
@@ -87,33 +87,42 @@ pub(crate) fn redirecting_builtin_error(
 pub fn parse_pipeline(
     working_set: &mut StateWorkingSet,
     pipeline: &LitePipeline,
-    input_type: Option<Type>,
+    input_type: Option<&Type>,
 ) -> Pipeline {
-    let mut input = input_type.unwrap_or(Type::Any);
+    match pipeline.commands.as_slice() {
+        [] => unreachable!("at this point the pipeline must have at least one element"),
+        [single] => parse_builtin_commands(working_set, single, input_type),
+        [first, rest @ ..] => {
+            let mut current_pipeline_type = input_type.cloned().unwrap_or(Type::Any);
 
-    if pipeline.commands.len() > 1 {
-        // Parse a normal multi command pipeline
-        let elements: Vec<_> = pipeline
-            .commands
-            .iter()
-            .enumerate()
-            .map(|(index, element)| {
-                let element =
-                    parse_pipeline_element(working_set, element, std::mem::take(&mut input));
-                input = element.expr.ty.clone();
+            let mut elements = Vec::new();
+            elements.push({
+                let element = parse_pipeline_element(working_set, first, &current_pipeline_type);
+                // the output becomes the input for the next pipeline element
+                current_pipeline_type = element.expr.ty.clone();
+
+                element
+            });
+
+            // Parse a normal multi command pipeline
+            let rest_elements = rest.iter().map(|element| {
+                let input_clone = current_pipeline_type.clone();
+                let element = parse_pipeline_element(working_set, element, &current_pipeline_type);
+                // the output becomes the input for the next pipeline element
+                current_pipeline_type = element.expr.ty.clone();
+
                 // Handle $in for pipeline elements beyond the first one
-                if index > 0 && element.has_in_variable(working_set) {
-                    wrap_element_with_collect(working_set, element)
+                if element.has_in_variable(working_set) {
+                    wrap_element_with_collect(working_set, element, Some(&input_clone))
                 } else {
                     element
                 }
-            })
-            .collect();
+            });
 
-        Pipeline { elements }
-    } else {
-        // If there's only one command in the pipeline, this could be a builtin command
-        parse_builtin_commands(working_set, &pipeline.commands[0])
+            elements.extend(rest_elements);
+
+            Pipeline { elements }
+        }
     }
 }
 
@@ -123,6 +132,7 @@ pub fn parse_block(
     span: Span,
     scoped: bool,
     is_subexpression: bool,
+    input_type: Option<&Type>,
 ) -> Block {
     let (lite_block, err) = lite_parse(tokens, working_set);
     if let Some(err) = err {
@@ -138,17 +148,23 @@ pub fn parse_block(
     // Pre-declare any definition so that definitions
     // that share the same block can see each other
     for pipeline in &lite_block.block {
-        if pipeline.commands.len() == 1 {
-            parse_def_predecl(working_set, pipeline.commands[0].command_parts())
+        if let [lite_command] = pipeline.commands.as_slice() {
+            parse_def_predecl(working_set, lite_command.command_parts())
         }
     }
 
     let mut block = Block::new_with_capacity(lite_block.block.len());
     block.span = Some(span);
 
-    for lite_pipeline in &lite_block.block {
-        let pipeline = parse_pipeline(working_set, lite_pipeline, None);
+    if let [first, rest @ ..] = lite_block.block.as_slice() {
+        // only the first pipeline receives the block's pipeline input
+        let pipeline = parse_pipeline(working_set, first, input_type);
         block.pipelines.push(pipeline);
+
+        for lite_pipeline in rest {
+            let pipeline = parse_pipeline(working_set, lite_pipeline, None);
+            block.pipelines.push(pipeline);
+        }
     }
 
     // If this is not a subexpression and there are any pipelines where the first element has $in,
@@ -168,7 +184,7 @@ pub fn parse_block(
 
         // Now wrap it in a Collect expression, and put it in the block as the only pipeline
         let subexpression = Expression::new(working_set, Expr::Subexpression(block_id), span, ty);
-        let collect = wrap_expr_with_collect(working_set, subexpression);
+        let collect = wrap_expr_with_collect(working_set, subexpression, input_type);
 
         block.pipelines.push(Pipeline {
             elements: vec![PipelineElement {
@@ -184,9 +200,7 @@ pub fn parse_block(
     }
 
     let errors = type_check::check_block_input_output(working_set, &block);
-    if !errors.is_empty() {
-        working_set.parse_errors.extend_from_slice(&errors);
-    }
+    working_set.parse_errors.extend(errors);
 
     block
 }

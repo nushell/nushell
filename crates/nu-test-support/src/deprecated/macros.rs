@@ -193,47 +193,10 @@ macro_rules! nu_with_std {
     }};
 }
 
-#[macro_export]
-macro_rules! nu_with_plugins {
-    (cwd: $cwd:expr, plugins: [$(($plugin_name:expr)),*$(,)?], $command:expr) => {{
-        nu_with_plugins!(
-            cwd: $cwd,
-            envs: Vec::<(&str, &str)>::new(),
-            plugins: [$(($plugin_name)),*],
-            $command
-        )
-    }};
-    (cwd: $cwd:expr, plugin: ($plugin_name:expr), $command:expr) => {{
-        nu_with_plugins!(
-            cwd: $cwd,
-            envs: Vec::<(&str, &str)>::new(),
-            plugin: ($plugin_name),
-            $command
-        )
-    }};
-
-    (
-        cwd: $cwd:expr,
-        envs: $envs:expr,
-        plugins: [$(($plugin_name:expr)),*$(,)?],
-        $command:expr
-    ) => {{
-        $crate::macros::nu_with_plugin_run_test($cwd, $envs, &[$($plugin_name),*], $command)
-    }};
-    (cwd: $cwd:expr, envs: $envs:expr, plugin: ($plugin_name:expr), $command:expr) => {{
-        $crate::macros::nu_with_plugin_run_test($cwd, $envs, &[$plugin_name], $command)
-    }};
-
-}
-
 use crate::Outcome;
-use nu_path::{AbsolutePath, AbsolutePathBuf, Path, PathBuf};
+use nu_path::{AbsolutePath, AbsolutePathBuf, PathBuf};
 use nu_utils::consts::NATIVE_PATH_ENV_VAR;
-use std::{
-    ffi::OsStr,
-    process::{Command, Stdio},
-};
-use tempfile::tempdir;
+use std::process::{Command, Stdio};
 
 #[derive(Default)]
 pub struct NuOpts {
@@ -320,104 +283,6 @@ pub fn nu_run_test(opts: NuOpts, commands: impl AsRef<str>, with_std: bool) -> O
     println!("=== stderr\n{err}");
 
     Outcome::new(out, err.into_owned(), output.status)
-}
-
-pub fn nu_with_plugin_run_test<E, K, V>(
-    cwd: impl AsRef<Path>,
-    envs: E,
-    plugins: &[&str],
-    command: &str,
-) -> Outcome
-where
-    E: IntoIterator<Item = (K, V)>,
-    K: AsRef<OsStr>,
-    V: AsRef<OsStr>,
-{
-    let test_bins = crate::fs::binaries();
-    let test_bins = nu_path::canonicalize_with(&test_bins, ".").unwrap_or_else(|e| {
-        panic!(
-            "Couldn't canonicalize dummy binaries path {}: {:?}",
-            test_bins.display(),
-            e
-        )
-    });
-
-    let temp = tempdir().expect("couldn't create a temporary directory");
-    let [temp_config_file, temp_env_config_file] = ["config.nu", "env.nu"].map(|name| {
-        let temp_file = temp.path().join(name);
-        std::fs::File::create(&temp_file).expect("couldn't create temporary config file");
-        temp_file
-    });
-
-    // We don't have to write the plugin registry file, it's ok for it to not exist
-    let temp_plugin_file = temp.path().join("plugin.msgpackz");
-
-    crate::commands::ensure_plugins_built();
-
-    let plugin_paths: Vec<std::path::PathBuf> = plugins
-        .iter()
-        .map(|plugin_name| {
-            let plugin = with_exe(plugin_name);
-            nu_path::canonicalize_with(&plugin, &test_bins)
-                .unwrap_or_else(|_| panic!("failed to canonicalize plugin {} path", &plugin))
-        })
-        .collect();
-
-    let target_cwd = crate::fs::in_directory(&cwd);
-    // In plugin testing, we need to use installed nushell to drive
-    // plugin commands.
-    let mut executable_path = crate::fs::executable_path();
-    if !executable_path.exists() {
-        executable_path = crate::fs::installed_nu_path();
-    }
-
-    let mut cmd = setup_command(&executable_path, &target_cwd);
-    cmd.envs(envs)
-        .arg("--commands")
-        .arg(command)
-        // Use plain errors to help make error text matching more consistent
-        .args(["--error-style", "plain"])
-        .arg("--config")
-        .arg(temp_config_file)
-        .arg("--env-config")
-        .arg(temp_env_config_file)
-        .arg("--plugin-config")
-        .arg(temp_plugin_file);
-
-    // Add each plugin path as a separate argument after --plugins
-    if !plugin_paths.is_empty() {
-        cmd.arg("--plugins");
-        for path in &plugin_paths {
-            cmd.arg(path);
-        }
-    }
-
-    let process = match cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn() {
-        Ok(child) => child,
-        Err(why) => panic!("Can't run test {why}"),
-    };
-
-    let output = process
-        .wait_with_output()
-        .expect("couldn't read from stdout/stderr");
-
-    let out = collapse_output(&String::from_utf8_lossy(&output.stdout));
-    let err = String::from_utf8_lossy(&output.stderr);
-
-    println!("=== stderr\n{err}");
-
-    Outcome::new(out, err.into_owned(), output.status)
-}
-
-fn with_exe(name: &str) -> String {
-    #[cfg(windows)]
-    {
-        name.to_string() + ".exe"
-    }
-    #[cfg(not(windows))]
-    {
-        name.to_string()
-    }
 }
 
 fn collapse_output(out: &str) -> String {

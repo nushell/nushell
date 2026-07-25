@@ -49,6 +49,19 @@ fn alias_fails_with_invalid_name(#[case] alias: &str) -> Result {
 }
 
 #[test]
+fn alias_fails_with_all_single_word_keyword_names() -> Result {
+    for name in nu_parser::single_word_parser_keywords() {
+        let code = format!("alias {name} = ls");
+        let err = test().run(code).expect_parse_error()?;
+        assert!(
+            matches!(&err, ParseError::NameIsKeyword(keyword, kind, _) if keyword == name && kind == "alias"),
+            "expected NameIsKeyword alias for `{name}`, got {err:?}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
 fn cant_alias_keyword() {
     let actual = nu!(" alias ou = let ");
     assert!(actual.err.contains("cant_alias_keyword"));

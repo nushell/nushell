@@ -2,7 +2,7 @@ use chrono::{FixedOffset, TimeZone};
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
 
-use nu_heavy_utils::Endian;
+use nu_heavy_utils::endian::Endian;
 use nu_utils::get_system_locale;
 
 struct Arguments {
@@ -300,7 +300,6 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         Value::Binary { val, .. } => {
             use byteorder::{BigEndian, ByteOrder, LittleEndian};
 
-            let mut val = val.to_vec();
             let size = val.len();
 
             if size == 0 {
@@ -318,25 +317,23 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                 );
             }
 
-            match (endian, signed) {
-                (Endian::Little, true) => Value::int(LittleEndian::read_int(&val, size), head),
-                (Endian::Big, true) => Value::int(BigEndian::read_int(&val, size), head),
-                (Endian::Little, false) => {
-                    while val.len() < 8 {
-                        val.push(0);
-                    }
-                    val.resize(8, 0);
+            let val = match (endian, signed) {
+                (Endian::Little, true) => Ok(LittleEndian::read_int(val, size)),
+                (Endian::Big, true) => Ok(BigEndian::read_int(val, size)),
+                (Endian::Little, false) => i64::try_from(LittleEndian::read_uint(val, size)),
+                (Endian::Big, false) => i64::try_from(BigEndian::read_uint(val, size)),
+            };
 
-                    Value::int(LittleEndian::read_i64(&val), head)
-                }
-                (Endian::Big, false) => {
-                    while val.len() < 8 {
-                        val.insert(0, 0);
-                    }
-                    val.resize(8, 0);
-
-                    Value::int(BigEndian::read_i64(&val), head)
-                }
+            match val {
+                Ok(val) => Value::int(val, head),
+                Err(_) => Value::error(
+                    ShellError::IncorrectValue {
+                        msg: "unsigned binary input is too large to convert to int".into(),
+                        val_span,
+                        call_span: head,
+                    },
+                    head,
+                ),
             }
         }
         // Propagate errors by explicitly matching them before the final case.

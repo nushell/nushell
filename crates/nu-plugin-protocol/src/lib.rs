@@ -22,10 +22,10 @@ mod tests;
 pub mod test_util;
 
 use nu_protocol::{
-    BlockId, ByteStreamType, Config, DeclId, DynamicSuggestion, LabeledError, PipelineData,
-    PipelineMetadata, PluginMetadata, PluginSignature, ShellError, SignalAction, Span, Spanned,
-    Value, ast,
-    ast::Operator,
+    BlockId, ByteStreamType, Config, DeclId, DynamicCompletionCallRef, DynamicSuggestion,
+    LabeledError, PipelineData, PipelineMetadata, PluginMetadata, PluginSignature, ShellError,
+    SignalAction, Span, Spanned, Value,
+    ast::{self, Operator},
     casing::Casing,
     engine::{ArgType, Closure},
     ir::IrBlock,
@@ -88,6 +88,16 @@ pub struct DynamicCompletionCall {
     pub strip: bool,
     /// The position in input buffer, which is useful to find placeholder from arguments.
     pub pos: usize,
+}
+
+impl From<&DynamicCompletionCallRef<'_>> for DynamicCompletionCall {
+    fn from(call: &DynamicCompletionCallRef<'_>) -> Self {
+        DynamicCompletionCall {
+            call: call.call.clone(),
+            strip: call.strip,
+            pos: call.pos,
+        }
+    }
 }
 
 /// Information about `get_dynamic_completion` of a plugin call invocation.

@@ -1276,7 +1276,7 @@ fn setup_history(
         None
     };
 
-    if let Some(path) = history.file_path() {
+    if let Some(path) = history.file_path(&engine_state.config_dirs.config_home) {
         return update_line_editor_history(
             engine_state,
             path,
@@ -1608,8 +1608,12 @@ fn trailing_slash_looks_like_path() {
 #[test]
 fn are_session_ids_in_sync() {
     let engine_state = &mut EngineState::new();
+    // Tests need a resolved config home; use a temp-style path under the process cwd.
+    engine_state.config_dirs.config_home = std::env::temp_dir().join("nushell-repl-history-test");
     let history = engine_state.history_config().unwrap();
-    let history_path = history.file_path().unwrap();
+    let history_path = history
+        .file_path(&engine_state.config_dirs.config_home)
+        .unwrap();
     let line_editor = reedline::Reedline::create();
     let history_session_id = reedline::Reedline::create_history_session_id();
     let line_editor = update_line_editor_history(

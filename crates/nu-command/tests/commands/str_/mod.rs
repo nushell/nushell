@@ -204,6 +204,15 @@ fn regex_error_in_pattern() -> Result {
 }
 
 #[test]
+fn regex_error_in_pattern_without_input() -> Result {
+    let code = r#"[] | str replace -r '[' "destination""#;
+
+    let err = test().run(code).expect_shell_error()?;
+    assert_contains("Incorrect value", err.to_string());
+    Ok(())
+}
+
+#[test]
 fn find_and_replaces_with_closure() -> Result {
     let code = "
          'source string'
@@ -447,10 +456,11 @@ fn str_reverse() -> Result {
 }
 
 #[test]
+#[deps(NU)]
 fn test_redirection_trim() -> Result {
     let code = "
         let x = (nu --testbin cococo niceone); $x | str trim | str length
         ";
 
-    test().add_nu_to_path().run(code).expect_value_eq(7)
+    test().run(code).expect_value_eq(7)
 }

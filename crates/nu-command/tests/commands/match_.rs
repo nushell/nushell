@@ -280,3 +280,64 @@ match 1 {
         assert_eq!(actual.out, "success");
     });
 }
+
+#[test]
+fn match_paren_expression_string_concat() {
+    let actual = nu!("match 'test' { ('t' + 'es' + 't') => { print 'OK' } }");
+    assert_eq!(actual.out, "OK");
+}
+
+#[test]
+fn match_paren_expression_arithmetic() {
+    let actual = nu!("match 42 { (40 + 2) => { print 'OK' } }");
+    assert_eq!(actual.out, "OK");
+}
+
+#[test]
+fn match_paren_expression_const_var() {
+    let actual = nu!(r#"
+            const BASE = "/Users/fdncred"
+            match "/Users/fdncred/src/nushell" {
+                ($BASE + "/other") => { print "other" },
+                ($BASE + "/src/nushell") => { print "nu" },
+                _ => { print "miss" }
+            }
+        "#);
+    assert_eq!(actual.out, "nu");
+}
+
+#[test]
+fn match_paren_expression_no_match() {
+    let actual =
+        nu!("match 'nope' { ('t' + 'es' + 't') => { print 'FAIL' }, _ => { print 'OK' } }");
+    assert_eq!(actual.out, "OK");
+}
+
+#[test]
+fn match_paren_expression_non_const_errors() {
+    let actual = nu!("match 'x' { ($env.HOME) => { print 'FAIL' }, _ => { print 'OK' } }");
+    assert!(
+        !actual.err.is_empty(),
+        "expected non-const pattern to error, got out={:?} err={:?}",
+        actual.out,
+        actual.err
+    );
+}
+
+#[test]
+fn match_paren_range_containment() {
+    let actual = nu!(r#"match 5 { (1..10) => { print "yes" }, _ => { print "no" } }"#);
+    assert_eq!(actual.out, "yes");
+}
+
+#[test]
+fn match_paren_expression_or_pattern() {
+    let actual = nu!("match 3 { (1 + 1) | 3 => { print 'OK' }, _ => { print 'FAIL' } }");
+    assert_eq!(actual.out, "OK");
+}
+
+#[test]
+fn match_paren_expression_in_list_pattern() {
+    let actual = nu!("match [2] { [(1 + 1)] => { print 'OK' }, _ => { print 'FAIL' } }");
+    assert_eq!(actual.out, "OK");
+}

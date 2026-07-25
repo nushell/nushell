@@ -96,30 +96,16 @@ export def aggregate [
     $results | flatten items
 }
 
-# Used in reject-column-slices and select-column-slices
-def col-indices [ ...slices ] {
-  use std-rfc/conversions *
+# Used in select-row-slices and reject-row-slices
+def row-indices [slices: list<oneof<int, range>>]: nothing -> list<int> {
+    use std-rfc/conversions [ "into list" ]
 
-  let indices = (
-    $slices
-    | reduce -f [] {|slice,indices|
-      $indices ++ ($slice | into list)
-    }
-  )
-
-  $in | columns
-  | select slices $indices 
-  | get item
+    $slices | each --flatten { into list }
 }
 
-# Used in select-row-slices and reject-row-slices
-def row-indices [ ...slices ] {
-  use std-rfc/conversions *
-
-  $slices
-  | reduce -f [] {|slice,indices|
-    $indices ++ ($slice | into list)
-  }
+# Used in reject-column-slices and select-column-slices
+def col-indices [slices: list<oneof<int, range>>]: record -> list<string> {
+    columns | select ...(row-indices $slices)
 }
 
 # Selects one or more rows while keeping the original indices.
@@ -129,21 +115,24 @@ def row-indices [ ...slices ] {
 @example "Select the 4th row (difference to `select 3` is that the index (#) column shows the *original* (pre-select) position in the table)" {
     ls | select slices 3
 }
-export def "select slices" [ ...slices ] {
-  enumerate
-  | flatten
-  | select ...(row-indices ...$slices)
+export def "select slices" [...slices: oneof<int, range>]: [
+    table -> table
+    list -> list
+    range -> list
+] {
+    enumerate | flatten | select ...(row-indices $slices)
 }
 
 # Rejects one or more rows while keeping the original indices.
 @example "Rejects the first, fifth, and sixth rows from the table" {
     ls / | reject slices 0 4..5
 }
-export def "reject slices" [ ...slices ] {
-  enumerate
-  | flatten
-  | collect
-  | reject ...(row-indices ...$slices)
+export def "reject slices" [...slices: oneof<int, range>]: [
+    table -> table
+    list -> list
+    range -> list
+] {
+  enumerate | flatten | reject ...(row-indices $slices)
 }
 
 # Select one or more columns by their indices
@@ -155,20 +144,44 @@ export def "reject slices" [ ...slices ] {
     ["CODE_OF_CONDUCT.md", 2024-07-09T21:58:12+03:00, 2025-02-09T17:58:12+03:00, 2024-07-09T21:58:12+03:00],
     ["CONTRIBUTING.md", 2024-11-09T21:58:12+03:00, 2025-02-09T17:58:12+03:00, 2024-11-09T21:58:12+03:00]
 ]
-export def "select column-slices" [
-    ...slices
+export def "select column-slices" [...slices: oneof<int, range>]: [
+    record -> record
+    table -> table
 ] {
-    let column_selector = ($in | col-indices ...$slices)
-    $in | select ...$column_selector
+    peek 1 | metadata access {|meta|
+        match $meta.peek {
+            {type: "record"} => {
+                let record: record = $in
+                $record | select ...($record | col-indices $slices)
+            }
+            {type: "list", value: [$row] } => {
+                select ...($row | col-indices $slices)
+            }
+            # the list is empty, do nothing
+            {type: "list"} => { }
+        }
+    }
 }
 
 # Reject one or more columns by their indices
 @example "Reject columns [0, 4, 5]" {
     ls | reject column-slices 0 4 5 | first 3
 }
-export def "reject column-slices" [
-    ...slices
+export def "reject column-slices" [...slices: oneof<int, range>]: [
+    record -> record
+    table -> table
 ] {
-    let column_selector = ($in | col-indices ...$slices)
-    $in | reject ...$column_selector
+    peek 1 | metadata access {|meta|
+        match $meta.peek {
+            {type: "record"} => {
+                let record: record = $in
+                $record | reject ...($record | col-indices $slices)
+            }
+            {type: "list", value: [$row] } => {
+                reject ...($row | col-indices $slices)
+            }
+            # the list is empty, do nothing
+            {type: "list"} => { }
+        }
+    }
 }

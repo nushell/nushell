@@ -384,12 +384,24 @@ fn complex_const_overlay_use(#[case] code: &str, #[case] expect: impl IntoValue)
     tester.run(code).expect_value_eq(expect)
 }
 
-#[ignore = "TODO: `overlay hide` should be possible to use after `overlay use` in the same source unit."]
 #[test]
+#[should_panic(expected = "Expected \"Variable not found.\", got \"Cannot hide default overlay.\"")]
+// #[ignore = "TODO: `overlay hide` should be possible to use after `overlay use` in the same source unit."]
 fn overlay_use_hide_in_single_source_unit() -> Result {
-    let inp = &[MODULE_SETUP, "overlay use spam", "overlay hide", "$eggs"];
-    let actual = nu!(&inp.join("; "));
-    assert!(actual.err.contains("nu::parser::variable_not_found"));
+    let mut tester = test();
+
+    let () = tester.run(MODULE_SETUP)?;
+    let code = "
+        overlay use spam
+        overlay hide
+        $eggs
+    ";
+    let err = tester.run(code).expect_parse_error()?;
+    assert!(
+        matches!(err, ParseError::VariableNotFound(..)),
+        "Expected \"Variable not found.\", got \"{err}\""
+    );
+
     Ok(())
 }
 

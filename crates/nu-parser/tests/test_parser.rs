@@ -6,7 +6,9 @@ use nu_protocol::{
 };
 use rstest::rstest;
 
-use mock::{Alias, AttrEcho, Const, Def, IfMocked, Let, LsCustom, LsTest, Mut, ToCustom, Where};
+use mock::{
+    Alias, AttrEcho, Const, Def, IfMocked, Let, LsCustom, LsTest, MatchMocked, Mut, ToCustom, Where,
+};
 
 fn test_int(
     test_tag: &str,     // name of sub-test
@@ -2955,6 +2957,10 @@ mod mock {
             todo!()
         }
 
+        fn command_type(&self) -> CommandType {
+            CommandType::Keyword
+        }
+
         fn is_const(&self) -> bool {
             true
         }
@@ -2966,6 +2972,45 @@ mod mock {
             _input: PipelineData,
         ) -> Result<PipelineData, ShellError> {
             panic!("Should not be called!")
+        }
+    }
+
+    #[derive(Clone)]
+    pub struct MatchMocked;
+
+    impl Command for MatchMocked {
+        fn name(&self) -> &str {
+            "match"
+        }
+
+        fn description(&self) -> &str {
+            "Conditionally run a block on a matched value."
+        }
+
+        fn signature(&self) -> nu_protocol::Signature {
+            Signature::build("match")
+                .input_output_types(vec![(Type::Any, Type::Any)])
+                .required("value", SyntaxShape::Any, "Value to check.")
+                .required(
+                    "match_block",
+                    SyntaxShape::MatchBlock,
+                    "Block to run if check succeeds.",
+                )
+                .category(Category::Core)
+        }
+
+        fn command_type(&self) -> CommandType {
+            CommandType::Keyword
+        }
+
+        fn run(
+            &self,
+            _engine_state: &EngineState,
+            _stack: &mut Stack,
+            _call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
+            todo!()
         }
     }
 
@@ -3032,6 +3077,7 @@ mod input_types {
             working_set.add_decl(Box::new(Collect));
             working_set.add_decl(Box::new(WithColumn));
             working_set.add_decl(Box::new(IfMocked));
+            working_set.add_decl(Box::new(MatchMocked));
             working_set.add_decl(Box::new(Mut));
 
             working_set.render()
@@ -3590,4 +3636,53 @@ fn empty_closure_as_row_condition() {
         panic!("Expected exactly one positional argument and no other argument")
     };
     assert!(matches!(arg.expr, Expr::RowCondition(_) | Expr::Closure(_)))
+}
+
+#[rstest]
+#[case("if true { 2 }", &[Type::Int, Type::Nothing])]
+#[case("if true { 2 } else { 'foo' }", &[Type::Int, Type::String])]
+#[case("
+    def erase []: any -> any {}
+    def foo []: [int -> string, list<int> -> list<string>] { erase }
+    
+    [1, 2, 3] | if true { foo } else { }
+    ",
+    &[Type::list(Type::String), Type::list(Type::Int)]
+)]
+#[case(r#"
+    match 1 {
+        1 => 1,
+        2 => "foo",
+        3 => [1, 2, 3],
+    }
+    "#,
+    &[Type::Int, Type::String, Type::list(Type::Int), Type::Nothing]
+)]
+fn conditional_branch_types(#[case] code: &str, #[case] expected_tys: &[Type]) {
+    use nu_protocol::TypeSet;
+
+    let mut engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    working_set.add_decl(Box::new(Def));
+    working_set.add_decl(Box::new(IfMocked));
+    working_set.add_decl(Box::new(MatchMocked));
+
+    let _ = engine_state.merge_delta(working_set.render());
+
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let block = parse(&mut working_set, None, code.as_bytes(), true);
+
+    assert_eq!(working_set.parse_errors.as_slice(), &[]);
+
+    let expected_ty = expected_tys
+        .iter()
+        .cloned()
+        .reduce(Type::union)
+        .expect("at least one type should have been expected");
+
+    let out_ty = block.output_type();
+
+    assert_eq!(out_ty, expected_ty);
 }

@@ -1,13 +1,12 @@
 use nu_engine::{command_prelude::*, get_eval_expression};
-use nu_plugin_protocol::{
-    CallInfo, DynamicCompletionCall, EvaluatedCall, GetCompletionArgType, GetCompletionInfo,
-};
+use nu_plugin_protocol::{CallInfo, EvaluatedCall, GetCompletionArgType, GetCompletionInfo};
 use nu_protocol::engine::ArgType;
 use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{DynamicCompletionCallRef, DynamicSuggestion};
 use nu_protocol::{PluginIdentity, PluginSignature, engine::CommandType};
 use std::sync::Arc;
 
+use crate::context::PluginGetDynamicCompletionContext;
 use crate::{GetPlugin, PluginExecutionCommandContext, PluginSource};
 
 /// The command declaration proxy used within the engine for all plugin commands.
@@ -159,14 +158,21 @@ impl Command for PluginDeclaration {
             ArgType::Flag(flag_name) => GetCompletionArgType::Flag(flag_name.to_string()),
             ArgType::Positional(index) => GetCompletionArgType::Positional(*index),
         };
-        plugin.get_dynamic_completion(GetCompletionInfo {
-            name: self.name.clone(),
-            arg_type: arg_info,
-            call: DynamicCompletionCall {
-                call: call.call.clone(),
-                strip: call.strip,
-                pos: call.pos,
+
+        let mut context = PluginGetDynamicCompletionContext::new(
+            self.source.identity.clone(),
+            engine_state,
+            stack,
+            &call,
+        );
+
+        plugin.get_dynamic_completion(
+            GetCompletionInfo {
+                name: self.name.clone(),
+                arg_type: arg_info,
+                call: (&call).into(),
             },
-        })
+            &mut context,
+        )
     }
 }

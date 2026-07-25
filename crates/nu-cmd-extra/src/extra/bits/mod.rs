@@ -18,7 +18,7 @@ pub use shift_left::BitsShl;
 pub use shift_right::BitsShr;
 pub use xor::BitsXor;
 
-use nu_heavy_utils::Endian;
+use nu_heavy_utils::endian::Endian;
 use nu_protocol::{ShellError, Span, Spanned, Value};
 use std::iter;
 

@@ -13,7 +13,20 @@ impl Command for UName {
 
     fn signature(&self) -> Signature {
         Signature::build("uname")
-            .input_output_types(vec![(Type::Nothing, Type::table())])
+            .input_output_types(vec![(
+                Type::Nothing,
+                Type::Record(
+                    vec![
+                        ("kernel-name".into(), Type::String),
+                        ("nodename".into(), Type::String),
+                        ("kernel-release".into(), Type::String),
+                        ("kernel-version".into(), Type::String),
+                        ("machine".into(), Type::String),
+                        ("operating-system".into(), Type::String),
+                    ]
+                    .into(),
+                ),
+            )])
             .category(Category::System)
     }
 

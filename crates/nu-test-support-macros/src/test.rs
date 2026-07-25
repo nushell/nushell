@@ -1,4 +1,4 @@
-use quote::quote;
+use quote::{ToTokens, quote};
 use std::mem;
 use syn::{
     Attribute, Expr, Ident, ItemFn, Lit, LitBool, LitStr, Meta, MetaNameValue, Path, Token,
@@ -11,6 +11,7 @@ pub fn test(mut item_fn: ItemFn) -> proc_macro2::TokenStream {
         Err(err) => return err.to_compile_error(),
     };
     let attr_rest = attrs.rest;
+    let dependencies = attrs.dependencies;
 
     let fn_ident = &item_fn.sig.ident;
 
@@ -41,6 +42,16 @@ pub fn test(mut item_fn: ItemFn) -> proc_macro2::TokenStream {
         let key = key.to_string();
         quote!((#key, #value))
     });
+
+    // This is a very basic heuristic to figure out if `nu_with_plugins!` is actually called inside
+    // the test. As soon as a test is calling into a function and that one is using
+    // `nu_with_plugins!`, we're out of luck. But this should cover most places.
+    // TODO: remove this once `nu_with_plugins!` got removed
+    let uses_nu_with_plugins = item_fn
+        .block
+        .to_token_stream()
+        .to_string()
+        .contains("nu_with_plugins!");
 
     quote! {
         #[::core::prelude::v1::test]
@@ -79,6 +90,9 @@ pub fn test(mut item_fn: ItemFn) -> proc_macro2::TokenStream {
                             run_in_serial: #run_in_serial,
                             experimental_options: &[#(#experimental_options),*],
                             environment_variables: &[#(#environment_variables),*],
+                            dependencies: &[#(#dependencies),*],
+
+                            uses_nu_with_plugins: #uses_nu_with_plugins,
                         }
                     }
                 );
@@ -96,6 +110,7 @@ pub struct TestAttributes {
     pub run_in_serial: Option<bool>,
     pub experimental_options: Vec<(Path, Option<LitBool>)>,
     pub environment_variables: Vec<(Ident, Expr)>,
+    pub dependencies: Vec<Expr>,
     pub rest: Vec<Attribute>,
 }
 
@@ -240,6 +255,18 @@ impl TryFrom<Vec<Attribute>> for TestAttributes {
 
                     let envs = attr.parse_args_with(parse)?;
                     test_attrs.environment_variables.extend(envs);
+                }
+
+                "deps" | "dependencies" => {
+                    fn parse(input: ParseStream) -> syn::Result<Vec<Expr>> {
+                        Ok(input
+                            .parse_terminated(|input| input.parse(), Token![,])?
+                            .into_iter()
+                            .collect())
+                    }
+
+                    let dependencies = attr.parse_args_with(parse)?;
+                    test_attrs.dependencies.extend(dependencies);
                 }
 
                 _ => test_attrs.rest.push(attr),

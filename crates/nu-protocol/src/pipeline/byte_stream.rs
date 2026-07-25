@@ -328,9 +328,12 @@ impl ByteStream {
         .with_known_size(Some(len as u64))
     }
 
-    /// Create a [`ByteStream`] from a byte vector. The type of the stream is always `Binary`.
-    pub fn read_binary(bytes: Vec<u8>, span: Span, signals: Signals) -> Self {
-        let len = bytes.len();
+    /// Create a [`ByteStream`] from binary data. The type of the stream is always `Binary`.
+    pub fn read_binary<T>(bytes: T, span: Span, signals: Signals) -> Self
+    where
+        T: AsRef<[u8]> + Send + 'static,
+    {
+        let len = bytes.as_ref().len();
         ByteStream::read(Cursor::new(bytes), span, signals, ByteStreamType::Binary)
             .with_known_size(Some(len as u64))
     }
@@ -1245,6 +1248,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use nu_utils::SharedCow;
 
     fn test_chunks<T>(data: Vec<T>, type_: ByteStreamType) -> Chunks
     where
@@ -1275,6 +1279,15 @@ mod tests {
             bins_values,
             iter.collect::<Result<Vec<Value>, _>>().expect("error")
         );
+    }
+
+    #[test]
+    fn read_binary_shares_data() {
+        let data = SharedCow::new(vec![0, 1, 2, 3]);
+        let stream = ByteStream::read_binary(data.clone(), Span::test_data(), Signals::empty());
+
+        assert_eq!(SharedCow::ref_count(&data), 2);
+        assert_eq!(stream.into_bytes().expect("error"), data.as_slice());
     }
 
     #[test]

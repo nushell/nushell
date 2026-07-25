@@ -1,6 +1,6 @@
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
-use std::{io::Write, marker::PhantomData};
+use std::{fmt::Write, marker::PhantomData};
 
 pub trait HashDigest: digest::Digest + Clone {
     fn name() -> &'static str;
@@ -35,10 +35,17 @@ impl CmdArgument for Arguments {
     }
 }
 
+fn hex_encode(bytes: &[u8]) -> String {
+    let mut s = String::with_capacity(bytes.len() * 2);
+    for &b in bytes {
+        let _ = write!(s, "{b:02x}");
+    }
+    s
+}
+
 impl<D> Command for GenericDigest<D>
 where
-    D: HashDigest + Write + Send + Sync + 'static,
-    digest::Output<D>: core::fmt::LowerHex,
+    D: HashDigest + Send + Sync + 'static,
 {
     fn name(&self) -> &str {
         &self.name
@@ -85,15 +92,17 @@ where
         let binary = call.has_flag(engine_state, stack, "binary")?;
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
-        let mut hasher = D::new();
 
         if let PipelineData::ByteStream(stream, ..) = input {
-            stream.write_to(&mut hasher)?;
-            let digest = hasher.finalize();
+            let bytes = stream.into_bytes()?;
+            let digest = D::digest(&bytes);
             if binary {
-                Ok(Value::binary(digest.to_vec(), head).into_pipeline_data())
+                Ok(
+                    Value::binary(<[u8]>::to_vec(AsRef::<[u8]>::as_ref(&digest)), head)
+                        .into_pipeline_data(),
+                )
             } else {
-                Ok(Value::string(format!("{digest:x}"), head).into_pipeline_data())
+                Ok(Value::string(hex_encode(digest.as_ref()), head).into_pipeline_data())
             }
         } else {
             let args = Arguments { binary, cell_paths };
@@ -105,7 +114,6 @@ where
 pub(super) fn action<D>(input: &Value, args: &Arguments, _span: Span) -> Value
 where
     D: HashDigest,
-    digest::Output<D>: core::fmt::LowerHex,
 {
     let span = input.span();
     let (bytes, span) = match input {
@@ -131,8 +139,8 @@ where
     let digest = D::digest(bytes);
 
     if args.binary {
-        Value::binary(digest.to_vec(), span)
+        Value::binary(<[u8]>::to_vec(AsRef::<[u8]>::as_ref(&digest)), span)
     } else {
-        Value::string(format!("{digest:x}"), span)
+        Value::string(hex_encode(AsRef::<[u8]>::as_ref(&digest)), span)
     }
 }

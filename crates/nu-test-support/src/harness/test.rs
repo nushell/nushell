@@ -10,13 +10,26 @@ use kitest::{
 use nu_experimental::ExperimentalOption;
 use nu_utils::downcast;
 
-use crate::{harness::group::RUN_TEST_GROUP_IN_SERIAL, tester::TestError};
+use crate::{
+    harness::{deps::*, group::RUN_TEST_GROUP_IN_SERIAL},
+    tester::*,
+};
 
 #[derive(Debug)]
 pub struct Extra {
     pub run_in_serial: bool,
     pub experimental_options: &'static [(&'static ExperimentalOption, bool)],
     pub environment_variables: &'static [(&'static str, &'static str)],
+    pub dependencies: &'static [&'static Dependency<'static>],
+
+    /// Whether [`nu_with_plugins!`](crate::nu_with_plugins) is used in the test.
+    ///
+    /// This field only exists for compatibility reasons as the underlying
+    /// [`ensure_plugins_built`](crate::deprecated::commands::ensure_plugins_built)
+    /// wants to build all plugins regardless of test selection and our plugin preloading blocks
+    /// built plugins.
+    // TODO: remove this field once `nu_with_plugins!` got removed
+    pub uses_nu_with_plugins: bool,
 }
 
 #[derive(Debug, Default)]

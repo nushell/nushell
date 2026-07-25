@@ -3,6 +3,7 @@ use crate::shell_error::generic::GenericError;
 use crate::{FromValue, IntoValue, ShellError, Signals, SpanId, Value, record};
 use miette::SourceSpan;
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 use std::{fmt, ops::Deref};
 
 pub trait GetSpan {
@@ -141,6 +142,23 @@ impl<T> IntoSpanned for T {
 pub struct Span {
     pub start: usize,
     pub end: usize,
+}
+
+#[derive(Clone)]
+pub struct ResolvedSpan<'a> {
+    pub file: Cow<'a, str>,
+    pub span: Span,
+}
+
+impl<'a> IntoValue for ResolvedSpan<'a> {
+    fn into_value(self, span: Span) -> Value {
+        let record = record! {
+            "file" => self.file.into_value(span),
+            "start" => Value::int(self.span.start as i64, span),
+            "end" => Value::int(self.span.end as i64, span),
+        };
+        record.into_value(span)
+    }
 }
 
 impl fmt::Debug for Span {
@@ -362,6 +380,15 @@ impl Span {
             .into_iter()
             .reduce(Self::merge)
             .unwrap_or(Self::unknown())
+    }
+
+    /// Replace a span with a new one if the previous span was either unknown or test data.
+    pub fn fallback(&mut self, span: Span) -> Span {
+        let current = *self;
+        if current == Span::unknown() || current == Span::test_data() {
+            *self = span;
+        }
+        *self
     }
 }
 

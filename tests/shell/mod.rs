@@ -129,6 +129,7 @@ fn exit_failure_if_stderr_full() {
 }
 
 #[test]
+#[deps(NU)]
 fn nu_lib_dirs_repl() -> Result {
     Playground::setup("nu_lib_dirs_repl", |dirs, sandbox| -> Result {
         sandbox
@@ -147,15 +148,12 @@ fn nu_lib_dirs_repl() -> Result {
         ];
 
         let command = format!("{} | to text | str trim", nu_repl_code(inp_lines));
-        test()
-            .cwd(dirs.test())
-            .add_nu_to_path()
-            .run(command)
-            .expect_value_eq("foo")
+        test().cwd(dirs.test()).run(command).expect_value_eq("foo")
     })
 }
 
 #[test]
+#[deps(NU)]
 fn nu_lib_dirs_script() -> Result {
     Playground::setup("nu_lib_dirs_script", |dirs, sandbox| -> Result {
         sandbox
@@ -180,15 +178,12 @@ fn nu_lib_dirs_script() -> Result {
         ];
 
         let command = format!("{} | to text | str trim", nu_repl_code(inp_lines));
-        test()
-            .cwd(dirs.test())
-            .add_nu_to_path()
-            .run(command)
-            .expect_value_eq("foo")
+        test().cwd(dirs.test()).run(command).expect_value_eq("foo")
     })
 }
 
 #[test]
+#[deps(NU)]
 fn nu_lib_dirs_relative_repl() -> Result {
     Playground::setup("nu_lib_dirs_relative_repl", |dirs, sandbox| -> Result {
         sandbox
@@ -207,11 +202,7 @@ fn nu_lib_dirs_relative_repl() -> Result {
         ];
 
         let command = format!("{} | to text | str trim", nu_repl_code(inp_lines));
-        test()
-            .cwd(dirs.test())
-            .add_nu_to_path()
-            .run(command)
-            .expect_value_eq("foo")
+        test().cwd(dirs.test()).run(command).expect_value_eq("foo")
     })
 }
 
@@ -347,6 +338,7 @@ fn run_with_no_newline() {
 }
 
 #[test]
+#[deps(NU)]
 fn main_script_can_have_subcommands1() -> Result {
     Playground::setup("main_subcommands", |dirs, sandbox| -> Result {
         sandbox.mkdir("main_subcommands");
@@ -363,13 +355,13 @@ fn main_script_can_have_subcommands1() -> Result {
 
         test()
             .cwd(dirs.test())
-            .add_nu_to_path()
             .run("nu script.nu foo 123 | to text | str trim")
             .expect_value_eq("223")
     })
 }
 
 #[test]
+#[deps(NU)]
 fn main_script_can_have_subcommands2() -> Result {
     Playground::setup("main_subcommands", |dirs, sandbox| -> Result {
         sandbox.mkdir("main_subcommands");
@@ -384,10 +376,7 @@ fn main_script_can_have_subcommands2() -> Result {
                   }"#,
         )]);
 
-        let out: String = test()
-            .cwd(dirs.test())
-            .add_nu_to_path()
-            .run("nu script.nu | to text")?;
+        let out: String = test().cwd(dirs.test()).run("nu script.nu | to text")?;
 
         assert_contains("usage: script.nu", out);
         Ok(())
@@ -395,6 +384,7 @@ fn main_script_can_have_subcommands2() -> Result {
 }
 
 #[test]
+#[deps(NU)]
 fn script_with_newline_arg_does_not_split_commands() -> Result {
     Playground::setup("script_newline_arg", |dirs, sandbox| -> Result {
         sandbox.mkdir("script_newline_arg");
@@ -406,7 +396,6 @@ fn script_with_newline_arg_does_not_split_commands() -> Result {
         // If newline escaping regresses, parsing fails before returning "ok".
         test()
             .cwd(dirs.test())
-            .add_nu_to_path()
             .run("nu script.nu a b \"c\\nd\"; 'ok'")
             .expect_value_eq("ok")
     })
@@ -414,6 +403,7 @@ fn script_with_newline_arg_does_not_split_commands() -> Result {
 
 // regression test for https://github.com/nushell/nushell/issues/17719
 #[test]
+#[deps(NU)]
 fn script_help_shows_single_subcommand() -> Result {
     Playground::setup("main_subcommands_help", |dirs, sandbox| -> Result {
         sandbox.mkdir("main_subcommands_help");
@@ -425,7 +415,6 @@ fn script_help_shows_single_subcommand() -> Result {
 
         let out: String = test()
             .cwd(dirs.test())
-            .add_nu_to_path()
             .run("nu script.nu --help | to text")?;
         let count_script = out.matches("script.nu bar").count();
         let count_main = out.matches("main bar").count();
@@ -441,15 +430,13 @@ fn script_help_shows_single_subcommand() -> Result {
 }
 
 #[test]
+#[deps(NU)]
 fn source_empty_file() -> Result {
     Playground::setup("source_empty_file", |dirs, sandbox| -> Result {
         sandbox.mkdir("source_empty_file");
         sandbox.with_files(&[FileWithContent("empty.nu", "")]);
 
-        let out: String = test()
-            .cwd(dirs.test())
-            .add_nu_to_path()
-            .run("nu empty.nu | to text")?;
+        let out: String = test().cwd(dirs.test()).run("nu empty.nu | to text")?;
         assert!(out.is_empty());
         Ok(())
     })
@@ -494,6 +481,7 @@ fn source_use_file_named_null() -> Result {
 }
 
 #[test]
+#[deps(NU)]
 fn main_script_help_uses_script_name1() -> Result {
     // Note: this test is somewhat fragile and might need to be adapted if the usage help message changes
     Playground::setup("main_filename1", |dirs, sandbox| -> Result {
@@ -505,7 +493,6 @@ fn main_script_help_uses_script_name1() -> Result {
         )]);
         let out: String = test()
             .cwd(dirs.test())
-            .add_nu_to_path()
             .run("nu script.nu --help | to text")?;
         assert!(out.contains("> script.nu"));
         assert!(!out.contains("> main"));
@@ -514,6 +501,7 @@ fn main_script_help_uses_script_name1() -> Result {
 }
 
 #[test]
+#[deps(NU)]
 fn main_script_help_uses_script_name2() -> Result {
     // Note: this test is somewhat fragile and might need to be adapted if the usage help message changes
     Playground::setup("main_filename2", |dirs, sandbox| -> Result {
@@ -525,7 +513,6 @@ fn main_script_help_uses_script_name2() -> Result {
         )]);
         let stderr: String = test()
             .cwd(dirs.test())
-            .add_nu_to_path()
             .run("nu script.nu | complete | get stderr")?;
         assert!(stderr.contains("Usage: script.nu"));
         assert!(!stderr.contains("Usage: main"));
@@ -534,6 +521,7 @@ fn main_script_help_uses_script_name2() -> Result {
 }
 
 #[test]
+#[deps(NU)]
 fn main_script_subcommand_help_uses_script_name1() -> Result {
     // Note: this test is somewhat fragile and might need to be adapted if the usage help message changes
     Playground::setup("main_filename3", |dirs, sandbox| -> Result {
@@ -546,7 +534,6 @@ fn main_script_subcommand_help_uses_script_name1() -> Result {
         )]);
         let out: String = test()
             .cwd(dirs.test())
-            .add_nu_to_path()
             .run("nu script.nu foo --help | to text")?;
         assert!(out.contains("> script.nu foo"));
         assert!(!out.contains("> main foo"));
@@ -555,6 +542,7 @@ fn main_script_subcommand_help_uses_script_name1() -> Result {
 }
 
 #[test]
+#[deps(NU)]
 fn main_script_subcommand_help_uses_script_name2() -> Result {
     // Note: this test is somewhat fragile and might need to be adapted if the usage help message changes
     Playground::setup("main_filename4", |dirs, sandbox| -> Result {
@@ -567,7 +555,6 @@ fn main_script_subcommand_help_uses_script_name2() -> Result {
         )]);
         let stderr: String = test()
             .cwd(dirs.test())
-            .add_nu_to_path()
             .run("nu script.nu foo | complete | get stderr")?;
         assert!(stderr.contains("Usage: script.nu foo"));
         assert!(!stderr.contains("Usage: main foo"));
@@ -576,10 +563,9 @@ fn main_script_subcommand_help_uses_script_name2() -> Result {
 }
 
 #[test]
+#[deps(NU)]
 fn script_file_not_found() -> Result {
-    let stderr: String = test()
-        .add_nu_to_path()
-        .run("nu non-existent-script.nu foo bar | complete | get stderr")?;
+    let stderr: String = test().run("nu non-existent-script.nu foo bar | complete | get stderr")?;
     assert!(
         !stderr.contains(".rs"),
         "internal rust source was mentioned"
@@ -596,6 +582,7 @@ fn script_file_not_found() -> Result {
 }
 
 #[test]
+#[deps(NU)]
 fn main_script_alias_persists() -> Result {
     // Verify that renaming 'main' to the script filename doesn't prevent the
     // script from running correctly via its filename as the command name.
@@ -604,7 +591,6 @@ fn main_script_alias_persists() -> Result {
 
         test()
             .cwd(dirs.test())
-            .add_nu_to_path()
             .run("nu script.nu | to text | str trim")
             .expect_value_eq("ok")
     })

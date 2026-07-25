@@ -20,7 +20,7 @@ impl Command for IdxDrop {
     }
 
     fn extra_description(&self) -> &str {
-        "Use this when you want to free the in-memory index completely before reinitializing or restoring a different snapshot."
+        "Use this when you want to free the in-memory index completely before reinitializing it."
     }
 
     fn run(

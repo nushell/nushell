@@ -3,7 +3,7 @@
 # Warning: This file is intended for documentation purposes only and
 # is not intended to be used as an actual configuration file as-is.
 #
-# version = "0.113.2"
+# version = "0.114.2"
 #
 # A `config.nu` file is used to override default Nushell settings,
 # define (or import) custom commands, or run any other startup tasks.
@@ -512,6 +512,14 @@ $env.config.render_right_prompt_on_last_line = false
 # float_precision (int): Decimal places for float values in structured output.
 # Default: 2
 $env.config.float_precision = 2
+
+# duration_max_unit (string): Largest unit when displaying durations.
+# Durations are decomposed from this unit downward. A smaller value excludes
+# larger units from the output (e.g., "day" shows 365day instead of
+# 52wk 1day for one year).
+# Options: "wk", "day", "hr", "min", "sec", "ms", "us", "ns".
+# Default: "wk"
+$env.config.duration_max_unit = "wk"
 
 # ls.use_ls_colors (bool): Apply LS_COLORS to filenames in `ls` output.
 # true: Use LS_COLORS environment variable for styling.
@@ -1034,6 +1042,14 @@ $env.config.color_config.duration = "default"
 # color_config.range: Style for range values in output.
 # Default: default
 $env.config.color_config.range = "default"
+
+# color_config.semver: Style for semver values in output.
+# Default: "cyan_bold"
+$env.config.color_config.semver = "cyan_bold"
+
+# color_config.semver-range: Style for semver-range values in output.
+# Default: "cyan_bold"
+$env.config.color_config.semver-range = "cyan_bold"
 
 # color_config.cell-path: Style for cell-path values in output.
 # Default: default

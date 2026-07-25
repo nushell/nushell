@@ -368,26 +368,14 @@ impl Signature {
 
     /// Gets the input type from the signature
     ///
-    /// If the input was unspecified or the signature has several different
-    /// input types, [`Type::Any`] is returned.  Otherwise, if the signature has
-    /// one or same input types, this type is returned.
-    // XXX: remove?
+    /// - If the input was unspecified  [`Type::Any`] is returned.
+    /// - If the signature has a single input type, it is returned.
+    /// - If there are multiple input types, a [union](Type::union) of them is returned.
     pub fn get_input_type(&self) -> Type {
-        match self.input_output_types.len() {
-            0 => Type::Any,
-            1 => self.input_output_types[0].0.clone(),
-            _ => {
-                let first = &self.input_output_types[0].0;
-                if self
-                    .input_output_types
-                    .iter()
-                    .all(|(input, _)| input == first)
-                {
-                    first.clone()
-                } else {
-                    Type::Any
-                }
-            }
+        match self.input_output_types.as_slice() {
+            [] => Type::Any,
+            [(input, _output)] => input.clone(),
+            multiple => Type::one_of(multiple.iter().map(|(input, _)| input.clone())),
         }
     }
 
@@ -400,11 +388,11 @@ impl Signature {
     /// - [Union](TypeSet::union) of all valid outputs are returned.
     /// - If there are no valid IO pairs for the given `input`, [`None`] is returned.
     // XXX: remove?
-    pub fn get_output_type(&self, input_type: Option<Type>) -> Option<Type> {
+    pub fn get_output_type(&self, input_type: Option<&Type>) -> Option<Type> {
         if self.input_output_types.is_empty() {
             return Some(Type::Any);
         }
-        let input = input_type.unwrap_or(Type::Any);
+        let input = input_type.unwrap_or(&Type::Any);
         let mut it = self
             .input_output_types
             .iter()

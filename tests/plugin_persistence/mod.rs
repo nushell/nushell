@@ -3,407 +3,310 @@
 //! are referenced in the engine state. Plugins can be stopped by the user if desired, but not
 //! removed.
 
-// tests in here are marked as serial to improve stability while testing
+// tests that assert stopping and starting or verify PIDs should run in serial to not clash with
+// other test threads
 
-use nu_test_support::{nu, nu_with_plugins};
+use nu_test_support::prelude::*;
+use rstest::rstest;
 
 #[test]
-#[serial]
-fn plugin_list_shows_installed_plugins() {
-    let out = nu_with_plugins!(
-        cwd: ".",
-        plugins: [("nu_plugin_inc"), ("nu_plugin_custom_values")],
-        "(plugin list).name | str join ','"
-    );
-    assert_eq!("custom_values,inc", out.out);
-    assert!(out.status.success());
+#[deps(NU_PLUGIN_INC, NU_PLUGIN_CUSTOM_VALUES)]
+fn plugin_list_shows_installed_plugins() -> Result {
+    test()
+        .run("plugin list | get name | str join ','")
+        .expect_value_eq("custom_values,inc")
+}
+
+#[test]
+#[deps(NU_PLUGIN_INC)]
+fn plugin_list_shows_installed_plugin_version() -> Result {
+    test()
+        .run("plugin list | get version.0")
+        .expect_value_eq(env!("CARGO_PKG_VERSION"))
 }
 
 #[test]
 #[serial]
-fn plugin_list_shows_installed_plugin_version() {
-    let out = nu_with_plugins!(
-        cwd: ".",
-        plugin: ("nu_plugin_inc"),
-        "(plugin list).version.0"
-    );
-    assert_eq!(env!("CARGO_PKG_VERSION"), out.out);
-    assert!(out.status.success());
+#[deps(NU_PLUGIN_INC)]
+fn plugin_keeps_running_after_calling_it() -> Result {
+    let mut tester = test();
+    let () = tester.run("plugin stop inc")?;
+    tester
+        .run("plugin list | get 0.status")
+        .expect_value_eq("loaded")?;
+    let _: Value = tester.run("'2.0.0' | inc -m")?;
+    tester
+        .run("plugin list | get 0.status")
+        .expect_value_eq("running")
 }
 
 #[test]
 #[serial]
-fn plugin_keeps_running_after_calling_it() {
-    let out = nu_with_plugins!(
-        cwd: ".",
-        plugin: ("nu_plugin_inc"),
-        r#"
-            plugin stop inc
-            (plugin list).0.status == running | print
-            print ";"
-            "2.0.0" | inc -m | ignore
-            (plugin list).0.status == running | print
-        "#
-    );
-    assert_eq!(
-        "false;true", out.out,
-        "plugin list didn't show status = running"
-    );
-    assert!(out.status.success());
-}
+#[deps(NU_PLUGIN_INC)]
+fn plugin_process_exits_after_stop() -> Result {
+    let code = r#"
+        "2.0.0" | inc -m | ignore
+        sleep 500ms
 
-#[test]
-#[serial]
-fn plugin_process_exits_after_stop() {
-    let out = nu_with_plugins!(
-        cwd: ".",
-        plugin: ("nu_plugin_inc"),
-        r#"
-            "2.0.0" | inc -m | ignore
-            sleep 500ms
-            let pid = (plugin list).0.pid
-            if (ps | where pid == $pid | is-empty) {
-                error make {
-                    msg: "plugin process not running initially"
-                }
+        let pid = plugin list | get 0.pid
+        if (ps | where pid == $pid | is-empty) {
+            error make {
+                msg: "plugin process not running initially"
             }
-            plugin stop inc
-            let start = (date now)
-            mut cond = true
-            while $cond {
-                sleep 100ms
-                $cond = (
-                    (ps | where pid == $pid | is-not-empty) and
-                    ((date now) - $start) < 5sec
-                )
-            }
-            ((date now) - $start) | into int
-        "#
-    );
+        }
 
-    assert!(out.status.success());
+        plugin stop inc
+        let start = date now
+        mut cond = true
+        while $cond {
+            sleep 100ms
+            $cond = (
+                (ps | where pid == $pid | is-not-empty) and
+                ((date now) - $start) < 5sec
+            )
+        }
 
-    let nanos = out.out.parse::<i64>().expect("not a number");
+        (date now) - $start | into int
+    "#;
+
+    let nanos: i64 = test().run(code)?;
     assert!(
         nanos < 5_000_000_000,
         "not stopped after more than 5 seconds: {nanos} ns"
     );
+
+    Ok(())
 }
 
 #[test]
 #[serial]
-fn plugin_stop_can_find_by_filename() {
-    let result = nu_with_plugins!(
-        cwd: ".",
-        plugin: ("nu_plugin_inc"),
-        "plugin stop (plugin list | where name == inc).0.filename"
-    );
-    assert!(result.status.success());
-    assert!(result.err.is_empty());
+#[deps(NU_PLUGIN_INC)]
+fn plugin_stop_can_find_by_filename() -> Result {
+    test()
+        .run("plugin stop (plugin list | where name == inc).0.filename")
+        .expect_value_eq(())
 }
 
 #[test]
 #[serial]
-fn plugin_process_exits_when_nushell_exits() {
-    let out = nu_with_plugins!(
-        cwd: ".",
-        plugin: ("nu_plugin_inc"),
-        r#"
-            "2.0.0" | inc -m | ignore
-            (plugin list).0.pid | print
-        "#
-    );
-    assert!(!out.out.is_empty());
-    assert!(out.status.success());
+#[deps(NU, NU_PLUGIN_INC)]
+fn plugin_process_exits_when_nushell_exits() -> Result {
+    // we have to run the nu binary to actually have a process exit
+    let pid: u32 = test().run_with_data(
+        r#"nu -n --plugins $in -c "'2.0.0' | inc -m; (plugin list).0.pid" | into int"#,
+        NU_PLUGIN_INC.path(),
+    )?;
 
-    let pid = out.out.parse::<u32>().expect("failed to parse pid");
+    let mut tester = test();
+    let () = tester.run("sleep 500ms")?;
+    let _: Value = tester.run_with_data("let pid", pid)?;
+    tester
+        .run("ps | where pid == $pid | is-empty")
+        .expect_value_eq(true)
+}
 
-    // use nu to check if process exists
-    assert_eq!(
-        "0",
-        nu!(format!("sleep 500ms; ps | where pid == {pid} | length")).out,
-        "plugin process {pid} is still running"
-    );
+#[rstest]
+#[deps(NU_PLUGIN_INC)]
+#[case::inc("'2.0.0' | inc -m | ignore")]
+#[deps(NU_PLUGIN_EXAMPLE)]
+#[case::example("example seq 1 10 | ignore")]
+#[deps(NU_PLUGIN_CUSTOM_VALUES)]
+#[case::custom_values("custom-value generate | ignore")]
+#[nu_test_support::test]
+fn plugin_commands_run_without_error(#[case] commands: &str) -> Result {
+    test().run(commands).expect_value_eq(())
+}
+
+#[rstest]
+#[deps(NU_PLUGIN_INC)]
+#[case::inc_multiple_times(["'2.0.0' | inc -m","'2.1.0' | inc -m", "'2.2.0' | inc -m" ])]
+#[deps(NU_PLUGIN_EXAMPLE)]
+#[case::example_multiple_times(["example seq 1 10", "example seq 1 20"])]
+#[deps(NU_PLUGIN_CUSTOM_VALUES)]
+#[case::custom_values_multiple_times(["custom-value generate", "custom-value generate2"])]
+#[nu_test_support::test]
+fn plugin_commands_run_multiple_times_without_error(
+    #[case] commands: impl IntoIterator<IntoIter = impl Iterator<Item = &'static str>>,
+) -> Result {
+    let mut tester = test();
+    for commands in commands.into_iter() {
+        let _: Value = tester.run(commands)?;
+    }
+
+    Ok(())
 }
 
 #[test]
 #[serial]
-fn plugin_commands_run_without_error() {
-    let out = nu_with_plugins!(
-        cwd: ".",
-        plugins: [
-            ("nu_plugin_inc"),
-            ("nu_plugin_example"),
-            ("nu_plugin_custom_values"),
-        ],
-        r#"
-            "2.0.0" | inc -m | ignore
-            example seq 1 10 | ignore
-            custom-value generate | ignore
-        "#
-    );
-    assert!(out.err.is_empty());
-    assert!(out.status.success());
+#[deps(NU_PLUGIN_CUSTOM_VALUES)]
+fn multiple_plugin_commands_run_with_the_same_plugin_pid() -> Result {
+    let mut tester = test();
+    let () = tester.run("custom-value generate | ignore")?;
+    let first: i64 = tester.run("plugin list | get 0.pid")?;
+    let () = tester.run("custom-value generate2 | ignore")?;
+    let second: i64 = tester.run("plugin list | get 0.pid")?;
+    assert_eq!(first, second);
+    Ok(())
 }
 
 #[test]
 #[serial]
-fn plugin_commands_run_multiple_times_without_error() {
-    let out = nu_with_plugins!(
-        cwd: ".",
-        plugins: [
-            ("nu_plugin_inc"),
-            ("nu_plugin_example"),
-            ("nu_plugin_custom_values"),
-        ],
-        r#"
-            ["2.0.0" "2.1.0" "2.2.0"] | each { inc -m } | print
-            example seq 1 10 | ignore
-            custom-value generate | ignore
-            example seq 1 20 | ignore
-            custom-value generate2 | ignore
-        "#
-    );
-    assert!(out.err.is_empty());
-    assert!(out.status.success());
+#[deps(NU_PLUGIN_CUSTOM_VALUES)]
+fn plugin_pid_changes_after_stop_then_run_again() -> Result {
+    let mut tester = test();
+    let () = tester.run("custom-value generate | ignore")?;
+    let first: i64 = tester.run("plugin list | get 0.pid")?;
+    let () = tester.run("plugin stop custom_values")?;
+    let () = tester.run("custom-value generate2 | ignore")?;
+    let second: i64 = tester.run("plugin list | get 0.pid")?;
+    assert_ne!(first, second);
+    Ok(())
 }
 
 #[test]
 #[serial]
-fn multiple_plugin_commands_run_with_the_same_plugin_pid() {
-    let out = nu_with_plugins!(
-        cwd: ".",
-        plugin: ("nu_plugin_custom_values"),
-        r#"
-            custom-value generate | ignore
-            (plugin list).0.pid | print
-            print ";"
-            custom-value generate2 | ignore
-            (plugin list).0.pid | print
-        "#
-    );
-    assert!(out.status.success());
+#[deps(NU_PLUGIN_CUSTOM_VALUES)]
+fn custom_values_can_still_be_passed_to_plugin_after_stop() -> Result {
+    let code = "
+        let cv = custom-value generate
+        plugin stop custom_values
+        $cv | custom-value update
+    ";
 
-    let pids: Vec<&str> = out.out.split(';').collect();
-    assert_eq!(2, pids.len());
-    assert_eq!(pids[0], pids[1]);
+    let value: Value = test().run(code)?;
+    assert!(!value.is_nothing());
+    Ok(())
 }
 
 #[test]
 #[serial]
-fn plugin_pid_changes_after_stop_then_run_again() {
-    let out = nu_with_plugins!(
-        cwd: ".",
-        plugin: ("nu_plugin_custom_values"),
-        r#"
-            custom-value generate | ignore
-            (plugin list).0.pid | print
-            print ";"
-            plugin stop custom_values
-            custom-value generate2 | ignore
-            (plugin list).0.pid | print
-        "#
-    );
-    assert!(out.status.success());
+#[deps(NU_PLUGIN_CUSTOM_VALUES)]
+fn custom_values_can_still_be_collapsed_after_stop() -> Result {
+    let code = "
+        let cv = custom-value generate
+        plugin stop custom_values
+        $cv | into value
+    ";
 
-    let pids: Vec<&str> = out.out.split(';').collect();
-    assert_eq!(2, pids.len());
-    assert_ne!(pids[0], pids[1]);
+    let value: String = test().run(code)?;
+    assert!(!value.is_empty());
+    Ok(())
 }
 
 #[test]
 #[serial]
-fn custom_values_can_still_be_passed_to_plugin_after_stop() {
-    let out = nu_with_plugins!(
-        cwd: ".",
-        plugin: ("nu_plugin_custom_values"),
-        "
-            let cv = custom-value generate
-            plugin stop custom_values
-            $cv | custom-value update
-        "
-    );
-    assert!(!out.out.is_empty());
-    assert!(out.err.is_empty());
-    assert!(out.status.success());
-}
-
-#[test]
-#[serial]
-fn custom_values_can_still_be_collapsed_after_stop() {
-    // print causes a collapse (ToBaseValue) call.
-    let out = nu_with_plugins!(
-        cwd: ".",
-        plugin: ("nu_plugin_custom_values"),
-        "
-            let cv = custom-value generate
-            plugin stop custom_values
-            $cv | print
-        "
-    );
-    assert!(!out.out.is_empty());
-    assert!(out.err.is_empty());
-    assert!(out.status.success());
-}
-
-#[test]
-#[serial]
-fn plugin_gc_can_be_configured_to_stop_plugins_immediately() {
+#[deps(NU_PLUGIN_INC)]
+fn plugin_gc_can_be_configured_to_stop_plugins_immediately() -> Result {
     // I know the test is to stop "immediately", but if we actually check immediately it could
     // lead to a race condition. Using 100ms sleep just because with contention we don't really
     // know for sure how long this could take
-    let out = nu_with_plugins!(
-        cwd: ".",
-        plugin: ("nu_plugin_inc"),
-        r#"
-            $env.config.plugin_gc = { default: { stop_after: 0sec } }
-            "2.3.0" | inc -M
-            sleep 100ms
-            (plugin list | where name == inc).0.status == running
-        "#
-    );
-    assert!(out.status.success());
-    assert_eq!("false", out.out, "with config as default");
 
-    let out = nu_with_plugins!(
-        cwd: ".",
-        plugin: ("nu_plugin_inc"),
-        r#"
-            $env.config.plugin_gc = {
-                plugins: {
-                    inc: { stop_after: 0sec }
-                }
-            }
-            "2.3.0" | inc -M
-            sleep 100ms
-            (plugin list | where name == inc).0.status == running
-        "#
-    );
-    assert!(out.status.success());
-    assert_eq!("false", out.out, "with inc-specific config");
+    let code = r#"
+        "2.3.0" | inc -M
+        sleep 100ms
+        (plugin list | where name == inc).0.status
+    "#;
+
+    let mut tester = test();
+    let () = tester.run("$env.config.plugin_gc = { default: { stop_after: 0sec } }")?;
+    tester.run(code).expect_value_eq("loaded")?;
+
+    let mut tester = test();
+    let () = tester.run("$env.config.plugin_gc = { plugins: { inc: { stop_after: 0sec } } }")?;
+    tester.run(code).expect_value_eq("loaded")?;
+
+    Ok(())
 }
 
 #[test]
 #[serial]
-fn plugin_gc_can_be_configured_to_stop_plugins_after_delay() {
-    let out = nu_with_plugins!(
-        cwd: ".",
-        plugin: ("nu_plugin_inc"),
-        r#"
-            $env.config.plugin_gc = { default: { stop_after: 50ms } }
-            "2.3.0" | inc -M
-            let start = (date now)
-            mut cond = true
-            while $cond {
-                sleep 100ms
-                $cond = (
-                    (plugin list | where name == inc).0.status == running and
-                    ((date now) - $start) < 5sec
-                )
-            }
-            ((date now) - $start) | into int
-        "#
-    );
-    assert!(out.status.success());
-    let nanos = out.out.parse::<i64>().expect("not a number");
+#[deps(NU_PLUGIN_INC)]
+fn plugin_gc_can_be_configured_to_stop_plugins_after_delay() -> Result {
+    let code = r#"
+        "2.3.0" | inc -M
+
+        let start = date now
+        mut cond = true
+        while $cond {
+            sleep 100ms
+            $cond = (
+                (plugin list | where name == inc).0.status == running and
+                ((date now) - $start) < 5sec
+            )
+        }
+
+        ((date now) - $start) | into int
+    "#;
+
+    let mut tester = test();
+    let () = tester.run("$env.config.plugin_gc = { default: { stop_after: 50ms } }")?;
+    let nanos: i64 = tester.run(code)?;
     assert!(
         nanos < 5_000_000_000,
         "with config as default: more than 5 seconds: {nanos} ns"
     );
 
-    let out = nu_with_plugins!(
-        cwd: ".",
-        plugin: ("nu_plugin_inc"),
-        r#"
-            $env.config.plugin_gc = {
-                plugins: {
-                    inc: { stop_after: 50ms }
-                }
-            }
-            "2.3.0" | inc -M
-            let start = (date now)
-            mut cond = true
-            while $cond {
-                sleep 100ms
-                $cond = (
-                    (plugin list | where name == inc).0.status == running and
-                    ((date now) - $start) < 5sec
-                )
-            }
-            ((date now) - $start) | into int
-        "#
-    );
-    assert!(out.status.success());
-    let nanos = out.out.parse::<i64>().expect("not a number");
+    let mut tester = test();
+    let () = tester.run("$env.config.plugin_gc = { plugins: { inc: { stop_after: 50ms } } }")?;
+    let nanos: i64 = tester.run(code)?;
     assert!(
         nanos < 5_000_000_000,
         "with inc-specific config: more than 5 seconds: {nanos} ns"
     );
+
+    Ok(())
 }
 
 #[test]
 #[serial]
-fn plugin_gc_can_be_configured_as_disabled() {
-    let out = nu_with_plugins!(
-        cwd: ".",
-        plugin: ("nu_plugin_inc"),
-        r#"
-            $env.config.plugin_gc = { default: { enabled: false, stop_after: 0sec } }
-            "2.3.0" | inc -M
-            (plugin list | where name == inc).0.status == running
-        "#
-    );
-    assert!(out.status.success());
-    assert_eq!("true", out.out, "with config as default");
+#[deps(NU_PLUGIN_INC)]
+fn plugin_gc_can_be_configured_as_disabled() -> Result {
+    let code = r#"
+        $env.config.plugin_gc = { default: { enabled: false, stop_after: 0sec } }
+        "2.3.0" | inc -M
+        (plugin list | where name == inc).0.status == running
+    "#;
+    test().run(code).expect_value_eq(true)?;
 
-    let out = nu_with_plugins!(
-        cwd: ".",
-        plugin: ("nu_plugin_inc"),
-        r#"
-            $env.config.plugin_gc = {
-                default: { enabled: true, stop_after: 0sec }
-                plugins: {
-                    inc: { enabled: false, stop_after: 0sec }
-                }
+    let code = r#"
+        $env.config.plugin_gc = {
+            default: { enabled: true, stop_after: 0sec }
+            plugins: {
+                inc: { enabled: false, stop_after: 0sec }
             }
-            "2.3.0" | inc -M
-            (plugin list | where name == inc).0.status == running
-        "#
-    );
-    assert!(out.status.success());
-    assert_eq!("true", out.out, "with inc-specific config");
+        }
+        "2.3.0" | inc -M
+        (plugin list | where name == inc).0.status
+    "#;
+    test().run(code).expect_value_eq("running")?;
+
+    Ok(())
 }
 
 #[test]
 #[serial]
-fn plugin_gc_can_be_disabled_by_plugin() {
-    let out = nu_with_plugins!(
-        cwd: ".",
-        plugin: ("nu_plugin_example"),
-        "
-            example disable-gc
-            $env.config.plugin_gc = { default: { stop_after: 0sec } }
-            example one 1 foo | ignore # ensure we've run the plugin with the new config
-            sleep 100ms
-            (plugin list | where name == example).0.status == running
-        "
-    );
-    assert!(out.status.success());
-    assert_eq!("true", out.out);
+#[deps(NU_PLUGIN_EXAMPLE)]
+fn plugin_gc_can_be_disabled_by_plugin() -> Result {
+    let code = "
+        example disable-gc
+        $env.config.plugin_gc = { default: { stop_after: 0sec } }
+        example one 1 foo | ignore # ensure we've run the plugin with the new config
+        sleep 100ms
+        (plugin list | where name == example).0.status
+    ";
+
+    test().run(code).expect_value_eq("running")
 }
 
 #[test]
 #[serial]
-fn plugin_gc_does_not_stop_plugin_while_stream_output_is_active() {
-    let out = nu_with_plugins!(
-        cwd: ".",
-        plugin: ("nu_plugin_example"),
-        "
-            $env.config.plugin_gc = { default: { stop_after: 10ms } }
-            # This would exceed the configured time
-            example seq 1 500 | each { |n| sleep 1ms; $n } | length | print
-        "
-    );
-    assert!(out.status.success());
-    assert_eq!("500", out.out);
+#[deps(NU_PLUGIN_EXAMPLE)]
+fn plugin_gc_does_not_stop_plugin_while_stream_output_is_active() -> Result {
+    let code = "
+        $env.config.plugin_gc = { default: { stop_after: 10ms } }
+        # This would exceed the configured time
+        example seq 1 500 | each { |n| sleep 1ms; $n } | length
+    ";
+
+    test().run(code).expect_value_eq(500)
 }

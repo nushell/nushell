@@ -1,6 +1,7 @@
 use std::ffi::OsStr;
 use std::io::{Stdin, Stdout};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use nu_protocol::ShellError;
 #[cfg(feature = "local-socket")] // unused without that feature
@@ -11,6 +12,13 @@ mod local_socket;
 
 #[cfg(feature = "local-socket")]
 use local_socket::*;
+
+/// Controls whether plugin stderr is forwarded to Nushell's stderr.
+///
+/// Plugin stderr is inherited by default, so anything written by a plugin to
+/// stderr is shown directly to the user. When this flag is set, that forwarding
+/// is suppressed for plugin processes started while the flag is active.
+pub static SUPPRESS_STDERR: AtomicBool = AtomicBool::new(false);
 
 /// The type of communication used between the plugin and the engine.
 ///
@@ -72,6 +80,10 @@ impl CommunicationMode {
                 command.stdin(Stdio::inherit());
                 command.stdout(Stdio::inherit());
             }
+        }
+
+        if SUPPRESS_STDERR.load(Ordering::Relaxed) {
+            command.stderr(Stdio::null());
         }
     }
 

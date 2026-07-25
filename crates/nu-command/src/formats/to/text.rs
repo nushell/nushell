@@ -167,7 +167,7 @@ fn local_into_string(
         Value::Int { val, .. } => val.to_string(),
         Value::Float { val, .. } => ObviousFloat(val).to_string(),
         Value::Filesize { val, .. } => val.to_string(),
-        Value::Duration { val, .. } => format_duration(val),
+        Value::Duration { val, .. } => format_duration(val, engine_state.config.duration_max_unit),
         Value::Date { val, .. } => {
             format!(
                 "{} ({})",

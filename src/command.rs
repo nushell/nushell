@@ -95,8 +95,6 @@ enum ValueHint {
     Int,
     Path,
     ListString,
-    #[cfg_attr(not(feature = "plugin"), expect(unused))]
-    ListPath,
 }
 
 // Metadata describing a CLI flag in the lexopt parser.
@@ -264,6 +262,14 @@ const CLI_FLAGS: &[CliFlag] = &[
         "nu --env-config env.nu",
     ),
     CliFlag::value(
+        "config-home",
+        None,
+        ValueHint::Path,
+        "start with an alternate config directory (e.g. ~/.config/nushell)",
+        CliCategory::Config,
+        "nu --config-home /path/to/config",
+    ),
+    CliFlag::value(
         "log-level",
         None,
         ValueHint::String,
@@ -386,10 +392,10 @@ const CLI_FLAGS: &[CliFlag] = &[
     CliFlag::value(
         "plugins",
         None,
-        ValueHint::ListPath,
-        "list of plugin executable files to load (full paths), separately from the registry file",
+        ValueHint::Path,
+        "list of plugin executable files to load (full paths), separately from the registry file (use multiple `--plugins` flags or a bracketed list: `--plugins '[/path/a /path/b]'`)",
         CliCategory::Plugins,
-        "nu --plugins /path/nu_plugin_one /path/nu_plugin_two",
+        "nu --plugins /path/nu_plugin_one --plugins /path/nu_plugin_two",
     ),
     #[cfg(feature = "mcp")]
     CliFlag::switch(
@@ -436,6 +442,7 @@ struct CliValues {
     no_std_lib: Option<Spanned<String>>,
     config_file: Option<Spanned<String>>,
     env_file: Option<Spanned<String>>,
+    config_home: Option<Spanned<String>>,
     log_level: Option<Spanned<String>>,
     log_target: Option<Spanned<String>>,
     log_file: Option<Spanned<String>>,
@@ -607,6 +614,10 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
                 let value = parse_string_value(&mut parser, "env-config")?;
                 cli.env_file = Some(spanned_value(value));
             }
+            Long("config-home") => {
+                let value = parse_string_value(&mut parser, "config-home")?;
+                cli.config_home = Some(spanned_value(value));
+            }
             Long("log-level") => {
                 let value = parse_validated_option(
                     &mut parser,
@@ -677,15 +688,11 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
             }
             #[cfg(feature = "plugin")]
             Long("plugins") => {
-                let values = parse_list_values(&mut parser, "plugins")?;
+                let value = parse_string_value(&mut parser, "plugins")?;
+                let paths = parse_plugin_paths(&value);
                 let mut parsed = Vec::new();
-                for value in values {
-                    let trimmed = value.trim();
-                    // Skip empty strings and bracket-wrapped empty lists like "[]"
-                    if trimmed.is_empty() || trimmed == "[]" {
-                        continue;
-                    }
-                    let path = Path::new(trimmed);
+                for path_str in paths {
+                    let path = Path::new(&path_str);
                     let absolute = if path.is_absolute() {
                         path.to_path_buf()
                     } else {
@@ -710,7 +717,6 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
                         ));
                     }
                 }
-                // Only set plugins if we actually parsed some valid paths
                 if !parsed.is_empty() {
                     cli.plugins.get_or_insert_with(Vec::new).extend(parsed);
                 }
@@ -772,6 +778,7 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
             no_std_lib: cli.no_std_lib,
             config_file: cli.config_file,
             env_file: cli.env_file,
+            config_home: cli.config_home,
             log_level: cli.log_level,
             log_target: cli.log_target,
             log_file: cli.log_file,
@@ -912,6 +919,91 @@ fn parse_list_values(parser: &mut lexopt::Parser, name: &str) -> Result<Vec<Stri
         parsed.push(value);
     }
     Ok(parsed)
+}
+
+/// Parse a single `--plugins` value into a list of plugin paths.
+///
+/// Supports two formats:
+/// - A single path: `/path/to/nu_plugin_foo`
+/// - A bracketed list (nushell-style): `[/path/foo /path/bar]` or `[/path/foo, /path/bar]`
+///
+/// Paths in the bracketed form may be double-quoted to handle spaces:
+/// `["/path/with spaces/foo" /path/bar]`
+///
+/// Commas are treated as optional separators in the bracketed form.
+/// When present, commas are used as the delimiter instead of whitespace.
+#[cfg(feature = "plugin")]
+fn parse_plugin_paths(value: &str) -> Vec<String> {
+    let trimmed = value.trim();
+
+    // Empty list: `[]`
+    if trimmed == "[]" {
+        return vec![];
+    }
+
+    if let Some(inner) = trimmed.strip_prefix('[').and_then(|s| s.strip_suffix(']')) {
+        let inner = inner.trim();
+        if inner.is_empty() {
+            return vec![];
+        }
+
+        // Prefer comma-delimited when commas are present
+        if inner.contains(',') {
+            inner
+                .split(',')
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(strip_quotes)
+                .collect()
+        } else {
+            split_respecting_quotes(inner)
+        }
+    } else {
+        vec![strip_quotes(trimmed)]
+    }
+}
+
+/// Remove surrounding double-quotes from a string.
+#[cfg(feature = "plugin")]
+fn strip_quotes(s: &str) -> String {
+    let s = s.trim();
+    if s.len() >= 2 && s.starts_with('"') && s.ends_with('"') {
+        s[1..s.len() - 1].to_string()
+    } else {
+        s.to_string()
+    }
+}
+
+/// Split a string by whitespace, respecting double-quoted sections.
+///
+/// Each segment between whitespace boundaries is returned with quotes stripped.
+#[cfg(feature = "plugin")]
+fn split_respecting_quotes(s: &str) -> Vec<String> {
+    let mut result = Vec::new();
+    let mut current = String::new();
+    let mut in_quotes = false;
+
+    for ch in s.chars() {
+        match ch {
+            '"' => {
+                in_quotes = !in_quotes;
+                current.push(ch);
+            }
+            ' ' | '\t' if !in_quotes => {
+                if !current.is_empty() {
+                    result.push(strip_quotes(&current));
+                    current.clear();
+                }
+            }
+            _ => {
+                current.push(ch);
+            }
+        }
+    }
+    if !current.is_empty() {
+        result.push(strip_quotes(&current));
+    }
+    result
 }
 
 // Parse experimental options, allowing bracketed and comma-delimited forms.
@@ -1123,13 +1215,14 @@ fn prevalidate_short_groups_before_lexopt(args: &[OsString]) -> Result<(), CliEr
         }
 
         // Flags that take a single value - skip validation of their values
-        // Note: Multi-value flags (--plugins, --log-include, etc.) are not included here
+        // Note: Multi-value flags (--log-include, --log-exclude) are not included here
         // because they consume multiple arguments and the validator can't know how many.
         if arg == "-e"
             || arg == "--execute"
             || arg == "--config"
             || arg == "--env-config"
             || arg == "--plugin-config"
+            || arg == "--plugins"
             || arg == "--log-level"
             || arg == "--log-target"
             || arg == "-I"
@@ -1349,7 +1442,6 @@ fn value_hint(value: ValueHint) -> &'static str {
         ValueHint::Int => "int",
         ValueHint::Path => "path",
         ValueHint::ListString => "string...",
-        ValueHint::ListPath => "path...",
     }
 }
 
@@ -1370,6 +1462,7 @@ pub(crate) struct NushellCliArgs {
     pub(crate) no_std_lib: Option<Spanned<String>>,
     pub(crate) config_file: Option<Spanned<String>>,
     pub(crate) env_file: Option<Spanned<String>>,
+    pub(crate) config_home: Option<Spanned<String>>,
     pub(crate) log_level: Option<Spanned<String>>,
     pub(crate) log_target: Option<Spanned<String>>,
     pub(crate) log_file: Option<Spanned<String>>,
@@ -1546,5 +1639,205 @@ mod tests {
                 "cell-path-types=true".to_string(),
             ]
         );
+    }
+
+    // --- strip_quotes tests ---
+
+    #[cfg(feature = "plugin")]
+    #[test]
+    fn strip_quotes_removes_double_quotes() {
+        assert_eq!(strip_quotes(r#""hello""#), "hello");
+    }
+
+    #[cfg(feature = "plugin")]
+    #[test]
+    fn strip_quotes_no_op_when_no_quotes() {
+        assert_eq!(strip_quotes("hello"), "hello");
+    }
+
+    #[cfg(feature = "plugin")]
+    #[test]
+    fn strip_quotes_handles_single_quote() {
+        assert_eq!(strip_quotes(r#""hello"#), r#""hello"#);
+    }
+
+    #[cfg(feature = "plugin")]
+    #[test]
+    fn strip_quotes_trims_whitespace() {
+        assert_eq!(strip_quotes(r#"  "/path/foo"  "#), "/path/foo");
+    }
+
+    // --- split_respecting_quotes tests ---
+
+    #[cfg(feature = "plugin")]
+    #[test]
+    fn split_respecting_quotes_splits_by_whitespace() {
+        assert_eq!(
+            split_respecting_quotes("/path/a /path/b /path/c"),
+            vec!["/path/a", "/path/b", "/path/c"]
+        );
+    }
+
+    #[cfg(feature = "plugin")]
+    #[test]
+    fn split_respecting_quotes_preserves_quoted_spaces() {
+        assert_eq!(
+            split_respecting_quotes(r#""/path/with spaces/a" /path/b"#),
+            vec!["/path/with spaces/a", "/path/b"]
+        );
+    }
+
+    #[cfg(feature = "plugin")]
+    #[test]
+    fn split_respecting_quotes_empty_input() {
+        let empty: Vec<String> = vec![];
+        assert_eq!(split_respecting_quotes(""), empty);
+    }
+
+    #[cfg(feature = "plugin")]
+    #[test]
+    fn split_respecting_quotes_single_value_no_spaces() {
+        assert_eq!(split_respecting_quotes("/path/a"), vec!["/path/a"]);
+    }
+
+    // --- parse_plugin_paths tests ---
+
+    #[cfg(feature = "plugin")]
+    #[test]
+    fn parse_plugin_paths_single_absolute_path() {
+        assert_eq!(
+            parse_plugin_paths("/path/to/nu_plugin_foo"),
+            vec!["/path/to/nu_plugin_foo"]
+        );
+    }
+
+    #[cfg(feature = "plugin")]
+    #[test]
+    fn parse_plugin_paths_bracketed_list_with_spaces() {
+        assert_eq!(
+            parse_plugin_paths("[/path/foo /path/bar]"),
+            vec!["/path/foo", "/path/bar"]
+        );
+    }
+
+    #[cfg(feature = "plugin")]
+    #[test]
+    fn parse_plugin_paths_bracketed_list_with_commas() {
+        assert_eq!(
+            parse_plugin_paths("[/path/foo, /path/bar]"),
+            vec!["/path/foo", "/path/bar"]
+        );
+    }
+
+    #[cfg(feature = "plugin")]
+    #[test]
+    fn parse_plugin_paths_bracketed_list_with_commas_and_quoted_spaces() {
+        assert_eq!(
+            parse_plugin_paths(r#"["/path/with spaces/a", /path/b]"#),
+            vec!["/path/with spaces/a", "/path/b"]
+        );
+    }
+
+    #[cfg(feature = "plugin")]
+    #[test]
+    fn parse_plugin_paths_quoted_single_path() {
+        assert_eq!(
+            parse_plugin_paths(r#""/path/with spaces/foo""#),
+            vec!["/path/with spaces/foo"]
+        );
+    }
+
+    #[cfg(feature = "plugin")]
+    #[test]
+    fn parse_plugin_paths_empty_brackets() {
+        let empty: Vec<String> = vec![];
+        assert_eq!(parse_plugin_paths("[]"), empty);
+    }
+
+    #[cfg(feature = "plugin")]
+    #[test]
+    fn parse_plugin_paths_brackets_with_whitespace_only() {
+        let empty: Vec<String> = vec![];
+        assert_eq!(parse_plugin_paths("[  ]"), empty);
+    }
+
+    #[cfg(feature = "plugin")]
+    #[test]
+    fn parse_plugin_paths_trims_whitespace() {
+        assert_eq!(
+            parse_plugin_paths("  /path/to/nu_plugin_foo  "),
+            vec!["/path/to/nu_plugin_foo"]
+        );
+    }
+
+    // --- Integration tests for --plugins with script arguments ---
+
+    #[cfg(feature = "plugin")]
+    #[test]
+    fn plugins_single_path_does_not_consume_script_name() {
+        let args = vec![
+            OsString::from("nu"),
+            OsString::from("--plugins"),
+            OsString::from("/path/to/nu_plugin_foo"),
+            OsString::from("script.nu"),
+        ];
+
+        let parsed = parse_cli_args(args).expect("should parse args");
+        assert_eq!(parsed.script_name, "script.nu");
+
+        let plugins = parsed.nu.plugins.expect("should have plugins");
+        assert_eq!(plugins.len(), 1);
+        assert!(plugins[0].item.contains("nu_plugin_foo"));
+    }
+
+    #[cfg(feature = "plugin")]
+    #[test]
+    fn plugins_bracketed_list_does_not_consume_script_name() {
+        let args = vec![
+            OsString::from("nu"),
+            OsString::from("--plugins"),
+            OsString::from("[/path/nu_plugin_foo /path/nu_plugin_bar]"),
+            OsString::from("script.nu"),
+        ];
+
+        let parsed = parse_cli_args(args).expect("should parse args");
+        assert_eq!(parsed.script_name, "script.nu");
+
+        let plugins = parsed.nu.plugins.expect("should have plugins");
+        assert_eq!(plugins.len(), 2);
+    }
+
+    #[cfg(feature = "plugin")]
+    #[test]
+    fn plugins_multiple_flags_accumulate() {
+        let args = vec![
+            OsString::from("nu"),
+            OsString::from("--plugins"),
+            OsString::from("/path/nu_plugin_foo"),
+            OsString::from("--plugins"),
+            OsString::from("/path/nu_plugin_bar"),
+            OsString::from("script.nu"),
+        ];
+
+        let parsed = parse_cli_args(args).expect("should parse args");
+        assert_eq!(parsed.script_name, "script.nu");
+
+        let plugins = parsed.nu.plugins.expect("should have plugins");
+        assert_eq!(plugins.len(), 2);
+    }
+
+    #[cfg(feature = "plugin")]
+    #[test]
+    fn plugins_empty_list_is_skipped() {
+        let args = vec![
+            OsString::from("nu"),
+            OsString::from("--plugins"),
+            OsString::from("[]"),
+            OsString::from("script.nu"),
+        ];
+
+        let parsed = parse_cli_args(args).expect("should parse args");
+        assert_eq!(parsed.script_name, "script.nu");
+        assert!(parsed.nu.plugins.is_none());
     }
 }

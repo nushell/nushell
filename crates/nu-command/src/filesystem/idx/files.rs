@@ -46,8 +46,10 @@ impl Command for IdxFiles {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let query = call.opt::<String>(engine_state, stack, 0)?;
-        let signals = engine_state.signals();
-        stream_files(query, call.head, signals)
+        stream_files(
+            call.opt::<String>(engine_state, stack, 0)?,
+            call.head,
+            engine_state.signals(),
+        )
     }
 }

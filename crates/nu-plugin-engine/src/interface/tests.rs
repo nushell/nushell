@@ -1135,20 +1135,23 @@ fn interface_get_dynamic_completion() -> Result<(), ShellError> {
             }])),
         )]
     });
-    let result = interface.get_dynamic_completion(GetCompletionInfo {
-        name: "test".to_string(),
-        arg_type: nu_plugin_protocol::GetCompletionArgType::Flag("test_flag".to_string()),
-        call: DynamicCompletionCall {
-            call: nu_protocol::ast::Call {
-                decl_id: Id::new(3),
-                head: Span::test_data(),
-                arguments: vec![],
-                parser_info: HashMap::new(),
+    let result = interface.get_dynamic_completion(
+        GetCompletionInfo {
+            name: "test".to_string(),
+            arg_type: nu_plugin_protocol::GetCompletionArgType::Flag("test_flag".to_string()),
+            call: DynamicCompletionCall {
+                call: nu_protocol::ast::Call {
+                    decl_id: Id::new(3),
+                    head: Span::test_data(),
+                    arguments: vec![],
+                    parser_info: HashMap::new(),
+                },
+                pos: 0,
+                strip: true,
             },
-            pos: 0,
-            strip: true,
         },
-    })?;
+        &mut PluginExecutionBogusContext,
+    )?;
 
     assert_eq!(
         Some(vec![DynamicSuggestion {
@@ -1157,20 +1160,23 @@ fn interface_get_dynamic_completion() -> Result<(), ShellError> {
         }]),
         result
     );
-    let result = interface.get_dynamic_completion(GetCompletionInfo {
-        name: "test".to_string(),
-        arg_type: nu_plugin_protocol::GetCompletionArgType::Positional(1),
-        call: DynamicCompletionCall {
-            call: nu_protocol::ast::Call {
-                decl_id: Id::new(3),
-                head: Span::test_data(),
-                arguments: vec![],
-                parser_info: HashMap::new(),
+    let result = interface.get_dynamic_completion(
+        GetCompletionInfo {
+            name: "test".to_string(),
+            arg_type: nu_plugin_protocol::GetCompletionArgType::Positional(1),
+            call: DynamicCompletionCall {
+                call: nu_protocol::ast::Call {
+                    decl_id: Id::new(3),
+                    head: Span::test_data(),
+                    arguments: vec![],
+                    parser_info: HashMap::new(),
+                },
+                pos: 0,
+                strip: true,
             },
-            pos: 0,
-            strip: true,
         },
-    })?;
+        &mut PluginExecutionBogusContext,
+    )?;
 
     assert_eq!(
         Some(vec![DynamicSuggestion {

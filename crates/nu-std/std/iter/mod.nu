@@ -17,15 +17,14 @@
 @example "Try to find an even element" { ["shell", "abc", "around", "nushell", "std"] | iter find {|e| $e mod 2 == 0} } --result null
 export def find [
     fn: closure # the closure used to perform the search 
+]: [
+    list -> any
+    range -> oneof<number, nothing>
 ] {
-    where {|e| try {do $fn $e} } | try { first }
+    where {|e| try {do $fn $e} } | first
 }
 
-# Returns the index of the first element that matches the predicate or -1 if none
-#
-# # Invariant
-#
-# The closure must return a bool
+# Returns the index of the first element that matches the predicate, or `null` if none
 @example "Find the index of an element starting with 's'" {
     ["iter", "abc", "shell", "around", "nushell", "std"] | iter find-index {|x| $x starts-with 's'}
 } --result 2
@@ -34,10 +33,13 @@ export def find [
 } --result -1
 export def find-index [
     fn: closure # the closure used to perform the search
+]: [
+    list -> oneof<int, nothing>
+    range -> oneof<int, nothing>
 ] {
     enumerate
     | find {|e| $e.item | do $fn $e.item }
-    | try { get index } catch { -1 }
+    | try { get index }
 }
 
 # Returns a new list with the separator between adjacent items of the original list
@@ -46,14 +48,19 @@ export def find-index [
 } --result [1 0 2 0 3 0 4]
 export def intersperse [
     separator: any # the separator to be used
+]: [
+    list -> list
+    range -> list
 ] {
-    reduce --fold [] {|e, acc|
-         $acc ++ [$e, $separator]
-    } 
-    | match $in {
-         [] => [],
-         $xs => ($xs | take (($xs | length) - 1 ))
-    }
+    each --flatten { [$separator $in] } | skip 1
+}
+
+def scan-with-init [init: any, closure: closure] {
+    generate {|e, acc|
+        let out = $acc | do $closure $e $acc
+        {next: $out, out: $out}
+    } $init
+    | prepend [$init]
 }
 
 # Returns a list of intermediate steps performed by `reduce` (`fold`).
@@ -65,22 +72,39 @@ export def intersperse [
 #   2. the internal state
 #
 # The internal state is also provided as pipeline input.
-@example "Get a running sum of the input list" {
-    [1 2 3] | iter scan 0 {|x, y| $x + $y}
-} --result [0, 1, 3, 6]
-@example "use the `--noinit(-n)` flag to remove the initial value from the final result" {
-    [1 2 3] | iter scan 0 {|x, y| $x + $y} -n
+@example "Get a running sum of the input list." {
+    [1 2 3] | iter scan {|x, y| $x + $y}
 } --result [1, 3, 6]
-export def scan [ # -> list<any>
-    init: any            # initial value to seed the initial state
-    fn: closure          # the closure to perform the scan
-    --noinit(-n)         # remove the initial value from the result
+@example "Append items to a list one at a time and receive all steps." {
+    [1 2 3] | iter scan --fold [] {|e, acc| $acc ++ [$e]}
+} --result [[], [1], [1, 2], [1, 2, 3]]
+export def scan [
+    --fold(-f): any  # Scan with initial value.
+    closure: closure # Scanning closure.
+]: [
+    list -> list
+    range -> list
 ] {
-    generate {|e, acc|
-        let out = $acc | do $fn $e $acc
-        {next: $out, out: $out}
-    } $init
-    | if not $noinit { prepend $init } else { }
+    match (
+        # we really need to a better way to discern why `$flag == null`
+        # - `cmd`
+        # - `cmd --flag null`
+        $fold == null and not (if true {
+            let span = (metadata $fold).span
+            let src = view span $span.start $span.end
+            ($src starts-with "--foo" or $src starts-with "-f")
+        })
+    ) {
+        # --fold
+        false => { scan-with-init $fold $closure }
+        # no --fold
+        true => {
+            peek 1 | metadata access {|md| match $md.peek.value {
+                [] => []
+                [$init] => { skip 1 | scan-with-init $init $closure }
+            }}
+        }
+    }
 }
 
 # Returns a list of values for which the supplied closure does not return `null` or an error.
@@ -108,12 +132,15 @@ export def filter-map [
 
 # Maps a closure to each nested structure and flattens the result
 @example "Get the sums of list elements" {
-    [[1 2 3] [2 3 4] [5 6 7]] | iter flat-map {|e| $e | math sum}
-} --result [6, 9, 18]
-export def flat-map [ # -> list<any>
+    1..3 | iter flat-map {|e| 0..<$e | each { $e } }
+} --result [1, 2, 2, 3, 3, 3]
+export def flat-map [
     fn: closure              # the closure to map to the nested structures
+]: [
+    list -> list
+    range -> list
 ] {
-    each {|e| do $fn $e } | flatten
+    each --flatten $fn
 }
 
 # Zips two structures and applies a closure to each of the zips
@@ -125,9 +152,7 @@ export def  zip-with [ # -> list<any>
     fn: closure              # the closure to apply to the zips
 ] {
     zip $other 
-    | each {|e|
-        reduce {|e, acc| do $fn $acc $e }
-    }
+    | each {|e| null; do $fn $e.0 $e.1 }
 }
 
 # Zips two lists and returns a record with the first list as headers

@@ -15,6 +15,7 @@ mod generators;
 mod hash;
 mod help;
 mod math;
+mod matrix;
 mod misc;
 mod network;
 mod path;
@@ -24,6 +25,7 @@ mod progress_bar;
 #[cfg(feature = "rand")]
 mod random;
 mod removed;
+mod semver;
 mod shells;
 mod sort_utils;
 #[cfg(feature = "sqlite")]
@@ -51,6 +53,7 @@ pub use generators::*;
 pub use hash::*;
 pub use help::*;
 pub use math::*;
+pub use matrix::*;
 pub use misc::*;
 pub use network::*;
 pub use path::*;
@@ -59,6 +62,7 @@ pub use platform::*;
 #[cfg(feature = "rand")]
 pub use random::*;
 pub use removed::*;
+pub use semver::*;
 pub use shells::*;
 pub use sort_utils::*;
 #[cfg(feature = "sqlite")]

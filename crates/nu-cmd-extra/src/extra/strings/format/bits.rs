@@ -4,7 +4,7 @@ use std::io::{self, Read, Write as IoWrite};
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
 
-use nu_heavy_utils::Endian;
+use nu_heavy_utils::endian::Endian;
 use nu_protocol::{Signals, shell_error::io::IoError};
 use num_traits::ToPrimitive;
 
@@ -223,7 +223,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
     match input {
         Value::Binary { val, .. } => {
             let mut raw_string = "".to_string();
-            for ch in val {
+            for ch in val.iter() {
                 write!(raw_string, "{ch:08b} ").expect("writing to a String is infallible");
             }
             Value::string(raw_string.trim(), span)

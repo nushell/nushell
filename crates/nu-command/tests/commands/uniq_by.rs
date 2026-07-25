@@ -191,6 +191,21 @@ fn wrong_column() -> Result {
 }
 
 #[test]
+fn similar_column_suggests_correction() -> Result {
+    let err = test()
+        .run("[[fruit]; [apple]] | uniq-by ffruit")
+        .expect_shell_error()?;
+
+    match err {
+        ShellError::DidYouMean { suggestion, .. } => {
+            assert_eq!(suggestion, "fruit");
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
+}
+
+#[test]
 fn non_record_list_errors() -> Result {
     // A cell path applied to a non-record yields the natural `IncompatiblePathAccess`
     // error, matching `group-by`'s behavior.
@@ -204,8 +219,14 @@ fn mixed_list_non_record_errors() -> Result {
     let err = test()
         .run("[{a: 1} 2 3] | uniq-by a")
         .expect_shell_error()?;
-    assert!(matches!(err, ShellError::IncompatiblePathAccess { .. }));
-    Ok(())
+
+    match err {
+        ShellError::IncompatiblePathAccess { type_name, .. } => {
+            assert_eq!(type_name, "int");
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
 }
 
 #[test]

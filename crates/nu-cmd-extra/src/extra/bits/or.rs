@@ -1,6 +1,6 @@
 use super::binary_op;
 use nu_engine::command_prelude::*;
-use nu_heavy_utils::Endian;
+use nu_heavy_utils::endian::Endian;
 
 #[derive(Clone)]
 pub struct BitsOr;

@@ -64,18 +64,10 @@ impl Block {
     }
 
     pub fn output_type(&self) -> Type {
-        if let Some(last) = self.pipelines.last() {
-            if let Some(last) = last.elements.last() {
-                if last.redirection.is_some() {
-                    Type::Any
-                } else {
-                    last.expr.ty.clone()
-                }
-            } else {
-                Type::Nothing
-            }
-        } else {
-            Type::Nothing
+        match self.pipelines.last().and_then(|pl| pl.elements.last()) {
+            Some(pe) if pe.redirection.is_none() => pe.expr.ty.clone(),
+            Some(_) => Type::Any,
+            None => Type::Nothing,
         }
     }
 

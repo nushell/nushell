@@ -1814,10 +1814,10 @@ fn parse_motion_target(
                 record,
                 config,
                 span,
-                "'small' or 'big'",
+                "'word' or 'longword'",
                 |name| match name {
-                    "small" => Some(WordKind::Small),
-                    "big" => Some(WordKind::Big),
+                    "word" => Some(WordKind::Word),
+                    "longword" => Some(WordKind::LongWord),
                     _ => None,
                 },
             )?,
@@ -1929,7 +1929,7 @@ mod test {
         let event = Value::test_record(record! {
             "edit" => Value::test_string("Cut"),
             "motion" => Value::test_string("word"),
-            "word_kind" => Value::test_string("big"),
+            "word_kind" => Value::test_string("longword"),
             "edge" => Value::test_string("end"),
             "direction" => Value::test_string("forward"),
             "granularity" => Value::test_string("linewise"),
@@ -1941,7 +1941,7 @@ mod test {
             parsed_event,
             Some(ReedlineEvent::Edit(vec![EditCommand::Cut {
                 target: MotionTarget::Word {
-                    kind: WordKind::Big,
+                    kind: WordKind::LongWord,
                     edge: WordEdge::End,
                     direction: Direction::Forward,
                 },

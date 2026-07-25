@@ -1,0 +1,7 @@
+[advisories]
+ignore = [
+  # quickxml@0.39 is used by calamine, we need to wait for a patch upstream
+  # untrusted .xlsx files could be get OOM or CPU DoS
+  "RUSTSEC-2026-0194",
+  "RUSTSEC-2026-0195",
+]

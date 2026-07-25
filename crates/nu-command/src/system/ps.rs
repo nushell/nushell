@@ -115,13 +115,9 @@ fn run_ps(
             record.push("command", Value::string(proc.command(), span));
             #[cfg(target_os = "linux")]
             {
-                let proc_stat = proc.curr_proc.stat().map_err(|e| {
-                    ShellError::Generic(nu_protocol::shell_error::generic::GenericError::new(
-                        "Error getting process stat",
-                        e.to_string(),
-                        span,
-                    ))
-                })?;
+                let Ok(proc_stat) = proc.curr_proc.stat() else {
+                    continue;
+                };
                 record.push(
                     "start_time",
                     match proc_stat.starttime().get() {

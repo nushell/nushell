@@ -1,6 +1,10 @@
 use crate::repl::tests::{TestResult, fail_test, run_test, run_test_contains, run_test_with_env};
 use nu_protocol::ParseError;
-use nu_test_support::{fs::Stub, nu_repl_code, prelude::*};
+use nu_test_support::{
+    fs::Stub::{self, FileWithContent},
+    nu_repl_code,
+    prelude::*,
+};
 use rstest::rstest;
 use std::collections::HashMap;
 
@@ -427,9 +431,11 @@ fn append_assign_takes_pipeline() -> TestResult {
 #[rstest]
 #[case::bare("nu")]
 #[case::quoted("`nu`")]
+#[nu_test_support::test]
+#[deps(NU)]
 fn assign_external_fails(#[case] external: &str) -> Result {
     let code = format!("$env.FOO = {external} --testbin cococo");
-    let err = test().add_nu_to_path().run(code).expect_parse_error()?;
+    let err = test().run(code).expect_parse_error()?;
 
     match err {
         ParseError::LabeledErrorWithHelp { error, .. } => {
@@ -443,9 +449,11 @@ fn assign_external_fails(#[case] external: &str) -> Result {
 #[rstest]
 #[case::with_caret("^nu")]
 #[case::quoted_with_caret("^`nu`")]
+#[nu_test_support::test]
+#[deps(NU)]
 fn assign_external_works(#[case] external: &str) -> Result {
     let code = format!("$env.FOO = {external} --testbin cococo; $env.FOO");
-    test().add_nu_to_path().run(code).expect_value_eq("cococo")
+    test().run(code).expect_value_eq("cococo")
 }
 
 #[test]
@@ -623,6 +631,25 @@ fn string_interpolation_paren_test2() -> TestResult {
 #[test]
 fn string_interpolation_paren_test3() -> TestResult {
     run_test(r#"$"('(')("test")test(')')""#, "(testtest)")
+}
+
+#[rstest]
+#[case::subexpression("(do {0})-str")]
+#[case::closure("({|| })-str")]
+#[case::ambiguous_block(r#"(if true { "T" } else { "F" })-str"#)]
+#[case::spaced_subexpression("(do {0} )-str")]
+#[case::spaced_closure("({|| } )-str")]
+#[case::spaced_ambiguous_block(r#"(if true { "T" } else { "F" } )-str"#)]
+#[case::unambiguous_block(r#"(if true { "T" })-str"#)]
+fn bare_interpolation_does_not_hide_redefined_command(#[case] body: &str) -> TestResult {
+    let mut tester = test();
+    tester.run::<()>(r#"def cmd [] { "fallback" }"#)?;
+    let same_entry: String = tester.run(format!("def cmd [] {{ {body} }}; cmd"))?;
+    let later_entry: String = tester.run("cmd")?;
+
+    assert_ne!(same_entry, "fallback");
+    assert_eq!(same_entry, later_entry);
+    Ok(())
 }
 
 #[test]
@@ -1113,7 +1140,7 @@ fn let_variable_record_runtime_mismatch() -> TestResult {
     assert!(
         outcome
             .err
-            .contains("can't convert record<a: int> to record<b: int>")
+            .contains("expected record<b: int>, got record<a: int>")
     );
     Ok(())
 }
@@ -1425,9 +1452,11 @@ fn quote_escape_but_not_env_shorthand() -> TestResult {
 }
 
 // https://github.com/nushell/nushell/issues/16586
+// Shadowing the `def` keyword used to panic in the REPL; it is now rejected cleanly.
 #[test]
 fn redefine_def_should_not_panic() -> TestResult {
-    fail_test("def def (=a|s)>", "Unclosed delimiter")
+    fail_test("def def (=a|s)>", "name_is_keyword")?;
+    fail_test("def def [] {}", "name_is_keyword")
 }
 
 #[test]
@@ -1489,4 +1518,48 @@ fn allow_it_as_variable_name() -> TestResult {
 fn keep_variable_it_after_where() -> TestResult {
     // Test for https://github.com/nushell/nushell/issues/17380
     run_test("let it = 3; [1 2 3 4] | where $it > 2; $it", "3")
+}
+
+#[test]
+fn external_arg_correctness() -> TestResult {
+    Playground::setup("external_arg_correctness", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent(
+            "script.nu",
+            "
+            def main [
+                --flag: external_arg
+                --flag2: external_arg
+                --flag3: external_arg
+                arg: external_arg
+                arg2: external_arg
+                arg3: external_arg
+                ...rest: external_arg
+            ] {
+                [
+                    [label value type];
+                    [flag $flag ($flag | describe)]
+                    [flag2 $flag2 ($flag2 | describe)]
+                    [flag3 $flag3 ($flag3 | describe)]
+                    [arg $arg ($arg | describe)]
+                    [arg2 $arg2 ($arg2 | describe)]
+                    [arg3 $arg3 ($arg3 | describe)]
+                    [rest $rest ($rest | describe)]
+                ]
+                | to nuon
+            }
+            ",
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            "nu script.nu --flag=false --flag2=0001 --flag3={fake: null} false 0001 {fake: null} false 0001 {fake: null}"
+        );
+
+        assert_eq!(
+            actual.out,
+            r#"[[label, value, type]; [flag, "false", glob], ["flag2", "0001", glob], ["flag3", "{fake: null}", string], [arg, "false", glob], ["arg2", "0001", glob], ["arg3", "{fake: null}", string], [rest, ["false", "0001", "{fake: null}"], "list<oneof<glob, string>>"]]"#
+        );
+
+        Ok(())
+    })
 }
