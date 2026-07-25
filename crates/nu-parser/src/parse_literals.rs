@@ -507,10 +507,11 @@ pub fn parse_paren_expr(
             .is_some_and(|e| match e {
                 ParseError::Unclosed(right, ..) if (*right == ")") => true,
                 ParseError::Unbalanced(left, right, ..) if *left == "(" && *right == ")" => true,
-                // Lex presentation may reshape an unexpected `)` into a labeled
-                // "Unexpected `)`" (lookback insert-site labels). That is still a
-                // paren-delimiter failure and should fall back to bare-word string
-                // interpolation the same way.
+                // Lex presentation may reshape an unexpected `)` into
+                // UnexpectedCloser (primary closer + secondary insert site).
+                // That is still a paren-delimiter failure and should fall back
+                // to bare-word string interpolation the same way.
+                ParseError::UnexpectedCloser { closer, .. } if *closer == ")" => true,
                 ParseError::LabeledErrorWithHelp { error, .. }
                     if error.contains("Unexpected `)`") || error.contains("Missing `(`") =>
                 {

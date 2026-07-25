@@ -19,11 +19,11 @@ impl Validator for NuValidator {
         // typing a multi-line construct (e.g. an open `{` in the REPL).
         //
         // Lex presentation may reshape some stack failures (extra `}` / `)` / `]`)
-        // into `LabeledErrorWithHelp` ("Unexpected `}`/`]`/`)`…"). Those are complete
-        // but wrong inputs, not mid-edit unclosed forms — keep them Complete so the
-        // REPL submits the line and shows the diagnostic instead of waiting for more
-        // input. Only extend Incomplete if a new reshape intentionally represents
-        // a still-open multi-line edit.
+        // into `UnexpectedCloser` (primary closer + optional insert-site hint).
+        // Those are complete but wrong inputs, not mid-edit unclosed forms — keep
+        // them Complete so the REPL submits the line and shows the diagnostic
+        // instead of waiting for more input. Only extend Incomplete if a new
+        // reshape intentionally represents a still-open multi-line edit.
         if matches!(
             working_set.parse_errors.first(),
             Some(ParseError::UnexpectedEof(..) | ParseError::Unclosed(..))

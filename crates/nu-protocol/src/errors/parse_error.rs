@@ -610,6 +610,25 @@ pub enum ParseError {
         span: Span,
     },
 
+    /// Unexpected closer with an optional secondary label for a heuristic
+    /// opener insert site (e.g. missing `{` after `if`).
+    ///
+    /// Primary label is always the unmatched closer so "remove this `}`" stays
+    /// anchored even when the lookback hint is wrong. Used only when the
+    /// delimiter stack already proved a real failure.
+    #[error("Unexpected `{closer}`")]
+    #[diagnostic(code(nu::parser::unexpected_closer), help("{help}"))]
+    UnexpectedCloser {
+        closer: &'static str,
+        #[label(primary, "unexpected `{closer}`")]
+        closer_span: Span,
+        /// When set, secondary label at a possible place to insert the opener.
+        #[label("{hint_label}")]
+        hint_span: Option<Span>,
+        hint_label: String,
+        help: String,
+    },
+
     #[error("Redirection can not be used with {0}.")]
     #[diagnostic()]
     RedirectingBuiltinCommand(
@@ -783,6 +802,8 @@ impl ParseError {
             ParseError::UnknownOperator(_, _, s) => *s,
             ParseError::InvalidLiteral(_, _, s) => *s,
             ParseError::LabeledErrorWithHelp { span: s, .. } => *s,
+            // Jump-to-error: prefer the unmatched closer, not the heuristic hint.
+            ParseError::UnexpectedCloser { closer_span, .. } => *closer_span,
             ParseError::RedirectingBuiltinCommand(_, s, _) => *s,
             ParseError::UnexpectedSpreadArg(_, s) => *s,
             ParseError::ExtraTokensAfterClosingDelimiter(s) => *s,

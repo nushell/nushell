@@ -104,10 +104,13 @@ fn opening_delimiter_str(block: BlockKind) -> &'static str {
 
 /// Unexpected closer: report based on a *real* stack failure only.
 ///
-/// Presentation may be reshaped when the stack failure is almost certainly due
-/// to a missing opener nearby (e.g. missing `{` after `if`, or missing `[`
-/// before list elements). That never invents a failure — only the stack decides
-/// that lexing failed.
+/// Presentation may attach a *secondary* lookback hint when the stack failure
+/// is likely due to a missing opener nearby (e.g. missing `{` after `if`, or
+/// missing `[` before list elements). That never invents a failure — only the
+/// stack decides that lexing failed.
+///
+/// Primary label is always the unmatched closer so "remove this `}`" stays
+/// anchored even when the lookback hint is wrong (e.g. matched string content).
 fn unbalanced_closer(
     closer: &'static str,
     default_open: &'static str,
@@ -119,29 +122,31 @@ fn unbalanced_closer(
 ) -> ParseError {
     if closer == "}"
         && block_level.is_empty()
-        && let Some((kind, span)) =
+        && let Some((kind, hint_span)) =
             find_missing_open_brace_above(input, span_offset, token_start, close_span)
     {
         // Dual remove/add help: we cannot know whether the user forgot `{` or
-        // has an extra `}`. Point at a likely insert site; let the message stay
-        // non-committal about which repair is correct.
-        return match kind {
-            MissingOpenBraceKind::ControlFlow => ParseError::LabeledErrorWithHelp {
-                error: "Unexpected `}`".into(),
-                label: "possible place for `{` after this condition".into(),
-                help: "Remove this `}` if it is extra, or add `{` after the \
-                       `if` / `else if` / `while` / `for` / `try` / `match` condition."
+        // has an extra `}`. Closer is primary; insert site is secondary.
+        let (hint_label, help) = match kind {
+            MissingOpenBraceKind::ControlFlow => (
+                "possible place for `{` after this condition".into(),
+                "Remove this `}` if it is extra, or add `{` after the \
+                 `if` / `else if` / `while` / `for` / `try` / `match` condition."
                     .into(),
-                span,
-            },
-            MissingOpenBraceKind::Record => ParseError::LabeledErrorWithHelp {
-                error: "Unexpected `}`".into(),
-                label: "possible place for `{`".into(),
-                help: "Remove this `}` if it is extra, or add `{` before the record fields \
-                       (e.g. `{ key: value }`)."
+            ),
+            MissingOpenBraceKind::Record => (
+                "possible place for `{`".into(),
+                "Remove this `}` if it is extra, or add `{` before the record fields \
+                 (e.g. `{ key: value }`)."
                     .into(),
-                span,
-            },
+            ),
+        };
+        return ParseError::UnexpectedCloser {
+            closer: "}",
+            closer_span: close_span,
+            hint_span: Some(hint_span),
+            hint_label,
+            help,
         };
     }
 
@@ -154,15 +159,16 @@ fn unbalanced_closer(
             block_level.last().map(|f| f.kind),
             Some(BlockKind::SquareBracket | BlockKind::Paren)
         )
-        && let Some(open_span) = find_missing_list_open_bracket(input, span_offset, close_span)
+        && let Some(hint_span) = find_missing_list_open_bracket(input, span_offset, close_span)
     {
-        return ParseError::LabeledErrorWithHelp {
-            error: "Unexpected `]`".into(),
-            label: "possible place for `[`".into(),
+        return ParseError::UnexpectedCloser {
+            closer: "]",
+            closer_span: close_span,
+            hint_span: Some(hint_span),
+            hint_label: "possible place for `[`".into(),
             help: "Remove this `]` if it is extra, or add `[` before the list elements \
                    (e.g. `[2 ($in_ten - 2) 0]`)."
                 .into(),
-            span: open_span,
         };
     }
 
@@ -175,14 +181,15 @@ fn unbalanced_closer(
             block_level.last().map(|f| f.kind),
             Some(BlockKind::Paren | BlockKind::SquareBracket)
         )
-        && let Some(open_span) = find_missing_open_paren(input, span_offset, close_span)
+        && let Some(hint_span) = find_missing_open_paren(input, span_offset, close_span)
     {
-        return ParseError::LabeledErrorWithHelp {
-            error: "Unexpected `)`".into(),
-            label: "possible place for `(`".into(),
+        return ParseError::UnexpectedCloser {
+            closer: ")",
+            closer_span: close_span,
+            hint_span: Some(hint_span),
+            hint_label: "possible place for `(`".into(),
             help: "Remove this `)` if it is extra, or add `(` before the grouped expression."
                 .into(),
-            span: open_span,
         };
     }
 
@@ -193,6 +200,117 @@ fn unbalanced_closer(
         .map(|f| opening_delimiter_str(f.kind))
         .unwrap_or(default_open);
     ParseError::unbalanced(open, closer, close_span)
+}
+
+/// Lex-like scanner state for deciding whether a byte is in code vs string/comment.
+///
+/// Used only on the delimiter-error path so lookback heuristics do not treat
+/// multiline string contents (or comments) as control-flow / record syntax.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum CodeScanState {
+    Code,
+    LineComment,
+    SingleQuote,
+    DoubleQuote,
+    Backtick,
+    /// Raw string body after `r#…#'`; `n_hashes` is the prefix `#` count.
+    RawString {
+        n_hashes: usize,
+    },
+}
+
+/// True when `pos` (byte index into `input`) is outside strings and line comments.
+///
+/// Scans from the start of `input` so multiline strings opened before a lookback
+/// window are still recognized. Mirrors the main lexer's quote / raw-string rules.
+fn is_in_code_context(input: &[u8], pos: usize) -> bool {
+    if pos >= input.len() {
+        return true;
+    }
+    let mut state = CodeScanState::Code;
+    let mut i = 0;
+    while i < pos {
+        let c = input[i];
+        match state {
+            CodeScanState::Code => {
+                if c == b'#' {
+                    state = CodeScanState::LineComment;
+                    i += 1;
+                } else if c == b'\'' {
+                    state = CodeScanState::SingleQuote;
+                    i += 1;
+                } else if c == b'"' {
+                    state = CodeScanState::DoubleQuote;
+                    i += 1;
+                } else if c == b'`' {
+                    state = CodeScanState::Backtick;
+                    i += 1;
+                } else if c == b'r' && input.get(i + 1) == Some(&b'#') {
+                    // `r#…#'…'#…#` — count prefix hashes (same idea as lex_raw_string).
+                    let mut n_hashes = 0;
+                    let mut j = i + 1;
+                    while input.get(j) == Some(&b'#') {
+                        n_hashes += 1;
+                        j += 1;
+                    }
+                    if input.get(j) == Some(&b'\'') {
+                        state = CodeScanState::RawString { n_hashes };
+                        i = j + 1;
+                    } else {
+                        // Not a valid raw-string opener; treat `r` as code.
+                        i += 1;
+                    }
+                } else {
+                    i += 1;
+                }
+            }
+            CodeScanState::LineComment => {
+                if c == b'\n' {
+                    state = CodeScanState::Code;
+                }
+                i += 1;
+            }
+            CodeScanState::SingleQuote => {
+                if c == b'\'' {
+                    state = CodeScanState::Code;
+                }
+                i += 1;
+            }
+            CodeScanState::DoubleQuote => {
+                if c == b'\\' {
+                    // Escape: skip next byte if present.
+                    i += 2;
+                } else if c == b'"' {
+                    state = CodeScanState::Code;
+                    i += 1;
+                } else {
+                    i += 1;
+                }
+            }
+            CodeScanState::Backtick => {
+                if c == b'`' {
+                    state = CodeScanState::Code;
+                }
+                i += 1;
+            }
+            CodeScanState::RawString { n_hashes } => {
+                // Closing delimiter is `'` followed by `n_hashes` `#`s.
+                // Match when we see the final `#` of that sequence.
+                if c == b'#' && n_hashes > 0 {
+                    let start = i.saturating_sub(n_hashes);
+                    if start < i {
+                        let opener_quote = input.get(start);
+                        let hashes = &input[start + 1..=i];
+                        if opener_quote == Some(&b'\'') && hashes.iter().all(|&b| b == b'#') {
+                            state = CodeScanState::Code;
+                        }
+                    }
+                }
+                i += 1;
+            }
+        }
+    }
+    matches!(state, CodeScanState::Code)
 }
 
 /// On a line ending with an unexpected `]`, if there is no `[` before it on
@@ -207,6 +325,10 @@ fn find_missing_list_open_bracket(
 ) -> Option<Span> {
     let close_local = close_span.start.checked_sub(span_offset)?;
     if close_local > input.len() {
+        return None;
+    }
+    // Do not reshape when the closer itself sits in a string/comment.
+    if !is_in_code_context(input, close_local) {
         return None;
     }
     let line_start = input[..close_local]
@@ -227,6 +349,10 @@ fn find_missing_list_open_bracket(
     if content_start >= line.len() {
         return None;
     }
+    let abs_local = line_start + content_start;
+    if !is_in_code_context(input, abs_local) {
+        return None;
+    }
     // Avoid flagging things that clearly aren't lists (e.g. bare identifiers with ]).
     // Require some list-ish content: digits, `(`, `$`, `"`, `'`, or space-separated values.
     let content = &line[content_start..];
@@ -236,7 +362,7 @@ fn find_missing_list_open_bracket(
     if !looks_like_list_elems {
         return None;
     }
-    let abs = span_offset + line_start + content_start;
+    let abs = span_offset + abs_local;
     Some(Span::new(abs, abs + 1))
 }
 
@@ -255,6 +381,9 @@ fn find_missing_open_paren(input: &[u8], span_offset: usize, close_span: Span) -
     if close_local > input.len() {
         return None;
     }
+    if !is_in_code_context(input, close_local) {
+        return None;
+    }
     let line_start = input[..close_local]
         .iter()
         .rposition(|&b| b == b'\n' || b == b'\r')
@@ -271,7 +400,11 @@ fn find_missing_open_paren(input: &[u8], span_offset: usize, close_span: Span) -
     // Prefer the start of the last "argument group" after a command + flags,
     // so `print -n ansi green)` points at `ansi`, not `print`.
     if let Some(rel) = start_of_trailing_expr_group(line) {
-        let abs = span_offset + line_start + rel;
+        let abs_local = line_start + rel;
+        if !is_in_code_context(input, abs_local) {
+            return None;
+        }
+        let abs = span_offset + abs_local;
         return Some(Span::new(abs, abs + 1));
     }
 
@@ -282,7 +415,11 @@ fn find_missing_open_paren(input: &[u8], span_offset: usize, close_span: Span) -
     if content_start >= line.len() {
         return None;
     }
-    let abs = span_offset + line_start + content_start;
+    let abs_local = line_start + content_start;
+    if !is_in_code_context(input, abs_local) {
+        return None;
+    }
+    let abs = span_offset + abs_local;
     Some(Span::new(abs, abs + 1))
 }
 
@@ -365,7 +502,13 @@ fn find_missing_open_brace_above(
     if close_local == 0 || close_local > input.len() {
         return None;
     }
+    // Closer inside a string/comment is not a code delimiter failure for lookback.
+    if !is_in_code_context(input, close_local) {
+        return None;
+    }
     // ~2kB lookback is enough for typical "if … / body / }" and bare-record mistakes.
+    // String/comment state is established from the start of `input` (see
+    // `is_in_code_context`), not from this window alone.
     let search_from = close_local.saturating_sub(2048);
     let region = &input[search_from..close_local];
 
@@ -378,26 +521,42 @@ fn find_missing_open_brace_above(
             .map(|i| i + 1)
             .unwrap_or(0);
         let line = &region[line_start..line_end];
-        // Strip trailing comment for the "has `{`?" check.
-        let code = match line.iter().position(|&b| b == b'#') {
-            Some(i) => &line[..i],
-            None => line,
-        };
-        let trimmed = trim_ascii_start(code);
-        if !trimmed.is_empty() {
-            if line_looks_like_control_flow_without_brace(trimmed) {
-                // Point at the last non-whitespace of the condition (where `{` belongs).
-                if let Some(span) = span_at_line_end(code, span_offset, search_from, line_start) {
-                    return Some((MissingOpenBraceKind::ControlFlow, span));
+        // Absolute index of the first non-whitespace on this line (in `input`).
+        let content_rel = line
+            .iter()
+            .position(|b| !b.is_ascii_whitespace())
+            .unwrap_or(0);
+        let abs_local = search_from + line_start + content_rel;
+        // Skip lines that live inside strings or comments (review: `if` / `type:`
+        // inside multiline / raw strings must not reshape the diagnostic).
+        if content_rel < line.len() && is_in_code_context(input, abs_local) {
+            // Strip trailing comment for the "has `{`?" check (code lines only).
+            let code = match line.iter().position(|&b| b == b'#') {
+                Some(i) if is_in_code_context(input, search_from + line_start + i) => &line[..i],
+                _ => line,
+            };
+            let trimmed = trim_ascii_start(code);
+            if !trimmed.is_empty() {
+                if line_looks_like_control_flow_without_brace(trimmed) {
+                    // Point at the last non-whitespace of the condition (where `{` belongs).
+                    if let Some(span) = span_at_line_end(code, span_offset, search_from, line_start)
+                    {
+                        // Re-check end-of-line is still code (should match line start).
+                        let end_local = span.end.saturating_sub(span_offset);
+                        if end_local == 0 || is_in_code_context(input, end_local.saturating_sub(1))
+                        {
+                            return Some((MissingOpenBraceKind::ControlFlow, span));
+                        }
+                    }
+                } else if line_looks_like_bare_record_fields(trimmed) {
+                    // Point at the first field key (where `{` should be inserted).
+                    let key_rel = code
+                        .iter()
+                        .position(|b| !b.is_ascii_whitespace())
+                        .unwrap_or(0);
+                    let abs = span_offset + search_from + line_start + key_rel;
+                    return Some((MissingOpenBraceKind::Record, Span::new(abs, abs + 1)));
                 }
-            } else if line_looks_like_bare_record_fields(trimmed) {
-                // Point at the first field key (where `{` should be inserted).
-                let key_rel = code
-                    .iter()
-                    .position(|b| !b.is_ascii_whitespace())
-                    .unwrap_or(0);
-                let abs = span_offset + search_from + line_start + key_rel;
-                return Some((MissingOpenBraceKind::Record, Span::new(abs, abs + 1)));
             }
         }
         if line_start == 0 {
