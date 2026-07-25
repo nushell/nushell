@@ -113,7 +113,7 @@ pub fn parse_list_pattern(working_set: &mut StateWorkingSet, span: Span) -> Matc
     if bytes.ends_with(b"]") {
         end -= 1;
     } else {
-        let open = Span::new(span.start, span.start.saturating_add(1).min(span.end));
+        let open = ParseError::opener_span(span, 1);
         working_set.error(ParseError::unclosed("]", open, Span::new(end, end)));
     }
 
@@ -200,7 +200,7 @@ pub fn parse_record_pattern(working_set: &mut StateWorkingSet, span: Span) -> Ma
     if bytes.ends_with(b"}") {
         end -= 1;
     } else {
-        let open = Span::new(span.start, span.start.saturating_add(1).min(span.end));
+        let open = ParseError::opener_span(span, 1);
         working_set.error(ParseError::unclosed("}", open, Span::new(end, end)));
     }
 

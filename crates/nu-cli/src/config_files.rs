@@ -1,10 +1,7 @@
-use crate::startup_context::{StartupFileKind, StartupLoadContext, report_startup_shell_error};
-#[cfg(feature = "plugin")]
+use crate::startup_context::StartupFileKind;
 use crate::util::eval_source;
-use crate::util::eval_source_with_startup;
 #[cfg(feature = "plugin")]
 use nu_path::absolute_with;
-#[cfg(feature = "plugin")]
 use nu_protocol::report_shell_error;
 #[cfg(feature = "plugin")]
 use nu_protocol::shell_error::generic::GenericError;
@@ -255,7 +252,9 @@ pub fn eval_config_contents(
     )
 }
 
-/// Evaluate a startup configuration file with a specific role for error framing.
+/// Evaluate a startup configuration file, using `kind` only for path-level
+/// I/O error framing (missing/unreadable file). Parse/compile/shell errors use
+/// the standard reporters via [`eval_source`].
 pub fn eval_config_contents_with_kind(
     config_path: PathBuf,
     engine_state: &mut EngineState,
@@ -265,7 +264,6 @@ pub fn eval_config_contents_with_kind(
 ) {
     if config_path.exists() & config_path.is_file() {
         let config_filename = config_path.to_string_lossy();
-        let startup = StartupLoadContext::new(kind, config_path.clone());
 
         match std::fs::read(&config_path) {
             Ok(contents) => {
@@ -273,14 +271,13 @@ pub fn eval_config_contents_with_kind(
                 let prev_file = engine_state.file.take();
                 engine_state.file = Some(config_path.clone());
 
-                let exit_code = eval_source_with_startup(
+                let exit_code = eval_source(
                     engine_state,
                     stack,
                     &contents,
                     &config_filename,
                     PipelineData::empty(),
                     false,
-                    Some(&startup),
                 );
                 if exit_code != 0 && strict_mode {
                     std::process::exit(exit_code)
@@ -291,18 +288,21 @@ pub fn eval_config_contents_with_kind(
 
                 // Merge the environment in case env vars changed in the config
                 if let Err(e) = engine_state.merge_env(stack) {
-                    report_startup_shell_error(Some(stack), engine_state, &e, Some(&startup));
+                    report_shell_error(Some(stack), engine_state, &e);
                 }
             }
             Err(err) => {
-                // Path-aware I/O error (not `new_internal`, which attributes the
-                // problem to a Rust call site). Honor strict mode like parse/eval.
-                let shell_err = ShellError::Io(IoError::new_internal_with_path(
+                // Path-aware I/O framing (role name from startup kind). Prefer
+                // additional context without a Rust call-site location when possible.
+                let mut io_err = IoError::new_internal_with_path(
                     err,
-                    format!("Could not read {}", startup.kind.display_name()),
+                    format!("Could not read {}", kind.display_name()),
                     config_path.clone(),
-                ));
-                report_startup_shell_error(None, engine_state, &shell_err, Some(&startup));
+                );
+                // Drop the internal location so the diagnostic is about the path.
+                io_err.location = None;
+                let shell_err = ShellError::Io(io_err);
+                report_shell_error(None, engine_state, &shell_err);
                 if strict_mode {
                     std::process::exit(shell_err.exit_code().unwrap_or(1));
                 }

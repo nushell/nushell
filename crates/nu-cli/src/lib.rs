@@ -28,7 +28,7 @@ pub use prompt_update::update_prompt;
 pub use repl::evaluate_repl;
 pub use startup_context::{StartupFileKind, StartupLoadContext, report_startup_file_not_found};
 pub use syntax_highlight::NuHighlighter;
-pub use util::{eval_source, eval_source_with_startup, gather_parent_env_vars};
+pub use util::{eval_source, gather_parent_env_vars};
 pub use validation::NuValidator;
 
 #[cfg(feature = "plugin")]

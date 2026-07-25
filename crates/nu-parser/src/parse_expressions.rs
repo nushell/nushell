@@ -118,7 +118,7 @@ pub fn parse_list_expression(
     if bytes.ends_with(b"]") {
         end -= 1;
     } else {
-        let open = Span::new(span.start, span.start.saturating_add(1).min(span.end));
+        let open = ParseError::opener_span(span, 1);
         working_set.error(ParseError::unclosed("]", open, Span::new(end, end)));
     }
 
@@ -242,7 +242,7 @@ pub(crate) fn parse_table_expression(
             span.end - 1
         } else {
             let end = span.end;
-            let open = Span::new(span.start, span.start.saturating_add(1).min(span.end));
+            let open = ParseError::opener_span(span, 1);
             working_set.error(ParseError::unclosed("]", open, Span::new(end, end)));
             span.end
         };
@@ -410,7 +410,7 @@ pub fn parse_block_expression(
     if bytes.ends_with(b"}") {
         end -= 1;
     } else {
-        let open = Span::new(span.start, span.start.saturating_add(1).min(span.end));
+        let open = ParseError::opener_span(span, 1);
         working_set.error(ParseError::unclosed("}", open, Span::new(end, end)));
         is_closed = false;
     }
@@ -468,7 +468,7 @@ pub fn parse_match_block_expression(
     if bytes.ends_with(b"}") {
         end -= 1;
     } else {
-        let open = Span::new(span.start, span.start.saturating_add(1).min(span.end));
+        let open = ParseError::opener_span(span, 1);
         working_set.error(ParseError::unclosed("}", open, Span::new(end, end)));
         is_closed = false;
     }
@@ -695,7 +695,7 @@ pub fn parse_closure_expression(
     if bytes.ends_with(b"}") {
         end -= 1;
     } else {
-        let open = Span::new(span.start, span.start.saturating_add(1).min(span.end));
+        let open = ParseError::opener_span(span, 1);
         working_set.error(ParseError::unclosed("}", open, Span::new(end, end)));
         is_closed = false;
     }
@@ -1941,7 +1941,7 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
     let (tokens, err) = (lex_state.output, lex_state.error);
 
     if unclosed {
-        let open = Span::new(span.start, span.start.saturating_add(1).min(span.end));
+        let open = ParseError::opener_span(span, 1);
         working_set.error(ParseError::unclosed("}", open, Span::new(end, end)));
     } else if extra_tokens {
         working_set.error(ParseError::ExtraTokensAfterClosingDelimiter(Span::new(

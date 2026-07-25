@@ -2,7 +2,7 @@ use log::info;
 #[cfg(feature = "plugin")]
 use nu_cli::read_plugin_file;
 use nu_cli::{
-    StartupFileKind, StartupLoadContext, eval_config_contents_with_kind, eval_source_with_startup,
+    StartupFileKind, StartupLoadContext, eval_config_contents_with_kind, eval_source,
     report_startup_file_not_found,
 };
 use nu_config::ConfigFileKind;
@@ -165,15 +165,13 @@ pub(crate) fn read_loginshell_file(
 
 pub(crate) fn read_default_env_file(engine_state: &mut EngineState, stack: &mut Stack) {
     let config_file = ConfigFileKind::Env.default();
-    let startup = StartupLoadContext::new(StartupFileKind::DefaultEnv, "default_env.nu");
-    eval_source_with_startup(
+    eval_source(
         engine_state,
         stack,
         config_file.as_bytes(),
         "default_env.nu",
         PipelineData::empty(),
         false,
-        Some(&startup),
     );
 
     info!(
@@ -257,19 +255,13 @@ fn eval_default_config(
     config_kind: ConfigFileKind,
 ) {
     info!("eval_default_config() {config_kind:?}");
-    let kind = match config_kind {
-        ConfigFileKind::Config => StartupFileKind::DefaultConfig,
-        ConfigFileKind::Env => StartupFileKind::DefaultEnv,
-    };
-    let startup = StartupLoadContext::new(kind, config_kind.default_path());
-    eval_source_with_startup(
+    eval_source(
         engine_state,
         stack,
         config_kind.default().as_bytes(),
         config_kind.default_path(),
         PipelineData::empty(),
         false,
-        Some(&startup),
     );
 
     // Merge the environment in case env vars changed in the config

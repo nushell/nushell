@@ -7,17 +7,16 @@
 //! error — not from a custom preface or continue banner (those duplicated what
 //! miette already shows).
 //!
-//! [`StartupLoadContext`] still identifies *which* startup file is being loaded
-//! so call sites can attach path/role to path-level failures (read errors,
-//! missing override files) where there is no useful parse span.
+//! [`StartupLoadContext`] identifies *which* startup file is being loaded so
+//! call sites can attach path/role to path-level failures (read errors, missing
+//! override files) where there is no useful parse span.
 
 use std::path::PathBuf;
 
 use nu_protocol::{
-    CompileError, ParseError, ShellError, Span,
-    engine::{EngineState, Stack, StateWorkingSet},
-    report_error::report_compile_error,
-    report_parse_error, report_shell_error,
+    ParseError, Span,
+    engine::{EngineState, StateWorkingSet},
+    report_parse_error,
 };
 
 /// Which kind of startup file is being loaded.
@@ -46,10 +45,9 @@ impl StartupFileKind {
 
 /// Identifies a startup load (path and role).
 ///
-/// Used when reporting path-level failures (missing/unreadable files) and for
-/// call-site tracking. Parse/compile/shell errors still go through the standard
-/// reporters; their location comes from miette spans and the evaluated source
-/// name, not from extra framing here.
+/// Used when reporting path-level failures (missing/unreadable files).
+/// Parse/compile/shell errors go through the standard reporters; their location
+/// comes from miette spans and the evaluated source name.
 #[derive(Debug, Clone)]
 pub struct StartupLoadContext {
     pub kind: StartupFileKind,
@@ -75,44 +73,6 @@ fn writeln_stdout(msg: &str) -> std::io::Result<()> {
     use std::io::Write;
     let mut out = std::io::stdout().lock();
     writeln!(out, "{msg}")
-}
-
-/// Report a parse error from a startup-evaluated source.
-///
-/// `startup` is accepted for API symmetry with other startup reporters; location
-/// comes from the working set / error spans (see module docs).
-pub fn report_startup_parse_error(
-    stack: Option<&Stack>,
-    working_set: &StateWorkingSet,
-    error: &ParseError,
-    _startup: Option<&StartupLoadContext>,
-) {
-    report_parse_error(stack, working_set, error);
-}
-
-/// Report a compile error from a startup-evaluated source.
-///
-/// `startup` is accepted for API symmetry; see [`report_startup_parse_error`].
-pub fn report_startup_compile_error(
-    stack: Option<&Stack>,
-    working_set: &StateWorkingSet,
-    error: &CompileError,
-    _startup: Option<&StartupLoadContext>,
-) {
-    report_compile_error(stack, working_set, error);
-}
-
-/// Report a shell error from a startup-evaluated source.
-///
-/// `startup` is accepted for API symmetry; path-aware shell errors should already
-/// carry their path (e.g. [`IoError`](nu_protocol::shell_error::io::IoError)).
-pub fn report_startup_shell_error(
-    stack: Option<&Stack>,
-    engine_state: &EngineState,
-    error: &ShellError,
-    _startup: Option<&StartupLoadContext>,
-) {
-    report_shell_error(stack, engine_state, error);
 }
 
 /// Report a missing/unreadable startup path without blaming Host Environment Variables.

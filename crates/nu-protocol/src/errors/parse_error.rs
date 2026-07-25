@@ -679,6 +679,13 @@ pub enum ParseError {
 }
 
 impl ParseError {
+    /// Span covering the first `len` bytes of `span` (clamped to `span.end`).
+    ///
+    /// Used when labeling a multi-byte construct's opening delimiter.
+    pub fn opener_span(span: Span, len: usize) -> Span {
+        Span::new(span.start, span.start.saturating_add(len).min(span.end))
+    }
+
     /// Build an [`Unclosed`](ParseError::Unclosed) with default help text.
     pub fn unclosed(delimiter: &'static str, open_span: Span, end_span: Span) -> Self {
         Self::Unclosed(
