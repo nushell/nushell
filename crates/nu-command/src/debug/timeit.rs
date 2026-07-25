@@ -132,34 +132,27 @@ This command will bubble up any errors encountered when running the closure. The
 
 #[cfg(test)]
 mod tests {
-    use std::fs;
-
     use nu_test_support::prelude::*;
-
-    // Due to difficulty in observing side-effects from time closures,
-    // checks that the closures have run correctly must use the filesystem.
 
     #[test]
     fn test_time_block() -> Result {
-        Playground::setup("test_time_block", |dirs, _| {
-            let _: Value = test()
-                .cwd(dirs.test())
-                .run("[2 3 4] | timeit {to nuon | save foo.txt }")?;
-            let content = fs::read_to_string(dirs.test().join("foo.txt")).unwrap();
-            assert_eq!(content, "[2, 3, 4]");
-            Ok(())
-        })
+        let code = "
+            [2 3 4] | timeit { job send 0 --tag 1001 }
+            job recv --tag 1001 --timeout 0sec
+        ";
+
+        test().run(code).expect_value_eq([2, 3, 4])
     }
 
     #[test]
     fn test_time_block_2() -> Result {
-        Playground::setup("test_time_block", |dirs, _| {
-            let _: Value = test()
-                .cwd(dirs.test())
-                .run("[2 3 4] | timeit {{result: $in} | to nuon | save foo.txt }")?;
-            let content = fs::read_to_string(dirs.test().join("foo.txt")).unwrap();
-            assert_eq!(content, "{result: [2, 3, 4]}");
-            Ok(())
+        let code = "
+            [2 3 4] | timeit { {result: $in} | job send 0 --tag 1002 }
+            job recv --tag 1002 --timeout 0sec
+        ";
+
+        test().run(code).expect_value_eq(test_record! {
+            "result" => test_value!([2, 3, 4]),
         })
     }
 }
