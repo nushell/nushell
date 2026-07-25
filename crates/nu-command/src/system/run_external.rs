@@ -603,29 +603,7 @@ pub fn command_not_found(
             );
         }
 
-        // Try to match the name with the search terms of existing commands.
-        let signatures = engine_state
-            .get_signatures_and_declids(false)
-            .into_iter()
-            .filter(|(_, decl_id)| {
-                if let Some(sugg_span) = suggestion_span(engine_state, *decl_id) {
-                    // avoid suggesting commands declared after this command
-                    sugg_span.start < span.start
-                } else {
-                    // we can't determine declaration order,
-                    // so default to keeping this suggestion
-                    true
-                }
-            })
-            .map(|(mut sig, decl_id)| {
-                sig.name = engine_state
-                    .find_decl_name(decl_id, &[])
-                    .map(String::from_utf8_lossy)
-                    .map(Cow::into_owned)
-                    .unwrap_or(sig.name);
-                (sig, decl_id)
-            })
-            .collect_vec();
+        let signatures = suggestion_signatures(engine_state, span);
 
         if let Some((last, others)) = signatures
             .iter()
@@ -685,6 +663,43 @@ pub fn command_not_found(
     }
 }
 
+fn suggestion_signatures(
+    engine_state: &EngineState,
+    command_span: Span,
+) -> Vec<(Signature, DeclId)> {
+    fn suggestion_span(engine_state: &EngineState, decl_id: DeclId) -> Option<Span> {
+        let decl = engine_state.get_decl(decl_id);
+
+        decl.decl_span().or_else(|| {
+            let block_id = decl.block_id()?;
+            engine_state.get_block(block_id).span
+        })
+    }
+
+    engine_state
+        .get_signatures_and_declids(false)
+        .into_iter()
+        .filter(|(_, decl_id)| {
+            if let Some(sugg_span) = suggestion_span(engine_state, *decl_id) {
+                // avoid suggesting commands declared after this command
+                sugg_span.start < command_span.start
+            } else {
+                // we can't determine declaration order,
+                // so default to keeping this suggestion
+                true
+            }
+        })
+        .map(|(mut sig, decl_id)| {
+            sig.name = engine_state
+                .find_decl_name(decl_id, &[])
+                .map(String::from_utf8_lossy)
+                .map(Cow::into_owned)
+                .unwrap_or(sig.name);
+            (sig, decl_id)
+        })
+        .collect()
+}
+
 /// Searches for the absolute path of an executable by name. `.bat` and `.cmd`
 /// files are recognized as executables on Windows.
 ///
@@ -714,15 +729,6 @@ fn has_cmd_special_character(s: impl AsRef<[u8]>) -> bool {
     s.as_ref()
         .iter()
         .any(|b| matches!(b, b'<' | b'>' | b'&' | b'|' | b'^'))
-}
-
-fn suggestion_span(engine_state: &EngineState, decl_id: DeclId) -> Option<Span> {
-    let decl = engine_state.get_decl(decl_id);
-
-    decl.decl_span().or_else(|| {
-        let block_id = decl.block_id()?;
-        engine_state.get_block(block_id).span
-    })
 }
 
 /// Escape an argument for CMD internal commands. The result can be safely passed to `raw_arg()`.
