@@ -167,15 +167,12 @@ fn catch_input_type_mismatch_and_rethrow() -> Result {
     Ok(())
 }
 
-// This test is disabled on Windows because they cause a stack overflow in CI (but not locally!).
-// For reasons we don't understand, the Windows CI runners are prone to stack overflow.
-// TODO: investigate so we can enable on Windows
-#[cfg(not(target_os = "windows"))]
 #[test]
+#[deps(NU)]
 fn can_catch_infinite_recursion() -> Result {
-    test()
-        .run(r#"def bang [] { try { bang } catch { "Caught infinite recursion" } }; bang"#)
-        .expect_value_eq("Caught infinite recursion")
+    let runner = "let commands = $in; nu -n -c $commands";
+    let code = r#"def bang [] { try { bang } catch { "Caught infinite recursion" } }; bang"#;
+    test().run_with_data(runner, code).expect_value_eq("Caught infinite recursion")
 }
 
 #[test]
