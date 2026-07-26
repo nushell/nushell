@@ -115,38 +115,19 @@ flowchart LR
     editor(["Editor / DAP client"])
 
     subgraph proc["nu-dap process"]
-      direction TB
-
-      stdio["transport — stdio.rs + dap/protocol.rs<br/>DAP frames over a duplicated stdout;<br/>stdin → NUL, script stdout/stderr → capture pipes"]
-
-      subgraph srv["server thread — never locks the debugger"]
         direction TB
-        loop["run_loop → dispatch (thin router)"]
-        h["handlers: lifecycle · breakpoints · inspect<br/>· stepping · timetravel · custom"]
-        loop --> h
-      end
+        server["server thread<br/>run_loop"]
+        state[("Arc&lt;DebugState&gt;<br/>snapshot · tape · bridge")]
+        eval["eval thread<br/>nushell (WithDebug)"]
+        dbg["DapDebugger<br/>impl Debugger"]
 
-      state[("Arc&lt;DebugState&gt;<br/>breakpoints · run mode · condvar<br/>live snapshot · time-travel tape · UI bridge")]
-
-      subgraph evalt["eval thread — frozen on a condvar while paused"]
-        direction TB
-        engine["engine::run<br/>EngineState + print / input shims"]
-        dbg["DapDebugger : Debugger<br/>reads the Stack · source_map (span→line)<br/>build snapshot · pause loop"]
-        scratch["scratch engine<br/>watch · condition · logpoint"]
-        engine -->|"eval_block::&lt;WithDebug&gt;"| dbg
-        dbg -.->|"eval off-lock"| scratch
-      end
-
-      stdio -->|"requests"| loop
-      h -->|"responses / events"| stdio
-      dbg -->|"stopped · output · nuDapIr"| stdio
-      engine -.->|"print / input →<br/>output · nuDapUi"| stdio
-
-      h <-->|"serve from snapshot"| state
-      dbg <-->|"publish · record · pause / resume"| state
+        server <--> state
+        eval <--> state
+        eval -->|"callback per instruction"| dbg
+        dbg -->|"snapshot / record"| state
     end
 
-    editor <-->|"Content-Length JSON"| stdio
+    editor <-->|"DAP frames over stdio"| server
 ```
 
 The **server thread** answers read-only requests from the snapshot; the **eval
