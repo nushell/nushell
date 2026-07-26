@@ -232,3 +232,209 @@ fn check_redirection_in_block(block: &Block, pos: usize) -> Option<&Expression> 
             }
         })
 }
+
+/// Cache key and worker message identity: the text typed up to the cursor.
+///
+/// Excludes trailing text and derives `cursor()` from `typed.len()` so the two never
+/// disagree.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub(crate) struct CompletionQuery {
+    /// The prefix of the line buffer up to the (floored) cursor position.
+    typed: Arc<str>,
+}
+
+impl CompletionQuery {
+    fn new(line: &str, cursor: usize) -> Self {
+        let floored = line.floor_char_boundary(cursor);
+        Self {
+            typed: Arc::from(&line[..floored]),
+        }
+    }
+
+    fn typed(&self) -> &str {
+        &self.typed
+    }
+
+    fn cursor(&self) -> usize {
+        self.typed.len()
+    }
+
+    /// Whether `self` is `base` with more characters typed into the same `token`. The
+    /// appended text must stay within one token and must not turn it into a flag — a
+    /// different completion site than the cached result came from.
+    fn narrows(&self, base: &CompletionQuery, token: reedline::Span) -> bool {
+        let Some(appended) = self.typed().strip_prefix(base.typed()) else {
+            return false;
+        };
+
+        if appended.is_empty() || appended.contains(is_completion_boundary) {
+            return false;
+        }
+
+        let (Some(base_token), Some(narrowed_token)) = (
+            base.typed().get(token.start..),
+            self.typed().get(token.start..),
+        ) else {
+            return false;
+        };
+
+        is_flag_text(base_token) == is_flag_text(narrowed_token)
+    }
+}
+
+fn is_completion_boundary(c: char) -> bool {
+    c.is_whitespace()
+        || is_separator(c)
+        || matches!(
+            c,
+            '|' | ';' | '(' | ')' | '[' | ']' | '{' | '}' | '<' | '>' | '=' | ','
+        )
+}
+
+/// The environment a cached completion was computed against.
+///
+/// Results depend on cwd, `PATH`, and known declarations, which change between prompts
+/// while the query text does not — so the query alone is not a sound cache key.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct CacheEnv(u64);
+
+impl CacheEnv {
+    /// Fingerprint the completion-relevant parts of `engine_state`/`stack`, once per
+    /// completer.
+    fn of(engine_state: &EngineState, stack: &Stack) -> Self {
+        let mut hasher = DefaultHasher::new();
+
+        engine_state.num_decls().hash(&mut hasher);
+        stack
+            .get_env_var(engine_state, "PATH")
+            .map(|path| path.to_expanded_string(":", engine_state.get_config()))
+            .hash(&mut hasher);
+
+        let cwd = engine_state.cwd(Some(stack)).ok();
+        // The directory's own mtime, so a command that adds or removes a file in it
+        // (`touch`, `rm`, `mkdir`) invalidates the file completions it just made wrong,
+        // rather than leaving them to age out. Only the working directory is stamped —
+        // walking further would cost more than it saves — so a change inside a
+        // *subdirectory* is left to [`CACHE_TTL`].
+        cwd.as_ref()
+            .and_then(|cwd| std::fs::metadata(cwd).ok()?.modified().ok())
+            .hash(&mut hasher);
+        cwd.hash(&mut hasher);
+
+        Self(hasher.finish())
+    }
+}
+
+struct CacheEntry {
+    suggestions: Suggestions,
+    env: CacheEnv,
+    at: Instant,
+}
+
+impl CacheEntry {
+    /// Whether this entry may still answer a query: produced in the same environment, and
+    /// recent enough that an unobservable change is unlikely. See [`CACHE_TTL`].
+    fn is_usable(&self, env: CacheEnv) -> bool {
+        self.env == env && self.at.elapsed() < CACHE_TTL
+    }
+
+    /// The span the cursor extends: the range the *last* suggestion replaces.
+    ///
+    /// `fetch_completions_by_block` keeps the cursor-anchored family last, so reading the
+    /// last span is the correct one to extend.
+    fn reference_span(&self) -> Option<reedline::Span> {
+        self.suggestions.last().map(|suggestion| suggestion.span)
+    }
+}
+
+#[derive(Clone, Default)]
+pub(crate) struct NarrowingCache {
+    entries: Arc<Mutex<HashMap<CompletionQuery, CacheEntry>>>,
+}
+
+impl NarrowingCache {
+    pub(crate) fn fresh(&self, query: &CompletionQuery, env: CacheEnv) -> Option<Suggestions> {
+        let entries = self.entries.lock().ok()?;
+        let cache_entry = entries.get(query)?;
+
+        cache_entry
+            .is_usable(env)
+            .then(|| cache_entry.suggestions.clone())
+    }
+
+    pub(crate) fn store(&self, query: CompletionQuery, env: CacheEnv, suggestions: Suggestions) {
+        if let Ok(mut entries) = self.entries.lock() {
+            // Also drops everything computed in a since-replaced environment, so a `cd`
+            // clears the file completions it invalidated rather than leaving them to age out.
+            entries.retain(|_, cache_entry| cache_entry.is_usable(env));
+            entries.insert(
+                query,
+                CacheEntry {
+                    suggestions,
+                    env,
+                    at: Instant::now(),
+                },
+            );
+        }
+    }
+
+    pub(crate) fn narrowed_fallback(
+        &self,
+        query: &CompletionQuery,
+        env: CacheEnv,
+        options: &CompletionOptions,
+    ) -> Suggestions {
+        // Only the `Arc` is cloned under the lock; matching, and the handful of suggestion
+        // clones that survive it, happen after the lock is dropped.
+        let Some((base_suggestions, reference_span)) =
+            self.entries.lock().ok().and_then(|entries| {
+                entries
+                    .iter()
+                    .filter(|(_, cache_entry)| cache_entry.is_usable(env))
+                    .filter_map(|(base_query, cache_entry)| {
+                        // The entry's own replacement span anchors the comparison: it is
+                        // where the in-progress token starts, which is what lets `narrows`
+                        // compare the tokens themselves rather than just the query texts.
+                        let reference_span = cache_entry.reference_span()?;
+                        query.narrows(base_query, reference_span).then_some((
+                            base_query.cursor(),
+                            Arc::clone(&cache_entry.suggestions),
+                            reference_span,
+                        ))
+                    })
+                    .max_by_key(|(cursor, _, _)| *cursor)
+                    .map(|(_, suggestions, span)| (suggestions, span))
+            })
+        else {
+            return Suggestions::default();
+        };
+
+        let Some(search_token) = query.typed().get(reference_span.start..) else {
+            return Suggestions::default();
+        };
+
+        let candidates: Vec<&Suggestion> = base_suggestions
+            .iter()
+            .filter(|suggestion| suggestion.span == reference_span)
+            .collect();
+
+        // The matcher carries indices rather than suggestions, so each candidate's text can
+        // be borrowed for the match test instead of copied for every candidate considered.
+        let mut matcher = NuMatcher::new(search_token, options, true);
+        for (index, candidate) in candidates.iter().enumerate() {
+            matcher.add(candidate.display_value(), index);
+        }
+
+        let updated_span = reedline::Span::new(reference_span.start, query.cursor());
+        matcher
+            .results()
+            .into_iter()
+            .map(|(index, match_indices)| {
+                let mut suggestion = candidates[index].clone();
+                suggestion.span = updated_span;
+                suggestion.match_indices = Some(match_indices);
+                suggestion
+            })
+            .collect()
+    }
+}
