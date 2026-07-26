@@ -51,12 +51,58 @@ drives the actual runtime. The parts that matter here:
   `variables.rs` and hand out references lazily.
 
 - **Capabilities.** In the `initialize` response we advertise exactly what we
-  support, so the editor only shows working UI. We report:
-  `supportsConfigurationDoneRequest`, `supportsConditionalBreakpoints`,
-  `supportsFunctionBreakpoints`, `supportsLogPoints`,
-  `supportsEvaluateForHovers`, `supportsExceptionInfoRequest`,
-  `supportsTerminateRequest`, `supportsRestartRequest`, and `supportsStepBack`
-  (time-travel), plus an exception-breakpoint filter.
+  support, so the editor only surfaces working UI. The full breakdown —
+  supported and not — is in [DAP capabilities](#dap-capabilities) below.
+
+---
+
+## DAP capabilities
+
+What the adapter exposes today, from the DAP [`Capabilities`][caps] set —
+advertised in the `initialize` response so a client only surfaces working UI.
+This adapter is **launch-only** (there is no `attach`).
+
+### Supported
+
+| Feature | Request / capability | Notes |
+|---|---|---|
+| Breakpoints | `setBreakpoints` | verified; snapped forward to the next runnable line |
+| Conditional breakpoints | `supportsConditionalBreakpoints` | nu expression, evaluated in the scratch engine |
+| Logpoints | `supportsLogPoints` | `{expr}` interpolation, emitted to the Debug Console |
+| Exception breakpoints | `exceptionBreakpointFilters` (`error`) | pause on any raised error (incl. ones later caught) |
+| Exception info | `supportsExceptionInfoRequest` | error id + message (+ external stderr tail) |
+| Stepping | `continue` · `next` · `stepIn` · `stepOut` · `pause` | step-into walks pipe stages |
+| Step back / reverse continue | `supportsStepBack` | recorded time-travel |
+| Stack trace / scopes / variables | `stackTrace` · `scopes` · `variables` | lazy hydration; 5 scopes |
+| Evaluate (watch / repl / hover) | `supportsEvaluateForHovers`, `evaluate` | scratch engine |
+| Configuration done | `supportsConfigurationDoneRequest` | run deferred until breakpoints are set |
+| Restart | `supportsRestartRequest` | hot restart; breakpoints kept |
+| Terminate / disconnect | `supportsTerminateRequest`, `disconnect` | |
+
+### Not (yet) supported
+
+| Feature | Capability | Why |
+|---|---|---|
+| Set variable | `supportsSetVariable` | needs `&mut Stack` in the Debugger callbacks (upstream nushell) |
+| Jump to cursor | `supportsGotoTargetsRequest` | needs a control-flow return from `enter_instruction` (upstream) |
+| Function breakpoints | `supportsFunctionBreakpoints` | not implemented (advertised `false`) |
+| Hit-count breakpoints | `supportsHitConditionalBreakpoints` | not implemented |
+| Data / instruction breakpoints | `supportsDataBreakpoints`, `supportsInstructionBreakpoints` | out of scope |
+| Set expression | `supportsSetExpression` | out of scope (see set variable) |
+| Step-in targets | `supportsStepInTargetsRequest` | not implemented |
+| Completions | `supportsCompletionsRequest` | not implemented |
+| Modules / loaded sources | `supportsModulesRequest`, `supportsLoadedSourcesRequest` | not applicable to nu |
+| Restart frame | `supportsRestartFrame` | not implemented |
+| Memory read/write, disassemble | `supportsReadMemoryRequest`, … | not applicable |
+| Cancel | `supportsCancelRequest` | not implemented |
+| Breakpoint locations | `supportsBreakpointLocationsRequest` | not implemented |
+| Attach | `attach` | launch-only |
+
+The two upstream-blocked rows — **set variable** and **jump to cursor** — are
+the notable "not yet": both need small nushell core changes (a mutable `Stack`
+in the debugger callbacks, and a control-flow return from `enter_instruction`).
+
+[caps]: https://microsoft.github.io/debug-adapter-protocol/specification#Types_Capabilities
 
 ---
 
