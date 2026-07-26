@@ -169,6 +169,7 @@ impl Command for Input {
             indicator: default_str,
             left_prompt: prompt_str.unwrap_or("".to_string()),
             right_prompt: "".to_string(),
+            prompt_config: engine_state.get_config().prompt.clone(),
         };
 
         let mut line_editor = Reedline::create();
