@@ -21,7 +21,7 @@ let config = { host: "localhost", port: 8080, debug: true }
 let matrix = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
 
 # Binary data (displays in hex view in the visualizer)
-let blob = 0x[de ad be ef ca fe ba be]
+let blob = 0x[deadbeefcafebabe]
 
 # String interpolation
 let greeting = $"Hello ($name) v($version)!"
