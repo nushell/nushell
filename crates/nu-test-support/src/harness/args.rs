@@ -123,6 +123,8 @@ impl Args {
                                            For the key import an `ExperimentalOption` and set it to
                                            true or false to enable or disable it.
               #[env(KEY = "value")]        Set environment variables for this test.
+              #[deps(TESTBIN_MEOW)]        Set a required binary for a test.
+                                           The required binary is automatically available to `test()`.
               #[serial]                    Run this test serially, with no other tests at the same time.
             "#, 
             default_thread_count = *super::DEFAULT_THREAD_COUNT
