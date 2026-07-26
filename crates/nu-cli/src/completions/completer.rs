@@ -1811,3 +1811,140 @@ impl ReedlineCompleter for NuCompleter {
         }
     }
 }
+
+#[cfg(test)]
+mod completer_tests {
+    use super::*;
+
+    fn test_engine() -> Arc<EngineState> {
+        let mut engine =
+            nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
+        let delta = StateWorkingSet::new(&engine).render();
+        engine.merge_delta(delta).expect("merge_delta");
+        Arc::new(engine)
+    }
+
+    fn q(s: &str) -> CompletionQuery {
+        CompletionQuery::new(s, s.len())
+    }
+
+    /// The token being extended starts at `start`; suggestions replace from there.
+    fn token(start: usize) -> reedline::Span {
+        reedline::Span::new(start, start)
+    }
+
+    #[test]
+    fn narrows_stays_within_one_token() {
+        assert!(q("ls foobar").narrows(&q("ls foo"), token(3)));
+
+        // Not narrowing: no new text, or text removed.
+        assert!(!q("ls foo").narrows(&q("ls foo"), token(3)));
+        assert!(!q("ls fo").narrows(&q("ls foo"), token(3)));
+
+        // Each boundary character starts a new token, which a cached entry cannot answer.
+        for narrowed in [
+            "ls foo|from",
+            "ls foo;ls",
+            "ls foo/bar",
+            "ls foo=1",
+            "ls foo,2",
+        ] {
+            assert!(
+                !q(narrowed).narrows(&q("ls foo"), token(3)),
+                "narrowed across a boundary: {narrowed:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn narrows_rejects_a_token_that_becomes_a_flag() {
+        // The empty positional slot after `from csv ` is answered with file names at a point
+        // span; typing `--sep` appends no boundary, so only the flag check keeps them from
+        // following it.
+        let base = q("from csv ");
+        assert!(!q("from csv --sep").narrows(&base, token(base.cursor())));
+
+        // Extending a flag the user was already typing stays sound.
+        assert!(q("from csv --sep").narrows(&q("from csv --s"), token(9)));
+    }
+
+    /// The worker runs on an isolated stack and must still produce identical results.
+    #[test]
+    fn background_result_matches_the_synchronous_engine() {
+        let engine = test_engine();
+        let mut completer = NuCompleter::new(engine.clone(), Arc::new(Stack::new()));
+
+        let sorted = |mut values: Vec<String>| {
+            values.sort();
+            values
+        };
+        let expected = sorted(
+            CompletionEngine::new(engine, Arc::new(Stack::new()))
+                .fetch_completions_at("ls | c", 6)
+                .into_iter()
+                .map(|s| s.suggestion.value)
+                .collect(),
+        );
+        assert!(expected.iter().any(|value| value == "cd"));
+
+        // Nothing is cached yet, so the first non-blocking call can only be pending.
+        assert!(completer.complete("ls | c", 6).is_pending());
+
+        let settled = sorted(
+            completer
+                .complete_blocking("ls | c", 6)
+                .iter()
+                .map(|s| s.value.clone())
+                .collect(),
+        );
+        assert_eq!(expected, settled);
+    }
+
+    /// A cache handed to a new per-prompt completer must still answer the previous prompt's
+    /// queries.
+    #[test]
+    fn cache_outlives_the_completer_that_filled_it() {
+        let engine = test_engine();
+        let cache = NarrowingCache::default();
+
+        let mut filling_prompt =
+            NuCompleter::with_cache(engine.clone(), Arc::new(Stack::new()), cache.clone());
+        let warmed = filling_prompt.complete_blocking("ls | c", 6);
+        assert!(warmed.iter().any(|s| s.value == "cd"));
+        drop(filling_prompt);
+
+        let mut next_prompt = NuCompleter::with_cache(engine, Arc::new(Stack::new()), cache);
+        let answer = next_prompt.complete("ls | c", 6);
+        assert!(
+            matches!(answer, CompletionResult::Fresh(..)),
+            "a carried-over cache entry should answer outright, got {answer:?}"
+        );
+        assert!(answer.suggestions().iter().any(|s| s.value == "cd"));
+    }
+
+    /// …but only while the environment it was computed in still holds. Reusing entries
+    /// across a `cd` or a `$env.PATH` change is what makes a long-lived cache wrong, and is
+    /// why [`CacheEnv`] exists rather than a TTL short enough to hide the problem.
+    #[test]
+    fn cache_is_not_reused_in_a_different_environment() {
+        use nu_protocol::Value;
+
+        let engine = test_engine();
+        let cache = NarrowingCache::default();
+
+        let mut filling_prompt =
+            NuCompleter::with_cache(engine.clone(), Arc::new(Stack::new()), cache.clone());
+        assert!(!filling_prompt.complete_blocking("ls | c", 6).is_empty());
+
+        let mut moved = Stack::new();
+        moved.add_env_var(
+            "PATH".into(),
+            Value::string("/somewhere/else", Span::unknown()),
+        );
+        let mut next_prompt = NuCompleter::with_cache(engine, Arc::new(moved), cache);
+        assert!(
+            next_prompt.complete("ls | c", 6).is_pending(),
+            "entries from another environment must not answer"
+        );
+    }
+}
