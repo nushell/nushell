@@ -1,4 +1,4 @@
-use std::{fs, io};
+use std::fs;
 
 use nu_test_support::{fs::Stub::EmptyFile, prelude::*};
 use rstest::rstest;
@@ -287,22 +287,18 @@ fn external_command_url_args(prefix: &str) -> Result {
     ignore = "only runs on Linux, where controlling the HOME var is reliable"
 )]
 #[nu_test_support::test]
-#[deps(TESTBIN_COCOCO)]
+#[deps(NU, TESTBIN_COCOCO)]
 fn external_command_expand_tilde(prefix: &str) -> Result {
     Playground::setup("external command expand tilde", |dirs, _| {
         // Make a copy of the testbin that can be found through tilde expansion.
-        let mut src = fs::File::open(TESTBIN_COCOCO.path())?;
         let testbin_path = dirs.test().join("test_cococo");
-        let mut dst = fs::File::create_new(&testbin_path)?;
-        io::copy(&mut src, &mut dst)?;
+        fs::copy(TESTBIN_COCOCO.path(), &testbin_path)?;
 
-        dst.set_permissions(src.metadata()?.permissions())?;
-        drop(dst);
-        drop(src);
-
+        // For this to work the process needs to have the `HOME` env set,
+        // but we only get the path via the playground, so we cannot attribute this test function.
         test()
-            .env("HOME", dirs.test().to_string_lossy())
-            .run(format!("{prefix}~/test_cococo hello"))
+            .env("HOME", dirs.test())
+            .run(format!("nu -n -c '{prefix}~/test_cococo hello'"))
             .expect_value_eq("hello")
     })
 }
