@@ -105,14 +105,33 @@ impl Scratch {
     }
 }
 
-/// Interpolate a DAP logpoint message: text with `{expression}` segments.
-/// Unmatched braces are passed through verbatim.
+/// Interpolate a logpoint message. Two syntaxes are accepted:
+/// - **Nushell** — if the whole message is a `$"..."` / `$'...'` interpolation
+///   literal, it's evaluated as-is, so nu users write `$"iteration ($i)"` the
+///   way they would in a script.
+/// - **DAP `{expression}`** — otherwise each `{expr}` segment is evaluated and
+///   substituted; unmatched braces pass through verbatim.
 pub(crate) fn interpolate(
     scratch: &mut Scratch,
     template: &str,
     vars: &[(String, Value)],
 ) -> String {
     use std::fmt::Write;
+
+    // Nushell string-interpolation literal: evaluate it whole so `($expr)`
+    // segments interpolate the native nu way.
+    let trimmed = template.trim();
+    if trimmed.len() > 2
+        && ((trimmed.starts_with("$\"") && trimmed.ends_with('"'))
+            || (trimmed.starts_with("$'") && trimmed.ends_with('\'')))
+    {
+        return match scratch.eval(trimmed, vars) {
+            Ok(Value::String { val, .. }) => val,
+            Ok(v) => v.to_expanded_string(", ", &nu_protocol::Config::default()),
+            Err(e) => format!("{{error: {e}}}"),
+        };
+    }
+
     let mut out = String::new();
     let mut rest = template;
     while let Some(start) = rest.find('{') {

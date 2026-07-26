@@ -521,6 +521,41 @@ fn conditional_breakpoint_and_logpoint() {
     assert_eq!(logs.len(), 3, "logs: {logs:?}");
     assert_eq!(logs[0], "file a.txt total 0");
     assert_eq!(logs[2], "file c.log total 4216");
+
+    // Logpoint written in nushell's own interpolation syntax (`$"...($x)"`)
+    // instead of DAP `{expr}` — must interpolate the same way.
+    let mut d = Dap::spawn();
+    d.initialize();
+    d.send("launch", json!({ "program": demo, "stopOnEntry": false }));
+    d.response("launch");
+    d.send(
+        "setBreakpoints",
+        json!({ "source": { "path": demo },
+                "breakpoints": [{ "line": 16,
+                    "logMessage": "$\"file ($f.name) total ($total)\"" }] }),
+    );
+    d.response("setBreakpoints");
+    d.send("configurationDone", json!({}));
+    d.response("configurationDone");
+    let mut nu_logs = Vec::new();
+    loop {
+        let ev = d.recv_until(|m| {
+            m["type"] == "event" && (m["event"] == "output" || m["event"] == "terminated")
+        });
+        let ev = ev.unwrap();
+        if ev["event"] == "terminated" {
+            break;
+        }
+        if ev["body"]["category"] == "console" {
+            let o = ev["body"]["output"].as_str().unwrap();
+            if !o.starts_with("nu-dap ") {
+                nu_logs.push(o.trim().to_string());
+            }
+        }
+    }
+    assert_eq!(nu_logs.len(), 3, "nu logs: {nu_logs:?}");
+    assert_eq!(nu_logs[0], "file a.txt total 0");
+    assert_eq!(nu_logs[2], "file c.log total 4216");
 }
 
 #[test]
