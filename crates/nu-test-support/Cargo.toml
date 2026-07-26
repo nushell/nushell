@@ -39,6 +39,7 @@ plugin = [
 
 [dependencies]
 nu-cli = { workspace = true, optional = true }
+nu-cmd-base.workspace = true
 nu-cmd-extra.workspace = true
 nu-cmd-lang.workspace = true
 nu-cmd-plugin = { workspace = true, optional = true }
