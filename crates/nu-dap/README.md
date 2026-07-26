@@ -261,10 +261,31 @@ The `scopes` response exposes several roots, each a `variablesReference`:
 | **Registers** | the IR evaluator's raw working slots (`%0`, `%1`, …) |
 | **Process** | rolling tails of the script's captured stdout/stderr |
 
-Values hydrate lazily: a scope lists its immediate children, and each expandable
-child is fetched only when the editor expands it — no depth cap. Every node
-carries a `variablesReference` (0 = leaf); the editor calls `variables` with a
-reference to fetch that node's children:
+Nushell values can nest arbitrarily deep — a record holding a list of records,
+and so on. Serializing a whole tree on every pause would be wasteful (most of it
+is never looked at) and could be huge. So the adapter hands values over
+**lazily**, much like a file explorer only reads a folder's contents when you
+click to open it.
+
+The mechanism is a handle. Every value the adapter sends carries an integer
+`variablesReference`:
+
+- A **leaf** — a number, string, or bool — has `variablesReference: 0`: nothing
+  to expand.
+- An **expandable** value — a record, list, or table — gets a non-zero handle
+  *instead of* its contents.
+
+When the session pauses, a scope like *Locals* returns only its **immediate**
+children: the top-level variables, each expandable one as just a handle. The
+editor draws them, and the nested ones show a ▸ disclosure triangle but aren't
+loaded yet. Only when you actually expand one does the editor send a `variables`
+request carrying that handle, and the adapter replies with *that* node's
+immediate children — its expandables, again, as fresh handles. Drill in further
+and the cycle repeats.
+
+The payoff is there's **no depth limit**: nothing is flattened up front, so a
+record nested twenty levels deep costs nothing until you navigate into it. For
+example, a `Locals` scope hands back leaves inline and expandables as handles:
 
 ```mermaid
 flowchart TD
