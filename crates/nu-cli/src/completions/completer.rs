@@ -563,3 +563,1251 @@ impl From<Fetched> for Dispatched {
         }
     }
 }
+
+pub struct CompletionEngine {
+    engine_state: Arc<EngineState>,
+    stack: Arc<Stack>,
+    options: CompletionOptions,
+}
+
+#[derive(Clone, Copy)]
+pub(crate) struct Context<'a> {
+    pub working_set: &'a StateWorkingSet<'a>,
+    pub stack: &'a Stack,
+    pub options: &'a CompletionOptions,
+    pub span: Span,
+    pub prefix: &'a [u8],
+    pub offset: usize,
+}
+
+impl Context<'_> {
+    pub(crate) fn prefix_str(&self) -> Cow<'_, str> {
+        String::from_utf8_lossy(self.prefix)
+    }
+}
+
+impl CompletionEngine {
+    pub fn new(engine_state: Arc<EngineState>, stack: Arc<Stack>) -> Self {
+        Self::with_stack(engine_state, isolated_stack(stack, false))
+    }
+
+    fn for_background(engine_state: Arc<EngineState>, stack: Arc<Stack>) -> Self {
+        Self::with_stack(engine_state, isolated_stack(stack, true))
+    }
+
+    fn with_stack(engine_state: Arc<EngineState>, stack: Arc<Stack>) -> Self {
+        let config = engine_state.get_config();
+        let options = CompletionOptions {
+            case_sensitive: config.completions.case_sensitive,
+            match_algorithm: config.completions.algorithm.into(),
+            sort: config.completions.sort,
+            match_description: false,
+        };
+        Self {
+            engine_state,
+            stack,
+            options,
+        }
+    }
+
+    fn to_background(&self) -> Self {
+        Self::for_background(Arc::clone(&self.engine_state), Arc::clone(&self.stack))
+    }
+
+    fn suggestions_for(&self, query: &CompletionQuery) -> (Suggestions, bool) {
+        let dispatched = self.dispatch_completions_at(query.typed(), query.cursor());
+        let suggestions = dispatched
+            .suggestions
+            .into_iter()
+            .map(|semantic_suggestion| semantic_suggestion.suggestion)
+            .collect();
+
+        (suggestions, dispatched.cacheable)
+    }
+
+    pub fn fetch_completions_at(&self, line: &str, position: usize) -> Vec<SemanticSuggestion> {
+        self.dispatch_completions_at(line, position).suggestions
+    }
+
+    fn dispatch_completions_at(&self, line: &str, position: usize) -> Dispatched {
+        let safe_position = line.floor_char_boundary(position);
+        // Parse only up to the cursor, so the last pipeline element is always the token (or
+        // gap) being edited; trailing whitespace is kept to distinguish a gap from the token.
+        let sliced_line = &line[..safe_position];
+
+        let mut working_set = StateWorkingSet::new(&self.engine_state);
+        let span_offset = working_set.next_span_start();
+
+        let block = parse(
+            &mut working_set,
+            Some("completer"),
+            sliced_line.as_bytes(),
+            false,
+        );
+
+        self.fetch_completions_by_block(
+            block,
+            &working_set,
+            safe_position,
+            span_offset,
+            sliced_line,
+        )
+    }
+
+    pub fn fetch_completions_within_file(
+        &self,
+        filename: &str,
+        position: usize,
+        contents: &str,
+    ) -> Vec<SemanticSuggestion> {
+        let mut working_set = StateWorkingSet::new(&self.engine_state);
+
+        // `parse` must run first: it registers the file and its spans in `working_set`.
+        let block = parse(&mut working_set, Some(filename), contents.as_bytes(), false);
+
+        let Some(file_span) = working_set.get_span_for_filename(filename) else {
+            return Vec::new();
+        };
+
+        self.fetch_completions_by_block(block, &working_set, position, file_span.start, contents)
+            .suggestions
+    }
+
+    /// `position` is the cursor as a buffer-relative byte offset into `contents`.
+    fn fetch_completions_by_block(
+        &self,
+        block: Arc<Block>,
+        working_set: &StateWorkingSet,
+        position: usize,
+        offset: usize,
+        contents: &str,
+    ) -> Dispatched {
+        let site = self.resolve_completion_site(&block, working_set, position, offset, contents);
+        let mut dispatched = self.dispatch_completion_site(&site, working_set, offset);
+
+        // A multi-word head is ambiguous: also recover the argument reading of the shorter
+        // command and offer it before the subcommand name.
+        let argument_reading =
+            self.complete_multiword_head_as_argument(&site, working_set, offset, contents);
+        dispatched.cacheable |= argument_reading.cacheable;
+        dispatched
+            .suggestions
+            .splice(..0, argument_reading.suggestions);
+        dispatched
+    }
+
+    /// A multi-word head is ambiguous: `baz --test bar` is also `bar`, the value of
+    /// `baz --test`'s flag. Recover that argument reading via [`parse_shorter_head_reading`]
+    /// over the real buffer spans (avoiding the stale-span hazard of #5127), dropping
+    /// command-kind results the primary dispatch already offers.
+    fn complete_multiword_head_as_argument(
+        &self,
+        site: &CompletionSite,
+        working_set: &StateWorkingSet,
+        offset: usize,
+        contents: &str,
+    ) -> Dispatched {
+        if !matches!(site.kind, SiteKind::Command { .. })
+            || !working_set
+                .get_span_contents(site.span)
+                .iter()
+                .any(u8::is_ascii_whitespace)
+        {
+            return Dispatched::default();
+        }
+
+        let mut parse_ws = StateWorkingSet::new(&self.engine_state);
+        let _ = parse_ws.add_file("completer", contents.as_bytes());
+        let Some(shorter) = parse_shorter_head_reading(&mut parse_ws, site.span, None) else {
+            return Dispatched::default();
+        };
+
+        let position = site.cursor.saturating_sub(offset);
+        let shorter_site = self.finalize_site(
+            self.resolve_expression_site(&shorter, site.cursor, &parse_ws),
+            contents,
+            position,
+            offset,
+        );
+        // A command-head result means no distinct argument; leave it to the primary dispatch.
+        if matches!(shorter_site.kind, SiteKind::Command { .. }) {
+            return Dispatched::default();
+        }
+
+        let mut dispatched = self.dispatch_completion_site(&shorter_site, &parse_ws, offset);
+        // Drop command-kind results; only the argument value is contributed here.
+        dispatched
+            .suggestions
+            .retain(|candidate| !matches!(candidate.kind, Some(SuggestionKind::Command(..))));
+        dispatched
+    }
+
+    /// Dispatches the completion site to the appropriate specialized completer.
+    fn dispatch_completion_site(
+        &self,
+        site: &CompletionSite,
+        working_set: &StateWorkingSet,
+        offset: usize,
+    ) -> Dispatched {
+        let completion_context =
+            self.context(working_set, site.span, site.typed_prefix.as_bytes(), offset);
+
+        match &site.kind {
+            SiteKind::Command { node } => {
+                let completions = self.command_completion_helper(
+                    working_set,
+                    site.span,
+                    offset,
+                    self.command_completion_for_head(*node, site.span, working_set),
+                );
+
+                if completions.suggestions.is_empty() {
+                    self.suggestions_at(&mut FileCompletion, working_set, site.span, offset)
+                } else {
+                    completions
+                }
+            }
+
+            SiteKind::FlagName { .. }
+            | SiteKind::FlagValue { .. }
+            | SiteKind::Positional { .. } => {
+                self.dispatch_call_completion_site(site, working_set, offset, &completion_context)
+            }
+
+            SiteKind::Operator { lhs } => OperatorCompletion {
+                left_hand_side: lhs,
+            }
+            .fetch(&completion_context)
+            .into(),
+
+            SiteKind::CellPath { path } => CellPathCompletion {
+                full_cell_path: path,
+                cursor: site.cursor,
+            }
+            .fetch(&completion_context)
+            .into(),
+
+            SiteKind::Variable => {
+                self.variable_names_completion_helper(working_set, site.span, offset)
+            }
+
+            SiteKind::AttributeName => AttributeCompletion.fetch(&completion_context).into(),
+
+            SiteKind::AttributableItem => AttributableCompletion.fetch(&completion_context).into(),
+
+            SiteKind::ExternalArg { .. } => {
+                self.dispatch_external_arg(site, working_set, offset, &completion_context)
+            }
+
+            SiteKind::File => {
+                self.suggestions_at(&mut FileCompletion, working_set, site.span, offset)
+            }
+        }
+    }
+
+    /// Complete an external call argument: `sudo`/`doas` special-case, the configured
+    /// external completer, then file completion as a fallback.
+    fn dispatch_external_arg(
+        &self,
+        site: &CompletionSite,
+        working_set: &StateWorkingSet,
+        offset: usize,
+        completion_context: &Context,
+    ) -> Dispatched {
+        let SiteKind::ExternalArg {
+            call: external_call,
+            index,
+        } = &site.kind
+        else {
+            return Dispatched::default();
+        };
+        let external_call = *external_call;
+        let Expr::ExternalCall(head, _) = &external_call.expr else {
+            return Dispatched::default();
+        };
+
+        // The first argument of `sudo`/`doas` is a command run under the wrapper.
+        if *index == 0 {
+            let head_command = working_set.get_span_contents(head.span);
+            if head_command == b"sudo" || head_command == b"doas" {
+                let commands = self.command_completion_helper(
+                    working_set,
+                    site.span,
+                    offset,
+                    CommandCompletion::new(CommandScope::All),
+                );
+                if !commands.suggestions.is_empty() {
+                    return commands;
+                }
+            }
+        }
+
+        let mut dispatched = Dispatched::default();
+        let mut external_answered = false;
+
+        // The user's configured external completer (`$env.config.completions.external.completer`).
+        if let Some(closure) = self
+            .engine_state
+            .get_config()
+            .completions
+            .external
+            .completer
+            .as_ref()
+        {
+            let mut completion = CommandWideCompletion::closure(closure, external_call);
+            let fetched = completion.fetch(completion_context);
+            external_answered = !fetched.need_fallback;
+            dispatched.merge(fetched.into());
+        }
+
+        // Internal subcommands extending this call (e.g. `fod br` → `food bar`), which
+        // suppress the file fallback like an internal call's arguments do.
+        let subcommands =
+            self.subcommand_suggestions(working_set, external_call.span.start, site.cursor, offset);
+
+        // File completion for path arguments, only when nothing more specific answered.
+        if !external_answered
+            && dispatched.suggestions.is_empty()
+            && subcommands.suggestions.is_empty()
+        {
+            dispatched.merge(self.suggestions_at(
+                &mut FileCompletion,
+                working_set,
+                site.span,
+                offset,
+            ));
+        }
+
+        dispatched.merge(subcommands);
+        dispatched
+    }
+
+    /// Dispatch completions for call-bound sites (FlagName, FlagValue, Positional).
+    fn dispatch_call_completion_site(
+        &self,
+        site: &CompletionSite,
+        working_set: &StateWorkingSet,
+        offset: usize,
+        completion_context: &Context,
+    ) -> Dispatched {
+        // Only call-bound kinds carry a call and element; anything else is an error here.
+        let (call, element) = match &site.kind {
+            SiteKind::FlagName { call, element }
+            | SiteKind::FlagValue { call, element, .. }
+            | SiteKind::Positional { call, element, .. } => (*call, *element),
+            _ => return Dispatched::default(),
+        };
+
+        let signature = working_set.get_decl(call.decl_id).signature();
+
+        // Subcommands extending this command line are always offered, and suppress the
+        // file-path fallback: a matched subcommand shouldn't also dump the whole directory.
+        let subcommands =
+            self.subcommand_suggestions(working_set, call.head.start, site.cursor, offset);
+
+        // The value kinds share one shape; only the `ArgType` and custom-completer lookup differ.
+        let argument_value = |engine: &Self, arg_type, custom, arg_slot| {
+            engine.complete_argument_value(
+                custom,
+                ArgValueCompletion {
+                    call,
+                    arg_type,
+                    need_fallback: subcommands.suggestions.is_empty(),
+                    completer: engine,
+                    arg_idx: arg_slot,
+                    cursor: site.cursor,
+                },
+                completion_context,
+                &signature,
+                element,
+                site.span.end,
+            )
+        };
+
+        let mut results = match &site.kind {
+            SiteKind::FlagName { .. } => {
+                self.complete_flag_names(call.decl_id, completion_context, &signature, element)
+            }
+            SiteKind::FlagValue { flag, arg_slot, .. } => argument_value(
+                self,
+                ArgType::Flag(Cow::Borrowed(flag.name())),
+                find_flag(&signature, *flag).and_then(|flag| flag.completion),
+                *arg_slot,
+            ),
+            SiteKind::Positional {
+                sig_positional,
+                arg_slot,
+                ..
+            } => argument_value(
+                self,
+                ArgType::Positional(*sig_positional),
+                signature
+                    .get_positional(*sig_positional)
+                    .and_then(|positional| positional.completion.clone()),
+                *arg_slot,
+            ),
+            _ => Dispatched::default(),
+        };
+
+        results.merge(subcommands);
+        results
+    }
+
+    /// Resolves the contextual state and constraints at the cursor's location.
+    pub(crate) fn resolve_completion_site<'a>(
+        &self,
+        block: &'a Block,
+        working_set: &'a StateWorkingSet,
+        position: usize,
+        offset: usize,
+        contents: &'a str,
+    ) -> CompletionSite<'a> {
+        let absolute_position = position + offset;
+
+        // The token whose span the cursor is inside of, or at the trailing edge of.
+        let touched_expression = block
+            .find_map(working_set, &|expression: &Expression| {
+                find_pipeline_element_by_position(expression, working_set, absolute_position)
+            })
+            .or_else(|| check_redirection_in_block(block, absolute_position))
+            // Otherwise the cursor is in a whitespace gap after the element it trails.
+            .or_else(|| trailing_gap_element(block, working_set, absolute_position));
+
+        let site = match touched_expression {
+            Some(expression) => {
+                self.resolve_expression_site(expression, absolute_position, working_set)
+            }
+            None => self.resolve_fallback_site(block, working_set, absolute_position),
+        };
+
+        self.finalize_site(site, contents, position, offset)
+    }
+
+    /// Fill the centrally-derived `typed_prefix`/`cursor` fields from the final `site.span`,
+    /// so the prefix and replacement span can never disagree. Point spans yield an empty
+    /// prefix.
+    fn finalize_site<'a>(
+        &self,
+        mut site: CompletionSite<'a>,
+        contents: &'a str,
+        position: usize,
+        offset: usize,
+    ) -> CompletionSite<'a> {
+        let token_start = site.span.start.saturating_sub(offset);
+        site.typed_prefix = contents
+            .get(token_start..position)
+            .map(Cow::Borrowed)
+            .unwrap_or(Cow::Borrowed(""));
+        site.cursor = position + offset;
+        site
+    }
+
+    fn resolve_expression_site<'a>(
+        &self,
+        expression: &'a Expression,
+        absolute_position: usize,
+        working_set: &'a StateWorkingSet,
+    ) -> CompletionSite<'a> {
+        // Cursor in whitespace after a completed value (`1 ⌶`) is an operator position.
+        if absolute_position > expression.span.end && is_operator_lhs(&expression.expr) {
+            return CompletionSite::new(
+                SiteKind::Operator { lhs: expression },
+                Span::point(absolute_position),
+            );
+        }
+
+        // Base case: file completion; overridden below where the expression warrants it.
+        match &expression.expr {
+            Expr::Call(call) => {
+                self.resolve_call_site(call, expression, absolute_position, working_set)
+            }
+            Expr::ExternalCall(head, arguments) => {
+                self.resolve_external_call_site(expression, head, arguments, absolute_position)
+            }
+            Expr::AttributeBlock(attribute_block) => {
+                self.resolve_attribute_site(attribute_block, absolute_position)
+            }
+            Expr::Var(_) => CompletionSite::new(SiteKind::Variable, expression.span),
+            // `$foo` alone is the variable; `$foo.bar` or `$foo.` is a cell path.
+            Expr::FullCellPath(full_cell_path) => {
+                let has_dot = working_set
+                    .get_span_contents(expression.span)
+                    .ends_with(b".");
+
+                let kind = if full_cell_path.tail.is_empty() && !has_dot {
+                    SiteKind::Variable
+                } else {
+                    SiteKind::CellPath {
+                        path: full_cell_path,
+                    }
+                };
+
+                CompletionSite::new(kind, expression.span)
+            }
+            Expr::BinaryOp(left_hand_side, operator, _) => CompletionSite::new(
+                SiteKind::Operator {
+                    lhs: left_hand_side.as_ref(),
+                },
+                operator.span,
+            ),
+            _ => CompletionSite::new(SiteKind::File, expression.span), // The default `File` setup holds
+        }
+    }
+
+    /// Resolve a bare external call (`git checkout`). The head completes as a command;
+    /// other positions are [`SiteKind::ExternalArg`].
+    fn resolve_external_call_site<'a>(
+        &self,
+        expression: &'a Expression,
+        head: &'a Expression,
+        arguments: &'a [ExternalArgument],
+        absolute_position: usize,
+    ) -> CompletionSite<'a> {
+        if absolute_position <= head.span.end {
+            return CompletionSite::new(SiteKind::command(expression), head.span);
+        }
+
+        // An existing argument the cursor touches, or else the trailing empty slot.
+        let (index, span) = arguments
+            .iter()
+            .enumerate()
+            .find_map(|(index, argument)| {
+                touches(argument.expr().span, absolute_position)
+                    .then_some((index, argument.expr().span))
+            })
+            .unwrap_or((arguments.len(), Span::point(absolute_position)));
+
+        CompletionSite::new(
+            SiteKind::ExternalArg {
+                call: expression,
+                index,
+            },
+            span,
+        )
+    }
+
+    fn resolve_call_site<'a>(
+        &self,
+        call: &'a Call,
+        expression: &'a Expression,
+        absolute_position: usize,
+        working_set: &'a StateWorkingSet,
+    ) -> CompletionSite<'a> {
+        // Cursor in (or right after) the command head: complete the command name.
+        if absolute_position <= call.head.end {
+            return CompletionSite::new(SiteKind::command(expression), call.head);
+        }
+
+        // Cursor on an existing argument.
+        if let Some((argument_index, argument)) = call
+            .arguments
+            .iter()
+            .enumerate()
+            .find(|(_, argument)| touches(argument.span(), absolute_position))
+        {
+            return self.resolve_argument_site(
+                call,
+                expression,
+                argument,
+                argument_index,
+                absolute_position,
+                working_set,
+            );
+        }
+
+        // A trailing gap after a row condition (`where name ⌶`) is an operator position.
+        if let Some(operator_left_hand_side) =
+            self.row_condition_operator_lhs(call, working_set, absolute_position)
+        {
+            return CompletionSite::new(
+                SiteKind::Operator {
+                    lhs: operator_left_hand_side,
+                },
+                Span::point(absolute_position),
+            );
+        }
+
+        // Classify the slot the cursor trails after the last argument: a pending flag value,
+        // a new flag name, or a new positional. Looking only at the non-whitespace token
+        // ending at the cursor keeps `cmd -f val ⌶` (positional) and `cmd --⌶` (flag name)
+        // distinct, and its span preserves the `-`/`--` prefix.
+        let gap_start = call
+            .arguments
+            .last()
+            .map_or(call.head.end, |argument| argument.span().end);
+
+        let gap = working_set.get_span_contents(Span::new(gap_start, absolute_position));
+
+        // Start just past the last whitespace in the gap.
+        let token_start = gap
+            .iter()
+            .rposition(u8::is_ascii_whitespace)
+            .map_or(gap_start, |index| gap_start + index + 1);
+
+        let trailing_token = Span::new(token_start, absolute_position);
+        let token_is_flag = is_flag_token(working_set, trailing_token);
+
+        let point = Span::point(absolute_position);
+
+        if let Some(flag_ref) = self.pending_flag_value(call, working_set) {
+            // Intentionally out-of-range `arg_slot`: there is no in-progress argument node
+            // yet, and `ArgValueCompletion` reads `None` as exactly that.
+            CompletionSite::new(
+                SiteKind::FlagValue {
+                    call,
+                    element: expression,
+                    flag: flag_ref,
+                    arg_slot: call.arguments.len(),
+                },
+                point,
+            )
+        } else if token_is_flag {
+            CompletionSite::new(
+                SiteKind::FlagName {
+                    call,
+                    element: expression,
+                },
+                trailing_token,
+            )
+        } else {
+            CompletionSite::new(
+                SiteKind::Positional {
+                    call,
+                    element: expression,
+                    sig_positional: count_positionals(call, call.arguments.len()),
+                    arg_slot: call.arguments.len(),
+                },
+                point,
+            )
+        }
+    }
+
+    /// The last row-condition term when the cursor trails it (`where name ⌶`): the LHS of
+    /// an operator the user is about to type.
+    fn row_condition_operator_lhs<'a>(
+        &self,
+        call: &'a Call,
+        working_set: &'a StateWorkingSet,
+        absolute_position: usize,
+    ) -> Option<&'a Expression> {
+        let block_id = call
+            .arguments
+            .iter()
+            .rev()
+            .find_map(|argument| match argument {
+                Argument::Positional(Expression {
+                    expr: Expr::RowCondition(block_id),
+                    ..
+                }) => Some(*block_id),
+                _ => None,
+            })?;
+
+        let last_term = &working_set
+            .get_block(block_id)
+            .pipelines
+            .last()?
+            .elements
+            .last()?
+            .expr;
+
+        if absolute_position <= last_term.span.end || !is_operator_lhs(&last_term.expr) {
+            return None;
+        }
+
+        let gap = working_set.get_span_contents(Span::new(last_term.span.end, absolute_position));
+        gap.iter().all(u8::is_ascii_whitespace).then_some(last_term)
+    }
+
+    /// The [`FlagRef`] of a last-argument flag still awaiting its value (`cmd --opt ⌶`).
+    fn pending_flag_value<'a>(
+        &self,
+        call: &'a Call,
+        working_set: &StateWorkingSet,
+    ) -> Option<FlagRef<'a>> {
+        let Argument::Named((name, short, None)) = call.arguments.last()? else {
+            return None;
+        };
+
+        let flag_ref = FlagRef::from_named(name, short.as_ref());
+        let signature = working_set.get_decl(call.decl_id).signature();
+
+        find_flag(&signature, flag_ref)?
+            .arg
+            .is_some()
+            .then_some(flag_ref)
+    }
+
+    fn resolve_argument_site<'a>(
+        &self,
+        call: &'a Call,
+        expression: &'a Expression,
+        argument: &'a Argument,
+        argument_index: usize,
+        absolute_position: usize,
+        working_set: &StateWorkingSet,
+    ) -> CompletionSite<'a> {
+        let flag_name = SiteKind::FlagName {
+            call,
+            element: expression,
+        };
+
+        let (kind, span) = match argument {
+            Argument::Named((name, short, optional_value)) => {
+                if let Some(value_expression) = optional_value
+                    .as_ref()
+                    .filter(|value| touches(value.span, absolute_position))
+                {
+                    (
+                        SiteKind::FlagValue {
+                            call,
+                            element: expression,
+                            flag: FlagRef::from_named(name, short.as_ref()),
+                            arg_slot: argument_index,
+                        },
+                        value_expression.span,
+                    )
+                } else {
+                    (flag_name, argument.span())
+                }
+            }
+            // A positional/unknown token starting with `-` is a flag name being typed.
+            Argument::Positional(_) | Argument::Unknown(_) => {
+                let kind = if is_flag_token(working_set, argument.span()) {
+                    flag_name
+                } else {
+                    SiteKind::Positional {
+                        call,
+                        element: expression,
+                        sig_positional: count_positionals(call, argument_index),
+                        arg_slot: argument_index,
+                    }
+                };
+                (kind, argument.span())
+            }
+            Argument::Spread(_) => (SiteKind::File, argument.span()),
+        };
+
+        CompletionSite::new(kind, span)
+    }
+
+    fn resolve_attribute_site<'a>(
+        &self,
+        attribute_block: &'a AttributeBlock,
+        absolute_position: usize,
+    ) -> CompletionSite<'a> {
+        if let Some(attribute) = attribute_block
+            .attributes
+            .iter()
+            .find(|attribute| touches(attribute.expr.span, absolute_position))
+        {
+            CompletionSite::new(SiteKind::AttributeName, attribute.expr.span)
+        } else if touches(attribute_block.item.span, absolute_position) {
+            CompletionSite::new(SiteKind::AttributableItem, attribute_block.item.span)
+        } else {
+            CompletionSite::new(SiteKind::AttributeName, Span::point(absolute_position))
+        }
+    }
+
+    fn resolve_fallback_site<'a>(
+        &self,
+        block: &'a Block,
+        working_set: &'a StateWorkingSet,
+        absolute_position: usize,
+    ) -> CompletionSite<'a> {
+        let last_element = block
+            .pipelines
+            .last()
+            .and_then(|pipeline| pipeline.elements.last())
+            .map(|element| &element.expr);
+
+        // A bare `@` opens an attribute name; trailing a completed attribute block completes
+        // the attributable item itself; otherwise a fresh command position.
+        let kind = if last_element
+            .map(|element| working_set.get_span_contents(element.span))
+            .is_some_and(|bytes| bytes.ends_with(b"@"))
+        {
+            SiteKind::AttributeName
+        } else if matches!(last_element.map(|e| &e.expr), Some(Expr::AttributeBlock(_))) {
+            SiteKind::AttributableItem
+        } else {
+            SiteKind::Command { node: None }
+        };
+
+        CompletionSite::new(kind, Span::point(absolute_position))
+    }
+    fn complete_argument_value(
+        &self,
+        custom: Option<Completion>,
+        mut arg_value: ArgValueCompletion,
+        context: &Context,
+        signature: &Signature,
+        element_expression: &Expression,
+        true_cursor: usize,
+    ) -> Dispatched {
+        let mut results = Dispatched::default();
+
+        if let Some(custom) = custom {
+            let attempt = match custom {
+                // A command declared an engine-provided completion for this argument.
+                Completion::Builtin(kind) => self.complete_builtin(kind, &arg_value, context),
+                // A custom completer receives the whole element text (`my-command foobar`),
+                // so its spans are anchored to the element's start.
+                other => {
+                    let element_line =
+                        String::from_utf8_lossy(context.working_set.get_span_contents(Span::new(
+                            element_expression.span.start,
+                            true_cursor,
+                        )));
+                    self.custom_completion_helper(
+                        other,
+                        element_line.as_ref(),
+                        context,
+                        true_cursor,
+                    )
+                }
+            };
+            let need_fallback = attempt.need_fallback;
+            results.merge(attempt.into());
+            if !need_fallback {
+                return results;
+            }
+        }
+
+        let attempt = self.command_wide_completion_helper(signature, element_expression, context);
+        let need_fallback = attempt.need_fallback;
+        results.merge(attempt.into());
+        if !need_fallback {
+            return results;
+        }
+
+        arg_value.need_fallback &= results.suggestions.is_empty();
+        results.merge(arg_value.fetch(context).into());
+        results
+    }
+
+    /// Dispatch a [`BuiltinCompletion`] a command declared for its argument.
+    fn complete_builtin(
+        &self,
+        kind: BuiltinCompletion,
+        arg_value: &ArgValueCompletion,
+        context: &Context,
+    ) -> Fetched {
+        match kind {
+            BuiltinCompletion::NuFile { std_virtual_path } => {
+                DotNuCompletion { std_virtual_path }.fetch(context)
+            }
+            BuiltinCompletion::ModuleExports => {
+                arg_value.complete_module_exports(context, context.working_set)
+            }
+            BuiltinCompletion::EnvVar => EnvVarCompletion.fetch(context),
+            BuiltinCompletion::Command { internal_only } => {
+                let scope = if internal_only {
+                    CommandScope::InternalsOnly
+                } else {
+                    CommandScope::All
+                };
+                CommandCompletion::quoted(scope).fetch(context)
+            }
+        }
+    }
+
+    fn complete_flag_names(
+        &self,
+        decl_id: DeclId,
+        context: &Context,
+        signature: &Signature,
+        element_expression: &Expression,
+    ) -> Dispatched {
+        let mut results: Dispatched = FlagCompletion { decl_id }.fetch(context).into();
+        results.merge(
+            self.command_wide_completion_helper(signature, element_expression, context)
+                .into(),
+        );
+        results
+    }
+
+    fn suggestions_at<C: Completer>(
+        &self,
+        completer: &mut C,
+        working_set: &StateWorkingSet,
+        span: Span,
+        offset: usize,
+    ) -> Dispatched {
+        completer
+            .fetch(&self.context(
+                working_set,
+                span,
+                working_set.get_span_contents(span),
+                offset,
+            ))
+            .into()
+    }
+
+    fn variable_names_completion_helper(
+        &self,
+        working_set: &StateWorkingSet,
+        span: Span,
+        offset: usize,
+    ) -> Dispatched {
+        let prefix = working_set.get_span_contents(span);
+        if !prefix.starts_with(b"$") {
+            return Dispatched::default();
+        }
+        let ctx = self.context(working_set, span, prefix, offset);
+        VariableCompletion.fetch(&ctx).into()
+    }
+
+    fn command_completion_helper(
+        &self,
+        working_set: &StateWorkingSet,
+        span: Span,
+        offset: usize,
+        mut command_completion: CommandCompletion,
+    ) -> Dispatched {
+        let prefix = working_set.get_span_contents(span);
+        let ctx = self.context(working_set, span, prefix, offset);
+        command_completion.fetch(&ctx).into()
+    }
+
+    /// Command-completion scope for a command head, honouring a leading sigil: `^` →
+    /// externals only, `%` → built-ins only, otherwise everything. The sigil is the byte
+    /// between the call's own span and its head span.
+    fn command_completion_for_head(
+        &self,
+        node: Option<&Expression>,
+        span: Span,
+        working_set: &StateWorkingSet,
+    ) -> CommandCompletion {
+        let sigil = node
+            .filter(|node| node.span.start < span.start)
+            .and_then(|node| working_set.get_span_contents(node.span).first().copied());
+
+        CommandCompletion::new(match sigil {
+            Some(b'^') => CommandScope::ExternalsOnly,
+            Some(b'%') => CommandScope::BuiltinsOnly,
+            _ => CommandScope::All,
+        })
+    }
+
+    /// Internal commands whose name extends the command line typed so far (`foo test⌶`
+    /// also offers `foo test bar`). Externals are excluded: a multi-word line names only
+    /// internal subcommands.
+    fn subcommand_suggestions(
+        &self,
+        working_set: &StateWorkingSet,
+        command_start: usize,
+        cursor: usize,
+        offset: usize,
+    ) -> Dispatched {
+        if cursor <= command_start {
+            return Dispatched::default();
+        }
+        self.command_completion_helper(
+            working_set,
+            Span::new(command_start, cursor),
+            offset,
+            CommandCompletion::new(CommandScope::InternalsOnly),
+        )
+    }
+
+    fn custom_completion_helper(
+        &self,
+        custom_completion: Completion,
+        input: &str,
+        context: &Context,
+        pos: usize,
+    ) -> Fetched {
+        match custom_completion {
+            Completion::Command(decl_id) => {
+                let mut completer =
+                    CustomCompletion::new(decl_id, input.into(), pos - context.offset);
+                completer.fetch(context)
+            }
+            Completion::List(list) => {
+                let mut completer = StaticCompletion::new(list);
+                completer.fetch(context)
+            }
+            // Engine-provided completions are handled in `complete_argument_value`; decline
+            // if one arrives by another path.
+            Completion::Builtin(_) => Fetched::absent(),
+        }
+    }
+
+    fn command_wide_completion_helper(
+        &self,
+        signature: &Signature,
+        element_expression: &Expression,
+        context: &Context,
+    ) -> Fetched {
+        let completion = match signature.complete {
+            Some(CommandWideCompleter::Command(decl_id)) => {
+                CommandWideCompletion::command(context.working_set, decl_id, element_expression)
+            }
+            Some(CommandWideCompleter::External) => self
+                .engine_state
+                .get_config()
+                .completions
+                .external
+                .completer
+                .as_ref()
+                .map(|closure| CommandWideCompletion::closure(closure, element_expression)),
+            None => None,
+        };
+
+        match completion {
+            Some(mut completion) => {
+                let context = Context {
+                    prefix: b"",
+                    ..*context
+                };
+                completion.fetch(&context)
+            }
+            None => Fetched::absent(),
+        }
+    }
+
+    pub(crate) fn context<'a>(
+        &'a self,
+        working_set: &'a StateWorkingSet,
+        span: Span,
+        prefix: &'a [u8],
+        offset: usize,
+    ) -> Context<'a> {
+        Context {
+            working_set,
+            stack: self.stack.as_ref(),
+            options: &self.options,
+            span,
+            prefix,
+            offset,
+        }
+    }
+
+    pub(crate) fn options(&self) -> &CompletionOptions {
+        &self.options
+    }
+}
+
+pub struct NuCompleter {
+    engine: CompletionEngine,
+    cache: NarrowingCache,
+    /// The [`CacheEnv`] of every entry this completer stores/reads; computed once per
+    /// completer, not on [`CompletionEngine`] (which non-caching callers also build).
+    cache_env: CacheEnv,
+    worker: Option<CompletionWorker>,
+}
+
+impl NuCompleter {
+    pub fn new(engine_state: Arc<EngineState>, stack: Arc<Stack>) -> Self {
+        Self::with_cache(engine_state, stack, NarrowingCache::default())
+    }
+
+    pub(crate) fn with_cache(
+        engine_state: Arc<EngineState>,
+        stack: Arc<Stack>,
+        cache: NarrowingCache,
+    ) -> Self {
+        let engine = CompletionEngine::new(engine_state, stack);
+        let cache_env = CacheEnv::of(&engine.engine_state, &engine.stack);
+        Self {
+            engine,
+            cache,
+            cache_env,
+            worker: None,
+        }
+    }
+
+    fn fresh_for(&self, query: &CompletionQuery) -> Option<Suggestions> {
+        if let Some(worker) = self.worker.as_ref()
+            && let Some(latest) = &worker.latest
+            && &latest.query == query
+        {
+            return Some(latest.suggestions.clone());
+        }
+        self.cache.fresh(query, self.cache_env)
+    }
+
+    fn settle_pending(&mut self, query: &CompletionQuery) {
+        if let Some(worker) = self.worker.as_mut()
+            && worker.pending.as_ref() == Some(query)
+        {
+            worker.pending = None;
+        }
+    }
+
+    fn stale_fallback(&self, query: &CompletionQuery) -> Suggestions {
+        self.cache
+            .narrowed_fallback(query, self.cache_env, self.engine.options())
+    }
+
+    fn spawn_worker(engine: &CompletionEngine) -> CompletionWorker {
+        let (request_tx, request_rx) = mpsc::channel::<CompletionQuery>();
+        let (result_tx, result_rx) = mpsc::channel::<Completed>();
+
+        let engine = engine.to_background();
+        thread::spawn(move || {
+            while let Ok(mut query) = request_rx.recv() {
+                while let Ok(newer) = request_rx.try_recv() {
+                    query = newer;
+                }
+
+                let (suggestions, cacheable) = engine.suggestions_for(&query);
+                let done = Completed {
+                    query,
+                    suggestions,
+                    cacheable,
+                };
+                if result_tx.send(done).is_err() {
+                    return;
+                }
+            }
+        });
+
+        CompletionWorker {
+            request_tx,
+            result_rx,
+            pending: None,
+            latest: None,
+        }
+    }
+
+    fn fold_completed(&mut self, done: Completed) -> bool {
+        let Self {
+            cache,
+            cache_env,
+            worker,
+            ..
+        } = self;
+        let Some(worker) = worker.as_mut() else {
+            return false;
+        };
+        let settled = worker.pending.as_ref() == Some(&done.query);
+        if done.cacheable {
+            cache.store(done.query.clone(), *cache_env, done.suggestions.clone());
+        }
+        worker.latest = Some(done);
+        settled
+    }
+
+    fn try_recv_completed(&self) -> Option<Completed> {
+        self.worker.as_ref()?.result_rx.try_recv().ok()
+    }
+
+    fn recv_completed(&self, timeout: Duration) -> Option<Completed> {
+        self.worker.as_ref()?.result_rx.recv_timeout(timeout).ok()
+    }
+
+    fn drain_completed(&mut self) -> bool {
+        let mut settled = false;
+        while let Some(done) = self.try_recv_completed() {
+            settled |= self.fold_completed(done);
+        }
+        settled
+    }
+
+    pub fn complete_blocking(&mut self, line: &str, pos: usize) -> Suggestions {
+        const BLOCKING_TIMEOUT: Duration = Duration::from_secs(30);
+
+        let fallback = match self.complete(line, pos) {
+            CompletionResult::Fresh(values, _) => return values,
+            in_flight => in_flight.into_shared().unwrap_or_default(),
+        };
+
+        let deadline = Instant::now() + BLOCKING_TIMEOUT;
+        while let Some(remaining) = deadline.checked_duration_since(Instant::now()) {
+            let Some(done) = self.recv_completed(remaining) else {
+                break;
+            };
+            if self.fold_completed(done) {
+                return self.complete(line, pos).into_shared().unwrap_or_default();
+            }
+        }
+
+        fallback
+    }
+}
+
+/// Byte length of the longest prefix `a` and `b` share. Always a char boundary in both.
+fn common_prefix_len(a: &str, b: &str) -> usize {
+    a.char_indices()
+        .zip(b.chars())
+        .find_map(|((index, x), y)| (x != y).then_some(index))
+        .unwrap_or_else(|| a.len().min(b.len()))
+}
+
+fn partial_of(line: &str, suggestions: &[Suggestion]) -> Option<Partial> {
+    let span = suggestions.first()?.span;
+
+    let mut matching_values = suggestions
+        .iter()
+        .filter(|suggestion| suggestion.span == span)
+        .map(|suggestion| suggestion.value.as_str());
+
+    // Narrow a window into the first value rather than allocating a `String`; runs every
+    // keystroke.
+    let first = matching_values.next()?;
+    let shared_len = matching_values.try_fold(first.len(), |shared, value| {
+        let common = common_prefix_len(first.get(..shared)?, value);
+        (common > 0).then_some(common)
+    })?;
+    let shared_prefix = first.get(..shared_len)?;
+
+    let entered = line.get(span.start..span.end)?;
+    let extends = shared_prefix != entered
+        && shared_prefix
+            .to_lowercase()
+            .contains(&entered.to_lowercase());
+
+    extends.then_some(Partial {
+        span,
+        insert: shared_prefix.to_string(),
+    })
+}
+
+impl ReedlineCompleter for NuCompleter {
+    fn complete(&mut self, line: &str, pos: usize) -> CompletionResult {
+        let query = CompletionQuery::new(line, pos);
+        self.drain_completed();
+
+        if let Some(suggestions) = self.fresh_for(&query) {
+            self.settle_pending(&query);
+            let partial = partial_of(line, &suggestions);
+            return CompletionResult::fresh(suggestions).with_partial(partial);
+        }
+
+        let fallback = self.stale_fallback(&query);
+        let partial = partial_of(line, &fallback);
+
+        let worker = self
+            .worker
+            .get_or_insert_with(|| Self::spawn_worker(&self.engine));
+
+        if worker.pending.as_ref() != Some(&query) {
+            if worker.request_tx.send(query.clone()).is_ok() {
+                worker.pending = Some(query);
+            } else {
+                // Worker died (a panic in a user completer closure kills it); drop it so the
+                // next request spawns a replacement.
+                self.worker = None;
+            }
+        }
+
+        CompletionResult::stale_or_pending(fallback).with_partial(partial)
+    }
+
+    fn poll_completion(&mut self) -> CompletionStatus {
+        let settled = self.drain_completed();
+
+        match self.worker.as_mut() {
+            Some(worker) if worker.pending.is_some() => {
+                if settled {
+                    worker.pending = None;
+                    CompletionStatus::Ready
+                } else {
+                    CompletionStatus::Pending
+                }
+            }
+            _ => CompletionStatus::Idle,
+        }
+    }
+}
