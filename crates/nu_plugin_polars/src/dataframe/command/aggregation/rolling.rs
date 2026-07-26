@@ -1,3 +1,4 @@
+use crate::values::conversion::convert_duration;
 use crate::values::{
     Column, NuDataFrame, NuExpression, NuLazyFrame, NuLazyGroupBy, PolarsPluginObject,
     PolarsPluginType, cant_convert_err,
@@ -10,7 +11,7 @@ use nu_protocol::{
     SyntaxShape, Value, shell_error::generic::GenericError,
 };
 use polars::prelude::{DataType, IntoSeries, RollingOptionsFixedWindow, SeriesOpsTime};
-use polars::time::{ClosedWindow, Duration, RollingGroupOptions};
+use polars::time::{ClosedWindow, Duration as PolarsDuration, RollingGroupOptions};
 use polars_lazy::dsl::col;
 
 enum RollType {
@@ -55,7 +56,7 @@ impl PluginCommand for Rolling {
     }
 
     fn description(&self) -> &str {
-        "Rolling calculation for a series or expression, or a rolling group-by for a lazy frame."
+        "Rolling calculation for a series or expression, or a rolling group-by for a lazyframe."
     }
 
     fn signature(&self) -> Signature {
@@ -73,19 +74,19 @@ impl PluginCommand for Rolling {
             .named(
                 "index-column",
                 SyntaxShape::String,
-                "Time or index column to roll over. Required for lazy frame input.",
+                "Time or index column to roll over. Required for lazyframe input.",
                 Some('i'),
             )
             .named(
                 "period",
-                SyntaxShape::OneOf(vec![SyntaxShape::Duration, SyntaxShape::String]),
-                "Rolling window width (e.g. \"7d\", \"1mo\", \"2i\"). Required for lazy frame input.",
+                SyntaxShape::OneOf(vec![SyntaxShape::Duration, SyntaxShape::String, SyntaxShape::Int]),
+                "Rolling window width (e.g. 7day, \"7d\", 1wk, \"1mo\", \"2i\", ). Required for lazyframe input.",
                 Some('p'),
             )
             .named(
                 "offset",
-                SyntaxShape::OneOf(vec![SyntaxShape::Duration, SyntaxShape::String]),
-                "Offset of the rolling window relative to the index column (default: \"0ns\").",
+                SyntaxShape::OneOf(vec![SyntaxShape::Duration, SyntaxShape::String, SyntaxShape::Int]),
+                "Offset of the rolling window relative to the index column (default: 1ns).",
                 Some('o'),
             )
             .named(
@@ -162,12 +163,13 @@ impl PluginCommand for Rolling {
                 ),
             },
             Example {
-                description: "Rolling sum for an expression in a lazy frame",
+                description: "Rolling sum for an expression in a lazyframe",
                 example: "[[a]; [1] [2] [3] [4] [5]]
     | polars into-df
     | polars select (polars col a | polars rolling sum 2 | polars as roll_a)
     | polars collect
-    | polars drop-nulls",
+    | polars drop-nulls
+    | polars collect",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![Column::new(
@@ -187,14 +189,44 @@ impl PluginCommand for Rolling {
                 ),
             },
             Example {
-                description: "Rolling sum over a 2-row integer window on a lazy frame",
+                description: "Rolling sum over a 2-row integer window on a lazyframe",
                 example: r#"[[idx val]; [1 10] [2 20] [3 30] [4 40] [5 50]]
     | polars into-lazy
     | polars rolling --index-column idx --period 2i
     | polars agg [(polars col val | polars sum | polars as val_sum)]
     | polars collect
-    | polars sort-by idx"#,
-                result: None,
+    | polars sort-by idx
+    | polars collect"#,
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "idx".to_string(),
+                                vec![
+                                    Value::test_int(1),
+                                    Value::test_int(2),
+                                    Value::test_int(3),
+                                    Value::test_int(4),
+                                    Value::test_int(5),
+                                ],
+                            ),
+                            Column::new(
+                                "val_sum".to_string(),
+                                vec![
+                                    Value::test_int(50),
+                                    Value::test_int(70),
+                                    Value::test_int(90),
+                                    Value::test_int(50),
+                                    Value::test_int(0),
+                                ],
+                            ),
+                        ],
+                        None,
+                        Span::test_data(),
+                    )
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
             },
         ]
     }
@@ -238,58 +270,31 @@ impl PluginCommand for Rolling {
     }
 }
 
-fn parse_duration_arg(value: Value) -> Result<String, ShellError> {
-    match value {
-        Value::Duration { val, .. } => Ok(format!("{val}ns")),
-        Value::String { val, .. } => Ok(val),
-        x => Err(ShellError::IncompatibleParametersSingle {
-            msg: format!("Expected duration or string but got {}", x.get_type()),
-            span: x.span(),
-        }),
-    }
-}
-
 fn command_lazy(
     plugin: &PolarsPlugin,
     engine: &EngineInterface,
     call: &EvaluatedCall,
     mut lazy: NuLazyFrame,
 ) -> Result<PipelineData, ShellError> {
-    let index_column: String = match call.get_flag_value("index-column") {
-        Some(Value::String { val, .. }) => val,
-        Some(other) => {
-            return Err(ShellError::IncompatibleParametersSingle {
-                msg: format!(
-                    "Expected string for --index-column but got {}",
-                    other.get_type()
-                ),
-                span: other.span(),
-            });
-        }
-        None => {
-            return Err(ShellError::Generic(GenericError::new(
-                "Missing required flag",
-                "--index-column is required for lazy frame input",
-                call.head,
-            )));
-        }
-    };
+    let index_column: String = call.get_flag("index-column")?.ok_or_else(|| {
+        ShellError::Generic(GenericError::new(
+            "Missing required flag",
+            "--index-column is required for lazyframe input",
+            call.head,
+        ))
+    })?;
 
-    let period = match call.get_flag_value("period") {
-        Some(v) => parse_duration_arg(v)?,
-        None => {
-            return Err(ShellError::Generic(GenericError::new(
-                "Missing required flag",
-                "--period is required for lazy frame input",
-                call.head,
-            )));
-        }
-    };
+    let period: PolarsDuration = call
+        .get_flag("period")?
+        .map(convert_duration)
+        .transpose()?
+        .unwrap_or_else(|| PolarsDuration::new(1));
 
-    let offset = match call.get_flag_value("offset") {
-        Some(v) => parse_duration_arg(v)?,
-        None => "0ns".to_string(),
-    };
+    let offset: PolarsDuration = call
+        .get_flag("offset")?
+        .map(convert_duration)
+        .transpose()?
+        .unwrap_or_else(|| PolarsDuration::new(1));
 
     let closed_window = match call.get_flag_value("closed") {
         Some(Value::String { val, .. }) => match val.as_str() {
@@ -315,8 +320,8 @@ fn command_lazy(
 
     let options = RollingGroupOptions {
         index_column: index_column.as_str().into(),
-        period: Duration::parse(&period),
-        offset: Duration::parse(&offset),
+        period,
+        offset,
         closed_window,
     };
 
