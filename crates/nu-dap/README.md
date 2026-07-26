@@ -134,17 +134,18 @@ The **server thread** answers read-only requests from the snapshot; the **eval
 thread** runs the script and, while paused, is frozen on a condvar. They share
 only `DebugState` — never the live engine (see the concurrency rule below).
 
-- **`server.rs`** — the DAP dispatcher (`run_loop`). It reads requests, mutates
-  shared state (set breakpoints, choose a run mode, request resume), and answers
-  read-only requests (`stackTrace`, `scopes`, `variables`, `evaluate`) from the
-  snapshot the eval thread published at the last pause.
+- **`server/`** — the DAP dispatcher (`run_loop` + a thin router, with handlers
+  grouped by concern). It reads requests, mutates shared state (set breakpoints,
+  choose a run mode, request resume), and answers read-only requests
+  (`stackTrace`, `scopes`, `variables`, `evaluate`) from the snapshot the eval
+  thread published at the last pause.
 
 - **`engine.rs`** — builds the `EngineState`, registers the command shims, and
   spawns the **eval thread**, which parses the script and runs it with the
   debugger activated (`eval_block::<WithDebug>`). The IR evaluator calls our
   `Debugger` callbacks before every instruction.
 
-- **`debugger.rs`** — `DapDebugger`, the `Debugger` impl. This is where stepping
+- **`debugger/`** — `DapDebugger`, the `Debugger` impl. This is where stepping
   decisions, breakpoint checks, the pause loop, and snapshot building happen.
 
 - **`state.rs`** — `Arc<DebugState>`: all cross-thread state, with its own locks.
@@ -351,10 +352,20 @@ payloads) for integrators that build atop `serve`.
 src/
   lib.rs          public API (run_stdio / serve) + the dap module
   main.rs         the `nu-dap` binary: fn main() { nu_dap::run_stdio() }
-  server.rs       DAP dispatcher run_loop — never locks the debugger
-  engine.rs       builds EngineState, registers shims, runs the script
-  debugger.rs     DapDebugger: the Debugger impl (stepping, pause, snapshot)
-  state.rs        Arc<DebugState>: breakpoints, run mode, snapshot, timeline
+  server/         DAP dispatch — run_loop + a thin router; never locks the debugger
+    mod.rs          run_loop, Session, the dispatch router
+    lifecycle.rs    initialize, launch, configurationDone, restart, terminate/disconnect
+    breakpoints.rs  setBreakpoints, setExceptionBreakpoints, exceptionInfo
+    inspect.rs      threads, stackTrace, scopes, variables, evaluate
+    stepping.rs     continue, next/stepIn, stepOut, pause
+    timetravel.rs   stepBack, reverseContinue
+    custom.rs       nuDapVisualize, nuDapUiReply
+  debugger/       DapDebugger: the Debugger impl
+    mod.rs          struct + trait impl (enter/leave block + instruction), pause loop
+    snapshot.rs     build the pause snapshot (frames + scopes)
+    stepping.rs     step-mode decisions + read locals/env from the Stack
+  engine.rs       builds EngineState, registers shims, runs the script / entry point
+  state.rs        Arc<DebugState>: breakpoints, run mode, snapshot, time-travel tape
   variables.rs    nu Value → DAP variable tree (lazy) + stream describe
   source_map.rs   span → file/line; single-line-span stop locations
   print_cmd.rs    print / input / input list command shims
@@ -362,6 +373,7 @@ src/
   stdio.rs        stdin detach + stdout/stderr capture pipes
   paths.rs        canonicalize + strip Windows \\?\ verbatim prefix
   dap/            protocol framing + typed payloads
+  tests/          unit tests for the internal modules (paths, source_map, variables)
 ```
 
 ## Testing
@@ -370,6 +382,8 @@ src/
 cargo test -p nu-dap
 ```
 
-Unit tests live inline in the modules; `tests/dap.rs` drives the built binary
-over the real protocol (it plays the editor side) against `example/*.nu`. Some
-tests spawn `^python` as an external, so Python must be on `PATH`.
+Two layers: **unit tests** in `src/tests/` are compiled with the crate, so they
+exercise the internal (`pub(crate)`) helpers directly; the **integration tests**
+in the top-level `tests/dap.rs` drive the built binary over the real protocol
+(playing the editor side) against `example/*.nu`. Some integration tests spawn
+`^python` as an external, so Python must be on `PATH`.
