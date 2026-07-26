@@ -1,9 +1,19 @@
 use std::{borrow::Cow, sync::Arc};
 
 use nu_engine::command_prelude::*;
-use nu_utils::escape_quote_string;
+use nu_protocol::FromValue;
 
-use crate::completions::{Context, DirectoryCompletion, FileCompletion, NuCompleter};
+use crate::completions::{
+    Completer, CompletionEngine, DirectoryCompletion, FileCompletion, SemanticSuggestion,
+};
+
+#[derive(Debug, Clone, FromValue)]
+#[nu_value(rename_all = "kebab-case", type_name = "directory | path | glob")]
+enum CompletionType {
+    Directory,
+    Path,
+    Glob,
+}
 
 #[derive(Clone)]
 pub struct CommandlineComplete;
@@ -63,72 +73,33 @@ If no input is provided, the current commandline contents will be used instead."
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let detailed_completions = call.has_flag(engine_state, stack, "detailed")?;
+        let call_span = call.span();
+        let head_span = call.head;
+        let source_span = input.span().unwrap_or(head_span);
 
-        // TODO: it should be possible to add something like a `NuCompleter::borrowed()`
-        // to avoid cloning the entire stack + engine state here, as a future optimization.
-        let completer = NuCompleter::new(Arc::new(engine_state.clone()), Arc::new(stack.clone()));
+        let (buffer, cursor_position) =
+            extract_input_buffer(&input, engine_state, head_span, source_span)?;
 
-        let src_span = input.span().unwrap_or(call.head);
+        let is_detailed = call.has_flag(engine_state, stack, "detailed")?;
+        let completion_type = call.get_flag::<CompletionType>(engine_state, stack, "type")?;
 
-        let (buffer, cursor_pos): (Cow<_>, _) = match &input {
-            PipelineData::Empty => {
-                // Clone the repl buffer to avoid holding the lock while fetching completions, which
-                // may execute arbitrary code (including other `commandline` calls that access the repl state).
-                let repl = engine_state.repl_state.lock().expect("repl state mutex");
-                (Cow::from(repl.buffer.clone()), repl.cursor_pos)
-            }
-            PipelineData::Value(Value::String { val, .. }, _) => (val.as_str().into(), val.len()),
-            _ => {
-                return Err(ShellError::PipelineMismatch {
-                    exp_input_type: "string or nothing".into(),
-                    dst_span: call.head,
-                    src_span,
-                });
-            }
-        };
+        let completions = fetch_completions(
+            engine_state,
+            stack,
+            completion_type,
+            &buffer,
+            cursor_position,
+        );
 
-        let completions =
-            if let Some(shape) = call.get_flag::<Value>(engine_state, stack, "type")? {
-                let mut working_set = StateWorkingSet::new(engine_state);
-                let span = {
-                    let file = working_set.add_file("completer", buffer.as_bytes());
-                    working_set.get_span_for_file(file)
-                };
-                let ctx = Context::new(
-                    &working_set,
-                    span,
-                    &buffer.as_bytes()[..cursor_pos],
-                    span.start,
-                );
-
-                match shape.as_str()? {
-                    "directory" => completer.process_completion(&mut DirectoryCompletion, &ctx),
-                    "path" | "glob" => completer.process_completion(&mut FileCompletion, &ctx),
-                    other => {
-                        return Err(ShellError::InvalidValue {
-                            valid: r#"type "directory", "path", or "glob""#.into(),
-                            actual: escape_quote_string(other),
-                            span: shape.span(),
-                        });
-                    }
-                }
-            } else {
-                completer.fetch_completions_at(&buffer, cursor_pos)
-            };
-
-        let result = completions
+        let result_values: Vec<Value> = completions
             .into_iter()
-            .map(|suggestion| {
-                if detailed_completions {
-                    suggestion.into_value(call.span())
-                } else {
-                    Value::string(suggestion.suggestion.value, call.span())
-                }
+            .map(|suggestion| match is_detailed {
+                true => suggestion.into_value(call_span),
+                false => Value::string(suggestion.suggestion.value, call_span),
             })
             .collect();
 
-        Ok(Value::list(result, call.span()).into_pipeline_data())
+        Ok(Value::list(result_values, call_span).into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -166,5 +137,89 @@ If no input is provided, the current commandline contents will be used instead."
                 result: None,
             },
         ]
+    }
+}
+
+/// Read the buffer and cursor position from a string input or, if none, the repl state.
+fn extract_input_buffer<'a>(
+    input: &'a PipelineData,
+    engine_state: &EngineState,
+    head_span: Span,
+    source_span: Span,
+) -> Result<(Cow<'a, str>, usize), ShellError> {
+    match input {
+        PipelineData::Value(
+            Value::String {
+                val: string_value, ..
+            },
+            _,
+        ) => Ok((Cow::Borrowed(string_value.as_str()), string_value.len())),
+        PipelineData::Empty => {
+            // Clone to avoid holding the lock while fetching completions, which may execute arbitrary code.
+            let repl = engine_state.repl_state.lock().expect("repl state mutex");
+            Ok((Cow::Owned(repl.buffer.clone()), repl.cursor_pos))
+        }
+        _ => Err(ShellError::PipelineMismatch {
+            exp_input_type: "string or nothing".into(),
+            dst_span: head_span,
+            src_span: source_span,
+        }),
+    }
+}
+
+/// Fetch completions for `buffer` at `cursor_position`, type-restricted (`--type`) or
+/// the default set for the whole line.
+fn fetch_completions(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    completion_type: Option<CompletionType>,
+    buffer: &str,
+    cursor_position: usize,
+) -> Vec<SemanticSuggestion> {
+    // TODO: it should be possible to add something like a `NuCompleter::borrowed()`
+    // to avoid cloning the entire stack + engine state here, as a future optimization.
+    let completer = CompletionEngine::new(Arc::new(engine_state.clone()), Arc::new(stack.clone()));
+
+    completion_type
+        .map(|parsed_type| {
+            generate_typed_suggestions(
+                engine_state,
+                &completer,
+                parsed_type,
+                buffer,
+                cursor_position,
+            )
+        })
+        .unwrap_or_else(|| completer.fetch_completions_at(buffer, cursor_position))
+}
+
+/// Completions restricted to a single [`CompletionType`] (directory/path/glob).
+fn generate_typed_suggestions(
+    engine_state: &EngineState,
+    completer: &CompletionEngine,
+    completion_type: CompletionType,
+    buffer: &str,
+    cursor_position: usize,
+) -> Vec<SemanticSuggestion> {
+    let mut working_set = StateWorkingSet::new(engine_state);
+    let buffer_bytes = buffer.as_bytes();
+
+    // Clamp `cursor_position` to a valid char boundary so the slice below is safe.
+    let cursor_position = buffer.floor_char_boundary(cursor_position.min(buffer.len()));
+
+    let file_id = working_set.add_file("completer", buffer_bytes);
+    let file_span = working_set.get_span_for_file(file_id);
+
+    let context = completer.context(
+        &working_set,
+        file_span,
+        &buffer_bytes[..cursor_position],
+        file_span.start,
+    );
+
+    // Explicit matching avoids boxing the source into a `dyn` trait object.
+    match completion_type {
+        CompletionType::Directory => DirectoryCompletion.fetch(&context).suggestions,
+        CompletionType::Path | CompletionType::Glob => FileCompletion.fetch(&context).suggestions,
     }
 }
