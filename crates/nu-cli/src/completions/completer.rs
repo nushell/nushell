@@ -438,3 +438,28 @@ impl NarrowingCache {
             .collect()
     }
 }
+
+struct Completed {
+    query: CompletionQuery,
+    suggestions: Suggestions,
+    cacheable: bool,
+}
+
+struct CompletionWorker {
+    request_tx: mpsc::Sender<CompletionQuery>,
+    result_rx: mpsc::Receiver<Completed>,
+    pending: Option<CompletionQuery>,
+    latest: Option<Completed>,
+}
+
+fn isolated_stack(parent: Arc<Stack>, suppress_stdin: bool) -> Arc<Stack> {
+    let stack = Stack::with_parent(parent)
+        .reset_out_dest()
+        .suppress_output()
+        .collect_value();
+    Arc::new(if suppress_stdin {
+        stack.suppress_stdin()
+    } else {
+        stack
+    })
+}
