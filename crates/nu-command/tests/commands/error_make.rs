@@ -276,3 +276,36 @@ fn error_source() -> Result {
 
     Ok(())
 }
+
+#[test]
+fn helpful_error_for_incorrect_label_values() -> Result {
+    // sample from https://github.com/nushell/nushell/issues/4460
+    let code = r#"
+        def shl [] {
+            let inp = $in
+            if true {
+                let span = (metadata $inp).span
+                error make {
+                    msg: "Error"
+                    label: {
+                        text: "error"
+                        start: $span.start
+                        end: $span.end
+                    }
+                }
+            }
+        }
+    "#;
+
+    let mut tester = test();
+    let () = tester.run(code)?;
+
+    let err = tester.run("2 | shl").expect_labeled_error()?;
+    let labels: Vec<_> = err.labels.iter().map(|label| label.text.as_str()).collect();
+    assert_contains(
+        "missing `span: record<start: int, end: int>` column",
+        &labels,
+    );
+
+    Ok(())
+}
