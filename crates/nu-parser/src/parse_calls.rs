@@ -438,9 +438,9 @@ fn parse_long_flag(
 
         // FIXME: only use the first flag you find?
         let split: Vec<_> = arg_contents.split(|x| *x == b'=').collect();
-        let long_name = String::from_utf8(split[0].into());
+        // Skip the leading "--" in the byte layer to avoid an extra allocation.
+        let long_name = String::from_utf8(split[0][2..].into());
         if let Ok(long_name) = long_name {
-            let long_name = long_name[2..].to_string();
             if let Some(flag) = sig.get_long_flag(&long_name) {
                 if let Some(arg_shape) = &flag.arg {
                     if split.len() > 1 {
@@ -524,9 +524,10 @@ fn parse_long_flag(
                     arg_span,
                     suggestion,
                 ));
+                // Move `long_name`; the clone was already consumed above.
                 LongFlagParseResult::FoundFlag(
                     Spanned {
-                        item: long_name.clone(),
+                        item: long_name,
                         span: arg_span,
                     },
                     None,
@@ -866,11 +867,15 @@ pub fn parse_multispan_value(
                 expr: parse_multispan_value(working_set, spans, spans_idx, arg, input_type),
             };
 
+            // Extract fields before boxing so the whole Keyword tree can be moved in.
+            let kw_span = keyword.span;
+            let expr_span = keyword.expr.span;
+            let ty = keyword.expr.ty.clone();
             Expression::new(
                 working_set,
-                Expr::Keyword(Box::new(keyword.clone())),
-                keyword.span.merge(keyword.expr.span),
-                keyword.expr.ty,
+                Expr::Keyword(Box::new(keyword)),
+                kw_span.merge(expr_span),
+                ty,
             )
         }
         _ => {
@@ -898,6 +903,15 @@ pub enum ArgumentParsingLevel {
     Full,
     /// Parse only the first `k` arguments
     FirstK { k: usize },
+}
+
+/// Build a `Spanned<String>` for a short flag character at the given span.
+#[inline]
+fn short_spanned(short: char, span: Span) -> Spanned<String> {
+    Spanned {
+        item: short.to_string(),
+        span,
+    }
 }
 
 pub fn parse_internal_call(
@@ -1082,21 +1096,7 @@ pub fn parse_internal_call(
                 &signature,
             );
 
-            if let Some(mut short_flags) = short_flags {
-                if short_flags.is_empty() {
-                    // workaround for completions (PR #6067)
-                    short_flags.push(Flag {
-                        long: "".to_string(),
-                        short: Some('a'),
-                        arg: None,
-                        required: false,
-                        desc: "".to_string(),
-                        var_id: None,
-                        default_value: None,
-                        completion: None,
-                    })
-                }
-
+            if let Some(short_flags) = short_flags {
                 if working_set.parse_errors[starting_error_count..]
                     .iter()
                     .any(|x| matches!(x, ParseError::UnknownFlag(_, _, _, _)))
@@ -1126,10 +1126,7 @@ pub fn parse_internal_call(
                                     if let Some(short) = flag.short {
                                         call.add_named((
                                             arg_name,
-                                            Some(Spanned {
-                                                item: short.to_string(),
-                                                span: spans[spans_idx],
-                                            }),
+                                            Some(short_spanned(short, spans[spans_idx])),
                                             Some(val_expression),
                                         ));
                                     }
@@ -1160,10 +1157,7 @@ pub fn parse_internal_call(
                                         item: String::new(),
                                         span: spans[spans_idx],
                                     },
-                                    Some(Spanned {
-                                        item: short.to_string(),
-                                        span: spans[spans_idx],
-                                    }),
+                                    Some(short_spanned(short, spans[spans_idx])),
                                     None,
                                 ));
                             }
