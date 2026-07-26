@@ -1669,8 +1669,9 @@ pub fn parse_call(
                 span: resolution_spans[0],
             });
 
-            // Preserve expression shape for features like completion while retaining the parse error.
-            return parse_external_call(working_set, spans, call_span);
+            // Preserve expression shape for completion while retaining the parse error.
+            // Use the sigil-stripped spans so the head span excludes the `%`, matching `^`.
+            return parse_external_call(working_set, resolution_spans, call_span);
         }
 
         // We might be parsing left-unbounded range ("..10")
