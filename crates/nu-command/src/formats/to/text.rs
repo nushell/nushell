@@ -12,15 +12,17 @@ const LINE_ENDING: &str = if cfg!(target_os = "windows") {
 };
 
 #[derive(Clone)]
-pub struct ToText;
+pub struct ToTextLike(&'static str);
+pub const TO_TEXT: ToTextLike = ToTextLike("to text");
+pub const TO_TXT: ToTextLike = ToTextLike("to txt");
 
-impl Command for ToText {
+impl Command for ToTextLike {
     fn name(&self) -> &str {
-        "to text"
+        self.0
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("to text")
+        Signature::build(self.name())
             .input_output_types(vec![(Type::Any, Type::String)])
             .switch(
                 "no-newline",
@@ -130,25 +132,42 @@ impl Command for ToText {
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
+        let command = self.name();
         vec![
             Example {
                 description: "Outputs data as simple text with a trailing newline.",
-                example: "[1] | to text",
+                example: match command {
+                    "to text" => "[1] | to text",
+                    "to txt" => "[1] | to txt",
+                    _ => unreachable!("only implemented for `text` and `txt`"),
+                },
                 result: Some(Value::test_string("1".to_string() + LINE_ENDING)),
             },
             Example {
                 description: "Outputs data as simple text without a trailing newline.",
-                example: "[1] | to text --no-newline",
+                example: match command {
+                    "to text" => "[1] | to text --no-newline",
+                    "to txt" => "[1] | to txt --no-newline",
+                    _ => unreachable!("only implemented for `text` and `txt`"),
+                },
                 result: Some(Value::test_string("1")),
             },
             Example {
                 description: "Outputs external data as simple text.",
-                example: "git help -a | lines | find -r '^ ' | to text",
+                example: match command {
+                    "to text" => "git help -a | lines | find -r '^ ' | to text",
+                    "to txt" => "git help -a | lines | find -r '^ ' | to txt",
+                    _ => unreachable!("only implemented for `text` and `txt`"),
+                },
                 result: None,
             },
             Example {
                 description: "Outputs records as simple text.",
-                example: "ls | to text",
+                example: match command {
+                    "to text" => "ls | to text",
+                    "to txt" => "ls | to txt",
+                    _ => unreachable!("only implemented for `text` and `txt`"),
+                },
                 result: None,
             },
         ]
@@ -249,7 +268,8 @@ mod test {
 
     #[test]
     fn test_examples() -> nu_test_support::Result {
-        nu_test_support::test().examples(ToText)
+        nu_test_support::test().examples(TO_TEXT)?;
+        nu_test_support::test().examples(TO_TXT)
     }
 
     #[test]
@@ -260,7 +280,7 @@ mod test {
             // Try to keep this working set small to keep tests running as fast as possible
             let mut working_set = StateWorkingSet::new(&engine_state);
 
-            working_set.add_decl(Box::new(ToText {}));
+            working_set.add_decl(Box::new(TO_TEXT));
             working_set.add_decl(Box::new(Metadata {}));
             working_set.add_decl(Box::new(Get {}));
 
