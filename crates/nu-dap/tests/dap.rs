@@ -271,7 +271,8 @@ fn breakpoints_scopes_variables_and_visualize() {
         .unwrap_or("");
     assert!(path.contains("demo.nu"), "frame source path: {path}");
 
-    // Five scopes.
+    // Situational scopes (Pipeline / Registers / Process) are hidden when
+    // empty; at this stop only Locals and Globals have content.
     d.send("scopes", json!({ "frameId": 0 }));
     let scopes = d.response("scopes");
     let names: Vec<String> = scopes["body"]["scopes"]
@@ -280,10 +281,7 @@ fn breakpoints_scopes_variables_and_visualize() {
         .iter()
         .map(|s| s["name"].as_str().unwrap().to_string())
         .collect();
-    assert_eq!(
-        names,
-        ["Locals", "Pipeline", "Globals", "Registers", "Process"]
-    );
+    assert_eq!(names, ["Locals", "Globals"]);
 
     // Locals: `return` (latest = classify "small"), plus files/total.
     let loc = d.locals();

@@ -35,32 +35,57 @@ impl Session {
     }
 
     pub(super) fn on_scopes(&mut self, seq: i64, cmd: &str) {
-        self.writer.respond(
-            seq,
-            cmd,
-            json!({
-                "scopes": [
-                    Scope { name: "Locals".into(),
-                            variables_reference: PauseSnapshot::LOCALS_REF,
-                            expensive: false },
-                    Scope { name: "Pipeline".into(),
-                            variables_reference: PauseSnapshot::PIPELINE_REF,
-                            expensive: false },
-                    // Nushell special variables ($nu, $env) as records.
-                    Scope { name: "Globals".into(),
-                            variables_reference: PauseSnapshot::GLOBALS_REF,
-                            expensive: true },
-                    // Raw IR registers; collapsed by default.
-                    Scope { name: "Registers".into(),
-                            variables_reference: PauseSnapshot::REGISTERS_REF,
-                            expensive: true },
-                    // Rolling stdout/stderr tails of externals.
-                    Scope { name: "Process".into(),
-                            variables_reference: PauseSnapshot::PROCESS_REF,
-                            expensive: true },
-                ]
-            }),
-        );
+        // Locals and Globals always show; the situational scopes (Pipeline,
+        // Registers, Process) appear only when they have content, so the panel
+        // isn't cluttered with empty sections at most stops.
+        let (pipeline, registers, process) = self
+            .with_state(|inner| {
+                let snap = inner.active_snapshot();
+                let filled = |r: i64| snap.var_refs.get(&r).is_some_and(|c| !c.is_empty());
+                (
+                    filled(PauseSnapshot::PIPELINE_REF),
+                    filled(PauseSnapshot::REGISTERS_REF),
+                    filled(PauseSnapshot::PROCESS_REF),
+                )
+            })
+            .unwrap_or((false, false, false));
+
+        let mut scopes = vec![Scope {
+            name: "Locals".into(),
+            variables_reference: PauseSnapshot::LOCALS_REF,
+            expensive: false,
+        }];
+        if pipeline {
+            scopes.push(Scope {
+                name: "Pipeline".into(),
+                variables_reference: PauseSnapshot::PIPELINE_REF,
+                expensive: false,
+            });
+        }
+        // Nushell special variables ($nu, $env) as records.
+        scopes.push(Scope {
+            name: "Globals".into(),
+            variables_reference: PauseSnapshot::GLOBALS_REF,
+            expensive: true,
+        });
+        if registers {
+            // Raw IR registers; collapsed by default.
+            scopes.push(Scope {
+                name: "Registers".into(),
+                variables_reference: PauseSnapshot::REGISTERS_REF,
+                expensive: true,
+            });
+        }
+        if process {
+            // Rolling stdout/stderr tails of externals.
+            scopes.push(Scope {
+                name: "Process".into(),
+                variables_reference: PauseSnapshot::PROCESS_REF,
+                expensive: true,
+            });
+        }
+
+        self.writer.respond(seq, cmd, json!({ "scopes": scopes }));
     }
 
     pub(super) fn on_variables(&mut self, seq: i64, cmd: &str, req: Request) {
