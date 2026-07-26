@@ -463,3 +463,103 @@ fn isolated_stack(parent: Arc<Stack>, suppress_stdin: bool) -> Arc<Stack> {
         stack
     })
 }
+
+/// What the cursor is completing; each variant carries exactly the AST it needs.
+#[derive(Debug, Clone)]
+pub(crate) enum SiteKind<'a> {
+    /// A command head. `node` is the whole call expression, used to detect a `^`/`%` sigil.
+    Command { node: Option<&'a Expression> },
+    /// A flag name being typed (`--`, `-x`).
+    FlagName {
+        call: &'a Call,
+        element: &'a Expression,
+    },
+    /// The value of a flag (`--opt <tab>`). `flag` preserves long/short identity;
+    /// `arg_slot` indexes `call.arguments`.
+    FlagValue {
+        call: &'a Call,
+        element: &'a Expression,
+        flag: FlagRef<'a>,
+        arg_slot: usize,
+    },
+    /// A positional argument. `sig_positional` indexes the signature's positionals,
+    /// `arg_slot` indexes `call.arguments`.
+    Positional {
+        call: &'a Call,
+        element: &'a Expression,
+        sig_positional: usize,
+        arg_slot: usize,
+    },
+    /// A binary-operator position trailing `lhs`.
+    Operator { lhs: &'a Expression },
+    /// A cell path into `path`.
+    CellPath { path: &'a FullCellPath },
+    /// A `$var` name.
+    Variable,
+    /// An attribute name (`@<tab>`).
+    AttributeName,
+    /// The item an attribute block decorates (`def`, `extern`, …).
+    AttributableItem,
+    /// An argument of a bare external call; `index` is the argument slot.
+    ExternalArg { call: &'a Expression, index: usize },
+    /// A file path — the base/fallback completion.
+    File,
+}
+
+impl<'a> SiteKind<'a> {
+    /// A command head backed by an existing call expression (used for sigil detection).
+    fn command(node: &'a Expression) -> Self {
+        Self::Command { node: Some(node) }
+    }
+}
+
+/// A fully resolved completion site: the span to replace, the typed text, the cursor, and
+/// the [`SiteKind`].
+///
+/// `typed_prefix`/`cursor` are derived centrally in [`CompletionEngine::finalize_site`] so
+/// they can never disagree with the span.
+#[derive(Debug, Clone)]
+pub(crate) struct CompletionSite<'a> {
+    pub kind: SiteKind<'a>,
+    pub span: Span,
+    pub typed_prefix: Cow<'a, str>,
+    /// The cursor, in absolute working-set (span) coordinates.
+    pub cursor: usize,
+}
+
+impl<'a> CompletionSite<'a> {
+    /// A site with the given kind and span; `typed_prefix`/`cursor` are filled later by
+    /// [`CompletionEngine::finalize_site`].
+    fn new(kind: SiteKind<'a>, span: Span) -> Self {
+        Self {
+            kind,
+            span,
+            typed_prefix: Cow::Borrowed(""),
+            cursor: 0,
+        }
+    }
+}
+
+/// Engine dispatch output: suggestions plus whether an impure source ran (worth caching).
+#[derive(Default)]
+struct Dispatched {
+    suggestions: Vec<SemanticSuggestion>,
+    cacheable: bool,
+}
+
+impl Dispatched {
+    /// Append another dispatch's suggestions, propagating its cacheability.
+    fn merge(&mut self, other: Dispatched) {
+        self.cacheable |= other.cacheable;
+        self.suggestions.extend(other.suggestions);
+    }
+}
+
+impl From<Fetched> for Dispatched {
+    fn from(fetched: Fetched) -> Self {
+        Self {
+            suggestions: fetched.suggestions,
+            cacheable: fetched.cacheable,
+        }
+    }
+}
