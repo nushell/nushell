@@ -1,5 +1,8 @@
 use super::{ShellError, shell_error::io::IoError};
-use crate::{FromValue, IntoValue, Span, Type, Value, engine::StateWorkingSet, record};
+use crate::{
+    FromValue, IntoValue, Span, Type, Value, engine::StateWorkingSet, record,
+    shell_error::generic::GenericError,
+};
 use miette::{Diagnostic, LabeledSpan, NamedSource, SourceSpan};
 use serde::{Deserialize, Serialize};
 use std::{fmt, fs};
@@ -209,37 +212,47 @@ impl From<ErrorLabel> for SourceSpan {
 
 impl FromValue for ErrorLabel {
     fn from_value(v: Value) -> Result<Self, ShellError> {
-        let record = v.clone().into_record()?;
-        let text = String::from_value(match record.get("text") {
-            Some(val) => val.clone(),
-            None => Value::string("", v.span()),
-        })
-        .unwrap_or("originates from here".into());
-        let span = Span::from_value(match record.get("span") {
-            Some(val) => val.clone(),
-            // Maybe there's a better way...
-            None => Value::record(
-                record! {
-                    "start" => Value::int(v.span().start as i64, v.span()),
-                    "end" => Value::int(v.span().end as i64, v.span()),
-                },
-                v.span(),
-            ),
-        });
+        let span = v.span();
 
-        match span {
-            Ok(s) => Ok(Self { text, span: s }),
-            Err(e) => Err(e),
+        let Ok(mut record) = v.into_record() else {
+            return Err(ShellError::TypeMismatch {
+                err_message: "Must be a record".into(),
+                span,
+            });
+        };
+
+        let text = record
+            .remove("text")
+            .ok_or_else(|| ShellError::MissingRequiredColumn {
+                column: "text",
+                span,
+            })?
+            .into_string()?;
+
+        // TODO: consider removing this after a grace period
+        if record.contains("start") || record.contains("end") {
+            return Err(GenericError::new(
+                "Invalid fields.",
+                r#"error labels have a "span" field, not separate "start" and "end" fields"#,
+                span,
+            )
+            .with_code("nu::shell::incorrect_value")
+            .into());
         }
+
+        let span = record
+            .remove("span")
+            .ok_or_else(|| ShellError::MissingRequiredColumn {
+                column: "span",
+                span,
+            })?;
+        let span = Span::from_value(span)?;
+
+        Ok(Self { text, span })
     }
+
     fn expected_type() -> crate::Type {
-        Type::Record(
-            vec![
-                ("text".into(), Type::String),
-                ("span".into(), Type::record()),
-            ]
-            .into(),
-        )
+        Type::Record([("text", Type::String), ("span", Span::expected_type())].into())
     }
 }
 
