@@ -51,6 +51,10 @@ impl PluginCommand for FirstDF {
                     PolarsPluginType::NuLazyFrame.into(),
                     PolarsPluginType::NuLazyFrame.into(),
                 ),
+                (
+                    PolarsPluginType::NuLazyGroupBy.into(),
+                    PolarsPluginType::NuLazyFrame.into(),
+                ),
             ])
             .category(Category::Custom("dataframe".into()))
     }
