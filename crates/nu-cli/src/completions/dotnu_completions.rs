@@ -1,12 +1,9 @@
 use crate::completions::{
-    Completer, CompletionOptions, SemanticSuggestion, completion_common::FileSuggestion,
-    completion_options::NuMatcher,
+    Completer, Context, Fetched, SemanticSuggestion, completion_common::FileSuggestion,
+    completion_options::NuMatcher, to_reedline_span,
 };
 use nu_path::expand_tilde;
-use nu_protocol::{
-    Span, SuggestionKind,
-    engine::{Stack, StateWorkingSet, VirtualPath},
-};
+use nu_protocol::{SuggestionKind, engine::VirtualPath};
 use reedline::Suggestion;
 use std::collections::{HashMap, HashSet};
 
@@ -18,19 +15,13 @@ pub struct DotNuCompletion {
 }
 
 impl Completer for DotNuCompletion {
-    fn fetch(
-        &mut self,
-        working_set: &StateWorkingSet,
-        stack: &Stack,
-        prefix: impl AsRef<str>,
-        span: Span,
-        offset: usize,
-        options: &CompletionOptions,
-    ) -> Vec<SemanticSuggestion> {
-        let reedline_span = reedline::Span {
-            start: span.start - offset,
-            end: span.end - offset,
-        };
+    fn fetch(&mut self, ctx: &Context) -> Fetched {
+        let working_set = ctx.working_set;
+        let stack = ctx.stack;
+        let span = ctx.span;
+        let options = ctx.options;
+        let prefix = ctx.prefix_str();
+        let reedline_span = to_reedline_span(span, ctx.offset);
         // Modules that are already loaded go first
         let mut matcher = NuMatcher::new(&prefix, options, true);
         let mut modules_map = HashMap::new();
@@ -40,7 +31,7 @@ impl Completer for DotNuCompletion {
         }
 
         for (module_name_bytes, module_id) in modules_map.into_iter() {
-            let value = String::from_utf8_lossy(module_name_bytes).to_string();
+            let value = String::from_utf8_lossy(module_name_bytes).into_owned();
             // TODO: this is a quickfix. just like `help modules`, this constructs the module
             // description from scratch each time. we should construct module descriptions when the
             // module is first parsed and store it for later use (like we do with custom commands)
@@ -164,6 +155,6 @@ impl Completer for DotNuCompletion {
                 .collect::<Vec<_>>(),
         );
 
-        all_results
+        Fetched::cacheable(all_results)
     }
 }
