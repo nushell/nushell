@@ -115,19 +115,38 @@ flowchart LR
     editor(["Editor / DAP client"])
 
     subgraph proc["nu-dap process"]
-        direction TB
-        server["server thread<br/>server::run_loop<br/>· reads requests<br/>· serves snapshot when paused<br/>· never locks the debugger"]
-        state[("Arc&lt;DebugState&gt;<br/>breakpoints · run mode<br/>snapshot · timeline · UI bridge")]
-        eval["eval thread<br/>engine::run<br/>· runs nushell (WithDebug)<br/>· blocks on a condvar at each pause"]
-        dbg["DapDebugger<br/>impl nu_protocol Debugger"]
+      direction TB
 
-        server <--> state
-        eval <--> state
-        eval -->|"callback per instruction"| dbg
-        dbg -->|"snapshot / record"| state
+      stdio["transport — stdio.rs + dap/protocol.rs<br/>DAP frames over a duplicated stdout;<br/>stdin → NUL, script stdout/stderr → capture pipes"]
+
+      subgraph srv["server thread — never locks the debugger"]
+        direction TB
+        loop["run_loop → dispatch (thin router)"]
+        h["handlers: lifecycle · breakpoints · inspect<br/>· stepping · timetravel · custom"]
+        loop --> h
+      end
+
+      state[("Arc&lt;DebugState&gt;<br/>breakpoints · run mode · condvar<br/>live snapshot · time-travel tape · UI bridge")]
+
+      subgraph evalt["eval thread — frozen on a condvar while paused"]
+        direction TB
+        engine["engine::run<br/>EngineState + print / input shims"]
+        dbg["DapDebugger : Debugger<br/>reads the Stack · source_map (span→line)<br/>build snapshot · pause loop"]
+        scratch["scratch engine<br/>watch · condition · logpoint"]
+        engine -->|"eval_block::&lt;WithDebug&gt;"| dbg
+        dbg -.->|"eval off-lock"| scratch
+      end
+
+      stdio -->|"requests"| loop
+      h -->|"responses / events"| stdio
+      dbg -->|"stopped · output · nuDapIr"| stdio
+      engine -.->|"print / input →<br/>output · nuDapUi"| stdio
+
+      h <-->|"serve from snapshot"| state
+      dbg <-->|"publish · record · pause / resume"| state
     end
 
-    editor <-->|"DAP frames over stdio"| server
+    editor <-->|"Content-Length JSON"| stdio
 ```
 
 The **server thread** answers read-only requests from the snapshot; the **eval
@@ -222,17 +241,30 @@ sequenceDiagram
 
 ## How "seeing variables" works
 
-Nushell stores local variables on the evaluator's `Stack`. Since
-[#18708][pr18708] the `Debugger` callbacks receive `&Stack`, so at each pause (or
-time-travel recording point) `sync_locals_from_stack` reads this frame's
-variables straight from `stack.vars` — names resolved from each variable's
-declaration span — and its environment from `stack.get_env_vars()`. These are
-snapshotted into `DebugState` so the server thread can serve them without
-touching the engine. Closure parameters and command arguments appear correctly,
-because they are real bindings on the stack.
+Showing variable values is a debugger's core job — and it's the one thing
+Nushell's `Debugger` trait historically *couldn't* do: its callbacks never
+received the evaluator's `Stack`, where locals live. Older versions of this
+adapter reconstructed values by watching the IR instruction stream
+(`store-variable`, argument pushes, …) — a "shadow model" that was fragile and,
+for example, couldn't see a closure's own parameters.
 
-The one value not on the stack is `$in` (the pipeline input), which is
-register-based; we capture it from register 0 at block entry.
+[#18708][pr18708] removed that limitation upstream: the callbacks now receive
+`&Stack`. So the reconstruction is gone. Whenever a value might be needed — a
+pause, a breakpoint condition, a time-travel recording — `sync_locals_from_stack`
+reads it directly from three sources:
+
+- **Locals** — iterate `stack.vars` (a `Vec<(VarId, Value)>`), resolving each
+  name from the variable's declaration span in the source. These are the *real*
+  bindings, so closure parameters, command arguments, and `for`/`match` bindings
+  all appear correctly — cases the old shadow model missed.
+- **Environment** — `stack.get_env_vars()` yields the full runtime `$env`,
+  including the mutations the script has made.
+- **`$in`** — the one value *not* on the stack (it is register-based); captured
+  from register 0 at block entry and injected alongside the locals.
+
+Per the [concurrency rule](#the-concurrency-rule-deadlock-hazard), the eval
+thread copies these into `DebugState` at each stop; the server then answers
+`variables`/`evaluate` from that snapshot, never from the live engine.
 
 [pr18708]: https://github.com/nushell/nushell/pull/18708
 
