@@ -1141,12 +1141,15 @@ pub fn parse_internal_call(
                                 ));
                                 // NOTE: still need to cover this incomplete flag in the final expression
                                 // see https://github.com/nushell/nushell/issues/16375
+                                // Preserve the flag's identity so completion can tell
+                                // which flag is still awaiting a value.
                                 call.add_named((
                                     Spanned {
-                                        item: String::new(),
+                                        item: flag.long.clone(),
                                         span: spans[spans_idx],
                                     },
-                                    None,
+                                    flag.short
+                                        .map(|short| short_spanned(short, spans[spans_idx])),
                                     None,
                                 ));
                             }
