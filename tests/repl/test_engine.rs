@@ -297,7 +297,17 @@ fn dynamic_load_env() -> TestResult {
 #[test]
 fn reduce_spans() -> TestResult {
     fail_test(
-        r#"let x = ([1, 2, 3] | reduce --fold 0 { $it.item + 2 * $it.acc }); error make {msg: "oh that hurts", label: {text: "right here", start: (metadata $x).span.start, end: (metadata $x).span.end } }"#,
+        r#"
+            let x = ([1, 2, 3] | reduce --fold 0 {|it, acc| $it + 2 * $acc })
+            let span = (metadata $x).span
+            error make {
+                msg: "oh that hurts"
+                label: {
+                    text: "right here"
+                    span: $span
+                }
+            }
+        "#,
         "right here",
     )
 }

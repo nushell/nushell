@@ -30,17 +30,23 @@ fn error_make_no_label_text() -> Result {
 
     let err = test().run(code).expect_labeled_error()?;
 
-    assert_eq!(err.msg, "no_label_text");
-    assert_eq!(err.labels[0].span, Span::new(1, 1));
+    // the error should be due to the invalid argument given to `error make`, it should not be the
+    // error that the user is trying to raise
+    assert_ne!(err.msg, "no_label_text");
+    assert_ne!(err.labels[0].span, Span::new(1, 1));
+
+    assert_eq!(err.labels[0].text, "missing `text: string` column");
+
     Ok(())
 }
 
 #[test]
 fn error_label_works() -> Result {
     let code = "
+        let unseen = 'unseen val'
         error make {
             msg: foo,
-            label: { text: unseen }
+            label: { text: unseen, span: (metadata $unseen).span }
         }
     ";
 
@@ -53,11 +59,14 @@ fn error_label_works() -> Result {
 #[test]
 fn error_labels_list_works() -> Result {
     let code = "
+        let unseen = 'unseen val'
+        let hidden = 'hidden val'
         error make {
-            msg: foo,
+            msg: foo
             labels: [
-                { text: unseen },
-                { text: hidden },
+                [text, span];
+                [unseen, (metadata $unseen).span]
+                [hidden, (metadata $hidden).span]
             ]
         }
     ";
@@ -74,7 +83,7 @@ fn no_span_if_unspanned() -> Result {
     let code = "
         error make -u {
             msg: foo
-            label: { text: unseen }
+            label: { text: unseen, span: (metadata 'here').span }
         }
     ";
 
@@ -96,9 +105,20 @@ fn error_start_bigger_than_end_should_fail() -> Result {
         }
     ";
 
-    let err = test().run(code).expect_shell_error()?;
-    assert_eq!(err.clone().generic_error()?, "Unable to parse Span.");
-    assert_eq!(err.generic_msg()?, "`end` must not be less than `start`");
+    let mut err = match test().run(code).expect_shell_error()? {
+        ShellError::Generic(err) => err,
+        _ => panic!("expected a GenericError"),
+    };
+
+    assert_eq!(err.error, "Unable to parse ErrorLabel.");
+
+    let inner_err = err.inner.pop().expect("an inner error to be present");
+    assert_eq!(inner_err.clone().generic_error()?, "Unable to parse Span.");
+    assert_eq!(
+        inner_err.generic_msg()?,
+        "`end` must not be less than `start`"
+    );
+
     Ok(())
 }
 
