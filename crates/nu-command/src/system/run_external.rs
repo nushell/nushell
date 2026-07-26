@@ -79,7 +79,7 @@ If you create a custom command with this name, that will be used instead."
                     });
                 };
                 // Prepend elements in command list to the list of arguments except the first
-                call_args.splice(0..0, args.to_vec());
+                call_args.splice(..0, args.to_vec());
                 first.coerce_str()?
             }
             _ => Cow::Owned(name.clone().coerce_into_string()?),
