@@ -5334,6 +5334,7 @@ dependencies = [
  "bytes",
  "derive_more 2.1.1",
  "gatekeeper",
+ "indoc",
  "itertools 0.15.0",
  "kitest",
  "lexopt",
