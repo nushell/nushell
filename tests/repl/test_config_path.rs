@@ -756,8 +756,9 @@ fn system_resolve_paths_smoke() {
 
 /// Default `config.nu` as a dangling symlink must not block startup: use
 /// built-in defaults, warn on stderr, and never remove the symlink.
-#[test]
 #[cfg(not(windows))]
+#[test]
+#[deps(NU)]
 fn dangling_config_nu_uses_defaults_with_warning() {
     Playground::setup("dangling_config_nu", |_, playground| {
         let xdg = playground.cwd().join("xdg");
@@ -765,7 +766,7 @@ fn dangling_config_nu_uses_defaults_with_warning() {
         fs::create_dir_all(&nu_dir).unwrap();
         playground.symlink("/nonexistent/moved-repo/config.nu", "xdg/nushell/config.nu");
 
-        let output = Command::new(executable_path())
+        let output = Command::new(NU.path())
             .current_dir(playground.cwd())
             .args(["-l", "-c", "print ok"])
             .env("XDG_CONFIG_HOME", &xdg)
@@ -795,8 +796,9 @@ fn dangling_config_nu_uses_defaults_with_warning() {
 }
 
 /// Default `env.nu` as a dangling symlink: same recovery as config.nu.
-#[test]
 #[cfg(not(windows))]
+#[test]
+#[deps(NU)]
 fn dangling_env_nu_uses_defaults_with_warning() {
     Playground::setup("dangling_env_nu", |_, playground| {
         let xdg = playground.cwd().join("xdg");
@@ -804,7 +806,7 @@ fn dangling_env_nu_uses_defaults_with_warning() {
         fs::create_dir_all(&nu_dir).unwrap();
         playground.symlink("/nonexistent/moved-repo/env.nu", "xdg/nushell/env.nu");
 
-        let output = Command::new(executable_path())
+        let output = Command::new(NU.path())
             .current_dir(playground.cwd())
             .args(["-l", "-c", "print ok"])
             .env("XDG_CONFIG_HOME", &xdg)
@@ -830,14 +832,15 @@ fn dangling_env_nu_uses_defaults_with_warning() {
 }
 
 /// Explicit `--config` to a dangling path remains a hard error in strict mode.
-#[test]
 #[cfg(not(windows))]
+#[test]
+#[deps(NU)]
 fn dangling_config_cli_override_still_errors() {
     Playground::setup("dangling_config_cli", |_, playground| {
         playground.symlink("/nonexistent/custom-config.nu", "broken-config.nu");
         let broken = playground.cwd().join("broken-config.nu");
 
-        let output = Command::new(executable_path())
+        let output = Command::new(NU.path())
             .current_dir(playground.cwd())
             .args([
                 "--config",
