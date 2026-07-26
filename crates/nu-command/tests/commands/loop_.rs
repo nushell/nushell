@@ -28,7 +28,6 @@ fn loop_break_on_external_failed() -> Result {
             } else {
                 $total += 1
             }
-            print 1
             fail
         }
     ";

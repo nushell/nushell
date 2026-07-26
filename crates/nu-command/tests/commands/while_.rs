@@ -35,7 +35,6 @@ fn while_break_on_external_failed() -> Result {
         mut total = 0
         while $total < 2 {
             $total += 1
-            print 1
             fail
         }
     ";
