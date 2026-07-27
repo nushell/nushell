@@ -1,7 +1,6 @@
 use nu_test_support::{fs::Stub, prelude::*};
+use nu_utils::consts::LINE_SEPARATOR_STR;
 use std::{fs, io::Write};
-
-const NEWLINE: &str = if cfg!(windows) { "\r\n" } else { "\n" };
 
 #[test]
 fn writes_out_csv() -> Result {
@@ -32,7 +31,7 @@ fn writes_out_list() -> Result {
             .run("[a b c d] | save save_test_3/list_sample.txt")?;
 
         let actual = fs::read_to_string(expected_file)?;
-        assert_eq!(actual, ["a", "b", "c", "d", ""].join(NEWLINE));
+        assert_eq!(actual, ["a", "b", "c", "d", ""].join(LINE_SEPARATOR_STR));
         Ok(())
     })
 }
@@ -49,7 +48,7 @@ fn writes_structured_data_as_text() -> Result {
             .run("[[a, b]; [1, 2]] | save structured.txt")?;
 
         let actual = fs::read_to_string(expected_file)?;
-        assert_eq!(actual, ["a: 1, b: 2", ""].join(NEWLINE));
+        assert_eq!(actual, ["a: 1, b: 2", ""].join(LINE_SEPARATOR_STR));
         Ok(())
     })
 }
