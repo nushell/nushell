@@ -331,7 +331,7 @@ fn external_print_cmd(marker: &str) -> String {
     }
     #[cfg(not(windows))]
     {
-        format!(r#"^/usr/bin/printf '{marker}'"#)
+        format!("^/usr/bin/printf '{marker}'")
     }
 }
 
