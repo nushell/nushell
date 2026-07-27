@@ -331,7 +331,11 @@ fn error_if_file_not_found() -> Result {
         .expect_io_error()?;
 
     assert_eq!(err.kind, shell_error::io::ErrorKind::FileNotFound);
-    assert!(err.path.expect("error should include path").ends_with(dir.join("i_dont_exist.txt")));
+    assert!(
+        err.path
+            .expect("error should include path")
+            .ends_with(dir.join("i_dont_exist.txt"))
+    );
     Ok(())
 }
 
