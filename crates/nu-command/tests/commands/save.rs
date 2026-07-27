@@ -61,10 +61,10 @@ fn saves_explicit_table_rendering_as_is() -> Result {
         let expected_file = dirs.test().join("rendered.txt");
 
         let () = test().cwd(dirs.test()).run(
-            r#"
+            "
                 $env.config.use_ansi_coloring = true
                 [[name]; [value]] | table | save rendered.txt
-            "#,
+            ",
         )?;
 
         let actual = fs::read_to_string(expected_file)?;
