@@ -122,36 +122,37 @@ This command will bubble up any errors encountered when running the closure. The
                 description: "Time a closure and also return the output.",
                 example: "timeit --output { 'example text' }",
                 result: Some(Value::test_record(record! {
-                "time" => Value::test_duration(14328),
-                "output" => Value::test_string("example text")})),
+                    "time" => Value::test_duration(14328),
+                    "output" => Value::test_string("example text")
+                })),
             },
         ]
     }
 }
 
-#[test]
-// Due to difficulty in observing side-effects from time closures,
-// checks that the closures have run correctly must use the filesystem.
-fn test_time_block() {
-    use nu_test_support::{nu, nu_repl_code, playground::Playground};
-    Playground::setup("test_time_block", |dirs, _| {
-        let inp = ["[2 3 4] | timeit {to nuon | save foo.txt }", "open foo.txt"];
-        let actual_repl = nu!(cwd: dirs.test(), nu_repl_code(&inp));
-        assert_eq!(actual_repl.err, "");
-        assert_eq!(actual_repl.out, "[2, 3, 4]");
-    });
-}
+#[cfg(test)]
+mod tests {
+    use nu_test_support::prelude::*;
 
-#[test]
-fn test_time_block_2() {
-    use nu_test_support::{nu, nu_repl_code, playground::Playground};
-    Playground::setup("test_time_block", |dirs, _| {
-        let inp = [
-            "[2 3 4] | timeit {{result: $in} | to nuon | save foo.txt }",
-            "open foo.txt",
-        ];
-        let actual_repl = nu!(cwd: dirs.test(), nu_repl_code(&inp));
-        assert_eq!(actual_repl.err, "");
-        assert_eq!(actual_repl.out, "{result: [2, 3, 4]}");
-    });
+    #[test]
+    fn test_time_block() -> Result {
+        let code = "
+            [2 3 4] | timeit { job send 0 --tag 1001 }
+            job recv --tag 1001 --timeout 0sec
+        ";
+
+        test().run(code).expect_value_eq([2, 3, 4])
+    }
+
+    #[test]
+    fn test_time_block_2() -> Result {
+        let code = "
+            [2 3 4] | timeit { {result: $in} | job send 0 --tag 1002 }
+            job recv --tag 1002 --timeout 0sec
+        ";
+
+        test().run(code).expect_value_eq(test_record! {
+            "result" => test_value!([2, 3, 4]),
+        })
+    }
 }

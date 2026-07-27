@@ -1,4 +1,3 @@
-use crate::test_bins;
 use lexopt::prelude::*;
 use nu_experimental as experimental_options;
 use nu_parser::escape_for_script_arg;
@@ -48,24 +47,6 @@ const LOG_LEVEL_VALUES: &[&str] = &["error", "warn", "info", "debug", "trace", "
 const LOG_TARGET_VALUES: &[&str] = &["stdout", "stderr", "mixed", "file"];
 #[cfg(feature = "mcp")]
 const MCP_TRANSPORT_VALUES: &[&str] = &["stdio", "http"];
-const TEST_BIN_VALUES: &[&str] = &[
-    "echo_env",
-    "echo_env_stderr",
-    "echo_env_stderr_fail",
-    "echo_env_mixed",
-    "cococo",
-    "meow",
-    "meowb",
-    "relay",
-    "iecho",
-    "fail",
-    "nonu",
-    "chop",
-    "repeater",
-    "repeat_bytes",
-    "nu_repl",
-    "input_bytes_length",
-];
 
 // Parsed CLI output with nushell flags and script information.
 #[derive(Clone, Debug)]
@@ -317,14 +298,6 @@ const CLI_FLAGS: &[CliFlag] = &[
         "nu --stdin -c \"print $in\"",
     ),
     CliFlag::value(
-        "testbin",
-        None,
-        ValueHint::String,
-        "run an internal test binary (see available bins below)",
-        CliCategory::Startup,
-        "nu --testbin cococo",
-    ),
-    CliFlag::value(
         "experimental-options",
         None,
         ValueHint::ListString,
@@ -432,7 +405,6 @@ struct CliValues {
     login_shell: Option<Spanned<String>>,
     interactive_shell: Option<Spanned<String>>,
     commands: Option<Spanned<String>>,
-    testbin: Option<Spanned<String>>,
     #[cfg(feature = "plugin")]
     plugin_file: Option<Spanned<String>>,
     #[cfg(feature = "plugin")]
@@ -655,11 +627,6 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
                     .extend(parsed.into_iter().map(spanned_value));
             }
             Long("stdin") => cli.redirect_stdin = Some(spanned_true()),
-            Long("testbin") => {
-                let normalized =
-                    parse_validated_option(&mut parser, "testbin", TEST_BIN_VALUES, "test bin")?;
-                cli.testbin = Some(spanned_value(normalized));
-            }
             Long("experimental-options") => {
                 let values = parse_experimental_options(&mut parser)?;
                 cli.experimental_options
@@ -768,7 +735,6 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
             login_shell: cli.login_shell,
             interactive_shell: cli.interactive_shell,
             commands: cli.commands,
-            testbin: cli.testbin,
             #[cfg(feature = "plugin")]
             plugin_file: cli.plugin_file,
             #[cfg(feature = "plugin")]
@@ -1108,7 +1074,6 @@ fn missing_value_help(option: &str) -> String {
     match option {
         "-m" | "--table-mode" => format!("Valid table modes: {}", TABLE_MODE_VALUES.join(", ")),
         "--error-style" => format!("Valid error styles: {}", ERROR_STYLE_VALUES.join(", ")),
-        "--testbin" => format!("Valid test bins: {}", TEST_BIN_VALUES.join(", ")),
         "--log-level" | "--log-include" | "--log-exclude" => {
             format!("Valid log levels: {}", LOG_LEVEL_VALUES.join(", "))
         }
@@ -1234,7 +1199,6 @@ fn prevalidate_short_groups_before_lexopt(args: &[OsString]) -> Result<(), CliEr
             || arg == "--ide-hover"
             || arg == "--ide-complete"
             || arg == "--include-path"
-            || arg == "--testbin"
         {
             skip_next = true;
             i += 1;
@@ -1400,17 +1364,6 @@ fn cli_help_text() -> String {
                 flag.example
             )
             .expect("writing to a String is infallible");
-
-            // For the --testbin option we augment the static description with a dynamically generated list of the available binaries
-            // and their individual help strings
-            if flag.long == "testbin" {
-                writeln!(
-                    output,
-                    "      {HELP_DESC_COLOR}Available test bins:{RESET_COLOR}"
-                )
-                .expect("writing to a String is infallible");
-                output.push_str(&test_bins::help_list());
-            }
         }
     }
     output
@@ -1452,7 +1405,6 @@ pub(crate) struct NushellCliArgs {
     pub(crate) login_shell: Option<Spanned<String>>,
     pub(crate) interactive_shell: Option<Spanned<String>>,
     pub(crate) commands: Option<Spanned<String>>,
-    pub(crate) testbin: Option<Spanned<String>>,
     #[cfg(feature = "plugin")]
     pub(crate) plugin_file: Option<Spanned<String>>,
     #[cfg(feature = "plugin")]
@@ -1492,25 +1444,7 @@ pub(crate) struct NushellCliArgs {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_bins;
     use std::ffi::OsString;
-
-    #[test]
-    fn cli_help_includes_testbin_list() {
-        let help = cli_help_text();
-        // the description for the testbin flag should be present
-        assert!(help.contains("--testbin"));
-
-        // there should be an entry for at least one known bin
-        assert!(help.contains("echo_env"));
-
-        // ensure the dynamic list from test_bins::help_list is embedded
-        let list = test_bins::help_list();
-        assert!(help.contains(list.trim()));
-
-        // colored subcommand names should use the new bright-cyan code
-        assert!(help.contains(HELP_SUBCMD_COLOR));
-    }
 
     #[test]
     fn test_log_file_parsing() {

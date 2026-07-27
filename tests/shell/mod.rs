@@ -1,13 +1,9 @@
 use nu_test_support::{
     fs::Stub::{FileWithContent, FileWithContentToBeTrimmed},
-    nu_repl_code,
     prelude::*,
 };
 use pretty_assertions::assert_eq;
 use rstest::rstest;
-
-#[cfg(unix)]
-use nu_utils::time::Instant;
 
 mod environment;
 mod pipeline;
@@ -46,114 +42,54 @@ fn plugins_are_declared_with_wix() -> Result {
 }
 
 #[test]
-#[cfg(not(windows))]
-fn do_not_panic_if_broken_pipe() {
-    // `nu -h | false`
-    // used to panic with a BrokenPipe error
-    let child_output = std::process::Command::new("sh")
-        .arg("-c")
-        .arg(format!(
-            "{:?} -h | false",
-            nu_test_support::fs::executable_path()
-        ))
-        .output()
-        .expect("failed to execute process");
-
-    assert!(child_output.stderr.is_empty());
+#[deps(NU, TESTBIN_FAIL)]
+fn do_not_panic_if_broken_pipe() -> Result {
+    // `nu -h | fail` used to panic with a BrokenPipe error.
+    let result: CompleteResult = test().run("nu -h | ^fail | complete")?;
+    assert_eq!(result.exit_code, 1);
+    assert!(result.stderr.is_empty());
+    Ok(())
 }
 
-#[test]
-#[cfg(unix)]
-fn exit_failure_if_stdout_full() {
-    let mut child = std::process::Command::new("sh")
-        .arg("-c")
-        .arg(format!(
-            "{:?} -n > /dev/full",
-            nu_test_support::fs::executable_path()
-        ))
-        .spawn()
-        .expect("failed to spawn process");
-
-    let start = Instant::now();
-    let status = loop {
-        if let Some(status) = child.try_wait().expect("failed to query child status") {
-            break status;
-        }
-
-        if start.elapsed() > std::time::Duration::from_secs(5) {
-            let _ = child.kill();
-            panic!("child did not exit within 5 seconds");
-        }
-
-        std::thread::sleep(std::time::Duration::from_millis(10));
-    };
-
-    assert!(!status.success(), "expected failure status");
-    assert!(
-        status.code().is_some(),
-        "expected process to exit normally rather than by signal"
-    );
-}
-
-#[test]
-#[cfg(unix)]
-fn exit_failure_if_stderr_full() {
-    let mut child = std::process::Command::new("sh")
-        .arg("-c")
-        .arg(format!(
-            "{:?} -n 2>/dev/full",
-            nu_test_support::fs::executable_path()
-        ))
-        .spawn()
-        .expect("failed to spawn process");
-
-    let start = Instant::now();
-    let status = loop {
-        if let Some(status) = child.try_wait().expect("failed to query child status") {
-            break status;
-        }
-
-        if start.elapsed() > std::time::Duration::from_secs(5) {
-            let _ = child.kill();
-            panic!("child did not exit within 5 seconds");
-        }
-
-        std::thread::sleep(std::time::Duration::from_millis(10));
-    };
-
-    assert!(!status.success(), "expected failure status");
-    assert!(
-        status.code().is_some(),
-        "expected process to exit normally rather than by signal"
-    );
-}
-
-#[test]
+#[cfg(target_os = "linux")]
+#[rstest]
+#[case::stdout(std::fs::File::create("/dev/full").unwrap(), std::process::Stdio::null())]
+#[case::stderr(std::process::Stdio::null(), std::fs::File::create("/dev/full").unwrap())]
+#[timeout(std::time::Duration::from_secs(5))]
+#[nu_test_support::test]
+#[serial]
 #[deps(NU)]
+fn exit_failure_if_output_full(
+    #[case] stdout: impl Into<std::process::Stdio>,
+    #[case] stderr: impl Into<std::process::Stdio>,
+) -> Result {
+    let output = std::process::Command::new(NU.path())
+        .arg("-n")
+        .stdout(stdout)
+        .stderr(stderr)
+        .output()?;
+
+    pretty_assertions::assert_matches!(output.status.code(), Some(code) if code != 0);
+    Ok(())
+}
+
+#[test]
 fn nu_lib_dirs_repl() -> Result {
     Playground::setup("nu_lib_dirs_repl", |dirs, sandbox| -> Result {
         sandbox
             .mkdir("scripts")
-            .with_files(&[FileWithContentToBeTrimmed(
-                "scripts/foo.nu",
-                r#"
-                    $env.FOO = "foo"
-                "#,
-            )]);
+            .with_files(&[FileWithContent("scripts/foo.nu", "$env.FOO = 'foo'")]);
 
-        let inp_lines = &[
-            "$env.NU_LIB_DIRS = [ ('scripts' | path expand) ]",
-            "source-env foo.nu",
-            "$env.FOO",
-        ];
-
-        let command = format!("{} | to text | str trim", nu_repl_code(inp_lines));
-        test().cwd(dirs.test()).run(command).expect_value_eq("foo")
+        let scripts = dirs.test().join("scripts");
+        let mut tester = test()
+            .cwd(dirs.test())
+            .env("NU_LIB_DIRS", [scripts.to_string_lossy().to_string()]);
+        let () = tester.run("source-env foo.nu")?;
+        tester.run("$env.FOO").expect_value_eq("foo")
     })
 }
 
 #[test]
-#[deps(NU)]
 fn nu_lib_dirs_script() -> Result {
     Playground::setup("nu_lib_dirs_script", |dirs, sandbox| -> Result {
         sandbox
@@ -171,19 +107,16 @@ fn nu_lib_dirs_script() -> Result {
                 ",
             )]);
 
-        let inp_lines = &[
-            "$env.NU_LIB_DIRS = [ ('scripts' | path expand) ]",
-            "source-env main.nu",
-            "$env.FOO",
-        ];
-
-        let command = format!("{} | to text | str trim", nu_repl_code(inp_lines));
-        test().cwd(dirs.test()).run(command).expect_value_eq("foo")
+        let scripts = dirs.test().join("scripts");
+        let mut tester = test()
+            .cwd(dirs.test())
+            .env("NU_LIB_DIRS", [scripts.to_string_lossy().to_string()]);
+        let () = tester.run("source-env main.nu")?;
+        tester.run("$env.FOO").expect_value_eq("foo")
     })
 }
 
 #[test]
-#[deps(NU)]
 fn nu_lib_dirs_relative_repl() -> Result {
     Playground::setup("nu_lib_dirs_relative_repl", |dirs, sandbox| -> Result {
         sandbox
@@ -195,14 +128,9 @@ fn nu_lib_dirs_relative_repl() -> Result {
                 "#,
             )]);
 
-        let inp_lines = &[
-            "$env.NU_LIB_DIRS = [ 'scripts' ]",
-            "source-env foo.nu",
-            "$env.FOO",
-        ];
-
-        let command = format!("{} | to text | str trim", nu_repl_code(inp_lines));
-        test().cwd(dirs.test()).run(command).expect_value_eq("foo")
+        let mut tester = test().cwd(dirs.test()).env("NU_LIB_DIRS", ["scripts"]);
+        let () = tester.run("source-env foo.nu")?;
+        tester.run("$env.FOO").expect_value_eq("foo")
     })
 }
 
@@ -283,8 +211,9 @@ fn run_export_extern() -> Result {
 }
 
 #[test]
+#[deps(NU)]
 fn run_in_login_mode() {
-    let child_output = std::process::Command::new(nu_test_support::fs::executable_path())
+    let child_output = std::process::Command::new(NU.path())
         .args(["-n", "-l", "-c", "echo $nu.is-login"])
         .output()
         .expect("failed to run nu");
@@ -294,8 +223,9 @@ fn run_in_login_mode() {
 }
 
 #[test]
+#[deps(NU)]
 fn run_in_not_login_mode() {
-    let child_output = std::process::Command::new(nu_test_support::fs::executable_path())
+    let child_output = std::process::Command::new(NU.path())
         .args(["-n", "-c", "echo $nu.is-login"])
         .output()
         .expect("failed to run nu");
@@ -305,8 +235,9 @@ fn run_in_not_login_mode() {
 }
 
 #[test]
+#[deps(NU)]
 fn run_in_interactive_mode() {
-    let child_output = std::process::Command::new(nu_test_support::fs::executable_path())
+    let child_output = std::process::Command::new(NU.path())
         .args(["-n", "-i", "-c", "echo $nu.is-interactive"])
         .output()
         .expect("failed to run nu");
@@ -316,8 +247,9 @@ fn run_in_interactive_mode() {
 }
 
 #[test]
+#[deps(NU)]
 fn run_in_noninteractive_mode() {
-    let child_output = std::process::Command::new(nu_test_support::fs::executable_path())
+    let child_output = std::process::Command::new(NU.path())
         .args(["-n", "-c", "echo $nu.is-interactive"])
         .output()
         .expect("failed to run nu");
@@ -327,8 +259,9 @@ fn run_in_noninteractive_mode() {
 }
 
 #[test]
+#[deps(NU)]
 fn run_with_no_newline() {
-    let child_output = std::process::Command::new(nu_test_support::fs::executable_path())
+    let child_output = std::process::Command::new(NU.path())
         .args(["-n", "--no-newline", "-c", "\"hello world\""])
         .output()
         .expect("failed to run nu");
@@ -610,6 +543,7 @@ fn builtin_commands_can_be_shadowed_and_extended() -> Result {
 
 #[cfg(not(target_arch = "wasm32"))]
 #[test]
+#[deps(NU)]
 fn nu_env_pwd_symlink() {
     Playground::setup("nu_env_pwd_symlink", |_, sandbox| {
         // Test that the value of PWD in the environment takes precedence
@@ -619,7 +553,7 @@ fn nu_env_pwd_symlink() {
 
         let pwd = sandbox.cwd().join(pwd);
         let current_dir = std::fs::canonicalize(&pwd).unwrap();
-        let child_output = std::process::Command::new(nu_test_support::fs::executable_path())
+        let child_output = std::process::Command::new(NU.path())
             .args(["-c", "echo $env.PWD"])
             .current_dir(current_dir)
             .env("PWD", &pwd)
@@ -636,7 +570,7 @@ fn nu_env_pwd_symlink() {
 
         let pwd = sandbox.cwd().join(pwd);
         let current_dir = sandbox.cwd().canonicalize().unwrap();
-        let child_output = std::process::Command::new(nu_test_support::fs::executable_path())
+        let child_output = std::process::Command::new(NU.path())
             .args(["-c", "echo $env.PWD"])
             .current_dir(&current_dir)
             .env("PWD", &pwd)

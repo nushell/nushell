@@ -366,19 +366,7 @@ fn run_command(ctx: RunContext) -> Reedline {
     // Right before we start running the code the user gave us, fire the `pre_execution`
     // hook
     {
-        // Set the REPL buffer to the current command for the "pre_execution" hook
-        let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
-        repl.buffer = command.clone();
-        drop(repl);
-
-        if let Err(err) = hook::eval_hooks(
-            engine_state,
-            // &mut stack,
-            stack,
-            vec![],
-            &engine_state.get_config().hooks.pre_execution.clone(),
-            "pre_execution",
-        ) {
+        if let Err(err) = hook::eval_pre_execution_hooks(engine_state, stack, command.clone()) {
             report_shell_error(None, engine_state, &err);
         }
     }
@@ -559,13 +547,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
     start_time = Instant::now();
     // Next, right before we start our prompt and take input from the user, fire the "pre_prompt" hook
-    if let Err(err) = hook::eval_hooks(
-        engine_state,
-        &mut stack,
-        vec![],
-        &engine_state.get_config().hooks.pre_prompt.clone(),
-        "pre_prompt",
-    ) {
+    if let Err(err) = hook::eval_pre_prompt_hooks(engine_state, &mut stack) {
         report_shell_error(None, engine_state, &err);
     }
     perf!("pre-prompt hook", start_time, use_color);
@@ -1331,6 +1313,23 @@ fn store_history_id_in_engine(engine_state: &mut EngineState, line_editor: &Reed
     engine_state.history_session_id = session_id;
 }
 
+fn warn_history_unavailable(history_path: &std::path::Path, err: &impl std::fmt::Display) {
+    if history_path.is_symlink() && !history_path.exists() {
+        let target = std::fs::read_link(history_path)
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|_| "<unknown>".to_string());
+        eprintln!(
+            "Warning: history file is a broken symlink ({} -> {target}); continuing without history.",
+            history_path.display()
+        );
+    } else {
+        eprintln!(
+            "Warning: could not open history file ({}): {err}; continuing without history.",
+            history_path.display()
+        );
+    }
+}
+
 fn update_line_editor_history(
     engine_state: &mut EngineState,
     history_path: PathBuf,
@@ -1339,11 +1338,18 @@ fn update_line_editor_history(
     history_session_id: Option<HistorySessionId>,
 ) -> Result<Reedline, ErrReport> {
     let ignore_space_prefixed = history.ignore_space_prefixed;
-    let history: Box<dyn reedline::History> = match history.file_format {
-        HistoryFileFormat::Plaintext => Box::new(
-            FileBackedHistory::with_file(history.max_size as usize, history_path)
-                .into_diagnostic()?,
-        ),
+    // History open failures must not abort the REPL (e.g. broken symlink after a
+    // moved dotfiles repo). Prefer starting without history over locking the user out.
+    let history_backend: Option<Box<dyn reedline::History>> = match history.file_format {
+        HistoryFileFormat::Plaintext => {
+            match FileBackedHistory::with_file(history.max_size as usize, history_path.clone()) {
+                Ok(h) => Some(Box::new(h)),
+                Err(err) => {
+                    warn_history_unavailable(&history_path, &err);
+                    None
+                }
+            }
+        }
         // this path should not happen as the config setting is captured by `nu-protocol` already
         #[cfg(not(feature = "sqlite"))]
         HistoryFileFormat::Sqlite => {
@@ -1353,19 +1359,28 @@ fn update_line_editor_history(
             ));
         }
         #[cfg(feature = "sqlite")]
-        HistoryFileFormat::Sqlite => Box::new(
-            SqliteBackedHistory::with_file(
-                history_path.to_path_buf(),
+        HistoryFileFormat::Sqlite => {
+            match SqliteBackedHistory::with_file(
+                history_path.clone(),
                 history_session_id,
                 Some(chrono::Utc::now()),
-            )
-            .into_diagnostic()?,
-        ),
+            ) {
+                Ok(h) => Some(Box::new(h)),
+                Err(err) => {
+                    warn_history_unavailable(&history_path, &err);
+                    None
+                }
+            }
+        }
     };
-    let line_editor = line_editor
+
+    let mut line_editor = line_editor
         .with_history_session_id(history_session_id)
-        .with_history_exclusion_prefix(ignore_space_prefixed.then_some(" ".into()))
-        .with_history(history);
+        .with_history_exclusion_prefix(ignore_space_prefixed.then_some(" ".into()));
+
+    if let Some(history) = history_backend {
+        line_editor = line_editor.with_history(history);
+    }
 
     store_history_id_in_engine(engine_state, &line_editor);
 
@@ -1627,6 +1642,37 @@ fn are_session_ids_in_sync() {
         i64::from(line_editor.unwrap().get_history_session_id().unwrap()),
         engine_state.history_session_id
     );
+}
+
+/// A broken history symlink must not abort history setup (login-lockout risk).
+#[cfg(unix)]
+#[test]
+fn dangling_history_symlink_does_not_fail_setup() {
+    let dir = temp_dir().join(format!("nushell-dangling-history-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let history_path = dir.join("history.txt");
+    std::os::unix::fs::symlink("/nonexistent/history.txt", &history_path).unwrap();
+
+    let engine_state = &mut EngineState::new();
+    engine_state.config_dirs.config_home = dir.clone();
+    let history = engine_state.history_config().unwrap();
+    let line_editor = reedline::Reedline::create();
+    let history_session_id = reedline::Reedline::create_history_session_id();
+    let result = update_line_editor_history(
+        engine_state,
+        history_path.clone(),
+        history,
+        line_editor,
+        history_session_id,
+    );
+    assert!(
+        result.is_ok(),
+        "dangling history symlink must not fail REPL history setup"
+    );
+    // Never remove the user's symlink.
+    assert!(history_path.is_symlink());
+    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[cfg(test)]

@@ -1,76 +1,89 @@
-use nu_test_support::nu;
+use nu_test_support::prelude::*;
+use pretty_assertions::assert_matches;
 
 #[test]
-fn capture_errors_works() {
-    let actual = nu!("do -c {$env.use}");
-
-    eprintln!("actual.err: {:?}", actual.err);
-
-    assert!(actual.err.contains("column_not_found"));
-}
-
-// TODO: need to add tests under display_error.exit_code = true
-#[test]
-fn capture_errors_works_for_external() {
-    let actual = nu!("do -c {nu --testbin fail}");
-    assert!(!actual.status.success());
-    assert!(!actual.err.contains("exited with code"));
-}
-
-// TODO: need to add tests under display_error.exit_code = true
-#[test]
-fn capture_errors_works_for_external_with_pipeline() {
-    let actual = nu!("do -c {nu --testbin fail} | echo `text`");
-    assert!(!actual.status.success());
-    assert!(!actual.err.contains("exited with code"));
-}
-
-// TODO: need to add tests under display_error.exit_code = true
-#[test]
-fn capture_errors_works_for_external_with_semicolon() {
-    let actual = nu!("do -c {nu --testbin fail}; echo `text`");
-    assert!(!actual.status.success());
-    assert!(!actual.err.contains("exited with code"));
+fn capture_errors_works() -> Result {
+    test()
+        .run("do -c {$env.use}")
+        .expect_error_code_eq("nu::shell::column_not_found")
 }
 
 #[test]
-fn do_with_semicolon_break_on_failed_external() {
-    let actual = nu!("do { nu --not_exist_flag }; `text`");
-
-    assert_eq!(actual.out, "");
+#[deps(TESTBIN_FAIL)]
+fn capture_errors_works_for_external() -> Result {
+    let err = test().run("do -c {fail}").expect_shell_error()?;
+    assert_matches!(
+        err,
+        ShellError::NonZeroExitCode { exit_code, .. } if exit_code.get() == 1
+    );
+    Ok(())
 }
 
 #[test]
-fn ignore_error_should_work_for_external_command() {
-    let actual = nu!("do -i { nu --testbin fail 1 }; echo post");
-
-    assert_eq!(actual.err, "");
-    assert_eq!(actual.out, "post");
+#[deps(TESTBIN_FAIL)]
+fn capture_errors_works_for_external_with_pipeline() -> Result {
+    let err = test()
+        .run("do -c {fail} | echo `text`")
+        .expect_shell_error()?;
+    assert_matches!(
+        err,
+        ShellError::NonZeroExitCode { exit_code, .. } if exit_code.get() == 1
+    );
+    Ok(())
 }
 
 #[test]
-fn ignore_error_works_with_list_stream() {
-    let actual = nu!(r#"do -i { ["a", null, "b"] | ansi strip }"#);
-    assert!(actual.err.is_empty());
+#[deps(TESTBIN_FAIL)]
+fn capture_errors_works_for_external_with_semicolon() -> Result {
+    let err = test()
+        .run("do -c {fail}; echo `text`")
+        .expect_shell_error()?;
+    assert_matches!(
+        err,
+        ShellError::NonZeroExitCode { exit_code, .. } if exit_code.get() == 1
+    );
+    Ok(())
 }
 
 #[test]
-fn run_closure_with_do_using() {
-    let actual = nu!("let x = {let var = 3; $var}; do $x");
-    assert!(actual.err.is_empty());
-    assert_eq!(actual.out, "3");
+#[deps(TESTBIN_FAIL)]
+fn do_with_semicolon_break_on_failed_external() -> Result {
+    test()
+        .run("do { fail }; `text`")
+        .expect_error_code_eq("nu::shell::non_zero_exit_code")
 }
 
 #[test]
-fn required_argument_type_checked() {
-    let actual = nu!("do {|x: string| $x} 4");
-    assert!(actual.out.is_empty());
-    assert!(actual.err.contains("nu::shell::cant_convert"));
+#[deps(TESTBIN_FAIL)]
+fn ignore_error_should_work_for_external_command() -> Result {
+    test()
+        .run("do -i { fail 1 }; echo post")
+        .expect_value_eq("post")
 }
 
 #[test]
-fn optional_argument_type_checked() {
-    let actual = nu!("do {|x?: string| $x} 4");
-    assert_eq!(actual.out, "");
-    assert!(actual.err.contains("nu::shell::cant_convert"));
+fn ignore_error_works_with_list_stream() -> Result {
+    let _: Value = test().run(r#"do -i { ["a", null, "b"] | ansi strip }"#)?;
+    Ok(())
+}
+
+#[test]
+fn run_closure_with_do_using() -> Result {
+    test()
+        .run("let x = {let var = 3; $var}; do $x")
+        .expect_value_eq(3)
+}
+
+#[test]
+fn required_argument_type_checked() -> Result {
+    test()
+        .run("do {|x: string| $x} 4")
+        .expect_error_code_eq("nu::shell::cant_convert")
+}
+
+#[test]
+fn optional_argument_type_checked() -> Result {
+    test()
+        .run("do {|x?: string| $x} 4")
+        .expect_error_code_eq("nu::shell::cant_convert")
 }

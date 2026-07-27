@@ -84,6 +84,7 @@ members = [
   "crates/nu-heavy-utils",
   "crates/nuon",
   "crates/nu-mcp",
+  "crates/testbins",
 ]
 
 [workspace.dependencies]
@@ -178,7 +179,7 @@ indoc = "2"
 interprocess = "2.4.2"
 is_executable = "1.0.5"
 itertools = "0.15"
-kitest = "0.5.0"
+kitest = "0.6.0"
 lean_string = { version = "0.6.0", features = ["serde"] }
 lexopt = "0.3.2"
 libc = "0.2.185"
@@ -377,6 +378,7 @@ nu-test-support = { path = "./crates/nu-test-support", features = ["os", "plugin
 assert_cmd = "2.2.1"
 dirs = { workspace = true }
 fancy-regex = { workspace = true }
+itertools = { workspace = true }
 pretty_assertions = { workspace = true }
 rstest = { workspace = true, default-features = false }
 tango-bench = "0.7.2"
