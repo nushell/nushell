@@ -410,6 +410,21 @@ impl PauseGate {
     }
 }
 
+/// DAP `exceptionId` for an error: nushell's own diagnostic code, e.g.
+/// `nu::shell::non_zero_exit_code`. `ShellError` derives `Diagnostic` and
+/// nearly every variant declares a `code(..)`; the `transparent` ones forward
+/// to their inner error (`GenericError` defaults to `nu::shell::error`).
+///
+/// Deliberately not scraped from `{err:?}`: `Debug` is not a stable interface,
+/// and this is the same code nushell prints for the error elsewhere.
+pub(crate) fn exception_id(err: &ShellError) -> String {
+    use miette::Diagnostic;
+    err.code()
+        .map(|code| code.to_string())
+        // No variant should be missing a code, but an id is required.
+        .unwrap_or_else(|| "nu::shell".to_string())
+}
+
 /// Frame naming only: a `Call` to a named decl labels the block its
 /// `enter_block` will push; anything else yields `None` so a builtin call (no
 /// block follows) can't mislabel a later block.
@@ -625,18 +640,13 @@ impl Debugger for DapDebugger {
         }
 
         let mut description = format!("{err}");
-        let exception_id = {
-            // Variant name from the Debug form, e.g. "GenericError { .. }".
-            let dbg = format!("{err:?}");
-            dbg.split([' ', '(', '{'])
-                .next()
-                .unwrap_or("ShellError")
-                .to_string()
-        };
+        let exception_id = exception_id(err);
 
         // "External command had a non-zero exit code" says nothing — the
-        // command's actual complaint went to stderr. Attach its tail.
-        if exception_id == "NonZeroExitCode" {
+        // command's actual complaint went to stderr. Attach its tail. Matched
+        // on the variant, not on the id: a rename then fails to compile
+        // instead of quietly dropping the tail.
+        if matches!(err, ShellError::NonZeroExitCode { .. }) {
             crate::stdio::flush_output(std::time::Duration::from_millis(500));
             let tail = crate::stdio::recent_output("stderr");
             let tail = tail.trim();

@@ -4947,6 +4947,7 @@ version = "0.114.2"
 dependencies = [
  "derive_more 2.1.1",
  "libc",
+ "miette",
  "nu-cmd-lang",
  "nu-command",
  "nu-engine",

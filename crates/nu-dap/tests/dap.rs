@@ -431,6 +431,9 @@ fn exception_breakpoint_pauses_at_the_raising_line() {
             .unwrap()
             .contains("boom")
     );
+    // The id is nushell's diagnostic code, not a scraped variant name.
+    let id = info["body"]["exceptionId"].as_str().unwrap();
+    assert!(id.starts_with("nu::"), "exceptionId: {id}");
 
     d.cont();
     assert_eq!(d.stop_or_term()["event"], "terminated");

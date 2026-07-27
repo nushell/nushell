@@ -4,6 +4,7 @@
 //! — unlike the integration tests in the top-level `tests/` directory, which
 //! see only the public API.
 
+mod debugger;
 mod paths;
 mod source_map;
 mod variables;

@@ -28,6 +28,7 @@ nu-command = { workspace = true, features = ["os", "network", "rustls-tls", "sql
 nu-utils = { workspace = true }
 
 derive_more = { workspace = true, features = ["debug"] }
+miette = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 
