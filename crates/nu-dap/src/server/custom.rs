@@ -37,7 +37,7 @@ impl Session {
                 };
                 node.map(|n| {
                     let mut truncated = false;
-                    let json = crate::variables::to_json(&n.value, 0, &mut truncated);
+                    let json = crate::variables::to_preview_json(&n.value, 0, &mut truncated);
                     (json, n.value.get_type().to_string(), truncated)
                 })
             })

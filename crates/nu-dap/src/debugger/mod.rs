@@ -25,7 +25,7 @@ use nu_protocol::ast::Block;
 use nu_protocol::debugger::Debugger;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::ir::{Instruction, IrBlock};
-use nu_protocol::{PipelineData, PipelineExecutionData, ShellError, Span};
+use nu_protocol::{PipelineData, PipelineExecutionData, ShellError, Span, Value};
 use serde_json::json;
 use std::sync::Arc;
 
@@ -44,15 +44,25 @@ struct Frame {
     /// `$in` for this frame: register 0 at block entry. `$in` is
     /// register-based, not stored on the Stack, so it's the one local we
     /// still capture from IR rather than read from `stack.vars`.
-    in_value: Option<nu_protocol::Value>,
+    in_value: Option<Value>,
 }
 
+/// `Debug` is required by the `Debugger` trait. The three collaborators below
+/// are skipped because they are not `Debug` themselves (and dumping the shared
+/// state would print every breakpoint, the whole timeline, and the snapshot
+/// arena); the rest print, so a field added later shows up without anyone
+/// having to remember this impl.
+#[derive(derive_more::Debug)]
 pub(crate) struct DapDebugger {
+    #[debug(skip)]
     state: Arc<DebugState>,
+    #[debug(skip)]
     writer: DapWriter,
+    #[debug(skip)]
     source_map: SourceMap,
     /// Call-ish stack maintained from enter/leave_block. Depth 0 is the
     /// top-level script block.
+    #[debug("{}", frames.len())]
     frames: Vec<Frame>,
     /// Span of the instruction we are currently paused/last stopped on,
     /// so frames[top] can report an accurate line.
@@ -75,19 +85,13 @@ pub(crate) struct DapDebugger {
     /// Result of the most recently completed command/return — surfaced as the
     /// `return` entry at the top of Locals ("latest expression result").
     /// Captured in `leave_instruction`; streams are described, not drained.
-    last_result: Option<nu_protocol::Value>,
+    // Type only: the value itself can be a whole table.
+    #[debug("{:?}", last_result.as_ref().map(|v| v.get_type()))]
+    last_result: Option<Value>,
     /// Block depth at the previous steppable instruction — lets time-travel
     /// recording fire on depth changes (entering/leaving closures), matching
     /// forward step-into granularity.
     last_depth: Option<usize>,
-}
-
-impl std::fmt::Debug for DapDebugger {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("DapDebugger")
-            .field("frames", &self.frames.len())
-            .finish()
-    }
 }
 
 impl DapDebugger {
@@ -112,7 +116,7 @@ impl DapDebugger {
     }
 
     /// Current shadow variables as (name, value) pairs for scratch eval.
-    fn shadow_vars_for_eval(&self) -> Vec<(String, nu_protocol::Value)> {
+    fn shadow_vars_for_eval(&self) -> Vec<(String, Value)> {
         let inner = self.state.inner.lock().expect("debug state poisoned");
         inner
             .shadow_vars
@@ -121,7 +125,7 @@ impl DapDebugger {
             .collect()
     }
 
-    fn scratch_eval(&self, expr: &str) -> Result<nu_protocol::Value, String> {
+    fn scratch_eval(&self, expr: &str) -> Result<Value, String> {
         let vars = self.shadow_vars_for_eval();
         let mut guard = self.state.scratch.lock().expect("scratch poisoned");
         guard
@@ -343,16 +347,16 @@ impl Debugger for DapDebugger {
                 self.writer.output("console", format!("{msg}\n"));
             } else if let Some(cond) = &props.condition {
                 match self.scratch_eval(cond) {
-                    Ok(nu_protocol::Value::Bool { val: true, .. }) => {
+                    Ok(Value::Bool { val: true, .. }) => {
                         reason = Some("breakpoint");
                     }
-                    Ok(nu_protocol::Value::Bool { val: false, .. }) => {}
+                    Ok(Value::Bool { val: false, .. }) => {}
                     Ok(v) => {
                         // Pause on a broken condition rather than skip the breakpoint.
                         reason = Some("breakpoint");
                         note = Some(format!(
                             "condition `{cond}` returned {} (expected bool) — pausing",
-                            crate::variables::short_render(&v)
+                            crate::variables::short_render(&v, engine_state.get_config())
                         ));
                     }
                     Err(e) => {
@@ -396,18 +400,14 @@ impl Debugger for DapDebugger {
                 } => registers
                     .get(src_dst.get() as usize)
                     .and_then(|r| match &r.body {
-                        PipelineData::Value(v, _)
-                            if !matches!(v, nu_protocol::Value::Nothing { .. }) =>
-                        {
-                            Some((
-                                engine_state.get_decl(*decl_id).name().to_string(),
-                                v.clone(),
-                            ))
-                        }
+                        PipelineData::Value(v, _) if !matches!(v, Value::Nothing { .. }) => Some((
+                            engine_state.get_decl(*decl_id).name().to_string(),
+                            v.clone(),
+                        )),
                         other @ (PipelineData::ListStream(..) | PipelineData::ByteStream(..)) => {
                             Some((
                                 engine_state.get_decl(*decl_id).name().to_string(),
-                                nu_protocol::Value::string(
+                                Value::string(
                                     crate::variables::describe_stream(other),
                                     Span::unknown(),
                                 ),
@@ -417,10 +417,12 @@ impl Debugger for DapDebugger {
                     }),
                 _ => None,
             };
+
             let frames = self.build_frames();
             let last_result = self.last_result.clone();
             let mut inner = self.state.inner.lock().expect("debug state poisoned");
             let granular = line_changed || depth_changed || is_call;
+
             if (inner.time_travel && granular) || reason.is_some() {
                 let entry = crate::state::TimelineEntry {
                     frames,
@@ -440,6 +442,7 @@ impl Debugger for DapDebugger {
             if let Some(n) = &note {
                 self.writer.output("console", format!("nu-dap: {n}\n"));
             }
+
             self.pause(
                 engine_state,
                 r,
@@ -478,33 +481,38 @@ impl Debugger for DapDebugger {
                 Instruction::Return { src } => Some(src.get() as usize),
                 _ => None,
             };
+
             if let Some(idx) = reg
                 && let Some(r) = registers.get(idx)
             {
                 self.last_result = Some(match &r.body {
                     PipelineData::Value(v, _) => v.clone(),
-                    PipelineData::Empty => nu_protocol::Value::nothing(Span::unknown()),
-                    other => nu_protocol::Value::string(
-                        crate::variables::describe_stream(other),
-                        Span::unknown(),
-                    ),
+                    PipelineData::Empty => Value::nothing(Span::unknown()),
+                    other => {
+                        Value::string(crate::variables::describe_stream(other), Span::unknown())
+                    }
                 });
             }
             return;
         }
+
         let err = error.expect("error present");
+
         // An error unwinds through every enclosing call instruction; pause
         // only at the innermost (first) report.
         if self.in_error_unwind {
             return;
         }
+
         let wanted = {
             let inner = self.state.inner.lock().expect("debug state poisoned");
             inner.break_on_error && !inner.terminate_requested
         };
+
         if !wanted {
             return;
         }
+
         self.in_error_unwind = true;
 
         // Point the top frame at the failing instruction, even when its span
@@ -523,6 +531,7 @@ impl Debugger for DapDebugger {
                 .unwrap_or("ShellError")
                 .to_string()
         };
+
         // "External command had a non-zero exit code" says nothing — the
         // command's actual complaint went to stderr. Attach its tail.
         if exception_id == "NonZeroExitCode" {
@@ -539,12 +548,15 @@ impl Debugger for DapDebugger {
                 description = format!("{description}\n\n{}", &tail[cut..]);
             }
         }
+
         // This path skips the enter_instruction sync, so refresh from the Stack.
         self.sync_locals_from_stack(engine_state, stack);
+
         {
             let mut inner = self.state.inner.lock().expect("debug state poisoned");
             inner.exception_info = Some((exception_id, description.clone()));
         }
+
         self.pause(
             engine_state,
             "exception",

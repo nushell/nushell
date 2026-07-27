@@ -55,11 +55,13 @@ impl Session {
                 let entry = inner.timeline.get(i).cloned();
                 let baseline = inner.baseline_env.clone();
                 let nu = inner.nu_constant.clone();
+                let config = inner.config.clone();
                 if let Some(entry) = entry {
                     inner.history_snapshot = crate::variables::build_history_snapshot(
                         &entry,
                         baseline.as_ref(),
                         nu.as_ref(),
+                        config,
                     );
                 }
             }

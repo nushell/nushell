@@ -4,46 +4,52 @@
 
 use crate::dap::types::Variable;
 use crate::state::{PauseSnapshot, VarNode};
-use nu_protocol::Value;
+use nu_protocol::{Config, Type, Value};
 
 /// Max children materialized per list/record level to keep responses bounded.
 const MAX_CHILDREN: usize = 200;
 /// Levels materialized eagerly at pause time; deeper levels hydrate on demand
 /// (`materialize_children` when the client expands a node), so no depth limit.
 const EAGER_DEPTH: usize = 1;
+/// Cap on any single rendered row, so one hostile value can't flood the pane.
+const MAX_ROW_CHARS: usize = 120;
 
-/// A list whose elements are all records is a nu table.
-pub(crate) fn is_table(value: &Value) -> bool {
-    match value {
-        Value::List { vals, .. } => {
-            !vals.is_empty() && vals.iter().all(|v| matches!(v, Value::Record { .. }))
-        }
-        _ => false,
-    }
-}
-
-pub(crate) fn short_render(value: &Value) -> String {
+/// Render `value` as the single line shown in the Variables pane.
+///
+/// Container shapes and every type not special-cased below come from
+/// [`Value::to_abbreviated_string`] — the same rendering `table` applies per
+/// cell (see `nu-table::common`) — so the debugger names values the way the
+/// rest of nushell does. What stays local is what a debugger needs and a
+/// pipeline does not:
+///
+/// - **Bounded.** Variables responses are JSON over a pipe: a multi-megabyte
+///   string, or a `Debug`-formatted `ShellError`, must not land in one row.
+/// - **Previews, not just shapes.** A container row is expandable, so the
+///   collapsed line shows its first entries; `to_abbreviated_string` always
+///   collapses to `{record N fields}`.
+/// - **Literal, not humanized.** Dates render rfc3339, where the shell shows
+///   `human_time_from_now`'s "5 hours ago" — relative to the wall clock, which
+///   is both wrong information here and untestable.
+/// - **`null` stays visible.** Nothing renders as `""` upstream: a blank row.
+/// - **Binary as a nu literal.** `0x[de ad be ef]`, not `[222, 173, 190, 239]`.
+pub(crate) fn short_render(value: &Value, config: &Config) -> String {
     match value {
         Value::String { val, .. } => {
             // chars(), not byte slicing: a byte index can land mid-codepoint
             // and panic, which inside a debugger callback hangs the session.
             let n_chars = val.chars().count();
-            if n_chars > 120 {
-                let head: String = val.chars().take(117).collect();
+            if n_chars > MAX_ROW_CHARS {
+                let head: String = val.chars().take(MAX_ROW_CHARS - 3).collect();
                 format!("\"{head}…\" ({n_chars} chars)")
             } else {
                 format!("\"{val}\"")
             }
         }
-        Value::Int { val, .. } => val.to_string(),
-        Value::Float { val, .. } => val.to_string(),
-        Value::Bool { val, .. } => val.to_string(),
         Value::Nothing { .. } => "null".into(),
-        Value::Filesize { val, .. } => format!("{val}"),
-        Value::Duration { val, .. } => format!("{val}ns"),
         Value::Date { val, .. } => val.to_rfc3339(),
-        Value::List { vals, .. } if is_table(value) => {
-            format!("[table {} rows]", vals.len())
+        // A table's rows have no useful one-line preview: keep the shape.
+        Value::List { .. } if matches!(value.get_type(), Type::Table(_)) => {
+            value.to_abbreviated_string(config)
         }
         Value::List { vals, .. } => {
             // Preview the first few scalar elements: [1, 2, 3, …]
@@ -59,7 +65,8 @@ pub(crate) fn short_render(value: &Value) -> String {
             }
             preview.push(']');
             if preview.len() > 60 {
-                format!("[list {} items]", vals.len())
+                // Too wide to preview: `[list N items]`, from the shell.
+                value.to_abbreviated_string(config)
             } else {
                 preview
             }
@@ -80,7 +87,8 @@ pub(crate) fn short_render(value: &Value) -> String {
             }
             preview.push('}');
             if preview.len() > 60 {
-                format!("{{record {} fields}}", val.len())
+                // Ditto: `{record N fields}`.
+                value.to_abbreviated_string(config)
             } else {
                 preview
             }
@@ -102,34 +110,55 @@ pub(crate) fn short_render(value: &Value) -> String {
             let _ = write!(s, "] ({} bytes)", val.len());
             s
         }
-        Value::Error { error, .. } => format!("<error: {error}>"),
-        other => format!("{other:?}").chars().take(120).collect(),
+        // Upstream renders errors as `{error:?}` — the whole `ShellError`
+        // Debug, multi-line. One line of the message is what fits a row.
+        Value::Error { error, .. } => cap_row(&format!("<error: {error}>")),
+        // Everything else (int, float, bool, filesize, duration, range, glob,
+        // cell-path, custom) renders the way the shell renders it. Capped
+        // because a custom value's base form can expand without bound.
+        other => cap_row(&other.to_abbreviated_string(config)),
     }
+}
+
+/// Truncate a rendered row to [`MAX_ROW_CHARS`] on a char boundary — a byte
+/// index can land mid-codepoint and panic, and a panic inside a debugger
+/// callback hangs the session.
+fn cap_row(s: &str) -> String {
+    if s.chars().count() <= MAX_ROW_CHARS {
+        return s.to_string();
+    }
+    let head: String = s.chars().take(MAX_ROW_CHARS - 1).collect();
+    format!("{head}…")
 }
 
 /// Describe a stream without consuming it (draining would eat the
 /// program's data): kind, origin, and size when known.
+///
+/// Wording follows `describe --no-collect` so the debugger and the shell name
+/// the same stream the same way. `describe`'s own code can't be called here:
+/// it takes `PipelineData` by value (it drains, or calls `into_debug_value`),
+/// while a paused debugger only ever borrows the register it is looking at.
 pub(crate) fn describe_stream(data: &nu_protocol::PipelineData) -> String {
-    use nu_protocol::PipelineData;
-    use nu_protocol::byte_stream::ByteStreamSource;
+    use nu_protocol::{ByteStreamSource, PipelineData};
     match data {
         PipelineData::ByteStream(bs, _) => {
-            let kind = match bs.type_() {
-                nu_protocol::ByteStreamType::Binary => "binary",
-                nu_protocol::ByteStreamType::String => "text",
-                _ => "unknown type",
-            };
+            // Same call `describe` makes: "binary (stream)" / "string (stream)"
+            // / "byte stream".
+            let kind = bs.type_().describe();
+            // Origin names match the `origin` field of `describe --detailed`.
             let origin = match bs.source() {
+                ByteStreamSource::Read(_) => "unknown",
                 ByteStreamSource::File(_) => "file",
-                ByteStreamSource::Read(_) => "internal",
-                _ => "external command",
+                ByteStreamSource::Child(_) => "external",
             };
+            // Size is ours: `describe` never reports it, but it costs nothing.
             match bs.known_size() {
-                Some(n) => format!("<byte stream: {kind} from {origin}, {n} bytes>"),
-                None => format!("<byte stream: {kind} from {origin}>"),
+                Some(n) => format!("<{kind} from {origin}, {n} bytes>"),
+                None => format!("<{kind} from {origin}>"),
             }
         }
-        PipelineData::ListStream(..) => "<list stream (lazy)>".to_string(),
+        // `describe --detailed` calls this a "list stream".
+        PipelineData::ListStream(..) => "<list stream>".to_string(),
         _ => "<stream>".to_string(),
     }
 }
@@ -171,11 +200,15 @@ pub(crate) fn add_value(
 
     let var_ref = if expandable { snapshot.alloc_ref() } else { 0 };
 
+    // Cheap `Arc` bump: `short_render` needs the config while `snapshot` is
+    // borrowed mutably below.
+    let config = snapshot.config.clone();
+
     let node_idx = snapshot.var_arena.len();
     snapshot.var_arena.push(VarNode {
         var: Variable {
             name,
-            value: short_render(value),
+            value: short_render(value, &config),
             type_: Some(type_name(value)),
             variables_reference: var_ref,
         },
@@ -242,10 +275,14 @@ pub(crate) fn build_history_snapshot(
     entry: &crate::state::TimelineEntry,
     baseline_env: Option<&std::collections::HashMap<String, Value>>,
     nu_constant: Option<&Value>,
+    config: std::sync::Arc<Config>,
 ) -> crate::state::PauseSnapshot {
     use crate::state::PauseSnapshot;
     let mut snap = PauseSnapshot::new();
     snap.frames = entry.frames.clone();
+    // Config was cached by the eval thread; rendering needs it, `engine_state`
+    // is still off-limits here.
+    snap.config = config;
 
     // Locals: `return` first, then shadow vars sorted by name (same order as
     // the live build).
@@ -305,7 +342,28 @@ const JSON_MAX_DEPTH: usize = 8;
 
 /// Converts a nu Value to JSON for the visualizer webview. Sets `truncated`
 /// when any bound was hit.
-pub(crate) fn to_json(value: &Value, depth: usize, truncated: &mut bool) -> serde_json::Value {
+///
+/// This is a *display projection*, not a serialization, which is why it does
+/// not reuse nu-json's `FromValue for nu_json::Value` (the conversion behind
+/// `to json`). A debugger inspects hostile values — huge, deeply nested, or
+/// broken — and must always render something:
+///
+/// - **Bounded.** The shared path recurses without limit; a 10M-row table or a
+///   deeply nested record would stall the webview. We cap depth and item count
+///   and report `truncated` so the UI can say so.
+/// - **Error-tolerant.** The shared path returns `Err` for `Value::Error`,
+///   which would yield *no* payload for a structure containing an error — the
+///   very thing you are usually inspecting. We render `<error: …>` inline.
+/// - **Binary as hex.** The shared path expands binary to an array of numbers
+///   (1 MiB becomes ~4 MB of JSON over stdio). We emit the `$nuBinary` marker
+///   the webview turns into a hex view, capped at 64 KiB.
+/// - **Closures need no engine.** The shared path either errors on closures or
+///   requires an `&EngineState` to coerce them; here `<closure>` is enough.
+pub(crate) fn to_preview_json(
+    value: &Value,
+    depth: usize,
+    truncated: &mut bool,
+) -> serde_json::Value {
     use serde_json::{Value as J, json};
     if depth >= JSON_MAX_DEPTH {
         *truncated = true;
@@ -327,7 +385,7 @@ pub(crate) fn to_json(value: &Value, depth: usize, truncated: &mut bool) -> serd
             J::Array(
                 vals.iter()
                     .take(JSON_MAX_ITEMS)
-                    .map(|v| to_json(v, depth + 1, truncated))
+                    .map(|v| to_preview_json(v, depth + 1, truncated))
                     .collect(),
             )
         }
@@ -337,7 +395,7 @@ pub(crate) fn to_json(value: &Value, depth: usize, truncated: &mut bool) -> serd
             }
             let mut map = serde_json::Map::new();
             for (k, v) in val.iter().take(JSON_MAX_ITEMS) {
-                map.insert(k.clone(), to_json(v, depth + 1, truncated));
+                map.insert(k.clone(), to_preview_json(v, depth + 1, truncated));
             }
             J::Object(map)
         }

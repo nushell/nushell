@@ -27,6 +27,7 @@ nu-cmd-lang = { workspace = true, features = ["os"] }
 nu-command = { workspace = true, features = ["os", "network", "rustls-tls", "sqlite"] }
 nu-utils = { workspace = true }
 
+derive_more = { workspace = true, features = ["debug"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 

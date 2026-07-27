@@ -970,10 +970,7 @@ fn builtin_pipe_stage_walk_and_env_mutation() {
         stages,
         vec![
             ("in → split row".to_string(), "\"a-b\"".to_string()),
-            (
-                "in → get".to_string(),
-                "\"<list stream (lazy)>\"".to_string()
-            ),
+            ("in → get".to_string(), "\"<list stream>\"".to_string()),
             ("in → str upcase".to_string(), "\"a\"".to_string()),
         ]
     );

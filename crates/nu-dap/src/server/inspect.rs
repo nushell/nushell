@@ -187,8 +187,15 @@ impl Session {
                         node.var.type_.clone(),
                     )
                 });
-                let (result, var_ref, type_) =
-                    parts.unwrap_or((crate::variables::short_render(&v), 0, None));
+                // No state means no cached config either; defaults will do for
+                // a value we are only rendering once.
+                let (result, var_ref, type_) = parts.unwrap_or_else(|| {
+                    (
+                        crate::variables::short_render(&v, &nu_protocol::Config::default()),
+                        0,
+                        None,
+                    )
+                });
                 self.writer.respond(
                     seq,
                     cmd,

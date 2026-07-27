@@ -9,7 +9,7 @@
 
 use crate::dap::types::{StackFrame, Variable};
 use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
-use std::sync::{Condvar, Mutex};
+use std::sync::{Arc, Condvar, Mutex};
 
 /// What the eval thread should do when it reaches the next instruction.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -53,6 +53,10 @@ pub(crate) struct PauseSnapshot {
     pub(crate) var_refs: HashMap<i64, Vec<usize>>,
     pub(crate) var_arena: Vec<VarNode>,
     pub(crate) next_ref: i64,
+    /// Config as of this pause, so rendering (`variables::short_render`) can
+    /// use nushell's own value formatting. Cloned from `engine_state` by the
+    /// eval thread; the server thread only ever reads this `Arc`.
+    pub(crate) config: Arc<nu_protocol::Config>,
 }
 
 impl PauseSnapshot {
@@ -69,6 +73,7 @@ impl PauseSnapshot {
             var_refs: HashMap::new(),
             var_arena: Vec::new(),
             next_ref: 7, // 1..=6 reserved for scope roots
+            config: Arc::default(),
         }
     }
 
@@ -147,6 +152,9 @@ pub(crate) struct Inner {
     /// server can rebuild historical Globals without `engine_state`.
     pub(crate) nu_constant: Option<nu_protocol::Value>,
     pub(crate) baseline_env: Option<HashMap<String, nu_protocol::Value>>,
+    /// Cached alongside them, for the same reason: rebuilding a historical
+    /// snapshot needs a `Config` to render values with.
+    pub(crate) config: Arc<nu_protocol::Config>,
 }
 
 impl Inner {
@@ -300,6 +308,7 @@ impl DebugState {
                 tt_max: tt_max.max(1),
                 nu_constant: None,
                 baseline_env: None,
+                config: Arc::default(),
             }),
             ui: UiBridge::default(),
             terminate_flag: std::sync::atomic::AtomicBool::new(false),

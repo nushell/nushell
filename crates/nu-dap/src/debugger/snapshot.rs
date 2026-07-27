@@ -50,6 +50,9 @@ impl DapDebugger {
     ) {
         let mut snap = PauseSnapshot::new();
         snap.frames = self.build_frames();
+        // Values render with nushell's own formatting, which is config-driven.
+        snap.config = engine_state.get_config().clone();
+        inner.config = snap.config.clone();
 
         // Cache $nu + baseline env once, so the server can rebuild historical
         // Globals for time-travel without touching engine_state.
