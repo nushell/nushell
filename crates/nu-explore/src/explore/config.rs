@@ -74,12 +74,12 @@ impl ExploreConfig {
             ret.cmd_bar_background = *s;
         }
 
-        if let Some(s) = colors.get("command_bar_background") {
-            ret.cmd_bar_background = *s;
-        }
-
         if let Some(s) = colors.get("selected_cell") {
             ret.selected_cell = *s;
+        }
+
+        if let Some(s) = colors.get("highlight") {
+            ret.highlight = *s;
         }
 
         if let Some(s) = colors.get("title_bar_text") {
@@ -143,5 +143,46 @@ const fn color(foreground: Option<Color>, background: Option<Color>) -> Style {
         is_strikethrough: false,
         is_underline: false,
         prefix_with_reset: false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nu_protocol::{Config, Value, record};
+    use std::collections::HashMap;
+
+    #[test]
+    fn from_nu_config_applies_highlight() {
+        let mut explore = HashMap::new();
+        explore.insert(
+            "highlight".into(),
+            Value::test_record(record! {
+                "fg" => Value::test_string("red"),
+                "bg" => Value::test_string("blue"),
+            }),
+        );
+        let config = Config {
+            explore,
+            ..Config::default()
+        };
+        let explore_cfg = ExploreConfig::from_nu_config(&config);
+        assert_eq!(explore_cfg.highlight.foreground, Some(Color::Red));
+        assert_eq!(explore_cfg.highlight.background, Some(Color::Blue));
+    }
+
+    #[test]
+    fn from_nu_config_default_highlight_matches_explore_default() {
+        let config = Config::default();
+        let explore_cfg = ExploreConfig::from_nu_config(&config);
+        let defaults = ExploreConfig::default();
+        assert_eq!(
+            explore_cfg.highlight.foreground,
+            defaults.highlight.foreground
+        );
+        assert_eq!(
+            explore_cfg.highlight.background,
+            defaults.highlight.background
+        );
     }
 }

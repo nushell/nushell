@@ -572,11 +572,17 @@ $env.config.hooks.command_not_found = null
 # Keybindings
 # -----------
 
-# keybindings (list): User-defined keybindings for Reedline.
+# keybindings (list): Keybindings for Reedline.
 # Each keybinding is a record with: name, modifier, keycode, mode, and event.
 # See https://www.nushell.sh/book/line_editor.html#keybindings for details.
-# Default: []
-$env.config.keybindings = []
+#
+# Default: Nushell menu keybindings (Tab completion, Ctrl-r history menu, F1 help,
+# etc.). Inspect with `$env.config.keybindings`. Reedline's base emacs/vi maps are
+# still applied underneath and are listed by `keybindings default`.
+#
+# Full list replacement (`=`) clears Nushell menu bindings. Prefer `++=` to add,
+# or set `event: null` on a matching binding to unbind a key.
+# $env.config.keybindings = []
 
 # Example: Add Alt+. keybinding to insert the last token from previous command:
 # $env.config.keybindings ++= [
@@ -634,8 +640,11 @@ $env.config.abbreviations = {}
 # List-layout menus accept description_position: "before" or "after" in their
 # `type` record, controlling whether an entry's description is shown before or
 # after its value. Unset keeps reedline's default.
-# Default: []
-$env.config.menus = []
+#
+# Default: completion_menu, ide_completion_menu, history_menu, help_menu.
+# Inspect with `$env.config.menus`. Full list replacement (`=`) clears defaults;
+# prefer `++=` to add custom menus.
+# $env.config.menus = []
 
 # Example: Custom completion menu configuration:
 # $env.config.menus ++= [{
@@ -770,8 +779,9 @@ $env.config.highlight_resolved_externals = false
 # color_config (record): Styling for shapes, types, and UI elements.
 # Values can be: color names, RGB values (#RRGGBB), or records with fg, bg, attr keys.
 # attr can include: 'n' (normal), 'b' (bold), 'u' (underline), 'r' (reverse), 'i' (italics), 'd' (dimmed).
-# Default: (see default_config.nu for full default theme)
-$env.config.color_config = {}
+# Default: full theme in Rust `Config::default()` — inspect with `$env.config.color_config`
+# (also under `nu -n`). Assigning a whole record replaces the map; prefer nested field updates.
+# $env.config.color_config = {}
 
 # Example: Using a theme from the standard library:
 # use std/config dark-theme
@@ -794,7 +804,7 @@ $env.config.color_config.cursor = null
 # ---------------------------
 # shape_* settings style elements on the commandline based on their parsed "shape".
 # Shapes are identified by Nushell's parser as you type.
-# Default styles are defined in nu-color-config/src/shape_color.rs.
+# Default styles live in Rust `Config::default().color_config` (see `$env.config.color_config`).
 
 # color_config.shape_string: Style for string values.
 # Applies to quoted strings, barewords, record keys, declared string arguments.
@@ -895,8 +905,9 @@ $env.config.color_config.shape_variable = "purple"
 $env.config.color_config.shape_vardecl = "purple"
 
 # color_config.shape_matching_brackets: Style for matching bracket pairs when cursor is on one.
-# Default: { attr: u }
-$env.config.color_config.shape_matching_brackets = {attr: "u"}
+# Merged onto the bracket's base shape style (adds underline by default).
+# Default: default_underline
+$env.config.color_config.shape_matching_brackets = "default_underline"
 
 # color_config.shape_pipe: Style for the pipe symbol (|) in pipelines.
 # Default: purple_bold
@@ -952,7 +963,7 @@ $env.config.color_config.shape_flag = "blue_bold"
 # --------------------------
 # These style *values* of a particular *type* in structured data output
 # (tables, records, lists). They can accept closures for dynamic styling.
-# Default styles are defined in nu-color-config/src/style_computer.rs.
+# Defaults live in Rust `Config::default().color_config` (same map as shapes).
 
 # color_config.bool: Style for boolean values in output.
 # Default: light_cyan
@@ -1115,25 +1126,34 @@ $env.config.color_config.banner_highlight2 = "purple"
 
 # explore (record): UI configuration for the `explore` command.
 # Configures colors and styles for the interactive data explorer.
-# Default: {}
-$env.config.explore = {}
+# Keys applied by `ExploreConfig::from_nu_config`:
+#   selected_cell, highlight, status_bar_text/background, command_bar_text/background,
+#   title_bar_text/background, status.{info,success,warn,error}, try.reactive
+# Table padding is taken from `$env.config.table.padding` (not explore.table).
+#
+# Default (also inspect with `$env.config.explore`):
+$env.config.explore = {
+    selected_cell: { bg: light_blue },
+    highlight: { fg: black, bg: yellow },
+    status: {
+        success: { fg: black, bg: green },
+        error: { fg: white, bg: red },
+    },
+    try: { reactive: false },
+}
 
-# Example explore configuration:
+# Example: override bars and try mode (unset bar colors inherit the terminal):
 # $env.config.explore = {
 #     status_bar_background: { fg: "#1D1F21", bg: "#C4C9C6" },
 #     command_bar_text: { fg: "#C4C9C6" },
 #     highlight: { fg: "black", bg: "yellow" },
 #     status: {
 #         error: { fg: "white", bg: "red" },
+#         success: { fg: "black", bg: "green" },
 #         warn: {}
 #         info: {}
 #     },
 #     selected_cell: { bg: light_blue },
-#     config: { cursor_color: 'red' },
-#     table: {
-#         selected_cell: { bg: 'blue' }
-#         show_cursor: false
-#     },
 #     try: { reactive: true }
 # }
 
