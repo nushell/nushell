@@ -2,14 +2,8 @@ use chrono::Datelike;
 use chrono_humanize::HumanTime;
 use nu_engine::command_prelude::*;
 use nu_protocol::{ByteStream, PipelineMetadata, format_duration, shell_error::io::IoError};
-use nu_utils::ObviousFloat;
+use nu_utils::{ObviousFloat, consts::LINE_SEPARATOR_STR};
 use std::io::Write;
-
-const LINE_ENDING: &str = if cfg!(target_os = "windows") {
-    "\r\n"
-} else {
-    "\n"
-};
 
 #[derive(Clone)]
 pub struct ToTextLike(&'static str);
@@ -63,9 +57,10 @@ impl Command for ToTextLike {
                         Value::Record { val, .. } => !val.is_empty(),
                         _ => false,
                     };
-                let mut str = local_into_string(engine_state, value, LINE_ENDING, serialize_types);
+                let mut str =
+                    local_into_string(engine_state, value, LINE_SEPARATOR_STR, serialize_types);
                 if add_trailing {
-                    str.push_str(LINE_ENDING);
+                    str.push_str(LINE_SEPARATOR_STR);
                 }
                 Ok(
                     Value::string(str, head)
@@ -90,14 +85,14 @@ impl Command for ToTextLike {
                             if first {
                                 first = false;
                             } else {
-                                write!(buf, "{LINE_ENDING}").map_err(&from_io_error)?;
+                                write!(buf, "{LINE_SEPARATOR_STR}").map_err(&from_io_error)?;
                             }
                             // TODO: write directly into `buf` instead of creating an intermediate
                             // string.
                             let str = local_into_string(
                                 &engine_state_clone,
                                 val,
-                                LINE_ENDING,
+                                LINE_SEPARATOR_STR,
                                 serialize_types,
                             );
                             write!(buf, "{str}").map_err(&from_io_error)?;
@@ -111,10 +106,10 @@ impl Command for ToTextLike {
                             let mut str = local_into_string(
                                 &engine_state_clone,
                                 val,
-                                LINE_ENDING,
+                                LINE_SEPARATOR_STR,
                                 serialize_types,
                             );
-                            str.push_str(LINE_ENDING);
+                            str.push_str(LINE_SEPARATOR_STR);
                             str
                         }),
                         span,
@@ -141,7 +136,7 @@ impl Command for ToTextLike {
                     "to txt" => "[1] | to txt",
                     _ => unreachable!("only implemented for `text` and `txt`"),
                 },
-                result: Some(Value::test_string("1".to_string() + LINE_ENDING)),
+                result: Some(Value::test_string("1".to_string() + LINE_SEPARATOR_STR)),
             },
             Example {
                 description: "Outputs data as simple text without a trailing newline.",
