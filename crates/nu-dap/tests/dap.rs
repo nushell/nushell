@@ -1,5 +1,9 @@
 //! End-to-end integration tests: spawn the built `nu-dap` binary and drive it
-//! over the Debug Adapter Protocol against the scripts in `example/`.
+//! over the Debug Adapter Protocol against the scripts in `tests/fixtures/`.
+//!
+//! The fixtures are test inputs, not documentation: assertions below pin exact
+//! line numbers in them, so they live here rather than in `example/` (which is
+//! a curated, freely editable showcase for users).
 //!
 //! This harness plays the "editor" side of DAP. Pure-logic unit tests live
 //! inline in the library modules; these cover protocol behaviour end to end
@@ -17,10 +21,11 @@ use std::time::Duration;
 use nu_utils::time::Instant;
 use serde_json::{Value, json};
 
-/// Absolute path to an `example/*.nu` script (in this crate's `example/` dir).
+/// Absolute path to a fixture script (in this crate's `tests/fixtures/` dir).
 fn example(name: &str) -> String {
     let mut p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    p.push("example");
+    p.push("tests");
+    p.push("fixtures");
     p.push(name);
     p.to_string_lossy().into_owned()
 }
@@ -687,13 +692,14 @@ fn lazy_top_level_pipeline_breakpoints_hit() {
 
 #[test]
 fn failing_external_attaches_stderr() {
-    // Write a throwaway script that runs a failing external.
+    // Write a throwaway script that runs a failing external. A bare `python` is
+    // missing on some CI images (macOS), so take whichever interpreter exists.
     let dir = std::env::temp_dir();
     let script = dir.join("nu_dap_extfail.nu");
     std::fs::write(
         &script,
-        "print \"start\"\n^python -c 'import sys; sys.stderr.write(\"AADSTS-detail\\n\"); \
-         sys.exit(3)'\nprint \"unreachable\"\n",
+        "print \"start\"\nlet py = (which python python3 | get path.0)\n^$py -c 'import sys; \
+         sys.stderr.write(\"AADSTS-detail\\n\"); sys.exit(3)'\nprint \"unreachable\"\n",
     )
     .unwrap();
     let script = script.to_string_lossy().into_owned();

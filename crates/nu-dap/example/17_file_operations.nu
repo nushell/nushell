@@ -29,7 +29,7 @@ let built_path = [$parts.parent, $"($parts.stem).($parts.extension)"] | path joi
 print $"\nBuilt path: ($built_path)"
 
 # Check existence
-let targets = ["./helper.nu", "./nonexistent.nu", "./demo.nu"]
+let targets = ["./helper.nu", "./nonexistent.nu", "./01_basics.nu"]
 let existence = $targets | each { |t|
     { path: $t, exists: ($t | path exists) }
 }

@@ -385,5 +385,9 @@ cargo test -p nu-dap
 Two layers: **unit tests** in `src/tests/` are compiled with the crate, so they
 exercise the internal (`pub(crate)`) helpers directly; the **integration tests**
 in the top-level `tests/dap.rs` drive the built binary over the real protocol
-(playing the editor side) against `example/*.nu`. Some integration tests spawn
-`^python` as an external, so Python must be on `PATH`.
+(playing the editor side) against `tests/fixtures/*.nu`. Some integration tests
+spawn `^python` as an external, so Python must be on `PATH`.
+
+The fixtures are deliberately kept out of `example/`: assertions pin exact line
+numbers in them, so editing a fixture for readability breaks the suite, whereas
+`example/*.nu` is a showcase for users and free to change.
