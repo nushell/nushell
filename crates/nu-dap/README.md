@@ -86,7 +86,7 @@ client only surfaces working UI. This adapter is **launch-only** (there is no `a
 | Restart frame                  | `supportsRestartFrame`                                      | not implemented                                                 |
 | Memory read/write, disassemble | `supportsReadMemoryRequest`, …                              | not applicable                                                  |
 | Cancel                         | `supportsCancelRequest`                                     | not implemented                                                 |
-| Breakpoint locations           | `supportsBreakpointLocationsRequest`                        | not implemented                                                 |
+| breakpoint locations           | `supportsBreakpointLocationsRequest`                        | not implemented                                                 |
 | Attach                         | `attach`                                                    | launch-only                                                     |
 
 The two upstream-blocked rows — **set variable** and **jump to cursor** — are the notable "not yet": both need small
@@ -111,14 +111,13 @@ flowchart LR
         state[("Arc&lt;DebugState&gt;<br/>snapshot · tape · bridge")]
         eval["eval thread<br/>nushell (WithDebug)"]
         dbg["DapDebugger<br/>impl Debugger"]
-
         server <--> state
         eval <--> state
-        eval -->|"callback per instruction"| dbg
-        dbg -->|"snapshot / record"| state
+        eval -->|" callback per instruction "| dbg
+        dbg -->|" snapshot / record "| state
     end
 
-    editor <-->|"DAP frames over stdio"| server
+    editor <-->|" DAP frames over stdio "| server
 ```
 
 The **server thread** answers read-only requests from the snapshot; the **eval thread** runs the script and, while
@@ -157,27 +156,24 @@ sequenceDiagram
     participant E as Editor
     participant S as server thread
     participant V as eval thread
-
-    Note over E,V: Handshake
-    E->>S: initialize
-    S-->>E: capabilities
-    S--)E: initialized (event)
-    E->>S: setBreakpoints
-    E->>S: configurationDone
-    E->>S: launch (program + args)
-    S->>V: start evaluating
-
-    Note over E,V: Pause / inspect / resume
-    V->>V: enter_instruction · breakpoint? snapshot locals from the Stack
-    V--)E: stopped (event) · V now blocked on condvar
-    E->>S: stackTrace / scopes / variables
-    S-->>E: served from the pause snapshot
-    E->>S: continue / next / stepIn / stepOut
-    S->>V: set run mode · signal condvar
-    V->>V: resume until the next stop
-
-    Note over E,V: End
-    V--)E: terminated (event)
+    Note over E, V: Handshake
+    E ->> S: initialize
+    S -->> E: capabilities
+    S --) E: initialized (event)
+    E ->> S: setBreakpoints
+    E ->> S: configurationDone
+    E ->> S: launch (program + args)
+    S ->> V: start evaluating
+    Note over E, V: Pause / inspect / resume
+    V ->> V: enter_instruction · breakpoint? snapshot locals from the Stack
+    V --) E: stopped (event) · V now blocked on condvar
+    E ->> S: stackTrace / scopes / variables
+    S -->> E: served from the pause snapshot
+    E ->> S: continue / next / stepIn / stepOut
+    S ->> V: set run mode · signal condvar
+    V ->> V: resume until the next stop
+    Note over E, V: End
+    V --) E: terminated (event)
 ```
 
 1. **Launch.** The editor sends `launch` with the script path and args. The eval thread parses the file, then runs the

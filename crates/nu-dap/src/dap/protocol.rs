@@ -44,26 +44,32 @@ pub struct Event {
 /// Reads one DAP message from the reader. Returns None on EOF.
 pub fn read_message<R: BufRead>(reader: &mut R) -> std::io::Result<Option<Request>> {
     let mut content_length: Option<usize> = None;
+
     loop {
         let mut line = String::new();
         if reader.read_line(&mut line)? == 0 {
             return Ok(None); // EOF
         }
+
         let line = line.trim_end();
         if line.is_empty() {
             break; // end of headers
         }
+
         if let Some(rest) = line.strip_prefix("Content-Length:") {
             content_length = rest.trim().parse().ok();
         }
     }
+
     let len = content_length.ok_or_else(|| {
         std::io::Error::new(std::io::ErrorKind::InvalidData, "missing Content-Length")
     })?;
+
     let mut buf = vec![0u8; len];
     reader.read_exact(&mut buf)?;
     let req: Request = serde_json::from_slice(&buf)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+
     Ok(Some(req))
 }
 

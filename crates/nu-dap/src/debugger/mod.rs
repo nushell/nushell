@@ -19,8 +19,8 @@ mod snapshot;
 mod stepping;
 
 use crate::dap::protocol::DapWriter;
-use crate::source_map::SourceMap;
-use crate::state::{DebugState, RunMode};
+use crate::source_map::{SourceMap, SourcePos};
+use crate::state::{BpKind, Breakpoint, DebugState, RunMode};
 use nu_protocol::ast::Block;
 use nu_protocol::debugger::Debugger;
 use nu_protocol::engine::{EngineState, Stack};
@@ -171,6 +171,7 @@ impl DapDebugger {
         if reason != "exception" {
             inner.exception_info = None;
         }
+
         self.build_snapshot(
             engine_state,
             &mut inner,
@@ -178,14 +179,17 @@ impl DapDebugger {
             instruction_index,
             registers,
         );
+
         inner.paused_line = self
             .current_span
             .and_then(|s| self.source_map.resolve(s))
             .map(|p| p.line)
             .unwrap_or(0);
+
         inner.paused_depth = self.depth();
         inner.paused = true;
         inner.resume_requested = false;
+
         self.state.paused_cv.notify_all();
 
         let mut body = json!({
@@ -193,10 +197,12 @@ impl DapDebugger {
             "threadId": crate::server::THREAD_ID,
             "allThreadsStopped": true,
         });
+
         if let Some(text) = description {
             body["description"] = json!(text);
             body["text"] = json!(text);
         }
+
         self.writer.event("stopped", body);
 
         while !inner.resume_requested {
@@ -206,6 +212,7 @@ impl DapDebugger {
                 .wait(inner)
                 .expect("debug state poisoned");
         }
+
         inner.paused = false;
         inner.resume_requested = false;
 
@@ -214,6 +221,230 @@ impl DapDebugger {
             // ShellError::Interrupted at the next signal check.
             engine_state.signals().trigger();
         }
+    }
+
+    /// First instruction of a fresh block: register 0 is `$in` (per element
+    /// for each/where closures). It's register-based, not on the Stack, so
+    /// stash it on the frame; `sync_locals_from_stack` injects it later.
+    fn capture_block_input(&mut self, registers: &[PipelineExecutionData]) {
+        if !self.just_entered_block {
+            return;
+        }
+
+        self.just_entered_block = false;
+
+        if let Some(PipelineData::Value(v, _)) = registers.first().map(|r| &r.body)
+            && !matches!(v, Value::Nothing { .. })
+            && let Some(frame) = self.frames.last_mut()
+        {
+            frame.in_value = Some(v.clone());
+        }
+    }
+
+    /// Everything one instruction needs from the shared state, read under a
+    /// single lock — condition and logpoint evaluation happen after it is
+    /// released (`scratch` has its own). `None` means terminate was requested
+    /// and this instruction must not proceed.
+    fn read_pause_gate(
+        &self,
+        engine_state: &EngineState,
+        pos: Option<&SourcePos>,
+    ) -> Option<PauseGate> {
+        let inner = self.state.inner.lock().expect("debug state poisoned");
+        if inner.terminate_requested {
+            engine_state.signals().trigger();
+            return None;
+        }
+        let bp_props = pos.and_then(|p| {
+            // Only on first arrival at the line, not per instruction.
+            if self.last_line == Some(p.line) {
+                return None;
+            }
+            inner
+                .breakpoints
+                .get(&p.path)
+                .and_then(|m| m.get(&(p.line as i64)))
+                .cloned()
+        });
+        Some(PauseGate {
+            breakpoint: bp_props,
+            run_mode: inner.run_mode,
+            time_travel: inner.time_travel,
+        })
+    }
+
+    /// Whether this breakpoint pauses, plus a console note when its condition
+    /// could not be used. Requires locals to be synced already.
+    fn check_breakpoint(
+        &mut self,
+        engine_state: &EngineState,
+        props: &Breakpoint,
+    ) -> (Option<&'static str>, Option<String>) {
+        match props.kind() {
+            BpKind::Log {
+                template,
+                condition,
+            } => {
+                if self.should_log(engine_state, condition) {
+                    let msg = self.scratch_interpolate(template);
+                    self.writer.output("console", format!("{msg}\n"));
+                }
+                (None, None)
+            }
+            BpKind::Conditional(cond) => match self.scratch_eval(cond) {
+                Ok(Value::Bool { val: true, .. }) => (Some("breakpoint"), None),
+                Ok(Value::Bool { val: false, .. }) => (None, None),
+                // Pause on a broken condition rather than skip the breakpoint.
+                Ok(v) => (
+                    Some("breakpoint"),
+                    Some(format!(
+                        "condition `{cond}` returned {} (expected bool) — pausing",
+                        crate::variables::short_render(&v, engine_state.get_config())
+                    )),
+                ),
+                Err(e) => (
+                    Some("breakpoint"),
+                    Some(format!("condition `{cond}` failed: {e} — pausing")),
+                ),
+            },
+            BpKind::Plain => (Some("breakpoint"), None),
+        }
+    }
+
+    /// A logpoint's condition gates whether it emits. An unusable condition
+    /// logs anyway (and says why): a logpoint never pauses, so swallowing the
+    /// output would leave nothing to show that anything went wrong.
+    fn should_log(&mut self, engine_state: &EngineState, condition: Option<&str>) -> bool {
+        let Some(cond) = condition else { return true };
+        match self.scratch_eval(cond) {
+            Ok(Value::Bool { val, .. }) => val,
+            Ok(v) => {
+                let rendered = crate::variables::short_render(&v, engine_state.get_config());
+                self.writer.output(
+                    "console",
+                    format!(
+                        "nu-dap: log condition `{cond}` returned {rendered} (expected bool) — logging\n"
+                    ),
+                );
+                true
+            }
+            Err(e) => {
+                self.writer.output(
+                    "console",
+                    format!("nu-dap: log condition `{cond}` failed: {e} — logging\n"),
+                );
+                true
+            }
+        }
+    }
+
+    /// Record on the tape at the same granularity forward stepping stops
+    /// (line/depth change or a call boundary), so Step Back reaches every
+    /// point F11 would — pipe stages and same-line closure bodies included.
+    ///
+    /// Must run after `current_span` is set: `build_frames` reads it for the
+    /// top frame's line.
+    fn record_timeline(
+        &mut self,
+        engine_state: &EngineState,
+        ir_block: &IrBlock,
+        instruction_index: usize,
+        registers: &[PipelineExecutionData],
+        pos: Option<&SourcePos>,
+        reason: Option<&'static str>,
+    ) {
+        let Some(p) = pos else { return };
+        let depth = self.depth();
+        let line_changed = self.last_line != Some(p.line);
+        let depth_changed = self.last_depth != Some(depth);
+        let instruction = &ir_block.instructions[instruction_index];
+        let is_call = matches!(instruction, Instruction::Call { .. });
+        let pipe_input = pipe_input_at(engine_state, instruction, registers);
+
+        let frames = self.build_frames();
+        let last_result = self.last_result.clone();
+        let mut inner = self.state.inner.lock().expect("debug state poisoned");
+        let granular = line_changed || depth_changed || is_call;
+
+        if (inner.time_travel && granular) || reason.is_some() {
+            let entry = crate::state::TimelineEntry {
+                frames,
+                shadow_vars: inner.shadow_vars.clone(),
+                env_shadow: inner.env_shadow.clone(),
+                last_result,
+                pipe_input,
+                depth,
+                is_breakpoint: reason == Some("breakpoint"),
+            };
+            inner.push_timeline(entry);
+            inner.view_index = None; // execution advanced: back at the frontier
+        }
+    }
+
+    /// Remember this line so later instructions on it don't refire the
+    /// breakpoint. Non-steppable instructions never touch line tracking.
+    fn track_line(&mut self, pos: Option<&SourcePos>) {
+        let Some(p) = pos else { return };
+        self.last_line = Some(p.line);
+        self.last_depth = Some(self.depth());
+        if let Some(frame) = self.frames.last_mut() {
+            frame.last_line = Some(p.line);
+        }
+    }
+}
+
+/// The shared-state reads one instruction needs, taken together so the lock is
+/// acquired once (see the concurrency rule in state.rs).
+struct PauseGate {
+    breakpoint: Option<Breakpoint>,
+    run_mode: RunMode,
+    time_travel: bool,
+}
+
+impl PauseGate {
+    /// Locals+env are snapshotted from the Stack only when we might pause, eval
+    /// a condition/logpoint, or record — not on the plain-`continue` fast path,
+    /// so hot loops don't clone per line.
+    fn wants_locals(&self) -> bool {
+        self.breakpoint.is_some() || !matches!(self.run_mode, RunMode::Continue) || self.time_travel
+    }
+}
+
+/// Frame naming only: a `Call` to a named decl labels the block its
+/// `enter_block` will push; anything else yields `None` so a builtin call (no
+/// block follows) can't mislabel a later block.
+fn called_decl_name(engine_state: &EngineState, instruction: &Instruction) -> Option<String> {
+    match instruction {
+        Instruction::Call { decl_id, .. } => {
+            Some(engine_state.get_decl(*decl_id).name().to_string())
+        }
+        _ => None,
+    }
+}
+
+/// At a call boundary, the value flowing in — so the past view can show
+/// `in → cmd`. Streams are described, never drained.
+fn pipe_input_at(
+    engine_state: &EngineState,
+    instruction: &Instruction,
+    registers: &[PipelineExecutionData],
+) -> Option<(String, Value)> {
+    let Instruction::Call {
+        decl_id, src_dst, ..
+    } = instruction
+    else {
+        return None;
+    };
+    let name = || engine_state.get_decl(*decl_id).name().to_string();
+    match &registers.get(src_dst.get() as usize)?.body {
+        PipelineData::Value(v, _) if !matches!(v, Value::Nothing { .. }) => {
+            Some((name(), v.clone()))
+        }
+        other @ (PipelineData::ListStream(..) | PipelineData::ByteStream(..)) => Some((
+            name(),
+            Value::string(crate::variables::describe_stream(other), Span::unknown()),
+        )),
+        _ => None,
     }
 }
 
@@ -266,8 +497,6 @@ impl Debugger for DapDebugger {
     fn enter_instruction(
         &mut self,
         engine_state: &EngineState,
-        // Real evaluation stack (#18708): source of truth for this frame's
-        // locals/env, read at each steppable line by `sync_locals_from_stack`.
         stack: &Stack,
         ir_block: &IrBlock,
         instruction_index: usize,
@@ -276,167 +505,48 @@ impl Debugger for DapDebugger {
         self.source_map.refresh(engine_state);
         // New instruction running, so a prior error was caught — future ones pause.
         self.in_error_unwind = false;
+        self.capture_block_input(registers);
 
-        // First instruction of a fresh block: register 0 is `$in` (per element
-        // for each/where closures). It's register-based, not on the Stack, so
-        // stash it on the frame; `sync_locals_from_stack` injects it later.
-        if self.just_entered_block {
-            self.just_entered_block = false;
-            if let Some(PipelineData::Value(v, _)) = registers.first().map(|r| &r.body)
-                && !matches!(v, nu_protocol::Value::Nothing { .. })
-                && let Some(frame) = self.frames.last_mut()
-            {
-                frame.in_value = Some(v.clone());
-            }
-        }
-
-        // Frame naming only: a `Call` to a named decl labels the block its
-        // `enter_block` will push; anything else clears it so a builtin call
-        // (no block follows) can't mislabel a later block.
-        match &ir_block.instructions[instruction_index] {
-            Instruction::Call { decl_id, .. } => {
-                self.pending_frame_name = Some(engine_state.get_decl(*decl_id).name().to_string());
-            }
-            _ => {
-                self.pending_frame_name = None;
-            }
-        }
+        let instruction = &ir_block.instructions[instruction_index];
+        self.pending_frame_name = called_decl_name(engine_state, instruction);
 
         // Only single-line spans are valid stop locations; block-wide glue spans
         // would make the UI jump to line 1.
         let span = ir_block.spans[instruction_index];
-        let pos = self.source_map.resolve_steppable(span);
+        let position = self.source_map.resolve_steppable(span);
 
-        // One lock: terminate check, breakpoint lookup, run mode, time-travel flag.
-        // Condition/logpoint eval happens after, off-lock (scratch has its own).
-        let (bp_props, run_mode, time_travel) = {
-            let inner = self.state.inner.lock().expect("debug state poisoned");
-            if inner.terminate_requested {
-                engine_state.signals().trigger();
-                return;
-            }
-            let props = pos.as_ref().and_then(|p| {
-                // Only on first arrival at the line, not per instruction.
-                if self.last_line == Some(p.line) {
-                    return None;
-                }
-                inner
-                    .breakpoints
-                    .get(&p.path)
-                    .and_then(|m| m.get(&(p.line as i64)))
-                    .cloned()
-            });
-            (props, inner.run_mode, inner.time_travel)
+        let Some(gate) = self.read_pause_gate(engine_state, position.as_ref()) else {
+            return; // terminate requested
         };
-
-        // Snapshot locals+env from the Stack whenever we might pause, eval a
-        // condition/logpoint, or record. Skipped on the plain-`continue` fast
-        // path so hot loops don't clone per line.
-        if pos.is_some()
-            && (bp_props.is_some() || !matches!(run_mode, RunMode::Continue) || time_travel)
-        {
+        if position.is_some() && gate.wants_locals() {
             self.sync_locals_from_stack(engine_state, stack);
         }
 
-        let mut reason: Option<&'static str> = None;
-        let mut note: Option<String> = None;
-        if let Some(props) = bp_props {
-            if let Some(template) = &props.log_message {
-                // Logpoint: emit, never pause.
-                let msg = self.scratch_interpolate(template);
-                self.writer.output("console", format!("{msg}\n"));
-            } else if let Some(cond) = &props.condition {
-                match self.scratch_eval(cond) {
-                    Ok(Value::Bool { val: true, .. }) => {
-                        reason = Some("breakpoint");
-                    }
-                    Ok(Value::Bool { val: false, .. }) => {}
-                    Ok(v) => {
-                        // Pause on a broken condition rather than skip the breakpoint.
-                        reason = Some("breakpoint");
-                        note = Some(format!(
-                            "condition `{cond}` returned {} (expected bool) — pausing",
-                            crate::variables::short_render(&v, engine_state.get_config())
-                        ));
-                    }
-                    Err(e) => {
-                        reason = Some("breakpoint");
-                        note = Some(format!("condition `{cond}` failed: {e} — pausing"));
-                    }
-                }
-            } else {
-                reason = Some("breakpoint");
-            }
+        // Order is load-bearing from here: locals are synced before a condition
+        // or logpoint is evaluated, `current_span` is set before the tape entry
+        // is built, and line tracking is updated only once any pause returns.
+        let (mut reason, note) = match &gate.breakpoint {
+            Some(props) => self.check_breakpoint(engine_state, props),
+            None => (None, None),
+        };
+
+        if reason.is_none() && position.is_some() {
+            let is_call = matches!(instruction, Instruction::Call { .. });
+            reason = self.should_pause_mode(position.as_ref(), gate.run_mode, is_call);
         }
 
-        if reason.is_none() && pos.is_some() {
-            let is_call = matches!(
-                &ir_block.instructions[instruction_index],
-                Instruction::Call { .. }
-            );
-            reason = self.should_pause_mode(pos.as_ref(), run_mode, is_call);
-        }
-
-        if pos.is_some() {
+        if position.is_some() {
             self.current_span = Some(span);
         }
 
-        // Record on the tape at the same granularity forward stepping stops
-        // (line/depth change or a call boundary), so Step Back reaches every
-        // point F11 would — pipe stages and same-line closure bodies included.
-        if let Some(p) = &pos {
-            let depth = self.depth();
-            let line_changed = self.last_line != Some(p.line);
-            let depth_changed = self.last_depth != Some(depth);
-            let is_call = matches!(
-                &ir_block.instructions[instruction_index],
-                Instruction::Call { .. }
-            );
-            // At a call boundary, capture the value flowing in so the past
-            // view can show `in → cmd`.
-            let pipe_input = match &ir_block.instructions[instruction_index] {
-                Instruction::Call {
-                    decl_id, src_dst, ..
-                } => registers
-                    .get(src_dst.get() as usize)
-                    .and_then(|r| match &r.body {
-                        PipelineData::Value(v, _) if !matches!(v, Value::Nothing { .. }) => Some((
-                            engine_state.get_decl(*decl_id).name().to_string(),
-                            v.clone(),
-                        )),
-                        other @ (PipelineData::ListStream(..) | PipelineData::ByteStream(..)) => {
-                            Some((
-                                engine_state.get_decl(*decl_id).name().to_string(),
-                                Value::string(
-                                    crate::variables::describe_stream(other),
-                                    Span::unknown(),
-                                ),
-                            ))
-                        }
-                        _ => None,
-                    }),
-                _ => None,
-            };
-
-            let frames = self.build_frames();
-            let last_result = self.last_result.clone();
-            let mut inner = self.state.inner.lock().expect("debug state poisoned");
-            let granular = line_changed || depth_changed || is_call;
-
-            if (inner.time_travel && granular) || reason.is_some() {
-                let entry = crate::state::TimelineEntry {
-                    frames,
-                    shadow_vars: inner.shadow_vars.clone(),
-                    env_shadow: inner.env_shadow.clone(),
-                    last_result,
-                    pipe_input,
-                    depth,
-                    is_breakpoint: reason == Some("breakpoint"),
-                };
-                inner.push_timeline(entry);
-                inner.view_index = None; // execution advanced: back at the frontier
-            }
-        }
+        self.record_timeline(
+            engine_state,
+            ir_block,
+            instruction_index,
+            registers,
+            position.as_ref(),
+            reason,
+        );
 
         if let Some(r) = reason {
             if let Some(n) = &note {
@@ -453,15 +563,7 @@ impl Debugger for DapDebugger {
             );
         }
 
-        // Remember this line so later instructions on it don't refire the
-        // breakpoint. Non-steppable instructions never touch line tracking.
-        if let Some(p) = &pos {
-            self.last_line = Some(p.line);
-            self.last_depth = Some(self.depth());
-            if let Some(frame) = self.frames.last_mut() {
-                frame.last_line = Some(p.line);
-            }
-        }
+        self.track_line(position.as_ref());
     }
 
     fn leave_instruction(

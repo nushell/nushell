@@ -34,7 +34,7 @@ impl Session {
                 };
                 map.insert(
                     line,
-                    crate::state::BpProps {
+                    crate::state::Breakpoint {
                         id,
                         verified: ok,
                         condition: bp.condition.clone(),

@@ -87,7 +87,7 @@ impl PauseSnapshot {
 /// One breakpoint's properties, keyed in `Inner::breakpoints` by its
 /// (possibly snapped) line.
 #[derive(Debug, Clone, Default)]
-pub(crate) struct BpProps {
+pub(crate) struct Breakpoint {
     pub(crate) id: i64,
     pub(crate) verified: bool,
     /// nu expression; the breakpoint only pauses when it evaluates truthy.
@@ -96,10 +96,40 @@ pub(crate) struct BpProps {
     pub(crate) log_message: Option<String>,
 }
 
+/// What a breakpoint does when execution arrives at it.
+///
+/// `condition` and `log_message` are independent fields (DAP sends them that
+/// way), so this collapses them into the one behaviour that applies.
+pub(crate) enum BpKind<'a> {
+    /// Logpoint: emit the message, never pause. A condition, when the client
+    /// sent one alongside the message, gates the logging.
+    Log {
+        template: &'a str,
+        condition: Option<&'a str>,
+    },
+    /// Pause only when the expression evaluates truthy.
+    Conditional(&'a str),
+    /// Pause on arrival.
+    Plain,
+}
+
+impl Breakpoint {
+    pub(crate) fn kind(&self) -> BpKind<'_> {
+        match (&self.log_message, &self.condition) {
+            (Some(template), condition) => BpKind::Log {
+                template,
+                condition: condition.as_deref(),
+            },
+            (None, Some(cond)) => BpKind::Conditional(cond),
+            (None, None) => BpKind::Plain,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub(crate) struct Inner {
     /// file path (canonicalized) -> line -> breakpoint properties.
-    pub(crate) breakpoints: HashMap<String, BTreeMap<i64, BpProps>>,
+    pub(crate) breakpoints: HashMap<String, BTreeMap<i64, Breakpoint>>,
     /// file path -> set of lines that have at least one steppable
     /// instruction. Populated by the eval thread after parsing.
     pub(crate) valid_lines: HashMap<String, BTreeSet<i64>>,

@@ -525,6 +525,41 @@ fn conditional_breakpoint_and_logpoint() {
     assert_eq!(logs[0], "file a.txt total 0");
     assert_eq!(logs[2], "file c.log total 4216");
 
+    // Conditional logpoint: DAP allows `condition` and `logMessage` on the same
+    // breakpoint, and VS Code offers both in one editor. The condition gates the
+    // logging — still no pause.
+    let mut d = Dap::spawn();
+    d.initialize();
+    d.send("launch", json!({ "program": demo, "stopOnEntry": false }));
+    d.response("launch");
+    d.send(
+        "setBreakpoints",
+        json!({ "source": { "path": demo },
+                "breakpoints": [{ "line": 16,
+                                  "condition": "$total > 4000",
+                                  "logMessage": "late {$f.name} total {$total}" }] }),
+    );
+    d.response("setBreakpoints");
+    d.send("configurationDone", json!({}));
+    d.response("configurationDone");
+    let mut logs = Vec::new();
+    loop {
+        let ev = d.recv_until(|m| {
+            m["type"] == "event" && (m["event"] == "output" || m["event"] == "terminated")
+        });
+        let ev = ev.unwrap();
+        if ev["event"] == "terminated" {
+            break;
+        }
+        if ev["body"]["category"] == "console" {
+            let o = ev["body"]["output"].as_str().unwrap();
+            if !o.starts_with("nu-dap ") {
+                logs.push(o.trim().to_string());
+            }
+        }
+    }
+    assert_eq!(logs, vec!["late c.log total 4216".to_string()], "{logs:?}");
+
     // Logpoint written in nushell's own interpolation syntax (`$"...($x)"`)
     // instead of DAP `{expr}` — must interpolate the same way.
     let mut d = Dap::spawn();
