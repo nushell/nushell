@@ -505,8 +505,12 @@ fn store_byte_stream_prefix(
     // Decode for `$last` the same way collecting a byte stream does:
     // Binary stays binary; String/Unknown become string when UTF-8, else binary.
     // Display still uses the raw rebuilt byte stream below.
-    let stored =
-        value_from_captured_bytes(prefix.clone(), span, type_, trim_trailing_newline && !truncated);
+    let stored = value_from_captured_bytes(
+        prefix.clone(),
+        span,
+        type_,
+        trim_trailing_newline && !truncated,
+    );
     let (stored, more) = if stored.memory_size() > budget {
         nu_protocol::truncate_value_to_budget(stored, budget)
     } else {

@@ -343,7 +343,10 @@ fn external_command_trailing_newline_is_trimmed_in_last() -> Result {
     // Match ByteStream::into_value / complete: one trailing newline is stripped.
     // `cococo` uses println! (trailing `\n`).
     let mut session = Interactive::new();
-    session.run(&format!(r#"^"{}" trim_me"#, quoted_path(TESTBIN_COCOCO.path())));
+    session.run(&format!(
+        r#"^"{}" trim_me"#,
+        quoted_path(TESTBIN_COCOCO.path())
+    ));
 
     let stored = session.last_value()?;
     match stored {
