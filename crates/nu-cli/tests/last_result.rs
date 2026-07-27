@@ -312,3 +312,55 @@ fn engine_stats_reports_last_result_sizes() -> Result {
     );
     Ok(())
 }
+
+/// Cross-platform external that prints `marker` with no trailing newline.
+fn external_print_cmd(marker: &str) -> String {
+    // Prefer the workspace `nu --testbin nonu` when the binary is present (CI /
+    // full builds). Fall back to a system utility so `cargo test -p nu-cli` alone
+    // still exercises the capture path.
+    let nu = nu_test_support::fs::executable_path();
+    if nu.exists() {
+        let nu_path = nu.display().to_string().replace('\\', "/");
+        return format!(r#"^"{nu_path}" --testbin nonu {marker}"#);
+    }
+
+    #[cfg(windows)]
+    {
+        // `cmd /c <nul set /p=` prints without a newline.
+        format!(r#"^cmd /c "<nul set /p={marker}""#)
+    }
+    #[cfg(not(windows))]
+    {
+        format!(r#"^/usr/bin/printf '{marker}'"#)
+    }
+}
+
+#[test]
+fn external_command_stdout_is_stored_as_binary() -> Result {
+    // Bare external commands inherit the terminal unless interactive last-result
+    // capture forces a pipe. Without that, `$last` was empty binary.
+    let marker = "last_external_marker_xyz";
+    let mut session = Interactive::new();
+    session.run(&external_print_cmd(marker));
+
+    let stored = session.last_value()?;
+    match stored {
+        Value::Binary { val, .. } => {
+            assert_eq!(
+                val.as_ref(),
+                marker.as_bytes(),
+                "external stdout should be stored as binary bytes, got {val:?}"
+            );
+        }
+        other => panic!("expected binary $last from external, got {other:?}"),
+    }
+    Ok(())
+}
+
+#[test]
+fn zero_budget_does_not_force_external_capture() -> Result {
+    let mut session = Interactive::new().with_last_result_size(Filesize::ZERO);
+    session.run(&external_print_cmd("should_not_store"));
+    assert_eq!(session.last_value()?, Value::test_nothing());
+    Ok(())
+}

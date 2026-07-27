@@ -450,15 +450,25 @@ fn store_byte_stream_prefix(
     metadata: Option<nu_protocol::PipelineMetadata>,
     budget: usize,
 ) -> PipelineData {
-    use nu_protocol::{ByteStream, PipelineData, Signals, Value};
-
-    stack.clear_last_result();
+    use nu_protocol::{ByteStream, ByteStreamSource, PipelineData, Signals, Value};
 
     let span = stream.span();
     let type_ = stream.type_();
 
+    // No capturable bytes (e.g. stdout was null or still inherited). Do not replace
+    // a prior `$last` with empty binary; leave the stream for print/wait.
+    let has_stdout = match stream.source() {
+        ByteStreamSource::Read(_) | ByteStreamSource::File(_) => true,
+        ByteStreamSource::Child(child) => child.stdout.is_some(),
+    };
+    if !has_stdout {
+        return PipelineData::ByteStream(stream, metadata);
+    }
+
+    stack.clear_last_result();
+
     let Some(mut reader) = stream.reader() else {
-        stack.store_last_result_raw(Value::binary(Vec::new(), span), metadata, false);
+        // Defensive: source said stdout exists but reader failed.
         return PipelineData::Empty;
     };
 
