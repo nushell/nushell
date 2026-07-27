@@ -186,6 +186,7 @@ fn sqlite_database_operations(#[case] operation: &str, #[case] expected: impl In
 #[case::each("each {|row| $row.z } | length", 4)]
 #[case::par_each("par-each {|row| $row.z } | length", 4)]
 #[case::upsert("upsert z 0 | last | get z", 0)]
+#[case::default("default 0 z | last | get z", 0)]
 #[case::update_cells("update cells {default (-1) | $in + 1 } | last | get z", 0)]
 #[case::every("every 2 | length", 3)]
 #[case::first("first 2 | get z.1", 42)]
