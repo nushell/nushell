@@ -25,23 +25,16 @@ fn str() -> Result {
 
 #[test]
 fn str_newline() -> Result {
-    let code = r#"
-        "2000
-        " | into filesize
-    "#;
-
-    test().run(code).expect_value_eq(Filesize::from(2000))
+    test()
+        .run_with_data("into filesize", "2000\n ")
+        .expect_value_eq(Filesize::from(2000))
 }
 
 #[test]
 fn str_many_newlines() -> Result {
-    let code = r#"
-        "2000
-
-        " | into filesize
-    "#;
-
-    test().run(code).expect_value_eq(Filesize::from(2000))
+    test()
+        .run_with_data("into filesize", "2000\n \n ")
+        .expect_value_eq(Filesize::from(2000))
 }
 
 #[test]
