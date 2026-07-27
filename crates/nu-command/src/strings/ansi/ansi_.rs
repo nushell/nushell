@@ -1035,18 +1035,18 @@ fn build_ansi_hashmap(v: &[AnsiCode]) -> HashMap<&str, &str> {
 
 #[cfg(test)]
 mod tests {
-    use crate::strings::ansi::ansi_::Ansi;
+    use crate::strings::ansi::ansi_::{Ansi, CODE_LIST};
+    use nu_test_support::prelude::*;
+    use rstest::rstest;
+    use std::collections::HashSet;
 
     #[test]
-    fn examples_work_as_expected() -> nu_test_support::Result {
-        nu_test_support::test().examples(Ansi)
+    fn examples_work_as_expected() -> Result {
+        test().examples(Ansi)
     }
 
     #[test]
     fn no_duplicate_short_names() {
-        use crate::strings::ansi::ansi_::CODE_LIST;
-        use std::collections::HashSet;
-
         let mut seen = HashSet::new();
         let mut duplicates = Vec::new();
 
@@ -1066,9 +1066,6 @@ mod tests {
 
     #[test]
     fn no_duplicate_long_names() {
-        use crate::strings::ansi::ansi_::CODE_LIST;
-        use std::collections::HashSet;
-
         let mut seen = HashSet::new();
         let mut duplicates = Vec::new();
 
@@ -1085,43 +1082,56 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_attr_field_parsing() {
-        use nu_test_support::nu;
-
-        // Test single attribute code
-        let result = nu!("ansi --escape { fg: \"#0000ff\" attr: b }");
-        assert!(result.status.success());
-        assert!(result.out.contains("\x1b[1;38;2;0;0;255m")); // Bold + blue foreground (true color)
-
-        // Test single attribute name
-        let result = nu!("ansi --escape { fg: \"#0000ff\" attr: underline }");
-        assert!(result.status.success());
-        assert!(result.out.contains("\x1b[4;38;2;0;0;255m")); // Underline + blue foreground (true color)
-
-        // Test different field orders
-        let result = nu!("ansi --escape { attr: b fg: \"#0000ff\" }");
-        assert!(result.status.success());
-        assert!(result.out.contains("\x1b[1;38;2;0;0;255m")); // Bold + blue foreground (true color)
-
-        let result = nu!("ansi --escape { bg: \"#ff0000\" attr: b fg: \"#0000ff\" }");
-        assert!(result.status.success());
-        assert!(result.out.contains("\x1b[1;48;2;255;0;0;38;2;0;0;255m")); // Bold + red bg + blue fg (true color)
+    #[rstest]
+    #[case::single_attribute_code(
+        "ansi --escape { fg: \"#0000ff\" attr: b }",
+        "\x1b[1;38;2;0;0;255m"
+    )]
+    #[case::single_attribute_name(
+        "ansi --escape { fg: \"#0000ff\" attr: underline }",
+        "\x1b[4;38;2;0;0;255m"
+    )]
+    #[case::different_field_order(
+        "ansi --escape { attr: b fg: \"#0000ff\" }",
+        "\x1b[1;38;2;0;0;255m"
+    )]
+    #[case::foreground_background_and_attribute(
+        "ansi --escape { bg: \"#ff0000\" attr: b fg: \"#0000ff\" }",
+        "\x1b[1;48;2;255;0;0;38;2;0;0;255m"
+    )]
+    fn test_attr_field_parsing(#[case] code: &str, #[case] expected: &str) -> Result {
+        test().run(code).expect_value_eq(expected)
     }
 
-    #[test]
-    fn test_attr_field_rejection() {
-        use nu_test_support::nu;
+    #[rstest]
+    #[case::comma_separated_string(
+        "ansi --escape { fg: \"#0000ff\" attr: \"b,underline\" }",
+        "Invalid ANSI attribute format",
+        Some(
+            "Use attr: [code1, code2] or attr: [name1, name2] instead of comma-separated strings."
+        )
+    )]
+    #[case::invalid_attribute(
+        "ansi --escape { fg: \"#0000ff\" attr: invalid }",
+        "Invalid ANSI attribute name",
+        Some(
+            "Valid names are: bold, italic, underline, strike, dimmed, reverse, hidden, blink, normal"
+        )
+    )]
+    fn test_attr_field_rejection(
+        #[case] code: &str,
+        #[case] expected_error: &str,
+        #[case] expected_help: Option<&str>,
+    ) -> Result {
+        let err = test().run(code).expect_shell_error()?;
 
-        // Test comma-separated string rejection
-        let result = nu!("ansi --escape { fg: \"#0000ff\" attr: \"b,underline\" }");
-        assert!(result.err.contains("Invalid ANSI attribute format"));
-        assert!(result.err.contains(
-            "Use attr: [code1, code2] or attr: [name1, name2] instead of comma-separated strings"
-        ));
+        let ShellError::Generic(err) = err else {
+            panic!("expected generic error, got {err:?}");
+        };
 
-        // Test invalid attribute
-        let result = nu!("ansi --escape { fg: \"#0000ff\" attr: invalid }");
-        assert!(result.err.contains("Invalid ANSI attribute name"));
+        assert_eq!(err.error, expected_error);
+        assert_eq!(err.help.as_deref(), expected_help);
+
+        Ok(())
     }
 }
