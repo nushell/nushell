@@ -119,6 +119,17 @@ $env.config.rm.always_trash = false
 # Default: 50
 $env.config.recursion_limit = 50
 
+# last_result_size (filesize): Maximum memory for the interactive last-result
+# variable (`$last` by default). In the REPL, successful pipeline results are
+# stored so you can reuse them. Size is measured with Value::memory_size.
+# 0b: Disable capture entirely.
+# When a result exceeds the limit, it is truncated to fit and a warning is shown
+# the next time you access `$last`. Bare `$last` (no pipeline) does not overwrite
+# the stored value. External command output is stored as a string when UTF-8, or
+# as binary otherwise.
+# Default: 1mib
+$env.config.last_result_size = 1mib
+
 # auto_cd_implicit (bool): Gives precedence to auto-cd when command string is
 # an existing directory path.  
 # false: A relative (e.g.  './dirname') or absolute path is required to auto-cd.
