@@ -3,20 +3,19 @@ use nu_protocol::{
     Value, ast::RangeInclusion,
 };
 use nu_test_support::{fs::Stub::EmptyFile, prelude::*};
+use pretty_assertions::assert_matches;
 use rstest::rstest;
 
 #[test]
-fn gets_the_last_row() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats",
-        "ls | sort-by name | where type == file | last 1 | get name.0 | str trim"
-    );
-
-    assert_eq!(actual.out, "utf16.ini");
+fn gets_the_last_row() -> Result {
+    test()
+        .cwd("tests/fixtures/formats")
+        .run("ls | sort-by name | where type == file | last 1 | get name.0 | path basename")
+        .expect_value_eq("utf16.ini")
 }
 
 #[test]
-fn gets_last_rows_by_amount() {
+fn gets_last_rows_by_amount() -> Result {
     Playground::setup("last_test_1", |dirs, sandbox| {
         sandbox.with_files(&[
             EmptyFile("los.txt"),
@@ -25,105 +24,105 @@ fn gets_last_rows_by_amount() {
             EmptyFile("arepas.clu"),
         ]);
 
-        let actual = nu!(cwd: dirs.test(), "ls | last 3 | length");
-
-        assert_eq!(actual.out, "3");
+        test()
+            .cwd(dirs.test())
+            .run("ls | last 3 | length")
+            .expect_value_eq(3)
     })
 }
 
 #[test]
-fn gets_last_row_when_no_amount_given() {
+fn gets_last_row_when_no_amount_given() -> Result {
     Playground::setup("last_test_2", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("caballeros.txt"), EmptyFile("arepas.clu")]);
 
         // FIXME: We should probably change last to return a one row table instead of a record here
-        let actual = nu!(cwd: dirs.test(), "ls | last | values | length");
-
-        assert_eq!(actual.out, "4");
+        test()
+            .cwd(dirs.test())
+            .run("ls | last | values | length")
+            .expect_value_eq(4)
     })
 }
 
 #[test]
-fn requests_more_rows_than_table_has() {
-    let actual = nu!("[date] | last 50 | length");
-
-    assert_eq!(actual.out, "1");
+fn requests_more_rows_than_table_has() -> Result {
+    test().run("[date] | last 50 | length").expect_value_eq(1)
 }
 
 #[test]
-fn gets_last_row_as_list_when_amount_given() {
-    let actual = nu!("[1, 2, 3] | last 1 | describe");
-
-    assert_eq!(actual.out, "list<int>");
+fn gets_last_row_as_list_when_amount_given() -> Result {
+    test()
+        .run("[1, 2, 3] | last 1 | describe")
+        .expect_value_eq("list<int>")
 }
 
 #[test]
-fn gets_last_bytes() {
-    let actual = nu!("(0x[aa bb cc] | last 2) == 0x[bb cc]");
-
-    assert_eq!(actual.out, "true");
+fn gets_last_bytes() -> Result {
+    test()
+        .run("(0x[aa bb cc] | last 2) == 0x[bb cc]")
+        .expect_value_eq(true)
 }
 
 #[test]
-fn gets_last_byte() {
-    let actual = nu!("0x[aa bb cc] | last");
-
-    assert_eq!(actual.out, "204");
+fn gets_last_byte() -> Result {
+    test().run("0x[aa bb cc] | last").expect_value_eq(204)
 }
 
 #[test]
-fn gets_last_bytes_from_stream() {
-    let actual = nu!("(1..10 | each { 0x[aa bb cc] } | bytes collect | last 2) == 0x[bb cc]");
-
-    assert_eq!(actual.out, "true");
+fn gets_last_bytes_from_stream() -> Result {
+    test()
+        .run("(1..10 | each { 0x[aa bb cc] } | bytes collect | last 2) == 0x[bb cc]")
+        .expect_value_eq(true)
 }
 
 #[test]
-fn gets_last_byte_from_stream() {
-    let actual = nu!("1..10 | each { 0x[aa bb cc] } | bytes collect | last");
-
-    assert_eq!(actual.out, "204");
+fn gets_last_byte_from_stream() -> Result {
+    test()
+        .run("1..10 | each { 0x[aa bb cc] } | bytes collect | last")
+        .expect_value_eq(204)
 }
 
 #[test]
-fn last_errors_on_negative_index() {
-    let actual = nu!("[1, 2, 3] | last -2");
+fn last_errors_on_negative_index() -> Result {
+    let err = test().run("[1, 2, 3] | last -2").expect_shell_error()?;
 
-    assert!(actual.err.contains("use a positive value"));
+    assert_matches!(err, ShellError::NeedsPositiveValue { .. });
+    Ok(())
 }
 
 #[test]
-fn fail_on_non_iterator() {
-    let actual = nu!("1 | last");
+fn fail_on_non_iterator() -> Result {
+    let err = test().run("1 | last").expect_parse_error()?;
 
-    assert!(actual.err.contains("command doesn't support"));
+    assert_matches!(err, ParseError::InputMismatch(input_type, _) if input_type == "int");
+    Ok(())
 }
 
 #[test]
-fn errors_on_empty_list_when_no_rows_given_in_strict_mode() {
-    let actual = nu!("[] | last --strict");
-    assert!(actual.err.contains("index too large"));
+fn errors_on_empty_list_when_no_rows_given_in_strict_mode() -> Result {
+    let err = test().run("[] | last --strict").expect_shell_error()?;
+
+    assert_matches!(err, ShellError::AccessEmptyContent { .. });
+    Ok(())
 }
 
 #[test]
-fn does_not_error_on_empty_list_when_no_rows_given() {
-    let actual = nu!("[] | last | describe");
-
-    assert!(actual.out.contains("nothing"));
+fn does_not_error_on_empty_list_when_no_rows_given() -> Result {
+    test()
+        .run("[] | last | describe")
+        .expect_value_eq("nothing")
 }
 
 #[test]
-fn returns_nothing_on_empty_list_when_no_rows_given() {
-    let actual = nu!("[] | last");
-
-    assert_eq!(actual.out, "");
+fn returns_nothing_on_empty_list_when_no_rows_given() -> Result {
+    test().run("[] | last").expect_value_eq(())
 }
 
 #[test]
-fn returns_d_on_empty_list_when_no_rows_given_with_default() {
-    let actual = nu!("[a b] | where $it == 'c' | last | default 'd'");
-
-    assert_eq!(actual.out, "d");
+fn returns_d_on_empty_list_when_no_rows_given_with_default() -> Result {
+    test()
+        .run("[a b] | where $it == 'c' | last | default 'd'")
+        .expect_value_eq("d")
 }
 
 #[test]
