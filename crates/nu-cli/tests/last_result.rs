@@ -9,6 +9,7 @@ use nu_cli::eval_source;
 use nu_protocol::{
     Filesize, LAST_RESULT_VAR_NAME, LAST_VARIABLE_ID, PipelineData, Span, Value,
     engine::{EngineState, Stack},
+    record,
 };
 use nu_test_support::prelude::*;
 use std::sync::Arc;
@@ -313,54 +314,83 @@ fn engine_stats_reports_last_result_sizes() -> Result {
     Ok(())
 }
 
-/// Cross-platform external that prints `marker` with no trailing newline.
-fn external_print_cmd(marker: &str) -> String {
-    // Prefer the workspace `nu --testbin nonu` when the binary is present (CI /
-    // full builds). Fall back to a system utility so `cargo test -p nu-cli` alone
-    // still exercises the capture path.
-    let nu = nu_test_support::fs::executable_path();
-    if nu.exists() {
-        let nu_path = nu.display().to_string().replace('\\', "/");
-        return format!(r#"^"{nu_path}" --testbin nonu {marker}"#);
-    }
-
-    #[cfg(windows)]
-    {
-        // `cmd /c <nul set /p=` prints without a newline.
-        format!(r#"^cmd /c "<nul set /p={marker}""#)
-    }
-    #[cfg(not(windows))]
-    {
-        format!("^/usr/bin/printf '{marker}'")
-    }
+/// Quote an absolute path for `^"..."` external invocation.
+fn quoted_path(path: impl AsRef<std::path::Path>) -> String {
+    path.as_ref().to_string_lossy().replace('\\', "/")
 }
 
 #[test]
-fn external_command_stdout_is_stored_as_binary() -> Result {
-    // Bare external commands inherit the terminal unless interactive last-result
-    // capture forces a pipe. Without that, `$last` was empty binary.
+#[deps(TESTBIN_NONU)]
+fn external_command_stdout_is_stored_as_string() -> Result {
+    // Bare external UTF-8 stdout is decoded for `$last` (no `$last | decode`).
+    // Structured internal results still take the Value/ListStream paths unchanged.
+    // Testbins live in `crates/testbins` and are built via `#[deps(TESTBIN_*)]`.
     let marker = "last_external_marker_xyz";
     let mut session = Interactive::new();
-    session.run(&external_print_cmd(marker));
+    // `nonu` prints args with no trailing newline.
+    session.run(&format!(
+        r#"^"{}" {marker}"#,
+        quoted_path(TESTBIN_NONU.path())
+    ));
+
+    assert_eq!(session.last_value()?, Value::test_string(marker));
+    Ok(())
+}
+
+#[test]
+#[deps(TESTBIN_COCOCO)]
+fn external_command_trailing_newline_is_trimmed_in_last() -> Result {
+    // Match ByteStream::into_value / complete: one trailing newline is stripped.
+    // `cococo` uses println! (trailing `\n`).
+    let mut session = Interactive::new();
+    session.run(&format!(r#"^"{}" trim_me"#, quoted_path(TESTBIN_COCOCO.path())));
 
     let stored = session.last_value()?;
     match stored {
-        Value::Binary { val, .. } => {
-            assert_eq!(
-                val.as_ref(),
-                marker.as_bytes(),
-                "external stdout should be stored as binary bytes, got {val:?}"
-            );
+        Value::String { val, .. } => {
+            assert_eq!(&*val, "trim_me");
+            assert!(!val.ends_with('\n'));
         }
-        other => panic!("expected binary $last from external, got {other:?}"),
+        other => panic!("expected string $last from external, got {other:?}"),
     }
     Ok(())
 }
 
 #[test]
+fn non_utf8_byte_stream_stays_binary_in_last() -> Result {
+    // Explicit binary values must not be force-decoded to string.
+    let mut session = Interactive::new();
+    session.run("0x[deadbeef]");
+    assert_eq!(
+        session.last_value()?,
+        Value::test_binary(vec![0xde, 0xad, 0xbe, 0xef])
+    );
+    Ok(())
+}
+
+#[test]
+fn internal_structured_last_is_not_stringified() -> Result {
+    // Internal table/list values stay structured — auto-decode is byte-stream only.
+    let mut session = Interactive::new();
+    session.run("[{a: 1} {a: 2}]");
+    assert_eq!(
+        session.last_value()?,
+        Value::test_list(vec![
+            Value::test_record(record! { "a" => Value::test_int(1) }),
+            Value::test_record(record! { "a" => Value::test_int(2) }),
+        ])
+    );
+    Ok(())
+}
+
+#[test]
+#[deps(TESTBIN_NONU)]
 fn zero_budget_does_not_force_external_capture() -> Result {
     let mut session = Interactive::new().with_last_result_size(Filesize::ZERO);
-    session.run(&external_print_cmd("should_not_store"));
+    session.run(&format!(
+        r#"^"{}" should_not_store"#,
+        quoted_path(TESTBIN_NONU.path())
+    ));
     assert_eq!(session.last_value()?, Value::test_nothing());
     Ok(())
 }

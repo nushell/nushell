@@ -454,6 +454,9 @@ fn store_byte_stream_prefix(
 
     let span = stream.span();
     let type_ = stream.type_();
+    // Externals (and file-backed streams) trim a single trailing newline when
+    // decoded to string, matching [`ByteStream::into_value`].
+    let trim_trailing_newline = stream.source().is_external();
 
     // No capturable bytes (e.g. stdout was null or still inherited). Do not replace
     // a prior `$last` with empty binary; leave the stream for print/wait.
@@ -499,7 +502,11 @@ fn store_byte_stream_prefix(
         }
     }
 
-    let stored = Value::binary(prefix.clone(), span);
+    // Decode for `$last` the same way collecting a byte stream does:
+    // Binary stays binary; String/Unknown become string when UTF-8, else binary.
+    // Display still uses the raw rebuilt byte stream below.
+    let stored =
+        value_from_captured_bytes(prefix.clone(), span, type_, trim_trailing_newline && !truncated);
     let (stored, more) = if stored.memory_size() > budget {
         nu_protocol::truncate_value_to_budget(stored, budget)
     } else {
@@ -534,6 +541,64 @@ fn store_byte_stream_prefix(
     );
 
     PipelineData::ByteStream(rebuilt, metadata)
+}
+
+/// Convert captured stream bytes into a [`Value`] for `$last`.
+///
+/// Mirrors [`nu_protocol::ByteStream::into_value`]:
+/// - [`ByteStreamType::Binary`] → binary (no decode)
+/// - [`ByteStreamType::String`] / [`Unknown`] → UTF-8 string when valid, else binary
+///
+/// Incomplete multi-byte sequences at the end (typical when truncated to budget)
+/// keep the valid UTF-8 prefix as a string rather than failing to binary.
+///
+/// When `trim_trailing_newline` is true (full external/file capture), a single
+/// trailing `\n` or `\r\n` is stripped, matching collected external values.
+fn value_from_captured_bytes(
+    bytes: Vec<u8>,
+    span: Span,
+    type_: nu_protocol::ByteStreamType,
+    trim_trailing_newline: bool,
+) -> Value {
+    use nu_protocol::ByteStreamType;
+
+    if matches!(type_, ByteStreamType::Binary) {
+        return Value::binary(bytes, span);
+    }
+
+    match String::from_utf8(bytes) {
+        Ok(mut s) => {
+            if trim_trailing_newline {
+                trim_end_newline(&mut s);
+            }
+            Value::string(s, span)
+        }
+        Err(err) => {
+            let valid_up_to = err.utf8_error().valid_up_to();
+            // `error_len() == None` means unexpected EOF mid-sequence (truncation).
+            let incomplete_at_end = err.utf8_error().error_len().is_none();
+            let bytes = err.into_bytes();
+            if incomplete_at_end && valid_up_to > 0 {
+                // SAFETY: `valid_up_to` is the end of a valid UTF-8 prefix.
+                let mut s = String::from_utf8(bytes[..valid_up_to].to_vec())
+                    .expect("valid_up_to marks a valid UTF-8 prefix");
+                if trim_trailing_newline {
+                    trim_end_newline(&mut s);
+                }
+                Value::string(s, span)
+            } else {
+                Value::binary(bytes, span)
+            }
+        }
+    }
+}
+
+fn trim_end_newline(string: &mut String) {
+    if string.ends_with("\r\n") {
+        string.truncate(string.len() - 2);
+    } else if string.ends_with('\n') {
+        string.truncate(string.len() - 1);
+    }
 }
 
 #[cfg(test)]
