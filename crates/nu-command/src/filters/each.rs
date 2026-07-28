@@ -142,6 +142,17 @@ list of lists like `list<list<string>>` into a flat list like `list<string>`."#
             PipelineData::Empty | PipelineData::Value(Value::Nothing { .. }, ..) => {
                 return Ok(input);
             }
+            PipelineData::Value(Value::Custom { ref val, .. }, ..)
+                if val.type_name() == "matrix" =>
+            {
+                return Err(ShellError::Generic(
+                    nu_protocol::shell_error::generic::GenericError::new(
+                        "Unsupported type",
+                        "Use `matrix map` for element-wise operations or `matrix reduce` to fold values.",
+                        call.head,
+                    ),
+                ));
+            }
             PipelineData::Value(Value::Range { .. }, ..)
             | PipelineData::Value(Value::List { .. }, ..)
             | PipelineData::ListStream(..) => {
@@ -170,7 +181,9 @@ list of lists like `list<list<string>>` into a flat list like `list<string>`."#
             }
             // Handle iterable custom values (like SQLiteQueryBuilder)
             #[expect(deprecated)]
-            PipelineData::Value(Value::Custom { ref val, .. }, ..) if val.is_iterable() => {
+            PipelineData::Value(Value::Custom { ref val, .. }, ..)
+                if val.is_iterable() && val.type_name() != "matrix" =>
+            {
                 let metadata = input.take_metadata();
                 let mut closure = ClosureEval::new(engine_state, stack, closure);
 
@@ -220,6 +233,17 @@ list of lists like `list<list<string>>` into a flat list like `list<string>`."#
                         .into_pipeline_data(head, engine_state.signals().clone())
                 };
                 Ok(out.set_metadata(metadata))
+            }
+            PipelineData::Value(Value::Custom { ref val, .. }, ..)
+                if val.type_name() == "matrix" =>
+            {
+                return Err(ShellError::Generic(
+                    nu_protocol::shell_error::generic::GenericError::new(
+                        "Unsupported type",
+                        "Use `matrix map` for element-wise operations.",
+                        call.head,
+                    ),
+                ));
             }
             // This match allows non-iterables to be accepted,
             // which is currently considered undesirable (Nov 2022).

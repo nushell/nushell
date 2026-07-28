@@ -21,7 +21,7 @@ nu-json = { workspace = true, features = ["nu-protocol", "preserve_order"] }
 nu-parser.workspace = true
 nuon.workspace = true
 
-rmcp = { version = "1.7.0", features = ["server", "transport-io", "schemars", "transport-streamable-http-server"] }
+rmcp = { version = "2.2.0", features = ["server", "transport-io", "schemars", "transport-streamable-http-server"] }
 hyper-util = { version = "0.1", features = ["tokio", "server-auto", "service"] }
 schemars = "1.2.1"
 serde = { workspace = true, features = ["derive"] }

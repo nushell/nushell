@@ -18,7 +18,18 @@ impl Command for DateToTimezone {
 
     fn signature(&self) -> Signature {
         Signature::build("date to-timezone")
-            .input_output_types(vec![(Type::Date, Type::Date), (Type::String, Type::Date)])
+            .input_output_types(vec![
+                (Type::Date, Type::Date),
+                (Type::String, Type::Date),
+                (
+                    Type::List(Box::new(Type::Date)),
+                    Type::List(Box::new(Type::Date)),
+                ),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::Date)),
+                ),
+            ])
             .allow_variants_without_examples(true) // https://github.com/nushell/nushell/issues/7032
             .param(
                 PositionalArg::new("time zone", SyntaxShape::String)
@@ -78,6 +89,48 @@ impl Command for DateToTimezone {
             _ => panic!("to timezone: help example is invalid"),
         };
 
+        let example_result_list_datetime = || {
+            let tz = FixedOffset::east_opt(5 * 3600).expect("to timezone: help example is invalid");
+            Some(Value::list(
+                vec![
+                    Value::date(
+                        tz.with_ymd_and_hms(2021, 10, 22, 13, 00, 00)
+                            .single()
+                            .expect("to timezone: help example is invalid"),
+                        Span::test_data(),
+                    ),
+                    Value::date(
+                        tz.with_ymd_and_hms(2021, 10, 23, 13, 00, 00)
+                            .single()
+                            .expect("to timezone: help example is invalid"),
+                        Span::test_data(),
+                    ),
+                ],
+                Span::test_data(),
+            ))
+        };
+
+        let example_result_list_string = || {
+            let tz = FixedOffset::east_opt(5 * 3600).expect("to timezone: help example is invalid");
+            Some(Value::list(
+                vec![
+                    Value::date(
+                        tz.with_ymd_and_hms(2020, 10, 10, 13, 00, 00)
+                            .single()
+                            .expect("to timezone: help example is invalid"),
+                        Span::test_data(),
+                    ),
+                    Value::date(
+                        tz.with_ymd_and_hms(2020, 10, 10, 15, 00, 00)
+                            .single()
+                            .expect("to timezone: help example is invalid"),
+                        Span::test_data(),
+                    ),
+                ],
+                Span::test_data(),
+            ))
+        };
+
         vec![
             Example {
                 description: "Get the current date in UTC+05:00.",
@@ -103,6 +156,16 @@ impl Command for DateToTimezone {
                 description: "Get a date in a different time zone, from a datetime.",
                 example: r#""2020-10-10 10:00:00 +02:00" | into datetime | date to-timezone "+0500""#,
                 result: example_result_1(),
+            },
+            Example {
+                description: "Convert a list of datetimes to a given time zone.",
+                example: "[2021-10-22T10:00:00+02:00, 2021-10-23T10:00:00+02:00] | date to-timezone \"+0500\"",
+                result: example_result_list_datetime(),
+            },
+            Example {
+                description: "Convert a list of date strings to a given time zone.",
+                example: r#"["2020-10-10 10:00:00 +02:00", "2020-10-10 12:00:00 +02:00"] | date to-timezone "+0500""#,
+                result: example_result_list_string(),
             },
         ]
     }

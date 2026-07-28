@@ -1,29 +1,22 @@
-use nu_test_support::nu_with_plugins;
-use nu_test_support::playground::Playground;
+use nu_test_support::prelude::*;
 
 #[test]
-fn help() {
-    Playground::setup("help", |dirs, _| {
-        let actual = nu_with_plugins!(
-        cwd: dirs.test(),
-            plugin: ("nu_plugin_example"),
-            "example one --help"
-        );
-
-        assert!(actual.out.contains("test example 1"));
-        assert!(actual.out.contains("Extra description for example one"));
-    })
+#[deps(NU_PLUGIN_EXAMPLE)]
+fn help() -> Result {
+    let help: String = test().run("example one --help")?;
+    assert_contains("test example 1", &help);
+    assert_contains("Extra description for example one", &help);
+    Ok(())
 }
 
 #[test]
-fn search_terms() {
-    Playground::setup("search_terms", |dirs, _| {
-        let actual = nu_with_plugins!(
-        cwd: dirs.test(),
-            plugin: ("nu_plugin_example"),
-            r#"help commands | where name == "example one" | echo $"search terms: ($in.search_terms)""#
-        );
+#[deps(NU_PLUGIN_EXAMPLE)]
+fn search_terms() -> Result {
+    let code = r#"
+        help commands
+        | where name == "example one"
+        | get 0.search_terms
+    "#;
 
-        assert!(actual.out.contains("search terms: [example]"));
-    })
+    test().run(code).expect_value_eq("example")
 }

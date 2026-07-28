@@ -1,5 +1,6 @@
-use nu_protocol::ShellError;
+use nu_protocol::{ParseError, ShellError, parser_path::MAX_RUN_SCRIPT_BYTES};
 use nu_test_support::{fs::Stub::FileWithContentToBeTrimmed, prelude::*};
+use std::io::Write;
 
 #[test]
 fn run_script_without_main_in_pipeline() {
@@ -561,17 +562,20 @@ fn run_full_reparse_forwards_main_arguments_and_flags() {
 }
 
 #[test]
-fn run_script_exporting_run_does_not_override_builtin_run_in_repl_session() -> Result {
+fn run_script_with_toolkit_like_exports_can_be_run_twice_in_repl_session() -> Result {
+    // Regression: running a toolkit-style script (with exports) must not break
+    // subsequent `run` invocations in the same REPL session. The export must not
+    // be named `run` — that is a parser keyword and is rejected.
     Playground::setup(
-        "run_script_exporting_run_does_not_override_builtin_run_in_repl_session",
+        "run_script_with_toolkit_like_exports_can_be_run_twice_in_repl_session",
         |dirs, sandbox| {
             sandbox.mkdir("toolkit");
             sandbox.with_files(&[
                 FileWithContentToBeTrimmed(
                     "toolkit/wrappers.nu",
                     "
-                    export def run [--experimental-options: string] {
-                        'toolkit run'
+                    export def dev [--experimental-options: string] {
+                        'toolkit dev'
                     }
                 ",
                 ),
@@ -603,4 +607,174 @@ fn run_script_exporting_run_does_not_override_builtin_run_in_repl_session() -> R
             tester.run("run toolkit.nu").expect_value_eq("ok")
         },
     )
+}
+
+#[test]
+fn run_script_binds_long_flag_by_name_not_declaration_order() -> Result {
+    Playground::setup(
+        "run_script_binds_long_flag_by_name_not_declaration_order",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
+                "flags.nu",
+                "
+                def main [--alpha: int, --beta: int, --gamma: int] {
+                    $\"($alpha | default 0)/($beta | default 0)/($gamma | default 0)\"
+                }
+            ",
+            )]);
+
+            // `--gamma` must bind to `--gamma` by name. Previously a long flag
+            // matched the first declared flag that had no short character
+            // (`--alpha`), so the value silently landed in the wrong slot.
+            let mut tester = test().cwd(dirs.test());
+            tester
+                .run("run flags.nu --gamma 3")
+                .expect_value_eq("0/0/3")
+        },
+    )
+}
+
+#[test]
+fn run_script_binds_switch_by_name_without_shifting_positional() -> Result {
+    Playground::setup(
+        "run_script_binds_switch_by_name_without_shifting_positional",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
+                "switch.nu",
+                "
+                def main [word: string, --num: int, --verbose] {
+                    $\"word=($word) num=($num | default 0) verbose=($verbose)\"
+                }
+            ",
+            )]);
+
+            // `--verbose` is a switch declared after the value-taking `--num`.
+            // It must bind by name; otherwise it matched `--num`, which then
+            // swallowed `hello` as its (int) value and left `word` unbound.
+            let mut tester = test().cwd(dirs.test());
+            tester
+                .run("run switch.nu hello --verbose")
+                .expect_value_eq("word=hello num=0 verbose=true")
+        },
+    )
+}
+
+/// Oversized paths must not be loaded by `run` (REPL hang / multi-GiB RAM; #18597).
+#[test]
+fn run_oversized_file_errors_without_loading() -> Result {
+    Playground::setup("run_oversized_file_errors_without_loading", |dirs, _| {
+        let path = dirs.test().join("huge.bin");
+        let file = std::fs::File::create(&path).expect("create huge.bin");
+        // Sparse size only — do not write MAX_RUN_SCRIPT_BYTES of data.
+        file.set_len(MAX_RUN_SCRIPT_BYTES + 1)
+            .expect("set oversized length");
+
+        let err = test()
+            .cwd(dirs.test())
+            .run("run huge.bin")
+            .expect_parse_error()?;
+        assert!(
+            matches!(
+                err,
+                ParseError::ScriptFileTooLarge {
+                    size,
+                    max_size,
+                    ..
+                } if size == MAX_RUN_SCRIPT_BYTES + 1 && max_size == MAX_RUN_SCRIPT_BYTES
+            ),
+            "expected ScriptFileTooLarge, got: {err:?}"
+        );
+        Ok(())
+    })
+}
+
+/// Binary files must be rejected before the Nu parser runs (#18597).
+#[test]
+fn run_binary_file_with_nul_errors_without_parsing() -> Result {
+    Playground::setup(
+        "run_binary_file_with_nul_errors_without_parsing",
+        |dirs, _| {
+            let path = dirs.test().join("binary.bin");
+            let mut file = std::fs::File::create(&path).expect("create binary.bin");
+            file.write_all(b"not\0a\0script")
+                .expect("write binary content");
+
+            let err = test()
+                .cwd(dirs.test())
+                .run("run binary.bin")
+                .expect_parse_error()?;
+            assert!(
+                matches!(err, ParseError::ScriptFileNotText { .. }),
+                "expected ScriptFileNotText, got: {err:?}"
+            );
+            Ok(())
+        },
+    )
+}
+
+/// Invalid UTF-8 (no NULs) must also be rejected as non-text for `run`.
+#[test]
+fn run_invalid_utf8_file_errors_without_parsing() -> Result {
+    Playground::setup("run_invalid_utf8_file_errors_without_parsing", |dirs, _| {
+        let path = dirs.test().join("bad_utf8.bin");
+        // Lone continuation bytes: invalid UTF-8, no NULs.
+        std::fs::write(&path, [0x80, 0x81, 0x82, 0x83, 0xFF]).expect("write invalid utf-8");
+
+        let err = test()
+            .cwd(dirs.test())
+            .run("run bad_utf8.bin")
+            .expect_parse_error()?;
+        assert!(
+            matches!(err, ParseError::ScriptFileNotText { .. }),
+            "expected ScriptFileNotText, got: {err:?}"
+        );
+        Ok(())
+    })
+}
+
+/// Dense C0 control characters (no NULs, valid UTF-8 bytes) look like binary to `run`.
+#[test]
+fn run_control_heavy_file_errors_without_parsing() -> Result {
+    Playground::setup(
+        "run_control_heavy_file_errors_without_parsing",
+        |dirs, _| {
+            let path = dirs.test().join("controls.bin");
+            // Mostly BEL/SOH-style controls; still valid UTF-8 single bytes, no NULs.
+            let mut bytes = vec![0x01u8; 100];
+            bytes.extend_from_slice(b"\n");
+            std::fs::write(&path, bytes).expect("write control-heavy file");
+
+            let err = test()
+                .cwd(dirs.test())
+                .run("run controls.bin")
+                .expect_parse_error()?;
+            assert!(
+                matches!(err, ParseError::ScriptFileNotText { .. }),
+                "expected ScriptFileNotText, got: {err:?}"
+            );
+            Ok(())
+        },
+    )
+}
+
+/// `--full-reparse` skips parse-time load, so oversized files must still be rejected at runtime.
+#[test]
+fn run_full_reparse_oversized_file_errors() -> Result {
+    Playground::setup("run_full_reparse_oversized_file_errors", |dirs, _| {
+        let path = dirs.test().join("huge.bin");
+        let file = std::fs::File::create(&path).expect("create huge.bin");
+        file.set_len(MAX_RUN_SCRIPT_BYTES + 1)
+            .expect("set oversized length");
+
+        let err = test()
+            .cwd(dirs.test())
+            .run("run --full-reparse huge.bin")
+            .expect_shell_error()?;
+        let msg = err.to_string();
+        assert!(
+            msg.contains("too large") || msg.contains("Script file is too large"),
+            "expected too-large shell error, got: {msg}"
+        );
+        Ok(())
+    })
 }

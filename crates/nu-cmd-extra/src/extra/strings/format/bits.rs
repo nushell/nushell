@@ -223,7 +223,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
     match input {
         Value::Binary { val, .. } => {
             let mut raw_string = "".to_string();
-            for ch in val {
+            for ch in val.iter() {
                 write!(raw_string, "{ch:08b} ").expect("writing to a String is infallible");
             }
             Value::string(raw_string.trim(), span)

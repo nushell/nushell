@@ -1,0 +1,117 @@
+---
+# Comprehensive YAML fixture covering scalar, collection, and structural forms.
+meta:
+  title: "Comprehensive YAML fixture"
+  version: 1
+  generated_for: nushell_tests
+
+scalars:
+  null_values:
+    canonical: null
+    tilde: ~
+    empty_value:
+  booleans:
+    true_value: true
+    false_value: false
+  weird_boolean_values:
+    - y
+    - Y
+    - yes
+    - Yes
+    - YES
+    - n
+    - N
+    - no
+    - No
+    - NO
+    - on
+    - On
+    - ON
+    - off
+    - Off
+    - OFF
+    - true
+    - True
+    - TRUE
+    - false
+    - False
+    - FALSE
+  integers:
+    decimal: 42
+    negative: -17
+    zero: 0
+    plus_signed: +9
+    underscore_grouped: 1_000_000
+  floats:
+    simple: 3.14159
+    scientific: 6.022e23
+    negative_scientific: -1.5e-10
+    infinity: .inf
+    negative_infinity: -.Inf
+    not_a_number: .NAN
+  strings:
+    plain: hello
+    with_colon: "value:still-string"
+    with_hash: "abc#def"
+    single_quoted: 'single ''quote'' escaped by doubling'
+    double_quoted: "line1\nline2\ttabbed"
+    unicode: "Cafe"
+    explicit_empty: ""
+    numeric_like: "007"
+    bool_like: "off"
+    null_like: "null"
+  binary_data: !!binary SGVsbG8gV29ybGQh
+  timestamp_like: 2026-06-01T12:34:56Z
+
+collections:
+  sequence_inline: [one, two, three]
+  sequence_block:
+    - 1
+    - 2
+    - 3
+  mapping_inline: {a: 1, b: 2, c: 3}
+  nested:
+    users:
+      - id: 1
+        name: Alice
+        roles: [admin, writer]
+      - id: 2
+        name: Bob
+        roles:
+          - reader
+          - reviewer
+
+multiline_strings:
+  literal_strip: |-
+    line one
+    line two
+  literal_keep: |+
+    keep trailing newline
+
+  folded_strip: >-
+    this line
+    folds into one paragraph
+    with spaces
+
+anchors_and_aliases:
+  defaults: &defaults
+    retries: 3
+    timeout: 30
+    enabled: true
+  service_a:
+    <<: *defaults
+    timeout: 60
+  service_b:
+    <<: *defaults
+
+keys_with_special_forms:
+  "true": string_key_not_bool
+  "200": string_key_not_int
+  "2.11": string_key_not_float
+  "a: b": colon_space_key
+  "a #b": hash_space_key
+
+document_notes:
+  - This file is intentionally broad and valid YAML.
+  - It is suitable for round-trip and parser behavior tests.
+...

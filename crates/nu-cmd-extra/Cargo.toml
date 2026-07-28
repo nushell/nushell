@@ -26,7 +26,7 @@ harness = false
 [dependencies]
 nu-cmd-base.workspace = true
 nu-engine.workspace = true
-nu-heavy-utils.workspace = true
+nu-heavy-utils = { workspace = true, features = ["endian"] }
 nu-json.workspace = true
 nu-parser.workspace = true
 nu-pretty-hex.workspace = true

@@ -74,8 +74,8 @@ impl Command for IntoCellPath {
                 example: "'some.path' | split row '.' | into cell-path",
                 result: Some(Value::test_cell_path(CellPath {
                     members: vec![
-                        PathMember::test_string("some".into(), false, Casing::Sensitive),
-                        PathMember::test_string("path".into(), false, Casing::Sensitive),
+                        PathMember::test_string("some", false, Casing::Sensitive),
+                        PathMember::test_string("path", false, Casing::Sensitive),
                     ],
                 })),
             },
@@ -85,9 +85,9 @@ impl Command for IntoCellPath {
                 result: Some(Value::test_cell_path(CellPath {
                     members: vec![
                         PathMember::test_int(5, false),
-                        PathMember::test_string("c".into(), false, Casing::Sensitive),
+                        PathMember::test_string("c", false, Casing::Sensitive),
                         PathMember::test_int(7, false),
-                        PathMember::test_string("h".into(), false, Casing::Sensitive),
+                        PathMember::test_string("h", false, Casing::Sensitive),
                     ],
                 })),
             },
@@ -97,8 +97,8 @@ impl Command for IntoCellPath {
                 result: Some(Value::test_cell_path(CellPath {
                     members: vec![
                         PathMember::test_int(5, true),
-                        PathMember::test_string("c".into(), false, Casing::Sensitive),
-                        PathMember::test_string("d".into(), false, Casing::Insensitive),
+                        PathMember::test_string("c", false, Casing::Sensitive),
+                        PathMember::test_string("d", false, Casing::Insensitive),
                     ],
                 })),
             },

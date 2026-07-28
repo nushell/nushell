@@ -173,14 +173,12 @@ pub fn evaluate_file(
     let exit_code = if file_has_main && engine_state.find_decl(&script_name_bytes, &[]).is_some() {
         // Evaluate the file, but don't run main yet.
         let pipeline =
-            match eval_block::<WithoutDebug>(engine_state, stack, &block, PipelineData::empty())
-                .map(|p| p.body)
-            {
-                Ok(data) => data,
-                Err(ShellError::Return { .. }) => {
+            match eval_block::<WithoutDebug>(engine_state, stack, &block, PipelineData::empty()) {
+                Ok(data) if data.early_return => {
                     // Allow early return before main is run.
                     return Ok(());
                 }
+                Ok(data) => data.body,
                 Err(err) => return Err(err),
             };
 
@@ -221,6 +219,7 @@ mod tests {
     use nu_test_support::prelude::*;
 
     #[test]
+    #[deps(NU)]
     fn evaluate_file_arg_with_various_characters_escape_properly() -> Result {
         Playground::setup("evaluate_file_various_characters", |dirs, sandbox| {
             sandbox.with_files(&[FileWithContent(
@@ -233,7 +232,6 @@ mod tests {
 
             test()
                 .cwd(dirs.test())
-                .add_nu_to_path()
                 .run(format!("nu test.nu {args} | from json"))
                 .expect_value_eq(expected)
         })

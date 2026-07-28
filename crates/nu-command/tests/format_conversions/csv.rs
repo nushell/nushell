@@ -371,6 +371,10 @@ fn table_with_record_error() -> Result {
 }
 
 #[test]
+#[ignore = "\
+    After relaxing type checking of table and `list<oneof<record, ...>>` \
+    this is a runtime error, which is checked by the following test.\
+"]
 fn list_not_table_parse_time_error() -> Result {
     let code = "
         [{a: 1 b: 2} {a: 3 b: 4} 1]

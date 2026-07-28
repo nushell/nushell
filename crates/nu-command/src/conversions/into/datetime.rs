@@ -84,6 +84,10 @@ impl Command for IntoDatetime {
                     Type::List(Box::new(Type::String)),
                     Type::List(Box::new(Type::Date)),
                 ),
+                (
+                    Type::List(Box::new(Type::Date)),
+                    Type::List(Box::new(Type::Date)),
+                ),
                 (Type::table(), Type::table()),
                 (Type::Nothing, Type::table()),
                 (Type::record(), Type::record()),
@@ -268,6 +272,31 @@ impl Command for IntoDatetime {
                         Value::date(
                             DateTime::parse_from_str(
                                 "2023-06-05 01:37:42 -05:00",
+                                "%Y-%m-%d %H:%M:%S %z",
+                            )
+                            .expect("date calculation should not fail in test"),
+                            Span::test_data(),
+                        ),
+                    ],
+                    Span::test_data(),
+                )),
+            },
+            Example {
+                description: "Passing a list of datetimes through is a no-op.",
+                example: "[2023-03-30T10:10:07-05:00, 2023-05-05T13:43:49-05:00] | into datetime",
+                result: Some(Value::list(
+                    vec![
+                        Value::date(
+                            DateTime::parse_from_str(
+                                "2023-03-30 10:10:07 -05:00",
+                                "%Y-%m-%d %H:%M:%S %z",
+                            )
+                            .expect("date calculation should not fail in test"),
+                            Span::test_data(),
+                        ),
+                        Value::date(
+                            DateTime::parse_from_str(
+                                "2023-05-05 13:43:49 -05:00",
                                 "%Y-%m-%d %H:%M:%S %z",
                             )
                             .expect("date calculation should not fail in test"),

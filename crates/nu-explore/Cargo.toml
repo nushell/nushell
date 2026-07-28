@@ -23,6 +23,7 @@ nu-engine = { workspace = true, features = ["os"] }
 nu-table.workspace = true
 nu-json.workspace = true
 nu-utils.workspace = true
+nu-config.workspace = true
 nu-ansi-term.workspace = true
 nu-pretty-hex.workspace = true
 

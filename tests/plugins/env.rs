@@ -1,65 +1,40 @@
-use nu_test_support::nu_with_plugins;
+use nu_test_support::prelude::*;
 
 #[test]
-fn get_env_by_name() {
-    let result = nu_with_plugins!(
-        cwd: ".",
-        plugin: ("nu_plugin_example"),
-        "
-            $env.FOO = 'bar'
-            example env FOO | print
-            $env.FOO = 'baz'
-            example env FOO | print
-        "
-    );
-    assert!(result.status.success());
-    assert_eq!("barbaz", result.out);
+#[deps(NU_PLUGIN_EXAMPLE)]
+fn get_env_by_name() -> Result {
+    let mut tester = test();
+    let () = tester.run("$env.FOO = 'bar'")?;
+    tester.run("example env FOO").expect_value_eq("bar")?;
+    let () = tester.run("$env.FOO = 'baz'")?;
+    tester.run("example env FOO").expect_value_eq("baz")?;
+    Ok(())
 }
 
 #[test]
-fn get_envs() {
-    let result = nu_with_plugins!(
-        cwd: ".",
-        plugin: ("nu_plugin_example"),
-        "$env.BAZ = 'foo'; example env | get BAZ"
-    );
-    assert!(result.status.success());
-    assert_eq!("foo", result.out);
+#[deps(NU_PLUGIN_EXAMPLE)]
+fn get_envs() -> Result {
+    test()
+        .run("$env.BAZ = 'foo'; example env | get BAZ")
+        .expect_value_eq("foo")
 }
 
 #[test]
-fn get_current_dir() {
-    let cwd = std::env::current_dir()
-        .expect("failed to get current dir")
-        .join("tests")
-        .to_string_lossy()
-        .into_owned();
-    let result = nu_with_plugins!(
-        cwd: ".",
-        plugin: ("nu_plugin_example"),
-        "cd tests; example env --cwd"
-    );
-    assert!(result.status.success());
-    #[cfg(not(windows))]
-    assert_eq!(cwd, result.out);
-    #[cfg(windows)]
-    {
-        // cwd == r"e:\Study\Nushell", while result.out == r"E:\Study\Nushell"
-        assert_eq!(
-            cwd.chars().next().unwrap().to_ascii_uppercase(),
-            result.out.chars().next().unwrap().to_ascii_uppercase()
-        );
-        assert_eq!(cwd[1..], result.out[1..]);
-    }
+#[deps(NU_PLUGIN_EXAMPLE)]
+fn get_current_dir() -> Result {
+    Playground::setup(&module_path!().replace("::", "_"), |_, playground| {
+        playground.mkdir("tests");
+        test()
+            .cwd(playground.cwd())
+            .run("cd tests; example env --cwd")
+            .expect_value_eq(playground.cwd().join("tests"))
+    })
 }
 
 #[test]
-fn set_env() {
-    let result = nu_with_plugins!(
-        cwd: ".",
-        plugin: ("nu_plugin_example"),
-        "example env NUSHELL_OPINION --set=rocks; $env.NUSHELL_OPINION"
-    );
-    assert!(result.status.success());
-    assert_eq!("rocks", result.out);
+#[deps(NU_PLUGIN_EXAMPLE)]
+fn set_env() -> Result {
+    test()
+        .run("example env NUSHELL_OPINION --set=rocks; $env.NUSHELL_OPINION")
+        .expect_value_eq("rocks")
 }

@@ -1,6 +1,7 @@
+use rstest::rstest;
+
 use nu_protocol::{IntoPipelineData, PipelineMetadata, Span};
 use nu_test_support::prelude::*;
-use rstest::rstest;
 
 /// checks that garbage is highlighted as error
 #[rstest]
@@ -21,57 +22,50 @@ use rstest::rstest;
 )]
 // https://github.com/nushell/nushell/issues/18369
 #[case::leading_pipe("| ls", "garbage")]
-fn nu_highlight_color_detection(#[case] cmd: &str, #[case] shape: &str) {
-    use std::fmt::Write;
-
-    let color = "#112233";
-
-    let mut buf = String::new();
-    writeln!(&mut buf, "let color = '{color}'").unwrap();
-    writeln!(
-        &mut buf,
-        "$env.config.color_config.shape_{} = $color",
-        shape
-    )
-    .unwrap();
-    writeln!(&mut buf, "let highlight = '{cmd}' | nu-highlight").unwrap();
-    write!(&mut buf, "$highlight has (ansi $color)").unwrap();
-
-    let outcome = nu!(buf);
-
-    assert_eq!(outcome.out, "true");
+fn nu_highlight_color_detection(#[case] cmd: &str, #[case] shape: &str) -> Result {
+    let mut tester = test();
+    let () = tester.run_with_data("let color = $in", "#112233")?;
+    let () = tester.run(format!("$env.config.color_config.shape_{} = $color", shape))?;
+    tester
+        .run_with_data("nu-highlight | $in has (ansi $color)", cmd)
+        .expect_value_eq(true)
 }
 
 #[test]
-fn nu_highlight_not_expr() {
-    let actual = nu!("'not false' | nu-highlight | ansi strip");
-    assert_eq!(actual.out, "not false");
+fn nu_highlight_not_expr() -> Result {
+    test()
+        .run("'not false' | nu-highlight | ansi strip")
+        .expect_value_eq("not false")
 }
 
 #[test]
-fn nu_highlight_where_row_condition() {
-    let actual = nu!("'ls | where a b 12345(' | nu-highlight | ansi strip");
-    assert_eq!(actual.out, "ls | where a b 12345(");
+fn nu_highlight_where_row_condition() -> Result {
+    test()
+        .run("'ls | where a b 12345(' | nu-highlight | ansi strip")
+        .expect_value_eq("ls | where a b 12345(")
 }
 
 #[test]
-fn nu_highlight_aliased_external_resolved() {
-    let actual = nu!("$env.config.highlight_resolved_externals = true
+#[deps(NU)]
+fn nu_highlight_aliased_external_resolved() -> Result {
+    let code = "
+        $env.config.highlight_resolved_externals = true
         $env.config.color_config.shape_external_resolved = '#ffffff'
-        alias fff = ^rustc
-        ('fff' | nu-highlight) has (ansi $env.config.color_config.shape_external_resolved)");
-
-    assert_eq!(actual.out, "true");
+        alias fff = ^nu
+        ('fff' | nu-highlight) has (ansi $env.config.color_config.shape_external_resolved)
+    ";
+    test().run(code).expect_value_eq(true)
 }
 
 #[test]
-fn nu_highlight_aliased_external_unresolved() {
-    let actual = nu!("$env.config.highlight_resolved_externals = true
+fn nu_highlight_aliased_external_unresolved() -> Result {
+    let code = "
+        $env.config.highlight_resolved_externals = true
         $env.config.color_config.shape_external = '#ffffff'
         alias fff = ^nonexist
-        ('fff' | nu-highlight) has (ansi $env.config.color_config.shape_external)");
-
-    assert_eq!(actual.out, "true");
+        ('fff' | nu-highlight) has (ansi $env.config.color_config.shape_external)
+    ";
+    test().run(code).expect_value_eq(true)
 }
 
 #[test]

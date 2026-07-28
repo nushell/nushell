@@ -496,6 +496,7 @@ pub fn parse_paren_expr(
         return parse_signature(working_set, span, true);
     }
 
+    let starting_scope_count = working_set.delta.scope.len();
     let fcp_expr = parse_full_cell_path(working_set, None, span, None);
     let fcp_error_count = working_set.parse_errors.len();
     if fcp_error_count > starting_error_count {
@@ -508,6 +509,9 @@ pub fn parse_paren_expr(
             });
         if malformed_subexpr {
             working_set.parse_errors.truncate(starting_error_count);
+            while working_set.delta.scope.len() > starting_scope_count {
+                working_set.exit_scope();
+            }
             if matches!(shape, SyntaxShape::GlobPattern) {
                 parse_glob_pattern(working_set, span)
             } else {
@@ -548,9 +552,7 @@ pub fn parse_brace_expr(
     match tokens.as_slice() {
         // If we're empty, that means an empty record or closure
         [] => match shape {
-            SyntaxShape::Closure(_) => {
-                parse_closure_expression(working_set, shape, span, input_type)
-            }
+            SyntaxShape::Closure(_) => parse_closure_expression(working_set, shape, span, None),
             SyntaxShape::Block => parse_block_expression(working_set, span, input_type),
             SyntaxShape::MatchBlock => parse_match_block_expression(working_set, span, input_type),
             _ => parse_record(working_set, span),
@@ -566,7 +568,7 @@ pub fn parse_brace_expr(
                 working_set.error(ParseError::Mismatch("block".into(), "closure".into(), span));
                 return Expression::garbage(working_set, span);
             }
-            parse_closure_expression(working_set, shape, span, input_type)
+            parse_closure_expression(working_set, shape, span, None)
         }
         [_, third, ..] if working_set.get_span_contents(third.span) == b":" => {
             parse_full_cell_path(working_set, None, span, None)
@@ -574,9 +576,7 @@ pub fn parse_brace_expr(
         [second, ..] => {
             let second_bytes = working_set.get_span_contents(second.span);
             match shape {
-                SyntaxShape::Closure(_) => {
-                    parse_closure_expression(working_set, shape, span, input_type)
-                }
+                SyntaxShape::Closure(_) => parse_closure_expression(working_set, shape, span, None),
                 SyntaxShape::Block => parse_block_expression(working_set, span, input_type),
                 SyntaxShape::MatchBlock => {
                     parse_match_block_expression(working_set, span, input_type)
@@ -586,7 +586,7 @@ pub fn parse_brace_expr(
                 _ if extract_spread_record(second_bytes.into_spanned(second.span)).is_some() => {
                     parse_record(working_set, span)
                 }
-                SyntaxShape::Any => parse_closure_expression(working_set, shape, span, input_type),
+                SyntaxShape::Any => parse_closure_expression(working_set, shape, span, None),
                 _ => {
                     working_set.error(ParseError::ExpectedWithStringMsg(
                         format!("non-block value: {shape}"),

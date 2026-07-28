@@ -4,7 +4,9 @@ use nu_protocol::{
     debugger::WithoutDebug,
     engine::{EngineState, Stack},
 };
-use reedline::{Completer, InputMode, Suggestion, menu_functions::parse_selection_char};
+use reedline::{
+    Completer, CompletionResult, InputMode, Suggestion, menu_functions::parse_selection_char,
+};
 use std::sync::Arc;
 
 const SELECTION_CHAR: char = '!';
@@ -36,7 +38,7 @@ impl NuMenuCompleter {
 }
 
 impl Completer for NuMenuCompleter {
-    fn complete(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
+    fn complete(&mut self, line: &str, pos: usize) -> CompletionResult {
         let parsed = parse_selection_char(line, SELECTION_CHAR);
 
         let block = self.engine_state.get_block(self.block_id);
@@ -60,11 +62,14 @@ impl Completer for NuMenuCompleter {
         let res = eval_block::<WithoutDebug>(&self.engine_state, &mut self.stack, block, input)
             .map(|p| p.body);
 
-        if let Ok(values) = res.and_then(|data| data.into_value(self.span)) {
+        let suggestions = if let Ok(values) = res.and_then(|data| data.into_value(self.span)) {
             convert_to_suggestions(values, line, pos, self.input_mode)
         } else {
             Vec::new()
-        }
+        };
+
+        // Menu sources are evaluated synchronously, so results are always final.
+        CompletionResult::fresh(suggestions)
     }
 }
 

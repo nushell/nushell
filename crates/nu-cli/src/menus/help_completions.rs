@@ -1,7 +1,7 @@
 use nu_engine::documentation::{FormatterValue, HelpStyle, get_flags_section};
 use nu_protocol::{Config, Span, engine::EngineState, levenshtein_distance};
 use nu_utils::IgnoreCaseExt;
-use reedline::{Completer, Suggestion};
+use reedline::{Completer, CompletionResult, Suggestion};
 use std::{fmt::Write, sync::Arc};
 
 pub struct NuHelpCompleter {
@@ -129,8 +129,9 @@ impl NuHelpCompleter {
 }
 
 impl Completer for NuHelpCompleter {
-    fn complete(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
-        self.completion_helper(line, pos)
+    fn complete(&mut self, line: &str, pos: usize) -> CompletionResult {
+        // Help completions are computed synchronously, so results are always final.
+        CompletionResult::fresh(self.completion_helper(line, pos))
     }
 }
 
@@ -154,7 +155,8 @@ mod test {
             nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
         let config = engine_state.get_config().clone();
         let mut completer = NuHelpCompleter::new(engine_state.into(), config);
-        let suggestions = completer.complete(line, end);
+        let completion = completer.complete(line, end);
+        let suggestions = completion.suggestions();
 
         assert_eq!(
             expected.len(),

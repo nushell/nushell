@@ -754,15 +754,15 @@ impl Display for Range {
 
 #[derive(Debug, thiserror::Error)]
 #[error("could not parse range {attempted:?}")]
-pub struct RangeParseError {
+pub struct ParseRangeError {
     attempted: String,
 }
 
 impl FromStr for Range {
-    type Err = RangeParseError;
+    type Err = ParseRangeError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        parse::range.parse(s).map_err(|_| RangeParseError {
+        parse::range.parse(s).map_err(|_| ParseRangeError {
             attempted: s.to_owned(),
         })
     }

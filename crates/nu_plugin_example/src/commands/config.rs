@@ -68,7 +68,7 @@ impl SimplePluginCommand for Config {
         match config {
             Some(value) => {
                 let config = PluginConfig::from_value(value.clone())?;
-                println!("got config {config:?}");
+                eprintln!("got config {config:?}");
                 Ok(value)
             }
             None => Err(LabeledError::new("No config sent").with_label(

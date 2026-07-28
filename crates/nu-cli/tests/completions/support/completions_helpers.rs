@@ -38,12 +38,18 @@ impl Command for FakeCmd {
                 "Example flag which support auto completion.",
                 Some('f'),
             )
+            .named(
+                "plugin-config",
+                SyntaxShape::Int,
+                "Example flag which support auto completion from plugin config.",
+                None,
+            )
     }
 
     #[expect(deprecated, reason = "example usage")]
     fn get_dynamic_completion(
         &self,
-        _engine_state: &EngineState,
+        engine_state: &EngineState,
         _stack: &mut Stack,
         _call: DynamicCompletionCallRef,
         arg_type: &ArgType,
@@ -83,6 +89,18 @@ impl Command for FakeCmd {
                         })
                         .collect(),
                 ),
+                "plugin-config" => engine_state
+                    .get_plugin_config("fake-cmd")
+                    .and_then(|config| {
+                        config.get_data_by_key("completion").map(|completion| {
+                            vec![DynamicSuggestion {
+                                value: completion.into_string().unwrap_or_else(|_| {
+                                    "fake-cmd plugin config incorrect".to_string()
+                                }),
+                                ..Default::default()
+                            }]
+                        })
+                    }),
                 _ => None,
             },
         })
@@ -222,7 +240,7 @@ pub fn new_partial_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
 
 /// match a list of suggestions with the expected values
 #[track_caller]
-pub fn match_suggestions(expected: &Vec<&str>, suggestions: &Vec<Suggestion>) {
+pub fn match_suggestions(expected: &Vec<&str>, suggestions: &[Suggestion]) {
     let expected_len = expected.len();
     let suggestions_len = suggestions.len();
     if expected_len != suggestions_len {
@@ -243,7 +261,7 @@ pub fn match_suggestions(expected: &Vec<&str>, suggestions: &Vec<Suggestion>) {
 
 /// match a list of suggestions with the expected values
 #[track_caller]
-pub fn match_suggestions_by_string(expected: &[String], suggestions: &Vec<Suggestion>) {
+pub fn match_suggestions_by_string(expected: &[String], suggestions: &[Suggestion]) {
     let expected = expected.iter().map(|it| it.as_str()).collect::<Vec<_>>();
     match_suggestions(&expected, suggestions);
 }

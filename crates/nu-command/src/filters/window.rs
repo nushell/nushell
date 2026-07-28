@@ -101,7 +101,7 @@ impl Command for Window {
         let remainder = call.has_flag(engine_state, stack, "remainder")?;
 
         if remainder && size == stride {
-            super::chunks::chunks(engine_state, input, size, head)
+            super::chunks::chunks(engine_state, input, size, head, false)
         } else if stride >= size {
             match input {
                 PipelineData::Value(Value::List { vals, .. }, metadata) => {

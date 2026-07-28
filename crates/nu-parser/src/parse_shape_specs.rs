@@ -41,6 +41,7 @@ pub fn parse_shape_name(
         b"directory" => SyntaxShape::Directory,
         b"duration" => SyntaxShape::Duration,
         b"error" => SyntaxShape::Error,
+        b"external_arg" => SyntaxShape::ExternalArgument,
         b"float" => SyntaxShape::Float,
         b"filesize" => SyntaxShape::Filesize,
         b"glob" => SyntaxShape::GlobPattern,
@@ -323,7 +324,7 @@ fn parse_named_type_params(
         idx += 1;
     }
 
-    CollectionColumns::new(sig.into_boxed_slice())
+    sig.into()
 }
 
 fn parse_type_params(

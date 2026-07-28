@@ -225,6 +225,14 @@ pub enum Instruction {
         path: RegId,
         new_value: RegId,
     },
+    /// Update/insert a cell path directly on a variable in the stack, without cloning the
+    /// variable first. Combines LoadVariable + UpsertCellPath + StoreVariable into a single
+    /// in-place mutation. The variable must be mutable.
+    UpdateVarCellPath {
+        var_id: VarId,
+        cell_path: RegId,
+        new_value: RegId,
+    },
     /// Jump to an offset in this block
     Jump { index: usize },
     /// Branch to an offset in this block if the value of the `cond` register is a true boolean,
@@ -266,9 +274,12 @@ pub enum Instruction {
     PopErrorHandler,
     /// Pop an finally handler.
     PopFinallyRun,
-    /// Return early from the block, raising a `ShellError::Return` instead.
+    /// Return early from the block with the value in the register.
     ///
-    /// Collecting the value is unavoidable.
+    /// Unlike `return`, this runs pending `finally` handlers first (collecting the value in that
+    /// case, like the `try-collect` on the fall-through path), and flags the result as an early
+    /// return. Custom command and closure calls clear that flag; only top-level file evaluation
+    /// reads it, to skip `main`.
     ReturnEarly { src: RegId },
     /// Return from the block with the value in the register
     Return { src: RegId },
@@ -334,6 +345,7 @@ impl Instruction {
             Instruction::FollowCellPath { src_dst, .. } => Some(src_dst),
             Instruction::CloneCellPath { dst, .. } => Some(dst),
             Instruction::UpsertCellPath { src_dst, .. } => Some(src_dst),
+            Instruction::UpdateVarCellPath { .. } => None,
             Instruction::Jump { .. } => None,
             Instruction::BranchIf { .. } => None,
             Instruction::BranchIfEmpty { .. } => None,

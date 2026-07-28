@@ -15,6 +15,14 @@ impl Command for DateHumanize {
             .input_output_types(vec![
                 (Type::Date, Type::String),
                 (Type::String, Type::String),
+                (
+                    Type::List(Box::new(Type::Date)),
+                    Type::List(Box::new(Type::String)),
+                ),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::String)),
+                ),
             ])
             .allow_variants_without_examples(true)
             .category(Category::Date)
@@ -53,11 +61,23 @@ impl Command for DateHumanize {
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
-        vec![Example {
-            description: "Print a 'humanized' format for the date, relative to now.",
-            example: r#""2021-10-22 20:00:12 +01:00" | date humanize"#,
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "Print a 'humanized' format for the date, relative to now.",
+                example: r#""2021-10-22 20:00:12 +01:00" | date humanize"#,
+                result: None,
+            },
+            Example {
+                description: "Humanize a list of datetimes.",
+                example: "[2021-10-22T20:00:12+01:00, 2021-10-23T20:00:00+01:00] | date humanize",
+                result: None,
+            },
+            Example {
+                description: "Humanize a list of date strings.",
+                example: r#"["2021-10-22 20:00:12 +01:00", "2021-10-22 21:00:00 +01:00"] | date humanize"#,
+                result: None,
+            },
+        ]
     }
 }
 

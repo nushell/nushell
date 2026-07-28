@@ -2,9 +2,9 @@
 # Run nushell from source with a right indicator.
 @category "toolkit"
 @search-terms run cargo run source development dev
-@example "Run Nushell from source" { toolkit run }
-@example "Run with experimental options enabled" { toolkit run --experimental-options "dataframe" }
-export def run [
+@example "Run Nushell from source" { toolkit dev }
+@example "Run with experimental options enabled" { toolkit dev --experimental-options "dataframe" }
+export def dev [
     --experimental-options: oneof<list<string>, string> # enable or disable experimental options
 ] {
     let experimental_options_arg = $experimental_options

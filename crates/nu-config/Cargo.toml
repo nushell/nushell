@@ -1,0 +1,37 @@
+[package]
+authors.workspace = true
+description = "Nushell configuration infrastructure - path resolution and config file management"
+repository = "https://github.com/nushell/nushell/tree/main/crates/nu-config"
+edition.workspace = true
+license.workspace = true
+name = "nu-config"
+rust-version.workspace = true
+version.workspace = true
+
+[lib]
+bench = false
+harness = false
+
+[features]
+plugin = []
+
+[dependencies]
+derive_more = { workspace = true, features = ["display"] }
+derive_setters = { workspace = true }
+dirs = { workspace = true }
+nu-path = { path = "../nu-path" }
+thiserror = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+# Resolve ProgramData via SHGetKnownFolderPath on the workspace windows-sys only.
+# Do not pass GUIDs into dirs-sys::known_folder — dirs-sys may link a different
+# windows-sys 0.x and GUID types are not compatible across those crate versions.
+windows-sys = { workspace = true, features = [
+  "Win32_UI_Shell",
+  "Win32_Globalization",
+  "Win32_System_Com",
+] }
+
+[dev-dependencies]
+nu-test-support = { path = "../nu-test-support", default-features = false }
+tempfile = { workspace = true }

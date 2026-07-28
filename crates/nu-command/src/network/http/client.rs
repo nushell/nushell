@@ -664,7 +664,7 @@ fn send_multipart_request(
                         .map_err(err)?;
                 }
             }
-            builder.finish();
+            builder.finish().map_err(err)?;
 
             let (boundary, data) = (builder.boundary, builder.data);
             let content_type = format!("multipart/form-data; boundary={boundary}");
@@ -691,9 +691,12 @@ fn send_default_request(
     signals: &Signals,
 ) -> Result<Response, ShellErrorOrRequestError> {
     match body {
-        Value::Binary { val, .. } => {
-            send_cancellable_request(request_url, Box::new(move || req.send(&val)), span, signals)
-        }
+        Value::Binary { val, .. } => send_cancellable_request(
+            request_url,
+            Box::new(move || req.send(val.as_slice())),
+            span,
+            signals,
+        ),
         Value::String { val, .. } => {
             send_cancellable_request(request_url, Box::new(move || req.send(&val)), span, signals)
         }

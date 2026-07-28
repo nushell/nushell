@@ -116,7 +116,7 @@ impl Matcher for Pattern {
                     }
                     Expr::Binary(x) => {
                         if let Value::Binary { val, .. } = &value {
-                            x == val
+                            x.as_slice() == val.as_slice()
                         } else {
                             false
                         }
@@ -205,7 +205,11 @@ impl Matcher for Pattern {
                     _ => false,
                 }
             }
-            Pattern::Value(pattern_value) => value == pattern_value,
+            Pattern::Value(pattern_value) => match pattern_value {
+                // Ranges match by containment (same as `Pattern::Expression` + `Expr::Range`).
+                Value::Range { val, .. } => val.contains(value),
+                _ => value == pattern_value,
+            },
             Pattern::Or(patterns) => {
                 let mut result = false;
 

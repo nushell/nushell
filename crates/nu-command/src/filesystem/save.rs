@@ -334,7 +334,7 @@ fn convert_to_extension(
 fn value_to_bytes(value: Value) -> Result<Vec<u8>, ShellError> {
     match value {
         Value::String { val, .. } => Ok(val.into_bytes()),
-        Value::Binary { val, .. } => Ok(val),
+        Value::Binary { val, .. } => Ok(val.into_owned()),
         Value::List { vals, .. } => {
             let val = vals
                 .into_iter()
