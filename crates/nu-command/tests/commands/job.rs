@@ -1,10 +1,12 @@
-// all tests in here are marked as serial to reduce load while testing
+// all tests in here are marked as serial in CI to reduce load while testing
 // this improves the stability of these tests
 
+use std::time::Duration;
 use nu_test_support::prelude::*;
+use rstest::rstest;
 
 #[test]
-#[serial]
+#[cfg_attr(ci, serial)]
 fn job_send_root_job_works() -> Result {
     let code = "
         job spawn { 'beep' | job send 0 }
@@ -15,7 +17,7 @@ fn job_send_root_job_works() -> Result {
 }
 
 #[test]
-#[serial]
+#[cfg_attr(ci, serial)]
 fn job_send_background_job_works() -> Result {
     let code = "
         let job = job spawn { job recv | job send 0 }
@@ -27,7 +29,7 @@ fn job_send_background_job_works() -> Result {
 }
 
 #[test]
-#[serial]
+#[cfg_attr(ci, serial)]
 fn job_send_to_self_works() -> Result {
     let code = r#"
         "meep" | job send 0
@@ -38,7 +40,7 @@ fn job_send_to_self_works() -> Result {
 }
 
 #[test]
-#[serial]
+#[cfg_attr(ci, serial)]
 fn job_send_to_self_from_background_works() -> Result {
     let code = "
         job spawn {
@@ -53,13 +55,13 @@ fn job_send_to_self_from_background_works() -> Result {
 }
 
 #[test]
-#[serial]
+#[cfg_attr(ci, serial)]
 fn job_id_of_root_job_is_zero() -> Result {
     test().run("job id").expect_value_eq(0)
 }
 
 #[test]
-#[serial]
+#[cfg_attr(ci, serial)]
 fn job_id_of_background_jobs_works() -> Result {
     let code = "
         let job1 = job spawn { job id | job send 0 }
@@ -79,7 +81,7 @@ fn job_id_of_background_jobs_works() -> Result {
 }
 
 #[test]
-#[serial]
+#[cfg_attr(ci, serial)]
 fn untagged_job_recv_accepts_tagged_messages() -> Result {
     let code = r#"
         job spawn { "boop" | job send 0 --tag 123 }
@@ -90,7 +92,7 @@ fn untagged_job_recv_accepts_tagged_messages() -> Result {
 }
 
 #[test]
-#[serial]
+#[cfg_attr(ci, serial)]
 fn tagged_job_recv_filters_untagged_messages() -> Result {
     let code = r#"
         job spawn { "boop" | job send 0 }
@@ -104,7 +106,7 @@ fn tagged_job_recv_filters_untagged_messages() -> Result {
 }
 
 #[test]
-#[serial]
+#[cfg_attr(ci, serial)]
 fn tagged_job_recv_filters_badly_tagged_messages() -> Result {
     let code = r#"
         job spawn { "boop" | job send 0 --tag 321 }
@@ -118,7 +120,7 @@ fn tagged_job_recv_filters_badly_tagged_messages() -> Result {
 }
 
 #[test]
-#[serial]
+#[cfg_attr(ci, serial)]
 fn tagged_job_recv_accepts_properly_tagged_messages() -> Result {
     let code = r#"
         job spawn { "boop" | job send 0 --tag 123 }
@@ -129,7 +131,7 @@ fn tagged_job_recv_accepts_properly_tagged_messages() -> Result {
 }
 
 #[test]
-#[serial]
+#[cfg_attr(ci, serial)]
 fn filtered_messages_are_not_erased() -> Result {
     let code = r#"
         "msg1" | job send 0 --tag 123
@@ -148,7 +150,7 @@ fn filtered_messages_are_not_erased() -> Result {
 }
 
 #[test]
-#[serial]
+#[cfg_attr(ci, serial)]
 fn job_recv_timeout_works() -> Result {
     let code = r#"
         job spawn {
@@ -166,7 +168,7 @@ fn job_recv_timeout_works() -> Result {
 }
 
 #[test]
-#[serial]
+#[cfg_attr(ci, serial)]
 fn job_recv_timeout_zero_works() -> Result {
     let code = r#"
         "hi there" | job send 0
@@ -177,7 +179,7 @@ fn job_recv_timeout_zero_works() -> Result {
 }
 
 #[test]
-#[serial]
+#[cfg_attr(ci, serial)]
 fn job_flush_clears_messages() -> Result {
     let code = r#"
         "SALE!!!" | job send 0
@@ -195,7 +197,7 @@ fn job_flush_clears_messages() -> Result {
 }
 
 #[test]
-#[serial]
+#[cfg_attr(ci, serial)]
 fn job_flush_clears_filtered_messages() -> Result {
     let code = r#"
         "msg1" | job send 0 --tag 123
@@ -216,7 +218,7 @@ fn job_flush_clears_filtered_messages() -> Result {
 }
 
 #[test]
-#[serial]
+#[cfg_attr(ci, serial)]
 fn job_flush_with_tag() -> Result {
     let code = r#"
         "spam" | job send 0 --tag 404
@@ -235,13 +237,13 @@ fn job_flush_with_tag() -> Result {
 }
 
 #[test]
-#[serial]
+#[cfg_attr(ci, serial)]
 fn first_job_id_is_one() -> Result {
     test().run("job spawn {}").expect_value_eq(1)
 }
 
 #[test]
-#[serial]
+#[cfg_attr(ci, serial)]
 fn job_list_adds_jobs_correctly() -> Result {
     let code = "
         let list0 = job list | get id;
@@ -263,7 +265,7 @@ fn job_list_adds_jobs_correctly() -> Result {
 }
 
 #[test]
-#[serial]
+#[cfg_attr(ci, serial)]
 fn jobs_get_removed_from_list_after_termination() -> Result {
     let code = r#"
         let job = job spawn { job recv };
@@ -285,7 +287,7 @@ fn jobs_get_removed_from_list_after_termination() -> Result {
 // TODO: find way to communicate between process in windows
 // so these tests can fail less often
 #[test]
-#[serial] // seems to fail less often with this
+#[cfg_attr(ci, serial)] // seems to fail less often with this
 #[deps(NU)]
 fn job_list_shows_pids() -> Result {
     let code = r#"
@@ -301,7 +303,7 @@ fn job_list_shows_pids() -> Result {
 }
 
 #[test]
-#[serial]
+#[cfg_attr(ci, serial)]
 fn killing_job_removes_it_from_table() -> Result {
     let code = "
         let job1 = job spawn { job recv }
@@ -332,33 +334,65 @@ fn killing_job_removes_it_from_table() -> Result {
 
 // this test is unreliable on the macOS CI, but it worked fine for a couple months.
 // still works on other operating systems.
-#[test]
-#[serial]
+#[rstest]
+#[timeout(Duration::from_secs(3))]
+#[nu_test_support::test]
+#[cfg_attr(ci, serial)]
 #[deps(NU)]
 fn killing_job_kills_pids() -> Result {
     let code = r#"
-        let job1 = job spawn { nu -c "sleep 1sec" | nu -c "sleep 1sec" }
+        def wait-until [condition: closure, timeout: duration] {
+            let deadline = (date now) + $timeout
 
-        sleep 25ms
+            loop {
+                if (do $condition) {
+                    break
+                }
 
-        let pids = job list | where id == $job1 | get pids
+                if (date now) >= $deadline {
+                    error make { msg: "timed out waiting for condition" }
+                }
 
-        let child_pids_before = ps | where ppid == $nu.pid
+                # Only prevents busy-spinning. Correctness doesn't depend on it.
+                sleep 1ms
+            }
+        }
+
+        # These remain blocked until the job is killed.
+        let job1 = job spawn {
+            nu -c "job recv" | nu -c "job recv"
+        }
+
+        # Wait until both processes have actually been registered.
+        wait-until {
+            (
+                job list
+                | where id == $job1
+                | first
+                | get pids
+                | length
+            ) == 2
+        } 5sec
+
+        let pids = (
+            job list
+            | where id == $job1
+            | first
+            | get pids
+        )
 
         job kill $job1
 
-        sleep 25ms
-
-        let child_pids_after = ps | where ppid == $nu.pid
-
-        [(($child_pids_before | length) == 2) ($child_pids_after == [])]
+        # Check the specific processes rather than all children of this Nu process.
+        wait-until { ps | where pid in $pids | is-empty } 5sec
+        true
     "#;
 
-    test().run(code).expect_value_eq([true, true])
+    test().run(code).expect_value_eq(true)
 }
 
 #[test]
-#[serial]
+#[cfg_attr(ci, serial)]
 #[deps(NU)]
 fn exiting_nushell_kills_jobs() -> Result {
     let code = r#"
@@ -379,7 +413,7 @@ fn exiting_nushell_kills_jobs() -> Result {
 
 #[cfg(unix)]
 #[test]
-#[serial]
+#[cfg_attr(ci, serial)]
 #[deps(NU)]
 fn jobs_get_group_id_right() -> Result {
     let code = r#"
@@ -405,7 +439,7 @@ fn jobs_get_group_id_right() -> Result {
 }
 
 #[test]
-#[serial]
+#[cfg_attr(ci, serial)]
 #[deps(NU)]
 fn job_extern_output_is_silent() -> Result {
     let result: CompleteResult = test().run_with_data(
@@ -420,7 +454,7 @@ fn job_extern_output_is_silent() -> Result {
 }
 
 #[test]
-#[serial]
+#[cfg_attr(ci, serial)]
 #[deps(NU)]
 fn job_print_is_not_silent() -> Result {
     let result: CompleteResult = test().run_with_data(
@@ -435,7 +469,7 @@ fn job_print_is_not_silent() -> Result {
 }
 
 #[test]
-#[serial]
+#[cfg_attr(ci, serial)]
 #[deps(NU)]
 fn job_extern_into_value_is_not_silent() -> Result {
     let result: CompleteResult = test().run_with_data(
@@ -450,7 +484,7 @@ fn job_extern_into_value_is_not_silent() -> Result {
 }
 
 #[test]
-#[serial]
+#[cfg_attr(ci, serial)]
 #[deps(NU)]
 fn job_extern_into_pipe_is_not_silent() -> Result {
     let code = r#"
@@ -469,7 +503,7 @@ fn job_extern_into_pipe_is_not_silent() -> Result {
 }
 
 #[test]
-#[serial]
+#[cfg_attr(ci, serial)]
 fn job_list_returns_no_description_when_job_is_undescribed() -> Result {
     let code = "
         job spawn { sleep 10sec }
@@ -483,7 +517,7 @@ fn job_list_returns_no_description_when_job_is_undescribed() -> Result {
 }
 
 #[test]
-#[serial]
+#[cfg_attr(ci, serial)]
 fn job_list_returns_description_when_job_is_spawned_with_description() -> Result {
     let code = "
         job spawn { sleep 10sec } --description abc
@@ -494,7 +528,7 @@ fn job_list_returns_description_when_job_is_spawned_with_description() -> Result
 }
 
 #[test]
-#[serial]
+#[cfg_attr(ci, serial)]
 fn job_describe_modifies_descriptionless_job_desc() -> Result {
     let code = "
         job spawn { sleep 10sec }
@@ -508,7 +542,7 @@ fn job_describe_modifies_descriptionless_job_desc() -> Result {
 }
 
 #[test]
-#[serial]
+#[cfg_attr(ci, serial)]
 fn job_describe_modifies_described_job_description() -> Result {
     let code = "
         job spawn { sleep 10sec } --description abc
