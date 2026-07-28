@@ -1,4 +1,5 @@
 use nu_test_support::{playground::Playground, prelude::*};
+use nu_utils::consts::LINE_SEPARATOR_STR;
 use std::fs;
 
 #[test]
@@ -9,7 +10,7 @@ fn tee_save_values_to_file() -> Result {
             .run("1..5 | tee { save copy.txt }")
             .expect_value_eq([1, 2, 3, 4, 5])?;
         assert_eq!(
-            "1\n2\n3\n4\n5\n",
+            ["1", "2", "3", "4", "5", ""].join(LINE_SEPARATOR_STR),
             fs::read_to_string(dirs.test().join("copy.txt"))?
         );
 
