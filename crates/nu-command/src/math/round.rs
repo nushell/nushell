@@ -1,4 +1,4 @@
-use crate::math::utils::ensure_bounded;
+use crate::math::utils::run_with_elementwise;
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -18,7 +18,13 @@ impl Command for MathRound {
                     Type::List(Box::new(Type::Number)),
                 ),
                 (Type::Range, Type::List(Box::new(Type::Number))),
+                (Type::record(), Type::record()),
             ])
+            .rest(
+                "columns",
+                SyntaxShape::CellPath,
+                "The cell-paths/columns to operate on.",
+            )
             .allow_variants_without_examples(true)
             .named(
                 "precision",
@@ -49,18 +55,15 @@ impl Command for MathRound {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let precision_param: Option<i64> = call.get_flag(engine_state, stack, "precision")?;
+        let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
         let head = call.head;
-        // This doesn't match explicit nulls
-        if let PipelineData::Empty = input {
-            return Err(ShellError::PipelineEmpty { dst_span: head });
-        }
-        if let PipelineData::Value(ref v @ Value::Range { ref val, .. }, ..) = input {
-            let span = v.span();
-            ensure_bounded(val, span, head)?;
-        }
-        input.map(
-            move |value| operate(value, head, precision_param),
+        run_with_elementwise(
+            input,
+            cell_paths,
+            head,
             engine_state.signals(),
+            true,
+            move |value| operate(value, head, precision_param),
         )
     }
 
@@ -71,18 +74,15 @@ impl Command for MathRound {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let precision_param: Option<i64> = call.get_flag_const(working_set, "precision")?;
+        let cell_paths: Vec<CellPath> = call.rest_const(working_set, 0)?;
         let head = call.head;
-        // This doesn't match explicit nulls
-        if let PipelineData::Empty = input {
-            return Err(ShellError::PipelineEmpty { dst_span: head });
-        }
-        if let PipelineData::Value(ref v @ Value::Range { ref val, .. }, ..) = input {
-            let span = v.span();
-            ensure_bounded(val, span, head)?;
-        }
-        input.map(
-            move |value| operate(value, head, precision_param),
+        run_with_elementwise(
+            input,
+            cell_paths,
+            head,
             working_set.permanent().signals(),
+            true,
+            move |value| operate(value, head, precision_param),
         )
     }
 
@@ -119,6 +119,34 @@ impl Command for MathRound {
                     ],
                     Span::test_data(),
                 )),
+            },
+            Example {
+                description: "Apply the round function to list-valued columns in a record.",
+                example: "{alice: [1.2 2.7 3.5], bob: [4.1 5.9]} | math round",
+                result: Some(Value::test_record(record! {
+                    "alice" => Value::list(
+                        vec![Value::test_int(1), Value::test_int(3), Value::test_int(4)],
+                        Span::test_data(),
+                    ),
+                    "bob" => Value::list(
+                        vec![Value::test_int(4), Value::test_int(6)],
+                        Span::test_data(),
+                    ),
+                })),
+            },
+            Example {
+                description: "Apply the round function to a single column using a cell path.",
+                example: "{alice: [1.2 2.7 3.5], bob: [4.1 5.9]} | math round alice",
+                result: Some(Value::test_record(record! {
+                    "alice" => Value::list(
+                        vec![Value::test_int(1), Value::test_int(3), Value::test_int(4)],
+                        Span::test_data(),
+                    ),
+                    "bob" => Value::list(
+                        vec![Value::test_float(4.1), Value::test_float(5.9)],
+                        Span::test_data(),
+                    ),
+                })),
             },
         ]
     }

@@ -1,5 +1,5 @@
 use super::variance::compute_variance as variance;
-use crate::math::utils::run_with_function;
+use crate::math::utils::{expand_range_input, run_with_function, run_with_function_and_cell_paths};
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -22,6 +22,11 @@ impl Command for MathStddev {
                 "sample",
                 "Calculate sample standard deviation (i.e. using N-1 as the denominator).",
                 Some('s'),
+            )
+            .rest(
+                "columns",
+                SyntaxShape::CellPath,
+                "The cell-paths/columns to operate on.",
             )
             .allow_variants_without_examples(true)
             .category(Category::Math)
@@ -53,20 +58,14 @@ impl Command for MathStddev {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
         let sample = call.has_flag(engine_state, stack, "sample")?;
-        let name = call.head;
-        let span = input.span().unwrap_or(name);
-        let input: PipelineData = match input.try_expand_range() {
-            Err(_) => {
-                return Err(ShellError::IncorrectValue {
-                    msg: "Range must be bounded".to_string(),
-                    val_span: span,
-                    call_span: name,
-                });
-            }
-            Ok(val) => val,
-        };
-        run_with_function(call, input, compute_stddev(sample))
+        let mf = compute_stddev(sample);
+        if cell_paths.is_empty() {
+            let input = expand_range_input(input, call.head)?;
+            return run_with_function(call, input, mf);
+        }
+        run_with_function_and_cell_paths(call, input, cell_paths, engine_state.signals(), mf)
     }
 
     fn run_const(
@@ -75,20 +74,20 @@ impl Command for MathStddev {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let cell_paths: Vec<CellPath> = call.rest_const(working_set, 0)?;
         let sample = call.has_flag_const(working_set, "sample")?;
-        let name = call.head;
-        let span = input.span().unwrap_or(name);
-        let input: PipelineData = match input.try_expand_range() {
-            Err(_) => {
-                return Err(ShellError::IncorrectValue {
-                    msg: "Range must be bounded".to_string(),
-                    val_span: span,
-                    call_span: name,
-                });
-            }
-            Ok(val) => val,
-        };
-        run_with_function(call, input, compute_stddev(sample))
+        let mf = compute_stddev(sample);
+        if cell_paths.is_empty() {
+            let input = expand_range_input(input, call.head)?;
+            return run_with_function(call, input, mf);
+        }
+        run_with_function_and_cell_paths(
+            call,
+            input,
+            cell_paths,
+            working_set.permanent().signals(),
+            mf,
+        )
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -109,6 +108,25 @@ impl Command for MathStddev {
                 result: Some(Value::test_record(record! {
                     "a" => Value::test_int(1),
                     "b" => Value::test_int(1),
+                })),
+            },
+            Example {
+                description: "Compute the standard deviation of list-valued columns in a record.",
+                example: "{alice: [1 3], bob: [4 6]} | math stddev",
+                result: Some(Value::test_record(record! {
+                    "alice" => Value::test_int(1),
+                    "bob" => Value::test_int(1),
+                })),
+            },
+            Example {
+                description: "Compute the standard deviation of a single column using a cell path.",
+                example: "{alice: [1 3], bob: [4 6]} | math stddev alice",
+                result: Some(Value::test_record(record! {
+                    "alice" => Value::test_int(1),
+                    "bob" => Value::list(
+                        vec![Value::test_int(4), Value::test_int(6)],
+                        Span::test_data(),
+                    ),
                 })),
             },
         ]

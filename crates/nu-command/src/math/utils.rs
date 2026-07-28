@@ -1,8 +1,12 @@
 use core::slice;
 use indexmap::IndexMap;
+use nu_engine::CallExt;
 use nu_protocol::{
-    IntoPipelineData, PipelineData, Range, ShellError, Signals, Span, Value, engine::Call,
+    IntoPipelineData, PipelineData, Range, ShellError, Signals, Span, Value,
+    ast::CellPath,
+    engine::{Call, EngineState, Stack, StateWorkingSet},
 };
+use std::sync::Arc;
 
 pub fn run_with_function(
     call: &Call,
@@ -23,8 +27,6 @@ fn helper_for_tables(
     name: Span,
     mf: impl Fn(&[Value], Span, Span) -> Result<Value, ShellError>,
 ) -> Result<Value, ShellError> {
-    // If we are not dealing with Primitives, then perhaps we are dealing with a table
-    // Create a key for each column name
     let mut column_values = IndexMap::new();
     for val in values {
         match val {
@@ -38,12 +40,10 @@ fn helper_for_tables(
             }
             Value::Error { error, .. } => return Err(*error.clone()),
             _ => {
-                //Turns out we are not dealing with a table
                 return mf(values, val.span(), name);
             }
         }
     }
-    // The mathematical function operates over the columns of the table
     let mut column_totals = IndexMap::new();
     for (col_name, col_vals) in column_values {
         column_totals.insert(col_name, mf(&col_vals, val_span, name)?);
@@ -57,7 +57,6 @@ pub fn calculate(
     name: Span,
     mf: impl Fn(&[Value], Span, Span) -> Result<Value, ShellError>,
 ) -> Result<Value, ShellError> {
-    // TODO implement spans for ListStream, thus negating the need for unwrap_or().
     let span = values.span().unwrap_or(name);
     match values {
         PipelineData::ListStream(s, ..) => {
@@ -77,7 +76,11 @@ pub fn calculate(
             record
                 .iter_mut()
                 .try_for_each(|(_, val)| -> Result<(), ShellError> {
-                    *val = mf(slice::from_ref(val), span, name)?;
+                    let result = match val {
+                        Value::List { vals, .. } => mf(vals, span, name),
+                        _ => mf(slice::from_ref(val), span, name),
+                    };
+                    *val = result?;
                     Ok(())
                 })?;
             Ok(Value::record(record, span))
@@ -104,6 +107,145 @@ pub fn calculate(
     }
 }
 
+/// Apply a reducing math function (`mf`) to the values under each cell path.
+///
+/// List-valued cells are reduced as a whole (e.g. average of the list). Errors
+/// under a path are left alone. When `cell_paths` is empty, falls through to
+/// [`run_with_function`].
+pub fn run_with_function_and_cell_paths(
+    call: &Call,
+    input: PipelineData,
+    cell_paths: Vec<CellPath>,
+    signals: &Signals,
+    mf: impl Fn(&[Value], Span, Span) -> Result<Value, ShellError> + Send + Sync + 'static,
+) -> Result<PipelineData, ShellError> {
+    if cell_paths.is_empty() {
+        return run_with_function(call, input, mf);
+    }
+
+    let name = call.head;
+    let span = input.span().unwrap_or(name);
+    let mf = Arc::new(mf);
+
+    input.map(
+        move |mut v| {
+            for path in &cell_paths {
+                let mf = mf.clone();
+                let r = v.update_cell_path(
+                    &path.members,
+                    Box::new(move |old| {
+                        let result = match old {
+                            Value::List { vals, .. } => mf(vals, span, name),
+                            Value::Error { .. } => Ok(old.clone()),
+                            other => mf(slice::from_ref(other), span, name),
+                        };
+                        match result {
+                            Ok(val) => val,
+                            Err(e) => Value::error(e, span),
+                        }
+                    }),
+                );
+                if let Err(error) = r {
+                    return Value::error(error, span);
+                }
+            }
+            v
+        },
+        signals,
+    )
+}
+
+pub fn run_with_function_with_cell_paths(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+    input: PipelineData,
+    mf: impl Fn(&[Value], Span, Span) -> Result<Value, ShellError> + Send + Sync + 'static,
+) -> Result<PipelineData, ShellError> {
+    let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
+    run_with_function_and_cell_paths(call, input, cell_paths, engine_state.signals(), mf)
+}
+
+pub fn run_with_function_with_cell_paths_const(
+    working_set: &StateWorkingSet,
+    call: &Call,
+    input: PipelineData,
+    mf: impl Fn(&[Value], Span, Span) -> Result<Value, ShellError> + Send + Sync + 'static,
+) -> Result<PipelineData, ShellError> {
+    let cell_paths: Vec<CellPath> = call.rest_const(working_set, 0)?;
+    run_with_function_and_cell_paths(
+        call,
+        input,
+        cell_paths,
+        working_set.permanent().signals(),
+        mf,
+    )
+}
+
+/// Apply an element-wise operation (`op`) across pipeline input.
+///
+/// - With cell paths: update those columns, mapping list cells element-wise.
+/// - With a record and no cell paths: map every column element-wise (lists keep
+///   their shape; scalars are transformed in place).
+/// - Otherwise: optionally reject empty input, ensure ranges are bounded, then
+///   map `op` over the pipeline stream.
+pub fn run_with_elementwise(
+    input: PipelineData,
+    cell_paths: Vec<CellPath>,
+    head: Span,
+    signals: &Signals,
+    reject_empty: bool,
+    op: impl Fn(Value) -> Value + Send + Sync + 'static,
+) -> Result<PipelineData, ShellError> {
+    if !cell_paths.is_empty() {
+        let op = Arc::new(op);
+        return input.map(
+            move |mut v| {
+                for path in &cell_paths {
+                    let op = op.clone();
+                    let r = v.update_cell_path(
+                        &path.members,
+                        Box::new(move |old| map_elementwise(old, head, op.as_ref())),
+                    );
+                    if let Err(error) = r {
+                        return Value::error(error, head);
+                    }
+                }
+                v
+            },
+            signals,
+        );
+    }
+
+    if let PipelineData::Value(Value::Record { val, .. }, metadata) = input {
+        let mut record = val.into_owned();
+        for (_, col_val) in record.iter_mut() {
+            *col_val = map_elementwise(col_val, head, &op);
+        }
+        return Ok(PipelineData::Value(Value::record(record, head), metadata));
+    }
+
+    if reject_empty && matches!(input, PipelineData::Empty) {
+        return Err(ShellError::PipelineEmpty { dst_span: head });
+    }
+
+    if let PipelineData::Value(ref v @ Value::Range { ref val, .. }, ..) = input {
+        ensure_bounded(val, v.span(), head)?;
+    }
+
+    input.map(op, signals)
+}
+
+/// Map `op` over a list value element-wise; otherwise apply `op` once.
+/// Errors are propagated unchanged.
+fn map_elementwise(value: &Value, head: Span, op: &impl Fn(Value) -> Value) -> Value {
+    match value {
+        Value::Error { .. } => value.clone(),
+        Value::List { vals, .. } => Value::list(vals.iter().map(|v| op(v.clone())).collect(), head),
+        other => op(other.clone()),
+    }
+}
+
 pub fn ensure_bounded(range: &Range, val_span: Span, call_span: Span) -> Result<(), ShellError> {
     if range.is_bounded() {
         return Ok(());
@@ -113,4 +255,20 @@ pub fn ensure_bounded(range: &Range, val_span: Span, call_span: Span) -> Result<
         val_span,
         call_span,
     })
+}
+
+/// Expand range input into a concrete list, erroring if the range is unbounded.
+pub fn expand_range_input(
+    input: PipelineData,
+    call_span: Span,
+) -> Result<PipelineData, ShellError> {
+    let span = input.span().unwrap_or(call_span);
+    match input.try_expand_range() {
+        Ok(val) => Ok(val),
+        Err(_) => Err(ShellError::IncorrectValue {
+            msg: "Range must be bounded".to_string(),
+            val_span: span,
+            call_span,
+        }),
+    }
 }

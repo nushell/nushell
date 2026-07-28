@@ -1,4 +1,6 @@
-use crate::math::utils::run_with_function;
+use crate::math::utils::{
+    run_with_function_with_cell_paths, run_with_function_with_cell_paths_const,
+};
 use nu_engine::command_prelude::*;
 use std::{cmp::Ordering, collections::HashMap};
 
@@ -49,8 +51,14 @@ impl Command for MathMode {
                     Type::List(Box::new(Type::Filesize)),
                 ),
                 (Type::table(), Type::record()),
+                (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true)
+            .rest(
+                "columns",
+                SyntaxShape::CellPath,
+                "The cell-paths/columns to operate on.",
+            )
             .category(Category::Math)
     }
 
@@ -68,21 +76,21 @@ impl Command for MathMode {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
-        _stack: &mut Stack,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        run_with_function(call, input, mode)
+        run_with_function_with_cell_paths(engine_state, stack, call, input, mode)
     }
 
     fn run_const(
         &self,
-        _working_set: &StateWorkingSet,
+        working_set: &StateWorkingSet,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        run_with_function(call, input, mode)
+        run_with_function_with_cell_paths_const(working_set, call, input, mode)
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -104,6 +112,25 @@ impl Command for MathMode {
                             vec![Value::test_int(-1), Value::test_int(3), Value::test_int(5)],
                             Span::test_data(),
                         ),
+                })),
+            },
+            Example {
+                description: "Compute the mode(s) of list-valued columns in a record.",
+                example: "{alice: [1 1 2 3], bob: [5 5 6]} | math mode",
+                result: Some(Value::test_record(record! {
+                    "alice" => Value::list(vec![Value::test_int(1)], Span::test_data()),
+                    "bob" => Value::list(vec![Value::test_int(5)], Span::test_data()),
+                })),
+            },
+            Example {
+                description: "Compute the mode(s) of a single column using a cell path.",
+                example: "{alice: [1 1 2 3], bob: [5 5 6]} | math mode alice",
+                result: Some(Value::test_record(record! {
+                    "alice" => Value::list(vec![Value::test_int(1)], Span::test_data()),
+                    "bob" => Value::list(
+                        vec![Value::test_int(5), Value::test_int(5), Value::test_int(6)],
+                        Span::test_data(),
+                    ),
                 })),
             },
         ]
