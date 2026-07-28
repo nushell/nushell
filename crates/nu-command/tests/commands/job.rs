@@ -1,9 +1,9 @@
 // all tests in here are marked as serial in CI to reduce load while testing
 // this improves the stability of these tests
 
-use std::time::Duration;
 use nu_test_support::prelude::*;
 use rstest::rstest;
+use std::time::Duration;
 
 #[test]
 #[cfg_attr(ci, serial)]
