@@ -10,6 +10,7 @@ on:
 name: continuous-integration
 
 env:
+  RUSTFLAGS: "--cfg ci"
   NU_LOG_LEVEL: DEBUG
   NU_TEST_SKIP_DEPS_BUILD: true
   CLIPPY_OPTIONS: "-D warnings"
