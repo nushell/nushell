@@ -221,34 +221,38 @@ impl FromValue for ErrorLabel {
             });
         };
 
-        let text = record
-            .remove("text")
-            .ok_or_else(|| ShellError::MissingRequiredColumn {
-                column: "text",
-                span,
-            })?
-            .into_string()?;
+        let required_columns = [
+            ("text", String::expected_type()),
+            ("span", Span::expected_type()),
+        ];
 
-        // TODO: consider removing this after a grace period
-        if record.contains("start") || record.contains("end") {
-            return Err(GenericError::new(
-                "Invalid fields.",
-                r#"error labels have a "span" field, not separate "start" and "end" fields"#,
-                span,
-            )
-            .with_code("nu::shell::incorrect_value")
-            .into());
+        let [text_val, span_val] = match required_columns.map(|col| record.remove(col.0).ok_or(col))
+        {
+            [Ok(text_val), Ok(span_val)] => [text_val, span_val],
+            results => {
+                let err = LabeledError::new("Value is missing required columns.");
+                let err = results
+                    .into_iter()
+                    .filter_map(|x| x.err())
+                    .fold(err, |err, (col, col_ty)| {
+                        err.with_label(format!("missing `{col}: {col_ty}` column"), span)
+                    })
+                    .with_code("nu::shell::missing_required_columns");
+                return Err(err.into());
+            }
+        };
+
+        match (String::from_value(text_val), Span::from_value(span_val)) {
+            (Ok(text), Ok(span)) => Ok(Self { text, span }),
+            (r_0, r_1) => {
+                let errs = [r_0.err(), r_1.err()];
+                Err(
+                    GenericError::new("Unable to parse ErrorLabel.", "here", span)
+                        .with_inner(errs.into_iter().filter_map(|x| x))
+                        .into(),
+                )
+            }
         }
-
-        let span = record
-            .remove("span")
-            .ok_or_else(|| ShellError::MissingRequiredColumn {
-                column: "span",
-                span,
-            })?;
-        let span = Span::from_value(span)?;
-
-        Ok(Self { text, span })
     }
 
     fn expected_type() -> crate::Type {
