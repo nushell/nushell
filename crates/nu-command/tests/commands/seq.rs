@@ -1,53 +1,38 @@
-use nu_test_support::nu;
+use nu_test_support::prelude::*;
+use pretty_assertions::assert_matches;
+use rstest::rstest;
 
 #[test]
-fn float_in_seq_leads_to_lists_of_floats() {
-    let actual = nu!("seq 1.0 0.5 6 | describe");
-
-    assert_eq!(actual.out, "list<float> (stream)");
+fn float_in_seq_leads_to_lists_of_floats() -> Result {
+    test()
+        .run("seq 1.0 0.5 6 | describe")
+        .expect_value_eq("list<float> (stream)")
 }
 
 #[test]
-fn ints_in_seq_leads_to_lists_of_ints() {
-    let actual = nu!("seq 1 2 6 | describe");
+fn ints_in_seq_leads_to_lists_of_ints() -> Result {
+    test()
+        .run("seq 1 2 6 | describe")
+        .expect_value_eq("list<int> (stream)")
+}
 
-    assert_eq!(actual.out, "list<int> (stream)");
+#[rstest]
+#[case::non_terminating("seq 5 0 5")]
+#[case::empty_range("seq 1 0 5")]
+#[case::float("seq 1.0 0.0 5.0")]
+fn zero_increment_is_rejected(#[case] code: &str) -> Result {
+    let err = test().run(code).expect_shell_error()?;
+
+    assert_matches!(err, ShellError::IncorrectValue { msg, .. } if msg == "increment cannot be 0");
+    Ok(())
 }
 
 #[test]
-fn zero_increment_is_rejected() {
-    // Previously `seq 5 0 5` looped forever emitting `5`; a zero increment
-    // must error instead (matching GNU seq).
-    let actual = nu!("seq 5 0 5");
-
-    assert!(actual.out.is_empty());
-    assert!(actual.err.contains("increment cannot be 0"));
-}
-
-#[test]
-fn zero_increment_is_rejected_for_empty_range() {
-    // `seq 1 0 5` previously produced an empty list silently; it must error too.
-    let actual = nu!("seq 1 0 5");
-
-    assert!(actual.out.is_empty());
-    assert!(actual.err.contains("increment cannot be 0"));
-}
-
-#[test]
-fn zero_float_increment_is_rejected() {
-    let actual = nu!("seq 1.0 0.0 5.0");
-
-    assert!(actual.out.is_empty());
-    assert!(actual.err.contains("increment cannot be 0"));
-}
-
-#[test]
-fn int_sequence_at_max_does_not_panic() {
+fn int_sequence_at_max_does_not_panic() -> Result {
     // Advancing past i64::MAX previously panicked with "attempt to add with
     // overflow"; the final in-range value must still be emitted and the
     // sequence must end cleanly.
-    let actual = nu!("seq 9223372036854775807 9223372036854775807 | to nuon");
-
-    assert_eq!(actual.out, "[9223372036854775807]");
-    assert!(!actual.err.contains("overflow"));
+    test()
+        .run("seq 9223372036854775807 9223372036854775807")
+        .expect_value_eq([i64::MAX])
 }
