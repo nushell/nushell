@@ -1,8 +1,9 @@
+use chrono::DateTime;
 use nu_protocol::{
-    IntRange, IntoPipelineData, ListStream, PipelineData, PipelineMetadata, Range, Signals, Span,
-    Value, ast::RangeInclusion,
+    Filesize, IntRange, IntoPipelineData, ListStream, PipelineData, PipelineMetadata, Range,
+    Signals, Span, Value, ast::RangeInclusion,
 };
-use nu_test_support::{fs::Stub::EmptyFile, prelude::*};
+use nu_test_support::prelude::*;
 use pretty_assertions::assert_matches;
 use rstest::rstest;
 
@@ -16,32 +17,33 @@ fn gets_the_last_row() -> Result {
 
 #[test]
 fn gets_last_rows_by_amount() -> Result {
-    Playground::setup("last_test_1", |dirs, sandbox| {
-        sandbox.with_files(&[
-            EmptyFile("los.txt"),
-            EmptyFile("tres.txt"),
-            EmptyFile("amigos.txt"),
-            EmptyFile("arepas.clu"),
-        ]);
-
-        test()
-            .cwd(dirs.test())
-            .run("ls | last 3 | length")
-            .expect_value_eq(3)
-    })
+    test()
+        .run_with_data(
+            "$in | last 3 | length",
+            test_table![
+                ["name", "type", "size", "modified"];
+                ["los.txt", "file", Filesize::from(1), DateTime::UNIX_EPOCH.fixed_offset()],
+                ["tres.txt", "file", Filesize::from(2), DateTime::UNIX_EPOCH.fixed_offset()],
+                ["amigos.txt", "file", Filesize::from(3), DateTime::UNIX_EPOCH.fixed_offset()],
+                ["arepas.clu", "file", Filesize::from(4), DateTime::UNIX_EPOCH.fixed_offset()],
+            ],
+        )
+        .expect_value_eq(3)
 }
 
 #[test]
 fn gets_last_row_when_no_amount_given() -> Result {
-    Playground::setup("last_test_2", |dirs, sandbox| {
-        sandbox.with_files(&[EmptyFile("caballeros.txt"), EmptyFile("arepas.clu")]);
-
-        // FIXME: We should probably change last to return a one row table instead of a record here
-        test()
-            .cwd(dirs.test())
-            .run("ls | last | values | length")
-            .expect_value_eq(4)
-    })
+    // FIXME: We should probably change last to return a one row table instead of a record here
+    test()
+        .run_with_data(
+            "$in | last | values | length",
+            test_table![
+                ["name", "type", "size", "modified"];
+                ["caballeros.txt", "file", Filesize::from(1), DateTime::UNIX_EPOCH.fixed_offset()],
+                ["arepas.clu", "file", Filesize::from(2), DateTime::UNIX_EPOCH.fixed_offset()],
+            ],
+        )
+        .expect_value_eq(4)
 }
 
 #[test]
