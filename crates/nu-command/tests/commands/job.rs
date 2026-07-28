@@ -2,6 +2,17 @@
 // this improves the stability of these tests
 
 use nu_test_support::nu;
+use nu_test_support::prelude::*;
+
+#[test]
+fn job_spawn_runs_with_empty_pipeline_not_null_value() -> Result {
+    let code = "
+        job spawn { peek | metadata | job send 0 }
+        (job recv --timeout 1sec).peek.type
+    ";
+    // `null | peek | metadata | get peek.type` is `nothing`
+    test().run(code).expect_value_eq("empty")
+}
 
 #[test]
 #[serial]
