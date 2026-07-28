@@ -103,7 +103,7 @@ In this case, generation also stops when the input stream stops."
         let mut closure = ClosureEval::new(engine_state, stack, closure);
 
         match input {
-            PipelineData::Empty => {
+            PipelineData::Empty | PipelineData::Value(Value::Nothing { .. }, ..) => {
                 // A type of Option<S> is used to represent state. Invocation
                 // will stop on None. Using Option<S> allows functions to output
                 // one final value before stopping.

@@ -16,6 +16,20 @@ fn generate_no_next_break() -> Result {
 }
 
 #[test]
+fn generate_null_input_same_as_empty_pipeline() -> Result {
+    let code = "
+        null | generate {|x|
+            if $x == 3 {
+                {out: $x}
+            } else {
+                {out: $x, next: ( $x + 1 )}
+            }
+        } 1
+    ";
+    test().run(code).expect_value_eq([1, 2, 3])
+}
+
+#[test]
 fn generate_null_break() -> Result {
     let code = "
         generate {|x|
