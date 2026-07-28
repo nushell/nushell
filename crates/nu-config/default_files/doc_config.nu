@@ -1127,20 +1127,6 @@ $env.config.color_config.banner_highlight2 = "purple"
 # `crates/nu-explore/src/explore/config.rs`. Only the keys listed below are applied.
 # Color values use the same forms as `color_config`: color names, `#RRGGBB`, or
 # records `{ fg?, bg?, attr? }`.
-#
-# Related settings that are NOT under `$env.config.explore`:
-#   - Column padding: `$env.config.table.padding` (left/right)
-#   - Table grid/separator color: `$env.config.color_config.separator`
-#   - Show header / index columns: `explore --head` / `explore --index` flags
-#     (not configurable via `$env.config.explore`)
-#
-# Inspect live defaults with: `$env.config.explore`
-#
-# NOT supported (ignored if present — common outdated examples):
-#   - `$env.config.explore.config` (e.g. `cursor_color`) — no such key
-#   - `$env.config.explore.table.selected_cell` — use top-level `selected_cell`
-#   - `$env.config.explore.table.show_cursor` — no such key
-#   - `$env.config.explore.table` nested record in general — not read from config
 
 # explore.selected_cell (color): Highlight for the currently selected table cell.
 # Default: { bg: light_blue }
