@@ -4563,6 +4563,7 @@ mod test {
     }
 
     #[test]
+    #[cfg_attr(ci, serial)]
     fn initial_read_collects_fast_finite_stream() {
         let span = nu_protocol::Span::test_data();
         let stream = ListStream::new(
@@ -4578,6 +4579,7 @@ mod test {
     }
 
     #[test]
+    #[cfg_attr(ci, serial)]
     fn initial_read_stops_before_exhausting_unbounded_stream() {
         let span = nu_protocol::Span::test_data();
         let stream = ListStream::new(
