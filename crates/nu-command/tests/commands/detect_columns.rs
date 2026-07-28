@@ -39,12 +39,12 @@ fn detect_columns_with_legacy_and_flag_c(
 
 #[test]
 fn detect_columns_with_flag_c() -> Result {
-    let input = indoc! {r#"
+    let input = indoc! {"
         total 284K
         drwxr-xr-x  2 root root 4.0K Mar 20 08:28 =
         drwxr-xr-x  4 root root 4.0K Mar 20 08:18 ~
         -rw-r--r--  1 root root 3.0K Mar 20 07:23 ~asdf
-    "#};
+    "};
 
     test()
         .run_with_data("$in | detect columns -c 5..6 -s 1 --no-headers", input)
@@ -95,14 +95,14 @@ fn detect_columns_preserves_original_content_on_mismatch(
     #[case] code: &str,
     #[case] expected: impl IntoValue,
 ) -> Result {
-    let input = indoc! {r#"
+    let input = indoc! {"
         +----------------------------------------------+
         | addrs   bits   pref   class  mask            |
         +----------------------------------------------+
         |     1      0    /32          255.255.255.255 |
         |     2      1    /31          255.255.255.254 |
         +----------------------------------------------+
-    "#};
+    "};
 
     test().run_with_data(code, input).expect_value_eq(expected)
 }
@@ -121,10 +121,10 @@ fn detect_columns_ignore_box_chars_flag(
     #[case] code: &str,
     #[case] expected: impl IntoValue,
 ) -> Result {
-    let input = indoc! {r#"
+    let input = indoc! {"
         col1 col2 col3
         ----+----+----
-        val1 val2 val3"#};
+        val1 val2 val3"};
 
     test().run_with_data(code, input).expect_value_eq(expected)
 }
