@@ -1123,38 +1123,90 @@ $env.config.color_config.banner_highlight2 = "purple"
 # ------------------------
 # Explore Command Settings
 # ------------------------
-
-# explore (record): UI configuration for the `explore` command.
-# Configures colors and styles for the interactive data explorer.
-# Keys applied by `ExploreConfig::from_nu_config`:
-#   selected_cell, highlight, status_bar_text/background, command_bar_text/background,
-#   title_bar_text/background, status.{info,success,warn,error}, try.reactive
-# Table padding is taken from `$env.config.table.padding` (not explore.table).
+# `$env.config.explore` is read by `ExploreConfig::from_nu_config` in
+# `crates/nu-explore/src/explore/config.rs`. Only the keys listed below are applied.
+# Color values use the same forms as `color_config`: color names, `#RRGGBB`, or
+# records `{ fg?, bg?, attr? }`.
 #
-# Default (also inspect with `$env.config.explore`):
-$env.config.explore = {
-    selected_cell: { bg: light_blue },
-    highlight: { fg: black, bg: yellow },
-    status: {
-        success: { fg: black, bg: green },
-        error: { fg: white, bg: red },
-    },
-    try: { reactive: false },
+# Related settings that are NOT under `$env.config.explore`:
+#   - Column padding: `$env.config.table.padding` (left/right)
+#   - Table grid/separator color: `$env.config.color_config.separator`
+#   - Show header / index columns: `explore --head` / `explore --index` flags
+#     (not configurable via `$env.config.explore`)
+#
+# Inspect live defaults with: `$env.config.explore`
+#
+# NOT supported (ignored if present — common outdated examples):
+#   - `$env.config.explore.config` (e.g. `cursor_color`) — no such key
+#   - `$env.config.explore.table.selected_cell` — use top-level `selected_cell`
+#   - `$env.config.explore.table.show_cursor` — no such key
+#   - `$env.config.explore.table` nested record in general — not read from config
+
+# explore.selected_cell (color): Highlight for the currently selected table cell.
+# Default: { bg: light_blue }
+$env.config.explore.selected_cell = { bg: light_blue }
+
+# explore.highlight (color): Search-result highlight in the explore pager.
+# Default: { fg: black, bg: yellow }
+$env.config.explore.highlight = { fg: black, bg: yellow }
+
+# explore.status_bar_text (color): Text color of the bottom status bar.
+# Default: unset (inherit terminal / theme)
+# $env.config.explore.status_bar_text = { fg: "#C4C9C6" }
+
+# explore.status_bar_background (color): Background of the bottom status bar.
+# Default: unset (inherit terminal / theme)
+# $env.config.explore.status_bar_background = { fg: "#1D1F21", bg: "#C4C9C6" }
+
+# explore.command_bar_text (color): Text color of the command/search bar.
+# Default: unset (inherit terminal / theme)
+# $env.config.explore.command_bar_text = { fg: "#C4C9C6" }
+
+# explore.command_bar_background (color): Background of the command/search bar.
+# Default: unset (inherit terminal / theme)
+# $env.config.explore.command_bar_background = { bg: "#1D1F21" }
+
+# explore.title_bar_text (color): Text color of the top title bar.
+# Default: unset (inherit terminal / theme)
+# $env.config.explore.title_bar_text = { fg: white }
+
+# explore.title_bar_background (color): Background of the top title bar.
+# Default: unset (inherit terminal / theme)
+# $env.config.explore.title_bar_background = { bg: blue }
+
+# explore.status (record): Message severity styles in the status bar.
+# Keys: info, success, warn, error. Each is a color value as above.
+# Defaults: success { fg: black, bg: green }, error { fg: white, bg: red };
+#           info and warn unset (inherit / plain).
+$env.config.explore.status = {
+    success: { fg: black, bg: green }
+    error: { fg: white, bg: red }
+    # info: {}
+    # warn: {}
 }
 
-# Example: override bars and try mode (unset bar colors inherit the terminal):
+# explore.try.reactive (bool): In explore's `:try` mode, re-run the command as
+# you type when true; when false, run only on submit.
+# Default: false
+$env.config.explore.try.reactive = false
+
+# Full example (all supported keys):
 # $env.config.explore = {
-#     status_bar_background: { fg: "#1D1F21", bg: "#C4C9C6" },
-#     command_bar_text: { fg: "#C4C9C6" },
-#     highlight: { fg: "black", bg: "yellow" },
+#     selected_cell: { bg: light_blue }
+#     highlight: { fg: black, bg: yellow }
+#     status_bar_text: { fg: "#C4C9C6" }
+#     status_bar_background: { fg: "#1D1F21", bg: "#C4C9C6" }
+#     command_bar_text: { fg: "#C4C9C6" }
+#     command_bar_background: { bg: "#1D1F21" }
+#     title_bar_text: { fg: white }
+#     title_bar_background: { bg: blue }
 #     status: {
-#         error: { fg: "white", bg: "red" },
-#         success: { fg: "black", bg: "green" },
-#         warn: {}
 #         info: {}
-#     },
-#     selected_cell: { bg: light_blue },
-#     try: { reactive: true }
+#         success: { fg: black, bg: green }
+#         warn: {}
+#         error: { fg: white, bg: red }
+#     }
+#     try: { reactive: false }
 # }
 
 # ---------------------------------------------------------------------------------------

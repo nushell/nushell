@@ -48,7 +48,21 @@ impl Default for ExploreConfig {
 }
 
 impl ExploreConfig {
-    /// take the default explore config and update it with relevant values from the nu config
+    /// Build an [`ExploreConfig`] from `$env.config` (via [`Config`]).
+    ///
+    /// Reads only these keys under `$env.config.explore` (others are ignored):
+    /// - color styles: `selected_cell`, `highlight`, `status_bar_text`,
+    ///   `status_bar_background`, `command_bar_text`, `command_bar_background`,
+    ///   `title_bar_text`, `title_bar_background`
+    /// - nested: `status.{info,success,warn,error}`, `try.reactive`
+    ///
+    /// Related values taken from elsewhere (not `$env.config.explore`):
+    /// - [`Config::table`] `.padding` → column padding
+    /// - header/index flags and separator style are set by the `explore` command
+    ///   after this call (`--head`, `--index`, `color_config.separator`)
+    ///
+    /// Unsupported (commonly seen but not applied): `explore.config.*`,
+    /// `explore.table.*` (including `table.selected_cell` / `table.show_cursor`).
     pub fn from_nu_config(config: &Config) -> Self {
         let mut ret = Self::default();
 
