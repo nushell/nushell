@@ -1,192 +1,306 @@
-use nu_protocol::{IntoPipelineData, PipelineMetadata, test_record};
-use nu_test_support::nu;
+use nu_protocol::{Filesize, IntoPipelineData, PipelineMetadata, test_record};
 use nu_test_support::prelude::*;
+use pretty_assertions::assert_matches;
 use rstest::rstest;
 
 #[test]
-fn regular_columns() {
-    let actual = nu!(r#"
-        echo [
-            [first_name, last_name, rusty_at, type];
-    
-            [Andrés Robalino '10/11/2013' A]
-            [JT Turner '10/12/2013' B]
-            [Yehuda Katz '10/11/2013' A]
-        ]
+fn regular_columns() -> Result {
+    let code = "
+        $in
         | reject type first_name
         | columns
-        | str join ", "
-    "#);
+    ";
 
-    assert_eq!(actual.out, "last_name, rusty_at");
+    let input = test_table![
+        ["first_name", "last_name", "rusty_at", "type"];
+        ["Andres", "Robalino", "10/11/2013", "A"],
+        ["JT", "Turner", "10/12/2013", "B"],
+        ["Yehuda", "Katz", "10/11/2013", "A"],
+    ];
+
+    test()
+        .run_with_data(code, input)
+        .expect_value_eq(["last_name", "rusty_at"])
 }
 
 #[test]
-fn skip_cell_rejection() {
-    let actual = nu!("[ {a: 1, b: 2,c:txt}, { a:val } ] | reject a | get c?.0");
+fn skip_cell_rejection() -> Result {
+    let code = "$in | reject a | get c?.0";
+    let input = test_value!([{ a: 1, b: 2, c: "txt" }, { a: "val" }]);
 
-    assert_eq!(actual.out, "txt");
+    test().run_with_data(code, input).expect_value_eq("txt")
 }
 
 #[test]
-fn complex_nested_columns() {
-    let actual = nu!(r#"
-        {
-            "nu": {
-                "committers": [
-                    {"name": "Andrés N. Robalino"},
-                    {"name": "JT Turner"},
-                    {"name": "Yehuda Katz"}
-                ],
-                "releases": [
-                    {"version": "0.2"}
-                    {"version": "0.8"},
-                    {"version": "0.9999999"}
-                ],
-                "0xATYKARNU": [
-                    ["Th", "e", " "],
-                    ["BIG", " ", "UnO"],
-                    ["punto", "cero"]
-                ]
-            }
-        }
+fn complex_nested_columns() -> Result {
+    let code = r#"
+        $in
         | reject nu."0xATYKARNU" nu.committers
         | get nu
         | columns
-        | str join ", "
-    "#);
+    "#;
 
-    assert_eq!(actual.out, "releases");
+    let input = test_value!({
+        nu: {
+            committers: [
+                { name: "Andres N. Robalino" },
+                { name: "JT Turner" },
+                { name: "Yehuda Katz" },
+            ],
+            releases: [
+                { version: "0.2" },
+                { version: "0.8" },
+                { version: "0.9999999" },
+            ],
+            "0xATYKARNU": [
+                ["Th", "e", " "],
+                ["BIG", " ", "UnO"],
+                ["punto", "cero"],
+            ],
+        },
+    });
+
+    test()
+        .run_with_data(code, input)
+        .expect_value_eq(["releases"])
 }
 
 #[test]
-fn ignores_duplicate_columns_rejected() {
-    let actual = nu!(r#"
-        echo [
-            ["first name", "last name"];
-    
-            [Andrés Robalino]
-            [Andrés Jnth]
-        ]
+fn ignores_duplicate_columns_rejected() -> Result {
+    let code = r#"
+        $in
         | reject "first name" "first name"
         | columns
-        | str join ", "
-    "#);
+    "#;
 
-    assert_eq!(actual.out, "last name");
+    let input = test_table![
+        ["first name", "last name"];
+        ["Andres", "Robalino"],
+        ["Andres", "Jnth"],
+    ];
+
+    test()
+        .run_with_data(code, input)
+        .expect_value_eq(["last name"])
 }
 
 #[test]
-fn ignores_duplicate_rows_rejected() {
-    let actual = nu!("[[a,b];[1 2] [3 4] [5 6]] | reject 2 2 | to nuon");
-    assert_eq!(actual.out, "[[a, b]; [1, 2], [3, 4]]");
+fn ignores_duplicate_rows_rejected() -> Result {
+    let code = "$in | reject 2 2";
+    let input = test_table![
+        ["a", "b"];
+        [1, 2],
+        [3, 4],
+        [5, 6],
+    ];
+
+    test()
+        .run_with_data(code, input)
+        .expect_value_eq(test_table![
+            ["a", "b"];
+            [1, 2],
+            [3, 4],
+        ])
 }
 
 #[test]
-fn reject_record_from_raw_eval() {
-    let actual = nu!(r#"{"a": 3} | reject a | describe"#);
+fn reject_record_from_raw_eval() -> Result {
+    let code = "$in | reject a";
+    let input = test_value!({ a: 3 });
 
-    assert!(actual.out.contains("record"));
+    test()
+        .run_with_data(code, input)
+        .expect_value_eq(test_value!({}))
 }
 
 #[test]
-fn reject_table_from_raw_eval() {
-    let actual = nu!(r#"[{"a": 3}] | reject a"#);
+fn reject_table_from_raw_eval() -> Result {
+    let code = "$in | reject a";
+    let input = test_value!([{ a: 3 }]);
 
-    assert!(actual.out.contains("record 0 fields"));
+    test()
+        .run_with_data(code, input)
+        .expect_value_eq(test_value!([{}]))
 }
 
 #[test]
-fn reject_nested_field() {
-    let actual = nu!("{a:{b:3,c:5}} | reject a.b | debug");
+fn reject_nested_field() -> Result {
+    let code = "$in | reject a.b";
+    let input = test_value!({ a: { b: 3, c: 5 } });
 
-    assert_eq!(actual.out, "{a: {c: 5}}");
+    test()
+        .run_with_data(code, input)
+        .expect_value_eq(test_value!({ a: { c: 5 } }))
+}
+
+#[rstest]
+#[case::record(test_value!({}), test_value!({}))]
+#[case::list_missing_column(test_value!([{}]), test_value!([{}]))]
+#[case::list_some_missing(test_value!([{}, { foo: 2 }]), test_value!([{}, {}]))]
+#[case::list_all_present(test_value!([{ foo: 1 }, { foo: 2 }]), test_value!([{}, {}]))]
+fn reject_optional_column(#[case] input: Value, #[case] expected: Value) -> Result {
+    let code = "$in | reject foo?";
+
+    test().run_with_data(code, input).expect_value_eq(expected)
 }
 
 #[test]
-fn reject_optional_column() {
-    let actual = nu!("{} | reject foo? | to nuon");
-    assert_eq!(actual.out, "{}");
+fn reject_optional_row() -> Result {
+    let code = "$in | reject 3?";
+    let input = test_table![
+        ["foo"];
+        ["bar"],
+    ];
 
-    let actual = nu!("[{}] | reject foo? | to nuon");
-    assert_eq!(actual.out, "[{}]");
-
-    let actual = nu!("[{} {foo: 2}] | reject foo? | to nuon");
-    assert_eq!(actual.out, "[{}, {}]");
-
-    let actual = nu!("[{foo: 1} {foo: 2}] | reject foo? | to nuon");
-    assert_eq!(actual.out, "[{}, {}]");
+    test()
+        .run_with_data(code, input)
+        .expect_value_eq(test_table![
+            ["foo"];
+            ["bar"],
+        ])
 }
 
 #[test]
-fn reject_optional_row() {
-    let actual = nu!("[{foo: 'bar'}] | reject 3? | to nuon");
-    assert_eq!(actual.out, "[[foo]; [bar]]");
+fn reject_columns_with_list_spread() -> Result {
+    let code = "let arg = [type size]; $in | reject ...$arg";
+    let input = test_table![
+        ["name", "type", "size"];
+        ["Cargo.toml", "file", Filesize::from(10_000_000)],
+        ["Cargo.lock", "file", Filesize::from(10_000_000)],
+        ["src", "dir", Filesize::from(100_000_000)],
+    ];
+
+    test()
+        .run_with_data(code, input)
+        .expect_value_eq(test_table![
+            ["name"];
+            ["Cargo.toml"],
+            ["Cargo.lock"],
+            ["src"],
+        ])
 }
 
 #[test]
-fn reject_columns_with_list_spread() {
-    let actual = nu!(
-        "let arg = [type size]; [[name type size];[Cargo.toml file 10mb] [Cargo.lock file 10mb] [src dir 100mb]] | reject ...$arg | to nuon"
-    );
-    assert_eq!(
-        actual.out,
-        r#"[[name]; ["Cargo.toml"], ["Cargo.lock"], [src]]"#
-    );
+fn reject_rows_with_list_spread() -> Result {
+    let code = "let arg = [2 0]; $in | reject ...$arg";
+    let input = test_table![
+        ["name", "type", "size"];
+        ["Cargo.toml", "file", Filesize::from(10_000_000)],
+        ["Cargo.lock", "file", Filesize::from(10_000_000)],
+        ["src", "dir", Filesize::from(100_000_000)],
+    ];
+
+    test()
+        .run_with_data(code, input)
+        .expect_value_eq(test_table![
+            ["name", "type", "size"];
+            ["Cargo.lock", "file", Filesize::from(10_000_000)],
+        ])
 }
 
 #[test]
-fn reject_rows_with_list_spread() {
-    let actual = nu!(
-        "let arg = [2 0]; [[name type size];[Cargo.toml file 10mb] [Cargo.lock file 10mb] [src dir 100mb]] | reject ...$arg | to nuon"
-    );
-    assert_eq!(
-        actual.out,
-        r#"[[name, type, size]; ["Cargo.lock", file, 10000000b]]"#
-    );
+fn reject_mixed_with_list_spread() -> Result {
+    let code = "let arg = [type 2]; $in | reject ...$arg";
+    let input = test_table![
+        ["name", "type", "size"];
+        ["Cargp.toml", "file", Filesize::from(10_000_000)],
+        ["Cargo.lock", "file", Filesize::from(10_000_000)],
+        ["src", "dir", Filesize::from(100_000_000)],
+    ];
+
+    test()
+        .run_with_data(code, input)
+        .expect_value_eq(test_table![
+            ["name", "size"];
+            ["Cargp.toml", Filesize::from(10_000_000)],
+            ["Cargo.lock", Filesize::from(10_000_000)],
+        ])
 }
 
 #[test]
-fn reject_mixed_with_list_spread() {
-    let actual = nu!(
-        "let arg = [type 2]; [[name type size];[Cargp.toml file 10mb] [ Cargo.lock file 10mb] [src dir 100mb]] | reject ...$arg | to nuon"
-    );
-    assert_eq!(
-        actual.out,
-        r#"[[name, size]; ["Cargp.toml", 10000000b], ["Cargo.lock", 10000000b]]"#
-    );
+fn reject_multiple_rows_ascending() -> Result {
+    let code = "$in | reject 1 2";
+    let input = test_table![
+        ["a", "b"];
+        [1, 2],
+        [3, 4],
+        [5, 6],
+    ];
+
+    test()
+        .run_with_data(code, input)
+        .expect_value_eq(test_table![
+            ["a", "b"];
+            [1, 2],
+        ])
 }
 
 #[test]
-fn reject_multiple_rows_ascending() {
-    let actual = nu!("[[a,b];[1 2] [3 4] [5 6]] | reject 1 2 | to nuon");
-    assert_eq!(actual.out, "[[a, b]; [1, 2]]");
+fn reject_multiple_rows_descending() -> Result {
+    let code = "$in | reject 2 1";
+    let input = test_table![
+        ["a", "b"];
+        [1, 2],
+        [3, 4],
+        [5, 6],
+    ];
+
+    test()
+        .run_with_data(code, input)
+        .expect_value_eq(test_table![
+            ["a", "b"];
+            [1, 2],
+        ])
 }
 
 #[test]
-fn reject_multiple_rows_descending() {
-    let actual = nu!("[[a,b];[1 2] [3 4] [5 6]] | reject 2 1 | to nuon");
-    assert_eq!(actual.out, "[[a, b]; [1, 2]]");
+fn test_ignore_errors_flag() -> Result {
+    let code = "$in | reject 5 -o";
+    let input = test_table![
+        ["a", "b"];
+        [1, 2],
+        [3, 4],
+        [5, 6],
+    ];
+
+    test()
+        .run_with_data(code, input)
+        .expect_value_eq(test_table![
+            ["a", "b"];
+            [1, 2],
+            [3, 4],
+            [5, 6],
+        ])
 }
 
 #[test]
-fn test_ignore_errors_flag() {
-    let actual = nu!("[[a, b]; [1, 2], [3, 4], [5, 6]] | reject 5 -o | to nuon");
-    assert_eq!(actual.out, "[[a, b]; [1, 2], [3, 4], [5, 6]]");
+fn test_ignore_errors_flag_var() -> Result {
+    let code = "let arg = [5 c]; $in | reject ...$arg -o";
+    let input = test_table![
+        ["a", "b"];
+        [1, 2],
+        [3, 4],
+        [5, 6],
+    ];
+
+    test()
+        .run_with_data(code, input)
+        .expect_value_eq(test_table![
+            ["a", "b"];
+            [1, 2],
+            [3, 4],
+            [5, 6],
+        ])
 }
 
 #[test]
-fn test_ignore_errors_flag_var() {
-    let actual =
-        nu!("let arg = [5 c]; [[a, b]; [1, 2], [3, 4], [5, 6]] | reject ...$arg -o | to nuon");
-    assert_eq!(actual.out, "[[a, b]; [1, 2], [3, 4], [5, 6]]");
-}
+fn test_works_with_integer_path_and_stream() -> Result {
+    let code = "$in | reject 1";
+    let input = test_value!(["N", "u", "s", "h", "e", "l", "l"]);
 
-#[test]
-fn test_works_with_integer_path_and_stream() {
-    let actual = nu!("[[N u s h e l l]] | flatten | reject 1 | to nuon");
-
-    assert_eq!(actual.out, "[N, s, h, e, l, l]");
+    test()
+        .run_with_data(code, input)
+        .expect_value_eq(["N", "s", "h", "e", "l", "l"])
 }
 
 enum ExpectTo {
@@ -237,12 +351,13 @@ fn forwards_error_properly() -> Result {
 }
 
 #[test]
-fn reject_with_negative_index_reports_clear_error() {
-    let actual = nu!("[1 2 3] | reject (-2)");
+fn reject_with_negative_index_reports_clear_error() -> Result {
+    let err = test().run("[1 2 3] | reject (-2)").expect_shell_error()?;
 
-    assert!(
-        actual
-            .err
-            .contains("can't convert negative number to cell path")
+    assert_matches!(
+        err,
+        ShellError::CantConvert { to_type, from_type, .. }
+            if to_type == "cell path" && from_type == "negative number"
     );
+    Ok(())
 }
