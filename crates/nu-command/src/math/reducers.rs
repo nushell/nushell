@@ -90,15 +90,11 @@ pub fn sum(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError
             }
             Value::Error { error, .. } => return Err(*error.clone()),
             other => {
-                return Err(ShellError::UnsupportedInput {
-                    msg: format!(
-                        "Attempted to compute the sum of a value '{}' that cannot be summed with a type of `{}`.",
-                        other.coerce_string()?,
-                        other.get_type()
-                    ),
-                    input: "value originates from here".into(),
-                    msg_span: head,
-                    input_span: other.span(),
+                return Err(ShellError::OnlySupportsThisInputType {
+                    exp_input_type: "int, float, filesize, or duration".into(),
+                    wrong_type: other.get_type().to_string(),
+                    dst_span: head,
+                    src_span: other.span(),
                 });
             }
         }
@@ -132,15 +128,11 @@ pub fn product(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellE
             }
             Value::Error { error, .. } => return Err(*error.clone()),
             other => {
-                return Err(ShellError::UnsupportedInput {
-                    msg: format!(
-                        "Attempted to compute the product of a value '{}' that cannot be multiplied with a type of `{}`.",
-                        other.coerce_string()?,
-                        other.get_type()
-                    ),
-                    input: "value originates from here".into(),
-                    msg_span: head,
-                    input_span: other.span(),
+                return Err(ShellError::OnlySupportsThisInputType {
+                    exp_input_type: "int or float".into(),
+                    wrong_type: other.get_type().to_string(),
+                    dst_span: head,
+                    src_span: other.span(),
                 });
             }
         }

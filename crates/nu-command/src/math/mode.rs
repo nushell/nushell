@@ -137,7 +137,7 @@ impl Command for MathMode {
     }
 }
 
-pub fn mode(values: &[Value], span: Span, head: Span) -> Result<Value, ShellError> {
+pub fn mode(values: &[Value], _span: Span, head: Span) -> Result<Value, ShellError> {
     //In e-q, Value doesn't implement Hash or Eq, so we have to get the values inside
     // But f64 doesn't implement Hash, so we get the binary representation to use as
     // key in the HashMap
@@ -157,11 +157,11 @@ pub fn mode(values: &[Value], span: Span, head: Span) -> Result<Value, ShellErro
                 NumberTypes::Filesize,
             )),
             Value::Error { error, .. } => Err(*error.clone()),
-            _ => Err(ShellError::UnsupportedInput {
-                msg: "Unable to give a result with this input".to_string(),
-                input: "value originates from here".into(),
-                msg_span: head,
-                input_span: span,
+            other => Err(ShellError::OnlySupportsThisInputType {
+                exp_input_type: "int, float, filesize, or duration".into(),
+                wrong_type: other.get_type().to_string(),
+                dst_span: head,
+                src_span: other.span(),
             }),
         })
         .collect::<Result<Vec<HashableType>, ShellError>>()?;

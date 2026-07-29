@@ -125,7 +125,7 @@ impl Command for MathVariance {
     }
 }
 
-fn sum_of_squares(values: &[Value], span: Span) -> Result<Value, ShellError> {
+fn sum_of_squares(values: &[Value], span: Span, head: Span) -> Result<Value, ShellError> {
     let n = Value::int(values.len() as i64, span);
     let mut sum_x = Value::int(0, span);
     let mut sum_x2 = Value::int(0, span);
@@ -133,15 +133,11 @@ fn sum_of_squares(values: &[Value], span: Span) -> Result<Value, ShellError> {
         let v = match &value {
             Value::Int { .. } | Value::Float { .. } => Ok(value),
             Value::Error { error, .. } => Err(*error.clone()),
-            other => Err(ShellError::UnsupportedInput {
-                msg: format!(
-                    "Attempted to compute the sum of squares of a non-int, non-float value '{}' with a type of `{}`.",
-                    other.coerce_string()?,
-                    other.get_type()
-                ),
-                input: "value originates from here".into(),
-                msg_span: span,
-                input_span: value.span(),
+            other => Err(ShellError::OnlySupportsThisInputType {
+                exp_input_type: "int or float".into(),
+                wrong_type: other.get_type().to_string(),
+                dst_span: head,
+                src_span: other.span(),
             }),
         }?;
         let v_squared = &v.mul(span, v, span)?;
@@ -166,8 +162,8 @@ pub fn compute_variance(
         } else {
             values.len()
         };
-        // sum_of_squares() needs the span of the original value, not the call head.
-        let ss = sum_of_squares(values, span)?;
+        // Arithmetic uses the original value span; errors point at the call head.
+        let ss = sum_of_squares(values, span, head)?;
         let n = Value::int(n as i64, head);
         ss.div(head, &n, head)
     }
