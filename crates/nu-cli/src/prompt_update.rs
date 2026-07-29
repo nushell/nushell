@@ -165,7 +165,9 @@ pub(crate) fn make_transient_prompt(
     let detached_state = PromptState::new();
     detached_state.set_contents(prompt_contents);
 
-    Box::new(NushellPrompt { state: Arc::new(detached_state) })
+    Box::new(NushellPrompt {
+        state: Arc::new(detached_state),
+    })
 }
 
 #[cfg(test)]
@@ -187,7 +189,9 @@ mod tests {
 
         update_prompt(&config, &engine_state, &mut stack);
 
-        let nu_prompt = NushellPrompt { state: engine_state.prompt_state.clone() };
+        let nu_prompt = NushellPrompt {
+            state: engine_state.prompt_state.clone(),
+        };
         assert_eq!(nu_prompt.render_prompt_left(), "test");
     }
 }

@@ -115,7 +115,9 @@ mod tests {
 
     #[test]
     fn default_prompt_does_not_embed_osc_markers() {
-        let prompt = NushellPrompt { state: Arc::new(PromptState::new()) };
+        let prompt = NushellPrompt {
+            state: Arc::new(PromptState::new()),
+        };
         let rendered = prompt.render_prompt_left().to_string();
 
         assert!(!rendered.contains("\x1b]133;"));

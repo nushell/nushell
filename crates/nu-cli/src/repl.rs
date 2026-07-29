@@ -88,7 +88,9 @@ fn build_interactive_prompt(
         .prompt_state
         .set_repainter(background_repainter);
 
-    NushellPrompt { state: engine_state.prompt_state.clone() }
+    NushellPrompt {
+        state: engine_state.prompt_state.clone(),
+    }
 }
 
 /// The main REPL loop, including spinning up the prompt itself.
