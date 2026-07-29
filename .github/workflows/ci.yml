@@ -135,7 +135,7 @@ jobs:
         working-directory: ${{ matrix.workspace.path }}
         run: |
           rustup component add clippy
-          cargo --config "${{ github.workspace }}/.cargo/ci.toml" clippy ${{ env[matrix.target.options] }} --profile ${{ matrix.workspace.profile }} \ -- ${{ env['CLIPPY_OPTIONS'] }}
+          cargo --config "${{ github.workspace }}/.cargo/ci.toml" clippy ${{ env[matrix.target.options] }} --profile ${{ matrix.workspace.profile }} -- ${{ env['CLIPPY_OPTIONS'] }}
 
       - name: cargo build
         if: contains(matrix.target.steps, 'build') && !contains(matrix.workspace.skip, 'build')
