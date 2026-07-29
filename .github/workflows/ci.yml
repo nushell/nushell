@@ -10,7 +10,6 @@ on:
 name: continuous-integration
 
 env:
-  RUSTFLAGS: "--cfg ci"
   NU_LOG_LEVEL: DEBUG
   NU_TEST_SKIP_DEPS_BUILD: true
   CLIPPY_OPTIONS: "-D warnings"
@@ -124,34 +123,34 @@ jobs:
         working-directory: ${{ matrix.workspace.path }}
         run: |
           rustup component add rustfmt
-          cargo fmt --all --check
+          cargo --config .cargo/ci.toml fmt --all --check
 
       - name: cargo check
         if: contains(matrix.target.steps, 'check') && !contains(matrix.workspace.skip, 'check')
         working-directory: ${{ matrix.workspace.path }}
-        run: cargo check ${{ env[matrix.target.options] }} --profile ${{ matrix.workspace.profile }}
+        run: cargo --config .cargo/ci.toml check ${{ env[matrix.target.options] }} --profile ${{ matrix.workspace.profile }}
         
       - name: cargo clippy
         if: contains(matrix.target.steps, 'clippy') && !contains(matrix.workspace.skip, 'clippy')
         working-directory: ${{ matrix.workspace.path }}
         run: |
           rustup component add clippy
-          cargo clippy ${{ env[matrix.target.options] }} --profile ${{ matrix.workspace.profile }} -- ${{ env['CLIPPY_OPTIONS'] }}
+          cargo --config .cargo/ci.toml clippy ${{ env[matrix.target.options] }} --profile ${{ matrix.workspace.profile }} -- ${{ env['CLIPPY_OPTIONS'] }}
 
       - name: cargo build
         if: contains(matrix.target.steps, 'build') && !contains(matrix.workspace.skip, 'build')
         working-directory: ${{ matrix.workspace.path }}
-        run: cargo build ${{ env[matrix.target.options] }} --profile ${{ matrix.workspace.profile }}
+        run: cargo --config .cargo/ci.toml build ${{ env[matrix.target.options] }} --profile ${{ matrix.workspace.profile }}
 
       - name: cargo test
         if: contains(matrix.target.steps, 'test') && !contains(matrix.workspace.skip, 'test')
         working-directory: ${{ matrix.workspace.path }}
-        run: cargo test ${{ env[matrix.target.options] }} --profile ${{ matrix.workspace.profile }}
+        run: cargo --config .cargo/ci.toml test ${{ env[matrix.target.options] }} --profile ${{ matrix.workspace.profile }}
 
       - name: cargo test --doc
         if: contains(matrix.target.steps, 'doctest') && !contains(matrix.workspace.skip, 'doctest')
         working-directory: ${{ matrix.workspace.path }}
-        run: cargo test --workspace --doc --profile ${{ matrix.workspace.profile }}
+        run: cargo --config .cargo/ci.toml test --workspace --doc --profile ${{ matrix.workspace.profile }}
 
       - name: Assert Clean Repo
         run: git diff --quiet && git diff --cached --quiet
