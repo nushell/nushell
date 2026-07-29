@@ -5,6 +5,7 @@ use crate::completions::{
     OperatorCompletion, VariableCompletion,
     base::{Fetched, SemanticSuggestion},
 };
+use lru::LruCache;
 use nu_parser::{parse, parse_shorter_head_reading};
 use nu_protocol::{
     BuiltinCompletion, CommandWideCompleter, Completion, DeclId, Flag, Signature, Span,
@@ -21,18 +22,21 @@ use reedline::{
     Suggestions,
 };
 use std::hash::{DefaultHasher, Hash, Hasher};
+use std::num::NonZeroUsize;
 use std::sync::{Arc, Mutex, mpsc};
 use std::thread;
 use std::time::Duration;
-use std::{borrow::Cow, ops::ControlFlow};
-use std::{collections::HashMap, path::is_separator};
+use std::{borrow::Cow, ops::ControlFlow, path::is_separator};
 
-/// How long a cached completion stays usable.
-///
-/// Bounds staleness only against changes [`CacheEnv`] cannot observe — a file created in a
-/// *subdirectory*, a binary installed into a directory already on `PATH`. It must outlive a
-/// prompt, since the REPL rebuilds the completer per line but carries the cache across.
-const CACHE_TTL: Duration = Duration::from_secs(60);
+/// How many completion results the narrowing cache keeps before evicting the least
+/// recently used entry. Overridden per-completer by `$env.config.completions.cache_size`.
+const DEFAULT_CACHE_SIZE: usize = 100;
+
+/// `0` isn't a valid `LruCache` capacity; a user setting `cache_size = 0` means "cache as
+/// little as possible", so clamp up to 1!
+fn non_zero_capacity(capacity: usize) -> NonZeroUsize {
+    NonZeroUsize::new(capacity).unwrap_or(NonZeroUsize::MIN)
+}
 
 use super::{StaticCompletion, custom_completions::CommandWideCompletion};
 
@@ -311,11 +315,7 @@ impl CacheEnv {
             .hash(&mut hasher);
 
         let cwd = engine_state.cwd(Some(stack)).ok();
-        // The directory's own mtime, so a command that adds or removes a file in it
-        // (`touch`, `rm`, `mkdir`) invalidates the file completions it just made wrong,
-        // rather than leaving them to age out. Only the working directory is stamped —
-        // walking further would cost more than it saves — so a change inside a
-        // *subdirectory* is left to [`CACHE_TTL`].
+        // The cwd mtime, so adding/removing files invalidates stale file completions.
         cwd.as_ref()
             .and_then(|cwd| std::fs::metadata(cwd).ok()?.modified().ok())
             .hash(&mut hasher);
@@ -328,14 +328,12 @@ impl CacheEnv {
 struct CacheEntry {
     suggestions: Suggestions,
     env: CacheEnv,
-    at: Instant,
 }
 
 impl CacheEntry {
-    /// Whether this entry may still answer a query: produced in the same environment, and
-    /// recent enough that an unobservable change is unlikely. See [`CACHE_TTL`].
+    /// Whether this entry may still answer a query: produced in the same environment.
     fn is_usable(&self, env: CacheEnv) -> bool {
-        self.env == env && self.at.elapsed() < CACHE_TTL
+        self.env == env
     }
 
     /// The span the cursor extends: the range the *last* suggestion replaces.
@@ -347,14 +345,38 @@ impl CacheEntry {
     }
 }
 
-#[derive(Clone, Default)]
+/// Cross-prompt completion cache, bounded by a configurable count of entries
+/// (`$env.config.completions.cache_size`) rather than by age. Least recently used entries are
+/// evicted once that count is exceeded.
+#[derive(Clone)]
 pub(crate) struct NarrowingCache {
-    entries: Arc<Mutex<HashMap<CompletionQuery, CacheEntry>>>,
+    entries: Arc<Mutex<LruCache<CompletionQuery, CacheEntry>>>,
+}
+
+impl Default for NarrowingCache {
+    fn default() -> Self {
+        Self::new(DEFAULT_CACHE_SIZE)
+    }
 }
 
 impl NarrowingCache {
+    pub(crate) fn new(capacity: usize) -> Self {
+        Self {
+            entries: Arc::new(Mutex::new(LruCache::new(non_zero_capacity(capacity)))),
+        }
+    }
+
+    /// Resizes the cache in place, dropping the least recently used entries if the new
+    /// capacity is smaller. Called once per prompt so `cache_size` config changes take effect
+    /// on the completer carried over from `evaluate_repl` without recreating it.
+    pub(crate) fn set_capacity(&self, capacity: usize) {
+        if let Ok(mut entries) = self.entries.lock() {
+            entries.resize(non_zero_capacity(capacity));
+        }
+    }
+
     pub(crate) fn fresh(&self, query: &CompletionQuery, env: CacheEnv) -> Option<Suggestions> {
-        let entries = self.entries.lock().ok()?;
+        let mut entries = self.entries.lock().ok()?;
         let cache_entry = entries.get(query)?;
 
         cache_entry
@@ -366,15 +388,15 @@ impl NarrowingCache {
         if let Ok(mut entries) = self.entries.lock() {
             // Also drops everything computed in a since-replaced environment, so a `cd`
             // clears the file completions it invalidated rather than leaving them to age out.
-            entries.retain(|_, cache_entry| cache_entry.is_usable(env));
-            entries.insert(
-                query,
-                CacheEntry {
-                    suggestions,
-                    env,
-                    at: Instant::now(),
-                },
-            );
+            let stale: Vec<CompletionQuery> = entries
+                .iter()
+                .filter(|(_, cache_entry)| !cache_entry.is_usable(env))
+                .map(|(query, _)| query.clone())
+                .collect();
+            for key in stale {
+                entries.pop(&key);
+            }
+            entries.put(query, CacheEntry { suggestions, env });
         }
     }
 
@@ -1609,6 +1631,9 @@ impl NuCompleter {
     ) -> Self {
         let engine = CompletionEngine::new(engine_state, stack);
         let cache_env = CacheEnv::of(&engine.engine_state, &engine.stack);
+        // Read fresh each prompt so `cache_size` config changes take effect.
+        let cache_size = engine.engine_state.get_config().completions.cache_size;
+        cache.set_capacity(cache_size.try_into().unwrap_or(0));
         Self {
             engine,
             cache,
@@ -1922,9 +1947,7 @@ mod completer_tests {
         assert!(answer.suggestions().iter().any(|s| s.value == "cd"));
     }
 
-    /// …but only while the environment it was computed in still holds. Reusing entries
-    /// across a `cd` or a `$env.PATH` change is what makes a long-lived cache wrong, and is
-    /// why [`CacheEnv`] exists rather than a TTL short enough to hide the problem.
+    /// …but not across a `cd`/`$env.PATH` change — the reason [`CacheEnv`] exists.
     #[test]
     fn cache_is_not_reused_in_a_different_environment() {
         use nu_protocol::Value;
