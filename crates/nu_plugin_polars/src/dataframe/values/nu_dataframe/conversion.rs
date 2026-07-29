@@ -20,6 +20,7 @@ use polars::prelude::{
 
 use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{Record, ShellError, Span, Value};
+use polars::time::Duration as PolarsDuration;
 use polars_arrow::Either;
 use polars_arrow::array::Utf8ViewArray;
 
@@ -1551,6 +1552,27 @@ fn utf8_view_array_to_value(array: &Utf8ViewArray, span: Span) -> Vec<Value> {
         .collect::<Vec<Value>>()
 }
 
+pub fn convert_duration(v: Value) -> Result<PolarsDuration, ShellError> {
+    match v {
+        Value::Duration { val, .. } => Ok(PolarsDuration::new(val)),
+        Value::Int { val, .. } => Ok(PolarsDuration::new(val)),
+        Value::String { ref val, .. } => {
+            PolarsDuration::try_parse(val).map_err(|e| ShellError::CantConvert {
+                to_type: "duration".into(),
+                from_type: "string".into(),
+                span: v.span(),
+                help: Some(format!("Could not parse string as duration: {e}")),
+            })
+        }
+        _ => Err(ShellError::CantConvert {
+            to_type: "duration".into(),
+            from_type: v.get_type().to_string(),
+            span: v.span(),
+            help: None,
+        }),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use indexmap::indexmap;
@@ -1980,6 +2002,24 @@ mod tests {
             .get_field("foo")
             .expect("Field foo should be present in schema");
         assert_eq!(field.dtype, DataType::String);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_convert_duration() -> Result<(), Box<dyn std::error::Error>> {
+        let span = Span::test_data();
+        let duration_value = Value::duration(1_000_000, span);
+        let converted_duration = convert_duration(duration_value.clone())?;
+        assert_eq!(converted_duration, PolarsDuration::new(1_000_000));
+
+        let int_value = Value::int(1_000_000, span);
+        let converted_int_duration = convert_duration(int_value.clone())?;
+        assert_eq!(converted_int_duration, PolarsDuration::new(1_000_000));
+
+        let invalid_value = Value::string("invalid".to_string(), span);
+        let result = convert_duration(invalid_value.clone());
+        assert!(result.is_err());
 
         Ok(())
     }

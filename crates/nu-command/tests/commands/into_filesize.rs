@@ -1,133 +1,170 @@
-use nu_test_support::nu;
+use nu_protocol::Filesize;
+use nu_test_support::prelude::*;
+use pretty_assertions::assert_matches;
 
 #[test]
-fn int() {
-    let actual = nu!("1 | into filesize");
-
-    assert!(actual.out.contains("1 B"));
+fn int() -> Result {
+    test()
+        .run("1 | into filesize")
+        .expect_value_eq(Filesize::from(1))
 }
 
 #[test]
-fn float() {
-    let actual = nu!("1.2 | into filesize");
-
-    assert!(actual.out.contains("1 B"));
+fn float() -> Result {
+    test()
+        .run("1.2 | into filesize")
+        .expect_value_eq(Filesize::from(1))
 }
 
 #[test]
-fn str() {
-    let actual = nu!("'2000' | into filesize");
-    assert!(actual.out.contains("2.0 kB"));
+fn str() -> Result {
+    test()
+        .run("'2000' | into filesize")
+        .expect_value_eq(Filesize::from(2000))
 }
 
 #[test]
-fn str_newline() {
-    let actual = nu!(r#"
-    "2000
-    " | into filesize
-    "#);
-
-    assert!(actual.out.contains("2.0 kB"));
+fn str_newline() -> Result {
+    test()
+        .run_with_data("into filesize", "2000\n ")
+        .expect_value_eq(Filesize::from(2000))
 }
 
 #[test]
-fn str_many_newlines() {
-    let actual = nu!(r#"
-    "2000
-    
-    " | into filesize
-    "#);
-
-    assert!(actual.out.contains("2.0 kB"));
+fn str_many_newlines() -> Result {
+    test()
+        .run_with_data("into filesize", "2000\n \n ")
+        .expect_value_eq(Filesize::from(2000))
 }
 
 #[test]
-fn filesize() {
-    let actual = nu!("3kB | into filesize");
-
-    assert!(actual.out.contains("3.0 kB"));
+fn filesize() -> Result {
+    test()
+        .run("3kB | into filesize")
+        .expect_value_eq(Filesize::from(3000))
 }
 
 #[test]
-fn negative_filesize() {
-    let actual = nu!("-3kB | into filesize");
-
-    assert!(actual.out.contains("-3.0 kB"));
+fn negative_filesize() -> Result {
+    test()
+        .run("-3kB | into filesize")
+        .expect_value_eq(Filesize::from(-3000))
 }
 
 #[test]
-fn negative_str_filesize() {
-    let actual = nu!("'-3kB' | into filesize");
-
-    assert!(actual.out.contains("-3.0 kB"));
+fn negative_str_filesize() -> Result {
+    test()
+        .run("'-3kB' | into filesize")
+        .expect_value_eq(Filesize::from(-3000))
 }
 
 #[test]
-fn wrong_negative_str_filesize() {
-    let actual = nu!("'--3kB' | into filesize");
+fn wrong_negative_str_filesize() -> Result {
+    let err = test().run("'--3kB' | into filesize").expect_shell_error()?;
 
-    assert!(actual.err.contains("can't convert string to filesize"));
+    assert_matches!(
+        err,
+        ShellError::CantConvert { to_type, from_type, .. }
+            if to_type == "filesize" && from_type == "string"
+    );
+    Ok(())
 }
 
 #[test]
-fn large_negative_str_filesize() {
-    let actual = nu!("'-10000PB' | into filesize");
+fn large_negative_str_filesize() -> Result {
+    let err = test()
+        .run("'-10000PB' | into filesize")
+        .expect_shell_error()?;
 
-    assert!(actual.err.contains("can't convert string to filesize"));
+    assert_matches!(
+        err,
+        ShellError::CantConvert { to_type, from_type, .. }
+            if to_type == "filesize" && from_type == "string"
+    );
+    Ok(())
 }
 
 #[test]
-fn negative_str() {
-    let actual = nu!("'-1' | into filesize");
-
-    assert!(actual.out.contains("-1 B"));
+fn negative_str() -> Result {
+    test()
+        .run("'-1' | into filesize")
+        .expect_value_eq(Filesize::from(-1))
 }
 
 #[test]
-fn wrong_negative_str() {
-    let actual = nu!("'--1' | into filesize");
+fn wrong_negative_str() -> Result {
+    let err = test().run("'--1' | into filesize").expect_shell_error()?;
 
-    assert!(actual.err.contains("can't convert string to filesize"));
+    assert_matches!(
+        err,
+        ShellError::CantConvert { to_type, from_type, .. }
+            if to_type == "filesize" && from_type == "string"
+    );
+    Ok(())
 }
 
 #[test]
-fn positive_str_filesize() {
-    let actual = nu!("'+1kB' | into filesize");
-
-    assert!(actual.out.contains("1.0 kB"));
+fn positive_str_filesize() -> Result {
+    test()
+        .run("'+1kB' | into filesize")
+        .expect_value_eq(Filesize::from(1000))
 }
 
 #[test]
-fn wrong_positive_str_filesize() {
-    let actual = nu!("'++1kB' | into filesize");
+fn wrong_positive_str_filesize() -> Result {
+    let err = test().run("'++1kB' | into filesize").expect_shell_error()?;
 
-    assert!(actual.err.contains("can't convert string to filesize"));
+    assert_matches!(
+        err,
+        ShellError::CantConvert { to_type, from_type, .. }
+            if to_type == "filesize" && from_type == "string"
+    );
+    Ok(())
 }
 
 #[test]
-fn large_positive_str_filesize() {
-    let actual = nu!("'+10000PB' | into filesize");
+fn large_positive_str_filesize() -> Result {
+    let err = test()
+        .run("'+10000PB' | into filesize")
+        .expect_shell_error()?;
 
-    assert!(actual.err.contains("can't convert string to filesize"));
+    assert_matches!(
+        err,
+        ShellError::CantConvert { to_type, from_type, .. }
+            if to_type == "filesize" && from_type == "string"
+    );
+    Ok(())
 }
 
 #[test]
-fn positive_str() {
-    let actual = nu!("'+1' | into filesize");
-
-    assert!(actual.out.contains("1 B"));
+fn positive_str() -> Result {
+    test()
+        .run("'+1' | into filesize")
+        .expect_value_eq(Filesize::from(1))
 }
 
 #[test]
-fn wrong_positive_str() {
-    let actual = nu!("'++1' | into filesize");
+fn wrong_positive_str() -> Result {
+    let err = test().run("'++1' | into filesize").expect_shell_error()?;
 
-    assert!(actual.err.contains("can't convert string to filesize"));
+    assert_matches!(
+        err,
+        ShellError::CantConvert { to_type, from_type, .. }
+            if to_type == "filesize" && from_type == "string"
+    );
+    Ok(())
 }
 
 #[test]
-fn invalid_str() {
-    let actual = nu!("'42.0 42.0 kB' | into filesize");
+fn invalid_str() -> Result {
+    let err = test()
+        .run("'42.0 42.0 kB' | into filesize")
+        .expect_shell_error()?;
 
-    assert!(actual.err.contains("can't convert string to filesize"));
+    assert_matches!(
+        err,
+        ShellError::CantConvert { to_type, from_type, .. }
+            if to_type == "filesize" && from_type == "string"
+    );
+    Ok(())
 }

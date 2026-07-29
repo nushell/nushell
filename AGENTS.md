@@ -13,7 +13,7 @@
 - Make sure that all the changes are written in idiomatic Rust with minimal code duplication without adding a bunch of new helpers. Use the existing helpers we already have if possible. Also ensure that all new changes are well documented for easy maintainability.
 - Try to avoid doing `cargo clean` because it just increases compile time the next time you have to compile.
 - Make sure you use `CARGO_TARGET_DIR` to find where binaries are built.
-- See [rust_style.md](rust_style.md), [FAQ.md](FAQ.md), [HOWTOS.md](HOWTOS.md)
+- See [rust_style.md](devdocs/rust_style.md), [FAQ.md](devdocs/FAQ.md), [HOWTOS.md](devdocs/HOWTOS.md)
 
 ## Issue and PR Guidelines
 - Never create an issue.

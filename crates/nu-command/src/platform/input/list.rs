@@ -4594,6 +4594,7 @@ mod test {
     }
 
     #[test]
+    #[serial]
     fn initial_read_timeout_does_not_block_on_slow_stream() {
         let span = nu_protocol::Span::test_data();
         let (sender, receiver) = std::sync::mpsc::channel::<Value>();

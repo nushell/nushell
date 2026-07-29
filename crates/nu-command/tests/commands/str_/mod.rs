@@ -456,11 +456,11 @@ fn str_reverse() -> Result {
 }
 
 #[test]
-#[deps(NU)]
+#[deps(TESTBIN_COCOCO)]
 fn test_redirection_trim() -> Result {
     let code = "
-        let x = (nu --testbin cococo niceone); $x | str trim | str length
-        ";
+        let x = (cococo niceone); $x | str trim | str length
+    ";
 
     test().run(code).expect_value_eq(7)
 }

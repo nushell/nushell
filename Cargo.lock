@@ -3809,9 +3809,9 @@ dependencies = [
 
 [[package]]
 name = "kitest"
-version = "0.5.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "910fae8c27bd6e81bea7ce2e0810171d96108e04cb078db9d4976ab373837b74"
+checksum = "3b22f77e58db0188ceff8ed0400d0f8680daad1645e52bdc5b1db4878e9ed2ac"
 dependencies = [
  "crossbeam-channel",
 ]
@@ -4620,6 +4620,7 @@ dependencies = [
  "ctrlc",
  "dirs 6.0.0",
  "fancy-regex",
+ "itertools 0.15.0",
  "lexopt",
  "log",
  "miette",
@@ -5333,6 +5334,7 @@ dependencies = [
  "bytes",
  "derive_more 2.1.1",
  "gatekeeper",
+ "indoc",
  "itertools 0.15.0",
  "kitest",
  "lexopt",
@@ -5340,6 +5342,7 @@ dependencies = [
  "miette",
  "nu-ansi-term",
  "nu-cli",
+ "nu-cmd-base",
  "nu-cmd-extra",
  "nu-cmd-lang",
  "nu-cmd-plugin",
@@ -5546,9 +5549,9 @@ dependencies = [
 
 [[package]]
 name = "num-bigint"
-version = "0.4.6"
+version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a5e44f723f1133c9deac646763579fdb3ac745e418f2a7af9cd0c431da1f20b9"
+checksum = "c89e69e7e0f03bea5ef08013795c25018e101932225a656383bd384495ecc367"
 dependencies = [
  "num-integer",
  "num-traits",
@@ -9041,6 +9044,14 @@ name = "termtree"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f50febec83f5ee1df3015341d8bd429f2d1cc62bcba7ea2076759d315084683"
+
+[[package]]
+name = "testbins"
+version = "0.114.2"
+dependencies = [
+ "indoc",
+ "lexopt",
+]
 
 [[package]]
 name = "testing_table"

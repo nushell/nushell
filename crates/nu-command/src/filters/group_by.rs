@@ -1,6 +1,8 @@
 use indexmap::IndexMap;
 use nu_engine::{ClosureEval, command_prelude::*};
-use nu_protocol::{FromValue, IntoValue, engine::Closure, shell_error::generic::GenericError};
+use nu_protocol::{
+    FromValue, ast::PathMember, engine::Closure, shell_error::generic::GenericError,
+};
 
 #[derive(Clone)]
 pub struct GroupBy;
@@ -44,7 +46,8 @@ impl Command for GroupBy {
     - if the input data is not a string, the grouper will convert the key to string but the values will remain in their original format. e.g. with bools, "true" and true would be in the same group (see example).
     - datetime is formatted based on your configuration setting. use `format date` to change the format.
     - filesize is formatted based on your configuration setting. use `format filesize` to change the format.
-    - some nushell values are not supported, such as closures."#
+    - some nushell values are not supported, such as closures.
+    - null group keys are never mapped to the empty string. The default record output omits null groups (records cannot use null as a key); use --to-table to include them as null values. Optional cell paths (e.g. `foo?`) still ignore rows where access yields null."#
     }
 
     fn run(
@@ -358,22 +361,57 @@ fn groupers_to_column_names(groupers: &[Spanned<Grouper>]) -> Result<Vec<String>
     Ok(column_names)
 }
 
+/// Internal group key. `Nothing` is distinct from the empty string so null and `""`
+/// do not collapse. Record output omits `Nothing` keys; `--to-table` emits them as null.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+enum GroupKey {
+    Nothing,
+    String(String),
+}
+
+impl GroupKey {
+    fn from_value(value: &Value, config: &nu_protocol::Config) -> Self {
+        if value.is_nothing() {
+            Self::Nothing
+        } else {
+            Self::String(value.to_expanded_string(", ", config))
+        }
+    }
+
+    fn into_value(self, span: Span) -> Value {
+        match self {
+            Self::Nothing => Value::nothing(span),
+            Self::String(s) => Value::string(s, span),
+        }
+    }
+}
+
+fn path_has_optional_member(column_name: &CellPath) -> bool {
+    column_name.members.iter().any(|member| match member {
+        PathMember::String { optional, .. } => *optional,
+        PathMember::Int { optional, .. } => *optional,
+    })
+}
+
 fn group_cell_path(
     column_name: &CellPath,
     prune: bool,
     values: Vec<Value>,
     config: &nu_protocol::Config,
-) -> Result<IndexMap<String, Vec<Value>>, ShellError> {
+) -> Result<IndexMap<GroupKey, Vec<Value>>, ShellError> {
     let mut groups = IndexMap::<_, Vec<_>>::new();
+    let optional_path = path_has_optional_member(column_name);
 
     for mut value in values.into_iter() {
-        let key = value.follow_cell_path(&column_name.members)?;
+        let key_val = value.follow_cell_path(&column_name.members)?;
 
-        if key.is_nothing() {
-            continue; // likely the result of a failed optional access, ignore this value
+        // Optional cell paths (`col?`) drop rows when access yields nothing (missing
+        // column or explicit null). Required paths keep null as a distinct group key.
+        if key_val.is_nothing() && optional_path {
+            continue;
         }
 
-        let key = key.to_expanded_string(", ", config);
+        let key = GroupKey::from_value(key_val.as_ref(), config);
 
         if prune {
             // it's okay if this fails since pruning is best-effort
@@ -402,16 +440,14 @@ fn group_closure(
     closure: Closure,
     engine_state: &EngineState,
     stack: &mut Stack,
-) -> Result<IndexMap<String, Vec<Value>>, ShellError> {
+) -> Result<IndexMap<GroupKey, Vec<Value>>, ShellError> {
     let mut groups = IndexMap::<_, Vec<_>>::new();
     let mut closure = ClosureEval::new(engine_state, stack, closure);
     let config = &stack.get_config(engine_state);
 
     for value in values {
-        let key = closure
-            .run_with_value(value.clone())?
-            .into_value(span)?
-            .to_expanded_string(", ", config);
+        let key_val = closure.run_with_value(value.clone())?.into_value(span)?;
+        let key = GroupKey::from_value(&key_val, config);
 
         groups.entry(key).or_default().push(value);
     }
@@ -442,8 +478,8 @@ struct Grouped {
 }
 
 enum Tree {
-    Leaf(IndexMap<String, Vec<Value>>),
-    Branch(IndexMap<String, Grouped>),
+    Leaf(IndexMap<GroupKey, Vec<Value>>),
+    Branch(IndexMap<GroupKey, Grouped>),
 }
 
 impl Grouped {
@@ -451,7 +487,7 @@ impl Grouped {
         let mut groups = IndexMap::<_, Vec<_>>::new();
 
         for value in values.into_iter() {
-            let key = value.to_expanded_string(", ", config);
+            let key = GroupKey::from_value(&value, config);
             groups.entry(key).or_default().push(value);
         }
 
@@ -530,14 +566,15 @@ impl Grouped {
         match self.groups {
             Tree::Leaf(leaf) => leaf
                 .into_iter()
-                .map(|(group, values)| vec![(values.into_value(head)), (group.into_value(head))])
+                .map(|(group, values)| vec![values.into_value(head), group.into_value(head)])
                 .collect::<Vec<Vec<Value>>>(),
             Tree::Branch(branch) => branch
                 .into_iter()
                 .flat_map(|(group, items)| {
+                    let group_val = group.into_value(head);
                     let mut inner = items._into_table(head);
                     for row in &mut inner {
-                        row.push(group.clone().into_value(head));
+                        row.push(group_val.clone());
                     }
                     inner
                 })
@@ -549,14 +586,22 @@ impl Grouped {
         match self.groups {
             Tree::Leaf(leaf) => Value::record(
                 leaf.into_iter()
-                    .map(|(k, v)| (k, v.into_value(head)))
+                    // Records cannot use null as a key; omit null groups rather than
+                    // mapping them to the empty string (which collides with "").
+                    .filter_map(|(k, v)| match k {
+                        GroupKey::String(key) => Some((key, v.into_value(head))),
+                        GroupKey::Nothing => None,
+                    })
                     .collect(),
                 head,
             ),
             Tree::Branch(branch) => {
                 let values = branch
                     .into_iter()
-                    .map(|(k, v)| (k, v.into_record(head)))
+                    .filter_map(|(k, v)| match k {
+                        GroupKey::String(key) => Some((key, v.into_record(head))),
+                        GroupKey::Nothing => None,
+                    })
                     .collect();
                 Value::record(values, head)
             }
