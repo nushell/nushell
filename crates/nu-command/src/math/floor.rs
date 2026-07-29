@@ -43,6 +43,12 @@ impl Command for MathFloor {
         "Returns the floor of a number (largest integer less than or equal to that number)."
     }
 
+    fn extra_description(&self) -> &str {
+        "Filesize and duration values are stored as whole numbers of base units \
+         (bytes and nanoseconds). Without a display unit to round against, \
+         `math floor` is a no-op for those types."
+    }
+
     fn search_terms(&self) -> Vec<&str> {
         vec!["round down", "rounding", "integer"]
     }
@@ -125,6 +131,12 @@ impl Command for MathFloor {
                         Span::test_data(),
                     ),
                 })),
+            },
+            Example {
+                // Filesize is already whole bytes; flooring cannot use the display unit (KB).
+                description: "Filesize values are already whole bytes, so flooring is a no-op.",
+                example: "2.1KB | math floor",
+                result: Some(Value::test_filesize(2100)),
             },
         ]
     }

@@ -43,6 +43,12 @@ impl Command for MathCeil {
         "Returns the ceil of a number (smallest integer greater than or equal to that number)."
     }
 
+    fn extra_description(&self) -> &str {
+        "Filesize and duration values are stored as whole numbers of base units \
+         (bytes and nanoseconds). Without a display unit to round against, \
+         `math ceil` is a no-op for those types."
+    }
+
     fn search_terms(&self) -> Vec<&str> {
         vec!["ceiling", "round up", "rounding", "integer"]
     }
@@ -125,6 +131,12 @@ impl Command for MathCeil {
                         Span::test_data(),
                     ),
                 })),
+            },
+            Example {
+                // Filesize is already whole bytes; ceiling cannot use the display unit (KB).
+                description: "Filesize values are already whole bytes, so ceiling is a no-op.",
+                example: "2.1KB | math ceil",
+                result: Some(Value::test_filesize(2100)),
             },
         ]
     }

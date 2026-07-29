@@ -46,3 +46,11 @@ fn variance_duration_returns_number() -> Result {
         .run("[1sec 3sec] | math variance")
         .expect_value_eq(1_000_000_000_000_000_000.0)
 }
+
+#[test]
+fn variance_filesize_returns_number_in_bytes_squared() -> Result {
+    // 1KB=1000B, 3KB=3000B → population variance 1_000_000 (B²), not 1 (KB²).
+    test()
+        .run("[1KB 3KB] | math variance")
+        .expect_value_eq(1_000_000.0)
+}

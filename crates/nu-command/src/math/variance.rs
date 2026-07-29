@@ -40,6 +40,14 @@ impl Command for MathVariance {
         "Returns the variance of a list of numbers or of each column in a table."
     }
 
+    fn extra_description(&self) -> &str {
+        "For filesize and duration inputs, variance is computed in base units \
+         (bytes and nanoseconds) and returned as a plain number. There is no \
+         squared unit type in Nushell, so the result is the variance of the \
+         underlying byte or nanosecond values (B² or ns²), not of the display \
+         unit used when the values were written."
+    }
+
     fn search_terms(&self) -> Vec<&str> {
         vec!["deviation", "dispersion", "variation", "statistics"]
     }
@@ -125,6 +133,12 @@ impl Command for MathVariance {
                         Span::test_data(),
                     ),
                 })),
+            },
+            Example {
+                // 1KB=1000B, 3KB=3000B; population variance is 1_000_000 (B²), not 1 (KB²).
+                description: "Variance of filesizes is a number of base units squared (bytes²).",
+                example: "[1KB 3KB] | math variance",
+                result: Some(Value::test_float(1_000_000.0)),
             },
         ]
     }

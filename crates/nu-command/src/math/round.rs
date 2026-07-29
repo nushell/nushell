@@ -49,6 +49,13 @@ impl Command for MathRound {
         "Returns the input number rounded to the specified precision."
     }
 
+    fn extra_description(&self) -> &str {
+        "Filesize and duration values are stored as whole numbers of base units \
+         (bytes and nanoseconds). Without a display unit to round against, \
+         `math round` is a no-op for those types. `--precision` is not supported \
+         for filesize or duration."
+    }
+
     fn search_terms(&self) -> Vec<&str> {
         vec!["approx", "closest", "nearest"]
     }
@@ -157,6 +164,12 @@ impl Command for MathRound {
                         Span::test_data(),
                     ),
                 })),
+            },
+            Example {
+                // Filesize is already whole bytes; rounding cannot use the display unit (KB).
+                description: "Filesize values are already whole bytes, so rounding is a no-op.",
+                example: "2.1KB | math round",
+                result: Some(Value::test_filesize(2100)),
             },
         ]
     }
