@@ -302,6 +302,7 @@ winreg = "0.56"
 # This denies all rustc warnings (including the ones that were causing noise)
 # equivalent to -D warnings
 warnings = "warn"
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(ci)"] }
 
 [workspace.lints.clippy]
 # Warning: workspace lints affect library code as well as tests, so don't enable lints that would be too noisy in tests like that.
