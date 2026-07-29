@@ -1,28 +1,26 @@
+use std::process::Command;
+
 use nu_test_support::prelude::*;
 
 #[test]
 #[deps(NU)]
 fn call() -> Result {
-    let code = "
-        (
-            nu 
-            --no-config-file 
-            --no-std-lib
-            --plugins crates/nu_plugin_nu_example/nu_plugin_nu_example.nu
-            --commands 'nu_plugin_nu_example 4242 teststring'
-        )
-        | complete
-    ";
+    let output = Command::new(NU.path())
+        .env(nu_utils::consts::NATIVE_PATH_ENV_VAR, NU.path())
+        .current_dir(WORKSPACE_ROOT.as_path())
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "--plugins",
+            "crates/nu_plugin_nu_example/nu_plugin_nu_example.nu",
+            "--commands",
+            "nu_plugin_nu_example 4242 teststring",
+        ])
+        .output()?;
 
-    let CompleteResult {
-        exit_code,
-        stdout,
-        stderr,
-    } = test().run(code)?;
-    let stdout = &stdout;
-    let stderr = &stderr;
-
-    assert_eq!(exit_code, 0);
+    let stdout = str::from_utf8(&output.stdout).expect("stdout is utf8");
+    let stderr = str::from_utf8(&output.stderr).expect("stderr is utf8");
+    assert!(output.status.success());
     assert_contains("one", stdout);
     assert_contains("two", stdout);
     assert_contains("three", stdout);
