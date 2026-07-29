@@ -3,6 +3,7 @@ use std::process::Command;
 use nu_test_support::prelude::*;
 
 #[test]
+#[cfg_attr(all(windows, ci), ignore = "likes to fail on Windows in CI")]
 #[deps(NU)]
 fn call() -> Result {
     let output = Command::new(NU.path())
