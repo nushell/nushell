@@ -6,7 +6,7 @@ use nu_test_support::prelude::*;
 #[deps(NU)]
 fn call() -> Result {
     let output = Command::new(NU.path())
-        .env(nu_utils::consts::NATIVE_PATH_ENV_VAR, NU.path())
+        .env(nu_utils::consts::NATIVE_PATH_ENV_VAR, NU.bin_dir())
         .current_dir(WORKSPACE_ROOT.as_path())
         .args([
             "--no-config-file",
