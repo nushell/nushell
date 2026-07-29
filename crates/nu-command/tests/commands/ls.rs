@@ -966,6 +966,80 @@ fn ls_literal_empty_directory() -> Result {
     Ok(())
 }
 
+/// Regression for https://github.com/nushell/nushell/issues/18600#issuecomment-5077246342
+///
+/// `ls **` goes through `glob_from`, which rewrites the pattern to absolute
+/// `{cwd}/**`. Multi-component trailing `**` must expand (directories only).
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn ls_dc_glob_bare_double_star() -> Result {
+    Playground::setup("ls_dc_bare_double_star", |dirs, sandbox| {
+        sandbox.mkdir("1");
+        sandbox.mkdir("1/2");
+        sandbox.mkdir("1/2/3");
+        sandbox.within("1/2/3").with_files(&[EmptyFile("file.txt")]);
+        sandbox.mkdir("foo");
+        sandbox.mkdir("foo/bar");
+
+        // Nested directories present; file.txt must not appear (trailing ** is dir-only).
+        // Must not error with "No matches found".
+        // Compare expanded paths so relative vs absolute display names both work.
+        test()
+            .cwd(dirs.test())
+            .run(
+                "
+                let paths = (ls ** | get name | each { path expand } | sort)
+                (
+                    ($paths | length) >= 5
+                    and ($paths | any {|p| $p | str ends-with $'(char psep)1'})
+                    and ($paths | any {|p| $p | str ends-with $'(char psep)1(char psep)2'})
+                    and ($paths | any {|p| $p | str ends-with $'(char psep)1(char psep)2(char psep)3'})
+                    and ($paths | any {|p| $p | str ends-with $'(char psep)foo'})
+                    and ($paths | any {|p| $p | str ends-with $'(char psep)foo(char psep)bar'})
+                    and not ($paths | any {|p| $p | str ends-with 'file.txt'})
+                )
+                ",
+            )
+            .expect_value_eq(true)
+            .expect("ls ** should list nested dirs and not files with dc-glob");
+    });
+
+    Ok(())
+}
+
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn ls_dc_glob_prefixed_trailing_double_star() -> Result {
+    Playground::setup("ls_dc_prefixed_trailing", |dirs, sandbox| {
+        sandbox.mkdir("foo");
+        sandbox.mkdir("foo/bar");
+        sandbox
+            .within("foo")
+            .with_files(&[EmptyFile("sibling.txt")]);
+        sandbox
+            .within("foo/bar")
+            .with_files(&[EmptyFile("nested.txt")]);
+
+        test()
+            .cwd(dirs.test())
+            .run(
+                "
+                let paths = (ls foo/** | get name | each { path expand } | sort)
+                (
+                    ($paths | any {|p| $p | str ends-with $'(char psep)foo'})
+                    and ($paths | any {|p| $p | str ends-with $'(char psep)foo(char psep)bar'})
+                    and not ($paths | any {|p| $p | str ends-with 'sibling.txt'})
+                    and not ($paths | any {|p| $p | str ends-with 'nested.txt'})
+                )
+                ",
+            )
+            .expect_value_eq(true)
+            .expect("ls foo/** should list foo and nested dirs only with dc-glob");
+    });
+
+    Ok(())
+}
+
 // Windows does not allow `*` in filenames, so this regression only applies on Unix.
 #[cfg(not(windows))]
 #[test]

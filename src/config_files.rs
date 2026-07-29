@@ -22,6 +22,27 @@ use std::{
 
 const LOGINSHELL_FILE: &str = "login.nu";
 
+/// True when `path` is a symlink whose target does not currently exist.
+///
+/// Broken symlinks must never block shell startup: treat them like a missing
+/// file (use built-in defaults) and report a warning. Never remove or replace
+/// the symlink.
+fn is_dangling_symlink(path: &Path) -> bool {
+    path.is_symlink() && !path.exists()
+}
+
+/// Warn that a startup path is a broken symlink and that built-in defaults
+/// (or skipping the file) will be used instead.
+fn warn_dangling_symlink(kind: &str, path: &Path) {
+    let target = fs::read_link(path)
+        .map(|p| p.display().to_string())
+        .unwrap_or_else(|_| "<unknown>".to_string());
+    eprintln!(
+        "Warning: {kind} is a broken symlink ({} -> {target}); using built-in defaults.",
+        path.display()
+    );
+}
+
 /// Load a config/env file from the already-resolved path in `config_dirs`.
 ///
 /// Paths come only from `engine_state.config_dirs` — never re-resolved.
@@ -30,6 +51,10 @@ const LOGINSHELL_FILE: &str = "login.nu";
 /// used only for error messages (so the user sees the path they typed, not the
 /// absolute form). Otherwise first-run scaffolding may create the default file
 /// under `config_home`.
+///
+/// A broken (dangling) symlink on the default path is treated like a missing
+/// file: defaults stay loaded and a warning is printed. The symlink is never
+/// removed or overwritten.
 pub(crate) fn read_config_file(
     engine_state: &mut EngineState,
     stack: &mut Stack,
@@ -83,11 +108,18 @@ pub(crate) fn read_config_file(
 
     // Default path under config_home — may scaffold on first run.
     let mut config_dir = engine_state.config_dirs.config_home.clone();
-    if !config_dir.exists()
-        && let Err(err) = std::fs::create_dir_all(&config_dir)
-    {
-        eprintln!("Failed to create config directory: {err}");
-        return;
+    if !config_dir.exists() {
+        if is_dangling_symlink(&config_dir) {
+            eprintln!(
+                "Warning: config directory is a broken symlink ({}); using built-in defaults.",
+                config_dir.display()
+            );
+            return;
+        }
+        if let Err(err) = std::fs::create_dir_all(&config_dir) {
+            eprintln!("Failed to create config directory: {err}");
+            return;
+        }
     }
 
     // Prefer the resolved path; fall back to config_home + kind if empty.
@@ -97,6 +129,12 @@ pub(crate) fn read_config_file(
     } else {
         config_path
     };
+
+    // Broken symlink ≡ missing file: keep defaults, warn, never mutate the link.
+    if is_dangling_symlink(&config_path) {
+        warn_dangling_symlink(config_kind.path(), &config_path);
+        return;
+    }
 
     if !config_path.exists() {
         let scaffold_config_file = config_kind.scaffold();
@@ -151,6 +189,11 @@ pub(crate) fn read_loginshell_file(
     config_path.push(LOGINSHELL_FILE);
 
     info!("loginshell_file: {}", config_path.display());
+
+    if is_dangling_symlink(&config_path) {
+        warn_dangling_symlink(LOGINSHELL_FILE, &config_path);
+        return;
+    }
 
     if config_path.exists() {
         eval_config_contents_with_kind(

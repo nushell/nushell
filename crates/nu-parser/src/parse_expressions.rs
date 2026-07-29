@@ -1384,7 +1384,7 @@ pub fn parse_math_expression(
                 return garbage(working_set, spans[idx - 1]);
             }
         }
-        let mut rhs = parse_value(working_set, spans[idx], &SyntaxShape::Any, None);
+        let mut rhs = parse_value(working_set, spans[idx], &SyntaxShape::Any, input_type);
 
         for not_start_span in not_start_spans.iter().rev() {
             rhs = Expression::new(

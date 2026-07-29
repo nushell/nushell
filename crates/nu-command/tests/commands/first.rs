@@ -1,8 +1,10 @@
+use chrono::DateTime;
 use nu_protocol::{
-    IntRange, IntoPipelineData, ListStream, PipelineData, PipelineMetadata, Range, Signals, Span,
-    Value, ast::RangeInclusion,
+    Filesize, IntRange, IntoPipelineData, ListStream, PipelineData, PipelineMetadata, Range,
+    Signals, Span, Value, ast::RangeInclusion,
 };
-use nu_test_support::{fs::Stub::EmptyFile, prelude::*};
+use nu_test_support::prelude::*;
+use pretty_assertions::assert_matches;
 use rstest::rstest;
 
 #[derive(Clone, Copy)]
@@ -46,121 +48,126 @@ fn pipeline_data_with_metadata(kind: InputKind, meta: Option<PipelineMetadata>) 
 }
 
 #[test]
-fn gets_first_rows_by_amount() {
-    Playground::setup("first_test_1", |dirs, sandbox| {
-        sandbox.with_files(&[
-            EmptyFile("los.txt"),
-            EmptyFile("tres.txt"),
-            EmptyFile("amigos.txt"),
-            EmptyFile("arepas.clu"),
-        ]);
-
-        let actual = nu!(cwd: dirs.test(), "ls | first 3 | length");
-
-        assert_eq!(actual.out, "3");
-    })
+fn gets_first_rows_by_amount() -> Result {
+    test()
+        .run_with_data(
+            "$in | first 3 | length",
+            test_table![
+                ["name", "type", "size", "modified"];
+                ["los.txt", "file", Filesize::from(1), DateTime::UNIX_EPOCH.fixed_offset()],
+                ["tres.txt", "file", Filesize::from(2), DateTime::UNIX_EPOCH.fixed_offset()],
+                ["amigos.txt", "file", Filesize::from(3), DateTime::UNIX_EPOCH.fixed_offset()],
+                ["arepas.clu", "file", Filesize::from(4), DateTime::UNIX_EPOCH.fixed_offset()],
+            ],
+        )
+        .expect_value_eq(3)
 }
 
 #[test]
-fn gets_all_rows_if_amount_higher_than_all_rows() {
-    Playground::setup("first_test_2", |dirs, sandbox| {
-        sandbox.with_files(&[
-            EmptyFile("los.txt"),
-            EmptyFile("tres.txt"),
-            EmptyFile("amigos.txt"),
-            EmptyFile("arepas.clu"),
-        ]);
-
-        let actual = nu!(
-            cwd: dirs.test(), "ls | first 99 | length");
-
-        assert_eq!(actual.out, "4");
-    })
+fn gets_all_rows_if_amount_higher_than_all_rows() -> Result {
+    test()
+        .run_with_data(
+            "$in | first 99 | length",
+            test_table![
+                ["name", "type", "size", "modified"];
+                ["los.txt", "file", Filesize::from(1), DateTime::UNIX_EPOCH.fixed_offset()],
+                ["tres.txt", "file", Filesize::from(2), DateTime::UNIX_EPOCH.fixed_offset()],
+                ["amigos.txt", "file", Filesize::from(3), DateTime::UNIX_EPOCH.fixed_offset()],
+                ["arepas.clu", "file", Filesize::from(4), DateTime::UNIX_EPOCH.fixed_offset()],
+            ],
+        )
+        .expect_value_eq(4)
 }
 
 #[test]
-fn gets_first_row_when_no_amount_given() {
-    Playground::setup("first_test_3", |dirs, sandbox| {
-        sandbox.with_files(&[EmptyFile("caballeros.txt"), EmptyFile("arepas.clu")]);
-
-        // FIXME: We should probably change first to return a one row table instead of a record here
-        let actual = nu!(cwd: dirs.test(), "ls | first | values | length");
-
-        assert_eq!(actual.out, "4");
-    })
+fn gets_first_row_when_no_amount_given() -> Result {
+    // FIXME: We should probably change first to return a one row table instead of a record here
+    test()
+        .run_with_data(
+            "$in | first | values | length",
+            test_table![
+                ["name", "type", "size", "modified"];
+                ["caballeros.txt", "file", Filesize::from(1), DateTime::UNIX_EPOCH.fixed_offset()],
+                ["arepas.clu", "file", Filesize::from(2), DateTime::UNIX_EPOCH.fixed_offset()],
+            ],
+        )
+        .expect_value_eq(4)
 }
 
 #[test]
-fn gets_first_row_as_list_when_amount_given() {
-    let actual = nu!("[1, 2, 3] | first 1 | describe");
-
-    assert_eq!(actual.out, "list<int>");
+fn gets_first_row_as_list_when_amount_given() -> Result {
+    test()
+        .run("[1, 2, 3] | first 1 | describe")
+        .expect_value_eq("list<int>")
 }
 
 #[test]
-fn gets_first_bytes() {
-    let actual = nu!("(0x[aa bb cc] | first 2) == 0x[aa bb]");
-
-    assert_eq!(actual.out, "true");
+fn gets_first_bytes() -> Result {
+    test()
+        .run("(0x[aa bb cc] | first 2) == 0x[aa bb]")
+        .expect_value_eq(true)
 }
 
 #[test]
-fn gets_first_byte() {
-    let actual = nu!("0x[aa bb cc] | first");
-
-    assert_eq!(actual.out, "170");
+fn gets_first_byte() -> Result {
+    test().run("0x[aa bb cc] | first").expect_value_eq(170)
 }
 
 #[test]
-fn gets_first_bytes_from_stream() {
-    let actual = nu!("(1.. | each { 0x[aa bb cc] } | bytes collect | first 2) == 0x[aa bb]");
-
-    assert_eq!(actual.out, "true");
+fn gets_first_bytes_from_stream() -> Result {
+    test()
+        .run("(1.. | each { 0x[aa bb cc] } | bytes collect | first 2) == 0x[aa bb]")
+        .expect_value_eq(true)
 }
 
 #[test]
-fn gets_first_byte_from_stream() {
-    let actual = nu!("1.. | each { 0x[aa bb cc] } | bytes collect | first");
-
-    assert_eq!(actual.out, "170");
+fn gets_first_byte_from_stream() -> Result {
+    test()
+        .run("1.. | each { 0x[aa bb cc] } | bytes collect | first")
+        .expect_value_eq(170)
 }
 
 #[test]
 // covers a situation where `first` used to behave strangely on list<binary> input
-fn works_with_binary_list() {
-    let actual = nu!("([0x[01 11]] | first) == 0x[01 11]");
-
-    assert_eq!(actual.out, "true");
+fn works_with_binary_list() -> Result {
+    test()
+        .run("([0x[01 11]] | first) == 0x[01 11]")
+        .expect_value_eq(true)
 }
 
 #[test]
-fn errors_on_negative_rows() {
-    let actual = nu!("[1, 2, 3] | first -10");
+fn errors_on_negative_rows() -> Result {
+    let err = test().run("[1, 2, 3] | first -10").expect_shell_error()?;
 
-    assert!(actual.err.contains("use a positive value"));
+    assert_matches!(err, ShellError::NeedsPositiveValue { .. });
+    Ok(())
 }
 
 #[test]
-fn does_not_error_on_empty_list_when_no_rows_given() {
-    let actual = nu!("[] | first | describe");
-
-    assert!(actual.out.contains("nothing"));
+fn does_not_error_on_empty_list_when_no_rows_given() -> Result {
+    test()
+        .run("[] | first | describe")
+        .expect_value_eq("nothing")
 }
 
 #[test]
-fn error_on_empty_list_when_no_rows_given_in_strict_mode() {
-    let actual = nu!("[] | first --strict | describe");
+fn error_on_empty_list_when_no_rows_given_in_strict_mode() -> Result {
+    let err = test()
+        .run("[] | first --strict | describe")
+        .expect_shell_error()?;
 
-    assert!(actual.err.contains("index too large"));
+    assert_matches!(err, ShellError::AccessEmptyContent { .. });
+    Ok(())
 }
 
 #[test]
-fn gets_first_bytes_and_drops_content_type() {
-    let actual = nu!(format!(
-        "open {} | first 3 | metadata | get content_type? | describe",
-        file!(),
-    ));
-    assert_eq!(actual.out, "nothing");
+fn gets_first_bytes_and_drops_content_type() -> Result {
+    test()
+        .run_with_data(
+            "open $in | first 3 | metadata | get content_type? | describe",
+            file!(),
+        )
+        .expect_value_eq("nothing")
 }
 
 #[test]

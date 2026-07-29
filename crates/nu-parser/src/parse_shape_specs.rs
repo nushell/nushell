@@ -325,7 +325,7 @@ fn parse_named_type_params(
         idx += 1;
     }
 
-    CollectionColumns::new(sig.into_boxed_slice())
+    sig.into()
 }
 
 fn parse_type_params(

@@ -1,4 +1,4 @@
-use nu_test_support::{nu, prelude::*};
+use nu_test_support::prelude::*;
 use std::fs;
 
 #[test]
@@ -11,91 +11,115 @@ fn ignore_still_causes_stream_to_be_consumed_fully() -> Result {
         ";
 
         let () = test().cwd(dirs.test()).run(code)?;
-        let file_content = fs::read_to_string(dirs.test().join("output.txt")).unwrap();
+        let file_content = fs::read_to_string(dirs.test().join("output.txt"))?;
         assert_eq!(file_content, "foobar");
         Ok(())
     })
 }
 
 #[test]
-fn ignore_default_consumes_stdout_and_keeps_stderr() {
-    let actual = nu!(
-        r#"with-env { FOO: "message" } { nu --testbin echo_env_mixed out-err FOO FOO | ignore }"#
-    );
+#[deps(NU, TESTBIN_ECHO_ENV_MIXED)]
+fn ignore_default_consumes_stdout_and_keeps_stderr() -> Result {
+    let child_code = r#"$env.FOO = "message"; echo_env_mixed out-err FOO FOO | ignore"#;
+    let actual: CompleteResult = test().run_with_data(
+        "let child_code; nu -n -c $child_code | complete",
+        child_code,
+    )?;
 
-    assert_eq!(actual.out, "");
-    assert_eq!(actual.err, "message\n");
+    assert_eq!(actual.stdout, "");
+    assert_eq!(actual.stderr, "message\n");
+    assert_eq!(actual.exit_code, 0);
+    Ok(())
 }
 
 #[test]
-fn ignore_stderr_consumes_stderr_and_allows_stdout() {
-    let actual = nu!(
-        r#"with-env { FOO: "message" } { nu --testbin echo_env_mixed out-err FOO FOO | ignore --stderr }"#
-    );
+#[deps(NU, TESTBIN_ECHO_ENV_MIXED)]
+fn ignore_stderr_consumes_stderr_and_allows_stdout() -> Result {
+    let child_code = r#"$env.FOO = "message"; echo_env_mixed out-err FOO FOO | ignore --stderr"#;
+    let actual: CompleteResult = test().run_with_data(
+        "let child_code; nu -n -c $child_code | complete",
+        child_code,
+    )?;
 
-    assert_eq!(actual.out, "message");
-    assert_eq!(actual.err, "");
+    assert_eq!(actual.stdout, "message\n");
+    assert_eq!(actual.stderr, "");
+    assert_eq!(actual.exit_code, 0);
+    Ok(())
 }
 
 #[test]
-fn ignore_stderr_allows_stdout_to_continue_in_pipeline() {
-    let actual = nu!(
-        r#"with-env { FOO: "message" } { nu --testbin echo_env_mixed out-err FOO FOO | ignore --stderr | str uppercase }"#
-    );
+#[deps(NU, TESTBIN_ECHO_ENV_MIXED)]
+fn ignore_stderr_allows_stdout_to_continue_in_pipeline() -> Result {
+    let child_code = r#"
+        $env.FOO = "message"
+        echo_env_mixed out-err FOO FOO | ignore --stderr | str uppercase
+    "#;
+    let actual: CompleteResult = test().run_with_data(
+        "let child_code; nu -n -c $child_code | complete",
+        child_code,
+    )?;
 
-    assert_eq!(actual.out, "MESSAGE");
-    assert_eq!(actual.err, "");
+    assert_eq!(actual.stdout, "MESSAGE\n");
+    assert_eq!(actual.stderr, "");
+    assert_eq!(actual.exit_code, 0);
+    Ok(())
 }
 
 #[test]
-fn ignore_with_stdout_and_stderr_consumes_both_streams() {
-    let actual = nu!(
-        r#"with-env { FOO: "message" } { nu --testbin echo_env_mixed out-err FOO FOO | ignore --stdout --stderr }"#
-    );
+#[deps(NU, TESTBIN_ECHO_ENV_MIXED)]
+fn ignore_with_stdout_and_stderr_consumes_both_streams() -> Result {
+    let child_code =
+        r#"$env.FOO = "message"; echo_env_mixed out-err FOO FOO | ignore --stdout --stderr"#;
+    let actual: CompleteResult = test().run_with_data(
+        "let child_code; nu -n -c $child_code | complete",
+        child_code,
+    )?;
 
-    assert_eq!(actual.out, "");
-    assert_eq!(actual.err, "");
+    assert_eq!(actual.stdout, "");
+    assert_eq!(actual.stderr, "");
+    assert_eq!(actual.exit_code, 0);
+    Ok(())
 }
 
 #[test]
-fn ignore_show_errors_allows_external_failures_and_sets_exit_code() {
-    let actual =
-        nu!("try { nu --testbin fail 42 | ignore --show-errors } catch { $env.LAST_EXIT_CODE }");
-
-    assert_eq!(actual.out, "42");
+#[deps(TESTBIN_FAIL)]
+fn ignore_show_errors_allows_external_failures_and_sets_exit_code() -> Result {
+    test()
+        .run("try { fail 42 | ignore --show-errors } catch { $env.LAST_EXIT_CODE }")
+        .expect_value_eq(42)
 }
 
 #[test]
-fn ignore_show_errors_sets_internal_failure_exit_code_to_one() {
-    let actual = nu!(
-        "try { error make {msg: 'boom'} | ignore --show-errors } catch { $env.LAST_EXIT_CODE }"
-    );
-
-    assert_eq!(actual.out, "1");
+fn ignore_show_errors_sets_internal_failure_exit_code_to_one() -> Result {
+    test()
+        .run(
+            "try { error make {msg: 'boom'} | ignore --show-errors } catch { $env.LAST_EXIT_CODE }",
+        )
+        .expect_value_eq(1)
 }
 
 #[test]
-fn ignore_stderr_with_show_errors_sets_internal_failure_exit_code_to_one() {
-    let actual = nu!(
-        "try { error make {msg: 'boom'} | ignore --stderr --show-errors } catch { $env.LAST_EXIT_CODE }"
-    );
+fn ignore_stderr_with_show_errors_sets_internal_failure_exit_code_to_one() -> Result {
+    let code = "try { error make {msg: 'boom'} | ignore --stderr --show-errors } catch { $env.LAST_EXIT_CODE }";
 
-    assert_eq!(actual.out, "1");
+    test().run(code).expect_value_eq(1)
 }
 
 #[test]
-fn ignore_without_show_errors_does_not_set_last_exit_code() {
-    let actual = nu!(
-        "if ('LAST_EXIT_CODE' in ($env | columns)) { hide-env LAST_EXIT_CODE }; nu --testbin fail 42 | ignore; print done; $env | get --optional LAST_EXIT_CODE"
-    );
+#[deps(TESTBIN_FAIL)]
+fn ignore_without_show_errors_does_not_set_last_exit_code() -> Result {
+    let code = "
+        if ('LAST_EXIT_CODE' in ($env | columns)) { hide-env LAST_EXIT_CODE }
+        fail 42 | ignore
+        'LAST_EXIT_CODE' in ($env | columns)
+    ";
 
-    assert_eq!(actual.out, "done");
+    test().run(code).expect_value_eq(false)
 }
 
 #[test]
-fn ignore_stderr_suppresses_internal_errors() {
-    let actual = nu!("ls this_path_does_not_exist_12345 | ignore --stderr");
-
-    assert_eq!(actual.out, "");
-    assert_eq!(actual.err, "");
+fn ignore_stderr_suppresses_internal_errors() -> Result {
+    test()
+        .run("ls this_path_does_not_exist_12345 | ignore --stderr")
+        .expect_value_eq(())
 }

@@ -255,6 +255,9 @@ pub fn eval_config_contents(
 /// Evaluate a startup configuration file, using `kind` only for path-level
 /// I/O error framing (missing/unreadable file). Parse/compile/shell errors use
 /// the standard reporters via [`eval_source`].
+///
+/// Dangling symlinks report `exists() == false` and are skipped here; callers
+/// of default config paths warn separately. Never remove or rewrite the path.
 pub fn eval_config_contents_with_kind(
     config_path: PathBuf,
     engine_state: &mut EngineState,
