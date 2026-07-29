@@ -35,7 +35,7 @@ pub use crate::parse_expressions::{
 };
 
 // Re-exports from parse_captures_compile
-pub use crate::parse_captures_compile::{compile_block, compile_block_with_id, parse};
+pub use crate::parse_captures_compile::{compile_block, compile_block_with_id, parse, parse_fresh};
 pub(crate) use crate::parse_captures_compile::{wrap_element_with_collect, wrap_expr_with_collect};
 
 // Items needed by other parser-internal modules
