@@ -135,6 +135,17 @@ impl Dependency<'static> {
         command
     }
 
+    /// Path to the directory that contains the binary.
+    /// 
+    /// If you need the binary path, use [`path`].
+    #[track_caller]
+    pub fn bin_dir(&self) -> PathBuf {
+        TARGET_DIR.get().expect("TARGET_DIR is not set").join(BUILD_PROFILE)
+    }
+
+    /// Path to the binary.
+    /// 
+    /// If you need the dir this binary is in, use [`bin_dir`].
     #[track_caller]
     pub fn path(&self) -> PathBuf {
         #[cfg(not(windows))]
@@ -143,11 +154,7 @@ impl Dependency<'static> {
         #[cfg(windows)]
         let bin_name = format!("{}.exe", self.bin_name.as_ref());
 
-        TARGET_DIR
-            .get()
-            .expect("TARGET_DIR is not set")
-            .join(BUILD_PROFILE)
-            .join(bin_name)
+        self.bin_dir().join(bin_name)
     }
 
     #[cfg(feature = "plugin")]
