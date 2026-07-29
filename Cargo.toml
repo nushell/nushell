@@ -196,7 +196,7 @@ md5 = { version = "0.11.0", package = "md-5" }
 miette = "7.6"
 mime = "0.3.17"
 mime_guess = "2.0"
-mq-markdown = "0.6.0"
+mq-markdown = "0.7.0"
 mockito = { version = "1.7.2", default-features = false }
 multipart-rs = "0.2.2"
 native-tls = "0.2.18"
