@@ -14,3 +14,13 @@ fn cannot_product_infinite_range() -> Result {
     assert!(matches!(outcome, ShellError::IncorrectValue { .. }));
     Ok(())
 }
+
+#[test]
+fn product_rejects_duration() -> Result {
+    // Bypass input-type signature check so we hit the reducer type error.
+    let err = test()
+        .run("{a: [2ms 3ms]} | math product")
+        .expect_shell_error()?;
+    assert!(matches!(err, ShellError::OnlySupportsThisInputType { .. }));
+    Ok(())
+}

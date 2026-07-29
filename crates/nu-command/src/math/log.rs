@@ -127,7 +127,7 @@ impl Command for MathLog {
                         Span::test_data(),
                     ),
                     "bob" => Value::list(
-                        vec![Value::test_float(1000.0), Value::test_float(10000.0)],
+                        vec![Value::test_int(1000), Value::test_int(10000)],
                         Span::test_data(),
                     ),
                 })),
@@ -184,7 +184,7 @@ fn operate(value: Value, head: Span, base: f64) -> Value {
         Value::Error { .. } => value,
         other => Value::error(
             ShellError::OnlySupportsThisInputType {
-                exp_input_type: "numeric".into(),
+                exp_input_type: crate::math::utils::NUMBER_INPUT_TYPES.into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
                 src_span: other.span(),

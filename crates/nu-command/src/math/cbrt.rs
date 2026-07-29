@@ -111,7 +111,7 @@ impl Command for MathCbrt {
                         Span::test_data(),
                     ),
                     "bob" => Value::list(
-                        vec![Value::test_float(125.0), Value::test_float(216.0)],
+                        vec![Value::test_int(125), Value::test_int(216)],
                         Span::test_data(),
                     ),
                 })),
@@ -128,7 +128,7 @@ fn operate(value: Value, head: Span) -> Value {
         Value::Error { .. } => value,
         other => Value::error(
             ShellError::OnlySupportsThisInputType {
-                exp_input_type: "numeric".into(),
+                exp_input_type: crate::math::utils::NUMBER_INPUT_TYPES.into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
                 src_span: other.span(),

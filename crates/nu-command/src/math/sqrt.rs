@@ -111,7 +111,7 @@ impl Command for MathSqrt {
                         Span::test_data(),
                     ),
                     "bob" => Value::list(
-                        vec![Value::test_float(16.0), Value::test_float(25.0), Value::test_float(36.0)],
+                        vec![Value::test_int(16), Value::test_int(25), Value::test_int(36)],
                         Span::test_data(),
                     ),
                 })),
@@ -140,7 +140,7 @@ fn operate(value: Value, head: Span) -> Value {
         Value::Error { .. } => value,
         other => Value::error(
             ShellError::OnlySupportsThisInputType {
-                exp_input_type: "numeric".into(),
+                exp_input_type: crate::math::utils::NUMBER_INPUT_TYPES.into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
                 src_span: other.span(),

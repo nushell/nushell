@@ -1,6 +1,8 @@
 use nu_protocol::{ShellError, Span, Value};
 use std::cmp::Ordering;
 
+use super::utils::{NUMBER_INPUT_TYPES, NUMERIC_INPUT_TYPES};
+
 pub enum Reduce {
     Summation,
     Product,
@@ -91,7 +93,7 @@ pub fn sum(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError
             Value::Error { error, .. } => return Err(*error.clone()),
             other => {
                 return Err(ShellError::OnlySupportsThisInputType {
-                    exp_input_type: "int, float, filesize, or duration".into(),
+                    exp_input_type: NUMERIC_INPUT_TYPES.into(),
                     wrong_type: other.get_type().to_string(),
                     dst_span: head,
                     src_span: other.span(),
@@ -129,7 +131,7 @@ pub fn product(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellE
             Value::Error { error, .. } => return Err(*error.clone()),
             other => {
                 return Err(ShellError::OnlySupportsThisInputType {
-                    exp_input_type: "int or float".into(),
+                    exp_input_type: NUMBER_INPUT_TYPES.into(),
                     wrong_type: other.get_type().to_string(),
                     dst_span: head,
                     src_span: other.span(),

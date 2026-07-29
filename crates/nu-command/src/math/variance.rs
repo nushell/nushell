@@ -1,4 +1,7 @@
-use crate::math::utils::{expand_range_input, run_with_function, run_with_function_and_cell_paths};
+use crate::math::utils::{
+    NUMBER_INPUT_TYPES, NumericUnit, expand_range_input, run_with_function,
+    run_with_function_and_cell_paths, to_unit_f64, variance_denominator,
+};
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -13,6 +16,8 @@ impl Command for MathVariance {
         Signature::build("math variance")
             .input_output_types(vec![
                 (Type::List(Box::new(Type::Number)), Type::Number),
+                (Type::List(Box::new(Type::Duration)), Type::Number),
+                (Type::List(Box::new(Type::Filesize)), Type::Number),
                 (Type::Range, Type::Number),
                 (Type::table(), Type::record()),
                 (Type::record(), Type::record()),
@@ -131,18 +136,20 @@ fn sum_of_squares(values: &[Value], span: Span, head: Span) -> Result<Value, She
     let mut sum_x2 = Value::int(0, span);
     for value in values {
         let v = match &value {
-            Value::Int { .. } | Value::Float { .. } => Ok(value),
-            Value::Error { error, .. } => Err(*error.clone()),
-            other => Err(ShellError::OnlySupportsThisInputType {
-                exp_input_type: "int or float".into(),
-                wrong_type: other.get_type().to_string(),
-                dst_span: head,
-                src_span: other.span(),
-            }),
-        }?;
-        let v_squared = &v.mul(span, v, span)?;
+            Value::Int { .. } | Value::Float { .. } => value.clone(),
+            Value::Error { error, .. } => return Err(*error.clone()),
+            other => {
+                return Err(ShellError::OnlySupportsThisInputType {
+                    exp_input_type: NUMBER_INPUT_TYPES.into(),
+                    wrong_type: other.get_type().to_string(),
+                    dst_span: head,
+                    src_span: other.span(),
+                });
+            }
+        };
+        let v_squared = &v.mul(span, &v, span)?;
         sum_x2 = sum_x2.add(span, v_squared, span)?;
-        sum_x = sum_x.add(span, v, span)?;
+        sum_x = sum_x.add(span, &v, span)?;
     }
 
     let sum_x_squared = sum_x.mul(span, &sum_x, span)?;
@@ -153,20 +160,78 @@ fn sum_of_squares(values: &[Value], span: Span, head: Span) -> Result<Value, She
     Ok(ss)
 }
 
+/// Variance for duration/filesize via `f64` units (ns / bytes) to avoid i64 overflow
+/// when squaring large values such as multi-second durations.
+fn variance_unit_f64(
+    values: &[Value],
+    sample: bool,
+    span: Span,
+    head: Span,
+) -> Result<f64, ShellError> {
+    let mut nums = Vec::with_capacity(values.len());
+    for value in values {
+        let (_, n) = to_unit_f64(value, head)?;
+        nums.push(n);
+    }
+    let denom = variance_denominator(nums.len(), sample, head, span)? as f64;
+    let mean = nums.iter().sum::<f64>() / nums.len() as f64;
+    let ss = nums
+        .iter()
+        .map(|x| {
+            let d = x - mean;
+            d * d
+        })
+        .sum::<f64>();
+    Ok(ss / denom)
+}
+
 pub fn compute_variance(
     sample: bool,
 ) -> impl Fn(&[Value], Span, Span) -> Result<Value, ShellError> {
     move |values: &[Value], span: Span, head: Span| {
-        let n = if sample {
-            values.len() - 1
-        } else {
-            values.len()
-        };
-        // Arithmetic uses the original value span; errors point at the call head.
-        let ss = sum_of_squares(values, span, head)?;
-        let n = Value::int(n as i64, head);
-        ss.div(head, &n, head)
+        let unit = values_unit(values, head)?;
+        let denom = variance_denominator(values.len(), sample, head, span)?;
+        match unit {
+            // Duration/filesize: compute in f64 so large units (e.g. seconds as ns) don't overflow.
+            // Result is a plain number (squared units).
+            NumericUnit::Duration | NumericUnit::Filesize => {
+                let var = variance_unit_f64(values, sample, span, head)?;
+                Ok(Value::float(var, span))
+            }
+            NumericUnit::Number => {
+                // Arithmetic uses the original value span; errors point at the call head.
+                let ss = sum_of_squares(values, span, head)?;
+                let n = Value::int(denom as i64, head);
+                ss.div(head, &n, head)
+            }
+        }
     }
+}
+
+/// Determine the common unit of a value list for re-wrapping stddev results.
+pub fn values_unit(values: &[Value], head: Span) -> Result<NumericUnit, ShellError> {
+    let mut unit = NumericUnit::Number;
+    for (i, value) in values.iter().enumerate() {
+        let (this_unit, _) = to_unit_f64(value, head)?;
+        if i == 0 {
+            unit = this_unit;
+            continue;
+        }
+        // int and float may mix; duration/filesize must stay homogeneous.
+        match (unit, this_unit) {
+            (NumericUnit::Number, NumericUnit::Number) => {}
+            (a, b) if a == b => {}
+            (a, _) => {
+                return Err(ShellError::OnlySupportsThisInputType {
+                    exp_input_type: a.as_str().into(),
+                    wrong_type: value.get_type().to_string(),
+                    dst_span: head,
+                    src_span: value.span(),
+                });
+            }
+        }
+    }
+    Ok(unit)
 }
 
 #[cfg(test)]

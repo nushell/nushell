@@ -13,9 +13,19 @@ impl Command for MathCeil {
         Signature::build("math ceil")
             .input_output_types(vec![
                 (Type::Number, Type::Int),
+                (Type::Duration, Type::Duration),
+                (Type::Filesize, Type::Filesize),
                 (
                     Type::List(Box::new(Type::Number)),
                     Type::List(Box::new(Type::Int)),
+                ),
+                (
+                    Type::List(Box::new(Type::Duration)),
+                    Type::List(Box::new(Type::Duration)),
+                ),
+                (
+                    Type::List(Box::new(Type::Filesize)),
+                    Type::List(Box::new(Type::Filesize)),
                 ),
                 (Type::Range, Type::List(Box::new(Type::Number))),
                 (Type::record(), Type::record()),
@@ -123,12 +133,13 @@ impl Command for MathCeil {
 fn operate(value: Value, head: Span) -> Value {
     let span = value.span();
     match value {
-        Value::Int { .. } => value,
+        // Duration and filesize are already integer units (ns / bytes).
+        Value::Int { .. } | Value::Duration { .. } | Value::Filesize { .. } => value,
         Value::Float { val, .. } => Value::int(val.ceil() as i64, span),
         Value::Error { .. } => value,
         other => Value::error(
             ShellError::OnlySupportsThisInputType {
-                exp_input_type: "numeric".into(),
+                exp_input_type: crate::math::utils::NUMERIC_INPUT_TYPES.into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
                 src_span: other.span(),

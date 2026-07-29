@@ -20,3 +20,29 @@ fn cannot_variance_infinite_range() -> Result {
     assert!(matches!(outcome, ShellError::IncorrectValue { .. }));
     Ok(())
 }
+
+#[test]
+fn sample_variance_empty_is_error_not_panic() -> Result {
+    let err = test()
+        .run("[] | math variance --sample")
+        .expect_shell_error()?;
+    assert!(matches!(err, ShellError::UnsupportedInput { .. }));
+    Ok(())
+}
+
+#[test]
+fn sample_variance_single_value_is_error() -> Result {
+    let err = test()
+        .run("[1] | math variance --sample")
+        .expect_shell_error()?;
+    assert!(matches!(err, ShellError::UnsupportedInput { .. }));
+    Ok(())
+}
+
+#[test]
+fn variance_duration_returns_number() -> Result {
+    // Population variance of [1sec, 3sec] is 1e18 (nanoseconds squared).
+    test()
+        .run("[1sec 3sec] | math variance")
+        .expect_value_eq(1_000_000_000_000_000_000.0)
+}

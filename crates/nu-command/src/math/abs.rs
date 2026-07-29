@@ -14,6 +14,7 @@ impl Command for MathAbs {
             .input_output_types(vec![
                 (Type::Number, Type::Number),
                 (Type::Duration, Type::Duration),
+                (Type::Filesize, Type::Filesize),
                 (
                     Type::List(Box::new(Type::Number)),
                     Type::List(Box::new(Type::Number)),
@@ -21,6 +22,10 @@ impl Command for MathAbs {
                 (
                     Type::List(Box::new(Type::Duration)),
                     Type::List(Box::new(Type::Duration)),
+                ),
+                (
+                    Type::List(Box::new(Type::Filesize)),
+                    Type::List(Box::new(Type::Filesize)),
                 ),
                 (Type::Range, Type::List(Box::new(Type::Number))),
                 (Type::record(), Type::record()),
@@ -159,10 +164,23 @@ fn abs_helper(val: Value, head: Span) -> Value {
                 span,
             ),
         },
+        Value::Filesize { val, .. } => match val.get().checked_abs() {
+            Some(abs) => Value::filesize(abs, span),
+            None => Value::error(
+                ShellError::OperatorOverflow {
+                    msg: "absolute value operation overflowed".into(),
+                    span,
+                    help: Some(
+                        "the absolute value of the minimum filesize cannot be represented".into(),
+                    ),
+                },
+                span,
+            ),
+        },
         Value::Error { .. } => val,
         other => Value::error(
             ShellError::OnlySupportsThisInputType {
-                exp_input_type: "numeric".into(),
+                exp_input_type: crate::math::utils::NUMERIC_INPUT_TYPES.into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
                 src_span: other.span(),

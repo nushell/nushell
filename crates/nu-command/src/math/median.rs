@@ -112,6 +112,25 @@ enum Pick {
 }
 
 pub fn median(values: &[Value], span: Span, head: Span) -> Result<Value, ShellError> {
+    // Reject unsupported types up front so record columns error like other reducers.
+    for value in values {
+        match value {
+            Value::Int { .. }
+            | Value::Float { .. }
+            | Value::Duration { .. }
+            | Value::Filesize { .. } => {}
+            Value::Error { error, .. } => return Err(*error.clone()),
+            other => {
+                return Err(ShellError::OnlySupportsThisInputType {
+                    exp_input_type: crate::math::utils::NUMERIC_INPUT_TYPES.into(),
+                    wrong_type: other.get_type().to_string(),
+                    dst_span: head,
+                    src_span: other.span(),
+                });
+            }
+        }
+    }
+
     let mut sorted = values
         .iter()
         .filter(|x| !x.as_float().is_ok_and(f64::is_nan))

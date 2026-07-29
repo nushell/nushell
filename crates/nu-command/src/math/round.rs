@@ -13,9 +13,19 @@ impl Command for MathRound {
         Signature::build("math round")
             .input_output_types(vec![
                 (Type::Number, Type::Number),
+                (Type::Duration, Type::Duration),
+                (Type::Filesize, Type::Filesize),
                 (
                     Type::List(Box::new(Type::Number)),
                     Type::List(Box::new(Type::Number)),
+                ),
+                (
+                    Type::List(Box::new(Type::Duration)),
+                    Type::List(Box::new(Type::Duration)),
+                ),
+                (
+                    Type::List(Box::new(Type::Filesize)),
+                    Type::List(Box::new(Type::Filesize)),
                 ),
                 (Type::Range, Type::List(Box::new(Type::Number))),
                 (Type::record(), Type::record()),
@@ -153,47 +163,63 @@ impl Command for MathRound {
 }
 
 fn operate(value: Value, head: Span, precision: Option<i64>) -> Value {
-    // We treat int values as float values in order to avoid code repetition in the match closure
     let span = value.span();
-    let value = if let Value::Int { val, .. } = value {
-        Value::float(val as f64, span)
-    } else {
-        value
+
+    // Duration and filesize are already integer units (ns / bytes). Identity is
+    // correct without --precision; decimal precision is not meaningful for units.
+    if matches!(value, Value::Duration { .. } | Value::Filesize { .. }) {
+        if precision.is_some() {
+            return Value::error(
+                ShellError::UnsupportedInput {
+                    msg: "'math round --precision' is not supported for duration or filesize"
+                        .into(),
+                    input: "value originates from here".into(),
+                    msg_span: head,
+                    input_span: span,
+                },
+                span,
+            );
+        }
+        return value;
+    }
+
+    // We treat int values as float values to share the rounding path.
+    let float_val = match &value {
+        Value::Int { val, .. } => *val as f64,
+        Value::Float { val, .. } => *val,
+        Value::Error { .. } => return value,
+        other => {
+            return Value::error(
+                ShellError::OnlySupportsThisInputType {
+                    exp_input_type: crate::math::utils::NUMERIC_INPUT_TYPES.into(),
+                    wrong_type: other.get_type().to_string(),
+                    dst_span: head,
+                    src_span: other.span(),
+                },
+                head,
+            );
+        }
     };
 
-    match value {
-        Value::Float { val, .. } => {
-            if !val.is_finite() {
-                return Value::error(
-                    ShellError::UnsupportedInput {
-                        msg: "cannot round non-finite number".into(),
-                        input: "value originates from here".into(),
-                        msg_span: span,
-                        input_span: span,
-                    },
-                    span,
-                );
-            }
-
-            match precision {
-                Some(precision_number) => Value::float(
-                    (val * ((10_f64).powf(precision_number as f64))).round()
-                        / (10_f64).powf(precision_number as f64),
-                    span,
-                ),
-                None => Value::int(val.round() as i64, span),
-            }
-        }
-        Value::Error { .. } => value,
-        other => Value::error(
-            ShellError::OnlySupportsThisInputType {
-                exp_input_type: "numeric".into(),
-                wrong_type: other.get_type().to_string(),
-                dst_span: head,
-                src_span: other.span(),
+    if !float_val.is_finite() {
+        return Value::error(
+            ShellError::UnsupportedInput {
+                msg: "cannot round non-finite number".into(),
+                input: "value originates from here".into(),
+                msg_span: span,
+                input_span: span,
             },
-            head,
+            span,
+        );
+    }
+
+    match precision {
+        Some(precision_number) => Value::float(
+            (float_val * ((10_f64).powf(precision_number as f64))).round()
+                / (10_f64).powf(precision_number as f64),
+            span,
         ),
+        None => Value::int(float_val.round() as i64, span),
     }
 }
 

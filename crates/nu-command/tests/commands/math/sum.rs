@@ -97,6 +97,48 @@ fn cannot_sum_infinite_range() -> Result {
 }
 
 #[test]
+fn sum_list_valued_record_columns() -> Result {
+    test()
+        .run("{alice: [1 2 3], bob: [4 5]} | math sum")
+        .expect_value_eq(test_record! {
+            "alice" => 6,
+            "bob" => 9,
+        })
+}
+
+#[test]
+fn sum_record_cell_path_only_touches_named_column() -> Result {
+    test()
+        .run("{alice: [1 2 3], bob: [4 5 6]} | math sum alice")
+        .expect_value_eq(test_value!({
+            alice: 6,
+            bob: [4, 5, 6],
+        }))
+}
+
+#[test]
+fn sum_table_cell_path_updates_per_row() -> Result {
+    // Per-row path update: sum of a single scalar cell is the cell itself.
+    // Must NOT collect the whole column and write the column sum into every row.
+    test()
+        .run("[[a]; [1] [2]] | math sum a")
+        .expect_value_eq(test_table![
+            ["a"];
+            [1],
+            [2],
+        ])
+}
+
+#[test]
+fn sum_unsupported_record_field_is_top_level_error() -> Result {
+    let err = test()
+        .run("{alice: true, bob: [1 2]} | math sum")
+        .expect_shell_error()?;
+    assert!(matches!(err, ShellError::OnlySupportsThisInputType { .. }));
+    Ok(())
+}
+
+#[test]
 fn overflow_error_is_consistent_between_list_and_table() -> Result {
     // Large durations that sum beyond i64::MAX nanoseconds
     let durations = "[618019200000000000ns, 650422800000000000ns, 652579200000000000ns, 657849600000000000ns, 660873600000000000ns, 662342400000000000ns, 664416000000000000ns, 667782000000000000ns, 669855600000000000ns, 673311600000000000ns, 675903600000000000ns, 677462400000000000ns, 681609600000000000ns, 683766000000000000ns]";

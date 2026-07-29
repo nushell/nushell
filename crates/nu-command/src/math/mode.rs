@@ -1,5 +1,5 @@
 use crate::math::utils::{
-    run_with_function_with_cell_paths, run_with_function_with_cell_paths_const,
+    NUMERIC_INPUT_TYPES, run_with_function_with_cell_paths, run_with_function_with_cell_paths_const,
 };
 use nu_engine::command_prelude::*;
 use std::{cmp::Ordering, collections::HashMap};
@@ -158,7 +158,7 @@ pub fn mode(values: &[Value], _span: Span, head: Span) -> Result<Value, ShellErr
             )),
             Value::Error { error, .. } => Err(*error.clone()),
             other => Err(ShellError::OnlySupportsThisInputType {
-                exp_input_type: "int, float, filesize, or duration".into(),
+                exp_input_type: NUMERIC_INPUT_TYPES.into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
                 src_span: other.span(),
