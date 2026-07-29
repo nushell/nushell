@@ -29,7 +29,7 @@ use nu_plugin_engine::{GetPlugin, PersistentPlugin, PluginDeclaration};
 use nu_protocol::{PluginIdentity, PluginSignature, RegisteredPlugin};
 
 /// Workspace root.
-/// 
+///
 /// Default starting cwd for [`test()`].
 pub static WORKSPACE_ROOT: LazyLock<PathBuf> = LazyLock::new(|| {
     path::absolute(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."))
