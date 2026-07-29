@@ -20,7 +20,7 @@ fn call() -> Result {
 
     let stdout = str::from_utf8(&output.stdout).expect("stdout is utf8");
     let stderr = str::from_utf8(&output.stderr).expect("stderr is utf8");
-    assert!(output.status.success());
+    assert!(output.status.success(), "{stderr}");
     assert_contains("one", stdout);
     assert_contains("two", stdout);
     assert_contains("three", stdout);
