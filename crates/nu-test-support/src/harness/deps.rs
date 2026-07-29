@@ -136,15 +136,18 @@ impl Dependency<'static> {
     }
 
     /// Path to the directory that contains the binary.
-    /// 
+    ///
     /// If you need the binary path, use [`path`].
     #[track_caller]
     pub fn bin_dir(&self) -> PathBuf {
-        TARGET_DIR.get().expect("TARGET_DIR is not set").join(BUILD_PROFILE)
+        TARGET_DIR
+            .get()
+            .expect("TARGET_DIR is not set")
+            .join(BUILD_PROFILE)
     }
 
     /// Path to the binary.
-    /// 
+    ///
     /// If you need the dir this binary is in, use [`bin_dir`].
     #[track_caller]
     pub fn path(&self) -> PathBuf {
