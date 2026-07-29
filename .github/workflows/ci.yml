@@ -44,7 +44,14 @@ concurrency:
 
 jobs:
   cargo:
-    if: ${{ !github.event.pull_request.draft }}
+    # Do not run CI on draft PRs or on the lower layers of stacked PRs
+    if: >-
+      !github.event.pull_request.draft &&
+      (
+        github.event.pull_request.stack == null ||
+        github.event.pull_request.stack.position ==
+          github.event.pull_request.stack.size
+      )
     name: "`cargo` in ${{ matrix.workspace.name }} (${{ matrix.target.name }})"
     strategy:
       fail-fast: true
@@ -149,7 +156,14 @@ jobs:
         run: git diff --quiet && git diff --cached --quiet
 
   std-lib-and-python-virtualenv:
-    if: ${{ !github.event.pull_request.draft }}
+    # Do not run CI on draft PRs or on the lower layers of stacked PRs
+    if: >-
+      !github.event.pull_request.draft &&
+      (
+        github.event.pull_request.stack == null ||
+        github.event.pull_request.stack.position ==
+          github.event.pull_request.stack.size
+      )
     strategy:
       fail-fast: true
       matrix:
@@ -191,7 +205,7 @@ jobs:
         run: nu .github/workflows/check-msrv.nu
 
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.10"
 

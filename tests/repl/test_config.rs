@@ -1,5 +1,27 @@
 use crate::repl::tests::{TestResult, fail_test, run_test, run_test_std};
 
+/// Defaults for color_config, menus, and Nushell menu keybindings live on
+/// `Config::default()` so they are visible even under `nu -n` / without sourcing
+/// config files.
+#[test]
+fn default_config_color_menus_keybindings_viewable() -> TestResult {
+    run_test(
+        r#"
+            [
+                (($env.config.color_config | columns | length) > 0)
+                ($env.config.color_config.header == "green_bold")
+                ("completion_menu" in ($env.config.menus | get name))
+                ("history_menu" in ($env.config.menus | get name))
+                (($env.config.keybindings | length) > 0)
+                ("completion_menu" in ($env.config.keybindings | get name))
+                (($env.config.explore | columns | length) > 0)
+                ("selected_cell" in ($env.config.explore | columns))
+            ] | all {|x| $x }
+        "#,
+        "true",
+    )
+}
+
 #[test]
 fn mutate_nu_config() -> TestResult {
     run_test_std(

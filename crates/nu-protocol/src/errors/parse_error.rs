@@ -165,6 +165,15 @@ pub enum ParseError {
     )]
     UnexpectedKeyword(String, #[label("unexpected {0}")] Span),
 
+    #[error("Module `{0}` has a `main` command but `{0}` is a built-in parser keyword.")]
+    #[diagnostic(
+        code(nu::parser::keyword_shadow_module_main),
+        help(
+            "The `main` command cannot be invoked because `{0}` is intercepted by the parser. Either rename the module file, or remove `export def main` and use `use {0}.nu *` to import other commands."
+        )
+    )]
+    KeywordShadowModuleMain(String, #[label("`{0}` is a parser keyword")] Span),
+
     #[error("Can't create alias to parser keyword.")]
     #[diagnostic(
         code(nu::parser::cant_alias_keyword),
@@ -213,6 +222,15 @@ pub enum ParseError {
         )
     )]
     NameIsBuiltinVar(String, #[label("already a builtin variable")] Span),
+
+    #[error("Can't use parser keyword `{0}` as {1} name.")]
+    #[diagnostic(
+        code(nu::parser::name_is_keyword),
+        help(
+            "Parser keywords cannot be shadowed (including via module exports and `use *`). Choose a different {1} name so language constructs keep working."
+        )
+    )]
+    NameIsKeyword(String, String, #[label("'{0}' is a parser keyword")] Span),
 
     #[error("Incorrect value")]
     #[diagnostic(code(nu::parser::incorrect_value), help("{2}"))]
@@ -480,6 +498,34 @@ pub enum ParseError {
     )]
     SourcedFileNotFound(String, #[label("File not found: {0}")] Span),
 
+    #[error("Script file is too large to load with `run`")]
+    #[diagnostic(
+        code(nu::parser::script_file_too_large),
+        help(
+            "The `run` command refuses files larger than {max_size} bytes at parse time (file is {size} bytes). Use a smaller script, or invoke large scripts with `nu path/to/script.nu`."
+        )
+    )]
+    ScriptFileTooLarge {
+        path: String,
+        size: u64,
+        max_size: u64,
+        #[label("file too large for `run`: {path}")]
+        span: Span,
+    },
+
+    #[error("Script file does not appear to be text")]
+    #[diagnostic(
+        code(nu::parser::script_file_not_text),
+        help(
+            "The `run` command only loads UTF-8 text scripts. Binary data (NUL bytes, invalid UTF-8, or dense control characters) is rejected."
+        )
+    )]
+    ScriptFileNotText {
+        path: String,
+        #[label("not a text script for `run`: {path}")]
+        span: Span,
+    },
+
     #[error("File not found")]
     #[diagnostic(
         code(nu::parser::registered_file_not_found),
@@ -594,6 +640,7 @@ impl ParseError {
             ParseError::BuiltinCommandInPipeline(_, s) => *s,
             ParseError::AssignInPipeline(_, _, _, s) => *s,
             ParseError::NameIsBuiltinVar(_, s) => *s,
+            ParseError::NameIsKeyword(_, _, s) => *s,
             ParseError::CaptureOfMutableVar(s) => *s,
             ParseError::IncorrectValue(_, s, _) => *s,
             ParseError::InvalidBinaryString(s, _) => *s,
@@ -644,6 +691,8 @@ impl ParseError {
             ParseError::WrongImportPattern(_, s) => *s,
             ParseError::ExportNotFound(s) => *s,
             ParseError::SourcedFileNotFound(_, s) => *s,
+            ParseError::ScriptFileTooLarge { span, .. } => *span,
+            ParseError::ScriptFileNotText { span, .. } => *span,
             ParseError::RegisteredFileNotFound(_, s) => *s,
             ParseError::FileNotFound(_, s) => *s,
             ParseError::PluginNotFound { name_span, .. } => *name_span,
@@ -663,6 +712,7 @@ impl ParseError {
             ParseError::AssignmentRequiresVar(s) => *s,
             ParseError::AssignmentRequiresMutableVar(s) => *s,
             ParseError::AttributeRequiresDefinition(s) => *s,
+            ParseError::KeywordShadowModuleMain(_, s) => *s,
         }
     }
 }

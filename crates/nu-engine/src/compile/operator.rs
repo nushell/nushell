@@ -315,6 +315,38 @@ pub(crate) fn compile_assignment(
                 // assignment to the head
                 compile_assignment(working_set, builder, &path.head, assignment_span, rhs_reg)
             }
+            (
+                Expression {
+                    expr: Expr::Var(var_id),
+                    ..
+                },
+                _,
+            ) => {
+                // Assignment to a mutable variable's field - optimize with in-place mutation
+                if !working_set.get_variable(*var_id).mutable {
+                    return Err(CompileError::AssignmentRequiresMutableVar { span: lhs.span });
+                }
+
+                // Load cell path literal
+                let cell_path_reg = builder.literal(
+                    Literal::CellPath(Box::new(CellPath {
+                        members: path.tail.clone(),
+                    }))
+                    .into_spanned(path.head.span),
+                )?;
+
+                // Mutate the variable in-place on the stack
+                builder.push(
+                    Instruction::UpdateVarCellPath {
+                        var_id: *var_id,
+                        cell_path: cell_path_reg,
+                        new_value: rhs_reg,
+                    }
+                    .into_spanned(assignment_span),
+                )?;
+
+                Ok(())
+            }
             _ => {
                 // Just a normal assignment to some path
                 let head_reg = builder.next_register()?;

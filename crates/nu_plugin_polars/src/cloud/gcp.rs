@@ -1,38 +1,41 @@
-use object_store::gcp::GoogleCloudStorageBuilder;
+use std::str::FromStr;
+
+// Use the re-export from polars_io so config keys match the object_store version
+// that polars depends on (avoids dual object_store version type mismatches).
 use polars_io::cloud::{CloudOptions, GoogleConfigKey};
 
-struct GoogleOptionsBuilder {
-    builder: GoogleCloudStorageBuilder,
-}
+/// Collect GCP config from environment variables.
+///
+/// Mirrors `object_store::gcp::GoogleCloudStorageBuilder::from_env`:
+/// * `GOOGLE_SERVICE_ACCOUNT`: location of service account file
+/// * `GOOGLE_SERVICE_ACCOUNT_PATH`: (alias) location of service account file
+/// * `SERVICE_ACCOUNT`: (alias) location of service account file
+/// * `GOOGLE_SERVICE_ACCOUNT_KEY`: JSON serialized service account key
+/// * `GOOGLE_BUCKET`: bucket name
+/// * `GOOGLE_BUCKET_NAME`: (alias) bucket name
+fn gcp_configs_from_env() -> Vec<(GoogleConfigKey, String)> {
+    let mut configs = Vec::new();
 
-impl GoogleOptionsBuilder {
-    fn new() -> Self {
-        Self {
-            builder: GoogleCloudStorageBuilder::new(),
+    if let Ok(service_account_path) = std::env::var("SERVICE_ACCOUNT") {
+        configs.push((GoogleConfigKey::ServiceAccount, service_account_path));
+    }
+
+    for (key, value) in std::env::vars() {
+        if key.starts_with("GOOGLE_")
+            && let Ok(config_key) = GoogleConfigKey::from_str(&key.to_ascii_lowercase())
+        {
+            // Later GOOGLE_* values override earlier entries (including SERVICE_ACCOUNT).
+            if let Some(existing) = configs.iter_mut().find(|(k, _)| *k == config_key) {
+                existing.1 = value;
+            } else {
+                configs.push((config_key, value));
+            }
         }
     }
 
-    fn get_config_value(&self, key: GoogleConfigKey) -> Option<(GoogleConfigKey, String)> {
-        self.builder.get_config_value(&key).map(|v| (key, v))
-    }
+    configs
 }
 
 pub(crate) fn build_cloud_options() -> Result<CloudOptions, nu_protocol::ShellError> {
-    let builder = GoogleOptionsBuilder::new();
-    // GOOGLE_SERVICE_ACCOUNT: location of service account file
-    // GOOGLE_SERVICE_ACCOUNT_PATH: (alias) location of service account file
-    // SERVICE_ACCOUNT: (alias) location of service account file
-    // GOOGLE_SERVICE_ACCOUNT_KEY: JSON serialized service account key
-    // GOOGLE_BUCKET: bucket name
-    // GOOGLE_BUCKET_NAME: (alias) bucket name
-    let configs = vec![
-        GoogleConfigKey::ServiceAccount,
-        GoogleConfigKey::ServiceAccountKey,
-        GoogleConfigKey::Bucket,
-    ]
-    .into_iter()
-    .filter_map(|key| builder.get_config_value(key))
-    .collect::<Vec<(GoogleConfigKey, String)>>();
-
-    Ok(CloudOptions::default().with_gcp(configs))
+    Ok(CloudOptions::default().with_gcp(gcp_configs_from_env()))
 }

@@ -8,7 +8,6 @@ mod run;
 mod signals;
 #[cfg(unix)]
 mod terminal;
-mod test_bins;
 
 #[cfg(feature = "lsp")]
 use crate::run::run_lsp;
@@ -284,10 +283,12 @@ fn main() -> Result<()> {
     // lifetime of the program. If it's created with how MEMORY_DB is defined
     // you'll be able to access this open connection from anywhere in the program
     // by using the identical connection string.
+    //
+    // Initialize the process-wide shared in-memory SQLite connection. The static
+    // connection is the lifetime anchor for `mode=memory&cache=shared` and is the
+    // only connection used by `stor` / memdb `query db` (serialized via a mutex).
     #[cfg(feature = "sqlite")]
-    let db = nu_command::open_connection_in_memory_custom()?;
-    #[cfg(feature = "sqlite")]
-    db.last_insert_rowid();
+    nu_command::init_shared_memory_db()?;
 
     #[cfg(feature = "lsp")]
     let is_lsp = parsed_nu_cli_args.lsp;
@@ -296,10 +297,7 @@ fn main() -> Result<()> {
     engine_state.is_lsp = is_lsp;
     // keep this condition in sync with the branches at the end
     engine_state.is_interactive = parsed_nu_cli_args.interactive_shell.is_some()
-        || (parsed_nu_cli_args.testbin.is_none()
-            && parsed_nu_cli_args.commands.is_none()
-            && script_name.is_empty()
-            && !is_lsp);
+        || (parsed_nu_cli_args.commands.is_none() && script_name.is_empty() && !is_lsp);
 
     engine_state.is_login = parsed_nu_cli_args.login_shell.is_some();
     engine_state.history_enabled = parsed_nu_cli_args.no_history.is_none();
@@ -517,31 +515,6 @@ fn main() -> Result<()> {
 
         return Ok(());
     }
-
-    start_time = nu_utils::time::Instant::now();
-    if let Some(testbin) = &parsed_nu_cli_args.testbin {
-        let dispatcher = test_bins::new_testbin_dispatcher();
-        let test_bin = testbin.item.as_str();
-        match dispatcher.get(test_bin) {
-            Some(test_bin) => test_bin.run(),
-            None => {
-                if ["-h", "--help"].contains(&test_bin) {
-                    test_bins::show_help(&dispatcher);
-                } else {
-                    eprintln!("ERROR: Unknown testbin '{test_bin}'");
-                    std::process::exit(1);
-                }
-            }
-        }
-        std::process::exit(0)
-    } else {
-        // If we're not running a testbin, set the current working directory to
-        // the location of the Nushell executable. This prevents the OS from
-        // locking the directory where the user launched Nushell.
-        std::env::set_current_dir(current_exe_directory())
-            .expect("set_current_dir() should succeed");
-    }
-    perf!("run test_bins", start_time, use_color);
 
     start_time = nu_utils::time::Instant::now();
     let input = if let Some(redirect_stdin) = &parsed_nu_cli_args.redirect_stdin {

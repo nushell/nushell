@@ -60,7 +60,7 @@ impl Command for BytesCollect {
                     }),
                 })
             }),
-            Ok(separator).transpose(),
+            separator.map(|separator| Ok(separator.into())),
         )
         .flatten();
 

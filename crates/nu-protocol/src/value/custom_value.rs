@@ -1,8 +1,9 @@
+use crate::ast::PathMember;
+use crate::shell_error::generic::GenericError;
+use crate::value::CellPathMutation;
+use crate::{ShellError, Span, Spanned, Type, Value, ast::Operator, casing::Casing};
 use std::any::Any;
 use std::{cmp::Ordering, fmt, path::Path};
-
-use crate::shell_error::generic::GenericError;
-use crate::{ShellError, Span, Spanned, Type, Value, ast::Operator, casing::Casing};
 
 /// Trait definition for a custom [`Value`](crate::Value) type
 #[typetag::serde(tag = "type")]
@@ -82,6 +83,23 @@ pub trait CustomValue: fmt::Debug + Send + Sync + Any {
             type_name: self.type_name(),
             span: path_span,
         })
+    }
+
+    /// Update a value at the given cell path, returning a new `Value`.
+    ///
+    /// The default implementation converts to a base value, performs the mutation,
+    /// and returns the base value (losing the custom value wrapper). Override this
+    /// to preserve the custom value type through mutations.
+    fn update_data_at_cell_path(
+        &self,
+        cell_path: &[PathMember],
+        new_val: Value,
+        action: &CellPathMutation,
+        head: Span,
+    ) -> Result<Value, ShellError> {
+        let mut base = self.to_base_value(head)?;
+        base.mutate_data_at_cell_path(cell_path, new_val, action)?;
+        Ok(base)
     }
 
     /// ordering with other value (see [`std::cmp::PartialOrd`])

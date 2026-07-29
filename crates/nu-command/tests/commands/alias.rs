@@ -1,41 +1,6 @@
 use nu_test_support::{fs::Stub::FileWithContentToBeTrimmed, prelude::*};
 use rstest::rstest;
 
-#[ignore = "TODO?: Aliasing parser keywords does not work anymore"]
-#[test]
-fn alias_simple() {
-    let actual = nu!(cwd: "tests/fixtures/formats", "
-        alias bar = use sample_def.nu greet;
-        bar;
-        greet
-    ");
-
-    assert_eq!(actual.out, "hello");
-}
-
-#[ignore = "TODO?: Aliasing parser keywords does not work anymore"]
-#[test]
-fn alias_hiding_1() {
-    let actual = nu!(cwd: "tests/fixtures/formats", "
-        overlay use ./activate-foo.nu;
-        scope aliases | find deactivate-foo | length
-    ");
-
-    assert_eq!(actual.out, "1");
-}
-
-#[ignore = "TODO?: Aliasing parser keywords does not work anymore"]
-#[test]
-fn alias_hiding_2() {
-    let actual = nu!(cwd: "tests/fixtures/formats", "
-        overlay use ./activate-foo.nu;
-        deactivate-foo;
-        scope aliases | find deactivate-foo | length
-    ");
-
-    assert_eq!(actual.out, "0");
-}
-
 #[rstest]
 #[case::numeric("1234")]
 #[case::filesize_like("5gib")]
@@ -49,14 +14,28 @@ fn alias_fails_with_invalid_name(#[case] alias: &str) -> Result {
 }
 
 #[test]
-fn cant_alias_keyword() {
-    let actual = nu!(" alias ou = let ");
-    assert!(actual.err.contains("cant_alias_keyword"));
+fn alias_fails_with_all_single_word_keyword_names() -> Result {
+    for name in nu_parser::single_word_parser_keywords() {
+        let code = format!("alias {name} = ls");
+        let err = test().run(code).expect_parse_error()?;
+        assert!(
+            matches!(&err, ParseError::NameIsKeyword(keyword, kind, _) if keyword == name && kind == "alias"),
+            "expected NameIsKeyword alias for `{name}`, got {err:?}"
+        );
+    }
+    Ok(())
 }
 
 #[test]
-fn alias_wont_recurse() {
-    let actual = nu!("
+fn cant_alias_keyword() -> Result {
+    test()
+        .run(" alias ou = let ")
+        .expect_error_code_eq("nu::parser::cant_alias_keyword")
+}
+
+#[test]
+fn alias_wont_recurse() -> Result {
+    let code = "
         module myspamsymbol {
             export def myfoosymbol [prefix: string, msg: string] {
                 $prefix + $msg
@@ -65,15 +44,14 @@ fn alias_wont_recurse() {
         use myspamsymbol myfoosymbol;
         alias myfoosymbol = myfoosymbol 'hello';
         myfoosymbol ' world'
-    ");
+    ";
 
-    assert_eq!(actual.out, "hello world");
-    assert!(actual.err.is_empty());
+    test().run(code).expect_value_eq("hello world")
 }
 
 // Issue https://github.com/nushell/nushell/issues/8246
 #[test]
-fn alias_wont_recurse2() {
+fn alias_wont_recurse2() -> Result {
     Playground::setup("alias_wont_recurse2", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "spam.nu",
@@ -82,76 +60,77 @@ fn alias_wont_recurse2() {
                 alias spam = spam 'spam'
             ",
         )]);
-        let actual = nu!(cwd: dirs.test(), "
+
+        let code = "
             def spam [what: string] { 'spam ' + $what };
             source spam.nu;
             spam
-        ");
+        ";
 
-        assert_eq!(actual.out, "spam spam");
-        assert!(actual.err.is_empty());
+        test()
+            .cwd(dirs.test())
+            .run(code)
+            .expect_value_eq("spam spam")
     })
 }
 
-#[test]
-fn alias_invalid_expression() {
-    let actual = nu!(" alias spam = 'foo' ");
-    assert!(actual.err.contains("cant_alias_expression"));
-
-    let actual = nu!(" alias spam = ([1 2 3] | length) ");
-    assert!(actual.err.contains("cant_alias_expression"));
-
-    let actual = nu!(" alias spam = 0..12 ");
-    assert!(actual.err.contains("cant_alias_expression"));
+#[rstest]
+#[case::string(" alias spam = 'foo' ")]
+#[case::subexpression(" alias spam = ([1 2 3] | length) ")]
+#[case::range(" alias spam = 0..12 ")]
+fn alias_invalid_expression(#[case] code: &str) -> Result {
+    test()
+        .run(code)
+        .expect_error_code_eq("nu::parser::cant_alias_expression")
 }
 
 #[test]
-fn alias_if() {
-    let actual = nu!(" alias spam = if true { 'spam' } else { 'eggs' }; spam ");
-    assert_eq!(actual.out, "spam");
+fn alias_if() -> Result {
+    test()
+        .run(" alias spam = if true { 'spam' } else { 'eggs' }; spam ")
+        .expect_value_eq("spam")
 }
 
 #[test]
-fn alias_match() {
-    let actual = nu!(" alias spam = match 3 { 1..10 => 'yes!' }; spam ");
-    assert_eq!(actual.out, "yes!");
+fn alias_match() -> Result {
+    test()
+        .run(" alias spam = match 3 { 1..10 => 'yes!' }; spam ")
+        .expect_value_eq("yes!")
 }
 
 // Issue https://github.com/nushell/nushell/issues/8103
-#[test]
-fn alias_multiword_name() {
-    let actual = nu!("alias `foo bar` = echo 'test'; foo bar");
-    assert_eq!(actual.out, "test");
-
-    let actual = nu!("alias 'foo bar' = echo 'test'; foo bar");
-    assert_eq!(actual.out, "test");
-
-    let actual = nu!(r#"alias "foo bar" = echo 'test'; foo bar"#);
-    assert_eq!(actual.out, "test");
+#[rstest]
+#[case::backticks("alias `foo bar` = echo 'test'; foo bar")]
+#[case::single_quotes("alias 'foo bar' = echo 'test'; foo bar")]
+#[case::double_quotes(r#"alias "foo bar" = echo 'test'; foo bar"#)]
+fn alias_multiword_name(#[case] code: &str) -> Result {
+    test().run(code).expect_value_eq("test")
 }
 
 #[test]
-fn alias_ordering() {
-    let actual = nu!("alias bar = echo; def echo [] { 'dummy echo' }; bar 'foo'");
-    assert_eq!(actual.out, "foo");
+fn alias_ordering() -> Result {
+    test()
+        .run("alias bar = echo; def echo [] { 'dummy echo' }; bar 'foo'")
+        .expect_value_eq("foo")
 }
 
 #[test]
-fn alias_default_help() {
-    let actual = nu!("alias teapot = echo 'I am a beautiful teapot'; help teapot");
+fn alias_default_help() -> Result {
+    let actual: String =
+        test().run("alias teapot = echo 'I am a beautiful teapot'; help teapot")?;
     // There must be at least one line of help
-    let first_help_line = actual.out.lines().next().unwrap();
-    assert!(first_help_line.starts_with("Alias for `echo 'I am a beautiful teapot'`"));
+    assert!(actual.starts_with("Alias for `echo 'I am a beautiful teapot'`"));
+    Ok(())
 }
 
 #[test]
-fn export_alias_with_overlay_use_works() {
-    let actual = nu!("export alias teapot = overlay use");
-    assert!(actual.err.is_empty())
+fn export_alias_with_overlay_use_works() -> Result {
+    test()
+        .run("export alias teapot = overlay use")
+        .expect_value_eq(())
 }
 
 #[test]
-fn alias_flag() {
-    let actual = nu!("alias si = stor import");
-    assert!(actual.err.is_empty());
+fn alias_flag() -> Result {
+    test().run("alias si = stor import").expect_value_eq(())
 }

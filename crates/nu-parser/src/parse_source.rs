@@ -2,6 +2,7 @@ use crate::{
     lite_parser::LiteCommand,
     parse_def::has_flag_const,
     parse_helpers::{garbage, garbage_pipeline},
+    parse_keywords::find_keyword_decl,
     parse_pipelines::{parse_redirection, redirecting_builtin_error},
     parser::{
         ArgumentParsingLevel, CallKind, ParsedInternalCall, compile_block, parse, parse_fresh,
@@ -14,11 +15,11 @@ use nu_path::{absolute_with, is_windows_device_path};
 #[cfg(feature = "plugin")]
 use nu_protocol::ast::Call;
 use nu_protocol::{
-    BlockId, DeclId, ParseError, Span, Type, VarId,
+    BlockId, ParseError, Span, Type, VarId,
     ast::{Block, Expr, Expression, Pipeline, PipelineElement},
     engine::StateWorkingSet,
     eval_const::eval_constant,
-    parser_path::ParserPath,
+    parser_path::{MAX_RUN_SCRIPT_BYTES, ParserPath, ScriptLoadError},
 };
 use std::{
     path::{Path, PathBuf},
@@ -28,6 +29,33 @@ use std::{
 pub const LIB_DIRS_VAR: &str = "NU_LIB_DIRS";
 #[cfg(feature = "plugin")]
 pub const PLUGIN_DIRS_VAR: &str = "NU_PLUGIN_DIRS";
+
+/// Load a path for the `run` command at parse time, refusing oversized or non-text files.
+///
+/// Only used by `parse_run` / `parse_run_expr` — `source` and modules keep unbounded `path.read`.
+fn read_run_script_for_parse(
+    path: &ParserPath,
+    working_set: &StateWorkingSet,
+    span: Span,
+) -> Result<Vec<u8>, ParseError> {
+    let display_path = path.path().display().to_string();
+    match path.read_run_script(working_set, MAX_RUN_SCRIPT_BYTES) {
+        Ok(contents) => Ok(contents),
+        Err(ScriptLoadError::TooLarge { size, max_size }) => Err(ParseError::ScriptFileTooLarge {
+            path: display_path,
+            size,
+            max_size,
+            span,
+        }),
+        Err(ScriptLoadError::NotText) => Err(ParseError::ScriptFileNotText {
+            path: display_path,
+            span,
+        }),
+        Err(ScriptLoadError::Unreadable) => {
+            Err(ParseError::SourcedFileNotFound(display_path, span))
+        }
+    }
+}
 
 pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) -> Pipeline {
     trace!("parsing source");
@@ -193,15 +221,6 @@ pub fn parse_run(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) 
     Pipeline::from_vec(vec![expr])
 }
 
-fn find_keyword_decl_by_name(working_set: &StateWorkingSet, name: &[u8]) -> Option<DeclId> {
-    (0..working_set.num_decls())
-        .map(DeclId::new)
-        .find(|decl_id| {
-            let decl = working_set.get_decl(*decl_id);
-            decl.name().as_bytes() == name && decl.is_keyword()
-        })
-}
-
 fn parse_run_expr_internal(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
@@ -217,7 +236,7 @@ fn parse_run_expr_internal(
         }
 
         if let Some(decl_id) =
-            find_keyword_decl_by_name(working_set, name).or_else(|| working_set.find_decl(name))
+            find_keyword_decl(working_set, name).or_else(|| working_set.find_decl(name))
         {
             #[allow(deprecated)]
             let cwd = working_set.get_cwd();
@@ -317,69 +336,79 @@ fn parse_run_expr_internal(
                         );
                     }
 
-                    if let Some(contents) = path.read(working_set) {
-                        if let Err(e) = working_set.files.push(path.clone().path_buf(), spans[1]) {
-                            working_set.error(e);
-                            return garbage(working_set, Span::concat(spans));
+                    let contents = match read_run_script_for_parse(&path, working_set, spans[1]) {
+                        Ok(contents) => contents,
+                        Err(err) => {
+                            working_set.error(err);
+                            return Expression::new(
+                                working_set,
+                                Expr::Call(call),
+                                Span::concat(spans),
+                                Type::Any,
+                            );
                         }
+                    };
 
-                        let mut block = parse(
+                    if let Err(e) = working_set.files.push(path.clone().path_buf(), spans[1]) {
+                        working_set.error(e);
+                        return garbage(working_set, Span::concat(spans));
+                    }
+
+                    let mut block = parse(
+                        working_set,
+                        Some(&path.path().to_string_lossy()),
+                        &contents,
+                        false,
+                    );
+                    if block.ir_block.is_none() {
+                        let block_mut = Arc::make_mut(&mut block);
+                        compile_block(working_set, block_mut);
+                    }
+
+                    working_set.files.pop();
+
+                    let script_main_block_id = find_main_block_id_in_script(working_set, &block);
+
+                    let block_id = working_set.add_block(block);
+
+                    let mut call_with_block = call;
+
+                    call_with_block.set_parser_info(
+                        "block_id".to_string(),
+                        Expression::new(
                             working_set,
-                            Some(&path.path().to_string_lossy()),
-                            &contents,
-                            false,
-                        );
-                        if block.ir_block.is_none() {
-                            let block_mut = Arc::make_mut(&mut block);
-                            compile_block(working_set, block_mut);
-                        }
+                            Expr::Int(block_id.get() as i64),
+                            spans[1],
+                            Type::Any,
+                        ),
+                    );
 
-                        working_set.files.pop();
-
-                        let script_main_block_id =
-                            find_main_block_id_in_script(working_set, &block);
-
-                        let block_id = working_set.add_block(block);
-
-                        let mut call_with_block = call;
-
+                    call_with_block.set_parser_info(
+                        "block_id_name".to_string(),
+                        Expression::new(
+                            working_set,
+                            Expr::Filepath(path.path_buf().display().to_string(), false),
+                            spans[1],
+                            Type::String,
+                        ),
+                    );
+                    if let Some(main_block_id) = script_main_block_id {
                         call_with_block.set_parser_info(
-                            "block_id".to_string(),
+                            "main_block_id".to_string(),
                             Expression::new(
                                 working_set,
-                                Expr::Int(block_id.get() as i64),
+                                Expr::Int(main_block_id.get() as i64),
                                 spans[1],
                                 Type::Any,
                             ),
                         );
-
-                        call_with_block.set_parser_info(
-                            "block_id_name".to_string(),
-                            Expression::new(
-                                working_set,
-                                Expr::Filepath(path.path_buf().display().to_string(), false),
-                                spans[1],
-                                Type::String,
-                            ),
-                        );
-                        if let Some(main_block_id) = script_main_block_id {
-                            call_with_block.set_parser_info(
-                                "main_block_id".to_string(),
-                                Expression::new(
-                                    working_set,
-                                    Expr::Int(main_block_id.get() as i64),
-                                    spans[1],
-                                    Type::Any,
-                                ),
-                            );
-                        }
-                        return Expression::new(
-                            working_set,
-                            Expr::Call(call_with_block),
-                            Span::concat(spans),
-                            Type::Any,
-                        );
                     }
+                    return Expression::new(
+                        working_set,
+                        Expr::Call(call_with_block),
+                        Span::concat(spans),
+                        Type::Any,
+                    );
                 } else {
                     working_set.error(ParseError::SourcedFileNotFound(filename, spans[1]));
                 }

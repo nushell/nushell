@@ -2,12 +2,14 @@ use std::{
     env,
     error::Error,
     fmt::{Debug, Display},
+    io,
     panic::Location,
-    path::{Path, PathBuf},
+    path::{self, Path, PathBuf},
     sync::{Arc, LazyLock},
 };
 
 use miette::Diagnostic;
+use nu_cmd_base::hook::eval_repl_hooks;
 use nu_protocol::{
     CompileError, Config, FromValue, IntoValue, LabeledError, ParseError, PipelineData,
     PipelineExecutionData, ShellError, Span, Value,
@@ -27,10 +29,8 @@ use nu_plugin_engine::{GetPlugin, PersistentPlugin, PluginDeclaration};
 use nu_protocol::{PluginIdentity, PluginSignature, RegisteredPlugin};
 
 static ROOT: LazyLock<PathBuf> = LazyLock::new(|| {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .expect("could not canonicalize root")
+    path::absolute(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."))
+        .expect("could not absolutize root")
 });
 
 // By using different engine states depending on the group key, we can ensure that behavior from
@@ -59,12 +59,18 @@ static INITIAL_ENGINE_STATES: KeyedLazyLock<GroupKey, EngineState> = KeyedLazyLo
     .into_iter()
     .for_each(|(key, val)| engine_state.add_env_var(key.into(), val));
 
+    // Should this be inherited or do we want tighter testing?
+    #[cfg(windows)]
+    if let Ok(path_ext) = env::var("PATHEXT") {
+        engine_state.add_env_var("PATHEXT".into(), Value::test_string(path_ext));
+    }
+
     nu_std::load_standard_library(&mut engine_state).expect("could not load standard library");
 
     engine_state
 });
 
-/// Plugin auto loader for [`THREAD_PLUGIN_AUTO_LOAD`] and [`GLOBAL_PLUGIN_AUTO_LOAD`].
+/// Plugin auto loader for [`PLUGIN_AUTO_LOAD`].
 #[cfg(feature = "plugin")]
 #[derive(Debug, Clone)]
 pub struct PluginAutoLoader {
@@ -143,8 +149,11 @@ pub static PLUGIN_AUTO_LOAD: RwLock<Vec<PluginAutoLoader>> = const_rwlock(Vec::n
 /// # Ok::<(), nu_test_support::tester::TestError>(())
 /// ```
 pub fn test() -> NuTester {
+    let mut engine_state = INITIAL_ENGINE_STATES.get(&GroupKey::current()).clone();
+    engine_state.make_session_state_unique();
+
     let tester = NuTester {
-        engine_state: INITIAL_ENGINE_STATES.get(&GroupKey::current()).clone(),
+        engine_state,
         stack: Stack::new().collect_value(),
         fname_counter: Counter::default(),
     };
@@ -320,7 +329,7 @@ impl NuTester {
     fn path(&self) -> Vec<Value> {
         match self.engine_state.get_env_var("PATH") {
             None => Vec::new(),
-            Some(Value::List { vals, .. }) => vals.clone(),
+            Some(Value::List { vals, .. }) => vals.to_vec(),
             Some(Value::String { val, .. }) => val
                 .split(ENV_PATH_SEPARATOR_CHAR)
                 .map(Value::test_string)
@@ -460,6 +469,40 @@ impl NuTester {
         Self::extract_value(self.run_raw_with_data(code, input)?)
     }
 
+    /// Run multiple Nushell command pipelines after each other and extract the value into `T`.
+    ///
+    /// This shortcircuits if any pipeline fails.
+    #[track_caller]
+    pub fn run_multiple<T: FromValue>(
+        &mut self,
+        pipelines: impl IntoIterator<Item = impl AsRef<str>>,
+    ) -> Result<T> {
+        let last = pipelines
+            .into_iter()
+            .map(|pipeline| self.run(pipeline))
+            .try_fold(Value::test_nothing(), |_, value| value)?;
+        Ok(T::from_value(last)?)
+    }
+
+    /// Run Nushell code after evaluating the REPL hook checkpoints for that source.
+    ///
+    /// This is for behavior that specifically depends on `pre_prompt`, `env_change`, or
+    /// `pre_execution` hooks.
+    /// For ordinary shared-state tests, prefer repeated [`run`](Self::run) calls or
+    /// [`run_multiple`](Self::run_multiple).
+    #[track_caller]
+    pub fn run_with_hooks<T: FromValue>(&mut self, code: impl AsRef<str>) -> Result<T> {
+        let location = TestLocation(Location::caller());
+        let code = code.as_ref();
+
+        eval_repl_hooks(&mut self.engine_state, &mut self.stack, code)
+            .map_err(|err| TestError {
+                location,
+                kind: TestErrorKind::Shell(err),
+            })
+            .and_then(|()| self.run(code))
+    }
+
     /// Run Nushell code and return the raw [`PipelineExecutionData`].
     #[track_caller]
     pub fn run_raw(&mut self, code: impl AsRef<str>) -> Result<PipelineExecutionData> {
@@ -583,6 +626,9 @@ pub enum TestErrorKind {
         got: Value,
     },
     NoInner,
+    MultipleInner {
+        count: usize,
+    },
     UnexpectedErrorKind {
         expected: &'static str,
         got: ShellError,
@@ -603,6 +649,10 @@ pub enum TestErrorKind {
         description: String,
         code: String,
         err: Box<TestErrorKind>,
+    },
+    Io {
+        message: String,
+        kind: io::ErrorKind,
     },
 }
 
@@ -630,6 +680,19 @@ impl From<ParseError> for TestError {
         Self {
             location: TestLocation(Location::caller()),
             kind: TestErrorKind::Parse(err),
+        }
+    }
+}
+
+impl From<io::Error> for TestError {
+    #[track_caller]
+    fn from(value: io::Error) -> Self {
+        Self {
+            location: TestLocation(Location::caller()),
+            kind: TestErrorKind::Io {
+                message: value.to_string(),
+                kind: value.kind(),
+            },
         }
     }
 }
@@ -863,16 +926,21 @@ pub trait ShellErrorExt {
     /// Useful if the error is expected to be a generic error that contains an inner error or a
     /// chained error that chained another error.
     ///
-    /// However, this function returns [`None`]
+    /// However, this function returns [`TestErrorKind::NoInner`]
     /// - if `inner` of [`ShellError::Generic`] is empty
     /// - if `sources` of [`ShellError::ChainedError`] is empty
+    /// - if `sources` of [`ShellError::EvalBlockWithInput`] is empty
     /// - the error is none of the above types
     ///
-    /// So make sure that a [`None`] value is not surprise.
+    /// Also if multiple inner values are found a [`TestErrorKind::MultipleInner`] is returned.
     fn into_inner(self) -> Result<ShellError>;
 
     /// Extract the [`LabeledError`] from [`ShellError::LabeledError`], if it is one.
     fn into_labeled(self) -> Result<LabeledError>;
+
+    /// Extract the iterator on the sources of the [`ChainedError`] from
+    /// [`ShellError::ChainedError`], it it is one.
+    fn into_chained_iter(self) -> Result<impl Iterator<Item = ShellError>>;
 
     /// Extract the error field from [`ShellError::Generic`], if it is one.
     fn generic_error(self) -> Result<String>;
@@ -888,11 +956,27 @@ impl ShellErrorExt for ShellError {
             location: TestLocation(Location::caller()),
             kind: TestErrorKind::NoInner,
         };
-        match self {
-            ShellError::Generic(err) => err.inner.into_iter().next().ok_or(no_inner),
-            ShellError::ChainedError(err) => err.sources_iter().next().ok_or(no_inner),
-            _ => Err(no_inner),
+
+        let iter: &mut dyn Iterator<Item = ShellError> = match self {
+            ShellError::Generic(err) => &mut err.inner.into_iter(),
+            ShellError::ChainedError(err) => &mut err.sources_iter(),
+            ShellError::EvalBlockWithInput { sources, .. } => &mut sources.into_iter(),
+            _ => return Err(no_inner),
+        };
+
+        let Some(inner) = iter.next() else {
+            return Err(no_inner);
+        };
+
+        let rest = iter.count();
+        if rest != 0 {
+            return Err(TestError {
+                location: TestLocation(Location::caller()),
+                kind: TestErrorKind::MultipleInner { count: rest + 1 },
+            });
         }
+
+        Ok(inner)
     }
 
     #[track_caller]
@@ -903,6 +987,20 @@ impl ShellErrorExt for ShellError {
                 location: TestLocation(Location::caller()),
                 kind: TestErrorKind::UnexpectedErrorKind {
                     expected: "Labeled",
+                    got,
+                },
+            }),
+        }
+    }
+
+    #[track_caller]
+    fn into_chained_iter(self) -> Result<impl Iterator<Item = ShellError>> {
+        match self {
+            ShellError::ChainedError(err) => Ok(err.sources_iter()),
+            got => Err(TestError {
+                location: TestLocation(Location::caller()),
+                kind: TestErrorKind::UnexpectedErrorKind {
+                    expected: "Chained",
                     got,
                 },
             }),

@@ -1,54 +1,52 @@
-use nu_test_support::nu;
+use rstest::rstest;
+use rstest_reuse::{apply, template};
 
-const LINE_LEN: usize = if cfg!(target_os = "windows") { 2 } else { 1 };
+use nu_test_support::prelude::*;
+use nu_utils::consts::LINE_SEPARATOR_STR;
 
-#[test]
-fn list() {
-    // Using `str length` since nu! strips newlines, grr
-    let actual = nu!("[] | to text | str length");
-    assert_eq!(actual.out, "0");
+#[template]
+#[rstest]
+#[case(&[])]
+#[case(&["a"])]
+#[case(&["a", "b"])]
+fn input_template(#[case] input: &[&str]) -> Result {}
 
-    let actual = nu!("[a] | to text | str length");
-    assert_eq!(actual.out, (1 + LINE_LEN).to_string());
-
-    let actual = nu!("[a b] | to text | str length");
-    assert_eq!(actual.out, (2 * (1 + LINE_LEN)).to_string());
+#[apply(input_template)]
+fn list(#[case] input: &[&str]) -> Result {
+    let mut expect = input.join(LINE_SEPARATOR_STR);
+    if !expect.is_empty() {
+        expect += LINE_SEPARATOR_STR;
+    }
+    test()
+        .run_with_data("to text", input.to_vec())
+        .expect_value_eq(expect)
 }
 
 // The output should be the same when `to text` gets a ListStream instead of a Value::List.
-#[test]
-fn list_stream() {
-    let actual = nu!("[] | each {} | to text | str length");
-    assert_eq!(actual.out, "0");
-
-    let actual = nu!("[a] | each {} | to text | str length");
-    assert_eq!(actual.out, (1 + LINE_LEN).to_string());
-
-    let actual = nu!("[a b] | each {} | to text | str length");
-    assert_eq!(actual.out, (2 * (1 + LINE_LEN)).to_string());
+#[apply(input_template)]
+fn list_stream(#[case] input: &[&str]) -> Result {
+    let mut expect = input.join(LINE_SEPARATOR_STR);
+    if !expect.is_empty() {
+        expect += LINE_SEPARATOR_STR;
+    }
+    test()
+        .run_with_data("each {} | to text", input.to_vec())
+        .expect_value_eq(expect)
 }
 
-#[test]
-fn list_no_newline() {
-    let actual = nu!("[] | to text -n | str length");
-    assert_eq!(actual.out, "0");
-
-    let actual = nu!("[a] | to text -n | str length");
-    assert_eq!(actual.out, "1");
-
-    let actual = nu!("[a b] | to text -n | str length");
-    assert_eq!(actual.out, (2 + LINE_LEN).to_string());
+#[apply(input_template)]
+fn list_no_newline(#[case] input: &[&str]) -> Result {
+    let expect = input.join(LINE_SEPARATOR_STR);
+    test()
+        .run_with_data("to text --no-newline", input.to_vec())
+        .expect_value_eq(expect)
 }
 
 // The output should be the same when `to text` gets a ListStream instead of a Value::List.
-#[test]
-fn list_stream_no_newline() {
-    let actual = nu!("[] | each {} | to text -n | str length");
-    assert_eq!(actual.out, "0");
-
-    let actual = nu!("[a] | each {} | to text -n | str length");
-    assert_eq!(actual.out, "1");
-
-    let actual = nu!("[a b] | each {} | to text -n | str length");
-    assert_eq!(actual.out, (2 + LINE_LEN).to_string());
+#[apply(input_template)]
+fn list_stream_no_newline(#[case] input: &[&str]) -> Result {
+    let expect = input.join(LINE_SEPARATOR_STR);
+    test()
+        .run_with_data("each {} | to text --no-newline", input.to_vec())
+        .expect_value_eq(expect)
 }

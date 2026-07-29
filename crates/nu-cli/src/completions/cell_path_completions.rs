@@ -151,12 +151,17 @@ fn get_suggestions_by_value(
                 to_suggestion(s, sub_val)
             })
             .collect(),
-        Value::Custom { val, .. } if val.type_name() == "semver" => {
-            ["major", "minor", "patch", "pre", "build"]
+        Value::Custom { val, .. } => match val.type_name().as_str() {
+            "semver" => ["major", "minor", "patch", "pre", "build"]
                 .into_iter()
                 .map(|s| to_suggestion(s.to_string(), None))
-                .collect()
-        }
+                .collect(),
+            "matrix" => ["shape", "ndim", "size"]
+                .into_iter()
+                .map(|s| to_suggestion(s.to_string(), None))
+                .collect(),
+            _ => vec![],
+        },
         _ => vec![],
     }
 }

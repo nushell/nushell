@@ -1171,6 +1171,15 @@ pub enum ShellError {
     },
 
     /// Return event, which may become an error if used outside of a custom command or closure
+    ///
+    /// This is no longer raised by the engine: an early `return` now leaves the block through the
+    /// same path as a value in tail position, preserving pipeline metadata and streams (see
+    /// `PipelineExecutionData::early_return`). The variant is kept temporarily for compatibility
+    /// and will be removed in a future release.
+    #[deprecated(
+        since = "0.114.2",
+        note = "the engine no longer raises this; an early `return` now flows out through `PipelineExecutionData::early_return`"
+    )]
     #[error("Return used outside of custom command or closure")]
     Return {
         #[label("used outside of custom command or closure")]
@@ -1490,6 +1499,8 @@ impl ShellError {
     }
 
     pub fn exit_code(&self) -> Option<i32> {
+        // `Return` is deprecated but still a valid variant to match on here.
+        #[allow(deprecated)]
         match self {
             Self::Return { .. } | Self::Break { .. } | Self::Continue { .. } => None,
             _ => self.external_exit_code().map(|e| e.item).or(Some(1)),

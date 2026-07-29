@@ -200,7 +200,7 @@ fn value_to_string(
     match v {
         Value::Binary { val, .. } => {
             let mut s = String::with_capacity(2 * val.len());
-            for byte in val {
+            for byte in val.iter() {
                 if write!(s, "{byte:02X}").is_err() {
                     return Err(ShellError::UnsupportedInput {
                         msg: "could not convert binary to string".into(),

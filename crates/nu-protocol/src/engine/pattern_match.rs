@@ -116,7 +116,7 @@ impl Matcher for Pattern {
                     }
                     Expr::Binary(x) => {
                         if let Value::Binary { val, .. } = &value {
-                            x == val
+                            x.as_slice() == val.as_slice()
                         } else {
                             false
                         }
