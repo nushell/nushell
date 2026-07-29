@@ -73,8 +73,8 @@ fn sum_of_a_row_containing_a_table_is_an_error() -> Result {
         .run("open sample-sys-output.json | math sum")
         .expect_shell_error()?;
     match outcome {
-        ShellError::CantConvert { from_type, .. } => {
-            assert_contains("record", from_type);
+        ShellError::OnlySupportsThisInputType { wrong_type, .. } => {
+            assert_contains("record", wrong_type);
         }
         err => return Err(err.into()),
     }
