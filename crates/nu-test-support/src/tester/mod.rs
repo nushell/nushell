@@ -28,7 +28,10 @@ use nu_plugin_engine::{GetPlugin, PersistentPlugin, PluginDeclaration};
 #[cfg(feature = "plugin")]
 use nu_protocol::{PluginIdentity, PluginSignature, RegisteredPlugin};
 
-static ROOT: LazyLock<PathBuf> = LazyLock::new(|| {
+/// Workspace root.
+/// 
+/// Default starting cwd for [`test()`].
+pub static WORKSPACE_ROOT: LazyLock<PathBuf> = LazyLock::new(|| {
     path::absolute(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."))
         .expect("could not absolutize root")
 });
@@ -52,7 +55,7 @@ static INITIAL_ENGINE_STATES: KeyedLazyLock<GroupKey, EngineState> = KeyedLazyLo
 
     engine_state.generate_nu_constant();
     [
-        ("PWD", Value::test_string(ROOT.to_string_lossy())),
+        ("PWD", Value::test_string(WORKSPACE_ROOT.to_string_lossy())),
         ("config", Config::default().into_value(Span::unknown())),
         ("NO_COLOR", Value::test_bool(true)),
     ]
@@ -300,7 +303,7 @@ impl NuTester {
 
         let cwd = match cwd.is_absolute() {
             true => cwd,
-            false => ROOT
+            false => WORKSPACE_ROOT
                 .join(cwd)
                 .canonicalize()
                 .expect("could not canonicalize path"),
