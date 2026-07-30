@@ -549,50 +549,35 @@ fn line_looks_like_control_flow_without_brace(trimmed_line: &[u8]) -> bool {
     if trimmed_line.contains(&b'{') {
         return false;
     }
-    // Keyword forms require a boundary so identifiers like `try_this` / `trying`
-    // are not treated as bare `try`.
-    let keywords: &[&[u8]] = &[
-        b"else if ",
-        b"else if\t",
-        b"if ",
-        b"if\t",
-        b"if(",
-        b"while ",
-        b"while\t",
-        b"while(",
-        b"for ",
-        b"for\t",
-        b"match ",
-        b"match\t",
-        b"match(",
+    // Bare keyword or keyword + separator. Rejects `try_this` / `trying` /
+    // `format` / `if-ok` via the follower rule (not identifier continuation).
+    const KEYWORDS: &[&[u8]] = &[
+        b"else if", b"if", b"while", b"for", b"match", b"try", b"else",
     ];
-    let is_kw = keywords.iter().any(|kw| trimmed_line.starts_with(kw))
-        || is_keyword_with_boundary(trimmed_line, b"try")
-        || is_keyword_with_boundary(trimmed_line, b"else");
-    // Bare `else` / `try` without `{` on the same line is incomplete for a block form.
-    is_kw
+    KEYWORDS
+        .iter()
+        .any(|kw| keyword_with_arg_boundary(trimmed_line, kw))
 }
 
-/// True when `line` is exactly `keyword`, or `keyword` followed by a non-identifier
-/// boundary (whitespace, `#`, etc.). Prevents `try_this` matching `try`.
-fn is_keyword_with_boundary(line: &[u8], keyword: &[u8]) -> bool {
+/// True when `line` starts with `keyword` followed by EOL or a separator that
+/// can introduce a condition/body: ASCII whitespace, `(`, or `#` (comment).
+///
+/// Stricter than a pure “not alnum/_” boundary so hyphenated command names
+/// like `if-ok` are not treated as control-flow keywords.
+fn keyword_with_arg_boundary(line: &[u8], keyword: &[u8]) -> bool {
     if !line.starts_with(keyword) {
         return false;
     }
     match line.get(keyword.len()) {
         None => true,
-        Some(b) => !is_ascii_ident_continue(*b),
+        Some(b) if b.is_ascii_whitespace() || *b == b'(' || *b == b'#' => true,
+        _ => false,
     }
 }
 
-/// Identifier continue char. `allow_hyphen` distinguishes keyword boundaries
-/// (no `-`) from record keys / structure-hint names (hyphen allowed).
+/// Identifier-ish character for record keys / structure-hint names.
 fn is_ident_char(b: u8, allow_hyphen: bool) -> bool {
     b.is_ascii_alphanumeric() || b == b'_' || (allow_hyphen && b == b'-')
-}
-
-fn is_ascii_ident_continue(b: u8) -> bool {
-    is_ident_char(b, false)
 }
 
 /// `type: $lst.0}` or similar — record fields without an opening `{` on the line.

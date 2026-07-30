@@ -480,6 +480,9 @@ fn parse_missing_if_open_brace_points_at_condition() {
 }
 
 /// while / try / for / match / else-if should get the same unexpected-`}` presentation.
+///
+/// Also covers separators the old hand-expanded list encoded (space, tab, `(`)
+/// and bare keywords at EOL so the shared boundary helper cannot regress.
 #[rstest]
 #[case::while_missing_brace(b"def f [] {\n  while $true\n    1\n  }\n}\n")]
 #[case::try_missing_brace(b"def f [] {\n  try\n    1\n  }\n}\n")]
@@ -488,6 +491,12 @@ fn parse_missing_if_open_brace_points_at_condition() {
 // `else if` must begin the line (a leading `}` on the same line is a different
 // token shape and is not reshaped by this lookback).
 #[case::else_if_missing_brace(b"def f [] {\n  if $true { 1 }\n  else if $false\n    2\n  }\n}\n")]
+// Tab / `(` after the keyword (previously separate table entries).
+#[case::if_tab_separator(b"def f [] {\n  if\t$x != string\n    $r\n  }\n}\n")]
+#[case::if_paren_separator(b"def f [] {\n  if($true)\n    1\n  }\n}\n")]
+#[case::while_paren_separator(b"def f [] {\n  while($true)\n    1\n  }\n}\n")]
+// Bare keyword alone on the line (try/else already; if must keep working too).
+#[case::bare_if_at_eol(b"def f [] {\n  if\n    1\n  }\n}\n")]
 fn parse_missing_open_brace_control_flow_variants(#[case] file: &[u8]) {
     let err = parse_first_error(file);
     let (closer, hint) = assert_unexpected_closer(&err, "}", "possible place for `{`");
@@ -785,10 +794,17 @@ fn parse_balanced_parens_with_extra_close_stays_unbalanced() {
     }
 }
 
-#[test]
-fn parse_try_identifier_prefix_not_missing_brace() {
-    // `try_this` must not match the bare-`try` missing-`{` lookback.
-    let file = b"def f [] {\n  try_this\n  1\n}\n}\n";
+/// Lookback keyword matching must require a real boundary — not a prefix of a
+/// longer identifier or a hyphenated command name.
+#[rstest]
+#[case::try_this(b"def f [] {\n  try_this\n  1\n}\n}\n")]
+#[case::trying(b"def f [] {\n  trying\n  1\n}\n}\n")]
+// `format` starts with `for` but is not the `for` keyword.
+#[case::format(b"def f [] {\n  format x\n  1\n}\n}\n")]
+// Hyphenated names must not match `if` / `while` (stricter than pure alnum/_).
+#[case::if_ok(b"def f [] {\n  if-ok\n  1\n}\n}\n")]
+#[case::while_true_cmd(b"def f [] {\n  while-true\n  1\n}\n}\n")]
+fn parse_control_flow_keyword_prefix_not_missing_brace(#[case] file: &[u8]) {
     let err = parse_first_error(file);
     assert_unbalanced(&err, "{", "}");
 }
