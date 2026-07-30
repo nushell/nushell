@@ -81,7 +81,16 @@ If no input is provided, the current commandline contents will be used instead."
             extract_input_buffer(&input, engine_state, head_span, source_span)?;
 
         let is_detailed = call.has_flag(engine_state, stack, "detailed")?;
-        let completion_type = call.get_flag::<CompletionType>(engine_state, stack, "type")?;
+        let completion_type = match call.get_flag::<Value>(engine_state, stack, "type")? {
+            Some(v) => Some(CompletionType::from_value(v.clone()).map_err(|_| {
+                ShellError::InvalidValue {
+                    valid: r#"type "directory", "path", or "glob""#.into(),
+                    actual: nu_utils::escape_quote_string(&v.as_str()?),
+                    span: v.span(),
+                }
+            })?),
+            None => None,
+        };
 
         let completions = fetch_completions(
             engine_state,

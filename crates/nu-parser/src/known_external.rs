@@ -152,8 +152,7 @@ fn ast_call_to_extern_call(
                 let named_span_id = engine_state
                     .find_span_id(named.0.span)
                     .unwrap_or(UNKNOWN_SPAN_ID);
-                // Forward the spelling the user typed: `-f` stays `-f` rather than being
-                // rewritten to `--flag`, since the external parses its own arguments.
+                // Prefer the short form the AST preserved; otherwise forward `--<long>`.
                 let flag = match named.1.as_ref().filter(|short| !short.item.is_empty()) {
                     Some(short) => format!("-{}", short.item),
                     None => format!("--{}", named.0.item),

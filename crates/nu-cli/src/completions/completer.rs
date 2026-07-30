@@ -1781,7 +1781,7 @@ fn partial_of(line: &str, suggestions: &[Suggestion]) -> Option<Partial> {
     let extends = shared_prefix != entered
         && shared_prefix
             .to_lowercase()
-            .contains(&entered.to_lowercase());
+            .starts_with(&entered.to_lowercase());
 
     extends.then_some(Partial {
         span,
@@ -1864,6 +1864,7 @@ mod completer_tests {
 
         // Not narrowing: no new text, or text removed.
         assert!(!q("ls foo").narrows(&q("ls foo"), token(3)));
+        // typo:ignore
         assert!(!q("ls fo").narrows(&q("ls foo"), token(3)));
 
         // Each boundary character starts a new token, which a cached entry cannot answer.
