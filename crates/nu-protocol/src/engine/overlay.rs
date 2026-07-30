@@ -9,6 +9,51 @@ pub struct Visibility {
     decl_ids: HashMap<DeclId, bool>,
 }
 
+/// Name bindings introduced while parsing a single block/closure scope.
+///
+/// Nested scopes discard their name maps on `exit_scope`; this snapshot is stored on the
+/// [`Block`](crate::ast::Block) so `scope` commands can report locals at runtime.
+///
+/// # Lifecycle
+///
+/// 1. **Parse**: [`StateWorkingSet::snapshot_scope_bindings`] copies decls/modules from the
+///    innermost scope frame into a `ScopeBindings` attached to the block, immediately before
+///    the matching `exit_scope`.
+/// 2. **Eval**: whole blocks push bindings on [`Stack::active_scope_bindings`] in
+///    `eval_ir_block`. Keyword bodies that are IR-inlined record
+///    [`ScopeRegion`](crate::ir::ScopeRegion)s on the parent [`IrBlock`](crate::ir::IrBlock);
+///    `scope` matches the current instruction index against those regions.
+#[derive(Debug, Clone, Default)]
+pub struct ScopeBindings {
+    pub decls: HashMap<Vec<u8>, DeclId>,
+    pub modules: HashMap<Vec<u8>, ModuleId>,
+    pub visibility: Visibility,
+}
+
+impl ScopeBindings {
+    pub fn is_empty(&self) -> bool {
+        self.decls.is_empty() && self.modules.is_empty() && self.visibility.decl_ids.is_empty()
+    }
+
+    /// Merge decls, modules, and visibility from an overlay frame (other wins on name clash).
+    pub fn extend_from_overlay(&mut self, overlay: &OverlayFrame) {
+        self.decls
+            .extend(overlay.decls.iter().map(|(k, v)| (k.clone(), *v)));
+        self.modules
+            .extend(overlay.modules.iter().map(|(k, v)| (k.clone(), *v)));
+        self.visibility.merge_with(overlay.visibility.clone());
+    }
+
+    /// Merge another bindings map on top of this one (other wins on name clash).
+    pub fn extend_from_bindings(&mut self, other: &ScopeBindings) {
+        self.decls
+            .extend(other.decls.iter().map(|(k, v)| (k.clone(), *v)));
+        self.modules
+            .extend(other.modules.iter().map(|(k, v)| (k.clone(), *v)));
+        self.visibility.merge_with(other.visibility.clone());
+    }
+}
+
 impl Visibility {
     pub fn new() -> Self {
         Visibility {

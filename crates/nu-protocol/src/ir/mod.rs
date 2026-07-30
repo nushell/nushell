@@ -1,7 +1,7 @@
 use crate::{
     BlockId, DeclId, Filesize, RegId, ShellError, Span, Value, VarId,
     ast::{CellPath, Expression, Operator, Pattern, RangeInclusion},
-    engine::EngineState,
+    engine::{EngineState, ScopeBindings},
 };
 use chrono::{DateTime, FixedOffset};
 use serde::{Deserialize, Serialize};
@@ -12,6 +12,26 @@ mod display;
 
 pub use call::*;
 pub use display::{FmtInstruction, FmtIrBlock};
+
+/// Instruction-index range where a nested block's local command/module bindings apply.
+///
+/// Keyword bodies (`if`/`for`/…) are IR-**inlined** into the parent block and never enter
+/// `eval_ir_block`. The compiler records these regions so `scope` can resolve locals by
+///  comparing the current program counter.
+#[derive(Clone, Debug)]
+pub struct ScopeRegion {
+    /// Inclusive start index into [`IrBlock::instructions`].
+    pub start: usize,
+    /// Exclusive end index into [`IrBlock::instructions`].
+    pub end: usize,
+    pub bindings: Arc<ScopeBindings>,
+}
+
+impl ScopeRegion {
+    pub fn contains(&self, instruction_index: usize) -> bool {
+        self.start <= instruction_index && instruction_index < self.end
+    }
+}
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct IrBlock {
@@ -24,6 +44,10 @@ pub struct IrBlock {
     pub comments: Vec<Box<str>>,
     pub register_count: u32,
     pub file_count: u32,
+    /// Local scope regions for inlined nested blocks (see [`ScopeRegion`]).
+    /// Not serialized — only meaningful in the process that compiled the block.
+    #[serde(skip)]
+    pub scope_regions: Vec<ScopeRegion>,
 }
 
 impl fmt::Debug for IrBlock {
@@ -36,6 +60,7 @@ impl fmt::Debug for IrBlock {
             .field("comments", &self.comments)
             .field("register_count", &self.register_count)
             .field("file_count", &self.file_count)
+            .field("scope_regions", &self.scope_regions.len())
             .finish_non_exhaustive()
     }
 }
