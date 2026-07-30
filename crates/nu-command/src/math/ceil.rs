@@ -44,8 +44,8 @@ impl Command for MathCeil {
     }
 
     fn extra_description(&self) -> &str {
-        "Filesize and duration values are stored as whole numbers of base units \
-         (bytes and nanoseconds). Without a display unit to round against, \
+        "Filesize and duration values are stored as integers in base units \
+         (bytes and nanoseconds). With no display unit to round against, \
          `math ceil` is the identity function for those types."
     }
 
