@@ -82,13 +82,20 @@ If no input is provided, the current commandline contents will be used instead."
 
         let is_detailed = call.has_flag(engine_state, stack, "detailed")?;
         let completion_type = match call.get_flag::<Value>(engine_state, stack, "type")? {
-            Some(v) => Some(CompletionType::from_value(v.clone()).map_err(|_| {
-                ShellError::InvalidValue {
-                    valid: r#"type "directory", "path", or "glob""#.into(),
-                    actual: nu_utils::escape_quote_string(&v.as_str()?),
-                    span: v.span(),
-                }
-            })?),
+            Some(v) => {
+                let type_str = v
+                    .as_str()
+                    .map(nu_utils::escape_quote_string)
+                    .unwrap_or_default();
+
+                Some(CompletionType::from_value(v.clone()).map_err(|_| {
+                    ShellError::InvalidValue {
+                        valid: r#"type "directory", "path", or "glob""#.into(),
+                        actual: type_str,
+                        span: v.span(),
+                    }
+                })?)
+            }
             None => None,
         };
 

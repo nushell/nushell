@@ -18,8 +18,8 @@ use nu_protocol::{
 };
 use nu_utils::time::Instant;
 use reedline::{
-    Completer as ReedlineCompleter, CompletionResult, CompletionStatus, Partial, Suggestion,
-    Suggestions,
+    Completer as ReedlineCompleter, CompletionOrigin, CompletionResult, CompletionStatus, Partial,
+    Suggestion, Suggestions,
 };
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::num::NonZeroUsize;
@@ -1734,7 +1734,7 @@ impl NuCompleter {
         const BLOCKING_TIMEOUT: Duration = Duration::from_secs(30);
 
         let fallback = match self.complete(line, pos) {
-            CompletionResult::Fresh(values, _) => return values,
+            CompletionResult::Fresh { suggestions, .. } => return suggestions,
             in_flight => in_flight.into_shared().unwrap_or_default(),
         };
 
@@ -1817,7 +1817,8 @@ impl ReedlineCompleter for NuCompleter {
             }
         }
 
-        CompletionResult::stale_or_pending(fallback).with_partial(partial)
+        CompletionResult::stale_or_pending(fallback, CompletionOrigin::new(line, pos))
+            .with_partial(partial)
     }
 
     fn poll_completion(&mut self) -> CompletionStatus {
@@ -1942,7 +1943,7 @@ mod completer_tests {
         let mut next_prompt = NuCompleter::with_cache(engine, Arc::new(Stack::new()), cache);
         let answer = next_prompt.complete("ls | c", 6);
         assert!(
-            matches!(answer, CompletionResult::Fresh(..)),
+            matches!(answer, CompletionResult::Fresh { .. }),
             "a carried-over cache entry should answer outright, got {answer:?}"
         );
         assert!(answer.suggestions().iter().any(|s| s.value == "cd"));
