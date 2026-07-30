@@ -1,4 +1,4 @@
-//! Interactive last-result (`$last`) capture tests.
+//! Interactive last-result (`$_`) capture tests.
 //!
 //! Last-result is only stored when `engine_state.is_interactive` is true and evaluation
 //! goes through `eval_source` (the REPL path). `NuTester` uses `eval_block` without that
@@ -204,11 +204,11 @@ fn non_interactive_does_not_capture() -> Result {
 
 #[test]
 fn last_result_var_name_constant_is_used() -> Result {
-    assert_eq!(LAST_RESULT_VAR_NAME, "last");
+    assert_eq!(LAST_RESULT_VAR_NAME, "_");
 
     let mut session = Interactive::new();
     session.run("5");
-    session.run("$last");
+    session.run("$_");
     assert_eq!(session.last_value()?, Value::test_int(5));
     Ok(())
 }
@@ -251,7 +251,7 @@ fn truncation_warning_fires_across_repl_parent_child_stacks() -> Result {
     next_iter.defer_last_result_truncation_warning();
     assert!(
         next_iter.take_last_result_warn_deferred(),
-        "warn must defer across parent/child so it can print after $last output"
+        "warn must defer across parent/child so it can print after $_ output"
     );
     assert!(
         !next_iter.take_last_result_warn_deferred(),
@@ -322,7 +322,7 @@ fn quoted_path(path: impl AsRef<std::path::Path>) -> String {
 #[test]
 #[deps(TESTBIN_NONU)]
 fn external_command_stdout_is_stored_as_string() -> Result {
-    // Bare external UTF-8 stdout is decoded for `$last` (no `$last | decode`).
+    // Bare external UTF-8 stdout is decoded for `$_` (no `$_ | decode`).
     // Structured internal results still take the Value/ListStream paths unchanged.
     // Testbins live in `crates/testbins` and are built via `#[deps(TESTBIN_*)]`.
     let marker = "last_external_marker_xyz";
@@ -354,7 +354,7 @@ fn external_command_trailing_newline_is_trimmed_in_last() -> Result {
             assert_eq!(&*val, "trim_me");
             assert!(!val.ends_with('\n'));
         }
-        other => panic!("expected string $last from external, got {other:?}"),
+        other => panic!("expected string $_ from external, got {other:?}"),
     }
     Ok(())
 }

@@ -100,8 +100,8 @@ pub(crate) fn eval_cell_path(
             .const_val
             .to_owned()
             .map_or_else(
-                // Handles `$env` / `$nu` / `$last` specials as well as stack vars.
-                // Truncation warnings for `$last` are deferred (not printed from completions).
+                // Handles `$env` / `$nu` / `$_` specials as well as stack vars.
+                // Truncation warnings for `$_` are deferred (not printed from completions).
                 || eval_variable(working_set.permanent_state, stack, var_id, span),
                 Ok,
             )

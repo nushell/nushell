@@ -534,7 +534,7 @@ fn eval_instruction<D: DebugContext>(
             Ok(Continue)
         }
         Instruction::LoadVariable { dst, var_id } => {
-            // Restore pipeline metadata for `$last` (e.g. ls path_columns / colors).
+            // Restore pipeline metadata for `$_` (e.g. ls path_columns / colors).
             // Truncation warning is deferred until after print so data is visible first.
             let data = if *var_id == nu_protocol::LAST_VARIABLE_ID {
                 ctx.stack.defer_last_result_truncation_warning();

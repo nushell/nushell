@@ -30,7 +30,7 @@ struct LastResultSlot {
     truncated: bool,
     /// Set when a store was truncated; moved to `warn_deferred` on first access.
     warn_pending: bool,
-    /// Set when `$last` was accessed after a truncated store; reported after output prints.
+    /// Set when `$_` was accessed after a truncated store; reported after output prints.
     warn_deferred: bool,
 }
 
@@ -96,7 +96,7 @@ pub struct Stack {
     pub ir_scope_regions: Vec<ScopeRegion>,
     /// Current program counter while evaluating IR (for matching [`Self::ir_scope_regions`]).
     pub ir_instruction_index: Option<usize>,
-    /// Interactive last-result payload for [`LAST_VARIABLE_ID`] (e.g. `$last`).
+    /// Interactive last-result payload for [`LAST_VARIABLE_ID`] (e.g. `$_`).
     ///
     /// Shared across parent/child stacks so REPL iterations (which use
     /// [`Stack::with_parent`]) can store and clear truncation warnings correctly.
@@ -282,7 +282,7 @@ impl Stack {
     ///
     /// Drops any previous last-result first. When `budget == 0`, capture is disabled
     /// (clears storage and does not store). Preserves pipeline `metadata` (e.g. `path_columns`
-    /// used for `ls` coloring) so replaying `$last` matches the original display.
+    /// used for `ls` coloring) so replaying `$_` matches the original display.
     pub fn set_last_result(
         &mut self,
         value: Value,
@@ -327,7 +327,7 @@ impl Stack {
         self.with_last_result_slot(|slot| slot.value.as_ref().map(|v| v.memory_size()).unwrap_or(0))
     }
 
-    /// Build [`PipelineData`] for `$last`, restoring stored pipeline metadata.
+    /// Build [`PipelineData`] for `$_`, restoring stored pipeline metadata.
     pub fn last_result_pipeline_data(&self, span: Span) -> PipelineData {
         self.with_last_result_slot(|slot| {
             let value = slot
@@ -344,7 +344,7 @@ impl Stack {
         self.with_last_result_slot(|slot| slot.truncated)
     }
 
-    /// On `$last` access after a truncated store: schedule a warning for after output prints.
+    /// On `$_` access after a truncated store: schedule a warning for after output prints.
     ///
     /// Does not print anything. Call [`Self::take_last_result_warn_deferred`] after display
     /// so the truncated value is shown first, then the warning.
@@ -364,7 +364,7 @@ impl Stack {
 
     /// Take the deferred truncation warning flag (clears it).
     ///
-    /// Returns `true` once after a truncated `$last` was accessed; intended to be called
+    /// Returns `true` once after a truncated `$_` was accessed; intended to be called
     /// after the pipeline has been printed so the warning appears below the data.
     pub fn take_last_result_warn_deferred(&self) -> bool {
         self.with_last_result_slot_mut(|slot| std::mem::take(&mut slot.warn_deferred))
@@ -619,7 +619,7 @@ impl Stack {
             active_scope_bindings: self.active_scope_bindings.clone(),
             ir_scope_regions: vec![],
             ir_instruction_index: None,
-            // Share last-result so closures can still read `$last`.
+            // Share last-result so closures can still read `$_`.
             last_result: self.last_result.clone(),
         }
     }
@@ -662,7 +662,7 @@ impl Stack {
             active_scope_bindings: self.active_scope_bindings.clone(),
             ir_scope_regions: vec![],
             ir_instruction_index: None,
-            // Share last-result so closures can still read `$last`.
+            // Share last-result so closures can still read `$_`.
             last_result: self.last_result.clone(),
         }
     }

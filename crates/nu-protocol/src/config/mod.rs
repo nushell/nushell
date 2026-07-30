@@ -86,7 +86,7 @@ pub struct Config {
     pub highlight_resolved_externals: bool,
     pub auto_cd_implicit: bool,
     pub duration_max_unit: DurationMaxUnit,
-    /// Maximum estimated memory size of the interactive last-result value (e.g. `$last`).
+    /// Maximum estimated memory size of the interactive last-result value (e.g. `$_`).
     ///
     /// Measured with [`Value::memory_size`]. `0` disables capture. Oversized results are truncated
     /// to fit this budget. The variable name itself is a code constant (`LAST_RESULT_VAR_NAME`),

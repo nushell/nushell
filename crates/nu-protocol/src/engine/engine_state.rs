@@ -172,14 +172,14 @@ pub const IN_VARIABLE_ID: VarId = VarId::new(1);
 pub const ENV_VARIABLE_ID: VarId = VarId::new(2);
 /// Interactive last-result special variable.
 ///
-/// The user-facing name is [`LAST_RESULT_VAR_NAME`] (e.g. `$last`). Change that constant
+/// The user-facing name is [`LAST_RESULT_VAR_NAME`] (e.g. `$_`). Change that constant
 /// if the public name should differ; keep this ID stable.
 pub const LAST_VARIABLE_ID: VarId = VarId::new(3);
 /// Identifier for the last-result special variable **without** the `$` sigil.
 ///
-/// Change this single constant to rename the binding site-wide (e.g. `"_"` → `$_`).
+/// Change this single constant to rename the binding site-wide (e.g. `"last"` → `$last`).
 /// Not user-configurable.
-pub const LAST_RESULT_VAR_NAME: &str = "last";
+pub const LAST_RESULT_VAR_NAME: &str = "_";
 // NOTE: If you add more to this list, make sure to update the > checks based on the last in the list
 
 // The first span is unknown span

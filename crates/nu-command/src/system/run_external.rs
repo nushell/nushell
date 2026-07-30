@@ -208,10 +208,10 @@ If you create a custom command with this name, that will be used instead."
         let stdout = stack.stdout();
         let stderr = stack.stderr();
 
-        // Interactive `$last` capture needs a readable stdout. `Print`/`Inherit` would
+        // Interactive `$_` capture needs a readable stdout. `Print`/`Inherit` would
         // write straight to the terminal with no bytes for `maybe_store_last_result`,
         // which previously stored empty binary. Pipe instead so the REPL can tee a
-        // prefix into `$last` and still print the stream (TTY-aware tools may change
+        // prefix into `$_` and still print the stream (TTY-aware tools may change
         // formatting when not on a real TTY — same tradeoff as `| complete`).
         let pipe_stdout = OutDest::Pipe;
         let capture_stdout_for_last = engine_state.is_interactive
