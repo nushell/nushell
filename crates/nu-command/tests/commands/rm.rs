@@ -530,10 +530,10 @@ fn rm_verbose_returns_deleted_record() -> Result {
     Playground::setup("rm_verbose_returns_deleted_record", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("test_file.txt")]);
 
-        let code = r#"
+        let code = "
             let result = (rm -v test_file.txt | first)
             [$result.deleted, ($result.error == null), ($result.path | path basename)]
-        "#;
+        ";
 
         test()
             .cwd(dirs.test())
@@ -551,7 +551,7 @@ fn rm_verbose_returns_error_record_without_failing_pipeline() -> Result {
         |dirs, sandbox| {
             sandbox.with_files(&[EmptyFile("present.txt")]);
 
-            let code = r#"
+            let code = "
                 let result = (rm -v present.txt missing.txt | update path { path basename })
                 let present = ($result | where path == present.txt | first)
                 let missing = ($result | where path == missing.txt | first)
@@ -562,7 +562,7 @@ fn rm_verbose_returns_error_record_without_failing_pipeline() -> Result {
                     $present.path,
                     $missing.path,
                 ]
-            "#;
+            ";
 
             test()
                 .cwd(dirs.test())
