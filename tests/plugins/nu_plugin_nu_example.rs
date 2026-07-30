@@ -1,42 +1,31 @@
-use assert_cmd::Command;
+use std::process::Command;
+
+use nu_test_support::prelude::*;
 
 #[test]
-fn call() {
-    // Add the `nu` binaries to the path env
-    let path_env = std::env::join_paths(
-        std::iter::once(nu_test_support::fs::binaries().into()).chain(
-            std::env::var_os(nu_utils::consts::NATIVE_PATH_ENV_VAR)
-                .as_deref()
-                .map(std::env::split_paths)
-                .into_iter()
-                .flatten(),
-        ),
-    )
-    .expect("failed to make path var");
-
-    let assert = Command::new(nu_test_support::fs::executable_path())
-        .env(nu_utils::consts::NATIVE_PATH_ENV_VAR, path_env)
+#[deps(NU)]
+fn call() -> Result {
+    let output = Command::new(NU.path())
+        .env(nu_utils::consts::NATIVE_PATH_ENV_VAR, NU.bin_dir())
+        .current_dir(WORKSPACE_ROOT.as_path())
         .args([
             "--no-config-file",
             "--no-std-lib",
             "--plugins",
-            &format!(
-                "crates{0}nu_plugin_nu_example{0}nu_plugin_nu_example.nu",
-                std::path::MAIN_SEPARATOR
-            ),
+            "crates/nu_plugin_nu_example/nu_plugin_nu_example.nu",
             "--commands",
             "nu_plugin_nu_example 4242 teststring",
         ])
-        .assert()
-        .success();
+        .output()?;
 
-    let output = assert.get_output();
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stdout.contains("one"));
-    assert!(stdout.contains("two"));
-    assert!(stdout.contains("three"));
-    assert!(stderr.contains("name: nu_plugin_nu_example"));
-    assert!(stderr.contains("4242"));
-    assert!(stderr.contains("teststring"));
+    let stdout = str::from_utf8(&output.stdout).expect("stdout is utf8");
+    let stderr = str::from_utf8(&output.stderr).expect("stderr is utf8");
+    assert!(output.status.success(), "{stderr}");
+    assert_contains("one", stdout);
+    assert_contains("two", stdout);
+    assert_contains("three", stdout);
+    assert_contains("name: nu_plugin_nu_example", stderr);
+    assert_contains("4242", stderr);
+    assert_contains("teststring", stderr);
+    Ok(())
 }

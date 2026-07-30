@@ -5,6 +5,7 @@ use nu_engine::{eval_block, eval_block_with_early_return};
 use nu_parser::{Token, TokenContents, lex, parse, unescape_unquote_string};
 use nu_protocol::{
     PipelineData, ShellError, Span, Value,
+    ast::Block,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
     process::check_exit_status_future,
@@ -253,17 +254,58 @@ pub fn eval_source(
             stack.set_last_exit_code(code, Span::unknown());
             code
         }
-        Err(err) => {
-            if let ShellError::Exit { code, .. } = &err {
-                std::process::exit(*code)
-            }
-            report_shell_error(Some(stack), engine_state, &err);
-            let code = err.exit_code();
-            stack.set_last_error(&err);
-            code.unwrap_or(0)
-        }
+        Err(err) => map_eval_error_to_exit_code(engine_state, stack, err),
     };
 
+    finish_eval_source(engine_state, fname, start_time, exit_code)
+}
+
+/// Evaluate an already-parsed block with the same print / exit-code behavior as [`eval_source`].
+///
+/// Used by file evaluation so the file is not re-parsed (re-parsing can reuse stale sourced
+/// blocks with old VarIds; see https://github.com/nushell/nushell/issues/18515).
+pub fn eval_parsed_block_source(
+    engine_state: &mut EngineState,
+    stack: &mut Stack,
+    block: &Block,
+    fname: &str,
+    input: PipelineData,
+    allow_return: bool,
+) -> i32 {
+    let start_time = Instant::now();
+
+    let exit_code = match evaluate_parsed_block(engine_state, stack, block, input, allow_return) {
+        Ok(failed) => {
+            let code = failed.into();
+            stack.set_last_exit_code(code, Span::unknown());
+            code
+        }
+        Err(err) => map_eval_error_to_exit_code(engine_state, stack, err),
+    };
+
+    finish_eval_source(engine_state, fname, start_time, exit_code)
+}
+
+fn map_eval_error_to_exit_code(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    err: ShellError,
+) -> i32 {
+    if let ShellError::Exit { code, .. } = &err {
+        std::process::exit(*code)
+    }
+    report_shell_error(Some(stack), engine_state, &err);
+    let code = err.exit_code();
+    stack.set_last_error(&err);
+    code.unwrap_or(0)
+}
+
+fn finish_eval_source(
+    engine_state: &EngineState,
+    fname: &str,
+    start_time: Instant,
+    exit_code: i32,
+) -> i32 {
     // reset vt processing, aka ansi because illbehaved externals can break it
     #[cfg(windows)]
     {
@@ -317,10 +359,21 @@ pub(crate) fn evaluate_source(
 
     engine_state.merge_delta(delta)?;
 
+    evaluate_parsed_block(engine_state, stack, &block, input, allow_return)
+}
+
+/// Evaluate a parsed block: run it, apply variable deletions, print output, optional pipefail.
+pub(crate) fn evaluate_parsed_block(
+    engine_state: &mut EngineState,
+    stack: &mut Stack,
+    block: &Block,
+    input: PipelineData,
+    allow_return: bool,
+) -> Result<bool, ShellError> {
     let pipeline = if allow_return {
-        eval_block_with_early_return::<WithoutDebug>(engine_state, stack, &block, input)
+        eval_block_with_early_return::<WithoutDebug>(engine_state, stack, block, input)
     } else {
-        eval_block::<WithoutDebug>(engine_state, stack, &block, input)
+        eval_block::<WithoutDebug>(engine_state, stack, block, input)
     }?;
     let pipeline_data = pipeline.body;
 

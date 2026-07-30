@@ -2,13 +2,9 @@ use crate::{NuHelpCompleter, menus::NuMenuCompleter};
 use crossterm::event::{KeyCode, KeyModifiers};
 use nu_ansi_term::Style;
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
-use nu_engine::eval_block;
-use nu_parser::parse;
 use nu_protocol::{
-    Config, EditBindings, FromValue, ParsedKeybinding, ParsedMenu, PipelineData, Record,
-    ShellError, Span, Type, Value,
-    debugger::WithoutDebug,
-    engine::{EngineState, Stack, StateWorkingSet},
+    Config, EditBindings, ParsedKeybinding, ParsedMenu, Record, ShellError, Span, Type, Value,
+    engine::{EngineState, Stack},
     extract_value,
 };
 use reedline::{
@@ -21,104 +17,13 @@ use reedline::{
 };
 use std::{str::FromStr, sync::Arc};
 
-const DEFAULT_COMPLETION_MENU: &str = r#"
-{
-  name: completion_menu
-  only_buffer_difference: false
-  marker: "| "
-  type: {
-      layout: columnar
-      columns: 4
-      col_width: 20
-      col_padding: 2
-      tab_traversal: "horizontal"
-  }
-  style: {
-      text: green,
-      selected_text: green_reverse
-      description_text: yellow
-  }
-}"#;
-
-const DEFAULT_IDE_COMPLETION_MENU: &str = r#"
-{
-  name: ide_completion_menu
-  only_buffer_difference: false
-  marker: "| "
-  type: {
-    layout: ide
-    min_completion_width: 0,
-    max_completion_width: 50,
-    max_completion_height: 10, # will be limited by the available lines in the terminal
-    padding: 0,
-    border: true,
-    cursor_offset: 0,
-    description_mode: "prefer_right"
-    min_description_width: 15
-    max_description_width: 50
-    max_description_height: 10
-    description_offset: 1
-    # If true, the cursor pos will be corrected, so the suggestions match up with the typed text
-    #
-    # C:\> str
-    #      str join
-    #      str trim
-    #      str split
-    correct_cursor_pos: false
-  }
-  style: {
-    text: green
-    selected_text: { attr: r }
-    description_text: yellow
-    match_text: { attr: u }
-    selected_match_text: { attr: ur }
-  }
-}"#;
-
-const DEFAULT_HISTORY_MENU: &str = r#"
-{
-  name: history_menu
-  only_buffer_difference: true
-  marker: "? "
-  type: {
-      layout: list
-      page_size: 10
-  }
-  style: {
-      text: green,
-      selected_text: green_reverse
-      description_text: yellow
-  }
-}"#;
-
-const DEFAULT_HELP_MENU: &str = r#"
-{
-  name: help_menu
-  only_buffer_difference: true
-  marker: "? "
-  type: {
-      layout: description
-      columns: 4
-      col_width: 20
-      col_padding: 2
-      selection_rows: 4
-      description_rows: 15
-  }
-  style: {
-      text: green,
-      selected_text: green_reverse
-      description_text: yellow
-  }
-}"#;
-
-// Adds all menus to line editor
+// Adds all menus from `$env.config.menus` (defaults live on `Config::default()`).
 pub(crate) fn add_menus(
     mut line_editor: Reedline,
     engine_state_ref: Arc<EngineState>,
     stack: &Stack,
     config: Arc<Config>,
 ) -> Result<Reedline, ShellError> {
-    //log::trace!("add_menus: config: {:#?}", &config);
     line_editor = line_editor.clear_menus();
 
     for menu in &config.menus {
@@ -129,62 +34,6 @@ pub(crate) fn add_menus(
             stack,
             config.clone(),
         )?
-    }
-
-    // Checking if the default menus have been added from the config file
-    let default_menus = [
-        ("completion_menu", DEFAULT_COMPLETION_MENU),
-        ("ide_completion_menu", DEFAULT_IDE_COMPLETION_MENU),
-        ("history_menu", DEFAULT_HISTORY_MENU),
-        ("help_menu", DEFAULT_HELP_MENU),
-    ];
-
-    let mut engine_state = (*engine_state_ref).clone();
-    let mut menu_eval_results = vec![];
-
-    for (name, definition) in default_menus {
-        if !config
-            .menus
-            .iter()
-            .any(|menu| menu.name.to_expanded_string("", &config) == name)
-        {
-            let (block, delta) = {
-                let mut working_set = StateWorkingSet::new(&engine_state);
-                let output = parse(
-                    &mut working_set,
-                    Some(name), // format!("repl_entry #{}", entry_num)
-                    definition.as_bytes(),
-                    true,
-                );
-
-                (output, working_set.render())
-            };
-
-            engine_state.merge_delta(delta)?;
-
-            let mut temp_stack = Stack::new().collect_value();
-            let input = PipelineData::empty();
-            menu_eval_results.push(eval_block::<WithoutDebug>(
-                &engine_state,
-                &mut temp_stack,
-                &block,
-                input,
-            )?);
-        }
-    }
-
-    let new_engine_state_ref = Arc::new(engine_state);
-
-    for res in menu_eval_results.into_iter().map(|p| p.body) {
-        if let PipelineData::Value(value, None) = res {
-            line_editor = add_menu(
-                line_editor,
-                &ParsedMenu::from_value(value)?,
-                new_engine_state_ref.clone(),
-                stack,
-                config.clone(),
-            )?;
-        }
     }
 
     Ok(line_editor)
@@ -742,69 +591,6 @@ pub(crate) fn add_description_menu(
     Ok(line_editor.with_menu(completer))
 }
 
-fn add_menu_keybindings(keybindings: &mut Keybindings) {
-    // Completer menu keybindings
-    keybindings.add_binding(
-        KeyModifiers::NONE,
-        KeyCode::Tab,
-        ReedlineEvent::UntilFound(vec![
-            ReedlineEvent::Menu("completion_menu".to_string()),
-            ReedlineEvent::MenuNext,
-            ReedlineEvent::Edit(vec![EditCommand::Complete]),
-        ]),
-    );
-
-    keybindings.add_binding(
-        KeyModifiers::CONTROL,
-        KeyCode::Char(' '),
-        ReedlineEvent::UntilFound(vec![
-            ReedlineEvent::Menu("ide_completion_menu".to_string()),
-            ReedlineEvent::MenuNext,
-            ReedlineEvent::Edit(vec![EditCommand::Complete]),
-        ]),
-    );
-
-    keybindings.add_binding(
-        KeyModifiers::SHIFT,
-        KeyCode::BackTab,
-        ReedlineEvent::MenuPrevious,
-    );
-
-    keybindings.add_binding(
-        KeyModifiers::CONTROL,
-        KeyCode::Char('r'),
-        ReedlineEvent::Menu("history_menu".to_string()),
-    );
-
-    keybindings.add_binding(
-        KeyModifiers::CONTROL,
-        KeyCode::Char('x'),
-        ReedlineEvent::MenuPageNext,
-    );
-
-    keybindings.add_binding(
-        KeyModifiers::CONTROL,
-        KeyCode::Char('z'),
-        ReedlineEvent::UntilFound(vec![
-            ReedlineEvent::MenuPagePrevious,
-            ReedlineEvent::Edit(vec![EditCommand::Undo]),
-        ]),
-    );
-
-    // Help menu keybinding
-    keybindings.add_binding(
-        KeyModifiers::NONE,
-        KeyCode::F(1),
-        ReedlineEvent::Menu("help_menu".to_string()),
-    );
-
-    keybindings.add_binding(
-        KeyModifiers::CONTROL,
-        KeyCode::Char('q'),
-        ReedlineEvent::SearchHistory,
-    );
-}
-
 pub enum KeybindingsMode {
     Emacs(Keybindings),
     Vi {
@@ -816,19 +602,12 @@ pub enum KeybindingsMode {
 pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, ShellError> {
     let parsed_keybindings = &config.keybindings;
 
+    // Reedline base maps stay library-owned; Nushell menu bindings live on
+    // `config.keybindings` (including defaults from `Config::default()`).
     let mut emacs_keybindings = default_emacs_keybindings();
     let mut insert_keybindings = default_vi_insert_keybindings();
     let mut normal_keybindings = default_vi_normal_keybindings();
 
-    match config.edit_mode {
-        EditBindings::Emacs => {
-            add_menu_keybindings(&mut emacs_keybindings);
-        }
-        EditBindings::Vi => {
-            add_menu_keybindings(&mut insert_keybindings);
-            add_menu_keybindings(&mut normal_keybindings);
-        }
-    }
     for keybinding in parsed_keybindings {
         add_keybinding(
             &keybinding.mode,
@@ -2209,5 +1988,14 @@ mod test {
                 select: true
             }]))
         );
+    }
+
+    #[test]
+    fn default_config_keybindings_apply() {
+        // Nushell menu keybindings on Config::default must parse as valid reedline events.
+        let config = Config::default();
+        assert!(!config.keybindings.is_empty());
+        assert!(!config.menus.is_empty());
+        create_keybindings(&config).expect("default keybindings should apply cleanly");
     }
 }

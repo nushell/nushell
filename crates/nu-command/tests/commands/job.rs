@@ -6,6 +6,16 @@ use rstest::rstest;
 use std::time::Duration;
 
 #[test]
+fn job_spawn_runs_with_empty_pipeline_not_null_value() -> Result {
+    let code = "
+        job spawn { peek | metadata | job send 0 }
+        (job recv --timeout 1sec).peek.type
+    ";
+    // `null | peek | metadata | get peek.type` is `nothing`
+    test().run(code).expect_value_eq("empty")
+}
+
+#[test]
 #[cfg_attr(ci, serial)]
 fn job_send_root_job_works() -> Result {
     let code = "

@@ -1,7 +1,7 @@
 use nu_protocol::{
     CompileError, IntoSpanned, RegId, Span, Spanned,
     ast::Pattern,
-    ir::{DataSlice, Instruction, IrAstRef, IrBlock, Literal},
+    ir::{DataSlice, Instruction, IrAstRef, IrBlock, Literal, ScopeRegion},
 };
 
 /// A label identifier. Only exists while building code. Replaced with the actual target.
@@ -26,6 +26,8 @@ pub(crate) struct BlockBuilder {
     pub(crate) register_allocation_state: Vec<bool>,
     pub(crate) file_count: u32,
     pub(crate) context_stack: ContextStack,
+    /// Nested inlined-block scope regions (see [`ScopeRegion`]).
+    pub(crate) scope_regions: Vec<ScopeRegion>,
 }
 
 impl BlockBuilder {
@@ -42,6 +44,7 @@ impl BlockBuilder {
             register_allocation_state: vec![true],
             file_count: 0,
             context_stack: ContextStack::new(),
+            scope_regions: vec![],
         }
     }
 
@@ -592,6 +595,7 @@ impl BlockBuilder {
                 .try_into()
                 .expect("register count overflowed in finish() despite previous checks"),
             file_count: self.file_count,
+            scope_regions: self.scope_regions,
         })
     }
 

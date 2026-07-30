@@ -1,4 +1,5 @@
 use nu_test_support::{fs::Stub, prelude::*};
+use nu_utils::consts::LINE_SEPARATOR_STR;
 use std::{fs, io::Write};
 
 #[test]
@@ -30,7 +31,81 @@ fn writes_out_list() -> Result {
             .run("[a b c d] | save save_test_3/list_sample.txt")?;
 
         let actual = fs::read_to_string(expected_file)?;
-        assert_eq!(actual, "a\nb\nc\nd\n");
+        assert_eq!(actual, ["a", "b", "c", "d", ""].join(LINE_SEPARATOR_STR));
+        Ok(())
+    })
+}
+
+#[test]
+fn writes_structured_data_as_text() -> Result {
+    Playground::setup("save_structured_text", |dirs, sandbox| {
+        sandbox.with_files(&[]);
+
+        let expected_file = dirs.test().join("structured.txt");
+
+        let () = test()
+            .cwd(dirs.test())
+            .run("[[a, b]; [1, 2]] | save structured.txt")?;
+
+        let actual = fs::read_to_string(expected_file)?;
+        assert_eq!(actual, ["a: 1, b: 2", ""].join(LINE_SEPARATOR_STR));
+        Ok(())
+    })
+}
+
+#[test]
+fn saves_explicit_table_rendering_as_is() -> Result {
+    Playground::setup("save_rendered_table", |dirs, sandbox| {
+        sandbox.with_files(&[]);
+
+        let expected_file = dirs.test().join("rendered.txt");
+
+        let () = test().cwd(dirs.test()).run(
+            "
+                $env.config.use_ansi_coloring = true
+                [[name]; [value]] | table | save rendered.txt
+            ",
+        )?;
+
+        let actual = fs::read_to_string(expected_file)?;
+        assert_contains("\u{1b}[", &actual);
+        assert_contains("value", actual);
+        Ok(())
+    })
+}
+
+#[test]
+fn custom_txt_converter_takes_precedence() -> Result {
+    Playground::setup("save_custom_txt_converter", |dirs, sandbox| {
+        sandbox.with_files(&[]);
+
+        let expected_file = dirs.test().join("custom.txt");
+
+        let () = test().cwd(dirs.test()).run(
+            r#"
+                def "to txt" []: any -> string { "custom txt" }
+                [[a, b]; [1, 2]] | save custom.txt
+            "#,
+        )?;
+
+        let actual = fs::read_to_string(expected_file)?;
+        assert_eq!(actual, "custom txt");
+        Ok(())
+    })
+}
+
+#[test]
+fn unknown_extension_does_not_default_to_text() -> Result {
+    Playground::setup("save_unknown_extension", |dirs, sandbox| {
+        sandbox.with_files(&[]);
+
+        let err = test()
+            .cwd(dirs.test())
+            .run("[[a, b]; [1, 2]] | save structured.unknown")
+            .expect_error()?;
+
+        assert_contains("Can't convert to string", err.to_string());
+        assert!(!dirs.test().join("structured.unknown").exists());
         Ok(())
     })
 }

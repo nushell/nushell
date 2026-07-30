@@ -317,6 +317,9 @@ used_underscore_binding = "warn"
 # let's keep it until we update rustc version to 1.96
 # which resolve the issue: https://github.com/rust-lang/rust-clippy/issues/16875
 collapsible_match = "allow"
+# `.filter_map(|x| x)` has different performance characteristics than
+# `.flatten()` and `.flat_map(|x| x)`
+filter_map_identity = "allow"
 
 [lints]
 workspace = true

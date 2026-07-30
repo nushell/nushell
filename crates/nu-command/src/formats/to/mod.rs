@@ -22,7 +22,7 @@ pub use md::ToMd;
 pub use msgpack::ToMsgpack;
 pub use msgpackz::ToMsgpackz;
 pub use nuon::ToNuon;
-pub use text::ToText;
+pub use text::{TO_TEXT, TO_TXT, ToTextLike};
 pub use tsv::ToTsv;
 pub use xml::ToXml;
 pub use yaml::{TO_YAML, TO_YML, ToYamlLike};
