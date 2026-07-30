@@ -46,7 +46,7 @@ impl Command for MathFloor {
     fn extra_description(&self) -> &str {
         "Filesize and duration values are stored as whole numbers of base units \
          (bytes and nanoseconds). Without a display unit to round against, \
-         `math floor` is a no-op for those types."
+         `math floor` is the identity function for those types."
     }
 
     fn search_terms(&self) -> Vec<&str> {
