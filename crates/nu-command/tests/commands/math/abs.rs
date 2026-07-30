@@ -35,6 +35,33 @@ fn abs_int_min_overflows_without_panic() -> Result {
 }
 
 #[test]
+fn abs_list_valued_record_columns() -> Result {
+    test()
+        .run("{alice: [-1 -2], bob: [-3]} | math abs")
+        .expect_value_eq(test_value!({
+            alice: [1, 2],
+            bob: [3],
+        }))
+}
+
+#[test]
+fn abs_unsupported_record_field_is_top_level_error() -> Result {
+    let err = test()
+        .run("{alice: true, bob: [1 2 3]} | math abs")
+        .expect_shell_error()?;
+    assert!(matches!(err, ShellError::OnlySupportsThisInputType { .. }));
+    Ok(())
+}
+
+#[test]
+fn abs_filesize() -> Result {
+    let expected: Value = test().run("[2KB 3KB]")?;
+    test()
+        .run("[-2KB 3KB] | math abs")
+        .expect_value_eq(expected)
+}
+
+#[test]
 fn abs_duration_min_overflows_without_panic() -> Result {
     let code = "0x[00 00 00 00 00 00 00 80] | into int --endian little --signed | into duration | math abs";
     let outcome = test().run(code).expect_shell_error()?;
