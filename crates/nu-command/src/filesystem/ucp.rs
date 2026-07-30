@@ -4,17 +4,12 @@ use nu_protocol::{
     NuGlob,
     shell_error::{self, generic::GenericError, io::IoError},
 };
-use std::path::{Path, PathBuf};
+use std::path::{MAIN_SEPARATOR, Path, PathBuf};
 use uu_cp::{BackupMode, CopyMode, CpError, UpdateMode};
 use uucore::{localized_help_template, translate};
 
 // TODO: related to uucore::error::set_exit_code(EXIT_ERR)
 // const EXIT_ERR: i32 = 1;
-
-#[cfg(not(target_os = "windows"))]
-const PATH_SEPARATOR: &str = "/";
-#[cfg(target_os = "windows")]
-const PATH_SEPARATOR: &str = "\\";
 
 #[derive(Clone)]
 pub struct UCp;
@@ -190,7 +185,7 @@ impl Command for UCp {
         ));
         let cwd = engine_state.cwd(Some(stack))?.into_std_path_buf();
         let target_path = nu_path::expand_path_with(target_path, &cwd, target.item.is_expand());
-        if target.item.as_ref().ends_with(PATH_SEPARATOR) && !target_path.is_dir() {
+        if target.item.as_ref().ends_with(MAIN_SEPARATOR) && !target_path.is_dir() {
             return Err(ShellError::Generic(GenericError::new(
                 "is not a directory",
                 "is not a directory",
