@@ -1046,23 +1046,14 @@ fn or_and_xor() -> Result {
 #[test]
 fn unbalanced_delimiter() -> Result {
     let err = test().run("{a:{b:5}}}").expect_parse_error()?;
-    // Unbalanced or UnexpectedCloser (heuristic reshape presentation).
-    assert!(
-        matches!(err, ParseError::Unbalanced("{", "}", ..))
-            || matches!(err, ParseError::UnexpectedCloser { closer: "}", .. }),
-        "unexpected err: {err:?}"
-    );
+    assert_matches!(err, ParseError::Unbalanced("{", "}", ..));
     Ok(())
 }
 
 #[test]
 fn unbalanced_delimiter2() -> Result {
     let err = test().run("{}#.}").expect_parse_error()?;
-    assert!(
-        matches!(err, ParseError::Unbalanced("{", "}", ..))
-            || matches!(err, ParseError::UnexpectedCloser { closer: "}", .. }),
-        "unexpected err: {err:?}"
-    );
+    assert_matches!(err, ParseError::Unbalanced("{", "}", ..));
     Ok(())
 }
 
@@ -1076,33 +1067,21 @@ fn unbalanced_delimiter3() -> Result {
 #[test]
 fn unbalanced_delimiter4() -> Result {
     let err = test().run("}").expect_parse_error()?;
-    assert!(
-        matches!(err, ParseError::Unbalanced("{", "}", ..))
-            || matches!(err, ParseError::UnexpectedCloser { closer: "}", .. }),
-        "unexpected err: {err:?}"
-    );
+    assert_matches!(err, ParseError::Unbalanced("{", "}", ..));
     Ok(())
 }
 
 #[test]
 fn unbalanced_parens1() -> Result {
     let err = test().run(")").expect_parse_error()?;
-    assert!(
-        matches!(err, ParseError::Unbalanced("(", ")", ..))
-            || matches!(err, ParseError::UnexpectedCloser { closer: ")", .. }),
-        "unexpected err: {err:?}"
-    );
+    assert_matches!(err, ParseError::Unbalanced("(", ")", ..));
     Ok(())
 }
 
 #[test]
 fn unbalanced_parens2() -> Result {
     let err = test().run(r#"("("))"#).expect_parse_error()?;
-    assert!(
-        matches!(err, ParseError::Unbalanced("(", ")", ..))
-            || matches!(err, ParseError::UnexpectedCloser { closer: ")", .. }),
-        "unexpected err: {err:?}"
-    );
+    assert_matches!(err, ParseError::Unbalanced("(", ")", ..));
     Ok(())
 }
 

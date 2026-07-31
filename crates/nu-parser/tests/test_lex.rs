@@ -269,46 +269,17 @@ fn line_of(src: &[u8], offset: usize) -> usize {
         + 1
 }
 
-fn snippet_at(src: &[u8], span: Span) -> &str {
-    let end = span.end.min(src.len()).max(span.start);
-    std::str::from_utf8(&src[span.start..end]).unwrap_or("")
-}
-
-/// Assert reshape diagnostic: primary = closer, secondary = insert-site hint.
-/// Returns `(closer_span, hint_span)`.
-fn assert_unexpected_closer(err: &ParseError, closer: &str, hint_label_sub: &str) -> (Span, Span) {
+/// Assert unbalanced delimiter; returns the closer span.
+fn assert_unbalanced(err: &ParseError, open: &str, close: &str) -> Span {
     match err {
-        ParseError::UnexpectedCloser {
-            closer: c,
-            closer_span,
-            hint_span,
-            hint_label,
-            help,
-        } => {
-            assert_eq!(*c, closer, "unexpected closer kind in {err:?}");
-            let hint = hint_span.expect("expected secondary insert-site hint");
-            assert!(
-                hint_label.contains(hint_label_sub),
-                "hint label missing {hint_label_sub:?}: {hint_label}"
-            );
-            // Reshape diagnostics must offer dual repair (remove closer or add opener).
+        ParseError::Unbalanced(o, c, span, help) => {
+            assert_eq!(*o, open, "unexpected open kind in {err:?}");
+            assert_eq!(*c, close, "unexpected close kind in {err:?}");
             assert!(
                 help.contains("if it is extra") && help.contains("or add"),
                 "help should be dual remove/add, got: {help}"
             );
-            (*closer_span, hint)
-        }
-        other => panic!(
-            "expected UnexpectedCloser({closer:?}) with hint containing {hint_label_sub:?}, got {other:?}"
-        ),
-    }
-}
-
-fn assert_unbalanced(err: &ParseError, open: &str, close: &str) {
-    match err {
-        ParseError::Unbalanced(o, c, ..) => {
-            assert_eq!(*o, open, "unexpected open kind in {err:?}");
-            assert_eq!(*c, close, "unexpected close kind in {err:?}");
+            *span
         }
         other => panic!("expected Unbalanced({open}, {close}), got {other:?}"),
     }
@@ -389,13 +360,10 @@ fn lex_valid_code_never_errors_from_indent_style(#[case] file: &[u8]) {
     let engine = nu_protocol::engine::EngineState::new();
     let mut ws = nu_protocol::engine::StateWorkingSet::new(&engine);
     nu_parser::parse(&mut ws, None, file, false);
-    let delimiterish = ws.parse_errors.iter().any(|e| match e {
-        ParseError::Unclosed(..)
-        | ParseError::Unbalanced(..)
-        | ParseError::UnexpectedCloser { .. } => true,
-        ParseError::LabeledErrorWithHelp { error, .. } => error.contains("Missing `"),
-        _ => false,
-    });
+    let delimiterish = ws
+        .parse_errors
+        .iter()
+        .any(|e| matches!(e, ParseError::Unclosed(..) | ParseError::Unbalanced(..)));
     assert!(
         !delimiterish,
         "valid input must not get delimiter diagnostics, got {:?} for {:?}",
@@ -456,65 +424,26 @@ fn lex_missing_closure_brace_before_pipe_labels_near_pipe() {
     );
 }
 
-#[test]
-fn parse_missing_if_open_brace_points_at_condition() {
-    // Real stack failure is an extra `}`; secondary label toward the missing `{`
-    // after `if` (defs.nu `env-nu` pattern). Primary stays on the closer.
-    let file = b"def f [] {\n  each {|r|\n    if $x != string\n      $r\n    }\n  }\n}\n";
-    let err = parse_first_error(file);
-    let (closer, hint) = assert_unexpected_closer(&err, "}", "possible place for `{`");
-    assert_eq!(
-        file[closer.start], b'}',
-        "primary must be the unmatched closer"
-    );
-    assert_eq!(
-        line_of(file, hint.start),
-        3,
-        "secondary should land on if-condition line"
-    );
-    assert!(
-        snippet_at(file, hint).contains('g') || file[hint.start] == b'g',
-        "should point near end of `string`, got {:?}",
-        snippet_at(file, hint)
-    );
-}
-
-/// while / try / for / match / else-if should get the same unexpected-`}` presentation.
-///
-/// Also covers separators the old hand-expanded list encoded (space, tab, `(`)
-/// and bare keywords at EOL so the shared boundary helper cannot regress.
+/// Extra `}` after control-flow without a block reports plain Unbalanced at the closer.
+/// (No lookback to invent a "missing `{` after if" secondary label.)
 #[rstest]
+#[case::if_missing_brace(
+    b"def f [] {\n  each {|r|\n    if $x != string\n      $r\n    }\n  }\n}\n"
+)]
 #[case::while_missing_brace(b"def f [] {\n  while $true\n    1\n  }\n}\n")]
 #[case::try_missing_brace(b"def f [] {\n  try\n    1\n  }\n}\n")]
 #[case::for_missing_brace(b"def f [] {\n  for x in 1..2\n    $x\n  }\n}\n")]
 #[case::match_missing_brace(b"def f [] {\n  match $x\n    1 => { 2 }\n  }\n}\n")]
-// `else if` must begin the line (a leading `}` on the same line is a different
-// token shape and is not reshaped by this lookback).
 #[case::else_if_missing_brace(b"def f [] {\n  if $true { 1 }\n  else if $false\n    2\n  }\n}\n")]
-// Tab / `(` after the keyword (previously separate table entries).
-#[case::if_tab_separator(b"def f [] {\n  if\t$x != string\n    $r\n  }\n}\n")]
-#[case::if_paren_separator(b"def f [] {\n  if($true)\n    1\n  }\n}\n")]
-#[case::while_paren_separator(b"def f [] {\n  while($true)\n    1\n  }\n}\n")]
-// Bare keyword alone on the line (try/else already; if must keep working too).
-#[case::bare_if_at_eol(b"def f [] {\n  if\n    1\n  }\n}\n")]
-fn parse_missing_open_brace_control_flow_variants(#[case] file: &[u8]) {
+fn parse_extra_brace_after_control_flow_is_unbalanced(#[case] file: &[u8]) {
     let err = parse_first_error(file);
-    let (closer, hint) = assert_unexpected_closer(&err, "}", "possible place for `{`");
-    assert_eq!(
-        file[closer.start], b'}',
-        "primary must be the unmatched closer"
-    );
-    assert!(
-        line_of(file, hint.start) <= 5,
-        "hint too far from condition, line {} err={err:?}",
-        line_of(file, hint.start)
-    );
+    let closer = assert_unbalanced(&err, "{", "}");
+    assert_eq!(file[closer.start], b'}');
 }
 
 #[test]
-fn parse_missing_record_open_brace_points_at_field() {
-    // `type: $lst.0}` forgot `{` before the field; the early `}` closes the
-    // each-block and a later `}` looks unbalanced far below (defs.nu view std).
+fn parse_extra_brace_after_bare_record_is_unbalanced() {
+    // `type: $lst.0}` forgot `{` before the field; stack still fails on a later `}`.
     let file = b"\
 def f [] {\n\
     insert content {\n\
@@ -530,36 +459,22 @@ def f [] {\n\
     }\n\
 }\n";
     let err = parse_first_error(file);
-    let (closer, hint) = assert_unexpected_closer(&err, "}", "possible place for `{`");
-    assert_eq!(
-        file[closer.start], b'}',
-        "primary must be the unmatched closer"
-    );
-    assert_eq!(
-        line_of(file, hint.start),
-        4,
-        "secondary should land on bare-record line"
-    );
-    assert_eq!(
-        snippet_at(file, hint).chars().next(),
-        Some('t'),
-        "should point at `type`, got {:?}",
-        snippet_at(file, hint)
-    );
+    let closer = assert_unbalanced(&err, "{", "}");
+    assert_eq!(file[closer.start], b'}');
 }
 
 #[test]
 fn parse_extra_brace_without_hint_stays_unbalanced() {
-    // Unexpected `}` with no nearby control-flow/bare-record pattern.
     let file = b"def f [] {\n  1\n}\n}\n";
     let err = parse_first_error(file);
-    assert_unbalanced(&err, "{", "}");
+    let closer = assert_unbalanced(&err, "{", "}");
+    assert_eq!(file[closer.start], b'}');
 }
 
-/// Lookback must ignore control-flow-looking text inside multiline strings.
-/// Review: https://github.com/nushell/nushell/pull/18702#issuecomment-5075660966
+/// Extra `}` with `if` / record-looking text only inside strings still reports
+/// Unbalanced at the real closer (stack-only; no string-content lookback).
 #[test]
-fn parse_if_inside_multiline_string_does_not_reshape() {
+fn parse_extra_brace_with_if_inside_multiline_string_is_unbalanced() {
     let file = b"\
 def f [] {\n\
   let s = 'first\n\
@@ -568,38 +483,13 @@ last'\n\
 }\n\
 }\n";
     let err = parse_first_error(file);
-    match &err {
-        ParseError::Unbalanced(_, close, close_span, _) => {
-            assert_eq!(*close, "}");
-            assert_eq!(file[close_span.start], b'}');
-            // Final extra `}` is on the last non-empty line.
-            assert_eq!(line_of(file, close_span.start), 6);
-        }
-        ParseError::UnexpectedCloser {
-            closer,
-            closer_span,
-            hint_span,
-            hint_label,
-            ..
-        } => {
-            assert_eq!(*closer, "}");
-            assert_eq!(file[closer_span.start], b'}');
-            // If a hint exists, it must not point at the string's `if` line.
-            if let Some(hint) = hint_span {
-                assert_ne!(
-                    line_of(file, hint.start),
-                    3,
-                    "must not label string content as insert site: {hint_label}"
-                );
-            }
-        }
-        other => panic!("expected Unbalanced/UnexpectedCloser for extra `}}`, got {other:?}"),
-    }
+    let closer = assert_unbalanced(&err, "{", "}");
+    assert_eq!(file[closer.start], b'}');
+    assert_eq!(line_of(file, closer.start), 6);
 }
 
-/// Bare-record lookback must ignore `key: value}` inside raw strings.
 #[test]
-fn parse_record_pattern_inside_raw_string_does_not_reshape() {
+fn parse_extra_brace_with_record_inside_raw_string_is_unbalanced() {
     let file = b"\
 def f [] {\n\
   let s = r#'first\n\
@@ -608,69 +498,14 @@ last'#\n\
 }\n\
 }\n";
     let err = parse_first_error(file);
-    match &err {
-        ParseError::Unbalanced(_, close, close_span, _) => {
-            assert_eq!(*close, "}");
-            assert_eq!(file[close_span.start], b'}');
-            assert_eq!(line_of(file, close_span.start), 6);
-        }
-        ParseError::UnexpectedCloser {
-            closer,
-            closer_span,
-            hint_span,
-            hint_label,
-            ..
-        } => {
-            assert_eq!(*closer, "}");
-            assert_eq!(file[closer_span.start], b'}');
-            if let Some(hint) = hint_span {
-                assert_ne!(
-                    line_of(file, hint.start),
-                    3,
-                    "must not label raw-string content as record insert site: {hint_label}"
-                );
-            }
-        }
-        other => panic!("expected Unbalanced/UnexpectedCloser for extra `}}`, got {other:?}"),
-    }
-}
-
-/// Same string-content guard for double-quoted multiline strings.
-#[test]
-fn parse_if_inside_multiline_double_quoted_string_does_not_reshape() {
-    let file = b"\
-def f [] {\n\
-  let s = \"first\n\
-if this is just string content\n\
-last\"\n\
-}\n\
-}\n";
-    let err = parse_first_error(file);
-    match &err {
-        ParseError::Unbalanced(_, close, close_span, _) => {
-            assert_eq!(*close, "}");
-            assert_eq!(file[close_span.start], b'}');
-        }
-        ParseError::UnexpectedCloser {
-            closer,
-            closer_span,
-            hint_span,
-            ..
-        } => {
-            assert_eq!(*closer, "}");
-            assert_eq!(file[closer_span.start], b'}');
-            if let Some(hint) = hint_span {
-                assert_ne!(line_of(file, hint.start), 3);
-            }
-        }
-        other => panic!("expected Unbalanced/UnexpectedCloser, got {other:?}"),
-    }
+    let closer = assert_unbalanced(&err, "{", "}");
+    assert_eq!(file[closer.start], b'}');
+    assert_eq!(line_of(file, closer.start), 6);
 }
 
 #[test]
 fn lex_mismatched_closer_list_closed_with_paren() {
-    // `)` closing a `[` should mention `[`, not invent `(` as the open kind,
-    // and must not fire the missing-`(` presentation.
+    // `)` closing a `[` should name open kind `[`, not invent `(` .
     let file = b"[1, 2, 3)";
     let err = lex(file, 0, &[], &[], true)
         .1
@@ -680,7 +515,7 @@ fn lex_mismatched_closer_list_closed_with_paren() {
 
 #[test]
 fn lex_mismatched_closer_paren_closed_with_bracket() {
-    // `]` closing a `(` must keep unbalanced-with-`(`, not missing-`[`.
+    // `]` closing a `(` must keep unbalanced-with-`(`.
     let file = b"(1, 2]";
     let err = lex(file, 0, &[], &[], true)
         .1
@@ -690,141 +525,55 @@ fn lex_mismatched_closer_paren_closed_with_bracket() {
 
 #[test]
 fn lex_mismatched_closer_brace_closed_with_paren() {
-    // Wrong closer for a record/block. Presentation may reshape to unexpected-`)`,
-    // but must still be a real stack failure (never silent).
     let file = b"{ a: 1 )";
     let err = lex(file, 0, &[], &[], true)
         .1
         .expect("expected delimiter error");
-    match &err {
-        ParseError::Unbalanced(open, close, ..) => {
-            assert_eq!(*close, ")");
-            assert_eq!(*open, "{");
-        }
-        ParseError::UnexpectedCloser { closer, help, .. } => {
-            assert_eq!(*closer, ")");
-            assert!(
-                help.contains("if it is extra") && help.contains("or add"),
-                "help should be dual remove/add, got: {help}"
-            );
-        }
-        other => panic!("expected Unbalanced or UnexpectedCloser, got {other:?}"),
-    }
+    assert_unbalanced(&err, "{", ")");
 }
 
 #[test]
 fn lex_mismatched_bracket_inside_block_with_sig_brackets() {
-    // `def f [] { 1 ] }` has `[` earlier on the line (empty signature). Must not
-    // claim "missing `[`" for the list — report unbalanced against `{`.
+    // `def f [] { 1 ] }` — report unbalanced against stack top `{`.
     let file = b"def f [] { 1 ] }";
     let err = parse_first_error(file);
-    assert_unbalanced(&err, "{", "]");
+    let closer = assert_unbalanced(&err, "{", "]");
+    assert_eq!(file[closer.start], b']');
 }
 
 #[test]
-fn parse_missing_open_paren_points_at_grouped_expr() {
-    // `print -n ansi green)` — likely insert site before `ansi` (defs.nu bar pattern).
-    // Message stays dual-path: remove `)` or add `(`. Primary on `)`.
-    let file = b"def f [] {\n  if $x {\n        print -n ansi green)\n  }\n}\n";
-    let err = parse_first_error(file);
-    let (closer, hint) = assert_unexpected_closer(&err, ")", "possible place for `(`");
-    assert_eq!(
-        file[closer.start], b')',
-        "primary must be the unmatched `)`"
-    );
-    assert_eq!(
-        snippet_at(file, hint).chars().next(),
-        Some('a'),
-        "should point near `ansi`, got {:?}",
-        snippet_at(file, hint)
-    );
-}
-
-#[test]
-fn parse_extra_paren_help_is_dual_remove_or_add() {
-    // Review cases: remove is often correct, but help must not only say "add `(`".
+fn parse_extra_paren_is_unbalanced() {
     for file in [b"1 + 2)" as &[u8], b"let x = 1)", b"{ a: 1 ) }"] {
         let err = parse_first_error(file);
-        match &err {
-            ParseError::Unbalanced(_, close, _, help) => {
-                assert_eq!(*close, ")");
-                assert!(
-                    help.contains("if it is extra") && help.contains("or add"),
-                    "unbalanced help should be dual remove/add, got: {help}"
-                );
-            }
-            ParseError::UnexpectedCloser {
-                closer,
-                help,
-                closer_span,
-                ..
-            } => {
-                assert_eq!(*closer, ")");
-                assert_eq!(file[closer_span.start], b')');
-                assert!(
-                    help.contains("if it is extra") && help.contains("or add"),
-                    "unexpected-closer help should be dual remove/add, got: {help}"
-                );
-            }
-            other => panic!("expected Unbalanced or UnexpectedCloser for {file:?}, got {other:?}"),
-        }
+        let closer = assert_unbalanced(&err, if file.starts_with(b"{") { "{" } else { "(" }, ")");
+        assert_eq!(file[closer.start], b')');
     }
+}
+
+#[test]
+fn parse_missing_open_paren_orphan_closer_is_unbalanced() {
+    // `print -n ansi green)` — stack reports unexpected `)` (no lookback insert site).
+    let file = b"def f [] {\n  if $x {\n        print -n ansi green)\n  }\n}\n";
+    let err = parse_first_error(file);
+    let closer = assert_unbalanced(&err, "{", ")");
+    assert_eq!(file[closer.start], b')');
 }
 
 #[test]
 fn parse_balanced_parens_with_extra_close_stays_unbalanced() {
-    // `print (ansi green))` has a balanced group then an extra `)` — must not
-    // reshape into insert-site labeling (line already has `(`).
     let file = b"def f [] { print (ansi green)) }\n";
     let err = parse_first_error(file);
-    match &err {
-        ParseError::Unbalanced(open, close, ..) => {
-            assert_eq!(*close, ")");
-            assert!(
-                *open == "(" || *open == "{",
-                "unexpected open kind {open:?} in {err:?}"
-            );
-        }
-        ParseError::UnexpectedCloser {
-            hint_span: Some(_), ..
-        } => {
-            panic!("extra `)` must not reshape to insert-site label: {err:?}");
-        }
-        other => panic!("expected Unbalanced for extra `)`, got {other:?}"),
-    }
-}
-
-/// Lookback keyword matching must require a real boundary — not a prefix of a
-/// longer identifier or a hyphenated command name.
-#[rstest]
-#[case::try_this(b"def f [] {\n  try_this\n  1\n}\n}\n")]
-#[case::trying(b"def f [] {\n  trying\n  1\n}\n}\n")]
-// `format` starts with `for` but is not the `for` keyword.
-#[case::format(b"def f [] {\n  format x\n  1\n}\n}\n")]
-// Hyphenated names must not match `if` / `while` (stricter than pure alnum/_).
-#[case::if_ok(b"def f [] {\n  if-ok\n  1\n}\n}\n")]
-#[case::while_true_cmd(b"def f [] {\n  while-true\n  1\n}\n}\n")]
-fn parse_control_flow_keyword_prefix_not_missing_brace(#[case] file: &[u8]) {
-    let err = parse_first_error(file);
-    assert_unbalanced(&err, "{", "}");
+    let closer = assert_unbalanced(&err, "{", ")");
+    assert_eq!(file[closer.start], b')');
 }
 
 #[test]
-fn parse_missing_list_open_bracket_points_at_list_start() {
-    // `2 (x - 2) 0]` inside an if block — likely insert site at list start.
+fn parse_missing_list_open_bracket_orphan_closer_is_unbalanced() {
+    // `2 (x - 2) 0]` — unexpected `]` against stack top `{`.
     let file = b"def f [] {\n  if $x {\n      2 ($in_ten - 2) 0]\n  }\n}\n";
     let err = parse_first_error(file);
-    let (closer, hint) = assert_unexpected_closer(&err, "]", "possible place for `[`");
-    assert_eq!(
-        file[closer.start], b']',
-        "primary must be the unmatched `]`"
-    );
-    assert_eq!(
-        snippet_at(file, hint).chars().next(),
-        Some('2'),
-        "should point near list start `2`, got {:?}",
-        snippet_at(file, hint)
-    );
+    let closer = assert_unbalanced(&err, "{", "]");
+    assert_eq!(file[closer.start], b']');
 }
 
 #[test]

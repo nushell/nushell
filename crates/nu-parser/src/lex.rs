@@ -275,15 +275,7 @@ pub fn lex_item(
                         contents: TokenContents::Item,
                         span,
                     },
-                    Some(unbalanced_closer(
-                        "]",
-                        "[",
-                        &block_level,
-                        close_span,
-                        input,
-                        span_offset,
-                        token_start,
-                    )),
+                    Some(unbalanced_closer("]", "[", &block_level, close_span)),
                 );
             }
             last_sig_char = Some(c);
@@ -328,15 +320,7 @@ pub fn lex_item(
                         contents: TokenContents::Item,
                         span,
                     },
-                    Some(unbalanced_closer(
-                        "}",
-                        "{",
-                        &block_level,
-                        close_span,
-                        input,
-                        span_offset,
-                        token_start,
-                    )),
+                    Some(unbalanced_closer("}", "{", &block_level, close_span)),
                 );
             }
             last_sig_char = Some(c);
@@ -366,15 +350,7 @@ pub fn lex_item(
                         contents: TokenContents::Item,
                         span,
                     },
-                    Some(unbalanced_closer(
-                        ")",
-                        "(",
-                        &block_level,
-                        close_span,
-                        input,
-                        span_offset,
-                        token_start,
-                    )),
+                    Some(unbalanced_closer(")", "(", &block_level, close_span)),
                 );
             }
             last_sig_char = Some(c);
