@@ -4,14 +4,17 @@ use nu_cmd_base::hook::eval_hook;
 use nu_engine::{eval_block, eval_block_with_early_return};
 use nu_parser::{Token, TokenContents, lex, parse, unescape_unquote_string};
 use nu_protocol::{
-    PipelineData, ShellError, Span, Value,
+    ByteStream, ByteStreamSource, ListStream, PipelineData, PipelineMetadata, ShellError, Signals,
+    Span, Value,
     ast::Block,
+    block_is_bare_last_result_with,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
     process::check_exit_status_future,
     report_error::report_compile_error,
     report_parse_error, report_parse_warning, report_shell_error,
-    shell_error::generic::GenericError,
+    shell_error::{generic::GenericError, io::IoError},
+    truncate_value_to_budget, value_from_bytes,
 };
 #[cfg(windows)]
 use nu_utils::enable_vt_processing;
@@ -362,7 +365,9 @@ pub(crate) fn evaluate_source(
     evaluate_parsed_block(engine_state, stack, &block, input, allow_return)
 }
 
-/// Evaluate a parsed block: run it, apply variable deletions, print output, optional pipefail.
+/// Evaluate a parsed block: run it, apply variable deletions, optionally store interactive
+/// last-result (`$_`), print output, flush last-result truncation warnings, and handle
+/// optional pipefail.
 pub(crate) fn evaluate_parsed_block(
     engine_state: &mut EngineState,
     stack: &mut Stack,
@@ -417,10 +422,6 @@ fn maybe_store_last_result(
     block: &Block,
     pipeline_data: PipelineData,
 ) -> PipelineData {
-    use nu_protocol::{
-        ListStream, Signals, Value, block_is_bare_last_result_with, truncate_value_to_budget,
-    };
-
     let budget = stack.get_config(engine_state).last_result_size_bytes();
 
     // Bare `$_` (rename via LAST_RESULT_VAR_NAME) must not re-store.
@@ -499,12 +500,10 @@ fn maybe_store_last_result(
 
 fn store_byte_stream_prefix(
     stack: &mut Stack,
-    stream: nu_protocol::ByteStream,
-    metadata: Option<nu_protocol::PipelineMetadata>,
+    stream: ByteStream,
+    metadata: Option<PipelineMetadata>,
     budget: usize,
 ) -> PipelineData {
-    use nu_protocol::{ByteStream, ByteStreamSource, PipelineData, Signals, Value};
-
     let span = stream.span();
     let type_ = stream.type_();
     // Externals (and file-backed streams) trim a single trailing newline when
@@ -547,7 +546,7 @@ fn store_byte_stream_prefix(
     if prefix.len() >= max_bytes {
         match std::io::Read::read(&mut reader, &mut buf[..1]) {
             Ok(0) => {}
-            Ok(n) if n > 0 => {
+            Ok(1..) => {
                 truncated = true;
                 trailing = Some(buf[0]);
             }
@@ -558,14 +557,14 @@ fn store_byte_stream_prefix(
     // Decode for `$_` the same way collecting a byte stream does:
     // Binary stays binary; String/Unknown become string when UTF-8, else binary.
     // Display still uses the raw rebuilt byte stream below.
-    let stored = value_from_captured_bytes(
+    let stored = value_from_bytes(
         prefix.clone(),
         span,
         type_,
         trim_trailing_newline && !truncated,
     );
     let (stored, more) = if stored.memory_size() > budget {
-        nu_protocol::truncate_value_to_budget(stored, budget)
+        truncate_value_to_budget(stored, budget)
     } else {
         (stored, false)
     };
@@ -584,12 +583,7 @@ fn store_byte_stream_prefix(
                         chunk.truncate(n);
                         Some(Ok(chunk))
                     }
-                    Err(err) => Some(Err(ShellError::from(
-                        nu_protocol::shell_error::io::IoError::new_internal(
-                            nu_protocol::shell_error::io::ErrorKind::from_std(err.kind()),
-                            "reading byte stream for last-result tee",
-                        ),
-                    ))),
+                    Err(err) => Some(Err(ShellError::from(IoError::new(err, span, None)))),
                 }
             })),
         span,
@@ -598,64 +592,6 @@ fn store_byte_stream_prefix(
     );
 
     PipelineData::ByteStream(rebuilt, metadata)
-}
-
-/// Convert captured stream bytes into a [`Value`] for `$_`.
-///
-/// Mirrors [`nu_protocol::ByteStream::into_value`]:
-/// - [`ByteStreamType::Binary`] → binary (no decode)
-/// - [`ByteStreamType::String`] / [`Unknown`] → UTF-8 string when valid, else binary
-///
-/// Incomplete multi-byte sequences at the end (typical when truncated to budget)
-/// keep the valid UTF-8 prefix as a string rather than failing to binary.
-///
-/// When `trim_trailing_newline` is true (full external/file capture), a single
-/// trailing `\n` or `\r\n` is stripped, matching collected external values.
-fn value_from_captured_bytes(
-    bytes: Vec<u8>,
-    span: Span,
-    type_: nu_protocol::ByteStreamType,
-    trim_trailing_newline: bool,
-) -> Value {
-    use nu_protocol::ByteStreamType;
-
-    if matches!(type_, ByteStreamType::Binary) {
-        return Value::binary(bytes, span);
-    }
-
-    match String::from_utf8(bytes) {
-        Ok(mut s) => {
-            if trim_trailing_newline {
-                trim_end_newline(&mut s);
-            }
-            Value::string(s, span)
-        }
-        Err(err) => {
-            let valid_up_to = err.utf8_error().valid_up_to();
-            // `error_len() == None` means unexpected EOF mid-sequence (truncation).
-            let incomplete_at_end = err.utf8_error().error_len().is_none();
-            let bytes = err.into_bytes();
-            if incomplete_at_end && valid_up_to > 0 {
-                // SAFETY: `valid_up_to` is the end of a valid UTF-8 prefix.
-                let mut s = String::from_utf8(bytes[..valid_up_to].to_vec())
-                    .expect("valid_up_to marks a valid UTF-8 prefix");
-                if trim_trailing_newline {
-                    trim_end_newline(&mut s);
-                }
-                Value::string(s, span)
-            } else {
-                Value::binary(bytes, span)
-            }
-        }
-    }
-}
-
-fn trim_end_newline(string: &mut String) {
-    if string.ends_with("\r\n") {
-        string.truncate(string.len() - 2);
-    } else if string.ends_with('\n') {
-        string.truncate(string.len() - 1);
-    }
 }
 
 #[cfg(test)]

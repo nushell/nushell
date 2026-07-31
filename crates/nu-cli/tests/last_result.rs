@@ -12,6 +12,7 @@ use nu_protocol::{
     record,
 };
 use nu_test_support::prelude::*;
+use nu_test_support::tester::PATH_ENV_AUTO_LOAD;
 use std::sync::Arc;
 
 /// Interactive engine + stack for last-result capture (REPL-equivalent path).
@@ -25,7 +26,7 @@ impl Interactive {
         let mut engine_state =
             nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
         engine_state.is_interactive = true;
-        seed_pwd(&mut engine_state);
+        seed_env(&mut engine_state);
         Self {
             engine_state,
             stack: Stack::new(),
@@ -36,7 +37,7 @@ impl Interactive {
         let mut engine_state =
             nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
         engine_state.is_interactive = false;
-        seed_pwd(&mut engine_state);
+        seed_env(&mut engine_state);
         Self {
             engine_state,
             stack: Stack::new(),
@@ -69,7 +70,7 @@ impl Interactive {
     }
 }
 
-fn seed_pwd(engine_state: &mut EngineState) {
+fn seed_env(engine_state: &mut EngineState) {
     // Engine rejects trailing separators on PWD.
     let mut cwd = std::env::temp_dir();
     let _ = cwd.pop();
@@ -77,6 +78,17 @@ fn seed_pwd(engine_state: &mut EngineState) {
         cwd = std::path::PathBuf::from("/");
     }
     engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
+
+    // `#[deps(...)]` registers bin dirs in PATH_ENV_AUTO_LOAD; put them on PATH so
+    // external tests can call testbins by name without absolute-path quoting.
+    let path: Vec<Value> = PATH_ENV_AUTO_LOAD
+        .read()
+        .iter()
+        .map(|p| Value::test_string(p.to_string_lossy()))
+        .collect();
+    if !path.is_empty() {
+        engine_state.add_env_var("PATH".into(), Value::test_list(path));
+    }
 }
 
 fn last_var() -> String {
@@ -314,11 +326,6 @@ fn engine_stats_reports_last_result_sizes() -> Result {
     Ok(())
 }
 
-/// Quote an absolute path for `^"..."` external invocation.
-fn quoted_path(path: impl AsRef<std::path::Path>) -> String {
-    path.as_ref().to_string_lossy().replace('\\', "/")
-}
-
 #[test]
 #[deps(TESTBIN_NONU)]
 fn external_command_stdout_is_stored_as_string() -> Result {
@@ -328,10 +335,7 @@ fn external_command_stdout_is_stored_as_string() -> Result {
     let marker = "last_external_marker_xyz";
     let mut session = Interactive::new();
     // `nonu` prints args with no trailing newline.
-    session.run(&format!(
-        r#"^"{}" {marker}"#,
-        quoted_path(TESTBIN_NONU.path())
-    ));
+    session.run(&format!("^nonu {marker}"));
 
     assert_eq!(session.last_value()?, Value::test_string(marker));
     Ok(())
@@ -343,10 +347,7 @@ fn external_command_trailing_newline_is_trimmed_in_last() -> Result {
     // Match ByteStream::into_value / complete: one trailing newline is stripped.
     // `cococo` uses println! (trailing `\n`).
     let mut session = Interactive::new();
-    session.run(&format!(
-        r#"^"{}" trim_me"#,
-        quoted_path(TESTBIN_COCOCO.path())
-    ));
+    session.run("^cococo trim_me");
 
     let stored = session.last_value()?;
     match stored {
@@ -390,10 +391,7 @@ fn internal_structured_last_is_not_stringified() -> Result {
 #[deps(TESTBIN_NONU)]
 fn zero_budget_does_not_force_external_capture() -> Result {
     let mut session = Interactive::new().with_last_result_size(Filesize::ZERO);
-    session.run(&format!(
-        r#"^"{}" should_not_store"#,
-        quoted_path(TESTBIN_NONU.path())
-    ));
+    session.run("^nonu should_not_store");
     assert_eq!(session.last_value()?, Value::test_nothing());
     Ok(())
 }
