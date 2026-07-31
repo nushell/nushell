@@ -50,15 +50,15 @@ impl Session {
         let Some(state) = &self.state else { return };
         {
             let mut session = state.session_state.lock().expect("session poisoned");
-            
+
             session.view_index = target;
-            
+
             if let Some(i) = target {
                 let entry = session.timeline.get(i).cloned();
                 let baseline = session.baseline_env.clone();
                 let nu = session.nu_constant.clone();
                 let config = session.config.clone();
-                
+
                 if let Some(entry) = entry {
                     session.history_snapshot = crate::variables::build_history_snapshot(
                         &entry,
@@ -69,7 +69,7 @@ impl Session {
                 }
             }
         }
-        
+
         self.writer.event(
             "stopped",
             json!({

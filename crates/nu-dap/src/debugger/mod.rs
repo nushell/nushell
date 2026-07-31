@@ -159,11 +159,10 @@ impl DapDebugger {
     fn scratch_interpolate(&self, template: &str) -> String {
         let vars = self.shadow_vars_for_eval();
         let mut guard = self.state.scratch.lock().expect("scratch poisoned");
-        crate::eval_scratch::interpolate(
-            guard.get_or_insert_with(crate::eval_scratch::Scratch::new),
-            template,
-            &vars,
-        )
+
+        guard
+            .get_or_insert_with(crate::eval_scratch::Scratch::new)
+            .interpolate(template, &vars)
     }
 
     /// The pause loop: publish snapshot, emit `stopped`, block until resumed.
