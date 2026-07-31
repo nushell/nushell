@@ -95,7 +95,7 @@ impl DapDebugger {
             .state
             .session_state
             .lock()
-            .expect("debug state poisoned");
+            .expect("session state poisoned");
         inner.shadow_vars = vars;
         inner.env_shadow = env;
     }

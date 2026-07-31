@@ -121,7 +121,7 @@ impl DapDebugger {
             .state
             .session_state
             .lock()
-            .expect("debug state poisoned");
+            .expect("session state poisoned");
         inner
             .shadow_vars
             .values()
@@ -175,7 +175,7 @@ impl DapDebugger {
             .state
             .session_state
             .lock()
-            .expect("debug state poisoned");
+            .expect("session state poisoned");
         if reason != "exception" {
             inner.exception_info = None;
         }
@@ -218,7 +218,7 @@ impl DapDebugger {
                 .state
                 .resume_cv
                 .wait(inner)
-                .expect("debug state poisoned");
+                .expect("session state poisoned");
         }
 
         inner.paused = false;
@@ -262,7 +262,7 @@ impl DapDebugger {
             .state
             .session_state
             .lock()
-            .expect("debug state poisoned");
+            .expect("session state poisoned");
         if inner.terminate_requested {
             engine_state.signals().trigger();
             return None;
@@ -379,7 +379,7 @@ impl DapDebugger {
             .state
             .session_state
             .lock()
-            .expect("debug state poisoned");
+            .expect("session state poisoned");
         let granular = line_changed || depth_changed || is_call;
 
         if (inner.time_travel && granular) || reason.is_some() {
@@ -473,7 +473,7 @@ impl DapDebugger {
             .state
             .session_state
             .lock()
-            .expect("debug state poisoned");
+            .expect("session state poisoned");
         if !inner.break_on_error || inner.terminate_requested {
             return true;
         }
@@ -505,7 +505,7 @@ impl DapDebugger {
             .state
             .session_state
             .lock()
-            .expect("debug state poisoned");
+            .expect("session state poisoned");
         inner.exception_info = Some((exception_id, description.clone()));
 
         self.pause(

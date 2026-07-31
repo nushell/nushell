@@ -43,7 +43,9 @@ fn recent_state() -> &'static Mutex<(String, String)> {
 }
 
 fn record_recent(category: &str, text: &str) {
-    let mut guard = recent_state().lock().expect("recent state");
+    let mut guard = recent_state()
+        .lock()
+        .expect("recent output buffer poisoned");
     let buf = if category == "stderr" {
         &mut guard.1
     } else {
@@ -63,7 +65,9 @@ fn record_recent(category: &str, text: &str) {
 /// Tail of everything the process (externals, drains) recently wrote to the
 /// given stream ("stdout"/"stderr").
 pub(crate) fn recent_output(category: &str) -> String {
-    let guard = recent_state().lock().expect("recent state");
+    let guard = recent_state()
+        .lock()
+        .expect("recent output buffer poisoned");
     if category == "stderr" {
         guard.1.clone()
     } else {

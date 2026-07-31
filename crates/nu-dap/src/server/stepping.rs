@@ -92,7 +92,7 @@ impl Session {
 
     pub(super) fn on_pause(&mut self, seq: i64, cmd: &str) {
         if let Some(state) = &self.state {
-            let mut inner = state.session_state.lock().expect("state poisoned");
+            let mut inner = state.session_state.lock().expect("session state poisoned");
             inner.run_mode = RunMode::PauseNow;
         }
         self.writer.respond(seq, cmd, Json::Null);

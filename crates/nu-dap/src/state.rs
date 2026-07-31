@@ -358,7 +358,7 @@ impl DebugState {
 
     /// Called by the server thread to resume with a new run mode.
     pub(crate) fn resume(&self, mode: RunMode) {
-        let mut inner = self.session_state.lock().expect("debug state poisoned");
+        let mut inner = self.session_state.lock().expect("session state poisoned");
         inner.run_mode = mode;
         inner.resume_requested = true;
         drop(inner);
@@ -366,7 +366,7 @@ impl DebugState {
     }
 
     pub(crate) fn request_terminate(&self) {
-        let mut inner = self.session_state.lock().expect("debug state poisoned");
+        let mut inner = self.session_state.lock().expect("session state poisoned");
         inner.terminate_requested = true;
         inner.resume_requested = true;
         drop(inner);
@@ -379,7 +379,7 @@ impl DebugState {
     /// Like `request_terminate`, but marks this state as being replaced by a
     /// restart so the dying eval thread keeps quiet about it.
     pub(crate) fn request_restart_teardown(&self) {
-        let mut inner = self.session_state.lock().expect("debug state poisoned");
+        let mut inner = self.session_state.lock().expect("session state poisoned");
         inner.restarting = true;
         inner.terminate_requested = true;
         inner.resume_requested = true;
@@ -393,7 +393,7 @@ impl DebugState {
     pub(crate) fn is_restarting(&self) -> bool {
         self.session_state
             .lock()
-            .expect("debug state poisoned")
+            .expect("session state poisoned")
             .restarting
     }
 }

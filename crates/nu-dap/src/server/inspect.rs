@@ -152,7 +152,7 @@ impl Session {
                 (Some(v), _) => Ok(v),
                 (None, Some(state)) => {
                     let vars = {
-                        let inner = state.session_state.lock().expect("state poisoned");
+                        let inner = state.session_state.lock().expect("session state poisoned");
                         inner
                             .shadow_vars
                             .values()
