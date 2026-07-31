@@ -145,7 +145,7 @@ impl DapDebugger {
 
     /// The pause loop: publish snapshot, emit `stopped`, block until resumed.
     fn pause(
-        &mut self,
+        &self,
         engine_state: &EngineState,
         reason: &'static str,
         ir_block: &IrBlock,
@@ -391,6 +391,109 @@ impl DapDebugger {
             frame.last_line = Some(p.line);
         }
     }
+
+    fn capture_last_return_value(
+        &mut self,
+        ir_block: &IrBlock,
+        instruction_index: usize,
+        registers: &[PipelineExecutionData],
+    ) {
+        let reg = match ir_block.instructions[instruction_index] {
+            Instruction::Call { src_dst, .. } => Some(src_dst.get() as usize),
+            Instruction::Return { src } => Some(src.get() as usize),
+            _ => None,
+        };
+
+        if let Some(idx) = reg
+            && let Some(r) = registers.get(idx)
+        {
+            self.last_result = Some(match &r.body {
+                PipelineData::Value(v, _) => v.clone(),
+                PipelineData::Empty => Value::nothing(Span::unknown()),
+                other => Value::string(crate::variables::describe_stream(other), Span::unknown()),
+            });
+        }
+    }
+
+    /// Recent stderr tail from an external command, trimmed and capped so the
+    /// exception dialog stays readable. `None` when the child said nothing.
+    fn get_message_from_external_command() -> Option<String> {
+        crate::stdio::flush_output(std::time::Duration::from_millis(500));
+
+        let tail = crate::stdio::recent_output("stderr");
+        let tail = tail.trim();
+        if tail.is_empty() {
+            return None;
+        }
+
+        // Keep the dialog readable: last ~1000 chars.
+        let start = tail.len().saturating_sub(1000);
+        let mut cut = start;
+        while !tail.is_char_boundary(cut) {
+            cut += 1;
+        }
+
+        Some(tail[cut..].to_string())
+    }
+
+    fn handle_error(
+        &mut self,
+        engine_state: &EngineState,
+        stack: &Stack,
+        ir_block: &IrBlock,
+        instruction_index: usize,
+        registers: &[PipelineExecutionData],
+        error: Option<&ShellError>,
+    ) -> bool {
+        let err = error.expect("error present");
+
+        // An error unwinds through every enclosing call instruction; pause
+        // only at the innermost (first) report.
+        if self.in_error_unwind {
+            return true;
+        }
+
+        let inner = self.state.inner.lock().expect("debug state poisoned");
+        if !inner.break_on_error || inner.terminate_requested {
+            return true;
+        }
+
+        self.in_error_unwind = true;
+
+        // Point the top frame at the failing instruction, even when its span
+        // is multi-line (better an approximate position than none).
+        let span = ir_block.spans[instruction_index];
+        if self.source_map.resolve(span).is_some() {
+            self.current_span = Some(span);
+        }
+
+        let mut description = format!("{err}");
+
+        if matches!(err, ShellError::NonZeroExitCode { .. }) {
+            let external_error = Self::get_message_from_external_command();
+
+            if let Some(tail) = external_error {
+                description = format!("{description}\n\n{tail}");
+            }
+        }
+
+        // This path skips the enter_instruction sync, so refresh from the Stack.
+        self.sync_locals_from_stack(engine_state, stack);
+
+        let exception_id = exception_id(err);
+        let mut inner = self.state.inner.lock().expect("debug state poisoned");
+        inner.exception_info = Some((exception_id, description.clone()));
+
+        self.pause(
+            engine_state,
+            "exception",
+            ir_block,
+            instruction_index,
+            registers,
+            Some(&description),
+        );
+        false
+    }
 }
 
 /// The shared-state reads one instruction needs, taken together so the lock is
@@ -590,92 +693,21 @@ impl Debugger for DapDebugger {
         registers: &[PipelineExecutionData],
         error: Option<&ShellError>,
     ) {
-        // Latest result for the Locals `return` entry: a Call writes to src_dst,
-        // a Return's output is in src. Streams are described, never drained.
+        // Successfully executed
         if error.is_none() {
-            let reg = match &ir_block.instructions[instruction_index] {
-                Instruction::Call { src_dst, .. } => Some(src_dst.get() as usize),
-                Instruction::Return { src } => Some(src.get() as usize),
-                _ => None,
-            };
-
-            if let Some(idx) = reg
-                && let Some(r) = registers.get(idx)
-            {
-                self.last_result = Some(match &r.body {
-                    PipelineData::Value(v, _) => v.clone(),
-                    PipelineData::Empty => Value::nothing(Span::unknown()),
-                    other => {
-                        Value::string(crate::variables::describe_stream(other), Span::unknown())
-                    }
-                });
-            }
+            self.capture_last_return_value(&ir_block, instruction_index, registers);
             return;
         }
 
-        let err = error.expect("error present");
-
-        // An error unwinds through every enclosing call instruction; pause
-        // only at the innermost (first) report.
-        if self.in_error_unwind {
-            return;
-        }
-
-        let wanted = {
-            let inner = self.state.inner.lock().expect("debug state poisoned");
-            inner.break_on_error && !inner.terminate_requested
-        };
-
-        if !wanted {
-            return;
-        }
-
-        self.in_error_unwind = true;
-
-        // Point the top frame at the failing instruction, even when its span
-        // is multi-line (better an approximate position than none).
-        let span = ir_block.spans[instruction_index];
-        if self.source_map.resolve(span).is_some() {
-            self.current_span = Some(span);
-        }
-
-        let mut description = format!("{err}");
-        let exception_id = exception_id(err);
-
-        // "External command had a non-zero exit code" says nothing — the
-        // command's actual complaint went to stderr. Attach its tail. Matched
-        // on the variant, not on the id: a rename then fails to compile
-        // instead of quietly dropping the tail.
-        if matches!(err, ShellError::NonZeroExitCode { .. }) {
-            crate::stdio::flush_output(std::time::Duration::from_millis(500));
-            let tail = crate::stdio::recent_output("stderr");
-            let tail = tail.trim();
-            if !tail.is_empty() {
-                // Keep the dialog readable: last ~1000 chars.
-                let start = tail.len().saturating_sub(1000);
-                let mut cut = start;
-                while !tail.is_char_boundary(cut) {
-                    cut += 1;
-                }
-                description = format!("{description}\n\n{}", &tail[cut..]);
-            }
-        }
-
-        // This path skips the enter_instruction sync, so refresh from the Stack.
-        self.sync_locals_from_stack(engine_state, stack);
-
-        {
-            let mut inner = self.state.inner.lock().expect("debug state poisoned");
-            inner.exception_info = Some((exception_id, description.clone()));
-        }
-
-        self.pause(
+        if self.handle_error(
             engine_state,
-            "exception",
+            stack,
             ir_block,
             instruction_index,
             registers,
-            Some(&description),
-        );
+            error,
+        ) {
+            return;
+        }
     }
 }
