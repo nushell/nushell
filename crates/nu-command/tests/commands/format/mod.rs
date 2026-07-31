@@ -2,6 +2,7 @@ use nu_test_support::{
     fs::Stub::{EmptyFile, FileWithContentToBeTrimmed},
     prelude::*,
 };
+use rstest::rstest;
 
 mod duration;
 mod filesize;
@@ -55,23 +56,41 @@ fn cant_use_variables() -> Result {
     Ok(())
 }
 
-#[test]
-fn error_unmatched_brace() -> Result {
-    let code = r#"
-        open cargo_sample.toml
-        | format pattern "{package.name"
-    "#;
+#[rstest]
+#[case::unclosed_brace("name -> {package.name", "Unclosed delimiter", "{")]
+#[case::not_opened_brace("package.name} <- name", "Unbalanced { and }", "}")]
+#[case::missing_column(
+    "version -> {package.version}",
+    "column 'version' is missing in one or more values",
+    "package.version"
+)]
+fn format_string_error(
+    #[case] format_str: &str,
+    #[case] label_msg: &str,
+    #[case] label_text: &str,
+) -> Result {
+    let input = test_value!({ package: { name: "dummy" } });
 
-    let err = test()
-        .cwd("tests/fixtures/formats")
-        .run(code)
-        .expect_error()?;
+    let mut tester = test();
+    let () = tester.run_with_data("let format_str = $in", format_str)?;
 
-    let ShellError::DelimiterError { msg, .. } = err else {
-        return Err(err.into());
+    let err = tester
+        .run_with_data("format pattern $format_str", input)
+        .expect_labeled_error()?;
+
+    let inner_err = err.inner.iter().next().expect("at least one inner error");
+    let ShellError::OutsideSourceNoUrl { msg, labels, .. } = inner_err else {
+        panic!("Expected `ShellError::OutsideSourceNoUrl`, got {inner_err:?}");
     };
+    assert_eq!(msg, "Format string has errors.");
 
-    assert_eq!(msg, "there are unmatched curly braces");
+    let [label] = labels.as_slice() else {
+        panic!("Expected only one label, got {labels:?}")
+    };
+    assert_eq!(label.label().unwrap(), label_msg);
+    let (start, end) = (label.offset(), label.offset() + label.len());
+    assert_eq!(&format_str[start..end], label_text);
+
     Ok(())
 }
 
