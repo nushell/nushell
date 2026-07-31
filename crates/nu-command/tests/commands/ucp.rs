@@ -19,21 +19,25 @@ fn file_hash(file: impl AsRef<Path>) -> Result<u64> {
     Ok(HASHER.hash_one(content))
 }
 
-const RUNNER: &str = "let child_code = $in; nu -n -c $child_code | complete";
+const RUNNER: &str = "let commands = $in; nu -n -c $commands | complete";
 
 #[rstest]
 #[case::without_progress("")]
 #[case::with_progress("--progress")]
+#[nu_test_support::test]
+#[deps(NU)]
 fn copies_a_file(#[case] progress_flag: &str) -> Result {
     Playground::setup("ucp_test_1", |dirs, _| {
         let test_file = dirs.formats().join("sample.ini");
         // Get the hash of the file content to check integrity after copy.
         let first_hash = file_hash(&test_file)?;
 
-        let () = test().cwd(dirs.root()).run(format!(
+        let code = format!(
             "cp {progress_flag} `{}` ucp_test_1/sample.ini",
             test_file.display()
-        ))?;
+        );
+        let result: CompleteResult = test().cwd(dirs.root()).run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
         assert!(dirs.test().join("sample.ini").exists());
 
@@ -47,6 +51,8 @@ fn copies_a_file(#[case] progress_flag: &str) -> Result {
 #[rstest]
 #[case::without_progress("")]
 #[case::with_progress("--progress")]
+#[nu_test_support::test]
+#[deps(NU)]
 fn copies_the_file_inside_directory_if_path_to_copy_is_directory(
     #[case] progress_flag: &str,
 ) -> Result {
@@ -54,10 +60,12 @@ fn copies_the_file_inside_directory_if_path_to_copy_is_directory(
         let expected_file = dirs.test().join("sample.ini");
         // Get the hash of the file content to check integrity after copy.
         let first_hash = file_hash(dirs.formats().join("../formats/sample.ini"))?;
-        let () = test().cwd(dirs.formats()).run(format!(
+        let code = format!(
             "cp {progress_flag} ../formats/sample.ini {}",
             dirs.test().display(),
-        ))?;
+        );
+        let result: CompleteResult = test().cwd(dirs.formats()).run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
         assert!(expected_file.exists());
 
@@ -72,20 +80,17 @@ fn copies_the_file_inside_directory_if_path_to_copy_is_directory(
 #[rstest]
 #[case::without_progress("")]
 #[case::with_progress("--progress")]
+#[nu_test_support::test]
+#[deps(NU)]
 fn error_if_attempting_to_copy_a_directory_to_another_directory(
     #[case] progress_flag: &str,
 ) -> Result {
     Playground::setup("ucp_test_3", |dirs, _| {
-        let err = test()
-            .cwd(dirs.formats())
-            .run(format!(
-                "cp {progress_flag} ../formats {}",
-                dirs.test().display()
-            ))
-            .expect_shell_error()?;
-        let msg = err.generic_msg()?;
+        let code = format!("cp {progress_flag} ../formats {}", dirs.test().display());
+        let result: CompleteResult = test().cwd(dirs.formats()).run_with_data(RUNNER, code)?;
 
-        assert_contains("resolves to a directory (not copied)", msg);
+        assert_ne!(result.exit_code, 0);
+        assert_contains("resolves to a directory (not copied)", result.stderr);
         Ok(())
     })
 }
@@ -93,6 +98,8 @@ fn error_if_attempting_to_copy_a_directory_to_another_directory(
 #[rstest]
 #[case::without_progress("")]
 #[case::with_progress("--progress")]
+#[nu_test_support::test]
+#[deps(NU)]
 fn copies_the_directory_inside_directory_if_path_to_copy_is_directory_and_with_recursive_flag(
     #[case] progress_flag: &str,
 ) -> Result {
@@ -107,9 +114,9 @@ fn copies_the_directory_inside_directory_if_path_to_copy_is_directory_and_with_r
             .mkdir("expected");
 
         let expected_dir = dirs.test().join("expected").join("originals");
-        let () = test()
-            .cwd(dirs.test())
-            .run(format!("cp {progress_flag} originals expected -r"))?;
+        let code = format!("cp {progress_flag} originals expected -r");
+        let result: CompleteResult = test().cwd(dirs.test()).run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
         assert!(expected_dir.exists());
         assert!(expected_dir.join("yehuda.txt").exists());
@@ -122,6 +129,8 @@ fn copies_the_directory_inside_directory_if_path_to_copy_is_directory_and_with_r
 #[rstest]
 #[case::without_progress("")]
 #[case::with_progress("--progress")]
+#[nu_test_support::test]
+#[deps(NU)]
 fn deep_copies_with_recursive_flag(#[case] progress_flag: &str) -> Result {
     Playground::setup("ucp_test_5", |dirs, sandbox| {
         sandbox
@@ -146,9 +155,9 @@ fn deep_copies_with_recursive_flag(#[case] progress_flag: &str) -> Result {
         let andres_expected_copied_dir = expected_dir.join("contributors").join("andres");
         let yehudas_expected_copied_dir = expected_dir.join("contributors").join("yehuda");
 
-        let () = test()
-            .cwd(dirs.test())
-            .run(format!("cp {progress_flag} originals expected --recursive"))?;
+        let code = format!("cp {progress_flag} originals expected --recursive");
+        let result: CompleteResult = test().cwd(dirs.test()).run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
         assert!(expected_dir.exists());
         assert!(files_exist_at(
@@ -170,6 +179,8 @@ fn deep_copies_with_recursive_flag(#[case] progress_flag: &str) -> Result {
 #[rstest]
 #[case::without_progress("")]
 #[case::with_progress("--progress")]
+#[nu_test_support::test]
+#[deps(NU)]
 fn copies_using_path_with_wildcard(#[case] progress_flag: &str) -> Result {
     Playground::setup("ucp_test_6", |dirs, _| {
         // Get the hash of the file content to check integrity after copy.
@@ -177,10 +188,12 @@ fn copies_using_path_with_wildcard(#[case] progress_flag: &str) -> Result {
             .cwd(dirs.formats())
             .run("ls ../formats/* | where type == file | each { |file| open --raw $file.name | to text | hash md5 }")?;
 
-        let () = test().cwd(dirs.formats()).run(format!(
+        let code = format!(
             "cp {progress_flag} -r ../formats/* {}",
             dirs.test().display()
-        ))?;
+        );
+        let result: CompleteResult = test().cwd(dirs.formats()).run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
         assert!(files_exist_at(
             &[
@@ -215,6 +228,8 @@ fn copies_using_path_with_wildcard(#[case] progress_flag: &str) -> Result {
 #[rstest]
 #[case::without_progress("")]
 #[case::with_progress("--progress")]
+#[nu_test_support::test]
+#[deps(NU)]
 fn copies_using_a_glob(#[case] progress_flag: &str) -> Result {
     Playground::setup("ucp_test_7", |dirs, _| {
         // Get the hash of the file content to check integrity after copy.
@@ -222,9 +237,9 @@ fn copies_using_a_glob(#[case] progress_flag: &str) -> Result {
             .cwd(dirs.formats())
             .run("ls * | where type == file | each { |file| open --raw $file.name | to text | hash md5 }")?;
 
-        let () = test()
-            .cwd(dirs.formats())
-            .run(format!("cp {progress_flag} -r * {}", dirs.test().display()))?;
+        let code = format!("cp {progress_flag} -r * {}", dirs.test().display());
+        let result: CompleteResult = test().cwd(dirs.formats()).run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
         assert!(files_exist_at(
             &[
@@ -259,17 +274,23 @@ fn copies_using_a_glob(#[case] progress_flag: &str) -> Result {
 #[rstest]
 #[case::without_progress("")]
 #[case::with_progress("--progress")]
+#[nu_test_support::test]
+#[deps(NU)]
 fn copies_same_file_twice(#[case] progress_flag: &str) -> Result {
     Playground::setup("ucp_test_8", |dirs, _| {
-        let () = test().cwd(dirs.root()).run(format!(
+        let code = format!(
             "cp {progress_flag} `{}` ucp_test_8/sample.ini",
             dirs.formats().join("sample.ini").display()
-        ))?;
+        );
+        let result: CompleteResult = test().cwd(dirs.root()).run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
-        let () = test().cwd(dirs.root()).run(format!(
+        let code = format!(
             "cp {progress_flag} `{}` ucp_test_8/sample.ini",
             dirs.formats().join("sample.ini").display()
-        ))?;
+        );
+        let result: CompleteResult = test().cwd(dirs.root()).run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
         assert!(dirs.test().join("sample.ini").exists());
         Ok(())
@@ -280,6 +301,8 @@ fn copies_same_file_twice(#[case] progress_flag: &str) -> Result {
 #[case::without_progress("")]
 #[case::with_progress("--progress")]
 #[ignore = "Behavior not supported by uutils cp"]
+#[nu_test_support::test]
+#[deps(NU)]
 fn copy_files_using_glob_two_parents_up_using_multiple_dots(#[case] progress_flag: &str) -> Result {
     Playground::setup("ucp_test_9", |dirs, sandbox| {
         sandbox.within("foo").within("bar").with_files(&[
@@ -290,9 +313,11 @@ fn copy_files_using_glob_two_parents_up_using_multiple_dots(#[case] progress_fla
             EmptyFile("many_more.ppl"),
         ]);
 
-        let () = test()
+        let code = format!("cp {progress_flag} * ...");
+        let result: CompleteResult = test()
             .cwd(dirs.test().join("foo/bar"))
-            .run(format!("cp {progress_flag} * ..."))?;
+            .run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
         assert!(files_exist_at(
             &[
@@ -311,6 +336,8 @@ fn copy_files_using_glob_two_parents_up_using_multiple_dots(#[case] progress_fla
 #[rstest]
 #[case::without_progress("")]
 #[case::with_progress("--progress")]
+#[nu_test_support::test]
+#[deps(NU)]
 fn copy_file_and_dir_from_two_parents_up_using_multiple_dots_to_current_dir_recursive(
     #[case] progress_flag: &str,
 ) -> Result {
@@ -319,9 +346,11 @@ fn copy_file_and_dir_from_two_parents_up_using_multiple_dots_to_current_dir_recu
         sandbox.mkdir("hello_again");
         sandbox.within("foo").mkdir("bar");
 
-        let () = test()
+        let code = format!("cp {progress_flag} -r .../hello* .");
+        let result: CompleteResult = test()
             .cwd(dirs.test().join("foo/bar"))
-            .run(format!("cp {progress_flag} -r .../hello* ."))?;
+            .run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
         let expected = dirs.test().join("foo/bar");
 
@@ -334,17 +363,16 @@ fn copy_file_and_dir_from_two_parents_up_using_multiple_dots_to_current_dir_recu
 #[rstest]
 #[case::without_progress("")]
 #[case::with_progress("--progress")]
+#[nu_test_support::test]
+#[deps(NU)]
 fn copy_to_non_existing_dir(#[case] progress_flag: &str) -> Result {
     Playground::setup("ucp_test_11", |_dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("empty_file")]);
 
-        let err = test()
-            .cwd(sandbox.cwd())
-            .run(format!(
-                "cp {progress_flag} empty_file ~/not_a_dir{MAIN_SEPARATOR}"
-            ))
-            .expect_shell_error()?;
-        assert_contains("is not a directory", err.generic_msg()?);
+        let code = format!("cp {progress_flag} empty_file ~/not_a_dir{MAIN_SEPARATOR}");
+        let result: CompleteResult = test().cwd(sandbox.cwd()).run_with_data(RUNNER, code)?;
+        assert_ne!(result.exit_code, 0);
+        assert_contains("is not a directory", result.stderr);
         Ok(())
     })
 }
@@ -352,6 +380,8 @@ fn copy_to_non_existing_dir(#[case] progress_flag: &str) -> Result {
 #[rstest]
 #[case::without_progress("")]
 #[case::with_progress("--progress")]
+#[nu_test_support::test]
+#[deps(NU)]
 fn copy_dir_contains_symlink_ignored(#[case] progress_flag: &str) -> Result {
     Playground::setup("ucp_test_12", |_dirs, sandbox| {
         sandbox
@@ -361,9 +391,9 @@ fn copy_dir_contains_symlink_ignored(#[case] progress_flag: &str) -> Result {
             .symlink("good_bye", "dangle_symlink");
 
         // make symbolic link and copy.
-        let () = test().cwd(sandbox.cwd()).run(format!(
-            "rm tmp_dir/good_bye; cp {progress_flag} -r tmp_dir tmp_dir_2"
-        ))?;
+        let code = format!("rm tmp_dir/good_bye; cp {progress_flag} -r tmp_dir tmp_dir_2");
+        let result: CompleteResult = test().cwd(sandbox.cwd()).run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
         // check hello_there exists inside `tmp_dir_2`, and `dangle_symlink` don't exists inside `tmp_dir_2`.
         let expected = sandbox.cwd().join("tmp_dir_2");
@@ -379,6 +409,8 @@ fn copy_dir_contains_symlink_ignored(#[case] progress_flag: &str) -> Result {
 #[rstest]
 #[case::without_progress("")]
 #[case::with_progress("--progress")]
+#[nu_test_support::test]
+#[deps(NU)]
 fn copy_dir_contains_symlink(#[case] progress_flag: &str) -> Result {
     Playground::setup("ucp_test_13", |_dirs, sandbox| {
         sandbox
@@ -388,9 +420,9 @@ fn copy_dir_contains_symlink(#[case] progress_flag: &str) -> Result {
             .symlink("good_bye", "dangle_symlink");
 
         // make symbolic link and copy.
-        let () = test().cwd(sandbox.cwd()).run(format!(
-            "rm tmp_dir/good_bye; cp {progress_flag} -r -n tmp_dir tmp_dir_2"
-        ))?;
+        let code = format!("rm tmp_dir/good_bye; cp {progress_flag} -r -n tmp_dir tmp_dir_2");
+        let result: CompleteResult = test().cwd(sandbox.cwd()).run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
         // check hello_there exists inside `tmp_dir_2`, and `dangle_symlink` also exists inside `tmp_dir_2`.
         let expected = sandbox.cwd().join("tmp_dir_2");
@@ -404,6 +436,8 @@ fn copy_dir_contains_symlink(#[case] progress_flag: &str) -> Result {
 #[rstest]
 #[case::without_progress("")]
 #[case::with_progress("--progress")]
+#[nu_test_support::test]
+#[deps(NU)]
 fn copy_dir_symlink_file_body_not_changed(#[case] progress_flag: &str) -> Result {
     Playground::setup("ucp_test_14", |_dirs, sandbox| {
         sandbox
@@ -413,7 +447,7 @@ fn copy_dir_symlink_file_body_not_changed(#[case] progress_flag: &str) -> Result
             .symlink("good_bye", "dangle_symlink");
 
         // make symbolic link and copy.
-        let () = test().cwd(sandbox.cwd()).run(format!(
+        let code = format!(
             "
                 rm tmp_dir/good_bye
                 cp {progress_flag} -r -n tmp_dir tmp_dir_2
@@ -421,7 +455,9 @@ fn copy_dir_symlink_file_body_not_changed(#[case] progress_flag: &str) -> Result
                 cp {progress_flag} -r -n tmp_dir_2 tmp_dir
                 'hello_data' | save tmp_dir/good_bye
             "
-        ))?;
+        );
+        let result: CompleteResult = test().cwd(sandbox.cwd()).run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
         // check dangle_symlink in tmp_dir is no longer dangling.
         let expected_file = sandbox.cwd().join("tmp_dir").join("dangle_symlink");
@@ -441,9 +477,8 @@ fn copy_identical_file(#[case] progress_flag: &str) -> Result {
     Playground::setup("ucp_test_15", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("same.txt")]);
 
-        let result: CompleteResult = test()
-            .cwd(dirs.test())
-            .run_with_data(RUNNER, format!("cp {progress_flag} same.txt same.txt"))?;
+        let code = format!("cp {progress_flag} same.txt same.txt");
+        let result: CompleteResult = test().cwd(dirs.test()).run_with_data(RUNNER, code)?;
 
         let msg = format!(
             "'{}' and '{}' are the same file",
@@ -462,14 +497,19 @@ fn copy_identical_file(#[case] progress_flag: &str) -> Result {
 #[case::without_progress("")]
 #[case::with_progress("--progress")]
 #[ignore = "File name in progress bar not on uutils impl"]
+#[nu_test_support::test]
+#[deps(NU)]
 fn copy_ignores_ansi(#[case] progress_flag: &str) -> Result {
     Playground::setup("ucp_test_16", |_dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("test.txt")]);
 
-        test()
-            .cwd(sandbox.cwd())
-            .run(format!("ls | find test | get name | cp {progress_flag} $in.0 success.txt; ls | find success | get name | ansi strip | get 0"))
-            .expect_value_eq("success.txt")
+        let code = format!(
+            "ls | find test | get name | cp {progress_flag} $in.0 success.txt; ls | find success | get name | ansi strip | get 0"
+        );
+        let result: CompleteResult = test().cwd(sandbox.cwd()).run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
+        assert_eq!(result.stdout.trim(), "success.txt");
+        Ok(())
     })
 }
 
@@ -479,19 +519,22 @@ fn copy_ignores_ansi(#[case] progress_flag: &str) -> Result {
 #[rstest]
 #[case::without_progress("")]
 #[case::with_progress("--progress")]
+#[nu_test_support::test]
+#[deps(NU)]
 fn copy_file_not_exists_dst(#[case] progress_flag: &str) -> Result {
-    Playground::setup("ucp_test_17", |_dirs, sandbox| {
+    Playground::setup("ucp_test_17", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("valid.txt")]);
+        let source = dirs.test().join("valid.txt");
+        let target = dirs.test().join("invalid_dir").join("invalid_dir1");
 
-        let err = test()
-            .cwd(sandbox.cwd())
-            .run(format!(
-                "cp {progress_flag} valid.txt ~/invalid_dir/invalid_dir1"
-            ))
-            .expect_shell_error()?;
-        let msg = err.generic_msg()?;
-        assert_contains("invalid_dir1", &msg);
-        assert_contains("No such file or directory", &msg);
+        let code = format!(
+            "cp {progress_flag} {source} {target}",
+            source = source.display(),
+            target = target.display()
+        );
+        let result: CompleteResult = test().cwd(sandbox.cwd()).run_with_data(RUNNER, code)?;
+        assert_contains("invalid_dir1", &result.stderr);
+        assert_contains("No such file or directory", &result.stderr);
         Ok(())
     })
 }
@@ -502,6 +545,8 @@ fn copy_file_not_exists_dst(#[case] progress_flag: &str) -> Result {
 #[case::without_progress("")]
 #[case::with_progress("--progress")]
 #[ignore] //FIXME: This test needs to be re-enabled once uu_cp has fixed the bug
+#[nu_test_support::test]
+#[deps(NU)]
 fn copy_file_with_read_permission(#[case] progress_flag: &str) -> Result {
     Playground::setup("ucp_test_18", |_dirs, sandbox| {
         sandbox.with_files(&[
@@ -509,13 +554,11 @@ fn copy_file_with_read_permission(#[case] progress_flag: &str) -> Result {
             FileWithPermission("invalid_prem.txt", false),
         ]);
 
-        let err = test()
-            .cwd(sandbox.cwd())
-            .run(format!("cp {progress_flag} valid.txt invalid_prem.txt"))
-            .expect_shell_error()?;
-        let msg = err.generic_msg()?;
-        assert_contains("invalid_prem.txt", &msg);
-        assert_contains("denied", &msg);
+        let code = format!("cp {progress_flag} valid.txt invalid_prem.txt");
+        let result: CompleteResult = test().cwd(sandbox.cwd()).run_with_data(RUNNER, code)?;
+        assert_ne!(result.exit_code, 0);
+        assert_contains("invalid_prem.txt", &result.stderr);
+        assert_contains("denied", &result.stderr);
         Ok(())
     })
 }
@@ -523,15 +566,17 @@ fn copy_file_with_read_permission(#[case] progress_flag: &str) -> Result {
 #[rstest]
 #[case::without_progress("")]
 #[case::with_progress("--progress")]
+#[nu_test_support::test]
+#[deps(NU)]
 fn copies_file_symlink_without_dereferencing(#[case] progress_flag: &str) -> Result {
     Playground::setup("ucp_file_symlink_no_dereference", |_dirs, sandbox| {
         sandbox
             .with_files(&[EmptyFile("file")])
             .symlink("file", "link_to_file");
 
-        let () = test().cwd(sandbox.cwd()).run(format!(
-            "cp {progress_flag} --no-dereference link_to_file second_link_to_file"
-        ))?;
+        let code = format!("cp {progress_flag} --no-dereference link_to_file second_link_to_file");
+        let result: CompleteResult = test().cwd(sandbox.cwd()).run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
         let second_link = sandbox.cwd().join("second_link_to_file");
         assert!(second_link.is_symlink());
@@ -543,13 +588,15 @@ fn copies_file_symlink_without_dereferencing(#[case] progress_flag: &str) -> Res
 #[rstest]
 #[case::without_progress("")]
 #[case::with_progress("--progress")]
+#[nu_test_support::test]
+#[deps(NU)]
 fn copies_directory_symlink_without_dereferencing(#[case] progress_flag: &str) -> Result {
     Playground::setup("ucp_dir_symlink_no_dereference", |_dirs, sandbox| {
         sandbox.mkdir("dir").symlink("dir", "link_to_dir");
 
-        let () = test().cwd(sandbox.cwd()).run(format!(
-            "cp {progress_flag} -P link_to_dir second_link_to_dir"
-        ))?;
+        let code = format!("cp {progress_flag} -P link_to_dir second_link_to_dir");
+        let result: CompleteResult = test().cwd(sandbox.cwd()).run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
         let second_link = sandbox.cwd().join("second_link_to_dir");
         assert!(second_link.is_symlink());
@@ -764,7 +811,15 @@ fn test_cp_same_file_force() -> Result {
         let result: CompleteResult = test()
             .cwd(dirs.test())
             .run_with_data(RUNNER, format!("cp --force {} {}", "f", "f"))?;
-        assert_contains("'f' and 'f' are the same file", result.stderr);
+        let path = dirs.test().join("f");
+        assert_contains(
+            format!(
+                "'{}' and '{}' are the same file",
+                path.display(),
+                path.display()
+            ),
+            result.stderr,
+        );
         assert!(!dirs.test().join("f~").exists());
         Ok(())
     })
@@ -1000,7 +1055,11 @@ fn test_cp_preserve_timestamps() -> Result {
             $old_attrs == $new_attrs
         ";
 
-        test().cwd(dirs.test()).run(code).expect_value_eq(true)
+        test()
+            .cwd(dirs.test())
+            .inherit_path()
+            .run(code)
+            .expect_value_eq(true)
     })
 }
 
@@ -1026,6 +1085,7 @@ fn test_cp_preserve_only_timestamps() -> Result {
 
         test()
             .cwd(dirs.test())
+            .inherit_path()
             .run(code)
             .expect_value_eq([true, true])
     })
@@ -1048,7 +1108,11 @@ fn test_cp_preserve_nothing() -> Result {
             $old_attrs != $new_attrs
         ";
 
-        test().cwd(dirs.test()).run(code).expect_value_eq(true)
+        test()
+            .cwd(dirs.test())
+            .inherit_path()
+            .run(code)
+            .expect_value_eq(true)
     })
 }
 
@@ -1075,14 +1139,17 @@ fn test_cp_inside_glob_metachars_dir() -> Result {
 
 #[cfg(not(windows))]
 #[test]
+#[deps(NU)]
 fn test_cp_to_customized_home_directory() -> Result {
     Playground::setup("cp_to_home", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("test_file.txt")]);
-        let () = test()
+        let code = "mkdir test; cp test_file.txt ~/test/";
+        let result: CompleteResult = test()
             .cwd(dirs.test())
-            .env("HOME", dirs.test().to_string_lossy())
-            .run("mkdir test; cp test_file.txt ~/test/")?;
+            .env("HOME", dirs.test())
+            .run_with_data("nu -n -c $in | complete", code)?;
 
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
         assert!(files_exist_at(&["test_file.txt"], dirs.test().join("test")));
         Ok(())
     })
@@ -1121,6 +1188,8 @@ fn cp_with_tilde() -> Result {
 #[rstest]
 #[case::without_progress("")]
 #[case::with_progress("--progress")]
+#[nu_test_support::test]
+#[deps(NU)]
 fn copy_file_with_update_flag(#[case] progress_flag: &str) -> Result {
     Playground::setup("cp_test_36", |_dirs, sandbox| {
         sandbox.with_files(&[
@@ -1128,30 +1197,25 @@ fn copy_file_with_update_flag(#[case] progress_flag: &str) -> Result {
             FileWithContent("newer_valid.txt", "body"),
         ]);
 
-        test()
-            .cwd(sandbox.cwd())
-            .run(format!(
-                "cp {progress_flag} -u valid.txt newer_valid.txt; open newer_valid.txt"
-            ))
-            .expect_value_eq("body")?;
+        let code = format!("cp {progress_flag} -u valid.txt newer_valid.txt; open newer_valid.txt");
+        let result: CompleteResult = test().cwd(sandbox.cwd()).run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
+        assert_eq!(result.stdout.trim(), "body");
 
         // create a file after assert to make sure that newest_valid.txt is newest
         std::thread::sleep(std::time::Duration::from_secs(1));
         sandbox.with_files(&[FileWithContent("newest_valid.txt", "newest_body")]);
-        test()
-            .cwd(sandbox.cwd())
-            .run(format!(
-                "cp {progress_flag} -u newest_valid.txt valid.txt; open valid.txt"
-            ))
-            .expect_value_eq("newest_body")?;
+        let code = format!("cp {progress_flag} -u newest_valid.txt valid.txt; open valid.txt");
+        let result: CompleteResult = test().cwd(sandbox.cwd()).run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
+        assert_eq!(result.stdout.trim(), "newest_body");
 
         // when destination doesn't exist
-        test()
-            .cwd(sandbox.cwd())
-            .run(format!(
-                "cp {progress_flag} -u newest_valid.txt des_missing.txt; open des_missing.txt"
-            ))
-            .expect_value_eq("newest_body")?;
+        let code =
+            format!("cp {progress_flag} -u newest_valid.txt des_missing.txt; open des_missing.txt");
+        let result: CompleteResult = test().cwd(sandbox.cwd()).run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
+        assert_eq!(result.stdout.trim(), "newest_body");
         Ok(())
     })
 }
