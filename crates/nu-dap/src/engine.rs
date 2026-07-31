@@ -345,7 +345,7 @@ fn publish_valid_lines(
 
     let mut events = Vec::new();
     {
-        let mut inner = state.inner.lock().expect("state poisoned");
+        let mut inner = state.session_state.lock().expect("state poisoned");
         inner.valid_lines = valid;
         inner.parse_done = true;
 

@@ -117,7 +117,11 @@ impl DapDebugger {
 
     /// Current shadow variables as (name, value) pairs for scratch eval.
     fn shadow_vars_for_eval(&self) -> Vec<(String, Value)> {
-        let inner = self.state.inner.lock().expect("debug state poisoned");
+        let inner = self
+            .state
+            .session_state
+            .lock()
+            .expect("debug state poisoned");
         inner
             .shadow_vars
             .values()
@@ -167,7 +171,11 @@ impl DapDebugger {
             }),
         );
 
-        let mut inner = self.state.inner.lock().expect("debug state poisoned");
+        let mut inner = self
+            .state
+            .session_state
+            .lock()
+            .expect("debug state poisoned");
         if reason != "exception" {
             inner.exception_info = None;
         }
@@ -250,7 +258,11 @@ impl DapDebugger {
         engine_state: &EngineState,
         pos: Option<&SourcePos>,
     ) -> Option<PauseGate> {
-        let inner = self.state.inner.lock().expect("debug state poisoned");
+        let inner = self
+            .state
+            .session_state
+            .lock()
+            .expect("debug state poisoned");
         if inner.terminate_requested {
             engine_state.signals().trigger();
             return None;
@@ -363,7 +375,11 @@ impl DapDebugger {
 
         let frames = self.build_frames();
         let last_result = self.last_result.clone();
-        let mut inner = self.state.inner.lock().expect("debug state poisoned");
+        let mut inner = self
+            .state
+            .session_state
+            .lock()
+            .expect("debug state poisoned");
         let granular = line_changed || depth_changed || is_call;
 
         if (inner.time_travel && granular) || reason.is_some() {
@@ -453,7 +469,11 @@ impl DapDebugger {
             return true;
         }
 
-        let inner = self.state.inner.lock().expect("debug state poisoned");
+        let inner = self
+            .state
+            .session_state
+            .lock()
+            .expect("debug state poisoned");
         if !inner.break_on_error || inner.terminate_requested {
             return true;
         }
@@ -481,7 +501,11 @@ impl DapDebugger {
         self.sync_locals_from_stack(engine_state, stack);
 
         let exception_id = exception_id(err);
-        let mut inner = self.state.inner.lock().expect("debug state poisoned");
+        let mut inner = self
+            .state
+            .session_state
+            .lock()
+            .expect("debug state poisoned");
         inner.exception_info = Some((exception_id, description.clone()));
 
         self.pause(

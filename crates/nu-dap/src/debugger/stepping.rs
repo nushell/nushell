@@ -91,7 +91,11 @@ impl DapDebugger {
         // Full runtime env (engine baseline + this stack's overlays/mutations).
         let env = stack.get_env_vars(engine_state);
 
-        let mut inner = self.state.inner.lock().expect("debug state poisoned");
+        let mut inner = self
+            .state
+            .session_state
+            .lock()
+            .expect("debug state poisoned");
         inner.shadow_vars = vars;
         inner.env_shadow = env;
     }

@@ -84,7 +84,7 @@ impl PauseSnapshot {
     }
 }
 
-/// One breakpoint's properties, keyed in `Inner::breakpoints` by its
+/// One breakpoint's properties, keyed in `SessionState::breakpoints` by its
 /// (possibly snapped) line.
 #[derive(Debug, Clone, Default)]
 pub(crate) struct Breakpoint {
@@ -126,8 +126,16 @@ impl Breakpoint {
     }
 }
 
+/// The debug session's mutable state: breakpoints, run control, pause status,
+/// the current variable snapshot, and the time-travel tape.
+///
+/// This is the portion of `DebugState` that lives behind its mutex, so both
+/// threads reach it the same way — the eval thread via `DebugState::inner`,
+/// the server thread via `Server::with_state`/`with_state_mut`. Holding a
+/// `&`/`&mut` to it means the lock is held: do not evaluate nu expressions
+/// (`scratch` has its own lock) or block on a condvar while one is alive.
 #[derive(Debug)]
-pub(crate) struct Inner {
+pub(crate) struct SessionState {
     /// file path (canonicalized) -> line -> breakpoint properties.
     pub(crate) breakpoints: HashMap<String, BTreeMap<i64, Breakpoint>>,
     /// file path -> set of lines that have at least one steppable
@@ -187,7 +195,7 @@ pub(crate) struct Inner {
     pub(crate) config: Arc<nu_protocol::Config>,
 }
 
-impl Inner {
+impl SessionState {
     /// Where a breakpoint at `line` actually lands. Returns (line, verified):
     /// the line itself if steppable, else the next line that is (snap forward),
     /// else unverified. Optimistically verified in place before parsing.
@@ -288,9 +296,9 @@ pub(crate) struct UiBridge {
 }
 
 pub(crate) struct DebugState {
-    pub(crate) inner: Mutex<Inner>,
+    pub(crate) session_state: Mutex<SessionState>,
     pub(crate) ui: UiBridge,
-    /// Mirror of Inner::terminate_requested readable without the lock — the
+    /// Mirror of SessionState::terminate_requested readable without the lock — the
     /// UI wait loop polls it so the stop button interrupts a pending dialog.
     pub(crate) terminate_flag: std::sync::atomic::AtomicBool,
     /// Scratch engine for watch/hover/console expressions, breakpoint
@@ -310,7 +318,7 @@ pub(crate) struct DebugState {
 impl DebugState {
     pub(crate) fn new(stop_on_entry: bool, time_travel: bool, tt_max: usize) -> Self {
         Self {
-            inner: Mutex::new(Inner {
+            session_state: Mutex::new(SessionState {
                 breakpoints: HashMap::new(),
                 valid_lines: HashMap::new(),
                 parse_done: false,
@@ -350,7 +358,7 @@ impl DebugState {
 
     /// Called by the server thread to resume with a new run mode.
     pub(crate) fn resume(&self, mode: RunMode) {
-        let mut inner = self.inner.lock().expect("debug state poisoned");
+        let mut inner = self.session_state.lock().expect("debug state poisoned");
         inner.run_mode = mode;
         inner.resume_requested = true;
         drop(inner);
@@ -358,7 +366,7 @@ impl DebugState {
     }
 
     pub(crate) fn request_terminate(&self) {
-        let mut inner = self.inner.lock().expect("debug state poisoned");
+        let mut inner = self.session_state.lock().expect("debug state poisoned");
         inner.terminate_requested = true;
         inner.resume_requested = true;
         drop(inner);
@@ -371,7 +379,7 @@ impl DebugState {
     /// Like `request_terminate`, but marks this state as being replaced by a
     /// restart so the dying eval thread keeps quiet about it.
     pub(crate) fn request_restart_teardown(&self) {
-        let mut inner = self.inner.lock().expect("debug state poisoned");
+        let mut inner = self.session_state.lock().expect("debug state poisoned");
         inner.restarting = true;
         inner.terminate_requested = true;
         inner.resume_requested = true;
@@ -383,6 +391,9 @@ impl DebugState {
     }
 
     pub(crate) fn is_restarting(&self) -> bool {
-        self.inner.lock().expect("debug state poisoned").restarting
+        self.session_state
+            .lock()
+            .expect("debug state poisoned")
+            .restarting
     }
 }

@@ -43,7 +43,7 @@ impl DapDebugger {
     pub(super) fn build_snapshot(
         &self,
         engine_state: &EngineState,
-        inner: &mut crate::state::Inner,
+        inner: &mut crate::state::SessionState,
         ir_block: &IrBlock,
         instruction_index: usize,
         registers: &[PipelineExecutionData],

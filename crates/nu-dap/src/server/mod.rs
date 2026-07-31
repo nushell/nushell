@@ -109,16 +109,16 @@ impl Session {
         }
     }
 
-    fn with_state<T>(&self, f: impl FnOnce(&crate::state::Inner) -> T) -> Option<T> {
+    fn with_state<T>(&self, f: impl FnOnce(&crate::state::SessionState) -> T) -> Option<T> {
         self.state.as_ref().map(|s| {
-            let inner = s.inner.lock().expect("state poisoned");
+            let inner = s.session_state.lock().expect("state poisoned");
             f(&inner)
         })
     }
 
-    fn with_state_mut<T>(&self, f: impl FnOnce(&mut crate::state::Inner) -> T) -> Option<T> {
+    fn with_state_mut<T>(&self, f: impl FnOnce(&mut crate::state::SessionState) -> T) -> Option<T> {
         self.state.as_ref().map(|s| {
-            let mut inner = s.inner.lock().expect("state poisoned");
+            let mut inner = s.session_state.lock().expect("state poisoned");
             f(&mut inner)
         })
     }

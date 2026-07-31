@@ -49,7 +49,7 @@ impl Session {
     pub(super) fn tt_goto(&self, target: Option<usize>, reason: &'static str) {
         let Some(state) = &self.state else { return };
         {
-            let mut inner = state.inner.lock().expect("state poisoned");
+            let mut inner = state.session_state.lock().expect("state poisoned");
             inner.view_index = target;
             if let Some(i) = target {
                 let entry = inner.timeline.get(i).cloned();
