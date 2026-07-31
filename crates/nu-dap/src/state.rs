@@ -358,18 +358,18 @@ impl DebugState {
 
     /// Called by the server thread to resume with a new run mode.
     pub(crate) fn resume(&self, mode: RunMode) {
-        let mut inner = self.session_state.lock().expect("session poisoned");
-        inner.run_mode = mode;
-        inner.resume_requested = true;
-        drop(inner);
+        let mut session = self.session_state.lock().expect("session poisoned");
+        session.run_mode = mode;
+        session.resume_requested = true;
+        drop(session);
         self.resume_cv.notify_all();
     }
 
     pub(crate) fn request_terminate(&self) {
-        let mut inner = self.session_state.lock().expect("session poisoned");
-        inner.terminate_requested = true;
-        inner.resume_requested = true;
-        drop(inner);
+        let mut session = self.session_state.lock().expect("session poisoned");
+        session.terminate_requested = true;
+        session.resume_requested = true;
+        drop(session);
         self.terminate_flag
             .store(true, std::sync::atomic::Ordering::SeqCst);
         self.resume_cv.notify_all();
@@ -379,11 +379,11 @@ impl DebugState {
     /// Like `request_terminate`, but marks this state as being replaced by a
     /// restart so the dying eval thread keeps quiet about it.
     pub(crate) fn request_restart_teardown(&self) {
-        let mut inner = self.session_state.lock().expect("session poisoned");
-        inner.restarting = true;
-        inner.terminate_requested = true;
-        inner.resume_requested = true;
-        drop(inner);
+        let mut session = self.session_state.lock().expect("session poisoned");
+        session.restarting = true;
+        session.terminate_requested = true;
+        session.resume_requested = true;
+        drop(session);
         self.terminate_flag
             .store(true, std::sync::atomic::Ordering::SeqCst);
         self.resume_cv.notify_all();

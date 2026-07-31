@@ -345,14 +345,14 @@ fn publish_valid_lines(
 
     let mut events = Vec::new();
     {
-        let mut inner = state.session_state.lock().expect("session poisoned");
-        inner.valid_lines = valid;
-        inner.parse_done = true;
+        let mut session = state.session_state.lock().expect("session poisoned");
+        session.valid_lines = valid;
+        session.parse_done = true;
 
-        for (path, bps) in inner.breakpoints.clone() {
+        for (path, bps) in session.breakpoints.clone() {
             let mut changed = std::collections::BTreeMap::new();
             for (line, mut props) in bps {
-                let (snapped, verified) = { inner.snap_line(&path, line) };
+                let (snapped, verified) = { session.snap_line(&path, line) };
                 props.verified = verified;
                 // On collision (two bps snapping to one line) the first wins.
                 let final_line = if changed.contains_key(&snapped) {
@@ -365,7 +365,7 @@ fn publish_valid_lines(
                 }
                 changed.entry(final_line).or_insert(props);
             }
-            inner.breakpoints.insert(path, changed);
+            session.breakpoints.insert(path, changed);
         }
     }
     for (id, verified, line, path) in events {

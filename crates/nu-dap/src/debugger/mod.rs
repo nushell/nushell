@@ -47,6 +47,28 @@ struct Frame {
     in_value: Option<Value>,
 }
 
+/// Where execution currently is: the IR block, which instruction in it, and the
+/// register file. The evaluator hands these to every hook as three separate
+/// arguments and they are never used apart, so internally they travel as one.
+struct Site<'a> {
+    ir_block: &'a IrBlock,
+    instruction_index: usize,
+    registers: &'a [PipelineExecutionData],
+}
+
+impl<'a> Site<'a> {
+    /// The instruction being executed.
+    fn instruction(&self) -> &'a Instruction {
+        &self.ir_block.instructions[self.instruction_index]
+    }
+
+    /// Its source span — may be multi-line or synthetic, so callers that need a
+    /// stop location go through `SourceMap::resolve_steppable`.
+    fn span(&self) -> Span {
+        self.ir_block.spans[self.instruction_index]
+    }
+}
+
 /// `Debug` is required by the `Debugger` trait. The three collaborators below
 /// are skipped because they are not `Debug` themselves (and dumping the shared
 /// state would print every breakpoint, the whole timeline, and the snapshot
@@ -117,8 +139,8 @@ impl DapDebugger {
 
     /// Current shadow variables as (name, value) pairs for scratch eval.
     fn shadow_vars_for_eval(&self) -> Vec<(String, Value)> {
-        let inner = self.state.session_state.lock().expect("session poisoned");
-        inner
+        let session = self.state.session_state.lock().expect("session poisoned");
+        session
             .shadow_vars
             .values()
             .map(|sv| (sv.name.clone(), sv.value.clone()))
@@ -128,6 +150,7 @@ impl DapDebugger {
     fn scratch_eval(&self, expr: &str) -> Result<Value, String> {
         let vars = self.shadow_vars_for_eval();
         let mut guard = self.state.scratch.lock().expect("scratch poisoned");
+
         guard
             .get_or_insert_with(crate::eval_scratch::Scratch::new)
             .eval(expr, &vars)
@@ -151,69 +174,20 @@ impl DapDebugger {
     /// this lock (`read_pause_gate`, `sync_locals_from_stack`, `record_timeline`,
     /// `shadow_vars_for_eval` via breakpoint conditions/logpoints) has to run
     /// first. std mutexes are not reentrant, so a second lock here deadlocks.
-    // The guard makes 8; `ir_block`/`instruction_index`/`registers` are the
-    // instruction position the Debugger trait hands us as separate arguments.
-    #[allow(clippy::too_many_arguments)]
     fn pause(
         &self,
         mut session: MutexGuard<'_, SessionState>,
         engine_state: &EngineState,
         reason: &'static str,
-        ir_block: &IrBlock,
-        instruction_index: usize,
-        registers: &[PipelineExecutionData],
+        site: &Site<'_>,
         description: Option<&str>,
     ) {
         // Sync the output capture so the Process scope tails are current.
         crate::stdio::flush_output(std::time::Duration::from_millis(300));
 
-        // IR listing for the extension's "Show IR" panel. Custom DAP event;
-        // clients that don't know it simply ignore it.
-        self.writer.event(
-            "nuDapIr",
-            json!({
-                "text": format!("{}", ir_block.display(engine_state)),
-                "instructionIndex": instruction_index,
-                "instructionCount": ir_block.instructions.len(),
-            }),
-        );
-
-        if reason != "exception" {
-            session.exception_info = None;
-        }
-
-        self.build_snapshot(
-            engine_state,
-            &mut session,
-            ir_block,
-            instruction_index,
-            registers,
-        );
-
-        session.paused_line = self
-            .current_span
-            .and_then(|s| self.source_map.resolve(s))
-            .map(|p| p.line)
-            .unwrap_or(0);
-
-        session.paused_depth = self.depth();
-        session.paused = true;
-        session.resume_requested = false;
-
-        self.state.paused_cv.notify_all();
-
-        let mut body = json!({
-            "reason": reason,
-            "threadId": crate::server::THREAD_ID,
-            "allThreadsStopped": true,
-        });
-
-        if let Some(text) = description {
-            body["description"] = json!(text);
-            body["text"] = json!(text);
-        }
-
-        self.writer.event("stopped", body);
+        self.announce_ir(engine_state, site);
+        self.publish_stop(&mut session, engine_state, reason, site);
+        self.emit_stopped(reason, description);
 
         while !session.resume_requested {
             session = self
@@ -231,6 +205,68 @@ impl DapDebugger {
             // ShellError::Interrupted at the next signal check.
             engine_state.signals().trigger();
         }
+    }
+
+    /// IR listing for the extension's "Show IR" panel. Custom DAP event, so
+    /// clients that don't know it simply ignore it.
+    fn announce_ir(&self, engine_state: &EngineState, site: &Site<'_>) {
+        self.writer.event(
+            "nuDapIr",
+            json!({
+                "text": format!("{}", site.ir_block.display(engine_state)),
+                "instructionIndex": site.instruction_index,
+                "instructionCount": site.ir_block.instructions.len(),
+            }),
+        );
+    }
+
+    /// Record the stop in shared state — the snapshot and position the server
+    /// thread serves `stackTrace`/`scopes`/`variables` from — then wake anyone
+    /// waiting on `paused_cv`.
+    ///
+    /// Takes the locked state by reference; `pause` keeps the guard because the
+    /// wait that follows consumes it.
+    fn publish_stop(
+        &self,
+        session: &mut SessionState,
+        engine_state: &EngineState,
+        reason: &'static str,
+        site: &Site<'_>,
+    ) {
+        if reason != "exception" {
+            session.exception_info = None;
+        }
+
+        self.build_snapshot(engine_state, session, site);
+
+        session.paused_line = self
+            .current_span
+            .and_then(|s| self.source_map.resolve(s))
+            .map(|p| p.line)
+            .unwrap_or(0);
+
+        session.paused_depth = self.depth();
+        session.paused = true;
+        session.resume_requested = false;
+
+        self.state.paused_cv.notify_all();
+    }
+
+    /// The DAP `stopped` event. Emitted only after `publish_stop`, so whatever
+    /// the client fires back finds the snapshot already in place.
+    fn emit_stopped(&self, reason: &'static str, description: Option<&str>) {
+        let mut body = json!({
+            "reason": reason,
+            "threadId": crate::server::THREAD_ID,
+            "allThreadsStopped": true,
+        });
+
+        if let Some(text) = description {
+            body["description"] = json!(text);
+            body["text"] = json!(text);
+        }
+
+        self.writer.event("stopped", body);
     }
 
     /// First instruction of a fresh block: register 0 is `$in` (per element
@@ -260,27 +296,77 @@ impl DapDebugger {
         engine_state: &EngineState,
         pos: Option<&SourcePos>,
     ) -> Option<PauseGate> {
-        let inner = self.state.session_state.lock().expect("session poisoned");
-        if inner.terminate_requested {
+        let session = self.state.session_state.lock().expect("session poisoned");
+        if session.terminate_requested {
             engine_state.signals().trigger();
             return None;
         }
+
         let bp_props = pos.and_then(|p| {
             // Only on first arrival at the line, not per instruction.
             if self.last_line == Some(p.line) {
                 return None;
             }
-            inner
+
+            session
                 .breakpoints
                 .get(&p.path)
                 .and_then(|m| m.get(&(p.line as i64)))
                 .cloned()
         });
+
         Some(PauseGate {
             breakpoint: bp_props,
-            run_mode: inner.run_mode,
-            time_travel: inner.time_travel,
+            run_mode: session.run_mode,
+            time_travel: session.time_travel,
         })
+    }
+
+    /// Whether to stop at this instruction and why: a breakpoint's verdict wins,
+    /// otherwise the active run mode decides. The second element is a console
+    /// note from a breakpoint condition that could not be used.
+    fn pause_reason(
+        &mut self,
+        engine_state: &EngineState,
+        gate: &PauseGate,
+        site: &Site<'_>,
+        position: &SourcePos,
+    ) -> (Option<&'static str>, Option<String>) {
+        let (reason, note) = match &gate.breakpoint {
+            Some(props) => self.check_breakpoint(engine_state, props),
+            None => (None, None),
+        };
+
+        if reason.is_some() {
+            return (reason, note);
+        }
+
+        let is_call = matches!(site.instruction(), Instruction::Call { .. });
+        (
+            self.should_pause_mode(position, gate.run_mode, is_call),
+            note,
+        )
+    }
+
+    /// Stop at this instruction: surface any breakpoint note, then pause.
+    ///
+    /// The only place `enter_instruction` takes the session lock. Everything
+    /// that also takes it — `read_pause_gate`, `sync_locals_from_stack`,
+    /// `check_breakpoint` (scratch eval), `record_timeline` — must have run
+    /// already; std mutexes are not reentrant.
+    fn pause_at(
+        &mut self,
+        engine_state: &EngineState,
+        site: &Site<'_>,
+        reason: &'static str,
+        note: Option<&str>,
+    ) {
+        if let Some(n) = note {
+            self.writer.output("console", format!("nu-dap: {n}\n"));
+        }
+
+        let session = self.state.session_state.lock().expect("session poisoned");
+        self.pause(session, engine_state, reason, site, None);
     }
 
     /// Whether this breakpoint pauses, plus a console note when its condition
@@ -357,65 +443,57 @@ impl DapDebugger {
     fn record_timeline(
         &mut self,
         engine_state: &EngineState,
-        ir_block: &IrBlock,
-        instruction_index: usize,
-        registers: &[PipelineExecutionData],
-        pos: Option<&SourcePos>,
+        site: &Site<'_>,
+        pos: &SourcePos,
         reason: Option<&'static str>,
     ) {
-        let Some(p) = pos else { return };
         let depth = self.depth();
-        let line_changed = self.last_line != Some(p.line);
+        let line_changed = self.last_line != Some(pos.line);
         let depth_changed = self.last_depth != Some(depth);
-        let instruction = &ir_block.instructions[instruction_index];
+        let instruction = site.instruction();
         let is_call = matches!(instruction, Instruction::Call { .. });
-        let pipe_input = pipe_input_at(engine_state, instruction, registers);
+        let pipe_input = pipe_input_at(engine_state, instruction, site.registers);
 
         let frames = self.build_frames();
         let last_result = self.last_result.clone();
-        let mut inner = self.state.session_state.lock().expect("session poisoned");
+        let mut session = self.state.session_state.lock().expect("session poisoned");
         let granular = line_changed || depth_changed || is_call;
 
-        if (inner.time_travel && granular) || reason.is_some() {
+        if (session.time_travel && granular) || reason.is_some() {
             let entry = crate::state::TimelineEntry {
                 frames,
-                shadow_vars: inner.shadow_vars.clone(),
-                env_shadow: inner.env_shadow.clone(),
+                shadow_vars: session.shadow_vars.clone(),
+                env_shadow: session.env_shadow.clone(),
                 last_result,
                 pipe_input,
                 depth,
                 is_breakpoint: reason == Some("breakpoint"),
             };
-            inner.push_timeline(entry);
-            inner.view_index = None; // execution advanced: back at the frontier
+            session.push_timeline(entry);
+            session.view_index = None; // execution advanced: back at the frontier
         }
     }
 
     /// Remember this line so later instructions on it don't refire the
-    /// breakpoint. Non-steppable instructions never touch line tracking.
-    fn track_line(&mut self, pos: Option<&SourcePos>) {
-        let Some(p) = pos else { return };
-        self.last_line = Some(p.line);
+    /// breakpoint. Only reached for steppable instructions, so line tracking
+    /// stays untouched by compiler glue.
+    fn track_line(&mut self, pos: &SourcePos) {
+        self.last_line = Some(pos.line);
         self.last_depth = Some(self.depth());
         if let Some(frame) = self.frames.last_mut() {
-            frame.last_line = Some(p.line);
+            frame.last_line = Some(pos.line);
         }
     }
 
-    fn capture_last_return_value(
-        &mut self,
-        ir_block: &IrBlock,
-        instruction_index: usize,
-        registers: &[PipelineExecutionData],
-    ) {
-        let reg = match ir_block.instructions[instruction_index] {
+    fn capture_last_return_value(&mut self, site: &Site<'_>) {
+        let reg = match *site.instruction() {
             Instruction::Call { src_dst, .. } => Some(src_dst.get() as usize),
             Instruction::Return { src } => Some(src.get() as usize),
             _ => None,
         };
 
         if let Some(idx) = reg
-            && let Some(r) = registers.get(idx)
+            && let Some(r) = site.registers.get(idx)
         {
             self.last_result = Some(match &r.body {
                 PipelineData::Value(v, _) => v.clone(),
@@ -423,6 +501,23 @@ impl DapDebugger {
                 other => Value::string(crate::variables::describe_stream(other), Span::unknown()),
             });
         }
+    }
+
+    /// Dialog text for an error. External commands get their stderr tail
+    /// appended: "External command had a non-zero exit code" says nothing on its
+    /// own — the command's actual complaint went to stderr. Matched on the
+    /// variant, not the diagnostic code, so a rename fails to compile instead of
+    /// quietly dropping the tail.
+    fn error_description(err: &ShellError) -> String {
+        let mut description = format!("{err}");
+
+        if matches!(err, ShellError::NonZeroExitCode { .. })
+            && let Some(tail) = Self::get_message_from_external_command()
+        {
+            description = format!("{description}\n\n{tail}");
+        }
+
+        description
     }
 
     /// Recent stderr tail from an external command, trimmed and capped so the
@@ -450,9 +545,7 @@ impl DapDebugger {
         &mut self,
         engine_state: &EngineState,
         stack: &Stack,
-        ir_block: &IrBlock,
-        instruction_index: usize,
-        registers: &[PipelineExecutionData],
+        site: &Site<'_>,
         error: Option<&ShellError>,
     ) {
         let err = error.expect("error present");
@@ -478,20 +571,12 @@ impl DapDebugger {
 
         // Point the top frame at the failing instruction, even when its span
         // is multi-line (better an approximate position than none).
-        let span = ir_block.spans[instruction_index];
+        let span = site.span();
         if self.source_map.resolve(span).is_some() {
             self.current_span = Some(span);
         }
 
-        let mut description = format!("{err}");
-
-        if matches!(err, ShellError::NonZeroExitCode { .. }) {
-            let external_error = Self::get_message_from_external_command();
-
-            if let Some(tail) = external_error {
-                description = format!("{description}\n\n{tail}");
-            }
-        }
+        let description = Self::error_description(err);
 
         // This path skips the enter_instruction sync, so refresh from the Stack.
         self.sync_locals_from_stack(engine_state, stack);
@@ -502,15 +587,7 @@ impl DapDebugger {
         let mut session = self.state.session_state.lock().expect("session poisoned");
         session.exception_info = Some((exception_id, description.clone()));
 
-        self.pause(
-            session,
-            engine_state,
-            "exception",
-            ir_block,
-            instruction_index,
-            registers,
-            Some(&description),
-        );
+        self.pause(session, engine_state, "exception", site, Some(&description));
     }
 }
 
@@ -565,12 +642,13 @@ fn pipe_input_at(
     instruction: &Instruction,
     registers: &[PipelineExecutionData],
 ) -> Option<(String, Value)> {
-    let Instruction::Call {
-        decl_id, src_dst, ..
-    } = instruction
-    else {
-        return None;
+    let (decl_id, src_dst) = match instruction {
+        Instruction::Call {
+            decl_id, src_dst, ..
+        } => (decl_id, src_dst),
+        _ => return None,
     };
+
     let name = || engine_state.get_decl(*decl_id).name().to_string();
     match &registers.get(src_dst.get() as usize)?.body {
         PipelineData::Value(v, _) if !matches!(v, Value::Nothing { .. }) => {
@@ -638,73 +716,53 @@ impl Debugger for DapDebugger {
         instruction_index: usize,
         registers: &[PipelineExecutionData],
     ) {
+        let site = Site {
+            ir_block,
+            instruction_index,
+            registers,
+        };
+
         self.source_map.refresh(engine_state);
         // New instruction running, so a prior error was caught — future ones pause.
         self.in_error_unwind = false;
         self.capture_block_input(registers);
-
-        let instruction = &ir_block.instructions[instruction_index];
-        self.pending_frame_name = called_decl_name(engine_state, instruction);
+        self.pending_frame_name = called_decl_name(engine_state, site.instruction());
 
         // Only single-line spans are valid stop locations; block-wide glue spans
         // would make the UI jump to line 1.
-        let span = ir_block.spans[instruction_index];
+        let span = site.span();
         let position = self.source_map.resolve_steppable(span);
 
-        let Some(gate) = self.read_pause_gate(engine_state, position.as_ref()) else {
-            return; // terminate requested
+        let gate = match self.read_pause_gate(engine_state, position.as_ref()) {
+            Some(gate) => gate,
+            // Terminate requested: this instruction must not proceed. Read first
+            // because that check runs on every instruction, steppable or not.
+            None => return,
         };
-        if position.is_some() && gate.wants_locals() {
+
+        // Nothing below applies without a stop location: `read_pause_gate` only
+        // matches breakpoints against a position, stepping only stops where
+        // there is a line to show, and the tape only records real lines.
+        let Some(position) = position else { return };
+
+        if gate.wants_locals() {
             self.sync_locals_from_stack(engine_state, stack);
         }
 
         // Order is load-bearing from here: locals are synced before a condition
         // or logpoint is evaluated, `current_span` is set before the tape entry
         // is built, and line tracking is updated only once any pause returns.
-        let (mut reason, note) = match &gate.breakpoint {
-            Some(props) => self.check_breakpoint(engine_state, props),
-            None => (None, None),
-        };
+        let (reason, note) = self.pause_reason(engine_state, &gate, &site, &position);
 
-        if reason.is_none() && position.is_some() {
-            let is_call = matches!(instruction, Instruction::Call { .. });
-            reason = self.should_pause_mode(position.as_ref(), gate.run_mode, is_call);
-        }
+        self.current_span = Some(span);
 
-        if position.is_some() {
-            self.current_span = Some(span);
-        }
-
-        self.record_timeline(
-            engine_state,
-            ir_block,
-            instruction_index,
-            registers,
-            position.as_ref(),
-            reason,
-        );
+        self.record_timeline(engine_state, &site, &position, reason);
 
         if let Some(r) = reason {
-            if let Some(n) = &note {
-                self.writer.output("console", format!("nu-dap: {n}\n"));
-            }
-
-            // Locked last: read_pause_gate, sync_locals_from_stack,
-            // check_breakpoint (scratch eval) and record_timeline all take this
-            // lock above, so the guard can only be taken here.
-            let session = self.state.session_state.lock().expect("session poisoned");
-            self.pause(
-                session,
-                engine_state,
-                r,
-                ir_block,
-                instruction_index,
-                registers,
-                None,
-            );
+            self.pause_at(engine_state, &site, r, note.as_deref());
         }
 
-        self.track_line(position.as_ref());
+        self.track_line(&position);
     }
 
     fn leave_instruction(
@@ -716,19 +774,17 @@ impl Debugger for DapDebugger {
         registers: &[PipelineExecutionData],
         error: Option<&ShellError>,
     ) {
-        // Successfully executed
-        if error.is_none() {
-            self.capture_last_return_value(ir_block, instruction_index, registers);
-            return;
-        }
-
-        self.handle_error(
-            engine_state,
-            stack,
+        let site = Site {
             ir_block,
             instruction_index,
             registers,
-            error,
-        );
+        };
+
+        if error.is_some() {
+            self.handle_error(engine_state, stack, &site, error);
+            return;
+        }
+
+        self.capture_last_return_value(&site);
     }
 }

@@ -19,14 +19,14 @@ impl Session {
 
         let mut verified = Vec::new();
         if let (Some(state), Some(path)) = (&self.state, path) {
-            let mut inner = state.session_state.lock().expect("session poisoned");
+            let mut session = state.session_state.lock().expect("session poisoned");
             let mut map = std::collections::BTreeMap::new();
             for bp in &args.breakpoints {
-                let id = inner.next_bp_id;
-                inner.next_bp_id += 1;
+                let id = session.next_bp_id;
+                session.next_bp_id += 1;
                 // Snap to the next line with instructions (optimistic before
                 // parsing; the eval thread reconciles + re-announces then).
-                let (snapped, ok) = inner.snap_line(&path, bp.line);
+                let (snapped, ok) = session.snap_line(&path, bp.line);
                 let line = if map.contains_key(&snapped) {
                     bp.line
                 } else {
@@ -48,7 +48,7 @@ impl Session {
                     source: Some(args.source.clone()),
                 });
             }
-            inner.breakpoints.insert(path.clone(), map);
+            session.breakpoints.insert(path.clone(), map);
         }
         self.writer
             .respond(seq, cmd, json!({ "breakpoints": verified }));
@@ -61,15 +61,15 @@ impl Session {
             .and_then(|f| serde_json::from_value(f.clone()).ok())
             .unwrap_or_default();
         if let Some(state) = &self.state {
-            let mut inner = state.session_state.lock().expect("session poisoned");
-            inner.break_on_error = filters.iter().any(|f| f == "error");
+            let mut session = state.session_state.lock().expect("session poisoned");
+            session.break_on_error = filters.iter().any(|f| f == "error");
         }
         self.writer.respond(seq, cmd, json!({ "breakpoints": [] }));
     }
 
     pub(super) fn on_exception_info(&mut self, seq: i64, cmd: &str) {
         let info = self
-            .with_state(|inner| inner.exception_info.clone())
+            .with_state(|session| session.exception_info.clone())
             .flatten();
         match info {
             Some((id, description)) => self.writer.respond(

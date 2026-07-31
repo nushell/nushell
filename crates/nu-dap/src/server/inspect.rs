@@ -24,7 +24,7 @@ impl Session {
                 levels: None,
             });
         let frames: Vec<StackFrame> = self
-            .with_state(|inner| inner.active_snapshot().frames.clone())
+            .with_state(|session| session.active_snapshot().frames.clone())
             .unwrap_or_default();
         let total = frames.len();
         self.writer.respond(
@@ -39,8 +39,8 @@ impl Session {
         // Registers, Process) appear only when they have content, so the panel
         // isn't cluttered with empty sections at most stops.
         let (pipeline, registers, process) = self
-            .with_state(|inner| {
-                let snap = inner.active_snapshot();
+            .with_state(|session| {
+                let snap = session.active_snapshot();
                 let filled = |r: i64| snap.var_refs.get(&r).is_some_and(|c| !c.is_empty());
                 (
                     filled(PauseSnapshot::PIPELINE_REF),
@@ -98,8 +98,8 @@ impl Session {
             }
         };
         let vars: Vec<Variable> = self
-            .with_state_mut(|inner| {
-                let snap = inner.active_snapshot_mut();
+            .with_state_mut(|session| {
+                let snap = session.active_snapshot_mut();
                 // Lazy hydration: materialize this node's children on
                 // first expansion.
                 crate::variables::materialize_children(snap, args.variables_reference);
@@ -137,8 +137,8 @@ impl Session {
 
         let value: Result<nu_protocol::Value, String> = {
             let fast = if is_bare_name {
-                self.with_state(|inner| {
-                    inner
+                self.with_state(|session| {
+                    session
                         .shadow_vars
                         .values()
                         .find(|sv| sv.name == bare)
@@ -152,8 +152,8 @@ impl Session {
                 (Some(v), _) => Ok(v),
                 (None, Some(state)) => {
                     let vars = {
-                        let inner = state.session_state.lock().expect("session poisoned");
-                        inner
+                        let session = state.session_state.lock().expect("session poisoned");
+                        session
                             .shadow_vars
                             .values()
                             .map(|sv| (sv.name.clone(), sv.value.clone()))
@@ -172,8 +172,8 @@ impl Session {
             Ok(v) => {
                 // Park the result in the snapshot arena so structured
                 // results are expandable in the client.
-                let parts = self.with_state_mut(|inner| {
-                    let snap = inner.active_snapshot_mut();
+                let parts = self.with_state_mut(|session| {
+                    let snap = session.active_snapshot_mut();
                     let idx = crate::variables::add_value(
                         snap,
                         "result".into(),

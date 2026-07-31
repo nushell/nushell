@@ -7,10 +7,10 @@ use serde_json::{Value as Json, json};
 
 impl Session {
     pub(super) fn on_step_back(&mut self, seq: i64, cmd: &str) {
-        let target = self.with_state(|inner| {
-            inner
+        let target = self.with_state(|session| {
+            session
                 .view_index
-                .or_else(|| inner.frontier())
+                .or_else(|| session.frontier())
                 .map(|c| c.saturating_sub(1))
         });
         if let Some(Some(t)) = target {
@@ -21,10 +21,10 @@ impl Session {
 
     pub(super) fn on_reverse_continue(&mut self, seq: i64, cmd: &str) {
         let target = self
-            .with_state(|inner| {
-                let cur = inner.view_index.or_else(|| inner.frontier())?;
+            .with_state(|session| {
+                let cur = session.view_index.or_else(|| session.frontier())?;
                 let prev_bp = (0..cur).rev().find(|&j| {
-                    inner
+                    session
                         .timeline
                         .get(j)
                         .map(|e| e.is_breakpoint)
@@ -49,15 +49,18 @@ impl Session {
     pub(super) fn tt_goto(&self, target: Option<usize>, reason: &'static str) {
         let Some(state) = &self.state else { return };
         {
-            let mut inner = state.session_state.lock().expect("session poisoned");
-            inner.view_index = target;
+            let mut session = state.session_state.lock().expect("session poisoned");
+            
+            session.view_index = target;
+            
             if let Some(i) = target {
-                let entry = inner.timeline.get(i).cloned();
-                let baseline = inner.baseline_env.clone();
-                let nu = inner.nu_constant.clone();
-                let config = inner.config.clone();
+                let entry = session.timeline.get(i).cloned();
+                let baseline = session.baseline_env.clone();
+                let nu = session.nu_constant.clone();
+                let config = session.config.clone();
+                
                 if let Some(entry) = entry {
-                    inner.history_snapshot = crate::variables::build_history_snapshot(
+                    session.history_snapshot = crate::variables::build_history_snapshot(
                         &entry,
                         baseline.as_ref(),
                         nu.as_ref(),
@@ -66,6 +69,7 @@ impl Session {
                 }
             }
         }
+        
         self.writer.event(
             "stopped",
             json!({

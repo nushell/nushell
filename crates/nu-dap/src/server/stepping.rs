@@ -12,10 +12,10 @@ impl Session {
         // frontier. Only at the frontier do we resume real execution.
         if let Some(Some(cur)) = self.with_state(|i| i.view_index) {
             let target = self
-                .with_state(|inner| {
-                    let front = inner.frontier().unwrap_or(cur);
+                .with_state(|session| {
+                    let front = session.frontier().unwrap_or(cur);
                     (cur + 1..front).find(|&j| {
-                        inner
+                        session
                             .timeline
                             .get(j)
                             .map(|e| e.is_breakpoint)
@@ -45,14 +45,14 @@ impl Session {
             }
         } else {
             let mode = if cmd == "next" {
-                self.with_state(|inner| RunMode::StepOver {
-                    depth: inner.paused_depth,
-                    line: inner.paused_line,
+                self.with_state(|session| RunMode::StepOver {
+                    depth: session.paused_depth,
+                    line: session.paused_line,
                 })
             } else {
-                self.with_state(|inner| RunMode::StepIn {
-                    depth: inner.paused_depth,
-                    line: inner.paused_line,
+                self.with_state(|session| RunMode::StepIn {
+                    depth: session.paused_depth,
+                    line: session.paused_line,
                 })
             }
             .unwrap_or(RunMode::Continue);
@@ -63,11 +63,11 @@ impl Session {
 
     pub(super) fn on_step_out(&mut self, seq: i64, cmd: &str) {
         if let Some(Some(cur)) = self.with_state(|i| i.view_index) {
-            let target = self.with_state(|inner| {
-                let front = inner.frontier().unwrap_or(cur);
-                let cur_depth = inner.timeline.get(cur).map(|e| e.depth).unwrap_or(0);
+            let target = self.with_state(|session| {
+                let front = session.frontier().unwrap_or(cur);
+                let cur_depth = session.timeline.get(cur).map(|e| e.depth).unwrap_or(0);
                 let j = (cur + 1..=front).find(|&j| {
-                    inner
+                    session
                         .timeline
                         .get(j)
                         .map(|e| e.depth < cur_depth)
@@ -81,8 +81,8 @@ impl Session {
             }
         } else {
             let mode = self
-                .with_state(|inner| RunMode::StepOut {
-                    depth: inner.paused_depth,
+                .with_state(|session| RunMode::StepOut {
+                    depth: session.paused_depth,
                 })
                 .unwrap_or(RunMode::Continue);
             self.resume(mode);
@@ -92,8 +92,8 @@ impl Session {
 
     pub(super) fn on_pause(&mut self, seq: i64, cmd: &str) {
         if let Some(state) = &self.state {
-            let mut inner = state.session_state.lock().expect("session poisoned");
-            inner.run_mode = RunMode::PauseNow;
+            let mut session = state.session_state.lock().expect("session poisoned");
+            session.run_mode = RunMode::PauseNow;
         }
         self.writer.respond(seq, cmd, Json::Null);
     }

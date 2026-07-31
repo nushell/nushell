@@ -6,8 +6,8 @@ use crate::dap::types::{Source, StackFrame};
 use crate::state::{PauseSnapshot, ShadowVar};
 use crate::variables::add_value;
 use nu_protocol::engine::EngineState;
-use nu_protocol::ir::{Instruction, IrBlock};
-use nu_protocol::{PipelineData, PipelineExecutionData, Span};
+use nu_protocol::ir::Instruction;
+use nu_protocol::{PipelineData, Span};
 
 impl DapDebugger {
     /// Stack frames, innermost first (DAP order), resolved to file/line.
@@ -43,24 +43,22 @@ impl DapDebugger {
     pub(super) fn build_snapshot(
         &self,
         engine_state: &EngineState,
-        inner: &mut crate::state::SessionState,
-        ir_block: &IrBlock,
-        instruction_index: usize,
-        registers: &[PipelineExecutionData],
+        session: &mut crate::state::SessionState,
+        site: &super::Site<'_>,
     ) {
         let mut snap = PauseSnapshot::new();
         snap.frames = self.build_frames();
         // Values render with nushell's own formatting, which is config-driven.
         snap.config = engine_state.get_config().clone();
-        inner.config = snap.config.clone();
+        session.config = snap.config.clone();
 
         // Cache $nu + baseline env once, so the server can rebuild historical
         // Globals for time-travel without touching engine_state.
-        if inner.nu_constant.is_none() {
-            inner.nu_constant = engine_state
+        if session.nu_constant.is_none() {
+            session.nu_constant = engine_state
                 .get_constant(nu_protocol::NU_VARIABLE_ID)
                 .cloned();
-            inner.baseline_env = Some(
+            session.baseline_env = Some(
                 engine_state
                     .render_env_vars()
                     .into_iter()
@@ -75,7 +73,7 @@ impl DapDebugger {
         if let Some(v) = &self.last_result {
             locals_children.push(add_value(&mut snap, "return".to_string(), v, 0));
         }
-        let mut vars: Vec<&ShadowVar> = inner.shadow_vars.values().collect();
+        let mut vars: Vec<&ShadowVar> = session.shadow_vars.values().collect();
         vars.sort_by(|a, b| a.name.cmp(&b.name));
         for sv in vars {
             locals_children.push(add_value(&mut snap, sv.name.clone(), &sv.value, 0));
@@ -88,8 +86,8 @@ impl DapDebugger {
         let mut pipeline_children = Vec::new();
         if let Instruction::Call {
             decl_id, src_dst, ..
-        } = &ir_block.instructions[instruction_index]
-            && let Some(reg) = registers.get(src_dst.get() as usize)
+        } = site.instruction()
+            && let Some(reg) = site.registers.get(src_dst.get() as usize)
         {
             let name = format!("in → {}", engine_state.get_decl(*decl_id).name());
             match &reg.body {
@@ -114,7 +112,7 @@ impl DapDebugger {
         // Registers scope: the evaluator's raw working slots, for reading
         // alongside the IR panel.
         let mut register_children = Vec::new();
-        for (i, reg) in registers.iter().enumerate() {
+        for (i, reg) in site.registers.iter().enumerate() {
             if let PipelineData::Value(v, _) = &reg.body
                 && !matches!(v, nu_protocol::Value::Nothing { .. })
             {
@@ -146,7 +144,7 @@ impl DapDebugger {
         }
         {
             let env_map: std::collections::BTreeMap<&String, &nu_protocol::Value> =
-                inner.env_shadow.iter().collect();
+                session.env_shadow.iter().collect();
             let mut rec = nu_protocol::Record::new();
             for (k, v) in env_map {
                 rec.push(k.clone(), v.clone());
@@ -157,6 +155,6 @@ impl DapDebugger {
         snap.var_refs
             .insert(PauseSnapshot::GLOBALS_REF, globals_children);
 
-        inner.snapshot = snap;
+        session.snapshot = snap;
     }
 }

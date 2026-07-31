@@ -29,22 +29,27 @@ impl DapDebugger {
     /// step-into also stops, so F11 walks a builtin pipeline stage by stage.
     pub(super) fn should_pause_mode(
         &self,
-        pos: Option<&crate::source_map::SourcePos>,
+        pos: &crate::source_map::SourcePos,
         run_mode: RunMode,
         is_call: bool,
     ) -> Option<&'static str> {
         match run_mode {
             RunMode::Continue => None,
             RunMode::PauseNow => Some("entry"),
-            RunMode::StepIn { depth, line } => match pos {
-                Some(p) if p.line != line || self.depth() != depth || is_call => Some("step"),
-                _ => None,
-            },
-            RunMode::StepOver { depth, line } => match pos {
-                Some(_) if self.depth() < depth => Some("step"),
-                Some(p) if self.depth() == depth && p.line != line => Some("step"),
-                _ => None,
-            },
+            RunMode::StepIn { depth, line } => {
+                if pos.line != line || self.depth() != depth || is_call {
+                    Some("step")
+                } else {
+                    None
+                }
+            }
+            RunMode::StepOver { depth, line } => {
+                if self.depth() < depth || (self.depth() == depth && pos.line != line) {
+                    Some("step")
+                } else {
+                    None
+                }
+            }
             RunMode::StepOut { depth } => {
                 if self.depth() < depth {
                     Some("step")
@@ -91,8 +96,8 @@ impl DapDebugger {
         // Full runtime env (engine baseline + this stack's overlays/mutations).
         let env = stack.get_env_vars(engine_state);
 
-        let mut inner = self.state.session_state.lock().expect("session poisoned");
-        inner.shadow_vars = vars;
-        inner.env_shadow = env;
+        let mut session = self.state.session_state.lock().expect("session poisoned");
+        session.shadow_vars = vars;
+        session.env_shadow = env;
     }
 }

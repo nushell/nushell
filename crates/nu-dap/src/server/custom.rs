@@ -20,8 +20,8 @@ impl Session {
             }
         };
         let found = self
-            .with_state(|inner| {
-                let snap = inner.active_snapshot();
+            .with_state(|session| {
+                let snap = session.active_snapshot();
                 let node = match (args.variables_reference, args.container_reference) {
                     (Some(r), _) if r > 0 => snap
                         .var_arena
