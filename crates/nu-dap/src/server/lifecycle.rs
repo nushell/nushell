@@ -88,14 +88,8 @@ impl Session {
                     args.time_travel_max_steps.unwrap_or(10000),
                 ));
                 {
-                    let old = old_state
-                        .session_state
-                        .lock()
-                        .expect("session state poisoned");
-                    let mut new = new_state
-                        .session_state
-                        .lock()
-                        .expect("session state poisoned");
+                    let old = old_state.session_state.lock().expect("session poisoned");
+                    let mut new = new_state.session_state.lock().expect("session poisoned");
                     new.breakpoints = old.breakpoints.clone();
                 }
                 self.state = Some(new_state.clone());

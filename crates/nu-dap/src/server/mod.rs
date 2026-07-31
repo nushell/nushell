@@ -111,14 +111,14 @@ impl Session {
 
     fn with_state<T>(&self, f: impl FnOnce(&crate::state::SessionState) -> T) -> Option<T> {
         self.state.as_ref().map(|s| {
-            let inner = s.session_state.lock().expect("session state poisoned");
+            let inner = s.session_state.lock().expect("session poisoned");
             f(&inner)
         })
     }
 
     fn with_state_mut<T>(&self, f: impl FnOnce(&mut crate::state::SessionState) -> T) -> Option<T> {
         self.state.as_ref().map(|s| {
-            let mut inner = s.session_state.lock().expect("session state poisoned");
+            let mut inner = s.session_state.lock().expect("session poisoned");
             f(&mut inner)
         })
     }

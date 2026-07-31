@@ -20,14 +20,14 @@ mod stepping;
 
 use crate::dap::protocol::DapWriter;
 use crate::source_map::{SourceMap, SourcePos};
-use crate::state::{BpKind, Breakpoint, DebugState, RunMode};
+use crate::state::{BpKind, Breakpoint, DebugState, RunMode, SessionState};
 use nu_protocol::ast::Block;
 use nu_protocol::debugger::Debugger;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::ir::{Instruction, IrBlock};
 use nu_protocol::{PipelineData, PipelineExecutionData, ShellError, Span, Value};
 use serde_json::json;
-use std::sync::Arc;
+use std::sync::{Arc, MutexGuard};
 
 #[derive(Debug)]
 struct Frame {
@@ -117,11 +117,7 @@ impl DapDebugger {
 
     /// Current shadow variables as (name, value) pairs for scratch eval.
     fn shadow_vars_for_eval(&self) -> Vec<(String, Value)> {
-        let inner = self
-            .state
-            .session_state
-            .lock()
-            .expect("session state poisoned");
+        let inner = self.state.session_state.lock().expect("session poisoned");
         inner
             .shadow_vars
             .values()
@@ -148,8 +144,19 @@ impl DapDebugger {
     }
 
     /// The pause loop: publish snapshot, emit `stopped`, block until resumed.
+    ///
+    /// Takes the locked state by value because the condvar wait below consumes
+    /// the guard — a `&mut SessionState` could not be handed to `wait`. Callers
+    /// must therefore lock immediately before calling: everything that takes
+    /// this lock (`read_pause_gate`, `sync_locals_from_stack`, `record_timeline`,
+    /// `shadow_vars_for_eval` via breakpoint conditions/logpoints) has to run
+    /// first. std mutexes are not reentrant, so a second lock here deadlocks.
+    // The guard makes 8; `ir_block`/`instruction_index`/`registers` are the
+    // instruction position the Debugger trait hands us as separate arguments.
+    #[allow(clippy::too_many_arguments)]
     fn pause(
         &self,
+        mut session: MutexGuard<'_, SessionState>,
         engine_state: &EngineState,
         reason: &'static str,
         ir_block: &IrBlock,
@@ -171,32 +178,27 @@ impl DapDebugger {
             }),
         );
 
-        let mut inner = self
-            .state
-            .session_state
-            .lock()
-            .expect("session state poisoned");
         if reason != "exception" {
-            inner.exception_info = None;
+            session.exception_info = None;
         }
 
         self.build_snapshot(
             engine_state,
-            &mut inner,
+            &mut session,
             ir_block,
             instruction_index,
             registers,
         );
 
-        inner.paused_line = self
+        session.paused_line = self
             .current_span
             .and_then(|s| self.source_map.resolve(s))
             .map(|p| p.line)
             .unwrap_or(0);
 
-        inner.paused_depth = self.depth();
-        inner.paused = true;
-        inner.resume_requested = false;
+        session.paused_depth = self.depth();
+        session.paused = true;
+        session.resume_requested = false;
 
         self.state.paused_cv.notify_all();
 
@@ -213,18 +215,18 @@ impl DapDebugger {
 
         self.writer.event("stopped", body);
 
-        while !inner.resume_requested {
-            inner = self
+        while !session.resume_requested {
+            session = self
                 .state
                 .resume_cv
-                .wait(inner)
-                .expect("session state poisoned");
+                .wait(session)
+                .expect("session poisoned");
         }
 
-        inner.paused = false;
-        inner.resume_requested = false;
+        session.paused = false;
+        session.resume_requested = false;
 
-        if inner.terminate_requested {
+        if session.terminate_requested {
             // Raise nu's interrupt signal: evaluation unwinds with
             // ShellError::Interrupted at the next signal check.
             engine_state.signals().trigger();
@@ -258,11 +260,7 @@ impl DapDebugger {
         engine_state: &EngineState,
         pos: Option<&SourcePos>,
     ) -> Option<PauseGate> {
-        let inner = self
-            .state
-            .session_state
-            .lock()
-            .expect("session state poisoned");
+        let inner = self.state.session_state.lock().expect("session poisoned");
         if inner.terminate_requested {
             engine_state.signals().trigger();
             return None;
@@ -375,11 +373,7 @@ impl DapDebugger {
 
         let frames = self.build_frames();
         let last_result = self.last_result.clone();
-        let mut inner = self
-            .state
-            .session_state
-            .lock()
-            .expect("session state poisoned");
+        let mut inner = self.state.session_state.lock().expect("session poisoned");
         let granular = line_changed || depth_changed || is_call;
 
         if (inner.time_travel && granular) || reason.is_some() {
@@ -460,22 +454,24 @@ impl DapDebugger {
         instruction_index: usize,
         registers: &[PipelineExecutionData],
         error: Option<&ShellError>,
-    ) -> bool {
+    ) {
         let err = error.expect("error present");
 
         // An error unwinds through every enclosing call instruction; pause
         // only at the innermost (first) report.
         if self.in_error_unwind {
-            return true;
+            return;
         }
 
-        let inner = self
-            .state
-            .session_state
-            .lock()
-            .expect("session state poisoned");
-        if !inner.break_on_error || inner.terminate_requested {
-            return true;
+        // Scoped: `sync_locals_from_stack` below takes this same lock, so this
+        // read must not outlive the check.
+        let wanted = {
+            let session = self.state.session_state.lock().expect("session poisoned");
+            session.break_on_error && !session.terminate_requested
+        };
+
+        if !wanted {
+            return;
         }
 
         self.in_error_unwind = true;
@@ -500,15 +496,14 @@ impl DapDebugger {
         // This path skips the enter_instruction sync, so refresh from the Stack.
         self.sync_locals_from_stack(engine_state, stack);
 
+        // Locked last, and passed straight into `pause` — nothing between here
+        // and the stop may take this lock again.
         let exception_id = exception_id(err);
-        let mut inner = self
-            .state
-            .session_state
-            .lock()
-            .expect("session state poisoned");
-        inner.exception_info = Some((exception_id, description.clone()));
+        let mut session = self.state.session_state.lock().expect("session poisoned");
+        session.exception_info = Some((exception_id, description.clone()));
 
         self.pause(
+            session,
             engine_state,
             "exception",
             ir_block,
@@ -516,7 +511,6 @@ impl DapDebugger {
             registers,
             Some(&description),
         );
-        false
     }
 }
 
@@ -695,7 +689,12 @@ impl Debugger for DapDebugger {
                 self.writer.output("console", format!("nu-dap: {n}\n"));
             }
 
+            // Locked last: read_pause_gate, sync_locals_from_stack,
+            // check_breakpoint (scratch eval) and record_timeline all take this
+            // lock above, so the guard can only be taken here.
+            let session = self.state.session_state.lock().expect("session poisoned");
             self.pause(
+                session,
                 engine_state,
                 r,
                 ir_block,
@@ -719,19 +718,17 @@ impl Debugger for DapDebugger {
     ) {
         // Successfully executed
         if error.is_none() {
-            self.capture_last_return_value(&ir_block, instruction_index, registers);
+            self.capture_last_return_value(ir_block, instruction_index, registers);
             return;
         }
 
-        if self.handle_error(
+        self.handle_error(
             engine_state,
             stack,
             ir_block,
             instruction_index,
             registers,
             error,
-        ) {
-            return;
-        }
+        );
     }
 }
