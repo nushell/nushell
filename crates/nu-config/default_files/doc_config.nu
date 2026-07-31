@@ -256,8 +256,7 @@ $env.config.completions.partial = true
 # Default: true
 $env.config.completions.use_ls_colors = true
 
-# completions.cache_size (int): Number of completion results kept in the
-# cross-prompt cache before the least recently used entry is evicted.
+# completions.cache_size (int): Completion cache size (0 disables the cache).
 # Default: 100
 $env.config.completions.cache_size = 100
 

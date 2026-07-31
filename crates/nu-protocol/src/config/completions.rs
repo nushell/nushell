@@ -108,8 +108,7 @@ pub struct CompletionConfig {
     pub algorithm: CompletionAlgorithm,
     pub external: ExternalCompleterConfig,
     pub use_ls_colors: bool,
-    /// Number of completion results the narrowing cache keeps before evicting the least
-    /// recently used entry.
+    /// Completion results the cache keeps before evicting the least recently used entry; `0` disables it.
     pub cache_size: i64,
 }
 

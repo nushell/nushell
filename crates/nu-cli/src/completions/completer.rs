@@ -28,15 +28,9 @@ use std::thread;
 use std::time::Duration;
 use std::{borrow::Cow, ops::ControlFlow, path::is_separator};
 
-/// How many completion results the narrowing cache keeps before evicting the least
-/// recently used entry. Overridden per-completer by `$env.config.completions.cache_size`.
+/// Max cache entries before evicting the least recently used; overridden per completer by
+/// `$env.config.completions.cache_size` (`0` disables the cache).
 const DEFAULT_CACHE_SIZE: usize = 100;
-
-/// `0` isn't a valid `LruCache` capacity; a user setting `cache_size = 0` means "cache as
-/// little as possible", so clamp up to 1!
-fn non_zero_capacity(capacity: usize) -> NonZeroUsize {
-    NonZeroUsize::new(capacity).unwrap_or(NonZeroUsize::MIN)
-}
 
 use super::{StaticCompletion, custom_completions::CommandWideCompletion};
 
@@ -74,9 +68,8 @@ fn find_pipeline_element_by_position<'a>(
                 .iter()
                 .find_map(|arg| arg.expr().find_map(working_set, &recurse))
                 .or_else(|| {
-                    // `touches`, not `contains`: for a complicated external head like
-                    // `^(ls | e⌶` the cursor sits at the head's trailing edge, which the
-                    // end-exclusive `contains` would miss (issue #7648).
+                    // `touches`, not `contains`: the cursor sits at the head's trailing
+                    // edge (issue #7648).
                     touches(head.span, pos)
                         .then(|| head.as_ref().find_map(working_set, &recurse))
                         .flatten()
@@ -87,11 +80,8 @@ fn find_pipeline_element_by_position<'a>(
                 .or_else(|| rhs.find_map(working_set, &recurse)),
         ),
         Expr::FullCellPath(fcp) => {
-            // `use std/util [E, T⌶`: the bracketed import list parses as a `List` wrapped in
-            // a `FullCellPath` positional. The cursor is inside the list, but completing an
-            // import-list member is the enclosing *call*'s job (it knows the module), not a
-            // cell-path/variable completion. Decline to claim the position so the parent
-            // `Expr::Call` selects itself and routes to argument completion.
+            // `use std/util [E, T⌶`: the import list is a `List` in a `FullCellPath`; leave it
+            // to the enclosing call, which knows the module, to complete its members.
             if touches(fcp.head.span, pos) && matches!(fcp.head.expr, Expr::List(_)) {
                 return ControlFlow::Continue(());
             }
@@ -345,12 +335,11 @@ impl CacheEntry {
     }
 }
 
-/// Cross-prompt completion cache, bounded by a configurable count of entries
-/// (`$env.config.completions.cache_size`) rather than by age. Least recently used entries are
-/// evicted once that count is exceeded.
+/// Cross-prompt completion cache bounded by entry count (`$env.config.completions.cache_size`),
+/// evicting least recently used entries. Capacity `0` disables the cache.
 #[derive(Clone)]
 pub(crate) struct NarrowingCache {
-    entries: Arc<Mutex<LruCache<CompletionQuery, CacheEntry>>>,
+    entries: Arc<Mutex<Option<LruCache<CompletionQuery, CacheEntry>>>>,
 }
 
 impl Default for NarrowingCache {
@@ -360,72 +349,86 @@ impl Default for NarrowingCache {
 }
 
 impl NarrowingCache {
+    /// `0` isn't a valid `LruCache` capacity; it means the cache is disabled.
     pub(crate) fn new(capacity: usize) -> Self {
         Self {
-            entries: Arc::new(Mutex::new(LruCache::new(non_zero_capacity(capacity)))),
+            entries: Arc::new(Mutex::new(NonZeroUsize::new(capacity).map(LruCache::new))),
         }
     }
 
-    /// Resizes the cache in place, dropping the least recently used entries if the new
-    /// capacity is smaller. Called once per prompt so `cache_size` config changes take effect
-    /// on the completer carried over from `evaluate_repl` without recreating it.
+    /// Resizes the cache in place, dropping LRU entries when shrinking. Capacity `0`
+    /// disables it. Called once per prompt so `cache_size` config changes take effect.
     pub(crate) fn set_capacity(&self, capacity: usize) {
-        if let Ok(mut entries) = self.entries.lock() {
-            entries.resize(non_zero_capacity(capacity));
+        if let Ok(mut cache_guard) = self.entries.lock() {
+            *cache_guard = NonZeroUsize::new(capacity).map(|new_capacity| {
+                let mut cache = cache_guard
+                    .take()
+                    .unwrap_or_else(|| LruCache::new(new_capacity));
+                cache.resize(new_capacity);
+                cache
+            });
         }
     }
 
-    pub(crate) fn fresh(&self, query: &CompletionQuery, env: CacheEnv) -> Option<Suggestions> {
-        let mut entries = self.entries.lock().ok()?;
-        let cache_entry = entries.get(query)?;
+    pub(crate) fn fresh(
+        &self,
+        query: &CompletionQuery,
+        environment: CacheEnv,
+    ) -> Option<Suggestions> {
+        let mut cache_guard = self.entries.lock().ok()?;
+        let entry = cache_guard.as_mut()?.get(query)?;
 
-        cache_entry
-            .is_usable(env)
-            .then(|| cache_entry.suggestions.clone())
+        entry
+            .is_usable(environment)
+            .then(|| entry.suggestions.clone())
     }
 
-    pub(crate) fn store(&self, query: CompletionQuery, env: CacheEnv, suggestions: Suggestions) {
-        if let Ok(mut entries) = self.entries.lock() {
-            // Also drops everything computed in a since-replaced environment, so a `cd`
-            // clears the file completions it invalidated rather than leaving them to age out.
-            let stale: Vec<CompletionQuery> = entries
+    pub(crate) fn store(
+        &self,
+        query: CompletionQuery,
+        environment: CacheEnv,
+        suggestions: Suggestions,
+    ) {
+        if let Ok(mut cache_guard) = self.entries.lock()
+            && let Some(cache) = cache_guard.as_mut()
+        {
+            let stale_keys: Vec<_> = cache
                 .iter()
-                .filter(|(_, cache_entry)| !cache_entry.is_usable(env))
-                .map(|(query, _)| query.clone())
+                .filter_map(|(key, entry)| (!entry.is_usable(environment)).then(|| key.clone()))
                 .collect();
-            for key in stale {
-                entries.pop(&key);
+
+            for key in stale_keys {
+                cache.pop(&key);
             }
-            entries.put(query, CacheEntry { suggestions, env });
+
+            cache.put(
+                query,
+                CacheEntry {
+                    suggestions,
+                    env: environment,
+                },
+            );
         }
     }
 
     pub(crate) fn narrowed_fallback(
         &self,
         query: &CompletionQuery,
-        env: CacheEnv,
+        environment: CacheEnv,
         options: &CompletionOptions,
     ) -> Suggestions {
-        // Only the `Arc` is cloned under the lock; matching, and the handful of suggestion
-        // clones that survive it, happen after the lock is dropped.
-        let Some((base_suggestions, reference_span)) =
-            self.entries.lock().ok().and_then(|entries| {
-                entries
+        let Some((_, base_suggestions, reference_span)) =
+            self.entries.lock().ok().and_then(|guard| {
+                guard
+                    .as_ref()?
                     .iter()
-                    .filter(|(_, cache_entry)| cache_entry.is_usable(env))
-                    .filter_map(|(base_query, cache_entry)| {
-                        // The entry's own replacement span anchors the comparison: it is
-                        // where the in-progress token starts, which is what lets `narrows`
-                        // compare the tokens themselves rather than just the query texts.
-                        let reference_span = cache_entry.reference_span()?;
-                        query.narrows(base_query, reference_span).then_some((
-                            base_query.cursor(),
-                            Arc::clone(&cache_entry.suggestions),
-                            reference_span,
-                        ))
+                    .filter_map(|(base_query, entry)| {
+                        let span = entry.reference_span()?;
+
+                        (entry.is_usable(environment) && query.narrows(base_query, span))
+                            .then_some((base_query.cursor(), Arc::clone(&entry.suggestions), span))
                     })
-                    .max_by_key(|(cursor, _, _)| *cursor)
-                    .map(|(_, suggestions, span)| (suggestions, span))
+                    .max_by_key(|&(cursor, ..)| cursor)
             })
         else {
             return Suggestions::default();
@@ -435,19 +438,22 @@ impl NarrowingCache {
             return Suggestions::default();
         };
 
-        let candidates: Vec<&Suggestion> = base_suggestions
+        let candidates: Vec<_> = base_suggestions
             .iter()
             .filter(|suggestion| suggestion.span == reference_span)
             .collect();
 
-        // The matcher carries indices rather than suggestions, so each candidate's text can
-        // be borrowed for the match test instead of copied for every candidate considered.
         let mut matcher = NuMatcher::new(search_token, options, true);
-        for (index, candidate) in candidates.iter().enumerate() {
-            matcher.add(candidate.display_value(), index);
-        }
+
+        candidates
+            .iter()
+            .enumerate()
+            .for_each(|(index, candidate)| {
+                matcher.add(candidate.display_value(), index);
+            });
 
         let updated_span = reedline::Span::new(reference_span.start, query.cursor());
+
         matcher
             .results()
             .into_iter()
@@ -1970,6 +1976,25 @@ mod completer_tests {
         assert!(
             next_prompt.complete("ls | c", 6).is_pending(),
             "entries from another environment must not answer"
+        );
+    }
+
+    /// `cache_size = 0` must disable the cache entirely, even a carried-over one.
+    #[test]
+    fn cache_size_zero_disables_the_cache() {
+        let mut engine = test_engine();
+        Arc::make_mut(&mut engine.config).completions.cache_size = 0;
+        let cache = NarrowingCache::default();
+
+        let mut filling_prompt =
+            NuCompleter::with_cache(engine.clone(), Arc::new(Stack::new()), cache.clone());
+        assert!(!filling_prompt.complete_blocking("ls | c", 6).is_empty());
+        drop(filling_prompt);
+
+        let mut next_prompt = NuCompleter::with_cache(engine, Arc::new(Stack::new()), cache);
+        assert!(
+            next_prompt.complete("ls | c", 6).is_pending(),
+            "a disabled cache must not answer a query it could have answered"
         );
     }
 }
