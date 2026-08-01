@@ -3,7 +3,8 @@
 //! everything else renders as a leaf string.
 
 use crate::dap::types::Variable;
-use crate::state::{PauseSnapshot, VarNode};
+use crate::state::{ClosureLabels, PauseSnapshot, VarNode};
+use nu_protocol::engine::EngineState;
 use nu_protocol::{Config, Type, Value};
 
 /// Max children materialized per list/record level to keep responses bounded.
@@ -13,6 +14,45 @@ const MAX_CHILDREN: usize = 200;
 const EAGER_DEPTH: usize = 1;
 /// Cap on any single rendered row, so one hostile value can't flood the pane.
 const MAX_ROW_CHARS: usize = 120;
+/// Cap on a closure label specifically, leaving room for the capture suffix.
+const MAX_CLOSURE_CHARS: usize = 60;
+
+/// Everything a render needs that does not live in the `Value` itself.
+///
+/// Both fields are resolved on the eval thread and carried in the snapshot:
+/// the server thread answers `variables` requests without an `EngineState`
+/// (see the concurrency rule in `state.rs`), so anything engine-derived has to
+/// arrive pre-computed.
+#[derive(Clone, Copy)]
+pub(crate) struct RenderCtx<'a> {
+    pub(crate) config: &'a Config,
+    pub(crate) closures: &'a ClosureLabels,
+}
+
+/// Collect every parsed block's source text, keyed by block id, so a
+/// `Value::Closure` can show the literal the user wrote.
+///
+/// Called once after the script is parsed. Blocks are fixed from then on
+/// (`source` is a parse-time keyword), and an id we don't know simply falls
+/// back to `<closure>`.
+pub(crate) fn collect_closure_labels(engine_state: &EngineState) -> ClosureLabels {
+    let mut labels = ClosureLabels::new();
+    for id in 0..engine_state.num_blocks() {
+        let block_id = nu_protocol::BlockId::new(id);
+        let Some(span) = engine_state.get_block(block_id).span else {
+            continue;
+        };
+        let text = String::from_utf8_lossy(engine_state.get_span_contents(span));
+        // Collapse the body onto one line: a row is one line, and a multi-line
+        // closure would otherwise break the pane.
+        let flat = text.split_whitespace().collect::<Vec<_>>().join(" ");
+        if flat.is_empty() {
+            continue;
+        }
+        labels.insert(id, cap(&flat, MAX_CLOSURE_CHARS));
+    }
+    labels
+}
 
 /// Render `value` as the single line shown in the Variables pane.
 ///
@@ -32,7 +72,17 @@ const MAX_ROW_CHARS: usize = 120;
 ///   is both wrong information here and untestable.
 /// - **`null` stays visible.** Nothing renders as `""` upstream: a blank row.
 /// - **Binary as a nu literal.** `0x[de ad be ef]`, not `[222, 173, 190, 239]`.
-pub(crate) fn short_render(value: &Value, config: &Config) -> String {
+///
+/// Those last three are not house style: they are what `to nuon` writes, which
+/// is the same instinct — a debugger row, like a nuon literal, should say what
+/// a value *is* rather than read nicely. `to_nuon` itself is not usable here
+/// (it hard-errors on `Value::Error`, `Custom` and `Closure`, and propagates
+/// that through containers, so one bad field loses the whole structure — and
+/// it is unbounded), but where we depart from `to_abbreviated_string` we
+/// mostly land where nuon already is. See [`to_preview_json`] for the same
+/// argument applied to the visualizer payload.
+pub(crate) fn short_render(value: &Value, ctx: RenderCtx<'_>) -> String {
+    let config = ctx.config;
     match value {
         Value::String { val, .. } => {
             // chars(), not byte slicing: a byte index can land mid-codepoint
@@ -93,10 +143,12 @@ pub(crate) fn short_render(value: &Value, config: &Config) -> String {
                 preview
             }
         }
-        Value::Closure { .. } => "<closure>".into(),
+        Value::Closure { val, .. } => closure_label(val, ctx.closures),
         Value::Binary { val, .. } => {
             use std::fmt::Write;
-            // First bytes as hex, nu-literal style: 0x[de ad be ef …] (N bytes)
+            // First bytes as hex, nu-literal style: 0x[de ad be ef …] (N bytes).
+            // `to nuon` writes the same `0x[…]` form (unspaced, uppercase, and
+            // unbounded); the spacing and byte count are what a row needs.
             let mut s = String::from("0x[");
             for (i, b) in val.iter().take(8).enumerate() {
                 if i > 0 {
@@ -120,14 +172,38 @@ pub(crate) fn short_render(value: &Value, config: &Config) -> String {
     }
 }
 
-/// Truncate a rendered row to [`MAX_ROW_CHARS`] on a char boundary — a byte
-/// index can land mid-codepoint and panic, and a panic inside a debugger
-/// callback hangs the session.
+/// A closure as `{|x| $x * 2}`, plus the number of variables it captured from
+/// the enclosing scope — which is usually what you want to know about a
+/// closure you are stopped inside.
+///
+/// The literal comes from [`collect_closure_labels`]; a block id that isn't in
+/// the map (nothing adds blocks after the parse today, but a stale snapshot
+/// could) degrades to the bare `<closure>` this used to always show.
+fn closure_label(val: &nu_protocol::engine::Closure, closures: &ClosureLabels) -> String {
+    let body = closures
+        .get(&val.block_id.get())
+        .cloned()
+        .unwrap_or_else(|| "<closure>".to_string());
+    match val.captures.len() {
+        0 => body,
+        1 => format!("{body} +1 capture"),
+        n => format!("{body} +{n} captures"),
+    }
+}
+
+/// Truncate a rendered row to [`MAX_ROW_CHARS`].
 fn cap_row(s: &str) -> String {
-    if s.chars().count() <= MAX_ROW_CHARS {
+    cap(s, MAX_ROW_CHARS)
+}
+
+/// Truncate to `max` chars on a char boundary — a byte index can land
+/// mid-codepoint and panic, and a panic inside a debugger callback hangs the
+/// session.
+fn cap(s: &str, max: usize) -> String {
+    if s.chars().count() <= max {
         return s.to_string();
     }
-    let head: String = s.chars().take(MAX_ROW_CHARS - 1).collect();
+    let head: String = s.chars().take(max - 1).collect();
     format!("{head}…")
 }
 
@@ -163,9 +239,14 @@ pub(crate) fn describe_stream(data: &nu_protocol::PipelineData) -> String {
     }
 }
 
-/// One-token rendering used inside list/record previews.
+/// One-token rendering used inside list/record previews. Lossier than a full
+/// row — several of these share one 60-char line — but never *blank*: a field
+/// that renders to nothing reads as a missing value rather than an empty one.
 pub(crate) fn scalar_preview(value: &Value) -> String {
     match value {
+        // Bare, unlike a row: quotes on every element would eat the line. The
+        // empty string is the exception, or `{name: , size: 120}`.
+        Value::String { val, .. } if val.is_empty() => "\"\"".into(),
         Value::String { val, .. } => {
             let mut s: String = val.chars().take(12).collect();
             if val.chars().count() > 12 {
@@ -174,7 +255,8 @@ pub(crate) fn scalar_preview(value: &Value) -> String {
             s
         }
         Value::Int { val, .. } => val.to_string(),
-        Value::Float { val, .. } => val.to_string(),
+        // `ObviousFloat`, as the shell does it: `1.0`, not `f64`'s bare `1`.
+        Value::Float { val, .. } => nu_utils::ObviousFloat(*val).to_string(),
         Value::Bool { val, .. } => val.to_string(),
         Value::Nothing { .. } => "null".into(),
         Value::List { vals, .. } => format!("[{}]", vals.len()),
@@ -200,15 +282,20 @@ pub(crate) fn add_value(
 
     let var_ref = if expandable { snapshot.alloc_ref() } else { 0 };
 
-    // Cheap `Arc` bump: `short_render` needs the config while `snapshot` is
-    // borrowed mutably below.
+    // Cheap `Arc` bumps: rendering needs these while `snapshot` is borrowed
+    // mutably below.
     let config = snapshot.config.clone();
+    let closures = snapshot.closures.clone();
+    let ctx = RenderCtx {
+        config: &config,
+        closures: &closures,
+    };
 
     let node_idx = snapshot.var_arena.len();
     snapshot.var_arena.push(VarNode {
         var: Variable {
             name,
-            value: short_render(value, &config),
+            value: short_render(value, ctx),
             type_: Some(type_name(value)),
             variables_reference: var_ref,
         },
@@ -276,13 +363,15 @@ pub(crate) fn build_history_snapshot(
     baseline_env: Option<&std::collections::HashMap<String, Value>>,
     nu_constant: Option<&Value>,
     config: std::sync::Arc<Config>,
+    closures: std::sync::Arc<ClosureLabels>,
 ) -> crate::state::PauseSnapshot {
     use crate::state::PauseSnapshot;
     let mut snap = PauseSnapshot::new();
     snap.frames = entry.frames.clone();
-    // Config was cached by the eval thread; rendering needs it, `engine_state`
-    // is still off-limits here.
+    // Both were cached by the eval thread; rendering needs them, and
+    // `engine_state` is still off-limits here.
     snap.config = config;
+    snap.closures = closures;
 
     // Locals: `return` first, then shadow vars sorted by name (same order as
     // the live build).
@@ -359,11 +448,17 @@ const JSON_MAX_DEPTH: usize = 8;
 ///   the webview turns into a hex view, capped at 64 KiB.
 /// - **Closures need no engine.** The shared path either errors on closures or
 ///   requires an `&EngineState` to coerce them; here `<closure>` is enough.
+///
+/// Types with no arm of their own fall through to `to_abbreviated_string`, the
+/// same source [`short_render`] uses, so a value reads identically whether you
+/// glance at its row or open it in the visualizer.
 pub(crate) fn to_preview_json(
     value: &Value,
     depth: usize,
     truncated: &mut bool,
+    ctx: RenderCtx<'_>,
 ) -> serde_json::Value {
+    let config = ctx.config;
     use serde_json::{Value as J, json};
     if depth >= JSON_MAX_DEPTH {
         *truncated = true;
@@ -375,7 +470,10 @@ pub(crate) fn to_preview_json(
         Value::Float { val, .. } => json!(val),
         Value::Bool { val, .. } => json!(val),
         Value::Nothing { .. } => J::Null,
-        Value::Filesize { val, .. } => json!(format!("{val}")),
+        // Config-driven, like the row: `Filesize`'s own `Display` ignores the
+        // user's `filesize` settings and reads `1 kB` where the row says
+        // `1.0 kB`.
+        Value::Filesize { val, .. } => json!(config.filesize.format(*val).to_string()),
         Value::Duration { val, .. } => json!(format!("{val}ns")),
         Value::Date { val, .. } => json!(val.to_rfc3339()),
         Value::List { vals, .. } => {
@@ -385,7 +483,7 @@ pub(crate) fn to_preview_json(
             J::Array(
                 vals.iter()
                     .take(JSON_MAX_ITEMS)
-                    .map(|v| to_preview_json(v, depth + 1, truncated))
+                    .map(|v| to_preview_json(v, depth + 1, truncated, ctx))
                     .collect(),
             )
         }
@@ -395,11 +493,11 @@ pub(crate) fn to_preview_json(
             }
             let mut map = serde_json::Map::new();
             for (k, v) in val.iter().take(JSON_MAX_ITEMS) {
-                map.insert(k.clone(), to_preview_json(v, depth + 1, truncated));
+                map.insert(k.clone(), to_preview_json(v, depth + 1, truncated, ctx));
             }
             J::Object(map)
         }
-        Value::Closure { .. } => json!("<closure>"),
+        Value::Closure { val, .. } => json!(closure_label(val, ctx.closures)),
         Value::Binary { val, .. } => {
             // Marker object the webview turns into a hex view. Hex keeps the
             // adapter dependency-free; 64 KiB is plenty for a debugger UI.
@@ -415,6 +513,9 @@ pub(crate) fn to_preview_json(
             json!({ "$nuBinary": hex, "length": val.len() })
         }
         Value::Error { error, .. } => json!(format!("<error: {error}>")),
-        other => json!(format!("{other:?}").chars().take(120).collect::<String>()),
+        // Ranges, globs, cell-paths, custom values: the shell's own rendering,
+        // matching the Variables row. Was `format!("{other:?}")`, which sent
+        // `Value`'s Rust `Debug` (`Range(1..10)`) to the webview.
+        other => json!(cap_row(&other.to_abbreviated_string(config))),
     }
 }

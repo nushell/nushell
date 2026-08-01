@@ -187,14 +187,17 @@ impl Session {
                         node.var.type_.clone(),
                     )
                 });
-                // No state means no cached config either; defaults will do for
-                // a value we are only rendering once.
+                // No state means nothing was cached by the eval thread;
+                // defaults will do for a value we are only rendering once, and
+                // an empty label map just leaves a closure as `<closure>`.
                 let (result, var_ref, type_) = parts.unwrap_or_else(|| {
-                    (
-                        crate::variables::short_render(&v, &nu_protocol::Config::default()),
-                        0,
-                        None,
-                    )
+                    let config = nu_protocol::Config::default();
+                    let closures = crate::state::ClosureLabels::new();
+                    let ctx = crate::variables::RenderCtx {
+                        config: &config,
+                        closures: &closures,
+                    };
+                    (crate::variables::short_render(&v, ctx), 0, None)
                 });
                 self.writer.respond(
                     seq,

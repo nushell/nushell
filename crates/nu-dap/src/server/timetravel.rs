@@ -58,6 +58,7 @@ impl Session {
                 let baseline = session.baseline_env.clone();
                 let nu = session.nu_constant.clone();
                 let config = session.config.clone();
+                let closures = state.closures.lock().expect("closures poisoned").clone();
 
                 if let Some(entry) = entry {
                     session.history_snapshot = crate::variables::build_history_snapshot(
@@ -65,6 +66,7 @@ impl Session {
                         baseline.as_ref(),
                         nu.as_ref(),
                         config,
+                        closures,
                     );
                 }
             }

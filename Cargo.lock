@@ -4945,6 +4945,7 @@ dependencies = [
 name = "nu-dap"
 version = "0.114.2"
 dependencies = [
+ "chrono",
  "derive_more 2.1.1",
  "libc",
  "miette",
@@ -4958,6 +4959,7 @@ dependencies = [
  "rstest",
  "serde",
  "serde_json",
+ "typetag",
  "windows-sys 0.61.2",
 ]
 

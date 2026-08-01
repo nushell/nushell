@@ -57,7 +57,20 @@ pub(crate) struct PauseSnapshot {
     /// use nushell's own value formatting. Cloned from `engine_state` by the
     /// eval thread; the server thread only ever reads this `Arc`.
     pub(crate) config: Arc<nu_protocol::Config>,
+    /// Closure source text by block id — same deal as `config`: resolving a
+    /// `BlockId` needs `engine_state`, which the server thread can't reach.
+    pub(crate) closures: Arc<ClosureLabels>,
 }
+
+/// A closure's source text, keyed by the `BlockId` its `Value::Closure`
+/// carries. Built once after the script is parsed (blocks don't change after
+/// that) and shared by both threads, so `<closure>` can read as the literal
+/// the user actually wrote.
+///
+/// Sized by the program, not the data: registering commands adds *decls*, not
+/// blocks, so a small script yields a handful of entries. Each is capped, so a
+/// long closure body can't bloat the map either.
+pub(crate) type ClosureLabels = HashMap<usize, String>;
 
 impl PauseSnapshot {
     pub(crate) const LOCALS_REF: i64 = 1;
@@ -74,6 +87,7 @@ impl PauseSnapshot {
             var_arena: Vec::new(),
             next_ref: 7, // 1..=6 reserved for scope roots
             config: Arc::default(),
+            closures: Arc::default(),
         }
     }
 
@@ -313,6 +327,14 @@ pub(crate) struct DebugState {
     /// the snapshot is ready" if it ever needs to (not required for v1:
     /// the `stopped` event is only sent after the snapshot is built).
     pub(crate) paused_cv: Condvar,
+    /// Closure labels, built once by the eval thread right after the parse
+    /// (`engine::run`) and read by both.
+    ///
+    /// Lock discipline: innermost. It is taken under `session_state`
+    /// (`build_snapshot`, `timetravel`) but never the other way round, and
+    /// every use is a clone-and-release of the `Arc` — nothing is called while
+    /// holding it, so it cannot be half of a cycle.
+    pub(crate) closures: Mutex<Arc<ClosureLabels>>,
 }
 
 impl DebugState {
@@ -353,6 +375,7 @@ impl DebugState {
             scratch: Mutex::new(None),
             resume_cv: Condvar::new(),
             paused_cv: Condvar::new(),
+            closures: Mutex::new(Arc::new(ClosureLabels::new())),
         }
     }
 

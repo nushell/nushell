@@ -137,6 +137,23 @@ impl DapDebugger {
         self.frames.len()
     }
 
+    /// The two `Arc`s a one-off render needs, for callers that then build a
+    /// `RenderCtx` borrowing them. Returned rather than the context itself so
+    /// the borrows outlive the call.
+    fn render_parts(
+        &self,
+        engine_state: &EngineState,
+    ) -> (Arc<nu_protocol::Config>, Arc<crate::state::ClosureLabels>) {
+        (
+            engine_state.get_config().clone(),
+            self.state
+                .closures
+                .lock()
+                .expect("closures poisoned")
+                .clone(),
+        )
+    }
+
     /// Current shadow variables as (name, value) pairs for scratch eval.
     fn shadow_vars_for_eval(&self) -> Vec<(String, Value)> {
         let session = self.state.session_state.lock().expect("session poisoned");
@@ -390,13 +407,20 @@ impl DapDebugger {
                 Ok(Value::Bool { val: true, .. }) => (Some("breakpoint"), None),
                 Ok(Value::Bool { val: false, .. }) => (None, None),
                 // Pause on a broken condition rather than skip the breakpoint.
-                Ok(v) => (
-                    Some("breakpoint"),
-                    Some(format!(
-                        "condition `{cond}` returned {} (expected bool) — pausing",
-                        crate::variables::short_render(&v, engine_state.get_config())
-                    )),
-                ),
+                Ok(v) => {
+                    let (config, closures) = self.render_parts(engine_state);
+                    let ctx = crate::variables::RenderCtx {
+                        config: &config,
+                        closures: &closures,
+                    };
+                    (
+                        Some("breakpoint"),
+                        Some(format!(
+                            "condition `{cond}` returned {} (expected bool) — pausing",
+                            crate::variables::short_render(&v, ctx)
+                        )),
+                    )
+                }
                 Err(e) => (
                     Some("breakpoint"),
                     Some(format!("condition `{cond}` failed: {e} — pausing")),
@@ -414,7 +438,14 @@ impl DapDebugger {
         match self.scratch_eval(cond) {
             Ok(Value::Bool { val, .. }) => val,
             Ok(v) => {
-                let rendered = crate::variables::short_render(&v, engine_state.get_config());
+                let (config, closures) = self.render_parts(engine_state);
+                let rendered = crate::variables::short_render(
+                    &v,
+                    crate::variables::RenderCtx {
+                        config: &config,
+                        closures: &closures,
+                    },
+                );
                 self.writer.output(
                     "console",
                     format!(

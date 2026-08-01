@@ -1,152 +1,459 @@
 //! Unit tests for [`crate::variables`].
+//!
+//! The three `*_renders_every_variant` tables below are the rendering
+//! contract: one case per `Value` variant, for each of the three functions
+//! that turn a value into something a DAP client displays. They exist because
+//! nushell has several general-purpose renderers and none of them fits a
+//! debugger row — see the rationale on [`crate::variables::short_render`] and
+//! [`crate::variables::to_preview_json`]. Read as a table, they show what each
+//! variant looks like in the pane and where we deliberately differ from the
+//! shell.
+//!
+//! Everything else in this file tests behaviour that is not per-variant:
+//! truncation, container previews, and the truncated-flag plumbing.
 
-use crate::variables::{JSON_MAX_ITEMS, scalar_preview, short_render, to_preview_json};
-use nu_protocol::{Config, Record, Span, Value};
+use crate::state::ClosureLabels;
+use crate::variables::{JSON_MAX_ITEMS, RenderCtx, scalar_preview, short_render, to_preview_json};
+use chrono::{DateTime, FixedOffset};
+use nu_protocol::ast::{CellPath, PathMember, RangeInclusion};
+use nu_protocol::casing::Casing;
+use nu_protocol::engine::Closure;
+use nu_protocol::{BlockId, Config, CustomValue, ShellError, Span, Value, record};
 use pretty_assertions::assert_eq;
 use rstest::rstest;
+use serde::{Deserialize, Serialize};
+use serde_json::json;
 
-fn sp() -> Span {
-    Span::unknown()
-}
 /// Rendering is config-driven (it defers to `Value::to_abbreviated_string`);
 /// defaults keep these assertions independent of the user's `$env.config`.
+/// No closure labels, so a closure falls back to `<closure>` — the cases that
+/// care supply their own map.
 fn render(value: &Value) -> String {
-    short_render(value, &Config::default())
-}
-fn s(x: &str) -> Value {
-    Value::string(x, sp())
-}
-fn i(x: i64) -> Value {
-    Value::int(x, sp())
-}
-fn rec(fields: &[(&str, Value)]) -> Value {
-    let mut r = Record::new();
-    for (k, v) in fields {
-        r.push(*k, v.clone());
-    }
-    Value::record(r, sp())
+    let config = Config::default();
+    let closures = ClosureLabels::new();
+    short_render(
+        value,
+        RenderCtx {
+            config: &config,
+            closures: &closures,
+        },
+    )
 }
 
+/// As `render`, with a label registered for [`CLOSURE_BLOCK`].
+fn render_with_labels(value: &Value) -> String {
+    let config = Config::default();
+    let closures = labels();
+    short_render(
+        value,
+        RenderCtx {
+            config: &config,
+            closures: &closures,
+        },
+    )
+}
+
+fn preview_json(value: &Value) -> serde_json::Value {
+    preview_json_flagged(value).0
+}
+
+/// The payload plus whether any bound was hit.
+fn preview_json_flagged(value: &Value) -> (serde_json::Value, bool) {
+    let config = Config::default();
+    let closures = labels();
+    let mut truncated = false;
+    let json = to_preview_json(
+        value,
+        0,
+        &mut truncated,
+        RenderCtx {
+            config: &config,
+            closures: &closures,
+        },
+    );
+    (json, truncated)
+}
+
+/// Block id used by the closure fixtures below.
+const CLOSURE_BLOCK: usize = 7;
+
+/// Stands in for what `collect_closure_labels` reads out of the engine.
+fn labels() -> ClosureLabels {
+    ClosureLabels::from([(CLOSURE_BLOCK, "{|x| $x * 2}".to_string())])
+}
+
+// --- one constructor per awkward variant -------------------------------
+// The rest come straight from `Value::test_*`.
+
+/// Minimal `CustomValue`; nu-protocol ships no public test double
+/// (`Value::test_values` skips the variant for exactly this reason).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct StubCustom(i64);
+
+#[typetag::serde(name = "nu_dap::tests::StubCustom")]
+impl CustomValue for StubCustom {
+    fn clone_value(&self, span: Span) -> Value {
+        Value::custom(Box::new(self.clone()), span)
+    }
+    fn type_name(&self) -> String {
+        "StubCustom".into()
+    }
+    fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
+        Ok(Value::int(self.0, span))
+    }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+}
+
+fn custom() -> Value {
+    Value::test_custom_value(Box::new(StubCustom(5)))
+}
+
+/// Fixed instant, never `now()`: the rendered row is asserted literally.
+fn date() -> Value {
+    let d: DateTime<FixedOffset> =
+        DateTime::parse_from_rfc3339("2026-08-01T12:34:56+02:00").expect("valid rfc3339");
+    Value::test_date(d)
+}
+
+fn range() -> Value {
+    let r = nu_protocol::Range::new(
+        Value::test_int(1),
+        Value::test_int(2),
+        Value::test_int(10),
+        RangeInclusion::Inclusive,
+        Span::test_data(),
+    )
+    .expect("valid range");
+    Value::test_range(r)
+}
+
+fn closure() -> Value {
+    Value::test_closure(Closure {
+        block_id: BlockId::new(CLOSURE_BLOCK),
+        captures: Vec::new(),
+    })
+}
+
+/// Same block, but capturing two variables from the enclosing scope.
+fn closure_with_captures(n: usize) -> Value {
+    Value::test_closure(Closure {
+        block_id: BlockId::new(CLOSURE_BLOCK),
+        captures: (0..n)
+            .map(|i| (nu_protocol::VarId::new(100 + i), Value::test_int(i as i64)))
+            .collect(),
+    })
+}
+
+fn error() -> Value {
+    Value::error(
+        ShellError::DivisionByZero {
+            span: Span::test_data(),
+        },
+        Span::test_data(),
+    )
+}
+
+fn cell_path() -> Value {
+    Value::test_cell_path(CellPath {
+        members: vec![
+            PathMember::test_string("name", false, Casing::Sensitive),
+            PathMember::test_int(1, false),
+        ],
+    })
+}
+
+fn file_record() -> Value {
+    Value::test_record(record! {
+        "name" => Value::test_string("a.txt"),
+        "size" => Value::test_int(120),
+    })
+}
+
+// --- the contract: every variant, every renderer -----------------------
+
+/// The Variables-pane row for each `Value` variant.
+///
+/// Most types read as nushell writes them, via `to_abbreviated_string`. The
+/// six deliberate departures are marked: they are what a debugger needs and a
+/// pipeline does not.
 #[rstest]
-#[case::int(i(42), "42")]
-#[case::bool(Value::bool(true, Span::unknown()), "true")]
-#[case::nothing_renders_as_null(Value::nothing(Span::unknown()), "null")]
-#[case::string_keeps_its_quotes(s("hi"), "\"hi\"")]
-fn short_render_scalars(#[case] value: Value, #[case] expected: &str) {
+#[case::bool(Value::test_bool(true), "true")]
+#[case::int(Value::test_int(42), "42")]
+#[case::float(Value::test_float(1.0), "1.0")]
+// Quoted, so an empty string is visible as a row and can't be confused with a
+// glob or a bare identifier.
+#[case::string(Value::test_string("hi"), "\"hi\"")]
+// Unquoted, which is how the shell writes a glob — the contrast with `String`
+// above is the only cue distinguishing them in the pane.
+#[case::glob(Value::test_glob("*.nu"), "*.nu")]
+#[case::filesize(Value::test_filesize(1000), "1.0 kB")]
+#[case::duration(Value::test_duration(260_000_000_000), "4min 20sec")]
+// DEPARTURE: rfc3339, not the shell's `human_time_from_now` ("5 hours ago"),
+// which is relative to the wall clock — wrong information in a debugger, and
+// untestable here.
+#[case::date(date(), "2026-08-01T12:34:56+02:00")]
+// Was `Range(1..10)` — `Value`'s `Debug` — before this went through
+// `to_abbreviated_string`.
+#[case::range(range(), "1..10")]
+// DEPARTURE: a preview of the first fields, where `to_abbreviated_string`
+// always collapses to `{record N fields}`. The collapsed row is the one you
+// scan, so it carries data.
+#[case::record(file_record(), "{name: a.txt, size: 120}")]
+#[case::list(Value::test_list(vec![Value::test_int(1), Value::test_int(2)]), "[1, 2]")]
+// A table's rows have no useful one-line preview: keep the shape.
+#[case::table(Value::test_list(vec![file_record(), file_record()]), "[table 2 rows]")]
+// DEPARTURE: the shell writes `closure_7`; the block id means nothing to
+// someone debugging their own script. With no label resolved for the block
+// this is the floor — `closure_source_and_captures` covers the real case.
+#[case::closure(closure(), "<closure>")]
+// DEPARTURE: one line. The shell renders errors as `{error:?}` — the whole
+// multi-line `ShellError` `Debug`.
+#[case::error(error(), "<error: Division by zero.>")]
+// DEPARTURE: a nu literal, not `[222, 173]`.
+#[case::binary(Value::test_binary(vec![0xde, 0xad]), "0x[de ad] (2 bytes)")]
+#[case::cell_path(cell_path(), "$.name.1")]
+// Collapsed through `to_base_value`; `<StubCustom>` would show only on failure.
+#[case::custom(custom(), "5")]
+// DEPARTURE: the shell renders Nothing as `""` — a blank row.
+#[case::nothing(Value::test_nothing(), "null")]
+fn short_render_renders_every_variant(#[case] value: Value, #[case] expected: &str) {
     assert_eq!(render(&value), expected);
 }
 
+/// The one-token form used *inside* a container preview — deliberately
+/// lossier than a full row, and unquoted, because several of these share a
+/// single 60-char line.
+///
+/// Everything without a cheap scalar form collapses to `…`. That is most
+/// variants; a record of dates previews as `{when: …}`. Pinned as the current
+/// contract, not as an endorsement.
+#[rstest]
+#[case::bool(Value::test_bool(true), "true")]
+#[case::int(Value::test_int(42), "42")]
+#[case::float(Value::test_float(1.0), "1.0")]
+// Unquoted here, unlike a full row — quotes on every element would eat the
+// 60-char line.
+#[case::string(Value::test_string("hi"), "hi")]
+// Except when empty, which would otherwise read `{name: , size: 120}`.
+#[case::empty_string_stays_visible(Value::test_string(""), "\"\"")]
+#[case::nothing(Value::test_nothing(), "null")]
+// Containers show their size only.
+#[case::record(file_record(), "{2}")]
+#[case::list(Value::test_list(vec![Value::test_int(1), Value::test_int(2)]), "[2]")]
+#[case::table(Value::test_list(vec![file_record(), file_record()]), "[2]")]
+// The long tail, all indistinguishable at this size.
+#[case::glob(Value::test_glob("*.nu"), "…")]
+#[case::filesize(Value::test_filesize(1000), "…")]
+#[case::duration(Value::test_duration(260_000_000_000), "…")]
+#[case::date(date(), "…")]
+#[case::range(range(), "…")]
+#[case::closure(closure(), "…")]
+#[case::error(error(), "…")]
+#[case::binary(Value::test_binary(vec![0xde, 0xad]), "…")]
+#[case::cell_path(cell_path(), "…")]
+#[case::custom(custom(), "…")]
+fn scalar_preview_renders_every_variant(#[case] value: Value, #[case] expected: &str) {
+    assert_eq!(scalar_preview(&value), expected);
+}
+
+/// The `nuDapVisualize` payload for each variant — a display projection, not a
+/// serialization, which is why it does not reuse nu-json's `FromValue` (that
+/// path errors on `Value::Error` and expands binary to an integer array).
+///
+/// Every variant reads the same here as in its Variables row (compare with
+/// `short_render_renders_every_variant`), because the fall-through arm shares
+/// `to_abbreviated_string` with it. The four `matches_the_row` cases below are
+/// the ones that used to emit Rust `Debug` — `Range(1..10)` and friends.
+#[rstest]
+#[case::bool(Value::test_bool(true), json!(true))]
+#[case::int(Value::test_int(42), json!(42))]
+#[case::float(Value::test_float(1.0), json!(1.0))]
+#[case::string(Value::test_string("hi"), json!("hi"))]
+#[case::nothing(Value::test_nothing(), json!(null))]
+#[case::filesize(Value::test_filesize(1000), json!("1.0 kB"))]
+#[case::duration(Value::test_duration(260_000_000_000), json!("260000000000ns"))]
+#[case::date(date(), json!("2026-08-01T12:34:56+02:00"))]
+#[case::record(file_record(), json!({"name": "a.txt", "size": 120}))]
+#[case::list(
+    Value::test_list(vec![Value::test_int(1), Value::test_int(2)]),
+    json!([1, 2])
+)]
+#[case::table(
+    Value::test_list(vec![file_record()]),
+    json!([{"name": "a.txt", "size": 120}])
+)]
+// `preview_json` supplies labels, so this is the resolved form.
+#[case::closure(closure(), json!("{|x| $x * 2}"))]
+// Rendered inline rather than returned as `Err`: a structure containing an
+// error is usually the thing you are inspecting.
+#[case::error(error(), json!("<error: Division by zero.>"))]
+// Marker object the webview turns into a hex view.
+#[case::binary(Value::test_binary(vec![0xde, 0xad]), json!({"$nuBinary": "dead", "length": 2}))]
+// The fall-through arm. Each of these was the Rust `Debug` form until
+// `to_preview_json` started sharing `to_abbreviated_string` with the row.
+#[case::glob_matches_the_row(Value::test_glob("*.nu"), json!("*.nu"))]
+#[case::range_matches_the_row(range(), json!("1..10"))]
+#[case::cell_path_matches_the_row(cell_path(), json!("$.name.1"))]
+#[case::custom_matches_the_row(custom(), json!("5"))]
+fn to_preview_json_renders_every_variant(
+    #[case] value: Value,
+    #[case] expected: serde_json::Value,
+) {
+    assert_eq!(preview_json(&value), expected);
+}
+
+/// Tripwire for a variant added upstream: `Value::test_values` yields one of
+/// each, so a new one shows up here without anyone remembering to extend the
+/// tables above. It omits `Custom` and `Glob`, and every value it builds is
+/// empty or zero, so it proves only "renders, doesn't panic" — the tables
+/// above carry the actual expectations.
+#[test]
+fn every_variant_renders_without_panicking() {
+    for value in Value::test_values() {
+        // A row is what the client displays: never blank, whatever the value.
+        // (`scalar_preview` gets no such guarantee — see the empty-string case
+        // in `scalar_preview_renders_every_variant`.)
+        let row = render(&value);
+        assert!(!row.is_empty(), "empty row for {:?}", value.get_type());
+        scalar_preview(&value);
+        preview_json(&value);
+    }
+}
+
+// --- closures ----------------------------------------------------------
+
+/// A closure row shows the literal the user wrote plus how many variables it
+/// closed over — `<closure>` alone said nothing about *which* closure.
+///
+/// The source text can't be derived from the `Value`: it comes from the
+/// block's span, resolved on the eval thread by `collect_closure_labels` and
+/// carried in the snapshot, because the server thread has no `EngineState`.
+#[rstest]
+#[case::no_captures(closure(), "{|x| $x * 2}")]
+#[case::one_capture(closure_with_captures(1), "{|x| $x * 2} +1 capture")]
+#[case::several_captures(closure_with_captures(3), "{|x| $x * 2} +3 captures")]
+fn closure_source_and_captures(#[case] value: Value, #[case] expected: &str) {
+    assert_eq!(render_with_labels(&value), expected);
+}
+
+/// An unresolvable block id degrades to what the row always used to show,
+/// rather than rendering something misleading or empty.
+#[test]
+fn closure_without_a_label_falls_back() {
+    let unknown = Value::test_closure(Closure {
+        block_id: BlockId::new(CLOSURE_BLOCK + 1),
+        captures: Vec::new(),
+    });
+    assert_eq!(render_with_labels(&unknown), "<closure>");
+}
+
+/// The capture count still shows when the body doesn't resolve — it comes off
+/// the `Value`, not the engine.
+#[test]
+fn closure_captures_show_without_a_label() {
+    let unknown = Value::test_closure(Closure {
+        block_id: BlockId::new(CLOSURE_BLOCK + 1),
+        captures: vec![(nu_protocol::VarId::new(1), Value::test_int(1))],
+    });
+    assert_eq!(render_with_labels(&unknown), "<closure> +1 capture");
+}
+
+/// Closures nest like anything else: inside a record the row still previews.
+#[test]
+fn closure_inside_a_record_previews() {
+    let v = Value::test_record(record! {
+        "f" => closure(),
+        "n" => Value::test_int(1),
+    });
+    // `scalar_preview` has no cheap form for a closure, so it collapses to `…`
+    // the way every other exotic type does.
+    assert_eq!(render_with_labels(&v), "{f: …, n: 1}");
+}
+
+// --- behaviour that is not per-variant ---------------------------------
+
 #[test]
 fn short_render_list_previews_elements() {
-    let v = Value::list(vec![i(1), i(2), i(3)], sp());
-    assert_eq!(render(&v), "[1, 2, 3]");
     // More than three elements: preview the first three then an ellipsis.
-    let long = Value::list((0..50).map(i).collect(), sp());
+    let long = Value::test_list((0..50).map(Value::test_int).collect());
     assert_eq!(render(&long), "[0, 1, 2, …]");
 }
 
 #[test]
-fn short_render_record_previews_fields() {
-    let v = rec(&[("name", s("a.txt")), ("size", i(120))]);
-    assert_eq!(render(&v), "{name: a.txt, size: 120}");
-}
-
-#[test]
 fn containers_too_wide_to_preview_fall_back_to_the_shell_shape() {
-    // A table: no preview, just the shape — and `to_abbreviated_string`
-    // pluralizes, so a single row reads "1 row", not "1 rows".
-    let row = rec(&[("a", i(1))]);
-    let table = Value::list(vec![row.clone(), row.clone()], sp());
-    assert_eq!(render(&table), "[table 2 rows]");
-    assert_eq!(render(&Value::list(vec![row], sp())), "[table 1 row]");
+    // `to_abbreviated_string` pluralizes, so a single row reads "1 row".
+    let row = Value::test_record(record! { "a" => Value::test_int(1) });
+    assert_eq!(
+        render(&Value::test_list(vec![row.clone()])),
+        "[table 1 row]"
+    );
 
-    // Lists and records wider than one row collapse the same way. (Elements
+    // Lists and records wider than one row collapse to the shape. (Elements
     // are capped at 12 chars by `scalar_preview`, so it takes very long
     // numbers to push a list preview past the limit.)
-    let wide = Value::list(
-        (0..9).map(|n| i(100_000_000_000_000_000 + n)).collect(),
-        sp(),
+    let wide = Value::test_list(
+        (0..9)
+            .map(|n| Value::test_int(100_000_000_000_000_000 + n))
+            .collect(),
     );
     assert_eq!(render(&wide), "[list 9 items]");
-    let wide_rec = rec(&[
-        ("first-long-field", s("aaaaaaaaaaaaaaaa")),
-        ("second-long-field", s("bbbbbbbbbbbbbbbb")),
-        ("third-long-field", s("cccccccccccccccc")),
-    ]);
+    let wide_rec = Value::test_record(record! {
+        "first-long-field" => Value::test_string("aaaaaaaaaaaaaaaa"),
+        "second-long-field" => Value::test_string("bbbbbbbbbbbbbbbb"),
+        "third-long-field" => Value::test_string("cccccccccccccccc"),
+    });
     assert_eq!(render(&wide_rec), "{record 3 fields}");
-    assert_eq!(render(&rec(&[("a", i(1))])), "{a: 1}");
+    assert_eq!(render(&row), "{a: 1}");
+}
+
+/// Where `scalar_preview`'s rules actually reach the user: nested in a row.
+/// A float reads `1.0` rather than `1`, and an empty string is visible instead
+/// of leaving `note: ` dangling.
+#[test]
+fn record_preview_shows_floats_and_empty_strings() {
+    let v = Value::test_record(record! {
+        "ratio" => Value::test_float(1.0),
+        "note" => Value::test_string(""),
+    });
+    assert_eq!(render(&v), "{ratio: 1.0, note: \"\"}");
 }
 
 #[test]
-fn short_render_binary_is_hex() {
-    let four = Value::binary(vec![0xde, 0xad, 0xbe, 0xef], sp());
-    assert_eq!(render(&four), "0x[de ad be ef] (4 bytes)");
-    // More than eight bytes: first eight, ellipsis, and the total count.
-    let many = Value::binary((0u8..12).collect::<Vec<_>>(), sp());
+fn short_render_binary_shows_the_first_eight_bytes() {
+    let many = Value::test_binary((0u8..12).collect::<Vec<_>>());
     assert_eq!(render(&many), "0x[00 01 02 03 04 05 06 07 …] (12 bytes)");
 }
 
 #[test]
-fn short_render_defers_to_the_shell_for_the_long_tail() {
-    // Types with no debugger-specific rendering go through
-    // `Value::to_abbreviated_string`, so they read as nushell writes them
-    // rather than as Rust `Debug`.
-    assert_eq!(
-        render(&Value::duration(260_000_000_000, sp())),
-        "4min 20sec"
-    );
-    // Filesize formatting now honours config; the default is metric.
-    assert_eq!(render(&Value::filesize(1000, sp())), "1.0 kB");
-    assert_eq!(render(&Value::float(1.0, sp())), "1.0");
-    // Was `Range(1..10)` — `Value`'s `Debug` — before this went through
-    // `to_abbreviated_string`.
-    let range = nu_protocol::Range::new(
-        i(1),
-        i(2),
-        i(10),
-        nu_protocol::ast::RangeInclusion::Inclusive,
-        sp(),
-    )
-    .expect("valid range");
-    assert_eq!(render(&Value::range(range, sp())), "1..10");
-}
-
-#[test]
 fn short_render_caps_a_long_row() {
-    let long = s(&"x".repeat(500));
+    let long = Value::test_string("x".repeat(500));
     let rendered = render(&long);
     assert!(rendered.ends_with("…\" (500 chars)"), "{rendered}");
     assert!(rendered.chars().count() < 140, "{rendered}");
 }
 
 #[rstest]
-#[case::short_string_is_unquoted_and_whole(s("short"), "short")]
-#[case::long_string_is_elided(s("abcdefghijklmnop"), "abcdefghijkl…")]
-#[case::non_string_is_untouched(i(5), "5")]
+#[case::short_string_is_whole(Value::test_string("short"), "short")]
+#[case::long_string_is_elided(Value::test_string("abcdefghijklmnop"), "abcdefghijkl…")]
 fn scalar_preview_caps_strings(#[case] value: Value, #[case] expected: &str) {
     assert_eq!(scalar_preview(&value), expected);
 }
 
 #[test]
-fn to_json_scalars_and_binary_marker() {
-    let mut truncated = false;
-    assert_eq!(
-        to_preview_json(&i(7), 0, &mut truncated),
-        serde_json::json!(7)
-    );
-    let bin = Value::binary(vec![0x00, 0xff], sp());
-    assert_eq!(
-        to_preview_json(&bin, 0, &mut truncated),
-        serde_json::json!({ "$nuBinary": "00ff", "length": 2 })
-    );
-    assert!(!truncated, "small values are not truncated");
+fn to_json_truncates_large_collections() {
+    let big = Value::test_list((0..2000).map(Value::test_int).collect());
+    let (json, truncated) = preview_json_flagged(&big);
+    assert!(truncated, "the truncated flag is set");
+    assert_eq!(json.as_array().unwrap().len(), JSON_MAX_ITEMS);
 }
 
 #[test]
-fn to_json_truncates_large_collections() {
-    let big = Value::list((0..2000).map(i).collect(), sp());
-    let mut truncated = false;
-    let json = to_preview_json(&big, 0, &mut truncated);
-    assert!(truncated, "the truncated flag is set");
-    assert_eq!(json.as_array().unwrap().len(), JSON_MAX_ITEMS);
+fn to_json_leaves_small_values_untruncated() {
+    let (_, truncated) = preview_json_flagged(&file_record());
+    assert!(!truncated, "small values are not truncated");
 }

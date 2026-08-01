@@ -129,10 +129,10 @@ fn wait_ui_reply(
     }
 }
 
-fn ui_label(value: &Value, config: &nu_protocol::Config) -> String {
+fn ui_label(value: &Value, ctx: crate::variables::RenderCtx<'_>) -> String {
     match value {
         Value::String { val, .. } => val.clone(),
-        other => crate::variables::short_render(other, config),
+        other => crate::variables::short_render(other, ctx),
     }
 }
 
@@ -270,10 +270,20 @@ impl Command for DapInputList {
         }
         const MAX_ITEMS: usize = 1000;
         let config = engine_state.get_config();
+        let closures = self
+            .state
+            .closures
+            .lock()
+            .expect("closures poisoned")
+            .clone();
+        let ctx = crate::variables::RenderCtx {
+            config,
+            closures: &closures,
+        };
         let labels: Vec<String> = items
             .iter()
             .take(MAX_ITEMS)
-            .map(|v| ui_label(v, config))
+            .map(|v| ui_label(v, ctx))
             .collect();
 
         let id = self

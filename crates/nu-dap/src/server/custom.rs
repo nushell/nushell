@@ -35,9 +35,17 @@ impl Session {
                     }),
                     _ => None,
                 };
+                // Cheap `Arc` bumps, as in `add_value`: the payload renders the
+                // same way as the Variables row it was opened from.
+                let config = snap.config.clone();
+                let closures = snap.closures.clone();
+                let ctx = crate::variables::RenderCtx {
+                    config: &config,
+                    closures: &closures,
+                };
                 node.map(|n| {
                     let mut truncated = false;
-                    let json = crate::variables::to_preview_json(&n.value, 0, &mut truncated);
+                    let json = crate::variables::to_preview_json(&n.value, 0, &mut truncated, ctx);
                     (json, n.value.get_type().to_string(), truncated)
                 })
             })

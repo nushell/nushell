@@ -387,6 +387,31 @@ fn closure_params_and_in_are_visible() {
 }
 
 #[test]
+fn closure_rows_show_source_and_captures() {
+    // A closure-valued local reads as the literal the user wrote, not
+    // `<closure>`. The source text comes from the block's span, which only the
+    // eval thread can resolve — so this also covers the snapshot plumbing that
+    // carries it to the server thread.
+    let script = example("closure_value.nu");
+    let mut d = Dap::spawn();
+    d.start(&script, json!({}), &[4]); // `print "done"`, both closures bound
+
+    assert_eq!(d.event("stopped")["body"]["reason"], "breakpoint");
+    let loc = d.locals();
+    assert_eq!(
+        loc.get("double").map(String::as_str),
+        Some("{|x| $x * 2}"),
+        "closure body in the row: {loc:?}"
+    );
+    // `$n` is closed over, and the count comes off the value itself.
+    assert_eq!(
+        loc.get("scaled").map(String::as_str),
+        Some("{|x| $x * $n} +1 capture"),
+        "captures counted: {loc:?}"
+    );
+}
+
+#[test]
 fn stepping_never_lands_on_line_one() {
     let demo = example("demo.nu");
     let mut d = Dap::spawn();

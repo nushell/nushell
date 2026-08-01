@@ -52,24 +52,88 @@ pub(crate) fn spawn_eval_thread(
         .expect("spawn eval thread")
 }
 
+/// One debug session, start to finish. Each step is a phase of the session
+/// lifecycle; the order matters and is the reason they read as a list here
+/// rather than being folded together.
 fn run(launch: LaunchArgs, state: Arc<DebugState>, writer: &DapWriter) -> Result<(), String> {
-    // Canonical but NOT verbatim (\\?\): verbatim paths break nu's path
-    // joining when the script `source`s siblings. See paths.rs.
-    let program = std::path::PathBuf::from(crate::paths::canonical_str(&launch.program));
-    let contents =
-        std::fs::read(&program).map_err(|e| format!("cannot read {}: {e}", program.display()))?;
+    let target = Target::resolve(&launch)?;
+    target.enter_cwd();
 
-    let cwd = launch
-        .cwd
-        .clone()
-        .or_else(|| program.parent().map(|p| p.to_string_lossy().to_string()))
-        .unwrap_or_else(|| ".".into());
+    let mut engine_state = build_engine(&target, &state, writer)?;
+    let block = parse_script(&mut engine_state, &target)?;
 
-    // The process cwd matters beyond $env.PWD: relative paths that nu records
-    // for `source`/`use` files are canonicalized against it (source_map.rs).
-    let _ = std::env::set_current_dir(&cwd);
+    cache_closure_labels(&engine_state, &state);
+    publish_valid_lines(&engine_state, &block, &state, writer);
 
-    // --- Engine state: core language + full builtin command set ---
+    // Everything below runs with the debugger attached, so it must be paired
+    // with the `deactivate_debugger` further down.
+    let dap_debugger = DapDebugger::new(state, writer.clone());
+    engine_state
+        .activate_debugger(Box::new(dap_debugger))
+        .map_err(|e| format!("activate_debugger: {e:?}"))?;
+
+    let mut stack = Stack::new();
+    stack.add_env_var(
+        "PWD".to_string(),
+        Value::string(target.cwd.clone(), Span::unknown()),
+    );
+    // Process stdout/stderr were swapped for capture pipes at startup
+    // (stdio.rs), so the default Inherit destination already reaches the DAP
+    // forwarders — no stack redirection needed.
+
+    let result = eval_program(&mut engine_state, &mut stack, &block, &launch);
+    let outcome = drain_final_value(result, &engine_state, writer);
+
+    drop(stack);
+    let _ = engine_state.deactivate_debugger();
+
+    into_exit(outcome)
+}
+
+/// The script to debug, resolved from the launch arguments.
+struct Target {
+    program: std::path::PathBuf,
+    contents: Vec<u8>,
+    cwd: String,
+}
+
+impl Target {
+    fn resolve(launch: &LaunchArgs) -> Result<Self, String> {
+        // Canonical but NOT verbatim (\\?\): verbatim paths break nu's path
+        // joining when the script `source`s siblings. See paths.rs.
+        let program = std::path::PathBuf::from(crate::paths::canonical_str(&launch.program));
+        let contents = std::fs::read(&program)
+            .map_err(|e| format!("cannot read {}: {e}", program.display()))?;
+
+        let cwd = launch
+            .cwd
+            .clone()
+            .or_else(|| program.parent().map(|p| p.to_string_lossy().to_string()))
+            .unwrap_or_else(|| ".".into());
+
+        Ok(Self {
+            program,
+            contents,
+            cwd,
+        })
+    }
+
+    /// Move the *process* into the target's directory. Separate from `resolve`
+    /// because it mutates global state: the cwd matters beyond `$env.PWD`, as
+    /// relative paths nu records for `source`/`use` files are canonicalized
+    /// against it (source_map.rs).
+    fn enter_cwd(&self) {
+        let _ = std::env::set_current_dir(&self.cwd);
+    }
+}
+
+/// A full nushell engine: core language, the builtin command set, our command
+/// shims, an interrupt flag, and the inherited environment.
+fn build_engine(
+    target: &Target,
+    state: &Arc<DebugState>,
+    writer: &DapWriter,
+) -> Result<nu_protocol::engine::EngineState, String> {
     let mut engine_state = nu_cmd_lang::create_default_context();
     engine_state = nu_command::add_shell_command_context(engine_state);
 
@@ -80,29 +144,7 @@ fn run(launch: LaunchArgs, state: Arc<DebugState>, writer: &DapWriter) -> Result
     // Populate the `$nu` constant (paths, pid, os-info, …); else it's empty.
     engine_state.generate_nu_constant();
 
-    // `print`/`input` live in nu-cli, which we don't embed, so the parser would
-    // treat them as externals. Register our own DAP-aware shims (print_cmd.rs).
-    {
-        let mut working_set = StateWorkingSet::new(&engine_state);
-        working_set.add_decl(Box::new(crate::print_cmd::DapPrint {
-            writer: writer.clone(),
-        }));
-        working_set.add_decl(Box::new(crate::print_cmd::DapInput {
-            state: state.clone(),
-            writer: writer.clone(),
-        }));
-        working_set.add_decl(Box::new(crate::print_cmd::DapInputList {
-            state: state.clone(),
-            writer: writer.clone(),
-        }));
-        working_set.add_decl(Box::new(crate::print_cmd::DapInputUnsupported {
-            name: "input listen",
-        }));
-        let delta = working_set.render();
-        engine_state
-            .merge_delta(delta)
-            .map_err(|e| format!("register print/input: {e:?}"))?;
-    }
+    register_dap_commands(&mut engine_state, state, writer)?;
 
     // A fresh EngineState carries Signals::empty(), on which trigger() is a
     // NO-OP. Install a real interrupt flag or terminate/stop will not work.
@@ -110,8 +152,42 @@ fn run(launch: LaunchArgs, state: Arc<DebugState>, writer: &DapWriter) -> Result
         std::sync::atomic::AtomicBool::new(false),
     )));
 
-    // Minimal environment. A fuller implementation should mirror what
-    // nu-cli's gather_parent_env_vars does (inherit the parent process env).
+    seed_env(&mut engine_state, &target.cwd);
+
+    Ok(engine_state)
+}
+
+/// `print`/`input` live in nu-cli, which we don't embed, so the parser would
+/// treat them as externals. Register our own DAP-aware shims (print_cmd.rs).
+fn register_dap_commands(
+    engine_state: &mut nu_protocol::engine::EngineState,
+    state: &Arc<DebugState>,
+    writer: &DapWriter,
+) -> Result<(), String> {
+    let mut working_set = StateWorkingSet::new(engine_state);
+    working_set.add_decl(Box::new(crate::print_cmd::DapPrint {
+        writer: writer.clone(),
+    }));
+    working_set.add_decl(Box::new(crate::print_cmd::DapInput {
+        state: state.clone(),
+        writer: writer.clone(),
+    }));
+    working_set.add_decl(Box::new(crate::print_cmd::DapInputList {
+        state: state.clone(),
+        writer: writer.clone(),
+    }));
+    working_set.add_decl(Box::new(crate::print_cmd::DapInputUnsupported {
+        name: "input listen",
+    }));
+    let delta = working_set.render();
+    engine_state
+        .merge_delta(delta)
+        .map_err(|e| format!("register print/input: {e:?}"))
+}
+
+/// Inherit the parent process environment. Minimal: a fuller implementation
+/// should mirror what nu-cli's `gather_parent_env_vars` does.
+fn seed_env(engine_state: &mut nu_protocol::engine::EngineState, cwd: &str) {
     for (k, v) in std::env::vars() {
         // Never inherit PWD: shells export it in a format nu rejects as
         // non-absolute (Git Bash `/e/...`), breaking source/use. Set ours below.
@@ -133,109 +209,102 @@ fn run(launch: LaunchArgs, state: Arc<DebugState>, writer: &DapWriter) -> Result
         engine_state.add_env_var(k, value);
     }
 
-    engine_state.add_env_var(
-        "PWD".to_string(),
-        Value::string(cwd.clone(), Span::unknown()),
+    engine_state.add_env_var("PWD".to_string(), Value::string(cwd, Span::unknown()));
+}
+
+/// Parse the target script and merge it into the engine. A parse error here is
+/// fatal: nothing downstream can run, so the session never starts.
+fn parse_script(
+    engine_state: &mut nu_protocol::engine::EngineState,
+    target: &Target,
+) -> Result<Arc<nu_protocol::ast::Block>, String> {
+    let mut working_set = StateWorkingSet::new(engine_state);
+
+    let block = nu_parser::parse(
+        &mut working_set,
+        Some(&target.program.to_string_lossy()),
+        &target.contents,
+        false,
     );
 
-    // --- Parse the target script ---
-    let block = {
-        let mut working_set = StateWorkingSet::new(&engine_state);
-        let block = nu_parser::parse(
-            &mut working_set,
-            Some(&program.to_string_lossy()),
-            &contents,
-            false,
-        );
-        if let Some(err) = working_set.parse_errors.first() {
-            return Err(format!("parse error: {err:?}"));
-        }
-        let delta = working_set.render();
-        engine_state
-            .merge_delta(delta)
-            .map_err(|e| format!("merge_delta: {e:?}"))?;
-        block
-    };
+    if let Some(err) = working_set.parse_errors.first() {
+        return Err(format!("parse error: {err:?}"));
+    }
 
-    // --- Breakpoint verification: which lines actually have instructions? ---
-    publish_valid_lines(&engine_state, &block, &state, writer);
-
-    // --- Activate our debugger and evaluate under WithDebug ---
-    let dap_debugger = DapDebugger::new(state, writer.clone());
+    let delta = working_set.render();
     engine_state
-        .activate_debugger(Box::new(dap_debugger))
-        .map_err(|e| format!("activate_debugger: {e:?}"))?;
+        .merge_delta(delta)
+        .map_err(|e| format!("merge_delta: {e:?}"))?;
 
-    let mut stack = Stack::new();
-    stack.add_env_var("PWD".to_string(), Value::string(cwd, Span::unknown()));
+    Ok(block)
+}
 
-    // Process stdout/stderr were swapped for capture pipes at startup
-    // (stdio.rs), so the default Inherit destination already reaches the DAP
-    // forwarders — no stack redirection needed.
+/// Closure source text, resolved once now that every block exists. The server
+/// thread can't reach `engine_state` to do this later (see the concurrency
+/// rule in state.rs), so it has to be cached up front.
+fn cache_closure_labels(engine_state: &nu_protocol::engine::EngineState, state: &DebugState) {
+    *state.closures.lock().expect("closures poisoned") =
+        Arc::new(crate::variables::collect_closure_labels(engine_state));
+}
 
-    let result = nu_engine::eval_block::<WithDebug>(
-        &engine_state,
-        &mut stack,
-        &block,
-        PipelineData::empty(),
-    );
+/// Run the script: top-level code first, then an entry point if there is one.
+/// The entry point's output supersedes the top-level result when it runs.
+fn eval_program(
+    engine_state: &mut nu_protocol::engine::EngineState,
+    stack: &mut Stack,
+    block: &nu_protocol::ast::Block,
+    launch: &LaunchArgs,
+) -> Result<nu_protocol::PipelineExecutionData, nu_protocol::ShellError> {
+    let top =
+        nu_engine::eval_block::<WithDebug>(engine_state, stack, block, PipelineData::empty())?;
 
-    // After the top-level code, call an entry point with the launch args: an
-    // explicit `entry_point` (for no-`main` libraries), else `main` if defined.
-    // A missing explicit entry is an error; a missing `main` means top-level only.
-    let (entry_name, explicit) = match &launch.entry_point {
+    let (name, explicit) = entry_point(launch);
+    match call_entry(engine_state, stack, &name, &launch.args, explicit)? {
+        Some(out) => Ok(out),
+        None => Ok(top),
+    }
+}
+
+/// Which command to call after the top-level code: an explicit `entry_point`
+/// (for no-`main` libraries), else `main` if defined. The flag distinguishes
+/// the two, because a missing explicit entry is an error while a missing
+/// `main` just means top-level only.
+fn entry_point(launch: &LaunchArgs) -> (String, bool) {
+    match &launch.entry_point {
         Some(name) if !name.trim().is_empty() => (name.trim().to_string(), true),
         _ => ("main".to_string(), false),
-    };
-    let result = match result {
-        Ok(top) => match call_entry(
-            &mut engine_state,
-            &mut stack,
-            &entry_name,
-            &launch.args,
-            explicit,
-        ) {
-            Ok(Some(out)) => Ok(out),
-            Ok(None) => Ok(top),
-            Err(e) => Err(e),
-        },
-        err => err,
-    };
+    }
+}
 
-    // Drain the final pipeline *while the debugger is still active*: a bare
-    // lazy pipeline (`ls | each { … }`) only runs its closures when consumed
-    // here, so draining after deactivate would fire no breakpoints inside them.
-    // `into_value` can itself raise (error in a closure), so fold it into result.
-    let outcome = match result {
-        Ok(exec_data) => match exec_data.body.into_value(Span::unknown()) {
-            Ok(v) => {
-                if !matches!(v, Value::Nothing { .. }) {
-                    let s = v.to_expanded_string("\n", engine_state.get_config());
-                    if !s.is_empty() {
-                        writer.output("stdout", format!("{s}\n"));
-                    }
-                }
-                Ok(())
-            }
-            Err(e) => Err(e),
-        },
-        Err(e) => Err(e),
-    };
+/// Consume the final pipeline and echo any value it produced.
+///
+/// Must run *while the debugger is still active*: a bare lazy pipeline
+/// (`ls | each { … }`) only runs its closures when consumed here, so draining
+/// after deactivate would fire no breakpoints inside them. `into_value` can
+/// itself raise (error in a closure), so its failure folds into the result.
+fn drain_final_value(
+    result: Result<nu_protocol::PipelineExecutionData, nu_protocol::ShellError>,
+    engine_state: &nu_protocol::engine::EngineState,
+    writer: &DapWriter,
+) -> Result<(), nu_protocol::ShellError> {
+    let value = result?.body.into_value(Span::unknown())?;
+    if !matches!(value, Value::Nothing { .. }) {
+        let s = value.to_expanded_string("\n", engine_state.get_config());
+        if !s.is_empty() {
+            writer.output("stdout", format!("{s}\n"));
+        }
+    }
+    Ok(())
+}
 
-    drop(stack);
-    let _ = engine_state.deactivate_debugger();
-
+/// Map the run's outcome onto the thread's exit status.
+fn into_exit(outcome: Result<(), nu_protocol::ShellError>) -> Result<(), String> {
     match outcome {
         Ok(()) => Ok(()),
-        Err(e) => {
-            // Interrupted == user hit stop; not an error worth shouting about.
-            if format!("{e:?}").contains("Interrupted") {
-                Ok(())
-            } else {
-                // Display, not Debug: users get the message, not the enum.
-                Err(format!("{e}"))
-            }
-        }
+        // Interrupted == user hit stop; not an error worth shouting about.
+        Err(e) if format!("{e:?}").contains("Interrupted") => Ok(()),
+        // Display, not Debug: users get the message, not the enum.
+        Err(e) => Err(format!("{e}")),
     }
 }
 
