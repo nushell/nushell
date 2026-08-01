@@ -88,12 +88,12 @@ fn repeat_failure_does_not_grow_the_engine() {
 }
 
 #[rstest]
-#[case("$\"a ($x)\"", true)]
-#[case("$'a'", true)]
-#[case("plain text", false)]
-#[case("iteration {x}", false)]
+#[case::double_quoted("$\"a ($x)\"", true)]
+#[case::single_quoted("$'a'", true)]
+#[case::bare_text("plain text", false)]
+#[case::dap_braces_are_not_nu("iteration {x}", false)]
 // Only the delimiters are checked, so `$"` alone is too short to qualify.
-#[case("$\"", false)]
+#[case::unterminated_opener("$\"", false)]
 fn nu_interpolation_is_recognised_by_its_delimiters(#[case] input: &str, #[case] expected: bool) {
     assert_eq!(is_nu_interpolation(input), expected);
 }

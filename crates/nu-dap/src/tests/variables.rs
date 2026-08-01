@@ -28,10 +28,10 @@ fn rec(fields: &[(&str, Value)]) -> Value {
 }
 
 #[rstest]
-#[case(i(42), "42")]
-#[case(Value::bool(true, Span::unknown()), "true")]
-#[case(Value::nothing(Span::unknown()), "null")]
-#[case(s("hi"), "\"hi\"")]
+#[case::int(i(42), "42")]
+#[case::bool(Value::bool(true, Span::unknown()), "true")]
+#[case::nothing_renders_as_null(Value::nothing(Span::unknown()), "null")]
+#[case::string_keeps_its_quotes(s("hi"), "\"hi\"")]
 fn short_render_scalars(#[case] value: Value, #[case] expected: &str) {
     assert_eq!(render(&value), expected);
 }
@@ -120,9 +120,9 @@ fn short_render_caps_a_long_row() {
 }
 
 #[rstest]
-#[case(s("short"), "short")]
-#[case(s("abcdefghijklmnop"), "abcdefghijkl…")]
-#[case(i(5), "5")]
+#[case::short_string_is_unquoted_and_whole(s("short"), "short")]
+#[case::long_string_is_elided(s("abcdefghijklmnop"), "abcdefghijkl…")]
+#[case::non_string_is_untouched(i(5), "5")]
 fn scalar_preview_caps_strings(#[case] value: Value, #[case] expected: &str) {
     assert_eq!(scalar_preview(&value), expected);
 }
