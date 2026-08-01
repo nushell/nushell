@@ -8,4 +8,5 @@ mod debugger;
 mod eval_scratch;
 mod paths;
 mod source_map;
+mod stepping;
 mod variables;

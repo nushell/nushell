@@ -5,29 +5,11 @@ use super::DapDebugger;
 use crate::state::{RunMode, ShadowVar};
 use nu_protocol::engine::{EngineState, Stack};
 
-/// Resolve a variable's source name. Nushell stores no name on a `VarId`, but
-/// the variable's declaration span points at the identifier in source. Trims
-/// the leading `$` and any type annotation (`x: int` → `x`).
-fn var_name(engine_state: &EngineState, var_id: nu_protocol::VarId) -> String {
-    let var = engine_state.get_var(var_id);
-    let bytes = engine_state.get_span_contents(var.declaration_span);
-    let s = String::from_utf8_lossy(bytes);
-    // `$x` / `x: int` / `--verbose` / `--tag: string` → `x` / `verbose` / `tag`.
-    let s = s.trim().trim_start_matches('$');
-    let s = s.split([':', ' ', '\t']).next().unwrap_or(s);
-    let s = s.trim_start_matches('-');
-    if s.is_empty() {
-        format!("var{}", var_id.get())
-    } else {
-        s.to_string()
-    }
-}
-
 impl DapDebugger {
     /// Whether the run mode wants to pause here (breakpoints are handled in
     /// `enter_instruction`). `is_call` marks pipe-stage boundaries where
     /// step-into also stops, so F11 walks a builtin pipeline stage by stage.
-    pub(super) fn should_pause_mode(
+    pub(crate) fn should_pause_mode(
         &self,
         pos: &crate::source_map::SourcePos,
         run_mode: RunMode,
@@ -64,7 +46,7 @@ impl DapDebugger {
     /// shared state, so the pause snapshot, scratch eval, and time-travel tape
     /// read genuine values (params, closure captures, mutations). `$in` is the
     /// exception: register-based, injected from the frame's captured value.
-    pub(super) fn sync_locals_from_stack(&self, engine_state: &EngineState, stack: &Stack) {
+    pub(crate) fn sync_locals_from_stack(&self, engine_state: &EngineState, stack: &Stack) {
         let mut vars: std::collections::HashMap<usize, ShadowVar> =
             std::collections::HashMap::new();
         for (var_id, value) in &stack.vars {
@@ -100,4 +82,62 @@ impl DapDebugger {
         session.shadow_vars = vars;
         session.env_shadow = env;
     }
+}
+
+/// Resolve a variable's source name. Nushell stores no name on the `Variable`
+/// itself, so this asks two sources in order of authority:
+///
+/// 1. **The scope.** Overlays map `$name` → `VarId`, which is nushell's own
+///    answer and needs no guessing. It covers the script's top-level bindings
+///    plus anything a `use`d module brought in.
+/// 2. **The declaration span.** Parameters, closure params, and block locals
+///    never reach `engine_state.scope`: the parser declares them inside a
+///    scope frame it pops again, and `merge_delta` keeps only the outermost
+///    frame. Their span does point at the identifier in source, so trim the
+///    sigil, type annotation, and flag dashes off it (`--tag: string = "dev"`
+///    → `tag`). This is a heuristic, hence second.
+pub(crate) fn var_name(engine_state: &EngineState, var_id: nu_protocol::VarId) -> String {
+    if let Some(name) = scope_var_name(engine_state, var_id) {
+        return name;
+    }
+
+    let var = engine_state.get_var(var_id);
+    let bytes = engine_state.get_span_contents(var.declaration_span);
+    let s = String::from_utf8_lossy(bytes);
+
+    // `$x` / `x: int` / `--verbose` / `--tag: string` → `x` / `verbose` / `tag`.
+    let s = s.trim().trim_start_matches('$');
+    let s = s.split([':', ' ', '\t']).next().unwrap_or(s);
+    let s = s.trim_start_matches('-');
+
+    if s.is_empty() {
+        format!("var{}", var_id.get())
+    } else {
+        s.to_string()
+    }
+}
+
+/// Reverse `name` → `VarId` lookup over the active overlays, newest first —
+/// the same order `ScopeFrame::get_var` resolves a name in, so when two
+/// overlays bind the same id we report the one nushell itself would pick.
+/// Scope keys carry the `$` sigil (`insert_variable_into_scope` prepends it).
+fn scope_var_name(engine_state: &EngineState, var_id: nu_protocol::VarId) -> Option<String> {
+    let scope = &engine_state.scope;
+    scope
+        .active_overlays
+        .iter()
+        .rev()
+        .filter_map(|overlay_id| scope.overlays.get(overlay_id.get()))
+        .find_map(|(_, overlay)| {
+            overlay
+                .vars
+                .iter()
+                .find(|(_, id)| **id == var_id)
+                .map(|(name, _)| {
+                    String::from_utf8_lossy(name)
+                        .trim_start_matches('$')
+                        .to_string()
+                })
+        })
+        .filter(|name| !name.is_empty())
 }

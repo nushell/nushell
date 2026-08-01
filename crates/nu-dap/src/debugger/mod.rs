@@ -16,7 +16,7 @@
 //! check — that is our terminate path.
 
 mod snapshot;
-mod stepping;
+pub(crate) mod stepping;
 
 use crate::dap::protocol::DapWriter;
 use crate::source_map::{SourceMap, SourcePos};
