@@ -1,6 +1,6 @@
 //! [`Span`] to point to sections of source code and the [`Spanned`] wrapper type
 use crate::shell_error::generic::GenericError;
-use crate::{FromValue, IntoValue, ShellError, Signals, SpanId, Value, record};
+use crate::{FromValue, IntoValue, ShellError, Signals, SpanId, Type, Value, record};
 use miette::SourceSpan;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
@@ -438,6 +438,9 @@ impl FromValue for Span {
                 span: value.span(),
             }),
         }
+    }
+    fn expected_type() -> Type {
+        Type::Record([("start", Type::Int), ("end", Type::Int)].into())
     }
 }
 

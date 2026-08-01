@@ -1,9 +1,9 @@
-use nu_test_support::{nu, nu_repl_code};
-use pretty_assertions::assert_eq;
+use nu_test_support::prelude::*;
 
 #[test]
-fn mut_variable() {
-    let lines = &["mut x = 0", "$x = 1", "$x"];
-    let actual = nu!(nu_repl_code(lines));
-    assert_eq!(actual.out, "1");
+fn mut_variable() -> Result {
+    let mut tester = test();
+    let () = tester.run("mut x = 0")?;
+    let () = tester.run("$x = 1")?;
+    tester.run("$x").expect_value_eq(1)
 }

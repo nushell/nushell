@@ -1,13 +1,12 @@
-use nu_test_support::nu;
-use pretty_assertions::assert_str_eq;
+use nu_test_support::prelude::*;
 
 mod cli;
 mod posix_end_of_options;
 mod shell_integration;
 
 #[test]
-fn multiword_commands_have_their_parent_commands() {
-    let out = nu!("
+fn multiword_commands_have_their_parent_commands() -> Result {
+    let code = "
         scope commands
         | where type == built-in and name like ' '
         | where ($it.name | split row ' ' | first) not-in (
@@ -16,13 +15,13 @@ fn multiword_commands_have_their_parent_commands() {
             | get name
         )
         | get name
-        | to json --raw
-    ");
+    ";
+    let out: Vec<String> = test().run(code)?;
 
-    assert_str_eq!(
-        "[]",
-        out.out,
-        "These multiword commands are missing their dummy parent commands: {}",
-        out.out
-    );
+    match out.as_slice() {
+        [] => Ok(()),
+        cmds => {
+            panic!("These multiword commands are missing their dummy parent commands: {cmds:?}")
+        }
+    }
 }

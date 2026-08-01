@@ -241,33 +241,43 @@ pub fn eval_config_contents(
     stack: &mut Stack,
     strict_mode: bool,
 ) {
+    // Dangling symlinks report `exists() == false` and are skipped here; callers
+    // of default config paths warn separately. Never remove or rewrite the path.
     if config_path.exists() & config_path.is_file() {
         let config_filename = config_path.to_string_lossy();
 
-        if let Ok(contents) = std::fs::read(&config_path) {
-            // Set the current active file to the config file.
-            let prev_file = engine_state.file.take();
-            engine_state.file = Some(config_path.clone());
+        match std::fs::read(&config_path) {
+            Ok(contents) => {
+                // Set the current active file to the config file.
+                let prev_file = engine_state.file.take();
+                engine_state.file = Some(config_path.clone());
 
-            // TODO: ignore this error?
-            let exit_code = eval_source(
-                engine_state,
-                stack,
-                &contents,
-                &config_filename,
-                PipelineData::empty(),
-                false,
-            );
-            if exit_code != 0 && strict_mode {
-                std::process::exit(exit_code)
+                // TODO: ignore this error?
+                let exit_code = eval_source(
+                    engine_state,
+                    stack,
+                    &contents,
+                    &config_filename,
+                    PipelineData::empty(),
+                    false,
+                );
+                if exit_code != 0 && strict_mode {
+                    std::process::exit(exit_code)
+                }
+
+                // Restore the current active file.
+                engine_state.file = prev_file;
+
+                // Merge the environment in case env vars changed in the config
+                if let Err(e) = engine_state.merge_env(stack) {
+                    report_shell_error(Some(stack), engine_state, &e);
+                }
             }
-
-            // Restore the current active file.
-            engine_state.file = prev_file;
-
-            // Merge the environment in case env vars changed in the config
-            if let Err(e) = engine_state.merge_env(stack) {
-                report_shell_error(Some(stack), engine_state, &e);
+            Err(err) => {
+                eprintln!(
+                    "Warning: could not read {}; using built-in defaults. ({err})",
+                    config_path.display()
+                );
             }
         }
     }

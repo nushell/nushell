@@ -71,8 +71,47 @@ impl EnvAccess for SystemEnv {
     #[cfg(windows)]
     fn program_data_dir(&self) -> Option<PathBuf> {
         // Prefer the known folder when available; fall back to the env var.
-        dirs_sys::known_folder(windows_sys::Win32::UI::Shell::FOLDERID_ProgramData)
-            .or_else(|| std::env::var_os("ProgramData").map(PathBuf::from))
+        // Call SHGetKnownFolderPath via our workspace `windows-sys` so we do not
+        // pass GUID types across different `windows-sys` versions that `dirs-sys`
+        // may resolve (those types are not interchangeable).
+        known_folder_program_data().or_else(|| std::env::var_os("ProgramData").map(PathBuf::from))
+    }
+}
+
+/// Resolve the Windows ProgramData known folder using the workspace `windows-sys`.
+#[cfg(windows)]
+fn known_folder_program_data() -> Option<PathBuf> {
+    use std::ffi::OsString;
+    use std::os::windows::ffi::OsStringExt;
+    use std::slice;
+    use windows_sys::Win32::Globalization::lstrlenW;
+    use windows_sys::Win32::System::Com::CoTaskMemFree;
+    use windows_sys::Win32::UI::Shell::{FOLDERID_ProgramData, SHGetKnownFolderPath};
+    use windows_sys::core::PWSTR;
+
+    // SAFETY: SHGetKnownFolderPath either returns a valid CoTaskMem-allocated
+    // wide string (result == 0) or nothing we may read; we free the pointer in
+    // both success and failure paths as the API requires.
+    unsafe {
+        let mut path_ptr: PWSTR = std::ptr::null_mut();
+        let result = SHGetKnownFolderPath(
+            &FOLDERID_ProgramData,
+            0,
+            std::ptr::null_mut(),
+            &mut path_ptr,
+        );
+        if result == 0 && !path_ptr.is_null() {
+            let len = lstrlenW(path_ptr) as usize;
+            let path = slice::from_raw_parts(path_ptr, len);
+            let ostr = OsString::from_wide(path);
+            CoTaskMemFree(path_ptr.cast());
+            Some(PathBuf::from(ostr))
+        } else {
+            if !path_ptr.is_null() {
+                CoTaskMemFree(path_ptr.cast());
+            }
+            None
+        }
     }
 }
 
@@ -155,5 +194,74 @@ impl EnvAccess for TestEnv {
         self.program_data_dir
             .clone()
             .or_else(|| self.var_os("ProgramData").map(PathBuf::from))
+    }
+}
+
+#[cfg(all(test, windows))]
+mod tests {
+    use super::*;
+    use std::path::{Component, Path};
+
+    /// Normalize for path comparisons that may differ only by separators or case.
+    fn path_key(path: &Path) -> String {
+        path.components()
+            .map(|c| match c {
+                Component::Prefix(p) => p.as_os_str().to_string_lossy().to_ascii_lowercase(),
+                Component::RootDir => String::new(),
+                Component::Normal(s) => s.to_string_lossy().to_ascii_lowercase(),
+                Component::CurDir => ".".into(),
+                Component::ParentDir => "..".into(),
+            })
+            .filter(|s| !s.is_empty())
+            .collect::<Vec<_>>()
+            .join("/")
+    }
+
+    #[test]
+    fn known_folder_program_data_returns_absolute_existing_directory() {
+        let path = known_folder_program_data().expect(
+            "SHGetKnownFolderPath(FOLDERID_ProgramData) should succeed on Windows CI/hosts",
+        );
+
+        assert!(
+            path.is_absolute(),
+            "ProgramData known folder must be absolute, got {path:?}"
+        );
+        assert!(
+            path.is_dir(),
+            "ProgramData known folder must exist as a directory, got {path:?}"
+        );
+        assert_eq!(
+            path.file_name().and_then(|n| n.to_str()),
+            Some("ProgramData"),
+            "expected final component to be ProgramData, got {path:?}"
+        );
+    }
+
+    #[test]
+    fn system_env_program_data_dir_uses_known_folder_when_available() {
+        let from_api = known_folder_program_data()
+            .expect("known folder lookup should succeed on Windows CI/hosts");
+        let from_system = SystemEnv
+            .program_data_dir()
+            .expect("SystemEnv::program_data_dir should resolve ProgramData");
+
+        assert_eq!(
+            path_key(&from_system),
+            path_key(&from_api),
+            "SystemEnv should prefer the known-folder path over env fallback; \
+             system={from_system:?} api={from_api:?}"
+        );
+
+        // When the common env var is set, it should agree with the known folder
+        // (case/separator differences aside).
+        if let Some(from_env) = std::env::var_os("ProgramData").map(PathBuf::from) {
+            assert_eq!(
+                path_key(&from_api),
+                path_key(&from_env),
+                "known folder and %ProgramData% should resolve to the same location; \
+                 api={from_api:?} env={from_env:?}"
+            );
+        }
     }
 }

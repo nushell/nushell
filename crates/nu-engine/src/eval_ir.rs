@@ -62,8 +62,40 @@ pub fn eval_ir_block<D: DebugContext>(
         });
     }
 
+    // Whole-block locals (closures / custom commands / top-level script).
+    let pushed_scope = if let Some(bindings) = &block.scope_bindings {
+        stack.push_scope_bindings(bindings.clone());
+        true
+    } else {
+        false
+    };
+
+    // Install this IR block's inlined-scope regions; restore any outer IR state on leave
+    // so nested `eval_ir_block` (e.g. custom command call) does not clobber the caller.
+    let saved_regions = std::mem::take(&mut stack.ir_scope_regions);
+    let saved_pc = stack.ir_instruction_index.take();
+
+    let result = eval_ir_block_inner::<D>(engine_state, stack, block, input);
+
+    stack.ir_scope_regions = saved_regions;
+    stack.ir_instruction_index = saved_pc;
+    if pushed_scope {
+        stack.pop_scope_bindings();
+    }
+    result
+}
+
+fn eval_ir_block_inner<D: DebugContext>(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    block: &Block,
+    input: PipelineData,
+) -> Result<PipelineExecutionData, ShellError> {
     if let Some(ir_block) = &block.ir_block {
         D::enter_block(engine_state, block);
+
+        stack.ir_scope_regions = ir_block.scope_regions.clone();
+        stack.ir_instruction_index = None;
 
         let args_base = stack.arguments.get_base();
         let error_handler_base = stack.error_handlers.get_base();
@@ -101,6 +133,7 @@ pub fn eval_ir_block<D: DebugContext>(
         stack.error_handlers.leave_frame(error_handler_base);
         stack.finally_run_handlers.leave_frame(finally_handler_base);
         stack.arguments.leave_frame(args_base);
+        stack.ir_instruction_index = None;
 
         D::leave_block(engine_state, block);
 
@@ -242,19 +275,26 @@ fn eval_ir_block_impl<D: DebugContext>(
     // Program counter, starts at zero.
     let mut pc = 0;
     let need_backtrace = ctx.engine_state.get_env_var("NU_BACKTRACE").is_some();
-    let mut ret_val = None;
+    // The result of an early exit (`return` or an error) that must still run pending `finally`
+    // handlers before it can leave the block. It takes precedence over the register contents at
+    // the terminal `Return` instruction.
+    let mut ret_val: Option<Result<PipelineExecutionData, ShellError>> = None;
 
     while pc < ir_block.instructions.len() {
         let instruction = &ir_block.instructions[pc];
         let span = &ir_block.spans[pc];
         let ast = &ir_block.ast[pc];
 
-        D::enter_instruction(ctx.engine_state, ir_block, pc, ctx.registers);
+        // So `scope` can match inlined keyword-body bindings via ScopeRegion.
+        ctx.stack.ir_instruction_index = Some(pc);
+
+        D::enter_instruction(ctx.engine_state, ctx.stack, ir_block, pc, ctx.registers);
 
         let result = eval_instruction::<D>(ctx, instruction, span, ast, need_backtrace);
 
         D::leave_instruction(
             ctx.engine_state,
+            ctx.stack,
             ir_block,
             pc,
             ctx.registers,
@@ -269,25 +309,51 @@ fn eval_ir_block_impl<D: DebugContext>(
                 pc = next_pc;
             }
             Ok(InstructionResult::Return(reg_id)) => {
-                // need to check if the return value is set by
-                // `Shell::Return` first. If so, we need to respect that value.
+                // need to check if the return value was stashed by an early `return` or an error
+                // that ran a `finally` handler first. If so, we need to respect that value.
                 match ret_val {
-                    Some(err) => return Err(err),
+                    Some(res) => return res,
                     None => return Ok(ctx.take_reg(reg_id)),
+                }
+            }
+            Ok(InstructionResult::ReturnEarly(reg_id)) => {
+                if let Some(always_run_handler) =
+                    ctx.stack.finally_run_handlers.pop(ctx.finally_handler_base)
+                {
+                    // A `finally` block is pending: collect the value first (mirroring the
+                    // `try-collect` the compiler emits on the fall-through path, which also
+                    // preserves metadata), stash it, and run the `finally` block. The stashed
+                    // value is returned at the terminal `Return` instruction.
+                    let data = ctx.take_reg(reg_id);
+                    #[cfg(feature = "os")]
+                    let collected = collect(data, *span, false);
+                    #[cfg(not(feature = "os"))]
+                    let collected = collect(data, *span);
+                    ret_val = Some(
+                        collected.map(|body| PipelineExecutionData::from(body).with_early_return()),
+                    );
+                    prepare_error_handler(ctx, always_run_handler, None);
+                    pc = always_run_handler.handler_index;
+                } else {
+                    // No `finally` pending: this is the same as a tail return, keeping streams
+                    // and metadata intact, except the data is flagged as an early return. The
+                    // nearest custom command or closure call clears that flag; top-level file
+                    // evaluation reads it to skip `main`.
+                    return Ok(ctx.take_reg(reg_id).with_early_return());
                 }
             }
             Err(err @ (ShellError::Continue { .. } | ShellError::Break { .. })) => {
                 return Err(err);
             }
-            Err(err @ (ShellError::Return { .. } | ShellError::Exit { abort: false, .. })) => {
+            Err(err @ ShellError::Exit { abort: false, .. }) => {
                 if let Some(always_run_handler) =
                     ctx.stack.finally_run_handlers.pop(ctx.finally_handler_base)
                 {
-                    // need to run finally block before return.
-                    // and record the return value firstly.
+                    // need to run finally block before exiting.
+                    // and record the exit error firstly.
                     prepare_error_handler(ctx, always_run_handler, None);
                     pc = always_run_handler.handler_index;
-                    ret_val = Some(err);
+                    ret_val = Some(Err(err));
                 } else {
                     // These block control related errors should be passed through
                     return Err(err);
@@ -323,7 +389,7 @@ fn eval_ir_block_impl<D: DebugContext>(
                         Some(err.clone().into_spanned(*span)),
                     );
                     pc = always_run_handler.handler_index;
-                    ret_val = Some(err);
+                    ret_val = Some(Err(err));
                 } else if need_backtrace {
                     let err = ShellError::into_chained(err, *span);
                     return Err(err);
@@ -381,6 +447,14 @@ enum InstructionResult {
     Continue,
     Branch(usize),
     Return(RegId),
+    /// Return from the block before reaching the end, carrying the full register contents.
+    ///
+    /// Unlike `Return`, this runs any pending `finally` handlers before the value leaves the
+    /// block, and flags the resulting data as an early return. The flag exists for one consumer:
+    /// top-level file evaluation, which reads it to skip `main`. Custom command calls and closure
+    /// invocations clear the flag instead, so a `return` in a nested call can't leak out and be
+    /// mistaken for a `return` at the current level.
+    ReturnEarly(RegId),
 }
 
 /// Perform an instruction
@@ -708,11 +782,18 @@ fn eval_instruction<D: DebugContext>(
                     PipelineExecutionData {
                         body: result,
                         exit: original_exit,
+                        early_return: false,
                     },
                 );
             }
             #[cfg(not(feature = "os"))]
-            ctx.put_reg(*src_dst, PipelineExecutionData { body: result });
+            ctx.put_reg(
+                *src_dst,
+                PipelineExecutionData {
+                    body: result,
+                    early_return: false,
+                },
+            );
             Ok(Continue)
         }
         Instruction::StringAppend { src_dst, val } => {
@@ -770,7 +851,7 @@ fn eval_instruction<D: DebugContext>(
             let list_span = list_value.span();
             let items_span = items.span();
             let items = match items {
-                Value::List { vals, .. } => vals,
+                Value::List { vals, .. } => vals.into_owned(),
                 Value::Nothing { .. } => Vec::new(),
                 _ => return Err(ShellError::CannotSpreadAsList { span: items_span }),
             };
@@ -1045,13 +1126,7 @@ fn eval_instruction<D: DebugContext>(
             ctx.stack.finally_run_handlers.pop(ctx.finally_handler_base);
             Ok(Continue)
         }
-        Instruction::ReturnEarly { src } => {
-            let val = ctx.collect_reg(*src, *span)?;
-            Err(ShellError::Return {
-                span: *span,
-                value: Box::new(val),
-            })
-        }
+        Instruction::ReturnEarly { src } => Ok(InstructionResult::ReturnEarly(*src)),
         Instruction::Return { src } => Ok(Return(*src)),
     }
 }
@@ -1291,6 +1366,13 @@ fn eval_call<D: DebugContext>(
                 args_len,
                 head,
             )?;
+
+            // Snapshot the call's return destination onto the callee stack. Intermediate
+            // expressions in the body may temporarily set OutDest::Value (e.g. `if (…)`);
+            // Stack::is_stdout_redirected / `is-redirected` read this frame instead.
+            // See Stack::with_invocation_stdout for details.
+            let mut callee_stack =
+                callee_stack.with_invocation_stdout(caller_stack.stdout().clone());
 
             // Add one to the recursion count, so we don't recurse too deep. Stack overflows are not
             // recoverable in Rust.

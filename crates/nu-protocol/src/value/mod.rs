@@ -5,7 +5,6 @@ mod from_value;
 mod glob;
 mod into_value;
 mod range;
-mod serde_impl;
 #[cfg(test)]
 mod test_derive;
 
@@ -34,6 +33,7 @@ use chrono_humanize::HumanTime;
 use fancy_regex::Regex;
 use nu_utils::{ObviousFloat, SharedCow, contains_emoji, get_locale_from_env_vars};
 pub use semver::Version as SemVerVersion;
+use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
     cmp::Ordering,
@@ -76,12 +76,14 @@ use std::{
 // from being constructed (outside of this crate) with the struct
 // expression syntax. This makes using the constructor methods the
 // only way to construct `Value`'s
+#[derive(Serialize, Deserialize)]
 pub enum Value {
     #[non_exhaustive]
     Bool {
         val: bool,
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     #[non_exhaustive]
@@ -89,6 +91,7 @@ pub enum Value {
         val: i64,
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     #[non_exhaustive]
@@ -96,6 +99,7 @@ pub enum Value {
         val: f64,
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     #[non_exhaustive]
@@ -103,6 +107,7 @@ pub enum Value {
         val: String,
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     #[non_exhaustive]
@@ -111,6 +116,7 @@ pub enum Value {
         no_expand: bool,
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     #[non_exhaustive]
@@ -118,6 +124,7 @@ pub enum Value {
         val: Filesize,
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     #[non_exhaustive]
@@ -126,6 +133,7 @@ pub enum Value {
         val: i64,
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     #[non_exhaustive]
@@ -133,14 +141,17 @@ pub enum Value {
         val: DateTime<FixedOffset>,
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     #[non_exhaustive]
     Range {
         val: Box<Range>,
+        #[serde(skip)]
         signals: Option<Signals>,
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     #[non_exhaustive]
@@ -148,14 +159,17 @@ pub enum Value {
         val: SharedCow<Record>,
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     #[non_exhaustive]
     List {
-        vals: Vec<Value>,
+        vals: SharedCow<Vec<Value>>,
+        #[serde(skip)]
         signals: Option<Signals>,
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     #[non_exhaustive]
@@ -163,6 +177,7 @@ pub enum Value {
         val: Box<Closure>,
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     #[non_exhaustive]
@@ -170,6 +185,7 @@ pub enum Value {
         error: Box<ShellError>,
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     #[non_exhaustive]
@@ -177,6 +193,7 @@ pub enum Value {
         val: SharedCow<Vec<u8>>,
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     #[non_exhaustive]
@@ -184,6 +201,7 @@ pub enum Value {
         val: CellPath,
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     #[non_exhaustive]
@@ -191,12 +209,14 @@ pub enum Value {
         val: Box<dyn CustomValue>,
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
     #[non_exhaustive]
     Nothing {
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
+        #[serde(rename = "span")]
         internal_span: Span,
     },
 }
@@ -767,7 +787,7 @@ impl Value {
     /// Unwraps the inner list `Vec` or returns an error if this `Value` is not a list
     pub fn into_list(self) -> Result<Vec<Value>, ShellError> {
         if let Value::List { vals, .. } = self {
-            Ok(vals)
+            Ok(vals.into_owned())
         } else {
             self.cant_convert_to("list")
         }
@@ -1085,7 +1105,7 @@ impl Value {
             Value::Int { val, .. } => val.to_string(),
             Value::Float { val, .. } => ObviousFloat(*val).to_string(),
             Value::Filesize { val, .. } => config.filesize.format(*val).to_string(),
-            Value::Duration { val, .. } => format_duration(*val),
+            Value::Duration { val, .. } => format_duration(*val, config.duration_max_unit),
             Value::Date { val, .. } => match &config.datetime_format.normal {
                 Some(format) => self.format_datetime(val, format),
                 None => {
@@ -1419,7 +1439,7 @@ impl Value {
                 casing,
             } => match self {
                 Value::List { vals, .. } => {
-                    for val in vals.iter_mut() {
+                    for val in vals.to_mut() {
                         let v_span = val.span();
                         match val {
                             Value::Record { val: record, .. } => {
@@ -1471,8 +1491,8 @@ impl Value {
                 optional,
             } => match self {
                 Value::List { vals, .. } => {
-                    if vals.get_mut(*row_num).is_some() {
-                        vals.remove(*row_num);
+                    if *row_num < vals.len() {
+                        vals.to_mut().remove(*row_num);
                         Ok(())
                     } else if *optional {
                         Ok(())
@@ -1572,7 +1592,7 @@ impl Value {
                     {
                         self.mutate_data_at_cell_path(&new_cell_path, new_val.clone(), action)?;
                     } else {
-                        for val in vals.iter_mut() {
+                        for val in vals.to_mut() {
                             let v_span = val.span();
                             match val {
                                 Value::Record { val: record, .. } => {
@@ -1668,7 +1688,9 @@ impl Value {
                 optional,
             } => match self {
                 Value::List { vals, .. } => {
-                    if let Some(v) = vals.get_mut(*row_num) {
+                    if *row_num < vals.len() {
+                        let vals = vals.to_mut();
+                        let v = &mut vals[*row_num];
                         if path.is_empty() && matches!(action, CellPathMutation::Insert { .. }) {
                             vals.insert(*row_num, new_val);
                         } else {
@@ -1683,7 +1705,8 @@ impl Value {
                                         span: *span,
                                     });
                                 }
-                                vals.push(Value::with_data_at_cell_path(path, new_val)?);
+                                vals.to_mut()
+                                    .push(Value::with_data_at_cell_path(path, new_val)?);
                             }
                             CellPathMutation::Update | CellPathMutation::Remove { .. } => {
                                 if !*optional {
@@ -1769,6 +1792,7 @@ impl Value {
                 .iter_mut()
                 .try_for_each(|(_, rec_value)| rec_value.recurse_mut(f)),
             Value::List { vals, .. } => vals
+                .to_mut()
                 .iter_mut()
                 .try_for_each(|list_value| list_value.recurse_mut(f)),
             // Closure captures are visited. Maybe these don't have to be if they are changed to
@@ -1942,6 +1966,11 @@ impl Value {
     }
 
     pub fn list(vals: Vec<Value>, span: Span) -> Value {
+        Value::list_shared(SharedCow::new(vals), span)
+    }
+
+    /// Creates a list that retains existing shared storage.
+    pub fn list_shared(vals: SharedCow<Vec<Value>>, span: Span) -> Value {
         Value::List {
             vals,
             signals: None,
@@ -3535,9 +3564,9 @@ impl Value {
         match (self, rhs) {
             (Value::List { vals: lhs, .. }, Value::List { vals: rhs, .. }) => {
                 if lhs.is_empty() {
-                    Ok(Value::list(rhs.clone(), span))
+                    Ok(Value::list_shared(rhs.clone(), span))
                 } else if rhs.is_empty() {
-                    Ok(Value::list(lhs.clone(), span))
+                    Ok(Value::list_shared(lhs.clone(), span))
                 } else {
                     let mut new_vals = Vec::with_capacity(lhs.len() + rhs.len());
                     new_vals.extend_from_slice(lhs);
@@ -5619,6 +5648,65 @@ mod tests {
         assert!(Value::test_glob("*.rs").coerce_bool().is_err());
         assert!(Value::test_binary(vec![1, 2, 3]).coerce_bool().is_err());
         assert!(Value::test_duration(3600).coerce_bool().is_err());
+    }
+
+    mod list {
+        use super::*;
+        use crate::ast::PathMember;
+        use nu_utils::SharedCow;
+
+        #[test]
+        fn clone_shares_data() {
+            let value = Value::test_list(vec![Value::test_int(1), Value::test_int(2)]);
+            let clone = value.clone();
+
+            let (
+                Value::List { vals, .. },
+                Value::List {
+                    vals: cloned_vals, ..
+                },
+            ) = (&value, &clone)
+            else {
+                unreachable!();
+            };
+
+            assert_eq!(SharedCow::ref_count(vals), 2);
+            assert!(std::ptr::eq(vals.as_ptr(), cloned_vals.as_ptr()));
+        }
+
+        #[test]
+        fn mutation_is_copy_on_write() {
+            let value = Value::test_list(vec![Value::test_int(1), Value::test_int(2)]);
+            let mut clone = value.clone();
+
+            clone
+                .upsert_data_at_cell_path(&[PathMember::test_int(0, false)], Value::test_int(3))
+                .unwrap();
+
+            assert_eq!(
+                value.as_list(),
+                Ok([Value::test_int(1), Value::test_int(2)].as_slice())
+            );
+            assert_eq!(
+                clone.as_list(),
+                Ok([Value::test_int(3), Value::test_int(2)].as_slice())
+            );
+        }
+
+        #[test]
+        fn into_list_preserves_shared_value() {
+            let value = Value::test_list(vec![Value::test_int(1), Value::test_int(2)]);
+            let clone = value.clone();
+
+            assert_eq!(
+                clone.into_list(),
+                Ok(vec![Value::test_int(1), Value::test_int(2)])
+            );
+            assert_eq!(
+                value.as_list(),
+                Ok([Value::test_int(1), Value::test_int(2)].as_slice())
+            );
+        }
     }
 
     mod binary {

@@ -3,8 +3,10 @@ use crate::{
     ast::PathMember,
     engine::{
         ArgumentStack, DEFAULT_OVERLAY_NAME, EngineState, EnvName, ErrorHandlerStack, Redirection,
-        StackCallArgGuard, StackCollectValueGuard, StackIoGuard, StackOutDest,
+        ScopeBindings, StackCallArgGuard, StackCollectValueGuard, StackIoGuard, StackOutDest,
+        StackWithInvocation,
     },
+    ir::ScopeRegion,
     report_shell_warning,
     shell_error::generic::GenericError,
 };
@@ -65,6 +67,18 @@ pub struct Stack {
     /// Locally updated config. Use [`.get_config()`](Self::get_config) to access correctly.
     pub config: Option<Arc<Config>>,
     pub(crate) out_dest: StackOutDest,
+    /// When `true`, external processes spawned with `PipelineData::Empty` input
+    /// receive `/dev/null` for stdin instead of inheriting the terminal.
+    pub suppress_stdin: bool,
+    /// Active block-local scope bindings (commands/modules), outer → inner.
+    ///
+    /// Pushed when evaluating a whole block via `eval_ir_block` (closures, custom commands).
+    /// Used by `scope` together with [`Self::ir_scope_regions`].
+    pub active_scope_bindings: Vec<Arc<ScopeBindings>>,
+    /// Scope regions of the IR block currently being evaluated (inlined keyword bodies).
+    pub ir_scope_regions: Vec<ScopeRegion>,
+    /// Current program counter while evaluating IR (for matching [`Self::ir_scope_regions`]).
+    pub ir_instruction_index: Option<usize>,
 }
 
 impl Default for Stack {
@@ -97,6 +111,10 @@ impl Stack {
             deletions: vec![],
             config: None,
             out_dest: StackOutDest::new(),
+            suppress_stdin: false,
+            active_scope_bindings: vec![],
+            ir_scope_regions: vec![],
+            ir_instruction_index: None,
         }
     }
 
@@ -120,8 +138,28 @@ impl Stack {
             deletions: vec![],
             config: parent.config.clone(),
             out_dest: parent.out_dest.clone(),
+            suppress_stdin: parent.suppress_stdin,
+            // Child inherits outer block bindings so nested `scope` still sees them.
+            active_scope_bindings: parent.active_scope_bindings.clone(),
+            // Nested IR evaluation installs its own regions/pc.
+            ir_scope_regions: vec![],
+            ir_instruction_index: None,
             parent_stack: Some(parent),
         }
+    }
+
+    /// Push block-local scope bindings for the duration of evaluating a whole block.
+    pub fn push_scope_bindings(&mut self, bindings: Arc<ScopeBindings>) {
+        self.active_scope_bindings.push(bindings);
+    }
+
+    /// Pop the most recently pushed whole-block scope bindings.
+    pub fn pop_scope_bindings(&mut self) {
+        let popped = self.active_scope_bindings.pop();
+        debug_assert!(
+            popped.is_some(),
+            "pop_scope_bindings with empty active_scope_bindings (unbalanced push/pop)"
+        );
     }
 
     /// Take an [`Arc`] parent, and a child, and apply all the changes from a child back to the parent.
@@ -374,6 +412,10 @@ impl Stack {
     }
 
     /// Creates a derived stack for a new scope, with the given captures.
+    ///
+    /// The caller is retained as [`Self::parent_stack`] so outer variables remain visible to
+    /// `scope variables` (and other stack lookups that walk parents). Captured values are still
+    /// copied onto this stack for isolation of the closure’s own locals.
     pub fn captures_to_stack_preserve_out_dest(&self, captures: Vec<(VarId, Value)>) -> Stack {
         let mut env_vars = self.env_vars.clone();
         env_vars.push(Arc::new(HashMap::new()));
@@ -388,11 +430,18 @@ impl Stack {
             error_handlers: ErrorHandlerStack::new(),
             finally_run_handlers: ErrorHandlerStack::new(),
             recursion_count: self.recursion_count,
-            parent_stack: None,
+            // Keep the caller as parent so global/outer locals stay nameable for `scope`
+            // (values are still resolved via the parent chain when not captured).
+            parent_stack: Some(Arc::new(self.clone())),
             parent_deletions: vec![],
             deletions: vec![],
             config: self.config.clone(),
             out_dest: self.out_dest.clone(),
+            suppress_stdin: self.suppress_stdin,
+            // Inherit caller block bindings so nested closures still see outer local defs.
+            active_scope_bindings: self.active_scope_bindings.clone(),
+            ir_scope_regions: vec![],
+            ir_instruction_index: None,
         }
     }
 
@@ -424,11 +473,16 @@ impl Stack {
             error_handlers: ErrorHandlerStack::new(),
             finally_run_handlers: ErrorHandlerStack::new(),
             recursion_count: self.recursion_count,
-            parent_stack: None,
+            parent_stack: Some(Arc::new(self.clone())),
             parent_deletions: vec![],
             deletions: vec![],
             config: self.config.clone(),
             out_dest: self.out_dest.clone(),
+            suppress_stdin: self.suppress_stdin,
+            // Inherit caller block bindings so nested closures still see outer local defs.
+            active_scope_bindings: self.active_scope_bindings.clone(),
+            ir_scope_regions: vec![],
+            ir_instruction_index: None,
         }
     }
 
@@ -823,6 +877,47 @@ impl Stack {
         self.out_dest.pipe_stderr.as_ref()
     }
 
+    /// Returns the stdout destination of the innermost active custom-command invocation, if any.
+    ///
+    /// This is the destination of that command's *return value*. It stays stable even when
+    /// intermediate expressions temporarily set [`OutDest::Value`] (e.g. `if (…)`), so callers
+    /// can answer "where does *this command* go?" from anywhere in the body.
+    ///
+    /// See also [`Self::is_stdout_redirected`] and [`StackWithInvocation`].
+    pub fn invocation_stdout(&self) -> Option<&OutDest> {
+        self.out_dest.invocation_stdout.last()
+    }
+
+    /// Whether the current custom command's return value is redirected away from display.
+    ///
+    /// Uses the active [`Self::invocation_stdout`] frame when inside a custom command so the
+    /// answer is stable across nested `if` / `let` collection. Outside a custom command, falls
+    /// back to [`Self::stdout`].
+    ///
+    /// Semantics match [`OutDest::is_redirected`] (only [`OutDest::Print`] is not redirected).
+    /// This is the engine-side helper behind the `is-redirected` command.
+    #[must_use]
+    pub fn is_stdout_redirected(&self) -> bool {
+        self.invocation_stdout()
+            .unwrap_or_else(|| self.stdout())
+            .is_redirected()
+    }
+
+    /// Wrap this stack with an invocation-stdout frame for a custom command about to run.
+    ///
+    /// Push the destination of the call's *return value* (typically
+    /// `caller_stack.stdout().clone()` after redirections are applied). The frame is popped when
+    /// the returned [`StackWithInvocation`] is dropped.
+    ///
+    /// # Why a separate frame?
+    ///
+    /// Intermediate evaluation sets [`OutDest::Value`] via [`Self::start_collect_value`]. Without
+    /// an invocation frame, queries like `is-redirected` inside `if (…)` would always see
+    /// `Value` and report redirected—even when the enclosing custom command's result is printed.
+    pub fn with_invocation_stdout(self, dest: OutDest) -> StackWithInvocation {
+        StackWithInvocation::new(self, dest)
+    }
+
     /// Temporarily set the pipe stdout redirection to [`OutDest::Value`].
     ///
     /// This is used before evaluating an expression into a `Value`.
@@ -878,6 +973,29 @@ impl Stack {
     /// (which is why this function does not take `&mut self`).
     pub fn reset_out_dest(mut self) -> Self {
         self.out_dest = StackOutDest::new();
+        self
+    }
+
+    /// Redirects stdout and stderr to [`OutDest::Null`], discarding all output.
+    ///
+    /// Use this for background evaluation tasks (e.g., completion) that must
+    /// never write to the terminal while reedline owns it.
+    pub fn suppress_output(mut self) -> Self {
+        self.out_dest.stdout = OutDest::Null;
+        self.out_dest.stderr = OutDest::Null;
+        self
+    }
+
+    /// Causes external processes spawned with empty input to receive
+    /// `/dev/null` for stdin instead of inheriting the terminal.
+    ///
+    /// Use this together with [`suppress_output`](Self::suppress_output) for
+    /// background tasks (e.g. completion threads).  Without it, subprocesses
+    /// spawned by closure-based completers (carapace, fish_complete, etc.)
+    /// inherit the live terminal fd and can race with reedline's reads,
+    /// causing `Input/output error` (EIO).
+    pub fn suppress_stdin(mut self) -> Self {
+        self.suppress_stdin = true;
         self
     }
 

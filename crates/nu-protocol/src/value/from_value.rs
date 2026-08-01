@@ -442,7 +442,7 @@ macro_rules! tuple_from_value {
                 let span = v.span();
                 match v {
                     Value::List { vals, .. } => {
-                        let mut deque = VecDeque::from(vals);
+                        let mut deque = VecDeque::from(vals.into_owned());
 
                         Ok(($(
                             {

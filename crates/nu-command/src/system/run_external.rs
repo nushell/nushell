@@ -7,7 +7,7 @@ use nu_protocol::{
     process::{ChildProcess, PostWaitCallback},
     shell_error::io::IoError,
 };
-use nu_system::{ForegroundChild, kill_by_pid};
+use nu_system::{ForegroundChild, kill_by_pid, prepare_background_command};
 use nu_utils::IgnoreCaseExt;
 use pathdiff::diff_paths;
 #[cfg(windows)]
@@ -256,13 +256,10 @@ If you create a custom command with this name, that will be used instead."
                 }
             },
             PipelineData::Empty => {
-                // MCP servers run non-interactively - use null stdin to prevent commands
-                // from hanging when they prompt for passwords or other input.
-                // In the future, this may become a more general option (e.g., no_stdin)
-                // but needs more testing first. See:
-                // https://github.com/nushell/nushell/pull/17161#discussion_r2761243143
-                if engine_state.is_mcp {
+                // MCP and background completions must not inherit the live terminal.
+                if engine_state.is_mcp || stack.suppress_stdin {
                     command.stdin(Stdio::null());
+                    prepare_background_command(&mut command);
                 } else {
                     command.stdin(Stdio::inherit());
                 }
@@ -284,7 +281,9 @@ If you create a custom command with this name, that will be used instead."
         #[cfg(unix)]
         let child = ForegroundChild::spawn(
             command,
-            engine_state.is_interactive,
+            // `suppress_stdin` children are already detached; do not also take
+            // the foreground pgrp from the completion thread.
+            engine_state.is_interactive && !stack.suppress_stdin,
             engine_state.is_background_job(),
             &engine_state.pipeline_externals_state,
         );
@@ -821,5 +820,79 @@ mod test {
         );
         write_pipeline_data(engine_state.clone(), stack.clone(), input, &mut buf).unwrap();
         assert_eq!(buf, b"foo");
+    }
+}
+
+/// `prepare_background_command` must detach from the controlling terminal/console
+/// so completer subprocesses cannot rewrite reedline's raw-mode state.
+#[cfg(test)]
+mod background_isolation_tests {
+    use nu_system::prepare_background_command;
+    use std::process::{Command, Stdio};
+
+    #[cfg(unix)]
+    #[test]
+    fn setsid_removes_controlling_terminal() {
+        let mut cmd = Command::new("sh");
+        // Subshell so a failed redirect does not exit before the `||` branch.
+        cmd.args([
+            "-c",
+            "(exec 3>/dev/tty) 2>/dev/null && echo has_tty || echo no_tty",
+        ])
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null());
+        prepare_background_command(&mut cmd);
+
+        let output = cmd.output().expect("sh should run");
+        assert_eq!(
+            String::from_utf8_lossy(&output.stdout).trim(),
+            "no_tty",
+            "child must not retain a controlling terminal after setsid"
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn create_no_window_has_no_console_window() {
+        // prepare_background_command uses CREATE_NO_WINDOW (required for completions).
+        //
+        // Do **not** probe with `echo.>CON`: opening CON can allocate a console even when
+        // the process was started with CREATE_NO_WINDOW, which false-positives on GHA
+        // (the old DETACHED_PROCESS-oriented check).
+        //
+        // GetConsoleWindow() reports whether a console is associated without allocating one.
+        let mut cmd = Command::new("powershell.exe");
+        cmd.args([
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            concat!(
+                "Add-Type -Namespace NuBg -Name Native -MemberDefinition '",
+                "[DllImport(\"kernel32.dll\")] public static extern System.IntPtr GetConsoleWindow();",
+                "'; ",
+                "if ([NuBg.Native]::GetConsoleWindow() -eq [System.IntPtr]::Zero) { ",
+                "[Console]::Out.Write('no_console') ",
+                "} else { ",
+                "[Console]::Out.Write('has_console') ",
+                "}",
+            ),
+        ])
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+        prepare_background_command(&mut cmd);
+
+        let output = cmd.output().expect("powershell should run");
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let token = stdout
+            .split_whitespace()
+            .find(|t| *t == "no_console" || *t == "has_console")
+            .unwrap_or("");
+        assert_eq!(
+            token, "no_console",
+            "child must have no console window under CREATE_NO_WINDOW; stdout={stdout:?} stderr={stderr}"
+        );
     }
 }

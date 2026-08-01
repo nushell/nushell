@@ -562,17 +562,20 @@ fn run_full_reparse_forwards_main_arguments_and_flags() {
 }
 
 #[test]
-fn run_script_exporting_run_does_not_override_builtin_run_in_repl_session() -> Result {
+fn run_script_with_toolkit_like_exports_can_be_run_twice_in_repl_session() -> Result {
+    // Regression: running a toolkit-style script (with exports) must not break
+    // subsequent `run` invocations in the same REPL session. The export must not
+    // be named `run` — that is a parser keyword and is rejected.
     Playground::setup(
-        "run_script_exporting_run_does_not_override_builtin_run_in_repl_session",
+        "run_script_with_toolkit_like_exports_can_be_run_twice_in_repl_session",
         |dirs, sandbox| {
             sandbox.mkdir("toolkit");
             sandbox.with_files(&[
                 FileWithContentToBeTrimmed(
                     "toolkit/wrappers.nu",
                     "
-                    export def run [--experimental-options: string] {
-                        'toolkit run'
+                    export def dev [--experimental-options: string] {
+                        'toolkit dev'
                     }
                 ",
                 ),

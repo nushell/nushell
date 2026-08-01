@@ -337,7 +337,7 @@ impl Job {
             };
 
             let content = match content {
-                Value::List { vals, .. } => vals,
+                Value::List { vals, .. } => vals.into_owned(),
                 Value::Nothing { .. } => Vec::new(),
                 _ => {
                     return Err(ShellError::CantConvert {

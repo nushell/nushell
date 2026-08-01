@@ -16,7 +16,7 @@
 use crate::{
     PipelineData, PipelineExecutionData, ShellError, Span, Value,
     ast::{Block, PipelineElement},
-    engine::EngineState,
+    engine::{EngineState, Stack},
     ir::IrBlock,
 };
 use std::{fmt::Debug, ops::DerefMut};
@@ -53,6 +53,7 @@ pub trait DebugContext: Clone + Copy + Debug {
     #[allow(unused_variables)]
     fn enter_instruction(
         engine_state: &EngineState,
+        stack: &Stack,
         ir_block: &IrBlock,
         instruction_index: usize,
         registers: &[PipelineExecutionData],
@@ -63,6 +64,7 @@ pub trait DebugContext: Clone + Copy + Debug {
     #[allow(unused_variables)]
     fn leave_instruction(
         engine_state: &EngineState,
+        stack: &Stack,
         ir_block: &IrBlock,
         instruction_index: usize,
         registers: &[PipelineExecutionData],
@@ -110,6 +112,7 @@ impl DebugContext for WithDebug {
 
     fn enter_instruction(
         engine_state: &EngineState,
+        stack: &Stack,
         ir_block: &IrBlock,
         instruction_index: usize,
         registers: &[PipelineExecutionData],
@@ -117,6 +120,7 @@ impl DebugContext for WithDebug {
         if let Ok(mut debugger) = engine_state.debugger.lock() {
             debugger.deref_mut().enter_instruction(
                 engine_state,
+                stack,
                 ir_block,
                 instruction_index,
                 registers,
@@ -126,6 +130,7 @@ impl DebugContext for WithDebug {
 
     fn leave_instruction(
         engine_state: &EngineState,
+        stack: &Stack,
         ir_block: &IrBlock,
         instruction_index: usize,
         registers: &[PipelineExecutionData],
@@ -134,6 +139,7 @@ impl DebugContext for WithDebug {
         if let Ok(mut debugger) = engine_state.debugger.lock() {
             debugger.deref_mut().leave_instruction(
                 engine_state,
+                stack,
                 ir_block,
                 instruction_index,
                 registers,
@@ -188,22 +194,29 @@ pub trait Debugger: Send + Debug {
     ) {
     }
 
-    /// Called before the IR evaluator runs an instruction
+    /// Called before the IR evaluator runs an instruction.
+    ///
+    /// `stack` is the live evaluation stack, so a debugger can read variable
+    /// values directly instead of reconstructing them from instructions.
     #[allow(unused_variables)]
     fn enter_instruction(
         &mut self,
         engine_state: &EngineState,
+        stack: &Stack,
         ir_block: &IrBlock,
         instruction_index: usize,
         registers: &[PipelineExecutionData],
     ) {
     }
 
-    /// Called after the IR evaluator runs an instruction
+    /// Called after the IR evaluator runs an instruction.
+    ///
+    /// `stack` is the live evaluation stack (see [`Debugger::enter_instruction`]).
     #[allow(unused_variables)]
     fn leave_instruction(
         &mut self,
         engine_state: &EngineState,
+        stack: &Stack,
         ir_block: &IrBlock,
         instruction_index: usize,
         registers: &[PipelineExecutionData],

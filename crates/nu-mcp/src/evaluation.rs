@@ -5,7 +5,7 @@ use nu_protocol::{
     debugger::WithoutDebug,
     engine::{EngineState, Job, Jobs, Mail, Stack, StateWorkingSet, ThreadJob},
 };
-use rmcp::model::{CallToolResult, Content};
+use rmcp::model::{CallToolResult, ContentBlock};
 use serde_json::{Value as JsonValue, json};
 use std::{
     fmt::Write,
@@ -495,7 +495,7 @@ impl EvalOutput {
 }
 
 fn call_tool_result(text: String, structured_content: JsonValue, is_error: bool) -> CallToolResult {
-    let mut result = CallToolResult::success(vec![Content::text(text)]);
+    let mut result = CallToolResult::success(vec![ContentBlock::text(text)]);
     result.is_error = Some(is_error);
     result.structured_content = Some(structured_content);
     result

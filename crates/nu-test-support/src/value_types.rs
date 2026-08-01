@@ -49,7 +49,7 @@ use nu_protocol::FromValue;
 ///     Ok(())
 /// }
 /// ```
-#[derive(FromValue)]
+#[derive(FromValue, Debug)]
 pub struct CompleteResult {
     pub stdout: String,
     pub stderr: String,

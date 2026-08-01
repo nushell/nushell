@@ -133,8 +133,7 @@ impl LanguageServer {
             .sender
             .send(lsp_server::Message::Response(lsp_server::Response {
                 id,
-                result: None,
-                error: Some(lsp_server::ResponseError {
+                response_result: Err(lsp_server::ResponseError {
                     code,
                     message,
                     data: None,

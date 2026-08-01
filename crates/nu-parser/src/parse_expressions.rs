@@ -435,6 +435,7 @@ pub fn parse_block_expression(
     let mut output = parse_block(working_set, &output, span, false, false, input_type);
 
     output.span = Some(span);
+    output.scope_bindings = working_set.snapshot_scope_bindings();
 
     if is_closed {
         working_set.exit_scope();
@@ -807,6 +808,7 @@ pub fn parse_closure_expression(
     }
 
     output.span = Some(span);
+    output.scope_bindings = working_set.snapshot_scope_bindings();
 
     if is_closed {
         working_set.exit_scope();
@@ -1378,7 +1380,7 @@ pub fn parse_math_expression(
                 return garbage(working_set, spans[idx - 1]);
             }
         }
-        let mut rhs = parse_value(working_set, spans[idx], &SyntaxShape::Any, None);
+        let mut rhs = parse_value(working_set, spans[idx], &SyntaxShape::Any, input_type);
 
         for not_start_span in not_start_spans.iter().rev() {
             rhs = Expression::new(

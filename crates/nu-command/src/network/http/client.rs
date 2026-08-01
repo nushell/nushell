@@ -664,7 +664,7 @@ fn send_multipart_request(
                         .map_err(err)?;
                 }
             }
-            builder.finish();
+            builder.finish().map_err(err)?;
 
             let (boundary, data) = (builder.boundary, builder.data);
             let content_type = format!("multipart/form-data; boundary={boundary}");

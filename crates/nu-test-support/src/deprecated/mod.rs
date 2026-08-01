@@ -22,21 +22,6 @@ impl Outcome {
     }
 }
 
-pub fn nu_repl_code(source_lines: &[&str]) -> String {
-    let mut out = String::from("nu --testbin=nu_repl ...[ ");
-
-    for line in source_lines.iter() {
-        out.push('`');
-        out.push_str(line);
-        out.push('`');
-        out.push(' ');
-    }
-
-    out.push(']');
-
-    out
-}
-
 pub fn shell_os_paths() -> Vec<std::path::PathBuf> {
     let mut original_paths = vec![];
 
