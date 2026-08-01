@@ -8,6 +8,8 @@ use std::fs;
 #[cfg(windows)]
 use std::{fs::OpenOptions, os::windows::fs::OpenOptionsExt};
 
+const RUNNER: &str = "let commands = $in; nu -n -c $commands | complete";
+
 #[test]
 fn removes_a_file() -> Result {
     Playground::setup("rm_test_1", |dirs, sandbox| {
@@ -420,15 +422,13 @@ impl Drop for Cleanup<'_> {
     }
 }
 
-#[test]
 // This test is only about verifying file names are included in rm error messages. It is easier
 // to only have this work on non-windows systems (i.e., unix-like) than to try to get the
 // permissions to work on all platforms.
-#[cfg(not(windows))]
+#[test]
+#[cfg_attr(windows, ignore)]
+#[deps(NU)]
 fn rm_prints_filenames_on_error() -> Result {
-    use nu_protocol::shell_error;
-    use pretty_assertions::assert_matches;
-
     Playground::setup("rm_prints_filenames_on_error", |dirs, sandbox| {
         let file_names = vec!["test1.txt", "test2.txt"];
 
@@ -446,16 +446,14 @@ fn rm_prints_filenames_on_error() -> Result {
         };
 
         // This rm is expected to fail, and stderr output indicating so is also expected.
-        let err = test().cwd(test_dir).run("rm test*.txt").expect_io_error()?;
-        assert_matches!(
-            err.kind,
-            shell_error::io::ErrorKind::Std(std::io::ErrorKind::PermissionDenied, ..)
-        );
+        let result: CompleteResult = test().cwd(test_dir).run_with_data(RUNNER, "rm test*.txt")?;
 
         assert!(files_exist_at(&file_names, test_dir));
         for file_name in file_names {
-            assert!(err.path.as_ref().unwrap().ends_with(file_name));
+            assert_contains("nu::shell::io::permission_denied", &result.stderr);
+            assert_contains(file_name, &result.stderr);
         }
+
         Ok(())
     })
 }

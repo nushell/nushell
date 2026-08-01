@@ -436,7 +436,7 @@ fn jobs_get_group_id_right() -> Result {
         let pid1 = $pids.0
         let pid2 = $pids.1
 
-        let groups = ^ps -ax -o pid,pgid | from ssv -m 1 | update PID {|it| $it.PID | into int} | update PGID {|it| $it.PGID | into int}
+        let groups = ps --long | select pid process_group_id | rename PID PGID
 
         let my_group = $groups | where PID == $nu.pid | first | get PGID
         let group1 = $groups | where PID == $pid1 | first | get PGID
