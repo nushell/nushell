@@ -423,7 +423,7 @@ fn exiting_nushell_kills_jobs() -> Result {
 
 #[cfg(unix)]
 #[test]
-#[cfg_attr(ci, serial)]
+#[serial]
 #[deps(NU)]
 fn jobs_get_group_id_right() -> Result {
     let code = r#"
