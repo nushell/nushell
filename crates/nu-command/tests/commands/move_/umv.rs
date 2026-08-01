@@ -4,7 +4,10 @@ use nu_test_support::{
 };
 use rstest::rstest;
 
+const RUNNER: &str = "let commands = $in; nu -n -c $commands | complete";
+
 #[test]
+#[deps(NU)]
 fn moves_a_file() -> Result {
     Playground::setup("umv_test_1", |dirs, sandbox| {
         sandbox
@@ -14,9 +17,9 @@ fn moves_a_file() -> Result {
         let original = dirs.test().join("andres.txt");
         let expected = dirs.test().join("expected/yehuda.txt");
 
-        let () = test()
-            .cwd(dirs.test())
-            .run("mv andres.txt expected/yehuda.txt")?;
+        let code = "mv andres.txt expected/yehuda.txt";
+        let result: CompleteResult = test().cwd(dirs.test()).run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
         assert!(!original.exists());
         assert!(expected.exists());
@@ -25,6 +28,7 @@ fn moves_a_file() -> Result {
 }
 
 #[test]
+#[deps(NU)]
 fn overwrites_if_moving_to_existing_file_and_force_provided() -> Result {
     Playground::setup("umv_test_2", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("andres.txt"), EmptyFile("jttxt")]);
@@ -32,7 +36,9 @@ fn overwrites_if_moving_to_existing_file_and_force_provided() -> Result {
         let original = dirs.test().join("andres.txt");
         let expected = dirs.test().join("jttxt");
 
-        let () = test().cwd(dirs.test()).run("mv andres.txt -f jttxt")?;
+        let code = "mv andres.txt -f jttxt";
+        let result: CompleteResult = test().cwd(dirs.test()).run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
         assert!(!original.exists());
         assert!(expected.exists());
@@ -41,6 +47,7 @@ fn overwrites_if_moving_to_existing_file_and_force_provided() -> Result {
 }
 
 #[test]
+#[deps(NU)]
 fn moves_a_directory() -> Result {
     Playground::setup("umv_test_3", |dirs, sandbox| {
         sandbox.mkdir("empty_dir");
@@ -48,7 +55,9 @@ fn moves_a_directory() -> Result {
         let original_dir = dirs.test().join("empty_dir");
         let expected = dirs.test().join("renamed_dir");
 
-        let () = test().cwd(dirs.test()).run("mv empty_dir renamed_dir")?;
+        let code = "mv empty_dir renamed_dir";
+        let result: CompleteResult = test().cwd(dirs.test()).run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
         assert!(!original_dir.exists());
         assert!(expected.exists());
@@ -57,6 +66,7 @@ fn moves_a_directory() -> Result {
 }
 
 #[test]
+#[deps(NU)]
 fn moves_the_file_inside_directory_if_path_to_move_is_existing_directory() -> Result {
     Playground::setup("umv_test_4", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("jttxt")]).mkdir("expected");
@@ -64,7 +74,9 @@ fn moves_the_file_inside_directory_if_path_to_move_is_existing_directory() -> Re
         let original_dir = dirs.test().join("jttxt");
         let expected = dirs.test().join("expected/jttxt");
 
-        let () = test().cwd(dirs.test()).run("mv jttxt expected")?;
+        let code = "mv jttxt expected";
+        let result: CompleteResult = test().cwd(dirs.test()).run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
         assert!(!original_dir.exists());
         assert!(expected.exists());
@@ -73,6 +85,7 @@ fn moves_the_file_inside_directory_if_path_to_move_is_existing_directory() -> Re
 }
 
 #[test]
+#[deps(NU)]
 fn moves_the_directory_inside_directory_if_path_to_move_is_existing_directory() -> Result {
     Playground::setup("umv_test_5", |dirs, sandbox| {
         sandbox
@@ -83,7 +96,9 @@ fn moves_the_directory_inside_directory_if_path_to_move_is_existing_directory() 
         let original_dir = dirs.test().join("contributors");
         let expected = dirs.test().join("expected/contributors");
 
-        let () = test().cwd(dirs.test()).run("mv contributors expected")?;
+        let code = "mv contributors expected";
+        let result: CompleteResult = test().cwd(dirs.test()).run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
         assert!(!original_dir.exists());
         assert!(expected.exists());
@@ -93,6 +108,7 @@ fn moves_the_directory_inside_directory_if_path_to_move_is_existing_directory() 
 }
 
 #[test]
+#[deps(NU)]
 fn moves_using_path_with_wildcard() -> Result {
     Playground::setup("umv_test_7", |dirs, sandbox| {
         sandbox
@@ -114,9 +130,9 @@ fn moves_using_path_with_wildcard() -> Result {
         let work_dir = dirs.test().join("work_dir");
         let expected = dirs.test().join("expected");
 
-        let () = test()
-            .cwd(work_dir)
-            .run("mv ../originals/*.ini ../expected")?;
+        let code = "mv ../originals/*.ini ../expected";
+        let result: CompleteResult = test().cwd(work_dir).run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
         assert!(files_exist_at(
             &["yehuda.ini", "jt.ini", "sample.ini", "andres.ini",],
@@ -127,6 +143,7 @@ fn moves_using_path_with_wildcard() -> Result {
 }
 
 #[test]
+#[deps(NU)]
 fn moves_using_a_glob() -> Result {
     Playground::setup("umv_test_8", |dirs, sandbox| {
         sandbox
@@ -143,7 +160,9 @@ fn moves_using_a_glob() -> Result {
         let work_dir = dirs.test().join("work_dir");
         let expected = dirs.test().join("expected");
 
-        let () = test().cwd(work_dir).run("mv ../meals/* ../expected")?;
+        let code = "mv ../meals/* ../expected";
+        let result: CompleteResult = test().cwd(work_dir).run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
         assert!(meal_dir.exists());
         assert!(files_exist_at(
@@ -155,6 +174,7 @@ fn moves_using_a_glob() -> Result {
 }
 
 #[test]
+#[deps(NU)]
 fn moves_a_directory_with_files() -> Result {
     Playground::setup("umv_test_9", |dirs, sandbox| {
         sandbox
@@ -172,7 +192,9 @@ fn moves_a_directory_with_files() -> Result {
         let original_dir = dirs.test().join("vehicles");
         let expected_dir = dirs.test().join("expected");
 
-        let () = test().cwd(dirs.test()).run("mv vehicles expected")?;
+        let code = "mv vehicles expected";
+        let result: CompleteResult = test().cwd(dirs.test()).run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
         assert!(!original_dir.exists());
         assert!(expected_dir.exists());
@@ -190,41 +212,41 @@ fn moves_a_directory_with_files() -> Result {
 }
 
 #[test]
+#[deps(NU)]
 fn errors_if_source_doesnt_exist() -> Result {
     Playground::setup("umv_test_10", |dirs, sandbox| {
         sandbox.mkdir("test_folder");
-        test()
-            .cwd(dirs.test())
-            .run("mv non-existing-file test_folder/")
-            .expect_error_code_eq("nu::shell::io::not_found")
-    })
-}
-
-#[test]
-#[ignore = "GNU/uutils overwrites rather than error out"]
-fn error_if_moving_to_existing_file_without_force() -> Result {
-    Playground::setup("umv_test_10_0", |dirs, sandbox| {
-        sandbox.with_files(&[EmptyFile("andres.txt"), EmptyFile("jttxt")]);
-
-        let err = test()
-            .cwd(dirs.test())
-            .run("mv andres.txt jttxt")
-            .expect_shell_error()?;
-        assert_contains("file already exists", err.to_string());
+        let code = "mv non-existing-file test_folder/";
+        let result: CompleteResult = test().cwd(dirs.test()).run_with_data(RUNNER, code)?;
+        assert_ne!(result.exit_code, 0);
+        assert_contains("not_found", result.stderr);
         Ok(())
     })
 }
 
 #[test]
+#[ignore = "GNU/uutils overwrites rather than error out"]
+#[deps(NU)]
+fn error_if_moving_to_existing_file_without_force() -> Result {
+    Playground::setup("umv_test_10_0", |dirs, sandbox| {
+        sandbox.with_files(&[EmptyFile("andres.txt"), EmptyFile("jttxt")]);
+
+        let code = "mv andres.txt jttxt";
+        let result: CompleteResult = test().cwd(dirs.test()).run_with_data(RUNNER, code)?;
+        assert_contains("file already exists", result.stderr);
+        Ok(())
+    })
+}
+
+#[test]
+#[deps(NU)]
 fn errors_if_destination_doesnt_exist() -> Result {
     Playground::setup("umv_test_10_1", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("empty.txt")]);
 
-        let err = test()
-            .cwd(dirs.test())
-            .run("mv empty.txt does/not/exist/")
-            .expect_shell_error()?;
-        let msg = err.to_string();
+        let code = "mv empty.txt does/not/exist/";
+        let result: CompleteResult = test().cwd(dirs.test()).run_with_data(RUNNER, code)?;
+        let msg = result.stderr;
 
         assert_contains("failed to access", &msg);
         assert_contains("Not a directory", msg);
@@ -234,6 +256,7 @@ fn errors_if_destination_doesnt_exist() -> Result {
 
 #[test]
 #[ignore = "GNU/uutils doesnt expand, rather cannot stat 'file?.txt'"]
+#[deps(NU)]
 fn errors_if_multiple_sources_but_destination_not_a_directory() -> Result {
     Playground::setup("umv_test_10_2", |dirs, sandbox| {
         sandbox.with_files(&[
@@ -242,29 +265,26 @@ fn errors_if_multiple_sources_but_destination_not_a_directory() -> Result {
             EmptyFile("file3.txt"),
         ]);
 
-        let err = test()
-            .cwd(dirs.test())
-            .run("mv file?.txt not_a_dir")
-            .expect_shell_error()?;
+        let code = "mv file?.txt not_a_dir";
+        let result: CompleteResult = test().cwd(dirs.test()).run_with_data(RUNNER, code)?;
 
         assert_contains(
             "Can only move multiple sources if destination is a directory",
-            err.to_string(),
+            result.stderr,
         );
         Ok(())
     })
 }
 
 #[test]
+#[deps(NU)]
 fn errors_if_renaming_directory_to_an_existing_file() -> Result {
     Playground::setup("umv_test_10_3", |dirs, sandbox| {
         sandbox.mkdir("mydir").with_files(&[EmptyFile("empty.txt")]);
 
-        let err = test()
-            .cwd(dirs.test())
-            .run("mv mydir empty.txt")
-            .expect_shell_error()?;
-        let msg = err.to_string();
+        let code = "mv mydir empty.txt";
+        let result: CompleteResult = test().cwd(dirs.test()).run_with_data(RUNNER, code)?;
+        let msg = result.stderr;
         assert_contains("cannot overwrite non-directory", &msg);
         assert_contains("with directory", msg);
         Ok(())
@@ -272,15 +292,14 @@ fn errors_if_renaming_directory_to_an_existing_file() -> Result {
 }
 
 #[test]
+#[deps(NU)]
 fn errors_if_moving_to_itself() -> Result {
     Playground::setup("umv_test_10_4", |dirs, sandbox| {
         sandbox.mkdir("mydir").mkdir("mydir/mydir_2");
 
-        let err = test()
-            .cwd(dirs.test())
-            .run("mv mydir mydir/mydir_2/")
-            .expect_shell_error()?;
-        let msg = err.to_string();
+        let code = "mv mydir mydir/mydir_2/";
+        let result: CompleteResult = test().cwd(dirs.test()).run_with_data(RUNNER, code)?;
+        let msg = result.stderr;
 
         assert_contains("cannot move", &msg);
         assert_contains("to a subdirectory", msg);
@@ -289,6 +308,7 @@ fn errors_if_moving_to_itself() -> Result {
 }
 
 #[test]
+#[deps(NU)]
 fn does_not_error_on_relative_parent_path() -> Result {
     Playground::setup("umv_test_11", |dirs, sandbox| {
         sandbox
@@ -298,9 +318,11 @@ fn does_not_error_on_relative_parent_path() -> Result {
         let original = dirs.test().join("first/william_hartnell.txt");
         let expected = dirs.test().join("william_hartnell.txt");
 
-        let () = test()
+        let code = "mv william_hartnell.txt ./..";
+        let result: CompleteResult = test()
             .cwd(dirs.test().join("first"))
-            .run("mv william_hartnell.txt ./..")?;
+            .run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
         assert!(!original.exists());
         assert!(expected.exists());
@@ -309,6 +331,7 @@ fn does_not_error_on_relative_parent_path() -> Result {
 }
 
 #[test]
+#[deps(NU)]
 fn move_files_using_glob_two_parents_up_using_multiple_dots() -> Result {
     Playground::setup("umv_test_12", |dirs, sandbox| {
         sandbox.within("foo").within("bar").with_files(&[
@@ -319,7 +342,11 @@ fn move_files_using_glob_two_parents_up_using_multiple_dots() -> Result {
             EmptyFile("many_more.ppl"),
         ]);
 
-        let () = test().cwd(dirs.test().join("foo/bar")).run("mv * ...")?;
+        let code = "mv * ...";
+        let result: CompleteResult = test()
+            .cwd(dirs.test().join("foo/bar"))
+            .run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
         let files = &[
             "yehuda.yaml",
@@ -339,14 +366,17 @@ fn move_files_using_glob_two_parents_up_using_multiple_dots() -> Result {
 }
 
 #[test]
+#[deps(NU)]
 fn move_file_from_two_parents_up_using_multiple_dots_to_current_dir() -> Result {
     Playground::setup("cp_test_10", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("hello_there")]);
         sandbox.within("foo").mkdir("bar");
 
-        let () = test()
+        let code = "mv .../hello_there .";
+        let result: CompleteResult = test()
             .cwd(dirs.test().join("foo/bar"))
-            .run("mv .../hello_there .")?;
+            .run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
         let expected = dirs.test().join("foo/bar/hello_there");
         let original = dirs.test().join("hello_there");
@@ -358,13 +388,16 @@ fn move_file_from_two_parents_up_using_multiple_dots_to_current_dir() -> Result 
 }
 
 #[test]
+#[deps(NU)]
 fn does_not_error_when_some_file_is_moving_into_itself() -> Result {
     Playground::setup("umv_test_13", |dirs, sandbox| {
         sandbox.mkdir("11").mkdir("12");
 
         let original_dir = dirs.test().join("11");
         let expected = dirs.test().join("12/11");
-        let () = test().cwd(dirs.test()).run("mv 1* 12")?;
+        let code = "mv 1* 12";
+        let result: CompleteResult = test().cwd(dirs.test()).run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
         assert!(!original_dir.exists());
         assert!(expected.exists());
@@ -373,25 +406,30 @@ fn does_not_error_when_some_file_is_moving_into_itself() -> Result {
 }
 
 #[test]
+#[deps(NU)]
 fn mv_ignores_ansi() -> Result {
     Playground::setup("umv_test_ansi", |_dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("test.txt")]);
 
-        test()
-            .cwd(sandbox.cwd())
-            .run("ls | find test | mv $in.0.name success.txt; ls | $in.0.name")
-            .expect_value_eq("success.txt")
+        let code = "ls | find test | mv $in.0.name success.txt; ls | $in.0.name";
+        let result: CompleteResult = test().cwd(sandbox.cwd()).run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
+        assert_eq!(result.stdout.trim(), "success.txt");
+        Ok(())
     })
 }
 
 #[test]
+#[deps(NU)]
 fn mv_directory_with_same_name() -> Result {
     Playground::setup("umv_test_directory_with_same_name", |_dirs, sandbox| {
         sandbox.mkdir("testdir");
         sandbox.mkdir("testdir/testdir");
 
         let cwd = sandbox.cwd().join("testdir");
-        let () = test().cwd(&cwd).run("mv testdir ..")?;
+        let code = "mv testdir ..";
+        let result: CompleteResult = test().cwd(&cwd).run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
         assert!(cwd.join("testdir").exists());
         Ok(())
@@ -405,6 +443,7 @@ fn mv_directory_with_same_name() -> Result {
 
 // Currently as we are using `uutils` and have no say in the behavior, this should succeed on Linux,
 // but fail on both macOS and Windows.
+#[deps(NU)]
 fn mv_change_case_of_directory() -> Result {
     Playground::setup("mv_change_case_of_directory", |dirs, sandbox| {
         sandbox
@@ -414,15 +453,9 @@ fn mv_change_case_of_directory() -> Result {
         let original_dir = String::from("somedir");
         let new_dir = String::from("SomeDir");
 
-        #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-        let () = test()
-            .cwd(dirs.test())
-            .run(format!("mv {original_dir} {new_dir}"))?;
-
-        #[cfg(not(any(target_os = "linux", target_os = "freebsd")))]
-        let () = test()
-            .cwd(dirs.test())
-            .run(format!("mv {original_dir} {new_dir}"))?;
+        let code = format!("mv {original_dir} {new_dir}");
+        let result: CompleteResult = test().cwd(dirs.test()).run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
         #[cfg(any(target_os = "linux", target_os = "freebsd"))]
         {
@@ -455,6 +488,7 @@ fn mv_change_case_of_directory() -> Result {
 
 #[test]
 // Currently as we are using `uutils` and have no say in the behavior, this is platform-dependent.
+#[deps(NU)]
 fn mv_change_case_of_file() -> Result {
     Playground::setup("mv_change_case_of_file", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("somefile.txt")]);
@@ -462,15 +496,9 @@ fn mv_change_case_of_file() -> Result {
         let original_file_name = String::from("somefile.txt");
         let new_file_name = String::from("SomeFile.txt");
 
-        #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-        let () = test()
-            .cwd(dirs.test())
-            .run(format!("mv {original_file_name} -f {new_file_name}"))?;
-
-        #[cfg(not(any(target_os = "linux", target_os = "freebsd")))]
-        let () = test()
-            .cwd(dirs.test())
-            .run(format!("mv {original_file_name} -f {new_file_name}"))?;
+        let code = format!("mv {original_file_name} -f {new_file_name}");
+        let result: CompleteResult = test().cwd(dirs.test()).run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
         #[cfg(any(target_os = "linux", target_os = "freebsd"))]
         {
@@ -499,6 +527,7 @@ fn mv_change_case_of_file() -> Result {
 
 #[test]
 #[ignore = "Update not supported..remove later"]
+#[deps(NU)]
 fn mv_with_update_flag() -> Result {
     Playground::setup("umv_with_update_flag", |_dirs, sandbox| {
         sandbox.with_files(&[
@@ -506,30 +535,28 @@ fn mv_with_update_flag() -> Result {
             FileWithContent("newer_valid.txt", "body"),
         ]);
 
-        test()
-            .cwd(sandbox.cwd())
-            .run("mv -uf valid.txt newer_valid.txt; open newer_valid.txt")
-            .expect_value_eq("body")?;
+        let code = "mv -uf valid.txt newer_valid.txt; open newer_valid.txt";
+        let result: CompleteResult = test().cwd(sandbox.cwd()).run_with_data(RUNNER, code)?;
+        assert_eq!(result.stdout.trim(), "body");
 
         // create a file after assert to make sure that newest_valid.txt is newest
         std::thread::sleep(std::time::Duration::from_secs(1));
         sandbox.with_files(&[FileWithContent("newest_valid.txt", "newest_body")]);
-        test()
-            .cwd(sandbox.cwd())
-            .run("mv -uf newest_valid.txt valid.txt; open valid.txt")
-            .expect_value_eq("newest_body")?;
+        let code = "mv -uf newest_valid.txt valid.txt; open valid.txt";
+        let result: CompleteResult = test().cwd(sandbox.cwd()).run_with_data(RUNNER, code)?;
+        assert_eq!(result.stdout.trim(), "newest_body");
 
         // when destination doesn't exist
         sandbox.with_files(&[FileWithContent("newest_valid.txt", "newest_body")]);
-        test()
-            .cwd(sandbox.cwd())
-            .run("mv -uf newest_valid.txt des_missing.txt; open des_missing.txt")
-            .expect_value_eq("newest_body")?;
+        let code = "mv -uf newest_valid.txt des_missing.txt; open des_missing.txt";
+        let result: CompleteResult = test().cwd(sandbox.cwd()).run_with_data(RUNNER, code)?;
+        assert_eq!(result.stdout.trim(), "newest_body");
         Ok(())
     })
 }
 
 #[test]
+#[deps(NU)]
 fn test_mv_no_clobber() -> Result {
     Playground::setup("umv_test_13", |dirs, sandbox| {
         let file_a = "test_mv_no_clobber_file_a";
@@ -537,31 +564,35 @@ fn test_mv_no_clobber() -> Result {
         sandbox.with_files(&[EmptyFile(file_a)]);
         sandbox.with_files(&[EmptyFile(file_b)]);
 
-        let () = test()
-            .cwd(dirs.test())
-            .run(format!("mv -n {file_a} {file_b}"))?;
+        let code = format!("mv -n {file_a} {file_b}");
+        let result: CompleteResult = test().cwd(dirs.test()).run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
-        test()
-            .cwd(dirs.test())
-            .run("ls test_mv* | length")
-            .expect_value_eq(2)
-    })
-}
-
-#[test]
-fn mv_with_no_arguments() -> Result {
-    Playground::setup("umv_test_14", |dirs, _| {
-        let err = test().cwd(dirs.test()).run("mv").expect_shell_error()?;
-        assert_contains("Missing file operand", err.to_string());
+        let code = "ls test_mv* | length";
+        let result: CompleteResult = test().cwd(dirs.test()).run_with_data(RUNNER, code)?;
+        assert_eq!(result.stdout.trim(), "2");
         Ok(())
     })
 }
 
 #[test]
+#[deps(NU)]
+fn mv_with_no_arguments() -> Result {
+    Playground::setup("umv_test_14", |dirs, _| {
+        let code = "mv";
+        let result: CompleteResult = test().cwd(dirs.test()).run_with_data(RUNNER, code)?;
+        assert_contains("Missing file operand", result.stderr);
+        Ok(())
+    })
+}
+
+#[test]
+#[deps(NU)]
 fn mv_with_no_target() -> Result {
     Playground::setup("umv_test_15", |dirs, _| {
-        let err = test().cwd(dirs.test()).run("mv a").expect_shell_error()?;
-        assert_contains("Missing destination path", err.to_string());
+        let code = "mv a";
+        let result: CompleteResult = test().cwd(dirs.test()).run_with_data(RUNNER, code)?;
+        assert_contains("Missing destination path", result.stderr);
         Ok(())
     })
 }
@@ -571,6 +602,12 @@ fn mv_with_no_target() -> Result {
 #[case("a[c")]
 #[case("a[bc]d")]
 #[case("a][c")]
+#[cfg(not(windows))]
+#[case("a]?c")]
+#[cfg(not(windows))]
+#[case("a*.?c")]
+#[nu_test_support::test]
+#[deps(NU)]
 fn mv_files_with_glob_metachars(#[case] src_name: &str) -> Result {
     Playground::setup("umv_test_16", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
@@ -580,11 +617,9 @@ fn mv_files_with_glob_metachars(#[case] src_name: &str) -> Result {
 
         let src = dirs.test().join(src_name);
 
-        let () = test().cwd(dirs.test()).run(format!(
-            "mv '{}' {}",
-            src.display(),
-            "hello_world_dest"
-        ))?;
+        let code = format!("mv '{}' {}", src.display(), "hello_world_dest");
+        let result: CompleteResult = test().cwd(dirs.test()).run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
         assert!(dirs.test().join("hello_world_dest").exists());
         Ok(())
@@ -596,6 +631,12 @@ fn mv_files_with_glob_metachars(#[case] src_name: &str) -> Result {
 #[case("a[c")]
 #[case("a[bc]d")]
 #[case("a][c")]
+#[cfg(not(windows))]
+#[case("a]?c")]
+#[cfg(not(windows))]
+#[case("a*.?c")]
+#[nu_test_support::test]
+#[deps(NU)]
 fn mv_files_with_glob_metachars_when_input_are_variables(#[case] src_name: &str) -> Result {
     Playground::setup("umv_test_18", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
@@ -605,42 +646,32 @@ fn mv_files_with_glob_metachars_when_input_are_variables(#[case] src_name: &str)
 
         let src = dirs.test().join(src_name);
 
-        let () = test().cwd(dirs.test()).run(format!(
-            "let f = '{}'; mv $f {}",
-            src.display(),
-            "hello_world_dest"
-        ))?;
+        let code = format!("let f = '{}'; mv $f {}", src.display(), "hello_world_dest");
+        let result: CompleteResult = test().cwd(dirs.test()).run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
         assert!(dirs.test().join("hello_world_dest").exists());
         Ok(())
     })
 }
 
-#[cfg(not(windows))]
-#[rstest]
-#[case("a]?c")]
-#[case("a*.?c")]
-// windows doesn't allow filename with `*`.
-fn mv_files_with_glob_metachars_nw(#[case] src_name: &str) -> Result {
-    mv_files_with_glob_metachars(src_name)?;
-    mv_files_with_glob_metachars_when_input_are_variables(src_name)
-}
-
 #[test]
+#[deps(NU)]
 fn mv_with_cd() -> Result {
     Playground::setup("umv_test_17", |_dirs, sandbox| {
         sandbox
             .mkdir("tmp_dir")
             .with_files(&[FileWithContent("tmp_dir/file.txt", "body")]);
 
-        test()
-            .cwd(sandbox.cwd())
-            .run("do { cd tmp_dir; let f = 'file.txt'; mv $f .. }; open file.txt")
-            .expect_value_eq("body")
+        let code = "do { cd tmp_dir; let f = 'file.txt'; mv $f .. }; open file.txt";
+        let result: CompleteResult = test().cwd(sandbox.cwd()).run_with_data(RUNNER, code)?;
+        assert_eq!(result.stdout.trim(), "body");
+        Ok(())
     })
 }
 
 #[test]
+#[deps(NU)]
 fn test_mv_inside_glob_metachars_dir() -> Result {
     Playground::setup("uv_files_inside_glob_metachars_dir", |dirs, sandbox| {
         let sub_dir = "test[]";
@@ -648,9 +679,11 @@ fn test_mv_inside_glob_metachars_dir() -> Result {
             .within(sub_dir)
             .with_files(&[FileWithContent("test_file.txt", "hello")]);
 
-        let () = test()
+        let code = "mv test_file.txt ../";
+        let result: CompleteResult = test()
             .cwd(dirs.test().join(sub_dir))
-            .run("mv test_file.txt ../")?;
+            .run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
         assert!(!files_exist_at(
             &["test_file.txt"],
@@ -662,6 +695,7 @@ fn test_mv_inside_glob_metachars_dir() -> Result {
 }
 
 #[test]
+#[deps(NU)]
 fn test_mv_wildcards() -> Result {
     Playground::setup("uv_with_wildcards", |dirs, sandbox| {
         let sub_dir = "test[]";
@@ -669,17 +703,21 @@ fn test_mv_wildcards() -> Result {
             .within(sub_dir)
             .with_files(&[FileWithContent(".a", "hello")]);
 
-        let err = test()
+        let code = "mv * ../";
+        let result: CompleteResult = test()
             .cwd(dirs.test().join(sub_dir))
-            .run("mv * ../")
-            .expect_shell_error()?;
+            .run_with_data(RUNNER, code)?;
         // by default, wildcard don't match dot files.
-        assert_contains("File not found", err.to_string());
+        assert_contains("File not found", result.stderr);
         assert!(files_exist_at(&[".a"], dirs.test().join(sub_dir)));
         assert!(!files_exist_at(&[".a"], dirs.test()));
 
         // unless `-a` flag is provided.
-        let () = test().cwd(dirs.test().join(sub_dir)).run("mv -a * ../")?;
+        let code = "mv -a * ../";
+        let result: CompleteResult = test()
+            .cwd(dirs.test().join(sub_dir))
+            .run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
         // by default, wildcard don't match dot files.
         assert!(!files_exist_at(&[".a"], dirs.test().join(sub_dir)));
         assert!(files_exist_at(&[".a"], dirs.test()));
@@ -688,6 +726,7 @@ fn test_mv_wildcards() -> Result {
 }
 
 #[test]
+#[deps(NU)]
 fn mv_with_tilde() -> Result {
     Playground::setup("mv_tilde", |dirs, sandbox| {
         sandbox.within("~tilde").with_files(&[
@@ -698,14 +737,16 @@ fn mv_with_tilde() -> Result {
         sandbox.within("~tilde2");
 
         // mv file
-        let () = test().cwd(dirs.test()).run("mv '~tilde/f1.txt' ./")?;
+        let code = "mv '~tilde/f1.txt' ./";
+        let result: CompleteResult = test().cwd(dirs.test()).run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
         assert!(!files_exist_at(&["f1.txt"], dirs.test().join("~tilde")));
         assert!(files_exist_at(&["f1.txt"], dirs.test()));
 
         // pass variable
-        let () = test()
-            .cwd(dirs.test())
-            .run("let f = '~tilde/f2.txt'; mv $f ./")?;
+        let code = "let f = '~tilde/f2.txt'; mv $f ./";
+        let result: CompleteResult = test().cwd(dirs.test()).run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
         assert!(!files_exist_at(&["f2.txt"], dirs.test().join("~tilde")));
         assert!(files_exist_at(&["f1.txt"], dirs.test()));
         Ok(())
@@ -713,16 +754,17 @@ fn mv_with_tilde() -> Result {
 }
 
 #[test]
+#[deps(NU)]
 fn mv_verbose_message_mentions_source_and_destination() -> Result {
     Playground::setup("umv_verbose_message", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("before.txt")]);
 
-        let message: String = test()
-            .cwd(dirs.test())
-            .run("mv -v before.txt after.txt | get 0.message")?;
+        let code = "mv -v before.txt after.txt";
+        let result: CompleteResult = test().cwd(dirs.test()).run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
-        assert_contains("before.txt", &message);
-        assert_contains("after.txt", message);
+        assert_contains("before.txt", &result.stdout);
+        assert_contains("after.txt", &result.stdout);
         assert!(dirs.test().join("after.txt").exists());
         assert!(!dirs.test().join("before.txt").exists());
         Ok(())
@@ -731,6 +773,7 @@ fn mv_verbose_message_mentions_source_and_destination() -> Result {
 
 #[test]
 #[exp(nu_experimental::DC_GLOB)]
+#[deps(NU)]
 fn mv_literal_directory() -> Result {
     Playground::setup("mv_literal_dir_dc", |dirs, sandbox| {
         sandbox
@@ -738,9 +781,9 @@ fn mv_literal_directory() -> Result {
             .with_files(&[EmptyFile("test.txt")]);
         sandbox.mkdir("dest");
 
-        let () = test()
-            .cwd(dirs.root())
-            .run("mv mv_literal_dir_dc/subdir mv_literal_dir_dc/dest")?;
+        let code = "mv mv_literal_dir_dc/subdir mv_literal_dir_dc/dest";
+        let result: CompleteResult = test().cwd(dirs.root()).run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
         assert!(!dirs.test().join("subdir").exists());
         assert!(dirs.test().join("dest/subdir/test.txt").exists());

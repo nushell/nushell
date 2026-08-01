@@ -986,6 +986,10 @@ fn test_cp_destination_after_cd() -> Result {
 #[case("a[c")]
 #[case("a[bc]d")]
 #[case("a][c")]
+#[cfg(not(windows))]
+#[case("'a]?c'")]
+#[cfg(not(windows))]
+#[case("'a*.?c'")]
 fn copies_files_with_glob_metachars(#[case] src_name: &str) -> Result {
     Playground::setup("ucp_test_34", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
@@ -1009,6 +1013,10 @@ fn copies_files_with_glob_metachars(#[case] src_name: &str) -> Result {
 #[case("a[c")]
 #[case("a[bc]d")]
 #[case("a][c")]
+#[cfg(not(windows))]
+#[case("'a]?c'")]
+#[cfg(not(windows))]
+#[case("'a*.?c'")]
 fn copies_files_with_glob_metachars_when_input_are_variables(#[case] src_name: &str) -> Result {
     Playground::setup("ucp_test_35", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
@@ -1026,16 +1034,6 @@ fn copies_files_with_glob_metachars_when_input_are_variables(#[case] src_name: &
         assert!(dirs.test().join(TEST_HELLO_WORLD_DEST).exists());
         Ok(())
     })
-}
-
-#[cfg(not(windows))]
-#[rstest]
-#[case("'a]?c'")]
-#[case("'a*.?c'")]
-// windows doesn't allow filename with `*`.
-fn copies_files_with_glob_metachars_nw(#[case] src_name: &str) -> Result {
-    copies_files_with_glob_metachars(src_name)?;
-    copies_files_with_glob_metachars_when_input_are_variables(src_name)
 }
 
 #[cfg(not(windows))]

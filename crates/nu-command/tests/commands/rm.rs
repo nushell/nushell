@@ -426,6 +426,9 @@ impl Drop for Cleanup<'_> {
 // permissions to work on all platforms.
 #[cfg(not(windows))]
 fn rm_prints_filenames_on_error() -> Result {
+    use nu_protocol::shell_error;
+    use pretty_assertions::assert_matches;
+
     Playground::setup("rm_prints_filenames_on_error", |dirs, sandbox| {
         let file_names = vec!["test1.txt", "test2.txt"];
 
@@ -443,16 +446,15 @@ fn rm_prints_filenames_on_error() -> Result {
         };
 
         // This rm is expected to fail, and stderr output indicating so is also expected.
-        let err = test()
-            .cwd(test_dir)
-            .run("rm test*.txt")
-            .expect_shell_error()?;
-        let err = err.to_string();
+        let err = test().cwd(test_dir).run("rm test*.txt").expect_io_error()?;
+        assert_matches!(
+            err.kind,
+            shell_error::io::ErrorKind::Std(std::io::ErrorKind::PermissionDenied, ..)
+        );
 
         assert!(files_exist_at(&file_names, test_dir));
         for file_name in file_names {
-            assert_contains("nu::shell::io::permission_denied", &err);
-            assert_contains(file_name, &err);
+            assert!(err.path.as_ref().unwrap().ends_with(file_name));
         }
         Ok(())
     })
