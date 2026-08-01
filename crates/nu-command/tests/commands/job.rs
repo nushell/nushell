@@ -297,7 +297,7 @@ fn jobs_get_removed_from_list_after_termination() -> Result {
 // TODO: find way to communicate between process in windows
 // so these tests can fail less often
 #[test]
-#[cfg_attr(ci, serial)] // seems to fail less often with this
+#[serial]
 #[deps(NU)]
 fn job_list_shows_pids() -> Result {
     let code = r#"
@@ -347,7 +347,7 @@ fn killing_job_removes_it_from_table() -> Result {
 #[rstest]
 #[timeout(Duration::from_secs(3))]
 #[nu_test_support::test]
-#[cfg_attr(ci, serial)]
+#[serial]
 #[deps(NU)]
 fn killing_job_kills_pids() -> Result {
     let code = r#"
@@ -402,7 +402,7 @@ fn killing_job_kills_pids() -> Result {
 }
 
 #[test]
-#[cfg_attr(ci, serial)]
+#[serial]
 #[deps(NU)]
 fn exiting_nushell_kills_jobs() -> Result {
     let code = r#"
