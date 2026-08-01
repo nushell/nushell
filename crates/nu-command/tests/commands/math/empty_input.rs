@@ -15,9 +15,7 @@ use rstest::rstest;
 #[case::stddev("math stddev")]
 #[case::variance("math variance")]
 fn empty_stream_matches_empty_list_error(#[case] cmd: &str) -> Result {
-    let list_err = test()
-        .run(format!("[] | {cmd}"))
-        .expect_shell_error()?;
+    let list_err = test().run(format!("[] | {cmd}")).expect_shell_error()?;
     let stream_err = test()
         .run(format!("[] | each {{ $in }} | {cmd}"))
         .expect_shell_error()?;
@@ -37,7 +35,9 @@ fn empty_stream_matches_empty_list_error(#[case] cmd: &str) -> Result {
 
 #[test]
 fn empty_stream_mode_matches_empty_list() -> Result {
-    test().run("[] | math mode").expect_value_eq(test_value!([]))?;
+    test()
+        .run("[] | math mode")
+        .expect_value_eq(test_value!([]))?;
     test()
         .run("[] | each { $in } | math mode")
         .expect_value_eq(test_value!([]))?;
