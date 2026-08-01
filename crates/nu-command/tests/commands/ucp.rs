@@ -986,9 +986,9 @@ fn test_cp_destination_after_cd() -> Result {
 #[case("a[c")]
 #[case("a[bc]d")]
 #[case("a][c")]
-#[cfg(not(windows))]
+#[cfg_attr(windows, ignore)]
 #[case("'a]?c'")]
-#[cfg(not(windows))]
+#[cfg_attr(windows, ignore)]
 #[case("'a*.?c'")]
 fn copies_files_with_glob_metachars(#[case] src_name: &str) -> Result {
     Playground::setup("ucp_test_34", |dirs, sandbox| {
@@ -1013,9 +1013,9 @@ fn copies_files_with_glob_metachars(#[case] src_name: &str) -> Result {
 #[case("a[c")]
 #[case("a[bc]d")]
 #[case("a][c")]
-#[cfg(not(windows))]
+#[cfg_attr(windows, ignore)]
 #[case("'a]?c'")]
-#[cfg(not(windows))]
+#[cfg_attr(windows, ignore)]
 #[case("'a*.?c'")]
 fn copies_files_with_glob_metachars_when_input_are_variables(#[case] src_name: &str) -> Result {
     Playground::setup("ucp_test_35", |dirs, sandbox| {

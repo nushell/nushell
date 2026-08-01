@@ -8,6 +8,7 @@ use std::fs;
 #[cfg(windows)]
 use std::{fs::OpenOptions, os::windows::fs::OpenOptionsExt};
 
+#[cfg(not(windows))]
 const RUNNER: &str = "let commands = $in; nu -n -c $commands | complete";
 
 #[test]
@@ -425,8 +426,8 @@ impl Drop for Cleanup<'_> {
 // This test is only about verifying file names are included in rm error messages. It is easier
 // to only have this work on non-windows systems (i.e., unix-like) than to try to get the
 // permissions to work on all platforms.
+#[cfg(not(windows))]
 #[test]
-#[cfg_attr(windows, ignore)]
 #[deps(NU)]
 fn rm_prints_filenames_on_error() -> Result {
     Playground::setup("rm_prints_filenames_on_error", |dirs, sandbox| {
