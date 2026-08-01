@@ -425,6 +425,10 @@ fn exiting_nushell_kills_jobs() -> Result {
 #[test]
 #[serial]
 #[deps(NU)]
+#[cfg_attr(
+    target_os = "macos",
+    ignore = "`process_group_id` not available in `ps -l`"
+)]
 fn jobs_get_group_id_right() -> Result {
     let code = r#"
         let job1 = job spawn { nu -c "sleep 0.5sec" | nu -c "sleep 0.5sec"; }

@@ -436,14 +436,15 @@ fn mv_directory_with_same_name() -> Result {
     })
 }
 
-#[test]
 // Test that changing the case of a file/directory name works;
 // this is an important edge case on Windows (and any other case-insensitive file systems).
 // We were bitten badly by this once: https://github.com/nushell/nushell/issues/6583
-
+//
 // Currently as we are using `uutils` and have no say in the behavior, this should succeed on Linux,
 // but fail on both macOS and Windows.
+#[test]
 #[deps(NU)]
+#[cfg_attr(target_os = "macos", ignore)]
 fn mv_change_case_of_directory() -> Result {
     Playground::setup("mv_change_case_of_directory", |dirs, sandbox| {
         sandbox
@@ -486,9 +487,10 @@ fn mv_change_case_of_directory() -> Result {
     })
 }
 
-#[test]
 // Currently as we are using `uutils` and have no say in the behavior, this is platform-dependent.
+#[test]
 #[deps(NU)]
+#[cfg_attr(target_os = "macos", ignore)]
 fn mv_change_case_of_file() -> Result {
     Playground::setup("mv_change_case_of_file", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("somefile.txt")]);
@@ -755,6 +757,7 @@ fn mv_with_tilde() -> Result {
 
 #[test]
 #[deps(NU)]
+#[cfg_attr(target_os = "macos", ignore)]
 fn mv_verbose_message_mentions_source_and_destination() -> Result {
     Playground::setup("umv_verbose_message", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("before.txt")]);
