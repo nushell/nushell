@@ -9,8 +9,7 @@ use semver::Prerelease;
 ///
 /// # Versioning policy (0.x)
 ///
-/// The protocol stays on a `0.x` line while the contract is still evolving (top-level messages use
-/// explicit serde, but many nested engine types still serialize via derive). Do not jump to `1.0.0`
+/// The protocol stays on a `0.x` line while the contract is still evolving. Do not jump to `1.0.0`
 /// until the wire contract is intentionally stable.
 ///
 /// Handshake compatibility uses a semver **caret** against the lower of the two versions. On `0.x`
@@ -19,19 +18,23 @@ use semver::Prerelease;
 /// | Change | Bump |
 /// | --- | --- |
 /// | Breaking wire change (rename/remove field/variant, change meaning) | **minor** (`0.1` → `0.2`) |
+/// | New/changed wire variant for `Value` or top-level messages | **minor** |
 /// | Additive change older peers must not see without negotiation | **minor** (or Feature-gated) |
 /// | Compatible fix that preserves accepted messages | **patch** (`0.1.0` → `0.1.1`) |
 /// | Documentation only | none |
 ///
-/// # Nested types still coupled to the engine
+/// # Maintainer tripwire (`wire` module)
 ///
-/// Explicit serde on `PluginInput` / `PluginOutput` does **not** fully freeze nested payloads such
-/// as `Value` subfields beyond the explicit `Value` mapping, `ShellError`, `Config`, `PluginSignature`,
-/// `ast::Call`, `IrBlock`, and similar. Prefer wire **serialization snapshots** as the CI guardrail;
-/// bump this constant when those nested shapes change on the wire in a compatibility-sensitive way.
+/// Public protocol types serialize through private wire DTOs in this crate (`wire` module):
 ///
-/// `0.1.0` is the first freeze of the **current** wire surface under separate protocol versioning
-/// (not a claim that the wire still matches historical Nushell 0.93).
+/// - Exhaustive mapping of `Value` ↔ wire value (new `Value` variants fail compile until mapped).
+/// - Exhaustive mapping of top-level `PluginInput` / `PluginOutput` (and related envelopes).
+/// - Nested engine payloads (`ShellError`, `Config`, signatures, AST/IR, …) still use derive;
+///   keep **protocol_snapshots** green and bump this constant when those bytes change in a
+///   compatibility-sensitive way.
+///
+/// `0.1.0` freezes the **current** wire surface under separate protocol versioning (not a claim
+/// that the wire still matches historical Nushell 0.93).
 pub const PLUGIN_PROTOCOL_VERSION: &str = "0.1.0";
 
 /// Protocol information, sent as a `Hello` message on initialization. This determines the

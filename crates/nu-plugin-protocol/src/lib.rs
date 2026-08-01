@@ -12,15 +12,21 @@
 //! # Protocol version vs Nushell version
 //!
 //! Compatibility is based on [`PLUGIN_PROTOCOL_VERSION`] (the `Hello` handshake), not the Nushell
-//! package version. Nested engine types that still serialize via derive remain a known coupling;
-//! prefer wire serialization snapshots when changing anything that travels over the plugin wire.
+//! package version.
+//!
+//! # Wire mapping (maintainer tripwire)
+//!
+//! Serde for public protocol types goes through a private [`wire`] module (in-crate shim):
+//! exhaustive `From` mappings into derive-based wire DTOs. Adding a `Value` variant or a
+//! top-level protocol message case fails to compile until the mapping is updated. Nested engine
+//! payloads (`ShellError`, `Config`, AST/IR, …) still use their own derives; prefer
+//! `protocol_snapshots/` when those wire shapes change, and bump the protocol version on 0.x
+//! **minor** for incompatible wire changes.
 
 mod evaluated_call;
 mod plugin_custom_value;
 mod protocol_info;
-#[cfg(feature = "schema")]
-pub mod schema;
-mod serde_impl;
+mod wire;
 
 #[cfg(test)]
 mod tests;

@@ -247,16 +247,6 @@ fn plugin_output_engine_call_matches_snapshot() {
     assert_json_snapshot(actual, expected);
 }
 
-#[cfg(feature = "schema")]
-#[test]
-fn protocol_schema_matches_snapshot() {
-    let actual = crate::schema::plugin_protocol_schema_json()
-        .expect("plugin protocol schema should serialize to json");
-    let expected = include_str!("../protocol_schema/plugin_protocol.schema.json");
-
-    assert_json_snapshot(actual, expected);
-}
-
 #[test]
 fn plugin_input_signal_json_shape_is_explicit() {
     let input = PluginInput::Signal(nu_protocol::SignalAction::Interrupt);

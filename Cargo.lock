@@ -5192,10 +5192,10 @@ dependencies = [
 name = "nu-plugin-protocol"
 version = "0.114.2"
 dependencies = [
+ "chrono",
  "nu-protocol",
  "nu-utils",
  "rmp-serde",
- "schemars",
  "semver",
  "serde",
  "serde_json",
