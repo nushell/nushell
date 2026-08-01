@@ -4953,6 +4953,7 @@ dependencies = [
  "nu-command",
  "nu-engine",
  "nu-parser",
+ "nu-path",
  "nu-protocol",
  "nu-utils",
  "pretty_assertions",

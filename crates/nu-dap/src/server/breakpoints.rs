@@ -15,7 +15,7 @@ impl Session {
                 return;
             }
         };
-        let path = args.source.path.as_deref().map(crate::paths::canonical_str);
+        let path = args.source.path.as_deref().map(crate::paths::canonical);
 
         let mut verified = Vec::new();
         if let (Some(state), Some(path)) = (&self.state, path) {

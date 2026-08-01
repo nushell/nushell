@@ -1,33 +1,20 @@
-//! Path normalization shared by everything that compares file paths
-//! (breakpoints, the source map, the parser's view of the script).
-//!
-//! `std::fs::canonicalize` on Windows returns verbatim paths (`\\?\C:\…`).
-//! Those don't survive naive joining (forward slashes aren't separators in
-//! verbatim form), which breaks nu's `source` resolution, and they'd have to
-//! be stripped identically on every comparison anyway. So: canonicalize,
-//! then strip the verbatim prefix once, here.
+//! One comparison key per file, for breakpoints and the source map. The same
+//! file arrives spelled differently: absolute from the client, relative or
+//! tilde'd from the engine.
 
 use std::path::Path;
 
-/// Canonicalize and de-verbatim. Falls back to the input when the file
-/// doesn't exist (or the name isn't a real path).
-pub(crate) fn canonical(p: &Path) -> String {
-    match std::fs::canonicalize(p) {
-        Ok(c) => strip_verbatim(&c.to_string_lossy()),
-        Err(_) => p.to_string_lossy().to_string(),
-    }
-}
-
-pub(crate) fn canonical_str(p: &str) -> String {
-    canonical(Path::new(p))
-}
-
-pub(crate) fn strip_verbatim(s: &str) -> String {
-    if let Some(rest) = s.strip_prefix(r"\\?\UNC\") {
-        format!(r"\\{rest}")
-    } else if let Some(rest) = s.strip_prefix(r"\\?\") {
-        rest.to_string()
-    } else {
-        s.to_string()
-    }
+/// Canonicalize into a comparison key; unresolvable names pass through.
+///
+/// [`nu_path::canonicalize_with`] rather than std, so the Windows `\\?\`
+/// verbatim prefix is stripped — verbatim paths break nu's `source` joining.
+/// The base is the process cwd rather than an argument, because
+/// `setBreakpoints` can arrive before `launch`. Unresolvable names pass
+/// through instead of expanding lexically: `<entry-call>` is not a file.
+pub(crate) fn canonical(p: impl AsRef<Path>) -> String {
+    let p = p.as_ref();
+    let cwd = std::env::current_dir().unwrap_or_else(|_| ".".into());
+    nu_path::canonicalize_with(p, cwd)
+        .map(|c| c.to_string_lossy().into_owned())
+        .unwrap_or_else(|_| p.to_string_lossy().into_owned())
 }

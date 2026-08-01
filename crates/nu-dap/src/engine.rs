@@ -101,7 +101,7 @@ impl Target {
     fn resolve(launch: &LaunchArgs) -> Result<Self, String> {
         // Canonical but NOT verbatim (\\?\): verbatim paths break nu's path
         // joining when the script `source`s siblings. See paths.rs.
-        let program = std::path::PathBuf::from(crate::paths::canonical_str(&launch.program));
+        let program = std::path::PathBuf::from(crate::paths::canonical(&launch.program));
         let contents = std::fs::read(&program)
             .map_err(|e| format!("cannot read {}: {e}", program.display()))?;
 

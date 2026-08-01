@@ -36,7 +36,7 @@ impl SourceMap {
             // Canonicalize so `source helper.nu` compares equal to the client's
             // absolute breakpoint paths (relative names resolve against the
             // launch cwd; non-file names fail and are kept as-is).
-            let name = crate::paths::canonical_str(&cached.name);
+            let name = crate::paths::canonical(&*cached.name);
             if self.files.contains_key(&name) {
                 continue;
             }
