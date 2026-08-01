@@ -55,19 +55,46 @@ A stream is **not** a `Value` — it is `PipelineData`, so it never appears in t
 table above. It still reaches the client, because the Pipeline scope shows the
 value flowing into a command and that value is frequently a stream.
 
-Streams are *described*, never drained: reading one to render it would consume
-the program's own data. `describe_stream` produces the same wording as
-`describe --no-collect`, plus a size when the stream knows it:
+Streams are *described*, never drained. Two reasons, and the second is the
+harder one:
 
-| Pipeline data | Rendered as |
+1. Reading a stream to render it would consume the program's own data.
+2. Pulling even a *single* element would run the upstream closure from inside a
+   debugger callback — re-entering the evaluator while it holds the
+   `EngineState.debugger` mutex.
+
+So everything reported is static. Base wording follows `describe --no-collect`;
+the rest is what the stream and its pipeline metadata already carry:
+
+| Source | Rendered as |
 |---|---|
-| `ListStream` | `<list stream>` |
-| `ByteStream` from a child process | `<binary (stream) from external>` |
-| `ByteStream` from a file, size known | `<string (stream) from file, 1024 bytes>` |
-| `ByteStream`, source unknown | `<byte stream from unknown>` |
-| anything else | `<stream>` |
+| `[1 2 3] \| each {\|x\| $x * 2}` | `<list stream from \`each\`>` |
+| `[1 2 3] \| where {\|x\| $x > 2}` | `<list stream from \`where\`>` |
+| `open --raw Cargo.toml` | `<byte stream from \`open\`, Cargo.toml, text/x-toml>` |
+| `open --raw README.md` | `<byte stream from \`open\`, README.md, text/markdown>` |
+| `"a-b" \| split row "-"` | `<list stream>` |
+| a child process, size known | `<binary (stream) from \`^cmd\`, 1024 bytes>` |
+| no command, no metadata | `<byte stream from file>` |
 
-Where they show up: the Pipeline scope (`in → cmd`), the `return` row when a
+Four things are discoverable without touching the data:
+
+- **The producing command**, from the stream's span — the difference between
+  "a list stream" and *which* list stream when several are in flight.
+- **The file**, from `PipelineMetadata::data_source`, which `open` sets.
+- **The content type**, which `open` sniffs from the extension.
+- **The size**, when the stream knows it.
+
+The last row above is the honest failure case: a stream's span is not always a
+command. `"a-b" | split row "-"` leaves the list stream pointing at the string
+*literal*, and `from \`"a-b"\`` would be worse than silence — so a span that
+doesn't read as a command name is dropped, falling back to the origin
+(`file` / `external` / `unknown`) or to the bare kind.
+
+**What is not discoverable:** the element type of a list stream. Nothing short
+of pulling an element can know it, and pulling one is exactly what reason 2
+above forbids.
+
+Where streams show up: the Pipeline scope (`in → cmd`), the `return` row when a
 command hands back a stream, and pipe-stage input during a step-into walk.
 
 **Known limitation.** The description is wrapped in `Value::string` at the call

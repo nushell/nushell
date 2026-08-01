@@ -104,7 +104,7 @@ impl DapDebugger {
                     // Streams can't be inspected without draining them,
                     // but kind/origin/size are known without reading.
                     let v = nu_protocol::Value::string(
-                        crate::variables::describe_stream(other),
+                        crate::variables::describe_stream(other, engine_state),
                         Span::unknown(),
                     );
                     pipeline_children.push(add_value(&mut snap, name, &v, 0));

@@ -515,7 +515,7 @@ impl DapDebugger {
         }
     }
 
-    fn capture_last_return_value(&mut self, site: &Site<'_>) {
+    fn capture_last_return_value(&mut self, engine_state: &EngineState, site: &Site<'_>) {
         let reg = match *site.instruction() {
             Instruction::Call { src_dst, .. } => Some(src_dst.get() as usize),
             Instruction::Return { src } => Some(src.get() as usize),
@@ -528,7 +528,10 @@ impl DapDebugger {
             self.last_result = Some(match &r.body {
                 PipelineData::Value(v, _) => v.clone(),
                 PipelineData::Empty => Value::nothing(Span::unknown()),
-                other => Value::string(crate::variables::describe_stream(other), Span::unknown()),
+                other => Value::string(
+                    crate::variables::describe_stream(other, engine_state),
+                    Span::unknown(),
+                ),
             });
         }
     }
@@ -686,7 +689,10 @@ fn pipe_input_at(
         }
         other @ (PipelineData::ListStream(..) | PipelineData::ByteStream(..)) => Some((
             name(),
-            Value::string(crate::variables::describe_stream(other), Span::unknown()),
+            Value::string(
+                crate::variables::describe_stream(other, engine_state),
+                Span::unknown(),
+            ),
         )),
         _ => None,
     }
@@ -815,6 +821,6 @@ impl Debugger for DapDebugger {
             return;
         }
 
-        self.capture_last_return_value(&site);
+        self.capture_last_return_value(engine_state, &site);
     }
 }

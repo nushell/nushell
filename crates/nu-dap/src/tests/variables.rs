@@ -418,6 +418,78 @@ fn closure_inside_a_record_previews() {
     assert_eq!(render_with_labels(&v), "{f: …, n: 1}");
 }
 
+// --- streams -----------------------------------------------------------
+
+/// A stream is `PipelineData`, not a `Value`, so it has no row in the tables
+/// above — but the Pipeline scope shows one whenever a stage hands one on.
+///
+/// Everything reported is static. Draining would eat the program's data, and
+/// pulling even one element would re-enter the evaluator from inside a
+/// debugger callback, so the element type is knowingly absent.
+#[rstest]
+// The span names the producing command, which is what tells two live streams
+// apart.
+#[case::command("[1 2 3] | each {|x| $x * 2}", "<list stream from `each`>")]
+#[case::another_command("[1 2 3] | where {|x| $x > 2}", "<list stream from `where`>")]
+// A stream's span is not always a command: here it lands on the *literal*
+// feeding the pipeline, and `from `"a-b"`` would be worse than saying nothing.
+#[case::span_is_a_literal("\"a-b\" | split row \"-\"", "<list stream>")]
+fn describe_stream_names_the_producer(#[case] script: &str, #[case] expected: &str) {
+    let (engine_state, data) = eval_to_stream(script);
+    assert_eq!(
+        crate::variables::describe_stream(&data, &engine_state),
+        expected
+    );
+}
+
+/// `open` records the file and sniffs a content type, so a byte stream can say
+/// what it is without a single byte being read.
+#[test]
+fn describe_stream_reports_file_and_content_type() {
+    let (engine_state, data) = eval_to_stream("open --raw Cargo.toml");
+    assert_eq!(
+        crate::variables::describe_stream(&data, &engine_state),
+        "<byte stream from `open`, Cargo.toml, text/x-toml>"
+    );
+}
+
+/// Run `script` far enough to get its pipeline data, without draining it.
+fn eval_to_stream(script: &str) -> (nu_protocol::engine::EngineState, nu_protocol::PipelineData) {
+    use nu_protocol::debugger::WithoutDebug;
+    use nu_protocol::engine::{Stack, StateWorkingSet};
+
+    let mut engine_state = nu_cmd_lang::create_default_context();
+    engine_state = nu_command::add_shell_command_context(engine_state);
+    engine_state.add_env_var(
+        "PWD".to_string(),
+        Value::string(
+            std::env::current_dir().expect("cwd").to_string_lossy(),
+            Span::unknown(),
+        ),
+    );
+    let block = {
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        let block = nu_parser::parse(&mut working_set, Some("test.nu"), script.as_bytes(), false);
+        assert!(
+            working_set.parse_errors.is_empty(),
+            "parse: {:?}",
+            working_set.parse_errors
+        );
+        let delta = working_set.render();
+        engine_state.merge_delta(delta).expect("merge");
+        block
+    };
+    let mut stack = Stack::new();
+    let data = nu_engine::eval_block::<WithoutDebug>(
+        &engine_state,
+        &mut stack,
+        &block,
+        nu_protocol::PipelineData::empty(),
+    )
+    .expect("eval");
+    (engine_state, data.body)
+}
+
 // --- behaviour that is not per-variant ---------------------------------
 
 #[test]

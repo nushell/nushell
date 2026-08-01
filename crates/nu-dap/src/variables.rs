@@ -217,20 +217,31 @@ fn cap(s: &str, max: usize) -> String {
     format!("{head}…")
 }
 
-/// Describe a stream without consuming it (draining would eat the
-/// program's data): kind, origin, and size when known.
+/// Describe a stream without consuming it — draining would eat the program's
+/// own data, and pulling even one element would run upstream closures from
+/// inside a debugger callback, re-entering the evaluator while it holds the
+/// `EngineState.debugger` mutex. So everything here is *static*: kind, origin,
+/// size, the command that produced it, and whatever the pipeline metadata
+/// already carries.
 ///
-/// Wording follows `describe --no-collect` so the debugger and the shell name
-/// the same stream the same way. `describe`'s own code can't be called here:
-/// it takes `PipelineData` by value (it drains, or calls `into_debug_value`),
-/// while a paused debugger only ever borrows the register it is looking at.
-pub(crate) fn describe_stream(data: &nu_protocol::PipelineData) -> String {
+/// The element type of a list stream is deliberately absent: nothing short of
+/// pulling an element can know it.
+///
+/// Base wording follows `describe --no-collect`, so the debugger and the shell
+/// name the same stream the same way. `describe`'s own code can't be called
+/// here: it takes `PipelineData` by value (it drains, or calls
+/// `into_debug_value`), while a paused debugger only ever borrows the register
+/// it is looking at.
+pub(crate) fn describe_stream(
+    data: &nu_protocol::PipelineData,
+    engine_state: &EngineState,
+) -> String {
     use nu_protocol::{ByteStreamSource, PipelineData};
-    match data {
-        PipelineData::ByteStream(bs, _) => {
+    let (kind, origin, size, span, meta) = match data {
+        PipelineData::ByteStream(bs, meta) => {
             // Same call `describe` makes: "binary (stream)" / "string (stream)"
             // / "byte stream".
-            let kind = bs.type_().describe();
+            let kind = bs.type_().describe().to_string();
             // Origin names match the `origin` field of `describe --detailed`.
             let origin = match bs.source() {
                 ByteStreamSource::Read(_) => "unknown",
@@ -238,15 +249,65 @@ pub(crate) fn describe_stream(data: &nu_protocol::PipelineData) -> String {
                 ByteStreamSource::Child(_) => "external",
             };
             // Size is ours: `describe` never reports it, but it costs nothing.
-            match bs.known_size() {
-                Some(n) => format!("<{kind} from {origin}, {n} bytes>"),
-                None => format!("<{kind} from {origin}>"),
-            }
+            (kind, Some(origin), bs.known_size(), Some(bs.span()), meta)
         }
         // `describe --detailed` calls this a "list stream".
-        PipelineData::ListStream(..) => "<list stream>".to_string(),
-        _ => "<stream>".to_string(),
+        PipelineData::ListStream(ls, meta) => {
+            ("list stream".to_string(), None, None, Some(ls.span()), meta)
+        }
+        _ => ("stream".to_string(), None, None, None, &None),
+    };
+
+    // The stream's span is the command that produced it (`each`, `where`,
+    // `open`) — the difference between "a list stream" and *which* list stream
+    // when several are in flight. It subsumes the origin: `open` means a file,
+    // `^cmd` means an external, so only fall back to the origin without it.
+    let producer = span.and_then(|s| command_word(engine_state, s));
+    let mut parts = match (&producer, origin) {
+        (Some(p), _) => vec![format!("{kind} from `{p}`")],
+        (None, Some(o)) => vec![format!("{kind} from {o}")],
+        (None, None) => vec![kind],
+    };
+
+    if let Some(meta) = meta {
+        // Set by `open`: the file the bytes are coming from.
+        if let nu_protocol::DataSource::FilePath(path) = &meta.data_source {
+            parts.push(
+                path.file_name()
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_else(|| path.to_string_lossy().to_string()),
+            );
+        }
+        // Sniffed by `open` from the extension: `text/x-toml`, `application/json`.
+        if let Some(ct) = &meta.content_type {
+            parts.push(ct.clone());
+        }
     }
+
+    if let Some(n) = size {
+        parts.push(format!("{n} bytes"));
+    }
+
+    format!("<{}>", parts.join(", "))
+}
+
+/// The producing command's name from a span, when the span actually points at
+/// one.
+///
+/// A stream's span is not always a command: `"a-b" | split row "-" | get 0`
+/// leaves the list stream pointing at the *literal* `"a-b"`, and `from `"a-b"``
+/// is worse than saying nothing. So this accepts only what reads as a command
+/// — an identifier, optionally `^`-prefixed for an external — and gives up
+/// otherwise.
+fn command_word(engine_state: &EngineState, span: nu_protocol::Span) -> Option<String> {
+    let raw = String::from_utf8_lossy(engine_state.get_span_contents(span));
+    let word = raw.split_whitespace().next()?;
+    let name = word.strip_prefix('^').unwrap_or(word);
+    let looks_like_a_command = name.starts_with(|c: char| c.is_ascii_alphabetic())
+        && name
+            .chars()
+            .all(|c| c.is_alphanumeric() || matches!(c, '-' | '_' | '.' | '/' | '\\'));
+    looks_like_a_command.then(|| word.to_string())
 }
 
 /// One-token rendering used inside list/record previews. Lossier than a full
