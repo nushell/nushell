@@ -270,15 +270,15 @@ impl Command for DapInputList {
         }
         const MAX_ITEMS: usize = 1000;
         let config = engine_state.get_config();
-        let closures = self
+        let cache = self
             .state
-            .closures
+            .cache
             .lock()
-            .expect("closures poisoned")
+            .expect("render cache poisoned")
             .clone();
         let ctx = crate::variables::RenderCtx {
             config,
-            closures: &closures,
+            cache: &cache,
         };
         let labels: Vec<String> = items
             .iter()

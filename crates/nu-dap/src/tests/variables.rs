@@ -12,7 +12,7 @@
 //! Everything else in this file tests behaviour that is not per-variant:
 //! truncation, container previews, and the truncated-flag plumbing.
 
-use crate::state::ClosureLabels;
+use crate::state::RenderCache;
 use crate::variables::{JSON_MAX_ITEMS, RenderCtx, scalar_preview, short_render, to_preview_json};
 use chrono::{DateTime, FixedOffset};
 use nu_protocol::ast::{CellPath, PathMember, RangeInclusion};
@@ -30,12 +30,12 @@ use serde_json::json;
 /// care supply their own map.
 fn render(value: &Value) -> String {
     let config = Config::default();
-    let closures = ClosureLabels::new();
+    let cache = RenderCache::default();
     short_render(
         value,
         RenderCtx {
             config: &config,
-            closures: &closures,
+            cache: &cache,
         },
     )
 }
@@ -43,12 +43,12 @@ fn render(value: &Value) -> String {
 /// As `render`, with a label registered for [`CLOSURE_BLOCK`].
 fn render_with_labels(value: &Value) -> String {
     let config = Config::default();
-    let closures = labels();
+    let cache = cache();
     short_render(
         value,
         RenderCtx {
             config: &config,
-            closures: &closures,
+            cache: &cache,
         },
     )
 }
@@ -60,7 +60,7 @@ fn preview_json(value: &Value) -> serde_json::Value {
 /// The payload plus whether any bound was hit.
 fn preview_json_flagged(value: &Value) -> (serde_json::Value, bool) {
     let config = Config::default();
-    let closures = labels();
+    let cache = cache();
     let mut truncated = false;
     let json = to_preview_json(
         value,
@@ -68,7 +68,7 @@ fn preview_json_flagged(value: &Value) -> (serde_json::Value, bool) {
         &mut truncated,
         RenderCtx {
             config: &config,
-            closures: &closures,
+            cache: &cache,
         },
     );
     (json, truncated)
@@ -77,9 +77,12 @@ fn preview_json_flagged(value: &Value) -> (serde_json::Value, bool) {
 /// Block id used by the closure fixtures below.
 const CLOSURE_BLOCK: usize = 7;
 
-/// Stands in for what `collect_closure_labels` reads out of the engine.
-fn labels() -> ClosureLabels {
-    ClosureLabels::from([(CLOSURE_BLOCK, "{|x| $x * 2}".to_string())])
+/// Stands in for what `collect_render_cache` reads out of the engine.
+fn cache() -> RenderCache {
+    RenderCache {
+        closure_src: std::collections::HashMap::from([(CLOSURE_BLOCK, "{|x| $x * 2}".to_string())]),
+        var_names: std::collections::HashMap::from([(100, "n".to_string())]),
+    }
 }
 
 // --- one constructor per awkward variant -------------------------------
@@ -361,6 +364,46 @@ fn closure_captures_show_without_a_label() {
         captures: vec![(nu_protocol::VarId::new(1), Value::test_int(1))],
     });
     assert_eq!(render_with_labels(&unknown), "<closure> +1 capture");
+}
+
+/// The count in the row is a summary; the values themselves are the closure's
+/// children, so expanding it shows what it closed over under the source names.
+#[test]
+fn closure_captures_are_children() {
+    let mut snap = crate::state::PauseSnapshot::new();
+    snap.cache = std::sync::Arc::new(cache());
+    let captured = Value::test_closure(Closure {
+        block_id: BlockId::new(CLOSURE_BLOCK),
+        captures: vec![(nu_protocol::VarId::new(100), Value::test_int(10))],
+    });
+
+    let idx = crate::variables::add_value(&mut snap, "scaled".into(), &captured, 0);
+    let node = &snap.var_arena[idx];
+    assert_ne!(
+        node.var.variables_reference, 0,
+        "a capturing closure is expandable"
+    );
+
+    let children: Vec<(String, String)> = node
+        .children
+        .iter()
+        .map(|&i| {
+            (
+                snap.var_arena[i].var.name.clone(),
+                snap.var_arena[i].var.value.clone(),
+            )
+        })
+        .collect();
+    assert_eq!(children, vec![("n".to_string(), "10".to_string())]);
+}
+
+/// Nothing to expand when nothing was captured — no empty twisty in the pane.
+#[test]
+fn closure_without_captures_is_a_leaf() {
+    let mut snap = crate::state::PauseSnapshot::new();
+    snap.cache = std::sync::Arc::new(cache());
+    let idx = crate::variables::add_value(&mut snap, "double".into(), &closure(), 0);
+    assert_eq!(snap.var_arena[idx].var.variables_reference, 0);
 }
 
 /// Closures nest like anything else: inside a record the row still previews.

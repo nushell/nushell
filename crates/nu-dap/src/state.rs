@@ -57,20 +57,29 @@ pub(crate) struct PauseSnapshot {
     /// use nushell's own value formatting. Cloned from `engine_state` by the
     /// eval thread; the server thread only ever reads this `Arc`.
     pub(crate) config: Arc<nu_protocol::Config>,
-    /// Closure source text by block id — same deal as `config`: resolving a
-    /// `BlockId` needs `engine_state`, which the server thread can't reach.
-    pub(crate) closures: Arc<ClosureLabels>,
+    /// Engine-derived rendering facts — same deal as `config`: resolving a
+    /// `BlockId` or `VarId` needs `engine_state`, which the server can't reach.
+    pub(crate) cache: Arc<RenderCache>,
 }
 
-/// A closure's source text, keyed by the `BlockId` its `Value::Closure`
-/// carries. Built once after the script is parsed (blocks don't change after
-/// that) and shared by both threads, so `<closure>` can read as the literal
-/// the user actually wrote.
+/// The engine-derived facts rendering needs, resolved once after the script is
+/// parsed and shared by both threads. The server thread can't reach
+/// `EngineState` (see the concurrency rule above), so anything that needs a
+/// `BlockId` or `VarId` looked up has to arrive pre-computed.
 ///
 /// Sized by the program, not the data: registering commands adds *decls*, not
-/// blocks, so a small script yields a handful of entries. Each is capped, so a
-/// long closure body can't bloat the map either.
-pub(crate) type ClosureLabels = HashMap<usize, String>;
+/// blocks, so a small script yields a handful of entries.
+#[derive(Debug, Default)]
+pub(crate) struct RenderCache {
+    /// Closure source text by block id, so a closure row can read as the
+    /// literal the user wrote. Each entry is capped, so a long closure body
+    /// can't bloat the map.
+    pub(crate) closure_src: HashMap<usize, String>,
+    /// Names of variables that some closure captures, by var id — the labels
+    /// for the capture rows under an expanded closure. Only captured vars are
+    /// stored, not every variable in the program.
+    pub(crate) var_names: HashMap<usize, String>,
+}
 
 impl PauseSnapshot {
     pub(crate) const LOCALS_REF: i64 = 1;
@@ -87,7 +96,7 @@ impl PauseSnapshot {
             var_arena: Vec::new(),
             next_ref: 7, // 1..=6 reserved for scope roots
             config: Arc::default(),
-            closures: Arc::default(),
+            cache: Arc::default(),
         }
     }
 
@@ -327,14 +336,14 @@ pub(crate) struct DebugState {
     /// the snapshot is ready" if it ever needs to (not required for v1:
     /// the `stopped` event is only sent after the snapshot is built).
     pub(crate) paused_cv: Condvar,
-    /// Closure labels, built once by the eval thread right after the parse
+    /// Rendering facts, built once by the eval thread right after the parse
     /// (`engine::run`) and read by both.
     ///
     /// Lock discipline: innermost. It is taken under `session_state`
     /// (`build_snapshot`, `timetravel`) but never the other way round, and
     /// every use is a clone-and-release of the `Arc` — nothing is called while
     /// holding it, so it cannot be half of a cycle.
-    pub(crate) closures: Mutex<Arc<ClosureLabels>>,
+    pub(crate) cache: Mutex<Arc<RenderCache>>,
 }
 
 impl DebugState {
@@ -375,7 +384,7 @@ impl DebugState {
             scratch: Mutex::new(None),
             resume_cv: Condvar::new(),
             paused_cv: Condvar::new(),
-            closures: Mutex::new(Arc::new(ClosureLabels::new())),
+            cache: Mutex::new(Arc::default()),
         }
     }
 

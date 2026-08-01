@@ -192,10 +192,10 @@ impl Session {
                 // an empty label map just leaves a closure as `<closure>`.
                 let (result, var_ref, type_) = parts.unwrap_or_else(|| {
                     let config = nu_protocol::Config::default();
-                    let closures = crate::state::ClosureLabels::new();
+                    let cache = crate::state::RenderCache::default();
                     let ctx = crate::variables::RenderCtx {
                         config: &config,
-                        closures: &closures,
+                        cache: &cache,
                     };
                     (crate::variables::short_render(&v, ctx), 0, None)
                 });

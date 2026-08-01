@@ -143,13 +143,13 @@ impl DapDebugger {
     fn render_parts(
         &self,
         engine_state: &EngineState,
-    ) -> (Arc<nu_protocol::Config>, Arc<crate::state::ClosureLabels>) {
+    ) -> (Arc<nu_protocol::Config>, Arc<crate::state::RenderCache>) {
         (
             engine_state.get_config().clone(),
             self.state
-                .closures
+                .cache
                 .lock()
-                .expect("closures poisoned")
+                .expect("render cache poisoned")
                 .clone(),
         )
     }
@@ -408,10 +408,10 @@ impl DapDebugger {
                 Ok(Value::Bool { val: false, .. }) => (None, None),
                 // Pause on a broken condition rather than skip the breakpoint.
                 Ok(v) => {
-                    let (config, closures) = self.render_parts(engine_state);
+                    let (config, cache) = self.render_parts(engine_state);
                     let ctx = crate::variables::RenderCtx {
                         config: &config,
-                        closures: &closures,
+                        cache: &cache,
                     };
                     (
                         Some("breakpoint"),
@@ -438,12 +438,12 @@ impl DapDebugger {
         match self.scratch_eval(cond) {
             Ok(Value::Bool { val, .. }) => val,
             Ok(v) => {
-                let (config, closures) = self.render_parts(engine_state);
+                let (config, cache) = self.render_parts(engine_state);
                 let rendered = crate::variables::short_render(
                     &v,
                     crate::variables::RenderCtx {
                         config: &config,
-                        closures: &closures,
+                        cache: &cache,
                     },
                 );
                 self.writer.output(

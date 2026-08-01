@@ -3,7 +3,7 @@
 //! everything else renders as a leaf string.
 
 use crate::dap::types::Variable;
-use crate::state::{ClosureLabels, PauseSnapshot, VarNode};
+use crate::state::{PauseSnapshot, RenderCache, VarNode};
 use nu_protocol::engine::EngineState;
 use nu_protocol::{Config, Type, Value};
 
@@ -26,22 +26,31 @@ const MAX_CLOSURE_CHARS: usize = 60;
 #[derive(Clone, Copy)]
 pub(crate) struct RenderCtx<'a> {
     pub(crate) config: &'a Config,
-    pub(crate) closures: &'a ClosureLabels,
+    pub(crate) cache: &'a RenderCache,
 }
 
-/// Collect every parsed block's source text, keyed by block id, so a
-/// `Value::Closure` can show the literal the user wrote.
+/// Resolve what rendering will need from the engine: each block's source text
+/// (for closure rows) and the name of every variable some block captures (for
+/// the rows under an expanded closure).
 ///
 /// Called once after the script is parsed. Blocks are fixed from then on
-/// (`source` is a parse-time keyword), and an id we don't know simply falls
-/// back to `<closure>`.
-pub(crate) fn collect_closure_labels(engine_state: &EngineState) -> ClosureLabels {
-    let mut labels = ClosureLabels::new();
+/// (`source` is a parse-time keyword), and anything missing degrades: an
+/// unknown block falls back to `<closure>`, an unknown var to `var{id}`.
+pub(crate) fn collect_render_cache(engine_state: &EngineState) -> RenderCache {
+    let mut cache = RenderCache::default();
     for id in 0..engine_state.num_blocks() {
-        let block_id = nu_protocol::BlockId::new(id);
-        let Some(span) = engine_state.get_block(block_id).span else {
-            continue;
-        };
+        let block = engine_state.get_block(nu_protocol::BlockId::new(id));
+
+        // Names for this block's captures. Taken from the block rather than
+        // from every variable in the program, so the map stays small.
+        for (var_id, _) in &block.captures {
+            cache
+                .var_names
+                .entry(var_id.get())
+                .or_insert_with(|| crate::debugger::stepping::var_name(engine_state, *var_id));
+        }
+
+        let Some(span) = block.span else { continue };
         let text = String::from_utf8_lossy(engine_state.get_span_contents(span));
         // Collapse the body onto one line: a row is one line, and a multi-line
         // closure would otherwise break the pane.
@@ -49,9 +58,9 @@ pub(crate) fn collect_closure_labels(engine_state: &EngineState) -> ClosureLabel
         if flat.is_empty() {
             continue;
         }
-        labels.insert(id, cap(&flat, MAX_CLOSURE_CHARS));
+        cache.closure_src.insert(id, cap(&flat, MAX_CLOSURE_CHARS));
     }
-    labels
+    cache
 }
 
 /// Render `value` as the single line shown in the Variables pane.
@@ -143,7 +152,7 @@ pub(crate) fn short_render(value: &Value, ctx: RenderCtx<'_>) -> String {
                 preview
             }
         }
-        Value::Closure { val, .. } => closure_label(val, ctx.closures),
+        Value::Closure { val, .. } => closure_label(val, ctx.cache),
         Value::Binary { val, .. } => {
             use std::fmt::Write;
             // First bytes as hex, nu-literal style: 0x[de ad be ef …] (N bytes).
@@ -179,8 +188,9 @@ pub(crate) fn short_render(value: &Value, ctx: RenderCtx<'_>) -> String {
 /// The literal comes from [`collect_closure_labels`]; a block id that isn't in
 /// the map (nothing adds blocks after the parse today, but a stale snapshot
 /// could) degrades to the bare `<closure>` this used to always show.
-fn closure_label(val: &nu_protocol::engine::Closure, closures: &ClosureLabels) -> String {
-    let body = closures
+fn closure_label(val: &nu_protocol::engine::Closure, cache: &RenderCache) -> String {
+    let body = cache
+        .closure_src
         .get(&val.block_id.get())
         .cloned()
         .unwrap_or_else(|| "<closure>".to_string());
@@ -277,18 +287,24 @@ pub(crate) fn add_value(
     value: &Value,
     depth: usize,
 ) -> usize {
-    // Containers are always expandable — children materialize lazily.
-    let expandable = matches!(value, Value::List { .. } | Value::Record { .. });
+    // Containers are always expandable — children materialize lazily. So is a
+    // closure that captured something: its captures are its children, which is
+    // the only way to see the values it closed over.
+    let expandable = match value {
+        Value::List { .. } | Value::Record { .. } => true,
+        Value::Closure { val, .. } => !val.captures.is_empty(),
+        _ => false,
+    };
 
     let var_ref = if expandable { snapshot.alloc_ref() } else { 0 };
 
     // Cheap `Arc` bumps: rendering needs these while `snapshot` is borrowed
     // mutably below.
     let config = snapshot.config.clone();
-    let closures = snapshot.closures.clone();
+    let cache = snapshot.cache.clone();
     let ctx = RenderCtx {
         config: &config,
-        closures: &closures,
+        cache: &cache,
     };
 
     let node_idx = snapshot.var_arena.len();
@@ -319,6 +335,7 @@ fn materialize_at(snapshot: &mut PauseSnapshot, node_idx: usize, depth: usize) {
         return;
     }
     let value = snapshot.var_arena[node_idx].value.clone();
+    let cache = snapshot.cache.clone();
     let mut children = Vec::new();
     match &value {
         Value::Record { val, .. } => {
@@ -329,6 +346,18 @@ fn materialize_at(snapshot: &mut PauseSnapshot, node_idx: usize, depth: usize) {
         Value::List { vals, .. } => {
             for (i, v) in vals.iter().enumerate().take(MAX_CHILDREN) {
                 children.push(add_value(snapshot, format!("[{i}]"), v, depth + 1));
+            }
+        }
+        // A closure's children are the variables it closed over, shown under
+        // their source names so the row reads like the enclosing scope did.
+        Value::Closure { val, .. } => {
+            for (var_id, v) in val.captures.iter().take(MAX_CHILDREN) {
+                let name = cache
+                    .var_names
+                    .get(&var_id.get())
+                    .cloned()
+                    .unwrap_or_else(|| format!("var{}", var_id.get()));
+                children.push(add_value(snapshot, name, v, depth + 1));
             }
         }
         _ => {}
@@ -363,7 +392,7 @@ pub(crate) fn build_history_snapshot(
     baseline_env: Option<&std::collections::HashMap<String, Value>>,
     nu_constant: Option<&Value>,
     config: std::sync::Arc<Config>,
-    closures: std::sync::Arc<ClosureLabels>,
+    cache: std::sync::Arc<RenderCache>,
 ) -> crate::state::PauseSnapshot {
     use crate::state::PauseSnapshot;
     let mut snap = PauseSnapshot::new();
@@ -371,7 +400,7 @@ pub(crate) fn build_history_snapshot(
     // Both were cached by the eval thread; rendering needs them, and
     // `engine_state` is still off-limits here.
     snap.config = config;
-    snap.closures = closures;
+    snap.cache = cache;
 
     // Locals: `return` first, then shadow vars sorted by name (same order as
     // the live build).
@@ -497,7 +526,7 @@ pub(crate) fn to_preview_json(
             }
             J::Object(map)
         }
-        Value::Closure { val, .. } => json!(closure_label(val, ctx.closures)),
+        Value::Closure { val, .. } => json!(closure_label(val, ctx.cache)),
         Value::Binary { val, .. } => {
             // Marker object the webview turns into a hex view. Hex keeps the
             // adapter dependency-free; 64 KiB is plenty for a debugger UI.

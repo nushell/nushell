@@ -267,6 +267,10 @@ flowchart TD
 
 Streams are *described* (kind/origin/size), never drained, so inspecting them can't consume the program's data.
 
+How each `Value` variant renders in a row, a container preview, and the visualizer — and why none of nushell's
+general-purpose renderers (`to_expanded_string`, `to nuon`, `to json`, `Debug`, …) fits a debugger row — is tabulated in
+[docs/value-rendering.md](docs/value-rendering.md).
+
 ---
 
 ## Time-travel (the "tape")
@@ -330,6 +334,7 @@ src/
   engine.rs       builds EngineState, registers shims, runs the script / entry point
   state.rs        Arc<DebugState>: breakpoints, run mode, snapshot, time-travel tape
   variables.rs    nu Value → DAP variable tree (lazy) + stream describe
+                  (per-variant output: docs/value-rendering.md)
   source_map.rs   span → file/line; single-line-span stop locations
   print_cmd.rs    print / input / input list command shims
   eval_scratch.rs separate engine for watch / condition / logpoint expressions

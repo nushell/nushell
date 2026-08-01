@@ -38,10 +38,10 @@ impl Session {
                 // Cheap `Arc` bumps, as in `add_value`: the payload renders the
                 // same way as the Variables row it was opened from.
                 let config = snap.config.clone();
-                let closures = snap.closures.clone();
+                let cache = snap.cache.clone();
                 let ctx = crate::variables::RenderCtx {
                     config: &config,
-                    closures: &closures,
+                    cache: &cache,
                 };
                 node.map(|n| {
                     let mut truncated = false;

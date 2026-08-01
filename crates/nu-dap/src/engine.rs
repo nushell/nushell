@@ -62,7 +62,7 @@ fn run(launch: LaunchArgs, state: Arc<DebugState>, writer: &DapWriter) -> Result
     let mut engine_state = build_engine(&target, &state, writer)?;
     let block = parse_script(&mut engine_state, &target)?;
 
-    cache_closure_labels(&engine_state, &state);
+    cache_render_facts(&engine_state, &state);
     publish_valid_lines(&engine_state, &block, &state, writer);
 
     // Everything below runs with the debugger attached, so it must be paired
@@ -239,12 +239,12 @@ fn parse_script(
     Ok(block)
 }
 
-/// Closure source text, resolved once now that every block exists. The server
-/// thread can't reach `engine_state` to do this later (see the concurrency
-/// rule in state.rs), so it has to be cached up front.
-fn cache_closure_labels(engine_state: &nu_protocol::engine::EngineState, state: &DebugState) {
-    *state.closures.lock().expect("closures poisoned") =
-        Arc::new(crate::variables::collect_closure_labels(engine_state));
+/// Closure source text and capture names, resolved once now that every block
+/// exists. The server thread can't reach `engine_state` to do this later (see
+/// the concurrency rule in state.rs), so it has to be cached up front.
+fn cache_render_facts(engine_state: &nu_protocol::engine::EngineState, state: &DebugState) {
+    *state.cache.lock().expect("render cache poisoned") =
+        Arc::new(crate::variables::collect_render_cache(engine_state));
 }
 
 /// Run the script: top-level code first, then an entry point if there is one.

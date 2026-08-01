@@ -409,6 +409,34 @@ fn closure_rows_show_source_and_captures() {
         Some("{|x| $x * $n} +1 capture"),
         "captures counted: {loc:?}"
     );
+
+    // The count is only a summary — expanding the closure shows the captured
+    // value itself, named as it was in the enclosing scope.
+    d.send("variables", json!({ "variablesReference": 1 }));
+    let locals = d.response("variables");
+    let scaled_ref = locals["body"]["variables"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|v| v["name"] == "scaled")
+        .and_then(|v| v["variablesReference"].as_i64())
+        .expect("scaled is expandable");
+    assert!(scaled_ref > 0, "capturing closure has a reference");
+
+    d.send("variables", json!({ "variablesReference": scaled_ref }));
+    let captures = d.response("variables");
+    let captures: Vec<(String, String)> = captures["body"]["variables"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| {
+            (
+                v["name"].as_str().unwrap().to_string(),
+                v["value"].as_str().unwrap().to_string(),
+            )
+        })
+        .collect();
+    assert_eq!(captures, vec![("n".to_string(), "10".to_string())]);
 }
 
 #[test]
