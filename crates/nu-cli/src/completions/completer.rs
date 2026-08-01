@@ -198,6 +198,13 @@ struct CompletionWorker {
 /// corrupt reedline / LSP. Background workers also null child stdin and detach
 /// from the terminal (via `Stack::suppress_stdin`) so subprocesses cannot race
 /// the line editor.
+///
+/// Note that `suppress_stdin` only reaches externals spawned with
+/// `PipelineData::Empty` input. A completer that pipes its candidates into a
+/// picker (`$candidates | fzf`) takes the piped-stdin branch instead, so the
+/// child keeps the terminal either way. What stops such a picker from working
+/// under a background completion is not this stack but the concurrency: the
+/// reedline thread keeps reading the same terminal while the picker runs.
 fn isolated_stack(parent: Arc<Stack>, background: bool) -> Arc<Stack> {
     let stack = Stack::with_parent(parent)
         .reset_out_dest()
@@ -217,6 +224,9 @@ pub struct NuCompleter {
     cache: Arc<Mutex<HashMap<CompletionQuery, CacheEntry>>>,
     /// Lazily spawned on the first cache miss; reedline thread only (no lock).
     worker: Option<CompletionWorker>,
+    /// Whether to offload to a worker. False only on the REPL path with the
+    /// `background-completions` experimental option disabled.
+    background: bool,
 }
 
 /// Common arguments required for Completer
@@ -244,21 +254,36 @@ impl Context<'_> {
 }
 
 impl NuCompleter {
+    /// Completion that never offloads: LSP, `commandline complete`, tests.
+    ///
+    /// Work still happens on a worker thread when it would block; only the REPL
+    /// consults `background-completions`.
     pub fn new(engine_state: Arc<EngineState>, stack: Arc<Stack>) -> Self {
-        Self::with_stack(engine_state, isolated_stack(stack, false))
+        Self::with_stack(engine_state, isolated_stack(stack, false), true)
+    }
+
+    /// The reedline completer, the only one that honors `background-completions`.
+    ///
+    /// With the option disabled the completer computes on the reedline thread and
+    /// reedline blocks while it runs, so a custom completer may hand the terminal
+    /// to an interactive picker without racing the line editor for keystrokes.
+    pub fn for_repl(engine_state: Arc<EngineState>, stack: Arc<Stack>) -> Self {
+        let background = nu_experimental::BACKGROUND_COMPLETIONS.get();
+        Self::with_stack(engine_state, isolated_stack(stack, false), background)
     }
 
     /// Background worker: same isolation as [`Self::new`], plus suppressed stdin.
     fn for_background(engine_state: Arc<EngineState>, stack: Arc<Stack>) -> Self {
-        Self::with_stack(engine_state, isolated_stack(stack, true))
+        Self::with_stack(engine_state, isolated_stack(stack, true), true)
     }
 
-    fn with_stack(engine_state: Arc<EngineState>, stack: Arc<Stack>) -> Self {
+    fn with_stack(engine_state: Arc<EngineState>, stack: Arc<Stack>, background: bool) -> Self {
         Self {
             engine_state,
             stack,
             cache: Arc::new(Mutex::new(HashMap::new())),
             worker: None,
+            background,
         }
     }
 
@@ -1050,6 +1075,21 @@ impl NuCompleter {
 
 impl ReedlineCompleter for NuCompleter {
     fn complete(&mut self, line: &str, pos: usize) -> CompletionResult {
+        if !self.background {
+            // Compute on this thread with the terminal attached, so a custom completer
+            // may drive an interactive child process. No worker is spawned, so
+            // `poll_completion` stays `Idle` and reedline blocks on input exactly as it
+            // did before non-blocking completions landed. The cache is bypassed too:
+            // an interactive completer is a user interaction, not a pure function, and
+            // replaying a cached selection would be wrong.
+            return CompletionResult::fresh(
+                self.fetch_completions_at(line, pos)
+                    .into_iter()
+                    .map(|s| s.suggestion)
+                    .collect::<Suggestions>(),
+            );
+        }
+
         let query = CompletionQuery {
             line: line.to_string(),
             current_position: pos,
@@ -1289,6 +1329,110 @@ mod completer_tests {
         assert!(matches!(fg.stack.stdout(), OutDest::Value));
         assert!(matches!(fg.stack.stderr(), OutDest::Null));
         assert!(!fg.stack.suppress_stdin);
+    }
+
+    /// With `background-completions` disabled the REPL completer settles on the
+    /// calling thread and spawns no worker, so reedline blocks on input exactly as
+    /// it did before non-blocking completions landed. Blocking is the point: it is
+    /// what stops the line editor from competing with an interactive completer for
+    /// the terminal's keystrokes.
+    #[test]
+    fn repl_without_background_settles_inline() {
+        // `for_repl` reads a global; construct the disabled shape directly rather
+        // than mutating process-wide state from a test.
+        let mut completer = NuCompleter::with_stack(
+            test_engine(),
+            isolated_stack(Arc::new(Stack::new()), false),
+            false,
+        );
+
+        let result = completer.complete("ls | c", 6);
+        assert!(
+            matches!(result, CompletionResult::Fresh(_)),
+            "expected a settled result, got {result:?}"
+        );
+        assert!(result.suggestions().iter().any(|s| s.value == "cd"));
+
+        assert!(completer.worker.is_none(), "a worker was spawned anyway");
+        assert_eq!(completer.poll_completion(), CompletionStatus::Idle);
+        assert!(!completer.stack.suppress_stdin);
+    }
+
+    /// Build an engine whose external completer reports what its evaluation
+    /// environment allowed, as completion values:
+    ///
+    /// - `piped-N`   -> a non-final external command's stdout reached `lines`
+    /// - `direct-S`  -> a final external command's stdout was captured
+    fn probe_engine() -> (Arc<EngineState>, Arc<Stack>) {
+        let mut engine =
+            nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
+        let mut stack = Stack::new();
+        let cwd = std::env::temp_dir().to_string_lossy().replace('\\', "/");
+        stack.add_env_var(
+            "PWD".to_string(),
+            nu_protocol::Value::string(&cwd, nu_protocol::Span::unknown()),
+        );
+        // External lookup needs a PATH; `Stack::new` starts with no env at all.
+        stack.add_env_var(
+            "PATH".to_string(),
+            nu_protocol::Value::string(
+                std::env::var("PATH").unwrap_or_default(),
+                nu_protocol::Span::unknown(),
+            ),
+        );
+
+        let setup = r#"$env.config.completions.external = {
+                enable: true
+                completer: {|spans|
+                    let piped = (^printf 'alpha\nbeta\n' | lines | length)
+                    let direct = (^printf 'gamma' | str trim)
+                    [$"piped-($piped)" $"direct-($direct)"]
+                }
+            }"#;
+        let mut working_set = StateWorkingSet::new(&engine);
+        let block = parse(&mut working_set, None, setup.as_bytes(), false);
+        assert!(working_set.parse_errors.is_empty(), "setup failed to parse");
+        engine.merge_delta(working_set.render()).expect("merge");
+        nu_engine::eval_block::<nu_protocol::debugger::WithoutDebug>(
+            &engine,
+            &mut stack,
+            &block,
+            nu_protocol::PipelineData::empty(),
+        )
+        .expect("eval setup");
+        engine.merge_env(&mut stack).expect("merge env");
+
+        (Arc::new(engine), Arc::new(stack))
+    }
+
+    /// `suppress_output` does not change what a completer that shells out can
+    /// observe: it sets `out_dest.stdout`, which governs the last command of a
+    /// pipeline, while `collect_value` sets `pipe_stdout` for piped stages. The
+    /// two never overlap, so externals inside a completer keep their stdout in
+    /// both the foreground and the background stack. This is why the opt-out does
+    /// not need to touch the stack at all: it only has to stop offloading.
+    #[rstest::rstest]
+    #[case::foreground(false)]
+    #[case::background(true)]
+    fn externals_in_a_completer_keep_their_stdout(#[case] background: bool) {
+        let (engine, stack) = probe_engine();
+        let completer =
+            NuCompleter::with_stack(engine, isolated_stack(stack, background), !background);
+
+        let values: Vec<String> = completer
+            .fetch_completions_at("somecmd x", 9)
+            .into_iter()
+            .map(|s| s.suggestion.value)
+            .collect();
+
+        assert!(
+            values.iter().any(|v| v == "piped-2"),
+            "a piped external lost its stdout: {values:?}"
+        );
+        assert!(
+            values.iter().any(|v| v == "direct-gamma"),
+            "a final external lost its stdout: {values:?}"
+        );
     }
 
     #[test]
