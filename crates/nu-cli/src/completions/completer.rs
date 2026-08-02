@@ -418,48 +418,45 @@ impl NarrowingCache {
         environment: CacheEnv,
         options: &CompletionOptions,
     ) -> Suggestions {
-        let Some((_, base_suggestions, reference_span)) =
+        let Some((base_suggestions, ref_span, search_token)) =
             self.entries.lock().ok().and_then(|guard| {
-                guard
+                let (_, entry, span) = guard
                     .as_ref()?
                     .iter()
-                    .filter_map(|(base_query, entry)| {
-                        let span = entry.reference_span()?;
-
-                        (entry.is_usable(environment) && query.narrows(base_query, span))
-                            .then_some((base_query.cursor(), Arc::clone(&entry.suggestions), span))
+                    .filter_map(|(bq, e)| {
+                        let s = e.reference_span()?;
+                        (e.is_usable(environment) && query.narrows(bq, s)).then_some((
+                            bq.cursor(),
+                            e,
+                            s,
+                        ))
                     })
-                    .max_by_key(|&(cursor, ..)| cursor)
+                    .max_by_key(|&(c, ..)| c)?;
+
+                let token = query.typed().get(span.start..)?;
+                Some((Arc::clone(&entry.suggestions), span, token))
             })
         else {
             return Suggestions::default();
         };
 
-        let Some(search_token) = query.typed().get(reference_span.start..) else {
-            return Suggestions::default();
-        };
-
-        let candidates: Vec<_> = base_suggestions
-            .iter()
-            .filter(|suggestion| suggestion.span == reference_span)
-            .collect();
-
         let mut matcher = NuMatcher::new(search_token, options, true);
 
-        candidates
+        base_suggestions
             .iter()
             .enumerate()
-            .for_each(|(index, candidate)| {
-                matcher.add(candidate.display_value(), index);
+            .filter(|(_, s)| s.span == ref_span)
+            .for_each(|(i, s)| {
+                matcher.add(s.display_value(), i);
             });
 
-        let updated_span = reedline::Span::new(reference_span.start, query.cursor());
+        let updated_span = reedline::Span::new(ref_span.start, query.cursor());
 
         matcher
             .results()
             .into_iter()
             .map(|(index, match_indices)| {
-                let mut suggestion = candidates[index].clone();
+                let mut suggestion = base_suggestions[index].clone();
                 suggestion.span = updated_span;
                 suggestion.match_indices = Some(match_indices);
                 suggestion
