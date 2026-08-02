@@ -44,7 +44,7 @@ fn run_file_parse_error() -> Result {
 #[case::range_from_expressions("(1 + 1)..(2 + 2) | each { |x| $x }", vec![2, 3, 4])]
 #[case::list_from_expressions("[('foo' | str upcase) ('BAR' | str downcase)]", vec!["FOO", "bar"])]
 #[case::record_from_expressions("{('foo' | str upcase): 42}", test_record! { "FOO" => 42 })]
-#[case::call_flag("print -e message", ())]
+#[case::call_flag("def flag-test [--flag] { $flag }; flag-test --flag", true)]
 #[case::call_named("10.123 | into string --decimals 1", "10.1")]
 #[case::let_variable("let foo = 'test'; $foo", "test")]
 #[case::constant("const foo = 1 + 2; $foo", 3)]
