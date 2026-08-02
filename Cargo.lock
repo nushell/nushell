@@ -7252,9 +7252,9 @@ dependencies = [
  "quinn-udp",
  "rustc-hash",
  "rustls",
-"socket2 0.6.3",
-  "thiserror 2.0.19",
-  "tokio",
+ "socket2 0.6.3",
+ "thiserror 2.0.19",
+ "tokio",
  "tracing",
  "web-time",
 ]
