@@ -68,11 +68,24 @@ fn save_all(history: &mut dyn History, items: Vec<HistoryItem>) -> Result<(), Re
     Ok(())
 }
 
-fn commands_only(items: &[HistoryItem]) -> impl Iterator<Item = &str> {
+fn commands_only(items: &[HistoryItem]) -> Vec<&str> {
     items
         .iter()
         .map(|item| item.command_line.as_str())
+        .collect()
 }
+
+const EMPTY_ITEM: HistoryItem = HistoryItem {
+    command_line: String::new(),
+    id: None,
+    start_timestamp: None,
+    session_id: None,
+    hostname: None,
+    cwd: None,
+    duration: None,
+    exit_status: None,
+    more_info: None,
+};
 
 #[test]
 fn history_import_pipe_string() -> Result {
@@ -88,7 +101,7 @@ fn history_import_pipe_string() -> Result {
         let want_history = vec![HistoryItem {
             id: Some(HistoryItemId::new(0)),
             command_line: "bar".to_string(),
-            ..HistoryItem::EMPTY
+            ..EMPTY_ITEM
         }];
 
         assert_eq!(commands_only(&got), commands_only(&want_history));
@@ -112,7 +125,7 @@ fn history_import_pipe_record() -> Result {
             id: Some(HistoryItemId::new(1)),
             command_line: "some_command".to_string(),
             cwd: Some("/tmp".to_string()),
-            ..HistoryItem::EMPTY
+            ..EMPTY_ITEM
         }];
 
         assert_eq!(commands_only(&got), commands_only(&want_history));
@@ -130,11 +143,11 @@ fn to_empty_plaintext() -> Result {
             vec![
                 HistoryItem {
                     command_line: "foo".to_string(),
-                    ..HistoryItem::EMPTY
+                    ..EMPTY_ITEM
                 },
                 HistoryItem {
                     command_line: "bar".to_string(),
-                    ..HistoryItem::EMPTY
+                    ..EMPTY_ITEM
                 },
             ],
         )
@@ -150,12 +163,12 @@ fn to_empty_plaintext() -> Result {
             HistoryItem {
                 id: Some(HistoryItemId::new(0)),
                 command_line: "foo".to_string(),
-                ..HistoryItem::EMPTY
+                ..EMPTY_ITEM
             },
             HistoryItem {
                 id: Some(HistoryItemId::new(1)),
                 command_line: "bar".to_string(),
-                ..HistoryItem::EMPTY
+                ..EMPTY_ITEM
             },
         ];
 
@@ -174,11 +187,11 @@ fn to_empty_sqlite() -> Result {
             vec![
                 HistoryItem {
                     command_line: "foo".to_string(),
-                    ..HistoryItem::EMPTY
+                    ..EMPTY_ITEM
                 },
                 HistoryItem {
                     command_line: "bar".to_string(),
-                    ..HistoryItem::EMPTY
+                    ..EMPTY_ITEM
                 },
             ],
         )
@@ -194,12 +207,12 @@ fn to_empty_sqlite() -> Result {
             HistoryItem {
                 id: Some(HistoryItemId::new(1)),
                 command_line: "foo".to_string(),
-                ..HistoryItem::EMPTY
+                ..EMPTY_ITEM
             },
             HistoryItem {
                 id: Some(HistoryItemId::new(2)),
                 command_line: "bar".to_string(),
-                ..HistoryItem::EMPTY
+                ..EMPTY_ITEM
             },
         ];
 
@@ -222,12 +235,12 @@ fn to_existing(#[case] dst_format: HistoryFileFormat) -> Result {
                 HistoryItem {
                     id: Some(HistoryItemId::new(0)),
                     command_line: "original-1".to_string(),
-                    ..HistoryItem::EMPTY
+                    ..EMPTY_ITEM
                 },
                 HistoryItem {
                     id: Some(HistoryItemId::new(1)),
                     command_line: "original-2".to_string(),
-                    ..HistoryItem::EMPTY
+                    ..EMPTY_ITEM
                 },
             ],
         )
@@ -242,7 +255,7 @@ fn to_existing(#[case] dst_format: HistoryFileFormat) -> Result {
             vec![HistoryItem {
                 id: Some(HistoryItemId::new(1)),
                 command_line: "new".to_string(),
-                ..HistoryItem::EMPTY
+                ..EMPTY_ITEM
             }],
         )
         .unwrap();
@@ -256,17 +269,17 @@ fn to_existing(#[case] dst_format: HistoryFileFormat) -> Result {
             HistoryItem {
                 id: Some(HistoryItemId::new(0)),
                 command_line: "original-1".to_string(),
-                ..HistoryItem::EMPTY
+                ..EMPTY_ITEM
             },
             HistoryItem {
                 id: Some(HistoryItemId::new(1)),
                 command_line: "original-2".to_string(),
-                ..HistoryItem::EMPTY
+                ..EMPTY_ITEM
             },
             HistoryItem {
                 id: Some(HistoryItemId::new(2)),
                 command_line: "new".to_string(),
-                ..HistoryItem::EMPTY
+                ..EMPTY_ITEM
             },
         ];
 
