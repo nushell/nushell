@@ -762,7 +762,7 @@ fn mv_verbose_message_mentions_source_and_destination() -> Result {
     Playground::setup("umv_verbose_message", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("before.txt")]);
 
-        let code = "mv -v before.txt after.txt";
+        let code = "mv -v before.txt after.txt | table -w 200";
         let result: CompleteResult = test().cwd(dirs.test()).run_with_data(RUNNER, code)?;
         assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
