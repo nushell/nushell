@@ -1871,7 +1871,6 @@ mod completer_tests {
 
         // Not narrowing: no new text, or text removed.
         assert!(!q("ls foo").narrows(&q("ls foo"), token(3)));
-        // typo:ignore
         assert!(!q("ls fo").narrows(&q("ls foo"), token(3)));
 
         // Each boundary character starts a new token, which a cached entry cannot answer.
