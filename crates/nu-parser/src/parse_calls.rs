@@ -1855,6 +1855,54 @@ pub fn find_longest_decl_with_prefix(
     (cmd_start, pos, name, maybe_decl_id)
 }
 
+/// Re-parse a command head that greedily matched a multi-word subcommand as its next
+/// shorter reading, demoting the trailing words to arguments over the real buffer spans.
+///
+/// `head` must be resolvable in `working_set`; returns `None` for single-word heads.
+pub fn parse_shorter_head_reading(
+    working_set: &mut StateWorkingSet,
+    head: Span,
+    input_type: Option<&Type>,
+) -> Option<Expression> {
+    let contents = working_set.get_span_contents(head).to_vec();
+    let (tokens, _) = crate::lex::lex(&contents, head.start, &[], &[], true);
+    let spans: Vec<Span> = tokens.into_iter().map(|token| token.span).collect();
+
+    // Only multi-word heads have a shorter reading.
+    let (_, greedy_pos, _, _) = find_longest_decl(working_set, &spans);
+    if greedy_pos <= 1 {
+        return None;
+    }
+
+    // Longest proper-prefix command; everything past it becomes arguments.
+    let call_span = Span::concat(&spans);
+    let (cmd_start, pos, _, maybe_decl_id) =
+        find_longest_decl(working_set, &spans[..greedy_pos - 1]);
+
+    let expression = match maybe_decl_id {
+        Some(decl_id) => {
+            let parsed = parse_internal_call(
+                working_set,
+                Span::concat(&spans[cmd_start..pos]),
+                &spans[pos..],
+                decl_id,
+                ArgumentParsingLevel::Full,
+                input_type,
+            );
+            Expression::new(
+                working_set,
+                Expr::Call(parsed.call),
+                call_span,
+                parsed.output,
+            )
+        }
+        // Otherwise the shorter reading is an external call.
+        None => parse_external_call(working_set, &spans, call_span),
+    };
+
+    Some(expression)
+}
+
 pub fn parse_attribute(
     working_set: &mut StateWorkingSet,
     lite_command: &LiteCommand,

@@ -9,6 +9,7 @@ pub(crate) use crate::parse_calls::{
 };
 pub use crate::parse_calls::{
     parse_attribute, parse_call, parse_external_call, parse_internal_call, parse_multispan_value,
+    parse_shorter_head_reading,
 };
 
 // Re-exports from parse_literals
