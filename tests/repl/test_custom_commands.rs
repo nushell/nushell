@@ -93,8 +93,7 @@ fn custom_flag_with_type_checking(
     let code = format! {"
         def florb [{flag}: {type_sig}] {{}}
         let y = {value}
-        florb {flag}
-        $y
+        florb {flag} $y
     "};
 
     test()
