@@ -122,6 +122,12 @@ fn trailing_gap_element<'a>(
         .then_some(expression)
 }
 
+/// The span a command-name completion replaces, given the parsed `head` and the whole
+/// `element` it heads.
+fn command_name_span(head: Span, element: Span) -> Span {
+    Span::new(head.start, head.end.max(element.end))
+}
+
 /// Whether `token` is a flag being typed — i.e. it begins with `-`.
 ///
 /// The parser stores in-progress flags as positionals, so the leading dash is the only
@@ -946,7 +952,7 @@ impl CompletionEngine {
                 completion_context,
                 &signature,
                 element,
-                site.span.end,
+                site.cursor,
             )
         };
 
@@ -1090,7 +1096,10 @@ impl CompletionEngine {
         absolute_position: usize,
     ) -> CompletionSite<'a> {
         if absolute_position <= head.span.end {
-            return CompletionSite::new(SiteKind::command(expression), head.span);
+            return CompletionSite::new(
+                SiteKind::command(expression),
+                command_name_span(head.span, expression.span),
+            );
         }
 
         // An existing argument the cursor touches, or else the trailing empty slot.
@@ -1121,7 +1130,10 @@ impl CompletionEngine {
     ) -> CompletionSite<'a> {
         // Cursor in (or right after) the command head: complete the command name.
         if absolute_position <= call.head.end {
-            return CompletionSite::new(SiteKind::command(expression), call.head);
+            return CompletionSite::new(
+                SiteKind::command(expression),
+                command_name_span(call.head, expression.span),
+            );
         }
 
         // Cursor on an existing argument.
@@ -1293,7 +1305,10 @@ impl CompletionEngine {
                         value_expression.span,
                     )
                 } else {
-                    (flag_name, argument.span())
+                    // Only the name is being completed: `Argument::span` would also cover
+                    // the value written after it (`--endian big`), and `name.span` is the
+                    // flag token itself for both spellings.
+                    (flag_name, name.span)
                 }
             }
             // A positional/unknown token starting with `-` is a flag name being typed.
@@ -1326,12 +1341,22 @@ impl CompletionEngine {
             .iter()
             .find(|attribute| touches(attribute.expr.span, absolute_position))
         {
-            CompletionSite::new(SiteKind::AttributeName, attribute.expr.span)
-        } else if touches(attribute_block.item.span, absolute_position) {
-            CompletionSite::new(SiteKind::AttributableItem, attribute_block.item.span)
-        } else {
-            CompletionSite::new(SiteKind::AttributeName, Span::point(absolute_position))
+            return CompletionSite::new(SiteKind::AttributeName, attribute.expr.span);
         }
+
+        if touches(attribute_block.item.span, absolute_position) {
+            return CompletionSite::new(SiteKind::AttributableItem, attribute_block.item.span);
+        }
+
+        // Past the last attribute is the decorated item's slot, even when the parser found
+        // no item to give a span to (`@complete "c"⏎⌶`). Earlier gaps sit between two
+        // attributes, where another attribute name is what's being typed.
+        let kind = match attribute_block.attributes.last() {
+            Some(last) if absolute_position >= last.expr.span.end => SiteKind::AttributableItem,
+            _ => SiteKind::AttributeName,
+        };
+
+        CompletionSite::new(kind, Span::point(absolute_position))
     }
 
     fn resolve_fallback_site<'a>(
@@ -1368,7 +1393,7 @@ impl CompletionEngine {
         context: &Context,
         signature: &Signature,
         element_expression: &Expression,
-        true_cursor: usize,
+        cursor: usize,
     ) -> Dispatched {
         let mut results = Dispatched::default();
 
@@ -1376,20 +1401,15 @@ impl CompletionEngine {
             let attempt = match custom {
                 // A command declared an engine-provided completion for this argument.
                 Completion::Builtin(kind) => self.complete_builtin(kind, &arg_value, context),
-                // A custom completer receives the whole element text (`my-command foobar`),
-                // so its spans are anchored to the element's start.
+                // A custom completer receives the element text up to the cursor
+                // (`my-command foobar`), so its spans are anchored to the element's start.
                 other => {
-                    let element_line =
-                        String::from_utf8_lossy(context.working_set.get_span_contents(Span::new(
-                            element_expression.span.start,
-                            true_cursor,
-                        )));
-                    self.custom_completion_helper(
-                        other,
-                        element_line.as_ref(),
-                        context,
-                        true_cursor,
-                    )
+                    let element_line = String::from_utf8_lossy(
+                        context
+                            .working_set
+                            .get_span_contents(Span::new(element_expression.span.start, cursor)),
+                    );
+                    self.custom_completion_helper(other, element_line.as_ref(), context, cursor)
                 }
             };
             let need_fallback = attempt.need_fallback;
