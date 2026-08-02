@@ -219,7 +219,7 @@ impl LanguageServer {
                         .as_ref(),
                     )
                     .to_string(),
-                    Err(_) => format!("No command help found for {}", &cmd),
+                    Err(_) => format!("No command help found for {}", cmd),
                 };
                 markdown_hover(manpage_str)
             }

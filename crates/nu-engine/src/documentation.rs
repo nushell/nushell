@@ -773,7 +773,7 @@ fn write_positional(
             write!(
                 long_desc,
                 "{help_subcolor_one}{}{RESET} <{help_subcolor_two}{}{RESET}>",
-                positional.name, &positional.shape,
+                positional.name, positional.shape,
             )
             .expect("writing to a String is infallible");
         }
@@ -854,7 +854,7 @@ fn write_flag_to_long_desc<F>(
         write!(
             long_desc,
             ": {}",
-            &formatter(FormatterValue::CodeString(&flag.desc))
+            formatter(FormatterValue::CodeString(&flag.desc))
         )
         .expect("writing to a String is infallible");
     }
@@ -862,7 +862,7 @@ fn write_flag_to_long_desc<F>(
         write!(
             long_desc,
             " (default: {})",
-            &formatter(FormatterValue::DefaultValue(value))
+            formatter(FormatterValue::DefaultValue(value))
         )
         .expect("writing to a String is infallible");
     }

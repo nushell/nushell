@@ -1590,7 +1590,7 @@ pub fn parse_call(
         if resolution_spans.len() > 1 {
             let test_equal = working_set.get_span_contents(resolution_spans[1]);
 
-            if test_equal == [b'='] {
+            if test_equal == *b"=" {
                 trace!("incomplete statement");
 
                 working_set.error(ParseError::UnknownState(
