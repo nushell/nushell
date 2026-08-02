@@ -1126,6 +1126,7 @@ fn edit_from_record(
         }
         Ok(ECD::Backspace) => EditCommand::Backspace,
         Ok(ECD::Delete) => EditCommand::Delete,
+        Ok(ECD::CutCharLeft) => EditCommand::CutCharLeft,
         Ok(ECD::CutChar) => EditCommand::CutChar,
         Ok(ECD::BackspaceWord) => EditCommand::BackspaceWord,
         Ok(ECD::DeleteWord) => EditCommand::DeleteWord,
@@ -1216,8 +1217,13 @@ fn edit_from_record(
             EditCommand::MoveLeftBefore { c: char, select }
         }
         Ok(ECD::SelectAll) => EditCommand::SelectAll,
-        Ok(ECD::CutSelection) => EditCommand::CutSelection,
+        Ok(ECD::CutSelection) => EditCommand::CutSelection {
+            granularity: parse_granularity(record, config, span)?,
+        },
         Ok(ECD::CopySelection) => EditCommand::CopySelection,
+        Ok(ECD::LowercaseSelection) => EditCommand::LowercaseSelection,
+        Ok(ECD::UppercaseSelection) => EditCommand::UppercaseSelection,
+        Ok(ECD::SwitchcaseSelection) => EditCommand::SwitchcaseSelection,
         Ok(ECD::Paste) => EditCommand::Paste,
         Ok(ECD::CopyFromStart) => EditCommand::CopyFromStart,
         Ok(ECD::CopyFromStartLinewise) => EditCommand::CopyFromStartLinewise,
@@ -1358,6 +1364,7 @@ pub(crate) fn display_edit_command(edit: EditCommandDiscriminants) -> Option<&'s
         ECD::ReplaceChar => "ReplaceChar value: <char>",
         ECD::Backspace => "Backspace",
         ECD::Delete => "Delete",
+        ECD::CutCharLeft => "CutCharLeft",
         ECD::CutChar => "CutChar",
         ECD::BackspaceWord => "BackspaceWord",
         ECD::DeleteWord => "DeleteWord",
@@ -1396,8 +1403,11 @@ pub(crate) fn display_edit_command(edit: EditCommandDiscriminants) -> Option<&'s
         ECD::CutLeftUntil => "CutLeftUntil value: <char>",
         ECD::CutLeftBefore => "CutLeftBefore value: <char>",
         ECD::SelectAll => "SelectAll",
-        ECD::CutSelection => "CutSelection",
+        ECD::CutSelection => "CutSelection granularity?: <string>",
         ECD::CopySelection => "CopySelection",
+        ECD::LowercaseSelection => "LowercaseSelection",
+        ECD::UppercaseSelection => "UppercaseSelection",
+        ECD::SwitchcaseSelection => "SwitchcaseSelection",
         ECD::Paste => "Paste",
         ECD::CopyFromStart => "CopyFromStart",
         ECD::CopyFromStartLinewise => "CopyFromStartLinewise",
