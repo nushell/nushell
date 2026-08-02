@@ -7,22 +7,49 @@ use reedline::{
 };
 use std::{borrow::Cow, sync::Arc};
 
-/// The reedline-facing view over the shared [`PromptState`].
-///
-/// This holds no prompt content of its own: every render reads the current
-/// [`PromptContents`] through the shared handle, so text a background job pushes
-/// via `commandline set-prompt` is picked up the next time reedline redraws. A
-/// transient prompt is simply a `NushellPrompt` over a private, detached
-/// `PromptState` that never receives async pushes.
+/// The reedline-facing view over some [`PromptContents`].
 pub struct NushellPrompt {
-    pub state: Arc<PromptState>,
+    source: PromptSource,
+}
+
+/// Where a [`NushellPrompt`] reads its contents from.
+enum PromptSource {
+    /// The live, interactive prompt, shared with every background job.
+    Shared(Arc<PromptState>),
+
+    /// A one-off, detached copy used for the transient prompt.
+    Snapshot(PromptContents),
+}
+
+impl NushellPrompt {
+    /// A live prompt backed by the engine's shared [`PromptState`].
+    pub fn shared(state: Arc<PromptState>) -> Self {
+        Self {
+            source: PromptSource::Shared(state),
+        }
+    }
+
+    /// A detached prompt over a fixed snapshot (e.g. the transient prompt).
+    pub fn snapshot(contents: PromptContents) -> Self {
+        Self {
+            source: PromptSource::Snapshot(contents),
+        }
+    }
+
+    /// Read the current contents, taking the lock only for the shared variant.
+    fn with_contents<R>(&self, action: impl FnOnce(&PromptContents) -> R) -> R {
+        match &self.source {
+            PromptSource::Shared(state) => state.with_contents(action),
+            PromptSource::Snapshot(contents) => action(contents),
+        }
+    }
 }
 
 /// Render `content` for the terminal, or fall back to reedline's default via
 /// `default` when nothing has been set. reedline needs `\r\n` line breaks.
 fn render_or<'a>(content: Option<&str>, default: impl FnOnce() -> Cow<'a, str>) -> Cow<'a, str> {
     const NEWLINE: char = '\n';
-    const LINEBREAK: &'static str = "\r\n";
+    const LINEBREAK: &str = "\r\n";
 
     match content {
         Some(content) => content.replace(NEWLINE, LINEBREAK).into(),
@@ -37,7 +64,7 @@ impl Prompt for NushellPrompt {
             let _ = enable_vt_processing();
         }
 
-        self.state.with_contents(|c| {
+        self.with_contents(|c| {
             render_or(c.left.as_deref(), || {
                 DefaultPrompt::default()
                     .render_prompt_left()
@@ -48,7 +75,7 @@ impl Prompt for NushellPrompt {
     }
 
     fn render_prompt_right(&self) -> Cow<'_, str> {
-        self.state.with_contents(|c| {
+        self.with_contents(|c| {
             render_or(c.right.as_deref(), || {
                 DefaultPrompt::default()
                     .render_prompt_right()
@@ -59,14 +86,11 @@ impl Prompt for NushellPrompt {
     }
 
     fn render_prompt_indicator(&self, edit_mode: PromptEditMode) -> Cow<'_, str> {
-        self.state
-            .with_contents(|c| indicator_for(c, edit_mode).to_string())
-            .into()
+        self.with_contents(|c| indicator_for(c, edit_mode)).into()
     }
 
     fn render_prompt_multiline_indicator(&self) -> Cow<'_, str> {
-        self.state
-            .with_contents(|c| c.multiline.clone().unwrap_or_else(|| "::: ".into()))
+        self.with_contents(|c| c.multiline.as_deref().unwrap_or("::: ").to_string())
             .into()
     }
 
@@ -86,7 +110,7 @@ impl Prompt for NushellPrompt {
     }
 
     fn right_prompt_on_last_line(&self) -> bool {
-        self.state.with_contents(|c| c.render_right_on_last_line)
+        self.with_contents(|c| c.render_right_on_last_line)
     }
 }
 
@@ -94,16 +118,16 @@ impl Prompt for NushellPrompt {
 fn indicator_for(contents: &PromptContents, edit_mode: PromptEditMode) -> String {
     match edit_mode {
         PromptEditMode::Default | PromptEditMode::Emacs => {
-            contents.indicator.clone().unwrap_or_else(|| "> ".into())
+            contents.indicator.as_deref().unwrap_or("> ").to_string()
         }
         PromptEditMode::Vi(PromptViMode::Normal) => {
-            contents.vi_normal.clone().unwrap_or_else(|| "> ".into())
+            contents.vi_normal.as_deref().unwrap_or("> ").to_string()
         }
         PromptEditMode::Vi(PromptViMode::Insert) => {
-            contents.vi_insert.clone().unwrap_or_else(|| ": ".into())
+            contents.vi_insert.as_deref().unwrap_or(": ").to_string()
         }
         PromptEditMode::Vi(PromptViMode::Visual) => {
-            contents.vi_normal.clone().unwrap_or_else(|| "v ".into())
+            contents.vi_normal.as_deref().unwrap_or("v ").to_string()
         }
         PromptEditMode::Custom(str) => format!("({str})"),
     }
@@ -115,9 +139,7 @@ mod tests {
 
     #[test]
     fn default_prompt_does_not_embed_osc_markers() {
-        let prompt = NushellPrompt {
-            state: Arc::new(PromptState::new()),
-        };
+        let prompt = NushellPrompt::shared(Arc::new(PromptState::new()));
         let rendered = prompt.render_prompt_left().to_string();
 
         assert!(!rendered.contains("\x1b]133;"));

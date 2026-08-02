@@ -41,13 +41,16 @@ impl Command for CommandlineSetPrompt {
 
     fn extra_description(&self) -> &str {
         r#"This is meant to be called from a background job (see `job spawn`) to build
-streaming prompts: we render the prompt as WE know it up-front, and if `commandline set-prompt` is used we update our idea of what the prompt "is" for each segment that
-finishes computing. Line/Cursor is preserved.
+streaming prompts: we render the prompt as we know it up front, and each
+`commandline set-prompt` updates our idea of what the prompt "is" for the
+segments that have finished computing. The line and cursor are preserved.
+
+`--indicator` sets the indicator for every edit mode at once (including the vi
+insert and normal indicators), since there is a single indicator knob here.
 
 The pushed prompt lasts only until the next prompt is drawn.
 
-Outside of an interactive session... this command is a mere no-op, as it's meant
-for REPL sessions ONLY"#
+meant for REPL sessions only"#
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -66,16 +69,6 @@ for REPL sessions ONLY"#
         let right = call.get_flag::<String>(engine_state, stack, "right")?;
         let indicator = call.get_flag::<String>(engine_state, stack, "indicator")?;
 
-        if let Some(content) = right {
-            engine_state.prompt_state.set(PromptSegment::Right, content);
-        }
-
-        if let Some(content) = indicator {
-            engine_state
-                .prompt_state
-                .set(PromptSegment::Indicator, content);
-        }
-
         // Prefer the positional argument; fall back to the pipeline input so
         // both `commandline set-prompt $rendered` and `$rendered | commandline
         // set-prompt` work.
@@ -87,8 +80,20 @@ for REPL sessions ONLY"#
             },
         };
 
-        if let Some(content) = left {
-            engine_state.prompt_state.set(PromptSegment::Left, content);
+        // Apply every provided segment under a single write lock and repaint once,
+        // rather than locking and repainting per segment.
+        if left.is_some() || right.is_some() || indicator.is_some() {
+            engine_state.prompt_state.apply(|contents| {
+                if let Some(content) = left {
+                    contents.apply_segment_override(PromptSegment::Left, content);
+                }
+                if let Some(content) = right {
+                    contents.apply_segment_override(PromptSegment::Right, content);
+                }
+                if let Some(content) = indicator {
+                    contents.apply_segment_override(PromptSegment::Indicator, content);
+                }
+            });
         }
 
         Ok(Value::nothing(head).into_pipeline_data())

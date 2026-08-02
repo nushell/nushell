@@ -3,7 +3,7 @@ use log::{info, trace};
 use nu_engine::ClosureEvalOnce;
 use nu_protocol::{
     Config, PipelineData, Value,
-    engine::{EngineState, PromptContents, PromptState, Stack},
+    engine::{EngineState, PromptContents, Stack},
     report_shell_error,
 };
 use reedline::Prompt;
@@ -108,7 +108,7 @@ fn build_prompt_contents(
     stack: &mut Stack,
 ) -> PromptContents {
     let mut fetch_prompt =
-        |prompt_type| get_prompt_string(prompt_type, config, engine_state, stack);
+        |prompt_type| get_prompt_string(prompt_type, config, engine_state, stack).map(Arc::from);
 
     PromptContents {
         left: fetch_prompt(PROMPT_COMMAND),
@@ -153,21 +153,15 @@ pub(crate) fn make_transient_prompt(
     .into_iter();
 
     transient_overrides.for_each(|(field, env_var)| {
-        let val = get_prompt_string(env_var, config, engine_state, stack);
-
-        // Apply overide
-        if val.is_some() {
-            *field = val;
+        // Apply the override only when the transient variable is actually set.
+        if let Some(val) = get_prompt_string(env_var, config, engine_state, stack) {
+            *field = Some(Arc::from(val));
         }
     });
 
-    // Package
-    let detached_state = PromptState::new();
-    detached_state.set_contents(prompt_contents);
-
-    Box::new(NushellPrompt {
-        state: Arc::new(detached_state),
-    })
+    // The transient prompt is a private snapshot: it never receives async pushes,
+    // so it needs no lock and no shared handle.
+    Box::new(NushellPrompt::snapshot(prompt_contents))
 }
 
 #[cfg(test)]
@@ -189,9 +183,7 @@ mod tests {
 
         update_prompt(&config, &engine_state, &mut stack);
 
-        let nu_prompt = NushellPrompt {
-            state: engine_state.prompt_state.clone(),
-        };
+        let nu_prompt = NushellPrompt::shared(engine_state.prompt_state.clone());
         assert_eq!(nu_prompt.render_prompt_left(), "test");
     }
 }

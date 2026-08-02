@@ -75,22 +75,27 @@ fn build_interactive_prompt(
     engine_state: &EngineState,
     line_editor: &mut Reedline,
 ) -> NushellPrompt {
-    let background_repainter = engine_state
-        .jobs
-        .lock()
-        .is_ok_and(|active_jobs| !active_jobs.is_empty())
-        .then(|| {
-            let repaint_signal = line_editor.repaint_signal();
-            Arc::new(move || repaint_signal.request_repaint()) as RepaintCallback
-        });
+    // Recover from a poisoned jobs lock rather than silently disabling async
+    // prompts: a background job holding the lock across a panic must not leave
+    // `commandline set-prompt` a permanent no-op.
+    let jobs_active = {
+        let active_jobs = engine_state
+            .jobs
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        !active_jobs.is_empty()
+    };
+
+    let background_repainter = jobs_active.then(|| {
+        let repaint_signal = line_editor.repaint_signal();
+        Arc::new(move || repaint_signal.request_repaint()) as RepaintCallback
+    });
 
     engine_state
         .prompt_state
         .set_repainter(background_repainter);
 
-    NushellPrompt {
-        state: engine_state.prompt_state.clone(),
-    }
+    NushellPrompt::shared(engine_state.prompt_state.clone())
 }
 
 /// The main REPL loop, including spinning up the prompt itself.
@@ -751,7 +756,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     start_time = Instant::now();
     line_editor = line_editor.with_transient_prompt(transient_prompt);
 
-    let interactive_prompt = build_interactive_prompt(&engine_state, &mut line_editor);
+    let interactive_prompt = build_interactive_prompt(engine_state, &mut line_editor);
     let input = line_editor.read_line(&interactive_prompt);
 
     // This lists all of the stack references that we have cleaned up
