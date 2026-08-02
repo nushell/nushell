@@ -104,8 +104,27 @@ fn unknown_extension_does_not_default_to_text() -> Result {
             .run("[[a, b]; [1, 2]] | save structured.unknown")
             .expect_error()?;
 
-        assert_contains("Can't convert to string", err.to_string());
+        // No serializer for the extension: report unsupported input with an
+        // actionable message pointing at the explicit conversions.
+        assert_contains("Unsupported input", err.to_string());
+        assert_contains("to json", format!("{err:?}"));
         assert!(!dirs.test().join("structured.unknown").exists());
+        Ok(())
+    })
+}
+
+#[test]
+fn no_extension_gives_actionable_error_for_structured_data() -> Result {
+    Playground::setup("save_no_extension", |dirs, sandbox| {
+        sandbox.with_files(&[]);
+
+        let err = test()
+            .cwd(dirs.test())
+            .run("[[a, b]; [1, 2]] | save structured")
+            .expect_error()?;
+
+        assert_contains("Unsupported input", err.to_string());
+        assert_contains("to json", format!("{err:?}"));
         Ok(())
     })
 }
