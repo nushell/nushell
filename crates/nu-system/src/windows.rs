@@ -1060,6 +1060,16 @@ impl ProcessInfo {
         self.memory_info.working_set_size
     }
 
+    /// Working set size in bytes
+    pub fn working_size(&self) -> u64 {
+        self.memory_info.working_set_size
+    }
+
+    /// Paged memory size in bytes
+    pub fn paged_size(&self) -> u64 {
+        self.memory_info.page_file_usage
+    }
+
     /// Virtual memory size in bytes
     pub fn virtual_size(&self) -> u64 {
         self.memory_info.private_usage

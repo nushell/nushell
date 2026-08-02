@@ -1,13 +1,13 @@
 use super::prelude::*;
-use crate as nu_protocol;
+use crate::engine::EnvName;
 use std::collections::HashMap;
 
 /// Definition of a parsed hook from the config object
-#[derive(Clone, Debug, IntoValue, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Hooks {
     pub pre_prompt: Vec<Value>,
     pub pre_execution: Vec<Value>,
-    pub env_change: HashMap<String, Vec<Value>>,
+    pub env_change: HashMap<EnvName, Vec<Value>>,
     pub display_output: Option<Value>,
     pub command_not_found: Option<Value>,
 }
@@ -30,6 +30,25 @@ impl Hooks {
 impl Default for Hooks {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl IntoValue for Hooks {
+    fn into_value(self, span: Span) -> Value {
+        let env_change = self
+            .env_change
+            .into_iter()
+            .map(|(key, value)| (key.into_string(), value.into_value(span)))
+            .collect::<crate::Record>();
+
+        record! {
+            "pre_prompt" => self.pre_prompt.into_value(span),
+            "pre_execution" => self.pre_execution.into_value(span),
+            "env_change" => env_change.into_value(span),
+            "display_output" => self.display_output.into_value(span),
+            "command_not_found" => self.command_not_found.into_value(span),
+        }
+        .into_value(span)
     }
 }
 
@@ -67,7 +86,10 @@ impl UpdateFromValue for Hooks {
                         self.env_change = record
                             .iter()
                             .map(|(key, val)| {
-                                let old = self.env_change.remove(key).unwrap_or_default();
+                                let old = self
+                                    .env_change
+                                    .remove(&EnvName::from(key))
+                                    .unwrap_or_default();
                                 let new = if let Ok(hooks) = val.as_list() {
                                     hooks.into()
                                 } else {

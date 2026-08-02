@@ -18,6 +18,7 @@ impl Command for Update {
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::Any)),
                 ),
+                (Type::Custom("matrix".into()), Type::Custom("matrix".into())),
             ])
             .required(
                 "field",
@@ -98,6 +99,11 @@ When updating a specific index, the closure will instead be run once. The first 
                     Value::test_int(3),
                 ])),
             },
+            Example {
+                description: "Update a row in a matrix",
+                example: "[[1 2] [3 4]] | into matrix | update 0 [5 6] | matrix into-nu | to nuon",
+                result: Some(Value::test_string("[[5.0, 6.0], [3.0, 4.0]]")),
+            },
         ]
     }
 }
@@ -113,13 +119,18 @@ fn update_recursive(
     match input {
         PipelineData::Value(mut value, metadata) => {
             if let Value::Closure { val, .. } = replacement {
-                update_single_value_by_closure(
-                    &mut value,
-                    ClosureEvalOnce::new(engine_state, stack, *val),
-                    head_span,
-                    cell_paths,
-                    false,
-                )?;
+                if matches!(cell_paths.first(), Some(PathMember::Int { .. })) {
+                    update_single_value_by_closure(
+                        &mut value,
+                        ClosureEvalOnce::new(engine_state, stack, *val),
+                        head_span,
+                        cell_paths,
+                        false,
+                    )?;
+                } else {
+                    let mut closure = ClosureEval::new(engine_state, stack, *val);
+                    update_value_by_closure(&mut value, &mut closure, head_span, cell_paths)?;
+                }
             } else {
                 value.update_data_at_cell_path(cell_paths, replacement)?;
             }
@@ -240,7 +251,12 @@ fn update(
     let head = call.head;
     let cell_path: CellPath = call.req(engine_state, stack, 0)?;
     let replacement: Value = call.req(engine_state, stack, 1)?;
-    let input = input.into_stream_or_original(engine_state);
+    let is_custom = matches!(&input, PipelineData::Value(Value::Custom { .. }, _));
+    let input = if is_custom {
+        input
+    } else {
+        input.into_stream_or_original(engine_state)
+    };
 
     update_recursive(
         engine_state,
@@ -252,29 +268,162 @@ fn update(
     )
 }
 
+/// Applies `closure` to every leaf cell reached by following `cell_path` inside `value`.
+///
+/// Captures the initial value as the row context before descending, then delegates to
+/// [`update_value_by_closure_recursive`] for the actual traversal.
 fn update_value_by_closure(
     value: &mut Value,
     closure: &mut ClosureEval,
     span: Span,
     cell_path: &[PathMember],
 ) -> Result<(), ShellError> {
-    let value_at_path = value.follow_cell_path(cell_path)?;
+    let row_value = value.clone();
+    update_value_by_closure_recursive(value, &row_value, closure, span, cell_path)
+}
 
-    // Don't run the closure for optional paths that don't exist
-    let is_optional = cell_path.iter().any(|member| match member {
-        PathMember::String { optional, .. } => *optional,
-        PathMember::Int { optional, .. } => *optional,
-    });
-    if is_optional && matches!(value_at_path.as_ref(), Value::Nothing { .. }) {
+/// Recursively walks `cell_path` inside `value`, applying `closure` at every leaf cell.
+///
+/// # Parameters
+/// * `value` - The current cell being traversed. At the leaf it is overwritten with the closure result.
+/// * `row_value` - The enclosing *row* passed as the positional argument (`|row|` / `$it`)
+///   to the closure. When descending through a list-of-records this is updated to each
+///   individual nested record, so the closure always receives the most-immediately-enclosing
+///   row rather than a projected list of column values.
+/// * `closure` - The user-supplied closure, evaluated once per leaf cell.
+/// * `span` - Span used when converting the closure output back to a [`Value`].
+/// * `cell_path` - Remaining path members to traverse.
+fn update_value_by_closure_recursive(
+    value: &mut Value,
+    row_value: &Value,
+    closure: &mut ClosureEval,
+    span: Span,
+    cell_path: &[PathMember],
+) -> Result<(), ShellError> {
+    // Base case: no more path to traverse — evaluate the closure at this leaf cell.
+    // `$in` receives the current cell value; the optional positional arg receives the row.
+    let Some((member, path)) = cell_path.split_first() else {
+        let new_value = closure
+            .add_arg(row_value.clone())?
+            .run_with_input(value.clone().into_pipeline_data())?
+            .into_value(span)?;
+        *value = new_value;
         return Ok(());
+    };
+
+    let v_span = value.span();
+
+    match member {
+        PathMember::String {
+            val: col_name,
+            span: path_span,
+            casing,
+            optional,
+        } => {
+            // Copy the span once per arm so all inner branches share the same value.
+            let path_span = Span::new(path_span.start, path_span.end);
+            match value {
+                Value::List { vals, .. } => {
+                    for val in vals.to_mut() {
+                        // Each nested record becomes the new row context so that `|row|`
+                        // refers to the immediately-enclosing record, not the outer row.
+                        let row_context = val.clone();
+                        let val_span = val.span();
+
+                        match val {
+                            Value::Record { val: record, .. } => {
+                                if let Some(cell) =
+                                    record.to_mut().cased_mut(*casing).get_mut(col_name)
+                                {
+                                    update_value_by_closure_recursive(
+                                        cell,
+                                        &row_context,
+                                        closure,
+                                        path_span,
+                                        path,
+                                    )?;
+                                } else if !*optional {
+                                    return Err(ShellError::CantFindColumn {
+                                        col_name: col_name.clone(),
+                                        span: Some(path_span),
+                                        src_span: val_span,
+                                    });
+                                }
+                            }
+                            Value::Error { error, .. } => return Err(*error.clone()),
+                            _ => {
+                                if !*optional {
+                                    return Err(ShellError::CantFindColumn {
+                                        col_name: col_name.clone(),
+                                        span: Some(path_span),
+                                        src_span: val_span,
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+                Value::Record { val: record, .. } => {
+                    if let Some(cell) = record.to_mut().cased_mut(*casing).get_mut(col_name) {
+                        update_value_by_closure_recursive(
+                            cell, row_value, closure, path_span, path,
+                        )?;
+                    } else if !*optional {
+                        return Err(ShellError::CantFindColumn {
+                            col_name: col_name.clone(),
+                            span: Some(path_span),
+                            src_span: v_span,
+                        });
+                    }
+                }
+                Value::Error { error, .. } => return Err(*error.clone()),
+                v => {
+                    if !*optional {
+                        return Err(ShellError::CantFindColumn {
+                            col_name: col_name.clone(),
+                            span: Some(path_span),
+                            src_span: v.span(),
+                        });
+                    }
+                }
+            }
+        }
+        PathMember::Int {
+            val: row_num,
+            span: path_span,
+            optional,
+        } => {
+            let path_span = Span::new(path_span.start, path_span.end);
+            match value {
+                Value::List { vals, .. } => {
+                    if *row_num < vals.len() {
+                        let cell = &mut vals.to_mut()[*row_num];
+                        update_value_by_closure_recursive(
+                            cell, row_value, closure, path_span, path,
+                        )?;
+                    } else if !*optional {
+                        if vals.is_empty() {
+                            return Err(ShellError::AccessEmptyContent { span: path_span });
+                        }
+
+                        return Err(ShellError::AccessBeyondEnd {
+                            max_idx: vals.len() - 1,
+                            span: path_span,
+                        });
+                    }
+                }
+                Value::Error { error, .. } => return Err(*error.clone()),
+                v => {
+                    return Err(ShellError::NotAList {
+                        dst_span: path_span,
+                        src_span: v.span(),
+                    });
+                }
+            }
+        }
     }
 
-    let new_value = closure
-        .add_arg(value.clone())?
-        .run_with_input(value_at_path.into_owned().into_pipeline_data())?
-        .into_value(span)?;
-
-    value.update_data_at_cell_path(cell_path, new_value)
+    Ok(())
 }
 
 fn update_single_value_by_closure(

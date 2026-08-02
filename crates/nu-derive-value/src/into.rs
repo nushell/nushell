@@ -63,7 +63,7 @@ pub fn derive_into_value(input: TokenStream2) -> Result {
 /// These examples show what the macro would generate.
 ///
 /// Struct with named fields:
-/// ```rust
+/// ```rust,ignore
 /// #[derive(IntoValue)]
 /// struct Pet {
 ///     name: String,
@@ -83,7 +83,7 @@ pub fn derive_into_value(input: TokenStream2) -> Result {
 /// ```
 ///
 /// Struct with unnamed fields:
-/// ```rust
+/// ```rust,ignore
 /// #[derive(IntoValue)]
 /// struct Color(u8, u8, u8);
 ///
@@ -99,7 +99,7 @@ pub fn derive_into_value(input: TokenStream2) -> Result {
 /// ```
 ///
 /// Unit struct:
-/// ```rust
+/// ```rust,ignore
 /// #[derive(IntoValue)]
 /// struct Unicorn;
 ///
@@ -161,7 +161,7 @@ fn struct_into_value(
 /// a `Value::String`.
 ///
 /// This is how such a derived implementation looks:
-/// ```rust
+/// ```rust,ignore
 /// #[derive(IntoValue)]
 /// enum Weather {
 ///     Sunny,

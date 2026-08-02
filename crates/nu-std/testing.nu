@@ -56,7 +56,10 @@ def get-annotated [
 # Annotations that allow multiple functions are of type list<string>
 # Other annotations are of type string
 # Result gets merged with the template record so that the output shape remains consistent regardless of the table content
-def create-test-record []: nothing -> record<before-each: string, after-each: string, before-all: string, after-all: string, test: list<string>, test-skip: list<string>> {
+def create-test-record []: [
+    table<function_name: string, annotation: string>
+    -> record<before-each: string, after-each: string, before-all: string, after-all: string, test: list<string>, test-skip: list<string>>
+] {
     let input = $in
 
     let template_record = {

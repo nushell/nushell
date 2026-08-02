@@ -8,8 +8,6 @@ mod eval_cmds;
 mod eval_file;
 mod hints;
 mod menus;
-mod nu_highlight;
-mod print;
 mod prompt;
 mod prompt_update;
 mod reedline_config;
@@ -19,13 +17,13 @@ mod util;
 mod validation;
 
 pub use commands::add_cli_context;
-pub use completions::{FileCompletion, NuCompleter, SemanticSuggestion, SuggestionKind};
+pub use completions::{
+    CompletionEngine, FileCompletion, NuCompleter, SemanticSuggestion, SuggestionKind,
+};
 pub use config_files::eval_config_contents;
 pub use eval_cmds::{EvaluateCommandsOpts, evaluate_commands};
 pub use eval_file::evaluate_file;
 pub use menus::NuHelpCompleter;
-pub use nu_highlight::NuHighlight;
-pub use print::Print;
 pub use prompt::NushellPrompt;
 pub use prompt_update::update_prompt;
 pub use repl::evaluate_repl;

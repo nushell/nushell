@@ -8,28 +8,99 @@ use nu_protocol::{
     ast::{Block, Expr, Expression, PipelineRedirection, RecordItem},
     engine::{EngineState, Stack, StateWorkingSet},
 };
-use reedline::{Highlighter, StyledText};
-use std::sync::Arc;
+use reedline::{AbbrExpandContext, Highlighter, StyledText};
+use std::sync::{Arc, Mutex};
+
+/// A highlighter that does nothing
+///
+/// Used to remove highlighting from a reedline instance
+/// (letting NuHighlighter structs be dropped)
+#[derive(Default)]
+pub struct NoOpHighlighter {}
+
+impl Highlighter for NoOpHighlighter {
+    fn highlight(&self, _line: &str, _cursor: usize) -> reedline::StyledText {
+        StyledText::new()
+    }
+}
+
+struct HighlightCache {
+    line: String,
+    global_span_offset: usize,
+    shapes: Arc<Vec<(Span, FlatShape)>>,
+}
 
 pub struct NuHighlighter {
     pub engine_state: Arc<EngineState>,
     pub stack: Arc<Stack>,
+    cache: Mutex<Option<HighlightCache>>,
+}
+
+impl NuHighlighter {
+    pub fn new(engine_state: Arc<EngineState>, stack: Arc<Stack>) -> Self {
+        Self {
+            engine_state,
+            stack,
+            cache: Mutex::new(None),
+        }
+    }
 }
 
 impl Highlighter for NuHighlighter {
     fn highlight(&self, line: &str, cursor: usize) -> StyledText {
         let result = highlight_syntax(&self.engine_state, &self.stack, line, cursor);
+        *self.cache.lock().unwrap_or_else(|e| e.into_inner()) = Some(HighlightCache {
+            line: line.to_string(),
+            global_span_offset: result.global_span_offset,
+            shapes: Arc::new(result.shapes),
+        });
         result.text
+    }
+
+    fn should_expand_abbr(&self, line: &str, cursor: usize, context: AbbrExpandContext) -> bool {
+        let (global_span_offset, shapes) = match self
+            .cache
+            .lock()
+            .ok()
+            .as_deref()
+            .and_then(|c| c.as_ref())
+            .filter(|c| c.line == line)
+        {
+            Some(c) => (c.global_span_offset, Arc::clone(&c.shapes)),
+            None => {
+                let mut working_set = StateWorkingSet::new(&self.engine_state);
+                let block = parse(&mut working_set, None, line.as_bytes(), false);
+                (
+                    self.engine_state.next_span_start(),
+                    Arc::new(flatten_block(&working_set, &block)),
+                )
+            }
+        };
+
+        let global_cursor = cursor + global_span_offset;
+        !shapes.iter().any(|(span, shape)| {
+            span.contains(global_cursor)
+                && match context {
+                    AbbrExpandContext::WordAbbreviation => matches!(
+                        shape,
+                        FlatShape::String
+                            | FlatShape::RawString
+                            | FlatShape::StringInterpolation
+                            | FlatShape::ExternalArg
+                    ),
+                    AbbrExpandContext::BangExpansion => false,
+                }
+        })
     }
 }
 
 /// Result of a syntax highlight operation
 #[derive(Default)]
 pub(crate) struct HighlightResult {
-    /// The highlighted text
     pub(crate) text: StyledText,
-    /// The span of any garbage that was highlighted
     pub(crate) found_garbage: Option<Span>,
+    pub(crate) global_span_offset: usize,
+    pub(crate) shapes: Vec<(Span, FlatShape)>,
 }
 
 pub(crate) fn highlight_syntax(
@@ -47,7 +118,10 @@ pub(crate) fn highlight_syntax(
     // TODO: Traverse::flat_map based highlighting?
     let shapes = flatten_block(&working_set, &block);
     let global_span_offset = engine_state.next_span_start();
-    let mut result = HighlightResult::default();
+    let mut result = HighlightResult {
+        global_span_offset,
+        ..Default::default()
+    };
     let mut last_seen_span_end = global_span_offset;
 
     let global_cursor_offset = cursor + global_span_offset;
@@ -155,6 +229,7 @@ pub(crate) fn highlight_syntax(
         result.text.push((Style::new(), remainder));
     }
 
+    result.shapes = shapes;
     result
 }
 
@@ -521,4 +596,90 @@ fn get_char_at_index(s: &str, index: usize) -> Option<char> {
 
 fn get_char_length(c: char) -> usize {
     c.to_string().len()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::NuHighlighter;
+    use nu_protocol::engine::{EngineState, Stack};
+    use reedline::{AbbrExpandContext, Highlighter};
+    use rstest::rstest;
+    use std::sync::Arc;
+
+    fn make_highlighter() -> NuHighlighter {
+        NuHighlighter::new(Arc::new(EngineState::new()), Arc::new(Stack::new()))
+    }
+
+    #[rstest]
+    // 4-byte emoji
+    #[case("\"hello 🎉\" hi", 7, false)] // first byte of 🎉
+    #[case("\"hello 🎉\" hi", 9, false)] // third byte of 🎉
+    #[case("\"hello 🎉\" hi", 13, true)] // after closing quote
+    // 8-byte zwj emoji
+    #[case("\"hello 🤝🏿\" hi", 9, false)] // inside 🤝
+    #[case("\"hello 🤝🏿\" hi", 11, false)] // first byte of 🏿
+    #[case("\"hello 🤝🏿\" hi", 13, false)] // inside 🏿
+    #[case("\"hello 🤝🏿\" hi", 17, true)] // after closing quote
+    // 3-byte unicode
+    #[case("\"こんにちは\" hi", 2, false)] // inside こ
+    #[case("\"こんにちは\" hi", 5, false)] // inside ん
+    #[case("\"こんにちは\" hi", 13, false)] // start of は
+    #[case("\"こんにちは\" hi", 18, true)] // after closing quote
+    // raw string
+    #[case("r#'hello'# hi", 4, false)] // inside 'e'
+    #[case("r#'hello'# hi", 11, true)] // after closing #
+    // string interpolation
+    #[case("$\"hello\" hi", 0, false)] // $ — opening StringInterpolation span (0..2)
+    #[case("$\"hello\" hi", 4, false)] // inside literal 'hello'
+    #[case("$\"hello\" hi", 9, true)] // after closing quote
+    // no string
+    #[case("1 + 2", 0, true)]
+    #[case("1 + 2", 2, true)]
+    // suppress abbreviation expansion in external commands
+    #[case("ls -la", 0, true)] // on 'ls'  — FlatShape::External
+    #[case("ls -la", 3, false)] // on '-la' — FlatShape::ExternalArg
+    #[case("bash -c \"echo hello\"", 0, true)] // on 'bash'            — FlatShape::External
+    #[case("bash -c \"echo hello\"", 5, false)] // on '-c'              — FlatShape::ExternalArg
+    #[case("bash -c \"echo hello\"", 10, false)] // inside "echo hello"  — FlatShape::ExternalArg
+    fn test_should_expand_word_abbr(
+        #[case] line: &str,
+        #[case] cursor: usize,
+        #[case] expected: bool,
+    ) {
+        let h = make_highlighter();
+        assert_eq!(
+            h.should_expand_abbr(line, cursor, AbbrExpandContext::WordAbbreviation),
+            expected
+        );
+    }
+
+    #[rstest]
+    // bare bang expressions allow expansion
+    #[case("!!", 0, true)]
+    #[case("!!", 1, true)]
+    #[case("!ls", 0, true)]
+    #[case("!ls", 2, true)]
+    #[case("!-1", 1, true)]
+    // bang inside string literals does not suppress expansion
+    #[case("\"!!\"", 1, true)]
+    #[case("\"!ls\"", 2, true)]
+    #[case("r#'!!'#", 3, true)]
+    #[case("$\"!!\"", 2, true)]
+    // bang as external arg does not suppress expansion
+    #[case("bash -c !!", 9, true)]
+    #[case("bash -c !ls", 9, true)]
+    // bang inside a string that is itself an external arg — shape is ExternalArg, not String.
+    // currently there is no way to avoid this
+    #[case("echo \"hi !!\"", 9, true)]
+    fn test_should_expand_abbr_bang(
+        #[case] line: &str,
+        #[case] cursor: usize,
+        #[case] expected: bool,
+    ) {
+        let h = make_highlighter();
+        assert_eq!(
+            h.should_expand_abbr(line, cursor, AbbrExpandContext::BangExpansion),
+            expected
+        );
+    }
 }

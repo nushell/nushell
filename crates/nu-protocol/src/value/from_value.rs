@@ -442,7 +442,7 @@ macro_rules! tuple_from_value {
                 let span = v.span();
                 match v {
                     Value::List { vals, .. } => {
-                        let mut deque = VecDeque::from(vals);
+                        let mut deque = VecDeque::from(vals.into_owned());
 
                         Ok(($(
                             {
@@ -557,7 +557,7 @@ impl FromValue for String {
 impl FromValue for Vec<u8> {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         match v {
-            Value::Binary { val, .. } => Ok(val),
+            Value::Binary { val, .. } => Ok(val.into_owned()),
             Value::String { val, .. } => Ok(val.into_bytes()),
             Value::List { vals, .. } => {
                 const U8MIN: i64 = u8::MIN as i64;
@@ -623,7 +623,7 @@ where
     }
 
     fn expected_type() -> Type {
-        Type::OneOf(vec![A::expected_type(), B::expected_type()].into())
+        Type::one_of([A::expected_type(), B::expected_type()])
     }
 }
 
@@ -660,7 +660,7 @@ where
     }
 
     fn expected_type() -> Type {
-        Type::Record(vec![].into_boxed_slice())
+        Type::record()
     }
 }
 
@@ -727,7 +727,12 @@ impl FromValue for CellPath {
             }),
             Value::Int { val, .. } => {
                 if val.is_negative() {
-                    Err(ShellError::NeedsPositiveValue { span })
+                    Err(ShellError::CantConvert {
+                        to_type: "cell path".into(),
+                        from_type: "negative number".into(),
+                        span,
+                        help: None,
+                    })
                 } else {
                     Ok(CellPath {
                         members: vec![PathMember::Int {
@@ -871,7 +876,7 @@ where
 impl FromValue for bytes::Bytes {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         match v {
-            Value::Binary { val, .. } => Ok(val.into()),
+            Value::Binary { val, .. } => Ok(val.into_owned().into()),
             v => Err(ShellError::CantConvert {
                 to_type: Self::expected_type().to_string(),
                 from_type: v.get_type().to_string(),

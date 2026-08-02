@@ -4,20 +4,20 @@ use nu_parser::parse;
 use nu_protocol::{
     PipelineData, PositionalArg, ShellError, Span, Type, Value, VarId,
     debugger::WithoutDebug,
-    engine::{Closure, EngineState, Stack, StateWorkingSet},
+    engine::{Closure, EngineState, EnvName, Stack, StateWorkingSet},
     report_error::{report_parse_error, report_shell_error},
     shell_error::generic::GenericError,
 };
 use std::{collections::HashMap, sync::Arc};
 
 pub fn eval_env_change_hook(
-    env_change_hook: &HashMap<String, Vec<Value>>,
+    env_change_hook: &HashMap<EnvName, Vec<Value>>,
     engine_state: &mut EngineState,
     stack: &mut Stack,
 ) -> Result<(), ShellError> {
     for (env, hooks) in env_change_hook {
         let before = engine_state.previous_env_vars.get(env);
-        let after = stack.get_env_var(engine_state, env);
+        let after = stack.get_env_var(engine_state, env.as_str());
         if before != after {
             let before = before.cloned().unwrap_or_default();
             let after = after.cloned().unwrap_or_default();
@@ -35,6 +35,44 @@ pub fn eval_env_change_hook(
     }
 
     Ok(())
+}
+
+pub fn eval_pre_prompt_hooks(
+    engine_state: &mut EngineState,
+    stack: &mut Stack,
+) -> Result<(), ShellError> {
+    let hook = engine_state.get_config().hooks.pre_prompt.clone();
+    eval_hooks(engine_state, stack, vec![], &hook, "pre_prompt")
+}
+
+pub fn eval_pre_execution_hooks(
+    engine_state: &mut EngineState,
+    stack: &mut Stack,
+    commandline: impl Into<String>,
+) -> Result<(), ShellError> {
+    engine_state
+        .repl_state
+        .lock()
+        .expect("repl state mutex")
+        .buffer = commandline.into();
+
+    let hook = engine_state.get_config().hooks.pre_execution.clone();
+    eval_hooks(engine_state, stack, vec![], &hook, "pre_execution")
+}
+
+pub fn eval_repl_hooks(
+    engine_state: &mut EngineState,
+    stack: &mut Stack,
+    commandline: impl Into<String>,
+) -> Result<(), ShellError> {
+    engine_state.merge_env(stack)?;
+
+    eval_pre_prompt_hooks(engine_state, stack)?;
+
+    let hook = engine_state.get_config().hooks.env_change.clone();
+    eval_env_change_hook(&hook, engine_state, stack)?;
+
+    eval_pre_execution_hooks(engine_state, stack, commandline)
 }
 
 pub fn eval_hooks(

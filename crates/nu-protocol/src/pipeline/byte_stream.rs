@@ -328,9 +328,12 @@ impl ByteStream {
         .with_known_size(Some(len as u64))
     }
 
-    /// Create a [`ByteStream`] from a byte vector. The type of the stream is always `Binary`.
-    pub fn read_binary(bytes: Vec<u8>, span: Span, signals: Signals) -> Self {
-        let len = bytes.len();
+    /// Create a [`ByteStream`] from binary data. The type of the stream is always `Binary`.
+    pub fn read_binary<T>(bytes: T, span: Span, signals: Signals) -> Self
+    where
+        T: AsRef<[u8]> + Send + 'static,
+    {
+        let len = bytes.as_ref().len();
         ByteStream::read(Cursor::new(bytes), span, signals, ByteStreamType::Binary)
             .with_known_size(Some(len as u64))
     }
@@ -508,6 +511,7 @@ impl ByteStream {
             reader: BufReader::new(reader),
             span: self.span,
             signals: self.signals,
+            strict: false,
         })
     }
 
@@ -594,22 +598,39 @@ impl ByteStream {
     ///
     /// Any trailing new lines are kept in the returned [`Vec`].
     pub fn into_bytes(self) -> Result<Vec<u8>, ShellError> {
-        // todo!() ctrlc
-        let from_io_error = IoError::factory(self.span, None);
+        let span = self.span;
+        let signals = self.signals;
+        let from_io_error = IoError::factory(span, None);
         match self.stream {
             ByteStreamSource::Read(mut read) => {
                 let mut buf = Vec::new();
-                read.read_to_end(&mut buf).map_err(|err| {
-                    match ShellErrorBridge::try_from(err) {
-                        Ok(ShellErrorBridge(err)) => err,
-                        Err(err) => ShellError::Io(from_io_error(err)),
+                let mut chunk = [0; DEFAULT_BUF_SIZE];
+                loop {
+                    signals.check(&span)?;
+                    match read.read(&mut chunk) {
+                        Ok(0) => break,
+                        Ok(n) => buf.extend_from_slice(&chunk[..n]),
+                        Err(e) if e.kind() == ErrorKind::Interrupted => continue,
+                        Err(e) => match ShellErrorBridge::try_from(e) {
+                            Ok(ShellErrorBridge(e)) => return Err(e),
+                            Err(e) => return Err(ShellError::Io(from_io_error(e))),
+                        },
                     }
-                })?;
+                }
                 Ok(buf)
             }
             ByteStreamSource::File(mut file) => {
                 let mut buf = Vec::new();
-                file.read_to_end(&mut buf).map_err(&from_io_error)?;
+                let mut chunk = [0; DEFAULT_BUF_SIZE];
+                loop {
+                    signals.check(&span)?;
+                    match file.read(&mut chunk) {
+                        Ok(0) => break,
+                        Ok(n) => buf.extend_from_slice(&chunk[..n]),
+                        Err(e) if e.kind() == ErrorKind::Interrupted => continue,
+                        Err(e) => return Err(ShellError::Io(from_io_error(e))),
+                    }
+                }
                 Ok(buf)
             }
             #[cfg(feature = "os")]
@@ -834,11 +855,30 @@ pub struct Lines {
     reader: BufReader<SourceReader>,
     span: Span,
     signals: Signals,
+    /// Controls UTF-8 decoding behavior for each line.
+    ///
+    /// When `false` (the default), invalid UTF-8 bytes are replaced with the Unicode
+    /// replacement character (U+FFFD) using lossy conversion, so processing continues
+    /// uninterrupted even if the input is not valid UTF-8.
+    ///
+    /// When `true`, any line containing invalid UTF-8 bytes will immediately produce
+    /// a [`ShellError::NonUtf8`] error instead of a string value.
+    strict: bool,
 }
 
 impl Lines {
     pub fn span(&self) -> Span {
         self.span
+    }
+
+    /// Sets the UTF-8 decoding mode for this iterator.
+    ///
+    /// When `strict` is `true`, any line that contains invalid UTF-8 bytes will yield
+    /// a [`ShellError::NonUtf8`] error. When `false` (the default), invalid bytes are
+    /// silently replaced with the Unicode replacement character (U+FFFD `\u{FFFD}`).
+    pub fn strict(mut self, strict: bool) -> Self {
+        self.strict = strict;
+        self
     }
 }
 
@@ -853,8 +893,13 @@ impl Iterator for Lines {
             match self.reader.read_until(b'\n', &mut buf) {
                 Ok(0) => None,
                 Ok(_) => {
-                    let Ok(mut string) = String::from_utf8(buf) else {
-                        return Some(Err(ShellError::NonUtf8 { span: self.span }));
+                    let mut string = if self.strict {
+                        match String::from_utf8(buf) {
+                            Ok(s) => s,
+                            Err(_) => return Some(Err(ShellError::NonUtf8 { span: self.span })),
+                        }
+                    } else {
+                        String::from_utf8_lossy(&buf).into_owned()
                     };
                     trim_end_newline(&mut string);
                     Some(Ok(string))
@@ -1203,6 +1248,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use nu_utils::SharedCow;
 
     fn test_chunks<T>(data: Vec<T>, type_: ByteStreamType) -> Chunks
     where
@@ -1233,6 +1279,15 @@ mod tests {
             bins_values,
             iter.collect::<Result<Vec<Value>, _>>().expect("error")
         );
+    }
+
+    #[test]
+    fn read_binary_shares_data() {
+        let data = SharedCow::new(vec![0, 1, 2, 3]);
+        let stream = ByteStream::read_binary(data.clone(), Span::test_data(), Signals::empty());
+
+        assert_eq!(SharedCow::ref_count(&data), 2);
+        assert_eq!(stream.into_bytes().expect("error"), data.as_slice());
     }
 
     #[test]

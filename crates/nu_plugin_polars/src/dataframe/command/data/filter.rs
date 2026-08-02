@@ -43,6 +43,10 @@ impl PluginCommand for LazyFilter {
                     PolarsPluginType::NuExpression.into(),
                     PolarsPluginType::NuExpression.into(),
                 ),
+                (
+                    PolarsPluginType::NuSelector.into(),
+                    PolarsPluginType::NuExpression.into(),
+                ),
             ])
             .category(Category::Custom("lazyframe".into()))
     }
@@ -173,9 +177,11 @@ impl PluginCommand for LazyFilter {
             _ => Err(cant_convert_err(
                 &pipeline_value,
                 &[
-                    // PolarsPluginType::NuDataFrame,
+                    PolarsPluginType::NuDataFrame,
+                    PolarsPluginType::NuLazyFrame,
                     PolarsPluginType::NuLazyGroupBy,
                     PolarsPluginType::NuExpression,
+                    PolarsPluginType::NuSelector,
                 ],
             )),
         }

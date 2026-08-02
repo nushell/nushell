@@ -82,7 +82,11 @@ pub fn get_pipeline_elements(
                 (
                     command.name().to_string(),
                     get_arguments(engine_state, stack, call.as_ref(), eval_expression),
-                    command.signature().get_output_type().to_string(),
+                    command
+                        .signature()
+                        .get_output_type(None)
+                        .unwrap_or_default()
+                        .to_string(),
                 )
             } else {
                 ("no-op".to_string(), vec![], expression.ty.to_string())

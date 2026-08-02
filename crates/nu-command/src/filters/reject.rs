@@ -83,6 +83,14 @@ impl Command for Reject {
                     new_columns.push(cv.clone());
                 }
                 Value::Int { val, .. } => {
+                    if val < 0 {
+                        return Err(ShellError::CantConvert {
+                            to_type: "cell path".into(),
+                            from_type: "negative number".into(),
+                            span: *col_span,
+                            help: None,
+                        });
+                    }
                     let cv = CellPath {
                         members: vec![PathMember::Int {
                             val: val as usize,

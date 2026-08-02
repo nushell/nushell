@@ -61,6 +61,12 @@ let
   cargoToml = fromTOML (readFile (root + /Cargo.toml));
   # Allow for extra Cargo.toml files to be passed for crates
   extraToml = fromTOML (readFile extraCargo);
+
+  version =
+    if (cargoToml.package.version.workspace or false) then
+      cargoToml.workspace.package.version
+    else
+      cargoToml.package.version;
 in
 rustPlatform.buildRustPackage {
   inherit
@@ -72,8 +78,8 @@ rustPlatform.buildRustPackage {
     checkFlags
     buildType
     checkType
+    version
     ;
-  inherit (cargoToml.package) version;
 
   # Crates will need to build with their Cargo.toml
   src = toSource {

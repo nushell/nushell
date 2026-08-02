@@ -13,7 +13,7 @@ impl Command for ToNuon {
             .input_output_types(vec![(Type::Any, Type::String)])
             .switch(
                 "raw",
-                "Remove all of the whitespace (overwrites -i and -t).",
+                "Remove all of the whitespace (overwrites -i, -t, and -p).",
                 Some('r'),
             )
             .named(
@@ -48,6 +48,11 @@ impl Command for ToNuon {
                 "Do not use commas between items in tables and lists.",
                 Some('c'),
             )
+            .switch(
+                "pretty",
+                "Format output with indentation and aligned table columns.",
+                Some('p'),
+            )
             .category(Category::Formats)
     }
 
@@ -66,12 +71,15 @@ impl Command for ToNuon {
         let raw_strings = call.has_flag(engine_state, stack, "raw-strings")?;
         let list_of_records = call.has_flag(engine_state, stack, "list-of-records")?;
         let no_commas = call.has_flag(engine_state, stack, "no-commas")?;
+        let pretty = call.has_flag(engine_state, stack, "pretty")?;
         let style = if call.has_flag(engine_state, stack, "raw")? {
             nuon::ToStyle::Raw
         } else if let Some(t) = call.get_flag(engine_state, stack, "tabs")? {
             nuon::ToStyle::Tabs(t)
         } else if let Some(i) = call.get_flag(engine_state, stack, "indent")? {
             nuon::ToStyle::Spaces(i)
+        } else if pretty {
+            nuon::ToStyle::Spaces(2)
         } else {
             nuon::ToStyle::Default
         };
@@ -156,6 +164,13 @@ impl Command for ToNuon {
                 description: "Output a record without commas between fields.",
                 example: "{a: 1, b: 2} | to nuon --no-commas",
                 result: Some(Value::test_string("{a: 1 b: 2}")),
+            },
+            Example {
+                description: "Format output with pretty indentation and aligned table columns.",
+                example: "[[name, age]; [Alice, 30], [Bob, 25]] | to nuon --pretty",
+                result: Some(Value::test_string(
+                    "[\n  [name,  age];\n  [Alice, 30],\n  [Bob,   25]\n]",
+                )),
             },
         ]
     }

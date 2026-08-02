@@ -4,15 +4,17 @@ on:
     branches:
       - main
       - 'patch-release-*'
+  pull_request_target:
+    types: [ready_for_review]
 
 name: continuous-integration
 
 env:
   NU_LOG_LEVEL: DEBUG
+  NU_TEST_SKIP_DEPS_BUILD: true
   CLIPPY_OPTIONS: "-D warnings"
   NUSHELL_CARGO_PROFILE: ci
-  MAIN_OPTIONS: --workspace --exclude nu_plugin_* --all-targets
-  PLUGIN_OPTIONS: --package nu_plugin_* --all-targets
+  MAIN_OPTIONS: --workspace --all-targets
   WASM_OPTIONS: >-
     --no-default-features
     --target wasm32-unknown-unknown
@@ -42,6 +44,14 @@ concurrency:
 
 jobs:
   cargo:
+    # Do not run CI on draft PRs or on the lower layers of stacked PRs
+    if: >-
+      !github.event.pull_request.draft &&
+      (
+        github.event.pull_request.stack == null ||
+        github.event.pull_request.stack.position ==
+          github.event.pull_request.stack.size
+      )
     name: "`cargo` in ${{ matrix.workspace.name }} (${{ matrix.target.name }})"
     strategy:
       fail-fast: true
@@ -54,32 +64,17 @@ jobs:
             host: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             options: MAIN_OPTIONS
-            steps: [fmt, clippy, build, test]
+            steps: [fmt, clippy, build, test, doctest]
           - name: Windows
             host: windows-latest
             target: x86_64-pc-windows-msvc
             options: MAIN_OPTIONS
-            steps: [fmt, clippy, build, test]
+            steps: [fmt, clippy, build, test, doctest]
           - name: MacOS
             host: macos-latest
             target: x86_64-apple-darwin
             options: MAIN_OPTIONS
-            steps: [fmt, clippy, build, test]
-          - name: Ubuntu Plugins
-            host: ubuntu-22.04
-            target: x86_64-unknown-linux-gnu
-            options: PLUGIN_OPTIONS
-            steps: [clippy, build, test]
-          - name: Windows Plugins
-            host: windows-latest
-            target: x86_64-pc-windows-msvc
-            options: PLUGIN_OPTIONS
-            steps: [clippy, build, test]
-          - name: MacOS Plugins
-            host: macos-latest
-            target: x86_64-apple-darwin
-            options: PLUGIN_OPTIONS
-            steps: [clippy, build, test]
+            steps: [fmt, clippy, build, test, doctest]
           - name: WASM
             host: ubuntu-22.04
             target: wasm32-unknown-unknown
@@ -94,35 +89,23 @@ jobs:
           - name: nu-parser/fuzz
             path: ./crates/nu-parser/fuzz
             profile: dev
-            skip: [build, test]
+            skip: [build, test, doctest]
           - name: nu-path/fuzz
             path: ./crates/nu-path/fuzz
             profile: dev
-            skip: [build, test]
+            skip: [build, test, doctest]
 
         exclude:
           - target: { name: WASM }
             workspace: { name: nu-parser/fuzz }
           - target: { name: WASM }
             workspace: { name: nu-path/fuzz }
-          - target: { name: Ubuntu Plugins }
-            workspace: { name: nu-parser/fuzz }
-          - target: { name: Ubuntu Plugins }
-            workspace: { name: nu-path/fuzz }
-          - target: { name: Windows Plugins }
-            workspace: { name: nu-parser/fuzz }
-          - target: { name: Windows Plugins }
-            workspace: { name: nu-path/fuzz }
-          - target: { name: MacOS Plugins }
-            workspace: { name: nu-parser/fuzz }
-          - target: { name: MacOS Plugins }
-            workspace: { name: nu-path/fuzz }
     
     runs-on: ${{ matrix.target.host }}
 
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup Rust Toolchain
         run: rustup target add ${{ matrix.target.target }}
@@ -145,29 +128,42 @@ jobs:
       - name: cargo check
         if: contains(matrix.target.steps, 'check') && !contains(matrix.workspace.skip, 'check')
         working-directory: ${{ matrix.workspace.path }}
-        run: cargo check ${{ env[matrix.target.options] }} --profile ${{ matrix.workspace.profile }}
+        run: cargo --config "${{ github.workspace }}/.cargo/ci.toml" check ${{ env[matrix.target.options] }} --profile ${{ matrix.workspace.profile }}
         
       - name: cargo clippy
         if: contains(matrix.target.steps, 'clippy') && !contains(matrix.workspace.skip, 'clippy')
         working-directory: ${{ matrix.workspace.path }}
         run: |
           rustup component add clippy
-          cargo clippy ${{ env[matrix.target.options] }} --profile ${{ matrix.workspace.profile }} -- ${{ env['CLIPPY_OPTIONS'] }}
+          cargo --config "${{ github.workspace }}/.cargo/ci.toml" clippy ${{ env[matrix.target.options] }} --profile ${{ matrix.workspace.profile }} -- ${{ env['CLIPPY_OPTIONS'] }}
 
       - name: cargo build
         if: contains(matrix.target.steps, 'build') && !contains(matrix.workspace.skip, 'build')
         working-directory: ${{ matrix.workspace.path }}
-        run: cargo build ${{ env[matrix.target.options] }} --profile ${{ matrix.workspace.profile }}
+        run: cargo --config "${{ github.workspace }}/.cargo/ci.toml" build ${{ env[matrix.target.options] }} --profile ${{ matrix.workspace.profile }}
 
       - name: cargo test
         if: contains(matrix.target.steps, 'test') && !contains(matrix.workspace.skip, 'test')
         working-directory: ${{ matrix.workspace.path }}
-        run: cargo test ${{ env[matrix.target.options] }} --profile ${{ matrix.workspace.profile }}
+        run: cargo --config "${{ github.workspace }}/.cargo/ci.toml" test ${{ env[matrix.target.options] }} --profile ${{ matrix.workspace.profile }}
+
+      - name: cargo test --doc
+        if: contains(matrix.target.steps, 'doctest') && !contains(matrix.workspace.skip, 'doctest')
+        working-directory: ${{ matrix.workspace.path }}
+        run: cargo --config "${{ github.workspace }}/.cargo/ci.toml" test --workspace --doc --profile ${{ matrix.workspace.profile }}
 
       - name: Assert Clean Repo
         run: git diff --quiet && git diff --cached --quiet
 
   std-lib-and-python-virtualenv:
+    # Do not run CI on draft PRs or on the lower layers of stacked PRs
+    if: >-
+      !github.event.pull_request.draft &&
+      (
+        github.event.pull_request.stack == null ||
+        github.event.pull_request.stack.position ==
+          github.event.pull_request.stack.size
+      )
     strategy:
       fail-fast: true
       matrix:
@@ -178,7 +174,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup Rust toolchain and cache
         uses: actions-rust-lang/setup-rust-toolchain@v1.12.0
@@ -209,7 +205,7 @@ jobs:
         run: nu .github/workflows/check-msrv.nu
 
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.10"
 

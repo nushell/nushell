@@ -15,7 +15,7 @@ impl Command for AttrExample {
             .input_output_types(vec![(
                 Type::Nothing,
                 Type::Record(
-                    [
+                    vec![
                         ("description".into(), Type::String),
                         ("example".into(), Type::String),
                     ]

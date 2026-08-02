@@ -1,11 +1,10 @@
+use serde::{Deserialize, Serialize};
 use std::{
     borrow::Borrow,
     fmt::{Arguments, Display},
     hash::Hash,
     ops::Deref,
 };
-
-use serde::{Deserialize, Serialize};
 
 /// An owned, immutable string with compact storage.
 ///

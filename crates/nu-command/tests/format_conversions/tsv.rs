@@ -1,3 +1,4 @@
+use nu_protocol::Type;
 use nu_test_support::{fs::Stub::FileWithContentToBeTrimmed, prelude::*};
 
 #[test]
@@ -273,16 +274,15 @@ fn from_tsv_text_with_wrong_type_comment() -> Result {
             | from csv --comment ('123' | into int)
         ";
 
-        let err = test().cwd(dirs.test()).run(code).expect_shell_error()?;
-        let ShellError::CantConvert {
-            from_type, to_type, ..
-        } = err
-        else {
-            return Err(err.into());
-        };
-        assert_eq!(from_type, "int");
-        assert_eq!(to_type, "char");
-        Ok(())
+        let outcome = test().cwd(dirs.test()).run(code).expect_parse_error()?;
+        match outcome {
+            ParseError::TypeMismatch(expected, got, _) => {
+                assert_eq!(expected, Type::String);
+                assert_eq!(got, Type::Int);
+                Ok(())
+            }
+            err => Err(err.into()),
+        }
     })
 }
 

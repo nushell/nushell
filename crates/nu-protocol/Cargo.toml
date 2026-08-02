@@ -1,12 +1,12 @@
 [package]
-authors = ["The Nushell Project Developers"]
+authors.workspace = true
 description = "Nushell's internal protocols, including its abstract syntax tree"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-protocol"
 edition.workspace = true
 rust-version.workspace = true
-license = "MIT"
+license.workspace = true
 name = "nu-protocol"
-version = "0.112.3"
+version.workspace = true
 autotests = false
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -24,14 +24,16 @@ harness = false
 workspace = true
 
 [dependencies]
-nu-derive-value = { path = "../nu-derive-value", version = "0.112.3" }
-nu-glob = { path = "../nu-glob", version = "0.112.3" }
-nu-path = { path = "../nu-path", version = "0.112.3" }
-nu-system = { path = "../nu-system", version = "0.112.3" }
-nu-utils = { path = "../nu-utils", version = "0.112.3", default-features = false }
-nu-experimental = { path = "../nu-experimental", version = "0.112.3" }
+nu-derive-value.workspace = true
+nu-glob.workspace = true
+nu-path.workspace = true
+nu-system.workspace = true
+nu-utils.workspace = true
+nu-experimental.workspace = true
+nu-config.workspace = true
 
 brotli = { workspace = true, optional = true }
+bstr = { workspace = true }
 bytes = { workspace = true }
 chrono = { workspace = true, features = ["serde", "std", "unstable-locales"], default-features = false }
 chrono-humanize = { workspace = true }
@@ -39,8 +41,10 @@ dirs = { workspace = true }
 derive_more = { workspace = true, features = ["debug"] }
 fancy-regex = { workspace = true }
 heck = { workspace = true }
+humantime = { workspace = true }
 indexmap = { workspace = true }
 lru = { workspace = true }
+memchr = { workspace = true }
 miette = { workspace = true, features = ["fancy-no-backtrace"] }
 num-format = { workspace = true }
 rmp-serde = { workspace = true, optional = true }
@@ -52,8 +56,9 @@ thiserror = { workspace = true }
 typetag = "0.2"
 os_pipe = { workspace = true, optional = true, features = ["io_safety"] }
 log = { workspace = true }
+semver = { version = "1.0", features = ["serde"] }
 web-time = { workspace = true }
-memchr = { workspace = true }
+winnow = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
 nix = { workspace = true, default-features = false, features = ["signal"] }
@@ -72,6 +77,7 @@ os = [
 
 plugin = [
   "brotli",
+  "nu-config/plugin",
   "os",
   "rmp-serde",
 ]
@@ -80,13 +86,14 @@ sqlite = []
 
 [dev-dependencies]
 nu-test-support = { path = "../nu-test-support", features = ["os"] }
-nu-utils = { path = "../nu-utils" }
+nu-utils.workspace = true
 
-serde_json = { workspace = true }
+indoc = { workspace = true }
+os_pipe = { workspace = true }
 pretty_assertions = { workspace = true }
 rstest = { workspace = true }
+serde_json = { workspace = true }
 tempfile = { workspace = true }
-os_pipe = { workspace = true }
 
 [package.metadata.docs.rs]
 all-features = true

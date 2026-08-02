@@ -821,6 +821,22 @@ pub enum ShellError {
         span: Span,
     },
 
+    /// An HTTP request return an error code.
+    ///
+    /// ## Resolution
+    ///
+    /// Check the response body for more details.
+    #[error("HTTP Error {code} ({reason}): {url}")]
+    #[diagnostic(code(nu::shell::http_error))]
+    HttpError {
+        code: u16,
+        reason: &'static str,
+        url: String,
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
+
     #[error(transparent)]
     #[diagnostic(transparent)]
     Network(#[from] network::NetworkError),
@@ -1155,6 +1171,15 @@ pub enum ShellError {
     },
 
     /// Return event, which may become an error if used outside of a custom command or closure
+    ///
+    /// This is no longer raised by the engine: an early `return` now leaves the block through the
+    /// same path as a value in tail position, preserving pipeline metadata and streams (see
+    /// `PipelineExecutionData::early_return`). The variant is kept temporarily for compatibility
+    /// and will be removed in a future release.
+    #[deprecated(
+        since = "0.114.2",
+        note = "the engine no longer raises this; an early `return` now flows out through `PipelineExecutionData::early_return`"
+    )]
     #[error("Return used outside of custom command or closure")]
     Return {
         #[label("used outside of custom command or closure")]
@@ -1170,7 +1195,7 @@ pub enum ShellError {
             "This shouldn't happen. Please file an issue: https://github.com/nushell/nushell/issues"
         )
     )]
-    Exit { code: i32 },
+    Exit { code: i32, abort: bool },
 
     /// The code being executed called itself too many times.
     ///
@@ -1474,6 +1499,8 @@ impl ShellError {
     }
 
     pub fn exit_code(&self) -> Option<i32> {
+        // `Return` is deprecated but still a valid variant to match on here.
+        #[allow(deprecated)]
         match self {
             Self::Return { .. } | Self::Break { .. } | Self::Continue { .. } => None,
             _ => self.external_exit_code().map(|e| e.item).or(Some(1)),
@@ -1493,7 +1520,7 @@ impl ShellError {
             "debug" => Value::string(format!("{self:?}"), span),
             "raw" => Value::error(self.clone(), span),
             "rendered" => Value::string(format_cli_error(Some(stack), working_set, &self, Some("nu::shell::error")), span),
-            "json" => Value::string(serde_json::to_string(&self).expect("Could not serialize error"), span),
+            "details" => LabeledError::from(self).into_value(span, working_set),
         };
 
         if let Some(code) = exit_code {

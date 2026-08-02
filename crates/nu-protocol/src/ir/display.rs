@@ -220,6 +220,18 @@ impl fmt::Display for FmtInstruction<'_> {
                     "upsert-cell-path"
                 )
             }
+            Instruction::UpdateVarCellPath {
+                var_id,
+                cell_path,
+                new_value,
+            } => {
+                let var = FmtVar::new(self.engine_state, *var_id);
+                write!(
+                    f,
+                    "{:WIDTH$} {var}, {cell_path}, {new_value}",
+                    "update-var-cell-path"
+                )
+            }
             Instruction::Jump { index } => {
                 write!(f, "{:WIDTH$} {index}", "jump")
             }

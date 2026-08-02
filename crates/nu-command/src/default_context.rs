@@ -37,8 +37,10 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Append,
             Chunks,
             Columns,
+            Combinations,
             Compact,
             Default,
+            Difference,
             Drop,
             DropColumn,
             DropNth,
@@ -56,6 +58,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             IsEmpty,
             IsNotEmpty,
             Interleave,
+            Intersect,
             Items,
             Join,
             Take,
@@ -69,6 +72,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Lines,
             ParEach,
             Peek,
+            Permutations,
             ChunkBy,
             Prepend,
             Reduce,
@@ -87,6 +91,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Transpose,
             Uniq,
             UniqBy,
+            Union,
             Upsert,
             Update,
             Values,
@@ -100,6 +105,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         bind_command! {
             DeleteVar,
             Panic,
+            Run,
             Source,
             Tutor,
         };
@@ -220,6 +226,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             StrContains,
             StrDistance,
             StrDowncase,
+            StrLowercase,
             StrEndswith,
             StrEscapeRegex,
             StrExpand,
@@ -233,6 +240,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             StrSubstring,
             StrTrim,
             StrUpcase,
+            StrUppercase,
             Format,
             FormatDate,
             FormatDuration,
@@ -260,15 +268,10 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             IdxStatus,
             IdxFind,
             IdxSearch,
+            IdxWatch,
             IdxDrop,
             IdxDirs,
             IdxFiles,
-        };
-
-        #[cfg(feature = "sqlite")]
-        bind_command! {
-            IdxExport,
-            IdxImport,
         };
 
         // Platform
@@ -288,6 +291,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Input,
             InputList,
             InputListen,
+            IsRedirected,
             IsTerminal,
             Kill,
             Sleep,
@@ -335,6 +339,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             FromXml,
             FROM_YAML,
             FROM_YML,
+            FromKdl,
             To,
             ToCsv,
             ToJson,
@@ -342,9 +347,11 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             ToMsgpack,
             ToMsgpackz,
             ToNuon,
-            ToText,
+            TO_TEXT,
+            TO_TXT,
             ToToml,
             ToTsv,
+            ToKdl,
             Upsert,
             Where,
             ToXml,
@@ -370,11 +377,43 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             IntoFloat,
             IntoFilesize,
             IntoInt,
+            IntoMatrix,
             IntoRecord,
+            IntoSemver,
+            IntoSemverRange,
             IntoString,
             IntoGlob,
             IntoValue,
             SplitCellPath,
+        };
+
+        // Semver
+        bind_command! {
+            Semver,
+            SemverBump,
+        };
+
+        // Matrix
+        bind_command! {
+            Matrix,
+            MatrixZeros,
+            MatrixIdentity,
+            MatrixGetRow,
+            MatrixGetCol,
+            MatrixSetRow,
+            MatrixSetCol,
+            MatrixAdd,
+            MatrixSubtract,
+            MatrixScale,
+            MatrixMultiply,
+            MatrixTranspose,
+            MatrixReshape,
+            MatrixMap,
+            MatrixReduce,
+            MatrixSum,
+            MatrixMean,
+            MatrixMax,
+            MatrixIntoNu,
         };
 
         // Env
@@ -396,6 +435,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Math,
             MathAbs,
             MathAvg,
+            MathCbrt,
             MathCeil,
             MathFloor,
             MathMax,
@@ -461,6 +501,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             RandomChars,
             RandomFloat,
             RandomInt,
+            RandomPass,
             RandomUuid,
             RandomBinary
         };

@@ -106,9 +106,17 @@ pub(crate) fn compile_binary_op(
                 // the RHS expression
                 let rhs_reg = builder.next_register()?;
 
-                // Pass in_reg to rhs if it uses $in
+                // Pass in_reg to rhs if it uses $in. But if in_reg aliases lhs_reg (which can
+                // happen because lhs_reg == out_reg), the rhs compilation might `drop` it while
+                // following a `drop_input` path, which would clobber the live lhs value. Clone it
+                // in that case so the rhs gets its own droppable input register.
                 let rhs_in_reg = if rhs.has_in_variable(working_set) {
-                    in_reg
+                    match in_reg {
+                        Some(in_reg) if in_reg == lhs_reg => {
+                            Some(builder.clone_reg(in_reg, rhs.span)?)
+                        }
+                        other => other,
+                    }
                 } else {
                     None
                 };
@@ -140,9 +148,15 @@ pub(crate) fn compile_binary_op(
             _ => {
                 let rhs_reg = builder.next_register()?;
 
-                // Pass in_reg to rhs if it uses $in
+                // Pass in_reg to rhs if it uses $in. See the and/or branch above for why we may
+                // need to clone in_reg when it aliases lhs_reg.
                 let rhs_in_reg = if rhs.has_in_variable(working_set) {
-                    in_reg
+                    match in_reg {
+                        Some(in_reg) if in_reg == lhs_reg => {
+                            Some(builder.clone_reg(in_reg, rhs.span)?)
+                        }
+                        other => other,
+                    }
                 } else {
                     None
                 };
@@ -300,6 +314,38 @@ pub(crate) fn compile_assignment(
                 // If the path tail is empty, we can really just treat this as if it were an
                 // assignment to the head
                 compile_assignment(working_set, builder, &path.head, assignment_span, rhs_reg)
+            }
+            (
+                Expression {
+                    expr: Expr::Var(var_id),
+                    ..
+                },
+                _,
+            ) => {
+                // Assignment to a mutable variable's field - optimize with in-place mutation
+                if !working_set.get_variable(*var_id).mutable {
+                    return Err(CompileError::AssignmentRequiresMutableVar { span: lhs.span });
+                }
+
+                // Load cell path literal
+                let cell_path_reg = builder.literal(
+                    Literal::CellPath(Box::new(CellPath {
+                        members: path.tail.clone(),
+                    }))
+                    .into_spanned(path.head.span),
+                )?;
+
+                // Mutate the variable in-place on the stack
+                builder.push(
+                    Instruction::UpdateVarCellPath {
+                        var_id: *var_id,
+                        cell_path: cell_path_reg,
+                        new_value: rhs_reg,
+                    }
+                    .into_spanned(assignment_span),
+                )?;
+
+                Ok(())
             }
             _ => {
                 // Just a normal assignment to some path

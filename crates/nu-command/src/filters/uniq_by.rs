@@ -1,6 +1,6 @@
 pub use super::uniq;
-use nu_engine::{column::nonexistent_column, command_prelude::*};
-use nu_protocol::shell_error::generic::GenericError;
+use nu_engine::command_prelude::*;
+use nu_protocol::{ast::PathMember, casing::Casing};
 
 #[derive(Clone)]
 pub struct UniqBy;
@@ -75,16 +75,13 @@ impl Command for UniqBy {
 
         let metadata = input.take_metadata();
 
-        let vec: Vec<_> = input.into_iter().collect();
-        match validate(&vec, &columns, call.head) {
-            Ok(_) => {}
-            Err(err) => {
-                return Err(err);
-            }
-        }
-
+        let columns = columns
+            .into_iter()
+            .map(|col| PathMember::string(col, false, Casing::Sensitive, call.head))
+            .collect();
         let mapper = Box::new(item_mapper_by_col(columns));
 
+        let vec: Vec<_> = input.into_iter().collect();
         uniq(engine_state, stack, call, vec, mapper, metadata)
     }
 
@@ -130,55 +127,31 @@ impl Command for UniqBy {
     }
 }
 
-fn validate(vec: &[Value], columns: &[String], span: Span) -> Result<(), ShellError> {
-    let first = vec.first();
-    if let Some(v) = first {
-        let val_span = v.span();
-        if let Value::Record { val: record, .. } = &v {
-            if columns.is_empty() {
-                return Err(ShellError::Generic(GenericError::new(
-                    "expected name",
-                    "requires a column name to filter table data",
-                    span,
-                )));
-            }
-
-            if let Some(nonexistent) = nonexistent_column(columns, record.columns()) {
-                return Err(ShellError::CantFindColumn {
-                    col_name: nonexistent,
-                    span: Some(span),
-                    src_span: val_span,
-                });
-            }
-        }
-    }
-
-    Ok(())
-}
-
-fn get_data_by_columns(columns: &[String], item: &Value) -> Vec<Value> {
-    columns
-        .iter()
-        .filter_map(|col| item.get_data_by_key(col))
-        .collect::<Vec<_>>()
-}
-
-fn item_mapper_by_col(cols: Vec<String>) -> impl Fn(crate::ItemMapperState) -> crate::ValueCounter {
-    let columns = cols;
-
-    Box::new(move |ms: crate::ItemMapperState| -> crate::ValueCounter {
-        let item_column_values = get_data_by_columns(&columns, &ms.item);
+fn item_mapper_by_col(
+    columns: Vec<PathMember>,
+) -> impl Fn(crate::ItemMapperState) -> Result<crate::ValueCounter, ShellError> {
+    move |ms: crate::ItemMapperState| -> Result<crate::ValueCounter, ShellError> {
+        // Resolve each requested column while building the comparison value.
+        // Validation and extraction share the same access semantics.
+        let item_column_values = columns
+            .iter()
+            .map(|column| {
+                ms.item
+                    .follow_cell_path(std::slice::from_ref(column))
+                    .map(|value| value.into_owned())
+            })
+            .collect::<Result<Vec<_>, _>>()?;
 
         let col_vals = Value::list(item_column_values, ms.head);
 
-        crate::ValueCounter::new_vals_to_compare(
+        Ok(crate::ValueCounter::new_vals_to_compare(
             ms.item,
             ms.flag_ignore_case,
             col_vals,
             ms.index,
             ms.head,
-        )
-    })
+        ))
+    }
 }
 
 #[cfg(test)]

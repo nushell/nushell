@@ -31,10 +31,16 @@ impl PluginCommand for Over {
                 SyntaxShape::Any,
                 "Expression(s) that define the partition window.",
             )
-            .input_output_type(
-                PolarsPluginType::NuExpression.into(),
-                PolarsPluginType::NuExpression.into(),
-            )
+            .input_output_types(vec![
+                (
+                    PolarsPluginType::NuExpression.into(),
+                    PolarsPluginType::NuExpression.into(),
+                ),
+                (
+                    PolarsPluginType::NuSelector.into(),
+                    PolarsPluginType::NuExpression.into(),
+                ),
+            ])
             .category(Category::Custom("lazyframe".into()))
     }
 
@@ -108,7 +114,7 @@ impl PluginCommand for Over {
             }
             _ => Err(cant_convert_err(
                 &input_value,
-                &[PolarsPluginType::NuExpression],
+                &[PolarsPluginType::NuExpression, PolarsPluginType::NuSelector],
             )),
         }
         .map_err(LabeledError::from)

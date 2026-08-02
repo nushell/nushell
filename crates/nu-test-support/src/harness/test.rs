@@ -10,13 +10,17 @@ use kitest::{
 use nu_experimental::ExperimentalOption;
 use nu_utils::downcast;
 
-use crate::{harness::group::RUN_TEST_GROUP_IN_SERIAL, tester::TestError};
+use crate::{
+    harness::{deps::*, group::RUN_TEST_GROUP_IN_SERIAL},
+    tester::*,
+};
 
 #[derive(Debug)]
 pub struct Extra {
     pub run_in_serial: bool,
     pub experimental_options: &'static [(&'static ExperimentalOption, bool)],
     pub environment_variables: &'static [(&'static str, &'static str)],
+    pub dependencies: &'static [&'static Dependency<'static>],
 }
 
 #[derive(Debug, Default)]

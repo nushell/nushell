@@ -1,7 +1,4 @@
-use nu_engine::{
-    command_prelude::*,
-    exit::{cleanup, cleanup_exit},
-};
+use nu_engine::{command_prelude::*, exit::cleanup};
 
 #[derive(Clone)]
 pub struct Exit;
@@ -44,12 +41,21 @@ impl Command for Exit {
         let exit_code = exit_code.map_or(0, |it| it as i32);
 
         if abort {
-            cleanup_exit((), engine_state, exit_code);
-            Ok(Value::nothing(call.head).into_pipeline_data())
+            if cleanup((), engine_state).is_some() {
+                Ok(Value::nothing(call.head).into_pipeline_data())
+            } else {
+                Err(ShellError::Exit {
+                    code: exit_code,
+                    abort: true,
+                })
+            }
         } else if cleanup((), engine_state).is_some() {
             Ok(Value::nothing(call.head).into_pipeline_data())
         } else {
-            Err(ShellError::Exit { code: exit_code })
+            Err(ShellError::Exit {
+                code: exit_code,
+                abort: false,
+            })
         }
     }
 

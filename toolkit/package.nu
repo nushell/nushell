@@ -1,9 +1,13 @@
-# Build all Windows archives and MSIs for release manually
+# Build all Windows archives and MSIs for release manually.
 #
 # This builds std and full distributions for both aarch64 and x86_64.
 #
 # You need to have the cross-compilers for MSVC installed (see Visual Studio).
 # If compiling on x86_64, you need ARM64 compilers and libs too, and vice versa.
+@category "toolkit"
+@search-terms windows release package msi archive aarch64 x86_64
+@example "Build all Windows release packages" { toolkit release-pkg windows }
+@example "Build packages to a custom directory" { toolkit release-pkg windows --artifacts-dir ./dist }
 export def 'release-pkg windows' [
     --artifacts-dir="artifacts" # Where to copy the final msi and zip files to
 ] {

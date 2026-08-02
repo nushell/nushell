@@ -4,9 +4,9 @@ use nu_path::{dots::expand_ndots_safe, expand_path, expand_path_with, expand_til
 #[cfg(feature = "os")]
 use nu_protocol::process::check_exit_status_future;
 use nu_protocol::{
-    DeclId, ENV_VARIABLE_ID, Flag, IntoPipelineData, IntoSpanned, ListStream, OutDest,
-    PipelineData, PipelineExecutionData, PositionalArg, Range, Record, RegId, ShellError, Signals,
-    Signature, Span, Spanned, Type, Value, VarId,
+    CompareTypes, DeclId, ENV_VARIABLE_ID, Flag, IntoPipelineData, IntoSpanned, LabeledError,
+    ListStream, OutDest, PipelineData, PipelineExecutionData, PositionalArg, Range, Record, RegId,
+    ShellError, Signals, Signature, Span, Spanned, Type, Value, VarId,
     ast::{Bits, Block, Boolean, CellPath, Comparison, Math, Operator},
     combined_type_string,
     debugger::DebugContext,
@@ -15,8 +15,7 @@ use nu_protocol::{
         StateWorkingSet,
     },
     ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
-    shell_error::generic::GenericError,
-    shell_error::io::IoError,
+    shell_error::{generic::GenericError, io::IoError},
 };
 use nu_utils::IgnoreCaseExt;
 
@@ -24,10 +23,11 @@ use crate::{
     ENV_CONVERSIONS, convert_env_vars, eval::is_automatic_env_var, eval_block_with_early_return,
 };
 
-/// For `def --wrapped` and `known extern` rest params (`SyntaxShape::ExternalArgument`), expand
-/// tilde and ndots in bare glob values that are not actual glob patterns. This mirrors what
-/// `run-external` does in `eval_external_arguments`, so that `$args | to nuon` returns expanded
-/// paths instead of the raw `~` / `...` tokens.
+/// For `def --wrapped` and `known extern` rest params (`SyntaxShape::ExternalArgument`), convert
+/// non-glob `Value::Glob` values to `Value::String`, expanding tilde and ndots in the process.
+/// This mirrors what `run-external` does in `eval_external_arguments`, so that `$args | to nuon`
+/// returns expanded paths instead of the raw `~` / `...` tokens, while also ensuring that plain
+/// bare-word strings (e.g. `test`) are reported as strings rather than globs.
 fn expand_external_glob_arg(val: Value) -> Value {
     if let Value::Glob {
         val: ref s,
@@ -39,10 +39,7 @@ fn expand_external_glob_arg(val: Value) -> Value {
         && !nu_glob::is_glob(s)
     {
         let expanded = expand_ndots_safe(expand_tilde(s.as_str()));
-        let expanded_str = expanded.to_string_lossy().into_owned();
-        if expanded_str != *s {
-            return Value::string(expanded_str, internal_span);
-        }
+        return Value::string(expanded.to_string_lossy().into_owned(), internal_span);
     }
     val
 }
@@ -65,8 +62,40 @@ pub fn eval_ir_block<D: DebugContext>(
         });
     }
 
+    // Whole-block locals (closures / custom commands / top-level script).
+    let pushed_scope = if let Some(bindings) = &block.scope_bindings {
+        stack.push_scope_bindings(bindings.clone());
+        true
+    } else {
+        false
+    };
+
+    // Install this IR block's inlined-scope regions; restore any outer IR state on leave
+    // so nested `eval_ir_block` (e.g. custom command call) does not clobber the caller.
+    let saved_regions = std::mem::take(&mut stack.ir_scope_regions);
+    let saved_pc = stack.ir_instruction_index.take();
+
+    let result = eval_ir_block_inner::<D>(engine_state, stack, block, input);
+
+    stack.ir_scope_regions = saved_regions;
+    stack.ir_instruction_index = saved_pc;
+    if pushed_scope {
+        stack.pop_scope_bindings();
+    }
+    result
+}
+
+fn eval_ir_block_inner<D: DebugContext>(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    block: &Block,
+    input: PipelineData,
+) -> Result<PipelineExecutionData, ShellError> {
     if let Some(ir_block) = &block.ir_block {
         D::enter_block(engine_state, block);
+
+        stack.ir_scope_regions = ir_block.scope_regions.clone();
+        stack.ir_instruction_index = None;
 
         let args_base = stack.arguments.get_base();
         let error_handler_base = stack.error_handlers.get_base();
@@ -104,6 +133,7 @@ pub fn eval_ir_block<D: DebugContext>(
         stack.error_handlers.leave_frame(error_handler_base);
         stack.finally_run_handlers.leave_frame(finally_handler_base);
         stack.arguments.leave_frame(args_base);
+        stack.ir_instruction_index = None;
 
         D::leave_block(engine_state, block);
 
@@ -245,19 +275,26 @@ fn eval_ir_block_impl<D: DebugContext>(
     // Program counter, starts at zero.
     let mut pc = 0;
     let need_backtrace = ctx.engine_state.get_env_var("NU_BACKTRACE").is_some();
-    let mut ret_val = None;
+    // The result of an early exit (`return` or an error) that must still run pending `finally`
+    // handlers before it can leave the block. It takes precedence over the register contents at
+    // the terminal `Return` instruction.
+    let mut ret_val: Option<Result<PipelineExecutionData, ShellError>> = None;
 
     while pc < ir_block.instructions.len() {
         let instruction = &ir_block.instructions[pc];
         let span = &ir_block.spans[pc];
         let ast = &ir_block.ast[pc];
 
-        D::enter_instruction(ctx.engine_state, ir_block, pc, ctx.registers);
+        // So `scope` can match inlined keyword-body bindings via ScopeRegion.
+        ctx.stack.ir_instruction_index = Some(pc);
+
+        D::enter_instruction(ctx.engine_state, ctx.stack, ir_block, pc, ctx.registers);
 
         let result = eval_instruction::<D>(ctx, instruction, span, ast, need_backtrace);
 
         D::leave_instruction(
             ctx.engine_state,
+            ctx.stack,
             ir_block,
             pc,
             ctx.registers,
@@ -272,29 +309,58 @@ fn eval_ir_block_impl<D: DebugContext>(
                 pc = next_pc;
             }
             Ok(InstructionResult::Return(reg_id)) => {
-                // need to check if the return value is set by
-                // `Shell::Return` first. If so, we need to respect that value.
+                // need to check if the return value was stashed by an early `return` or an error
+                // that ran a `finally` handler first. If so, we need to respect that value.
                 match ret_val {
-                    Some(err) => return Err(err),
+                    Some(res) => return res,
                     None => return Ok(ctx.take_reg(reg_id)),
+                }
+            }
+            Ok(InstructionResult::ReturnEarly(reg_id)) => {
+                if let Some(always_run_handler) =
+                    ctx.stack.finally_run_handlers.pop(ctx.finally_handler_base)
+                {
+                    // A `finally` block is pending: collect the value first (mirroring the
+                    // `try-collect` the compiler emits on the fall-through path, which also
+                    // preserves metadata), stash it, and run the `finally` block. The stashed
+                    // value is returned at the terminal `Return` instruction.
+                    let data = ctx.take_reg(reg_id);
+                    #[cfg(feature = "os")]
+                    let collected = collect(data, *span, false);
+                    #[cfg(not(feature = "os"))]
+                    let collected = collect(data, *span);
+                    ret_val = Some(
+                        collected.map(|body| PipelineExecutionData::from(body).with_early_return()),
+                    );
+                    prepare_error_handler(ctx, always_run_handler, None);
+                    pc = always_run_handler.handler_index;
+                } else {
+                    // No `finally` pending: this is the same as a tail return, keeping streams
+                    // and metadata intact, except the data is flagged as an early return. The
+                    // nearest custom command or closure call clears that flag; top-level file
+                    // evaluation reads it to skip `main`.
+                    return Ok(ctx.take_reg(reg_id).with_early_return());
                 }
             }
             Err(err @ (ShellError::Continue { .. } | ShellError::Break { .. })) => {
                 return Err(err);
             }
-            Err(err @ (ShellError::Return { .. } | ShellError::Exit { .. })) => {
+            Err(err @ ShellError::Exit { abort: false, .. }) => {
                 if let Some(always_run_handler) =
                     ctx.stack.finally_run_handlers.pop(ctx.finally_handler_base)
                 {
-                    // need to run finally block before return.
-                    // and record the return value firstly.
+                    // need to run finally block before exiting.
+                    // and record the exit error firstly.
                     prepare_error_handler(ctx, always_run_handler, None);
                     pc = always_run_handler.handler_index;
-                    ret_val = Some(err);
+                    ret_val = Some(Err(err));
                 } else {
                     // These block control related errors should be passed through
                     return Err(err);
                 }
+            }
+            Err(err @ ShellError::Exit { abort: true, .. }) => {
+                return Err(err);
             }
             Err(err) => {
                 #[cfg(unix)]
@@ -323,7 +389,7 @@ fn eval_ir_block_impl<D: DebugContext>(
                         Some(err.clone().into_spanned(*span)),
                     );
                     pc = always_run_handler.handler_index;
-                    ret_val = Some(err);
+                    ret_val = Some(Err(err));
                 } else if need_backtrace {
                     let err = ShellError::into_chained(err, *span);
                     return Err(err);
@@ -381,6 +447,14 @@ enum InstructionResult {
     Continue,
     Branch(usize),
     Return(RegId),
+    /// Return from the block before reaching the end, carrying the full register contents.
+    ///
+    /// Unlike `Return`, this runs any pending `finally` handlers before the value leaves the
+    /// block, and flags the resulting data as an early return. The flag exists for one consumer:
+    /// top-level file evaluation, which reads it to skip `main`. Custom command calls and closure
+    /// invocations clear the flag instead, so a `return` in a nested call can't leak out and be
+    /// mistaken for a `return` at the current level.
+    ReturnEarly(RegId),
 }
 
 /// Perform an instruction
@@ -472,7 +546,7 @@ fn eval_instruction<D: DebugContext>(
             // Perform runtime type checking and conversion for variable assignment
             if nu_experimental::ENFORCE_RUNTIME_ANNOTATIONS.get() {
                 let variable = ctx.engine_state.get_var(*var_id);
-                let converted_value = check_assignment_type(value, &variable.ty)?;
+                let converted_value = check_assignment_type(value, &variable.ty, *span)?;
                 ctx.stack.add_var(*var_id, converted_value);
             } else {
                 ctx.stack.add_var(*var_id, value);
@@ -708,11 +782,18 @@ fn eval_instruction<D: DebugContext>(
                     PipelineExecutionData {
                         body: result,
                         exit: original_exit,
+                        early_return: false,
                     },
                 );
             }
             #[cfg(not(feature = "os"))]
-            ctx.put_reg(*src_dst, PipelineExecutionData { body: result });
+            ctx.put_reg(
+                *src_dst,
+                PipelineExecutionData {
+                    body: result,
+                    early_return: false,
+                },
+            );
             Ok(Continue)
         }
         Instruction::StringAppend { src_dst, val } => {
@@ -770,7 +851,7 @@ fn eval_instruction<D: DebugContext>(
             let list_span = list_value.span();
             let items_span = items.span();
             let items = match items {
-                Value::List { vals, .. } => vals,
+                Value::List { vals, .. } => vals.into_owned(),
                 Value::Nothing { .. } => Vec::new(),
                 _ => return Err(ShellError::CannotSpreadAsList { span: items_span }),
             };
@@ -910,6 +991,37 @@ fn eval_instruction<D: DebugContext>(
                 })
             }
         }
+        Instruction::UpdateVarCellPath {
+            var_id,
+            cell_path,
+            new_value,
+        } => {
+            let new_val = ctx.collect_reg(*new_value, *span)?;
+            let path = ctx.take_reg(*cell_path);
+            if let PipelineData::Value(Value::CellPath { val: path, .. }, _) = path.body {
+                let new_val = if nu_experimental::ENFORCE_RUNTIME_ANNOTATIONS.get() {
+                    let variable = ctx.engine_state.get_var(*var_id);
+                    let expected_ty = variable.ty.follow_cell_path(&path.members);
+                    if let Some(expected_ty) = expected_ty {
+                        check_assignment_type(new_val, &expected_ty, *span)?
+                    } else {
+                        new_val
+                    }
+                } else {
+                    new_val
+                };
+                ctx.stack
+                    .upsert_var_cell_path(*var_id, &path.members, new_val, *span)?;
+                Ok(Continue)
+            } else if let PipelineData::Value(Value::Error { error, .. }, _) = path.body {
+                Err(*error)
+            } else {
+                Err(ShellError::TypeMismatch {
+                    err_message: "expected cell path".into(),
+                    span: path.span().unwrap_or(*span),
+                })
+            }
+        }
         Instruction::Jump { index } => Ok(Branch(*index)),
         Instruction::BranchIf { cond, index } => {
             let data = ctx.take_reg(*cond);
@@ -1014,13 +1126,7 @@ fn eval_instruction<D: DebugContext>(
             ctx.stack.finally_run_handlers.pop(ctx.finally_handler_base);
             Ok(Continue)
         }
-        Instruction::ReturnEarly { src } => {
-            let val = ctx.collect_reg(*src, *span)?;
-            Err(ShellError::Return {
-                span: *span,
-                value: Box::new(val),
-            })
-        }
+        Instruction::ReturnEarly { src } => Ok(InstructionResult::ReturnEarly(*src)),
         Instruction::Return { src } => Ok(Return(*src)),
     }
 }
@@ -1230,6 +1336,12 @@ fn eval_call<D: DebugContext>(
 
     let args_len = caller_stack.arguments.get_len(*args_base);
     let decl = engine_state.get_decl(decl_id);
+    // Commands such as `ignore --stderr` need errors as pipeline values so they can decide
+    // whether to suppress or rethrow.
+    let stderr_pipe_separate = matches!(
+        redirect_err.as_ref(),
+        Some(Redirection::Pipe(OutDest::PipeSeparate))
+    );
 
     // Set up redirect modes
     let mut caller_stack = caller_stack.push_redirection(redirect_out.take(), redirect_err.take());
@@ -1255,6 +1367,13 @@ fn eval_call<D: DebugContext>(
                 head,
             )?;
 
+            // Snapshot the call's return destination onto the callee stack. Intermediate
+            // expressions in the body may temporarily set OutDest::Value (e.g. `if (…)`);
+            // Stack::is_stdout_redirected / `is-redirected` read this frame instead.
+            // See Stack::with_invocation_stdout for details.
+            let mut callee_stack =
+                callee_stack.with_invocation_stdout(caller_stack.stdout().clone());
+
             // Add one to the recursion count, so we don't recurse too deep. Stack overflows are not
             // recoverable in Rust.
             callee_stack.recursion_count += 1;
@@ -1270,7 +1389,16 @@ fn eval_call<D: DebugContext>(
 
             result
         } else {
-            check_input_types(&input, &decl.signature(), head)?;
+            // `ignore` intentionally handles upstream error values at command level.
+            // Skip early input-error propagation for the built-in `ignore` command so
+            // `run()` can apply `--stderr`/`--show-errors` semantics.
+            let allow_error_input = matches!(input, PipelineData::Value(Value::Error { .. }, ..))
+                && engine_state
+                    .find_decl(b"ignore", &[])
+                    .is_some_and(|ignore_decl_id| ignore_decl_id == decl_id);
+            if !allow_error_input {
+                check_input_types(&input, &decl.signature(), head)?;
+            }
             // FIXME: precalculate this and save it somewhere
             let span = Span::merge_many(
                 std::iter::once(head).chain(
@@ -1307,7 +1435,10 @@ fn eval_call<D: DebugContext>(
     ctx.redirect_out = None;
     ctx.redirect_err = None;
 
-    result
+    match result {
+        Err(err) if stderr_pipe_separate => Ok(PipelineData::Value(Value::error(err, head), None)),
+        result => result,
+    }
 }
 
 fn find_named_var_id(
@@ -1318,14 +1449,11 @@ fn find_named_var_id(
 ) -> Result<VarId, ShellError> {
     sig.named
         .iter()
-        .find(|n| {
-            if !n.long.is_empty() {
-                n.long.as_bytes() == name
-            } else {
-                // It's possible to only have a short name and no long name
-                n.short
-                    .is_some_and(|s| s.encode_utf8(&mut [0; 4]).as_bytes() == short)
-            }
+        .find(|n| match (n.long_name(), n.short) {
+            (Some(long), _) => long.as_bytes() == name,
+            // Short-only flag: match on the short character
+            (None, Some(s)) => s.encode_utf8(&mut [0; 4]).as_bytes() == short,
+            (None, None) => false,
         })
         .ok_or_else(|| ShellError::IrEvalError {
             msg: format!(
@@ -1504,7 +1632,7 @@ fn gather_arguments(
 fn check_type(val: &Value, ty: &Type) -> Result<(), ShellError> {
     match val {
         Value::Error { error, .. } => Err(*error.clone()),
-        _ if val.is_subtype_of(ty) => Ok(()),
+        _ if val.is_assignable_to(ty) => Ok(()),
         _ => Err(ShellError::CantConvert {
             to_type: ty.to_string(),
             from_type: val.get_type().to_string(),
@@ -1515,16 +1643,35 @@ fn check_type(val: &Value, ty: &Type) -> Result<(), ShellError> {
 }
 
 /// Type check and convert value for assignment.
-fn check_assignment_type(val: Value, target_ty: &Type) -> Result<Value, ShellError> {
+fn check_assignment_type(
+    val: Value,
+    target_ty: &Type,
+    assignment_span: Span,
+) -> Result<Value, ShellError> {
     match val {
         Value::Error { error, .. } => Err(*error),
-        _ if val.is_subtype_of(target_ty) => Ok(val), // No conversion needed, but compatible
-        _ => Err(ShellError::CantConvert {
-            to_type: target_ty.to_string(),
-            from_type: val.get_type().to_string(),
-            span: val.span(),
-            help: None,
-        }),
+        _ if val.is_assignable_to(target_ty) => Ok(val), // No conversion needed, but compatible
+        _ => {
+            let expected = target_ty.to_string();
+            let actual = val.get_type().to_string();
+
+            let mut err = LabeledError::new("Type mismatch.");
+            err = err.with_code("nu::shell::type_mismatch");
+
+            // Some values, like `$env.CMD_DURATION_MS`, are generated internally and don't have
+            // spans that are relevant to users.
+            // We avoid incorrect error labels by checking for that here.
+            if !(val.span() == Span::unknown() || val.span() == Span::test_data()) {
+                err = err.with_label(format!("the value is a {actual}"), val.span());
+            }
+
+            err = err.with_label(
+                format!("expected {expected}, got {actual}"),
+                assignment_span,
+            );
+
+            Err(ShellError::LabeledError(err.into()))
+        }
     }
 }
 
@@ -1557,7 +1704,7 @@ fn check_input_types(
     // Check if the input type is compatible with *any* of the command's possible input types
     if io_types
         .iter()
-        .any(|(command_type, _)| input.is_subtype_of(command_type))
+        .any(|(command_type, _)| input.is_assignable_to(command_type))
     {
         return Ok(());
     }

@@ -124,6 +124,7 @@ impl Prompt for NushellPrompt {
             PromptEditMode::Vi(vi_mode) => match vi_mode {
                 PromptViMode::Normal => self.vi_normal_prompt_indicator.as_deref().unwrap_or("> "),
                 PromptViMode::Insert => self.vi_insert_prompt_indicator.as_deref().unwrap_or(": "),
+                PromptViMode::Visual => self.vi_normal_prompt_indicator.as_deref().unwrap_or("v "),
             },
             PromptEditMode::Custom(str) => &self.default_wrapped_custom_string(str),
         };

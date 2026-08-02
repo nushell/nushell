@@ -15,7 +15,7 @@ impl Command for ErrorMake {
             .input_output_types(vec![(Type::Any, Type::Error)])
             .optional(
                 "error_struct",
-                SyntaxShape::OneOf(vec![SyntaxShape::Record(vec![]), SyntaxShape::String]),
+                SyntaxShape::OneOf(vec![SyntaxShape::record(), SyntaxShape::String]),
                 "The error to create.",
             )
             .switch("unspanned", "Remove the labels from the error.", Some('u'))

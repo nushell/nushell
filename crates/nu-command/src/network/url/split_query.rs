@@ -14,7 +14,9 @@ impl Command for UrlSplitQuery {
         Signature::build("url split-query")
             .input_output_types(vec![(
                 Type::String,
-                Type::Table([("key".into(), Type::String), ("value".into(), Type::String)].into()),
+                Type::Table(
+                    vec![("key".into(), Type::String), ("value".into(), Type::String)].into(),
+                ),
             )])
             .category(Category::Network)
     }

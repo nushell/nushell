@@ -2,8 +2,8 @@
 use crate::get_full_help;
 use crate::{EvalBlockWithEarlyReturnFn, eval_ir::eval_ir_block};
 use nu_protocol::{
-    BlockId, Config, ENV_VARIABLE_ID, IntoPipelineData, PipelineData, PipelineExecutionData,
-    ShellError, Signature, Span, Value, VarId,
+    BlockId, CompareTypes, Config, ENV_VARIABLE_ID, IntoPipelineData, PipelineData,
+    PipelineExecutionData, ShellError, Signature, Span, Value, VarId,
     ast::{Assignment, Block, Call, Expr, Expression, ExternalArgument, PathMember},
     debugger::{DebugContext, WithDebug, WithoutDebug},
     engine::{Closure, EngineState, EnvName, EnvVars, Stack},
@@ -182,6 +182,30 @@ impl CallEval {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         self.finalize_arguments(&block.signature)?;
+        self.arg_index = 0;
+        self.rest_args.clear();
+        (self.eval)(engine_state, &mut self.callee_stack, block, input).map(|p| p.body)
+    }
+
+    /// Finalize missing/default/rest arguments without evaluating the block yet.
+    ///
+    /// This is useful for callers that need to bind arguments against one signature and then
+    /// evaluate a modified copy of the block without re-running the argument finalization step.
+    pub fn finalize_for_signature(
+        &mut self,
+        signature: &Signature,
+    ) -> Result<&mut Self, ShellError> {
+        self.finalize_arguments(signature)?;
+        Ok(self)
+    }
+
+    /// Run a block after arguments have already been fully bound onto the callee stack.
+    pub fn run_prebound(
+        &mut self,
+        engine_state: &EngineState,
+        block: &Block,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
         self.arg_index = 0;
         self.rest_args.clear();
         (self.eval)(engine_state, &mut self.callee_stack, block, input).map(|p| p.body)
@@ -483,28 +507,38 @@ pub fn eval_block<D: DebugContext>(
     input: PipelineData,
 ) -> Result<PipelineExecutionData, ShellError> {
     let result = eval_ir_block::<D>(engine_state, stack, block, input);
-    if let Err(ShellError::Exit { code }) = &result {
-        std::process::exit(*code)
-    }
     if let Err(err) = &result {
         stack.set_last_error(err);
     }
     result
 }
 
+/// Evaluate a block as an early return boundary.
+///
+/// A `return` is meant to end the command or closure it appears in and go no further. The
+/// "boundary" is the point where such a `return` stops propagating outward and becomes the
+/// block's normal result, instead of escaping to whatever called the command. This function is
+/// that point: an early `return` inside the block produces the block's result here, exactly like
+/// a value in tail position.
+///
+/// Concretely, [`eval_block`] runs the block and sets
+/// [`early_return`](PipelineExecutionData::early_return) to mark a result that came from a
+/// `return`; this function clears that flag, which is what "absorbs" the `return` so callers see
+/// an ordinary result.
+///
+/// This is used for blocks that `return` should not escape from, such as custom command bodies
+/// and closures: clearing the flag keeps an early `return` from leaking into the calling block.
+/// In contrast, [`eval_block`] leaves the flag intact, so its one consumer (top-level file
+/// evaluation) can see a top-level `return` and skip running `main`.
 pub fn eval_block_with_early_return<D: DebugContext>(
     engine_state: &EngineState,
     stack: &mut Stack,
     block: &Block,
     input: PipelineData,
 ) -> Result<PipelineExecutionData, ShellError> {
-    match eval_block::<D>(engine_state, stack, block, input) {
-        Err(ShellError::Return { span: _, value }) => Ok(PipelineExecutionData::from(
-            PipelineData::value(*value, None),
-        )),
-        Err(ShellError::Exit { code }) => std::process::exit(code),
-        x => x,
-    }
+    let mut result = eval_block::<D>(engine_state, stack, block, input)?;
+    result.early_return = false;
+    Ok(result)
 }
 
 pub fn eval_collect<D: DebugContext>(
@@ -709,9 +743,10 @@ impl Eval for EvalRuntime {
                         // As such, give it special treatment here.
                         let is_env = var_id == &ENV_VARIABLE_ID;
                         if is_env || engine_state.get_var(*var_id).mutable {
-                            let mut lhs =
-                                eval_expression::<D>(engine_state, stack, &cell_path.head)?;
                             if is_env {
+                                let mut lhs =
+                                    eval_expression::<D>(engine_state, stack, &cell_path.head)?;
+
                                 // Reject attempts to assign to the entire $env
                                 if cell_path.tail.is_empty() {
                                     return Err(ShellError::CannotReplaceEnv {
@@ -762,8 +797,14 @@ impl Eval for EvalRuntime {
                                     stack.update_config(engine_state)?;
                                 }
                             } else {
-                                lhs.upsert_data_at_cell_path(&cell_path.tail, rhs)?;
-                                stack.add_var(*var_id, lhs);
+                                // Optimized: mutate the variable in-place on the stack,
+                                // avoiding the clone from lookup_var and the move-back from add_var.
+                                stack.upsert_var_cell_path(
+                                    *var_id,
+                                    &cell_path.tail,
+                                    rhs,
+                                    cell_path.head.span(&engine_state),
+                                )?;
                             }
                             Ok(Value::nothing(cell_path.head.span(&engine_state)))
                         } else {

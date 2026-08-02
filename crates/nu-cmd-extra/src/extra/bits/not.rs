@@ -70,7 +70,7 @@ impl Command for BitsNot {
         let signed = call.has_flag(engine_state, stack, "signed")?;
         let number_bytes: Option<Spanned<usize>> =
             call.get_flag(engine_state, stack, "number-bytes")?;
-        let number_size = get_number_bytes(number_bytes, head)?;
+        let number_size = get_number_bytes(number_bytes, head, NumberBytes::Auto)?;
 
         // This doesn't match explicit nulls
         if let PipelineData::Empty = input {

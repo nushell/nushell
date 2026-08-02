@@ -13,7 +13,9 @@ pub mod shell_warning;
 pub use chained_error::ChainedError;
 pub use compile_error::CompileError;
 pub use config::{ConfigError, ConfigWarning};
-pub use labeled_error::{ErrorLabel, ErrorSource, LabeledError};
+pub use labeled_error::{
+    DEFAULT_ERROR_CONTEXT, ErrorLabel, ErrorSource, LabeledError, truncated_source_window,
+};
 pub use parse_error::{DidYouMean, ParseError};
 pub use parse_warning::ParseWarning;
 pub use report_error::{

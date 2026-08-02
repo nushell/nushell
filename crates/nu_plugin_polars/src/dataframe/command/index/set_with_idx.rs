@@ -132,7 +132,7 @@ fn command(
                 indices_span,
             ))
         })?
-        .into_iter()
+        .iter()
         .flatten();
 
     let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;

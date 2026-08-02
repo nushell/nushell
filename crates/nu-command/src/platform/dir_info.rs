@@ -1,14 +1,30 @@
 use filesize::file_real_size_fast;
-use nu_glob::Pattern;
 use nu_protocol::{ShellError, Signals, Span, Value, record, shell_error::io::IoError};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+
+/// A glob pattern used for excluding entries in `du`, supporting both the legacy
+/// `nu_glob` backend and the experimental `dc_glob` backend.
+#[derive(Debug, Clone)]
+pub enum ExcludeGlob {
+    Legacy(nu_glob::Pattern),
+    DcGlob(nu_glob::dc_glob::DcPattern),
+}
+
+impl ExcludeGlob {
+    pub fn matches_path(&self, path: &Path) -> bool {
+        match self {
+            ExcludeGlob::Legacy(p) => p.matches_path(path),
+            ExcludeGlob::DcGlob(p) => p.matches_path(path),
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct DirBuilder {
     pub tag: Span,
     pub min: Option<u64>,
     pub deref: bool,
-    pub exclude: Option<Pattern>,
+    pub exclude: Option<ExcludeGlob>,
     pub long: bool,
 }
 
@@ -17,7 +33,7 @@ impl DirBuilder {
         tag: Span,
         min: Option<u64>,
         deref: bool,
-        exclude: Option<Pattern>,
+        exclude: Option<ExcludeGlob>,
         long: bool,
     ) -> DirBuilder {
         DirBuilder {

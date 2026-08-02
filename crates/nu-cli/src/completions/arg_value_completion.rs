@@ -1,216 +1,254 @@
+use super::completer::touches;
 use crate::{
-    FileCompletion, NuCompleter,
+    CompletionEngine, FileCompletion,
     completions::{
-        CommandCompletion, Completer, CompletionOptions, DirectoryCompletion, DotNuCompletion,
-        EnvVarCompletion, ExportableCompletion, SemanticSuggestion, completer::Context,
-        completion_options::NuMatcher,
+        Completer, Context, DirectoryCompletion, ExportableCompletion, Fetched, SemanticSuggestion,
+        completion_options::NuMatcher, to_reedline_span,
     },
 };
 use nu_parser::parse_module_file_or_dir;
 use nu_protocol::{
     DynamicCompletionCallRef, Span,
     ast::{Argument, Call, Expr, Expression, ListItem},
-    engine::{ArgType, Stack, StateWorkingSet},
+    engine::{ArgType, StateWorkingSet},
 };
 
 pub struct ArgValueCompletion<'a> {
     pub call: &'a Call,
     pub arg_type: ArgType<'a>,
+    /// Whether to fall back to file completion when no source matches.
     pub need_fallback: bool,
-    pub completer: &'a NuCompleter,
+    pub completer: &'a CompletionEngine,
+    /// Index into `call.arguments`, or `call.arguments.len()` for a synthesized
+    /// trailing slot the parser produced no argument for (e.g. `open <tab>`).
     pub arg_idx: usize,
-    pub pos: usize,
-    pub strip: bool,
+    /// Cursor, in absolute working-set (span) coordinates.
+    pub cursor: usize,
 }
 
 impl<'a> Completer for ArgValueCompletion<'a> {
-    fn fetch(
-        &mut self,
-        working_set: &StateWorkingSet,
-        stack: &Stack,
-        prefix: impl AsRef<str>,
-        span: Span,
-        offset: usize,
-        options: &CompletionOptions,
-    ) -> Vec<SemanticSuggestion> {
-        // if user input `--foo abc`, then the `prefix` here is abc.
-        let mut matcher = NuMatcher::new(prefix.as_ref(), options, true);
+    fn fetch(&mut self, context: &Context) -> Fetched {
+        if let Some(fetched_completion) = self.try_fetch_dynamic_completion(context) {
+            return fetched_completion;
+        }
 
-        let decl = working_set.get_decl(self.call.decl_id);
-        let mut stack = stack.to_owned();
+        let working_set = context.working_set;
+        let prefix_string = context.prefix_str();
+
+        let completion_context = self.completer.context(
+            working_set,
+            context.span,
+            prefix_string.as_ref().as_bytes(),
+            context.offset,
+        );
+
+        // Command-specific completions are dispatched earlier via `BuiltinCompletion`;
+        // here we handle only the generic argument-value fallbacks.
+        self.fetch_fallback_completion(self.arg_expr(), &completion_context)
+    }
+}
+
+impl<'a> ArgValueCompletion<'a> {
+    fn try_fetch_dynamic_completion(&self, context: &Context) -> Option<Fetched> {
+        let working_set = context.working_set;
+        let declaration = working_set.get_decl(self.call.decl_id);
+        let mut stack = context.stack.to_owned();
 
         let dynamic_completion_call = DynamicCompletionCallRef {
             call: self.call,
-            strip: self.strip,
-            pos: self.pos,
+            // No sentinel is appended to the buffer, so nothing to strip.
+            strip: false,
+            pos: self.cursor,
         };
-        match decl.get_dynamic_completion(
+
+        let completion_result = declaration.get_dynamic_completion(
             working_set.permanent_state,
             &mut stack,
             dynamic_completion_call,
             &self.arg_type,
             #[expect(deprecated, reason = "internal usage")]
             nu_protocol::engine::ExperimentalMarker,
-        ) {
+        );
+
+        match completion_result {
             Ok(Some(items)) => {
-                for i in items {
-                    let result_span = i.span.unwrap_or(span);
+                let prefix = context.prefix_str();
+                let mut matcher = NuMatcher::new(prefix.as_ref(), context.options, true);
+
+                for suggestion_item in items {
+                    // The span is untrusted user/plugin input; fall back to the argument's
+                    // own span unless it is well-formed and within the working set.
+                    let result_span = suggestion_item
+                        .span
+                        .filter(|span| span.start >= context.offset && span.end >= span.start)
+                        .unwrap_or(context.span);
                     let suggestion = SemanticSuggestion::from_dynamic_suggestion(
-                        i,
-                        reedline::Span {
-                            start: result_span.start - offset,
-                            end: result_span.end - offset,
-                        },
+                        suggestion_item,
+                        to_reedline_span(result_span, context.offset),
                         None,
                     );
                     matcher.add_semantic_suggestion(suggestion);
                 }
-                return matcher.suggestion_results();
+
+                Some(Fetched::cacheable(matcher.suggestion_results()))
             }
-            Err(e) => {
+            Ok(None) => None, // fallback to type based completion, file completion, etc.
+            Err(error) => {
                 log::error!(
-                    "error on fetching dynamic suggestion on {} with {:?}: {e}",
-                    decl.name(),
+                    "error on fetching dynamic suggestion on {} with {:?}: {error}",
+                    declaration.name(),
                     self.arg_type
                 );
+                None
             }
-            // fallback to type based completion, file completion, etc.
-            Ok(None) => (),
         }
+    }
 
-        let command_head = decl.name();
-        let ctx = Context::new(working_set, span, prefix.as_ref().as_bytes(), offset);
-        let expr = self
-            .call
+    /// The parsed expression of the argument being completed, if any.
+    fn arg_expr(&self) -> Option<&Expr> {
+        self.call
             .arguments
             .get(self.arg_idx)
-            .expect("Argument index out of range")
-            .expr()
-            .map(|e| &e.expr);
+            .and_then(|argument| argument.expr())
+            .map(|expression_wrapper| &expression_wrapper.expr)
+    }
 
-        // TODO: Move command specific completion logic to its `get_dynamic_completion`
-        if let ArgType::Positional(positional_arg_index) = self.arg_type {
-            match command_head {
-                // complete module file/directory
-                "use" | "export use" | "overlay use" | "source-env"
-                    if positional_arg_index == 0 =>
-                {
-                    return self.completer.process_completion(
-                        &mut DotNuCompletion {
-                            std_virtual_path: command_head != "source-env",
-                        },
-                        &ctx,
-                    );
-                }
-                // NOTE: if module file already specified,
-                // should parse it to get modules/commands/consts to complete
-                "use" | "export use" => {
-                    let Some((module_name, span)) = self.call.arguments.iter().find_map(|arg| {
-                        if let Argument::Positional(Expression {
-                            expr: Expr::String(module_name),
-                            span,
-                            ..
-                        }) = arg
-                        {
-                            Some((module_name.as_bytes(), span))
-                        } else {
-                            None
-                        }
-                    }) else {
-                        return vec![];
-                    };
-
-                    let (module_id, temp_working_set) = match working_set.find_module(module_name) {
-                        Some(module_id) => (module_id, None),
-                        None => {
-                            let mut temp_working_set =
-                                StateWorkingSet::new(working_set.permanent_state);
-                            let Some(module_id) = parse_module_file_or_dir(
-                                &mut temp_working_set,
-                                module_name,
-                                *span,
-                                None,
-                            ) else {
-                                return vec![];
-                            };
-                            (module_id, Some(temp_working_set))
-                        }
-                    };
-                    let mut exportable_completion = ExportableCompletion {
-                        module_id,
-                        temp_working_set,
-                    };
-                    let mut complete_on_list_items =
-                        |items: &[ListItem]| -> Vec<SemanticSuggestion> {
-                            for item in items {
-                                let span = item.expr().span;
-                                if span.contains(self.pos) {
-                                    let offset = span.start.saturating_sub(ctx.span.start);
-                                    let end_offset = ctx
-                                        .prefix
-                                        .len()
-                                        .min(self.pos.min(span.end) - ctx.span.start + 1);
-                                    let new_ctx = Context::new(
-                                        ctx.working_set,
-                                        Span::new(span.start, ctx.span.end.min(span.end)),
-                                        ctx.prefix.get(offset..end_offset).unwrap_or_default(),
-                                        ctx.offset,
-                                    );
-                                    return self
-                                        .completer
-                                        .process_completion(&mut exportable_completion, &new_ctx);
-                                }
-                            }
-                            vec![]
-                        };
-
-                    return match expr {
-                        Some(Expr::String(_)) => self
-                            .completer
-                            .process_completion(&mut exportable_completion, &ctx),
-                        Some(Expr::FullCellPath(fcp)) => match &fcp.head.expr {
-                            Expr::List(items) => complete_on_list_items(items),
-                            _ => vec![],
-                        },
-                        _ => vec![],
-                    };
-                }
-                "hide-env" => {
-                    return self
-                        .completer
-                        .process_completion(&mut EnvVarCompletion, &ctx);
-                }
-                "which" => {
-                    let mut completer = CommandCompletion {
-                        internals: true,
-                        externals: true,
-                        builtins_only: false,
-                    };
-                    return self.completer.process_completion(&mut completer, &ctx);
-                }
-                "attr complete" => {
-                    let mut completer = CommandCompletion {
-                        internals: true,
-                        externals: false,
-                        builtins_only: false,
-                    };
-                    return self.completer.process_completion(&mut completer, &ctx);
-                }
-                _ => (),
-            }
+    pub(crate) fn complete_module_exports(
+        &self,
+        completion_context: &Context,
+        working_set: &StateWorkingSet,
+    ) -> Fetched {
+        let expression = self.arg_expr();
+        let Some((module_name, span)) = self.find_module_name_and_span() else {
+            return Fetched::pure(vec![]);
         };
 
-        // general positional arguments
-        let file_completion_helper =
-            || self.completer.process_completion(&mut FileCompletion, &ctx);
-        match expr {
-            Some(Expr::Directory(_, _)) => self
-                .completer
-                .process_completion(&mut DirectoryCompletion, &ctx),
-            Some(Expr::Filepath(_, _)) | Some(Expr::GlobPattern(_, _)) => file_completion_helper(),
+        let Some((module_id, temp_working_set)) =
+            self.resolve_module(working_set, module_name, span)
+        else {
+            return Fetched::pure(vec![]);
+        };
+
+        let mut exportable_completion = ExportableCompletion {
+            module_id,
+            temp_working_set,
+        };
+
+        // Reaching this may have parsed the module off disk, so cache the result.
+        let fetched_result = match expression {
+            // `[a, b<tab>]`: complete against the bracketed import list.
+            Some(Expr::FullCellPath(full_cell_path)) => match &full_cell_path.head.expr {
+                Expr::List(items) => self.complete_on_list_items(
+                    items,
+                    completion_context,
+                    &mut exportable_completion,
+                ),
+                _ => Fetched::pure(vec![]),
+            },
+            // No expression at all (e.g. a missing/undefined argument).
+            None => Fetched::pure(vec![]),
+            // Any other scalar shape (`Expr::String`, plus `Expr::Nothing` for the
+            // `null` keyword): search exports by the raw prefix text.
+            _ => exportable_completion.fetch(completion_context),
+        };
+
+        fetched_result.caching()
+    }
+
+    fn find_module_name_and_span(&self) -> Option<(&[u8], Span)> {
+        // Only the first positional is the module path, not later import names.
+        let first = self.call.arguments.iter().find_map(|a| {
+            if let Argument::Positional(e) = a {
+                Some(e)
+            } else {
+                None
+            }
+        })?;
+
+        if let Expression {
+            expr: Expr::String(name),
+            span,
+            ..
+        } = first
+        {
+            Some((name.as_bytes(), *span))
+        } else {
+            None
+        }
+    }
+
+    fn resolve_module<'set>(
+        &self,
+        working_set: &'set StateWorkingSet,
+        module_name: &[u8],
+        span: Span,
+    ) -> Option<(nu_protocol::ModuleId, Option<StateWorkingSet<'set>>)> {
+        if let Some(module_id) = working_set.find_module(module_name) {
+            return Some((module_id, None));
+        }
+
+        let mut temp_working_set = StateWorkingSet::new(working_set.permanent_state);
+        let module_id = parse_module_file_or_dir(&mut temp_working_set, module_name, span, None)?;
+
+        Some((module_id, Some(temp_working_set)))
+    }
+
+    fn complete_on_list_items(
+        &self,
+        items: &[ListItem],
+        completion_context: &Context,
+        exportable_completion: &mut ExportableCompletion,
+    ) -> Fetched {
+        let cursor_position = self.cursor;
+
+        for item in items {
+            let item_span = item.expr().span;
+
+            if !touches(item_span, cursor_position) {
+                continue;
+            }
+
+            // The member's typed text is the tail of `completion_context.prefix`, from
+            // the member's start onward; the cursor-sliced buffer already ends it.
+            let relative_offset = item_span
+                .start
+                .saturating_sub(completion_context.span.start);
+            let sliced_prefix = completion_context
+                .prefix
+                .get(relative_offset..)
+                .unwrap_or_default();
+
+            let new_span = Span::new(
+                item_span.start,
+                completion_context.span.end.min(item_span.end),
+            );
+
+            let item_context = self.completer.context(
+                completion_context.working_set,
+                new_span,
+                sliced_prefix,
+                completion_context.offset,
+            );
+
+            return exportable_completion.fetch(&item_context);
+        }
+
+        Fetched::pure(vec![])
+    }
+
+    fn fetch_fallback_completion(
+        &self,
+        expression: Option<&Expr>,
+        completion_context: &Context,
+    ) -> Fetched {
+        let complete_file = || FileCompletion.fetch(completion_context);
+
+        match expression {
+            Some(Expr::Directory(_, _)) => DirectoryCompletion.fetch(completion_context),
+            Some(Expr::Filepath(_, _)) | Some(Expr::GlobPattern(_, _)) => complete_file(),
             // fallback to file completion if necessary
-            _ if self.need_fallback => file_completion_helper(),
-            _ => vec![],
+            _ if self.need_fallback => complete_file(),
+            _ => Fetched::pure(vec![]),
         }
     }
 }

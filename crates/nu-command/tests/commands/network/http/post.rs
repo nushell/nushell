@@ -30,8 +30,8 @@ fn http_post_failed_due_to_server_error() -> Result {
         .run_with_data(code, server.url())
         .expect_shell_error()?;
     match err {
-        ShellError::NetworkFailure { msg, .. } => {
-            assert_contains("Bad request (400)", msg);
+        ShellError::HttpError { msg, .. } => {
+            assert_contains("Bad Request", msg);
             Ok(())
         }
         err => Err(err.into()),
@@ -68,8 +68,8 @@ fn http_post_failed_due_to_unexpected_body() -> Result {
         .expect_shell_error()?;
 
     match err {
-        ShellError::NetworkFailure { msg, .. } => {
-            assert_contains("Cannot make request", msg);
+        ShellError::HttpError { msg, .. } => {
+            assert_contains("Not Implemented", msg);
             Ok(())
         }
         err => Err(err.into()),

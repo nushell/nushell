@@ -230,10 +230,7 @@ impl Command for Ls {
                     .into_pipeline_data_with_metadata(
                         call_span,
                         engine_state.signals().clone(),
-                        PipelineMetadata {
-                            path_columns: vec!["name".to_string()],
-                            ..Default::default()
-                        },
+                        ls_pipeline_metadata(call_span, long),
                     ),
             ),
             Some(pattern) => {
@@ -255,10 +252,7 @@ impl Command for Ls {
                     .into_pipeline_data_with_metadata(
                         call_span,
                         engine_state.signals().clone(),
-                        PipelineMetadata {
-                            path_columns: vec!["name".to_string()],
-                            ..Default::default()
-                        },
+                        ls_pipeline_metadata(call_span, long),
                     ))
             }
         }
@@ -318,6 +312,21 @@ impl Command for Ls {
             },
         ]
     }
+}
+
+/// Builds `ls` output metadata, including width-priority hints for compact views.
+fn ls_pipeline_metadata(span: Span, long: bool) -> PipelineMetadata {
+    let mut metadata = PipelineMetadata {
+        path_columns: vec!["name".to_string()],
+        ..Default::default()
+    };
+
+    // Keep long listings close to legacy layout; priority hints are most useful in compact views.
+    if !long {
+        metadata.set_table_width_priority_columns(span, ["name"]);
+    }
+
+    metadata
 }
 
 fn ls_for_one_pattern(
@@ -387,7 +396,8 @@ fn ls_for_one_pattern(
                 {
                     return Ok(Value::test_nothing().into_pipeline_data());
                 }
-                just_read_dir = !(pat.item.is_expand() && nu_glob::is_glob(pat.item.as_ref()));
+                just_read_dir =
+                    !(pat.item.is_expand() && nu_glob::is_glob_with_backend(pat.item.as_ref()));
             }
 
             // it's absolute path if:
@@ -529,7 +539,15 @@ fn ls_for_one_pattern(
                                         prefix.to_path_buf()
                                     };
 
-                                    Some(new_prefix.join(remainder).to_string_lossy().to_string())
+                                    // Bare trailing `**` (dc-glob) can match the
+                                    // start dir itself; after stripping the prefix
+                                    // that is an empty relative path → show ".".
+                                    let joined = new_prefix.join(remainder);
+                                    if joined.as_os_str().is_empty() {
+                                        Some(".".to_string())
+                                    } else {
+                                        Some(joined.to_string_lossy().to_string())
+                                    }
                                 }
                             } else {
                                 Some(path.to_string_lossy().to_string())

@@ -128,9 +128,9 @@ impl App {
         let tree_items = build_tree_items(&json_data, &mut node_map, &nu_type_map, &doc_map);
 
         let status_msg = if config_mode {
-            "↑↓ Navigate | ←→ Collapse/Expand | Tab Switch pane | Ctrl+S Apply | q Quit"
+            "↑↓/jk Navigate | ←→/hl Collapse/Expand | Tab Switch pane | Ctrl+S Apply | q Quit"
         } else {
-            "↑↓ Navigate | ←→ Collapse/Expand | Tab Switch pane | Ctrl+S Save | q Quit"
+            "↑↓/jk Navigate | ←→/hl Collapse/Expand | Tab Switch pane | Ctrl+S Save | q Quit"
         };
 
         App {
@@ -592,7 +592,7 @@ impl App {
 
         let type_line = Line::from(vec![
             Span::styled(
-                format!(" {} ", &type_label),
+                format!(" {} ", type_label),
                 Style::default().fg(Color::Black).bg(type_color).bold(),
             ),
             Span::styled(extra_info, Style::default().fg(Color::DarkGray)),
@@ -841,7 +841,7 @@ impl App {
                     Span::raw(" Edit  "),
                     Span::styled("Tab", Style::default().fg(Color::Yellow).bold()),
                     Span::raw(" Switch pane  "),
-                    Span::styled("↑↓", Style::default().fg(Color::Yellow).bold()),
+                    Span::styled("↑↓/jk", Style::default().fg(Color::Yellow).bold()),
                     Span::raw(" Scroll"),
                 ])
             }

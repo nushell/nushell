@@ -73,8 +73,8 @@ fn sum_of_a_row_containing_a_table_is_an_error() -> Result {
         .run("open sample-sys-output.json | math sum")
         .expect_shell_error()?;
     match outcome {
-        ShellError::CantConvert { from_type, .. } => {
-            assert_contains("record", from_type);
+        ShellError::OnlySupportsThisInputType { wrong_type, .. } => {
+            assert_contains("record", wrong_type);
         }
         err => return Err(err.into()),
     }
@@ -93,5 +93,67 @@ fn cannot_sum_infinite_range() -> Result {
     let outcome = test().run("0.. | math sum").expect_shell_error()?;
 
     assert!(matches!(outcome, ShellError::IncorrectValue { .. }));
+    Ok(())
+}
+
+#[test]
+fn sum_list_valued_record_columns() -> Result {
+    test()
+        .run("{alice: [1 2 3], bob: [4 5]} | math sum")
+        .expect_value_eq(test_record! {
+            "alice" => 6,
+            "bob" => 9,
+        })
+}
+
+#[test]
+fn sum_record_cell_path_only_touches_named_column() -> Result {
+    test()
+        .run("{alice: [1 2 3], bob: [4 5 6]} | math sum alice")
+        .expect_value_eq(test_value!({
+            alice: 6,
+            bob: [4, 5, 6],
+        }))
+}
+
+#[test]
+fn sum_table_cell_path_updates_per_row() -> Result {
+    // Per-row path update: sum of a single scalar cell is the cell itself.
+    // Must NOT collect the whole column and write the column sum into every row.
+    test()
+        .run("[[a]; [1] [2]] | math sum a")
+        .expect_value_eq(test_table![
+            ["a"];
+            [1],
+            [2],
+        ])
+}
+
+#[test]
+fn sum_unsupported_record_field_is_top_level_error() -> Result {
+    let err = test()
+        .run("{alice: true, bob: [1 2]} | math sum")
+        .expect_shell_error()?;
+    assert!(matches!(err, ShellError::OnlySupportsThisInputType { .. }));
+    Ok(())
+}
+
+#[test]
+fn overflow_error_is_consistent_between_list_and_table() -> Result {
+    // Large durations that sum beyond i64::MAX nanoseconds
+    let durations = "[618019200000000000ns, 650422800000000000ns, 652579200000000000ns, 657849600000000000ns, 660873600000000000ns, 662342400000000000ns, 664416000000000000ns, 667782000000000000ns, 669855600000000000ns, 673311600000000000ns, 675903600000000000ns, 677462400000000000ns, 681609600000000000ns, 683766000000000000ns]";
+
+    let list_err = test()
+        .run(format!("{durations} | math sum"))
+        .expect_shell_error()?;
+
+    let table_err = test()
+        .run(format!("{durations} | wrap d | math sum"))
+        .expect_shell_error()?;
+
+    assert!(
+        std::mem::discriminant(&list_err) == std::mem::discriminant(&table_err),
+        "list and table paths produced different error variants:\n  list:  {list_err:?}\n  table: {table_err:?}"
+    );
     Ok(())
 }

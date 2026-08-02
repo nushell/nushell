@@ -15,6 +15,14 @@ impl Command for DateFromHuman {
             .input_output_types(vec![
                 (Type::String, Type::Date),
                 (Type::Nothing, Type::table()),
+                (
+                    Type::List(Box::new(Type::Date)),
+                    Type::List(Box::new(Type::Date)),
+                ),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::Date)),
+                ),
             ])
             .allow_variants_without_examples(true)
             .switch(
@@ -80,6 +88,11 @@ impl Command for DateFromHuman {
             Example {
                 description: "Show human-readable datetime parsing examples.",
                 example: "date from-human --list",
+                result: None,
+            },
+            Example {
+                description: "Convert a list of human-readable datetime strings to datetimes.",
+                example: r#"["Today at 18:30", "Tomorrow at 09:00"] | date from-human"#,
                 result: None,
             },
         ]

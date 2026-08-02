@@ -116,7 +116,7 @@ impl Command for Save {
                 let (mut file, _) =
                     get_files(engine_state, &path, stderr_path.as_ref(), append, force)?;
                 for val in ls {
-                    file.write_all(&value_to_bytes(val)?)
+                    file.write_all(&value_to_bytes(val, span)?)
                         .map_err(&from_io_error)?;
                     file.write_all("\n".as_bytes()).map_err(&from_io_error)?;
                 }
@@ -165,7 +165,7 @@ impl Command for Save {
                     return save_byte_stream(stream, metadata.as_ref());
                 }
 
-                let bytes = value_to_bytes(converted.into_value(span)?)?;
+                let bytes = value_to_bytes(converted.into_value(span)?, span)?;
 
                 // Only open file after successful conversion
                 let (mut file, _) =
@@ -328,17 +328,45 @@ fn convert_to_extension(
     }
 }
 
+/// Actionable error for when `save` receives structured data (a record, table,
+/// or other non-string value) but the destination has no matching
+/// `to <extension>` serializer, so the value can't be written as-is.
+///
+/// Filenames are only hints. Mirrors how `to json`/`to toml` report
+/// unserializable input: the failure is that `save` doesn't support this input
+/// for this file, not a low-level string coercion, so we raise
+/// [`ShellError::UnsupportedInput`] pointing at the explicit conversions rather
+/// than a bare "can't convert to string".
+fn cant_serialize_to_file(from_type: Type, value_span: Span, call_span: Span) -> ShellError {
+    ShellError::UnsupportedInput {
+        msg: format!(
+            "cannot save {from_type} to this file: no `to` converter matches the file's \
+             extension. Serialize it first, e.g. `... | to json | save <file>`, or save \
+             the rendered table with ansi escape sequences with `... | table | save <file>`"
+        ),
+        input: "value originates from here".into(),
+        msg_span: call_span,
+        input_span: value_span,
+    }
+}
+
 /// Convert [`Value::String`] [`Value::Binary`] or [`Value::List`] into [`Vec`] of bytes
 ///
-/// Propagates [`Value::Error`] and creates error otherwise
-fn value_to_bytes(value: Value) -> Result<Vec<u8>, ShellError> {
+/// Propagates [`Value::Error`] and, for structured values that can't be
+/// coerced to text, returns an actionable [`cant_serialize_to_file`] error
+/// pointing at `span` (the `save` invocation).
+fn value_to_bytes(value: Value, span: Span) -> Result<Vec<u8>, ShellError> {
     match value {
         Value::String { val, .. } => Ok(val.into_bytes()),
-        Value::Binary { val, .. } => Ok(val),
+        Value::Binary { val, .. } => Ok(val.into_owned()),
         Value::List { vals, .. } => {
             let val = vals
                 .into_iter()
-                .map(Value::coerce_into_string)
+                .map(|val| {
+                    let (ty, val_span) = (val.get_type(), val.span());
+                    val.coerce_into_string()
+                        .map_err(|_| cant_serialize_to_file(ty, val_span, span))
+                })
                 .collect::<Result<Vec<String>, ShellError>>()?
                 .join("\n")
                 + "\n";
@@ -347,7 +375,13 @@ fn value_to_bytes(value: Value) -> Result<Vec<u8>, ShellError> {
         }
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { error, .. } => Err(*error),
-        other => Ok(other.coerce_into_string()?.into_bytes()),
+        other => {
+            let (ty, val_span) = (other.get_type(), other.span());
+            other
+                .coerce_into_string()
+                .map(String::into_bytes)
+                .map_err(|_| cant_serialize_to_file(ty, val_span, span))
+        }
     }
 }
 

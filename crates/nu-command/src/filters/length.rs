@@ -1,8 +1,7 @@
-use std::io::Read;
-
 #[cfg(feature = "sqlite")]
-use crate::database::SQLiteQueryBuilder;
+use crate::database::QueryPlan;
 use nu_engine::command_prelude::*;
+use std::io::Read;
 
 #[derive(Clone)]
 pub struct Length;
@@ -73,11 +72,11 @@ fn length_row(call: &Call, input: PipelineData) -> Result<PipelineData, ShellErr
     let span = input.span().unwrap_or(call.head);
 
     #[cfg(feature = "sqlite")]
-    // Pushdown optimization: handle 'length' on SQLiteQueryBuilder using COUNT(*)
+    // Pushdown optimization: handle 'length' via QueryPlan using COUNT(*)
     if let PipelineData::Value(Value::Custom { val, .. }, ..) = &input
-        && let Some(table) = val.as_any().downcast_ref::<SQLiteQueryBuilder>()
+        && let Some(plan) = QueryPlan::try_from_any(val.as_any())
     {
-        let count = table.count(call.head)?;
+        let count = plan.count(call.head)?;
         return Ok(Value::int(count, call.head).into_pipeline_data());
     }
 
@@ -87,17 +86,6 @@ fn length_row(call: &Call, input: PipelineData) -> Result<PipelineData, ShellErr
         }
         PipelineData::Value(Value::Binary { val, .. }, ..) => {
             Ok(Value::int(val.len() as i64, call.head).into_pipeline_data())
-        }
-        #[cfg(feature = "sqlite")]
-        PipelineData::Value(Value::Custom { val, .. }, ..)
-            if val.as_any().downcast_ref::<SQLiteQueryBuilder>().is_some() =>
-        {
-            let table = val
-                .as_any()
-                .downcast_ref::<SQLiteQueryBuilder>()
-                .expect("already checked");
-            let count = table.count(call.head)?;
-            Ok(Value::int(count, call.head).into_pipeline_data())
         }
         #[cfg(feature = "sqlite")]
         PipelineData::Value(

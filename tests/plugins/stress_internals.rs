@@ -1,71 +1,57 @@
 // all tests in here are marked as serial to give your processor some room to breath while
 // executing these tests
 
-use std::{sync::mpsc, time::Duration};
+use nu_test_support::prelude::*;
 
-use nu_test_support::nu_with_plugins;
+const CODE_STRESS_INTERNALS_COMPLETE: &str = r#"
+    let plugin_path = (which nu_plugin_stress_internals).path.0
+    nu --no-config-file --plugins $plugin_path --commands "stress_internals" | complete
+"#;
 
-fn ensure_stress_env_vars_unset() {
-    for (key, _) in std::env::vars_os() {
-        if key.to_string_lossy().starts_with("STRESS_") {
-            panic!("Test is running in a dirty environment: {key:?} is set");
-        }
-    }
+#[test]
+#[serial]
+#[deps(NU_PLUGIN_STRESS_INTERNALS)]
+fn test_stdio() -> Result {
+    let result: CompleteResult = test().run(CODE_STRESS_INTERNALS_COMPLETE)?;
+    assert_contains("local_socket_path: None", &result.stdout);
+    Ok(())
 }
 
 #[test]
 #[serial]
-fn test_stdio() {
-    ensure_stress_env_vars_unset();
-    let result = nu_with_plugins!(
-        cwd: ".",
-        plugin: ("nu_plugin_stress_internals"),
-        "stress_internals"
-    );
-    assert!(result.status.success());
-    assert!(result.out.contains("local_socket_path: None"));
-}
+#[deps(NU, NU_PLUGIN_STRESS_INTERNALS)]
+fn test_local_socket() -> Result {
+    let result: CompleteResult = test()
+        .env("STRESS_ADVERTISE_LOCAL_SOCKET", "1")
+        .run(CODE_STRESS_INTERNALS_COMPLETE)?;
 
-#[test]
-#[serial]
-fn test_local_socket() {
-    ensure_stress_env_vars_unset();
-    let result = nu_with_plugins!(
-        cwd: ".",
-        envs: vec![
-            ("STRESS_ADVERTISE_LOCAL_SOCKET", "1"),
-        ],
-        plugin: ("nu_plugin_stress_internals"),
-        "stress_internals"
-    );
-    assert!(result.status.success());
+    assert_eq!(result.exit_code, 0);
+
     // Should be run once in stdio mode
-    assert!(result.err.contains("--stdio"));
+    assert_contains("--stdio", &result.stderr);
     // And then in local socket mode
-    assert!(result.err.contains("--local-socket"));
-    assert!(result.out.contains("local_socket_path: Some"));
+    assert_contains("--local-socket", &result.stderr);
+    assert_contains("local_socket_path: Some", &result.stdout);
+
+    Ok(())
 }
 
 #[test]
 #[serial]
-fn test_failing_local_socket_fallback() {
-    ensure_stress_env_vars_unset();
-    let result = nu_with_plugins!(
-        cwd: ".",
-        envs: vec![
-            ("STRESS_ADVERTISE_LOCAL_SOCKET", "1"),
-            ("STRESS_REFUSE_LOCAL_SOCKET", "1"),
-        ],
-        plugin: ("nu_plugin_stress_internals"),
-        "stress_internals"
-    );
-    assert!(result.status.success());
+#[deps(NU_PLUGIN_STRESS_INTERNALS)]
+fn test_failing_local_socket_fallback() -> Result {
+    let result: CompleteResult = test()
+        .env("STRESS_ADVERTISE_LOCAL_SOCKET", "1")
+        .env("STRESS_REFUSE_LOCAL_SOCKET", "1")
+        .run(CODE_STRESS_INTERNALS_COMPLETE)?;
+
+    assert_eq!(result.exit_code, 0);
 
     // Count the number of times we do stdio/local socket
     let mut count_stdio = 0;
     let mut count_local_socket = 0;
 
-    for line in result.err.split('\n') {
+    for line in result.stderr.lines() {
         if line.contains("--stdio") {
             count_stdio += 1;
         }
@@ -80,80 +66,62 @@ fn test_failing_local_socket_fallback() {
     assert_eq!(2, count_stdio, "count of --stdio");
 
     // In the end it should not be running in local socket mode, but should succeed
-    assert!(result.out.contains("local_socket_path: None"));
+    assert_contains("local_socket_path: None", &result.stdout);
+
+    Ok(())
 }
 
 #[test]
 #[serial]
-fn test_exit_before_hello_stdio() {
-    ensure_stress_env_vars_unset();
-    // This can deadlock if not handled properly, so we try several times and timeout
-    for _ in 0..5 {
-        let (tx, rx) = mpsc::channel();
-        std::thread::spawn(move || {
-            let result = nu_with_plugins!(
-                cwd: ".",
-                envs: vec![
-                    ("STRESS_EXIT_BEFORE_HELLO", "1"),
-                ],
-                plugin: ("nu_plugin_stress_internals"),
-                "stress_internals"
-            );
-            let _ = tx.send(result);
-        });
-        let result = rx
-            .recv_timeout(Duration::from_secs(15))
-            .expect("timed out. probably a deadlock");
-        assert!(!result.status.success());
-    }
+#[deps(NU_PLUGIN_STRESS_INTERNALS)]
+fn test_exit_before_hello_stdio() -> Result {
+    let result: CompleteResult = test()
+        .env("STRESS_EXIT_EARLY", "1")
+        .run(CODE_STRESS_INTERNALS_COMPLETE)?;
+    assert_ne!(result.exit_code, 0);
+    Ok(())
 }
 
 #[test]
 #[serial]
-fn test_exit_early_stdio() {
-    ensure_stress_env_vars_unset();
-    let result = nu_with_plugins!(
-        cwd: ".",
-        envs: vec![
-            ("STRESS_EXIT_EARLY", "1"),
-        ],
-        plugin: ("nu_plugin_stress_internals"),
-        "stress_internals"
-    );
-    assert!(!result.status.success());
-    assert!(result.err.contains("--stdio"));
+#[deps(NU_PLUGIN_STRESS_INTERNALS)]
+fn test_exit_early_stdio() -> Result {
+    let result: CompleteResult = test()
+        .env("STRESS_EXIT_EARLY", "1")
+        .run(CODE_STRESS_INTERNALS_COMPLETE)?;
+
+    assert_ne!(result.exit_code, 0);
+    assert_contains("--stdio", &result.stderr);
+
+    Ok(())
 }
 
 #[test]
 #[serial]
-fn test_exit_early_local_socket() {
-    ensure_stress_env_vars_unset();
-    let result = nu_with_plugins!(
-        cwd: ".",
-        envs: vec![
-            ("STRESS_ADVERTISE_LOCAL_SOCKET", "1"),
-            ("STRESS_EXIT_EARLY", "1"),
-        ],
-        plugin: ("nu_plugin_stress_internals"),
-        "stress_internals"
-    );
-    assert!(!result.status.success());
-    assert!(result.err.contains("--local-socket"));
+#[deps(NU_PLUGIN_STRESS_INTERNALS)]
+fn test_exit_early_local_socket() -> Result {
+    let result: CompleteResult = test()
+        .env("STRESS_ADVERTISE_LOCAL_SOCKET", "1")
+        .env("STRESS_EXIT_EARLY", "1")
+        .run(CODE_STRESS_INTERNALS_COMPLETE)?;
+
+    assert_ne!(result.exit_code, 0);
+    assert_contains("--local-socket", &result.stderr);
+
+    Ok(())
 }
 
 #[test]
 #[serial]
-fn test_wrong_version() {
-    ensure_stress_env_vars_unset();
-    let result = nu_with_plugins!(
-        cwd: ".",
-        envs: vec![
-            ("STRESS_WRONG_VERSION", "1"),
-        ],
-        plugin: ("nu_plugin_stress_internals"),
-        "stress_internals"
-    );
-    assert!(!result.status.success());
-    assert!(result.err.contains("version"));
-    assert!(result.err.contains("0.0.0"));
+#[deps(NU_PLUGIN_STRESS_INTERNALS)]
+fn test_wrong_version() -> Result {
+    let result: CompleteResult = test()
+        .env("STRESS_WRONG_VERSION", "1")
+        .run(CODE_STRESS_INTERNALS_COMPLETE)?;
+
+    assert_ne!(result.exit_code, 0);
+    assert_contains("version", &result.stderr);
+    assert_contains("0.0.0", &result.stderr);
+
+    Ok(())
 }

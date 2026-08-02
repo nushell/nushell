@@ -213,6 +213,8 @@ fn insert_recursive(
                         value.insert_data_at_cell_path(path, replacement, head_span)?;
                     }
                     pre_elems.push(value)
+                } else if pre_elems.is_empty() {
+                    return Err(ShellError::AccessEmptyContent { span: path_span });
                 } else {
                     return Err(ShellError::AccessBeyondEnd {
                         max_idx: pre_elems.len() - 1,

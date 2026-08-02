@@ -7,34 +7,33 @@ use crate::prompt_update::{
 };
 use crate::{
     NuHighlighter, NuValidator, NushellPrompt,
-    completions::NuCompleter,
+    completions::{NarrowingCache, NuCompleter},
     hints::ExternalHinter,
-    nu_highlight::NoOpHighlighter,
     prompt_update,
     reedline_config::{KeybindingsMode, add_menus, create_keybindings},
-    util::eval_source,
+    syntax_highlight::NoOpHighlighter,
+    util::{eval_source, evaluate_source},
 };
 use crossterm::cursor::SetCursorStyle;
 use log::{error, trace, warn};
 use miette::{ErrReport, IntoDiagnostic, Result};
 use nu_cmd_base::util::get_editor;
 use nu_color_config::StyleComputer;
-#[allow(deprecated)]
 use nu_engine::env_to_strings;
 use nu_engine::exit::cleanup_exit;
-use nu_parser::{lex, parse, trim_quotes_str};
+use nu_parser::{lex, trim_quotes_str};
 use nu_protocol::shell_error::io::IoError;
-use nu_protocol::{BannerKind, shell_error};
+use nu_protocol::{BannerKind, ShellIntegrationConfig, shell_error};
 use nu_protocol::{
     Config, HistoryConfig, HistoryFileFormat, PipelineData, ShellError, Span, Spanned, Value,
     config::NuCursorShape,
-    engine::{EngineState, Stack, StateWorkingSet},
+    engine::{EngineState, Stack},
     report_shell_error,
 };
 use nu_utils::time::Instant;
 use nu_utils::{
     filesystem::{PermissionResult, have_permission},
-    perf, stderr_write_all_and_flush,
+    perf, stderr_write_all_and_flush, stdout_write_all_and_flush,
 };
 #[cfg(feature = "sqlite")]
 use reedline::SqliteBackedHistory;
@@ -86,6 +85,7 @@ pub fn evaluate_repl(
     let use_color = config.use_ansi_coloring.get(engine_state);
 
     let mut entry_num = 0;
+    let mut is_hostcommand = false;
 
     // Let's grab the shell_integration configs
     let shell_integration_osc2 = config.shell_integration.osc2;
@@ -186,6 +186,8 @@ pub fn evaluate_repl(
     // Setup initial engine_state and stack state
     let mut previous_engine_state = engine_state.clone();
     let mut previous_stack_arc = Arc::new(unique_stack);
+    // Cache survives the completer being rebuilt each prompt.
+    let completion_cache = NarrowingCache::default();
     loop {
         // clone these values so that they can be moved by AssertUnwindSafe
         // If there is a panic within this iteration the last engine_state and stack
@@ -196,6 +198,7 @@ pub fn evaluate_repl(
         let current_stack = Stack::with_parent(previous_stack_arc.clone());
         let temp_file_cloned = temp_file.clone();
         let mut nu_prompt_cloned = nu_prompt.clone();
+        let current_completion_cache = completion_cache.clone();
 
         let iteration_panic_state = catch_unwind(AssertUnwindSafe(|| {
             let (continue_loop, current_stack, line_editor) = loop_iteration(LoopContext {
@@ -207,6 +210,8 @@ pub fn evaluate_repl(
                 use_color,
                 entry_num: &mut entry_num,
                 hostname: hostname.as_deref(),
+                is_hostcommand: &mut is_hostcommand,
+                completion_cache: current_completion_cache,
             });
 
             // pass the most recent version of the line_editor back
@@ -301,6 +306,12 @@ fn get_line_editor(engine_state: &mut EngineState, use_color: bool) -> Result<Re
 
         line_editor = setup_history(engine_state, line_editor, history)?;
 
+        // Lock the startup-only `$env.config.history.*` options (`path`, `max_size`,
+        // `file_format`, `isolation`) against further changes. Reedline owns the history
+        // backend from this point on, so runtime mutations of these fields would silently do
+        // nothing — better to reject them outright.
+        engine_state.history_locked_after_startup = true;
+
         perf!("setup history", start_time, use_color);
     }
     Ok(line_editor)
@@ -315,6 +326,178 @@ struct LoopContext<'a> {
     use_color: bool,
     entry_num: &'a mut usize,
     hostname: Option<&'a str>,
+    is_hostcommand: &'a mut bool,
+    /// Completion cache carried across prompts (survives the per-prompt completer rebuild).
+    completion_cache: NarrowingCache,
+}
+
+struct RunContext<'a> {
+    engine_state: &'a mut EngineState,
+    stack: &'a mut Stack,
+    line_editor: Reedline,
+    command: String,
+    hostname: Option<&'a str>,
+    use_color: bool,
+    shell_integration: &'a ShellIntegrationConfig,
+    entry_num: &'a mut usize,
+}
+
+fn run_command(ctx: RunContext) -> Reedline {
+    use nu_cmd_base::hook;
+
+    let RunContext {
+        engine_state,
+        stack,
+        mut line_editor,
+        command,
+        hostname,
+        use_color,
+        shell_integration,
+        entry_num,
+    } = ctx;
+
+    let history_supports_meta = match engine_state.history_config().map(|h| h.file_format) {
+        #[cfg(feature = "sqlite")]
+        Some(HistoryFileFormat::Sqlite) => true,
+        _ => false,
+    };
+
+    if history_supports_meta {
+        prepare_history_metadata(&command, hostname, engine_state, &mut line_editor);
+    }
+
+    // For pre_exec_hook
+    let mut start_time = Instant::now();
+
+    // Right before we start running the code the user gave us, fire the `pre_execution`
+    // hook
+    {
+        if let Err(err) = hook::eval_pre_execution_hooks(engine_state, stack, command.clone()) {
+            report_shell_error(None, engine_state, &err);
+        }
+    }
+
+    perf!("pre_execution_hook", start_time, use_color);
+
+    let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
+    repl.cursor_pos = line_editor.current_insertion_point();
+    repl.buffer = line_editor.current_buffer_contents().to_string();
+    drop(repl);
+
+    if shell_integration.osc633 {
+        if stack
+            .get_env_var(engine_state, "TERM_PROGRAM")
+            .and_then(|v| v.as_str().ok())
+            == Some("vscode")
+        {
+            start_time = Instant::now();
+
+            run_ansi_sequence(VSCODE_PRE_EXECUTION_MARKER);
+
+            perf!(
+                "pre_execute_marker (633;C) ansi escape sequence",
+                start_time,
+                use_color
+            );
+        } else if shell_integration.osc133 {
+            start_time = Instant::now();
+
+            run_ansi_sequence(PRE_EXECUTION_MARKER);
+
+            perf!(
+                "pre_execute_marker (133;C) ansi escape sequence",
+                start_time,
+                use_color
+            );
+        }
+    } else if shell_integration.osc133 {
+        start_time = Instant::now();
+
+        run_ansi_sequence(PRE_EXECUTION_MARKER);
+
+        perf!(
+            "pre_execute_marker (133;C) ansi escape sequence",
+            start_time,
+            use_color
+        );
+    }
+
+    // Actual command execution logic starts from here
+    let cmd_execution_start_time = Instant::now();
+
+    match parse_operation(command.clone(), engine_state, stack) {
+        Ok(ReplOperation::AutoCd { cwd, target, span }) => {
+            do_auto_cd(target, cwd, stack, engine_state, span);
+
+            run_finaliziation_ansi_sequence(
+                stack,
+                engine_state,
+                use_color,
+                shell_integration.osc633,
+                shell_integration.osc133,
+            );
+        }
+        Ok(ReplOperation::RunCommand(cmd)) => {
+            line_editor = do_run_cmd(
+                &cmd,
+                stack,
+                engine_state,
+                line_editor,
+                shell_integration.osc2,
+                *entry_num,
+                use_color,
+            );
+
+            run_finaliziation_ansi_sequence(
+                stack,
+                engine_state,
+                use_color,
+                shell_integration.osc633,
+                shell_integration.osc133,
+            );
+        }
+        // as the name implies, we do nothing in this case
+        Ok(ReplOperation::DoNothing) => {}
+        Err(ref e) => error!("Error parsing operation: {e}"),
+    }
+    let cmd_duration = cmd_execution_start_time.elapsed();
+
+    // No source span for REPL-generated timing values
+    stack.add_env_var(
+        "CMD_DURATION_MS".into(),
+        Value::string(format!("{}", cmd_duration.as_millis()), Span::unknown()),
+    );
+
+    if history_supports_meta
+        && let Err(e) = fill_in_result_related_history_metadata(
+            &command,
+            engine_state,
+            cmd_duration,
+            stack,
+            &mut line_editor,
+        )
+    {
+        warn!("Could not fill in result related history metadata: {e}");
+    }
+
+    if shell_integration.osc2 {
+        run_shell_integration_osc2(None, engine_state, stack, use_color);
+    }
+    if shell_integration.osc7 {
+        run_shell_integration_osc7(hostname, engine_state, stack, use_color);
+    }
+    if shell_integration.osc9_9 {
+        run_shell_integration_osc9_9(engine_state, stack, use_color);
+    }
+    if shell_integration.osc633 {
+        run_shell_integration_osc633(engine_state, stack, use_color, command);
+    }
+    if shell_integration.reset_application_mode {
+        run_shell_integration_reset_application_mode();
+    }
+
+    line_editor = flush_engine_state_repl_buffer(engine_state, line_editor);
+    line_editor
 }
 
 /// Perform one iteration of the REPL loop
@@ -334,6 +517,8 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         use_color,
         entry_num,
         hostname,
+        is_hostcommand,
+        completion_cache,
     } = ctx;
 
     let mut start_time = Instant::now();
@@ -349,6 +534,13 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     perf!("reset signals", start_time, use_color);
 
     start_time = Instant::now();
+
+    // Juhan said to do this :)
+    let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
+    repl.cursor_pos = line_editor.current_insertion_point();
+    repl.buffer = line_editor.current_buffer_contents().to_string();
+    drop(repl);
+
     // Check all the environment variables they ask for
     // fire the "env_change" hook
     if let Err(error) = hook::eval_env_change_hook(
@@ -362,13 +554,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
     start_time = Instant::now();
     // Next, right before we start our prompt and take input from the user, fire the "pre_prompt" hook
-    if let Err(err) = hook::eval_hooks(
-        engine_state,
-        &mut stack,
-        vec![],
-        &engine_state.get_config().hooks.pre_prompt.clone(),
-        "pre_prompt",
-    ) {
+    if let Err(err) = hook::eval_pre_prompt_hooks(engine_state, &mut stack) {
         report_shell_error(None, engine_state, &err);
     }
     perf!("pre-prompt hook", start_time, use_color);
@@ -399,18 +585,19 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         // try to enable bracketed paste
         // It doesn't work on windows system: https://github.com/crossterm-rs/crossterm/issues/737
         .use_bracketed_paste(cfg!(not(target_os = "windows")) && config.bracketed_paste)
-        .with_highlighter(Box::new(NuHighlighter {
-            engine_state: engine_reference.clone(),
+        .with_highlighter(Box::new(NuHighlighter::new(
+            engine_reference.clone(),
             // STACK-REFERENCE 1
-            stack: stack_arc.clone(),
-        }))
+            stack_arc.clone(),
+        )))
         .with_validator(Box::new(NuValidator {
             engine_state: engine_reference.clone(),
         }))
-        .with_completer(Box::new(NuCompleter::new(
+        .with_completer(Box::new(NuCompleter::with_cache(
             engine_reference.clone(),
             // STACK-REFERENCE 2
             stack_arc.clone(),
+            completion_cache,
         )))
         .with_quick_completions(config.completions.quick)
         .with_partial_completions(config.completions.partial)
@@ -424,6 +611,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                 .to_string(),
         ))
         .with_cursor_config(cursor_config)
+        .with_abbreviations(config.abbreviations.clone())
         .with_visual_selection_style(nu_ansi_term::Style {
             is_reverse: true,
             ..Default::default()
@@ -529,7 +717,14 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
     perf!("update_prompt", start_time, use_color);
 
-    line_editor = flush_engine_state_repl_buffer(engine_state, line_editor);
+    // If we don't flush the engine state, then the pre_prompt and env_change hooks cannot modify
+    // the commandline. But if we always flush the engine state, then the modification to the commandline done in
+    // ExecuteHostCommand will be overridden.
+    // So, we flush the engine state only if last signal wasn't a HostCommand
+    if !*is_hostcommand {
+        line_editor = flush_engine_state_repl_buffer(engine_state, line_editor);
+    }
+    *is_hostcommand = false;
 
     *entry_num += 1;
 
@@ -546,13 +741,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         // Ensure immediately accept is always cleared
         .with_immediately_accept(false);
 
-    // Let's grab the shell_integration configs
-    let shell_integration_osc2 = config.shell_integration.osc2;
-    let shell_integration_osc7 = config.shell_integration.osc7;
-    let shell_integration_osc9_9 = config.shell_integration.osc9_9;
-    let shell_integration_osc133 = config.shell_integration.osc133;
-    let shell_integration_osc633 = config.shell_integration.osc633;
-    let shell_integration_reset_application_mode = config.shell_integration.reset_application_mode;
+    let shell_integration = &config.shell_integration;
 
     // TODO: we may clone the stack, this can lead to major performance issues
     // so we should avoid it or making stack cheaper to clone.
@@ -562,171 +751,30 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
     let line_editor_input_time = Instant::now();
     match input {
-        Ok(Signal::Success(repl_cmd_line_text) | Signal::HostCommand(repl_cmd_line_text)) => {
-            let history_supports_meta = match engine_state.history_config().map(|h| h.file_format) {
-                #[cfg(feature = "sqlite")]
-                Some(HistoryFileFormat::Sqlite) => true,
-                _ => false,
-            };
-
-            if history_supports_meta {
-                prepare_history_metadata(
-                    &repl_cmd_line_text,
-                    hostname,
-                    engine_state,
-                    &mut line_editor,
-                );
-            }
-
-            // For pre_exec_hook
-            start_time = Instant::now();
-
-            // Right before we start running the code the user gave us, fire the `pre_execution`
-            // hook
-            {
-                // Set the REPL buffer to the current command for the "pre_execution" hook
-                let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
-                repl.buffer = repl_cmd_line_text.to_string();
-                drop(repl);
-
-                if let Err(err) = hook::eval_hooks(
-                    engine_state,
-                    &mut stack,
-                    vec![],
-                    &engine_state.get_config().hooks.pre_execution.clone(),
-                    "pre_execution",
-                ) {
-                    report_shell_error(None, engine_state, &err);
-                }
-            }
-
-            perf!("pre_execution_hook", start_time, use_color);
-
-            let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
-            repl.cursor_pos = line_editor.current_insertion_point();
-            repl.buffer = line_editor.current_buffer_contents().to_string();
-            drop(repl);
-
-            if shell_integration_osc633 {
-                if stack
-                    .get_env_var(engine_state, "TERM_PROGRAM")
-                    .and_then(|v| v.as_str().ok())
-                    == Some("vscode")
-                {
-                    start_time = Instant::now();
-
-                    run_ansi_sequence(VSCODE_PRE_EXECUTION_MARKER);
-
-                    perf!(
-                        "pre_execute_marker (633;C) ansi escape sequence",
-                        start_time,
-                        use_color
-                    );
-                } else if shell_integration_osc133 {
-                    start_time = Instant::now();
-
-                    run_ansi_sequence(PRE_EXECUTION_MARKER);
-
-                    perf!(
-                        "pre_execute_marker (133;C) ansi escape sequence",
-                        start_time,
-                        use_color
-                    );
-                }
-            } else if shell_integration_osc133 {
-                start_time = Instant::now();
-
-                run_ansi_sequence(PRE_EXECUTION_MARKER);
-
-                perf!(
-                    "pre_execute_marker (133;C) ansi escape sequence",
-                    start_time,
-                    use_color
-                );
-            }
-
-            // Actual command execution logic starts from here
-            let cmd_execution_start_time = Instant::now();
-
-            match parse_operation(repl_cmd_line_text.clone(), engine_state, &stack) {
-                Ok(operation) => match operation {
-                    ReplOperation::AutoCd { cwd, target, span } => {
-                        do_auto_cd(target, cwd, &mut stack, engine_state, span);
-
-                        run_finaliziation_ansi_sequence(
-                            &stack,
-                            engine_state,
-                            use_color,
-                            shell_integration_osc633,
-                            shell_integration_osc133,
-                        );
-                    }
-                    ReplOperation::RunCommand(cmd) => {
-                        line_editor = do_run_cmd(
-                            &cmd,
-                            &mut stack,
-                            engine_state,
-                            line_editor,
-                            shell_integration_osc2,
-                            *entry_num,
-                            use_color,
-                        );
-
-                        run_finaliziation_ansi_sequence(
-                            &stack,
-                            engine_state,
-                            use_color,
-                            shell_integration_osc633,
-                            shell_integration_osc133,
-                        );
-                    }
-                    // as the name implies, we do nothing in this case
-                    ReplOperation::DoNothing => {}
-                },
-                Err(ref e) => error!("Error parsing operation: {e}"),
-            }
-            let cmd_duration = cmd_execution_start_time.elapsed();
-
-            // No source span for REPL-generated timing values
-            stack.add_env_var(
-                "CMD_DURATION_MS".into(),
-                Value::string(format!("{}", cmd_duration.as_millis()), Span::unknown()),
-            );
-
-            if history_supports_meta
-                && let Err(e) = fill_in_result_related_history_metadata(
-                    &repl_cmd_line_text,
-                    engine_state,
-                    cmd_duration,
-                    &mut stack,
-                    &mut line_editor,
-                )
-            {
-                warn!("Could not fill in result related history metadata: {e}");
-            }
-
-            if shell_integration_osc2 {
-                run_shell_integration_osc2(None, engine_state, &mut stack, use_color);
-            }
-            if shell_integration_osc7 {
-                run_shell_integration_osc7(hostname, engine_state, &mut stack, use_color);
-            }
-            if shell_integration_osc9_9 {
-                run_shell_integration_osc9_9(engine_state, &mut stack, use_color);
-            }
-            if shell_integration_osc633 {
-                run_shell_integration_osc633(
-                    engine_state,
-                    &mut stack,
-                    use_color,
-                    repl_cmd_line_text,
-                );
-            }
-            if shell_integration_reset_application_mode {
-                run_shell_integration_reset_application_mode();
-            }
-
-            line_editor = flush_engine_state_repl_buffer(engine_state, line_editor);
+        Ok(Signal::Success(command)) => {
+            line_editor = run_command(RunContext {
+                engine_state,
+                stack: &mut stack,
+                line_editor,
+                command,
+                hostname,
+                use_color,
+                shell_integration,
+                entry_num,
+            });
+        }
+        Ok(Signal::HostCommand(command)) => {
+            *is_hostcommand = true;
+            line_editor = run_command(RunContext {
+                engine_state,
+                stack: &mut stack,
+                line_editor,
+                command,
+                hostname,
+                use_color,
+                shell_integration,
+                entry_num,
+            });
         }
         Ok(Signal::CtrlC) => {
             // `Reedline` clears the line content. New prompt is shown
@@ -734,8 +782,8 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                 &stack,
                 engine_state,
                 use_color,
-                shell_integration_osc633,
-                shell_integration_osc133,
+                shell_integration.osc633,
+                shell_integration.osc133,
             );
         }
         Ok(Signal::CtrlD) => {
@@ -745,11 +793,12 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                 &stack,
                 engine_state,
                 use_color,
-                shell_integration_osc633,
-                shell_integration_osc133,
+                shell_integration.osc633,
+                shell_integration.osc133,
             );
 
-            println!();
+            // Don't use `println!`: it panics on a broken stdout (parent terminal closed).
+            let _ = stdout_write_all_and_flush("\n");
 
             cleanup_exit((), engine_state, 0);
 
@@ -769,8 +818,8 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                 &stack,
                 engine_state,
                 use_color,
-                shell_integration_osc633,
-                shell_integration_osc133,
+                shell_integration.osc633,
+                shell_integration.osc133,
             );
         }
     }
@@ -995,40 +1044,32 @@ fn do_run_cmd(
 ) -> Reedline {
     trace!("eval source: {s}");
 
-    let mut cmds = s.split_whitespace();
-
     let had_warning_before = engine_state.exit_warning_given.load(Ordering::SeqCst);
-
-    if let Some("exit") = cmds.next() {
-        let mut working_set = StateWorkingSet::new(engine_state);
-        let _ = parse(&mut working_set, None, s.as_bytes(), false);
-
-        if working_set.parse_errors.is_empty() {
-            match cmds.next() {
-                Some(s) => {
-                    if let Ok(n) = s.parse::<i32>() {
-                        return cleanup_exit(line_editor, engine_state, n);
-                    }
-                }
-                None => {
-                    return cleanup_exit(line_editor, engine_state, 0);
-                }
-            }
-        }
-    }
 
     if shell_integration_osc2 {
         run_shell_integration_osc2(Some(s), engine_state, stack, use_color);
     }
 
-    eval_source(
+    match evaluate_source(
         engine_state,
         stack,
         s.as_bytes(),
         &format!("repl_entry #{entry_num}"),
         PipelineData::empty(),
         false,
-    );
+    ) {
+        Err(ShellError::Exit { code, .. }) => {
+            return cleanup_exit(line_editor, engine_state, code);
+        }
+        Err(err) => {
+            report_shell_error(Some(stack), engine_state, &err);
+            stack.set_last_error(&err);
+        }
+        Ok(failed) => {
+            let code: i32 = failed.into();
+            stack.set_last_exit_code(code, Span::unknown());
+        }
+    }
 
     // if there was a warning before, and we got to this point, it means
     // the possible call to cleanup_exit did not occur.
@@ -1225,7 +1266,7 @@ fn setup_history(
         None
     };
 
-    if let Some(path) = history.file_path() {
+    if let Some(path) = history.file_path(&engine_state.config_dirs.config_home) {
         return update_line_editor_history(
             engine_state,
             path,
@@ -1280,6 +1321,23 @@ fn store_history_id_in_engine(engine_state: &mut EngineState, line_editor: &Reed
     engine_state.history_session_id = session_id;
 }
 
+fn warn_history_unavailable(history_path: &std::path::Path, err: &impl std::fmt::Display) {
+    if history_path.is_symlink() && !history_path.exists() {
+        let target = std::fs::read_link(history_path)
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|_| "<unknown>".to_string());
+        eprintln!(
+            "Warning: history file is a broken symlink ({} -> {target}); continuing without history.",
+            history_path.display()
+        );
+    } else {
+        eprintln!(
+            "Warning: could not open history file ({}): {err}; continuing without history.",
+            history_path.display()
+        );
+    }
+}
+
 fn update_line_editor_history(
     engine_state: &mut EngineState,
     history_path: PathBuf,
@@ -1288,11 +1346,18 @@ fn update_line_editor_history(
     history_session_id: Option<HistorySessionId>,
 ) -> Result<Reedline, ErrReport> {
     let ignore_space_prefixed = history.ignore_space_prefixed;
-    let history: Box<dyn reedline::History> = match history.file_format {
-        HistoryFileFormat::Plaintext => Box::new(
-            FileBackedHistory::with_file(history.max_size as usize, history_path)
-                .into_diagnostic()?,
-        ),
+    // History open failures must not abort the REPL (e.g. broken symlink after a
+    // moved dotfiles repo). Prefer starting without history over locking the user out.
+    let history_backend: Option<Box<dyn reedline::History>> = match history.file_format {
+        HistoryFileFormat::Plaintext => {
+            match FileBackedHistory::with_file(history.max_size as usize, history_path.clone()) {
+                Ok(h) => Some(Box::new(h)),
+                Err(err) => {
+                    warn_history_unavailable(&history_path, &err);
+                    None
+                }
+            }
+        }
         // this path should not happen as the config setting is captured by `nu-protocol` already
         #[cfg(not(feature = "sqlite"))]
         HistoryFileFormat::Sqlite => {
@@ -1302,19 +1367,28 @@ fn update_line_editor_history(
             ));
         }
         #[cfg(feature = "sqlite")]
-        HistoryFileFormat::Sqlite => Box::new(
-            SqliteBackedHistory::with_file(
-                history_path.to_path_buf(),
+        HistoryFileFormat::Sqlite => {
+            match SqliteBackedHistory::with_file(
+                history_path.clone(),
                 history_session_id,
                 Some(chrono::Utc::now()),
-            )
-            .into_diagnostic()?,
-        ),
+            ) {
+                Ok(h) => Some(Box::new(h)),
+                Err(err) => {
+                    warn_history_unavailable(&history_path, &err);
+                    None
+                }
+            }
+        }
     };
-    let line_editor = line_editor
+
+    let mut line_editor = line_editor
         .with_history_session_id(history_session_id)
-        .with_history_exclusion_prefix(ignore_space_prefixed.then_some(" ".into()))
-        .with_history(history);
+        .with_history_exclusion_prefix(ignore_space_prefixed.then_some(" ".into()));
+
+    if let Some(history) = history_backend {
+        line_editor = line_editor.with_history(history);
+    }
 
     store_history_id_in_engine(engine_state, &line_editor);
 
@@ -1557,8 +1631,12 @@ fn trailing_slash_looks_like_path() {
 #[test]
 fn are_session_ids_in_sync() {
     let engine_state = &mut EngineState::new();
+    // Tests need a resolved config home; use a temp-style path under the process cwd.
+    engine_state.config_dirs.config_home = std::env::temp_dir().join("nushell-repl-history-test");
     let history = engine_state.history_config().unwrap();
-    let history_path = history.file_path().unwrap();
+    let history_path = history
+        .file_path(&engine_state.config_dirs.config_home)
+        .unwrap();
     let line_editor = reedline::Reedline::create();
     let history_session_id = reedline::Reedline::create_history_session_id();
     let line_editor = update_line_editor_history(
@@ -1572,6 +1650,37 @@ fn are_session_ids_in_sync() {
         i64::from(line_editor.unwrap().get_history_session_id().unwrap()),
         engine_state.history_session_id
     );
+}
+
+/// A broken history symlink must not abort history setup (login-lockout risk).
+#[cfg(unix)]
+#[test]
+fn dangling_history_symlink_does_not_fail_setup() {
+    let dir = temp_dir().join(format!("nushell-dangling-history-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let history_path = dir.join("history.txt");
+    std::os::unix::fs::symlink("/nonexistent/history.txt", &history_path).unwrap();
+
+    let engine_state = &mut EngineState::new();
+    engine_state.config_dirs.config_home = dir.clone();
+    let history = engine_state.history_config().unwrap();
+    let line_editor = reedline::Reedline::create();
+    let history_session_id = reedline::Reedline::create_history_session_id();
+    let result = update_line_editor_history(
+        engine_state,
+        history_path.clone(),
+        history,
+        line_editor,
+        history_session_id,
+    );
+    assert!(
+        result.is_ok(),
+        "dangling history symlink must not fail REPL history setup"
+    );
+    // Never remove the user's symlink.
+    assert!(history_path.is_symlink());
+    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[cfg(test)]

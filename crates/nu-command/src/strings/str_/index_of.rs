@@ -133,6 +133,11 @@ impl Command for StrIndexOf {
                 result: Some(Value::test_int(4)),
             },
             Example {
+                description: "A match that falls inside a grapheme cluster is reported as not found.",
+                example: "'🇯🇵' | str index-of --grapheme-clusters '🇵'",
+                result: Some(Value::test_int(-1)),
+            },
+            Example {
                 description: "Returns index of string in input within a`rhs open range`.",
                 example: " '.rb.rb' | str index-of '.rb' --range 1..",
                 result: Some(Value::test_int(3)),
@@ -217,11 +222,10 @@ fn action(
                         s.grapheme_indices(true)
                             .enumerate()
                             .find(|e| e.1.0 >= result)
-                            .expect("No grapheme index for substring")
-                            .0
+                            .map_or(-1, |e| e.0 as i64)
                     } else {
-                        result
-                    } as i64,
+                        result as i64
+                    },
                     head,
                 )
             } else {

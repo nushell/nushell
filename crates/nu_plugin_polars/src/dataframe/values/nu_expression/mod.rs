@@ -220,7 +220,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
                 | AggExpr::First(expr)
                 | AggExpr::Last(expr)
                 | AggExpr::Mean(expr)
-                | AggExpr::Implode(expr)
+                | AggExpr::Implode { input: expr, .. }
                 | AggExpr::Count { input: expr, .. }
                 | AggExpr::Sum(expr)
                 | AggExpr::AggGroups(expr)
@@ -229,18 +229,6 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
                 | AggExpr::FirstNonNull(expr)
                 | AggExpr::LastNonNull(expr)
                 | AggExpr::Var(expr, _) => expr_to_value(expr.as_ref(), span),
-                AggExpr::Quantile {
-                    expr,
-                    quantile,
-                    method,
-                } => Ok(Value::record(
-                    record! {
-                        "expr" => expr_to_value(expr.as_ref(), span)?,
-                        "quantile" => expr_to_value(quantile.as_ref(), span)?,
-                        "method" => Value::string(format!("{method:?}"), span),
-                    },
-                    span,
-                )),
             };
 
             Ok(Value::record(

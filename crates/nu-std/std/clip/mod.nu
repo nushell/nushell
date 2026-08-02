@@ -3,18 +3,6 @@
 # > These commands require your terminal to support OSC 52
 # > Terminal multiplexers such as screen, tmux, zellij etc may interfere with this command
 
-# @deprecated "Use `clip copy` without `use std/clip`, for OCS 52 copy request use `clip copy52`"
-
-# Copy input to system clipboard (stdlib command deprecated)
-@example "Copy a string to the clipboard" {
-  "Hello" | copy
-}
-export def copy [
-  --ansi (-a)                 # Copy ansi formatting
-]: any -> nothing {
-  $in | copy52 --ansi=$ansi
-}
-
 # Copy input to system clipboard using OSC 52 request
 @example "Copy a string to the clipboard" {
   "Hello" | copy52
@@ -36,16 +24,6 @@ export def copy52 [
   print -n $'(ansi osc)52;c;($text | encode base64)(ansi st)'
 }
 
-# @deprecated "Use `clip paste` without `use std/clip`, for OCS 52 paste request use `clip paste52`"
-
-# Paste contents of system clipboard (stdlib command deprecated)
-@example "Paste a string from the clipboard" {
-  paste
-} --result "Hello"
-export def paste []: [nothing -> string] {
-  paste52
-}
-
 # Paste contents of system clipboard using OSC 52 request
 @example "Paste a string from the clipboard" {
   paste52
@@ -64,8 +42,6 @@ export def paste52 []: [nothing -> string] {
   | decode
 }
 
-# After deprecated commands are removed, prefix will need to be changed to use clip copy or clip copy52.
-
 # Add a prefix to each line of the content to be copied
 @example "Format output for Nushell doc" {
   [1 2 3] | prefix '# => '
@@ -76,7 +52,7 @@ export def paste52 []: [nothing -> string] {
 # => ╰───┴───╯
 # => "
 @example "Format output for Nushell doc and copy it" {
-  ls | prefix '# => ' | copy
+  ls | prefix '# => ' | copy52
 }
 export def "prefix" [prefix: string]: any -> string {
   let input = $in | collect

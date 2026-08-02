@@ -14,6 +14,10 @@ impl MatchPattern {
     pub fn variables(&self) -> Vec<VarId> {
         self.pattern.variables()
     }
+
+    pub fn is_wildcard(&self) -> bool {
+        self.guard.is_none() && self.pattern.is_wildcard()
+    }
 }
 
 /// AST Node for pattern matching rules
@@ -23,11 +27,12 @@ pub enum Pattern {
     Record(Vec<(String, MatchPattern)>),
     /// List destructuring
     List(Vec<MatchPattern>),
-    /// Matching against a literal (from expression result)
-    // TODO: it would be nice if this didn't depend on AST
-    // maybe const evaluation can get us to a Value instead?
+    /// Matching against a literal (from expression result).
+    /// Prefer [`Pattern::Value`] for new patterns; the parser const-evaluates
+    /// literal / parenthesized arms into `Value` when possible.
     Expression(Box<Expression>),
-    /// Matching against a literal (pure value)
+    /// Matching against a literal (pure value), including const-evaluated expressions.
+    /// Range values match by containment rather than equality.
     Value(Value),
     /// binding to a variable
     Variable(VarId),
@@ -72,5 +77,13 @@ impl Pattern {
         }
 
         output
+    }
+
+    pub fn is_wildcard(&self) -> bool {
+        match self {
+            Self::Variable(_) | Self::IgnoreValue => true,
+            Self::Or(match_patterns) => match_patterns.iter().any(|x| x.is_wildcard()),
+            _ => false,
+        }
     }
 }

@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::{DeprecationEntry, DeprecationType, ReportMode};
 
 #[derive(Clone)]
 pub struct StrDowncase;
@@ -33,7 +34,7 @@ impl Command for StrDowncase {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["lower case", "lowercase"]
+        vec!["lowercase", "lower case", "lower-case"]
     }
 
     fn is_const(&self) -> bool {
@@ -91,6 +92,109 @@ impl Command for StrDowncase {
             },
         ]
     }
+
+    fn deprecation_info(&self) -> Vec<DeprecationEntry> {
+        vec![DeprecationEntry {
+            ty: DeprecationType::Command,
+            report_mode: ReportMode::FirstUse,
+            since: Some("0.114.0".into()),
+            expected_removal: None,
+            help: Some("Use `str lowercase` instead.".into()),
+        }]
+    }
+}
+
+#[derive(Clone)]
+pub struct StrLowercase;
+
+impl Command for StrLowercase {
+    fn name(&self) -> &str {
+        "str lowercase"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("str lowercase")
+            .input_output_types(vec![
+                (Type::String, Type::String),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::String)),
+                ),
+                (Type::table(), Type::table()),
+                (Type::record(), Type::record()),
+            ])
+            .allow_variants_without_examples(true)
+            .rest(
+                "rest",
+                SyntaxShape::CellPath,
+                "For a data structure input, convert strings at the given cell paths.",
+            )
+            .category(Category::Strings)
+    }
+
+    fn description(&self) -> &str {
+        "Convert text to lowercase."
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["downcase"]
+    }
+
+    fn is_const(&self) -> bool {
+        true
+    }
+
+    fn run(
+        &self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
+        operate(engine_state, call, input, column_paths)
+    }
+
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let column_paths: Vec<CellPath> = call.rest_const(working_set, 0)?;
+        operate(working_set.permanent(), call, input, column_paths)
+    }
+
+    fn examples(&self) -> Vec<Example<'_>> {
+        vec![
+            Example {
+                description: "Lowercase contents.",
+                example: "'NU' | str lowercase",
+                result: Some(Value::test_string("nu")),
+            },
+            Example {
+                description: "Lowercase contents.",
+                example: "'TESTa' | str lowercase",
+                result: Some(Value::test_string("testa")),
+            },
+            Example {
+                description: "Lowercase contents.",
+                example: "[[ColA ColB]; [Test ABC]] | str lowercase ColA",
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "ColA" => Value::test_string("test"),
+                    "ColB" => Value::test_string("ABC"),
+                })])),
+            },
+            Example {
+                description: "Lowercase contents.",
+                example: "[[ColA ColB]; [Test ABC]] | str lowercase ColA ColB",
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "ColA" => Value::test_string("test"),
+                    "ColB" => Value::test_string("abc"),
+                })])),
+            },
+        ]
+    }
 }
 
 fn operate(
@@ -139,8 +243,14 @@ fn action(input: &Value, head: Span) -> Value {
 #[cfg(test)]
 mod test {
     use super::*;
+
     #[test]
-    fn test_examples() -> nu_test_support::Result {
+    fn test_downcase_examples() -> nu_test_support::Result {
         nu_test_support::test().examples(StrDowncase)
+    }
+
+    #[test]
+    fn test_lowercase_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(StrLowercase)
     }
 }

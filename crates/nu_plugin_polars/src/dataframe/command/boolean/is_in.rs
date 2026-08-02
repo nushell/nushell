@@ -26,6 +26,11 @@ impl PluginCommand for ExprIsIn {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .required("list", SyntaxShape::Any, "List to check if values are in.")
+            .switch(
+                "maintain-order",
+                "Maintains the order of the original values in the list",
+                Some('o'),
+            )
             .input_output_types(vec![
                 (
                     PolarsPluginType::NuExpression.into(),
@@ -189,6 +194,7 @@ fn command_expr(
     call: &EvaluatedCall,
     expr: NuExpression,
 ) -> Result<PipelineData, ShellError> {
+    let maintain_order = call.has_flag("maintain-order")?;
     let is_in_expr: Expr = call
         .req::<Value>(0)
         .and_then(|ref value| NuExpression::try_from_value(plugin, value))
@@ -215,7 +221,7 @@ fn command_expr(
                     span: call.head,
                 })
             } else {
-                Ok(lit(list).implode())
+                Ok(lit(list).implode(maintain_order))
             }
         })?;
 

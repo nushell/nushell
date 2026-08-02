@@ -31,9 +31,35 @@ impl HashDigest for Md5 {
                 )),
             },
             Example {
+                description: "Return the md5 hash of binary data",
+                example: "0x[deadbeef] | hash md5",
+                result: None,
+            },
+            Example {
                 description: "Return the md5 hash of a file's contents",
                 example: "open ./nu_0_24_1_windows.zip | hash md5",
                 result: None,
+            },
+            Example {
+                description: "Return the md5 hash of a list of strings",
+                example: "[abc def ghi] | hash md5",
+                result: Some(Value::list(
+                    vec![
+                        Value::string(
+                            "900150983cd24fb0d6963f7d28e17f72".to_owned(),
+                            Span::test_data(),
+                        ),
+                        Value::string(
+                            "4ed9407630eb1000c0f6b63842defa7d".to_owned(),
+                            Span::test_data(),
+                        ),
+                        Value::string(
+                            "826bbc5d0522f5f20a1da4b60fa8c871".to_owned(),
+                            Span::test_data(),
+                        ),
+                    ],
+                    Span::test_data(),
+                )),
             },
         ]
     }

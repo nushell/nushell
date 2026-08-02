@@ -27,7 +27,10 @@ def "prep wasm" [] {
     ^rustup target add wasm32-unknown-unknown
 }
 
-# build crates for wasm
+# Build crates for wasm.
+@category "toolkit"
+@search-terms wasm webassembly build wasm32 wasm32-unknown-unknown
+@example "Build all WASM-compatible crates" { toolkit build wasm }
 export def "build wasm" [] {
     prep wasm
 
@@ -43,7 +46,10 @@ export def "build wasm" [] {
     }
 }
 
-# make sure no api is used that doesn't work with wasm
+# Make sure no api is used that doesn't work with wasm.
+@category "toolkit"
+@search-terms wasm clippy lint wasm32 compatibility
+@example "Lint crates for WASM compatibility" { toolkit clippy wasm }
 export def "clippy wasm" [] {
     prep wasm
 

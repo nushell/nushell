@@ -1,6 +1,11 @@
+# Setup git hooks for the nushell repository.
+#
 # set up git hooks to run:
 # - `toolkit fmt --check --verbose` on `git commit`
 # - `toolkit fmt --check --verbose` and `toolkit clippy --verbose` on `git push`
+@category "toolkit"
+@search-terms git hooks pre-commit pre-push setup-git-hooks
+@example "Set up git hooks interactively" { toolkit setup-git-hooks }
 export def setup-git-hooks [] {
     print "This command will change your local git configuration and hence modify your development workflow. Are you sure you want to continue? [y]"
     if (input) == "y" {

@@ -55,18 +55,66 @@ pub fn as_raw_string(s: &str) -> Option<String> {
         return None;
     }
 
-    // Find minimum # count needed for delimiter
-    // Nushell requires at least one #, so start at 1
-    // Need to avoid `'#...#` patterns in content that would close early
+    // Find minimum # count needed for delimiter.
+    // Nushell requires at least one #, so start at 1.
+    // Need to avoid both:
+    // - `'#...#` patterns in content that would close early
+    // - leading `###...` content, because the opening quote plus the first
+    //   `###` would also be parsed as a closing delimiter
     let mut hash_count = 1;
     loop {
-        let closing = format!("'{}", "#".repeat(hash_count));
-        if !s.contains(&closing) {
-            break;
+        let hashes = "#".repeat(hash_count);
+        let closing = format!("'{}", hashes);
+
+        if !s.starts_with(&hashes) && !s.contains(&closing) {
+            return Some(format!("r{hashes}'{s}'{hashes}"));
         }
+
         hash_count += 1;
     }
+}
 
-    let hashes = "#".repeat(hash_count);
-    Some(format!("r{hashes}'{s}'{hashes}"))
+#[cfg(test)]
+mod tests {
+    use super::as_raw_string;
+
+    #[test]
+    fn raw_string_uses_single_hash_when_safe() {
+        assert_eq!(
+            as_raw_string(r#"hello \"world\""#),
+            Some(r#"r#'hello \"world\"'#"#.to_string())
+        );
+    }
+
+    #[test]
+    fn raw_string_uses_more_hashes_for_quote_hash_sequence() {
+        assert_eq!(
+            as_raw_string(r#"contains '# and "quote""#),
+            Some(r##"r##'contains '# and "quote"'##"##.to_string())
+        );
+    }
+
+    #[test]
+    fn raw_string_uses_more_hashes_when_content_starts_with_hash() {
+        let input = "# example.toml\nname = \"my-app\"\nversion = \"1.0.0\"\n";
+
+        assert_eq!(
+            as_raw_string(input),
+            Some(
+                r##"r##'# example.toml
+name = "my-app"
+version = "1.0.0"
+'##"##
+                    .to_string()
+            )
+        );
+    }
+
+    #[test]
+    fn raw_string_scales_hash_count_for_longer_sequences() {
+        assert_eq!(
+            as_raw_string(r#"contains '## and "quote""#),
+            Some(r###"r###'contains '## and "quote"'###"###.to_string())
+        );
+    }
 }

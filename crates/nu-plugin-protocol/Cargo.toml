@@ -1,12 +1,12 @@
 [package]
-authors = ["The Nushell Project Developers"]
+authors.workspace = true
 description = "Protocol type definitions for Nushell plugins"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-plugin-protocol"
 edition.workspace = true
 rust-version.workspace = true
-license = "MIT"
+license.workspace = true
 name = "nu-plugin-protocol"
-version = "0.112.3"
+version.workspace = true
 
 [lib]
 bench = false
@@ -15,8 +15,8 @@ bench = false
 workspace = true
 
 [dependencies]
-nu-protocol = { path = "../nu-protocol", version = "0.112.3", features = ["plugin"] }
-nu-utils = { path = "../nu-utils", version = "0.112.3" }
+nu-protocol = { workspace = true, features = ["plugin"] }
+nu-utils.workspace = true
 
 rmp-serde = { workspace = true }
 serde = { workspace = true, features = ["derive"] }

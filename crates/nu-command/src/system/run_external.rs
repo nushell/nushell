@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use nu_cmd_base::hook::eval_hook;
 use nu_engine::{command_prelude::*, env_to_strings};
 use nu_path::{AbsolutePath, dots::expand_ndots_safe, expand_tilde};
@@ -6,7 +7,7 @@ use nu_protocol::{
     process::{ChildProcess, PostWaitCallback},
     shell_error::io::IoError,
 };
-use nu_system::{ForegroundChild, kill_by_pid};
+use nu_system::{ForegroundChild, kill_by_pid, prepare_background_command};
 use nu_utils::IgnoreCaseExt;
 use pathdiff::diff_paths;
 #[cfg(windows)]
@@ -78,7 +79,7 @@ If you create a custom command with this name, that will be used instead."
                     });
                 };
                 // Prepend elements in command list to the list of arguments except the first
-                call_args.splice(0..0, args.to_vec());
+                call_args.splice(..0, args.to_vec());
                 first.coerce_str()?
             }
             _ => Cow::Owned(name.clone().coerce_into_string()?),
@@ -255,13 +256,10 @@ If you create a custom command with this name, that will be used instead."
                 }
             },
             PipelineData::Empty => {
-                // MCP servers run non-interactively - use null stdin to prevent commands
-                // from hanging when they prompt for passwords or other input.
-                // In the future, this may become a more general option (e.g., no_stdin)
-                // but needs more testing first. See:
-                // https://github.com/nushell/nushell/pull/17161#discussion_r2761243143
-                if engine_state.is_mcp {
+                // MCP and background completions must not inherit the live terminal.
+                if engine_state.is_mcp || stack.suppress_stdin {
                     command.stdin(Stdio::null());
+                    prepare_background_command(&mut command);
                 } else {
                     command.stdin(Stdio::inherit());
                 }
@@ -283,7 +281,9 @@ If you create a custom command with this name, that will be used instead."
         #[cfg(unix)]
         let child = ForegroundChild::spawn(
             command,
-            engine_state.is_interactive,
+            // `suppress_stdin` children are already detached; do not also take
+            // the foreground pgrp from the completion thread.
+            engine_state.is_interactive && !stack.suppress_stdin,
             engine_state.is_background_job(),
             &engine_state.pipeline_externals_state,
         );
@@ -426,7 +426,7 @@ fn expand_glob(
 ) -> Result<Vec<OsString>, ShellError> {
     // For an argument that isn't a glob, just do the `expand_tilde`
     // and `expand_ndots` expansion
-    if !nu_glob::is_glob(arg) {
+    if !nu_glob::is_glob_with_backend(arg) {
         let path = expand_ndots_safe(expand_tilde(arg));
         return Ok(vec![path.into()]);
     }
@@ -520,7 +520,7 @@ fn write_pipeline_data(
     Ok(())
 }
 
-/// Returns a helpful error message given an invalid command name,
+/// Returns a helpful error message given an invalid command name.
 pub fn command_not_found(
     name: &str,
     span: Span,
@@ -584,75 +584,81 @@ pub fn command_not_found(
         };
     }
 
-    // The command might be from another module. Try to find it.
-    if let Some(module) = engine_state.which_module_has_decl(name.as_bytes(), &[]) {
-        let module = String::from_utf8_lossy(module);
-        // Is the command already imported?
-        let full_name = format!("{module} {name}");
-        if engine_state.find_decl(full_name.as_bytes(), &[]).is_some() {
-            return ShellError::ExternalCommand {
-                label: format!("Command `{name}` not found"),
-                help: format!("Did you mean `{full_name}`?"),
-                span,
-            };
-        } else {
-            return ShellError::ExternalCommand {
-                label: format!("Command `{name}` not found"),
-                help: format!(
-                    "A command with that name exists in module `{module}`. Try importing it with `use`"
-                ),
-                span,
-            };
-        }
-    }
+    // Making this a closure allows using return inside instead of nesting if-else's
+    let help = (|| {
+        // The command might be from another module. Try to find it.
+        // Note that built-in command categories are not modules,
+        // hence this won't find `math sqrt` if the user types `sqrt`.
+        if let Some(module) = engine_state.which_module_has_decl(name.as_bytes(), &[]) {
+            let module = String::from_utf8_lossy(module);
 
-    // Try to match the name with the search terms of existing commands.
-    let signatures = engine_state.get_signatures_and_declids(false);
-    if let Some((sig, _)) = signatures.iter().find(|(sig, _)| {
-        sig.search_terms
+            // Is the command already imported?
+            let full_name = format!("{module} {name}");
+            if engine_state.find_decl(full_name.as_bytes(), &[]).is_some() {
+                return format!("Did you mean `{full_name}`?");
+            }
+
+            return format!(
+                "A command with that name exists in module `{module}`. Try importing it with `use`"
+            );
+        }
+
+        // Try to match the name with the search terms of existing commands.
+        let signatures = engine_state.get_signatures_and_declids(false);
+        if let Some((last, others)) = signatures
             .iter()
-            .any(|term| term.to_folded_case() == name.to_folded_case())
-    }) {
-        return ShellError::ExternalCommand {
-            label: format!("Command `{name}` not found"),
-            help: format!("Did you mean `{}`?", sig.name),
-            span,
-        };
-    }
-
-    // Try a fuzzy search on the names of all existing commands.
-    if let Some(cmd) = did_you_mean(signatures.iter().map(|(sig, _)| &sig.name), name) {
-        // The user is invoking an external command with the same name as a
-        // built-in command. Remind them of this.
-        if cmd == name {
-            return ShellError::ExternalCommand {
-                label: format!("Command `{name}` not found"),
-                help: "There is a built-in command with the same name".into(),
-                span,
+            .map(|(sig, _)| sig)
+            .filter(|sig| {
+                let name = name.to_folded_case(); // do not allocate new strings in any()
+                sig.name
+                    .to_folded_case()
+                    .split_ascii_whitespace() // basically split into words
+                    .contains(name.as_str()) // find this one `math sqrt` from the example above
+                    || sig
+                        .search_terms
+                        .iter()
+                        .any(|term| term.to_folded_case() == name)
+            })
+            .map(|sig| format!("`{}`", sig.name))
+            .collect::<Vec<_>>()
+            .split_last()
+        {
+            let commands = if others.is_empty() {
+                last
+            } else {
+                // other or last
+                // other, other or last
+                &format!("{} or {last}", others.join(", "))
             };
+
+            return format!("Did you mean {commands}?");
         }
-        return ShellError::ExternalCommand {
-            label: format!("Command `{name}` not found"),
-            help: format!("Did you mean `{cmd}`?"),
-            span,
-        };
-    }
 
-    // If we find a file, it's likely that the user forgot to set permissions
-    if cwd.join(name).is_file() {
-        return ShellError::ExternalCommand {
-            label: format!("Command `{name}` not found"),
-            help: format!(
+        // Try a fuzzy search on the names of all existing commands.
+        if let Some(cmd) = did_you_mean(signatures.iter().map(|(sig, _)| &sig.name), name) {
+            // The user is invoking an external command with the same name as a
+            // built-in command. Remind them of this.
+            if cmd == name {
+                return "There is a built-in command with the same name".to_string();
+            }
+
+            return format!("Did you mean `{cmd}`?");
+        }
+
+        // If we find a file, it's likely that the user forgot to set permissions
+        if cwd.join(name).is_file() {
+            return format!(
                 "`{name}` refers to a file that is not executable. Did you forget to set execute permissions?"
-            ),
-            span,
-        };
-    }
+            );
+        }
 
-    // We found nothing useful. Give up and return a generic error message.
+        // We found nothing useful. Give up and return a generic error message.
+        format!("`{name}` is neither a Nushell built-in or a known external command")
+    })();
+
     ShellError::ExternalCommand {
         label: format!("Command `{name}` not found"),
-        help: format!("`{name}` is neither a Nushell built-in or a known external command"),
+        help,
         span,
     }
 }
@@ -814,5 +820,79 @@ mod test {
         );
         write_pipeline_data(engine_state.clone(), stack.clone(), input, &mut buf).unwrap();
         assert_eq!(buf, b"foo");
+    }
+}
+
+/// `prepare_background_command` must detach from the controlling terminal/console
+/// so completer subprocesses cannot rewrite reedline's raw-mode state.
+#[cfg(test)]
+mod background_isolation_tests {
+    use nu_system::prepare_background_command;
+    use std::process::{Command, Stdio};
+
+    #[cfg(unix)]
+    #[test]
+    fn setsid_removes_controlling_terminal() {
+        let mut cmd = Command::new("sh");
+        // Subshell so a failed redirect does not exit before the `||` branch.
+        cmd.args([
+            "-c",
+            "(exec 3>/dev/tty) 2>/dev/null && echo has_tty || echo no_tty",
+        ])
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null());
+        prepare_background_command(&mut cmd);
+
+        let output = cmd.output().expect("sh should run");
+        assert_eq!(
+            String::from_utf8_lossy(&output.stdout).trim(),
+            "no_tty",
+            "child must not retain a controlling terminal after setsid"
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn create_no_window_has_no_console_window() {
+        // prepare_background_command uses CREATE_NO_WINDOW (required for completions).
+        //
+        // Do **not** probe with `echo.>CON`: opening CON can allocate a console even when
+        // the process was started with CREATE_NO_WINDOW, which false-positives on GHA
+        // (the old DETACHED_PROCESS-oriented check).
+        //
+        // GetConsoleWindow() reports whether a console is associated without allocating one.
+        let mut cmd = Command::new("powershell.exe");
+        cmd.args([
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            concat!(
+                "Add-Type -Namespace NuBg -Name Native -MemberDefinition '",
+                "[DllImport(\"kernel32.dll\")] public static extern System.IntPtr GetConsoleWindow();",
+                "'; ",
+                "if ([NuBg.Native]::GetConsoleWindow() -eq [System.IntPtr]::Zero) { ",
+                "[Console]::Out.Write('no_console') ",
+                "} else { ",
+                "[Console]::Out.Write('has_console') ",
+                "}",
+            ),
+        ])
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+        prepare_background_command(&mut cmd);
+
+        let output = cmd.output().expect("powershell should run");
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let token = stdout
+            .split_whitespace()
+            .find(|t| *t == "no_console" || *t == "has_console")
+            .unwrap_or("");
+        assert_eq!(
+            token, "no_console",
+            "child must have no console window under CREATE_NO_WINDOW; stdout={stdout:?} stderr={stderr}"
+        );
     }
 }

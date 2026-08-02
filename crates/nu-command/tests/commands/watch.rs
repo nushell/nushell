@@ -23,11 +23,13 @@ const STREAM_TIMEOUT: &str = r#"
 
 #[rstest]
 #[case::within_time(Duration::ZERO, [0, 1, 2, 3, 4])]
-#[case::timed_out(Duration::from_millis(100), [0, 1])]
+#[case::timed_out(Duration::from_millis(200), [0, 1])]
 #[cfg_attr(
     target_os = "macos",
     ignore = "anything involving timing is unreliable on macos in CI"
 )]
+#[nu_test_support::test]
+#[serial]
 fn stream_timeout(#[case] delay: Duration, #[case] expected: impl IntoValue) -> Result {
     let mut tester = test();
     let () = tester.run(STREAM_TIMEOUT)?;
@@ -36,7 +38,7 @@ fn stream_timeout(#[case] delay: Duration, #[case] expected: impl IntoValue) -> 
     let code = "
         0..<5
         | each { sleep $delay; $in }
-        | stream-timeout 250ms
+        | stream-timeout 500ms
     ";
     tester.run(code).expect_value_eq(expected)
 }
@@ -46,6 +48,7 @@ fn stream_timeout(#[case] delay: Duration, #[case] expected: impl IntoValue) -> 
     target_os = "macos",
     ignore = "file operations or anything involving timing is unreliable on macos in CI"
 )]
+#[serial]
 fn watch_stream() -> Result {
     Playground::setup("streaming_watch_fs", |dirs, _| {
         let foo_txt = &*dirs.test().join("foo.txt");
@@ -93,6 +96,7 @@ fn watch_stream() -> Result {
     target_os = "macos",
     ignore = "file operations that involve paths outside the watched directory do not work properly on macos"
 )]
+#[serial]
 fn watch_stream_outside() -> Result {
     Playground::setup("streaming_watch_fs_outside_watched_dir", |dirs, sandbox| {
         sandbox

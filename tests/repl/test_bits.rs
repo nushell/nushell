@@ -77,10 +77,8 @@ fn bits_shift_left_exceeding2() -> TestResult {
 }
 
 #[test]
-fn bits_shift_left_exceeding3() -> TestResult {
-    // This is purely down to the current autodetect feature limiting to the smallest integer
-    // type thus assuming a u8
-    fail_test("8 | bits shl 9", "more than the available bits")
+fn bits_shift_left_defaults_to_eight_bytes() -> TestResult {
+    run_test("1 | bits shl 20", "1048576")
 }
 
 #[test]
@@ -92,7 +90,7 @@ fn bits_shift_left_negative() -> TestResult {
 fn bits_shift_left_list() -> TestResult {
     run_test(
         "[1 2 7 32 9 10] | bits shl 3 | str join '.'",
-        "8.16.56.0.72.80",
+        "8.16.56.256.72.80",
     )
 }
 
@@ -163,10 +161,8 @@ fn bits_shift_right_exceeding2() -> TestResult {
 }
 
 #[test]
-fn bits_shift_right_exceeding3() -> TestResult {
-    // This is purely down to the current autodetect feature limiting to the smallest integer
-    // type thus assuming a u8
-    fail_test("8 | bits shr 9", "more than the available bits")
+fn bits_shift_right_defaults_to_eight_bytes() -> TestResult {
+    run_test("8 | bits shr 9", "0")
 }
 
 #[test]

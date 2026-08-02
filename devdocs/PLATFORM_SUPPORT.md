@@ -7,7 +7,7 @@ This commitment to a cross-platform Nushell forces us to make provisions so user
 
 In general our design strives to have a consistent behavior across all platforms if defining the semantics is possible for Nushell.
 In some cases where the platform requirements dominate we may choose to follow the platform specific defaults. (some nuances around the file system)
-Only rarely do we want to accept commands/language features that only support a single platform, only to access common system behavior of this particular platform (e.g. `registry query` command for the windows registry, `exec` for Linux and MacOS)
+Only rarely do we want to accept commands/language features that only support a single platform, only to access common system behavior of this particular platform (e.g. `registry query` command for the windows registry, `exec` for Linux and macOS)
 
 ## cross-platform builds and testing
 

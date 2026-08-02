@@ -1,0 +1,3 @@
+valid line
+hello ÿþ world
+last line

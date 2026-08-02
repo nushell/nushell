@@ -51,18 +51,14 @@ fn filesystem_change_from_current_directory_using_absolute_path() -> Result {
     })
 }
 
-#[cfg(unix)]
 #[test]
 fn filesystem_change_from_current_directory_using_absolute_path_with_trailing_slash() -> Result {
     Playground::setup("cd_test_2", |dirs, _| {
-        let dir = {
-            let mut dir = dirs.formats();
-            // It works and is unlikely to break, but is not explicitly documented behavior
-            // Also Path::with_trailing_sep is unstable
-            dir.push("");
-            assert!(dir.as_os_str().as_encoded_bytes().ends_with(b"/"));
-            dir
-        };
+        let mut dir = dirs.formats().to_string_lossy().into_owned();
+        // Keep this portable: Windows expects `\` while Unix expects `/`.
+        if !dir.ends_with(std::path::MAIN_SEPARATOR) {
+            dir.push(std::path::MAIN_SEPARATOR);
+        }
 
         test()
             .cwd(dirs.test())

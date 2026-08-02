@@ -23,7 +23,7 @@ impl PluginCommand for CallDecl {
             )
             .optional(
                 "named_args",
-                SyntaxShape::Record(vec![]),
+                SyntaxShape::record(),
                 "Named arguments to pass to the command.",
             )
             .rest(

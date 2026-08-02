@@ -1,116 +1,66 @@
-use nu_test_support::nu;
+use nu_test_support::prelude::*;
+use pretty_assertions::assert_matches;
+use rstest::rstest;
 
 #[test]
-fn headers_uses_first_row_as_header() {
-    let actual = nu!(cwd: "tests/fixtures/formats", "
+fn headers_uses_first_row_as_header() -> Result {
+    let code = "
         open sample_headers.xlsx --raw
-        | from xlsx --header-row null
+        | from xlsx --noheaders
         | get Sheet1
         | headers
         | get header0
-        | to json --raw");
+    ";
 
-    assert_eq!(actual.out, r#"["r1c0","r2c0"]"#)
+    test()
+        .cwd("tests/fixtures/formats")
+        .run(code)
+        .expect_value_eq(["r1c0", "r2c0"])
 }
 
 #[test]
-fn headers_adds_missing_column_name() {
-    let actual = nu!(cwd: "tests/fixtures/formats", "
+fn headers_adds_missing_column_name() -> Result {
+    let code = "
         open sample_headers.xlsx --raw
-        | from xlsx --header-row null
+        | from xlsx --noheaders
         | get Sheet1
         | headers
         | get column1
-        | to json --raw");
+    ";
 
-    assert_eq!(actual.out, r#"["r1c1","r2c1"]"#)
+    test()
+        .cwd("tests/fixtures/formats")
+        .run(code)
+        .expect_value_eq(["r1c1", "r2c1"])
 }
 
 #[test]
-fn headers_handles_missing_values() {
-    let actual = nu!("
+fn headers_handles_missing_values() -> Result {
+    let code = "
         [{x: a, y: b}, {x: 1, y: 2}, {x: 1, z: 3}]
         | headers
-        | to nuon
-    ");
+    ";
 
-    assert_eq!(actual.out, "[{a: 1, b: 2}, {a: 1}]")
+    test().run(code).expect_value_eq(test_value!([
+        { a: 1, b: 2 },
+        { a: 1 },
+    ]))
 }
 
-#[test]
-fn headers_invalid_column_type_empty_record() {
-    let actual = nu!("
-        [[a b]; [{}, 2], [3,4] ]
-        | headers");
+#[rstest]
+#[case::empty_record("[[a b]; [{}, 2], [3, 4]] | headers")]
+#[case::record("[[a b]; [1 (scope aliases)] [2 2]] | headers")]
+#[case::array("[[a b]; [[f, g], 2], [3, 4]] | headers")]
+#[case::range("[[a b]; [(1..5), 2], [3, 4]] | headers")]
+#[case::duration("[[a b]; [((date now) - (date now)), 2], [3, 4]] | headers")]
+#[case::binary(r#"[[a b]; [("aa" | into binary), 2], [3, 4]] | headers"#)]
+fn headers_invalid_column_type(#[case] code: &str) -> Result {
+    let err = test().run(code).expect_shell_error()?;
 
-    assert!(
-        actual
-            .err
-            .contains("needs compatible type: Null, String, Bool, Float, Int")
+    assert_matches!(
+        err,
+        ShellError::TypeMismatch { err_message, .. }
+            if err_message == "needs compatible type: Null, String, Bool, Float, Int"
     );
-}
-
-#[test]
-fn headers_invalid_column_type_record() {
-    let actual = nu!("
-        [[a b]; [1 (scope aliases)] [2 2]]
-        | headers");
-
-    assert!(
-        actual
-            .err
-            .contains("needs compatible type: Null, String, Bool, Float, Int")
-    );
-}
-
-#[test]
-fn headers_invalid_column_type_array() {
-    let actual = nu!("
-        [[a b]; [[f,g], 2], [3,4] ]
-        | headers");
-
-    assert!(
-        actual
-            .err
-            .contains("needs compatible type: Null, String, Bool, Float, Int")
-    );
-}
-
-#[test]
-fn headers_invalid_column_type_range() {
-    let actual = nu!("
-        [[a b]; [(1..5), 2], [3,4] ]
-        | headers");
-
-    assert!(
-        actual
-            .err
-            .contains("needs compatible type: Null, String, Bool, Float, Int")
-    );
-}
-
-#[test]
-fn headers_invalid_column_type_duration() {
-    let actual = nu!("
-        [[a b]; [((date now) - (date now)), 2], [3,4] ]
-        | headers");
-
-    assert!(
-        actual
-            .err
-            .contains("needs compatible type: Null, String, Bool, Float, Int")
-    );
-}
-
-#[test]
-fn headers_invalid_column_type_binary() {
-    let actual = nu!(r#"
-        [[a b]; [("aa" | into binary), 2], [3,4] ]
-        | headers"#);
-
-    assert!(
-        actual
-            .err
-            .contains("needs compatible type: Null, String, Bool, Float, Int")
-    );
+    Ok(())
 }

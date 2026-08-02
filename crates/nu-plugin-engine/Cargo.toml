@@ -1,12 +1,12 @@
 [package]
-authors = ["The Nushell Project Developers"]
+authors.workspace = true
 description = "Functionality for running Nushell plugins from a Nushell engine"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-plugin-engine"
 edition.workspace = true
 rust-version.workspace = true
-license = "MIT"
+license.workspace = true
 name = "nu-plugin-engine"
-version = "0.112.3"
+version.workspace = true
 
 [lib]
 bench = false
@@ -15,12 +15,12 @@ bench = false
 workspace = true
 
 [dependencies]
-nu-engine = { path = "../nu-engine", version = "0.112.3" }
-nu-protocol = { path = "../nu-protocol", version = "0.112.3" }
-nu-system = { path = "../nu-system", version = "0.112.3" }
-nu-plugin-protocol = { path = "../nu-plugin-protocol", version = "0.112.3" }
-nu-plugin-core = { path = "../nu-plugin-core", version = "0.112.3", default-features = false }
-nu-utils = { path = "../nu-utils", version = "0.112.3" }
+nu-engine = { workspace = true, features = ["plugin"] }
+nu-protocol.workspace = true
+nu-system.workspace = true
+nu-plugin-protocol.workspace = true
+nu-plugin-core.workspace = true
+nu-utils.workspace = true
 
 serde = { workspace = true }
 log = { workspace = true }

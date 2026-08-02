@@ -1,10 +1,9 @@
 use crate::{
     MEMORY_DB,
-    database::values::sqlite::{open_sqlite_db, values_to_sql},
+    database::values::sqlite::{OpenedConnection, open_sqlite_db, values_to_sql},
 };
-use nu_engine::command_prelude::*;
-
 use itertools::Itertools;
+use nu_engine::command_prelude::*;
 use nu_protocol::{Signals, shell_error::generic::GenericError};
 use std::{borrow::Cow, path::Path};
 
@@ -95,7 +94,7 @@ These columns will be automatically turned back into nu objects when read direct
 }
 
 struct Table {
-    conn: rusqlite::Connection,
+    conn: OpenedConnection,
     table_name: String,
     span: Span,
 }
@@ -147,7 +146,7 @@ impl Table {
             self.name(),
         );
 
-        let table_count: u64 = self
+        let table_count: i64 = self
             .conn
             .query_row(&table_exists_query, [], |row| row.get(0))
             .map_err(|err| {

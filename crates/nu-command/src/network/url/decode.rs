@@ -1,8 +1,20 @@
-use nu_cmd_base::input_handler::{CellPathOnlyArgs, operate};
+use std::borrow::Cow;
+
+use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
-use nu_protocol::shell_error::generic::GenericError;
 
 use percent_encoding::percent_decode_str;
+
+struct Arguments {
+    cell_paths: Option<Vec<CellPath>>,
+    binary: bool,
+}
+
+impl CmdArgument for Arguments {
+    fn take_cell_paths(&mut self) -> Option<Vec<CellPath>> {
+        self.cell_paths.take()
+    }
+}
 
 #[derive(Clone)]
 pub struct UrlDecode;
@@ -16,14 +28,24 @@ impl Command for UrlDecode {
         Signature::build("url decode")
             .input_output_types(vec![
                 (Type::String, Type::String),
+                (Type::String, Type::Binary),
                 (
                     Type::List(Box::new(Type::String)),
                     Type::List(Box::new(Type::String)),
+                ),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::Binary)),
                 ),
                 (Type::table(), Type::table()),
                 (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true)
+            .switch(
+                "binary",
+                "Return a binary value, to allow decoding non UTF-8 text.",
+                Some('b'),
+            )
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
@@ -48,7 +70,9 @@ impl Command for UrlDecode {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
-        let args = CellPathOnlyArgs::from(cell_paths);
+        let cell_paths = Some(cell_paths).filter(|v| !v.is_empty());
+        let binary = call.has_flag(engine_state, stack, "binary")?;
+        let args = Arguments { cell_paths, binary };
         operate(action, args, input, call.head, engine_state.signals())
     }
 
@@ -71,25 +95,41 @@ impl Command for UrlDecode {
                     Span::test_data(),
                 )),
             },
+            Example {
+                description: "Decode a percent-encoded iso-8859-1 string.",
+                example: "'%A3%20rates' | url decode --binary | decode iso-8859-1",
+                result: Some(Value::test_string("£ rates")),
+            },
         ]
     }
 }
 
-fn action(input: &Value, _arg: &CellPathOnlyArgs, head: Span) -> Value {
+fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     let input_span = input.span();
     match input {
         Value::String { val, .. } => {
-            let val = percent_decode_str(val).decode_utf8();
-            match val {
-                Ok(val) => Value::string(val, head),
-                Err(e) => Value::error(
-                    ShellError::Generic(GenericError::new(
-                        "Failed to decode string",
-                        e.to_string(),
-                        input_span,
-                    )),
-                    head,
-                ),
+            let percent_decode_str = percent_decode_str(val);
+            match args.binary {
+                true => {
+                    let data: Cow<'_, [u8]> = percent_decode_str.into();
+                    Value::binary(data, head)
+                }
+                false => {
+                    let val = percent_decode_str.decode_utf8();
+                    match val {
+                        Ok(val) => Value::string(val, head),
+                        Err(_) => Value::error(
+                            ShellError::NonUtf8Custom {
+                                msg: "\
+                                    Input is not UTF-8 encoded.\n\
+                                    Try using the `--binary` flag together with `decode`."
+                                    .into(),
+                                span: input_span,
+                            },
+                            head,
+                        ),
+                    }
+                }
             }
         }
         Value::Error { .. } => input.clone(),

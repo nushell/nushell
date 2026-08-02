@@ -130,6 +130,14 @@ fn list_row_access_failure() -> TestResult {
 }
 
 #[test]
+fn list_negative_row_access_reports_clear_error() -> TestResult {
+    fail_test(
+        "[{foo: 'bar'}, {foo: 'baz'}].-1",
+        "negative index is not supported in cell path",
+    )
+}
+
+#[test]
 fn list_row_optional_access_succeeds() -> TestResult {
     run_test("[{foo: 'bar'}, {foo: 'baz'}].2? | to nuon", "null")?;
     run_test("[{foo: 'bar'}, {foo: 'baz'}].3? | to nuon", "null")

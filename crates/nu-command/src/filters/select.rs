@@ -1,5 +1,5 @@
 #[cfg(feature = "sqlite")]
-use crate::database::SQLiteQueryBuilder;
+use crate::database::QueryPlan;
 use nu_engine::command_prelude::*;
 use nu_protocol::{
     DeprecationEntry, DeprecationType, PipelineIterator, ReportMode, ast::PathMember,
@@ -274,9 +274,9 @@ fn select(
     };
 
     #[cfg(feature = "sqlite")]
-    // Pushdown optimization: handle 'select' on SQLiteQueryBuilder for lazy column selection
+    // Pushdown optimization: handle 'select' via QueryPlan for lazy column selection
     if let PipelineData::Value(Value::Custom { val, .. }, ..) = &input
-        && let Some(table) = val.as_any().downcast_ref::<SQLiteQueryBuilder>()
+        && let Some(plan) = QueryPlan::try_from_any(val.as_any())
     {
         // Push down only simple single-segment string paths; everything else
         // falls back to the generic in-memory selection path below.
@@ -289,9 +289,9 @@ fn select(
             .collect();
 
         if let Some(select_columns) = select_columns.filter(|selected| !selected.is_empty())
-            && let Some(new_table) = table.project_output_columns(&select_columns)
+            && let Some(new_plan) = plan.project_output_columns(&select_columns)
         {
-            return Ok(Value::custom(Box::new(new_table), call_span).into_pipeline_data());
+            return Ok(new_plan.into_value(call_span).into_pipeline_data());
         }
     }
 
@@ -375,18 +375,15 @@ impl Iterator for NthIterator {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            if let Some(row) = self.rows.peek() {
-                if self.current == *row {
-                    self.rows.next();
-                    self.current += 1;
-                    return self.input.next();
-                } else {
-                    self.current += 1;
-                    let _ = self.input.next()?;
-                    continue;
-                }
+            let row = self.rows.peek()?;
+            if self.current == *row {
+                self.rows.next();
+                self.current += 1;
+                return self.input.next();
             } else {
-                return None;
+                self.current += 1;
+                let _ = self.input.next()?;
+                continue;
             }
         }
     }

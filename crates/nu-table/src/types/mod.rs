@@ -48,6 +48,7 @@ pub struct TableOpts<'a> {
     pub mode: TableMode,
     pub index_offset: usize,
     pub index_remove: bool,
+    pub width_priority_columns: Vec<String>,
 }
 
 impl<'a> TableOpts<'a> {
@@ -61,6 +62,7 @@ impl<'a> TableOpts<'a> {
         mode: TableMode,
         index_offset: usize,
         index_remove: bool,
+        width_priority_columns: Vec<String>,
     ) -> Self {
         let style_computer = std::rc::Rc::new(style_computer);
 
@@ -73,6 +75,7 @@ impl<'a> TableOpts<'a> {
             mode,
             index_offset,
             index_remove,
+            width_priority_columns,
         }
     }
 }

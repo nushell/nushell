@@ -3,7 +3,7 @@ use nu_protocol::{UseAnsiColoring, engine::EngineState};
 use rmcp::{
     RoleServer, ServerHandler,
     handler::server::{tool::ToolRouter, wrapper::Parameters},
-    model::{Implementation, ServerCapabilities, ServerInfo},
+    model::{CallToolResult, Implementation, ServerCapabilities, ServerInfo},
     service::RequestContext,
     tool, tool_handler, tool_router,
 };
@@ -58,11 +58,8 @@ By default all available commands will be returned. To find a specific command b
         &self,
         ctx: RequestContext<RoleServer>,
         Parameters(NuSourceRequest { input }): Parameters<NuSourceRequest>,
-    ) -> Result<String, String> {
-        self.evaluator
-            .eval_async(&input, ctx.ct)
-            .await
-            .map_err(|err| err.message.to_string())
+    ) -> CallToolResult {
+        self.evaluator.eval_async(&input, ctx.ct).await
     }
 }
 
@@ -233,6 +230,15 @@ mod tests {
         NushellMcpServer::new(engine_state)
     }
 
+    fn result_text(result: &CallToolResult) -> &str {
+        result
+            .content
+            .first()
+            .and_then(|content| content.as_text())
+            .map(|text| text.text.as_str())
+            .expect("tool result should include text content")
+    }
+
     #[tokio::test]
     async fn list_commands_tool_returns_non_empty_help() {
         let server = create_mcp_server();
@@ -270,16 +276,25 @@ mod tests {
                     input: "5 + 2".to_string(),
                 }),
             )
-            .await
-            .expect("evaluate should succeed");
+            .await;
+        let text = result_text(&result);
 
         assert!(
-            result.contains("output"),
+            text.contains("output"),
             "evaluate output should include output metadata"
         );
         assert!(
-            result.contains('7'),
+            text.contains('7'),
             "evaluate output should include the computed result"
+        );
+        assert_eq!(
+            result
+                .structured_content
+                .as_ref()
+                .and_then(|value| value.get("output"))
+                .and_then(JsonValue::as_i64),
+            Some(7),
+            "evaluate structuredContent should include the computed result"
         );
     }
 
@@ -295,8 +310,8 @@ mod tests {
                     input: "1".to_string(),
                 }),
             )
-            .await
-            .expect("first evaluate should succeed");
+            .await;
+        let result1 = result_text(&result1);
         assert!(
             result1.contains("history_index:0") || result1.contains("history_index: 0"),
             "first evaluation should have history_index 0"
@@ -309,8 +324,8 @@ mod tests {
                     input: "2".to_string(),
                 }),
             )
-            .await
-            .expect("second evaluate should succeed");
+            .await;
+        let result2 = result_text(&result2);
         assert!(
             result2.contains("history_index:1") || result2.contains("history_index: 1"),
             "second evaluation should have history_index 1"

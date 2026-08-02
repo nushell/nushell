@@ -1,8 +1,8 @@
 #[cfg(feature = "os")]
 use crate::process::ExitStatusGuard;
 use crate::{
-    ByteStream, ByteStreamSource, ByteStreamType, Config, ListStream, OutDest, PipelineMetadata,
-    Range, ShellError, Signals, Span, Type, Value,
+    ByteStream, ByteStreamSource, ByteStreamType, CompareTypes, Config, ListStream, OutDest,
+    PipelineMetadata, Range, ShellError, Signals, Span, Type, TypeRelation, Value,
     ast::{Call, PathMember},
     engine::{EngineState, Stack},
     shell_error::{generic::GenericError, io::IoError},
@@ -172,47 +172,6 @@ impl PipelineData {
             PipelineData::Value(value, _) => value.get_type(),
             PipelineData::ListStream(_, _) => Type::list(Type::Any),
             PipelineData::ByteStream(stream, _) => stream.type_().into(),
-        }
-    }
-
-    /// Determine if the `PipelineData` is a [subtype](https://en.wikipedia.org/wiki/Subtyping) of `other`.
-    ///
-    /// This check makes no effort to collect a stream, so it may be a different result
-    /// than would be returned by calling [`Value::is_subtype_of()`] on the result of
-    /// [`.into_value()`](Self::into_value).
-    ///
-    /// A `ListStream` acts the same as an empty list type: it is a subtype of any [`list`](Type::List)
-    /// or [`table`](Type::Table) type. After converting to a value, it may become a more specific type.
-    /// For example, a `ListStream` is a subtype of `list<int>` and `list<string>`.
-    /// If calling [`.into_value()`](Self::into_value) results in a `list<int>`,
-    /// then the value would not be a subtype of `list<string>`, in contrast to the original `ListStream`.
-    ///
-    /// A `ByteStream` is a subtype of [`string`](Type::String) if it is coercible into a string.
-    /// Likewise, a `ByteStream` is a subtype of [`binary`](Type::Binary) if it is coercible into a binary value.
-    pub fn is_subtype_of(&self, other: &Type) -> bool {
-        match (self, other) {
-            (_, Type::Any) => true,
-            (data, Type::OneOf(oneof)) => oneof.iter().any(|t| data.is_subtype_of(t)),
-            (PipelineData::Empty, Type::Nothing) => true,
-            (PipelineData::Value(val, ..), ty) => val.is_subtype_of(ty),
-
-            // a list stream could be a list with any type, including a table
-            (PipelineData::ListStream(..), Type::List(..) | Type::Table(..)) => true,
-
-            (PipelineData::ByteStream(stream, ..), Type::String)
-                if stream.type_().is_string_coercible() =>
-            {
-                true
-            }
-            (PipelineData::ByteStream(stream, ..), Type::Binary)
-                if stream.type_().is_binary_coercible() =>
-            {
-                true
-            }
-
-            (PipelineData::Empty, _) => false,
-            (PipelineData::ListStream(..), _) => false,
-            (PipelineData::ByteStream(..), _) => false,
         }
     }
 
@@ -392,7 +351,9 @@ impl PipelineData {
                     ),
                     Value::Binary { val, .. } => PipelineIteratorInner::ListStream(
                         ListStream::new(
-                            val.into_iter().map(move |x| Value::int(x as i64, val_span)),
+                            val.into_owned()
+                                .into_iter()
+                                .map(move |x| Value::int(x as i64, val_span)),
                             val_span,
                             Signals::empty(),
                         )
@@ -811,7 +772,7 @@ impl PipelineData {
         if let PipelineData::Value(Value::Binary { val: bytes, .. }, _) = self {
             if to_stderr {
                 write_all_and_flush(
-                    bytes,
+                    bytes.as_slice(),
                     &mut std::io::stderr().lock(),
                     "stderr",
                     span,
@@ -819,7 +780,7 @@ impl PipelineData {
                 )?;
             } else {
                 write_all_and_flush(
-                    bytes,
+                    bytes.as_slice(),
                     &mut std::io::stdout().lock(),
                     "stdout",
                     span,
@@ -921,6 +882,42 @@ impl PipelineData {
                 }
             },
         }
+    }
+}
+
+impl CompareTypes<Type> for PipelineData {
+    fn compare_types(&self, other: &Type) -> Option<TypeRelation> {
+        let self_ty = match self {
+            PipelineData::Empty => Type::Nothing,
+            PipelineData::ListStream(_, _) => Type::list(Type::Any),
+            PipelineData::ByteStream(stream, _) => stream.type_().into(),
+            PipelineData::Value(value, _) => return value.compare_types(other),
+        };
+        self_ty.compare_types(other)
+    }
+
+    /// Determine if the `PipelineData` can be assigned to `other`.
+    ///
+    /// This check makes no effort to collect a stream, so it may be a different result
+    /// than would be returned by calling [`Value::is_subtype_of()`] on the result of
+    /// [`.into_value()`](Self::into_value).
+    ///
+    /// A `ListStream` acts the same as an empty list type: it is a subtype of any [`list`](Type::List)
+    /// or [`table`](Type::Table) type. After converting to a value, it may become a more specific type.
+    /// For example, a `ListStream` is a subtype of `list<int>` and `list<string>`.
+    /// If calling [`.into_value()`](Self::into_value) results in a `list<int>`,
+    /// then the value would not be a subtype of `list<string>`, in contrast to the original `ListStream`.
+    ///
+    /// A `ByteStream` is a subtype of [`string`](Type::String) if it is coercible into a string.
+    /// Likewise, a `ByteStream` is a subtype of [`binary`](Type::Binary) if it is coercible into a binary value.
+    fn is_assignable_to(&self, dst: &Type) -> bool {
+        let self_ty = match self {
+            PipelineData::Empty => Type::Nothing,
+            PipelineData::ListStream(_, _) => Type::list(Type::Any),
+            PipelineData::ByteStream(stream, _) => stream.type_().into(),
+            PipelineData::Value(value, _) => return value.is_assignable_to(dst),
+        };
+        self_ty.is_assignable_to(dst)
     }
 }
 
@@ -1108,7 +1105,7 @@ where
 fn value_to_bytes(value: Value) -> Result<Vec<u8>, ShellError> {
     let bytes = match value {
         Value::String { val, .. } => val.into_bytes(),
-        Value::Binary { val, .. } => val,
+        Value::Binary { val, .. } => val.into_owned(),
         Value::List { vals, .. } => {
             let val = vals
                 .into_iter()
@@ -1134,6 +1131,15 @@ pub struct PipelineExecutionData {
     pub body: PipelineData,
     #[cfg(feature = "os")]
     pub exit: Vec<Option<ExitStatusGuard>>,
+    /// Whether this data was produced by an early `return` from the block, rather than by
+    /// evaluating to the end of the block.
+    ///
+    /// The flag exists for a single consumer: top-level file evaluation reads it to detect a
+    /// top-level `return` in a script and skip running `main`. Custom command calls and closure
+    /// invocations instead clear it via
+    /// [`eval_block_with_early_return`](https://docs.rs/nu-engine/latest/nu_engine/fn.eval_block_with_early_return.html),
+    /// so it never leaks past a nested call and only ever reflects a `return` at the current level.
+    pub early_return: bool,
 }
 
 impl Deref for PipelineExecutionData {
@@ -1156,7 +1162,14 @@ impl PipelineExecutionData {
             body: PipelineData::empty(),
             #[cfg(feature = "os")]
             exit: vec![],
+            early_return: false,
         }
+    }
+
+    /// Mark this data as having been produced by an early `return`.
+    pub fn with_early_return(mut self) -> Self {
+        self.early_return = true;
+        self
     }
 }
 
@@ -1170,11 +1183,15 @@ impl From<PipelineData> for PipelineExecutionData {
         Self {
             body: value,
             exit: vec![exit_status_future],
+            early_return: false,
         }
     }
 
     #[cfg(not(feature = "os"))]
     fn from(value: PipelineData) -> Self {
-        Self { body: value }
+        Self {
+            body: value,
+            early_return: false,
+        }
     }
 }

@@ -3,7 +3,8 @@
 use crate::{ShellError, Signals, Span, Value, ast::RangeInclusion};
 use core::ops::Bound;
 use serde::{Deserialize, Serialize};
-use std::{cmp::Ordering, fmt::Display};
+use std::{cmp::Ordering, fmt::Display, str::FromStr};
+use winnow::Parser;
 
 mod int_range {
     use crate::{FromValue, ShellError, Signals, Span, Value, ast::RangeInclusion};
@@ -374,10 +375,20 @@ mod float_range {
                 }
                 (Some(next), None) => next - start,
                 (None, Some(end)) => {
-                    if end < start {
-                        -1.0
-                    } else {
+                    let diff = end - start;
+                    if diff == 0.0 {
+                        return Err(ShellError::CannotCreateRange { span });
+                    }
+                    if diff.abs() < 1.0 {
+                        // For float ranges with small differences, compute a natural
+                        // step based on the order of magnitude of the difference,
+                        // so that `0.1..0.3` yields 0.1, 0.2, 0.3.
+                        let magnitude = 10.0_f64.powf(diff.abs().log10().floor());
+                        diff.signum() * magnitude
+                    } else if diff > 0.0 {
                         1.0
+                    } else {
+                        -1.0
                     }
                 }
                 (None, None) => 1.0,
@@ -441,11 +452,21 @@ mod float_range {
         }
 
         pub fn into_range_iter(self, signals: Signals) -> Iter {
+            // Determine rounding factor from the step's decimal precision.
+            // Only applies when step < 1.0 (fractional steps) to clean up
+            // floating-point artifacts like 0.30000000000000004.
+            let round_factor = if self.step.abs() >= 1.0 || self.step == 0.0 {
+                0.0 // sentinel: no rounding
+            } else {
+                let precision = (-self.step.abs().log10()).max(0.0).ceil() as i32;
+                10.0_f64.powi(precision)
+            };
             Iter {
                 start: self.start,
                 step: self.step,
                 end: self.end,
                 iter: Some(0),
+                round_factor,
                 signals,
             }
         }
@@ -550,6 +571,7 @@ mod float_range {
         step: f64,
         end: Bound<f64>,
         iter: Option<u64>,
+        round_factor: f64,
         signals: Signals,
     }
 
@@ -560,17 +582,36 @@ mod float_range {
             if let Some(iter) = self.iter {
                 let current = self.start + self.step * iter as f64;
 
+                // Snap only tiny floating-point drift (quotient very close to integer).
+                let quotient = current / self.step;
+                let value = if (quotient - quotient.round()).abs() < 1e-10 {
+                    quotient.round() * self.step
+                } else {
+                    current
+                };
+
+                // Round to step's decimal precision if applicable, to avoid
+                // displaying artifacts like 0.30000000000000004.
+                let value = if self.round_factor > 0.0 {
+                    (value * self.round_factor).round() / self.round_factor
+                } else {
+                    value
+                };
+
+                // Use an epsilon tolerance to handle floating-point precision
+                // issues in the end-bound comparison.
+                const EPS: f64 = f64::EPSILON * 100.0;
                 let not_end = match (self.step < 0.0, self.end) {
-                    (true, Bound::Included(end)) => current >= end,
-                    (true, Bound::Excluded(end)) => current > end,
-                    (false, Bound::Included(end)) => current <= end,
-                    (false, Bound::Excluded(end)) => current < end,
-                    (_, Bound::Unbounded) => current.is_finite(),
+                    (true, Bound::Included(end)) => value + EPS >= end,
+                    (true, Bound::Excluded(end)) => value - EPS > end,
+                    (false, Bound::Included(end)) => value <= end + EPS,
+                    (false, Bound::Excluded(end)) => value < end - EPS,
+                    (_, Bound::Unbounded) => value.is_finite(),
                 };
 
                 if not_end && !self.signals.interrupted() {
                     self.iter = iter.checked_add(1);
-                    Some(current)
+                    Some(value)
                 } else {
                     self.iter = None;
                     None
@@ -585,7 +626,7 @@ mod float_range {
 pub use float_range::FloatRange;
 pub use int_range::IntRange;
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy)]
 pub enum Range {
     IntRange(IntRange),
     FloatRange(FloatRange),
@@ -608,6 +649,36 @@ impl Range {
         } else {
             IntRange::new(start, next, end, inclusion, span).map(Self::IntRange)
         }
+    }
+
+    pub fn new_int(
+        start: impl Into<Option<i64>>,
+        next: impl Into<Option<i64>>,
+        end: impl Into<Option<Bound<i64>>>,
+    ) -> Self {
+        let start = start.into().unwrap_or(0);
+        let end = end.into().unwrap_or(Bound::Unbounded);
+        let step = next.into().map(|next| next - start).unwrap_or(match end {
+            Bound::Unbounded => 1,
+            Bound::Included(end) | Bound::Excluded(end) if start <= end => 1,
+            _ => -1,
+        });
+        Range::IntRange(IntRange { start, step, end })
+    }
+
+    pub fn new_float(
+        start: impl Into<Option<f64>>,
+        next: impl Into<Option<f64>>,
+        end: impl Into<Option<Bound<f64>>>,
+    ) -> Self {
+        let start = start.into().unwrap_or(0.0);
+        let end = end.into().unwrap_or(Bound::Unbounded);
+        let step = next.into().map(|next| next - start).unwrap_or(match end {
+            Bound::Unbounded => 1.0,
+            Bound::Included(end) | Bound::Excluded(end) if start <= end => 1.0,
+            _ => -1.0,
+        });
+        Range::FloatRange(FloatRange { start, step, end })
     }
 
     pub fn contains(&self, value: &Value) -> bool {
@@ -681,6 +752,41 @@ impl Display for Range {
     }
 }
 
+#[derive(Debug, thiserror::Error)]
+#[error("could not parse range {attempted:?}")]
+pub struct ParseRangeError {
+    attempted: String,
+}
+
+impl FromStr for Range {
+    type Err = ParseRangeError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        parse::range.parse(s).map_err(|_| ParseRangeError {
+            attempted: s.to_owned(),
+        })
+    }
+}
+
+impl Serialize for Range {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.to_string().serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Range {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Range::from_str(&s).map_err(serde::de::Error::custom)
+    }
+}
+
 impl From<IntRange> for Range {
     fn from(range: IntRange) -> Self {
         Self::IntRange(range)
@@ -705,6 +811,242 @@ impl Iterator for Iter {
         match self {
             Iter::IntIter(iter, span) => iter.next().map(|val| Value::int(val, *span)),
             Iter::FloatIter(iter, span) => iter.next().map(|val| Value::float(val, *span)),
+        }
+    }
+}
+
+mod parse {
+    use super::*;
+    use winnow::{
+        Result,
+        ascii::*,
+        combinator::*,
+        error::{StrContext, StrContextValue},
+    };
+
+    #[derive(Copy, Clone)]
+    enum Number {
+        Int(i64),
+        Float(f64),
+    }
+
+    // only simple numbers for now
+    fn number(input: &mut &str) -> Result<Number> {
+        fn float(input: &mut &str) -> Result<f64> {
+            (opt("-"), digit0, ".", digit1)
+                .take()
+                .parse_to()
+                .parse_next(input)
+        }
+
+        alt((float.map(Number::Float), dec_int.map(Number::Int))).parse_next(input)
+    }
+
+    struct Components {
+        start: Option<Number>,
+        step: Option<Number>,
+        end: Option<Number>,
+        exclusive: bool,
+    }
+
+    fn components(input: &mut &str) -> Result<Components> {
+        let start = opt(number).parse_next(input)?;
+        "..".parse_next(input)?;
+        if opt("<").parse_next(input)?.is_some() {
+            let end = opt(number).parse_next(input)?;
+            eof.parse_next(input)?;
+            return Ok(Components {
+                start,
+                step: None,
+                end,
+                exclusive: true,
+            });
+        }
+
+        if opt(eof).parse_next(input)?.is_some() {
+            return Ok(Components {
+                start,
+                step: None,
+                end: None,
+                exclusive: false,
+            });
+        }
+
+        let step_or_end = number.parse_next(input)?;
+        if opt(eof).parse_next(input)?.is_some() {
+            return Ok(Components {
+                start,
+                step: None,
+                end: step_or_end.into(),
+                exclusive: false,
+            });
+        }
+
+        "..".parse_next(input)?;
+        if opt("<").parse_next(input)?.is_some() {
+            let end = opt(number).parse_next(input)?;
+            eof.parse_next(input)?;
+            return Ok(Components {
+                start,
+                step: step_or_end.into(),
+                end,
+                exclusive: true,
+            });
+        }
+
+        let end = opt(number).parse_next(input)?;
+        eof.parse_next(input)?;
+        Ok(Components {
+            start,
+            step: step_or_end.into(),
+            end,
+            exclusive: false,
+        })
+    }
+
+    pub fn range(input: &mut &str) -> Result<Range> {
+        let components = components.parse_next(input)?;
+        if components.start.is_none() && components.end.is_none() {
+            fail.context(StrContext::Expected(StrContextValue::Description(
+                "needs bound either at start or end",
+            )))
+            .parse_next(input)?;
+        }
+
+        let use_float = matches!(components.start, Some(Number::Float(_)))
+            || matches!(components.step, Some(Number::Float(_)))
+            || matches!(components.end, Some(Number::Float(_)));
+
+        let range = if use_float {
+            let start = match components.start {
+                Some(Number::Float(start)) => Some(start),
+                Some(Number::Int(start)) => Some(start as f64),
+                None => None,
+            };
+
+            let step = match components.step {
+                Some(Number::Float(step)) => Some(step),
+                Some(Number::Int(step)) => Some(step as f64),
+                None => None,
+            };
+
+            let end = match (components.end, components.exclusive) {
+                (Some(Number::Float(end)), false) => Bound::Included(end),
+                (Some(Number::Float(end)), true) => Bound::Excluded(end),
+                (Some(Number::Int(end)), false) => Bound::Included(end as f64),
+                (Some(Number::Int(end)), true) => Bound::Excluded(end as f64),
+                (None, _) => Bound::Unbounded,
+            };
+
+            Range::new_float(start, step, end)
+        } else {
+            let start = match components.start {
+                Some(Number::Float(_)) => unreachable!("will use float if this is float"),
+                Some(Number::Int(start)) => Some(start),
+                None => None,
+            };
+
+            let step = match components.step {
+                Some(Number::Float(_)) => unreachable!("will use float if this is float"),
+                Some(Number::Int(step)) => Some(step),
+                None => None,
+            };
+
+            let end = match (components.end, components.exclusive) {
+                (Some(Number::Float(_)), _) => unreachable!("will use float if this is float"),
+                (Some(Number::Int(end)), false) => Bound::Included(end),
+                (Some(Number::Int(end)), true) => Bound::Excluded(end),
+                (None, _) => Bound::Unbounded,
+            };
+
+            Range::new_int(start, step, end)
+        };
+
+        Ok(range)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::Signals;
+
+    fn collect_float_range(start: f64, step: f64, end: f64, inclusive: bool) -> Vec<f64> {
+        let end = if inclusive {
+            Bound::Included(end)
+        } else {
+            Bound::Excluded(end)
+        };
+        let range = FloatRange { start, step, end };
+        range
+            .into_range_iter(Signals::empty())
+            .collect::<Vec<f64>>()
+    }
+
+    #[test]
+    fn float_range_small_step_inclusive() {
+        let result = collect_float_range(0.1, 0.1, 0.3, true);
+        assert_eq!(result.len(), 3);
+        assert!((result[0] - 0.1).abs() < 1e-15);
+        assert!((result[1] - 0.2).abs() < 1e-15);
+        assert!((result[2] - 0.3).abs() < 1e-15);
+    }
+
+    #[test]
+    fn float_range_tiny_step_inclusive() {
+        let result = collect_float_range(0.001, 0.001, 0.005, true);
+        assert_eq!(result.len(), 5);
+        assert!((result[0] - 0.001).abs() < 1e-15);
+        assert!((result[1] - 0.002).abs() < 1e-15);
+        assert!((result[2] - 0.003).abs() < 1e-15);
+        assert!((result[3] - 0.004).abs() < 1e-15);
+        assert!((result[4] - 0.005).abs() < 1e-15);
+    }
+
+    #[test]
+    fn float_range_integer_step_noninteger_start() {
+        let result = collect_float_range(1.8, 1.0, 3.8, true);
+        assert_eq!(result.len(), 3);
+        assert!((result[0] - 1.8).abs() < 1e-15);
+        assert!((result[1] - 2.8).abs() < 1e-15);
+        assert!((result[2] - 3.8).abs() < 1e-15);
+    }
+
+    #[test]
+    fn float_range_decreasing() {
+        let result = collect_float_range(0.3, -0.1, 0.1, true);
+        assert_eq!(result.len(), 3);
+        assert!((result[0] - 0.3).abs() < 1e-15);
+        assert!((result[1] - 0.2).abs() < 1e-15);
+        assert!((result[2] - 0.1).abs() < 1e-15);
+    }
+
+    #[test]
+    fn float_range_explicit_step_clean_values() {
+        let result = collect_float_range(0.1, 0.2, 0.3, false);
+        assert_eq!(result.len(), 1);
+        assert!((result[0] - 0.1).abs() < 1e-15);
+    }
+
+    #[test]
+    fn float_range_rounds_last_value() {
+        // 0.1 + 0.1*2 = 0.30000000000000004 without rounding;
+        // verify rounding produces exactly 0.3
+        let result = collect_float_range(0.1, 0.1, 0.3, true);
+        assert_eq!(result[2], 0.3);
+    }
+
+    #[test]
+    fn float_range_clean_serialization() {
+        // Verify all values in a small-step range are clean (no floating-point artifacts)
+        let result = collect_float_range(0.0, 0.1, 0.5, true);
+        assert_eq!(result.len(), 6);
+        for (i, &val) in result.iter().enumerate() {
+            let expected = i as f64 * 0.1;
+            assert!(
+                (val - expected).abs() < 1e-15,
+                "at index {i}: expected {expected}, got {val}"
+            );
         }
     }
 }

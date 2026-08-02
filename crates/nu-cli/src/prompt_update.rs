@@ -1,5 +1,5 @@
 use crate::NushellPrompt;
-use log::{trace, warn};
+use log::{info, trace};
 use nu_engine::ClosureEvalOnce;
 use nu_protocol::{
     Config, PipelineData, Value,
@@ -84,7 +84,7 @@ fn get_prompt_string(
     };
 
     // Let's keep this for debugging purposes with nu --log-level warn
-    warn!("{}:{}:{} {:?}", file!(), line!(), column!(), output);
+    info!("{}:{}:{} {:?}", file!(), line!(), column!(), output);
 
     Some(output)
 }

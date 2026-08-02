@@ -1,0 +1,1329 @@
+//! Experimental dc-glob backend imported from glob_experiment by Devyn Cairns for evaluation in Nushell.
+
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
+
+use crate::Pattern;
+
+mod compiler;
+mod globber;
+mod matcher;
+mod parser;
+
+const GLOB_CHARS: &[char] = &['*', '?', '['];
+
+/// Options for dc-glob filesystem traversal.
+#[derive(Debug, Clone, Default)]
+pub struct GlobWalkOptions {
+    /// Maximum recursion depth. `None` means unbounded.
+    pub max_depth: Option<usize>,
+    /// Follow directory symlinks while traversing.
+    pub follow_symlinks: bool,
+    /// Exclusion glob patterns used to filter and prune traversal.
+    pub excludes: Vec<String>,
+    /// Optional interrupt flag. When set to `true` the traversal stops as soon
+    /// as possible and the iterator ends.
+    pub interrupt: Option<Arc<AtomicBool>>,
+    /// When `true`, match path components case-insensitively (ASCII only).
+    pub ignore_case: bool,
+}
+
+/// Return true if the given pattern contains glob metacharacters.
+pub fn is_glob(pattern: &str) -> bool {
+    pattern.contains(GLOB_CHARS)
+}
+
+/// Escape glob metacharacters so a pattern is matched literally.
+pub fn escape(pattern: &str) -> String {
+    crate::Pattern::escape(pattern)
+}
+
+/// Expand `pattern` relative to `relative_to` using the experimental dc-glob backend.
+pub fn glob_from(
+    relative_to: impl AsRef<Path>,
+    pattern: impl AsRef<str>,
+) -> anyhow::Result<Box<dyn Iterator<Item = anyhow::Result<PathBuf>> + Send>> {
+    let pattern = pattern.as_ref().to_owned();
+    let parsed = parser::parse(&pattern);
+    let fast_path = detect_recursive_suffix_fast_path(&parsed);
+    let compiled = compiler::compile(&parsed)?;
+    Ok(Box::new(globber::glob(
+        relative_to.as_ref().to_path_buf(),
+        Arc::new(compiled),
+        fast_path,
+    )))
+}
+
+/// Like [`glob_from`] but accepts an interrupt flag so the caller can cancel the traversal.
+pub fn glob_from_interruptible(
+    relative_to: impl AsRef<Path>,
+    pattern: impl AsRef<str>,
+    interrupt: Option<Arc<AtomicBool>>,
+) -> anyhow::Result<Box<dyn Iterator<Item = anyhow::Result<PathBuf>> + Send>> {
+    let pattern = pattern.as_ref().to_owned();
+    let parsed = parser::parse(&pattern);
+    let fast_path = detect_recursive_suffix_fast_path(&parsed);
+    let compiled = compiler::compile(&parsed)?;
+    Ok(Box::new(globber::glob_with_options(
+        relative_to.as_ref().to_path_buf(),
+        Arc::new(compiled),
+        globber::TraversalOptions::default(),
+        vec![],
+        globber::InterruptFlag(interrupt),
+        fast_path,
+    )))
+}
+
+/// Expand `pattern` relative to `relative_to` using dc-glob with traversal options.
+pub fn glob_with(
+    relative_to: impl AsRef<Path>,
+    pattern: impl AsRef<str>,
+    options: &GlobWalkOptions,
+) -> anyhow::Result<Box<dyn Iterator<Item = anyhow::Result<PathBuf>> + Send>> {
+    let pattern = pattern.as_ref().to_owned();
+    let parsed = parser::parse(&pattern);
+    let fast_path = detect_recursive_suffix_fast_path(&parsed);
+    let include_program = compiler::compile_with_options(&parsed, options.ignore_case)?;
+
+    let exclude_programs = options
+        .excludes
+        .iter()
+        .map(|exclude| Pattern::new(exclude).map_err(anyhow::Error::from))
+        .collect::<Vec<_>>();
+    let exclude_programs = exclude_programs
+        .into_iter()
+        .collect::<anyhow::Result<Vec<_>>>()?;
+
+    Ok(Box::new(globber::glob_with_options(
+        relative_to.as_ref().to_path_buf(),
+        Arc::new(include_program),
+        globber::TraversalOptions {
+            max_depth: options.max_depth,
+            follow_symlinks: options.follow_symlinks,
+        },
+        exclude_programs,
+        globber::InterruptFlag(options.interrupt.clone()),
+        fast_path,
+    )))
+}
+
+fn detect_recursive_suffix_fast_path(
+    pattern: &parser::Pattern,
+) -> Option<globber::RecursiveFastPath> {
+    use parser::AstNode;
+
+    let nodes = pattern.nodes.as_slice();
+    if nodes.len() < 3 {
+        return None;
+    }
+
+    let recurse_index = nodes
+        .windows(2)
+        .position(|window| matches!(window, [AstNode::Recurse, AstNode::Separator]))?;
+
+    let tail = &nodes[(recurse_index + 2)..];
+    if tail.is_empty() {
+        return None;
+    }
+
+    let static_prefix_only = nodes[..recurse_index].iter().all(|node| {
+        matches!(
+            node,
+            AstNode::Prefix(_)
+                | AstNode::RootDir
+                | AstNode::CurDir
+                | AstNode::ParentDir
+                | AstNode::LiteralString(_)
+                | AstNode::Separator
+        )
+    });
+
+    if !static_prefix_only || tail.iter().any(|node| matches!(node, AstNode::Separator)) {
+        return None;
+    }
+
+    if let [AstNode::Wildcard] = tail {
+        return Some(globber::RecursiveFastPath::Suffix(Box::<[u8]>::default()));
+    }
+
+    if let [AstNode::Wildcard, AstNode::LiteralString(bytes)] = tail {
+        return Some(globber::RecursiveFastPath::Suffix(
+            bytes.clone().into_boxed_slice(),
+        ));
+    }
+
+    let tokens = tail
+        .iter()
+        .map(|node| match node {
+            AstNode::LiteralString(bytes) => Some(globber::BasenameToken::Literal(
+                bytes.clone().into_boxed_slice(),
+            )),
+            AstNode::Wildcard => Some(globber::BasenameToken::Wildcard),
+            AstNode::AnyCharacter => Some(globber::BasenameToken::AnyCharacter),
+            _ => None,
+        })
+        .collect::<Option<Vec<_>>>()?;
+
+    Some(globber::RecursiveFastPath::BasenamePattern(
+        tokens.into_boxed_slice(),
+    ))
+}
+
+/// Return a formatted AST dump for a glob pattern.
+pub fn debug_parse(pattern: impl AsRef<str>) -> String {
+    let parsed = parser::parse(pattern.as_ref());
+    format!("{parsed:#?}")
+}
+
+/// Return a formatted compiled-program dump for a glob pattern.
+pub fn debug_compile(pattern: impl AsRef<str>) -> anyhow::Result<String> {
+    let parsed = parser::parse(pattern.as_ref());
+    let compiled = compiler::compile(&parsed)?;
+    Ok(format!("{compiled:#?}"))
+}
+
+/// Return whether `path` matches `pattern` as a complete dc-glob match.
+pub fn debug_matches(pattern: impl AsRef<str>, path: impl AsRef<Path>) -> anyhow::Result<bool> {
+    let parsed = parser::parse(pattern.as_ref());
+    let compiled = compiler::compile(&parsed)?;
+    Ok(matcher::path_matches(path.as_ref(), &compiled).valid_as_complete_match)
+}
+
+/// A compiled dc-glob pattern for repeated path-matching without filesystem traversal.
+///
+/// Unlike the free-function `debug_matches`, this compiles the pattern once and can be
+/// reused efficiently across many paths.
+#[derive(Clone)]
+pub struct DcPattern {
+    pattern: String,
+    compiled: std::sync::Arc<compiler::Program>,
+}
+
+impl std::fmt::Debug for DcPattern {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DcPattern")
+            .field("pattern", &self.pattern)
+            .finish()
+    }
+}
+
+impl DcPattern {
+    /// Compile a glob pattern. Returns an error if the pattern is invalid.
+    pub fn new(pattern: &str) -> anyhow::Result<Self> {
+        let parsed = parser::parse(pattern);
+        let compiled = compiler::compile(&parsed)?;
+        Ok(DcPattern {
+            pattern: pattern.to_owned(),
+            compiled: std::sync::Arc::new(compiled),
+        })
+    }
+
+    /// Compile a glob pattern with case-insensitive matching (ASCII only).
+    pub fn with_ignore_case(pattern: &str) -> anyhow::Result<Self> {
+        let parsed = parser::parse(pattern);
+        let compiled = compiler::compile_with_options(&parsed, true)?;
+        Ok(DcPattern {
+            pattern: pattern.to_owned(),
+            compiled: std::sync::Arc::new(compiled),
+        })
+    }
+
+    /// Return `true` if the given path matches this pattern.
+    pub fn matches_path(&self, path: &Path) -> bool {
+        matcher::path_matches(path, &self.compiled).valid_as_complete_match
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::compiler::{Instruction, Program};
+    use super::matcher::path_matches;
+    use super::parser::{AstNode, CharacterClass};
+    use super::*;
+    use std::fs;
+    use std::path::Path;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    static NEXT_ID: AtomicU64 = AtomicU64::new(0);
+
+    fn expected_path(parts: &[&str]) -> String {
+        parts.join(std::path::MAIN_SEPARATOR_STR)
+    }
+
+    fn unique_test_dir(prefix: &str) -> PathBuf {
+        let ts = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        std::env::temp_dir().join(format!(
+            "nu_dc_glob_{prefix}_{}_{}",
+            std::process::id(),
+            ts + u128::from(NEXT_ID.fetch_add(1, Ordering::Relaxed))
+        ))
+    }
+
+    fn write_file(path: &Path) {
+        fs::create_dir_all(path.parent().expect("file path must have parent"))
+            .expect("failed to create parent directory");
+        fs::write(path, b"x").expect("failed to write test file");
+    }
+
+    fn collect_ok_paths(
+        iter: impl Iterator<Item = anyhow::Result<PathBuf>>,
+    ) -> anyhow::Result<Vec<String>> {
+        let mut out = Vec::new();
+        for item in iter {
+            let path_str = item?.to_string_lossy().into_owned();
+            // Normalize path separators to native platform style
+            #[cfg(windows)]
+            let normalized = path_str.replace('/', "\\");
+            #[cfg(not(windows))]
+            let normalized = path_str.replace('\\', "/");
+            out.push(normalized);
+        }
+        out.sort();
+        Ok(out)
+    }
+
+    #[test]
+    fn glob_with_streams_and_matches_simple_pattern() {
+        let root = unique_test_dir("basic");
+        fs::create_dir_all(&root).expect("failed to create root test directory");
+        write_file(&root.join("five.txt"));
+        write_file(&root.join("six.md"));
+
+        let result = glob_with(root.as_path(), "*.txt", &GlobWalkOptions::default())
+            .expect("glob_with should succeed");
+        let paths = collect_ok_paths(result).expect("failed to collect streamed paths");
+
+        assert_eq!(paths, vec!["five.txt"]);
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn glob_with_respects_depth_limit() {
+        let root = unique_test_dir("depth");
+        fs::create_dir_all(&root).expect("failed to create root test directory");
+        write_file(&root.join("a.txt"));
+        write_file(&root.join("nested/inner.txt"));
+
+        let options = GlobWalkOptions {
+            max_depth: Some(1),
+            ..Default::default()
+        };
+        let result =
+            glob_with(root.as_path(), "**/*.txt", &options).expect("glob_with should succeed");
+        let paths = collect_ok_paths(result).expect("failed to collect streamed paths");
+
+        assert_eq!(paths, vec!["a.txt"]);
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn glob_with_respects_excludes_and_prunes_nested_dirs() {
+        let root = unique_test_dir("exclude_prune");
+        fs::create_dir_all(&root).expect("failed to create root test directory");
+        write_file(&root.join("src/keep/main.rs"));
+        write_file(&root.join("src/target/skip.rs"));
+        write_file(&root.join("src/.git/config"));
+        write_file(&root.join("src/.git/hooks/pre-commit"));
+        write_file(&root.join("src/node_modules/pkg/index.js"));
+
+        let options = GlobWalkOptions {
+            excludes: vec![
+                "**/target/**".to_string(),
+                "**/.git/**".to_string(),
+                "**/node_modules/**".to_string(),
+            ],
+            ..Default::default()
+        };
+
+        let result = glob_with(root.as_path(), "**/*", &options).expect("glob_with should succeed");
+        let paths = collect_ok_paths(result).expect("failed to collect streamed paths");
+
+        assert!(paths.contains(&expected_path(&["src", "keep", "main.rs"])));
+        assert!(
+            !paths
+                .iter()
+                .any(|p| p.contains(&format!("target{}skip.rs", std::path::MAIN_SEPARATOR)))
+        );
+        assert!(
+            !paths
+                .iter()
+                .any(|p| p.contains(&format!(".git{}config", std::path::MAIN_SEPARATOR)))
+        );
+        assert!(!paths.iter().any(|p| p.contains(&format!(
+            ".git{}hooks{}pre-commit",
+            std::path::MAIN_SEPARATOR,
+            std::path::MAIN_SEPARATOR
+        ))));
+        assert!(!paths.iter().any(|p| p.contains(&format!(
+            "node_modules{}pkg{}index.js",
+            std::path::MAIN_SEPARATOR,
+            std::path::MAIN_SEPARATOR
+        ))));
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn glob_with_absolute_recursive_pattern_finds_nested_files() {
+        let root = unique_test_dir("absolute_recursive");
+        fs::create_dir_all(&root).expect("failed to create root test directory");
+        write_file(&root.join("src/lib.rs"));
+        write_file(&root.join("README.md"));
+
+        let pattern = format!("{}/**/*", root.to_string_lossy());
+        let result = glob_with(root.as_path(), &pattern, &GlobWalkOptions::default())
+            .expect("glob_with should succeed");
+        let paths = collect_ok_paths(result).expect("failed to collect streamed paths");
+
+        assert!(
+            paths.iter().any(|p| {
+                Path::new(p).is_absolute() && p.ends_with(&expected_path(&["src", "lib.rs"]))
+            }),
+            "absolute recursive pattern should include nested absolute files"
+        );
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn debug_helpers_behave_as_expected() {
+        let parse = debug_parse("**/*.txt");
+        assert!(parse.contains("Recurse"));
+
+        let compile = debug_compile("**/*.txt").expect("debug_compile should succeed");
+        assert!(compile.contains("Complete"));
+
+        assert!(debug_matches("*.txt", "file.txt").expect("debug_matches should succeed"));
+        assert!(!debug_matches("*.txt", "file.md").expect("debug_matches should succeed"));
+    }
+
+    #[test]
+    fn detect_fast_path_for_recursive_richer_basename_pattern() {
+        let parsed = parser::parse("crates/**/mod*.rs");
+        let fast_path = detect_recursive_suffix_fast_path(&parsed);
+
+        assert!(matches!(
+            fast_path,
+            Some(globber::RecursiveFastPath::BasenamePattern(_))
+        ));
+    }
+
+    #[test]
+    fn glob_with_matches_recursive_richer_basename_pattern() {
+        let root = unique_test_dir("richer_tail");
+        fs::create_dir_all(&root).expect("failed to create root test directory");
+        write_file(&root.join("crates/nu-glob/src/mod.rs"));
+        write_file(&root.join("crates/nu-glob/src/index.rs"));
+        write_file(&root.join("crates/nu-protocol/src/mod_helpers.rs"));
+
+        let result = glob_with(
+            root.as_path(),
+            "crates/**/mod*.rs",
+            &GlobWalkOptions::default(),
+        )
+        .expect("glob_with should succeed");
+        let paths = collect_ok_paths(result).expect("failed to collect streamed paths");
+
+        assert!(paths.contains(&expected_path(&["crates", "nu-glob", "src", "mod.rs"])));
+        assert!(paths.contains(&expected_path(&[
+            "crates",
+            "nu-protocol",
+            "src",
+            "mod_helpers.rs"
+        ])));
+        assert!(!paths.contains(&expected_path(&["crates", "nu-glob", "src", "index.rs"])));
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    // ── parser tests ──────────────────────────────────────────────────────────
+
+    fn node_kinds(pattern: &str) -> Vec<std::mem::Discriminant<AstNode>> {
+        parser::parse(pattern)
+            .nodes
+            .iter()
+            .map(std::mem::discriminant)
+            .collect()
+    }
+
+    fn discriminant<T>(val: &T) -> std::mem::Discriminant<T> {
+        std::mem::discriminant(val)
+    }
+
+    #[test]
+    fn parser_literal_string() {
+        let p = parser::parse("hello");
+        assert_eq!(p.nodes.len(), 1);
+        match &p.nodes[0] {
+            AstNode::LiteralString(bytes) => assert_eq!(bytes, b"hello"),
+            other => panic!("expected LiteralString, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parser_wildcard() {
+        let p = parser::parse("*");
+        assert!(p.nodes.iter().any(|n| matches!(n, AstNode::Wildcard)));
+    }
+
+    #[test]
+    fn parser_recurse() {
+        let p = parser::parse("**");
+        assert!(p.nodes.iter().any(|n| matches!(n, AstNode::Recurse)));
+        // ** must not produce a plain Wildcard
+        assert!(!p.nodes.iter().any(|n| matches!(n, AstNode::Wildcard)));
+    }
+
+    #[test]
+    fn parser_any_character() {
+        let p = parser::parse("?");
+        assert_eq!(p.nodes.len(), 1);
+        assert!(matches!(p.nodes[0], AstNode::AnyCharacter));
+    }
+
+    #[test]
+    fn parser_separator_between_components() {
+        let p = parser::parse("a/b");
+        assert!(p.nodes.iter().any(|n| matches!(n, AstNode::Separator)));
+        assert!(
+            p.nodes
+                .iter()
+                .any(|n| matches!(n, AstNode::LiteralString(_)))
+        );
+    }
+
+    #[test]
+    fn parser_cur_dir() {
+        let p = parser::parse("./foo");
+        assert!(p.nodes.iter().any(|n| matches!(n, AstNode::CurDir)));
+    }
+
+    #[test]
+    fn parser_parent_dir() {
+        let p = parser::parse("../foo");
+        assert!(p.nodes.iter().any(|n| matches!(n, AstNode::ParentDir)));
+    }
+
+    #[test]
+    fn parser_alternatives() {
+        let p = parser::parse("{a,b,c}");
+        assert_eq!(p.nodes.len(), 1);
+        match &p.nodes[0] {
+            AstNode::Alternatives { choices } => assert_eq!(choices.len(), 3),
+            other => panic!("expected Alternatives, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parser_character_class_range() {
+        let p = parser::parse("[a-z]");
+        assert_eq!(p.nodes.len(), 1);
+        match &p.nodes[0] {
+            AstNode::Characters(classes) => {
+                assert_eq!(classes.len(), 1);
+                assert_eq!(classes[0], CharacterClass::Range('a', 'z'));
+            }
+            other => panic!("expected Characters, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parser_character_class_single() {
+        let p = parser::parse("[abc]");
+        assert_eq!(p.nodes.len(), 1);
+        match &p.nodes[0] {
+            AstNode::Characters(classes) => {
+                assert_eq!(classes.len(), 3);
+                assert!(classes.contains(&CharacterClass::Single('a')));
+                assert!(classes.contains(&CharacterClass::Single('b')));
+                assert!(classes.contains(&CharacterClass::Single('c')));
+            }
+            other => panic!("expected Characters, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parser_repeat_exact() {
+        let p = parser::parse("<*:3>");
+        assert_eq!(p.nodes.len(), 1);
+        match &p.nodes[0] {
+            AstNode::Repeat { min, max, .. } => {
+                assert_eq!(*min, 3);
+                assert_eq!(*max, 3);
+            }
+            other => panic!("expected Repeat, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parser_repeat_range() {
+        let p = parser::parse("<*:1,4>");
+        assert_eq!(p.nodes.len(), 1);
+        match &p.nodes[0] {
+            AstNode::Repeat { min, max, .. } => {
+                assert_eq!(*min, 1);
+                assert_eq!(*max, 4);
+            }
+            other => panic!("expected Repeat, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parser_glob_pattern_recurse_then_literal() {
+        let p = parser::parse("**/*.rs");
+        // Should contain Recurse, Separator, Wildcard, LiteralString(".rs")
+        let kinds = node_kinds("**/*.rs");
+        assert!(
+            kinds.contains(&discriminant(&AstNode::Recurse)),
+            "must have Recurse"
+        );
+        assert!(
+            kinds.contains(&discriminant(&AstNode::Separator)),
+            "must have Separator"
+        );
+        assert!(
+            kinds.contains(&discriminant(&AstNode::Wildcard)),
+            "must have Wildcard"
+        );
+        let _ = p; // used above
+    }
+
+    // ── compiler tests ────────────────────────────────────────────────────────
+
+    fn compile_pattern(pattern: &str) -> Program {
+        let parsed = parser::parse(pattern);
+        compiler::compile(&parsed).expect("compile should not fail for valid pattern")
+    }
+
+    fn last_instruction(prog: &Program) -> &Instruction {
+        prog.instructions
+            .last()
+            .expect("program must have at least one instruction")
+    }
+
+    #[test]
+    fn compiler_program_ends_with_complete() {
+        let prog = compile_pattern("*.txt");
+        assert_eq!(last_instruction(&prog), &Instruction::Complete);
+    }
+
+    #[test]
+    fn compiler_literal_produces_literal_string_instruction() {
+        let prog = compile_pattern("hello");
+        assert!(
+            prog.instructions
+                .iter()
+                .any(|i| matches!(i, Instruction::LiteralString(b) if &**b == b"hello")),
+            "expected LiteralString(hello) in {:?}",
+            prog.instructions
+        );
+    }
+
+    #[test]
+    fn compiler_wildcard_produces_alternative_jump_gadget() {
+        let prog = compile_pattern("*");
+        // Wildcard gadget must contain Alternative and AnyCharacter instructions
+        assert!(
+            prog.instructions
+                .iter()
+                .any(|i| matches!(i, Instruction::Alternative(_))),
+            "wildcard must produce Alternative instruction"
+        );
+        assert!(
+            prog.instructions
+                .iter()
+                .any(|i| matches!(i, Instruction::AnyCharacter)),
+            "wildcard must produce AnyCharacter instruction"
+        );
+    }
+
+    #[test]
+    fn compiler_recurse_produces_anystring_separator_gadget() {
+        let prog = compile_pattern("**");
+        assert!(
+            prog.instructions
+                .iter()
+                .any(|i| matches!(i, Instruction::AnyString)),
+            "recurse must produce AnyString instruction"
+        );
+        assert!(
+            prog.instructions
+                .iter()
+                .any(|i| matches!(i, Instruction::Separator)),
+            "recurse must produce Separator instruction"
+        );
+        assert!(
+            prog.trailing_recursive,
+            "bare ** must set trailing_recursive"
+        );
+    }
+
+    #[test]
+    fn compiler_star_star_slash_star_is_not_trailing_recursive() {
+        let prog = compile_pattern("**/*");
+        assert!(
+            !prog.trailing_recursive,
+            "**/* must not be treated as directory-only trailing **"
+        );
+    }
+
+    #[test]
+    fn compiler_prefixed_trailing_recursive_sets_flag() {
+        let prog = compile_pattern("foo/**");
+        assert!(
+            prog.trailing_recursive,
+            "foo/** must set trailing_recursive"
+        );
+    }
+
+    #[test]
+    fn compiler_multi_component_trailing_recursive_keeps_intermediate_separators() {
+        // Regression: separator elision must only drop the `/` immediately before
+        // pure terminal `**`, not every `/` in `a/b/**` (broke `ls **` via absolute
+        // `{cwd}/**` rewriting in glob_from).
+        let prog = compile_pattern("a/b/**");
+        assert!(
+            prog.trailing_recursive,
+            "a/b/** must set trailing_recursive"
+        );
+
+        let mut saw_a = false;
+        let mut saw_sep_after_a = false;
+        let mut saw_b = false;
+        let mut saw_boundary = false;
+        for inst in &prog.instructions {
+            match inst {
+                Instruction::LiteralString(bytes) if &**bytes == b"a" => {
+                    saw_a = true;
+                }
+                Instruction::Separator if saw_a && !saw_b => {
+                    saw_sep_after_a = true;
+                }
+                Instruction::LiteralString(bytes) if &**bytes == b"b" => {
+                    assert!(
+                        saw_sep_after_a,
+                        "a/b/** must keep Separator between a and b, got {prog}"
+                    );
+                    saw_b = true;
+                }
+                Instruction::ComponentBoundary if saw_b => {
+                    saw_boundary = true;
+                }
+                _ => {}
+            }
+        }
+        assert!(saw_a && saw_b && saw_boundary, "unexpected program: {prog}");
+    }
+
+    #[test]
+    fn compiler_nested_terminal_recurse_in_alternatives() {
+        // `{**}` should compile a terminal recurse gadget and be dir-only.
+        let prog = compile_pattern("{**}");
+        assert!(
+            prog.trailing_recursive,
+            "{{**}} must set trailing_recursive"
+        );
+        // Mixed alternatives: do not force directory-only for non-** branches.
+        let mixed = compile_pattern("{**,README.md}");
+        assert!(
+            !mixed.trailing_recursive,
+            "mixed {{**,file}} must not force directory-only expansion"
+        );
+        // Prefixed alternative of only trailing **.
+        let nested = compile_pattern("foo/{**}");
+        assert!(
+            nested.trailing_recursive,
+            "foo/{{**}} must set trailing_recursive"
+        );
+    }
+
+    #[test]
+    fn compiler_any_character_produces_any_character_instruction() {
+        let prog = compile_pattern("?");
+        assert!(
+            prog.instructions
+                .iter()
+                .any(|i| matches!(i, Instruction::AnyCharacter)),
+            "? must produce AnyCharacter instruction"
+        );
+    }
+
+    #[test]
+    fn compiler_alternatives_produce_alternative_instruction() {
+        let prog = compile_pattern("{foo,bar}");
+        assert!(
+            prog.instructions
+                .iter()
+                .any(|i| matches!(i, Instruction::Alternative(_))),
+            "{{foo,bar}} must produce Alternative instruction"
+        );
+    }
+
+    #[test]
+    fn compiler_absolute_path_sets_absolute_prefix_on_unix() {
+        // On Unix, /foo/bar has RootDir + literal components
+        #[cfg(unix)]
+        {
+            let prog = compile_pattern("/foo/bar");
+            assert!(
+                prog.absolute_prefix.is_some(),
+                "absolute path should set absolute_prefix"
+            );
+        }
+    }
+
+    #[test]
+    fn compiler_relative_path_leaves_absolute_prefix_empty() {
+        let prog = compile_pattern("foo/bar");
+        assert!(
+            prog.absolute_prefix.is_none(),
+            "relative path must not set absolute_prefix"
+        );
+    }
+
+    #[test]
+    fn compiler_repeat_produces_increment_and_branch_instructions() {
+        let prog = compile_pattern("<*:2,4>");
+        assert!(
+            prog.instructions
+                .iter()
+                .any(|i| matches!(i, Instruction::Increment(_))),
+            "repeat must produce Increment instruction"
+        );
+        assert!(
+            prog.instructions
+                .iter()
+                .any(|i| matches!(i, Instruction::BranchIfLessThan(..))),
+            "repeat must produce BranchIfLessThan instruction"
+        );
+    }
+
+    // ── matcher tests ─────────────────────────────────────────────────────────
+
+    fn compile_for_match(pattern: &str) -> Program {
+        let parsed = parser::parse(pattern);
+        compiler::compile(&parsed).expect("compile should succeed")
+    }
+
+    fn matches_complete(pattern: &str, path: &str) -> bool {
+        let prog = compile_for_match(pattern);
+        path_matches(Path::new(path), &prog).valid_as_complete_match
+    }
+
+    fn matches_prefix(pattern: &str, path: &str) -> bool {
+        let prog = compile_for_match(pattern);
+        path_matches(Path::new(path), &prog).valid_as_prefix
+    }
+
+    #[test]
+    fn matcher_literal_exact_match() {
+        assert!(matches_complete("hello", "hello"));
+        assert!(!matches_complete("hello", "world"));
+    }
+
+    #[test]
+    fn matcher_wildcard_matches_any_string_without_separator() {
+        assert!(matches_complete("*.txt", "file.txt"));
+        assert!(matches_complete("*.txt", "my_file.txt"));
+        assert!(!matches_complete("*.txt", "file.md"));
+        // wildcard does not cross separator boundaries
+        assert!(!matches_complete("*.txt", "dir/file.txt"));
+    }
+
+    #[test]
+    fn matcher_any_character_matches_single_char() {
+        assert!(matches_complete("f?o", "foo"));
+        assert!(matches_complete("f?o", "fXo"));
+        assert!(!matches_complete("o?f", "of"));
+        assert!(!matches_complete("f?o", "fXXo"));
+    }
+
+    #[test]
+    fn matcher_recurse_matches_across_separators() {
+        assert!(matches_complete("**/*.txt", "a/b/c/file.txt"));
+        assert!(matches_complete("**/*.txt", "file.txt"));
+        assert!(!matches_complete("**/*.txt", "a/b/c/file.md"));
+    }
+
+    #[test]
+    fn matcher_character_class_range() {
+        assert!(matches_complete("[a-z]", "a"));
+        assert!(matches_complete("[a-z]", "m"));
+        assert!(matches_complete("[a-z]", "z"));
+        assert!(!matches_complete("[a-z]", "A"));
+        assert!(!matches_complete("[a-z]", "1"));
+    }
+
+    #[test]
+    fn matcher_character_class_single_chars() {
+        assert!(matches_complete("[abc]", "a"));
+        assert!(matches_complete("[abc]", "b"));
+        assert!(matches_complete("[abc]", "c"));
+        assert!(!matches_complete("[abc]", "d"));
+    }
+
+    #[test]
+    fn matcher_alternatives() {
+        assert!(matches_complete("{foo,bar}", "foo"));
+        assert!(matches_complete("{foo,bar}", "bar"));
+        assert!(!matches_complete("{foo,bar}", "baz"));
+    }
+
+    #[test]
+    fn matcher_alternatives_in_path() {
+        assert!(matches_complete("src/{lib,main}.rs", "src/lib.rs"));
+        assert!(matches_complete("src/{lib,main}.rs", "src/main.rs"));
+        assert!(!matches_complete("src/{lib,main}.rs", "src/other.rs"));
+    }
+
+    #[test]
+    fn matcher_valid_as_prefix_with_short_path() {
+        // "a/b/c.txt" pattern – the path "a/b" is a valid prefix (could match with more input)
+        assert!(matches_prefix("a/b/c.txt", "a/b"));
+        // but a completely unrelated path is not a valid prefix
+        assert!(!matches_prefix("a/b/c.txt", "x/y"));
+    }
+
+    #[test]
+    fn matcher_recurse_double_star_matches_deep_paths() {
+        // **/*.rs matches files at any depth
+        assert!(matches_complete("**/*.rs", "src/lib.rs"));
+        assert!(matches_complete("**/*.rs", "a/b/c/deep.rs"));
+        assert!(!matches_complete("**/*.rs", "src/lib.txt"));
+        // ** as a prefix matches with a separator suffix
+        assert!(matches_prefix("**/foo", "a/b"));
+    }
+
+    #[test]
+    fn matcher_bare_double_star_matches_any_depth() {
+        // Bare ** matches the empty path (start dir) and nested components.
+        assert!(matches_complete("**", ""));
+        assert!(matches_complete("**", "1"));
+        assert!(matches_complete("**", "1/2"));
+        assert!(matches_complete("**", "1/2/3"));
+    }
+
+    #[test]
+    fn matcher_star_slash_star_requires_two_components() {
+        // Regression for #18600: empty `*` must not skip a path component.
+        assert!(!matches_complete("*/*", "1"));
+        assert!(matches_complete("*/*", "1/2"));
+        assert!(!matches_complete("*/*", "1/2/3"));
+    }
+
+    #[test]
+    fn matcher_prefixed_trailing_double_star_matches_directory_itself() {
+        // `foo/**` must complete-match `foo` (zero further components after Separator).
+        assert!(matches_complete("foo/**", "foo"));
+        assert!(matches_complete("foo/**", "foo/bar"));
+        assert!(matches_complete("foo/**", "foo/bar/baz"));
+        assert!(!matches_complete("foo/**", "bar"));
+        assert!(!matches_complete("foo/**", "foobar"));
+        // #18600 guard still holds after Separator-at-EOF advance.
+        assert!(!matches_complete("*/*", "1"));
+    }
+
+    #[test]
+    fn matcher_nested_terminal_double_star_in_alternatives() {
+        assert!(matches_complete("{**}", ""));
+        assert!(matches_complete("{**}", "a/b"));
+        assert!(matches_complete("foo/{**}", "foo"));
+        assert!(matches_complete("foo/{**}", "foo/bar"));
+        assert!(!matches_complete("foo/{**}", "bar"));
+    }
+
+    #[test]
+    fn matcher_nested_recursive_stars_enforce_min_depth() {
+        // **/* matches paths at any depth (rust-lang/glob also matches the empty
+        // string; filesystem expansion still omits the start directory).
+        assert!(matches_complete("**/*", "1"));
+        assert!(matches_complete("**/*", "1/2"));
+        assert!(matches_complete("**/*", "1/2/3"));
+
+        // **/*/* requires at least two components
+        assert!(!matches_complete("**/*/*", "1"));
+        assert!(matches_complete("**/*/*", "1/2"));
+        assert!(matches_complete("**/*/*", "1/2/3"));
+
+        // **/*/*/* requires at least three components
+        assert!(!matches_complete("**/*/*/*", "1"));
+        assert!(!matches_complete("**/*/*/*", "1/2"));
+        assert!(matches_complete("**/*/*/*", "1/2/3"));
+        assert!(matches_complete("**/*/*/*", "1/2/3/4"));
+    }
+
+    #[test]
+    fn matcher_double_star_slash_literal_matches_at_any_depth() {
+        assert!(matches_complete("**/foo", "foo"));
+        assert!(matches_complete("**/foo", "a/foo"));
+        assert!(matches_complete("**/foo", "a/b/foo"));
+        assert!(!matches_complete("**/foo", "foo/bar"));
+        assert!(!matches_complete("**/foo", "bar"));
+    }
+
+    #[test]
+    fn matcher_literal_multi_component_path() {
+        assert!(matches_complete("foo/bar/baz", "foo/bar/baz"));
+        assert!(!matches_complete("foo/bar/baz", "foo/bar"));
+        assert!(!matches_complete("foo/bar/baz", "foo/bar/baz/extra"));
+    }
+
+    #[test]
+    fn matcher_complete_match_requires_full_consumption() {
+        // Pattern "*.txt" does NOT match "file.txt.bak" as a complete match
+        assert!(!matches_complete("*.txt", "file.txt.bak"));
+    }
+
+    #[test]
+    fn matcher_repeat_exact_count() {
+        // <a:3> means repeat literal "a" exactly 3 times → matches "aaa" but not "aa"
+        assert!(matches_complete("<a:3>", "aaa"));
+        assert!(!matches_complete("<a:3>", "aa"));
+        assert!(!matches_complete("<a:3>", "aaaa"));
+    }
+
+    // ── traversal start dir tests ──────────────────────────────────────────────
+    //
+    // These test that traversal_start_dir correctly excludes filename-pattern
+    // literals from the starting directory (Bug #1 in the dc-glob regression report).
+
+    #[test]
+    fn glob_with_issue_18600_nested_depth_and_bare_double_star() {
+        // Fixture from https://github.com/nushell/nushell/issues/18600
+        // mkdir 0/1/2/3 && cd 0
+        let root = unique_test_dir("issue_18600");
+        fs::create_dir_all(root.join("1/2/3")).expect("failed to create nested dirs");
+        write_file(&root.join("1/2/3/file.txt"));
+
+        let options = GlobWalkOptions::default();
+
+        // bare ** → start dir + nested directories only (not files)
+        let paths = collect_ok_paths(
+            glob_with(root.as_path(), "**", &options).expect("glob ** should succeed"),
+        )
+        .expect("collect **");
+        assert!(
+            paths.iter().any(|p| p.is_empty()),
+            "bare ** should include the start directory, got {paths:?}"
+        );
+        assert!(paths.contains(&expected_path(&["1"])));
+        assert!(paths.contains(&expected_path(&["1", "2"])));
+        assert!(paths.contains(&expected_path(&["1", "2", "3"])));
+        assert!(
+            !paths.iter().any(|p| p.ends_with("file.txt")),
+            "bare ** must not list files, got {paths:?}"
+        );
+
+        // **/* → all entries under start, not including start itself
+        let paths = collect_ok_paths(
+            glob_with(root.as_path(), "**/*", &options).expect("glob **/* should succeed"),
+        )
+        .expect("collect **/*");
+        assert!(
+            !paths.iter().any(|p| p.is_empty()),
+            "**/* must not include the start directory, got {paths:?}"
+        );
+        assert!(paths.contains(&expected_path(&["1"])));
+        assert!(paths.contains(&expected_path(&["1", "2"])));
+        assert!(paths.contains(&expected_path(&["1", "2", "3"])));
+        assert!(paths.contains(&expected_path(&["1", "2", "3", "file.txt"])));
+
+        // **/*/* → min depth 2
+        let paths = collect_ok_paths(
+            glob_with(root.as_path(), "**/*/*", &options).expect("glob **/*/* should succeed"),
+        )
+        .expect("collect **/*/*");
+        assert!(!paths.contains(&expected_path(&["1"])));
+        assert!(paths.contains(&expected_path(&["1", "2"])));
+        assert!(paths.contains(&expected_path(&["1", "2", "3"])));
+        assert!(paths.contains(&expected_path(&["1", "2", "3", "file.txt"])));
+
+        // **/*/*/* → min depth 3
+        let paths = collect_ok_paths(
+            glob_with(root.as_path(), "**/*/*/*", &options).expect("glob **/*/*/* should succeed"),
+        )
+        .expect("collect **/*/*/*");
+        assert!(!paths.contains(&expected_path(&["1"])));
+        assert!(!paths.contains(&expected_path(&["1", "2"])));
+        assert!(paths.contains(&expected_path(&["1", "2", "3"])));
+        assert!(paths.contains(&expected_path(&["1", "2", "3", "file.txt"])));
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn glob_with_prefixed_trailing_double_star_emits_prefix_dir() {
+        // `foo/**` must include `foo` itself (not only descendants), directories only.
+        let root = unique_test_dir("prefixed_trailing");
+        fs::create_dir_all(root.join("foo/bar")).expect("failed to create nested dirs");
+        write_file(&root.join("foo/bar/file.txt"));
+        write_file(&root.join("foo/sibling.txt"));
+
+        let paths = collect_ok_paths(
+            glob_with(root.as_path(), "foo/**", &GlobWalkOptions::default())
+                .expect("glob foo/** should succeed"),
+        )
+        .expect("collect foo/**");
+
+        assert!(
+            paths.contains(&expected_path(&["foo"])),
+            "foo/** should include the prefix directory itself, got {paths:?}"
+        );
+        assert!(paths.contains(&expected_path(&["foo", "bar"])));
+        assert!(
+            !paths
+                .iter()
+                .any(|p| p.ends_with("file.txt") || p.ends_with("sibling.txt")),
+            "foo/** must not list files, got {paths:?}"
+        );
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn glob_with_multi_component_trailing_double_star() {
+        // `a/b/**` must keep intermediate separators and emit a/b + nested dirs only.
+        let root = unique_test_dir("multi_component_trailing");
+        fs::create_dir_all(root.join("a/b/c")).expect("failed to create nested dirs");
+        write_file(&root.join("a/b/c/file.txt"));
+        write_file(&root.join("a/sibling.txt"));
+
+        let paths = collect_ok_paths(
+            glob_with(root.as_path(), "a/b/**", &GlobWalkOptions::default())
+                .expect("glob a/b/** should succeed"),
+        )
+        .expect("collect a/b/**");
+
+        assert!(
+            paths.contains(&expected_path(&["a", "b"])),
+            "a/b/** should include the prefix directory itself, got {paths:?}"
+        );
+        assert!(paths.contains(&expected_path(&["a", "b", "c"])));
+        assert!(
+            !paths
+                .iter()
+                .any(|p| p.ends_with("file.txt") || p.ends_with("sibling.txt")),
+            "a/b/** must not list files, got {paths:?}"
+        );
+        assert!(
+            !paths.contains(&expected_path(&["a"])),
+            "a/b/** must not list the parent of the prefix, got {paths:?}"
+        );
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn glob_with_absolute_trailing_double_star() {
+        // Absolute `{root}/**` is the shape `glob_from` builds for `ls **`.
+        let root = unique_test_dir("absolute_trailing");
+        fs::create_dir_all(root.join("1/2")).expect("failed to create nested dirs");
+        write_file(&root.join("1/2/file.txt"));
+
+        let pattern = format!("{}/**", root.to_string_lossy());
+        let paths = collect_ok_paths(
+            glob_with(root.as_path(), &pattern, &GlobWalkOptions::default())
+                .expect("glob absolute /** should succeed"),
+        )
+        .expect("collect absolute /**");
+
+        let root_str = root.to_string_lossy().to_string();
+        assert!(
+            paths.iter().any(|p| {
+                let p = p.trim_end_matches(['/', '\\']);
+                p == root_str.trim_end_matches(['/', '\\'])
+            }),
+            "absolute /** should include the start directory, got {paths:?}"
+        );
+        assert!(
+            paths
+                .iter()
+                .any(|p| Path::new(p).ends_with(expected_path(&["1"]))),
+            "absolute /** should include nested dir 1, got {paths:?}"
+        );
+        assert!(
+            paths
+                .iter()
+                .any(|p| Path::new(p).ends_with(expected_path(&["1", "2"]))),
+            "absolute /** should include nested dir 1/2, got {paths:?}"
+        );
+        assert!(
+            !paths.iter().any(|p| p.ends_with("file.txt")),
+            "absolute /** must not list files, got {paths:?}"
+        );
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn glob_with_trailing_double_star_respects_excludes_on_start() {
+        // Start-dir emit for trailing `**` must consult exclude_patterns.
+        let root = unique_test_dir("trailing_exclude");
+        fs::create_dir_all(root.join("foo/bar")).expect("create foo/bar");
+        fs::create_dir_all(root.join("other")).expect("create other");
+        fs::create_dir_all(root.join("1")).expect("create 1");
+
+        // Prefixed `foo/**`: excluding `foo` must suppress the start-dir emit and descendants.
+        let options = GlobWalkOptions {
+            excludes: vec!["foo".to_string(), "foo/**".to_string()],
+            ..Default::default()
+        };
+        let paths = collect_ok_paths(
+            glob_with(root.as_path(), "foo/**", &options).expect("glob foo/** should succeed"),
+        )
+        .expect("collect foo/** with excludes");
+
+        assert!(
+            !paths.iter().any(|p| {
+                p == &expected_path(&["foo"])
+                    || p.starts_with(&format!("foo{}", std::path::MAIN_SEPARATOR))
+            }),
+            "excluded foo/** must not emit foo or descendants, got {paths:?}"
+        );
+
+        // Bare `**` with nested excludes still emits the start directory.
+        let options = GlobWalkOptions {
+            excludes: vec!["1".to_string(), "1/**".to_string()],
+            ..Default::default()
+        };
+        let paths = collect_ok_paths(
+            glob_with(root.as_path(), "**", &options).expect("glob ** should succeed"),
+        )
+        .expect("collect ** with excludes");
+        assert!(
+            paths.iter().any(|p| p.is_empty()),
+            "bare ** should still emit start dir when only nested paths are excluded, got {paths:?}"
+        );
+        assert!(!paths.contains(&expected_path(&["1"])));
+        assert!(paths.contains(&expected_path(&["other"])));
+        assert!(paths.contains(&expected_path(&["foo"])));
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn glob_with_dir_prefix_literal_then_wildcard() {
+        // Pattern `dir/nu*` — "dir" is a directory literal, "nu*" is a filename
+        // pattern. The traversal must start from `root/dir`, NOT `root/dir/nu`.
+        let root = unique_test_dir("literal_wildcard");
+        fs::create_dir_all(&root).expect("failed to create root");
+        write_file(&root.join("dir/nu_test1"));
+        write_file(&root.join("dir/nu_test2"));
+        write_file(&root.join("dir/other"));
+
+        let result = glob_with(root.as_path(), "dir/nu*", &GlobWalkOptions::default())
+            .expect("glob_with should succeed");
+        let paths = collect_ok_paths(result).expect("failed to collect paths");
+
+        assert_eq!(paths.len(), 2);
+        assert!(paths.contains(&expected_path(&["dir", "nu_test1"])));
+        assert!(paths.contains(&expected_path(&["dir", "nu_test2"])));
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn glob_with_dir_prefix_wildcard_then_literal() {
+        // Pattern `dir/*nu*` — wildcard comes first in the filename pattern.
+        // This must continue to work correctly (regression guard).
+        let root = unique_test_dir("wildcard_literal");
+        fs::create_dir_all(&root).expect("failed to create root");
+        write_file(&root.join("dir/nu_test1"));
+        write_file(&root.join("dir/nu_test2"));
+        write_file(&root.join("dir/other"));
+
+        let result = glob_with(root.as_path(), "dir/*nu*", &GlobWalkOptions::default())
+            .expect("glob_with should succeed");
+        let paths = collect_ok_paths(result).expect("failed to collect paths");
+
+        assert_eq!(paths.len(), 2);
+        assert!(paths.contains(&expected_path(&["dir", "nu_test1"])));
+        assert!(paths.contains(&expected_path(&["dir", "nu_test2"])));
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn glob_with_nested_dir_prefix_literal_then_wildcard() {
+        // Pattern `a/b/nu*` — multiple directory components before the filename
+        // pattern. Traversal must start from `root/a/b`, not `root/a/b/nu`.
+        let root = unique_test_dir("nested_literal_wildcard");
+        fs::create_dir_all(&root).expect("failed to create root");
+        write_file(&root.join("a/b/nu_test1"));
+        write_file(&root.join("a/b/nu_test2"));
+        write_file(&root.join("a/b/other"));
+
+        let result = glob_with(root.as_path(), "a/b/nu*", &GlobWalkOptions::default())
+            .expect("glob_with should succeed");
+        let paths = collect_ok_paths(result).expect("failed to collect paths");
+
+        assert_eq!(paths.len(), 2);
+        assert!(paths.contains(&expected_path(&["a", "b", "nu_test1"])));
+        assert!(paths.contains(&expected_path(&["a", "b", "nu_test2"])));
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn glob_with_dir_prefix_literal_then_any_char() {
+        // Pattern `dir/nu?` — "?" is a single-character wildcard. The "nu"
+        // literal before it must not be included in the traversal start dir.
+        let root = unique_test_dir("literal_any_char");
+        fs::create_dir_all(&root).expect("failed to create root");
+        write_file(&root.join("dir/nu1"));
+        write_file(&root.join("dir/nu2"));
+        write_file(&root.join("dir/not"));
+
+        let result = glob_with(root.as_path(), "dir/nu?", &GlobWalkOptions::default())
+            .expect("glob_with should succeed");
+        let paths = collect_ok_paths(result).expect("failed to collect paths");
+
+        assert_eq!(paths.len(), 2);
+        assert!(paths.contains(&expected_path(&["dir", "nu1"])));
+        assert!(paths.contains(&expected_path(&["dir", "nu2"])));
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn glob_with_absolute_pattern_literal_then_wildcard() {
+        // Absolute pattern like `<root>/dir/nu*` should emit absolute paths,
+        // not paths relative to the current working directory.
+        let root = unique_test_dir("absolute_literal_wildcard");
+        fs::create_dir_all(&root).expect("failed to create root");
+        write_file(&root.join("dir/nu_test1"));
+        write_file(&root.join("dir/other"));
+
+        let pattern = format!("{}/dir/nu*", root.to_string_lossy());
+        let result = glob_with(root.as_path(), &pattern, &GlobWalkOptions::default())
+            .expect("glob_with should succeed");
+        let paths = collect_ok_paths(result).expect("failed to collect paths");
+
+        assert_eq!(paths.len(), 1);
+        assert!(Path::new(&paths[0]).is_absolute());
+
+        #[cfg(windows)]
+        let expected = root
+            .join("dir")
+            .join("nu_test1")
+            .to_string_lossy()
+            .replace('/', "\\");
+        #[cfg(not(windows))]
+        let expected = root
+            .join("dir")
+            .join("nu_test1")
+            .to_string_lossy()
+            .into_owned();
+
+        assert_eq!(paths[0], expected);
+
+        let _ = fs::remove_dir_all(&root);
+    }
+}

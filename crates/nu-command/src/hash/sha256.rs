@@ -32,9 +32,38 @@ impl HashDigest for Sha256 {
                 )),
             },
             Example {
+                description: "Return the sha256 hash of binary data",
+                example: "0x[deadbeef] | hash sha256",
+                result: None,
+            },
+            Example {
                 description: "Return the sha256 hash of a file's contents",
                 example: "open ./nu_0_24_1_windows.zip | hash sha256",
                 result: None,
+            },
+            Example {
+                description: "Return the sha256 hash of a list of strings",
+                example: "[abc def ghi] | hash sha256",
+                result: Some(Value::list(
+                    vec![
+                        Value::string(
+                            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+                                .to_owned(),
+                            Span::test_data(),
+                        ),
+                        Value::string(
+                            "cb8379ac2098aa165029e3938a51da0bcecfc008fd6795f401178647f96c5b34"
+                                .to_owned(),
+                            Span::test_data(),
+                        ),
+                        Value::string(
+                            "50ae61e841fac4e8f9e40baf2ad36ec868922ea48368c18f9535e47db56dd7fb"
+                                .to_owned(),
+                            Span::test_data(),
+                        ),
+                    ],
+                    Span::test_data(),
+                )),
             },
         ]
     }

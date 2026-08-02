@@ -6,7 +6,7 @@ use lsp_types::{
     CompletionResponse, CompletionTextEdit, Documentation, InsertTextFormat, MarkupContent,
     MarkupKind, Range, TextEdit,
 };
-use nu_cli::{NuCompleter, SemanticSuggestion, SuggestionKind};
+use nu_cli::{CompletionEngine, SemanticSuggestion, SuggestionKind};
 use nu_protocol::{
     PositionalArg, Span, SyntaxShape,
     engine::{CommandType, EngineState, Stack},
@@ -36,7 +36,7 @@ impl LanguageServer {
 
         self.need_parse |= need_fallback;
         let engine_state = Arc::new(self.new_engine_state(Some(path_uri)));
-        let completer = NuCompleter::new(engine_state.clone(), Arc::new(Stack::new()));
+        let completer = CompletionEngine::new(engine_state.clone(), Arc::new(Stack::new()));
         let results = if need_fallback {
             completer.fetch_completions_at(&file_text[..location], location)
         } else {
@@ -407,6 +407,26 @@ mod tests {
             },
             "kind": 6
         }
+    ]))]
+    #[case::use_submodule("use.nu", (20, 4), None, serde_json::json!([
+        {
+            "label": "dirs",
+            "labelDetails": { "description": "custom" },
+            "textEdit": {
+                "newText": "dirs ",
+                "range": { "start": { "character": 0, "line": 20 }, "end": { "character": 4, "line": 20 } }
+            },
+            "kind": 2
+        },
+        {
+            "label": "dirs next",
+            "labelDetails": { "description": "custom" },
+            "textEdit": {
+                "newText": "dirs next ",
+                "range": { "start": { "character": 0, "line": 20 }, "end": { "character": 4, "line": 20 } }
+            },
+            "kind": 2
+        },
     ]))]
     #[case::command_basic("command.nu", (0, 6), None, serde_json::json!([
         { "label": "config n foo bar", "detail": DETAIL_STR, "kind": 2 },

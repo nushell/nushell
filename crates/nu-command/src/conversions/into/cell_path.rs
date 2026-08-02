@@ -16,14 +16,14 @@ impl Command for IntoCellPath {
                 (Type::Int, Type::CellPath),
                 (Type::List(Box::new(Type::Any)), Type::CellPath),
                 (
-                    Type::List(Box::new(Type::Record(
-                        [
+                    Type::Table(
+                        vec![
                             ("value".into(), Type::Any),
                             ("optional".into(), Type::Bool),
                             ("insensitive".into(), Type::Bool),
                         ]
                         .into(),
-                    ))),
+                    ),
                     Type::CellPath,
                 ),
             ])
@@ -74,8 +74,8 @@ impl Command for IntoCellPath {
                 example: "'some.path' | split row '.' | into cell-path",
                 result: Some(Value::test_cell_path(CellPath {
                     members: vec![
-                        PathMember::test_string("some".into(), false, Casing::Sensitive),
-                        PathMember::test_string("path".into(), false, Casing::Sensitive),
+                        PathMember::test_string("some", false, Casing::Sensitive),
+                        PathMember::test_string("path", false, Casing::Sensitive),
                     ],
                 })),
             },
@@ -85,9 +85,9 @@ impl Command for IntoCellPath {
                 result: Some(Value::test_cell_path(CellPath {
                     members: vec![
                         PathMember::test_int(5, false),
-                        PathMember::test_string("c".into(), false, Casing::Sensitive),
+                        PathMember::test_string("c", false, Casing::Sensitive),
                         PathMember::test_int(7, false),
-                        PathMember::test_string("h".into(), false, Casing::Sensitive),
+                        PathMember::test_string("h", false, Casing::Sensitive),
                     ],
                 })),
             },
@@ -97,8 +97,8 @@ impl Command for IntoCellPath {
                 result: Some(Value::test_cell_path(CellPath {
                     members: vec![
                         PathMember::test_int(5, true),
-                        PathMember::test_string("c".into(), false, Casing::Sensitive),
-                        PathMember::test_string("d".into(), false, Casing::Insensitive),
+                        PathMember::test_string("c", false, Casing::Sensitive),
+                        PathMember::test_string("d", false, Casing::Insensitive),
                     ],
                 })),
             },
@@ -142,7 +142,12 @@ fn int_to_cell_path(val: i64, span: Span) -> Value {
 
 fn int_to_path_member(val: i64, span: Span) -> Result<PathMember, ShellError> {
     let Ok(val) = val.try_into() else {
-        return Err(ShellError::NeedsPositiveValue { span });
+        return Err(ShellError::CantConvert {
+            to_type: "cell path".into(),
+            from_type: "negative number".into(),
+            span,
+            help: None,
+        });
     };
 
     Ok(PathMember::int(val, false, span))

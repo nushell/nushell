@@ -42,7 +42,7 @@ impl Command for BytesIndexOf {
                 SyntaxShape::CellPath,
                 "For a data structure input, find the indexes at the given cell paths.",
             )
-            .switch("all", "Returns all matched index.", Some('a'))
+            .switch("all", "Returns all matched indices.", Some('a'))
             .switch("end", "Search from the end of the binary.", Some('e'))
             .category(Category::Bytes)
     }
@@ -62,15 +62,24 @@ impl Command for BytesIndexOf {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let pattern: Vec<u8> = call.req(engine_state, stack, 0)?;
+        let pattern: Spanned<Vec<u8>> = call.req(engine_state, stack, 0)?;
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
+
+        if pattern.item.is_empty() {
+            return Err(ShellError::TypeMismatch {
+                err_message: "the pattern to find cannot be empty".to_string(),
+                span: pattern.span,
+            });
+        }
+
         let arg = Arguments {
-            pattern,
+            pattern: pattern.item,
             end: call.has_flag(engine_state, stack, "end")?,
             all: call.has_flag(engine_state, stack, "all")?,
             cell_paths,
         };
+
         operate(index_of, arg, input, call.head, engine_state.signals())
     }
 

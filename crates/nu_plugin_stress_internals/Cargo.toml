@@ -1,12 +1,12 @@
 [package]
-authors = ["The Nushell Project Developers"]
+authors.workspace = true
 description = "A test plugin for Nushell to stress aspects of the internals"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu_plugin_stress_internals"
 edition.workspace = true
 rust-version.workspace = true
-license = "MIT"
+license.workspace = true
 name = "nu_plugin_stress_internals"
-version = "0.112.3"
+version.workspace = true
 publish = false
 
 [[bin]]

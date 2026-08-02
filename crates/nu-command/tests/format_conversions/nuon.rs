@@ -205,6 +205,29 @@ fn to_nuon_escaping5() -> Result {
 }
 
 #[test]
+fn to_nuon_raw_strings_need_more_hashes_for_leading_hash_content() -> Result {
+    let code = "
+        open -r raw_strings.toml
+        | to nuon --no-commas --raw-strings
+    ";
+
+    #[cfg(windows)]
+    let line_ending = "\r\n"; // CRLF
+
+    #[cfg(not(windows))]
+    let line_ending = "\n"; // LF
+
+    let expected = format!(
+        "r##'# example.toml{line_ending}name = \"my-app\"{line_ending}version = \"1.0.0\"{line_ending}'##"
+    );
+
+    test()
+        .cwd("tests/fixtures/formats")
+        .run(code)
+        .expect_value_eq(expected)
+}
+
+#[test]
 fn to_nuon_negative_int() -> Result {
     let code = "
         -1

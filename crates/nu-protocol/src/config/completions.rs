@@ -108,6 +108,8 @@ pub struct CompletionConfig {
     pub algorithm: CompletionAlgorithm,
     pub external: ExternalCompleterConfig,
     pub use_ls_colors: bool,
+    /// Completion results the cache keeps before evicting the least recently used entry; `0` disables it.
+    pub cache_size: i64,
 }
 
 impl Default for CompletionConfig {
@@ -120,6 +122,7 @@ impl Default for CompletionConfig {
             algorithm: CompletionAlgorithm::default(),
             external: ExternalCompleterConfig::default(),
             use_ls_colors: true,
+            cache_size: 100,
         }
     }
 }
@@ -146,6 +149,7 @@ impl UpdateFromValue for CompletionConfig {
                 "case_sensitive" => self.case_sensitive.update(val, path, errors),
                 "external" => self.external.update(val, path, errors),
                 "use_ls_colors" => self.use_ls_colors.update(val, path, errors),
+                "cache_size" => self.cache_size.update(val, path, errors),
                 _ => errors.unknown_option(path, val),
             }
         }

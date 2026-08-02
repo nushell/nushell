@@ -4,6 +4,7 @@ mod byte_stream;
 mod chars;
 mod float;
 mod int;
+mod pass;
 mod random_;
 mod uuid;
 
@@ -12,5 +13,6 @@ pub use self::bool::RandomBool;
 pub use self::chars::RandomChars;
 pub use self::float::RandomFloat;
 pub use self::int::RandomInt;
+pub use self::pass::RandomPass;
 pub use self::uuid::RandomUuid;
 pub use random_::Random;

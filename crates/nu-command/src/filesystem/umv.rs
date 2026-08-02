@@ -73,7 +73,7 @@ impl Command for UMv {
                 (
                     Type::Nothing,
                     Type::Table(
-                        [
+                        vec![
                             ("source".into(), Type::String),
                             ("destination".into(), Type::String),
                             ("message".into(), Type::String),
@@ -188,12 +188,8 @@ impl Command for UMv {
             };
             let mut app_vals: Vec<PathBuf> = Vec::new();
             for v in exp_files {
-                match v {
-                    Ok(path) => {
-                        app_vals.push(path);
-                    }
-                    Err(e) => return Err(e),
-                }
+                let path = v?;
+                app_vals.push(path);
             }
             files.push((app_vals, p.item.is_expand()));
         }

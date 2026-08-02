@@ -1,4 +1,6 @@
-use crate::completions::{Completer, CompletionOptions, MatchAlgorithm, SemanticSuggestion};
+use crate::completions::{
+    Completer, Context, Fetched, MatchAlgorithm, SemanticSuggestion, to_reedline_span,
+};
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_engine::{compile, eval_call};
 use nu_parser::flatten_expression;
@@ -7,12 +9,12 @@ use nu_protocol::{
     SuggestionKind, Type, Value, VarId,
     ast::{Argument, Call, Expr, Expression},
     debugger::WithoutDebug,
-    engine::{Closure, EngineState, Stack, StateWorkingSet},
+    engine::{Closure, EngineState, StateWorkingSet},
     shell_error::generic::GenericError,
 };
 use nu_utils::{SharedCow, strip_ansi_string_unlikely};
 use reedline::Suggestion;
-use std::{collections::HashMap, sync::Arc};
+use std::{borrow::Cow, collections::HashMap, sync::Arc};
 
 use super::completion_options::NuMatcher;
 
@@ -28,10 +30,7 @@ fn map_value_completions<'a>(
             return Some(SemanticSuggestion {
                 suggestion: Suggestion {
                     value: strip_ansi_string_unlikely(s),
-                    span: reedline::Span {
-                        start: span.start - offset,
-                        end: span.end - offset,
-                    },
+                    span: to_reedline_span(span, offset),
                     ..Suggestion::default()
                 },
                 kind: Some(SuggestionKind::Value(x.get_type())),
@@ -42,10 +41,7 @@ fn map_value_completions<'a>(
         if let Ok(record) = x.as_record() {
             let mut suggestion = Suggestion {
                 value: String::from(""),
-                span: reedline::Span {
-                    start: span.start - offset,
-                    end: span.end - offset,
-                },
+                span: to_reedline_span(span, offset),
                 ..Suggestion::default()
             };
             let mut value_type = Type::String;
@@ -123,36 +119,46 @@ fn read_span_field(span: &SharedCow<Record>, field: &str) -> Option<usize> {
     Some(val)
 }
 
-pub struct CustomCompletion<T: Completer> {
+/// Borrows the permanent engine state when the completer lives in it, avoiding a
+/// per-keystroke clone; otherwise clones it and merges the working set delta.
+fn engine_state_for_completion<'a>(
+    working_set: &'a StateWorkingSet<'_>,
+    is_permanent: bool,
+) -> Cow<'a, EngineState> {
+    if is_permanent {
+        Cow::Borrowed(working_set.permanent_state)
+    } else {
+        let mut engine_state = working_set.permanent_state.clone();
+        let _ = engine_state.merge_delta(working_set.delta.clone());
+        Cow::Owned(engine_state)
+    }
+}
+
+pub struct CustomCompletion {
     decl_id: DeclId,
     line: String,
     line_pos: usize,
-    fallback: T,
 }
 
-impl<T: Completer> CustomCompletion<T> {
-    pub fn new(decl_id: DeclId, line: String, line_pos: usize, fallback: T) -> Self {
+impl CustomCompletion {
+    pub fn new(decl_id: DeclId, line: String, line_pos: usize) -> Self {
         Self {
             decl_id,
             line,
             line_pos,
-            fallback,
         }
     }
 }
 
-impl<T: Completer> Completer for CustomCompletion<T> {
-    fn fetch(
-        &mut self,
-        working_set: &StateWorkingSet,
-        stack: &Stack,
-        prefix: impl AsRef<str>,
-        span: Span,
-        offset: usize,
-        orig_options: &CompletionOptions,
-    ) -> Vec<SemanticSuggestion> {
+impl Completer for CustomCompletion {
+    fn fetch(&mut self, ctx: &Context) -> Fetched {
+        let working_set = ctx.working_set;
+        let span = ctx.span;
+        let offset = ctx.offset;
+        let orig_options = ctx.options;
+        let prefix = ctx.prefix_str();
         // Call custom declaration
-        let mut stack_mut = stack.clone();
+        let mut stack_mut = ctx.stack.clone();
         let mut eval = |engine_state: &EngineState| {
             eval_call::<WithoutDebug>(
                 engine_state,
@@ -177,13 +183,11 @@ impl<T: Completer> Completer for CustomCompletion<T> {
                 PipelineData::empty(),
             )
         };
-        let result = if self.decl_id.get() < working_set.permanent_state.num_decls() {
-            eval(working_set.permanent_state)
-        } else {
-            let mut engine_state = working_set.permanent_state.clone();
-            let _ = engine_state.merge_delta(working_set.delta.clone());
-            eval(&engine_state)
-        };
+        let engine_state = engine_state_for_completion(
+            working_set,
+            self.decl_id.get() < working_set.permanent_state.num_decls(),
+        );
+        let result = eval(engine_state.as_ref());
 
         let mut completion_options = orig_options.clone();
         let mut should_sort = true;
@@ -266,32 +270,23 @@ impl<T: Completer> Completer for CustomCompletion<T> {
                     self.line_pos - self.line.len(),
                     offset,
                 ),
-                Value::Nothing { .. } => {
-                    return self.fallback.fetch(
-                        working_set,
-                        stack,
-                        prefix,
-                        span,
-                        offset,
-                        orig_options,
-                    );
-                }
+                Value::Nothing { .. } => return Fetched::fallback(),
                 _ => {
                     log::error!(
                         "Custom completer returned invalid value of type {}",
                         value.get_type()
                     );
-                    return vec![];
+                    return Fetched::cacheable(vec![]);
                 }
             },
             Err(e) => {
                 log::error!("Error getting custom completions: {e}");
-                return vec![];
+                return Fetched::cacheable(vec![]);
             }
         };
 
         if !should_filter {
-            return suggestions;
+            return Fetched::cacheable(suggestions);
         }
 
         let mut matcher = NuMatcher::new(prefix.as_ref(), &completion_options, should_sort);
@@ -308,7 +303,7 @@ impl<T: Completer> Completer for CustomCompletion<T> {
                 matcher.add(description, sugg);
             }
         }
-        matcher.suggestion_results()
+        Fetched::cacheable(matcher.suggestion_results())
     }
 }
 
@@ -332,8 +327,6 @@ pub struct CommandWideCompletion<'e> {
     block_id: BlockId,
     captures: Vec<(VarId, Value)>,
     expression: &'e Expression,
-    strip: bool,
-    pub need_fallback: bool,
 }
 
 impl<'a> CommandWideCompletion<'a> {
@@ -341,7 +334,6 @@ impl<'a> CommandWideCompletion<'a> {
         working_set: &StateWorkingSet<'_>,
         decl_id: DeclId,
         expression: &'a Expression,
-        strip: bool,
     ) -> Option<Self> {
         let block_id = (decl_id.get() < working_set.num_decls())
             .then(|| working_set.get_decl(decl_id))
@@ -351,48 +343,34 @@ impl<'a> CommandWideCompletion<'a> {
             block_id,
             captures: vec![],
             expression,
-            strip,
-            need_fallback: false,
         })
     }
 
-    pub fn closure(closure: &'a Closure, expression: &'a Expression, strip: bool) -> Self {
+    pub fn closure(closure: &'a Closure, expression: &'a Expression) -> Self {
         Self {
             block_id: closure.block_id,
             captures: closure.captures.clone(),
             expression,
-            strip,
-            need_fallback: false,
         }
     }
 }
 
 impl<'a> Completer for CommandWideCompletion<'a> {
-    fn fetch(
-        &mut self,
-        working_set: &StateWorkingSet,
-        stack: &Stack,
-        _prefix: impl AsRef<str>,
-        span: Span,
-        offset: usize,
-        _options: &CompletionOptions,
-    ) -> Vec<SemanticSuggestion> {
+    fn fetch(&mut self, ctx: &Context) -> Fetched {
+        let working_set = ctx.working_set;
+        let stack = ctx.stack;
+        let span = ctx.span;
+        let offset = ctx.offset;
         let Spanned {
-            item: mut args,
+            mut item,
             span: args_span,
         } = get_command_arguments(working_set, self.expression);
-
-        // strip the placeholder
-        let new_span = if self.strip
-            && let Some(last) = args.last_mut()
-        {
-            if let Some(popped) = last.item.pop() {
-                last.span.end = last.span.end.saturating_sub(popped.len_utf8())
-            }
-            last.span
-        } else {
-            span
-        };
+        // An empty span is a trailing argument slot the parser produced no argument for;
+        // append an empty entry so the completer sees one `$spans` entry per argument.
+        if ctx.span.is_empty() {
+            item.push(String::new().into_spanned(ctx.span));
+        }
+        let args = item;
 
         let mut block = working_set.get_block(self.block_id).clone();
 
@@ -420,11 +398,12 @@ impl<'a> Completer for CommandWideCompletion<'a> {
                 ),
             );
         }
-        let mut engine_state = working_set.permanent_state.clone();
-        let _ = engine_state.merge_delta(working_set.delta.clone());
-
+        let engine_state = engine_state_for_completion(
+            working_set,
+            self.block_id.get() < working_set.permanent_state.num_blocks(),
+        );
         let result = nu_engine::eval_block_with_early_return::<WithoutDebug>(
-            &engine_state,
+            engine_state.as_ref(),
             &mut callee_stack,
             &block,
             PipelineData::empty(),
@@ -433,12 +412,11 @@ impl<'a> Completer for CommandWideCompletion<'a> {
 
         let command_span = working_set.get_span(self.expression.span_id);
         if let Some(results) =
-            convert_whole_command_completion_results(offset, new_span, result, command_span)
+            convert_whole_command_completion_results(offset, span, result, command_span)
         {
-            results
+            Fetched::cacheable(results)
         } else {
-            self.need_fallback = true;
-            vec![]
+            Fetched::fallback()
         }
     }
 }
@@ -464,7 +442,9 @@ fn convert_whole_command_completion_results(
                     .with_inner([err]),
                 )
             );
-            return Some(vec![]);
+            // Error does not equal empty success: fall back so file completion
+            // still runs when an external completer fails.
+            return None;
         }
     };
 
@@ -472,7 +452,7 @@ fn convert_whole_command_completion_results(
         Value::List { vals, .. } => Some(map_value_completions(
             vals.iter(),
             span,
-            command_span.start - offset,
+            command_span.start.saturating_sub(offset),
             offset,
         )),
         Value::Nothing { .. } => None,

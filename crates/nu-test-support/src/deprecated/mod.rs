@@ -6,7 +6,6 @@
 
 use std::process::ExitStatus;
 
-pub mod commands;
 pub mod locale_override;
 pub mod macros;
 
@@ -21,21 +20,6 @@ impl Outcome {
     pub fn new(out: String, err: String, status: ExitStatus) -> Outcome {
         Outcome { out, err, status }
     }
-}
-
-pub fn nu_repl_code(source_lines: &[&str]) -> String {
-    let mut out = String::from("nu --testbin=nu_repl ...[ ");
-
-    for line in source_lines.iter() {
-        out.push('`');
-        out.push_str(line);
-        out.push('`');
-        out.push(' ');
-    }
-
-    out.push(']');
-
-    out
 }
 
 pub fn shell_os_paths() -> Vec<std::path::PathBuf> {

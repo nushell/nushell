@@ -13,7 +13,7 @@ impl ExperimentalOptionMarker for EnforceRuntimeAnnotations {
     const DESCRIPTION: &'static str = "\
         Enforce type checking of let assignments at runtime such that \
         invalid type conversion errors propagate the same way they would for predefined values.";
-    const STATUS: Status = Status::OptIn;
+    const STATUS: Status = Status::OptOut;
     const SINCE: Version = (0, 107, 1);
     const ISSUE: u32 = 16832;
 }

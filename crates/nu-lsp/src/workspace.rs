@@ -10,7 +10,6 @@ use lsp_types::{
     TextDocumentPositionParams, TextEdit, Uri, WorkspaceEdit, WorkspaceFolder,
 };
 use miette::{IntoDiagnostic, Result, miette};
-use nu_glob::Uninterruptible;
 use nu_protocol::{
     Span,
     engine::{EngineState, StateWorkingSet},
@@ -39,13 +38,28 @@ pub(crate) enum InternalMessage {
     OnGoing(ProgressToken, u32),
 }
 
-fn find_nu_scripts_in_folder(folder_uri: &Uri) -> Result<nu_glob::Paths> {
+fn find_nu_scripts_in_folder(folder_uri: &Uri) -> Result<Vec<std::path::PathBuf>> {
     let path = uri_to_path(folder_uri);
     if !path.is_dir() {
         return Err(miette!("\nworkspace folder does not exist."));
     }
-    let pattern = format!("{}/**/*.nu", path.to_string_lossy());
-    nu_glob::glob(&pattern, Uninterruptible).into_diagnostic()
+
+    let mut out = Vec::new();
+    if nu_experimental::DC_GLOB.get() {
+        let iter = nu_glob::dc_glob::glob_from(&path, "**/*.nu")
+            .map_err(|err| miette!(err.to_string()))?;
+        for entry in iter {
+            out.push(entry.map_err(|err| miette!(err.to_string()))?);
+        }
+    } else {
+        let pattern = format!("{}/**/*.nu", path.to_string_lossy());
+        let iter = nu_glob::glob(&pattern, nu_glob::Uninterruptible)
+            .map_err(|err| miette!(err.to_string()))?;
+        for entry in iter {
+            out.push(entry.map_err(|err| miette!(err.to_string()))?);
+        }
+    }
+    Ok(out)
 }
 
 /// HACK: when current file is imported (use keyword) by others in the workspace,
@@ -290,8 +304,13 @@ impl LanguageServer {
             .sender
             .send(lsp_server::Message::Response(lsp_server::Response {
                 id: request.id,
-                result: serde_json::to_value(response).ok(),
-                error: None,
+                response_result: serde_json::to_value(response).map_err(|e| {
+                    lsp_server::ResponseError {
+                        code: 0,
+                        message: e.to_string(),
+                        data: None,
+                    }
+                }),
             }))
             .into_diagnostic()?;
 
@@ -441,7 +460,7 @@ impl LanguageServer {
                     return Ok(());
                 }
             }
-            .filter_map(|p| p.ok())
+            .into_iter()
             .collect();
 
             // For unsaved new files
@@ -837,7 +856,7 @@ mod tests {
                 Message::Notification(n) => assert_eq!(n.method, Progress::METHOD),
                 Message::Response(r) => {
                     has_response = true;
-                    let result = r.result.unwrap();
+                    let result = r.response_result.unwrap();
                     let array = result.as_array().unwrap();
 
                     for expected_ref in &expected_refs {
@@ -926,7 +945,7 @@ mod tests {
                 Message::Notification(n) => assert_eq!(n.method, Progress::METHOD),
                 Message::Response(r) => {
                     has_response = true;
-                    assert_json_eq!(r.result, expected_prepare)
+                    assert_json_eq!(r.response_result.unwrap(), expected_prepare)
                 }
                 _ => panic!("unexpected message type"),
             }
@@ -937,7 +956,7 @@ mod tests {
         if let Message::Response(r) =
             send_rename_request(&client_connection, script.clone(), rename_line, rename_char)
         {
-            let changes = r.result.unwrap()["changes"].clone();
+            let changes = r.response_result.unwrap()["changes"].clone();
 
             for (file_suffix, expected_file_changes) in expected_changes {
                 let file_uri = if file_suffix == main_file.strip_suffix(".nu").unwrap() {
@@ -1013,7 +1032,7 @@ mod tests {
                 Message::Response(r) => {
                     has_response = true;
                     assert_json_eq!(
-                        r.result,
+                        r.response_result.unwrap(),
                         serde_json::json!({
                                 "contents": {
                                 "kind": "markdown",
@@ -1029,7 +1048,7 @@ mod tests {
 
         if let Message::Response(r) = send_rename_request(&client_connection, script, 6, 11) {
             // should not return any changes
-            assert_json_eq!(r.result.unwrap()["changes"], serde_json::json!({}));
+            assert_json_eq!(r.response_result.unwrap()["changes"], serde_json::json!({}));
         } else {
             panic!()
         }
@@ -1085,18 +1104,18 @@ mod tests {
     )]
     // Regression tests for https://github.com/nushell/nushell/pull/16696
     #[case::export_def_with_attributes(
-        "workspace/foo.nu", (25, 3),
+        "workspace/foo.nu", (27, 3),
         serde_json::json!([
             make_highlight(0, 0, 0, 10),
             make_highlight(6, 0, 6, 11),
             make_highlight(10, 4, 10, 14),
-            make_highlight(25, 2, 25, 13),
-            make_highlight(32, 0, 32, 10),
+            make_highlight(27, 2, 27, 13),
+            make_highlight(34, 0, 34, 10),
         ])
     )]
     #[case::export_extern_with_attributes(
-        "workspace/foo.nu", (28, 3),
-        serde_json::json!([make_highlight(28, 2, 28, 15), make_highlight(35, 0, 35, 13)])
+        "workspace/foo.nu", (30, 3),
+        serde_json::json!([make_highlight(30, 2, 30, 15), make_highlight(37, 0, 37, 13)])
     )]
     fn document_highlight_request(
         #[case] filename: &str,
@@ -1116,6 +1135,6 @@ mod tests {
         let Message::Response(r) = message else {
             panic!("unexpected message type");
         };
-        assert_json_eq!(r.result, expected);
+        assert_json_eq!(r.response_result.unwrap(), expected);
     }
 }

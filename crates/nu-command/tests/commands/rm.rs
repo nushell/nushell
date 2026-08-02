@@ -1,32 +1,34 @@
 #[cfg(not(windows))]
 use nu_path::AbsolutePath;
 use nu_test_support::fs::{Stub::EmptyFile, files_exist_at};
-use nu_test_support::nu;
-use nu_test_support::playground::Playground;
+use nu_test_support::prelude::*;
 use rstest::rstest;
 #[cfg(not(windows))]
 use std::fs;
 #[cfg(windows)]
 use std::{fs::OpenOptions, os::windows::fs::OpenOptionsExt};
 
+#[cfg(not(windows))]
+const RUNNER: &str = "let commands = $in; nu -n -c $commands | complete";
+
 #[test]
-fn removes_a_file() {
+fn removes_a_file() -> Result {
     Playground::setup("rm_test_1", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("i_will_be_deleted.txt")]);
 
-        nu!(
-            cwd: dirs.root(),
-            "rm rm_test_1/i_will_be_deleted.txt"
-        );
+        let () = test()
+            .cwd(dirs.root())
+            .run("rm rm_test_1/i_will_be_deleted.txt")?;
 
         let path = dirs.test().join("i_will_be_deleted.txt");
 
         assert!(!path.exists());
+        Ok(())
     })
 }
 
 #[test]
-fn removes_files_with_wildcard() {
+fn removes_files_with_wildcard() -> Result {
     Playground::setup("rm_test_2", |dirs, sandbox| {
         sandbox
             .within("src")
@@ -45,10 +47,7 @@ fn removes_files_with_wildcard() {
                 EmptyFile("baseline_parse_tokens.rs"),
             ]);
 
-        nu!(
-            cwd: dirs.test(),
-            "rm src/*/*/*.rs"
-        );
+        let () = test().cwd(dirs.test()).run("rm src/*/*/*.rs")?;
 
         assert!(!files_exist_at(
             &[
@@ -63,11 +62,12 @@ fn removes_files_with_wildcard() {
             Playground::glob_vec(&format!("{}/src/*/*/*.rs", dirs.test().display())),
             Vec::<std::path::PathBuf>::new()
         );
+        Ok(())
     })
 }
 
 #[test]
-fn removes_deeply_nested_directories_with_wildcard_and_recursive_flag() {
+fn removes_deeply_nested_directories_with_wildcard_and_recursive_flag() -> Result {
     Playground::setup("rm_test_3", |dirs, sandbox| {
         sandbox
             .within("src")
@@ -86,32 +86,28 @@ fn removes_deeply_nested_directories_with_wildcard_and_recursive_flag() {
                 EmptyFile("baseline_parse_tokens.rs"),
             ]);
 
-        nu!(
-            cwd: dirs.test(),
-            "rm -r src/*"
-        );
+        let () = test().cwd(dirs.test()).run("rm -r src/*")?;
 
         assert!(!files_exist_at(
             &["src/parser/parse", "src/parser/hir"],
             dirs.test()
         ));
+        Ok(())
     })
 }
 
 #[test]
-fn removes_directory_contents_without_recursive_flag_if_empty() {
+fn removes_directory_contents_without_recursive_flag_if_empty() -> Result {
     Playground::setup("rm_test_4", |dirs, _| {
-        nu!(
-            cwd: dirs.root(),
-            "rm rm_test_4"
-        );
+        let () = test().cwd(dirs.root()).run("rm rm_test_4")?;
 
         assert!(!dirs.test().exists());
+        Ok(())
     })
 }
 
 #[test]
-fn removes_directory_contents_with_recursive_flag() {
+fn removes_directory_contents_with_recursive_flag() -> Result {
     Playground::setup("rm_test_5", |dirs, sandbox| {
         sandbox.with_files(&[
             EmptyFile("yehuda.txt"),
@@ -119,67 +115,63 @@ fn removes_directory_contents_with_recursive_flag() {
             EmptyFile("andres.txt"),
         ]);
 
-        nu!(
-            cwd: dirs.root(),
-            "rm rm_test_5 --recursive"
-        );
+        let () = test().cwd(dirs.root()).run("rm rm_test_5 --recursive")?;
 
         assert!(!dirs.test().exists());
+        Ok(())
     })
 }
 
 #[test]
-fn errors_if_attempting_to_delete_a_directory_with_content_without_recursive_flag() {
+fn errors_if_attempting_to_delete_a_directory_with_content_without_recursive_flag() -> Result {
     Playground::setup("rm_test_6", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("some_empty_file.txt")]);
-        let actual = nu!(
-            cwd: dirs.root(),
-            "rm rm_test_6"
-        );
+        let err = test()
+            .cwd(dirs.root())
+            .run("rm rm_test_6")
+            .expect_shell_error()?;
 
         assert!(dirs.test().exists());
-        assert!(actual.err.contains("cannot remove non-empty directory"));
+        assert_contains("try --recursive", err.to_string());
+        Ok(())
     })
 }
 
 #[test]
-fn errors_if_attempting_to_delete_home() {
+fn errors_if_attempting_to_delete_home() -> Result {
     Playground::setup("rm_test_8", |dirs, _| {
-        let actual = nu!(
-            cwd: dirs.root(),
-            "$env.HOME = 'myhome' ; rm -rf ~"
-        );
+        let err = test()
+            .cwd(dirs.root())
+            .run("$env.HOME = 'myhome' ; rm -rf ~")
+            .expect_shell_error()?;
 
-        assert!(actual.err.contains("please use -I or -i"));
+        assert_contains("You are trying to remove your home dir", err.to_string());
+        Ok(())
     })
 }
 
 #[test]
-fn errors_if_attempting_to_delete_single_dot_as_argument() {
+fn errors_if_attempting_to_delete_single_dot_as_argument() -> Result {
     Playground::setup("rm_test_7", |dirs, _| {
-        let actual = nu!(
-            cwd: dirs.root(),
-            "rm ."
-        );
+        let err = test().cwd(dirs.root()).run("rm .").expect_shell_error()?;
 
-        assert!(actual.err.contains("cannot remove any parent directory"));
+        assert_contains("Cannot remove any parent directory", err.to_string());
+        Ok(())
     })
 }
 
 #[test]
-fn errors_if_attempting_to_delete_two_dot_as_argument() {
+fn errors_if_attempting_to_delete_two_dot_as_argument() -> Result {
     Playground::setup("rm_test_8", |dirs, _| {
-        let actual = nu!(
-            cwd: dirs.root(),
-            "rm .."
-        );
+        let err = test().cwd(dirs.root()).run("rm ..").expect_shell_error()?;
 
-        assert!(actual.err.contains("cannot"));
+        assert_contains("Cannot", err.to_string());
+        Ok(())
     })
 }
 
 #[test]
-fn removes_multiple_directories() {
+fn removes_multiple_directories() -> Result {
     Playground::setup("rm_test_9", |dirs, sandbox| {
         sandbox
             .within("src")
@@ -189,20 +181,18 @@ fn removes_multiple_directories() {
             .within("test")
             .with_files(&[EmptyFile("a_test.rs"), EmptyFile("b_test.rs")]);
 
-        nu!(
-            cwd: dirs.test(),
-            "rm src test --recursive"
-        );
+        let () = test().cwd(dirs.test()).run("rm src test --recursive")?;
 
         assert_eq!(
             Playground::glob_vec(&format!("{}/*", dirs.test().display())),
             Vec::<std::path::PathBuf>::new()
         );
+        Ok(())
     })
 }
 
 #[test]
-fn removes_multiple_files() {
+fn removes_multiple_files() -> Result {
     Playground::setup("rm_test_10", |dirs, sandbox| {
         sandbox.with_files(&[
             EmptyFile("yehuda.txt"),
@@ -210,20 +200,20 @@ fn removes_multiple_files() {
             EmptyFile("andres.txt"),
         ]);
 
-        nu!(
-            cwd: dirs.test(),
-            "rm yehuda.txt jttxt andres.txt"
-        );
+        let () = test()
+            .cwd(dirs.test())
+            .run("rm yehuda.txt jttxt andres.txt")?;
 
         assert_eq!(
             Playground::glob_vec(&format!("{}/*", dirs.test().display())),
             Vec::<std::path::PathBuf>::new()
         );
+        Ok(())
     })
 }
 
 #[test]
-fn removes_multiple_files_with_asterisks() {
+fn removes_multiple_files_with_asterisks() -> Result {
     Playground::setup("rm_test_11", |dirs, sandbox| {
         sandbox.with_files(&[
             EmptyFile("yehuda.txt"),
@@ -231,38 +221,33 @@ fn removes_multiple_files_with_asterisks() {
             EmptyFile("andres.toml"),
         ]);
 
-        nu!(
-            cwd: dirs.test(),
-            "rm *.txt *.toml"
-        );
+        let () = test().cwd(dirs.test()).run("rm *.txt *.toml")?;
 
         assert_eq!(
             Playground::glob_vec(&format!("{}/*", dirs.test().display())),
             Vec::<std::path::PathBuf>::new()
         );
+        Ok(())
     })
 }
 
 #[test]
-fn allows_doubly_specified_file() {
+fn allows_doubly_specified_file() -> Result {
     Playground::setup("rm_test_12", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("yehuda.txt"), EmptyFile("jt.toml")]);
 
-        let actual = nu!(
-            cwd: dirs.test(),
-            "rm *.txt yehuda* *.toml"
-        );
+        let () = test().cwd(dirs.test()).run("rm *.txt yehuda* *.toml")?;
 
         assert_eq!(
             Playground::glob_vec(&format!("{}/*", dirs.test().display())),
             Vec::<std::path::PathBuf>::new()
         );
-        assert!(!actual.out.contains("error"))
+        Ok(())
     })
 }
 
 #[test]
-fn remove_files_from_two_parents_up_using_multiple_dots_and_glob() {
+fn remove_files_from_two_parents_up_using_multiple_dots_and_glob() -> Result {
     Playground::setup("rm_test_13", |dirs, sandbox| {
         sandbox.with_files(&[
             EmptyFile("yehuda.txt"),
@@ -272,160 +257,148 @@ fn remove_files_from_two_parents_up_using_multiple_dots_and_glob() {
 
         sandbox.within("foo").mkdir("bar");
 
-        nu!(
-            cwd: dirs.test().join("foo/bar"),
-            "rm .../*.txt"
-        );
+        let () = test()
+            .cwd(dirs.test().join("foo/bar"))
+            .run("rm .../*.txt")?;
 
         assert!(!files_exist_at(
             &["yehuda.txt", "jttxt", "kevin.txt"],
             dirs.test()
         ));
+        Ok(())
     })
 }
 
 #[test]
-fn no_errors_if_attempting_to_delete_non_existent_file_with_f_flag() {
+fn no_errors_if_attempting_to_delete_non_existent_file_with_f_flag() -> Result {
     Playground::setup("rm_test_14", |dirs, _| {
-        let actual = nu!(
-            cwd: dirs.root(),
-            "rm -f non_existent_file.txt"
-        );
-
-        assert!(!actual.err.contains("no valid path"));
+        let () = test().cwd(dirs.root()).run("rm -f non_existent_file.txt")?;
+        Ok(())
     })
 }
 
 #[test]
-fn rm_wildcard_keeps_dotfiles() {
+fn rm_wildcard_keeps_dotfiles() -> Result {
     Playground::setup("rm_test_15", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("foo"), EmptyFile(".bar")]);
 
-        nu!(
-            cwd: dirs.test(),
-            "rm *"
-        );
+        let () = test().cwd(dirs.test()).run("rm *")?;
 
         assert!(!files_exist_at(&["foo"], dirs.test()));
         assert!(files_exist_at(&[".bar"], dirs.test()));
+        Ok(())
     })
 }
 
 #[test]
-fn rm_wildcard_leading_dot_deletes_dotfiles() {
+fn rm_wildcard_leading_dot_deletes_dotfiles() -> Result {
     Playground::setup("rm_test_16", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("foo"), EmptyFile(".bar")]);
 
-        nu!(
-            cwd: dirs.test(),
-            "rm .*"
-        );
+        let () = test().cwd(dirs.test()).run("rm .b*")?;
 
         assert!(files_exist_at(&["foo"], dirs.test()));
         assert!(!files_exist_at(&[".bar"], dirs.test()));
+        Ok(())
     })
 }
 
 #[test]
-fn removes_files_with_case_sensitive_glob_matches_by_default() {
+fn removes_files_with_case_sensitive_glob_matches_by_default() -> Result {
     Playground::setup("glob_test", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("A0"), EmptyFile("a1")]);
 
-        nu!(
-            cwd: dirs.root(),
-            "rm glob_test/A*"
-        );
+        let () = test().cwd(dirs.root()).run("rm glob_test/A*")?;
 
         let deleted_path = dirs.test().join("A0");
         let skipped_path = dirs.test().join("a1");
 
         assert!(!deleted_path.exists());
         assert!(skipped_path.exists());
+        Ok(())
     })
 }
 
 #[test]
-fn remove_ignores_ansi() {
+fn remove_ignores_ansi() -> Result {
     Playground::setup("rm_test_ansi", |_dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("test.txt")]);
 
-        let actual = nu!(
-            cwd: sandbox.cwd(),
-            "ls | find test | get name | rm $in.0; ls | is-empty",
-        );
-        assert_eq!(actual.out, "true");
-    });
+        test()
+            .cwd(sandbox.cwd())
+            .run("ls | find test | get name | rm $in.0; ls | is-empty")
+            .expect_value_eq(true)
+    })
 }
 
 #[test]
-fn removes_symlink() {
+fn removes_symlink() -> Result {
     let symlink_target = "symlink_target";
     let symlink = "symlink";
     Playground::setup("rm_test_symlink", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile(symlink_target)]);
 
         #[cfg(not(windows))]
-        std::os::unix::fs::symlink(dirs.test().join(symlink_target), dirs.test().join(symlink))
-            .unwrap();
+        std::os::unix::fs::symlink(dirs.test().join(symlink_target), dirs.test().join(symlink))?;
         #[cfg(windows)]
         std::os::windows::fs::symlink_file(
             dirs.test().join(symlink_target),
             dirs.test().join(symlink),
-        )
-        .unwrap();
+        )?;
 
-        let _ = nu!(cwd: sandbox.cwd(), "rm symlink");
+        let () = test().cwd(sandbox.cwd()).run("rm symlink")?;
 
         assert!(!dirs.test().join(symlink).exists());
-    });
+        Ok(())
+    })
 }
 
 #[test]
-fn removes_symlink_pointing_to_directory() {
+fn removes_symlink_pointing_to_directory() -> Result {
     Playground::setup("rm_symlink_to_directory", |dirs, sandbox| {
         sandbox.mkdir("test").symlink("test", "test_link");
 
-        nu!(cwd: sandbox.cwd(), "rm test_link");
+        let () = test().cwd(sandbox.cwd()).run("rm test_link")?;
 
         assert!(!dirs.test().join("test_link").exists());
         // The pointed directory should not be deleted.
         assert!(dirs.test().join("test").exists());
-    });
+        Ok(())
+    })
 }
 
 #[test]
-fn removes_broken_symlink() {
+fn removes_broken_symlink() -> Result {
     let symlink_target = "symlink_target_does_not_exist";
     let symlink = "symlink";
     Playground::setup("rm_test_broken_symlink", |dirs, sandbox| {
         #[cfg(not(windows))]
-        std::os::unix::fs::symlink(dirs.test().join(symlink_target), dirs.test().join(symlink))
-            .unwrap();
+        std::os::unix::fs::symlink(dirs.test().join(symlink_target), dirs.test().join(symlink))?;
         #[cfg(windows)]
         std::os::windows::fs::symlink_file(
             dirs.test().join(symlink_target),
             dirs.test().join(symlink),
-        )
-        .unwrap();
+        )?;
 
-        let _ = nu!(cwd: sandbox.cwd(), "rm symlink");
+        let () = test().cwd(sandbox.cwd()).run("rm symlink")?;
 
         assert!(!dirs.test().join(symlink).exists());
-    });
+        Ok(())
+    })
 }
 
 #[test]
-fn removes_file_after_cd() {
+fn removes_file_after_cd() -> Result {
     Playground::setup("rm_after_cd", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("delete.txt")]);
 
-        nu!(
-            cwd: dirs.root(),
-            "let file = 'delete.txt'; cd rm_after_cd; rm $file",
-        );
+        let () = test()
+            .cwd(dirs.root())
+            .run("let file = 'delete.txt'; cd rm_after_cd; rm $file")?;
 
         let path = dirs.test().join("delete.txt");
         assert!(!path.exists());
+        Ok(())
     })
 }
 
@@ -450,12 +423,13 @@ impl Drop for Cleanup<'_> {
     }
 }
 
-#[test]
 // This test is only about verifying file names are included in rm error messages. It is easier
 // to only have this work on non-windows systems (i.e., unix-like) than to try to get the
 // permissions to work on all platforms.
 #[cfg(not(windows))]
-fn rm_prints_filenames_on_error() {
+#[test]
+#[deps(NU)]
+fn rm_prints_filenames_on_error() -> Result {
     Playground::setup("rm_prints_filenames_on_error", |dirs, sandbox| {
         let file_names = vec!["test1.txt", "test2.txt"];
 
@@ -473,35 +447,35 @@ fn rm_prints_filenames_on_error() {
         };
 
         // This rm is expected to fail, and stderr output indicating so is also expected.
-        let actual = nu!(cwd: test_dir, "rm test*.txt");
+        let result: CompleteResult = test().cwd(test_dir).run_with_data(RUNNER, "rm test*.txt")?;
 
         assert!(files_exist_at(&file_names, test_dir));
         for file_name in file_names {
-            assert!(actual.err.contains("nu::shell::io::permission_denied"));
-            assert!(actual.err.contains(file_name));
+            assert_contains("nu::shell::io::permission_denied", &result.stderr);
+            assert_contains(file_name, &result.stderr);
         }
-    });
+
+        Ok(())
+    })
 }
 
 #[test]
-fn rm_files_inside_glob_metachars_dir() {
+fn rm_files_inside_glob_metachars_dir() -> Result {
     Playground::setup("rm_files_inside_glob_metachars_dir", |dirs, sandbox| {
         let sub_dir = "test[]";
         sandbox
             .within(sub_dir)
             .with_files(&[EmptyFile("test_file.txt")]);
 
-        let actual = nu!(
-            cwd: dirs.test().join(sub_dir),
-            "rm test_file.txt",
-        );
-
-        assert!(actual.err.is_empty());
+        let () = test()
+            .cwd(dirs.test().join(sub_dir))
+            .run("rm test_file.txt")?;
         assert!(!files_exist_at(
             &["test_file.txt"],
             dirs.test().join(sub_dir)
         ));
-    });
+        Ok(())
+    })
 }
 
 #[rstest]
@@ -509,36 +483,25 @@ fn rm_files_inside_glob_metachars_dir() {
 #[case("a[c")]
 #[case("a[bc]d")]
 #[case("a][c")]
-fn rm_files_with_glob_metachars(#[case] src_name: &str) {
+fn rm_files_with_glob_metachars(#[case] src_name: &str) -> Result {
     Playground::setup("rm_files_with_glob_metachars", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile(src_name)]);
 
         let src = dirs.test().join(src_name);
 
-        let actual = nu!(
-            cwd: dirs.test(),
-            format!(
-                "rm '{}'",
-                src.display(),
-            )
-        );
-
-        assert!(actual.err.is_empty());
+        let () = test()
+            .cwd(dirs.test())
+            .run(format!("rm '{}'", src.display()))?;
         assert!(!src.exists());
 
         // test with variables
         sandbox.with_files(&[EmptyFile(src_name)]);
-        let actual = nu!(
-            cwd: dirs.test(),
-            format!(
-                "let f = '{}'; rm $f",
-                src.display(),
-            )
-        );
-
-        assert!(actual.err.is_empty());
+        let () = test()
+            .cwd(dirs.test())
+            .run(format!("let f = '{}'; rm $f", src.display()))?;
         assert!(!src.exists());
-    });
+        Ok(())
+    })
 }
 
 #[cfg(not(windows))]
@@ -546,74 +509,80 @@ fn rm_files_with_glob_metachars(#[case] src_name: &str) {
 #[case("a]?c")]
 #[case("a*.?c")]
 // windows doesn't allow filename with `*`.
-fn rm_files_with_glob_metachars_nw(#[case] src_name: &str) {
-    rm_files_with_glob_metachars(src_name);
+fn rm_files_with_glob_metachars_nw(#[case] src_name: &str) -> Result {
+    rm_files_with_glob_metachars(src_name)
 }
 
 #[test]
-fn force_rm_suppress_error() {
+fn force_rm_suppress_error() -> Result {
     Playground::setup("force_rm_suppress_error", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("test_file.txt")]);
 
         // the second rm should suppress error.
-        let actual = nu!(
-            cwd: dirs.test(),
-            "rm test_file.txt; rm -f test_file.txt",
-        );
-
-        assert!(actual.err.is_empty());
-    });
+        let () = test()
+            .cwd(dirs.test())
+            .run("rm test_file.txt; rm -f test_file.txt")?;
+        Ok(())
+    })
 }
 
 #[test]
-fn rm_verbose_returns_deleted_record() {
+fn rm_verbose_returns_deleted_record() -> Result {
     Playground::setup("rm_verbose_returns_deleted_record", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("test_file.txt")]);
 
-        let actual = nu!(
-            cwd: dirs.test(),
-            "rm -v test_file.txt | to json",
-        );
+        let code = "
+            let result = (rm -v test_file.txt | first)
+            [$result.deleted, ($result.error == null), ($result.path | path basename)]
+        ";
 
-        assert!(actual.err.is_empty());
+        test()
+            .cwd(dirs.test())
+            .run(code)
+            .expect_value_eq(test_value!([true, true, "test_file.txt"]))?;
         assert!(!dirs.test().join("test_file.txt").exists());
-        assert!(actual.out.contains("path"));
-        assert!(actual.out.contains("test_file.txt"));
-        assert!(actual.out.contains("deleted"));
-        assert!(actual.out.contains("true"));
-        assert!(actual.out.contains("error"));
-        assert!(actual.out.contains("nul"));
-    });
+        Ok(())
+    })
 }
 
 #[test]
-fn rm_verbose_returns_error_record_without_failing_pipeline() {
+fn rm_verbose_returns_error_record_without_failing_pipeline() -> Result {
     Playground::setup(
         "rm_verbose_returns_error_record_without_failing_pipeline",
         |dirs, sandbox| {
             sandbox.with_files(&[EmptyFile("present.txt")]);
 
-            let actual = nu!(
-                cwd: dirs.test(),
-                "rm -v present.txt missing.txt | to json",
-            );
+            let code = "
+                let result = (rm -v present.txt missing.txt | update path { path basename })
+                let present = ($result | where path == present.txt | first)
+                let missing = ($result | where path == missing.txt | first)
+                [
+                    $present.deleted,
+                    $missing.deleted,
+                    ($missing.error != null),
+                    $present.path,
+                    $missing.path,
+                ]
+            ";
 
-            assert!(actual.err.is_empty());
+            test()
+                .cwd(dirs.test())
+                .run(code)
+                .expect_value_eq(test_value!([
+                    true,
+                    false,
+                    true,
+                    "present.txt",
+                    "missing.txt",
+                ]))?;
             assert!(!dirs.test().join("present.txt").exists());
-            assert!(actual.out.contains("path"));
-            assert!(actual.out.contains("present.txt"));
-            assert!(actual.out.contains("missing.txt"));
-            assert!(actual.out.contains("deleted"));
-            assert!(actual.out.contains("true"));
-            assert!(actual.out.contains("false"));
-            assert!(actual.out.contains("error"));
-            assert!(actual.out.contains("null"));
+            Ok(())
         },
-    );
+    )
 }
 
 #[test]
-fn rm_with_tilde() {
+fn rm_with_tilde() -> Result {
     Playground::setup("rm_tilde", |dirs, sandbox| {
         sandbox.within("~tilde").with_files(&[
             EmptyFile("f1.txt"),
@@ -621,25 +590,25 @@ fn rm_with_tilde() {
             EmptyFile("f3.txt"),
         ]);
 
-        let actual = nu!(cwd: dirs.test(), "rm '~tilde/f1.txt'");
-        assert!(actual.err.is_empty());
+        let () = test().cwd(dirs.test()).run("rm '~tilde/f1.txt'")?;
         assert!(!files_exist_at(&["f1.txt"], dirs.test().join("~tilde")));
 
         // pass variable
-        let actual = nu!(cwd: dirs.test(), "let f = '~tilde/f2.txt'; rm $f");
-        assert!(actual.err.is_empty());
+        let () = test()
+            .cwd(dirs.test())
+            .run("let f = '~tilde/f2.txt'; rm $f")?;
         assert!(!files_exist_at(&["f2.txt"], dirs.test().join("~tilde")));
 
         // remove directory
-        let actual = nu!(cwd: dirs.test(), "let f = '~tilde'; rm -r $f");
-        assert!(actual.err.is_empty());
+        let () = test().cwd(dirs.test()).run("let f = '~tilde'; rm -r $f")?;
         assert!(!files_exist_at(&["~tilde"], dirs.test()));
+        Ok(())
     })
 }
 
 #[test]
 #[cfg(windows)]
-fn rm_already_in_use() {
+fn rm_already_in_use() -> Result {
     Playground::setup("rm_already_in_use", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("i_will_be_used.txt")]);
 
@@ -648,15 +617,31 @@ fn rm_already_in_use() {
             .read(true)
             .write(false)
             .share_mode(0) // deny all sharing
-            .open(file_path)
-            .unwrap();
+            .open(file_path)?;
 
-        let outcome = nu!(
-            cwd: dirs.root(),
-            "rm rm_already_in_use/i_will_be_used.txt"
-        );
+        let err = test()
+            .cwd(dirs.root())
+            .run("rm rm_already_in_use/i_will_be_used.txt")
+            .expect_shell_error()?;
 
-        assert!(outcome.err.contains("nu::shell::io::already_in_use"));
-        assert!(!outcome.status.success())
+        assert_contains("AlreadyInUse", format!("{err:?}"));
+        Ok(())
+    })
+}
+
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn removes_literal_directory_with_recursive_flag() -> Result {
+    Playground::setup("rm_literal_dir_dc", |dirs, sandbox| {
+        sandbox
+            .within("subdir")
+            .with_files(&[EmptyFile("test.txt")]);
+
+        let () = test()
+            .cwd(dirs.root())
+            .run("rm rm_literal_dir_dc/subdir --recursive")?;
+
+        assert!(!dirs.test().join("subdir").exists());
+        Ok(())
     })
 }

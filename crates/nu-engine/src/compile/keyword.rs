@@ -74,6 +74,7 @@ pub(crate) fn compile_if(
         working_set,
         builder,
         true_block,
+        true,
         redirect_modes.clone(),
         Some(io_reg),
         io_reg,
@@ -109,6 +110,7 @@ pub(crate) fn compile_if(
                     working_set,
                     builder,
                     false_block,
+                    true,
                     redirect_modes,
                     Some(io_reg),
                     io_reg,
@@ -264,6 +266,7 @@ pub(crate) fn compile_match(
                 working_set,
                 builder,
                 block,
+                true,
                 redirect_modes.clone(),
                 Some(io_reg),
                 io_reg,
@@ -352,6 +355,7 @@ pub(crate) fn compile_let(
                 working_set,
                 builder,
                 block,
+                true,
                 RedirectModes::value(call.head),
                 input_reg,
                 io_reg,
@@ -464,10 +468,8 @@ pub(crate) fn compile_try(
         .and_then(|mut iter| Some((iter.next()?, iter.next(), iter.next())))
         .ok_or_else(invalid)?;
 
-    let block = {
-        let block_id = try_block.as_block().ok_or_else(invalid)?;
-        working_set.get_block(block_id)
-    };
+    let try_block_id = try_block.as_block().ok_or_else(invalid)?;
+    let block = working_set.get_block(try_block_id);
 
     let (catch_expr, finally_expr) = {
         let catch_or_finally = catch_or_finally
@@ -550,6 +552,7 @@ pub(crate) fn compile_try(
     // Put the error handler instruction. If we have a catch expression then we should capture the
     // error.
     let mut has_try_comment = false;
+    let mut pushed_error_handler = false;
     if catch_type.is_some() {
         builder.push(
             Instruction::OnErrorInto {
@@ -560,12 +563,14 @@ pub(crate) fn compile_try(
         )?;
         builder.add_comment("try");
         has_try_comment = true;
+        pushed_error_handler = true;
     } else if finally_expr.is_none() {
         // Simply try, without `catch` and `finally` block, need to set up OnErrorHandler.
         // so `try { 1 / 0 }` works
         builder.push(Instruction::OnError { index: err_label.0 }.into_spanned(call.head))?;
         builder.add_comment("try");
         has_try_comment = true;
+        pushed_error_handler = true;
     };
 
     builder.begin_try();
@@ -592,6 +597,7 @@ pub(crate) fn compile_try(
         working_set,
         builder,
         block,
+        true,
         redirect_modes.clone(),
         Some(io_reg),
         io_reg,
@@ -616,7 +622,10 @@ pub(crate) fn compile_try(
     } else {
         builder.push(Instruction::DrainIfEnd { src: io_reg }.into_spanned(call.head))?;
     }
-    builder.push(Instruction::PopErrorHandler.into_spanned(call.head))?;
+
+    if pushed_error_handler {
+        builder.push(Instruction::PopErrorHandler.into_spanned(call.head))?;
+    }
 
     builder.end_try()?;
 
@@ -657,6 +666,7 @@ pub(crate) fn compile_try(
                 working_set,
                 builder,
                 block,
+                true,
                 redirect_modes.clone(),
                 Some(io_reg),
                 io_reg,
@@ -699,6 +709,7 @@ pub(crate) fn compile_try(
             working_set,
             builder,
             finally_part.block,
+            true,
             redirect_modes,
             Some(io_reg),
             io_reg,
@@ -780,14 +791,12 @@ pub(crate) fn compile_loop(
         span: call.head,
     };
 
-    let block = {
-        let block_id = call
-            .positional_iter()
-            .next()
-            .and_then(Expression::as_block)
-            .ok_or_else(invalid)?;
-        working_set.get_block(block_id)
-    };
+    let block_id = call
+        .positional_iter()
+        .next()
+        .and_then(Expression::as_block)
+        .ok_or_else(invalid)?;
+    let block = working_set.get_block(block_id);
 
     let loop_ = builder.begin_loop();
     builder.load_empty(io_reg)?;
@@ -798,6 +807,7 @@ pub(crate) fn compile_loop(
         working_set,
         builder,
         block,
+        true,
         RedirectModes::default(),
         None,
         io_reg,
@@ -847,10 +857,8 @@ pub(crate) fn compile_while(
         .and_then(|mut iter| Some((iter.next()?, iter.next()?)))
         .ok_or_else(invalid)?;
 
-    let block = {
-        let block_id = block_arg.as_block().ok_or_else(invalid)?;
-        working_set.get_block(block_id)
-    };
+    let block_id = block_arg.as_block().ok_or_else(invalid)?;
+    let block = working_set.get_block(block_id);
 
     let loop_ = builder.begin_loop();
     builder.set_label(loop_.continue_label, builder.here())?;
@@ -879,6 +887,7 @@ pub(crate) fn compile_while(
         working_set,
         builder,
         block,
+        true,
         RedirectModes::default(),
         None,
         io_reg,
@@ -984,6 +993,7 @@ pub(crate) fn compile_for(
         working_set,
         builder,
         block,
+        true,
         RedirectModes::default(),
         None,
         io_reg,
@@ -1084,8 +1094,10 @@ pub(crate) fn compile_return(
         builder.load_empty(io_reg)?;
     }
 
-    // TODO: It would be nice if this could be `return` instead, but there is a little bit of
-    // behaviour remaining that still depends on `ShellError::Return`
+    // This is distinct from the terminal `return` instruction: it runs pending `finally`
+    // handlers, and flags the result as an early return. Custom command and closure calls clear
+    // that flag; top-level file evaluation reads it (e.g. so a top-level `return` in a script
+    // prevents `main` from running).
     builder.push(Instruction::ReturnEarly { src: io_reg }.into_spanned(call.head))?;
 
     // io_reg is supposed to remain allocated

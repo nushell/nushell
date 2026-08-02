@@ -1,4 +1,4 @@
-use crate::math::utils::ensure_bounded;
+use crate::math::utils::run_with_elementwise;
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -13,18 +13,40 @@ impl Command for MathCeil {
         Signature::build("math ceil")
             .input_output_types(vec![
                 (Type::Number, Type::Int),
+                (Type::Duration, Type::Duration),
+                (Type::Filesize, Type::Filesize),
                 (
                     Type::List(Box::new(Type::Number)),
                     Type::List(Box::new(Type::Int)),
                 ),
+                (
+                    Type::List(Box::new(Type::Duration)),
+                    Type::List(Box::new(Type::Duration)),
+                ),
+                (
+                    Type::List(Box::new(Type::Filesize)),
+                    Type::List(Box::new(Type::Filesize)),
+                ),
                 (Type::Range, Type::List(Box::new(Type::Number))),
+                (Type::record(), Type::record()),
             ])
+            .rest(
+                "columns",
+                SyntaxShape::CellPath,
+                "The cell-paths/columns to operate on.",
+            )
             .allow_variants_without_examples(true)
             .category(Category::Math)
     }
 
     fn description(&self) -> &str {
         "Returns the ceil of a number (smallest integer greater than or equal to that number)."
+    }
+
+    fn extra_description(&self) -> &str {
+        "Filesize and duration values are stored as integers in base units \
+         (bytes and nanoseconds). With no display unit to round against, \
+         `math ceil` is the identity function for those types."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -38,20 +60,20 @@ impl Command for MathCeil {
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
         let head = call.head;
-        // This doesn't match explicit nulls
-        if let PipelineData::Empty = input {
-            return Err(ShellError::PipelineEmpty { dst_span: head });
-        }
-        if let PipelineData::Value(ref v @ Value::Range { ref val, .. }, ..) = input {
-            let span = v.span();
-            ensure_bounded(val, span, head)?;
-        }
-        input.map(move |value| operate(value, head), engine_state.signals())
+        run_with_elementwise(
+            input,
+            cell_paths,
+            head,
+            engine_state.signals(),
+            true,
+            move |value| operate(value, head),
+        )
     }
 
     fn run_const(
@@ -60,42 +82,76 @@ impl Command for MathCeil {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let cell_paths: Vec<CellPath> = call.rest_const(working_set, 0)?;
         let head = call.head;
-        // This doesn't match explicit nulls
-        if let PipelineData::Empty = input {
-            return Err(ShellError::PipelineEmpty { dst_span: head });
-        }
-        if let PipelineData::Value(ref v @ Value::Range { ref val, .. }, ..) = input {
-            let span = v.span();
-            ensure_bounded(val, span, head)?;
-        }
-        input.map(
-            move |value| operate(value, head),
+        run_with_elementwise(
+            input,
+            cell_paths,
+            head,
             working_set.permanent().signals(),
+            true,
+            move |value| operate(value, head),
         )
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
-        vec![Example {
-            description: "Apply the ceil function to a list of numbers.",
-            example: "[1.5 2.3 -3.1] | math ceil",
-            result: Some(Value::list(
-                vec![Value::test_int(2), Value::test_int(3), Value::test_int(-3)],
-                Span::test_data(),
-            )),
-        }]
+        vec![
+            Example {
+                description: "Apply the ceil function to a list of numbers.",
+                example: "[1.5 2.3 -3.1] | math ceil",
+                result: Some(Value::list(
+                    vec![Value::test_int(2), Value::test_int(3), Value::test_int(-3)],
+                    Span::test_data(),
+                )),
+            },
+            Example {
+                description: "Apply ceiling to list-valued columns in a record.",
+                example: "{alice: [1.2 2.7 3.5], bob: [4.1 5.9]} | math ceil",
+                result: Some(Value::test_record(record! {
+                    "alice" => Value::list(
+                        vec![Value::test_int(2), Value::test_int(3), Value::test_int(4)],
+                        Span::test_data(),
+                    ),
+                    "bob" => Value::list(
+                        vec![Value::test_int(5), Value::test_int(6)],
+                        Span::test_data(),
+                    ),
+                })),
+            },
+            Example {
+                description: "Apply ceiling to a single column using a cell path.",
+                example: "{alice: [1.2 2.7 3.5], bob: [4.1 5.9]} | math ceil alice",
+                result: Some(Value::test_record(record! {
+                    "alice" => Value::list(
+                        vec![Value::test_int(2), Value::test_int(3), Value::test_int(4)],
+                        Span::test_data(),
+                    ),
+                    "bob" => Value::list(
+                        vec![Value::test_float(4.1), Value::test_float(5.9)],
+                        Span::test_data(),
+                    ),
+                })),
+            },
+            Example {
+                // Filesize is already whole bytes; ceiling cannot use the display unit (KB).
+                description: "Filesize values are already whole bytes, so ceiling is a no-op.",
+                example: "2.1KB | math ceil",
+                result: Some(Value::test_filesize(2100)),
+            },
+        ]
     }
 }
 
 fn operate(value: Value, head: Span) -> Value {
     let span = value.span();
     match value {
-        Value::Int { .. } => value,
+        // Duration and filesize are already integer units (ns / bytes).
+        Value::Int { .. } | Value::Duration { .. } | Value::Filesize { .. } => value,
         Value::Float { val, .. } => Value::int(val.ceil() as i64, span),
         Value::Error { .. } => value,
         other => Value::error(
             ShellError::OnlySupportsThisInputType {
-                exp_input_type: "numeric".into(),
+                exp_input_type: crate::math::utils::NUMERIC_INPUT_TYPES.into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
                 src_span: other.span(),

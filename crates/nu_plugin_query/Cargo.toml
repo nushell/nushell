@@ -1,12 +1,12 @@
 [package]
-authors = ["The Nushell Project Developers"]
+authors.workspace = true
 description = "A Nushell plugin to query JSON, XML, and various web data"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu_plugin_query"
 edition.workspace = true
 rust-version.workspace = true
-license = "MIT"
+license.workspace = true
 name = "nu_plugin_query"
-version = "0.112.3"
+version.workspace = true
 
 [lib]
 doctest = false
@@ -17,8 +17,8 @@ name = "nu_plugin_query"
 bench = false
 
 [dependencies]
-nu-plugin = { path = "../nu-plugin", version = "0.112.3" }
-nu-protocol = { path = "../nu-protocol", version = "0.112.3" }
+nu-plugin.workspace = true
+nu-protocol.workspace = true
 
 gjson = "0.8.1"
 scraper = { default-features = false, version = "0.27" }

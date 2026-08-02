@@ -1,6 +1,8 @@
-use super::state::stream_grep;
+use super::state::{GrepSearchContext, stream_grep};
 use fff_search::GrepMode;
 use nu_engine::command_prelude::*;
+use nu_protocol::Range;
+use std::ops::Bound;
 
 #[derive(Clone)]
 pub struct IdxSearch;
@@ -25,6 +27,12 @@ impl Command for IdxSearch {
                 "Maximum number of matches to collect.",
                 Some('l'),
             )
+            .named(
+                "context",
+                SyntaxShape::OneOf(vec![SyntaxShape::Range, SyntaxShape::Int]),
+                "The number of context lines to include before and after each match can be specified as an integer or a range. An integer sets both the before and after context to that number, while a range uses a negative value for lines before and a positive value for lines after (e.g., -3..5).",
+                Some('c'),
+            )
             .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::record())))])
             .category(Category::FileSystem)
     }
@@ -40,18 +48,38 @@ impl Command for IdxSearch {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Search indexed file contents for a plain text pattern",
+                description: "Search indexed file contents for a plain text pattern.",
                 example: "idx search hello",
                 result: None,
             },
             Example {
-                description: "Search using a regular expression",
+                description: "Search using a regular expression.",
                 example: "idx search --regex 'fn \\w+'",
                 result: None,
             },
             Example {
-                description: "Search with multiple patterns simultaneously",
+                description: "Search with multiple patterns simultaneously.",
                 example: "idx search TODO FIXME HACK",
+                result: None,
+            },
+            Example {
+                description: "Include 2 lines of context before and 5 lines after each match.",
+                example: "idx search --context -2..5 error",
+                result: None,
+            },
+            Example {
+                description: "Brackets and question marks are treated as literal text, not glob patterns.",
+                example: "idx search 'arr[0]'",
+                result: None,
+            },
+            Example {
+                description: "Glob patterns with a path separator filter which files to search.",
+                example: "idx search pattern tests/*",
+                result: None,
+            },
+            Example {
+                description: "Brace expansion globs also filter which files to search.",
+                example: "idx search pattern *.{rs,js}",
                 result: None,
             },
         ]
@@ -86,7 +114,11 @@ impl Command for IdxSearch {
 
         let limit = call
             .get_flag::<i64>(engine_state, stack, "limit")?
-            .and_then(|v| usize::try_from(v).ok())
+            .map(|value| {
+                usize::try_from(value)
+                    .map_err(|_| ShellError::NeedsPositiveValue { span: call.head })
+            })
+            .transpose()?
             .unwrap_or(50);
 
         let mode = if fuzzy {
@@ -97,7 +129,87 @@ impl Command for IdxSearch {
             GrepMode::PlainText
         };
 
-        let signals = engine_state.signals();
-        stream_grep(&patterns, mode, limit, call.head, signals)
+        let (before_context, after_context) = parse_context(
+            call.get_flag::<Value>(engine_state, stack, "context")?,
+            call.head,
+        )?;
+
+        let cwd = engine_state.cwd(Some(stack))?.into_std_path_buf();
+        stream_grep(GrepSearchContext {
+            patterns: &patterns,
+            mode,
+            page_limit: limit,
+            span: call.head,
+            before_context,
+            after_context,
+            cwd: Some(cwd.as_path()),
+            signals: engine_state.signals(),
+        })
+    }
+}
+
+/// Parse `--context` into the before/after counts expected by FFF.
+fn parse_context(value: Option<Value>, span: Span) -> Result<(usize, usize), ShellError> {
+    let unsupported = |msg| ShellError::UnsupportedInput {
+        msg,
+        input: "value originates from here".into(),
+        msg_span: span,
+        input_span: span,
+    };
+
+    let Some(value) = value else {
+        return Ok((0, 0));
+    };
+
+    match value {
+        Value::Int { val, .. } => {
+            let count = usize::try_from(val).map_err(|_| {
+                unsupported("Context must be non-negative, or use a range such as -3..5".into())
+            })?;
+            Ok((count, count))
+        }
+        Value::Range { val, .. } => match *val {
+            Range::IntRange(range) => {
+                if range.step() != 1 {
+                    return Err(unsupported(
+                        "Context range must not have an explicit step (e.g. use -3..5, not -3..1..5)".into(),
+                    ));
+                }
+
+                let start = range.start();
+                if start > 0 {
+                    return Err(unsupported(
+                        "Context range start must be <= 0 (use a negative value for before-context, e.g. -3..5)".into(),
+                    ));
+                }
+
+                let end = match range.end() {
+                    Bound::Included(end) | Bound::Excluded(end) => end,
+                    Bound::Unbounded => {
+                        return Err(unsupported(
+                            "Context range must have a bounded end (use a positive value for after-context, e.g. -3..5)".into(),
+                        ));
+                    }
+                };
+                if end < 0 {
+                    return Err(unsupported(
+                        "Context range end must be >= 0 (use a positive value for after-context, e.g. -3..5)".into(),
+                    ));
+                }
+
+                let before = usize::try_from(start.unsigned_abs())
+                    .map_err(|_| unsupported("Context range start is too large".into()))?;
+                let after = usize::try_from(end)
+                    .map_err(|_| unsupported("Context range end is too large".into()))?;
+                Ok((before, after))
+            }
+            Range::FloatRange(_) => Err(unsupported(
+                "Float ranges are not supported for context".into(),
+            )),
+        },
+        other => Err(unsupported(format!(
+            "Context must be an integer or range, but got {}",
+            other.get_type()
+        ))),
     }
 }

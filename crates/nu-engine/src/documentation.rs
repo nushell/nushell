@@ -66,7 +66,6 @@ pub fn get_full_help(
         CommandType::Alias => get_alias_documentation(
             &mut long_desc,
             command,
-            &sig,
             &help_style,
             engine_state,
             stack,
@@ -239,7 +238,6 @@ fn highlight_code<'a>(
 fn get_alias_documentation(
     long_desc: &mut String,
     command: &dyn Command,
-    sig: &Signature,
     help_style: &HelpStyle,
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -248,7 +246,7 @@ fn get_alias_documentation(
     let help_section_name = &help_style.section_name;
     let help_subcolor_one = &help_style.subcolor_one;
 
-    let alias_name = &sig.name;
+    let alias_name = command.name();
 
     write!(
         long_desc,
@@ -655,7 +653,7 @@ fn get_argument_for_color_value(
                 span,
                 span_id,
                 Type::Record(
-                    [
+                    vec![
                         ("fg".to_string(), Type::String),
                         ("attr".to_string(), Type::String),
                     ]
@@ -775,7 +773,7 @@ fn write_positional(
             write!(
                 long_desc,
                 "{help_subcolor_one}{}{RESET} <{help_subcolor_two}{}{RESET}>",
-                positional.name, &positional.shape,
+                positional.name, positional.shape,
             )
             .expect("writing to a String is infallible");
         }
@@ -835,13 +833,13 @@ fn write_flag_to_long_desc<F>(
     if let Some(short) = flag.short {
         write!(long_desc, "{help_subcolor_one}-{short}{RESET}")
             .expect("writing to a String is infallible");
-        if !flag.long.is_empty() {
+        if flag.long_name().is_some() {
             write!(long_desc, "{DEFAULT_COLOR},{RESET} ")
                 .expect("writing to a String is infallible");
         }
     }
-    if !flag.long.is_empty() {
-        write!(long_desc, "{help_subcolor_one}--{}{RESET}", flag.long)
+    if let Some(long) = flag.long_name() {
+        write!(long_desc, "{help_subcolor_one}--{long}{RESET}")
             .expect("writing to a String is infallible");
     }
     if flag.required {
@@ -856,7 +854,7 @@ fn write_flag_to_long_desc<F>(
         write!(
             long_desc,
             ": {}",
-            &formatter(FormatterValue::CodeString(&flag.desc))
+            formatter(FormatterValue::CodeString(&flag.desc))
         )
         .expect("writing to a String is infallible");
     }
@@ -864,7 +862,7 @@ fn write_flag_to_long_desc<F>(
         write!(
             long_desc,
             " (default: {})",
-            &formatter(FormatterValue::DefaultValue(value))
+            formatter(FormatterValue::DefaultValue(value))
         )
         .expect("writing to a String is infallible");
     }

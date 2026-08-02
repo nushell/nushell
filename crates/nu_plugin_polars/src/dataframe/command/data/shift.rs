@@ -49,6 +49,10 @@ impl PluginCommand for Shift {
                     PolarsPluginType::NuExpression.into(),
                     PolarsPluginType::NuExpression.into(),
                 ),
+                (
+                    PolarsPluginType::NuSelector.into(),
+                    PolarsPluginType::NuExpression.into(),
+                ),
             ])
             .category(Category::Custom("dataframe or lazyframe".into()))
     }
@@ -168,6 +172,7 @@ impl PluginCommand for Shift {
                     PolarsPluginType::NuDataFrame,
                     PolarsPluginType::NuLazyGroupBy,
                     PolarsPluginType::NuExpression,
+                    PolarsPluginType::NuSelector,
                 ],
             )),
         }

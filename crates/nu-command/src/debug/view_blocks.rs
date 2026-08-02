@@ -21,7 +21,7 @@ impl Command for ViewBlocks {
             .input_output_types(vec![(
                 Type::Nothing,
                 Type::Table(
-                    [
+                    vec![
                         ("block_id".into(), Type::Int),
                         ("content".into(), Type::String),
                         ("start".into(), Type::Int),

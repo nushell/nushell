@@ -21,7 +21,7 @@ impl Command for IdxStatus {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Show the current idx runtime status",
+            description: "Show the current idx runtime status.",
             example: "idx status",
             result: None,
         }]
@@ -35,7 +35,7 @@ impl Command for IdxStatus {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         Ok(PipelineData::value(
-            current_status(None).to_value(call.head),
+            current_status().to_value(call.head),
             None,
         ))
     }

@@ -227,9 +227,10 @@ fn return_closure_value() -> Result {
 }
 
 #[test]
+#[deps(TESTBIN_COCOCO)]
 fn lazy_output_streams() -> Result {
-    let code = "default { nu --testbin cococo 'hello' } | describe";
-    let actual: String = test().add_nu_to_path().run(code)?;
+    let code = "default { cococo 'hello' } | describe";
+    let actual: String = test().run(code)?;
     assert_contains("byte stream", actual);
     Ok(())
 }

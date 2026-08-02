@@ -52,7 +52,6 @@ fn help_lists_all_flags() -> TestResult {
         "--log-include",
         "--log-exclude",
         "--stdin",
-        "--testbin",
         "--experimental-options",
         "--lsp",
         "--ide-goto-def",
@@ -433,46 +432,6 @@ fn log_target_rejects_invalid_value() -> TestResult {
 }
 
 #[test]
-fn log_include_rejects_invalid_value() -> TestResult {
-    let mut cmd = Command::new(cargo_bin!());
-    let output = cmd
-        .args([
-            "--no-config-file",
-            "--no-std-lib",
-            "--log-include",
-            "verbose",
-        ])
-        .output()?;
-    let stderr = String::from_utf8_lossy(&output.stderr);
-
-    assert!(!output.status.success());
-    assert!(stderr.contains("log-include"));
-    assert!(stderr.contains("Did you mean") || stderr.contains("Valid log levels"));
-
-    Ok(())
-}
-
-#[test]
-fn log_exclude_rejects_invalid_value() -> TestResult {
-    let mut cmd = Command::new(cargo_bin!());
-    let output = cmd
-        .args([
-            "--no-config-file",
-            "--no-std-lib",
-            "--log-exclude",
-            "verbose",
-        ])
-        .output()?;
-    let stderr = String::from_utf8_lossy(&output.stderr);
-
-    assert!(!output.status.success());
-    assert!(stderr.contains("log-exclude"));
-    assert!(stderr.contains("Did you mean") || stderr.contains("Valid log levels"));
-
-    Ok(())
-}
-
-#[test]
 fn log_level_missing_value_lists_modes() -> TestResult {
     let mut cmd = Command::new(cargo_bin!());
     let output = cmd
@@ -542,47 +501,6 @@ fn stdin_flag_runs() -> TestResult {
         .output()?;
 
     assert!(output.status.success());
-
-    Ok(())
-}
-
-#[test]
-fn testbin_flag_accepts_value() -> TestResult {
-    let mut cmd = Command::new(cargo_bin!());
-    let output = cmd
-        .args(["--testbin", "cococo", "--no-std-lib", "-c", "print 1"])
-        .output()?;
-
-    assert!(output.status.success());
-
-    Ok(())
-}
-
-#[test]
-fn testbin_rejects_invalid_value() -> TestResult {
-    let mut cmd = Command::new(cargo_bin!());
-    let output = cmd
-        .args(["--no-config-file", "--no-std-lib", "--testbin", "cocooo"])
-        .output()?;
-    let stderr = String::from_utf8_lossy(&output.stderr);
-
-    assert!(!output.status.success());
-    assert!(stderr.contains("testbin"));
-    assert!(stderr.contains("Did you mean") || stderr.contains("Valid test bins"));
-
-    Ok(())
-}
-
-#[test]
-fn testbin_missing_value_lists_modes() -> TestResult {
-    let mut cmd = Command::new(cargo_bin!());
-    let output = cmd
-        .args(["--no-config-file", "--no-std-lib", "--testbin"])
-        .output()?;
-    let stderr = String::from_utf8_lossy(&output.stderr);
-
-    assert!(!output.status.success());
-    assert!(stderr.contains("Valid test bins"));
 
     Ok(())
 }
@@ -884,26 +802,6 @@ fn log_include_accepts_bracketed_list_with_spaces() -> TestResult {
     Ok(())
 }
 
-#[test]
-fn log_include_rejects_invalid_level() -> TestResult {
-    let mut cmd = Command::new(cargo_bin!());
-    let output = cmd
-        .args([
-            "--no-config-file",
-            "--no-std-lib",
-            "--log-include",
-            "invalid",
-            "-c",
-            "print 'test'",
-        ])
-        .output()?;
-    let stderr = String::from_utf8_lossy(&output.stderr);
-
-    assert!(!output.status.success());
-    assert!(stderr.contains("Invalid value for `--log-include`"));
-    Ok(())
-}
-
 // Tests for --log-exclude with various formats
 #[test]
 fn log_exclude_accepts_single_value() -> TestResult {
@@ -975,26 +873,6 @@ fn log_exclude_accepts_bracketed_list() -> TestResult {
         .output()?;
 
     assert!(output.status.success());
-    Ok(())
-}
-
-#[test]
-fn log_exclude_rejects_invalid_level() -> TestResult {
-    let mut cmd = Command::new(cargo_bin!());
-    let output = cmd
-        .args([
-            "--no-config-file",
-            "--no-std-lib",
-            "--log-exclude",
-            "invalid",
-            "-c",
-            "print 'test'",
-        ])
-        .output()?;
-    let stderr = String::from_utf8_lossy(&output.stderr);
-
-    assert!(!output.status.success());
-    assert!(stderr.contains("Invalid value for `--log-exclude`"));
     Ok(())
 }
 
@@ -1125,39 +1003,6 @@ fn missing_error_style_lists_values() -> TestResult {
 
     assert!(!output.status.success());
     assert!(stderr.contains("Valid error styles"));
-    Ok(())
-}
-
-#[test]
-fn missing_testbin_lists_values() -> TestResult {
-    let mut cmd = Command::new(cargo_bin!());
-    let output = cmd
-        .args(["--no-config-file", "--no-std-lib", "--testbin"])
-        .output()?;
-    let stderr = String::from_utf8_lossy(&output.stderr);
-
-    assert!(!output.status.success());
-    assert!(stderr.contains("Valid test bins"));
-    Ok(())
-}
-
-#[test]
-fn rejects_invalid_testbin_value() -> TestResult {
-    let mut cmd = Command::new(cargo_bin!());
-    let output = cmd
-        .args([
-            "--no-config-file",
-            "--no-std-lib",
-            "--testbin",
-            "cocooo",
-            "-c",
-            "print 1",
-        ])
-        .output()?;
-    let stderr = String::from_utf8_lossy(&output.stderr);
-
-    assert!(!output.status.success());
-    assert!(stderr.contains("Did you mean") || stderr.contains("Valid test bins"));
     Ok(())
 }
 
@@ -1560,7 +1405,7 @@ fn error_style_accepts_all_valid_styles() -> TestResult {
 // Test for log-level with all valid values
 #[test]
 fn log_level_accepts_all_valid_levels() -> TestResult {
-    let levels = ["error", "warn", "info", "debug", "trace"];
+    let levels = ["error", "warn", "info", "debug", "trace", "perf"];
 
     for level in levels {
         let mut cmd = Command::new(cargo_bin!());

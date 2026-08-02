@@ -1,66 +1,19 @@
-use nu_test_support::nu_with_plugins;
-use pretty_assertions::assert_eq;
+use nu_protocol::ast::CellPath;
+use nu_test_support::prelude::*;
+use rstest::rstest;
 
-const TEST_CWD: &str = "tests/fixtures/formats";
-
-// Note: the tests can only run successfully if nushell binary is in `target/debug/`
-// The To field in this email is just "to@example.com", which gets parsed out as the Address. The Name is empty.
+#[rstest]
+#[case(test_cell_path!(To.Address), "to@example.com")]
+#[case(test_cell_path!(To.Name), ())]
+#[case(test_cell_path!("Reply-To".Address), "replyto@example.com")]
+#[case(test_cell_path!("Reply-To".Name), "replyto@example.com")]
+#[case(test_cell_path!(Subject), "Test Message")]
+#[case(test_cell_path!("MIME-Version"), "1.0")]
 #[test]
-fn from_eml_get_to_field() {
-    let actual = nu_with_plugins!(
-        cwd: TEST_CWD,
-        plugin: ("nu_plugin_formats"),
-        "open sample.eml | get To.Address"
-    );
-
-    assert_eq!(actual.out, "to@example.com");
-    let actual = nu_with_plugins!(
-        cwd: TEST_CWD,
-        plugin: ("nu_plugin_formats"),
-        "open sample.eml | get To | get Name"
-    );
-
-    assert_eq!(actual.out, "");
-}
-
-// The Reply-To field in this email is "replyto@example.com" <replyto@example.com>, meaning both the Name and Address values are identical.
-#[test]
-fn from_eml_get_replyto_field() {
-    let actual = nu_with_plugins!(
-        cwd: TEST_CWD,
-        plugin: ("nu_plugin_formats"),
-        "open sample.eml | get Reply-To | get Address"
-    );
-
-    assert_eq!(actual.out, "replyto@example.com");
-
-    let actual = nu_with_plugins!(
-        cwd: TEST_CWD,
-        plugin: ("nu_plugin_formats"),
-        "open sample.eml | get Reply-To | get Name"
-    );
-
-    assert_eq!(actual.out, "replyto@example.com");
-}
-
-#[test]
-fn from_eml_get_subject_field() {
-    let actual = nu_with_plugins!(
-        cwd: TEST_CWD,
-        plugin: ("nu_plugin_formats"),
-        "open sample.eml | get Subject"
-    );
-
-    assert_eq!(actual.out, "Test Message");
-}
-
-#[test]
-fn from_eml_get_another_header_field() {
-    let actual = nu_with_plugins!(
-        cwd: TEST_CWD,
-        plugin: ("nu_plugin_formats"),
-        "open sample.eml | get MIME-Version"
-    );
-
-    assert_eq!(actual.out, "1.0");
+#[deps(NU_PLUGIN_FORMATS)]
+fn from_eml_get_to_field(#[case] cell_path: CellPath, #[case] expect: impl IntoValue) -> Result {
+    test()
+        .cwd("tests/fixtures/formats")
+        .run_with_data("let cp = $in; open sample.eml | get $cp", cell_path)
+        .expect_value_eq(expect)
 }

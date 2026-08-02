@@ -101,7 +101,7 @@ impl Command for JobSpawn {
                     Some(Redirection::Pipe(OutDest::Null)),
                 );
                 ClosureEvalOnce::new_preserve_out_dest(&job_state, &stack, closure)
-                    .run_with_input(Value::nothing(head).into_pipeline_data())
+                    .run_with_input(PipelineData::Empty)
                     .and_then(|data| data.drain())
                     .unwrap_or_else(|err| {
                         if !job_state.signals().interrupted() {

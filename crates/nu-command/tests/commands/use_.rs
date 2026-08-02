@@ -364,3 +364,124 @@ fn report_errors_in_export_env() -> Result {
     assert_contains("reported", err.to_string());
     Ok(())
 }
+
+#[test]
+fn use_keyword_named_module_with_main_errors() -> Result {
+    let code = r#"
+        module run { export def main [] { "hello" } }
+        use run
+    "#;
+
+    let err = test().run(code).expect_parse_error()?;
+    match err {
+        ParseError::KeywordShadowModuleMain(name, ..) => {
+            assert_eq!(name, "run");
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
+}
+
+#[rstest]
+#[case("run")]
+#[case("if")]
+#[case("where")]
+#[case("source")]
+#[case("overlay")]
+fn use_keyword_named_module_with_main_errors_for_keyword(#[case] keyword: &str) -> Result {
+    let code = format!(
+        r#"module {kw} {{ export def main [] {{ "hello" }} }}
+        use {kw}"#,
+        kw = keyword
+    );
+
+    let err = test().run(&code).expect_parse_error()?;
+    match err {
+        ParseError::KeywordShadowModuleMain(name, ..) => {
+            assert_eq!(name, keyword);
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
+}
+
+#[test]
+fn use_keyword_named_module_without_main_works() -> Result {
+    let code = r#"
+        module run { export def helper [] { "hello" } }
+        use run helper
+        helper
+    "#;
+
+    test().run(code).expect_value_eq("hello")
+}
+
+#[test]
+fn use_non_keyword_module_with_main_works() -> Result {
+    let code = r#"
+        module spam { export def main [] { "hello" } }
+        use spam
+        spam
+    "#;
+
+    test().run(code).expect_value_eq("hello")
+}
+
+#[test]
+fn overlay_use_keyword_named_module_with_main_errors() -> Result {
+    let code = r#"
+        module run { export def main [] { "hello" } }
+        overlay use run
+    "#;
+
+    let err = test().run(code).expect_parse_error()?;
+    match err {
+        ParseError::KeywordShadowModuleMain(name, ..) => {
+            assert_eq!(name, "run");
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
+}
+
+#[test]
+fn overlay_use_keyword_named_module_as_different_name_works() -> Result {
+    Playground::setup("use_keyword_as", |dirs, playground| {
+        playground.with_files(&[FileWithContentToBeTrimmed(
+            "run.nu",
+            "
+                export def main [] { 'hello' }
+            ",
+        )]);
+
+        test()
+            .cwd(dirs.test())
+            .run("overlay use run.nu as my_run; my_run")
+            .expect_value_eq("hello")
+    })
+}
+
+#[test]
+fn use_keyword_named_module_file_with_main_errors() -> Result {
+    Playground::setup("use_keyword_file", |dirs, playground| {
+        playground.with_files(&[FileWithContentToBeTrimmed(
+            "run.nu",
+            "
+                export def main [] { 'hello' }
+            ",
+        )]);
+
+        let err = test()
+            .cwd(dirs.test())
+            .run("use run.nu")
+            .expect_parse_error()?;
+
+        match err {
+            ParseError::KeywordShadowModuleMain(name, ..) => {
+                assert_eq!(name, "run");
+                Ok(())
+            }
+            err => Err(err.into()),
+        }
+    })
+}
