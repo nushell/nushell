@@ -231,83 +231,79 @@ fn glob_dc_glob_recursive_depth_semantics() -> Result {
             .with_files(&[EmptyFile("sibling.txt")]);
 
         // **/*: concrete membership — four entries under start, not the start itself
+        let code = "
+            let root = (pwd | path expand)
+            let paths = (glob '**/*' | each { path expand } | sort)
+            (
+                ($paths | length) == 7
+                and not ($paths | any {|p| $p == $root })
+                and ($paths | any {|p| $p | str ends-with $'(char psep)1'})
+                and ($paths | any {|p| $p | str ends-with $'(char psep)1(char psep)2'})
+                and ($paths | any {|p| $p | str ends-with $'(char psep)1(char psep)2(char psep)3'})
+                and ($paths | any {|p| $p | str ends-with 'file.txt'})
+                and ($paths | any {|p| $p | str ends-with $'(char psep)foo'})
+                and ($paths | any {|p| $p | str ends-with $'(char psep)foo(char psep)bar'})
+                and ($paths | any {|p| $p | str ends-with 'sibling.txt'})
+            )
+        ";
         test()
             .cwd(dirs.test())
-            .run(
-                "
-                let root = (pwd | path expand)
-                let paths = (glob '**/*' | each { path expand } | sort)
-                (
-                    ($paths | length) == 7
-                    and not ($paths | any {|p| $p == $root })
-                    and ($paths | any {|p| $p | str ends-with $'(char psep)1'})
-                    and ($paths | any {|p| $p | str ends-with $'(char psep)1(char psep)2'})
-                    and ($paths | any {|p| $p | str ends-with $'(char psep)1(char psep)2(char psep)3'})
-                    and ($paths | any {|p| $p | str ends-with 'file.txt'})
-                    and ($paths | any {|p| $p | str ends-with $'(char psep)foo'})
-                    and ($paths | any {|p| $p | str ends-with $'(char psep)foo(char psep)bar'})
-                    and ($paths | any {|p| $p | str ends-with 'sibling.txt'})
-                )
-                ",
-            )
+            .run(code)
             .expect_value_eq(true)
             .expect("**/* should list nested dirs/files under start, not the start dir");
 
         // **/*/*/* → min depth 3 under the 1/ tree (and deeper under foo if any)
         // With fixture: 1/2/3, 1/2/3/file.txt only at depth >= 3 from root for `1` tree.
         // Overall tree also has foo/bar — depth 2 only. So still just 2 matches from 1/.
+        let code = "
+            let paths = (glob '**/*/*/*' | each { path expand } | sort)
+            (
+                ($paths | length) == 2
+                and ($paths | any {|p| $p | str ends-with $'(char psep)1(char psep)2(char psep)3'})
+                and ($paths | any {|p| $p | str ends-with 'file.txt'})
+            )
+        ";
         test()
             .cwd(dirs.test())
-            .run(
-                "
-                let paths = (glob '**/*/*/*' | each { path expand } | sort)
-                (
-                    ($paths | length) == 2
-                    and ($paths | any {|p| $p | str ends-with $'(char psep)1(char psep)2(char psep)3'})
-                    and ($paths | any {|p| $p | str ends-with 'file.txt'})
-                )
-                ",
-            )
+            .run(code)
             .expect_value_eq(true)
             .expect("**/*/*/* should only match depth >= 3 paths");
 
         // bare ** → directories only (start + 1 + 1/2 + 1/2/3 + foo + foo/bar)
+        let code = "
+            let root = (pwd | path expand)
+            let paths = (glob '**' | each { path expand } | sort)
+            (
+                ($paths | length) == 6
+                and ($paths | any {|p| $p == $root })
+                and ($paths | any {|p| $p | str ends-with $'(char psep)1'})
+                and ($paths | any {|p| $p | str ends-with $'(char psep)1(char psep)2'})
+                and ($paths | any {|p| $p | str ends-with $'(char psep)1(char psep)2(char psep)3'})
+                and ($paths | any {|p| $p | str ends-with $'(char psep)foo'})
+                and ($paths | any {|p| $p | str ends-with $'(char psep)foo(char psep)bar'})
+                and not ($paths | any {|p| $p | str ends-with 'file.txt'})
+                and not ($paths | any {|p| $p | str ends-with 'sibling.txt'})
+            )
+        ";
         test()
             .cwd(dirs.test())
-            .run(
-                "
-                let root = (pwd | path expand)
-                let paths = (glob '**' | each { path expand } | sort)
-                (
-                    ($paths | length) == 6
-                    and ($paths | any {|p| $p == $root })
-                    and ($paths | any {|p| $p | str ends-with $'(char psep)1'})
-                    and ($paths | any {|p| $p | str ends-with $'(char psep)1(char psep)2'})
-                    and ($paths | any {|p| $p | str ends-with $'(char psep)1(char psep)2(char psep)3'})
-                    and ($paths | any {|p| $p | str ends-with $'(char psep)foo'})
-                    and ($paths | any {|p| $p | str ends-with $'(char psep)foo(char psep)bar'})
-                    and not ($paths | any {|p| $p | str ends-with 'file.txt'})
-                    and not ($paths | any {|p| $p | str ends-with 'sibling.txt'})
-                )
-                ",
-            )
+            .run(code)
             .expect_value_eq(true)
             .expect("bare ** should list start + nested dirs only, not files");
 
         // foo/** includes foo itself and foo/bar, not files
+        let code = "
+            let paths = (glob 'foo/**' | each { path expand } | sort)
+            (
+                ($paths | length) == 2
+                and ($paths | any {|p| $p | str ends-with $'(char psep)foo'})
+                and ($paths | any {|p| $p | str ends-with $'(char psep)foo(char psep)bar'})
+                and not ($paths | any {|p| $p | str ends-with 'sibling.txt'})
+            )
+        ";
         test()
             .cwd(dirs.test())
-            .run(
-                "
-                let paths = (glob 'foo/**' | each { path expand } | sort)
-                (
-                    ($paths | length) == 2
-                    and ($paths | any {|p| $p | str ends-with $'(char psep)foo'})
-                    and ($paths | any {|p| $p | str ends-with $'(char psep)foo(char psep)bar'})
-                    and not ($paths | any {|p| $p | str ends-with 'sibling.txt'})
-                )
-                ",
-            )
+            .run(code)
             .expect_value_eq(true)
             .expect("foo/** should include foo and nested dirs, not files");
     });

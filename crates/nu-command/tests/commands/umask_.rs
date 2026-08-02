@@ -32,13 +32,12 @@ fn mask_set() -> Result {
         // The umask only applies to the process setting it, so the file and
         // directory used in this test must be created inside the same script
         // which calls the umask command.
-        let () = test().cwd(dirs.test()).run(
-            "
+        let code = "
             umask r-x----w-;
             touch file;
             mkdir dir;
-        ",
-        )?;
+        ";
+        let () = test().cwd(dirs.test()).run(code)?;
 
         let file_path = dirs.test().join("file");
         let dir_path = dirs.test().join("dir");

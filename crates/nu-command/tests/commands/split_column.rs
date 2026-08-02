@@ -1,66 +1,75 @@
 use nu_protocol::record;
 use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
-use nu_test_support::nu;
 use nu_test_support::playground::Playground;
 use nu_test_support::prelude::*;
 
 #[test]
-fn split_column() {
+fn split_column() -> Result {
     Playground::setup("split_column_test_1", |dirs, sandbox| {
         sandbox.with_files(&[
             FileWithContentToBeTrimmed(
                 "sample.txt",
                 "
-                importer,shipper,tariff_item,name,origin
-            ",
+                    importer,shipper,tariff_item,name,origin
+                ",
             ),
             FileWithContentToBeTrimmed(
                 "sample2.txt",
                 "
-                importer , shipper  , tariff_item  ,   name  ,  origin
-            ",
+                    importer , shipper  , tariff_item  ,   name  ,  origin
+                ",
             ),
         ]);
 
-        let actual = nu!(cwd: dirs.test(), r#"
+        let code = r#"
             open sample.txt
             | lines
             | str trim
             | split column ","
             | get column1
-        "#);
+        "#;
+        test()
+            .cwd(dirs.test())
+            .run(code)
+            .expect_value_eq(["shipper"])?;
 
-        assert!(actual.out.contains("shipper"));
-
-        let actual = nu!(cwd: dirs.test(), r#"
+        let code = r#"
             open sample.txt
             | lines
             | str trim
             | split column -n 3 ","
             | get column2
-        "#);
+        "#;
+        test()
+            .cwd(dirs.test())
+            .run(code)
+            .expect_value_eq(["tariff_item,name,origin"])?;
 
-        assert!(actual.out.contains("tariff_item,name,origin"));
-
-        let actual = nu!(cwd: dirs.test(), r#"
+        let code = r#"
             open sample.txt
             | lines
             | str trim
             | split column -n 3 --right ","
             | get column0
-        "#);
+        "#;
+        test()
+            .cwd(dirs.test())
+            .run(code)
+            .expect_value_eq(["importer,shipper,tariff_item"])?;
 
-        assert!(actual.out.contains("importer,shipper,tariff_item"));
-
-        let actual = nu!(cwd: dirs.test(), r"
+        let code = r"
             open sample2.txt
             | lines
             | str trim
             | split column --regex '\s*,\s*'
             | get column1
-        ");
+        ";
+        test()
+            .cwd(dirs.test())
+            .run(code)
+            .expect_value_eq(["shipper"])?;
 
-        assert!(actual.out.contains("shipper"));
+        Ok(())
     })
 }
 
