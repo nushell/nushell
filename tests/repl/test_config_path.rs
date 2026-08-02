@@ -510,7 +510,7 @@ fn commandstring_loads_default_env() -> Result {
 #[deps(NU)]
 fn commandstring_populates_config_record() -> Result {
     let result: CompleteResult =
-        test().run(r#"nu --no-std-lib -n -c '$env.config.show_banner' | complete"#)?;
+        test().run("nu --no-std-lib -n -c '$env.config.show_banner' | complete")?;
     assert_eq!(result.exit_code, 0);
     assert_eq!(result.stdout.trim(), "true");
     assert_eq!(result.stderr, "");
@@ -608,7 +608,7 @@ fn history_path_custom_string() -> Result {
 #[deps(NU)]
 fn history_path_default_shows_in_config() -> Result {
     let result: CompleteResult =
-        test().run(r#"nu --no-std-lib -n -c '$env.config.history.path' | complete"#)?;
+        test().run("nu --no-std-lib -n -c '$env.config.history.path' | complete")?;
     assert_eq!(result.exit_code, 0);
     assert_eq!(result.stdout.trim(), "");
     assert_eq!(result.stderr, "");
