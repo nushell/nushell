@@ -394,7 +394,8 @@ impl NarrowingCache {
         {
             let stale_keys: Vec<_> = cache
                 .iter()
-                .filter_map(|(key, entry)| (!entry.is_usable(environment)).then(|| key.clone()))
+                .filter(|(_, entry)| !entry.is_usable(environment))
+                .map(|(key, _)| key.clone())
                 .collect();
 
             for key in stale_keys {
