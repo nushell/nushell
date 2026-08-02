@@ -1,240 +1,219 @@
-use nu_protocol::{ByteStream, ByteStreamType, PipelineData, Signals, Span, test_table};
+use indoc::indoc;
+use nu_protocol::{ByteStream, ByteStreamType, PipelineData, Signals, Span};
 use nu_test_support::{fs::Stub, prelude::*};
+use pretty_assertions::assert_matches;
 
 mod simple {
     use super::*;
 
     #[test]
-    fn extracts_fields_from_the_given_the_pattern() {
-        Playground::setup("parse_test_simple_1", |dirs, sandbox| {
-            sandbox.with_files(&[Stub::FileWithContentToBeTrimmed(
-                "key_value_separated_arepa_ingredients.txt",
-                "
-                    VAR1=Cheese
-                    VAR2=JTParsed
-                    VAR3=NushellSecretIngredient
-                ",
-            )]);
+    fn extracts_fields_from_the_given_the_pattern() -> Result {
+        let input = indoc! {"
+            VAR1=Cheese
+            VAR2=JTParsed
+            VAR3=NushellSecretIngredient
+        "};
 
-            let actual = nu!(cwd: dirs.test(), r#"
-                open key_value_separated_arepa_ingredients.txt
-                | lines
-                | each { |it| echo $it | parse "{Name}={Value}" }
-                | flatten
-                | get 1
-                | get Value
-            "#);
+        let code = r#"
+            $in
+            | lines
+            | each {|it| $it | parse "{Name}={Value}" }
+            | flatten
+            | get 1.Value
+        "#;
 
-            assert_eq!(actual.out, "JTParsed");
-        })
+        test()
+            .run_with_data(code, input)
+            .expect_value_eq("JTParsed")
     }
 
     #[test]
-    fn double_open_curly_evaluates_to_a_single_curly() {
-        let actual = nu!(r#"
-            echo "{abc}123"
+    fn double_open_curly_evaluates_to_a_single_curly() -> Result {
+        let code = r#"
+            "{abc}123"
             | parse "{{abc}{name}"
             | get name.0
-        "#);
-        assert_eq!(actual.out, "123");
+        "#;
+
+        test().run(code).expect_value_eq("123")
     }
 
     #[test]
-    fn char_lbrace_before_capture() -> nu_test_support::Result {
-        use nu_test_support::prelude::*;
+    fn char_lbrace_before_capture() -> Result {
         test()
             .run(r#""1234{56" | parse $'{a}(char lbrace){b}' | get a.0"#)
             .expect_value_eq("1234")
     }
 
     #[test]
-    fn double_brace_at_end_matches_literal_brace_with_capture() -> nu_test_support::Result {
-        use nu_test_support::prelude::*;
+    fn double_brace_at_end_matches_literal_brace_with_capture() -> Result {
         test()
             .run(r#""{hello" | parse "{{foo}" | get foo.0"#)
             .expect_value_eq("hello")
     }
 
     #[test]
-    fn double_brace_at_end_does_not_match_without_brace_in_input() -> nu_test_support::Result {
-        use nu_test_support::prelude::*;
+    fn double_brace_at_end_does_not_match_without_brace_in_input() -> Result {
         test()
             .run(r#""hello" | parse "{{foo}" | length"#)
             .expect_value_eq(0)
     }
 
     #[test]
-    fn double_brace_with_suffix_before_capture_stays_literal() -> nu_test_support::Result {
-        use nu_test_support::prelude::*;
+    fn double_brace_with_suffix_before_capture_stays_literal() -> Result {
         test()
             .run(r#""{foo}x123" | parse "{{foo}x{bar}" | get bar.0"#)
             .expect_value_eq("123")
     }
 
     #[test]
-    fn properly_escapes_text() {
-        let actual = nu!(r#"
-            echo "(abc)123"
+    fn properly_escapes_text() -> Result {
+        let code = r#"
+            "(abc)123"
             | parse "(abc){name}"
             | get name.0
-        "#);
+        "#;
 
-        assert_eq!(actual.out, "123");
+        test().run(code).expect_value_eq("123")
     }
 
     #[test]
-    fn properly_captures_empty_column() {
-        let actual = nu!(r#"
-            echo ["1:INFO:component:all is well" "2:ERROR::something bad happened"]
+    fn properly_captures_empty_column() -> Result {
+        let code = r#"
+            ["1:INFO:component:all is well" "2:ERROR::something bad happened"]
             | parse "{timestamp}:{level}:{tag}:{entry}"
-            | get entry
-            | get 1
-        "#);
+            | get entry.1
+        "#;
 
-        assert_eq!(actual.out, "something bad happened");
+        test().run(code).expect_value_eq("something bad happened")
     }
 
     #[test]
-    fn errors_when_missing_closing_brace() {
-        let actual = nu!(r#"
-            echo "(abc)123"
+    fn errors_when_missing_closing_brace() -> Result {
+        let code = r#"
+            "(abc)123"
             | parse "(abc){name"
             | get name
-        "#);
+        "#;
 
-        assert!(
-            actual
-                .err
-                .contains("Found opening `{` without an associated closing `}`")
+        let err = test().run(code).expect_shell_error()?;
+        assert_matches!(
+            err,
+            ShellError::DelimiterError { msg, .. }
+                if msg == "Found opening `{` without an associated closing `}`"
         );
+
+        Ok(())
     }
 
     #[test]
-    fn ignore_multiple_placeholder() {
-        let actual = nu!(r#"
-            echo ["1:INFO:component:all is well" "2:ERROR::something bad happened"]
+    fn ignore_multiple_placeholder() -> Result {
+        let code = r#"
+            ["1:INFO:component:all is well" "2:ERROR::something bad happened"]
             | parse "{_}:{level}:{_}:{entry}"
-            | to json -r
-        "#);
+        "#;
 
-        assert_eq!(
-            actual.out,
-            r#"[{"level":"INFO","entry":"all is well"},{"level":"ERROR","entry":"something bad happened"}]"#
-        );
+        test().run(code).expect_value_eq(test_table![
+            ["level", "entry"];
+            ["INFO", "all is well"],
+            ["ERROR", "something bad happened"],
+        ])
     }
 }
 
 mod regex {
     use super::*;
 
-    fn nushell_git_log_oneline<'a>() -> Vec<Stub<'a>> {
-        vec![Stub::FileWithContentToBeTrimmed(
-            "nushell_git_log_oneline.txt",
-            "
-                ae87582c Fix missing invocation errors (#1846)
-                b89976da let format access variables also (#1842)
-            ",
-        )]
+    fn nushell_git_log_oneline() -> &'static str {
+        "ae87582c Fix missing invocation errors (#1846)\nb89976da let format access variables also (#1842)"
     }
 
     #[test]
-    fn extracts_fields_with_all_named_groups() {
-        Playground::setup("parse_test_regex_1", |dirs, sandbox| {
-            sandbox.with_files(&nushell_git_log_oneline());
+    fn extracts_fields_with_all_named_groups() -> Result {
+        let code = r#"
+            $in
+            | parse --regex "(?P<Hash>\\w+) (?P<Message>.+) \\(#(?P<PR>\\d+)\\)"
+            | get 1.PR
+        "#;
 
-            let actual = nu!(cwd: dirs.test(), r#"
-                open nushell_git_log_oneline.txt
-                | parse --regex "(?P<Hash>\\w+) (?P<Message>.+) \\(#(?P<PR>\\d+)\\)"
-                | get 1
-                | get PR
-            "#);
-
-            assert_eq!(actual.out, "1842");
-        })
+        test()
+            .run_with_data(code, nushell_git_log_oneline())
+            .expect_value_eq("1842")
     }
 
     #[test]
-    fn extracts_fields_with_all_unnamed_groups() {
-        Playground::setup("parse_test_regex_2", |dirs, sandbox| {
-            sandbox.with_files(&nushell_git_log_oneline());
+    fn extracts_fields_with_all_unnamed_groups() -> Result {
+        let code = r#"
+            $in
+            | parse --regex "(\\w+) (.+) \\(#(\\d+)\\)"
+            | get 1.capture0
+        "#;
 
-            let actual = nu!(cwd: dirs.test(), r#"
-                open nushell_git_log_oneline.txt
-                | parse --regex "(\\w+) (.+) \\(#(\\d+)\\)"
-                | get 1
-                | get capture0
-            "#);
-
-            assert_eq!(actual.out, "b89976da");
-        })
+        test()
+            .run_with_data(code, nushell_git_log_oneline())
+            .expect_value_eq("b89976da")
     }
 
     #[test]
-    fn extracts_fields_with_named_and_unnamed_groups() {
-        Playground::setup("parse_test_regex_3", |dirs, sandbox| {
-            sandbox.with_files(&nushell_git_log_oneline());
+    fn extracts_fields_with_named_and_unnamed_groups() -> Result {
+        let code = r#"
+            $in
+            | parse --regex "(?P<Hash>\\w+) (.+) \\(#(?P<PR>\\d+)\\)"
+            | get 1.capture1
+        "#;
 
-            let actual = nu!(cwd: dirs.test(), r#"
-                open nushell_git_log_oneline.txt
-                | parse --regex "(?P<Hash>\\w+) (.+) \\(#(?P<PR>\\d+)\\)"
-                | get 1
-                | get capture1
-            "#);
-
-            assert_eq!(actual.out, "let format access variables also");
-        })
+        test()
+            .run_with_data(code, nushell_git_log_oneline())
+            .expect_value_eq("let format access variables also")
     }
 
     #[test]
-    fn errors_with_invalid_regex() {
-        Playground::setup("parse_test_regex_1", |dirs, sandbox| {
-            sandbox.with_files(&nushell_git_log_oneline());
+    fn errors_with_invalid_regex() -> Result {
+        let code = r#"
+            $in
+            | parse --regex "(?P<Hash>\\w+ unfinished capture group"
+        "#;
 
-            let actual = nu!(cwd: dirs.test(), r#"
-                open nushell_git_log_oneline.txt
-                | parse --regex "(?P<Hash>\\w+ unfinished capture group"
-            "#);
+        let err = test()
+            .run_with_data(code, nushell_git_log_oneline())
+            .expect_shell_error()?;
+        assert_contains(
+            "Opening parenthesis without closing parenthesis",
+            err.generic_msg()?,
+        );
 
-            assert!(
-                actual
-                    .err
-                    .contains("Opening parenthesis without closing parenthesis")
-            );
-        })
+        Ok(())
     }
 
     #[test]
-    fn parse_works_with_streaming() {
-        let actual =
-            nu!(r#"seq char a z | each {|c| $c + " a"} | parse '{letter} {a}' | describe"#);
-
-        assert_eq!(actual.out, "table<letter: string, a: string> (stream)")
+    fn parse_works_with_streaming() -> Result {
+        test()
+            .run(r#"seq char a z | each {|c| $c + " a"} | parse '{letter} {a}' | describe"#)
+            .expect_value_eq("table<letter: string, a: string> (stream)")
     }
 
     #[test]
-    fn parse_does_not_truncate_list_streams() {
-        let actual = nu!(r#"
+    fn parse_does_not_truncate_list_streams() -> Result {
+        let code = r#"
             [a b c]
             | each {|x| $x}
             | parse --regex "[ac]"
             | length
-        "#);
+        "#;
 
-        assert_eq!(actual.out, "2");
+        test().run(code).expect_value_eq(2)
     }
 
     #[test]
-    fn parse_handles_external_stream_chunking() {
+    fn parse_handles_external_stream_chunking() -> Result {
         Playground::setup("parse_test_streaming_1", |dirs, sandbox| {
             let data: String = "abcdefghijklmnopqrstuvwxyz".repeat(1000);
             sandbox.with_files(&[Stub::FileWithContent("data.txt", &data)]);
 
-            let actual = nu!(
-                cwd: dirs.test(),
-                r#"open data.txt | parse --regex "(abcdefghijklmnopqrstuvwxyz)" | length"#
-            );
-
-            assert_eq!(actual.out, "1000");
+            test()
+                .cwd(dirs.test())
+                .run(r#"open data.txt | parse --regex "(abcdefghijklmnopqrstuvwxyz)" | length"#)
+                .expect_value_eq(1000)
         })
     }
 
