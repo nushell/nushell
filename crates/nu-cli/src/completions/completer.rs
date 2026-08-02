@@ -1983,7 +1983,10 @@ mod completer_tests {
     #[test]
     fn cache_size_zero_disables_the_cache() {
         let mut engine = test_engine();
-        Arc::make_mut(&mut engine.config).completions.cache_size = 0;
+        {
+            let state = Arc::make_mut(&mut engine);
+            Arc::make_mut(&mut state.config).completions.cache_size = 0;
+        }
         let cache = NarrowingCache::default();
 
         let mut filling_prompt =
