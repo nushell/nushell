@@ -1027,7 +1027,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f7dc094d718f2e1c1559ad110e27eeaae14a5465d3d56dd6dbd793079fbd530"
 dependencies = [
  "memchr",
- "regex-automata 0.4.14",
+ "regex-automata 0.4.16",
  "serde_core",
 ]
 
@@ -2320,12 +2320,12 @@ checksum = "7360491ce676a36bf9bb3c56c1aa791658183a54d2744120f27285738d90465a"
 
 [[package]]
 name = "fancy-regex"
-version = "0.18.0"
+version = "0.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e1e1dacd0d2082dfcf1351c4bdd566bbe89a2b263235a2b50058f1e130a47277"
+checksum = "476de73bddf2ef8490aa4ee8f1cf40b430bf1d56c48c22080e5186952cd580e6"
 dependencies = [
  "bit-set",
- "regex-automata 0.4.14",
+ "regex-automata 0.4.16",
  "regex-syntax 0.8.11",
 ]
 
@@ -2880,7 +2880,7 @@ dependencies = [
  "aho-corasick",
  "bstr",
  "log",
- "regex-automata 0.4.14",
+ "regex-automata 0.4.16",
  "regex-syntax 0.8.11",
 ]
 
@@ -3457,7 +3457,7 @@ dependencies = [
  "globset",
  "log",
  "memchr",
- "regex-automata 0.4.14",
+ "regex-automata 0.4.16",
  "same-file",
  "walkdir",
  "winapi-util",
@@ -4223,7 +4223,7 @@ version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d1525a2a28c7f4fa0fc98bb91ae755d1e2d1505079e05539e35bc876b5d65ae9"
 dependencies = [
- "regex-automata 0.4.14",
+ "regex-automata 0.4.16",
 ]
 
 [[package]]
@@ -7642,7 +7642,7 @@ checksum = "2a0e75113e14dc5acb068cd0786884f214f1312650a3d36d269f5c4f3cdee8a2"
 dependencies = [
  "aho-corasick",
  "memchr",
- "regex-automata 0.4.14",
+ "regex-automata 0.4.16",
  "regex-syntax 0.8.11",
 ]
 
@@ -7659,9 +7659,9 @@ dependencies = [
 
 [[package]]
 name = "regex-automata"
-version = "0.4.14"
+version = "0.4.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6e1dd4122fc1595e8162618945476892eefca7b88c52820e74af6262213cae8f"
+checksum = "8fcfdb36bda0c880c5931cdc7a2bcdc8ba4556847b9d912bca70bc94708711ad"
 dependencies = [
  "aho-corasick",
  "memchr",
@@ -9458,7 +9458,7 @@ dependencies = [
  "matchers",
  "nu-ansi-term",
  "once_cell",
- "regex-automata 0.4.14",
+ "regex-automata 0.4.16",
  "sharded-slab",
  "smallvec",
  "thread_local",
