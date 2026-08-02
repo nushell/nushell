@@ -330,7 +330,7 @@ fn path_argument_dont_make_absolute_if_unquoted() -> Result {
         .run("def spam [foo: path] { echo $foo }; spam foo/.../bar")
         .expect_value_eq(cfg_select! {
             windows => "..\\bar",
-            _ => "../bar"
+            _ => "../bar",
         })
 }
 
