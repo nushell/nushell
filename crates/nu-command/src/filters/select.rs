@@ -375,18 +375,15 @@ impl Iterator for NthIterator {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            if let Some(row) = self.rows.peek() {
-                if self.current == *row {
-                    self.rows.next();
-                    self.current += 1;
-                    return self.input.next();
-                } else {
-                    self.current += 1;
-                    let _ = self.input.next()?;
-                    continue;
-                }
+            let row = self.rows.peek()?;
+            if self.current == *row {
+                self.rows.next();
+                self.current += 1;
+                return self.input.next();
             } else {
-                return None;
+                self.current += 1;
+                let _ = self.input.next()?;
+                continue;
             }
         }
     }

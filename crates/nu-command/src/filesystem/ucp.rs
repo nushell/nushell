@@ -225,22 +225,18 @@ impl Command for UCp {
             };
             let mut app_vals: Vec<PathBuf> = Vec::new();
             for v in exp_files {
-                match v {
-                    Ok(path) => {
-                        if !recursive && source_path_is_dir(&path, !no_dereference) {
-                            return Err(ShellError::Generic(
-                                GenericError::new(
-                                    "could_not_copy_directory",
-                                    "resolves to a directory (not copied)",
-                                    p.span,
-                                )
-                                .with_help("Directories must be copied using \"--recursive\""),
-                            ));
-                        };
-                        app_vals.push(path)
-                    }
-                    Err(e) => return Err(e),
-                }
+                let path = v?;
+                if !recursive && source_path_is_dir(&path, !no_dereference) {
+                    return Err(ShellError::Generic(
+                        GenericError::new(
+                            "could_not_copy_directory",
+                            "resolves to a directory (not copied)",
+                            p.span,
+                        )
+                        .with_help("Directories must be copied using \"--recursive\""),
+                    ));
+                };
+                app_vals.push(path)
             }
             sources.push((app_vals, p.item.is_expand()));
         }

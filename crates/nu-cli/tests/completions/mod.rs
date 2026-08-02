@@ -3716,3 +3716,44 @@ fn clip_subcommands_show_before_and_after_use() {
     let suggestions2_no_space = completer2.complete_blocking("clip", 4);
     assert!(suggestions2_no_space.iter().any(|s| s.value == "clip copy"));
 }
+
+/// A cached result must never answer a token that has since become a flag. Typing `--sep`
+/// appends no whitespace, so it looks like the same token growing; stale file names were
+/// once spliced in place of the flag being typed.
+#[test]
+fn stale_file_completions_do_not_answer_a_flag_token() {
+    use reedline::Completer as _;
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    // A file whose name a `--sep` prefix would match.
+    std::fs::write(dir.path().join("--separator-notes.md"), "").expect("write");
+    std::fs::write(dir.path().join("data.csv"), "a,b\n").expect("write");
+
+    let pwd = AbsolutePathBuf::try_from(dir.path().to_path_buf()).expect("absolute tempdir");
+    let (_, _, engine, stack) = new_engine_helper(pwd);
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    // Warm the cache at the positional slot; the assertion is load-bearing.
+    let base = "open data.csv | from csv ";
+    let warmed = completer.complete_blocking(base, base.len());
+    assert!(
+        warmed.iter().any(|s| s.value.contains("separator-notes")),
+        "expected the positional slot to be answered with file names"
+    );
+
+    // `complete` is the per-keystroke path reedline drives, so a stale entry surfaces here.
+    let flag_line = "open data.csv | from csv --sep";
+    let stale = completer.complete(flag_line, flag_line.len());
+    assert!(
+        !stale
+            .suggestions()
+            .iter()
+            .any(|s| s.value.contains("separator-notes")),
+        "file name leaked into a flag token: {:?}",
+        stale
+            .suggestions()
+            .iter()
+            .map(|s| (&s.value, s.span))
+            .collect::<Vec<_>>()
+    );
+}

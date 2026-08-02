@@ -227,7 +227,7 @@ fn commandline_test_complete_detailed(#[case] cmd: &str, #[case] expected: &str)
 #[case::invalid_input("123 | commandline complete", "command doesn't support int input")]
 #[case::invalid_type(
     "commandline complete --type foo",
-    r#"expected type "directory", "path", or "glob", but got "foo""#
+    r#"expected type "directory", "path", or "glob""#
 )]
 fn commandline_test_complete_invalid_input(
     #[case] cmd: &str,

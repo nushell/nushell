@@ -1,10 +1,7 @@
 use std::collections::HashMap;
 
-use crate::completions::{Completer, CompletionOptions, SemanticSuggestion};
-use nu_protocol::{
-    ENV_VARIABLE_ID, IN_VARIABLE_ID, NU_VARIABLE_ID, Span, SuggestionKind,
-    engine::{Stack, StateWorkingSet},
-};
+use crate::completions::{Completer, Context, Fetched, SemanticSuggestion, to_reedline_span};
+use nu_protocol::{ENV_VARIABLE_ID, IN_VARIABLE_ID, NU_VARIABLE_ID, SuggestionKind};
 use reedline::Suggestion;
 
 use super::completion_options::NuMatcher;
@@ -12,20 +9,11 @@ use super::completion_options::NuMatcher;
 pub struct VariableCompletion;
 
 impl Completer for VariableCompletion {
-    fn fetch(
-        &mut self,
-        working_set: &StateWorkingSet,
-        stack: &Stack,
-        prefix: impl AsRef<str>,
-        span: Span,
-        offset: usize,
-        options: &CompletionOptions,
-    ) -> Vec<SemanticSuggestion> {
-        let mut matcher = NuMatcher::new(prefix, options, true);
-        let current_span = reedline::Span {
-            start: span.start - offset,
-            end: span.end - offset,
-        };
+    fn fetch(&mut self, ctx: &Context) -> Fetched {
+        let working_set = ctx.working_set;
+        let stack = ctx.stack;
+        let mut matcher = NuMatcher::new(ctx.prefix_str(), ctx.options, true);
+        let current_span = to_reedline_span(ctx.span, ctx.offset);
 
         // Variable completion (e.g: $en<tab> to complete $env)
         let mut variables = HashMap::new();
@@ -42,7 +30,7 @@ impl Completer for VariableCompletion {
                 for (name, var_id) in &overlay_frame.vars {
                     if !stack.parent_deletions.contains(var_id) && !stack.deletions.contains(var_id)
                     {
-                        let name = String::from_utf8_lossy(name).to_string();
+                        let name = String::from_utf8_lossy(name).into_owned();
                         variables.insert(name, var_id);
                     }
                 }
@@ -57,7 +45,7 @@ impl Completer for VariableCompletion {
         {
             for (name, var_id) in &overlay_frame.vars {
                 if !stack.parent_deletions.contains(var_id) && !stack.deletions.contains(var_id) {
-                    let name = String::from_utf8_lossy(name).to_string();
+                    let name = String::from_utf8_lossy(name).into_owned();
                     variables.insert(name, var_id);
                 }
             }
@@ -75,6 +63,6 @@ impl Completer for VariableCompletion {
             });
         }
 
-        matcher.suggestion_results()
+        Fetched::pure(matcher.suggestion_results())
     }
 }

@@ -4680,6 +4680,7 @@ dependencies = [
  "fancy-regex",
  "is_executable",
  "log",
+ "lru 0.18.0",
  "lscolors",
  "miette",
  "nu-ansi-term",
@@ -7594,7 +7595,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.49.0"
-source = "git+https://github.com/nushell/reedline?branch=main#7eb9bf219456202052aaa976842e9e790b88ed85"
+source = "git+https://github.com/nushell/reedline?branch=main#f79971070ca15a32168a50328768720939372ea7"
 dependencies = [
  "arboard",
  "chrono",

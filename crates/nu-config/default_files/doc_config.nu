@@ -256,6 +256,10 @@ $env.config.completions.partial = true
 # Default: true
 $env.config.completions.use_ls_colors = true
 
+# completions.cache_size (int): Completion cache size (0 disables the cache).
+# Default: 100
+$env.config.completions.cache_size = 100
+
 # --------------------
 # External Completions
 # --------------------

@@ -438,9 +438,9 @@ fn parse_long_flag(
 
         // FIXME: only use the first flag you find?
         let split: Vec<_> = arg_contents.split(|x| *x == b'=').collect();
-        let long_name = String::from_utf8(split[0].into());
+        // Skip the leading "--" in the byte layer to avoid an extra allocation.
+        let long_name = String::from_utf8(split[0][2..].into());
         if let Ok(long_name) = long_name {
-            let long_name = long_name[2..].to_string();
             if let Some(flag) = sig.get_long_flag(&long_name) {
                 if let Some(arg_shape) = &flag.arg {
                     if split.len() > 1 {
@@ -524,9 +524,10 @@ fn parse_long_flag(
                     arg_span,
                     suggestion,
                 ));
+                // Move `long_name`; the clone was already consumed above.
                 LongFlagParseResult::FoundFlag(
                     Spanned {
-                        item: long_name.clone(),
+                        item: long_name,
                         span: arg_span,
                     },
                     None,
@@ -866,11 +867,15 @@ pub fn parse_multispan_value(
                 expr: parse_multispan_value(working_set, spans, spans_idx, arg, input_type),
             };
 
+            // Extract fields before boxing so the whole Keyword tree can be moved in.
+            let kw_span = keyword.span;
+            let expr_span = keyword.expr.span;
+            let ty = keyword.expr.ty.clone();
             Expression::new(
                 working_set,
-                Expr::Keyword(Box::new(keyword.clone())),
-                keyword.span.merge(keyword.expr.span),
-                keyword.expr.ty,
+                Expr::Keyword(Box::new(keyword)),
+                kw_span.merge(expr_span),
+                ty,
             )
         }
         _ => {
@@ -898,6 +903,15 @@ pub enum ArgumentParsingLevel {
     Full,
     /// Parse only the first `k` arguments
     FirstK { k: usize },
+}
+
+/// Build a `Spanned<String>` for a short flag character at the given span.
+#[inline]
+fn short_spanned(short: char, span: Span) -> Spanned<String> {
+    Spanned {
+        item: short.to_string(),
+        span,
+    }
 }
 
 pub fn parse_internal_call(
@@ -1082,21 +1096,7 @@ pub fn parse_internal_call(
                 &signature,
             );
 
-            if let Some(mut short_flags) = short_flags {
-                if short_flags.is_empty() {
-                    // workaround for completions (PR #6067)
-                    short_flags.push(Flag {
-                        long: "".to_string(),
-                        short: Some('a'),
-                        arg: None,
-                        required: false,
-                        desc: "".to_string(),
-                        var_id: None,
-                        default_value: None,
-                        completion: None,
-                    })
-                }
-
+            if let Some(short_flags) = short_flags {
                 if working_set.parse_errors[starting_error_count..]
                     .iter()
                     .any(|x| matches!(x, ParseError::UnknownFlag(_, _, _, _)))
@@ -1126,10 +1126,7 @@ pub fn parse_internal_call(
                                     if let Some(short) = flag.short {
                                         call.add_named((
                                             arg_name,
-                                            Some(Spanned {
-                                                item: short.to_string(),
-                                                span: spans[spans_idx],
-                                            }),
+                                            Some(short_spanned(short, spans[spans_idx])),
                                             Some(val_expression),
                                         ));
                                     }
@@ -1144,12 +1141,15 @@ pub fn parse_internal_call(
                                 ));
                                 // NOTE: still need to cover this incomplete flag in the final expression
                                 // see https://github.com/nushell/nushell/issues/16375
+                                // Preserve the flag's identity so completion can tell
+                                // which flag is still awaiting a value.
                                 call.add_named((
                                     Spanned {
-                                        item: String::new(),
+                                        item: flag.long.clone(),
                                         span: spans[spans_idx],
                                     },
-                                    None,
+                                    flag.short
+                                        .map(|short| short_spanned(short, spans[spans_idx])),
                                     None,
                                 ));
                             }
@@ -1160,10 +1160,7 @@ pub fn parse_internal_call(
                                         item: String::new(),
                                         span: spans[spans_idx],
                                     },
-                                    Some(Spanned {
-                                        item: short.to_string(),
-                                        span: spans[spans_idx],
-                                    }),
+                                    Some(short_spanned(short, spans[spans_idx])),
                                     None,
                                 ));
                             }
@@ -1593,7 +1590,7 @@ pub fn parse_call(
         if resolution_spans.len() > 1 {
             let test_equal = working_set.get_span_contents(resolution_spans[1]);
 
-            if test_equal == [b'='] {
+            if test_equal == *b"=" {
                 trace!("incomplete statement");
 
                 working_set.error(ParseError::UnknownState(
@@ -1672,8 +1669,9 @@ pub fn parse_call(
                 span: resolution_spans[0],
             });
 
-            // Preserve expression shape for features like completion while retaining the parse error.
-            return parse_external_call(working_set, spans, call_span);
+            // Preserve expression shape for completion while retaining the parse error.
+            // Use the sigil-stripped spans so the head span excludes the `%`, matching `^`.
+            return parse_external_call(working_set, resolution_spans, call_span);
         }
 
         // We might be parsing left-unbounded range ("..10")
@@ -1855,6 +1853,54 @@ pub fn find_longest_decl_with_prefix(
     }
 
     (cmd_start, pos, name, maybe_decl_id)
+}
+
+/// Re-parse a command head that greedily matched a multi-word subcommand as its next
+/// shorter reading, demoting the trailing words to arguments over the real buffer spans.
+///
+/// `head` must be resolvable in `working_set`; returns `None` for single-word heads.
+pub fn parse_shorter_head_reading(
+    working_set: &mut StateWorkingSet,
+    head: Span,
+    input_type: Option<&Type>,
+) -> Option<Expression> {
+    let contents = working_set.get_span_contents(head).to_vec();
+    let (tokens, _) = crate::lex::lex(&contents, head.start, &[], &[], true);
+    let spans: Vec<Span> = tokens.into_iter().map(|token| token.span).collect();
+
+    // Only multi-word heads have a shorter reading.
+    let (_, greedy_pos, _, _) = find_longest_decl(working_set, &spans);
+    if greedy_pos <= 1 {
+        return None;
+    }
+
+    // Longest proper-prefix command; everything past it becomes arguments.
+    let call_span = Span::concat(&spans);
+    let (cmd_start, pos, _, maybe_decl_id) =
+        find_longest_decl(working_set, &spans[..greedy_pos - 1]);
+
+    let expression = match maybe_decl_id {
+        Some(decl_id) => {
+            let parsed = parse_internal_call(
+                working_set,
+                Span::concat(&spans[cmd_start..pos]),
+                &spans[pos..],
+                decl_id,
+                ArgumentParsingLevel::Full,
+                input_type,
+            );
+            Expression::new(
+                working_set,
+                Expr::Call(parsed.call),
+                call_span,
+                parsed.output,
+            )
+        }
+        // Otherwise the shorter reading is an external call.
+        None => parse_external_call(working_set, &spans, call_span),
+    };
+
+    Some(expression)
 }
 
 pub fn parse_attribute(

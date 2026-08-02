@@ -7,7 +7,7 @@ use crate::prompt_update::{
 };
 use crate::{
     NuHighlighter, NuValidator, NushellPrompt,
-    completions::NuCompleter,
+    completions::{NarrowingCache, NuCompleter},
     hints::ExternalHinter,
     prompt_update,
     reedline_config::{KeybindingsMode, add_menus, create_keybindings},
@@ -186,6 +186,8 @@ pub fn evaluate_repl(
     // Setup initial engine_state and stack state
     let mut previous_engine_state = engine_state.clone();
     let mut previous_stack_arc = Arc::new(unique_stack);
+    // Cache survives the completer being rebuilt each prompt.
+    let completion_cache = NarrowingCache::default();
     loop {
         // clone these values so that they can be moved by AssertUnwindSafe
         // If there is a panic within this iteration the last engine_state and stack
@@ -196,6 +198,7 @@ pub fn evaluate_repl(
         let current_stack = Stack::with_parent(previous_stack_arc.clone());
         let temp_file_cloned = temp_file.clone();
         let mut nu_prompt_cloned = nu_prompt.clone();
+        let current_completion_cache = completion_cache.clone();
 
         let iteration_panic_state = catch_unwind(AssertUnwindSafe(|| {
             let (continue_loop, current_stack, line_editor) = loop_iteration(LoopContext {
@@ -208,6 +211,7 @@ pub fn evaluate_repl(
                 entry_num: &mut entry_num,
                 hostname: hostname.as_deref(),
                 is_hostcommand: &mut is_hostcommand,
+                completion_cache: current_completion_cache,
             });
 
             // pass the most recent version of the line_editor back
@@ -323,6 +327,8 @@ struct LoopContext<'a> {
     entry_num: &'a mut usize,
     hostname: Option<&'a str>,
     is_hostcommand: &'a mut bool,
+    /// Completion cache carried across prompts (survives the per-prompt completer rebuild).
+    completion_cache: NarrowingCache,
 }
 
 struct RunContext<'a> {
@@ -512,6 +518,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         entry_num,
         hostname,
         is_hostcommand,
+        completion_cache,
     } = ctx;
 
     let mut start_time = Instant::now();
@@ -586,10 +593,11 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         .with_validator(Box::new(NuValidator {
             engine_state: engine_reference.clone(),
         }))
-        .with_completer(Box::new(NuCompleter::new(
+        .with_completer(Box::new(NuCompleter::with_cache(
             engine_reference.clone(),
             // STACK-REFERENCE 2
             stack_arc.clone(),
+            completion_cache,
         )))
         .with_quick_completions(config.completions.quick)
         .with_partial_completions(config.completions.partial)
