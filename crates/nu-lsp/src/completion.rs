@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use crate::{LanguageServer, span_to_range, uri_to_path};
 use lsp_types::{
     CompletionItem, CompletionItemKind, CompletionItemLabelDetails, CompletionParams,
@@ -35,8 +33,8 @@ impl LanguageServer {
                 .is_some_and(|c| c.is_whitespace() || "|(){}[]<>,:;".contains(c));
 
         self.need_parse |= need_fallback;
-        let engine_state = Arc::new(self.new_engine_state(Some(path_uri)));
-        let completer = CompletionEngine::new(engine_state.clone(), Arc::new(Stack::new()));
+        let engine_state = self.new_engine_state(Some(path_uri));
+        let completer = CompletionEngine::new(&engine_state, &Stack::new());
         let results = if need_fallback {
             completer.fetch_completions_at(&file_text[..location], location)
         } else {

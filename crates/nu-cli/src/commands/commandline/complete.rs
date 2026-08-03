@@ -1,10 +1,10 @@
-use std::{borrow::Cow, sync::Arc};
+use std::borrow::Cow;
 
 use nu_engine::command_prelude::*;
 use nu_protocol::FromValue;
 
 use crate::completions::{
-    Completer, CompletionEngine, DirectoryCompletion, FileCompletion, SemanticSuggestion,
+    Buffer, Completer, CompletionEngine, DirectoryCompletion, FileCompletion, SemanticSuggestion,
 };
 
 #[derive(Debug, Clone, FromValue)]
@@ -192,9 +192,7 @@ fn fetch_completions(
     buffer: &str,
     cursor_position: usize,
 ) -> Vec<SemanticSuggestion> {
-    // TODO: it should be possible to add something like a `NuCompleter::borrowed()`
-    // to avoid cloning the entire stack + engine state here, as a future optimization.
-    let completer = CompletionEngine::new(Arc::new(engine_state.clone()), Arc::new(stack.clone()));
+    let completer = CompletionEngine::new(engine_state, stack);
 
     completion_type
         .map(|parsed_type| {
@@ -228,14 +226,19 @@ fn generate_typed_suggestions(
 
     let context = completer.context(
         &working_set,
+        Buffer {
+            text: &buffer[..cursor_position],
+            offset: file_span.start,
+        },
         file_span,
         &buffer_bytes[..cursor_position],
-        file_span.start,
     );
 
     // Explicit matching avoids boxing the source into a `dyn` trait object.
     match completion_type {
-        CompletionType::Directory => DirectoryCompletion.fetch(&context).suggestions,
-        CompletionType::Path | CompletionType::Glob => FileCompletion.fetch(&context).suggestions,
+        CompletionType::Directory => DirectoryCompletion.fetch(&context).into_suggestions(),
+        CompletionType::Path | CompletionType::Glob => {
+            FileCompletion.fetch(&context).into_suggestions()
+        }
     }
 }

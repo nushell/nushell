@@ -1,15 +1,15 @@
 use crate::completions::{
     ArgValueCompletion, AttributableCompletion, AttributeCompletion, CellPathCompletion,
-    CommandCompletion, CommandScope, Completer, CompletionOptions, CustomCompletion,
-    DotNuCompletion, EnvVarCompletion, FileCompletion, FlagCompletion, NuMatcher,
-    OperatorCompletion, VariableCompletion,
+    CommandCompletion, CommandScope, Completer, CompletionOptions, DotNuCompletion,
+    EnvVarCompletion, FileCompletion, FlagCompletion, NuMatcher, OperatorCompletion,
+    VariableCompletion,
     base::{Fetched, SemanticSuggestion},
 };
 use lru::LruCache;
 use nu_parser::{parse, parse_shorter_head_reading};
 use nu_protocol::{
-    BuiltinCompletion, CommandWideCompleter, Completion, DeclId, Flag, Signature, Span,
-    SuggestionKind,
+    BuiltinCompletion, CommandWideCompleter, Completion, DeclId, Flag, IntoValue, Record,
+    Signature, Span, SuggestionKind, Value,
     ast::{
         Argument, AttributeBlock, Block, Call, Expr, Expression, ExternalArgument, FlagRef,
         FullCellPath, PipelineRedirection, RedirectionTarget, Traverse,
@@ -32,7 +32,10 @@ use std::{borrow::Cow, ops::ControlFlow, path::is_separator};
 /// `$env.config.completions.cache_size` (`0` disables the cache).
 const DEFAULT_CACHE_SIZE: usize = 100;
 
-use super::{StaticCompletion, custom_completions::CommandWideCompletion};
+use super::{
+    StaticCompletion,
+    custom_completions::{UserCompletion, completer_input},
+};
 
 /// Used as the function `f` in find_map Traverse
 ///
@@ -128,11 +131,8 @@ fn command_name_span(head: Span, element: Span) -> Span {
     Span::new(head.start, head.end.max(element.end))
 }
 
-/// Whether `token` is a flag being typed — i.e. it begins with `-`.
-///
-/// The parser stores in-progress flags as positionals, so the leading dash is the only
-/// reliable flag/positional test; the cache relies on it too.
-fn is_flag_text(token: impl AsRef<[u8]>) -> bool {
+/// Whether the token starts a flag; in-progress flags parse as positionals.
+pub(crate) fn is_flag_text(token: impl AsRef<[u8]>) -> bool {
     token.as_ref().starts_with(b"-")
 }
 
@@ -245,7 +245,7 @@ pub(crate) struct CompletionQuery {
 
 impl CompletionQuery {
     fn new(line: &str, cursor: usize) -> Self {
-        let floored = line.floor_char_boundary(cursor);
+        let floored = line.floor_char_boundary(cursor.min(line.len()));
         Self {
             typed: Arc::from(&line[..floored]),
         }
@@ -484,6 +484,17 @@ struct CompletionWorker {
     latest: Option<Completed>,
 }
 
+/// The completion behaviour configured in `$env.config.completions`.
+fn configured_options(engine_state: &EngineState) -> CompletionOptions {
+    let config = engine_state.get_config();
+    CompletionOptions {
+        case_sensitive: config.completions.case_sensitive,
+        match_algorithm: config.completions.algorithm.into(),
+        sort: config.completions.sort,
+        match_description: false,
+    }
+}
+
 fn isolated_stack(parent: Arc<Stack>, suppress_stdin: bool) -> Arc<Stack> {
     let stack = Stack::with_parent(parent)
         .reset_out_dest()
@@ -543,6 +554,102 @@ impl<'a> SiteKind<'a> {
     fn command(node: &'a Expression) -> Self {
         Self::Command { node: Some(node) }
     }
+
+    /// Project to the structured description handed to user completers as `$input.site`.
+    fn site(&self) -> Site<'a> {
+        match *self {
+            Self::Command { .. } => Site::Command,
+            Self::FlagName { .. } => Site::FlagName,
+            Self::FlagValue { flag, .. } => Site::FlagValue { flag: flag.name() },
+            Self::Positional { sig_positional, .. } => Site::Positional {
+                index: sig_positional,
+            },
+            Self::Operator { .. } => Site::Operator,
+            Self::CellPath { .. } => Site::CellPath,
+            Self::Variable => Site::Variable,
+            Self::AttributeName => Site::AttributeName,
+            Self::AttributableItem => Site::AttributableItem,
+            Self::ExternalArg { index, .. } => Site::ExternalArg { index },
+            Self::File => Site::File,
+        }
+    }
+
+    /// The element this kind is backed by, if any.
+    fn element(&self) -> Option<&'a Expression> {
+        match *self {
+            Self::Command { node } => node,
+            Self::FlagName { element, .. }
+            | Self::FlagValue { element, .. }
+            | Self::Positional { element, .. } => Some(element),
+            Self::ExternalArg { call, .. } => Some(call),
+            _ => None,
+        }
+    }
+}
+
+/// What the cursor is completing, as a completer sees it (`$input.site`). The engine's
+/// own parse, so a completer branches on structure instead of re-tokenizing
+/// `$input.tokens`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Site<'a> {
+    /// A command head.
+    Command,
+    /// A flag name.
+    FlagName,
+    /// The value of a flag; `flag` is the long name.
+    FlagValue { flag: &'a str },
+    /// A positional argument.
+    Positional { index: usize },
+    /// A binary-operator position.
+    Operator,
+    /// A cell path.
+    CellPath,
+    /// A `$var` name.
+    Variable,
+    /// An attribute name.
+    AttributeName,
+    /// The item an attribute block decorates.
+    AttributableItem,
+    /// An argument of a bare external call; externals have no signature, so flags count.
+    ExternalArg { index: usize },
+    /// A file path.
+    File,
+}
+
+impl Site<'_> {
+    /// The kebab-case discriminant a completer reads as `$input.site.kind`.
+    fn kind(&self) -> &'static str {
+        match self {
+            Self::Command => "command",
+            Self::FlagName => "flag-name",
+            Self::FlagValue { .. } => "flag-value",
+            Self::Positional { .. } => "positional",
+            Self::Operator => "operator",
+            Self::CellPath => "cell-path",
+            Self::Variable => "variable",
+            Self::AttributeName => "attribute-name",
+            Self::AttributableItem => "attributable-item",
+            Self::ExternalArg { .. } => "external-arg",
+            Self::File => "file",
+        }
+    }
+}
+
+impl IntoValue for Site<'_> {
+    fn into_value(self, span: Span) -> Value {
+        let mut record = Record::new();
+        record.insert("kind", Value::string(self.kind(), span));
+
+        match self {
+            Self::FlagValue { flag } => record.insert("flag", Value::string(flag, span)),
+            Self::Positional { index } | Self::ExternalArg { index } => {
+                record.insert("index", Value::int(index as i64, span))
+            }
+            _ => None,
+        };
+
+        Value::record(record, span)
+    }
 }
 
 /// A fully resolved completion site: the span to replace, the typed text, the cursor, and
@@ -590,16 +697,34 @@ impl Dispatched {
 impl From<Fetched> for Dispatched {
     fn from(fetched: Fetched) -> Self {
         Self {
-            suggestions: fetched.suggestions,
-            cacheable: fetched.cacheable,
+            cacheable: fetched.is_cacheable(),
+            suggestions: fetched.into_suggestions(),
         }
     }
 }
 
-pub struct CompletionEngine {
-    engine_state: Arc<EngineState>,
+/// Completions for one commandline against borrowed state.
+pub struct CompletionEngine<'a> {
+    engine_state: &'a EngineState,
+    /// An isolated child of the caller's stack.
     stack: Arc<Stack>,
     options: CompletionOptions,
+}
+
+/// The commandline facts constant for one dispatch.
+#[derive(Clone, Copy)]
+pub(crate) struct Buffer<'a> {
+    /// The commandline (or file) up to the cursor.
+    pub text: &'a str,
+    /// Start of `text` in working-set coordinates; `span - offset` indexes `text`.
+    pub offset: usize,
+}
+
+impl Buffer<'_> {
+    /// The cursor as a byte offset into [`Self::text`].
+    fn cursor(&self) -> usize {
+        self.text.len()
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -610,42 +735,47 @@ pub(crate) struct Context<'a> {
     pub span: Span,
     pub prefix: &'a [u8],
     pub offset: usize,
+    /// The commandline up to the cursor. See [`Buffer`].
+    pub buffer: &'a str,
+    /// What the cursor is completing, handed to user completers as `$input.site`.
+    pub site: Site<'a>,
+    /// The pipeline element the cursor is on; the source of `$input.tokens`.
+    pub element: Option<&'a Expression>,
 }
 
-impl Context<'_> {
+impl<'a> Context<'a> {
     pub(crate) fn prefix_str(&self) -> Cow<'_, str> {
         String::from_utf8_lossy(self.prefix)
     }
+
+    /// Attach a resolved completion site, which user completers read as `$input.site`/`$input.tokens`.
+    fn at_site(mut self, site: &CompletionSite<'a>) -> Self {
+        self.site = site.kind.site();
+        self.element = site.kind.element();
+        self
+    }
 }
 
-impl CompletionEngine {
-    pub fn new(engine_state: Arc<EngineState>, stack: Arc<Stack>) -> Self {
-        Self::with_stack(engine_state, isolated_stack(stack, false))
+impl<'engine> CompletionEngine<'engine> {
+    /// A completer for one synchronous query; only the stack is copied.
+    pub fn new(engine_state: &'engine EngineState, stack: &Stack) -> Self {
+        Self::isolated(engine_state, Arc::new(stack.clone()), false)
     }
 
-    fn for_background(engine_state: Arc<EngineState>, stack: Arc<Stack>) -> Self {
-        Self::with_stack(engine_state, isolated_stack(stack, true))
-    }
-
-    fn with_stack(engine_state: Arc<EngineState>, stack: Arc<Stack>) -> Self {
-        let config = engine_state.get_config();
-        let options = CompletionOptions {
-            case_sensitive: config.completions.case_sensitive,
-            match_algorithm: config.completions.algorithm.into(),
-            sort: config.completions.sort,
-            match_description: false,
-        };
+    /// Like [`Self::new`], on a shared, stdin-suppressed stack.
+    fn isolated(
+        engine_state: &'engine EngineState,
+        stack: Arc<Stack>,
+        suppress_stdin: bool,
+    ) -> Self {
         Self {
             engine_state,
-            stack,
-            options,
+            stack: isolated_stack(stack, suppress_stdin),
+            options: configured_options(engine_state),
         }
     }
 
-    fn to_background(&self) -> Self {
-        Self::for_background(Arc::clone(&self.engine_state), Arc::clone(&self.stack))
-    }
-
+    /// Answer one request, returning suggestions and whether the result is cacheable.
     fn suggestions_for(&self, query: &CompletionQuery) -> (Suggestions, bool) {
         let dispatched = self.dispatch_completions_at(query.typed(), query.cursor());
         let suggestions = dispatched
@@ -661,13 +791,46 @@ impl CompletionEngine {
         self.dispatch_completions_at(line, position).suggestions
     }
 
+    /// The record a user completer would receive, without running one. `commandline
+    /// complete --input` returns it verbatim, so a completer can be developed from inside
+    /// Nushell; menus use it for parse-derived fields.
+    pub fn completer_input_at(&self, line: &str, position: usize) -> Value {
+        let cursor = line.floor_char_boundary(position.min(line.len()));
+        let sliced_line = &line[..cursor];
+
+        let mut working_set = StateWorkingSet::new(self.engine_state);
+        let offset = working_set.next_span_start();
+        let block = parse(
+            &mut working_set,
+            Some("completer"),
+            sliced_line.as_bytes(),
+            false,
+        );
+
+        let buffer = Buffer {
+            text: sliced_line,
+            offset,
+        };
+        let site = self.resolve_completion_site(&block, &working_set, buffer, sliced_line);
+
+        completer_input(
+            &self
+                .context(
+                    &working_set,
+                    buffer,
+                    site.span,
+                    site.typed_prefix.as_bytes(),
+                )
+                .at_site(&site),
+        )
+    }
+
     fn dispatch_completions_at(&self, line: &str, position: usize) -> Dispatched {
         let safe_position = line.floor_char_boundary(position);
-        // Parse only up to the cursor, so the last pipeline element is always the token (or
-        // gap) being edited; trailing whitespace is kept to distinguish a gap from the token.
+        // Parse only up to the cursor.
         let sliced_line = &line[..safe_position];
 
-        let mut working_set = StateWorkingSet::new(&self.engine_state);
+        let mut working_set = StateWorkingSet::new(self.engine_state);
         let span_offset = working_set.next_span_start();
 
         let block = parse(
@@ -680,8 +843,10 @@ impl CompletionEngine {
         self.fetch_completions_by_block(
             block,
             &working_set,
-            safe_position,
-            span_offset,
+            Buffer {
+                text: sliced_line,
+                offset: span_offset,
+            },
             sliced_line,
         )
     }
@@ -692,7 +857,7 @@ impl CompletionEngine {
         position: usize,
         contents: &str,
     ) -> Vec<SemanticSuggestion> {
-        let mut working_set = StateWorkingSet::new(&self.engine_state);
+        let mut working_set = StateWorkingSet::new(self.engine_state);
 
         // `parse` must run first: it registers the file and its spans in `working_set`.
         let block = parse(&mut working_set, Some(filename), contents.as_bytes(), false);
@@ -701,26 +866,31 @@ impl CompletionEngine {
             return Vec::new();
         };
 
-        self.fetch_completions_by_block(block, &working_set, position, file_span.start, contents)
-            .suggestions
+        self.fetch_completions_by_block(
+            block,
+            &working_set,
+            Buffer {
+                text: contents.get(..position).unwrap_or(contents),
+                offset: file_span.start,
+            },
+            contents,
+        )
+        .suggestions
     }
 
-    /// `position` is the cursor as a buffer-relative byte offset into `contents`.
-    fn fetch_completions_by_block(
-        &self,
+    /// `buffer` is the commandline; `contents` is the text the block was parsed from.
+    fn fetch_completions_by_block(        &self,
         block: Arc<Block>,
         working_set: &StateWorkingSet,
-        position: usize,
-        offset: usize,
+        buffer: Buffer,
         contents: &str,
     ) -> Dispatched {
-        let site = self.resolve_completion_site(&block, working_set, position, offset, contents);
-        let mut dispatched = self.dispatch_completion_site(&site, working_set, offset);
+        let site = self.resolve_completion_site(&block, working_set, buffer, contents);
+        let mut dispatched = self.dispatch_completion_site(&site, working_set, buffer);
 
-        // A multi-word head is ambiguous: also recover the argument reading of the shorter
-        // command and offer it before the subcommand name.
+        // A multi-word head is ambiguous: offer the shorter command's argument reading too.
         let argument_reading =
-            self.complete_multiword_head_as_argument(&site, working_set, offset, contents);
+            self.complete_multiword_head_as_argument(&site, working_set, buffer, contents);
         dispatched.cacheable |= argument_reading.cacheable;
         dispatched
             .suggestions
@@ -728,15 +898,12 @@ impl CompletionEngine {
         dispatched
     }
 
-    /// A multi-word head is ambiguous: `baz --test bar` is also `bar`, the value of
-    /// `baz --test`'s flag. Recover that argument reading via [`parse_shorter_head_reading`]
-    /// over the real buffer spans (avoiding the stale-span hazard of #5127), dropping
-    /// command-kind results the primary dispatch already offers.
+    /// `baz --test bar` can also read as the value of `baz --test`'s flag.
     fn complete_multiword_head_as_argument(
         &self,
         site: &CompletionSite,
         working_set: &StateWorkingSet,
-        offset: usize,
+        buffer: Buffer,
         contents: &str,
     ) -> Dispatched {
         if !matches!(site.kind, SiteKind::Command { .. })
@@ -748,25 +915,23 @@ impl CompletionEngine {
             return Dispatched::default();
         }
 
-        let mut parse_ws = StateWorkingSet::new(&self.engine_state);
+        let mut parse_ws = StateWorkingSet::new(self.engine_state);
         let _ = parse_ws.add_file("completer", contents.as_bytes());
         let Some(shorter) = parse_shorter_head_reading(&mut parse_ws, site.span, None) else {
             return Dispatched::default();
         };
 
-        let position = site.cursor.saturating_sub(offset);
         let shorter_site = self.finalize_site(
             self.resolve_expression_site(&shorter, site.cursor, &parse_ws),
+            buffer,
             contents,
-            position,
-            offset,
         );
         // A command-head result means no distinct argument; leave it to the primary dispatch.
         if matches!(shorter_site.kind, SiteKind::Command { .. }) {
             return Dispatched::default();
         }
 
-        let mut dispatched = self.dispatch_completion_site(&shorter_site, &parse_ws, offset);
+        let mut dispatched = self.dispatch_completion_site(&shorter_site, &parse_ws, buffer);
         // Drop command-kind results; only the argument value is contributed here.
         dispatched
             .suggestions
@@ -774,27 +939,28 @@ impl CompletionEngine {
         dispatched
     }
 
-    /// Dispatches the completion site to the appropriate specialized completer.
-    fn dispatch_completion_site(
-        &self,
-        site: &CompletionSite,
-        working_set: &StateWorkingSet,
-        offset: usize,
+    /// Dispatch the site to the appropriate specialized completer.
+    fn dispatch_completion_site<'a>(
+        &'a self,
+        site: &CompletionSite<'a>,
+        working_set: &'a StateWorkingSet,
+        buffer: Buffer<'a>,
     ) -> Dispatched {
-        let completion_context =
-            self.context(working_set, site.span, site.typed_prefix.as_bytes(), offset);
+        let completion_context = self
+            .context(working_set, buffer, site.span, site.typed_prefix.as_bytes())
+            .at_site(site);
 
         match &site.kind {
             SiteKind::Command { node } => {
                 let completions = self.command_completion_helper(
                     working_set,
+                    buffer,
                     site.span,
-                    offset,
                     self.command_completion_for_head(*node, site.span, working_set),
                 );
 
                 if completions.suggestions.is_empty() {
-                    self.suggestions_at(&mut FileCompletion, working_set, site.span, offset)
+                    self.suggestions_at(&mut FileCompletion, &completion_context)
                 } else {
                     completions
                 }
@@ -803,7 +969,7 @@ impl CompletionEngine {
             SiteKind::FlagName { .. }
             | SiteKind::FlagValue { .. }
             | SiteKind::Positional { .. } => {
-                self.dispatch_call_completion_site(site, working_set, offset, &completion_context)
+                self.dispatch_call_completion_site(site, working_set, buffer, &completion_context)
             }
 
             SiteKind::Operator { lhs } => OperatorCompletion {
@@ -819,31 +985,26 @@ impl CompletionEngine {
             .fetch(&completion_context)
             .into(),
 
-            SiteKind::Variable => {
-                self.variable_names_completion_helper(working_set, site.span, offset)
-            }
+            SiteKind::Variable => self.variable_names_completion_helper(&completion_context),
 
             SiteKind::AttributeName => AttributeCompletion.fetch(&completion_context).into(),
 
             SiteKind::AttributableItem => AttributableCompletion.fetch(&completion_context).into(),
 
             SiteKind::ExternalArg { .. } => {
-                self.dispatch_external_arg(site, working_set, offset, &completion_context)
+                self.dispatch_external_arg(site, working_set, buffer, &completion_context)
             }
 
-            SiteKind::File => {
-                self.suggestions_at(&mut FileCompletion, working_set, site.span, offset)
-            }
+            SiteKind::File => self.suggestions_at(&mut FileCompletion, &completion_context),
         }
     }
 
-    /// Complete an external call argument: `sudo`/`doas` special-case, the configured
-    /// external completer, then file completion as a fallback.
+    /// Complete an external call argument.
     fn dispatch_external_arg(
         &self,
         site: &CompletionSite,
         working_set: &StateWorkingSet,
-        offset: usize,
+        buffer: Buffer,
         completion_context: &Context,
     ) -> Dispatched {
         let SiteKind::ExternalArg {
@@ -864,8 +1025,8 @@ impl CompletionEngine {
             if head_command == b"sudo" || head_command == b"doas" {
                 let commands = self.command_completion_helper(
                     working_set,
+                    buffer,
                     site.span,
-                    offset,
                     CommandCompletion::new(CommandScope::All),
                 );
                 if !commands.suggestions.is_empty() {
@@ -886,58 +1047,50 @@ impl CompletionEngine {
             .completer
             .as_ref()
         {
-            let mut completion = CommandWideCompletion::closure(closure, external_call);
-            let fetched = completion.fetch(completion_context);
-            external_answered = !fetched.need_fallback;
+            let fetched = UserCompletion::closure(closure).fetch(completion_context);
+            external_answered = !fetched.needs_fallback();
             dispatched.merge(fetched.into());
         }
 
-        // Internal subcommands extending this call (e.g. `fod br` → `food bar`), which
-        // suppress the file fallback like an internal call's arguments do.
+        // Subcommands extending this call suppress the file fallback.
         let subcommands =
-            self.subcommand_suggestions(working_set, external_call.span.start, site.cursor, offset);
+            self.subcommand_suggestions(working_set, buffer, external_call.span.start, site.cursor);
 
-        // File completion for path arguments, only when nothing more specific answered.
+        // File completion for paths, only when nothing more specific answered.
         if !external_answered
             && dispatched.suggestions.is_empty()
             && subcommands.suggestions.is_empty()
         {
-            dispatched.merge(self.suggestions_at(
-                &mut FileCompletion,
-                working_set,
-                site.span,
-                offset,
-            ));
+            dispatched.merge(self.suggestions_at(&mut FileCompletion, completion_context));
         }
 
         dispatched.merge(subcommands);
         dispatched
     }
 
-    /// Dispatch completions for call-bound sites (FlagName, FlagValue, Positional).
+    /// Dispatch completions for call-bound sites.
     fn dispatch_call_completion_site(
         &self,
         site: &CompletionSite,
         working_set: &StateWorkingSet,
-        offset: usize,
+        buffer: Buffer,
         completion_context: &Context,
     ) -> Dispatched {
-        // Only call-bound kinds carry a call and element; anything else is an error here.
-        let (call, element) = match &site.kind {
-            SiteKind::FlagName { call, element }
-            | SiteKind::FlagValue { call, element, .. }
-            | SiteKind::Positional { call, element, .. } => (*call, *element),
+        // Only call-bound kinds carry a call; anything else is an error here.
+        let call = match &site.kind {
+            SiteKind::FlagName { call, .. }
+            | SiteKind::FlagValue { call, .. }
+            | SiteKind::Positional { call, .. } => *call,
             _ => return Dispatched::default(),
         };
 
         let signature = working_set.get_decl(call.decl_id).signature();
 
-        // Subcommands extending this command line are always offered, and suppress the
-        // file-path fallback: a matched subcommand shouldn't also dump the whole directory.
+        // Subcommands are always offered and suppress the file-path fallback.
         let subcommands =
-            self.subcommand_suggestions(working_set, call.head.start, site.cursor, offset);
+            self.subcommand_suggestions(working_set, buffer, call.head.start, site.cursor);
 
-        // The value kinds share one shape; only the `ArgType` and custom-completer lookup differ.
+        // Value kinds share one shape; only the `ArgType` and completer lookup differ.
         let argument_value = |engine: &Self, arg_type, custom, arg_slot| {
             engine.complete_argument_value(
                 custom,
@@ -945,20 +1098,17 @@ impl CompletionEngine {
                     call,
                     arg_type,
                     need_fallback: subcommands.suggestions.is_empty(),
-                    completer: engine,
                     arg_idx: arg_slot,
                     cursor: site.cursor,
                 },
                 completion_context,
                 &signature,
-                element,
-                site.cursor,
             )
         };
 
         let mut results = match &site.kind {
             SiteKind::FlagName { .. } => {
-                self.complete_flag_names(call.decl_id, completion_context, &signature, element)
+                self.complete_flag_names(call.decl_id, completion_context, &signature)
             }
             SiteKind::FlagValue { flag, arg_slot, .. } => argument_value(
                 self,
@@ -990,11 +1140,10 @@ impl CompletionEngine {
         &self,
         block: &'a Block,
         working_set: &'a StateWorkingSet,
-        position: usize,
-        offset: usize,
+        buffer: Buffer,
         contents: &'a str,
     ) -> CompletionSite<'a> {
-        let absolute_position = position + offset;
+        let absolute_position = buffer.cursor() + buffer.offset;
 
         // The token whose span the cursor is inside of, or at the trailing edge of.
         let touched_expression = block
@@ -1012,25 +1161,22 @@ impl CompletionEngine {
             None => self.resolve_fallback_site(block, working_set, absolute_position),
         };
 
-        self.finalize_site(site, contents, position, offset)
+        self.finalize_site(site, buffer, contents)
     }
 
-    /// Fill the centrally-derived `typed_prefix`/`cursor` fields from the final `site.span`,
-    /// so the prefix and replacement span can never disagree. Point spans yield an empty
-    /// prefix.
+    /// Fill `typed_prefix`/`cursor` from the final span so they never disagree.
     fn finalize_site<'a>(
         &self,
         mut site: CompletionSite<'a>,
+        buffer: Buffer,
         contents: &'a str,
-        position: usize,
-        offset: usize,
     ) -> CompletionSite<'a> {
-        let token_start = site.span.start.saturating_sub(offset);
+        let token_start = site.span.start.saturating_sub(buffer.offset);
         site.typed_prefix = contents
-            .get(token_start..position)
+            .get(token_start..buffer.cursor())
             .map(Cow::Borrowed)
             .unwrap_or(Cow::Borrowed(""));
-        site.cursor = position + offset;
+        site.cursor = buffer.cursor() + buffer.offset;
         site
     }
 
@@ -1086,8 +1232,8 @@ impl CompletionEngine {
         }
     }
 
-    /// Resolve a bare external call (`git checkout`). The head completes as a command;
-    /// other positions are [`SiteKind::ExternalArg`].
+    /// Resolve a bare external call; the head completes as a command, else
+    /// [`SiteKind::ExternalArg`].
     fn resolve_external_call_site<'a>(
         &self,
         expression: &'a Expression,
@@ -1165,10 +1311,8 @@ impl CompletionEngine {
             );
         }
 
-        // Classify the slot the cursor trails after the last argument: a pending flag value,
-        // a new flag name, or a new positional. Looking only at the non-whitespace token
-        // ending at the cursor keeps `cmd -f val ⌶` (positional) and `cmd --⌶` (flag name)
-        // distinct, and its span preserves the `-`/`--` prefix.
+        // Classify the trailing slot (flag value, flag name, or positional) by the
+        // trailing non-whitespace token.
         let gap_start = call
             .arguments
             .last()
@@ -1188,8 +1332,7 @@ impl CompletionEngine {
         let point = Span::point(absolute_position);
 
         if let Some(flag_ref) = self.pending_flag_value(call, working_set) {
-            // Intentionally out-of-range `arg_slot`: there is no in-progress argument node
-            // yet, and `ArgValueCompletion` reads `None` as exactly that.
+            // `arg_slot` past the last argument: no node exists yet; `ArgValueCompletion` reads `None`.
             CompletionSite::new(
                 SiteKind::FlagValue {
                     call,
@@ -1220,8 +1363,7 @@ impl CompletionEngine {
         }
     }
 
-    /// The last row-condition term when the cursor trails it (`where name ⌶`): the LHS of
-    /// an operator the user is about to type.
+    /// The last row-condition term when the cursor trails it: an operator's LHS.
     fn row_condition_operator_lhs<'a>(
         &self,
         call: &'a Call,
@@ -1256,7 +1398,7 @@ impl CompletionEngine {
         gap.iter().all(u8::is_ascii_whitespace).then_some(last_term)
     }
 
-    /// The [`FlagRef`] of a last-argument flag still awaiting its value (`cmd --opt ⌶`).
+    /// The [`FlagRef`] of a last-argument flag still awaiting its value.
     fn pending_flag_value<'a>(
         &self,
         call: &'a Call,
@@ -1305,9 +1447,7 @@ impl CompletionEngine {
                         value_expression.span,
                     )
                 } else {
-                    // Only the name is being completed: `Argument::span` would also cover
-                    // the value written after it (`--endian big`), and `name.span` is the
-                    // flag token itself for both spellings.
+                    // Only the name is completed; `Argument::span` would cover the value after it.
                     (flag_name, name.span)
                 }
             }
@@ -1348,9 +1488,7 @@ impl CompletionEngine {
             return CompletionSite::new(SiteKind::AttributableItem, attribute_block.item.span);
         }
 
-        // Past the last attribute is the decorated item's slot, even when the parser found
-        // no item to give a span to (`@complete "c"⏎⌶`). Earlier gaps sit between two
-        // attributes, where another attribute name is what's being typed.
+        // Past the last attribute is the item's slot; earlier gaps type another attribute.
         let kind = match attribute_block.attributes.last() {
             Some(last) if absolute_position >= last.expr.span.end => SiteKind::AttributableItem,
             _ => SiteKind::AttributeName,
@@ -1371,8 +1509,7 @@ impl CompletionEngine {
             .and_then(|pipeline| pipeline.elements.last())
             .map(|element| &element.expr);
 
-        // A bare `@` opens an attribute name; trailing a completed attribute block completes
-        // the attributable item itself; otherwise a fresh command position.
+        // A bare `@` opens an attribute name; trailing an attribute block completes its item.
         let kind = if last_element
             .map(|element| working_set.get_span_contents(element.span))
             .is_some_and(|bytes| bytes.ends_with(b"@"))
@@ -1392,8 +1529,6 @@ impl CompletionEngine {
         mut arg_value: ArgValueCompletion,
         context: &Context,
         signature: &Signature,
-        element_expression: &Expression,
-        cursor: usize,
     ) -> Dispatched {
         let mut results = Dispatched::default();
 
@@ -1401,26 +1536,31 @@ impl CompletionEngine {
             let attempt = match custom {
                 // A command declared an engine-provided completion for this argument.
                 Completion::Builtin(kind) => self.complete_builtin(kind, &arg_value, context),
-                // A custom completer receives the element text up to the cursor
-                // (`my-command foobar`), so its spans are anchored to the element's start.
-                other => {
-                    let element_line = String::from_utf8_lossy(
-                        context
-                            .working_set
-                            .get_span_contents(Span::new(element_expression.span.start, cursor)),
-                    );
-                    self.custom_completion_helper(other, element_line.as_ref(), context, cursor)
+                // A user-defined completer, called with the unified input record.
+                Completion::Command(decl_id) => {
+                    match UserCompletion::parameter(context.working_set, decl_id) {
+                        Some(mut completer) => completer.fetch(context),
+                        None => {
+                            // A builtin/plugin runs no block; empty beats dumping the directory.
+                            log::error!(
+                                "`{}` cannot be used as a completer: it runs no block",
+                                context.working_set.get_decl(decl_id).name()
+                            );
+                            Fetched::Cacheable(vec![])
+                        }
+                    }
                 }
+                Completion::List(list) => StaticCompletion::new(list).fetch(context),
             };
-            let need_fallback = attempt.need_fallback;
+            let need_fallback = attempt.needs_fallback();
             results.merge(attempt.into());
             if !need_fallback {
                 return results;
             }
         }
 
-        let attempt = self.command_wide_completion_helper(signature, element_expression, context);
-        let need_fallback = attempt.need_fallback;
+        let attempt = self.command_wide_completion_helper(signature, context);
+        let need_fallback = attempt.needs_fallback();
         results.merge(attempt.into());
         if !need_fallback {
             return results;
@@ -1462,56 +1602,35 @@ impl CompletionEngine {
         decl_id: DeclId,
         context: &Context,
         signature: &Signature,
-        element_expression: &Expression,
     ) -> Dispatched {
         let mut results: Dispatched = FlagCompletion { decl_id }.fetch(context).into();
         results.merge(
-            self.command_wide_completion_helper(signature, element_expression, context)
+            self.command_wide_completion_helper(signature, context)
                 .into(),
         );
         results
     }
 
-    fn suggestions_at<C: Completer>(
-        &self,
-        completer: &mut C,
-        working_set: &StateWorkingSet,
-        span: Span,
-        offset: usize,
-    ) -> Dispatched {
-        completer
-            .fetch(&self.context(
-                working_set,
-                span,
-                working_set.get_span_contents(span),
-                offset,
-            ))
-            .into()
+    fn suggestions_at<C: Completer>(&self, completer: &mut C, context: &Context) -> Dispatched {
+        completer.fetch(context).into()
     }
 
-    fn variable_names_completion_helper(
-        &self,
-        working_set: &StateWorkingSet,
-        span: Span,
-        offset: usize,
-    ) -> Dispatched {
-        let prefix = working_set.get_span_contents(span);
-        if !prefix.starts_with(b"$") {
+    fn variable_names_completion_helper(&self, context: &Context) -> Dispatched {
+        if !context.prefix.starts_with(b"$") {
             return Dispatched::default();
         }
-        let ctx = self.context(working_set, span, prefix, offset);
-        VariableCompletion.fetch(&ctx).into()
+        VariableCompletion.fetch(context).into()
     }
 
     fn command_completion_helper(
         &self,
         working_set: &StateWorkingSet,
+        buffer: Buffer,
         span: Span,
-        offset: usize,
         mut command_completion: CommandCompletion,
     ) -> Dispatched {
         let prefix = working_set.get_span_contents(span);
-        let ctx = self.context(working_set, span, prefix, offset);
+        let ctx = self.context(working_set, buffer, span, prefix);
         command_completion.fetch(&ctx).into()
     }
 
@@ -1535,59 +1654,31 @@ impl CompletionEngine {
         })
     }
 
-    /// Internal commands whose name extends the command line typed so far (`foo test⌶`
-    /// also offers `foo test bar`). Externals are excluded: a multi-word line names only
+    /// Internal commands whose name extends the line so far (`foo test⌶` also offers
+    /// `foo test bar`); externals are excluded, since a multi-word line names only
     /// internal subcommands.
     fn subcommand_suggestions(
         &self,
         working_set: &StateWorkingSet,
+        buffer: Buffer,
         command_start: usize,
         cursor: usize,
-        offset: usize,
     ) -> Dispatched {
         if cursor <= command_start {
             return Dispatched::default();
         }
         self.command_completion_helper(
             working_set,
+            buffer,
             Span::new(command_start, cursor),
-            offset,
             CommandCompletion::new(CommandScope::InternalsOnly),
         )
     }
 
-    fn custom_completion_helper(
-        &self,
-        custom_completion: Completion,
-        input: &str,
-        context: &Context,
-        pos: usize,
-    ) -> Fetched {
-        match custom_completion {
-            Completion::Command(decl_id) => {
-                let mut completer =
-                    CustomCompletion::new(decl_id, input.into(), pos - context.offset);
-                completer.fetch(context)
-            }
-            Completion::List(list) => {
-                let mut completer = StaticCompletion::new(list);
-                completer.fetch(context)
-            }
-            // Engine-provided completions are handled in `complete_argument_value`; decline
-            // if one arrives by another path.
-            Completion::Builtin(_) => Fetched::absent(),
-        }
-    }
-
-    fn command_wide_completion_helper(
-        &self,
-        signature: &Signature,
-        element_expression: &Expression,
-        context: &Context,
-    ) -> Fetched {
+    fn command_wide_completion_helper(&self, signature: &Signature, context: &Context) -> Fetched {
         let completion = match signature.complete {
             Some(CommandWideCompleter::Command(decl_id)) => {
-                CommandWideCompletion::command(context.working_set, decl_id, element_expression)
+                UserCompletion::command(context.working_set, decl_id)
             }
             Some(CommandWideCompleter::External) => self
                 .engine_state
@@ -1596,28 +1687,26 @@ impl CompletionEngine {
                 .external
                 .completer
                 .as_ref()
-                .map(|closure| CommandWideCompletion::closure(closure, element_expression)),
+                .map(UserCompletion::closure),
             None => None,
         };
 
         match completion {
-            Some(mut completion) => {
-                let context = Context {
-                    prefix: b"",
-                    ..*context
-                };
-                completion.fetch(&context)
-            }
-            None => Fetched::absent(),
+            // Answers for the whole call, never narrowed against the token prefix.
+            Some(mut completion) => completion.fetch(&Context {
+                prefix: b"",
+                ..*context
+            }),
+            None => Fetched::Absent,
         }
     }
 
     pub(crate) fn context<'a>(
         &'a self,
         working_set: &'a StateWorkingSet,
+        buffer: Buffer<'a>,
         span: Span,
         prefix: &'a [u8],
-        offset: usize,
     ) -> Context<'a> {
         Context {
             working_set,
@@ -1625,17 +1714,20 @@ impl CompletionEngine {
             options: &self.options,
             span,
             prefix,
-            offset,
+            offset: buffer.offset,
+            buffer: buffer.text,
+            // Base site; `Context::at_site` replaces it once resolved.
+            site: Site::File,
+            element: None,
         }
-    }
-
-    pub(crate) fn options(&self) -> &CompletionOptions {
-        &self.options
     }
 }
 
 pub struct NuCompleter {
-    engine: CompletionEngine,
+    /// Shared rather than borrowed: the background worker thread takes a handle.
+    engine_state: Arc<EngineState>,
+    stack: Arc<Stack>,
+    options: CompletionOptions,
     cache: NarrowingCache,
     /// The [`CacheEnv`] of every entry this completer stores/reads; computed once per
     /// completer, not on [`CompletionEngine`] (which non-caching callers also build).
@@ -1653,13 +1745,14 @@ impl NuCompleter {
         stack: Arc<Stack>,
         cache: NarrowingCache,
     ) -> Self {
-        let engine = CompletionEngine::new(engine_state, stack);
-        let cache_env = CacheEnv::of(&engine.engine_state, &engine.stack);
+        let cache_env = CacheEnv::of(&engine_state, &stack);
         // Read fresh each prompt so `cache_size` config changes take effect.
-        let cache_size = engine.engine_state.get_config().completions.cache_size;
+        let cache_size = engine_state.get_config().completions.cache_size;
         cache.set_capacity(cache_size.try_into().unwrap_or(0));
         Self {
-            engine,
+            options: configured_options(&engine_state),
+            engine_state,
+            stack,
             cache,
             cache_env,
             worker: None,
@@ -1686,15 +1779,17 @@ impl NuCompleter {
 
     fn stale_fallback(&self, query: &CompletionQuery) -> Suggestions {
         self.cache
-            .narrowed_fallback(query, self.cache_env, self.engine.options())
+            .narrowed_fallback(query, self.cache_env, &self.options)
     }
 
-    fn spawn_worker(engine: &CompletionEngine) -> CompletionWorker {
+    fn spawn_worker(engine_state: Arc<EngineState>, stack: Arc<Stack>) -> CompletionWorker {
         let (request_tx, request_rx) = mpsc::channel::<CompletionQuery>();
         let (result_tx, result_rx) = mpsc::channel::<Completed>();
 
-        let engine = engine.to_background();
         thread::spawn(move || {
+            // The thread owns the state; nothing is cloned per query.
+            let engine = CompletionEngine::isolated(&engine_state, stack, true);
+
             while let Ok(mut query) = request_rx.recv() {
                 while let Ok(newer) = request_rx.try_recv() {
                     query = newer;
@@ -1827,9 +1922,9 @@ impl ReedlineCompleter for NuCompleter {
         let fallback = self.stale_fallback(&query);
         let partial = partial_of(line, &fallback);
 
-        let worker = self
-            .worker
-            .get_or_insert_with(|| Self::spawn_worker(&self.engine));
+        let worker = self.worker.get_or_insert_with(|| {
+            Self::spawn_worker(Arc::clone(&self.engine_state), Arc::clone(&self.stack))
+        });
 
         if worker.pending.as_ref() != Some(&query) {
             if worker.request_tx.send(query.clone()).is_ok() {
@@ -1912,10 +2007,26 @@ mod completer_tests {
         // span; typing `--sep` appends no boundary, so only the flag check keeps them from
         // following it.
         let base = q("from csv ");
-        assert!(!q("from csv --sep").narrows(&base, token(base.cursor())));
+        assert!(!q("from csv --sep").narrows(&q("from csv "), token(base.cursor())));
 
         // Extending a flag the user was already typing stays sound.
         assert!(q("from csv --sep").narrows(&q("from csv --s"), token(9)));
+    }
+
+    /// A cursor mid-char or past the end must not panic or split a char; `typed()` slices
+    /// the buffer directly.
+    #[test]
+    fn the_cursor_is_clamped_to_a_char_boundary() {
+        // "é" occupies bytes 3..5, so a cursor at 4 is mid-character.
+        assert_eq!(CompletionQuery::new("ls é", 4).typed(), "ls ");
+
+        let past_end = CompletionQuery::new("ls", 99);
+        assert_eq!(past_end.typed(), "ls");
+        assert_eq!(past_end.cursor(), 2);
+
+        let empty = CompletionQuery::new("", 7);
+        assert_eq!(empty.typed(), "");
+        assert_eq!(empty.cursor(), 0);
     }
 
     /// The worker runs on an isolated stack and must still produce identical results.
@@ -1929,7 +2040,7 @@ mod completer_tests {
             values
         };
         let expected = sorted(
-            CompletionEngine::new(engine, Arc::new(Stack::new()))
+            CompletionEngine::new(&engine, &Stack::new())
                 .fetch_completions_at("ls | c", 6)
                 .into_iter()
                 .map(|s| s.suggestion.value)

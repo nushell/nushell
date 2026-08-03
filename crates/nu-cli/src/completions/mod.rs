@@ -24,7 +24,7 @@ pub use base::{Completer, Fetched, SemanticSuggestion};
 pub use cell_path_completions::CellPathCompletion;
 pub use command_completions::{CommandCompletion, CommandScope};
 pub use completer::{CompletionEngine, NuCompleter};
-pub(crate) use completer::{Context, NarrowingCache};
+pub(crate) use completer::{Buffer, Context, NarrowingCache};
 pub use completion_options::{CompletionOptions, MatchAlgorithm, NuMatcher};
 pub use custom_completions::CustomCompletion;
 pub use directory_completions::DirectoryCompletion;
