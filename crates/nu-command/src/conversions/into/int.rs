@@ -224,7 +224,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     let val_span = input.span();
 
     match input {
-        Value::Int { val: _, .. } => {
+        Value::Int { .. } => {
             if radix == 10 {
                 input.clone()
             } else {

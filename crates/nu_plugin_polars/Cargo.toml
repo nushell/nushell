@@ -50,10 +50,12 @@ uuid = { version = "1.23", features = ["v4", "serde"] }
 hashbrown = { version = "0.17", features = ["rayon", "serde"] }
 
 # Cloud support
+# Note: do not depend on `object_store` directly. polars-io already depends on it
+# and re-exports the config key types we need. A second version (e.g. 0.14 while
+# polars is on 0.13) causes incompatible type mismatches in cloud option builders.
 aws-config = { version = "1.8", features = ["sso"] }
 aws-credential-types = "1.2"
 tokio = { workspace = true, features = ["full"] }
-object_store = { version = "0.13.1", features = ["aws", "azure", "gcp"], default-features = false }
 url.workspace = true
 
 [dependencies.polars]

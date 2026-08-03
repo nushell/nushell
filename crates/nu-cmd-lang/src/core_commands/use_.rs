@@ -23,16 +23,21 @@ impl Command for Use {
         Signature::build("use")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .allow_variants_without_examples(true)
-            .required(
-                "module",
-                SyntaxShape::OneOf(vec![SyntaxShape::String, SyntaxShape::Nothing]),
-                "Module or module file (`null` for no-op).",
-            )
-            .rest(
-                "members",
-                SyntaxShape::Any,
-                "Which members of the module to import.",
-            )
+            .param(Parameter::Required(
+                PositionalArg::new(
+                    "module",
+                    SyntaxShape::OneOf(vec![SyntaxShape::String, SyntaxShape::Nothing]),
+                )
+                .desc("Module or module file (`null` for no-op).")
+                .completion(Completion::Builtin(BuiltinCompletion::NuFile {
+                    std_virtual_path: true,
+                })),
+            ))
+            .param(Parameter::Rest(
+                PositionalArg::new("members", SyntaxShape::Any)
+                    .desc("Which members of the module to import.")
+                    .completion(Completion::Builtin(BuiltinCompletion::ModuleExports)),
+            ))
             .category(Category::Core)
     }
 

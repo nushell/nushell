@@ -592,7 +592,7 @@ impl App {
 
         let type_line = Line::from(vec![
             Span::styled(
-                format!(" {} ", &type_label),
+                format!(" {} ", type_label),
                 Style::default().fg(Color::Black).bg(type_color).bold(),
             ),
             Span::styled(extra_info, Style::default().fg(Color::DarkGray)),

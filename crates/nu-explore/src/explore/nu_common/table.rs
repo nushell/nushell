@@ -25,7 +25,7 @@ pub fn try_build_table(
         vec![],
     );
     match value {
-        Value::List { vals, .. } => try_build_list(vals, opts),
+        Value::List { vals, .. } => try_build_list(vals.into_owned(), opts),
         Value::Record { val, .. } => try_build_map(&val, opts),
         val @ Value::String { .. } => {
             nu_value_to_string_clean(&val, config, &opts.style_computer).0

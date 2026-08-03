@@ -1,4 +1,4 @@
-use super::state::stream_grep;
+use super::state::{GrepSearchContext, stream_grep};
 use fff_search::GrepMode;
 use nu_engine::command_prelude::*;
 use nu_protocol::Range;
@@ -114,7 +114,11 @@ impl Command for IdxSearch {
 
         let limit = call
             .get_flag::<i64>(engine_state, stack, "limit")?
-            .and_then(|v| usize::try_from(v).ok())
+            .map(|value| {
+                usize::try_from(value)
+                    .map_err(|_| ShellError::NeedsPositiveValue { span: call.head })
+            })
+            .transpose()?
             .unwrap_or(50);
 
         let mode = if fuzzy {
@@ -125,93 +129,13 @@ impl Command for IdxSearch {
             GrepMode::PlainText
         };
 
-        let context_param: Option<Value> = call.get_flag(engine_state, stack, "context")?;
-        let (before_context, after_context) = match context_param {
-            Some(Value::Int { val: i, .. }) if i < 0 => {
-                return Err(ShellError::UnsupportedInput {
-                    msg: "Context must be specified as an or a range (e.g. -3..5). Negative value for before-context, positive value for after-context.".into(),
-                    input: "value originates from here".into(),
-                    msg_span: call.head,
-                    input_span: call.head,
-                });
-            }
-            Some(Value::Int { val: n, .. }) => (n as usize, n as usize),
-            Some(Value::Range { val: range, .. }) => {
-                // Valid cases
-                match *range {
-                    Range::IntRange(r) => {
-                        // Reject three-part ranges like -3..1..5 (explicit step != 1)
-                        if r.step() != 1 {
-                            return Err(ShellError::UnsupportedInput {
-                                msg: "Context range must not have an explicit step (e.g. use -3..5, not -3..1..5)".into(),
-                                input: "value originates from here".into(),
-                                msg_span: call.head,
-                                input_span: call.head,
-                            });
-                        }
+        let (before_context, after_context) = parse_context(
+            call.get_flag::<Value>(engine_state, stack, "context")?,
+            call.head,
+        )?;
 
-                        let start = r.start();
-                        if start > 0 {
-                            return Err(ShellError::UnsupportedInput {
-                                msg: "Context range start must be <= 0 (use a negative value for before-context, e.g. -3..5)".into(),
-                                input: "value originates from here".into(),
-                                msg_span: call.head,
-                                input_span: call.head,
-                            });
-                        }
-
-                        let end_val = match r.end() {
-                            Bound::Included(e) | Bound::Excluded(e) => e,
-                            Bound::Unbounded => {
-                                return Err(ShellError::UnsupportedInput {
-                                    msg: "Context range must have a bounded end (use a positive value for after-context, e.g. -3..5)".into(),
-                                    input: "value originates from here".into(),
-                                    msg_span: call.head,
-                                    input_span: call.head,
-                                });
-                            }
-                        };
-
-                        if end_val < 0 {
-                            return Err(ShellError::UnsupportedInput {
-                                msg: "Context range end must be >= 0 (use a positive value for after-context, e.g. -3..5)".into(),
-                                input: "value originates from here".into(),
-                                msg_span: call.head,
-                                input_span: call.head,
-                            });
-                        }
-
-                        let before = start.unsigned_abs() as usize;
-                        let after = end_val as usize;
-                        (before, after)
-                    }
-                    Range::FloatRange(_) => {
-                        return Err(ShellError::UnsupportedInput {
-                            msg: "Float ranges are not supported for context".into(),
-                            input: "value originates from here".into(),
-                            msg_span: call.head,
-                            input_span: call.head,
-                        });
-                    }
-                }
-            }
-            Some(other) => {
-                return Err(ShellError::UnsupportedInput {
-                    msg: format!(
-                        "Context must be an integer or range, but got {}",
-                        other.get_type()
-                    ),
-                    input: "value originates from here".into(),
-                    msg_span: call.head,
-                    input_span: call.head,
-                });
-            }
-            None => (0usize, 0usize),
-        };
-
-        let signals = engine_state.signals();
         let cwd = engine_state.cwd(Some(stack))?.into_std_path_buf();
-        let ctx = super::state::GrepSearchContext {
+        stream_grep(GrepSearchContext {
             patterns: &patterns,
             mode,
             page_limit: limit,
@@ -219,8 +143,73 @@ impl Command for IdxSearch {
             before_context,
             after_context,
             cwd: Some(cwd.as_path()),
-            signals,
-        };
-        stream_grep(ctx)
+            signals: engine_state.signals(),
+        })
+    }
+}
+
+/// Parse `--context` into the before/after counts expected by FFF.
+fn parse_context(value: Option<Value>, span: Span) -> Result<(usize, usize), ShellError> {
+    let unsupported = |msg| ShellError::UnsupportedInput {
+        msg,
+        input: "value originates from here".into(),
+        msg_span: span,
+        input_span: span,
+    };
+
+    let Some(value) = value else {
+        return Ok((0, 0));
+    };
+
+    match value {
+        Value::Int { val, .. } => {
+            let count = usize::try_from(val).map_err(|_| {
+                unsupported("Context must be non-negative, or use a range such as -3..5".into())
+            })?;
+            Ok((count, count))
+        }
+        Value::Range { val, .. } => match *val {
+            Range::IntRange(range) => {
+                if range.step() != 1 {
+                    return Err(unsupported(
+                        "Context range must not have an explicit step (e.g. use -3..5, not -3..1..5)".into(),
+                    ));
+                }
+
+                let start = range.start();
+                if start > 0 {
+                    return Err(unsupported(
+                        "Context range start must be <= 0 (use a negative value for before-context, e.g. -3..5)".into(),
+                    ));
+                }
+
+                let end = match range.end() {
+                    Bound::Included(end) | Bound::Excluded(end) => end,
+                    Bound::Unbounded => {
+                        return Err(unsupported(
+                            "Context range must have a bounded end (use a positive value for after-context, e.g. -3..5)".into(),
+                        ));
+                    }
+                };
+                if end < 0 {
+                    return Err(unsupported(
+                        "Context range end must be >= 0 (use a positive value for after-context, e.g. -3..5)".into(),
+                    ));
+                }
+
+                let before = usize::try_from(start.unsigned_abs())
+                    .map_err(|_| unsupported("Context range start is too large".into()))?;
+                let after = usize::try_from(end)
+                    .map_err(|_| unsupported("Context range end is too large".into()))?;
+                Ok((before, after))
+            }
+            Range::FloatRange(_) => Err(unsupported(
+                "Float ranges are not supported for context".into(),
+            )),
+        },
+        other => Err(unsupported(format!(
+            "Context must be an integer or range, but got {}",
+            other.get_type()
+        ))),
     }
 }

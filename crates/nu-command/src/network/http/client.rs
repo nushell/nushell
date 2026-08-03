@@ -664,7 +664,7 @@ fn send_multipart_request(
                         .map_err(err)?;
                 }
             }
-            builder.finish();
+            builder.finish().map_err(err)?;
 
             let (boundary, data) = (builder.boundary, builder.data);
             let content_type = format!("multipart/form-data; boundary={boundary}");
@@ -1007,7 +1007,7 @@ fn transform_response_using_content_type(
             })?
             .path_segments()
             .and_then(|mut segments| segments.next_back())
-            .and_then(|name| if name.is_empty() { None } else { Some(name) })
+            .filter(|&name| !name.is_empty())
             .and_then(|name| {
                 PathBuf::from(name)
                     .extension()

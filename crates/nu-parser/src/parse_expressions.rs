@@ -435,6 +435,7 @@ pub fn parse_block_expression(
     let mut output = parse_block(working_set, &output, span, false, false, input_type);
 
     output.span = Some(span);
+    output.scope_bindings = working_set.snapshot_scope_bindings();
 
     if is_closed {
         working_set.exit_scope();
@@ -807,6 +808,7 @@ pub fn parse_closure_expression(
     }
 
     output.span = Some(span);
+    output.scope_bindings = working_set.snapshot_scope_bindings();
 
     if is_closed {
         working_set.exit_scope();
@@ -1029,7 +1031,19 @@ pub fn parse_assignment_expression(
             "right hand side of assignment",
             op_span,
         ));
-        return garbage(working_set, expr_span);
+        // Mirror an incomplete math expression: a `BinaryOp` with a garbage RHS, so AST
+        // consumers can still find the operator and lhs. The mutable-variable checks are
+        // skipped since the error above already reports the malformed assignment; the three
+        // parts are bound separately as each borrows `working_set` mutably.
+        let lhs = parse_expression(working_set, lhs_spans, None);
+        let operator = parse_assignment_operator(working_set, op_span);
+        let rhs = garbage(working_set, Span::point(op_span.end));
+        return Expression::new(
+            working_set,
+            Expr::BinaryOp(Box::new(lhs), Box::new(operator), Box::new(rhs)),
+            expr_span,
+            Type::Any,
+        );
     }
 
     // Parse the lhs and operator as usual for a math expression
@@ -1378,7 +1392,7 @@ pub fn parse_math_expression(
                 return garbage(working_set, spans[idx - 1]);
             }
         }
-        let mut rhs = parse_value(working_set, spans[idx], &SyntaxShape::Any, None);
+        let mut rhs = parse_value(working_set, spans[idx], &SyntaxShape::Any, input_type);
 
         for not_start_span in not_start_spans.iter().rev() {
             rhs = Expression::new(

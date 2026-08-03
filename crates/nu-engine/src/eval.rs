@@ -513,18 +513,32 @@ pub fn eval_block<D: DebugContext>(
     result
 }
 
+/// Evaluate a block as an early return boundary.
+///
+/// A `return` is meant to end the command or closure it appears in and go no further. The
+/// "boundary" is the point where such a `return` stops propagating outward and becomes the
+/// block's normal result, instead of escaping to whatever called the command. This function is
+/// that point: an early `return` inside the block produces the block's result here, exactly like
+/// a value in tail position.
+///
+/// Concretely, [`eval_block`] runs the block and sets
+/// [`early_return`](PipelineExecutionData::early_return) to mark a result that came from a
+/// `return`; this function clears that flag, which is what "absorbs" the `return` so callers see
+/// an ordinary result.
+///
+/// This is used for blocks that `return` should not escape from, such as custom command bodies
+/// and closures: clearing the flag keeps an early `return` from leaking into the calling block.
+/// In contrast, [`eval_block`] leaves the flag intact, so its one consumer (top-level file
+/// evaluation) can see a top-level `return` and skip running `main`.
 pub fn eval_block_with_early_return<D: DebugContext>(
     engine_state: &EngineState,
     stack: &mut Stack,
     block: &Block,
     input: PipelineData,
 ) -> Result<PipelineExecutionData, ShellError> {
-    match eval_block::<D>(engine_state, stack, block, input) {
-        Err(ShellError::Return { span: _, value }) => Ok(PipelineExecutionData::from(
-            PipelineData::value(*value, None),
-        )),
-        x => x,
-    }
+    let mut result = eval_block::<D>(engine_state, stack, block, input)?;
+    result.early_return = false;
+    Ok(result)
 }
 
 pub fn eval_collect<D: DebugContext>(

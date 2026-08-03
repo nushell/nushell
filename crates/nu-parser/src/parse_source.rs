@@ -2,9 +2,10 @@ use crate::{
     lite_parser::LiteCommand,
     parse_def::has_flag_const,
     parse_helpers::{garbage, garbage_pipeline},
+    parse_keywords::find_keyword_decl,
     parse_pipelines::{parse_redirection, redirecting_builtin_error},
     parser::{
-        ArgumentParsingLevel, CallKind, ParsedInternalCall, compile_block, parse,
+        ArgumentParsingLevel, CallKind, ParsedInternalCall, compile_block, parse, parse_fresh,
         parse_internal_call,
     },
 };
@@ -14,7 +15,7 @@ use nu_path::{absolute_with, is_windows_device_path};
 #[cfg(feature = "plugin")]
 use nu_protocol::ast::Call;
 use nu_protocol::{
-    BlockId, DeclId, ParseError, Span, Type, VarId,
+    BlockId, ParseError, Span, Type, VarId,
     ast::{Block, Expr, Expression, Pipeline, PipelineElement},
     engine::StateWorkingSet,
     eval_const::eval_constant,
@@ -149,7 +150,9 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
                             return garbage_pipeline(working_set, spans);
                         }
 
-                        let mut block = parse(
+                        // Re-parse so free vars bind to current VarIds, not a
+                        // span-cached block from an earlier parse (#18515).
+                        let mut block = parse_fresh(
                             working_set,
                             Some(&path.path().to_string_lossy()),
                             &contents,
@@ -218,15 +221,6 @@ pub fn parse_run(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) 
     Pipeline::from_vec(vec![expr])
 }
 
-fn find_keyword_decl_by_name(working_set: &StateWorkingSet, name: &[u8]) -> Option<DeclId> {
-    (0..working_set.num_decls())
-        .map(DeclId::new)
-        .find(|decl_id| {
-            let decl = working_set.get_decl(*decl_id);
-            decl.name().as_bytes() == name && decl.is_keyword()
-        })
-}
-
 fn parse_run_expr_internal(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
@@ -242,7 +236,7 @@ fn parse_run_expr_internal(
         }
 
         if let Some(decl_id) =
-            find_keyword_decl_by_name(working_set, name).or_else(|| working_set.find_decl(name))
+            find_keyword_decl(working_set, name).or_else(|| working_set.find_decl(name))
         {
             #[allow(deprecated)]
             let cwd = working_set.get_cwd();

@@ -6,7 +6,7 @@ use lsp_types::{
     CompletionResponse, CompletionTextEdit, Documentation, InsertTextFormat, MarkupContent,
     MarkupKind, Range, TextEdit,
 };
-use nu_cli::{NuCompleter, SemanticSuggestion, SuggestionKind};
+use nu_cli::{CompletionEngine, SemanticSuggestion, SuggestionKind};
 use nu_protocol::{
     PositionalArg, Span, SyntaxShape,
     engine::{CommandType, EngineState, Stack},
@@ -36,7 +36,7 @@ impl LanguageServer {
 
         self.need_parse |= need_fallback;
         let engine_state = Arc::new(self.new_engine_state(Some(path_uri)));
-        let completer = NuCompleter::new(engine_state.clone(), Arc::new(Stack::new()));
+        let completer = CompletionEngine::new(engine_state.clone(), Arc::new(Stack::new()));
         let results = if need_fallback {
             completer.fetch_completions_at(&file_text[..location], location)
         } else {

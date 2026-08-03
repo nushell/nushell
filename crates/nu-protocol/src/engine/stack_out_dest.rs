@@ -57,6 +57,15 @@ pub(crate) struct StackOutDest {
     ///
     /// This should only ever be `File` or `Inherit`.
     pub parent_stderr: Option<OutDest>,
+    /// Stack of stdout destinations for active custom-command invocations.
+    ///
+    /// Each frame is the destination of that call's *return value*, pushed when
+    /// entering a custom command and popped when leaving. Intermediate
+    /// evaluation may temporarily set `pipe_stdout` to [`OutDest::Value`]
+    /// (e.g. `if (…)`), but this stack stays stable so commands like
+    /// `is-redirected` can answer "where does *this command* go?" from anywhere
+    /// in the body.
+    pub invocation_stdout: Vec<OutDest>,
 }
 
 impl StackOutDest {
@@ -68,6 +77,7 @@ impl StackOutDest {
             stderr: OutDest::Inherit,
             parent_stdout: None,
             parent_stderr: None,
+            invocation_stdout: Vec::new(),
         }
     }
 
@@ -282,5 +292,54 @@ impl Drop for StackCallArgGuard<'_> {
         if let Some(stderr) = self.old_stderr.take() {
             self.out_dest.push_stderr(stderr);
         }
+    }
+}
+
+/// RAII wrapper that records a custom command's return-value [`OutDest`] on a [`Stack`].
+///
+/// Created by [`Stack::with_invocation_stdout`]. While this value is alive, the stack's
+/// `invocation_stdout` frame is the destination of the call currently being evaluated.
+/// Nested custom commands push additional frames; each drop pops exactly one.
+///
+/// # Ownership model
+///
+/// Unlike [`StackIoGuard`] / [`StackCollectValueGuard`] (which borrow a stack), this type
+/// **owns** the [`Stack`]. That matches how custom-command evaluation works: the callee
+/// stack is built with [`Stack::gather_captures`](crate::engine::Stack::gather_captures) as an
+/// owned value, then wrapped here for the duration of `eval_block`.
+///
+/// Derefs to [`Stack`] so existing evaluation code can treat it as a mutable stack.
+pub struct StackWithInvocation {
+    stack: Stack,
+}
+
+impl StackWithInvocation {
+    /// Push `dest` onto the stack's invocation frame list.
+    ///
+    /// Prefer [`Stack::with_invocation_stdout`] at call sites.
+    pub(crate) fn new(mut stack: Stack, dest: OutDest) -> Self {
+        stack.out_dest.invocation_stdout.push(dest);
+        Self { stack }
+    }
+}
+
+impl Deref for StackWithInvocation {
+    type Target = Stack;
+
+    fn deref(&self) -> &Self::Target {
+        &self.stack
+    }
+}
+
+impl DerefMut for StackWithInvocation {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.stack
+    }
+}
+
+impl Drop for StackWithInvocation {
+    fn drop(&mut self) {
+        // Paired with the push in `new`. Nested wrappers pop only their own frame.
+        self.stack.out_dest.invocation_stdout.pop();
     }
 }

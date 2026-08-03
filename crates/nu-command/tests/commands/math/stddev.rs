@@ -20,3 +20,11 @@ fn cannot_stddev_infinite_range() -> Result {
     assert!(matches!(outcome, ShellError::IncorrectValue { .. }));
     Ok(())
 }
+
+#[test]
+fn stddev_duration_keeps_unit() -> Result {
+    let expected: Value = test().run("1sec")?;
+    test()
+        .run("[1sec 3sec] | math stddev")
+        .expect_value_eq(expected)
+}

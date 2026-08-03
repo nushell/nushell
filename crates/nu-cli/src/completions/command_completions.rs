@@ -1,271 +1,315 @@
 use std::collections::HashSet;
 
-use crate::completions::{Completer, CompletionOptions};
+use crate::completions::{Completer, Context, Fetched, to_reedline_span};
 use nu_protocol::{
-    Category, DeclId, Span, SuggestionKind,
-    engine::{CommandType, Stack, StateWorkingSet},
+    Category, DeclId, SuggestionKind,
+    engine::{CommandType, StateWorkingSet},
 };
 use reedline::Suggestion;
 
 use super::{SemanticSuggestion, completion_options::NuMatcher};
 
-fn formatted_name(name: &str, wrap: bool) -> String {
-    if wrap && nu_utils::needs_quoting(name) {
-        nu_utils::escape_quote_string(name)
-    } else {
-        name.to_string()
+/// Which command declarations a [`CommandCompletion`] offers.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum CommandScope {
+    /// Internal commands (all visible) plus external `PATH` commands — the default head scope.
+    All,
+    /// External `PATH` commands only (the `^` sigil).
+    ExternalsOnly,
+    /// Built-in commands only, scanning even shadowed declarations (the `%` sigil).
+    BuiltinsOnly,
+    /// Internal commands only — never scans `PATH` (subcommands, `attr complete`).
+    InternalsOnly,
+}
+
+impl CommandScope {
+    fn externals(self) -> bool {
+        matches!(self, CommandScope::All | CommandScope::ExternalsOnly)
+    }
+
+    /// Narrowed by `$env.config.completions.external.enable`: only [`All`](Self::All)
+    /// collapses to [`InternalsOnly`](Self::InternalsOnly) when externals are disabled.
+    fn enabled_in(self, context: &Context) -> Self {
+        let enabled = context
+            .working_set
+            .permanent_state
+            .config
+            .completions
+            .external
+            .enable;
+        match (self, enabled) {
+            (CommandScope::All, false) => CommandScope::InternalsOnly,
+            (scope, _) => scope,
+        }
     }
 }
 
 pub struct CommandCompletion {
-    /// Whether to include internal commands
-    pub internals: bool,
-    /// Whether to include external commands
-    pub externals: bool,
-    /// Whether internal completion should include only built-in commands
-    pub builtins_only: bool,
-    /// Whether to quote space-separated internal commands
-    pub quote_internals: bool,
+    /// Which declarations to offer.
+    scope: CommandScope,
+    /// Whether to quote space-separated internal command names.
+    quote_internals: bool,
 }
 
 impl CommandCompletion {
-    fn external_command_collisions(
-        &self,
-        working_set: &StateWorkingSet,
-        internal_suggs: &HashSet<String>,
-    ) -> HashSet<String> {
-        let mut collisions = HashSet::new();
-
-        let paths_val = working_set.permanent_state.get_env_var("path");
-
-        if let Some(paths_val) = paths_val
-            && let Ok(paths) = paths_val.as_list()
-        {
-            for path in paths {
-                let path = path.coerce_str().unwrap_or_default();
-
-                if let Ok(mut contents) = std::fs::read_dir(path.as_ref()) {
-                    while let Some(Ok(item)) = contents.next() {
-                        let Ok(name) = item.file_name().into_string() else {
-                            continue;
-                        };
-
-                        if internal_suggs.contains(&name)
-                            && Self::is_executable_command(item.path())
-                        {
-                            collisions.insert(name);
-                        }
-                    }
-                }
-            }
+    /// Offer `scope`, leaving internal command names unquoted.
+    pub(crate) fn new(scope: CommandScope) -> Self {
+        Self {
+            scope,
+            quote_internals: false,
         }
-
-        collisions
     }
 
-    fn external_command_completion(
-        &self,
-        working_set: &StateWorkingSet,
-        sugg_span: reedline::Span,
-        internal_suggs: HashSet<String>,
-        mut matcher: NuMatcher<SemanticSuggestion>,
-    ) -> Vec<SemanticSuggestion> {
-        let mut external_commands = HashSet::new();
-
-        let paths_val = working_set.permanent_state.get_env_var("path");
-
-        if let Some(paths_val) = paths_val
-            && let Ok(paths) = paths_val.as_list()
-        {
-            for path in paths {
-                let path = path.coerce_str().unwrap_or_default();
-
-                if let Ok(mut contents) = std::fs::read_dir(path.as_ref()) {
-                    while let Some(Ok(item)) = contents.next() {
-                        if working_set
-                            .permanent_state
-                            .config
-                            .completions
-                            .external
-                            .max_results
-                            <= external_commands.len() as i64
-                        {
-                            break;
-                        }
-                        let Ok(name) = item.file_name().into_string() else {
-                            continue;
-                        };
-                        // If there's an internal command with the same name, adds ^cmd to the
-                        // matcher so that both the internal and external command are included
-                        let value = if internal_suggs.contains(&name) {
-                            format!("^{name}")
-                        } else {
-                            name.clone()
-                        };
-                        if external_commands.contains(&value) {
-                            continue;
-                        }
-                        // TODO: check name matching before a relative heavy IO involved
-                        // `is_executable` for performance consideration, should avoid
-                        // duplicated `match_aux` call for matched items in the future
-                        if matcher.check_match(&name).is_some()
-                            && Self::is_executable_command(item.path())
-                        {
-                            external_commands.insert(value.clone());
-                            matcher.add(
-                                name,
-                                SemanticSuggestion {
-                                    suggestion: Suggestion {
-                                        value,
-                                        span: sugg_span,
-                                        append_whitespace: true,
-                                        ..Default::default()
-                                    },
-                                    kind: Some(SuggestionKind::Command(
-                                        CommandType::External,
-                                        None,
-                                    )),
-                                },
-                            );
-                        }
-                    }
-                }
-            }
+    /// Offer `scope`, quoting space-separated internal command names.
+    pub(crate) fn quoted(scope: CommandScope) -> Self {
+        Self {
+            scope,
+            quote_internals: true,
         }
+    }
 
-        matcher.suggestion_results()
+    /// Lazily yields `(file name, path)` for each entry across `PATH`.
+    fn get_executable_files<'a>(
+        &self,
+        working_set: &'a StateWorkingSet,
+    ) -> impl Iterator<Item = (String, std::path::PathBuf)> + 'a {
+        working_set
+            .permanent_state
+            .get_env_var("path")
+            .and_then(|path_value| path_value.as_list().ok())
+            .into_iter()
+            .flatten()
+            .map(|path_value| path_value.coerce_str().unwrap_or_default())
+            .filter_map(|directory_path| std::fs::read_dir(directory_path.as_ref()).ok())
+            .flatten()
+            .filter_map(Result::ok)
+            .filter_map(|directory_entry| {
+                Some((
+                    directory_entry.file_name().into_string().ok()?,
+                    directory_entry.path(),
+                ))
+            })
     }
 
     fn is_executable_command(path: impl AsRef<std::path::Path>) -> bool {
         let path = path.as_ref();
-        if is_executable::is_executable(path) {
-            return true;
-        }
 
-        if cfg!(windows)
-            && let Some(ext) = path.extension()
-        {
-            return ext.eq_ignore_ascii_case("ps1") && path.is_file();
-        }
+        is_executable::is_executable(path)
+            || (cfg!(windows)
+                && path.is_file()
+                && path
+                    .extension()
+                    .is_some_and(|extension| extension.eq_ignore_ascii_case("ps1")))
+    }
 
-        false
+    /// Collects built-in commands, including shadowed ones (reverse traversal).
+    fn collect_builtins(
+        &self,
+        context: &Context,
+        suggestion_span: reedline::Span,
+    ) -> (Vec<SemanticSuggestion>, HashSet<String>) {
+        let working_set = context.working_set;
+        let mut matcher = NuMatcher::new(context.prefix_str(), context.options, true);
+        let mut internal_names = HashSet::new();
+        let mut seen_names: HashSet<&str> = HashSet::new();
+
+        (0..working_set.num_decls())
+            .rev()
+            .map(DeclId::new)
+            .map(|declaration_id| (declaration_id, working_set.get_decl(declaration_id)))
+            .filter(|(_, command)| {
+                command.signature().category != Category::Removed
+                    && command.command_type() == CommandType::Builtin
+                    && seen_names.insert(command.name())
+            })
+            .for_each(|(declaration_id, command)| {
+                // As in `collect_visible_internals`: match before allocating a description.
+                if matcher.check_match(command.name()).is_none() {
+                    return;
+                }
+                let name = command.name().to_string();
+                let suggestion = SemanticSuggestion {
+                    suggestion: Suggestion {
+                        value: name.clone(),
+                        description: Some(command.description().to_string()),
+                        span: suggestion_span,
+                        append_whitespace: true,
+                        ..Suggestion::default()
+                    },
+                    kind: Some(SuggestionKind::Command(
+                        CommandType::Builtin,
+                        Some(declaration_id),
+                    )),
+                };
+
+                if matcher.add_semantic_suggestion(suggestion) {
+                    internal_names.insert(name);
+                }
+            });
+
+        (matcher.suggestion_results(), internal_names)
+    }
+
+    /// Scans internal commands using the engine's built-in traversal
+    fn collect_visible_internals(
+        &self,
+        context: &Context,
+        suggestion_span: reedline::Span,
+    ) -> (Vec<SemanticSuggestion>, HashSet<String>) {
+        let working_set = context.working_set;
+        let mut matcher = NuMatcher::new(context.prefix_str(), context.options, true);
+        let mut internal_names = HashSet::new();
+
+        working_set.traverse_commands(|name_bytes, declaration_id| {
+            let command = working_set.get_decl(declaration_id);
+            if command.signature().category == Category::Removed {
+                return;
+            }
+
+            let raw_name = String::from_utf8_lossy(name_bytes);
+            let name = match self.quote_internals && nu_utils::needs_quoting(&raw_name) {
+                true => nu_utils::escape_quote_string(&raw_name),
+                false => raw_name.into_owned(),
+            };
+
+            // Match the prefix before `description()` allocates (runs every keystroke).
+            if matcher.check_match(&name).is_none() {
+                return;
+            }
+
+            let suggestion = SemanticSuggestion {
+                suggestion: Suggestion {
+                    value: name.clone(),
+                    description: Some(command.description().to_string()),
+                    span: suggestion_span,
+                    append_whitespace: true,
+                    ..Suggestion::default()
+                },
+                kind: Some(SuggestionKind::Command(
+                    command.command_type(),
+                    Some(declaration_id),
+                )),
+            };
+
+            if matcher.add_semantic_suggestion(suggestion) {
+                internal_names.insert(name);
+            }
+        });
+
+        (matcher.suggestion_results(), internal_names)
+    }
+
+    /// Walks `PATH` once, offering collisions `^`-prefixed and collecting external matches.
+    fn process_external_commands(
+        &self,
+        context: &Context,
+        suggestion_span: reedline::Span,
+        internal_suggestions: &mut Vec<SemanticSuggestion>,
+        internal_names: &HashSet<String>,
+    ) -> Vec<SemanticSuggestion> {
+        let working_set = context.working_set;
+        let maximum_results = working_set
+            .permanent_state
+            .config
+            .completions
+            .external
+            .max_results as usize;
+        let mut matcher = NuMatcher::new(context.prefix_str(), context.options, true);
+
+        let mut external_commands = HashSet::new();
+        let mut collisions = HashSet::new();
+
+        let executables: Vec<_> = self
+            .get_executable_files(working_set)
+            .filter_map(|(file_name, file_path)| {
+                let matches_prefix = matcher.check_match(&file_name).is_some();
+                let is_collision = internal_names.contains(&file_name);
+
+                ((matches_prefix || is_collision) && Self::is_executable_command(&file_path))
+                    .then_some((file_name, file_path, matches_prefix, is_collision))
+            })
+            .collect();
+
+        executables
+            .into_iter()
+            .for_each(|(file_name, _, matches_prefix, is_collision)| {
+                if is_collision {
+                    collisions.insert(file_name.clone());
+                }
+
+                if matches_prefix && external_commands.len() < maximum_results {
+                    let (command_value, tracking_name) = match is_collision {
+                        true => {
+                            let prefixed = format!("^{file_name}");
+                            (prefixed.clone(), prefixed)
+                        }
+                        false => (file_name.clone(), file_name.clone()),
+                    };
+
+                    if external_commands.insert(tracking_name) {
+                        matcher.add(
+                            file_name,
+                            SemanticSuggestion {
+                                suggestion: Suggestion {
+                                    value: command_value,
+                                    span: suggestion_span,
+                                    append_whitespace: true,
+                                    ..Suggestion::default()
+                                },
+                                kind: Some(SuggestionKind::Command(CommandType::External, None)),
+                            },
+                        );
+                    }
+                }
+            });
+
+        // Add `%`-prefixed copies of collided internal suggestions.
+        let percent_prefixed_suggestions: Vec<SemanticSuggestion> = internal_suggestions
+            .iter()
+            .filter(|suggestion| collisions.contains(&suggestion.suggestion.value))
+            .map(|suggestion| {
+                let mut prefixed = suggestion.suggestion.clone();
+                prefixed.value = format!("%{}", suggestion.suggestion.value);
+                SemanticSuggestion {
+                    suggestion: prefixed,
+                    kind: suggestion.kind.clone(),
+                }
+            })
+            .collect();
+
+        internal_suggestions.extend(percent_prefixed_suggestions);
+        matcher.suggestion_results()
     }
 }
 
 impl Completer for CommandCompletion {
-    fn fetch(
-        &mut self,
-        working_set: &StateWorkingSet,
-        _stack: &Stack,
-        prefix: impl AsRef<str>,
-        span: Span,
-        offset: usize,
-        options: &CompletionOptions,
-    ) -> Vec<SemanticSuggestion> {
-        let mut res = Vec::new();
+    fn fetch(&mut self, context: &Context) -> Fetched {
+        let suggestion_span = to_reedline_span(context.span, context.offset);
+        let scope = self.scope.enabled_in(context);
 
-        let sugg_span = reedline::Span::new(span.start - offset, span.end - offset);
-
-        let mut internal_suggs = HashSet::new();
-        if self.internals {
-            let mut matcher = NuMatcher::new(prefix.as_ref(), options, true);
-            if self.builtins_only {
-                // `%` completion should still offer built-ins when a custom command shadows
-                // the same name, so we scan all declarations rather than only visible ones.
-                let mut seen = HashSet::new();
-
-                for idx in (0..working_set.num_decls()).rev() {
-                    let decl_id = DeclId::new(idx);
-                    let command = working_set.get_decl(decl_id);
-                    if command.signature().category == Category::Removed {
-                        continue;
-                    }
-                    if command.command_type() != CommandType::Builtin {
-                        continue;
-                    }
-
-                    let name = command.name();
-                    if !seen.insert(name.to_string()) {
-                        continue;
-                    }
-
-                    let matched = matcher.add_semantic_suggestion(SemanticSuggestion {
-                        suggestion: Suggestion {
-                            value: name.to_string(),
-                            description: Some(command.description().to_string()),
-                            span: sugg_span,
-                            append_whitespace: true,
-                            ..Suggestion::default()
-                        },
-                        kind: Some(SuggestionKind::Command(CommandType::Builtin, Some(decl_id))),
-                    });
-                    if matched {
-                        internal_suggs.insert(name.to_string());
-                    }
-                }
-            } else {
-                working_set.traverse_commands(|name, decl_id| {
-                    let name = formatted_name(&String::from_utf8_lossy(name), self.quote_internals);
-                    let command = working_set.get_decl(decl_id);
-                    if command.signature().category == Category::Removed {
-                        return;
-                    }
-
-                    let matched = matcher.add_semantic_suggestion(SemanticSuggestion {
-                        suggestion: Suggestion {
-                            value: name.clone(),
-                            description: Some(command.description().to_string()),
-                            span: sugg_span,
-                            append_whitespace: true,
-                            ..Suggestion::default()
-                        },
-                        kind: Some(SuggestionKind::Command(
-                            command.command_type(),
-                            Some(decl_id),
-                        )),
-                    });
-                    if matched {
-                        internal_suggs.insert(name);
-                    }
-                });
+        let (mut suggestions, internal_names) = match scope {
+            CommandScope::ExternalsOnly => (Vec::new(), HashSet::new()),
+            CommandScope::BuiltinsOnly => self.collect_builtins(context, suggestion_span),
+            CommandScope::All | CommandScope::InternalsOnly => {
+                self.collect_visible_internals(context, suggestion_span)
             }
+        };
 
-            let mut internal_results = matcher.suggestion_results();
-
-            if self.externals {
-                let collisions = self.external_command_collisions(working_set, &internal_suggs);
-
-                if !collisions.is_empty() {
-                    let mut percent_prefixed = Vec::new();
-
-                    for suggestion in &internal_results {
-                        if collisions.contains(&suggestion.suggestion.value) {
-                            let mut prefixed = suggestion.suggestion.clone();
-                            prefixed.value = format!("%{}", suggestion.suggestion.value);
-                            percent_prefixed.push(SemanticSuggestion {
-                                suggestion: prefixed,
-                                kind: suggestion.kind.clone(),
-                            });
-                        }
-                    }
-
-                    internal_results.extend(percent_prefixed);
-                }
-            }
-
-            res.extend(internal_results);
-        }
-
-        if self.externals {
-            let external_suggs = self.external_command_completion(
-                working_set,
-                sugg_span,
-                internal_suggs,
-                NuMatcher::new(prefix, options, true),
+        // Only a `PATH` scan is expensive enough to be worth caching.
+        let externals = scope.externals();
+        if externals {
+            let external_suggestions = self.process_external_commands(
+                context,
+                suggestion_span,
+                &mut suggestions,
+                &internal_names,
             );
-            res.extend(external_suggs);
+            suggestions.extend(external_suggestions);
         }
 
-        res
+        match externals {
+            true => Fetched::cacheable(suggestions),
+            false => Fetched::pure(suggestions),
+        }
     }
 }

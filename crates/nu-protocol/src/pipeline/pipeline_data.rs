@@ -1131,6 +1131,15 @@ pub struct PipelineExecutionData {
     pub body: PipelineData,
     #[cfg(feature = "os")]
     pub exit: Vec<Option<ExitStatusGuard>>,
+    /// Whether this data was produced by an early `return` from the block, rather than by
+    /// evaluating to the end of the block.
+    ///
+    /// The flag exists for a single consumer: top-level file evaluation reads it to detect a
+    /// top-level `return` in a script and skip running `main`. Custom command calls and closure
+    /// invocations instead clear it via
+    /// [`eval_block_with_early_return`](https://docs.rs/nu-engine/latest/nu_engine/fn.eval_block_with_early_return.html),
+    /// so it never leaks past a nested call and only ever reflects a `return` at the current level.
+    pub early_return: bool,
 }
 
 impl Deref for PipelineExecutionData {
@@ -1153,7 +1162,14 @@ impl PipelineExecutionData {
             body: PipelineData::empty(),
             #[cfg(feature = "os")]
             exit: vec![],
+            early_return: false,
         }
+    }
+
+    /// Mark this data as having been produced by an early `return`.
+    pub fn with_early_return(mut self) -> Self {
+        self.early_return = true;
+        self
     }
 }
 
@@ -1167,11 +1183,15 @@ impl From<PipelineData> for PipelineExecutionData {
         Self {
             body: value,
             exit: vec![exit_status_future],
+            early_return: false,
         }
     }
 
     #[cfg(not(feature = "os"))]
     fn from(value: PipelineData) -> Self {
-        Self { body: value }
+        Self {
+            body: value,
+            early_return: false,
+        }
     }
 }

@@ -269,7 +269,7 @@ pub fn transpose(
                             let current_span = val.span();
                             match val {
                                 Value::List { vals, .. } => {
-                                    vals.push(x);
+                                    vals.to_mut().push(x);
                                 }
                                 v => {
                                     *v = Value::list(vec![std::mem::take(v), x], current_span);

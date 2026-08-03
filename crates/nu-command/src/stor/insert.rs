@@ -127,7 +127,7 @@ fn handle(
             });
         }
         PipelineData::ListStream(stream, ..) => stream.into_iter().collect::<Vec<_>>(),
-        PipelineData::Value(Value::List { vals, .. }, ..) => vals,
+        PipelineData::Value(Value::List { vals, .. }, ..) => vals.into_owned(),
         PipelineData::Value(val, ..) => vec![val],
         _ => {
             return Err(ShellError::OnlySupportsThisInputType {

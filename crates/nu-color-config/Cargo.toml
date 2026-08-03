@@ -12,6 +12,11 @@ version.workspace = true
 bench = false
 harness = false
 
+[[test]]
+name = "tests"
+path = "tests/main.rs"
+harness = false
+
 [lints]
 workspace = true
 
@@ -24,4 +29,4 @@ nu-ansi-term.workspace = true
 serde = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]
-nu-test-support = { path = "../nu-test-support" }
+nu-test-support = { path = "../nu-test-support", features = ["os"] }

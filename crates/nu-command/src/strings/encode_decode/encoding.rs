@@ -4,22 +4,14 @@ use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{ShellError, Span, Spanned, Value};
 
 pub fn detect_encoding_name(
-    head: Span,
-    input: Span,
+    _head: Span,
+    _input: Span,
     bytes: &[u8],
 ) -> Result<&'static Encoding, ShellError> {
-    let mut detector = EncodingDetector::new();
+    let mut detector = EncodingDetector::new(chardetng::Iso2022JpDetection::Deny);
     let _non_ascii = detector.feed(bytes, false);
     //Guess(TLD=None(usually used in HTML), Allow_UTF8=True)
-    let (encoding, is_certain) = detector.guess_assess(None, true);
-    if !is_certain {
-        return Err(ShellError::UnsupportedInput {
-            msg: "Input contains unknown encoding, try giving a encoding name".into(),
-            input: "value originates from here".into(),
-            msg_span: head,
-            input_span: input,
-        });
-    }
+    let encoding = detector.guess(None, chardetng::Utf8Detection::Allow);
     Ok(encoding)
 }
 
@@ -57,7 +49,7 @@ pub fn encode(
     if ["UTF-16BE", "UTF-16LE"].contains(&encoding.name()) {
         return Err(ShellError::Generic(
             GenericError::new(
-                format!("{} encoding is not supported", &encoding_name.item),
+                format!("{} encoding is not supported", encoding_name.item),
                 "invalid encoding",
                 encoding_name.span,
             )
@@ -72,7 +64,7 @@ pub fn encode(
         // TODO: make GenericError accept two spans (including head)
         Err(ShellError::Generic(GenericError::new(
             "error while encoding string",
-            format!("string contained characters not in {}", &encoding_name.item),
+            format!("string contained characters not in {}", encoding_name.item),
             s_span,
         )))
     } else {

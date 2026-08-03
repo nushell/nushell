@@ -1,4 +1,4 @@
-use quote::{ToTokens, quote};
+use quote::quote;
 use std::mem;
 use syn::{
     Attribute, Expr, Ident, ItemFn, Lit, LitBool, LitStr, Meta, MetaNameValue, Path, Token,
@@ -43,16 +43,6 @@ pub fn test(mut item_fn: ItemFn) -> proc_macro2::TokenStream {
         quote!((#key, #value))
     });
 
-    // This is a very basic heuristic to figure out if `nu_with_plugins!` is actually called inside
-    // the test. As soon as a test is calling into a function and that one is using
-    // `nu_with_plugins!`, we're out of luck. But this should cover most places.
-    // TODO: remove this once `nu_with_plugins!` got removed
-    let uses_nu_with_plugins = item_fn
-        .block
-        .to_token_stream()
-        .to_string()
-        .contains("nu_with_plugins!");
-
     quote! {
         #[::core::prelude::v1::test]
         fn #fn_ident() {}
@@ -91,8 +81,6 @@ pub fn test(mut item_fn: ItemFn) -> proc_macro2::TokenStream {
                             experimental_options: &[#(#experimental_options),*],
                             environment_variables: &[#(#environment_variables),*],
                             dependencies: &[#(#dependencies),*],
-
-                            uses_nu_with_plugins: #uses_nu_with_plugins,
                         }
                     }
                 );
