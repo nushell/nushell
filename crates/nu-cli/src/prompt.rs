@@ -17,8 +17,12 @@ enum PromptSource {
     /// The live, interactive prompt, shared with every background job.
     Shared(Arc<PromptState>),
 
-    /// A one-off, detached copy used for the transient prompt.
-    Snapshot(PromptContents),
+    /// The transient prompt: live baseline with `TRANSIENT_PROMPT_*` overrides
+    /// layered on at render time, so late async pushes still show up.
+    Transient {
+        state: Arc<PromptState>,
+        overrides: PromptContents,
+    },
 }
 
 impl NushellPrompt {
@@ -29,10 +33,11 @@ impl NushellPrompt {
         }
     }
 
-    /// A detached prompt over a fixed snapshot (e.g. the transient prompt).
-    pub fn snapshot(contents: PromptContents) -> Self {
+    /// The transient prompt: reads the baseline live at render time, with the
+    /// resolved `TRANSIENT_PROMPT_*` `overrides` taking precedence per segment.
+    pub fn transient(state: Arc<PromptState>, overrides: PromptContents) -> Self {
         Self {
-            source: PromptSource::Snapshot(contents),
+            source: PromptSource::Transient { state, overrides },
         }
     }
 
@@ -40,7 +45,9 @@ impl NushellPrompt {
     fn with_contents<R>(&self, action: impl FnOnce(&PromptContents) -> R) -> R {
         match &self.source {
             PromptSource::Shared(state) => state.with_contents(action),
-            PromptSource::Snapshot(contents) => action(contents),
+            PromptSource::Transient { state, overrides } => {
+                action(&state.with_contents(|baseline| baseline.overridden_by(overrides)))
+            }
         }
     }
 }

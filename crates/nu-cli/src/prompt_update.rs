@@ -121,47 +121,39 @@ fn build_prompt_contents(
     }
 }
 
-/// Construct the transient prompt based on the normal nu_prompt
+/// Construct the transient prompt based on the normal nu_prompt.
 /// Note: Transient prompts do NOT emit semantic markers since they replace
 /// the actual prompt after command execution (which already has markers).
+///
+/// The transient prompt is drawn only once the line is submitted, which can
+/// be long after this function runs. Rather than freezing a snapshot of the
+/// baseline now, we resolve only the `TRANSIENT_PROMPT_*` overrides here and
+/// read the baseline live at render time, so a background job's late
+/// `commandline set-prompt` pushes still show up.
 pub(crate) fn make_transient_prompt(
     config: &Config,
     engine_state: &EngineState,
     stack: &mut Stack,
 ) -> Box<dyn Prompt> {
-    // Start from the current baseline.
-    let mut prompt_contents = engine_state.prompt_state.contents();
+    let mut fetch_transient =
+        |env_var| get_prompt_string(env_var, config, engine_state, stack).map(Arc::from);
 
-    // Map mutable references of the prompt contents to their corresponding config variables.
-    let transient_overrides = [
-        (&mut prompt_contents.left, TRANSIENT_PROMPT_COMMAND),
-        (&mut prompt_contents.right, TRANSIENT_PROMPT_COMMAND_RIGHT),
-        (&mut prompt_contents.indicator, TRANSIENT_PROMPT_INDICATOR),
-        (
-            &mut prompt_contents.vi_insert,
-            TRANSIENT_PROMPT_INDICATOR_VI_INSERT,
-        ),
-        (
-            &mut prompt_contents.vi_normal,
-            TRANSIENT_PROMPT_INDICATOR_VI_NORMAL,
-        ),
-        (
-            &mut prompt_contents.multiline,
-            TRANSIENT_PROMPT_MULTILINE_INDICATOR,
-        ),
-    ]
-    .into_iter();
+    let overrides = PromptContents {
+        left: fetch_transient(TRANSIENT_PROMPT_COMMAND),
+        right: fetch_transient(TRANSIENT_PROMPT_COMMAND_RIGHT),
+        indicator: fetch_transient(TRANSIENT_PROMPT_INDICATOR),
+        vi_insert: fetch_transient(TRANSIENT_PROMPT_INDICATOR_VI_INSERT),
+        vi_normal: fetch_transient(TRANSIENT_PROMPT_INDICATOR_VI_NORMAL),
+        multiline: fetch_transient(TRANSIENT_PROMPT_MULTILINE_INDICATOR),
+        // Not overridable by a `TRANSIENT_PROMPT_*` var; falls back to the
+        // live baseline via `PromptContents::overridden_by`.
+        render_right_on_last_line: false,
+    };
 
-    transient_overrides.for_each(|(field, env_var)| {
-        // Apply the override only when the transient variable is actually set.
-        if let Some(val) = get_prompt_string(env_var, config, engine_state, stack) {
-            *field = Some(Arc::from(val));
-        }
-    });
-
-    // The transient prompt is a private snapshot: it never receives async pushes,
-    // so it needs no lock and no shared handle.
-    Box::new(NushellPrompt::snapshot(prompt_contents))
+    Box::new(NushellPrompt::transient(
+        engine_state.prompt_state.clone(),
+        overrides,
+    ))
 }
 
 #[cfg(test)]
@@ -185,5 +177,30 @@ mod tests {
 
         let nu_prompt = NushellPrompt::shared(engine_state.prompt_state.clone());
         assert_eq!(nu_prompt.render_prompt_left(), "test");
+    }
+
+    #[test]
+    fn transient_prompt_override_still_wins_over_the_live_baseline() {
+        use nu_protocol::engine::PromptSegment;
+
+        let config = Config::default();
+        let engine_state = EngineState::new();
+        let mut stack = Stack::new();
+        stack.add_env_var(
+            TRANSIENT_PROMPT_INDICATOR.into(),
+            Value::string("transient> ", Span::test_data()),
+        );
+
+        let transient_prompt = make_transient_prompt(&config, &engine_state, &mut stack);
+
+        // The configured TRANSIENT_PROMPT_INDICATOR beats a later live change.
+        engine_state
+            .prompt_state
+            .set(PromptSegment::Indicator, "live> ");
+
+        assert_eq!(
+            transient_prompt.render_prompt_indicator(reedline::PromptEditMode::Emacs),
+            "transient> "
+        );
     }
 }

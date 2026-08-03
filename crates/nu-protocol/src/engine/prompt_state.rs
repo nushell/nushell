@@ -51,6 +51,36 @@ impl PromptContents {
             PromptSegment::Multiline => self.multiline = Some(content),
         }
     }
+
+    /// Layer `overrides` on top of `self`, preferring the override where set
+    /// and falling back to `self` otherwise.
+    ///
+    /// Used to render the transient prompt from the *live* baseline (so late
+    /// [`PromptState::set`] pushes still show up) with `TRANSIENT_PROMPT_*`
+    /// values layered on top.
+    pub fn overridden_by(&self, overrides: &PromptContents) -> PromptContents {
+        PromptContents {
+            left: overrides.left.clone().or_else(|| self.left.clone()),
+            right: overrides.right.clone().or_else(|| self.right.clone()),
+            indicator: overrides
+                .indicator
+                .clone()
+                .or_else(|| self.indicator.clone()),
+            vi_insert: overrides
+                .vi_insert
+                .clone()
+                .or_else(|| self.vi_insert.clone()),
+            vi_normal: overrides
+                .vi_normal
+                .clone()
+                .or_else(|| self.vi_normal.clone()),
+            multiline: overrides
+                .multiline
+                .clone()
+                .or_else(|| self.multiline.clone()),
+            render_right_on_last_line: self.render_right_on_last_line,
+        }
+    }
 }
 
 /// Shared, thread-safe home for the interactive prompt's rendered content.
