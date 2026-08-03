@@ -18,7 +18,7 @@ impl Command for CommandlineSetPrompt {
             .optional(
                 "prompt",
                 SyntaxShape::String,
-                "The rendered prompt text to display. If left-out, we read from pipeline input",
+                "The rendered prompt text to display. If left-out, we read from pipeline input.",
             )
             .named(
                 "right",
