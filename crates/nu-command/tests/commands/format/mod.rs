@@ -4,49 +4,33 @@ use rstest::rstest;
 mod duration;
 mod filesize;
 
-#[test]
-fn creates_the_resulting_string_from_the_given_fields() -> Result {
-    let code = r#"
-        open cargo_sample.toml
-        | get package
-        | format pattern "{name} has license {license}"
-    "#;
-
-    test()
-        .cwd("tests/fixtures/formats")
-        .run(code)
-        .expect_value_eq("nu has license ISC")
-}
-
-#[test]
-fn format_input_record_output_string() -> Result {
-    let code = r#"{name: Downloads} | format pattern "{name}""#;
-    test().run(code).expect_value_eq("Downloads")
-}
-
-#[test]
-fn given_fields_can_be_column_paths() -> Result {
-    let code = r#"
-        open cargo_sample.toml
-        | format pattern "{package.name} is {package.description}"
-    "#;
-
-    test()
-        .cwd("tests/fixtures/formats")
-        .run(code)
-        .expect_value_eq("nu is a new type of shell")
+#[rstest]
+#[case::simple(test_value!({name: "Downloads"}), "{name}", "Downloads")]
+#[case::multiple(test_value!({name: "nu", license: "ISC"}), "{name} has license {license}", "nu has license ISC")]
+#[case::nested_columns(
+    test_value!({package: {name: "nu", description: "a new type of shell"}}),
+    "{package.name} is {package.description}",
+    "nu is a new type of shell",
+)]
+fn record_input(
+    #[case] input: impl IntoValue,
+    #[case] format_str: &str,
+    #[case] expected: impl IntoValue,
+) -> Result {
+    let mut tester = test();
+    let () = tester.run_with_data("let format_str = $in", format_str)?;
+    tester
+        .run_with_data("format pattern $format_str", input)
+        .expect_value_eq(expected)
 }
 
 #[test]
 fn cant_use_variables() -> Result {
-    let code = r#"
-        open cargo_sample.toml
-        | format pattern "{$it.package.name} is {$it.package.description}"
-    "#;
-
     let err = test()
-        .cwd("tests/fixtures/formats")
-        .run(code)
+        .run_with_data(
+            r#"format pattern "{$it.package.name} is {$it.package.description}""#,
+            test_value!({package: {name: "nu", description: "a new type of shell"}}),
+        )
         .expect_error()?;
 
     assert_eq!(err.generic_error()?, "Removed functionality");
