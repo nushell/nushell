@@ -13,8 +13,17 @@ pub enum PromptSegment {
     /// The right prompt, `$env.PROMPT_COMMAND_RIGHT`.
     Right,
 
-    /// The prompt indicator, `$env.PROMPT_INDICATOR`.
+    /// The prompt indicator for the default/emacs edit mode, `$env.PROMPT_INDICATOR`.
     Indicator,
+
+    /// The vi insert-mode indicator, `$env.PROMPT_INDICATOR_VI_INSERT`.
+    ViInsert,
+
+    /// The vi normal-mode indicator, `$env.PROMPT_INDICATOR_VI_NORMAL`.
+    ViNormal,
+
+    /// The multiline continuation indicator, `$env.PROMPT_MULTILINE_INDICATOR`.
+    Multiline,
 }
 
 /// The full set of rendered prompt strings, as the line editor draws them.
@@ -36,11 +45,10 @@ impl PromptContents {
         match segment {
             PromptSegment::Left => self.left = Some(content),
             PromptSegment::Right => self.right = Some(content),
-            PromptSegment::Indicator => {
-                self.vi_insert = Some(content.clone());
-                self.vi_normal = Some(content.clone());
-                self.indicator = Some(content);
-            }
+            PromptSegment::Indicator => self.indicator = Some(content),
+            PromptSegment::ViInsert => self.vi_insert = Some(content),
+            PromptSegment::ViNormal => self.vi_normal = Some(content),
+            PromptSegment::Multiline => self.multiline = Some(content),
         }
     }
 }
@@ -165,14 +173,20 @@ mod tests {
     }
 
     #[test]
-    fn set_indicator_shows_in_every_edit_mode() {
+    fn indicator_vi_insert_vi_normal_and_multiline_are_independent() {
         let state = PromptState::new();
-        state.set(PromptSegment::Indicator, "IndicatorSegment");
+        state.apply(|contents| {
+            contents.apply_segment_override(PromptSegment::Indicator, "Indicator");
+            contents.apply_segment_override(PromptSegment::ViInsert, "ViInsert");
+            contents.apply_segment_override(PromptSegment::ViNormal, "ViNormal");
+            contents.apply_segment_override(PromptSegment::Multiline, "Multiline");
+        });
 
         let contents = state.contents();
-        assert_eq!(contents.indicator.as_deref(), Some("IndicatorSegment"));
-        assert_eq!(contents.vi_insert.as_deref(), Some("IndicatorSegment"));
-        assert_eq!(contents.vi_normal.as_deref(), Some("IndicatorSegment"));
+        assert_eq!(contents.indicator.as_deref(), Some("Indicator"));
+        assert_eq!(contents.vi_insert.as_deref(), Some("ViInsert"));
+        assert_eq!(contents.vi_normal.as_deref(), Some("ViNormal"));
+        assert_eq!(contents.multiline.as_deref(), Some("Multiline"));
     }
 
     #[test]

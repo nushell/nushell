@@ -29,8 +29,26 @@ impl Command for CommandlineSetPrompt {
             .named(
                 "indicator",
                 SyntaxShape::String,
-                "Text for the prompt indicator.",
+                "Text for the prompt indicator in the default/emacs edit mode.",
                 Some('i'),
+            )
+            .named(
+                "vi-insert",
+                SyntaxShape::String,
+                "Text for the prompt indicator in vi insert mode.",
+                None,
+            )
+            .named(
+                "vi-normal",
+                SyntaxShape::String,
+                "Text for the prompt indicator in vi normal mode.",
+                None,
+            )
+            .named(
+                "multiline",
+                SyntaxShape::String,
+                "Text for the multiline continuation indicator.",
+                Some('m'),
             )
             .category(Category::Core)
     }
@@ -45,8 +63,8 @@ streaming prompts: we render the prompt as we know it up front, and each
 `commandline set-prompt` updates our idea of what the prompt "is" for the
 segments that have finished computing. The line and cursor are preserved.
 
-`--indicator` sets the indicator for every edit mode at once (including the vi
-insert and normal indicators), since there is a single indicator knob here.
+`--indicator` sets only the default/emacs indicator. Use `--vi-insert` and
+`--vi-normal` to set the vi mode indicators independently.
 
 The pushed prompt lasts only until the next prompt is drawn.
 
@@ -68,6 +86,9 @@ meant for REPL sessions only"#
 
         let right = call.get_flag::<String>(engine_state, stack, "right")?;
         let indicator = call.get_flag::<String>(engine_state, stack, "indicator")?;
+        let vi_insert = call.get_flag::<String>(engine_state, stack, "vi-insert")?;
+        let vi_normal = call.get_flag::<String>(engine_state, stack, "vi-normal")?;
+        let multiline = call.get_flag::<String>(engine_state, stack, "multiline")?;
 
         // Prefer the positional argument; fall back to the pipeline input so
         // both `commandline set-prompt $rendered` and `$rendered | commandline
@@ -82,7 +103,13 @@ meant for REPL sessions only"#
 
         // Apply every provided segment under a single write lock and repaint once,
         // rather than locking and repainting per segment.
-        if left.is_some() || right.is_some() || indicator.is_some() {
+        if left.is_some()
+            || right.is_some()
+            || indicator.is_some()
+            || vi_insert.is_some()
+            || vi_normal.is_some()
+            || multiline.is_some()
+        {
             engine_state.prompt_state.apply(|contents| {
                 if let Some(content) = left {
                     contents.apply_segment_override(PromptSegment::Left, content);
@@ -92,6 +119,15 @@ meant for REPL sessions only"#
                 }
                 if let Some(content) = indicator {
                     contents.apply_segment_override(PromptSegment::Indicator, content);
+                }
+                if let Some(content) = vi_insert {
+                    contents.apply_segment_override(PromptSegment::ViInsert, content);
+                }
+                if let Some(content) = vi_normal {
+                    contents.apply_segment_override(PromptSegment::ViNormal, content);
+                }
+                if let Some(content) = multiline {
+                    contents.apply_segment_override(PromptSegment::Multiline, content);
                 }
             });
         }
@@ -113,7 +149,17 @@ meant for REPL sessions only"#
             },
             Example {
                 example: r#"commandline set-prompt --indicator $" (char prompt)""#,
-                description: "Replace the indicator.",
+                description: "Replace the default/emacs indicator.",
+                result: None,
+            },
+            Example {
+                example: r#"commandline set-prompt --vi-insert ": " --vi-normal "n ""#,
+                description: "Replace the vi insert and normal mode indicators independently.",
+                result: None,
+            },
+            Example {
+                example: r#"commandline set-prompt --multiline "... ""#,
+                description: "Replace the multiline continuation indicator.",
                 result: None,
             },
             Example {
