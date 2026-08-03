@@ -61,20 +61,24 @@ pub fn evaluate_commands(
 
         let mut working_set = StateWorkingSet::new(engine_state);
 
+        let check_errors = |working_set: &StateWorkingSet| {
+            if let Some(warning) = working_set.parse_warnings.first() {
+                report_parse_warning(Some(stack), working_set, warning);
+            }
+
+            if let Some(err) = working_set.parse_errors.first() {
+                report_parse_error(Some(stack), working_set, err);
+                std::process::exit(1);
+            }
+
+            if let Some(err) = working_set.compile_errors.first() {
+                report_compile_error(Some(stack), working_set, err);
+                std::process::exit(1);
+            }
+        };
+
         let mut output = parse(&mut working_set, None, commands.item.as_bytes(), false);
-        if let Some(warning) = working_set.parse_warnings.first() {
-            report_parse_warning(Some(stack), &working_set, warning);
-        }
-
-        if let Some(err) = working_set.parse_errors.first() {
-            report_parse_error(Some(stack), &working_set, err);
-            std::process::exit(1);
-        }
-
-        if let Some(err) = working_set.compile_errors.first() {
-            report_compile_error(Some(stack), &working_set, err);
-            std::process::exit(1);
-        }
+        check_errors(&working_set);
 
         if find_main_block_id_in_script(&working_set, &output).is_some() {
             // The CLI parser has already escaped script arguments via `args_to_script`, so we must not
@@ -85,6 +89,7 @@ pub fn evaluate_commands(
                 format!("main {}", args.join(" ")).as_bytes(),
                 false,
             );
+            check_errors(&working_set);
         }
 
         (output, working_set.render())
