@@ -658,6 +658,15 @@ $env.config.abbreviations = {}
 # `type` record, controlling whether an entry's description is shown before or
 # after its value. Unset keeps reedline's default.
 #
+# A menu's `source` receives one record instead of the old `{|buffer, position|}` pair:
+#   text:      string  what reedline handed the menu (exactly the old `$buffer`), which
+#                      depends on input_mode
+#   replacing: record  {start, end} an accepted suggestion replaces
+# It is parse-free on purpose: reedline runs menus on every keystroke. A menu wanting
+# `tokens`/`site` can ask via `commandline complete --input`. Returns a list of
+# suggestions (a string, or a record of {value, description?, style?, span?, extra?});
+# unlike a completer it does not accept {options, completions}.
+#
 # Default: completion_menu, ide_completion_menu, history_menu, help_menu.
 # Inspect with `$env.config.menus`. Full list replacement (`=`) clears defaults;
 # prefer `++=` to add custom menus.

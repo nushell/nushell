@@ -1,3 +1,4 @@
+use crate::completions::{SpanClamp, map_value_completions, menu_input};
 use nu_engine::eval_block;
 use nu_protocol::{
     BlockId, IntoPipelineData, Span, Value,
@@ -40,21 +41,23 @@ impl NuMenuCompleter {
 impl Completer for NuMenuCompleter {
     fn complete(&mut self, line: &str, pos: usize) -> CompletionResult {
         let parsed = parse_selection_char(line, SELECTION_CHAR);
+        let before = parsed.remainder;
 
         let block = self.engine_state.get_block(self.block_id);
+        let replacing = default_span(before, pos, self.input_mode);
 
-        if let Some(buffer) = block.signature.get_positional(0)
-            && let Some(buffer_id) = &buffer.var_id
+        // The parse-free input record. Reedline drives menus on every keystroke, so
+        // resolving a site each time is wasted on most; one wanting `tokens`/`site` can
+        // ask via `commandline complete --input`. `replacing` covers the text reedline
+        // handed us, so `before | str substring ...$input.replacing` is exactly what the
+        // old `{|buffer, position|}` signature passed as `$buffer`.
+        if let Some(var_id) = block
+            .signature
+            .get_positional(0)
+            .and_then(|positional| positional.var_id)
         {
-            let line_buffer = Value::string(parsed.remainder, self.span);
-            self.stack.add_var(*buffer_id, line_buffer);
-        }
-
-        if let Some(position) = block.signature.get_positional(1)
-            && let Some(position_id) = &position.var_id
-        {
-            let line_buffer = Value::int(pos as i64, self.span);
-            self.stack.add_var(*position_id, line_buffer);
+            self.stack
+                .add_var(var_id, menu_input(before, replacing, self.span));
         }
 
         let input = Value::nothing(self.span).into_pipeline_data();
@@ -62,10 +65,9 @@ impl Completer for NuMenuCompleter {
         let res = eval_block::<WithoutDebug>(&self.engine_state, &mut self.stack, block, input)
             .map(|p| p.body);
 
-        let suggestions = if let Ok(values) = res.and_then(|data| data.into_value(self.span)) {
-            convert_to_suggestions(values, line, pos, self.input_mode)
-        } else {
-            Vec::new()
+        let suggestions = match res.and_then(|data| data.into_value(self.span)) {
+            Ok(value) => convert_to_suggestions(&value, replacing, pos),
+            Err(_) => Vec::new(),
         };
 
         // Menu sources are evaluated synchronously, so results are always final.
@@ -79,7 +81,7 @@ fn default_span(line: &str, pos: usize, input_mode: InputMode) -> reedline::Span
     match input_mode {
         // `line` is only the text typed since the menu opened; replace it in place
         InputMode::Diff => reedline::Span {
-            start: pos - line.len(),
+            start: pos.saturating_sub(line.len()),
             end: pos,
         },
         // CursorPrefix (buffer up to cursor), FullBuffer (entire buffer), and
@@ -92,72 +94,20 @@ fn default_span(line: &str, pos: usize, input_mode: InputMode) -> reedline::Span
     }
 }
 
+/// Read a menu source's output through the shared completer-output conversion, so menus
+/// get the same span/style/description handling and clamping as every completer.
 fn convert_to_suggestions(
-    value: Value,
-    line: &str,
-    pos: usize,
-    input_mode: InputMode,
+    value: &Value,
+    default: reedline::Span,
+    cursor: usize,
 ) -> Vec<Suggestion> {
-    match value {
-        Value::Record { val, .. } => {
-            let text = val
-                .get("value")
-                .and_then(|val| val.coerce_string().ok())
-                .unwrap_or_else(|| "No value key".to_string());
+    let values = match value {
+        Value::List { vals, .. } => vals.as_slice(),
+        other => std::slice::from_ref(other),
+    };
 
-            let description = val
-                .get("description")
-                .and_then(|val| val.coerce_string().ok());
-
-            let span = match val.get("span") {
-                Some(Value::Record { val: span, .. }) => {
-                    let start = span.get("start").and_then(|val| val.as_int().ok());
-                    let end = span.get("end").and_then(|val| val.as_int().ok());
-                    match (start, end) {
-                        (Some(start), Some(end)) => {
-                            let start = start.min(end);
-                            reedline::Span {
-                                start: start as usize,
-                                end: end as usize,
-                            }
-                        }
-                        _ => default_span(line, pos, input_mode),
-                    }
-                }
-                _ => default_span(line, pos, input_mode),
-            };
-
-            let extra = match val.get("extra") {
-                Some(Value::List { vals, .. }) => {
-                    let extra: Vec<String> = vals
-                        .iter()
-                        .filter_map(|extra| match extra {
-                            Value::String { val, .. } => Some(val.clone()),
-                            _ => None,
-                        })
-                        .collect();
-
-                    Some(extra)
-                }
-                _ => None,
-            };
-
-            vec![Suggestion {
-                value: text,
-                description,
-                extra,
-                span,
-                ..Suggestion::default()
-            }]
-        }
-        Value::List { vals, .. } => vals
-            .into_iter()
-            .flat_map(|val| convert_to_suggestions(val, line, pos, input_mode))
-            .collect(),
-        _ => vec![Suggestion {
-            value: format!("Not a record: {value:?}"),
-            span: default_span(line, pos, input_mode),
-            ..Suggestion::default()
-        }],
-    }
+    map_value_completions(values.iter(), default, SpanClamp::upto(cursor))
+        .into_iter()
+        .map(|semantic| semantic.suggestion)
+        .collect()
 }
