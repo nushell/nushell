@@ -1,4 +1,3 @@
-use nu_protocol::{ParseError, shell_error::io::ErrorKind};
 use nu_test_support::fs::Stub::EmptyFile;
 use nu_test_support::playground::Playground;
 use nu_test_support::prelude::*;
@@ -380,6 +379,7 @@ fn glob_with_hidden_directory() -> Result {
 #[test]
 #[cfg(unix)]
 fn fails_with_permission_denied() -> Result {
+    use nu_protocol::shell_error::io::ErrorKind;
     use std::os::unix::fs::PermissionsExt;
 
     Playground::setup("ls_test_1", |dirs, sandbox| {

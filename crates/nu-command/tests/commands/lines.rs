@@ -57,7 +57,6 @@ fn lines_mixed_line_endings() -> Result {
         .expect_value_eq(3)
 }
 
-#[cfg(not(windows))]
 #[test]
 fn lines_on_error() -> Result {
     let err = test().run("open . | lines").expect_shell_error()?;
