@@ -279,3 +279,86 @@ fn commandline_test_complete_input_record() -> TestResult {
 context_start: 0, cursor: 11}",
     )
 }
+
+/// Resolve a completer named by an alias, through the alias.
+#[rstest]
+#[case::direct("comp-alias")]
+#[case::nested("comp-nested")]
+fn commandline_test_complete_alias_as_completer(#[case] completer: &str) -> TestResult {
+    run_test(
+        &format!(
+            "def \"nu-complete a\" [input] {{ [alpha beta] }}\n\
+            alias comp-alias = nu-complete a\n\
+            alias comp-nested = comp-alias\n\
+            def foo [x: string@\"{completer}\"] {{}}\n\
+            'foo a' | commandline complete | to nuon"
+        ),
+        "[alpha]",
+    )
+}
+
+/// `tokens` is never empty, even where the parser produces none.
+#[rstest]
+#[case::variable("$")]
+#[case::open_paren("(")]
+#[case::open_bracket("[")]
+#[case::bare_flag("cmd --")]
+#[case::cell_path("$env.")]
+#[case::assignment("a=b")]
+#[case::unclosed_quote("cmd \"un")]
+fn commandline_test_complete_input_tokens_never_empty(#[case] line: &str) -> TestResult {
+    run_test(
+        &format!("('{line}' | commandline complete --input | get tokens | is-empty)"),
+        "false",
+    )
+}
+
+/// A failing parameter completer is empty, not the working directory; a failing external
+/// one still falls back to files.
+#[test]
+fn commandline_test_complete_failing_completer_is_empty() -> TestResult {
+    run_test(
+        "def \"nu-complete boom\" [input] { error make {msg: boom} }\n\
+        def foo [x: string@\"nu-complete boom\"] {}\n\
+        'foo a' | commandline complete | length",
+        "0",
+    )
+}
+
+/// A token the parser consumes outright (a bare `--`) still appears in `tokens | last`.
+#[rstest]
+#[case::bare_flag("cmd --", "[[text, kind]; [cmd, head], [--, flag]]")]
+#[case::trailing_slot("cmd ", r#"[[text, kind]; [cmd, head], ["", value]]"#)]
+#[case::partial_flag("cmd --al", "[[text, kind]; [cmd, head], [--al, flag]]")]
+fn commandline_test_complete_input_last_token(
+    #[case] line: &str,
+    #[case] expected: &str,
+) -> TestResult {
+    run_test(
+        &format!(
+            "def cmd [--alpha, --beta] {{}}\n\
+            '{line}' | commandline complete --input | get tokens | select text kind | to nuon"
+        ),
+        expected,
+    )
+}
+
+/// Alias-expanded tokens are not on the line; a span would point at the definition.
+#[test]
+fn commandline_test_complete_input_alias_tokens_have_no_span() -> TestResult {
+    run_test(
+        "'alias ea = ext aa; ea b' | commandline complete --input\n\
+        | get tokens | each {|t| $t.span == null } | to nuon",
+        "[true, true, false]",
+    )
+}
+
+/// The last token is what a suggestion replaces, so a completer never needs to be told.
+#[test]
+fn commandline_test_complete_input_replacing() -> TestResult {
+    run_test(
+        "def test-cmd [first?: string] {}\n\
+        'test-cmd ab' | commandline complete --input | get tokens | last | get span | to nuon",
+        "{start: 9, end: 11}",
+    )
+}
