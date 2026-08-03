@@ -213,7 +213,7 @@ fn split_row_helper(
     if let Value::Error { error, .. } = v {
         return vec![Value::error(*error.clone(), span)];
     }
-    let Ok(s) = v.coerce_str() else {
+    let Ok(s) = v.coerce_string() else {
         return vec![Value::error(
             ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string".into(),

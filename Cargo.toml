@@ -136,7 +136,7 @@ aegis-password-generator = "0.1.1"
 alphanumeric-sort = "1.5"
 ansi-str = "0.9"
 anyhow = "1.0.102"
-base64 = "0.22.1"
+base64 = "0.23.0"
 better_default = "1.0.5"
 bracoxide = "0.1.8"
 brotli = "8.0"
@@ -163,7 +163,7 @@ dirs-sys = "0.5"
 dns-lookup = "3.0.1"
 dtparse = "2.0"
 encoding_rs = "0.8"
-fancy-regex = "0.18"
+fancy-regex = "0.19"
 filesize = "0.2"
 filetime = "0.2.27"
 fff-search = { version = "=0.10.1", default-features = false, features = ["ripgrep"] }
@@ -180,7 +180,7 @@ interprocess = "2.4.2"
 is_executable = "1.0.5"
 itertools = "0.15"
 kitest = "0.6.0"
-lean_string = { version = "0.6.0", features = ["serde"] }
+lean_string = { version = "0.7.0", features = ["serde"] }
 lexopt = "0.3.2"
 libc = "0.2.185"
 libproc = "0.14.11"
@@ -196,7 +196,7 @@ md5 = { version = "0.11.0", package = "md-5" }
 miette = "7.6"
 mime = "0.3.17"
 mime_guess = "2.0"
-mq-markdown = "0.6.0"
+mq-markdown = "0.7.0"
 mockito = { version = "1.7.2", default-features = false }
 multipart-rs = "0.2.2"
 native-tls = "0.2.18"
@@ -249,7 +249,7 @@ rusqlite = "0.40.1"
 # Patch updates are allowed though.
 rustls = { version = "~0.23.38", default-features = false, features = ["std", "tls12"] }
 rustls-native-certs = "0.8"
-serde-saphyr = "0.0.29"
+serde-saphyr = "1.0.0"
 scopeguard = { version = "1.2.0" }
 ndarray = { version = "0.17", features = ["serde", "approx", "rayon", "matrixmultiply-threading"] }
 semver = "1.0"
