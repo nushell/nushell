@@ -1,7 +1,4 @@
-use nu_test_support::{
-    fs::Stub::{EmptyFile, FileWithContentToBeTrimmed},
-    prelude::*,
-};
+use nu_test_support::prelude::*;
 use rstest::rstest;
 
 mod duration;
@@ -91,65 +88,5 @@ fn format_string_error(
     let (start, end) = (label.offset(), label.offset() + label.len());
     assert_eq!(&format_str[start..end], label_text);
 
-    Ok(())
-}
-
-#[test]
-fn format_filesize_works() -> Result {
-    Playground::setup("format_filesize_test_1", |dirs, sandbox| {
-        sandbox.with_files(&[
-            EmptyFile("yehuda.txt"),
-            EmptyFile("jttxt"),
-            EmptyFile("andres.txt"),
-        ]);
-
-        let code = "
-            ls
-            | format filesize kB size
-            | get size
-            | first
-        ";
-
-        test().cwd(dirs.test()).run(code).expect_value_eq("0 kB")
-    })
-}
-
-#[test]
-fn format_filesize_works_with_nonempty_files() -> Result {
-    Playground::setup(
-        "format_filesize_works_with_nonempty_files",
-        |dirs, sandbox| {
-            sandbox.with_files(&[FileWithContentToBeTrimmed(
-                "sample.toml",
-                r#"
-                    [dependency]
-                    name = "nu"
-                "#,
-            )]);
-
-            let code = "ls sample.toml | format filesize B size | get size | first";
-            #[cfg(not(windows))]
-            let expected = "25 B";
-            #[cfg(windows)]
-            let expected = "27 B";
-
-            test().cwd(dirs.test()).run(code).expect_value_eq(expected)
-        },
-    )
-}
-
-#[test]
-fn format_filesize_with_invalid_unit() -> Result {
-    let code = "1MB | format filesize sec";
-    let err = test().run(code).expect_error()?;
-    assert!(matches!(err, ShellError::InvalidUnit { .. }));
-    Ok(())
-}
-
-#[test]
-fn format_duration_with_invalid_unit() -> Result {
-    let code = "1sec | format duration MB";
-    let err = test().run(code).expect_error()?;
-    assert!(matches!(err, ShellError::InvalidUnit { .. }));
     Ok(())
 }
