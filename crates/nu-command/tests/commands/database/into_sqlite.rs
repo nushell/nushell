@@ -95,41 +95,62 @@ fn into_sqlite_values() -> Result {
 /// table. In the event that a column is null, we can't know what type the row
 /// should be, so we just assume TEXT.
 #[test]
+#[deps(NU)]
 fn into_sqlite_values_first_column_null() -> Result {
     Playground::setup("values", |dirs, _| {
-        insert_test_rows(
-            &dirs,
-            r#"[
+        let testdir = dirs.test();
+        let testdb_path =
+            testdir.join(testdir.file_name().unwrap().to_str().unwrap().to_owned() + ".db");
+        let expected = vec![
+            TestRow(
+                false,
+                2,
+                3.0,
+                2000000,
+                2419200000000000,
+                DateTime::parse_from_rfc3339("2020-09-10T12:30:00-00:00").unwrap(),
+                "bar".into(),
+                b"wut".to_vec(),
+                rusqlite::types::Value::Null,
+            ),
+            TestRow(
+                true,
+                1,
+                2.0,
+                1000,
+                1000000000,
+                DateTime::parse_from_rfc3339("2023-09-10T11:30:00-00:00").unwrap(),
+                "foo".into(),
+                b"binary".to_vec(),
+                rusqlite::types::Value::Text("1".into()),
+            ),
+        ];
+
+        let testdb = testdb_path.to_string_lossy().into_owned();
+        let child_code = format!(
+            r#"let db = {:?}; [
                 [somebool, someint, somefloat, somefilesize, someduration, somedate, somestring, somebinary, somenull];
                 [false, 2, 3.0, 2mb, 4wk, "2020-09-10T12:30:00-00:00", "bar", ("wut" | into binary), null],
                 [true, 1, 2.0, 1kb, 1sec, "2023-09-10T11:30:00-00:00", "foo", ("binary" | into binary), 1],
-            ]"#,
-            None,
-            vec![
-                TestRow(
-                    false,
-                    2,
-                    3.0,
-                    2000000,
-                    2419200000000000,
-                    DateTime::parse_from_rfc3339("2020-09-10T12:30:00-00:00").unwrap(),
-                    "bar".into(),
-                    b"wut".to_vec(),
-                    rusqlite::types::Value::Null,
-                ),
-                TestRow(
-                    true,
-                    1,
-                    2.0,
-                    1000,
-                    1000000000,
-                    DateTime::parse_from_rfc3339("2023-09-10T11:30:00-00:00").unwrap(),
-                    "foo".into(),
-                    b"binary".to_vec(),
-                    rusqlite::types::Value::Text("1".into()),
-                ),
-            ],
-        )
+            ] | into sqlite $db"#,
+            testdb.as_str()
+        );
+        let result: CompleteResult = test().cwd(testdir).run_with_data(
+            "let child_code = $in; nu -n -c $child_code | complete",
+            child_code,
+        )?;
+        assert_eq!(0, result.exit_code, "{}", result.stderr);
+
+        let conn = rusqlite::Connection::open(testdb_path).unwrap();
+        let mut stmt = conn.prepare("SELECT * FROM main;").unwrap();
+        let actual_rows: Vec<_> = stmt
+            .query_and_then([], |row| TestRow::try_from(row))
+            .unwrap()
+            .map(|row| row.unwrap())
+            .collect();
+
+        assert_eq!(expected, actual_rows);
+        Ok(())
     })
 }
 
@@ -232,17 +253,64 @@ fn into_sqlite_values_first_column_null_preexisting_db() -> Result {
 
 /// Opening a preexisting database should append to it
 #[test]
+#[deps(NU)]
 fn into_sqlite_existing_db_append() -> Result {
     Playground::setup("existing_db_append", |dirs, _| {
+        let testdir = dirs.test();
+        let testdb_path =
+            testdir.join(testdir.file_name().unwrap().to_str().unwrap().to_owned() + ".db");
+        let testdb = testdb_path.to_string_lossy().into_owned();
+
         // create a new DB with only one row
-        insert_test_rows(
-            &dirs,
-            r#"[
+        let child_code = format!(
+            r#"let db = {:?}; [
                 [somebool, someint, somefloat, somefilesize, someduration, somedate, somestring, somebinary, somenull];
                 [true, 1, 2.0, 1kb, 1sec, "2023-09-10T11:30:00-00:00", "foo", ("binary" | into binary), null],
-            ]"#,
-            None,
-            vec![TestRow(
+            ] | into sqlite $db"#,
+            testdb.as_str()
+        );
+        let result: CompleteResult = test().cwd(testdir).run_with_data(
+            "let child_code = $in; nu -n -c $child_code | complete",
+            child_code,
+        )?;
+        assert_eq!(0, result.exit_code, "{}", result.stderr);
+
+        let expected = vec![TestRow(
+            true,
+            1,
+            2.0,
+            1000,
+            1000000000,
+            DateTime::parse_from_rfc3339("2023-09-10T11:30:00-00:00").unwrap(),
+            "foo".into(),
+            b"binary".to_vec(),
+            rusqlite::types::Value::Null,
+        )];
+        let conn = rusqlite::Connection::open(&testdb_path).unwrap();
+        let mut stmt = conn.prepare("SELECT * FROM main;").unwrap();
+        let actual_rows: Vec<_> = stmt
+            .query_and_then([], |row| TestRow::try_from(row))
+            .unwrap()
+            .map(|row| row.unwrap())
+            .collect();
+        assert_eq!(expected, actual_rows);
+
+        // open the same DB again and write one row
+        let child_code = format!(
+            r#"let db = {:?}; [
+                [somebool, someint, somefloat, somefilesize, someduration, somedate, somestring, somebinary, somenull];
+                [false, 2, 3.0, 2mb, 4wk, "2020-09-10T12:30:00-00:00", "bar", ("wut" | into binary), null],
+            ] | into sqlite $db"#,
+            testdb.as_str()
+        );
+        let result: CompleteResult = test().cwd(testdir).run_with_data(
+            "let child_code = $in; nu -n -c $child_code | complete",
+            child_code,
+        )?;
+        assert_eq!(0, result.exit_code, "{}", result.stderr);
+
+        let expected = vec![
+            TestRow(
                 true,
                 1,
                 2.0,
@@ -252,49 +320,36 @@ fn into_sqlite_existing_db_append() -> Result {
                 "foo".into(),
                 b"binary".to_vec(),
                 rusqlite::types::Value::Null,
-            )],
-        )?;
+            ),
+            TestRow(
+                false,
+                2,
+                3.0,
+                2000000,
+                2419200000000000,
+                DateTime::parse_from_rfc3339("2020-09-10T12:30:00-00:00").unwrap(),
+                "bar".into(),
+                b"wut".to_vec(),
+                rusqlite::types::Value::Null,
+            ),
+        ];
+        let conn = rusqlite::Connection::open(testdb_path).unwrap();
+        let mut stmt = conn.prepare("SELECT * FROM main;").unwrap();
+        let actual_rows: Vec<_> = stmt
+            .query_and_then([], |row| TestRow::try_from(row))
+            .unwrap()
+            .map(|row| row.unwrap())
+            .collect();
 
-        // open the same DB again and write one row
-        insert_test_rows(
-            &dirs,
-            r#"[
-                [somebool, someint, somefloat, somefilesize, someduration, somedate, somestring, somebinary, somenull];
-                [false, 2, 3.0, 2mb, 4wk, "2020-09-10T12:30:00-00:00", "bar", ("wut" | into binary), null],
-            ]"#,
-            None,
-            // it should have both rows
-            vec![
-                TestRow(
-                    true,
-                    1,
-                    2.0,
-                    1000,
-                    1000000000,
-                    DateTime::parse_from_rfc3339("2023-09-10T11:30:00-00:00").unwrap(),
-                    "foo".into(),
-                    b"binary".to_vec(),
-                    rusqlite::types::Value::Null,
-                ),
-                TestRow(
-                    false,
-                    2,
-                    3.0,
-                    2000000,
-                    2419200000000000,
-                    DateTime::parse_from_rfc3339("2020-09-10T12:30:00-00:00").unwrap(),
-                    "bar".into(),
-                    b"wut".to_vec(),
-                    rusqlite::types::Value::Null,
-                ),
-            ],
-        )
+        assert_eq!(expected, actual_rows);
+        Ok(())
     })
 }
 
 /// Test inserting a good number of randomly generated rows to test an actual
 /// streaming pipeline instead of a simple value
 #[test]
+#[deps(NU)]
 fn into_sqlite_big_insert() -> Result {
     let engine_state = EngineState::new();
     // don't serialize closures
@@ -346,15 +401,31 @@ fn into_sqlite_big_insert() -> Result {
             expected_rows.push(row);
         }
 
-        insert_test_rows(
-            &dirs,
-            &format!(
-                "open --raw {} | lines | each {{ from nuon }}",
-                nuon_path.to_string_lossy()
-            ),
-            None,
-            expected_rows,
-        )
+        let testdir = dirs.test();
+        let testdb_path =
+            testdir.join(testdir.file_name().unwrap().to_str().unwrap().to_owned() + ".db");
+        let testdb = testdb_path.to_string_lossy().into_owned();
+        let child_code = format!(
+            "let db = {:?}; open --raw {} | lines | each {{ from nuon }} | into sqlite $db",
+            testdb.as_str(),
+            nuon_path.to_string_lossy()
+        );
+        let result: CompleteResult = test().cwd(testdir).run_with_data(
+            "let child_code = $in; nu -n -c $child_code | complete",
+            child_code,
+        )?;
+        assert_eq!(0, result.exit_code, "{}", result.stderr);
+
+        let conn = rusqlite::Connection::open(testdb_path).unwrap();
+        let mut stmt = conn.prepare("SELECT * FROM main;").unwrap();
+        let actual_rows: Vec<_> = stmt
+            .query_and_then([], |row| TestRow::try_from(row))
+            .unwrap()
+            .map(|row| row.unwrap())
+            .collect();
+
+        assert_eq!(expected_rows, actual_rows);
+        Ok(())
     })
 }
 
