@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use nu_protocol::{ParseError, ShellError, Type};
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_matches;
@@ -237,38 +239,36 @@ fn override_table_eval_file() -> Result {
         .expect_value_eq("hi")
 }
 
-// This test is disabled on Windows because they cause a stack overflow in CI (but not locally!).
-// For reasons we don't understand, the Windows CI runners are prone to stack overflow.
-// TODO: investigate so we can enable on Windows
-#[cfg(not(target_os = "windows"))]
 #[test]
 fn infinite_recursion_does_not_panic() -> Result {
-    let err = test()
+    let mut tester = test();
+    let config = Arc::make_mut(&mut tester.engine_state.config);
+    config.recursion_limit = 5;
+    let err = tester
         .run("def bang [] { bang }; bang")
         .expect_shell_error()?;
     assert_matches!(
         err,
         ShellError::RecursionLimitReached {
-            recursion_limit: 50,
+            recursion_limit: 5,
             ..
         }
     );
     Ok(())
 }
 
-// This test is disabled on Windows because they cause a stack overflow in CI (but not locally!).
-// For reasons we don't understand, the Windows CI runners are prone to stack overflow.
-// TODO: investigate so we can enable on Windows
-#[cfg(not(target_os = "windows"))]
 #[test]
 fn infinite_mutual_recursion_does_not_panic() -> Result {
-    let err = test()
+    let mut tester = test();
+    let config = Arc::make_mut(&mut tester.engine_state.config);
+    config.recursion_limit = 5;
+    let err = tester
         .run("def bang [] { def boom [] { bang }; boom }; bang")
         .expect_shell_error()?;
     assert_matches!(
         err,
         ShellError::RecursionLimitReached {
-            recursion_limit: 50,
+            recursion_limit: 5,
             ..
         }
     );
