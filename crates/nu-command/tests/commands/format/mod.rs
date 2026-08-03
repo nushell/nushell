@@ -31,9 +31,22 @@ fn cant_use_variables() -> Result {
             r#"format pattern "{$it.package.name} is {$it.package.description}""#,
             test_value!({package: {name: "nu", description: "a new type of shell"}}),
         )
-        .expect_error()?;
+        .expect_labeled_error()?;
 
-    assert_eq!(err.generic_error()?, "Removed functionality");
+    assert_contains("does not read the variables", err.help.as_ref().unwrap());
+    Ok(())
+}
+
+#[test]
+fn cant_use_variables_no_false_positive() -> Result {
+    let err = test()
+        .run_with_data(
+            r#"format pattern "{it.package.name} is {it.package.description}""#,
+            test_value!({package: {name: "nu", description: "a new type of shell"}}),
+        )
+        .expect_labeled_error()?;
+
+    assert!(err.help.is_none());
     Ok(())
 }
 

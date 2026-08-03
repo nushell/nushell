@@ -252,6 +252,9 @@ fn format_record(
     pattern: &Spanned<String>,
     head_span: Span,
 ) -> Result<String, ShellError> {
+    // whether any of the columns starts with "$"
+    let mut dollar_column = false;
+
     let result = format_operations
         .iter()
         .map(|op| match op {
@@ -274,10 +277,15 @@ fn format_record(
 
                 match data_as_value.follow_cell_path(&path_members) {
                     Ok(val) => Ok(Ok(Cow::Owned(val.to_expanded_string(", ", config)))),
-                    Err(ShellError::CantFindColumn { col_name, .. }) => Ok(Err(ErrorLabel {
-                        text: format!("column '{col_name}' is missing in one or more values"),
-                        span: *span,
-                    })),
+                    Err(ShellError::CantFindColumn { col_name, .. }) => {
+                        if !dollar_column && col_name.starts_with('$') {
+                            dollar_column = true;
+                        }
+                        Ok(Err(ErrorLabel {
+                            text: format!("column '{col_name}' is missing in one or more values"),
+                            span: *span,
+                        }))
+                    }
                     Err(err) => Err(err),
                 }
             }
@@ -297,13 +305,21 @@ fn format_record(
                 inner: vec![],
             };
 
-            Err(ShellError::from(
-                LabeledError::new("Invalid value")
-                    .with_code("nu::shell::invalid_value")
-                    .with_label("format string", pattern.span)
-                    .with_label("value originates here", data_as_value.span())
-                    .with_inner(format_str_source),
-            ))
+            let mut labeled_err = LabeledError::new("Invalid value")
+                .with_code("nu::shell::invalid_value")
+                .with_label("format string", pattern.span)
+                .with_label("value originates here", data_as_value.span())
+                .with_inner(format_str_source);
+
+            if dollar_column {
+                labeled_err = labeled_err.with_help(
+                    "`format pattern` reads values from the pipeline input, \
+                    it does not read the variables in scope.\n\
+                    You might want to use string interpolation instead: `$\"($name): ($type)\"`",
+                );
+            }
+
+            Err(ShellError::from(labeled_err))
         }
     }
 }
