@@ -1454,14 +1454,11 @@ fn find_named_var_id(
 ) -> Result<VarId, ShellError> {
     sig.named
         .iter()
-        .find(|n| {
-            if !n.long.is_empty() {
-                n.long.as_bytes() == name
-            } else {
-                // It's possible to only have a short name and no long name
-                n.short
-                    .is_some_and(|s| s.encode_utf8(&mut [0; 4]).as_bytes() == short)
-            }
+        .find(|n| match (n.long_name(), n.short) {
+            (Some(long), _) => long.as_bytes() == name,
+            // Short-only flag: match on the short character
+            (None, Some(s)) => s.encode_utf8(&mut [0; 4]).as_bytes() == short,
+            (None, None) => false,
         })
         .ok_or_else(|| ShellError::IrEvalError {
             msg: format!(

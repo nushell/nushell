@@ -618,7 +618,7 @@ fn parse_def_inner(
                         format!(
                             "...rest-like positional argument used in 'def --wrapped' supports only strings. \
                                 Change the type annotation of ...{} to 'string'.",
-                            &rest.name
+rest.name
                         ),
                     ));
 

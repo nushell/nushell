@@ -252,6 +252,14 @@ impl Span {
         self.start <= span.start && span.end <= self.end && span.end != 0
     }
 
+    /// Point at a specific position (zero-width span).
+    pub const fn point(pos: usize) -> Self {
+        Self {
+            start: pos,
+            end: pos,
+        }
+    }
+
     /// Point to the space just past this span, useful for missing values
     pub fn past(&self) -> Self {
         Self {
@@ -270,16 +278,13 @@ impl Span {
                 cur_row += 1;
                 cur_col = 1;
             } else if cur_row >= row && cur_col >= col {
-                return Span::new(offset, offset);
+                return Span::point(offset);
             } else {
                 cur_col += 1;
             }
         }
 
-        Self {
-            start: contents.len(),
-            end: contents.len(),
-        }
+        Span::point(contents.len())
     }
 
     /// Like [`from_row_column`] but checks for signal interruption during scanning.
@@ -312,7 +317,7 @@ impl Span {
             }
         }
 
-        Ok(Span::new(contents.len(), contents.len()))
+        Ok(Span::point(contents.len()))
     }
 
     /// Returns the minimal [`Span`] that encompasses both of the given spans.

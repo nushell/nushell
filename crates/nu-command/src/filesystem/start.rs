@@ -57,7 +57,7 @@ impl Command for Start {
         // If neither file nor URL, return an error
         Err(ShellError::Generic(
             GenericError::new(
-                format!("Cannot find file or URL: {}", &path.item),
+                format!("Cannot find file or URL: {}", path.item),
                 "",
                 path.span,
             )

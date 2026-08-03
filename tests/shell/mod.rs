@@ -326,11 +326,14 @@ fn script_with_newline_arg_does_not_split_commands() -> Result {
             "def main [...args: string] { print ...($args) }",
         )]);
 
-        // If newline escaping regresses, parsing fails before returning "ok".
-        test()
+        let result: CompleteResult = test()
             .cwd(dirs.test())
-            .run("nu script.nu a b \"c\\nd\"; 'ok'")
-            .expect_value_eq("ok")
+            .run("nu script.nu a b \"c\\nd\" | complete")?;
+
+        assert_eq!(result.exit_code, 0);
+        assert_eq!(result.stdout, "a\nb\nc\nd\n");
+        assert!(result.stderr.is_empty());
+        Ok(())
     })
 }
 

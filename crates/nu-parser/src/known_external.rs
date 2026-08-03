@@ -152,21 +152,17 @@ fn ast_call_to_extern_call(
                 let named_span_id = engine_state
                     .find_span_id(named.0.span)
                     .unwrap_or(UNKNOWN_SPAN_ID);
-                if let Some(short) = &named.1 {
-                    extern_call.add_positional(Expression::new_existing(
-                        Expr::String(format!("-{}", short.item)),
-                        named.0.span,
-                        named_span_id,
-                        Type::String,
-                    ));
-                } else {
-                    extern_call.add_positional(Expression::new_existing(
-                        Expr::String(format!("--{}", named.0.item)),
-                        named.0.span,
-                        named_span_id,
-                        Type::String,
-                    ));
-                }
+                // Prefer the short form the AST preserved; otherwise forward `--<long>`.
+                let flag = match named.1.as_ref().filter(|short| !short.item.is_empty()) {
+                    Some(short) => format!("-{}", short.item),
+                    None => format!("--{}", named.0.item),
+                };
+                extern_call.add_positional(Expression::new_existing(
+                    Expr::String(flag),
+                    named.0.span,
+                    named_span_id,
+                    Type::String,
+                ));
                 if let Some(arg) = &named.2 {
                     extern_call.add_positional(arg.clone());
                 }

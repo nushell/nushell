@@ -12,11 +12,13 @@ impl Command for AttrComplete {
         Signature::build("attr complete")
             .input_output_type(Type::Nothing, Type::String)
             .allow_variants_without_examples(true)
-            .required(
-                "completer",
-                SyntaxShape::String,
-                "Name of the completion command.",
-            )
+            .param(Parameter::Required(
+                PositionalArg::new("completer", SyntaxShape::String)
+                    .desc("Name of the completion command.")
+                    .completion(Completion::Builtin(BuiltinCompletion::Command {
+                        internal_only: true,
+                    })),
+            ))
             .category(Category::Core)
     }
 

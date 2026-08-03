@@ -136,6 +136,15 @@ pub fn median(values: &[Value], span: Span, head: Span) -> Result<Value, ShellEr
         .filter(|x| !x.as_float().is_ok_and(f64::is_nan))
         .collect::<Vec<_>>();
 
+    if sorted.is_empty() {
+        return Err(ShellError::UnsupportedInput {
+            msg: "Empty input".to_string(),
+            input: "value originates from here".into(),
+            msg_span: head,
+            input_span: span,
+        });
+    }
+
     sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
 
     let take = if sorted.len().is_multiple_of(2) {
@@ -147,43 +156,14 @@ pub fn median(values: &[Value], span: Span, head: Span) -> Result<Value, ShellEr
     match take {
         Pick::Median => {
             let idx = sorted.len() / 2;
-            Ok(sorted
-                .get(idx)
-                .ok_or_else(|| ShellError::UnsupportedInput {
-                    msg: "Empty input".to_string(),
-                    input: "value originates from here".into(),
-                    msg_span: head,
-                    input_span: span,
-                })?
-                .to_owned()
-                .to_owned())
+            // Non-empty: middle element always exists.
+            Ok(sorted[idx].to_owned().to_owned())
         }
         Pick::MedianAverage => {
             let idx_end = sorted.len() / 2;
             let idx_start = idx_end - 1;
-
-            let left = sorted
-                .get(idx_start)
-                .ok_or_else(|| ShellError::UnsupportedInput {
-                    msg: "Empty input".to_string(),
-                    input: "value originates from here".into(),
-                    msg_span: head,
-                    input_span: span,
-                })?
-                .to_owned()
-                .to_owned();
-
-            let right = sorted
-                .get(idx_end)
-                .ok_or_else(|| ShellError::UnsupportedInput {
-                    msg: "Empty input".to_string(),
-                    input: "value originates from here".into(),
-                    msg_span: head,
-                    input_span: span,
-                })?
-                .to_owned()
-                .to_owned();
-
+            let left = sorted[idx_start].to_owned().to_owned();
+            let right = sorted[idx_end].to_owned().to_owned();
             average(&[left, right], span, head)
         }
     }

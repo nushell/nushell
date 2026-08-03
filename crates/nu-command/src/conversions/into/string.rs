@@ -232,7 +232,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 Value::string(input.to_expanded_string(", ", config), span)
             }
         }
-        Value::Duration { val: _, .. } => Value::string(input.to_expanded_string("", config), span),
+        Value::Duration { .. } => Value::string(input.to_expanded_string("", config), span),
         Value::Nothing { .. } => Value::string("".to_string(), span),
         Value::Record { .. } => Value::error(
             // Watch out for CantConvert's argument order

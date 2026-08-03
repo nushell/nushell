@@ -316,7 +316,7 @@ fn finish_eval_source(
     }
 
     perf!(
-        &format!("eval_source {}", &fname),
+        &format!("eval_source {}", fname),
         start_time,
         engine_state
             .get_config()

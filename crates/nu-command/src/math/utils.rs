@@ -52,6 +52,23 @@ fn helper_for_tables(
     Ok(Value::record(column_totals.into_iter().collect(), name))
 }
 
+/// Reduce a collected list or stream of values.
+///
+/// Tables (first item is a record) are reduced per column via [`helper_for_tables`].
+/// Empty collections and non-record lists go through `mf` directly so empty
+/// streams match empty lists (e.g. both error with "Empty input" for `math max`).
+fn reduce_collected_values(
+    vals: &[Value],
+    val_span: Span,
+    name: Span,
+    mf: impl Fn(&[Value], Span, Span) -> Result<Value, ShellError>,
+) -> Result<Value, ShellError> {
+    match vals {
+        [Value::Record { .. }, ..] => helper_for_tables(vals, val_span, name, mf),
+        _ => mf(vals, val_span, name),
+    }
+}
+
 pub fn calculate(
     values: PipelineData,
     name: Span,
@@ -60,17 +77,12 @@ pub fn calculate(
     let span = values.span().unwrap_or(name);
     match values {
         PipelineData::ListStream(s, ..) => {
-            helper_for_tables(&s.into_iter().collect::<Vec<Value>>(), span, name, mf)
+            let vals = s.into_iter().collect::<Vec<Value>>();
+            reduce_collected_values(&vals, span, name, mf)
         }
-        PipelineData::Value(Value::List { ref vals, .. }, ..) => match &vals[..] {
-            [Value::Record { .. }, _end @ ..] => helper_for_tables(
-                vals,
-                values.span().expect("PipelineData::value had no span"),
-                name,
-                mf,
-            ),
-            _ => mf(vals, span, name),
-        },
+        PipelineData::Value(Value::List { ref vals, .. }, ..) => {
+            reduce_collected_values(vals, span, name, mf)
+        }
         PipelineData::Value(Value::Record { val, .. }, ..) => {
             let mut record = val.into_owned();
             record
