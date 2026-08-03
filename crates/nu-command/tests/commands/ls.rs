@@ -1,4 +1,4 @@
-use nu_protocol::ParseError;
+use nu_protocol::{ParseError, shell_error::io::ErrorKind};
 use nu_test_support::fs::Stub::EmptyFile;
 use nu_test_support::playground::Playground;
 use nu_test_support::prelude::*;
@@ -404,11 +404,17 @@ fn fails_with_permission_denied() -> Result {
         std::fs::set_permissions(&dir_a, original_permissions)?;
 
         if !is_root {
-            assert_contains(
-                "Permission denied",
-                path_arg_result.unwrap_err().to_string(),
+            let path_arg_err = path_arg_result.expect_io_error()?;
+            let cwd_err = cwd_result.expect_io_error()?;
+
+            assert_matches!(
+                path_arg_err.kind,
+                ErrorKind::Std(std::io::ErrorKind::PermissionDenied, ..)
             );
-            assert_contains("Permission denied", cwd_result.unwrap_err().to_string());
+            assert_matches!(
+                cwd_err.kind,
+                ErrorKind::Std(std::io::ErrorKind::PermissionDenied, ..)
+            );
         }
 
         Ok(())

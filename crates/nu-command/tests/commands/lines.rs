@@ -1,3 +1,4 @@
+use nu_protocol::{ShellError, shell_error::io::ErrorKind};
 use nu_test_support::prelude::*;
 
 #[test]
@@ -60,7 +61,10 @@ fn lines_mixed_line_endings() -> Result {
 #[test]
 fn lines_on_error() -> Result {
     let err = test().run("open . | lines").expect_shell_error()?;
-    assert_contains("Is a directory", err.to_string());
+    assert!(matches!(
+        err,
+        ShellError::Io(err) if matches!(err.kind, ErrorKind::Std(std::io::ErrorKind::IsADirectory, ..))
+    ));
     Ok(())
 }
 
