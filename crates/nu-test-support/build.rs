@@ -32,7 +32,10 @@ fn extract_build_profile_and_target() {
 
     if let Some(maybe_target) = components.next() {
         let maybe_target = maybe_target.as_os_str().to_string_lossy();
-        if TARGET_LIST.iter().any(|target| target.as_str() == maybe_target.as_ref()) {
+        if TARGET_LIST
+            .iter()
+            .any(|target| target.as_str() == maybe_target.as_ref())
+        {
             println!("cargo::rustc-env=BUILD_TARGET={maybe_target}");
         }
     }
