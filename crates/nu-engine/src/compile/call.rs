@@ -2,7 +2,7 @@ use super::{BlockBuilder, CompileError, RedirectModes, compile_expression, keywo
 use crate::HELP_DECL_ID_PARSER_INFO;
 use nu_protocol::{
     DeclId, IntoSpanned, RegId, Span, Spanned, Type,
-    ast::{Argument, Call, Expr, Expression, ExternalArgument},
+    ast::{Argument, Call, Expr, Expression, ExternalArgument, FlagRef},
     engine::{ENV_VARIABLE_ID, IN_VARIABLE_ID, NU_VARIABLE_ID, StateWorkingSet, UNKNOWN_SPAN_ID},
     ir::{Instruction, IrAstRef, Literal},
 };
@@ -227,13 +227,7 @@ pub(crate) fn compile_call(
     // it.
     enum CompiledArg<'a> {
         Positional(RegId, Span, Option<IrAstRef>),
-        Named(
-            &'a str,
-            Option<&'a str>,
-            Option<RegId>,
-            Span,
-            Option<IrAstRef>,
-        ),
+        Named(FlagRef<'a>, Option<RegId>, Span, Option<IrAstRef>),
         Spread(RegId, Span, Option<IrAstRef>),
     }
 
@@ -271,9 +265,8 @@ pub(crate) fn compile_call(
                     ast_ref,
                 ))
             }
-            Argument::Named((name, short, _)) => compiled_args.push(CompiledArg::Named(
-                &name.item,
-                short.as_ref().map(|spanned| spanned.item.as_str()),
+            Argument::Named((long, short, _)) => compiled_args.push(CompiledArg::Named(
+                FlagRef::from_named(long, short.as_ref()),
                 arg_reg,
                 arg.span(),
                 ast_ref,
@@ -293,25 +286,25 @@ pub(crate) fn compile_call(
                 builder.push(Instruction::PushPositional { src: reg }.into_spanned(span))?;
                 builder.set_last_ast(ast_ref);
             }
-            CompiledArg::Named(name, short, Some(reg), span, ast_ref) => {
-                if !name.is_empty() {
-                    let name = builder.data(name)?;
-                    builder.push(Instruction::PushNamed { name, src: reg }.into_spanned(span))?;
-                } else {
-                    let short = builder.data(short.unwrap_or(""))?;
-                    builder
-                        .push(Instruction::PushShortNamed { short, src: reg }.into_spanned(span))?;
-                }
-                builder.set_last_ast(ast_ref);
-            }
-            CompiledArg::Named(name, short, None, span, ast_ref) => {
-                if !name.is_empty() {
-                    let name = builder.data(name)?;
-                    builder.push(Instruction::PushFlag { name }.into_spanned(span))?;
-                } else {
-                    let short = builder.data(short.unwrap_or(""))?;
-                    builder.push(Instruction::PushShortFlag { short }.into_spanned(span))?;
-                }
+            // The long/short × with-value/bare grid, spelled out once.
+            CompiledArg::Named(flag, reg, span, ast_ref) => {
+                let instruction = match (flag, reg) {
+                    (FlagRef::Long(name), Some(src)) => Instruction::PushNamed {
+                        name: builder.data(name)?,
+                        src,
+                    },
+                    (FlagRef::Long(name), None) => Instruction::PushFlag {
+                        name: builder.data(name)?,
+                    },
+                    (FlagRef::Short(short), Some(src)) => Instruction::PushShortNamed {
+                        short: builder.data(short)?,
+                        src,
+                    },
+                    (FlagRef::Short(short), None) => Instruction::PushShortFlag {
+                        short: builder.data(short)?,
+                    },
+                };
+                builder.push(instruction.into_spanned(span))?;
                 builder.set_last_ast(ast_ref);
             }
             CompiledArg::Spread(reg, span, ast_ref) => {

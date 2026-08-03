@@ -302,6 +302,7 @@ winreg = "0.56"
 # This denies all rustc warnings (including the ones that were causing noise)
 # equivalent to -D warnings
 warnings = "warn"
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(ci)"] }
 
 [workspace.lints.clippy]
 # Warning: workspace lints affect library code as well as tests, so don't enable lints that would be too noisy in tests like that.
@@ -316,6 +317,9 @@ used_underscore_binding = "warn"
 # let's keep it until we update rustc version to 1.96
 # which resolve the issue: https://github.com/rust-lang/rust-clippy/issues/16875
 collapsible_match = "allow"
+# `.filter_map(|x| x)` has different performance characteristics than
+# `.flatten()` and `.flat_map(|x| x)`
+filter_map_identity = "allow"
 
 [lints]
 workspace = true

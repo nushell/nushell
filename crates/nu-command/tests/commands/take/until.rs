@@ -1,4 +1,5 @@
 use nu_test_support::prelude::*;
+use rstest::rstest;
 
 #[test]
 fn condition_is_met() -> Result {
@@ -40,4 +41,19 @@ fn fail_on_non_iterator() -> Result {
     let err = test().run(code).expect_parse_error()?;
     assert!(matches!(err, ParseError::InputMismatch(..)));
     Ok(())
+}
+
+#[rstest]
+#[case::none(0, ["a", "b", "c"])]
+#[case::one(1, ["a", "b", "c", "d"])]
+#[case::two(2, ["a", "b", "c", "d", "e"])]
+#[case::more_than_input(12, ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"])]
+fn include(#[case] n: i64, #[case] expect: impl IntoValue) -> Result {
+    let code = r#"
+        let n = $in
+
+        [a b c d e f g h i j]
+        | take until -i $n {|e| $e == "d" }
+    "#;
+    test().run_with_data(code, n).expect_value_eq(expect)
 }

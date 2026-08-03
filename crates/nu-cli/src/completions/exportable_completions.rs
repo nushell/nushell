@@ -1,11 +1,8 @@
 use crate::completions::{
-    Completer, CompletionOptions, SemanticSuggestion, completion_common::surround_remove,
-    completion_options::NuMatcher,
+    Completer, Context, Fetched, SemanticSuggestion, completion_common::surround_remove,
+    completion_options::NuMatcher, to_reedline_span,
 };
-use nu_protocol::{
-    ModuleId, Span, SuggestionKind,
-    engine::{Stack, StateWorkingSet},
-};
+use nu_protocol::{ModuleId, SuggestionKind, engine::StateWorkingSet};
 use reedline::Suggestion;
 
 pub struct ExportableCompletion<'a> {
@@ -23,21 +20,12 @@ fn wrapped_name(name: String) -> String {
 }
 
 impl Completer for ExportableCompletion<'_> {
-    fn fetch(
-        &mut self,
-        working_set: &StateWorkingSet,
-        _stack: &Stack,
-        prefix: impl AsRef<str>,
-        span: Span,
-        offset: usize,
-        options: &CompletionOptions,
-    ) -> Vec<SemanticSuggestion> {
-        let mut matcher = NuMatcher::<()>::new(surround_remove(prefix.as_ref()), options, true);
+    fn fetch(&mut self, ctx: &Context) -> Fetched {
+        let working_set = ctx.working_set;
+        let prefix = ctx.prefix_str();
+        let mut matcher = NuMatcher::<()>::new(surround_remove(prefix.as_ref()), ctx.options, true);
         let mut results = Vec::new();
-        let span = reedline::Span {
-            start: span.start - offset,
-            end: span.end - offset,
-        };
+        let span = to_reedline_span(ctx.span, ctx.offset);
         // TODO: use matcher.add_lazy to lazy evaluate an item if it matches the prefix
         let mut add_suggestion = |value: String,
                                   description: Option<String>,
@@ -61,7 +49,7 @@ impl Completer for ExportableCompletion<'_> {
         let module = working_set.get_module(self.module_id);
 
         for (name, decl_id) in &module.decls {
-            let name = String::from_utf8_lossy(name).to_string();
+            let name = String::from_utf8_lossy(name).into_owned();
             if let Some(match_indices) = matcher.check_match(&name) {
                 let cmd = working_set.get_decl(*decl_id);
                 add_suggestion(
@@ -75,7 +63,7 @@ impl Completer for ExportableCompletion<'_> {
             }
         }
         for (name, module_id) in &module.submodules {
-            let name = String::from_utf8_lossy(name).to_string();
+            let name = String::from_utf8_lossy(name).into_owned();
             if let Some(match_indices) = matcher.check_match(&name) {
                 let (desc, extra) = working_set
                     .get_module_comments(*module_id)
@@ -91,7 +79,7 @@ impl Completer for ExportableCompletion<'_> {
             }
         }
         for (name, var_id) in &module.constants {
-            let name = String::from_utf8_lossy(name).to_string();
+            let name = String::from_utf8_lossy(name).into_owned();
             if let Some(match_indices) = matcher.check_match(&name) {
                 let var = working_set.get_variable(*var_id);
                 add_suggestion(
@@ -105,6 +93,6 @@ impl Completer for ExportableCompletion<'_> {
                 );
             }
         }
-        results
+        Fetched::pure(results)
     }
 }

@@ -22,3 +22,10 @@ fn cannot_ceil_infinite_range() -> Result {
     assert!(matches!(outcome, ShellError::IncorrectValue { .. }));
     Ok(())
 }
+
+#[test]
+fn filesize_ceil_is_noop_on_base_units() -> Result {
+    // 2.1KB is stored as 2100 bytes; ceiling cannot use the display unit (KB).
+    let expected: Value = test().run("2.1KB")?;
+    test().run("2.1KB | math ceil").expect_value_eq(expected)
+}

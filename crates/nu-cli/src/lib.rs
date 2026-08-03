@@ -18,7 +18,9 @@ mod util;
 mod validation;
 
 pub use commands::add_cli_context;
-pub use completions::{FileCompletion, NuCompleter, SemanticSuggestion, SuggestionKind};
+pub use completions::{
+    CompletionEngine, FileCompletion, NuCompleter, SemanticSuggestion, SuggestionKind,
+};
 pub use config_files::{eval_config_contents, eval_config_contents_with_kind};
 pub use eval_cmds::{EvaluateCommandsOpts, evaluate_commands};
 pub use eval_file::evaluate_file;

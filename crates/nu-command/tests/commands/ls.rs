@@ -441,35 +441,24 @@ fn list_all_columns() -> Result {
             .expect_value_eq(["name", "type", "size", "modified"])?;
         // Long
         let expected = cfg_select! {
-            unix => {
-                [
-                    "name",
-                    "type",
-                    "target",
-                    "readonly",
-                    "mode",
-                    "num_links",
-                    "inode",
-                    "user",
-                    "group",
-                    "size",
-                    "created",
-                    "accessed",
-                    "modified",
-                ]
-            }
-            windows => {
-                [
-                    "name",
-                    "type",
-                    "target",
-                    "readonly",
-                    "size",
-                    "created",
-                    "accessed",
-                    "modified",
-                ]
-            }
+            unix => [
+                "name",
+                "type",
+                "target",
+                "readonly",
+                "mode",
+                "num_links",
+                "inode",
+                "user",
+                "group",
+                "size",
+                "created",
+                "accessed",
+                "modified",
+            ],
+            windows => [
+                "name", "type", "target", "readonly", "size", "created", "accessed", "modified",
+            ],
         };
         test()
             .cwd(dirs.test())

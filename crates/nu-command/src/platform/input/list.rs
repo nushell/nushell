@@ -21,7 +21,7 @@ use nucleo_matcher::{
 use std::{
     borrow::Cow,
     collections::HashSet,
-    io::{self, Stderr, Write},
+    io::{self, Write},
     sync::mpsc::{self, Receiver, RecvTimeoutError, TryRecvError},
     thread,
     time::Duration,
@@ -1232,7 +1232,7 @@ impl<'a> SelectWidget<'a> {
     }
 
     /// Position terminal cursor within the fuzzy filter text
-    fn position_fuzzy_cursor(&self, stderr: &mut Stderr) -> io::Result<()> {
+    fn position_fuzzy_cursor(&self, stderr: &mut impl Write) -> io::Result<()> {
         let text_before_cursor = &self.filter_text[..self.filter_cursor];
         let cursor_col = self.prompt_marker_width() + text_before_cursor.width();
         execute!(stderr, MoveToColumn(cursor_col as u16))
@@ -1546,7 +1546,7 @@ impl<'a> SelectWidget<'a> {
     }
 
     /// Render just the footer text at current cursor position (for optimized updates)
-    fn render_footer_inline(&self, stderr: &mut Stderr) -> io::Result<()> {
+    fn render_footer_inline(&self, stderr: &mut impl Write) -> io::Result<()> {
         let indicator = self.generate_footer();
         execute!(
             stderr,
@@ -3153,7 +3153,7 @@ impl<'a> SelectWidget<'a> {
     }
 
     /// FuzzyMulti mode: update toggled row and new cursor row
-    fn render_fuzzy_multi_toggle_update(&mut self, stderr: &mut Stderr) -> io::Result<()> {
+    fn render_fuzzy_multi_toggle_update(&mut self, stderr: &mut impl Write) -> io::Result<()> {
         let toggled = self.toggled_item.expect("toggled_item must be Some");
         execute!(stderr, BeginSynchronizedUpdate)?;
 
@@ -3242,7 +3242,7 @@ impl<'a> SelectWidget<'a> {
     }
 
     /// Multi mode: only update the checkbox for the toggled item
-    fn render_multi_toggle_only(&mut self, stderr: &mut Stderr) -> io::Result<()> {
+    fn render_multi_toggle_only(&mut self, stderr: &mut impl Write) -> io::Result<()> {
         let toggled = self.toggled_item.expect("toggled_item must be Some");
         execute!(stderr, BeginSynchronizedUpdate)?;
 
@@ -3291,7 +3291,7 @@ impl<'a> SelectWidget<'a> {
     }
 
     /// Multi mode: update all visible checkboxes (toggle all with 'a')
-    fn render_multi_toggle_all(&mut self, stderr: &mut Stderr) -> io::Result<()> {
+    fn render_multi_toggle_all(&mut self, stderr: &mut impl Write) -> io::Result<()> {
         execute!(stderr, BeginSynchronizedUpdate)?;
 
         let mut header_lines: u16 = if self.prompt.is_some() { 1 } else { 0 };
@@ -3344,7 +3344,7 @@ impl<'a> SelectWidget<'a> {
     }
 
     /// FuzzyMulti mode: update all visible rows (toggle all with Alt+A)
-    fn render_fuzzy_multi_toggle_all_update(&mut self, stderr: &mut Stderr) -> io::Result<()> {
+    fn render_fuzzy_multi_toggle_all_update(&mut self, stderr: &mut impl Write) -> io::Result<()> {
         execute!(stderr, BeginSynchronizedUpdate)?;
 
         // Calculate header lines (prompt + filter + separator + table header)
@@ -3404,7 +3404,7 @@ impl<'a> SelectWidget<'a> {
     }
 
     #[allow(clippy::collapsible_if)]
-    fn render(&mut self, stderr: &mut Stderr) -> io::Result<()> {
+    fn render(&mut self, stderr: &mut impl Write) -> io::Result<()> {
         // Keep streamed rows live-updating even when the user is not scrolling. This only drains
         // values already delivered by the background reader, so rendering stays responsive for
         // slow or infinite inputs.
@@ -3710,7 +3710,7 @@ impl<'a> SelectWidget<'a> {
 
     fn render_single_item_inline(
         &self,
-        stderr: &mut Stderr,
+        stderr: &mut impl Write,
         text: &str,
         active: bool,
     ) -> io::Result<()> {
@@ -3725,7 +3725,7 @@ impl<'a> SelectWidget<'a> {
 
     fn render_multi_item_inline(
         &self,
-        stderr: &mut Stderr,
+        stderr: &mut impl Write,
         text: &str,
         checked: bool,
         active: bool,
@@ -3742,7 +3742,7 @@ impl<'a> SelectWidget<'a> {
 
     fn render_fuzzy_item_inline(
         &self,
-        stderr: &mut Stderr,
+        stderr: &mut impl Write,
         text: &str,
         active: bool,
     ) -> io::Result<()> {
@@ -3763,7 +3763,7 @@ impl<'a> SelectWidget<'a> {
 
     fn render_fuzzy_multi_item_inline(
         &self,
-        stderr: &mut Stderr,
+        stderr: &mut impl Write,
         text: &str,
         checked: bool,
         active: bool,
@@ -3795,7 +3795,7 @@ impl<'a> SelectWidget<'a> {
 
     fn render_truncated_text(
         &self,
-        stderr: &mut Stderr,
+        stderr: &mut impl Write,
         text: &str,
         prefix_width: usize,
     ) -> io::Result<()> {
@@ -3807,7 +3807,7 @@ impl<'a> SelectWidget<'a> {
 
     fn render_display_segments(
         &self,
-        stderr: &mut Stderr,
+        stderr: &mut impl Write,
         sanitized: &SanitizedText,
         match_indices: Option<&[usize]>,
         base_style: Option<Style>,
@@ -3842,7 +3842,7 @@ impl<'a> SelectWidget<'a> {
     /// The ellipsis is highlighted if any matches fall in the truncated portion.
     fn render_truncated_fuzzy_text(
         &self,
-        stderr: &mut Stderr,
+        stderr: &mut impl Write,
         text: &str,
         match_indices: &[usize],
         prefix_width: usize,
@@ -3881,7 +3881,7 @@ impl<'a> SelectWidget<'a> {
     }
 
     /// Render the table header row
-    fn render_table_header(&self, stderr: &mut Stderr) -> io::Result<()> {
+    fn render_table_header(&self, stderr: &mut impl Write) -> io::Result<()> {
         let Some(layout) = &self.table_layout else {
             return Ok(());
         };
@@ -3950,7 +3950,7 @@ impl<'a> SelectWidget<'a> {
     }
 
     /// Render the separator line between table header and data rows
-    fn render_table_header_separator(&self, stderr: &mut Stderr) -> io::Result<()> {
+    fn render_table_header_separator(&self, stderr: &mut impl Write) -> io::Result<()> {
         let Some(layout) = &self.table_layout else {
             return Ok(());
         };
@@ -4018,7 +4018,7 @@ impl<'a> SelectWidget<'a> {
     /// Render a table row in single-select mode
     fn render_table_row_single(
         &self,
-        stderr: &mut Stderr,
+        stderr: &mut impl Write,
         item: &SelectItem,
         active: bool,
     ) -> io::Result<()> {
@@ -4032,7 +4032,7 @@ impl<'a> SelectWidget<'a> {
     /// Render a table row in multi-select mode
     fn render_table_row_multi(
         &self,
-        stderr: &mut Stderr,
+        stderr: &mut impl Write,
         item: &SelectItem,
         checked: bool,
         active: bool,
@@ -4048,7 +4048,7 @@ impl<'a> SelectWidget<'a> {
     /// Render a table row in fuzzy mode with match highlighting
     fn render_table_row_fuzzy(
         &self,
-        stderr: &mut Stderr,
+        stderr: &mut impl Write,
         item: &SelectItem,
         active: bool,
     ) -> io::Result<()> {
@@ -4070,7 +4070,7 @@ impl<'a> SelectWidget<'a> {
     /// Render a table row in fuzzy-multi mode with match highlighting and checkbox
     fn render_table_row_fuzzy_multi(
         &self,
-        stderr: &mut Stderr,
+        stderr: &mut impl Write,
         item: &SelectItem,
         checked: bool,
         active: bool,
@@ -4094,7 +4094,7 @@ impl<'a> SelectWidget<'a> {
     /// Render table cells with proper alignment and optional fuzzy highlighting
     fn render_table_cells(
         &self,
-        stderr: &mut Stderr,
+        stderr: &mut impl Write,
         item: &SelectItem,
         match_indices: Option<&[usize]>,
     ) -> io::Result<()> {
@@ -4287,7 +4287,7 @@ impl<'a> SelectWidget<'a> {
     /// Render a single table cell with padding, type-based styling, alignment, and optional match highlighting
     fn render_table_cell(
         &self,
-        stderr: &mut Stderr,
+        stderr: &mut impl Write,
         cell: &str,
         cell_style: &TextStyle,
         col_width: usize,
@@ -4324,7 +4324,7 @@ impl<'a> SelectWidget<'a> {
         Ok(())
     }
 
-    fn clear_display(&mut self, stderr: &mut Stderr) -> io::Result<()> {
+    fn clear_display(&mut self, stderr: &mut impl Write) -> io::Result<()> {
         // In fuzzy mode, cursor may be at filter line; move back to end first
         if self.fuzzy_cursor_offset > 0 {
             execute!(stderr, MoveDown(self.fuzzy_cursor_offset as u16))?;
@@ -4415,11 +4415,11 @@ mod test {
         w.cursor = 0;
         w.scroll_offset = 0;
 
-        let mut stderr = io::stderr();
+        let mut output = Vec::new();
 
         for _ in 0..7 {
             w.navigate_down();
-            w.render(&mut stderr)?;
+            w.render(&mut output)?;
             assert_eq!(w.scroll_offset, 0);
         }
 
@@ -4435,17 +4435,17 @@ mod test {
         w.cursor = 0;
         w.scroll_offset = 0;
 
-        let mut stderr = io::stderr();
+        let mut output = Vec::new();
 
-        w.render(&mut stderr)?;
+        w.render(&mut output)?;
         assert_eq!(w.cursor, 0);
 
         w.navigate_up();
-        w.render(&mut stderr)?;
+        w.render(&mut output)?;
         assert_eq!(w.cursor, 2);
 
         w.navigate_up();
-        w.render(&mut stderr)?;
+        w.render(&mut output)?;
         assert_eq!(w.cursor, 1);
 
         Ok(())
@@ -4563,6 +4563,7 @@ mod test {
     }
 
     #[test]
+    #[cfg_attr(ci, serial)]
     fn initial_read_collects_fast_finite_stream() {
         let span = nu_protocol::Span::test_data();
         let stream = ListStream::new(
@@ -4578,6 +4579,7 @@ mod test {
     }
 
     #[test]
+    #[cfg_attr(ci, serial)]
     fn initial_read_stops_before_exhausting_unbounded_stream() {
         let span = nu_protocol::Span::test_data();
         let stream = ListStream::new(

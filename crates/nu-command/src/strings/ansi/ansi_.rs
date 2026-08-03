@@ -995,7 +995,7 @@ fn generate_ansi_code_list(
                 // The first 409 items in the ansi array are previewable
                 let preview = if i < 409 {
                     Value::string(
-                        format!("\u{1b}[0m{}NUSHELL\u{1b}[0m", &ansi_code.code),
+                        format!("\u{1b}[0m{}NUSHELL\u{1b}[0m", ansi_code.code),
                         call_span,
                     )
                 } else {
