@@ -7,7 +7,7 @@
 
 use nu_cli::eval_source;
 use nu_protocol::{
-    Filesize, LAST_RESULT_VAR_NAME, LAST_VARIABLE_ID, PipelineData, Span, Value,
+    Filesize, FilesizeUnit, LAST_RESULT_VAR_NAME, LAST_VARIABLE_ID, PipelineData, Span, Value,
     engine::{EngineState, Stack},
     record,
 };
@@ -27,10 +27,14 @@ impl Interactive {
             nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
         engine_state.is_interactive = true;
         seed_env(&mut engine_state);
+        // Capture is opt-in (default 0b); enable a budget so these tests exercise storage.
         Self {
             engine_state,
             stack: Stack::new(),
         }
+        .with_last_result_size(
+            Filesize::from_unit(1, FilesizeUnit::MiB).expect("1 MiB fits in Filesize"),
+        )
     }
 
     fn non_interactive() -> Self {
@@ -222,6 +226,27 @@ fn last_result_var_name_constant_is_used() -> Result {
     session.run("5");
     session.run("$_");
     assert_eq!(session.last_value()?, Value::test_int(5));
+    Ok(())
+}
+
+#[test]
+fn underscore_name_is_reserved() -> Result {
+    // `_` is reserved for interactive last-result; user rebinding is a parse error.
+    let engine_state =
+        nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
+
+    for source in [b"let _ = 1".as_slice(), b"let $_ = 1".as_slice()] {
+        let mut working_set = nu_protocol::engine::StateWorkingSet::new(&engine_state);
+        let _block = nu_parser::parse(&mut working_set, None, source, false);
+        assert!(
+            working_set.parse_errors.iter().any(|e| {
+                matches!(e, nu_protocol::ParseError::NameIsBuiltinVar(name, _) if name == "_")
+            }),
+            "expected NameIsBuiltinVar for `{}`, got {:?}",
+            String::from_utf8_lossy(source),
+            working_set.parse_errors
+        );
+    }
     Ok(())
 }
 

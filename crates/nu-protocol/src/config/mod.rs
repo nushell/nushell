@@ -1,7 +1,7 @@
 //! Module containing the internal representation of user configuration
 
 use crate::FromValue;
-use crate::{self as nu_protocol, Filesize, FilesizeUnit};
+use crate::{self as nu_protocol, Filesize};
 use helper::*;
 use prelude::*;
 use std::collections::HashMap;
@@ -88,9 +88,9 @@ pub struct Config {
     pub duration_max_unit: DurationMaxUnit,
     /// Maximum estimated memory size of the interactive last-result value (e.g. `$_`).
     ///
-    /// Measured with [`Value::memory_size`]. `0` disables capture. Oversized results are truncated
-    /// to fit this budget. The variable name itself is a code constant (`LAST_RESULT_VAR_NAME`),
-    /// not a config option.
+    /// Measured with [`Value::memory_size`]. Default is `0` (capture disabled / opt-in).
+    /// Oversized results are truncated to fit this budget. The variable name itself is a code
+    /// constant (`LAST_RESULT_VAR_NAME`), not a config option.
     pub last_result_size: Filesize,
     /// Configuration for plugins.
     ///
@@ -158,9 +158,8 @@ impl Default for Config {
             auto_cd_implicit: false,
             duration_max_unit: DurationMaxUnit::default(),
 
-            // 1 MiB default budget for interactive last-result storage
-            last_result_size: Filesize::from_unit(1, FilesizeUnit::MiB)
-                .expect("1 MiB fits in Filesize"),
+            // Opt-in: 0 disables interactive last-result capture
+            last_result_size: Filesize::ZERO,
 
             plugins: HashMap::new(),
             plugin_gc: PluginGcConfigs::default(),

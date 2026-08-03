@@ -831,17 +831,8 @@ pub fn parse_variable_expr(
             Type::Any,
         );
     } else if contents.strip_prefix(b"$") == Some(nu_protocol::LAST_RESULT_VAR_NAME.as_bytes()) {
-        // Prefer a user binding from `let _ = ...` when present so scripts keep working.
-        // Otherwise `$_` is the interactive last-result special (LAST_VARIABLE_ID).
-        // Rename via LAST_RESULT_VAR_NAME.
-        if let Some(id) = working_set.find_variable(contents) {
-            return Expression::new(
-                working_set,
-                Expr::Var(id),
-                span,
-                working_set.get_variable(id).ty.clone(),
-            );
-        }
+        // Interactive last-result special (`LAST_VARIABLE_ID`). The name is reserved
+        // (see `RESERVED_VARIABLE_NAMES`); rename site-wide via `LAST_RESULT_VAR_NAME`.
         return Expression::new(
             working_set,
             Expr::Var(nu_protocol::LAST_VARIABLE_ID),

@@ -178,7 +178,7 @@ pub const LAST_VARIABLE_ID: VarId = VarId::new(3);
 /// Identifier for the last-result special variable **without** the `$` sigil.
 ///
 /// Change this single constant to rename the binding site-wide (e.g. `"last"` → `$last`).
-/// Not user-configurable.
+/// The name is reserved (cannot be rebound with `let` / `mut` / `const`). Not user-configurable.
 pub const LAST_RESULT_VAR_NAME: &str = "_";
 // NOTE: If you add more to this list, make sure to update the > checks based on the last in the list
 

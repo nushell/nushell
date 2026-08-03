@@ -268,11 +268,15 @@ pub fn parse_var_with_opt_type(
     }
 }
 
-// Note: `LAST_RESULT_VAR_NAME` (`_`) is intentionally *not* reserved.
-// `$_` is still wired via `parse_variable_expr` to `LAST_VARIABLE_ID`, but
-// scripts commonly use `let _ = ...` (discard bindings) and that must keep
-// working. Those bindings do not affect `$_` resolution.
-const RESERVED_VARIABLE_NAMES: &[&[u8]] = &[b"in", b"nu", b"env"];
+// Builtin variable names that cannot be rebound with `let` / `mut` / `const`.
+// `LAST_RESULT_VAR_NAME` is reserved so `$_` always means interactive last-result
+// (wired via `parse_variable_expr` → `LAST_VARIABLE_ID`).
+const RESERVED_VARIABLE_NAMES: &[&[u8]] = &[
+    b"in",
+    b"nu",
+    b"env",
+    nu_protocol::LAST_RESULT_VAR_NAME.as_bytes(),
+];
 
 pub(crate) fn ensure_not_reserved_variable_name(
     working_set: &mut StateWorkingSet,
