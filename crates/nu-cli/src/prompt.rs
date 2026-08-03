@@ -125,7 +125,7 @@ impl Prompt for NushellPrompt {
 fn indicator_for(contents: &PromptContents, edit_mode: PromptEditMode) -> String {
     match edit_mode {
         PromptEditMode::Default | PromptEditMode::Emacs => {
-            contents.emacs.as_deref().unwrap_or("> ").to_string()
+            contents.indicator.as_deref().unwrap_or("> ").to_string()
         }
         PromptEditMode::Vi(PromptViMode::Normal) => {
             contents.vi_normal.as_deref().unwrap_or("> ").to_string()

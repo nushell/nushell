@@ -14,7 +14,7 @@ pub enum PromptSegment {
     Right,
 
     /// The prompt indicator for the default/emacs edit mode, `$env.PROMPT_INDICATOR`.
-    Emacs,
+    Indicator,
 
     /// The vi insert-mode indicator, `$env.PROMPT_INDICATOR_VI_INSERT`.
     ViInsert,
@@ -31,7 +31,7 @@ pub enum PromptSegment {
 pub struct PromptContents {
     pub left: Option<Arc<str>>,
     pub right: Option<Arc<str>>,
-    pub emacs: Option<Arc<str>>,
+    pub indicator: Option<Arc<str>>,
     pub vi_insert: Option<Arc<str>>,
     pub vi_normal: Option<Arc<str>>,
     pub multiline: Option<Arc<str>>,
@@ -45,7 +45,7 @@ impl PromptContents {
         match segment {
             PromptSegment::Left => self.left = Some(content),
             PromptSegment::Right => self.right = Some(content),
-            PromptSegment::Emacs => self.emacs = Some(content),
+            PromptSegment::Indicator => self.indicator = Some(content),
             PromptSegment::ViInsert => self.vi_insert = Some(content),
             PromptSegment::ViNormal => self.vi_normal = Some(content),
             PromptSegment::Multiline => self.multiline = Some(content),
@@ -62,7 +62,10 @@ impl PromptContents {
         PromptContents {
             left: overrides.left.clone().or_else(|| self.left.clone()),
             right: overrides.right.clone().or_else(|| self.right.clone()),
-            emacs: overrides.emacs.clone().or_else(|| self.emacs.clone()),
+            indicator: overrides
+                .indicator
+                .clone()
+                .or_else(|| self.indicator.clone()),
             vi_insert: overrides
                 .vi_insert
                 .clone()
@@ -200,17 +203,17 @@ mod tests {
     }
 
     #[test]
-    fn emacs_vi_insert_vi_normal_and_multiline_are_independent() {
+    fn indicator_vi_insert_vi_normal_and_multiline_are_independent() {
         let state = PromptState::new();
         state.apply(|contents| {
-            contents.apply_segment_override(PromptSegment::Emacs, "Emacs");
+            contents.apply_segment_override(PromptSegment::Indicator, "Indicator");
             contents.apply_segment_override(PromptSegment::ViInsert, "ViInsert");
             contents.apply_segment_override(PromptSegment::ViNormal, "ViNormal");
             contents.apply_segment_override(PromptSegment::Multiline, "Multiline");
         });
 
         let contents = state.contents();
-        assert_eq!(contents.emacs.as_deref(), Some("Emacs"));
+        assert_eq!(contents.indicator.as_deref(), Some("Indicator"));
         assert_eq!(contents.vi_insert.as_deref(), Some("ViInsert"));
         assert_eq!(contents.vi_normal.as_deref(), Some("ViNormal"));
         assert_eq!(contents.multiline.as_deref(), Some("Multiline"));
@@ -231,13 +234,13 @@ mod tests {
         state.apply(|contents| {
             contents.apply_segment_override(PromptSegment::Left, "Alpha");
             contents.apply_segment_override(PromptSegment::Right, "Beta");
-            contents.apply_segment_override(PromptSegment::Emacs, "Gamma");
+            contents.apply_segment_override(PromptSegment::Indicator, "Gamma");
         });
 
         let contents = state.contents();
         assert_eq!(contents.left.as_deref(), Some("Alpha"));
         assert_eq!(contents.right.as_deref(), Some("Beta"));
-        assert_eq!(contents.emacs.as_deref(), Some("Gamma"));
+        assert_eq!(contents.indicator.as_deref(), Some("Gamma"));
         // Three segments, but a single repaint.
         assert_eq!(repainter_count.load(Ordering::Relaxed), 1);
     }
