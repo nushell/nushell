@@ -113,7 +113,7 @@ fn build_prompt_contents(
     PromptContents {
         left: fetch_prompt(PROMPT_COMMAND),
         right: fetch_prompt(PROMPT_COMMAND_RIGHT),
-        indicator: fetch_prompt(PROMPT_INDICATOR),
+        emacs: fetch_prompt(PROMPT_INDICATOR),
         vi_insert: fetch_prompt(PROMPT_INDICATOR_VI_INSERT),
         vi_normal: fetch_prompt(PROMPT_INDICATOR_VI_NORMAL),
         multiline: fetch_prompt(PROMPT_MULTILINE_INDICATOR),
@@ -141,7 +141,7 @@ pub(crate) fn make_transient_prompt(
     let overrides = PromptContents {
         left: fetch_transient(TRANSIENT_PROMPT_COMMAND),
         right: fetch_transient(TRANSIENT_PROMPT_COMMAND_RIGHT),
-        indicator: fetch_transient(TRANSIENT_PROMPT_INDICATOR),
+        emacs: fetch_transient(TRANSIENT_PROMPT_INDICATOR),
         vi_insert: fetch_transient(TRANSIENT_PROMPT_INDICATOR_VI_INSERT),
         vi_normal: fetch_transient(TRANSIENT_PROMPT_INDICATOR_VI_NORMAL),
         multiline: fetch_transient(TRANSIENT_PROMPT_MULTILINE_INDICATOR),
@@ -196,7 +196,7 @@ mod tests {
         // The configured TRANSIENT_PROMPT_INDICATOR beats a later live change.
         engine_state
             .prompt_state
-            .set(PromptSegment::Indicator, "live> ");
+            .set(PromptSegment::Emacs, "live> ");
 
         assert_eq!(
             transient_prompt.render_prompt_indicator(reedline::PromptEditMode::Emacs),

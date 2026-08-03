@@ -27,10 +27,10 @@ impl Command for CommandlineSetPrompt {
                 Some('r'),
             )
             .named(
-                "indicator",
+                "emacs",
                 SyntaxShape::String,
                 "Text for the prompt indicator in the default/emacs edit mode.",
-                Some('i'),
+                Some('e'),
             )
             .named(
                 "vi-insert",
@@ -63,7 +63,7 @@ streaming prompts: we render the prompt as we know it up front, and each
 `commandline set-prompt` updates our idea of what the prompt "is" for the
 segments that have finished computing. The line and cursor are preserved.
 
-`--indicator` sets only the default/emacs indicator. Use `--vi-insert` and
+`--emacs` sets only the default/emacs indicator. Use `--vi-insert` and
 `--vi-normal` to set the vi mode indicators independently.
 
 The pushed prompt lasts only until the next prompt is drawn.
@@ -85,7 +85,7 @@ meant for REPL sessions only"#
         let head = call.head;
 
         let right = call.get_flag::<String>(engine_state, stack, "right")?;
-        let indicator = call.get_flag::<String>(engine_state, stack, "indicator")?;
+        let emacs = call.get_flag::<String>(engine_state, stack, "emacs")?;
         let vi_insert = call.get_flag::<String>(engine_state, stack, "vi-insert")?;
         let vi_normal = call.get_flag::<String>(engine_state, stack, "vi-normal")?;
         let multiline = call.get_flag::<String>(engine_state, stack, "multiline")?;
@@ -105,7 +105,7 @@ meant for REPL sessions only"#
         // rather than locking and repainting per segment.
         if left.is_some()
             || right.is_some()
-            || indicator.is_some()
+            || emacs.is_some()
             || vi_insert.is_some()
             || vi_normal.is_some()
             || multiline.is_some()
@@ -117,8 +117,8 @@ meant for REPL sessions only"#
                 if let Some(content) = right {
                     contents.apply_segment_override(PromptSegment::Right, content);
                 }
-                if let Some(content) = indicator {
-                    contents.apply_segment_override(PromptSegment::Indicator, content);
+                if let Some(content) = emacs {
+                    contents.apply_segment_override(PromptSegment::Emacs, content);
                 }
                 if let Some(content) = vi_insert {
                     contents.apply_segment_override(PromptSegment::ViInsert, content);
@@ -148,7 +148,7 @@ meant for REPL sessions only"#
                 result: None,
             },
             Example {
-                example: r#"job spawn { sleep 1sec; commandline set-prompt --indicator $" (char prompt)" }"#,
+                example: r#"job spawn { sleep 1sec; commandline set-prompt --emacs $" (char prompt)" }"#,
                 description: "Replace the default/emacs indicator.",
                 result: None,
             },
@@ -163,7 +163,7 @@ meant for REPL sessions only"#
                 result: None,
             },
             Example {
-                example: r#"job spawn { sleep 1sec; commandline set-prompt --right "67" --indicator "69" }"#,
+                example: r#"job spawn { sleep 1sec; commandline set-prompt --right "67" --emacs "69" }"#,
                 description: "Replace multiple prompt segments in one call.",
                 result: None,
             },
