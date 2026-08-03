@@ -208,8 +208,8 @@ pub(crate) fn menu_input(text: &str, replacing: reedline::Span, span: Span) -> V
     )
 }
 
-/// Borrows the permanent engine state when the completer lives in it, avoiding a
-/// per-keystroke clone; otherwise clones it and merges the working set delta.
+/// Borrow the permanent engine state when the completer lives in it (no per-keystroke
+/// clone); otherwise clone it and merge the working-set delta.
 fn engine_state_for_completion<'a>(
     working_set: &'a StateWorkingSet<'_>,
     is_permanent: bool,

@@ -28,8 +28,6 @@ use std::thread;
 use std::time::Duration;
 use std::{borrow::Cow, ops::ControlFlow, path::is_separator};
 
-/// Max cache entries before evicting the least recently used; overridden per completer by
-/// `$env.config.completions.cache_size` (`0` disables the cache).
 const DEFAULT_CACHE_SIZE: usize = 100;
 
 use super::{
@@ -37,9 +35,6 @@ use super::{
     custom_completions::{UserCompletion, completer_input},
 };
 
-/// Used as the function `f` in find_map Traverse
-///
-/// returns the inner-most pipeline_element of interest that reaches the given position
 fn find_pipeline_element_by_position<'a>(
     expr: &'a Expression,
     working_set: &'a StateWorkingSet,
@@ -71,8 +66,7 @@ fn find_pipeline_element_by_position<'a>(
                 .iter()
                 .find_map(|arg| arg.expr().find_map(working_set, &recurse))
                 .or_else(|| {
-                    // `touches`, not `contains`: the cursor sits at the head's trailing
-                    // edge (issue #7648).
+                    // `touches` includes the head's trailing edge (#7648).
                     touches(head.span, pos)
                         .then(|| head.as_ref().find_map(working_set, &recurse))
                         .flatten()
@@ -83,8 +77,7 @@ fn find_pipeline_element_by_position<'a>(
                 .or_else(|| rhs.find_map(working_set, &recurse)),
         ),
         Expr::FullCellPath(fcp) => {
-            // `use std/util [E, T⌶`: the import list is a `List` in a `FullCellPath`; leave it
-            // to the enclosing call, which knows the module, to complete its members.
+            // `use std/util [E, T⌶`: the import list is the enclosing call's slot.
             if touches(fcp.head.span, pos) && matches!(fcp.head.expr, Expr::List(_)) {
                 return ControlFlow::Continue(());
             }
@@ -102,17 +95,13 @@ fn find_pipeline_element_by_position<'a>(
     }
 }
 
-/// Whether `position` is inside `span` or exactly at its trailing edge.
-///
-/// Completion happens at a token's trailing edge, which the end-exclusive
-/// [`Span::contains`] would miss.
+/// Whether `pos` is inside `span` or at its trailing edge.
 pub(crate) fn touches(span: Span, position: usize) -> bool {
     span.contains(position) || span.end == position
 }
 
-/// The last element when the cursor trails it over whitespace only (`ls ⌶`) — an empty
-/// new slot for that element. Non-whitespace gaps fall through to
-/// [`CompletionEngine::resolve_fallback_site`].
+/// The last element when the cursor trails it over whitespace only (`ls ⌶`); other gaps
+/// fall through to [`CompletionEngine::resolve_fallback_site`].
 fn trailing_gap_element<'a>(
     block: &'a Block,
     working_set: &StateWorkingSet,
@@ -125,8 +114,7 @@ fn trailing_gap_element<'a>(
         .then_some(expression)
 }
 
-/// The span a command-name completion replaces, given the parsed `head` and the whole
-/// `element` it heads.
+/// The span a command-name completion replaces.
 fn command_name_span(head: Span, element: Span) -> Span {
     Span::new(head.start, head.end.max(element.end))
 }
@@ -141,8 +129,7 @@ fn is_flag_token(working_set: &StateWorkingSet, span: Span) -> bool {
     is_flag_text(working_set.get_span_contents(span))
 }
 
-/// Whether `expr` is a value an operator can trail (`1 ⌶`, `'str' ⌶`). Exhaustive, so a
-/// new [`Expr`] variant must be classified rather than defaulting.
+/// Whether `expr` can be an operator's left-hand side.
 fn is_operator_lhs(expr: &Expr) -> bool {
     match expr {
         Expr::Int(_)
@@ -195,7 +182,7 @@ fn find_flag(signature: &Signature, flag: FlagRef<'_>) -> Option<Flag> {
     }
 }
 
-/// Non-named arguments before `before_index` — the positional index of that slot.
+/// Positional arguments before `before_index`.
 fn count_positionals(call: &Call, before_index: usize) -> usize {
     call.arguments
         .iter()
@@ -204,7 +191,7 @@ fn count_positionals(call: &Call, before_index: usize) -> usize {
         .count()
 }
 
-/// Helper function to extract file-path expression from redirection target
+/// A redirection target the cursor touches, as a file path.
 fn check_redirection_target(target: &RedirectionTarget, pos: usize) -> Option<&Expression> {
     let expr = target.expr();
     expr.and_then(|expression| {
@@ -218,7 +205,7 @@ fn check_redirection_target(target: &RedirectionTarget, pos: usize) -> Option<&E
     })
 }
 
-/// For redirection target completion
+/// A redirection target the cursor touches, in any block.
 fn check_redirection_in_block(block: &Block, pos: usize) -> Option<&Expression> {
     block
         .pipelines
@@ -233,13 +220,9 @@ fn check_redirection_in_block(block: &Block, pos: usize) -> Option<&Expression> 
         })
 }
 
-/// Cache key and worker message identity: the text typed up to the cursor.
-///
-/// Excludes trailing text and derives `cursor()` from `typed.len()` so the two never
-/// disagree.
+/// The text typed up to the cursor; also the worker message identity.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) struct CompletionQuery {
-    /// The prefix of the line buffer up to the (floored) cursor position.
     typed: Arc<str>,
 }
 
@@ -259,9 +242,7 @@ impl CompletionQuery {
         self.typed.len()
     }
 
-    /// Whether `self` is `base` with more characters typed into the same `token`. The
-    /// appended text must stay within one token and must not turn it into a flag — a
-    /// different completion site than the cached result came from.
+    /// Whether `self` extends `base` within one token.
     fn narrows(&self, base: &CompletionQuery, token: reedline::Span) -> bool {
         let Some(appended) = self.typed().strip_prefix(base.typed()) else {
             return false;
@@ -291,10 +272,7 @@ fn is_completion_boundary(c: char) -> bool {
         )
 }
 
-/// The environment a cached completion was computed against.
-///
-/// Results depend on cwd, `PATH`, and known declarations, which change between prompts
-/// while the query text does not — so the query alone is not a sound cache key.
+/// What cached completions were computed against.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct CacheEnv(u64);
 
@@ -327,22 +305,18 @@ struct CacheEntry {
 }
 
 impl CacheEntry {
-    /// Whether this entry may still answer a query: produced in the same environment.
+    /// Whether this entry is usable in `env`.
     fn is_usable(&self, env: CacheEnv) -> bool {
         self.env == env
     }
 
-    /// The span the cursor extends: the range the *last* suggestion replaces.
-    ///
-    /// `fetch_completions_by_block` keeps the cursor-anchored family last, so reading the
-    /// last span is the correct one to extend.
+    /// The span the last suggestion replaces; the one the cursor extends.
     fn reference_span(&self) -> Option<reedline::Span> {
         self.suggestions.last().map(|suggestion| suggestion.span)
     }
 }
 
-/// Cross-prompt completion cache bounded by entry count (`$env.config.completions.cache_size`),
-/// evicting least recently used entries. Capacity `0` disables the cache.
+/// Cross-prompt completion cache, LRU by entry count; capacity `0` disables it.
 #[derive(Clone)]
 pub(crate) struct NarrowingCache {
     entries: Arc<Mutex<Option<LruCache<CompletionQuery, CacheEntry>>>>,
@@ -362,8 +336,7 @@ impl NarrowingCache {
         }
     }
 
-    /// Resizes the cache in place, dropping LRU entries when shrinking. Capacity `0`
-    /// disables it. Called once per prompt so `cache_size` config changes take effect.
+    /// Resize in place; `0` disables the cache. Reapplied each prompt.
     pub(crate) fn set_capacity(&self, capacity: usize) {
         if let Ok(mut cache_guard) = self.entries.lock() {
             *cache_guard = NonZeroUsize::new(capacity).map(|new_capacity| {
@@ -510,23 +483,22 @@ fn isolated_stack(parent: Arc<Stack>, suppress_stdin: bool) -> Arc<Stack> {
 /// What the cursor is completing; each variant carries exactly the AST it needs.
 #[derive(Debug, Clone)]
 pub(crate) enum SiteKind<'a> {
-    /// A command head. `node` is the whole call expression, used to detect a `^`/`%` sigil.
+    /// A command head; `node` is the whole call (for `^`/`%` sigils).
     Command { node: Option<&'a Expression> },
     /// A flag name being typed (`--`, `-x`).
     FlagName {
         call: &'a Call,
         element: &'a Expression,
     },
-    /// The value of a flag (`--opt <tab>`). `flag` preserves long/short identity;
-    /// `arg_slot` indexes `call.arguments`.
+    /// The value of a flag; `flag` keeps long/short identity.
     FlagValue {
         call: &'a Call,
         element: &'a Expression,
         flag: FlagRef<'a>,
         arg_slot: usize,
     },
-    /// A positional argument. `sig_positional` indexes the signature's positionals,
-    /// `arg_slot` indexes `call.arguments`.
+    /// A positional argument; `sig_positional` indexes the signature, `arg_slot`
+    /// indexes `call.arguments`.
     Positional {
         call: &'a Call,
         element: &'a Expression,
@@ -539,18 +511,18 @@ pub(crate) enum SiteKind<'a> {
     CellPath { path: &'a FullCellPath },
     /// A `$var` name.
     Variable,
-    /// An attribute name (`@<tab>`).
+    /// An attribute name.
     AttributeName,
-    /// The item an attribute block decorates (`def`, `extern`, …).
+    /// The item an attribute block decorates.
     AttributableItem,
-    /// An argument of a bare external call; `index` is the argument slot.
+    /// An argument of a bare external call.
     ExternalArg { call: &'a Expression, index: usize },
-    /// A file path — the base/fallback completion.
+    /// A file path (the fallback).
     File,
 }
 
 impl<'a> SiteKind<'a> {
-    /// A command head backed by an existing call expression (used for sigil detection).
+    /// A command head backed by its whole call (for sigil detection).
     fn command(node: &'a Expression) -> Self {
         Self::Command { node: Some(node) }
     }
@@ -652,10 +624,8 @@ impl IntoValue for Site<'_> {
     }
 }
 
-/// A fully resolved completion site: the span to replace, the typed text, the cursor, and
-/// the [`SiteKind`].
-///
-/// `typed_prefix`/`cursor` are derived centrally in [`CompletionEngine::finalize_site`] so
+/// A fully resolved completion site: span, typed prefix, cursor, and [`SiteKind`].
+/// `typed_prefix`/`cursor` are filled centrally in [`CompletionEngine::finalize_site`] so
 /// they can never disagree with the span.
 #[derive(Debug, Clone)]
 pub(crate) struct CompletionSite<'a> {
@@ -667,7 +637,7 @@ pub(crate) struct CompletionSite<'a> {
 }
 
 impl<'a> CompletionSite<'a> {
-    /// A site with the given kind and span; `typed_prefix`/`cursor` are filled later by
+    /// A site with the given kind and span; prefix/cursor are filled later by
     /// [`CompletionEngine::finalize_site`].
     fn new(kind: SiteKind<'a>, span: Span) -> Self {
         Self {
@@ -679,7 +649,7 @@ impl<'a> CompletionSite<'a> {
     }
 }
 
-/// Engine dispatch output: suggestions plus whether an impure source ran (worth caching).
+/// Dispatch output, plus whether the result is cacheable.
 #[derive(Default)]
 struct Dispatched {
     suggestions: Vec<SemanticSuggestion>,
@@ -932,7 +902,7 @@ impl<'engine> CompletionEngine<'engine> {
         }
 
         let mut dispatched = self.dispatch_completion_site(&shorter_site, &parse_ws, buffer);
-        // Drop command-kind results; only the argument value is contributed here.
+        // Keep only the argument value; drop command-kind results.
         dispatched
             .suggestions
             .retain(|candidate| !matches!(candidate.kind, Some(SuggestionKind::Command(..))));
@@ -1038,7 +1008,7 @@ impl<'engine> CompletionEngine<'engine> {
         let mut dispatched = Dispatched::default();
         let mut external_answered = false;
 
-        // The user's configured external completer (`$env.config.completions.external.completer`).
+        // The user's configured external completer.
         if let Some(closure) = self
             .engine_state
             .get_config()
@@ -1135,7 +1105,7 @@ impl<'engine> CompletionEngine<'engine> {
         results
     }
 
-    /// Resolves the contextual state and constraints at the cursor's location.
+    /// Resolve the contextual state and constraints at the cursor's location.
     pub(crate) fn resolve_completion_site<'a>(
         &self,
         block: &'a Block,
@@ -1151,7 +1121,7 @@ impl<'engine> CompletionEngine<'engine> {
                 find_pipeline_element_by_position(expression, working_set, absolute_position)
             })
             .or_else(|| check_redirection_in_block(block, absolute_position))
-            // Otherwise the cursor is in a whitespace gap after the element it trails.
+            // Or the cursor is in a whitespace gap trailing the element.
             .or_else(|| trailing_gap_element(block, working_set, absolute_position));
 
         let site = match touched_expression {
@@ -1194,7 +1164,7 @@ impl<'engine> CompletionEngine<'engine> {
             );
         }
 
-        // Base case: file completion; overridden below where the expression warrants it.
+        // Default to file completion; overridden below where the expression warrants it.
         match &expression.expr {
             Expr::Call(call) => {
                 self.resolve_call_site(call, expression, absolute_position, working_set)
@@ -1228,7 +1198,7 @@ impl<'engine> CompletionEngine<'engine> {
                 },
                 operator.span,
             ),
-            _ => CompletionSite::new(SiteKind::File, expression.span), // The default `File` setup holds
+            _ => CompletionSite::new(SiteKind::File, expression.span),
         }
     }
 
@@ -1634,9 +1604,9 @@ impl<'engine> CompletionEngine<'engine> {
         command_completion.fetch(&ctx).into()
     }
 
-    /// Command-completion scope for a command head, honouring a leading sigil: `^` →
-    /// externals only, `%` → built-ins only, otherwise everything. The sigil is the byte
-    /// between the call's own span and its head span.
+    /// Command scope for a head, honouring a leading sigil: `^` → externals only, `%` →
+    /// builtins only, otherwise everything. The sigil is the byte between the call's own
+    /// span and its head span.
     fn command_completion_for_head(
         &self,
         node: Option<&Expression>,
@@ -1887,7 +1857,7 @@ fn partial_of(line: &str, suggestions: &[Suggestion]) -> Option<Partial> {
         .filter(|suggestion| suggestion.span == span)
         .map(|suggestion| suggestion.value.as_str());
 
-    // Narrow a window into the first value rather than allocating a `String`; runs every
+    // Slice a window into the first value rather than allocating a `String`; runs every
     // keystroke.
     let first = matching_values.next()?;
     let shared_len = matching_values.try_fold(first.len(), |shared, value| {
@@ -1930,8 +1900,8 @@ impl ReedlineCompleter for NuCompleter {
             if worker.request_tx.send(query.clone()).is_ok() {
                 worker.pending = Some(query);
             } else {
-                // Worker died (a panic in a user completer closure kills it); drop it so the
-                // next request spawns a replacement.
+                // Worker died (a user completer closure panicked); drop it so the next
+                // request spawns a replacement.
                 self.worker = None;
             }
         }
@@ -2003,9 +1973,8 @@ mod completer_tests {
 
     #[test]
     fn narrows_rejects_a_token_that_becomes_a_flag() {
-        // The empty positional slot after `from csv ` is answered with file names at a point
-        // span; typing `--sep` appends no boundary, so only the flag check keeps them from
-        // following it.
+        // The empty slot after `from csv ` is answered at a point span; `--sep` adds no
+        // boundary, so only the flag check keeps it from following.
         let base = q("from csv ");
         assert!(!q("from csv --sep").narrows(&q("from csv "), token(base.cursor())));
 
@@ -2083,7 +2052,7 @@ mod completer_tests {
         assert!(answer.suggestions().iter().any(|s| s.value == "cd"));
     }
 
-    /// …but not across a `cd`/`$env.PATH` change — the reason [`CacheEnv`] exists.
+    /// ...but not across a `cd`/`$env.PATH` change, the reason [`CacheEnv`] exists.
     #[test]
     fn cache_is_not_reused_in_a_different_environment() {
         use nu_protocol::Value;

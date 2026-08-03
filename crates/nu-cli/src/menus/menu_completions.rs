@@ -70,23 +70,22 @@ impl Completer for NuMenuCompleter {
             Err(_) => Vec::new(),
         };
 
-        // Menu sources are evaluated synchronously, so results are always final.
+        // Menu sources run synchronously, so results are always final.
         CompletionResult::fresh(suggestions)
     }
 }
 
-/// Replacement span used when the menu source doesn't provide one, matching
-/// what reedline feeds the completer in each input mode.
+/// Replacement span when the menu source provides none, matching what reedline feeds the
+/// completer in each input mode.
 fn default_span(line: &str, pos: usize, input_mode: InputMode) -> reedline::Span {
     match input_mode {
-        // `line` is only the text typed since the menu opened; replace it in place
+        // `line` is only the text typed since the menu opened; replace it in place.
         InputMode::Diff => reedline::Span {
             start: pos.saturating_sub(line.len()),
             end: pos,
         },
-        // CursorPrefix (buffer up to cursor), FullBuffer (entire buffer), and
-        // any future mode (`InputMode` is non_exhaustive): the suggestion
-        // replaces everything the completer received
+        // Other modes (`InputMode` is non_exhaustive): the suggestion replaces all the
+        // text the completer received.
         _ => reedline::Span {
             start: 0,
             end: line.len(),
