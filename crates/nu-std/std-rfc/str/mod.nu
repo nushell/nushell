@@ -172,7 +172,7 @@ export def align [
         # Fold adding a `$char` at the index until they are in the same column
         # If the substring is not in the line, the index is -1 and it is left as it is
         seq 1 (if $x.1 == -1 { 0 } else { $max - $x.1 })
-        | reduce -f ($x.0 | split chars) {|_, acc|
+        | reduce -f ($x.0 | split chars) {|_el, acc|
             let $idx = if $center { 0 } else { $x.1 }
             $acc | insert $idx $char
         }

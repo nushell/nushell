@@ -837,11 +837,11 @@ pub fn get_example_json() -> Value {
         "{|before, after|\n          print (lsg)\n          # null\n        }",
         "{|before, _|\n          if $before == null {\n            let file = ($nu.home-path | path join \".local\" \"share\" \"nushell\" \"startup-times.nuon\")\n            if not ($file | path exists) {\n              mkdir ($file | path dirname)\n              touch $file\n            }\n            let ver = (version)\n            open $file | append {\n              date: (date now)\n              time: $nu.startup-time\n              build: ($ver.build_rust_channel)\n              allocator: ($ver.allocator)\n              version: ($ver.version)\n              commit: ($ver.commit_hash)\n              build_time: ($ver.build_time)\n              bytes_loaded: (view files | get size | math sum)\n            } | collect { save --force $file }\n          }\n        }",
         {
-          "condition": "{|_, after| not ($after | path join 'toolkit.nu' | path exists) }",
+          "condition": "{|_before, after| not ($after | path join 'toolkit.nu' | path exists) }",
           "code": "hide toolkit"
         },
         {
-          "condition": "{|_, after| $after | path join 'toolkit.nu' | path exists }",
+          "condition": "{|_before, after| $after | path join 'toolkit.nu' | path exists }",
           "code": "\n        print $'(ansi default_underline)(ansi default_bold)toolkit(ansi reset) module (ansi green_italic)detected(ansi reset)...'\n        print $'(ansi yellow_italic)activating(ansi reset) (ansi default_underline)(ansi default_bold)toolkit(ansi reset) module with `(ansi default_dimmed)(ansi default_italic)use toolkit.nu(ansi reset)`'\n        use toolkit.nu\n        "
         }
       ]
