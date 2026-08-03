@@ -1,6 +1,6 @@
-# custom completion should be called with correct position
-def comp_with_span [context, pos] {
-  let end = $context | str length
+# custom completion is called with the uniform input record
+def comp_with_span [input: record] {
+  let end = $input.cursor
   [{
       value: "foo",
       span: {

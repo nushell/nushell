@@ -315,7 +315,7 @@ mod tests {
     ]))]
     #[case::external_completer(
         "external.nu", (0, 11),
-        Some("$env.config.completions.external.completer = {|spans| ['--background']}"),
+        Some("$env.config.completions.external.completer = {|input| ['--background']}"),
         serde_json::json!([{
             "label": "--background",
             "labelDetails": { "description": "string" },
@@ -474,7 +474,7 @@ mod tests {
     ]))]
     #[case::external_fallback(
         "external.nu", (0, 5),
-        Some("$env.config.completions.external.completer = {|spans| ['--background']}"),
+        Some("$env.config.completions.external.completer = {|input| ['--background']}"),
         serde_json::json!([{
             "label": "alias",
             "labelDetails": { "description": "keyword" },
@@ -486,21 +486,22 @@ mod tests {
             "kind": 14
         }])
     )]
+    // The cursor is inside `bar`, so the last token is the typed prefix `b`, not `baz`.
     #[case::command_wide_custom(
         "command.nu", (23, 5), None,
         serde_json::json!([{
-            "label": "baz",
+            "label": "b",
             "labelDetails": { "description": "string" },
             "textEdit": {
                 "range": { "start": { "line": 23, "character": 4 }, "end": { "line": 23, "character": 7 } },
-                "newText": "baz"
+                "newText": "b"
             },
             "kind": 12
         }])
     )]
     #[case::command_wide_external(
         "command.nu", (28, 8),
-        Some("$env.config.completions.external.completer = {|spans| ['text']}"),
+        Some("$env.config.completions.external.completer = {|input| ['text']}"),
         serde_json::json!([{
             "label": "text",
             "labelDetails": { "description": "string" },

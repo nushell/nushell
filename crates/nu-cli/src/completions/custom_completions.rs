@@ -1,122 +1,211 @@
+//! The unified record handed to user completers: `{site, tokens, context_start, cursor}`.
+//! Positions are byte offsets into the commandline; a completer never sees text past the
+//! cursor. `tokens.0` is the command name, the last token is under the cursor, and its
+//! `span` is what a suggestion replaces. An alias-produced token has a null `span`: it is
+//! not on the line.
+//!
+//! [`menu_input`] is the parse-free variant for menu sources.
+
 use crate::completions::{
-    Completer, Context, Fetched, MatchAlgorithm, SemanticSuggestion, to_reedline_span,
+    Completer, CompletionOptions, Context, Fetched, MatchAlgorithm, NuMatcher, SemanticSuggestion,
+    completer::is_flag_text, to_reedline_span,
 };
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
-use nu_engine::{compile, eval_call};
-use nu_parser::flatten_expression;
+use nu_engine::compile;
+use nu_parser::{FlatShape, flatten_expression};
 use nu_protocol::{
-    BlockId, DeclId, GetSpan, IntoSpanned, PipelineData, Record, ShellError, Span, Spanned,
-    SuggestionKind, Type, Value, VarId,
-    ast::{Argument, Call, Expr, Expression},
+    BlockId, DeclId, IntoValue, PipelineData, Record, ShellError, Span, SuggestionKind, Type,
+    Value, VarId,
     debugger::WithoutDebug,
-    engine::{Closure, EngineState, StateWorkingSet},
+    engine::{Closure, Command, EngineState, StateWorkingSet},
     shell_error::generic::GenericError,
 };
 use nu_utils::{SharedCow, strip_ansi_string_unlikely};
 use reedline::Suggestion;
-use std::{borrow::Cow, collections::HashMap, sync::Arc};
+use std::{borrow::Cow, sync::Arc};
 
-use super::completion_options::NuMatcher;
-
-fn map_value_completions<'a>(
-    list: impl Iterator<Item = &'a Value>,
-    span: Span,
-    input_start: usize,
-    offset: usize,
-) -> Vec<SemanticSuggestion> {
-    list.filter_map(move |x| {
-        // Match for string values
-        if let Ok(s) = x.coerce_string() {
-            return Some(SemanticSuggestion {
-                suggestion: Suggestion {
-                    value: strip_ansi_string_unlikely(s),
-                    span: to_reedline_span(span, offset),
-                    ..Suggestion::default()
-                },
-                kind: Some(SuggestionKind::Value(x.get_type())),
-            });
-        }
-
-        // Match for record values
-        if let Ok(record) = x.as_record() {
-            let mut suggestion = Suggestion {
-                value: String::from(""),
-                span: to_reedline_span(span, offset),
-                ..Suggestion::default()
-            };
-            let mut value_type = Type::String;
-
-            // Iterate the cols looking for `value` and `description`
-            record.iter().for_each(|(key, value)| {
-                match key.as_str() {
-                    "value" => {
-                        value_type = value.get_type();
-                        if let Ok(val_str) = value.coerce_string() {
-                            suggestion.value = strip_ansi_string_unlikely(val_str);
-                        }
-                    }
-                    "display_override" => {
-                        if let Ok(display_str) = value.coerce_string() {
-                            suggestion.display_override = Some(display_str);
-                        }
-                    }
-                    "description" => {
-                        if let Ok(desc_str) = value.coerce_string() {
-                            suggestion.description = Some(desc_str);
-                        }
-                    }
-                    "style" => {
-                        suggestion.style = match value {
-                            Value::String { val, .. } => Some(lookup_ansi_color_style(val)),
-                            Value::Record { .. } => Some(color_record_to_nustyle(value)),
-                            _ => None,
-                        };
-                    }
-                    "span" => {
-                        if let Value::Record { val: span_rec, .. } = value {
-                            // TODO: error on invalid spans?
-                            if let Some(end) = read_span_field(span_rec, "end") {
-                                suggestion.span.end = suggestion.span.end.min(end + input_start);
-                            }
-                            if let Some(start) = read_span_field(span_rec, "start") {
-                                suggestion.span.start = start + input_start;
-                            }
-                            if suggestion.span.start > suggestion.span.end {
-                                suggestion.span.start = suggestion.span.end;
-                                log::error!(
-                                    "Custom span start ({}) is greater than end ({})",
-                                    suggestion.span.start,
-                                    suggestion.span.end
-                                );
-                            }
-                        }
-                    }
-                    _ => (),
-                }
-            });
-
-            return Some(SemanticSuggestion {
-                suggestion,
-                kind: Some(SuggestionKind::Value(value_type)),
-            });
-        }
-
-        None
-    })
-    .collect()
+/// Who filters the candidates against the typed prefix; overridable via `options.filter`.
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum Narrowing {
+    /// The engine filters; parameter completers list every candidate.
+    Engine,
+    /// The completer narrowed its own list; command-wide/external completers see the typed
+    /// text and may match fuzzily (e.g. carapace).
+    Completer,
 }
 
-fn read_span_field(span: &SharedCow<Record>, field: &str) -> Option<usize> {
-    let Ok(val) = span.get(field)?.as_int() else {
-        log::error!("Expected span field {field} to be int");
-        return None;
-    };
-    let Ok(val) = usize::try_from(val) else {
-        log::error!("Couldn't convert span {field} to usize");
-        return None;
-    };
+impl Narrowing {
+    /// Whether the engine filters when the completer expresses no `options.filter`.
+    fn filters_by_default(self) -> bool {
+        matches!(self, Self::Engine)
+    }
+}
 
-    Some(val)
+/// A `{start, end}` record of byte offsets into the commandline.
+fn span_record(start: usize, end: usize, span: Span) -> Value {
+    Value::record(
+        Record::from_iter([
+            ("start".into(), Value::int(start as i64, span)),
+            ("end".into(), Value::int(end as i64, span)),
+        ]),
+        span,
+    )
+}
+
+/// One token of the command being completed.
+struct Token {
+    /// The typed text; the token under the cursor is cut there.
+    text: String,
+    /// `head` (the command name), `flag` (`--x`, `-x`), or `value`.
+    kind: &'static str,
+    /// Byte range into the line that a suggestion replacing this token replaces.
+    /// Absent for alias-expanded tokens, which are not on the line.
+    at: Option<(usize, usize)>,
+}
+
+impl Token {
+    fn into_value(self, span: Span) -> Value {
+        // Always a column: a ragged table errors on alias tokens, not `null`.
+        Value::record(
+            Record::from_iter([
+                ("text".into(), Value::string(self.text, span)),
+                ("kind".into(), Value::string(self.kind, span)),
+                (
+                    "span".into(),
+                    self.at.map_or_else(
+                        || Value::nothing(span),
+                        |(start, end)| span_record(start, end, span),
+                    ),
+                ),
+            ]),
+            span,
+        )
+    }
+}
+
+/// Tokens of the command under the cursor, up to the cursor. Scoped to that command, so
+/// `tokens.0` stays the command name past a pipe.
+fn command_tokens(ctx: &Context) -> Vec<Token> {
+    let cursor = ctx.buffer.len();
+    let element = ctx.element.map(|element| element.span);
+    let mut tokens: Vec<Token> = Vec::new();
+
+    let flattened = ctx
+        .element
+        .map(|element| flatten_expression(ctx.working_set, element))
+        .unwrap_or_default();
+
+    for (token_span, shape) in &flattened {
+        // On the line only if inside this command's span; alias tokens point at the definition.
+        let on_line = token_span.start >= ctx.offset
+            && element.is_some_and(|element| {
+                token_span.start >= element.start && token_span.end <= element.end
+            });
+
+        let (text, at) = if on_line {
+            let start = token_span.start - ctx.offset;
+            // Never text past the cursor, though the LSP parses whole files.
+            if start >= cursor {
+                continue;
+            }
+            let end = (token_span.end - ctx.offset).min(cursor);
+            (ctx.buffer[start..end].to_string(), Some((start, end)))
+        } else {
+            let text = ctx.working_set.get_span_contents(*token_span);
+            (String::from_utf8_lossy(text).into_owned(), None)
+        };
+
+        let kind = if tokens.is_empty() {
+            "head"
+        } else if matches!(shape, FlatShape::Flag) || is_flag_text(&text) {
+            "flag"
+        } else {
+            "value"
+        };
+
+        tokens.push(Token { text, kind, at });
+    }
+
+    // Append the token under the cursor; the parser may not produce one (trailing slot,
+    // bare `--`), so the input record never reads `tokens | last` wrong.
+    let replacing = to_reedline_span(ctx.span, ctx.offset);
+    let last_is_replaced = tokens
+        .last()
+        .and_then(|last| last.at)
+        .is_some_and(|(start, _)| start == replacing.start);
+
+    if last_is_replaced {
+        if let Some(last) = tokens.last_mut() {
+            // The engine's replacement span; the LSP widens it past the typed text.
+            last.at = Some((replacing.start, replacing.end));
+        }
+    } else {
+        let text = ctx
+            .buffer
+            .get(replacing.start..replacing.end.min(cursor))
+            .unwrap_or_default()
+            .to_string();
+        let kind = if tokens.is_empty() {
+            "head"
+        } else if is_flag_text(&text) {
+            "flag"
+        } else {
+            "value"
+        };
+        tokens.push(Token {
+            text,
+            kind,
+            at: Some((replacing.start, replacing.end)),
+        });
+    }
+
+    tokens
+}
+
+/// Build the record every user completer receives; see the [module docs](self).
+pub(crate) fn completer_input(ctx: &Context) -> Value {
+    let span = ctx.span;
+    let context_start = ctx
+        .element
+        .map(|element| element.span.start.saturating_sub(ctx.offset))
+        .unwrap_or_else(|| ctx.buffer.len());
+
+    Value::record(
+        Record::from_iter([
+            ("site".into(), ctx.site.into_value(span)),
+            (
+                "tokens".into(),
+                Value::list(
+                    command_tokens(ctx)
+                        .into_iter()
+                        .map(|token| token.into_value(span))
+                        .collect(),
+                    span,
+                ),
+            ),
+            (
+                "context_start".into(),
+                Value::int(context_start as i64, span),
+            ),
+            ("cursor".into(), Value::int(ctx.buffer.len() as i64, span)),
+        ]),
+        span,
+    )
+}
+
+/// The parse-free input a menu source receives; `text` is what reedline handed the menu.
+/// A menu wanting `tokens`/`site` can ask via `commandline complete --input`.
+pub(crate) fn menu_input(text: &str, replacing: reedline::Span, span: Span) -> Value {
+    Value::record(
+        Record::from_iter([
+            ("text".into(), Value::string(text, span)),
+            (
+                "replacing".into(),
+                span_record(replacing.start, replacing.end, span),
+            ),
+        ]),
+        span,
+    )
 }
 
 /// Borrows the permanent engine state when the completer lives in it, avoiding a
@@ -134,247 +223,66 @@ fn engine_state_for_completion<'a>(
     }
 }
 
-pub struct CustomCompletion {
-    decl_id: DeclId,
-    line: String,
-    line_pos: usize,
+/// The block a declaration runs, seeing through aliases (a completer named by one).
+fn block_of(command: &dyn Command) -> Option<BlockId> {
+    command
+        .block_id()
+        .or_else(|| block_of(command.as_alias()?.command.as_deref()?))
 }
 
-impl CustomCompletion {
-    pub fn new(decl_id: DeclId, line: String, line_pos: usize) -> Self {
-        Self {
-            decl_id,
-            line,
-            line_pos,
-        }
-    }
-}
-
-impl Completer for CustomCompletion {
-    fn fetch(&mut self, ctx: &Context) -> Fetched {
-        let working_set = ctx.working_set;
-        let span = ctx.span;
-        let offset = ctx.offset;
-        let orig_options = ctx.options;
-        let prefix = ctx.prefix_str();
-        // Call custom declaration
-        let mut stack_mut = ctx.stack.clone();
-        let mut eval = |engine_state: &EngineState| {
-            eval_call::<WithoutDebug>(
-                engine_state,
-                &mut stack_mut,
-                &Call {
-                    decl_id: self.decl_id,
-                    head: span,
-                    arguments: vec![
-                        Argument::Positional(Expression::new_unknown(
-                            Expr::String(self.line.clone()),
-                            span,
-                            Type::String,
-                        )),
-                        Argument::Positional(Expression::new_unknown(
-                            Expr::Int(self.line_pos as i64),
-                            span,
-                            Type::Int,
-                        )),
-                    ],
-                    parser_info: HashMap::new(),
-                },
-                PipelineData::empty(),
-            )
-        };
-        let engine_state = engine_state_for_completion(
-            working_set,
-            self.decl_id.get() < working_set.permanent_state.num_decls(),
-        );
-        let result = eval(engine_state.as_ref());
-
-        let mut completion_options = orig_options.clone();
-        let mut should_sort = true;
-        let mut should_filter = true;
-
-        // Parse result
-        let suggestions = match result.and_then(|data| data.into_value(span)) {
-            Ok(value) => match &value {
-                Value::Record { val, .. } => {
-                    let completions = val
-                        .get("completions")
-                        .and_then(|val| {
-                            val.as_list().ok().map(|it| {
-                                map_value_completions(
-                                    it.iter(),
-                                    span,
-                                    self.line_pos - self.line.len(),
-                                    offset,
-                                )
-                            })
-                        })
-                        .unwrap_or_default();
-                    let options = val.get("options");
-
-                    if let Some(Value::Record { val: options, .. }) = &options {
-                        if let Some(filter) =
-                            options.get("filter").and_then(|val| val.as_bool().ok())
-                        {
-                            should_filter = filter;
-                        }
-
-                        if let Some(sort) = options.get("sort").and_then(|val| val.as_bool().ok()) {
-                            should_sort = sort;
-
-                            if should_sort && !should_filter {
-                                log::warn!("Sorting won't happen because filtering is disabled.")
-                            };
-                        }
-
-                        if let Some(case_sensitive) = options
-                            .get("case_sensitive")
-                            .and_then(|val| val.as_bool().ok())
-                        {
-                            completion_options.case_sensitive = case_sensitive;
-                        }
-
-                        if let Some(md) = options
-                            .get("match_description")
-                            .and_then(|val| val.as_bool().ok())
-                        {
-                            completion_options.match_description = md;
-                        }
-
-                        let positional =
-                            options.get("positional").and_then(|val| val.as_bool().ok());
-                        if positional.is_some() {
-                            log::warn!(
-                                "Use of the positional option is deprecated. Use the substring match algorithm instead."
-                            );
-                        }
-                        if let Some(algorithm) = options
-                            .get("completion_algorithm")
-                            .and_then(|option| option.coerce_string().ok())
-                            .and_then(|option| option.try_into().ok())
-                        {
-                            completion_options.match_algorithm = algorithm;
-                            if let Some(false) = positional
-                                && completion_options.match_algorithm == MatchAlgorithm::Prefix
-                            {
-                                completion_options.match_algorithm = MatchAlgorithm::Substring
-                            }
-                        }
-                    }
-
-                    completions
-                }
-                Value::List { vals, .. } => map_value_completions(
-                    vals.iter(),
-                    span,
-                    self.line_pos - self.line.len(),
-                    offset,
-                ),
-                Value::Nothing { .. } => return Fetched::fallback(),
-                _ => {
-                    log::error!(
-                        "Custom completer returned invalid value of type {}",
-                        value.get_type()
-                    );
-                    return Fetched::cacheable(vec![]);
-                }
-            },
-            Err(e) => {
-                log::error!("Error getting custom completions: {e}");
-                return Fetched::cacheable(vec![]);
-            }
-        };
-
-        if !should_filter {
-            return Fetched::cacheable(suggestions);
-        }
-
-        let mut matcher = NuMatcher::new(prefix.as_ref(), &completion_options, should_sort);
-
-        for sugg in suggestions {
-            let value = strip_ansi_string_unlikely(sugg.suggestion.display_value().to_string());
-            if matcher.check_match(&value).is_some() {
-                matcher.add(value, sugg);
-            } else if completion_options.match_description
-                && let Some(description) = sugg.suggestion.description.as_deref()
-                && matcher.check_match(description).is_some()
-            {
-                let description = description.to_string();
-                matcher.add(description, sugg);
-            }
-        }
-        Fetched::cacheable(matcher.suggestion_results())
-    }
-}
-
-pub fn get_command_arguments(
-    working_set: &StateWorkingSet<'_>,
-    element_expression: &Expression,
-) -> Spanned<Vec<Spanned<String>>> {
-    let span = element_expression.span(&working_set);
-    flatten_expression(working_set, element_expression)
-        .iter()
-        .map(|(span, _)| {
-            String::from_utf8_lossy(working_set.get_span_contents(*span))
-                .into_owned()
-                .into_spanned(*span)
-        })
-        .collect::<Vec<_>>()
-        .into_spanned(span)
-}
-
-pub struct CommandWideCompletion<'e> {
+/// A user-defined completer: a block called with the input record. Parameter,
+/// command-wide, and external completers share this one implementation.
+pub(crate) struct UserCompletion {
     block_id: BlockId,
     captures: Vec<(VarId, Value)>,
-    expression: &'e Expression,
+    narrowing: Narrowing,
 }
 
-impl<'a> CommandWideCompletion<'a> {
-    pub fn command(
+impl UserCompletion {
+    /// A completer attached to one parameter (`x: string@"nu-complete foo"`); the engine
+    /// narrows its results. See [`Narrowing`].
+    pub(crate) fn parameter(working_set: &StateWorkingSet<'_>, decl_id: DeclId) -> Option<Self> {
+        Self::from_decl(working_set, decl_id, Narrowing::Engine)
+    }
+
+    /// A completer attached to a whole command (`@complete "nu-complete foo"`).
+    pub(crate) fn command(working_set: &StateWorkingSet<'_>, decl_id: DeclId) -> Option<Self> {
+        Self::from_decl(working_set, decl_id, Narrowing::Completer)
+    }
+
+    /// The configured external completer closure.
+    pub(crate) fn closure(closure: &Closure) -> Self {
+        Self {
+            block_id: closure.block_id,
+            captures: closure.captures.clone(),
+            narrowing: Narrowing::Completer,
+        }
+    }
+
+    /// A block-backed declaration, seeing through aliases. Builtins and plugin commands
+    /// run no block and cannot serve as completers.
+    fn from_decl(
         working_set: &StateWorkingSet<'_>,
         decl_id: DeclId,
-        expression: &'a Expression,
+        narrowing: Narrowing,
     ) -> Option<Self> {
         let block_id = (decl_id.get() < working_set.num_decls())
             .then(|| working_set.get_decl(decl_id))
-            .and_then(|command| command.block_id())?;
+            .and_then(block_of)?;
 
         Some(Self {
             block_id,
             captures: vec![],
-            expression,
+            narrowing,
         })
     }
 
-    pub fn closure(closure: &'a Closure, expression: &'a Expression) -> Self {
-        Self {
-            block_id: closure.block_id,
-            captures: closure.captures.clone(),
-            expression,
-        }
-    }
-}
-
-impl<'a> Completer for CommandWideCompletion<'a> {
-    fn fetch(&mut self, ctx: &Context) -> Fetched {
+    /// Call the completer with the unified input record.
+    pub(crate) fn eval(&self, ctx: &Context, input: Value) -> Result<Value, ShellError> {
         let working_set = ctx.working_set;
-        let stack = ctx.stack;
-        let span = ctx.span;
-        let offset = ctx.offset;
-        let Spanned {
-            mut item,
-            span: args_span,
-        } = get_command_arguments(working_set, self.expression);
-        // An empty span is a trailing argument slot the parser produced no argument for;
-        // append an empty entry so the completer sees one `$spans` entry per argument.
-        if ctx.span.is_empty() {
-            item.push(String::new().into_spanned(ctx.span));
-        }
-        let args = item;
-
         let mut block = working_set.get_block(self.block_id).clone();
 
-        // LSP completion where custom def is parsed but not compiled
+        // LSP completion, where a custom `def` is parsed but never compiled.
         if block.ir_block.is_none()
             && let Ok(ir_block) = compile(working_set, &block)
         {
@@ -383,88 +291,339 @@ impl<'a> Completer for CommandWideCompletion<'a> {
             block = Arc::new(new_block);
         }
 
-        let mut callee_stack = stack.captures_to_stack_preserve_out_dest(self.captures.clone());
+        let mut callee_stack = ctx
+            .stack
+            .captures_to_stack_preserve_out_dest(self.captures.clone());
 
-        if let Some(pos_arg) = block.signature.required_positional.first()
-            && let Some(var_id) = pos_arg.var_id
+        if let Some(var_id) = block
+            .signature
+            .get_positional(0)
+            .and_then(|positional| positional.var_id)
         {
-            callee_stack.add_var(
-                var_id,
-                Value::list(
-                    args.into_iter()
-                        .map(|Spanned { item, span }| Value::string(item, span))
-                        .collect(),
-                    args_span,
-                ),
-            );
+            callee_stack.add_var(var_id, input);
         }
+
         let engine_state = engine_state_for_completion(
             working_set,
             self.block_id.get() < working_set.permanent_state.num_blocks(),
         );
-        let result = nu_engine::eval_block_with_early_return::<WithoutDebug>(
+
+        nu_engine::eval_block_with_early_return::<WithoutDebug>(
             engine_state.as_ref(),
             &mut callee_stack,
             &block,
             PipelineData::empty(),
         )
-        .map(|p| p.body);
+        .and_then(|data| data.body.into_value(ctx.span))
+    }
+}
 
-        let command_span = working_set.get_span(self.expression.span_id);
-        if let Some(results) =
-            convert_whole_command_completion_results(offset, span, result, command_span)
-        {
-            Fetched::cacheable(results)
-        } else {
-            Fetched::fallback()
+impl Completer for UserCompletion {
+    fn fetch(&mut self, ctx: &Context) -> Fetched {
+        let value = match self.eval(ctx, completer_input(ctx)) {
+            Ok(value) => value,
+            Err(err) => {
+                log::error!(
+                    "{}",
+                    ShellError::Generic(
+                        GenericError::new_internal(
+                            "nu::shell::completion",
+                            "failed to eval completer block",
+                        )
+                        .with_inner([err]),
+                    )
+                );
+                // Not an empty success: an external completer failing still lets file
+                // completion answer; a parameter completer failing must not dump the
+                // whole directory in place of its argument.
+                return match self.narrowing {
+                    Narrowing::Engine => Fetched::Cacheable(vec![]),
+                    Narrowing::Completer => Fetched::Declined,
+                };
+            }
+        };
+
+        match CompleterOutput::read(value, ctx, self.narrowing) {
+            // `null` declines, letting the next source answer.
+            None => Fetched::Declined,
+            Some(output) => output.into_fetched(ctx),
         }
     }
 }
 
-/// Converts the output of the external completion closure and whole command custom completion
-/// commands'
-fn convert_whole_command_completion_results(
-    offset: usize,
-    span: Span,
-    result: Result<PipelineData, nu_protocol::ShellError>,
-    command_span: Span,
-) -> Option<Vec<SemanticSuggestion>> {
-    let value = match result.and_then(|pipeline_data| pipeline_data.into_value(span)) {
-        Ok(value) => value,
-        Err(err) => {
-            log::error!(
-                "{}",
-                ShellError::Generic(
-                    GenericError::new_internal(
-                        "nu::shell::completion",
-                        "failed to eval completer block",
-                    )
-                    .with_inner([err]),
-                )
-            );
-            // Error does not equal empty success: fall back so file completion
-            // still runs when an external completer fails.
-            return None;
-        }
-    };
+/// A completer's return value, after both accepted shapes are normalized.
+struct CompleterOutput {
+    suggestions: Vec<SemanticSuggestion>,
+    options: CompletionOptions,
+    sort: bool,
+    filter: bool,
+}
 
-    match value {
-        Value::List { vals, .. } => Some(map_value_completions(
-            vals.iter(),
-            span,
-            command_span.start.saturating_sub(offset),
-            offset,
-        )),
-        Value::Nothing { .. } => None,
-        _ => {
-            log::error!(
-                "{}",
-                ShellError::Generic(GenericError::new_internal(
-                    "nu::shell::completion",
-                    "completer returned invalid value of type",
-                )),
+impl CompleterOutput {
+    /// Read a bare list or a `{options, completions}` record; `None` when the completer
+    /// declined with `null`.
+    fn read(value: Value, ctx: &Context, narrowing: Narrowing) -> Option<Self> {
+        let mut output = Self {
+            suggestions: Vec::new(),
+            options: ctx.options.clone(),
+            sort: true,
+            filter: narrowing.filters_by_default(),
+        };
+        let replacing = to_reedline_span(ctx.span, ctx.offset);
+
+        match value {
+            Value::Nothing { .. } => return None,
+            Value::List { vals, .. } => {
+                output.suggestions =
+                    map_value_completions(vals.iter(), replacing, SpanClamp::within(ctx.buffer));
+            }
+            Value::Record { val, .. } => {
+                if let Some(completions) = val.get("completions").and_then(|val| val.as_list().ok())
+                {
+                    output.suggestions = map_value_completions(
+                        completions.iter(),
+                        replacing,
+                        SpanClamp::within(ctx.buffer),
+                    );
+                }
+                if let Some(Value::Record { val: options, .. }) = val.get("options") {
+                    output.read_options(options);
+                }
+            }
+            other => {
+                log::error!(
+                    "{}",
+                    ShellError::Generic(GenericError::new_internal(
+                        "nu::shell::completion",
+                        "completer returned invalid value",
+                    )),
+                );
+                log::error!("completer returned type {}", other.get_type());
+            }
+        }
+
+        Some(output)
+    }
+
+    /// Apply the `options` record a completer returned alongside its completions.
+    fn read_options(&mut self, options: &Record) {
+        if let Some(filter) = options.get("filter").and_then(|val| val.as_bool().ok()) {
+            self.filter = filter;
+        }
+
+        if let Some(sort) = options.get("sort").and_then(|val| val.as_bool().ok()) {
+            self.sort = sort;
+            if self.sort && !self.filter {
+                log::warn!("Sorting won't happen because filtering is disabled.");
+            }
+        }
+
+        if let Some(case_sensitive) = options
+            .get("case_sensitive")
+            .and_then(|val| val.as_bool().ok())
+        {
+            self.options.case_sensitive = case_sensitive;
+        }
+
+        if let Some(match_description) = options
+            .get("match_description")
+            .and_then(|val| val.as_bool().ok())
+        {
+            self.options.match_description = match_description;
+        }
+
+        let positional = options.get("positional").and_then(|val| val.as_bool().ok());
+        if positional.is_some() {
+            log::warn!(
+                "Use of the positional option is deprecated. Use the substring match algorithm instead."
             );
-            Some(vec![])
+        }
+
+        if let Some(algorithm) = options
+            .get("completion_algorithm")
+            .and_then(|option| option.coerce_string().ok())
+            .and_then(|option| option.try_into().ok())
+        {
+            self.options.match_algorithm = algorithm;
+            if let Some(false) = positional
+                && self.options.match_algorithm == MatchAlgorithm::Prefix
+            {
+                self.options.match_algorithm = MatchAlgorithm::Substring;
+            }
         }
     }
+
+    /// Narrow the suggestions against the typed prefix, unless the completer already did.
+    fn into_fetched(self, ctx: &Context) -> Fetched {
+        if !self.filter {
+            return Fetched::Cacheable(self.suggestions);
+        }
+
+        let prefix = ctx.prefix_str();
+        let mut matcher = NuMatcher::new(prefix.as_ref(), &self.options, self.sort);
+
+        for suggestion in self.suggestions {
+            let value =
+                strip_ansi_string_unlikely(suggestion.suggestion.display_value().to_string());
+            if matcher.check_match(&value).is_some() {
+                matcher.add(value, suggestion);
+            } else if self.options.match_description
+                && let Some(description) = suggestion.suggestion.description.as_deref()
+                && matcher.check_match(description).is_some()
+            {
+                let description = description.to_string();
+                matcher.add(description, suggestion);
+            }
+        }
+
+        Fetched::Cacheable(matcher.suggestion_results())
+    }
+}
+
+/// Convert a completer's values into suggestions. A record's `span` is byte offsets into
+/// the commandline; `default_span` replaces when it names none. Takes the span and buffer
+/// directly rather than a [`Context`] so menu sources share it.
+pub(crate) fn map_value_completions<'a>(
+    list: impl Iterator<Item = &'a Value>,
+    default_span: reedline::Span,
+    clamp: SpanClamp<'_>,
+) -> Vec<SemanticSuggestion> {
+    list.filter_map(move |value| {
+        // Match for string values
+        if let Ok(string) = value.coerce_string() {
+            return Some(SemanticSuggestion {
+                suggestion: Suggestion {
+                    value: strip_ansi_string_unlikely(string),
+                    span: default_span,
+                    ..Suggestion::default()
+                },
+                kind: Some(SuggestionKind::Value(value.get_type())),
+            });
+        }
+
+        // Match for record values
+        let Ok(record) = value.as_record() else {
+            return None;
+        };
+
+        let mut suggestion = Suggestion {
+            value: String::from(""),
+            span: default_span,
+            ..Suggestion::default()
+        };
+        let mut value_type = Type::String;
+
+        for (key, value) in record.iter() {
+            match key.as_str() {
+                "value" => {
+                    value_type = value.get_type();
+                    if let Ok(string) = value.coerce_string() {
+                        suggestion.value = strip_ansi_string_unlikely(string);
+                    }
+                }
+                "display_override" => {
+                    if let Ok(display) = value.coerce_string() {
+                        suggestion.display_override = Some(display);
+                    }
+                }
+                "description" => {
+                    if let Ok(description) = value.coerce_string() {
+                        suggestion.description = Some(description);
+                    }
+                }
+                "style" => {
+                    suggestion.style = match value {
+                        Value::String { val, .. } => Some(lookup_ansi_color_style(val)),
+                        Value::Record { .. } => Some(color_record_to_nustyle(value)),
+                        _ => None,
+                    };
+                }
+                "span" => {
+                    if let Value::Record { val: span, .. } = value {
+                        suggestion.span = read_span(span, suggestion.span, clamp);
+                    }
+                }
+                // Extra columns beside the value, in description menus.
+                "extra" => {
+                    if let Value::List { vals, .. } = value {
+                        suggestion.extra = Some(
+                            vals.iter()
+                                .filter_map(|extra| extra.coerce_string().ok())
+                                .collect(),
+                        );
+                    }
+                }
+                _ => (),
+            }
+        }
+
+        Some(SemanticSuggestion {
+            suggestion,
+            kind: Some(SuggestionKind::Value(value_type)),
+        })
+    })
+    .collect()
+}
+
+/// How far a returned span may reach, and against which text. Completers clamp to the
+/// buffer they saw; menu sources to the cursor, with no text to snap to a char boundary.
+#[derive(Clone, Copy)]
+pub(crate) struct SpanClamp<'a> {
+    pub limit: usize,
+    pub text: Option<&'a str>,
+}
+
+impl<'a> SpanClamp<'a> {
+    /// Clamped to `text`, whose length is the bound.
+    pub(crate) fn within(text: &'a str) -> Self {
+        Self {
+            limit: text.len(),
+            text: Some(text),
+        }
+    }
+
+    /// Bounded by an offset with no text to align against.
+    pub(crate) fn upto(limit: usize) -> Self {
+        Self { limit, text: None }
+    }
+
+    fn apply(&self, value: usize) -> usize {
+        let value = value.min(self.limit);
+        self.text.map_or(value, |text| {
+            text.floor_char_boundary(value.min(text.len()))
+        })
+    }
+}
+
+/// Read a `{start, end}` span a completer returned. Ends clamp so it can't index out of
+/// bounds or mid-character (#5127), nor replace text it was never shown.
+fn read_span(
+    span: &SharedCow<Record>,
+    default: reedline::Span,
+    clamp: SpanClamp<'_>,
+) -> reedline::Span {
+    let clamp = |value: usize| clamp.apply(value);
+
+    let start = read_span_field(span, "start").map_or(default.start, clamp);
+    let end = read_span_field(span, "end").map_or(default.end, clamp);
+
+    if start > end {
+        log::error!("Custom span start ({start}) is greater than end ({end})");
+        return reedline::Span::new(end, end);
+    }
+
+    reedline::Span::new(start, end)
+}
+
+fn read_span_field(span: &SharedCow<Record>, field: &str) -> Option<usize> {
+    let Ok(value) = span.get(field)?.as_int() else {
+        log::error!("Expected span field {field} to be int");
+        return None;
+    };
+    let Ok(value) = usize::try_from(value) else {
+        log::error!("Couldn't convert span {field} to usize");
+        return None;
+    };
+
+    Some(value)
 }

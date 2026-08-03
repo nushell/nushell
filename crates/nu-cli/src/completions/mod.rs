@@ -26,7 +26,7 @@ pub use command_completions::{CommandCompletion, CommandScope};
 pub use completer::{CompletionEngine, NuCompleter};
 pub(crate) use completer::{Buffer, Context, NarrowingCache};
 pub use completion_options::{CompletionOptions, MatchAlgorithm, NuMatcher};
-pub use custom_completions::CustomCompletion;
+pub(crate) use custom_completions::{SpanClamp, map_value_completions, menu_input};
 pub use directory_completions::DirectoryCompletion;
 pub use dotnu_completions::DotNuCompletion;
 pub use env_var_completions::EnvVarCompletion;

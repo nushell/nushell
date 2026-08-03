@@ -276,15 +276,28 @@ $env.config.completions.external.enable = true
 $env.config.completions.external.max_results = 100
 
 # completions.external.completer (closure|null): Custom closure for argument completions.
-# The closure receives a |spans| parameter - a list of strings representing
-# tokens on the current commandline. Usually set to call a third-party
-# completion system like Carapace.
+# Usually set to call a third-party completion system like Carapace.
+#
+# Receives the same record as every completer: {tokens, context_start, cursor, site}.
+# `tokens` is a table of {text, kind, span}; row 0 is the command name, the last row is
+# under the cursor. Positions are byte offsets; a completer never sees text past the cursor.
+# Returns a list of suggestions (a string, or a record of {value, description?, style?,
+# span?, extra?}) or a record of {options, completions}. External/command-wide completers
+# are not filtered by default; parameter completers are. See `options.filter`.
 # Default: null
 $env.config.completions.external.completer = null
 
 # Example: A simplified Carapace completer (use the official one from Carapace docs):
-# $env.config.completions.external.completer = {|spans|
-#   carapace $spans.0 nushell ...$spans | from json
+# $env.config.completions.external.completer = {|input|
+#   let words = $input.tokens | get text
+#   carapace ($words | first) nushell ...$words | from json
+# }
+#
+# Example: branch off the parsed site instead of re-parsing the tokens:
+# $env.config.completions.external.completer = {|input|
+#   if $input.site.kind == "flag-value" and $input.site.flag == "base" {
+#     git branch | lines | str trim
+#   }
 # }
 
 # --------------------
