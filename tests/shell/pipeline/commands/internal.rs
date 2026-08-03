@@ -876,9 +876,10 @@ mod variable_scoping {
     #[case(r#"[0 1 2] | do { do { if $input == "ZZZ" { $input } else { $input } } }"#, "ZZZ")]
     #[case("[0 1 2] | do { $input }", "ZZZ")]
     #[case("[0 1 2] | do { if $input == $input { $input } else { $input } }", "ZZZ")]
-    #[case("[0 1 2] | each { |_| $input }", ["ZZZ", "ZZZ", "ZZZ"])]
+    // `_` is reserved for interactive last-result; use a normal unused param name.
+    #[case("[0 1 2] | each { |_el| $input }", ["ZZZ", "ZZZ", "ZZZ"])]
     #[case("[0 1 2] | each { |it| if $it > 0 { $input } else { $input } }", ["ZZZ", "ZZZ", "ZZZ"])]
-    #[case("[0 1 2] | each { |_| if $input == $input { $input } else { $input } }", ["ZZZ", "ZZZ", "ZZZ"])]
+    #[case("[0 1 2] | each { |_el| if $input == $input { $input } else { $input } }", ["ZZZ", "ZZZ", "ZZZ"])]
     fn test_variable_scope(#[case] body: &str, #[case] expected: impl IntoValue) -> Result {
         let code = format!("def test [input] {{ {body} }}; test ZZZ");
         test().run(code).expect_value_eq(expected)

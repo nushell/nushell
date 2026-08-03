@@ -665,7 +665,7 @@ fn bench_eval_each(n: usize) -> impl IntoBenchmarks {
     let stack = Stack::new();
     bench_command(
         format!("eval_each_{n}"),
-        format!("(1..{n}) | each {{|_| 1 }} | ignore"),
+        format!("(1..{n}) | each {{|_el| 1 }} | ignore"),
         stack,
         engine,
     )
@@ -676,7 +676,7 @@ fn bench_eval_par_each(n: usize) -> impl IntoBenchmarks {
     let stack = Stack::new();
     bench_command(
         format!("eval_par_each_{n}"),
-        format!("(1..{n}) | par-each -t 2 {{|_| 1 }} | ignore"),
+        format!("(1..{n}) | par-each -t 2 {{|_el| 1 }} | ignore"),
         stack,
         engine,
     )
@@ -716,7 +716,7 @@ fn bench_mut_record_assign(n: usize) -> impl IntoBenchmarks {
     let (stack, engine) = setup_stack_and_engine_from_command(&setup);
     bench_command(
         format!("mut_record_assign_{n}"),
-        "for _ in 1..1000 { $r.a = 'x' }",
+        "for _i in 1..1000 { $r.a = 'x' }",
         stack,
         engine,
     )
@@ -728,7 +728,7 @@ fn bench_mut_list_assign(n: usize) -> impl IntoBenchmarks {
     let (stack, engine) = setup_stack_and_engine_from_command(&setup);
     bench_command(
         format!("mut_list_assign_{n}"),
-        "for _ in 1..1000 { $l.0 = {a: 999} }",
+        "for _i in 1..1000 { $l.0 = {a: 999} }",
         stack,
         engine,
     )
@@ -741,7 +741,7 @@ fn bench_mut_record_compound_assign(n: usize) -> impl IntoBenchmarks {
     let (stack, engine) = setup_stack_and_engine_from_command(&setup);
     bench_command(
         format!("mut_record_compound_assign_{n}"),
-        "for _ in 1..1000 { $r.a += 1 }",
+        "for _i in 1..1000 { $r.a += 1 }",
         stack,
         engine,
     )
@@ -754,7 +754,7 @@ fn bench_mut_record_update(n: usize) -> impl IntoBenchmarks {
     let (stack, engine) = setup_stack_and_engine_from_command(&setup);
     bench_command(
         format!("mut_record_update_{n}"),
-        "for _ in 1..1000 { $r = ($r | update a { 'x' }) }",
+        "for _i in 1..1000 { $r = ($r | update a { 'x' }) }",
         stack,
         engine,
     )
@@ -962,7 +962,7 @@ fn bench_concat_prebuilt_general(n: usize) -> impl IntoBenchmarks {
     bench_command(
         format!("concat_prebuilt_general_{n}"),
         // Amplify: 100 concats per iter so operator work exceeds engine clone noise.
-        "for _ in 1..100 { $a ++ $b | ignore }",
+        "for _i in 1..100 { $a ++ $b | ignore }",
         stack,
         engine,
     )
@@ -973,7 +973,7 @@ fn bench_concat_prebuilt_empty_lhs(n: usize) -> impl IntoBenchmarks {
     let (stack, engine) = setup_stack_and_engine_from_command(&setup);
     bench_command(
         format!("concat_prebuilt_empty_lhs_{n}"),
-        "for _ in 1..100 { $a ++ $b | ignore }",
+        "for _i in 1..100 { $a ++ $b | ignore }",
         stack,
         engine,
     )
@@ -984,7 +984,7 @@ fn bench_concat_prebuilt_empty_rhs(n: usize) -> impl IntoBenchmarks {
     let (stack, engine) = setup_stack_and_engine_from_command(&setup);
     bench_command(
         format!("concat_prebuilt_empty_rhs_{n}"),
-        "for _ in 1..100 { $a ++ $b | ignore }",
+        "for _i in 1..100 { $a ++ $b | ignore }",
         stack,
         engine,
     )
@@ -996,7 +996,7 @@ fn bench_par_each_default_pool(n: usize) -> impl IntoBenchmarks {
     let stack = Stack::new();
     bench_command(
         format!("par_each_default_pool_{n}"),
-        format!("(1..{n}) | par-each {{|_| 1 }} | ignore"),
+        format!("(1..{n}) | par-each {{|_el| 1 }} | ignore"),
         stack,
         engine,
     )
@@ -1008,7 +1008,7 @@ fn bench_par_each_many_calls(n: usize) -> impl IntoBenchmarks {
     let engine = setup_engine();
     let stack = Stack::new();
     let cmds = (0..n)
-        .map(|_| "(1..10) | par-each {|_| 1 } | ignore")
+        .map(|_| "(1..10) | par-each {|_el| 1 } | ignore")
         .collect::<Vec<_>>()
         .join("; ");
     bench_command(format!("par_each_many_calls_{n}"), cmds, stack, engine)
@@ -1019,7 +1019,7 @@ fn bench_par_each_many_calls_threads(n: usize) -> impl IntoBenchmarks {
     let engine = setup_engine();
     let stack = Stack::new();
     let cmds = (0..n)
-        .map(|_| "(1..10) | par-each -t 2 {|_| 1 } | ignore")
+        .map(|_| "(1..10) | par-each -t 2 {|_el| 1 } | ignore")
         .collect::<Vec<_>>()
         .join("; ");
     bench_command(

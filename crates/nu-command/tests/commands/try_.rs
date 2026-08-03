@@ -437,7 +437,7 @@ fn try_wont_run_twice_when_no_catch_and_finally_block() -> Result {
     let code = r#"
         do {
             try {}
-            let _ = "aa"
+            let _x = "aa"
             not_real_cmd
         }
     "#;
@@ -452,7 +452,7 @@ fn try_wont_run_twice_when_no_catch_and_finally_block() -> Result {
 fn try_with_just_finally_wont_pop_enclosing_error_handler() -> Result {
     let code = r#"
         try {
-            try { let _ = "inner" } finally { let _ = "finally" }
+            try { let _x = "inner" } finally { let _y = "finally" }
             error make { msg: "error" }
         }
         "outer"
