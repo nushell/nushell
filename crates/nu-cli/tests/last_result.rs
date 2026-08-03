@@ -232,8 +232,7 @@ fn last_result_var_name_constant_is_used() -> Result {
 #[test]
 fn underscore_name_is_reserved() -> Result {
     // `_` is reserved for interactive last-result; user rebinding is a parse error.
-    let engine_state =
-        nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
+    let engine_state = nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
 
     for source in [b"let _ = 1".as_slice(), b"let $_ = 1".as_slice()] {
         let mut working_set = nu_protocol::engine::StateWorkingSet::new(&engine_state);
