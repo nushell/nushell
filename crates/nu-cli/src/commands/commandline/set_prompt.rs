@@ -138,32 +138,32 @@ meant for REPL sessions only"#
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                example: r#"commandline set-prompt $"(ansi green)me> (ansi reset)""#,
+                example: r#"job spawn { sleep 1sec; commandline set-prompt $"(ansi green)me> (ansi reset)" }"#,
                 description: "Replace the left prompt with a freshly rendered string.",
                 result: None,
             },
             Example {
-                example: r#"commandline set-prompt --right $"right (date now | format date '%H:%M:%S')""#,
+                example: r#"job spawn { sleep 1sec; commandline set-prompt --right $"right (date now | format date '%H:%M:%S')" }"#,
                 description: "Replace the right prompt.",
                 result: None,
             },
             Example {
-                example: r#"commandline set-prompt --indicator $" (char prompt)""#,
+                example: r#"job spawn { sleep 1sec; commandline set-prompt --indicator $" (char prompt)" }"#,
                 description: "Replace the default/emacs indicator.",
                 result: None,
             },
             Example {
-                example: r#"commandline set-prompt --vi-insert ": " --vi-normal "n ""#,
+                example: r#"job spawn { sleep 1sec; commandline set-prompt --vi-insert ": " --vi-normal "n " }"#,
                 description: "Replace the vi insert and normal mode indicators independently.",
                 result: None,
             },
             Example {
-                example: r#"commandline set-prompt --multiline "... ""#,
+                example: r#"job spawn { sleep 1sec; commandline set-prompt --multiline "... " }"#,
                 description: "Replace the multiline continuation indicator.",
                 result: None,
             },
             Example {
-                example: r#"commandline set-prompt --right "67" --indicator "69""#,
+                example: r#"job spawn { sleep 1sec; commandline set-prompt --right "67" --indicator "69" }"#,
                 description: "Replace multiple prompt segments in one call.",
                 result: None,
             },
