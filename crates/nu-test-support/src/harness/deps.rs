@@ -7,7 +7,7 @@ use std::{
 #[cfg(feature = "plugin")]
 use nu_protocol::ShellError;
 
-use crate::harness::{BUILD_PROFILE, TARGET_DIR};
+use crate::harness::{BUILD_PROFILE, BUILD_TARGET, TARGET_DIR};
 
 #[non_exhaustive]
 #[derive(derive_more::Debug, Clone, PartialEq, Eq, Hash)]
@@ -105,6 +105,10 @@ impl Dependency<'static> {
             command.arg(format!("--profile={BUILD_PROFILE}"));
         }
 
+        if let Some(target) = BUILD_TARGET {
+            command.arg(format!("--target={target}"));
+        }
+
         // ensure that cargo is called cleanly to avoid unnecessary rebuilds
         for (key, _) in std::env::vars() {
             #[rustfmt::skip]
@@ -140,10 +144,11 @@ impl Dependency<'static> {
     /// If you need the binary path, use [`path`].
     #[track_caller]
     pub fn bin_dir(&self) -> PathBuf {
-        TARGET_DIR
-            .get()
-            .expect("TARGET_DIR is not set")
-            .join(BUILD_PROFILE)
+        let target_dir = TARGET_DIR.get().expect("TARGET_DIR is not set");
+        match BUILD_TARGET {
+            Some(target) => target_dir.join(target).join(BUILD_PROFILE),
+            None => target_dir.join(BUILD_PROFILE),
+        }
     }
 
     /// Path to the binary.

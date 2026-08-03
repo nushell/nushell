@@ -4,48 +4,8 @@
 // with ANSI escape sequences and semantic markers in the proper left-to-right order.
 
 use nu_cli::{NushellPrompt, update_prompt};
-use nu_protocol::{
-    Config, Span, Value,
-    engine::{EngineState, Stack},
-};
-use nu_test_support::nu;
+use nu_test_support::prelude::*;
 use reedline::{Prompt, PromptEditMode};
-use std::sync::Arc;
-
-// Helper to create a minimal engine state and stack for prompt testing
-fn create_test_engine() -> (EngineState, Stack, Arc<Config>) {
-    let mut engine_state =
-        nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
-    engine_state.generate_nu_constant();
-
-    let mut stack = Stack::new();
-
-    // Set up simple prompt environment variables with literal strings
-    stack.add_env_var(
-        "PROMPT_COMMAND".to_string(),
-        Value::string("❯ ".to_string(), Span::test_data()),
-    );
-    stack.add_env_var(
-        "PROMPT_INDICATOR".to_string(),
-        Value::string("> ".to_string(), Span::test_data()),
-    );
-    stack.add_env_var(
-        "PROMPT_COMMAND_RIGHT".to_string(),
-        Value::string("~/code".to_string(), Span::test_data()),
-    );
-    stack.add_env_var(
-        "PROMPT_MULTILINE_INDICATOR".to_string(),
-        Value::string("... ".to_string(), Span::test_data()),
-    );
-    stack.add_env_var(
-        "PWD".to_string(),
-        Value::string("/test".to_string(), Span::test_data()),
-    );
-
-    let config = engine_state.get_config().clone();
-
-    (engine_state, stack, config)
-}
 
 // ────────────────────────────────────────────────────────────────────────────────
 // PROMPT RENDERING TESTS WITH ACTUAL update_prompt CALLS
@@ -56,11 +16,21 @@ fn create_test_engine() -> (EngineState, Stack, Arc<Config>) {
 /// Test that update_prompt with OSC 133 renders prompts correctly
 #[test]
 fn test_update_prompt_with_osc133() {
-    let (engine_state, mut stack, config) = create_test_engine();
+    let mut tester = test()
+        .env("PROMPT_COMMAND", "❯ ")
+        .env("PROMPT_INDICATOR", "> ")
+        .env("PROMPT_COMMAND_RIGHT", "~/code")
+        .env("PROMPT_MULTILINE_INDICATOR", "... ")
+        .env("PWD", "/test");
+    let config = tester.engine_state.get_config().clone();
     let mut prompt = NushellPrompt::new();
 
-    // Call the actual update_prompt function
-    update_prompt(&config, &engine_state, &mut stack, &mut prompt);
+    update_prompt(
+        &config,
+        &tester.engine_state,
+        &mut tester.stack,
+        &mut prompt,
+    );
 
     // Verify prompts were updated correctly
     let left = prompt.render_prompt_left();
@@ -77,11 +47,16 @@ fn test_update_prompt_with_osc133() {
 /// Test that update_prompt with OSC 633 renders prompts correctly
 #[test]
 fn test_update_prompt_with_osc633() {
-    let (engine_state, mut stack, config) = create_test_engine();
+    let mut tester = test().env("PROMPT_COMMAND", "❯ ").env("PWD", "/test");
+    let config = tester.engine_state.get_config().clone();
     let mut prompt = NushellPrompt::new();
 
-    // Call the actual update_prompt function
-    update_prompt(&config, &engine_state, &mut stack, &mut prompt);
+    update_prompt(
+        &config,
+        &tester.engine_state,
+        &mut tester.stack,
+        &mut prompt,
+    );
 
     let left = prompt.render_prompt_left();
 
@@ -91,15 +66,23 @@ fn test_update_prompt_with_osc633() {
 /// Test that update_prompt correctly handles both left and right prompts
 #[test]
 fn test_update_prompt_left_and_right() {
-    let (engine_state, mut stack, config) = create_test_engine();
+    let mut tester = test()
+        .env("PROMPT_COMMAND", "❯ ")
+        .env("PROMPT_COMMAND_RIGHT", "~/code")
+        .env("PWD", "/test");
+    let config = tester.engine_state.get_config().clone();
     let mut prompt = NushellPrompt::new();
 
-    update_prompt(&config, &engine_state, &mut stack, &mut prompt);
+    update_prompt(
+        &config,
+        &tester.engine_state,
+        &mut tester.stack,
+        &mut prompt,
+    );
 
     let left = prompt.render_prompt_left();
     let right = prompt.render_prompt_right();
 
-    // Should get values from env vars set in create_test_engine
     assert_eq!(left.as_ref(), "❯ ");
     assert_eq!(right.as_ref(), "~/code");
 }
@@ -107,10 +90,18 @@ fn test_update_prompt_left_and_right() {
 /// Test that update_prompt correctly sets multiline indicator
 #[test]
 fn test_update_prompt_multiline() {
-    let (engine_state, mut stack, config) = create_test_engine();
+    let mut tester = test()
+        .env("PROMPT_MULTILINE_INDICATOR", "... ")
+        .env("PWD", "/test");
+    let config = tester.engine_state.get_config().clone();
     let mut prompt = NushellPrompt::new();
 
-    update_prompt(&config, &engine_state, &mut stack, &mut prompt);
+    update_prompt(
+        &config,
+        &tester.engine_state,
+        &mut tester.stack,
+        &mut prompt,
+    );
 
     let multiline = prompt.render_prompt_multiline_indicator();
 
@@ -120,22 +111,16 @@ fn test_update_prompt_multiline() {
 /// Test that update_prompt respects empty/missing prompt variables
 #[test]
 fn test_update_prompt_with_missing_vars() {
-    let mut engine_state =
-        nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
-    engine_state.generate_nu_constant();
-
-    let mut stack = Stack::new();
-    stack.add_env_var(
-        "PWD".to_string(),
-        Value::string("/test".to_string(), Span::test_data()),
-    );
-
-    let config = (*engine_state.get_config()).clone();
-
+    let mut tester = test().env("PWD", "/test");
+    let config = tester.engine_state.get_config().clone();
     let mut prompt = NushellPrompt::new();
 
-    // Call update_prompt without setting PROMPT_COMMAND env vars
-    update_prompt(&config, &engine_state, &mut stack, &mut prompt);
+    update_prompt(
+        &config,
+        &tester.engine_state,
+        &mut tester.stack,
+        &mut prompt,
+    );
 
     // Should still work, just with default/empty prompts
     let left = prompt.render_prompt_left();
@@ -149,26 +134,34 @@ fn test_update_prompt_with_missing_vars() {
 
 /// Test that osc133 can be enabled/disabled via config
 #[test]
-fn test_osc133_config_toggle() {
-    let result = nu!("$env.config.shell_integration.osc133");
-    assert_eq!(result.out, "true");
+fn test_osc133_config_toggle() -> Result {
+    test()
+        .run("$env.config.shell_integration.osc133")
+        .expect_value_eq(true)?;
 
-    let result = nu!("
-        $env.config.shell_integration.osc133 = false
-        $env.config.shell_integration.osc133
-    ");
-    assert_eq!(result.out, "false");
+    test()
+        .run(
+            "
+            $env.config.shell_integration.osc133 = false
+            $env.config.shell_integration.osc133
+        ",
+        )
+        .expect_value_eq(false)
 }
 
 /// Test that osc633 can be enabled/disabled via config
 #[test]
-fn test_osc633_config_toggle() {
-    let result = nu!("$env.config.shell_integration.osc633");
-    assert_eq!(result.out, "true");
+fn test_osc633_config_toggle() -> Result {
+    test()
+        .run("$env.config.shell_integration.osc633")
+        .expect_value_eq(true)?;
 
-    let result = nu!("
-        $env.config.shell_integration.osc633 = false
-        $env.config.shell_integration.osc633
-    ");
-    assert_eq!(result.out, "false");
+    test()
+        .run(
+            "
+            $env.config.shell_integration.osc633 = false
+            $env.config.shell_integration.osc633
+        ",
+        )
+        .expect_value_eq(false)
 }

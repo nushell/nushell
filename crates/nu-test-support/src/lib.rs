@@ -611,10 +611,8 @@ pub use tester::{Result, ShellErrorExt, TestError as Error, TestResultExt, test}
 pub mod prelude {
     #[doc(no_inline)]
     pub use super::{
-        Outcome,
         assertions::*,
         harness::deps::*,
-        nu,
         playground::Playground,
         tester::{Result, ShellErrorExt, TestError as Error, TestResultExt, WORKSPACE_ROOT, test},
         value_types::*,
