@@ -200,7 +200,7 @@ fn operate(
         PipelineData::Value(value, ..) => match value {
             Value::String { val, .. } => {
                 let captures = regex
-                    .captures_iter(&val)
+                    .captures_iter(val.as_str())
                     .map(|captures| captures_to_value(captures, &columns, head))
                     .collect::<Result<_, _>>()?;
 
@@ -262,7 +262,7 @@ fn operate(
             let val = stream.into_string()?;
 
             let captures = regex
-                .captures_iter(&val)
+                .captures_iter(val.as_str())
                 .map(|captures| captures_to_value(captures, &columns, head))
                 .collect::<Result<_, _>>()?;
 
@@ -404,7 +404,7 @@ impl<I: Iterator<Item = Result<String, ShellError>>> Iterator for ParseIter<I> {
 }
 
 fn captures_to_value(
-    captures: Result<Captures, fancy_regex::Error>,
+    captures: Result<Captures<'_, str>, fancy_regex::Error>,
     columns: &[String],
     span: Span,
 ) -> Result<Value, ShellError> {

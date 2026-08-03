@@ -145,7 +145,7 @@ pub fn serialize(
     let multiple = options.multiple;
     let add_directives = options.add_directives;
 
-    let mut ser_options = ser_options! {
+    let ser_options = ser_options! {
         indent_step: options.indent,
         compact_list_indent: options.compact_list_indent,
         yaml_12: match spec {
@@ -161,7 +161,8 @@ pub fn serialize(
     let mut writer = FmtHandle::new(String::new());
     WRITER.set(Some(writer.clone()));
     CONTAINERS.with_borrow_mut(Vec::clear);
-    let mut serializer = Serializer::with_options(&mut writer, &mut ser_options);
+    let mut serializer = Serializer::with_options(&mut writer, ser_options)
+        .map_err(|err| SerializeError::Serializer { err, span })?;
 
     // attention: suppresses any output from f, also don't call serializer inside this
     fn with_writer<F: Fn(&mut FmtHandle<String>) -> R, R>(f: F) {
