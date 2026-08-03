@@ -3797,11 +3797,23 @@ dependencies = [
 
 [[package]]
 name = "kdl"
+version = "4.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e03e2e96c5926fe761088d66c8c2aee3a4352a2573f4eaca50043ad130af9117"
+dependencies = [
+ "miette 5.10.0",
+ "nom 7.1.3",
+ "thiserror 1.0.69",
+]
+
+[[package]]
+name = "kdl"
 version = "6.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "082ddf81b2acd76fe04412655d17befedfff1837db772f8e74c38050d25ed670"
 dependencies = [
- "miette",
+ "kdl 4.7.1",
+ "miette 7.6.0",
  "num-traits",
  "serde",
  "winnow 0.7.15",
@@ -4291,6 +4303,18 @@ dependencies = [
 
 [[package]]
 name = "miette"
+version = "5.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "59bb584eaeeab6bd0226ccf3509a69d7936d148cf3d036ad350abe35e8c6856e"
+dependencies = [
+ "miette-derive 5.10.0",
+ "once_cell",
+ "thiserror 1.0.69",
+ "unicode-width 0.1.14",
+]
+
+[[package]]
+name = "miette"
 version = "7.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5f98efec8807c63c752b5bd61f862c165c115b0a35685bdcfd9238c7aeb592b7"
@@ -4298,7 +4322,7 @@ dependencies = [
  "backtrace",
  "backtrace-ext",
  "cfg-if",
- "miette-derive",
+ "miette-derive 7.6.0",
  "owo-colors",
  "supports-color",
  "supports-hyperlinks",
@@ -4306,6 +4330,17 @@ dependencies = [
  "terminal_size",
  "textwrap",
  "unicode-width 0.1.14",
+]
+
+[[package]]
+name = "miette-derive"
+version = "5.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "49e7bc1560b95a3c4a25d03de42fe76ca718ab92d1a22a55b9b4cf67b3ae635c"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
 ]
 
 [[package]]
@@ -4405,7 +4440,7 @@ checksum = "791c374af833381678f62652884282f70043110e35b8a4a9f76c72cefca2def2"
 dependencies = [
  "itertools 0.14.0",
  "markdown",
- "miette",
+ "miette 7.6.0",
  "rustc-hash",
  "smol_str",
 ]
@@ -4623,7 +4658,7 @@ dependencies = [
  "itertools 0.15.0",
  "lexopt",
  "log",
- "miette",
+ "miette 7.6.0",
  "multipart-rs",
  "nix 0.31.3",
  "nu-cli",
@@ -4682,7 +4717,7 @@ dependencies = [
  "log",
  "lru 0.18.0",
  "lscolors",
- "miette",
+ "miette 7.6.0",
  "nu-ansi-term",
  "nu-cmd-base",
  "nu-cmd-lang",
@@ -4716,7 +4751,7 @@ name = "nu-cmd-base"
 version = "0.114.2"
 dependencies = [
  "indexmap 2.14.0",
- "miette",
+ "miette 7.6.0",
  "nu-engine",
  "nu-parser",
  "nu-path",
@@ -4756,7 +4791,7 @@ name = "nu-cmd-lang"
 version = "0.114.2"
 dependencies = [
  "itertools 0.15.0",
- "miette",
+ "miette 7.6.0",
  "nu-cmd-base",
  "nu-engine",
  "nu-experimental",
@@ -4832,7 +4867,7 @@ dependencies = [
  "indicatif",
  "indoc",
  "itertools 0.15.0",
- "kdl",
+ "kdl 6.7.1",
  "log",
  "lscolors",
  "md-5 0.11.0",
@@ -5025,7 +5060,7 @@ dependencies = [
  "chrono",
  "derive_setters",
  "indoc",
- "miette",
+ "miette 7.6.0",
  "nu-protocol",
  "nu-test-support",
  "nu-utils",
@@ -5066,7 +5101,7 @@ dependencies = [
  "lsp-textdocument",
  "lsp-types",
  "memchr",
- "miette",
+ "miette 7.6.0",
  "nu-cli",
  "nu-cmd-lang",
  "nu-command",
@@ -5094,7 +5129,7 @@ dependencies = [
  "futures",
  "hyper-util",
  "indoc",
- "miette",
+ "miette 7.6.0",
  "nix 0.31.3",
  "nu-cmd-lang",
  "nu-engine",
@@ -5247,7 +5282,7 @@ dependencies = [
  "log",
  "lru 0.18.0",
  "memchr",
- "miette",
+ "miette 7.6.0",
  "nix 0.31.3",
  "nu-config",
  "nu-derive-value",
@@ -5281,7 +5316,7 @@ name = "nu-std"
 version = "0.114.2"
 dependencies = [
  "log",
- "miette",
+ "miette 7.6.0",
  "nu-engine",
  "nu-parser",
  "nu-protocol",
@@ -5340,7 +5375,7 @@ dependencies = [
  "kitest",
  "lexopt",
  "linkme",
- "miette",
+ "miette 7.6.0",
  "nu-ansi-term",
  "nu-cli",
  "nu-cmd-base",
