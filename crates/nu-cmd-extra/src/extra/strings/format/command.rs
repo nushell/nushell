@@ -1,4 +1,7 @@
+use std::borrow::Cow;
+
 use itertools::Itertools;
+
 use nu_engine::command_prelude::*;
 use nu_protocol::{
     Config, ErrorLabel, ErrorSource, LabeledError, ListStream, ast::PathMember, casing::Casing,
@@ -249,15 +252,15 @@ fn format_record(
     pattern: &Spanned<String>,
     head_span: Span,
 ) -> Result<String, ShellError> {
-    let mut output = String::new();
-
-    for op in format_operations {
-        match op {
-            FormatOperation::FixedText(s) => output.push_str(s.as_str()),
+    let result = format_operations
+        .iter()
+        .map(|op| match op {
+            FormatOperation::FixedText(s) => Ok(Ok(Cow::Borrowed(s.as_str()))),
             FormatOperation::ValueFromColumn {
                 content: col_name,
                 span,
             } => {
+                // TODO: use `CellPath::from_str`
                 // path member should split by '.' to handle for nested structure.
                 let path_members: Vec<PathMember> = col_name
                     .split('.')
@@ -269,42 +272,40 @@ fn format_record(
                     })
                     .collect();
 
-                let expanded_string = match data_as_value.follow_cell_path(&path_members) {
-                    Ok(val) => val.to_expanded_string(", ", config),
-                    Err(ShellError::CantFindColumn {
-                        col_name, src_span, ..
-                    }) => {
-                        let label = ErrorLabel {
-                            text: format!("column '{col_name}' is missing in one or more values"),
-                            span: *span,
-                        };
-                        let format_str_source = ShellError::OutsideSourceNoUrl {
-                            src: ErrorSource::new(
-                                Some("format string".into()),
-                                pattern.item.clone(),
-                            )
-                            .into(),
-                            msg: "Format string has errors.".into(),
-                            help: None,
-                            labels: vec![label.into()],
-                            inner: vec![],
-                        };
-
-                        return Err(LabeledError::new("Invalid value")
-                            .with_code("nu::shell::invalid_value")
-                            .with_label("format string", pattern.span)
-                            .with_label("value originates here", src_span)
-                            .with_inner(format_str_source)
-                            .into());
-                    }
-                    Err(err) => return Err(err),
-                };
-
-                output.push_str(expanded_string.as_str())
+                match data_as_value.follow_cell_path(&path_members) {
+                    Ok(val) => Ok(Ok(Cow::Owned(val.to_expanded_string(", ", config)))),
+                    Err(ShellError::CantFindColumn { col_name, .. }) => Ok(Err(ErrorLabel {
+                        text: format!("column '{col_name}' is missing in one or more values"),
+                        span: *span,
+                    })),
+                    Err(err) => Err(err),
+                }
             }
+        })
+        .collect::<Result<MultiResult<Vec<_>, Vec<_>>, _>>()?
+        .result();
+
+    match result {
+        Ok(strings) => Ok(strings.into_iter().map(Cow::into_owned).collect::<String>()),
+        Err(labels) => {
+            let labels = labels.into_iter().map(Into::into).collect();
+            let format_str_source = ShellError::OutsideSourceNoUrl {
+                src: ErrorSource::new(Some("format string".into()), pattern.item.clone()).into(),
+                msg: "Format string has errors.".into(),
+                help: None,
+                labels,
+                inner: vec![],
+            };
+
+            Err(ShellError::from(
+                LabeledError::new("Invalid value")
+                    .with_code("nu::shell::invalid_value")
+                    .with_label("format string", pattern.span)
+                    .with_label("value originates here", data_as_value.span())
+                    .with_inner(format_str_source),
+            ))
         }
     }
-    Ok(output)
 }
 
 #[cfg(test)]
