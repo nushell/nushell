@@ -229,9 +229,53 @@ fn commandline_test_complete_detailed(#[case] cmd: &str, #[case] expected: &str)
     "commandline complete --type foo",
     r#"expected type "directory", "path", or "glob""#
 )]
+// `--input` returns the site, not completions; reject flags that shape output.
+#[case::input_with_detailed(
+    "'ls ' | commandline complete --input --detailed",
+    "cannot be used with --input"
+)]
+#[case::input_with_type(
+    "'ls ' | commandline complete --input --type path",
+    "cannot be used with --input"
+)]
 fn commandline_test_complete_invalid_input(
     #[case] cmd: &str,
     #[case] expected_err: &str,
 ) -> TestResult {
     fail_test(cmd, expected_err)
+}
+
+/// `--input` returns exactly the record a completer would be handed.
+#[rstest]
+#[case::command("test-", "{kind: command}")]
+#[case::flag_name("test-cmd --", "{kind: flag-name}")]
+#[case::flag_value("test-cmd --string ", "{kind: flag-value, flag: string}")]
+#[case::short_flag_value("test-cmd -s ", "{kind: flag-value, flag: string}")]
+#[case::positional("test-cmd ", "{kind: positional, index: 0}")]
+#[case::variable("$ni", "{kind: variable}")]
+fn commandline_test_complete_input_site(#[case] cmd: &str, #[case] expected: &str) -> TestResult {
+    run_test(
+        &format!(
+            "
+            def test-cmd [
+                first?: string,
+                --string(-s): string@[a],
+            ] {{}}\n\
+            \n\
+            '{cmd}' | commandline complete --input | get site | to nuon"
+        ),
+        expected,
+    )
+}
+
+/// `tokens` heads the record: head first, the completed token last.
+#[test]
+fn commandline_test_complete_input_record() -> TestResult {
+    run_test(
+        "def test-cmd [first?: string] {}\n\
+        'test-cmd ab' | commandline complete --input | reject site | to nuon",
+        "{tokens: [[text, kind, span]; \
+[test-cmd, head, {start: 0, end: 8}], [ab, value, {start: 9, end: 11}]], \
+context_start: 0, cursor: 11}",
+    )
 }

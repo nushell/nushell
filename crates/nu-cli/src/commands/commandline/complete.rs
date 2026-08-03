@@ -31,16 +31,29 @@ impl Command for CommandlineComplete {
         Signature::build("commandline complete")
             .input_output_type(
                 Type::Nothing,
-                Type::one_of([Type::list(Type::String), Type::list(Type::record())]),
+                Type::one_of([
+                    Type::list(Type::String),
+                    Type::list(Type::record()),
+                    Type::record(),
+                ]),
             )
             .input_output_type(
                 Type::String,
-                Type::one_of([Type::list(Type::String), Type::list(Type::record())]),
+                Type::one_of([
+                    Type::list(Type::String),
+                    Type::list(Type::record()),
+                    Type::record(),
+                ]),
             )
             .switch(
                 "detailed",
                 "Output completions as records, in the format expected from custom completers.",
                 Some('d'),
+            )
+            .switch(
+                "input",
+                "Output the record a completer would receive here, instead of completions.",
+                Some('i'),
             )
             .param(
                 Flag::new("type")
@@ -59,7 +72,10 @@ impl Command for CommandlineComplete {
         "This command can be used to obtain the completions that Nushell would normally provide for the given commandline contents.
 Completions will be provided as if the cursor is placed at the end of the given string.
 
-If no input is provided, the current commandline contents will be used instead."
+If no input is provided, the current commandline contents will be used instead.
+
+With --input, the record a completer would receive at that position is returned instead of
+completions, which is the supported way to develop and test a completer from inside Nushell."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -81,6 +97,25 @@ If no input is provided, the current commandline contents will be used instead."
             extract_input_buffer(&input, engine_state, head_span, source_span)?;
 
         let is_detailed = call.has_flag(engine_state, stack, "detailed")?;
+
+        // `--input` returns the site, not completions; reject flags that shape output.
+        if call.has_flag(engine_state, stack, "input")? {
+            for conflicting in ["detailed", "type"] {
+                if let Some(span) = call.get_flag_span(stack, conflicting) {
+                    return Err(ShellError::IncompatibleParameters {
+                        left_message: "cannot be used with --input".into(),
+                        left_span: span,
+                        right_message: "--input returns the completer's input record".into(),
+                        right_span: call.get_flag_span(stack, "input").unwrap_or(head_span),
+                    });
+                }
+            }
+
+            return Ok(CompletionEngine::new(engine_state, stack)
+                .completer_input_at(&buffer, cursor_position)
+                .into_pipeline_data());
+        }
+
         let completion_type = match call.get_flag::<Value>(engine_state, stack, "type")? {
             Some(v) => {
                 let type_str = v
@@ -150,6 +185,11 @@ If no input is provided, the current commandline contents will be used instead."
             Example {
                 description: "Extend builtin completions for the current commandline.",
                 example: "commandline complete | append 'foo'",
+                result: None,
+            },
+            Example {
+                description: "Inspect what a completer would be handed at the cursor.",
+                example: "'git checkout ma' | commandline complete --input | get site",
                 result: None,
             },
         ]
