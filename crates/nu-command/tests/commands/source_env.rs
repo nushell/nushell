@@ -60,7 +60,7 @@ fn sources_unicode_file_in_colon_dir(
 ) -> Result {
     Playground::setup(ctx.description.unwrap(), |dirs, sandbox| {
         let file = String::from_iter([dir, "/foo.nu"]);
-        sandbox.mkdir(&dir);
+        sandbox.mkdir(dir);
         sandbox.with_files(&[FileWithContent(&file, "echo foo")]);
 
         let cmd = format!("source-env {quote}{file}{quote}");
