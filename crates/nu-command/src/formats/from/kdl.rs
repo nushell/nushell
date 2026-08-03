@@ -2,7 +2,9 @@ use crate::formats::kdl::{
     KdlFormat, KdlMetadata, KdlSpec, jik_document_to_value, nodes_document_to_value,
     parse_kdl_document,
 };
+use chrono::TimeZone;
 use nu_engine::command_prelude::*;
+use std::str::FromStr;
 
 #[derive(Clone)]
 pub struct FromKdl;
@@ -182,6 +184,73 @@ impl Command for FromKdl {
                         "children" => Value::test_list(vec![]),
                     }),
                 ])),
+            },
+            Example {
+                description: "Promote Nushell type annotations on node arguments (filesize, duration).",
+                example: r#""node (filesize)1024 (duration)5000000000" | from kdl"#,
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "name" => Value::string("node", span),
+                    "args" => Value::test_list(vec![
+                        Value::test_filesize(1024),
+                        Value::test_duration(5_000_000_000),
+                    ]),
+                    "props" => Value::test_record(record! {}),
+                    "children" => Value::test_list(vec![]),
+                })])),
+            },
+            Example {
+                description: "Parse JSON-in-KDL with filesize, duration, and datetime (timestamp) annotations.",
+                example: r#"'- size=(filesize)1024 wait=(duration)5000000000 when=(timestamp)"2020-01-02T03:04:05+00:00"' | from kdl --format jik"#,
+                result: Some(Value::test_record(record! {
+                    "size" => Value::test_filesize(1024),
+                    "wait" => Value::test_duration(5_000_000_000),
+                    "when" => Value::test_date(
+                        chrono::FixedOffset::east_opt(0)
+                            .expect("offset")
+                            .with_ymd_and_hms(2020, 1, 2, 3, 4, 5)
+                            .unwrap()
+                    ),
+                })),
+            },
+            Example {
+                description: "Accept (datetime) as an alias for (timestamp) when parsing.",
+                example: r#"'- when=(datetime)"2020-01-02T03:04:05+00:00"' | from kdl --format jik"#,
+                result: Some(Value::test_record(record! {
+                    "when" => Value::test_date(
+                        chrono::FixedOffset::east_opt(0)
+                            .expect("offset")
+                            .with_ymd_and_hms(2020, 1, 2, 3, 4, 5)
+                            .unwrap()
+                    ),
+                })),
+            },
+            Example {
+                description: "Parse cell-path, range, glob, and binary type annotations.",
+                example: r#"'- path=(cell-path)$.1.abc span=(range)"1..3" pat=(glob)*.rs blob=(binary)AQID' | from kdl --format jik"#,
+                result: Some(Value::test_record(record! {
+                    "path" => Value::test_cell_path(nu_protocol::ast::CellPath {
+                        members: vec![
+                            nu_protocol::ast::PathMember::test_int(1, false),
+                            nu_protocol::ast::PathMember::test_string(
+                                "abc",
+                                false,
+                                nu_protocol::casing::Casing::Sensitive,
+                            ),
+                        ],
+                    }),
+                    "span" => Value::test_range(
+                        nu_protocol::Range::from_str("1..3").expect("range")
+                    ),
+                    "pat" => Value::test_glob("*.rs"),
+                    "blob" => Value::test_binary(vec![1, 2, 3]),
+                })),
+            },
+            Example {
+                description: "Ignore type annotations and keep base KDL types with --ignore-types.",
+                example: "'- size=(filesize)1024' | from kdl --format jik --ignore-types",
+                result: Some(Value::test_record(record! {
+                    "size" => Value::test_int(1024),
+                })),
             },
         ]
     }

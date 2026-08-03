@@ -244,6 +244,7 @@ fn is_known_value_type(ty: &str) -> bool {
         super::types::TY_FILESIZE
             | super::types::TY_DURATION
             | super::types::TY_TIMESTAMP
+            | super::types::TY_DATETIME
             | super::types::TY_BINARY
             | super::types::TY_GLOB
             | super::types::TY_RANGE

@@ -1,6 +1,6 @@
 //! Nushell type annotations for KDL (YAML-tag analogue).
 //!
-//! Known annotations: filesize, duration, timestamp, binary, glob, range, cell-path.
+//! Known annotations: filesize, duration, timestamp (alias: datetime), binary, glob, range, cell-path.
 //! JiK also uses structural annotations: array, object.
 
 use base64::{Engine, engine::general_purpose::STANDARD as BASE64_STANDARD};
@@ -16,6 +16,8 @@ pub(crate) const TY_OBJECT: &str = "object";
 pub(crate) const TY_FILESIZE: &str = "filesize";
 pub(crate) const TY_DURATION: &str = "duration";
 pub(crate) const TY_TIMESTAMP: &str = "timestamp";
+/// Parse-only alias for [`TY_TIMESTAMP`] (Nu users often say "datetime").
+pub(crate) const TY_DATETIME: &str = "datetime";
 pub(crate) const TY_BINARY: &str = "binary";
 pub(crate) const TY_GLOB: &str = "glob";
 pub(crate) const TY_RANGE: &str = "range";
@@ -117,7 +119,7 @@ fn promote_known_type(ty: &str, base: &Value, span: Span) -> Result<Option<Value
                 .map_err(|_| type_payload_error(ty, base, span))?;
             Value::duration(n, span)
         }
-        TY_TIMESTAMP => {
+        TY_TIMESTAMP | TY_DATETIME => {
             let s = base
                 .as_str()
                 .map_err(|_| type_payload_error(ty, base, span))?;

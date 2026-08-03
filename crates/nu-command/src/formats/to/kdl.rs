@@ -174,6 +174,48 @@ impl Command for ToKdl {
                 example: "{|| 1 + 1} | to kdl --serialize",
                 result: Some(Value::test_string("- \"{|| 1 + 1}\"\n")),
             },
+            Example {
+                description: "Emit Nushell filesize and duration with type annotations.",
+                example: "{size: 1kib, wait: 5sec} | to kdl",
+                result: Some(Value::test_string(
+                    "- size=(filesize)1024 wait=(duration)5000000000\n",
+                )),
+            },
+            Example {
+                description: "Emit a datetime as a (timestamp) annotation (RFC 3339 string).",
+                example: "{when: 2020-01-02T03:04:05+00:00} | to kdl",
+                result: Some(Value::test_string(
+                    "- when=(timestamp)\"2020-01-02T03:04:05+00:00\"\n",
+                )),
+            },
+            Example {
+                description: "Emit a cell-path with a (cell-path) annotation.",
+                example: "$.1.abc | to kdl",
+                result: Some(Value::test_string("- (cell-path)$.1.abc\n")),
+            },
+            Example {
+                description: "Emit a range with a (range) annotation.",
+                example: "1..3 | to kdl",
+                result: Some(Value::test_string("- (range)\"1..3\"\n")),
+            },
+            Example {
+                description: "Emit a glob with a (glob) annotation.",
+                example: r#""*.rs" | into glob | to kdl"#,
+                result: Some(Value::test_string("- (glob)*.rs\n")),
+            },
+            Example {
+                description: "Emit binary data as base64 with a (binary) annotation.",
+                example: "0x[01 02 03] | to kdl",
+                result: Some(Value::test_string("- (binary)AQID\n")),
+            },
+            Example {
+                description: "Round-trip annotated Nushell types through KDL.",
+                example: "{size: 1kib, wait: 5sec} | to kdl | from kdl --format jik",
+                result: Some(Value::test_record(record! {
+                    "size" => Value::test_filesize(1024),
+                    "wait" => Value::test_duration(5_000_000_000),
+                })),
+            },
         ]
     }
 }
