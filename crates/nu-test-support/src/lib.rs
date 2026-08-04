@@ -596,7 +596,6 @@
 pub mod assertions;
 pub mod fs;
 pub mod harness;
-pub mod locale_override;
 pub mod net;
 pub mod playground;
 pub mod value_types;
