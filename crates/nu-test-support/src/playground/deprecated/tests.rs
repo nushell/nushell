@@ -1,4 +1,4 @@
-use crate::playground::Playground;
+use super::Playground;
 
 #[test]
 fn current_working_directory_in_sandbox_directory_created() {

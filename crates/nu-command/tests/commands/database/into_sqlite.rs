@@ -1,7 +1,7 @@
 use chrono::{DateTime, FixedOffset};
 use nu_path::AbsolutePathBuf;
 use nu_protocol::{Span, Value, ast::PathMember, casing::Casing, engine::EngineState, record};
-use nu_test_support::{fs::Stub, playground::Dirs, prelude::*};
+use nu_test_support::{fs::Stub, prelude::*};
 use rand::{
     SeedableRng,
     distr::{Alphanumeric, SampleString, StandardUniform},
