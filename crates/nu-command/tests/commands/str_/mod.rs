@@ -1,10 +1,7 @@
 mod into_string;
 mod join;
 
-use nu_test_support::{
-    fs::Stub::FileWithContent,
-    prelude::*,
-};
+use nu_test_support::{fs::Stub::FileWithContent, prelude::*};
 
 #[test]
 fn trims() -> Result {

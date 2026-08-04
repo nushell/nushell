@@ -1,8 +1,5 @@
 use super::Director;
-use crate::{
-    fs::Stub,
-    tester::FIXTURES,
-};
+use crate::{fs::Stub, tester::FIXTURES};
 #[cfg(not(target_arch = "wasm32"))]
 use nu_path::Path;
 use nu_path::{AbsolutePath, AbsolutePathBuf};
