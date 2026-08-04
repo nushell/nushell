@@ -1,10 +1,11 @@
-mod director;
-pub mod nu_process;
-mod play;
+#[allow(unused, reason = "doesn't matter anymore")]
+pub mod deprecated;
 
-#[cfg(test)]
-mod tests;
+pub struct Playground {}
 
-pub use director::Director;
-pub use nu_process::{Executable, NuProcess, Outcome};
-pub use play::{Dirs, EnvironmentVariable, Playground};
+// compatibility
+impl Playground {
+    pub fn setup<R>(topic: &str, block: impl FnOnce(deprecated::Dirs, &mut deprecated::Playground) -> R) -> R {
+        deprecated::Playground::setup(topic, block)
+    }
+}
