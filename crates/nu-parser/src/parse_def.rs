@@ -208,7 +208,7 @@ pub fn parse_for(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) 
         .is_none_or(|new_errors| {
             new_errors
                 .iter()
-                .all(|e| !matches!(e, ParseError::Unclosed(token, _) if *token == "}"))
+                .all(|e| !matches!(e, ParseError::Unclosed(token, ..) if *token == "}"))
         })
     {
         working_set.exit_scope();
@@ -501,7 +501,7 @@ fn parse_def_inner(
         .is_none_or(|new_errors| {
             new_errors
                 .iter()
-                .all(|e| !matches!(e, ParseError::Unclosed(token, _) if *token == "}"))
+                .all(|e| !matches!(e, ParseError::Unclosed(token, ..) if *token == "}"))
         })
     {
         working_set.exit_scope();

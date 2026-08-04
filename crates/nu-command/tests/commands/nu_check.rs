@@ -66,7 +66,11 @@ fn parse_script_failure() -> Result {
             .cwd(dirs.test())
             .run("nu-check --debug script.nu")
             .expect_shell_error()?;
-        assert_eq!(err.generic_msg()?, "Found : Unexpected end of code.");
+        let msg = err.generic_msg()?;
+        assert!(
+            msg.contains("Unclosed delimiter") || msg.contains("expected `]`"),
+            "unexpected err: {msg}"
+        );
 
         Ok(())
     })
@@ -146,7 +150,11 @@ fn parse_module_failure() -> Result {
             .cwd(dirs.test())
             .run("nu-check --debug --as-module foo.nu")
             .expect_shell_error()?;
-        assert_eq!(err.generic_msg()?, "Found : Unexpected end of code.");
+        let msg = err.generic_msg()?;
+        assert!(
+            msg.contains("Unclosed delimiter") || msg.contains("expected `]`"),
+            "unexpected err: {msg}"
+        );
 
         Ok(())
     })
