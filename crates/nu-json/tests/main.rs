@@ -1,10 +1,10 @@
 use nu_json::Value;
+use nu_test_support::prelude::*;
 use pretty_assertions::assert_eq;
 use rstest::rstest;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
-use nu_test_support::prelude::*;
 
 fn txt(text: String) -> String {
     let out = text;
