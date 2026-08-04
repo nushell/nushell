@@ -609,7 +609,7 @@ pub mod prelude {
     pub use super::{
         assertions::*,
         harness::deps::*,
-        playground::deprecated::{Playground, Dirs},
+        playground::deprecated::{Dirs, Playground},
         tester::{
             ASSETS, FIXTURES, Result, ShellErrorExt, TestError as Error, TestResultExt,
             WORKSPACE_ROOT, test,
