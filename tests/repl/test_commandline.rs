@@ -407,36 +407,6 @@ fn commandline_test_complete_input_gap_resolves_inside_the_closure() -> TestResu
     )
 }
 
-/// A block with nothing in it yet is still a block: the cursor is at a fresh command
-/// position inside it, not an argument of the command around it. The nesting token would
-/// otherwise be reported as an argument whose text is the opening brace.
-#[rstest]
-#[case::closure("ls | each { ")]
-#[case::closure_with_params("ls | each {|x| ")]
-#[case::subexpression("(ls | ")]
-#[case::block("if true { ")]
-fn commandline_test_complete_input_empty_block_is_a_command_position(
-    #[case] line: &str,
-) -> TestResult {
-    run_test(
-        &format!(
-            "'{line}' | commandline complete --input \
-            | {{kind: $in.place.kind, token: $in.token.text}} | to nuon"
-        ),
-        "{kind: command, token: \"\"}",
-    )
-}
-
-/// A redirection target is no pipeline element, so the chain steps over it while the search
-/// finds it: the target must still win over the empty block enclosing it.
-#[test]
-fn commandline_test_complete_input_redirection_beats_the_empty_block() -> TestResult {
-    run_test(
-        "'(ls o> fil' | commandline complete --input | get place.kind",
-        "file",
-    )
-}
-
 /// Nesting is as deep as the cursor goes. A row condition holds a subexpression holding an
 /// external call, and each level is tagged with the slot the next one fills — so an external
 /// completer three levels down still resolves to the argument it is really completing.

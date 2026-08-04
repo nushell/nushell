@@ -765,6 +765,13 @@ impl Dispatched {
         self.cacheable |= other.cacheable;
         self.suggestions.extend(other.suggestions);
     }
+
+    /// Merge one source's outcome; report whether it answered.
+    fn absorb(&mut self, attempt: Fetched) -> bool {
+        let answered = !attempt.needs_fallback();
+        self.merge(attempt.into());
+        answered
+    }
 }
 
 impl From<Fetched> for Dispatched {
@@ -1108,21 +1115,18 @@ impl<'engine> CompletionEngine<'engine> {
         }
 
         let mut dispatched = Dispatched::default();
-        let mut external_answered = false;
 
         // The user's configured external completer.
-        if let Some(closure) = self
+        let external_answered = self
             .engine_state
             .get_config()
             .completions
             .external
             .completer
             .as_ref()
-        {
-            let fetched = UserCompletion::closure(closure).fetch(completion_context);
-            external_answered = !fetched.needs_fallback();
-            dispatched.merge(fetched.into());
-        }
+            .is_some_and(|closure| {
+                dispatched.absorb(UserCompletion::closure(closure).fetch(completion_context))
+            });
 
         // Subcommands extending this call suppress the file fallback.
         let subcommands =
@@ -1227,42 +1231,14 @@ impl<'engine> CompletionEngine<'engine> {
             })
             .or_else(|| check_redirection_in_block(block, absolute_position));
 
-        // A nesting expression the chain descended into and found nothing in (`each { ⌶`).
-        // Only the last entry can carry this: once an element inside is reached, that
-        // element becomes the last entry and carries its own descent. The cursor is then at
-        // a fresh command position in that block, not an argument of the command around it.
-        let empty_block = chain
-            .last()
-            .and_then(|&(_, descent)| descent)
-            .filter(|descent| {
-                // Unless the search reached strictly inside it after all. A redirection
-                // target is no pipeline element, so the chain steps over it while the search
-                // finds it. Equal spans mean the search stopped at the nesting expression
-                // itself, which is the empty-block case rather than an exception to it.
-                !touched_expression.is_some_and(|found| {
-                    descent.start <= found.span.start
-                        && found.span.end <= descent.end
-                        && found.span != *descent
-                })
-            })
-            .is_some();
-
-        let mut site = if empty_block {
-            CompletionSite::new(
-                SiteKind::Command { node: None },
-                Span::point(absolute_position),
-            )
-        } else {
-            match innermost_expression(touched_expression, &chain) {
-                Some(expression) => {
-                    self.resolve_expression_site(expression, absolute_position, working_set)
-                }
-                None => self.resolve_fallback_site(block, working_set, absolute_position),
+        let mut site = match innermost_expression(touched_expression, &chain) {
+            Some(expression) => {
+                self.resolve_expression_site(expression, absolute_position, working_set)
             }
+            None => self.resolve_fallback_site(block, working_set, absolute_position),
         };
 
-        site.contexts =
-            self.contexts_of(&chain, working_set, absolute_position, &site, empty_block);
+        site.contexts = self.contexts_of(&chain, working_set, absolute_position, &site);
         self.finalize_site(site, buffer, contents)
     }
 
@@ -1275,24 +1251,19 @@ impl<'engine> CompletionEngine<'engine> {
         working_set: &'a StateWorkingSet,
         absolute_position: usize,
         site: &CompletionSite<'a>,
-        empty_block: bool,
     ) -> Vec<CompletionContext<'a>> {
         // Where the site's own element sits in the chain; everything before it encloses it.
         // A kind carrying no element (a bare `$var`, a cell path) belongs to the element the
-        // chain walked to, which is its last. An empty block encloses no element at all, so
-        // the whole chain is ancestors and the innermost context has nothing to flatten.
-        let innermost = if empty_block {
-            chain.len()
-        } else {
-            site.kind
-                .element()
-                .and_then(|element| {
-                    chain
-                        .iter()
-                        .position(|(candidate, _)| std::ptr::eq(*candidate, element))
-                })
-                .unwrap_or_else(|| chain.len().saturating_sub(1))
-        };
+        // chain walked to, which is its last.
+        let innermost = site
+            .kind
+            .element()
+            .and_then(|element| {
+                chain
+                    .iter()
+                    .position(|(candidate, _)| std::ptr::eq(*candidate, element))
+            })
+            .unwrap_or_else(|| chain.len().saturating_sub(1));
 
         let mut contexts: Vec<_> = chain
             .iter()
@@ -1706,17 +1677,12 @@ impl<'engine> CompletionEngine<'engine> {
                 }
                 Completion::List(list) => StaticCompletion::new(list).fetch(context),
             };
-            let need_fallback = attempt.needs_fallback();
-            results.merge(attempt.into());
-            if !need_fallback {
+            if results.absorb(attempt) {
                 return results;
             }
         }
 
-        let attempt = self.command_wide_completion_helper(signature, context);
-        let need_fallback = attempt.needs_fallback();
-        results.merge(attempt.into());
-        if !need_fallback {
+        if results.absorb(self.command_wide_completion_helper(signature, context)) {
             return results;
         }
 

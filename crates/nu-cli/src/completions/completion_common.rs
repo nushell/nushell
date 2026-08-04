@@ -456,10 +456,8 @@ pub fn adjust_if_intermediate(
     let mut prefix = prefix.to_string();
 
     // A difference of 1 because of the cursor's unicode code point in between.
-    // Using .chars().count() because unicode and Windows.
-    // Saturating: the prefix runs to the cursor while the span need not reach it (`ls |
-    // where ⌶` resolves to the `where` token, with the gap after it still in the prefix),
-    // and there is nothing to readjust when the prefix is the longer of the two.
+    // Using .chars().count() because unicode and Windows. Saturating: the prefix can run
+    // past the span's end into a trailing gap (`ls | where ⌶`), leaving nothing to readjust.
     let readjusted = span_contents
         .chars()
         .count()
