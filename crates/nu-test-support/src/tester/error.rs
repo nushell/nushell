@@ -7,7 +7,7 @@ pub type Result<T = (), E = TestError> = std::result::Result<T, E>;
 
 /// Error returned by [`NuTester`](super::NuTester) helpers.
 ///
-/// This wraps the underlying parse, compile, shell, assertion, or I/O failure 
+/// This wraps the underlying parse, compile, shell, assertion, or I/O failure
 /// with the test call site that produced it, so failures point at the relevant
 /// test assertion instead of only the lower-level engine code.
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
