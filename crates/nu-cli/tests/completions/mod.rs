@@ -15,7 +15,7 @@ use nu_protocol::{
     Config, ParseError, PipelineData, Value, debugger::WithoutDebug, engine::StateWorkingSet,
 };
 use nu_std::load_standard_library;
-use nu_test_support::fs;
+use nu_test_support::prelude::*;
 use reedline::{Span, Suggestion, Suggestions};
 use rstest::{fixture, rstest};
 use support::{
@@ -1225,7 +1225,10 @@ fn external_completer_fallback() {
     let suggestions = run_external_completion_within_pwd(
         block,
         input,
-        fs::fixtures().join("external_completions"),
+        FIXTURES
+            .join("external_completions")
+            .try_into()
+            .expect("fixtures is absolute"),
     );
     match_suggestions(&expected, &suggestions);
 
@@ -1235,7 +1238,10 @@ fn external_completer_fallback() {
     let suggestions = run_external_completion_within_pwd(
         block,
         input,
-        fs::fixtures().join("external_completions"),
+        FIXTURES
+            .join("external_completions")
+            .try_into()
+            .expect("fixtures is absolute"),
     );
     match_suggestions(&expected, &suggestions);
 }
@@ -1390,7 +1396,7 @@ fn command_wide_completion_wrapped_untyped_equals_flag_value() {
 )]
 fn command_wide_completion_fallback(#[case] code: &str) {
     // Create a new engine with PWD
-    let pwd = fs::fixtures();
+    let pwd = AbsolutePathBuf::try_from(FIXTURES.as_path()).expect("fixtures is absolute");
     let (_, _, mut engine, mut stack) = new_engine_helper(pwd.clone());
 
     let config_code = format!(
@@ -3138,7 +3144,14 @@ fn run_external_completion_within_pwd(
 }
 
 fn run_external_completion(completer: &str, input: &str) -> Suggestions {
-    run_external_completion_within_pwd(completer, input, fs::fixtures().join("completions"))
+    run_external_completion_within_pwd(
+        completer,
+        input,
+        FIXTURES
+            .join("completions")
+            .try_into()
+            .expect("fixtures is absolute"),
+    )
 }
 
 #[test]
@@ -3216,7 +3229,12 @@ fn filecompletions_triggers_after_cursor() {
 
 #[test]
 fn filecompletions_for_redirection_target() {
-    let (_, _, engine, stack) = new_engine_helper(fs::fixtures().join("external_completions"));
+    let (_, _, engine, stack) = new_engine_helper(
+        FIXTURES
+            .join("external_completions")
+            .try_into()
+            .expect("fixtures is absolute"),
+    );
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
     let expected = vec!["`dir with space/bar baz`", "`dir with space/foo`"];

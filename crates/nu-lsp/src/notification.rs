@@ -152,7 +152,7 @@ mod tests {
     };
     use assert_json_diff::assert_json_eq;
     use lsp_types::Range;
-    use nu_test_support::fs::fixtures;
+    use nu_test_support::prelude::*;
     use rstest::rstest;
 
     #[rstest]
@@ -179,7 +179,7 @@ hello",
     fn hover_on_command_after_content_change(#[case] text: String, #[case] range: Option<Range>) {
         let (client_connection, _recv) = initialize_language_server(None, None);
 
-        let mut script = fixtures();
+        let mut script = FIXTURES.clone();
         script.push("lsp/hover/command.nu");
         let script = path_to_uri(&script);
 
@@ -202,7 +202,7 @@ hello",
     fn open_document_with_utf_char() {
         let (client_connection, _recv) = initialize_language_server(None, None);
 
-        let mut script = fixtures();
+        let mut script = FIXTURES.clone();
         script.push("lsp/notifications/issue_11522.nu");
         let script = path_to_uri(&script);
 

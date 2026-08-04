@@ -249,7 +249,7 @@ mod tests {
         TextDocumentIdentifier, Uri, WorkDoneProgressParams,
         request::{Request, SignatureHelpRequest},
     };
-    use nu_test_support::fs::fixtures;
+    use nu_test_support::prelude::*;
     use rstest::rstest;
 
     fn send_signature_help_request(
@@ -382,7 +382,7 @@ mod tests {
     ) {
         let (client_connection, _recv) = initialize_language_server(config, None);
 
-        let mut script = fixtures();
+        let mut script = FIXTURES.clone();
         script.push("lsp/hints/signature.nu");
         let script = path_to_uri(&script);
 

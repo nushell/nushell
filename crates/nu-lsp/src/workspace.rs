@@ -570,7 +570,7 @@ mod tests {
         ReferenceParams, RenameParams, TextDocumentIdentifier, TextDocumentPositionParams, Uri,
         WorkDoneProgressParams, WorkspaceFolder, request, request::Request,
     };
-    use nu_test_support::fs::fixtures;
+    use nu_test_support::prelude::*;
     use rstest::rstest;
 
     // Helper functions to reduce JSON duplication
@@ -761,7 +761,7 @@ mod tests {
             None,
             Some(serde_json::json!({ "workspaceFolders": serde_json::Value::Null })),
         );
-        let mut script = fixtures();
+        let mut script = FIXTURES.clone();
         script.push("lsp/workspace/foo.nu");
         let script = path_to_uri(&script);
 
@@ -809,7 +809,7 @@ mod tests {
         #[case] with_workspace_folder: bool,
         #[case] expected_refs: Vec<serde_json::Value>,
     ) {
-        let mut script = fixtures();
+        let mut script = FIXTURES.clone();
         script.push("lsp/workspace");
         let (client_connection, _recv) = initialize_language_server(
             None,
@@ -910,7 +910,7 @@ mod tests {
         #[case] expected_prepare: serde_json::Value,
         #[case] expected_changes: Vec<(&str, Vec<serde_json::Value>)>,
     ) {
-        let mut script = fixtures();
+        let mut script = FIXTURES.clone();
         script.push("lsp/workspace");
         let (client_connection, _recv) = initialize_language_server(
             None,
@@ -982,7 +982,7 @@ mod tests {
 
     #[test]
     fn rename_cancelled() {
-        let mut script = fixtures();
+        let mut script = FIXTURES.clone();
         script.push("lsp/workspace");
         let (client_connection, _recv) = initialize_language_server(
             None,
@@ -1056,7 +1056,7 @@ mod tests {
 
     #[test]
     fn existence_of_module_block() {
-        let mut script_path = fixtures();
+        let mut script_path = FIXTURES.clone();
         script_path.push("lsp");
         script_path.push("workspace");
         let mut engine_state = nu_cmd_lang::create_default_context();
@@ -1122,10 +1122,10 @@ mod tests {
         #[case] cursor_position: (u32, u32),
         #[case] expected: serde_json::Value,
     ) {
-        let mut script = fixtures();
+        let mut script = FIXTURES.clone();
         script.push("lsp");
         script.push(filename);
-        let script = path_to_uri(&script);
+        let script = path_to_uri(script);
 
         let (client_connection, _recv) = initialize_language_server(None, None);
         open_unchecked(&client_connection, script.clone());
