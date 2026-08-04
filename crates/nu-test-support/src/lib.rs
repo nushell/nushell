@@ -627,9 +627,6 @@ pub mod prelude {
 // Expose macros to be used for the test harness.
 pub use harness::macros::*;
 
-// Needs to be reexported for `nu!` macro
-pub use nu_path;
-
 // Export json macro to allow writing json values easily.
 #[doc(no_inline)]
 pub use serde_json::json;
