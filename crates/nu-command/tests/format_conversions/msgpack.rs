@@ -5,7 +5,7 @@ use nu_test_support::prelude::*;
 use pretty_assertions::assert_eq;
 
 static GENERATE: LazyLock<PathBuf> = LazyLock::new(|| {
-    nu_test_support::fs::fixtures()
+    FIXTURES
         .join("formats")
         .join("msgpack")
         .join("generate.nu")
@@ -119,7 +119,7 @@ fn sample() -> Result {
 
 #[test]
 fn sample_roundtrip() -> Result {
-    let path_to_sample_nuon = nu_test_support::fs::fixtures()
+    let path_to_sample_nuon = FIXTURES
         .join("formats")
         .join("msgpack")
         .join("sample.nuon");

@@ -4,6 +4,7 @@ use rstest::rstest;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
+use nu_test_support::prelude::*;
 
 fn txt(text: String) -> String {
     let out = text;
@@ -38,7 +39,7 @@ fn assert_rstest_finds_assets(#[files("../../tests/assets/nu_json/*")] rstest_su
 
     assert_eq!(
         fs::canonicalize(supplied_dir).unwrap(),
-        fs::canonicalize(nu_test_support::fs::assets().join("nu_json")).unwrap()
+        fs::canonicalize(ASSETS.join("nu_json")).unwrap()
     );
 }
 

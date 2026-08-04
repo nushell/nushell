@@ -614,7 +614,7 @@ pub mod prelude {
         assertions::*,
         harness::deps::*,
         playground::Playground,
-        tester::{Result, ShellErrorExt, TestError as Error, TestResultExt, WORKSPACE_ROOT, test},
+        tester::{Result, ShellErrorExt, TestError as Error, TestResultExt, WORKSPACE_ROOT, FIXTURES, ASSETS, test},
         value_types::*,
     };
 

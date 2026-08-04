@@ -36,6 +36,14 @@ pub static WORKSPACE_ROOT: LazyLock<PathBuf> = LazyLock::new(|| {
         .expect("could not absolutize root")
 });
 
+/// Test fixtures.
+pub static FIXTURES: LazyLock<PathBuf> =
+    LazyLock::new(|| WORKSPACE_ROOT.join("tests").join("fixtures"));
+
+/// Test assets.
+pub static ASSETS: LazyLock<PathBuf> =
+    LazyLock::new(|| WORKSPACE_ROOT.join("tests").join("assets"));
+
 // By using different engine states depending on the group key, we can ensure that behavior from
 // experimental options or environment variables take proper effect in the setup of an engine state.
 static INITIAL_ENGINE_STATES: KeyedLazyLock<GroupKey, EngineState> = KeyedLazyLock::new(|_| {
@@ -423,25 +431,6 @@ impl NuTester {
             .inherit_env_if_set("http_proxy")
             .inherit_env_if_set("https_proxy")
             .inherit_env_if_set("no_proxy")
-    }
-
-    /// Adds the "nu" binary for testing to the path.
-    ///
-    /// Calling [`inherit_path`](Self::inherit_path) after this methods removes the path entry.
-    #[deprecated(note = "use `#[deps(NU)]` instead")]
-    pub fn add_nu_to_path(self) -> Self {
-        let nu_home = crate::fs::binaries();
-        let path = self.engine_state.get_env_var("PATH");
-        let path = match path {
-            None => nu_home.display().to_string(),
-            Some(path) => format!(
-                "{nu}{sep}{prev}",
-                nu = nu_home.display(),
-                sep = ENV_PATH_SEPARATOR_CHAR,
-                prev = path.as_str().expect("PATH should always be a string")
-            ),
-        };
-        self.env("PATH", path)
     }
 
     /// Add a custom environment variable to the engine state.

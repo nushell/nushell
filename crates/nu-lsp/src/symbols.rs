@@ -310,7 +310,7 @@ mod tests {
         WorkDoneProgressParams, WorkspaceSymbolParams,
         request::{DocumentSymbolRequest, Request, WorkspaceSymbolRequest},
     };
-    use nu_test_support::fs::fixtures;
+    use nu_test_support::prelude::*;
     use rstest::rstest;
 
     fn create_position(line: u32, character: u32) -> serde_json::Value {
@@ -428,7 +428,7 @@ mod tests {
     ) {
         let (client_connection, _recv) = initialize_language_server(None, None);
 
-        let mut script = fixtures();
+        let mut script = FIXTURES.clone();
         script.push("lsp/symbols");
         script.push(filename);
         let script = path_to_uri(&script);
@@ -465,11 +465,11 @@ mod tests {
     fn workspace_symbol_request(#[case] query: &str, #[case] mut expected: serde_json::Value) {
         let (client_connection, _recv) = initialize_language_server(None, None);
 
-        let mut script_foo = fixtures();
+        let mut script_foo = FIXTURES.clone();
         script_foo.push("lsp/symbols/foo.nu");
         let script_foo = path_to_uri(&script_foo);
 
-        let mut script_bar = fixtures();
+        let mut script_bar = FIXTURES.clone();
         script_bar.push("lsp/symbols/bar.nu");
         let script_bar = path_to_uri(&script_bar);
 

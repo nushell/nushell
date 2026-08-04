@@ -208,7 +208,7 @@ mod tests {
         TextDocumentPositionParams, Uri, WorkDoneProgressParams,
         request::{Completion, Request},
     };
-    use nu_test_support::fs::fixtures;
+    use nu_test_support::prelude::*;
     use rstest::rstest;
 
     fn send_complete_request(
@@ -569,7 +569,7 @@ mod tests {
     ) {
         let (client_connection, _recv) = initialize_language_server(config, None);
 
-        let mut script = fixtures();
+        let mut script = FIXTURES.clone();
         script.push("lsp/completion");
         script.push(filename);
         let script = path_to_uri(&script);

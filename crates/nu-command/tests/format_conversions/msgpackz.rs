@@ -3,7 +3,7 @@ use pretty_assertions::assert_eq;
 
 #[test]
 fn sample_roundtrip() -> Result {
-    let path_to_sample_nuon = nu_test_support::fs::fixtures()
+    let path_to_sample_nuon = FIXTURES
         .join("formats")
         .join("msgpack")
         .join("sample.nuon");
