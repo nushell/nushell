@@ -457,7 +457,14 @@ pub fn adjust_if_intermediate(
 
     // A difference of 1 because of the cursor's unicode code point in between.
     // Using .chars().count() because unicode and Windows.
-    let readjusted = span_contents.chars().count() - prefix.chars().count() > 1;
+    // Saturating: the prefix runs to the cursor while the span need not reach it (`ls |
+    // where ⌶` resolves to the `where` token, with the gap after it still in the prefix),
+    // and there is nothing to readjust when the prefix is the longer of the two.
+    let readjusted = span_contents
+        .chars()
+        .count()
+        .saturating_sub(prefix.chars().count())
+        > 1;
     if readjusted {
         let remnant: String = span_contents
             .chars()

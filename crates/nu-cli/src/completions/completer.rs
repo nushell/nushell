@@ -8,8 +8,8 @@ use crate::completions::{
 use lru::LruCache;
 use nu_parser::{parse, parse_shorter_head_reading};
 use nu_protocol::{
-    BuiltinCompletion, CommandWideCompleter, Completion, DeclId, Flag, IntoValue, Record,
-    Signature, Span, SuggestionKind, Value,
+    BlockId, BuiltinCompletion, CommandWideCompleter, Completion, DeclId, Flag, Record, Signature,
+    Span, SuggestionKind, Value,
     ast::{
         Argument, AttributeBlock, Block, Call, Expr, Expression, ExternalArgument, FlagRef,
         FullCellPath, PipelineRedirection, RedirectionTarget, Traverse,
@@ -32,7 +32,7 @@ const DEFAULT_CACHE_SIZE: usize = 100;
 
 use super::{
     StaticCompletion,
-    custom_completions::{UserCompletion, completer_input},
+    custom_completions::{InputShape, UserCompletion, completer_input},
 };
 
 fn find_pipeline_element_by_position<'a>(
@@ -100,14 +100,101 @@ pub(crate) fn touches(span: Span, position: usize) -> bool {
     span.contains(position) || span.end == position
 }
 
-/// The last element when the cursor trails it over whitespace only (`ls ⌶`); other gaps
-/// fall through to [`CompletionEngine::resolve_fallback_site`].
+/// The block a nesting expression runs.
+fn nested_block(expr: &Expression) -> Option<BlockId> {
+    match expr.expr {
+        Expr::RowCondition(block_id)
+        | Expr::Subexpression(block_id)
+        | Expr::Block(block_id)
+        | Expr::Closure(block_id) => Some(block_id),
+        _ => None,
+    }
+}
+
+/// The block the cursor descends into from `element`, and its span.
+fn descent_from<'a>(
+    element: &'a Expression,
+    working_set: &'a StateWorkingSet,
+    pos: usize,
+) -> Option<(BlockId, Span)> {
+    element.find_map(working_set, &|expr: &'a Expression| {
+        if !touches(expr.span, pos) {
+            // Skip this subtree; the caller keeps searching its siblings.
+            return ControlFlow::Break(None);
+        }
+        match nested_block(expr) {
+            Some(block_id) => ControlFlow::Break(Some((block_id, expr.span))),
+            None => ControlFlow::Continue(()),
+        }
+    })
+}
+
+/// The element the cursor is on; a trailing gap belongs to the last.
+fn element_at<'a>(
+    block: &'a Block,
+    working_set: &StateWorkingSet,
+    pos: usize,
+) -> Option<&'a Expression> {
+    block
+        .pipelines
+        .iter()
+        .flat_map(|pipeline| &pipeline.elements)
+        .map(|element| &element.expr)
+        .find(|expr| touches(expr.span, pos))
+        .or_else(|| trailing_gap_element(block, working_set, pos))
+}
+
+/// The elements enclosing the cursor, outermost first.
+fn enclosing_elements<'a>(
+    block: &'a Block,
+    working_set: &'a StateWorkingSet,
+    pos: usize,
+) -> Vec<(&'a Expression, Option<Span>)> {
+    let mut chain = Vec::new();
+    let mut block = block;
+
+    while let Some(element) = element_at(block, working_set, pos) {
+        let descent = descent_from(element, working_set, pos);
+        chain.push((element, descent.map(|(_, span)| span)));
+
+        let Some((block_id, _)) = descent else { break };
+        block = working_set.get_block(block_id);
+    }
+
+    chain
+}
+
+/// The expression the cursor completes; a strictly inner chain element beats the search.
+fn innermost_expression<'a>(
+    found: Option<&'a Expression>,
+    chain: &[(&'a Expression, Option<Span>)],
+) -> Option<&'a Expression> {
+    let innermost = chain.last().map(|&(element, _)| element);
+    let (Some(outer), Some(inner)) = (found, innermost) else {
+        return found.or(innermost);
+    };
+
+    let strictly_inside = outer.span.start <= inner.span.start
+        && inner.span.end <= outer.span.end
+        && inner.span != outer.span;
+
+    Some(if strictly_inside { inner } else { outer })
+}
+
+/// The last element when the cursor trails it over whitespace.
 fn trailing_gap_element<'a>(
     block: &'a Block,
     working_set: &StateWorkingSet,
     absolute_position: usize,
 ) -> Option<&'a Expression> {
     let expression = &block.pipelines.last()?.elements.last()?.expr;
+
+    // The element can end past the cursor (whole files, later statements); a backwards
+    // span would panic.
+    if expression.span.end > absolute_position {
+        return None;
+    }
+
     let gap = working_set.get_span_contents(Span::new(expression.span.end, absolute_position));
     gap.iter()
         .all(u8::is_ascii_whitespace)
@@ -497,8 +584,7 @@ pub(crate) enum SiteKind<'a> {
         flag: FlagRef<'a>,
         arg_slot: usize,
     },
-    /// A positional argument; `sig_positional` indexes the signature, `arg_slot`
-    /// indexes `call.arguments`.
+    /// A positional argument; `sig_positional` indexes the signature.
     Positional {
         call: &'a Call,
         element: &'a Expression,
@@ -527,22 +613,22 @@ impl<'a> SiteKind<'a> {
         Self::Command { node: Some(node) }
     }
 
-    /// Project to the structured description handed to user completers as `$input.site`.
-    fn site(&self) -> Site<'a> {
+    /// The [`ResolvedCursor`] a user completer sees.
+    fn resolved(&self) -> ResolvedCursor<'a> {
         match *self {
-            Self::Command { .. } => Site::Command,
-            Self::FlagName { .. } => Site::FlagName,
-            Self::FlagValue { flag, .. } => Site::FlagValue { flag: flag.name() },
-            Self::Positional { sig_positional, .. } => Site::Positional {
+            Self::Command { .. } => ResolvedCursor::Command,
+            Self::FlagName { .. } => ResolvedCursor::FlagName,
+            Self::FlagValue { flag, .. } => ResolvedCursor::FlagValue { flag: flag.name() },
+            Self::Positional { sig_positional, .. } => ResolvedCursor::Positional {
                 index: sig_positional,
             },
-            Self::Operator { .. } => Site::Operator,
-            Self::CellPath { .. } => Site::CellPath,
-            Self::Variable => Site::Variable,
-            Self::AttributeName => Site::AttributeName,
-            Self::AttributableItem => Site::AttributableItem,
-            Self::ExternalArg { index, .. } => Site::ExternalArg { index },
-            Self::File => Site::File,
+            Self::Operator { .. } => ResolvedCursor::Operator,
+            Self::CellPath { .. } => ResolvedCursor::CellPath,
+            Self::Variable => ResolvedCursor::Variable,
+            Self::AttributeName => ResolvedCursor::AttributeName,
+            Self::AttributableItem => ResolvedCursor::AttributableItem,
+            Self::ExternalArg { index, .. } => ResolvedCursor::ExternalArg { index },
+            Self::File => ResolvedCursor::File,
         }
     }
 
@@ -559,11 +645,9 @@ impl<'a> SiteKind<'a> {
     }
 }
 
-/// What the cursor is completing, as a completer sees it (`$input.site`). The engine's
-/// own parse, so a completer branches on structure instead of re-tokenizing
-/// `$input.tokens`.
+/// What the cursor completes, as a user completer sees it in `cursor.kind`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Site<'a> {
+pub(crate) enum ResolvedCursor<'a> {
     /// A command head.
     Command,
     /// A flag name.
@@ -588,8 +672,8 @@ pub(crate) enum Site<'a> {
     File,
 }
 
-impl Site<'_> {
-    /// The kebab-case discriminant a completer reads as `$input.site.kind`.
+impl ResolvedCursor<'_> {
+    /// The `cursor.kind` discriminant.
     fn kind(&self) -> &'static str {
         match self {
             Self::Command => "command",
@@ -605,10 +689,9 @@ impl Site<'_> {
             Self::File => "file",
         }
     }
-}
 
-impl IntoValue for Site<'_> {
-    fn into_value(self, span: Span) -> Value {
+    /// The record a completer's `cursor` gets; the caller adds `token`/`byte`.
+    pub(crate) fn into_record(self, span: Span) -> Record {
         let mut record = Record::new();
         record.insert("kind", Value::string(self.kind(), span));
 
@@ -620,13 +703,22 @@ impl IntoValue for Site<'_> {
             _ => None,
         };
 
-        Value::record(record, span)
+        record
     }
 }
 
-/// A fully resolved completion site: span, typed prefix, cursor, and [`SiteKind`].
-/// `typed_prefix`/`cursor` are filled centrally in [`CompletionEngine::finalize_site`] so
-/// they can never disagree with the span.
+/// One nesting level the cursor lives in, as a completer sees it.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct CompletionContext<'a> {
+    /// What the cursor completes at this level.
+    pub cursor: ResolvedCursor<'a>,
+    /// The element this level is; the source of its tokens.
+    pub element: Option<&'a Expression>,
+    /// The nesting expression the cursor descends into (all but the last level).
+    pub descent: Option<Span>,
+}
+
+/// A resolved completion site: kind, span, typed prefix, cursor, and enclosing contexts.
 #[derive(Debug, Clone)]
 pub(crate) struct CompletionSite<'a> {
     pub kind: SiteKind<'a>,
@@ -634,17 +726,28 @@ pub(crate) struct CompletionSite<'a> {
     pub typed_prefix: Cow<'a, str>,
     /// The cursor, in absolute working-set (span) coordinates.
     pub cursor: usize,
+    /// Enclosing contexts, outermost first; empty until resolved.
+    pub contexts: Vec<CompletionContext<'a>>,
 }
 
 impl<'a> CompletionSite<'a> {
-    /// A site with the given kind and span; prefix/cursor are filled later by
-    /// [`CompletionEngine::finalize_site`].
+    /// A site with just its kind and span; the rest is filled in later.
     fn new(kind: SiteKind<'a>, span: Span) -> Self {
         Self {
             kind,
             span,
             typed_prefix: Cow::Borrowed(""),
             cursor: 0,
+            contexts: Vec::new(),
+        }
+    }
+
+    /// This site as its own single context.
+    fn own_context(&self) -> CompletionContext<'a> {
+        CompletionContext {
+            cursor: self.kind.resolved(),
+            element: self.kind.element(),
+            descent: None,
         }
     }
 }
@@ -707,10 +810,8 @@ pub(crate) struct Context<'a> {
     pub offset: usize,
     /// The commandline up to the cursor. See [`Buffer`].
     pub buffer: &'a str,
-    /// What the cursor is completing, handed to user completers as `$input.site`.
-    pub site: Site<'a>,
-    /// The pipeline element the cursor is on; the source of `$input.tokens`.
-    pub element: Option<&'a Expression>,
+    /// The nesting levels the cursor lives in, as `$input.contexts`.
+    pub contexts: &'a [CompletionContext<'a>],
 }
 
 impl<'a> Context<'a> {
@@ -718,10 +819,9 @@ impl<'a> Context<'a> {
         String::from_utf8_lossy(self.prefix)
     }
 
-    /// Attach a resolved completion site, which user completers read as `$input.site`/`$input.tokens`.
-    fn at_site(mut self, site: &CompletionSite<'a>) -> Self {
-        self.site = site.kind.site();
-        self.element = site.kind.element();
+    /// Attach a resolved site, read by user completers as `$input.contexts`.
+    fn at_site(mut self, site: &'a CompletionSite<'a>) -> Self {
+        self.contexts = &site.contexts;
         self
     }
 }
@@ -761,10 +861,8 @@ impl<'engine> CompletionEngine<'engine> {
         self.dispatch_completions_at(line, position).suggestions
     }
 
-    /// The record a user completer would receive, without running one. `commandline
-    /// complete --input` returns it verbatim, so a completer can be developed from inside
-    /// Nushell; menus use it for parse-derived fields.
-    pub fn completer_input_at(&self, line: &str, position: usize) -> Value {
+    /// The record a user completer would receive, without running one.
+    pub fn completer_input_at(&self, line: &str, position: usize, shape: InputShape) -> Value {
         let cursor = line.floor_char_boundary(position.min(line.len()));
         let sliced_line = &line[..cursor];
 
@@ -792,6 +890,7 @@ impl<'engine> CompletionEngine<'engine> {
                     site.typed_prefix.as_bytes(),
                 )
                 .at_site(&site),
+            shape,
         )
     }
 
@@ -891,7 +990,7 @@ impl<'engine> CompletionEngine<'engine> {
             return Dispatched::default();
         };
 
-        let shorter_site = self.finalize_site(
+        let mut shorter_site = self.finalize_site(
             self.resolve_expression_site(&shorter, site.cursor, &parse_ws),
             buffer,
             contents,
@@ -900,6 +999,9 @@ impl<'engine> CompletionEngine<'engine> {
         if matches!(shorter_site.kind, SiteKind::Command { .. }) {
             return Dispatched::default();
         }
+
+        // A single-expression re-parse has no enclosing chain.
+        shorter_site.contexts = vec![shorter_site.own_context()];
 
         let mut dispatched = self.dispatch_completion_site(&shorter_site, &parse_ws, buffer);
         // Keep only the argument value; drop command-kind results.
@@ -912,7 +1014,7 @@ impl<'engine> CompletionEngine<'engine> {
     /// Dispatch the site to the appropriate specialized completer.
     fn dispatch_completion_site<'a>(
         &'a self,
-        site: &CompletionSite<'a>,
+        site: &'a CompletionSite<'a>,
         working_set: &'a StateWorkingSet,
         buffer: Buffer<'a>,
     ) -> Dispatched {
@@ -1115,23 +1217,105 @@ impl<'engine> CompletionEngine<'engine> {
     ) -> CompletionSite<'a> {
         let absolute_position = buffer.cursor() + buffer.offset;
 
+        // The closures and subexpressions the cursor is nested in, outermost first.
+        let chain = enclosing_elements(block, working_set, absolute_position);
+
         // The token whose span the cursor is inside of, or at the trailing edge of.
         let touched_expression = block
             .find_map(working_set, &|expression: &Expression| {
                 find_pipeline_element_by_position(expression, working_set, absolute_position)
             })
-            .or_else(|| check_redirection_in_block(block, absolute_position))
-            // Or the cursor is in a whitespace gap trailing the element.
-            .or_else(|| trailing_gap_element(block, working_set, absolute_position));
+            .or_else(|| check_redirection_in_block(block, absolute_position));
 
-        let site = match touched_expression {
-            Some(expression) => {
-                self.resolve_expression_site(expression, absolute_position, working_set)
+        // A nesting expression the chain descended into and found nothing in (`each { ⌶`).
+        // Only the last entry can carry this: once an element inside is reached, that
+        // element becomes the last entry and carries its own descent. The cursor is then at
+        // a fresh command position in that block, not an argument of the command around it.
+        let empty_block = chain
+            .last()
+            .and_then(|&(_, descent)| descent)
+            .filter(|descent| {
+                // Unless the search reached strictly inside it after all. A redirection
+                // target is no pipeline element, so the chain steps over it while the search
+                // finds it. Equal spans mean the search stopped at the nesting expression
+                // itself, which is the empty-block case rather than an exception to it.
+                !touched_expression.is_some_and(|found| {
+                    descent.start <= found.span.start
+                        && found.span.end <= descent.end
+                        && found.span != *descent
+                })
+            })
+            .is_some();
+
+        let mut site = if empty_block {
+            CompletionSite::new(
+                SiteKind::Command { node: None },
+                Span::point(absolute_position),
+            )
+        } else {
+            match innermost_expression(touched_expression, &chain) {
+                Some(expression) => {
+                    self.resolve_expression_site(expression, absolute_position, working_set)
+                }
+                None => self.resolve_fallback_site(block, working_set, absolute_position),
             }
-            None => self.resolve_fallback_site(block, working_set, absolute_position),
         };
 
+        site.contexts =
+            self.contexts_of(&chain, working_set, absolute_position, &site, empty_block);
         self.finalize_site(site, buffer, contents)
+    }
+
+    /// The chain of contexts the cursor lives in, outermost first. `site` supplies the
+    /// innermost one, so it stays the resolution the dispatcher itself acts on rather than
+    /// a second, possibly disagreeing, reading of the same position.
+    fn contexts_of<'a>(
+        &self,
+        chain: &[(&'a Expression, Option<Span>)],
+        working_set: &'a StateWorkingSet,
+        absolute_position: usize,
+        site: &CompletionSite<'a>,
+        empty_block: bool,
+    ) -> Vec<CompletionContext<'a>> {
+        // Where the site's own element sits in the chain; everything before it encloses it.
+        // A kind carrying no element (a bare `$var`, a cell path) belongs to the element the
+        // chain walked to, which is its last. An empty block encloses no element at all, so
+        // the whole chain is ancestors and the innermost context has nothing to flatten.
+        let innermost = if empty_block {
+            chain.len()
+        } else {
+            site.kind
+                .element()
+                .and_then(|element| {
+                    chain
+                        .iter()
+                        .position(|(candidate, _)| std::ptr::eq(*candidate, element))
+                })
+                .unwrap_or_else(|| chain.len().saturating_sub(1))
+        };
+
+        let mut contexts: Vec<_> = chain
+            .iter()
+            .take(innermost)
+            .map(|&(element, descent)| CompletionContext {
+                cursor: self
+                    .resolve_expression_site(element, absolute_position, working_set)
+                    .kind
+                    .resolved(),
+                element: Some(element),
+                descent,
+            })
+            .collect();
+
+        contexts.push(CompletionContext {
+            element: site
+                .kind
+                .element()
+                .or_else(|| chain.get(innermost).map(|&(element, _)| element)),
+            ..site.own_context()
+        });
+
+        contexts
     }
 
     /// Fill `typed_prefix`/`cursor` from the final span so they never disagree.
@@ -1686,9 +1870,8 @@ impl<'engine> CompletionEngine<'engine> {
             prefix,
             offset: buffer.offset,
             buffer: buffer.text,
-            // Base site; `Context::at_site` replaces it once resolved.
-            site: Site::File,
-            element: None,
+            // No site resolved yet; `Context::at_site` fills the chain in.
+            contexts: &[],
         }
     }
 }

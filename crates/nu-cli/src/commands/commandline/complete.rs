@@ -4,7 +4,8 @@ use nu_engine::command_prelude::*;
 use nu_protocol::FromValue;
 
 use crate::completions::{
-    Buffer, Completer, CompletionEngine, DirectoryCompletion, FileCompletion, SemanticSuggestion,
+    Buffer, Completer, CompletionEngine, DirectoryCompletion, FileCompletion, InputShape,
+    SemanticSuggestion,
 };
 
 #[derive(Debug, Clone, FromValue)]
@@ -55,6 +56,13 @@ impl Command for CommandlineComplete {
                 "Output the record a completer would receive here, instead of completions.",
                 Some('i'),
             )
+            .switch(
+                "input-full",
+                "Like --input, but the record a completer declaring `--full` receives: the \
+                 closures and subexpressions the cursor is nested in, rather than just the \
+                 token it is on.",
+                None,
+            )
             .param(
                 Flag::new("type")
                     .arg(SyntaxShape::String)
@@ -74,7 +82,7 @@ Completions will be provided as if the cursor is placed at the end of the given 
 
 If no input is provided, the current commandline contents will be used instead.
 
-With --input, the record a completer would receive at that position is returned instead of
+With --input (or --input-full), the record a completer would receive at that position is returned instead of
 completions, which is the supported way to develop and test a completer from inside Nushell."
     }
 
@@ -98,21 +106,27 @@ completions, which is the supported way to develop and test a completer from ins
 
         let is_detailed = call.has_flag(engine_state, stack, "detailed")?;
 
-        // `--input` returns the site, not completions; reject flags that shape output.
-        if call.has_flag(engine_state, stack, "input")? {
+        // Either input flag returns the completer's input, not completions; reject the flags
+        // that shape output.
+        let full = call.has_flag(engine_state, stack, "input-full")?;
+        let asked_for = if full { "input-full" } else { "input" };
+
+        if full || call.has_flag(engine_state, stack, "input")? {
             for conflicting in ["detailed", "type"] {
                 if let Some(span) = call.get_flag_span(stack, conflicting) {
                     return Err(ShellError::IncompatibleParameters {
-                        left_message: "cannot be used with --input".into(),
+                        left_message: format!("cannot be used with --{asked_for}"),
                         left_span: span,
-                        right_message: "--input returns the completer's input record".into(),
-                        right_span: call.get_flag_span(stack, "input").unwrap_or(head_span),
+                        right_message: format!(
+                            "--{asked_for} returns the completer's input record"
+                        ),
+                        right_span: call.get_flag_span(stack, asked_for).unwrap_or(head_span),
                     });
                 }
             }
 
             return Ok(CompletionEngine::new(engine_state, stack)
-                .completer_input_at(&buffer, cursor_position)
+                .completer_input_at(&buffer, cursor_position, InputShape::from_full(full))
                 .into_pipeline_data());
         }
 
@@ -189,7 +203,7 @@ completions, which is the supported way to develop and test a completer from ins
             },
             Example {
                 description: "Inspect what a completer would be handed at the cursor.",
-                example: "'git checkout ma' | commandline complete --input | get site",
+                example: "'git checkout ma' | commandline complete --input | get place.cursor",
                 result: None,
             },
         ]
