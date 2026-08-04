@@ -1138,6 +1138,7 @@ impl EngineState {
         self.pipeline_externals_state = Arc::new((AtomicU32::new(0), AtomicU32::new(0)));
         self.repl_state = Default::default();
         self.report_log = Default::default();
+        self.prompt_state = Arc::new(PromptState::new());
         self.jobs = Default::default();
         self.current_job = CurrentJob {
             id: JobId::new(0),
