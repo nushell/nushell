@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Check if there is already a bot comment
-      uses: peter-evans/find-comment@v4
+      uses: peter-evans/find-comment@b30e6a3c0ed37e7c023ccd3f1db5c6c0b0c23aad # v4.0.0
       id: fc
       with:
         issue-number: ${{ github.event.pull_request.number }}
@@ -16,7 +16,7 @@ jobs:
         body-includes: Hey, just a bot checking in!
     - name: Create comment if there is not
       if: steps.fc.outputs.comment-id == ''
-      uses: peter-evans/create-or-update-comment@v5
+      uses: peter-evans/create-or-update-comment@e8674b075228eee787fea43ef493e45ece1004c9 # v5.0.0
       with:
         issue-number: ${{ github.event.pull_request.number }}
         body: |
