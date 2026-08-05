@@ -119,7 +119,7 @@ fn convert_to_suggestions(value: Value, default: reedline::Span, cursor: usize) 
     };
 
     map_value_completions(
-        returned.completions.iter(),
+        returned.completions.into_iter(),
         default,
         SpanClamp::upto(cursor),
     )

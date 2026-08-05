@@ -1252,41 +1252,36 @@ impl<'engine> CompletionEngine<'engine> {
         absolute_position: usize,
         site: &CompletionSite<'a>,
     ) -> Vec<CompletionContext<'a>> {
-        // Where the site's own element sits in the chain; everything before it encloses it.
-        // A kind carrying no element (a bare `$var`, a cell path) belongs to the element the
-        // chain walked to, which is its last.
-        let innermost = site
-            .kind
-            .element()
-            .and_then(|element| {
+        let target_element = site.kind.element();
+
+        // Locate the target element's index or default to the final index safely.
+        let innermost_index = target_element
+            .and_then(|target| {
                 chain
                     .iter()
-                    .position(|(candidate, _)| std::ptr::eq(*candidate, element))
+                    .position(|(candidate, _)| std::ptr::eq(*candidate, target))
             })
             .unwrap_or_else(|| chain.len().saturating_sub(1));
 
-        let mut contexts: Vec<_> = chain
+        chain[..innermost_index]
             .iter()
-            .take(innermost)
-            .map(|&(element, descent)| CompletionContext {
+            .map(|&(expression, descent)| CompletionContext {
                 cursor: self
-                    .resolve_expression_site(element, absolute_position, working_set)
+                    .resolve_expression_site(expression, absolute_position, working_set)
                     .kind
                     .resolved(),
-                element: Some(element),
+                element: Some(expression),
                 descent,
             })
-            .collect();
-
-        contexts.push(CompletionContext {
-            element: site
-                .kind
-                .element()
-                .or_else(|| chain.get(innermost).map(|&(element, _)| element)),
-            ..site.own_context()
-        });
-
-        contexts
+            .chain(std::iter::once(CompletionContext {
+                element: target_element.or_else(|| {
+                    chain
+                        .get(innermost_index)
+                        .map(|&(expression, _)| expression)
+                }),
+                ..site.own_context()
+            }))
+            .collect()
     }
 
     /// Fill `typed_prefix`/`cursor` from the final span so they never disagree.
