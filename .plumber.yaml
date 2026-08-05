@@ -1,0 +1,33 @@
+# Plumber overlay: inherits every control from the CLI's built-in
+# baseline, only the differences for this repo are written here.
+# Run 'plumber config resolve' to see the full effective config.
+extends: plumber:default
+version: '2.0'
+
+github:
+  controls:
+    githubActionMustComeFromAuthorizedSources:
+      # Keep the curated default list and trust the Rust ecosystem
+      # tooling and release actions this repo already uses on top of
+      # it, plus the actions maintained by a nushell core team member
+      # (hustcer).
+      includePlumberDefaults: true
+      trustedGithubActions:
+        - JasonEtco/create-an-issue
+        - Swatinem/rust-cache
+        - actions-rust-lang/setup-rust-toolchain
+        - crate-ci/typos
+        - hustcer/milestone-action
+        - hustcer/setup-nu
+        - rustsec/audit-check
+        - softprops/action-gh-release
+        - taiki-e/install-action
+        - vedantmgoyal2009/winget-releaser
+
+    # Off for now: the finding is rustup's own install script
+    # (sh.rustup.rs piped to sh) inside setup-rust-toolchain, the
+    # standard way every Rust CI bootstraps a toolchain. Flagging it
+    # here is noise until the ecosystem offers a checksummed install
+    # path.
+    actionsMustNotExecuteMutableRemoteCode:
+      enabled: false

@@ -6,6 +6,7 @@
 [![The Changelog #363](https://img.shields.io/badge/The%20Changelog-%23363-61c192.svg)](https://changelog.com/podcast/363)
 [![GitHub commit activity](https://img.shields.io/github/commit-activity/m/nushell/nushell)](https://github.com/nushell/nushell/graphs/commit-activity)
 [![GitHub contributors](https://img.shields.io/github/contributors/nushell/nushell)](https://github.com/nushell/nushell/graphs/contributors)
+[![Plumber Score](https://score.getplumber.io/github.com/nushell/nushell.svg)](https://score.getplumber.io/github.com/nushell/nushell)
 
 A new type of shell.
 
