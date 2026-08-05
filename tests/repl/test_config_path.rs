@@ -284,7 +284,12 @@ fn test_default_config_path() -> Result {
 
     let try_canonicalized = |p: PathBuf| {
         p.canonicalize()
-            .map(|c| c.strip_prefix(r"\\\\?\\").map(From::from).unwrap_or(c)) // windows!
+            .map(|c| {
+                c.to_str()
+                    .and_then(|s| s.strip_prefix(r"\\?\")) // windows!
+                    .map(From::from)
+                    .unwrap_or(c)
+            })
             .unwrap_or(p)
     };
 
