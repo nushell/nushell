@@ -282,37 +282,44 @@ fn test_default_config_path() -> Result {
     }
     tester.engine_state.generate_nu_constant();
 
+    let try_canonicalized = |p: PathBuf| {
+        p.canonicalize()
+            .ok() // windows!
+            .map(|c| c.strip_prefix(r"\\?\").map(From::from).unwrap_or(c))
+            .unwrap_or(p)
+    };
+
     let home = dirs.config_home.to_path_buf();
     tester
         .run("$nu.default-config-dir")
-        .expect_value_eq(home.canonicalize().unwrap_or(home.clone()))?;
+        .expect_value_eq(try_canonicalized(home.clone()))?;
 
     let config = dirs.config_file.to_path_buf();
     tester
         .run("$nu.config-path")
-        .expect_value_eq(config.canonicalize().unwrap_or(config))?;
+        .expect_value_eq(try_canonicalized(config))?;
 
     let environment = dirs.env_file.to_path_buf();
     tester
         .run("$nu.env-path")
-        .expect_value_eq(environment.canonicalize().unwrap_or(environment))?;
+        .expect_value_eq(try_canonicalized(environment))?;
 
     let history = home.join("history.txt");
     tester
         .run("$nu.history-path")
-        .expect_value_eq(history.canonicalize().unwrap_or(history))?;
+        .expect_value_eq(try_canonicalized(history))?;
 
     let login = home.join("login.nu");
     tester
         .run("$nu.loginshell-path")
-        .expect_value_eq(login.canonicalize().unwrap_or(login))?;
+        .expect_value_eq(try_canonicalized(login))?;
 
     #[cfg(feature = "plugin")]
     {
         let plugin = dirs.plugin_file.to_path_buf();
         tester
             .run("$nu.plugin-path")
-            .expect_value_eq(plugin.canonicalize().unwrap_or(plugin))?;
+            .expect_value_eq(try_canonicalized(plugin))?;
     }
 
     Ok(())
