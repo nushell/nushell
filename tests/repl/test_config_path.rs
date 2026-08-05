@@ -284,8 +284,7 @@ fn test_default_config_path() -> Result {
 
     let try_canonicalized = |p: PathBuf| {
         p.canonicalize()
-            .ok() // windows!
-            .map(|c| c.strip_prefix(r"\\?\").map(From::from).unwrap_or(c))
+            .map(|c| c.strip_prefix(r"\\?\").map(From::from).unwrap_or(c)) // windows!
             .unwrap_or(p)
     };
 
