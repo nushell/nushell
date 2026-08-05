@@ -23,14 +23,11 @@ fn test_update_prompt_with_osc133() {
         .env("PROMPT_MULTILINE_INDICATOR", "... ")
         .env("PWD", "/test");
     let config = tester.engine_state.get_config().clone();
-    let mut prompt = NushellPrompt::new();
 
-    update_prompt(
-        &config,
-        &tester.engine_state,
-        &mut tester.stack,
-        &mut prompt,
-    );
+    // Call the actual update_prompt function
+    update_prompt(&config, &tester.engine_state, &mut tester.stack);
+
+    let prompt = NushellPrompt::shared(tester.engine_state.prompt_state.clone());
 
     // Verify prompts were updated correctly
     let left = prompt.render_prompt_left();
@@ -49,15 +46,11 @@ fn test_update_prompt_with_osc133() {
 fn test_update_prompt_with_osc633() {
     let mut tester = test().env("PROMPT_COMMAND", "❯ ").env("PWD", "/test");
     let config = tester.engine_state.get_config().clone();
-    let mut prompt = NushellPrompt::new();
 
-    update_prompt(
-        &config,
-        &tester.engine_state,
-        &mut tester.stack,
-        &mut prompt,
-    );
+    // Call the actual update_prompt function
+    update_prompt(&config, &tester.engine_state, &mut tester.stack);
 
+    let prompt = NushellPrompt::shared(tester.engine_state.prompt_state.clone());
     let left = prompt.render_prompt_left();
 
     assert_eq!(left.as_ref(), "❯ ");
@@ -71,15 +64,10 @@ fn test_update_prompt_left_and_right() {
         .env("PROMPT_COMMAND_RIGHT", "~/code")
         .env("PWD", "/test");
     let config = tester.engine_state.get_config().clone();
-    let mut prompt = NushellPrompt::new();
 
-    update_prompt(
-        &config,
-        &tester.engine_state,
-        &mut tester.stack,
-        &mut prompt,
-    );
+    update_prompt(&config, &tester.engine_state, &mut tester.stack);
 
+    let prompt = NushellPrompt::shared(tester.engine_state.prompt_state.clone());
     let left = prompt.render_prompt_left();
     let right = prompt.render_prompt_right();
 
@@ -94,15 +82,10 @@ fn test_update_prompt_multiline() {
         .env("PROMPT_MULTILINE_INDICATOR", "... ")
         .env("PWD", "/test");
     let config = tester.engine_state.get_config().clone();
-    let mut prompt = NushellPrompt::new();
 
-    update_prompt(
-        &config,
-        &tester.engine_state,
-        &mut tester.stack,
-        &mut prompt,
-    );
+    update_prompt(&config, &tester.engine_state, &mut tester.stack);
 
+    let prompt = NushellPrompt::shared(tester.engine_state.prompt_state.clone());
     let multiline = prompt.render_prompt_multiline_indicator();
 
     assert_eq!(multiline.as_ref(), "... ");
@@ -113,16 +96,12 @@ fn test_update_prompt_multiline() {
 fn test_update_prompt_with_missing_vars() {
     let mut tester = test().env("PWD", "/test");
     let config = tester.engine_state.get_config().clone();
-    let mut prompt = NushellPrompt::new();
 
-    update_prompt(
-        &config,
-        &tester.engine_state,
-        &mut tester.stack,
-        &mut prompt,
-    );
+    // Call update_prompt without setting PROMPT_COMMAND env vars
+    update_prompt(&config, &tester.engine_state, &mut tester.stack);
 
     // Should still work, just with default/empty prompts
+    let prompt = NushellPrompt::shared(tester.engine_state.prompt_state.clone());
     let left = prompt.render_prompt_left();
     // Default behavior when PROMPT_COMMAND is not set - will have some content
     assert!(!left.as_ref().is_empty());
