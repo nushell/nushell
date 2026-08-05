@@ -9,6 +9,9 @@ on:
 
 name: continuous-integration
 
+permissions:
+  contents: read
+
 env:
   NU_LOG_LEVEL: DEBUG
   NU_TEST_SKIP_DEPS_BUILD: true

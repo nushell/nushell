@@ -12,6 +12,9 @@ on:
     # See: https://docs.github.com/en/actions/monitoring-and-troubleshooting-workflows/monitoring-workflows/notifications-for-workflow-runs
     - cron: '0 0 * * *'  # Runs daily at midnight UTC
 
+permissions:
+  contents: read
+
 env:
   NUSHELL_CARGO_PROFILE: ci
   NU_LOG_LEVEL: DEBUG

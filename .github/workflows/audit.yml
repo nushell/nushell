@@ -8,6 +8,9 @@ on:
     branches:
     - main
 
+permissions:
+  contents: read
+
 env:
   RUST_BACKTRACE: 1
   CARGO_TERM_COLOR: always
@@ -18,6 +21,12 @@ jobs:
     runs-on: ubuntu-latest
     # Prevent sudden announcement of a new advisory from failing ci:
     continue-on-error: true
+    permissions:
+      contents: read
+      # rustsec/audit-check documents these: a check run for the report,
+      # issues on scheduled-run findings.
+      checks: write
+      issues: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: taiki-e/install-action@cb33e69fad06166ca28a42b2575e4dadabf62ee8 # v2.85.8

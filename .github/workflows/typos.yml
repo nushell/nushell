@@ -1,6 +1,9 @@
 name: Typos
 on: [pull_request]
 
+permissions:
+  contents: read
+
 jobs:
   run:
     name: Spell Check with Typos

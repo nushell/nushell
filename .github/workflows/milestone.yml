@@ -9,6 +9,12 @@ on:
   pull_request_target:
     types: [closed]
 
+permissions:
+  # The milestone action binds merged PRs and closed issues to the
+  # active milestone.
+  issues: write
+  pull-requests: write
+
 jobs:
   update-milestone:
     runs-on: ubuntu-latest

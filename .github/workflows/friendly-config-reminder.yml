@@ -3,6 +3,11 @@ on:
   pull_request_target:
     paths:
       - 'crates/nu-protocol/src/config/**'
+permissions:
+  # Find and post the config reminder comment on the pull request.
+  issues: write
+  pull-requests: write
+
 jobs:
   comment:
     runs-on: ubuntu-latest

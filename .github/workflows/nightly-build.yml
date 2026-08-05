@@ -17,6 +17,9 @@ on:
     - cron: '15 0 * * *' # run at 00:15 AM UTC
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 defaults:
   run:
     shell: bash
@@ -157,6 +160,11 @@ jobs:
           os: ubuntu-22.04
 
     runs-on: ${{matrix.os}}
+    permissions:
+      # Upload the nightly archives to the release; open an issue when
+      # the build fails.
+      contents: write
+      issues: write
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
@@ -228,6 +236,9 @@ jobs:
     name: Create Sha256sum
     runs-on: ubuntu-latest
     if: github.repository == 'nushell/nightly'
+    permissions:
+      # Update the nightly release with the checksum file.
+      contents: write
     steps:
     - name: Download Release Archives
       env:
@@ -255,6 +266,9 @@ jobs:
     if: github.repository == 'nushell/nightly'
     needs: [release, sha256sum]
     runs-on: ubuntu-latest
+    permissions:
+      # Delete outdated nightly releases.
+      contents: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

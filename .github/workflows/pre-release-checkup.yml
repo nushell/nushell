@@ -3,6 +3,9 @@ on:
   - workflow_dispatch
 
 
+permissions:
+  contents: read
+
 env:
   NUSHELL_CARGO_PROFILE: ci
   NU_LOG_LEVEL: DEBUG
