@@ -12,7 +12,7 @@ mod terminal;
 #[cfg(feature = "lsp")]
 use crate::run::run_lsp;
 use crate::{
-    command::parse_cli_args_from_env,
+    command::{ParsedCli, parse_cli_args_from_env},
     logger::{configure, logger},
 };
 use log::{Level, trace};
@@ -624,7 +624,11 @@ fn main() -> Result<()> {
         run_commands(
             &mut engine_state,
             stack,
-            parsed_nu_cli_args,
+            ParsedCli {
+                nu: parsed_nu_cli_args,
+                script_name,
+                args_to_script,
+            },
             use_color,
             &commands,
             input,

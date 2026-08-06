@@ -11,6 +11,9 @@ on:
       - '[0-9]+.[0-9]+.[0-9]+*'
       - '!*nightly*'  # Don't trigger release for nightly tags
 
+permissions:
+  contents: read
+
 defaults:
   run:
     shell: bash
@@ -66,8 +69,11 @@ jobs:
 
     runs-on: ${{matrix.os}}
 
+    permissions:
+      # Upload the release archives to the GitHub release.
+      contents: write
     steps:
-    - uses: actions/checkout@v7
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
     - name: Install Wix Toolset 6 for Windows
       shell: pwsh
@@ -85,14 +91,14 @@ jobs:
         echo "targets = ['${{matrix.target}}']" >> rust-toolchain.toml
 
     - name: Setup Rust toolchain
-      uses: actions-rust-lang/setup-rust-toolchain@v1.12.0
+      uses: actions-rust-lang/setup-rust-toolchain@9d7e65c320fdb52dcd45ffaa68deb6c02c8754d9 # v1.12.0
       # WARN: Keep the rustflags to prevent from the winget submission error: `CAQuietExec: Error 0xc0000135`
       with:
         cache: false
         rustflags: ''
 
     - name: Setup Nushell
-      uses: hustcer/setup-nu@v3
+      uses: hustcer/setup-nu@f3fd65374ffc4d60974c0dd2f7263c6c5c285f81 # v3.26
       with:
         version: 0.112.2
 
@@ -107,7 +113,7 @@ jobs:
     # WARN: Don't upgrade this action due to the release per asset issue.
     # See: https://github.com/softprops/action-gh-release/issues/445
     - name: Publish Archive
-      uses: softprops/action-gh-release@v2.0.5
+      uses: softprops/action-gh-release@69320dbe05506a9a39fc8ae11030b214ec2d1f87 # v2.0.5
       if: ${{ startsWith(github.ref, 'refs/tags/') }}
       with:
         draft: true
@@ -121,6 +127,9 @@ jobs:
     needs: release
     name: Create Sha256sum
     runs-on: ubuntu-latest
+    permissions:
+      # Upload the release archives to the GitHub release.
+      contents: write
     steps:
     - name: Download Release Archives
       env:
@@ -133,7 +142,7 @@ jobs:
     - name: Create Checksums
       run: cd release && shasum -a 256 * > ../SHA256SUMS
     - name: Publish Checksums
-      uses: softprops/action-gh-release@v2.0.5
+      uses: softprops/action-gh-release@69320dbe05506a9a39fc8ae11030b214ec2d1f87 # v2.0.5
       with:
         draft: true
         files: SHA256SUMS

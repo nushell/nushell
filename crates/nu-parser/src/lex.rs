@@ -1,5 +1,11 @@
 use nu_protocol::{ParseError, Span};
 
+#[path = "delimiter_diagnostics.rs"]
+mod delimiter_diagnostics;
+use delimiter_diagnostics::{
+    closing_delimiter_str, quote_delimiter_str, unbalanced_closer, unclosed_from_open,
+};
+
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum TokenContents {
     Item,
@@ -39,22 +45,22 @@ pub enum BlockKind {
     AngleBracket,
 }
 
-impl BlockKind {
-    fn closing(self) -> u8 {
-        match self {
-            BlockKind::Paren => b')',
-            BlockKind::SquareBracket => b']',
-            BlockKind::CurlyBracket => b'}',
-            BlockKind::AngleBracket => b'>',
-        }
-    }
+/// An open delimiter on the lexer's nesting stack (kind + opener span only).
+///
+/// Opener spans are used only to *label* a real unclosed/unbalanced error for
+/// miette. Indent/structure heuristics must never invent a parse failure — the
+/// stack alone decides whether lexing failed.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct OpenFrame {
+    pub kind: BlockKind,
+    pub open_span: Span,
 }
 
 // A baseline token is terminated if it's not nested inside of a paired
 // delimiter and the next character is one of: `|`, `;` or any
 // whitespace.
 fn is_item_terminator(
-    block_level: &[BlockKind],
+    block_level: &[OpenFrame],
     c: u8,
     additional_whitespace: &[u8],
     special_tokens: &[u8],
@@ -80,8 +86,30 @@ pub fn is_assignment_operator(bytes: &[u8]) -> bool {
 // when parsing a signature you may want to have `:` be able to separate tokens and also
 // to be handled as its own token to notify you you're about to parse a type in the example
 // `foo:bar`
-fn is_special_item(block_level: &[BlockKind], c: u8, special_tokens: &[u8]) -> bool {
+fn is_special_item(block_level: &[OpenFrame], c: u8, special_tokens: &[u8]) -> bool {
     block_level.is_empty() && special_tokens.contains(&c)
+}
+
+/// A better place to put the "expected closer" miette label when the real stack
+/// failure is only known at end-of-token (often far from the human mistake).
+///
+/// Never used to invent an error — only to choose spans for an error that
+/// already exists because `block_level` is non-empty at the end.
+#[derive(Clone, Copy, Debug)]
+struct CloserLabelHint {
+    /// Opener most likely related to the missing closer (often an inner `{|…`).
+    open_span: Span,
+    /// Where the missing closer probably belongs.
+    expected_span: Span,
+}
+
+/// True if `c` can legally continue a multi-line construct onto the next line
+/// (so a following line starting with `|` is not a missing-`}` signal).
+fn continues_onto_next_line(c: u8) -> bool {
+    matches!(
+        c,
+        b'|' | b'{' | b'(' | b'[' | b',' | b':' | b'+' | b'-' | b'*' | b'/' | b'=' | b'.'
+    )
 }
 
 pub fn lex_item(
@@ -92,17 +120,26 @@ pub fn lex_item(
     special_tokens: &[u8],
     in_signature: bool,
 ) -> (Token, Option<ParseError>) {
-    // This variable tracks the starting character of a string literal, so that
-    // we remain inside the string literal lexer mode until we encounter the
-    // closing quote.
-    let mut quote_start: Option<u8> = None;
+    // Tracks the opening quote character and its span while inside a string.
+    let mut quote_start: Option<(u8, Span)> = None;
 
     let mut in_comment = false;
 
     let token_start = *curr_offset;
 
-    // This Vec tracks paired delimiters
-    let mut block_level: Vec<BlockKind> = vec![];
+    // Paired delimiters with opener spans (for labeling real unclosed errors only).
+    let mut block_level: Vec<OpenFrame> = vec![];
+
+    // Presentation-only: first place a missing `}` may belong (e.g. before a
+    // pipeline step that should have been outside a closure). Used solely when
+    // the stack still has openers at end-of-token — never to invent failures.
+    let mut closer_label_hint: Option<CloserLabelHint> = None;
+
+    // Line tracking for the presentation hint above (not for inventing errors).
+    let mut at_line_start = true;
+    // Last non-whitespace, non-comment char on the previous line (if any).
+    let mut prev_line_continue = false;
+    let mut last_sig_char: Option<u8> = None;
 
     // The process of slurping up a baseline token repeats:
     //
@@ -115,29 +152,43 @@ pub fn lex_item(
     //   character (whitespace, `|`, `;` or `#`) is encountered, the baseline
     //   token is done.
     // - Otherwise, accumulate the character into the current baseline token.
+    //
+    // Parse *failure* is decided only by the delimiter stack / quotes — never by
+    // line-shape heuristics. Heuristics may only choose spans/help when a real
+    // failure is reported.
     let mut previous_char = None;
     while let Some(c) = input.get(*curr_offset) {
         let c = *c;
 
-        if let Some(start) = quote_start {
+        if let Some((start, open_span)) = quote_start {
             // Check if we're in an escape sequence
             if c == b'\\' && start == b'"' {
                 // Go ahead and consume the escape character if possible
                 if input.get(*curr_offset + 1).is_some() {
                     // Successfully escaped the character
                     *curr_offset += 2;
+                    previous_char = Some(c);
+                    at_line_start = false;
                     continue;
                 } else {
                     let span = Span::new(span_offset + token_start, span_offset + *curr_offset);
+                    let end_span = if span.end > span.start {
+                        Span::new(span.end - 1, span.end)
+                    } else {
+                        span
+                    };
 
                     return (
                         Token {
                             contents: TokenContents::Item,
                             span,
                         },
-                        Some(ParseError::UnexpectedEof(
-                            (start as char).to_string(),
-                            Span::new(span.end - 1, span.end),
+                        Some(unclosed_from_open(
+                            input,
+                            span_offset,
+                            quote_delimiter_str(start),
+                            open_span,
+                            end_span,
                         )),
                     );
                 }
@@ -148,6 +199,8 @@ pub fn lex_item(
                 // Also need to check to make sure we aren't escaped
                 quote_start = None;
             }
+            last_sig_char = Some(c);
+            at_line_start = false;
         } else if c == b'#' && !in_comment {
             // To start a comment, It either need to be the first character of the token or prefixed with whitespace.
             in_comment = previous_char
@@ -159,6 +212,14 @@ pub fn lex_item(
             if is_item_terminator(&block_level, c, additional_whitespace, special_tokens) {
                 break;
             }
+            // Commit previous line's trailing significant char for next-line `|` hints.
+            // For `\r\n`, only commit/reset on `\n` so we don't double-reset.
+            let is_newline_end = c == b'\n' || input.get(*curr_offset + 1) != Some(&b'\n');
+            if is_newline_end {
+                prev_line_continue = last_sig_char.is_some_and(continues_onto_next_line);
+                at_line_start = true;
+                last_sig_char = None;
+            }
         } else if in_comment {
             if is_item_terminator(&block_level, c, additional_whitespace, special_tokens) {
                 break;
@@ -167,73 +228,133 @@ pub fn lex_item(
             *curr_offset += 1;
             break;
         } else if c == b'\'' || c == b'"' || c == b'`' {
-            // We encountered the opening quote of a string literal.
-            quote_start = Some(c);
+            let open_span = Span::new(span_offset + *curr_offset, span_offset + *curr_offset + 1);
+            quote_start = Some((c, open_span));
+            last_sig_char = Some(c);
+            at_line_start = false;
         } else if c == b'[' {
-            // We encountered an opening `[` delimiter.
-            block_level.push(BlockKind::SquareBracket);
+            let open_span = Span::new(span_offset + *curr_offset, span_offset + *curr_offset + 1);
+            block_level.push(OpenFrame {
+                kind: BlockKind::SquareBracket,
+                open_span,
+            });
+            last_sig_char = Some(c);
+            at_line_start = false;
         } else if c == b'<' && in_signature {
-            block_level.push(BlockKind::AngleBracket);
+            let open_span = Span::new(span_offset + *curr_offset, span_offset + *curr_offset + 1);
+            block_level.push(OpenFrame {
+                kind: BlockKind::AngleBracket,
+                open_span,
+            });
+            last_sig_char = Some(c);
+            at_line_start = false;
         } else if c == b'>' && in_signature {
-            if let Some(BlockKind::AngleBracket) = block_level.last() {
+            if let Some(OpenFrame {
+                kind: BlockKind::AngleBracket,
+                ..
+            }) = block_level.last()
+            {
                 let _ = block_level.pop();
             }
+            last_sig_char = Some(c);
+            at_line_start = false;
         } else if c == b']' {
-            // We encountered a closing `]` delimiter. Pop off the opening `[`
-            // delimiter.
-            if let Some(BlockKind::SquareBracket) = block_level.last() {
+            // Closing `]` — pop matching `[`, else real mismatch if another opener is open.
+            if let Some(OpenFrame {
+                kind: BlockKind::SquareBracket,
+                ..
+            }) = block_level.last()
+            {
                 let _ = block_level.pop();
+            } else if !block_level.is_empty() {
+                *curr_offset += 1;
+                let span = Span::new(span_offset + token_start, span_offset + *curr_offset);
+                let close_span = Span::new(span.end - 1, span.end);
+                return (
+                    Token {
+                        contents: TokenContents::Item,
+                        span,
+                    },
+                    Some(unbalanced_closer("]", "[", &block_level, close_span)),
+                );
             }
+            last_sig_char = Some(c);
+            at_line_start = false;
         } else if c == b'{' {
-            // We encountered an opening `{` delimiter.
-            block_level.push(BlockKind::CurlyBracket);
+            // Presentation only: `def name [\n  param\n {` without `]` — the body
+            // `{` is where `]` should have been. Record for labeling if the `[`
+            // is still open at end-of-token (real stack failure).
+            if closer_label_hint.is_none()
+                && let Some(frame) = block_level.last()
+                && matches!(frame.kind, BlockKind::SquareBracket)
+            {
+                closer_label_hint = Some(CloserLabelHint {
+                    open_span: frame.open_span,
+                    expected_span: Span::new(
+                        span_offset + *curr_offset,
+                        span_offset + *curr_offset + 1,
+                    ),
+                });
+            }
+            let open_span = Span::new(span_offset + *curr_offset, span_offset + *curr_offset + 1);
+            block_level.push(OpenFrame {
+                kind: BlockKind::CurlyBracket,
+                open_span,
+            });
+            last_sig_char = Some(c);
+            at_line_start = false;
         } else if c == b'}' {
-            // We encountered a closing `}` delimiter. Pop off the opening `{`.
-            if let Some(BlockKind::CurlyBracket) = block_level.last() {
+            // Closing `}` — pop matching `{`, else real mismatch against stack top.
+            if let Some(OpenFrame {
+                kind: BlockKind::CurlyBracket,
+                ..
+            }) = block_level.last()
+            {
                 let _ = block_level.pop();
             } else {
-                // We encountered a closing `}` delimiter, but the last opening
-                // delimiter was not a `{`. This is an error.
                 *curr_offset += 1;
                 let span = Span::new(span_offset + token_start, span_offset + *curr_offset);
-
+                let close_span = Span::new(span.end - 1, span.end);
                 return (
                     Token {
                         contents: TokenContents::Item,
                         span,
                     },
-                    Some(ParseError::Unbalanced(
-                        "{",
-                        "}",
-                        Span::new(span.end - 1, span.end),
-                    )),
+                    Some(unbalanced_closer("}", "{", &block_level, close_span)),
                 );
             }
+            last_sig_char = Some(c);
+            at_line_start = false;
         } else if c == b'(' {
-            // We encountered an opening `(` delimiter.
-            block_level.push(BlockKind::Paren);
+            let open_span = Span::new(span_offset + *curr_offset, span_offset + *curr_offset + 1);
+            block_level.push(OpenFrame {
+                kind: BlockKind::Paren,
+                open_span,
+            });
+            last_sig_char = Some(c);
+            at_line_start = false;
         } else if c == b')' {
-            // We encountered a closing `)` delimiter. Pop off the opening `(`.
-            if let Some(BlockKind::Paren) = block_level.last() {
+            // Closing `)` — pop matching `(`, else real mismatch against stack top.
+            if let Some(OpenFrame {
+                kind: BlockKind::Paren,
+                ..
+            }) = block_level.last()
+            {
                 let _ = block_level.pop();
             } else {
-                // We encountered a closing `)` delimiter, but the last opening
-                // delimiter was not a `(`. This is an error.
                 *curr_offset += 1;
                 let span = Span::new(span_offset + token_start, span_offset + *curr_offset);
-
+                let close_span = Span::new(span.end - 1, span.end);
                 return (
                     Token {
                         contents: TokenContents::Item,
                         span,
                     },
-                    Some(ParseError::Unbalanced(
-                        "(",
-                        ")",
-                        Span::new(span.end - 1, span.end),
-                    )),
+                    Some(unbalanced_closer(")", "(", &block_level, close_span)),
                 );
             }
+            last_sig_char = Some(c);
+            at_line_start = false;
         } else if c == b'r' && input.get(*curr_offset + 1) == Some(b'#').as_ref() {
             // already checked `r#` pattern, so it's a raw string.
             let lex_result = lex_raw_string(input, curr_offset, span_offset);
@@ -247,12 +368,45 @@ pub fn lex_item(
                     Some(e),
                 );
             }
+            last_sig_char = Some(b'#');
+            at_line_start = false;
         } else if c == b'|' && is_redirection(&input[token_start..*curr_offset]) {
             // matches err>| etc.
             *curr_offset += 1;
             break;
         } else if is_item_terminator(&block_level, c, additional_whitespace, special_tokens) {
             break;
+        } else if !c.is_ascii_whitespace() {
+            // Presentation hint only: a new line starting with `|` while nested
+            // in `{…}`, when the previous line did not end with a continue char,
+            // often means a missing `}` before this pipeline step (e.g. forgot
+            // to close `{|n| … }` before `| upsert …`).
+            //
+            // We only *record* this; an error is emitted only if the stack is
+            // still non-empty at end-of-token.
+            if c == b'|'
+                && at_line_start
+                && !prev_line_continue
+                && closer_label_hint.is_none()
+                && let Some(frame) = block_level
+                    .iter()
+                    .rev()
+                    .find(|f| matches!(f.kind, BlockKind::CurlyBracket))
+            {
+                closer_label_hint = Some(CloserLabelHint {
+                    open_span: frame.open_span,
+                    expected_span: Span::new(
+                        span_offset + *curr_offset,
+                        span_offset + *curr_offset + 1,
+                    ),
+                });
+            }
+            last_sig_char = Some(c);
+            at_line_start = false;
+        } else if at_line_start && (c == b' ' || c == b'\t') {
+            // stay at line start until real content
+        } else {
+            at_line_start = false;
         }
 
         *curr_offset += 1;
@@ -260,8 +414,13 @@ pub fn lex_item(
     }
 
     let span = Span::new(span_offset + token_start, span_offset + *curr_offset);
+    let end_span = if span.end > span.start {
+        Span::new(span.end - 1, span.end)
+    } else {
+        span
+    };
 
-    if let Some(delim) = quote_start {
+    if let Some((delim, open_span)) = quote_start {
         // The non-lite parse trims quotes on both sides, so we add the expected quote so that
         // anyone wanting to consume this partial parse (e.g., completions) will be able to get
         // correct information from the non-lite parse.
@@ -270,19 +429,31 @@ pub fn lex_item(
                 contents: TokenContents::Item,
                 span,
             },
-            Some(ParseError::UnexpectedEof(
-                (delim as char).to_string(),
-                Span::new(span.end - 1, span.end),
+            Some(unclosed_from_open(
+                input,
+                span_offset,
+                quote_delimiter_str(delim),
+                open_span,
+                end_span,
             )),
         );
     }
 
-    // If there is still unclosed opening delimiters, remember they were missing
-    if let Some(block) = block_level.last() {
-        let delim = block.closing();
-        let cause = ParseError::UnexpectedEof(
-            (delim as char).to_string(),
-            Span::new(span.end - 1, span.end),
+    // Still-unclosed openers at end of token: real stack failure.
+    // Prefer a recorded closer-label hint when it refers to the *same* open frame
+    // still on the stack (presentation only — error already exists).
+    if let Some(frame) = block_level.last() {
+        let (label_open, label_end) = closer_label_hint
+            .filter(|h| h.open_span == frame.open_span)
+            .map(|h| (h.open_span, h.expected_span))
+            .unwrap_or((frame.open_span, end_span));
+
+        let cause = unclosed_from_open(
+            input,
+            span_offset,
+            closing_delimiter_str(frame.kind),
+            label_open,
+            label_end,
         );
 
         return (

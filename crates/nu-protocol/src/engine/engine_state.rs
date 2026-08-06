@@ -5,8 +5,8 @@ use crate::{
     ast::{Block, Expr},
     debugger::{Debugger, NoopDebugger},
     engine::{
-        CachedFile, Command, DEFAULT_OVERLAY_NAME, EnvName, EnvVars, OverlayFrame, ScopeFrame,
-        Stack, StateDelta, Variable, Visibility,
+        CachedFile, Command, DEFAULT_OVERLAY_NAME, EnvName, EnvVars, OverlayFrame, PromptState,
+        ScopeFrame, Stack, StateDelta, Variable, Visibility,
         description::{Doccomments, build_desc},
     },
     eval_const::create_nu_constant,
@@ -113,6 +113,12 @@ pub struct EngineState {
     pub config: Arc<Config>,
     pub pipeline_externals_state: Arc<(AtomicU32, AtomicU32)>,
     pub repl_state: Arc<Mutex<ReplState>>,
+    /// Shared source of truth for the interactive prompt's rendered content. The
+    /// REPL fills it each cycle from `$env.PROMPT_COMMAND` and friends; a
+    /// background job's `commandline set-prompt` overwrites individual segments
+    /// and triggers an in-place repaint. Shared with every job that clones this
+    /// engine state.
+    pub prompt_state: Arc<PromptState>,
     pub table_decl_id: Option<DeclId>,
     #[cfg(feature = "plugin")]
     pub plugin_path: Option<PathBuf>,
@@ -227,6 +233,7 @@ impl EngineState {
                 cursor_pos: 0,
                 accept: false,
             })),
+            prompt_state: Arc::new(PromptState::new()),
             table_decl_id: None,
             #[cfg(feature = "plugin")]
             plugin_path: None,
@@ -1141,6 +1148,7 @@ impl EngineState {
         self.pipeline_externals_state = Arc::new((AtomicU32::new(0), AtomicU32::new(0)));
         self.repl_state = Default::default();
         self.report_log = Default::default();
+        self.prompt_state = Arc::new(PromptState::new());
         self.jobs = Default::default();
         self.current_job = CurrentJob {
             id: JobId::new(0),

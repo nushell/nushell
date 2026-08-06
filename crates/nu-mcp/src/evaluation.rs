@@ -1116,10 +1116,11 @@ mod tests {
         let err = result.unwrap_err();
         let err_msg = err.message.to_string();
 
-        // Error should be in NUON format with structured fields
+        // Error should be in NUON format with structured fields.
+        // Incomplete list `[1, 2, 3` is reported as unclosed delimiter (need `]`).
         assert!(
-            err_msg.contains("code:") && err_msg.contains("nu::parser::unexpected_eof"),
-            "Error message should contain code field with 'nu::parser::unexpected_eof', but got: {err_msg}"
+            err_msg.contains("code:") && err_msg.contains("nu::parser::unclosed_delimiter"),
+            "Error message should contain code field with 'nu::parser::unclosed_delimiter', but got: {err_msg}"
         );
 
         assert!(

@@ -95,6 +95,11 @@ If the path does not exist, null will be returned."
                 result: Some(Value::test_string("dir")),
             },
             Example {
+                description: "Empty string is not a path.",
+                example: "'' | path type | is-empty",
+                result: Some(Value::test_bool(true)),
+            },
+            Example {
                 description: "Show type of filepaths in a list.",
                 example: "ls | get name | path type",
                 result: None,
@@ -104,6 +109,11 @@ If the path does not exist, null will be returned."
 }
 
 fn path_type(path: &Path, span: Span, args: &Arguments) -> Value {
+    // To the OS, an empty string is just the CWD,
+    // however logically we want to treat it as an invalid path.
+    if path == "" {
+        return Value::nothing(span);
+    }
     let path = nu_path::expand_path_with(path, &args.pwd, true);
     match path.symlink_metadata() {
         Ok(metadata) => Value::string(get_file_type(&metadata), span),

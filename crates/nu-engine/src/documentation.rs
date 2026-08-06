@@ -147,7 +147,7 @@ fn nu_highlight_string(
 
 /// Apply code highlighting to code in a capture group
 fn highlight_capture_group(
-    captures: &Captures,
+    captures: &Captures<'_, str>,
     engine_state: &EngineState,
     stack: &mut Stack,
     head: Span,
@@ -230,7 +230,7 @@ fn highlight_code<'a>(
     static RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(PATTERN).expect("valid regex"));
 
     let do_try_highlight =
-        |captures: &Captures| highlight_capture_group(captures, engine_state, stack, head);
+        |captures: &Captures<'_, str>| highlight_capture_group(captures, engine_state, stack, head);
     RE.replace_all(text, do_try_highlight)
 }
 

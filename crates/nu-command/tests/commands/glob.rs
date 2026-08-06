@@ -1,12 +1,11 @@
 use nu_test_support::fs::Stub::EmptyFile;
-use nu_test_support::nu;
 use nu_test_support::playground::Playground;
 use nu_test_support::prelude::*;
 use rstest::rstest;
 use std::path::{Path, PathBuf};
 
 #[test]
-fn empty_glob_pattern_triggers_error() {
+fn empty_glob_pattern_triggers_error() -> Result {
     Playground::setup("glob_test_1", |dirs, sandbox| {
         sandbox.with_files(&[
             EmptyFile("yehuda.txt"),
@@ -14,17 +13,18 @@ fn empty_glob_pattern_triggers_error() {
             EmptyFile("andres.txt"),
         ]);
 
-        let actual = nu!(
-            cwd: dirs.test(),
-            "glob ''",
-        );
+        let err = test()
+            .cwd(dirs.test())
+            .run("glob ''")
+            .expect_shell_error()?;
 
-        assert!(actual.err.contains("must not be empty"));
+        assert_contains("must not be empty", err.to_string());
+        Ok(())
     })
 }
 
 #[test]
-fn nonempty_glob_lists_matching_paths() {
+fn nonempty_glob_lists_matching_paths() -> Result {
     Playground::setup("glob_sanity_star", |dirs, sandbox| {
         sandbox.with_files(&[
             EmptyFile("yehuda.txt"),
@@ -32,17 +32,15 @@ fn nonempty_glob_lists_matching_paths() {
             EmptyFile("andres.txt"),
         ]);
 
-        let actual = nu!(
-            cwd: dirs.test(),
-            "glob '*' | length",
-        );
-
-        assert_eq!(actual.out, "3");
+        test()
+            .cwd(dirs.test())
+            .run("glob '*' | length")
+            .expect_value_eq(3)
     })
 }
 
 #[test]
-fn glob_subdirs() {
+fn glob_subdirs() -> Result {
     Playground::setup("glob_subdirs", |dirs, sandbox| {
         sandbox.with_files(&[
             EmptyFile("yehuda.txt"),
@@ -56,20 +54,15 @@ fn glob_subdirs() {
             EmptyFile("trish.txt"),
         ]);
 
-        let actual = nu!(
-            cwd: dirs.test(),
-            "glob '**/*' | length",
-        );
-
-        assert_eq!(
-            actual.out, "8",
-            "count must be 8 due to 6 files and 2 folders, including the cwd"
-        );
+        test()
+            .cwd(dirs.test())
+            .run("glob '**/*' | length")
+            .expect_value_eq(8)
     })
 }
 
 #[test]
-fn glob_subdirs_ignore_dirs() {
+fn glob_subdirs_ignore_dirs() -> Result {
     Playground::setup("glob_subdirs_ignore_directories", |dirs, sandbox| {
         sandbox.with_files(&[
             EmptyFile("yehuda.txt"),
@@ -83,20 +76,15 @@ fn glob_subdirs_ignore_dirs() {
             EmptyFile("trish.txt"),
         ]);
 
-        let actual = nu!(
-            cwd: dirs.test(),
-            "glob '**/*' -D | length",
-        );
-
-        assert_eq!(
-            actual.out, "6",
-            "directory count must be 6, ignoring the cwd and the children folders"
-        );
+        test()
+            .cwd(dirs.test())
+            .run("glob '**/*' -D | length")
+            .expect_value_eq(6)
     })
 }
 
 #[test]
-fn glob_ignore_files() {
+fn glob_ignore_files() -> Result {
     Playground::setup("glob_ignore_files", |dirs, sandbox| {
         sandbox.with_files(&[
             EmptyFile("yehuda.txt"),
@@ -110,15 +98,10 @@ fn glob_ignore_files() {
             EmptyFile("trish.txt"),
         ]);
 
-        let actual = nu!(
-            cwd: dirs.test(),
-            "glob '*' -F | length",
-        );
-
-        assert_eq!(
-            actual.out, "1",
-            "should only find one folder; ignoring cwd, files, subfolders"
-        );
+        test()
+            .cwd(dirs.test())
+            .run("glob '*' -F | length")
+            .expect_value_eq(1)
     })
 }
 
@@ -152,10 +135,10 @@ fn glob_files_in_parent(
             create_file_at(dirs.test().join(f)).expect("couldn't create file");
         }
 
-        let actual = nu!(
-            cwd: working_directory,
-            format!(r#"glob {glob} | sort | str join " ""#)
-        );
+        let actual: String = test()
+            .cwd(working_directory)
+            .run(format!(r#"glob {glob} | sort | str join " ""#))
+            .expect("glob should list matching paths");
 
         let mut expected: Vec<String> = vec![];
         for e in exp {
@@ -179,12 +162,12 @@ fn glob_files_in_parent(
         }
 
         let expected = expected.join(" ");
-        assert_eq!(actual.out, expected, "\n  test: {tag}");
+        assert_eq!(actual, expected, "\n  test: {tag}");
     });
 }
 
 #[test]
-fn glob_follow_symlinks() {
+fn glob_follow_symlinks() -> Result {
     Playground::setup("glob_follow_symlinks", |dirs, sandbox| {
         // Create a directory with some files
         sandbox.mkdir("target_dir");
@@ -203,15 +186,10 @@ fn glob_follow_symlinks() {
         // on some systems/filesystems, symlinks are followed by default
         // on others (like Linux /sys), they aren't
         // Test that with the --follow-symlinks flag, files are found for sure
-        let with_flag = nu!(
-            cwd: dirs.test(),
-            "glob 'symlink_dir/*.txt' --follow-symlinks | length",
-        );
-
-        assert_eq!(
-            with_flag.out, "1",
-            "Should find file with --follow-symlinks flag"
-        );
+        test()
+            .cwd(dirs.test())
+            .run("glob 'symlink_dir/*.txt' --follow-symlinks | length")
+            .expect_value_eq(1)
     })
 }
 
@@ -253,83 +231,79 @@ fn glob_dc_glob_recursive_depth_semantics() -> Result {
             .with_files(&[EmptyFile("sibling.txt")]);
 
         // **/*: concrete membership — four entries under start, not the start itself
+        let code = "
+            let root = (pwd | path expand)
+            let paths = (glob '**/*' | each { path expand } | sort)
+            (
+                ($paths | length) == 7
+                and not ($paths | any {|p| $p == $root })
+                and ($paths | any {|p| $p | str ends-with $'(char psep)1'})
+                and ($paths | any {|p| $p | str ends-with $'(char psep)1(char psep)2'})
+                and ($paths | any {|p| $p | str ends-with $'(char psep)1(char psep)2(char psep)3'})
+                and ($paths | any {|p| $p | str ends-with 'file.txt'})
+                and ($paths | any {|p| $p | str ends-with $'(char psep)foo'})
+                and ($paths | any {|p| $p | str ends-with $'(char psep)foo(char psep)bar'})
+                and ($paths | any {|p| $p | str ends-with 'sibling.txt'})
+            )
+        ";
         test()
             .cwd(dirs.test())
-            .run(
-                "
-                let root = (pwd | path expand)
-                let paths = (glob '**/*' | each { path expand } | sort)
-                (
-                    ($paths | length) == 7
-                    and not ($paths | any {|p| $p == $root })
-                    and ($paths | any {|p| $p | str ends-with $'(char psep)1'})
-                    and ($paths | any {|p| $p | str ends-with $'(char psep)1(char psep)2'})
-                    and ($paths | any {|p| $p | str ends-with $'(char psep)1(char psep)2(char psep)3'})
-                    and ($paths | any {|p| $p | str ends-with 'file.txt'})
-                    and ($paths | any {|p| $p | str ends-with $'(char psep)foo'})
-                    and ($paths | any {|p| $p | str ends-with $'(char psep)foo(char psep)bar'})
-                    and ($paths | any {|p| $p | str ends-with 'sibling.txt'})
-                )
-                ",
-            )
+            .run(code)
             .expect_value_eq(true)
             .expect("**/* should list nested dirs/files under start, not the start dir");
 
         // **/*/*/* → min depth 3 under the 1/ tree (and deeper under foo if any)
         // With fixture: 1/2/3, 1/2/3/file.txt only at depth >= 3 from root for `1` tree.
         // Overall tree also has foo/bar — depth 2 only. So still just 2 matches from 1/.
+        let code = "
+            let paths = (glob '**/*/*/*' | each { path expand } | sort)
+            (
+                ($paths | length) == 2
+                and ($paths | any {|p| $p | str ends-with $'(char psep)1(char psep)2(char psep)3'})
+                and ($paths | any {|p| $p | str ends-with 'file.txt'})
+            )
+        ";
         test()
             .cwd(dirs.test())
-            .run(
-                "
-                let paths = (glob '**/*/*/*' | each { path expand } | sort)
-                (
-                    ($paths | length) == 2
-                    and ($paths | any {|p| $p | str ends-with $'(char psep)1(char psep)2(char psep)3'})
-                    and ($paths | any {|p| $p | str ends-with 'file.txt'})
-                )
-                ",
-            )
+            .run(code)
             .expect_value_eq(true)
             .expect("**/*/*/* should only match depth >= 3 paths");
 
         // bare ** → directories only (start + 1 + 1/2 + 1/2/3 + foo + foo/bar)
+        let code = "
+            let root = (pwd | path expand)
+            let paths = (glob '**' | each { path expand } | sort)
+            (
+                ($paths | length) == 6
+                and ($paths | any {|p| $p == $root })
+                and ($paths | any {|p| $p | str ends-with $'(char psep)1'})
+                and ($paths | any {|p| $p | str ends-with $'(char psep)1(char psep)2'})
+                and ($paths | any {|p| $p | str ends-with $'(char psep)1(char psep)2(char psep)3'})
+                and ($paths | any {|p| $p | str ends-with $'(char psep)foo'})
+                and ($paths | any {|p| $p | str ends-with $'(char psep)foo(char psep)bar'})
+                and not ($paths | any {|p| $p | str ends-with 'file.txt'})
+                and not ($paths | any {|p| $p | str ends-with 'sibling.txt'})
+            )
+        ";
         test()
             .cwd(dirs.test())
-            .run(
-                "
-                let root = (pwd | path expand)
-                let paths = (glob '**' | each { path expand } | sort)
-                (
-                    ($paths | length) == 6
-                    and ($paths | any {|p| $p == $root })
-                    and ($paths | any {|p| $p | str ends-with $'(char psep)1'})
-                    and ($paths | any {|p| $p | str ends-with $'(char psep)1(char psep)2'})
-                    and ($paths | any {|p| $p | str ends-with $'(char psep)1(char psep)2(char psep)3'})
-                    and ($paths | any {|p| $p | str ends-with $'(char psep)foo'})
-                    and ($paths | any {|p| $p | str ends-with $'(char psep)foo(char psep)bar'})
-                    and not ($paths | any {|p| $p | str ends-with 'file.txt'})
-                    and not ($paths | any {|p| $p | str ends-with 'sibling.txt'})
-                )
-                ",
-            )
+            .run(code)
             .expect_value_eq(true)
             .expect("bare ** should list start + nested dirs only, not files");
 
         // foo/** includes foo itself and foo/bar, not files
+        let code = "
+            let paths = (glob 'foo/**' | each { path expand } | sort)
+            (
+                ($paths | length) == 2
+                and ($paths | any {|p| $p | str ends-with $'(char psep)foo'})
+                and ($paths | any {|p| $p | str ends-with $'(char psep)foo(char psep)bar'})
+                and not ($paths | any {|p| $p | str ends-with 'sibling.txt'})
+            )
+        ";
         test()
             .cwd(dirs.test())
-            .run(
-                "
-                let paths = (glob 'foo/**' | each { path expand } | sort)
-                (
-                    ($paths | length) == 2
-                    and ($paths | any {|p| $p | str ends-with $'(char psep)foo'})
-                    and ($paths | any {|p| $p | str ends-with $'(char psep)foo(char psep)bar'})
-                    and not ($paths | any {|p| $p | str ends-with 'sibling.txt'})
-                )
-                ",
-            )
+            .run(code)
             .expect_value_eq(true)
             .expect("foo/** should include foo and nested dirs, not files");
     });

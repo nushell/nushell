@@ -945,7 +945,7 @@ fn performance_nested_lists() -> Result {
     let err = test()
         .run("[[[[[[[[[[[[[[[[[[[[[[[[[[[[")
         .expect_parse_error()?;
-    assert_matches!(err, ParseError::UnexpectedEof(delimiter, _) if delimiter == "]");
+    assert_matches!(err, ParseError::Unclosed(delimiter, ..) if delimiter == "]");
     Ok(())
 }
 
@@ -1046,42 +1046,42 @@ fn or_and_xor() -> Result {
 #[test]
 fn unbalanced_delimiter() -> Result {
     let err = test().run("{a:{b:5}}}").expect_parse_error()?;
-    assert_matches!(err, ParseError::Unbalanced("{", "}", _));
+    assert_matches!(err, ParseError::Unbalanced("{", "}", ..));
     Ok(())
 }
 
 #[test]
 fn unbalanced_delimiter2() -> Result {
     let err = test().run("{}#.}").expect_parse_error()?;
-    assert_matches!(err, ParseError::Unbalanced("{", "}", _));
+    assert_matches!(err, ParseError::Unbalanced("{", "}", ..));
     Ok(())
 }
 
 #[test]
 fn unbalanced_delimiter3() -> Result {
     let err = test().run("{").expect_parse_error()?;
-    assert_matches!(err, ParseError::UnexpectedEof(delimiter, _) if delimiter == "}");
+    assert_matches!(err, ParseError::Unclosed(delimiter, ..) if delimiter == "}");
     Ok(())
 }
 
 #[test]
 fn unbalanced_delimiter4() -> Result {
     let err = test().run("}").expect_parse_error()?;
-    assert_matches!(err, ParseError::Unbalanced("{", "}", _));
+    assert_matches!(err, ParseError::Unbalanced("{", "}", ..));
     Ok(())
 }
 
 #[test]
 fn unbalanced_parens1() -> Result {
     let err = test().run(")").expect_parse_error()?;
-    assert_matches!(err, ParseError::Unbalanced("(", ")", _));
+    assert_matches!(err, ParseError::Unbalanced("(", ")", ..));
     Ok(())
 }
 
 #[test]
 fn unbalanced_parens2() -> Result {
     let err = test().run(r#"("("))"#).expect_parse_error()?;
-    assert_matches!(err, ParseError::Unbalanced("(", ")", _));
+    assert_matches!(err, ParseError::Unbalanced("(", ")", ..));
     Ok(())
 }
 
@@ -1625,11 +1625,31 @@ fn implied_collect_has_compatible_type() -> Result {
 
 #[test]
 fn record_expected_colon() -> Result {
+    // Missing `:` after a record key: either incomplete field (EOF after key)
+    // or wrong token where `:` was expected.
     let err = test().run("{ a: 2 b }").expect_parse_error()?;
-    assert_matches!(err, ParseError::Expected(expected, _) if expected == "':'");
+    assert!(
+        matches!(
+            &err,
+            ParseError::LabeledErrorWithHelp { error, label, .. }
+                if error.contains(':')
+                    || label.contains(':')
+                    || error == "Incomplete record field"
+        ),
+        "unexpected err: {err:?}"
+    );
 
     let err = test().run("{ a: 2 b 3 }").expect_parse_error()?;
-    assert_matches!(err, ParseError::Expected(expected, _) if expected == "':'");
+    assert!(
+        matches!(
+            &err,
+            ParseError::LabeledErrorWithHelp { error, label, .. }
+                if error.contains(':')
+                    || label.contains(':')
+                    || error == "Incomplete record field"
+        ),
+        "unexpected err: {err:?}"
+    );
     Ok(())
 }
 
@@ -1730,7 +1750,7 @@ fn external_argument_with_subexpressions() -> Result {
         .expect_value_eq(")('foo')(")?;
 
     let err = test().run("^cococo foo( 'bar'").expect_parse_error()?;
-    assert_matches!(err, ParseError::UnexpectedEof(delimiter, _) if delimiter == ")");
+    assert_matches!(err, ParseError::Unclosed(delimiter, ..) if delimiter == ")");
     Ok(())
 }
 

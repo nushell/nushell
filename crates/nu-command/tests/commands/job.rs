@@ -433,14 +433,31 @@ fn jobs_get_group_id_right() -> Result {
     let code = r#"
         let job1 = job spawn { nu -c "sleep 0.5sec" | nu -c "sleep 0.5sec"; }
 
-        sleep 25ms
-
-        let pids = job list | where id == $job1 | first | get pids
+        mut pids = []
+        for _ in 0..50 {
+            let jobs = job list | where id == $job1
+            if ($jobs | is-not-empty) {
+                $pids = ($jobs | first | get pids)
+                if (($pids | length) >= 2) {
+                    break
+                }
+            }
+            sleep 20ms
+        }
 
         let pid1 = $pids.0
         let pid2 = $pids.1
 
-        let groups = ps --long | select pid process_group_id | rename PID PGID
+        mut groups = []
+        for _ in 0..50 {
+            $groups = ps --long | select pid process_group_id | rename PID PGID
+            if (($groups | where PID == $nu.pid | is-not-empty)
+                and ($groups | where PID == $pid1 | is-not-empty)
+                and ($groups | where PID == $pid2 | is-not-empty)) {
+                break
+            }
+            sleep 20ms
+        }
 
         let my_group = $groups | where PID == $nu.pid | first | get PGID
         let group1 = $groups | where PID == $pid1 | first | get PGID
@@ -483,7 +500,7 @@ fn job_print_is_not_silent() -> Result {
 }
 
 #[test]
-#[cfg_attr(ci, serial)]
+#[serial]
 #[deps(NU)]
 fn job_extern_into_value_is_not_silent() -> Result {
     let result: CompleteResult = test().run_with_data(
@@ -498,7 +515,7 @@ fn job_extern_into_value_is_not_silent() -> Result {
 }
 
 #[test]
-#[cfg_attr(ci, serial)]
+#[serial]
 #[deps(NU)]
 fn job_extern_into_pipe_is_not_silent() -> Result {
     let code = r#"

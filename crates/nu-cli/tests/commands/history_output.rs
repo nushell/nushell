@@ -1,85 +1,89 @@
-use nu_test_support::{Outcome, nu};
-use tempfile::TempDir;
+use std::path::Path;
 
-struct Test {
-    cfg_dir: TempDir,
-}
+use nu_protocol::{Config, HistoryConfig, HistoryFileFormat};
+use nu_test_support::prelude::*;
+use nu_test_support::tester::NuTester;
 
 const IMPORT_SINGLE_HISTORY_RECORD: &str = "[[command start_timestamp duration exit_status cwd]; ['echo hi' (date now) 30ms 0 /tmp]] | history import";
 const IMPORT_THREE_HISTORY_RECORDS: &str = "[[command start_timestamp duration exit_status cwd]; ['echo one' (date now) 10ms 0 /tmp] ['echo two' (date now) 20ms 0 /tmp] ['echo three' (date now) 30ms 0 /tmp]] | history import";
 
-impl Test {
-    fn new() -> Self {
-        let cfg_dir = tempfile::Builder::new()
-            .prefix("history_output_test")
-            .tempdir()
-            .unwrap();
-        std::fs::write(
-            cfg_dir.path().join("env.nu"),
-            "$env.config.history.file_format = 'sqlite'",
-        )
-        .unwrap();
-        Self { cfg_dir }
-    }
+trait NuTesterHistoryExt {
+    fn with_sqlite_history(self, config_home: impl AsRef<Path>) -> Self;
+}
 
-    fn nu(&self, cmd: impl AsRef<str>) -> Outcome {
-        let env = [(
-            "XDG_CONFIG_HOME".to_string(),
-            self.cfg_dir.path().to_str().unwrap().to_string(),
-        )];
-        let env_config = self.cfg_dir.path().join("env.nu");
-        nu!(envs: env, env_config: env_config, cmd.as_ref())
-    }
+impl NuTesterHistoryExt for NuTester {
+    fn with_sqlite_history(mut self, config_home: impl AsRef<Path>) -> Self {
+        let config_home = config_home.as_ref().to_path_buf();
+        std::fs::create_dir_all(&config_home).unwrap();
 
-    fn import_single_history_record(&self) -> Outcome {
-        self.nu(IMPORT_SINGLE_HISTORY_RECORD)
-    }
-
-    fn import_single_history_record_and_assert_success(&self) {
-        let import_result = self.import_single_history_record();
-        assert!(import_result.status.success(), "{}", import_result.err);
+        self.engine_state.config_dirs.config_home = config_home;
+        self.engine_state.set_config(Config {
+            history: HistoryConfig {
+                file_format: HistoryFileFormat::Sqlite,
+                ..Default::default()
+            },
+            ..Default::default()
+        });
+        self.engine_state.generate_nu_constant();
+        self
     }
 }
 
 #[test]
-fn sqlite_history_last_returns_date_for_start_timestamp() {
-    let test = Test::new();
-    test.import_single_history_record_and_assert_success();
+fn sqlite_history_last_returns_date_for_start_timestamp() -> Result {
+    Playground::setup("sqlite_history_last_returns_date", |dirs, _| {
+        let config_home = dirs.test().join("nushell").to_std_path_buf();
+        let mut tester = test().with_sqlite_history(config_home);
+        let () = tester.run(IMPORT_SINGLE_HISTORY_RECORD)?;
 
-    let actual = test.nu("history | last | get start_timestamp | describe");
-    assert_eq!(actual.out, "datetime");
+        tester
+            .run("history | last | get start_timestamp | describe")
+            .expect_value_eq("datetime")
+    })
 }
 
 #[test]
-fn sqlite_history_last_returns_duration_for_duration_column() {
-    let test = Test::new();
-    test.import_single_history_record_and_assert_success();
+fn sqlite_history_last_returns_duration_for_duration_column() -> Result {
+    Playground::setup("sqlite_history_last_returns_duration", |dirs, _| {
+        let config_home = dirs.test().join("nushell").to_std_path_buf();
+        let mut tester = test().with_sqlite_history(config_home);
+        let () = tester.run(IMPORT_SINGLE_HISTORY_RECORD)?;
 
-    let actual = test.nu("history | last | get duration | describe");
-    assert_eq!(actual.out, "duration");
+        tester
+            .run("history | last | get duration | describe")
+            .expect_value_eq("duration")
+    })
 }
 
 #[test]
-fn sqlite_history_select_command_works() {
-    let test = Test::new();
-    test.import_single_history_record_and_assert_success();
+fn sqlite_history_select_command_works() -> Result {
+    Playground::setup("sqlite_history_select_command_works", |dirs, _| {
+        let config_home = dirs.test().join("nushell").to_std_path_buf();
+        let mut tester = test().with_sqlite_history(config_home);
+        let () = tester.run(IMPORT_SINGLE_HISTORY_RECORD)?;
 
-    let actual = test.nu("history | select command | columns | first");
-    assert!(actual.status.success(), "{}", actual.err);
-    assert_eq!(actual.out, "command");
+        tester
+            .run("history | select command | columns | first")
+            .expect_value_eq("command")
+    })
 }
 
 #[test]
-fn sqlite_history_select_projection_preserves_order() {
-    let test = Test::new();
-    let import_result = test.nu(IMPORT_THREE_HISTORY_RECORDS);
-    assert!(import_result.status.success(), "{}", import_result.err);
+fn sqlite_history_select_projection_preserves_order() -> Result {
+    Playground::setup("sqlite_history_select_projection_order", |dirs, _| {
+        let config_home = dirs.test().join("nushell").to_std_path_buf();
+        let mut tester = test().with_sqlite_history(config_home);
+        let () = tester.run(IMPORT_THREE_HISTORY_RECORDS)?;
 
-    let command_only = test.nu("history | where command =~ 'echo (one|two|three)' | select command | get command | to nuon");
-    assert!(command_only.status.success(), "{}", command_only.err);
+        let command_only: Vec<String> = tester.run(
+            "history | where command =~ 'echo (one|two|three)' | select command | get command",
+        )?;
 
-    let with_timestamp = test.nu("history | where command =~ 'echo (one|two|three)' | select start_timestamp command | get command | to nuon");
-    assert!(with_timestamp.status.success(), "{}", with_timestamp.err);
+        let with_timestamp: Vec<String> = tester.run(
+            "history | where command =~ 'echo (one|two|three)' | select start_timestamp command | get command",
+        )?;
 
-    assert_eq!(command_only.out, with_timestamp.out);
+        assert_eq!(command_only, with_timestamp);
+        Ok(())
+    })
 }
