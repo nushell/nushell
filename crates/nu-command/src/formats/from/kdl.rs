@@ -252,6 +252,26 @@ impl Command for FromKdl {
                     "size" => Value::test_int(1024),
                 })),
             },
+            Example {
+                description: "JiK: multiple '-' children are a list, not an object with duplicate keys.",
+                example: "'- { - a=1; - a=2 }' | from kdl --format jik",
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! { "a" => Value::int(1, span) }),
+                    Value::test_record(record! { "a" => Value::int(2, span) }),
+                ])),
+            },
+            Example {
+                description: "JiK: a sole '-' child is still a one-element list unless annotated (object).",
+                example: "'- { - 1 }' | from kdl --format jik",
+                result: Some(Value::test_list(vec![Value::int(1, span)])),
+            },
+            Example {
+                description: "JiK: object with key '-' must use the (object) annotation.",
+                example: "'(object)- { - 1 }' | from kdl --format jik",
+                result: Some(Value::test_record(record! {
+                    "-" => Value::int(1, span),
+                })),
+            },
         ]
     }
 

@@ -104,7 +104,7 @@ fn jik_node_to_value(node: &KdlNode, span: Span, ignore_types: bool) -> Result<V
     let looks_like_array =
         !has_props && (has_args || any_children) && all_children_anon && !is_object_annotated;
 
-    // Object: only named props and/or children (any names), no? wait - arrays can't have non-anon children
+    // Object: only named props and/or children (any names)
     let looks_like_object = !has_args && (has_props || any_children) && !is_array_annotated;
 
     // Mixed args+props is invalid JiK for both (except we allow array with only args)
@@ -115,7 +115,11 @@ fn jik_node_to_value(node: &KdlNode, span: Span, ignore_types: bool) -> Result<V
         ));
     }
 
-    if is_array_annotated || (looks_like_array && !looks_like_object) {
+    // Prefer array when both shapes match (all children named `-`, no props).
+    // JiK: an object whose sole key is `-` written as children must be annotated
+    // `(object)`; without that annotation, input is always an array — regardless of
+    // child count (not only the single-child case).
+    if is_array_annotated || looks_like_array {
         if has_props || !all_children_anon {
             return Err(invalid_jik(
                 "JiK array nodes may only have unnamed arguments and '-' children",
@@ -131,17 +135,6 @@ fn jik_node_to_value(node: &KdlNode, span: Span, ignore_types: bool) -> Result<V
                 "JiK object nodes may only have properties and children",
                 span,
             ));
-        }
-        // Ambiguous: single child named "-" with no props could be array or object.
-        // JiK says object with sole key "-" written as children needs (object).
-        if !has_props
-            && children.len() == 1
-            && children[0].name().value() == ANON
-            && !is_object_annotated
-            && all_children_anon
-        {
-            // Treat as array of one complex element (common case) unless (object)
-            return jik_array_to_value(entries, children, span, ignore_types);
         }
         return jik_object_to_value(entries, children, span, ignore_types);
     }

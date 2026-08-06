@@ -216,6 +216,14 @@ impl Command for ToKdl {
                     "wait" => Value::test_duration(5_000_000_000),
                 })),
             },
+            Example {
+                description: "Round-trip a list of records (table-shaped data) as JSON-in-KDL.",
+                example: "[{a: 1}, {a: 2}] | to kdl | from kdl --format jik",
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! { "a" => Value::test_int(1) }),
+                    Value::test_record(record! { "a" => Value::test_int(2) }),
+                ])),
+            },
         ]
     }
 }
@@ -412,6 +420,49 @@ mod test {
             "'- a=1 b=#true' | from kdl --format jik --spec 2 | to kdl --format jik --spec 2 | $in",
         );
         assert_eq!(result, Value::test_string("- a=1 b=#true\n"));
+    }
+
+    #[test]
+    fn pipeline_list_of_records_jik_round_trip() {
+        // Regression: multi-row tables used to be misread as objects (duplicate key '-').
+        let result = eval_kdl("[{a: 1}, {a: 2}] | to kdl | from kdl --format jik | $in");
+        let span = Span::test_data();
+        assert_eq!(
+            result,
+            Value::test_list(vec![
+                Value::test_record(record! { "a" => Value::int(1, span) }),
+                Value::test_record(record! { "a" => Value::int(2, span) }),
+            ])
+        );
+    }
+
+    #[test]
+    fn pipeline_jik_multi_anon_children_is_list() {
+        let result = eval_kdl("'- { - a=1; - a=2 }' | from kdl --format jik | $in");
+        let span = Span::test_data();
+        assert_eq!(
+            result,
+            Value::test_list(vec![
+                Value::test_record(record! { "a" => Value::int(1, span) }),
+                Value::test_record(record! { "a" => Value::int(2, span) }),
+            ])
+        );
+    }
+
+    #[test]
+    fn pipeline_jik_sole_anon_child_is_list_not_object() {
+        let result = eval_kdl("'- { - 1 }' | from kdl --format jik | $in");
+        assert_eq!(result, Value::test_list(vec![Value::test_int(1)]));
+    }
+
+    #[test]
+    fn pipeline_jik_object_key_dash_needs_annotation() {
+        let result = eval_kdl("'(object)- { - 1 }' | from kdl --format jik | $in");
+        let span = Span::test_data();
+        assert_eq!(
+            result,
+            Value::test_record(record! { "-" => Value::int(1, span) })
+        );
     }
 
     #[test]
