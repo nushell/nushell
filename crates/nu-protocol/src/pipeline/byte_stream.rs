@@ -474,6 +474,11 @@ impl ByteStream {
     }
 
     /// Returns the [`ByteStreamType`] associated with the [`ByteStream`].
+    /// Process interrupt signals associated with this stream.
+    pub fn signals(&self) -> &Signals {
+        &self.signals
+    }
+
     pub fn type_(&self) -> ByteStreamType {
         self.type_
     }

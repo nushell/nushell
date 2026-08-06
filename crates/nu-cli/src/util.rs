@@ -393,7 +393,8 @@ pub(crate) fn evaluate_parsed_block(
     stack.deletions.clear();
 
     // Capture interactive last-result before display_output transforms/prints the value.
-    if engine_state.is_interactive {
+    // Only for true REPL user lines (`capture_repl_last_result`), not config/env/banner.
+    if engine_state.is_interactive && engine_state.capture_repl_last_result {
         pipeline_data = maybe_store_last_result(engine_state, stack, block, pipeline_data);
     }
 
@@ -435,6 +436,8 @@ fn maybe_store_last_result(
         return pipeline_data;
     }
 
+    let signals = engine_state.signals().clone();
+
     match pipeline_data {
         PipelineData::Empty => {
             stack.set_last_result(Value::nothing(Span::unknown()), None, budget);
@@ -445,57 +448,81 @@ fn maybe_store_last_result(
             PipelineData::Value(value, metadata)
         }
         PipelineData::ListStream(stream, metadata) => {
-            let span = stream.span();
-            stack.clear_last_result();
-
-            let mut kept: Vec<Value> = Vec::new();
-            let mut used = Value::list(vec![], span).memory_size();
-            let mut truncated = false;
-            let mut print_prefix: Vec<Value> = Vec::new();
-
-            // Prefer whole rows so table-like `$ans.last` still renders with columns
-            // (partial records / nothing rows collapse to list view).
-            let mut iter = stream.into_iter();
-            for item in iter.by_ref() {
-                print_prefix.push(item.clone());
-
-                if truncated {
-                    // Already over budget for storage; stop buffering for store.
-                    // (Remaining items stay on the print stream via `iter`.)
-                    break;
-                }
-
-                let item_size = item.memory_size();
-                if used.saturating_add(item_size) <= budget {
-                    used += item_size;
-                    kept.push(item);
-                } else {
-                    // Whole item does not fit: drop the row; do not store a partial
-                    // record/`nothing` that would collapse table display to list view.
-                    truncated = true;
-                    break;
-                }
-            }
-
-            let stored = Value::list(kept, span);
-            // Final safety pass: whole-row truncation only for table-like values.
-            let (stored, more_trunc) = if stored.memory_size() > budget {
-                truncate_value_to_budget(stored, budget)
-            } else {
-                (stored, false)
-            };
-            stack.store_last_result_raw(stored, metadata.clone(), truncated || more_trunc);
-
-            let print_iter = print_prefix.into_iter().chain(iter);
-            PipelineData::ListStream(
-                ListStream::new(print_iter, span, Signals::empty()),
-                metadata,
-            )
+            store_list_stream_prefix(stack, stream, metadata, budget, signals)
         }
         PipelineData::ByteStream(stream, metadata) => {
             store_byte_stream_prefix(stack, stream, metadata, budget)
         }
     }
+}
+
+/// Tee a list stream: accumulate `$ans.last` under budget while rebuilding a print stream.
+///
+/// Under budget with a fully drained stream, avoids double-cloning into a separate print
+/// buffer. Overflowing items stop storage (whole rows for tables; optional partial last
+/// scalar for non-tables via [`truncate_value_to_budget`]).
+fn store_list_stream_prefix(
+    stack: &mut Stack,
+    stream: ListStream,
+    metadata: Option<PipelineMetadata>,
+    budget: usize,
+    signals: Signals,
+) -> PipelineData {
+    let span = stream.span();
+    let mut kept: Vec<Value> = Vec::new();
+    let mut used = Value::list(vec![], span).memory_size();
+    let mut truncated = false;
+    let mut overflow_item: Option<Value> = None;
+
+    let mut iter = stream.into_iter();
+    for item in iter.by_ref() {
+        let item_size = item.memory_size();
+        if used.saturating_add(item_size) <= budget {
+            used += item_size;
+            kept.push(item);
+            continue;
+        }
+
+        // Item does not fit whole.
+        truncated = true;
+        let table_like = matches!(item, Value::Record { .. })
+            && (kept.is_empty() || kept.iter().all(|v| matches!(v, Value::Record { .. })));
+
+        if table_like {
+            // Prefer whole rows so table-like `$ans.last` still renders with columns.
+            overflow_item = Some(item);
+            break;
+        }
+
+        // Non-table: allow a partial last scalar/string/binary/list like Value path.
+        let remaining = budget.saturating_sub(used);
+        if remaining > 0 {
+            let (partial, _) = truncate_value_to_budget(item.clone(), remaining);
+            if !matches!(partial, Value::Nothing { .. })
+                && used.saturating_add(partial.memory_size()) <= budget
+            {
+                kept.push(partial);
+            }
+        }
+        overflow_item = Some(item);
+        break;
+    }
+
+    let stored = Value::list(kept.clone(), span);
+    let (stored, more_trunc) = if stored.memory_size() > budget {
+        truncate_value_to_budget(stored, budget)
+    } else {
+        (stored, false)
+    };
+    stack.store_last_result_raw(stored, metadata.clone(), truncated || more_trunc);
+
+    // Print stream: under-budget full drain reuses `kept` without a second buffer of clones.
+    let print_iter: Box<dyn Iterator<Item = Value> + Send> = match overflow_item {
+        None => Box::new(kept.into_iter()),
+        Some(item) => Box::new(kept.into_iter().chain(std::iter::once(item)).chain(iter)),
+    };
+
+    PipelineData::ListStream(ListStream::new(print_iter, span, signals), metadata)
 }
 
 fn store_byte_stream_prefix(
@@ -506,6 +533,7 @@ fn store_byte_stream_prefix(
 ) -> PipelineData {
     let span = stream.span();
     let type_ = stream.type_();
+    let signals = stream.signals().clone();
     // Externals (and file-backed streams) trim a single trailing newline when
     // decoded to string, matching [`ByteStream::into_value`].
     let trim_trailing_newline = stream.source().is_external();
@@ -520,12 +548,14 @@ fn store_byte_stream_prefix(
         return PipelineData::ByteStream(stream, metadata);
     }
 
-    stack.clear_last_result();
-
+    // Only clear after we successfully obtain a reader — `reader()` consumes the stream.
     let Some(mut reader) = stream.reader() else {
-        // Defensive: source said stdout exists but reader failed.
+        // Defensive: source said stdout exists but reader failed. Prior `$ans` left intact;
+        // nothing left to print.
         return PipelineData::Empty;
     };
+
+    stack.clear_last_result();
 
     let max_bytes = budget.saturating_sub(std::mem::size_of::<Value>());
     let mut prefix = Vec::new();
@@ -587,7 +617,7 @@ fn store_byte_stream_prefix(
                 }
             })),
         span,
-        Signals::empty(),
+        signals,
         type_,
     );
 

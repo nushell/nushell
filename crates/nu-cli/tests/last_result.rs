@@ -61,6 +61,8 @@ impl Interactive {
 
     /// One interactive source unit (like one REPL entry).
     fn run(&mut self, code: &str) {
+        // Match REPL `do_run_cmd`: enable capture only for this user line.
+        self.engine_state.capture_repl_last_result = true;
         let _ = eval_source(
             &mut self.engine_state,
             &mut self.stack,
@@ -69,6 +71,7 @@ impl Interactive {
             PipelineData::empty(),
             false,
         );
+        self.engine_state.capture_repl_last_result = false;
     }
 
     /// Full `$ans` value (record when present, `nothing` when unset / disabled).

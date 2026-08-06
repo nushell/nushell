@@ -97,8 +97,15 @@ pub(crate) fn eval_cell_path(
             .to_owned()
             .map_or_else(
                 // Handles `$env` / `$nu` / `$ans` specials as well as stack vars.
-                // Truncation warnings for `$ans` are deferred (not printed from completions).
-                || eval_variable(working_set.permanent_state, stack, var_id, span),
+                // Read `$ans` without deferring truncation warnings (completions are not
+                // a user-facing display of the value).
+                || {
+                    if var_id == nu_protocol::LAST_VARIABLE_ID {
+                        stack.get_var(var_id, span)
+                    } else {
+                        eval_variable(working_set.permanent_state, stack, var_id, span)
+                    }
+                },
                 Ok,
             )
     } else {

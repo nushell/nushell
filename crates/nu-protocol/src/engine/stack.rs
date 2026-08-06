@@ -262,19 +262,23 @@ impl Stack {
     }
 
     fn with_last_result_slot<R>(&self, f: impl FnOnce(&LastResultSlot) -> R) -> R {
-        let slot = self
-            .last_result
-            .lock()
-            .expect("last_result lock is poisoned");
-        f(&slot)
+        match self.last_result.lock() {
+            Ok(slot) => f(&slot),
+            // Poison is rare; recover so `$ans` / capture do not hard-panic the REPL.
+            Err(poisoned) => f(&poisoned.into_inner()),
+        }
     }
 
     fn with_last_result_slot_mut<R>(&self, f: impl FnOnce(&mut LastResultSlot) -> R) -> R {
-        let mut slot = self
-            .last_result
-            .lock()
-            .expect("last_result lock is poisoned");
-        f(&mut slot)
+        match self.last_result.lock() {
+            Ok(mut slot) => f(&mut slot),
+            Err(poisoned) => {
+                let mut slot = poisoned.into_inner();
+                // Drop potentially inconsistent state after a panic while locked.
+                *slot = LastResultSlot::default();
+                f(&mut slot)
+            }
+        }
     }
 
     /// Build the `$ans` record when the slot is present; otherwise `None` (→ `nothing`).
@@ -352,10 +356,12 @@ impl Stack {
         });
     }
 
-    /// After a REPL line finishes: refresh `$ans.exit_code` and `$ans.duration`.
+    /// After a REPL user command finishes: refresh `$ans.exit_code` and `$ans.duration`.
     ///
-    /// When `budget == 0`, clears `$ans` entirely. When budget is positive, marks `$ans`
-    /// present so metadata is available even if `.last` was not updated this line.
+    /// When `budget == 0`, clears `$ans` entirely. When budget is positive and `$ans` is
+    /// already present (or `.last` was stored this line), updates metadata fields.
+    /// Does nothing if capture never produced a present slot (avoids inventing `$ans` on
+    /// empty Enter / auto-cd).
     pub fn snapshot_ans_repl_metadata(
         &mut self,
         engine_state: &EngineState,
@@ -374,7 +380,11 @@ impl Stack {
         let duration_ns = i64::try_from(duration.as_nanos()).unwrap_or(i64::MAX);
 
         self.with_last_result_slot_mut(|slot| {
-            slot.present = true;
+            // Only refresh metadata when capture has already produced a slot (store or
+            // prior snapshot). Avoids turning empty lines into a new `$ans` record.
+            if !slot.present {
+                return;
+            }
             slot.exit_code = exit_code;
             slot.duration_ns = duration_ns;
         });
@@ -390,14 +400,24 @@ impl Stack {
         self.with_last_result_slot(|slot| slot.last.as_ref().map(|v| v.memory_size()).unwrap_or(0))
     }
 
+    /// Marker key in [`PipelineMetadata::custom`] identifying pipeline data loaded from `$ans`.
+    ///
+    /// Used so IR cell-path follow only reattaches last-result metadata for `$ans.last`,
+    /// not every unrelated record field named `last`.
+    pub const ANS_LAST_RESULT_METADATA_KEY: &str = "ans_last_result";
+
     /// Build [`PipelineData`] for `$ans`, restoring stored pipeline metadata on the record
     /// so `$ans.last` cell-path access can reattach it (see IR `FollowCellPath`).
     pub fn last_result_pipeline_data(&self, span: Span) -> PipelineData {
-        let metadata = self.last_result_metadata();
+        let mut metadata = self.last_result_metadata().unwrap_or_default();
+        // Mark so FollowCellPath can reattach payload metadata only for `$ans.*`.
+        metadata
+            .custom
+            .insert(Self::ANS_LAST_RESULT_METADATA_KEY, Value::bool(true, span));
         let value = self
             .assemble_ans_record(span)
             .unwrap_or_else(|| Value::nothing(span));
-        PipelineData::value(value, metadata)
+        PipelineData::value(value, Some(metadata))
     }
 
     /// Whether the currently stored `$ans.last` was truncated.

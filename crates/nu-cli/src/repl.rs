@@ -451,6 +451,9 @@ fn run_command(ctx: RunContext) -> Reedline {
     // Actual command execution logic starts from here
     let cmd_execution_start_time = Instant::now();
 
+    // Only user-typed commands refresh `$ans` metadata (not empty Enter / auto-cd).
+    let mut snapshot_ans = false;
+
     match parse_operation(command.clone(), engine_state, stack) {
         Ok(ReplOperation::AutoCd { cwd, target, span }) => {
             do_auto_cd(target, cwd, stack, engine_state, span);
@@ -481,6 +484,7 @@ fn run_command(ctx: RunContext) -> Reedline {
                 shell_integration.osc633,
                 shell_integration.osc133,
             );
+            snapshot_ans = true;
         }
         // as the name implies, we do nothing in this case
         Ok(ReplOperation::DoNothing) => {}
@@ -495,8 +499,11 @@ fn run_command(ctx: RunContext) -> Reedline {
     );
 
     // Snapshot `$ans.exit_code` / `$ans.duration` after duration is known (and
-    // after eval may have stored `$ans.last`). No-op when last_result_size is 0.
-    stack.snapshot_ans_repl_metadata(engine_state, cmd_duration);
+    // after eval may have stored `$ans.last`). No-op when last_result_size is 0
+    // or `$ans` was never present.
+    if snapshot_ans {
+        stack.snapshot_ans_repl_metadata(engine_state, cmd_duration);
+    }
 
     if history_supports_meta
         && let Err(e) = fill_in_result_related_history_metadata(
@@ -1081,14 +1088,19 @@ fn do_run_cmd(
         run_shell_integration_osc2(Some(s), engine_state, stack, use_color);
     }
 
-    match evaluate_source(
+    // Enable `$ans` capture for this user line only (not config/env/banner evals).
+    engine_state.capture_repl_last_result = true;
+    let eval_result = evaluate_source(
         engine_state,
         stack,
         s.as_bytes(),
         &format!("repl_entry #{entry_num}"),
         PipelineData::empty(),
         false,
-    ) {
+    );
+    engine_state.capture_repl_last_result = false;
+
+    match eval_result {
         Err(ShellError::Exit { code, .. }) => {
             return cleanup_exit(line_editor, engine_state, code);
         }

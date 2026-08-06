@@ -146,6 +146,11 @@ pub struct EngineState {
     pub file: Option<PathBuf>,
     pub regex_cache: Arc<Mutex<LruCache<String, Regex>>>,
     pub is_interactive: bool,
+    /// When true with [`Self::is_interactive`], REPL user-line evaluation may store `$ans`.
+    ///
+    /// Set only around true REPL command evaluation (`do_run_cmd`), not config/env/banner
+    /// startup, so startup scripts do not overwrite interactive last-result.
+    pub capture_repl_last_result: bool,
     pub is_login: bool,
     pub is_lsp: bool,
     pub is_mcp: bool,
@@ -250,6 +255,7 @@ impl EngineState {
                 NonZeroUsize::new(REGEX_CACHE_SIZE).expect("tried to create cache of size zero"),
             ))),
             is_interactive: false,
+            capture_repl_last_result: false,
             is_login: false,
             is_lsp: false,
             is_mcp: false,
