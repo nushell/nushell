@@ -8,7 +8,7 @@ use crate::{
         StackWithInvocation,
     },
     ir::ScopeRegion,
-    report_shell_warning,
+    record, report_shell_warning,
     shell_error::generic::GenericError,
     truncate_value_to_budget,
 };
@@ -19,18 +19,30 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-/// Shared interactive last-result storage.
+/// Shared interactive last-result (`$ans`) storage.
 ///
 /// Held in an [`Arc`] so REPL child stacks from [`Stack::with_parent`] see the same
 /// payload and can clear `warn_pending` without mutating an immutable parent frame.
+///
+/// When [`Self::present`] is true, reading `$ans` yields a record
+/// `{ last, exit_code, duration }`. When false (feature off or never snapshotted),
+/// `$ans` is `nothing`.
 #[derive(Debug, Default)]
 struct LastResultSlot {
-    value: Option<Value>,
+    /// Whether `$ans` should resolve to a record (vs `nothing`).
+    present: bool,
+    /// Pipeline payload for the `last` field.
+    last: Option<Value>,
+    /// Pipeline metadata for replaying `last` (e.g. `ls` path_columns / colors).
     metadata: Option<PipelineMetadata>,
     truncated: bool,
+    /// Exit code of the last REPL line (mirrors `$env.LAST_EXIT_CODE`).
+    exit_code: i64,
+    /// Duration of the last REPL line in nanoseconds (Nushell `Duration` value).
+    duration_ns: i64,
     /// Set when a store was truncated; moved to `warn_deferred` on first access.
     warn_pending: bool,
-    /// Set when `$_` was accessed after a truncated store; reported after output prints.
+    /// Set when `$ans` was accessed after a truncated store; reported after output prints.
     warn_deferred: bool,
 }
 
@@ -96,7 +108,7 @@ pub struct Stack {
     pub ir_scope_regions: Vec<ScopeRegion>,
     /// Current program counter while evaluating IR (for matching [`Self::ir_scope_regions`]).
     pub ir_instruction_index: Option<usize>,
-    /// Interactive last-result payload for [`LAST_VARIABLE_ID`] (e.g. `$_`).
+    /// Interactive last-result payload for [`LAST_VARIABLE_ID`] (e.g. `$ans`).
     ///
     /// Shared across parent/child stacks so REPL iterations (which use
     /// [`Stack::with_parent`]) can store and clear truncation warnings correctly.
@@ -232,7 +244,7 @@ impl Stack {
     /// Lookup a variable, returning None if it is not present
     fn lookup_var(&self, var_id: VarId) -> Option<Value> {
         if var_id == LAST_VARIABLE_ID {
-            return self.with_last_result_slot(|slot| slot.value.clone());
+            return self.assemble_ans_record(Span::unknown());
         }
 
         for (id, val) in &self.vars {
@@ -265,32 +277,51 @@ impl Stack {
         f(&mut slot)
     }
 
-    /// Drop any previously stored last-result before installing a new one.
+    /// Build the `$ans` record when the slot is present; otherwise `None` (→ `nothing`).
+    fn assemble_ans_record(&self, span: Span) -> Option<Value> {
+        self.with_last_result_slot(|slot| {
+            if !slot.present {
+                return None;
+            }
+            let last = slot
+                .last
+                .as_ref()
+                .map(|v| v.clone().with_span(span))
+                .unwrap_or_else(|| Value::nothing(span));
+            Some(Value::record(
+                record! {
+                    "last" => last,
+                    "exit_code" => Value::int(slot.exit_code, span),
+                    "duration" => Value::duration(slot.duration_ns, span),
+                },
+                span,
+            ))
+        })
+    }
+
+    /// Drop the entire `$ans` slot (feature off / full clear).
     pub fn clear_last_result(&mut self) {
         self.with_last_result_slot_mut(|slot| {
-            if let Some(old) = slot.value.take() {
+            if let Some(old) = slot.last.take() {
                 drop(old);
             }
-            slot.metadata = None;
-            slot.truncated = false;
-            slot.warn_pending = false;
-            slot.warn_deferred = false;
+            *slot = LastResultSlot::default();
         });
     }
 
-    /// Store `value` as the interactive last-result, enforcing `budget` via truncation.
+    /// Store `value` as `$ans.last`, enforcing `budget` via truncation.
     ///
-    /// Drops any previous last-result first. When `budget == 0`, capture is disabled
-    /// (clears storage and does not store). Preserves pipeline `metadata` (e.g. `path_columns`
-    /// used for `ls` coloring) so replaying `$_` matches the original display.
+    /// When `budget == 0`, capture is disabled (clears the whole `$ans` slot).
+    /// Preserves pipeline `metadata` (e.g. `path_columns` used for `ls` coloring) so
+    /// replaying `$ans.last` can match the original display.
     pub fn set_last_result(
         &mut self,
         value: Value,
         metadata: Option<PipelineMetadata>,
         budget: usize,
     ) {
-        self.clear_last_result();
         if budget == 0 {
+            self.clear_last_result();
             return;
         }
 
@@ -298,9 +329,10 @@ impl Stack {
         self.store_last_result_raw(stored, metadata, truncated);
     }
 
-    /// Install an already-budgeted last-result value (caller handled truncation).
+    /// Install an already-budgeted `$ans.last` value (caller handled truncation).
     ///
-    /// Does **not** clear first; call [`clear_last_result`] when replacing an older value.
+    /// Marks `$ans` present. Does not reset `exit_code` / `duration` (those are updated
+    /// by [`Self::snapshot_ans_repl_metadata`] at end of each REPL line).
     pub fn store_last_result_raw(
         &mut self,
         value: Value,
@@ -308,43 +340,72 @@ impl Stack {
         truncated: bool,
     ) {
         self.with_last_result_slot_mut(|slot| {
-            slot.value = Some(value);
+            if let Some(old) = slot.last.replace(value) {
+                drop(old);
+            }
             slot.metadata = metadata;
             slot.truncated = truncated;
             slot.warn_pending = truncated;
             // Fresh store replaces any not-yet-shown deferred warning.
             slot.warn_deferred = false;
+            slot.present = true;
         });
     }
 
-    /// Pipeline metadata associated with the stored last-result, if any.
+    /// After a REPL line finishes: refresh `$ans.exit_code` and `$ans.duration`.
+    ///
+    /// When `budget == 0`, clears `$ans` entirely. When budget is positive, marks `$ans`
+    /// present so metadata is available even if `.last` was not updated this line.
+    pub fn snapshot_ans_repl_metadata(
+        &mut self,
+        engine_state: &EngineState,
+        duration: std::time::Duration,
+    ) {
+        let budget = self.get_config(engine_state).last_result_size_bytes();
+        if budget == 0 {
+            self.clear_last_result();
+            return;
+        }
+
+        let exit_code = self
+            .get_env_var(engine_state, "LAST_EXIT_CODE")
+            .and_then(|v| v.as_int().ok())
+            .unwrap_or(0);
+        let duration_ns = i64::try_from(duration.as_nanos()).unwrap_or(i64::MAX);
+
+        self.with_last_result_slot_mut(|slot| {
+            slot.present = true;
+            slot.exit_code = exit_code;
+            slot.duration_ns = duration_ns;
+        });
+    }
+
+    /// Pipeline metadata associated with the stored `$ans.last`, if any.
     pub fn last_result_metadata(&self) -> Option<PipelineMetadata> {
         self.with_last_result_slot(|slot| slot.metadata.clone())
     }
 
-    /// Estimated memory size of the stored last-result value (`0` if unset).
+    /// Estimated memory size of the stored `$ans.last` payload (`0` if unset).
     pub fn last_result_memory_size(&self) -> usize {
-        self.with_last_result_slot(|slot| slot.value.as_ref().map(|v| v.memory_size()).unwrap_or(0))
+        self.with_last_result_slot(|slot| slot.last.as_ref().map(|v| v.memory_size()).unwrap_or(0))
     }
 
-    /// Build [`PipelineData`] for `$_`, restoring stored pipeline metadata.
+    /// Build [`PipelineData`] for `$ans`, restoring stored pipeline metadata on the record
+    /// so `$ans.last` cell-path access can reattach it (see IR `FollowCellPath`).
     pub fn last_result_pipeline_data(&self, span: Span) -> PipelineData {
-        self.with_last_result_slot(|slot| {
-            let value = slot
-                .value
-                .as_ref()
-                .map(|v| v.clone().with_span(span))
-                .unwrap_or_else(|| Value::nothing(span));
-            PipelineData::value(value, slot.metadata.clone())
-        })
+        let metadata = self.last_result_metadata();
+        let value = self
+            .assemble_ans_record(span)
+            .unwrap_or_else(|| Value::nothing(span));
+        PipelineData::value(value, metadata)
     }
 
-    /// Whether the currently stored last-result was truncated.
+    /// Whether the currently stored `$ans.last` was truncated.
     pub fn last_result_was_truncated(&self) -> bool {
         self.with_last_result_slot(|slot| slot.truncated)
     }
 
-    /// On `$_` access after a truncated store: schedule a warning for after output prints.
+    /// On `$ans` access after a truncated store: schedule a warning for after output prints.
     ///
     /// Does not print anything. Call [`Self::take_last_result_warn_deferred`] after display
     /// so the truncated value is shown first, then the warning.
@@ -364,7 +425,7 @@ impl Stack {
 
     /// Take the deferred truncation warning flag (clears it).
     ///
-    /// Returns `true` once after a truncated `$_` was accessed; intended to be called
+    /// Returns `true` once after a truncated `$ans` was accessed; intended to be called
     /// after the pipeline has been printed so the warning appears below the data.
     pub fn take_last_result_warn_deferred(&self) -> bool {
         self.with_last_result_slot_mut(|slot| std::mem::take(&mut slot.warn_deferred))
@@ -619,7 +680,7 @@ impl Stack {
             active_scope_bindings: self.active_scope_bindings.clone(),
             ir_scope_regions: vec![],
             ir_instruction_index: None,
-            // Share last-result so closures can still read `$_`.
+            // Share last-result so closures can still read `$ans`.
             last_result: self.last_result.clone(),
         }
     }
@@ -662,7 +723,7 @@ impl Stack {
             active_scope_bindings: self.active_scope_bindings.clone(),
             ir_scope_regions: vec![],
             ir_instruction_index: None,
-            // Share last-result so closures can still read `$_`.
+            // Share last-result so closures can still read `$ans`.
             last_result: self.last_result.clone(),
         }
     }

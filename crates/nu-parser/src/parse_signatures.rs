@@ -269,7 +269,7 @@ pub fn parse_var_with_opt_type(
 }
 
 // Builtin variable names that cannot be rebound with `let` / `mut` / `const`.
-// `LAST_RESULT_VAR_NAME` is reserved so `$_` always means interactive last-result
+// `LAST_RESULT_VAR_NAME` is reserved so `$ans` always means interactive last-result
 // (wired via `parse_variable_expr` → `LAST_VARIABLE_ID`).
 const RESERVED_VARIABLE_NAMES: &[&[u8]] = &[
     b"in",

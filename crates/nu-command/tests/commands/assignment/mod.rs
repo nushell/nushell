@@ -95,7 +95,7 @@ fn mut_record_field_compound_assign() -> Result {
 fn mut_record_field_assign_many_times() -> Result {
     let code = "
         mut r = {a: (1..500 | each {|i| $i | into string} | str join)}
-        for _i in 1..200 { $r.a = 'x' }
+        for _ in 1..200 { $r.a = 'x' }
         $r.a
     ";
 

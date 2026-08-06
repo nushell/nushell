@@ -17,7 +17,7 @@ export def dice [
     greater $sides 1 "The amount of sides must be greater than 1"
 
     mut out = []
-    for _i in 1..$dice {
+    for _ in 1..$dice {
     	$out ++= [(random int 1..$sides)]
     }
     $out

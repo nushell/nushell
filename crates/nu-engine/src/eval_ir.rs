@@ -534,7 +534,7 @@ fn eval_instruction<D: DebugContext>(
             Ok(Continue)
         }
         Instruction::LoadVariable { dst, var_id } => {
-            // Restore pipeline metadata for `$_` (e.g. ls path_columns / colors).
+            // Restore pipeline metadata for `$ans` (e.g. ls path_columns / colors on `.last`).
             // Truncation warning is deferred until after print so data is visible first.
             let data = if *var_id == nu_protocol::LAST_VARIABLE_ID {
                 ctx.stack.defer_last_result_truncation_warning();
@@ -935,10 +935,19 @@ fn eval_instruction<D: DebugContext>(
             let data = ctx.take_reg(*src_dst);
             let path = ctx.take_reg(*path);
             if let PipelineData::Value(Value::CellPath { val: path, .. }, _) = path.body {
+                // Reattach `$ans` pipeline metadata when following only `.last`, so
+                // `$ans.last` keeps ls path_columns / colors like the original payload.
+                let is_last_field = path.members.len() == 1
+                    && matches!(
+                        &path.members[0],
+                        nu_protocol::ast::PathMember::String { val, .. } if val == "last"
+                    );
+                let src_meta = data.body.metadata_ref().cloned();
                 let value = data.body.follow_cell_path(&path.members, *span)?;
+                let metadata = if is_last_field { src_meta } else { None };
                 ctx.put_reg(
                     *src_dst,
-                    PipelineExecutionData::from(value.into_pipeline_data()),
+                    PipelineExecutionData::from(PipelineData::value(value, metadata)),
                 );
                 Ok(Continue)
             } else if let PipelineData::Value(Value::Error { error, .. }, _) = path.body {

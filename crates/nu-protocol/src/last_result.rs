@@ -1,4 +1,4 @@
-//! Interactive last-result (`$_` by default) helpers: truncation and AST detection.
+//! Interactive last-result (`$ans` by default) helpers: truncation and AST detection.
 
 use crate::{
     LAST_VARIABLE_ID, Span, Value,
@@ -218,8 +218,11 @@ fn truncate_binary(val: Vec<u8>, budget: usize, span: Span) -> (Value, bool) {
     }
 }
 
-/// Returns true when `block` is only a bare reference to the last-result variable
-/// (optionally wrapped in parentheses / a single-element pipeline).
+/// Returns true when `block` is only a reference to the last-result variable or a
+/// cell-path rooted at it (e.g. `$ans`, `$ans.last`, `$ans.exit_code`), optionally
+/// wrapped in parentheses / a single-element pipeline.
+///
+/// Such expressions must not overwrite `$ans.last` when re-evaluated.
 pub fn block_is_bare_last_result(block: &Block) -> bool {
     if block.pipelines.len() != 1 {
         return false;
@@ -241,8 +244,9 @@ fn pipeline_is_bare_last_result(pipeline: &Pipeline) -> bool {
 fn expr_is_bare_last_result(expr: &Expression) -> bool {
     match &expr.expr {
         Expr::Var(var_id) => *var_id == LAST_VARIABLE_ID,
-        Expr::FullCellPath(path) if path.tail.is_empty() => expr_is_bare_last_result(&path.head),
-        // Parenthesized subexpression: `($_)`
+        // Any cell path on `$ans` (including `$ans`, `$ans.last`, `$ans.last.0`, …).
+        Expr::FullCellPath(path) => expr_is_bare_last_result(&path.head),
+        // Parenthesized subexpression: `($ans)` / `($ans.last)`
         Expr::Block(block_id) | Expr::RowCondition(block_id) | Expr::Closure(block_id) => {
             // These shouldn't appear for simple paren groups; paren groups are usually Subexpression
             let _ = block_id;
@@ -286,9 +290,8 @@ fn expr_is_bare_last_result_with<'a>(
 ) -> bool {
     match &expr.expr {
         Expr::Var(var_id) => *var_id == LAST_VARIABLE_ID,
-        Expr::FullCellPath(path) if path.tail.is_empty() => {
-            expr_is_bare_last_result_with(&path.head, get_block)
-        }
+        // Any cell path rooted at `$ans` skips re-storing `.last`.
+        Expr::FullCellPath(path) => expr_is_bare_last_result_with(&path.head, get_block),
         Expr::Subexpression(block_id) => {
             let inner = get_block(*block_id);
             block_is_bare_last_result_with(inner, get_block)

@@ -45,7 +45,7 @@ fn par_each_default_pool_works() -> Result {
 fn par_each_many_sequential_calls() -> Result {
     let code = "
         mut total = 0
-        for _i in 1..20 {
+        for _ in 1..20 {
             let n = [1 2 3] | par-each {|x| $x } | math sum
             $total += $n
         }

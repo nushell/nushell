@@ -48,5 +48,5 @@ bench --rounds 50 --warmup 5 --pretty { $prebuilt ++ [] | ignore }
 # --- Many small par-each (global pool reuse) ---
 print "=== Many small par-each (default pool) ==="
 bench --rounds 20 --warmup 3 --pretty {
-    for _i in 1..50 { (1..10) | par-each {|_el| 1 } | ignore }
+    for _ in 1..50 { (1..10) | par-each {|_| 1 } | ignore }
 }

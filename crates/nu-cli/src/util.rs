@@ -366,7 +366,7 @@ pub(crate) fn evaluate_source(
 }
 
 /// Evaluate a parsed block: run it, apply variable deletions, optionally store interactive
-/// last-result (`$_`), print output, flush last-result truncation warnings, and handle
+/// last-result (`$ans.last`), print output, flush last-result truncation warnings, and handle
 /// optional pipefail.
 pub(crate) fn evaluate_parsed_block(
     engine_state: &mut EngineState,
@@ -400,7 +400,7 @@ pub(crate) fn evaluate_parsed_block(
     let no_newline = matches!(&pipeline_data, &PipelineData::ByteStream(..));
     print_pipeline(engine_state, stack, pipeline_data, no_newline)?;
 
-    // Truncation warning for `$_` is deferred until after display so the data
+    // Truncation warning for `$ans` is deferred until after display so the data
     // is not scrolled off the screen by the warning.
     stack.flush_last_result_truncation_warning(engine_state, Span::unknown());
 
@@ -424,7 +424,7 @@ fn maybe_store_last_result(
 ) -> PipelineData {
     let budget = stack.get_config(engine_state).last_result_size_bytes();
 
-    // Bare `$_` (rename via LAST_RESULT_VAR_NAME) must not re-store.
+    // Bare `$ans` / `$ans.*` cell-paths (rename via LAST_RESULT_VAR_NAME) must not re-store `.last`.
     let mut get_block = |id| engine_state.get_block(id).as_ref();
     if block_is_bare_last_result_with(block, &mut get_block) {
         return pipeline_data;
@@ -453,7 +453,7 @@ fn maybe_store_last_result(
             let mut truncated = false;
             let mut print_prefix: Vec<Value> = Vec::new();
 
-            // Prefer whole rows so table-like `$_` still renders with columns
+            // Prefer whole rows so table-like `$ans.last` still renders with columns
             // (partial records / nothing rows collapse to list view).
             let mut iter = stream.into_iter();
             for item in iter.by_ref() {
@@ -511,7 +511,7 @@ fn store_byte_stream_prefix(
     let trim_trailing_newline = stream.source().is_external();
 
     // No capturable bytes (e.g. stdout was null or still inherited). Do not replace
-    // a prior `$_` with empty binary; leave the stream for print/wait.
+    // a prior `$ans.last` with empty binary; leave the stream for print/wait.
     let has_stdout = match stream.source() {
         ByteStreamSource::Read(_) | ByteStreamSource::File(_) => true,
         ByteStreamSource::Child(child) => child.stdout.is_some(),
@@ -554,7 +554,7 @@ fn store_byte_stream_prefix(
         }
     }
 
-    // Decode for `$_` the same way collecting a byte stream does:
+    // Decode for `$ans.last` the same way collecting a byte stream does:
     // Binary stays binary; String/Unknown become string when UTF-8, else binary.
     // Display still uses the raw rebuilt byte stream below.
     let stored = value_from_bytes(

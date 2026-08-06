@@ -86,11 +86,12 @@ pub struct Config {
     pub highlight_resolved_externals: bool,
     pub auto_cd_implicit: bool,
     pub duration_max_unit: DurationMaxUnit,
-    /// Maximum estimated memory size of the interactive last-result value (e.g. `$_`).
+    /// Maximum estimated memory size of the interactive last-result payload (`$ans.last`).
     ///
     /// Measured with [`Value::memory_size`]. Default is `0` (capture disabled / opt-in).
     /// Oversized results are truncated to fit this budget. The variable name itself is a code
-    /// constant (`LAST_RESULT_VAR_NAME`), not a config option.
+    /// constant (`LAST_RESULT_VAR_NAME`), not a config option. When enabled, `$ans` is a record
+    /// `{ last, exit_code, duration }`.
     pub last_result_size: Filesize,
     /// Configuration for plugins.
     ///

@@ -196,7 +196,7 @@ fn generate_with_input_is_streaming() -> Result {
         | first 5
         | let sum
 
-        let sent = generate {|_state = null|
+        let sent = generate {|_ = null|
             try { {next: null, out: (job recv --timeout 0sec)} }
         }
 

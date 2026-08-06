@@ -609,7 +609,7 @@ pub fn eval_variable(
 
             Ok(Value::record(pairs.into_iter().collect(), span))
         }
-        // interactive last-result (e.g. `$_`)
+        // interactive last-result (e.g. `$ans`)
         // Truncation warning is deferred until after print so data is visible first.
         id if id == nu_protocol::LAST_VARIABLE_ID => {
             stack.defer_last_result_truncation_warning();

@@ -494,6 +494,10 @@ fn run_command(ctx: RunContext) -> Reedline {
         Value::string(format!("{}", cmd_duration.as_millis()), Span::unknown()),
     );
 
+    // Snapshot `$ans.exit_code` / `$ans.duration` after duration is known (and
+    // after eval may have stored `$ans.last`). No-op when last_result_size is 0.
+    stack.snapshot_ans_repl_metadata(engine_state, cmd_duration);
+
     if history_supports_meta
         && let Err(e) = fill_in_result_related_history_metadata(
             &command,

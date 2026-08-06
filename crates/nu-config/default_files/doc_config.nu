@@ -120,14 +120,15 @@ $env.config.rm.always_trash = false
 $env.config.recursion_limit = 50
 
 # last_result_size (filesize): Maximum memory for the interactive last-result
-# variable (`$_`). Opt-in: set a positive size to enable capture in the REPL.
-# Successful pipeline results are then stored so you can reuse them. Size is
-# measured with Value::memory_size.
-# 0b: Disable capture entirely (default).
+# variable (`$ans`). Opt-in: set a positive size to enable capture in the REPL.
+# Successful pipeline results are stored in `$ans.last`; `$ans.exit_code` and
+# `$ans.duration` track the last command. Size is measured with Value::memory_size
+# and applies to the `.last` payload only.
+# 0b: Disable capture entirely (default); `$ans` is nothing.
 # When a result exceeds the limit, it is truncated to fit and a warning is shown
-# the next time you access `$_`. Bare `$_` (no pipeline) does not overwrite
-# the stored value. External command output is stored as a string when UTF-8, or
-# as binary otherwise. The name `_` is reserved and cannot be rebound with `let`.
+# the next time you access `$ans`. Bare `$ans` / `$ans.*` cell-paths do not
+# overwrite `$ans.last`. External command output is stored as a string when UTF-8,
+# or as binary otherwise. The name `ans` is reserved and cannot be rebound with `let`.
 # Default: 0b
 $env.config.last_result_size = 0b
 
