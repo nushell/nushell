@@ -9,20 +9,26 @@ on:
   pull_request_target:
     types: [closed]
 
+permissions:
+  # The milestone action binds merged PRs and closed issues to the
+  # active milestone.
+  issues: write
+  pull-requests: write
+
 jobs:
   update-milestone:
     runs-on: ubuntu-latest
     name: Milestone Update
     steps:
       - name: Set Milestone for PR
-        uses: hustcer/milestone-action@v3
+        uses: hustcer/milestone-action@ebed8d5daafd855a600d7e665c1b130f06d24130 # v3.1
         if: github.event.pull_request.merged == true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # Bind milestone to closed issue that has a merged PR fix
       - name: Set Milestone for Issue
-        uses: hustcer/milestone-action@v3
+        uses: hustcer/milestone-action@ebed8d5daafd855a600d7e665c1b130f06d24130 # v3.1
         if: github.event.issue.state == 'closed'
         with:
           action: bind-issue

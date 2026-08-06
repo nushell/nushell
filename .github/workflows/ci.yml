@@ -9,6 +9,9 @@ on:
 
 name: continuous-integration
 
+permissions:
+  contents: read
+
 env:
   NU_LOG_LEVEL: DEBUG
   NU_TEST_SKIP_DEPS_BUILD: true
@@ -105,14 +108,14 @@ jobs:
 
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Rust Toolchain
         run: rustup target add ${{ matrix.target.target }}
         working-directory: ${{ matrix.workspace.path }}
 
       - name: Cache Rust
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
         with:
           workspaces: ${{ matrix.workspace.path }} -> target
           cache-all-crates: true
@@ -174,16 +177,16 @@ jobs:
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Rust toolchain and cache
-        uses: actions-rust-lang/setup-rust-toolchain@v1.12.0
+        uses: actions-rust-lang/setup-rust-toolchain@9d7e65c320fdb52dcd45ffaa68deb6c02c8754d9 # v1.12.0
 
       - name: Install Nushell
         run: cargo install --path . --locked --force
 
       - name: Upload Nushell build (Ubuntu and macOS)
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: runner.os != 'Windows'
         with:
           name: "nu-${{ github.event.number || github.ref_name }}-${{ matrix.platform }}"
@@ -191,7 +194,7 @@ jobs:
           retention-days: 14
 
       - name: Upload Nushell build (Windows)
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: runner.os == 'Windows'
         with:
           name: "nu-${{ github.event.number || github.ref_name }}-${{ matrix.platform }}"
@@ -205,7 +208,7 @@ jobs:
         run: nu .github/workflows/check-msrv.nu
 
       - name: Setup Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.10"
 

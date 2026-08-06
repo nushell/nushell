@@ -17,6 +17,9 @@ on:
     - cron: '15 0 * * *' # run at 00:15 AM UTC
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 defaults:
   run:
     shell: bash
@@ -34,7 +37,7 @@ jobs:
       nightly_tag: ${{ steps.vars.outputs.nightly_tag }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: github.repository == 'nushell/nightly'
         with:
           ref: main
@@ -43,7 +46,7 @@ jobs:
           token: ${{ secrets.WORKFLOW_TOKEN }}
 
       - name: Setup Nushell
-        uses: hustcer/setup-nu@v3
+        uses: hustcer/setup-nu@f3fd65374ffc4d60974c0dd2f7263c6c5c285f81 # v3.26
         if: github.repository == 'nushell/nightly'
         with:
           version: 0.112.2
@@ -157,8 +160,13 @@ jobs:
           os: ubuntu-22.04
 
     runs-on: ${{matrix.os}}
+    permissions:
+      # Upload the nightly archives to the release; open an issue when
+      # the build fails.
+      contents: write
+      issues: write
     steps:
-    - uses: actions/checkout@v7
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         ref: main
         fetch-depth: 0
@@ -179,14 +187,14 @@ jobs:
         echo "targets = ['${{matrix.target}}']" >> rust-toolchain.toml
 
     - name: Setup Rust toolchain and cache
-      uses: actions-rust-lang/setup-rust-toolchain@v1
+      uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
       # WARN: Keep the rustflags to prevent from the winget submission error: `CAQuietExec: Error 0xc0000135`
       with:
         cache: false
         rustflags: ''
 
     - name: Setup Nushell
-      uses: hustcer/setup-nu@v3
+      uses: hustcer/setup-nu@f3fd65374ffc4d60974c0dd2f7263c6c5c285f81 # v3.26
       with:
         version: 0.112.2
 
@@ -200,7 +208,7 @@ jobs:
 
     - name: Create an Issue for Release Failure
       if: ${{ failure() }}
-      uses: JasonEtco/create-an-issue@v2
+      uses: JasonEtco/create-an-issue@1b14a70e4d8dc185e5cc76d3bec9eab20257b2c5 # v2.9.2
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
@@ -211,7 +219,7 @@ jobs:
     # REF: https://github.com/marketplace/actions/gh-release
     # Create a release only in nushell/nightly repo
     - name: Publish Archive
-      uses: softprops/action-gh-release@v2.0.9
+      uses: softprops/action-gh-release@e7a8f85e1c67a31e6ed99a94b41bd0b71bbee6b8 # v2.0.9
       if: ${{ startsWith(github.repository, 'nushell/nightly') }}
       with:
         prerelease: true
@@ -228,6 +236,9 @@ jobs:
     name: Create Sha256sum
     runs-on: ubuntu-latest
     if: github.repository == 'nushell/nightly'
+    permissions:
+      # Update the nightly release with the checksum file.
+      contents: write
     steps:
     - name: Download Release Archives
       env:
@@ -240,7 +251,7 @@ jobs:
     - name: Create Checksums
       run: cd release && shasum -a 256 * > ../SHA256SUMS
     - name: Publish Checksums
-      uses: softprops/action-gh-release@v2.0.9
+      uses: softprops/action-gh-release@e7a8f85e1c67a31e6ed99a94b41bd0b71bbee6b8 # v2.0.9
       with:
         draft: false
         prerelease: true
@@ -255,13 +266,16 @@ jobs:
     if: github.repository == 'nushell/nightly'
     needs: [release, sha256sum]
     runs-on: ubuntu-latest
+    permissions:
+      # Delete outdated nightly releases.
+      contents: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: main
 
       - name: Setup Nushell
-        uses: hustcer/setup-nu@v3
+        uses: hustcer/setup-nu@f3fd65374ffc4d60974c0dd2f7263c6c5c285f81 # v3.26
         with:
           version: 0.112.2
 
