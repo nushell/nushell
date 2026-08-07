@@ -18,7 +18,7 @@ use nu_protocol::{Config, HistoryConfig, HistoryFileFormat, HistoryPath};
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_eq;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 #[cfg(not(windows))]
 use std::process::Command;
 
@@ -276,7 +276,7 @@ fn test_default_config_path() -> Result {
             .engine_state
             .config_dirs
             .plugin_file
-            .to_path_buf()
+            .as_path()
             .canonicalize()
             .ok();
     }
@@ -287,10 +287,10 @@ fn test_default_config_path() -> Result {
             .map(|c| {
                 c.to_str()
                     .and_then(|s| s.strip_prefix(r"\\?\")) // windows!
-                    .map(From::from)
+                    .map(PathBuf::from)
                     .unwrap_or(c)
             })
-            .unwrap_or(p)
+            .unwrap_or_else(|_| p.to_path_buf())
     };
 
     let home = dirs.config_home.as_path();
@@ -308,12 +308,12 @@ fn test_default_config_path() -> Result {
         .run("$nu.env-path")
         .expect_value_eq(try_canonicalized(environment))?;
 
-    let history = home.join("history.txt").as_path();
+    let history = &home.join("history.txt");
     tester
         .run("$nu.history-path")
         .expect_value_eq(try_canonicalized(history))?;
 
-    let login = home.join("login.nu").as_path();
+    let login = &home.join("login.nu");
     tester
         .run("$nu.loginshell-path")
         .expect_value_eq(try_canonicalized(login))?;
