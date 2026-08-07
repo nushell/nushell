@@ -641,6 +641,7 @@ fn test_cp_cp() -> Result {
 }
 
 #[test]
+#[serial]
 fn test_cp_existing_target() -> Result {
     Playground::setup("ucp_test_20", |dirs, _| {
         let src = dirs.fixtures.join("cp").join(TEST_HELLO_WORLD_SOURCE);
@@ -826,6 +827,7 @@ fn test_cp_same_file_force() -> Result {
 }
 
 #[test]
+#[serial]
 fn test_cp_arg_no_clobber() -> Result {
     Playground::setup("ucp_test_28", |dirs, _| {
         let src = dirs.fixtures.join("cp").join(TEST_HELLO_WORLD_SOURCE);
@@ -845,6 +847,7 @@ fn test_cp_arg_no_clobber() -> Result {
 }
 
 #[test]
+#[serial]
 fn test_cp_arg_no_clobber_twice() -> Result {
     Playground::setup("ucp_test_29", |dirs, sandbox| {
         sandbox.with_files(&[
