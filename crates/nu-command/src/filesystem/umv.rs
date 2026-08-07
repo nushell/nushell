@@ -246,6 +246,7 @@ impl Command for UMv {
             strip_slashes: false,
             debug: false,
             context: None,
+            exchange: false,
         };
         if let Err(error) = uu_mv::mv(&files_for_mv, &options) {
             return Err(ShellError::Generic(GenericError::new_internal(
