@@ -260,6 +260,25 @@ impl EngineState {
         &self.signals
     }
 
+    /// Return a compiled regex, reusing the process-wide LRU cache when possible.
+    ///
+    /// On lock contention (or a poisoned mutex), compiles without touching the cache —
+    /// the same fallback used by the `=~` / `!~` operators.
+    pub fn get_cached_regex(&self, pattern: &str) -> Result<Regex, fancy_regex::Error> {
+        match self.regex_cache.try_lock() {
+            Ok(mut cache) => {
+                if let Some(regex) = cache.get(pattern) {
+                    Ok(regex.clone())
+                } else {
+                    let regex = Regex::new(pattern)?;
+                    cache.put(pattern.to_owned(), regex.clone());
+                    Ok(regex)
+                }
+            }
+            Err(_) => Regex::new(pattern),
+        }
+    }
+
     pub fn reset_signals(&mut self) {
         self.signals.reset();
         if let Some(ref handlers) = self.signal_handlers {
@@ -1239,6 +1258,43 @@ mod engine_state_tests {
         let id = engine_state.add_file("test.nu", &[]);
 
         assert_eq!(id, FileId::new(0));
+    }
+
+    #[test]
+    fn get_cached_regex_reuses_compiled_patterns() {
+        let engine_state = EngineState::new();
+        let pattern = r"[^\w]+";
+
+        let first = engine_state
+            .get_cached_regex(pattern)
+            .expect("pattern should compile");
+        assert!(first.is_match("!!!").unwrap_or(false));
+
+        {
+            let cache = engine_state.regex_cache.lock().expect("cache lock");
+            assert_eq!(cache.len(), 1);
+            assert!(cache.peek(pattern).is_some());
+        }
+
+        let second = engine_state
+            .get_cached_regex(pattern)
+            .expect("pattern should compile from cache");
+        assert!(second.is_match("!!!").unwrap_or(false));
+
+        {
+            let cache = engine_state.regex_cache.lock().expect("cache lock");
+            assert_eq!(cache.len(), 1, "second lookup should not grow the cache");
+        }
+    }
+
+    #[test]
+    fn get_cached_regex_does_not_store_invalid_patterns() {
+        let engine_state = EngineState::new();
+
+        assert!(engine_state.get_cached_regex("(").is_err());
+
+        let cache = engine_state.regex_cache.lock().expect("cache lock");
+        assert_eq!(cache.len(), 0);
     }
 
     #[test]

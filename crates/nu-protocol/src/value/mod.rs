@@ -30,7 +30,6 @@ use crate::{
 };
 use chrono::{DateTime, Datelike, Duration, FixedOffset, Local, Locale, TimeZone};
 use chrono_humanize::HumanTime;
-use fancy_regex::Regex;
 use nu_utils::{ObviousFloat, SharedCow, contains_emoji, get_locale_from_env_vars};
 pub use semver::Version as SemVerVersion;
 use serde::{Deserialize, Serialize};
@@ -3994,33 +3993,15 @@ impl Value {
         let rhs_span = rhs.span();
         match (self, rhs) {
             (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => {
-                let is_match = match engine_state.regex_cache.try_lock() {
-                    Ok(mut cache) => {
-                        if let Some(regex) = cache.get(rhs) {
-                            regex.is_match(lhs)
-                        } else {
-                            let regex =
-                                Regex::new(rhs).map_err(|e| ShellError::UnsupportedInput {
-                                    msg: format!("{e}"),
-                                    input: "value originated from here".into(),
-                                    msg_span: span,
-                                    input_span: rhs_span,
-                                })?;
-                            let ret = regex.is_match(lhs);
-                            cache.put(rhs.clone(), regex);
-                            ret
-                        }
+                let regex = engine_state.get_cached_regex(rhs).map_err(|e| {
+                    ShellError::UnsupportedInput {
+                        msg: format!("{e}"),
+                        input: "value originated from here".into(),
+                        msg_span: span,
+                        input_span: rhs_span,
                     }
-                    Err(_) => {
-                        let regex = Regex::new(rhs).map_err(|e| ShellError::UnsupportedInput {
-                            msg: format!("{e}"),
-                            input: "value originated from here".into(),
-                            msg_span: span,
-                            input_span: rhs_span,
-                        })?;
-                        regex.is_match(lhs)
-                    }
-                };
+                })?;
+                let is_match = regex.is_match(lhs);
 
                 Ok(Value::bool(
                     if invert {

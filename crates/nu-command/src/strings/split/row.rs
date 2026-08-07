@@ -183,13 +183,12 @@ fn split_row(
     args: Arguments,
 ) -> Result<PipelineData, ShellError> {
     let name_span = call.head;
-    let regex = if args.has_regex {
-        Regex::new(&args.separator.item)
+    let pattern = if args.has_regex {
+        std::borrow::Cow::Borrowed(args.separator.item.as_str())
     } else {
-        let escaped = escape(&args.separator.item);
-        Regex::new(&escaped)
-    }
-    .map_err(|e| {
+        escape(&args.separator.item)
+    };
+    let regex = engine_state.get_cached_regex(&pattern).map_err(|e| {
         ShellError::Generic(GenericError::new(
             "Error with regular expression",
             e.to_string(),

@@ -194,7 +194,7 @@ impl Command for SubCommand {
             Value::Closure { val, .. } => {
                 Matcher::from_closure(ClosureEval::new(engine_state, stack, *val))
             }
-            _ => Matcher::new(has_regex, separator)?,
+            _ => Matcher::new(engine_state, has_regex, separator)?,
         };
         split_list(engine_state, call, input, matcher, split)
     }
@@ -209,7 +209,7 @@ impl Command for SubCommand {
         let separator: Value = call.req_const(working_set, 0)?;
         let split: Option<Split> = call.get_flag_const(working_set, "split")?;
         let split = split.unwrap_or(Split::On);
-        let matcher = Matcher::new(has_regex, separator)?;
+        let matcher = Matcher::new(working_set.permanent(), has_regex, separator)?;
         split_list(working_set.permanent(), call, input, matcher, split)
     }
 }
@@ -244,10 +244,11 @@ impl FromValue for Split {
 }
 
 impl Matcher {
-    pub fn new(regex: bool, lhs: Value) -> Result<Self, ShellError> {
+    pub fn new(engine_state: &EngineState, regex: bool, lhs: Value) -> Result<Self, ShellError> {
         if regex {
-            Ok(Matcher::Regex(Regex::new(&lhs.coerce_str()?).map_err(
-                |e| {
+            let pattern = lhs.coerce_str()?;
+            Ok(Matcher::Regex(
+                engine_state.get_cached_regex(&pattern).map_err(|e| {
                     let span = match lhs {
                         Value::Error { .. } => Span::unknown(),
                         _ => lhs.span(),
@@ -257,8 +258,8 @@ impl Matcher {
                         e.to_string(),
                         span,
                     ))
-                },
-            )?))
+                })?,
+            ))
         } else {
             Ok(Matcher::Direct(lhs))
         }

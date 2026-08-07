@@ -174,16 +174,30 @@ fn operate(
         build_regex(&pattern_item, pattern_span)?
     };
 
-    let regex = RegexBuilder::new(&item_to_parse)
-        .backtrack_limit(backtrack_limit)
-        .build()
-        .map_err(|e| {
+    // Default backtrack limit matches fancy_regex / Regex::new, so those
+    // compilations can share the EngineState LRU cache. Custom limits must
+    // bypass the cache because the key is only the pattern string.
+    const DEFAULT_BACKTRACK_LIMIT: usize = 1_000_000;
+    let regex = if backtrack_limit == DEFAULT_BACKTRACK_LIMIT {
+        engine_state.get_cached_regex(&item_to_parse).map_err(|e| {
             ShellError::Generic(GenericError::new(
                 "Error with regular expression",
                 e.to_string(),
                 pattern_span,
             ))
-        })?;
+        })?
+    } else {
+        RegexBuilder::new(&item_to_parse)
+            .backtrack_limit(backtrack_limit)
+            .build()
+            .map_err(|e| {
+                ShellError::Generic(GenericError::new(
+                    "Error with regular expression",
+                    e.to_string(),
+                    pattern_span,
+                ))
+            })?
+    };
 
     let columns = regex
         .capture_names()

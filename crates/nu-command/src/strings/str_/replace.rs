@@ -29,6 +29,7 @@ enum Matcher {
 
 impl Matcher {
     fn new(
+        engine_state: &EngineState,
         find: Spanned<String>,
         regex: bool,
         multiline: bool,
@@ -43,7 +44,8 @@ impl Matcher {
             } else {
                 item
             };
-            Regex::new(&pattern)
+            engine_state
+                .get_cached_regex(&pattern)
                 .map(Self::Regex)
                 .map_err(|error| ShellError::IncorrectValue {
                     msg: format!("Regex error: {error}"),
@@ -158,7 +160,7 @@ groups as its argument. It must return a string that will be used as a replaceme
 
         let args = Arguments {
             all: call.has_flag(engine_state, stack, "all")?,
-            matcher: Matcher::new(find, regex, multiline, call.head)?,
+            matcher: Matcher::new(engine_state, find, regex, multiline, call.head)?,
             replace,
             cell_paths,
             literal_replace,
@@ -182,7 +184,7 @@ groups as its argument. It must return a string that will be used as a replaceme
 
         let args = Arguments {
             all: call.has_flag_const(working_set, "all")?,
-            matcher: Matcher::new(find, regex, multiline, call.head)?,
+            matcher: Matcher::new(working_set.permanent(), find, regex, multiline, call.head)?,
             replace: ReplacementValue::String(Arc::new(replace)),
             cell_paths,
             literal_replace,
@@ -440,16 +442,18 @@ mod tests {
 
     #[test]
     fn can_have_capture_groups() {
+        let engine_state = EngineState::new();
         let word = Value::test_string("Cargo.toml");
 
         let options = Arguments {
             matcher: Matcher::new(
+                &engine_state,
                 test_spanned_string("Cargo.(.+)"),
                 true,
                 false,
                 Span::test_data(),
             )
-            .unwrap(),
+            .expect("regex should compile"),
             replace: ReplacementValue::String(Arc::new(test_spanned_string("Carga.$1"))),
             cell_paths: None,
             literal_replace: false,
