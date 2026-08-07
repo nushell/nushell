@@ -321,6 +321,58 @@ fn named_flag_null_is_omitted() -> Result {
 }
 
 #[test]
+fn named_flag_null_passed_when_type_allows_nothing() -> Result {
+    // oneof with nothing: explicit null is bound; omit still uses default
+    let code = "
+        def f [--x: oneof<int, nothing> = 5] { $x }
+        f --x=(null)
+    ";
+    test().run(code).expect_value_eq(())?;
+
+    let code = "
+        def f [--x: oneof<int, nothing> = 5] { $x }
+        f
+    ";
+    test().run(code).expect_value_eq(5)?;
+
+    let code = "
+        def f [--x: oneof<int, nothing> = 5] { $x }
+        f --x=3
+    ";
+    test().run(code).expect_value_eq(3)?;
+
+    // `any` accepts nothing, so null is passed through (not the default)
+    let code = "
+        def f [--x: any = 5] { $x }
+        f --x=(null)
+    ";
+    test().run(code).expect_value_eq(())?;
+
+    // `nothing` type: null is passed through
+    let code = "
+        def f [--x: nothing] { $x }
+        f --x=(null)
+    ";
+    test().run(code).expect_value_eq(())?;
+
+    // Record spread: null passes when type allows nothing
+    let code = "
+        def f [--x: oneof<int, nothing> = 5] { $x }
+        f ...{x: null}
+    ";
+    test().run(code).expect_value_eq(())?;
+
+    // Record spread: null still omits when type does not allow nothing
+    let code = "
+        def f [--x: int = 5] { $x }
+        f ...{x: null}
+    ";
+    test().run(code).expect_value_eq(5)?;
+
+    Ok(())
+}
+
+#[test]
 fn named_flag_record_spread() -> Result {
     let code = r#"
         def f [--x: int, --y: string, --verbose] {

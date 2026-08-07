@@ -3,7 +3,7 @@ use crate::get_full_help;
 use crate::{EvalBlockWithEarlyReturnFn, eval_ir::eval_ir_block};
 use nu_protocol::{
     BlockId, CompareTypes, Config, ENV_VARIABLE_ID, IntoPipelineData, PipelineData,
-    PipelineExecutionData, ShellError, Signature, Span, Value, VarId,
+    PipelineExecutionData, ShellError, Signature, Span, Type, Value, VarId,
     ast::{Assignment, Block, Call, Expr, Expression, ExternalArgument, PathMember},
     debugger::{DebugContext, WithDebug, WithoutDebug},
     engine::{Closure, EngineState, EnvName, EnvVars, Stack},
@@ -331,19 +331,35 @@ pub fn eval_call<D: DebugContext>(
             let result = eval_expression::<D>(engine_state, caller_stack, arg)?;
             call_eval.add_positional(&decl.signature(), Cow::Owned(result))?;
         }
+        let signature = decl.signature();
         for call_named in call.named_iter() {
             let result: Option<Cow<Value>> = if let Some(arg) = &call_named.2 {
                 let value = eval_expression::<D>(engine_state, caller_stack, arg)?;
-                // Null means omit the flag (same as IR PushNamed).
+                // Null → omit unless the flag type accepts `nothing` (same as IR normalize).
                 if value.is_nothing() {
-                    continue;
+                    let accepts_nothing = signature
+                        .get_long_flag(&call_named.0.item)
+                        .or_else(|| {
+                            call_named
+                                .1
+                                .as_ref()
+                                .and_then(|s| s.item.chars().next())
+                                .and_then(|c| signature.get_short_flag(c))
+                        })
+                        .is_some_and(|flag| match &flag.arg {
+                            Some(shape) => Type::Nothing.is_assignable_to(&shape.to_type()),
+                            None => false,
+                        });
+                    if !accepts_nothing {
+                        continue;
+                    }
                 }
                 Some(Cow::Owned(value))
             } else {
                 None
             };
             call_eval.add_named(
-                &decl.signature(),
+                &signature,
                 &call_named.0.item,
                 call_named.1.clone().map(|x| x.item),
                 result,

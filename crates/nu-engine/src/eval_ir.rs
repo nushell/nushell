@@ -649,12 +649,9 @@ fn eval_instruction<D: DebugContext>(
             Ok(Continue)
         }
         Instruction::PushNamed { name, src } => {
+            // Null may be omitted or passed through depending on the target flag's type;
+            // that decision is made in `normalize_call_arguments` once the signature is known.
             let val = ctx.collect_reg(*src, *span)?.with_span(*span);
-            // Null means "omit this flag" so optional named args can be forwarded
-            // when shadowing builtins (e.g. `%cp --preserve=$preserve`).
-            if val.is_nothing() {
-                return Ok(Continue);
-            }
             let data = ctx.data.clone();
             ctx.stack.arguments.push(Argument::Named {
                 data,
@@ -668,9 +665,6 @@ fn eval_instruction<D: DebugContext>(
         }
         Instruction::PushShortNamed { short, src } => {
             let val = ctx.collect_reg(*src, *span)?.with_span(*span);
-            if val.is_nothing() {
-                return Ok(Continue);
-            }
             let data = ctx.data.clone();
             ctx.stack.arguments.push(Argument::Named {
                 data,
@@ -1510,9 +1504,37 @@ fn expect_positional_var_id(arg: &PositionalArg, span: Span) -> Result<VarId, Sh
     })
 }
 
+/// Whether a named flag's value type accepts `nothing`/`null`.
+///
+/// Used so `--flag=$null` can either:
+/// - pass `null` through when the signature allows it (`any`, `nothing`, `oneof<…, nothing>`, …)
+/// - omit the flag when it does not (`--x: int`), so defaults / "flag absent" still work for shadowing
+fn flag_type_accepts_nothing(flag: &Flag) -> bool {
+    match &flag.arg {
+        Some(shape) => Type::Nothing.is_assignable_to(&shape.to_type()),
+        // Switches are booleans; null means omit (same as false / not passed).
+        None => false,
+    }
+}
+
+fn find_signature_flag<'a>(
+    signature: &'a Signature,
+    long: &[u8],
+    short: &[u8],
+) -> Option<&'a Flag> {
+    signature.named.iter().find(|flag| {
+        (!long.is_empty() && flag.long.as_bytes() == long)
+            || (!short.is_empty()
+                && flag.short.is_some_and(|c| {
+                    let mut buf = [0u8; 4];
+                    c.encode_utf8(&mut buf).as_bytes() == short
+                }))
+    })
+}
+
 /// Expand a record into named/flag arguments for a call.
 ///
-/// - `null` field values are omitted (same as null→omit for `--flag=$v`)
+/// - `null` field values: passed through if the flag type accepts `nothing`, otherwise omitted
 /// - switch flags (`--flag` with no value): `true` sets the flag, `false`/`null` omit it
 /// - valued flags: non-null values become `--name value`
 fn expand_flag_record(
@@ -1522,9 +1544,6 @@ fn expand_flag_record(
 ) -> Result<Vec<Argument>, ShellError> {
     let mut out = Vec::with_capacity(record.len());
     for (key, val) in record {
-        if val.is_nothing() {
-            continue;
-        }
         let Some(flag) = signature.get_long_flag(&key) else {
             return Err(ShellError::Generic(GenericError::new(
                 format!("Unknown flag `{key}` in spread record"),
@@ -1543,7 +1562,7 @@ fn expand_flag_record(
         let (data, name_slice, short_slice) = data_from_name_and_short(&flag.long, &short);
 
         if flag.arg.is_none() {
-            // Switch: only `true` sets the flag; `false` omits (like `--flag=false`).
+            // Switch: only `true` sets the flag; `false`/`null` omit (like `--flag=false`).
             match val {
                 Value::Bool { val: true, .. } => {
                     out.push(Argument::Flag {
@@ -1553,7 +1572,7 @@ fn expand_flag_record(
                         span: spread_span,
                     });
                 }
-                Value::Bool { val: false, .. } => {}
+                Value::Bool { val: false, .. } | Value::Nothing { .. } => {}
                 other => {
                     return Err(ShellError::CantConvert {
                         to_type: "bool".into(),
@@ -1565,6 +1584,8 @@ fn expand_flag_record(
                     });
                 }
             }
+        } else if val.is_nothing() && !flag_type_accepts_nothing(&flag) {
+            // Null → omit when the flag type does not accept nothing.
         } else {
             out.push(Argument::Named {
                 data,
@@ -1593,7 +1614,8 @@ fn data_from_name_and_short(name: &str, short: &str) -> (Arc<[u8]>, DataSlice, D
     (data, name, short)
 }
 
-/// Normalize call arguments: expand record spreads into named flags, drop named nulls.
+/// Normalize call arguments: expand record spreads into named flags; drop null
+/// named values unless the flag type accepts `nothing`.
 ///
 /// Returns the new argument list length after rewriting the frame starting at `args_base`.
 fn normalize_call_arguments(
@@ -1608,10 +1630,26 @@ fn normalize_call_arguments(
     for arg in raw {
         match arg {
             Argument::Named {
+                data,
+                name,
+                short,
+                span,
                 val: Value::Nothing { .. },
-                ..
+                ast,
             } => {
-                // Belt-and-suspenders: null named values are omitted.
+                let accepts = find_signature_flag(signature, &data[name], &data[short])
+                    .is_some_and(flag_type_accepts_nothing);
+                if accepts {
+                    expanded.push(Argument::Named {
+                        data,
+                        name,
+                        short,
+                        span,
+                        val: Value::nothing(span),
+                        ast,
+                    });
+                }
+                // else: null → omit (shadowing / optional flag forwarding)
             }
             Argument::Spread {
                 vals,
@@ -1750,10 +1788,8 @@ fn gather_arguments(
                 val,
                 ..
             } => {
-                // Null named values are treated as omitted (defaults apply).
-                if val.is_nothing() {
-                    continue;
-                }
+                // Null should already have been dropped in `normalize_call_arguments`
+                // when the flag type does not accept nothing. If still present, bind it.
                 let var_id = find_named_var_id(&block.signature, &data[name], &data[short], span)?;
                 callee_stack.add_var(var_id, val)
             }
