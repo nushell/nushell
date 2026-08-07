@@ -36,9 +36,27 @@ pub(crate) fn check_call(
         return CallKind::Help;
     }
 
-    if call.positional_iter().count() < sig.required_positional.len() {
-        let end_offset = call
-            .positional_iter()
+    // `positional_iter` stops at the first `...` spread (historically rest-only). Flag-record
+    // spreads (`...{…}` / dual-purpose `...$flags`) do not consume positionals, so arguments
+    // after them must still count toward required positionals.
+    let has_spread = call
+        .arguments
+        .iter()
+        .any(|arg| matches!(arg, Argument::Spread(_)));
+    let positional_exprs: Vec<_> = if has_spread {
+        call.arguments
+            .iter()
+            .filter_map(|arg| match arg {
+                Argument::Positional(e) | Argument::Unknown(e) => Some(e),
+                _ => None,
+            })
+            .collect()
+    } else {
+        call.positional_iter().collect()
+    };
+
+    if positional_exprs.len() < sig.required_positional.len() {
+        let end_offset = positional_exprs
             .last()
             .map(|last| last.span.end)
             .unwrap_or(command.end);
@@ -46,7 +64,7 @@ pub(crate) fn check_call(
         // expressions found in the call. If one type is not found then it could be assumed
         // that positional argument is missing from the parsed call
         for argument in &sig.required_positional {
-            let found = call.positional_iter().fold(false, |ac, expr| {
+            let found = positional_exprs.iter().fold(false, |ac, expr| {
                 if argument.shape.to_type() == expr.ty || argument.shape == SyntaxShape::Any {
                     true
                 } else {
@@ -63,7 +81,7 @@ pub(crate) fn check_call(
             }
         }
 
-        let missing = &sig.required_positional[call.positional_iter().count()];
+        let missing = &sig.required_positional[positional_exprs.len()];
         working_set.error(ParseError::MissingPositional(
             missing.name.clone(),
             Span::new(end_offset, end_offset),
@@ -387,7 +405,8 @@ fn ensure_flag_arg_type(
     long_name_span: Span,
 ) -> (Spanned<String>, Expression) {
     // `nothing` is allowed so optional named flags can be forwarded with
-    // `--flag=$maybe_null`; at runtime a null value omits the flag entirely.
+    // `--flag=$maybe_null`. At runtime: omit if the flag type does not accept
+    // nothing; pass through if it does (`any`, `nothing`, `oneof<…, nothing>`).
     if arg.ty != Type::Nothing && !type_compatible(&arg_shape.to_type(), &arg.ty) {
         working_set.error(ParseError::TypeMismatch(
             arg_shape.to_type(),
@@ -1202,16 +1221,22 @@ pub fn parse_internal_call(
             {
                 let after_dots = working_set.get_span_contents(spread_arg_span);
                 if after_dots.first() == Some(&b'{') {
-                    // Record spreads always parse; unknown keys error at runtime when expanded
-                    // into named flags (not into ...rest).
-                    let args = crate::parser::parse_value(
-                        working_set,
-                        spread_arg_span,
-                        // Open record; field types are validated against the signature at runtime.
-                        &SyntaxShape::Record(std::iter::empty().collect()),
-                        None,
-                    );
-                    call.add_spread(args);
+                    if !can_named_spread {
+                        working_set.error(ParseError::UnexpectedSpreadArg(
+                            signature.call_signature(),
+                            arg_span,
+                        ));
+                        call.add_positional(Expression::garbage(working_set, arg_span));
+                    } else {
+                        // Field types / unknown keys are validated at runtime against the signature.
+                        let args = crate::parser::parse_value(
+                            working_set,
+                            spread_arg_span,
+                            &SyntaxShape::Record(std::iter::empty().collect()),
+                            None,
+                        );
+                        call.add_spread(args);
+                    }
                     spans_idx += 1;
                     continue;
                 }
@@ -1268,9 +1293,10 @@ pub fn parse_internal_call(
                         ));
                         call.add_positional(Expression::garbage(working_set, arg_span));
                     } else if can_rest_spread
+                        && !can_named_spread
                         && positional_idx < signature.required_positional.len()
                     {
-                        // Rest spreads cannot fill required positionals.
+                        // Pure rest spreads cannot fill required positionals.
                         working_set.error(ParseError::MissingPositional(
                             signature.required_positional[positional_idx].name.clone(),
                             Span::new(spans[spans_idx].start, spans[spans_idx].start),
@@ -1279,6 +1305,9 @@ pub fn parse_internal_call(
                         call.add_positional(Expression::garbage(working_set, arg_span));
                     } else {
                         // Parse as Any so both lists (rest) and records (named flags) work.
+                        // Do not advance positional_idx when named spreads are possible: a
+                        // flag record does not consume positionals, so `f ...$flags a` must
+                        // still bind `a`. Pure rest-only commands still advance below.
                         let args = crate::parser::parse_value(
                             working_set,
                             spread_arg_span,
@@ -1286,7 +1315,7 @@ pub fn parse_internal_call(
                             None,
                         );
                         call.add_spread(args);
-                        if can_rest_spread {
+                        if can_rest_spread && !can_named_spread {
                             positional_idx = signature.required_positional.len()
                                 + signature.optional_positional.len();
                         }

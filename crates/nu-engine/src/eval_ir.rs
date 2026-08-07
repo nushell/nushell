@@ -21,6 +21,7 @@ use nu_utils::IgnoreCaseExt;
 
 use crate::{
     ENV_CONVERSIONS, convert_env_vars, eval::is_automatic_env_var, eval_block_with_early_return,
+    named_flags::normalize_engine_arguments,
 };
 
 /// For `def --wrapped` and `known extern` rest params (`SyntaxShape::ExternalArgument`), convert
@@ -1504,116 +1505,6 @@ fn expect_positional_var_id(arg: &PositionalArg, span: Span) -> Result<VarId, Sh
     })
 }
 
-/// Whether a named flag's value type accepts `nothing`/`null`.
-///
-/// Used so `--flag=$null` can either:
-/// - pass `null` through when the signature allows it (`any`, `nothing`, `oneof<…, nothing>`, …)
-/// - omit the flag when it does not (`--x: int`), so defaults / "flag absent" still work for shadowing
-fn flag_type_accepts_nothing(flag: &Flag) -> bool {
-    match &flag.arg {
-        Some(shape) => Type::Nothing.is_assignable_to(&shape.to_type()),
-        // Switches are booleans; null means omit (same as false / not passed).
-        None => false,
-    }
-}
-
-fn find_signature_flag<'a>(
-    signature: &'a Signature,
-    long: &[u8],
-    short: &[u8],
-) -> Option<&'a Flag> {
-    signature.named.iter().find(|flag| {
-        (!long.is_empty() && flag.long.as_bytes() == long)
-            || (!short.is_empty()
-                && flag.short.is_some_and(|c| {
-                    let mut buf = [0u8; 4];
-                    c.encode_utf8(&mut buf).as_bytes() == short
-                }))
-    })
-}
-
-/// Expand a record into named/flag arguments for a call.
-///
-/// - `null` field values: passed through if the flag type accepts `nothing`, otherwise omitted
-/// - switch flags (`--flag` with no value): `true` sets the flag, `false`/`null` omit it
-/// - valued flags: non-null values become `--name value`
-fn expand_flag_record(
-    signature: &Signature,
-    record: Record,
-    spread_span: Span,
-) -> Result<Vec<Argument>, ShellError> {
-    let mut out = Vec::with_capacity(record.len());
-    for (key, val) in record {
-        let Some(flag) = signature.get_long_flag(&key) else {
-            return Err(ShellError::Generic(GenericError::new(
-                format!("Unknown flag `{key}` in spread record"),
-                format!("`{key}` is not a named argument of this command"),
-                spread_span,
-            )));
-        };
-
-        let short = flag
-            .short
-            .map(|c| {
-                let mut buf = [0u8; 4];
-                c.encode_utf8(&mut buf).to_string()
-            })
-            .unwrap_or_default();
-        let (data, name_slice, short_slice) = data_from_name_and_short(&flag.long, &short);
-
-        if flag.arg.is_none() {
-            // Switch: only `true` sets the flag; `false`/`null` omit (like `--flag=false`).
-            match val {
-                Value::Bool { val: true, .. } => {
-                    out.push(Argument::Flag {
-                        data,
-                        name: name_slice,
-                        short: short_slice,
-                        span: spread_span,
-                    });
-                }
-                Value::Bool { val: false, .. } | Value::Nothing { .. } => {}
-                other => {
-                    return Err(ShellError::CantConvert {
-                        to_type: "bool".into(),
-                        from_type: other.get_type().to_string(),
-                        span: other.span(),
-                        help: Some(format!(
-                            "spread field `{key}` is a switch; use true/false or omit/null"
-                        )),
-                    });
-                }
-            }
-        } else if val.is_nothing() && !flag_type_accepts_nothing(&flag) {
-            // Null → omit when the flag type does not accept nothing.
-        } else {
-            out.push(Argument::Named {
-                data,
-                name: name_slice,
-                short: short_slice,
-                span: spread_span,
-                val,
-                ast: None,
-            });
-        }
-    }
-    Ok(out)
-}
-
-fn data_from_name_and_short(name: &str, short: &str) -> (Arc<[u8]>, DataSlice, DataSlice) {
-    let data: Vec<u8> = name.bytes().chain(short.bytes()).collect();
-    let data: Arc<[u8]> = data.into();
-    let name = DataSlice {
-        start: 0,
-        len: name.len().try_into().expect("flag name too big"),
-    };
-    let short = DataSlice {
-        start: name.start.checked_add(name.len).expect("flag name too big"),
-        len: short.len().try_into().expect("flag short name too big"),
-    };
-    (data, name, short)
-}
-
 /// Normalize call arguments: expand record spreads into named flags; drop null
 /// named values unless the flag type accepts `nothing`.
 ///
@@ -1625,59 +1516,7 @@ fn normalize_call_arguments(
     args_len: usize,
 ) -> Result<usize, ShellError> {
     let raw: Vec<Argument> = stack.arguments.drain_args(args_base, args_len).collect();
-    let mut expanded = Vec::with_capacity(raw.len());
-
-    for arg in raw {
-        match arg {
-            Argument::Named {
-                data,
-                name,
-                short,
-                span,
-                val: Value::Nothing { .. },
-                ast,
-            } => {
-                let accepts = find_signature_flag(signature, &data[name], &data[short])
-                    .is_some_and(flag_type_accepts_nothing);
-                if accepts {
-                    expanded.push(Argument::Named {
-                        data,
-                        name,
-                        short,
-                        span,
-                        val: Value::nothing(span),
-                        ast,
-                    });
-                }
-                // else: null → omit (shadowing / optional flag forwarding)
-            }
-            Argument::Spread {
-                vals,
-                span: spread_span,
-                ast,
-            } => match vals {
-                Value::Record { val, .. } => {
-                    expanded.extend(expand_flag_record(
-                        signature,
-                        val.into_owned(),
-                        spread_span,
-                    )?);
-                }
-                Value::List { .. } | Value::Nothing { .. } | Value::Error { .. } => {
-                    expanded.push(Argument::Spread {
-                        vals,
-                        span: spread_span,
-                        ast,
-                    });
-                }
-                other => {
-                    return Err(ShellError::CannotSpreadAsList { span: other.span() });
-                }
-            },
-            other => expanded.push(other),
-        }
-    }
-
+    let expanded = normalize_engine_arguments(signature, raw)?;
     let new_len = expanded.len();
     for arg in expanded {
         stack.arguments.push(arg);

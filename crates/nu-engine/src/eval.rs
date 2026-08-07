@@ -1,13 +1,18 @@
 #[allow(deprecated)]
 use crate::get_full_help;
+use crate::named_flags::{expand_flag_record, flag_type_accepts_nothing};
 use crate::{EvalBlockWithEarlyReturnFn, eval_ir::eval_ir_block};
 use nu_protocol::{
     BlockId, CompareTypes, Config, ENV_VARIABLE_ID, IntoPipelineData, PipelineData,
-    PipelineExecutionData, ShellError, Signature, Span, Type, Value, VarId,
-    ast::{Assignment, Block, Call, Expr, Expression, ExternalArgument, PathMember},
+    PipelineExecutionData, ShellError, Signature, Span, Value, VarId,
+    ast::{
+        Argument as AstArgument, Assignment, Block, Call, Expr, Expression, ExternalArgument,
+        PathMember,
+    },
     debugger::{DebugContext, WithDebug, WithoutDebug},
-    engine::{Closure, EngineState, EnvName, EnvVars, Stack},
+    engine::{Argument as EngineArgument, Closure, EngineState, EnvName, EnvVars, Stack},
     eval_base::Eval,
+    shell_error::generic::GenericError,
 };
 use nu_utils::IgnoreCaseExt;
 use std::borrow::Cow;
@@ -327,43 +332,92 @@ pub fn eval_call<D: DebugContext>(
             block.span.unwrap_or(Span::unknown()),
             eval_block_with_early_return::<D>,
         );
-        for arg in call.positional_iter() {
-            let result = eval_expression::<D>(engine_state, caller_stack, arg)?;
-            call_eval.add_positional(&decl.signature(), Cow::Owned(result))?;
-        }
         let signature = decl.signature();
-        for call_named in call.named_iter() {
-            let result: Option<Cow<Value>> = if let Some(arg) = &call_named.2 {
-                let value = eval_expression::<D>(engine_state, caller_stack, arg)?;
-                // Null → omit unless the flag type accepts `nothing` (same as IR normalize).
-                if value.is_nothing() {
-                    let accepts_nothing = signature
-                        .get_long_flag(&call_named.0.item)
-                        .or_else(|| {
-                            call_named
-                                .1
-                                .as_ref()
-                                .and_then(|s| s.item.chars().next())
-                                .and_then(|c| signature.get_short_flag(c))
-                        })
-                        .is_some_and(|flag| match &flag.arg {
-                            Some(shape) => Type::Nothing.is_assignable_to(&shape.to_type()),
-                            None => false,
-                        });
-                    if !accepts_nothing {
-                        continue;
+        // Walk all arguments in order so record/list spreads interleave with positionals/flags
+        // the same way the IR path does after normalize_call_arguments.
+        for arg in &call.arguments {
+            match arg {
+                AstArgument::Positional(expr) | AstArgument::Unknown(expr) => {
+                    let result = eval_expression::<D>(engine_state, caller_stack, expr)?;
+                    call_eval.add_positional(&signature, Cow::Owned(result))?;
+                }
+                AstArgument::Named((long, short, maybe_expr)) => {
+                    let result: Option<Cow<Value>> = if let Some(expr) = maybe_expr {
+                        let value = eval_expression::<D>(engine_state, caller_stack, expr)?;
+                        if value.is_nothing() {
+                            let accepts_nothing = signature
+                                .get_long_flag(&long.item)
+                                .or_else(|| {
+                                    short
+                                        .as_ref()
+                                        .and_then(|s| s.item.chars().next())
+                                        .and_then(|c| signature.get_short_flag(c))
+                                })
+                                .is_some_and(|flag| flag_type_accepts_nothing(&flag));
+                            if !accepts_nothing {
+                                continue;
+                            }
+                        }
+                        Some(Cow::Owned(value))
+                    } else {
+                        None
+                    };
+                    call_eval.add_named(
+                        &signature,
+                        &long.item,
+                        short.as_ref().map(|s| s.item.clone()),
+                        result,
+                    )?;
+                }
+                AstArgument::Spread(expr) => {
+                    let val = eval_expression::<D>(engine_state, caller_stack, expr)?;
+                    match val {
+                        Value::Record { val, .. } => {
+                            for engine_arg in
+                                expand_flag_record(&signature, val.into_owned(), expr.span)?
+                            {
+                                match engine_arg {
+                                    EngineArgument::Flag { data, name, .. } => {
+                                        let long =
+                                            std::str::from_utf8(&data[name]).unwrap_or_default();
+                                        call_eval.add_named(&signature, long, None, None)?;
+                                    }
+                                    EngineArgument::Named {
+                                        data, name, val, ..
+                                    } => {
+                                        let long =
+                                            std::str::from_utf8(&data[name]).unwrap_or_default();
+                                        call_eval.add_named(
+                                            &signature,
+                                            long,
+                                            None,
+                                            Some(Cow::Owned(val)),
+                                        )?;
+                                    }
+                                    _ => {}
+                                }
+                            }
+                        }
+                        Value::List { vals, .. } => {
+                            if signature.rest_positional.is_none() && !signature.allows_unknown_args
+                            {
+                                return Err(ShellError::Generic(GenericError::new(
+                                    "Cannot spread a list into this command",
+                                    "This command has no ...rest parameter to receive a list spread. Use a record to spread named flags, e.g. ...{flag: value}",
+                                    expr.span,
+                                )));
+                            }
+                            for v in vals {
+                                call_eval.add_positional(&signature, Cow::Owned(v))?;
+                            }
+                        }
+                        Value::Nothing { .. } => {}
+                        other => {
+                            return Err(ShellError::CannotSpreadAsList { span: other.span() });
+                        }
                     }
                 }
-                Some(Cow::Owned(value))
-            } else {
-                None
-            };
-            call_eval.add_named(
-                &signature,
-                &call_named.0.item,
-                call_named.1.clone().map(|x| x.item),
-                result,
-            )?;
+            }
         }
 
         let result = call_eval.run(engine_state, block, input);

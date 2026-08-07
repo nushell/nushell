@@ -464,6 +464,60 @@ fn named_flag_record_spread_unknown_flag_errors() -> Result {
         f ...{x: 1, nope: true}
     ";
     let err = test().run(code).expect_shell_error()?;
-    assert_matches!(err, ShellError::Generic { .. });
+    assert_matches!(err, ShellError::Generic(_));
+    Ok(())
+}
+
+#[test]
+fn named_flag_list_spread_without_rest_errors() -> Result {
+    // Dynamic list on a named-only command must not silently drop the list.
+    let code = "
+        def f [--x: int] { $x }
+        let list = [1]
+        f ...$list
+    ";
+    let err = test().run(code).expect_shell_error()?;
+    assert_matches!(err, ShellError::Generic(_));
+
+    // Explicit list spread is still a parse error (no rest).
+    let err = test()
+        .run("def f [--x: int] { $x }; f ...[1]")
+        .expect_parse_error()?;
+    assert_matches!(err, ParseError::UnexpectedSpreadArg(_, _));
+    Ok(())
+}
+
+#[test]
+fn named_flag_record_spread_type_mismatch_errors() -> Result {
+    let code = r#"
+        def f [--x: int] { $x }
+        f ...{x: "hi"}
+    "#;
+    let err = test().run(code).expect_shell_error()?;
+    assert_matches!(err, ShellError::CantConvert { .. });
+    Ok(())
+}
+
+#[test]
+fn named_flag_dynamic_record_before_required_positional() -> Result {
+    // Dual-purpose commands: flag record before required positionals is allowed.
+    let code = "
+        def f [a: string, --x: int, ...rest] { {a: $a, x: $x, rest: $rest} }
+        let flags = {x: 7}
+        f ...$flags hello more
+    ";
+    test().run(code).expect_value_eq(test_value!({
+        a: "hello",
+        x: 7,
+        rest: ["more"]
+    }))
+}
+
+#[test]
+fn named_flag_record_spread_without_named_params_is_parse_error() -> Result {
+    let err = test()
+        .run("def f [] { 1 }; f ...{x: 1}")
+        .expect_parse_error()?;
+    assert_matches!(err, ParseError::UnexpectedSpreadArg(_, _));
     Ok(())
 }
