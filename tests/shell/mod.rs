@@ -337,6 +337,36 @@ fn script_with_newline_arg_does_not_split_commands() -> Result {
     })
 }
 
+// regression test for https://github.com/nushell/nushell/issues/18778
+#[test]
+#[deps(NU)]
+fn script_with_hash_arg_is_not_treated_as_comment() -> Result {
+    Playground::setup("script_hash_arg", |dirs, sandbox| -> Result {
+        sandbox.mkdir("script_hash_arg");
+        sandbox.with_files(&[FileWithContent(
+            "script.nu",
+            "def main [color: string] { print $color }",
+        )]);
+
+        let result: CompleteResult = test()
+            .cwd(dirs.test())
+            .run(r##"nu script.nu "#000000" | complete"##)?;
+
+        assert_eq!(result.exit_code, 0);
+        assert_eq!(result.stdout, "#000000\n");
+        assert!(result.stderr.is_empty());
+
+        let result: CompleteResult = test()
+            .cwd(dirs.test())
+            .run(r##"nu script.nu "#" | complete"##)?;
+
+        assert_eq!(result.exit_code, 0);
+        assert_eq!(result.stdout, "#\n");
+        assert!(result.stderr.is_empty());
+        Ok(())
+    })
+}
+
 // regression test for https://github.com/nushell/nushell/issues/17719
 #[test]
 #[deps(NU)]
