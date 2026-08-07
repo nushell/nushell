@@ -333,11 +333,12 @@ pub fn eval_call<D: DebugContext>(
         }
         for call_named in call.named_iter() {
             let result: Option<Cow<Value>> = if let Some(arg) = &call_named.2 {
-                Some(Cow::Owned(eval_expression::<D>(
-                    engine_state,
-                    caller_stack,
-                    arg,
-                )?))
+                let value = eval_expression::<D>(engine_state, caller_stack, arg)?;
+                // Null means omit the flag (same as IR PushNamed).
+                if value.is_nothing() {
+                    continue;
+                }
+                Some(Cow::Owned(value))
             } else {
                 None
             };

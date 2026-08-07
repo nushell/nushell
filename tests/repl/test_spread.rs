@@ -269,3 +269,149 @@ fn spread_null() -> Result {
 
     Ok(())
 }
+
+#[test]
+fn named_flag_null_is_omitted() -> Result {
+    // Null named value uses signature default
+    let code = "
+        def f [--x: int = 5] { $x }
+        f --x=(null)
+    ";
+    test().run(code).expect_value_eq(5)?;
+
+    // Null named value without default is same as omitting the flag
+    let code = "
+        def f [--x: int] { $x }
+        f --x=(null)
+    ";
+    test().run(code).expect_value_eq(())?;
+
+    // Forwarding an unbound optional flag (null) into another command
+    let code = "
+        def outer [--preserve: list<string>] {
+            inner --preserve=$preserve
+        }
+        def inner [--preserve: list<string>] {
+            $preserve
+        }
+        outer
+    ";
+    test().run(code).expect_value_eq(())?;
+
+    // Explicit empty list is distinct from null/omit
+    let code = "
+        def outer [--preserve: list<string>] {
+            inner --preserve=$preserve
+        }
+        def inner [--preserve: list<string>] {
+            $preserve
+        }
+        outer --preserve=[]
+    ";
+    test().run(code).expect_value_eq(test_value!([]))?;
+
+    // Null switch value is treated as omitted (false)
+    let code = "
+        def f [--verbose] { $verbose }
+        f --verbose=(null)
+    ";
+    test().run(code).expect_value_eq(false)?;
+
+    Ok(())
+}
+
+#[test]
+fn named_flag_record_spread() -> Result {
+    let code = r#"
+        def f [--x: int, --y: string, --verbose] {
+            {x: $x, y: $y, verbose: $verbose}
+        }
+        f ...{x: 1, y: "a", verbose: true}
+    "#;
+    test().run(code).expect_value_eq(test_value!({
+        x: 1,
+        y: "a",
+        verbose: true
+    }))?;
+
+    // Null fields are omitted (defaults / null apply)
+    let code = r#"
+        def f [--x: int = 9, --y: string, --verbose] {
+            {x: $x, y: $y, verbose: $verbose}
+        }
+        f ...{x: null, y: "hi", verbose: false}
+    "#;
+    test().run(code).expect_value_eq(test_value!({
+        x: 9,
+        y: "hi",
+        verbose: false
+    }))?;
+
+    // Dynamic record variable
+    let code = r#"
+        def f [--x: int, --y: string] { [$x $y] }
+        let flags = {x: 3, y: "z"}
+        f ...$flags
+    "#;
+    test().run(code).expect_value_eq(test_value!([3, "z"]))?;
+
+    // Combine named spread with rest positionals
+    let code = "
+        def f [--flag: int, ...rest] { {flag: $flag, rest: $rest} }
+        f ...{flag: 7} a b
+    ";
+    test().run(code).expect_value_eq(test_value!({
+        flag: 7,
+        rest: ["a", "b"]
+    }))?;
+
+    // Shadowing-style call: flags record + rest paths
+    let code = "
+        def wrap [--preserve: list<string>, --recursive, ...rest] {
+            inner ...{
+                preserve: $preserve
+                recursive: $recursive
+            } ...$rest
+        }
+        def inner [--preserve: list<string>, --recursive, ...rest] {
+            {preserve: $preserve, recursive: $recursive, rest: $rest}
+        }
+        wrap src dest
+    ";
+    test().run(code).expect_value_eq(test_value!({
+        preserve: (),
+        recursive: false,
+        rest: ["src", "dest"]
+    }))?;
+
+    let code = "
+        def wrap [--preserve: list<string>, --recursive, ...rest] {
+            inner ...{
+                preserve: $preserve
+                recursive: $recursive
+            } ...$rest
+        }
+        def inner [--preserve: list<string>, --recursive, ...rest] {
+            {preserve: $preserve, recursive: $recursive, rest: $rest}
+        }
+        wrap --preserve=[mode] --recursive src dest
+    ";
+    test().run(code).expect_value_eq(test_value!({
+        preserve: ["mode"],
+        recursive: true,
+        rest: ["src", "dest"]
+    }))?;
+
+    Ok(())
+}
+
+#[test]
+fn named_flag_record_spread_unknown_flag_errors() -> Result {
+    let code = "
+        def f [--x: int] { $x }
+        f ...{x: 1, nope: true}
+    ";
+    let err = test().run(code).expect_shell_error()?;
+    assert_matches!(err, ShellError::Generic { .. });
+    Ok(())
+}

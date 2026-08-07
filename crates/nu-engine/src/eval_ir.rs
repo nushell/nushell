@@ -650,6 +650,11 @@ fn eval_instruction<D: DebugContext>(
         }
         Instruction::PushNamed { name, src } => {
             let val = ctx.collect_reg(*src, *span)?.with_span(*span);
+            // Null means "omit this flag" so optional named args can be forwarded
+            // when shadowing builtins (e.g. `%cp --preserve=$preserve`).
+            if val.is_nothing() {
+                return Ok(Continue);
+            }
             let data = ctx.data.clone();
             ctx.stack.arguments.push(Argument::Named {
                 data,
@@ -663,6 +668,9 @@ fn eval_instruction<D: DebugContext>(
         }
         Instruction::PushShortNamed { short, src } => {
             let val = ctx.collect_reg(*src, *span)?.with_span(*span);
+            if val.is_nothing() {
+                return Ok(Continue);
+            }
             let data = ctx.data.clone();
             ctx.stack.arguments.push(Argument::Named {
                 data,
@@ -1354,6 +1362,14 @@ fn eval_call<D: DebugContext>(
             // check types after acquiring block to avoid unnecessarily cloning Signature
             check_input_types(&input, &block.signature, head)?;
 
+            // Expand record spreads into named flags; drop null named values.
+            let args_len = normalize_call_arguments(
+                &block.signature,
+                &mut caller_stack,
+                *args_base,
+                args_len,
+            )?;
+
             // Set up a callee stack with the captures and move arguments from the stack into variables
             let mut callee_stack = caller_stack.gather_captures(engine_state, &block.captures);
 
@@ -1399,6 +1415,15 @@ fn eval_call<D: DebugContext>(
             if !allow_error_input {
                 check_input_types(&input, &decl.signature(), head)?;
             }
+
+            // Expand record spreads into named flags; drop null named values.
+            let args_len = normalize_call_arguments(
+                &decl.signature(),
+                &mut caller_stack,
+                *args_base,
+                args_len,
+            )?;
+
             // FIXME: precalculate this and save it somewhere
             let span = Span::merge_many(
                 std::iter::once(head).chain(
@@ -1485,6 +1510,143 @@ fn expect_positional_var_id(arg: &PositionalArg, span: Span) -> Result<VarId, Sh
     })
 }
 
+/// Expand a record into named/flag arguments for a call.
+///
+/// - `null` field values are omitted (same as null→omit for `--flag=$v`)
+/// - switch flags (`--flag` with no value): `true` sets the flag, `false`/`null` omit it
+/// - valued flags: non-null values become `--name value`
+fn expand_flag_record(
+    signature: &Signature,
+    record: Record,
+    spread_span: Span,
+) -> Result<Vec<Argument>, ShellError> {
+    let mut out = Vec::with_capacity(record.len());
+    for (key, val) in record {
+        if val.is_nothing() {
+            continue;
+        }
+        let Some(flag) = signature.get_long_flag(&key) else {
+            return Err(ShellError::Generic(GenericError::new(
+                format!("Unknown flag `{key}` in spread record"),
+                format!("`{key}` is not a named argument of this command"),
+                spread_span,
+            )));
+        };
+
+        let short = flag
+            .short
+            .map(|c| {
+                let mut buf = [0u8; 4];
+                c.encode_utf8(&mut buf).to_string()
+            })
+            .unwrap_or_default();
+        let (data, name_slice, short_slice) = data_from_name_and_short(&flag.long, &short);
+
+        if flag.arg.is_none() {
+            // Switch: only `true` sets the flag; `false` omits (like `--flag=false`).
+            match val {
+                Value::Bool { val: true, .. } => {
+                    out.push(Argument::Flag {
+                        data,
+                        name: name_slice,
+                        short: short_slice,
+                        span: spread_span,
+                    });
+                }
+                Value::Bool { val: false, .. } => {}
+                other => {
+                    return Err(ShellError::CantConvert {
+                        to_type: "bool".into(),
+                        from_type: other.get_type().to_string(),
+                        span: other.span(),
+                        help: Some(format!(
+                            "spread field `{key}` is a switch; use true/false or omit/null"
+                        )),
+                    });
+                }
+            }
+        } else {
+            out.push(Argument::Named {
+                data,
+                name: name_slice,
+                short: short_slice,
+                span: spread_span,
+                val,
+                ast: None,
+            });
+        }
+    }
+    Ok(out)
+}
+
+fn data_from_name_and_short(name: &str, short: &str) -> (Arc<[u8]>, DataSlice, DataSlice) {
+    let data: Vec<u8> = name.bytes().chain(short.bytes()).collect();
+    let data: Arc<[u8]> = data.into();
+    let name = DataSlice {
+        start: 0,
+        len: name.len().try_into().expect("flag name too big"),
+    };
+    let short = DataSlice {
+        start: name.start.checked_add(name.len).expect("flag name too big"),
+        len: short.len().try_into().expect("flag short name too big"),
+    };
+    (data, name, short)
+}
+
+/// Normalize call arguments: expand record spreads into named flags, drop named nulls.
+///
+/// Returns the new argument list length after rewriting the frame starting at `args_base`.
+fn normalize_call_arguments(
+    signature: &Signature,
+    stack: &mut Stack,
+    args_base: usize,
+    args_len: usize,
+) -> Result<usize, ShellError> {
+    let raw: Vec<Argument> = stack.arguments.drain_args(args_base, args_len).collect();
+    let mut expanded = Vec::with_capacity(raw.len());
+
+    for arg in raw {
+        match arg {
+            Argument::Named {
+                val: Value::Nothing { .. },
+                ..
+            } => {
+                // Belt-and-suspenders: null named values are omitted.
+            }
+            Argument::Spread {
+                vals,
+                span: spread_span,
+                ast,
+            } => match vals {
+                Value::Record { val, .. } => {
+                    expanded.extend(expand_flag_record(
+                        signature,
+                        val.into_owned(),
+                        spread_span,
+                    )?);
+                }
+                Value::List { .. } | Value::Nothing { .. } | Value::Error { .. } => {
+                    expanded.push(Argument::Spread {
+                        vals,
+                        span: spread_span,
+                        ast,
+                    });
+                }
+                other => {
+                    return Err(ShellError::CannotSpreadAsList { span: other.span() });
+                }
+            },
+            other => expanded.push(other),
+        }
+    }
+
+    let new_len = expanded.len();
+    for arg in expanded {
+        stack.arguments.push(arg);
+    }
+    Ok(new_len)
+}
+
 /// Move arguments from the stack into variables for a custom command
 fn gather_arguments(
     engine_state: &EngineState,
@@ -1561,6 +1723,13 @@ fn gather_arguments(
                     rest_span = Some(rest_span.map_or(spread_span, |s| s.append(spread_span)));
                     always_spread = true;
                 }
+                // Record spreads should already be expanded by `normalize_call_arguments`.
+                Value::Record { .. } => {
+                    return Err(ShellError::IrEvalError {
+                        msg: "internal error: unexpanded record spread in gather_arguments".into(),
+                        span: Some(spread_span),
+                    });
+                }
                 Value::Error { error, .. } => return Err(*error),
                 _ => return Err(ShellError::CannotSpreadAsList { span: vals.span() }),
             },
@@ -1581,6 +1750,10 @@ fn gather_arguments(
                 val,
                 ..
             } => {
+                // Null named values are treated as omitted (defaults apply).
+                if val.is_nothing() {
+                    continue;
+                }
                 let var_id = find_named_var_id(&block.signature, &data[name], &data[short], span)?;
                 callee_stack.add_var(var_id, val)
             }

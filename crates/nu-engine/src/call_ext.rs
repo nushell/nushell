@@ -86,11 +86,12 @@ impl CallExt for ast::Call {
         for name in self.named_iter() {
             if flag_name == name.0.item {
                 return if let Some(expr) = &name.2 {
-                    // Check --flag=false
+                    // Check --flag=false / --flag=null (null means omitted)
                     let stack = &mut stack.use_call_arg_out_dest();
                     let result = eval_expression::<WithoutDebug>(engine_state, stack, expr)?;
                     match result {
                         Value::Bool { val, .. } => Ok(val),
+                        Value::Nothing { .. } => Ok(false),
                         _ => Err(ShellError::CantConvert {
                             to_type: "bool".into(),
                             from_type: result.get_type().to_string(),
@@ -116,7 +117,11 @@ impl CallExt for ast::Call {
         if let Some(expr) = self.get_flag_expr(name) {
             let stack = &mut stack.use_call_arg_out_dest();
             let result = eval_expression::<WithoutDebug>(engine_state, stack, expr)?;
-            FromValue::from_value(result).map(Some)
+            if result.is_nothing() {
+                Ok(None)
+            } else {
+                FromValue::from_value(result).map(Some)
+            }
         } else {
             Ok(None)
         }
@@ -251,8 +256,11 @@ impl CallExt for ir::Call {
             .named_iter(stack)
             .find(|(name, _)| name.item == flag_name)
             .is_some_and(|(_, value)| {
-                // Handle --flag=false
-                !matches!(value, Some(Value::Bool { val: false, .. }))
+                // Handle --flag=false and --flag=null (null means omitted)
+                !matches!(
+                    value,
+                    Some(Value::Bool { val: false, .. }) | Some(Value::Nothing { .. })
+                )
             }))
     }
 
@@ -263,7 +271,12 @@ impl CallExt for ir::Call {
         name: &str,
     ) -> Result<Option<T>, ShellError> {
         if let Some(val) = self.get_named_arg(stack, name) {
-            T::from_value(val.clone()).map(Some)
+            // Null named values are treated as if the flag was not passed.
+            if val.is_nothing() {
+                Ok(None)
+            } else {
+                T::from_value(val.clone()).map(Some)
+            }
         } else {
             Ok(None)
         }
