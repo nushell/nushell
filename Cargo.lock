@@ -4969,7 +4969,7 @@ dependencies = [
  "chrono",
  "derive_more 2.1.1",
  "libc",
- "miette",
+ "miette 7.6.0",
  "nu-cmd-lang",
  "nu-command",
  "nu-engine",
