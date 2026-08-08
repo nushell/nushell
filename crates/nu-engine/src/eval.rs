@@ -377,20 +377,34 @@ pub fn eval_call<D: DebugContext>(
                                 expand_flag_record(&signature, val.into_owned(), expr.span)?
                             {
                                 match engine_arg {
-                                    EngineArgument::Flag { data, name, .. } => {
-                                        let long =
-                                            std::str::from_utf8(&data[name]).unwrap_or_default();
-                                        call_eval.add_named(&signature, long, None, None)?;
-                                    }
-                                    EngineArgument::Named {
-                                        data, name, val, ..
+                                    EngineArgument::Flag {
+                                        data, name, short, ..
                                     } => {
                                         let long =
                                             std::str::from_utf8(&data[name]).unwrap_or_default();
+                                        let short_str =
+                                            std::str::from_utf8(&data[short]).unwrap_or_default();
+                                        let short =
+                                            (!short_str.is_empty()).then(|| short_str.to_string());
+                                        call_eval.add_named(&signature, long, short, None)?;
+                                    }
+                                    EngineArgument::Named {
+                                        data,
+                                        name,
+                                        short,
+                                        val,
+                                        ..
+                                    } => {
+                                        let long =
+                                            std::str::from_utf8(&data[name]).unwrap_or_default();
+                                        let short_str =
+                                            std::str::from_utf8(&data[short]).unwrap_or_default();
+                                        let short =
+                                            (!short_str.is_empty()).then(|| short_str.to_string());
                                         call_eval.add_named(
                                             &signature,
                                             long,
-                                            None,
+                                            short,
                                             Some(Cow::Owned(val)),
                                         )?;
                                     }

@@ -61,8 +61,33 @@ pub(crate) fn data_from_name_and_short(
     (data, name, short)
 }
 
+/// Resolve a record key to a signature flag: long name first, then single-char short.
+/// Long wins when both a long flag named `a` and a short `-a` exist.
+fn flag_for_spread_key(signature: &Signature, key: &str) -> Option<Flag> {
+    signature.get_long_flag(key).or_else(|| {
+        // Single Unicode scalar → short flag (e.g. key "a" → `-a`, including short-only flags).
+        let mut chars = key.chars();
+        match (chars.next(), chars.next()) {
+            (Some(c), None) => signature.get_short_flag(c),
+            _ => None,
+        }
+    })
+}
+
+fn flag_cli_name(flag: &Flag) -> String {
+    if let Some(long) = flag.long_name() {
+        format!("--{long}")
+    } else if let Some(short) = flag.short {
+        format!("-{short}")
+    } else {
+        "<flag>".into()
+    }
+}
+
 /// Expand a record into named/flag arguments for a call.
 ///
+/// - Record keys match **long** flag names first; a single-character key may also match a
+///   **short** flag (including short-only flags). Long form wins on collision.
 /// - `null` field values: passed through if the flag type accepts `nothing`, otherwise omitted
 /// - switch flags (`--flag` with no value): `true` sets the flag, `false`/`null` omit it
 /// - valued flags: non-null values become `--name value` (type-checked against the signature)
@@ -73,7 +98,7 @@ pub(crate) fn expand_flag_record(
 ) -> Result<Vec<Argument>, ShellError> {
     let mut out = Vec::with_capacity(record.len());
     for (key, val) in record {
-        let Some(flag) = signature.get_long_flag(&key) else {
+        let Some(flag) = flag_for_spread_key(signature, &key) else {
             return Err(ShellError::Generic(GenericError::new(
                 format!("Unknown flag `{key}` in spread record"),
                 format!("`{key}` is not a named argument of this command"),
@@ -126,7 +151,8 @@ pub(crate) fn expand_flag_record(
                         from_type: val.get_type().to_string(),
                         span: val.span(),
                         help: Some(format!(
-                            "spread field `{key}` does not match the type of `--{key}`"
+                            "spread field `{key}` does not match the type of `{}`",
+                            flag_cli_name(&flag)
                         )),
                     });
                 }

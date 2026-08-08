@@ -458,6 +458,50 @@ fn named_flag_record_spread() -> Result {
 }
 
 #[test]
+fn named_flag_record_spread_short_flags() -> Result {
+    // Short-only valued flag + switch
+    let code = "
+        def f [-a: int, -b] { {a: $a, b: $b} }
+        f ...{a: 3, b: true}
+    ";
+    test().run(code).expect_value_eq(test_value!({
+        a: 3,
+        b: true
+    }))?;
+
+    // Short-only: null omits when type does not accept nothing
+    let code = "
+        def f [-a: int = 9] { $a }
+        f ...{a: null}
+    ";
+    test().run(code).expect_value_eq(9)?;
+
+    // Dual long+short: short key works
+    let code = "
+        def f [--verbose(-v)] { $verbose }
+        f ...{v: true}
+    ";
+    test().run(code).expect_value_eq(true)?;
+
+    // Dual long+short: long key still works
+    let code = "
+        def f [--verbose(-v)] { $verbose }
+        f ...{verbose: true}
+    ";
+    test().run(code).expect_value_eq(true)?;
+
+    // Unknown short key errors
+    let code = "
+        def f [-a: int] { $a }
+        f ...{z: 1}
+    ";
+    let err = test().run(code).expect_shell_error()?;
+    assert_matches!(err, ShellError::Generic(_));
+
+    Ok(())
+}
+
+#[test]
 fn named_flag_record_spread_unknown_flag_errors() -> Result {
     let code = "
         def f [--x: int] { $x }
