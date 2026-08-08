@@ -21,6 +21,10 @@ use std::time::Duration;
 use nu_utils::time::Instant;
 use serde_json::{Value, json};
 
+#[macro_use]
+extern crate nu_test_support;
+use nu_test_support::harness::main;
+
 /// Absolute path to a fixture script (in this crate's `tests/fixtures/` dir).
 fn example(name: &str) -> String {
     let mut p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));

@@ -7,9 +7,15 @@ rust-version.workspace = true
 license.workspace = true
 name = "nu-dap"
 version.workspace = true
+autotests = false
 
 [lib]
 name = "nu_dap"
+harness = false
+
+[[test]]
+name = "dap"
+path = "tests/dap.rs"
 harness = false
 
 [lints]
