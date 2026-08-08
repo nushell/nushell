@@ -529,7 +529,29 @@ fn named_flag_record_spread_required_named() -> Result {
 
     // Static record spread supplies required named flags (no MissingRequiredFlag)
     test()
-        .run(r#"stor create ...{table-name: "t", columns: {id: int}} | describe"#)
+        .run(r#"stor create ...{table-name: "t_spread_ok", columns: {id: int}} | describe"#)
+        .expect_value_eq("SQLiteDatabase")?;
+
+    // Static null alone for a required flag is still missing (omitted at runtime)
+    let err = test()
+        .run(r#"stor create ...{table-name: null, columns: {id: int}}"#)
+        .expect_parse_error()?;
+    assert_matches!(err, ParseError::MissingRequiredFlag(..));
+
+    // Missing key entirely in static record is also missing
+    let err = test()
+        .run(r#"stor create ...{columns: {id: int}}"#)
+        .expect_parse_error()?;
+    assert_matches!(err, ParseError::MissingRequiredFlag(..));
+
+    // Static null + later dynamic spread: may supply required flag at runtime (not parse error)
+    test()
+        .run(
+            r#"
+            let more = {table-name: "t_spread_dyn", columns: {id: int}}
+            stor create ...{table-name: null} ...$more | describe
+            "#,
+        )
         .expect_value_eq("SQLiteDatabase")?;
 
     Ok(())
@@ -542,6 +564,14 @@ fn named_flag_list_spread_before_required_errors() -> Result {
         def f [a: string, --x: int, ...rest] { {a: $a, x: $x, rest: $rest} }
         let list = [1]
         f ...$list hello
+    ";
+    let err = test().run(code).expect_shell_error()?;
+    assert_matches!(err, ShellError::Generic(_));
+
+    // Null rest-mode before required positionals must also error (not bind nothing to `a`)
+    let code = "
+        def f [a: string, --x: int, ...rest] { {a: $a, x: $x, rest: $rest} }
+        f ...(null) hello
     ";
     let err = test().run(code).expect_shell_error()?;
     assert_matches!(err, ShellError::Generic(_));

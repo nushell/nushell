@@ -2,7 +2,7 @@
 use crate::get_full_help;
 use crate::named_flags::{
     data_from_name_and_short, expand_flag_record, flag_type_accepts_nothing,
-    list_spread_before_required_error, normalize_engine_arguments,
+    list_spread_before_required_error, long_short_from_data, normalize_engine_arguments,
 };
 use crate::{EvalBlockWithEarlyReturnFn, eval_ir::eval_ir_block};
 use nu_protocol::{
@@ -164,9 +164,18 @@ impl CallEval {
     }
 
     /// Mark rest mode without adding values (null list spread; IR `always_spread` parity).
-    pub fn add_null_spread(&mut self) -> &mut Self {
+    ///
+    /// Errors if required positionals are still unbound (same rule as list spreads).
+    pub fn add_null_spread(
+        &mut self,
+        signature: &Signature,
+        spread_span: Span,
+    ) -> Result<&mut Self, ShellError> {
+        if self.arg_index < signature.required_positional.len() && !self.always_spread {
+            return Err(list_spread_before_required_error(spread_span));
+        }
         self.always_spread = true;
-        self
+        Ok(self)
     }
 
     /// Add a named parameter to the call stack.
@@ -430,23 +439,8 @@ pub fn eval_call<D: DebugContext>(
                                     EngineArgument::Flag {
                                         data, name, short, ..
                                     } => {
-                                        let long = std::str::from_utf8(&data[name]).map_err(
-                                            |_| ShellError::Generic(GenericError::new(
-                                                "Invalid flag name encoding",
-                                                "flag long name is not valid UTF-8",
-                                                expr.span,
-                                            )),
-                                        )?;
-                                        let short_str = std::str::from_utf8(&data[short])
-                                            .map_err(|_| {
-                                                ShellError::Generic(GenericError::new(
-                                                    "Invalid flag name encoding",
-                                                    "flag short name is not valid UTF-8",
-                                                    expr.span,
-                                                ))
-                                            })?;
-                                        let short =
-                                            (!short_str.is_empty()).then(|| short_str.to_string());
+                                        let (long, short) =
+                                            long_short_from_data(&data, name, short, expr.span)?;
                                         call_eval.add_named(&signature, long, short, None)?;
                                     }
                                     EngineArgument::Named {
@@ -456,29 +450,18 @@ pub fn eval_call<D: DebugContext>(
                                         val,
                                         ..
                                     } => {
-                                        let long = std::str::from_utf8(&data[name]).map_err(
-                                            |_| ShellError::Generic(GenericError::new(
-                                                "Invalid flag name encoding",
-                                                "flag long name is not valid UTF-8",
-                                                expr.span,
-                                            )),
-                                        )?;
-                                        let short_str = std::str::from_utf8(&data[short])
-                                            .map_err(|_| {
-                                                ShellError::Generic(GenericError::new(
-                                                    "Invalid flag name encoding",
-                                                    "flag short name is not valid UTF-8",
-                                                    expr.span,
-                                                ))
-                                            })?;
-                                        let short =
-                                            (!short_str.is_empty()).then(|| short_str.to_string());
+                                        let (long, short) =
+                                            long_short_from_data(&data, name, short, expr.span)?;
                                         call_eval.add_named(
                                             &signature,
                                             long,
                                             short,
                                             Some(Cow::Owned(val)),
                                         )?;
+                                    }
+                                    // Unknown keys under allows_unknown_args become positionals.
+                                    EngineArgument::Positional { val, .. } => {
+                                        call_eval.add_positional(&signature, Cow::Owned(val))?;
                                     }
                                     _ => {}
                                 }
@@ -493,16 +476,13 @@ pub fn eval_call<D: DebugContext>(
                                     expr.span,
                                 )));
                             }
-                            call_eval.add_list_spread(
-                                &signature,
-                                vals.into_owned(),
-                                expr.span,
-                            )?;
+                            call_eval.add_list_spread(&signature, vals.into_owned(), expr.span)?;
                         }
                         // Null spread: rest mode only (IR parity).
                         Value::Nothing { .. } => {
-                            call_eval.add_null_spread();
+                            call_eval.add_null_spread(&signature, expr.span)?;
                         }
+                        Value::Error { error, .. } => return Err(*error),
                         other => {
                             return Err(ShellError::CannotSpreadAsList { span: other.span() });
                         }
@@ -545,6 +525,7 @@ fn eval_ast_builtin_with_spreads<D: DebugContext>(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let signature = decl.signature();
+    let keep_ast = decl.requires_ast_for_arguments();
     let mut raw = Vec::with_capacity(call.arguments.len());
 
     for arg in &call.arguments {
@@ -554,7 +535,7 @@ fn eval_ast_builtin_with_spreads<D: DebugContext>(
                 raw.push(EngineArgument::Positional {
                     span: expr.span,
                     val,
-                    ast: None,
+                    ast: keep_ast.then(|| Arc::new(expr.clone())),
                 });
             }
             AstArgument::Named((long, short, maybe_expr)) => {
@@ -569,7 +550,7 @@ fn eval_ast_builtin_with_spreads<D: DebugContext>(
                         short: short_slice,
                         span: long.span,
                         val,
-                        ast: None,
+                        ast: keep_ast.then(|| Arc::new(expr.clone())),
                     });
                 } else {
                     raw.push(EngineArgument::Flag {
@@ -585,7 +566,7 @@ fn eval_ast_builtin_with_spreads<D: DebugContext>(
                 raw.push(EngineArgument::Spread {
                     vals,
                     span: expr.span,
-                    ast: None,
+                    ast: keep_ast.then(|| Arc::new(expr.clone())),
                 });
             }
         }
@@ -611,7 +592,7 @@ fn eval_ast_builtin_with_spreads<D: DebugContext>(
                 required_left = required_left.saturating_sub(1);
             }
             EngineArgument::Spread {
-                vals: Value::List { .. },
+                vals: Value::List { .. } | Value::Nothing { .. },
                 span,
                 ..
             } if required_left > 0 && !always_spread => {

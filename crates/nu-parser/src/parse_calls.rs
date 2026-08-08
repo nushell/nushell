@@ -9,8 +9,8 @@ use crate::{
 use log::trace;
 use nu_engine::DIR_VAR_PARSER_INFO;
 use nu_protocol::{
-    CompareTypes, DeclId, Flag, IntoSpanned, ParseError, PositionalArg, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, TypeSet,
+    DeclId, Flag, IntoSpanned, ParseError, PositionalArg, ShellError, Signature, Span, Spanned,
+    SyntaxShape, Type, TypeSet,
     ast::*,
     did_you_mean,
     engine::{CommandType, StateWorkingSet},
@@ -123,13 +123,6 @@ enum RequiredFlagPresence {
     MaybeDynamic,
 }
 
-fn flag_type_accepts_nothing_shape(flag: &Flag) -> bool {
-    match &flag.arg {
-        Some(shape) => Type::Nothing.is_assignable_to(&shape.to_type()),
-        None => false,
-    }
-}
-
 fn named_matches_flag(flag: &Flag, long: &str, short: Option<&str>) -> bool {
     (!flag.long.is_empty() && flag.long == long)
         || short.is_some_and(|s| {
@@ -142,15 +135,23 @@ fn named_matches_flag(flag: &Flag, long: &str, short: Option<&str>) -> bool {
 
 fn key_matches_flag(flag: &Flag, key: &str) -> bool {
     (!flag.long.is_empty() && flag.long == key)
-        || (key.chars().count() == 1
-            && flag.short.is_some_and(|c| key.chars().next() == Some(c)))
+        || (key.chars().count() == 1 && flag.short.is_some_and(|c| key.chars().next() == Some(c)))
 }
 
 /// Static keys/values from a record expression used as a flag spread.
 /// Returns `None` when the expression is not a fully static record (dynamic / nested spreads).
+///
+/// Bare `{key: val}` is often parsed as [`Expr::FullCellPath`] with an empty tail and a
+/// [`Expr::Record`] head (via `parse_brace_expr` → `parse_full_cell_path`), so both forms
+/// must be accepted.
 fn static_record_flag_entries(expr: &Expression) -> Option<Vec<(String, &Expression)>> {
-    let Expr::Record(items) = &expr.expr else {
-        return None;
+    let items = match &expr.expr {
+        Expr::Record(items) => items.as_slice(),
+        Expr::FullCellPath(path) if path.tail.is_empty() => match &path.head.expr {
+            Expr::Record(items) => items.as_slice(),
+            _ => return None,
+        },
+        _ => return None,
     };
     let mut entries = Vec::with_capacity(items.len());
     for item in items {
@@ -166,23 +167,73 @@ fn static_record_flag_entries(expr: &Expression) -> Option<Vec<(String, &Express
     Some(entries)
 }
 
+/// True when a static expression is `null` and the flag will omit it at runtime.
+fn is_static_null_omit(flag: &Flag, expr: &Expression) -> bool {
+    matches!(expr.expr, Expr::Nothing) && !flag.type_accepts_nothing()
+}
+
+/// Whether a non-static-record spread expression could still evaluate to a flag record.
+///
+/// Used so static lists (and other non-record literals) do not suppress
+/// `MissingRequiredFlag` via a false `MaybeDynamic`.
+fn spread_could_be_flag_record(expr: &Expression) -> bool {
+    match &expr.expr {
+        // Explicit non-record literals cannot supply named flags.
+        Expr::List(_)
+        | Expr::Nothing
+        | Expr::Bool(_)
+        | Expr::Int(_)
+        | Expr::Float(_)
+        | Expr::String(_)
+        | Expr::RawString(_)
+        | Expr::Binary(_)
+        | Expr::DateTime(_)
+        | Expr::Filepath(_, _)
+        | Expr::Directory(_, _)
+        | Expr::GlobPattern(_, _)
+        | Expr::Range(_)
+        | Expr::Table(_) => false,
+        // FullCellPath with empty tail was already handled as a static record (or not a record).
+        // Non-empty tail or non-record head: dynamic.
+        Expr::FullCellPath(path) if path.tail.is_empty() => !matches!(
+            path.head.expr,
+            Expr::List(_)
+                | Expr::Nothing
+                | Expr::Bool(_)
+                | Expr::Int(_)
+                | Expr::Float(_)
+                | Expr::String(_)
+                | Expr::Table(_)
+        ),
+        // Variables, calls, subexpressions, nested spreads inside records, etc.
+        _ => true,
+    }
+}
+
 fn required_flag_presence(call: &Call, req_flag: &Flag) -> RequiredFlagPresence {
+    // Scan all sources: a static null does not end the search — a later explicit value or
+    // dynamic spread may still supply the required flag.
+    let mut present = false;
+    let mut saw_dynamic_spread = false;
+
     // Explicit `--flag` / `-f` (including `=value`)
     for (long, short, maybe_expr) in call.named_iter() {
-        if !named_matches_flag(req_flag, &long.item, short.as_ref().map(|s| s.item.as_str())) {
+        if !named_matches_flag(
+            req_flag,
+            &long.item,
+            short.as_ref().map(|s| s.item.as_str()),
+        ) {
             continue;
         }
-        // Static null is omitted at runtime when the type does not accept nothing.
         if let Some(expr) = maybe_expr
-            && matches!(expr.expr, Expr::Nothing)
-            && !flag_type_accepts_nothing_shape(req_flag)
+            && is_static_null_omit(req_flag, expr)
         {
-            return RequiredFlagPresence::Absent;
+            // Omitted at runtime; keep scanning.
+            continue;
         }
-        return RequiredFlagPresence::Present;
+        present = true;
     }
 
-    let mut saw_dynamic_spread = false;
     for arg in &call.arguments {
         let Argument::Spread(expr) = arg else {
             continue;
@@ -193,20 +244,22 @@ fn required_flag_presence(call: &Call, req_flag: &Flag) -> RequiredFlagPresence 
                     if !key_matches_flag(req_flag, &key) {
                         continue;
                     }
-                    if matches!(val_expr.expr, Expr::Nothing)
-                        && !flag_type_accepts_nothing_shape(req_flag)
-                    {
-                        return RequiredFlagPresence::Absent;
+                    if is_static_null_omit(req_flag, val_expr) {
+                        continue;
                     }
-                    return RequiredFlagPresence::Present;
+                    present = true;
                 }
             }
-            // Variable / subexpression / list / partial record: may be a flag record at runtime.
-            None => saw_dynamic_spread = true,
+            // Only shapes that could still evaluate to a flag record at runtime.
+            // Static lists / scalars can never supply named flags.
+            None if spread_could_be_flag_record(expr) => saw_dynamic_spread = true,
+            None => {}
         }
     }
 
-    if saw_dynamic_spread {
+    if present {
+        RequiredFlagPresence::Present
+    } else if saw_dynamic_spread {
         RequiredFlagPresence::MaybeDynamic
     } else {
         RequiredFlagPresence::Absent

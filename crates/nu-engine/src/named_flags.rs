@@ -4,21 +4,17 @@
 use std::sync::Arc;
 
 use nu_protocol::{
-    CompareTypes, Flag, Record, ShellError, Signature, Span, Type, Value, engine::Argument,
+    CompareTypes, Flag, Record, ShellError, Signature, Span, Value, engine::Argument,
     ir::DataSlice, shell_error::generic::GenericError,
 };
 
 /// Whether a named flag's value type accepts `nothing`/`null`.
 ///
-/// Used so `--flag=$null` can either:
-/// - pass `null` through when the signature allows it (`any`, `nothing`, `oneof<…, nothing>`, …)
-/// - omit the flag when it does not (`--x: int`), so defaults / "flag absent" still work for shadowing
+/// Thin wrapper around [`Flag::type_accepts_nothing`] for call sites that already
+/// have a [`Flag`] reference.
+#[inline]
 pub(crate) fn flag_type_accepts_nothing(flag: &Flag) -> bool {
-    match &flag.arg {
-        Some(shape) => Type::Nothing.is_assignable_to(&shape.to_type()),
-        // Switches are booleans; null means omit (same as false / not passed).
-        None => false,
-    }
+    flag.type_accepts_nothing()
 }
 
 pub(crate) fn find_signature_flag<'a>(
@@ -36,20 +32,20 @@ pub(crate) fn find_signature_flag<'a>(
     })
 }
 
+/// Build the packed long+short name buffer used by engine [`Argument`]s.
+///
+/// Flag names are always short identifiers from the parser; lengths always fit in `u32`.
 pub(crate) fn data_from_name_and_short(
     name: &str,
     short: &str,
 ) -> (Arc<[u8]>, DataSlice, DataSlice) {
     let data: Vec<u8> = name.bytes().chain(short.bytes()).collect();
     let data: Arc<[u8]> = data.into();
-    let name_len: u32 = name
-        .len()
-        .try_into()
-        .expect("flag long name length fits u32");
-    let short_len: u32 = short
-        .len()
-        .try_into()
-        .expect("flag short name length fits u32");
+    // Flag names are parser identifiers — never near u32::MAX.
+    #[allow(clippy::cast_possible_truncation)]
+    let name_len = name.len() as u32;
+    #[allow(clippy::cast_possible_truncation)]
+    let short_len = short.len() as u32;
     let name = DataSlice {
         start: 0,
         len: name_len,
@@ -59,6 +55,30 @@ pub(crate) fn data_from_name_and_short(
         len: short_len,
     };
     (data, name, short)
+}
+
+/// Decode long/short flag name slices packed by [`data_from_name_and_short`].
+pub(crate) fn long_short_from_data(
+    data: &[u8],
+    name: DataSlice,
+    short: DataSlice,
+    span: Span,
+) -> Result<(&str, Option<String>), ShellError> {
+    let long = std::str::from_utf8(&data[name]).map_err(|_| {
+        ShellError::Generic(GenericError::new(
+            "Invalid flag name encoding",
+            "flag long name is not valid UTF-8",
+            span,
+        ))
+    })?;
+    let short_str = std::str::from_utf8(&data[short]).map_err(|_| {
+        ShellError::Generic(GenericError::new(
+            "Invalid flag name encoding",
+            "flag short name is not valid UTF-8",
+            span,
+        ))
+    })?;
+    Ok((long, (!short_str.is_empty()).then(|| short_str.to_string())))
 }
 
 /// Resolve a record key to a signature flag: long name first, then single-char short.
@@ -88,7 +108,8 @@ fn flag_cli_name(flag: &Flag) -> String {
 ///
 /// - Record keys match **long** flag names first; a single-character key may also match a
 ///   **short** flag (including short-only flags). Long form wins on collision.
-/// - Unknown keys: error, unless [`Signature::allows_unknown_args`] is set (then passed through).
+/// - Unknown keys: error, unless [`Signature::allows_unknown_args`] is set (then passed through
+///   as positionals / rest tokens, matching CLI unknown-flag handling).
 /// - `null` field values: passed through if the flag type accepts `nothing`, otherwise omitted
 /// - switch flags (`--flag` with no value): `true` sets the flag, `false`/`null` omit it
 /// - valued flags: non-null values become `--name value` (type-checked against the signature)
@@ -101,8 +122,7 @@ pub(crate) fn expand_flag_record(
     for (key, val) in record {
         let Some(flag) = flag_for_spread_key(signature, &key) else {
             if signature.allows_unknown_args {
-                // Best-effort: forward unknown keys as named args (or flags when `true`).
-                push_unknown_spread_field(&mut out, &key, val, spread_span)?;
+                push_unknown_spread_field(&mut out, &key, val, spread_span);
                 continue;
             }
             return Err(ShellError::Generic(GenericError::new(
@@ -144,7 +164,7 @@ pub(crate) fn expand_flag_record(
                     });
                 }
             }
-        } else if val.is_nothing() && !flag_type_accepts_nothing(&flag) {
+        } else if val.is_nothing() && !flag.type_accepts_nothing() {
             // Null → omit when the flag type does not accept nothing.
         } else {
             if !val.is_nothing()
@@ -178,16 +198,12 @@ pub(crate) fn expand_flag_record(
 
 /// Forward an unknown record field when `allows_unknown_args` is set.
 ///
-/// Synthesize CLI-like rest tokens (`--key` / `-k` plus optional value) so custom
-/// `--wrapped` commands and other unknown-arg signatures receive them on rest/unknown
-/// paths. We do not emit [`Argument::Named`] / [`Argument::Flag`] here: custom commands
-/// only bind declared named params by `var_id` and would error on unknown names.
-fn push_unknown_spread_field(
-    out: &mut Vec<Argument>,
-    key: &str,
-    val: Value,
-    spread_span: Span,
-) -> Result<(), ShellError> {
+/// Emits CLI-like rest/unknown tokens as [`Argument::Positional`] (`--key` / `-k` plus optional
+/// value), matching how the parser turns unknown flags into `Unknown` args (which compile to
+/// positionals). Custom commands bind these into remaining positionals / `...rest` in order —
+/// the same as `f --extra hello` on a `--wrapped` command. We do not emit [`Argument::Named`] /
+/// [`Argument::Flag`]: custom commands only bind declared named params by `var_id`.
+fn push_unknown_spread_field(out: &mut Vec<Argument>, key: &str, val: Value, spread_span: Span) {
     let flag_token = if key.chars().count() == 1 {
         format!("-{key}")
     } else {
@@ -216,7 +232,6 @@ fn push_unknown_spread_field(
             });
         }
     }
-    Ok(())
 }
 
 /// Whether this signature can accept a list rest spread.
@@ -253,7 +268,7 @@ pub(crate) fn normalize_engine_arguments(
                 name,
                 short,
                 span,
-                val: Value::Nothing { .. },
+                val: val @ Value::Nothing { .. },
                 ast,
             } => {
                 let accepts = find_signature_flag(signature, &data[name], &data[short])
@@ -264,7 +279,7 @@ pub(crate) fn normalize_engine_arguments(
                         name,
                         short,
                         span,
-                        val: Value::nothing(span),
+                        val,
                         ast,
                     });
                 }
