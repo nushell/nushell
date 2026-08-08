@@ -18,5 +18,6 @@ nu-engine.workspace = true
 nu-path.workspace = true
 nu-protocol = { workspace = true, features = ["plugin"] }
 nu-plugin-engine.workspace = true
+nu-plugin-protocol.workspace = true
 
 itertools = { workspace = true }

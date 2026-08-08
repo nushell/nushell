@@ -28,6 +28,7 @@ import json
 
 
 NUSHELL_VERSION = "0.114.2"
+PLUGIN_PROTOCOL_VERSION = "0.1.0"
 PLUGIN_VERSION = "0.1.1"  # bump if you change commands!
 
 
@@ -165,13 +166,13 @@ def tell_nushell_encoding():
 def tell_nushell_hello():
     """
     A `Hello` message is required at startup to inform nushell of the protocol capabilities and
-    compatibility of the plugin. The version specified should be the version of nushell that this
-    plugin was tested and developed against.
+    compatibility of the plugin. The version specified should be the plugin protocol version that
+    the plugin implements.
     """
     hello = {
         "Hello": {
             "protocol": "nu-plugin",  # always this value
-            "version": NUSHELL_VERSION,
+            "version": PLUGIN_PROTOCOL_VERSION,
             "features": [],
         }
     }
@@ -225,7 +226,7 @@ def write_error(id, text, span=None):
 
 def handle_input(input):
     if "Hello" in input:
-        if input["Hello"]["version"] != NUSHELL_VERSION:
+        if input["Hello"]["version"] != PLUGIN_PROTOCOL_VERSION:
             exit(1)
         else:
             return
@@ -239,6 +240,8 @@ def handle_input(input):
                 {
                     "Metadata": {
                         "version": PLUGIN_VERSION,
+                        "protocol_version": PLUGIN_PROTOCOL_VERSION,
+                        "nushell_version": NUSHELL_VERSION,
                     }
                 },
             )

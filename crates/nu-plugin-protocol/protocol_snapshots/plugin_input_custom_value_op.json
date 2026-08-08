@@ -1,0 +1,24 @@
+{
+  "Call": [
+    4,
+    {
+      "CustomValueOp": [
+        {
+          "item": {
+            "data": [
+              1,
+              2,
+              3
+            ],
+            "name": "MyType"
+          },
+          "span": {
+            "end": 12,
+            "start": 5
+          }
+        },
+        "ToBaseValue"
+      ]
+    }
+  ]
+}

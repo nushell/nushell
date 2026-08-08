@@ -1,0 +1,70 @@
+{
+  "Call": [
+    1,
+    {
+      "Run": {
+        "name": "test",
+        "call": {
+          "head": {
+            "start": 0,
+            "end": 10
+          },
+          "positional": [
+            {
+              "Float": {
+                "val": 1.0,
+                "span": {
+                  "start": 11,
+                  "end": 12
+                }
+              }
+            },
+            {
+              "String": {
+                "val": "something",
+                "span": {
+                  "start": 13,
+                  "end": 22
+                }
+              }
+            }
+          ],
+          "named": [
+            [
+              {
+                "item": "flag",
+                "span": {
+                  "start": 23,
+                  "end": 27
+                }
+              },
+              {
+                "Int": {
+                  "val": 9,
+                  "span": {
+                    "start": 28,
+                    "end": 29
+                  }
+                }
+              }
+            ]
+          ]
+        },
+        "input": {
+          "Value": [
+            {
+              "Bool": {
+                "val": false,
+                "span": {
+                  "start": 30,
+                  "end": 35
+                }
+              }
+            },
+            null
+          ]
+        }
+      }
+    }
+  ]
+}

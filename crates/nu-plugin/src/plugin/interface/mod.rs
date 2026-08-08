@@ -261,9 +261,9 @@ impl InterfaceManager for EngineInterfaceManager {
                 } else {
                     Err(ShellError::PluginFailedToLoad {
                         msg: format!(
-                            "Plugin is compiled for nushell version {}, \
-                                which is not compatible with version {}",
-                            local_info.version, info.version
+                            "Engine speaks plugin protocol {}, \
+                                which is not compatible with this plugin's protocol {}",
+                            info.version, local_info.version
                         ),
                     })
                 }
