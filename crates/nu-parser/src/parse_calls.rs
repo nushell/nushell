@@ -135,7 +135,7 @@ fn named_matches_flag(flag: &Flag, long: &str, short: Option<&str>) -> bool {
 
 fn key_matches_flag(flag: &Flag, key: &str) -> bool {
     (!flag.long.is_empty() && flag.long == key)
-        || (key.chars().count() == 1 && flag.short.is_some_and(|c| key.chars().next() == Some(c)))
+        || (key.chars().count() == 1 && flag.short.is_some_and(|c| key.starts_with(c)))
 }
 
 /// Static keys/values from a record expression used as a flag spread.

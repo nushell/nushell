@@ -524,7 +524,7 @@ fn named_flag_record_spread_short_flags() -> Result {
 #[test]
 fn named_flag_record_spread_required_named() -> Result {
     // Builtin with required_named: missing flags still parse-error
-    let err = test().run(r#"stor create"#).expect_parse_error()?;
+    let err = test().run("stor create").expect_parse_error()?;
     assert_matches!(err, ParseError::MissingRequiredFlag(..));
 
     // Static record spread supplies required named flags (no MissingRequiredFlag)
@@ -534,13 +534,13 @@ fn named_flag_record_spread_required_named() -> Result {
 
     // Static null alone for a required flag is still missing (omitted at runtime)
     let err = test()
-        .run(r#"stor create ...{table-name: null, columns: {id: int}}"#)
+        .run("stor create ...{table-name: null, columns: {id: int}}")
         .expect_parse_error()?;
     assert_matches!(err, ParseError::MissingRequiredFlag(..));
 
     // Missing key entirely in static record is also missing
     let err = test()
-        .run(r#"stor create ...{columns: {id: int}}"#)
+        .run("stor create ...{columns: {id: int}}")
         .expect_parse_error()?;
     assert_matches!(err, ParseError::MissingRequiredFlag(..));
 
@@ -607,10 +607,10 @@ fn named_flag_record_spread_unknown_flag_errors() -> Result {
 fn named_flag_record_spread_unknown_allowed() -> Result {
     // allows_unknown_args + a known named flag so record spreads are parse-allowed.
     // Unknown keys are forwarded as rest tokens (not "Unknown flag").
-    let code = r#"
+    let code = "
         def --wrapped f [--known: int, ...rest] { {known: $known, rest: $rest} }
         f ...{known: 1, extra: true}
-    "#;
+    ";
     test().run(code).expect_value_eq(test_value!({
         known: 1,
         rest: ["--extra"]
