@@ -288,7 +288,7 @@ impl Stats {
     fn read_branch(&mut self, repo: &Repository) {
         self.branch = match repo.head() {
             Ok(head) => {
-                if let Some(name) = head.shorthand() {
+                if let Ok(name) = head.shorthand() {
                     // try to use first 8 characters or so of the ID in detached HEAD
                     if name == "HEAD" {
                         if let Ok(commit) = head.peel_to_commit() {
