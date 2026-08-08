@@ -88,6 +88,7 @@ fn flag_cli_name(flag: &Flag) -> String {
 ///
 /// - Record keys match **long** flag names first; a single-character key may also match a
 ///   **short** flag (including short-only flags). Long form wins on collision.
+/// - Unknown keys: error, unless [`Signature::allows_unknown_args`] is set (then passed through).
 /// - `null` field values: passed through if the flag type accepts `nothing`, otherwise omitted
 /// - switch flags (`--flag` with no value): `true` sets the flag, `false`/`null` omit it
 /// - valued flags: non-null values become `--name value` (type-checked against the signature)
@@ -99,6 +100,11 @@ pub(crate) fn expand_flag_record(
     let mut out = Vec::with_capacity(record.len());
     for (key, val) in record {
         let Some(flag) = flag_for_spread_key(signature, &key) else {
+            if signature.allows_unknown_args {
+                // Best-effort: forward unknown keys as named args (or flags when `true`).
+                push_unknown_spread_field(&mut out, &key, val, spread_span)?;
+                continue;
+            }
             return Err(ShellError::Generic(GenericError::new(
                 format!("Unknown flag `{key}` in spread record"),
                 format!("`{key}` is not a named argument of this command"),
@@ -170,9 +176,64 @@ pub(crate) fn expand_flag_record(
     Ok(out)
 }
 
+/// Forward an unknown record field when `allows_unknown_args` is set.
+///
+/// Synthesize CLI-like rest tokens (`--key` / `-k` plus optional value) so custom
+/// `--wrapped` commands and other unknown-arg signatures receive them on rest/unknown
+/// paths. We do not emit [`Argument::Named`] / [`Argument::Flag`] here: custom commands
+/// only bind declared named params by `var_id` and would error on unknown names.
+fn push_unknown_spread_field(
+    out: &mut Vec<Argument>,
+    key: &str,
+    val: Value,
+    spread_span: Span,
+) -> Result<(), ShellError> {
+    let flag_token = if key.chars().count() == 1 {
+        format!("-{key}")
+    } else {
+        format!("--{key}")
+    };
+
+    match val {
+        Value::Bool { val: true, .. } => {
+            out.push(Argument::Positional {
+                span: spread_span,
+                val: Value::string(flag_token, spread_span),
+                ast: None,
+            });
+        }
+        Value::Bool { val: false, .. } | Value::Nothing { .. } => {}
+        other => {
+            out.push(Argument::Positional {
+                span: spread_span,
+                val: Value::string(flag_token, spread_span),
+                ast: None,
+            });
+            out.push(Argument::Positional {
+                span: other.span(),
+                val: other,
+                ast: None,
+            });
+        }
+    }
+    Ok(())
+}
+
 /// Whether this signature can accept a list rest spread.
 pub(crate) fn can_rest_spread(signature: &Signature) -> bool {
     signature.rest_positional.is_some() || signature.allows_unknown_args
+}
+
+/// Error when a list is spread while required positionals remain unbound.
+///
+/// Dual-purpose commands accept both flag records and rest lists via `...$x`. Spreading a list
+/// before required positionals are filled would leave them unbound (list items go to rest).
+pub(crate) fn list_spread_before_required_error(spread_span: Span) -> ShellError {
+    ShellError::Generic(GenericError::new(
+        "Cannot spread a list before required positional arguments are provided",
+        "List spreads fill rest arguments. Provide required positionals first, or use a record to spread named flags, e.g. ...{flag: value}",
+        spread_span,
+    ))
 }
 
 /// Apply signature-aware null handling and expand record spreads for engine [`Argument`]s.

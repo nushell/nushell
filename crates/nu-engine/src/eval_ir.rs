@@ -1561,6 +1561,7 @@ fn gather_arguments(
 
     // If we encounter a spread, all further positionals should go to rest
     let mut always_spread = false;
+    let mut remaining_required = block.signature.required_positional.len();
 
     for arg in caller_stack.arguments.drain_args(args_base, args_len) {
         match arg {
@@ -1574,6 +1575,7 @@ fn gather_arguments(
                         // SyntaxShape here, we might be able to save some allocations and effort
                         let variable = engine_state.get_var(var_id);
                         check_type(&val, &variable.ty)?;
+                        remaining_required = remaining_required.saturating_sub(1);
                     }
                     callee_stack.add_var(var_id, val);
                 } else {
@@ -1592,6 +1594,13 @@ fn gather_arguments(
                 ..
             } => match vals {
                 Value::List { vals, .. } => {
+                    // Dual-purpose `...$x`: a list before unfilled required positionals would
+                    // leave them unbound (list items go only to rest).
+                    if remaining_required > 0 && !always_spread {
+                        return Err(crate::named_flags::list_spread_before_required_error(
+                            spread_span,
+                        ));
+                    }
                     rest.extend(vals);
                     rest_span = Some(rest_span.map_or(spread_span, |s| s.append(spread_span)));
                     always_spread = true;

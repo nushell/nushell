@@ -92,6 +92,8 @@ impl CallExt for ast::Call {
                     let result = eval_expression::<WithoutDebug>(engine_state, stack, expr)?;
                     match result {
                         Value::Bool { val, .. } => Ok(val),
+                        // Null means unset (same as IR null-omit for switches).
+                        Value::Nothing { .. } => Ok(false),
                         _ => Err(ShellError::CantConvert {
                             to_type: "bool".into(),
                             from_type: result.get_type().to_string(),
@@ -264,8 +266,11 @@ impl CallExt for ir::Call {
             .named_iter(stack)
             .find(|(name, _)| name.item == flag_name)
             .is_some_and(|(_, value)| {
-                // Handle --flag=false
-                !matches!(value, Some(Value::Bool { val: false, .. }))
+                // Handle --flag=false and residual null (treat as unset).
+                !matches!(
+                    value,
+                    Some(Value::Bool { val: false, .. }) | Some(Value::Nothing { .. })
+                )
             }))
     }
 
