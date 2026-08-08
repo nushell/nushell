@@ -458,102 +458,13 @@ fn named_flag_record_spread() -> Result {
 }
 
 #[test]
-fn named_flag_record_spread_short_flags() -> Result {
-    // Short-only valued flag + switch
-    let code = "
-        def f [-a: int, -b] { {a: $a, b: $b} }
-        f ...{a: 3, b: true}
-    ";
-    test().run(code).expect_value_eq(test_value!({
-        a: 3,
-        b: true
-    }))?;
-
-    // Short-only: null omits when type does not accept nothing
-    let code = "
-        def f [-a: int = 9] { $a }
-        f ...{a: null}
-    ";
-    test().run(code).expect_value_eq(9)?;
-
-    // Dual long+short: short key works
-    let code = "
-        def f [--verbose(-v)] { $verbose }
-        f ...{v: true}
-    ";
-    test().run(code).expect_value_eq(true)?;
-
-    // Dual long+short: long key still works
+fn named_flag_record_spread_long_key_with_short_alias() -> Result {
+    // Dual long+short: only the long key is used in record spreads.
     let code = "
         def f [--verbose(-v)] { $verbose }
         f ...{verbose: true}
     ";
     test().run(code).expect_value_eq(true)?;
-
-    // Unknown short key errors
-    let code = "
-        def f [-a: int] { $a }
-        f ...{z: 1}
-    ";
-    let err = test().run(code).expect_shell_error()?;
-    assert_matches!(err, ShellError::Generic(_));
-
-    // Long flag named `a` wins over short `-a` of another flag when key is "a"
-    let code = "
-        def f [--a: int, -b: int] { {a: $a, b: $b} }
-        f ...{a: 1, b: 2}
-    ";
-    test().run(code).expect_value_eq(test_value!({
-        a: 1,
-        b: 2
-    }))?;
-
-    // Multi short-only: both bind correctly (not only the first)
-    let code = "
-        def f [-a: int, -b: int] { {a: $a, b: $b} }
-        f ...{a: 3, b: 4}
-    ";
-    test().run(code).expect_value_eq(test_value!({
-        a: 3,
-        b: 4
-    }))?;
-
-    Ok(())
-}
-
-#[test]
-fn named_flag_record_spread_required_named() -> Result {
-    // Builtin with required_named: missing flags still parse-error
-    let err = test().run("stor create").expect_parse_error()?;
-    assert_matches!(err, ParseError::MissingRequiredFlag(..));
-
-    // Static record spread supplies required named flags (no MissingRequiredFlag)
-    test()
-        .run(r#"stor create ...{table-name: "t_spread_ok", columns: {id: int}} | describe"#)
-        .expect_value_eq("SQLiteDatabase")?;
-
-    // Static null alone for a required flag is still missing (omitted at runtime)
-    let err = test()
-        .run("stor create ...{table-name: null, columns: {id: int}}")
-        .expect_parse_error()?;
-    assert_matches!(err, ParseError::MissingRequiredFlag(..));
-
-    // Missing key entirely in static record is also missing
-    let err = test()
-        .run("stor create ...{columns: {id: int}}")
-        .expect_parse_error()?;
-    assert_matches!(err, ParseError::MissingRequiredFlag(..));
-
-    // Static null + later dynamic spread: may supply required flag at runtime (not parse error)
-    test()
-        .run(
-            r#"
-            let more = {table-name: "t_spread_dyn", columns: {id: int}}
-            stor create ...{table-name: null} ...$more | describe
-            "#,
-        )
-        .expect_value_eq("SQLiteDatabase")?;
-
     Ok(())
 }
 
@@ -568,7 +479,7 @@ fn named_flag_list_spread_before_required_errors() -> Result {
     let err = test().run(code).expect_shell_error()?;
     assert_matches!(err, ShellError::Generic(_));
 
-    // Null rest-mode before required positionals must also error (not bind nothing to `a`)
+    // Null rest-mode before required positionals must also error
     let code = "
         def f [a: string, --x: int, ...rest] { {a: $a, x: $x, rest: $rest} }
         f ...(null) hello
@@ -580,7 +491,7 @@ fn named_flag_list_spread_before_required_errors() -> Result {
 
 #[test]
 fn named_flag_null_spread_rest_mode() -> Result {
-    // Null spread enables rest mode: later positionals go to rest (IR parity)
+    // Null spread enables rest mode: later positionals go to rest
     let code = "
         def f [a?, ...rest] { {a: $a, rest: $rest} }
         f ...(null) later
@@ -600,21 +511,6 @@ fn named_flag_record_spread_unknown_flag_errors() -> Result {
     ";
     let err = test().run(code).expect_shell_error()?;
     assert_matches!(err, ShellError::Generic(_));
-    Ok(())
-}
-
-#[test]
-fn named_flag_record_spread_unknown_allowed() -> Result {
-    // allows_unknown_args + a known named flag so record spreads are parse-allowed.
-    // Unknown keys are forwarded as rest tokens (not "Unknown flag").
-    let code = "
-        def --wrapped f [--known: int, ...rest] { {known: $known, rest: $rest} }
-        f ...{known: 1, extra: true}
-    ";
-    test().run(code).expect_value_eq(test_value!({
-        known: 1,
-        rest: ["--extra"]
-    }))?;
     Ok(())
 }
 

@@ -122,17 +122,10 @@ impl CallExt for ast::Call {
             // Signature-aware null: omit when the flag type does not accept nothing
             // (IR path does this in normalize_call_arguments before get_flag runs).
             if result.is_nothing() {
-                let signature = engine_state.get_decl(self.decl_id).signature();
-                // Long name first, then single-char short (parity with find_signature_flag).
-                let accepts = signature
+                let accepts = engine_state
+                    .get_decl(self.decl_id)
+                    .signature()
                     .get_long_flag(name)
-                    .or_else(|| {
-                        let mut chars = name.chars();
-                        match (chars.next(), chars.next()) {
-                            (Some(c), None) => signature.get_short_flag(c),
-                            _ => None,
-                        }
-                    })
                     .is_some_and(|flag| flag_type_accepts_nothing(&flag));
                 if !accepts {
                     return Ok(None);

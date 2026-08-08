@@ -1,8 +1,7 @@
 #[allow(deprecated)]
 use crate::get_full_help;
 use crate::named_flags::{
-    data_from_name_and_short, expand_flag_record, flag_type_accepts_nothing,
-    list_spread_before_required_error, long_short_from_data, normalize_engine_arguments,
+    expand_flag_record, flag_type_accepts_nothing, list_spread_before_required_error,
 };
 use crate::{EvalBlockWithEarlyReturnFn, eval_ir::eval_ir_block};
 use nu_protocol::{
@@ -15,7 +14,6 @@ use nu_protocol::{
     debugger::{DebugContext, WithDebug, WithoutDebug},
     engine::{Argument as EngineArgument, Closure, EngineState, EnvName, EnvVars, Stack},
     eval_base::Eval,
-    ir,
     shell_error::generic::GenericError,
 };
 use nu_utils::IgnoreCaseExt;
@@ -406,12 +404,6 @@ pub fn eval_call<D: DebugContext>(
                         if value.is_nothing() {
                             let accepts_nothing = signature
                                 .get_long_flag(&long.item)
-                                .or_else(|| {
-                                    short
-                                        .as_ref()
-                                        .and_then(|s| s.item.chars().next())
-                                        .and_then(|c| signature.get_short_flag(c))
-                                })
                                 .is_some_and(|flag| flag_type_accepts_nothing(&flag));
                             if !accepts_nothing {
                                 continue;
@@ -428,6 +420,8 @@ pub fn eval_call<D: DebugContext>(
                         result,
                     )?;
                 }
+                // Light AST support: expand long-key record flag spreads; rest list/null spreads.
+                // Builtins/plugins use the IR path (normalize_engine_arguments) in normal scripts.
                 AstArgument::Spread(expr) => {
                     let val = eval_expression::<D>(engine_state, caller_stack, expr)?;
                     match val {
@@ -439,8 +433,12 @@ pub fn eval_call<D: DebugContext>(
                                     EngineArgument::Flag {
                                         data, name, short, ..
                                     } => {
-                                        let (long, short) =
-                                            long_short_from_data(&data, name, short, expr.span)?;
+                                        let long =
+                                            std::str::from_utf8(&data[name]).unwrap_or_default();
+                                        let short_str =
+                                            std::str::from_utf8(&data[short]).unwrap_or_default();
+                                        let short =
+                                            (!short_str.is_empty()).then(|| short_str.to_string());
                                         call_eval.add_named(&signature, long, short, None)?;
                                     }
                                     EngineArgument::Named {
@@ -450,18 +448,18 @@ pub fn eval_call<D: DebugContext>(
                                         val,
                                         ..
                                     } => {
-                                        let (long, short) =
-                                            long_short_from_data(&data, name, short, expr.span)?;
+                                        let long =
+                                            std::str::from_utf8(&data[name]).unwrap_or_default();
+                                        let short_str =
+                                            std::str::from_utf8(&data[short]).unwrap_or_default();
+                                        let short =
+                                            (!short_str.is_empty()).then(|| short_str.to_string());
                                         call_eval.add_named(
                                             &signature,
                                             long,
                                             short,
                                             Some(Cow::Owned(val)),
                                         )?;
-                                    }
-                                    // Unknown keys under allows_unknown_args become positionals.
-                                    EngineArgument::Positional { val, .. } => {
-                                        call_eval.add_positional(&signature, Cow::Owned(val))?;
                                     }
                                     _ => {}
                                 }
@@ -478,7 +476,6 @@ pub fn eval_call<D: DebugContext>(
                             }
                             call_eval.add_list_spread(&signature, vals.into_owned(), expr.span)?;
                         }
-                        // Null spread: rest mode only (IR parity).
                         Value::Nothing { .. } => {
                             call_eval.add_null_spread(&signature, expr.span)?;
                         }
@@ -498,124 +495,10 @@ pub fn eval_call<D: DebugContext>(
         }
 
         result
-    } else if call
-        .arguments
-        .iter()
-        .any(|a| matches!(a, AstArgument::Spread(_)))
-    {
-        // Builtin/plugin path with record/list spreads: evaluate into engine args, normalize
-        // (expand records, null-omit), then run via IR `Call` so `CallExt` sees expanded flags.
-        eval_ast_builtin_with_spreads::<D>(engine_state, caller_stack, call, decl, input)
     } else {
-        // call is a builtin or external command without spreads
-        // We pass caller_stack here with the knowledge that internal commands
-        // are going to be specifically looking for global state in the stack
-        // rather than any local state.
+        // Builtin or external: IR evaluation path normalizes flags/spreads for normal scripts.
         decl.run(engine_state, caller_stack, &call.into(), input)
     }
-}
-
-/// Evaluate AST call arguments into engine arguments, normalize flag spreads/nulls, and run a
-/// builtin/plugin via an IR [`ir::Call`].
-fn eval_ast_builtin_with_spreads<D: DebugContext>(
-    engine_state: &EngineState,
-    caller_stack: &mut Stack,
-    call: &Call,
-    decl: &dyn nu_protocol::engine::Command,
-    input: PipelineData,
-) -> Result<PipelineData, ShellError> {
-    let signature = decl.signature();
-    let keep_ast = decl.requires_ast_for_arguments();
-    let mut raw = Vec::with_capacity(call.arguments.len());
-
-    for arg in &call.arguments {
-        match arg {
-            AstArgument::Positional(expr) | AstArgument::Unknown(expr) => {
-                let val = eval_expression::<D>(engine_state, caller_stack, expr)?;
-                raw.push(EngineArgument::Positional {
-                    span: expr.span,
-                    val,
-                    ast: keep_ast.then(|| Arc::new(expr.clone())),
-                });
-            }
-            AstArgument::Named((long, short, maybe_expr)) => {
-                let short_str = short.as_ref().map(|s| s.item.as_str()).unwrap_or("");
-                let (data, name_slice, short_slice) =
-                    data_from_name_and_short(&long.item, short_str);
-                if let Some(expr) = maybe_expr {
-                    let val = eval_expression::<D>(engine_state, caller_stack, expr)?;
-                    raw.push(EngineArgument::Named {
-                        data,
-                        name: name_slice,
-                        short: short_slice,
-                        span: long.span,
-                        val,
-                        ast: keep_ast.then(|| Arc::new(expr.clone())),
-                    });
-                } else {
-                    raw.push(EngineArgument::Flag {
-                        data,
-                        name: name_slice,
-                        short: short_slice,
-                        span: long.span,
-                    });
-                }
-            }
-            AstArgument::Spread(expr) => {
-                let vals = eval_expression::<D>(engine_state, caller_stack, expr)?;
-                raw.push(EngineArgument::Spread {
-                    vals,
-                    span: expr.span,
-                    ast: keep_ast.then(|| Arc::new(expr.clone())),
-                });
-            }
-        }
-    }
-
-    for (name, expr) in &call.parser_info {
-        let (data, name_slice, _) = data_from_name_and_short(name, "");
-        raw.push(EngineArgument::ParserInfo {
-            data,
-            name: name_slice,
-            info: Box::new(expr.clone()),
-        });
-    }
-
-    let expanded = normalize_engine_arguments(&signature, raw)?;
-
-    // Reject list spreads that would leave required positionals unbound (same rule as IR).
-    let mut required_left = signature.required_positional.len();
-    let mut always_spread = false;
-    for arg in &expanded {
-        match arg {
-            EngineArgument::Positional { .. } if !always_spread && required_left > 0 => {
-                required_left = required_left.saturating_sub(1);
-            }
-            EngineArgument::Spread {
-                vals: Value::List { .. } | Value::Nothing { .. },
-                span,
-                ..
-            } if required_left > 0 && !always_spread => {
-                return Err(list_spread_before_required_error(*span));
-            }
-            EngineArgument::Spread {
-                vals: Value::List { .. } | Value::Nothing { .. },
-                ..
-            } => {
-                always_spread = true;
-            }
-            _ => {}
-        }
-    }
-
-    let mut builder = ir::Call::build(call.decl_id, call.head);
-    for arg in expanded {
-        builder.add_argument(caller_stack, arg);
-    }
-    let ir_call = builder.finish();
-    let result = decl.run(engine_state, caller_stack, &(&ir_call).into(), input);
-    ir_call.leave(caller_stack);
-    result
 }
 
 /// Redirect the environment from callee to the caller.

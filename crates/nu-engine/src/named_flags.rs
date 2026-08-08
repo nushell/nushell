@@ -1,5 +1,5 @@
 //! Helpers for signature-aware named flag handling (null omit/pass-through and
-//! record flag spreads). Shared by IR and AST evaluation paths.
+//! long-key record flag spreads). Shared by IR and AST evaluation paths.
 
 use std::sync::Arc;
 
@@ -9,9 +9,6 @@ use nu_protocol::{
 };
 
 /// Whether a named flag's value type accepts `nothing`/`null`.
-///
-/// Thin wrapper around [`Flag::type_accepts_nothing`] for call sites that already
-/// have a [`Flag`] reference.
 #[inline]
 pub(crate) fn flag_type_accepts_nothing(flag: &Flag) -> bool {
     flag.type_accepts_nothing()
@@ -33,8 +30,6 @@ pub(crate) fn find_signature_flag<'a>(
 }
 
 /// Build the packed long+short name buffer used by engine [`Argument`]s.
-///
-/// Flag names are always short identifiers from the parser; lengths always fit in `u32`.
 pub(crate) fn data_from_name_and_short(
     name: &str,
     short: &str,
@@ -57,62 +52,12 @@ pub(crate) fn data_from_name_and_short(
     (data, name, short)
 }
 
-/// Decode long/short flag name slices packed by [`data_from_name_and_short`].
-pub(crate) fn long_short_from_data(
-    data: &[u8],
-    name: DataSlice,
-    short: DataSlice,
-    span: Span,
-) -> Result<(&str, Option<String>), ShellError> {
-    let long = std::str::from_utf8(&data[name]).map_err(|_| {
-        ShellError::Generic(GenericError::new(
-            "Invalid flag name encoding",
-            "flag long name is not valid UTF-8",
-            span,
-        ))
-    })?;
-    let short_str = std::str::from_utf8(&data[short]).map_err(|_| {
-        ShellError::Generic(GenericError::new(
-            "Invalid flag name encoding",
-            "flag short name is not valid UTF-8",
-            span,
-        ))
-    })?;
-    Ok((long, (!short_str.is_empty()).then(|| short_str.to_string())))
-}
-
-/// Resolve a record key to a signature flag: long name first, then single-char short.
-/// Long wins when both a long flag named `a` and a short `-a` exist.
-fn flag_for_spread_key(signature: &Signature, key: &str) -> Option<Flag> {
-    signature.get_long_flag(key).or_else(|| {
-        // Single Unicode scalar → short flag (e.g. key "a" → `-a`, including short-only flags).
-        let mut chars = key.chars();
-        match (chars.next(), chars.next()) {
-            (Some(c), None) => signature.get_short_flag(c),
-            _ => None,
-        }
-    })
-}
-
-fn flag_cli_name(flag: &Flag) -> String {
-    if let Some(long) = flag.long_name() {
-        format!("--{long}")
-    } else if let Some(short) = flag.short {
-        format!("-{short}")
-    } else {
-        "<flag>".into()
-    }
-}
-
 /// Expand a record into named/flag arguments for a call.
 ///
-/// - Record keys match **long** flag names first; a single-character key may also match a
-///   **short** flag (including short-only flags). Long form wins on collision.
-/// - Unknown keys: error, unless [`Signature::allows_unknown_args`] is set (then passed through
-///   as positionals / rest tokens, matching CLI unknown-flag handling).
-/// - `null` field values: passed through if the flag type accepts `nothing`, otherwise omitted
-/// - switch flags (`--flag` with no value): `true` sets the flag, `false`/`null` omit it
-/// - valued flags: non-null values become `--name value` (type-checked against the signature)
+/// - Record keys match **long** flag names only (`--flag` form).
+/// - Unknown keys error.
+/// - `null` field values: passed through if the flag type accepts `nothing`, otherwise omitted.
+/// - Switch flags: `true` sets the flag; `false`/`null` omit.
 pub(crate) fn expand_flag_record(
     signature: &Signature,
     record: Record,
@@ -120,11 +65,7 @@ pub(crate) fn expand_flag_record(
 ) -> Result<Vec<Argument>, ShellError> {
     let mut out = Vec::with_capacity(record.len());
     for (key, val) in record {
-        let Some(flag) = flag_for_spread_key(signature, &key) else {
-            if signature.allows_unknown_args {
-                push_unknown_spread_field(&mut out, &key, val, spread_span);
-                continue;
-            }
+        let Some(flag) = signature.get_long_flag(&key) else {
             return Err(ShellError::Generic(GenericError::new(
                 format!("Unknown flag `{key}` in spread record"),
                 format!("`{key}` is not a named argument of this command"),
@@ -142,7 +83,6 @@ pub(crate) fn expand_flag_record(
         let (data, name_slice, short_slice) = data_from_name_and_short(&flag.long, &short);
 
         if flag.arg.is_none() {
-            // Switch: only `true` sets the flag; `false`/`null` omit (like `--flag=false`).
             match val {
                 Value::Bool { val: true, .. } => {
                     out.push(Argument::Flag {
@@ -177,8 +117,7 @@ pub(crate) fn expand_flag_record(
                         from_type: val.get_type().to_string(),
                         span: val.span(),
                         help: Some(format!(
-                            "spread field `{key}` does not match the type of `{}`",
-                            flag_cli_name(&flag)
+                            "spread field `{key}` does not match the type of `--{key}`"
                         )),
                     });
                 }
@@ -196,53 +135,12 @@ pub(crate) fn expand_flag_record(
     Ok(out)
 }
 
-/// Forward an unknown record field when `allows_unknown_args` is set.
-///
-/// Emits CLI-like rest/unknown tokens as [`Argument::Positional`] (`--key` / `-k` plus optional
-/// value), matching how the parser turns unknown flags into `Unknown` args (which compile to
-/// positionals). Custom commands bind these into remaining positionals / `...rest` in order —
-/// the same as `f --extra hello` on a `--wrapped` command. We do not emit [`Argument::Named`] /
-/// [`Argument::Flag`]: custom commands only bind declared named params by `var_id`.
-fn push_unknown_spread_field(out: &mut Vec<Argument>, key: &str, val: Value, spread_span: Span) {
-    let flag_token = if key.chars().count() == 1 {
-        format!("-{key}")
-    } else {
-        format!("--{key}")
-    };
-
-    match val {
-        Value::Bool { val: true, .. } => {
-            out.push(Argument::Positional {
-                span: spread_span,
-                val: Value::string(flag_token, spread_span),
-                ast: None,
-            });
-        }
-        Value::Bool { val: false, .. } | Value::Nothing { .. } => {}
-        other => {
-            out.push(Argument::Positional {
-                span: spread_span,
-                val: Value::string(flag_token, spread_span),
-                ast: None,
-            });
-            out.push(Argument::Positional {
-                span: other.span(),
-                val: other,
-                ast: None,
-            });
-        }
-    }
-}
-
 /// Whether this signature can accept a list rest spread.
 pub(crate) fn can_rest_spread(signature: &Signature) -> bool {
     signature.rest_positional.is_some() || signature.allows_unknown_args
 }
 
-/// Error when a list is spread while required positionals remain unbound.
-///
-/// Dual-purpose commands accept both flag records and rest lists via `...$x`. Spreading a list
-/// before required positionals are filled would leave them unbound (list items go to rest).
+/// Error when a list (or null rest-mode) is spread while required positionals remain unbound.
 pub(crate) fn list_spread_before_required_error(spread_span: Span) -> ShellError {
     ShellError::Generic(GenericError::new(
         "Cannot spread a list before required positional arguments are provided",
@@ -252,9 +150,6 @@ pub(crate) fn list_spread_before_required_error(spread_span: Span) -> ShellError
 }
 
 /// Apply signature-aware null handling and expand record spreads for engine [`Argument`]s.
-///
-/// List spreads are rejected when the command has no rest parameter (and does not allow
-/// unknown args), so `...$list` cannot be silently dropped on named-only commands.
 pub(crate) fn normalize_engine_arguments(
     signature: &Signature,
     args: Vec<Argument>,
