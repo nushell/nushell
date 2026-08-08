@@ -18,7 +18,7 @@ use nu_protocol::{Config, HistoryConfig, HistoryFileFormat, HistoryPath};
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_eq;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 #[cfg(not(windows))]
 use std::process::Command;
 
@@ -272,36 +272,58 @@ fn test_default_config_path() -> Result {
     tester.engine_state.config_dirs = dirs.clone();
     #[cfg(feature = "plugin")]
     {
-        tester.engine_state.plugin_path =
-            Some(tester.engine_state.config_dirs.plugin_file.to_path_buf());
+        tester.engine_state.plugin_path = tester
+            .engine_state
+            .config_dirs
+            .plugin_file
+            .as_path()
+            .canonicalize()
+            .ok();
     }
     tester.engine_state.generate_nu_constant();
 
+    let try_canonicalized = |p: &Path| {
+        p.canonicalize()
+            .map(|c| {
+                c.to_str()
+                    .and_then(|s| s.strip_prefix(r"\\?\")) // windows!
+                    .map(PathBuf::from)
+                    .unwrap_or(c)
+            })
+            .unwrap_or_else(|_| p.to_path_buf())
+    };
+
+    let home = dirs.config_home.as_path();
     tester
         .run("$nu.default-config-dir")
-        .expect_value_eq(dirs.config_home.clone())?;
+        .expect_value_eq(try_canonicalized(home))?;
 
+    let config = dirs.config_file.as_path();
     tester
         .run("$nu.config-path")
-        .expect_value_eq(dirs.config_file.to_path_buf())?;
+        .expect_value_eq(try_canonicalized(config))?;
 
+    let environment = dirs.env_file.as_path();
     tester
         .run("$nu.env-path")
-        .expect_value_eq(dirs.env_file.to_path_buf())?;
+        .expect_value_eq(try_canonicalized(environment))?;
 
+    let history = &home.join("history.txt");
     tester
         .run("$nu.history-path")
-        .expect_value_eq(dirs.config_home.join("history.txt"))?;
+        .expect_value_eq(try_canonicalized(history))?;
 
+    let login = &home.join("login.nu");
     tester
         .run("$nu.loginshell-path")
-        .expect_value_eq(dirs.config_home.join("login.nu"))?;
+        .expect_value_eq(try_canonicalized(login))?;
 
     #[cfg(feature = "plugin")]
     {
+        let plugin = dirs.plugin_file.as_path();
         tester
             .run("$nu.plugin-path")
-            .expect_value_eq(dirs.plugin_file.to_path_buf())?;
+            .expect_value_eq(try_canonicalized(plugin))?;
     }
 
     Ok(())
