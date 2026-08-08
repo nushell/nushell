@@ -428,32 +428,38 @@ fn publish_valid_lines(
             for (line, mut props) in bps {
                 let (snapped, verified) = { session.snap_line(&path, line) };
                 props.verified = verified;
-                // On collision (two bps snapping to one line) the first wins.
-                let final_line = if changed.contains_key(&snapped) {
-                    line
-                } else {
-                    snapped
-                };
-                if final_line != line || !verified {
-                    events.push((props.id, verified, final_line, path.clone()));
+                // At most one breakpoint per line: on collision (two bps
+                // snapping onto one line) the first wins and the loser is
+                // dropped — announced as unverified so the client greys it
+                // out instead of showing a marker that can never hit.
+                if changed.contains_key(&snapped) {
+                    events.push((props.id, false, line, path.clone(), Some(snapped)));
+                    continue;
                 }
-                changed.entry(final_line).or_insert(props);
+                if snapped != line || !verified {
+                    events.push((props.id, verified, snapped, path.clone(), None));
+                }
+                changed.insert(snapped, props);
             }
             session.breakpoints.insert(path, changed);
         }
     }
-    for (id, verified, line, path) in events {
+    for (id, verified, line, path, collided_with) in events {
+        let mut breakpoint = json!({
+            "id": id,
+            "verified": verified,
+            "line": line,
+            "source": { "path": path },
+        });
+        if let (Some(at), Some(obj)) = (collided_with, breakpoint.as_object_mut()) {
+            obj.insert(
+                "message".into(),
+                json!(format!("another breakpoint already covers line {at}")),
+            );
+        }
         writer.event(
             "breakpoint",
-            json!({
-                "reason": "changed",
-                "breakpoint": {
-                    "id": id,
-                    "verified": verified,
-                    "line": line,
-                    "source": { "path": path },
-                },
-            }),
+            json!({ "reason": "changed", "breakpoint": breakpoint }),
         );
     }
 }

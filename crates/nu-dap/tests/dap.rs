@@ -1244,3 +1244,45 @@ fn input_box_returns_typed_text_and_listen_is_unsupported() {
     assert_eq!(d.stop_or_term()["event"], "terminated");
     let _ = std::fs::remove_file(&listen_script);
 }
+
+/// Two requested breakpoints that snap to the same steppable line: the first
+/// wins, the second is reported unverified (never silently dropped, and never
+/// overwriting the winner).
+#[test]
+fn breakpoints_colliding_on_one_line_report_the_loser() {
+    let demo = example("demo.nu");
+    let mut d = Dap::spawn();
+    d.start(&demo, json!({}), &[21]);
+    assert_eq!(d.event("stopped")["body"]["reason"], "breakpoint");
+
+    // Line 20 is blank, so it snaps forward onto 21 — which the second
+    // requested breakpoint asks for directly. Parsing is done by now, so the
+    // collision is resolved in the setBreakpoints response itself.
+    d.send(
+        "setBreakpoints",
+        json!({
+            "source": { "path": demo },
+            "breakpoints": [{ "line": 20 }, { "line": 21 }],
+        }),
+    );
+    let resp = d.response("setBreakpoints");
+    let bps = resp["body"]["breakpoints"].as_array().expect("breakpoints");
+    assert_eq!(bps.len(), 2, "one entry per requested breakpoint: {resp}");
+    assert_eq!(bps[0]["verified"], true);
+    assert_eq!(bps[0]["line"], 21, "snapped forward off the blank line");
+    assert_eq!(bps[1]["verified"], false, "loser is not verified: {resp}");
+    assert_eq!(bps[1]["line"], 21, "reported where it was requested");
+    assert!(
+        bps[1]["message"].as_str().unwrap_or("").contains("21"),
+        "loser explains itself: {resp}"
+    );
+    assert_ne!(bps[0]["id"], bps[1]["id"], "distinct ids");
+
+    d.send(
+        "setBreakpoints",
+        json!({ "source": { "path": demo }, "breakpoints": [] }),
+    );
+    d.response("setBreakpoints");
+    d.cont();
+    assert_eq!(d.stop_or_term()["event"], "terminated");
+}

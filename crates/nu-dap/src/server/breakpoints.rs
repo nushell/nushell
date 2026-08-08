@@ -27,11 +27,21 @@ impl Session {
                 // Snap to the next line with instructions (optimistic before
                 // parsing; the eval thread reconciles + re-announces then).
                 let (snapped, ok) = session.snap_line(&path, bp.line);
-                let line = if map.contains_key(&snapped) {
-                    bp.line
-                } else {
-                    snapped
-                };
+                // At most one breakpoint per steppable line: a second request
+                // snapping onto a taken line cannot ever fire, so report it
+                // unverified at the requested line rather than silently
+                // dropping it or overwriting the winner.
+                let line = snapped;
+                if map.contains_key(&line) {
+                    verified.push(Breakpoint {
+                        id: Some(id),
+                        verified: false,
+                        line: bp.line,
+                        source: Some(args.source.clone()),
+                        message: Some(format!("another breakpoint already covers line {line}")),
+                    });
+                    continue;
+                }
                 map.insert(
                     line,
                     crate::state::Breakpoint {
@@ -46,6 +56,7 @@ impl Session {
                     verified: ok,
                     line,
                     source: Some(args.source.clone()),
+                    message: None,
                 });
             }
             session.breakpoints.insert(path.clone(), map);

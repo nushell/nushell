@@ -64,6 +64,10 @@ pub struct Breakpoint {
     pub line: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source: Option<Source>,
+    /// Why a breakpoint could not be verified — shown by the client next to
+    /// the greyed-out marker.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
