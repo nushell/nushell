@@ -11,6 +11,10 @@
 
 #![allow(clippy::unwrap_used)] // tests
 
+#[macro_use]
+extern crate nu_test_support;
+use nu_test_support::harness::main;
+
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::PathBuf;
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
@@ -20,10 +24,7 @@ use std::time::Duration;
 
 use nu_utils::time::Instant;
 use serde_json::{Value, json};
-
-#[macro_use]
-extern crate nu_test_support;
-use nu_test_support::harness::main;
+use nu_test_support::prelude::*;
 
 /// Absolute path to a fixture script (in this crate's `tests/fixtures/` dir).
 fn example(name: &str) -> String {
@@ -786,41 +787,44 @@ fn lazy_top_level_pipeline_breakpoints_hit() {
 }
 
 #[test]
-fn failing_external_attaches_stderr() {
-    // Write a throwaway script that runs a failing external. A bare `python` is
-    // missing on some CI images (macOS), so take whichever interpreter exists.
-    let dir = std::env::temp_dir();
-    let script = dir.join("nu_dap_extfail.nu");
-    std::fs::write(
-        &script,
-        "print \"start\"\nlet py = (which python python3 | get path.0)\n^$py -c 'import sys; \
-         sys.stderr.write(\"AADSTS-detail\\n\"); sys.exit(3)'\nprint \"unreachable\"\n",
-    )
-    .unwrap();
-    let script = script.to_string_lossy().into_owned();
+#[deps(TESTBIN_ECHO_ENV_STDERR_FAIL)]
+fn failing_external_attaches_stderr() -> nu_test_support::Result {
+    Playground::setup("nu_dap_extfail", |dirs, _| {
+        let script = dirs.test().join("nu_dap_extfail.nu");
+        let testbin = TESTBIN_ECHO_ENV_STDERR_FAIL.path().to_string_lossy().to_string();
+        let testbin = serde_json::to_string(&testbin).unwrap();
 
-    let mut d = Dap::spawn();
-    d.start(&script, json!({}), &[]);
-    let ev = d.event("stopped");
-    assert_eq!(ev["body"]["reason"], "exception");
-    let text = ev["body"]["text"].as_str().unwrap();
-    assert!(text.to_lowercase().contains("non-zero exit"));
-    assert!(text.contains("AADSTS-detail"), "stderr attached: {text}");
+        std::fs::write(
+            &script,
+            format!(
+                "print \"start\"\n$env.FOO = \"AADSTS-detail\"\nlet testbin = {testbin}\n^$testbin FOO\nprint \"unreachable\"\n"
+            ),
+        )?;
+        let script = script.to_string_lossy().into_owned();
 
-    // Process scope (ref 5) exposes the stderr tail.
-    d.send("variables", json!({ "variablesReference": 5 }));
-    let proc = d.response("variables");
-    assert!(
-        proc["body"]["variables"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|v| v["name"] == "last error output")
-    );
+        let mut d = Dap::spawn();
+        d.start(&script, json!({}), &[]);
+        let ev = d.event("stopped");
+        assert_eq!(ev["body"]["reason"], "exception");
+        let text = ev["body"]["text"].as_str().unwrap();
+        assert!(text.to_lowercase().contains("non-zero exit"));
+        assert!(text.contains("AADSTS-detail"), "stderr attached: {text}");
 
-    d.cont();
-    assert_eq!(d.stop_or_term()["event"], "terminated");
-    let _ = std::fs::remove_file(&script);
+        // Process scope (ref 5) exposes the stderr tail.
+        d.send("variables", json!({ "variablesReference": 5 }));
+        let proc = d.response("variables");
+        assert!(
+            proc["body"]["variables"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|v| v["name"] == "last error output")
+        );
+
+        d.cont();
+        assert_eq!(d.stop_or_term()["event"], "terminated");
+        Ok(())
+    })
 }
 
 #[test]
