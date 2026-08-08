@@ -260,6 +260,25 @@ impl EngineState {
         &self.signals
     }
 
+    /// Return a compiled regex, reusing the process-wide LRU cache when possible.
+    ///
+    /// On lock contention (or a poisoned mutex), compiles without touching the cache.
+    pub fn get_cached_regex(&self, pattern: &str) -> Result<Regex, fancy_regex::Error> {
+        match self.regex_cache.try_lock() {
+            Ok(mut cache) => cache
+                .try_get_or_insert_ref(pattern, || Regex::new(pattern))
+                .cloned(),
+            Err(_) => Regex::new(pattern),
+        }
+    }
+
+    /// Compile `pattern` via [`Self::get_cached_regex`], mapping failures to
+    /// [`ShellError::InvalidValue`] at `span`.
+    pub fn compile_regex(&self, pattern: &str, span: Span) -> Result<Regex, ShellError> {
+        self.get_cached_regex(pattern)
+            .map_err(|err| invalid_regex_value(pattern, err, span))
+    }
+
     pub fn reset_signals(&mut self) {
         self.signals.reset();
         if let Some(ref handlers) = self.signal_handlers {
@@ -1225,6 +1244,18 @@ impl Default for EngineState {
     }
 }
 
+/// Map a fancy-regex compile failure to [`ShellError::InvalidValue`].
+///
+/// Shared by [`EngineState::compile_regex`] and call sites that compile with
+/// options that bypass the LRU cache (for example a custom backtrack limit).
+pub fn invalid_regex_value(pattern: &str, err: fancy_regex::Error, span: Span) -> ShellError {
+    ShellError::InvalidValue {
+        valid: "a valid regular expression".into(),
+        actual: format!("'{pattern}' ({err})"),
+        span,
+    }
+}
+
 #[cfg(test)]
 mod engine_state_tests {
     use crate::engine::StateWorkingSet;
@@ -1239,6 +1270,43 @@ mod engine_state_tests {
         let id = engine_state.add_file("test.nu", &[]);
 
         assert_eq!(id, FileId::new(0));
+    }
+
+    #[test]
+    fn get_cached_regex_reuses_compiled_patterns() {
+        let engine_state = EngineState::new();
+        let pattern = r"[^\w]+";
+
+        let first = engine_state
+            .get_cached_regex(pattern)
+            .expect("pattern should compile");
+        assert!(first.is_match("!!!").unwrap_or(false));
+
+        {
+            let cache = engine_state.regex_cache.lock().expect("cache lock");
+            assert_eq!(cache.len(), 1);
+            assert!(cache.peek(pattern).is_some());
+        }
+
+        let second = engine_state
+            .get_cached_regex(pattern)
+            .expect("pattern should compile from cache");
+        assert!(second.is_match("!!!").unwrap_or(false));
+
+        {
+            let cache = engine_state.regex_cache.lock().expect("cache lock");
+            assert_eq!(cache.len(), 1, "second lookup should not grow the cache");
+        }
+    }
+
+    #[test]
+    fn get_cached_regex_does_not_store_invalid_patterns() {
+        let engine_state = EngineState::new();
+
+        assert!(engine_state.get_cached_regex("(").is_err());
+
+        let cache = engine_state.regex_cache.lock().expect("cache lock");
+        assert_eq!(cache.len(), 0);
     }
 
     #[test]

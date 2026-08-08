@@ -394,11 +394,7 @@ fn get_match_pattern_from_arguments(
         }
     };
 
-    // TODO: Should be InvalidValue
-    let regex = Regex::new(regex_str.as_str()).map_err(|e| ShellError::TypeMismatch {
-        err_message: format!("invalid regex: {e}"),
-        span,
-    })?;
+    let regex = engine_state.compile_regex(regex_str.as_str(), span)?;
 
     Ok(MatchPattern {
         regex,
@@ -675,10 +671,7 @@ pub fn find_internal(
 
     let regex_str = format!("(?i){}", escape(search_term));
 
-    let regex = Regex::new(regex_str.as_str()).map_err(|e| ShellError::TypeMismatch {
-        err_message: format!("invalid regex: {e}"),
-        span: head,
-    })?;
+    let regex = engine_state.compile_regex(regex_str.as_str(), head)?;
 
     let pattern = MatchPattern {
         regex,
