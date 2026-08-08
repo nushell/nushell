@@ -27,10 +27,15 @@ pub(crate) fn spawn_eval_thread(
             let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 run(launch, state, &writer)
             }));
+            let mut exit_code = 0;
             match outcome {
                 Ok(Ok(())) => {}
-                Ok(Err(msg)) => writer.output("stderr", format!("nu-dap: {msg}\n")),
+                Ok(Err(msg)) => {
+                    exit_code = 1;
+                    writer.output("stderr", format!("nu-dap: {msg}\n"));
+                }
                 Err(panic) => {
+                    exit_code = 1;
                     let msg = panic
                         .downcast_ref::<&str>()
                         .map(|s| s.to_string())
@@ -46,7 +51,7 @@ pub(crate) fn spawn_eval_thread(
                 // reach the client before we announce termination.
                 crate::stdio::flush_output(std::time::Duration::from_secs(2));
                 writer.event("terminated", json!({}));
-                writer.event("exited", json!({ "exitCode": 0 }));
+                writer.event("exited", json!({ "exitCode": exit_code }));
             }
         })
         .expect("spawn eval thread")
