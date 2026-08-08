@@ -1,6 +1,11 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{Config, DeclId, PipelineMetadata, Span, shell_error::generic::GenericError};
+use nu_protocol::{
+    Config, DeclId, PipelineMetadata, Span,
+    ast::{Expr, Expression, Traverse},
+    shell_error::generic::GenericError,
+};
 
+use std::collections::HashSet;
 use std::fmt::Write;
 
 #[derive(Clone)]
@@ -19,7 +24,22 @@ impl Command for ViewSource {
         Signature::build("view source")
             .input_output_types(vec![(Type::Nothing, Type::String)])
             .required("item", SyntaxShape::Any, "Name or block to view.")
+            .switch(
+                "dependencies",
+                "Also show the source of every custom command the item calls, transitively.",
+                Some('d'),
+            )
             .category(Category::Debug)
+    }
+
+    fn extra_description(&self) -> &str {
+        "The `def` header is rebuilt from the signature instead of being quoted from the source, so
+`export` and attributes are lost. That holds with or without `--dependencies`.
+
+`--dependencies` applies to a custom command; on an alias, a module, a closure or a block id it does
+nothing. It follows only the calls the parser can see, so a closure written inside the body is
+followed even when it is run through a variable, but one that arrives as an argument is not. And a
+command built on a large module can pull in a lot of output."
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -62,6 +82,13 @@ impl Command for ViewSource {
                 description: "View the source of an alias.",
                 example: "alias hello = echo hi; view source hello",
                 result: Some(Value::test_string("echo hi")),
+            },
+            Example {
+                description: "View a command together with the commands it calls.",
+                example: "def helper [] { 42 }; def caller [] { helper }; view source caller --dependencies",
+                result: Some(Value::test_string(
+                    "def caller [] { helper }\n\ndef helper [] { 42 }",
+                )),
             },
             Example {
                 description: "View the file where a definition lives via metadata.",
@@ -136,7 +163,40 @@ impl Command for ViewSource {
                     // gets vector of positionals.
                     else if decl.block_id().is_some() {
                         if let Some((src, block_span)) = render_def(engine_state, &val, decl_id) {
-                            Ok(make_output(engine_state, src, Some(block_span), call.head))
+                            let mut sources = vec![src];
+
+                            if call.has_flag(engine_state, stack, "dependencies")? {
+                                let mut emitted = vec![block_span];
+                                // Why: the root is already rendered above, under the name the user
+                                // typed — which for an imported command is the qualified one.
+                                for dep in
+                                    decls_with_deps(engine_state, decl_id).into_iter().skip(1)
+                                {
+                                    // Why: the defining name, not the name the caller imported it
+                                    // under. Bodies are quoted verbatim, so a renamed header would
+                                    // disagree with its own call sites.
+                                    let name = engine_state.get_decl(dep).name();
+                                    let Some((dep_src, dep_span)) =
+                                        render_def(engine_state, name, dep)
+                                    else {
+                                        continue;
+                                    };
+                                    // Why: a `def` nested inside another body is already printed as
+                                    // part of that body, so emitting it again just duplicates text.
+                                    if emitted.iter().any(|s| s.contains_span(dep_span)) {
+                                        continue;
+                                    }
+                                    emitted.push(dep_span);
+                                    sources.push(dep_src);
+                                }
+                            }
+
+                            Ok(make_output(
+                                engine_state,
+                                sources.join("\n\n"),
+                                Some(block_span),
+                                call.head,
+                            ))
                         } else {
                             Err(ShellError::Generic(GenericError::new(
                                 "Cannot view string value",
@@ -309,6 +369,47 @@ fn render_def(engine_state: &EngineState, name: &str, decl_id: DeclId) -> Option
     final_contents.push_str(&String::from_utf8_lossy(contents));
 
     Some((final_contents, block_span))
+}
+
+// Helper function to collect a command and every custom command it calls, transitively, in
+// breadth-first order.
+// Why: every `Expr::Call` carries a `decl_id` bound at parse time, so a command private to a module
+// is reachable here even though `find_decl` in the caller's scope cannot see it by name.
+fn decls_with_deps(engine_state: &EngineState, root: DeclId) -> Vec<DeclId> {
+    let working_set = StateWorkingSet::new(engine_state);
+    // Why: commands may call each other in a cycle, so the walk needs a visited set to stop.
+    let mut seen = HashSet::from([root]);
+    let mut order = vec![root];
+    let mut next = 0;
+
+    while next < order.len() {
+        let decl_id = order[next];
+        next += 1;
+
+        let Some(block_id) = engine_state.get_decl(decl_id).block_id() else {
+            continue;
+        };
+        // `flat_map` takes `Fn`, not `FnMut`, so the closure cannot touch the visited set — it is
+        // updated after the traversal returns.
+        let leaf = |expr: &Expression| match &expr.expr {
+            Expr::Call(call) => vec![call.decl_id],
+            _ => Vec::new(),
+        };
+        let mut called = Vec::new();
+        engine_state
+            .get_block(block_id)
+            .flat_map(&working_set, &leaf, &mut called);
+
+        for dep in called {
+            // Why: having a block is the single filter that drops builtins, keywords, known
+            // externals and plugins — none of them have a body to show.
+            if engine_state.get_decl(dep).block_id().is_some() && seen.insert(dep) {
+                order.push(dep);
+            }
+        }
+    }
+
+    order
 }
 
 // Helper function to find the file path associated with a given span, if any.
