@@ -15,6 +15,7 @@
 extern crate nu_test_support;
 use nu_test_support::harness::main;
 
+use std::ffi::OsStr;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::PathBuf;
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
@@ -22,9 +23,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use nu_test_support::prelude::*;
 use nu_utils::time::Instant;
 use serde_json::{Value, json};
-use nu_test_support::prelude::*;
 
 /// Absolute path to a fixture script (in this crate's `tests/fixtures/` dir).
 fn example(name: &str) -> String {
@@ -47,7 +48,17 @@ struct Dap {
 
 impl Dap {
     fn spawn() -> Dap {
-        let mut child = Command::new(env!("CARGO_BIN_EXE_nu-dap"))
+        Self::spawn_command(Command::new(env!("CARGO_BIN_EXE_nu-dap")))
+    }
+
+    fn spawn_with_env(key: &str, value: impl AsRef<OsStr>) -> Dap {
+        let mut command = Command::new(env!("CARGO_BIN_EXE_nu-dap"));
+        command.env(key, value);
+        Self::spawn_command(command)
+    }
+
+    fn spawn_command(mut command: Command) -> Dap {
+        let mut child = command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -791,7 +802,10 @@ fn lazy_top_level_pipeline_breakpoints_hit() {
 fn failing_external_attaches_stderr() -> nu_test_support::Result {
     Playground::setup("nu_dap_extfail", |dirs, _| {
         let script = dirs.test().join("nu_dap_extfail.nu");
-        let testbin = TESTBIN_ECHO_ENV_STDERR_FAIL.path().to_string_lossy().to_string();
+        let testbin = TESTBIN_ECHO_ENV_STDERR_FAIL
+            .path()
+            .to_string_lossy()
+            .to_string();
         let testbin = serde_json::to_string(&testbin).unwrap();
 
         std::fs::write(
@@ -961,9 +975,13 @@ fn deep_variables_hydrate_on_demand() {
 }
 
 #[test]
-fn external_command_gets_empty_stdin() {
+#[deps(TESTBIN_INPUT_BYTES_LENGTH)]
+fn external_command_gets_empty_stdin() -> nu_test_support::Result {
     let script = example("external_stdin.nu");
-    let mut d = Dap::spawn();
+    let mut d = Dap::spawn_with_env(
+        "NUSHELL_TEST_INPUT_BYTES_LENGTH",
+        TESTBIN_INPUT_BYTES_LENGTH.path(),
+    );
     d.start(&script, json!({}), &[]);
     // Reaching `terminated` (rather than the watchdog killing a hung process)
     // is itself the "external got EOF, didn't block" assertion.
@@ -979,9 +997,12 @@ fn external_command_gets_empty_stdin() {
         out.push_str(ev["body"]["output"].as_str().unwrap_or(""));
     }
     assert!(
-        out.contains("stdin-drained") && out.contains("after"),
+        out.contains("before")
+            && out.lines().any(|line| line.trim() == "0")
+            && out.contains("after"),
         "out: {out}"
     );
+    Ok(())
 }
 
 #[test]
