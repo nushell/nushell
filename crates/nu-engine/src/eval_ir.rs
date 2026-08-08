@@ -21,6 +21,7 @@ use nu_utils::IgnoreCaseExt;
 
 use crate::{
     ENV_CONVERSIONS, convert_env_vars, eval::is_automatic_env_var, eval_block_with_early_return,
+    named_flags::normalize_engine_arguments,
 };
 
 /// For `def --wrapped` and `known extern` rest params (`SyntaxShape::ExternalArgument`), convert
@@ -649,6 +650,8 @@ fn eval_instruction<D: DebugContext>(
             Ok(Continue)
         }
         Instruction::PushNamed { name, src } => {
+            // Null may be omitted or passed through depending on the target flag's type;
+            // that decision is made in `normalize_call_arguments` once the signature is known.
             let val = ctx.collect_reg(*src, *span)?.with_span(*span);
             let data = ctx.data.clone();
             ctx.stack.arguments.push(Argument::Named {
@@ -1354,6 +1357,14 @@ fn eval_call<D: DebugContext>(
             // check types after acquiring block to avoid unnecessarily cloning Signature
             check_input_types(&input, &block.signature, head)?;
 
+            // Expand record spreads into named flags; drop null named values.
+            let args_len = normalize_call_arguments(
+                &block.signature,
+                &mut caller_stack,
+                *args_base,
+                args_len,
+            )?;
+
             // Set up a callee stack with the captures and move arguments from the stack into variables
             let mut callee_stack = caller_stack.gather_captures(engine_state, &block.captures);
 
@@ -1399,6 +1410,15 @@ fn eval_call<D: DebugContext>(
             if !allow_error_input {
                 check_input_types(&input, &decl.signature(), head)?;
             }
+
+            // Expand record spreads into named flags; drop null named values.
+            let args_len = normalize_call_arguments(
+                &decl.signature(),
+                &mut caller_stack,
+                *args_base,
+                args_len,
+            )?;
+
             // FIXME: precalculate this and save it somewhere
             let span = Span::merge_many(
                 std::iter::once(head).chain(
@@ -1485,6 +1505,25 @@ fn expect_positional_var_id(arg: &PositionalArg, span: Span) -> Result<VarId, Sh
     })
 }
 
+/// Normalize call arguments: expand record spreads into named flags; drop null
+/// named values unless the flag type accepts `nothing`.
+///
+/// Returns the new argument list length after rewriting the frame starting at `args_base`.
+fn normalize_call_arguments(
+    signature: &Signature,
+    stack: &mut Stack,
+    args_base: usize,
+    args_len: usize,
+) -> Result<usize, ShellError> {
+    let raw: Vec<Argument> = stack.arguments.drain_args(args_base, args_len).collect();
+    let expanded = normalize_engine_arguments(signature, raw)?;
+    let new_len = expanded.len();
+    for arg in expanded {
+        stack.arguments.push(arg);
+    }
+    Ok(new_len)
+}
+
 /// Move arguments from the stack into variables for a custom command
 fn gather_arguments(
     engine_state: &EngineState,
@@ -1522,6 +1561,7 @@ fn gather_arguments(
 
     // If we encounter a spread, all further positionals should go to rest
     let mut always_spread = false;
+    let mut remaining_required = block.signature.required_positional.len();
 
     for arg in caller_stack.arguments.drain_args(args_base, args_len) {
         match arg {
@@ -1535,6 +1575,7 @@ fn gather_arguments(
                         // SyntaxShape here, we might be able to save some allocations and effort
                         let variable = engine_state.get_var(var_id);
                         check_type(&val, &variable.ty)?;
+                        remaining_required = remaining_required.saturating_sub(1);
                     }
                     callee_stack.add_var(var_id, val);
                 } else {
@@ -1553,13 +1594,34 @@ fn gather_arguments(
                 ..
             } => match vals {
                 Value::List { vals, .. } => {
+                    // Dual-purpose `...$x`: a list before unfilled required positionals would
+                    // leave them unbound (list items go only to rest).
+                    if remaining_required > 0 && !always_spread {
+                        return Err(crate::named_flags::list_spread_before_required_error(
+                            spread_span,
+                        ));
+                    }
                     rest.extend(vals);
                     rest_span = Some(rest_span.map_or(spread_span, |s| s.append(spread_span)));
                     always_spread = true;
                 }
                 Value::Nothing { .. } => {
+                    // Same rule as list spreads: null rest-mode before required positionals
+                    // would leave them unbound.
+                    if remaining_required > 0 && !always_spread {
+                        return Err(crate::named_flags::list_spread_before_required_error(
+                            spread_span,
+                        ));
+                    }
                     rest_span = Some(rest_span.map_or(spread_span, |s| s.append(spread_span)));
                     always_spread = true;
+                }
+                // Record spreads should already be expanded by `normalize_call_arguments`.
+                Value::Record { .. } => {
+                    return Err(ShellError::IrEvalError {
+                        msg: "internal error: unexpanded record spread in gather_arguments".into(),
+                        span: Some(spread_span),
+                    });
                 }
                 Value::Error { error, .. } => return Err(*error),
                 _ => return Err(ShellError::CannotSpreadAsList { span: vals.span() }),
@@ -1581,6 +1643,8 @@ fn gather_arguments(
                 val,
                 ..
             } => {
+                // Null should already have been dropped in `normalize_call_arguments`
+                // when the flag type does not accept nothing. If still present, bind it.
                 let var_id = find_named_var_id(&block.signature, &data[name], &data[short], span)?;
                 callee_stack.add_var(var_id, val)
             }
