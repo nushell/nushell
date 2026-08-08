@@ -1229,17 +1229,26 @@ impl miette::SourceCode for &StateWorkingSet<'_> {
     }
 }
 
+/// A file on the [`FileStack`].
+#[derive(Debug)]
+struct StackedFile {
+    /// The path the file was reached by, used for error messages and to resolve the paths
+    /// of the files it sources or imports.
+    path: PathBuf,
+    /// The path the file is identified by when detecting circular imports.
+    identity: PathBuf,
+}
+
 /// Files being evaluated, arranged as a stack.
 ///
 /// The current active file is on the top of the stack.
 /// When a file source/import another file, the new file is pushed onto the stack.
 /// Attempting to add files that are already in the stack (circular import) results in an error.
 ///
-/// Note that file paths are compared without canonicalization, so the same
-/// physical file may still appear multiple times under different paths.
-/// This doesn't affect circular import detection though.
+/// Files are identified by their canonical path, so the same physical file is recognized
+/// however it was spelled.
 #[derive(Debug, Default)]
-pub struct FileStack(Vec<PathBuf>);
+pub struct FileStack(Vec<StackedFile>);
 
 impl FileStack {
     /// Creates an empty stack.
@@ -1252,41 +1261,62 @@ impl FileStack {
     /// This is a convenience method that creates an empty stack, then pushes the file onto it.
     /// It skips the circular import check and always succeeds.
     pub fn with_file(path: PathBuf) -> Self {
-        Self(vec![path])
+        Self(vec![Self::stacked_file(path)])
     }
 
     /// Adds a file to the stack.
     ///
     /// If the same file is already present in the stack, returns `ParseError::CircularImport`.
     pub fn push(&mut self, path: PathBuf, span: Span) -> Result<(), ParseError> {
+        let file = Self::stacked_file(path);
+
         // Check for circular import.
-        if let Some(i) = self.0.iter().rposition(|p| p == &path) {
+        if let Some(i) = self.0.iter().rposition(|f| f.identity == file.identity) {
             let filenames: Vec<String> = self.0[i..]
                 .iter()
-                .chain(std::iter::once(&path))
-                .map(|p| p.to_string_lossy().to_string())
+                .chain(std::iter::once(&file))
+                .map(|f| f.path.to_string_lossy().to_string())
                 .collect();
             let msg = filenames.join("\nuses ");
             return Err(ParseError::CircularImport(msg, span));
         }
 
-        self.0.push(path);
+        self.0.push(file);
         Ok(())
+    }
+
+    /// Pairs a path with the identity used to compare it against the other files on the stack.
+    ///
+    /// The paths reaching the stack are absolute but not canonical: on unix, `..` components
+    /// are a kind of link and so are kept as they are, which means one file can be stacked
+    /// under several spellings (`mod.nu` and `sub/../mod.nu` for instance). Canonicalizing
+    /// resolves those to a single path, and with it symlinks pointing at an already stacked
+    /// file. Paths that don't exist on disk, such as the virtual paths of the standard
+    /// library, keep their textually expanded form instead.
+    ///
+    /// The paths are already absolute, so the directory they are resolved against only
+    /// matters for the rare relative path, which the rest of the parser resolves against
+    /// the current directory as well.
+    fn stacked_file(path: PathBuf) -> StackedFile {
+        let identity = nu_path::canonicalize_with(&path, ".")
+            .unwrap_or_else(|_| nu_path::expand_path(&path, false));
+
+        StackedFile { path, identity }
     }
 
     /// Removes a file from the stack and returns its path, or None if the stack is empty.
     pub fn pop(&mut self) -> Option<PathBuf> {
-        self.0.pop()
+        self.0.pop().map(|file| file.path)
     }
 
     /// Returns the active file (that is, the file on the top of the stack), or None if the stack is empty.
     pub fn top(&self) -> Option<&Path> {
-        self.0.last().map(PathBuf::as_path)
+        self.0.last().map(|file| file.path.as_path())
     }
 
     /// Returns the parent directory of the active file, or None if the stack is empty
     /// or the active file doesn't have a parent directory as part of its path.
     pub fn current_working_directory(&self) -> Option<&Path> {
-        self.0.last().and_then(|path| path.parent())
+        self.0.last().and_then(|file| file.path.parent())
     }
 }
