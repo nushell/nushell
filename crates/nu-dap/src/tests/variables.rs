@@ -224,6 +224,8 @@ fn file_record() -> Value {
 #[case::custom(custom(), "5")]
 // DEPARTURE: the shell renders Nothing as `""` — a blank row.
 #[case::nothing(Value::test_nothing(), "null")]
+#[nu_test_support::test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "en_US.utf8")]
 fn short_render_renders_every_variant(#[case] value: Value, #[case] expected: &str) {
     assert_eq!(render(&value), expected);
 }
@@ -303,6 +305,8 @@ fn scalar_preview_renders_every_variant(#[case] value: Value, #[case] expected: 
 #[case::range_matches_the_row(range(), json!("1..10"))]
 #[case::cell_path_matches_the_row(cell_path(), json!("$.name.1"))]
 #[case::custom_matches_the_row(custom(), json!("5"))]
+#[nu_test_support::test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "en_US.utf8")]
 fn to_preview_json_renders_every_variant(
     #[case] value: Value,
     #[case] expected: serde_json::Value,

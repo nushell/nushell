@@ -10,11 +10,7 @@ version.workspace = true
 
 [lib]
 name = "nu_dap"
-path = "src/lib.rs"
-
-[[bin]]
-name = "nu-dap"
-path = "src/main.rs"
+harness = false
 
 [lints]
 workspace = true
@@ -40,6 +36,8 @@ windows-sys = { workspace = true, features = ["Win32_System_Console", "Win32_Fou
 libc = { workspace = true }
 
 [dev-dependencies]
+nu-test-support = { path = "../nu-test-support" }
+
 rstest = { workspace = true, default-features = false }
 pretty_assertions = { workspace = true }
 # Only for the rendering matrix in `src/tests/variables.rs`: constructing a

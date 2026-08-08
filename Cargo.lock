@@ -4976,6 +4976,7 @@ dependencies = [
  "nu-parser",
  "nu-path",
  "nu-protocol",
+ "nu-test-support",
  "nu-utils",
  "pretty_assertions",
  "rstest",
