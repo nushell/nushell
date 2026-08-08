@@ -90,7 +90,9 @@ pub(crate) fn check_call(
         return CallKind::Invalid;
     } else {
         // Spreads may supply required named flags at runtime (`...{flag: val}` / `...$flags`).
-        // Defer to the command rather than parse-erroring when any spread is present.
+        // When any spread is present, skip parse-time MissingRequiredFlag and let runtime /
+        // the command fail if a required flag is still missing. This also defers for pure
+        // list rest spreads (slightly weaker diagnostics; acceptable for dual-purpose `...$x`).
         if !has_spread {
             for req_flag in sig.named.iter().filter(|x| x.required) {
                 if call.named_iter().all(|(n, _, _)| n.item != req_flag.long) {

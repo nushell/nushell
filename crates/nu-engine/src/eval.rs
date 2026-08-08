@@ -1,6 +1,8 @@
 #[allow(deprecated)]
 use crate::get_full_help;
-use crate::named_flags::{expand_flag_record, flag_type_accepts_nothing};
+use crate::named_flags::{
+    expand_flag_record, flag_type_accepts_nothing, list_spread_before_required_error,
+};
 use crate::{EvalBlockWithEarlyReturnFn, eval_ir::eval_ir_block};
 use nu_protocol::{
     BlockId, CompareTypes, Config, ENV_VARIABLE_ID, IntoPipelineData, PipelineData,
@@ -38,6 +40,8 @@ pub struct CallEval {
     arg_index: usize,
     named_args: Vec<String>,
     rest_args: Vec<Value>,
+    /// After a list/null rest spread, further positionals go to rest (matches IR `always_spread`).
+    always_spread: bool,
     eval: EvalBlockWithEarlyReturnFn,
 }
 
@@ -56,6 +60,7 @@ impl CallEval {
             arg_index: 0,
             named_args: Vec::new(),
             rest_args: Vec::new(),
+            always_spread: false,
             eval,
         }
     }
@@ -69,6 +74,11 @@ impl CallEval {
         signature: &Signature,
         value: Cow<Value>,
     ) -> Result<&mut Self, ShellError> {
+        // After a rest spread, further positionals always go to rest (IR parity).
+        if self.always_spread {
+            return self.push_rest(signature, value);
+        }
+
         let maybe_param = match self
             .arg_index
             .checked_sub(signature.required_positional.len())
@@ -101,27 +111,64 @@ impl CallEval {
             self.arg_index += 1;
             Ok(self)
         } else {
-            // assign arg to rest params
-            let Some(rest_positional) = &signature.rest_positional else {
-                // We do not consider it an error if more arguments
-                // are added than the closure takes. This makes it possible
-                // to omit any unused arguments in the closure definition.
-                return Ok(self);
-            };
-
-            let param_type = rest_positional.shape.to_type();
-            if !value.is_subtype_of(&param_type) {
-                return Err(ShellError::CantConvert {
-                    to_type: param_type.to_string(),
-                    from_type: value.get_type().to_string(),
-                    span: value.span(),
-                    help: None,
-                });
-            }
-
-            self.rest_args.push(value.into_owned());
-            Ok(self)
+            self.push_rest(signature, value)
         }
+    }
+
+    fn push_rest(
+        &mut self,
+        signature: &Signature,
+        value: Cow<Value>,
+    ) -> Result<&mut Self, ShellError> {
+        let Some(rest_positional) = &signature.rest_positional else {
+            // We do not consider it an error if more arguments
+            // are added than the closure takes. This makes it possible
+            // to omit any unused arguments in the closure definition.
+            return Ok(self);
+        };
+
+        let param_type = rest_positional.shape.to_type();
+        if !value.is_subtype_of(&param_type) {
+            return Err(ShellError::CantConvert {
+                to_type: param_type.to_string(),
+                from_type: value.get_type().to_string(),
+                span: value.span(),
+                help: None,
+            });
+        }
+
+        self.rest_args.push(value.into_owned());
+        Ok(self)
+    }
+
+    /// Spread a list into rest (IR parity). Errors if required positionals remain unbound.
+    pub fn add_list_spread(
+        &mut self,
+        signature: &Signature,
+        vals: Vec<Value>,
+        spread_span: Span,
+    ) -> Result<&mut Self, ShellError> {
+        if self.arg_index < signature.required_positional.len() && !self.always_spread {
+            return Err(list_spread_before_required_error(spread_span));
+        }
+        for v in vals {
+            self.push_rest(signature, Cow::Owned(v))?;
+        }
+        self.always_spread = true;
+        Ok(self)
+    }
+
+    /// Null rest-mode spread (IR parity). Errors if required positionals remain unbound.
+    pub fn add_null_spread(
+        &mut self,
+        signature: &Signature,
+        spread_span: Span,
+    ) -> Result<&mut Self, ShellError> {
+        if self.arg_index < signature.required_positional.len() && !self.always_spread {
+            return Err(list_spread_before_required_error(spread_span));
+        }
+        self.always_spread = true;
+        Ok(self)
     }
 
     /// Add a named parameter to the call stack.
@@ -369,6 +416,9 @@ pub fn eval_call<D: DebugContext>(
                         result,
                     )?;
                 }
+                // Light AST path: keep custom-command spreads aligned with IR gather/normalize
+                // semantics. Normal scripts use IR (`eval_block` → IR); this path still matters
+                // for residual AST `eval_call` consumers.
                 AstArgument::Spread(expr) => {
                     let val = eval_expression::<D>(engine_state, caller_stack, expr)?;
                     match val {
@@ -407,11 +457,12 @@ pub fn eval_call<D: DebugContext>(
                                     expr.span,
                                 )));
                             }
-                            for v in vals {
-                                call_eval.add_positional(&signature, Cow::Owned(v))?;
-                            }
+                            call_eval.add_list_spread(&signature, vals.into_owned(), expr.span)?;
                         }
-                        Value::Nothing { .. } => {}
+                        Value::Nothing { .. } => {
+                            call_eval.add_null_spread(&signature, expr.span)?;
+                        }
+                        Value::Error { error, .. } => return Err(*error),
                         other => {
                             return Err(ShellError::CannotSpreadAsList { span: other.span() });
                         }
@@ -428,10 +479,9 @@ pub fn eval_call<D: DebugContext>(
 
         result
     } else {
-        // call is a builtin or external command
-        // We pass caller_stack here with the knowledge that internal commands
-        // are going to be specifically looking for global state in the stack
-        // rather than any local state.
+        // Builtin/plugin/external: normal scripts evaluate via IR, which runs
+        // `normalize_engine_arguments` for null omit and record flag spreads. This AST
+        // `eval_call` branch does not re-implement that path (IR-first).
         decl.run(engine_state, caller_stack, &call.into(), input)
     }
 }

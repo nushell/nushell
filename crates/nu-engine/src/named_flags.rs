@@ -1,5 +1,9 @@
 //! Helpers for signature-aware named flag handling (null omit/pass-through and
-//! record flag spreads). Shared by IR and AST evaluation paths.
+//! long-key record flag spreads).
+//!
+//! **IR-first:** Normal script evaluation uses IR (`normalize_engine_arguments` before
+//! custom/builtin dispatch). The light AST custom-command path reuses these helpers for
+//! parity; builtins on the residual AST `eval_call` path rely on IR for everyday use.
 
 use std::sync::Arc;
 
@@ -37,14 +41,11 @@ pub(crate) fn data_from_name_and_short(
 ) -> (Arc<[u8]>, DataSlice, DataSlice) {
     let data: Vec<u8> = name.bytes().chain(short.bytes()).collect();
     let data: Arc<[u8]> = data.into();
-    let name_len: u32 = name
-        .len()
-        .try_into()
-        .expect("flag long name length fits u32");
-    let short_len: u32 = short
-        .len()
-        .try_into()
-        .expect("flag short name length fits u32");
+    // Flag names are parser identifiers — never near u32::MAX.
+    #[allow(clippy::cast_possible_truncation)]
+    let name_len = name.len() as u32;
+    #[allow(clippy::cast_possible_truncation)]
+    let short_len = short.len() as u32;
     let name = DataSlice {
         start: 0,
         len: name_len,
