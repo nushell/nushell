@@ -1,0 +1,49 @@
+[package]
+authors = ["The Nushell Project Developers"]
+description = "Debug Adapter Protocol server for Nushell scripts"
+repository = "https://github.com/nushell/nushell/tree/main/crates/nu-dap"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+name = "nu-dap"
+version.workspace = true
+
+[lib]
+name = "nu_dap"
+path = "src/lib.rs"
+
+[[bin]]
+name = "nu-dap"
+path = "src/main.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+nu-protocol = { workspace = true, features = ["os"] }
+nu-parser = { workspace = true }
+nu-engine = { workspace = true, features = ["os"] }
+nu-cmd-lang = { workspace = true, features = ["os"] }
+nu-command = { workspace = true, features = ["os", "network", "rustls-tls", "sqlite"] }
+nu-path = { workspace = true }
+nu-utils = { workspace = true }
+
+derive_more = { workspace = true, features = ["debug"] }
+miette = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { workspace = true, features = ["Win32_System_Console", "Win32_Foundation"] }
+
+[target.'cfg(unix)'.dependencies]
+libc = { workspace = true }
+
+[dev-dependencies]
+rstest = { workspace = true, default-features = false }
+pretty_assertions = { workspace = true }
+# Only for the rendering matrix in `src/tests/variables.rs`: constructing a
+# `Value::Date` needs a `chrono` type, and a `Value::Custom` case needs a local
+# `CustomValue` stub, whose trait carries `#[typetag::serde]`.
+chrono = { workspace = true, features = ["std"] }
+typetag = "0.2"

@@ -313,6 +313,14 @@ const CLI_FLAGS: &[CliFlag] = &[
         CliCategory::Ide,
         "nu --lsp",
     ),
+    #[cfg(feature = "dap")]
+    CliFlag::switch(
+        "dap",
+        None,
+        "start nu's debug adapter protocol server (over stdio)",
+        CliCategory::Ide,
+        "nu --dap",
+    ),
     CliFlag::value(
         "ide-goto-def",
         None,
@@ -427,6 +435,8 @@ struct CliValues {
     include_path: Option<Spanned<String>>,
     #[cfg(feature = "lsp")]
     lsp: bool,
+    #[cfg(feature = "dap")]
+    dap: bool,
     ide_goto_def: Option<Value>,
     ide_hover: Option<Value>,
     ide_complete: Option<Value>,
@@ -648,6 +658,8 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
             }
             #[cfg(feature = "lsp")]
             Long("lsp") => cli.lsp = true,
+            #[cfg(feature = "dap")]
+            Long("dap") => cli.dap = true,
             Long("ide-goto-def") => {
                 cli.ide_goto_def = Some(parse_ide_int_option(&mut parser, "ide-goto-def")?)
             }
@@ -765,6 +777,8 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
             include_path: cli.include_path,
             #[cfg(feature = "lsp")]
             lsp: cli.lsp,
+            #[cfg(feature = "dap")]
+            dap: cli.dap,
             ide_goto_def: cli.ide_goto_def,
             ide_hover: cli.ide_hover,
             ide_complete: cli.ide_complete,
@@ -1435,6 +1449,8 @@ pub(crate) struct NushellCliArgs {
     pub(crate) include_path: Option<Spanned<String>>,
     #[cfg(feature = "lsp")]
     pub(crate) lsp: bool,
+    #[cfg(feature = "dap")]
+    pub(crate) dap: bool,
     pub(crate) ide_goto_def: Option<Value>,
     pub(crate) ide_hover: Option<Value>,
     pub(crate) ide_complete: Option<Value>,
