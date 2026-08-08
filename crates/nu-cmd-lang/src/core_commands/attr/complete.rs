@@ -55,8 +55,8 @@ impl Command for AttrComplete {
         vec![Example {
             description: "Use another command as completion source.",
             example: "\
-                def complete-foo [spans: list<string>] {\n    \
-                    [bar baz qux spam eggs] | where $it not-in $spans\n\
+                def complete-foo [input: record] {\n    \
+                    [bar baz qux spam eggs] | where $it != $input.token.text\n\
                 }\n\n\
                 @complete 'complete-foo'\n\
                 def foo [...args] { $args }\

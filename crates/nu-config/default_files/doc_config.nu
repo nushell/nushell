@@ -276,15 +276,48 @@ $env.config.completions.external.enable = true
 $env.config.completions.external.max_results = 100
 
 # completions.external.completer (closure|null): Custom closure for argument completions.
-# The closure receives a |spans| parameter - a list of strings representing
-# tokens on the current commandline. Usually set to call a third-party
-# completion system like Carapace.
+# Usually set to call a third-party completion system like Carapace.
+#
+# Receives the same record as every completer and menu source: {token, place}.
+#   token: record  the token being completed, as {text, kind, span}
+#   place: record  where in the line that is: `cursor` (a byte offset), `target`
+#                  ({start, end}, the range a suggestion replaces), and the resolution
+#                  (`kind`, plus `flag`/`index`). `target` is worth reading rather than
+#                  `token.span`: they differ wherever a completion spans several tokens,
+#                  such as a multiword command head or a cell path.
+# A completer never sees text past the cursor.
+#
+# Declaring a `--full` flag asks for {contexts, place} instead: the closures and
+# subexpressions the cursor is nested in. See `commandline complete --input-full`.
+#
+# Returns a list of suggestions (a string, or a record of {value, description?, style?,
+# span?, extra?}) or a record of {options, completions}. External/command-wide completers
+# are not filtered by default; parameter completers are. See `options.filter`.
 # Default: null
 $env.config.completions.external.completer = null
 
-# Example: A simplified Carapace completer (use the official one from Carapace docs):
-# $env.config.completions.external.completer = {|spans|
-#   carapace $spans.0 nushell ...$spans | from json
+# Example: A simplified Carapace completer (use the official one from Carapace docs).
+# Every token of the command is wanted, so it declares --full:
+# $env.config.completions.external.completer = {|input, --full|
+#   let words = $input.contexts.tokens.text
+#   carapace ($words | first) nushell ...$words | from json
+# }
+#
+# Example: branch off the resolved cursor instead of re-parsing the tokens. `place.kind`
+# reads the same with or without --full, so this needs neither:
+# $env.config.completions.external.completer = {|input|
+#   if $input.place.kind == "flag-value" and $input.place.flag == "base" {
+#     git branch | lines | str trim
+#   }
+# }
+#
+# Example: walk to the context the cursor is actually in, however deeply nested:
+# def cursor-context [input: record, --full] {
+#   mut context = $input.contexts
+#   for token in ($input.place.cursor.path | drop 1) {
+#     $context = $context.tokens | get $token | get nested
+#   }
+#   $context
 # }
 
 # --------------------
@@ -644,6 +677,13 @@ $env.config.abbreviations = {}
 # List-layout menus accept description_position: "before" or "after" in their
 # `type` record, controlling whether an entry's description is shown before or
 # after its value. Unset keeps reedline's default.
+#
+# A menu's `source` receives the same {token, place} record as every completer, in place of
+# the old `{|buffer, position|}` pair -- see completions.external.completer above. A source
+# that used to write `$buffer | split row ' ' | last` now reads `$input.token.text`, and one
+# that needs the surrounding closures declares `--full` the same way a completer does.
+# It returns what a completer returns, so one source can serve as either; the `options` of a
+# {completions, options} record name engine behaviour a menu has no say in and are ignored.
 #
 # Default: completion_menu, ide_completion_menu, history_menu, help_menu.
 # Inspect with `$env.config.menus`. Full list replacement (`=`) clears defaults;

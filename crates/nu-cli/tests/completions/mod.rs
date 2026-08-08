@@ -169,7 +169,7 @@ fn external_completer_error_falls_back_to_file_completion() {
     let record = r#"
         $env.config.completions.external = {
             enable: true
-            completer: {|spans| error make {msg: "simulated completer failure"} }
+            completer: {|input| error make {msg: "simulated completer failure"} }
         }
     "#;
     assert!(support::merge_input(record.as_bytes(), &mut engine, &mut stack).is_ok());
@@ -190,8 +190,8 @@ fn custom_completer() -> NuCompleter {
 
     // Add record value as example
     let record = "
-        let external_completer = {|spans|
-            $spans
+        let external_completer = {|input, --full|
+            ($input.contexts.tokens.text)
         }
 
         $env.config.completions.external = {
@@ -341,11 +341,21 @@ fn customcompletions_no_filter() {
 }
 
 #[rstest]
-#[case::happy("{ start: 1, end: 14 }", (7, 20))]
-#[case::no_start("{ end: 14 }", (17, 20))]
-#[case::no_end("{ start: 1 }", (7, 23))]
+/// A returned `span` is byte offsets; ends beyond what was shown clamp.
+#[case::happy("{ start: 7, end: 20 }", (7, 20))]
+#[case::no_start("{ end: 20 }", (17, 20))]
+#[case::no_end("{ start: 7 }", (7, 23))]
 #[case::bad_start("{ start: 100 }", (23, 23))]
 #[case::bad_end("{ end: 100 }", (17, 23))]
+// A span that cannot be read costs the span, not the suggestion around it: the default —
+// the range the engine would have replaced — still stands.
+#[case::not_a_record("\"nope\"", (17, 23))]
+#[case::not_an_int("{ start: \"3\" }", (17, 23))]
+#[case::misspelled_key("{ strat: 3 }", (17, 23))]
+// A negative offset names no position on the line. Clamping it to `0` would silently
+// replace from the start of the line, so the default stands here too.
+#[case::negative_start("{ start: -1 }", (17, 23))]
+#[case::negative_end("{ end: -1 }", (17, 23))]
 fn custom_completions_override_span(
     #[case] span_string: &str,
     #[case] expected_span: (usize, usize),
@@ -364,6 +374,52 @@ fn custom_completions_override_span(
     match_suggestions(&vec!["foobarbaz"], &suggestions);
     let (start, end) = expected_span;
     assert_eq!(Span::new(start, end), suggestions[0].span);
+}
+
+/// A completer's return is read part by part, and a part that does not fit costs that part
+/// alone. Each case returns two completions, the first malformed in one place; the engine
+/// keeps as much of it as it can and never lets it take the other down with it.
+#[rstest]
+// A string field takes anything that coerces, as it did before it was declared.
+#[case::coerced_description("{value: alpha, description: 5}", vec!["alpha", "beta"])]
+#[case::coerced_extra("{value: alpha, extra: [1 2]}", vec!["alpha", "beta"])]
+// A key no suggestion has is reported, and costs that suggestion only.
+#[case::unknown_key("{value: alpha, discription: hi}", vec!["beta"])]
+// `--detailed` emits these beside a suggestion, so its output pipes straight back in.
+#[case::echoed_keys("{value: alpha, kind: {Value: string}, type: string}", vec!["alpha", "beta"])]
+fn a_malformed_part_costs_only_that_part(#[case] first: &str, #[case] expected: Vec<&str>) {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = format!(
+        "
+        def comp [] {{ [{first}, beta] }}
+        def my-command [arg: string@comp] {{}}"
+    );
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let suggestions = completer.complete_blocking("my-command ", 11);
+    match_suggestions(&expected, &suggestions);
+}
+
+/// An `options` that cannot be read costs the settings it names, not the completions
+/// returned beside it. Without `filter: false` the engine narrows against the typed `zzz`,
+/// so the completion surviving at all is what the case proves.
+#[rstest]
+#[case::not_a_record("options: \"nope\"")]
+#[case::unknown_key("options: {fiter: false}")]
+#[case::bad_value("options: {filter: 0}")]
+fn a_malformed_options_keeps_the_completions_beside_it(#[case] options: &str) {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = format!(
+        "
+        def comp [] {{ {{completions: [alpha], {options}}} }}
+        def my-command [arg: string@comp] {{}}"
+    );
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let suggestions = completer.complete_blocking("my-command ", 11);
+    match_suggestions(&vec!["alpha"], &suggestions);
 }
 
 #[test]
@@ -473,7 +529,7 @@ fn custom_completions_wraps_builtin_commandline_complete() {
         def comp [] {
             '%ls ' | commandline complete --detailed | prepend {
                 value: 'test',
-                display: 'test',
+                display_override: 'test',
                 description: 'dummy',
                 style: { attr: b },
             }
@@ -500,9 +556,8 @@ fn custom_completions_wraps_builtin_commandline_complete() {
 fn custom_completions_wraps_builtin_commandline_complete_path() {
     let (_, _, mut engine, mut stack) = new_quote_engine();
     let command = "
-        def completer [context: string] {
-            $context
-              | split row ' '
+        def completer [input: record, --full] {
+            ($input.contexts.tokens.text)
               | last
               | commandline complete --type path --detailed
               | reject span # original spans are less useful with --path
@@ -661,7 +716,7 @@ fn custom_completion_for_list_typed_argument(
 ) {
     let (_, _, mut engine, mut stack) = new_engine();
     let command = /* lang=nu */ r#"
-    def comp_foo [input pos] {
+    def comp_foo [input] {
         ["[foo]", "[f, bar]", "[f, baz]"]
     }
 
@@ -1179,7 +1234,7 @@ fn dotnu_completions_const_nu_lib_dirs() {
 #[test]
 fn external_completer_trailing_space() {
     // https://github.com/nushell/nushell/issues/6378
-    let block = "{|spans| $spans}";
+    let block = "{|input, --full| ($input.contexts.tokens.text)}";
     let input = "gh alias ";
 
     let suggestions = run_external_completion(block, input);
@@ -1188,7 +1243,7 @@ fn external_completer_trailing_space() {
 
 #[test]
 fn external_completer_no_trailing_space() {
-    let block = "{|spans| $spans}";
+    let block = "{|input, --full| ($input.contexts.tokens.text)}";
     let input = "gh alias";
 
     let suggestions = run_external_completion(block, input);
@@ -1199,7 +1254,7 @@ fn external_completer_no_trailing_space() {
 
 #[test]
 fn external_completer_pass_flags() {
-    let block = "{|spans| $spans}";
+    let block = "{|input, --full| ($input.contexts.tokens.text)}";
     let input = "gh api --";
 
     let suggestions = run_external_completion(block, input);
@@ -1212,7 +1267,7 @@ fn external_completer_pass_flags() {
 /// Fallback to file completions when external completer returns null
 #[test]
 fn external_completer_fallback() {
-    let block = "{|spans| null}";
+    let block = "{|input| null}";
     let input = "foo test";
 
     let expected = [folder("test_a"), folder("test_a_symlink"), folder("test_b")];
@@ -1241,16 +1296,17 @@ fn external_completer_fallback() {
 }
 
 #[rstest]
-#[case::happy("{ start: 1, end: 14 }", (7, 20))]
-#[case::no_start("{ end: 14 }", (17, 20))]
-#[case::no_end("{ start: 1 }", (7, 23))]
+/// A returned `span` is byte offsets; ends beyond what was shown clamp.
+#[case::happy("{ start: 7, end: 20 }", (7, 20))]
+#[case::no_start("{ end: 20 }", (17, 20))]
+#[case::no_end("{ start: 7 }", (7, 23))]
 #[case::bad_start("{ start: 100 }", (23, 23))]
 #[case::bad_end("{ end: 100 }", (17, 23))]
 fn external_completer_override_span(
     #[case] span_string: &str,
     #[case] expected_span: (usize, usize),
 ) {
-    let block = format!("{{|spans| [{{ value: foobarbaz, span: {span_string} }}]}}");
+    let block = format!("{{|input| [{{ value: foobarbaz, span: {span_string} }}]}}");
     let input = "foo | extcommand foobar";
 
     let suggestions = run_external_completion(&block, input);
@@ -1265,7 +1321,7 @@ fn external_completer_override_span(
 
 #[test]
 fn external_completer_override_display_value() {
-    let block = "{|spans| [{ value: foo, display_override: blah }] }";
+    let block = "{|input| [{ value: foo, display_override: blah }] }";
     let suggestions = run_external_completion(block, "extcommand irrelevant");
     assert_eq!(1, suggestions.len());
     assert_eq!("blah", suggestions[0].display_value());
@@ -1274,7 +1330,7 @@ fn external_completer_override_display_value() {
 /// Fallback to external completions for flags of `sudo`
 #[test]
 fn external_completer_sudo() {
-    let block = "{|spans| ['--background']}";
+    let block = "{|input| ['--background']}";
     let input = "sudo --back";
 
     let expected = vec!["--background"];
@@ -1284,8 +1340,8 @@ fn external_completer_sudo() {
 
 #[test]
 fn external_completer_wraps_builtin_commandline_complete() {
-    let block = "{|spans|
-        $spans | last | commandline complete | prepend 'bar'
+    let block = "{|input|
+        $input.token.text | commandline complete | prepend 'bar'
     }";
     let input = "foo test";
 
@@ -1302,7 +1358,7 @@ fn external_completer_wraps_builtin_commandline_complete() {
 /// Suppress completions when external completer returns invalid value
 #[test]
 fn external_completer_invalid() {
-    let block = "{|spans| 123}";
+    let block = "{|input| 123}";
     let input = "foo ";
 
     let suggestions = run_external_completion(block, input);
@@ -1332,8 +1388,8 @@ fn command_wide_completion_custom(#[case] return_code: &str) {
     let mut completer = custom_completer();
 
     let sample = /* lang=nu */ format!(r#"
-        def "nu-complete foo" [spans: list] {{
-            {return_code} ($spans ++ [some more])
+        def "nu-complete foo" [input: record, --full] {{
+            {return_code} (($input.contexts.tokens.text) ++ [some more])
         }}
 
         @complete "nu-complete foo"
@@ -1351,8 +1407,8 @@ fn command_wide_completion_wrapped_untyped_equals_flag_value() {
     let mut completer = custom_completer();
 
     let sample = r#"
-        def "nu-complete wt" [spans: list<string>] {
-            let last = ($spans | last)
+        def "nu-complete wt" [input: record] {
+            let last = $input.token.text
             if ($last | str starts-with "--base=") {
                 [--base=releases/4.x.x --base=main]
             } else {
@@ -1372,13 +1428,13 @@ fn command_wide_completion_wrapped_untyped_equals_flag_value() {
 
 #[rstest]
 #[case::custom(
-    r#"def "nu-complete foo" [spans: list] { null }
+    r#"def "nu-complete foo" [input: record] { null }
 
     @complete "nu-complete foo""#
 )]
 #[case::external(
     "
-    let external_completer = {|spans| null }
+    let external_completer = {|input| null }
 
     $env.config.completions.external = {
         enable: true
@@ -1414,7 +1470,7 @@ fn parameter_completion_overrides_command_wide_completion() {
     let mut completer = custom_completer();
 
     let sample = /* lang=nu */ r#"
-        def "nu-complete cmd" [spans: list] {
+        def "nu-complete cmd" [input: record] {
             [command wide completion]
         }
 
@@ -1441,8 +1497,8 @@ fn command_wide_completion_flag_completion() {
     let mut completer = custom_completer();
 
     let sample = /* lang=nu */ r#"
-        def "nu-complete cmd" [spans: list] {
-            let last = $spans | last
+        def "nu-complete cmd" [input: record] {
+            let last = $input.token.text
             [command wide --with --external]
             | where $it starts-with $last
         }
@@ -2233,7 +2289,7 @@ fn subcommand_vs_external_completer() {
     let (_, _, mut engine, mut stack) = new_engine();
     let commands = r#"
             $env.config.completions.algorithm = "fuzzy"
-            $env.config.completions.external.completer = {|spans| ["external"]}
+            $env.config.completions.external.completer = {|input| ["external"]}
             def foo-test-command [] {}
             def "foo-test-command bar" [] {}
             def "foo-test-command aagap bcr" [] {}
@@ -3102,6 +3158,15 @@ fn run_external_completion_within_pwd(
     input: &str,
     pwd: AbsolutePathBuf,
 ) -> Suggestions {
+    run_external_completion_at_within_pwd(completer, input, input.len(), pwd)
+}
+
+fn run_external_completion_at_within_pwd(
+    completer: &str,
+    input: &str,
+    cursor: usize,
+    pwd: AbsolutePathBuf,
+) -> Suggestions {
     let completer = format!("$env.config.completions.external.completer = {completer}");
 
     // Create a new engine
@@ -3128,17 +3193,186 @@ fn run_external_completion_within_pwd(
     {
         let mut repl = engine_state.repl_state.lock().expect("repl state");
         repl.buffer = input.to_string();
-        repl.cursor_pos = input.len();
+        repl.cursor_pos = cursor;
     }
 
     // Instantiate a new completer
     let mut completer = NuCompleter::new(Arc::new(engine_state), Arc::new(stack));
 
-    completer.complete_blocking(input, input.len())
+    completer.complete_blocking(input, cursor)
 }
 
 fn run_external_completion(completer: &str, input: &str) -> Suggestions {
     run_external_completion_within_pwd(completer, input, fs::fixtures().join("completions"))
+}
+
+/// Like [`run_external_completion`], with the cursor before the end of the line.
+fn run_external_completion_at(completer: &str, input: &str, cursor: usize) -> Suggestions {
+    run_external_completion_at_within_pwd(
+        completer,
+        input,
+        cursor,
+        fs::fixtures().join("completions"),
+    )
+}
+
+/// Every field of the input record, cursor mid-line so tokens stop there.
+#[test]
+fn external_completer_receives_the_unified_input() {
+    let input = "before | ext --ma later";
+    let cursor = "before | ext --ma".len();
+    let block = r#"{|input, --full| [
+        # `before |` is beside the cursor, not around it, so nothing nests.
+        ($input.contexts.tokens.text | str join "+")
+        ($input.contexts.tokens.kind | str join "+")
+        $"nested=($input.contexts.tokens.nested | all { $in == null })"
+        $"cursor=($input.place.cursor | to nuon)"
+        $"place-kind=($input.place.kind)"
+        $"target=($input.place.target | to nuon)"
+    ]}"#;
+
+    let suggestions = run_external_completion_at(block, input, cursor);
+    match_suggestions(
+        &vec![
+            // `later` is past the cursor and deliberately absent.
+            "ext+--ma",
+            "head+flag",
+            "nested=true",
+            "cursor={path: [1], byte: 4}",
+            "place-kind=external-arg",
+            "target={start: {path: [1], byte: 0}, end: {path: [1], byte: 4}}",
+        ],
+        &suggestions,
+    );
+}
+
+/// A cursor inside a closure gets the enclosing command with the one it is in hanging off
+/// the nesting token, tagged with the slot it fills. `ignored` is beside the cursor, so it
+/// is nowhere in the tree.
+#[test]
+fn a_completer_receives_the_contexts_enclosing_the_cursor() {
+    let input = "ignored | each { ext --ma";
+    let block = r#"{|input, --full| [
+        ($input.contexts.tokens.text | to nuon)
+        ($input.contexts.tokens.kind | str join "+")
+        $"slot=($input.contexts.tokens.1.nested | reject tokens | to nuon)"
+        ($input.contexts.tokens.1.nested.tokens.text | str join "+")
+        $"cursor=($input.place.cursor | to nuon)"
+        $"place-kind=($input.place.kind)"
+    ]}"#;
+
+    let suggestions = run_external_completion_at(block, input, input.len());
+    match_suggestions(
+        &vec![
+            // The nesting token has no text of its own: it is the command it holds.
+            "[each, null]",
+            "head+block",
+            "slot={kind: positional, index: 0}",
+            "ext+--ma",
+            "cursor={path: [1, 1], byte: 4}",
+            "place-kind=external-arg",
+        ],
+        &suggestions,
+    );
+}
+
+/// A parameter completer gets the same record as an external one; only the resolved
+/// `cursor` differs, since the engine knows this command's signature.
+#[test]
+fn parameter_completer_receives_the_unified_input() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = r#"
+        def comp [input: record, --full] {
+            {
+                # The engine would otherwise narrow these against the typed `ma`.
+                options: { filter: false }
+                completions: [
+                    ($input.contexts.tokens.text | str join "+")
+                    ($input.contexts.tokens.kind | str join "+")
+                    $"cursor=($input.place.cursor | to nuon)"
+                    $"place-kind=($input.place.kind)"
+                    $"target=($input.place.target | to nuon)"
+                ]
+            }
+        }
+        def my-command [arg: string@comp] {}
+    "#;
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let input = "my-command ma later";
+    let suggestions = completer.complete_blocking(input, "my-command ma".len());
+
+    match_suggestions(
+        &vec![
+            "my-command+ma",
+            "head+value",
+            "cursor={path: [1], byte: 2}",
+            "place-kind=positional",
+            "target={start: {path: [1], byte: 0}, end: {path: [1], byte: 2}}",
+        ],
+        &suggestions,
+    );
+}
+
+/// The engine narrows a parameter completer's list, but not a command-wide or external
+/// one's (it got the typed text itself). Either can override with `options.filter`.
+#[test]
+fn parameter_completions_are_narrowed_but_external_ones_are_not() {
+    let candidates = "[alpha, beta]";
+
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = format!(
+        "def comp [input: record] {{ {candidates} }}
+         def my-command [arg: string@comp] {{}}"
+    );
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let typed = "my-command al";
+    match_suggestions(
+        &vec!["alpha"],
+        &completer.complete_blocking(typed, typed.len()),
+    );
+
+    // The same list from an external completer is not narrowed.
+    let suggestions = run_external_completion(&format!("{{|input| {candidates} }}"), "ext al");
+    match_suggestions(&vec!["alpha", "beta"], &suggestions);
+}
+
+/// A span is clamped to the buffer and floored to a char boundary (#5127).
+#[test]
+fn a_returned_span_is_clamped_to_the_buffer() {
+    // `é` occupies bytes 4..6, so 5 is mid-character and 99 is past the end.
+    let block = "{|input| [{ value: v, span: { start: 5, end: 99 } }] }";
+    let suggestions = run_external_completion(block, "ext é");
+
+    assert_eq!(1, suggestions.len());
+    assert_eq!(Span::new(4, 6), suggestions[0].span);
+
+    // A span past the cursor clamps to it: all the completer was shown.
+    let past = run_external_completion_at(
+        "{|input| [{ value: v, span: { start: 4, end: 99 } }] }",
+        "ext ab cd",
+        "ext ab".len(),
+    );
+    assert_eq!(Span::new(4, 6), past[0].span);
+}
+
+/// Text past the cursor never reaches a completer, so one cache entry serves every tail.
+#[test]
+fn the_text_after_the_cursor_never_reaches_the_completer() {
+    let block = r#"{|input, --full| [($input.contexts.tokens.text | str join "+")]}"#;
+    let cursor = "ext ".len();
+
+    // Same prefix, different tails: the completer sees the same tokens either way.
+    match_suggestions(
+        &vec!["ext+"],
+        &run_external_completion_at(block, "ext bar", cursor),
+    );
+    match_suggestions(
+        &vec!["ext+"],
+        &run_external_completion_at(block, "ext qux", cursor),
+    );
 }
 
 #[test]
@@ -3580,7 +3814,7 @@ fn alias_expansion_for_external_completions() {
     assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
 
     // Define an external completer that returns the arguments passed to it
-    let command = "$env.config.completions.external.completer = {|s| $s }";
+    let command = "$env.config.completions.external.completer = {|input, --full| ($input.contexts.tokens.text) }";
     assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
@@ -3597,7 +3831,7 @@ fn nested_alias_expansion_for_external_completions() {
     assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
 
     // Define an external completer that returns the arguments passed to it
-    let command = "$env.config.completions.external.completer = {|s| $s }";
+    let command = "$env.config.completions.external.completer = {|input, --full| ($input.contexts.tokens.text) }";
     assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));

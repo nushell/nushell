@@ -42,6 +42,6 @@ impl Completer for FlagCompletion {
                 add_suggestion(format!("--{long}"), named.desc.clone());
             }
         }
-        Fetched::pure(matcher.suggestion_results())
+        Fetched::Pure(matcher.suggestion_results())
     }
 }

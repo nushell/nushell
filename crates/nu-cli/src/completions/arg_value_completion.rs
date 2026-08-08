@@ -1,6 +1,6 @@
 use super::completer::touches;
 use crate::{
-    CompletionEngine, FileCompletion,
+    FileCompletion,
     completions::{
         Completer, Context, DirectoryCompletion, ExportableCompletion, Fetched, SemanticSuggestion,
         completion_options::NuMatcher, to_reedline_span,
@@ -18,9 +18,7 @@ pub struct ArgValueCompletion<'a> {
     pub arg_type: ArgType<'a>,
     /// Whether to fall back to file completion when no source matches.
     pub need_fallback: bool,
-    pub completer: &'a CompletionEngine,
-    /// Index into `call.arguments`, or `call.arguments.len()` for a synthesized
-    /// trailing slot the parser produced no argument for (e.g. `open <tab>`).
+    /// Index into `call.arguments`, or `.len()` for a trailing slot with no argument.
     pub arg_idx: usize,
     /// Cursor, in absolute working-set (span) coordinates.
     pub cursor: usize,
@@ -32,15 +30,12 @@ impl<'a> Completer for ArgValueCompletion<'a> {
             return fetched_completion;
         }
 
-        let working_set = context.working_set;
         let prefix_string = context.prefix_str();
 
-        let completion_context = self.completer.context(
-            working_set,
-            context.span,
-            prefix_string.as_ref().as_bytes(),
-            context.offset,
-        );
+        let completion_context = Context {
+            prefix: prefix_string.as_ref().as_bytes(),
+            ..*context
+        };
 
         // Command-specific completions are dispatched earlier via `BuiltinCompletion`;
         // here we handle only the generic argument-value fallbacks.
@@ -90,7 +85,7 @@ impl<'a> ArgValueCompletion<'a> {
                     matcher.add_semantic_suggestion(suggestion);
                 }
 
-                Some(Fetched::cacheable(matcher.suggestion_results()))
+                Some(Fetched::Cacheable(matcher.suggestion_results()))
             }
             Ok(None) => None, // fallback to type based completion, file completion, etc.
             Err(error) => {
@@ -120,13 +115,13 @@ impl<'a> ArgValueCompletion<'a> {
     ) -> Fetched {
         let expression = self.arg_expr();
         let Some((module_name, span)) = self.find_module_name_and_span() else {
-            return Fetched::pure(vec![]);
+            return Fetched::Pure(vec![]);
         };
 
         let Some((module_id, temp_working_set)) =
             self.resolve_module(working_set, module_name, span)
         else {
-            return Fetched::pure(vec![]);
+            return Fetched::Pure(vec![]);
         };
 
         let mut exportable_completion = ExportableCompletion {
@@ -143,10 +138,10 @@ impl<'a> ArgValueCompletion<'a> {
                     completion_context,
                     &mut exportable_completion,
                 ),
-                _ => Fetched::pure(vec![]),
+                _ => Fetched::Pure(vec![]),
             },
             // No expression at all (e.g. a missing/undefined argument).
-            None => Fetched::pure(vec![]),
+            None => Fetched::Pure(vec![]),
             // Any other scalar shape (`Expr::String`, plus `Expr::Nothing` for the
             // `null` keyword): search exports by the raw prefix text.
             _ => exportable_completion.fetch(completion_context),
@@ -223,17 +218,16 @@ impl<'a> ArgValueCompletion<'a> {
                 completion_context.span.end.min(item_span.end),
             );
 
-            let item_context = self.completer.context(
-                completion_context.working_set,
-                new_span,
-                sliced_prefix,
-                completion_context.offset,
-            );
+            let item_context = Context {
+                span: new_span,
+                prefix: sliced_prefix,
+                ..*completion_context
+            };
 
             return exportable_completion.fetch(&item_context);
         }
 
-        Fetched::pure(vec![])
+        Fetched::Pure(vec![])
     }
 
     fn fetch_fallback_completion(
@@ -248,7 +242,7 @@ impl<'a> ArgValueCompletion<'a> {
             Some(Expr::Filepath(_, _)) | Some(Expr::GlobPattern(_, _)) => complete_file(),
             // fallback to file completion if necessary
             _ if self.need_fallback => complete_file(),
-            _ => Fetched::pure(vec![]),
+            _ => Fetched::Pure(vec![]),
         }
     }
 }
