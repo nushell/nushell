@@ -95,6 +95,27 @@ fn fetches_more_than_one_column_path() -> Result {
 }
 
 #[test]
+fn fetches_columns_with_literal_list_spread() -> Result {
+    test()
+        .run("[{a: 1, b: 2, c: 3}] | get ...[a c]")
+        .expect_value_eq(test_value!([[1], [3]]))
+}
+
+#[test]
+fn fetches_columns_with_variable_list_spread() -> Result {
+    test()
+        .run("let cols = [a c]; [{a: 1, b: 2, c: 3}] | get ...$cols")
+        .expect_value_eq(test_value!([[1], [3]]))
+}
+
+#[test]
+fn no_cell_path_returns_input_unchanged() -> Result {
+    test()
+        .run_with_data("$in | get", test_value!([1, 2, 3]))
+        .expect_value_eq([1, 2, 3])
+}
+
+#[test]
 fn errors_fetching_by_column_not_present() -> Result {
     let data = test_value!({
         tacos: { sentence_words: ["Yo", "quiero", "tacos"] },
@@ -196,12 +217,20 @@ fn get_with_negative_number_reports_clear_error() -> Result {
     Ok(())
 }
 
+#[test]
+fn test_const_with_no_cell_path() -> Result {
+    test()
+        .run("const x = [1 2 3] | get; $x")
+        .expect_value_eq([1, 2, 3])
+}
+
 enum Metadata {
     Keep,
     Drop,
 }
 
 #[rstest]
+#[case::no_cell_path("get", Metadata::Keep)]
 #[case::index_only("get 1", Metadata::Keep)]
 #[case::two_indices("get 1 0", Metadata::Keep)]
 #[case::index_and_column("get name 1", Metadata::Keep)]

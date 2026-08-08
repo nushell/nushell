@@ -34,12 +34,7 @@ If multiple cell paths are given, this will produce a list of values."
                 (Type::record(), Type::Any),
                 (Type::Nothing, Type::Nothing),
             ])
-            .required(
-                "cell_path",
-                SyntaxShape::CellPath,
-                "The cell path to the data.",
-            )
-            .rest("rest", SyntaxShape::CellPath, "Additional cell paths.")
+            .rest("rest", SyntaxShape::CellPath, "The cell paths to the data.")
             .switch(
                 "optional",
                 "Make all cell path members optional (returns `null` for missing values).",
@@ -70,6 +65,15 @@ If multiple cell paths are given, this will produce a list of values."
                 description: "Get an item from a list.",
                 example: "[0 1 2] | get 1",
                 result: Some(Value::test_int(1)),
+            },
+            Example {
+                description: "Return the input unchanged if no cell path is given.",
+                example: "[0 1 2] | get",
+                result: Some(Value::test_list(vec![
+                    Value::test_int(0),
+                    Value::test_int(1),
+                    Value::test_int(2),
+                ])),
             },
             Example {
                 description: "Get a column from a table.",
@@ -109,6 +113,28 @@ If multiple cell paths are given, this will produce a list of values."
                 result: Some(Value::test_string("A0")),
             },
             Example {
+                description: "Get multiple columns from a table using a spread list.",
+                example: "[[a b c]; [1 2 3]] | get ...[a c]",
+                result: Some(Value::list(
+                    vec![
+                        Value::list(vec![Value::test_int(1)], Span::test_data()),
+                        Value::list(vec![Value::test_int(3)], Span::test_data()),
+                    ],
+                    Span::test_data(),
+                )),
+            },
+            Example {
+                description: "Get columns from a table using a spread variable.",
+                example: "let cols = [a b]; [{a: 1, b: 2, c: 3}] | get ...$cols",
+                result: Some(Value::list(
+                    vec![
+                        Value::list(vec![Value::test_int(1)], Span::test_data()),
+                        Value::list(vec![Value::test_int(2)], Span::test_data()),
+                    ],
+                    Span::test_data(),
+                )),
+            },
+            Example {
                 description: "Extract the name of the 3rd record in a list (same as `ls | $in.name.2`).",
                 example: "ls | get name.2",
                 result: None,
@@ -146,8 +172,9 @@ If multiple cell paths are given, this will produce a list of values."
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let cell_path: CellPath = call.req_const(working_set, 0)?;
-        let rest: Vec<CellPath> = call.rest_const(working_set, 1)?;
+        let Some((cell_path, rest)) = split_cell_paths(call.rest_const(working_set, 0)?) else {
+            return Ok(input);
+        };
         let optional = call.has_flag_const(working_set, "optional")?
             || call.has_flag_const(working_set, "ignore-errors")?;
         let ignore_case = call.has_flag_const(working_set, "ignore-case")?;
@@ -169,8 +196,9 @@ If multiple cell paths are given, this will produce a list of values."
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let cell_path: CellPath = call.req(engine_state, stack, 0)?;
-        let rest: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
+        let Some((cell_path, rest)) = split_cell_paths(call.rest(engine_state, stack, 0)?) else {
+            return Ok(input);
+        };
         let optional = call.has_flag(engine_state, stack, "optional")?
             || call.has_flag(engine_state, stack, "ignore-errors")?;
         let ignore_case = call.has_flag(engine_state, stack, "ignore-case")?;
@@ -203,6 +231,13 @@ If multiple cell paths are given, this will produce a list of values."
             }
         ]
     }
+}
+
+fn split_cell_paths(cell_paths: Vec<CellPath>) -> Option<(CellPath, Vec<CellPath>)> {
+    let mut cell_paths = cell_paths.into_iter();
+    cell_paths
+        .next()
+        .map(|cell_path| (cell_path, cell_paths.collect()))
 }
 
 fn action(
