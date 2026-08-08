@@ -146,6 +146,11 @@ pub struct EngineState {
     pub file: Option<PathBuf>,
     pub regex_cache: Arc<Mutex<LruCache<String, Regex>>>,
     pub is_interactive: bool,
+    /// When true with [`Self::is_interactive`], REPL user-line evaluation may store `$ans`.
+    ///
+    /// Set only around true REPL command evaluation (`do_run_cmd`), not config/env/banner
+    /// startup, so startup scripts do not overwrite interactive last-result.
+    pub capture_repl_last_result: bool,
     pub is_login: bool,
     pub is_lsp: bool,
     pub is_mcp: bool,
@@ -176,6 +181,18 @@ const REGEX_CACHE_SIZE: usize = 100; // must be nonzero, otherwise will panic
 pub const NU_VARIABLE_ID: VarId = VarId::new(0);
 pub const IN_VARIABLE_ID: VarId = VarId::new(1);
 pub const ENV_VARIABLE_ID: VarId = VarId::new(2);
+/// Interactive last-result special variable.
+///
+/// The user-facing name is [`LAST_RESULT_VAR_NAME`] (e.g. `$ans`). Change that constant
+/// if the public name should differ; keep this ID stable.
+pub const LAST_VARIABLE_ID: VarId = VarId::new(3);
+/// Identifier for the last-result special variable **without** the `$` sigil.
+///
+/// Change this single constant to rename the binding site-wide (e.g. `"ans"` → `$ans`).
+/// The name is reserved (cannot be rebound with `let` / `mut` / `const`). Not user-configurable.
+///
+/// When capture is enabled, `$ans` is a record: `{ last, exit_code, duration }`.
+pub const LAST_RESULT_VAR_NAME: &str = "ans";
 // NOTE: If you add more to this list, make sure to update the > checks based on the last in the list
 
 // The first span is unknown span
@@ -238,6 +255,7 @@ impl EngineState {
                 NonZeroUsize::new(REGEX_CACHE_SIZE).expect("tried to create cache of size zero"),
             ))),
             is_interactive: false,
+            capture_repl_last_result: false,
             is_login: false,
             is_lsp: false,
             is_mcp: false,

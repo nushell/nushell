@@ -119,6 +119,19 @@ $env.config.rm.always_trash = false
 # Default: 50
 $env.config.recursion_limit = 50
 
+# last_result_size (filesize): Maximum memory for the interactive last-result
+# variable (`$ans`). Opt-in: set a positive size to enable capture in the REPL.
+# Successful pipeline results are stored in `$ans.last`; `$ans.exit_code` and
+# `$ans.duration` track the last command. Size is measured with Value::memory_size
+# and applies to the `.last` payload only.
+# 0b: Disable capture entirely (default); `$ans` is nothing.
+# When a result exceeds the limit, it is truncated to fit and a warning is shown
+# the next time you access `$ans`. Bare `$ans` / `$ans.*` cell-paths do not
+# overwrite `$ans.last`. External command output is stored as a string when UTF-8,
+# or as binary otherwise. The name `ans` is reserved and cannot be rebound with `let`.
+# Default: 0b
+$env.config.last_result_size = 0b
+
 # auto_cd_implicit (bool): Gives precedence to auto-cd when command string is
 # an existing directory path.
 # false: A relative (e.g.  './dirname') or absolute path is required to auto-cd.

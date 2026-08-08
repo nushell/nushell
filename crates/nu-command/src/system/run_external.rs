@@ -207,7 +207,26 @@ If you create a custom command with this name, that will be used instead."
         // we'll set up a pipe that merges two streams into one.
         let stdout = stack.stdout();
         let stderr = stack.stderr();
-        let merged_stream = if matches!(stdout, OutDest::Pipe) && matches!(stderr, OutDest::Pipe) {
+
+        // Interactive `$ans` capture needs a readable stdout. `Print`/`Inherit` would
+        // write straight to the terminal with no bytes for `maybe_store_last_result`,
+        // which previously stored empty binary. Pipe instead so the REPL can tee a
+        // prefix into `$ans.last` and still print the stream (TTY-aware tools may change
+        // formatting when not on a real TTY — same tradeoff as `| complete`).
+        let pipe_stdout = OutDest::Pipe;
+        let capture_stdout_for_last = engine_state.is_interactive
+            && engine_state.capture_repl_last_result
+            && matches!(stdout, OutDest::Print | OutDest::Inherit)
+            && stack.get_config(engine_state).last_result_size_bytes() > 0;
+        let effective_stdout = if capture_stdout_for_last {
+            &pipe_stdout
+        } else {
+            stdout
+        };
+
+        let merged_stream = if matches!(effective_stdout, OutDest::Pipe)
+            && matches!(stderr, OutDest::Pipe)
+        {
             let (reader, writer) =
                 os_pipe::pipe().map_err(|err| IoError::new(err, call.head, None))?;
             command.stdout(
@@ -219,12 +238,13 @@ If you create a custom command with this name, that will be used instead."
             Some(reader)
         } else {
             if engine_state.is_background_job()
-                && matches!(stdout, OutDest::Inherit | OutDest::Print)
+                && matches!(effective_stdout, OutDest::Inherit | OutDest::Print)
             {
                 command.stdout(Stdio::null());
             } else {
                 command.stdout(
-                    Stdio::try_from(stdout).map_err(|err| IoError::new(err, call.head, None))?,
+                    Stdio::try_from(effective_stdout)
+                        .map_err(|err| IoError::new(err, call.head, None))?,
                 );
             }
 

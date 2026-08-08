@@ -24,6 +24,7 @@ pub mod eval_const;
 mod example;
 mod id;
 pub mod ir;
+mod last_result;
 mod lev_distance;
 mod module;
 mod one_of;
@@ -47,10 +48,15 @@ pub use completion::*;
 pub use config::*;
 pub use deprecation::*;
 pub use did_you_mean::did_you_mean;
-pub use engine::{ENV_VARIABLE_ID, IN_VARIABLE_ID, NU_VARIABLE_ID};
+pub use engine::{
+    ENV_VARIABLE_ID, IN_VARIABLE_ID, LAST_RESULT_VAR_NAME, LAST_VARIABLE_ID, NU_VARIABLE_ID,
+};
 pub use errors::*;
 pub use example::*;
 pub use id::*;
+pub use last_result::{
+    block_is_bare_last_result, block_is_bare_last_result_with, truncate_value_to_budget,
+};
 pub use lev_distance::levenshtein_distance;
 pub use module::*;
 pub use one_of::*;

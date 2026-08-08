@@ -534,11 +534,16 @@ fn eval_instruction<D: DebugContext>(
             Ok(Continue)
         }
         Instruction::LoadVariable { dst, var_id } => {
-            let value = get_var(ctx, *var_id, *span)?;
-            ctx.put_reg(
-                *dst,
-                PipelineExecutionData::from(value.into_pipeline_data()),
-            );
+            // Restore pipeline metadata for `$ans` (e.g. ls path_columns / colors on `.last`).
+            // Truncation warning is deferred until after print so data is visible first.
+            let data = if *var_id == nu_protocol::LAST_VARIABLE_ID {
+                ctx.stack.defer_last_result_truncation_warning();
+                ctx.stack.last_result_pipeline_data(*span)
+            } else {
+                let value = get_var(ctx, *var_id, *span)?;
+                value.into_pipeline_data()
+            };
+            ctx.put_reg(*dst, PipelineExecutionData::from(data));
             Ok(Continue)
         }
         Instruction::StoreVariable { var_id, src } => {
@@ -930,10 +935,36 @@ fn eval_instruction<D: DebugContext>(
             let data = ctx.take_reg(*src_dst);
             let path = ctx.take_reg(*path);
             if let PipelineData::Value(Value::CellPath { val: path, .. }, _) = path.body {
+                // Reattach `$ans` pipeline metadata when following only `.last`, so
+                // `$ans.last` keeps ls path_columns / colors like the original payload.
+                // Only for pipeline data marked by `last_result_pipeline_data`, not every
+                // record field named `last`.
+                let from_ans = data.body.metadata_ref().is_some_and(|m| {
+                    m.custom
+                        .get(nu_protocol::engine::Stack::ANS_LAST_RESULT_METADATA_KEY)
+                        .is_some()
+                });
+                let is_ans_last = from_ans
+                    && path.members.len() == 1
+                    && matches!(
+                        &path.members[0],
+                        nu_protocol::ast::PathMember::String { val, .. } if val == "last"
+                    );
+                let src_meta = data.body.metadata_ref().cloned();
                 let value = data.body.follow_cell_path(&path.members, *span)?;
+                let metadata = if is_ans_last {
+                    // Drop the ans marker; keep path_columns / content_type for display.
+                    src_meta.map(|mut m| {
+                        m.custom
+                            .remove(nu_protocol::engine::Stack::ANS_LAST_RESULT_METADATA_KEY);
+                        m
+                    })
+                } else {
+                    None
+                };
                 ctx.put_reg(
                     *src_dst,
-                    PipelineExecutionData::from(value.into_pipeline_data()),
+                    PipelineExecutionData::from(PipelineData::value(value, metadata)),
                 );
                 Ok(Continue)
             } else if let PipelineData::Value(Value::Error { error, .. }, _) = path.body {
@@ -1728,7 +1759,7 @@ fn check_input_types(
 }
 
 /// Get variable from [`Stack`] or [`EngineState`]
-fn get_var(ctx: &EvalContext<'_>, var_id: VarId, span: Span) -> Result<Value, ShellError> {
+fn get_var(ctx: &mut EvalContext<'_>, var_id: VarId, span: Span) -> Result<Value, ShellError> {
     match var_id {
         // $env
         ENV_VARIABLE_ID => {
@@ -1744,6 +1775,11 @@ fn get_var(ctx: &EvalContext<'_>, var_id: VarId, span: Span) -> Result<Value, Sh
             pairs.sort_by(|a, b| a.0.cmp(&b.0));
 
             Ok(Value::record(pairs.into_iter().collect(), span))
+        }
+        id if id == nu_protocol::LAST_VARIABLE_ID => {
+            // Truncation warning is deferred until after print (see evaluate_source).
+            ctx.stack.defer_last_result_truncation_warning();
+            ctx.stack.get_var(var_id, span)
         }
         _ => ctx.stack.get_var(var_id, span).or_else(|err| {
             // $nu is handled by getting constant

@@ -635,6 +635,27 @@ impl<'e, 's> ScopeData<'e, 's> {
             .map(|overlay| overlay.len() as i64)
             .sum();
 
+        let config = self.stack.get_config(self.engine_state);
+        let last_result = Value::record(
+            record! {
+                "name" => Value::string(
+                    format!("${}", nu_protocol::LAST_RESULT_VAR_NAME),
+                    span,
+                ),
+                "size_limit" => Value::filesize(config.last_result_size, span),
+                "memory_size" => Value::filesize(
+                    nu_protocol::Filesize::new(self.stack.last_result_memory_size() as i64),
+                    span,
+                ),
+                "truncated" => Value::bool(self.stack.last_result_was_truncated(), span),
+                "has_metadata" => Value::bool(
+                    self.stack.last_result_metadata().is_some(),
+                    span,
+                ),
+            },
+            span,
+        );
+
         Value::record(
             record! {
                 "source_bytes" => Value::int(self.engine_state.next_span_start() as i64, span),
@@ -643,6 +664,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                 "num_blocks" => Value::int(self.engine_state.num_blocks() as i64, span),
                 "num_modules" => Value::int(self.engine_state.num_modules() as i64, span),
                 "num_env_vars" => Value::int(num_env_vars, span),
+                "last_result" => last_result,
             },
             span,
         )
