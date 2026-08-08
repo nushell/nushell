@@ -1244,6 +1244,18 @@ impl Default for EngineState {
     }
 }
 
+/// Map a fancy-regex compile failure to [`ShellError::InvalidValue`].
+///
+/// Shared by [`EngineState::compile_regex`] and call sites that compile with
+/// options that bypass the LRU cache (for example a custom backtrack limit).
+pub fn invalid_regex_value(pattern: &str, err: fancy_regex::Error, span: Span) -> ShellError {
+    ShellError::InvalidValue {
+        valid: "a valid regular expression".into(),
+        actual: format!("'{pattern}' ({err})"),
+        span,
+    }
+}
+
 #[cfg(test)]
 mod engine_state_tests {
     use crate::engine::StateWorkingSet;

@@ -33,7 +33,6 @@ impl Matcher {
         find: Spanned<String>,
         regex: bool,
         multiline: bool,
-        head: Span,
     ) -> Result<Self, ShellError> {
         if !regex && !multiline {
             Ok(Self::Literal(find))
@@ -44,14 +43,7 @@ impl Matcher {
             } else {
                 item
             };
-            engine_state
-                .get_cached_regex(&pattern)
-                .map(Self::Regex)
-                .map_err(|error| ShellError::IncorrectValue {
-                    msg: format!("Regex error: {error}"),
-                    val_span: span,
-                    call_span: head,
-                })
+            engine_state.compile_regex(&pattern, span).map(Self::Regex)
         }
     }
 }
@@ -160,7 +152,7 @@ groups as its argument. It must return a string that will be used as a replaceme
 
         let args = Arguments {
             all: call.has_flag(engine_state, stack, "all")?,
-            matcher: Matcher::new(engine_state, find, regex, multiline, call.head)?,
+            matcher: Matcher::new(engine_state, find, regex, multiline)?,
             replace,
             cell_paths,
             literal_replace,
@@ -184,7 +176,7 @@ groups as its argument. It must return a string that will be used as a replaceme
 
         let args = Arguments {
             all: call.has_flag_const(working_set, "all")?,
-            matcher: Matcher::new(working_set.permanent(), find, regex, multiline, call.head)?,
+            matcher: Matcher::new(working_set.permanent(), find, regex, multiline)?,
             replace: ReplacementValue::String(Arc::new(replace)),
             cell_paths,
             literal_replace,
@@ -451,7 +443,6 @@ mod tests {
                 test_spanned_string("Cargo.(.+)"),
                 true,
                 false,
-                Span::test_data(),
             )
             .expect("regex should compile"),
             replace: ReplacementValue::String(Arc::new(test_spanned_string("Carga.$1"))),

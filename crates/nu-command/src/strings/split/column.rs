@@ -1,6 +1,5 @@
 use fancy_regex::{Regex, escape};
 use nu_engine::command_prelude::*;
-use nu_protocol::shell_error::generic::GenericError;
 
 use super::split;
 
@@ -214,13 +213,7 @@ fn split_column(
     } else {
         escape(&args.separator.item)
     };
-    let regex = engine_state.get_cached_regex(&pattern).map_err(|e| {
-        ShellError::Generic(GenericError::new(
-            "Error with regular expression",
-            e.to_string(),
-            args.separator.span,
-        ))
-    })?;
+    let regex = engine_state.compile_regex(&pattern, args.separator.span)?;
 
     input.flat_map(
         move |x| {

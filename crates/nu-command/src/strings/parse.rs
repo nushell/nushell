@@ -179,23 +179,13 @@ fn operate(
     // bypass the cache because the key is only the pattern string.
     const DEFAULT_BACKTRACK_LIMIT: usize = 1_000_000;
     let regex = if backtrack_limit == DEFAULT_BACKTRACK_LIMIT {
-        engine_state.get_cached_regex(&item_to_parse).map_err(|e| {
-            ShellError::Generic(GenericError::new(
-                "Error with regular expression",
-                e.to_string(),
-                pattern_span,
-            ))
-        })?
+        engine_state.compile_regex(&item_to_parse, pattern_span)?
     } else {
         RegexBuilder::new(&item_to_parse)
             .backtrack_limit(backtrack_limit)
             .build()
             .map_err(|e| {
-                ShellError::Generic(GenericError::new(
-                    "Error with regular expression",
-                    e.to_string(),
-                    pattern_span,
-                ))
+                nu_protocol::engine::invalid_regex_value(&item_to_parse, e, pattern_span)
             })?
     };
 

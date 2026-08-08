@@ -3993,14 +3993,7 @@ impl Value {
         let rhs_span = rhs.span();
         match (self, rhs) {
             (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => {
-                let regex = engine_state.get_cached_regex(rhs).map_err(|e| {
-                    ShellError::UnsupportedInput {
-                        msg: format!("{e}"),
-                        input: "value originated from here".into(),
-                        msg_span: span,
-                        input_span: rhs_span,
-                    }
-                })?;
+                let regex = engine_state.compile_regex(rhs, rhs_span)?;
                 let is_match = regex.is_match(lhs);
 
                 Ok(Value::bool(

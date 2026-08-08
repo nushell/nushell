@@ -198,7 +198,7 @@ fn regex_error_in_pattern() -> Result {
          "#;
 
         let err = test().cwd(dirs.test()).run(code).expect_shell_error()?;
-        assert_contains("Incorrect value", err.to_string());
+        assert_contains("Invalid value", err.to_string());
         Ok(())
     })
 }
@@ -208,7 +208,7 @@ fn regex_error_in_pattern_without_input() -> Result {
     let code = r#"[] | str replace -r '[' "destination""#;
 
     let err = test().run(code).expect_shell_error()?;
-    assert_contains("Incorrect value", err.to_string());
+    assert_contains("Invalid value", err.to_string());
     Ok(())
 }
 

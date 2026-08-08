@@ -1,5 +1,5 @@
 use indoc::indoc;
-use nu_protocol::{ByteStream, ByteStreamType, PipelineData, Signals, Span};
+use nu_protocol::{ByteStream, ByteStreamType, PipelineData, ShellError, Signals, Span};
 use nu_test_support::{fs::Stub, prelude::*};
 use pretty_assertions::assert_matches;
 
@@ -177,10 +177,10 @@ mod regex {
         let err = test()
             .run_with_data(code, nushell_git_log_oneline())
             .expect_shell_error()?;
-        assert_contains(
-            "Opening parenthesis without closing parenthesis",
-            err.generic_msg()?,
-        );
+        let ShellError::InvalidValue { actual, .. } = err else {
+            panic!("expected InvalidValue, got {err:?}");
+        };
+        assert_contains("Opening parenthesis without closing parenthesis", actual);
 
         Ok(())
     }

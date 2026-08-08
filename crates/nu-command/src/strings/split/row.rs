@@ -188,13 +188,7 @@ fn split_row(
     } else {
         escape(&args.separator.item)
     };
-    let regex = engine_state.get_cached_regex(&pattern).map_err(|e| {
-        ShellError::Generic(GenericError::new(
-            "Error with regular expression",
-            e.to_string(),
-            args.separator.span,
-        ))
-    })?;
+    let regex = engine_state.compile_regex(&pattern, args.separator.span)?;
     input.flat_map(
         move |x| split_row_helper(&x, &regex, args.max_split, args.split_from_right, name_span),
         engine_state.signals(),

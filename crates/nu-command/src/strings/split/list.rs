@@ -1,6 +1,5 @@
 use fancy_regex::Regex;
 use nu_engine::{ClosureEval, command_prelude::*};
-use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{FromValue, Signals};
 
 #[derive(Clone)]
@@ -247,19 +246,11 @@ impl Matcher {
     pub fn new(engine_state: &EngineState, regex: bool, lhs: Value) -> Result<Self, ShellError> {
         if regex {
             let pattern = lhs.coerce_str()?;
-            Ok(Matcher::Regex(
-                engine_state.get_cached_regex(&pattern).map_err(|e| {
-                    let span = match lhs {
-                        Value::Error { .. } => Span::unknown(),
-                        _ => lhs.span(),
-                    };
-                    ShellError::Generic(GenericError::new(
-                        "Error with regular expression",
-                        e.to_string(),
-                        span,
-                    ))
-                })?,
-            ))
+            let span = match &lhs {
+                Value::Error { .. } => Span::unknown(),
+                _ => lhs.span(),
+            };
+            Ok(Matcher::Regex(engine_state.compile_regex(&pattern, span)?))
         } else {
             Ok(Matcher::Direct(lhs))
         }
