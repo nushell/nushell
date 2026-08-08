@@ -17,30 +17,30 @@ Three functions turn a `Value` into something the client displays:
   where several share a 60-char line.
 - **Visualizer** (`to_preview_json`) — the `nuDapVisualize` payload.
 
-| Variant | Variables row | Preview token | Visualizer (JSON) |
-|---|---|---|---|
-| `Bool` | `true` | `true` | `true` |
-| `Int` | `42` | `42` | `42` |
-| `Float` | `1.0` | `1.0` | `1.0` |
-| `String` | `"hi"` | `hi` | `"hi"` |
-| `String` (empty) | `""` | `""` | `""` |
-| `Glob` | `*.nu` | `…` | `"*.nu"` |
-| `Filesize` | `1.0 kB` | `…` | `"1.0 kB"` |
-| `Duration` | `4min 20sec` | `…` | `"260000000000ns"` |
-| `Date` | `2026-08-01T12:34:56+02:00` | `…` | `"2026-08-01T12:34:56+02:00"` |
-| `Range` | `1..10` | `…` | `"1..10"` |
-| `Record` | `{name: a.txt, size: 120}` | `{2}` | `{"name":"a.txt","size":120}` |
-| `List` | `[1, 2]` | `[2]` | `[1,2]` |
-| `List` (table) | `[table 2 rows]` | `[2]` | array of objects |
-| `Closure` | `{\|x\| $x * 2}` | `…` | `"{\|x\| $x * 2}"` |
-| `Closure` (capturing) | `{\|x\| $x * $n} +1 capture` | `…` | same |
-| `Error` | `<error: Division by zero.>` | `…` | `"<error: Division by zero.>"` |
-| `Binary` | `0x[de ad] (2 bytes)` | `…` | `{"$nuBinary":"dead","length":2}` |
-| `CellPath` | `$.name.1` | `…` | `"$.name.1"` |
-| `Custom` | `5` | `…` | `"5"` |
-| `Nothing` | `null` | `null` | `null` |
-| 500-char string | `"xxx…" (500 chars)` | `xxxxxxxxxxxx…` | full string |
-| 2000-item list | `[0, 1, 2, …]` | `[2000]` | first 1000 + `truncated: true` |
+| Variant               | Variables row                | Preview token   | Visualizer (JSON)                 |
+|-----------------------|------------------------------|-----------------|-----------------------------------|
+| `Bool`                | `true`                       | `true`          | `true`                            |
+| `Int`                 | `42`                         | `42`            | `42`                              |
+| `Float`               | `1.0`                        | `1.0`           | `1.0`                             |
+| `String`              | `"hi"`                       | `hi`            | `"hi"`                            |
+| `String` (empty)      | `""`                         | `""`            | `""`                              |
+| `Glob`                | `*.nu`                       | `…`             | `"*.nu"`                          |
+| `Filesize`            | `1.0 kB`                     | `…`             | `"1.0 kB"`                        |
+| `Duration`            | `4min 20sec`                 | `…`             | `"260000000000ns"`                |
+| `Date`                | `2026-08-01T12:34:56+02:00`  | `…`             | `"2026-08-01T12:34:56+02:00"`     |
+| `Range`               | `1..10`                      | `…`             | `"1..10"`                         |
+| `Record`              | `{name: a.txt, size: 120}`   | `{2}`           | `{"name":"a.txt","size":120}`     |
+| `List`                | `[1, 2]`                     | `[2]`           | `[1,2]`                           |
+| `List` (table)        | `[table 2 rows]`             | `[2]`           | array of objects                  |
+| `Closure`             | `{\|x\| $x * 2}`             | `…`             | `"{\|x\| $x * 2}"`                |
+| `Closure` (capturing) | `{\|x\| $x * $n} +1 capture` | `…`             | same                              |
+| `Error`               | `<error: Division by zero.>` | `…`             | `"<error: Division by zero.>"`    |
+| `Binary`              | `0x[de ad] (2 bytes)`        | `…`             | `{"$nuBinary":"dead","length":2}` |
+| `CellPath`            | `$.name.1`                   | `…`             | `"$.name.1"`                      |
+| `Custom`              | `5`                          | `…`             | `"5"`                             |
+| `Nothing`             | `null`                       | `null`          | `null`                            |
+| 500-char string       | `"xxx…" (500 chars)`         | `xxxxxxxxxxxx…` | full string                       |
+| 2000-item list        | `[0, 1, 2, …]`               | `[2000]`        | first 1000 + `truncated: true`    |
 
 Ten of the seventeen variants collapse to `…` as a preview token: there is no
 useful one-token form for a date or a closure, and the alternative is a row
@@ -66,15 +66,15 @@ harder one:
 So everything reported is static. Base wording follows `describe --no-collect`;
 the rest is what the stream and its pipeline metadata already carry:
 
-| Source | Rendered as |
-|---|---|
-| `[1 2 3] \| each {\|x\| $x * 2}` | `<list stream from \`each\`>` |
-| `[1 2 3] \| where {\|x\| $x > 2}` | `<list stream from \`where\`>` |
-| `open --raw Cargo.toml` | `<byte stream from \`open\`, Cargo.toml, text/x-toml>` |
-| `open --raw README.md` | `<byte stream from \`open\`, README.md, text/markdown>` |
-| `"a-b" \| split row "-"` | `<list stream>` |
-| a child process, size known | `<binary (stream) from \`^cmd\`, 1024 bytes>` |
-| no command, no metadata | `<byte stream from file>` |
+| Source                            | Rendered as                                             |
+|-----------------------------------|---------------------------------------------------------|
+| `[1 2 3] \| each {\|x\| $x * 2}`  | `<list stream from \`each\`>`                           |
+| `[1 2 3] \| where {\|x\| $x > 2}` | `<list stream from \`where\`>`                          |
+| `open --raw Cargo.toml`           | `<byte stream from \`open\`, Cargo.toml, text/x-toml>`  |
+| `open --raw README.md`            | `<byte stream from \`open\`, README.md, text/markdown>` |
+| `"a-b" \| split row "-"`          | `<list stream>`                                         |
+| a child process, size known       | `<binary (stream) from \`^cmd\`, 1024 bytes>`           |
+| no command, no metadata           | `<byte stream from file>`                               |
 
 Four things are discoverable without touching the data:
 
@@ -111,39 +111,39 @@ draining), but the presentation currently claims a type the value doesn't have.
 `✗` = returns `Err`, producing no output at all. `⏎` = a line break in the
 output. Bold marks a disqualifying result.
 
-| Variant | **short_render** | `to_expanded_string` | `to_abbreviated_string` | `to_nuon` | `to json` | compact `Debug` |
-|---|---|---|---|---|---|---|
-| `Bool` | `true` | `true` | `true` | `true` | `true` | `Bool(true)` |
-| `Int` | `42` | `42` | `42` | `42` | `42` | `Int(42)` |
-| `Float` | `1.0` | `1.0` | `1.0` | `1.0` | `1.0` | `Float(1.0)` |
-| `String` | `"hi"` | `hi` | `hi` | `"hi"` | `"hi"` | `String("hi")` |
-| `String` (empty) | `""` | *(blank)* | *(blank)* | `""` | `""` | `String("")` |
-| `Glob` | `*.nu` | `*.nu` | `*.nu` | `"*.nu"` | `"*.nu"` | `Glob("*.nu")` |
-| `Filesize` | `1.0 kB` | `1.0 kB` | `1.0 kB` | `1000b` | `1000` | `Filesize(1 kB)` |
-| `Duration` | `4min 20sec` | `4min 20sec` | `4min 20sec` | `260000000000ns` | `260000000000` | `Duration(4m 20s)` |
-| `Date` | `2026-08-01T12:34:56+02:00` | `Sat, 1 Aug 2026 12:34:56 +0200 (8 hours ago)` | **`8 hours ago`** | rfc3339 | rfc3339 | rfc3339 |
-| `Range` | `1..10` | `1..10` | `1..10` | `1..10` | `"1..10"` | `Range(1..10)` |
-| `Record` | `{name: a.txt, size: 120}` | `{name: a.txt, size: 120}` | **`{record 2 fields}`** | `{name: "a.txt", size: 120}` | **`{⏎ "name": "a.txt",⏎ "size": 120⏎}`** | `Record({"name": String("a.txt"), …})` |
-| `List` | `[1, 2]` | `[1, 2]` | `[list 2 items]` | `[1, 2]` | **`[⏎ 1,⏎ 2⏎]`** | `List([Int(1), Int(2)])` |
-| `List` (table) | `[table 2 rows]` | full expansion | `[table 2 rows]` | `[[name, size]; ["a.txt", 120], …]` | **multi-line** | `List([Record({…})])` |
-| `Closure` | `{\|x\| $x * 2}` | `closure_7` | `closure_7` | **✗ Unsupported input** | **✗ Can't convert to string** | `Closure(BlockId(7): {})` |
-| `Error` | `<error: Division by zero.>` | `DivisionByZero { span: Span(TEST) }` | `DivisionByZero { span: Span(TEST) }` | **✗ Division by zero** | **✗ Division by zero** | `Error(DivisionByZero { span: … })` |
-| `Binary` | `0x[de ad] (2 bytes)` | `[222, 173]` | `[222, 173]` | `0x[DEAD]` | `[⏎ 222,⏎ 173⏎]` | `Binary("\u{7ad}")` |
-| `CellPath` | `$.name.1` | `$.name.1` | `$.name.1` | `$.name.1` | `"$.name.1"` | `CellPath($.name.1)` |
-| `Custom` | `5` | `5` | `5` | **✗ not nuon-compatible** | `5` | `Custom(StubCustom(5))` |
-| `Nothing` | `null` | *(blank)* | *(blank)* | `null` | `null` | `Nothing` |
-| 500-char string | `"xxx…" (500 chars)` | **all 500** | **all 500** | **all 500** | **all 500** | **all 500** |
-| 2000-item list | `[0, 1, 2, …]` | **all 2000** | `[list 2000 items]` | **all 2000** | **all 2000** | **all 2000** |
+| Variant          | **short_render**             | `to_expanded_string`                           | `to_abbreviated_string`               | `to_nuon`                           | `to json`                                | compact `Debug`                        |
+|------------------|------------------------------|------------------------------------------------|---------------------------------------|-------------------------------------|------------------------------------------|----------------------------------------|
+| `Bool`           | `true`                       | `true`                                         | `true`                                | `true`                              | `true`                                   | `Bool(true)`                           |
+| `Int`            | `42`                         | `42`                                           | `42`                                  | `42`                                | `42`                                     | `Int(42)`                              |
+| `Float`          | `1.0`                        | `1.0`                                          | `1.0`                                 | `1.0`                               | `1.0`                                    | `Float(1.0)`                           |
+| `String`         | `"hi"`                       | `hi`                                           | `hi`                                  | `"hi"`                              | `"hi"`                                   | `String("hi")`                         |
+| `String` (empty) | `""`                         | *(blank)*                                      | *(blank)*                             | `""`                                | `""`                                     | `String("")`                           |
+| `Glob`           | `*.nu`                       | `*.nu`                                         | `*.nu`                                | `"*.nu"`                            | `"*.nu"`                                 | `Glob("*.nu")`                         |
+| `Filesize`       | `1.0 kB`                     | `1.0 kB`                                       | `1.0 kB`                              | `1000b`                             | `1000`                                   | `Filesize(1 kB)`                       |
+| `Duration`       | `4min 20sec`                 | `4min 20sec`                                   | `4min 20sec`                          | `260000000000ns`                    | `260000000000`                           | `Duration(4m 20s)`                     |
+| `Date`           | `2026-08-01T12:34:56+02:00`  | `Sat, 1 Aug 2026 12:34:56 +0200 (8 hours ago)` | **`8 hours ago`**                     | rfc3339                             | rfc3339                                  | rfc3339                                |
+| `Range`          | `1..10`                      | `1..10`                                        | `1..10`                               | `1..10`                             | `"1..10"`                                | `Range(1..10)`                         |
+| `Record`         | `{name: a.txt, size: 120}`   | `{name: a.txt, size: 120}`                     | **`{record 2 fields}`**               | `{name: "a.txt", size: 120}`        | **`{⏎ "name": "a.txt",⏎ "size": 120⏎}`** | `Record({"name": String("a.txt"), …})` |
+| `List`           | `[1, 2]`                     | `[1, 2]`                                       | `[list 2 items]`                      | `[1, 2]`                            | **`[⏎ 1,⏎ 2⏎]`**                         | `List([Int(1), Int(2)])`               |
+| `List` (table)   | `[table 2 rows]`             | full expansion                                 | `[table 2 rows]`                      | `[[name, size]; ["a.txt", 120], …]` | **multi-line**                           | `List([Record({…})])`                  |
+| `Closure`        | `{\|x\| $x * 2}`             | `closure_7`                                    | `closure_7`                           | **✗ Unsupported input**             | **✗ Can't convert to string**            | `Closure(BlockId(7): {})`              |
+| `Error`          | `<error: Division by zero.>` | `DivisionByZero { span: Span(TEST) }`          | `DivisionByZero { span: Span(TEST) }` | **✗ Division by zero**              | **✗ Division by zero**                   | `Error(DivisionByZero { span: … })`    |
+| `Binary`         | `0x[de ad] (2 bytes)`        | `[222, 173]`                                   | `[222, 173]`                          | `0x[DEAD]`                          | `[⏎ 222,⏎ 173⏎]`                         | `Binary("\u{7ad}")`                    |
+| `CellPath`       | `$.name.1`                   | `$.name.1`                                     | `$.name.1`                            | `$.name.1`                          | `"$.name.1"`                             | `CellPath($.name.1)`                   |
+| `Custom`         | `5`                          | `5`                                            | `5`                                   | **✗ not nuon-compatible**           | `5`                                      | `Custom(StubCustom(5))`                |
+| `Nothing`        | `null`                       | *(blank)*                                      | *(blank)*                             | `null`                              | `null`                                   | `Nothing`                              |
+| 500-char string  | `"xxx…" (500 chars)`         | **all 500**                                    | **all 500**                           | **all 500**                         | **all 500**                              | **all 500**                            |
+| 2000-item list   | `[0, 1, 2, …]`               | **all 2000**                                   | `[list 2000 items]`                   | **all 2000**                        | **all 2000**                             | **all 2000**                           |
 
 ### Why each alternative is disqualified
 
-| Renderer | Blocker |
-|---|---|
-| `to_expanded_string` | Unbounded and fully recursive. `Nothing` and the empty string render blank; errors leak Rust struct syntax with an internal span. |
-| `to_abbreviated_string` | **Already used** for the long tail, and correct where shape is what you want. But shape-*only* (`{record 2 fields}`), and a date becomes `8 hours ago` — wall-clock-relative, so wrong in a debugger and untestable. |
-| `to_nuon` | Hard-fails on `Error`, `Custom` and `Closure`, propagating through containers — one bad field loses the whole structure. Unbounded. *Not* blocked by needing an `EngineState`: it reads one only for closure serialization, takes no locks, and a bare `EngineState::new()` suffices. |
-| `to json` | Multi-line by default, which rules it out for a one-line row before anything else. `Err`s on `Error` and `Closure`; expands binary to an integer array (1 MiB → ~4 MB over stdio). |
-| compact `Debug` | `to_debug_string`'s own doc: *"should only be used for debug purposes, and the resulting string should not be displayed to the user (not even in an error)."* Rust-shaped throughout, and `[0xde, 0xad]` renders as the mojibake `Binary("\u{7ad}")`. |
+| Renderer                | Blocker                                                                                                                                                                                                                                                                               |
+|-------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `to_expanded_string`    | Unbounded and fully recursive. `Nothing` and the empty string render blank; errors leak Rust struct syntax with an internal span.                                                                                                                                                     |
+| `to_abbreviated_string` | **Already used** for the long tail, and correct where shape is what you want. But shape-*only* (`{record 2 fields}`), and a date becomes `8 hours ago` — wall-clock-relative, so wrong in a debugger and untestable.                                                                  |
+| `to_nuon`               | Hard-fails on `Error`, `Custom` and `Closure`, propagating through containers — one bad field loses the whole structure. Unbounded. *Not* blocked by needing an `EngineState`: it reads one only for closure serialization, takes no locks, and a bare `EngineState::new()` suffices. |
+| `to json`               | Multi-line by default, which rules it out for a one-line row before anything else. `Err`s on `Error` and `Closure`; expands binary to an integer array (1 MiB → ~4 MB over stdio).                                                                                                    |
+| compact `Debug`         | `to_debug_string`'s own doc: *"should only be used for debug purposes, and the resulting string should not be displayed to the user (not even in an error)."* Rust-shaped throughout, and `[0xde, 0xad]` renders as the mojibake `Binary("\u{7ad}")`.                                 |
 
 ### Where nuon and nu-dap agree
 
