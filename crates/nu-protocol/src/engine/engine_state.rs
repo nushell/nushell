@@ -262,21 +262,21 @@ impl EngineState {
 
     /// Return a compiled regex, reusing the process-wide LRU cache when possible.
     ///
-    /// On lock contention (or a poisoned mutex), compiles without touching the cache —
-    /// the same fallback used by the `=~` / `!~` operators.
+    /// On lock contention (or a poisoned mutex), compiles without touching the cache.
     pub fn get_cached_regex(&self, pattern: &str) -> Result<Regex, fancy_regex::Error> {
         match self.regex_cache.try_lock() {
-            Ok(mut cache) => {
-                if let Some(regex) = cache.get(pattern) {
-                    Ok(regex.clone())
-                } else {
-                    let regex = Regex::new(pattern)?;
-                    cache.put(pattern.to_owned(), regex.clone());
-                    Ok(regex)
-                }
-            }
+            Ok(mut cache) => cache
+                .try_get_or_insert_ref(pattern, || Regex::new(pattern))
+                .cloned(),
             Err(_) => Regex::new(pattern),
         }
+    }
+
+    /// Compile `pattern` via [`Self::get_cached_regex`], mapping failures to
+    /// [`ShellError::InvalidValue`] at `span`.
+    pub fn compile_regex(&self, pattern: &str, span: Span) -> Result<Regex, ShellError> {
+        self.get_cached_regex(pattern)
+            .map_err(|err| invalid_regex_value(pattern, err, span))
     }
 
     pub fn reset_signals(&mut self) {
