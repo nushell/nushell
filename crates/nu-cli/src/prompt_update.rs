@@ -110,13 +110,32 @@ fn build_prompt_contents(
     let mut fetch_prompt =
         |prompt_type| get_prompt_string(prompt_type, config, engine_state, stack).map(Arc::from);
 
+    // Bound in the order the variables were always evaluated in: `$env.PROMPT_*`
+    // may hold closures, so a reshuffle here would reorder their side effects.
+    let left = fetch_prompt(PROMPT_COMMAND);
+    let right = fetch_prompt(PROMPT_COMMAND_RIGHT);
+    let indicator = fetch_prompt(PROMPT_INDICATOR);
+    let vi_insert = fetch_prompt(PROMPT_INDICATOR_VI_INSERT);
+    let vi_normal = fetch_prompt(PROMPT_INDICATOR_VI_NORMAL);
+    let multiline = fetch_prompt(PROMPT_MULTILINE_INDICATOR);
+
+    // Indicators fall back to `$env.config.prompt`, so unlike left and right
+    // they are never `None` here. The variables predate the config section and
+    // keep winning silently, leaving existing `env.nu` files rendering as they
+    // always did.
+    let configured = |value: &str| Some(Arc::from(value));
+
     PromptContents {
-        left: fetch_prompt(PROMPT_COMMAND),
-        right: fetch_prompt(PROMPT_COMMAND_RIGHT),
-        indicator: fetch_prompt(PROMPT_INDICATOR),
-        vi_insert: fetch_prompt(PROMPT_INDICATOR_VI_INSERT),
-        vi_normal: fetch_prompt(PROMPT_INDICATOR_VI_NORMAL),
-        multiline: fetch_prompt(PROMPT_MULTILINE_INDICATOR),
+        // Left and right have no config equivalent; they stay environment-only.
+        left,
+        right,
+        indicator: indicator.or_else(|| configured(&config.prompt.indicator)),
+        vi_insert: vi_insert.or_else(|| configured(&config.prompt.vi_insert)),
+        vi_normal: vi_normal.or_else(|| configured(&config.prompt.vi_normal)),
+        // Config-only: vi visual mode previously reused the vi normal indicator
+        // and so never had a variable of its own.
+        vi_visual: configured(&config.prompt.vi_visual),
+        multiline: multiline.or_else(|| configured(&config.prompt.multiline)),
         render_right_on_last_line: config.render_right_prompt_on_last_line,
     }
 }
@@ -138,13 +157,29 @@ pub(crate) fn make_transient_prompt(
     let mut fetch_transient =
         |env_var| get_prompt_string(env_var, config, engine_state, stack).map(Arc::from);
 
+    let left = fetch_transient(TRANSIENT_PROMPT_COMMAND);
+    let right = fetch_transient(TRANSIENT_PROMPT_COMMAND_RIGHT);
+    let indicator = fetch_transient(TRANSIENT_PROMPT_INDICATOR);
+    let vi_insert = fetch_transient(TRANSIENT_PROMPT_INDICATOR_VI_INSERT);
+    let vi_normal = fetch_transient(TRANSIENT_PROMPT_INDICATOR_VI_NORMAL);
+    let multiline = fetch_transient(TRANSIENT_PROMPT_MULTILINE_INDICATOR);
+
+    // A transient indicator that resolves to `None` from both the variable and
+    // the config keeps whatever the live prompt showed, which is what
+    // `PromptContents::overridden_by` falls back to.
+    let transient = &config.prompt.transient;
+    let configured = |value: &Option<String>| value.as_deref().map(Arc::from);
+
     let overrides = PromptContents {
-        left: fetch_transient(TRANSIENT_PROMPT_COMMAND),
-        right: fetch_transient(TRANSIENT_PROMPT_COMMAND_RIGHT),
-        indicator: fetch_transient(TRANSIENT_PROMPT_INDICATOR),
-        vi_insert: fetch_transient(TRANSIENT_PROMPT_INDICATOR_VI_INSERT),
-        vi_normal: fetch_transient(TRANSIENT_PROMPT_INDICATOR_VI_NORMAL),
-        multiline: fetch_transient(TRANSIENT_PROMPT_MULTILINE_INDICATOR),
+        // Left and right have no config equivalent; they stay environment-only.
+        left,
+        right,
+        indicator: indicator.or_else(|| configured(&transient.indicator)),
+        vi_insert: vi_insert.or_else(|| configured(&transient.vi_insert)),
+        vi_normal: vi_normal.or_else(|| configured(&transient.vi_normal)),
+        // Config-only, like its non-transient counterpart.
+        vi_visual: configured(&transient.vi_visual),
+        multiline: multiline.or_else(|| configured(&transient.multiline)),
         // Not overridable by a `TRANSIENT_PROMPT_*` var; falls back to the
         // live baseline via `PromptContents::overridden_by`.
         render_right_on_last_line: false,
@@ -202,5 +237,118 @@ mod tests {
             transient_prompt.render_prompt_indicator(reedline::PromptEditMode::Emacs),
             "transient> "
         );
+    }
+
+    /// Renders the emacs indicator from `config`, with `env` applied first.
+    fn rendered_indicator(config: &Config, env: &[(&str, &str)]) -> String {
+        let engine_state = EngineState::new();
+        let mut stack = Stack::new();
+        for (name, val) in env {
+            stack.add_env_var((*name).into(), Value::string(*val, Span::test_data()));
+        }
+
+        update_prompt(config, &engine_state, &mut stack);
+
+        NushellPrompt::shared(engine_state.prompt_state.clone())
+            .render_prompt_indicator(reedline::PromptEditMode::Emacs)
+            .to_string()
+    }
+
+    #[test]
+    fn indicator_comes_from_config_without_env_var() {
+        let mut config = Config::default();
+        config.prompt.indicator = "config> ".into();
+
+        assert_eq!(rendered_indicator(&config, &[]), "config> ");
+    }
+
+    #[test]
+    fn legacy_env_var_takes_precedence_over_config() {
+        let mut config = Config::default();
+        config.prompt.indicator = "config> ".into();
+
+        assert_eq!(
+            rendered_indicator(&config, &[(PROMPT_INDICATOR, "env> ")]),
+            "env> "
+        );
+    }
+
+    #[test]
+    fn vi_visual_indicator_comes_from_config() {
+        // `vi_visual` is config-only, so the vi normal environment variable
+        // must not leak into visual mode the way it used to.
+        use reedline::{PromptEditMode, PromptViMode};
+
+        let mut config = Config::default();
+        config.prompt.vi_visual = "visual> ".into();
+
+        let engine_state = EngineState::new();
+        let mut stack = Stack::new();
+        stack.add_env_var(
+            PROMPT_INDICATOR_VI_NORMAL.into(),
+            Value::string("normal> ", Span::test_data()),
+        );
+
+        update_prompt(&config, &engine_state, &mut stack);
+        let prompt = NushellPrompt::shared(engine_state.prompt_state.clone());
+
+        assert_eq!(
+            prompt.render_prompt_indicator(PromptEditMode::Vi(PromptViMode::Visual)),
+            "visual> "
+        );
+        assert_eq!(
+            prompt.render_prompt_indicator(PromptEditMode::Vi(PromptViMode::Normal)),
+            "normal> "
+        );
+    }
+
+    /// Renders the transient emacs indicator, given a live baseline pushed
+    /// after the transient prompt was built.
+    fn rendered_transient_indicator(config: &Config, env: &[(&str, &str)]) -> String {
+        use nu_protocol::engine::PromptSegment;
+
+        let engine_state = EngineState::new();
+        let mut stack = Stack::new();
+        for (name, val) in env {
+            stack.add_env_var((*name).into(), Value::string(*val, Span::test_data()));
+        }
+
+        let transient = make_transient_prompt(config, &engine_state, &mut stack);
+        engine_state
+            .prompt_state
+            .set(PromptSegment::Indicator, "live> ");
+
+        transient
+            .render_prompt_indicator(reedline::PromptEditMode::Emacs)
+            .to_string()
+    }
+
+    #[test]
+    fn transient_indicator_comes_from_config_without_env_var() {
+        let mut config = Config::default();
+        config.prompt.transient.indicator = Some("transient> ".into());
+
+        assert_eq!(rendered_transient_indicator(&config, &[]), "transient> ");
+    }
+
+    #[test]
+    fn legacy_transient_env_var_takes_precedence_over_config() {
+        let mut config = Config::default();
+        config.prompt.transient.indicator = Some("config> ".into());
+
+        assert_eq!(
+            rendered_transient_indicator(&config, &[(TRANSIENT_PROMPT_INDICATOR, "env> ")]),
+            "env> "
+        );
+    }
+
+    #[test]
+    fn null_transient_indicator_keeps_the_live_one() {
+        // The default: nothing configured for the indicator, so the transient
+        // prompt shows whatever the live prompt ended up with.
+        let config = Config::default();
+        assert_eq!(config.prompt.transient.indicator, None);
+
+        assert_eq!(rendered_transient_indicator(&config, &[]), "live> ");
     }
 }
