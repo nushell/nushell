@@ -20,12 +20,17 @@
 
 use std::fs::File;
 use std::io::PipeReader;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Condvar, Mutex, OnceLock};
 use std::time::Duration;
 
 use crate::dap::protocol::DapWriter;
 
 const MARKER: &[u8] = b"\x01<NU-DAP-FLUSH>\x01";
+
+/// Set once the forwarders own process stdout/stderr. Until then the marker
+/// bytes would land on the host's real stdio, so `flush_output` is a no-op.
+static CAPTURING: AtomicBool = AtomicBool::new(false);
 
 static FLUSH_SEEN: OnceLock<(Mutex<u64>, Condvar)> = OnceLock::new();
 
@@ -109,8 +114,12 @@ pub(crate) fn detach_stdin() -> File {
         let stdin = std::io::stdin();
         let dup: OwnedFd = stdin.as_fd().try_clone_to_owned().expect("dup stdin fd");
         if let Ok(null) = File::open("/dev/null") {
-            unsafe {
-                libc::dup2(null.as_raw_fd(), 0);
+            let rc = unsafe { libc::dup2(null.as_raw_fd(), 0) };
+            if rc == -1 {
+                panic!(
+                    "dup2(/dev/null, 0) failed: {}",
+                    std::io::Error::last_os_error()
+                );
             }
         }
         File::from(dup)
@@ -170,6 +179,9 @@ pub(crate) fn install_output_capture() -> OutputCapture {
 pub(crate) fn spawn_forwarders(capture: OutputCapture, writer: &DapWriter) {
     forward(capture.stdout_rx, "stdout", writer.clone());
     forward(capture.stderr_rx, "stderr", writer.clone());
+    // Only now is it safe for `flush_output` to push markers through the
+    // process handles: they lead to the pipes, and someone is draining them.
+    CAPTURING.store(true, Ordering::Release);
 }
 
 fn forward(mut rx: PipeReader, category: &'static str, writer: DapWriter) {
@@ -230,8 +242,15 @@ fn marker_prefix_len(data: &[u8]) -> usize {
 /// Push a marker through both captured streams and wait until the
 /// forwarders processed it — everything written before the marker has been
 /// emitted as output events. Bounded by `timeout`.
+///
+/// No-op unless [`spawn_forwarders`] installed the capture: without it the
+/// marker bytes would go to the host's real stdout/stderr (see [`crate::serve`],
+/// which leaves process stdio untouched) and nothing would ever count them.
 pub(crate) fn flush_output(timeout: Duration) {
     use std::io::Write;
+    if !CAPTURING.load(Ordering::Acquire) {
+        return;
+    }
     let (count, cv) = flush_state();
     let target = { *count.lock().expect("flush state") + 2 };
     {
