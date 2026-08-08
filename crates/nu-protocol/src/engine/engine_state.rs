@@ -5,8 +5,8 @@ use crate::{
     ast::{Block, Expr},
     debugger::{Debugger, NoopDebugger},
     engine::{
-        CachedFile, Command, DEFAULT_OVERLAY_NAME, EnvName, EnvVars, OverlayFrame, ScopeFrame,
-        Stack, StateDelta, Variable, Visibility,
+        CachedFile, Command, DEFAULT_OVERLAY_NAME, EnvName, EnvVars, OverlayFrame, PromptState,
+        ScopeFrame, Stack, StateDelta, Variable, Visibility,
         description::{Doccomments, build_desc},
     },
     eval_const::create_nu_constant,
@@ -36,13 +36,19 @@ use crate::{PluginRegistryFile, PluginRegistryItem, RegisteredPlugin};
 
 use super::{CurrentJob, Jobs, Mail, Mailbox, ThreadJob};
 
+/// Configure whether the current working directory may be updated when [`EngineState::merge_env`]
+/// is called.
+///
+/// During testing, this is causing issues, so this may disable it.
+pub static UPDATE_CWD: AtomicBool = AtomicBool::new(true);
+
 #[derive(Clone, Debug)]
 pub enum VirtualPath {
     File(FileId),
     Dir(Vec<VirtualPathId>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct ReplState {
     pub buffer: String,
     // A byte position, as `EditCommand::MoveToPosition` is also a byte position
@@ -107,6 +113,12 @@ pub struct EngineState {
     pub config: Arc<Config>,
     pub pipeline_externals_state: Arc<(AtomicU32, AtomicU32)>,
     pub repl_state: Arc<Mutex<ReplState>>,
+    /// Shared source of truth for the interactive prompt's rendered content. The
+    /// REPL fills it each cycle from `$env.PROMPT_COMMAND` and friends; a
+    /// background job's `commandline set-prompt` overwrites individual segments
+    /// and triggers an in-place repaint. Shared with every job that clones this
+    /// engine state.
+    pub prompt_state: Arc<PromptState>,
     pub table_decl_id: Option<DeclId>,
     #[cfg(feature = "plugin")]
     pub plugin_path: Option<PathBuf>,
@@ -211,6 +223,7 @@ impl EngineState {
                 cursor_pos: 0,
                 accept: false,
             })),
+            prompt_state: Arc::new(PromptState::new()),
             table_decl_id: None,
             #[cfg(feature = "plugin")]
             plugin_path: None,
@@ -382,9 +395,11 @@ impl EngineState {
             }
         }
 
-        let cwd = self.cwd(Some(stack))?;
-        std::env::set_current_dir(cwd)
-            .map_err(|err| IoError::new_internal(err, "Could not set current dir"))?;
+        if UPDATE_CWD.load(Ordering::Relaxed) {
+            let cwd = self.cwd(Some(stack))?;
+            std::env::set_current_dir(cwd)
+                .map_err(|err| IoError::new_internal(err, "Could not set current dir"))?;
+        }
 
         if let Some(config) = stack.config.take() {
             // If config was updated in the stack, replace it.
@@ -1114,6 +1129,29 @@ impl EngineState {
                 NonZeroUsize::new(REGEX_CACHE_SIZE).expect("tried to create cache of size zero"),
             )));
         }
+    }
+
+    /// Reset mutable per-session state after cloning a shared engine template.
+    pub fn make_session_state_unique(&mut self) {
+        let (send, recv) = channel();
+
+        self.pipeline_externals_state = Arc::new((AtomicU32::new(0), AtomicU32::new(0)));
+        self.repl_state = Default::default();
+        self.report_log = Default::default();
+        self.prompt_state = Arc::new(PromptState::new());
+        self.jobs = Default::default();
+        self.current_job = CurrentJob {
+            id: JobId::new(0),
+            background_thread_job: None,
+            mailbox: Arc::new(Mutex::new(Mailbox::new(recv))),
+        };
+        self.root_job_sender = send;
+        self.exit_warning_given = Default::default();
+        self.regex_cache = Arc::new(Mutex::new(LruCache::new(
+            NonZeroUsize::new(REGEX_CACHE_SIZE).expect("tried to create cache of size zero"),
+        )));
+        self.is_debugging = IsDebugging::new(false);
+        self.debugger = Arc::new(Mutex::new(Box::new(NoopDebugger)));
     }
 
     /// Add new span and return its ID

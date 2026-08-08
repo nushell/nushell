@@ -140,12 +140,19 @@ fn append_nodes(out: &mut Program, nodes: &[AstNode]) -> anyhow::Result<()> {
     let mut i = 0;
     while i < nodes.len() {
         match &nodes[i] {
-            // Separator immediately before a trailing-recursive suffix (`**`,
-            // `{**}`, `foo/{**}`, …) is not emitted. The terminal recurse gadget
+            // Separator immediately before a *pure* terminal-recursive suffix
+            // (`**`, `{**}`, …) is not emitted. The terminal recurse gadget
             // starts with `ComponentBoundary` so path `foo` matches `foo/**`
             // without requiring Separator to succeed at EOF (which would break
             // `*/*` min-depth — issue #18600).
-            AstNode::Separator if pattern_is_trailing_recursive(&nodes[i + 1..]) => {}
+            //
+            // Important: only skip when the *remainder is itself* pure trailing
+            // recursive (starts with terminal `**` / pure recursive alts). Using
+            // [`pattern_is_trailing_recursive`] here would also skip separators
+            // in multi-component patterns like `a/b/**` and absolute `{cwd}/**`
+            // (what `ls **` builds via `glob_from`), because those suffixes still
+            // *end* with `**` even though they start with literals.
+            AstNode::Separator if pattern_is_pure_trailing_recursive(&nodes[i + 1..]) => {}
             AstNode::Recurse => {
                 let terminal = is_terminal_recurse(nodes, i);
                 // Fold the `/` in `**/` into the recurse gadget so a zero-length
@@ -293,6 +300,10 @@ fn is_terminal_recurse(nodes: &[AstNode], index: usize) -> bool {
 /// Also true for alternatives where **every** choice is trailing-recursive
 /// (e.g. `{**}`, `foo/{**}`, `{a/**,b/**}`), but not mixed choices like
 /// `{**,README.md}` so non-directory matches are still emitted.
+///
+/// This is used for `Program::trailing_recursive` (directory-only emission). It
+/// is **not** the predicate for eliding separators — see
+/// [`pattern_is_pure_trailing_recursive`].
 fn pattern_is_trailing_recursive(nodes: &[AstNode]) -> bool {
     let mut end = nodes.len();
     while end > 0 && matches!(&nodes[end - 1], AstNode::Separator) {
@@ -308,6 +319,36 @@ fn pattern_is_trailing_recursive(nodes: &[AstNode]) -> bool {
                 && choices
                     .iter()
                     .all(|choice| pattern_is_trailing_recursive(&choice.nodes))
+        }
+        _ => false,
+    }
+}
+
+/// True when `nodes` is a pure terminal-recursive pattern with no non-recursive
+/// prefix: bare `**` (optional trailing separator), or alternatives where every
+/// choice is pure trailing-recursive (e.g. `{**}`). Patterns like `b/**` or
+/// `{a/**}` start with a literal and are **not** pure.
+///
+/// Used only to decide whether a preceding `Separator` can be elided before the
+/// terminal recurse gadget. Multi-component prefixes like `a/b/**` must keep the
+/// `/` between `a` and `b`; only the separator immediately before the pure
+/// trailing `**` is skipped so path `a/b` matches `a/b/**`.
+fn pattern_is_pure_trailing_recursive(nodes: &[AstNode]) -> bool {
+    let mut start = 0;
+    while start < nodes.len() && matches!(&nodes[start], AstNode::Separator) {
+        start += 1;
+    }
+    let nodes = &nodes[start..];
+    if nodes.is_empty() {
+        return false;
+    }
+    match &nodes[0] {
+        AstNode::Recurse => is_terminal_recurse(nodes, 0),
+        AstNode::Alternatives { choices } => {
+            !choices.is_empty()
+                && choices
+                    .iter()
+                    .all(|choice| pattern_is_pure_trailing_recursive(&choice.nodes))
         }
         _ => false,
     }

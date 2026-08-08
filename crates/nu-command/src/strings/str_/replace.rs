@@ -362,7 +362,7 @@ fn action(
                     //       and all commands that use it?
                     let mut closure_eval = closure.item.clone();
                     let mut first_error: Option<ShellError> = None;
-                    let replacer = |caps: &Captures| {
+                    let replacer = |caps: &Captures<'_, str>| {
                         for capture in caps.iter().skip(1) {
                             let arg = match capture {
                                 Some(m) => Value::string(m.as_str().to_string(), head),

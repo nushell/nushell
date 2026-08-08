@@ -539,7 +539,15 @@ fn ls_for_one_pattern(
                                         prefix.to_path_buf()
                                     };
 
-                                    Some(new_prefix.join(remainder).to_string_lossy().to_string())
+                                    // Bare trailing `**` (dc-glob) can match the
+                                    // start dir itself; after stripping the prefix
+                                    // that is an empty relative path → show ".".
+                                    let joined = new_prefix.join(remainder);
+                                    if joined.as_os_str().is_empty() {
+                                        Some(".".to_string())
+                                    } else {
+                                        Some(joined.to_string_lossy().to_string())
+                                    }
                                 }
                             } else {
                                 Some(path.to_string_lossy().to_string())

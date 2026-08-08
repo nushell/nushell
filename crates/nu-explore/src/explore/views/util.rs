@@ -151,11 +151,8 @@ fn convert_with_precision(val: &str, precision: usize) -> Result<String, ShellEr
         Ok(f) => f,
         Err(e) => {
             return Err(ShellError::Generic(
-                GenericError::new_internal(
-                    format!("error converting string [{}] to f64", &val),
-                    "",
-                )
-                .with_help(e.to_string()),
+                GenericError::new_internal(format!("error converting string [{}] to f64", val), "")
+                    .with_help(e.to_string()),
             ));
         }
     };

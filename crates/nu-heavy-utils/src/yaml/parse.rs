@@ -170,7 +170,7 @@ pub fn parse(yaml: Spanned<&str>, span: Span, options: ParseOptions) -> Result<V
         match ctx.next_event()? {
             Event::DocumentStart(..) => documents.push(parse_document(ctx)?),
             Event::StreamEnd => break,
-            Event::Nothing | Event::Comment(..) => continue,
+            Event::Comment(..) => continue,
             event => return Err(ctx.unexpected_event(event).into()),
         }
     }
@@ -286,7 +286,7 @@ fn parse_document<'i>(ctx: &mut ParseCtx<'i>) -> Result<Value, ShellError> {
 
     let value = loop {
         match ctx.next_event()? {
-            Event::Nothing | Event::Comment(..) => continue,
+            Event::Comment(..) => continue,
             Event::Alias(anchor_id) => break ctx.get_anchor(ctx.alias(anchor_id)?)?,
             Event::Scalar(value, scalar_style, anchor_id, tag) => {
                 let value = parse_scalar(ctx, value, scalar_style, tag)?;
@@ -309,7 +309,7 @@ fn parse_document<'i>(ctx: &mut ParseCtx<'i>) -> Result<Value, ShellError> {
 
     loop {
         match ctx.next_event()? {
-            Event::Nothing | Event::Comment(..) => continue,
+            Event::Comment(..) => continue,
             Event::DocumentEnd => return Ok(value),
             event => return Err(ctx.unexpected_event(event).into()),
         }
@@ -535,7 +535,7 @@ fn parse_sequence<'i>(
     let mut values = Vec::new();
     loop {
         match ctx.next_event()? {
-            Event::Nothing | Event::Comment(..) => continue,
+            Event::Comment(..) => continue,
             Event::Alias(anchor_id) => values.push(ctx.get_anchor(ctx.alias(anchor_id)?)?),
             Event::Scalar(value, scalar_style, anchor_id, tag) => {
                 let value = parse_scalar(ctx, value, scalar_style, tag)?;
@@ -677,7 +677,7 @@ fn parse_mapping<'i>(
         let key = 'key: loop {
             // expect a key or end
             match ctx.next_event()? {
-                Event::Nothing | Event::Comment(..) => continue,
+                Event::Comment(..) => continue,
                 Event::Scalar(value, scalar_style, anchor_id, tag) => {
                     let value = parse_key(ctx, value, scalar_style, tag)?;
                     if anchor_id != 0 {
@@ -712,7 +712,7 @@ fn parse_mapping<'i>(
         let value = 'value: loop {
             // expect a value
             match ctx.next_event()? {
-                Event::Nothing | Event::Comment(..) => continue,
+                Event::Comment(..) => continue,
                 Event::Alias(anchor_id) => break 'value ctx.get_anchor(ctx.alias(anchor_id)?)?,
                 Event::Scalar(value, scalar_style, anchor_id, tag) => {
                     let value = parse_scalar(ctx, value, scalar_style, tag)?;

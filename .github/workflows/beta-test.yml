@@ -12,6 +12,9 @@ on:
     # See: https://docs.github.com/en/actions/monitoring-and-troubleshooting-workflows/monitoring-workflows/notifications-for-workflow-runs
     - cron: '0 0 * * *'  # Runs daily at midnight UTC
 
+permissions:
+  contents: read
+
 env:
   NUSHELL_CARGO_PROFILE: ci
   NU_LOG_LEVEL: DEBUG
@@ -34,7 +37,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - run: rustup update beta
 

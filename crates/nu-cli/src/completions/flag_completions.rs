@@ -1,10 +1,8 @@
 use crate::completions::{
-    Completer, CompletionOptions, SemanticSuggestion, completion_options::NuMatcher,
+    Completer, Context, Fetched, SemanticSuggestion, completion_options::NuMatcher,
+    to_reedline_span,
 };
-use nu_protocol::{
-    DeclId, Span, SuggestionKind,
-    engine::{Stack, StateWorkingSet},
-};
+use nu_protocol::{DeclId, SuggestionKind};
 use reedline::Suggestion;
 
 #[derive(Clone)]
@@ -13,25 +11,17 @@ pub struct FlagCompletion {
 }
 
 impl Completer for FlagCompletion {
-    fn fetch(
-        &mut self,
-        working_set: &StateWorkingSet,
-        _stack: &Stack,
-        prefix: impl AsRef<str>,
-        span: Span,
-        offset: usize,
-        options: &CompletionOptions,
-    ) -> Vec<SemanticSuggestion> {
-        let mut matcher = NuMatcher::new(prefix, options, true);
+    fn fetch(&mut self, ctx: &Context) -> Fetched {
+        let working_set = ctx.working_set;
+        let span = ctx.span;
+        let offset = ctx.offset;
+        let mut matcher = NuMatcher::new(ctx.prefix_str(), ctx.options, true);
         let mut add_suggestion = |value: String, description: String| {
             matcher.add_semantic_suggestion(SemanticSuggestion {
                 suggestion: Suggestion {
                     value,
                     description: Some(description),
-                    span: reedline::Span {
-                        start: span.start - offset,
-                        end: span.end - offset,
-                    },
+                    span: to_reedline_span(span, offset),
                     append_whitespace: true,
                     ..Suggestion::default()
                 },
@@ -48,11 +38,10 @@ impl Completer for FlagCompletion {
                 add_suggestion(name, named.desc.clone());
             }
 
-            if named.long.is_empty() {
-                continue;
+            if let Some(long) = named.long_name() {
+                add_suggestion(format!("--{long}"), named.desc.clone());
             }
-            add_suggestion(format!("--{}", named.long), named.desc.clone());
         }
-        matcher.suggestion_results()
+        Fetched::pure(matcher.suggestion_results())
     }
 }

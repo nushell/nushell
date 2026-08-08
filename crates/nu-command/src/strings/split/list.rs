@@ -272,7 +272,7 @@ impl Matcher {
         Ok(match self {
             Matcher::Regex(regex) => {
                 if let Ok(rhs_str) = rhs.coerce_str() {
-                    regex.is_match(&rhs_str).unwrap_or(false)
+                    regex.is_match(rhs_str.as_ref()).unwrap_or(false)
                 } else {
                     false
                 }

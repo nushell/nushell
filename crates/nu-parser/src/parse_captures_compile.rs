@@ -517,6 +517,30 @@ pub fn parse(
     contents: &[u8],
     scoped: bool,
 ) -> Arc<Block> {
+    parse_with_block_cache(working_set, fname, contents, scoped, true)
+}
+
+/// Like [`parse`], but never returns a span-matched cached block.
+///
+/// Required for `source` / `source-env`: free variables rebind to new VarIds
+/// when `let`/`mut` are re-declared, so a block cached by span alone is stale.
+/// See https://github.com/nushell/nushell/issues/18515
+pub fn parse_fresh(
+    working_set: &mut StateWorkingSet,
+    fname: Option<&str>,
+    contents: &[u8],
+    scoped: bool,
+) -> Arc<Block> {
+    parse_with_block_cache(working_set, fname, contents, scoped, false)
+}
+
+fn parse_with_block_cache(
+    working_set: &mut StateWorkingSet,
+    fname: Option<&str>,
+    contents: &[u8],
+    scoped: bool,
+    use_block_cache: bool,
+) -> Arc<Block> {
     trace!("parse");
 
     let file_id = {
@@ -528,26 +552,25 @@ pub fn parse(
 
     let new_span = working_set.get_span_for_file(file_id);
 
-    let previously_parsed_block = working_set.find_block_by_span(new_span);
-
+    // Reuse a previously-parsed block with the same span when safe (e.g. LSP).
+    // Callers that need fresh free-variable bindings use `parse_fresh`.
+    if use_block_cache && let Some(block) = working_set.find_block_by_span(new_span) {
+        return block;
+    }
     let mut output = {
-        if let Some(block) = previously_parsed_block {
-            return block;
-        } else {
-            let (output, err) = lex(contents, new_span.start, &[], &[], false);
-            if let Some(err) = err {
-                working_set.error(err)
-            }
-
-            Arc::new(parse_block(
-                working_set,
-                &output,
-                new_span,
-                scoped,
-                false,
-                None,
-            ))
+        let (output, err) = lex(contents, new_span.start, &[], &[], false);
+        if let Some(err) = err {
+            working_set.error(err)
         }
+
+        Arc::new(parse_block(
+            working_set,
+            &output,
+            new_span,
+            scoped,
+            false,
+            None,
+        ))
     };
 
     // Top level `Block`s are compiled eagerly, as they don't have a parent which would cause them

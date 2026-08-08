@@ -684,6 +684,45 @@ mod tests {
     }
 
     #[test]
+    fn compiler_multi_component_trailing_recursive_keeps_intermediate_separators() {
+        // Regression: separator elision must only drop the `/` immediately before
+        // pure terminal `**`, not every `/` in `a/b/**` (broke `ls **` via absolute
+        // `{cwd}/**` rewriting in glob_from).
+        let prog = compile_pattern("a/b/**");
+        assert!(
+            prog.trailing_recursive,
+            "a/b/** must set trailing_recursive"
+        );
+
+        let mut saw_a = false;
+        let mut saw_sep_after_a = false;
+        let mut saw_b = false;
+        let mut saw_boundary = false;
+        for inst in &prog.instructions {
+            match inst {
+                Instruction::LiteralString(bytes) if &**bytes == b"a" => {
+                    saw_a = true;
+                }
+                Instruction::Separator if saw_a && !saw_b => {
+                    saw_sep_after_a = true;
+                }
+                Instruction::LiteralString(bytes) if &**bytes == b"b" => {
+                    assert!(
+                        saw_sep_after_a,
+                        "a/b/** must keep Separator between a and b, got {prog}"
+                    );
+                    saw_b = true;
+                }
+                Instruction::ComponentBoundary if saw_b => {
+                    saw_boundary = true;
+                }
+                _ => {}
+            }
+        }
+        assert!(saw_a && saw_b && saw_boundary, "unexpected program: {prog}");
+    }
+
+    #[test]
     fn compiler_nested_terminal_recurse_in_alternatives() {
         // `{**}` should compile a terminal recurse gadget and be dir-only.
         let prog = compile_pattern("{**}");
@@ -1043,6 +1082,81 @@ mod tests {
                 .iter()
                 .any(|p| p.ends_with("file.txt") || p.ends_with("sibling.txt")),
             "foo/** must not list files, got {paths:?}"
+        );
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn glob_with_multi_component_trailing_double_star() {
+        // `a/b/**` must keep intermediate separators and emit a/b + nested dirs only.
+        let root = unique_test_dir("multi_component_trailing");
+        fs::create_dir_all(root.join("a/b/c")).expect("failed to create nested dirs");
+        write_file(&root.join("a/b/c/file.txt"));
+        write_file(&root.join("a/sibling.txt"));
+
+        let paths = collect_ok_paths(
+            glob_with(root.as_path(), "a/b/**", &GlobWalkOptions::default())
+                .expect("glob a/b/** should succeed"),
+        )
+        .expect("collect a/b/**");
+
+        assert!(
+            paths.contains(&expected_path(&["a", "b"])),
+            "a/b/** should include the prefix directory itself, got {paths:?}"
+        );
+        assert!(paths.contains(&expected_path(&["a", "b", "c"])));
+        assert!(
+            !paths
+                .iter()
+                .any(|p| p.ends_with("file.txt") || p.ends_with("sibling.txt")),
+            "a/b/** must not list files, got {paths:?}"
+        );
+        assert!(
+            !paths.contains(&expected_path(&["a"])),
+            "a/b/** must not list the parent of the prefix, got {paths:?}"
+        );
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn glob_with_absolute_trailing_double_star() {
+        // Absolute `{root}/**` is the shape `glob_from` builds for `ls **`.
+        let root = unique_test_dir("absolute_trailing");
+        fs::create_dir_all(root.join("1/2")).expect("failed to create nested dirs");
+        write_file(&root.join("1/2/file.txt"));
+
+        let pattern = format!("{}/**", root.to_string_lossy());
+        let paths = collect_ok_paths(
+            glob_with(root.as_path(), &pattern, &GlobWalkOptions::default())
+                .expect("glob absolute /** should succeed"),
+        )
+        .expect("collect absolute /**");
+
+        let root_str = root.to_string_lossy().to_string();
+        assert!(
+            paths.iter().any(|p| {
+                let p = p.trim_end_matches(['/', '\\']);
+                p == root_str.trim_end_matches(['/', '\\'])
+            }),
+            "absolute /** should include the start directory, got {paths:?}"
+        );
+        assert!(
+            paths
+                .iter()
+                .any(|p| Path::new(p).ends_with(expected_path(&["1"]))),
+            "absolute /** should include nested dir 1, got {paths:?}"
+        );
+        assert!(
+            paths
+                .iter()
+                .any(|p| Path::new(p).ends_with(expected_path(&["1", "2"]))),
+            "absolute /** should include nested dir 1/2, got {paths:?}"
+        );
+        assert!(
+            !paths.iter().any(|p| p.ends_with("file.txt")),
+            "absolute /** must not list files, got {paths:?}"
         );
 
         let _ = fs::remove_dir_all(&root);

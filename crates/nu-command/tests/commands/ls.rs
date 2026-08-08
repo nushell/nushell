@@ -1,4 +1,3 @@
-use nu_protocol::ParseError;
 use nu_test_support::fs::Stub::EmptyFile;
 use nu_test_support::playground::Playground;
 use nu_test_support::prelude::*;
@@ -62,9 +61,11 @@ fn lists_regular_files_in_special_folder() -> Result {
             .run("(ls).name")
             .expect_value_eq(["test.txt"])?;
 
+        // Quote the path: `]` is a list closer and cannot appear unquoted inside
+        // a parenthesized subexpression.
         test()
             .cwd(dirs.test())
-            .run("(ls abcd]).name")
+            .run(r#"(ls "abcd]").name"#)
             .expect_value_eq(["abcd]/test.txt"])?;
 
         test()
@@ -379,28 +380,46 @@ fn glob_with_hidden_directory() -> Result {
 
 #[test]
 #[cfg(unix)]
-fn fails_with_permission_denied() {
+fn fails_with_permission_denied() -> Result {
+    use nu_protocol::shell_error::io::ErrorKind;
+    use std::os::unix::fs::PermissionsExt;
+
     Playground::setup("ls_test_1", |dirs, sandbox| {
         sandbox
             .within("dir_a")
             .with_files(&[EmptyFile("yehuda.11.txt"), EmptyFile("jt10.txt")]);
 
-        let actual_with_path_arg = nu!(cwd: dirs.test(), "
-            chmod 000 dir_a; ls dir_a
-        ");
+        let is_root = nix::unistd::Uid::effective().is_root();
+        let dir_a = dirs.test().join("dir_a");
+        let original_permissions = std::fs::metadata(&dir_a)?.permissions();
 
-        let actual_in_cwd = nu!(cwd: dirs.test(), "
-            chmod 100 dir_a; cd dir_a; ls
-        ");
+        let mut permissions = original_permissions.clone();
+        permissions.set_mode(0o000);
+        std::fs::set_permissions(&dir_a, permissions)?;
+        let path_arg_result: Result<Value> = test().cwd(dirs.test()).run("ls dir_a");
 
-        let get_uid = nu!(cwd: dirs.test(), "
-            id -u
-        ");
-        let is_root = get_uid.out == "0";
+        let mut permissions = original_permissions.clone();
+        permissions.set_mode(0o100);
+        std::fs::set_permissions(&dir_a, permissions)?;
+        let cwd_result: Result<Value> = test().cwd(&dir_a).run("ls");
 
-        assert!(actual_with_path_arg.err.contains("Permission denied") || is_root);
+        std::fs::set_permissions(&dir_a, original_permissions)?;
 
-        assert!(actual_in_cwd.err.contains("Permission denied") || is_root);
+        if !is_root {
+            let path_arg_err = path_arg_result.expect_io_error()?;
+            let cwd_err = cwd_result.expect_io_error()?;
+
+            assert_matches!(
+                path_arg_err.kind,
+                ErrorKind::Std(std::io::ErrorKind::PermissionDenied, ..)
+            );
+            assert_matches!(
+                cwd_err.kind,
+                ErrorKind::Std(std::io::ErrorKind::PermissionDenied, ..)
+            );
+        }
+
+        Ok(())
     })
 }
 
@@ -439,35 +458,24 @@ fn list_all_columns() -> Result {
             .expect_value_eq(["name", "type", "size", "modified"])?;
         // Long
         let expected = cfg_select! {
-            unix => {
-                [
-                    "name",
-                    "type",
-                    "target",
-                    "readonly",
-                    "mode",
-                    "num_links",
-                    "inode",
-                    "user",
-                    "group",
-                    "size",
-                    "created",
-                    "accessed",
-                    "modified",
-                ]
-            }
-            windows => {
-                [
-                    "name",
-                    "type",
-                    "target",
-                    "readonly",
-                    "size",
-                    "created",
-                    "accessed",
-                    "modified",
-                ]
-            }
+            unix => [
+                "name",
+                "type",
+                "target",
+                "readonly",
+                "mode",
+                "num_links",
+                "inode",
+                "user",
+                "group",
+                "size",
+                "created",
+                "accessed",
+                "modified",
+            ],
+            windows => [
+                "name", "type", "target", "readonly", "size", "created", "accessed", "modified",
+            ],
         };
         test()
             .cwd(dirs.test())
@@ -959,6 +967,78 @@ fn ls_literal_empty_directory() -> Result {
             .run("ls ls_literal_empty_dir_dc/emptydir | length")
             .expect_value_eq(0)
             .expect("ls literal empty directory should not error with dc-glob");
+    });
+
+    Ok(())
+}
+
+/// Regression for https://github.com/nushell/nushell/issues/18600#issuecomment-5077246342
+///
+/// `ls **` goes through `glob_from`, which rewrites the pattern to absolute
+/// `{cwd}/**`. Multi-component trailing `**` must expand (directories only).
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn ls_dc_glob_bare_double_star() -> Result {
+    Playground::setup("ls_dc_bare_double_star", |dirs, sandbox| {
+        sandbox.mkdir("1");
+        sandbox.mkdir("1/2");
+        sandbox.mkdir("1/2/3");
+        sandbox.within("1/2/3").with_files(&[EmptyFile("file.txt")]);
+        sandbox.mkdir("foo");
+        sandbox.mkdir("foo/bar");
+
+        // Nested directories present; file.txt must not appear (trailing ** is dir-only).
+        // Must not error with "No matches found".
+        // Compare expanded paths so relative vs absolute display names both work.
+        let code = "
+            let paths = (ls ** | get name | each { path expand } | sort)
+            (
+                ($paths | length) >= 5
+                and ($paths | any {|p| $p | str ends-with $'(char psep)1'})
+                and ($paths | any {|p| $p | str ends-with $'(char psep)1(char psep)2'})
+                and ($paths | any {|p| $p | str ends-with $'(char psep)1(char psep)2(char psep)3'})
+                and ($paths | any {|p| $p | str ends-with $'(char psep)foo'})
+                and ($paths | any {|p| $p | str ends-with $'(char psep)foo(char psep)bar'})
+                and not ($paths | any {|p| $p | str ends-with 'file.txt'})
+            )
+        ";
+        test()
+            .cwd(dirs.test())
+            .run(code)
+            .expect_value_eq(true)
+            .expect("ls ** should list nested dirs and not files with dc-glob");
+    });
+
+    Ok(())
+}
+
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn ls_dc_glob_prefixed_trailing_double_star() -> Result {
+    Playground::setup("ls_dc_prefixed_trailing", |dirs, sandbox| {
+        sandbox.mkdir("foo");
+        sandbox.mkdir("foo/bar");
+        sandbox
+            .within("foo")
+            .with_files(&[EmptyFile("sibling.txt")]);
+        sandbox
+            .within("foo/bar")
+            .with_files(&[EmptyFile("nested.txt")]);
+
+        let code = "
+            let paths = (ls foo/** | get name | each { path expand } | sort)
+            (
+                ($paths | any {|p| $p | str ends-with $'(char psep)foo'})
+                and ($paths | any {|p| $p | str ends-with $'(char psep)foo(char psep)bar'})
+                and not ($paths | any {|p| $p | str ends-with 'sibling.txt'})
+                and not ($paths | any {|p| $p | str ends-with 'nested.txt'})
+            )
+        ";
+        test()
+            .cwd(dirs.test())
+            .run(code)
+            .expect_value_eq(true)
+            .expect("ls foo/** should list foo and nested dirs only with dc-glob");
     });
 
     Ok(())

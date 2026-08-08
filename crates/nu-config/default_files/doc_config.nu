@@ -120,7 +120,7 @@ $env.config.rm.always_trash = false
 $env.config.recursion_limit = 50
 
 # auto_cd_implicit (bool): Gives precedence to auto-cd when command string is
-# an existing directory path.  
+# an existing directory path.
 # false: A relative (e.g.  './dirname') or absolute path is required to auto-cd.
 # true: If the command string matches a subdirectory in the current directory
 # (e.g. 'src'), auto-cd will be triggered without needing './' or '/'.
@@ -255,6 +255,10 @@ $env.config.completions.partial = true
 # false: Don't use LS_COLORS.
 # Default: true
 $env.config.completions.use_ls_colors = true
+
+# completions.cache_size (int): Completion cache size (0 disables the cache).
+# Default: 100
+$env.config.completions.cache_size = 100
 
 # --------------------
 # External Completions
@@ -572,11 +576,17 @@ $env.config.hooks.command_not_found = null
 # Keybindings
 # -----------
 
-# keybindings (list): User-defined keybindings for Reedline.
+# keybindings (list): Keybindings for Reedline.
 # Each keybinding is a record with: name, modifier, keycode, mode, and event.
 # See https://www.nushell.sh/book/line_editor.html#keybindings for details.
-# Default: []
-$env.config.keybindings = []
+#
+# Default: Nushell menu keybindings (Tab completion, Ctrl-r history menu, F1 help,
+# etc.). Inspect with `$env.config.keybindings`. Reedline's base emacs/vi maps are
+# still applied underneath and are listed by `keybindings default`.
+#
+# Full list replacement (`=`) clears Nushell menu bindings. Prefer `++=` to add,
+# or set `event: null` on a matching binding to unbind a key.
+# $env.config.keybindings = []
 
 # Example: Add Alt+. keybinding to insert the last token from previous command:
 # $env.config.keybindings ++= [
@@ -603,7 +613,7 @@ $env.config.keybindings = []
 # Default: {}
 $env.config.abbreviations = {}
 
-# Example: add abbreviations for common commands: 
+# Example: add abbreviations for common commands:
 # $env.config.abbreviations = {
 #   gs: "git status",
 #   ll: "ls -l",
@@ -634,8 +644,11 @@ $env.config.abbreviations = {}
 # List-layout menus accept description_position: "before" or "after" in their
 # `type` record, controlling whether an entry's description is shown before or
 # after its value. Unset keeps reedline's default.
-# Default: []
-$env.config.menus = []
+#
+# Default: completion_menu, ide_completion_menu, history_menu, help_menu.
+# Inspect with `$env.config.menus`. Full list replacement (`=`) clears defaults;
+# prefer `++=` to add custom menus.
+# $env.config.menus = []
 
 # Example: Custom completion menu configuration:
 # $env.config.menus ++= [{
@@ -770,8 +783,9 @@ $env.config.highlight_resolved_externals = false
 # color_config (record): Styling for shapes, types, and UI elements.
 # Values can be: color names, RGB values (#RRGGBB), or records with fg, bg, attr keys.
 # attr can include: 'n' (normal), 'b' (bold), 'u' (underline), 'r' (reverse), 'i' (italics), 'd' (dimmed).
-# Default: (see default_config.nu for full default theme)
-$env.config.color_config = {}
+# Default: full theme in Rust `Config::default()` — inspect with `$env.config.color_config`
+# (also under `nu -n`). Assigning a whole record replaces the map; prefer nested field updates.
+# $env.config.color_config = {}
 
 # Example: Using a theme from the standard library:
 # use std/config dark-theme
@@ -794,7 +808,7 @@ $env.config.color_config.cursor = null
 # ---------------------------
 # shape_* settings style elements on the commandline based on their parsed "shape".
 # Shapes are identified by Nushell's parser as you type.
-# Default styles are defined in nu-color-config/src/shape_color.rs.
+# Default styles live in Rust `Config::default().color_config` (see `$env.config.color_config`).
 
 # color_config.shape_string: Style for string values.
 # Applies to quoted strings, barewords, record keys, declared string arguments.
@@ -895,8 +909,9 @@ $env.config.color_config.shape_variable = "purple"
 $env.config.color_config.shape_vardecl = "purple"
 
 # color_config.shape_matching_brackets: Style for matching bracket pairs when cursor is on one.
-# Default: { attr: u }
-$env.config.color_config.shape_matching_brackets = {attr: "u"}
+# Merged onto the bracket's base shape style (adds underline by default).
+# Default: default_underline
+$env.config.color_config.shape_matching_brackets = "default_underline"
 
 # color_config.shape_pipe: Style for the pipe symbol (|) in pipelines.
 # Default: purple_bold
@@ -952,7 +967,7 @@ $env.config.color_config.shape_flag = "blue_bold"
 # --------------------------
 # These style *values* of a particular *type* in structured data output
 # (tables, records, lists). They can accept closures for dynamic styling.
-# Default styles are defined in nu-color-config/src/style_computer.rs.
+# Defaults live in Rust `Config::default().color_config` (same map as shapes).
 
 # color_config.bool: Style for boolean values in output.
 # Default: light_cyan
@@ -1112,29 +1127,76 @@ $env.config.color_config.banner_highlight2 = "purple"
 # ------------------------
 # Explore Command Settings
 # ------------------------
+# `$env.config.explore` is read by `ExploreConfig::from_nu_config` in
+# `crates/nu-explore/src/explore/config.rs`. Only the keys listed below are applied.
+# Color values use the same forms as `color_config`: color names, `#RRGGBB`, or
+# records `{ fg?, bg?, attr? }`.
 
-# explore (record): UI configuration for the `explore` command.
-# Configures colors and styles for the interactive data explorer.
-# Default: {}
-$env.config.explore = {}
+# explore.selected_cell (color): Highlight for the currently selected table cell.
+# Default: { bg: light_blue }
+$env.config.explore.selected_cell = { bg: light_blue }
 
-# Example explore configuration:
+# explore.highlight (color): Search-result highlight in the explore pager.
+# Default: { fg: black, bg: yellow }
+$env.config.explore.highlight = { fg: black, bg: yellow }
+
+# explore.status_bar_text (color): Text color of the bottom status bar.
+# Default: unset (inherit terminal / theme)
+# $env.config.explore.status_bar_text = { fg: "#C4C9C6" }
+
+# explore.status_bar_background (color): Background of the bottom status bar.
+# Default: unset (inherit terminal / theme)
+# $env.config.explore.status_bar_background = { fg: "#1D1F21", bg: "#C4C9C6" }
+
+# explore.command_bar_text (color): Text color of the command/search bar.
+# Default: unset (inherit terminal / theme)
+# $env.config.explore.command_bar_text = { fg: "#C4C9C6" }
+
+# explore.command_bar_background (color): Background of the command/search bar.
+# Default: unset (inherit terminal / theme)
+# $env.config.explore.command_bar_background = { bg: "#1D1F21" }
+
+# explore.title_bar_text (color): Text color of the top title bar.
+# Default: unset (inherit terminal / theme)
+# $env.config.explore.title_bar_text = { fg: white }
+
+# explore.title_bar_background (color): Background of the top title bar.
+# Default: unset (inherit terminal / theme)
+# $env.config.explore.title_bar_background = { bg: blue }
+
+# explore.status (record): Message severity styles in the status bar.
+# Keys: info, success, warn, error. Each is a color value as above.
+# Defaults: success { fg: black, bg: green }, error { fg: white, bg: red };
+#           info and warn unset (inherit / plain).
+$env.config.explore.status = {
+    success: { fg: black, bg: green }
+    error: { fg: white, bg: red }
+    # info: {}
+    # warn: {}
+}
+
+# explore.try.reactive (bool): In explore's `:try` mode, re-run the command as
+# you type when true; when false, run only on submit.
+# Default: false
+$env.config.explore.try.reactive = false
+
+# Full example (all supported keys):
 # $env.config.explore = {
-#     status_bar_background: { fg: "#1D1F21", bg: "#C4C9C6" },
-#     command_bar_text: { fg: "#C4C9C6" },
-#     highlight: { fg: "black", bg: "yellow" },
+#     selected_cell: { bg: light_blue }
+#     highlight: { fg: black, bg: yellow }
+#     status_bar_text: { fg: "#C4C9C6" }
+#     status_bar_background: { fg: "#1D1F21", bg: "#C4C9C6" }
+#     command_bar_text: { fg: "#C4C9C6" }
+#     command_bar_background: { bg: "#1D1F21" }
+#     title_bar_text: { fg: white }
+#     title_bar_background: { bg: blue }
 #     status: {
-#         error: { fg: "white", bg: "red" },
-#         warn: {}
 #         info: {}
-#     },
-#     selected_cell: { bg: light_blue },
-#     config: { cursor_color: 'red' },
-#     table: {
-#         selected_cell: { bg: 'blue' }
-#         show_cursor: false
-#     },
-#     try: { reactive: true }
+#         success: { fg: black, bg: green }
+#         warn: {}
+#         error: { fg: white, bg: red }
+#     }
+#     try: { reactive: false }
 # }
 
 # ---------------------------------------------------------------------------------------
@@ -1151,21 +1213,20 @@ $env.config.explore = {}
 # Note: PROMPT_INDICATOR is appended to this value.
 # Default: A closure that displays the current directory with colors.
 $env.PROMPT_COMMAND = {||
-    let dir = match (
-        do -i {
-            $env.PWD | path relative-to $nu.home-dir
-        }
-    ) {
+    let dir = match (do -i { $env.PWD | path relative-to $nu.home-dir }) {
         null => $env.PWD
         '' => '~'
         $relative_pwd => ([~ $relative_pwd] | path join)
     }
 
-    let path_color = (if (is-admin) { ansi red_bold } else { ansi green_bold })
-    let separator_color = (if (is-admin) { ansi light_red_bold } else { ansi light_green_bold })
-    let path_segment = $"($path_color)($dir)(ansi reset)"
+    let colors: record<path: string, separator: string> = match [(config use-colors), (is-admin)] {
+        [false, _] => {path: '', separator: ''}
+        [true, true] => {path: (ansi red_bold), separator: (ansi light_red_bold)}
+        [true, false] => {path: (ansi green_bold), separator: (ansi light_green_bold)}
+    }
+    let path_segment = $"($colors.path)($dir)(ansi reset)"
 
-    $path_segment | str replace --all (char path_sep) $"($separator_color)(char path_sep)($path_color)"
+    $path_segment | str replace --all (char path_sep) $"($colors.separator)(char path_sep)($colors.path)"
 }
 
 # Example: Static string prompt:
@@ -1178,25 +1239,25 @@ $env.PROMPT_COMMAND = {||
 # Default: A closure that displays the date/time and last exit code.
 $env.PROMPT_COMMAND_RIGHT = {||
     # create a right prompt in magenta with green separators and am/pm underlined
+    let colors: record<date: string, separator: string, ampm: string, fail: string> = if (config use-colors) {
+        {date: (ansi magenta), separator: (ansi green), ampm: (ansi magenta_underline), fail: (ansi red_bold)}
+    } else {
+        {date: '', separator: '', ampm: '', fail: ''}
+    }
     let time_segment = ([
         (ansi reset)
-        (ansi magenta)
+        $colors.date
         (date now | format date '%x %X') # try to respect user's locale
-    ] | str join | str replace --regex --all "([/:])" $"(ansi green)${1}(ansi magenta)" |
-        str replace --regex --all "([AP]M)" $"(ansi magenta_underline)${1}")
+    ] | str join | str replace --regex --all "([/:])" $"($colors.separator)${1}($colors.date)" |
+        str replace --regex --all "([AP]M)" $"($colors.ampm)${1}")
 
-    let last_exit_code = if $env.LAST_EXIT_CODE != 0 {
-        ([
-        (ansi rb)
-        ($env.LAST_EXIT_CODE)
+    let last_exit_code = if ($env.LAST_EXIT_CODE != 0) {([
+        $colors.fail
+        $env.LAST_EXIT_CODE
     ] | str join)
     } else { "" }
 
-    ([
-        $last_exit_code
-        (char space)
-        $time_segment
-    ] | str join)
+    ([$last_exit_code, (char space), $time_segment] | str join)
 }
 
 # Example: Simple right prompt with just date/time:

@@ -1006,7 +1006,14 @@ pub fn parse_module(
     if block_bytes.ends_with(b"}") {
         end -= 1;
     } else {
-        working_set.error(ParseError::Unclosed("}", Span::new(end, end)));
+        let open = Span::new(
+            block_expr_span.start,
+            block_expr_span
+                .start
+                .saturating_add(1)
+                .min(block_expr_span.end),
+        );
+        working_set.error(ParseError::unclosed("}", open, Span::new(end, end)));
     }
 
     let block_content_span = Span::new(start, end);

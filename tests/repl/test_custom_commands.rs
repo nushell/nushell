@@ -1,74 +1,84 @@
-use crate::repl::tests::{TestResult, fail_test, run_test, run_test_contains};
-use nu_test_support::nu;
-use pretty_assertions::assert_eq;
+use std::sync::Arc;
+
+use nu_protocol::{ParseError, ShellError, Type};
+use nu_test_support::prelude::*;
+use pretty_assertions::assert_matches;
 use rstest::rstest;
 
 #[test]
-fn no_scope_leak1() -> TestResult {
-    fail_test(
-        "if false { let $x = 10 } else { let $x = 20 }; $x",
-        "Variable not found",
-    )
+fn no_scope_leak1() -> Result {
+    let err = test()
+        .run("if false { let $x = 10 } else { let $x = 20 }; $x")
+        .expect_parse_error()?;
+    assert_matches!(err, ParseError::VariableNotFound(_, _));
+    Ok(())
 }
 
 #[test]
-fn no_scope_leak2() -> TestResult {
-    fail_test(
-        "def foo [] { $x }; def bar [] { let $x = 10; foo }; bar",
-        "Variable not found",
-    )
+fn no_scope_leak2() -> Result {
+    let err = test()
+        .run("def foo [] { $x }; def bar [] { let $x = 10; foo }; bar")
+        .expect_parse_error()?;
+    assert_matches!(err, ParseError::VariableNotFound(_, _));
+    Ok(())
 }
 
 #[test]
-fn no_scope_leak3() -> TestResult {
-    run_test(
-        "def foo [$x] { $x }; def bar [] { let $x = 10; foo 20}; bar",
-        "20",
-    )
+fn no_scope_leak3() -> Result {
+    test()
+        .run("def foo [$x] { $x }; def bar [] { let $x = 10; foo 20}; bar")
+        .expect_value_eq(20)
 }
 
 #[test]
-fn no_scope_leak4() -> TestResult {
-    run_test(
-        "def foo [$x] { $x }; def bar [] { let $x = 10; (foo 20) + $x}; bar",
-        "30",
-    )
+fn no_scope_leak4() -> Result {
+    test()
+        .run("def foo [$x] { $x }; def bar [] { let $x = 10; (foo 20) + $x}; bar")
+        .expect_value_eq(30)
 }
 
 #[test]
-fn custom_rest_var() -> TestResult {
-    run_test("def foo [...x] { $x.0 + $x.1 }; foo 10 80", "90")
+fn custom_rest_var() -> Result {
+    test()
+        .run("def foo [...x] { $x.0 + $x.1 }; foo 10 80")
+        .expect_value_eq(90)
 }
 
 #[test]
-fn def_twice_should_fail() -> TestResult {
-    fail_test(
-        r#"def foo [] { "foo" }; def foo [] { "bar" }"#,
-        "defined more than once",
-    )
+fn def_twice_should_fail() -> Result {
+    let err = test()
+        .run(r#"def foo [] { "foo" }; def foo [] { "bar" }"#)
+        .expect_parse_error()?;
+    assert_matches!(err, ParseError::DuplicateCommandDef(_));
+    Ok(())
 }
 
 #[test]
-fn missing_parameters() -> TestResult {
-    fail_test("def foo {}", "expected [ or (")
+fn missing_parameters() -> Result {
+    let err = test().run("def foo {}").expect_parse_error()?;
+    assert_matches!(err, ParseError::Expected("[ or (", _));
+    Ok(())
 }
 
 #[test]
-fn flag_param_value() -> TestResult {
-    run_test("def foo [--bob: int] { $bob + 100 }; foo --bob 55", "155")
+fn flag_param_value() -> Result {
+    test()
+        .run("def foo [--bob: int] { $bob + 100 }; foo --bob 55")
+        .expect_value_eq(155)
 }
 
 #[test]
-fn do_rest_args() -> TestResult {
-    run_test("(do { |...rest| $rest } 1 2).1 + 10", "12")
+fn do_rest_args() -> Result {
+    test()
+        .run("(do { |...rest| $rest } 1 2).1 + 10")
+        .expect_value_eq(12)
 }
 
 #[test]
-fn custom_switch1() -> TestResult {
-    run_test(
-        r#"def florb [ --dry-run ] { if ($dry_run) { "foo" } else { "bar" } }; florb --dry-run"#,
-        "foo",
-    )
+fn custom_switch1() -> Result {
+    test()
+        .run(r#"def florb [ --dry-run ] { if ($dry_run) { "foo" } else { "bar" } }; florb --dry-run"#)
+        .expect_value_eq("foo")
 }
 
 #[rstest]
@@ -79,285 +89,315 @@ fn custom_flag_with_type_checking(
         ("record<i: int>", "{i: \"\"}"),
         ("list<int>", "[\"\"]")
     )]
-    type_sig_value: (&str, &str),
+    (type_sig, value): (&str, &str),
     #[values("--dry-run", "-d")] flag: &str,
-) -> TestResult {
-    let (type_sig, value) = type_sig_value;
+) -> Result {
+    let code = format! {"
+        def florb [{flag}: {type_sig}] {{}}
+        let y = {value}
+        florb {flag} $y
+    "};
 
-    fail_test(
-        &format!("def florb [{flag}: {type_sig}] {{}}; let y = {value}; florb {flag} $y"),
-        "type_mismatch",
-    )
+    test()
+        .run(code)
+        .expect_error_code_eq("nu::parser::type_mismatch")
 }
 
 #[test]
-fn custom_switch2() -> TestResult {
-    run_test(
-        r#"def florb [ --dry-run ] { if ($dry_run) { "foo" } else { "bar" } }; florb"#,
-        "bar",
-    )
+fn custom_switch2() -> Result {
+    test()
+        .run(r#"def florb [ --dry-run ] { if ($dry_run) { "foo" } else { "bar" } }; florb"#)
+        .expect_value_eq("bar")
 }
 
 #[test]
-fn custom_switch3() -> TestResult {
-    run_test(
-        "def florb [ --dry-run ] { $dry_run }; florb --dry-run=false",
-        "false",
-    )
+fn custom_switch3() -> Result {
+    test()
+        .run("def florb [ --dry-run ] { $dry_run }; florb --dry-run=false")
+        .expect_value_eq(false)
 }
 
 #[test]
-fn custom_switch4() -> TestResult {
-    run_test(
-        "def florb [ --dry-run ] { $dry_run }; florb --dry-run=true",
-        "true",
-    )
+fn custom_switch4() -> Result {
+    test()
+        .run("def florb [ --dry-run ] { $dry_run }; florb --dry-run=true")
+        .expect_value_eq(true)
 }
 
 #[test]
-fn custom_switch5() -> TestResult {
-    run_test("def florb [ --dry-run ] { $dry_run }; florb", "false")
+fn custom_switch5() -> Result {
+    test()
+        .run("def florb [ --dry-run ] { $dry_run }; florb")
+        .expect_value_eq(false)
 }
 
 #[test]
-fn custom_switch6() -> TestResult {
-    run_test(
-        "def florb [ --dry-run ] { $dry_run }; florb --dry-run",
-        "true",
-    )
+fn custom_switch6() -> Result {
+    test()
+        .run("def florb [ --dry-run ] { $dry_run }; florb --dry-run")
+        .expect_value_eq(true)
 }
 
 #[test]
-fn custom_flag1() -> TestResult {
-    run_test(
-        r#"def florb [
+fn custom_flag1() -> Result {
+    let code = r#"
+        def florb [
             --age: int = 0
             --name = "foobar"
         ] {
             ($age | into string) + $name
         }
-        florb"#,
-        "0foobar",
-    )
+
+        florb
+    "#;
+
+    test().run(code).expect_value_eq("0foobar")
 }
 
 #[test]
-fn custom_flag2() -> TestResult {
-    run_test(
-        r#"def florb [
+fn custom_flag2() -> Result {
+    let code = r#"
+        def florb [
             --age: int
             --name = "foobar"
         ] {
             ($age | into string) + $name
         }
-        florb --age 3"#,
-        "3foobar",
-    )
+        
+        florb --age 3
+    "#;
+
+    test().run(code).expect_value_eq("3foobar")
 }
 
 #[test]
-fn deprecated_boolean_flag() {
-    let actual = nu!(r#"def florb [--dry-run: bool, --another-flag] { "aaa" };  florb"#);
-    assert!(actual.err.contains("not allowed"));
+fn deprecated_boolean_flag() -> Result {
+    let err = test()
+        .run(r#"def florb [--dry-run: bool, --another-flag] { "aaa" };  florb"#)
+        .expect_parse_error()?;
+    assert_contains("not allowed", std::dbg!(err).to_string());
+    Ok(())
 }
 
 #[test]
-fn simple_var_closing() -> TestResult {
-    run_test("let $x = 10; def foo [] { $x }; foo", "10")
+fn simple_var_closing() -> Result {
+    test()
+        .run("let $x = 10; def foo [] { $x }; foo")
+        .expect_value_eq(10)
 }
 
 #[test]
-fn predecl_check() -> TestResult {
-    run_test("def bob [] { sam }; def sam [] { 3 }; bob", "3")
+fn predecl_check() -> Result {
+    test()
+        .run("def bob [] { sam }; def sam [] { 3 }; bob")
+        .expect_value_eq(3)
 }
 
 #[test]
-fn def_with_no_dollar() -> TestResult {
-    run_test("def bob [x] { $x + 3 }; bob 4", "7")
+fn def_with_no_dollar() -> Result {
+    test()
+        .run("def bob [x] { $x + 3 }; bob 4")
+        .expect_value_eq(7)
 }
 
 #[test]
-fn allow_missing_optional_params() -> TestResult {
-    run_test(
-        "def foo [x?:int] { if $x != null { $x + 10 } else { 5 } }; foo",
-        "5",
-    )
+fn allow_missing_optional_params() -> Result {
+    test()
+        .run("def foo [x?:int] { if $x != null { $x + 10 } else { 5 } }; foo")
+        .expect_value_eq(5)
 }
 
 #[test]
-fn help_present_in_def() -> TestResult {
-    run_test_contains(
-        "def foo [] {}; help foo;",
-        "Display the help message for this command",
-    )
+fn help_present_in_def() -> Result {
+    let actual: String = test().run("def foo [] {}; help foo")?;
+    assert_contains("Display the help message for this command", actual);
+    Ok(())
 }
 
 #[test]
-fn help_not_present_in_extern() -> TestResult {
-    run_test(
-        r#"
-            module test {export extern "git fetch" []};
-            use test `git fetch`;
-            help git fetch | find help | to text | ansi strip
-        "#,
-        "",
-    )
+fn help_not_present_in_extern() -> Result {
+    let code = r#"
+        module test {export extern "git fetch" []};
+        use test `git fetch`;
+        help git fetch | find help | to text | ansi strip
+    "#;
+
+    test().run(code).expect_value_eq("")
 }
 
 #[test]
-fn override_table() -> TestResult {
-    run_test(r#"def table [-e] { "hi" }; table"#, "hi")
+fn override_table() -> Result {
+    test()
+        .run(r#"def table [-e] { "hi" }; table"#)
+        .expect_value_eq("hi")
 }
 
 #[test]
-fn override_table_eval_file() {
-    let actual = nu!(r#"def table [-e] { "hi" }; table"#);
-    assert_eq!(actual.out, "hi");
-}
-
-// This test is disabled on Windows because they cause a stack overflow in CI (but not locally!).
-// For reasons we don't understand, the Windows CI runners are prone to stack overflow.
-// TODO: investigate so we can enable on Windows
-#[cfg(not(target_os = "windows"))]
-#[test]
-fn infinite_recursion_does_not_panic() {
-    let actual = nu!("
-            def bang [] { bang }; bang
-        ");
-    assert!(actual.err.contains("Recursion limit (50) reached"));
-}
-
-// This test is disabled on Windows because they cause a stack overflow in CI (but not locally!).
-// For reasons we don't understand, the Windows CI runners are prone to stack overflow.
-// TODO: investigate so we can enable on Windows
-#[cfg(not(target_os = "windows"))]
-#[test]
-fn infinite_mutual_recursion_does_not_panic() {
-    let actual = nu!("
-            def bang [] { def boom [] { bang }; boom }; bang
-        ");
-    assert!(actual.err.contains("Recursion limit (50) reached"));
+fn override_table_eval_file() -> Result {
+    test()
+        .run(r#"def table [-e] { "hi" }; table"#)
+        .expect_value_eq("hi")
 }
 
 #[test]
-fn type_check_for_during_eval() -> TestResult {
-    fail_test(
-        "def spam [foo: string] { $foo | describe }; def outer [--foo: string] { spam $foo }; outer",
-        "can't convert nothing to string",
-    )
-}
-#[test]
-fn type_check_for_during_eval2() -> TestResult {
-    fail_test(
-        "def spam [foo: string] { $foo | describe }; def outer [--foo: any] { spam $foo }; outer",
-        "can't convert nothing to string",
-    )
-}
-
-#[test]
-fn empty_list_matches_list_type() -> TestResult {
-    let _ = run_test(
-        "def spam [foo: list<int>] { echo $foo }; spam [] | length",
-        "0",
+fn infinite_recursion_does_not_panic() -> Result {
+    let mut tester = test();
+    let config = Arc::make_mut(&mut tester.engine_state.config);
+    config.recursion_limit = 5;
+    let err = tester
+        .run("def bang [] { bang }; bang")
+        .expect_shell_error()?;
+    assert_matches!(
+        err,
+        ShellError::RecursionLimitReached {
+            recursion_limit: 5,
+            ..
+        }
     );
-    run_test(
-        "def spam [foo: list<string>] { echo $foo }; spam [] | length",
-        "0",
-    )
+    Ok(())
 }
 
 #[test]
-fn path_argument_dont_auto_expand_if_single_quoted() -> TestResult {
-    run_test("def spam [foo: path] { echo $foo }; spam '~/aa'", "~/aa")
-}
-
-#[test]
-fn path_argument_dont_auto_expand_if_double_quoted() -> TestResult {
-    run_test(r#"def spam [foo: path] { echo $foo }; spam "~/aa""#, "~/aa")
-}
-
-#[test]
-fn path_argument_dont_make_absolute_if_unquoted() -> TestResult {
-    #[cfg(windows)]
-    let expected = "..\\bar";
-    #[cfg(not(windows))]
-    let expected = "../bar";
-    run_test(
-        "def spam [foo: path] { echo $foo }; spam foo/.../bar",
-        expected,
-    )
-}
-
-#[test]
-fn dont_allow_implicit_casting_between_glob_and_string() -> TestResult {
-    let _ = fail_test(
-        "def spam [foo: string] { echo $foo }; let f: glob = 'aa'; spam $f",
-        "expected string, found glob",
+fn infinite_mutual_recursion_does_not_panic() -> Result {
+    let mut tester = test();
+    let config = Arc::make_mut(&mut tester.engine_state.config);
+    config.recursion_limit = 5;
+    let err = tester
+        .run("def bang [] { def boom [] { bang }; boom }; bang")
+        .expect_shell_error()?;
+    assert_matches!(
+        err,
+        ShellError::RecursionLimitReached {
+            recursion_limit: 5,
+            ..
+        }
     );
-    run_test(
-        "def spam [foo: glob] { echo $foo }; let f = 'aa'; spam $f",
-        "aa",
-    )
+    Ok(())
 }
 
 #[test]
-fn allow_pass_negative_float() -> TestResult {
-    run_test("def spam [val: float] { $val }; spam -1.4", "-1.4")?;
-    run_test("def spam [val: float] { $val }; spam -2", "-2.0")
+fn type_check_for_during_eval() -> Result {
+    let err = test()
+        .run("def spam [foo: string] { $foo | describe }; def outer [--foo: string] { spam $foo }; outer")
+        .expect_shell_error()?;
+    assert_matches!(
+        err,
+        ShellError::CantConvert { to_type, from_type, .. }
+            if to_type == "string" && from_type == "nothing"
+    );
+    Ok(())
+}
+#[test]
+fn type_check_for_during_eval2() -> Result {
+    let err = test()
+        .run("def spam [foo: string] { $foo | describe }; def outer [--foo: any] { spam $foo }; outer")
+        .expect_shell_error()?;
+    assert_matches!(
+        err,
+        ShellError::CantConvert { to_type, from_type, .. }
+            if to_type == "string" && from_type == "nothing"
+    );
+    Ok(())
 }
 
 #[test]
-fn glob_bare_word_with_interpolation() -> TestResult {
-    run_test(
-        "def spam [foo: glob] { $foo | describe }; let var = 'val'; spam ~/($var)/test",
-        "glob",
-    )?;
-    run_test(
-        "def spam [--foo: glob] { $foo | describe }; let var = 'val'; spam --foo ~/($var)",
-        "glob",
-    )?;
-    run_test(
-        "def spam [foo: glob] { $foo | describe }; let var = 'val'; spam ($var)/test",
-        "glob",
-    )
+fn empty_list_matches_list_type() -> Result {
+    test()
+        .run("def spam [foo: list<int>] { echo $foo }; spam [] | length")
+        .expect_value_eq(0)?;
+    test()
+        .run("def spam [foo: list<string>] { echo $foo }; spam [] | length")
+        .expect_value_eq(0)
 }
 
 #[test]
-fn glob_string_interpolation() -> TestResult {
-    run_test(
-        "def spam [--foo: glob] { $foo | describe }; let var = 'val'; spam --foo $\"/path/($var)\"",
-        "glob",
-    )
+fn path_argument_dont_auto_expand_if_single_quoted() -> Result {
+    test()
+        .run("def spam [foo: path] { echo $foo }; spam '~/aa'")
+        .expect_value_eq("~/aa")
 }
 
 #[test]
-fn glob_no_interpolation() -> TestResult {
-    run_test(
-        "def spam [foo: glob] { $foo | describe }; spam *.nu",
-        "glob",
-    )?;
-    run_test(
-        "def spam [--foo: glob] { $foo | describe }; spam --foo '*.nu'",
-        "glob",
-    )?;
-    run_test(
-        "def spam [foo: glob] { $foo | describe }; spam `*.nu`",
-        "glob",
-    )
+fn path_argument_dont_auto_expand_if_double_quoted() -> Result {
+    test()
+        .run(r#"def spam [foo: path] { echo $foo }; spam "~/aa""#)
+        .expect_value_eq("~/aa")
 }
 
 #[test]
-fn glob_literal_string_interpolation() -> TestResult {
-    run_test(
-        "def spam [foo: glob] { $foo }; spam $\"/path/to/file\"",
-        "/path/to/file",
-    )
+fn path_argument_dont_make_absolute_if_unquoted() -> Result {
+    test()
+        .run("def spam [foo: path] { echo $foo }; spam foo/.../bar")
+        .expect_value_eq(cfg_select! {
+            windows => "..\\bar",
+            _ => "../bar",
+        })
 }
 
 #[test]
-fn glob_literal_string_interpolation_with_metachars() -> TestResult {
-    run_test(
-        "def spam [foo: glob] { $foo }; spam $\"/path/[foo]*.txt\"",
-        "/path/[foo]*.txt",
-    )
+fn dont_allow_implicit_casting_between_glob_and_string() -> Result {
+    let err = test()
+        .run("def spam [foo: string] { echo $foo }; let f: glob = 'aa'; spam $f")
+        .expect_parse_error()?;
+    assert_matches!(err, ParseError::TypeMismatch(Type::String, Type::Glob, _));
+    test()
+        .run("def spam [foo: glob] { echo $foo }; let f = 'aa'; spam $f")
+        .expect_value_eq("aa")
+}
+
+#[test]
+fn allow_pass_negative_float() -> Result {
+    test()
+        .run("def spam [val: float] { $val }; spam -1.4")
+        .expect_value_eq(-1.4)?;
+    test()
+        .run("def spam [val: float] { $val }; spam -2")
+        .expect_value_eq(-2.0)
+}
+
+#[test]
+fn glob_bare_word_with_interpolation() -> Result {
+    test()
+        .run("def spam [foo: glob] { $foo | describe }; let var = 'val'; spam ~/($var)/test")
+        .expect_value_eq("glob")?;
+    test()
+        .run("def spam [--foo: glob] { $foo | describe }; let var = 'val'; spam --foo ~/($var)")
+        .expect_value_eq("glob")?;
+    test()
+        .run("def spam [foo: glob] { $foo | describe }; let var = 'val'; spam ($var)/test")
+        .expect_value_eq("glob")
+}
+
+#[test]
+fn glob_string_interpolation() -> Result {
+    test()
+        .run("def spam [--foo: glob] { $foo | describe }; let var = 'val'; spam --foo $\"/path/($var)\"")
+        .expect_value_eq("glob")
+}
+
+#[test]
+fn glob_no_interpolation() -> Result {
+    test()
+        .run("def spam [foo: glob] { $foo | describe }; spam *.nu")
+        .expect_value_eq("glob")?;
+    test()
+        .run("def spam [--foo: glob] { $foo | describe }; spam --foo '*.nu'")
+        .expect_value_eq("glob")?;
+    test()
+        .run("def spam [foo: glob] { $foo | describe }; spam `*.nu`")
+        .expect_value_eq("glob")
+}
+
+#[test]
+fn glob_literal_string_interpolation() -> Result {
+    test()
+        .run("def spam [foo: glob] { $foo }; spam $\"/path/to/file\"")
+        .expect_value_eq("/path/to/file")
+}
+
+#[test]
+fn glob_literal_string_interpolation_with_metachars() -> Result {
+    test()
+        .run("def spam [foo: glob] { $foo }; spam $\"/path/[foo]*.txt\"")
+        .expect_value_eq("/path/[foo]*.txt")
 }
