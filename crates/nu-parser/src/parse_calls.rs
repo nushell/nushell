@@ -90,11 +90,7 @@ pub(crate) fn check_call(
         return CallKind::Invalid;
     } else {
         // Spreads may supply required named flags at runtime (`...{flag: val}` / `...$flags`).
-        // Defer to runtime when any spread is present rather than static-analyzing records.
-        let has_spread = call
-            .arguments
-            .iter()
-            .any(|arg| matches!(arg, Argument::Spread(_)));
+        // Defer to the command rather than parse-erroring when any spread is present.
         if !has_spread {
             for req_flag in sig.named.iter().filter(|x| x.required) {
                 if call.named_iter().all(|(n, _, _)| n.item != req_flag.long) {

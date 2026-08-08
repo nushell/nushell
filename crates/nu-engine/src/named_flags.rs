@@ -1,5 +1,5 @@
 //! Helpers for signature-aware named flag handling (null omit/pass-through and
-//! long-key record flag spreads). Shared by IR and AST evaluation paths.
+//! record flag spreads). Shared by IR and AST evaluation paths.
 
 use std::sync::Arc;
 
@@ -9,6 +9,8 @@ use nu_protocol::{
 };
 
 /// Whether a named flag's value type accepts `nothing`/`null`.
+///
+/// Thin wrapper around [`Flag::type_accepts_nothing`] for local call sites.
 #[inline]
 pub(crate) fn flag_type_accepts_nothing(flag: &Flag) -> bool {
     flag.type_accepts_nothing()
@@ -29,18 +31,20 @@ pub(crate) fn find_signature_flag<'a>(
     })
 }
 
-/// Build the packed long+short name buffer used by engine [`Argument`]s.
 pub(crate) fn data_from_name_and_short(
     name: &str,
     short: &str,
 ) -> (Arc<[u8]>, DataSlice, DataSlice) {
     let data: Vec<u8> = name.bytes().chain(short.bytes()).collect();
     let data: Arc<[u8]> = data.into();
-    // Flag names are parser identifiers — never near u32::MAX.
-    #[allow(clippy::cast_possible_truncation)]
-    let name_len = name.len() as u32;
-    #[allow(clippy::cast_possible_truncation)]
-    let short_len = short.len() as u32;
+    let name_len: u32 = name
+        .len()
+        .try_into()
+        .expect("flag long name length fits u32");
+    let short_len: u32 = short
+        .len()
+        .try_into()
+        .expect("flag short name length fits u32");
     let name = DataSlice {
         start: 0,
         len: name_len,
@@ -54,10 +58,9 @@ pub(crate) fn data_from_name_and_short(
 
 /// Expand a record into named/flag arguments for a call.
 ///
-/// - Record keys match **long** flag names only (`--flag` form).
-/// - Unknown keys error.
-/// - `null` field values: passed through if the flag type accepts `nothing`, otherwise omitted.
-/// - Switch flags: `true` sets the flag; `false`/`null` omit.
+/// - `null` field values: passed through if the flag type accepts `nothing`, otherwise omitted
+/// - switch flags (`--flag` with no value): `true` sets the flag, `false`/`null` omit it
+/// - valued flags: non-null values become `--name value` (type-checked against the signature)
 pub(crate) fn expand_flag_record(
     signature: &Signature,
     record: Record,
@@ -83,6 +86,7 @@ pub(crate) fn expand_flag_record(
         let (data, name_slice, short_slice) = data_from_name_and_short(&flag.long, &short);
 
         if flag.arg.is_none() {
+            // Switch: only `true` sets the flag; `false`/`null` omit (like `--flag=false`).
             match val {
                 Value::Bool { val: true, .. } => {
                     out.push(Argument::Flag {
@@ -104,7 +108,7 @@ pub(crate) fn expand_flag_record(
                     });
                 }
             }
-        } else if val.is_nothing() && !flag.type_accepts_nothing() {
+        } else if val.is_nothing() && !flag_type_accepts_nothing(&flag) {
             // Null → omit when the flag type does not accept nothing.
         } else {
             if !val.is_nothing()
@@ -141,6 +145,9 @@ pub(crate) fn can_rest_spread(signature: &Signature) -> bool {
 }
 
 /// Error when a list (or null rest-mode) is spread while required positionals remain unbound.
+///
+/// Dual-purpose commands accept both flag records and rest lists via `...$x`. Spreading a list
+/// before required positionals are filled would leave them unbound (list items go to rest).
 pub(crate) fn list_spread_before_required_error(spread_span: Span) -> ShellError {
     ShellError::Generic(GenericError::new(
         "Cannot spread a list before required positional arguments are provided",
@@ -150,6 +157,9 @@ pub(crate) fn list_spread_before_required_error(spread_span: Span) -> ShellError
 }
 
 /// Apply signature-aware null handling and expand record spreads for engine [`Argument`]s.
+///
+/// List spreads are rejected when the command has no rest parameter (and does not allow
+/// unknown args), so `...$list` cannot be silently dropped on named-only commands.
 pub(crate) fn normalize_engine_arguments(
     signature: &Signature,
     args: Vec<Argument>,
@@ -163,7 +173,7 @@ pub(crate) fn normalize_engine_arguments(
                 name,
                 short,
                 span,
-                val: val @ Value::Nothing { .. },
+                val: Value::Nothing { .. },
                 ast,
             } => {
                 let accepts = find_signature_flag(signature, &data[name], &data[short])
@@ -174,7 +184,7 @@ pub(crate) fn normalize_engine_arguments(
                         name,
                         short,
                         span,
-                        val,
+                        val: Value::nothing(span),
                         ast,
                     });
                 }

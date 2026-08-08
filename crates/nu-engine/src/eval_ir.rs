@@ -1607,7 +1607,7 @@ fn gather_arguments(
                 }
                 Value::Nothing { .. } => {
                     // Same rule as list spreads: null rest-mode before required positionals
-                    // would leave them unbound (IR would bind `nothing` then rest-only after).
+                    // would leave them unbound.
                     if remaining_required > 0 && !always_spread {
                         return Err(crate::named_flags::list_spread_before_required_error(
                             spread_span,

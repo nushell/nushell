@@ -1,8 +1,6 @@
 #[allow(deprecated)]
 use crate::get_full_help;
-use crate::named_flags::{
-    expand_flag_record, flag_type_accepts_nothing, list_spread_before_required_error,
-};
+use crate::named_flags::{expand_flag_record, flag_type_accepts_nothing};
 use crate::{EvalBlockWithEarlyReturnFn, eval_ir::eval_ir_block};
 use nu_protocol::{
     BlockId, CompareTypes, Config, ENV_VARIABLE_ID, IntoPipelineData, PipelineData,
@@ -38,11 +36,8 @@ pub struct CallEval {
     head_span: Span,
     callee_span: Span,
     arg_index: usize,
-    /// Provided named flags, tracked by `var_id` so short-only flags (empty long name) do not collide.
-    provided_named_var_ids: Vec<VarId>,
+    named_args: Vec<String>,
     rest_args: Vec<Value>,
-    /// After a list/null rest spread, further positionals go to rest (matches IR `always_spread`).
-    always_spread: bool,
     eval: EvalBlockWithEarlyReturnFn,
 }
 
@@ -59,9 +54,8 @@ impl CallEval {
             head_span: call_head,
             callee_span,
             arg_index: 0,
-            provided_named_var_ids: Vec::new(),
+            named_args: Vec::new(),
             rest_args: Vec::new(),
-            always_spread: false,
             eval,
         }
     }
@@ -75,11 +69,6 @@ impl CallEval {
         signature: &Signature,
         value: Cow<Value>,
     ) -> Result<&mut Self, ShellError> {
-        // After a rest spread, further positionals always go to rest (IR parity).
-        if self.always_spread {
-            return self.push_rest(signature, value);
-        }
-
         let maybe_param = match self
             .arg_index
             .checked_sub(signature.required_positional.len())
@@ -112,68 +101,27 @@ impl CallEval {
             self.arg_index += 1;
             Ok(self)
         } else {
-            self.push_rest(signature, value)
-        }
-    }
+            // assign arg to rest params
+            let Some(rest_positional) = &signature.rest_positional else {
+                // We do not consider it an error if more arguments
+                // are added than the closure takes. This makes it possible
+                // to omit any unused arguments in the closure definition.
+                return Ok(self);
+            };
 
-    fn push_rest(
-        &mut self,
-        signature: &Signature,
-        value: Cow<Value>,
-    ) -> Result<&mut Self, ShellError> {
-        let Some(rest_positional) = &signature.rest_positional else {
-            // We do not consider it an error if more arguments
-            // are added than the closure takes. This makes it possible
-            // to omit any unused arguments in the closure definition.
-            return Ok(self);
-        };
+            let param_type = rest_positional.shape.to_type();
+            if !value.is_subtype_of(&param_type) {
+                return Err(ShellError::CantConvert {
+                    to_type: param_type.to_string(),
+                    from_type: value.get_type().to_string(),
+                    span: value.span(),
+                    help: None,
+                });
+            }
 
-        let param_type = rest_positional.shape.to_type();
-        if !value.is_subtype_of(&param_type) {
-            return Err(ShellError::CantConvert {
-                to_type: param_type.to_string(),
-                from_type: value.get_type().to_string(),
-                span: value.span(),
-                help: None,
-            });
+            self.rest_args.push(value.into_owned());
+            Ok(self)
         }
-
-        self.rest_args.push(value.into_owned());
-        Ok(self)
-    }
-
-    /// Spread a list into rest arguments (IR parity: does not fill positionals).
-    ///
-    /// Errors if required positionals are still unbound.
-    pub fn add_list_spread(
-        &mut self,
-        signature: &Signature,
-        vals: Vec<Value>,
-        spread_span: Span,
-    ) -> Result<&mut Self, ShellError> {
-        if self.arg_index < signature.required_positional.len() && !self.always_spread {
-            return Err(list_spread_before_required_error(spread_span));
-        }
-        for v in vals {
-            self.push_rest(signature, Cow::Owned(v))?;
-        }
-        self.always_spread = true;
-        Ok(self)
-    }
-
-    /// Mark rest mode without adding values (null list spread; IR `always_spread` parity).
-    ///
-    /// Errors if required positionals are still unbound (same rule as list spreads).
-    pub fn add_null_spread(
-        &mut self,
-        signature: &Signature,
-        spread_span: Span,
-    ) -> Result<&mut Self, ShellError> {
-        if self.arg_index < signature.required_positional.len() && !self.always_spread {
-            return Err(list_spread_before_required_error(spread_span));
-        }
-        self.always_spread = true;
-        Ok(self)
     }
 
     /// Add a named parameter to the call stack.
@@ -184,9 +132,8 @@ impl CallEval {
         short: Option<String>,
         value: Option<Cow<Value>>,
     ) -> Result<&mut Self, ShellError> {
-        // Match non-empty long first; never match empty long against short-only flags by name alone.
         let named = signature.named.iter().find(|named| {
-            (!long.is_empty() && long == named.long)
+            long == named.long
                 || short
                     .as_deref()
                     .zip(named.short)
@@ -206,7 +153,7 @@ impl CallEval {
                 .unwrap_or_else(|| Cow::Owned(Value::bool(true, self.head_span)));
 
             self.callee_stack.add_var(var_id, value.into_owned());
-            self.provided_named_var_ids.push(var_id);
+            self.named_args.push(long.to_string());
         }
 
         Ok(self)
@@ -323,12 +270,8 @@ impl CallEval {
         let remaining_flags = signature
             .named
             .iter()
-            // Skip provided flags (by var_id so short-only flags work)
-            .filter(|flag| {
-                !flag
-                    .var_id
-                    .is_some_and(|id| self.provided_named_var_ids.contains(&id))
-            })
+            // Skip provided flags
+            .filter(|flag| !self.named_args.contains(&flag.long))
             // Ignore named arguments without var_id.
             // There is some code in nu_cli::completions that relies on this behavior of `eval_call`.
             .filter_map(|flag| Some((flag.var_id?, flag)));
@@ -404,6 +347,12 @@ pub fn eval_call<D: DebugContext>(
                         if value.is_nothing() {
                             let accepts_nothing = signature
                                 .get_long_flag(&long.item)
+                                .or_else(|| {
+                                    short
+                                        .as_ref()
+                                        .and_then(|s| s.item.chars().next())
+                                        .and_then(|c| signature.get_short_flag(c))
+                                })
                                 .is_some_and(|flag| flag_type_accepts_nothing(&flag));
                             if !accepts_nothing {
                                 continue;
@@ -420,8 +369,6 @@ pub fn eval_call<D: DebugContext>(
                         result,
                     )?;
                 }
-                // Light AST support: expand long-key record flag spreads; rest list/null spreads.
-                // Builtins/plugins use the IR path (normalize_engine_arguments) in normal scripts.
                 AstArgument::Spread(expr) => {
                     let val = eval_expression::<D>(engine_state, caller_stack, expr)?;
                     match val {
@@ -430,34 +377,20 @@ pub fn eval_call<D: DebugContext>(
                                 expand_flag_record(&signature, val.into_owned(), expr.span)?
                             {
                                 match engine_arg {
-                                    EngineArgument::Flag {
-                                        data, name, short, ..
-                                    } => {
+                                    EngineArgument::Flag { data, name, .. } => {
                                         let long =
                                             std::str::from_utf8(&data[name]).unwrap_or_default();
-                                        let short_str =
-                                            std::str::from_utf8(&data[short]).unwrap_or_default();
-                                        let short =
-                                            (!short_str.is_empty()).then(|| short_str.to_string());
-                                        call_eval.add_named(&signature, long, short, None)?;
+                                        call_eval.add_named(&signature, long, None, None)?;
                                     }
                                     EngineArgument::Named {
-                                        data,
-                                        name,
-                                        short,
-                                        val,
-                                        ..
+                                        data, name, val, ..
                                     } => {
                                         let long =
                                             std::str::from_utf8(&data[name]).unwrap_or_default();
-                                        let short_str =
-                                            std::str::from_utf8(&data[short]).unwrap_or_default();
-                                        let short =
-                                            (!short_str.is_empty()).then(|| short_str.to_string());
                                         call_eval.add_named(
                                             &signature,
                                             long,
-                                            short,
+                                            None,
                                             Some(Cow::Owned(val)),
                                         )?;
                                     }
@@ -474,12 +407,11 @@ pub fn eval_call<D: DebugContext>(
                                     expr.span,
                                 )));
                             }
-                            call_eval.add_list_spread(&signature, vals.into_owned(), expr.span)?;
+                            for v in vals {
+                                call_eval.add_positional(&signature, Cow::Owned(v))?;
+                            }
                         }
-                        Value::Nothing { .. } => {
-                            call_eval.add_null_spread(&signature, expr.span)?;
-                        }
-                        Value::Error { error, .. } => return Err(*error),
+                        Value::Nothing { .. } => {}
                         other => {
                             return Err(ShellError::CannotSpreadAsList { span: other.span() });
                         }
@@ -496,7 +428,10 @@ pub fn eval_call<D: DebugContext>(
 
         result
     } else {
-        // Builtin or external: IR evaluation path normalizes flags/spreads for normal scripts.
+        // call is a builtin or external command
+        // We pass caller_stack here with the knowledge that internal commands
+        // are going to be specifically looking for global state in the stack
+        // rather than any local state.
         decl.run(engine_state, caller_stack, &call.into(), input)
     }
 }

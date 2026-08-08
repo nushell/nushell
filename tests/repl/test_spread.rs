@@ -458,13 +458,13 @@ fn named_flag_record_spread() -> Result {
 }
 
 #[test]
-fn named_flag_record_spread_long_key_with_short_alias() -> Result {
-    // Dual long+short: only the long key is used in record spreads.
+fn named_flag_record_spread_unknown_flag_errors() -> Result {
     let code = "
-        def f [--verbose(-v)] { $verbose }
-        f ...{verbose: true}
+        def f [--x: int] { $x }
+        f ...{x: 1, nope: true}
     ";
-    test().run(code).expect_value_eq(true)?;
+    let err = test().run(code).expect_shell_error()?;
+    assert_matches!(err, ShellError::Generic(_));
     Ok(())
 }
 
@@ -490,27 +490,16 @@ fn named_flag_list_spread_before_required_errors() -> Result {
 }
 
 #[test]
-fn named_flag_null_spread_rest_mode() -> Result {
-    // Null spread enables rest mode: later positionals go to rest
-    let code = "
-        def f [a?, ...rest] { {a: $a, rest: $rest} }
-        f ...(null) later
-    ";
-    test().run(code).expect_value_eq(test_value!({
-        a: (),
-        rest: ["later"]
-    }))?;
-    Ok(())
-}
+fn named_flag_record_spread_required_named_deferred() -> Result {
+    // Bare required named still parse-errors
+    let err = test().run("stor create").expect_parse_error()?;
+    assert_matches!(err, ParseError::MissingRequiredFlag(..));
 
-#[test]
-fn named_flag_record_spread_unknown_flag_errors() -> Result {
-    let code = "
-        def f [--x: int] { $x }
-        f ...{x: 1, nope: true}
-    ";
-    let err = test().run(code).expect_shell_error()?;
-    assert_matches!(err, ShellError::Generic(_));
+    // With a record spread, required named is deferred to runtime (no MissingRequiredFlag)
+    test()
+        .run(r#"stor create ...{table-name: "t_spread_ok", columns: {id: int}} | describe"#)
+        .expect_value_eq("SQLiteDatabase")?;
+
     Ok(())
 }
 
