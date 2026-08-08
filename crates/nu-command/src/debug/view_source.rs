@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{Config, PipelineMetadata, Span, shell_error::generic::GenericError};
+use nu_protocol::{Config, DeclId, PipelineMetadata, Span, shell_error::generic::GenericError};
 
 use std::fmt::Write;
 
@@ -111,12 +111,6 @@ impl Command for ViewSource {
                 if let Some(decl_id) = engine_state.find_decl(val.as_bytes(), &[]) {
                     // arg is a command
                     let decl = engine_state.get_decl(decl_id);
-                    let sig = decl.signature();
-                    let vec_of_required = &sig.required_positional;
-                    let vec_of_optional = &sig.optional_positional;
-                    let rest = &sig.rest_positional;
-                    let vec_of_flags = &sig.named;
-                    let type_signatures = &sig.input_output_types;
 
                     if decl.is_alias() {
                         if let Some(alias) = &decl.as_alias() {
@@ -140,98 +134,9 @@ impl Command for ViewSource {
                         }
                     }
                     // gets vector of positionals.
-                    else if let Some(block_id) = decl.block_id() {
-                        let block = engine_state.get_block(block_id);
-                        if let Some(block_span) = block.span {
-                            let contents = engine_state.get_span_contents(block_span);
-                            // name of function
-                            let mut final_contents = String::new();
-                            // Collect def flags based on block and signature properties
-                            let flags: Vec<&str> = [
-                                block.redirect_env.then_some("--env"),
-                                sig.allows_unknown_args.then_some("--wrapped"),
-                            ]
-                            .into_iter()
-                            .flatten()
-                            .collect();
-                            let flags_str = if flags.is_empty() {
-                                String::new()
-                            } else {
-                                format!("{} ", flags.join(" "))
-                            };
-                            if val.contains(' ') {
-                                let _ = write!(&mut final_contents, "def {flags_str}\"{val}\" [");
-                            } else {
-                                let _ = write!(&mut final_contents, "def {flags_str}{val} [");
-                            };
-                            if !vec_of_required.is_empty()
-                                || !vec_of_optional.is_empty()
-                                || vec_of_flags.len() != 1
-                                || rest.is_some()
-                            {
-                                final_contents.push(' ');
-                            }
-                            for n in vec_of_required {
-                                let _ = write!(&mut final_contents, "{}: {} ", n.name, n.shape);
-                                // positional arguments
-                            }
-                            for n in vec_of_optional {
-                                if let Some(s) = n.default_value.clone() {
-                                    let _ = write!(
-                                        &mut final_contents,
-                                        "{}: {} = {} ",
-                                        n.name,
-                                        n.shape,
-                                        s.to_expanded_string(" ", &Config::default())
-                                    );
-                                } else {
-                                    let _ =
-                                        write!(&mut final_contents, "{}?: {} ", n.name, n.shape);
-                                }
-                            }
-                            for n in vec_of_flags {
-                                // skip adding the help flag
-                                if n.long == "help" {
-                                    continue;
-                                }
-                                let _ = write!(&mut final_contents, "--{}", n.long);
-                                if let Some(short) = n.short {
-                                    let _ = write!(&mut final_contents, "(-{short})");
-                                }
-                                if let Some(arg) = &n.arg {
-                                    let _ = write!(&mut final_contents, ": {arg}");
-                                }
-                                final_contents.push(' ');
-                            }
-                            if let Some(rest_arg) = rest {
-                                let _ = write!(
-                                    &mut final_contents,
-                                    "...{}:{}",
-                                    rest_arg.name, rest_arg.shape
-                                );
-                            }
-                            let len = type_signatures.len();
-                            if len != 0 {
-                                final_contents.push_str("]: [");
-                                let mut c = 0;
-                                for (insig, outsig) in type_signatures {
-                                    c += 1;
-                                    let s = format!("{insig} -> {outsig}");
-                                    final_contents.push_str(&s);
-                                    if c != len {
-                                        final_contents.push_str(", ")
-                                    }
-                                }
-                            }
-                            final_contents.push_str("] ");
-                            final_contents.push_str(&String::from_utf8_lossy(contents));
-
-                            Ok(make_output(
-                                engine_state,
-                                final_contents,
-                                Some(block_span),
-                                call.head,
-                            ))
+                    else if decl.block_id().is_some() {
+                        if let Some((src, block_span)) = render_def(engine_state, &val, decl_id) {
+                            Ok(make_output(engine_state, src, Some(block_span), call.head))
                         } else {
                             Err(ShellError::Generic(GenericError::new(
                                 "Cannot view string value",
@@ -304,6 +209,106 @@ impl Command for ViewSource {
             }
         }
     }
+}
+
+// Helper function to render a custom command as a `def` header followed by the original text of its
+// body. The header is rebuilt from the signature.
+// Why: a custom command records only the span of its body, so the header cannot be quoted from the
+// source. That also means `export` and attributes cannot be recovered.
+fn render_def(engine_state: &EngineState, name: &str, decl_id: DeclId) -> Option<(String, Span)> {
+    let decl = engine_state.get_decl(decl_id);
+    let sig = decl.signature();
+    let vec_of_required = &sig.required_positional;
+    let vec_of_optional = &sig.optional_positional;
+    let rest = &sig.rest_positional;
+    let vec_of_flags = &sig.named;
+    let type_signatures = &sig.input_output_types;
+
+    let block = engine_state.get_block(decl.block_id()?);
+    let block_span = block.span?;
+    let contents = engine_state.get_span_contents(block_span);
+    // name of function
+    let mut final_contents = String::new();
+    // Collect def flags based on block and signature properties
+    let flags: Vec<&str> = [
+        block.redirect_env.then_some("--env"),
+        sig.allows_unknown_args.then_some("--wrapped"),
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
+    let flags_str = if flags.is_empty() {
+        String::new()
+    } else {
+        format!("{} ", flags.join(" "))
+    };
+    if name.contains(' ') {
+        let _ = write!(&mut final_contents, "def {flags_str}\"{name}\" [");
+    } else {
+        let _ = write!(&mut final_contents, "def {flags_str}{name} [");
+    };
+    if !vec_of_required.is_empty()
+        || !vec_of_optional.is_empty()
+        || vec_of_flags.len() != 1
+        || rest.is_some()
+    {
+        final_contents.push(' ');
+    }
+    for n in vec_of_required {
+        let _ = write!(&mut final_contents, "{}: {} ", n.name, n.shape);
+        // positional arguments
+    }
+    for n in vec_of_optional {
+        if let Some(s) = n.default_value.clone() {
+            let _ = write!(
+                &mut final_contents,
+                "{}: {} = {} ",
+                n.name,
+                n.shape,
+                s.to_expanded_string(" ", &Config::default())
+            );
+        } else {
+            let _ = write!(&mut final_contents, "{}?: {} ", n.name, n.shape);
+        }
+    }
+    for n in vec_of_flags {
+        // skip adding the help flag
+        if n.long == "help" {
+            continue;
+        }
+        let _ = write!(&mut final_contents, "--{}", n.long);
+        if let Some(short) = n.short {
+            let _ = write!(&mut final_contents, "(-{short})");
+        }
+        if let Some(arg) = &n.arg {
+            let _ = write!(&mut final_contents, ": {arg}");
+        }
+        final_contents.push(' ');
+    }
+    if let Some(rest_arg) = rest {
+        let _ = write!(
+            &mut final_contents,
+            "...{}:{}",
+            rest_arg.name, rest_arg.shape
+        );
+    }
+    let len = type_signatures.len();
+    if len != 0 {
+        final_contents.push_str("]: [");
+        let mut c = 0;
+        for (insig, outsig) in type_signatures {
+            c += 1;
+            let s = format!("{insig} -> {outsig}");
+            final_contents.push_str(&s);
+            if c != len {
+                final_contents.push_str(", ")
+            }
+        }
+    }
+    final_contents.push_str("] ");
+    final_contents.push_str(&String::from_utf8_lossy(contents));
+
+    Some((final_contents, block_span))
 }
 
 // Helper function to find the file path associated with a given span, if any.
