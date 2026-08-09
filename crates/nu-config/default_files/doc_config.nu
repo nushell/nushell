@@ -159,6 +159,8 @@ $env.config.clip.default_raw = false
 # edit_mode (string): Sets the editing behavior of Reedline.
 # "emacs": Use Emacs-style keybindings (default).
 # "vi": Use Vi-style keybindings with normal and insert modes.
+# "helix": Use Helix-style selection-first keybindings with normal, select, and
+#          insert modes. Only available in builds with the `helix` feature.
 # Default: "emacs"
 $env.config.edit_mode = "emacs"
 
@@ -187,6 +189,23 @@ $env.config.cursor_shape.vi_insert = "inherit"
 # One of: "block", "underscore", "line", "blink_block", "blink_underscore", "blink_line", or "inherit".
 # Default: "inherit"
 $env.config.cursor_shape.vi_normal = "inherit"
+
+# cursor_shape.helix_normal (string): Cursor shape when in helix normal mode.
+# Only takes effect in builds with the `helix` feature; likewise for
+# helix_select and helix_insert below.
+# One of: "block", "underscore", "line", "blink_block", "blink_underscore", "blink_line", or "inherit".
+# Default: "inherit"
+$env.config.cursor_shape.helix_normal = "inherit"
+
+# cursor_shape.helix_select (string): Cursor shape when in helix select mode.
+# One of: "block", "underscore", "line", "blink_block", "blink_underscore", "blink_line", or "inherit".
+# Default: "inherit"
+$env.config.cursor_shape.helix_select = "inherit"
+
+# cursor_shape.helix_insert (string): Cursor shape when in helix insert mode.
+# One of: "block", "underscore", "line", "blink_block", "blink_underscore", "blink_line", or "inherit".
+# Default: "inherit"
+$env.config.cursor_shape.helix_insert = "inherit"
 
 # --------------------
 # Completions Behavior

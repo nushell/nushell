@@ -258,6 +258,8 @@ rustls-tls = [
 
 plugin = ["nu-parser/plugin", "nu-test-support/plugin", "os"]
 sqlite = ["rusqlite"]
+# Weak on `reedline` so the flag is inert without `os` (which pulls reedline in).
+helix = ["reedline?/helix"]
 trash-support = ["trash"]
 
 [dev-dependencies]

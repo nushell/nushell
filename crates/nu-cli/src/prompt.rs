@@ -1,6 +1,8 @@
 use nu_protocol::engine::{PromptContents, PromptState};
 #[cfg(windows)]
 use nu_utils::enable_vt_processing;
+#[cfg(feature = "helix")]
+use reedline::PromptHelixMode;
 use reedline::{
     DefaultPrompt, Prompt, PromptEditMode, PromptHistorySearch, PromptHistorySearchStatus,
     PromptViMode,
@@ -135,6 +137,16 @@ fn indicator_for(contents: &PromptContents, edit_mode: PromptEditMode) -> String
         }
         PromptEditMode::Vi(PromptViMode::Visual) => {
             contents.vi_normal.as_deref().unwrap_or("v ").to_string()
+        }
+        // Helix reuses the vi indicators; normal and select share one, as they
+        // share a keybinding table.
+        #[cfg(feature = "helix")]
+        PromptEditMode::Helix(PromptHelixMode::Normal | PromptHelixMode::Select) => {
+            contents.vi_normal.as_deref().unwrap_or("> ").to_string()
+        }
+        #[cfg(feature = "helix")]
+        PromptEditMode::Helix(PromptHelixMode::Insert) => {
+            contents.vi_insert.as_deref().unwrap_or(": ").to_string()
         }
         PromptEditMode::Custom(str) => format!("({str})"),
     }

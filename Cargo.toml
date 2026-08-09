@@ -451,6 +451,14 @@ system-clipboard = [
   "nu-cli/system-clipboard",
 ]
 
+# Experimental Helix/Kakoune-style edit mode from `reedline` (`$env.config.edit_mode = "helix"`).
+# Opt-in while the implementation stabilizes.
+helix = [
+  "nu-cli/helix",
+  "nu-command/helix",
+  "reedline/helix",
+]
+
 # Stable (Default)
 trash-support = ["nu-command/trash-support"]
 

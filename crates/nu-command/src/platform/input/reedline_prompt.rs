@@ -1,3 +1,5 @@
+#[cfg(feature = "helix")]
+use reedline::PromptHelixMode;
 use reedline::{
     Prompt, PromptEditMode, PromptHistorySearch, PromptHistorySearchStatus, PromptViMode,
 };
@@ -37,7 +39,20 @@ impl Prompt for ReedlinePrompt {
                 PromptViMode::Insert => DEFAULT_VI_INSERT_PROMPT_INDICATOR.into(),
                 PromptViMode::Visual => DEFAULT_VI_NORMAL_PROMPT_INDICATOR.into(),
             },
+            #[cfg(feature = "helix")]
+            PromptEditMode::Helix(helix_mode) => match helix_mode {
+                PromptHelixMode::Normal | PromptHelixMode::Select => {
+                    DEFAULT_VI_NORMAL_PROMPT_INDICATOR.into()
+                }
+                PromptHelixMode::Insert => DEFAULT_VI_INSERT_PROMPT_INDICATOR.into(),
+            },
             PromptEditMode::Custom(str) => format!("({str})").into(),
+            // Reedline's `helix` feature can be switched on by another crate in
+            // the build graph without this crate's `helix` feature following
+            // along; catch the then-uncovered variants instead of failing to
+            // compile.
+            #[allow(unreachable_patterns)]
+            _ => self.indicator.as_str().into(),
         }
     }
 

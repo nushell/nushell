@@ -61,6 +61,7 @@ which = { workspace = true }
 [features]
 plugin = ["nu-plugin-engine"]
 system-clipboard = ["reedline/system_clipboard"]
+helix = ["reedline/helix"]
 sqlite = ["reedline/sqlite", "nu-protocol/sqlite", "nu-command/sqlite"]
 
 [lints]
