@@ -30,6 +30,26 @@ fn rejects_empty_paths() -> Result {
 
 #[test]
 #[expect(unreachable_code)]
+fn rejects_root_only_paths() -> Result {
+    let playground = Playground::new(module_path!())?;
+
+    assert_invalid_path(playground.dir("/"), "path is empty");
+    assert_invalid_path(playground.empty_file("/"), "path is empty");
+    assert_invalid_path(playground.file("/", "contents"), "path is empty");
+    assert_invalid_path(
+        playground.at("/", |_| {
+            panic!("root-only at path should not call closure");
+            Ok(())
+        }),
+        "path is empty",
+    );
+
+    playground.close()?;
+    Ok(())
+}
+
+#[test]
+#[expect(unreachable_code)]
 fn rejects_parent_dir_paths() -> Result {
     let playground = Playground::new(module_path!())?;
 

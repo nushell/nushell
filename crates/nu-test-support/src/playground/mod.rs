@@ -329,32 +329,31 @@ pub enum PlaygroundErrorKind {
 }
 
 fn normalize_playground_path(path: &Path) -> Result<&Path, PlaygroundError> {
-    let err = |kind| {
-        Err(PlaygroundError {
-            kind: PlaygroundErrorKind::InvalidPath(kind),
-            path: path.into(),
-            io_error_kind: io::ErrorKind::Other,
-            message: "".to_string(),
-        })
+    let err = |kind| PlaygroundError {
+        kind: PlaygroundErrorKind::InvalidPath(kind),
+        path: path.into(),
+        io_error_kind: io::ErrorKind::Other,
+        message: String::new(),
     };
 
-    if path.as_os_str().is_empty() {
-        return err(InvalidPlaygroundPath::Empty);
-    }
+    let check_component = |component| match component {
+        Component::Prefix(_) => Err(InvalidPlaygroundPath::IncludesPrefix),
+        Component::RootDir => Err(InvalidPlaygroundPath::NestedRoot),
+        Component::ParentDir => Err(InvalidPlaygroundPath::IncludesParentDir),
+        Component::Normal(_) | Component::CurDir => Ok(()),
+    };
 
     let mut valid_path = path;
-    for (i, component) in valid_path.components().enumerate() {
-        match (i, component) {
-            (0, Component::RootDir) => {
-                let mut components = valid_path.components();
-                components.next();
-                valid_path = components.as_path();
-            }
-            (_, Component::Prefix(_)) => return err(InvalidPlaygroundPath::IncludesPrefix),
-            (_, Component::RootDir) => return err(InvalidPlaygroundPath::NestedRoot),
-            (_, Component::ParentDir) => return err(InvalidPlaygroundPath::IncludesParentDir),
-            (_, Component::Normal(_) | Component::CurDir) => (),
-        }
+    let mut components = valid_path.components();
+    match components.next() {
+        Some(Component::RootDir) => valid_path = components.as_path(),
+        Some(c) => check_component(c).map_err(err)?,
+        None => (),
+    };
+    components.try_for_each(check_component).map_err(err)?;
+
+    if valid_path.as_os_str().is_empty() {
+        return Err(err(InvalidPlaygroundPath::Empty));
     }
 
     Ok(valid_path)
