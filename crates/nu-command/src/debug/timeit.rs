@@ -56,10 +56,6 @@ This command will bubble up any errors encountered when running the closure. The
         vec!["timing", "timer", "benchmark", "measure"]
     }
 
-    fn requires_ast_for_arguments(&self) -> bool {
-        true
-    }
-
     fn run(
         &self,
         engine_state: &EngineState,

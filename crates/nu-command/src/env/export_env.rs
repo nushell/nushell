@@ -33,6 +33,7 @@ impl Command for ExportEnv {
         CommandType::Keyword
     }
 
+    // Needed so IR retains the block Expression for `as_block()`.
     fn requires_ast_for_arguments(&self) -> bool {
         true
     }
