@@ -260,6 +260,58 @@ fn run_in_noninteractive_mode() {
 
 #[test]
 #[deps(NU)]
+fn try_catch_inherited_external_output_has_no_extra_blank_line() {
+    // A `try` with a `catch` or `finally` block collects the block's output to know whether
+    // it failed. When the tried external's stdout is inherited, its output already went to
+    // the terminal; collecting used to turn the data-less stream into an empty string, which
+    // printed as a stray blank line after the external's own output. The `try` must be the
+    // final statement: only the final statement's value is printed, so that is where the
+    // fabricated empty string became visible.
+    // https://github.com/nushell/nushell/issues/18765
+    for (case, script, expected) in [
+        (
+            "catch",
+            "try { ^$env.TEST_NU_BIN -n -c 'print hi' } catch {}",
+            "hi\n",
+        ),
+        (
+            "finally",
+            "try { ^$env.TEST_NU_BIN -n -c 'print hi' } finally {}",
+            "hi\n",
+        ),
+        (
+            "catch and finally",
+            "try { ^$env.TEST_NU_BIN -n -c 'print hi' } catch {} finally {}",
+            "hi\n",
+        ),
+        // The collected stream still reports the external's failure, so `catch` runs.
+        (
+            "catch on failure",
+            "try { ^$env.TEST_NU_BIN -n -c 'exit 1' } catch { print caught }",
+            "caught\n",
+        ),
+    ] {
+        let child_output = std::process::Command::new(NU.path())
+            .args(["-n", "-c", script])
+            .env("TEST_NU_BIN", NU.path())
+            .output()
+            .expect("failed to run nu");
+
+        assert_eq!(
+            expected,
+            String::from_utf8_lossy(&child_output.stdout),
+            "unexpected stdout in the {case} case",
+        );
+        assert!(
+            child_output.stderr.is_empty(),
+            "unexpected stderr in the {case} case: {}",
+            String::from_utf8_lossy(&child_output.stderr),
+        );
+    }
+}
+
+#[test]
+#[deps(NU)]
 fn run_with_no_newline() {
     let child_output = std::process::Command::new(NU.path())
         .args(["-n", "--no-newline", "-c", "\"hello world\""])
