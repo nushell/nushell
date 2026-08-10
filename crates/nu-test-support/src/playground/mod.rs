@@ -163,6 +163,139 @@ pub trait PlaygroundFs: sealed::Sealed {
             })
     }
 
+    /// Create a readonly file with contents inside the playground.
+    ///
+    /// The path is joined to [`path`](Self::path). Any missing parent
+    /// directories are created before the file is written.
+    ///
+    /// Paths with a leading root are treated as playground-relative, so
+    /// `/some/file.txt` is handled the same way as `some/file.txt`.
+    ///
+    /// # Platform Notes
+    ///
+    /// This uses [`std::fs::Permissions::set_readonly`], whose exact behavior
+    /// depends on the platform.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use nu_test_support::prelude::*;
+    /// #
+    /// # fn main() -> Result {
+    /// # let playground = Playground::new(module_path!())?;
+    /// playground.readonly_file("readonly.txt", "contents")?;
+    ///
+    /// assert!(
+    ///     std::fs::metadata(playground.path().join("readonly.txt"))?
+    ///         .permissions()
+    ///         .readonly()
+    /// );
+    /// # playground.close()?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    fn readonly_file(&self, path: impl AsRef<Path>, contents: impl AsRef<[u8]>) -> Result<&Self> {
+        self.file(&path, &contents)?;
+
+        let path = self.path().join(normalize_playground_path(path.as_ref())?);
+        let mut permissions = fs::metadata(&path)
+            .map_err(|err| PlaygroundError {
+                kind: PlaygroundErrorKind::Metadata,
+                path: path.clone(),
+                io_error_kind: err.kind(),
+                message: err.to_string(),
+            })?
+            .permissions();
+        permissions.set_readonly(true);
+        fs::set_permissions(&path, permissions).map_err(|err| PlaygroundError {
+            kind: PlaygroundErrorKind::SetPermissions,
+            path,
+            io_error_kind: err.kind(),
+            message: err.to_string(),
+        })?;
+
+        Ok(self)
+    }
+
+    /// Create a symlink inside the playground.
+    ///
+    /// Both paths are joined to [`path`](Self::path). Any missing parent
+    /// directories for the link path are created before the symlink is written.
+    ///
+    /// Paths with a leading root are treated as playground-relative, so
+    /// `/some/link` is handled the same way as `some/link`.
+    ///
+    /// # Platform Notes
+    ///
+    /// Windows requires the original path to exist so the helper can choose
+    /// between file and directory symlinks. Creating symlinks on Windows can
+    /// also require developer mode or elevated permissions.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use nu_test_support::prelude::*;
+    /// #
+    /// # fn main() -> Result {
+    /// # let playground = Playground::new(module_path!())?;
+    /// playground.file("original.txt", "contents")?;
+    /// playground.symlink("original.txt", "links/original.txt")?;
+    ///
+    /// assert!(playground.path().join("links/original.txt").is_symlink());
+    /// # playground.close()?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[cfg(any(unix, windows))]
+    fn symlink(&self, original: impl AsRef<Path>, link: impl AsRef<Path>) -> Result<&Self> {
+        let original = self
+            .path()
+            .join(normalize_playground_path(original.as_ref())?);
+        let link = self.path().join(normalize_playground_path(link.as_ref())?);
+
+        if let Some(parent) = link.parent()
+            && let Err(err) = fs::create_dir_all(parent)
+        {
+            return Err(PlaygroundError {
+                kind: PlaygroundErrorKind::CreateDir,
+                path: parent.into(),
+                io_error_kind: err.kind(),
+                message: err.to_string(),
+            });
+        }
+
+        #[cfg(unix)]
+        let symlink = std::os::unix::fs::symlink;
+
+        #[cfg(windows)]
+        let symlink = match original.metadata().map_err(|err| PlaygroundError {
+            kind: PlaygroundErrorKind::Metadata,
+            path: original.clone(),
+            io_error_kind: err.kind(),
+            message: err.to_string(),
+        })? {
+            metadata if metadata.is_dir() => std::os::windows::fs::symlink_dir,
+            metadata if metadata.is_file() => std::os::windows::fs::symlink_file,
+            _ => {
+                return Err(PlaygroundError {
+                    kind: PlaygroundErrorKind::InvalidSymlinkOriginal,
+                    path: original.clone(),
+                    io_error_kind: io::ErrorKind::Other,
+                    message: String::new(),
+                });
+            }
+        };
+
+        symlink(original, &link).map_err(|err| PlaygroundError {
+            kind: PlaygroundErrorKind::CreateSymlink,
+            path: link,
+            io_error_kind: err.kind(),
+            message: err.to_string(),
+        })?;
+
+        Ok(self)
+    }
+
     /// Create a nested playground directory and run filesystem operations inside it.
     ///
     /// The path is joined to [`path`](Self::path), and the directory is
@@ -260,6 +393,17 @@ impl Playground {
     #[track_caller]
     pub fn close(mut self) -> Result<()> {
         assert!(!self.closed, "playground already closed");
+
+        #[cfg(windows)]
+        if let Err(err) = clear_readonly_recursive(&self.temp_dir) {
+            return Err(PlaygroundError {
+                kind: PlaygroundErrorKind::Close,
+                path: self.temp_dir.clone(),
+                io_error_kind: err.kind(),
+                message: err.to_string(),
+            });
+        }
+
         fs::remove_dir_all(&self.temp_dir)
             .inspect(|()| self.closed = true)
             .map_err(|err| PlaygroundError {
@@ -285,6 +429,9 @@ impl Drop for Playground {
     /// reported to the test.
     fn drop(&mut self) {
         if !self.closed {
+            #[cfg(windows)]
+            let _ = clear_readonly_recursive(&self.temp_dir);
+
             let _ = fs::remove_dir_all(&self.temp_dir);
         }
     }
@@ -324,6 +471,18 @@ pub enum PlaygroundErrorKind {
     #[error("could not write file in playground")]
     WriteFile,
 
+    #[error("could not get metadata")]
+    Metadata,
+
+    #[error("could not set permissions")]
+    SetPermissions,
+
+    #[error("invalid original for symlink")]
+    InvalidSymlinkOriginal,
+
+    #[error("could not create symlink")]
+    CreateSymlink,
+
     #[error("could not close playground")]
     Close,
 }
@@ -357,6 +516,24 @@ fn normalize_playground_path(path: &Path) -> Result<&Path, PlaygroundError> {
     }
 
     Ok(valid_path)
+}
+
+#[cfg(windows)]
+fn clear_readonly_recursive(path: &Path) -> io::Result<()> {
+    if path.is_dir() {
+        for entry in fs::read_dir(path)? {
+            clear_readonly_recursive(&entry?.path())?;
+        }
+    }
+
+    let mut permissions = fs::metadata(path)?.permissions();
+    if permissions.readonly() {
+        #[cfg_attr(windows, allow(clippy::permissions_set_readonly_false))]
+        permissions.set_readonly(false);
+        fs::set_permissions(path, permissions)?;
+    }
+
+    Ok(())
 }
 
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
