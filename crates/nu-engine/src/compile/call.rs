@@ -243,9 +243,7 @@ pub(crate) fn compile_call(
                 let arg_reg = builder.next_register()?;
 
                 // Bare variables for `metadata` load with origin span preserved.
-                if preserve_var_origin
-                    && let Some(var_id) = bare_var_id(expr)
-                {
+                if preserve_var_origin && let Some(var_id) = bare_var_id(expr) {
                     builder.push(
                         Instruction::LoadVariable {
                             dst: arg_reg,

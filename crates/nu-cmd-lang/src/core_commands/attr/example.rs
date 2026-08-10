@@ -63,7 +63,13 @@ impl Command for AttrExample {
         let (example_content, example_span) =
             example_content_from_value(&working_set, &example_arg)?;
 
-        attr_example_record(call.head, description, example_content, example_span, result)
+        attr_example_record(
+            call.head,
+            description,
+            example_content,
+            example_span,
+            result,
+        )
     }
 
     fn run_const(
@@ -78,12 +84,14 @@ impl Command for AttrExample {
         // Const evaluation still passes an AST call; blocks are not constant-evaluable as values.
         // Read the example expression shape for block source text, or evaluate string examples.
         let call_ast = call.assert_ast_call()?;
-        let example_expr = call_ast.positional_iter().nth(1).ok_or(
-            ShellError::MissingParameter {
-                param_name: "example".into(),
-                span: call.head,
-            },
-        )?;
+        let example_expr =
+            call_ast
+                .positional_iter()
+                .nth(1)
+                .ok_or(ShellError::MissingParameter {
+                    param_name: "example".into(),
+                    span: call.head,
+                })?;
 
         let (example_content, example_span) = if let Some(block_id) = example_expr.as_block() {
             let block = working_set.get_block(block_id);
@@ -94,7 +102,13 @@ impl Command for AttrExample {
             (example_string, example_expr.span)
         };
 
-        attr_example_record(call.head, description, example_content, example_span, result)
+        attr_example_record(
+            call.head,
+            description,
+            example_content,
+            example_span,
+            result,
+        )
     }
 
     fn is_const(&self) -> bool {
@@ -118,8 +132,12 @@ fn example_content_from_value(
     example_arg: &Value,
 ) -> Result<(String, Span), ShellError> {
     match example_arg {
-        Value::String { val, internal_span, .. } => Ok((val.clone(), *internal_span)),
-        Value::Closure { val, internal_span, .. } => {
+        Value::String {
+            val, internal_span, ..
+        } => Ok((val.clone(), *internal_span)),
+        Value::Closure {
+            val, internal_span, ..
+        } => {
             let content = block_source_from_closure(working_set, val, *internal_span)?;
             Ok((content, *internal_span))
         }

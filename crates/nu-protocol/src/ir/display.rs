@@ -105,11 +105,7 @@ impl fmt::Display for FmtInstruction<'_> {
             } => {
                 let var = FmtVar::new(self.engine_state, *var_id);
                 if *preserve_origin {
-                    write!(
-                        f,
-                        "{:WIDTH$} {dst}, {var}",
-                        "load-variable-origin"
-                    )
+                    write!(f, "{:WIDTH$} {dst}, {var}", "load-variable-origin")
                 } else {
                     write!(f, "{:WIDTH$} {dst}, {var}", "load-variable")
                 }
