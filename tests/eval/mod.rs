@@ -34,6 +34,11 @@ fn run_file_parse_error() -> Result {
 #[case::literal_closure_to_yaml("{||} | to yaml --serialize", "!closure \"{||}\"\n")]
 #[case::literal_string(r#""foobar""#, "foobar")]
 #[case::literal_raw_string("r#'bazquux'#", "bazquux")]
+// https://github.com/nushell/nushell/issues/18807
+#[case::interp_quote_inside_subexpr(r#"$"('" "')""#, "\" \"")]
+#[case::interp_double_quote_inside_single_interp(r#"$'(", ")'"#, ", ")]
+#[case::interp_nested_parens(r#"$"(1 + (2 * 3))""#, "7")]
+#[case::interp_escaped_paren_is_literal(r#"$"\('a')""#, "('a')")]
 #[case::literal_nothing("null", ())]
 #[case::list_spread("[foo bar ...[baz quux]] | length", 4)]
 #[case::record_spread("{foo: bar ...{baz: quux}} | columns | length", 2)]

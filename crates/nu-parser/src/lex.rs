@@ -123,6 +123,18 @@ pub fn lex_item(
     // Tracks the opening quote character and its span while inside a string.
     let mut quote_start: Option<(u8, Span)> = None;
 
+    // True while the current string is an interpolated one (its opening quote
+    // directly follows `$`). Inside such a string an unescaped `(` starts a
+    // subexpression, where quotes and parens nest.
+    let mut quote_is_interp = false;
+
+    // Expected closers (with opener spans) while inside a subexpression of an
+    // interpolated string. Non-empty means the string's own closing quote does
+    // not end it yet. Mirrors the delimiter matching that
+    // `parse_string_interpolation` later applies to the same bytes, so the
+    // token ends exactly where the parser will end the string.
+    let mut interp_expr_level: Vec<(u8, Span)> = vec![];
+
     let mut in_comment = false;
 
     let token_start = *curr_offset;
@@ -161,6 +173,36 @@ pub fn lex_item(
         let c = *c;
 
         if let Some((start, open_span)) = quote_start {
+            if !interp_expr_level.is_empty() {
+                // Inside a subexpression of an interpolated string. Match
+                // delimiters the same way `parse_string_interpolation` does:
+                // while the innermost open delimiter is a quote, only that
+                // quote closes it; otherwise quotes open nested strings and
+                // parens nest.
+                let expected = interp_expr_level
+                    .last()
+                    .expect("interp_expr_level is non-empty")
+                    .0;
+                let open = Span::new(span_offset + *curr_offset, span_offset + *curr_offset + 1);
+                match c {
+                    _ if expected != b')' => {
+                        if c == expected {
+                            interp_expr_level.pop();
+                        }
+                    }
+                    b'\'' | b'"' | b'`' => interp_expr_level.push((c, open)),
+                    b'(' => interp_expr_level.push((b')', open)),
+                    b')' => {
+                        interp_expr_level.pop();
+                    }
+                    _ => {}
+                }
+                last_sig_char = Some(c);
+                at_line_start = false;
+                *curr_offset += 1;
+                previous_char = Some(c);
+                continue;
+            }
             // Check if we're in an escape sequence
             if c == b'\\' && start == b'"' {
                 // Go ahead and consume the escape character if possible
@@ -198,6 +240,15 @@ pub fn lex_item(
             if c == start {
                 // Also need to check to make sure we aren't escaped
                 quote_start = None;
+            } else if quote_is_interp && c == b'(' {
+                // An unescaped `(` in an interpolated string starts a
+                // subexpression (an escaped one was already consumed by the
+                // escape handling above). The string's closing quote cannot
+                // end it until the matching `)` is found.
+                interp_expr_level.push((
+                    b')',
+                    Span::new(span_offset + *curr_offset, span_offset + *curr_offset + 1),
+                ));
             }
             last_sig_char = Some(c);
             at_line_start = false;
@@ -230,6 +281,9 @@ pub fn lex_item(
         } else if c == b'\'' || c == b'"' || c == b'`' {
             let open_span = Span::new(span_offset + *curr_offset, span_offset + *curr_offset + 1);
             quote_start = Some((c, open_span));
+            // `$"` and `$'` open interpolated strings, where `(` starts a
+            // subexpression. Backtick strings never interpolate.
+            quote_is_interp = c != b'`' && previous_char == Some(b'$');
             last_sig_char = Some(c);
             at_line_start = false;
         } else if c == b'[' {
@@ -419,6 +473,30 @@ pub fn lex_item(
     } else {
         span
     };
+
+    // An open delimiter inside an interpolated string's subexpression is more
+    // precise than the enclosing quote. Report the oldest one: in the common
+    // `$"foo (2 + 3"` typo the trailing quote was meant to close the string,
+    // and the actual mistake is the unclosed `(`.
+    if let Some((closer, open_span)) = interp_expr_level.first() {
+        let closer_str = match closer {
+            b')' => ")",
+            delim => quote_delimiter_str(*delim),
+        };
+        return (
+            Token {
+                contents: TokenContents::Item,
+                span,
+            },
+            Some(unclosed_from_open(
+                input,
+                span_offset,
+                closer_str,
+                *open_span,
+                end_span,
+            )),
+        );
+    }
 
     if let Some((delim, open_span)) = quote_start {
         // The non-lite parse trims quotes on both sides, so we add the expected quote so that
