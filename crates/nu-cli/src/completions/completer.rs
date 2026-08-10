@@ -446,7 +446,10 @@ impl NarrowingCache {
             return Suggestions::default();
         };
 
-        let mut matcher = NuMatcher::new(search_token, options, true);
+        // Don't re-sort: the producing completer ranks a directory by its bare name and
+        // appends the separator afterwards, so sorting here would rank it `config/` and
+        // land it after `config.nu`. Filtering alone preserves the order it chose.
+        let mut matcher = NuMatcher::new(search_token, options, false);
 
         base_suggestions
             .iter()
@@ -2015,6 +2018,41 @@ mod completer_tests {
         assert!(
             next_prompt.complete("ls | c", 6).is_pending(),
             "a disabled cache must not answer a query it could have answered"
+        );
+    }
+
+    /// A cached answer stands in for the computed one, so the two must agree on order.
+    /// Re-sorting the cache put `config/` after `config.nu`, inverting every keystroke.
+    #[test]
+    fn a_narrowed_cache_answer_keeps_the_order_it_was_given() {
+        let cache = NarrowingCache::default();
+        let env = CacheEnv::of(&test_engine(), &Stack::new());
+        let span = reedline::Span::new(3, 5);
+
+        // The order file completion produces: the directory first, ranked as `config`.
+        let cached: Suggestions = ["config/", "config.nu"]
+            .iter()
+            .map(|value| Suggestion {
+                value: (*value).to_string(),
+                span,
+                ..Default::default()
+            })
+            .collect::<Vec<_>>()
+            .into();
+
+        cache.store(CompletionQuery::new("ls co", 5), env, cached);
+
+        let narrowed = cache.narrowed_fallback(
+            &CompletionQuery::new("ls con", 6),
+            env,
+            &CompletionOptions::default(),
+        );
+
+        let values: Vec<&str> = narrowed.iter().map(|s| s.value.as_str()).collect();
+        assert_eq!(
+            values,
+            ["config/", "config.nu"],
+            "the cached answer must not reorder what it stands in for"
         );
     }
 }
