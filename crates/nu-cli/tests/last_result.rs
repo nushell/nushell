@@ -13,6 +13,7 @@
 use nu_cli::eval_source;
 use nu_protocol::{
     Filesize, FilesizeUnit, LAST_RESULT_VAR_NAME, LAST_VARIABLE_ID, PipelineData, Span, Value,
+    ast::Expr,
     engine::{EngineState, Stack},
     record,
 };
@@ -315,6 +316,64 @@ fn ans_name_is_reserved() -> Result {
             working_set.parse_errors
         );
     }
+    Ok(())
+}
+
+#[test]
+fn ans_is_not_listed_in_closure_captures() -> Result {
+    // `$ans` resolves from the shared last-result slot; capturing it would clone a large
+    // `.last` into every closure / `each` body that mentions it.
+    let engine_state = nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
+    let mut working_set = nu_protocol::engine::StateWorkingSet::new(&engine_state);
+    let block = nu_parser::parse(&mut working_set, None, b"{ $ans; $ans.last }", false);
+    assert!(
+        working_set.parse_errors.is_empty(),
+        "unexpected parse errors: {:?}",
+        working_set.parse_errors
+    );
+
+    let mut found_closure = false;
+    for pipeline in &block.pipelines {
+        for element in &pipeline.elements {
+            if let Expr::Closure(block_id) = &element.expr.expr {
+                found_closure = true;
+                let inner = working_set.get_block(*block_id);
+                assert!(
+                    !inner.captures.iter().any(|(id, _)| *id == LAST_VARIABLE_ID),
+                    "expected `$ans` not in closure captures, got {:?}",
+                    inner.captures
+                );
+            }
+        }
+    }
+    assert!(found_closure, "expected a top-level closure expression");
+    Ok(())
+}
+
+#[test]
+fn snapshot_always_sets_metadata_without_prior_store() -> Result {
+    // Every user REPL line should get exit_code/duration even if `.last` was never stored
+    // (e.g. first-line error, or budget off until snapshot).
+    let mut session = Interactive::new();
+    assert_eq!(session.ans_value()?, Value::test_nothing());
+
+    session.stack.set_last_exit_code(9, Span::test_data());
+    session.snapshot_metadata(Duration::from_millis(3));
+
+    let ans = session.ans_value()?;
+    assert!(matches!(ans, Value::Record { .. }), "got {ans:?}");
+    assert!(
+        ans.get_data_by_key("last").is_none(),
+        "no payload store yet, so last must be absent, got {ans:?}"
+    );
+    assert_eq!(
+        ans.get_data_by_key("exit_code").expect("exit_code"),
+        Value::test_int(9)
+    );
+    assert_eq!(
+        ans.get_data_by_key("duration").expect("duration"),
+        Value::test_duration(3_000_000)
+    );
     Ok(())
 }
 

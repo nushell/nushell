@@ -26,7 +26,7 @@ use std::{
 ///
 /// When [`Self::present`] is true, reading `$ans` yields a record with
 /// `exit_code` and `duration`. The `last` field is included only when a payload
-/// is stored (`last_result_size > 0`). When false (never snapshotted), `$ans` is
+/// is stored. When false (never snapshotted after a user command), `$ans` is
 /// `nothing`.
 #[derive(Debug, Default)]
 struct LastResultSlot {
@@ -382,12 +382,10 @@ impl Stack {
 
     /// After a REPL user command finishes: refresh `$ans.exit_code` and `$ans.duration`.
     ///
-    /// When `budget == 0`, drops `$ans.last` (and its memory) but still records exit code
-    /// and duration so `$ans` is `{ exit_code, duration }` without a `last` field.
-    /// When budget is positive and `$ans` is already present (or `.last` was stored this
-    /// line), updates metadata fields only. Does nothing if payload capture is on and the
-    /// slot was never present (avoids inventing `$ans` on empty Enter / auto-cd — those
-    /// paths do not call this method).
+    /// Always marks `$ans` present so every user-typed line gets exit code and duration
+    /// (empty Enter / auto-cd do not call this). When `budget == 0`, also drops `$ans.last`
+    /// (and its memory) so the record is `{ exit_code, duration }` without a `last` field.
+    /// When budget is positive, any `.last` already stored this line (or earlier) is kept.
     pub fn snapshot_ans_repl_metadata(
         &mut self,
         engine_state: &EngineState,
@@ -401,24 +399,14 @@ impl Stack {
         let duration_ns = i64::try_from(duration.as_nanos()).unwrap_or(i64::MAX);
 
         if budget == 0 {
-            // Payload off: free `.last`, keep/refresh exit code and duration.
+            // Payload off: free `.last` memory before refreshing metadata.
             self.clear_last_result_payload();
-            self.with_last_result_slot_mut(|slot| {
-                slot.exit_code = exit_code;
-                slot.duration_ns = duration_ns;
-                slot.present = true;
-            });
-            return;
         }
 
         self.with_last_result_slot_mut(|slot| {
-            // Only refresh metadata when capture has already produced a slot (store or
-            // prior snapshot). Avoids turning empty lines into a new `$ans` record.
-            if !slot.present {
-                return;
-            }
             slot.exit_code = exit_code;
             slot.duration_ns = duration_ns;
+            slot.present = true;
         });
     }
 

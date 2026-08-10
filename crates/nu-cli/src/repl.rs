@@ -499,9 +499,8 @@ fn run_command(ctx: RunContext) -> Reedline {
     );
 
     // Snapshot `$ans.exit_code` / `$ans.duration` after duration is known (and
-    // after eval may have stored `$ans.last`). When last_result_size is 0, still
-    // records exit code/duration and omits `.last`. No-op when budget > 0 and
-    // `$ans` was never present.
+    // after eval may have stored `$ans.last`). Always records metadata for the
+    // user line; when last_result_size is 0, also omits `.last`.
     if snapshot_ans {
         stack.snapshot_ans_repl_metadata(engine_state, cmd_duration);
     }

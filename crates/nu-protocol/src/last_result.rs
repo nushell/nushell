@@ -157,8 +157,13 @@ fn truncate_string(val: String, budget: usize, span: Span) -> (Value, bool) {
         return (whole, false);
     }
 
-    let Value::String { val, .. } = whole else {
-        unreachable!("just constructed a string");
+    let val = match whole {
+        Value::String { val, .. } => val,
+        other => {
+            // Only strings are passed here; fall back without panicking.
+            drop(other);
+            return (Value::nothing(span), true);
+        }
     };
 
     if std::mem::size_of::<Value>() > budget {
@@ -195,8 +200,12 @@ fn truncate_binary(val: Vec<u8>, budget: usize, span: Span) -> (Value, bool) {
         return (whole, false);
     }
 
-    let Value::Binary { val, .. } = whole else {
-        unreachable!("just constructed binary");
+    let val = match whole {
+        Value::Binary { val, .. } => val,
+        other => {
+            drop(other);
+            return (Value::nothing(span), true);
+        }
     };
 
     if std::mem::size_of::<Value>() > budget {

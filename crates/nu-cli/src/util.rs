@@ -549,39 +549,55 @@ fn store_byte_stream_prefix(
         return PipelineData::ByteStream(stream, metadata);
     }
 
-    // Only clear after we successfully obtain a reader — `reader()` consumes the stream.
+    // Only clear payload after we successfully obtain a reader — `reader()` consumes the stream.
     let Some(mut reader) = stream.reader() else {
         // Defensive: source said stdout exists but reader failed. Prior `$ans` left intact;
         // nothing left to print.
         return PipelineData::Empty;
     };
 
-    stack.clear_last_result();
+    // Drop prior `.last` only; keep exit_code/duration until REPL snapshot refreshes them.
+    stack.clear_last_result_payload();
 
     let max_bytes = budget.saturating_sub(std::mem::size_of::<Value>());
     let mut prefix = Vec::new();
     let mut buf = [0u8; 8192];
+    let mut truncated = false;
 
     while prefix.len() < max_bytes {
+        // Honor Ctrl-C while filling the budget (large streams can take a while).
+        if signals.check(&span).is_err() {
+            truncated = true;
+            break;
+        }
         let to_read = (max_bytes - prefix.len()).min(buf.len());
         match std::io::Read::read(&mut reader, &mut buf[..to_read]) {
             Ok(0) => break,
             Ok(n) => prefix.extend_from_slice(&buf[..n]),
+            // EINTR: retry like ByteStream::into_bytes.
+            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
             Err(_) => break,
         }
     }
 
-    // Peek whether more data remains (truncation).
+    // Peek whether more data remains (truncation), unless we already stopped for interrupt.
     let mut trailing: Option<u8> = None;
-    let mut truncated = false;
-    if prefix.len() >= max_bytes {
-        match std::io::Read::read(&mut reader, &mut buf[..1]) {
-            Ok(0) => {}
-            Ok(1..) => {
-                truncated = true;
-                trailing = Some(buf[0]);
+    if !truncated && prefix.len() >= max_bytes {
+        if signals.check(&span).is_err() {
+            truncated = true;
+        } else {
+            match std::io::Read::read(&mut reader, &mut buf[..1]) {
+                Ok(0) => {}
+                Ok(1..) => {
+                    truncated = true;
+                    trailing = Some(buf[0]);
+                }
+                Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {
+                    // Treat as "may have more" without consuming a peek byte.
+                    truncated = true;
+                }
+                _ => {}
             }
-            _ => {}
         }
     }
 

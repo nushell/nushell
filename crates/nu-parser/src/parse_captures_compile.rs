@@ -3,7 +3,7 @@ use crate::{
 };
 use log::trace;
 use nu_protocol::{
-    BlockId, ENV_VARIABLE_ID, IN_VARIABLE_ID, ParseError, Span, Type, VarId, ast::*,
+    BlockId, IN_VARIABLE_ID, LAST_VARIABLE_ID, ParseError, Span, Type, VarId, ast::*,
     engine::StateWorkingSet,
 };
 use std::{collections::HashMap, sync::Arc};
@@ -437,7 +437,11 @@ pub fn discover_captures_in_expr(
             discover_captures_in_expr(working_set, &value.expr, seen, seen_blocks, output)?;
         }
         Expr::Var(var_id) => {
-            if (*var_id > ENV_VARIABLE_ID || *var_id == IN_VARIABLE_ID) && !seen.contains(var_id) {
+            // Capture user locals only. Specials `$nu` / `$env` / `$ans` resolve from
+            // engine/stack state (not stack vars); `$in` is the exception and is captured.
+            // Threshold is the last special id (`LAST_VARIABLE_ID`); keep in sync with
+            // engine_state specials when adding more.
+            if (*var_id > LAST_VARIABLE_ID || *var_id == IN_VARIABLE_ID) && !seen.contains(var_id) {
                 output.push((*var_id, expr.span));
             }
         }

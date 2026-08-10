@@ -191,9 +191,13 @@ pub const LAST_VARIABLE_ID: VarId = VarId::new(3);
 /// Change this single constant to rename the binding site-wide (e.g. `"ans"` → `$ans`).
 /// The name is reserved (cannot be rebound with `let` / `mut` / `const`). Not user-configurable.
 ///
-/// When capture is enabled, `$ans` is a record: `{ last, exit_code, duration }`.
+/// With a positive `last_result_size`, `$ans` is `{ last, exit_code, duration }`.
+/// With size `0`, `$ans` is `{ exit_code, duration }` (`last` omitted). Resolved from
+/// the stack's last-result slot, not from captured locals — keep capture-discovery
+/// `>` checks in sync with this being the last special var id.
 pub const LAST_RESULT_VAR_NAME: &str = "ans";
-// NOTE: If you add more to this list, make sure to update the > checks based on the last in the list
+// NOTE: If you add more specials after LAST_VARIABLE_ID, update capture discovery
+// (`var_id > LAST_VARIABLE_ID`) and any other special-id thresholds.
 
 // The first span is unknown span
 pub const UNKNOWN_SPAN_ID: SpanId = SpanId::new(0);
