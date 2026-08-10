@@ -35,7 +35,10 @@ fn rejects_parent_dir_paths() -> Result {
 
     assert_invalid_path(playground.dir(".."), "path includes parent dir");
     assert_invalid_path(playground.empty_file("../file"), "path includes parent dir");
-    assert_invalid_path(playground.file("nested/../file", "contents"), "path includes parent dir");
+    assert_invalid_path(
+        playground.file("nested/../file", "contents"),
+        "path includes parent dir",
+    );
     assert_invalid_path(
         playground.at("nested/..", |_| {
             panic!("parent dir at path should not call closure");
