@@ -15,16 +15,16 @@ use rand::RngExt;
 #[allow(unused, reason = "doesn't matter anymore")]
 pub mod deprecated;
 
-/// Random process ID to have a very high entropy for temp dirs.
+/// Random process ID used to add entropy to temp directory names.
 static PROCESS_ID: LazyLock<u16> = LazyLock::new(|| rand::rng().random());
 
-/// Counter for playgrounds to ensure uniqueness even with same module path.
+/// Global counter that keeps playground names unique, even for the same module path.
 static PLAYGROUND_COUNTER: AtomicU64 = AtomicU64::new(0);
 
-/// Get the process temp dir once, shouldn't change over time.
+/// Process temp directory, captured once for the lifetime of the process.
 static ENV_TEMP_DIR: LazyLock<PathBuf> = LazyLock::new(std::env::temp_dir);
 
-/// [`RandomState`] for hashes that are comparable.
+/// [`RandomState`] used for stable hashes within this process.
 static RANDOM_STATE: LazyLock<RandomState> = LazyLock::new(RandomState::new);
 
 type Result<T, E = PlaygroundError> = std::result::Result<T, E>;
@@ -33,18 +33,18 @@ mod sealed {
     pub trait Sealed {}
 }
 
-/// Filesystem operations for the [`Playground`].
+/// Filesystem operations for playground paths.
 pub trait PlaygroundFs: sealed::Sealed {
-    /// [`Path`] to the current directory represented.
+    /// Path represented by this playground handle.
     fn path(&self) -> &Path;
 
-    /// Create a directory inside the [`Playground`].
+    /// Create a directory inside the playground.
     ///
-    /// Nested paths are allowed and will be joined to the current
-    /// [`path`](Self::path) of the playground.
-    /// All directories will be created passed to this method.
-    /// Absolute paths are treated as relative to the playground, so
-    /// `/abc/def` is equivalent to `abc/def`.
+    /// The path is joined to [`path`](Self::path). Nested paths are allowed,
+    /// and any missing directories in the path are created.
+    ///
+    /// Paths with a leading root are treated as playground-relative, so
+    /// `/abc/def` is handled the same way as `abc/def`.
     ///
     /// # Example
     ///
@@ -53,7 +53,7 @@ pub trait PlaygroundFs: sealed::Sealed {
     /// #
     /// # fn main() -> Result {
     /// # let playground = Playground::new(module_path!())?;
-    /// playground.dir("/abc/def")?;
+    /// playground.dir("abc/def")?;
     ///
     /// assert!(playground.path().join("abc").join("def").is_dir());
     /// # playground.close()?;
@@ -72,13 +72,13 @@ pub trait PlaygroundFs: sealed::Sealed {
             })
     }
 
-    /// Create an empty file in the [`Playground`].
+    /// Create an empty file inside the playground.
     ///
-    /// The path will be joined to the current [`path`](Self::path) of the
-    /// playground.
-    /// Any parent directories will be added as necessary.
-    /// Absolute paths are treated as relative to the playground, so
-    /// `/some/file.empty` is equivalent to `some/file.empty`.
+    /// The path is joined to [`path`](Self::path). Any missing parent
+    /// directories are created before the file is written.
+    ///
+    /// Paths with a leading root are treated as playground-relative, so
+    /// `/some/file.empty` is handled the same way as `some/file.empty`.
     ///
     /// # Example
     ///
@@ -87,7 +87,7 @@ pub trait PlaygroundFs: sealed::Sealed {
     /// #
     /// # fn main() -> Result {
     /// # let playground = Playground::new(module_path!())?;
-    /// playground.empty_file("/some/file.empty")?;
+    /// playground.empty_file("some/file.empty")?;
     ///
     /// assert!(playground.path().join("some").join("file.empty").is_file());
     /// # playground.close()?;
@@ -98,13 +98,14 @@ pub trait PlaygroundFs: sealed::Sealed {
         self.file(normalize_playground_path(path.as_ref())?, [])
     }
 
-    /// Create a file with contents in the [`Playground`].
+    /// Create a file with contents inside the playground.
     ///
-    /// The path will be joined to the current [`path`](Self::path) of the
-    /// playground.
-    /// Any parent directories will be added as necessary.
-    /// Absolute paths are treated as relative to the playground, so
-    /// `/some/file.txt` is equivalent to `some/file.txt`.
+    /// The path is joined to [`path`](Self::path). Any missing parent
+    /// directories are created before the file is written.
+    ///
+    /// Paths with a leading root are treated as playground-relative, so
+    /// `/some/file.txt` is handled the same way as `some/file.txt`.
+    ///
     /// # Example
     ///
     /// ```
@@ -112,7 +113,7 @@ pub trait PlaygroundFs: sealed::Sealed {
     /// #
     /// # fn main() -> Result {
     /// # let playground = Playground::new(module_path!())?;
-    /// playground.file("/some/file.txt", "abc")?;
+    /// playground.file("some/file.txt", "abc")?;
     ///
     /// assert_eq!(
     ///     std::fs::read_to_string(playground.path().join("some").join("file.txt")).unwrap(),
@@ -145,14 +146,14 @@ pub trait PlaygroundFs: sealed::Sealed {
             })
     }
 
-    /// At-API of the [`Playground`].
+    /// Create a nested playground directory and run filesystem operations inside it.
     ///
-    /// This function allows nesting into directories without naming them
-    /// repeatedly.
-    /// The passed path will be joined to the [`path`](Self::path) of the
-    /// playground and created as missing.
-    /// Absolute paths are treated as relative to the playground, so
-    /// `/abc` is equivalent to `abc`.
+    /// The path is joined to [`path`](Self::path), and the directory is
+    /// created before the closure runs. Use this to group setup for several
+    /// files under the same directory without repeating the directory name.
+    ///
+    /// Paths with a leading root are treated as playground-relative, so
+    /// `/abc` is handled the same way as `abc`.
     ///
     /// # Example
     ///
@@ -161,12 +162,12 @@ pub trait PlaygroundFs: sealed::Sealed {
     /// #
     /// # fn main() -> Result {
     /// # let playground = Playground::new(module_path!())?;
-    /// playground.at("abc", |at| {
-    ///     at.empty_file("file0.empty")?;
-    ///     at.empty_file("file1.empty")?;
-    ///     at.at("def", |at| {
-    ///         at.empty_file("file2.empty")?;
-    ///         Ok(())    
+    /// playground.at("abc", |dir| {
+    ///     dir.empty_file("file0.empty")?;
+    ///     dir.empty_file("file1.empty")?;
+    ///     dir.at("def", |nested| {
+    ///         nested.empty_file("file2.empty")?;
+    ///         Ok(())
     ///     })?;
     ///     Ok(())
     /// })?;
@@ -265,10 +266,10 @@ impl PlaygroundFs for Playground {
 }
 
 impl Drop for Playground {
-    /// Automatically try to remove temp dir.
+    /// Try to remove the temp directory automatically.
     ///
-    /// Prefer [`close`](Playground::close) to explicitly remove the temp dir
-    /// and get a [`Result`].
+    /// Prefer [`close`](Playground::close) when cleanup errors should be
+    /// reported to the test.
     fn drop(&mut self) {
         if !self.closed {
             let _ = fs::remove_dir_all(&self.temp_dir);
