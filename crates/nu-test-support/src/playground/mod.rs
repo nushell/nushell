@@ -109,15 +109,32 @@ pub trait PlaygroundFs: sealed::Sealed {
     /// # Example
     ///
     /// ```
+    /// # use indoc::indoc;
     /// # use nu_test_support::prelude::*;
     /// #
     /// # fn main() -> Result {
     /// # let playground = Playground::new(module_path!())?;
     /// playground.file("some/file.txt", "abc")?;
+    /// playground.file("bytes.bin", [1, 2, 3])?;
+    /// playground.file(
+    ///     "indented.txt",
+    ///     indoc! {"
+    ///         abc
+    ///         def
+    ///     "},
+    /// )?;
     ///
     /// assert_eq!(
     ///     std::fs::read_to_string(playground.path().join("some").join("file.txt")).unwrap(),
     ///     "abc"
+    /// );
+    /// assert_eq!(
+    ///     std::fs::read(playground.path().join("bytes.bin")).unwrap(),
+    ///     vec![1, 2, 3]
+    /// );
+    /// assert_eq!(
+    ///     std::fs::read_to_string(playground.path().join("indented.txt")).unwrap(),
+    ///     "abc\ndef\n"
     /// );
     /// # playground.close()?;
     /// # Ok(())
@@ -186,17 +203,13 @@ pub trait PlaygroundFs: sealed::Sealed {
     ) -> Result<R> {
         let path = self.path().join(normalize_playground_path(path.as_ref())?);
 
-        match fs::create_dir_all(&path) {
-            Ok(()) => {}
-            Err(err) => {
-                return Err(PlaygroundError {
-                    kind: PlaygroundErrorKind::CreateDir,
-                    path,
-                    io_error_kind: err.kind(),
-                    message: err.to_string(),
-                }
-                .into());
-            }
+        if let Err(err) = fs::create_dir_all(&path) {
+            return Err(PlaygroundError {
+                kind: PlaygroundErrorKind::CreateDir,
+                path,
+                io_error_kind: err.kind(),
+                message: err.to_string(),
+            });
         }
 
         let at = PlaygroundAt { path };
