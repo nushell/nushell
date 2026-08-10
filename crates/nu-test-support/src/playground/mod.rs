@@ -23,10 +23,10 @@ static PROCESS_ID: LazyLock<u16> = LazyLock::new(|| rand::rng().random());
 static PLAYGROUND_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 /// Get the process temp dir once, shouldn't change over time.
-static ENV_TEMP_DIR: LazyLock<PathBuf> = LazyLock::new(|| std::env::temp_dir());
+static ENV_TEMP_DIR: LazyLock<PathBuf> = LazyLock::new(std::env::temp_dir);
 
 /// [`RandomState`] for hashes that are comparable.
-static RANDOM_STATE: LazyLock<RandomState> = LazyLock::new(|| RandomState::new());
+static RANDOM_STATE: LazyLock<RandomState> = LazyLock::new(RandomState::new);
 
 type Result<T, E = PlaygroundError> = std::result::Result<T, E>;
 
@@ -43,9 +43,10 @@ pub trait PlaygroundFs: sealed::Sealed {
         fs::create_dir_all(&dir)
             .map(|()| self)
             .map_err(|err| PlaygroundError {
-                io_error: err,
-                path: dir,
                 kind: PlaygroundErrorKind::CreateDir,
+                path: dir,
+                io_error_kind: err.kind(),
+                io_error_message: err.to_string(),
             })
     }
 
@@ -57,22 +58,24 @@ pub trait PlaygroundFs: sealed::Sealed {
     #[track_caller]
     fn file(&self, path: impl AsRef<Path>, contents: impl AsRef<[u8]>) -> Result<&Self> {
         let file = self.path().join(path);
-        if let Some(parent) = file.parent() {
-            if let Err(err) = fs::create_dir_all(parent) {
-                return Err(PlaygroundError {
-                    io_error: err,
-                    path: parent.into(),
-                    kind: PlaygroundErrorKind::CreateDir,
-                });
-            }
+        if let Some(parent) = file.parent()
+            && let Err(err) = fs::create_dir_all(parent)
+        {
+            return Err(PlaygroundError {
+                kind: PlaygroundErrorKind::CreateDir,
+                path: parent.into(),
+                io_error_kind: err.kind(),
+                io_error_message: err.to_string(),
+            });
         }
 
         fs::write(&file, contents)
             .map(|()| self)
             .map_err(|err| PlaygroundError {
-                io_error: err,
-                path: file,
                 kind: PlaygroundErrorKind::WriteFile,
+                path: file,
+                io_error_kind: err.kind(),
+                io_error_message: err.to_string(),
             })
     }
 
@@ -116,9 +119,10 @@ impl Playground {
         let temp_dir = ENV_TEMP_DIR.join(dir_name);
         if let Err(err) = fs::create_dir(&temp_dir) {
             return Err(PlaygroundError {
-                io_error: err,
-                path: temp_dir,
                 kind: PlaygroundErrorKind::Open,
+                path: temp_dir,
+                io_error_kind: err.kind(),
+                io_error_message: err.to_string(),
             });
         }
 
@@ -134,9 +138,10 @@ impl Playground {
         fs::remove_dir_all(&self.temp_dir)
             .inspect(|()| self.closed = true)
             .map_err(|err| PlaygroundError {
-                io_error: err,
-                path: self.temp_dir.clone(),
                 kind: PlaygroundErrorKind::Close,
+                path: self.temp_dir.clone(),
+                io_error_kind: err.kind(),
+                io_error_message: err.to_string(),
             })
     }
 }
@@ -172,15 +177,15 @@ impl<'p> PlaygroundFs for PlaygroundAt<'p> {
     }
 }
 
-#[expect(dead_code, reason = "only used for Debug impl")]
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PlaygroundError {
     kind: PlaygroundErrorKind,
     path: PathBuf,
-    io_error: io::Error,
+    io_error_kind: io::ErrorKind,
+    io_error_message: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum PlaygroundErrorKind {
     Open,
     CreateDir,
