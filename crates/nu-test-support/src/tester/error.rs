@@ -2,6 +2,8 @@ use std::{io, panic::Location};
 
 use nu_protocol::{CompileError, ParseError, ShellError, Value};
 
+use crate::playground::PlaygroundError;
+
 /// Convenience result type for test helpers.
 pub type Result<T = (), E = TestError> = std::result::Result<T, E>;
 
@@ -63,6 +65,7 @@ pub enum TestErrorKind {
         message: String,
         kind: io::ErrorKind,
     },
+    Playground(PlaygroundError),
 }
 
 impl From<ShellError> for TestError {
