@@ -101,6 +101,16 @@ impl From<io::Error> for TestError {
     }
 }
 
+impl From<PlaygroundError> for TestError {
+    #[track_caller]
+    fn from(err: PlaygroundError) -> Self {
+        Self {
+            location: TestLocation(Location::caller()),
+            kind: TestErrorKind::Playground(err),
+        }
+    }
+}
+
 impl TestError {
     /// Convert this error into a [`ParseError`], if it is one.
     pub fn parse(self) -> Result<ParseError, TestError> {
