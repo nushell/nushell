@@ -1,7 +1,7 @@
 //! Module containing the internal representation of user configuration
 
 use crate::FromValue;
-use crate::{self as nu_protocol};
+use crate::{self as nu_protocol, Filesize};
 use helper::*;
 use prelude::*;
 use std::collections::HashMap;
@@ -86,6 +86,14 @@ pub struct Config {
     pub highlight_resolved_externals: bool,
     pub auto_cd_implicit: bool,
     pub duration_max_unit: DurationMaxUnit,
+    /// Maximum estimated memory size of the interactive last-result payload (`$ans.last`).
+    ///
+    /// Measured with [`Value::memory_size`]. Default is `0` (no `.last` payload; opt-in).
+    /// Oversized results are truncated to fit this budget. The variable name itself is a code
+    /// constant (`LAST_RESULT_VAR_NAME`), not a config option. With a positive budget, `$ans`
+    /// is `{ last, exit_code, duration }`. With `0`, `$ans` still has `exit_code` and
+    /// `duration` but omits `last` entirely.
+    pub last_result_size: Filesize,
     /// Configuration for plugins.
     ///
     /// Users can provide configuration for a plugin through this entry.  The entry name must
@@ -151,6 +159,9 @@ impl Default for Config {
 
             auto_cd_implicit: false,
             duration_max_unit: DurationMaxUnit::default(),
+
+            // Opt-in for `.last` payload: 0 drops last, keeps exit_code/duration
+            last_result_size: Filesize::ZERO,
 
             plugins: HashMap::new(),
             plugin_gc: PluginGcConfigs::default(),
@@ -230,6 +241,8 @@ impl UpdateFromValue for Config {
                     ),
                 },
 
+                "last_result_size" => self.last_result_size.update(val, current_path, errors),
+
                 "menus" => match Vec::<ParsedMenu>::from_value(val.clone()) {
                     Ok(menus) => {
                         for menu in menus {
@@ -300,7 +313,22 @@ impl UpdateFromValue for Config {
     }
 }
 
+impl UpdateFromValue for Filesize {
+    fn update(&mut self, value: &Value, path: &mut ConfigPath, errors: &mut ConfigErrors) {
+        match value.as_filesize() {
+            Ok(size) if !size.is_negative() => *self = size,
+            Ok(_) => errors.invalid_value(path, "a non-negative filesize", value),
+            Err(_) => errors.type_mismatch(path, Type::Filesize, value),
+        }
+    }
+}
+
 impl Config {
+    /// Returns the configured last-result size budget in bytes (`0` disables `.last` only).
+    pub fn last_result_size_bytes(&self) -> usize {
+        self.last_result_size.get().max(0) as usize
+    }
+
     pub fn update_from_value(
         &mut self,
         old: &Config,

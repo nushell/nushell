@@ -483,13 +483,19 @@ pub(crate) fn compile_unlet(
         match var_id {
             Some(var_id) => {
                 // Prevent deletion of built-in variables that are essential for nushell operation
-                if var_id == NU_VARIABLE_ID || var_id == ENV_VARIABLE_ID || var_id == IN_VARIABLE_ID
+                if var_id == NU_VARIABLE_ID
+                    || var_id == ENV_VARIABLE_ID
+                    || var_id == IN_VARIABLE_ID
+                    || var_id == nu_protocol::LAST_VARIABLE_ID
                 {
                     // Determine the variable name for the error message
                     let var_name = match var_id {
                         NU_VARIABLE_ID => "nu",
                         ENV_VARIABLE_ID => "env",
                         IN_VARIABLE_ID => "in",
+                        _ if var_id == nu_protocol::LAST_VARIABLE_ID => {
+                            nu_protocol::LAST_RESULT_VAR_NAME
+                        }
                         _ => "unknown", // This should never happen due to the check above
                     };
 

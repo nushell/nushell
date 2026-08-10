@@ -832,6 +832,15 @@ pub fn parse_variable_expr(
             span,
             Type::Any,
         );
+    } else if contents.strip_prefix(b"$") == Some(nu_protocol::LAST_RESULT_VAR_NAME.as_bytes()) {
+        // Interactive last-result special (`LAST_VARIABLE_ID`). The name is reserved
+        // (see `RESERVED_VARIABLE_NAMES`); rename site-wide via `LAST_RESULT_VAR_NAME`.
+        return Expression::new(
+            working_set,
+            Expr::Var(nu_protocol::LAST_VARIABLE_ID),
+            span,
+            Type::Any,
+        );
     }
 
     let name = if contents.starts_with(b"$") {

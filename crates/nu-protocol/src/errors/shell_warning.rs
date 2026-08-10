@@ -31,12 +31,29 @@ pub enum ShellWarning {
         #[related]
         warnings: Vec<ConfigWarning>,
     },
+    /// The interactive last-result value was truncated to fit `last_result_size`.
+    ///
+    /// Once-per-store is controlled by a stack flag; use [`ReportMode::EveryUse`] so the
+    /// engine report log does not permanently suppress later truncations at the same limit.
+    #[error(
+        "Last result was truncated to fit $env.config.last_result_size ({limit_bytes} bytes by Value::memory_size)."
+    )]
+    #[diagnostic(code(nu::shell::last_result_truncated))]
+    LastResultTruncated {
+        /// Access site span (not used as a source label — truncation is a state warning).
+        span: Span,
+        limit_bytes: usize,
+        #[help]
+        help: Option<String>,
+        report_mode: ReportMode,
+    },
 }
 
 impl Reportable for ShellWarning {
     fn report_mode(&self) -> ReportMode {
         match self {
-            ShellWarning::Deprecated { report_mode, .. } => *report_mode,
+            ShellWarning::Deprecated { report_mode, .. }
+            | ShellWarning::LastResultTruncated { report_mode, .. } => *report_mode,
             ShellWarning::InvalidConfig { .. } => ReportMode::FirstUse,
         }
     }
@@ -54,6 +71,10 @@ impl Hash for ShellWarning {
             }
             // We always report config warnings, so no hash necessary
             ShellWarning::InvalidConfig { .. } => (),
+            // EveryUse — hash unused for suppression; include fields for completeness
+            ShellWarning::LastResultTruncated { limit_bytes, .. } => {
+                limit_bytes.hash(state);
+            }
         }
     }
 }
