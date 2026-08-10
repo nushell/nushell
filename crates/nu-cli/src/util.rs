@@ -432,7 +432,8 @@ fn maybe_store_last_result(
     }
 
     if budget == 0 {
-        stack.clear_last_result();
+        // Payload capture off: free `.last` only; exit_code/duration stay via snapshot.
+        stack.clear_last_result_payload();
         return pipeline_data;
     }
 

@@ -24,14 +24,15 @@ use std::{
 /// Held in an [`Arc`] so REPL child stacks from [`Stack::with_parent`] see the same
 /// payload and can clear `warn_pending` without mutating an immutable parent frame.
 ///
-/// When [`Self::present`] is true, reading `$ans` yields a record
-/// `{ last, exit_code, duration }`. When false (feature off or never snapshotted),
-/// `$ans` is `nothing`.
+/// When [`Self::present`] is true, reading `$ans` yields a record with
+/// `exit_code` and `duration`. The `last` field is included only when a payload
+/// is stored (`last_result_size > 0`). When false (never snapshotted), `$ans` is
+/// `nothing`.
 #[derive(Debug, Default)]
 struct LastResultSlot {
     /// Whether `$ans` should resolve to a record (vs `nothing`).
     present: bool,
-    /// Pipeline payload for the `last` field.
+    /// Pipeline payload for the `last` field (`None` when payload capture is off).
     last: Option<Value>,
     /// Pipeline metadata for replaying `last` (e.g. `ls` path_columns / colors).
     metadata: Option<PipelineMetadata>,
@@ -282,28 +283,35 @@ impl Stack {
     }
 
     /// Build the `$ans` record when the slot is present; otherwise `None` (→ `nothing`).
+    ///
+    /// Omits the `last` field entirely when no payload is stored (e.g. budget is `0`),
+    /// so `$ans` is `{ exit_code, duration }` only.
     fn assemble_ans_record(&self, span: Span) -> Option<Value> {
         self.with_last_result_slot(|slot| {
             if !slot.present {
                 return None;
             }
-            let last = slot
-                .last
-                .as_ref()
-                .map(|v| v.clone().with_span(span))
-                .unwrap_or_else(|| Value::nothing(span));
-            Some(Value::record(
-                record! {
-                    "last" => last,
-                    "exit_code" => Value::int(slot.exit_code, span),
-                    "duration" => Value::duration(slot.duration_ns, span),
-                },
-                span,
-            ))
+            Some(match &slot.last {
+                Some(last) => Value::record(
+                    record! {
+                        "last" => last.clone().with_span(span),
+                        "exit_code" => Value::int(slot.exit_code, span),
+                        "duration" => Value::duration(slot.duration_ns, span),
+                    },
+                    span,
+                ),
+                None => Value::record(
+                    record! {
+                        "exit_code" => Value::int(slot.exit_code, span),
+                        "duration" => Value::duration(slot.duration_ns, span),
+                    },
+                    span,
+                ),
+            })
         })
     }
 
-    /// Drop the entire `$ans` slot (feature off / full clear).
+    /// Drop the entire `$ans` slot (full clear).
     pub fn clear_last_result(&mut self) {
         self.with_last_result_slot_mut(|slot| {
             if let Some(old) = slot.last.take() {
@@ -313,11 +321,27 @@ impl Stack {
         });
     }
 
+    /// Drop only `$ans.last` and its metadata/truncation flags, freeing payload memory.
+    ///
+    /// Leaves `present`, `exit_code`, and `duration` unchanged so a budget of `0` can
+    /// still expose timing/exit status without retaining the pipeline value.
+    pub fn clear_last_result_payload(&mut self) {
+        self.with_last_result_slot_mut(|slot| {
+            if let Some(old) = slot.last.take() {
+                drop(old);
+            }
+            slot.metadata = None;
+            slot.truncated = false;
+            slot.warn_pending = false;
+            slot.warn_deferred = false;
+        });
+    }
+
     /// Store `value` as `$ans.last`, enforcing `budget` via truncation.
     ///
-    /// When `budget == 0`, capture is disabled (clears the whole `$ans` slot).
-    /// Preserves pipeline `metadata` (e.g. `path_columns` used for `ls` coloring) so
-    /// replaying `$ans.last` can match the original display.
+    /// When `budget == 0`, payload capture is disabled (clears `.last` only; exit code
+    /// and duration stay). Preserves pipeline `metadata` (e.g. `path_columns` used for
+    /// `ls` coloring) so replaying `$ans.last` can match the original display.
     pub fn set_last_result(
         &mut self,
         value: Value,
@@ -325,7 +349,7 @@ impl Stack {
         budget: usize,
     ) {
         if budget == 0 {
-            self.clear_last_result();
+            self.clear_last_result_payload();
             return;
         }
 
@@ -358,26 +382,34 @@ impl Stack {
 
     /// After a REPL user command finishes: refresh `$ans.exit_code` and `$ans.duration`.
     ///
-    /// When `budget == 0`, clears `$ans` entirely. When budget is positive and `$ans` is
-    /// already present (or `.last` was stored this line), updates metadata fields.
-    /// Does nothing if capture never produced a present slot (avoids inventing `$ans` on
-    /// empty Enter / auto-cd).
+    /// When `budget == 0`, drops `$ans.last` (and its memory) but still records exit code
+    /// and duration so `$ans` is `{ exit_code, duration }` without a `last` field.
+    /// When budget is positive and `$ans` is already present (or `.last` was stored this
+    /// line), updates metadata fields only. Does nothing if payload capture is on and the
+    /// slot was never present (avoids inventing `$ans` on empty Enter / auto-cd — those
+    /// paths do not call this method).
     pub fn snapshot_ans_repl_metadata(
         &mut self,
         engine_state: &EngineState,
         duration: std::time::Duration,
     ) {
         let budget = self.get_config(engine_state).last_result_size_bytes();
-        if budget == 0 {
-            self.clear_last_result();
-            return;
-        }
-
         let exit_code = self
             .get_env_var(engine_state, "LAST_EXIT_CODE")
             .and_then(|v| v.as_int().ok())
             .unwrap_or(0);
         let duration_ns = i64::try_from(duration.as_nanos()).unwrap_or(i64::MAX);
+
+        if budget == 0 {
+            // Payload off: free `.last`, keep/refresh exit code and duration.
+            self.clear_last_result_payload();
+            self.with_last_result_slot_mut(|slot| {
+                slot.exit_code = exit_code;
+                slot.duration_ns = duration_ns;
+                slot.present = true;
+            });
+            return;
+        }
 
         self.with_last_result_slot_mut(|slot| {
             // Only refresh metadata when capture has already produced a slot (store or

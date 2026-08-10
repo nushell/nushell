@@ -5,8 +5,10 @@
 //! hook, so these tests drive `eval_source` directly while following harness conventions:
 //! `Result` returns, structured value asserts, and no `nu!`.
 //!
-//! When enabled, `$ans` is a record `{ last, exit_code, duration }`. Payload checks use
-//! the `last` field; bare `$ans` / `$ans.*` cell-paths must not clobber `.last`.
+//! When payload capture is enabled (`last_result_size > 0`), `$ans` is a record
+//! `{ last, exit_code, duration }`. With size `0`, `$ans` is `{ exit_code, duration }`
+//! (no `last` field). Payload checks use the `last` field; bare `$ans` / `$ans.*`
+//! cell-paths must not clobber `.last`.
 
 use nu_cli::eval_source;
 use nu_protocol::{
@@ -74,12 +76,12 @@ impl Interactive {
         self.engine_state.capture_repl_last_result = false;
     }
 
-    /// Full `$ans` value (record when present, `nothing` when unset / disabled).
+    /// Full `$ans` value (record when present, `nothing` when never snapshotted/stored).
     fn ans_value(&self) -> Result<Value> {
         Ok(self.stack.get_var(LAST_VARIABLE_ID, Span::test_data())?)
     }
 
-    /// `$ans.last` payload (or `nothing` when `$ans` is unset).
+    /// `$ans.last` payload (or `nothing` when `$ans` is unset or has no `last` field).
     fn last_payload(&self) -> Result<Value> {
         let ans = self.ans_value()?;
         match ans {
@@ -89,6 +91,12 @@ impl Interactive {
                 .unwrap_or_else(Value::test_nothing)),
             other => panic!("expected $ans record or nothing, got {other:?}"),
         }
+    }
+
+    /// Match REPL end-of-line snapshot of exit_code / duration.
+    fn snapshot_metadata(&mut self, duration: Duration) {
+        self.stack
+            .snapshot_ans_repl_metadata(&self.engine_state, duration);
     }
 }
 
@@ -199,10 +207,33 @@ fn error_does_not_overwrite() -> Result {
 }
 
 #[test]
-fn zero_budget_disables_capture() -> Result {
+fn zero_budget_disables_last_payload_only() -> Result {
     let mut session = Interactive::new().with_last_result_size(Filesize::ZERO);
     session.run("123");
+    // Without a REPL metadata snapshot, the slot was never marked present.
     assert_eq!(session.ans_value()?, Value::test_nothing());
+
+    session.stack.set_last_exit_code(0, Span::test_data());
+    session.snapshot_metadata(Duration::from_millis(10));
+
+    let ans = session.ans_value()?;
+    assert!(
+        matches!(ans, Value::Record { .. }),
+        "expected $ans record with exit_code/duration when budget is 0, got {ans:?}"
+    );
+    assert!(
+        ans.get_data_by_key("last").is_none(),
+        "expected no `last` field when budget is 0, got {ans:?}"
+    );
+    assert_eq!(
+        ans.get_data_by_key("exit_code").expect("exit_code"),
+        Value::test_int(0)
+    );
+    assert_eq!(
+        ans.get_data_by_key("duration").expect("duration"),
+        Value::test_duration(10_000_000)
+    );
+    assert_eq!(session.last_payload()?, Value::test_nothing());
     Ok(())
 }
 
@@ -471,7 +502,14 @@ fn internal_structured_last_is_not_stringified() -> Result {
 fn zero_budget_does_not_force_external_capture() -> Result {
     let mut session = Interactive::new().with_last_result_size(Filesize::ZERO);
     session.run("^nonu should_not_store");
-    assert_eq!(session.ans_value()?, Value::test_nothing());
+    // External capture is skipped when budget is 0; still no `.last` after snapshot.
+    session.snapshot_metadata(Duration::from_millis(1));
+    let ans = session.ans_value()?;
+    assert!(matches!(ans, Value::Record { .. }), "got {ans:?}");
+    assert!(
+        ans.get_data_by_key("last").is_none(),
+        "budget 0 must not store external output in last, got {ans:?}"
+    );
     Ok(())
 }
 
@@ -498,19 +536,40 @@ fn snapshot_ans_repl_metadata_sets_exit_code_and_duration() -> Result {
 }
 
 #[test]
-fn snapshot_with_zero_budget_clears_ans() -> Result {
+fn snapshot_with_zero_budget_drops_last_keeps_metadata() -> Result {
     let mut session = Interactive::new();
     session.run("1");
     assert!(matches!(session.ans_value()?, Value::Record { .. }));
+    assert_eq!(session.last_payload()?, Value::test_int(1));
 
     let mut cfg = session.engine_state.get_config().as_ref().clone();
     cfg.last_result_size = Filesize::ZERO;
     session.engine_state.config = Arc::new(cfg);
 
+    session.stack.set_last_exit_code(3, Span::test_data());
     session
         .stack
-        .snapshot_ans_repl_metadata(&session.engine_state, Duration::from_millis(1));
-    assert_eq!(session.ans_value()?, Value::test_nothing());
+        .snapshot_ans_repl_metadata(&session.engine_state, Duration::from_millis(5));
+
+    let ans = session.ans_value()?;
+    assert!(
+        matches!(ans, Value::Record { .. }),
+        "expected $ans to remain a record, got {ans:?}"
+    );
+    assert!(
+        ans.get_data_by_key("last").is_none(),
+        "expected `last` removed when budget becomes 0, got {ans:?}"
+    );
+    assert_eq!(
+        ans.get_data_by_key("exit_code").expect("exit_code"),
+        Value::test_int(3)
+    );
+    assert_eq!(
+        ans.get_data_by_key("duration").expect("duration"),
+        Value::test_duration(5_000_000)
+    );
+    // Payload memory must be gone.
+    assert_eq!(session.stack.last_result_memory_size(), 0);
     Ok(())
 }
 
@@ -547,10 +606,20 @@ fn ls_then_ans_with_config_env() -> Result {
 }
 
 #[test]
-fn default_zero_budget_means_ans_is_nothing() -> Result {
+fn default_zero_budget_means_no_last_field() -> Result {
     let mut session = Interactive::new().with_last_result_size(Filesize::ZERO);
     session.run("ls");
+    // Store path with budget 0 does not invent a record by itself.
     assert_eq!(session.ans_value()?, Value::test_nothing());
+
+    session.snapshot_metadata(Duration::from_millis(2));
+    let ans = session.ans_value()?;
+    assert!(matches!(ans, Value::Record { .. }), "got {ans:?}");
+    assert!(
+        ans.get_data_by_key("last").is_none(),
+        "ls must not populate last when budget is 0, got {ans:?}"
+    );
+    assert_eq!(session.stack.last_result_memory_size(), 0);
     Ok(())
 }
 

@@ -88,10 +88,11 @@ pub struct Config {
     pub duration_max_unit: DurationMaxUnit,
     /// Maximum estimated memory size of the interactive last-result payload (`$ans.last`).
     ///
-    /// Measured with [`Value::memory_size`]. Default is `0` (capture disabled / opt-in).
+    /// Measured with [`Value::memory_size`]. Default is `0` (no `.last` payload; opt-in).
     /// Oversized results are truncated to fit this budget. The variable name itself is a code
-    /// constant (`LAST_RESULT_VAR_NAME`), not a config option. When enabled, `$ans` is a record
-    /// `{ last, exit_code, duration }`.
+    /// constant (`LAST_RESULT_VAR_NAME`), not a config option. With a positive budget, `$ans`
+    /// is `{ last, exit_code, duration }`. With `0`, `$ans` still has `exit_code` and
+    /// `duration` but omits `last` entirely.
     pub last_result_size: Filesize,
     /// Configuration for plugins.
     ///
@@ -159,7 +160,7 @@ impl Default for Config {
             auto_cd_implicit: false,
             duration_max_unit: DurationMaxUnit::default(),
 
-            // Opt-in: 0 disables interactive last-result capture
+            // Opt-in for `.last` payload: 0 drops last, keeps exit_code/duration
             last_result_size: Filesize::ZERO,
 
             plugins: HashMap::new(),
@@ -323,7 +324,7 @@ impl UpdateFromValue for Filesize {
 }
 
 impl Config {
-    /// Returns the configured last-result size budget in bytes (`0` disables capture).
+    /// Returns the configured last-result size budget in bytes (`0` disables `.last` only).
     pub fn last_result_size_bytes(&self) -> usize {
         self.last_result_size.get().max(0) as usize
     }
