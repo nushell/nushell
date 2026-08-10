@@ -1,9 +1,6 @@
 use super::util::{build_metadata_record, extend_record_with_metadata};
 use nu_engine::command_prelude::*;
-use nu_protocol::{
-    PipelineMetadata,
-    ast::{Expr, Expression},
-};
+use nu_protocol::PipelineMetadata;
 
 #[derive(Clone)]
 pub struct Metadata;
@@ -29,11 +26,6 @@ impl Command for Metadata {
             .category(Category::Debug)
     }
 
-    // Needed so IR retains the argument Expression for var/cell-path origin lookup.
-    fn requires_ast_for_arguments(&self) -> bool {
-        true
-    }
-
     fn run(
         &self,
         engine_state: &EngineState,
@@ -41,61 +33,24 @@ impl Command for Metadata {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let arg = call.positional_nth(stack, 0);
         let head = call.head;
+        let arg: Option<Value> = call.opt(engine_state, stack, 0)?;
 
         if !matches!(input, PipelineData::Empty)
-            && let Some(arg_expr) = arg
+            && let Some(ref arg_val) = arg
         {
             return Err(ShellError::IncompatibleParameters {
                 left_message: "pipeline input was provided".into(),
                 left_span: head,
                 right_message: "but a positional metadata expression was also given".into(),
-                right_span: arg_expr.span,
+                right_span: arg_val.span(),
             });
         }
 
         match arg {
-            Some(Expression {
-                expr: Expr::FullCellPath(full_cell_path),
-                span,
-                ..
-            }) => {
-                if full_cell_path.tail.is_empty() {
-                    match &full_cell_path.head {
-                        Expression {
-                            expr: Expr::Var(var_id),
-                            ..
-                        } => {
-                            let origin = stack.get_var_with_origin(*var_id, *span)?;
-                            Ok(
-                                build_metadata_record_value(&origin, input.metadata_ref(), head)
-                                    .into_pipeline_data(),
-                            )
-                        }
-                        _ => {
-                            let val: Value = call.req(engine_state, stack, 0)?;
-                            Ok(
-                                build_metadata_record_value(&val, input.metadata_ref(), head)
-                                    .into_pipeline_data(),
-                            )
-                        }
-                    }
-                } else {
-                    let val: Value = call.req(engine_state, stack, 0)?;
-                    Ok(
-                        build_metadata_record_value(&val, input.metadata_ref(), head)
-                            .into_pipeline_data(),
-                    )
-                }
-            }
-            Some(_) => {
-                let val: Value = call.req(engine_state, stack, 0)?;
-                Ok(
-                    build_metadata_record_value(&val, input.metadata_ref(), head)
-                        .into_pipeline_data(),
-                )
-            }
+            Some(val) => Ok(
+                build_metadata_record_value(&val, input.metadata_ref(), head).into_pipeline_data(),
+            ),
             None => {
                 Ok(Value::record(build_metadata_record(&input, head), head).into_pipeline_data())
             }
