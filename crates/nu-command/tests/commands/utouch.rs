@@ -25,7 +25,7 @@ fn symlink_times(path: &nu_path::AbsolutePath) -> (filetime::FileTime, filetime:
 }
 
 // From https://github.com/nushell/nushell/pull/14214
-fn setup_symlink_fs(dirs: &Dirs, sandbox: &mut Playground<'_>) {
+fn setup_symlink_fs(dirs: &deprecated::Dirs, sandbox: &mut deprecated::Playground<'_>) {
     sandbox.mkdir("d");
     sandbox.with_files(&[Stub::EmptyFile("f"), Stub::EmptyFile("d/f")]);
     sandbox.symlink("f", "fs");
