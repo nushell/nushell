@@ -4,13 +4,8 @@ use chrono::DateTime;
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_eq;
 
-static GENERATE: LazyLock<PathBuf> = LazyLock::new(|| {
-    FIXTURES
-        .join("formats")
-        .join("msgpack")
-        .join("generate.nu")
-        .into()
-});
+static GENERATE: LazyLock<PathBuf> =
+    LazyLock::new(|| FIXTURES.join("formats").join("msgpack").join("generate.nu"));
 
 fn msgpack_test<T: FromValue>(fixture_name: impl AsRef<str>) -> Result<T> {
     msgpack_test_with_opts(fixture_name, "")
