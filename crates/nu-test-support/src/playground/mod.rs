@@ -43,6 +43,8 @@ pub trait PlaygroundFs: sealed::Sealed {
     /// Nested paths are allowed and will be joined to the current
     /// [`path`](Self::path) of the playground.
     /// All directories will be created passed to this method.
+    /// Absolute paths are treated as relative to the playground, so
+    /// `/abc/def` is equivalent to `abc/def`.
     ///
     /// # Example
     ///
@@ -59,7 +61,7 @@ pub trait PlaygroundFs: sealed::Sealed {
     /// # }
     /// ```
     fn dir(&self, path: impl AsRef<Path>) -> Result<&Self> {
-        let dir = self.path().join(check_path(path.as_ref())?);
+        let dir = self.path().join(normalize_playground_path(path.as_ref())?);
         fs::create_dir_all(&dir)
             .map(|()| self)
             .map_err(|err| PlaygroundError {
@@ -75,6 +77,8 @@ pub trait PlaygroundFs: sealed::Sealed {
     /// The path will be joined to the current [`path`](Self::path) of the
     /// playground.
     /// Any parent directories will be added as necessary.
+    /// Absolute paths are treated as relative to the playground, so
+    /// `/some/file.empty` is equivalent to `some/file.empty`.
     ///
     /// # Example
     ///
@@ -91,14 +95,16 @@ pub trait PlaygroundFs: sealed::Sealed {
     /// # }
     /// ```
     fn empty_file(&self, path: impl AsRef<Path>) -> Result<&Self> {
-        self.file(check_path(path.as_ref())?, [])
+        self.file(normalize_playground_path(path.as_ref())?, [])
     }
 
-    /// Create a directory with contents in the [`Playground`].
+    /// Create a file with contents in the [`Playground`].
     ///
     /// The path will be joined to the current [`path`](Self::path) of the
     /// playground.
     /// Any parent directories will be added as necessary.
+    /// Absolute paths are treated as relative to the playground, so
+    /// `/some/file.txt` is equivalent to `some/file.txt`.
     /// # Example
     ///
     /// ```
@@ -117,7 +123,7 @@ pub trait PlaygroundFs: sealed::Sealed {
     /// # }
     /// ```
     fn file(&self, path: impl AsRef<Path>, contents: impl AsRef<[u8]>) -> Result<&Self> {
-        let file = self.path().join(check_path(path.as_ref())?);
+        let file = self.path().join(normalize_playground_path(path.as_ref())?);
         if let Some(parent) = file.parent()
             && let Err(err) = fs::create_dir_all(parent)
         {
@@ -145,6 +151,8 @@ pub trait PlaygroundFs: sealed::Sealed {
     /// repeatedly.
     /// The passed path will be joined to the [`path`](Self::path) of the
     /// playground and created as missing.
+    /// Absolute paths are treated as relative to the playground, so
+    /// `/abc` is equivalent to `abc`.
     ///
     /// # Example
     ///
@@ -175,7 +183,7 @@ pub trait PlaygroundFs: sealed::Sealed {
         path: impl AsRef<Path>,
         inside: impl FnOnce(&PlaygroundAt) -> Result<R>,
     ) -> Result<R> {
-        let path = self.path().join(check_path(path.as_ref())?);
+        let path = self.path().join(normalize_playground_path(path.as_ref())?);
 
         match fs::create_dir_all(&path) {
             Ok(()) => {}
@@ -306,7 +314,7 @@ pub enum PlaygroundErrorKind {
     Close,
 }
 
-fn check_path(path: &Path) -> Result<&Path, PlaygroundError> {
+fn normalize_playground_path(path: &Path) -> Result<&Path, PlaygroundError> {
     let err = |kind| {
         Err(PlaygroundError {
             kind: PlaygroundErrorKind::InvalidPath(kind),
@@ -315,6 +323,10 @@ fn check_path(path: &Path) -> Result<&Path, PlaygroundError> {
             message: "".to_string(),
         })
     };
+
+    if path.as_os_str().is_empty() {
+        return err(InvalidPlaygroundPath::Empty);
+    }
 
     let mut valid_path = path;
     for (i, component) in valid_path.components().enumerate() {
@@ -336,6 +348,9 @@ fn check_path(path: &Path) -> Result<&Path, PlaygroundError> {
 
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum InvalidPlaygroundPath {
+    #[error("path is empty")]
+    Empty,
+
     #[error("path includes prefix")]
     IncludesPrefix,
 
