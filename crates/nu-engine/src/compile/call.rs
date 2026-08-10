@@ -211,7 +211,8 @@ pub(crate) fn compile_call(
         }
     }
 
-    // Special handling for builtin commands that have direct IR equivalents
+    // Special handling for builtin commands that have direct IR equivalents.
+    // `unlet` never goes through `Command::run`; see `compile_unlet`.
     if decl.name() == "unlet" {
         return compile_unlet(working_set, builder, call, io_reg);
     }

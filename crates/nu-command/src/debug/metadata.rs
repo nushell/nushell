@@ -29,6 +29,7 @@ impl Command for Metadata {
             .category(Category::Debug)
     }
 
+    // Needed so IR retains the argument Expression for var/cell-path origin lookup.
     fn requires_ast_for_arguments(&self) -> bool {
         true
     }
