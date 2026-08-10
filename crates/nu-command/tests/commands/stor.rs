@@ -53,12 +53,12 @@ fn stor_import_missing_file_errors() -> Result {
 fn stor_import_missing_file_keeps_existing_data() -> Result {
     Playground::setup("stor_import_keeps_existing_data", |dirs, _| {
         let missing = dirs.test().join("missing.sqlite");
-        let code = r#"
+        let code = "
             stor create --table-name stor_import_table --columns { id: int };
             stor insert -t stor_import_table --data-record { id: 1 };
             try { stor import --file-name $env.MISSING_DB };
             stor open | query db 'select id from stor_import_table' | get 0.id
-        "#;
+        ";
 
         test()
             .env("MISSING_DB", missing.to_string_lossy().into_owned())
