@@ -34,21 +34,35 @@ fn stor_update_with_quote() -> Result {
         .expect_value_eq("This didn't work, but should now.")
 }
 
+// `stor import` hands the path to sqlite, which resolves a relative one against the process
+// working directory. The test harness does not keep that in sync with `$env.PWD`, so these
+// tests use an absolute path inside the playground rather than setting `cwd`.
 #[test]
 fn stor_import_missing_file_errors() -> Result {
-    test()
-        .run::<Value>("stor import --file-name nonexistent_stor_import.sqlite")
-        .expect_error_code_eq("nu::shell::io::file_not_found")
+    Playground::setup("stor_import_missing_file", |dirs, _| {
+        let missing = dirs.test().join("missing.sqlite");
+
+        test()
+            .env("MISSING_DB", missing.to_string_lossy().into_owned())
+            .run::<Value>("stor import --file-name $env.MISSING_DB")
+            .expect_error_code_eq("nu::shell::io::file_not_found")
+    })
 }
 
 #[test]
 fn stor_import_missing_file_keeps_existing_data() -> Result {
-    let code = r#"
-        stor create --table-name stor_import_table --columns { id: int };
-        stor insert -t stor_import_table --data-record { id: 1 };
-        try { stor import --file-name nonexistent_stor_import.sqlite };
-        stor open | query db 'select id from stor_import_table' | get 0.id
-    "#;
+    Playground::setup("stor_import_keeps_existing_data", |dirs, _| {
+        let missing = dirs.test().join("missing.sqlite");
+        let code = r#"
+            stor create --table-name stor_import_table --columns { id: int };
+            stor insert -t stor_import_table --data-record { id: 1 };
+            try { stor import --file-name $env.MISSING_DB };
+            stor open | query db 'select id from stor_import_table' | get 0.id
+        "#;
 
-    test().run(code).expect_value_eq(1i64)
+        test()
+            .env("MISSING_DB", missing.to_string_lossy().into_owned())
+            .run(code)
+            .expect_value_eq(1i64)
+    })
 }
