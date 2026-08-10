@@ -95,7 +95,7 @@ pub trait PlaygroundFs: sealed::Sealed {
     /// # }
     /// ```
     fn empty_file(&self, path: impl AsRef<Path>) -> Result<&Self> {
-        self.file(normalize_playground_path(path.as_ref())?, [])
+        self.file(path, [])
     }
 
     /// Create a file with contents inside the playground.
