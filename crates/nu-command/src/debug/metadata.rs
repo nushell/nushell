@@ -34,7 +34,15 @@ impl Command for Metadata {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let arg: Option<Value> = call.opt(engine_state, stack, 0)?;
+        // Do not use `call.opt`: it filters out `Value::Nothing`, so `metadata $null` (and
+        // optional/rest bindings that are nothing) would be treated as "no positional" and
+        // return pipeline metadata without a `span` field. Callers like `assert equal $x null`
+        // always evaluate `(metadata $right).span` when building error labels.
+        let arg = if call.has_positional_args(stack, 0) {
+            Some(call.req::<Value>(engine_state, stack, 0)?)
+        } else {
+            None
+        };
 
         if !matches!(input, PipelineData::Empty)
             && let Some(ref arg_val) = arg

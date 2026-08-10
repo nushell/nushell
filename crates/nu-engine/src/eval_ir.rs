@@ -1588,7 +1588,9 @@ fn gather_arguments(
                     }
                     callee_stack.add_var(var_id, val);
                 } else {
-                    rest_span = Some(rest_span.map_or(val.span(), |s| s.append(val.span())));
+                    // Use the argument's call-site span (not val.span()) so rest spans stay in
+                    // source order. Values may keep definition/origin spans (e.g. metadata).
+                    rest_span = Some(rest_span.map_or(span, |s| s.append(span)));
                     let val = if expand_glob_args {
                         expand_external_glob_arg(val)
                     } else {
