@@ -112,6 +112,38 @@ fn continues_onto_next_line(c: u8) -> bool {
     )
 }
 
+/// Advance the delimiter matching for one byte inside a subexpression of an
+/// interpolated string. Shared by `lex_item` and `parse_string_interpolation`
+/// so both scan the same bytes the same way. The stack holds expected closers;
+/// `open` is stored alongside a pushed closer (a span for error reporting, or
+/// `()` when the caller does not need one).
+///
+/// While the innermost open delimiter is a quote, only that quote closes it;
+/// otherwise quotes open nested strings and parens nest. Escapes exist only in
+/// double-quoted strings: returns true when `byte` is a backslash inside a
+/// nested `"` string, in which case the caller must also skip the next byte.
+pub(crate) fn interp_subexpr_step<T>(stack: &mut Vec<(u8, T)>, byte: u8, open: T) -> bool {
+    match stack.last() {
+        Some(&(expected, _)) if expected != b')' => {
+            if expected == b'"' && byte == b'\\' {
+                return true;
+            }
+            if byte == expected {
+                stack.pop();
+            }
+        }
+        _ => match byte {
+            b'\'' | b'"' | b'`' => stack.push((byte, open)),
+            b'(' => stack.push((b')', open)),
+            b')' => {
+                stack.pop();
+            }
+            _ => {}
+        },
+    }
+    false
+}
+
 pub fn lex_item(
     input: &[u8],
     curr_offset: &mut usize,
@@ -173,34 +205,21 @@ pub fn lex_item(
         let c = *c;
 
         if let Some((start, open_span)) = quote_start {
-            if let Some(&(expected, _)) = interp_expr_level.last() {
-                // Inside a subexpression of an interpolated string. Match
-                // delimiters the same way `parse_string_interpolation` does:
-                // while the innermost open delimiter is a quote, only that
-                // quote closes it; otherwise quotes open nested strings and
-                // parens nest.
-                if expected == b'"' && c == b'\\' && input.get(*curr_offset + 1).is_some() {
-                    // Escapes exist only in double-quoted strings: inside a
-                    // nested `"` string a backslash escapes the next byte, so
-                    // `\"` does not close the string.
+            if !interp_expr_level.is_empty() {
+                // Inside a subexpression of an interpolated string; the shared
+                // step keeps this scan and `parse_string_interpolation` on the
+                // same rules, so the token ends where the parser ends the
+                // string.
+                let open = Span::new(span_offset + *curr_offset, span_offset + *curr_offset + 1);
+                if interp_subexpr_step(&mut interp_expr_level, c, open)
+                    && input.get(*curr_offset + 1).is_some()
+                {
+                    // Escape inside a nested double-quoted string: consume the
+                    // escaped byte too, so `\"` does not close the string.
                     *curr_offset += 2;
                     previous_char = Some(c);
                     at_line_start = false;
                     continue;
-                }
-                let open = Span::new(span_offset + *curr_offset, span_offset + *curr_offset + 1);
-                match c {
-                    _ if expected != b')' => {
-                        if c == expected {
-                            interp_expr_level.pop();
-                        }
-                    }
-                    b'\'' | b'"' | b'`' => interp_expr_level.push((c, open)),
-                    b'(' => interp_expr_level.push((b')', open)),
-                    b')' => {
-                        interp_expr_level.pop();
-                    }
-                    _ => {}
                 }
                 last_sig_char = Some(c);
                 at_line_start = false;
