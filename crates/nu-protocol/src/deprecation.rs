@@ -100,14 +100,14 @@ impl DeprecationEntry {
         }
     }
 
-    fn type_name(&self) -> String {
+    pub fn type_name(&self) -> String {
         match &self.ty {
             DeprecationType::Command => "Command".to_string(),
             DeprecationType::Flag(_) => "Flag".to_string(),
         }
     }
 
-    fn label(&self, command_name: &str) -> String {
+    pub fn label(&self, command_name: &str) -> String {
         let name = match &self.ty {
             DeprecationType::Command => command_name,
             DeprecationType::Flag(flag) => &format!("{command_name} --{flag}"),

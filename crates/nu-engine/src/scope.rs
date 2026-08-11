@@ -174,6 +174,7 @@ impl<'e, 's> ScopeData<'e, 's> {
             if self.visibility.is_decl_id_visible(decl_id)
                 && !self.engine_state.get_decl(*decl_id).is_alias()
             {
+                let command_name = String::from_utf8_lossy(command_name);
                 let decl = self.engine_state.get_decl(*decl_id);
                 let signature = decl.signature();
 
@@ -206,8 +207,22 @@ impl<'e, 's> ScopeData<'e, 's> {
                     })
                     .collect();
 
+                let deprecations = decl
+                    .deprecation_info()
+                    .into_iter()
+                    .map(|entry| {
+                        Value::record(
+                            record! {
+                                "type" => Value::string(entry.type_name(), span),
+                                "label" => Value::string(entry.label(&command_name), span)
+                            },
+                            span,
+                        )
+                    })
+                    .collect();
+
                 let record = record! {
-                    "name" => Value::string(String::from_utf8_lossy(command_name), span),
+                    "name" => Value::string(command_name, span),
                     "category" => Value::string(signature.category.to_string(), span),
                     "signatures" => self.collect_signatures(&signature, span),
                     "description" => Value::string(decl.description(), span),
@@ -224,6 +239,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                         Some(CommandWideCompleter::External) => Value::string("external", span),
                         None => Value::nothing(span),
                     },
+                    "deprecation_info" => Value::list(deprecations, span),
                     "decl_id" => Value::int(decl_id.get() as i64, span),
                 };
 
