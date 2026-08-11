@@ -4710,6 +4710,7 @@ dependencies = [
  "lru",
  "lscolors",
  "miette 7.6.0",
+ "nix 0.31.3",
  "nu-ansi-term",
  "nu-cmd-base",
  "nu-cmd-lang",
@@ -4736,6 +4737,7 @@ dependencies = [
  "unicode-segmentation",
  "uuid",
  "which 8.0.6",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
