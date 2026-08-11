@@ -2,7 +2,7 @@
 
 use crate::{
     Token, TokenContents,
-    lex::lex,
+    lex::{interp_subexpr_step, lex},
     parse_helpers::{
         SPREAD_OPERATOR_STR, extract_spread_record, garbage, is_variable, trim_quotes,
     },
@@ -650,39 +650,10 @@ pub fn parse_string_interpolation(working_set: &mut StateWorkingSet, span: Span)
     let mut mode = InterpolationMode::String;
     let mut token_start = start;
 
-    #[repr(u8)]
-    #[derive(Clone, Copy, PartialEq, Eq)]
-    enum Delimiter {
-        SingleQuote = b'\'',
-        DoubleQuote = b'"',
-        Backtick = b'`',
-        ParenLeft = b'(',
-        ParenRight = b')',
-    }
-
-    impl Delimiter {
-        const fn from_u8(b: u8) -> Option<Self> {
-            Some(match b {
-                b'\'' => Self::SingleQuote,
-                b'"' => Self::DoubleQuote,
-                b'`' => Self::Backtick,
-                b'(' => Self::ParenLeft,
-                b')' => Self::ParenRight,
-                _ => return None,
-            })
-        }
-        const fn is_paren(self) -> bool {
-            matches!(self, Self::ParenLeft | Self::ParenRight)
-        }
-        const fn pair(self) -> Self {
-            match self {
-                Self::ParenLeft => Self::ParenRight,
-                Self::ParenRight => Self::ParenLeft,
-                _ => self,
-            }
-        }
-    }
-    let mut delimiter_stack: Vec<Delimiter> = vec![];
+    // Expected closers inside a subexpression, matched by the same shared step
+    // the lexer uses (`interp_subexpr_step`), so both scans agree on where the
+    // string ends.
+    let mut delimiter_stack: Vec<(u8, ())> = vec![];
 
     let mut consecutive_backslashes: usize = 0;
 
@@ -730,35 +701,24 @@ pub fn parse_string_interpolation(working_set: &mut StateWorkingSet, span: Span)
         }
 
         if mode == InterpolationMode::Expression {
-            let byte = Delimiter::from_u8(current_byte);
-            match (delimiter_stack.last().copied(), byte) {
-                (Some(d), Some(byte)) if !d.is_paren() => {
-                    if byte == d {
-                        delimiter_stack.pop();
-                    }
-                }
-                (_, Some(byte)) if byte != Delimiter::ParenRight => {
-                    delimiter_stack.push(byte.pair())
-                }
-                (d, Some(Delimiter::ParenRight)) => {
-                    if let Some(Delimiter::ParenRight) = d {
-                        delimiter_stack.pop();
-                    }
-                    if delimiter_stack.is_empty() {
-                        mode = InterpolationMode::String;
+            if interp_subexpr_step(&mut delimiter_stack, current_byte, ()) && b + 1 < end {
+                // Escape inside a nested double-quoted string: skip the
+                // escaped byte too, so `\"` does not close the string.
+                b += 2;
+                continue;
+            }
+            if current_byte == b')' && delimiter_stack.is_empty() {
+                mode = InterpolationMode::String;
 
-                        if token_start < b {
-                            let span = Span::new(token_start, b + 1);
+                if token_start < b {
+                    let span = Span::new(token_start, b + 1);
 
-                            let expr = parse_full_cell_path(working_set, None, span, None);
-                            output.push(expr);
-                        }
-
-                        token_start = b + 1;
-                        continue;
-                    }
+                    let expr = parse_full_cell_path(working_set, None, span, None);
+                    output.push(expr);
                 }
-                _ => (),
+
+                token_start = b + 1;
+                continue;
             }
         }
         b += 1;

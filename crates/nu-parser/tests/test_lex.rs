@@ -242,6 +242,45 @@ fn lex_incomplete_quote() {
     ));
 }
 
+#[rstest]
+#[case(br#"$"('" "')""#)] // https://github.com/nushell/nushell/issues/18807
+#[case(br#"$"('a' + "b")""#)]
+#[case(br#"$'("a b")'"#)]
+#[case(br#"$"(1 + (2 * 3)) end""#)]
+#[case(br#"$"\('not an expr'\)""#)]
+#[case(br#"$"("a\"b")""#)] // escaped quote inside a nested double-quoted string
+#[case(br#"$"a(1)b(2)""#)] // multiple sequential subexpressions
+#[case(br#"$"($"in(2)ner")""#)] // nested interpolated string as the subexpression body
+#[case(br#"$'($"a" + $'b')'"#)]
+fn lex_interpolation_subexpression_is_one_token(#[case] file: &[u8]) {
+    // A quote inside `(…)` of an interpolated string does not end the string,
+    // and an escaped `\(` does not start a subexpression. The whole construct
+    // must lex as a single item token.
+    let (output, err) = lex(file, 0, &[], &[], true);
+    assert!(err.is_none(), "expected clean lex, got {err:?}");
+    let items: Vec<&Token> = output
+        .iter()
+        .filter(|t| t.contents == TokenContents::Item)
+        .collect();
+    assert_eq!(items.len(), 1, "expected a single item token: {items:?}");
+    assert_eq!(items[0].span, Span::new(0, file.len()));
+}
+
+#[rstest]
+#[case(br#"$"('"#, ")", 2)] // oldest open delimiter: the subexpression itself
+#[case(br#"$"(1"#, ")", 2)] // subexpression still open at end of input
+#[case(br#"$"foo (2 + 3""#, ")", 6)] // trailing quote opens a nested string; the mistake is the `(`
+fn lex_interpolation_subexpression_unclosed(
+    #[case] file: &[u8],
+    #[case] delim: &str,
+    #[case] open_at: usize,
+) {
+    let (_, err) = lex(file, 0, &[], &[], true);
+    let err = err.expect("expected unclosed delimiter error");
+    let (open, _end) = assert_unclosed(&err, delim);
+    assert_eq!(open, Span::new(open_at, open_at + 1));
+}
+
 // ---------------------------------------------------------------------------
 // Delimiter diagnostics regression suite
 //
