@@ -127,8 +127,10 @@ $env.config.recursion_limit = 50
 # its memory is freed. `$ans.exit_code` and `$ans.duration` are still updated.
 # When a result exceeds the limit, it is truncated to fit and a warning is shown
 # the next time you access `$ans`. Bare `$ans` / `$ans.*` cell-paths do not
-# overwrite `$ans.last`. External command output is stored as a string when UTF-8,
-# or as binary otherwise. The name `ans` is reserved and cannot be rebound with `let`.
+# overwrite `$ans.last`. External command output is stored only when it is already
+# in the pipeline (e.g. `^cmd | collect`); bare externals keep the real TTY so
+# interactive tools like nvim/btm work. Piped external bytes become a string when
+# UTF-8, or binary otherwise. The name `ans` is reserved and cannot be rebound with `let`.
 # Default: 0b
 $env.config.last_result_size = 0b
 

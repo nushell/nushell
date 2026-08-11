@@ -539,8 +539,10 @@ fn store_byte_stream_prefix(
     // decoded to string, matching [`ByteStream::into_value`].
     let trim_trailing_newline = stream.source().is_external();
 
-    // No capturable bytes (e.g. stdout was null or still inherited). Do not replace
-    // a prior `$ans.last` with empty binary; leave the stream for print/wait.
+    // No capturable bytes (e.g. stdout was null or still inherited/TTY). Do not
+    // replace a prior `$ans.last` with empty binary; leave the stream for print/wait.
+    // Bare interactive externals keep inherited stdout so TUI tools (`nvim`, `btm`)
+    // still attach to the real terminal — capturing them would require a pipe and hang.
     let has_stdout = match stream.source() {
         ByteStreamSource::Read(_) | ByteStreamSource::File(_) => true,
         ByteStreamSource::Child(child) => child.stdout.is_some(),
