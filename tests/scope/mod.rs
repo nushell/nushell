@@ -576,7 +576,7 @@ fn scope_commands_shows_deprecated_flags() -> Result {
             | where name == 'depr'
             | get 0?.deprecation_info
             | each {|entry|
-                $entry.type == 'Flag' and $entry.label starts-with 'depr --'
+                $entry.type == 'Flag' and $entry.flag != null
             }
         }
     ";

@@ -210,15 +210,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                 let deprecations = decl
                     .deprecation_info()
                     .into_iter()
-                    .map(|entry| {
-                        Value::record(
-                            record! {
-                                "type" => Value::string(entry.type_name(), span),
-                                "label" => Value::string(entry.label(&command_name), span)
-                            },
-                            span,
-                        )
-                    })
+                    .map(|entry| entry.into_value(&command_name, span))
                     .collect();
 
                 let record = record! {
