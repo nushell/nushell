@@ -173,16 +173,21 @@ pub fn lex_item(
         let c = *c;
 
         if let Some((start, open_span)) = quote_start {
-            if !interp_expr_level.is_empty() {
+            if let Some(&(expected, _)) = interp_expr_level.last() {
                 // Inside a subexpression of an interpolated string. Match
                 // delimiters the same way `parse_string_interpolation` does:
                 // while the innermost open delimiter is a quote, only that
                 // quote closes it; otherwise quotes open nested strings and
                 // parens nest.
-                let expected = interp_expr_level
-                    .last()
-                    .expect("interp_expr_level is non-empty")
-                    .0;
+                if expected == b'"' && c == b'\\' && input.get(*curr_offset + 1).is_some() {
+                    // Escapes exist only in double-quoted strings: inside a
+                    // nested `"` string a backslash escapes the next byte, so
+                    // `\"` does not close the string.
+                    *curr_offset += 2;
+                    previous_char = Some(c);
+                    at_line_start = false;
+                    continue;
+                }
                 let open = Span::new(span_offset + *curr_offset, span_offset + *curr_offset + 1);
                 match c {
                     _ if expected != b')' => {

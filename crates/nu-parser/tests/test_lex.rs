@@ -248,6 +248,10 @@ fn lex_incomplete_quote() {
 #[case(br#"$'("a b")'"#)]
 #[case(br#"$"(1 + (2 * 3)) end""#)]
 #[case(br#"$"\('not an expr'\)""#)]
+#[case(br#"$"("a\"b")""#)] // escaped quote inside a nested double-quoted string
+#[case(br#"$"a(1)b(2)""#)] // multiple sequential subexpressions
+#[case(br#"$"($"in(2)ner")""#)] // nested interpolated string as the subexpression body
+#[case(br#"$'($"a" + $'b')'"#)]
 fn lex_interpolation_subexpression_is_one_token(#[case] file: &[u8]) {
     // A quote inside `(…)` of an interpolated string does not end the string,
     // and an escaped `\(` does not start a subexpression. The whole construct

@@ -730,6 +730,16 @@ pub fn parse_string_interpolation(working_set: &mut StateWorkingSet, span: Span)
         }
 
         if mode == InterpolationMode::Expression {
+            // Escapes exist only in double-quoted strings: while the innermost
+            // open delimiter is `"`, a backslash escapes the next byte, so
+            // `\"` does not close the nested string.
+            if delimiter_stack.last() == Some(&Delimiter::DoubleQuote)
+                && current_byte == b'\\'
+                && b + 1 < end
+            {
+                b += 2;
+                continue;
+            }
             let byte = Delimiter::from_u8(current_byte);
             match (delimiter_stack.last().copied(), byte) {
                 (Some(d), Some(byte)) if !d.is_paren() => {
