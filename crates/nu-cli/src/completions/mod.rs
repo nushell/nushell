@@ -8,6 +8,7 @@ mod completion_common;
 mod completion_options;
 mod custom_completions;
 mod directory_completions;
+mod directory_handle;
 mod dotnu_completions;
 mod env_var_completions;
 mod exportable_completions;
