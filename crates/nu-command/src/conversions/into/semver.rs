@@ -1,5 +1,5 @@
 use crate::semver::value::SemverValue;
-use nu_cmd_base::input_handler::{CellPathOnlyArgs, operate};
+use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
 use nu_protocol::shell_error::generic::GenericError;
 
@@ -28,6 +28,11 @@ impl Command for IntoSemver {
                 // Relaxed case to support heterogeneous lists
                 (Type::Any, Type::custom("semver")),
             ])
+            .switch(
+                "loose",
+                "Allow common non-strict prefixes such as v1.2.3, v.1.2.3, v:1.2.3, v-1.2.3, or v_1.2.3",
+                Some('l'),
+            )
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
@@ -53,13 +58,12 @@ impl Command for IntoSemver {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let cell_paths = call.rest(engine_state, stack, 0)?;
-        operate(
-            into_semver,
-            cell_paths.into(),
-            input,
-            head,
-            engine_state.signals(),
-        )
+        let loose = call.has_flag(engine_state, stack, "loose")?;
+        let args = Arguments {
+            cell_paths: (!cell_paths.is_empty()).then_some(cell_paths),
+            loose,
+        };
+        operate(into_semver, args, input, head, engine_state.signals())
     }
 
     fn examples(&self) -> Vec<Example<'static>> {
@@ -79,26 +83,54 @@ impl Command for IntoSemver {
                 example: "{major: 1, minor: 2, patch: 3} | into semver",
                 result: None,
             },
+            Example {
+                description: "Parse a version with a common leading v prefix",
+                example: "'v1.2.3' | into semver --loose",
+                result: None,
+            },
+            Example {
+                description: "Parse versions like v.1.2.3, v:1.2.3, v-1.2.3, or v_1.2.3",
+                example: "['v.1.2.3' 'v:2.0.0' 'v-3.0.0' 'v_4.0.0'] | into semver --loose",
+                result: None,
+            },
         ]
     }
 }
 
-fn into_semver(input: &Value, _args: &CellPathOnlyArgs, head: Span) -> Value {
+struct Arguments {
+    cell_paths: Option<Vec<CellPath>>,
+    loose: bool,
+}
+
+impl CmdArgument for Arguments {
+    fn take_cell_paths(&mut self) -> Option<Vec<CellPath>> {
+        self.cell_paths.take()
+    }
+}
+
+fn into_semver(input: &Value, args: &Arguments, head: Span) -> Value {
     match input {
         Value::Custom { val, .. } if val.type_name() == "semver" => input.clone(),
-        Value::String { val, .. } => match semver::Version::parse(val) {
-            Ok(version) => Value::custom(Box::new(SemverValue::new(version)), head),
-            Err(_) => Value::error(
-                ShellError::Generic(
-                    GenericError::new(
-                        format!("Cannot convert \"{val}\" to a semver"),
-                        "the given string is not a valid semver version",
-                        head,
-                    )
-                    .with_help("expected format: major.minor.patch (e.g. 1.2.3)"),
-                ),
-                head,
-            ),
+        Value::String { val, .. } => match SemverValue::parse(val, args.loose) {
+            Ok(version) => Value::custom(Box::new(version), head),
+            Err(_) => {
+                let help = if args.loose {
+                    "expected format: major.minor.patch (e.g. 1.2.3), optionally with a v/V, v., v:, v-, or v_ prefix"
+                } else {
+                    "expected format: major.minor.patch (e.g. 1.2.3); use --loose for prefixes like v1.2.3"
+                };
+                Value::error(
+                    ShellError::Generic(
+                        GenericError::new(
+                            format!("Cannot convert \"{val}\" to a semver"),
+                            "the given string is not a valid semver version",
+                            head,
+                        )
+                        .with_help(help),
+                    ),
+                    head,
+                )
+            }
         },
         Value::Record { val, .. } => parse_record_to_semver(val, head),
         _ => Value::error(
@@ -224,6 +256,13 @@ mod tests {
     use nu_test_support::Result;
     use nu_test_support::prelude::*;
 
+    fn args(loose: bool) -> Arguments {
+        Arguments {
+            cell_paths: None,
+            loose,
+        }
+    }
+
     fn get_custom_value(value: &Value) -> &SemverValue {
         match value {
             Value::Custom { val, .. } => val.as_any().downcast_ref::<SemverValue>().unwrap(),
@@ -234,17 +273,18 @@ mod tests {
     #[test]
     fn test_into_semver_from_string() {
         let value = Value::string("1.2.3", Span::test_data());
-        let result = into_semver(&value, &vec![].into(), Span::test_data());
+        let result = into_semver(&value, &args(false), Span::test_data());
 
         assert!(matches!(result, Value::Custom { .. }));
         let semver_val = get_custom_value(&result);
         assert_eq!(semver_val.version.to_string(), "1.2.3");
+        assert!(semver_val.prefix.is_empty());
     }
 
     #[test]
     fn test_into_semver_from_string_with_prerelease() {
         let value = Value::string("1.2.3-alpha.1+build.2", Span::test_data());
-        let result = into_semver(&value, &vec![].into(), Span::test_data());
+        let result = into_semver(&value, &args(false), Span::test_data());
 
         let semver_val = get_custom_value(&result);
         assert_eq!(semver_val.version.to_string(), "1.2.3-alpha.1+build.2");
@@ -253,8 +293,35 @@ mod tests {
     #[test]
     fn test_into_semver_from_invalid_string() {
         let value = Value::string("not-a-version", Span::test_data());
-        let result = into_semver(&value, &vec![].into(), Span::test_data());
+        let result = into_semver(&value, &args(false), Span::test_data());
 
+        assert!(matches!(result, Value::Error { .. }));
+    }
+
+    #[test]
+    fn test_into_semver_loose_prefixes() {
+        for (input, prefix, version) in [
+            ("v1.2.3", "v", "1.2.3"),
+            ("V1.2.3", "V", "1.2.3"),
+            ("v.1.2.3", "v.", "1.2.3"),
+            ("v:1.2.3", "v:", "1.2.3"),
+            ("v-1.2.3", "v-", "1.2.3"),
+            ("v_1.2.3", "v_", "1.2.3"),
+            ("v1.2.3-alpha.1+build", "v", "1.2.3-alpha.1+build"),
+        ] {
+            let value = Value::string(input, Span::test_data());
+            let result = into_semver(&value, &args(true), Span::test_data());
+            let semver_val = get_custom_value(&result);
+            assert_eq!(semver_val.prefix, prefix, "input={input}");
+            assert_eq!(semver_val.version.to_string(), version, "input={input}");
+            assert_eq!(semver_val.display(), input);
+        }
+    }
+
+    #[test]
+    fn test_into_semver_loose_required_for_prefix() {
+        let value = Value::string("v1.2.3", Span::test_data());
+        let result = into_semver(&value, &args(false), Span::test_data());
         assert!(matches!(result, Value::Error { .. }));
     }
 
@@ -262,7 +329,7 @@ mod tests {
     fn test_into_semver_from_semver() {
         let original = SemverValue::new(semver::Version::parse("1.2.3").unwrap());
         let value = Value::custom(Box::new(original), Span::test_data());
-        let result = into_semver(&value, &vec![].into(), Span::test_data());
+        let result = into_semver(&value, &args(false), Span::test_data());
 
         // Should return the same value
         let semver_val = get_custom_value(&result);
@@ -277,7 +344,7 @@ mod tests {
             "patch" => Value::int(3, Span::test_data()),
         };
         let value = Value::record(record, Span::test_data());
-        let result = into_semver(&value, &vec![].into(), Span::test_data());
+        let result = into_semver(&value, &args(false), Span::test_data());
 
         let semver_val = get_custom_value(&result);
         assert_eq!(semver_val.version.to_string(), "1.2.3");
@@ -292,7 +359,7 @@ mod tests {
             "pre" => Value::string("alpha.1", Span::test_data()),
         };
         let value = Value::record(record, Span::test_data());
-        let result = into_semver(&value, &vec![].into(), Span::test_data());
+        let result = into_semver(&value, &args(false), Span::test_data());
 
         let semver_val = get_custom_value(&result);
         assert_eq!(semver_val.version.to_string(), "1.2.3-alpha.1");
@@ -307,7 +374,7 @@ mod tests {
             "build" => Value::string("build.2", Span::test_data()),
         };
         let value = Value::record(record, Span::test_data());
-        let result = into_semver(&value, &vec![].into(), Span::test_data());
+        let result = into_semver(&value, &args(false), Span::test_data());
 
         let semver_val = get_custom_value(&result);
         assert_eq!(semver_val.version.to_string(), "1.2.3+build.2");
@@ -323,7 +390,7 @@ mod tests {
             "build" => Value::string("build", Span::test_data()),
         };
         let value = Value::record(record, Span::test_data());
-        let result = into_semver(&value, &vec![].into(), Span::test_data());
+        let result = into_semver(&value, &args(false), Span::test_data());
 
         let semver_val = get_custom_value(&result);
         assert_eq!(semver_val.version.to_string(), "1.2.3-alpha+build");
@@ -336,7 +403,7 @@ mod tests {
             "patch" => Value::int(3, Span::test_data()),
         };
         let value = Value::record(record, Span::test_data());
-        let result = into_semver(&value, &vec![].into(), Span::test_data());
+        let result = into_semver(&value, &args(false), Span::test_data());
 
         assert!(matches!(result, Value::Error { .. }));
     }
@@ -349,7 +416,7 @@ mod tests {
             "patch" => Value::int(3, Span::test_data()),
         };
         let value = Value::record(record, Span::test_data());
-        let result = into_semver(&value, &vec![].into(), Span::test_data());
+        let result = into_semver(&value, &args(false), Span::test_data());
 
         assert!(matches!(result, Value::Error { .. }));
     }
@@ -357,7 +424,7 @@ mod tests {
     #[test]
     fn test_into_semver_from_unsupported_type() {
         let value = Value::int(42, Span::test_data());
-        let result = into_semver(&value, &vec![].into(), Span::test_data());
+        let result = into_semver(&value, &args(false), Span::test_data());
 
         assert!(matches!(result, Value::Error { .. }));
     }
@@ -391,6 +458,13 @@ mod tests {
         test()
             .run_with_data("into semver", value)
             .expect_value_eq(vec!["3.1.0", "0.10.5"])
+    }
+
+    #[test]
+    fn test_into_semver_loose_list() -> Result {
+        test()
+            .run("['v1.0.0' 'v.2.0.0' 'v:3.0.0'] | into semver --loose")
+            .expect_value_eq(vec!["v1.0.0", "v.2.0.0", "v:3.0.0"])
     }
 
     #[test]

@@ -1,3 +1,4 @@
+use super::parse;
 use nu_protocol::{
     CustomValue, ShellError, Span, Value,
     ast::{Comparison, Operator},
@@ -8,9 +9,36 @@ use std::any::Any;
 use std::cmp::Ordering;
 use std::ops::Deref;
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+/// A semantic version value, optionally carrying a display prefix from loose parsing.
+///
+/// Equality and ordering compare only [`version`]; `prefix` is presentation metadata
+/// (e.g. `"v"` from `v1.2.3` parsed with `--loose`).
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SemverValue {
     pub version: semver::Version,
+    /// Original loose prefix such as `"v"`, `"v."`, or `"v:"`. Empty when none.
+    #[serde(default)]
+    pub prefix: String,
+}
+
+impl PartialEq for SemverValue {
+    fn eq(&self, other: &Self) -> bool {
+        self.version == other.version
+    }
+}
+
+impl Eq for SemverValue {}
+
+impl PartialOrd for SemverValue {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for SemverValue {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.version.cmp(&other.version)
+    }
 }
 
 #[typetag::serde]
@@ -24,7 +52,7 @@ impl nu_protocol::CustomValue for SemverValue {
     }
 
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
-        Ok(Value::string(self.version.to_string(), span))
+        Ok(Value::string(self.display(), span))
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -50,16 +78,20 @@ impl nu_protocol::CustomValue for SemverValue {
                         .to_base_value(other.span())
                         .ok()
                         .and_then(|value| match value {
-                            Value::String { val, .. } => semver::Version::parse(&val).ok(),
+                            // Accept loose prefixes so cross-crate fallback still works
+                            // when display form is e.g. "v1.2.3".
+                            Value::String { val, .. } => {
+                                parse::parse_version(&val, true).ok().map(|(v, _)| v)
+                            }
                             _ => None,
                         })
                         .and_then(|other_version| self.version.partial_cmp(&other_version));
                 }
                 None
             }
-            Value::String { val, .. } => semver::Version::parse(val)
+            Value::String { val, .. } => parse::parse_version(val, true)
                 .ok()
-                .and_then(|other_version| self.version.partial_cmp(&other_version)),
+                .and_then(|(other_version, _)| self.version.partial_cmp(&other_version)),
             _ => None,
         }
     }
@@ -164,7 +196,32 @@ impl nu_protocol::CustomValue for SemverValue {
 
 impl SemverValue {
     pub fn new(version: semver::Version) -> Self {
-        Self { version }
+        Self {
+            version,
+            prefix: String::new(),
+        }
+    }
+
+    pub fn with_prefix(version: semver::Version, prefix: impl Into<String>) -> Self {
+        Self {
+            version,
+            prefix: prefix.into(),
+        }
+    }
+
+    /// Display form including any loose prefix (e.g. `v1.2.3`).
+    pub fn display(&self) -> String {
+        if self.prefix.is_empty() {
+            self.version.to_string()
+        } else {
+            format!("{}{}", self.prefix, self.version)
+        }
+    }
+
+    /// Parse from a string. When `loose` is true, accepts prefixes like `v`, `v.`, `v:`.
+    pub fn parse(s: &str, loose: bool) -> Result<Self, semver::Error> {
+        let (version, prefix) = parse::parse_version(s, loose)?;
+        Ok(Self { version, prefix })
     }
 
     pub fn bump_major(&self) -> Self {
@@ -176,6 +233,7 @@ impl SemverValue {
                 pre: semver::Prerelease::EMPTY,
                 build: semver::BuildMetadata::EMPTY,
             },
+            prefix: self.prefix.clone(),
         }
     }
 
@@ -188,6 +246,7 @@ impl SemverValue {
                 pre: semver::Prerelease::EMPTY,
                 build: semver::BuildMetadata::EMPTY,
             },
+            prefix: self.prefix.clone(),
         }
     }
 
@@ -200,6 +259,7 @@ impl SemverValue {
                 pre: semver::Prerelease::EMPTY,
                 build: semver::BuildMetadata::EMPTY,
             },
+            prefix: self.prefix.clone(),
         }
     }
 
@@ -239,6 +299,7 @@ impl SemverValue {
                 pre,
                 build: self.version.build.clone(),
             },
+            prefix: self.prefix.clone(),
         })
     }
 
@@ -251,6 +312,7 @@ impl SemverValue {
                 pre: semver::Prerelease::EMPTY,
                 build: semver::BuildMetadata::EMPTY,
             },
+            prefix: self.prefix.clone(),
         }
     }
 
@@ -271,34 +333,23 @@ impl SemverValue {
                 pre: self.version.pre.clone(),
                 build,
             },
+            prefix: self.prefix.clone(),
         })
     }
 
-    /// For use by tests and examples only.
-    pub fn test_value(s: &str) -> Value {
-        Value::test_custom_value(Box::new(Self {
-            version: s
-                .parse::<semver::Version>()
-                .unwrap_or_else(|_| semver::Version::new(0, 0, 0)),
-        }))
-    }
-}
-
-impl<'a> TryFrom<&'a Value> for SemverValue {
-    type Error = ShellError;
-
-    fn try_from(value: &'a Value) -> Result<Self, Self::Error> {
+    /// Convert a pipeline value into a [`SemverValue`].
+    ///
+    /// When `loose` is true, string inputs may use prefixes like `v1.2.3`.
+    pub fn try_from_value(value: &Value, loose: bool) -> Result<Self, ShellError> {
         let span = value.span();
 
         match value {
             Value::String { val, .. } => {
-                semver::Version::parse(val)
-                    .map(SemverValue::new)
-                    .map_err(|e| ShellError::IncorrectValue {
-                        msg: format!("Value is not a valid semver version: {e}"),
-                        val_span: span,
-                        call_span: span,
-                    })
+                Self::parse(val, loose).map_err(|e| ShellError::IncorrectValue {
+                    msg: format!("Value is not a valid semver version: {e}"),
+                    val_span: span,
+                    call_span: span,
+                })
             }
             Value::Custom { val, .. } => {
                 if let Some(semver) = val.as_any().downcast_ref::<Self>() {
@@ -319,6 +370,26 @@ impl<'a> TryFrom<&'a Value> for SemverValue {
                 help: None,
             }),
         }
+    }
+
+    /// For use by tests and examples only.
+    pub fn test_value(s: &str) -> Value {
+        let (version, prefix) = parse::parse_version(s, true).unwrap_or_else(|_| {
+            (
+                s.parse::<semver::Version>()
+                    .unwrap_or_else(|_| semver::Version::new(0, 0, 0)),
+                String::new(),
+            )
+        });
+        Value::test_custom_value(Box::new(Self { version, prefix }))
+    }
+}
+
+impl<'a> TryFrom<&'a Value> for SemverValue {
+    type Error = ShellError;
+
+    fn try_from(value: &'a Value) -> Result<Self, Self::Error> {
+        Self::try_from_value(value, false)
     }
 }
 
@@ -672,6 +743,10 @@ mod tests {
         // Test to_base_value
         let base = version.to_base_value(Span::test_data()).unwrap();
         assert!(matches!(base, Value::String { val, .. } if val == "1.2.3"));
+
+        let prefixed = SemverValue::parse("v1.2.3", true).unwrap();
+        let base = prefixed.to_base_value(Span::test_data()).unwrap();
+        assert!(matches!(base, Value::String { val, .. } if val == "v1.2.3"));
 
         // Test clone_value
         let cloned = version.clone_value(Span::test_data());
