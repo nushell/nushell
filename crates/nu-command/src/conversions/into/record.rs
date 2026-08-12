@@ -354,6 +354,23 @@ mod tests {
                 assert_eq!(val.get("major").unwrap().as_int().unwrap(), 1);
                 assert_eq!(val.get("minor").unwrap().as_int().unwrap(), 2);
                 assert_eq!(val.get("patch").unwrap().as_int().unwrap(), 3);
+                assert_eq!(val.get("prefix").unwrap().as_str().unwrap(), "");
+            }
+            _ => panic!("Expected Record value"),
+        }
+    }
+
+    #[test]
+    fn test_parse_semver_into_record_with_prefix() {
+        let semver_val = SemverValue::parse("v1.2.3", true).unwrap();
+        let result = parse_semver_into_record(&semver_val, Span::test_data());
+
+        match result {
+            Value::Record { val, .. } => {
+                assert_eq!(val.get("major").unwrap().as_int().unwrap(), 1);
+                assert_eq!(val.get("minor").unwrap().as_int().unwrap(), 2);
+                assert_eq!(val.get("patch").unwrap().as_int().unwrap(), 3);
+                assert_eq!(val.get("prefix").unwrap().as_str().unwrap(), "v");
             }
             _ => panic!("Expected Record value"),
         }
@@ -402,6 +419,7 @@ fn parse_semver_into_record(semver: &SemverValue, span: Span) -> Value {
             "patch" => Value::int(version.patch as i64, span),
             "pre" => Value::string(version.pre.to_string(), span),
             "build" => Value::string(version.build.to_string(), span),
+            "prefix" => Value::string(semver.prefix.clone(), span),
             "pre_identifiers" => Value::list(pre_identifiers, span),
             "build_identifiers" => Value::list(build_identifiers, span),
         },

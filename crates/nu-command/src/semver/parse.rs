@@ -77,27 +77,30 @@ pub fn parse_version(s: &str, loose: bool) -> Result<(semver::Version, String), 
 /// - `>=v:1.0.0, <v.2.0.0` → `>=1.0.0, <2.0.0`
 /// - `>=v-1.0.0, <v_2.0.0` → `>=1.0.0, <2.0.0`
 pub fn normalize_loose_range(s: &str) -> String {
-    let bytes = s.as_bytes();
     let mut out = String::with_capacity(s.len());
-    let mut i = 0;
+    let mut rest = s;
 
-    while i < bytes.len() {
-        let at_boundary = i == 0
+    while !rest.is_empty() {
+        let at_boundary = out.is_empty()
             || matches!(
-                bytes[i - 1],
-                b' ' | b',' | b'<' | b'>' | b'=' | b'^' | b'~' | b'!'
+                out.chars().next_back(),
+                Some(' ' | ',' | '<' | '>' | '=' | '^' | '~' | '!')
             );
 
         if at_boundary {
-            let (prefix, _rest) = strip_loose_version_prefix(&s[i..]);
+            let (prefix, after) = strip_loose_version_prefix(rest);
             if !prefix.is_empty() {
-                i += prefix.len();
+                rest = after;
                 continue;
             }
         }
 
-        out.push(bytes[i] as char);
-        i += 1;
+        let mut chars = rest.chars();
+        let Some(ch) = chars.next() else {
+            break;
+        };
+        out.push(ch);
+        rest = chars.as_str();
     }
 
     out
@@ -190,5 +193,9 @@ mod tests {
         let req = parse_version_req(">=v1.0.0", true).unwrap();
         assert_eq!(req.to_string(), ">=1.0.0");
         assert!(parse_version_req(">=v1.0.0", false).is_err());
+
+        // Non-ASCII must not be split into replacement chars (byte-wise push).
+        assert_eq!(normalize_loose_range("≥v1.0.0"), "≥v1.0.0");
+        assert_eq!(normalize_loose_range("≥ v1.0.0"), "≥ 1.0.0");
     }
 }

@@ -42,7 +42,13 @@ impl Command for IntoSemver {
     }
 
     fn description(&self) -> &str {
-        "Convert a value to a semantic version."
+        "Convert a value (string, record, or semver) to a semantic version."
+    }
+
+    fn extra_description(&self) -> &str {
+        "From a record: major/minor/patch are required; pre, build, and prefix are optional. \
+         prefix is display-only metadata (e.g. \"v\"); re-parsing from text with --loose only \
+         accepts recognized loose prefixes (v/V with optional . : - _)."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -210,6 +216,14 @@ fn parse_record_to_semver(record: &nu_protocol::Record, head: Span) -> Value {
         .and_then(|v| v.as_str().ok())
         .unwrap_or("");
 
+    // Display-only; any string is accepted so `into record` → `into semver` round-trips.
+    // Text re-parse via `into semver --loose` only recognizes known loose prefixes.
+    let prefix = record
+        .get("prefix")
+        .and_then(|v| v.as_str().ok())
+        .unwrap_or("")
+        .to_string();
+
     let pre = match semver::Prerelease::new(pre) {
         Ok(p) => p,
         Err(e) => {
@@ -246,7 +260,7 @@ fn parse_record_to_semver(record: &nu_protocol::Record, head: Span) -> Value {
         build,
     };
 
-    Value::custom(Box::new(SemverValue::new(version)), head)
+    Value::custom(Box::new(SemverValue::with_prefix(version, prefix)), head)
 }
 
 #[cfg(test)]
@@ -394,6 +408,30 @@ mod tests {
 
         let semver_val = get_custom_value(&result);
         assert_eq!(semver_val.version.to_string(), "1.2.3-alpha+build");
+    }
+
+    #[test]
+    fn test_into_semver_from_record_with_prefix() {
+        let record = record! {
+            "major" => Value::int(1, Span::test_data()),
+            "minor" => Value::int(2, Span::test_data()),
+            "patch" => Value::int(3, Span::test_data()),
+            "prefix" => Value::string("v", Span::test_data()),
+        };
+        let value = Value::record(record, Span::test_data());
+        let result = into_semver(&value, &args(false), Span::test_data());
+
+        let semver_val = get_custom_value(&result);
+        assert_eq!(semver_val.prefix, "v");
+        assert_eq!(semver_val.version.to_string(), "1.2.3");
+        assert_eq!(semver_val.display(), "v1.2.3");
+    }
+
+    #[test]
+    fn test_into_semver_record_round_trip_preserves_prefix() -> Result {
+        test()
+            .run("'v1.2.3' | into semver --loose | into record | into semver | to text")
+            .expect_value_eq("v1.2.3")
     }
 
     #[test]

@@ -2998,7 +2998,7 @@ fn custom_value_cell_path_completions() {
 
     let completion_str = "$v.";
     let suggestions = completer.complete_blocking(completion_str, completion_str.len());
-    let expected = ["major", "minor", "patch", "pre", "build"];
+    let expected = ["major", "minor", "patch", "pre", "build", "prefix"];
     let received: Vec<_> = suggestions.iter().map(|s| s.value.as_str()).collect();
     assert!(
         expected

@@ -12,7 +12,10 @@ use std::ops::Deref;
 /// A semantic version value, optionally carrying a display prefix from loose parsing.
 ///
 /// Equality and ordering compare only [`version`]; `prefix` is presentation metadata
-/// (e.g. `"v"` from `v1.2.3` parsed with `--loose`).
+/// (e.g. `"v"` from `v1.2.3` parsed with `--loose`). That means `v1.0.0` and `1.0.0`
+/// compare equal, and command `example` `result:` values that use [`SemverValue`] only
+/// lock the version identity—not the display form. Prefer `display()` / `to text` when
+/// tests need to assert a preserved prefix.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SemverValue {
     pub version: semver::Version,
@@ -21,6 +24,7 @@ pub struct SemverValue {
     pub prefix: String,
 }
 
+/// Compares only the underlying SemVer version; `prefix` is ignored.
 impl PartialEq for SemverValue {
     fn eq(&self, other: &Self) -> bool {
         self.version == other.version
@@ -115,6 +119,7 @@ impl nu_protocol::CustomValue for SemverValue {
             "patch" => Ok(Value::int(self.version.patch as i64, path_span)),
             "pre" => Ok(Value::string(self.version.pre.to_string(), path_span)),
             "build" => Ok(Value::string(self.version.build.to_string(), path_span)),
+            "prefix" => Ok(Value::string(self.prefix.clone(), path_span)),
             _ => Err(ShellError::CantFindColumn {
                 col_name: col,
                 span: Some(path_span),
@@ -221,46 +226,46 @@ impl SemverValue {
     /// Parse from a string. When `loose` is true, accepts prefixes like `v`, `v.`, `v:`.
     pub fn parse(s: &str, loose: bool) -> Result<Self, semver::Error> {
         let (version, prefix) = parse::parse_version(s, loose)?;
-        Ok(Self { version, prefix })
+        Ok(Self::with_prefix(version, prefix))
     }
 
     pub fn bump_major(&self) -> Self {
-        Self {
-            version: semver::Version {
+        Self::with_prefix(
+            semver::Version {
                 major: self.version.major + 1,
                 minor: 0,
                 patch: 0,
                 pre: semver::Prerelease::EMPTY,
                 build: semver::BuildMetadata::EMPTY,
             },
-            prefix: self.prefix.clone(),
-        }
+            self.prefix.clone(),
+        )
     }
 
     pub fn bump_minor(&self) -> Self {
-        Self {
-            version: semver::Version {
+        Self::with_prefix(
+            semver::Version {
                 major: self.version.major,
                 minor: self.version.minor + 1,
                 patch: 0,
                 pre: semver::Prerelease::EMPTY,
                 build: semver::BuildMetadata::EMPTY,
             },
-            prefix: self.prefix.clone(),
-        }
+            self.prefix.clone(),
+        )
     }
 
     pub fn bump_patch(&self) -> Self {
-        Self {
-            version: semver::Version {
+        Self::with_prefix(
+            semver::Version {
                 major: self.version.major,
                 minor: self.version.minor,
                 patch: self.version.patch + 1,
                 pre: semver::Prerelease::EMPTY,
                 build: semver::BuildMetadata::EMPTY,
             },
-            prefix: self.prefix.clone(),
-        }
+            self.prefix.clone(),
+        )
     }
 
     pub fn bump_prerelease(&self, tag: &str) -> Result<Self, ShellError> {
@@ -291,29 +296,29 @@ impl SemverValue {
             ))
         })?;
 
-        Ok(Self {
-            version: semver::Version {
+        Ok(Self::with_prefix(
+            semver::Version {
                 major: self.version.major,
                 minor: self.version.minor,
                 patch: self.version.patch,
                 pre,
                 build: self.version.build.clone(),
             },
-            prefix: self.prefix.clone(),
-        })
+            self.prefix.clone(),
+        ))
     }
 
     pub fn bump_release(&self) -> Self {
-        Self {
-            version: semver::Version {
+        Self::with_prefix(
+            semver::Version {
                 major: self.version.major,
                 minor: self.version.minor,
                 patch: self.version.patch,
                 pre: semver::Prerelease::EMPTY,
                 build: semver::BuildMetadata::EMPTY,
             },
-            prefix: self.prefix.clone(),
-        }
+            self.prefix.clone(),
+        )
     }
 
     pub fn set_build_metadata(&self, metadata: &str) -> Result<Self, ShellError> {
@@ -325,16 +330,16 @@ impl SemverValue {
             ))
         })?;
 
-        Ok(Self {
-            version: semver::Version {
+        Ok(Self::with_prefix(
+            semver::Version {
                 major: self.version.major,
                 minor: self.version.minor,
                 patch: self.version.patch,
                 pre: self.version.pre.clone(),
                 build,
             },
-            prefix: self.prefix.clone(),
-        })
+            self.prefix.clone(),
+        ))
     }
 
     /// Convert a pipeline value into a [`SemverValue`].
@@ -374,14 +379,9 @@ impl SemverValue {
 
     /// For use by tests and examples only.
     pub fn test_value(s: &str) -> Value {
-        let (version, prefix) = parse::parse_version(s, true).unwrap_or_else(|_| {
-            (
-                s.parse::<semver::Version>()
-                    .unwrap_or_else(|_| semver::Version::new(0, 0, 0)),
-                String::new(),
-            )
-        });
-        Value::test_custom_value(Box::new(Self { version, prefix }))
+        let semver =
+            Self::parse(s, true).unwrap_or_else(|_| Self::new(semver::Version::new(0, 0, 0)));
+        Value::test_custom_value(Box::new(semver))
     }
 }
 
@@ -755,5 +755,43 @@ mod tests {
         // Test as_any
         let any = version.as_any();
         assert!(any.downcast_ref::<SemverValue>().is_some());
+    }
+
+    #[test]
+    fn test_follow_path_prefix() {
+        let plain = SemverValue::new(parse_version("1.2.3"));
+        let prefix = plain
+            .follow_path_string(
+                Span::test_data(),
+                "prefix".into(),
+                Span::test_data(),
+                false,
+                Casing::Sensitive,
+            )
+            .unwrap();
+        assert!(matches!(prefix, Value::String { val, .. } if val.is_empty()));
+
+        let prefixed = SemverValue::parse("v1.2.3", true).unwrap();
+        let prefix = prefixed
+            .follow_path_string(
+                Span::test_data(),
+                "prefix".into(),
+                Span::test_data(),
+                false,
+                Casing::Sensitive,
+            )
+            .unwrap();
+        assert!(matches!(prefix, Value::String { val, .. } if val == "v"));
+
+        let major = prefixed
+            .follow_path_string(
+                Span::test_data(),
+                "major".into(),
+                Span::test_data(),
+                false,
+                Casing::Sensitive,
+            )
+            .unwrap();
+        assert!(matches!(major, Value::Int { val: 1, .. }));
     }
 }

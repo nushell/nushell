@@ -93,14 +93,18 @@ impl Command for SemverBump {
                 result: Some(SemverValue::test_value("1.2.4+build.5")),
             },
             Example {
+                // Assert via `to text` so the example locks the display prefix;
+                // SemverValue equality ignores prefix by design.
                 description: "Bump a loosely-prefixed version string",
-                example: "'v1.2.3' | semver bump patch --loose",
-                result: Some(SemverValue::test_value("v1.2.4")),
+                example: "'v1.2.3' | semver bump patch --loose | to text",
+                result: Some(Value::test_string("v1.2.4")),
             },
             Example {
+                // Assert via `to text` so the example locks the display prefix;
+                // SemverValue equality ignores prefix by design.
                 description: "Bump after converting with --loose (prefix is preserved)",
-                example: "'v1.2.3' | into semver --loose | semver bump major",
-                result: Some(SemverValue::test_value("v2.0.0")),
+                example: "'v1.2.3' | into semver --loose | semver bump major | to text",
+                result: Some(Value::test_string("v2.0.0")),
             },
         ]
     }
@@ -180,13 +184,13 @@ fn bump_value_with_options(
 
     let result = match (build_metadata, preserve_build_metadata) {
         (Some(metadata), _) => result.set_build_metadata(metadata)?,
-        (None, true) => SemverValue {
-            version: semver::Version {
+        (None, true) => SemverValue::with_prefix(
+            semver::Version {
                 build: original_build,
                 ..result.version
             },
-            prefix: result.prefix,
-        },
+            result.prefix,
+        ),
         (None, false) => result,
     };
 

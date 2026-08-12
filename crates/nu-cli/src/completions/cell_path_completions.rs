@@ -157,7 +157,7 @@ fn get_suggestions_by_value(
             })
             .collect(),
         Value::Custom { val, .. } => match val.type_name().as_str() {
-            "semver" => ["major", "minor", "patch", "pre", "build"]
+            "semver" => ["major", "minor", "patch", "pre", "build", "prefix"]
                 .into_iter()
                 .map(|s| to_suggestion(s.to_string(), None))
                 .collect(),
