@@ -688,6 +688,17 @@ fn add_keybinding(
             Ok(PEMD::HelixNormal | PEMD::HelixSelect) => {
                 add_parsed_keybinding(&mut tables.helix_normal, keybinding, config)
             }
+            // The default keybindings name the helix tables unconditionally, so
+            // a build without the `helix` feature skips them rather than
+            // rejecting a mode it has no table to bind into.
+            #[cfg(not(feature = "helix"))]
+            _ if matches!(
+                val.as_str(),
+                "helix_normal" | "helix_insert" | "helix_select"
+            ) =>
+            {
+                Ok(())
+            }
             Ok(PEMD::Default | PEMD::Custom) | Err(_) => Err(ShellError::InvalidValue {
                 valid: VALID_KEYBINDING_MODES.into(),
                 actual: format!("'{val}'"),
@@ -2071,9 +2082,46 @@ mod test {
     #[test]
     fn default_config_keybindings_apply() {
         // Nushell menu keybindings on Config::default must parse as valid reedline events.
+        // Without the `helix` feature this also covers the helix modes the defaults
+        // name but this build has no table for.
         let config = Config::default();
         assert!(!config.keybindings.is_empty());
         assert!(!config.menus.is_empty());
         create_keybindings(&config).expect("default keybindings should apply cleanly");
+    }
+
+    #[test]
+    #[cfg(feature = "helix")]
+    fn default_config_binds_menu_keys_in_helix_mode() {
+        // The Nushell menu keybindings are mode-scoped; helix missing from that
+        // list left Tab and the other menu keys unbound in both helix tables.
+        let config = Config {
+            edit_mode: EditBindings::Helix,
+            ..Default::default()
+        };
+        let KeybindingsMode::Helix {
+            insert_keybindings,
+            normal_keybindings,
+        } = create_keybindings(&config).expect("default keybindings should apply cleanly")
+        else {
+            panic!("`edit_mode: helix` should produce helix keybindings");
+        };
+
+        for (table, keybindings) in [
+            ("insert", insert_keybindings),
+            ("normal", normal_keybindings),
+        ] {
+            for (name, modifier, keycode) in [
+                ("completion_menu", KeyModifiers::NONE, KeyCode::Tab),
+                ("completion_previous", KeyModifiers::SHIFT, KeyCode::BackTab),
+                ("history_menu", KeyModifiers::CONTROL, KeyCode::Char('r')),
+                ("help_menu", KeyModifiers::NONE, KeyCode::F(1)),
+            ] {
+                assert!(
+                    keybindings.find_binding(modifier, keycode).is_some(),
+                    "`{name}` should be bound in the helix {table} table"
+                );
+            }
+        }
     }
 }
