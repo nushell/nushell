@@ -777,13 +777,19 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         }
         Ok(Signal::HostCommand(index)) => {
             if let Ok(index) = index.parse::<usize>()
-                && let Some(val) = host_commands.get(index)
+                && index < host_commands.len()
             {
                 *is_hostcommand = true;
+
+                let val = host_commands.swap_remove(index);
+                // drop host_commands so we can no longer access it,
+                // because the index may potentially resolve to the swaped value.
+                drop(host_commands);
+
                 match val {
                     Value::Closure { val: closure, .. } => {
                         let mut callee_stack =
-                            stack.captures_to_stack_preserve_out_dest(closure.captures.clone());
+                            stack.captures_to_stack_preserve_out_dest(closure.captures);
                         let block = engine_state.get_block(closure.block_id).clone();
 
                         // set buffer and cursor position for `commandline` command
