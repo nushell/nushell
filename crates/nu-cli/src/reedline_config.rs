@@ -19,11 +19,7 @@ use reedline::{
     TraversalDirection, WordEdge, WordKind, default_emacs_keybindings,
     default_vi_insert_keybindings, default_vi_normal_keybindings,
 };
-use slotmap::{Key, SlotMap, new_key_type};
 use std::{str::FromStr, sync::Arc};
-
-new_key_type! { pub(crate) struct HostCommandKey; }
-pub(crate) type CommandMap = SlotMap<HostCommandKey, Value>;
 
 const DEFAULT_COMPLETION_MENU: &str = r#"
 {
@@ -819,7 +815,7 @@ pub enum KeybindingsMode {
 
 pub(crate) fn create_keybindings(
     config: &Config,
-    host_commands: &mut CommandMap,
+    host_commands: &mut Vec<Value>,
 ) -> Result<KeybindingsMode, ShellError> {
     let parsed_keybindings = &config.keybindings;
 
@@ -864,7 +860,7 @@ fn add_keybinding(
     emacs_keybindings: &mut Keybindings,
     insert_keybindings: &mut Keybindings,
     normal_keybindings: &mut Keybindings,
-    host_commands: &mut CommandMap,
+    host_commands: &mut Vec<Value>,
 ) -> Result<(), ShellError> {
     use PromptEditModeDiscriminants as PEMD;
     let span = mode.span();
@@ -923,7 +919,7 @@ fn add_parsed_keybinding(
     keybindings: &mut Keybindings,
     keybinding: &ParsedKeybinding,
     config: &Config,
-    host_commands: &mut CommandMap,
+    host_commands: &mut Vec<Value>,
 ) -> Result<(), ShellError> {
     let Ok(modifier_str) = keybinding.modifier.as_str() else {
         return Err(ShellError::RuntimeTypeMismatch {
@@ -1057,7 +1053,7 @@ impl<'config> EventType<'config> {
 fn parse_event(
     value: &Value,
     config: &Config,
-    host_commands: &mut CommandMap,
+    host_commands: &mut Vec<Value>,
 ) -> Result<Option<ReedlineEvent>, ShellError> {
     let span = value.span();
     match value {
@@ -1137,7 +1133,7 @@ fn event_from_record(
     record: &Record,
     config: &Config,
     span: Span,
-    host_commands: &mut CommandMap,
+    host_commands: &mut Vec<Value>,
 ) -> Result<ReedlineEvent, ShellError> {
     use ReedlineEventDiscriminants as RED;
     // When updating this implementation, also update `display_reedline_event` function
@@ -1177,8 +1173,9 @@ fn event_from_record(
         Ok(RED::MenuPagePrevious) => ReedlineEvent::MenuPagePrevious,
         Ok(RED::ExecuteHostCommand) => {
             let cmd = extract_value("cmd", record, span)?;
-            let key = host_commands.insert(cmd.clone());
-            ReedlineEvent::ExecuteHostCommand(key.data().as_ffi().to_string())
+            host_commands.push(cmd.clone());
+            let index = host_commands.len() - 1;
+            ReedlineEvent::ExecuteHostCommand(index.to_string())
         }
         Ok(RED::OpenEditor) => ReedlineEvent::OpenEditor,
         Ok(RED::ViChangeMode) => {
@@ -1906,7 +1903,7 @@ mod test {
         let event = Value::test_record(event);
         let config = Config::default();
 
-        let parsed_event = parse_event(&event, &config, &mut SlotMap::with_key()).unwrap();
+        let parsed_event = parse_event(&event, &config, &mut vec![]).unwrap();
         assert_eq!(parsed_event, Some(ReedlineEvent::Enter));
     }
 
@@ -1923,7 +1920,7 @@ mod test {
         let event = Value::test_record(event);
         let config = Config::default();
 
-        let parsed_event = parse_event(&event, &config, &mut SlotMap::with_key()).unwrap();
+        let parsed_event = parse_event(&event, &config, &mut vec![]).unwrap();
         assert_eq!(
             parsed_event,
             Some(ReedlineEvent::Edit(vec![EditCommand::Clear]))
@@ -2109,7 +2106,7 @@ mod test {
         let event = Value::test_record(event);
         let config = Config::default();
 
-        let parsed_event = parse_event(&event, &config, &mut SlotMap::with_key()).unwrap();
+        let parsed_event = parse_event(&event, &config, &mut vec![]).unwrap();
         assert_eq!(
             parsed_event,
             Some(ReedlineEvent::Menu("history_menu".to_string()))
@@ -2139,7 +2136,7 @@ mod test {
         let event = Value::test_record(event);
         let config = Config::default();
 
-        let parsed_event = parse_event(&event, &config, &mut SlotMap::with_key()).unwrap();
+        let parsed_event = parse_event(&event, &config, &mut vec![]).unwrap();
         assert_eq!(
             parsed_event,
             Some(ReedlineEvent::UntilFound(vec![
@@ -2161,7 +2158,7 @@ mod test {
         let event = Value::list(vec![menu_event, enter_event], Span::test_data());
 
         let config = Config::default();
-        let parsed_event = parse_event(&event, &config, &mut SlotMap::with_key()).unwrap();
+        let parsed_event = parse_event(&event, &config, &mut vec![]).unwrap();
         assert_eq!(
             parsed_event,
             Some(ReedlineEvent::Multiple(vec![
@@ -2190,7 +2187,7 @@ mod test {
         let event = Value::test_record(event);
         let config = Config::default();
 
-        let parsed_event = parse_event(&event, &config, &mut SlotMap::with_key()).unwrap();
+        let parsed_event = parse_event(&event, &config, &mut vec![]).unwrap();
         assert_eq!(
             parsed_event,
             Some(ReedlineEvent::Edit(vec![EditCommand::MoveLeft {
@@ -2208,7 +2205,7 @@ mod test {
         let event = Value::test_record(event);
         let config = Config::default();
 
-        let parsed_event = parse_event(&event, &config, &mut SlotMap::with_key()).unwrap();
+        let parsed_event = parse_event(&event, &config, &mut vec![]).unwrap();
         assert_eq!(
             parsed_event,
             Some(ReedlineEvent::Edit(vec![EditCommand::MoveLeft {
@@ -2226,7 +2223,7 @@ mod test {
         let event = Value::test_record(event);
         let config = Config::default();
 
-        let parsed_event = parse_event(&event, &config, &mut SlotMap::with_key()).unwrap();
+        let parsed_event = parse_event(&event, &config, &mut vec![]).unwrap();
         assert_eq!(
             parsed_event,
             Some(ReedlineEvent::Edit(vec![EditCommand::MoveLeft {
