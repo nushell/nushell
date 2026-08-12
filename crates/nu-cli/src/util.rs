@@ -423,7 +423,7 @@ fn maybe_store_last_result(
     block: &Block,
     pipeline_data: PipelineData,
 ) -> PipelineData {
-    let budget = stack.get_config(engine_state).last_result_size_bytes();
+    let budget = stack.get_config(engine_state).max_last_result_size_bytes();
 
     // Bare `$ans` / `$ans.*` cell-paths (rename via LAST_RESULT_VAR_NAME) must not re-store `.last`.
     let mut get_block = |id| engine_state.get_block(id).as_ref();
@@ -432,7 +432,7 @@ fn maybe_store_last_result(
     }
 
     if budget == 0 {
-        // Payload capture off: free `.last` only; exit_code/duration stay via snapshot.
+        // Budget 0: drop `.last`; snapshot still sets exit_code/duration/cli.
         stack.clear_last_result_payload();
         return pipeline_data;
     }
