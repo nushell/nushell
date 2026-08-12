@@ -160,7 +160,7 @@ $env.config.clip.default_raw = false
 # "emacs": Use Emacs-style keybindings (default).
 # "vi": Use Vi-style keybindings with normal and insert modes.
 # "helix": Use Helix-style selection-first keybindings with normal, select, and
-#          insert modes. Only available in builds with the `helix` feature.
+#          insert modes. Requires the `helix` feature (enabled by default).
 # Default: "emacs"
 $env.config.edit_mode = "emacs"
 
@@ -191,7 +191,7 @@ $env.config.cursor_shape.vi_insert = "inherit"
 $env.config.cursor_shape.vi_normal = "inherit"
 
 # cursor_shape.helix_normal (string): Cursor shape when in helix normal mode.
-# Only takes effect in builds with the `helix` feature; likewise for
+# Requires the `helix` feature (enabled by default); likewise for
 # helix_select and helix_insert below.
 # One of: "block", "underscore", "line", "blink_block", "blink_underscore", "blink_line", or "inherit".
 # Default: "inherit"
