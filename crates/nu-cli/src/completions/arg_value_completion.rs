@@ -199,39 +199,38 @@ impl<'a> ArgValueCompletion<'a> {
     ) -> Fetched {
         let cursor_position = self.cursor;
 
-        for item in items {
-            let item_span = item.expr().span;
+        let Some(item) = items
+            .iter()
+            .find(|item| touches(item.expr().span, cursor_position))
+        else {
+            return Fetched::pure(vec![]);
+        };
 
-            if !touches(item_span, cursor_position) {
-                continue;
-            }
+        let item_span = item.expr().span;
 
-            // The member's typed text is the tail of `completion_context.prefix`, from
-            // the member's start onward; the cursor-sliced buffer already ends it.
-            let relative_offset = item_span
-                .start
-                .saturating_sub(completion_context.span.start);
-            let sliced_prefix = completion_context
-                .prefix
-                .get(relative_offset..)
-                .unwrap_or_default();
+        // The member's typed text is the tail of `completion_context.prefix`, from
+        // the member's start onward; the cursor-sliced buffer already ends it.
+        let relative_offset = item_span
+            .start
+            .saturating_sub(completion_context.span.start);
+        let sliced_prefix = completion_context
+            .prefix
+            .get(relative_offset..)
+            .unwrap_or_default();
 
-            let new_span = Span::new(
-                item_span.start,
-                completion_context.span.end.min(item_span.end),
-            );
+        let new_span = Span::new(
+            item_span.start,
+            completion_context.span.end.min(item_span.end),
+        );
 
-            let item_context = self.completer.context(
-                completion_context.working_set,
-                new_span,
-                sliced_prefix,
-                completion_context.offset,
-            );
+        let item_context = self.completer.context(
+            completion_context.working_set,
+            new_span,
+            sliced_prefix,
+            completion_context.offset,
+        );
 
-            return exportable_completion.fetch(&item_context);
-        }
-
-        Fetched::pure(vec![])
+        exportable_completion.fetch(&item_context)
     }
 
     fn fetch_fallback_completion(
