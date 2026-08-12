@@ -811,7 +811,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
                 let val = host_commands.swap_remove(index);
                 // drop host_commands so we can no longer access it,
-                // because the index may potentially resolve to the swaped value.
+                // because the index may potentially resolve to the swapped value.
                 drop(host_commands);
 
                 match val {
