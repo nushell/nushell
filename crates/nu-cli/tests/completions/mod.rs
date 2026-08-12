@@ -1134,6 +1134,16 @@ fn exportable_completions() {
     let suggestions = completer.complete_blocking(completion_str, completion_str.len());
     match_suggestions(&vec!["TAU"], &suggestions);
 
+    // without providing any prefix to match items against
+    let completion_str = "use std/math ";
+    let suggestions = completer.complete_blocking(completion_str, completion_str.len());
+    match_suggestions(&vec!["GAMMA", "E", "PI", "TAU", "PHI"], &suggestions);
+
+    // without a prefix within the list style importy
+    let completion_str = "use std/math [";
+    let suggestions = completer.complete_blocking(completion_str, completion_str.len());
+    match_suggestions(&vec!["GAMMA", "E", "PI", "TAU", "PHI"], &suggestions);
+
     let completion_str = "use 🤔🐘 'foo";
     let suggestions = completer.complete_blocking(completion_str, completion_str.len());
     match_suggestions(&vec!["foo"], &suggestions);
