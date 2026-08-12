@@ -199,14 +199,11 @@ impl<'a> ArgValueCompletion<'a> {
     ) -> Fetched {
         let cursor_position = self.cursor;
 
-        let Some(item) = items
+        let item_span = items
             .iter()
-            .find(|item| touches(item.expr().span, cursor_position))
-        else {
-            return Fetched::pure(vec![]);
-        };
-
-        let item_span = item.expr().span;
+            .map(|item| item.expr().span)
+            .find(|item_span| touches(*item_span, cursor_position))
+            .unwrap_or(Span::point(cursor_position));
 
         // The member's typed text is the tail of `completion_context.prefix`, from
         // the member's start onward; the cursor-sliced buffer already ends it.
