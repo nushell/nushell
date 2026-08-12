@@ -32,11 +32,11 @@ impl Command for FormatFilesize {
                 (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true)
-            .required(
-                "format value",
-                SyntaxShape::String,
-                "The format into which convert the file sizes.",
-            )
+            .param(Parameter::Required(
+                PositionalArg::new("format value", SyntaxShape::String)
+                    .desc("The format into which convert the file sizes.")
+                    .completion(Completion::new_list(SUPPORTED_FILESIZE_UNITS.as_slice())),
+            ))
             .rest(
                 "rest",
                 SyntaxShape::CellPath,

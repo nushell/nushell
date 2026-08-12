@@ -7,6 +7,7 @@ use nu_protocol::{
     BlockId, Value,
     ast::Block,
     engine::{CommandType, StateWorkingSet},
+    parser_path::{MAX_RUN_SCRIPT_BYTES, ScriptLoadError, read_run_script_file},
     shell_error::{generic::GenericError, io::IoError},
 };
 use std::sync::Arc;
@@ -232,8 +233,39 @@ fn parse_run_script_fresh(
     file_path: &std::path::Path,
     call_head: Span,
 ) -> Result<(EngineState, Arc<Block>, Option<BlockId>), ShellError> {
-    let contents = std::fs::read(file_path)
-        .map_err(|err| IoError::new(err, call_head, file_path.to_path_buf()))?;
+    let display_path = file_path.display().to_string();
+    let contents = match read_run_script_file(file_path, MAX_RUN_SCRIPT_BYTES) {
+        Ok(contents) => contents,
+        Err(ScriptLoadError::TooLarge { size, max_size }) => {
+            return Err(GenericError::new(
+                "Script file is too large to load",
+                format!(
+                    "Refusing to load files larger than {max_size} bytes for `run` (file is {size} bytes): {display_path}"
+                ),
+                call_head,
+            )
+            .into());
+        }
+        Err(ScriptLoadError::NotText) => {
+            return Err(GenericError::new(
+                "Script file does not appear to be text",
+                format!(
+                    "The file does not look like UTF-8 text and cannot be loaded by `run`: {display_path}"
+                ),
+                call_head,
+            )
+            .into());
+        }
+        Err(ScriptLoadError::Unreadable) => {
+            return Err(GenericError::new(
+                "Failed to read script",
+                format!("Could not read script file: {display_path}"),
+                call_head,
+            )
+            .into());
+        }
+    };
+
     let mut full_reparse_engine_state = engine_state.clone();
     let mut working_set = StateWorkingSet::new(&full_reparse_engine_state);
     working_set

@@ -76,9 +76,11 @@ impl Command for Uniq {
                 .map(|data| data.set_metadata(metadata.clone()));
         }
 
-        let mapper = Box::new(move |ms: ItemMapperState| -> ValueCounter {
-            item_mapper(ms.item, ms.flag_ignore_case, ms.index, head)
-        });
+        let mapper = Box::new(
+            move |ms: ItemMapperState| -> Result<ValueCounter, ShellError> {
+                Ok(item_mapper(ms.item, ms.flag_ignore_case, ms.index, head))
+            },
+        );
 
         let metadata = input.take_metadata();
         uniq(
@@ -223,7 +225,7 @@ pub fn uniq(
     stack: &mut Stack,
     call: &Call,
     input: Vec<Value>,
-    item_mapper: Box<dyn Fn(ItemMapperState) -> ValueCounter>,
+    item_mapper: Box<dyn Fn(ItemMapperState) -> Result<ValueCounter, ShellError>>,
     metadata: Option<PipelineMetadata>,
 ) -> Result<PipelineData, ShellError> {
     let head = call.head;
@@ -236,7 +238,7 @@ pub fn uniq(
     let flag_keep_last = call.has_flag(engine_state, stack, "keep-last")?;
 
     let signals = engine_state.signals().clone();
-    let uniq_values = input
+    let mut uniq_values = input
         .into_iter()
         .enumerate()
         .map_while(|(index, item)| {
@@ -252,30 +254,24 @@ pub fn uniq(
         })
         .try_fold(
             HashMap::<String, ValueCounter>::new(),
-            |mut counter, item| {
-                let key = utils::value_to_key(engine_state, &item.val_to_compare, head);
+            |mut counter, item| -> Result<_, ShellError> {
+                let item = item?;
+                let key = utils::value_to_key(engine_state, &item.val_to_compare, head)?;
 
-                match key {
-                    Ok(key) => {
-                        match counter.get_mut(&key) {
-                            Some(x) => {
-                                if flag_keep_last {
-                                    x.val = item.val;
-                                }
-                                x.count += 1;
-                            }
-                            None => {
-                                counter.insert(key, item);
-                            }
-                        };
-                        Ok(counter)
+                match counter.get_mut(&key) {
+                    Some(x) => {
+                        if flag_keep_last {
+                            x.val = item.val;
+                        }
+                        x.count += 1;
                     }
-                    Err(err) => Err(err),
-                }
+                    None => {
+                        counter.insert(key, item);
+                    }
+                };
+                Ok(counter)
             },
-        );
-
-    let mut uniq_values: HashMap<String, ValueCounter> = uniq_values?;
+        )?;
 
     if flag_show_repeated {
         uniq_values.retain(|_v, value_count_pair| value_count_pair.count > 1);

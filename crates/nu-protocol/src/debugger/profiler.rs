@@ -7,7 +7,7 @@ use crate::{
     PipelineData, PipelineExecutionData, ShellError, Span, Value,
     ast::{Block, Expr, PipelineElement},
     debugger::Debugger,
-    engine::EngineState,
+    engine::{EngineState, Stack},
     ir::IrBlock,
     record,
     shell_error::generic::GenericError,
@@ -207,6 +207,7 @@ impl Debugger for Profiler {
     fn enter_instruction(
         &mut self,
         engine_state: &EngineState,
+        _stack: &Stack,
         ir_block: &IrBlock,
         instruction_index: usize,
         _registers: &[PipelineExecutionData],
@@ -251,6 +252,7 @@ impl Debugger for Profiler {
     fn leave_instruction(
         &mut self,
         _engine_state: &EngineState,
+        _stack: &Stack,
         ir_block: &IrBlock,
         instruction_index: usize,
         registers: &[PipelineExecutionData],

@@ -1,23 +1,78 @@
-use crate::completions::CompletionOptions;
+use crate::completions::completer::Context;
 use nu_color_config::NuStyle;
-use nu_protocol::{
-    DynamicSuggestion, IntoValue, Record, Span, SuggestionKind, Value,
-    engine::{Stack, StateWorkingSet},
-};
+use nu_protocol::{DynamicSuggestion, IntoValue, Record, Span, SuggestionKind, Value};
 use reedline::Suggestion;
 
 pub trait Completer {
-    /// Fetch, filter, and sort completions
-    #[allow(clippy::too_many_arguments)]
-    fn fetch(
-        &mut self,
-        working_set: &StateWorkingSet,
-        stack: &Stack,
-        prefix: impl AsRef<str>,
-        span: Span,
-        offset: usize,
-        options: &CompletionOptions,
-    ) -> Vec<SemanticSuggestion>;
+    /// Fetch, filter, and sort completions for the token described by `ctx`.
+    fn fetch(&mut self, ctx: &Context) -> Fetched;
+}
+
+/// The outcome of one source's [`Completer::fetch`], plus two flags the machinery cannot
+/// infer from the suggestions: `cacheable` (impure sources worth reusing between keystrokes)
+/// and `need_fallback` (try the next source). Fields are private, so a declining result can
+/// never also carry suggestions.
+#[derive(Debug, Default)]
+pub struct Fetched {
+    pub(crate) suggestions: Vec<SemanticSuggestion>,
+    pub(crate) cacheable: bool,
+    pub(crate) need_fallback: bool,
+}
+
+impl Fetched {
+    /// A cheap engine-state result: never cached, never falls back.
+    pub(crate) fn pure(suggestions: Vec<SemanticSuggestion>) -> Self {
+        Self {
+            suggestions,
+            cacheable: false,
+            need_fallback: false,
+        }
+    }
+
+    /// An impure source's result (filesystem, `PATH`, user/plugin code); worth caching.
+    pub(crate) fn cacheable(suggestions: Vec<SemanticSuggestion>) -> Self {
+        Self {
+            suggestions,
+            cacheable: true,
+            need_fallback: false,
+        }
+    }
+
+    /// An impure source that declined: fall back, but stay `cacheable` since the
+    /// expensive attempt ran.
+    pub(crate) fn fallback() -> Self {
+        Self {
+            suggestions: vec![],
+            cacheable: true,
+            need_fallback: true,
+        }
+    }
+
+    /// Like [`Self::fallback`] but cheap — no source ran, so nothing to cache.
+    pub(crate) fn absent() -> Self {
+        Self {
+            suggestions: vec![],
+            cacheable: false,
+            need_fallback: true,
+        }
+    }
+
+    /// Force [`Self::cacheable`] on when the caller did expensive work (e.g. parsing a
+    /// module off disk) around a cheap lookup.
+    pub(crate) fn caching(mut self) -> Self {
+        self.cacheable = true;
+        self
+    }
+}
+
+/// Convert an engine [`Span`] to reedline coordinates by subtracting the working-set
+/// `offset`. Both ends saturate so spans before `offset` can't underflow into an index that
+/// would panic (`is_char_boundary`); callers may pass untrusted spans.
+pub(crate) fn to_reedline_span(span: Span, offset: usize) -> reedline::Span {
+    reedline::Span::new(
+        span.start.saturating_sub(offset),
+        span.end.saturating_sub(offset),
+    )
 }
 
 #[derive(Debug, Default, PartialEq)]

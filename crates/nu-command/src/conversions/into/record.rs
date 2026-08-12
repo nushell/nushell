@@ -1,7 +1,7 @@
 use crate::semver::value::SemverValue;
 use chrono::{DateTime, Datelike, FixedOffset, Timelike};
 use nu_engine::command_prelude::*;
-use nu_protocol::format_duration_as_timeperiod;
+use nu_protocol::{DurationMaxUnit, format_duration_as_timeperiod};
 
 #[derive(Clone)]
 pub struct IntoRecord;
@@ -151,10 +151,11 @@ fn into_record(call: &Call, input: PipelineData) -> Result<PipelineData, ShellEr
                         }
                         expected_type = Some(ExpectedType::Record);
                     }
-                    Value::List { mut vals, .. }
+                    Value::List { vals, .. }
                         if matches!(expected_type, None | Some(ExpectedType::Pair)) =>
                     {
                         if vals.len() == 2 {
+                            let mut vals = vals.into_owned();
                             let (val, key) = vals.pop().zip(vals.pop()).expect("length is < 2");
                             record.insert(key.coerce_into_string()?, val);
                         } else {
@@ -217,7 +218,7 @@ fn parse_date_into_record(date: DateTime<FixedOffset>, span: Span) -> Value {
 }
 
 fn parse_duration_into_record(duration: i64, span: Span) -> Value {
-    let (sign, periods) = format_duration_as_timeperiod(duration);
+    let (sign, periods) = format_duration_as_timeperiod(duration, DurationMaxUnit::default());
 
     let mut record = Record::new();
     for p in periods {
@@ -353,6 +354,23 @@ mod tests {
                 assert_eq!(val.get("major").unwrap().as_int().unwrap(), 1);
                 assert_eq!(val.get("minor").unwrap().as_int().unwrap(), 2);
                 assert_eq!(val.get("patch").unwrap().as_int().unwrap(), 3);
+                assert_eq!(val.get("prefix").unwrap().as_str().unwrap(), "");
+            }
+            _ => panic!("Expected Record value"),
+        }
+    }
+
+    #[test]
+    fn test_parse_semver_into_record_with_prefix() {
+        let semver_val = SemverValue::parse("v1.2.3", true).unwrap();
+        let result = parse_semver_into_record(&semver_val, Span::test_data());
+
+        match result {
+            Value::Record { val, .. } => {
+                assert_eq!(val.get("major").unwrap().as_int().unwrap(), 1);
+                assert_eq!(val.get("minor").unwrap().as_int().unwrap(), 2);
+                assert_eq!(val.get("patch").unwrap().as_int().unwrap(), 3);
+                assert_eq!(val.get("prefix").unwrap().as_str().unwrap(), "v");
             }
             _ => panic!("Expected Record value"),
         }
@@ -401,6 +419,7 @@ fn parse_semver_into_record(semver: &SemverValue, span: Span) -> Value {
             "patch" => Value::int(version.patch as i64, span),
             "pre" => Value::string(version.pre.to_string(), span),
             "build" => Value::string(version.build.to_string(), span),
+            "prefix" => Value::string(semver.prefix.clone(), span),
             "pre_identifiers" => Value::list(pre_identifiers, span),
             "build_identifiers" => Value::list(build_identifiers, span),
         },

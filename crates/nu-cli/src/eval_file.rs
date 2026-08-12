@@ -1,4 +1,4 @@
-use crate::util::{eval_source, print_pipeline};
+use crate::util::{eval_parsed_block_source, eval_source, print_pipeline};
 use log::{info, trace};
 use nu_engine::eval_block;
 use nu_parser::parse;
@@ -173,14 +173,12 @@ pub fn evaluate_file(
     let exit_code = if file_has_main && engine_state.find_decl(&script_name_bytes, &[]).is_some() {
         // Evaluate the file, but don't run main yet.
         let pipeline =
-            match eval_block::<WithoutDebug>(engine_state, stack, &block, PipelineData::empty())
-                .map(|p| p.body)
-            {
-                Ok(data) => data,
-                Err(ShellError::Return { .. }) => {
+            match eval_block::<WithoutDebug>(engine_state, stack, &block, PipelineData::empty()) {
+                Ok(data) if data.early_return => {
                     // Allow early return before main is run.
                     return Ok(());
                 }
+                Ok(data) => data.body,
                 Err(err) => return Err(err),
             };
 
@@ -202,7 +200,11 @@ pub fn evaluate_file(
             true,
         )
     } else {
-        eval_source(engine_state, stack, &file, file_path_str, input, true)
+        // Evaluate the already-parsed block instead of re-parsing through
+        // eval_source. Re-parsing can return stale `source` blocks whose
+        // VarIds no longer match re-declared `let`/`mut` variables.
+        // See https://github.com/nushell/nushell/issues/18515
+        eval_parsed_block_source(engine_state, stack, &block, file_path_str, input, true)
     };
 
     if exit_code != 0 {

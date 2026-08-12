@@ -3,10 +3,11 @@ use log::{info, trace};
 use nu_engine::ClosureEvalOnce;
 use nu_protocol::{
     Config, PipelineData, Value,
-    engine::{EngineState, Stack},
+    engine::{EngineState, PromptContents, Stack},
     report_shell_error,
 };
 use reedline::Prompt;
+use std::sync::Arc;
 
 // Name of environment variable where the prompt could be stored
 pub(crate) const PROMPT_COMMAND: &str = "PROMPT_COMMAND";
@@ -89,90 +90,70 @@ fn get_prompt_string(
     Some(output)
 }
 
-pub fn update_prompt(
-    config: &Config,
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    nu_prompt: &mut NushellPrompt,
-) {
-    // Get the configured prompts - reedline now handles semantic markers
-    let left_prompt_string = get_prompt_string(PROMPT_COMMAND, config, engine_state, stack);
+/// Re-evaluate `$env.PROMPT_COMMAND` and friends and install the result as the
+/// prompt's per-cycle baseline. This overwrites anything a background job pushed
+/// during the previous cycle, resetting the prompt for the next line.
+pub fn update_prompt(config: &Config, engine_state: &EngineState, stack: &mut Stack) {
+    let new_contents = build_prompt_contents(config, engine_state, stack);
 
-    let right_prompt_string = get_prompt_string(PROMPT_COMMAND_RIGHT, config, engine_state, stack);
+    // reedline handles semantic markers itself.
+    engine_state.prompt_state.set_contents(new_contents);
 
-    let prompt_indicator_string = get_prompt_string(PROMPT_INDICATOR, config, engine_state, stack);
-
-    let prompt_multiline_string =
-        get_prompt_string(PROMPT_MULTILINE_INDICATOR, config, engine_state, stack);
-
-    let prompt_vi_insert_string =
-        get_prompt_string(PROMPT_INDICATOR_VI_INSERT, config, engine_state, stack);
-
-    let prompt_vi_normal_string =
-        get_prompt_string(PROMPT_INDICATOR_VI_NORMAL, config, engine_state, stack);
-
-    // apply the other indicators
-    nu_prompt.update_all_prompt_strings(
-        left_prompt_string,
-        right_prompt_string,
-        prompt_indicator_string,
-        prompt_multiline_string,
-        (prompt_vi_insert_string, prompt_vi_normal_string),
-        config.render_right_prompt_on_last_line,
-    );
     trace!("update_prompt {}:{}:{}", file!(), line!(), column!());
 }
 
-/// Construct the transient prompt based on the normal nu_prompt
+fn build_prompt_contents(
+    config: &Config,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+) -> PromptContents {
+    let mut fetch_prompt =
+        |prompt_type| get_prompt_string(prompt_type, config, engine_state, stack).map(Arc::from);
+
+    PromptContents {
+        left: fetch_prompt(PROMPT_COMMAND),
+        right: fetch_prompt(PROMPT_COMMAND_RIGHT),
+        indicator: fetch_prompt(PROMPT_INDICATOR),
+        vi_insert: fetch_prompt(PROMPT_INDICATOR_VI_INSERT),
+        vi_normal: fetch_prompt(PROMPT_INDICATOR_VI_NORMAL),
+        multiline: fetch_prompt(PROMPT_MULTILINE_INDICATOR),
+        render_right_on_last_line: config.render_right_prompt_on_last_line,
+    }
+}
+
+/// Construct the transient prompt based on the normal nu_prompt.
 /// Note: Transient prompts do NOT emit semantic markers since they replace
 /// the actual prompt after command execution (which already has markers).
+///
+/// The transient prompt is drawn only once the line is submitted, which can
+/// be long after this function runs. Rather than freezing a snapshot of the
+/// baseline now, we resolve only the `TRANSIENT_PROMPT_*` overrides here and
+/// read the baseline live at render time, so a background job's late
+/// `commandline set-prompt` pushes still show up.
 pub(crate) fn make_transient_prompt(
     config: &Config,
     engine_state: &EngineState,
     stack: &mut Stack,
-    nu_prompt: &NushellPrompt,
 ) -> Box<dyn Prompt> {
-    let mut nu_prompt = nu_prompt.clone();
+    let mut fetch_transient =
+        |env_var| get_prompt_string(env_var, config, engine_state, stack).map(Arc::from);
 
-    if let Some(s) = get_prompt_string(TRANSIENT_PROMPT_COMMAND, config, engine_state, stack) {
-        nu_prompt.update_prompt_left(Some(s))
-    }
+    let overrides = PromptContents {
+        left: fetch_transient(TRANSIENT_PROMPT_COMMAND),
+        right: fetch_transient(TRANSIENT_PROMPT_COMMAND_RIGHT),
+        indicator: fetch_transient(TRANSIENT_PROMPT_INDICATOR),
+        vi_insert: fetch_transient(TRANSIENT_PROMPT_INDICATOR_VI_INSERT),
+        vi_normal: fetch_transient(TRANSIENT_PROMPT_INDICATOR_VI_NORMAL),
+        multiline: fetch_transient(TRANSIENT_PROMPT_MULTILINE_INDICATOR),
+        // Not overridable by a `TRANSIENT_PROMPT_*` var; falls back to the
+        // live baseline via `PromptContents::overridden_by`.
+        render_right_on_last_line: false,
+    };
 
-    if let Some(s) = get_prompt_string(TRANSIENT_PROMPT_COMMAND_RIGHT, config, engine_state, stack)
-    {
-        nu_prompt.update_prompt_right(Some(s), config.render_right_prompt_on_last_line)
-    }
-
-    if let Some(s) = get_prompt_string(TRANSIENT_PROMPT_INDICATOR, config, engine_state, stack) {
-        nu_prompt.update_prompt_indicator(Some(s))
-    }
-    if let Some(s) = get_prompt_string(
-        TRANSIENT_PROMPT_INDICATOR_VI_INSERT,
-        config,
-        engine_state,
-        stack,
-    ) {
-        nu_prompt.update_prompt_vi_insert(Some(s))
-    }
-    if let Some(s) = get_prompt_string(
-        TRANSIENT_PROMPT_INDICATOR_VI_NORMAL,
-        config,
-        engine_state,
-        stack,
-    ) {
-        nu_prompt.update_prompt_vi_normal(Some(s))
-    }
-
-    if let Some(s) = get_prompt_string(
-        TRANSIENT_PROMPT_MULTILINE_INDICATOR,
-        config,
-        engine_state,
-        stack,
-    ) {
-        nu_prompt.update_prompt_multiline(Some(s))
-    }
-
-    Box::new(nu_prompt)
+    Box::new(NushellPrompt::transient(
+        engine_state.prompt_state.clone(),
+        overrides,
+    ))
 }
 
 #[cfg(test)]
@@ -192,10 +173,34 @@ mod tests {
             Value::string("test", Span::test_data()),
         );
 
-        let mut nu_prompt = NushellPrompt::new();
+        update_prompt(&config, &engine_state, &mut stack);
 
-        update_prompt(&config, &engine_state, &mut stack, &mut nu_prompt);
-
+        let nu_prompt = NushellPrompt::shared(engine_state.prompt_state.clone());
         assert_eq!(nu_prompt.render_prompt_left(), "test");
+    }
+
+    #[test]
+    fn transient_prompt_override_still_wins_over_the_live_baseline() {
+        use nu_protocol::engine::PromptSegment;
+
+        let config = Config::default();
+        let engine_state = EngineState::new();
+        let mut stack = Stack::new();
+        stack.add_env_var(
+            TRANSIENT_PROMPT_INDICATOR.into(),
+            Value::string("transient> ", Span::test_data()),
+        );
+
+        let transient_prompt = make_transient_prompt(&config, &engine_state, &mut stack);
+
+        // The configured TRANSIENT_PROMPT_INDICATOR beats a later live change.
+        engine_state
+            .prompt_state
+            .set(PromptSegment::Indicator, "live> ");
+
+        assert_eq!(
+            transient_prompt.render_prompt_indicator(reedline::PromptEditMode::Emacs),
+            "transient> "
+        );
     }
 }

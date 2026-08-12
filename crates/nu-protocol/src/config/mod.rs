@@ -1,7 +1,7 @@
 //! Module containing the internal representation of user configuration
 
 use crate::FromValue;
-use crate::{self as nu_protocol};
+use crate::{self as nu_protocol, Filesize};
 use helper::*;
 use prelude::*;
 use std::collections::HashMap;
@@ -12,7 +12,9 @@ pub use completions::{
     CompletionAlgorithm, CompletionConfig, CompletionSort, ExternalCompleterConfig,
 };
 pub use datetime_format::DatetimeFormatConfig;
+pub use defaults::default_color_config;
 pub use display_errors::DisplayErrors;
+pub use duration_max_unit::DurationMaxUnit;
 pub use filesize::FilesizeConfig;
 pub use helper::extract_value;
 pub use hinter::HinterConfig;
@@ -30,7 +32,9 @@ mod ansi_coloring;
 mod clip;
 mod completions;
 mod datetime_format;
+mod defaults;
 mod display_errors;
+mod duration_max_unit;
 mod error;
 mod filesize;
 mod helper;
@@ -81,6 +85,15 @@ pub struct Config {
     pub use_kitty_protocol: bool,
     pub highlight_resolved_externals: bool,
     pub auto_cd_implicit: bool,
+    pub duration_max_unit: DurationMaxUnit,
+    /// Maximum estimated memory size of the interactive last-result payload (`$ans.last`).
+    ///
+    /// Measured with [`Value::memory_size`]. Default is `0` (no `.last` payload; opt-in).
+    /// Oversized results are truncated to fit this budget. The variable name itself is a code
+    /// constant (`LAST_RESULT_VAR_NAME`), not a config option. With a positive budget, `$ans`
+    /// is `{ last, exit_code, duration }`. With `0`, `$ans` still has `exit_code` and
+    /// `duration` but omits `last` entirely.
+    pub last_result_size: Filesize,
     /// Configuration for plugins.
     ///
     /// Users can provide configuration for a plugin through this entry.  The entry name must
@@ -102,7 +115,7 @@ impl Default for Config {
 
             datetime_format: DatetimeFormatConfig::default(),
 
-            explore: HashMap::new(),
+            explore: defaults::default_explore(),
 
             history: HistoryConfig::default(),
 
@@ -116,7 +129,7 @@ impl Default for Config {
 
             clip: ClipConfig::default(),
 
-            color_config: HashMap::new(),
+            color_config: defaults::default_color_config(),
             footer_mode: FooterMode::RowCount(25),
             float_precision: 2,
             buffer_editor: Value::nothing(Span::unknown()),
@@ -132,9 +145,9 @@ impl Default for Config {
 
             hooks: Hooks::new(),
 
-            menus: Vec::new(),
+            menus: defaults::default_menus(),
 
-            keybindings: Vec::new(),
+            keybindings: defaults::default_keybindings(),
             abbreviations: HashMap::new(),
 
             error_style: ErrorStyle::default(),
@@ -145,6 +158,10 @@ impl Default for Config {
             highlight_resolved_externals: false,
 
             auto_cd_implicit: false,
+            duration_max_unit: DurationMaxUnit::default(),
+
+            // Opt-in for `.last` payload: 0 drops last, keeps exit_code/duration
+            last_result_size: Filesize::ZERO,
 
             plugins: HashMap::new(),
             plugin_gc: PluginGcConfigs::default(),
@@ -165,94 +182,153 @@ impl UpdateFromValue for Config {
         };
 
         for (col, val) in record.iter() {
-            let path = &mut path.push(col);
+            let current_path = &mut path.push(col);
+
             match col.as_str() {
-                "ls" => self.ls.update(val, path, errors),
-                "rm" => self.rm.update(val, path, errors),
-                "history" => self.history.update(val, path, errors),
-                "completions" => self.completions.update(val, path, errors),
-                "cursor_shape" => self.cursor_shape.update(val, path, errors),
-                "table" => self.table.update(val, path, errors),
-                "filesize" => self.filesize.update(val, path, errors),
-                "explore" => self.explore.update(val, path, errors),
-                "color_config" => self.color_config.update(val, path, errors),
-                "clip" => self.clip.update(val, path, errors),
-                "footer_mode" => self.footer_mode.update(val, path, errors),
-                "float_precision" => self.float_precision.update(val, path, errors),
-                "use_ansi_coloring" => self.use_ansi_coloring.update(val, path, errors),
-                "edit_mode" => self.edit_mode.update(val, path, errors),
-                "show_hints" => self.show_hints.update(val, path, errors),
-                "hinter" => self.hinter.update(val, path, errors),
-                "shell_integration" => self.shell_integration.update(val, path, errors),
+                "ls" => self.ls.update(val, current_path, errors),
+                "rm" => self.rm.update(val, current_path, errors),
+                "history" => self.history.update(val, current_path, errors),
+                "completions" => self.completions.update(val, current_path, errors),
+                "cursor_shape" => self.cursor_shape.update(val, current_path, errors),
+                "table" => self.table.update(val, current_path, errors),
+                "filesize" => self.filesize.update(val, current_path, errors),
+                "explore" => self.explore.update(val, current_path, errors),
+                "color_config" => self.color_config.update(val, current_path, errors),
+                "clip" => self.clip.update(val, current_path, errors),
+                "footer_mode" => self.footer_mode.update(val, current_path, errors),
+                "float_precision" => self.float_precision.update(val, current_path, errors),
+                "use_ansi_coloring" => self.use_ansi_coloring.update(val, current_path, errors),
+                "edit_mode" => self.edit_mode.update(val, current_path, errors),
+                "show_hints" => self.show_hints.update(val, current_path, errors),
+                "hinter" => self.hinter.update(val, current_path, errors),
+                "shell_integration" => self.shell_integration.update(val, current_path, errors),
+                "show_banner" => self.show_banner.update(val, current_path, errors),
+                "display_errors" => self.display_errors.update(val, current_path, errors),
+                "render_right_prompt_on_last_line" => {
+                    self.render_right_prompt_on_last_line
+                        .update(val, current_path, errors)
+                }
+                "bracketed_paste" => self.bracketed_paste.update(val, current_path, errors),
+                "use_kitty_protocol" => self.use_kitty_protocol.update(val, current_path, errors),
+                "highlight_resolved_externals" => {
+                    self.highlight_resolved_externals
+                        .update(val, current_path, errors)
+                }
+                "auto_cd_implicit" => self.auto_cd_implicit.update(val, current_path, errors),
+                "duration_max_unit" => self.duration_max_unit.update(val, current_path, errors),
+                "plugins" => self.plugins.update(val, current_path, errors),
+                "plugin_gc" => self.plugin_gc.update(val, current_path, errors),
+                "abbreviations" => self.abbreviations.update(val, current_path, errors),
+                "hooks" => self.hooks.update(val, current_path, errors),
+                "datetime_format" => self.datetime_format.update(val, current_path, errors),
+                "error_style" => self.error_style.update(val, current_path, errors),
+
                 "buffer_editor" => match val {
                     Value::Nothing { .. } | Value::String { .. } => {
                         self.buffer_editor = val.clone();
                     }
-                    Value::List { vals, .. }
-                        if vals.iter().all(|val| matches!(val, Value::String { .. })) =>
+                    Value::List { vals: values, .. }
+                        if values
+                            .iter()
+                            .all(|list_element| matches!(list_element, Value::String { .. })) =>
                     {
                         self.buffer_editor = val.clone();
                     }
                     _ => errors.type_mismatch(
-                        path,
+                        current_path,
                         Type::custom("string, list<string>, or nothing"),
                         val,
                     ),
                 },
-                "show_banner" => self.show_banner.update(val, path, errors),
-                "display_errors" => self.display_errors.update(val, path, errors),
-                "render_right_prompt_on_last_line" => self
-                    .render_right_prompt_on_last_line
-                    .update(val, path, errors),
-                "bracketed_paste" => self.bracketed_paste.update(val, path, errors),
-                "use_kitty_protocol" => self.use_kitty_protocol.update(val, path, errors),
-                "highlight_resolved_externals" => {
-                    self.highlight_resolved_externals.update(val, path, errors)
-                }
-                "auto_cd_implicit" => self.auto_cd_implicit.update(val, path, errors),
-                "plugins" => self.plugins.update(val, path, errors),
-                "plugin_gc" => self.plugin_gc.update(val, path, errors),
-                "menus" => match Vec::from_value(val.clone()) {
-                    Ok(menus) => self.menus = menus,
-                    Err(err) => errors.error(err.into()),
-                },
-                "keybindings" => match Vec::from_value(val.clone()) {
-                    Ok(keybindings) => self.keybindings = keybindings,
-                    Err(err) => errors.error(err.into()),
-                },
-                "abbreviations" => self.abbreviations.update(val, path, errors),
-                "hooks" => self.hooks.update(val, path, errors),
-                "datetime_format" => self.datetime_format.update(val, path, errors),
-                "error_style" => self.error_style.update(val, path, errors),
-                "error_lines" => {
-                    if let Ok(lines) = val.as_int() {
-                        if lines >= 0 {
-                            self.error_lines = lines;
-                        } else {
-                            errors.invalid_value(path, "an int greater than or equal to 0", val);
+
+                "last_result_size" => self.last_result_size.update(val, current_path, errors),
+
+                "menus" => match Vec::<ParsedMenu>::from_value(val.clone()) {
+                    Ok(menus) => {
+                        for menu in menus {
+                            let target_name = menu.name.to_expanded_string("", self);
+
+                            let found_index = self.menus.iter().position(|existing_menu| {
+                                existing_menu.name.to_expanded_string("", self) == target_name
+                            });
+
+                            if let Some(index) = found_index {
+                                self.menus[index] = menu;
+                            } else {
+                                self.menus.push(menu);
+                            }
                         }
-                    } else {
-                        errors.type_mismatch(path, Type::Int, val);
                     }
-                }
-                "recursion_limit" => {
-                    if let Ok(limit) = val.as_int() {
-                        if limit > 1 {
-                            self.recursion_limit = limit;
-                        } else {
-                            errors.invalid_value(path, "an int greater than 1", val);
+                    Err(error) => errors.error(error.into()),
+                },
+
+                "keybindings" => match Vec::<ParsedKeybinding>::from_value(val.clone()) {
+                    Ok(keybindings) => {
+                        for keybinding in keybindings {
+                            let target_name = keybinding
+                                .name
+                                .as_ref()
+                                .map(|name| name.to_expanded_string("", self));
+
+                            let found_index = target_name.as_ref().and_then(|name_to_match| {
+                                self.keybindings.iter().position(|existing_keybinding| {
+                                    existing_keybinding
+                                        .name
+                                        .as_ref()
+                                        .map(|existing_name| {
+                                            existing_name.to_expanded_string("", self)
+                                        })
+                                        .as_ref()
+                                        == Some(name_to_match)
+                                })
+                            });
+
+                            if let Some(index) = found_index {
+                                self.keybindings[index] = keybinding;
+                            } else {
+                                self.keybindings.push(keybinding);
+                            }
                         }
-                    } else {
-                        errors.type_mismatch(path, Type::Int, val);
                     }
-                }
-                _ => errors.unknown_option(path, val),
+                    Err(error) => errors.error(error.into()),
+                },
+
+                "error_lines" => match val.as_int() {
+                    Ok(integer) if integer >= 0 => self.error_lines = integer,
+                    Ok(_) => {
+                        errors.invalid_value(current_path, "an int greater than or equal to 0", val)
+                    }
+                    Err(_) => errors.type_mismatch(current_path, Type::Int, val),
+                },
+
+                "recursion_limit" => match val.as_int() {
+                    Ok(integer) if integer > 1 => self.recursion_limit = integer,
+                    Ok(_) => errors.invalid_value(current_path, "an int greater than 1", val),
+                    Err(_) => errors.type_mismatch(current_path, Type::Int, val),
+                },
+
+                _ => errors.unknown_option(current_path, val),
             }
         }
     }
 }
 
+impl UpdateFromValue for Filesize {
+    fn update(&mut self, value: &Value, path: &mut ConfigPath, errors: &mut ConfigErrors) {
+        match value.as_filesize() {
+            Ok(size) if !size.is_negative() => *self = size,
+            Ok(_) => errors.invalid_value(path, "a non-negative filesize", value),
+            Err(_) => errors.type_mismatch(path, Type::Filesize, value),
+        }
+    }
+}
+
 impl Config {
+    /// Returns the configured last-result size budget in bytes (`0` disables `.last` only).
+    pub fn last_result_size_bytes(&self) -> usize {
+        self.last_result_size.get().max(0) as usize
+    }
+
     pub fn update_from_value(
         &mut self,
         old: &Config,
@@ -285,5 +361,58 @@ impl Config {
         self.update(value, &mut path, &mut errors);
 
         errors.check()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A record-valued config field is a full-record replace on assignment (e.g.
+    /// `$env.config.keybindings = [...]`), but `update_from_value` must still merge
+    /// named defaults into place rather than silently dropping ones the caller
+    /// didn't mention.
+    #[test]
+    fn reassigning_a_named_list_field_keeps_unmentioned_defaults() {
+        let old = Config::default();
+        let mut new = old.clone();
+
+        let mut extra_menu = old.menus[0].clone();
+        extra_menu.name = Value::test_string("added_menu");
+        let mut extra_keybinding = old.keybindings[0].clone();
+        extra_keybinding.name = Some(Value::test_string("added_binding"));
+
+        let value = Value::test_record(record! {
+            "menus" => Value::test_list(vec![extra_menu.into_value(Span::test_data())]),
+            "keybindings" => Value::test_list(vec![extra_keybinding.into_value(Span::test_data())]),
+        });
+        new.update_from_value(&old, &value)
+            .expect("update should succeed");
+
+        for default_menu in &old.menus {
+            let name = default_menu.name.to_expanded_string("", &old);
+            assert!(
+                new.menus
+                    .iter()
+                    .any(|m| m.name.to_expanded_string("", &new) == name),
+                "default menu {name:?} was lost after reassigning `menus`"
+            );
+        }
+        for default_keybinding in &old.keybindings {
+            let Some(name) = default_keybinding
+                .name
+                .as_ref()
+                .map(|n| n.to_expanded_string("", &old))
+            else {
+                continue;
+            };
+            assert!(
+                new.keybindings.iter().any(|k| k
+                    .name
+                    .as_ref()
+                    .is_some_and(|n| n.to_expanded_string("", &new) == name)),
+                "default keybinding {name:?} was lost after reassigning `keybindings`"
+            );
+        }
     }
 }

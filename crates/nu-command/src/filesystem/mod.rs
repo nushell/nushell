@@ -19,9 +19,7 @@ pub use self::open::Open;
 pub use cd::Cd;
 pub use du::Du;
 pub use glob::Glob;
-pub use idx::{Idx, IdxDirs, IdxDrop, IdxFiles, IdxFind, IdxInit, IdxSearch, IdxStatus};
-#[cfg(feature = "sqlite")]
-pub use idx::{IdxExport, IdxImport};
+pub use idx::{Idx, IdxDirs, IdxDrop, IdxFiles, IdxFind, IdxInit, IdxSearch, IdxStatus, IdxWatch};
 pub use ls::Ls;
 pub use mktemp::Mktemp;
 pub use rm::Rm;

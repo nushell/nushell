@@ -621,7 +621,7 @@ mod tests {
                 data
             );
             if let nu_protocol::Value::Binary { val, .. } = data {
-                assert_eq!(val, &vec![0u8, 1, 2, 255]);
+                assert_eq!(val.as_slice(), &[0u8, 1, 2, 255]);
             }
         } else {
             panic!("Expected Record");

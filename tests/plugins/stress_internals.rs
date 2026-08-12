@@ -3,13 +3,6 @@
 
 use nu_test_support::prelude::*;
 
-#[derive(FromValue)]
-struct CompleteResult {
-    pub stdout: String,
-    pub stderr: String,
-    pub exit_code: i64,
-}
-
 const CODE_STRESS_INTERNALS_COMPLETE: &str = r#"
     let plugin_path = (which nu_plugin_stress_internals).path.0
     nu --no-config-file --plugins $plugin_path --commands "stress_internals" | complete

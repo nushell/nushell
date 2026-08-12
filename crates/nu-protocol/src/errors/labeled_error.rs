@@ -1,5 +1,8 @@
 use super::{ShellError, shell_error::io::IoError};
-use crate::{FromValue, IntoValue, Span, Type, Value, engine::StateWorkingSet, record};
+use crate::{
+    FromValue, IntoValue, Span, Type, Value, engine::StateWorkingSet, record,
+    shell_error::generic::GenericError,
+};
 use miette::{Diagnostic, LabeledSpan, NamedSource, SourceSpan};
 use serde::{Deserialize, Serialize};
 use std::{fmt, fs};
@@ -209,37 +212,51 @@ impl From<ErrorLabel> for SourceSpan {
 
 impl FromValue for ErrorLabel {
     fn from_value(v: Value) -> Result<Self, ShellError> {
-        let record = v.clone().into_record()?;
-        let text = String::from_value(match record.get("text") {
-            Some(val) => val.clone(),
-            None => Value::string("", v.span()),
-        })
-        .unwrap_or("originates from here".into());
-        let span = Span::from_value(match record.get("span") {
-            Some(val) => val.clone(),
-            // Maybe there's a better way...
-            None => Value::record(
-                record! {
-                    "start" => Value::int(v.span().start as i64, v.span()),
-                    "end" => Value::int(v.span().end as i64, v.span()),
-                },
-                v.span(),
-            ),
-        });
+        let span = v.span();
 
-        match span {
-            Ok(s) => Ok(Self { text, span: s }),
-            Err(e) => Err(e),
+        let Ok(mut record) = v.into_record() else {
+            return Err(ShellError::TypeMismatch {
+                err_message: "Must be a record".into(),
+                span,
+            });
+        };
+
+        let required_columns = [
+            ("text", String::expected_type()),
+            ("span", Span::expected_type()),
+        ];
+
+        let [text_val, span_val] = match required_columns.map(|col| record.remove(col.0).ok_or(col))
+        {
+            [Ok(text_val), Ok(span_val)] => [text_val, span_val],
+            results => {
+                let err = LabeledError::new("Value is missing required columns.");
+                let err = results
+                    .into_iter()
+                    .filter_map(|x| x.err())
+                    .fold(err, |err, (col, col_ty)| {
+                        err.with_label(format!("missing `{col}: {col_ty}` column"), span)
+                    })
+                    .with_code("nu::shell::missing_required_columns");
+                return Err(err.into());
+            }
+        };
+
+        match (String::from_value(text_val), Span::from_value(span_val)) {
+            (Ok(text), Ok(span)) => Ok(Self { text, span }),
+            (r_0, r_1) => {
+                let errs = [r_0.err(), r_1.err()];
+                Err(
+                    GenericError::new("Unable to parse ErrorLabel.", "here", span)
+                        .with_inner(errs.into_iter().filter_map(|x| x))
+                        .into(),
+                )
+            }
         }
     }
+
     fn expected_type() -> crate::Type {
-        Type::Record(
-            vec![
-                ("text".into(), Type::String),
-                ("span".into(), Type::record()),
-            ]
-            .into(),
-        )
+        Type::Record([("text", Type::String), ("span", Span::expected_type())].into())
     }
 }
 

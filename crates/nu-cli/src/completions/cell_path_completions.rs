@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use crate::completions::{Completer, CompletionOptions, SemanticSuggestion};
+use crate::completions::{Completer, Context, Fetched, SemanticSuggestion, to_reedline_span};
 use nu_engine::{column::get_columns, eval_variable};
 use nu_protocol::{
     ShellError, Span, SuggestionKind, Type, Value,
@@ -14,45 +14,41 @@ use super::completion_options::NuMatcher;
 
 pub struct CellPathCompletion<'a> {
     pub full_cell_path: &'a FullCellPath,
-    pub position: usize,
+    /// The cursor, in absolute working-set (span) coordinates.
+    pub cursor: usize,
 }
 
-fn prefix_from_path_member(member: &PathMember, pos: usize) -> (String, Span) {
-    let (prefix_str, start) = match member {
+/// The typed portion of `member` up to the cursor, and the span that portion occupies.
+fn prefix_from_path_member(member: &PathMember, cursor: usize) -> (String, Span) {
+    let (val, start) = match member {
         PathMember::String { val, span, .. } => (val, span.start),
         PathMember::Int { val, span, .. } => (&val.to_string(), span.start),
     };
-    let prefix_str = prefix_str.get(..pos + 1 - start).unwrap_or(prefix_str);
-    (prefix_str.to_string(), Span::new(start, pos + 1))
+    let prefix_str = val.get(..cursor - start).unwrap_or(val);
+    (prefix_str.to_string(), Span::new(start, cursor))
 }
 
 impl Completer for CellPathCompletion<'_> {
-    fn fetch(
-        &mut self,
-        working_set: &StateWorkingSet,
-        stack: &Stack,
-        _prefix: impl AsRef<str>,
-        _span: Span,
-        offset: usize,
-        options: &CompletionOptions,
-    ) -> Vec<SemanticSuggestion> {
+    fn fetch(&mut self, ctx: &Context) -> Fetched {
+        let working_set = ctx.working_set;
+        let stack = ctx.stack;
+        let offset = ctx.offset;
+        let options = ctx.options;
         let mut prefix_str = String::new();
-        // position at dots, e.g. `$env.config.<TAB>`
-        let mut span = Span::new(self.position + 1, self.position + 1);
+        let cursor = self.cursor;
+        // Completing at a dot with no partial member yet: empty span at the cursor.
+        let mut span = Span::new(cursor, cursor);
         let mut path_member_num_before_pos = 0;
         for member in self.full_cell_path.tail.iter() {
-            if member.span().end <= self.position {
+            if member.span().end < cursor {
                 path_member_num_before_pos += 1;
-            } else if member.span().contains(self.position) {
-                (prefix_str, span) = prefix_from_path_member(member, self.position);
+            } else if member.span().contains(cursor) || member.span().end == cursor {
+                (prefix_str, span) = prefix_from_path_member(member, cursor);
                 break;
             }
         }
 
-        let current_span = reedline::Span {
-            start: span.start - offset,
-            end: span.end - offset,
-        };
+        let current_span = to_reedline_span(span, offset);
 
         let mut matcher = NuMatcher::new(prefix_str, options, true);
         let path_members = self
@@ -78,7 +74,7 @@ impl Completer for CellPathCompletion<'_> {
             }
         }
 
-        matcher.suggestion_results()
+        Fetched::pure(matcher.suggestion_results())
     }
 }
 
@@ -100,7 +96,16 @@ pub(crate) fn eval_cell_path(
             .const_val
             .to_owned()
             .map_or_else(
-                || eval_variable(working_set.permanent_state, stack, var_id, span),
+                // Handles `$env` / `$nu` / `$ans` specials as well as stack vars.
+                // Read `$ans` without deferring truncation warnings (completions are not
+                // a user-facing display of the value).
+                || {
+                    if var_id == nu_protocol::LAST_VARIABLE_ID {
+                        stack.get_var(var_id, span)
+                    } else {
+                        eval_variable(working_set.permanent_state, stack, var_id, span)
+                    }
+                },
                 Ok,
             )
     } else {
@@ -151,12 +156,17 @@ fn get_suggestions_by_value(
                 to_suggestion(s, sub_val)
             })
             .collect(),
-        Value::Custom { val, .. } if val.type_name() == "semver" => {
-            ["major", "minor", "patch", "pre", "build"]
+        Value::Custom { val, .. } => match val.type_name().as_str() {
+            "semver" => ["major", "minor", "patch", "pre", "build", "prefix"]
                 .into_iter()
                 .map(|s| to_suggestion(s.to_string(), None))
-                .collect()
-        }
+                .collect(),
+            "matrix" => ["shape", "ndim", "size"]
+                .into_iter()
+                .map(|s| to_suggestion(s.to_string(), None))
+                .collect(),
+            _ => vec![],
+        },
         _ => vec![],
     }
 }

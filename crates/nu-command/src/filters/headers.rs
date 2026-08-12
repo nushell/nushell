@@ -69,7 +69,7 @@ impl Command for Headers {
         };
 
         let (old_headers, new_headers) = extract_headers(&table, span, config)?;
-        let value = replace_headers(table, span, &old_headers, &new_headers)?;
+        let value = replace_headers(table.into_owned(), span, &old_headers, &new_headers)?;
 
         Ok(value.into_pipeline_data_with_metadata(metadata))
     }

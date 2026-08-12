@@ -174,16 +174,20 @@ fn operate(
         build_regex(&pattern_item, pattern_span)?
     };
 
-    let regex = RegexBuilder::new(&item_to_parse)
-        .backtrack_limit(backtrack_limit)
-        .build()
-        .map_err(|e| {
-            ShellError::Generic(GenericError::new(
-                "Error with regular expression",
-                e.to_string(),
-                pattern_span,
-            ))
-        })?;
+    // Default backtrack limit matches fancy_regex / Regex::new, so those
+    // compilations can share the EngineState LRU cache. Custom limits must
+    // bypass the cache because the key is only the pattern string.
+    const DEFAULT_BACKTRACK_LIMIT: usize = 1_000_000;
+    let regex = if backtrack_limit == DEFAULT_BACKTRACK_LIMIT {
+        engine_state.compile_regex(&item_to_parse, pattern_span)?
+    } else {
+        RegexBuilder::new(&item_to_parse)
+            .backtrack_limit(backtrack_limit)
+            .build()
+            .map_err(|e| {
+                nu_protocol::engine::invalid_regex_value(&item_to_parse, e, pattern_span)
+            })?
+    };
 
     let columns = regex
         .capture_names()
@@ -200,7 +204,7 @@ fn operate(
         PipelineData::Value(value, ..) => match value {
             Value::String { val, .. } => {
                 let captures = regex
-                    .captures_iter(&val)
+                    .captures_iter(val.as_str())
                     .map(|captures| captures_to_value(captures, &columns, head))
                     .collect::<Result<_, _>>()?;
 
@@ -262,7 +266,7 @@ fn operate(
             let val = stream.into_string()?;
 
             let captures = regex
-                .captures_iter(&val)
+                .captures_iter(val.as_str())
                 .map(|captures| captures_to_value(captures, &columns, head))
                 .collect::<Result<_, _>>()?;
 
@@ -404,7 +408,7 @@ impl<I: Iterator<Item = Result<String, ShellError>>> Iterator for ParseIter<I> {
 }
 
 fn captures_to_value(
-    captures: Result<Captures, fancy_regex::Error>,
+    captures: Result<Captures<'_, str>, fancy_regex::Error>,
     columns: &[String],
     span: Span,
 ) -> Result<Value, ShellError> {

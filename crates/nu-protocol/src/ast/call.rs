@@ -33,6 +33,29 @@ pub enum Argument {
     Spread(Expression),
 }
 
+/// A named argument's flag identity (long, or short when the long name is empty).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FlagRef<'a> {
+    Long(&'a str),
+    Short(&'a str),
+}
+
+impl<'a> FlagRef<'a> {
+    /// The `(long, short)` pair's identity: the long name, else the short spelling.
+    pub fn from_named(long: &'a Spanned<String>, short: Option<&'a Spanned<String>>) -> Self {
+        match short.filter(|_| long.item.is_empty()) {
+            Some(short) => FlagRef::Short(&short.item),
+            None => FlagRef::Long(&long.item),
+        }
+    }
+
+    /// The flag's name, without any dash prefix.
+    pub fn name(self) -> &'a str {
+        let (FlagRef::Long(name) | FlagRef::Short(name)) = self;
+        name
+    }
+}
+
 impl Argument {
     /// The span for an argument
     pub fn span(&self) -> Span {
@@ -321,7 +344,7 @@ impl Call {
             let result = eval(expr)?;
             if spread {
                 match result {
-                    Value::List { mut vals, .. } => output.append(&mut vals),
+                    Value::List { vals, .. } => output.extend(vals),
                     Value::Nothing { .. } => (),
                     _ => return Err(ShellError::CannotSpreadAsList { span: expr.span }),
                 }

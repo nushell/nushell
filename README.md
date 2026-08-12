@@ -57,7 +57,7 @@ For details about which platforms the Nushell team actively supports, see [our p
 
 ## Configuration
 
-The default configurations can be found at [sample_config](crates/nu-utils/src/default_files)
+The default configurations can be found at [sample_config](crates/nu-config/default_files)
 which are the configuration files one gets when they startup Nushell for the first time.
 
 It sets all of the default configuration to run Nushell.  From here one can
@@ -224,6 +224,7 @@ Please submit an issue or PR to be added to this list.
 -   [x-cmd](https://x-cmd.com/mod/nu)
 -   [vfox](https://github.com/version-fox/vfox)
 -   [Windmill](https://www.windmill.dev/docs/getting_started/scripts_quickstart/bash)
+-   [Lacy](https://github.com/timothebot/lacy)
 
 ## Contributing
 

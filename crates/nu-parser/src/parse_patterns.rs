@@ -7,8 +7,9 @@ use crate::{
 };
 use nu_protocol::{
     ParseError, Span, SyntaxShape, Type, VarId,
-    ast::{MatchPattern, Pattern},
+    ast::{Expr, MatchPattern, Pattern},
     engine::StateWorkingSet,
+    eval_const::eval_constant,
 };
 pub fn garbage(span: Span) -> MatchPattern {
     MatchPattern {
@@ -37,13 +38,34 @@ pub fn parse_pattern(working_set: &mut StateWorkingSet, span: Span) -> MatchPatt
             span,
         }
     } else {
-        // Literal value
-        let value = parse_value(working_set, span, &SyntaxShape::Any, None);
+        // Literal / expression pattern (including parenthesized const expressions).
+        // `parse_value` already routes `(` through `parse_paren_expr`.
+        parse_value_pattern(working_set, span)
+    }
+}
 
-        MatchPattern {
-            pattern: Pattern::Expression(Box::new(value)),
+/// Parse a non-structural match pattern and const-evaluate it to [`Pattern::Value`].
+///
+/// Parenthesized expressions, bare literals, and ranges all go through the normal value
+/// parser, then `eval_constant`. Non-constant expressions become parse errors rather than
+/// silently failing to match at runtime.
+fn parse_value_pattern(working_set: &mut StateWorkingSet, span: Span) -> MatchPattern {
+    let expr = parse_value(working_set, span, &SyntaxShape::Any, None);
+
+    // Avoid stacking a const-eval error on top of an existing parse failure.
+    if matches!(expr.expr, Expr::Garbage) {
+        return garbage(span);
+    }
+
+    match eval_constant(working_set, &expr) {
+        Ok(val) => MatchPattern {
+            pattern: Pattern::Value(val),
             guard: None,
             span,
+        },
+        Err(e) => {
+            working_set.error(e.wrap(working_set, span));
+            garbage(span)
         }
     }
 }
@@ -91,7 +113,8 @@ pub fn parse_list_pattern(working_set: &mut StateWorkingSet, span: Span) -> Matc
     if bytes.ends_with(b"]") {
         end -= 1;
     } else {
-        working_set.error(ParseError::Unclosed("]", Span::new(end, end)));
+        let open = ParseError::opener_span(span, 1);
+        working_set.error(ParseError::unclosed("]", open, Span::new(end, end)));
     }
 
     let inner_span = Span::new(start, end);
@@ -177,7 +200,8 @@ pub fn parse_record_pattern(working_set: &mut StateWorkingSet, span: Span) -> Ma
     if bytes.ends_with(b"}") {
         end -= 1;
     } else {
-        working_set.error(ParseError::Unclosed("}", Span::new(end, end)));
+        let open = ParseError::opener_span(span, 1);
+        working_set.error(ParseError::unclosed("}", open, Span::new(end, end)));
     }
 
     let inner_span = Span::new(start, end);

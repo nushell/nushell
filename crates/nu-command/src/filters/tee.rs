@@ -551,6 +551,7 @@ fn tee_copies_values_to_other_thread_and_passes_them_through() {
 }
 
 #[test]
+#[serial]
 fn tee_forwards_errors_back_immediately() {
     use std::time::Duration;
     let slow_input = (0..100).inspect(|_| std::thread::sleep(Duration::from_millis(1)));

@@ -1,5 +1,6 @@
+use super::parse;
 use nu_protocol::{
-    ShellError, Span, Value,
+    CustomValue, ShellError, Span, Value,
     ast::{Comparison, Operator},
     casing::Casing,
 };
@@ -8,9 +9,40 @@ use std::any::Any;
 use std::cmp::Ordering;
 use std::ops::Deref;
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+/// A semantic version value, optionally carrying a display prefix from loose parsing.
+///
+/// Equality and ordering compare only [`version`]; `prefix` is presentation metadata
+/// (e.g. `"v"` from `v1.2.3` parsed with `--loose`). That means `v1.0.0` and `1.0.0`
+/// compare equal, and command `example` `result:` values that use [`SemverValue`] only
+/// lock the version identity—not the display form. Prefer `display()` / `to text` when
+/// tests need to assert a preserved prefix.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SemverValue {
     pub version: semver::Version,
+    /// Original loose prefix such as `"v"`, `"v."`, or `"v:"`. Empty when none.
+    #[serde(default)]
+    pub prefix: String,
+}
+
+/// Compares only the underlying SemVer version; `prefix` is ignored.
+impl PartialEq for SemverValue {
+    fn eq(&self, other: &Self) -> bool {
+        self.version == other.version
+    }
+}
+
+impl Eq for SemverValue {}
+
+impl PartialOrd for SemverValue {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for SemverValue {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.version.cmp(&other.version)
+    }
 }
 
 #[typetag::serde]
@@ -24,7 +56,7 @@ impl nu_protocol::CustomValue for SemverValue {
     }
 
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
-        Ok(Value::string(self.version.to_string(), span))
+        Ok(Value::string(self.display(), span))
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -37,20 +69,33 @@ impl nu_protocol::CustomValue for SemverValue {
 
     fn partial_cmp(&self, other: &Value) -> Option<Ordering> {
         match other {
-            Value::Custom { val, .. } if val.type_name() == self.type_name() => {
-                let other_version =
-                    val.to_base_value(other.span())
+            Value::Custom { val, .. } => {
+                // Prefer a direct downcast when both values share the same crate instance.
+                // Fall back to type_name + base-value parse so comparison still works when
+                // TypeIds diverge (e.g. unit tests that pull nu-command in twice via
+                // nu-test-support).
+                if let Some(other) = val.as_any().downcast_ref::<SemverValue>() {
+                    return self.version.partial_cmp(&other.version);
+                }
+                if val.type_name() == self.type_name() {
+                    return val
+                        .to_base_value(other.span())
                         .ok()
                         .and_then(|value| match value {
-                            Value::String { val, .. } => semver::Version::parse(&val).ok(),
+                            // Accept loose prefixes so cross-crate fallback still works
+                            // when display form is e.g. "v1.2.3".
+                            Value::String { val, .. } => {
+                                parse::parse_version(&val, true).ok().map(|(v, _)| v)
+                            }
                             _ => None,
-                        });
-
-                other_version.and_then(|other_version| self.version.partial_cmp(&other_version))
+                        })
+                        .and_then(|other_version| self.version.partial_cmp(&other_version));
+                }
+                None
             }
-            Value::String { val, .. } => semver::Version::parse(val)
+            Value::String { val, .. } => parse::parse_version(val, true)
                 .ok()
-                .and_then(|other_version| self.version.partial_cmp(&other_version)),
+                .and_then(|(other_version, _)| self.version.partial_cmp(&other_version)),
             _ => None,
         }
     }
@@ -74,6 +119,7 @@ impl nu_protocol::CustomValue for SemverValue {
             "patch" => Ok(Value::int(self.version.patch as i64, path_span)),
             "pre" => Ok(Value::string(self.version.pre.to_string(), path_span)),
             "build" => Ok(Value::string(self.version.build.to_string(), path_span)),
+            "prefix" => Ok(Value::string(self.prefix.clone(), path_span)),
             _ => Err(ShellError::CantFindColumn {
                 col_name: col,
                 span: Some(path_span),
@@ -108,6 +154,40 @@ impl nu_protocol::CustomValue for SemverValue {
                     help: Some("expected a semver-range on the right side"),
                 })
             }
+            Operator::Comparison(
+                comparison @ (Comparison::Equal
+                | Comparison::NotEqual
+                | Comparison::LessThan
+                | Comparison::LessThanOrEqual
+                | Comparison::GreaterThan
+                | Comparison::GreaterThanOrEqual),
+            ) => match CustomValue::partial_cmp(self, right) {
+                Some(ordering) => {
+                    let result = match comparison {
+                        Comparison::Equal => ordering == Ordering::Equal,
+                        Comparison::NotEqual => ordering != Ordering::Equal,
+                        Comparison::LessThan => ordering == Ordering::Less,
+                        Comparison::LessThanOrEqual => {
+                            matches!(ordering, Ordering::Less | Ordering::Equal)
+                        }
+                        Comparison::GreaterThan => ordering == Ordering::Greater,
+                        Comparison::GreaterThanOrEqual => {
+                            matches!(ordering, Ordering::Greater | Ordering::Equal)
+                        }
+                        _ => unreachable!("matched only equality/ordering comparisons above"),
+                    };
+                    Ok(Value::bool(result, op))
+                }
+                None => Err(ShellError::OperatorIncompatibleTypes {
+                    op: operator,
+                    lhs: nu_protocol::Type::Custom("semver".into()),
+                    rhs: right.get_type(),
+                    op_span: op,
+                    lhs_span,
+                    rhs_span: right.span(),
+                    help: Some("expected another semver or a valid version string"),
+                }),
+            },
             _ => Err(ShellError::OperatorUnsupportedType {
                 op: operator,
                 unsupported: nu_protocol::Type::Custom(self.type_name().into()),
@@ -121,43 +201,71 @@ impl nu_protocol::CustomValue for SemverValue {
 
 impl SemverValue {
     pub fn new(version: semver::Version) -> Self {
-        Self { version }
+        Self {
+            version,
+            prefix: String::new(),
+        }
+    }
+
+    pub fn with_prefix(version: semver::Version, prefix: impl Into<String>) -> Self {
+        Self {
+            version,
+            prefix: prefix.into(),
+        }
+    }
+
+    /// Display form including any loose prefix (e.g. `v1.2.3`).
+    pub fn display(&self) -> String {
+        if self.prefix.is_empty() {
+            self.version.to_string()
+        } else {
+            format!("{}{}", self.prefix, self.version)
+        }
+    }
+
+    /// Parse from a string. When `loose` is true, accepts prefixes like `v`, `v.`, `v:`.
+    pub fn parse(s: &str, loose: bool) -> Result<Self, semver::Error> {
+        let (version, prefix) = parse::parse_version(s, loose)?;
+        Ok(Self::with_prefix(version, prefix))
     }
 
     pub fn bump_major(&self) -> Self {
-        Self {
-            version: semver::Version {
+        Self::with_prefix(
+            semver::Version {
                 major: self.version.major + 1,
                 minor: 0,
                 patch: 0,
                 pre: semver::Prerelease::EMPTY,
                 build: semver::BuildMetadata::EMPTY,
             },
-        }
+            self.prefix.clone(),
+        )
     }
 
     pub fn bump_minor(&self) -> Self {
-        Self {
-            version: semver::Version {
+        Self::with_prefix(
+            semver::Version {
                 major: self.version.major,
                 minor: self.version.minor + 1,
                 patch: 0,
                 pre: semver::Prerelease::EMPTY,
                 build: semver::BuildMetadata::EMPTY,
             },
-        }
+            self.prefix.clone(),
+        )
     }
 
     pub fn bump_patch(&self) -> Self {
-        Self {
-            version: semver::Version {
+        Self::with_prefix(
+            semver::Version {
                 major: self.version.major,
                 minor: self.version.minor,
                 patch: self.version.patch + 1,
                 pre: semver::Prerelease::EMPTY,
                 build: semver::BuildMetadata::EMPTY,
             },
-        }
+            self.prefix.clone(),
+        )
     }
 
     pub fn bump_prerelease(&self, tag: &str) -> Result<Self, ShellError> {
@@ -188,27 +296,29 @@ impl SemverValue {
             ))
         })?;
 
-        Ok(Self {
-            version: semver::Version {
+        Ok(Self::with_prefix(
+            semver::Version {
                 major: self.version.major,
                 minor: self.version.minor,
                 patch: self.version.patch,
                 pre,
                 build: self.version.build.clone(),
             },
-        })
+            self.prefix.clone(),
+        ))
     }
 
     pub fn bump_release(&self) -> Self {
-        Self {
-            version: semver::Version {
+        Self::with_prefix(
+            semver::Version {
                 major: self.version.major,
                 minor: self.version.minor,
                 patch: self.version.patch,
                 pre: semver::Prerelease::EMPTY,
                 build: semver::BuildMetadata::EMPTY,
             },
-        }
+            self.prefix.clone(),
+        )
     }
 
     pub fn set_build_metadata(&self, metadata: &str) -> Result<Self, ShellError> {
@@ -220,42 +330,31 @@ impl SemverValue {
             ))
         })?;
 
-        Ok(Self {
-            version: semver::Version {
+        Ok(Self::with_prefix(
+            semver::Version {
                 major: self.version.major,
                 minor: self.version.minor,
                 patch: self.version.patch,
                 pre: self.version.pre.clone(),
                 build,
             },
-        })
+            self.prefix.clone(),
+        ))
     }
 
-    /// For use by tests and examples only.
-    pub fn test_value(s: &str) -> Value {
-        Value::test_custom_value(Box::new(Self {
-            version: s
-                .parse::<semver::Version>()
-                .unwrap_or_else(|_| semver::Version::new(0, 0, 0)),
-        }))
-    }
-}
-
-impl<'a> TryFrom<&'a Value> for SemverValue {
-    type Error = ShellError;
-
-    fn try_from(value: &'a Value) -> Result<Self, Self::Error> {
+    /// Convert a pipeline value into a [`SemverValue`].
+    ///
+    /// When `loose` is true, string inputs may use prefixes like `v1.2.3`.
+    pub fn try_from_value(value: &Value, loose: bool) -> Result<Self, ShellError> {
         let span = value.span();
 
         match value {
             Value::String { val, .. } => {
-                semver::Version::parse(val)
-                    .map(SemverValue::new)
-                    .map_err(|e| ShellError::IncorrectValue {
-                        msg: format!("Value is not a valid semver version: {e}"),
-                        val_span: span,
-                        call_span: span,
-                    })
+                Self::parse(val, loose).map_err(|e| ShellError::IncorrectValue {
+                    msg: format!("Value is not a valid semver version: {e}"),
+                    val_span: span,
+                    call_span: span,
+                })
             }
             Value::Custom { val, .. } => {
                 if let Some(semver) = val.as_any().downcast_ref::<Self>() {
@@ -276,6 +375,21 @@ impl<'a> TryFrom<&'a Value> for SemverValue {
                 help: None,
             }),
         }
+    }
+
+    /// For use by tests and examples only.
+    pub fn test_value(s: &str) -> Value {
+        let semver =
+            Self::parse(s, true).unwrap_or_else(|_| Self::new(semver::Version::new(0, 0, 0)));
+        Value::test_custom_value(Box::new(semver))
+    }
+}
+
+impl<'a> TryFrom<&'a Value> for SemverValue {
+    type Error = ShellError;
+
+    fn try_from(value: &'a Value) -> Result<Self, Self::Error> {
+        Self::try_from_value(value, false)
     }
 }
 
@@ -498,6 +612,127 @@ mod tests {
         assert!(result.is_err());
     }
 
+    fn assert_bool_op(left: &SemverValue, comparison: Comparison, right: &Value, expected: bool) {
+        let result = left
+            .operation(
+                Span::test_data(),
+                Operator::Comparison(comparison),
+                Span::test_data(),
+                right,
+            )
+            .unwrap();
+        assert!(matches!(result, Value::Bool { val, .. } if val == expected));
+    }
+
+    #[test]
+    fn test_operation_comparisons() {
+        let v201 = SemverValue::new(parse_version("2.0.1"));
+        let v199 = SemverValue::new(parse_version("1.9.9"));
+        let v100 = SemverValue::new(parse_version("1.0.0"));
+        let v100_again = SemverValue::new(parse_version("1.0.0"));
+        let v200 = SemverValue::new(parse_version("2.0.0"));
+        let v100_alpha = SemverValue::new(parse_version("1.0.0-alpha"));
+
+        let val201 = Value::custom(Box::new(v201.clone()), Span::test_data());
+        let val199 = Value::custom(Box::new(v199.clone()), Span::test_data());
+        let val100 = Value::custom(Box::new(v100.clone()), Span::test_data());
+        let val100_again = Value::custom(Box::new(v100_again.clone()), Span::test_data());
+        let val200 = Value::custom(Box::new(v200.clone()), Span::test_data());
+        let val100_alpha = Value::custom(Box::new(v100_alpha.clone()), Span::test_data());
+
+        // Discussion #18705 case: 2.0.1 is not less than 1.9.9
+        assert_bool_op(&v201, Comparison::LessThan, &val199, false);
+        assert_bool_op(&v201, Comparison::GreaterThan, &val199, true);
+        assert_bool_op(&v199, Comparison::LessThan, &val201, true);
+
+        // Equality / inequality
+        assert_bool_op(&v100, Comparison::Equal, &val100_again, true);
+        assert_bool_op(&v100, Comparison::NotEqual, &val200, true);
+        assert_bool_op(&v100, Comparison::Equal, &val200, false);
+
+        // Inclusive bounds
+        assert_bool_op(&v100, Comparison::LessThanOrEqual, &val100_again, true);
+        assert_bool_op(&v100, Comparison::GreaterThanOrEqual, &val100_again, true);
+        assert_bool_op(&v100, Comparison::LessThanOrEqual, &val200, true);
+        assert_bool_op(&v200, Comparison::GreaterThanOrEqual, &val100, true);
+
+        // Prerelease is less than the corresponding release (semver spec)
+        assert_bool_op(&v100_alpha, Comparison::LessThan, &val100, true);
+        assert_bool_op(&v100, Comparison::GreaterThan, &val100_alpha, true);
+
+        // String RHS
+        let string_eq = Value::string("1.2.3", Span::test_data());
+        let v123 = SemverValue::new(parse_version("1.2.3"));
+        assert_bool_op(&v123, Comparison::Equal, &string_eq, true);
+        assert_bool_op(
+            &v123,
+            Comparison::LessThan,
+            &Value::string("2.0.0", Span::test_data()),
+            true,
+        );
+        assert_bool_op(
+            &v201,
+            Comparison::GreaterThan,
+            &Value::string("1.9.9", Span::test_data()),
+            true,
+        );
+
+        // Incompatible RHS
+        let int_rhs = Value::int(42, Span::test_data());
+        assert!(
+            v100.operation(
+                Span::test_data(),
+                Operator::Comparison(Comparison::Equal),
+                Span::test_data(),
+                &int_rhs,
+            )
+            .is_err()
+        );
+        let invalid_string = Value::string("not-a-version", Span::test_data());
+        assert!(
+            v100.operation(
+                Span::test_data(),
+                Operator::Comparison(Comparison::LessThan),
+                Span::test_data(),
+                &invalid_string,
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn test_value_comparison_methods() {
+        // Exercise the Value::{lt,gt,eq,...} path that dispatches to operation for custom values.
+        let left = SemverValue::test_value("2.0.1");
+        let right = SemverValue::test_value("1.9.9");
+        let span = Span::test_data();
+
+        assert!(matches!(
+            left.gt(span, &right, span).unwrap(),
+            Value::Bool { val: true, .. }
+        ));
+        assert!(matches!(
+            left.lt(span, &right, span).unwrap(),
+            Value::Bool { val: false, .. }
+        ));
+        assert!(matches!(
+            left.eq(span, &left, span).unwrap(),
+            Value::Bool { val: true, .. }
+        ));
+        assert!(matches!(
+            left.ne(span, &right, span).unwrap(),
+            Value::Bool { val: true, .. }
+        ));
+        assert!(matches!(
+            left.gte(span, &right, span).unwrap(),
+            Value::Bool { val: true, .. }
+        ));
+        assert!(matches!(
+            right.lte(span, &left, span).unwrap(),
+            Value::Bool { val: true, .. }
+        ));
+    }
+
     #[test]
     fn test_custom_value_trait() {
         let version = SemverValue::new(parse_version("1.2.3"));
@@ -509,6 +744,10 @@ mod tests {
         let base = version.to_base_value(Span::test_data()).unwrap();
         assert!(matches!(base, Value::String { val, .. } if val == "1.2.3"));
 
+        let prefixed = SemverValue::parse("v1.2.3", true).unwrap();
+        let base = prefixed.to_base_value(Span::test_data()).unwrap();
+        assert!(matches!(base, Value::String { val, .. } if val == "v1.2.3"));
+
         // Test clone_value
         let cloned = version.clone_value(Span::test_data());
         assert!(matches!(cloned, Value::Custom { .. }));
@@ -516,5 +755,43 @@ mod tests {
         // Test as_any
         let any = version.as_any();
         assert!(any.downcast_ref::<SemverValue>().is_some());
+    }
+
+    #[test]
+    fn test_follow_path_prefix() {
+        let plain = SemverValue::new(parse_version("1.2.3"));
+        let prefix = plain
+            .follow_path_string(
+                Span::test_data(),
+                "prefix".into(),
+                Span::test_data(),
+                false,
+                Casing::Sensitive,
+            )
+            .unwrap();
+        assert!(matches!(prefix, Value::String { val, .. } if val.is_empty()));
+
+        let prefixed = SemverValue::parse("v1.2.3", true).unwrap();
+        let prefix = prefixed
+            .follow_path_string(
+                Span::test_data(),
+                "prefix".into(),
+                Span::test_data(),
+                false,
+                Casing::Sensitive,
+            )
+            .unwrap();
+        assert!(matches!(prefix, Value::String { val, .. } if val == "v"));
+
+        let major = prefixed
+            .follow_path_string(
+                Span::test_data(),
+                "major".into(),
+                Span::test_data(),
+                false,
+                Casing::Sensitive,
+            )
+            .unwrap();
+        assert!(matches!(major, Value::Int { val: 1, .. }));
     }
 }

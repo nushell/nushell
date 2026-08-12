@@ -44,11 +44,11 @@ pub(crate) fn display_flag(flag: &Flag, verbitam: bool) -> String {
         write!(text, "{md_backtick}-{short_flag}{md_backtick}")
             .expect("writing to a String is infallible");
     }
-    if !flag.long.is_empty() {
+    if let Some(long) = flag.long_name() {
         if flag.short.is_some() {
             text.push_str(", ");
         }
-        write!(text, "{md_backtick}--{}{md_backtick}", flag.long)
+        write!(text, "{md_backtick}--{long}{md_backtick}")
             .expect("writing to a String is infallible");
     }
     text

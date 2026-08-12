@@ -9,7 +9,7 @@ struct DcGlob;
 
 impl ExperimentalOptionMarker for DcGlob {
     const IDENTIFIER: &'static str = "dc-glob";
-    const DESCRIPTION: &'static str = "Use dc-glob as the experimental glob expansion backend.";
+    const DESCRIPTION: &'static str = "Use dc-glob as the experimental glob expansion backend. Recursive patterns follow rust-lang/glob: bare `**` and `dir/**` match directories (including the pattern prefix / start dir); `**/*` matches entries under the start (not the start itself); extra `/*` segments enforce minimum depth.";
     const STATUS: Status = Status::OptIn;
     const SINCE: Version = (0, 112, 3);
     const ISSUE: u32 = 18101;

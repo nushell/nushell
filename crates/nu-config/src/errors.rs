@@ -22,8 +22,9 @@ pub enum ConfigError {
 /// Non-fatal warnings produced during config-path resolution.
 #[derive(Debug, Clone, PartialEq, Eq, derive_more::Display)]
 pub enum ConfigWarning {
-    /// `$XDG_CONFIG_HOME` was set to a value that was ignored (relative path,
-    /// empty string) and the platform default was used instead.
+    /// `$XDG_CONFIG_HOME` was set to a non-absolute value and was ignored; the
+    /// platform default was used instead. Not emitted when `--config-home`
+    /// simply overrides a valid XDG value.
     #[display(
         "$env.XDG_CONFIG_HOME ({xdg}) is set to a non-absolute path, \
         using default config directory instead: {}", 

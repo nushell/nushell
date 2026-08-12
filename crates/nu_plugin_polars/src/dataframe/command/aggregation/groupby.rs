@@ -37,11 +37,11 @@ impl PluginCommand for ToLazyGroupBy {
             .input_output_types(vec![
                 (
                     PolarsPluginType::NuDataFrame.into(),
-                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuLazyGroupBy.into(),
                 ),
                 (
                     PolarsPluginType::NuLazyFrame.into(),
-                    PolarsPluginType::NuLazyFrame.into(),
+                    PolarsPluginType::NuLazyGroupBy.into(),
                 ),
             ])
             .category(Category::Custom("lazyframe".into()))

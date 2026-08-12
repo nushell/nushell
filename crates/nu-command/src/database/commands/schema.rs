@@ -1,5 +1,8 @@
 use super::super::SQLiteDatabase;
-use crate::database::values::definitions::{db_row::DbRow, db_table::DbTable};
+use crate::database::{
+    OpenedConnection,
+    values::definitions::{db_row::DbRow, db_table::DbTable},
+};
 use nu_engine::command_prelude::*;
 use nu_protocol::shell_error::generic::GenericError;
 use rusqlite::Connection;
@@ -82,8 +85,11 @@ impl Command for SchemaDb {
     }
 }
 
-fn open_sqlite_db_connection(db: &SQLiteDatabase, span: Span) -> Result<Connection, ShellError> {
-    db.open_connection().map_err(|e| {
+fn open_sqlite_db_connection(
+    db: &SQLiteDatabase,
+    span: Span,
+) -> Result<OpenedConnection, ShellError> {
+    db.open_connection(span).map_err(|e| {
         ShellError::Generic(GenericError::new("Error opening file", e.to_string(), span))
     })
 }

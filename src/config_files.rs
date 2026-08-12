@@ -1,12 +1,15 @@
 use log::info;
 #[cfg(feature = "plugin")]
 use nu_cli::read_plugin_file;
-use nu_cli::{eval_config_contents, eval_source};
+use nu_cli::{
+    StartupFileKind, StartupLoadContext, eval_config_contents_with_kind, eval_source,
+    report_startup_file_not_found,
+};
 use nu_config::ConfigFileKind;
 use nu_protocol::{
-    Config, ParseError, PipelineData, Spanned,
-    engine::{EngineState, Stack, StateWorkingSet},
-    report_parse_error, report_shell_error,
+    Config, PipelineData, Spanned,
+    engine::{EngineState, Stack},
+    report_shell_error,
 };
 use std::{
     fs,
@@ -19,6 +22,27 @@ use std::{
 
 const LOGINSHELL_FILE: &str = "login.nu";
 
+/// True when `path` is a symlink whose target does not currently exist.
+///
+/// Broken symlinks must never block shell startup: treat them like a missing
+/// file (use built-in defaults) and report a warning. Never remove or replace
+/// the symlink.
+fn is_dangling_symlink(path: &Path) -> bool {
+    path.is_symlink() && !path.exists()
+}
+
+/// Warn that a startup path is a broken symlink and that built-in defaults
+/// (or skipping the file) will be used instead.
+fn warn_dangling_symlink(kind: &str, path: &Path) {
+    let target = fs::read_link(path)
+        .map(|p| p.display().to_string())
+        .unwrap_or_else(|_| "<unknown>".to_string());
+    eprintln!(
+        "Warning: {kind} is a broken symlink ({} -> {target}); using built-in defaults.",
+        path.display()
+    );
+}
+
 /// Load a config/env file from the already-resolved path in `config_dirs`.
 ///
 /// Paths come only from `engine_state.config_dirs` — never re-resolved.
@@ -27,6 +51,10 @@ const LOGINSHELL_FILE: &str = "login.nu";
 /// used only for error messages (so the user sees the path they typed, not the
 /// absolute form). Otherwise first-run scaffolding may create the default file
 /// under `config_home`.
+///
+/// A broken (dangling) symlink on the default path is treated like a missing
+/// file: defaults stay loaded and a warning is printed. The symlink is never
+/// removed or overwritten.
 pub(crate) fn read_config_file(
     engine_state: &mut EngineState,
     stack: &mut Stack,
@@ -48,21 +76,29 @@ pub(crate) fn read_config_file(
     let is_override = resolved.is_override();
     let config_path = resolved.to_path_buf();
 
+    let startup_kind = match config_kind {
+        ConfigFileKind::Config => StartupFileKind::Config,
+        ConfigFileKind::Env => StartupFileKind::Env,
+    };
+
     if is_override {
         if config_path.exists() {
-            eval_config_contents(config_path, engine_state, stack, strict_mode);
+            eval_config_contents_with_kind(
+                config_path,
+                engine_state,
+                stack,
+                strict_mode,
+                startup_kind,
+            );
         } else {
             // Prefer the original CLI path string for the error (matches historical
             // behavior and tests). Fall back to the resolved absolute path.
             let (display_path, span) = match cli_override {
-                Some(s) => (s.item.clone(), s.span),
-                None => (
-                    config_path.display().to_string(),
-                    nu_protocol::Span::unknown(),
-                ),
+                Some(s) => (s.item.clone(), Some(s.span)),
+                None => (config_path.display().to_string(), None),
             };
-            let e = ParseError::FileNotFound(display_path, span);
-            report_parse_error(None, &StateWorkingSet::new(engine_state), &e);
+            let startup = StartupLoadContext::new(startup_kind, config_path.clone());
+            report_startup_file_not_found(engine_state, &display_path, span, Some(&startup));
             if strict_mode {
                 std::process::exit(1);
             }
@@ -72,11 +108,18 @@ pub(crate) fn read_config_file(
 
     // Default path under config_home — may scaffold on first run.
     let mut config_dir = engine_state.config_dirs.config_home.clone();
-    if !config_dir.exists()
-        && let Err(err) = std::fs::create_dir_all(&config_dir)
-    {
-        eprintln!("Failed to create config directory: {err}");
-        return;
+    if !config_dir.exists() {
+        if is_dangling_symlink(&config_dir) {
+            eprintln!(
+                "Warning: config directory is a broken symlink ({}); using built-in defaults.",
+                config_dir.display()
+            );
+            return;
+        }
+        if let Err(err) = std::fs::create_dir_all(&config_dir) {
+            eprintln!("Failed to create config directory: {err}");
+            return;
+        }
     }
 
     // Prefer the resolved path; fall back to config_home + kind if empty.
@@ -86,6 +129,12 @@ pub(crate) fn read_config_file(
     } else {
         config_path
     };
+
+    // Broken symlink ≡ missing file: keep defaults, warn, never mutate the link.
+    if is_dangling_symlink(&config_path) {
+        warn_dangling_symlink(config_kind.path(), &config_path);
+        return;
+    }
 
     if !config_path.exists() {
         let scaffold_config_file = config_kind.scaffold();
@@ -120,7 +169,7 @@ pub(crate) fn read_config_file(
         }
     }
 
-    eval_config_contents(config_path, engine_state, stack, strict_mode);
+    eval_config_contents_with_kind(config_path, engine_state, stack, strict_mode, startup_kind);
 }
 
 pub(crate) fn read_loginshell_file(
@@ -141,8 +190,19 @@ pub(crate) fn read_loginshell_file(
 
     info!("loginshell_file: {}", config_path.display());
 
+    if is_dangling_symlink(&config_path) {
+        warn_dangling_symlink(LOGINSHELL_FILE, &config_path);
+        return;
+    }
+
     if config_path.exists() {
-        eval_config_contents(config_path, engine_state, stack, strict_mode);
+        eval_config_contents_with_kind(
+            config_path,
+            engine_state,
+            stack,
+            strict_mode,
+            StartupFileKind::Login,
+        );
     }
 }
 
@@ -219,7 +279,13 @@ pub(crate) fn read_vendor_autoload_files(engine_state: &mut EngineState, stack: 
                         }
                         let path = autoload_dir.join(entry);
                         info!("AutoLoading: {path:?}");
-                        eval_config_contents(path, engine_state, stack, false);
+                        eval_config_contents_with_kind(
+                            path,
+                            engine_state,
+                            stack,
+                            false,
+                            StartupFileKind::Autoload,
+                        );
                     }
                 }
             }

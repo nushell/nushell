@@ -268,15 +268,10 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             IdxStatus,
             IdxFind,
             IdxSearch,
+            IdxWatch,
             IdxDrop,
             IdxDirs,
             IdxFiles,
-        };
-
-        #[cfg(all(feature = "os", feature = "sqlite"))]
-        bind_command! {
-            IdxExport,
-            IdxImport,
         };
 
         // Platform
@@ -296,6 +291,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Input,
             InputList,
             InputListen,
+            IsRedirected,
             IsTerminal,
             Kill,
             Sleep,
@@ -351,7 +347,8 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             ToMsgpack,
             ToMsgpackz,
             ToNuon,
-            ToText,
+            TO_TEXT,
+            TO_TXT,
             ToToml,
             ToTsv,
             ToKdl,
@@ -380,6 +377,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             IntoFloat,
             IntoFilesize,
             IntoInt,
+            IntoMatrix,
             IntoRecord,
             IntoSemver,
             IntoSemverRange,
@@ -393,6 +391,29 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         bind_command! {
             Semver,
             SemverBump,
+        };
+
+        // Matrix
+        bind_command! {
+            Matrix,
+            MatrixZeros,
+            MatrixIdentity,
+            MatrixGetRow,
+            MatrixGetCol,
+            MatrixSetRow,
+            MatrixSetCol,
+            MatrixAdd,
+            MatrixSubtract,
+            MatrixScale,
+            MatrixMultiply,
+            MatrixTranspose,
+            MatrixReshape,
+            MatrixMap,
+            MatrixReduce,
+            MatrixSum,
+            MatrixMean,
+            MatrixMax,
+            MatrixIntoNu,
         };
 
         // Env

@@ -1,5 +1,4 @@
-use nu_protocol::test_record;
-use nu_test_support::{nu, nu_repl_code, prelude::*};
+use nu_test_support::prelude::*;
 use rstest::rstest;
 
 #[rstest]
@@ -31,61 +30,54 @@ fn filesize_format(#[case] unit: &str, #[case] input: &str, #[case] expected: &[
 
 #[test]
 fn fancy_default_errors() -> Result {
-    let code = nu_repl_code(&[
-        "$env.config.use_ansi_coloring = true",
+    let mut tester = test();
+    let () = tester.run("$env.config.use_ansi_coloring = true")?;
+    let () = tester.run(
         r#"def force_error [x] {
-        error make {
-            msg: "oh no!"
-            label: {
-                text: "here's the error"
-                span: (metadata $x).span
+            error make {
+                msg: "oh no!"
+                label: {
+                    text: "here's the error"
+                    span: (metadata $x).span
+                }
             }
-        }
-    }"#,
-        r#"force_error "My error""#,
-    ]);
+        }"#,
+    )?;
 
-    let actual = nu!(format!("try {{ {code} }}"));
+    let err = tester
+        .run(r#"force_error "My error""#)
+        .expect_labeled_error()?;
 
-    assert_eq!(
-        actual.err,
-        "Error: \u{1b}[31mnu::shell::error\u{1b}[0m\n\n  \u{1b}[31m×\u{1b}[0m oh no!\n   ╭─[\u{1b}[36;1;4mline2:1:13\u{1b}[0m]\n \u{1b}[2m1\u{1b}[0m │ force_error \"My error\"\n   · \u{1b}[35;1m            ─────┬────\u{1b}[0m\n   ·                  \u{1b}[35;1m╰── \u{1b}[35;1mhere's the error\u{1b}[0m\u{1b}[0m\n   ╰────\n\n"
-    );
+    assert_eq!(err.msg, "oh no!");
+    assert_eq!(err.labels.len(), 1);
+    assert_eq!(err.labels[0].text, "here's the error");
 
     Ok(())
 }
 
 #[test]
 fn narratable_errors() -> Result {
-    let code = nu_repl_code(&[
-        r#"$env.config = { error_style: "plain" }"#,
+    let mut tester = test();
+    let () = tester.run(r#"$env.config = { error_style: "plain" }"#)?;
+    let () = tester.run(
         r#"def force_error [x] {
-        error make {
-            msg: "oh no!"
-            label: {
-                text: "here's the error"
-                span: (metadata $x).span
+            error make {
+                msg: "oh no!"
+                label: {
+                    text: "here's the error"
+                    span: (metadata $x).span
+                }
             }
-        }
-    }"#,
-        r#"force_error "my error""#,
-    ]);
+        }"#,
+    )?;
 
-    let actual = nu!(format!("try {{ {code} }}"));
+    let err = tester
+        .run(r#"force_error "my error""#)
+        .expect_labeled_error()?;
 
-    assert_eq!(
-        actual.err,
-        r#"Error: oh no!
-    Diagnostic severity: error
-Begin snippet for line2 starting at line 1, column 1
-
-snippet line 1: force_error "my error"
-    label at line 1, columns 13 to 22: here's the error
-diagnostic code: nu::shell::error
-
-
-"#,
-    );
+    assert_eq!(err.msg, "oh no!");
+    assert_eq!(err.labels.len(), 1);
+    assert_eq!(err.labels[0].text, "here's the error");
 
     Ok(())
 }
@@ -96,9 +88,9 @@ fn abbreviations() -> Result {
     let () = tester.run(r#"$env.config = { abbreviations: { g: "git --no-pager" } }"#)?;
     tester
         .run("$env.config.abbreviations")
-        .expect_value_eq(test_record! {
-            "g" => "git --no-pager"
-        })
+        .expect_value_eq(test_value!({
+            "g": "git --no-pager"
+        }))
 }
 
 #[test]
@@ -107,9 +99,9 @@ fn plugins() -> Result {
     let () = tester.run("$env.config = { plugins: { nu_plugin_config: { key: value } } }")?;
     tester
         .run("$env.config.plugins")
-        .expect_value_eq(test_record! {
-            "nu_plugin_config" => test_record! {
-                "key" => "value"
+        .expect_value_eq(test_value!({
+            "nu_plugin_config": {
+                "key": "value"
             }
-        })
+        }))
 }

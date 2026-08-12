@@ -14,13 +14,18 @@ pub enum ParseError {
     /// finished. You should remove these or finish adding what you intended
     /// to add.
     #[error("Extra tokens in code.")]
-    #[diagnostic(code(nu::parser::extra_tokens), help("Try removing them."))]
+    #[diagnostic(
+        code(nu::parser::extra_tokens),
+        help(
+            "Remove the unexpected tokens, or check for a missing operator, delimiter, or newline above."
+        )
+    )]
     ExtraTokens(#[label = "extra tokens"] Span),
 
     #[error("Invalid characters after closing delimiter")]
     #[diagnostic(
         code(nu::parser::extra_token_after_closing_delimiter),
-        help("Try removing them.")
+        help("Remove these characters, or check that a delimiter closed too early above.")
     )]
     ExtraTokensAfterClosingDelimiter(#[label = "invalid characters"] Span),
 
@@ -39,28 +44,63 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::unexpected_eof))]
     UnexpectedEof(String, #[label("expected closing {0}")] Span),
 
+    /// A delimiter was opened but never closed.
+    ///
+    /// - `0`: expected closer (e.g. `"}"`, `"]"`, `")"`)
+    /// - `1`: span of the **opening** delimiter
+    /// - `2`: span where the closer was expected (primary — often mid-file or EOF)
+    /// - `3`: help text (generic or heuristic structure hint)
+    ///
+    /// Primary label is the **expected closer** location so a deleted `}` near
+    /// line N points the user at (or near) line N, not only at a distant opener.
     #[error("Unclosed delimiter.")]
-    #[diagnostic(code(nu::parser::unclosed_delimiter))]
-    Unclosed(&'static str, #[label("unclosed {0}")] Span),
+    #[diagnostic(code(nu::parser::unclosed_delimiter), help("{3}"))]
+    Unclosed(
+        &'static str,
+        #[label("unclosed — opens here (need `{0}`)")] Span,
+        #[label(primary, "expected `{0}` here")] Span,
+        String,
+    ),
 
+    /// A closer appeared without a matching opener (or mismatched kind).
+    ///
+    /// - `0` / `1`: open and close delimiter characters (e.g. `"{"`, `"}"`)
+    /// - `2`: span of the unexpected closer (primary label)
+    /// - `3`: help text
     #[error("Unbalanced delimiter.")]
-    #[diagnostic(code(nu::parser::unbalanced_delimiter))]
+    #[diagnostic(code(nu::parser::unbalanced_delimiter), help("{3}"))]
     Unbalanced(
         &'static str,
         &'static str,
-        #[label("unbalanced {0} and {1}")] Span,
+        #[label("unexpected `{1}` (unbalanced with `{0}`)")] Span,
+        String,
     ),
 
-    #[error("Parse mismatch during operation.")]
-    #[diagnostic(code(nu::parser::parse_mismatch))]
+    #[error("Parse mismatch: expected {0}.")]
+    #[diagnostic(
+        code(nu::parser::parse_mismatch),
+        help(
+            "Check the syntax around this position — a typo, missing delimiter, or wrong separator is common."
+        )
+    )]
     Expected(&'static str, #[label("expected {0}")] Span),
 
-    #[error("Parse mismatch during operation.")]
-    #[diagnostic(code(nu::parser::parse_mismatch_with_full_string_msg))]
+    #[error("Parse mismatch: expected {0}.")]
+    #[diagnostic(
+        code(nu::parser::parse_mismatch_with_full_string_msg),
+        help(
+            "Check the syntax around this position — a typo, missing delimiter, or wrong separator is common."
+        )
+    )]
     ExpectedWithStringMsg(String, #[label("expected {0}")] Span),
 
-    #[error("Parse mismatch during operation.")]
-    #[diagnostic(code(nu::parser::parse_mismatch_with_did_you_mean))]
+    #[error("Parse mismatch: expected {0}.")]
+    #[diagnostic(
+        code(nu::parser::parse_mismatch_with_did_you_mean),
+        help(
+            "Check the syntax around this position — a typo, missing delimiter, or wrong separator is common."
+        )
+    )]
     ExpectedWithDidYouMean(&'static str, DidYouMean, #[label("expected {0}. {1}")] Span),
 
     #[error("Command does not support {0} input.")]
@@ -165,6 +205,15 @@ pub enum ParseError {
     )]
     UnexpectedKeyword(String, #[label("unexpected {0}")] Span),
 
+    #[error("Module `{0}` has a `main` command but `{0}` is a built-in parser keyword.")]
+    #[diagnostic(
+        code(nu::parser::keyword_shadow_module_main),
+        help(
+            "The `main` command cannot be invoked because `{0}` is intercepted by the parser. Either rename the module file, or remove `export def main` and use `use {0}.nu *` to import other commands."
+        )
+    )]
+    KeywordShadowModuleMain(String, #[label("`{0}` is a parser keyword")] Span),
+
     #[error("Can't create alias to parser keyword.")]
     #[diagnostic(
         code(nu::parser::cant_alias_keyword),
@@ -213,6 +262,15 @@ pub enum ParseError {
         )
     )]
     NameIsBuiltinVar(String, #[label("already a builtin variable")] Span),
+
+    #[error("Can't use parser keyword `{0}` as {1} name.")]
+    #[diagnostic(
+        code(nu::parser::name_is_keyword),
+        help(
+            "Parser keywords cannot be shadowed (including via module exports and `use *`). Choose a different {1} name so language constructs keep working."
+        )
+    )]
+    NameIsKeyword(String, String, #[label("'{0}' is a parser keyword")] Span),
 
     #[error("Incorrect value")]
     #[diagnostic(code(nu::parser::incorrect_value), help("{2}"))]
@@ -480,6 +538,34 @@ pub enum ParseError {
     )]
     SourcedFileNotFound(String, #[label("File not found: {0}")] Span),
 
+    #[error("Script file is too large to load with `run`")]
+    #[diagnostic(
+        code(nu::parser::script_file_too_large),
+        help(
+            "The `run` command refuses files larger than {max_size} bytes at parse time (file is {size} bytes). Use a smaller script, or invoke large scripts with `nu path/to/script.nu`."
+        )
+    )]
+    ScriptFileTooLarge {
+        path: String,
+        size: u64,
+        max_size: u64,
+        #[label("file too large for `run`: {path}")]
+        span: Span,
+    },
+
+    #[error("Script file does not appear to be text")]
+    #[diagnostic(
+        code(nu::parser::script_file_not_text),
+        help(
+            "The `run` command only loads UTF-8 text scripts. Binary data (NUL bytes, invalid UTF-8, or dense control characters) is rejected."
+        )
+    )]
+    ScriptFileNotText {
+        path: String,
+        #[label("not a text script for `run`: {path}")]
+        span: Span,
+    },
+
     #[error("File not found")]
     #[diagnostic(
         code(nu::parser::registered_file_not_found),
@@ -574,13 +660,57 @@ pub enum ParseError {
 }
 
 impl ParseError {
+    /// Span covering the first `len` bytes of `span` (clamped to `span.end`).
+    ///
+    /// Used when labeling a multi-byte construct's opening delimiter.
+    pub fn opener_span(span: Span, len: usize) -> Span {
+        Span::new(span.start, span.start.saturating_add(len).min(span.end))
+    }
+
+    /// Build an [`Unclosed`](ParseError::Unclosed) with default help text.
+    pub fn unclosed(delimiter: &'static str, open_span: Span, end_span: Span) -> Self {
+        Self::Unclosed(
+            delimiter,
+            open_span,
+            end_span,
+            default_unclosed_help(delimiter, None),
+        )
+    }
+
+    /// Build an [`Unclosed`](ParseError::Unclosed) with an optional structure hint
+    /// (e.g. `record field ls`, `def foo`). Empty/`None` uses generic help.
+    pub fn unclosed_with_hint(
+        delimiter: &'static str,
+        open_span: Span,
+        end_span: Span,
+        structure_hint: Option<&str>,
+    ) -> Self {
+        Self::Unclosed(
+            delimiter,
+            open_span,
+            end_span,
+            default_unclosed_help(delimiter, structure_hint),
+        )
+    }
+
+    /// Build an [`Unbalanced`](ParseError::Unbalanced) with default help text.
+    pub fn unbalanced(open: &'static str, close: &'static str, close_span: Span) -> Self {
+        Self::Unbalanced(
+            open,
+            close,
+            close_span,
+            default_unbalanced_help(open, close),
+        )
+    }
+
     pub fn span(&self) -> Span {
         match self {
             ParseError::ExtraTokens(s) => *s,
             ParseError::ExtraPositional(_, s) => *s,
             ParseError::UnexpectedEof(_, s) => *s,
-            ParseError::Unclosed(_, s) => *s,
-            ParseError::Unbalanced(_, _, s) => *s,
+            // Jump-to-error: prefer where the closer was expected (mid-file or EOF).
+            ParseError::Unclosed(_, _open, end, _) => *end,
+            ParseError::Unbalanced(_, _, close, _) => *close,
             ParseError::Expected(_, s) => *s,
             ParseError::ExpectedWithStringMsg(_, s) => *s,
             ParseError::ExpectedWithDidYouMean(_, _, s) => *s,
@@ -594,6 +724,7 @@ impl ParseError {
             ParseError::BuiltinCommandInPipeline(_, s) => *s,
             ParseError::AssignInPipeline(_, _, _, s) => *s,
             ParseError::NameIsBuiltinVar(_, s) => *s,
+            ParseError::NameIsKeyword(_, _, s) => *s,
             ParseError::CaptureOfMutableVar(s) => *s,
             ParseError::IncorrectValue(_, s, _) => *s,
             ParseError::InvalidBinaryString(s, _) => *s,
@@ -644,6 +775,8 @@ impl ParseError {
             ParseError::WrongImportPattern(_, s) => *s,
             ParseError::ExportNotFound(s) => *s,
             ParseError::SourcedFileNotFound(_, s) => *s,
+            ParseError::ScriptFileTooLarge { span, .. } => *span,
+            ParseError::ScriptFileNotText { span, .. } => *span,
             ParseError::RegisteredFileNotFound(_, s) => *s,
             ParseError::FileNotFound(_, s) => *s,
             ParseError::PluginNotFound { name_span, .. } => *name_span,
@@ -663,8 +796,26 @@ impl ParseError {
             ParseError::AssignmentRequiresVar(s) => *s,
             ParseError::AssignmentRequiresMutableVar(s) => *s,
             ParseError::AttributeRequiresDefinition(s) => *s,
+            ParseError::KeywordShadowModuleMain(_, s) => *s,
         }
     }
+}
+
+fn default_unclosed_help(delimiter: &str, structure_hint: Option<&str>) -> String {
+    match structure_hint {
+        Some(hint) if !hint.is_empty() => format!(
+            "Add a matching `{delimiter}` to close {hint}, or check that an earlier closer closed the wrong block."
+        ),
+        _ => format!(
+            "Add a matching `{delimiter}` to close this delimiter, or check that an earlier closer closed the wrong block."
+        ),
+    }
+}
+
+fn default_unbalanced_help(open: &str, close: &str) -> String {
+    format!(
+        "Remove this `{close}` if it is extra, or add a matching `{open}` earlier. If you closed a block too early, the real mistake may be above."
+    )
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]

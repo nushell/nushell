@@ -481,11 +481,23 @@ fn handle_table_command(mut input: CmdInput<'_>) -> ShellResult<PipelineData> {
             // instead of stdout.
             Err(*error)
         }
-        PipelineData::Value(Value::Custom { val, .. }, metadata) => {
-            let base_pipeline = val
-                .to_base_value(span)?
-                .into_pipeline_data_with_metadata(metadata);
-            Table.run(input.engine_state, input.stack, input.call, base_pipeline)
+        PipelineData::Value(value @ Value::Custom { .. }, metadata) => {
+            // Expand structured custom values (records/lists) into native table
+            // shapes. Keep primitive customs (e.g. semver) as Custom so
+            // type-specific color_config keys still apply via style_primitive.
+            let base = value.as_custom_value()?.to_base_value(span)?;
+            match base {
+                Value::Record { .. } | Value::List { .. } => {
+                    let base_pipeline = base.into_pipeline_data_with_metadata(metadata);
+                    Table.run(input.engine_state, input.stack, input.call, base_pipeline)
+                }
+                _ => {
+                    let signals = input.engine_state.signals().clone();
+                    let stream = ListStream::new(std::iter::once(value), span, signals);
+                    input.data = PipelineData::empty();
+                    handle_row_stream(input, stream, metadata)
+                }
+            }
         }
         PipelineData::Value(Value::Range { val, .. }, metadata) => {
             let signals = input.engine_state.signals().clone();
@@ -716,16 +728,18 @@ fn build_table_batch(
     opts: TableOpts<'_>,
     span: Span,
 ) -> StringResult {
-    // convert each custom value to its base value so it can be properly
-    // displayed in a table
+    // Expand structured custom values (records/lists) so they render as native
+    // table rows/columns. Leave primitive custom values as Custom so type-specific
+    // color_config keys (e.g. "semver") still apply via style_primitive.
     for val in &mut vals {
-        let span = val.span();
+        let val_span = val.span();
 
         if let Value::Custom { val: custom, .. } = val {
-            *val = custom
-                .to_base_value(span)
-                .or_else(|err| Result::<_, ShellError>::Ok(Value::error(err, span)))
-                .expect("error converting custom value to base value")
+            match custom.to_base_value(val_span) {
+                Ok(base @ (Value::Record { .. } | Value::List { .. })) => *val = base,
+                Ok(_) => {}
+                Err(err) => *val = Value::error(err, val_span),
+            }
         }
     }
 

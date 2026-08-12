@@ -12,11 +12,11 @@ impl Command for HideEnv {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("hide-env")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .rest(
-                "name",
-                SyntaxShape::String,
-                "Environment variable names to hide.",
-            )
+            .param(Parameter::Rest(
+                PositionalArg::new("name", SyntaxShape::String)
+                    .desc("Environment variable names to hide.")
+                    .completion(Completion::Builtin(BuiltinCompletion::EnvVar)),
+            ))
             .switch(
                 "ignore-errors",
                 "Do not throw an error if an environment variable was not found.",

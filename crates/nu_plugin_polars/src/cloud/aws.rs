@@ -3,8 +3,9 @@ use std::error::Error;
 use aws_config::{BehaviorVersion, SdkConfig};
 use aws_credential_types::{Credentials, provider::ProvideCredentials};
 use nu_protocol::{ShellError, shell_error::generic::GenericError};
-use object_store::aws::AmazonS3ConfigKey;
-use polars_io::cloud::CloudOptions;
+// Use the re-export from polars_io so config keys match the object_store version
+// that polars depends on (avoids dual object_store version type mismatches).
+use polars_io::cloud::{AmazonS3ConfigKey, CloudOptions};
 
 use crate::PolarsPlugin;
 

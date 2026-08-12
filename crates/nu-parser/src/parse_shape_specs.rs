@@ -41,6 +41,7 @@ pub fn parse_shape_name(
         b"directory" => SyntaxShape::Directory,
         b"duration" => SyntaxShape::Duration,
         b"error" => SyntaxShape::Error,
+        b"external_arg" => SyntaxShape::ExternalArgument,
         b"float" => SyntaxShape::Float,
         b"filesize" => SyntaxShape::Filesize,
         b"glob" => SyntaxShape::GlobPattern,
@@ -236,7 +237,8 @@ fn split_generic_params<'a>(
 
         (bytes, None)
     } else {
-        working_set.error(ParseError::Unclosed(">", span));
+        let open = ParseError::opener_span(span, 1);
+        working_set.error(ParseError::unclosed(">", open, span));
         (bytes, None)
     }
 }
@@ -323,7 +325,7 @@ fn parse_named_type_params(
         idx += 1;
     }
 
-    CollectionColumns::new(sig.into_boxed_slice())
+    sig.into()
 }
 
 fn parse_type_params(

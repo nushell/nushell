@@ -198,10 +198,10 @@ impl Command for Last {
             PipelineData::Value(val, _) => {
                 let span = val.span();
                 match val {
-                    Value::List { mut vals, .. } => {
+                    Value::List { vals, .. } => {
                         if return_single_element {
-                            if let Some(v) = vals.pop() {
-                                Ok(v.into_pipeline_data_with_metadata(metadata))
+                            if let Some(v) = vals.last() {
+                                Ok(v.clone().into_pipeline_data_with_metadata(metadata))
                             } else if strict_mode {
                                 Err(ShellError::AccessEmptyContent { span: head })
                             } else {
@@ -211,14 +211,18 @@ impl Command for Last {
                             }
                         } else {
                             let i = vals.len().saturating_sub(rows);
-                            vals.drain(..i);
-                            Ok(Value::list(vals, span).into_pipeline_data_with_metadata(metadata))
+                            let value = if i == 0 {
+                                Value::list_shared(vals, span)
+                            } else {
+                                Value::list(vals.iter().skip(i).cloned().collect(), span)
+                            };
+                            Ok(value.into_pipeline_data_with_metadata(metadata))
                         }
                     }
-                    Value::Binary { mut val, .. } => {
+                    Value::Binary { val, .. } => {
                         let binary_meta = metadata.map(|m| m.with_content_type(None));
                         if return_single_element {
-                            if let Some(val) = val.pop() {
+                            if let Some(&val) = val.last() {
                                 Ok(Value::int(val.into(), span)
                                     .into_pipeline_data_with_metadata(binary_meta))
                             } else if strict_mode {
@@ -230,6 +234,7 @@ impl Command for Last {
                                     .into_pipeline_data_with_metadata(binary_meta))
                             }
                         } else {
+                            let mut val = val.into_owned();
                             let i = val.len().saturating_sub(rows);
                             val.drain(..i);
                             Ok(Value::binary(val, span)
@@ -278,8 +283,8 @@ impl Command for Last {
 
                                 if let Value::List { mut vals, .. } = value {
                                     // Reverse the results to restore original order
-                                    vals.reverse();
-                                    Ok(Value::list(vals, head)
+                                    vals.to_mut().reverse();
+                                    Ok(Value::list(vals.into_owned(), head)
                                         .into_pipeline_data_with_metadata(metadata))
                                 } else {
                                     Ok(value.into_pipeline_data_with_metadata(metadata))
