@@ -497,14 +497,32 @@ fn engine_stats_reports_last_result_sizes() -> Result {
 
 #[test]
 #[deps(TESTBIN_NONU)]
-fn external_command_stdout_is_stored_as_string() -> Result {
-    // Bare external UTF-8 stdout is decoded for `$ans.last` (no decode step).
+fn bare_external_with_inherited_stdout_does_not_capture() -> Result {
+    // Bare externals keep stdout on the TTY (Print/Inherit). Forcing a pipe for
+    // `$ans` would hang interactive tools (nvim, btm). Prior `.last` is left alone.
+    let mut session = Interactive::new();
+    session.run("42");
+    assert_eq!(session.last_payload()?, Value::test_int(42));
+
+    session.run("^nonu should_not_overwrite_last");
+    assert_eq!(
+        session.last_payload()?,
+        Value::test_int(42),
+        "bare external must not steal TTY stdout or clobber $ans.last"
+    );
+    Ok(())
+}
+
+#[test]
+#[deps(TESTBIN_NONU)]
+fn external_command_stdout_is_stored_when_piped() -> Result {
+    // External UTF-8 bytes enter `$ans.last` only when already in the pipeline.
     // Structured internal results still take the Value/ListStream paths unchanged.
     // Testbins live in `crates/testbins` and are built via `#[deps(TESTBIN_*)]`.
     let marker = "last_external_marker_xyz";
     let mut session = Interactive::new();
-    // `nonu` prints args with no trailing newline.
-    session.run(&format!("^nonu {marker}"));
+    // `nonu` prints args with no trailing newline; `| collect` pipes stdout.
+    session.run(&format!("^nonu {marker} | collect"));
 
     assert_eq!(session.last_payload()?, Value::test_string(marker));
     Ok(())
@@ -514,9 +532,9 @@ fn external_command_stdout_is_stored_as_string() -> Result {
 #[deps(TESTBIN_COCOCO)]
 fn external_command_trailing_newline_is_trimmed_in_last() -> Result {
     // Match ByteStream::into_value / complete: one trailing newline is stripped.
-    // `cococo` uses println! (trailing `\n`).
+    // `cococo` uses println! (trailing `\n`). Pipe so bytes are capturable.
     let mut session = Interactive::new();
-    session.run("^cococo trim_me");
+    session.run("^cococo trim_me | collect");
 
     let stored = session.last_payload()?;
     match stored {
