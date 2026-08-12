@@ -119,20 +119,14 @@ $env.config.rm.always_trash = false
 # Default: 50
 $env.config.recursion_limit = 50
 
-# last_result_size (filesize): Maximum memory for the interactive last-result
-# variable (`$ans`). Opt-in: set a positive size to store pipeline results in
-# `$ans.last`. `$ans.exit_code` and `$ans.duration` always track the last command
-# in the REPL. Size is measured with Value::memory_size and applies to `.last` only.
-# 0b: Do not store `$ans.last` (default); the field is omitted from the record and
-# its memory is freed. `$ans.exit_code` and `$ans.duration` are still updated.
-# When a result exceeds the limit, it is truncated to fit and a warning is shown
-# the next time you access `$ans`. Bare `$ans` / `$ans.*` cell-paths do not
-# overwrite `$ans.last`. External command output is stored only when it is already
-# in the pipeline (e.g. `^cmd | collect`); bare externals keep the real TTY so
-# interactive tools like nvim/btm work. Piped external bytes become a string when
-# UTF-8, or binary otherwise. The name `ans` is reserved and cannot be rebound with `let`.
+# max_last_result_size (filesize): Max memory for `$ans.last`, the interactive last-result cache.
+# Positive values store pipeline results; `0b` disables it by default and omits the field.
+# `$ans.exit_code`, `$ans.duration`, and `$ans.cli` always update with the last REPL command.
+# Results larger than the limit are truncated; bare `$ans` / `$ans.*` refresh metadata without overwriting `.last`.
+# Empty Enter and auto-cd do not update `$ans`; bare externals keep the TTY for interactive tools.
+# The name `ans` is reserved and cannot be rebound with `let`.
 # Default: 0b
-$env.config.last_result_size = 0b
+$env.config.max_last_result_size = 0b
 
 # auto_cd_implicit (bool): Gives precedence to auto-cd when command string is
 # an existing directory path.

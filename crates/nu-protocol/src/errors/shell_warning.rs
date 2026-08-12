@@ -31,12 +31,12 @@ pub enum ShellWarning {
         #[related]
         warnings: Vec<ConfigWarning>,
     },
-    /// The interactive last-result value was truncated to fit `last_result_size`.
+    /// The interactive last-result value was truncated to fit `max_last_result_size`.
     ///
     /// Once-per-store is controlled by a stack flag; use [`ReportMode::EveryUse`] so the
     /// engine report log does not permanently suppress later truncations at the same limit.
     #[error(
-        "Last result was truncated to fit $env.config.last_result_size ({limit_bytes} bytes by Value::memory_size)."
+        "Last result was truncated to fit $env.config.max_last_result_size ({limit_bytes} bytes by Value::memory_size)."
     )]
     #[diagnostic(code(nu::shell::last_result_truncated))]
     LastResultTruncated {

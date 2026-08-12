@@ -650,7 +650,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                     format!("${}", nu_protocol::LAST_RESULT_VAR_NAME),
                     span,
                 ),
-                "size_limit" => Value::filesize(config.last_result_size, span),
+                "size_limit" => Value::filesize(config.max_last_result_size, span),
                 "memory_size" => Value::filesize(
                     nu_protocol::Filesize::new(self.stack.last_result_memory_size() as i64),
                     span,
