@@ -593,9 +593,10 @@ $env.config.hooks.command_not_found = null
 # etc.). Inspect with `$env.config.keybindings`. Reedline's base emacs/vi maps are
 # still applied underneath and are listed by `keybindings default`.
 #
-# Full list replacement (`=`) clears Nushell menu bindings. Prefer `++=` to add,
-# or set `event: null` on a matching binding to unbind a key.
-# $env.config.keybindings = []
+# Assigning this list merges into the defaults rather than replacing them, so
+# `=` never clears the Nushell menu bindings. Entries are matched by `name`,
+# or by modifier/keycode/mode when unnamed; a match is overwritten, anything
+# else appended. Set `event: null` on a matching binding to unbind a key.
 
 # Example: Add Alt+. keybinding to insert the last token from previous command:
 # $env.config.keybindings ++= [
@@ -655,9 +656,8 @@ $env.config.abbreviations = {}
 # after its value. Unset keeps reedline's default.
 #
 # Default: completion_menu, ide_completion_menu, history_menu, help_menu.
-# Inspect with `$env.config.menus`. Full list replacement (`=`) clears defaults;
-# prefer `++=` to add custom menus.
-# $env.config.menus = []
+# Inspect with `$env.config.menus`. Assigning this list merges into the
+# defaults by `name` rather than replacing them, so `=` never clears them.
 
 # Example: Custom completion menu configuration:
 # $env.config.menus ++= [{
