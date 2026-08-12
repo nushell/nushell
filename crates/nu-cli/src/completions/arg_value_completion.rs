@@ -145,10 +145,8 @@ impl<'a> ArgValueCompletion<'a> {
                 ),
                 _ => Fetched::pure(vec![]),
             },
-            // No expression at all (e.g. a missing/undefined argument).
-            None => Fetched::pure(vec![]),
-            // Any other scalar shape (`Expr::String`, plus `Expr::Nothing` for the
-            // `null` keyword): search exports by the raw prefix text.
+            // No expression at all or any other scalar shape (`Expr::String`, plus `Expr::Nothing`
+            // for the `null` keyword): search exports by the raw prefix text.
             _ => exportable_completion.fetch(completion_context),
         };
 
