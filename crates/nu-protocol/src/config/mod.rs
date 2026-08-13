@@ -267,23 +267,25 @@ impl UpdateFromValue for Config {
                 "keybindings" => match Vec::<ParsedKeybinding>::from_value(val.clone()) {
                     Ok(keybindings) => {
                         for keybinding in keybindings {
-                            let target_name = keybinding
-                                .name
-                                .as_ref()
-                                .map(|name| name.to_expanded_string("", self));
-
-                            let found_index = target_name.as_ref().and_then(|name_to_match| {
+                            // An unnamed binding has no name to merge on, so match it on
+                            // the key it binds. Otherwise it matches nothing and is
+                            // appended again on every assignment, growing the list each
+                            // time a config is re-sourced.
+                            let found_index =
                                 self.keybindings.iter().position(|existing_keybinding| {
-                                    existing_keybinding
-                                        .name
-                                        .as_ref()
-                                        .map(|existing_name| {
-                                            existing_name.to_expanded_string("", self)
-                                        })
-                                        .as_ref()
-                                        == Some(name_to_match)
-                                })
-                            });
+                                    match (&keybinding.name, &existing_keybinding.name) {
+                                        (Some(name), Some(existing_name)) => {
+                                            name.to_expanded_string("", self)
+                                                == existing_name.to_expanded_string("", self)
+                                        }
+                                        (None, None) => {
+                                            keybinding.modifier == existing_keybinding.modifier
+                                                && keybinding.keycode == existing_keybinding.keycode
+                                                && keybinding.mode == existing_keybinding.mode
+                                        }
+                                        _ => false,
+                                    }
+                                });
 
                             if let Some(index) = found_index {
                                 self.keybindings[index] = keybinding;
@@ -416,5 +418,42 @@ mod tests {
                 "default keybinding {name:?} was lost after reassigning `keybindings`"
             );
         }
+    }
+
+    /// Guards the unnamed case: with no `name` to merge on, every reassignment
+    /// used to append another copy.
+    #[test]
+    fn reassigning_an_unnamed_keybinding_does_not_duplicate_it() {
+        let old = Config::default();
+        let mut new = old.clone();
+
+        let mut unnamed = old.keybindings[0].clone();
+        unnamed.name = None;
+        unnamed.modifier = Value::test_string("alt");
+        unnamed.keycode = Value::test_string("char_j");
+        new.keybindings.push(unnamed);
+
+        let expected = new.keybindings.len();
+
+        // Feed the list back through `update_from_value` the way re-sourcing a
+        // config (or any `$env.config.keybindings = ...`) does.
+        for _ in 0..2 {
+            let value = Value::test_record(record! {
+                "keybindings" => Value::test_list(
+                    new.keybindings
+                        .iter()
+                        .map(|keybinding| keybinding.clone().into_value(Span::test_data()))
+                        .collect(),
+                ),
+            });
+            new.update_from_value(&old, &value)
+                .expect("update should succeed");
+        }
+
+        assert_eq!(
+            new.keybindings.len(),
+            expected,
+            "reassigning `keybindings` duplicated the unnamed binding"
+        );
     }
 }
