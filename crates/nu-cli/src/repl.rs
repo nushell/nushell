@@ -5,6 +5,7 @@ use crate::prompt_update::{
     VSCODE_POST_EXECUTION_MARKER_PREFIX, VSCODE_POST_EXECUTION_MARKER_SUFFIX,
     VSCODE_PRE_EXECUTION_MARKER,
 };
+use crate::util::evaluate_parsed_block;
 use crate::{
     NuHighlighter, NuValidator, NushellPrompt,
     completions::{NarrowingCache, NuCompleter},
@@ -732,8 +733,9 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     }
 
     start_time = Instant::now();
+    let mut host_commands = vec![];
     // Changing the line editor based on the found keybindings
-    line_editor = setup_keybindings(engine_state, line_editor);
+    line_editor = setup_keybindings(engine_state, line_editor, &mut host_commands);
 
     perf!("keybindings", start_time, use_color);
 
@@ -802,18 +804,64 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                 entry_num,
             });
         }
-        Ok(Signal::HostCommand(command)) => {
-            *is_hostcommand = true;
-            line_editor = run_command(RunContext {
-                engine_state,
-                stack: &mut stack,
-                line_editor,
-                command,
-                hostname,
-                use_color,
-                shell_integration,
-                entry_num,
-            });
+        Ok(Signal::HostCommand(index)) => {
+            if let Ok(index) = index.parse::<usize>()
+                && index < host_commands.len()
+            {
+                *is_hostcommand = true;
+
+                let val = host_commands.swap_remove(index);
+                // drop host_commands so we can no longer access it,
+                // because the index may potentially resolve to the swapped value.
+                drop(host_commands);
+
+                match val {
+                    Value::Closure { val: closure, .. } => {
+                        let mut callee_stack =
+                            stack.captures_to_stack_preserve_out_dest(closure.captures);
+                        let block = engine_state.get_block(closure.block_id).clone();
+
+                        // set buffer and cursor position for `commandline` command
+                        let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
+                        repl.cursor_pos = line_editor.current_insertion_point();
+                        repl.buffer = line_editor.current_buffer_contents().to_string();
+                        drop(repl);
+
+                        match evaluate_parsed_block(
+                            engine_state,
+                            &mut callee_stack,
+                            &block,
+                            PipelineData::Empty,
+                            true,
+                        ) {
+                            Ok(failed) => {
+                                let code = failed.into();
+                                stack.set_last_exit_code(code, Span::unknown());
+                            }
+                            Err(err) => {
+                                report_shell_error(Some(&stack), engine_state, &err);
+                                stack.set_last_error(&err);
+                            }
+                        };
+
+                        line_editor = flush_engine_state_repl_buffer(engine_state, line_editor);
+                    }
+                    _ => {
+                        line_editor = run_command(RunContext {
+                            engine_state,
+                            stack: &mut stack,
+                            line_editor,
+                            command: val.to_expanded_string("", config),
+                            hostname,
+                            use_color,
+                            shell_integration,
+                            entry_num,
+                        });
+                    }
+                }
+            } else {
+                warn!("Signal::HostCommand received invalid index: {index:?}");
+            };
         }
         Ok(Signal::CtrlC) => {
             // `Reedline` clears the line content. New prompt is shown
@@ -1325,8 +1373,12 @@ fn setup_history(
 ///
 /// Setup Reedline keybindingds based on the provided config
 ///
-fn setup_keybindings(engine_state: &EngineState, line_editor: Reedline) -> Reedline {
-    match create_keybindings(engine_state.get_config()) {
+fn setup_keybindings(
+    engine_state: &EngineState,
+    line_editor: Reedline,
+    host_commands: &mut Vec<Value>,
+) -> Reedline {
+    match create_keybindings(engine_state.get_config(), host_commands) {
         Ok(keybindings) => match keybindings {
             KeybindingsMode::Emacs(keybindings) => {
                 let edit_mode = Box::new(Emacs::new(keybindings));

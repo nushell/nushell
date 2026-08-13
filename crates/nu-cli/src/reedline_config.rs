@@ -599,7 +599,10 @@ pub enum KeybindingsMode {
     },
 }
 
-pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, ShellError> {
+pub(crate) fn create_keybindings(
+    config: &Config,
+    host_commands: &mut Vec<Value>,
+) -> Result<KeybindingsMode, ShellError> {
     let parsed_keybindings = &config.keybindings;
 
     // Reedline base maps stay library-owned; Nushell menu bindings live on
@@ -616,6 +619,7 @@ pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, She
             &mut emacs_keybindings,
             &mut insert_keybindings,
             &mut normal_keybindings,
+            host_commands,
         )?
     }
 
@@ -635,15 +639,22 @@ fn add_keybinding(
     emacs_keybindings: &mut Keybindings,
     insert_keybindings: &mut Keybindings,
     normal_keybindings: &mut Keybindings,
+    host_commands: &mut Vec<Value>,
 ) -> Result<(), ShellError> {
     use PromptEditModeDiscriminants as PEMD;
     let span = mode.span();
     match &mode {
         // When updating this implementation, also update `display_edit_mode` function
         Value::String { val, .. } => match PEMD::from_str(val) {
-            Ok(PEMD::Emacs) => add_parsed_keybinding(emacs_keybindings, keybinding, config),
-            Ok(PEMD::ViInsert) => add_parsed_keybinding(insert_keybindings, keybinding, config),
-            Ok(PEMD::ViNormal) => add_parsed_keybinding(normal_keybindings, keybinding, config),
+            Ok(PEMD::Emacs) => {
+                add_parsed_keybinding(emacs_keybindings, keybinding, config, host_commands)
+            }
+            Ok(PEMD::ViInsert) => {
+                add_parsed_keybinding(insert_keybindings, keybinding, config, host_commands)
+            }
+            Ok(PEMD::ViNormal) => {
+                add_parsed_keybinding(normal_keybindings, keybinding, config, host_commands)
+            }
             Ok(PEMD::Default | PEMD::Custom) | Err(_) => Err(ShellError::InvalidValue {
                 valid: "'emacs', 'vi_insert', or 'vi_normal'".into(),
                 actual: format!("'{val}'"),
@@ -659,6 +670,7 @@ fn add_keybinding(
                     emacs_keybindings,
                     insert_keybindings,
                     normal_keybindings,
+                    host_commands,
                 )?
             }
 
@@ -686,6 +698,7 @@ fn add_parsed_keybinding(
     keybindings: &mut Keybindings,
     keybinding: &ParsedKeybinding,
     config: &Config,
+    host_commands: &mut Vec<Value>,
 ) -> Result<(), ShellError> {
     let Ok(modifier_str) = keybinding.modifier.as_str() else {
         return Err(ShellError::RuntimeTypeMismatch {
@@ -788,7 +801,7 @@ fn add_parsed_keybinding(
         }
     };
 
-    if let Some(event) = parse_event(&keybinding.event, config)? {
+    if let Some(event) = parse_event(&keybinding.event, config, host_commands)? {
         keybindings.add_binding(modifier, keycode, event);
     } else {
         keybindings.remove_binding(modifier, keycode);
@@ -816,7 +829,11 @@ impl<'config> EventType<'config> {
     }
 }
 
-fn parse_event(value: &Value, config: &Config) -> Result<Option<ReedlineEvent>, ShellError> {
+fn parse_event(
+    value: &Value,
+    config: &Config,
+    host_commands: &mut Vec<Value>,
+) -> Result<Option<ReedlineEvent>, ShellError> {
     let span = value.span();
     match value {
         Value::Record { val: record, .. } => match EventType::try_from_record(record, span)? {
@@ -825,6 +842,7 @@ fn parse_event(value: &Value, config: &Config) -> Result<Option<ReedlineEvent>, 
                 record,
                 config,
                 span,
+                host_commands,
             )
             .map(Some),
             EventType::Edit(value) => {
@@ -840,7 +858,7 @@ fn parse_event(value: &Value, config: &Config) -> Result<Option<ReedlineEvent>, 
                 Value::List { vals, .. } => {
                     let events = vals
                         .iter()
-                        .map(|value| match parse_event(value, config) {
+                        .map(|value| match parse_event(value, config, host_commands) {
                             Ok(inner) => match inner {
                                 None => Err(ShellError::RuntimeTypeMismatch {
                                     expected: Type::custom("record or table"),
@@ -865,7 +883,7 @@ fn parse_event(value: &Value, config: &Config) -> Result<Option<ReedlineEvent>, 
         Value::List { vals, .. } => {
             let events = vals
                 .iter()
-                .map(|value| match parse_event(value, config) {
+                .map(|value| match parse_event(value, config, host_commands) {
                     Ok(inner) => match inner {
                         None => Err(ShellError::RuntimeTypeMismatch {
                             expected: Type::custom("record or table"),
@@ -894,6 +912,7 @@ fn event_from_record(
     record: &Record,
     config: &Config,
     span: Span,
+    host_commands: &mut Vec<Value>,
 ) -> Result<ReedlineEvent, ShellError> {
     use ReedlineEventDiscriminants as RED;
     // When updating this implementation, also update `display_reedline_event` function
@@ -933,7 +952,9 @@ fn event_from_record(
         Ok(RED::MenuPagePrevious) => ReedlineEvent::MenuPagePrevious,
         Ok(RED::ExecuteHostCommand) => {
             let cmd = extract_value("cmd", record, span)?;
-            ReedlineEvent::ExecuteHostCommand(cmd.to_expanded_string("", config))
+            host_commands.push(cmd.clone());
+            let index = host_commands.len() - 1;
+            ReedlineEvent::ExecuteHostCommand(index.to_string())
         }
         Ok(RED::OpenEditor) => ReedlineEvent::OpenEditor,
         Ok(RED::ViChangeMode) => {
@@ -999,7 +1020,7 @@ pub(crate) fn display_reedline_event(event: ReedlineEventDiscriminants) -> Optio
         RED::MenuRight => "MenuRight",
         RED::MenuPageNext => "MenuPageNext",
         RED::MenuPagePrevious => "MenuPagePrevious",
-        RED::ExecuteHostCommand => "ExecuteHostCommand cmd: <string>",
+        RED::ExecuteHostCommand => "ExecuteHostCommand cmd: <string> or <closure>",
         RED::OpenEditor => "OpenEditor",
         RED::ViChangeMode => "ViChangeMode mode: <string>",
         // Non-sensical for user configuration
@@ -1671,7 +1692,7 @@ mod test {
         let event = Value::test_record(event);
         let config = Config::default();
 
-        let parsed_event = parse_event(&event, &config).unwrap();
+        let parsed_event = parse_event(&event, &config, &mut vec![]).unwrap();
         assert_eq!(parsed_event, Some(ReedlineEvent::Enter));
     }
 
@@ -1688,7 +1709,7 @@ mod test {
         let event = Value::test_record(event);
         let config = Config::default();
 
-        let parsed_event = parse_event(&event, &config).unwrap();
+        let parsed_event = parse_event(&event, &config, &mut vec![]).unwrap();
         assert_eq!(
             parsed_event,
             Some(ReedlineEvent::Edit(vec![EditCommand::Clear]))
@@ -1874,7 +1895,7 @@ mod test {
         let event = Value::test_record(event);
         let config = Config::default();
 
-        let parsed_event = parse_event(&event, &config).unwrap();
+        let parsed_event = parse_event(&event, &config, &mut vec![]).unwrap();
         assert_eq!(
             parsed_event,
             Some(ReedlineEvent::Menu("history_menu".to_string()))
@@ -1904,7 +1925,7 @@ mod test {
         let event = Value::test_record(event);
         let config = Config::default();
 
-        let parsed_event = parse_event(&event, &config).unwrap();
+        let parsed_event = parse_event(&event, &config, &mut vec![]).unwrap();
         assert_eq!(
             parsed_event,
             Some(ReedlineEvent::UntilFound(vec![
@@ -1926,7 +1947,7 @@ mod test {
         let event = Value::list(vec![menu_event, enter_event], Span::test_data());
 
         let config = Config::default();
-        let parsed_event = parse_event(&event, &config).unwrap();
+        let parsed_event = parse_event(&event, &config, &mut vec![]).unwrap();
         assert_eq!(
             parsed_event,
             Some(ReedlineEvent::Multiple(vec![
@@ -1955,7 +1976,7 @@ mod test {
         let event = Value::test_record(event);
         let config = Config::default();
 
-        let parsed_event = parse_event(&event, &config).unwrap();
+        let parsed_event = parse_event(&event, &config, &mut vec![]).unwrap();
         assert_eq!(
             parsed_event,
             Some(ReedlineEvent::Edit(vec![EditCommand::MoveLeft {
@@ -1973,7 +1994,7 @@ mod test {
         let event = Value::test_record(event);
         let config = Config::default();
 
-        let parsed_event = parse_event(&event, &config).unwrap();
+        let parsed_event = parse_event(&event, &config, &mut vec![]).unwrap();
         assert_eq!(
             parsed_event,
             Some(ReedlineEvent::Edit(vec![EditCommand::MoveLeft {
@@ -1991,7 +2012,7 @@ mod test {
         let event = Value::test_record(event);
         let config = Config::default();
 
-        let parsed_event = parse_event(&event, &config).unwrap();
+        let parsed_event = parse_event(&event, &config, &mut vec![]).unwrap();
         assert_eq!(
             parsed_event,
             Some(ReedlineEvent::Edit(vec![EditCommand::MoveLeft {
