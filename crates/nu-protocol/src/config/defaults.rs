@@ -73,6 +73,10 @@ pub fn default_color_config() -> HashMap<String, Value> {
             }),
         ),
         ("selection", rec(record! { "attr" => str("r") })),
+        // "n" (no styling) keeps the cursor cell plain inside a selection: a
+        // reversing block cursor reverses it back to the flat selection look,
+        // while thinner cursor shapes stay visible instead of drowning in it.
+        ("selection_cursor", rec(record! { "attr" => str("n") })),
         ("shape_binary", str("purple_bold")),
         ("shape_block", str("blue_bold")),
         ("shape_bool", str("light_cyan")),
