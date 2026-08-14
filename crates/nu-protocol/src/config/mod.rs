@@ -160,7 +160,7 @@ impl Default for Config {
             auto_cd_implicit: false,
             duration_max_unit: DurationMaxUnit::default(),
 
-            // Opt-in for `.last` payload: 0 drops last, keeps exit_code/duration/cli
+            // Opt-in for `.last` payload: 0 drops last, keeps exit_code/duration/command.
             max_last_result_size: Filesize::ZERO,
 
             plugins: HashMap::new(),
