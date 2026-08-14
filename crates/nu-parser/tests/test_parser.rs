@@ -1539,6 +1539,12 @@ fn test_external_call_arg_closure(#[case] input: &str) {
 #[rstest]
 #[case("^foo {a: 1}")]
 #[case("^foo {}")]
+#[case("^foo {a: 1, b: 'c', c: 'd'}")]
+#[case(r#"^foo {a: 1, b: "c", c: "d"}"#)]
+#[case(r#"^foo {a: 1, b: 'c', c: "d"}"#)]
+#[case(r#"^foo {"key with spaces": "value"}"#)]
+#[case(r#"^foo {outer: {inner: "value"}}"#)]
+#[case(r#"^foo {items: [1 "two" true]}"#)]
 fn test_external_call_arg_record(#[case] input: &str) {
     test_external_call(input, "record argument", |_, args| {
         assert_eq!(1, args.len());
