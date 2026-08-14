@@ -216,52 +216,48 @@ impl CommandCompletion {
             .max_results as usize;
         let mut matcher = NuMatcher::new(context.prefix_str(), context.options, true);
 
-        let mut external_commands = HashSet::new();
-        let mut collisions = HashSet::new();
+        let mut external_commands: HashSet<String> = HashSet::new();
+        let mut collisions: HashSet<String> = HashSet::new();
 
-        let executables: Vec<_> = self
-            .get_executable_files(working_set)
-            .filter_map(|(file_name, file_path)| {
-                let matches_prefix = matcher.check_match(&file_name).is_some();
-                let is_collision = internal_names.contains(&file_name);
+        for (file_name, file_path) in self.get_executable_files(working_set) {
+            let is_collision =
+                internal_names.contains(&file_name) && !collisions.contains(&file_name);
+            let wants_suggestion = external_commands.len() < maximum_results
+                && matcher.check_match(&file_name).is_some();
 
-                ((matches_prefix || is_collision) && Self::is_executable_command(&file_path))
-                    .then_some((file_name, file_path, matches_prefix, is_collision))
-            })
-            .collect();
+            // `is_executable_command` stats the file, which dominates the scan on slow
+            // filesystems (e.g. WSL's 9P mounts to Windows `PATH` directories), so only
+            // pay for entries that can still contribute a suggestion or a collision.
+            if !(wants_suggestion || is_collision) || !Self::is_executable_command(&file_path) {
+                continue;
+            }
 
-        executables
-            .into_iter()
-            .for_each(|(file_name, _, matches_prefix, is_collision)| {
-                if is_collision {
-                    collisions.insert(file_name.clone());
-                }
+            if is_collision {
+                collisions.insert(file_name.clone());
+            }
 
-                if matches_prefix && external_commands.len() < maximum_results {
-                    let (command_value, tracking_name) = match is_collision {
-                        true => {
-                            let prefixed = format!("^{file_name}");
-                            (prefixed.clone(), prefixed)
-                        }
-                        false => (file_name.clone(), file_name.clone()),
-                    };
+            if wants_suggestion {
+                let command_value = match internal_names.contains(&file_name) {
+                    true => format!("^{file_name}"),
+                    false => file_name.clone(),
+                };
 
-                    if external_commands.insert(tracking_name) {
-                        matcher.add(
-                            file_name,
-                            SemanticSuggestion {
-                                suggestion: Suggestion {
-                                    value: command_value,
-                                    span: suggestion_span,
-                                    append_whitespace: true,
-                                    ..Suggestion::default()
-                                },
-                                kind: Some(SuggestionKind::Command(CommandType::External, None)),
+                if external_commands.insert(command_value.clone()) {
+                    matcher.add(
+                        file_name,
+                        SemanticSuggestion {
+                            suggestion: Suggestion {
+                                value: command_value,
+                                span: suggestion_span,
+                                append_whitespace: true,
+                                ..Suggestion::default()
                             },
-                        );
-                    }
+                            kind: Some(SuggestionKind::Command(CommandType::External, None)),
+                        },
+                    );
                 }
-            });
+            }
+        }
 
         // Add `%`-prefixed copies of collided internal suggestions.
         let percent_prefixed_suggestions: Vec<SemanticSuggestion> = internal_suggestions
