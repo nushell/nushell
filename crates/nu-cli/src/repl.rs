@@ -657,10 +657,6 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         ))
         .with_cursor_config(cursor_config)
         .with_abbreviations(config.abbreviations.clone())
-        .with_visual_selection_style(nu_ansi_term::Style {
-            is_reverse: true,
-            ..Default::default()
-        })
         .with_semantic_markers(semantic_markers_from_config(
             &config,
             term_program_is_vscode,
@@ -676,6 +672,11 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     let style_computer = StyleComputer::from_config(engine_state, &stack_arc);
 
     start_time = Instant::now();
+    // `color_config.selection` defaults to `{ attr: r }`, the reverse video
+    // this used to hardcode.
+    line_editor = line_editor.with_visual_selection_style(
+        style_computer.compute("selection", &Value::nothing(Span::unknown())),
+    );
     line_editor = if config.use_ansi_coloring.get(engine_state) && config.show_hints {
         // As of Nov 2022, "hints" color_config closures only get `null` passed in.
         // No meaningful span — this is a synthetic null value for style computation.

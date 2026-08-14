@@ -1114,6 +1114,11 @@ $env.config.color_config.hints = "dark_gray"
 # Default: { bg: red, fg: default }
 $env.config.color_config.search_result = {bg: "red", fg: "default"}
 
+# color_config.selection: Style for the line editor's visual selection,
+# including the helix-mode resting cursor cell.
+# Default: { attr: r } (reverse video)
+$env.config.color_config.selection = {attr: "r"}
+
 # color_config.header: Style for table column headers.
 # Default: green_bold
 $env.config.color_config.header = "green_bold"

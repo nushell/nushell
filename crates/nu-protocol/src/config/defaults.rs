@@ -72,6 +72,7 @@ pub fn default_color_config() -> HashMap<String, Value> {
                 "fg" => str("default"),
             }),
         ),
+        ("selection", rec(record! { "attr" => str("r") })),
         ("shape_binary", str("purple_bold")),
         ("shape_block", str("blue_bold")),
         ("shape_bool", str("light_cyan")),
