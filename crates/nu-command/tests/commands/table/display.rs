@@ -206,22 +206,16 @@ fn table_semver_list_colors() -> Result {
         .expect_value_eq(colored)
 }
 
-/// A bare single semver also keeps type-specific coloring (rendered as a one-row list).
+/// A lone primitive custom (semver) prints as a scalar, not a one-row table.
 #[test]
-fn table_semver_single_colors() -> Result {
-    let colored = indoc! {"
-        \u{1b}[39m╭───┬───────╮\u{1b}[0m
-        \u{1b}[39m│\u{1b}[0m \u{1b}[1;32m0\u{1b}[0m \u{1b}[39m│\u{1b}[0m \u{1b}[1;36m1.0.0\u{1b}[0m \u{1b}[39m│\u{1b}[0m
-        \u{1b}[39m╰───┴───────╯\u{1b}[0m
-    "};
-    test()
-        .run(
-            "
-                $env.config.use_ansi_coloring = true
-                '1.0.0' | into semver | table
-            ",
-        )
-        .expect_value_eq(colored)
+fn table_semver_single_is_scalar() -> Result {
+    let mut tester = test();
+    tester
+        .run("'1.0.0' | into semver | table")
+        .expect_value_eq("1.0.0")?;
+    tester
+        .run("'1.0.0' | into semver | describe")
+        .expect_value_eq("semver")
 }
 
 #[test]
