@@ -1114,6 +1114,19 @@ $env.config.color_config.hints = "dark_gray"
 # Default: { bg: red, fg: default }
 $env.config.color_config.search_result = {bg: "red", fg: "default"}
 
+# color_config.selection: Style for the line editor's visual selection,
+# including the helix-mode resting cursor cell.
+# Default: { attr: r } (reverse video)
+$env.config.color_config.selection = {attr: "r"}
+
+# color_config.selection_cursor: Style for the cell under the cursor inside a
+# visual selection. The default { attr: n } (normal, no styling) leaves the
+# cell plain so the terminal cursor stays visible even when the selection
+# style would hide it; a block cursor that renders by reversing the cell turns
+# the plain cell back into the flat reverse-selection look.
+# Default: { attr: n }
+$env.config.color_config.selection_cursor = {attr: "n"}
+
 # color_config.header: Style for table column headers.
 # Default: green_bold
 $env.config.color_config.header = "green_bold"
