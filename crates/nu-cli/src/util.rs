@@ -432,7 +432,7 @@ fn maybe_store_last_result(
     }
 
     if budget == 0 {
-        // Budget 0: drop `.last`; snapshot still sets exit_code/duration/cli.
+        // Budget 0: drop `.last`; snapshot still sets exit_code/duration/command.
         stack.clear_last_result_payload();
         return pipeline_data;
     }

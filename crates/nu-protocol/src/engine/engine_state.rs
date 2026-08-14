@@ -191,8 +191,8 @@ pub const LAST_VARIABLE_ID: VarId = VarId::new(3);
 /// Change this single constant to rename the binding site-wide (e.g. `"ans"` → `$ans`).
 /// The name is reserved (cannot be rebound with `let` / `mut` / `const`). Not user-configurable.
 ///
-/// With a positive `max_last_result_size`, `$ans` is `{ last, exit_code, duration, cli }`.
-/// With size `0`, `$ans` is `{ exit_code, duration, cli }` (`last` omitted). `cli` is
+/// With a positive `max_last_result_size`, `$ans` is `{ last, exit_code, duration, command }`.
+/// With size `0`, `$ans` is `{ exit_code, duration, command }` (`last` omitted). `command` is
 /// the exact last REPL source (same buffer reedline stores in history). Resolved from
 /// the stack's last-result slot, not from captured locals — keep capture-discovery
 /// `>` checks in sync with this being the last special var id.
