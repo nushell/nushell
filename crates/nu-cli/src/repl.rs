@@ -1351,11 +1351,13 @@ fn setup_keybindings(engine_state: &EngineState, line_editor: Reedline) -> Reedl
             KeybindingsMode::Helix {
                 insert_keybindings,
                 normal_keybindings,
+                select_keybindings,
             } => {
                 let edit_mode = Box::new(
                     Helix::default()
                         .with_insert_keybindings(insert_keybindings)
-                        .with_normal_keybindings(normal_keybindings),
+                        .with_normal_keybindings(normal_keybindings)
+                        .with_select_keybindings(select_keybindings),
                 );
                 line_editor.with_edit_mode(edit_mode)
             }

@@ -16,7 +16,10 @@ use reedline::{
     default_vi_insert_keybindings, default_vi_normal_keybindings,
 };
 #[cfg(feature = "helix")]
-use reedline::{default_helix_insert_keybindings, default_helix_normal_keybindings};
+use reedline::{
+    default_helix_insert_keybindings, default_helix_normal_keybindings,
+    default_helix_select_keybindings,
+};
 use std::{str::FromStr, sync::Arc};
 
 // Adds all menus from `$env.config.menus` (defaults live on `Config::default()`).
@@ -603,6 +606,7 @@ pub enum KeybindingsMode {
     Helix {
         insert_keybindings: Keybindings,
         normal_keybindings: Keybindings,
+        select_keybindings: Keybindings,
     },
 }
 
@@ -614,9 +618,10 @@ struct KeybindingTables {
     vi_normal: Keybindings,
     #[cfg(feature = "helix")]
     helix_insert: Keybindings,
-    /// Shared by helix normal and select mode; reedline keeps one table for both.
     #[cfg(feature = "helix")]
     helix_normal: Keybindings,
+    #[cfg(feature = "helix")]
+    helix_select: Keybindings,
 }
 
 pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, ShellError> {
@@ -632,6 +637,8 @@ pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, She
         helix_insert: default_helix_insert_keybindings(),
         #[cfg(feature = "helix")]
         helix_normal: default_helix_normal_keybindings(),
+        #[cfg(feature = "helix")]
+        helix_select: default_helix_select_keybindings(),
     };
 
     for keybinding in parsed_keybindings {
@@ -648,6 +655,7 @@ pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, She
         EditBindings::Helix => Ok(KeybindingsMode::Helix {
             insert_keybindings: tables.helix_insert,
             normal_keybindings: tables.helix_normal,
+            select_keybindings: tables.helix_select,
         }),
         #[cfg(not(feature = "helix"))]
         EditBindings::Helix => Err(ShellError::Generic(
@@ -685,8 +693,12 @@ fn add_keybinding(
                 add_parsed_keybinding(&mut tables.helix_insert, keybinding, config)
             }
             #[cfg(feature = "helix")]
-            Ok(PEMD::HelixNormal | PEMD::HelixSelect) => {
+            Ok(PEMD::HelixNormal) => {
                 add_parsed_keybinding(&mut tables.helix_normal, keybinding, config)
+            }
+            #[cfg(feature = "helix")]
+            Ok(PEMD::HelixSelect) => {
+                add_parsed_keybinding(&mut tables.helix_select, keybinding, config)
             }
             // The default keybindings name the helix tables unconditionally, so
             // a build without the `helix` feature skips them rather than
@@ -2102,6 +2114,7 @@ mod test {
         let KeybindingsMode::Helix {
             insert_keybindings,
             normal_keybindings,
+            select_keybindings,
         } = create_keybindings(&config).expect("default keybindings should apply cleanly")
         else {
             panic!("`edit_mode: helix` should produce helix keybindings");
@@ -2110,6 +2123,7 @@ mod test {
         for (table, keybindings) in [
             ("insert", insert_keybindings),
             ("normal", normal_keybindings),
+            ("select", select_keybindings),
         ] {
             for (name, modifier, keycode) in [
                 ("completion_menu", KeyModifiers::NONE, KeyCode::Tab),
@@ -2123,5 +2137,56 @@ mod test {
                 );
             }
         }
+    }
+
+    #[test]
+    #[cfg(feature = "helix")]
+    fn helix_select_keybindings_land_in_their_own_table() {
+        use nu_protocol::ParsedKeybinding;
+
+        // `mode: helix_select` targets the select table, not the normal one it
+        // used to alias onto, and the select table keeps reedline's extending
+        // arrow defaults underneath.
+        let keybinding = ParsedKeybinding {
+            name: Some(Value::test_string("select_only")),
+            modifier: Value::test_string("control"),
+            keycode: Value::test_string("char_t"),
+            event: Value::test_record(record! {
+                "send" => Value::test_string("clearscreen"),
+            }),
+            mode: Value::test_string("helix_select"),
+        };
+        let mut config = Config {
+            edit_mode: EditBindings::Helix,
+            ..Default::default()
+        };
+        config.keybindings.push(keybinding);
+
+        let KeybindingsMode::Helix {
+            normal_keybindings,
+            select_keybindings,
+            ..
+        } = create_keybindings(&config).expect("keybindings should apply cleanly")
+        else {
+            panic!("`edit_mode: helix` should produce helix keybindings");
+        };
+
+        assert_eq!(
+            select_keybindings.find_binding(KeyModifiers::CONTROL, KeyCode::Char('t')),
+            Some(ReedlineEvent::ClearScreen),
+        );
+        assert_eq!(
+            normal_keybindings.find_binding(KeyModifiers::CONTROL, KeyCode::Char('t')),
+            None,
+            "a `helix_select` binding must not leak into the normal table"
+        );
+        // Spot-check the reedline select default underneath: Right extends.
+        assert!(
+            matches!(
+                select_keybindings.find_binding(KeyModifiers::NONE, KeyCode::Right),
+                Some(ReedlineEvent::Edit(_))
+            ),
+            "the select table should keep reedline's extending arrow defaults"
+        );
     }
 }
