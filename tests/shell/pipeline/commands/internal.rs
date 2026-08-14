@@ -373,6 +373,17 @@ fn load_env_converts_string_variables() -> Result {
 }
 
 #[test]
+fn load_env_conversion_names_are_case_insensitive() -> Result {
+    let code = r#"
+        $env.ENV_CONVERSIONS = { FOO: { from_string: { into int } } }
+        load-env --convert { foo: "42" }
+        $env.FOO
+    "#;
+
+    test().run(code).expect_value_eq(42)
+}
+
+#[test]
 fn load_env_convert_normalizes_path() -> Result {
     let separator = if cfg!(windows) { ";" } else { ":" };
     let code = format!("load-env --convert {{ pAtH: 'first{separator}second' }}; $env.PATH");

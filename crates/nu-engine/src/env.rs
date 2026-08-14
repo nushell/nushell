@@ -333,11 +333,17 @@ fn get_converted_value(
     orig_val: &Value,
     direction: &str,
 ) -> Result<Value, ConversionError> {
-    let conversion = stack
+    let conversions = stack
         .get_env_var(engine_state, ENV_CONVERSIONS)
         .ok_or(ConversionError::CellPathError)?
-        .as_record()?
+        .as_record()?;
+    let conversion = conversions
         .get(name)
+        .or_else(|| {
+            conversions
+                .iter()
+                .find_map(|(key, value)| key.eq_ignore_ascii_case(name).then_some(value))
+        })
         .ok_or(ConversionError::CellPathError)?
         .as_record()?
         .get(direction)
