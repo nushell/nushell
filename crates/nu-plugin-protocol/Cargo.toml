@@ -18,6 +18,7 @@ workspace = true
 nu-protocol = { workspace = true, features = ["plugin"] }
 nu-utils.workspace = true
 
+chrono = { workspace = true, default-features = false, features = ["std", "serde"] }
 rmp-serde = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 semver = "1.0"
@@ -26,3 +27,6 @@ typetag = "0.2"
 [features]
 default = ["local-socket"]
 local-socket = []
+
+[dev-dependencies]
+serde_json = { workspace = true }

@@ -10,7 +10,8 @@
  */
 
 // Configuration constants
-const NUSHELL_VERSION = '0.103.1';
+const NUSHELL_VERSION = '0.114.2';
+const PLUGIN_PROTOCOL_VERSION = '0.1.0';
 const PLUGIN_VERSION = '0.1.1';
 
 // Core protocol functions
@@ -168,8 +169,8 @@ function handleInputMessage (input) {
 }
 
 function handleHelloMessage ({ version }) {
-	if (version !== NUSHELL_VERSION) {
-		process.stderr.write(`Version mismatch: Expected ${NUSHELL_VERSION}, got ${version}\n`);
+	if (version !== PLUGIN_PROTOCOL_VERSION) {
+		process.stderr.write(`Plugin protocol mismatch: expected ${PLUGIN_PROTOCOL_VERSION}, got ${version}\n`);
 		process.exit(1);
 	}
 }
@@ -177,7 +178,13 @@ function handleHelloMessage ({ version }) {
 function handleCallMessage (id, call) {
 	try {
 		if (call === 'Metadata') {
-			writeResponse(id, { Metadata: { version: PLUGIN_VERSION } });
+			writeResponse(id, {
+				Metadata: {
+					version: PLUGIN_VERSION,
+					protocol_version: PLUGIN_PROTOCOL_VERSION,
+					nushell_version: NUSHELL_VERSION,
+				},
+			});
 		} else if (call === 'Signature') {
 			writeResponse(id, getPluginSignature());
 		} else if (call.Run) {
@@ -209,7 +216,7 @@ function initializePlugin () {
 	process.stdout.write(JSON.stringify({
 		Hello: {
 			protocol: 'nu-plugin',
-			version: NUSHELL_VERSION,
+			version: PLUGIN_PROTOCOL_VERSION,
 			features: []
 		}
 	}) + '\n');

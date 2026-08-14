@@ -8,10 +8,25 @@
 //! crate explicitly avoids implementing any functionality that depends on I/O, so the exact
 //! byte-level encoding scheme is not implemented here. See the protocol ref or `nu_plugin_core` for
 //! more details on how that works.
+//!
+//! # Protocol version vs Nushell version
+//!
+//! Compatibility is based on [`PLUGIN_PROTOCOL_VERSION`] (the `Hello` handshake), not the Nushell
+//! package version.
+//!
+//! # Wire mapping (maintainer tripwire)
+//!
+//! Serde for public protocol types goes through a private [`wire`] module (in-crate shim):
+//! exhaustive `From` mappings into derive-based wire DTOs. Adding a `Value` variant or a
+//! top-level protocol message case fails to compile until the mapping is updated. Nested engine
+//! payloads (`ShellError`, `Config`, AST/IR, …) still use their own derives; prefer
+//! `protocol_snapshots/` when those wire shapes change, and bump the protocol version on 0.x
+//! **minor** for incompatible wire changes.
 
 mod evaluated_call;
 mod plugin_custom_value;
 mod protocol_info;
+mod wire;
 
 #[cfg(test)]
 mod tests;
@@ -31,13 +46,12 @@ use nu_protocol::{
     ir::IrBlock,
 };
 use nu_utils::SharedCow;
-use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::PathBuf};
 
 pub use evaluated_call::EvaluatedCall;
 pub use plugin_custom_value::PluginCustomValue;
 #[allow(unused_imports)] // may be unused by compile flags
-pub use protocol_info::{Feature, Protocol, ProtocolInfo};
+pub use protocol_info::{Feature, PLUGIN_PROTOCOL_VERSION, Protocol, ProtocolInfo};
 
 /// A sequential identifier for a stream
 pub type StreamId = usize;
@@ -51,7 +65,7 @@ pub type EngineCallId = usize;
 /// Information about a plugin command invocation. This includes an [`EvaluatedCall`] as a
 /// serializable representation of [`nu_protocol::ast::Call`]. The type parameter determines
 /// the input type.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct CallInfo<D> {
     /// The name of the command to be run
     pub name: String,
@@ -61,7 +75,7 @@ pub struct CallInfo<D> {
     pub input: D,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub enum GetCompletionArgType {
     Flag(String),
     Positional(usize),
@@ -80,7 +94,7 @@ impl<'a> From<GetCompletionArgType> for ArgType<'a> {
 
 /// A simple wrapper for [`ast::Call`] which contains additional context about completion.
 /// It's used in plugin side.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct DynamicCompletionCall {
     /// the real call, which is generated during parse time.
     pub call: ast::Call,
@@ -101,7 +115,7 @@ impl From<&DynamicCompletionCallRef<'_>> for DynamicCompletionCall {
 }
 
 /// Information about `get_dynamic_completion` of a plugin call invocation.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct GetCompletionInfo {
     /// The name of the command to be run.
     pub name: String,
@@ -128,7 +142,7 @@ impl<D> CallInfo<D> {
 /// The initial (and perhaps only) part of any [`nu_protocol::PipelineData`] sent over the wire.
 ///
 /// This may contain a single value, or may initiate a stream with a [`StreamId`].
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum PipelineDataHeader {
     /// No input
     Empty,
@@ -169,7 +183,7 @@ impl PipelineDataHeader {
 }
 
 /// Additional information about list (value) streams
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct ListStreamInfo {
     pub id: StreamId,
     pub span: Span,
@@ -188,11 +202,10 @@ impl ListStreamInfo {
 }
 
 /// Additional information about byte streams
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct ByteStreamInfo {
     pub id: StreamId,
     pub span: Span,
-    #[serde(rename = "type")]
     pub type_: ByteStreamType,
     pub metadata: Option<PipelineMetadata>,
 }
@@ -210,7 +223,7 @@ impl ByteStreamInfo {
 }
 
 /// Calls that a plugin can execute. The type parameter determines the input type.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub enum PluginCall<D> {
     Metadata,
     Signature,
@@ -250,7 +263,7 @@ impl<D> PluginCall<D> {
 }
 
 /// Operations supported for custom values.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub enum CustomValueOp {
     /// [`to_base_value()`](nu_protocol::CustomValue::to_base_value)
     ToBaseValue,
@@ -295,7 +308,7 @@ impl CustomValueOp {
 }
 
 /// Any data sent to the plugin
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub enum PluginInput {
     /// This must be the first message. Indicates supported protocol
     Hello(ProtocolInfo),
@@ -346,7 +359,7 @@ impl From<StreamMessage> for PluginInput {
 }
 
 /// A single item of stream data for a stream.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub enum StreamData {
     List(Value),
     Raw(Result<Vec<u8>, LabeledError>),
@@ -405,7 +418,7 @@ impl TryFrom<StreamData> for Result<Vec<u8>, ShellError> {
 }
 
 /// A stream control or data message.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub enum StreamMessage {
     /// Append data to the stream. Sent by the stream producer.
     Data(StreamId, StreamData),
@@ -420,7 +433,7 @@ pub enum StreamMessage {
 }
 
 /// Response to a [`PluginCall`]. The type parameter determines the output type for pipeline data.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub enum PluginCallResponse<D> {
     Ok,
     Error(ShellError),
@@ -479,7 +492,7 @@ impl PluginCallResponse<PipelineData> {
 }
 
 /// Options that can be changed to affect how the engine treats the plugin
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub enum PluginOption {
     /// Send `GcDisabled(true)` to stop the plugin from being automatically garbage collected, or
     /// `GcDisabled(false)` to enable it again.
@@ -489,7 +502,7 @@ pub enum PluginOption {
 }
 
 /// This is just a serializable version of [`std::cmp::Ordering`], and can be converted 1:1
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Ordering {
     Less,
     Equal,
@@ -517,7 +530,7 @@ impl From<Ordering> for std::cmp::Ordering {
 }
 
 /// Information received from the plugin
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub enum PluginOutput {
     /// This must be the first message. Indicates supported protocol
     Hello(ProtocolInfo),
@@ -573,7 +586,7 @@ impl From<StreamMessage> for PluginOutput {
 /// A remote call back to the engine during the plugin's execution.
 ///
 /// The type parameter determines the input type, for calls that take pipeline data.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub enum EngineCall<D> {
     /// Get the full engine configuration
     GetConfig,
@@ -701,7 +714,7 @@ impl<D> EngineCall<D> {
 
 /// The response to an [`EngineCall`]. The type parameter determines the output type for pipeline
 /// data.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub enum EngineCallResponse<D> {
     Error(ShellError),
     PipelineData(D),

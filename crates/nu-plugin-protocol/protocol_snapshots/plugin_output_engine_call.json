@@ -1,0 +1,9 @@
+{
+  "EngineCall": {
+    "context": 3,
+    "id": 4,
+    "call": {
+      "GetEnvVar": "PWD"
+    }
+  }
+}

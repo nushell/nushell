@@ -478,8 +478,8 @@ impl InterfaceManager for PluginInterfaceManager {
                 } else {
                     Err(ShellError::PluginFailedToLoad {
                         msg: format!(
-                            "Plugin `{}` is compiled for nushell version {}, \
-                                which is not compatible with version {}",
+                            "Plugin `{}` speaks plugin protocol {}, \
+                                which is not compatible with this engine's protocol {}",
                             self.state.source.name(),
                             info.version,
                             local_info.version,

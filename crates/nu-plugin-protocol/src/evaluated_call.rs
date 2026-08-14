@@ -4,7 +4,6 @@ use nu_protocol::{
     engine::{Call, CallImpl, EngineState, Stack},
     ir,
 };
-use serde::{Deserialize, Serialize};
 
 /// A representation of the plugin's invocation command including command line args
 ///
@@ -17,7 +16,7 @@ use serde::{Deserialize, Serialize};
 /// access to the Stack and the EngineState the way a built in command might. For that
 /// reason, before encoding the message to the plugin all the arguments to the original
 /// call (which are expressions) are evaluated and passed to Values
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct EvaluatedCall {
     /// Span of the command invocation
     pub head: Span,
