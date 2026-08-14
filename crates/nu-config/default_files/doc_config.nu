@@ -1119,6 +1119,12 @@ $env.config.color_config.search_result = {bg: "red", fg: "default"}
 # Default: { attr: r } (reverse video)
 $env.config.color_config.selection = {attr: "r"}
 
+# color_config.selection_cursor: Style for the cell under the cursor inside a
+# visual selection, useful when the selection style would otherwise hide the
+# terminal cursor (e.g. a reverse selection under a reverse-rendering cursor).
+# Unset by default: the cell keeps the plain selection style.
+# $env.config.color_config.selection_cursor = {bg: "white", fg: "black"}
+
 # color_config.header: Style for table column headers.
 # Default: green_bold
 $env.config.color_config.header = "green_bold"

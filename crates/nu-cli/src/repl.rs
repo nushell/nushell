@@ -677,6 +677,14 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     line_editor = line_editor.with_visual_selection_style(
         style_computer.compute("selection", &Value::nothing(Span::unknown())),
     );
+    // Opt-in: unset means the cell under the cursor keeps the plain selection
+    // style, so presence has to be checked rather than computed, since
+    // `compute` folds a missing key into the default style.
+    if config.color_config.contains_key("selection_cursor") {
+        line_editor = line_editor.with_visual_selection_cursor_style(
+            style_computer.compute("selection_cursor", &Value::nothing(Span::unknown())),
+        );
+    }
     line_editor = if config.use_ansi_coloring.get(engine_state) && config.show_hints {
         // As of Nov 2022, "hints" color_config closures only get `null` passed in.
         // No meaningful span — this is a synthetic null value for style computation.
