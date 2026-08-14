@@ -356,6 +356,95 @@ fn load_env_variable_arg() -> Result {
 }
 
 #[test]
+fn load_env_converts_string_variables() -> Result {
+    let code = r#"
+        $env.ENV_CONVERSIONS = { TESTENVVAR: { from_string: { split row ":" } } }
+        load-env --convert { TESTENVVAR: "hello:world", UNCONVERTED: "plain" }
+        [$env.TESTENVVAR, $env.UNCONVERTED]
+    "#;
+
+    test().run(code).expect_value_eq(Value::test_list(vec![
+        Value::test_list(vec![
+            Value::test_string("hello"),
+            Value::test_string("world"),
+        ]),
+        Value::test_string("plain"),
+    ]))
+}
+
+#[test]
+fn load_env_convert_normalizes_path() -> Result {
+    let separator = if cfg!(windows) { ";" } else { ":" };
+    let code = format!("load-env --convert {{ pAtH: 'first{separator}second' }}; $env.PATH");
+
+    test().run(code).expect_value_eq(["first", "second"])
+}
+
+#[test]
+fn load_env_convert_pipeline_preserves_non_strings_and_null() -> Result {
+    let code = "
+        { NUMBER: 42, FLAG: true, NULL_VALUE: null } | load-env --convert
+        [($env.NUMBER == 42), ($env.FLAG == true), ($env.NULL_VALUE | describe)]
+    ";
+
+    test().run(code).expect_value_eq(Value::test_list(vec![
+        Value::test_bool(true),
+        Value::test_bool(true),
+        Value::test_string("nothing"),
+    ]))
+}
+
+#[test]
+fn load_env_convert_rejects_invalid_conversion() -> Result {
+    let code = r#"
+        $env.ENV_CONVERSIONS = { TESTENVVAR: { from_string: "not a closure" } }
+        load-env --convert { TESTENVVAR: "hello" }
+    "#;
+
+    test()
+        .run(code)
+        .expect_error_code_eq("nu::shell::cant_convert")
+}
+
+#[test]
+fn load_env_convert_propagates_conversion_closure_errors() -> Result {
+    let code = r#"
+        $env.ENV_CONVERSIONS = {
+            TESTENVVAR: { from_string: { error make { msg: "conversion failed" } } }
+        }
+        load-env --convert { TESTENVVAR: "hello" }
+    "#;
+
+    let error = test().run(code).expect_error()?;
+    assert_contains("conversion failed", error.to_string());
+    Ok(())
+}
+
+#[test]
+fn load_env_conversions_can_read_other_imported_variables() -> Result {
+    let code = r#"
+        $env.ENV_CONVERSIONS = {
+            TESTENVVAR: { from_string: { $"($env.PREFIX):($in)" } }
+        }
+        load-env --convert { TESTENVVAR: "value", PREFIX: "prefix" }
+        $env.TESTENVVAR
+    "#;
+
+    test().run(code).expect_value_eq("prefix:value")
+}
+
+#[test]
+fn load_env_without_convert_leaves_strings_unchanged() -> Result {
+    let code = r#"
+        $env.ENV_CONVERSIONS = { TESTENVVAR: { from_string: { split row ":" } } }
+        load-env { TESTENVVAR: "hello:world" }
+        $env.TESTENVVAR
+    "#;
+
+    test().run(code).expect_value_eq("hello:world")
+}
+
+#[test]
 fn load_env_doesnt_leak() -> Result {
     let err = test()
         .run(r#"do { echo { name: xyz, value: "my message" } | load-env }; $env.xyz"#)
