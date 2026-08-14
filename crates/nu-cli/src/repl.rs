@@ -500,7 +500,7 @@ fn run_command(ctx: RunContext) -> Reedline {
         Value::string(format!("{}", cmd_duration.as_millis()), Span::unknown()),
     );
 
-    // Snapshot `$ans.exit_code` / `$ans.duration` / `$ans.cli` after duration is
+    // Snapshot `$ans.exit_code` / `$ans.duration` / `$ans.command` after duration is
     // known (and after eval may have stored `$ans.last`). `command` is the same
     // reedline buffer history stores. Always records metadata for the user line;
     // when max_last_result_size is 0, also omits `.last`.

@@ -6,8 +6,8 @@
 //! `Result` returns, structured value asserts, and no `nu!`.
 //!
 //! When payload capture is enabled (`max_last_result_size > 0`), `$ans` is a record
-//! `{ last, exit_code, duration, cli }`. With size `0`, `$ans` is
-//! `{ exit_code, duration, cli }` (no `last` field). `cli` is the exact last REPL
+//! `{ last, exit_code, duration, command }`. With size `0`, `$ans` is
+//! `{ exit_code, duration, command }` (no `last` field). `command` is the exact last REPL
 //! source (same text reedline stores in history). Payload checks use the `last`
 //! field; bare `$ans` / `$ans.*` cell-paths must not clobber `.last`.
 
@@ -27,7 +27,7 @@ use std::time::Duration;
 struct Interactive {
     engine_state: EngineState,
     stack: Stack,
-    /// Last `run()` source, used by [`Self::snapshot_metadata`] as `$ans.cli`.
+    /// Last `run()` source, used by [`Self::snapshot_metadata`] as `$ans.command`.
     last_source: String,
 }
 
@@ -100,7 +100,7 @@ impl Interactive {
         }
     }
 
-    /// Match REPL end-of-line snapshot of exit_code / duration / cli.
+    /// Match REPL end-of-line snapshot of exit_code / duration / command.
     fn snapshot_metadata(&mut self, duration: Duration) {
         self.stack.snapshot_ans_repl_metadata(
             &self.engine_state,
@@ -109,13 +109,13 @@ impl Interactive {
         );
     }
 
-    /// `$ans.cli` (or empty string when `$ans` is unset or has no `cli` field).
-    fn last_cli(&self) -> Result<String> {
+    /// `$ans.command` (or empty string when `$ans` is unset or has no `command` field).
+    fn last_command(&self) -> Result<String> {
         let ans = self.ans_value()?;
         match ans {
             Value::Nothing { .. } => Ok(String::new()),
             Value::Record { .. } => Ok(ans
-                .get_data_by_key("cli")
+                .get_data_by_key("command")
                 .and_then(|v| v.as_str().ok().map(str::to_string))
                 .unwrap_or_default()),
             other => panic!("expected $ans record or nothing, got {other:?}"),
@@ -257,7 +257,7 @@ fn zero_budget_disables_last_payload_only() -> Result {
         Value::test_duration(10_000_000)
     );
     assert_eq!(
-        ans.get_data_by_key("cli").expect("cli"),
+        ans.get_data_by_key("command").expect("command"),
         Value::test_string("123")
     );
     assert_eq!(session.last_payload()?, Value::test_nothing());
@@ -634,7 +634,7 @@ fn snapshot_ans_repl_metadata_sets_exit_code_and_duration() -> Result {
         Value::test_duration(25_000_000) // 25ms in nanoseconds
     );
     assert_eq!(
-        ans.get_data_by_key("cli").expect("cli"),
+        ans.get_data_by_key("command").expect("command"),
         Value::test_string("42")
     );
     Ok(())
@@ -672,7 +672,7 @@ fn snapshot_with_zero_budget_drops_last_keeps_metadata() -> Result {
         Value::test_duration(5_000_000)
     );
     assert_eq!(
-        ans.get_data_by_key("cli").expect("cli"),
+        ans.get_data_by_key("command").expect("command"),
         Value::test_string("1")
     );
     // Payload memory must be gone.
@@ -727,7 +727,7 @@ fn default_zero_budget_means_no_last_field() -> Result {
         "ls must not populate last when budget is 0, got {ans:?}"
     );
     assert_eq!(
-        ans.get_data_by_key("cli").expect("cli"),
+        ans.get_data_by_key("command").expect("command"),
         Value::test_string("ls")
     );
     assert_eq!(session.stack.last_result_memory_size(), 0);
@@ -758,51 +758,51 @@ fn ans_via_source_after_ls() -> Result {
 }
 
 #[test]
-fn cli_records_single_command_source() -> Result {
+fn command_records_single_command_source() -> Result {
     let mut session = Interactive::new();
     session.run("1 + 2");
     session.snapshot_metadata(Duration::from_millis(1));
     assert_eq!(session.last_payload()?, Value::test_int(3));
-    assert_eq!(session.last_cli()?, "1 + 2");
+    assert_eq!(session.last_command()?, "1 + 2");
     Ok(())
 }
 
 #[test]
-fn cli_preserves_multiline_pipeline() -> Result {
+fn command_preserves_multiline_pipeline() -> Result {
     let mut session = Interactive::new();
     let code = "ls\n    | where type == file";
     session.run(code);
     session.snapshot_metadata(Duration::from_millis(1));
-    assert_eq!(session.last_cli()?, code);
+    assert_eq!(session.last_command()?, code);
     Ok(())
 }
 
 #[test]
-fn cli_updates_on_runtime_error_without_clobbering_last() -> Result {
+fn command_updates_on_runtime_error_without_clobbering_last() -> Result {
     let mut session = Interactive::new();
     session.run("99");
     session.snapshot_metadata(Duration::from_millis(1));
     session.run("error make {msg: boom}");
     session.snapshot_metadata(Duration::from_millis(1));
     assert_eq!(session.last_payload()?, Value::test_int(99));
-    assert_eq!(session.last_cli()?, "error make {msg: boom}");
+    assert_eq!(session.last_command()?, "error make {msg: boom}");
     Ok(())
 }
 
 #[test]
-fn cli_updates_on_parse_error() -> Result {
+fn command_updates_on_parse_error() -> Result {
     let mut session = Interactive::new();
     session.run("1 + 2");
     session.snapshot_metadata(Duration::from_millis(1));
     session.run("let");
     session.snapshot_metadata(Duration::from_millis(1));
     assert_eq!(session.last_payload()?, Value::test_int(3));
-    assert_eq!(session.last_cli()?, "let");
+    assert_eq!(session.last_command()?, "let");
     Ok(())
 }
 
 #[test]
-fn cli_updates_on_bare_ans_without_clobbering_last() -> Result {
+fn command_updates_on_bare_ans_without_clobbering_last() -> Result {
     let mut session = Interactive::new();
     session.run("[1 2 3]");
     session.snapshot_metadata(Duration::from_millis(1));
@@ -816,12 +816,12 @@ fn cli_updates_on_bare_ans_without_clobbering_last() -> Result {
             Value::test_int(3),
         ])
     );
-    assert_eq!(session.last_cli()?, last_var());
+    assert_eq!(session.last_command()?, last_var());
     Ok(())
 }
 
 #[test]
-fn cli_updates_when_transforming_last() -> Result {
+fn command_updates_when_transforming_last() -> Result {
     let mut session = Interactive::new();
     session.run("[10 20 30]");
     session.snapshot_metadata(Duration::from_millis(1));
@@ -829,6 +829,6 @@ fn cli_updates_when_transforming_last() -> Result {
     session.run(&transform);
     session.snapshot_metadata(Duration::from_millis(1));
     assert_eq!(session.last_payload()?, Value::test_int(10));
-    assert_eq!(session.last_cli()?, transform);
+    assert_eq!(session.last_command()?, transform);
     Ok(())
 }

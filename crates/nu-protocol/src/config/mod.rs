@@ -91,8 +91,8 @@ pub struct Config {
     /// Measured with [`Value::memory_size`]. Default is `0` (no `.last` payload; opt-in).
     /// Oversized results are truncated to fit this budget. The variable name itself is a code
     /// constant (`LAST_RESULT_VAR_NAME`), not a config option. With a positive budget, `$ans`
-    /// is `{ last, exit_code, duration, cli }`. With `0`, `$ans` still has `exit_code`,
-    /// `duration`, and `cli` but omits `last` entirely.
+    /// is `{ last, exit_code, duration, command }`. With `0`, `$ans` still has `exit_code`,
+    /// `duration`, and `command` but omits `last` entirely.
     pub max_last_result_size: Filesize,
     /// Configuration for plugins.
     ///

@@ -228,7 +228,7 @@ fn truncate_binary(val: Vec<u8>, budget: usize, span: Span) -> (Value, bool) {
 }
 
 /// Returns true when `block` is only a reference to the last-result variable or a
-/// cell-path rooted at it (e.g. `$ans`, `$ans.last`, `$ans.exit_code`, `$ans.cli`),
+/// cell-path rooted at it (e.g. `$ans`, `$ans.last`, `$ans.exit_code`, `$ans.command`),
 /// optionally wrapped in parentheses / a single-element pipeline.
 ///
 /// Such expressions must not overwrite `$ans.last` when re-evaluated.

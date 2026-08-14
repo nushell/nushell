@@ -25,7 +25,7 @@ use std::{
 /// payload and can clear `warn_pending` without mutating an immutable parent frame.
 ///
 /// When [`Self::present`] is true, reading `$ans` yields a record with
-/// `exit_code`, `duration`, and `cli`. The `last` field is included only when a
+/// `exit_code`, `duration`, and `command`. The `last` field is included only when a
 /// payload is stored. When false (never snapshotted after a user command), `$ans`
 /// is `nothing`.
 #[derive(Debug, Default)]
@@ -42,7 +42,7 @@ struct LastResultSlot {
     /// Duration of the last REPL line in nanoseconds (Nushell `Duration` value).
     duration_ns: i64,
     /// Exact REPL source of the last user line (same buffer reedline stores in history).
-    cli: String,
+    command: String,
     /// Set when a store was truncated; moved to `warn_deferred` on first access.
     warn_pending: bool,
     /// Set when `$ans` was accessed after a truncated store; reported after output prints.
@@ -287,8 +287,8 @@ impl Stack {
     /// Build the `$ans` record when the slot is present; otherwise `None` (→ `nothing`).
     ///
     /// Omits the `last` field entirely when no payload is stored (e.g. budget is `0`),
-    /// so `$ans` is `{ exit_code, duration, cli }` only. `cli` is always included once
-    /// the slot is present.
+    /// so `$ans` is `{ exit_code, duration, command }` only. `command` is always included
+    /// once the slot is present.
     fn assemble_ans_record(&self, span: Span) -> Option<Value> {
         self.with_last_result_slot(|slot| {
             if !slot.present {
@@ -300,7 +300,7 @@ impl Stack {
                         "last" => last.clone().with_span(span),
                         "exit_code" => Value::int(slot.exit_code, span),
                         "duration" => Value::duration(slot.duration_ns, span),
-                        "cli" => Value::string(slot.cli.clone(), span),
+                        "command" => Value::string(slot.command.clone(), span),
                     },
                     span,
                 ),
@@ -308,7 +308,7 @@ impl Stack {
                     record! {
                         "exit_code" => Value::int(slot.exit_code, span),
                         "duration" => Value::duration(slot.duration_ns, span),
-                        "cli" => Value::string(slot.cli.clone(), span),
+                        "command" => Value::string(slot.command.clone(), span),
                     },
                     span,
                 ),
@@ -328,7 +328,7 @@ impl Stack {
 
     /// Drop only `$ans.last` and its metadata/truncation flags, freeing payload memory.
     ///
-    /// Leaves `present`, `exit_code`, `duration`, and `cli` unchanged so a budget of
+    /// Leaves `present`, `exit_code`, `duration`, and `command` unchanged so a budget of
     /// `0` can still expose timing/exit status/source without retaining the pipeline value.
     pub fn clear_last_result_payload(&mut self) {
         self.with_last_result_slot_mut(|slot| {
@@ -345,7 +345,7 @@ impl Stack {
     /// Store `value` as `$ans.last`, enforcing `budget` via truncation.
     ///
     /// When `budget == 0`, payload capture is disabled (clears `.last` only; exit code,
-    /// duration, and `cli` stay). Preserves pipeline `metadata` (e.g. `path_columns` used for
+    /// duration, and `command` stay). Preserves pipeline `metadata` (e.g. `path_columns` used for
     /// `ls` coloring) so replaying `$ans.last` can match the original display.
     pub fn set_last_result(
         &mut self,
@@ -364,7 +364,7 @@ impl Stack {
 
     /// Install an already-budgeted `$ans.last` value (caller handled truncation).
     ///
-    /// Marks `$ans` present. Does not reset `exit_code` / `duration` / `cli` (those are
+    /// Marks `$ans` present. Does not reset `exit_code` / `duration` / `command` (those are
     /// updated by [`Self::snapshot_ans_repl_metadata`] at end of each REPL line).
     pub fn store_last_result_raw(
         &mut self,
@@ -386,19 +386,19 @@ impl Stack {
     }
 
     /// After a REPL user command finishes: refresh `$ans.exit_code`, `$ans.duration`,
-    /// and `$ans.cli`.
+    /// and `$ans.command`.
     ///
-    /// `cli` is the exact reedline buffer for this line (same text history stores as
-    /// `command`). Always marks `$ans` present so every user-typed line gets exit code,
-    /// duration, and source (empty Enter / auto-cd do not call this). When `budget == 0`,
-    /// also drops `$ans.last` (and its memory) so the record is `{ exit_code, duration, cli }`
+    /// `command` is the exact reedline buffer for this line (same text history stores).
+    /// Always marks `$ans` present so every user-typed line gets exit code, duration,
+    /// and source (empty Enter / auto-cd do not call this). When `budget == 0`, also
+    /// drops `$ans.last` (and its memory) so the record is `{ exit_code, duration, command }`
     /// without a `last` field. When budget is positive, any `.last` already stored this
     /// line (or earlier) is kept.
     pub fn snapshot_ans_repl_metadata(
         &mut self,
         engine_state: &EngineState,
         duration: std::time::Duration,
-        cli: impl Into<String>,
+        command: impl Into<String>,
     ) {
         let budget = self.get_config(engine_state).max_last_result_size_bytes();
         let exit_code = self
@@ -406,7 +406,7 @@ impl Stack {
             .and_then(|v| v.as_int().ok())
             .unwrap_or(0);
         let duration_ns = i64::try_from(duration.as_nanos()).unwrap_or(i64::MAX);
-        let cli = cli.into();
+        let command = command.into();
 
         if budget == 0 {
             // Payload off: free `.last` memory before refreshing metadata.
@@ -416,7 +416,7 @@ impl Stack {
         self.with_last_result_slot_mut(|slot| {
             slot.exit_code = exit_code;
             slot.duration_ns = duration_ns;
-            slot.cli = cli;
+            slot.command = command;
             slot.present = true;
         });
     }
