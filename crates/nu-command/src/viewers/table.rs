@@ -481,23 +481,15 @@ fn handle_table_command(mut input: CmdInput<'_>) -> ShellResult<PipelineData> {
             // instead of stdout.
             Err(*error)
         }
-        PipelineData::Value(value @ Value::Custom { .. }, metadata) => {
-            // Expand structured custom values (records/lists) into native table
-            // shapes. Keep primitive customs (e.g. semver) as Custom so
-            // type-specific color_config keys still apply via style_primitive.
-            let base = value.as_custom_value()?.to_base_value(span)?;
-            match base {
-                Value::Record { .. } | Value::List { .. } => {
-                    let base_pipeline = base.into_pipeline_data_with_metadata(metadata);
-                    Table.run(input.engine_state, input.stack, input.call, base_pipeline)
-                }
-                _ => {
-                    let signals = input.engine_state.signals().clone();
-                    let stream = ListStream::new(std::iter::once(value), span, signals);
-                    input.data = PipelineData::empty();
-                    handle_row_stream(input, stream, metadata)
-                }
-            }
+        PipelineData::Value(Value::Custom { val, .. }, metadata) => {
+            // Always collapse a top-level custom so primitive customs (semver,
+            // etc.) print as scalars, matching filesize/duration. Structured
+            // customs become native records/lists. Cell coloring for customs
+            // inside lists/tables is handled in build_table_batch.
+            let base_pipeline = val
+                .to_base_value(span)?
+                .into_pipeline_data_with_metadata(metadata);
+            Table.run(input.engine_state, input.stack, input.call, base_pipeline)
         }
         PipelineData::Value(Value::Range { val, .. }, metadata) => {
             let signals = input.engine_state.signals().clone();
