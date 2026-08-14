@@ -69,6 +69,7 @@ impl Highlighter for NuHighlighter {
             Some(c) => (c.global_span_offset, Arc::clone(&c.shapes)),
             None => {
                 let mut working_set = StateWorkingSet::new(&self.engine_state);
+                working_set.skip_module_load = true;
                 let block = parse(&mut working_set, None, line.as_bytes(), false);
                 (
                     self.engine_state.next_span_start(),
@@ -114,6 +115,8 @@ pub(crate) fn highlight_syntax(
     let config = stack.get_config(engine_state);
     let highlight_resolved_externals = config.highlight_resolved_externals;
     let mut working_set = StateWorkingSet::new(engine_state);
+    // Color `use` without parse-time-loading modules (the `d` hitch on `use std`).
+    working_set.skip_module_load = true;
     let block = parse(&mut working_set, None, line.as_bytes(), false);
     // TODO: Traverse::flat_map based highlighting?
     let shapes = flatten_block(&working_set, &block);

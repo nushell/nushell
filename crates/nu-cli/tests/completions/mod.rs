@@ -1100,6 +1100,15 @@ fn dotnu_stdlib_completions() {
     let completion_str = "use \"std";
     let suggestions = completer.complete_blocking(completion_str, completion_str.len());
     match_suggestions(&vec!["std", "std-rfc"], &suggestions);
+
+    // Trailing `/` lists virtual children without walking cwd (the `/` hitch).
+    let completion_str = "use std/";
+    let suggestions = completer.complete_blocking(completion_str, completion_str.len());
+    let values: Vec<&str> = suggestions.iter().map(|s| s.value.as_str()).collect();
+    assert!(
+        values.contains(&"std/iter") && values.contains(&"std/assert"),
+        "expected virtual std/ children, got {values:?}"
+    );
 }
 
 #[test]
