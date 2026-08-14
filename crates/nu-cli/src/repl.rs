@@ -638,7 +638,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         .with_validator(Box::new(NuValidator {
             engine_state: engine_reference.clone(),
         }))
-        .with_completer(Box::new(NuCompleter::with_cache(
+        .with_completer(Box::new(NuCompleter::for_repl(
             engine_reference.clone(),
             // STACK-REFERENCE 2
             stack_arc.clone(),
