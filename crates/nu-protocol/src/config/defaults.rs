@@ -218,9 +218,7 @@ pub fn default_menus() -> Vec<ParsedMenu> {
 ///
 /// The helix tables are named unconditionally, like `cursor_shape.helix_*`: a
 /// build without the `helix` feature has no table to bind them into and skips
-/// them when the keybindings are applied. `helix_select` is absent because
-/// reedline shares one table between helix normal and select mode, so
-/// `helix_normal` already covers both.
+/// them when the keybindings are applied.
 fn all_modes() -> Value {
     Value::list(
         vec![
@@ -228,6 +226,7 @@ fn all_modes() -> Value {
             str("vi_normal"),
             str("vi_insert"),
             str("helix_normal"),
+            str("helix_select"),
             str("helix_insert"),
         ],
         span(),
