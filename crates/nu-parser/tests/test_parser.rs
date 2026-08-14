@@ -1533,6 +1533,22 @@ pub fn test_external_call_arg_interpolated_string(
     })
 }
 
+#[rstest]
+#[case(r#"^foo {|my_var| $"($my_var)" }"#)]
+#[case(r#"^foo { |my_var| $"($my_var)" }"#)]
+fn test_external_call_arg_closure(#[case] input: &str) {
+    test_external_call(input, "closure argument", |_, args| {
+        assert_eq!(1, args.len());
+        assert!(matches!(
+            &args[0],
+            ExternalArgument::Regular(Expression {
+                expr: Expr::Closure(_),
+                ..
+            })
+        ));
+    })
+}
+
 #[test]
 fn test_external_call_argument_spread() {
     let input = "^foo ...[a b c]";

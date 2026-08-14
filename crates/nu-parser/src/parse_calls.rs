@@ -367,6 +367,14 @@ pub(crate) fn parse_regular_external_arg(
         [b'$', ..] => crate::parser::parse_dollar_expr(working_set, span, &SyntaxShape::Any, None),
         [b'(', ..] => crate::parser::parse_paren_expr(working_set, span, &SyntaxShape::Any),
         [b'[', ..] => crate::parser::parse_list_expression(working_set, span, &SyntaxShape::Any),
+        contents @ [b'{', ..] if contents[1..].trim_ascii_start().starts_with(b"|") => {
+            crate::parse_expressions::parse_closure_expression(
+                working_set,
+                &SyntaxShape::Any,
+                span,
+                None,
+            )
+        }
         _ => parse_external_string(working_set, span),
     }
 }
