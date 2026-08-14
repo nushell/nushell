@@ -60,39 +60,8 @@ pub fn convert_env_vars(
             stack.add_env_var(key.to_string(), new_val);
         }
     }
-    Ok(())
-}
 
-/// Convert a string environment variable with its configured `from_string` closure.
-///
-/// `PATH` receives the same built-in normalization used during Nushell startup when no custom
-/// conversion turns it into a valid list.
-pub fn convert_env_var(
-    stack: &mut Stack,
-    engine_state: &EngineState,
-    name: &str,
-) -> Result<(), ShellError> {
-    let Some(value) = stack.get_env_var(engine_state, name) else {
-        return Ok(());
-    };
-
-    if !matches!(value, Value::String { .. }) {
-        return Ok(());
-    }
-
-    match get_converted_value(engine_state, stack, name, value, "from_string") {
-        Ok(value) => stack.add_env_var(name.to_string(), value),
-        Err(ConversionError::ShellError(error)) => return Err(error),
-        Err(ConversionError::CellPathError) => {}
-    }
-
-    if name.eq_ignore_ascii_case("path")
-        && let Some(error) = ensure_path(engine_state, stack)
-    {
-        return Err(error);
-    }
-
-    Ok(())
+    ensure_path(engine_state, stack).map_or(Ok(()), Err)
 }
 
 /// Translate environment variables from Strings to Values. Requires config to be already set up in
@@ -333,17 +302,11 @@ fn get_converted_value(
     orig_val: &Value,
     direction: &str,
 ) -> Result<Value, ConversionError> {
-    let conversions = stack
+    let conversion = stack
         .get_env_var(engine_state, ENV_CONVERSIONS)
         .ok_or(ConversionError::CellPathError)?
-        .as_record()?;
-    let conversion = conversions
+        .as_record()?
         .get(name)
-        .or_else(|| {
-            conversions
-                .iter()
-                .find_map(|(key, value)| key.eq_ignore_ascii_case(name).then_some(value))
-        })
         .ok_or(ConversionError::CellPathError)?
         .as_record()?
         .get(direction)
