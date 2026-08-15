@@ -29,6 +29,12 @@ pub enum MatchAlgorithm {
     /// Example:
     /// "git checkout" is matched by "gco"
     Fuzzy,
+    /// Shows prefix matches when any exist; otherwise falls back to fuzzy matches.
+    ///
+    /// Examples:
+    /// - "git sw" matches "git switch" by prefix.
+    /// - "gco" matches "git checkout" by fuzzy matching when no prefix matches exist.
+    Fallback,
 }
 
 pub struct NuMatcher<'a, T> {
@@ -44,6 +50,12 @@ enum State<T> {
         matcher: Matcher,
         atom: Atom,
         matches: Vec<FuzzyMatch<T>>,
+    },
+    Fallback {
+        matcher: Matcher,
+        atom: Atom,
+        prefix_matches: Vec<UnscoredMatch<T>>,
+        fuzzy_matches: Vec<FuzzyMatch<T>>,
     },
 }
 
@@ -78,7 +90,7 @@ impl<T> NuMatcher<'_, T> {
         let needle = needle.as_ref().trim_matches(QUOTES);
         match options.match_algorithm {
             MatchAlgorithm::Prefix | MatchAlgorithm::Substring => {
-                let lowercase_needle = if options.case_sensitive {
+                let needle = if options.case_sensitive {
                     needle.to_owned()
                 } else {
                     needle.to_folded_case()
@@ -86,7 +98,7 @@ impl<T> NuMatcher<'_, T> {
                 NuMatcher {
                     options,
                     should_sort,
-                    needle: lowercase_needle,
+                    needle,
                     state: State::Unscored(Vec::new()),
                 }
             }
@@ -114,6 +126,35 @@ impl<T> NuMatcher<'_, T> {
                         }),
                         atom,
                         matches: Vec::new(),
+                    },
+                }
+            }
+            MatchAlgorithm::Fallback => {
+                let atom = Atom::new(
+                    needle,
+                    if options.case_sensitive {
+                        CaseMatching::Respect
+                    } else {
+                        CaseMatching::Ignore
+                    },
+                    Normalization::Smart,
+                    AtomKind::Fuzzy,
+                    false,
+                );
+                let needle = if options.case_sensitive {
+                    needle.to_owned()
+                } else {
+                    needle.to_folded_case()
+                };
+                NuMatcher {
+                    options,
+                    should_sort,
+                    needle,
+                    state: State::Fallback {
+                        matcher: Matcher::new(Config::DEFAULT),
+                        atom,
+                        prefix_matches: Vec::new(),
+                        fuzzy_matches: Vec::new(),
                     },
                 }
             }
@@ -187,6 +228,66 @@ impl<T> NuMatcher<'_, T> {
                 }
                 Some(indices)
             }
+            State::Fallback {
+                matcher,
+                atom,
+                prefix_matches,
+                fuzzy_matches,
+            } => {
+                // prefix
+                let haystack_folded = if self.options.case_sensitive {
+                    Cow::Borrowed(haystack)
+                } else {
+                    Cow::Owned(haystack.to_folded_case())
+                };
+                let match_start = match self.options.match_algorithm {
+                    MatchAlgorithm::Prefix => {
+                        if haystack_folded.starts_with(self.needle.as_str()) {
+                            Some(0)
+                        } else {
+                            None
+                        }
+                    }
+                    MatchAlgorithm::Substring => haystack_folded.find(self.needle.as_str()),
+                    _ => unreachable!("Only prefix and substring algorithms don't use score"),
+                };
+                if let Some(byte_start) = match_start {
+                    let grapheme_start = haystack_folded[0..byte_start].graphemes(true).count();
+                    // TODO this doesn't account for lowercasing changing the length of the haystack
+                    let grapheme_len = self.needle.graphemes(true).count();
+                    let match_indices: Vec<usize> =
+                        (offset + grapheme_start..offset + grapheme_start + grapheme_len).collect();
+                    if let Some(item) = item {
+                        prefix_matches.push(UnscoredMatch {
+                            item,
+                            haystack: haystack.to_string(),
+                            match_indices: match_indices.clone(),
+                        });
+                    }
+                    return Some(match_indices);
+                }
+
+                // fuzzy
+                let mut haystack_buf = Vec::new();
+                let haystack_utf32 = Utf32Str::new(haystack, &mut haystack_buf);
+                let mut indices = Vec::new();
+                let score = atom.indices(haystack_utf32, matcher, &mut indices)?;
+                let indices: Vec<usize> = indices
+                    .iter()
+                    .map(|i| {
+                        offset + usize::try_from(*i).expect("should be on at least a 32-bit system")
+                    })
+                    .collect();
+                if let Some(item) = item {
+                    fuzzy_matches.push(FuzzyMatch {
+                        item,
+                        haystack: haystack.to_string(),
+                        score,
+                        match_indices: indices.clone(),
+                    });
+                }
+                Some(indices)
+            }
         }
     }
 
@@ -227,6 +328,36 @@ impl<T> NuMatcher<'_, T> {
                     matches.sort_by(|a, b| b.score.cmp(&a.score).then(a.haystack.cmp(&b.haystack)));
                 }
             },
+            State::Fallback {
+                prefix_matches,
+                fuzzy_matches,
+                ..
+            } => {
+                if prefix_matches.is_empty() {
+                    match self.options.sort {
+                        CompletionSort::Alphabetical => {
+                            fuzzy_matches.sort_by(|a, b| a.haystack.cmp(&b.haystack));
+                        }
+                        CompletionSort::Smart => {
+                            fuzzy_matches.sort_by(|a, b| {
+                                b.score.cmp(&a.score).then(a.haystack.cmp(&b.haystack))
+                            });
+                        }
+                    }
+                } else {
+                    prefix_matches.sort_by(|a, b| {
+                        let cmp_sensitive = a.haystack.cmp(&b.haystack);
+                        if self.options.case_sensitive {
+                            cmp_sensitive
+                        } else {
+                            a.haystack
+                                .to_folded_case()
+                                .cmp(&b.haystack.to_folded_case())
+                                .then(cmp_sensitive)
+                        }
+                    });
+                }
+            }
         }
     }
 
@@ -244,6 +375,23 @@ impl<T> NuMatcher<'_, T> {
                 .into_iter()
                 .map(|mat| (mat.item, mat.match_indices))
                 .collect::<Vec<_>>(),
+            State::Fallback {
+                prefix_matches,
+                fuzzy_matches,
+                ..
+            } => {
+                if prefix_matches.is_empty() {
+                    fuzzy_matches
+                        .into_iter()
+                        .map(|mat| (mat.item, mat.match_indices))
+                        .collect()
+                } else {
+                    prefix_matches
+                        .into_iter()
+                        .map(|mat| (mat.item, mat.match_indices))
+                        .collect()
+                }
+            }
         }
     }
 }
@@ -272,6 +420,7 @@ impl From<CompletionAlgorithm> for MatchAlgorithm {
             CompletionAlgorithm::Prefix => MatchAlgorithm::Prefix,
             CompletionAlgorithm::Substring => MatchAlgorithm::Substring,
             CompletionAlgorithm::Fuzzy => MatchAlgorithm::Fuzzy,
+            CompletionAlgorithm::Fallback => MatchAlgorithm::Fallback,
         }
     }
 }
