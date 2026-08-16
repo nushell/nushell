@@ -33,13 +33,15 @@ impl Command for ViewSource {
     }
 
     fn extra_description(&self) -> &str {
-        "The `def` header is rebuilt from the signature instead of being quoted from the source, so
-`export` and attributes are lost. That holds with or without `--dependencies`.
+        "The `def` header is rebuilt from the signature instead of being quoted from
+the source, so `export` and attributes are lost. That holds with or without
+`--dependencies`.
 
-`--dependencies` applies to a custom command; on an alias, a module, a closure or a block id it does
-nothing. It follows only the calls the parser can see, so a closure written inside the body is
-followed even when it is run through a variable, but one that arrives as an argument is not. And a
-command built on a large module can pull in a lot of output."
+`--dependencies` applies to a custom command; on an alias, a module, a
+closure or a block id it does nothing. It follows only the calls the parser
+can see, so a closure written inside the body is followed even when it is run
+through a variable, but one that arrives as an argument is not. And a command
+built on a large module can pull in a lot of output."
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
