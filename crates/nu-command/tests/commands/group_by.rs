@@ -217,12 +217,12 @@ fn all_nulls_record_is_empty_table_has_null_group() -> Result {
 
 #[test]
 fn multi_grouper_null_key_in_to_table() -> Result {
-    // Non-null keys are still stringified for grouping; null is preserved as nothing.
+    // --to-table keeps original key types; null is preserved as nothing.
     test()
         .run("[ { a: null, b: 1 } { a: 2, b: 1 } ] | group-by a b --to-table")
         .expect_value_eq(test_value!([
-            {a: (), b: "1", items: [{a: (), b: 1}]},
-            {a: "2", b: "1", items: [{a: 2, b: 1}]},
+            {a: (), b: 1, items: [{a: (), b: 1}]},
+            {a: 2, b: 1, items: [{a: 2, b: 1}]},
         ]))?;
 
     // Record mode drops the null branch entirely.
@@ -233,4 +233,52 @@ fn multi_grouper_null_key_in_to_table() -> Result {
                 "1": [{a: 2, b: 1}],
             },
         }))
+}
+
+#[test]
+fn to_table_preserves_filesize_keys_and_does_not_collapse_display_collisions() -> Result {
+    test()
+        .run("[[size]; [1MB] [1.001MB]] | group-by size --to-table | length")
+        .expect_value_eq(2)?;
+
+    let code = "
+        let data = [[size]; [1MB] [1.001MB]]
+        let grouped = $data | group-by size --to-table
+        $grouped.size == $data.size
+    ";
+    test().run(code).expect_value_eq(true)?;
+
+    test()
+        .run("[[size]; [1MB]] | group-by size --to-table | get 0.size | describe")
+        .expect_value_eq("filesize")?;
+
+    test()
+        .run("[[size]; [1MB] [1.001MB]] | group-by size --to-table | get 0.size | into filesize")
+        .expect_value_eq(nu_protocol::Filesize::new(1_000_000))
+}
+
+#[test]
+fn to_table_groups_equal_lists_and_keeps_list_keys() -> Result {
+    test()
+        .run("[[k v]; [a [1]] [b [1]]] | group-by v --to-table")
+        .expect_value_eq(test_value!([
+            {v: [1], items: [{k: "a", v: [1]}, {k: "b", v: [1]}]},
+        ]))
+}
+
+#[test]
+fn to_table_keeps_int_keys() -> Result {
+    test()
+        .run("[{n: 1} {n: 1} {n: 2}] | group-by n --to-table")
+        .expect_value_eq(test_value!([
+            {n: 1, items: [{n: 1}, {n: 1}]},
+            {n: 2, items: [{n: 2}]},
+        ]))
+}
+
+#[test]
+fn record_mode_still_groups_filesizes_by_display_string() -> Result {
+    test()
+        .run("[[size]; [1MB] [1.001MB]] | group-by size | columns | length")
+        .expect_value_eq(1)
 }
