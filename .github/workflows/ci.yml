@@ -64,7 +64,7 @@ jobs:
           # builds to link against a too-new-for-many-Linux-installs glibc version. Consider
           # revisiting this when 22.04 is closer to EOL (June 2027)
           - name: Ubuntu
-            host: ubuntu-22.04
+            host: incredibuild-runner
             target: x86_64-unknown-linux-gnu
             options: MAIN_OPTIONS
             steps: [fmt, clippy, build, test, doctest]
