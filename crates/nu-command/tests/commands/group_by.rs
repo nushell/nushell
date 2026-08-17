@@ -282,3 +282,33 @@ fn record_mode_still_groups_filesizes_by_display_string() -> Result {
         .run("[[size]; [1MB] [1.001MB]] | group-by size | columns | length")
         .expect_value_eq(1)
 }
+
+#[test]
+fn to_table_does_not_merge_int_and_float_ranges() -> Result {
+    // `1..3 == 1.0..3.0` is true, but --to-table groups by typed identity.
+    test()
+        .run("[1..3, 1..3, 1.0..3.0] | group-by --to-table | length")
+        .expect_value_eq(2)?;
+
+    test()
+        .run("[1..3, 1..3] | group-by --to-table | length")
+        .expect_value_eq(1)?;
+
+    test()
+        .run("[1.0..3.0, 1.0..3.0] | group-by --to-table | length")
+        .expect_value_eq(1)?;
+
+    test()
+        .run("[1..3, 1..4] | group-by --to-table | length")
+        .expect_value_eq(2)?;
+
+    test()
+        .run("[1..3] | group-by --to-table | get 0.group | describe")
+        .expect_value_eq("range")?;
+
+    let code = "
+        let grouped = [1..3, 1..3, 1.0..3.0] | group-by --to-table
+        ($grouped.items.0 | length) == 2 and ($grouped.items.1 | length) == 1
+    ";
+    test().run(code).expect_value_eq(true)
+}

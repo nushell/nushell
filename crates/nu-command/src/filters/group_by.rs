@@ -1,9 +1,12 @@
 use indexmap::IndexMap;
 use nu_engine::{ClosureEval, command_prelude::*};
 use nu_protocol::{
-    FromValue, ast::PathMember, engine::Closure, shell_error::generic::GenericError,
+    FromValue, Range, ast::PathMember, engine::Closure, shell_error::generic::GenericError,
 };
-use std::hash::{Hash, Hasher};
+use std::{
+    hash::{Hash, Hasher},
+    ops::Bound,
+};
 
 #[derive(Clone)]
 pub struct GroupBy;
@@ -399,9 +402,6 @@ fn groupers_to_column_names(groupers: &[Spanned<Grouper>]) -> Result<Vec<String>
 
 /// Internal group key. `Nothing` is distinct from the empty string so null and `""`
 /// do not collapse. Record output omits `Nothing` keys; `--to-table` emits them as null.
-///
-/// Default record output groups by display string (`Display`). `--to-table` keeps the
-/// original value and groups by typed identity (`Preserved`).
 #[derive(Debug, Clone)]
 enum GroupKey {
     Nothing,
@@ -467,7 +467,7 @@ fn hash_group_value<H: Hasher>(value: &Value, state: &mut H) {
         Value::Filesize { val, .. } => val.hash(state),
         Value::Duration { val, .. } => val.hash(state),
         Value::Date { val, .. } => val.hash(state),
-        Value::Range { val, .. } => val.to_string().hash(state),
+        Value::Range { val, .. } => hash_range(val, state),
         Value::Record { val, .. } => {
             let mut pairs: Vec<_> = val.iter().collect();
             pairs.sort_unstable_by_key(|(a, _)| *a);
@@ -513,6 +513,50 @@ fn hash_group_value<H: Hasher>(value: &Value, state: &mut H) {
     }
 }
 
+fn hash_range<H: Hasher>(range: &Range, state: &mut H) {
+    match range {
+        Range::IntRange(r) => {
+            0u8.hash(state);
+            r.start().hash(state);
+            r.step().hash(state);
+            r.end().hash(state);
+        }
+        Range::FloatRange(r) => {
+            1u8.hash(state);
+            r.start().to_bits().hash(state);
+            r.step().to_bits().hash(state);
+            match r.end() {
+                Bound::Unbounded => 0u8.hash(state),
+                Bound::Included(v) => {
+                    1u8.hash(state);
+                    v.to_bits().hash(state);
+                }
+                Bound::Excluded(v) => {
+                    2u8.hash(state);
+                    v.to_bits().hash(state);
+                }
+            }
+        }
+    }
+}
+
+fn ranges_eq(left: &Range, right: &Range) -> bool {
+    match (left, right) {
+        (Range::IntRange(a), Range::IntRange(b)) => a == b,
+        (Range::FloatRange(a), Range::FloatRange(b)) => {
+            a.start().to_bits() == b.start().to_bits()
+                && a.step().to_bits() == b.step().to_bits()
+                && match (a.end(), b.end()) {
+                    (Bound::Unbounded, Bound::Unbounded) => true,
+                    (Bound::Included(x), Bound::Included(y))
+                    | (Bound::Excluded(x), Bound::Excluded(y)) => x.to_bits() == y.to_bits(),
+                    _ => false,
+                }
+        }
+        _ => false,
+    }
+}
+
 fn group_values_eq(left: &Value, right: &Value) -> bool {
     match (left, right) {
         (Value::Bool { val: a, .. }, Value::Bool { val: b, .. }) => a == b,
@@ -534,10 +578,7 @@ fn group_values_eq(left: &Value, right: &Value) -> bool {
         (Value::Filesize { val: a, .. }, Value::Filesize { val: b, .. }) => a == b,
         (Value::Duration { val: a, .. }, Value::Duration { val: b, .. }) => a == b,
         (Value::Date { val: a, .. }, Value::Date { val: b, .. }) => a == b,
-        // Typed identity: do not use Range::eq, which treats int and float ranges as equal.
-        (Value::Range { val: a, .. }, Value::Range { val: b, .. }) => {
-            a.to_string() == b.to_string()
-        }
+        (Value::Range { val: a, .. }, Value::Range { val: b, .. }) => ranges_eq(a, b),
         (Value::Record { val: a, .. }, Value::Record { val: b, .. }) => {
             if a.len() != b.len() {
                 return false;
