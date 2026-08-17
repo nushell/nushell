@@ -79,7 +79,7 @@ jobs:
             options: MAIN_OPTIONS
             steps: [fmt, clippy, build, test, doctest]
           - name: WASM
-            host: ubuntu-22.04
+            host: incredibuild-runner
             target: wasm32-unknown-unknown
             options: WASM_OPTIONS
             steps: [build, check]
@@ -170,7 +170,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        platform: [ubuntu-22.04, macos-latest, windows-latest]
+        platform: [incredibuild-runner, macos-latest, windows-latest]
         py:
           - py
 
