@@ -203,3 +203,13 @@ fn convert_keys_are_quoted_only_when_required(#[case] input: &str, #[case] quote
     };
     Ok(())
 }
+
+#[rstest]
+#[case::raw_null("null")]
+#[case::string_null("'null'")]
+#[nu_test_support::test]
+fn null_as_non_roundtrip_value(#[case] null: &str) -> Result {
+    test()
+        .run(format!("{{|| version}} | to yaml --non-roundtrip {null}"))
+        .expect_value_eq("null\n")
+}
