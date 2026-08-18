@@ -25,7 +25,8 @@ use nu_parser::{lex, trim_quotes_str};
 use nu_protocol::shell_error::io::IoError;
 use nu_protocol::{BannerKind, ShellIntegrationConfig, shell_error};
 use nu_protocol::{
-    Config, HistoryConfig, HistoryFileFormat, PipelineData, ShellError, Span, Spanned, Value,
+    Config, HistoryConfig, HistoryFileFormat, IntoValue, PipelineData, ShellError, Span, Spanned,
+    Value,
     config::NuCursorShape,
     engine::{EngineState, Stack},
     report_shell_error,
@@ -100,6 +101,30 @@ fn build_interactive_prompt(
     NushellPrompt::shared(engine_state.prompt_state.clone())
 }
 
+fn apply_kitty_protocol_support(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    kitty_protocol_supported: bool,
+) -> std::result::Result<(), ShellError> {
+    let current_config = stack.get_config(engine_state);
+    let effective = current_config.use_kitty_protocol && kitty_protocol_supported;
+
+    if current_config.use_kitty_protocol == effective {
+        return Ok(());
+    }
+
+    let mut config = (*current_config).clone();
+    config.use_kitty_protocol = effective;
+
+    let span = stack
+        .get_env_var(engine_state, "config")
+        .map(|value| value.span())
+        .unwrap_or(Span::unknown());
+
+    stack.add_env_var("config".into(), config.into_value(span));
+    stack.update_config(engine_state)
+}
+
 /// The main REPL loop, including spinning up the prompt itself.
 pub fn evaluate_repl(
     engine_state: &mut EngineState,
@@ -150,6 +175,8 @@ pub fn evaluate_repl(
     }
 
     confirm_stdin_is_terminal()?;
+
+    let kitty_protocol_supported = reedline::kitty_protocol_available();
 
     let hostname = System::host_name();
     if shell_integration_osc2 {
@@ -239,6 +266,7 @@ pub fn evaluate_repl(
                 hostname: hostname.as_deref(),
                 is_hostcommand: &mut is_hostcommand,
                 completion_cache: current_completion_cache,
+                kitty_protocol_supported,
             });
 
             // pass the most recent version of the line_editor back
@@ -355,6 +383,7 @@ struct LoopContext<'a> {
     is_hostcommand: &'a mut bool,
     /// Completion cache carried across prompts (survives the per-prompt completer rebuild).
     completion_cache: NarrowingCache,
+    kitty_protocol_supported: bool,
 }
 
 struct RunContext<'a> {
@@ -556,6 +585,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         hostname,
         is_hostcommand,
         completion_cache,
+        kitty_protocol_supported,
     } = ctx;
 
     let mut start_time = Instant::now();
@@ -595,6 +625,12 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         report_shell_error(None, engine_state, &err);
     }
     perf!("pre-prompt hook", start_time, use_color);
+
+    if let Err(error) =
+        apply_kitty_protocol_support(engine_state, &mut stack, kitty_protocol_supported)
+    {
+        report_shell_error(None, engine_state, &error);
+    }
 
     let engine_reference = Arc::new(engine_state.clone());
     let config = stack.get_config(engine_state);
@@ -1619,6 +1655,77 @@ fn looks_like_path(orig: &str) -> bool {
         || orig.starts_with('/')
         || orig.starts_with('\\')
         || orig.ends_with(std::path::MAIN_SEPARATOR)
+}
+
+#[cfg(test)]
+mod kitty_protocol_tests {
+    use super::apply_kitty_protocol_support;
+    use nu_protocol::{
+        Config, IntoValue, Span, Value,
+        engine::{EngineState, Stack},
+    };
+
+    fn stack_with_kitty_protocol(enabled: bool) -> (EngineState, Stack) {
+        let engine_state = EngineState::new();
+        let mut stack = Stack::new();
+        let mut config = Config::default();
+        config.use_kitty_protocol = enabled;
+
+        stack.add_env_var("config".into(), config.into_value(Span::unknown()));
+        stack
+            .update_config(&engine_state)
+            .expect("config should be valid");
+
+        (engine_state, stack)
+    }
+
+    fn env_kitty_protocol(engine_state: &EngineState, stack: &Stack) -> bool {
+        let value = stack
+            .get_env_var(engine_state, "config")
+            .expect("$env.config should exist");
+
+        let Value::Record { val, .. } = value else {
+            panic!("$env.config should be a record");
+        };
+
+        val.get("use_kitty_protocol")
+            .expect("use_kitty_protocol should exist")
+            .as_bool()
+            .expect("use_kitty_protocol should be a bool")
+    }
+
+    #[test]
+    fn kitty_protocol_is_disabled_when_unsupported() {
+        let (engine_state, mut stack) = stack_with_kitty_protocol(true);
+
+        apply_kitty_protocol_support(&engine_state, &mut stack, false)
+            .expect("config update should succeed");
+
+        assert!(!stack.get_config(&engine_state).use_kitty_protocol);
+        assert!(!env_kitty_protocol(&engine_state, &stack));
+    }
+
+    #[test]
+    fn kitty_protocol_stays_enabled_when_supported() {
+        let (engine_state, mut stack) = stack_with_kitty_protocol(true);
+
+        apply_kitty_protocol_support(&engine_state, &mut stack, true)
+            .expect("config update should succeed");
+
+        assert!(stack.get_config(&engine_state).use_kitty_protocol);
+        assert!(env_kitty_protocol(&engine_state, &stack));
+    }
+
+    #[test]
+    fn kitty_protocol_explicit_opt_out_stays_disabled() {
+        let (engine_state, mut stack) = stack_with_kitty_protocol(false);
+
+        apply_kitty_protocol_support(&engine_state, &mut stack, true)
+            .expect("config update should succeed");
+
+        assert!(!stack.get_config(&engine_state).use_kitty_protocol);
+        assert!(!env_kitty_protocol(&engine_state, &stack));
+    }
 }
 
 #[cfg(test)]

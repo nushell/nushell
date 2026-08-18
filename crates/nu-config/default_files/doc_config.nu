@@ -324,7 +324,7 @@ $env.config.completions.external.completer = null
 # use_kitty_protocol (bool): Enable the Kitty keyboard enhancement protocol.
 # Supported by Kitty, WezTerm, and other terminals. Enables additional keybindings
 # (e.g., Ctrl+I and Tab can be mapped separately).
-# Default: true
+# Default: true; Nushell sets this to false at runtime when unsupported
 $env.config.use_kitty_protocol = true
 
 # shell_integration.osc2 (bool): Set terminal window/tab title to current directory and command.
