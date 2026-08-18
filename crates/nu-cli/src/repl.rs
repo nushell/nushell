@@ -212,8 +212,6 @@ pub fn evaluate_repl(
         }
     }
 
-    kitty_protocol_healthcheck(engine_state);
-
     // Setup initial engine_state and stack state
     let mut previous_engine_state = engine_state.clone();
     let mut previous_stack_arc = Arc::new(unique_stack);
@@ -1370,15 +1368,6 @@ fn setup_keybindings(engine_state: &EngineState, line_editor: Reedline) -> Reedl
             report_shell_error(None, engine_state, &e);
             line_editor
         }
-    }
-}
-
-///
-/// Make sure that the terminal supports the kitty protocol if the config is asking for it
-///
-fn kitty_protocol_healthcheck(engine_state: &EngineState) {
-    if engine_state.get_config().use_kitty_protocol && !reedline::kitty_protocol_available() {
-        warn!("Terminal doesn't support use_kitty_protocol config");
     }
 }
 

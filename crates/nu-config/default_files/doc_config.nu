@@ -324,8 +324,8 @@ $env.config.completions.external.completer = null
 # use_kitty_protocol (bool): Enable the Kitty keyboard enhancement protocol.
 # Supported by Kitty, WezTerm, and other terminals. Enables additional keybindings
 # (e.g., Ctrl+I and Tab can be mapped separately).
-# Default: false
-$env.config.use_kitty_protocol = false
+# Default: true
+$env.config.use_kitty_protocol = true
 
 # shell_integration.osc2 (bool): Set terminal window/tab title to current directory and command.
 # Abbreviates home directory with ~.

@@ -154,7 +154,7 @@ impl Default for Config {
             error_lines: 1,
             display_errors: DisplayErrors::default(),
 
-            use_kitty_protocol: false,
+            use_kitty_protocol: true,
             highlight_resolved_externals: false,
 
             auto_cd_implicit: false,
@@ -455,5 +455,10 @@ mod tests {
             expected,
             "reassigning `keybindings` duplicated the unnamed binding"
         );
+    }
+
+    #[test]
+    fn kitty_protocol_is_enabled_by_default() {
+        assert!(Config::default().use_kitty_protocol);
     }
 }
