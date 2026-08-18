@@ -42,18 +42,17 @@ impl Command for GroupBy {
     }
 
     fn description(&self) -> &str {
-        "Splits a list or table into groups, and returns a record containing those groups."
+        "Splits a list or table into groups. Returns a record when the group keys are strings, otherwise a table."
     }
 
     fn extra_description(&self) -> &str {
-        r#"The default record output uses display-string keys because record keys must be strings:
-    - if the input data is not a string, the grouper converts the key to a string but the values remain in their original format. e.g. with bools, "true" and true would be in the same group (see example).
-    - datetime is formatted based on your configuration setting. use `format date` to change the format.
-    - filesize is formatted based on your configuration setting. use `format filesize` to change the format.
-    - some nushell values are not supported, such as closures.
-    - null group keys are never mapped to the empty string. The default record output omits null groups (records cannot use null as a key); use --to-table to include them as null values. Optional cell paths (e.g. `foo?`) still ignore rows where access yields null.
+        r#"Grouping uses typed value identity (same type and payload), not display strings. Distinct filesizes that render the same (for example 1MB and 1.001MB) stay in separate groups. "true" and true are separate groups.
 
-With --to-table, group keys keep their original types and grouping uses typed value identity (same type and payload). Distinct filesizes that render the same (for example 1MB and 1.001MB) stay in separate groups. "true" and true are separate groups. null group keys are included as null values."#
+The default output is a record when every group key is a string. Those record keys are the original strings; they are not reformatted. null group keys are omitted (records cannot use null as a key). Optional cell paths (e.g. `foo?`) still ignore rows where access yields null.
+
+If any group key is not a string, the default output is a table with the original key types — the same shape as --to-table.
+
+--to-table always returns a table. Group columns keep their original types. null group keys are included as null values."#
     }
 
     fn run(
@@ -107,8 +106,8 @@ With --to-table, group keys keep their original types and grouping uses typed va
                 })),
             },
             Example {
-                description: "Group by a non-string column and keep the original key type.",
-                example: "[{n: 1} {n: 2} {n: 1}] | group-by n --to-table",
+                description: "Group by a non-string column. The result is a table so the keys keep their original type.",
+                example: "[{n: 1} {n: 2} {n: 1}] | group-by n",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
                         "n" => Value::test_int(1),
@@ -152,18 +151,26 @@ With --to-table, group keys keep their original types and grouping uses typed va
                 ])),
             },
             Example {
-                description: "Group bools, whether they are strings or actual bools.",
+                description: "Bools and strings are different keys, so the result is a table.",
                 example: r#"[true "true" false "false"] | group-by"#,
-                result: Some(Value::test_record(record! {
-                    "true" => Value::test_list(vec![
-                        Value::test_bool(true),
-                        Value::test_string("true"),
-                    ]),
-                    "false" => Value::test_list(vec![
-                        Value::test_bool(false),
-                        Value::test_string("false"),
-                    ]),
-                })),
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "group" => Value::test_bool(true),
+                        "items" => Value::test_list(vec![Value::test_bool(true)]),
+                    }),
+                    Value::test_record(record! {
+                        "group" => Value::test_string("true"),
+                        "items" => Value::test_list(vec![Value::test_string("true")]),
+                    }),
+                    Value::test_record(record! {
+                        "group" => Value::test_bool(false),
+                        "items" => Value::test_list(vec![Value::test_bool(false)]),
+                    }),
+                    Value::test_record(record! {
+                        "group" => Value::test_string("false"),
+                        "items" => Value::test_list(vec![Value::test_string("false")]),
+                    }),
+                ])),
             },
             Example {
                 description: "Group items by multiple columns' values.",
@@ -292,7 +299,6 @@ pub fn group_by(
     let groupers: Vec<Spanned<Grouper>> = call.rest(engine_state, stack, 0)?;
     let to_table = call.has_flag(engine_state, stack, "to-table")?;
     let prune = call.has_flag(engine_state, stack, "prune")?;
-    let config = &stack.get_config(engine_state);
 
     let values: Vec<Value> = input.into_iter().collect();
     if values.is_empty() {
@@ -306,31 +312,18 @@ pub fn group_by(
 
     let grouped = match &groupers[..] {
         [first, rest @ ..] => {
-            let mut grouped = Grouped::new(
-                first.as_ref(),
-                prune,
-                values,
-                config,
-                to_table,
-                engine_state,
-                stack,
-            )?;
+            let mut grouped = Grouped::new(first.as_ref(), prune, values, engine_state, stack)?;
             for grouper in rest {
-                grouped.subgroup(
-                    grouper.as_ref(),
-                    prune,
-                    config,
-                    to_table,
-                    engine_state,
-                    stack,
-                )?;
+                grouped.subgroup(grouper.as_ref(), prune, engine_state, stack)?;
             }
             grouped
         }
-        [] => Grouped::empty(values, config, to_table),
+        [] => Grouped::empty(values),
     };
 
-    let value = if to_table {
+    // Records can only use string keys. Non-string group keys keep their type
+    // by emitting the same table --to-table would.
+    let value = if to_table || grouped.has_non_string_key() {
         let column_names = groupers_to_column_names(&groupers)?;
         grouped.into_table(&column_names, head)
     } else {
@@ -401,31 +394,38 @@ fn groupers_to_column_names(groupers: &[Spanned<Grouper>]) -> Result<Vec<String>
 }
 
 /// Internal group key. `Nothing` is distinct from the empty string so null and `""`
-/// do not collapse. Record output omits `Nothing` keys; `--to-table` emits them as null.
+/// do not collapse. Record output omits `Nothing` keys; table output emits them as null.
 #[derive(Debug, Clone)]
 enum GroupKey {
     Nothing,
-    Display(String),
     Preserved(Value),
 }
 
 impl GroupKey {
-    fn from_value(value: &Value, config: &nu_protocol::Config, preserve_values: bool) -> Self {
+    fn from_value(value: &Value) -> Self {
         if value.is_nothing() {
             Self::Nothing
-        } else if preserve_values {
-            Self::Preserved(value.clone())
         } else {
-            Self::Display(value.to_expanded_string(", ", config))
+            Self::Preserved(value.clone())
         }
     }
 
     fn into_value(self, span: Span) -> Value {
         match self {
             Self::Nothing => Value::nothing(span),
-            Self::Display(s) => Value::string(s, span),
             Self::Preserved(v) => v,
         }
+    }
+
+    fn as_record_key(&self) -> Option<&str> {
+        match self {
+            Self::Preserved(Value::String { val, .. }) => Some(val.as_str()),
+            Self::Nothing | Self::Preserved(_) => None,
+        }
+    }
+
+    fn is_non_string(&self) -> bool {
+        !matches!(self, Self::Nothing | Self::Preserved(Value::String { .. }))
     }
 }
 
@@ -433,7 +433,6 @@ impl PartialEq for GroupKey {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Nothing, Self::Nothing) => true,
-            (Self::Display(a), Self::Display(b)) => a == b,
             (Self::Preserved(a), Self::Preserved(b)) => group_values_eq(a, b),
             _ => false,
         }
@@ -447,7 +446,6 @@ impl Hash for GroupKey {
         std::mem::discriminant(self).hash(state);
         match self {
             Self::Nothing => {}
-            Self::Display(s) => s.hash(state),
             Self::Preserved(v) => hash_group_value(v, state),
         }
     }
@@ -625,8 +623,6 @@ fn group_cell_path(
     column_name: &CellPath,
     prune: bool,
     values: Vec<Value>,
-    config: &nu_protocol::Config,
-    preserve_values: bool,
 ) -> Result<IndexMap<GroupKey, Vec<Value>>, ShellError> {
     let mut groups = IndexMap::<_, Vec<_>>::new();
     let optional_path = path_has_optional_member(column_name);
@@ -640,7 +636,7 @@ fn group_cell_path(
             continue;
         }
 
-        let key = GroupKey::from_value(key_val.as_ref(), config, preserve_values);
+        let key = GroupKey::from_value(key_val.as_ref());
 
         if prune {
             // it's okay if this fails since pruning is best-effort
@@ -667,17 +663,15 @@ fn group_closure(
     values: Vec<Value>,
     span: Span,
     closure: Closure,
-    preserve_values: bool,
     engine_state: &EngineState,
     stack: &mut Stack,
 ) -> Result<IndexMap<GroupKey, Vec<Value>>, ShellError> {
     let mut groups = IndexMap::<_, Vec<_>>::new();
     let mut closure = ClosureEval::new(engine_state, stack, closure);
-    let config = &stack.get_config(engine_state);
 
     for value in values {
         let key_val = closure.run_with_value(value.clone())?.into_value(span)?;
-        let key = GroupKey::from_value(&key_val, config, preserve_values);
+        let key = GroupKey::from_value(&key_val);
 
         groups.entry(key).or_default().push(value);
     }
@@ -713,11 +707,11 @@ enum Tree {
 }
 
 impl Grouped {
-    fn empty(values: Vec<Value>, config: &nu_protocol::Config, preserve_values: bool) -> Self {
+    fn empty(values: Vec<Value>) -> Self {
         let mut groups = IndexMap::<_, Vec<_>>::new();
 
         for value in values.into_iter() {
-            let key = GroupKey::from_value(&value, config, preserve_values);
+            let key = GroupKey::from_value(&value);
             groups.entry(key).or_default().push(value);
         }
 
@@ -730,20 +724,15 @@ impl Grouped {
         grouper: Spanned<&Grouper>,
         prune: bool,
         values: Vec<Value>,
-        config: &nu_protocol::Config,
-        preserve_values: bool,
         engine_state: &EngineState,
         stack: &mut Stack,
     ) -> Result<Self, ShellError> {
         let groups = match grouper.item {
-            Grouper::CellPath { val } => {
-                group_cell_path(val, prune, values, config, preserve_values)?
-            }
+            Grouper::CellPath { val } => group_cell_path(val, prune, values)?,
             Grouper::Closure { val } => group_closure(
                 values,
                 grouper.span,
                 Closure::clone(val),
-                preserve_values,
                 engine_state,
                 stack,
             )?,
@@ -757,8 +746,6 @@ impl Grouped {
         &mut self,
         grouper: Spanned<&Grouper>,
         prune: bool,
-        config: &nu_protocol::Config,
-        preserve_values: bool,
         engine_state: &EngineState,
         stack: &mut Stack,
     ) -> Result<(), ShellError> {
@@ -766,28 +753,30 @@ impl Grouped {
             Tree::Leaf(groups) => std::mem::take(groups)
                 .into_iter()
                 .map(|(key, values)| -> Result<_, ShellError> {
-                    let leaf = Self::new(
-                        grouper,
-                        prune,
-                        values,
-                        config,
-                        preserve_values,
-                        engine_state,
-                        stack,
-                    )?;
+                    let leaf = Self::new(grouper, prune, values, engine_state, stack)?;
                     Ok((key, leaf))
                 })
                 .collect::<Result<IndexMap<_, _>, ShellError>>()?,
             Tree::Branch(nested_groups) => {
                 let mut nested_groups = std::mem::take(nested_groups);
                 for v in nested_groups.values_mut() {
-                    v.subgroup(grouper, prune, config, preserve_values, engine_state, stack)?;
+                    v.subgroup(grouper, prune, engine_state, stack)?;
                 }
                 nested_groups
             }
         };
         self.groups = Tree::Branch(groups);
         Ok(())
+    }
+
+    fn has_non_string_key(&self) -> bool {
+        match &self.groups {
+            Tree::Leaf(leaf) => leaf.keys().any(GroupKey::is_non_string),
+            Tree::Branch(branch) => {
+                branch.keys().any(GroupKey::is_non_string)
+                    || branch.values().any(Self::has_non_string_key)
+            }
+        }
     }
 
     fn into_table(self, column_names: &[String], head: Span) -> Value {
@@ -831,9 +820,9 @@ impl Grouped {
                 leaf.into_iter()
                     // Records cannot use null as a key; omit null groups rather than
                     // mapping them to the empty string (which collides with "").
-                    .filter_map(|(k, v)| match k {
-                        GroupKey::Display(key) => Some((key, v.into_value(head))),
-                        GroupKey::Nothing | GroupKey::Preserved(_) => None,
+                    .filter_map(|(k, v)| {
+                        k.as_record_key()
+                            .map(|key| (key.to_string(), v.into_value(head)))
                     })
                     .collect(),
                 head,
@@ -841,9 +830,9 @@ impl Grouped {
             Tree::Branch(branch) => {
                 let values = branch
                     .into_iter()
-                    .filter_map(|(k, v)| match k {
-                        GroupKey::Display(key) => Some((key, v.into_record(head))),
-                        GroupKey::Nothing | GroupKey::Preserved(_) => None,
+                    .filter_map(|(k, v)| {
+                        k.as_record_key()
+                            .map(|key| (key.to_string(), v.into_record(head)))
                     })
                     .collect();
                 Value::record(values, head)

@@ -91,34 +91,26 @@ fn group_by_to_table_on_empty_list_returns_empty_list() -> Result {
 
 #[test]
 fn optional_cell_path_works() -> Result {
+    // Int keys are not strings, so the default output is a table.
     test()
         .run("[{foo: 123}, {foo: 234}, {bar: 345}] | group-by foo?")
-        .expect_value_eq(test_value!({
-            "123": [{foo: 123}],
-            "234": [{foo: 234}],
-        }))
+        .expect_value_eq(test_value!([
+            {foo: 123, items: [{foo: 123}]},
+            {foo: 234, items: [{foo: 234}]},
+        ]))
 }
 
 #[test]
 fn group_by_compound_values_are_grouped_distinctly() -> Result {
-    // Regression test for grouping by list values.
-    let code = "
-        let data = [[k v]; [a [2 1]] [b [1 2]] [c [3]] [d [2]]]
-        $data | group-by v | columns | length
-    ";
-    test().run(code).expect_value_eq(4)?;
-
-    // Every distinct list value should produce a separate group with exactly 1 row.
-    let code = "
-        let data = [[k v]; [a [2 1]] [b [1 2]] [c [3]] [d [2]]]
-        $data
-        | group-by v
-        | values
-        | each {|items| $items | length }
-        | uniq
-        | first
-    ";
-    test().run(code).expect_value_eq(1)
+    // List keys force table output. Distinct lists stay distinct.
+    test()
+        .run("[[k v]; [a [2 1]] [b [1 2]] [c [3]] [d [2]]] | group-by v")
+        .expect_value_eq(test_value!([
+            {v: [2, 1], items: [{k: "a", v: [2, 1]}]},
+            {v: [1, 2], items: [{k: "b", v: [1, 2]}]},
+            {v: [3], items: [{k: "c", v: [3]}]},
+            {v: [2], items: [{k: "d", v: [2]}]},
+        ]))
 }
 
 // --- null key consistency (#18707) ---
@@ -193,10 +185,10 @@ fn optional_cell_path_still_skips_nothing() -> Result {
     // Missing optional column is still ignored (historical #9020 behavior).
     test()
         .run("[{foo: 123}, {foo: 234}, {bar: 345}] | group-by foo?")
-        .expect_value_eq(test_value!({
-            "123": [{foo: 123}],
-            "234": [{foo: 234}],
-        }))?;
+        .expect_value_eq(test_value!([
+            {foo: 123, items: [{foo: 123}]},
+            {foo: 234, items: [{foo: 234}]},
+        ]))?;
 
     // Optional path with explicit null is also skipped (cannot distinguish from missing).
     test()
@@ -225,14 +217,13 @@ fn multi_grouper_null_key_in_to_table() -> Result {
             {a: 2, b: 1, items: [{a: 2, b: 1}]},
         ]))?;
 
-    // Record mode drops the null branch entirely.
+    // Non-string keys (and null) force table output; null is kept as nothing.
     test()
         .run("[ { a: null, b: 1 } { a: 2, b: 1 } ] | group-by a b")
-        .expect_value_eq(test_value!({
-            "2": {
-                "1": [{a: 2, b: 1}],
-            },
-        }))
+        .expect_value_eq(test_value!([
+            {a: (), b: 1, items: [{a: (), b: 1}]},
+            {a: 2, b: 1, items: [{a: 2, b: 1}]},
+        ]))
 }
 
 #[test]
@@ -277,10 +268,52 @@ fn to_table_keeps_int_keys() -> Result {
 }
 
 #[test]
-fn record_mode_still_groups_filesizes_by_display_string() -> Result {
+fn non_string_keys_emit_a_table_without_to_table_flag() -> Result {
     test()
-        .run("[[size]; [1MB] [1.001MB]] | group-by size | columns | length")
-        .expect_value_eq(1)
+        .run("[[size]; [1MB] [1.001MB]] | group-by size | length")
+        .expect_value_eq(2)?;
+
+    test()
+        .run("[[size]; [1MB]] | group-by size | get 0.size | describe")
+        .expect_value_eq("filesize")?;
+
+    test()
+        .run("[{n: 1} {n: 1} {n: 2}] | group-by n")
+        .expect_value_eq(test_value!([
+            {n: 1, items: [{n: 1}, {n: 1}]},
+            {n: 2, items: [{n: 2}]},
+        ]))?;
+
+    test()
+        .run("[1 2 1] | group-by")
+        .expect_value_eq(test_value!([
+            {group: 1, items: [1, 1]},
+            {group: 2, items: [2]},
+        ]))?;
+
+    test()
+        .run(r#"[true "true"] | group-by"#)
+        .expect_value_eq(test_value!([
+            {group: true, items: [true]},
+            {group: "true", items: ["true"]},
+        ]))?;
+
+    test()
+        .run(r#"["a" 1] | group-by"#)
+        .expect_value_eq(test_value!([
+            {group: "a", items: ["a"]},
+            {group: 1, items: [1]},
+        ]))
+}
+
+#[test]
+fn string_keys_still_emit_a_record() -> Result {
+    test()
+        .run("['a' 'b' 'a'] | group-by")
+        .expect_value_eq(test_value!({
+            a: ["a", "a"],
+            b: ["b"],
+        }))
 }
 
 #[test]
