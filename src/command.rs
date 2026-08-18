@@ -10,6 +10,7 @@ use std::path::Path;
 use std::{
     ffi::OsString,
     fmt::{self, Write},
+    io::{self, IsTerminal},
 };
 
 const HELP_SECTION_COLOR: &str = "\x1b[32m";
@@ -529,7 +530,7 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
 
         match arg {
             Short('h') | Long("help") => {
-                let help = cli_help_text();
+                let help = cli_help_text(io::stdout().is_terminal());
                 let _ = std::panic::catch_unwind(move || stdout_write_all_and_flush(help));
                 std::process::exit(0);
             }
@@ -1312,8 +1313,21 @@ fn prevalidate_short_groups_before_lexopt(args: &[OsString]) -> Result<(), CliEr
     Ok(())
 }
 
-// Generate help text with the legacy layout and default help colors.
-fn cli_help_text() -> String {
+// Generate help text with the legacy layout and optional default help colors.
+fn cli_help_text(use_color: bool) -> String {
+    let (section_color, flag_color, type_color, desc_color, default_color, reset_color) =
+        if use_color {
+            (
+                HELP_SECTION_COLOR,
+                HELP_FLAG_COLOR,
+                HELP_TYPE_COLOR,
+                HELP_DESC_COLOR,
+                DEFAULT_COLOR,
+                RESET_COLOR,
+            )
+        } else {
+            ("", "", "", "", "", "")
+        };
     let mut output = String::new();
     output.push_str("The nushell language and shell.\n\n");
     output.push_str("Usage:\n  nu [options] [script file] [script args]\n\n");
@@ -1334,41 +1348,41 @@ fn cli_help_text() -> String {
         }
         write!(
             output,
-            "\n{HELP_SECTION_COLOR}{}:{RESET_COLOR}\n",
+            "\n{section_color}{}{reset_color}:\n",
             category_name(category)
         )
         .expect("writing to a String is infallible");
         for flag in flags {
             output.push_str("  ");
             if let Some(short) = flag.short {
-                write!(output, "{HELP_FLAG_COLOR}-{short}{RESET_COLOR}")
+                write!(output, "{flag_color}-{short}{reset_color}")
                     .expect("writing to a String is infallible");
                 if !flag.long.is_empty() {
-                    write!(output, "{DEFAULT_COLOR},{RESET_COLOR} ")
+                    write!(output, "{default_color},{reset_color} ")
                         .expect("writing to a String is infallible");
                 }
             }
             if !flag.long.is_empty() {
-                write!(output, "{HELP_FLAG_COLOR}--{}{RESET_COLOR}", flag.long)
+                write!(output, "{flag_color}--{}{reset_color}", flag.long)
                     .expect("writing to a String is infallible");
             }
             if flag.value != ValueHint::None {
                 write!(
                     output,
-                    " <{HELP_TYPE_COLOR}{}{RESET_COLOR}>",
+                    " <{type_color}{}{reset_color}>",
                     value_hint(flag.value)
                 )
                 .expect("writing to a String is infallible");
             }
             write!(
                 output,
-                "\n      {HELP_DESC_COLOR}{}{RESET_COLOR}\n",
+                "\n      {desc_color}{}{reset_color}\n",
                 flag.description
             )
             .expect("writing to a String is infallible");
             writeln!(
                 output,
-                "      {HELP_DESC_COLOR}Example: {RESET_COLOR}{}",
+                "      {desc_color}Example: {reset_color}{}",
                 flag.example
             )
             .expect("writing to a String is infallible");
@@ -1453,6 +1467,16 @@ pub(crate) struct NushellCliArgs {
 mod tests {
     use super::*;
     use std::ffi::OsString;
+
+    #[test]
+    fn cli_help_text_omits_colors_when_disabled() {
+        assert!(!cli_help_text(false).contains('\x1b'));
+    }
+
+    #[test]
+    fn cli_help_text_includes_colors_when_enabled() {
+        assert!(cli_help_text(true).contains(HELP_SECTION_COLOR));
+    }
 
     #[test]
     fn test_log_file_parsing() {
