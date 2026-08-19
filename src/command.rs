@@ -10,7 +10,6 @@ use std::path::Path;
 use std::{
     ffi::OsString,
     fmt::{self, Write},
-    io::{self, IsTerminal},
 };
 
 const HELP_SECTION_COLOR: &str = "\x1b[32m";
@@ -1313,31 +1312,15 @@ fn prevalidate_short_groups_before_lexopt(args: &[OsString]) -> Result<(), CliEr
     Ok(())
 }
 
-// Mirrors `UseAnsiColoring::Auto`'s precedence (FORCE_COLOR > NO_COLOR > CLICOLOR >
-// TERM=dumb > is_terminal), but reads raw process env vars instead of `EngineState`,
-// since --help is handled in parse_cli_args() before EngineState/config exist.
+// --help is handled here in parse_cli_args(), before EngineState/config exist, so we can't
+// call UseAnsiColoring::get(engine_state). Reuse its env-var precedence via
+// get_with_env_lookup() instead of duplicating the logic, reading raw process env vars
+// (nu-protocol's env var names are lowercase; std::env::var is case-sensitive on some
+// platforms, so check both cases nu normally would have folded to lowercase).
 fn should_color_cli_output() -> bool {
-    fn env_flag(name: &str) -> Option<bool> {
-        std::env::var(name).ok().map(|v| {
-            let v = v.trim();
-            !v.is_empty() && v != "0" && !v.eq_ignore_ascii_case("false")
-        })
-    }
-
-    if let Some(true) = env_flag("FORCE_COLOR") {
-        return true;
-    }
-    if let Some(true) = env_flag("NO_COLOR") {
-        return false;
-    }
-    if let Some(clicolor) = env_flag("CLICOLOR") {
-        return clicolor;
-    }
-    if std::env::var("TERM").ok().as_deref() == Some("dumb") {
-        return false;
-    }
-
-    io::stdout().is_terminal()
+    nu_protocol::UseAnsiColoring::Auto.get_with_env_lookup(|name| {
+        std::env::var(name.to_ascii_uppercase()).ok()
+    })
 }
 
 // Generate help text with the legacy layout and optional default help colors.

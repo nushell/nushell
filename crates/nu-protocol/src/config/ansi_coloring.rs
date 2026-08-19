@@ -39,37 +39,44 @@ impl UseAnsiColoring {
     /// By prioritizing the `UseAnsiColoring` value, we ensure predictable behavior and prevent
     /// conflicts with internal overrides that depend on this configuration.
     pub fn get(self, engine_state: &EngineState) -> bool {
+        self.get_with_env_lookup(|name| {
+            engine_state
+                .get_env_var(name)
+                .and_then(|v| v.coerce_str().ok())
+                .map(|s| s.into_owned())
+        })
+    }
+
+    /// Same precedence and env vars as [`Self::get`], but takes a plain env-lookup closure
+    /// instead of requiring an [`EngineState`]. Useful before `EngineState`/config exist yet,
+    /// e.g. when handling `--help` during early CLI argument parsing.
+    pub fn get_with_env_lookup(self, env_var: impl Fn(&str) -> Option<String>) -> bool {
         let is_terminal = match self {
             Self::Auto => std::io::stdout().is_terminal(),
             Self::True => return true,
             Self::False => return false,
         };
 
-        let env_value = |env_name| {
-            engine_state
-                .get_env_var(env_name)
-                .and_then(|v| v.coerce_bool().ok())
-                .unwrap_or(false)
+        // Mirrors `Value::coerce_bool`'s string handling: trim + lowercase, empty/"0"/"false"
+        // are falsy, anything else (including unset -> None) is left for the caller to decide.
+        let env_flag = |name: &str| {
+            env_var(name).map(|v| !matches!(v.trim().to_ascii_lowercase().as_str(), "" | "0" | "false"))
         };
 
-        if env_value("force_color") {
+        if env_flag("force_color") == Some(true) {
             return true;
         }
 
-        if env_value("no_color") {
+        if env_flag("no_color") == Some(true) {
             return false;
         }
 
-        if let Some(cli_color) = engine_state.get_env_var("clicolor")
-            && let Ok(cli_color) = cli_color.coerce_bool()
-        {
+        if let Some(cli_color) = env_flag("clicolor") {
             return cli_color;
         }
 
         // If the TERM environment variable is set to "dumb", disable ANSI colors
-        if let Some(term) = engine_state.get_env_var("term")
-            && term.as_str().ok() == Some("dumb")
-        {
+        if env_var("term").as_deref() == Some("dumb") {
             return false;
         }
 
