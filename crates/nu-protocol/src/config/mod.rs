@@ -23,7 +23,9 @@ pub use hooks::Hooks;
 pub use ls::LsConfig;
 pub use output::{BannerKind, ErrorStyle};
 pub use plugin_gc::{PluginGcConfig, PluginGcConfigs};
-pub use reedline::{CursorShapeConfig, EditBindings, NuCursorShape, ParsedKeybinding, ParsedMenu};
+pub use reedline::{
+    CursorShapeConfig, EditBindings, KittyProtocolMode, NuCursorShape, ParsedKeybinding, ParsedMenu,
+};
 pub use rm::RmConfig;
 pub use shell_integration::ShellIntegrationConfig;
 pub use table::{FooterMode, TableConfig, TableIndent, TableIndexMode, TableMode, TrimStrategy};
@@ -82,7 +84,7 @@ pub struct Config {
     pub error_style: ErrorStyle,
     pub error_lines: i64,
     pub display_errors: DisplayErrors,
-    pub use_kitty_protocol: bool,
+    pub use_kitty_protocol: KittyProtocolMode,
     pub highlight_resolved_externals: bool,
     pub auto_cd_implicit: bool,
     pub duration_max_unit: DurationMaxUnit,
@@ -154,7 +156,7 @@ impl Default for Config {
             error_lines: 1,
             display_errors: DisplayErrors::default(),
 
-            use_kitty_protocol: true,
+            use_kitty_protocol: KittyProtocolMode::Auto,
             highlight_resolved_externals: false,
 
             auto_cd_implicit: false,
@@ -458,7 +460,66 @@ mod tests {
     }
 
     #[test]
-    fn kitty_protocol_is_enabled_by_default() {
-        assert!(Config::default().use_kitty_protocol);
+    fn kitty_protocol_defaults_to_auto() {
+        assert_eq!(
+            Config::default().use_kitty_protocol,
+            KittyProtocolMode::Auto
+        );
+    }
+
+    #[test]
+    fn kitty_protocol_default_is_exposed_as_auto() {
+        let value = Config::default().into_value(Span::test_data());
+        let Value::Record { val, .. } = value else {
+            panic!("config should be a record");
+        };
+
+        assert_eq!(
+            val.get("use_kitty_protocol")
+                .expect("use_kitty_protocol should exist")
+                .as_str()
+                .expect("default use_kitty_protocol should be a string"),
+            "auto"
+        );
+    }
+
+    #[test]
+    fn only_auto_requests_startup_probe() {
+        assert!(KittyProtocolMode::Auto.should_probe());
+        assert!(!KittyProtocolMode::Enabled.should_probe());
+        assert!(!KittyProtocolMode::Disabled.should_probe());
+    }
+
+    #[test]
+    fn kitty_protocol_accepts_legacy_bools_and_auto() {
+        let old = Config::default();
+
+        let cases = [
+            (Value::test_bool(true), KittyProtocolMode::Enabled),
+            (Value::test_bool(false), KittyProtocolMode::Disabled),
+            (Value::test_string("auto"), KittyProtocolMode::Auto),
+        ];
+
+        for (value, expected) in cases {
+            let mut new = old.clone();
+            let value = Value::test_record(record! {
+                "use_kitty_protocol" => value,
+            });
+
+            new.update_from_value(&old, &value)
+                .expect("kitty protocol config update should succeed");
+
+            assert_eq!(new.use_kitty_protocol, expected);
+        }
+    }
+
+    #[test]
+    fn kitty_protocol_mode_resolves_effective_state() {
+        assert!(KittyProtocolMode::Enabled.resolve(false));
+        assert!(KittyProtocolMode::Enabled.resolve(true));
+        assert!(!KittyProtocolMode::Disabled.resolve(false));
+        assert!(!KittyProtocolMode::Disabled.resolve(true));
+        assert!(!KittyProtocolMode::Auto.resolve(false));
+        assert!(KittyProtocolMode::Auto.resolve(true));
     }
 }

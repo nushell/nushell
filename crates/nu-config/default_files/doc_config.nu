@@ -321,11 +321,12 @@ $env.config.completions.external.completer = null
 # Nushell can output escape codes to enable advanced features in Terminal Emulators.
 # Disable features not supported by your terminal or if there are conflicts.
 
-# use_kitty_protocol (bool): Enable the Kitty keyboard enhancement protocol.
+# use_kitty_protocol (bool|string): Enable the Kitty keyboard enhancement protocol.
 # Supported by Kitty, WezTerm, and other terminals. Enables additional keybindings
 # (e.g., Ctrl+I and Tab can be mapped separately).
-# Default: true; Nushell sets this to false at runtime when unsupported
-$env.config.use_kitty_protocol = true
+# Use true to explicitly request it, false to disable it, or "auto" to detect support at startup.
+# Default: "auto"
+$env.config.use_kitty_protocol = "auto"
 
 # shell_integration.osc2 (bool): Set terminal window/tab title to current directory and command.
 # Abbreviates home directory with ~.

@@ -2,6 +2,62 @@ use super::{config_update_string_enum, prelude::*};
 use crate as nu_protocol;
 use crate::{FromValue, engine::Closure};
 
+/// Controls use of the Kitty keyboard enhancement protocol.
+///
+/// `Enabled` and `Disabled` preserve the existing boolean configuration values.
+/// `Auto` lets Nushell probe terminal support once at startup and pass the
+/// resolved boolean to Reedline.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum KittyProtocolMode {
+    Enabled,
+    Disabled,
+    #[default]
+    Auto,
+}
+
+impl KittyProtocolMode {
+    pub fn should_probe(self) -> bool {
+        matches!(self, Self::Auto)
+    }
+
+    pub fn resolve(self, auto_supported: bool) -> bool {
+        match self {
+            Self::Enabled => true,
+            Self::Disabled => false,
+            Self::Auto => auto_supported,
+        }
+    }
+}
+
+impl IntoValue for KittyProtocolMode {
+    fn into_value(self, span: Span) -> Value {
+        match self {
+            Self::Enabled => Value::bool(true, span),
+            Self::Disabled => Value::bool(false, span),
+            Self::Auto => Value::string("auto", span),
+        }
+    }
+}
+
+impl UpdateFromValue for KittyProtocolMode {
+    fn update<'a>(
+        &mut self,
+        value: &'a Value,
+        path: &mut ConfigPath<'a>,
+        errors: &mut ConfigErrors,
+    ) {
+        match value {
+            Value::Bool { val, .. } => {
+                *self = if *val { Self::Enabled } else { Self::Disabled };
+            }
+            Value::String { val, .. } if val.eq_ignore_ascii_case("auto") => {
+                *self = Self::Auto;
+            }
+            _ => errors.invalid_value(path, "true, false, or 'auto'", value),
+        }
+    }
+}
+
 /// Definition of a parsed keybinding from the config object
 #[derive(Clone, Debug, FromValue, IntoValue, Serialize, Deserialize)]
 pub struct ParsedKeybinding {

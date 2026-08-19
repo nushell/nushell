@@ -8,7 +8,10 @@ use std::time::Duration;
 
 use nu_utils::time::Instant;
 
-use nu_protocol::shell_error::{generic::GenericError, io::IoError};
+use nu_protocol::{
+    config::KittyProtocolMode,
+    shell_error::{generic::GenericError, io::IoError},
+};
 use num_traits::AsPrimitive;
 use std::io::stdout;
 
@@ -98,11 +101,20 @@ There are 4 `key_type` variants:
 
         terminal::enable_raw_mode().map_err(|err| IoError::new(err, head, None))?;
 
-        if config.use_kitty_protocol {
-            if let Ok(false) = crossterm::terminal::supports_keyboard_enhancement() {
-                println!("WARN: The terminal doesn't support use_kitty_protocol config.\r");
+        let use_kitty_protocol = match config.use_kitty_protocol {
+            KittyProtocolMode::Disabled => false,
+            KittyProtocolMode::Enabled => {
+                if let Ok(false) = crossterm::terminal::supports_keyboard_enhancement() {
+                    println!("WARN: The terminal doesn't support use_kitty_protocol config.\r");
+                }
+                true
             }
+            KittyProtocolMode::Auto => {
+                crossterm::terminal::supports_keyboard_enhancement().unwrap_or(false)
+            }
+        };
 
+        if use_kitty_protocol {
             // enable kitty protocol
             //
             // Note that, currently, only the following support this protocol:
@@ -147,7 +159,7 @@ There are 4 `key_type` variants:
             let event = parse_event(head, &event, &event_type_filter, add_raw);
             if let Some(event) = event {
                 terminal::disable_raw_mode().map_err(|err| IoError::new(err, head, None))?;
-                if config.use_kitty_protocol {
+                if use_kitty_protocol {
                     let _ = execute!(
                         std::io::stdout(),
                         crossterm::event::PopKeyboardEnhancementFlags
