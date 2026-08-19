@@ -530,7 +530,7 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
 
         match arg {
             Short('h') | Long("help") => {
-                let help = cli_help_text(io::stdout().is_terminal());
+                let help = cli_help_text(should_color_cli_output());
                 let _ = std::panic::catch_unwind(move || stdout_write_all_and_flush(help));
                 std::process::exit(0);
             }
@@ -1311,6 +1311,33 @@ fn prevalidate_short_groups_before_lexopt(args: &[OsString]) -> Result<(), CliEr
         i += 1;
     }
     Ok(())
+}
+
+// Mirrors `UseAnsiColoring::Auto`'s precedence (FORCE_COLOR > NO_COLOR > CLICOLOR >
+// TERM=dumb > is_terminal), but reads raw process env vars instead of `EngineState`,
+// since --help is handled in parse_cli_args() before EngineState/config exist.
+fn should_color_cli_output() -> bool {
+    fn env_flag(name: &str) -> Option<bool> {
+        std::env::var(name).ok().map(|v| {
+            let v = v.trim();
+            !v.is_empty() && v != "0" && !v.eq_ignore_ascii_case("false")
+        })
+    }
+
+    if let Some(true) = env_flag("FORCE_COLOR") {
+        return true;
+    }
+    if let Some(true) = env_flag("NO_COLOR") {
+        return false;
+    }
+    if let Some(clicolor) = env_flag("CLICOLOR") {
+        return clicolor;
+    }
+    if std::env::var("TERM").ok().as_deref() == Some("dumb") {
+        return false;
+    }
+
+    io::stdout().is_terminal()
 }
 
 // Generate help text with the legacy layout and optional default help colors.
