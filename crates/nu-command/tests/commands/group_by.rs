@@ -317,6 +317,37 @@ fn string_keys_still_emit_a_record() -> Result {
 }
 
 #[test]
+fn items_grouper_errors_when_output_is_a_table() -> Result {
+    // String keys still emit a record, so a column named `items` is fine.
+    test()
+        .run(r#"[{items: "a"} {items: "a"}] | group-by items"#)
+        .expect_value_eq(test_value!({
+            a: [{items: "a"}, {items: "a"}],
+        }))?;
+
+    // Non-string keys emit a table, which cannot have two `items` columns.
+    let err = test()
+        .run("[{items: 1} {items: 2}] | group-by items")
+        .expect_shell_error()?;
+    match err {
+        ShellError::Generic(generic) => {
+            assert_contains("items", generic.error.as_ref());
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
+}
+
+#[test]
+fn closures_with_different_captures_are_distinct_groups() -> Result {
+    let code = "
+        let make = {|n| {|| $n }}
+        [(do $make 1) (do $make 1) (do $make 2)] | group-by --to-table | length
+    ";
+    test().run(code).expect_value_eq(2)
+}
+
+#[test]
 fn to_table_does_not_merge_int_and_float_ranges() -> Result {
     // `1..3 == 1.0..3.0` is true, but --to-table groups by typed identity.
     test()

@@ -21,7 +21,7 @@ impl Command for GroupBy {
             .input_output_types(vec![(Type::List(Box::new(Type::Any)), Type::Any)])
             .switch(
                 "to-table",
-                "Return a table with \"groups\" and \"items\" columns.",
+                "Always return a table. Key columns keep their original types (column name \"group\" when no grouper is given).",
                 None,
             )
             .switch(
@@ -50,9 +50,9 @@ impl Command for GroupBy {
 
 The default output is a record when every group key is a string. Those record keys are the original strings; they are not reformatted. null group keys are omitted (records cannot use null as a key). Optional cell paths (e.g. `foo?`) still ignore rows where access yields null.
 
-If any group key is not a string, the default output is a table with the original key types — the same shape as --to-table.
+If any group key is not a string, the default output is a table with the original key types — the same shape as --to-table. Table output uses the same column-name rules as --to-table: a grouper named `items` is rejected (use `{ get items }` or rename the column), and duplicate grouper names are rejected.
 
---to-table always returns a table. Group columns keep their original types. null group keys are included as null values."#
+--to-table always returns a table. The group column is named `group` when no grouper is given; otherwise the grouper names. Group columns keep their original types. null group keys are included as null values."#
     }
 
     fn run(
@@ -481,8 +481,15 @@ fn hash_group_value<H: Hasher>(value: &Value, state: &mut H) {
                 hash_group_value(child, state);
             }
         }
-        Value::Closure { val, .. } => val.block_id.hash(state),
-        Value::Error { .. } => {}
+        Value::Closure { val, .. } => {
+            val.block_id.hash(state);
+            val.captures.len().hash(state);
+            for (var_id, captured) in &val.captures {
+                var_id.hash(state);
+                hash_group_value(captured, state);
+            }
+        }
+        Value::Error { error, .. } => format!("{error:?}").hash(state),
         Value::Binary { val, .. } => val.hash(state),
         Value::CellPath { val, .. } => {
             val.members.len().hash(state);
@@ -593,8 +600,17 @@ fn group_values_eq(left: &Value, right: &Value) -> bool {
         (Value::List { vals: a, .. }, Value::List { vals: b, .. }) => {
             a.len() == b.len() && a.iter().zip(b.iter()).all(|(x, y)| group_values_eq(x, y))
         }
-        (Value::Closure { val: a, .. }, Value::Closure { val: b, .. }) => a.block_id == b.block_id,
-        (Value::Error { .. }, Value::Error { .. }) => true,
+        (Value::Closure { val: a, .. }, Value::Closure { val: b, .. }) => {
+            a.block_id == b.block_id
+                && a.captures.len() == b.captures.len()
+                && a.captures
+                    .iter()
+                    .zip(&b.captures)
+                    .all(|((id_a, val_a), (id_b, val_b))| {
+                        *id_a == *id_b && group_values_eq(val_a, val_b)
+                    })
+        }
+        (Value::Error { error: a, .. }, Value::Error { error: b, .. }) => a == b,
         (Value::Binary { val: a, .. }, Value::Binary { val: b, .. }) => a == b,
         (Value::CellPath { val: a, .. }, Value::CellPath { val: b, .. }) => a == b,
         (Value::Custom { val: a, .. }, Value::Custom { val: b, .. }) => {
@@ -844,9 +860,54 @@ impl Grouped {
 #[cfg(test)]
 mod test {
     use super::*;
+    use nu_protocol::{BlockId, ShellError, Span, VarId};
+    use std::hash::Hasher;
 
     #[test]
     fn test_examples() -> nu_test_support::Result {
         nu_test_support::test().examples(GroupBy)
+    }
+
+    fn hash_of(value: &Value) -> u64 {
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        hash_group_value(value, &mut hasher);
+        hasher.finish()
+    }
+
+    #[test]
+    fn group_identity_includes_error_payload_and_closure_captures() {
+        let block = BlockId::new(1);
+        let var = VarId::new(0);
+        let c1 = Value::test_closure(Closure {
+            block_id: block,
+            captures: vec![(var, Value::test_int(1))],
+        });
+        let c1_again = Value::test_closure(Closure {
+            block_id: block,
+            captures: vec![(var, Value::test_int(1))],
+        });
+        let c2 = Value::test_closure(Closure {
+            block_id: block,
+            captures: vec![(var, Value::test_int(2))],
+        });
+        assert!(group_values_eq(&c1, &c1_again));
+        assert_eq!(hash_of(&c1), hash_of(&c1_again));
+        assert!(!group_values_eq(&c1, &c2));
+
+        let e1 = Value::error(
+            ShellError::Generic(GenericError::new("a", "here", Span::test_data())),
+            Span::test_data(),
+        );
+        let e1_again = Value::error(
+            ShellError::Generic(GenericError::new("a", "here", Span::test_data())),
+            Span::test_data(),
+        );
+        let e2 = Value::error(
+            ShellError::Generic(GenericError::new("b", "here", Span::test_data())),
+            Span::test_data(),
+        );
+        assert!(group_values_eq(&e1, &e1_again));
+        assert_eq!(hash_of(&e1), hash_of(&e1_again));
+        assert!(!group_values_eq(&e1, &e2));
     }
 }
