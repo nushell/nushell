@@ -125,9 +125,11 @@ impl IntoValue for SemanticSuggestion {
             };
             record.insert("kind", kind_str.into_value(span));
 
-            if let Some(ty) = ty {
-                record.insert("type", ty.into_value(span));
-            }
+            // Always a column: kinds without a type report `null`.
+            record.insert(
+                "type",
+                ty.map_or_else(|| Value::nothing(span), |ty| ty.into_value(span)),
+            );
         }
 
         Value::record(record, span)
