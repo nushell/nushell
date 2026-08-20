@@ -8,66 +8,53 @@ pub trait Completer {
     fn fetch(&mut self, ctx: &Context) -> Fetched;
 }
 
-/// The outcome of one source's [`Completer::fetch`], plus two flags the machinery cannot
-/// infer from the suggestions: `cacheable` (impure sources worth reusing between keystrokes)
-/// and `need_fallback` (try the next source). Fields are private, so a declining result can
-/// never also carry suggestions.
+/// The outcome of one source's [`Completer::fetch`]. Caching and fallback are encoded in
+/// the variant, so a declining result cannot carry suggestions.
 #[derive(Debug, Default)]
-pub struct Fetched {
-    pub(crate) suggestions: Vec<SemanticSuggestion>,
-    pub(crate) cacheable: bool,
-    pub(crate) need_fallback: bool,
+pub enum Fetched {
+    /// Cheap engine-state result: never cached, never falls back.
+    Pure(Vec<SemanticSuggestion>),
+    /// Impure source result (filesystem, `PATH`, user/plugin code); worth caching.
+    Cacheable(Vec<SemanticSuggestion>),
+    /// Impure source declined: fall back, but cache the attempt.
+    Declined,
+    /// No source ran: fall back cheaply.
+    #[default]
+    Absent,
 }
 
 impl Fetched {
-    /// A cheap engine-state result: never cached, never falls back.
-    pub(crate) fn pure(suggestions: Vec<SemanticSuggestion>) -> Self {
-        Self {
-            suggestions,
-            cacheable: false,
-            need_fallback: false,
+    /// The suggestions this outcome carries; declining outcomes carry none.
+    pub(crate) fn into_suggestions(self) -> Vec<SemanticSuggestion> {
+        match self {
+            Self::Pure(suggestions) | Self::Cacheable(suggestions) => suggestions,
+            Self::Declined | Self::Absent => Vec::new(),
         }
     }
 
-    /// An impure source's result (filesystem, `PATH`, user/plugin code); worth caching.
-    pub(crate) fn cacheable(suggestions: Vec<SemanticSuggestion>) -> Self {
-        Self {
-            suggestions,
-            cacheable: true,
-            need_fallback: false,
-        }
+    /// Impure source ran; result worth reusing between keystrokes.
+    pub(crate) fn is_cacheable(&self) -> bool {
+        matches!(self, Self::Cacheable(_) | Self::Declined)
     }
 
-    /// An impure source that declined: fall back, but stay `cacheable` since the
-    /// expensive attempt ran.
-    pub(crate) fn fallback() -> Self {
-        Self {
-            suggestions: vec![],
-            cacheable: true,
-            need_fallback: true,
-        }
+    /// Whether this source declined, so the next one should be tried.
+    pub(crate) fn needs_fallback(&self) -> bool {
+        matches!(self, Self::Declined | Self::Absent)
     }
 
-    /// Like [`Self::fallback`] but cheap — no source ran, so nothing to cache.
-    pub(crate) fn absent() -> Self {
-        Self {
-            suggestions: vec![],
-            cacheable: false,
-            need_fallback: true,
+    /// Mark cheap results cacheable when the caller did expensive work.
+    pub(crate) fn caching(self) -> Self {
+        match self {
+            Self::Pure(suggestions) => Self::Cacheable(suggestions),
+            Self::Absent => Self::Declined,
+            already => already,
         }
-    }
-
-    /// Force [`Self::cacheable`] on when the caller did expensive work (e.g. parsing a
-    /// module off disk) around a cheap lookup.
-    pub(crate) fn caching(mut self) -> Self {
-        self.cacheable = true;
-        self
     }
 }
 
-/// Convert an engine [`Span`] to reedline coordinates by subtracting the working-set
-/// `offset`. Both ends saturate so spans before `offset` can't underflow into an index that
-/// would panic (`is_char_boundary`); callers may pass untrusted spans.
+/// An engine [`Span`] in reedline coordinates: subtract `offset`, saturating so spans
+/// before it can't underflow into an index that would panic (`is_char_boundary`); callers
+/// may pass untrusted spans.
 pub(crate) fn to_reedline_span(span: Span, offset: usize) -> reedline::Span {
     reedline::Span::new(
         span.start.saturating_sub(offset),

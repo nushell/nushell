@@ -235,7 +235,9 @@ fn generate_typed_suggestions(
 
     // Explicit matching avoids boxing the source into a `dyn` trait object.
     match completion_type {
-        CompletionType::Directory => DirectoryCompletion.fetch(&context).suggestions,
-        CompletionType::Path | CompletionType::Glob => FileCompletion.fetch(&context).suggestions,
+        CompletionType::Directory => DirectoryCompletion.fetch(&context).into_suggestions(),
+        CompletionType::Path | CompletionType::Glob => {
+            FileCompletion.fetch(&context).into_suggestions()
+        }
     }
 }

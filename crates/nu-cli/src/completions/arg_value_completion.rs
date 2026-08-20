@@ -90,7 +90,7 @@ impl<'a> ArgValueCompletion<'a> {
                     matcher.add_semantic_suggestion(suggestion);
                 }
 
-                Some(Fetched::cacheable(matcher.suggestion_results()))
+                Some(Fetched::Cacheable(matcher.suggestion_results()))
             }
             Ok(None) => None, // fallback to type based completion, file completion, etc.
             Err(error) => {
@@ -120,13 +120,13 @@ impl<'a> ArgValueCompletion<'a> {
     ) -> Fetched {
         let expression = self.arg_expr();
         let Some((module_name, span)) = self.find_module_name_and_span() else {
-            return Fetched::pure(vec![]);
+            return Fetched::Pure(vec![]);
         };
 
         let Some((module_id, temp_working_set)) =
             self.resolve_module(working_set, module_name, span)
         else {
-            return Fetched::pure(vec![]);
+            return Fetched::Pure(vec![]);
         };
 
         let mut exportable_completion = ExportableCompletion {
@@ -143,7 +143,7 @@ impl<'a> ArgValueCompletion<'a> {
                     completion_context,
                     &mut exportable_completion,
                 ),
-                _ => Fetched::pure(vec![]),
+                _ => Fetched::Pure(vec![]),
             },
             // No expression at all or any other scalar shape (`Expr::String`, plus `Expr::Nothing`
             // for the `null` keyword): search exports by the raw prefix text.
@@ -242,7 +242,7 @@ impl<'a> ArgValueCompletion<'a> {
             Some(Expr::Filepath(_, _)) | Some(Expr::GlobPattern(_, _)) => complete_file(),
             // fallback to file completion if necessary
             _ if self.need_fallback => complete_file(),
-            _ => Fetched::pure(vec![]),
+            _ => Fetched::Pure(vec![]),
         }
     }
 }

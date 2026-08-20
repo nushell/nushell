@@ -593,8 +593,9 @@ impl Dispatched {
 impl From<Fetched> for Dispatched {
     fn from(fetched: Fetched) -> Self {
         Self {
-            suggestions: fetched.suggestions,
-            cacheable: fetched.cacheable,
+            // Read the cacheable flag before `into_suggestions` consumes the outcome.
+            cacheable: fetched.is_cacheable(),
+            suggestions: fetched.into_suggestions(),
         }
     }
 }
@@ -891,7 +892,7 @@ impl CompletionEngine {
         {
             let mut completion = CommandWideCompletion::closure(closure, external_call);
             let fetched = completion.fetch(completion_context);
-            external_answered = !fetched.need_fallback;
+            external_answered = !fetched.needs_fallback();
             dispatched.merge(fetched.into());
         }
 
@@ -1415,7 +1416,7 @@ impl CompletionEngine {
                     self.custom_completion_helper(other, element_line.as_ref(), context, cursor)
                 }
             };
-            let need_fallback = attempt.need_fallback;
+            let need_fallback = attempt.needs_fallback();
             results.merge(attempt.into());
             if !need_fallback {
                 return results;
@@ -1423,7 +1424,7 @@ impl CompletionEngine {
         }
 
         let attempt = self.command_wide_completion_helper(signature, element_expression, context);
-        let need_fallback = attempt.need_fallback;
+        let need_fallback = attempt.needs_fallback();
         results.merge(attempt.into());
         if !need_fallback {
             return results;
@@ -1578,7 +1579,7 @@ impl CompletionEngine {
             }
             // Engine-provided completions are handled in `complete_argument_value`; decline
             // if one arrives by another path.
-            Completion::Builtin(_) => Fetched::absent(),
+            Completion::Builtin(_) => Fetched::Absent,
         }
     }
 
@@ -1611,7 +1612,7 @@ impl CompletionEngine {
                 };
                 completion.fetch(&context)
             }
-            None => Fetched::absent(),
+            None => Fetched::Absent,
         }
     }
 
