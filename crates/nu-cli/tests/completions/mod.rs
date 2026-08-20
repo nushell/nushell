@@ -3767,3 +3767,36 @@ fn stale_file_completions_do_not_answer_a_flag_token() {
             .collect::<Vec<_>>()
     );
 }
+
+/// Completing an empty argument slot for a `directory`-typed
+/// argument (like cd) must offer directories ONLY.
+#[test]
+fn empty_directory_arg_slot_completes_directories_only() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    std::fs::create_dir(dir.path().join("alpha_dir")).expect("create dir");
+    std::fs::create_dir(dir.path().join("beta_dir")).expect("create dir");
+    std::fs::write(dir.path().join("gamma.txt"), "").expect("write file");
+
+    let pwd = AbsolutePathBuf::try_from(dir.path().to_path_buf()).expect("absolute tempdir");
+    let (_, _, mut engine, mut stack) = new_engine_helper(pwd);
+
+    // Custom positional and flag, both `directory`-typed, exercise the same paths as `cd`.
+    let command = "def my-cd [dir: directory] {}; def my-flag [--dir: directory] {}";
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    let alpha = folder("alpha_dir");
+    let beta = folder("beta_dir");
+    for line in ["cd ", "my-cd ", "my-flag --dir "] {
+        let suggestions = completer.complete_blocking(line, line.len());
+        let values: Vec<&str> = suggestions.iter().map(|s| s.value.as_str()).collect();
+        assert!(
+            values.contains(&alpha.as_str()) && values.contains(&beta.as_str()),
+            "`{line}` should offer the directories, got: {values:?}"
+        );
+        assert!(
+            !values.iter().any(|value| value.contains("gamma")),
+            "`{line}` leaked a non-directory completion: {values:?}"
+        );
+    }
+}
