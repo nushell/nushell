@@ -912,6 +912,22 @@ fn hide_env_completions() {
     match_suggestions(&expected, &suggestions);
 }
 
+/// A custom completer that errors (unlike an explicit `null` decline) must still fall
+/// back to file completion.
+#[test]
+fn customcompletions_error_falls_back_to_file_completion() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = "def comp [] { error make {msg: 'boom'} }; def my-command [arg: string@comp] {}";
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let line = "my-command custom_completion.";
+    match_suggestions(
+        &vec!["custom_completion.nu"],
+        &completer.complete_blocking(line, line.len()),
+    );
+}
+
 /// Suppress completions for invalid values
 #[test]
 fn customcompletions_invalid() {

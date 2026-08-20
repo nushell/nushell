@@ -281,7 +281,9 @@ impl Completer for CustomCompletion {
             },
             Err(e) => {
                 log::error!("Error getting custom completions: {e}");
-                return Fetched::Cacheable(vec![]);
+                // Error does not equal empty success (matches `CommandWideCompletion`):
+                // fall back so file completion still runs when a custom completer errors.
+                return Fetched::Declined;
             }
         };
 
