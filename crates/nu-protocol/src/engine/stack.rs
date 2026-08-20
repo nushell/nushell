@@ -1292,6 +1292,30 @@ impl Stack {
         self
     }
 
+    /// Error if this stack is detached from the controlling terminal (see
+    /// [`suppress_stdin`](Self::suppress_stdin), set on completion threads). Commands that grab
+    /// the terminal (`input`, `input list`, `input listen`, `term query`) call this first so
+    /// they decline instead of racing reedline for it; completers turn the error into a
+    /// fallback. `span` points at the offending call.
+    pub fn require_stdin(&self, span: Span) -> Result<(), ShellError> {
+        if self.suppress_stdin {
+            Err(ShellError::Generic(
+                GenericError::new(
+                    "Interactive input is unavailable in this context",
+                    "this command reads from the terminal",
+                    span,
+                )
+                .with_help(
+                    "external and custom completers run detached from the terminal, so \
+                     interactive commands like `input`, `input list`, `input listen`, and \
+                     `term query` cannot be used inside them",
+                ),
+            ))
+        } else {
+            Ok(())
+        }
+    }
+
     /// Clears any pipe redirections, keeping the current stdout and stderr.
     ///
     /// This will irreversibly reset some of the output redirections, and so it only makes sense to use this on an owned `Stack`
