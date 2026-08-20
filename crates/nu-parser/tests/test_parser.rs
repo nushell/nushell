@@ -2392,6 +2392,38 @@ mod range {
         ),);
     }
 
+    #[rstest]
+    #[case("true or ((to-custom) < (to-custom))")]
+    #[case("true and ((to-custom) == (to-custom))")]
+    #[case("true or ((to-custom) in (to-custom))")]
+    fn custom_comparison_is_usable_as_bool(#[case] code: &str) {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        working_set.add_decl(Box::new(ToCustom));
+
+        let _ = parse(&mut working_set, None, code.as_bytes(), true);
+
+        assert!(
+            working_set.parse_errors.is_empty(),
+            "Errors: {:?}",
+            working_set.parse_errors
+        );
+    }
+
+    #[test]
+    fn raw_custom_is_not_a_bool_for_or() {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        working_set.add_decl(Box::new(ToCustom));
+
+        let _ = parse(&mut working_set, None, b"true or (to-custom)", true);
+
+        assert!(matches!(
+            &working_set.parse_errors[..],
+            [ParseError::OperatorIncompatibleTypes { .. }]
+        ));
+    }
+
     #[test]
     fn dont_mess_with_external_calls() {
         let engine_state = EngineState::new();
