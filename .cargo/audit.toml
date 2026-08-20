@@ -4,4 +4,6 @@ ignore = [
   # untrusted .xlsx files could be get OOM or CPU DoS
   "RUSTSEC-2026-0194",
   "RUSTSEC-2026-0195",
+  # h2 is used by nu-mcp (hyper-util), we need to wait for a patch upstream
+  "RUSTSEC-2026-0258",
 ]
