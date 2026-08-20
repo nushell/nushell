@@ -86,11 +86,13 @@ pub enum ConfigWarning {
     #[error("Multiple keybindings share a name")]
     #[diagnostic(
         code(nu::shell::shared_keybindings_name),
-        help("all of these bindings stay active; give each a unique name to silence this warning")
+        help(
+            "all of these bindings remain in the configuration; give each a unique name to silence this warning"
+        )
     )]
     SharedKeybindingName {
         names: String,
-        #[label("{names} each name more than one keybinding")]
+        #[label("{names}: each names more than one keybinding")]
         span: Span,
     },
 }
