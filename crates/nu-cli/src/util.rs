@@ -14,7 +14,7 @@ use nu_protocol::{
     report_error::report_compile_error,
     report_parse_error, report_parse_warning, report_shell_error,
     shell_error::{generic::GenericError, io::IoError},
-    truncate_value_to_budget, value_from_bytes,
+    truncate_value_to_budget, value_from_bytes, value_is_error_only,
 };
 #[cfg(windows)]
 use nu_utils::enable_vt_processing;
@@ -445,7 +445,9 @@ fn maybe_store_last_result(
             PipelineData::Empty
         }
         PipelineData::Value(value, metadata) => {
-            stack.set_last_result(value.clone(), metadata.clone(), budget);
+            if !value_is_error_only(&value) {
+                stack.set_last_result(value.clone(), metadata.clone(), budget);
+            }
             PipelineData::Value(value, metadata)
         }
         PipelineData::ListStream(stream, metadata) => {
@@ -515,7 +517,9 @@ fn store_list_stream_prefix(
     } else {
         (stored, false)
     };
-    stack.store_last_result_raw(stored, metadata.clone(), truncated || more_trunc);
+    if !value_is_error_only(&stored) {
+        stack.store_last_result_raw(stored, metadata.clone(), truncated || more_trunc);
+    }
 
     // Print stream: under-budget full drain reuses `kept` without a second buffer of clones.
     let print_iter: Box<dyn Iterator<Item = Value> + Send> = match overflow_item {

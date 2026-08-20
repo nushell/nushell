@@ -33,18 +33,30 @@ impl ExpandedTable {
     }
 
     pub fn build_value(self, item: &Value, opts: TableOpts<'_>) -> NuText {
-        let cfg = Cfg { opts, format: self };
+        let cfg = Cfg {
+            opts,
+            format: self,
+            raise_row_errors: false,
+        };
         let cell = expand_entry(item, cfg);
         (cell.text, cell.style)
     }
 
     pub fn build_map(self, record: &Record, opts: TableOpts<'_>) -> StringResult {
-        let cfg = Cfg { opts, format: self };
+        let cfg = Cfg {
+            opts,
+            format: self,
+            raise_row_errors: false,
+        };
         expanded_table_kv(record, cfg).map(|cell| cell.map(|cell| cell.text))
     }
 
     pub fn build_list(self, vals: &[Value], opts: TableOpts<'_>) -> StringResult {
-        let cfg = Cfg { opts, format: self };
+        let cfg = Cfg {
+            opts,
+            format: self,
+            raise_row_errors: true,
+        };
         let output = expand_list(vals, cfg.clone())?;
         let mut output = match output {
             Some(out) => out,
@@ -66,6 +78,9 @@ impl ExpandedTable {
 struct Cfg<'a> {
     opts: TableOpts<'a>,
     format: ExpandedTable,
+    /// When true, a `Value::Error` row is re-raised (top-level `table --expand`).
+    /// Nested expansion leaves errors as cells so wrapping records (e.g. `$ans`) stay printable.
+    raise_row_errors: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -154,7 +169,7 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
 
         for (row, item) in input.iter().enumerate() {
             cfg.opts.signals.check(&cfg.opts.span)?;
-            check_value(item)?;
+            cfg.check_row(item)?;
 
             let inner_cfg = cfg_expand_reset_table(cfg.clone(), available_width);
             let cell = expand_entry(item, inner_cfg);
@@ -178,7 +193,7 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
 
         for (row, item) in input.iter().enumerate() {
             cfg.opts.signals.check(&cfg.opts.span)?;
-            check_value(item)?;
+            cfg.check_row(item)?;
 
             let index = row + row_offset;
             let index_value = item
@@ -203,7 +218,7 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
 
         for (row, item) in input.iter().enumerate() {
             cfg.opts.signals.check(&cfg.opts.span)?;
-            check_value(item)?;
+            cfg.check_row(item)?;
 
             let inner_cfg = cfg_expand_reset_table(cfg.clone(), available_width);
             let cell = expand_entry(item, inner_cfg);
@@ -234,7 +249,7 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
 
         for (row, item) in input.iter().enumerate() {
             cfg.opts.signals.check(&cfg.opts.span)?;
-            check_value(item)?;
+            cfg.check_row(item)?;
 
             let index = row + row_offset;
             let index_value = item
@@ -293,7 +308,7 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
 
         for (row, item) in input.iter().enumerate() {
             cfg.opts.signals.check(&cfg.opts.span)?;
-            check_value(item)?;
+            cfg.check_row(item)?;
 
             let inner_cfg = cfg_expand_reset_table(cfg.clone(), available);
             let cell = expand_entry_with_header(item, &header, inner_cfg);
@@ -668,8 +683,18 @@ fn value_to_wrapped_string_clean(value: &Value, cfg: &Cfg<'_>, value_width: usiz
     wrap_text(&text, value_width, cfg.opts.config)
 }
 
+impl Cfg<'_> {
+    fn check_row(&self, item: &Value) -> Result<(), ShellError> {
+        if self.raise_row_errors {
+            check_value(item)?;
+        }
+        Ok(())
+    }
+}
+
 fn cfg_expand_next_level(mut cfg: Cfg<'_>, span: Span) -> Cfg<'_> {
     cfg.opts.span = span;
+    cfg.raise_row_errors = false;
     if let Some(deep) = cfg.format.expand_limit.as_mut() {
         *deep -= 1
     }
