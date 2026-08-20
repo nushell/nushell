@@ -941,8 +941,9 @@ impl CompletionEngine {
         let subcommands =
             self.subcommand_suggestions(working_set, call.head.start, site.cursor, offset);
 
-        // The value kinds share one shape; only the `ArgType` and custom-completer lookup differ.
-        let argument_value = |engine: &Self, arg_type, custom, arg_slot| {
+        // The value kinds share one shape; only the `ArgType`, custom-completer, and declared
+        // shape lookups differ.
+        let argument_value = |engine: &Self, arg_type, custom, arg_slot, declared_shape| {
             engine.complete_argument_value(
                 custom,
                 ArgValueCompletion {
@@ -951,6 +952,7 @@ impl CompletionEngine {
                     need_fallback: subcommands.suggestions.is_empty(),
                     completer: engine,
                     arg_idx: arg_slot,
+                    declared_shape,
                     cursor: site.cursor,
                 },
                 completion_context,
@@ -964,24 +966,30 @@ impl CompletionEngine {
             SiteKind::FlagName { .. } => {
                 self.complete_flag_names(call.decl_id, completion_context, &signature, element)
             }
-            SiteKind::FlagValue { flag, arg_slot, .. } => argument_value(
-                self,
-                ArgType::Flag(Cow::Borrowed(flag.name())),
-                find_flag(&signature, *flag).and_then(|flag| flag.completion),
-                *arg_slot,
-            ),
+            SiteKind::FlagValue { flag, arg_slot, .. } => {
+                let resolved = find_flag(&signature, *flag);
+                argument_value(
+                    self,
+                    ArgType::Flag(Cow::Borrowed(flag.name())),
+                    resolved.as_ref().and_then(|flag| flag.completion.clone()),
+                    *arg_slot,
+                    resolved.and_then(|flag| flag.arg),
+                )
+            }
             SiteKind::Positional {
                 sig_positional,
                 arg_slot,
                 ..
-            } => argument_value(
-                self,
-                ArgType::Positional(*sig_positional),
-                signature
-                    .get_positional(*sig_positional)
-                    .and_then(|positional| positional.completion.clone()),
-                *arg_slot,
-            ),
+            } => {
+                let positional = signature.get_positional(*sig_positional);
+                argument_value(
+                    self,
+                    ArgType::Positional(*sig_positional),
+                    positional.and_then(|positional| positional.completion.clone()),
+                    *arg_slot,
+                    positional.map(|positional| positional.shape.clone()),
+                )
+            }
             _ => Dispatched::default(),
         };
 
