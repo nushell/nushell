@@ -23,7 +23,7 @@ pub(crate) fn name_of(kb: &ParsedKeybinding) -> Option<String> {
 
 #[derive(Debug, PartialEq, Eq)]
 pub(super) struct KeyIdentity {
-    modifier: String,
+    modifier: BTreeSet<String>,
     keycode: String,
     modes: BTreeSet<String>,
 }
@@ -41,8 +41,16 @@ impl KeyIdentity {
         };
 
         Self {
-            modifier: lower(&kb.modifier),
-            keycode: lower(&kb.keycode),
+            // Best-effort mirror of `add_parsed_keybinding`'s reading: modifiers
+            // are an unordered `_`-joined set and `esc`/`escape` are aliases. The
+            // exotic overlaps (`space` vs `char_ `, `char_u<hex>` vs `char_<c>`)
+            // are deliberately not canonicalized; a mismatch only costs an
+            // append plus a warning, never a lost binding.
+            modifier: lower(&kb.modifier).split('_').map(|s| s.into()).collect(),
+            keycode: match lower(&kb.keycode).as_str() {
+                "esc" => "escape".into(),
+                other => other.into(),
+            },
             modes,
         }
     }
@@ -222,6 +230,36 @@ mod tests {
         let lower = kb("control", "char_r", Value::test_string("emacs"));
         let upper = kb("Control", "Char_R", Value::test_string("Emacs"));
         assert_eq!(KeyIdentity::of(&lower), KeyIdentity::of(&upper));
+    }
+
+    // Canonicalization to match `add_parsed_keybinding`'s reading of the fields:
+    // modifiers are an unordered `_`-joined set, `esc`/`escape` are aliases,
+    // and mode names keep their underscores.
+
+    #[test]
+    fn modifier_component_order_does_not_matter() {
+        let cs = kb("control_shift", "char_r", Value::test_string("emacs"));
+        let sc = kb("shift_control", "char_r", Value::test_string("emacs"));
+        assert_eq!(KeyIdentity::of(&cs), KeyIdentity::of(&sc));
+    }
+
+    #[test]
+    fn esc_and_escape_are_the_same_key() {
+        let esc = kb("none", "esc", Value::test_string("emacs"));
+        let escape = kb("none", "escape", Value::test_string("emacs"));
+        assert_eq!(KeyIdentity::of(&esc), KeyIdentity::of(&escape));
+    }
+
+    #[test]
+    fn mode_names_are_not_split_on_underscores() {
+        // Guards the tokenizer split: `vi_normal` is one mode, not `vi` + `normal`.
+        let whole = kb("none", "char_r", Value::test_string("vi_normal"));
+        let parts = kb(
+            "none",
+            "char_r",
+            Value::test_list(vec![Value::test_string("vi"), Value::test_string("normal")]),
+        );
+        assert_ne!(KeyIdentity::of(&whole), KeyIdentity::of(&parts));
     }
 
     #[test]
