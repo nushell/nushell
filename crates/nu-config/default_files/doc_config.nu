@@ -613,10 +613,11 @@ $env.config.hooks.command_not_found = null
 # still applied underneath and are listed by `keybindings default`.
 #
 # Assigning this list merges into the defaults rather than replacing them.
-# An entry replaces an existing binding with the same name and the same key
-# (modifier/keycode/mode); anything else is appended, with a one-time warning
-# when two bindings share a name. Set `event: null` on a matching binding to
-# unbind a key, or assign `[]` to clear the whole list.
+# An entry replaces the existing binding with the same name (updating its key
+# or event in place); when several bindings share a name, the key
+# (modifier/keycode/mode) decides which one it is, and a name reused for a
+# genuinely new key appends with a one-time warning. Set `event: null` on a
+# matching binding to unbind a key, or assign `[]` to clear the whole list.
 
 # Example: Add Alt+. keybinding to insert the last token from previous command:
 # $env.config.keybindings ++= [
