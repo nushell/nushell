@@ -612,10 +612,11 @@ $env.config.hooks.command_not_found = null
 # etc.). Inspect with `$env.config.keybindings`. Reedline's base emacs/vi maps are
 # still applied underneath and are listed by `keybindings default`.
 #
-# Assigning this list merges into the defaults rather than replacing them, so
-# `=` never clears the Nushell menu bindings. Entries are matched by `name`,
-# or by modifier/keycode/mode when unnamed; a match is overwritten, anything
-# else appended. Set `event: null` on a matching binding to unbind a key.
+# Assigning this list merges into the defaults rather than replacing them.
+# An entry replaces an existing binding with the same name and the same key
+# (modifier/keycode/mode); anything else is appended, with a one-time warning
+# when two bindings share a name. Set `event: null` on a matching binding to
+# unbind a key, or assign `[]` to clear the whole list.
 
 # Example: Add Alt+. keybinding to insert the last token from previous command:
 # $env.config.keybindings ++= [
