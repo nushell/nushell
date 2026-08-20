@@ -338,12 +338,13 @@ fn build_regex(input: &str, span: Span) -> Result<String, ShellError> {
         }
 
         column.push(c);
-        if loop_input.peek().is_none() {
-            return Err(ShellError::DelimiterError {
-                msg: "Found opening `{` without an associated closing `}`".to_owned(),
-                span,
-            });
-        }
+    }
+
+    if in_column {
+        return Err(ShellError::DelimiterError {
+            msg: "Found opening `{` without an associated closing `}`".to_owned(),
+            span,
+        });
     }
 
     if !before.is_empty() {

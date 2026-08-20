@@ -2,6 +2,7 @@ use nu_test_support::{
     fs::Stub::{EmptyFile, FileWithContentToBeTrimmed},
     prelude::*,
 };
+use rstest::rstest;
 
 mod duration;
 mod filesize;
@@ -55,16 +56,17 @@ fn cant_use_variables() -> Result {
     Ok(())
 }
 
-#[test]
-fn error_unmatched_brace() -> Result {
-    let code = r#"
-        open cargo_sample.toml
-        | format pattern "{package.name"
-    "#;
-
+#[rstest]
+#[case::unclosed_column("{package.name")]
+#[case::lone_open("{")]
+#[case::lone_close("}")]
+#[case::trailing_open("hello {")]
+#[case::closed_then_open("{name}{")]
+fn error_unmatched_brace(#[case] pattern: &str) -> Result {
+    // Pattern must be a source literal. `format pattern` derives spans from the
+    // argument span vs string length, and panics when the value comes from a variable.
     let err = test()
-        .cwd("tests/fixtures/formats")
-        .run(code)
+        .run(format!("{{}} | format pattern '{pattern}'"))
         .expect_error()?;
 
     let ShellError::DelimiterError { msg, .. } = err else {
@@ -73,6 +75,11 @@ fn error_unmatched_brace() -> Result {
 
     assert_eq!(msg, "there are unmatched curly braces");
     Ok(())
+}
+
+#[test]
+fn escaped_open_brace_is_literal() -> Result {
+    test().run("{} | format pattern '{{'").expect_value_eq("{")
 }
 
 #[test]
