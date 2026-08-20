@@ -928,6 +928,24 @@ fn customcompletions_error_falls_back_to_file_completion() {
     );
 }
 
+/// A completer that calls an interactive command (`input`, `input list`, `input listen`,
+/// `term query`) runs on a background thread detached from the terminal, so the command
+/// should decline rather than race reedline for it; the completer then falls back to file
+/// completion.
+#[test]
+fn interactive_command_in_completer_falls_back_to_file_completion() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = "def comp [] { ['a' 'b'] | input list }; def my-command [arg: string@comp] {}";
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let line = "my-command custom_completion.";
+    match_suggestions(
+        &vec!["custom_completion.nu"],
+        &completer.complete_blocking(line, line.len()),
+    );
+}
+
 /// Suppress completions for invalid values
 #[test]
 fn customcompletions_invalid() {
