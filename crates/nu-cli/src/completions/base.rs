@@ -159,3 +159,16 @@ impl From<Suggestion> for SemanticSuggestion {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// `complete_argument_value` relies on this to treat `need_fallback`-requesting
+    /// outcomes as always empty (a dead check was removed on that assumption).
+    #[test]
+    fn fallback_variants_carry_no_suggestions() {
+        assert!(Fetched::Declined.into_suggestions().is_empty());
+        assert!(Fetched::Absent.into_suggestions().is_empty());
+    }
+}

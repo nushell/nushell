@@ -1438,7 +1438,6 @@ impl CompletionEngine {
             return results;
         }
 
-        arg_value.need_fallback &= results.suggestions.is_empty();
         results.merge(arg_value.fetch(context).into());
         results
     }
