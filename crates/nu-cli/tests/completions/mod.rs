@@ -932,10 +932,15 @@ fn customcompletions_error_falls_back_to_file_completion() {
 /// `term query`) runs on a background thread detached from the terminal, so the command
 /// should decline rather than race reedline for it; the completer then falls back to file
 /// completion.
-#[test]
-fn interactive_command_in_completer_falls_back_to_file_completion() {
+#[rstest]
+#[case::input("input")]
+#[case::input_reedline("input --reedline")]
+#[case::input_list("['a' 'b'] | input list")]
+#[case::input_listen("input listen")]
+#[case::term_query("term query 'x'")]
+fn interactive_command_in_completer_falls_back_to_file_completion(#[case] body: &str) {
     let (_, _, mut engine, mut stack) = new_engine();
-    let command = "def comp [] { ['a' 'b'] | input list }; def my-command [arg: string@comp] {}";
+    let command = format!("def comp [] {{ {body} }}; def my-command [arg: string@comp] {{}}");
     assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
