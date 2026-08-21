@@ -9,6 +9,7 @@ pub mod emoji;
 pub mod filesystem;
 pub mod flatten_json;
 pub mod float;
+mod iter;
 pub mod locale;
 pub mod location;
 #[doc(hidden)]
@@ -38,6 +39,7 @@ pub use downcast::downcast;
 pub use emoji::contains_emoji;
 pub use flatten_json::JsonFlattener;
 pub use float::ObviousFloat;
+pub use iter::MultiResult;
 pub use multilife::MultiLife;
 pub use nu_cow::NuCow;
 pub use quoting::{as_raw_string, escape_quote_string, needs_quoting};
