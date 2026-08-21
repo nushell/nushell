@@ -15,6 +15,7 @@ mod get_year;
 mod replace_time_zone;
 mod strftime;
 mod truncate;
+mod date_range;
 
 use crate::PolarsPlugin;
 use nu_plugin::PluginCommand;
@@ -45,6 +46,7 @@ pub(crate) fn datetime_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPl
         Box::new(AsDate),
         Box::new(AsDateTime),
         Box::new(ConvertTimeZone),
+        Box::new(date_range::DateRange),
         Box::new(ExprDatePart),
         Box::new(GetDay),
         Box::new(GetHour),
