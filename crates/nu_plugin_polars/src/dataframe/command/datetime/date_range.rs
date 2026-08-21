@@ -1,6 +1,6 @@
 use nu_plugin::PluginCommand;
 use nu_protocol::{
-    LabeledError, ShellError, Signature, SyntaxShape, Type, Value,
+    Example, LabeledError, ShellError, Signature, SyntaxShape, Type, Value,
     shell_error::generic::GenericError,
 };
 use polars::{
@@ -54,6 +54,10 @@ impl PluginCommand for DateRange {
 
     fn description(&self) -> &str {
         "Creates a date range expression."
+    }
+
+    fn examples(&self) -> Vec<Example<'_>> {
+        vec![]
     }
 
     fn run(
