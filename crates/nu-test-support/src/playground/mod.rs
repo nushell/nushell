@@ -53,23 +53,25 @@ pub trait PlaygroundFs: sealed::Sealed {
     /// #
     /// # fn main() -> Result {
     /// # let playground = Playground::new(module_path!())?;
-    /// playground.dir("abc/def")?;
+    /// let dir = playground.dir("abc/def")?;
     ///
-    /// assert!(playground.path().join("abc").join("def").is_dir());
+    /// assert!(dir.is_dir());
     /// # playground.close()?;
     /// # Ok(())
     /// # }
     /// ```
-    fn dir(&self, path: impl AsRef<Path>) -> Result<&Self> {
+    fn dir(&self, path: impl AsRef<Path>) -> Result<PathBuf> {
         let dir = self.path().join(normalize_playground_path(path.as_ref())?);
-        fs::create_dir_all(&dir)
-            .map(|()| self)
-            .map_err(|err| PlaygroundError {
+        if let Err(err) = fs::create_dir_all(&dir) {
+            return Err(PlaygroundError {
                 kind: PlaygroundErrorKind::CreateDir,
                 path: dir,
                 io_error_kind: err.kind(),
                 message: err.to_string(),
-            })
+            });
+        }
+
+        Ok(dir)
     }
 
     /// Create an empty file inside the playground.
@@ -87,14 +89,14 @@ pub trait PlaygroundFs: sealed::Sealed {
     /// #
     /// # fn main() -> Result {
     /// # let playground = Playground::new(module_path!())?;
-    /// playground.empty_file("some/file.empty")?;
+    /// let file = playground.empty_file("some/file.empty")?;
     ///
-    /// assert!(playground.path().join("some").join("file.empty").is_file());
+    /// assert!(file.is_file());
     /// # playground.close()?;
     /// # Ok(())
     /// # }
     /// ```
-    fn empty_file(&self, path: impl AsRef<Path>) -> Result<&Self> {
+    fn empty_file(&self, path: impl AsRef<Path>) -> Result<PathBuf> {
         self.file(path, [])
     }
 
@@ -114,9 +116,9 @@ pub trait PlaygroundFs: sealed::Sealed {
     /// #
     /// # fn main() -> Result {
     /// # let playground = Playground::new(module_path!())?;
-    /// playground.file("some/file.txt", "abc")?;
-    /// playground.file("bytes.bin", [1, 2, 3])?;
-    /// playground.file(
+    /// let text_file = playground.file("some/file.txt", "abc")?;
+    /// let bytes_file = playground.file("bytes.bin", [1, 2, 3])?;
+    /// let indented_file = playground.file(
     ///     "indented.txt",
     ///     indoc! {"
     ///         abc
@@ -124,23 +126,14 @@ pub trait PlaygroundFs: sealed::Sealed {
     ///     "},
     /// )?;
     ///
-    /// assert_eq!(
-    ///     std::fs::read_to_string(playground.path().join("some").join("file.txt")).unwrap(),
-    ///     "abc"
-    /// );
-    /// assert_eq!(
-    ///     std::fs::read(playground.path().join("bytes.bin")).unwrap(),
-    ///     vec![1, 2, 3]
-    /// );
-    /// assert_eq!(
-    ///     std::fs::read_to_string(playground.path().join("indented.txt")).unwrap(),
-    ///     "abc\ndef\n"
-    /// );
+    /// assert_eq!(std::fs::read_to_string(text_file).unwrap(), "abc");
+    /// assert_eq!(std::fs::read(bytes_file).unwrap(), vec![1, 2, 3]);
+    /// assert_eq!(std::fs::read_to_string(indented_file).unwrap(), "abc\ndef\n");
     /// # playground.close()?;
     /// # Ok(())
     /// # }
     /// ```
-    fn file(&self, path: impl AsRef<Path>, contents: impl AsRef<[u8]>) -> Result<&Self> {
+    fn file(&self, path: impl AsRef<Path>, contents: impl AsRef<[u8]>) -> Result<PathBuf> {
         let file = self.path().join(normalize_playground_path(path.as_ref())?);
         if let Some(parent) = file.parent()
             && let Err(err) = fs::create_dir_all(parent)
@@ -153,14 +146,16 @@ pub trait PlaygroundFs: sealed::Sealed {
             });
         }
 
-        fs::write(&file, contents)
-            .map(|()| self)
-            .map_err(|err| PlaygroundError {
+        if let Err(err) = fs::write(&file, contents) {
+            return Err(PlaygroundError {
                 kind: PlaygroundErrorKind::WriteFile,
                 path: file,
                 io_error_kind: err.kind(),
                 message: err.to_string(),
-            })
+            });
+        }
+
+        Ok(file)
     }
 
     /// Create a readonly file with contents inside the playground.
@@ -183,21 +178,17 @@ pub trait PlaygroundFs: sealed::Sealed {
     /// #
     /// # fn main() -> Result {
     /// # let playground = Playground::new(module_path!())?;
-    /// playground.readonly_file("readonly.txt", "contents")?;
+    /// let file = playground.readonly_file("readonly.txt", "contents")?;
     ///
     /// assert!(
-    ///     std::fs::metadata(playground.path().join("readonly.txt"))?
-    ///         .permissions()
-    ///         .readonly()
+    ///     std::fs::metadata(file)?.permissions().readonly()
     /// );
     /// # playground.close()?;
     /// # Ok(())
     /// # }
     /// ```
-    fn readonly_file(&self, path: impl AsRef<Path>, contents: impl AsRef<[u8]>) -> Result<&Self> {
-        self.file(&path, &contents)?;
-
-        let path = self.path().join(normalize_playground_path(path.as_ref())?);
+    fn readonly_file(&self, path: impl AsRef<Path>, contents: impl AsRef<[u8]>) -> Result<PathBuf> {
+        let path = self.file(path, contents)?;
         let mut permissions = fs::metadata(&path)
             .map_err(|err| PlaygroundError {
                 kind: PlaygroundErrorKind::Metadata,
@@ -209,12 +200,12 @@ pub trait PlaygroundFs: sealed::Sealed {
         permissions.set_readonly(true);
         fs::set_permissions(&path, permissions).map_err(|err| PlaygroundError {
             kind: PlaygroundErrorKind::SetPermissions,
-            path,
+            path: path.clone(),
             io_error_kind: err.kind(),
             message: err.to_string(),
         })?;
 
-        Ok(self)
+        Ok(path)
     }
 
     /// Create a symlink inside the playground.
@@ -239,15 +230,15 @@ pub trait PlaygroundFs: sealed::Sealed {
     /// # fn main() -> Result {
     /// # let playground = Playground::new(module_path!())?;
     /// playground.file("original.txt", "contents")?;
-    /// playground.symlink("original.txt", "links/original.txt")?;
+    /// let link = playground.symlink("original.txt", "links/original.txt")?;
     ///
-    /// assert!(playground.path().join("links/original.txt").is_symlink());
+    /// assert!(link.is_symlink());
     /// # playground.close()?;
     /// # Ok(())
     /// # }
     /// ```
     #[cfg(any(unix, windows))]
-    fn symlink(&self, original: impl AsRef<Path>, link: impl AsRef<Path>) -> Result<&Self> {
+    fn symlink(&self, original: impl AsRef<Path>, link: impl AsRef<Path>) -> Result<PathBuf> {
         let original = self
             .path()
             .join(normalize_playground_path(original.as_ref())?);
@@ -288,12 +279,12 @@ pub trait PlaygroundFs: sealed::Sealed {
 
         symlink(original, &link).map_err(|err| PlaygroundError {
             kind: PlaygroundErrorKind::CreateSymlink,
-            path: link,
+            path: link.clone(),
             io_error_kind: err.kind(),
             message: err.to_string(),
         })?;
 
-        Ok(self)
+        Ok(link)
     }
 
     /// Create a nested playground directory and run filesystem operations inside it.
