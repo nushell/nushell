@@ -593,8 +593,9 @@ impl Dispatched {
 impl From<Fetched> for Dispatched {
     fn from(fetched: Fetched) -> Self {
         Self {
-            suggestions: fetched.suggestions,
-            cacheable: fetched.cacheable,
+            // Read the cacheable flag before `into_suggestions` consumes the outcome.
+            cacheable: fetched.is_cacheable(),
+            suggestions: fetched.into_suggestions(),
         }
     }
 }
@@ -891,7 +892,7 @@ impl CompletionEngine {
         {
             let mut completion = CommandWideCompletion::closure(closure, external_call);
             let fetched = completion.fetch(completion_context);
-            external_answered = !fetched.need_fallback;
+            external_answered = !fetched.needs_fallback();
             dispatched.merge(fetched.into());
         }
 
@@ -940,8 +941,9 @@ impl CompletionEngine {
         let subcommands =
             self.subcommand_suggestions(working_set, call.head.start, site.cursor, offset);
 
-        // The value kinds share one shape; only the `ArgType` and custom-completer lookup differ.
-        let argument_value = |engine: &Self, arg_type, custom, arg_slot| {
+        // The value kinds share one shape; only the `ArgType`, custom-completer, and declared
+        // shape lookups differ.
+        let argument_value = |engine: &Self, arg_type, custom, arg_slot, declared_shape| {
             engine.complete_argument_value(
                 custom,
                 ArgValueCompletion {
@@ -950,6 +952,7 @@ impl CompletionEngine {
                     need_fallback: subcommands.suggestions.is_empty(),
                     completer: engine,
                     arg_idx: arg_slot,
+                    declared_shape,
                     cursor: site.cursor,
                 },
                 completion_context,
@@ -963,24 +966,30 @@ impl CompletionEngine {
             SiteKind::FlagName { .. } => {
                 self.complete_flag_names(call.decl_id, completion_context, &signature, element)
             }
-            SiteKind::FlagValue { flag, arg_slot, .. } => argument_value(
-                self,
-                ArgType::Flag(Cow::Borrowed(flag.name())),
-                find_flag(&signature, *flag).and_then(|flag| flag.completion),
-                *arg_slot,
-            ),
+            SiteKind::FlagValue { flag, arg_slot, .. } => {
+                let resolved = find_flag(&signature, *flag);
+                argument_value(
+                    self,
+                    ArgType::Flag(Cow::Borrowed(flag.name())),
+                    resolved.as_ref().and_then(|flag| flag.completion.clone()),
+                    *arg_slot,
+                    resolved.and_then(|flag| flag.arg),
+                )
+            }
             SiteKind::Positional {
                 sig_positional,
                 arg_slot,
                 ..
-            } => argument_value(
-                self,
-                ArgType::Positional(*sig_positional),
-                signature
-                    .get_positional(*sig_positional)
-                    .and_then(|positional| positional.completion.clone()),
-                *arg_slot,
-            ),
+            } => {
+                let positional = signature.get_positional(*sig_positional);
+                argument_value(
+                    self,
+                    ArgType::Positional(*sig_positional),
+                    positional.and_then(|positional| positional.completion.clone()),
+                    *arg_slot,
+                    positional.map(|positional| positional.shape.clone()),
+                )
+            }
             _ => Dispatched::default(),
         };
 
@@ -1415,7 +1424,7 @@ impl CompletionEngine {
                     self.custom_completion_helper(other, element_line.as_ref(), context, cursor)
                 }
             };
-            let need_fallback = attempt.need_fallback;
+            let need_fallback = attempt.needs_fallback();
             results.merge(attempt.into());
             if !need_fallback {
                 return results;
@@ -1423,13 +1432,12 @@ impl CompletionEngine {
         }
 
         let attempt = self.command_wide_completion_helper(signature, element_expression, context);
-        let need_fallback = attempt.need_fallback;
+        let need_fallback = attempt.needs_fallback();
         results.merge(attempt.into());
         if !need_fallback {
             return results;
         }
 
-        arg_value.need_fallback &= results.suggestions.is_empty();
         results.merge(arg_value.fetch(context).into());
         results
     }
@@ -1578,7 +1586,7 @@ impl CompletionEngine {
             }
             // Engine-provided completions are handled in `complete_argument_value`; decline
             // if one arrives by another path.
-            Completion::Builtin(_) => Fetched::absent(),
+            Completion::Builtin(_) => Fetched::Absent,
         }
     }
 
@@ -1611,7 +1619,7 @@ impl CompletionEngine {
                 };
                 completion.fetch(&context)
             }
-            None => Fetched::absent(),
+            None => Fetched::Absent,
         }
     }
 

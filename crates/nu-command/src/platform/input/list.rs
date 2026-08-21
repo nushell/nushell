@@ -562,6 +562,8 @@ Use --no-footer and --no-separator to hide the footer and separator line."#
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
+        // The widget below manages raw mode itself, so check the precondition here.
+        stack.require_stdin(head)?;
         let prompt: Option<String> = call.opt(engine_state, stack, 0)?;
         let multi = call.has_flag(engine_state, stack, "multi")?;
         let fuzzy = call.has_flag(engine_state, stack, "fuzzy")?;

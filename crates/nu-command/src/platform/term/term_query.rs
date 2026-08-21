@@ -3,6 +3,7 @@ use std::{
     time::Duration,
 };
 
+use crate::platform::RawModeGuard;
 use nu_engine::command_prelude::*;
 use nu_protocol::shell_error::{generic::GenericError, io::IoError};
 
@@ -99,10 +100,7 @@ The `prefix` is not included in the output."
         let prefix = prefix.unwrap_or_default();
         let terminator: Option<Vec<u8>> = call.get_flag(engine_state, stack, "terminator")?;
 
-        crossterm::terminal::enable_raw_mode().map_err(|err| IoError::new(err, call.head, None))?;
-        scopeguard::defer! {
-            let _ = crossterm::terminal::disable_raw_mode();
-        }
+        let _raw_mode = RawModeGuard::acquire(stack, call.head)?;
 
         // clear terminal events
         while crossterm::event::poll(Duration::from_secs(0))

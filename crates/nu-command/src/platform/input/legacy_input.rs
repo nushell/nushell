@@ -1,3 +1,4 @@
+use crate::platform::RawModeGuard;
 use crossterm::{
     cursor,
     event::{Event, KeyCode, KeyEventKind, KeyModifiers},
@@ -40,6 +41,12 @@ pub trait LegacyInput {
         }
 
         let default_val: Option<String> = call.get_flag(engine_state, stack, "default")?;
+
+        // Acquire the guard (and its `require_stdin` check) before writing anything, so a
+        // detached stack (e.g. a completer running off the main thread) errors out before the
+        // prompt is printed to stdout, instead of corrupting the active display first.
+        let raw_mode = RawModeGuard::acquire(stack, call.head)?;
+
         if let Some(prompt) = &prompt {
             match &default_val {
                 None => print!("{prompt}"),
@@ -50,7 +57,6 @@ pub trait LegacyInput {
 
         let mut buf = String::new();
 
-        crossterm::terminal::enable_raw_mode().map_err(&from_io_error)?;
         // clear terminal events
         while crossterm::event::poll(Duration::from_secs(0)).map_err(&from_io_error)? {
             // If there's an event, read it to remove it from the queue
@@ -71,8 +77,6 @@ pub trait LegacyInput {
                                     || k.modifiers == KeyModifiers::CONTROL
                                 {
                                     if k.modifiers == KeyModifiers::CONTROL && c == 'c' {
-                                        crossterm::terminal::disable_raw_mode()
-                                            .map_err(&from_io_error)?;
                                         return Err(IoError::new(
                                             shell_error::io::ErrorKind::from_std(
                                                 std::io::ErrorKind::Interrupted,
@@ -105,7 +109,6 @@ pub trait LegacyInput {
                 },
                 Ok(_) => continue,
                 Err(event_error) => {
-                    crossterm::terminal::disable_raw_mode().map_err(&from_io_error)?;
                     return Err(from_io_error(event_error).into());
                 }
             }
@@ -124,7 +127,8 @@ pub trait LegacyInput {
                 execute!(std::io::stdout(), Print(buf.to_string())).map_err(&from_io_error)?;
             }
         }
-        crossterm::terminal::disable_raw_mode().map_err(&from_io_error)?;
+        // Leave raw mode before the trailing newline so it gets the usual carriage return.
+        drop(raw_mode);
         std::io::stdout().write_all(b"\n").map_err(&from_io_error)?;
         match default_val {
             Some(val) if buf.is_empty() => Ok(Value::string(val, call.head).into_pipeline_data()),

@@ -67,6 +67,6 @@ impl Completer for VariableCompletion {
             });
         }
 
-        Fetched::pure(matcher.suggestion_results())
+        Fetched::Pure(matcher.suggestion_results())
     }
 }
