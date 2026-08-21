@@ -62,7 +62,7 @@ Writing `$in | complete stream` collects the child first and loses the separate 
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["stdout", "stderr", "chunk", "complete"]
+        vec!["stdout", "stderr", "chunk"]
     }
 
     fn run(
