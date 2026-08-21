@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use super::{config_update_string_enum, prelude::*};
 use crate as nu_protocol;
 use crate::{FromValue, engine::Closure};
@@ -10,6 +12,48 @@ pub struct ParsedKeybinding {
     pub keycode: Value,
     pub event: Value,
     pub mode: Value,
+}
+
+pub(crate) fn name_of(kb: &ParsedKeybinding) -> Option<String> {
+    kb.name
+        .as_ref()
+        .and_then(|v| v.coerce_str().ok())
+        .map(|s| s.to_string())
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub(super) struct KeyIdentity {
+    modifier: BTreeSet<String>,
+    keycode: String,
+    modes: BTreeSet<String>,
+}
+
+impl KeyIdentity {
+    pub(crate) fn of(kb: &ParsedKeybinding) -> Self {
+        let lower = |v: &Value| {
+            v.coerce_str()
+                .map(|s| s.to_ascii_lowercase())
+                .unwrap_or_default()
+        };
+        let modes = match &kb.mode {
+            Value::List { vals, .. } => vals.iter().map(lower).collect(),
+            v => BTreeSet::from([lower(v)]),
+        };
+
+        Self {
+            // Best-effort mirror of `add_parsed_keybinding`'s reading: modifiers
+            // are an unordered `_`-joined set and `esc`/`escape` are aliases. The
+            // exotic overlaps (`space` vs `char_ `, `char_u<hex>` vs `char_<c>`)
+            // are deliberately not canonicalized; a mismatch only costs an
+            // append plus a warning, never a lost binding.
+            modifier: lower(&kb.modifier).split('_').map(|s| s.into()).collect(),
+            keycode: match lower(&kb.keycode).as_str() {
+                "esc" => "escape".into(),
+                other => other.into(),
+            },
+            modes,
+        }
+    }
 }
 
 /// Definition of a parsed menu from the config object
@@ -132,5 +176,96 @@ impl FromStr for EditBindings {
 impl UpdateFromValue for EditBindings {
     fn update(&mut self, value: &Value, path: &mut ConfigPath, errors: &mut ConfigErrors) {
         config_update_string_enum(self, value, path, errors)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn kb(modifier: &str, keycode: &str, mode: Value) -> ParsedKeybinding {
+        ParsedKeybinding {
+            name: None,
+            modifier: Value::test_string(modifier),
+            keycode: Value::test_string(keycode),
+            event: Value::test_nothing(),
+            mode,
+        }
+    }
+
+    #[test]
+    fn a_bare_mode_and_its_singleton_list_are_the_same_key() {
+        let bare = kb("control", "char_r", Value::test_string("emacs"));
+        let listed = kb(
+            "control",
+            "char_r",
+            Value::test_list(vec![Value::test_string("emacs")]),
+        );
+        assert_eq!(KeyIdentity::of(&bare), KeyIdentity::of(&listed));
+    }
+
+    #[test]
+    fn mode_list_order_does_not_matter() {
+        let forward = kb(
+            "control",
+            "char_r",
+            Value::test_list(vec![
+                Value::test_string("emacs"),
+                Value::test_string("vi_insert"),
+            ]),
+        );
+        let reversed = kb(
+            "control",
+            "char_r",
+            Value::test_list(vec![
+                Value::test_string("vi_insert"),
+                Value::test_string("emacs"),
+            ]),
+        );
+        assert_eq!(KeyIdentity::of(&forward), KeyIdentity::of(&reversed));
+    }
+
+    #[test]
+    fn spelling_case_does_not_matter() {
+        let lower = kb("control", "char_r", Value::test_string("emacs"));
+        let upper = kb("Control", "Char_R", Value::test_string("Emacs"));
+        assert_eq!(KeyIdentity::of(&lower), KeyIdentity::of(&upper));
+    }
+
+    // Canonicalization to match `add_parsed_keybinding`'s reading of the fields:
+    // modifiers are an unordered `_`-joined set, `esc`/`escape` are aliases,
+    // and mode names keep their underscores.
+
+    #[test]
+    fn modifier_component_order_does_not_matter() {
+        let cs = kb("control_shift", "char_r", Value::test_string("emacs"));
+        let sc = kb("shift_control", "char_r", Value::test_string("emacs"));
+        assert_eq!(KeyIdentity::of(&cs), KeyIdentity::of(&sc));
+    }
+
+    #[test]
+    fn esc_and_escape_are_the_same_key() {
+        let esc = kb("none", "esc", Value::test_string("emacs"));
+        let escape = kb("none", "escape", Value::test_string("emacs"));
+        assert_eq!(KeyIdentity::of(&esc), KeyIdentity::of(&escape));
+    }
+
+    #[test]
+    fn mode_names_are_not_split_on_underscores() {
+        // Guards the tokenizer split: `vi_normal` is one mode, not `vi` + `normal`.
+        let whole = kb("none", "char_r", Value::test_string("vi_normal"));
+        let parts = kb(
+            "none",
+            "char_r",
+            Value::test_list(vec![Value::test_string("vi"), Value::test_string("normal")]),
+        );
+        assert_ne!(KeyIdentity::of(&whole), KeyIdentity::of(&parts));
+    }
+
+    #[test]
+    fn a_different_key_is_a_different_identity() {
+        let ctrl_r = kb("control", "char_r", Value::test_string("emacs"));
+        let up = kb("none", "up", Value::test_string("emacs"));
+        assert_ne!(KeyIdentity::of(&ctrl_r), KeyIdentity::of(&up));
     }
 }

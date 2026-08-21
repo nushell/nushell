@@ -1,10 +1,11 @@
 //! Module containing the internal representation of user configuration
 
-use crate::FromValue;
+use crate::config::reedline::{KeyIdentity, name_of};
 use crate::{self as nu_protocol, Filesize};
+use crate::{ConfigWarning, FromValue};
 use helper::*;
 use prelude::*;
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 pub use ansi_coloring::UseAnsiColoring;
 pub use clip::ClipConfig;
@@ -265,35 +266,7 @@ impl UpdateFromValue for Config {
                 },
 
                 "keybindings" => match Vec::<ParsedKeybinding>::from_value(val.clone()) {
-                    Ok(keybindings) => {
-                        for keybinding in keybindings {
-                            // An unnamed binding has no name to merge on, so match it on
-                            // the key it binds. Otherwise it matches nothing and is
-                            // appended again on every assignment, growing the list each
-                            // time a config is re-sourced.
-                            let found_index =
-                                self.keybindings.iter().position(|existing_keybinding| {
-                                    match (&keybinding.name, &existing_keybinding.name) {
-                                        (Some(name), Some(existing_name)) => {
-                                            name.to_expanded_string("", self)
-                                                == existing_name.to_expanded_string("", self)
-                                        }
-                                        (None, None) => {
-                                            keybinding.modifier == existing_keybinding.modifier
-                                                && keybinding.keycode == existing_keybinding.keycode
-                                                && keybinding.mode == existing_keybinding.mode
-                                        }
-                                        _ => false,
-                                    }
-                                });
-
-                            if let Some(index) = found_index {
-                                self.keybindings[index] = keybinding;
-                            } else {
-                                self.keybindings.push(keybinding);
-                            }
-                        }
-                    }
+                    Ok(keybindings) => self.merge_keybindings(keybindings, val.span(), errors),
                     Err(error) => errors.error(error.into()),
                 },
 
@@ -365,6 +338,85 @@ impl Config {
         self.update(value, &mut path, &mut errors);
 
         errors.check()
+    }
+
+    fn merge_keybindings(
+        &mut self,
+        incoming: Vec<ParsedKeybinding>,
+        span: Span,
+        errors: &mut ConfigErrors,
+    ) {
+        if incoming.is_empty() {
+            self.keybindings.clear();
+            return;
+        }
+
+        let mut shared_names = BTreeSet::new();
+        let identities = incoming.into_iter().map(|kb| {
+            let name = name_of(&kb);
+            let id = KeyIdentity::of(&kb);
+            (kb, name, id)
+        });
+
+        // Snapshot of existing identities, kept in lockstep with the list.
+        // `claimed` marks entries already spoken for by this assignment, so a
+        // second incoming binding with the same name starts a new entry
+        // instead of re-keying its sibling.
+        struct Existing {
+            name: Option<String>,
+            id: KeyIdentity,
+            claimed: bool,
+        }
+        let mut ex_kbs: Vec<Existing> = self
+            .keybindings
+            .iter()
+            .map(|ex| Existing {
+                name: name_of(ex),
+                id: KeyIdentity::of(ex),
+                claimed: false,
+            })
+            .collect();
+
+        for (kb, name, id) in identities {
+            // The same binding (name and key): replace, claimed or not, so a
+            // re-sourced config stays idempotent and event updates land.
+            if let Some(i) = ex_kbs.iter().position(|ex| ex.name == name && ex.id == id) {
+                ex_kbs[i].claimed = true;
+                self.keybindings[i] = kb;
+                continue;
+            }
+
+            // A named binding with a new key re-keys the unclaimed entry of
+            // that name in place, keeping its position in the list.
+            if name.is_some()
+                && let Some(i) = ex_kbs.iter().position(|ex| ex.name == name && !ex.claimed)
+            {
+                ex_kbs[i].id = id;
+                ex_kbs[i].claimed = true;
+                self.keybindings[i] = kb;
+                continue;
+            }
+
+            // A new binding. If its name is already taken (necessarily by a
+            // claimed entry), both stay active; say so once.
+            if let Some(name) = &name
+                && ex_kbs.iter().any(|ex| ex.name.as_ref() == Some(name))
+            {
+                shared_names.insert(name.clone());
+            }
+            ex_kbs.push(Existing {
+                name,
+                id,
+                claimed: true,
+            });
+            self.keybindings.push(kb);
+        }
+        if !shared_names.is_empty() {
+            errors.warn(ConfigWarning::SharedKeybindingName {
+                names: shared_names.into_iter().collect::<Vec<_>>().join(", "),
+                span,
+            });
+        }
     }
 }
 
@@ -455,5 +507,304 @@ mod tests {
             expected,
             "reassigning `keybindings` duplicated the unnamed binding"
         );
+    }
+
+    // --- merge semantics: replace on same name+key, append+warn on shared name ---
+
+    fn keybinding(
+        name: Option<&str>,
+        modifier: &str,
+        keycode: &str,
+        mode: Value,
+    ) -> ParsedKeybinding {
+        ParsedKeybinding {
+            name: name.map(Value::test_string),
+            modifier: Value::test_string(modifier),
+            keycode: Value::test_string(keycode),
+            event: Value::test_nothing(),
+            mode,
+        }
+    }
+
+    /// Run one `$env.config.keybindings = [...]` assignment; returns the warning.
+    fn assign(
+        config: &mut Config,
+        old: &Config,
+        keybindings: Vec<ParsedKeybinding>,
+    ) -> Option<ShellWarning> {
+        let value = Value::test_record(record! {
+            "keybindings" => Value::test_list(
+                keybindings
+                    .into_iter()
+                    .map(|kb| kb.into_value(Span::test_data()))
+                    .collect(),
+            ),
+        });
+        config
+            .update_from_value(old, &value)
+            .expect("update should succeed")
+    }
+
+    fn count_named(config: &Config, name: &str) -> usize {
+        config
+            .keybindings
+            .iter()
+            .filter(|kb| {
+                kb.name
+                    .as_ref()
+                    .is_some_and(|n| n.to_expanded_string("", config) == name)
+            })
+            .count()
+    }
+
+    /// The atuin regression (nushell/nushell#18848): two bindings sharing a name
+    /// on different keys must both survive, with one warning.
+    #[test]
+    fn a_shared_name_on_different_keys_keeps_both_bindings_and_warns() {
+        let old = Config::default();
+        let mut new = old.clone();
+
+        let warning = assign(
+            &mut new,
+            &old,
+            vec![
+                keybinding(
+                    Some("atuin"),
+                    "control",
+                    "char_r",
+                    Value::test_string("emacs"),
+                ),
+                keybinding(Some("atuin"), "none", "up", Value::test_string("emacs")),
+            ],
+        );
+
+        assert_eq!(
+            count_named(&new, "atuin"),
+            2,
+            "one of the bindings was dropped"
+        );
+        assert!(warning.is_some(), "sharing a name should warn");
+    }
+
+    /// Re-sourcing the exact same binding is idempotent and silent.
+    #[test]
+    fn reassigning_the_same_binding_replaces_it_without_warning() {
+        let old = Config::default();
+        let mut new = old.clone();
+
+        let atuin = || {
+            keybinding(
+                Some("atuin"),
+                "control",
+                "char_r",
+                Value::test_string("emacs"),
+            )
+        };
+        assign(&mut new, &old, vec![atuin()]);
+        let len = new.keybindings.len();
+
+        let warning = assign(&mut new, &old, vec![atuin()]);
+        assert_eq!(
+            new.keybindings.len(),
+            len,
+            "re-sourcing duplicated the binding"
+        );
+        assert!(
+            warning.is_none(),
+            "an identical re-assignment must not warn"
+        );
+    }
+
+    /// Same name and key with a new event is the update case: replaced in place.
+    #[test]
+    fn a_new_event_on_the_same_key_replaces_the_binding() {
+        let old = Config::default();
+        let mut new = old.clone();
+
+        assign(
+            &mut new,
+            &old,
+            vec![keybinding(
+                Some("atuin"),
+                "control",
+                "char_r",
+                Value::test_string("emacs"),
+            )],
+        );
+        let len = new.keybindings.len();
+
+        let mut updated = keybinding(
+            Some("atuin"),
+            "control",
+            "char_r",
+            Value::test_string("emacs"),
+        );
+        updated.event = Value::test_string("marker");
+        assign(&mut new, &old, vec![updated]);
+
+        assert_eq!(new.keybindings.len(), len);
+        let event = new
+            .keybindings
+            .iter()
+            .rev()
+            .find(|kb| {
+                kb.name
+                    .as_ref()
+                    .is_some_and(|n| n.to_expanded_string("", &new) == "atuin")
+            })
+            .map(|kb| kb.event.clone());
+        assert_eq!(
+            event,
+            Some(Value::test_string("marker")),
+            "event was not updated"
+        );
+    }
+
+    /// `emacs` and `[emacs]` spell the same key, so the second assignment replaces.
+    #[test]
+    fn a_bare_mode_and_its_singleton_list_merge_into_one_binding() {
+        let old = Config::default();
+        let mut new = old.clone();
+
+        assign(
+            &mut new,
+            &old,
+            vec![keybinding(
+                Some("atuin"),
+                "control",
+                "char_r",
+                Value::test_string("emacs"),
+            )],
+        );
+        let warning = assign(
+            &mut new,
+            &old,
+            vec![keybinding(
+                Some("atuin"),
+                "control",
+                "char_r",
+                Value::test_list(vec![Value::test_string("emacs")]),
+            )],
+        );
+
+        assert_eq!(
+            count_named(&new, "atuin"),
+            1,
+            "the mode spellings did not merge"
+        );
+        assert!(warning.is_none());
+    }
+
+    /// The same new binding twice in one assignment collapses to one entry
+    /// (guards the identity snapshot staying in sync with the list).
+    #[test]
+    fn the_same_binding_twice_in_one_assignment_is_stored_once() {
+        let old = Config::default();
+        let mut new = old.clone();
+
+        let atuin = || {
+            keybinding(
+                Some("atuin"),
+                "control",
+                "char_r",
+                Value::test_string("emacs"),
+            )
+        };
+        assign(&mut new, &old, vec![atuin(), atuin()]);
+
+        assert_eq!(count_named(&new, "atuin"), 1, "the duplicate was appended");
+    }
+
+    /// Re-keying by name: assigning a named binding with a new key replaces the
+    /// existing binding of that name in place, keeping its list position
+    /// (`$env.config.keybindings.0.keycode = ...` depends on this).
+    #[test]
+    fn a_named_binding_with_a_new_key_replaces_in_place() {
+        let old = Config::default();
+        let mut new = old.clone();
+
+        assign(
+            &mut new,
+            &old,
+            vec![keybinding(
+                Some("atuin"),
+                "control",
+                "char_r",
+                Value::test_string("emacs"),
+            )],
+        );
+        let len = new.keybindings.len();
+        let index = new
+            .keybindings
+            .iter()
+            .position(|kb| {
+                kb.name
+                    .as_ref()
+                    .is_some_and(|n| n.to_expanded_string("", &new) == "atuin")
+            })
+            .expect("binding was added");
+
+        let warning = assign(
+            &mut new,
+            &old,
+            vec![keybinding(
+                Some("atuin"),
+                "none",
+                "up",
+                Value::test_string("emacs"),
+            )],
+        );
+
+        assert_eq!(new.keybindings.len(), len, "re-keying must not append");
+        assert_eq!(
+            new.keybindings[index].keycode,
+            Value::test_string("up"),
+            "the binding was not re-keyed in place"
+        );
+        assert!(warning.is_none(), "re-keying a lone name must not warn");
+    }
+
+    /// A changed mode set is a re-key too, not a sibling binding.
+    #[test]
+    fn a_named_binding_with_a_changed_mode_replaces_instead_of_appending() {
+        let old = Config::default();
+        let mut new = old.clone();
+
+        assign(
+            &mut new,
+            &old,
+            vec![keybinding(
+                Some("atuin"),
+                "control",
+                "char_r",
+                Value::test_string("emacs"),
+            )],
+        );
+        let warning = assign(
+            &mut new,
+            &old,
+            vec![keybinding(
+                Some("atuin"),
+                "control",
+                "char_r",
+                Value::test_list(vec![
+                    Value::test_string("vi_normal"),
+                    Value::test_string("vi_insert"),
+                ]),
+            )],
+        );
+
+        assert_eq!(count_named(&new, "atuin"), 1, "the mode change appended");
+        assert!(warning.is_none());
+    }
+
+    /// Assigning an empty list is the reset escape hatch.
+    #[test]
+    fn assigning_an_empty_list_clears_the_keybindings() {
+        let old = Config::default();
+        let mut new = old.clone();
+
+        assign(&mut new, &old, vec![]);
+        assert!(new.keybindings.is_empty(), "`= []` should reset the list");
     }
 }
