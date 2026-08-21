@@ -34,7 +34,7 @@ impl PluginCommand for DateRange {
                 "end",
                 SyntaxShape::Any,
                 "End of the date range expression. This supports a string, date, or datetime expression.",
-                Some('s'),
+                Some('e'),
             )
             .named(
                 "interval",
