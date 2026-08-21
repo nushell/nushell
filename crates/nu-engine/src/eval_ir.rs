@@ -239,18 +239,17 @@ impl<'a> EvalContext<'a> {
     ///
     /// It doesn't check exit status when collecting.
     fn collect_reg(&mut self, reg_id: RegId, fallback_span: Span) -> Result<Value, ShellError> {
-        // NOTE: collect_reg is used to collect the reg to a variable.
-        // So it's good to pick the inner PipelineData directly, and drop the ExitStatus queue.
+        // Used to collect a register into a variable. `pipefail` is not applied, but
+        // `$env.LAST_EXIT_CODE` is still recorded for children whose errors were ignored
+        // (`complete stream`).
+        let data = self.take_reg(reg_id);
+        let span = data.body.span().unwrap_or(fallback_span);
         #[cfg(feature = "os")]
-        let body = {
-            let mut data = self.take_reg(reg_id);
-            data.exit.clear();
-            data.body
-        };
-        #[cfg(not(feature = "os"))]
-        let body = self.take_reg(reg_id).body;
-        let span = body.span().unwrap_or(fallback_span);
-        body.into_value(span)
+        let exits = data.exit;
+        let value = data.body.into_value(span)?;
+        #[cfg(feature = "os")]
+        apply_ignored_exit_codes(self.stack, exits, span)?;
+        Ok(value)
     }
 
     /// Get a string from data or produce evaluation error if it's invalid UTF-8
@@ -498,18 +497,26 @@ fn eval_instruction<D: DebugContext>(
         Instruction::Collect { src_dst } => {
             let data = ctx.take_reg(*src_dst);
             #[cfg(feature = "os")]
+            let exits = data.exit.clone();
+            #[cfg(feature = "os")]
             let value = collect(data, *span, true)?;
             #[cfg(not(feature = "os"))]
             let value = collect(data, *span)?;
+            #[cfg(feature = "os")]
+            apply_ignored_exit_codes(ctx.stack, exits, *span)?;
             ctx.put_reg(*src_dst, PipelineExecutionData::from(value));
             Ok(Continue)
         }
         Instruction::TryCollect { src_dst } => {
             let data = ctx.take_reg(*src_dst);
             #[cfg(feature = "os")]
+            let exits = data.exit.clone();
+            #[cfg(feature = "os")]
             let value = collect(data, *span, false)?;
             #[cfg(not(feature = "os"))]
             let value = collect(data, *span)?;
+            #[cfg(feature = "os")]
+            apply_ignored_exit_codes(ctx.stack, exits, *span)?;
             ctx.put_reg(*src_dst, PipelineExecutionData::from(value));
             Ok(Continue)
         }
@@ -781,6 +788,16 @@ fn eval_instruction<D: DebugContext>(
                 let result_exit_status_future = result
                     .clone_exit_status_future()
                     .map(|f| f.with_span(*span));
+                // `complete stream` (and wrappers that return its list stream) attach the
+                // same child future onto the list stream. Drop the inherited duplicate so
+                // pipefail does not depend on the command's name string.
+                if let Some(result_guard) = result_exit_status_future.as_ref() {
+                    original_exit.retain(|existing| {
+                        existing
+                            .as_ref()
+                            .is_none_or(|guard| !guard.tracks_same_child(result_guard))
+                    });
+                }
                 original_exit.push(result_exit_status_future);
                 ctx.put_reg(
                     *src_dst,
@@ -1858,6 +1875,44 @@ fn get_env_var_name<'a>(ctx: &mut EvalContext<'_>, key: &'a str) -> Cow<'a, str>
         .unwrap_or(Cow::Borrowed(key))
 }
 
+/// Copy `$env.LAST_EXIT_CODE` from child guards that asked to record it.
+///
+/// `complete stream` marks its child this way so a later `| first` still sees the
+/// status after the list stream itself is gone. Other ignored children (`ignore`)
+/// do not set the flag.
+#[cfg(feature = "os")]
+fn apply_ignored_exit_codes(
+    stack: &mut Stack,
+    exits: Vec<Option<nu_protocol::process::ExitStatusGuard>>,
+    span: Span,
+) -> Result<(), ShellError> {
+    let mut last_code = None;
+    for guard in exits.into_iter().flatten() {
+        if !guard.records_last_exit() {
+            continue;
+        }
+        let ignore_error = {
+            let guard_flag = guard
+                .ignore_error
+                .lock()
+                .expect("lock ignore error should success");
+            *guard_flag
+        };
+        if !ignore_error {
+            continue;
+        }
+        let mut future = guard
+            .exit_status_future
+            .lock()
+            .expect("lock exit_status future should success");
+        last_code = Some(future.wait(guard.span.unwrap_or(span))?.code());
+    }
+    if let Some(code) = last_code {
+        stack.set_last_exit_code(code, span);
+    }
+    Ok(())
+}
+
 /// Helper to collect values into [`PipelineData`], preserving original span and metadata
 ///
 /// The metadata is removed if it is the file data source, as that's just meant to mark streams.
@@ -1885,6 +1940,8 @@ fn drain(
     data: PipelineExecutionData,
 ) -> Result<InstructionResult, ShellError> {
     use self::InstructionResult::*;
+
+    let span = data.body.span().unwrap_or(Span::unknown());
 
     match data.body {
         PipelineData::ByteStream(stream, ..) => {
@@ -1926,6 +1983,9 @@ fn drain(
         PipelineData::Value(..) | PipelineData::Empty => {}
     }
 
+    #[cfg(feature = "os")]
+    apply_ignored_exit_codes(ctx.stack, data.exit.clone(), span)?;
+
     let pipefail = nu_experimental::PIPE_FAIL.get();
     if !pipefail {
         return Ok(Continue);
@@ -1943,10 +2003,29 @@ fn drain_if_end(
     ctx: &mut EvalContext<'_>,
     data: PipelineExecutionData,
 ) -> Result<PipelineData, ShellError> {
-    let stack = &mut ctx
-        .stack
-        .push_redirection(ctx.redirect_out.clone(), ctx.redirect_err.clone());
-    let result = data.body.drain_to_out_dests(ctx.engine_state, stack)?;
+    let span = data.body.span().unwrap_or(Span::unknown());
+    #[cfg(feature = "os")]
+    let exits = data.exit.clone();
+    // Never consume a live stream here. `try { stream } | first` would deadlock if we
+    // waited on or drained the producer before `first` received. The caller prints or
+    // collects when this is actually the last pipeline element.
+    let result = match data.body {
+        PipelineData::ListStream(..) | PipelineData::ByteStream(..) => data.body,
+        body => {
+            let stack = &mut ctx
+                .stack
+                .push_redirection(ctx.redirect_out.clone(), ctx.redirect_err.clone());
+            body.drain_to_out_dests(ctx.engine_state, stack)?
+        }
+    };
+
+    #[cfg(feature = "os")]
+    if !matches!(
+        result,
+        PipelineData::ListStream(..) | PipelineData::ByteStream(..)
+    ) {
+        apply_ignored_exit_codes(ctx.stack, exits, span)?;
+    }
 
     let pipefail = nu_experimental::PIPE_FAIL.get();
     if !pipefail {

@@ -164,3 +164,264 @@ fn pipefail_parenthesized_pipeline_let_keeps_scope() -> Result {
     assert!(matches!(err, ParseError::VariableNotFound { .. }));
     Ok(())
 }
+
+#[test]
+fn ordinary_list_stream_does_not_set_last_exit_code() -> Result {
+    let code = "
+        if ('LAST_EXIT_CODE' in ($env | columns)) { hide-env LAST_EXIT_CODE }
+        let _ = (1..5 | each {|i| $i})
+        1..5 | each {|i| $i}
+        'LAST_EXIT_CODE' in ($env | columns)
+    ";
+
+    test().run(code).expect_value_eq(false)
+}
+
+#[test]
+fn complete_stream_rejects_internal_commands() -> Result {
+    let err = test()
+        .run("[1 2 3] | complete stream")
+        .expect_shell_error()?;
+    assert_matches!(err, ShellError::Generic(_));
+    Ok(())
+}
+
+#[test]
+#[deps(TESTBIN_ECHO_ENV_MIXED)]
+fn complete_stream_tags_stdout_and_stderr_lines() -> Result {
+    let code = "
+        $env.FOO = 'hello'
+        $env.BAR = 'world'
+        let logs = (echo_env_mixed out-err FOO BAR | complete stream --lines)
+        {
+            stdout: ($logs | where stream == stdout | get chunk | str join)
+            stderr: ($logs | where stream == stderr | get chunk | str join)
+        }
+    ";
+
+    test().run(code).expect_value_eq(test_record! {
+        "stdout" => "hello",
+        "stderr" => "world",
+    })
+}
+
+#[test]
+#[deps(TESTBIN_COCOCO)]
+fn complete_stream_stdout_only() -> Result {
+    test()
+        .run("cococo test | complete stream --lines")
+        .expect_value_eq(test_table![
+            ["stream", "chunk"];
+            ["stdout", "test"],
+        ])
+}
+
+#[test]
+#[deps(TESTBIN_FAIL)]
+fn complete_stream_nonzero_exit_does_not_fail() -> Result {
+    let code = "
+        fail 42 | complete stream --lines
+        $env.LAST_EXIT_CODE
+    ";
+
+    test().run(code).expect_value_eq(42)
+}
+
+#[test]
+#[deps(TESTBIN_FAIL)]
+fn complete_stream_sets_last_exit_code_after_collect() -> Result {
+    let code = "
+        let logs = (fail 7 | complete stream --lines)
+        $env.LAST_EXIT_CODE
+    ";
+
+    test().run(code).expect_value_eq(7)
+}
+
+#[test]
+#[exp(PIPE_FAIL)]
+#[deps(TESTBIN_FAIL)]
+fn complete_stream_does_not_raise_pipefail() -> Result {
+    let code = "
+        fail 3 | complete stream --lines
+        $env.LAST_EXIT_CODE
+    ";
+
+    test().run(code).expect_value_eq(3)
+}
+
+#[test]
+#[deps(TESTBIN_ECHO_ENV_MIXED)]
+fn complete_stream_first_does_not_hang() -> Result {
+    let code = "
+        $env.FOO = 'hello'
+        $env.BAR = 'world'
+        echo_env_mixed out-err FOO BAR | complete stream --lines | first | get chunk | is-empty
+    ";
+
+    test().run(code).expect_value_eq(false)
+}
+
+#[test]
+#[deps(TESTBIN_IECHO)]
+fn complete_stream_first_on_infinite_stdout_does_not_hang() -> Result {
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let outcome: Result<String> =
+            test().run("iecho y | complete stream --lines | first | get chunk");
+        let _ = tx.send(outcome);
+    });
+    let outcome = rx
+        .recv_timeout(std::time::Duration::from_secs(5))
+        .expect("complete stream | first hung on infinite stdout");
+    assert_eq!(outcome?, "y");
+    Ok(())
+}
+
+#[test]
+#[deps(TESTBIN_IECHO)]
+fn complete_stream_take_on_infinite_stdout_does_not_hang() -> Result {
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let outcome: Result<Vec<String>> =
+            test().run("iecho y | complete stream --lines | take 3 | get chunk");
+        let _ = tx.send(outcome);
+    });
+    let outcome = rx
+        .recv_timeout(std::time::Duration::from_secs(5))
+        .expect("complete stream | take hung on infinite stdout");
+    assert_eq!(outcome?, ["y", "y", "y"]);
+    Ok(())
+}
+
+#[test]
+#[exp(PIPE_FAIL)]
+#[deps(TESTBIN_FAIL)]
+fn complete_stream_wrapper_def_does_not_raise_pipefail() -> Result {
+    let code = "
+        def cs [] { complete stream --lines }
+        fail 3 | cs
+        $env.LAST_EXIT_CODE
+    ";
+
+    test().run(code).expect_value_eq(3)
+}
+
+#[test]
+#[deps(TESTBIN_FAIL)]
+fn complete_stream_wrapper_def_sets_last_exit_code() -> Result {
+    let code = "
+        def cs [] { complete stream --lines }
+        let logs = (fail 7 | cs)
+        $env.LAST_EXIT_CODE
+    ";
+
+    test().run(code).expect_value_eq(7)
+}
+
+#[test]
+#[deps(TESTBIN_FAIL)]
+fn complete_stream_first_sets_last_exit_code() -> Result {
+    let code = "
+        fail 9 | complete stream --lines | first
+        $env.LAST_EXIT_CODE
+    ";
+
+    test().run(code).expect_value_eq(9)
+}
+
+#[test]
+#[deps(TESTBIN_FAIL)]
+fn complete_stream_get_chunk_sets_last_exit_code() -> Result {
+    let code = "
+        fail 8 | complete stream --lines | get chunk
+        $env.LAST_EXIT_CODE
+    ";
+
+    test().run(code).expect_value_eq(8)
+}
+
+#[test]
+#[deps(TESTBIN_ECHO_ENV_MIXED)]
+fn complete_stream_wrapper_captures_stderr() -> Result {
+    let code = "
+        def cs [] { complete stream --lines }
+        $env.FOO = 'hello'
+        $env.BAR = 'world'
+        let logs = (echo_env_mixed out-err FOO BAR | cs)
+        {
+            stdout: ($logs | where stream == stdout | get chunk | str join)
+            stderr: ($logs | where stream == stderr | get chunk | str join)
+        }
+    ";
+
+    test().run(code).expect_value_eq(test_record! {
+        "stdout" => "hello",
+        "stderr" => "world",
+    })
+}
+
+#[test]
+#[deps(TESTBIN_ECHO_ENV_MIXED)]
+fn complete_stream_try_pipe_first_keeps_chunks() -> Result {
+    let code = "
+        $env.FOO = 'hello'
+        $env.BAR = 'world'
+        try { echo_env_mixed out-err FOO BAR | complete stream --lines } | first | get chunk | is-empty
+    ";
+
+    test().run(code).expect_value_eq(false)
+}
+
+#[test]
+#[deps(TESTBIN_IECHO)]
+fn complete_stream_try_with_inner_first_does_not_hang() -> Result {
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let outcome: Result<String> =
+            test().run("try { iecho y | complete stream --lines | first | get chunk }");
+        let _ = tx.send(outcome);
+    });
+    let outcome = rx
+        .recv_timeout(std::time::Duration::from_secs(5))
+        .expect("try { complete stream | first } hung on infinite stdout");
+    assert_eq!(outcome?, "y");
+    Ok(())
+}
+
+#[test]
+#[deps(TESTBIN_REPEATER)]
+fn complete_stream_lines_emits_oversize_fragment() -> Result {
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let outcome: Result<i64> = test()
+            .run("repeater a 20000 | complete stream --lines | first | get chunk | str length");
+        let _ = tx.send(outcome);
+    });
+    let outcome = rx
+        .recv_timeout(std::time::Duration::from_secs(5))
+        .expect("complete stream --lines hung on newline-free input");
+    assert_eq!(outcome?, 8192);
+    Ok(())
+}
+
+#[test]
+#[deps(NU)]
+fn complete_stream_emits_partial_line_at_eof() -> Result {
+    let code = r#"
+        nu --no-config-file --commands "print -n leftover" | complete stream --lines
+    "#;
+
+    test().run(code).expect_value_eq(test_table![
+        ["stream", "chunk"];
+        ["stdout", "leftover"],
+    ])
+}
+
+#[test]
+#[deps(TESTBIN_COCOCO)]
+fn complete_stream_without_lines_contains_stdout() -> Result {
+    test()
+        .run("cococo hello | complete stream | get chunk | str join | str trim")
+        .expect_value_eq("hello")
+}
