@@ -2195,8 +2195,8 @@ mod completer_tests {
         let setup = r#"$env.config.completions.external = {
                 enable: true
                 completer: {|spans|
-                    let piped = (^printf 'alpha\nbeta\n' | lines | length)
-                    let direct = (^printf 'gamma' | str trim)
+                    let piped = ("alpha\nbeta\n" | lines | length)
+                    let direct = ('gamma' | str trim)
                     [$"piped-($piped)" $"direct-($direct)"]
                 }
             }"#;
