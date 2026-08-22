@@ -701,10 +701,10 @@ impl CompletionEngine {
     }
 
     /// Parse once; if this site needs a user closure, dispatch on this thread.
-    fn complete_user_closure_on_repl_thread(
-        &self,
-        query: &CompletionQuery,
-    ) -> Option<(Suggestions, bool)> {
+    ///
+    /// Results are not cached: a picker (`fzf`, `input list`, `carapace`) is not a function
+    /// of the line, so a stored pick would skip the UI on the next Tab.
+    fn complete_user_closure_on_repl_thread(&self, query: &CompletionQuery) -> Option<Suggestions> {
         self.with_completion_site(query, |working_set, block, site, line, offset| {
             if !self.query_runs_user_closure(working_set, site, line, offset) {
                 return None;
@@ -717,12 +717,13 @@ impl CompletionEngine {
                 offset,
                 line,
             );
-            let suggestions = dispatched
-                .suggestions
-                .into_iter()
-                .map(|semantic_suggestion| semantic_suggestion.suggestion)
-                .collect();
-            Some((suggestions, dispatched.cacheable))
+            Some(
+                dispatched
+                    .suggestions
+                    .into_iter()
+                    .map(|semantic_suggestion| semantic_suggestion.suggestion)
+                    .collect(),
+            )
         })
     }
 
@@ -2007,13 +2008,7 @@ impl ReedlineCompleter for NuCompleter {
             return CompletionResult::fresh(suggestions).with_partial(partial);
         }
 
-        if let Some((suggestions, cacheable)) =
-            self.engine.complete_user_closure_on_repl_thread(&query)
-        {
-            if cacheable {
-                self.cache
-                    .store(query.clone(), self.cache_env, suggestions.clone());
-            }
+        if let Some(suggestions) = self.engine.complete_user_closure_on_repl_thread(&query) {
             self.settle_pending(&query);
             let partial = partial_of(line, &suggestions);
             return CompletionResult::fresh(suggestions).with_partial(partial);
