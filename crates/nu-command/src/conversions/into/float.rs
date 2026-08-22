@@ -99,11 +99,11 @@ fn action(input: &Value, _args: &CellPathOnlyArgs, head: Span) -> Value {
                 return Value::error(
                     ShellError::Generic(
                         GenericError::new(
-                            "Ambivalence in conversion",
+                            "Ambiguity in conversion",
                             "input contains both `,` and `.`",
                             span,
                         )
-                        .with_code("nu::shell::cant_convert::ambivalence"),
+                        .with_code("nu::shell::cant_convert::ambiguity"),
                     ),
                     span,
                 );
@@ -205,6 +205,6 @@ mod tests {
     #[test]
     fn dot_and_comma_fails() {
         let err = action(&Value::test_string("12.34,56"), ARGS, SPAN);
-        assert_matches!(err, Value::Error { error, .. } if error.to_string() == "Ambivalence in conversion");
+        assert_matches!(err, Value::Error { error, .. } if error.to_string() == "Ambiguity in conversion");
     }
 }
