@@ -10,10 +10,10 @@ use crate::command::NushellCliArgs;
 // 1. Parse experimental options from env
 // 2. See if we should have any and disable all of them if not
 // 3. Parse CLI arguments, if explicitly mentioned, let's enable them
-pub fn load(engine_state: &EngineState, cli_args: &NushellCliArgs, has_script: bool) {
+pub fn load(engine_state: &EngineState, cli_args: &NushellCliArgs) {
     let working_set = StateWorkingSet::new(engine_state);
 
-    if !should_disable_experimental_options(has_script, cli_args) {
+    if !should_disable_experimental_options(cli_args) {
         let env_content = std::env::var(nu_experimental::ENV).unwrap_or_default();
         let env_offset = format!("{}=", nu_experimental::ENV).len();
 
@@ -74,15 +74,20 @@ pub fn load(engine_state: &EngineState, cli_args: &NushellCliArgs, has_script: b
     }
 }
 
-// Disable experimental options when not loading config files (for NU_EXPERIMENTAL_OPTIONS env).
-fn should_disable_experimental_options(has_script: bool, cli_args: &NushellCliArgs) -> bool {
+// Skip `NU_EXPERIMENTAL_OPTIONS` when this invocation is not a user session.
+//
+// The REPL and `nu script.nu` / shebang scripts load the user's config, so they
+// should also honor the env var (otherwise `NU_EXPERIMENTAL_OPTIONS=all` works
+// interactively but `./foo.nu` silently drops it).
+//
+// `nu -n` and bare `nu -c` are the hermetic paths used by tests and tools;
+// those keep default (off) experimental options unless the CLI flag is passed.
+fn should_disable_experimental_options(cli_args: &NushellCliArgs) -> bool {
     let no_config_flag = cli_args.no_config_file.is_some();
-    let running_script_without_config =
-        has_script && cli_args.config_file.is_none() && cli_args.env_file.is_none();
     let running_command_without_config = cli_args.commands.is_some()
         && cli_args.login_shell.is_none()
         && cli_args.config_file.is_none()
         && cli_args.env_file.is_none();
 
-    no_config_flag || running_script_without_config || running_command_without_config
+    no_config_flag || running_command_without_config
 }

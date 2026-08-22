@@ -916,6 +916,68 @@ fn experimental_options_accepts_all() -> TestResult {
     Ok(())
 }
 
+#[test]
+fn script_file_honors_nu_experimental_options_env() -> TestResult {
+    let script = unique_temp_script_path("exp_opt_script");
+    let config_home = script.with_extension("config-home");
+    std::fs::create_dir_all(&config_home)?;
+    std::fs::write(
+        &script,
+        r#"
+def main [] {
+    debug experimental-options
+    | where identifier == "structured-io"
+    | get enabled.0
+}
+"#,
+    )?;
+
+    let mut cmd = Command::new(cargo_bin!());
+    let output = cmd
+        .env("NU_EXPERIMENTAL_OPTIONS", "all")
+        .args([
+            "--config-home",
+            config_home.to_str().expect("utf8 path"),
+            "--no-std-lib",
+            script.to_str().expect("utf8 path"),
+        ])
+        .output()?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    let _ = std::fs::remove_file(&script);
+    let _ = std::fs::remove_dir_all(&config_home);
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(stdout.contains("true"), "stdout: {stdout}");
+    Ok(())
+}
+
+#[test]
+fn dash_c_ignores_nu_experimental_options_env() -> TestResult {
+    let mut cmd = Command::new(cargo_bin!());
+    let output = cmd
+        .env("NU_EXPERIMENTAL_OPTIONS", "all")
+        .args([
+            "--no-std-lib",
+            "-c",
+            r#"debug experimental-options | where identifier == "structured-io" | get enabled.0"#,
+        ])
+        .output()?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(stdout.contains("false"), "stdout: {stdout}");
+    Ok(())
+}
+
 // Tests for CLI parsing behavior - converted from src/command.rs unit tests
 
 #[test]
