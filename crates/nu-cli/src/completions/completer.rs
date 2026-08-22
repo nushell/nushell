@@ -661,6 +661,149 @@ impl CompletionEngine {
         (suggestions, dispatched.cacheable)
     }
 
+    /// Parse `query` once and run `f` with the resolved completion site.
+    ///
+    /// `CompletionQuery` is already the prefix up to the floored cursor, so this
+    /// does not slice or floor again.
+    fn with_completion_site<R>(
+        &self,
+        query: &CompletionQuery,
+        f: impl FnOnce(&StateWorkingSet, &Arc<Block>, &CompletionSite, &str, usize) -> R,
+    ) -> R {
+        let line = query.typed();
+        let position = query.cursor();
+        let mut working_set = StateWorkingSet::new(&self.engine_state);
+        let offset = working_set.next_span_start();
+        let block = parse(&mut working_set, Some("completer"), line.as_bytes(), false);
+        let site = self.resolve_completion_site(&block, &working_set, position, offset, line);
+        f(&working_set, &block, &site, line, offset)
+    }
+
+    fn query_runs_user_closure(
+        &self,
+        working_set: &StateWorkingSet,
+        site: &CompletionSite,
+        line: &str,
+        offset: usize,
+    ) -> bool {
+        self.site_runs_user_closure(site, working_set)
+            || self.multiword_argument_runs_user_closure(site, working_set, line, offset)
+    }
+
+    /// User-closure completers (external completer, `@complete`, custom commands)
+    /// take the TTY. They must run on the REPL thread with reedline blocked, not
+    /// on the background worker.
+    #[cfg(test)]
+    fn should_complete_on_repl_thread(&self, query: &CompletionQuery) -> bool {
+        self.with_completion_site(query, |working_set, _, site, line, offset| {
+            self.query_runs_user_closure(working_set, site, line, offset)
+        })
+    }
+
+    /// Parse once; if this site needs a user closure, dispatch on this thread.
+    ///
+    /// Results are not cached: a picker (`fzf`, `input list`, `carapace`) is not a function
+    /// of the line, so a stored pick would skip the UI on the next Tab.
+    fn complete_user_closure_on_repl_thread(&self, query: &CompletionQuery) -> Option<Suggestions> {
+        self.with_completion_site(query, |working_set, block, site, line, offset| {
+            if !self.query_runs_user_closure(working_set, site, line, offset) {
+                return None;
+            }
+            let _tty = crate::util::ReplTerminalGuard::capture();
+            let dispatched = self.fetch_completions_by_block(
+                Arc::clone(block),
+                working_set,
+                query.cursor(),
+                offset,
+                line,
+            );
+            Some(
+                dispatched
+                    .suggestions
+                    .into_iter()
+                    .map(|semantic_suggestion| semantic_suggestion.suggestion)
+                    .collect(),
+            )
+        })
+    }
+
+    fn has_external_completer(&self) -> bool {
+        self.engine_state
+            .get_config()
+            .completions
+            .external
+            .completer
+            .is_some()
+    }
+
+    fn signature_runs_user_closure(&self, signature: &Signature) -> bool {
+        match signature.complete {
+            Some(CommandWideCompleter::Command(_)) => true,
+            Some(CommandWideCompleter::External) => self.has_external_completer(),
+            None => false,
+        }
+    }
+
+    fn site_runs_user_closure(&self, site: &CompletionSite, working_set: &StateWorkingSet) -> bool {
+        match &site.kind {
+            SiteKind::ExternalArg { .. } => self.has_external_completer(),
+            SiteKind::FlagName { call, .. } => {
+                self.signature_runs_user_closure(&working_set.get_decl(call.decl_id).signature())
+            }
+            SiteKind::FlagValue { call, flag, .. } => {
+                let signature = working_set.get_decl(call.decl_id).signature();
+                let resolved = find_flag(&signature, *flag);
+                let custom = resolved.as_ref().and_then(|flag| flag.completion.as_ref());
+                matches!(custom, Some(Completion::Command(_)))
+                    || self.signature_runs_user_closure(&signature)
+            }
+            SiteKind::Positional {
+                call,
+                sig_positional,
+                ..
+            } => {
+                let signature = working_set.get_decl(call.decl_id).signature();
+                let custom = signature
+                    .get_positional(*sig_positional)
+                    .and_then(|positional| positional.completion.as_ref());
+                matches!(custom, Some(Completion::Command(_)))
+                    || self.signature_runs_user_closure(&signature)
+            }
+            _ => false,
+        }
+    }
+
+    fn multiword_argument_runs_user_closure(
+        &self,
+        site: &CompletionSite,
+        working_set: &StateWorkingSet,
+        contents: &str,
+        offset: usize,
+    ) -> bool {
+        if !matches!(site.kind, SiteKind::Command { .. })
+            || !working_set
+                .get_span_contents(site.span)
+                .iter()
+                .any(u8::is_ascii_whitespace)
+        {
+            return false;
+        }
+
+        let mut parse_ws = StateWorkingSet::new(&self.engine_state);
+        let _ = parse_ws.add_file("completer", contents.as_bytes());
+        let Some(shorter) = parse_shorter_head_reading(&mut parse_ws, site.span, None) else {
+            return false;
+        };
+        let position = site.cursor.saturating_sub(offset);
+        let shorter_site = self.finalize_site(
+            self.resolve_expression_site(&shorter, site.cursor, &parse_ws),
+            contents,
+            position,
+            offset,
+        );
+        self.site_runs_user_closure(&shorter_site, &parse_ws)
+    }
+
     pub fn fetch_completions_at(&self, line: &str, position: usize) -> Vec<SemanticSuggestion> {
         self.dispatch_completions_at(line, position).suggestions
     }
@@ -1865,6 +2008,12 @@ impl ReedlineCompleter for NuCompleter {
             return CompletionResult::fresh(suggestions).with_partial(partial);
         }
 
+        if let Some(suggestions) = self.engine.complete_user_closure_on_repl_thread(&query) {
+            self.settle_pending(&query);
+            let partial = partial_of(line, &suggestions);
+            return CompletionResult::fresh(suggestions).with_partial(partial);
+        }
+
         let fallback = self.stale_fallback(&query);
         let partial = partial_of(line, &fallback);
 
@@ -1959,6 +2108,53 @@ mod completer_tests {
         assert!(q("from csv --sep").narrows(&q("from csv --s"), token(9)));
     }
 
+    #[test]
+    fn background_engine_suppresses_stdin() {
+        let engine = test_engine();
+        let stack = Arc::new(Stack::new());
+        let foreground = CompletionEngine::new(engine, stack);
+        assert!(!foreground.stack.suppress_stdin);
+        let background = foreground.to_background();
+        assert!(background.stack.suppress_stdin);
+    }
+
+    #[test]
+    fn internal_command_completion_stays_on_the_worker() {
+        let engine = CompletionEngine::new(test_engine(), Arc::new(Stack::new()));
+        assert!(!engine.should_complete_on_repl_thread(&q("ls | c")));
+    }
+
+    fn engine_with_external_completer() -> Arc<EngineState> {
+        use nu_engine::eval_block;
+        use nu_protocol::{PipelineData, debugger::WithoutDebug};
+
+        let mut engine = (*test_engine()).clone();
+        let mut stack = Stack::new();
+        let mut working_set = StateWorkingSet::new(&engine);
+        let block = parse(
+            &mut working_set,
+            None,
+            b"$env.config.completions.external.completer = {|spans| $spans}",
+            false,
+        );
+        assert!(working_set.parse_errors.is_empty());
+        engine
+            .merge_delta(working_set.render())
+            .expect("merge_delta");
+        eval_block::<WithoutDebug>(&engine, &mut stack, &block, PipelineData::empty())
+            .expect("eval completer config");
+        engine.merge_env(&mut stack).expect("merge_env");
+        Arc::new(engine)
+    }
+
+    #[test]
+    fn external_arg_with_completer_runs_on_the_repl_thread() {
+        let engine =
+            CompletionEngine::new(engine_with_external_completer(), Arc::new(Stack::new()));
+        assert!(engine.should_complete_on_repl_thread(&q("nvim foo")));
+        assert!(!engine.should_complete_on_repl_thread(&q("ls | c")));
+    }
+
     /// Opted out: settles inline, spawns no worker, leaves the cache alone.
     #[test]
     fn opted_out_completer_settles_inline() {
@@ -1982,7 +2178,10 @@ mod completer_tests {
         let mut engine =
             nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
         let mut stack = Stack::new();
-        let cwd = std::env::temp_dir().to_string_lossy().replace('\\', "/");
+        let cwd = std::env::temp_dir()
+            .to_string_lossy()
+            .trim_end_matches(['/', '\\'])
+            .replace('\\', "/");
         stack.add_env_var(
             "PWD".to_string(),
             nu_protocol::Value::string(&cwd, Span::unknown()),

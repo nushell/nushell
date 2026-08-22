@@ -16,7 +16,7 @@ use nu_protocol::{
 };
 use nu_std::load_standard_library;
 use nu_test_support::fs;
-use reedline::{Span, Suggestion, Suggestions};
+use reedline::{Completer, CompletionResult, Span, Suggestion, Suggestions};
 use rstest::{fixture, rstest};
 use support::{
     completions_helpers::{
@@ -929,9 +929,10 @@ fn customcompletions_error_falls_back_to_file_completion() {
 }
 
 /// A completer that calls an interactive command (`input`, `input list`, `input listen`,
-/// `term query`) runs on a background thread detached from the terminal, so the command
-/// should decline rather than race reedline for it; the completer then falls back to file
-/// completion.
+/// `term query`) runs on the REPL thread so it can take the TTY. With no console the
+/// command errors and the completer falls back to file completion. Windows test
+/// processes have a console, so detach stdin there: the command declines via
+/// `require_stdin` instead of blocking on keys, and we still assert file fallback.
 #[rstest]
 #[case::input("input")]
 #[case::input_reedline("input --reedline")]
@@ -942,6 +943,9 @@ fn interactive_command_in_completer_falls_back_to_file_completion(#[case] body: 
     let (_, _, mut engine, mut stack) = new_engine();
     let command = format!("def comp [] {{ {body} }}; def my-command [arg: string@comp] {{}}");
     assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    #[cfg(windows)]
+    let stack = stack.suppress_stdin();
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
     let line = "my-command custom_completion.";
@@ -1223,6 +1227,18 @@ fn dotnu_completions_const_nu_lib_dirs() {
     let completion_str = "use ./asdf";
     let suggestions = completer.complete_blocking(completion_str, completion_str.len());
     match_suggestions(&vec!["./asdf.nu"], &suggestions);
+}
+
+/// Interactive pickers in the external completer need the TTY, so that closure
+/// must not go through the background worker (`complete()` returns Fresh).
+#[test]
+fn external_completer_runs_on_the_repl_thread() {
+    let mut completer = custom_completer();
+    let result = completer.complete("foo test", 8);
+    assert!(
+        matches!(result, CompletionResult::Fresh { .. }),
+        "external completer must run on the REPL thread, got {result:?}"
+    );
 }
 
 #[test]

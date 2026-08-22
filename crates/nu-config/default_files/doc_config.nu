@@ -284,7 +284,18 @@ $env.config.completions.partial = true
 # Default: true
 $env.config.completions.use_ls_colors = true
 
-# completions.cache_size (int): Completion cache size (0 disables the cache).
+# completions.cache_size (int): How many Tab-completion prefixes to remember.
+# Results are stored by the text up to the cursor (for example `ls fo`) and
+# reused on the next Tab of that same prefix so Nushell does not re-scan
+# files or command names. Least-recently-used entries are dropped when the
+# limit is reached. The cache is shared across prompts and is discarded when
+# PATH, the working directory, or the set of commands changes.
+# 0: Disable the cache; every Tab recomputes.
+# A larger value remembers more prefixes (uses more memory).
+# A smaller value forgets sooner.
+# Closures on `$env.config.completions.external.completer` and custom
+# `@comp` / `@complete` completers are not stored, so an interactive picker
+# (fzf, `input list`) runs again on the next Tab.
 # Default: 100
 $env.config.completions.cache_size = 100
 
@@ -307,6 +318,10 @@ $env.config.completions.external.max_results = 100
 # The closure receives a |spans| parameter - a list of strings representing
 # tokens on the current commandline. Usually set to call a third-party
 # completion system like Carapace.
+# Evaluating this closure blocks the line editor and may take the TTY, which
+# interactive pickers (fzf, `input list`) need. Completers that only print a
+# list should return quickly. Custom menu `source` closures already run on
+# the REPL thread the same way.
 # Default: null
 $env.config.completions.external.completer = null
 

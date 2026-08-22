@@ -1,12 +1,10 @@
+use crate::platform::RawModeGuard;
 use crossterm::{
     cursor::{Hide, MoveDown, MoveToColumn, MoveUp, Show},
     event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
     execute,
     style::Print,
-    terminal::{
-        self, BeginSynchronizedUpdate, Clear, ClearType, EndSynchronizedUpdate, disable_raw_mode,
-        enable_raw_mode,
-    },
+    terminal::{self, BeginSynchronizedUpdate, Clear, ClearType, EndSynchronizedUpdate},
 };
 use nu_ansi_term::{Style, ansi::RESET};
 use nu_color_config::{Alignment, StyleComputer, TextStyle};
@@ -562,7 +560,8 @@ Use --no-footer and --no-separator to hide the footer and separator line."#
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        // The widget below manages raw mode itself, so check the precondition here.
+        // `RawModeGuard` below enables raw mode; check the detached-stack
+        // precondition first so a completion thread declines before drawing.
         stack.require_stdin(head)?;
         let prompt: Option<String> = call.opt(engine_state, stack, 0)?;
         let multi = call.has_flag(engine_state, stack, "multi")?;
@@ -693,6 +692,9 @@ Use --no-footer and --no-separator to hide the footer and separator line."#
                 item_generator: Some(item_generator),
             },
         );
+        // `require_stdin` ran above; this guard restores reedline's raw mode if
+        // we were already in it (menu source / main-thread completer).
+        let _raw_mode = RawModeGuard::enter(head)?;
         let answer = widget.run().map_err(|err| {
             IoError::new_with_additional_context(err, call.head, None, INTERACT_ERROR)
         })?;
@@ -1729,11 +1731,6 @@ impl<'a> SelectWidget<'a> {
 
     fn run(&mut self) -> io::Result<InteractMode> {
         let mut stderr = io::stderr();
-
-        enable_raw_mode().map_err(io_context("enable raw mode"))?;
-        scopeguard::defer! {
-            let _ = disable_raw_mode();
-        }
 
         // Only hide cursor for non-fuzzy modes (fuzzy modes need visible cursor for text input)
         if self.mode != SelectMode::Fuzzy && self.mode != SelectMode::FuzzyMulti {

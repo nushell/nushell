@@ -43,8 +43,7 @@ pub trait LegacyInput {
         let default_val: Option<String> = call.get_flag(engine_state, stack, "default")?;
 
         // Acquire the guard (and its `require_stdin` check) before writing anything, so a
-        // detached stack (e.g. a completer running off the main thread) errors out before the
-        // prompt is printed to stdout, instead of corrupting the active display first.
+        // detached stack (completion worker or MCP) errors out before the prompt is printed.
         let raw_mode = RawModeGuard::acquire(stack, call.head)?;
 
         if let Some(prompt) = &prompt {
