@@ -238,7 +238,7 @@ rayon = "1.12.0"
 # default-features = false keeps reedline's default-on `helix` feature keyed to
 # the workspace `helix` feature chain, so nu-cli's cfg-gated glue and reedline's
 # helix types stay in lockstep even when a crate is built standalone.
-reedline = { version = "0.50.0", default-features = false }
+reedline = { version = "0.51.0", default-features = false }
 regex = "1.13.1"
 rmp = "0.8.15"
 rmp-serde = "1.3.1"
@@ -504,7 +504,7 @@ bench = false
 # To use a development version of a dependency please use a global override here
 # changing versions in each sub-crate of the workspace is tedious
 [patch.crates-io]
-reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
+# reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
 # nu-ansi-term = { git = "https://github.com/nushell/nu-ansi-term.git", branch = "main" }
 
 # Run all benchmarks with `cargo bench`

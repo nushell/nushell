@@ -3296,7 +3296,7 @@ dependencies = [
  "libc",
  "percent-encoding",
  "pin-project-lite",
- "socket2 0.5.10",
+ "socket2 0.6.3",
  "tokio",
  "tower-service",
  "tracing",
@@ -7271,7 +7271,7 @@ dependencies = [
  "quinn-udp",
  "rustc-hash",
  "rustls",
- "socket2 0.5.10",
+ "socket2 0.6.3",
  "thiserror 2.0.19",
  "tokio",
  "tracing",
@@ -7308,7 +7308,7 @@ dependencies = [
  "cfg_aliases",
  "libc",
  "once_cell",
- "socket2 0.5.10",
+ "socket2 0.6.3",
  "tracing",
  "windows-sys 0.60.2",
 ]
@@ -7604,8 +7604,9 @@ dependencies = [
 
 [[package]]
 name = "reedline"
-version = "0.50.0"
-source = "git+https://github.com/nushell/reedline?branch=main#e692224120157b717e377c5606d76c4656e98568"
+version = "0.51.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d010acf9ed312cbc737e5f9064c375a7093975b0c25568337f0c24148f46540d"
 dependencies = [
  "arboard",
  "chrono",
