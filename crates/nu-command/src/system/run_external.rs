@@ -266,7 +266,6 @@ If you create a custom command with this name, that will be used instead."
                 // MCP and background completions must not inherit the live terminal.
                 if engine_state.is_mcp || stack.suppress_stdin {
                     command.stdin(Stdio::null());
-                    prepare_background_command(&mut command);
                 } else {
                     command.stdin(Stdio::inherit());
                 }
@@ -277,6 +276,12 @@ If you create a custom command with this name, that will be used instead."
                 Some(value)
             }
         };
+
+        // Detach even when stdin is a pipe of candidates (`ls | fzf`). Otherwise
+        // the child keeps `/dev/tty` and races reedline from a completion thread.
+        if engine_state.is_mcp || stack.suppress_stdin {
+            prepare_background_command(&mut command);
+        }
 
         // Log the command we're about to run in case it's useful for debugging purposes.
         log::trace!("run-external spawning: {command:?}");
@@ -838,15 +843,14 @@ mod background_isolation_tests {
     use std::process::{Command, Stdio};
 
     #[cfg(unix)]
-    #[test]
-    fn setsid_removes_controlling_terminal() {
+    fn assert_child_has_no_tty(stdin: Stdio) {
         let mut cmd = Command::new("sh");
         // Subshell so a failed redirect does not exit before the `||` branch.
         cmd.args([
             "-c",
             "(exec 3>/dev/tty) 2>/dev/null && echo has_tty || echo no_tty",
         ])
-        .stdin(Stdio::null())
+        .stdin(stdin)
         .stdout(Stdio::piped())
         .stderr(Stdio::null());
         prepare_background_command(&mut cmd);
@@ -857,6 +861,18 @@ mod background_isolation_tests {
             "no_tty",
             "child must not retain a controlling terminal after setsid"
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn setsid_removes_controlling_terminal() {
+        assert_child_has_no_tty(Stdio::null());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn setsid_removes_controlling_terminal_with_piped_stdin() {
+        assert_child_has_no_tty(Stdio::piped());
     }
 
     #[cfg(windows)]

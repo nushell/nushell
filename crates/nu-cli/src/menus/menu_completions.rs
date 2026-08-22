@@ -59,6 +59,9 @@ impl Completer for NuMenuCompleter {
 
         let input = Value::nothing(self.span).into_pipeline_data();
 
+        // Do not wrap this in `ReplTerminalGuard`. That disable/enable bounce
+        // runs on every menu refresh. Nested `input list` restores via
+        // `RawModeGuard`; fzf restores termios itself.
         let res = eval_block::<WithoutDebug>(&self.engine_state, &mut self.stack, block, input)
             .map(|p| p.body);
 

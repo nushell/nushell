@@ -307,6 +307,10 @@ $env.config.completions.external.max_results = 100
 # The closure receives a |spans| parameter - a list of strings representing
 # tokens on the current commandline. Usually set to call a third-party
 # completion system like Carapace.
+# Evaluating this closure blocks the line editor and may take the TTY, which
+# interactive pickers (fzf, `input list`) need. Completers that only print a
+# list should return quickly. Custom menu `source` closures already run on
+# the REPL thread the same way.
 # Default: null
 $env.config.completions.external.completer = null
 
