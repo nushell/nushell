@@ -929,8 +929,10 @@ fn customcompletions_error_falls_back_to_file_completion() {
 }
 
 /// A completer that calls an interactive command (`input`, `input list`, `input listen`,
-/// `term query`) runs on the REPL thread so it can take the TTY. In these tests there
-/// is no terminal, so the command errors and the completer falls back to file completion.
+/// `term query`) runs on the REPL thread so it can take the TTY. With no console the
+/// command errors and the completer falls back to file completion. Windows test
+/// processes have a console, so detach stdin there: the command declines via
+/// `require_stdin` instead of blocking on keys, and we still assert file fallback.
 #[rstest]
 #[case::input("input")]
 #[case::input_reedline("input --reedline")]
@@ -941,6 +943,9 @@ fn interactive_command_in_completer_falls_back_to_file_completion(#[case] body: 
     let (_, _, mut engine, mut stack) = new_engine();
     let command = format!("def comp [] {{ {body} }}; def my-command [arg: string@comp] {{}}");
     assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    #[cfg(windows)]
+    let stack = stack.suppress_stdin();
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
     let line = "my-command custom_completion.";
