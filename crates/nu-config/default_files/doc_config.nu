@@ -638,6 +638,27 @@ $env.config.hooks.command_not_found = null
 #   }
 # ]
 
+# Example: Bind Ctrl+g to leave insert mode. A mode event only applies to its own
+# state machine and reports itself inapplicable elsewhere, so `until` hands the
+# key on and one binding covers both editors:
+# $env.config.keybindings ++= [
+#   {
+#     name: leave_insert_mode
+#     modifier: control
+#     keycode: char_g
+#     mode: [vi_insert helix_insert]
+#     event: {
+#       until: [
+#         { send: ViChangeMode, mode: normal }
+#         { send: HelixChangeMode, mode: normal }
+#       ]
+#     }
+#   }
+# ]
+# `ViChangeMode` takes "normal", "insert" or "visual"; `HelixChangeMode` takes
+# "normal", "insert" or "select", and requires the `helix` feature. An unknown
+# mode name leaves the mode alone rather than erroring.
+
 # -------------
 # Abbreviations
 # -------------
