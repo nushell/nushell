@@ -2,7 +2,7 @@ use crate::{
     formats::value_to_json_value,
     network::{
         http::{
-            resolver::{DnsLookupResolver, LookupError},
+            resolver::{DnsLookupResolver, LookupError, ScopedIpv6},
             timeout_extractor_reader::UreqTimeoutExtractorReader,
         },
         tls::tls_config,
@@ -30,6 +30,7 @@ use std::convert::TryInto;
 use std::{
     collections::HashMap,
     io::{self, Cursor, Read},
+    net::Ipv6Addr,
     path::{Path, PathBuf},
     str::FromStr,
     sync::mpsc::{self, RecvTimeoutError},
@@ -111,6 +112,13 @@ impl RedirectMode {
     pub(crate) const MODES: &[&str] = &["follow", "error", "manual"];
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub struct ParsedHttpUrl {
+    pub requested_url: String,
+    pub request_url: String,
+    pub scoped_ipv6: Option<ScopedIpv6>,
+}
+
 /// Helper function to add the --unix-socket flag to command signatures.
 pub fn add_unix_socket_flag(sig: Signature) -> Signature {
     sig.named(
@@ -167,7 +175,7 @@ pub fn http_client_pool(
     #[cfg(feature = "native-tls")]
     let connector = connector.chain(NativeTlsConnector::default());
 
-    let resolver = DnsLookupResolver;
+    let resolver = DnsLookupResolver::default();
     let agent = ureq::Agent::with_parts(config_builder.build(), connector, resolver);
 
     let arc_agent = Arc::new(agent);
@@ -187,6 +195,7 @@ pub fn reset_http_client_pool(
         allow_insecure,
         redirect_mode,
         unix_socket_path,
+        None,
         engine_state,
         stack,
     )?;
@@ -199,6 +208,7 @@ pub fn http_client(
     allow_insecure: bool,
     redirect_mode: RedirectMode,
     unix_socket_path: Option<PathBuf>,
+    scoped_ipv6: Option<ScopedIpv6>,
     engine_state: &EngineState,
     stack: &mut Stack,
 ) -> Result<ureq::Agent, ShellError> {
@@ -247,7 +257,7 @@ pub fn http_client(
     #[cfg(feature = "native-tls")]
     let connector = connector.chain(NativeTlsConnector::default());
 
-    let resolver = DnsLookupResolver;
+    let resolver = DnsLookupResolver::new(scoped_ipv6);
     Ok(ureq::Agent::with_parts(config, connector, resolver))
 }
 
@@ -255,7 +265,7 @@ pub fn http_parse_url(
     call: &Call,
     span: Span,
     raw_url: Value,
-) -> Result<Spanned<(String, Url)>, ShellError> {
+) -> Result<Spanned<ParsedHttpUrl>, ShellError> {
     let url_span = raw_url.span();
     let mut requested_url = raw_url.coerce_into_string()?;
     if requested_url.starts_with(':') {
@@ -264,19 +274,67 @@ pub fn http_parse_url(
         requested_url = format!("http://{requested_url}");
     }
 
-    let url = match url::Url::parse(&requested_url) {
-        Ok(u) => u,
-        Err(_e) => {
-            return Err(ShellError::UnsupportedInput {
-                msg: "Incomplete or incorrect URL. Expected a full URL, e.g., https://www.example.com".to_string(),
-                input: format!("value: '{requested_url:?}'"),
-                msg_span: call.head,
-                input_span: span,
-            });
-        }
-    };
+    let (request_url, scoped_ipv6) = extract_scoped_ipv6(&requested_url)
+        .map(|(request_url, scoped_ipv6)| (request_url, Some(scoped_ipv6)))
+        .or_else(|| {
+            Url::parse(&requested_url)
+                .ok()
+                .map(|_| (requested_url.clone(), None))
+        })
+        .ok_or_else(|| ShellError::UnsupportedInput {
+            msg: "Incomplete or incorrect URL. Expected a full URL, e.g., https://www.example.com"
+                .to_string(),
+            input: format!("value: '{requested_url:?}'"),
+            msg_span: call.head,
+            input_span: span,
+        })?;
 
-    Ok((requested_url, url).into_spanned(url_span))
+    Ok(ParsedHttpUrl {
+        requested_url,
+        request_url,
+        scoped_ipv6,
+    }
+    .into_spanned(url_span))
+}
+
+fn extract_scoped_ipv6(url: &str) -> Option<(String, ScopedIpv6)> {
+    let authority_start = url.find("://")? + 3;
+    let authority_end = url[authority_start..]
+        .find(['/', '?', '#'])
+        .map_or(url.len(), |offset| authority_start + offset);
+    let authority_text = &url[authority_start..authority_end];
+    let authority = authority_text.parse::<http::uri::Authority>().ok()?;
+    let host = authority.host();
+    let scoped_host = host.strip_prefix('[')?.strip_suffix(']')?;
+    let (address_text, raw_zone_id) = scoped_host.split_once('%')?;
+    let address = address_text.parse::<Ipv6Addr>().ok()?;
+
+    if !address.is_unicast_link_local() {
+        return None;
+    }
+
+    // RFC 9844 recommends the raw `%zone` UI form. Also accept RFC 6874's
+    // older `%25zone` form for compatibility with existing scripts.
+    let encoded_zone_id = raw_zone_id
+        .strip_prefix("25")
+        .filter(|zone_id| !zone_id.is_empty())
+        .unwrap_or(raw_zone_id);
+    let zone_id = percent_encoding::percent_decode_str(encoded_zone_id)
+        .decode_utf8()
+        .ok()?
+        .into_owned();
+    if zone_id.is_empty() || zone_id.chars().any(char::is_control) {
+        return None;
+    }
+
+    let host_offset = authority_text.rfind(host)?;
+    let host_start = authority_start + host_offset;
+    let host_end = host_start + host.len();
+    let mut request_url = url.to_string();
+    request_url.replace_range(host_start..host_end, &format!("[{address_text}]"));
+    Url::parse(&request_url).ok()?;
+
+    Some((request_url, ScopedIpv6::new(address, zone_id)))
 }
 
 pub fn http_parse_redirect_mode(mode: Option<Spanned<String>>) -> Result<RedirectMode, ShellError> {
@@ -1076,6 +1134,7 @@ pub(crate) fn handle_response_status(
 
 pub(crate) struct RequestMetadata<'a> {
     pub requested_url: &'a str,
+    pub request_url: &'a str,
     pub span: Span,
     pub headers: Headers,
     pub redirect_mode: RedirectMode,
@@ -1087,6 +1146,7 @@ pub(crate) fn request_handle_response(
     stack: &mut Stack,
     RequestMetadata {
         requested_url,
+        request_url,
         span,
         headers,
         redirect_mode,
@@ -1104,7 +1164,7 @@ pub(crate) fn request_handle_response(
                 engine_state,
                 stack,
                 span,
-                requested_url,
+                request_url,
                 &flags,
                 response,
                 &content_type,
@@ -1320,6 +1380,62 @@ fn retrieve_credential_from_authority(
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[test]
+    fn test_http_parse_url_accepts_ipv6_zone_ids() {
+        let span = Span::test_data();
+        let call = Call::new(span);
+        let cases = [
+            ("http://[fe80::1%lo]/", "http://[fe80::1]/", "lo"),
+            ("http://[fe80::1%25lo]/", "http://[fe80::1]/", "lo"),
+            (
+                "http://user:pass@[fe80::abcd%25en%2D0]:8080/path?x=1",
+                "http://user:pass@[fe80::abcd]:8080/path?x=1",
+                "en-0",
+            ),
+        ];
+
+        for (input, request_url, zone_id) in cases {
+            let parsed = http_parse_url(&call, span, Value::test_string(input))
+                .expect("scoped IPv6 URL should parse")
+                .item;
+            assert_eq!(parsed.requested_url, input);
+            assert_eq!(parsed.request_url, request_url);
+            let expected = ScopedIpv6::new(
+                request_url
+                    .split(['[', ']'])
+                    .nth(1)
+                    .expect("test URL should contain an IPv6 host")
+                    .parse()
+                    .expect("test URL should contain a valid IPv6 host"),
+                zone_id.to_string(),
+            );
+            assert_eq!(parsed.scoped_ipv6, Some(expected));
+        }
+    }
+
+    #[test]
+    fn test_http_parse_url_does_not_treat_path_as_ipv6_zone() {
+        let span = Span::test_data();
+        let call = Call::new(span);
+        let input = "http://example.com/path[part%25other]";
+        let parsed = http_parse_url(&call, span, Value::test_string(input))
+            .expect("regular URL should parse")
+            .item;
+
+        assert_eq!(parsed.requested_url, input);
+        assert_eq!(parsed.request_url, input);
+        assert_eq!(parsed.scoped_ipv6, None);
+    }
+
+    #[test]
+    fn test_http_parse_url_rejects_zone_on_global_ipv6() {
+        let span = Span::test_data();
+        let call = Call::new(span);
+        let result = http_parse_url(&call, span, Value::test_string("http://[2001:db8::1%lo]/"));
+
+        assert!(result.is_err());
+    }
 
     #[test]
     fn test_retrieving_credentials_from_authority() {

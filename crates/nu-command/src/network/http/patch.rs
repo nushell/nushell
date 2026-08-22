@@ -223,25 +223,29 @@ fn helper(
 ) -> Result<PipelineData, ShellError> {
     let span = args.url.span();
     let Spanned {
-        item: (requested_url, _),
+        item: parsed_url,
         span: request_span,
     } = http_parse_url(call, span, args.url)?;
+    let requested_url = parsed_url.requested_url;
+    let request_url = parsed_url.request_url;
+    let scoped_ipv6 = parsed_url.scoped_ipv6;
     let redirect_mode = http_parse_redirect_mode(args.redirect)?;
 
     let cwd = engine_state.cwd(None)?;
     let unix_socket_path = expand_unix_socket_path(args.unix_socket, &cwd);
 
-    let mut request = if args.pool {
-        http_client_pool(engine_state, stack)?.patch(&requested_url)
+    let mut request = if args.pool && scoped_ipv6.is_none() {
+        http_client_pool(engine_state, stack)?.patch(&request_url)
     } else {
         let client = http_client(
             args.insecure,
             redirect_mode,
             unix_socket_path,
+            scoped_ipv6,
             engine_state,
             stack,
         )?;
-        client.patch(&requested_url)
+        client.patch(&request_url)
     };
 
     request = request_set_timeout(args.timeout, request)?;
@@ -272,6 +276,7 @@ fn helper(
         stack,
         RequestMetadata {
             requested_url: &requested_url,
+            request_url: &request_url,
             span,
             headers: request_headers,
             redirect_mode,

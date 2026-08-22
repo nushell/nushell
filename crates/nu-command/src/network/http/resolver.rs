@@ -1,6 +1,7 @@
 use std::{
+    borrow::Cow,
     error, fmt, io,
-    net::{SocketAddr, SocketAddrV4, SocketAddrV6},
+    net::{Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
 };
 
 use http::Uri;
@@ -10,8 +11,49 @@ use ureq::{
     unversioned::transport::NextTimeout,
 };
 
-#[derive(Debug)]
-pub struct DnsLookupResolver;
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ScopedIpv6 {
+    address: Ipv6Addr,
+    zone_id: String,
+}
+
+impl ScopedIpv6 {
+    pub fn new(address: Ipv6Addr, zone_id: String) -> Self {
+        Self { address, zone_id }
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct DnsLookupResolver {
+    scoped_ipv6: Option<ScopedIpv6>,
+}
+
+impl DnsLookupResolver {
+    pub fn new(scoped_ipv6: Option<ScopedIpv6>) -> Self {
+        Self { scoped_ipv6 }
+    }
+
+    fn lookup_host<'a>(&self, uri: &'a Uri) -> Option<Cow<'a, str>> {
+        let uri_host = uri.host()?;
+        let unbracketed_host = uri_host
+            .strip_prefix('[')
+            .and_then(|host| host.strip_suffix(']'))
+            .unwrap_or(uri_host);
+        let address = unbracketed_host.parse::<Ipv6Addr>().ok();
+        let lookup_host = if address.is_some() {
+            unbracketed_host
+        } else {
+            uri_host
+        };
+
+        match &self.scoped_ipv6 {
+            Some(scoped_ipv6) if address == Some(scoped_ipv6.address) => {
+                Some(Cow::Owned(format!("{lookup_host}%{}", scoped_ipv6.zone_id)))
+            }
+            _ => Some(Cow::Borrowed(lookup_host)),
+        }
+    }
+}
 
 impl Resolver for DnsLookupResolver {
     fn resolve(
@@ -20,7 +62,7 @@ impl Resolver for DnsLookupResolver {
         config: &Config,
         _timeout: NextTimeout,
     ) -> Result<ResolvedSocketAddrs, ureq::Error> {
-        let host = uri.host();
+        let host = self.lookup_host(uri);
         // Determine the port: use explicit port if provided, otherwise derive from scheme
         let port = uri.port_u16().unwrap_or_else(|| match uri.scheme_str() {
             Some("https") => 443,
@@ -30,7 +72,7 @@ impl Resolver for DnsLookupResolver {
         // Pass None as service to avoid "Service not supported for this socket type" errors
         // in certain environments (e.g., Docker containers on some Linux distributions).
         // We'll set the port manually on each resolved address.
-        let addr_info_iter = dns_lookup::getaddrinfo(host, None, None)
+        let addr_info_iter = dns_lookup::getaddrinfo(host.as_deref(), None, None)
             .map_err(|err| ureq::Error::Other(Box::new(LookupError(err))))?;
 
         let ip_family = config.ip_family();
@@ -96,3 +138,32 @@ impl fmt::Display for LookupError {
 }
 
 impl error::Error for LookupError {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn scoped_ipv6_is_only_applied_to_the_original_host() {
+        let resolver = DnsLookupResolver::new(Some(ScopedIpv6::new(
+            "fe80::1".parse().expect("valid test address"),
+            "eth0".to_string(),
+        )));
+        let original = "http://[fe80::1]/".parse().expect("valid test URI");
+        let redirect = "http://[fe80::2]/".parse().expect("valid test URI");
+
+        assert_eq!(
+            resolver.lookup_host(&original).as_deref(),
+            Some("fe80::1%eth0")
+        );
+        assert_eq!(resolver.lookup_host(&redirect).as_deref(), Some("fe80::2"));
+    }
+
+    #[test]
+    fn ipv6_brackets_are_not_passed_to_getaddrinfo() {
+        let resolver = DnsLookupResolver::default();
+        let uri = "http://[::1]/".parse().expect("valid test URI");
+
+        assert_eq!(resolver.lookup_host(&uri).as_deref(), Some("::1"));
+    }
+}
