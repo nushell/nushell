@@ -5,6 +5,7 @@
 
 use crate::*;
 
+mod background_completions;
 mod cell_path_types;
 mod dc_glob;
 mod enforce_runtime_annotations;
@@ -61,6 +62,7 @@ pub(crate) trait ExperimentalOptionMarker {
 
 // Export only the static values.
 // The marker structs are not relevant and needlessly clutter the generated docs.
+pub use background_completions::BACKGROUND_COMPLETIONS;
 pub use cell_path_types::CELL_PATH_TYPES;
 pub use dc_glob::DC_GLOB;
 pub use enforce_runtime_annotations::ENFORCE_RUNTIME_ANNOTATIONS;
@@ -84,6 +86,7 @@ pub static ALL: &[&ExperimentalOption] = &[
     &ENFORCE_RUNTIME_ANNOTATIONS,
     &NATIVE_CLIP,
     &CELL_PATH_TYPES,
+    &BACKGROUND_COMPLETIONS,
 ];
 
 #[cfg(test)]

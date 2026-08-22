@@ -1652,11 +1652,26 @@ pub struct NuCompleter {
     /// completer, not on [`CompletionEngine`] (which non-caching callers also build).
     cache_env: CacheEnv,
     worker: Option<CompletionWorker>,
+    /// Whether [`complete`](ReedlineCompleter::complete) offloads to a worker.
+    /// False only on the REPL path with `background-completions` disabled.
+    background: bool,
 }
 
 impl NuCompleter {
     pub fn new(engine_state: Arc<EngineState>, stack: Arc<Stack>) -> Self {
         Self::with_cache(engine_state, stack, NarrowingCache::default())
+    }
+
+    /// The reedline completer; the only constructor that consults the
+    /// `background-completions` experimental option.
+    pub(crate) fn for_repl(
+        engine_state: Arc<EngineState>,
+        stack: Arc<Stack>,
+        cache: NarrowingCache,
+    ) -> Self {
+        let mut completer = Self::with_cache(engine_state, stack, cache);
+        completer.background = nu_experimental::BACKGROUND_COMPLETIONS.get();
+        completer
     }
 
     pub(crate) fn with_cache(
@@ -1674,6 +1689,7 @@ impl NuCompleter {
             cache,
             cache_env,
             worker: None,
+            background: true,
         }
     }
 
@@ -1826,6 +1842,20 @@ fn partial_of(line: &str, suggestions: &[Suggestion]) -> Option<Partial> {
 
 impl ReedlineCompleter for NuCompleter {
     fn complete(&mut self, line: &str, pos: usize) -> CompletionResult {
+        if !self.background {
+            // Inline on this thread, skipping worker and cache: the pre-#18334
+            // blocking behavior, which had neither. Blocking is the point, so
+            // an interactive completer can own the terminal.
+            let suggestions: Suggestions = self
+                .engine
+                .fetch_completions_at(line, pos)
+                .into_iter()
+                .map(|s| s.suggestion)
+                .collect();
+            let partial = partial_of(line, &suggestions);
+            return CompletionResult::fresh(suggestions).with_partial(partial);
+        }
+
         let query = CompletionQuery::new(line, pos);
         self.drain_completed();
 
@@ -1927,6 +1957,91 @@ mod completer_tests {
 
         // Extending a flag the user was already typing stays sound.
         assert!(q("from csv --sep").narrows(&q("from csv --s"), token(9)));
+    }
+
+    /// Opted out: settles inline, spawns no worker, leaves the cache alone.
+    #[test]
+    fn opted_out_completer_settles_inline() {
+        let mut completer = NuCompleter::new(test_engine(), Arc::new(Stack::new()));
+        completer.background = false;
+
+        let result = completer.complete("ls | c", 6);
+        assert!(
+            matches!(result, CompletionResult::Fresh { .. }),
+            "expected a settled result, got {result:?}"
+        );
+        assert!(result.suggestions().iter().any(|s| s.value == "cd"));
+        assert!(completer.worker.is_none(), "a worker was spawned anyway");
+        assert_eq!(completer.poll_completion(), CompletionStatus::Idle);
+    }
+
+    /// Engine whose external completer reports what its evaluation environment
+    /// allowed: `piped-N` if a piped external's stdout reached `lines`,
+    /// `direct-S` if a final external's stdout was captured.
+    fn probe_engine() -> (Arc<EngineState>, Arc<Stack>) {
+        let mut engine =
+            nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
+        let mut stack = Stack::new();
+        let cwd = std::env::temp_dir().to_string_lossy().replace('\\', "/");
+        stack.add_env_var(
+            "PWD".to_string(),
+            nu_protocol::Value::string(&cwd, Span::unknown()),
+        );
+        // External lookup needs a PATH; `Stack::new` starts with no env at all.
+        stack.add_env_var(
+            "PATH".to_string(),
+            nu_protocol::Value::string(std::env::var("PATH").unwrap_or_default(), Span::unknown()),
+        );
+
+        let setup = r#"$env.config.completions.external = {
+                enable: true
+                completer: {|spans|
+                    let piped = (^printf 'alpha\nbeta\n' | lines | length)
+                    let direct = (^printf 'gamma' | str trim)
+                    [$"piped-($piped)" $"direct-($direct)"]
+                }
+            }"#;
+        let mut working_set = StateWorkingSet::new(&engine);
+        let block = nu_parser::parse(&mut working_set, None, setup.as_bytes(), false);
+        assert!(working_set.parse_errors.is_empty(), "setup failed to parse");
+        engine.merge_delta(working_set.render()).expect("merge");
+        nu_engine::eval_block::<nu_protocol::debugger::WithoutDebug>(
+            &engine,
+            &mut stack,
+            &block,
+            nu_protocol::PipelineData::empty(),
+        )
+        .expect("eval setup");
+        engine.merge_env(&mut stack).expect("merge env");
+
+        (Arc::new(engine), Arc::new(stack))
+    }
+
+    /// Externals inside a completer keep their stdout on both stacks:
+    /// `suppress_output` only sets `out_dest.stdout` (final command), while
+    /// `collect_value` sets `pipe_stdout` (piped stages). Thus the opt-out only
+    /// has to stop offloading; the stack needs no changes.
+    #[rstest::rstest]
+    #[case::foreground(false)]
+    #[case::background(true)]
+    fn externals_in_a_completer_keep_their_stdout(#[case] suppress_stdin: bool) {
+        let (engine, stack) = probe_engine();
+        let engine = CompletionEngine::new(engine, isolated_stack(stack, suppress_stdin));
+
+        let values: Vec<String> = engine
+            .fetch_completions_at("somecmd x", 9)
+            .into_iter()
+            .map(|s| s.suggestion.value)
+            .collect();
+
+        assert!(
+            values.iter().any(|v| v == "piped-2"),
+            "a piped external lost its stdout: {values:?}"
+        );
+        assert!(
+            values.iter().any(|v| v == "direct-gamma"),
+            "a final external lost its stdout: {values:?}"
+        );
     }
 
     /// The worker runs on an isolated stack and must still produce identical results.
