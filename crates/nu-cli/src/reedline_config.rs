@@ -1006,6 +1006,11 @@ fn event_from_record(
             let mode = extract_value("mode", record, span)?;
             ReedlineEvent::ViChangeMode(mode.as_str()?.to_owned())
         }
+        #[cfg(feature = "helix")]
+        Ok(RED::HelixChangeMode) => {
+            let mode = extract_value("mode", record, span)?;
+            ReedlineEvent::HelixChangeMode(mode.as_str()?.to_owned())
+        }
         // Non-sensical for user configuration:
         //
         // `ReedlineEvent::Mouse` - itself a no-op
@@ -1068,6 +1073,8 @@ pub(crate) fn display_reedline_event(event: ReedlineEventDiscriminants) -> Optio
         RED::ExecuteHostCommand => "ExecuteHostCommand cmd: <string>",
         RED::OpenEditor => "OpenEditor",
         RED::ViChangeMode => "ViChangeMode mode: <string>",
+        #[cfg(feature = "helix")]
+        RED::HelixChangeMode => "HelixChangeMode mode: <string>",
         // Non-sensical for user configuration
         RED::Mouse | RED::Resize => return None,
     })
