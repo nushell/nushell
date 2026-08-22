@@ -253,6 +253,10 @@ pub fn print_pipeline(
 ) -> Result<(), ShellError> {
     let to_stderr = engine_state.is_mcp || engine_state.is_lsp;
 
+    if engine_state.structured_io_output {
+        return nu_command::emit_structured_pipeline(engine_state, pipeline);
+    }
+
     if let Some(hook) = stack.get_config(engine_state).hooks.display_output.clone() {
         let pipeline = eval_hook(
             engine_state,

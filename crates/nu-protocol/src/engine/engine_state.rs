@@ -154,6 +154,10 @@ pub struct EngineState {
     pub is_login: bool,
     pub is_lsp: bool,
     pub is_mcp: bool,
+    /// Child was started with structured stdin (NUON) from a parent nu.
+    pub structured_io_input: bool,
+    /// Child should emit the last pipeline value as NUON instead of a table.
+    pub structured_io_output: bool,
     startup_time: i64,
     is_debugging: IsDebugging,
     pub debugger: Arc<Mutex<Box<dyn Debugger>>>,
@@ -264,6 +268,8 @@ impl EngineState {
             is_login: false,
             is_lsp: false,
             is_mcp: false,
+            structured_io_input: false,
+            structured_io_output: false,
             startup_time: -1,
             is_debugging: IsDebugging::new(false),
             debugger: Arc::new(Mutex::new(Box::new(NoopDebugger))),

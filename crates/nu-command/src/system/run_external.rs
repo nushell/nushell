@@ -1,3 +1,7 @@
+use super::structured_io::{
+    decode_structured_pipeline, encode_structured_pipeline, set_child_structured_io_env,
+    structured_io_for_child,
+};
 use itertools::Itertools;
 use nu_cmd_base::hook::eval_hook;
 use nu_engine::{command_prelude::*, env_to_strings};
@@ -180,6 +184,13 @@ If you create a custom command with this name, that will be used instead."
         command.env_clear();
         command.envs(envs);
 
+        let stdout_captured = matches!(
+            stack.stdout(),
+            OutDest::Pipe | OutDest::PipeSeparate | OutDest::Value
+        );
+        let structured_io = structured_io_for_child(&executable, stdout_captured, &input);
+        set_child_structured_io_env(&mut command, structured_io);
+
         // Configure args.
         let args = eval_external_arguments(engine_state, stack, call_args)?;
         #[cfg(windows)]
@@ -321,10 +332,19 @@ If you create a custom command with this name, that will be used instead."
             let stdin = child.as_mut().stdin.take().expect("stdin is piped");
             let engine_state = engine_state.clone();
             let stack = stack.clone();
+            let stdin_span = call.head;
+            let structured_input = structured_io.input;
             thread::Builder::new()
                 .name("external stdin worker".into())
                 .spawn(move || {
-                    let _ = write_pipeline_data(engine_state, stack, data, stdin);
+                    let _ = write_pipeline_data(
+                        engine_state,
+                        stack,
+                        data,
+                        stdin,
+                        structured_input,
+                        stdin_span,
+                    );
                 })
                 .map_err(|err| {
                     IoError::new_with_additional_context(
@@ -355,10 +375,12 @@ If you create a custom command with this name, that will be used instead."
             )),
         )?;
 
-        Ok(PipelineData::byte_stream(
-            ByteStream::child(child, call.head),
-            None,
-        ))
+        let output = PipelineData::byte_stream(ByteStream::child(child, call.head), None);
+        if structured_io.output {
+            decode_structured_pipeline(output, call.head)
+        } else {
+            Ok(output)
+        }
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -504,7 +526,13 @@ fn write_pipeline_data(
     mut stack: Stack,
     data: PipelineData,
     mut writer: impl Write,
+    structured: bool,
+    span: Span,
 ) -> Result<(), ShellError> {
+    if structured {
+        return encode_structured_pipeline(&engine_state, data, writer, span);
+    }
+
     if let PipelineData::ByteStream(stream, ..) = data {
         stream.write_to(writer)?;
     } else if let PipelineData::Value(Value::Binary { val, .. }, ..) = data {
@@ -807,17 +835,41 @@ mod test {
 
         let mut buf = vec![];
         let input = PipelineData::empty();
-        write_pipeline_data(engine_state.clone(), stack.clone(), input, &mut buf).unwrap();
+        write_pipeline_data(
+            engine_state.clone(),
+            stack.clone(),
+            input,
+            &mut buf,
+            false,
+            Span::test_data(),
+        )
+        .unwrap();
         assert_eq!(buf, b"");
 
         let mut buf = vec![];
         let input = PipelineData::value(Value::string("foo", Span::test_data()), None);
-        write_pipeline_data(engine_state.clone(), stack.clone(), input, &mut buf).unwrap();
+        write_pipeline_data(
+            engine_state.clone(),
+            stack.clone(),
+            input,
+            &mut buf,
+            false,
+            Span::test_data(),
+        )
+        .unwrap();
         assert_eq!(buf, b"foo");
 
         let mut buf = vec![];
         let input = PipelineData::value(Value::binary(b"foo", Span::test_data()), None);
-        write_pipeline_data(engine_state.clone(), stack.clone(), input, &mut buf).unwrap();
+        write_pipeline_data(
+            engine_state.clone(),
+            stack.clone(),
+            input,
+            &mut buf,
+            false,
+            Span::test_data(),
+        )
+        .unwrap();
         assert_eq!(buf, b"foo");
 
         let mut buf = vec![];
@@ -830,7 +882,15 @@ mod test {
             ),
             None,
         );
-        write_pipeline_data(engine_state.clone(), stack.clone(), input, &mut buf).unwrap();
+        write_pipeline_data(
+            engine_state.clone(),
+            stack.clone(),
+            input,
+            &mut buf,
+            false,
+            Span::test_data(),
+        )
+        .unwrap();
         assert_eq!(buf, b"foo");
     }
 }

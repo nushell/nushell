@@ -13,6 +13,7 @@ mod example;
 mod native_clip;
 mod pipefail;
 mod reorder_cell_paths;
+mod structured_io;
 
 pub(crate) type Version = (u16, u16, u16);
 
@@ -70,6 +71,7 @@ pub use example::EXAMPLE;
 pub use native_clip::NATIVE_CLIP;
 pub use pipefail::PIPE_FAIL;
 pub use reorder_cell_paths::REORDER_CELL_PATHS;
+pub use structured_io::STRUCTURED_IO;
 
 // Include all experimental option statics in here.
 // This will test them and add them to the parsing list.
@@ -87,6 +89,7 @@ pub static ALL: &[&ExperimentalOption] = &[
     &NATIVE_CLIP,
     &CELL_PATH_TYPES,
     &BACKGROUND_COMPLETIONS,
+    &STRUCTURED_IO,
 ];
 
 #[cfg(test)]

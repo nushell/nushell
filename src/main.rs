@@ -295,6 +295,17 @@ fn main() -> Result<()> {
     #[cfg(not(feature = "lsp"))]
     let is_lsp = false;
     engine_state.is_lsp = is_lsp;
+
+    let structured_io = nu_experimental::StructuredIoMode::from_os_env();
+    engine_state.structured_io_input = structured_io.input;
+    engine_state.structured_io_output = structured_io.output;
+    if structured_io.any() {
+        // SAFETY: startup, single-threaded. Drop the handshake so grandchild
+        // processes do not inherit NU_STRUCTURED_IO from this child.
+        unsafe {
+            std::env::remove_var(nu_experimental::STRUCTURED_IO_ENV);
+        }
+    }
     // keep this condition in sync with the branches at the end
     engine_state.is_interactive = parsed_nu_cli_args.interactive_shell.is_some()
         || (parsed_nu_cli_args.commands.is_none() && script_name.is_empty() && !is_lsp);
@@ -517,7 +528,10 @@ fn main() -> Result<()> {
     }
 
     start_time = nu_utils::time::Instant::now();
-    let input = if let Some(redirect_stdin) = &parsed_nu_cli_args.redirect_stdin {
+    let input = if engine_state.structured_io_input {
+        trace!("reading structured stdin");
+        nu_command::read_structured_stdin()?
+    } else if let Some(redirect_stdin) = &parsed_nu_cli_args.redirect_stdin {
         trace!("redirecting stdin");
         PipelineData::byte_stream(ByteStream::stdin(redirect_stdin.span)?, None)
     } else {
