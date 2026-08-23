@@ -1,7 +1,7 @@
 use chrono::NaiveDate;
 use nu_plugin::PluginCommand;
 use nu_protocol::{
-    Example, LabeledError, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Example, LabeledError, ShellError, Signature, Span, SyntaxShape, Type,
     shell_error::generic::GenericError,
 };
 use polars::{
@@ -15,6 +15,7 @@ use polars_lazy::frame::IntoLazy;
 
 use crate::{
     PolarsPlugin,
+    command::datetime::{str_to_closed_window, value_to_duration},
     values::{CustomValueSupport, NuDataFrame, NuExpression, PolarsPluginType},
 };
 
@@ -157,17 +158,7 @@ fn command(
         .get_flag_value("closed")
         .map(|ref v| {
             let closed_str = v.as_str()?;
-            match closed_str {
-                "left" => Ok(ClosedWindow::Left),
-                "right" => Ok(ClosedWindow::Right),
-                "both" => Ok(ClosedWindow::Both),
-                "none" => Ok(ClosedWindow::None),
-                _ => Err(ShellError::Generic(GenericError::new(
-                    "Invalid closed window",
-                    format!("Invalid closed window: {}", closed_str),
-                    v.span(),
-                ))),
-            }
+            str_to_closed_window(closed_str, v.span())
         })
         .transpose()?
         .unwrap_or(ClosedWindow::Both);
@@ -210,25 +201,6 @@ fn command(
         NuDataFrame::new(false, df).to_pipeline_data(plugin, engine, call.head)
     } else {
         NuExpression::from(range).to_pipeline_data(plugin, engine, call.head)
-    }
-}
-
-fn value_to_duration(value: &Value) -> Result<polars::prelude::Duration, ShellError> {
-    match value {
-        Value::Duration { val, .. } => Ok(Duration::new(*val)),
-        Value::String { val, .. } => Ok(polars::prelude::Duration::try_parse(&val.to_string())
-            .map_err(|e| {
-                ShellError::Generic(GenericError::new(
-                    "Failed to parse duration",
-                    format!("Failed to parse duration: {}", e),
-                    value.span(),
-                ))
-            })?),
-        _ => Err(ShellError::Generic(GenericError::new(
-            "Invalid duration",
-            format!("Expected a string for duration: received {value:?}"),
-            value.span(),
-        ))),
     }
 }
 
