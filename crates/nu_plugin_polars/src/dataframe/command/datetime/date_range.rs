@@ -68,13 +68,13 @@ impl PluginCommand for DateRange {
         mut input: nu_protocol::PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::LabeledError> {
         let metadata = input.take_metadata();
-        command_eager(plugin, engine, call)
+        command(plugin, engine, call)
             .map_err(LabeledError::from)
             .map(|pd| pd.set_metadata(metadata))
     }
 }
 
-fn command_eager(
+fn command(
     plugin: &PolarsPlugin,
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
