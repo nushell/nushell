@@ -573,6 +573,45 @@ fn isolated_stack(parent: Arc<Stack>, suppress_stdin: bool) -> Arc<Stack> {
     })
 }
 
+/// The decl of the user completer that would run at `site`, preferring an argument's own
+/// completer over the command-wide one — the order [`CompletionEngine::complete_argument_value`]
+/// tries them in. `None` for non-call sites and for builtin/list/external completers, which
+/// have no decl to carry an attribute (the external completer is a config closure).
+fn completer_decl_for_site(site: &CompletionSite, working_set: &StateWorkingSet) -> Option<DeclId> {
+    let call = match &site.kind {
+        SiteKind::FlagValue { call, .. } | SiteKind::Positional { call, .. } => *call,
+        _ => return None,
+    };
+    let signature = working_set.get_decl(call.decl_id).signature();
+
+    let argument_completer = match &site.kind {
+        SiteKind::FlagValue { flag, .. } => {
+            find_flag(&signature, *flag).and_then(|flag| flag.completion)
+        }
+        SiteKind::Positional { sig_positional, .. } => signature
+            .get_positional(*sig_positional)
+            .and_then(|positional| positional.completion.clone()),
+        _ => None,
+    };
+    if let Some(Completion::Command(decl_id)) = argument_completer {
+        return Some(decl_id);
+    }
+
+    match signature.complete {
+        Some(CommandWideCompleter::Command(decl_id)) => Some(decl_id),
+        _ => None,
+    }
+}
+
+/// Whether `decl` carries the `@interactive` attribute (the `attr interactive` command).
+fn decl_is_interactive(working_set: &StateWorkingSet, decl_id: DeclId) -> bool {
+    working_set
+        .get_decl(decl_id)
+        .attributes()
+        .iter()
+        .any(|(name, value)| name == "interactive" && value.as_bool().unwrap_or(false))
+}
+
 /// What the cursor is completing; each variant carries exactly the AST it needs.
 #[derive(Debug, Clone)]
 pub(crate) enum SiteKind<'a> {
@@ -905,6 +944,32 @@ impl<'engine> CompletionEngine<'engine> {
                 .at_site(&site),
             shape,
         )
+    }
+
+    /// Whether the completer that would run at `position` is declared `@interactive`, and so
+    /// must run on the line-editor thread with the terminal to itself rather than on the
+    /// stdin-suppressed background worker. Parses and resolves the site but runs no completer.
+    pub(crate) fn interactive_completer_at(&self, line: &str, position: usize) -> bool {
+        let safe_position = line.floor_char_boundary(position);
+        let sliced_line = &line[..safe_position];
+
+        let mut working_set = StateWorkingSet::new(self.engine_state);
+        let offset = working_set.next_span_start();
+        let block = parse(
+            &mut working_set,
+            Some("completer"),
+            sliced_line.as_bytes(),
+            false,
+        );
+
+        let buffer = Buffer {
+            text: sliced_line,
+            offset,
+        };
+        let site = self.resolve_completion_site(&block, &working_set, buffer, sliced_line);
+
+        completer_decl_for_site(&site, &working_set)
+            .is_some_and(|decl_id| decl_is_interactive(&working_set, decl_id))
     }
 
     fn dispatch_completions_at(&self, line: &str, position: usize) -> Dispatched {
@@ -2044,6 +2109,24 @@ impl ReedlineCompleter for NuCompleter {
 
         if let Some(suggestions) = self.fresh_for(&query) {
             self.settle_pending(&query);
+            let partial = partial_of(line, &suggestions);
+            return CompletionResult::fresh(suggestions).with_partial(partial);
+        }
+
+        // An `@interactive` completer runs here, on the line-editor thread, so it owns the
+        // terminal: the background worker suppresses stdin, but a picker like `fzf` or
+        // `input list` needs the TTY. This blocks the line editor for as long as the picker
+        // is up — exactly as a menu `source` does — and its result is never cached, since an
+        // interactive completer is not a pure function. Every other completer stays on the
+        // worker: non-blocking, and cacheable.
+        //
+        // Running inline (not on the suppressed worker) is what keeps the picker usable: with
+        // stdin live, `input list` passes `require_stdin` and restores reedline's raw mode via
+        // `RawModeGuard`, and `fzf` gets `/dev/tty` and restores its own termios on exit. That
+        // is the same terminal contract a menu `source` relies on, so no extra guard is needed.
+        let engine = CompletionEngine::isolated(&self.engine_state, Arc::clone(&self.stack), false);
+        if engine.interactive_completer_at(line, pos) {
+            let (suggestions, _cacheable) = engine.suggestions_for(&query);
             let partial = partial_of(line, &suggestions);
             return CompletionResult::fresh(suggestions).with_partial(partial);
         }

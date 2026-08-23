@@ -1003,6 +1003,29 @@ fn non_interactive_completer_calling_a_picker_yields_no_suggestions(#[case] body
     assert!(completer.complete_blocking(line, line.len()).is_empty());
 }
 
+/// An `@interactive` completer runs inline on the line-editor thread — so it can own the
+/// terminal for a picker like `fzf` — which `complete()` signals by returning `Fresh`
+/// outright rather than handing the query to the background worker. Its results are still
+/// narrowed against the typed prefix like any parameter completer's.
+#[test]
+fn interactive_completer_runs_inline() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = "\
+        @interactive
+        def comp [token] { [alpha beta] }
+        def my-command [arg: string@comp] {}";
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let line = "my-command al";
+    let result = completer.complete(line, line.len());
+    assert!(
+        matches!(result, CompletionResult::Fresh { .. }),
+        "an @interactive completer must run inline (Fresh), got {result:?}"
+    );
+    match_suggestions(&vec!["alpha"], result.suggestions());
+}
+
 /// Suppress completions for invalid values
 #[test]
 fn customcompletions_invalid() {

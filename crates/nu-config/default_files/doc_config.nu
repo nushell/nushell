@@ -357,6 +357,13 @@ $env.config.completions.external.completer = null
 #   }
 #   $context
 # }
+#
+# A `def`-based completer (attached with `@complete` or to a parameter with `@`) can carry
+# the `@interactive` attribute to run on the line-editor thread with the terminal to itself,
+# so it can drive a picker like `fzf` or `input list`:
+# @interactive
+# def pick-file [token] { ls | get name | to text | ^fzf --query $token.text }
+# Every other completer runs on a background worker instead: non-blocking, and cached.
 
 # --------------------
 # Terminal Integration
