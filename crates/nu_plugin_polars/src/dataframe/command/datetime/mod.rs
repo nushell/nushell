@@ -4,6 +4,8 @@ mod convert_time_zone;
 mod date_range;
 mod date_ranges;
 mod datepart;
+mod datetime_range;
+mod datetime_ranges;
 mod get_day;
 mod get_hour;
 mod get_minute;
@@ -50,6 +52,8 @@ pub(crate) fn datetime_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPl
         Box::new(ConvertTimeZone),
         Box::new(date_range::DateRange),
         Box::new(date_ranges::DateRange),
+        Box::new(datetime_range::DatetimeRange),
+        Box::new(datetime_ranges::DatetimeRanges),
         Box::new(ExprDatePart),
         Box::new(GetDay),
         Box::new(GetHour),
