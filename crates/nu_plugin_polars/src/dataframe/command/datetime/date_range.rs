@@ -65,9 +65,12 @@ impl PluginCommand for DateRange {
         plugin: &Self::Plugin,
         engine: &nu_plugin::EngineInterface,
         call: &nu_plugin::EvaluatedCall,
-        _input: nu_protocol::PipelineData,
+        mut input: nu_protocol::PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::LabeledError> {
-        command_eager(plugin, engine, call).map_err(LabeledError::from)
+        let metadata = input.take_metadata();
+        command_eager(plugin, engine, call)
+            .map_err(LabeledError::from)
+            .map(|pd| pd.set_metadata(metadata))
     }
 }
 
