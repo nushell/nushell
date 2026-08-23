@@ -525,13 +525,19 @@ fn normalize_playground_path(path: &Path) -> Result<&Path, PlaygroundError> {
 
 #[cfg(windows)]
 fn clear_readonly_recursive(path: &Path) -> io::Result<()> {
-    if path.is_dir() {
+    let metadata = fs::symlink_metadata(path)?;
+    let file_type = metadata.file_type();
+    if file_type.is_symlink() {
+        return Ok(());
+    }
+
+    if file_type.is_dir() {
         for entry in fs::read_dir(path)? {
             clear_readonly_recursive(&entry?.path())?;
         }
     }
 
-    let mut permissions = fs::metadata(path)?.permissions();
+    let mut permissions = metadata.permissions();
     if permissions.readonly() {
         #[cfg_attr(windows, allow(clippy::permissions_set_readonly_false))]
         permissions.set_readonly(false);
@@ -554,4 +560,38 @@ pub enum InvalidPlaygroundPath {
 
     #[error("path includes parent dir")]
     IncludesParentDir,
+}
+
+#[cfg(all(test, windows))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn close_does_not_clear_readonly_permissions_through_directory_symlink()
+    -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let external = tempfile::tempdir()?;
+        let external_file = external.path().join("external.txt");
+        fs::write(&external_file, "contents")?;
+
+        let mut permissions = fs::metadata(&external_file)?.permissions();
+        permissions.set_readonly(true);
+        fs::set_permissions(&external_file, permissions)?;
+
+        let playground = Playground::new(
+            "crate::tests::playground::close_does_not_clear_readonly_permissions_through_directory_symlink",
+        )?;
+        std::os::windows::fs::symlink_dir(external.path(), playground.path().join("external"))?;
+
+        playground.close()?;
+
+        let readonly = fs::metadata(&external_file)?.permissions().readonly();
+
+        let mut permissions = fs::metadata(&external_file)?.permissions();
+        #[allow(clippy::permissions_set_readonly_false)]
+        permissions.set_readonly(false);
+        fs::set_permissions(&external_file, permissions)?;
+
+        assert!(readonly);
+        Ok(())
+    }
 }
