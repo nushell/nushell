@@ -4,13 +4,15 @@ use nu_protocol::{
     shell_error::generic::GenericError,
 };
 use polars::{
+    frame::DataFrame,
     prelude::{Expr, date_ranges},
     time::{ClosedWindow, Duration},
 };
+use polars_lazy::frame::IntoLazy;
 
 use crate::{
     PolarsPlugin,
-    values::{CustomValueSupport, NuExpression, PolarsPluginType},
+    values::{CustomValueSupport, NuDataFrame, NuExpression, PolarsPluginType},
 };
 
 pub struct DateRange;
@@ -48,7 +50,15 @@ impl PluginCommand for DateRange {
                 "Closed window of the date range expression. This supports 'left', 'right', 'both', or 'none'.",
                 Some('c'),
             )
-            .input_output_types(vec![(Type::Any, PolarsPluginType::NuExpression.into())])
+            .switch(
+                "eager",
+                "Eagerly collect the date range expression into a dataframe.",
+                None,
+            )
+            .input_output_types(vec![
+                (Type::Any, PolarsPluginType::NuExpression.into()),
+                (Type::Any, PolarsPluginType::NuDataFrame.into()),
+            ])
             .category(nu_protocol::Category::Custom("dataframe".into()))
     }
 
@@ -115,6 +125,8 @@ fn command(
         .transpose()?
         .unwrap_or(ClosedWindow::Both);
 
+    let eager = call.has_flag("eager")?;
+
     let range = date_ranges(
         start,
         end,
@@ -133,7 +145,25 @@ fn command(
         )
     })?;
 
-    NuExpression::from(range).to_pipeline_data(plugin, engine, call.head)
+    if eager {
+        let df = DataFrame::empty()
+            .lazy()
+            .select([range])
+            .collect()
+            .map_err(|e| {
+                ShellError::Generic(
+                    GenericError::new(
+                        "Failed to collect date range",
+                        format!("Failed to collect date range: {}", e),
+                        call.head,
+                    )
+                    .with_source(e),
+                )
+            })?;
+        NuDataFrame::new(false, df).to_pipeline_data(plugin, engine, call.head)
+    } else {
+        NuExpression::from(range).to_pipeline_data(plugin, engine, call.head)
+    }
 }
 
 fn value_to_duration(value: &Value) -> Result<polars::prelude::Duration, ShellError> {
