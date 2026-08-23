@@ -1,5 +1,16 @@
 use nu_test_support::prelude::*;
 
+#[test]
+fn names_temp_dir_with_test_slug() -> Result {
+    let playground = Playground::new("crate::tests::playground::case")?;
+    let name = playground.path().file_name().unwrap().to_string_lossy();
+
+    assert!(name.starts_with("nushell-testing-tests.playground.case-"));
+
+    playground.close()?;
+    Ok(())
+}
+
 #[track_caller]
 fn assert_invalid_path<T>(result: Result<T, PlaygroundError>, expected: &str) {
     match result {
@@ -11,7 +22,7 @@ fn assert_invalid_path<T>(result: Result<T, PlaygroundError>, expected: &str) {
 #[test]
 #[expect(unreachable_code)]
 fn rejects_empty_paths() -> Result {
-    let playground = Playground::new(module_path!())?;
+    let playground = Playground::new("crate::tests::playground::rejects_empty_paths")?;
 
     assert_invalid_path(playground.dir(""), "path is empty");
     assert_invalid_path(playground.empty_file(""), "path is empty");
@@ -31,7 +42,7 @@ fn rejects_empty_paths() -> Result {
 #[test]
 #[expect(unreachable_code)]
 fn rejects_root_only_paths() -> Result {
-    let playground = Playground::new(module_path!())?;
+    let playground = Playground::new("crate::tests::playground::rejects_root_only_paths")?;
 
     assert_invalid_path(playground.dir("/"), "path is empty");
     assert_invalid_path(playground.empty_file("/"), "path is empty");
@@ -51,7 +62,7 @@ fn rejects_root_only_paths() -> Result {
 #[test]
 #[expect(unreachable_code)]
 fn rejects_parent_dir_paths() -> Result {
-    let playground = Playground::new(module_path!())?;
+    let playground = Playground::new("crate::tests::playground::rejects_parent_dir_paths")?;
 
     assert_invalid_path(playground.dir(".."), "path includes parent dir");
     assert_invalid_path(playground.empty_file("../file"), "path includes parent dir");
@@ -73,7 +84,8 @@ fn rejects_parent_dir_paths() -> Result {
 
 #[test]
 fn treats_leading_root_as_playground_relative() -> Result {
-    let playground = Playground::new(module_path!())?;
+    let playground =
+        Playground::new("crate::tests::playground::treats_leading_root_as_playground_relative")?;
 
     let dir = playground.dir("/abc/def")?;
     let empty_file = playground.empty_file("/abc/def/file.empty")?;
@@ -91,7 +103,7 @@ fn treats_leading_root_as_playground_relative() -> Result {
 
 #[test]
 fn permits_current_dir_components() -> Result {
-    let playground = Playground::new(module_path!())?;
+    let playground = Playground::new("crate::tests::playground::permits_current_dir_components")?;
 
     let dir = playground.dir("./abc")?;
     let file = playground.file("./abc/./file.txt", "contents")?;

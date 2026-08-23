@@ -1,15 +1,14 @@
 use std::{
+    fmt::Write,
     fs,
     hash::{BuildHasher, RandomState},
     io,
     ops::Deref,
     path::{Component, Path, PathBuf},
-    sync::{
-        LazyLock,
-        atomic::{AtomicU64, Ordering},
-    },
+    sync::LazyLock,
 };
 
+use itertools::Itertools;
 use rand::RngExt;
 
 #[allow(unused, reason = "doesn't matter anymore")]
@@ -17,9 +16,6 @@ pub mod deprecated;
 
 /// Random process ID used to add entropy to temp directory names.
 static PROCESS_ID: LazyLock<u16> = LazyLock::new(|| rand::rng().random());
-
-/// Global counter that keeps playground names unique, even for the same module path.
-static PLAYGROUND_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 /// Process temp directory, captured once for the lifetime of the process.
 static ENV_TEMP_DIR: LazyLock<PathBuf> = LazyLock::new(std::env::temp_dir);
@@ -52,7 +48,7 @@ pub trait PlaygroundFs: sealed::Sealed {
     /// # use nu_test_support::prelude::*;
     /// #
     /// # fn main() -> Result {
-    /// # let playground = Playground::new(module_path!())?;
+    /// # let playground = Playground::new("crate::tests::example::dir")?;
     /// let dir = playground.dir("abc/def")?;
     ///
     /// assert!(dir.is_dir());
@@ -88,7 +84,7 @@ pub trait PlaygroundFs: sealed::Sealed {
     /// # use nu_test_support::prelude::*;
     /// #
     /// # fn main() -> Result {
-    /// # let playground = Playground::new(module_path!())?;
+    /// # let playground = Playground::new("crate::tests::example::empty_file")?;
     /// let file = playground.empty_file("some/file.empty")?;
     ///
     /// assert!(file.is_file());
@@ -115,7 +111,7 @@ pub trait PlaygroundFs: sealed::Sealed {
     /// # use nu_test_support::prelude::*;
     /// #
     /// # fn main() -> Result {
-    /// # let playground = Playground::new(module_path!())?;
+    /// # let playground = Playground::new("crate::tests::example::file")?;
     /// let text_file = playground.file("some/file.txt", "abc")?;
     /// let bytes_file = playground.file("bytes.bin", [1, 2, 3])?;
     /// let indented_file = playground.file(
@@ -177,7 +173,7 @@ pub trait PlaygroundFs: sealed::Sealed {
     /// # use nu_test_support::prelude::*;
     /// #
     /// # fn main() -> Result {
-    /// # let playground = Playground::new(module_path!())?;
+    /// # let playground = Playground::new("crate::tests::example::readonly_file")?;
     /// let file = playground.readonly_file("readonly.txt", "contents")?;
     ///
     /// assert!(
@@ -228,7 +224,7 @@ pub trait PlaygroundFs: sealed::Sealed {
     /// # use nu_test_support::prelude::*;
     /// #
     /// # fn main() -> Result {
-    /// # let playground = Playground::new(module_path!())?;
+    /// # let playground = Playground::new("crate::tests::example::symlink")?;
     /// playground.file("original.txt", "contents")?;
     /// let link = playground.symlink("original.txt", "links/original.txt")?;
     ///
@@ -302,7 +298,7 @@ pub trait PlaygroundFs: sealed::Sealed {
     /// # use nu_test_support::prelude::*;
     /// #
     /// # fn main() -> Result {
-    /// # let playground = Playground::new(module_path!())?;
+    /// # let playground = Playground::new("crate::tests::example::at")?;
     /// playground.at("abc", |dir| {
     ///     dir.empty_file("file0.empty")?;
     ///     dir.empty_file("file1.empty")?;
@@ -357,13 +353,31 @@ impl Playground {
 }
 
 impl Playground {
-    pub fn new(module_path: impl AsRef<str>) -> Result<Self> {
-        let module_path_hash = RANDOM_STATE.hash_one(module_path.as_ref());
-        let dir_name = format!(
-            "nushell-testing-{module_path_hash:x}-{process_id:x}-{playground_counter:x}",
-            process_id = PROCESS_ID.deref(),
-            playground_counter = PLAYGROUND_COUNTER.fetch_add(1, Ordering::Relaxed)
+    #[allow(
+        unstable_name_collisions,
+        reason = "this is only testing code, rustc is fixed"
+    )]
+    pub fn new(test_path: impl AsRef<str>) -> Result<Self> {
+        let test_path = test_path.as_ref();
+        let mut dir_name = String::with_capacity(
+            "nushell-testing-".len()
+                + test_path.len()
+                + 16 // max path hash
+                + 4 // max process id hash
+                + 2, // separators before the hash and process id
         );
+
+        dir_name.push_str("nushell-testing-");
+        test_path
+            .split("::")
+            .tail(3)
+            .intersperse(".")
+            .for_each(|segment| dir_name.push_str(segment));
+        let _ = dir_name.write_fmt(format_args!(
+            "-{:x}-{:x}",
+            RANDOM_STATE.hash_one(test_path),
+            PROCESS_ID.deref()
+        ));
 
         let temp_dir = ENV_TEMP_DIR.join(dir_name);
         if let Err(err) = fs::create_dir(&temp_dir) {
