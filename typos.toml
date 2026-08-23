@@ -22,6 +22,12 @@ extend-ignore-re = [
     # Intentional shortened prefix in completion narrowing tests
     "ls fo",
     "ue",
+    # Intentional partial token and misspelled/unknown keys in completer tests
+    "na\\.fo",
+    "na, fo",
+    "strat: 3",
+    "discription: hi",
+    "fiter: false",
 ]
 
 [type.rust.extend-words]

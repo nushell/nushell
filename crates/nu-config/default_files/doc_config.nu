@@ -313,19 +313,49 @@ $env.config.completions.external.enable = true
 $env.config.completions.external.max_results = 100
 
 # completions.external.completer (closure|null): Custom closure for argument completions.
-# The closure receives a |spans| parameter - a list of strings representing
-# tokens on the current commandline. Usually set to call a third-party
-# completion system like Carapace.
-# Evaluating this closure blocks the line editor and may take the TTY, which
-# interactive pickers (fzf, `input list`) need. Completers that only print a
-# list should return quickly. Custom menu `source` closures already run on
-# the REPL thread the same way.
+# Usually set to call a third-party completion system like Carapace.
+#
+# A completer receives its inputs through the parameters it declares, each bound by name
+# (order does not matter; an unrecognized name receives nothing):
+#   token: record    the token being completed, as {text, kind, span}
+#   place: record    where in the line that is: `cursor` (a byte offset), `target`
+#                    ({start, end}, the range a suggestion replaces), and the resolution
+#                    (`kind`, plus `flag`/`index`). `target` is worth reading rather than
+#                    `token.span`: they differ wherever a completion spans several tokens,
+#                    such as a multiword command head or a cell path.
+#   contexts: record the closures and subexpressions the cursor is nested in. Declaring this
+#                    parameter is what asks for the larger view; see
+#                    `commandline complete --input-full`.
+# A completer never sees text past the cursor.
+#
+# Returns a list of suggestions (a string, or a record of {value, description?, style?,
+# span?, extra?}) or a record of {options, completions}. External/command-wide completers
+# are not filtered by default; parameter completers are. See `options.filter`.
 # Default: null
 $env.config.completions.external.completer = null
 
-# Example: A simplified Carapace completer (use the official one from Carapace docs):
-# $env.config.completions.external.completer = {|spans|
-#   carapace $spans.0 nushell ...$spans | from json
+# Example: A simplified Carapace completer (use the official one from Carapace docs).
+# Every token of the command is wanted, so it declares `contexts`:
+# $env.config.completions.external.completer = {|contexts|
+#   let words = $contexts.tokens.text
+#   carapace ($words | first) nushell ...$words | from json
+# }
+#
+# Example: branch off the resolved cursor instead of re-parsing the tokens, by declaring
+# only the `place` it needs:
+# $env.config.completions.external.completer = {|place|
+#   if $place.kind == "flag-value" and $place.flag == "base" {
+#     git branch | lines | str trim
+#   }
+# }
+#
+# Example: walk to the context the cursor is actually in, however deeply nested:
+# def cursor-context [contexts, place] {
+#   mut context = $contexts
+#   for token in ($place.cursor.path | drop 1) {
+#     $context = $context.tokens | get $token | get nested
+#   }
+#   $context
 # }
 
 # --------------------
@@ -710,6 +740,14 @@ $env.config.abbreviations = {}
 # List-layout menus accept description_position: "before" or "after" in their
 # `type` record, controlling whether an entry's description is shown before or
 # after its value. Unset keeps reedline's default.
+#
+# A menu's `source` receives the same inputs as every completer, bound by the parameters it
+# declares, in place of the old `{|buffer, position|}` pair -- see
+# completions.external.completer above. A source that used to write
+# `$buffer | split row ' ' | last` now declares `{|token|}` and reads `$token.text`, and one
+# that needs the surrounding closures declares `{|contexts|}` the same way a completer does.
+# It returns what a completer returns, so one source can serve as either; the `options` of a
+# {completions, options} record name engine behaviour a menu has no say in and are ignored.
 #
 # Default: completion_menu, ide_completion_menu, history_menu, help_menu.
 # Inspect with `$env.config.menus`. Assigning this list merges into the
