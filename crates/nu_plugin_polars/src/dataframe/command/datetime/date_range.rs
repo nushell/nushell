@@ -21,7 +21,11 @@ impl PluginCommand for DateRange {
     type Plugin = PolarsPlugin;
 
     fn name(&self) -> &str {
-        "polars date-range"
+        "polars date-ranges"
+    }
+
+    fn description(&self) -> &str {
+        "Create a column of date ranges."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -60,10 +64,6 @@ impl PluginCommand for DateRange {
                 (Type::Any, PolarsPluginType::NuDataFrame.into()),
             ])
             .category(nu_protocol::Category::Custom("dataframe".into()))
-    }
-
-    fn description(&self) -> &str {
-        "Creates a date range expression."
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
