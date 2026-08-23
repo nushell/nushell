@@ -193,12 +193,16 @@ mod tests {
     }
 
     #[rstest]
-    #[case::dot("12.34")]
-    #[case::comma("12,34")]
-    fn parse_dot_or_comma(#[case] input: &str) {
+    #[case::dot("12.34", 12.34)]
+    #[case::comma("12,34", 12.34)]
+    #[case::positive_dot("+12.34", 12.34)]
+    #[case::positive_comma("+12,34", 12.34)]
+    #[case::negative_dot("-12.34", -12.34)]
+    #[case::negative_comma("-12,34", -12.34)]
+    fn parse_dot_or_comma(#[case] input: &str, #[case] expected: f64) {
         assert_eq!(
             action(&Value::test_string(input), ARGS, SPAN),
-            Value::test_float(12.34)
+            Value::test_float(expected)
         );
     }
 
