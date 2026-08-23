@@ -1,11 +1,14 @@
+use chrono::NaiveDate;
 use nu_plugin::PluginCommand;
 use nu_protocol::{
-    Example, LabeledError, ShellError, Signature, SyntaxShape, Type, Value,
+    Example, LabeledError, ShellError, Signature, Span, SyntaxShape, Type, Value,
     shell_error::generic::GenericError,
 };
 use polars::{
+    df,
     frame::DataFrame,
-    prelude::{Expr, date_ranges},
+    prelude::{Expr, NamedFrom, date_ranges},
+    series::Series,
     time::{ClosedWindow, Duration},
 };
 use polars_lazy::frame::IntoLazy;
@@ -67,7 +70,51 @@ impl PluginCommand for DateRange {
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
-        vec![]
+        let date = |y, m, d| NaiveDate::from_ymd_opt(y, m, d).expect("valid date in example");
+
+        vec![
+            Example {
+                description: "Eagerly create a column of dates from a start, end, and interval",
+                example: "polars date-ranges --start 2022-01-01 --end 2022-01-05 --interval 1d --eager",
+                result: Some(
+                    NuDataFrame::new(
+                        false,
+                        df!("literal" => vec![Series::new(
+                            "".into(),
+                            vec![
+                                date(2022, 1, 1),
+                                date(2022, 1, 2),
+                                date(2022, 1, 3),
+                                date(2022, 1, 4),
+                                date(2022, 1, 5),
+                            ],
+                        )])
+                        .expect("date range example dataframe should build"),
+                    )
+                    .into_value(Span::test_data()),
+                ),
+            },
+            Example {
+                description: "Create a column of per-row date ranges from start and end date columns",
+                example: r#"[[start end]; [2022-01-01 2022-01-03] [2022-01-02 2022-01-03]]
+ | polars into-df
+ | polars select (polars date-ranges --start (polars col start) --end (polars col end) --interval 1d | polars as date_range)"#,
+                result: Some(
+                    NuDataFrame::new(
+                        false,
+                        df!("date_range" => vec![
+                            Series::new(
+                                "".into(),
+                                vec![date(2022, 1, 1), date(2022, 1, 2), date(2022, 1, 3)],
+                            ),
+                            Series::new("".into(), vec![date(2022, 1, 2), date(2022, 1, 3)]),
+                        ])
+                        .expect("date range example dataframe should build"),
+                    )
+                    .into_value(Span::test_data()),
+                ),
+            },
+        ]
     }
 
     fn run(
@@ -182,5 +229,16 @@ fn value_to_duration(value: &Value) -> Result<polars::prelude::Duration, ShellEr
             format!("Expected a string for duration: received {value:?}"),
             value.span(),
         ))),
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::test::test_polars_plugin_command;
+
+    #[test]
+    fn test_examples() -> Result<(), ShellError> {
+        test_polars_plugin_command(&DateRange)
     }
 }
