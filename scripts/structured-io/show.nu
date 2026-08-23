@@ -3,28 +3,16 @@
 # Nested-nu structured IO demo. Run this file directly:
 #   ./scripts/structured-io/show.nu
 #
-# Shebang scripts are `nu script.nu`. They honor `NU_EXPERIMENTAL_OPTIONS`
-# (so `all` in your environment is enough). If that env is unset, this file
-# shows the broken byte-stream case, then re-execs with
-# `--experimental-options structured-io=true`.
+# Before/after is the child invocation, not this process:
+#   $nu.current-exe --experimental-options structured-io=false ...
+#   $nu.current-exe --experimental-options structured-io=true ...
+# so it works from a REPL that already has `NU_EXPERIMENTAL_OPTIONS=all`.
 #
 # `print` does the talking. The default `display_output` hook runs `table` on
 # whatever `main` returns, and that write hits a broken pipe when this file is
 # launched as an external from another nu.
 
 $env.config.hooks.display_output = {|| ignore }
-
-def structured-io-enabled [] {
-    let rows = (
-        debug experimental-options
-        | where identifier == "structured-io"
-    )
-    if ($rows | is-empty) {
-        false
-    } else {
-        $rows.0.enabled
-    }
-}
 
 def knows-structured-io [] {
     not (
@@ -47,12 +35,32 @@ def script [name: string] {
     $env.FILE_PWD | path join $name
 }
 
-def show-broken [exe: string, inventory: string] {
-    heading "without structured-io, a .nu script is an external"
+# Child argv that turns the handshake off or on, regardless of this process.
+def child-nu [on: bool] {
+    let flag = if $on { "structured-io=true" } else { "structured-io=false" }
+    [--experimental-options $flag -n]
+}
+
+def main [] {
+    let exe = nu-bin
+    let inventory = script "inventory.nu"
+    let healthy = script "healthy.nu"
+    let summarize = script "summarize.nu"
+    let off = child-nu false
+    let on = child-nu true
+
+    if not (knows-structured-io) {
+        heading "this nu binary does not have structured-io"
+        print $"current exe: ($exe)"
+        print "install this checkout, then run ./scripts/structured-io/show.nu"
+        return
+    }
+
+    heading "before: nested nu with structured-io=false"
     # Collect first so the child can finish writing. Piping a byte stream
     # straight into `columns` drops the pipe and the child dies with
     # broken_pipe from `table` in display_output.
-    let nested = (^$exe -n $inventory)
+    let nested = (^$exe ...$off $inventory)
     print "describe of nested output:"
     print ($nested | describe)
 
@@ -62,53 +70,25 @@ def show-broken [exe: string, inventory: string] {
     } catch {|err|
         print ($err.msg? | default "columns cannot read a byte stream")
     }
-}
 
-def show-on [exe: string, inventory: string, healthy: string, summarize: string] {
-    heading "the same script, now a real table"
-    ^$exe -n $inventory | print
+    heading "after: the same script with structured-io=true"
+    ^$exe ...$on $inventory | print
 
     heading "columns and cell paths work across the subprocess"
-    print (^$exe -n $inventory | columns | str join ", ")
-    print (^$exe -n $inventory | get host)
+    print (^$exe ...$on $inventory | columns | str join ", ")
+    print (^$exe ...$on $inventory | get host)
 
     heading "types JSON would smash still exist"
-    let sample = ^$exe -n $inventory | get 0
+    let sample = (^$exe ...$on $inventory | get 0)
     print $"disk is ($sample.disk | describe): ($sample.disk)"
     print $"uptime is ($sample.uptime | describe): ($sample.uptime)"
     print $"last_patch is ($sample.last_patch | describe)"
 
     heading "three scripts, one pipeline, no to nuon / from nuon"
-    ^$exe -n $inventory | ^$exe -n $healthy | ^$exe -n $summarize | print
+    ^$exe ...$on $inventory | ^$exe ...$on $healthy | ^$exe ...$on $summarize | print
 
     heading "ls in a child nu, then sort like a builtin"
     ls $env.FILE_PWD
-    | ^$exe -n -c '$in | where type == file | sort-by size --reverse | update name { path basename } | select name size'
+    | ^$exe ...$on -c '$in | where type == file | sort-by size --reverse | update name { path basename } | select name size'
     | print
-}
-
-def main [--on] {
-    let exe = nu-bin
-    let inventory = script "inventory.nu"
-    let healthy = script "healthy.nu"
-    let summarize = script "summarize.nu"
-
-    if not (knows-structured-io) {
-        heading "this nu binary does not have structured-io"
-        print $"current exe: ($exe)"
-        print "install this checkout or run:"
-        print "  cargo run -- --experimental-options structured-io=true scripts/structured-io/show.nu"
-        return
-    }
-
-    if not (structured-io-enabled) {
-        if not $on {
-            show-broken $exe $inventory
-        }
-        heading "relaunching with structured-io"
-        ^$exe --experimental-options structured-io=true $env.CURRENT_FILE --on
-        return
-    }
-
-    show-on $exe $inventory $healthy $summarize
 }

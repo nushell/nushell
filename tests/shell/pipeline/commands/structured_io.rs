@@ -11,6 +11,23 @@ fn child_nu_output_is_raw_without_structured_io() -> Result {
 
 #[test]
 #[deps(NU)]
+fn child_flag_true_enables_handshake_without_parent_option() -> Result {
+    test()
+        .run("nu -n --experimental-options structured-io=true -c '[1 2 3]' | describe")
+        .expect_value_eq("list<int>")
+}
+
+#[test]
+#[deps(NU)]
+#[exp(STRUCTURED_IO)]
+fn child_flag_false_disables_handshake() -> Result {
+    test()
+        .run("nu -n --experimental-options structured-io=false -c '[1 2 3]' | describe")
+        .expect_value_eq("byte stream")
+}
+
+#[test]
+#[deps(NU)]
 #[exp(STRUCTURED_IO)]
 fn child_nu_list_stays_structured() -> Result {
     test()
