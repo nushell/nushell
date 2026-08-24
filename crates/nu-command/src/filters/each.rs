@@ -37,15 +37,13 @@ This "flattens" the output, turning an output that would otherwise be a
 list of lists like `list<list<string>>` into a flat list like `list<string>`.
 
 
-String or byte streams, empty pipelines, null values,
-ranges, and some custom values can also be used as inputs to 'each'.
-A stream of bytes or strings (usually from external commands)
-will be treated as though it was a list of chunks of the stream,
-where the size of the chunks are determined arbitrarily.
-Empty pipelines and null values are both returned unchanged from
-'each' without calling the provided closure.
-Ranges and custom values which can be iterated will be
-treated as lists of the values they represent."#
+String or byte streams, empty pipelines, null values, ranges, and some custom values
+can also be used as inputs to 'each'. A stream of bytes or strings
+(usually from external commands) will be treated as though it was a list of chunks
+of the stream, where the size of the chunks are determined arbitrarily.
+Empty pipelines and null values are both returned unchanged from 'each' without
+calling the provided closure. Ranges and custom values which can be iterated
+will be treated as lists of the values they represent."#
     }
 
     fn search_terms(&self) -> Vec<&str> {
