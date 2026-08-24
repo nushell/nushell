@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     fmt::Write,
     fs,
     hash::{BuildHasher, RandomState},
@@ -48,7 +49,11 @@ pub trait PlaygroundFs: sealed::Sealed {
     /// # use nu_test_support::prelude::*;
     /// #
     /// # fn main() -> Result {
-    /// # let playground = Playground::new("crate::tests::example::dir")?;
+    /// # let playground = Playground::new(
+    /// #     "crate::tests::example::dir",
+    /// #     env!("CARGO_PKG_NAME"),
+    /// #     env!("CARGO_CRATE_NAME"),
+    /// # )?;
     /// let dir = playground.dir("abc/def")?;
     ///
     /// assert!(dir.is_dir());
@@ -84,7 +89,11 @@ pub trait PlaygroundFs: sealed::Sealed {
     /// # use nu_test_support::prelude::*;
     /// #
     /// # fn main() -> Result {
-    /// # let playground = Playground::new("crate::tests::example::empty_file")?;
+    /// # let playground = Playground::new(
+    /// #     "crate::tests::example::empty_file",
+    /// #     env!("CARGO_PKG_NAME"),
+    /// #     env!("CARGO_CRATE_NAME"),
+    /// # )?;
     /// let file = playground.empty_file("some/file.empty")?;
     ///
     /// assert!(file.is_file());
@@ -111,7 +120,11 @@ pub trait PlaygroundFs: sealed::Sealed {
     /// # use nu_test_support::prelude::*;
     /// #
     /// # fn main() -> Result {
-    /// # let playground = Playground::new("crate::tests::example::file")?;
+    /// # let playground = Playground::new(
+    /// #     "crate::tests::example::file",
+    /// #     env!("CARGO_PKG_NAME"),
+    /// #     env!("CARGO_CRATE_NAME"),
+    /// # )?;
     /// let text_file = playground.file("some/file.txt", "abc")?;
     /// let bytes_file = playground.file("bytes.bin", [1, 2, 3])?;
     /// let indented_file = playground.file(
@@ -173,7 +186,11 @@ pub trait PlaygroundFs: sealed::Sealed {
     /// # use nu_test_support::prelude::*;
     /// #
     /// # fn main() -> Result {
-    /// # let playground = Playground::new("crate::tests::example::readonly_file")?;
+    /// # let playground = Playground::new(
+    /// #     "crate::tests::example::readonly_file",
+    /// #     env!("CARGO_PKG_NAME"),
+    /// #     env!("CARGO_CRATE_NAME"),
+    /// # )?;
     /// let file = playground.readonly_file("readonly.txt", "contents")?;
     ///
     /// assert!(
@@ -224,7 +241,11 @@ pub trait PlaygroundFs: sealed::Sealed {
     /// # use nu_test_support::prelude::*;
     /// #
     /// # fn main() -> Result {
-    /// # let playground = Playground::new("crate::tests::example::symlink")?;
+    /// # let playground = Playground::new(
+    /// #     "crate::tests::example::symlink",
+    /// #     env!("CARGO_PKG_NAME"),
+    /// #     env!("CARGO_CRATE_NAME"),
+    /// # )?;
     /// playground.file("original.txt", "contents")?;
     /// let link = playground.symlink("original.txt", "links/original.txt")?;
     ///
@@ -298,7 +319,11 @@ pub trait PlaygroundFs: sealed::Sealed {
     /// # use nu_test_support::prelude::*;
     /// #
     /// # fn main() -> Result {
-    /// # let playground = Playground::new("crate::tests::example::at")?;
+    /// # let playground = Playground::new(
+    /// #     "crate::tests::example::at",
+    /// #     env!("CARGO_PKG_NAME"),
+    /// #     env!("CARGO_CRATE_NAME"),
+    /// # )?;
     /// playground.at("abc", |dir| {
     ///     dir.empty_file("file0.empty")?;
     ///     dir.empty_file("file1.empty")?;
@@ -368,8 +393,15 @@ impl Playground {
         unstable_name_collisions,
         reason = "this is only testing code, rustc is fixed"
     )]
-    pub fn new(test_path: impl AsRef<str>) -> Result<Self> {
+    pub fn new(
+        test_path: impl AsRef<str>,
+        pkg_name: impl AsRef<str>,   // use `env!("CARGO_PKG_NAME")`
+        crate_name: impl AsRef<str>, // use `env!("CARGO_CRATE_NAME")`
+    ) -> Result<Self> {
         let test_path = test_path.as_ref();
+        let pkg_name = pkg_name.as_ref();
+        let crate_name = crate_name.as_ref();
+
         let mut dir_name = String::with_capacity(
             test_path.len()
                 + 16 // max path hash
@@ -388,19 +420,35 @@ impl Playground {
             PROCESS_ID.deref()
         ));
 
-        let parent_temp_dir = ENV_TEMP_DIR.join("nushell-testing");
-        if let Err(err) = fs::create_dir(&parent_temp_dir)
+        let general_temp_dir = ENV_TEMP_DIR.join("nushell-testing");
+        if let Err(err) = fs::create_dir(&general_temp_dir)
             && err.kind() != io::ErrorKind::AlreadyExists
         {
             return Err(PlaygroundError {
                 kind: PlaygroundErrorKind::Open,
-                path: parent_temp_dir,
+                path: general_temp_dir,
                 io_error_kind: err.kind(),
                 message: err.to_string(),
             });
         }
 
-        let temp_dir = parent_temp_dir.join(dir_name);
+        let pkg_dir = match pkg_name.replace("-", "_") == crate_name {
+            true => Cow::Borrowed(pkg_name),
+            false => Cow::Owned(format!("{pkg_name}.{crate_name}")),
+        };
+        let pkg_temp_dir = general_temp_dir.join(pkg_dir.as_ref());
+        if let Err(err) = fs::create_dir(&pkg_temp_dir)
+            && err.kind() != io::ErrorKind::AlreadyExists
+        {
+            return Err(PlaygroundError {
+                kind: PlaygroundErrorKind::Open,
+                path: pkg_temp_dir,
+                io_error_kind: err.kind(),
+                message: err.to_string(),
+            });
+        }
+
+        let temp_dir = pkg_temp_dir.join(dir_name);
         if let Err(err) = fs::create_dir(&temp_dir) {
             return Err(PlaygroundError {
                 kind: PlaygroundErrorKind::Open,
@@ -600,6 +648,8 @@ mod tests {
 
         let playground = Playground::new(
             "crate::tests::playground::close_does_not_clear_readonly_permissions_through_directory_symlink",
+            env!("CARGO_PKG_NAME"),
+            env!("CARGO_CRATE_NAME"),
         )?;
         std::os::windows::fs::symlink_dir(external.path(), playground.path().join("external"))?;
 
