@@ -1,5 +1,5 @@
 use nu_path::expand_path_with;
-use nu_test_support::playground::Playground;
+use nu_test_support::prelude::*;
 use pretty_assertions::assert_eq;
 use std::path::PathBuf;
 
@@ -40,18 +40,16 @@ fn expand_path_no_change() {
 }
 
 #[test]
-fn expand_unicode_path_no_change() {
-    Playground::setup("nu_path_test_1", |dirs, _| {
-        let mut spam = dirs.test().to_owned();
-        spam.push("🚒.txt");
+fn expand_unicode_path_no_change(playground: Playground) {
+    let mut spam = playground.path().to_owned();
+    spam.push("🚒.txt");
 
-        let cwd = std::env::current_dir().expect("Could not get current directory");
-        let actual = expand_path_with(spam, cwd, true);
-        let mut expected = dirs.test().to_owned();
-        expected.push("🚒.txt");
+    let cwd = std::env::current_dir().expect("Could not get current directory");
+    let actual = expand_path_with(spam, cwd, true);
+    let mut expected = playground.path().to_owned();
+    expected.push("🚒.txt");
 
-        assert_eq!(actual, expected);
-    });
+    assert_eq!(actual, expected);
 }
 
 #[ignore]
@@ -61,28 +59,24 @@ fn expand_non_utf8_path() {
 }
 
 #[test]
-fn expand_path_relative_to() {
-    Playground::setup("nu_path_test_1", |dirs, _| {
-        let actual = expand_path_with("spam.txt", dirs.test(), true);
-        let mut expected = dirs.test().to_owned();
-        expected.push("spam.txt");
+fn expand_path_relative_to(playground: Playground) {
+    let actual = expand_path_with("spam.txt", playground.path(), true);
+    let mut expected = playground.path().to_owned();
+    expected.push("spam.txt");
 
-        assert_eq!(actual, expected);
-    });
+    assert_eq!(actual, expected);
 }
 
 #[test]
-fn expand_unicode_path_relative_to_unicode_path_with_spaces() {
-    Playground::setup("nu_path_test_1", |dirs, _| {
-        let mut relative_to = dirs.test().to_owned();
-        relative_to.push("e-$ èрт🚒♞中片-j");
+fn expand_unicode_path_relative_to_unicode_path_with_spaces(playground: Playground) {
+    let mut relative_to = playground.path().to_owned();
+    relative_to.push("e-$ èрт🚒♞中片-j");
 
-        let actual = expand_path_with("🚒.txt", relative_to, true);
-        let mut expected = dirs.test().to_owned();
-        expected.push("e-$ èрт🚒♞中片-j/🚒.txt");
+    let actual = expand_path_with("🚒.txt", relative_to, true);
+    let mut expected = playground.path().to_owned();
+    expected.push("e-$ èрт🚒♞中片-j/🚒.txt");
 
-        assert_eq!(actual, expected);
-    });
+    assert_eq!(actual, expected);
 }
 
 #[ignore]
@@ -92,144 +86,124 @@ fn expand_non_utf8_path_relative_to_non_utf8_path_with_spaces() {
 }
 
 #[test]
-fn expand_absolute_path_relative_to() {
-    Playground::setup("nu_path_test_1", |dirs, _| {
-        let mut absolute_path = dirs.test().to_owned();
-        absolute_path.push("spam.txt");
+fn expand_absolute_path_relative_to(playground: Playground) {
+    let mut absolute_path = playground.path().to_owned();
+    absolute_path.push("spam.txt");
 
-        let actual = expand_path_with(&absolute_path, "non/existent/directory", true);
-        let expected = absolute_path;
+    let actual = expand_path_with(&absolute_path, "non/existent/directory", true);
+    let expected = absolute_path;
 
-        assert_eq!(actual, expected);
-    });
+    assert_eq!(actual, expected);
 }
 
 #[test]
-fn expand_path_with_dot_relative_to() {
-    Playground::setup("nu_path_test_1", |dirs, _| {
-        let actual = expand_path_with("./spam.txt", dirs.test(), true);
-        let mut expected = dirs.test().to_owned();
-        expected.push("spam.txt");
+fn expand_path_with_dot_relative_to(playground: Playground) {
+    let actual = expand_path_with("./spam.txt", playground.path(), true);
+    let mut expected = playground.path().to_owned();
+    expected.push("spam.txt");
 
-        assert_eq!(actual, expected);
-    });
+    assert_eq!(actual, expected);
 }
 
 #[test]
-fn expand_path_with_many_dots_relative_to() {
-    Playground::setup("nu_path_test_1", |dirs, _| {
-        let actual = expand_path_with("././/.//////./././//.////spam.txt", dirs.test(), true);
-        let mut expected = dirs.test().to_owned();
-        expected.push("spam.txt");
+fn expand_path_with_many_dots_relative_to(playground: Playground) {
+    let actual = expand_path_with("././/.//////./././//.////spam.txt", playground.path(), true);
+    let mut expected = playground.path().to_owned();
+    expected.push("spam.txt");
 
-        assert_eq!(actual, expected);
-    });
+    assert_eq!(actual, expected);
 }
 
 #[test]
-fn expand_path_with_double_dot_relative_to() {
-    Playground::setup("nu_path_test_1", |dirs, _| {
-        let actual = expand_path_with("foo/../spam.txt", dirs.test(), true);
-        let mut expected = dirs.test().to_owned();
-        expected.push("spam.txt");
+fn expand_path_with_double_dot_relative_to(playground: Playground) {
+    let actual = expand_path_with("foo/../spam.txt", playground.path(), true);
+    let mut expected = playground.path().to_owned();
+    expected.push("spam.txt");
 
-        assert_eq!(actual, expected);
-    });
+    assert_eq!(actual, expected);
 }
 
 #[test]
-fn expand_path_with_many_double_dots_relative_to() {
-    Playground::setup("nu_path_test_1", |dirs, _| {
-        let actual = expand_path_with("foo/bar/baz/../../../spam.txt", dirs.test(), true);
-        let mut expected = dirs.test().to_owned();
-        expected.push("spam.txt");
+fn expand_path_with_many_double_dots_relative_to(playground: Playground) {
+    let actual = expand_path_with("foo/bar/baz/../../../spam.txt", playground.path(), true);
+    let mut expected = playground.path().to_owned();
+    expected.push("spam.txt");
 
-        assert_eq!(actual, expected);
-    });
+    assert_eq!(actual, expected);
 }
 
 #[test]
-fn expand_path_with_3_ndots_relative_to() {
-    Playground::setup("nu_path_test_1", |dirs, _| {
-        let actual = expand_path_with("foo/bar/.../spam.txt", dirs.test(), true);
-        let mut expected = dirs.test().to_owned();
-        expected.push("spam.txt");
+fn expand_path_with_3_ndots_relative_to(playground: Playground) {
+    let actual = expand_path_with("foo/bar/.../spam.txt", playground.path(), true);
+    let mut expected = playground.path().to_owned();
+    expected.push("spam.txt");
 
-        assert_eq!(actual, expected);
-    });
+    assert_eq!(actual, expected);
 }
 
 #[test]
-fn expand_path_with_many_3_ndots_relative_to() {
-    Playground::setup("nu_path_test_1", |dirs, _| {
-        let actual = expand_path_with(
-            "foo/bar/baz/eggs/sausage/bacon/.../.../.../spam.txt",
-            dirs.test(),
-            true,
-        );
-        let mut expected = dirs.test().to_owned();
-        expected.push("spam.txt");
+fn expand_path_with_many_3_ndots_relative_to(playground: Playground) {
+    let actual = expand_path_with(
+        "foo/bar/baz/eggs/sausage/bacon/.../.../.../spam.txt",
+        playground.path(),
+        true,
+    );
+    let mut expected = playground.path().to_owned();
+    expected.push("spam.txt");
 
-        assert_eq!(actual, expected);
-    });
+    assert_eq!(actual, expected);
 }
 
 #[test]
-fn expand_path_with_4_ndots_relative_to() {
-    Playground::setup("nu_path_test_1", |dirs, _| {
-        let actual = expand_path_with("foo/bar/baz/..../spam.txt", dirs.test(), true);
-        let mut expected = dirs.test().to_owned();
-        expected.push("spam.txt");
+fn expand_path_with_4_ndots_relative_to(playground: Playground) {
+    let actual = expand_path_with("foo/bar/baz/..../spam.txt", playground.path(), true);
+    let mut expected = playground.path().to_owned();
+    expected.push("spam.txt");
 
-        assert_eq!(actual, expected);
-    });
+    assert_eq!(actual, expected);
 }
 
 #[test]
-fn expand_path_with_many_4_ndots_relative_to() {
-    Playground::setup("nu_path_test_1", |dirs, _| {
-        let actual = expand_path_with(
-            "foo/bar/baz/eggs/sausage/bacon/..../..../spam.txt",
-            dirs.test(),
-            true,
-        );
-        let mut expected = dirs.test().to_owned();
-        expected.push("spam.txt");
+fn expand_path_with_many_4_ndots_relative_to(playground: Playground) {
+    let actual = expand_path_with(
+        "foo/bar/baz/eggs/sausage/bacon/..../..../spam.txt",
+        playground.path(),
+        true,
+    );
+    let mut expected = playground.path().to_owned();
+    expected.push("spam.txt");
 
-        assert_eq!(actual, expected);
-    });
+    assert_eq!(actual, expected);
 }
 
 #[test]
-fn expand_path_with_way_too_many_dots_relative_to() {
-    Playground::setup("nu_path_test_1", |dirs, _| {
-        let mut relative_to = dirs.test().to_owned();
-        relative_to.push("foo/bar/baz/eggs/sausage/bacon/vikings");
+fn expand_path_with_way_too_many_dots_relative_to(playground: Playground) {
+    let mut relative_to = playground.path().to_owned();
+    relative_to.push("foo/bar/baz/eggs/sausage/bacon/vikings");
 
-        let actual = expand_path_with(
-            "././..////././...///././.....///spam.txt",
-            relative_to,
-            true,
-        );
-        let mut expected = dirs.test().to_owned();
-        expected.push("spam.txt");
+    let actual = expand_path_with(
+        "././..////././...///././.....///spam.txt",
+        relative_to,
+        true,
+    );
+    let mut expected = playground.path().to_owned();
+    expected.push("spam.txt");
 
-        assert_eq!(actual, expected);
-    });
+    assert_eq!(actual, expected);
 }
 
 #[test]
-fn expand_unicode_path_with_way_too_many_dots_relative_to_unicode_path_with_spaces() {
-    Playground::setup("nu_path_test_1", |dirs, _| {
-        let mut relative_to = dirs.test().to_owned();
-        relative_to.push("foo/áčěéí  +šř=é/baz/eggs/e-$ èрт🚒♞中片-j/bacon/öäöä öäöä");
+fn expand_unicode_path_with_way_too_many_dots_relative_to_unicode_path_with_spaces(
+    playground: Playground,
+) {
+    let mut relative_to = playground.path().to_owned();
+    relative_to.push("foo/áčěéí  +šř=é/baz/eggs/e-$ èрт🚒♞中片-j/bacon/öäöä öäöä");
 
-        let actual = expand_path_with("././..////././...///././.....///🚒.txt", relative_to, true);
-        let mut expected = dirs.test().to_owned();
-        expected.push("🚒.txt");
+    let actual = expand_path_with("././..////././...///././.....///🚒.txt", relative_to, true);
+    let mut expected = playground.path().to_owned();
+    expected.push("🚒.txt");
 
-        assert_eq!(actual, expected);
-    });
+    assert_eq!(actual, expected);
 }
 
 #[test]

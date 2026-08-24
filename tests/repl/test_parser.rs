@@ -6,7 +6,7 @@ use nu_protocol::{
     ParseError, ShellError, Type,
     ast::{Comparison, Operator},
 };
-use nu_test_support::{fs::Stub, prelude::*};
+use nu_test_support::prelude::*;
 
 #[test]
 fn env_shorthand() -> Result {
@@ -964,22 +964,22 @@ fn percent_dynamic_dispatch_in_wrapped_command_forwards_rest_args() -> Result {
 }
 
 #[test]
-fn percent_dynamic_dispatch_in_wrapped_command_preserves_no_arg_builtin_defaults() -> Result {
-    Playground::setup(
-        "percent_dynamic_dispatch_in_wrapped_command_preserves_no_arg_builtin_defaults",
-        |dirs, play| {
-            play.with_files(&[Stub::EmptyFile("probe.txt")]);
+fn percent_dynamic_dispatch_in_wrapped_command_preserves_no_arg_builtin_defaults(
+    playground: Playground,
+) -> Result {
+    playground.empty_file("probe.txt")?;
 
-            let code = "
+    let code = "
                 export def --wrapped builtin [arg1, ...args] { %($arg1) ...$args }
                 let direct = (ls | where name =~ 'probe.txt' | length)
                 let wrapped = (builtin ls | where name =~ 'probe.txt' | length)
                 [$direct $wrapped]
             ";
 
-            test().cwd(dirs.test()).run(code).expect_value_eq([1, 1])
-        },
-    )
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq([1, 1])
 }
 
 #[rstest]
@@ -2435,11 +2435,10 @@ fn keep_variable_it_after_where() -> Result {
 
 #[test]
 #[deps(NU)]
-fn external_arg_correctness() -> Result {
-    Playground::setup("external_arg_correctness", |dirs, sandbox| {
-        sandbox.with_files(&[Stub::FileWithContent(
-            "script.nu",
-            "
+fn external_arg_correctness(playground: Playground) -> Result {
+    playground.file(
+        "script.nu",
+        "
             def main [
                 --flag: external_arg
                 --flag2: external_arg
@@ -2462,9 +2461,9 @@ fn external_arg_correctness() -> Result {
                 | to nuon
             }
             ",
-        )]);
+    )?;
 
-        let code = "
+    let code = "
             (
                 nu script.nu
                     --flag=false
@@ -2475,7 +2474,10 @@ fn external_arg_correctness() -> Result {
             | from nuon
         ";
 
-        test().cwd(dirs.test()).run(code).expect_value_eq(test_table![
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq(test_table![
             ["label", "value", "type"];
             ["flag", "false", "glob"],
             ["flag2", "0001", "glob"],
@@ -2485,5 +2487,4 @@ fn external_arg_correctness() -> Result {
             ["arg3", "{fake: null}", "string"],
             ["rest", test_value!(["false", "0001", "{fake: null}"]), "list<oneof<glob, string>>"],
         ])
-    })
 }

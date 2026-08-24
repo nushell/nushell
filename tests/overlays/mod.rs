@@ -1,5 +1,4 @@
 use itertools::Itertools;
-use nu_test_support::fs::Stub::{FileWithContent, FileWithContentToBeTrimmed};
 use nu_test_support::prelude::*;
 use rstest::rstest;
 
@@ -186,34 +185,29 @@ fn add_overlay_from_const_module_name_decl() -> Result {
 }
 
 #[test]
-fn add_overlay_from_file_with_stored_where_condition() -> Result {
-    Playground::setup(
-        "add_overlay_from_file_with_stored_where_condition",
-        |dirs, sandbox| -> Result {
-            sandbox.with_files(&[FileWithContentToBeTrimmed(
-                "mod.nu",
-                r#"
+fn add_overlay_from_file_with_stored_where_condition(playground: Playground) -> Result {
+    playground.file(
+        "mod.nu",
+        indoc::indoc! {r#"
                 export def helper [] {
                     let cond = {|x| true }
                     [{a: 1}] | where $cond
                 }
 
                 export def main [] { "ok" }
-            "#,
-            )]);
+            "#},
+    )?;
 
-            let commands = ["overlay use mod.nu", "helper | to nuon --raw"];
+    let commands = ["overlay use mod.nu", "helper | to nuon --raw"];
 
-            test()
-                .cwd(dirs.test())
-                .run(commands.join("; "))
-                .expect_value_eq("[[a];[1]]")?;
-            test()
-                .cwd(dirs.test())
-                .run_multiple(commands)
-                .expect_value_eq("[[a];[1]]")
-        },
-    )
+    test()
+        .cwd(playground.path())
+        .run(commands.join("; "))
+        .expect_value_eq("[[a];[1]]")?;
+    test()
+        .cwd(playground.path())
+        .run_multiple(commands)
+        .expect_value_eq("[[a];[1]]")
 }
 
 #[test]
@@ -837,21 +831,18 @@ fn overlay_changes_keep_oldpwd(#[case] commands: &[&str], #[case] expected: &str
 
 // An `export-env` block can still move you when an overlay comes back.
 #[test]
-fn overlay_reload_keeps_cd_from_export_env() -> Result {
-    Playground::setup("overlay_reload_export_env_cd", |dirs, sandbox| -> Result {
-        sandbox
-            .mkdir("sub")
-            .with_files(&[FileWithContent("spam.nu", "export-env { cd sub }")]);
+fn overlay_reload_keeps_cd_from_export_env(playground: Playground) -> Result {
+    playground.dir("sub")?;
+    playground.file("spam.nu", "export-env { cd sub }")?;
 
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run("overlay use spam.nu")?;
-        let () = tester.run("overlay hide spam")?;
-        let () = tester.run("cd ..")?;
-        let () = tester.run("overlay use --reload spam")?;
-        tester
-            .run("$env.PWD | path basename")
-            .expect_value_eq("sub")
-    })
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("overlay use spam.nu")?;
+    let () = tester.run("overlay hide spam")?;
+    let () = tester.run("cd ..")?;
+    let () = tester.run("overlay use --reload spam")?;
+    tester
+        .run("$env.PWD | path basename")
+        .expect_value_eq("sub")
 }
 
 // The overlay's name isn't bound to a module in these, so only its origin can find the file.
@@ -869,40 +860,36 @@ fn overlay_reload_keeps_cd_from_export_env() -> Result {
     "overlay use spam"
 )]
 fn overlay_by_name_reads_a_changed_file_without_a_module_name(
-    #[case] topic: &str,
+    #[case] _topic: &str,
     #[case] file: &str,
     #[case] first: &[&str],
     #[case] again: &str,
+    #[ignore] playground: Playground,
 ) -> Result {
-    Playground::setup(topic, |dirs, sandbox| -> Result {
-        sandbox.with_files(&[FileWithContent(file, "export def v [] { 1 }")]);
+    playground.file(file, "export def v [] { 1 }")?;
 
-        let mut tester = test().cwd(dirs.test());
-        for command in first {
-            let () = tester.run(*command)?;
-        }
-        let () = tester.run_with_data(format!("save -f {file}"), "export def v [] { 2 }")?;
-        let () = tester.run(again)?;
-        tester.run("v").expect_value_eq(2)
-    })
+    let mut tester = test().cwd(playground.path());
+    for command in first {
+        let () = tester.run(*command)?;
+    }
+    let () = tester.run_with_data(format!("save -f {file}"), "export def v [] { 2 }")?;
+    let () = tester.run(again)?;
+    tester.run("v").expect_value_eq(2)
 }
 
 // A bare overlay name isn't a path, so `FILE_PWD` has to come from the module's file.
 #[test]
-fn overlay_by_name_reload_sets_file_pwd() -> Result {
-    Playground::setup("overlay_reload_file_pwd", |dirs, sandbox| -> Result {
-        let code = "export-env { $env.WHERE = ($env.FILE_PWD | path basename) }";
-        sandbox
-            .mkdir("mods")
-            .with_files(&[FileWithContent("mods/foo.nu", code)]);
+fn overlay_by_name_reload_sets_file_pwd(playground: Playground) -> Result {
+    let code = "export-env { $env.WHERE = ($env.FILE_PWD | path basename) }";
+    playground.dir("mods")?;
+    playground.file("mods/foo.nu", code)?;
 
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run("overlay use mods/foo.nu")?;
-        let () = tester.run("overlay hide foo")?;
-        let () = tester.run_with_data("save -f mods/foo.nu", format!("{code}\n"))?;
-        let () = tester.run("overlay use foo")?;
-        tester.run("$env.WHERE").expect_value_eq("mods")
-    })
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("overlay use mods/foo.nu")?;
+    let () = tester.run("overlay hide foo")?;
+    let () = tester.run_with_data("save -f mods/foo.nu", format!("{code}\n"))?;
+    let () = tester.run("overlay use foo")?;
+    tester.run("$env.WHERE").expect_value_eq("mods")
 }
 
 #[test]
@@ -1135,74 +1122,68 @@ fn overlay_use_export_env_hide() -> Result {
 }
 
 #[test]
-fn overlay_use_do_cd() -> Result {
-    Playground::setup("overlay_use_do_cd", |dirs, sandbox| -> Result {
-        sandbox.mkdir("test1/test2").with_files(&[FileWithContent(
-            "test1/test2/spam.nu",
-            "export-env { cd test1/test2 }",
-        )]);
+fn overlay_use_do_cd(playground: Playground) -> Result {
+    playground.dir("test1/test2")?;
+    playground.file("test1/test2/spam.nu", "export-env { cd test1/test2 }")?;
 
-        let code = "
+    let code = "
             overlay use test1/test2/spam.nu
             $env.PWD | path basename
         ";
 
-        test().cwd(dirs.test()).run(code).expect_value_eq("test2")
-    })
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq("test2")
 }
 
 #[test]
-fn overlay_use_do_cd_file_relative() -> Result {
-    Playground::setup(
-        "overlay_use_do_cd_file_relative",
-        |dirs, sandbox| -> Result {
-            sandbox.mkdir("test1/test2").with_files(&[FileWithContent(
-                "test1/test2/spam.nu",
-                "export-env { cd ($env.FILE_PWD | path join '..') }",
-            )]);
+fn overlay_use_do_cd_file_relative(playground: Playground) -> Result {
+    playground.dir("test1/test2")?;
+    playground.file(
+        "test1/test2/spam.nu",
+        "export-env { cd ($env.FILE_PWD | path join '..') }",
+    )?;
 
-            let code = "
+    let code = "
                 overlay use test1/test2/spam.nu
                 $env.PWD | path basename
             ";
 
-            test().cwd(dirs.test()).run(code).expect_value_eq("test1")
-        },
-    )
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq("test1")
 }
 
 #[test]
-fn overlay_hide_in_export_env_keeps_cd() -> Result {
-    Playground::setup(
-        "overlay_hide_in_export_env_keeps_cd",
-        |dirs, sandbox| -> Result {
-            sandbox
-                .mkdir("test1/test2")
-                .with_files(&[FileWithContentToBeTrimmed(
-                    "test1/test2/spam.nu",
-                    "
+fn overlay_hide_in_export_env_keeps_cd(playground: Playground) -> Result {
+    playground.dir("test1/test2")?;
+    playground.file(
+        "test1/test2/spam.nu",
+        indoc::indoc! {"
                     export-env {
                         overlay new spam
                         cd test1/test2
                         overlay hide spam
                     }
-                ",
-                )]);
+                "},
+    )?;
 
-            let code = "
+    let code = "
            source-env test1/test2/spam.nu
            $env.PWD | path basename
         ";
 
-            test().cwd(dirs.test()).run(code).expect_value_eq("test2")
-        },
-    )
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq("test2")
 }
 
 #[test]
-fn overlay_use_find_scoped_module() -> Result {
-    Playground::setup("overlay_use_find_module_scoped", |dirs, _| -> Result {
-        let code = "
+fn overlay_use_find_scoped_module(playground: Playground) -> Result {
+    let code = "
                 do {
                     module spam { }
 
@@ -1211,8 +1192,10 @@ fn overlay_use_find_scoped_module() -> Result {
                 }
             ";
 
-        test().cwd(dirs.test()).run(code).expect_value_eq("spam")
-    })
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq("spam")
 }
 
 #[test]
@@ -1594,26 +1577,19 @@ fn overlay_use_module_dir(#[case] code: &str, #[case] expected: impl IntoValue) 
 }
 
 #[test]
-fn overlay_use_module_dir_with_dot_by_path() -> Result {
-    Playground::setup(
-        "overlay_use_module_dir_with_dot",
-        |dirs, sandbox| -> Result {
-            sandbox.mkdir("spam.eggs").with_files(&[FileWithContent(
-                "spam.eggs/mod.nu",
-                r#"export def foo [] { "foo" }"#,
-            )]);
+fn overlay_use_module_dir_with_dot_by_path(playground: Playground) -> Result {
+    playground.dir("spam.eggs")?;
+    playground.file("spam.eggs/mod.nu", r#"export def foo [] { "foo" }"#)?;
 
-            let mut tester = test().cwd(dirs.test());
-            let () = tester.run("overlay use ./spam.eggs")?;
-            tester
-                .run("overlay list | where active | get name | where $it =~ spam | to nuon")
-                .expect_value_eq(r#"["spam.eggs"]"#)?;
-            let () = tester.run("overlay hide spam.eggs")?;
-            tester
-                .run("overlay list | where active | get name | where $it =~ spam | length")
-                .expect_value_eq(0)
-        },
-    )
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("overlay use ./spam.eggs")?;
+    tester
+        .run("overlay list | where active | get name | where $it =~ spam | to nuon")
+        .expect_value_eq(r#"["spam.eggs"]"#)?;
+    let () = tester.run("overlay hide spam.eggs")?;
+    tester
+        .run("overlay list | where active | get name | where $it =~ spam | length")
+        .expect_value_eq(0)
 }
 
 #[rstest]
@@ -1638,43 +1614,37 @@ fn overlay_help_no_error() -> Result {
 }
 
 #[test]
-fn test_overlay_use_with_printing_file_pwd() -> Result {
-    Playground::setup("use_with_printing_file_pwd", |dirs, nu| -> Result {
-        let file = dirs.test().join("foo").join("mod.nu");
-        nu.mkdir("foo").with_files(&[FileWithContent(
-            file.as_os_str().to_str().unwrap(),
-            "
-                export-env {
-                    $env.OVERLAY_FILE_PWD = $env.FILE_PWD
-                }
-            ",
-        )]);
+fn test_overlay_use_with_printing_file_pwd(playground: Playground) -> Result {
+    playground.file(
+        "foo/mod.nu",
+        "
+            export-env {
+                $env.OVERLAY_FILE_PWD = $env.FILE_PWD
+            }
+        ",
+    )?;
 
-        test()
-            .cwd(dirs.test())
-            .run("overlay use foo; $env.OVERLAY_FILE_PWD")
-            .expect_value_eq(dirs.test().join("foo"))
-    })
+    test()
+        .cwd(playground.path())
+        .run("overlay use foo; $env.OVERLAY_FILE_PWD")
+        .expect_value_eq(playground.path().join("foo"))
 }
 
 #[test]
-fn test_overlay_use_with_printing_current_file() -> Result {
-    Playground::setup("use_with_printing_current_file", |dirs, nu| -> Result {
-        let file = dirs.test().join("foo").join("mod.nu");
-        nu.mkdir("foo").with_files(&[FileWithContent(
-            file.as_os_str().to_str().unwrap(),
-            "
-                export-env {
-                    $env.OVERLAY_CURRENT_FILE = $env.CURRENT_FILE
-                }
-            ",
-        )]);
+fn test_overlay_use_with_printing_current_file(playground: Playground) -> Result {
+    playground.file(
+        "foo/mod.nu",
+        "
+            export-env {
+                $env.OVERLAY_CURRENT_FILE = $env.CURRENT_FILE
+            }
+        ",
+    )?;
 
-        test()
-            .cwd(dirs.test())
-            .run("overlay use foo; $env.OVERLAY_CURRENT_FILE")
-            .expect_value_eq(dirs.test().join("foo").join("mod.nu"))
-    })
+    test()
+        .cwd(playground.path())
+        .run("overlay use foo; $env.OVERLAY_CURRENT_FILE")
+        .expect_value_eq(playground.path().join("foo").join("mod.nu"))
 }
 
 #[test]
@@ -1710,19 +1680,16 @@ fn overlay_hide_keeps_pwd() -> Result {
 }
 
 #[test]
-fn overlay_hide_keeps_pwd_set_by_export_env() -> Result {
-    Playground::setup("overlay_hide_export_env_pwd", |dirs, sandbox| -> Result {
-        sandbox
-            .mkdir("sub")
-            .with_files(&[FileWithContent("spam.nu", "export-env { cd sub }")]);
+fn overlay_hide_keeps_pwd_set_by_export_env(playground: Playground) -> Result {
+    playground.dir("sub")?;
+    playground.file("spam.nu", "export-env { cd sub }")?;
 
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run("overlay use spam.nu")?;
-        let () = tester.run("overlay hide spam")?;
-        tester
-            .run("$env.PWD | path basename")
-            .expect_value_eq("sub")
-    })
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("overlay use spam.nu")?;
+    let () = tester.run("overlay hide spam")?;
+    tester
+        .run("$env.PWD | path basename")
+        .expect_value_eq("sub")
 }
 
 // The overlay's other variables still go away with it.
@@ -1743,61 +1710,52 @@ fn overlay_hide_still_drops_other_env() -> Result {
 #[case::hidden("overlay_name_hidden", &["overlay hide spam"])]
 #[case::not_on_top("overlay_name_not_on_top", &["overlay new eggs"])]
 fn overlay_use_by_name_reads_a_changed_file(
-    #[case] topic: &str,
+    #[case] _topic: &str,
     #[case] between: &[&str],
+    #[ignore] playground: Playground,
 ) -> Result {
-    Playground::setup(topic, |dirs, sandbox| -> Result {
-        sandbox.with_files(&[FileWithContent(
-            "spam.nu",
-            "export def foo [] { 'old' }; export-env { $env.SPAM = 'old' }",
-        )]);
+    playground.file(
+        "spam.nu",
+        "export def foo [] { 'old' }; export-env { $env.SPAM = 'old' }",
+    )?;
 
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run("overlay use spam.nu")?;
-        for command in between {
-            let () = tester.run(command)?;
-        }
-        let () = tester.run(
-            r#""export def foo [] { 'new' }; export-env { $env.SPAM = 'new' }" | save -f spam.nu"#,
-        )?;
-        let () = tester.run("overlay use spam")?;
-        tester.run("foo").expect_value_eq("new")?;
-        tester.run("$env.SPAM").expect_value_eq("new")
-    })
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("overlay use spam.nu")?;
+    for command in between {
+        let () = tester.run(command)?;
+    }
+    let () = tester.run(
+        r#""export def foo [] { 'new' }; export-env { $env.SPAM = 'new' }" | save -f spam.nu"#,
+    )?;
+    let () = tester.run("overlay use spam")?;
+    tester.run("foo").expect_value_eq("new")?;
+    tester.run("$env.SPAM").expect_value_eq("new")
 }
 
 #[test]
-fn overlay_use_by_name_reads_a_changed_directory_module() -> Result {
-    Playground::setup("overlay_name_dir", |dirs, sandbox| -> Result {
-        sandbox.mkdir("pkg").with_files(&[
-            FileWithContent("pkg/mod.nu", "export use sub.nu *"),
-            FileWithContent("pkg/sub.nu", "export def foo [] { 'old' }"),
-        ]);
+fn overlay_use_by_name_reads_a_changed_directory_module(playground: Playground) -> Result {
+    playground.dir("pkg")?;
+    playground.file("pkg/mod.nu", "export use sub.nu *")?;
+    playground.file("pkg/sub.nu", "export def foo [] { 'old' }")?;
 
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run("overlay use pkg")?;
-        tester.run("foo").expect_value_eq("old")?;
-        let () = tester.run(r#""export def foo [] { 'new' }" | save -f pkg/sub.nu"#)?;
-        let () = tester.run("overlay use pkg")?;
-        tester.run("foo").expect_value_eq("new")
-    })
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("overlay use pkg")?;
+    tester.run("foo").expect_value_eq("old")?;
+    let () = tester.run(r#""export def foo [] { 'new' }" | save -f pkg/sub.nu"#)?;
+    let () = tester.run("overlay use pkg")?;
+    tester.run("foo").expect_value_eq("new")
 }
 
 // With an unchanged file, reactivating by name doesn't run `export-env` again.
 #[test]
-fn overlay_use_by_name_keeps_env_when_file_is_unchanged() -> Result {
-    Playground::setup("overlay_name_unchanged", |dirs, sandbox| -> Result {
-        sandbox.with_files(&[FileWithContent(
-            "spam.nu",
-            "export-env { $env.SPAM = 'module' }",
-        )]);
+fn overlay_use_by_name_keeps_env_when_file_is_unchanged(playground: Playground) -> Result {
+    playground.file("spam.nu", "export-env { $env.SPAM = 'module' }")?;
 
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run("overlay use spam.nu")?;
-        let () = tester.run("$env.SPAM = 'mine'")?;
-        let () = tester.run("overlay use spam")?;
-        tester.run("$env.SPAM").expect_value_eq("mine")
-    })
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("overlay use spam.nu")?;
+    let () = tester.run("$env.SPAM = 'mine'")?;
+    let () = tester.run("overlay use spam")?;
+    tester.run("$env.SPAM").expect_value_eq("mine")
 }
 
 // Reloading drops what the new version no longer exports, however the overlay comes back.
@@ -1809,50 +1767,44 @@ fn overlay_use_by_name_keeps_env_when_file_is_unchanged() -> Result {
 #[case::hidden_name("overlay_deleted_hidden_name", &["overlay hide spam"], "overlay use spam", "bar", "foo")]
 #[case::not_on_top("overlay_deleted_not_on_top", &["overlay new eggs"], "overlay use spam.nu", "bar", "foo")]
 fn overlay_deleted_command_goes_away_on_reload(
-    #[case] topic: &str,
+    #[case] _topic: &str,
     #[case] between: &[&str],
     #[case] again: &str,
     #[case] deleted: &str,
     #[case] kept: &str,
+    #[ignore] playground: Playground,
 ) -> Result {
-    Playground::setup(topic, |dirs, sandbox| -> Result {
-        sandbox.with_files(&[FileWithContent(
-            "spam.nu",
-            "export def foo [] { 'old' }; export def bar [] { 'bar' }",
-        )]);
+    playground.file(
+        "spam.nu",
+        "export def foo [] { 'old' }; export def bar [] { 'bar' }",
+    )?;
 
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run("overlay use spam.nu")?;
-        for command in between {
-            let () = tester.run(command)?;
-        }
-        let () = tester.run(r#""export def foo [] { 'new' }" | save -f spam.nu"#)?;
-        let () = tester.run(again)?;
-        tester.run(kept).expect_value_eq("new")?;
-        tester
-            .run(deleted)
-            .expect_error_code_eq("nu::shell::external_command")
-    })
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("overlay use spam.nu")?;
+    for command in between {
+        let () = tester.run(command)?;
+    }
+    let () = tester.run(r#""export def foo [] { 'new' }" | save -f spam.nu"#)?;
+    let () = tester.run(again)?;
+    tester.run(kept).expect_value_eq("new")?;
+    tester
+        .run(deleted)
+        .expect_error_code_eq("nu::shell::external_command")
 }
 
 #[test]
-fn overlay_deleted_constant_goes_away_on_reload() -> Result {
-    Playground::setup("overlay_deleted_const", |dirs, sandbox| -> Result {
-        sandbox.with_files(&[FileWithContent(
-            "spam.nu",
-            "export const X = 'old'; export const Y = 'old'",
-        )]);
+fn overlay_deleted_constant_goes_away_on_reload(playground: Playground) -> Result {
+    playground.file("spam.nu", "export const X = 'old'; export const Y = 'old'")?;
 
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run("overlay use spam.nu")?;
-        let () = tester.run("overlay hide spam")?;
-        let () = tester.run_with_data("save -f spam.nu", "export const Y = 'new'")?;
-        let () = tester.run("overlay use spam")?;
-        tester.run("$Y").expect_value_eq("new")?;
-        tester
-            .run("$X")
-            .expect_error_code_eq("nu::parser::variable_not_found")
-    })
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("overlay use spam.nu")?;
+    let () = tester.run("overlay hide spam")?;
+    let () = tester.run_with_data("save -f spam.nu", "export const Y = 'new'")?;
+    let () = tester.run("overlay use spam")?;
+    tester.run("$Y").expect_value_eq("new")?;
+    tester
+        .run("$X")
+        .expect_error_code_eq("nu::parser::variable_not_found")
 }
 
 #[rstest]
@@ -1860,48 +1812,45 @@ fn overlay_deleted_constant_goes_away_on_reload() -> Result {
 #[case::hidden_path("overlay_deleted_sub_path", &["overlay hide spam"], "overlay use spam.nu")]
 #[case::hidden_name("overlay_deleted_sub_name", &["overlay hide spam"], "overlay use spam")]
 fn overlay_deleted_submodule_goes_away_on_reload(
-    #[case] topic: &str,
+    #[case] _topic: &str,
     #[case] before_the_edit: &[&str],
     #[case] again: &str,
+    #[ignore] playground: Playground,
 ) -> Result {
-    Playground::setup(topic, |dirs, sandbox| -> Result {
-        sandbox.with_files(&[FileWithContent(
-            "spam.nu",
-            "export module sub { export def x [] { 'old' } }; export def foo [] { 'old' }",
-        )]);
+    playground.file(
+        "spam.nu",
+        "export module sub { export def x [] { 'old' } }; export def foo [] { 'old' }",
+    )?;
 
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run("overlay use spam.nu")?;
-        let () = tester.run("use sub")?;
-        for command in before_the_edit {
-            let () = tester.run(*command)?;
-        }
-        let () = tester.run_with_data("save -f spam.nu", "export def foo [] { 'new' }")?;
-        let () = tester.run(again)?;
-        tester.run("foo").expect_value_eq("new")?;
-        tester
-            .run("use sub")
-            .expect_error_code_eq("nu::parser::module_not_found")
-    })
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("overlay use spam.nu")?;
+    let () = tester.run("use sub")?;
+    for command in before_the_edit {
+        let () = tester.run(*command)?;
+    }
+    let () = tester.run_with_data("save -f spam.nu", "export def foo [] { 'new' }")?;
+    let () = tester.run(again)?;
+    tester.run("foo").expect_value_eq("new")?;
+    tester
+        .run("use sub")
+        .expect_error_code_eq("nu::parser::module_not_found")
 }
 
 #[test]
-fn overlay_prefixed_deleted_command_goes_away_on_reload() -> Result {
-    Playground::setup("overlay_deleted_prefixed", |dirs, sandbox| -> Result {
-        sandbox.with_files(&[FileWithContent(
-            "spam.nu",
-            "export def foo [] { 'old' }; export def bar [] { 'bar' }",
-        )]);
+fn overlay_prefixed_deleted_command_goes_away_on_reload(playground: Playground) -> Result {
+    playground.file(
+        "spam.nu",
+        "export def foo [] { 'old' }; export def bar [] { 'bar' }",
+    )?;
 
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run("overlay use --prefix spam.nu")?;
-        let () = tester.run(r#""export def foo [] { 'new' }" | save -f spam.nu"#)?;
-        let () = tester.run("overlay use --prefix spam.nu")?;
-        tester.run("spam foo").expect_value_eq("new")?;
-        tester
-            .run("spam bar")
-            .expect_error_code_eq("nu::shell::external_command")
-    })
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("overlay use --prefix spam.nu")?;
+    let () = tester.run(r#""export def foo [] { 'new' }" | save -f spam.nu"#)?;
+    let () = tester.run("overlay use --prefix spam.nu")?;
+    tester.run("spam foo").expect_value_eq("new")?;
+    tester
+        .run("spam bar")
+        .expect_error_code_eq("nu::shell::external_command")
 }
 
 // What you defined inside the overlay isn't the module's, so a reload leaves it alone.
@@ -1909,22 +1858,21 @@ fn overlay_prefixed_deleted_command_goes_away_on_reload() -> Result {
 #[case::custom_command("overlay_reload_custom", "def mine [] { 'mine' }", "mine", "mine")]
 #[case::redefined("overlay_reload_redefined", "def bar [] { 'mine' }", "bar", "mine")]
 fn overlay_reload_keeps_your_own_definitions(
-    #[case] topic: &str,
+    #[case] _topic: &str,
     #[case] definition: &str,
     #[case] call: &str,
     #[case] expected: &str,
+    #[ignore] playground: Playground,
 ) -> Result {
-    Playground::setup(topic, |dirs, sandbox| -> Result {
-        sandbox.with_files(&[FileWithContent(
-            "spam.nu",
-            "export def foo [] { 'old' }; export def bar [] { 'bar' }",
-        )]);
+    playground.file(
+        "spam.nu",
+        "export def foo [] { 'old' }; export def bar [] { 'bar' }",
+    )?;
 
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run("overlay use spam.nu")?;
-        let () = tester.run(definition)?;
-        let () = tester.run(r#""export def foo [] { 'new' }" | save -f spam.nu"#)?;
-        let () = tester.run("overlay use spam.nu")?;
-        tester.run(call).expect_value_eq(expected)
-    })
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("overlay use spam.nu")?;
+    let () = tester.run(definition)?;
+    let () = tester.run(r#""export def foo [] { 'new' }" | save -f spam.nu"#)?;
+    let () = tester.run("overlay use spam.nu")?;
+    tester.run(call).expect_value_eq(expected)
 }
