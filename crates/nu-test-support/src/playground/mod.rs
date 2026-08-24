@@ -359,8 +359,8 @@ impl Playground {
     /// It expects a stable, fully-qualified test path, which is used to create a deterministic
     /// temporary directory name that is easy to identify when debugging leaked test directories.
     ///
-    /// Most tests should not call this directly. 
-    /// Prefer using the playground value injected by the test macro, then use the 
+    /// Most tests should not call this directly.
+    /// Prefer using the playground value injected by the test macro, then use the
     /// [`PlaygroundFs`] methods to create files and directories inside it.
     // TODO: add an example showcasing how the macro would inject this
     #[doc(hidden)]
@@ -371,14 +371,12 @@ impl Playground {
     pub fn new(test_path: impl AsRef<str>) -> Result<Self> {
         let test_path = test_path.as_ref();
         let mut dir_name = String::with_capacity(
-            "nushell-testing-".len()
-                + test_path.len()
+            test_path.len()
                 + 16 // max path hash
                 + 4 // max process id hash
                 + 2, // separators before the hash and process id
         );
 
-        dir_name.push_str("nushell-testing-");
         test_path
             .split("::")
             .tail(3)
@@ -390,7 +388,19 @@ impl Playground {
             PROCESS_ID.deref()
         ));
 
-        let temp_dir = ENV_TEMP_DIR.join(dir_name);
+        let parent_temp_dir = ENV_TEMP_DIR.join("nushell-testing");
+        if let Err(err) = fs::create_dir(&parent_temp_dir)
+            && err.kind() != io::ErrorKind::AlreadyExists
+        {
+            return Err(PlaygroundError {
+                kind: PlaygroundErrorKind::Open,
+                path: parent_temp_dir,
+                io_error_kind: err.kind(),
+                message: err.to_string(),
+            });
+        }
+
+        let temp_dir = parent_temp_dir.join(dir_name);
         if let Err(err) = fs::create_dir(&temp_dir) {
             return Err(PlaygroundError {
                 kind: PlaygroundErrorKind::Open,

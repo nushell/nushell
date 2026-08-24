@@ -5,7 +5,7 @@ fn names_temp_dir_with_test_slug() -> Result {
     let playground = Playground::new("crate::tests::playground::case")?;
     let name = playground.path().file_name().unwrap().to_string_lossy();
 
-    assert!(name.starts_with("nushell-testing-tests.playground.case-"));
+    assert!(name.starts_with("tests.playground.case-"));
 
     playground.close()?;
     Ok(())
