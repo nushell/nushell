@@ -15,35 +15,32 @@ impl Command for Each {
     }
 
     fn extra_description(&self) -> &str {
-        r#"Since tables are lists of records, passing a table into 'each' will
-iterate over each record, not necessarily each cell within it.
+        r#"Since tables are lists of records, passing a table into 'each' will iterate over each 
+record, not necessarily each cell within it.
 
-Avoid passing single records to this command. Since a record is a
-one-row structure, 'each' will only run once, behaving similar to 'do'.
-To iterate over a record's values, use 'items' or try converting it to a table
-with 'transpose' first.
+Avoid passing single records to this command. Since a record is a one-row structure, 
+'each' will only run once, behaving similar to 'do'. To iterate over a record's values, 
+use 'items' or try converting it to a table with 'transpose' first.
 
-
-By default, for each input there is a single output value.
-If the closure returns a stream rather than value, the stream is collected
-completely, and the resulting value becomes one of the items in `each`'s output.
+By default, for each input there is a single output value. If the closure returns a 
+stream rather than value, the stream is collected completely, and the resulting value 
+becomes one of the items in `each`'s output.
 
 To receive items from those streams without waiting for the whole stream to be
-collected, `each --flatten` can be used.
-Instead of waiting for the stream to be collected before returning the result as
-a single item, `each --flatten` will return each item as soon as they are received.
+collected, `each --flatten` can be used. Instead of waiting for the stream to be 
+collected before returning the result as a single item, `each --flatten` will return 
+each item as soon as they are received.
 
-This "flattens" the output, turning an output that would otherwise be a
-list of lists like `list<list<string>>` into a flat list like `list<string>`.
-
+This "flattens" the output, turning an output that would otherwise be a list of lists 
+like `list<list<string>>` into a flat list like `list<string>`.
 
 String or byte streams, empty pipelines, null values, ranges, and some custom values
-can also be used as inputs to 'each'. A stream of bytes or strings
-(usually from external commands) will be treated as though it was a list of chunks
-of the stream, where the size of the chunks are determined arbitrarily.
-Empty pipelines and null values are both returned unchanged from 'each' without
-calling the provided closure. Ranges and custom values which can be iterated
-will be treated as lists of the values they represent."#
+can also be used as inputs to 'each'. A stream of bytes or strings (usually from 
+external commands) will be treated as though it was a list of chunks of the stream, 
+where the size of the chunks are determined arbitrarily. Empty pipelines and null 
+values are both returned unchanged from 'each' without calling the provided closure. 
+Ranges and custom values which can be iterated will be treated as lists of the values 
+they represent."#
     }
 
     fn search_terms(&self) -> Vec<&str> {
