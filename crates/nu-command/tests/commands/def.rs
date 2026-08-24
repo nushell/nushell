@@ -10,16 +10,24 @@ fn def_with_trailing_comma() -> Result {
 
 #[rstest]
 #[case::command(
+<<<<<<< HEAD
     "def_with_comment",
     indoc::indoc! {"
+=======
+    "
+>>>>>>> 362e2494a (fix some more tests)
         #My echo
         export def e [arg] {echo $arg}
     "},
     "My echo"
 )]
 #[case::parameter(
+<<<<<<< HEAD
     "def_with_param_comment",
     indoc::indoc! {"
+=======
+    "
+>>>>>>> 362e2494a (fix some more tests)
         export def e [
         param:string #My cool attractive param
         ] {echo $param};
@@ -28,7 +36,10 @@ fn def_with_trailing_comma() -> Result {
 )]
 fn def_help_includes_comments(
     #[ignore] playground: Playground,
+<<<<<<< HEAD
     #[case] _topic: &str,
+=======
+>>>>>>> 362e2494a (fix some more tests)
     #[case] fixture: &str,
     #[case] expected: &str,
 ) -> Result {
@@ -166,8 +177,12 @@ fn non_keyword_command_names_are_still_allowed() -> Result {
 
 #[rstest]
 #[case::typed(
+<<<<<<< HEAD
     "def_with_list",
     indoc::indoc! {"
+=======
+    "
+>>>>>>> 362e2494a (fix some more tests)
         def e [
         param: list
         ] {echo $param};
@@ -175,8 +190,12 @@ fn non_keyword_command_names_are_still_allowed() -> Result {
     "source def_test; e [one]"
 )]
 #[case::default(
+<<<<<<< HEAD
     "def_with_default_list",
     indoc::indoc! {"
+=======
+    "
+>>>>>>> 362e2494a (fix some more tests)
         def f [
         param: list = [one]
         ] {echo $param};
@@ -186,6 +205,7 @@ fn non_keyword_command_names_are_still_allowed() -> Result {
 fn def_with_list(
     #[ignore] playground: Playground,
 <<<<<<< HEAD
+<<<<<<< HEAD
     #[case] _topic: &str,
     #[case] fixture: &str,
     #[case] code: &str,
@@ -193,6 +213,8 @@ fn def_with_list(
     playground.file("def_test", fixture)?;
 =======
     #[case] playground: &str,
+=======
+>>>>>>> 362e2494a (fix some more tests)
     #[case] fixture: &str,
     #[case] code: &str,
 ) -> Result {

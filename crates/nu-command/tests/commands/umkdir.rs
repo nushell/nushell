@@ -150,10 +150,14 @@ fn mkdir_with_tilde(playground: Playground) -> Result {
         .cwd(playground.path())
         .run("let f = '~tilde2'; mkdir $f")?;
 <<<<<<< HEAD
+<<<<<<< HEAD
     assert!(playground.path().join("~tilde2").is_dir());
 =======
     assert!(dirs.test().join("~tilde2").is_dir());
 >>>>>>> 926ed3f27 (fmt)
+=======
+    assert!(playground.path().join("~tilde2").is_dir());
+>>>>>>> 362e2494a (fix some more tests)
     Ok(())
 }
 

@@ -31,10 +31,16 @@ fn msgpack_test_with_opts<T: FromValue>(
     tester.run(open)
 }
 
+<<<<<<< HEAD
 #[rstest]
 #[nu_test_support::test]
 fn sample(#[context] ctx: Context, #[ignore] playground: Playground) -> Result {
     let values: Vec<Value> = msgpack_test(playground, ctx.name)?;
+=======
+#[test]
+fn sample(playground: Playground) -> Result {
+    let values: Vec<Value> = msgpack_test(playground, "sample")?;
+>>>>>>> 362e2494a (fix some more tests)
     let mut values = values.into_iter();
     let values = &mut values;
 
@@ -127,101 +133,168 @@ fn sample_roundtrip() -> Result {
     Ok(())
 }
 
+<<<<<<< HEAD
 #[rstest]
 #[nu_test_support::test]
 fn objects(#[context] ctx: Context, #[ignore] playground: Playground) -> Result {
     let value: (HashMap<String, String>, String) =
         msgpack_test_with_opts(playground, ctx.name, "--objects")?;
+=======
+#[test]
+fn objects(playground: Playground) -> Result {
+    let value: (HashMap<String, String>, String) =
+        msgpack_test_with_opts(playground, "objects", "--objects")?;
+>>>>>>> 362e2494a (fix some more tests)
     assert_eq!(value.0["nushell"], "rocks");
     assert_eq!(value.0.len(), 1);
     assert_eq!(value.1, "seriously");
     Ok(())
 }
 
+<<<<<<< HEAD
 #[rstest]
 #[nu_test_support::test]
 fn max_depth(#[context] ctx: Context, #[ignore] playground: Playground) -> Result {
     let shell_error = msgpack_test(playground, ctx.name).expect_error()?;
+=======
+#[test]
+fn max_depth(playground: Playground) -> Result {
+    let shell_error = msgpack_test::<Value>(playground, "max-depth").expect_error()?;
+>>>>>>> 362e2494a (fix some more tests)
     let msg = shell_error.generic_msg()?;
     assert_contains("exceeded depth limit", msg);
     Ok(())
 }
 
+<<<<<<< HEAD
 #[rstest]
 #[nu_test_support::test]
 fn non_utf8(#[context] ctx: Context, #[ignore] playground: Playground) -> Result {
     let shell_error = msgpack_test(playground, ctx.name).expect_error()?;
+=======
+#[test]
+fn non_utf8(playground: Playground) -> Result {
+    let shell_error = msgpack_test::<Value>(playground, "non-utf8").expect_error()?;
+>>>>>>> 362e2494a (fix some more tests)
     assert!(matches!(shell_error, ShellError::NonUtf8Custom { .. }));
     Ok(())
 }
 
+<<<<<<< HEAD
 #[rstest]
 #[nu_test_support::test]
 fn empty(#[context] ctx: Context, #[ignore] playground: Playground) -> Result {
     let shell_error = msgpack_test(playground, ctx.name).expect_error()?;
+=======
+#[test]
+fn empty(playground: Playground) -> Result {
+    let shell_error = msgpack_test::<Value>(playground, "empty").expect_error()?;
+>>>>>>> 362e2494a (fix some more tests)
     let msg = shell_error.generic_msg()?;
     assert_eq!(msg, "failed to fill whole buffer");
     Ok(())
 }
 
+<<<<<<< HEAD
 #[rstest]
 #[nu_test_support::test]
 fn eof(#[context] ctx: Context, #[ignore] playground: Playground) -> Result {
     let shell_error = msgpack_test(playground, ctx.name).expect_error()?;
+=======
+#[test]
+fn eof(playground: Playground) -> Result {
+    let shell_error = msgpack_test::<Value>(playground, "eof").expect_error()?;
+>>>>>>> 362e2494a (fix some more tests)
     let msg = shell_error.generic_msg()?;
     assert_eq!(msg, "failed to fill whole buffer");
     Ok(())
 }
 
+<<<<<<< HEAD
 #[rstest]
 #[nu_test_support::test]
 fn after_eof(#[context] ctx: Context, #[ignore] playground: Playground) -> Result {
     let shell_error = msgpack_test(playground, ctx.name).expect_error()?;
+=======
+#[test]
+fn after_eof(playground: Playground) -> Result {
+    let shell_error = msgpack_test::<Value>(playground, "after-eof").expect_error()?;
+>>>>>>> 362e2494a (fix some more tests)
     let error = shell_error.generic_error()?;
     assert_eq!(error, "Additional data after end of MessagePack object");
     Ok(())
 }
 
+<<<<<<< HEAD
 #[rstest]
 #[nu_test_support::test]
 fn reserved(#[context] ctx: Context, #[ignore] playground: Playground) -> Result {
     let shell_error = msgpack_test(playground, ctx.name).expect_error()?;
+=======
+#[test]
+fn reserved(playground: Playground) -> Result {
+    let shell_error = msgpack_test::<Value>(playground, "reserved").expect_error()?;
+>>>>>>> 362e2494a (fix some more tests)
     let msg = shell_error.generic_msg()?;
     assert_contains("Reserved", msg);
     Ok(())
 }
 
+<<<<<<< HEAD
 #[rstest]
 #[nu_test_support::test]
 fn u64_too_large(#[context] ctx: Context, #[ignore] playground: Playground) -> Result {
     let shell_error = msgpack_test(playground, ctx.name).expect_error()?;
+=======
+#[test]
+fn u64_too_large(playground: Playground) -> Result {
+    let shell_error = msgpack_test::<Value>(playground, "u64-too-large").expect_error()?;
+>>>>>>> 362e2494a (fix some more tests)
     let error = shell_error.generic_error()?;
     assert_eq!(error, "MessagePack integer too big for Nushell");
     Ok(())
 }
 
+<<<<<<< HEAD
 #[rstest]
 #[nu_test_support::test]
 fn non_string_map_key(#[context] ctx: Context, #[ignore] playground: Playground) -> Result {
     let shell_error = msgpack_test(playground, ctx.name).expect_error()?;
+=======
+#[test]
+fn non_string_map_key(playground: Playground) -> Result {
+    let shell_error = msgpack_test::<Value>(playground, "non-string-map-key").expect_error()?;
+>>>>>>> 362e2494a (fix some more tests)
     let msg = shell_error.generic_msg()?;
     assert_contains("string key", msg);
     Ok(())
 }
 
+<<<<<<< HEAD
 #[rstest]
 #[nu_test_support::test]
 fn timestamp_wrong_length(#[context] ctx: Context, #[ignore] playground: Playground) -> Result {
     let shell_error = msgpack_test(playground, ctx.name).expect_error()?;
+=======
+#[test]
+fn timestamp_wrong_length(playground: Playground) -> Result {
+    let shell_error = msgpack_test::<Value>(playground, "timestamp-wrong-length").expect_error()?;
+>>>>>>> 362e2494a (fix some more tests)
     let error = shell_error.generic_error()?;
     assert_eq!(error, "Unknown MessagePack extension");
     Ok(())
 }
 
+<<<<<<< HEAD
 #[rstest]
 #[nu_test_support::test]
 fn other_extension_type(#[context] ctx: Context, #[ignore] playground: Playground) -> Result {
     let shell_error = msgpack_test(playground, ctx.name).expect_error()?;
+=======
+#[test]
+fn other_extension_type(playground: Playground) -> Result {
+    let shell_error = msgpack_test::<Value>(playground, "other-extension-type").expect_error()?;
+>>>>>>> 362e2494a (fix some more tests)
     let error = shell_error.generic_error()?;
     assert_eq!(error, "Unknown MessagePack extension");
     Ok(())

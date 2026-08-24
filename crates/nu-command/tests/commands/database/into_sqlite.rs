@@ -345,7 +345,14 @@ fn into_sqlite_big_insert(playground: Playground) -> Result {
     let serialize_types = false;
     const NUM_ROWS: usize = 10_000;
     const NUON_FILE_NAME: &str = "data.nuon";
+<<<<<<< HEAD
     let nuon_path = playground.empty_file(NUON_FILE_NAME)?;
+=======
+
+    let nuon_path = playground.path().join(NUON_FILE_NAME);
+
+    playground.empty_file(NUON_FILE_NAME)?;
+>>>>>>> 362e2494a (fix some more tests)
 
     let mut expected_rows = Vec::new();
     let mut nuon_file = std::fs::OpenOptions::new()
