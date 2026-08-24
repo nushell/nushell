@@ -1,8 +1,4 @@
-/// Which sides of the child pipeline should use NUON instead of raw bytes / tables.
-///
-/// The parent `run-external` passes this as `--structured-io=in|out|1` on the child
-/// `nu` command line. A CLI flag is used instead of an environment variable so the
-/// handshake does not call `set_var` / `remove_var` on the current process.
+/// Sides of the parent/child NUON handshake, passed as `--structured-io=` on argv.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct StructuredIoMode {
     pub input: bool,
@@ -23,9 +19,9 @@ impl StructuredIoMode {
 
     /// Parse a handshake value: `1`/`true`/`inout`, `in`, `out`, or anything else as off.
     pub fn from_flag_str(value: &str) -> Self {
-        match value.trim() {
+        match value.trim().to_ascii_lowercase().as_str() {
             "false" | "off" | "0" => Self::default(),
-            "1" | "true" | "TRUE" | "inout" => Self::both(),
+            "1" | "true" | "inout" => Self::both(),
             "in" => Self {
                 input: true,
                 output: false,
@@ -84,6 +80,13 @@ mod tests {
         assert_eq!(
             StructuredIoMode::from_flag_str("0"),
             StructuredIoMode::default()
+        );
+        assert_eq!(
+            StructuredIoMode::from_flag_str("IN"),
+            StructuredIoMode {
+                input: true,
+                output: false
+            }
         );
         assert_eq!(
             StructuredIoMode::from_flag_str("nope"),

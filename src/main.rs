@@ -296,19 +296,18 @@ fn main() -> Result<()> {
     let is_lsp = false;
     engine_state.is_lsp = is_lsp;
 
-    let structured_io = if let Some(value) = &parsed_nu_cli_args.structured_io {
+    let ancestor_nu = parsed_nu_cli_args.structured_io.is_none()
+        && nu_system::ancestor_is_nushell(nu_system::NUSHELL_ANCESTOR_MAX_DEPTH);
+    let mut structured_io = if let Some(value) = &parsed_nu_cli_args.structured_io {
         nu_experimental::StructuredIoMode::from_flag_str(&value.item)
-    } else if nu_system::ancestor_is_nushell(nu_system::NUSHELL_ANCESTOR_MAX_DEPTH) {
-        use std::io::IsTerminal;
+    } else if ancestor_nu {
         nu_experimental::StructuredIoMode {
-            input: !std::io::stdin().is_terminal(),
-            output: !std::io::stdout().is_terminal(),
+            input: false,
+            output: nu_system::stdio_is_pipe(nu_system::StdioFd::Stdout),
         }
     } else {
         nu_experimental::StructuredIoMode::default()
     };
-    engine_state.structured_io_input = structured_io.input;
-    engine_state.structured_io_output = structured_io.output;
     // keep this condition in sync with the branches at the end
     engine_state.is_interactive = parsed_nu_cli_args.interactive_shell.is_some()
         || (parsed_nu_cli_args.commands.is_none() && script_name.is_empty() && !is_lsp);
@@ -531,9 +530,22 @@ fn main() -> Result<()> {
     }
 
     start_time = nu_utils::time::Instant::now();
-    let input = if engine_state.structured_io_input {
+    let input = if structured_io.input {
         trace!("reading structured stdin");
         nu_command::read_structured_stdin()?
+    } else if ancestor_nu && nu_system::stdio_is_pipe(nu_system::StdioFd::Stdin) {
+        match nu_command::read_startup_stdin(false)? {
+            nu_command::StartupStdin::Structured(data) => {
+                structured_io.input = true;
+                data
+            }
+            nu_command::StartupStdin::Raw(data) if parsed_nu_cli_args.redirect_stdin.is_some() => {
+                data
+            }
+            nu_command::StartupStdin::Raw(_) | nu_command::StartupStdin::Empty => {
+                PipelineData::empty()
+            }
+        }
     } else if let Some(redirect_stdin) = &parsed_nu_cli_args.redirect_stdin {
         trace!("redirecting stdin");
         PipelineData::byte_stream(ByteStream::stdin(redirect_stdin.span)?, None)
@@ -541,6 +553,8 @@ fn main() -> Result<()> {
         trace!("not redirecting stdin");
         PipelineData::empty()
     };
+    engine_state.structured_io_input = structured_io.input;
+    engine_state.structured_io_output = structured_io.output;
     perf!("redirect stdin", start_time, use_color);
 
     start_time = nu_utils::time::Instant::now();

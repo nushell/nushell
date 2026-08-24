@@ -157,6 +157,42 @@ def main [] {
 
 #[test]
 #[deps(NU)]
+fn child_user_out_flag_does_not_take_structured_stdin() -> Result {
+    test()
+        .run("[1 2 3] | nu -n --structured-io=out -c '$in | describe'")
+        .expect_value_eq("nothing")
+}
+
+#[test]
+#[deps(NU)]
+#[cfg(unix)]
+fn shebang_script_arg_false_does_not_disable_parent() -> Result {
+    use std::os::unix::fs::PermissionsExt;
+
+    Playground::setup("structured_io_shebang_script_arg", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent(
+            "foo.nu",
+            r#"#!/usr/bin/env nu
+def main [--structured-io: any] {
+    [1 2 3]
+}
+"#,
+        )]);
+
+        let script = dirs.test().join("foo.nu");
+        let mut permissions = std::fs::metadata(&script)?.permissions();
+        permissions.set_mode(0o755);
+        std::fs::set_permissions(&script, permissions)?;
+
+        test()
+            .cwd(dirs.test())
+            .run("nu -n -c './foo.nu --structured-io=false | math sum'")
+            .expect_value_eq(6)
+    })
+}
+
+#[test]
+#[deps(NU)]
 fn unserializable_closure_errors() -> Result {
     test()
         .run("nu -n -c '{|x| $x}'")

@@ -301,7 +301,7 @@ const CLI_FLAGS: &[CliFlag] = &[
         "structured-io",
         None,
         ValueHint::String,
-        "parent/child NUON handshake: in, out, 1 (both), or false. Omitted: enable when a parent process is nu and that stdio is not a TTY.",
+        "parent/child NUON handshake: in, out, 1 (both), or false. Omitted: enable when a parent process is nu and that stdio is a pipe.",
         CliCategory::Startup,
         "nu --structured-io=out -c \"ls\"",
     ),

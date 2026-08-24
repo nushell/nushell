@@ -1,6 +1,6 @@
 use super::structured_io::{
-    decode_structured_pipeline, encode_structured_pipeline, is_nushell_child,
-    structured_io_cli_override, structured_io_for_child, structured_io_spawn,
+    decode_structured_pipeline, encode_structured_pipeline, is_nu_binary, structured_io_cli_mode,
+    structured_io_for_child, structured_io_spawn,
 };
 use itertools::Itertools;
 use nu_cmd_base::hook::eval_hook;
@@ -180,21 +180,16 @@ If you create a custom command with this name, that will be used instead."
 
         // Configure args.
         let args = eval_external_arguments(engine_state, stack, call_args)?;
-        let child_path = if is_nushell_child(&executable) {
-            executable.as_path()
+        let invoked = expanded_name.as_path();
+        let user_mode = if is_nu_binary(&executable) {
+            structured_io_cli_mode(&args)
         } else {
-            expanded_name.as_path()
+            None
         };
-        let structured_io = structured_io_for_child(
-            child_path,
-            stdout_captured,
-            &input,
-            structured_io_cli_override(&args),
-        );
-        let spawn = structured_io_spawn(&executable, structured_io);
+        let structured_io =
+            structured_io_for_child(&executable, invoked, stdout_captured, &input, user_mode);
+        let spawn = structured_io_spawn(&executable, structured_io, user_mode.is_none());
 
-        // Create the command. Handshake uses `--structured-io` on argv, never
-        // `env::set_var` / `remove_var` on this process.
         let mut command = std::process::Command::new(&spawn.program);
 
         // Configure PWD.

@@ -58,7 +58,7 @@ In protocol modes (`--lsp`, `--mcp`, or nested structured IO), `print` always wr
         let no_newline = call.has_flag(engine_state, stack, "no-newline")?;
         let raw = call.has_flag(engine_state, stack, "raw")?;
 
-        // In protocol modes (LSP, MCP), reserve stdout for protocol messages.
+        // In protocol modes (LSP, MCP, structured IO), reserve stdout for protocol messages.
         let to_stderr =
             if engine_state.is_lsp || engine_state.is_mcp || engine_state.structured_io_output {
                 true

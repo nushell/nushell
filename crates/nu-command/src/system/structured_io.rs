@@ -1,30 +1,34 @@
 use nu_experimental::StructuredIoMode;
 use nu_protocol::{
-    PipelineData, ShellError, Span, Spanned,
+    ByteStream, ByteStreamType, PipelineData, ShellError, Signals, Span, Spanned,
     engine::EngineState,
     shell_error::{generic::GenericError, io::IoError},
 };
 use nuon::{ToNuonConfig, ToStyle, from_nuon, to_nuon};
 use std::{
     ffi::OsString,
-    io::{BufRead, BufReader, Write},
+    io::{BufRead, BufReader, Cursor, Read, Write},
     path::{Path, PathBuf},
 };
 
+/// Marks NUON written by a parent nu so the child does not treat raw pipes as structured.
+const STRUCTURED_IO_HEADER: &[u8] = b"\x1eNUON\n";
+
 /// Whether this spawn should use the parent/child NUON handshake.
 ///
-/// Always on for Nushell children unless argv has `--structured-io=false`.
+/// `cli_mode` is the last `--structured-io` on a `nu` binary argv only.
 pub fn structured_io_for_child(
-    executable: &Path,
+    resolved: &Path,
+    invoked: &Path,
     stdout_captured: bool,
     input: &PipelineData,
-    cli_override: Option<bool>,
+    cli_mode: Option<StructuredIoMode>,
 ) -> StructuredIoMode {
-    if !is_nushell_child(executable) {
+    if !is_nushell_child(resolved, invoked) {
         return StructuredIoMode::default();
     }
-    if cli_override == Some(false) {
-        return StructuredIoMode::default();
+    if let Some(mode) = cli_mode {
+        return mode;
     }
 
     let input = matches!(
@@ -37,56 +41,57 @@ pub fn structured_io_for_child(
     }
 }
 
-/// Last `--structured-io=` on the child argv. `Some(false)` disables the handshake.
-pub fn structured_io_cli_override(args: &[Spanned<OsString>]) -> Option<bool> {
+/// Last `--structured-io` on a `nu` binary argv.
+pub fn structured_io_cli_mode(args: &[Spanned<OsString>]) -> Option<StructuredIoMode> {
     let mut last = None;
     let mut items = args.iter().map(|arg| arg.item.to_string_lossy());
     while let Some(arg) = items.next() {
         if arg == "--structured-io" {
             if let Some(value) = items.next() {
-                last = Some(flag_enables_structured_io(&value));
+                last = Some(StructuredIoMode::from_flag_str(&value));
             }
         } else if let Some(value) = arg.strip_prefix("--structured-io=") {
-            last = Some(flag_enables_structured_io(value));
+            last = Some(StructuredIoMode::from_flag_str(value));
         }
     }
     last
 }
 
-fn flag_enables_structured_io(value: &str) -> bool {
-    !matches!(value.trim(), "false" | "off" | "0")
-}
-
-/// How to spawn the child so it receives `--structured-io` on argv, not in the environment.
+/// How to spawn the child so it receives `--structured-io` on argv.
 pub struct StructuredIoSpawn {
     pub program: PathBuf,
     pub leading_args: Vec<OsString>,
 }
 
-/// Prepend `--structured-io=` when the child is the `nu` binary.
+/// Prepend `--structured-io=` when injecting onto the `nu` binary.
 ///
-/// Shebang scripts (`./foo.nu`) are spawned as-is. The child infers the parent
-/// process is Nushell and enables structured IO itself.
-pub fn structured_io_spawn(executable: &Path, mode: StructuredIoMode) -> StructuredIoSpawn {
+/// Shebang scripts are spawned as-is. Skip injection when the user already
+/// passed `--structured-io` so that value is the one the child parses.
+pub fn structured_io_spawn(
+    executable: &Path,
+    mode: StructuredIoMode,
+    inject_flag: bool,
+) -> StructuredIoSpawn {
+    let program = executable.to_path_buf();
+    if !inject_flag || !is_nu_binary(executable) {
+        return StructuredIoSpawn {
+            program,
+            leading_args: Vec::new(),
+        };
+    }
     let Some(flag) = mode.as_flag_str() else {
         return StructuredIoSpawn {
-            program: executable.to_path_buf(),
+            program,
             leading_args: Vec::new(),
         };
     };
-    if is_nu_binary(executable) {
-        return StructuredIoSpawn {
-            program: executable.to_path_buf(),
-            leading_args: vec![OsString::from(format!("--structured-io={flag}"))],
-        };
-    }
     StructuredIoSpawn {
-        program: executable.to_path_buf(),
-        leading_args: Vec::new(),
+        program,
+        leading_args: vec![OsString::from(format!("--structured-io={flag}"))],
     }
 }
 
-fn is_nu_binary(path: &Path) -> bool {
+pub fn is_nu_binary(path: &Path) -> bool {
     path.file_name()
         .and_then(|name| name.to_str())
         .is_some_and(nu_system::is_nushell_basename)
@@ -108,6 +113,9 @@ pub fn encode_structured_pipeline(
         &value,
         ToNuonConfig::default().style(ToStyle::Raw),
     )?;
+    writer
+        .write_all(STRUCTURED_IO_HEADER)
+        .map_err(|err| IoError::new_internal(err, "Could not write structured pipeline data"))?;
     writer
         .write_all(nuon.as_bytes())
         .map_err(|err| IoError::new_internal(err, "Could not write structured pipeline data"))?;
@@ -139,7 +147,8 @@ pub fn decode_structured_pipeline(
         return Ok(PipelineData::empty());
     }
 
-    let text = String::from_utf8(bytes).map_err(|err| {
+    let nuon = strip_structured_io_header(&bytes);
+    let text = std::str::from_utf8(nuon).map_err(|err| {
         ShellError::Generic(GenericError::new(
             "Child nu structured output was not valid UTF-8",
             err.to_string(),
@@ -175,46 +184,95 @@ pub fn emit_structured_pipeline(
 }
 
 pub fn read_structured_stdin() -> Result<PipelineData, ShellError> {
-    use std::io::{IsTerminal, Read};
-
-    if std::io::stdin().is_terminal() {
-        return Ok(PipelineData::empty());
-    }
-
-    let mut buf = String::new();
-    std::io::stdin()
-        .lock()
-        .read_to_string(&mut buf)
-        .map_err(|err| IoError::new_internal(err, "Could not read structured stdin"))?;
-
-    if buf.is_empty() {
-        return Ok(PipelineData::empty());
-    }
-
-    let value = from_nuon(&buf, None)?;
-    if value.is_nothing() {
-        Ok(PipelineData::empty())
-    } else {
-        Ok(PipelineData::value(value, None))
+    match read_startup_stdin(true)? {
+        StartupStdin::Structured(data) | StartupStdin::Raw(data) => Ok(data),
+        StartupStdin::Empty => Ok(PipelineData::empty()),
     }
 }
 
-pub fn is_nushell_child(path: &Path) -> bool {
-    if path
-        .file_name()
-        .and_then(|name| name.to_str())
-        .is_some_and(nu_system::is_nushell_basename)
-    {
+/// Stdin collected at process start for structured-IO inference.
+pub enum StartupStdin {
+    Structured(PipelineData),
+    Raw(PipelineData),
+    Empty,
+}
+
+/// Read stdin once. `require_nuon` fails if the bytes are not NUON.
+/// Otherwise only a framed payload (`STRUCTURED_IO_HEADER`) is treated as structured.
+pub fn read_startup_stdin(require_nuon: bool) -> Result<StartupStdin, ShellError> {
+    use std::io::IsTerminal;
+
+    if std::io::stdin().is_terminal() {
+        return Ok(StartupStdin::Empty);
+    }
+
+    let mut buf = Vec::new();
+    std::io::stdin()
+        .lock()
+        .read_to_end(&mut buf)
+        .map_err(|err| IoError::new_internal(err, "Could not read stdin"))?;
+
+    if buf.is_empty() {
+        return Ok(StartupStdin::Empty);
+    }
+
+    let framed = buf.starts_with(STRUCTURED_IO_HEADER);
+    if require_nuon || framed {
+        let text = std::str::from_utf8(strip_structured_io_header(&buf)).map_err(|err| {
+            ShellError::Generic(GenericError::new(
+                "Structured stdin was not valid UTF-8",
+                err.to_string(),
+                Span::unknown(),
+            ))
+        })?;
+        let value = from_nuon(text, None)?;
+        let data = if value.is_nothing() {
+            PipelineData::empty()
+        } else {
+            PipelineData::value(value, None)
+        };
+        return Ok(StartupStdin::Structured(data));
+    }
+
+    Ok(StartupStdin::Raw(PipelineData::byte_stream(
+        ByteStream::read(
+            Cursor::new(buf),
+            Span::unknown(),
+            Signals::empty(),
+            ByteStreamType::Unknown,
+        ),
+        None,
+    )))
+}
+
+fn strip_structured_io_header(bytes: &[u8]) -> &[u8] {
+    bytes.strip_prefix(STRUCTURED_IO_HEADER).unwrap_or(bytes)
+}
+
+pub fn is_nushell_child(resolved: &Path, invoked: &Path) -> bool {
+    if is_nu_binary(resolved) || is_nu_binary(invoked) {
         return true;
     }
-    if path
-        .extension()
+    if has_nu_extension(resolved) || has_nu_extension(invoked) {
+        return true;
+    }
+    if !invoked_as_extensionless_script(invoked) {
+        return false;
+    }
+    shebang_invokes_nu(resolved)
+}
+
+fn has_nu_extension(path: &Path) -> bool {
+    path.extension()
         .and_then(|ext| ext.to_str())
         .is_some_and(|ext| ext.eq_ignore_ascii_case("nu"))
-    {
-        return true;
+}
+
+fn invoked_as_extensionless_script(invoked: &Path) -> bool {
+    if invoked.extension().is_some() {
+        return false;
     }
-    shebang_invokes_nu(path)
+    invoked.starts_with(".") || invoked.components().nth(1).is_some()
 }
 
 fn shebang_invokes_nu(path: &Path) -> bool {
@@ -240,14 +298,22 @@ mod tests {
 
     #[test]
     fn detects_nu_basename() {
-        assert!(is_nushell_child(Path::new("/usr/bin/nu")));
-        assert!(is_nushell_child(Path::new("nu.exe")));
-        assert!(!is_nushell_child(Path::new("/usr/bin/ls")));
+        assert!(is_nushell_child(Path::new("/usr/bin/nu"), Path::new("nu")));
+        assert!(is_nushell_child(Path::new("nu.exe"), Path::new("nu.exe")));
+        assert!(!is_nushell_child(Path::new("/usr/bin/ls"), Path::new("ls")));
     }
 
     #[test]
     fn detects_nu_extension() {
-        assert!(is_nushell_child(Path::new("./foo.nu")));
+        assert!(is_nushell_child(
+            Path::new("./foo.nu"),
+            Path::new("./foo.nu")
+        ));
+    }
+
+    #[test]
+    fn path_command_does_not_open_shebang() {
+        assert!(!is_nushell_child(Path::new("/usr/bin/ls"), Path::new("ls")));
     }
 
     #[test]
@@ -255,14 +321,14 @@ mod tests {
         let mut file = NamedTempFile::new().expect("tempfile");
         writeln!(file, "#!/usr/bin/env -S nu --stdin").expect("write");
         writeln!(file, "def main [] {{ 1 }}").expect("write");
-        assert!(is_nushell_child(file.path()));
+        assert!(is_nushell_child(file.path(), file.path()));
     }
 
     #[test]
     fn ignores_unrelated_shebang() {
         let mut file = NamedTempFile::new().expect("tempfile");
         writeln!(file, "#!/bin/sh").expect("write");
-        assert!(!is_nushell_child(file.path()));
+        assert!(!is_nushell_child(file.path(), file.path()));
     }
 
     fn arg(s: &str) -> Spanned<OsString> {
@@ -270,37 +336,68 @@ mod tests {
     }
 
     #[test]
-    fn cli_override_reads_equals_form() {
+    fn cli_mode_reads_equals_form() {
         let args = [arg("--structured-io=false"), arg("-n")];
-        assert_eq!(structured_io_cli_override(&args), Some(false));
+        assert_eq!(
+            structured_io_cli_mode(&args),
+            Some(StructuredIoMode::default())
+        );
     }
 
     #[test]
-    fn cli_override_reads_out() {
+    fn cli_mode_reads_out() {
         let args = [arg("--structured-io=out")];
-        assert_eq!(structured_io_cli_override(&args), Some(true));
+        assert_eq!(
+            structured_io_cli_mode(&args),
+            Some(StructuredIoMode {
+                input: false,
+                output: true
+            })
+        );
     }
 
     #[test]
-    fn cli_override_last_assignment_wins() {
+    fn cli_mode_last_assignment_wins() {
         let args = [arg("--structured-io=out"), arg("--structured-io=false")];
-        assert_eq!(structured_io_cli_override(&args), Some(false));
+        assert_eq!(
+            structured_io_cli_mode(&args),
+            Some(StructuredIoMode::default())
+        );
     }
 
     #[test]
     fn shebang_script_is_spawned_as_is() {
-        let spawn = structured_io_spawn(Path::new("./foo.nu"), StructuredIoMode::both());
+        let spawn = structured_io_spawn(Path::new("./foo.nu"), StructuredIoMode::both(), true);
         assert_eq!(spawn.program, PathBuf::from("./foo.nu"));
         assert!(spawn.leading_args.is_empty());
     }
 
     #[test]
     fn nu_binary_gets_structured_io_flag() {
-        let spawn = structured_io_spawn(Path::new("/usr/bin/nu"), StructuredIoMode::both());
+        let spawn = structured_io_spawn(Path::new("/usr/bin/nu"), StructuredIoMode::both(), true);
         assert_eq!(spawn.program, PathBuf::from("/usr/bin/nu"));
         assert_eq!(
             spawn.leading_args,
             vec![OsString::from("--structured-io=1")]
         );
+    }
+
+    #[test]
+    fn does_not_inject_when_user_set_flag() {
+        let spawn = structured_io_spawn(Path::new("/usr/bin/nu"), StructuredIoMode::both(), false);
+        assert!(spawn.leading_args.is_empty());
+    }
+
+    #[test]
+    fn script_args_do_not_set_cli_mode_for_shebang() {
+        let auto = structured_io_for_child(
+            Path::new("./foo.nu"),
+            Path::new("./foo.nu"),
+            true,
+            &PipelineData::empty(),
+            None,
+        );
+        assert!(auto.output);
+        assert!(!auto.input);
     }
 }

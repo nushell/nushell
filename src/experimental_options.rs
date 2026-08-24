@@ -74,14 +74,7 @@ pub fn load(engine_state: &EngineState, cli_args: &NushellCliArgs) {
     }
 }
 
-// Skip `NU_EXPERIMENTAL_OPTIONS` when this invocation is not a user session.
-//
-// The REPL and `nu script.nu` / shebang scripts load the user's config, so they
-// should also honor the env var (otherwise `NU_EXPERIMENTAL_OPTIONS=all` works
-// interactively but `./foo.nu` silently drops it).
-//
-// `nu -n` and bare `nu -c` are the hermetic paths used by tests and tools;
-// those keep default (off) experimental options unless the CLI flag is passed.
+// `nu -n` and bare `nu -c` ignore NU_EXPERIMENTAL_OPTIONS; scripts and the REPL do not.
 fn should_disable_experimental_options(cli_args: &NushellCliArgs) -> bool {
     let no_config_flag = cli_args.no_config_file.is_some();
     let running_command_without_config = cli_args.commands.is_some()
