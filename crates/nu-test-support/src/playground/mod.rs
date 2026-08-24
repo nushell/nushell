@@ -364,7 +364,7 @@ pub trait PlaygroundFs: sealed::Sealed {
 
 pub struct Playground {
     temp_dir: PathBuf,
-    closed: bool,
+    cleanup: bool,
 }
 
 // compatibility
@@ -460,13 +460,13 @@ impl Playground {
 
         Ok(Self {
             temp_dir,
-            closed: false,
+            cleanup: true,
         })
     }
 
     #[track_caller]
     pub fn close(mut self) -> Result<()> {
-        assert!(!self.closed, "playground already closed");
+        assert!(self.cleanup, "playground cleanup already disabled");
 
         #[cfg(windows)]
         if let Err(err) = clear_readonly_recursive(&self.temp_dir) {
@@ -479,13 +479,23 @@ impl Playground {
         }
 
         fs::remove_dir_all(&self.temp_dir)
-            .inspect(|()| self.closed = true)
+            .inspect(|()| self.cleanup = false)
             .map_err(|err| PlaygroundError {
                 kind: PlaygroundErrorKind::Close,
                 path: self.temp_dir.clone(),
                 io_error_kind: err.kind(),
                 message: err.to_string(),
             })
+    }
+
+    /// Consume the playground without deleting its temp directory.
+    ///
+    /// Returns the retained temp directory path so it can be inspected after the test.
+    #[track_caller]
+    pub fn keep(mut self) -> PathBuf {
+        assert!(self.cleanup, "playground cleanup already disabled");
+        self.cleanup = false;
+        std::mem::take(&mut self.temp_dir)
     }
 }
 
@@ -502,7 +512,7 @@ impl Drop for Playground {
     /// Prefer [`close`](Playground::close) when cleanup errors should be
     /// reported to the test.
     fn drop(&mut self) {
-        if !self.closed {
+        if self.cleanup {
             #[cfg(windows)]
             let _ = clear_readonly_recursive(&self.temp_dir);
 
