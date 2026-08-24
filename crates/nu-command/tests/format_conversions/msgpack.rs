@@ -213,4 +213,3 @@ fn other_extension_type() -> Result {
     assert_eq!(error, "Unknown MessagePack extension");
     Ok(())
 }
-

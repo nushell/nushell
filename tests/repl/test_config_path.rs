@@ -178,10 +178,12 @@ fn nu_constant_reflects_resolved_config_dirs(playground: Playground) -> Result {
 
 #[test]
 fn nu_constant_config_file_override(playground: Playground) -> Result {
-    let home = playground.path()
+    let home = playground
+        .path()
         .join("nu-test-cfg-override-home")
         .to_std_path_buf();
-    let custom = playground.path()
+    let custom = playground
+        .path()
         .join("nu-test-custom-config.nu")
         .to_std_path_buf();
     fs::create_dir_all(&home)?;
@@ -218,7 +220,10 @@ fn nu_constant_config_file_override(playground: Playground) -> Result {
 
 #[test]
 fn nu_constant_history_follows_config_home(playground: Playground) -> Result {
-    let home = playground.path().join("nu-hist-config-home").to_std_path_buf();
+    let home = playground
+        .path()
+        .join("nu-hist-config-home")
+        .to_std_path_buf();
     fs::create_dir_all(&home)?;
 
     let dirs = NushellConfigDirs {
@@ -505,7 +510,10 @@ fn commandstring_populates_config_record() -> Result {
 
 #[test]
 fn history_path_disabled_null(playground: Playground) -> Result {
-    let home = playground.path().join("nu-history-null-home").to_std_path_buf();
+    let home = playground
+        .path()
+        .join("nu-history-null-home")
+        .to_std_path_buf();
     fs::create_dir_all(&home)?;
 
     let dirs = NushellConfigDirs {
@@ -545,7 +553,10 @@ fn history_path_disabled_null(playground: Playground) -> Result {
 
 #[test]
 fn history_path_custom_string(playground: Playground) -> Result {
-    let home = playground.path().join("nu-history-custom-home").to_std_path_buf();
+    let home = playground
+        .path()
+        .join("nu-history-custom-home")
+        .to_std_path_buf();
     fs::create_dir_all(&home)?;
     let custom_file = home.join("my_history.txt");
 
@@ -789,4 +800,3 @@ fn dangling_config_cli_override_still_errors(playground: Playground) -> Result {
     );
     Ok(())
 }
-

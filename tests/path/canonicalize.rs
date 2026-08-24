@@ -15,7 +15,7 @@ fn canonicalize_path(playground: Playground) {
     let cwd = std::env::current_dir().expect("Could not get current directory");
     let actual = canonicalize_with(spam, cwd).expect("Failed to canonicalize");
 
-    assert!(actual.ends_with("spam.txt"));;
+    assert!(actual.ends_with("spam.txt"));
 }
 
 #[test]
@@ -29,7 +29,7 @@ fn canonicalize_unicode_path(playground: Playground) {
 
     let actual = canonicalize_with(spam, cwd).expect("Failed to canonicalize");
 
-    assert!(actual.ends_with("🚒.txt"));;
+    assert!(actual.ends_with("🚒.txt"));
 }
 
 #[ignore]
@@ -46,7 +46,7 @@ fn canonicalize_path_relative_to(playground: Playground) {
     let mut expected = playground.path().to_owned();
     expected.push("spam.txt");
 
-    assert_eq!(actual, expected);;
+    assert_eq!(actual, expected);
 }
 
 #[test]
@@ -61,7 +61,7 @@ fn canonicalize_unicode_path_relative_to_unicode_path_with_spaces(playground: Pl
     let mut expected = playground.path().to_owned();
     expected.push("e-$ èрт🚒♞中片-j/🚒.txt");
 
-    assert_eq!(actual, expected);;
+    assert_eq!(actual, expected);
 }
 
 #[ignore]
@@ -81,7 +81,7 @@ fn canonicalize_absolute_path_relative_to(playground: Playground) {
         .expect("Failed to canonicalize");
     let expected = absolute_path;
 
-    assert_eq!(actual, expected);;
+    assert_eq!(actual, expected);
 }
 
 #[test]
@@ -107,11 +107,12 @@ fn canonicalize_many_dots() {
 fn canonicalize_path_with_dot_relative_to(playground: Playground) {
     playground.empty_file("spam.txt")?;
 
-    let actual = canonicalize_with("./spam.txt", playground.path()).expect("Failed to canonicalize");
+    let actual =
+        canonicalize_with("./spam.txt", playground.path()).expect("Failed to canonicalize");
     let mut expected = playground.path().to_owned();
     expected.push("spam.txt");
 
-    assert_eq!(actual, expected);;
+    assert_eq!(actual, expected);
 }
 
 #[test]
@@ -123,7 +124,7 @@ fn canonicalize_path_with_many_dots_relative_to(playground: Playground) {
     let mut expected = playground.path().to_owned();
     expected.push("spam.txt");
 
-    assert_eq!(actual, expected);;
+    assert_eq!(actual, expected);
 }
 
 #[test]
@@ -147,7 +148,7 @@ fn canonicalize_path_with_double_dot_relative_to(playground: Playground) {
     let mut expected = playground.path().to_owned();
     expected.push("spam.txt");
 
-    assert_eq!(actual, expected);;
+    assert_eq!(actual, expected);
 }
 
 #[test]
@@ -160,7 +161,7 @@ fn canonicalize_path_with_many_double_dots_relative_to(playground: Playground) {
     let mut expected = playground.path().to_owned();
     expected.push("spam.txt");
 
-    assert_eq!(actual, expected);;
+    assert_eq!(actual, expected);
 }
 
 #[test]
@@ -190,12 +191,12 @@ fn canonicalize_path_with_3_ndots_relative_to(playground: Playground) {
     playground.dir("foo/bar")?;
     playground.empty_file("spam.txt")?;
 
-    let actual =
-        canonicalize_with("foo/bar/.../spam.txt", playground.path()).expect("Failed to canonicalize");
+    let actual = canonicalize_with("foo/bar/.../spam.txt", playground.path())
+        .expect("Failed to canonicalize");
     let mut expected = playground.path().to_owned();
     expected.push("spam.txt");
 
-    assert_eq!(actual, expected);;
+    assert_eq!(actual, expected);
 }
 
 #[test]
@@ -211,7 +212,7 @@ fn canonicalize_path_with_many_3_ndots_relative_to(playground: Playground) {
     let mut expected = playground.path().to_owned();
     expected.push("spam.txt");
 
-    assert_eq!(actual, expected);;
+    assert_eq!(actual, expected);
 }
 
 #[test]
@@ -224,7 +225,7 @@ fn canonicalize_path_with_4_ndots_relative_to(playground: Playground) {
     let mut expected = playground.path().to_owned();
     expected.push("spam.txt");
 
-    assert_eq!(actual, expected);;
+    assert_eq!(actual, expected);
 }
 
 #[test]
@@ -240,7 +241,7 @@ fn canonicalize_path_with_many_4_ndots_relative_to(playground: Playground) {
     let mut expected = playground.path().to_owned();
     expected.push("spam.txt");
 
-    assert_eq!(actual, expected);;
+    assert_eq!(actual, expected);
 }
 
 #[test]
@@ -256,11 +257,13 @@ fn canonicalize_path_with_way_too_many_dots_relative_to(playground: Playground) 
     let mut expected = playground.path().to_owned();
     expected.push("spam.txt");
 
-    assert_eq!(actual, expected);;
+    assert_eq!(actual, expected);
 }
 
 #[test]
-fn canonicalize_unicode_path_with_way_too_many_dots_relative_to_unicode_path_with_spaces(playground: Playground) {
+fn canonicalize_unicode_path_with_way_too_many_dots_relative_to_unicode_path_with_spaces(
+    playground: Playground,
+) {
     playground.dir("foo/áčěéí  +šř=é/baz/eggs/e-$ èрт🚒♞中片-j/bacon/öäöä öäöä")?;
     playground.empty_file("🚒.txt")?;
 
@@ -272,7 +275,7 @@ fn canonicalize_unicode_path_with_way_too_many_dots_relative_to_unicode_path_wit
     let mut expected = playground.path().to_owned();
     expected.push("🚒.txt");
 
-    assert_eq!(actual, expected);;
+    assert_eq!(actual, expected);
 }
 
 #[test]
@@ -311,7 +314,7 @@ fn canonicalize_symlink(playground: Playground) {
     let mut expected = playground.path().to_owned();
     expected.push("spam.txt");
 
-    assert_eq!(actual, expected);;
+    assert_eq!(actual, expected);
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -325,7 +328,7 @@ fn canonicalize_symlink_relative_to(playground: Playground) {
     let mut expected = playground.path().to_owned();
     expected.push("spam.txt");
 
-    assert_eq!(actual, expected);;
+    assert_eq!(actual, expected);
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -338,7 +341,7 @@ fn canonicalize_symlink_loop_relative_to_should_fail(playground: Playground) {
 
     let actual = canonicalize_with("link_to_spam.txt", playground.path());
 
-    assert!(actual.is_err());;
+    assert!(actual.is_err());
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -353,7 +356,7 @@ fn canonicalize_nested_symlink_relative_to(playground: Playground) {
     let mut expected = playground.path().to_owned();
     expected.push("spam.txt");
 
-    assert_eq!(actual, expected);;
+    assert_eq!(actual, expected);
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -370,7 +373,7 @@ fn canonicalize_nested_symlink_within_symlink_dir_relative_to(playground: Playgr
     let mut expected = playground.path().to_owned();
     expected.push("foo/bar/baz/spam.txt");
 
-    assert_eq!(actual, expected);;
+    assert_eq!(actual, expected);
 }
 
 #[test]
@@ -399,4 +402,3 @@ fn canonicalize_unc() {
     let expected = Path::new(r"\\localhost\c$");
     assert_eq!(actual, expected);
 }
-

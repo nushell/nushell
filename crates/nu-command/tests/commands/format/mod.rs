@@ -95,23 +95,32 @@ fn format_filesize_works(playground: Playground) -> Result {
         | first
     ";
 
-    test().cwd(playground.path()).run(code).expect_value_eq("0 kB")
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq("0 kB")
 }
 
 #[test]
 fn format_filesize_works_with_nonempty_files(playground: Playground) -> Result {
-    playground.file("sample.toml", indoc::indoc!{r#"
+    playground.file(
+        "sample.toml",
+        indoc::indoc! {r#"
             [dependency]
             name = "nu"
-        "#})?;
+        "#},
+    )?;
 
-        let code = "ls sample.toml | format filesize B size | get size | first";
-        #[cfg(not(windows))]
-        let expected = "25 B";
-        #[cfg(windows)]
-        let expected = "27 B";
+    let code = "ls sample.toml | format filesize B size | get size | first";
+    #[cfg(not(windows))]
+    let expected = "25 B";
+    #[cfg(windows)]
+    let expected = "27 B";
 
-        test().cwd(playground.path()).run(code).expect_value_eq(expected)
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq(expected)
 }
 
 #[test]
@@ -129,4 +138,3 @@ fn format_duration_with_invalid_unit() -> Result {
     assert!(matches!(err, ShellError::InvalidUnit { .. }));
     Ok(())
 }
-

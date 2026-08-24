@@ -31,4 +31,3 @@ fn length_byte_stream(playground: Playground) -> Result {
         .run("open data.txt | length")
         .expect_value_eq(4)
 }
-

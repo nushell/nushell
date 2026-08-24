@@ -187,25 +187,28 @@ fn add_overlay_from_const_module_name_decl() -> Result {
 
 #[test]
 fn add_overlay_from_file_with_stored_where_condition(playground: Playground) -> Result {
-    playground.file("mod.nu", indoc::indoc!{r#"
+    playground.file(
+        "mod.nu",
+        indoc::indoc! {r#"
             export def helper [] {
                 let cond = {|x| true }
                 [{a: 1}] | where $cond
             }
             
             export def main [] { "ok" }
-        "#})?;
+        "#},
+    )?;
 
-        let commands = ["overlay use mod.nu", "helper | to nuon --raw"];
+    let commands = ["overlay use mod.nu", "helper | to nuon --raw"];
 
-        test()
-            .cwd(playground.path())
-            .run(commands.join("; "))
-            .expect_value_eq("[[a];[1]]")?;
-        test()
-            .cwd(playground.path())
-            .run_multiple(commands)
-            .expect_value_eq("[[a];[1]]")
+    test()
+        .cwd(playground.path())
+        .run(commands.join("; "))
+        .expect_value_eq("[[a];[1]]")?;
+    test()
+        .cwd(playground.path())
+        .run_multiple(commands)
+        .expect_value_eq("[[a];[1]]")
 }
 
 #[test]
@@ -1026,7 +1029,10 @@ fn overlay_use_find_scoped_module(playground: Playground) -> Result {
         }
     ";
 
-    test().cwd(playground.path()).run(code).expect_value_eq("spam")
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq("spam")
 }
 
 #[test]
@@ -1480,4 +1486,3 @@ fn report_errors_in_export_env() -> Result {
     assert_contains("reported", format!("{error:?}"));
     Ok(())
 }
-

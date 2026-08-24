@@ -35,9 +35,11 @@ fn def_help_includes_comments(
     #[case] fixture: &str,
     #[case] expected: &str,
 ) -> Result {
-    playground.file("def_test", indoc::indoc!{fixture})?;
+    playground.file("def_test", indoc::indoc! {fixture})?;
 
-    let actual: String = test().cwd(playground.path()).run("use def_test e; help e")?;
+    let actual: String = test()
+        .cwd(playground.path())
+        .run("use def_test e; help e")?;
     assert_contains(expected, actual);
     Ok(())
 }
@@ -157,10 +159,18 @@ fn non_keyword_command_names_are_still_allowed() -> Result {
     ",
     "source def_test; f"
 )]
-fn def_with_list(#[ignore] playground: Playground, #[case] playground: &str, #[case] fixture: &str, #[case] code: &str) -> Result {
-    playground.file("def_test", indoc::indoc!{fixture})?;
+fn def_with_list(
+    #[ignore] playground: Playground,
+    #[case] playground: &str,
+    #[case] fixture: &str,
+    #[case] code: &str,
+) -> Result {
+    playground.file("def_test", indoc::indoc! {fixture})?;
 
-    test().cwd(playground.path()).run(code).expect_value_eq(["one"])
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq(["one"])
 }
 
 #[test]
@@ -350,7 +360,7 @@ fn def_wrapped_untyped_rest_describes_arguments(
 fn def_wrapped_dynamic_percent_builtin_preserves_no_arg_defaults(playground: Playground) -> Result {
     playground.empty_file("probe.txt")?;
 
-        test()
+    test()
             .cwd(playground.path())
             .run("export def --wrapped builtin [arg1, ...args] { %($arg1) ...$args }; let direct = (ls | where name =~ 'probe.txt' | length); let wrapped = (builtin ls | where name =~ 'probe.txt' | length); [$direct $wrapped]")
             .expect_value_eq([1, 1])
@@ -389,4 +399,3 @@ fn recursive_func_should_compile(#[case] first_code: &str, #[case] recursive_cod
 
     Ok(())
 }
-

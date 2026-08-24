@@ -2508,4 +2508,3 @@ fn table_index_offset() -> Result {
     assert!(expected_suffix.is_some(), "{actual:?}");
     Ok(())
 }
-

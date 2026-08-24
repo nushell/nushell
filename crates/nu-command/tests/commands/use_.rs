@@ -60,9 +60,12 @@ fn use_keeps_doc_comments(playground: Playground) -> Result {
 
 #[test]
 fn use_eval_export_env(playground: Playground) -> Result {
-    playground.file("spam.nu", indoc::indoc!{"
+    playground.file(
+        "spam.nu",
+        indoc::indoc! {"
         export-env { $env.FOO = 'foo' }
-    "})?;
+    "},
+    )?;
 
     let mut tester = test().cwd(playground.path());
     let () = tester.run("use spam.nu")?;
@@ -71,9 +74,12 @@ fn use_eval_export_env(playground: Playground) -> Result {
 
 #[test]
 fn use_eval_export_env_hide(playground: Playground) -> Result {
-    playground.file("spam.nu", indoc::indoc!{"
+    playground.file(
+        "spam.nu",
+        indoc::indoc! {"
         export-env { hide-env FOO }
-    "})?;
+    "},
+    )?;
 
     let mut tester = test().cwd(playground.path());
     let () = tester.run("$env.FOO = 'foo'")?;
@@ -155,11 +161,14 @@ fn use_dont_cd_overlay() -> Result {
 
 #[test]
 fn use_export_env_combined(playground: Playground) -> Result {
-    playground.file("spam.nu", indoc::indoc!{"
+    playground.file(
+        "spam.nu",
+        indoc::indoc! {"
         def foo [] { 'foo' }
         alias bar = foo
         export-env { $env.FOO = (bar) }
-    "})?;
+    "},
+    )?;
 
     let mut tester = test().cwd(playground.path());
     let () = tester.run("use spam.nu")?;
@@ -463,9 +472,12 @@ fn overlay_use_keyword_named_module_with_main_errors() -> Result {
 
 #[test]
 fn overlay_use_keyword_named_module_as_different_name_works(playground: Playground) -> Result {
-    playground.file("run.nu", indoc::indoc!{"
+    playground.file(
+        "run.nu",
+        indoc::indoc! {"
         export def main [] { 'hello' }
-    "})?;
+    "},
+    )?;
 
     test()
         .cwd(playground.path())
@@ -475,9 +487,12 @@ fn overlay_use_keyword_named_module_as_different_name_works(playground: Playgrou
 
 #[test]
 fn use_keyword_named_module_file_with_main_errors(playground: Playground) -> Result {
-    playground.file("run.nu", indoc::indoc!{"
+    playground.file(
+        "run.nu",
+        indoc::indoc! {"
         export def main [] { 'hello' }
-    "})?;
+    "},
+    )?;
 
     let err = test()
         .cwd(playground.path())
@@ -492,4 +507,3 @@ fn use_keyword_named_module_file_with_main_errors(playground: Playground) -> Res
         err => Err(err.into()),
     }
 }
-

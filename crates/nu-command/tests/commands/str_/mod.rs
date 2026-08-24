@@ -14,7 +14,10 @@ fn trims(playground: Playground) -> Result {
     )?;
 
     let code = "open sample.toml | str trim dependency.name | get dependency.name";
-    test().cwd(playground.path()).run(code).expect_value_eq("nu")
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq("nu")
 }
 
 #[test]
@@ -39,7 +42,10 @@ fn capitalizes(playground: Playground) -> Result {
     )?;
 
     let code = "open sample.toml | str capitalize dependency.name | get dependency.name";
-    test().cwd(playground.path()).run(code).expect_value_eq("Nu")
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq("Nu")
 }
 
 #[test]
@@ -53,7 +59,10 @@ fn downcases(playground: Playground) -> Result {
     )?;
 
     let code = "open sample.toml | str downcase dependency.name | get dependency.name";
-    test().cwd(playground.path()).run(code).expect_value_eq("light")
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq("light")
 }
 
 #[test]
@@ -73,7 +82,10 @@ fn upcases(playground: Playground) -> Result {
     )?;
 
     let code = "open sample.toml | str upcase package.name | get package.name";
-    test().cwd(playground.path()).run(code).expect_value_eq("NUSHELL")
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq("NUSHELL")
 }
 
 #[test]
@@ -179,7 +191,10 @@ fn regex_error_in_pattern(playground: Playground) -> Result {
         | str replace -r 'source \Ufoo' "destination"
     "#;
 
-    let err = test().cwd(playground.path()).run(code).expect_shell_error()?;
+    let err = test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_shell_error()?;
     assert_contains("Invalid value", err.to_string());
     Ok(())
 }
@@ -305,7 +320,9 @@ fn substring_empty_if_start_index_is_greater_than_end_index(playground: Playgrou
 }
 
 #[test]
-fn substrings_the_input_and_returns_the_string_if_end_index_exceeds_length(playground: Playground) -> Result {
+fn substrings_the_input_and_returns_the_string_if_end_index_exceeds_length(
+    playground: Playground,
+) -> Result {
     playground.file(
         "sample.toml",
         r#"
@@ -327,7 +344,9 @@ fn substrings_the_input_and_returns_the_string_if_end_index_exceeds_length(playg
 }
 
 #[test]
-fn substrings_the_input_and_returns_blank_if_start_index_exceeds_length(playground: Playground) -> Result {
+fn substrings_the_input_and_returns_blank_if_start_index_exceeds_length(
+    playground: Playground,
+) -> Result {
     playground.file(
         "sample.toml",
         r#"
@@ -346,7 +365,9 @@ fn substrings_the_input_and_returns_blank_if_start_index_exceeds_length(playgrou
 }
 
 #[test]
-fn substrings_the_input_and_treats_start_index_as_zero_if_blank_start_index_given(playground: Playground) -> Result {
+fn substrings_the_input_and_treats_start_index_as_zero_if_blank_start_index_given(
+    playground: Playground,
+) -> Result {
     playground.file(
         "sample.toml",
         r#"
@@ -361,11 +382,16 @@ fn substrings_the_input_and_treats_start_index_as_zero_if_blank_start_index_give
         | get package.name
     ";
 
-    test().cwd(playground.path()).run(code).expect_value_eq("nu")
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq("nu")
 }
 
 #[test]
-fn substrings_the_input_and_treats_end_index_as_length_if_blank_end_index_given(playground: Playground) -> Result {
+fn substrings_the_input_and_treats_end_index_as_length_if_blank_end_index_given(
+    playground: Playground,
+) -> Result {
     playground.file(
         "sample.toml",
         r#"
@@ -380,7 +406,10 @@ fn substrings_the_input_and_treats_end_index_as_length_if_blank_end_index_given(
         | get package.name
     ";
 
-    test().cwd(playground.path()).run(code).expect_value_eq("arepas")
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq("arepas")
 }
 
 #[test]
@@ -431,4 +460,3 @@ fn test_redirection_trim() -> Result {
 
     test().run(code).expect_value_eq(7)
 }
-

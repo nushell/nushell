@@ -75,4 +75,3 @@ fn from_ssv_text_treating_first_line_as_data_with_flag(playground: Playground) -
         .run(separator_code)
         .expect_value_eq("docker-registry")
 }
-

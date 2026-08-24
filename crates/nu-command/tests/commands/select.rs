@@ -336,4 +336,3 @@ fn select_with_negative_number_errors_out() -> Result {
         err => Err(err.into()),
     }
 }
-

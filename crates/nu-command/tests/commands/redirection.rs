@@ -52,7 +52,10 @@ fn redirect_out(playground: Playground) -> Result {
     assert_contains("hello", fs::read_to_string(playground.path().join("a"))?);
 
     let () = test().cwd(playground.path()).run("echo 'hello' out>> a")?;
-    assert_contains("hellohello", fs::read_to_string(playground.path().join("a"))?);
+    assert_contains(
+        "hellohello",
+        fs::read_to_string(playground.path().join("a"))?,
+    );
     Ok(())
 }
 
@@ -81,25 +84,31 @@ fn two_lines_redirection(playground: Playground) -> Result {
 #[test]
 #[deps(TESTBIN_ECHO_ENV_MIXED)]
 fn separate_redirection(playground: Playground) -> Result {
-    let () = test().cwd(playground.path()).run(
-            r#"$env.BAZ = "message"; echo_env_mixed out-err BAZ BAZ o> out.txt e> err.txt"#,
-        )?;
+    let () = test()
+        .cwd(playground.path())
+        .run(r#"$env.BAZ = "message"; echo_env_mixed out-err BAZ BAZ o> out.txt e> err.txt"#)?;
 
-        assert_contains("message", fs::read_to_string(playground.path().join("out.txt"))?);
-        assert_contains("message", fs::read_to_string(playground.path().join("err.txt"))?);
+    assert_contains(
+        "message",
+        fs::read_to_string(playground.path().join("out.txt"))?,
+    );
+    assert_contains(
+        "message",
+        fs::read_to_string(playground.path().join("err.txt"))?,
+    );
 
-        let () = test().cwd(playground.path()).run(
-            r#"$env.BAZ = "message"; echo_env_mixed out-err BAZ BAZ o>> out.txt e>> err.txt"#,
-        )?;
+    let () = test()
+        .cwd(playground.path())
+        .run(r#"$env.BAZ = "message"; echo_env_mixed out-err BAZ BAZ o>> out.txt e>> err.txt"#)?;
 
-        let actual = fs::read_to_string(playground.path().join("out.txt"))?;
-        let occurrences: Vec<_> = actual.match_indices("message").collect();
-        assert_eq!(occurrences.len(), 2);
+    let actual = fs::read_to_string(playground.path().join("out.txt"))?;
+    let occurrences: Vec<_> = actual.match_indices("message").collect();
+    assert_eq!(occurrences.len(), 2);
 
-        let actual = fs::read_to_string(playground.path().join("err.txt"))?;
-        let occurrences: Vec<_> = actual.match_indices("message").collect();
-        assert_eq!(occurrences.len(), 2);
-        Ok(())
+    let actual = fs::read_to_string(playground.path().join("err.txt"))?;
+    let occurrences: Vec<_> = actual.match_indices("message").collect();
+    assert_eq!(occurrences.len(), 2);
+    Ok(())
 }
 
 #[test]
@@ -169,7 +178,10 @@ fn redirection_with_non_zero_exit_code_should_stop_from_running(
     #[values("o>", "o>>", "e>", "e>>", "o+e>", "o+e>>")] redirection: &str,
 ) -> Result {
     let code = format!("try {{ fail {redirection} log.txt; 'ran' }} catch {{ 'stopped' }}");
-    test().cwd(playground.path()).run(code).expect_value_eq("stopped")
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq("stopped")
 }
 
 #[rstest]
@@ -182,24 +194,30 @@ fn redirection_with_non_zero_exit_code_should_stop_from_running_2(
 ) -> Result {
     let code =
         format!("try {{ fail {out} log.txt {err} err_log.txt; 'ran' }} catch {{ 'stopped' }}");
-    test().cwd(playground.path()).run(code).expect_value_eq("stopped")
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq("stopped")
 }
 
 #[test]
 #[deps(TESTBIN_ECHO_ENV)]
 fn redirection_with_pipeline_works(playground: Playground) -> Result {
     let _: Value = test()
-            .cwd(playground.path())
-            .run(r#"$env.BAZ = "message"; echo_env BAZ out> out.txt | describe"#)?;
-        assert_contains("message", fs::read_to_string(playground.path().join("out.txt"))?);
+        .cwd(playground.path())
+        .run(r#"$env.BAZ = "message"; echo_env BAZ out> out.txt | describe"#)?;
+    assert_contains(
+        "message",
+        fs::read_to_string(playground.path().join("out.txt"))?,
+    );
 
-        let _: Value = test()
-            .cwd(playground.path())
-            .run(r#"$env.BAZ = "message"; echo_env BAZ out>> out.txt | describe"#)?;
-        let actual = fs::read_to_string(playground.path().join("out.txt"))?;
-        let occurrences: Vec<_> = actual.match_indices("message").collect();
-        assert_eq!(occurrences.len(), 2);
-        Ok(())
+    let _: Value = test()
+        .cwd(playground.path())
+        .run(r#"$env.BAZ = "message"; echo_env BAZ out>> out.txt | describe"#)?;
+    let actual = fs::read_to_string(playground.path().join("out.txt"))?;
+    let occurrences: Vec<_> = actual.match_indices("message").collect();
+    assert_eq!(occurrences.len(), 2);
+    Ok(())
 }
 
 #[test]
@@ -207,7 +225,10 @@ fn redirect_support_variable(playground: Playground) -> Result {
     let () = test()
         .cwd(playground.path())
         .run("let x = 'tmp_file'; echo 'hello' out> $x")?;
-    assert_contains("hello", fs::read_to_string(playground.path().join("tmp_file"))?);
+    assert_contains(
+        "hello",
+        fs::read_to_string(playground.path().join("tmp_file"))?,
+    );
 
     let () = test()
         .cwd(playground.path())
@@ -242,27 +263,33 @@ fn separate_redirection_support_variable(playground: Playground) -> Result {
             $env.BAZ = "message"
             echo_env_mixed out-err BAZ BAZ o> $o_f e> $e_f
         "#;
-        let () = test().cwd(playground.path()).run(code)?;
+    let () = test().cwd(playground.path()).run(code)?;
 
-        assert_contains("message", fs::read_to_string(playground.path().join("out2.txt"))?);
-        assert_contains("message", fs::read_to_string(playground.path().join("err2.txt"))?);
+    assert_contains(
+        "message",
+        fs::read_to_string(playground.path().join("out2.txt"))?,
+    );
+    assert_contains(
+        "message",
+        fs::read_to_string(playground.path().join("err2.txt"))?,
+    );
 
-        let code = r#"
+    let code = r#"
             let o_f = "out2.txt"
             let e_f = "err2.txt"
             $env.BAZ = "message"
             echo_env_mixed out-err BAZ BAZ out>> $o_f err>> $e_f
         "#;
-        let () = test().cwd(playground.path()).run(code)?;
+    let () = test().cwd(playground.path()).run(code)?;
 
-        let actual = fs::read_to_string(playground.path().join("out2.txt"))?;
-        let occurrences: Vec<_> = actual.match_indices("message").collect();
-        assert_eq!(occurrences.len(), 2);
+    let actual = fs::read_to_string(playground.path().join("out2.txt"))?;
+    let occurrences: Vec<_> = actual.match_indices("message").collect();
+    assert_eq!(occurrences.len(), 2);
 
-        let actual = fs::read_to_string(playground.path().join("err2.txt"))?;
-        let occurrences: Vec<_> = actual.match_indices("message").collect();
-        assert_eq!(occurrences.len(), 2);
-        Ok(())
+    let actual = fs::read_to_string(playground.path().join("err2.txt"))?;
+    let occurrences: Vec<_> = actual.match_indices("message").collect();
+    assert_eq!(occurrences.len(), 2);
+    Ok(())
 }
 
 #[rstest]
@@ -280,7 +307,10 @@ fn redirection_should_have_a_target(
     )]
     code: &str,
 ) -> Result {
-    let err = test().cwd(playground.path()).run(code).expect_parse_error()?;
+    let err = test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_parse_error()?;
     assert_matches!(err, ParseError::Expected("redirection target", _));
     assert!(
         !dirs.test().join("tmp.txt").exists(),
@@ -352,7 +382,10 @@ fn no_redirection_with_outerr_pipe_separate(
 }
 
 #[rstest]
-fn no_duplicate_redirection(#[ignore] playground: Playground, #[values("o>", "e>", "o+e>")] redirect: &str) -> Result {
+fn no_duplicate_redirection(
+    #[ignore] playground: Playground,
+    #[values("o>", "e>", "o+e>")] redirect: &str,
+) -> Result {
     test()
         .cwd(playground.path())
         .run(format!("echo 3 {redirect} a.txt {redirect} a.txt"))
@@ -377,11 +410,13 @@ fn file_redirection_in_let_and_mut(
     )]
     redirections: &str,
 ) -> Result {
-    let code = format!(
-        "$env.BAZ = 'foo'; {keyword} v = echo_env_mixed out-err BAZ BAZ {redirections}"
-    );
+    let code =
+        format!("$env.BAZ = 'foo'; {keyword} v = echo_env_mixed out-err BAZ BAZ {redirections}");
     let _: Value = test().cwd(playground.path()).run(code)?;
-    assert_contains("foo", fs::read_to_string(playground.path().join("result.txt"))?);
+    assert_contains(
+        "foo",
+        fs::read_to_string(playground.path().join("result.txt"))?,
+    );
     Ok(())
 }
 
@@ -409,7 +444,10 @@ fn pipe_redirection_in_let_and_mut(
         ),
     };
 
-    test().cwd(playground.path()).run(code).expect_value_eq(output)?;
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq(output)?;
     if let Some(expected) = stdout_file_body {
         assert_eq!(
             fs::read_to_string(dirs.test().join("stdout.txt"))?,
@@ -425,7 +463,11 @@ fn pipe_redirection_in_let_and_mut(
 #[case::o_e("o+e>", "bar\nbaz")]
 #[nu_test_support::test]
 #[deps(TESTBIN_ECHO_ENV_MIXED)]
-fn subexpression_redirection(#[ignore] playground: Playground, #[case] redir: &str, #[case] stdout_file_body: &str) -> Result {
+fn subexpression_redirection(
+    #[ignore] playground: Playground,
+    #[case] redir: &str,
+    #[case] stdout_file_body: &str,
+) -> Result {
     let body = match redir {
         "o>" => "echo_env_mixed out-err BAR BAZ err> other.txt",
         "e>" => "echo_env_mixed out-err BAR BAZ out> other.txt",
@@ -447,7 +489,11 @@ fn subexpression_redirection(#[ignore] playground: Playground, #[case] redir: &s
 #[case::o_e("o+e>", "bar\nbaz")]
 #[nu_test_support::test]
 #[deps(TESTBIN_ECHO_ENV_MIXED)]
-fn file_redirection_in_if_true(#[ignore] playground: Playground, #[case] redir: &str, #[case] stdout_file_body: &str) -> Result {
+fn file_redirection_in_if_true(
+    #[ignore] playground: Playground,
+    #[case] redir: &str,
+    #[case] stdout_file_body: &str,
+) -> Result {
     let body = match redir {
         "o>" => "echo_env_mixed out-err BAR BAZ err> other.txt",
         "e>" => "echo_env_mixed out-err BAR BAZ out> other.txt",
@@ -467,7 +513,11 @@ fn file_redirection_in_if_true(#[ignore] playground: Playground, #[case] redir: 
 #[rstest]
 #[case::hey(true, "hey")]
 #[case::ho(false, "ho")]
-fn file_redirection_in_if_else(#[ignore] playground: Playground, #[case] cond: bool, #[case] stdout_file_body: &str) -> Result {
+fn file_redirection_in_if_else(
+    #[ignore] playground: Playground,
+    #[case] cond: bool,
+    #[case] stdout_file_body: &str,
+) -> Result {
     let code = format!("if {cond} {{ echo 'hey' }} else {{ echo 'ho' }} out> result.txt");
     let () = test().cwd(playground.path()).run(code)?;
     assert_eq!(
@@ -483,7 +533,11 @@ fn file_redirection_in_if_else(#[ignore] playground: Playground, #[case] cond: b
 #[case::o_e("o+e>", "bar\nbaz")]
 #[nu_test_support::test]
 #[deps(TESTBIN_ECHO_ENV_MIXED)]
-fn file_redirection_in_try_catch(#[ignore] playground: Playground, #[case] redir: &str, #[case] stdout_file_body: &str) -> Result {
+fn file_redirection_in_try_catch(
+    #[ignore] playground: Playground,
+    #[case] redir: &str,
+    #[case] stdout_file_body: &str,
+) -> Result {
     let body = match redir {
         "o>" => "echo_env_mixed out-err BAR BAZ err> other.txt",
         "e>" => "echo_env_mixed out-err BAR BAZ out> other.txt",
@@ -583,4 +637,3 @@ fn file_redirection_not_allowed_on_for(playground: Playground) -> Result {
     );
     Ok(())
 }
-

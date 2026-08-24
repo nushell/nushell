@@ -34,13 +34,21 @@ fn source_env_resolves_nested_source_relative_to_sourced_file() -> Result {
 #[case::unicode_dir_without_quotes("🚒", "")]
 #[case::unicode_spaced_dir_single_quotes("e-$ èрт🚒♞中片-j", "'")]
 #[case::unicode_spaced_dir_double_quotes("e-$ èрт🚒♞中片-j", "\"")]
-fn sources_unicode_file(#[ignore] playground: Playground, #[context] ctx: Context, #[case] dir: &str, #[case] quote: &str) -> Result {
+fn sources_unicode_file(
+    #[ignore] playground: Playground,
+    #[context] ctx: Context,
+    #[case] dir: &str,
+    #[case] quote: &str,
+) -> Result {
     let file = String::from_iter([dir, "/foo.nu"]);
     playground.dir(dir)?;
     playground.file(&file, "echo foo")?;
 
     let cmd = format!("source-env {quote}{file}{quote}");
-    test().cwd(playground.path()).run(&cmd).expect_value_eq("foo")
+    test()
+        .cwd(playground.path())
+        .run(&cmd)
+        .expect_value_eq("foo")
 }
 
 #[cfg(not(windows))] // ':' is not allowed in Windows paths
@@ -62,7 +70,10 @@ fn sources_unicode_file_in_colon_dir(
     playground.file(&file, "echo foo")?;
 
     let cmd = format!("source-env {quote}{file}{quote}");
-    test().cwd(playground.path()).run(&cmd).expect_value_eq("foo")
+    test()
+        .cwd(playground.path())
+        .run(&cmd)
+        .expect_value_eq("foo")
 }
 
 #[ignore]
@@ -78,14 +89,20 @@ fn can_source_dynamic_path(playground: Playground) -> Result {
     playground.file(foo_file, "echo foo")?;
 
     let cmd = format!("let file = `{foo_file}`; source-env $file");
-    test().cwd(playground.path()).run(&cmd).expect_value_eq("foo")
+    test()
+        .cwd(playground.path())
+        .run(&cmd)
+        .expect_value_eq("foo")
 }
 
 #[test]
 fn source_env_eval_export_env(playground: Playground) -> Result {
-    playground.file("spam.nu", indoc::indoc!{"
+    playground.file(
+        "spam.nu",
+        indoc::indoc! {"
         export-env { $env.FOO = 'foo' }
-    "})?;
+    "},
+    )?;
 
     test()
         .cwd(playground.path())
@@ -95,9 +112,12 @@ fn source_env_eval_export_env(playground: Playground) -> Result {
 
 #[test]
 fn source_env_eval_export_env_hide(playground: Playground) -> Result {
-    playground.file("spam.nu", indoc::indoc!{"
+    playground.file(
+        "spam.nu",
+        indoc::indoc! {"
         export-env { hide-env FOO }
-    "})?;
+    "},
+    )?;
 
     test()
         .cwd(playground.path())
@@ -166,10 +186,13 @@ fn source_env_dont_cd_overlay() -> Result {
 
 #[test]
 fn source_env_is_scoped(playground: Playground) -> Result {
-    playground.file("spam.nu", indoc::indoc!{"
+    playground.file(
+        "spam.nu",
+        indoc::indoc! {"
         def no-name-similar-to-this [] { 'no-name-similar-to-this' }
         alias nor-similar-to-this = echo 'nor-similar-to-this'
-    "})?;
+    "},
+    )?;
 
     let err = test()
         .cwd(playground.path())
@@ -196,9 +219,12 @@ fn source_env_is_scoped(playground: Playground) -> Result {
 
 #[test]
 fn source_env_const_file(playground: Playground) -> Result {
-    playground.file("spam.nu", indoc::indoc!{"
+    playground.file(
+        "spam.nu",
+        indoc::indoc! {"
         $env.FOO = 'foo'
-    "})?;
+    "},
+    )?;
 
     test()
         .cwd(playground.path())
@@ -218,7 +244,9 @@ fn source_respects_early_return() -> Result {
 fn source_after_use_should_not_error(playground: Playground) -> Result {
     playground.empty_file("spam.nu")?;
 
-    let () = test().cwd(playground.path()).run("use spam.nu; source spam.nu")?;
+    let () = test()
+        .cwd(playground.path())
+        .run("use spam.nu; source spam.nu")?;
     Ok(())
 }
 
@@ -226,7 +254,8 @@ fn source_after_use_should_not_error(playground: Playground) -> Result {
 fn use_after_source_should_not_error(playground: Playground) -> Result {
     playground.empty_file("spam.nu")?;
 
-    let () = test().cwd(playground.path()).run("source spam.nu; use spam.nu")?;
+    let () = test()
+        .cwd(playground.path())
+        .run("source spam.nu; use spam.nu")?;
     Ok(())
 }
-

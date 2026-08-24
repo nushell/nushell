@@ -119,8 +119,7 @@ fn save_append_will_not_overwrite_content(playground: Playground) -> Result {
     let expected_file = playground.path().join("new-file.txt");
 
     {
-        let mut file =
-            std::fs::File::create(&expected_file).expect("Failed to create test file");
+        let mut file = std::fs::File::create(&expected_file).expect("Failed to create test file");
         file.write_all("hello ".as_bytes())
             .expect("Failed to write to test file");
         file.flush().expect("Failed to flush io")
@@ -657,9 +656,9 @@ fn force_save_to_dir() -> Result {
 fn save_table_to_csv_with_explicit_columns(playground: Playground) -> Result {
     let expected_file = playground.path().join("test.csv");
 
-    let () = test().cwd(dirs.root()).run(
-        "[[a b]; [1 2] [3 4]] | to csv --columns [a b] | save -f save_table_csv/test.csv",
-    )?;
+    let () = test()
+        .cwd(dirs.root())
+        .run("[[a b]; [1 2] [3 4]] | to csv --columns [a b] | save -f save_table_csv/test.csv")?;
 
     let actual = fs::read_to_string(expected_file)?;
     assert!(actual.contains("a,b"));
@@ -718,9 +717,9 @@ fn save_streaming_list_stream_to_csv(playground: Playground) -> Result {
     // the materialized table path, ensuring rows are streamed to disk progressively.
     let expected_file = playground.path().join("test.csv");
 
-    let () = test()
-        .cwd(dirs.root())
-        .run("1..5 | each { |i| {a: $i, b: ($i * 10)} } | to csv | save -f save_streaming_csv/test.csv")?;
+    let () = test().cwd(dirs.root()).run(
+        "1..5 | each { |i| {a: $i, b: ($i * 10)} } | to csv | save -f save_streaming_csv/test.csv",
+    )?;
 
     let actual = fs::read_to_string(expected_file)?;
     assert_contains("a,b", &actual);
@@ -728,4 +727,3 @@ fn save_streaming_list_stream_to_csv(playground: Playground) -> Result {
     assert_contains("5,50", &actual);
     Ok(())
 }
-

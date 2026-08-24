@@ -6,7 +6,9 @@ use nu_test_support::{
 #[test]
 #[deps(NU_PLUGIN_FORMATS)]
 fn infers_types(playground: Playground) -> Result {
-    playground.file("calendar.ics", indoc::indoc!{"
+    playground.file(
+        "calendar.ics",
+        indoc::indoc! {"
         BEGIN:VCALENDAR
         PRODID:-//Google Inc//Google Calendar 70.9054//EN
         VERSION:2.0
@@ -39,7 +41,8 @@ fn infers_types(playground: Playground) -> Result {
         TRANSP:OPAQUE
         END:VEVENT
         END:VCALENDAR
-    "})?;
+    "},
+    )?;
 
     test()
         .cwd(playground.path())
@@ -50,7 +53,9 @@ fn infers_types(playground: Playground) -> Result {
 #[test]
 #[deps(NU_PLUGIN_FORMATS)]
 fn from_ics_text_to_table(playground: Playground) -> Result {
-    playground.file("calendar.txt", indoc::indoc!{"
+    playground.file(
+        "calendar.txt",
+        indoc::indoc! {"
         BEGIN:VCALENDAR
         BEGIN:VEVENT
         DTSTART:20171007T200000Z
@@ -67,7 +72,8 @@ fn from_ics_text_to_table(playground: Playground) -> Result {
         TRANSP:TRANSPARENT
         END:VEVENT
         END:VCALENDAR
-    "})?;
+    "},
+    )?;
 
     let code = r#"
         open calendar.txt
@@ -125,4 +131,3 @@ fn from_ics_text_with_linebreak_to_table(playground: Playground) -> Result {
         .run(code)
         .expect_value_eq("The Restaurant near the Belltower")
 }
-

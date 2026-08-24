@@ -9,11 +9,10 @@ fn lists_regular_files(playground: Playground) -> Result {
     playground.empty_file("jt.txt")?;
     playground.empty_file("yehuda.txt")?;
 
-    test().cwd(playground.path()).run("(ls).name").expect_value_eq([
-        "andres.txt",
-        "jt.txt",
-        "yehuda.txt",
-    ])
+    test()
+        .cwd(playground.path())
+        .run("(ls).name")
+        .expect_value_eq(["andres.txt", "jt.txt", "yehuda.txt"])
 }
 
 #[test]
@@ -557,20 +556,20 @@ fn list_directory_contains_invalid_utf8(playground: Playground) -> Result {
     use std::os::unix::ffi::OsStrExt;
 
     let v: [u8; 4] = [7, 196, 144, 188];
-        let s = OsStr::from_bytes(&v);
+    let s = OsStr::from_bytes(&v);
 
-        let cwd = playground.path();
-        let path = cwd.join(s);
+    let cwd = playground.path();
+    let path = cwd.join(s);
 
-        std::fs::create_dir_all(path).expect("failed to create directory");
+    std::fs::create_dir_all(path).expect("failed to create directory");
 
-        // unfortunately `ls` prints warning on stdout for this
-        let result: CompleteResult = test().cwd(cwd).run("nu -n -c 'ls' | complete")?;
+    // unfortunately `ls` prints warning on stdout for this
+    let result: CompleteResult = test().cwd(cwd).run("nu -n -c 'ls' | complete")?;
 
-        assert_contains("warning: get non-utf8 filename", result.stdout);
-        assert_contains("No matches found for", result.stderr);
+    assert_contains("warning: get non-utf8 filename", result.stdout);
+    assert_contains("No matches found for", result.stderr);
 
-        Ok(())
+    Ok(())
 }
 
 #[test]
@@ -756,7 +755,8 @@ fn list_symlink_with_full_path(playground: Playground) -> Result {
     #[cfg(unix)]
     let _ = std::os::unix::fs::symlink("test_file.txt", playground.path().join("test_link1"));
     #[cfg(windows)]
-    let _ = std::os::windows::fs::symlink_file("test_file.txt", playground.path().join("test_link1"));
+    let _ =
+        std::os::windows::fs::symlink_file("test_file.txt", playground.path().join("test_link1"));
 
     test()
         .cwd(playground.path())
@@ -913,7 +913,7 @@ fn ls_literal_empty_directory(playground: Playground) -> Result {
         .cwd(dirs.root())
         .run("ls ls_literal_empty_dir_dc/emptydir | length")
         .expect_value_eq(0)
-        .expect("ls literal empty directory should not error with dc-glob");;
+        .expect("ls literal empty directory should not error with dc-glob");
 
     Ok(())
 }
@@ -1023,4 +1023,3 @@ fn ls_with_file_named_star_lists_all_entries() -> Result {
         Ok(())
     })
 }
-

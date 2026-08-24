@@ -64,4 +64,3 @@ fn self_path_repl() -> Result {
     assert_contains("nu::shell::io::file_not_found", err.to_string());
     Ok(())
 }
-

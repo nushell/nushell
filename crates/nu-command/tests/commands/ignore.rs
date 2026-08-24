@@ -121,4 +121,3 @@ fn ignore_stderr_suppresses_internal_errors() -> Result {
         .run("ls this_path_does_not_exist_12345 | ignore --stderr")
         .expect_value_eq(())
 }
-

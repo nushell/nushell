@@ -106,4 +106,3 @@ fn skips_every_third_row(playground: Playground) -> Result {
         .run("ls | get name | every 3 --skip")
         .expect_value_eq(["arepas.clu", "los.txt", "tres.txt"])
 }
-

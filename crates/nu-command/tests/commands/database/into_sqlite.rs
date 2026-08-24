@@ -370,9 +370,7 @@ fn into_sqlite_big_insert(playground: Playground) -> Result {
                     optional: false,
                     casing: Casing::Sensitive,
                 }],
-                Box::new(|dateval| {
-                    Value::string(dateval.coerce_string().unwrap(), dateval.span())
-                }),
+                Box::new(|dateval| Value::string(dateval.coerce_string().unwrap(), dateval.span())),
             )
             .unwrap();
 
@@ -569,4 +567,3 @@ fn test_auto_conversion(playground: Playground) -> Result {
         .run("open filename.db | get my_table.0 | to nuon --raw")
         .expect_value_eq(raw)
 }
-

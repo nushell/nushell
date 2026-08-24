@@ -58,10 +58,13 @@ fn from_string() -> Result {
 
 #[test]
 fn from_filename(playground: Playground) -> Result {
-    playground.file("sample.toml", indoc::indoc!{r#"
+    playground.file(
+        "sample.toml",
+        indoc::indoc! {r#"
         [dependency]
         name = "nu"
-    "#})?;
+    "#},
+    )?;
 
     let code = "ls sample.toml | get name | into string | get 0";
     test()
@@ -72,15 +75,21 @@ fn from_filename(playground: Playground) -> Result {
 
 #[test]
 fn from_filesize(playground: Playground) -> Result {
-    playground.file("sample.toml", indoc::indoc!{r#"
+    playground.file(
+        "sample.toml",
+        indoc::indoc! {r#"
         [dependency]
         name = "nu"
-    "#})?;
+    "#},
+    )?;
 
     let code = "ls sample.toml | get size | into string | get 0";
     let expected = if cfg!(windows) { "27 B" } else { "25 B" };
 
-    test().cwd(playground.path()).run(code).expect_value_eq(expected)
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq(expected)
 }
 
 #[test]
@@ -241,4 +250,3 @@ fn int_into_string_decimals_respects_system_locale_en() -> Result {
 
     test().run(code).expect_value_eq("10.0")
 }
-

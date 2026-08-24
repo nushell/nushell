@@ -69,4 +69,3 @@ fn respects_cwd() -> Result {
             .expect_value_eq("file")
     })
 }
-

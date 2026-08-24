@@ -177,7 +177,10 @@ fn deep_copies_with_recursive_flag(#[case] progress_flag: &str) -> Result {
 #[case::with_progress("--progress")]
 #[nu_test_support::test]
 #[deps(NU)]
-fn copies_using_path_with_wildcard(#[ignore] playground: Playground, #[case] progress_flag: &str) -> Result {
+fn copies_using_path_with_wildcard(
+    #[ignore] playground: Playground,
+    #[case] progress_flag: &str,
+) -> Result {
     // Get the hash of the file content to check integrity after copy.
     let src_hashes: Vec<String> = test()
         .cwd(dirs.formats())
@@ -226,9 +229,9 @@ fn copies_using_path_with_wildcard(#[ignore] playground: Playground, #[case] pro
 #[deps(NU)]
 fn copies_using_a_glob(#[ignore] playground: Playground, #[case] progress_flag: &str) -> Result {
     // Get the hash of the file content to check integrity after copy.
-    let src_hashes: Vec<String> = test()
-        .cwd(dirs.formats())
-        .run("ls * | where type == file | each { |file| open --raw $file.name | to text | hash md5 }")?;
+    let src_hashes: Vec<String> = test().cwd(dirs.formats()).run(
+        "ls * | where type == file | each { |file| open --raw $file.name | to text | hash md5 }",
+    )?;
 
     let code = format!("cp {progress_flag} -r * {}", dirs.test().display());
     let result: CompleteResult = test().cwd(dirs.formats()).run_with_data(RUNNER, code)?;
@@ -355,7 +358,10 @@ fn copy_file_and_dir_from_two_parents_up_using_multiple_dots_to_current_dir_recu
 #[case::with_progress("--progress")]
 #[nu_test_support::test]
 #[deps(NU)]
-fn copy_to_non_existing_dir(#[ignore] playground: Playground, #[case] progress_flag: &str) -> Result {
+fn copy_to_non_existing_dir(
+    #[ignore] playground: Playground,
+    #[case] progress_flag: &str,
+) -> Result {
     playground.empty_file("empty_file")?;
 
     let code = format!("cp {progress_flag} empty_file ~/not_a_dir{MAIN_SEPARATOR}");
@@ -505,7 +511,10 @@ fn copy_ignores_ansi(#[ignore] playground: Playground, #[case] progress_flag: &s
 #[case::with_progress("--progress")]
 #[nu_test_support::test]
 #[deps(NU)]
-fn copy_file_not_exists_dst(#[ignore] playground: Playground, #[case] progress_flag: &str) -> Result {
+fn copy_file_not_exists_dst(
+    #[ignore] playground: Playground,
+    #[case] progress_flag: &str,
+) -> Result {
     playground.empty_file("valid.txt")?;
     let source = playground.path().join("valid.txt");
     let target = playground.path().join("invalid_dir").join("invalid_dir1");
@@ -529,7 +538,10 @@ fn copy_file_not_exists_dst(#[ignore] playground: Playground, #[case] progress_f
 #[ignore] //FIXME: This test needs to be re-enabled once uu_cp has fixed the bug
 #[nu_test_support::test]
 #[deps(NU)]
-fn copy_file_with_read_permission(#[ignore] playground: Playground, #[case] progress_flag: &str) -> Result {
+fn copy_file_with_read_permission(
+    #[ignore] playground: Playground,
+    #[case] progress_flag: &str,
+) -> Result {
     playground.empty_file("valid.txt")?;
     playground.readonly_file("invalid_prem.txt")?;
 
@@ -857,16 +869,18 @@ fn test_cp_debug_default(playground: Playground) -> Result {
     }
 
     #[cfg(target_os = "freebsd")]
-    if !actual.stdout.contains(
-        "copy offload: unsupported, reflink: unsupported, sparse detection: unsupported",
-    ) {
+    if !actual
+        .stdout
+        .contains("copy offload: unsupported, reflink: unsupported, sparse detection: unsupported")
+    {
         panic!("Failure: stdout was \n{}", actual.stdout);
     }
 
     #[cfg(windows)]
-    if !actual.stdout.contains(
-        "copy offload: unsupported, reflink: unsupported, sparse detection: unsupported",
-    ) {
+    if !actual
+        .stdout
+        .contains("copy offload: unsupported, reflink: unsupported, sparse detection: unsupported")
+    {
         panic!("Failure: stdout was \n{}", actual.stdout);
     }
     Ok(())
@@ -937,11 +951,11 @@ fn test_cp_destination_after_cd(playground: Playground) -> Result {
 #[case("'a]?c'")]
 #[cfg_attr(windows, ignore)]
 #[case("'a*.?c'")]
-fn copies_files_with_glob_metachars(#[ignore] playground: Playground, #[case] src_name: &str) -> Result {
-    playground.file(
-        src_name,
-        "What is the sound of one hand clapping?",
-    )?;
+fn copies_files_with_glob_metachars(
+    #[ignore] playground: Playground,
+    #[case] src_name: &str,
+) -> Result {
+    playground.file(src_name, "What is the sound of one hand clapping?")?;
 
     let src = playground.path().join(src_name);
 
@@ -962,11 +976,11 @@ fn copies_files_with_glob_metachars(#[ignore] playground: Playground, #[case] sr
 #[case("'a]?c'")]
 #[cfg_attr(windows, ignore)]
 #[case("'a*.?c'")]
-fn copies_files_with_glob_metachars_when_input_are_variables(#[ignore] playground: Playground, #[case] src_name: &str) -> Result {
-    playground.file(
-        src_name,
-        "What is the sound of one hand clapping?",
-    )?;
+fn copies_files_with_glob_metachars_when_input_are_variables(
+    #[ignore] playground: Playground,
+    #[case] src_name: &str,
+) -> Result {
+    playground.file(src_name, "What is the sound of one hand clapping?")?;
 
     let src = playground.path().join(src_name);
 
@@ -1123,7 +1137,10 @@ fn cp_with_tilde() -> Result {
 #[case::with_progress("--progress")]
 #[nu_test_support::test]
 #[deps(NU)]
-fn copy_file_with_update_flag(#[ignore] playground: Playground, #[case] progress_flag: &str) -> Result {
+fn copy_file_with_update_flag(
+    #[ignore] playground: Playground,
+    #[case] progress_flag: &str,
+) -> Result {
     playground.empty_file("valid.txt")?;
     playground.file("newer_valid.txt", "body")?;
 
@@ -1206,4 +1223,3 @@ fn cp_literal_directory_with_recursive_flag() -> Result {
         Ok(())
     })
 }
-

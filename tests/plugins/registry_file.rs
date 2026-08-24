@@ -113,7 +113,10 @@ fn plugin_add_in_nu_plugin_dirs_env(playground: Playground) -> Result {
 #[case::nested("nested/dirs/test-plugin-file.msgpackz")]
 #[nu_test_support::test]
 #[deps(NU_PLUGIN_EXAMPLE)]
-fn plugin_add_to_custom_path(#[ignore] playground: Playground, #[case] plugin_config_path_tail: &str) -> Result {
+fn plugin_add_to_custom_path(
+    #[ignore] playground: Playground,
+    #[case] plugin_config_path_tail: &str,
+) -> Result {
     let plugin_config = playground.path().join(plugin_config_path_tail);
     let code = format!(
         "
@@ -173,7 +176,10 @@ fn plugin_rm_not_found(playground: Playground) -> Result {
 #[case::by_filename(NU_PLUGIN_EXAMPLE.path().display().to_string())]
 #[test]
 #[deps(NU, NU_PLUGIN_EXAMPLE, NU_PLUGIN_INC)]
-fn plugin_rm_from_custom_path(#[ignore] playground: Playground, #[case] plugin_to_remove: String) -> Result {
+fn plugin_rm_from_custom_path(
+    #[ignore] playground: Playground,
+    #[case] plugin_to_remove: String,
+) -> Result {
     let configs = EmptyConfigs::new(playground.path());
     let mut tester = test();
 
@@ -364,4 +370,3 @@ fn plugin_add_then_use_with_custom_path(playground: Playground) -> Result {
         .run_with_data(&nu, plugin_use)
         .expect_value_eq("[example]")
 }
-

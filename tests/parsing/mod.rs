@@ -63,10 +63,7 @@ fn source_const_in_bareword_interpolation(playground: Playground) -> Result {
 // Test edge cases for paths with parentheses
 #[test]
 fn source_path_with_literal_parens(playground: Playground) -> Result {
-    playground.file(
-        "file(with)parens.nu",
-        "'literal parens'",
-    )?;
+    playground.file("file(with)parens.nu", "'literal parens'")?;
 
     // Quoted path with literal parentheses should work
     test()
@@ -98,10 +95,7 @@ fn source_path_interpolation_vs_literal(playground: Playground) -> Result {
 #[test]
 fn source_path_with_nested_parens(playground: Playground) -> Result {
     let os_name = std::env::consts::OS;
-    playground.file(
-        &format!("test_{}_nested.nu", os_name),
-        "'nested parens'",
-    )?;
+    playground.file(&format!("test_{}_nested.nu", os_name), "'nested parens'")?;
 
     // Nested parentheses in interpolation
     test()
@@ -112,10 +106,7 @@ fn source_path_with_nested_parens(playground: Playground) -> Result {
 
 #[test]
 fn source_path_single_quote_no_interpolation(playground: Playground) -> Result {
-    playground.file(
-        "file($nu.os-info.name).nu",
-        "'no interpolation'",
-    )?;
+    playground.file("file($nu.os-info.name).nu", "'no interpolation'")?;
 
     // Single quotes should prevent interpolation
     test()
@@ -126,10 +117,7 @@ fn source_path_single_quote_no_interpolation(playground: Playground) -> Result {
 
 #[test]
 fn source_path_backtick_no_interpolation(playground: Playground) -> Result {
-    playground.file(
-        "file($nu.os-info.name).nu",
-        "'backtick no interp'",
-    )?;
+    playground.file("file($nu.os-info.name).nu", "'backtick no interp'")?;
 
     // Backticks should also prevent interpolation
     test()
@@ -141,10 +129,7 @@ fn source_path_backtick_no_interpolation(playground: Playground) -> Result {
 #[test]
 fn source_path_dollar_interpolation(playground: Playground) -> Result {
     let os_name = std::env::consts::OS;
-    playground.file(
-        &format!("test_{}.nu", os_name),
-        "'dollar interpolation'",
-    )?;
+    playground.file(&format!("test_{}.nu", os_name), "'dollar interpolation'")?;
 
     // Dollar prefix should enable interpolation in quotes
     test()
@@ -157,10 +142,7 @@ fn source_path_dollar_interpolation(playground: Playground) -> Result {
 fn source_path_mixed_parens_and_quotes(playground: Playground) -> Result {
     playground.file("test(1).nu", "'test 1'")?;
     let os_name = std::env::consts::OS;
-    playground.file(
-        &format!("test_{}.nu", os_name),
-        "'test interpolated'",
-    )?;
+    playground.file(&format!("test_{}.nu", os_name), "'test interpolated'")?;
 
     // Literal parentheses in quoted string
     test()
@@ -221,10 +203,7 @@ fn source_path_multiple_interpolations(playground: Playground) -> Result {
 
 #[test]
 fn source_path_interpolation_with_spaces(playground: Playground) -> Result {
-    playground.file(
-        "file with spaces.nu",
-        "'spaces in name'",
-    )?;
+    playground.file("file with spaces.nu", "'spaces in name'")?;
 
     // Spaces in filename require quotes
     test()
@@ -235,10 +214,7 @@ fn source_path_interpolation_with_spaces(playground: Playground) -> Result {
 
 #[test]
 fn source_path_raw_string_no_interpolation(playground: Playground) -> Result {
-    playground.file(
-        "file($nu.os-info.name).nu",
-        "'raw string'",
-    )?;
+    playground.file("file($nu.os-info.name).nu", "'raw string'")?;
 
     // Raw strings should not interpolate
     test()
@@ -340,7 +316,9 @@ fn predecl_signature_single_inp_out_type(playground: Playground) -> Result {
         ",
     )?;
 
-    let result: CompleteResult = test().cwd(playground.path()).run("nu spam1.nu | complete")?;
+    let result: CompleteResult = test()
+        .cwd(playground.path())
+        .run("nu spam1.nu | complete")?;
     assert_eq!(result.stdout.trim(), "foo");
     Ok(())
 }
@@ -349,18 +327,20 @@ fn predecl_signature_single_inp_out_type(playground: Playground) -> Result {
 #[deps(NU)]
 fn predecl_signature_multiple_inp_out_types(playground: Playground) -> Result {
     playground.file(
-            "spam2.nu",
-            "
+        "spam2.nu",
+        "
                 def main [] { foo }
                 
                 def foo []: [nothing -> string, string -> string] { 'foo' }
             ",
-        )?;
+    )?;
 
-        let result: CompleteResult = test().cwd(playground.path()).run("nu spam2.nu | complete")?;
-        assert_eq!(result.stdout.trim(), "foo");
+    let result: CompleteResult = test()
+        .cwd(playground.path())
+        .run("nu spam2.nu | complete")?;
+    assert_eq!(result.stdout.trim(), "foo");
 
-        Ok(())
+    Ok(())
 }
 
 #[test]
@@ -581,54 +561,72 @@ fn wacky_range_unmatched_paren() -> Result {
 #[test]
 #[deps(NU)]
 fn issue_16769_recursive_module_command_variable_in_block(playground: Playground) -> Result {
-    playground.file("b.nu", indoc::indoc!{"
+    playground.file(
+        "b.nu",
+        indoc::indoc! {"
             export def f [] { each {f} }
-        "})?;
-        playground.file("a.nu", indoc::indoc!{"
+        "},
+    )?;
+    playground.file(
+        "a.nu",
+        indoc::indoc! {"
             use b.nu *
             let i = [];
             if true { $i | f }
-        "})?;
+        "},
+    )?;
 
-        let result: CompleteResult = test().cwd(playground.path()).run("nu a.nu | complete")?;
-        assert_eq!(result.exit_code, 0);
-        assert_eq!(result.stderr, "");
+    let result: CompleteResult = test().cwd(playground.path()).run("nu a.nu | complete")?;
+    assert_eq!(result.exit_code, 0);
+    assert_eq!(result.stderr, "");
 
-        Ok(())
+    Ok(())
 }
 
 #[test]
 #[deps(NU)]
 fn issue_16769_recursive_module_command_direct_recursion_closure(playground: Playground) -> Result {
-    playground.file("b.nu", indoc::indoc!{"
+    playground.file(
+        "b.nu",
+        indoc::indoc! {"
             export def f [] { f }
-        "})?;
-        playground.file("a.nu", indoc::indoc!{"
+        "},
+    )?;
+    playground.file(
+        "a.nu",
+        indoc::indoc! {"
             use b.nu f
             { $in | f }
-        "})?;
+        "},
+    )?;
 
-        let result: CompleteResult = test().cwd(playground.path()).run("nu a.nu | complete")?;
-        assert_eq!(result.exit_code, 0);
-        assert_eq!(result.stderr, "");
+    let result: CompleteResult = test().cwd(playground.path()).run("nu a.nu | complete")?;
+    assert_eq!(result.exit_code, 0);
+    assert_eq!(result.stderr, "");
 
-        Ok(())
+    Ok(())
 }
 
 #[test]
 fn issue_16769_recursive_module_command_source_def(playground: Playground) -> Result {
-    playground.file("b.nu", indoc::indoc!{"
+    playground.file(
+        "b.nu",
+        indoc::indoc! {"
             export def f [] { each {f} }
-        "})?;
-        playground.file("a.nu", indoc::indoc!{"
+        "},
+    )?;
+    playground.file(
+        "a.nu",
+        indoc::indoc! {"
             use b.nu f
             def a [] { $in | f }
-        "})?;
+        "},
+    )?;
 
-        test()
-            .cwd(playground.path())
-            .run("source a.nu; [] | f")
-            .expect_value_eq([(); 0])
+    test()
+        .cwd(playground.path())
+        .run("source a.nu; [] | f")
+        .expect_value_eq([(); 0])
 }
 
 #[test]
@@ -651,4 +649,3 @@ fn issue_16209_mutual_recursion_closure_in_variable() -> Result {
         .run(code)
         .expect_value_eq("record<first: closure, second: closure, third: closure>")
 }
-

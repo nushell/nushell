@@ -25,7 +25,9 @@ fn filesystem_change_from_current_directory_using_relative_path(playground: Play
 }
 
 #[test]
-fn filesystem_change_from_current_directory_using_relative_path_with_trailing_slash(playground: Playground) -> Result {
+fn filesystem_change_from_current_directory_using_relative_path_with_trailing_slash(
+    playground: Playground,
+) -> Result {
     // Intentionally not using correct path sep because this should work on Windows
     test()
         .cwd(dirs.root())
@@ -42,7 +44,9 @@ fn filesystem_change_from_current_directory_using_absolute_path(playground: Play
 }
 
 #[test]
-fn filesystem_change_from_current_directory_using_absolute_path_with_trailing_slash(playground: Playground) -> Result {
+fn filesystem_change_from_current_directory_using_absolute_path_with_trailing_slash(
+    playground: Playground,
+) -> Result {
     let mut dir = dirs.formats().to_string_lossy().into_owned();
     // Keep this portable: Windows expects `\` while Unix expects `/`.
     if !dir.ends_with(std::path::MAIN_SEPARATOR) {
@@ -231,7 +235,10 @@ fn cd_permission_denied_folder(playground: Playground) -> Result {
         icacls banned /deny BUILTIN\Administrators:F
         cd banned
     ";
-    let err = test().cwd(playground.path()).run(code).expect_shell_error()?;
+    let err = test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_shell_error()?;
     assert_contains("Folder is not able to read", err.to_string());
     Ok(())
 }
@@ -268,4 +275,3 @@ fn pwd_recovery() -> Result {
 
     test().run_with_data(code, ctx).expect_value_eq("/")
 }
-

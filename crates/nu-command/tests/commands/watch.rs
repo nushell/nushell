@@ -135,4 +135,3 @@ fn watch_stream_outside() -> Result {
         tester.run(code).expect_value_eq(expected)
     })
 }
-

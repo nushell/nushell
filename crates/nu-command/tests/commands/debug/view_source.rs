@@ -9,9 +9,12 @@ fn view_source_returns_string() -> Result {
 
 #[test]
 fn datasource_filepath_metadata(playground: Playground) -> Result {
-    playground.file("mdata.nu", indoc::indoc!{"
+    playground.file(
+        "mdata.nu",
+        indoc::indoc! {"
         def foo [] { echo hi }
-    "})?;
+    "},
+    )?;
 
     let code = "
         source mdata.nu
@@ -23,4 +26,3 @@ fn datasource_filepath_metadata(playground: Playground) -> Result {
     assert_contains("mdata.nu", outcome);
     Ok(())
 }
-

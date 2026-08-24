@@ -3447,7 +3447,7 @@ fn exact_match_case_insensitive(playground: Playground) {
             folder(dir.join("aaa").join("foo")).as_str(),
         ],
         &completer.complete_blocking(&target, target.len()),
-    );;
+    );
 }
 
 #[rstest]

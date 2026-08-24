@@ -68,9 +68,8 @@ fn sqlite_history_select_projection_preserves_order(playground: Playground) -> R
     let mut tester = test().with_sqlite_history(config_home);
     let () = tester.run(IMPORT_THREE_HISTORY_RECORDS)?;
 
-    let command_only: Vec<String> = tester.run(
-        "history | where command =~ 'echo (one|two|three)' | select command | get command",
-    )?;
+    let command_only: Vec<String> = tester
+        .run("history | where command =~ 'echo (one|two|three)' | select command | get command")?;
 
     let with_timestamp: Vec<String> = tester.run(
         "history | where command =~ 'echo (one|two|three)' | select start_timestamp command | get command",
@@ -79,4 +78,3 @@ fn sqlite_history_select_projection_preserves_order(playground: Playground) -> R
     assert_eq!(command_only, with_timestamp);
     Ok(())
 }
-

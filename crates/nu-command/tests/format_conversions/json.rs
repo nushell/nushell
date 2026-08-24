@@ -27,7 +27,9 @@ fn table_to_json_float_doesnt_become_int() -> Result {
 
 #[test]
 fn from_json_text_to_table(playground: Playground) -> Result {
-    playground.file("katz.txt", indoc::indoc!{r#"
+    playground.file(
+        "katz.txt",
+        indoc::indoc! {r#"
         {
             "katz": [
                 {"name":   "Yehuda", "rusty_luck": 1},
@@ -36,7 +38,8 @@ fn from_json_text_to_table(playground: Playground) -> Result {
                 {"name":"GorbyPuff", "rusty_luck": 1}
             ]
         }
-    "#})?;
+    "#},
+    )?;
 
     let code = "
         open katz.txt
@@ -51,7 +54,9 @@ fn from_json_text_to_table(playground: Playground) -> Result {
 
 #[test]
 fn from_json_text_to_table_strict(playground: Playground) -> Result {
-    playground.file("katz.txt", indoc::indoc!{r#"
+    playground.file(
+        "katz.txt",
+        indoc::indoc! {r#"
         {
             "katz": [
                 {"name":   "Yehuda", "rusty_luck": 1},
@@ -60,7 +65,8 @@ fn from_json_text_to_table_strict(playground: Playground) -> Result {
                 {"name":"GorbyPuff", "rusty_luck": 1}
             ]
         }
-    "#})?;
+    "#},
+    )?;
 
     let code = "
         open katz.txt
@@ -75,12 +81,15 @@ fn from_json_text_to_table_strict(playground: Playground) -> Result {
 
 #[test]
 fn from_json_text_recognizing_objects_independently_to_table(playground: Playground) -> Result {
-    playground.file("katz.txt", indoc::indoc!{r#"
+    playground.file(
+        "katz.txt",
+        indoc::indoc! {r#"
         {"name":   "Yehuda", "rusty_luck": 1}
         {"name": "JT", "rusty_luck": 1}
         {"name":   "Andres", "rusty_luck": 1}
         {"name":"GorbyPuff", "rusty_luck": 3}
-    "#})?;
+    "#},
+    )?;
 
     let code = r#"
         open katz.txt
@@ -94,12 +103,15 @@ fn from_json_text_recognizing_objects_independently_to_table(playground: Playgro
 
 #[test]
 fn from_json_text_objects_is_stream(playground: Playground) -> Result {
-    playground.file("katz.txt", indoc::indoc!{r#"
+    playground.file(
+        "katz.txt",
+        indoc::indoc! {r#"
         {"name":   "Yehuda", "rusty_luck": 1}
         {"name": "JT", "rusty_luck": 1}
         {"name":   "Andres", "rusty_luck": 1}
         {"name":"GorbyPuff", "rusty_luck": 3}
-    "#})?;
+    "#},
+    )?;
 
     let code = "open katz.txt | from json -o";
     let nu_protocol::PipelineData::ListStream(_, _) =
@@ -112,13 +124,18 @@ fn from_json_text_objects_is_stream(playground: Playground) -> Result {
 }
 
 #[test]
-fn from_json_text_recognizing_objects_independently_to_table_strict(playground: Playground) -> Result {
-    playground.file("katz.txt", indoc::indoc!{r#"
+fn from_json_text_recognizing_objects_independently_to_table_strict(
+    playground: Playground,
+) -> Result {
+    playground.file(
+        "katz.txt",
+        indoc::indoc! {r#"
         {"name":   "Yehuda", "rusty_luck": 1}
         {"name": "JT", "rusty_luck": 1}
         {"name":   "Andres", "rusty_luck": 1}
         {"name":"GorbyPuff", "rusty_luck": 3}
-    "#})?;
+    "#},
+    )?;
 
     let code = r#"
         open katz.txt
@@ -132,10 +149,13 @@ fn from_json_text_recognizing_objects_independently_to_table_strict(playground: 
 
 #[test]
 fn table_to_json_text(playground: Playground) -> Result {
-    playground.file("sample.txt", indoc::indoc!{"
+    playground.file(
+        "sample.txt",
+        indoc::indoc! {"
         JonAndrehudaTZ,3
         GorbyPuff,100
-    "})?;
+    "},
+    )?;
 
     let code = r#"
         open sample.txt
@@ -156,10 +176,13 @@ fn table_to_json_text(playground: Playground) -> Result {
 
 #[test]
 fn table_to_json_text_strict(playground: Playground) -> Result {
-    playground.file("sample.txt", indoc::indoc!{"
+    playground.file(
+        "sample.txt",
+        indoc::indoc! {"
         JonAndrehudaTZ,3
         GorbyPuff,100
-    "})?;
+    "},
+    )?;
 
     let code = r#"
         open sample.txt
@@ -328,4 +351,3 @@ fn test_to_json_content_type_metadata() -> Result {
 
     test().run(code).expect_value_eq("application/json")
 }
-

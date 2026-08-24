@@ -821,8 +821,7 @@ mod test {
         let expected = &["[*.txt"];
         assert_eq!(actual, expected);
 
-        let actual =
-            expand_glob("~/foo.txt", cwd, Span::test_data(), Signals::empty()).unwrap();
+        let actual = expand_glob("~/foo.txt", cwd, Span::test_data(), Signals::empty()).unwrap();
         let home = dirs::home_dir().expect("failed to get home dir");
         let expected: Vec<OsString> = vec![home.join("foo.txt").into()];
         assert_eq!(actual, expected);
@@ -955,4 +954,3 @@ mod background_isolation_tests {
         );
     }
 }
-

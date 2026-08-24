@@ -49,7 +49,7 @@ fn expand_unicode_path_no_change(playground: Playground) {
     let mut expected = playground.path().to_owned();
     expected.push("🚒.txt");
 
-    assert_eq!(actual, expected);;
+    assert_eq!(actual, expected);
 }
 
 #[ignore]
@@ -64,7 +64,7 @@ fn expand_path_relative_to(playground: Playground) {
     let mut expected = playground.path().to_owned();
     expected.push("spam.txt");
 
-    assert_eq!(actual, expected);;
+    assert_eq!(actual, expected);
 }
 
 #[test]
@@ -76,7 +76,7 @@ fn expand_unicode_path_relative_to_unicode_path_with_spaces(playground: Playgrou
     let mut expected = playground.path().to_owned();
     expected.push("e-$ èрт🚒♞中片-j/🚒.txt");
 
-    assert_eq!(actual, expected);;
+    assert_eq!(actual, expected);
 }
 
 #[ignore]
@@ -93,7 +93,7 @@ fn expand_absolute_path_relative_to(playground: Playground) {
     let actual = expand_path_with(&absolute_path, "non/existent/directory", true);
     let expected = absolute_path;
 
-    assert_eq!(actual, expected);;
+    assert_eq!(actual, expected);
 }
 
 #[test]
@@ -102,7 +102,7 @@ fn expand_path_with_dot_relative_to(playground: Playground) {
     let mut expected = playground.path().to_owned();
     expected.push("spam.txt");
 
-    assert_eq!(actual, expected);;
+    assert_eq!(actual, expected);
 }
 
 #[test]
@@ -111,7 +111,7 @@ fn expand_path_with_many_dots_relative_to(playground: Playground) {
     let mut expected = playground.path().to_owned();
     expected.push("spam.txt");
 
-    assert_eq!(actual, expected);;
+    assert_eq!(actual, expected);
 }
 
 #[test]
@@ -120,7 +120,7 @@ fn expand_path_with_double_dot_relative_to(playground: Playground) {
     let mut expected = playground.path().to_owned();
     expected.push("spam.txt");
 
-    assert_eq!(actual, expected);;
+    assert_eq!(actual, expected);
 }
 
 #[test]
@@ -129,7 +129,7 @@ fn expand_path_with_many_double_dots_relative_to(playground: Playground) {
     let mut expected = playground.path().to_owned();
     expected.push("spam.txt");
 
-    assert_eq!(actual, expected);;
+    assert_eq!(actual, expected);
 }
 
 #[test]
@@ -138,7 +138,7 @@ fn expand_path_with_3_ndots_relative_to(playground: Playground) {
     let mut expected = playground.path().to_owned();
     expected.push("spam.txt");
 
-    assert_eq!(actual, expected);;
+    assert_eq!(actual, expected);
 }
 
 #[test]
@@ -151,7 +151,7 @@ fn expand_path_with_many_3_ndots_relative_to(playground: Playground) {
     let mut expected = playground.path().to_owned();
     expected.push("spam.txt");
 
-    assert_eq!(actual, expected);;
+    assert_eq!(actual, expected);
 }
 
 #[test]
@@ -160,7 +160,7 @@ fn expand_path_with_4_ndots_relative_to(playground: Playground) {
     let mut expected = playground.path().to_owned();
     expected.push("spam.txt");
 
-    assert_eq!(actual, expected);;
+    assert_eq!(actual, expected);
 }
 
 #[test]
@@ -173,7 +173,7 @@ fn expand_path_with_many_4_ndots_relative_to(playground: Playground) {
     let mut expected = playground.path().to_owned();
     expected.push("spam.txt");
 
-    assert_eq!(actual, expected);;
+    assert_eq!(actual, expected);
 }
 
 #[test]
@@ -189,11 +189,13 @@ fn expand_path_with_way_too_many_dots_relative_to(playground: Playground) {
     let mut expected = playground.path().to_owned();
     expected.push("spam.txt");
 
-    assert_eq!(actual, expected);;
+    assert_eq!(actual, expected);
 }
 
 #[test]
-fn expand_unicode_path_with_way_too_many_dots_relative_to_unicode_path_with_spaces(playground: Playground) {
+fn expand_unicode_path_with_way_too_many_dots_relative_to_unicode_path_with_spaces(
+    playground: Playground,
+) {
     let mut relative_to = playground.path().to_owned();
     relative_to.push("foo/áčěéí  +šř=é/baz/eggs/e-$ èрт🚒♞中片-j/bacon/öäöä öäöä");
 
@@ -201,7 +203,7 @@ fn expand_unicode_path_with_way_too_many_dots_relative_to_unicode_path_with_spac
     let mut expected = playground.path().to_owned();
     expected.push("🚒.txt");
 
-    assert_eq!(actual, expected);;
+    assert_eq!(actual, expected);
 }
 
 #[test]
@@ -224,4 +226,3 @@ fn expand_path_tilde_relative_to() {
     assert!(actual.is_absolute());
     assert!(!actual.starts_with("~"));
 }
-

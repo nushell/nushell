@@ -302,7 +302,9 @@ fn main_script_can_have_subcommands2(playground: Playground) -> Result {
             }"#,
     )?;
 
-    let out: String = test().cwd(playground.path()).run("nu script.nu | to text")?;
+    let out: String = test()
+        .cwd(playground.path())
+        .run("nu script.nu | to text")?;
 
     assert_contains("usage: script.nu", out);
     Ok(())
@@ -332,10 +334,7 @@ fn script_with_newline_arg_does_not_split_commands(playground: Playground) -> Re
 #[deps(NU)]
 fn script_with_hash_arg_is_not_treated_as_comment(playground: Playground) -> Result {
     playground.dir("script_hash_arg")?;
-    playground.file(
-        "script.nu",
-        "def main [color: string] { print $color }",
-    )?;
+    playground.file("script.nu", "def main [color: string] { print $color }")?;
 
     let result: CompleteResult = test()
         .cwd(playground.path())
@@ -427,14 +426,16 @@ fn source_script_with_mut_variable(playground: Playground) -> Result {
 #[deps(NU)]
 fn source_script_can_modify_outer_variable(playground: Playground) -> Result {
     playground.file("inc.nu", "$xxx = ($xxx + 1)")?;
-        playground.file(
-                "counter.nu",
-                "mut xxx = 0\nsource inc.nu\nsource inc.nu\nprint $xxx",
-            )?;
+    playground.file(
+        "counter.nu",
+        "mut xxx = 0\nsource inc.nu\nsource inc.nu\nprint $xxx",
+    )?;
 
-        let out: String = test().cwd(playground.path()).run("nu counter.nu | to text")?;
-        assert_eq!(out, "2");
-        Ok(())
+    let out: String = test()
+        .cwd(playground.path())
+        .run("nu counter.nu | to text")?;
+    assert_eq!(out, "2");
+    Ok(())
 }
 
 #[test]
@@ -492,9 +493,9 @@ fn source_script_with_let_and_main_command(playground: Playground) -> Result {
     // Regression: scripts with both `def main` and `source` should still work
     playground.file("lib.nu", "print $greeting")?;
     playground.file(
-            "app.nu",
-            "let greeting = 'hello'\nsource lib.nu\ndef main [] {}",
-        )?;
+        "app.nu",
+        "let greeting = 'hello'\nsource lib.nu\ndef main [] {}",
+    )?;
 
     let out: String = test().cwd(playground.path()).run("nu app.nu | to text")?;
     assert_eq!(out, "hello");
@@ -517,10 +518,7 @@ fn source_nested_free_variable_visible(playground: Playground) -> Result {
 #[test]
 fn source_env_redeclared_let_variable(playground: Playground) -> Result {
     // Same span-cache / VarId issue as `source` when re-declaring across parse sessions.
-    playground.file(
-        "env.nu",
-        "export-env { $env.FROM_SOURCE = $xxx }",
-    )?;
+    playground.file("env.nu", "export-env { $env.FROM_SOURCE = $xxx }")?;
 
     let mut tester = test().cwd(playground.path());
 
@@ -715,4 +713,3 @@ fn nu_env_pwd_symlink(playground: Playground) {
     let output = String::from_utf8(child_output.stdout).unwrap();
     assert_eq!(output.trim_end(), current_dir.to_str().unwrap());
 }
-

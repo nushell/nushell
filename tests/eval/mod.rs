@@ -188,7 +188,9 @@ fn external_call_redirect_capture() -> Result {
 #[test]
 #[deps(TESTBIN_COCOCO)]
 fn external_call_redirect_file(playground: Playground) -> Result {
-    let () = test().cwd(playground.path()).run("cococo hello out> hello.txt")?;
+    let () = test()
+        .cwd(playground.path())
+        .run("cococo hello out> hello.txt")?;
     let read_contents = std::fs::read_to_string(playground.path().join("hello.txt"))?;
     assert_eq!(read_contents.trim(), "hello");
     Ok(())
@@ -308,26 +310,23 @@ fn early_return_inside_command_does_not_skip_main(playground: Playground) -> Res
     // the `nu` binary because that "skip main" decision lives in file evaluation, not in the
     // in-process engine.
     playground.file(
-            "script.nu",
-            "def helper [] { return 1 }\nhelper\ndef main [] { print 'main ran' }",
-        )?;
+        "script.nu",
+        "def helper [] { return 1 }\nhelper\ndef main [] { print 'main ran' }",
+    )?;
 
-        let result: CompleteResult =
-            test().cwd(playground.path()).run("nu -n script.nu | complete")?;
-        assert_eq!(result.exit_code, 0);
-        assert_contains("main ran", result.stdout);
-        Ok(())
+    let result: CompleteResult = test()
+        .cwd(playground.path())
+        .run("nu -n script.nu | complete")?;
+    assert_eq!(result.exit_code, 0);
+    assert_contains("main ran", result.stdout);
+    Ok(())
 }
 
 #[test]
 fn early_return_in_module_export_env_does_not_abort_caller(playground: Playground) -> Result {
-    playground.file(
-            "mod.nu",
-            "export-env { return }\nexport def hi [] { 'hi' }",
-        )?;
-        test()
-            .cwd(playground.path())
-            .run("def foo [] { use mod.nu *; hi }; foo")
-            .expect_value_eq("hi")
+    playground.file("mod.nu", "export-env { return }\nexport def hi [] { 'hi' }")?;
+    test()
+        .cwd(playground.path())
+        .run("def foo [] { use mod.nu *; hi }; foo")
+        .expect_value_eq("hi")
 }
-

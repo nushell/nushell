@@ -3,7 +3,9 @@ use nu_test_support::prelude::*;
 
 #[test]
 fn creates_directory(playground: Playground) -> Result {
-    let () = test().cwd(playground.path()).run("mkdir my_new_directory")?;
+    let () = test()
+        .cwd(playground.path())
+        .run("mkdir my_new_directory")?;
 
     let expected = playground.path().join("my_new_directory");
 
@@ -13,7 +15,9 @@ fn creates_directory(playground: Playground) -> Result {
 
 #[test]
 fn accepts_and_creates_directories(playground: Playground) -> Result {
-    let () = test().cwd(playground.path()).run("mkdir dir_1 dir_2 dir_3")?;
+    let () = test()
+        .cwd(playground.path())
+        .run("mkdir dir_1 dir_2 dir_3")?;
 
     assert!(dirs.test().join("dir_1").is_dir());
     assert!(dirs.test().join("dir_2").is_dir());
@@ -115,7 +119,9 @@ fn mkdir_umask_permission(playground: Playground) -> Result {
 
     // Serial: process umask is global; parallel tests that call get_umask/mkdir
     // (uu_mkdir briefly sets umask to 0) can race this assertion.
-    let () = test().cwd(playground.path()).run("mkdir test_umask_permission")?;
+    let () = test()
+        .cwd(playground.path())
+        .run("mkdir test_umask_permission")?;
     let actual = fs::metadata(playground.path().join("test_umask_permission"))
         .unwrap()
         .permissions()
@@ -138,7 +144,9 @@ fn mkdir_with_tilde(playground: Playground) -> Result {
     assert!(dirs.test().join("~tilde").is_dir());
 
     // pass variable
-    let () = test().cwd(playground.path()).run("let f = '~tilde2'; mkdir $f")?;
+    let () = test()
+        .cwd(playground.path())
+        .run("let f = '~tilde2'; mkdir $f")?;
     assert!(dirs.test().join("~tilde2").is_dir());
     Ok(())
 }
@@ -195,4 +203,3 @@ fn mkdir_verbose_reports_errors_without_failing(playground: Playground) -> Resul
     assert!(dirs.test().join("after").is_dir());
     Ok(())
 }
-

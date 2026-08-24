@@ -13,7 +13,7 @@ fn absolute_path(playground: Playground) {
     let cwd = std::env::current_dir().expect("Could not get current directory");
     let actual = absolute_with(spam, cwd).expect("Failed to make absolute");
 
-    assert!(actual.ends_with("spam.txt"));;
+    assert!(actual.ends_with("spam.txt"));
 }
 
 #[test]
@@ -25,7 +25,7 @@ fn absolute_unicode_path(playground: Playground) {
 
     let actual = absolute_with(spam, cwd).expect("Failed to make absolute");
 
-    assert!(actual.ends_with("🚒.txt"));;
+    assert!(actual.ends_with("🚒.txt"));
 }
 
 #[ignore]
@@ -40,7 +40,7 @@ fn absolute_path_relative_to(playground: Playground) {
     let mut expected = playground.path().to_owned();
     expected.push("spam.txt");
 
-    assert_eq!(actual, expected);;
+    assert_eq!(actual, expected);
 }
 
 #[test]
@@ -52,7 +52,7 @@ fn absolute_unicode_path_relative_to_unicode_path_with_spaces(playground: Playgr
     let mut expected = playground.path().to_owned();
     expected.push("e-$ èрт🚒♞中片-j/🚒.txt");
 
-    assert_eq!(actual, expected);;
+    assert_eq!(actual, expected);
 }
 
 #[ignore]
@@ -66,11 +66,11 @@ fn absolute_absolute_path_relative_to(playground: Playground) {
     let mut absolute_path = playground.path().to_owned();
     absolute_path.push("spam.txt");
 
-    let actual = absolute_with(&absolute_path, "non/existent/directory")
-        .expect("Failed to make absolute");
+    let actual =
+        absolute_with(&absolute_path, "non/existent/directory").expect("Failed to make absolute");
     let expected = absolute_path;
 
-    assert_eq!(actual, expected);;
+    assert_eq!(actual, expected);
 }
 
 #[test]
@@ -98,7 +98,7 @@ fn absolute_path_with_dot_relative_to(playground: Playground) {
     let mut expected = playground.path().to_owned();
     expected.push("spam.txt");
 
-    assert_eq!(actual, expected);;
+    assert_eq!(actual, expected);
 }
 
 #[test]
@@ -108,7 +108,7 @@ fn absolute_path_with_many_dots_relative_to(playground: Playground) {
     let mut expected = playground.path().to_owned();
     expected.push("spam.txt");
 
-    assert_eq!(actual, expected);;
+    assert_eq!(actual, expected);
 }
 
 #[test]
@@ -139,7 +139,7 @@ fn absolute_path_with_double_dot_relative_to(playground: Playground) {
     #[cfg(not(windows))]
     expected.push("foo/../spam.txt");
 
-    assert_eq!(actual, expected);;
+    assert_eq!(actual, expected);
 }
 
 #[test]
@@ -154,7 +154,7 @@ fn absolute_path_with_many_double_dots_relative_to(playground: Playground) {
     #[cfg(not(windows))]
     expected.push("foo/bar/baz/../../../spam.txt");
 
-    assert_eq!(actual, expected);;
+    assert_eq!(actual, expected);
 }
 
 #[test]
@@ -195,7 +195,7 @@ fn absolute_path_with_3_ndots_relative_to(playground: Playground) {
     #[cfg(not(windows))]
     expected.push("foo/bar/../../spam.txt");
 
-    assert_eq!(actual, expected);;
+    assert_eq!(actual, expected);
 }
 
 #[test]
@@ -213,7 +213,7 @@ fn absolute_path_with_many_3_ndots_relative_to(playground: Playground) {
     #[cfg(not(windows))]
     expected.push("foo/bar/baz/eggs/sausage/bacon/../../../../../../spam.txt");
 
-    assert_eq!(actual, expected);;
+    assert_eq!(actual, expected);
 }
 
 #[test]
@@ -228,7 +228,7 @@ fn absolute_path_with_4_ndots_relative_to(playground: Playground) {
     #[cfg(not(windows))]
     expected.push("foo/bar/baz/../../../spam.txt");
 
-    assert_eq!(actual, expected);;
+    assert_eq!(actual, expected);
 }
 
 #[test]
@@ -246,7 +246,7 @@ fn absolute_path_with_many_4_ndots_relative_to(playground: Playground) {
     #[cfg(not(windows))]
     expected.push("foo/bar/baz/eggs/sausage/bacon/../../../../../../spam.txt");
 
-    assert_eq!(actual, expected);;
+    assert_eq!(actual, expected);
 }
 
 #[test]
@@ -264,11 +264,13 @@ fn absolute_path_with_way_too_many_dots_relative_to(playground: Playground) {
     #[cfg(not(windows))]
     expected.push("foo/bar/baz/eggs/sausage/bacon/vikings/../../../../../../../spam.txt");
 
-    assert_eq!(actual, expected);;
+    assert_eq!(actual, expected);
 }
 
 #[test]
-fn absolute_unicode_path_with_way_too_many_dots_relative_to_unicode_path_with_spaces(playground: Playground) {
+fn absolute_unicode_path_with_way_too_many_dots_relative_to_unicode_path_with_spaces(
+    playground: Playground,
+) {
     let mut relative_to = playground.path().to_owned();
     relative_to.push("foo/áčěéí  +šř=é/baz/eggs/e-$ èрт🚒♞中片-j/bacon/öäöä öäöä");
 
@@ -280,9 +282,11 @@ fn absolute_unicode_path_with_way_too_many_dots_relative_to_unicode_path_with_sp
     #[cfg(windows)]
     expected.push("🚒.txt");
     #[cfg(not(windows))]
-    expected.push("foo/áčěéí  +šř=é/baz/eggs/e-$ èрт🚒♞中片-j/bacon/öäöä öäöä/../../../../../../../🚒.txt");
+    expected.push(
+        "foo/áčěéí  +šř=é/baz/eggs/e-$ èрт🚒♞中片-j/bacon/öäöä öäöä/../../../../../../../🚒.txt",
+    );
 
-    assert_eq!(actual, expected);;
+    assert_eq!(actual, expected);
 }
 
 #[test]
@@ -320,7 +324,7 @@ fn absolute_symlink(playground: Playground) {
     let mut expected = playground.path().to_owned();
     expected.push("link_to_spam.txt");
 
-    assert_eq!(actual, expected);;
+    assert_eq!(actual, expected);
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -334,6 +338,5 @@ fn absolute_symlink_relative_to(playground: Playground) {
     let mut expected = playground.path().to_owned();
     expected.push("link_to_spam.txt");
 
-    assert_eq!(actual, expected);;
+    assert_eq!(actual, expected);
 }
-

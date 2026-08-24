@@ -36,4 +36,3 @@ fn set_env() -> Result {
         .run("example env NUSHELL_OPINION --set=rocks; $env.NUSHELL_OPINION")
         .expect_value_eq("rocks")
 }
-

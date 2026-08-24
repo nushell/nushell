@@ -5,12 +5,18 @@ use nu_test_support::prelude::*;
 
 #[test]
 fn split_column(playground: Playground) -> Result {
-    playground.file("sample.txt", indoc::indoc!{"
+    playground.file(
+        "sample.txt",
+        indoc::indoc! {"
         importer,shipper,tariff_item,name,origin
-    "})?;
-    playground.file("sample2.txt", indoc::indoc!{"
+    "},
+    )?;
+    playground.file(
+        "sample2.txt",
+        indoc::indoc! {"
         importer , shipper  , tariff_item  ,   name  ,  origin
-    "})?;
+    "},
+    )?;
 
     let code = r#"
         open sample.txt
@@ -105,4 +111,3 @@ fn split_column_number_error() -> Result {
     test().run(code).expect_shell_error()?;
     Ok(())
 }
-

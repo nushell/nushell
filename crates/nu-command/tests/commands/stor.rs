@@ -62,4 +62,3 @@ fn stor_import_missing_file_keeps_existing_data(playground: Playground) -> Resul
         .run(code)
         .expect_value_eq(1i64)
 }
-

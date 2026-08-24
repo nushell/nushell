@@ -688,4 +688,3 @@ fn external_with_too_much_stdout_should_not_hang_nu(playground: Playground) -> R
     assert_eq!(actual, large_file_body);
     Ok(())
 }
-

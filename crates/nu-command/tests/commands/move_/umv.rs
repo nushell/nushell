@@ -582,11 +582,11 @@ fn mv_with_no_target(playground: Playground) -> Result {
 #[case("a*.?c")]
 #[nu_test_support::test]
 #[deps(NU)]
-fn mv_files_with_glob_metachars(#[ignore] playground: Playground, #[case] src_name: &str) -> Result {
-    playground.file(
-        src_name,
-        "What is the sound of one hand clapping?",
-    )?;
+fn mv_files_with_glob_metachars(
+    #[ignore] playground: Playground,
+    #[case] src_name: &str,
+) -> Result {
+    playground.file(src_name, "What is the sound of one hand clapping?")?;
 
     let src = playground.path().join(src_name);
 
@@ -609,11 +609,11 @@ fn mv_files_with_glob_metachars(#[ignore] playground: Playground, #[case] src_na
 #[case("a*.?c")]
 #[nu_test_support::test]
 #[deps(NU)]
-fn mv_files_with_glob_metachars_when_input_are_variables(#[ignore] playground: Playground, #[case] src_name: &str) -> Result {
-    playground.file(
-        src_name,
-        "What is the sound of one hand clapping?",
-    )?;
+fn mv_files_with_glob_metachars_when_input_are_variables(
+    #[ignore] playground: Playground,
+    #[case] src_name: &str,
+) -> Result {
+    playground.file(src_name, "What is the sound of one hand clapping?")?;
 
     let src = playground.path().join(src_name);
 
@@ -759,4 +759,3 @@ fn mv_literal_directory() -> Result {
         Ok(())
     })
 }
-

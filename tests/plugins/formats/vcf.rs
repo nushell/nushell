@@ -6,7 +6,9 @@ use nu_test_support::{
 #[test]
 #[deps(NU_PLUGIN_FORMATS)]
 fn infers_types(playground: Playground) -> Result {
-    playground.file("contacts.vcf", indoc::indoc!{r"
+    playground.file(
+        "contacts.vcf",
+        indoc::indoc! {r"
         BEGIN:VCARD
         VERSION:3.0
         FN:John Doe
@@ -27,7 +29,8 @@ fn infers_types(playground: Playground) -> Result {
         TEL;TYPE=CELL:(890) 123-4567
         CATEGORIES:Band,myContacts
         END:VCARD
-    "})?;
+    "},
+    )?;
     test()
         .cwd(playground.path())
         .run("open contacts.vcf | length")
@@ -37,7 +40,9 @@ fn infers_types(playground: Playground) -> Result {
 #[test]
 #[deps(NU_PLUGIN_FORMATS)]
 fn from_vcf_text_to_table(playground: Playground) -> Result {
-    playground.file("contacts.txt", indoc::indoc!{r"
+    playground.file(
+        "contacts.txt",
+        indoc::indoc! {r"
         BEGIN:VCARD
         VERSION:3.0
         FN:John Doe
@@ -51,7 +56,8 @@ fn from_vcf_text_to_table(playground: Playground) -> Result {
         NOTE:Facebook: john.doe.3\nWebsite: \nHometown: Cleveland\, Ohio
         CATEGORIES:myContacts
         END:VCARD
-    "})?;
+    "},
+    )?;
 
     let code = r#"
         open contacts.txt
@@ -101,4 +107,3 @@ fn from_vcf_text_with_linebreak_to_table(playground: Playground) -> Result {
         .run(code)
         .expect_value_eq("john.doe99@gmail.com")
 }
-

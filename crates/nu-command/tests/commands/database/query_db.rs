@@ -182,4 +182,3 @@ fn named_params(playground: Playground) -> Result {
             }
         })
 }
-

@@ -116,8 +116,7 @@ fn history_import_pipe_record(playground: Playground) -> Result {
         .with_history(&config_home, HistoryFileFormat::Sqlite)
         .run("[[cwd command]; [/tmp some_command]] | history import")?;
 
-    let got =
-        query_all(&*open_backend(&config_home, HistoryFileFormat::Sqlite).unwrap()).unwrap();
+    let got = query_all(&*open_backend(&config_home, HistoryFileFormat::Sqlite).unwrap()).unwrap();
     let want_history = vec![HistoryItem {
         id: Some(HistoryItemId::new(1)),
         command_line: "some_command".to_string(),
@@ -194,8 +193,7 @@ fn to_empty_sqlite(playground: Playground) -> Result {
         .with_history(&config_home, HistoryFileFormat::Sqlite)
         .run("history import")?;
 
-    let got =
-        query_all(&*open_backend(&config_home, HistoryFileFormat::Sqlite).unwrap()).unwrap();
+    let got = query_all(&*open_backend(&config_home, HistoryFileFormat::Sqlite).unwrap()).unwrap();
     let want_history = vec![
         HistoryItem {
             id: Some(HistoryItemId::new(1)),
@@ -278,4 +276,3 @@ fn to_existing(#[ignore] playground: Playground, #[case] dst_format: HistoryFile
     assert_eq!(got, want_history);
     Ok(())
 }
-

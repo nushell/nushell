@@ -198,4 +198,3 @@ fn assign_to_non_variable_raises_parse_error() -> Result {
         .run("mut x = 3; x = 5")
         .expect_error_code_eq("nu::parser::assignment_requires_variable")
 }
-

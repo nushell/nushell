@@ -22,11 +22,14 @@ fn table_to_tsv_text_and_from_tsv_text_back_into_table_using_csv_separator() -> 
 
 #[test]
 fn table_to_tsv_text(playground: Playground) -> Result {
-    playground.file("tsv_text_sample.txt", indoc::indoc!{"
+    playground.file(
+        "tsv_text_sample.txt",
+        indoc::indoc! {"
         importer	shipper	tariff_item	name	origin
         Plasticos Rival	Reverte	2509000000	Calcium carbonate	Spain
         Tigre Ecuador	OMYA Andina	3824909999	Calcium carbonate	Colombia
-    "})?;
+    "},
+    )?;
 
     let code = r#"
         open tsv_text_sample.txt
@@ -45,11 +48,14 @@ fn table_to_tsv_text(playground: Playground) -> Result {
 
 #[test]
 fn table_to_tsv_text_skipping_headers_after_conversion(playground: Playground) -> Result {
-    playground.file("tsv_text_sample.txt", indoc::indoc!{"
+    playground.file(
+        "tsv_text_sample.txt",
+        indoc::indoc! {"
         importer    shipper tariff_item name    origin
         Plasticos Rival Reverte 2509000000  Calcium carbonate   Spain
         Tigre Ecuador   OMYA Andina 3824909999  Calcium carbonate   Colombia
-    "})?;
+    "},
+    )?;
 
     let code = r#"
         open tsv_text_sample.txt
@@ -73,12 +79,15 @@ fn table_to_tsv_float_doesnt_become_int() -> Result {
 
 #[test]
 fn from_tsv_text_to_table(playground: Playground) -> Result {
-    playground.file("los_tres_amigos.txt", indoc::indoc!{"
+    playground.file(
+        "los_tres_amigos.txt",
+        indoc::indoc! {"
         first Name	Last Name	rusty_luck
         Andrés	Robalino	1
         JT	Turner	1
         Yehuda	Katz	1
-    "})?;
+    "},
+    )?;
 
     let code = "
         open los_tres_amigos.txt
@@ -93,7 +102,9 @@ fn from_tsv_text_to_table(playground: Playground) -> Result {
 #[test]
 #[ignore = "csv crate has a bug when the last line is a comment: https://github.com/BurntSushi/rust-csv/issues/363"]
 fn from_tsv_text_with_comments_to_table(playground: Playground) -> Result {
-    playground.file("los_tres_caballeros.txt", indoc::indoc!{"
+    playground.file(
+        "los_tres_caballeros.txt",
+        indoc::indoc! {"
         # This is a comment
         first_name	last_name	rusty_luck
         # This one too
@@ -101,7 +112,8 @@ fn from_tsv_text_with_comments_to_table(playground: Playground) -> Result {
         Jonathan	Turner	1
         Yehuda	Katz	1
         # This one also
-    "})?;
+    "},
+    )?;
 
     let code = r##"
         open los_tres_caballeros.txt
@@ -115,12 +127,15 @@ fn from_tsv_text_with_comments_to_table(playground: Playground) -> Result {
 
 #[test]
 fn from_tsv_text_with_custom_quotes_to_table(playground: Playground) -> Result {
-    playground.file("los_tres_caballeros.txt", indoc::indoc!{"
+    playground.file(
+        "los_tres_caballeros.txt",
+        indoc::indoc! {"
         first_name	last_name	rusty_luck
         'And''rés'	Robalino	1
         Jonathan	Turner	1
         Yehuda	Katz	1
-    "})?;
+    "},
+    )?;
 
     let code = r#"
         open los_tres_caballeros.txt
@@ -129,17 +144,23 @@ fn from_tsv_text_with_custom_quotes_to_table(playground: Playground) -> Result {
         | get first_name
     "#;
 
-    test().cwd(playground.path()).run(code).expect_value_eq("And'rés")
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq("And'rés")
 }
 
 #[test]
 fn from_tsv_text_with_custom_escapes_to_table(playground: Playground) -> Result {
-    playground.file("los_tres_caballeros.txt", indoc::indoc!{r#"
+    playground.file(
+        "los_tres_caballeros.txt",
+        indoc::indoc! {r#"
         first_name	last_name	rusty_luck
         "And\"rés"	Robalino	1
         Jonathan	Turner	1
         Yehuda	Katz	1
-    "#})?;
+    "#},
+    )?;
 
     let code = r#"
         open los_tres_caballeros.txt
@@ -156,11 +177,14 @@ fn from_tsv_text_with_custom_escapes_to_table(playground: Playground) -> Result 
 
 #[test]
 fn from_tsv_text_skipping_headers_to_table(playground: Playground) -> Result {
-    playground.file("los_tres_amigos.txt", indoc::indoc!{"
+    playground.file(
+        "los_tres_amigos.txt",
+        indoc::indoc! {"
         Andrés	Robalino	1
         JT	Turner	1
         Yehuda	Katz	1
-    "})?;
+    "},
+    )?;
 
     let code = "
         open los_tres_amigos.txt
@@ -174,12 +198,15 @@ fn from_tsv_text_skipping_headers_to_table(playground: Playground) -> Result {
 
 #[test]
 fn from_tsv_text_with_missing_columns_to_table(playground: Playground) -> Result {
-    playground.file("los_tres_caballeros.txt", indoc::indoc!{"
+    playground.file(
+        "los_tres_caballeros.txt",
+        indoc::indoc! {"
         first_name	last_name	rusty_luck
         Andrés	Robalino
         Jonathan	Turner	1
         Yehuda	Katz	1
-    "})?;
+    "},
+    )?;
 
     let code = "
         open los_tres_caballeros.txt
@@ -194,38 +221,50 @@ fn from_tsv_text_with_missing_columns_to_table(playground: Playground) -> Result
 
 #[test]
 fn from_tsv_text_with_multiple_char_comment(playground: Playground) -> Result {
-    playground.file("los_tres_caballeros.txt", indoc::indoc!{"
+    playground.file(
+        "los_tres_caballeros.txt",
+        indoc::indoc! {"
         first_name	last_name	rusty_luck
         Andrés	Robalino	1
         Jonathan	Turner	1
         Yehuda	Katz	1
-    "})?;
+    "},
+    )?;
 
     let code = r#"
         open los_tres_caballeros.txt
         | from csv --comment "li"
     "#;
 
-    let err = test().cwd(playground.path()).run(code).expect_shell_error()?;
+    let err = test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_shell_error()?;
     assert_contains("single character separator", err.to_string());
     Ok(())
 }
 
 #[test]
 fn from_tsv_text_with_wrong_type_comment(playground: Playground) -> Result {
-    playground.file("los_tres_caballeros.txt", indoc::indoc!{"
+    playground.file(
+        "los_tres_caballeros.txt",
+        indoc::indoc! {"
         first_name	last_name	rusty_luck
         Andrés	Robalino	1
         Jonathan	Turner	1
         Yehuda	Katz	1
-    "})?;
+    "},
+    )?;
 
     let code = "
         open los_tres_caballeros.txt
         | from csv --comment ('123' | into int)
     ";
 
-    let outcome = test().cwd(playground.path()).run(code).expect_parse_error()?;
+    let outcome = test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_parse_error()?;
     match outcome {
         ParseError::TypeMismatch(expected, got, _) => {
             assert_eq!(expected, Type::String);
@@ -254,4 +293,3 @@ fn streaming_heterogeneous_table_reports_tsv_specific_error() -> Result {
     assert!(!message.contains("csv"));
     Ok(())
 }
-

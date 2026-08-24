@@ -100,4 +100,3 @@ fn race_overwrite_mask() -> Result {
     assert_eq!(result.stderr, "");
     Ok(())
 }
-

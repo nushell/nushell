@@ -226,4 +226,3 @@ fn lazy_output_streams() -> Result {
     assert_contains("byte stream", actual);
     Ok(())
 }
-

@@ -56,7 +56,9 @@ fn setup_symlink_fs(dirs: &deprecated::Dirs, sandbox: &mut deprecated::Playgroun
 
 #[test]
 fn creates_a_file_when_it_doesnt_exist(playground: Playground) -> Result {
-    let () = test().cwd(playground.path()).run("touch i_will_be_created.txt")?;
+    let () = test()
+        .cwd(playground.path())
+        .run("touch i_will_be_created.txt")?;
 
     let path = playground.path().join("i_will_be_created.txt");
     assert!(path.exists());
@@ -103,7 +105,10 @@ fn fails_when_glob_has_no_matches(playground: Playground) -> Result {
 #[case(true)]
 #[nu_test_support::test]
 #[exp(nu_experimental::DC_GLOB)]
-fn touch_glob_matches_when_dc_glob_enabled(#[ignore] playground: Playground, #[case] with_preexisting_files: bool) -> Result {
+fn touch_glob_matches_when_dc_glob_enabled(
+    #[ignore] playground: Playground,
+    #[case] with_preexisting_files: bool,
+) -> Result {
     let sandbox_name = if with_preexisting_files {
         "touch_glob_dc_glob_preexisting"
     } else {
@@ -199,7 +204,9 @@ fn change_modified_and_access_time_of_file_to_today(playground: Playground) -> R
 }
 
 #[test]
-fn change_modified_and_access_time_of_files_matching_glob_to_today(playground: Playground) -> Result {
+fn change_modified_and_access_time_of_files_matching_glob_to_today(
+    playground: Playground,
+) -> Result {
     playground.empty_file("file.txt")?;
 
     let path = playground.path().join("file.txt");
@@ -232,22 +239,22 @@ fn not_create_file_if_it_not_exists(playground: Playground) -> Result {
 #[test]
 fn change_file_times_if_exists_with_no_create(playground: Playground) -> Result {
     playground.empty_file("file.txt")?;
-        let path = playground.path().join("file.txt");
+    let path = playground.path().join("file.txt");
 
-        filetime::set_file_times(&path, TIME_ONE, TIME_ONE).unwrap();
+    filetime::set_file_times(&path, TIME_ONE, TIME_ONE).unwrap();
 
-        let () = test().cwd(playground.path()).run("touch -c file.txt")?;
+    let () = test().cwd(playground.path()).run("touch -c file.txt")?;
 
-        let metadata = path.metadata().unwrap();
+    let metadata = path.metadata().unwrap();
 
-        // Check only the date since the time may not match exactly
-        let today = Local::now().date_naive();
-        let mtime_day = DateTime::<Local>::from(metadata.modified().unwrap()).date_naive();
-        let atime_day = DateTime::<Local>::from(metadata.accessed().unwrap()).date_naive();
+    // Check only the date since the time may not match exactly
+    let today = Local::now().date_naive();
+    let mtime_day = DateTime::<Local>::from(metadata.modified().unwrap()).date_naive();
+    let atime_day = DateTime::<Local>::from(metadata.accessed().unwrap()).date_naive();
 
-        assert_eq!(today, mtime_day);
-        assert_eq!(today, atime_day);
-        Ok(())
+    assert_eq!(today, mtime_day);
+    assert_eq!(today, atime_day);
+    Ok(())
 }
 
 #[test]
@@ -355,41 +362,41 @@ fn change_file_mtime_to_reference(playground: Playground) -> Result {
 #[ignore]
 fn change_file_times_to_reference_file_with_date(playground: Playground) -> Result {
     playground.empty_file("reference_file")?;
-        playground.empty_file("target_file")?;
+    playground.empty_file("target_file")?;
 
-        let reference = playground.path().join("reference_file");
-        let target = playground.path().join("target_file");
+    let reference = playground.path().join("reference_file");
+    let target = playground.path().join("target_file");
 
-        let now = Utc::now();
+    let now = Utc::now();
 
-        let ref_atime = now;
-        let ref_mtime = now.checked_sub_days(Days::new(5)).unwrap();
+    let ref_atime = now;
+    let ref_mtime = now.checked_sub_days(Days::new(5)).unwrap();
 
-        // Change the times for reference
-        filetime::set_file_times(
-            reference,
-            FileTime::from_unix_time(ref_atime.timestamp(), ref_atime.timestamp_subsec_nanos()),
-            FileTime::from_unix_time(ref_mtime.timestamp(), ref_mtime.timestamp_subsec_nanos()),
-        )
-        .unwrap();
+    // Change the times for reference
+    filetime::set_file_times(
+        reference,
+        FileTime::from_unix_time(ref_atime.timestamp(), ref_atime.timestamp_subsec_nanos()),
+        FileTime::from_unix_time(ref_mtime.timestamp(), ref_mtime.timestamp_subsec_nanos()),
+    )
+    .unwrap();
 
-        let () = test()
-            .cwd(playground.path())
-            .run(r#"touch -r reference_file -d "yesterday" target_file"#)?;
+    let () = test()
+        .cwd(playground.path())
+        .run(r#"touch -r reference_file -d "yesterday" target_file"#)?;
 
-        let (got_atime, got_mtime) = file_times(target);
-        let got = (
-            DateTime::from_timestamp(got_atime.seconds(), got_atime.nanoseconds()).unwrap(),
-            DateTime::from_timestamp(got_mtime.seconds(), got_mtime.nanoseconds()).unwrap(),
-        );
-        assert_eq!(
-            (
-                now.checked_sub_days(Days::new(1)).unwrap(),
-                now.checked_sub_days(Days::new(6)).unwrap()
-            ),
-            got
-        );
-        Ok(())
+    let (got_atime, got_mtime) = file_times(target);
+    let got = (
+        DateTime::from_timestamp(got_atime.seconds(), got_atime.nanoseconds()).unwrap(),
+        DateTime::from_timestamp(got_mtime.seconds(), got_mtime.nanoseconds()).unwrap(),
+    );
+    assert_eq!(
+        (
+            now.checked_sub_days(Days::new(1)).unwrap(),
+            now.checked_sub_days(Days::new(6)).unwrap()
+        ),
+        got
+    );
+    Ok(())
 }
 
 #[test]
@@ -479,10 +486,8 @@ fn change_file_times_to_date(playground: Playground) -> Result {
         .run("touch -d '-2 hours' target_file")?;
 
     let (got_atime, got_mtime) = file_times(playground.path().join("target_file"));
-    let got_atime =
-        DateTime::from_timestamp(got_atime.seconds(), got_atime.nanoseconds()).unwrap();
-    let got_mtime =
-        DateTime::from_timestamp(got_mtime.seconds(), got_mtime.nanoseconds()).unwrap();
+    let got_atime = DateTime::from_timestamp(got_atime.seconds(), got_atime.nanoseconds()).unwrap();
+    let got_mtime = DateTime::from_timestamp(got_mtime.seconds(), got_mtime.nanoseconds()).unwrap();
     let threshold = TimeDelta::minutes(1);
     assert!(
         got_atime.signed_duration_since(expected).lt(&threshold)
@@ -599,7 +604,9 @@ fn create_a_file_with_tilde(playground: Playground) -> Result {
     assert!(files_exist_at(&[Path::new("~tilde")], dirs.test()));
 
     // pass variable
-    let () = test().cwd(playground.path()).run("let f = '~tilde2'; touch $f")?;
+    let () = test()
+        .cwd(playground.path())
+        .run("let f = '~tilde2'; touch $f")?;
     assert!(files_exist_at(&[Path::new("~tilde2")], dirs.test()));
     Ok(())
 }
@@ -717,4 +724,3 @@ fn no_follow_symlinks(playground: Playground) -> Result {
     assert_ne!(file_missing_symlink_times, (TIME_ONE, TIME_ONE));
     Ok(())
 }
-

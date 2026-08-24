@@ -73,8 +73,7 @@ fn help_alias_description_3(playground: Playground) -> Result {
 
     let mut tester = test().cwd(playground.path());
     let () = tester.run("source spam.nu")?;
-    let outcome: String =
-        tester.run("help aliases | where name == SPAM | get 0.description")?;
+    let outcome: String = tester.run("help aliases | where name == SPAM | get 0.description")?;
 
     assert_contains("line1", &outcome);
     assert_contains("line2", &outcome);
@@ -223,8 +222,7 @@ fn help_module_description_1(playground: Playground) -> Result {
 
     let mut tester = test().cwd(playground.path());
     let () = tester.run("source spam.nu")?;
-    let outcome: String =
-        tester.run("help modules | where name == SPAM | get 0.description")?;
+    let outcome: String = tester.run("help modules | where name == SPAM | get 0.description")?;
 
     assert_contains("line1", &outcome);
     assert_contains("line2", &outcome);
@@ -235,8 +233,8 @@ fn help_module_description_1(playground: Playground) -> Result {
 #[test]
 fn help_module_description_ignores_leading_shebang(playground: Playground) -> Result {
     playground.file(
-            "spam.nu",
-            "\
+        "spam.nu",
+        "\
                 #!/usr/bin/env nu
                 
                 # module_line1
@@ -245,13 +243,13 @@ fn help_module_description_ignores_leading_shebang(playground: Playground) -> Re
                 
                 export def foo [] {}
             ",
-        )?;
+    )?;
 
-        let mut tester = test().cwd(playground.path());
-        let description: String = tester
-            .run("use spam.nu *; help modules | where name == spam | get 0.description")?;
-        assert_eq!(description, "module_line1");
-        Ok(())
+    let mut tester = test().cwd(playground.path());
+    let description: String =
+        tester.run("use spam.nu *; help modules | where name == spam | get 0.description")?;
+    assert_eq!(description, "module_line1");
+    Ok(())
 }
 
 #[test]
@@ -320,8 +318,8 @@ fn help_module_sorted_aliases(playground: Playground) -> Result {
 #[test]
 fn help_description_extra_description_command(playground: Playground) -> Result {
     playground.file(
-            "spam.nu",
-            "
+        "spam.nu",
+        "
                 # module_line1
                 #
                 # module_line2
@@ -331,35 +329,33 @@ fn help_description_extra_description_command(playground: Playground) -> Result 
                 # def_line2
                 export def foo [] {}
             ",
-        )?;
-        let mut tester = test().cwd(playground.path());
-        let () = tester.run("use spam.nu *")?;
+    )?;
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("use spam.nu *")?;
 
-        let outcome: String = tester.run("help modules spam")?;
-        assert_contains("module_line1", &outcome);
-        assert_contains("module_line2", &outcome);
+    let outcome: String = tester.run("help modules spam")?;
+    assert_contains("module_line1", &outcome);
+    assert_contains("module_line2", &outcome);
 
-        let outcome: String =
-            tester.run("help modules | where name == spam | get 0.description")?;
-        assert_contains("module_line1", &outcome);
-        assert!(!outcome.contains("module_line2"));
+    let outcome: String = tester.run("help modules | where name == spam | get 0.description")?;
+    assert_contains("module_line1", &outcome);
+    assert!(!outcome.contains("module_line2"));
 
-        let outcome: String = tester.run("help commands foo")?;
-        assert_contains("def_line1", &outcome);
-        assert_contains("def_line2", &outcome);
+    let outcome: String = tester.run("help commands foo")?;
+    assert_contains("def_line1", &outcome);
+    assert_contains("def_line2", &outcome);
 
-        let outcome: String =
-            tester.run("help commands | where name == foo | get 0.description")?;
-        assert_contains("def_line1", &outcome);
-        assert!(!outcome.contains("def_line2"));
-        Ok(())
+    let outcome: String = tester.run("help commands | where name == foo | get 0.description")?;
+    assert_contains("def_line1", &outcome);
+    assert!(!outcome.contains("def_line2"));
+    Ok(())
 }
 
 #[test]
 fn help_description_extra_description_alias(playground: Playground) -> Result {
     playground.file(
-            "spam.nu",
-            "
+        "spam.nu",
+        "
                 # module_line1
                 #
                 # module_line2
@@ -369,28 +365,26 @@ fn help_description_extra_description_alias(playground: Playground) -> Result {
                 # alias_line2
                 export alias bar = echo 'bar'
             ",
-        )?;
-        let mut tester = test().cwd(playground.path());
-        let () = tester.run("use spam.nu *")?;
+    )?;
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("use spam.nu *")?;
 
-        let outcome: String = tester.run("help modules spam")?;
-        assert_contains("module_line1", &outcome);
-        assert_contains("module_line2", &outcome);
+    let outcome: String = tester.run("help modules spam")?;
+    assert_contains("module_line1", &outcome);
+    assert_contains("module_line2", &outcome);
 
-        let outcome: String =
-            tester.run("help modules | where name == spam | get 0.description")?;
-        assert_contains("module_line1", &outcome);
-        assert!(!outcome.contains("module_line2"));
+    let outcome: String = tester.run("help modules | where name == spam | get 0.description")?;
+    assert_contains("module_line1", &outcome);
+    assert!(!outcome.contains("module_line2"));
 
-        let outcome: String = tester.run("help aliases bar")?;
-        assert_contains("alias_line1", &outcome);
-        assert_contains("alias_line2", &outcome);
+    let outcome: String = tester.run("help aliases bar")?;
+    assert_contains("alias_line1", &outcome);
+    assert_contains("alias_line2", &outcome);
 
-        let outcome: String =
-            tester.run("help aliases | where name == bar | get 0.description")?;
-        assert_contains("alias_line1", &outcome);
-        assert!(!outcome.contains("alias_line2"));
-        Ok(())
+    let outcome: String = tester.run("help aliases | where name == bar | get 0.description")?;
+    assert_contains("alias_line1", &outcome);
+    assert!(!outcome.contains("alias_line2"));
+    Ok(())
 }
 
 #[test]
@@ -464,4 +458,3 @@ fn nothing_type_annotation() -> Result {
         .run("help commands | where name == foo | get input_output.0.output.0")
         .expect_value_eq("nothing")
 }
-

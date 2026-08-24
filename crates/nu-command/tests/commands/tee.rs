@@ -95,4 +95,3 @@ fn tee_single_value_non_streamable() -> Result {
 
     Ok(())
 }
-

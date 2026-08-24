@@ -329,4 +329,3 @@ fn case_insensitive_env_record_access() -> Result {
         .run("$env.test = 'value'; $env.TEST")
         .expect_value_eq("value")
 }
-

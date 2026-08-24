@@ -123,9 +123,12 @@ fn which_dedup_is_less_than_all() -> Result {
 
 #[test]
 fn which_custom_command_reports_file(playground: Playground) -> Result {
-    playground.file("foo.nu", indoc::indoc!{"
+    playground.file(
+        "foo.nu",
+        indoc::indoc! {"
         def foo [] { echo hi }
-    "})?;
+    "},
+    )?;
 
     let code = "
         source foo.nu
@@ -177,7 +180,7 @@ fn which_external_command_reports_path() -> Result {
 #[cfg(windows)]
 #[test]
 fn which_respects_pathext_from_env(playground: Playground) -> Result {
-    playground.file("foo.qqq", indoc::indoc!{""})?;
+    playground.file("foo.qqq", indoc::indoc! {""})?;
     let dir = playground.path().display().to_string();
 
     let found: i32 = test().cwd(playground.path()).run(format!(
@@ -206,7 +209,7 @@ fn which_respects_pathext_from_env(playground: Playground) -> Result {
 #[cfg(windows)]
 #[test]
 fn which_respects_hidden_pathext(playground: Playground) -> Result {
-    playground.file("foo.cmd", indoc::indoc!{""})?;
+    playground.file("foo.cmd", indoc::indoc! {""})?;
     let dir = playground.path().display().to_string();
 
     let found: i32 = test().cwd(playground.path()).run(format!(
@@ -227,4 +230,3 @@ fn which_respects_hidden_pathext(playground: Playground) -> Result {
 
     Ok(())
 }
-

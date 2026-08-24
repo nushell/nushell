@@ -117,4 +117,3 @@ fn each_flatten_dont_collect(playground: Playground) -> Result {
         .run(streamed)
         .expect_value_eq("(0)[0](1)[1](2)[2](3)[3](4)[4](5)[5]")
 }
-

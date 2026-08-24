@@ -6,13 +6,16 @@ use pretty_assertions::assert_eq;
 
 #[test]
 fn parse_script_success(playground: Playground) -> Result {
-    playground.file("script.nu", indoc::indoc!{r#"
+    playground.file(
+        "script.nu",
+        indoc::indoc! {r#"
         greet "world"
         
         def greet [name] {
           echo "hello" $name
         }
-    "#})?;
+    "#},
+    )?;
 
     test()
         .cwd(playground.path())
@@ -22,13 +25,16 @@ fn parse_script_success(playground: Playground) -> Result {
 
 #[test]
 fn parse_script_with_wrong_type(playground: Playground) -> Result {
-    playground.file("script.nu", indoc::indoc!{r#"
+    playground.file(
+        "script.nu",
+        indoc::indoc! {r#"
         greet "world"
         
         def greet [name] {
           echo "hello" $name
         }
-    "#})?;
+    "#},
+    )?;
 
     let err = test()
         .cwd(playground.path())
@@ -40,13 +46,16 @@ fn parse_script_with_wrong_type(playground: Playground) -> Result {
 }
 #[test]
 fn parse_script_failure(playground: Playground) -> Result {
-    playground.file("script.nu", indoc::indoc!{r#"
+    playground.file(
+        "script.nu",
+        indoc::indoc! {r#"
         greet "world"
         
         def greet [name {
           echo "hello" $name
         }
-    "#})?;
+    "#},
+    )?;
 
     let err = test()
         .cwd(playground.path())
@@ -63,7 +72,9 @@ fn parse_script_failure(playground: Playground) -> Result {
 
 #[test]
 fn parse_module_success(playground: Playground) -> Result {
-    playground.file("foo.nu", indoc::indoc!{r#"
+    playground.file(
+        "foo.nu",
+        indoc::indoc! {r#"
         # foo.nu
         
         export def hello [name: string] {
@@ -73,7 +84,8 @@ fn parse_module_success(playground: Playground) -> Result {
         export def hi [where: string] {
             $"hi ($where)!"
         }
-    "#})?;
+    "#},
+    )?;
 
     test()
         .cwd(playground.path())
@@ -83,7 +95,9 @@ fn parse_module_success(playground: Playground) -> Result {
 
 #[test]
 fn parse_module_with_wrong_type(playground: Playground) -> Result {
-    playground.file("foo.nu", indoc::indoc!{r#"
+    playground.file(
+        "foo.nu",
+        indoc::indoc! {r#"
         # foo.nu
         
         export def hello [name: string {
@@ -93,7 +107,8 @@ fn parse_module_with_wrong_type(playground: Playground) -> Result {
         export def hi [where: string] {
             $"hi ($where)!"
         }
-    "#})?;
+    "#},
+    )?;
 
     let err = test()
         .cwd(playground.path())
@@ -105,7 +120,9 @@ fn parse_module_with_wrong_type(playground: Playground) -> Result {
 }
 #[test]
 fn parse_module_failure(playground: Playground) -> Result {
-    playground.file("foo.nu", indoc::indoc!{r#"
+    playground.file(
+        "foo.nu",
+        indoc::indoc! {r#"
         # foo.nu
         
         export def hello [name: string {
@@ -115,7 +132,8 @@ fn parse_module_failure(playground: Playground) -> Result {
         export def hi [where: string] {
             $"hi ($where)!"
         }
-    "#})?;
+    "#},
+    )?;
 
     let err = test()
         .cwd(playground.path())
@@ -145,11 +163,14 @@ fn file_not_exist(playground: Playground) -> Result {
 
 #[test]
 fn parse_module_success_2(playground: Playground) -> Result {
-    playground.file("foo.nu", indoc::indoc!{r#"
+    playground.file(
+        "foo.nu",
+        indoc::indoc! {r#"
         # foo.nu
         
         export-env { $env.MYNAME = "Arthur, King of the Britons" }
-    "#})?;
+    "#},
+    )?;
 
     test()
         .cwd(playground.path())
@@ -323,7 +344,9 @@ fn parse_script_failure_with_complex_internal_stream() -> Result {
 
 #[test]
 fn parse_script_success_with_complex_external_stream(playground: Playground) -> Result {
-    playground.file("grep.nu", indoc::indoc!{r#"
+    playground.file(
+        "grep.nu",
+        indoc::indoc! {r#"
         #grep for nu
         def grep-nu [
           search   #search term
@@ -353,7 +376,8 @@ fn parse_script_success_with_complex_external_stream(playground: Playground) -> 
           | rename "source file" "line number"
         }
         
-    "#})?;
+    "#},
+    )?;
 
     test()
         .cwd(playground.path())
@@ -363,7 +387,9 @@ fn parse_script_success_with_complex_external_stream(playground: Playground) -> 
 
 #[test]
 fn parse_module_success_with_complex_external_stream(playground: Playground) -> Result {
-    playground.file("grep.nu", indoc::indoc!{r#"
+    playground.file(
+        "grep.nu",
+        indoc::indoc! {r#"
         #grep for nu
         def grep-nu [
           search   #search term
@@ -393,7 +419,8 @@ fn parse_module_success_with_complex_external_stream(playground: Playground) -> 
           | rename "source file" "line number"
         }
         
-    "#})?;
+    "#},
+    )?;
 
     test()
         .cwd(playground.path())
@@ -403,7 +430,9 @@ fn parse_module_success_with_complex_external_stream(playground: Playground) -> 
 
 #[test]
 fn parse_with_flag_success_for_complex_external_stream(playground: Playground) -> Result {
-    playground.file("grep.nu", indoc::indoc!{r#"
+    playground.file(
+        "grep.nu",
+        indoc::indoc! {r#"
         #grep for nu
         def grep-nu [
           search   #search term
@@ -433,7 +462,8 @@ fn parse_with_flag_success_for_complex_external_stream(playground: Playground) -
           | rename "source file" "line number"
         }
         
-    "#})?;
+    "#},
+    )?;
 
     test()
         .cwd(playground.path())
@@ -443,7 +473,9 @@ fn parse_with_flag_success_for_complex_external_stream(playground: Playground) -
 
 #[test]
 fn parse_with_flag_failure_for_complex_external_stream(playground: Playground) -> Result {
-    playground.file("grep.nu", indoc::indoc!{r#"
+    playground.file(
+        "grep.nu",
+        indoc::indoc! {r#"
         #grep for nu
         def grep-nu
           search   #search term
@@ -473,7 +505,8 @@ fn parse_with_flag_failure_for_complex_external_stream(playground: Playground) -
           | rename "source file" "line number"
         }
         
-    "#})?;
+    "#},
+    )?;
 
     let err = test()
         .cwd(playground.path())
@@ -486,7 +519,9 @@ fn parse_with_flag_failure_for_complex_external_stream(playground: Playground) -
 
 #[test]
 fn parse_with_flag_failure_for_complex_list_stream(playground: Playground) -> Result {
-    playground.file("grep.nu", indoc::indoc!{r#"
+    playground.file(
+        "grep.nu",
+        indoc::indoc! {r#"
         #grep for nu
         def grep-nu
           search   #search term
@@ -516,7 +551,8 @@ fn parse_with_flag_failure_for_complex_list_stream(playground: Playground) -> Re
           | rename "source file" "line number"
         }
         
-    "#})?;
+    "#},
+    )?;
 
     let err = test()
         .cwd(playground.path())
@@ -609,4 +645,3 @@ fn nu_check_module_dir() -> Result {
             .expect_value_eq(true)
     })
 }
-

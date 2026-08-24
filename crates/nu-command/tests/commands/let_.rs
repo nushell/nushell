@@ -249,4 +249,3 @@ fn let_var_at_beginning_error() -> Result {
     assert!(msg.contains("doesn't support") || msg.contains("invalid `let` keyword call"));
     Ok(())
 }
-

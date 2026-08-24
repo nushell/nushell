@@ -10,7 +10,9 @@ use rstest::rstest;
 
 #[test]
 fn parses_file_with_uppercase_extension(playground: Playground) -> Result {
-    playground.file("nu.zion.JSON", indoc::indoc!{r#"
+    playground.file(
+        "nu.zion.JSON",
+        indoc::indoc! {r#"
         {
             "glossary": {
                 "GlossDiv": {
@@ -22,14 +24,18 @@ fn parses_file_with_uppercase_extension(playground: Playground) -> Result {
                 }
             }
         }
-    "#})?;
+    "#},
+    )?;
 
     let code = "
         open nu.zion.JSON
         | get glossary.GlossDiv.GlossList.GlossEntry.ID
     ";
 
-    test().cwd(playground.path()).run(code).expect_value_eq("SGML")
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq("SGML")
 }
 
 #[test]
@@ -90,12 +96,15 @@ fn parses_dotfile(playground: Playground) -> Result {
 
 #[test]
 fn parses_csv(playground: Playground) -> Result {
-    playground.file("nu.zion.csv", indoc::indoc!{"
+    playground.file(
+        "nu.zion.csv",
+        indoc::indoc! {"
         author,lang,source
         JT Turner,Rust,New Zealand
         Andres N. Robalino,Rust,Ecuador
         Yehuda Katz,Rust,Estados Unidos
-    "})?;
+    "},
+    )?;
 
     let code = r#"
         open nu.zion.csv
@@ -103,7 +112,10 @@ fn parses_csv(playground: Playground) -> Result {
         | get source.0
     "#;
 
-    test().cwd(playground.path()).run(code).expect_value_eq("Ecuador")
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq("Ecuador")
 }
 
 // sample.db has the following format:
@@ -391,7 +403,10 @@ fn open_no_parameter() -> Result {
 #[case("a[c")]
 #[case("a[bc]d")]
 #[case("a][c")]
-fn open_literal_file_with_glob_metachars(#[ignore] playground: Playground, #[case] src_name: &str) -> Result {
+fn open_literal_file_with_glob_metachars(
+    #[ignore] playground: Playground,
+    #[case] src_name: &str,
+) -> Result {
     playground.file(src_name, "hello")?;
     let src = playground.path().join(src_name);
     test()
@@ -406,7 +421,10 @@ fn open_literal_file_with_glob_metachars(#[ignore] playground: Playground, #[cas
 #[case("a[c")]
 #[case("a[bc]d")]
 #[case("a][c")]
-fn open_variable_file_with_glob_metachars(#[ignore] playground: Playground, #[case] src_name: &str) -> Result {
+fn open_variable_file_with_glob_metachars(
+    #[ignore] playground: Playground,
+    #[case] src_name: &str,
+) -> Result {
     playground.file(src_name, "hello")?;
     let src = playground.path().join(src_name);
     test()
@@ -528,4 +546,3 @@ fn test_metadata_without_raw_has_source_for_files_with_content_type(
     assert_contains(source_contains, source);
     Ok(())
 }
-

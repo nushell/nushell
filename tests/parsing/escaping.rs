@@ -74,31 +74,31 @@ fn external_command_escape_sequences_work() -> Result {
 
 #[test]
 fn escaped_glob_pattern_reports_current_error(playground: Playground) -> Result {
-    playground.file("file[1].txt", indoc::indoc!{"literal"})?;
-        playground.file("file1.txt", indoc::indoc!{"pattern"})?;
+    playground.file("file[1].txt", indoc::indoc! {"literal"})?;
+    playground.file("file1.txt", indoc::indoc! {"pattern"})?;
 
-        let mut tester = test().cwd(playground.path());
-        let err = match tester.run::<Value>(r#"ls file\[1\].txt"#) {
-            Ok(value) => panic!("expected escaped glob path to fail, got {value:?}"),
-            Err(err) => err.to_string(),
-        };
+    let mut tester = test().cwd(playground.path());
+    let err = match tester.run::<Value>(r#"ls file\[1\].txt"#) {
+        Ok(value) => panic!("expected escaped glob path to fail, got {value:?}"),
+        Err(err) => err.to_string(),
+    };
 
-        assert!(
-            err.contains("unrecognized escape")
-                || (err.contains("No matches found for Expand(")
-                    && err.contains("Pattern, file or folder not found"))
-                || (err.contains("Error extracting glob pattern")
-                    && err.contains("invalid range pattern")),
-            "expected escaped glob error, got {err:?}"
-        );
+    assert!(
+        err.contains("unrecognized escape")
+            || (err.contains("No matches found for Expand(")
+                && err.contains("Pattern, file or folder not found"))
+            || (err.contains("Error extracting glob pattern")
+                && err.contains("invalid range pattern")),
+        "expected escaped glob error, got {err:?}"
+    );
 
-        Ok(())
+    Ok(())
 }
 
 #[test]
 fn quoted_glob_path_stays_literal(playground: Playground) -> Result {
-    playground.file("file[1].txt", indoc::indoc!{"literal"})?;
-    playground.file("file1.txt", indoc::indoc!{"pattern"})?;
+    playground.file("file[1].txt", indoc::indoc! {"literal"})?;
+    playground.file("file1.txt", indoc::indoc! {"pattern"})?;
 
     test()
         .cwd(playground.path())
@@ -110,4 +110,3 @@ fn quoted_glob_path_stays_literal(playground: Playground) -> Result {
         )
         .expect_value_eq(["file[1].txt"])
 }
-

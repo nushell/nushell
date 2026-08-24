@@ -12,11 +12,14 @@ fn table_to_csv_text_and_from_csv_text_back_into_table() -> Result {
 
 #[test]
 fn table_to_csv_text(playground: Playground) -> Result {
-    playground.file("csv_text_sample.txt", indoc::indoc!{"
+    playground.file(
+        "csv_text_sample.txt",
+        indoc::indoc! {"
         importer,shipper,tariff_item,name,origin
         Plasticos Rival,Reverte,2509000000,Calcium carbonate,Spain
         Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia
-    "})?;
+    "},
+    )?;
 
     let code = r#"
         open csv_text_sample.txt
@@ -37,11 +40,14 @@ fn table_to_csv_text(playground: Playground) -> Result {
 
 #[test]
 fn table_to_csv_text_skipping_headers_after_conversion(playground: Playground) -> Result {
-    playground.file("csv_text_sample.txt", indoc::indoc!{"
+    playground.file(
+        "csv_text_sample.txt",
+        indoc::indoc! {"
         importer,shipper,tariff_item,name,origin
         Plasticos Rival,Reverte,2509000000,Calcium carbonate,Spain
         Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia
-    "})?;
+    "},
+    )?;
 
     let code = r#"
         open csv_text_sample.txt
@@ -68,13 +74,16 @@ fn table_to_csv_float_doesnt_become_int() -> Result {
 
 #[test]
 fn infers_types(playground: Playground) -> Result {
-    playground.file("los_cuatro_mosqueteros.csv", indoc::indoc!{"
+    playground.file(
+        "los_cuatro_mosqueteros.csv",
+        indoc::indoc! {"
         first_name,last_name,rusty_luck,d
         Andrés,Robalino,1,d
         JT,Turner,1,d
         Yehuda,Katz,1,d
         Jason,Gedge,1,d
-    "})?;
+    "},
+    )?;
 
     let code = "
         open los_cuatro_mosqueteros.csv
@@ -87,12 +96,15 @@ fn infers_types(playground: Playground) -> Result {
 
 #[test]
 fn from_csv_text_to_table(playground: Playground) -> Result {
-    playground.file("los_tres_caballeros.txt", indoc::indoc!{"
+    playground.file(
+        "los_tres_caballeros.txt",
+        indoc::indoc! {"
         first_name,last_name,rusty_luck
         Andrés,Robalino,1
         JT,Turner,1
         Yehuda,Katz,1
-    "})?;
+    "},
+    )?;
 
     let code = "
         open los_tres_caballeros.txt
@@ -106,12 +118,15 @@ fn from_csv_text_to_table(playground: Playground) -> Result {
 
 #[test]
 fn from_csv_text_with_separator_to_table(playground: Playground) -> Result {
-    playground.file("los_tres_caballeros.txt", indoc::indoc!{"
+    playground.file(
+        "los_tres_caballeros.txt",
+        indoc::indoc! {"
         first_name;last_name;rusty_luck
         Andrés;Robalino;1
         JT;Turner;1
         Yehuda;Katz;1
-    "})?;
+    "},
+    )?;
 
     let code = r#"
         open los_tres_caballeros.txt
@@ -125,12 +140,15 @@ fn from_csv_text_with_separator_to_table(playground: Playground) -> Result {
 
 #[test]
 fn from_csv_text_with_tab_separator_to_table(playground: Playground) -> Result {
-    playground.file("los_tres_caballeros.txt", indoc::indoc!{"
+    playground.file(
+        "los_tres_caballeros.txt",
+        indoc::indoc! {"
         first_name	last_name	rusty_luck
         Andrés	Robalino	1
         JT	Turner	1
         Yehuda	Katz	1
-    "})?;
+    "},
+    )?;
 
     let code = "
         open los_tres_caballeros.txt
@@ -145,7 +163,9 @@ fn from_csv_text_with_tab_separator_to_table(playground: Playground) -> Result {
 #[test]
 #[ignore = "csv crate has a bug when the last line is a comment: https://github.com/BurntSushi/rust-csv/issues/363"]
 fn from_csv_text_with_comments_to_table(playground: Playground) -> Result {
-    playground.file("los_tres_caballeros.txt", indoc::indoc!{"
+    playground.file(
+        "los_tres_caballeros.txt",
+        indoc::indoc! {"
         # This is a comment
         first_name,last_name,rusty_luck
         # This one too
@@ -153,7 +173,8 @@ fn from_csv_text_with_comments_to_table(playground: Playground) -> Result {
         Jonathan,Turner,1
         Yehuda,Katz,1
         # This one also
-    "})?;
+    "},
+    )?;
 
     let code = r##"
         open los_tres_caballeros.txt
@@ -167,12 +188,15 @@ fn from_csv_text_with_comments_to_table(playground: Playground) -> Result {
 
 #[test]
 fn from_csv_text_with_custom_quotes_to_table(playground: Playground) -> Result {
-    playground.file("los_tres_caballeros.txt", indoc::indoc!{"
+    playground.file(
+        "los_tres_caballeros.txt",
+        indoc::indoc! {"
         first_name,last_name,rusty_luck
         'And''rés',Robalino,1
         Jonathan,Turner,1
         Yehuda,Katz,1
-    "})?;
+    "},
+    )?;
 
     let code = r#"
         open los_tres_caballeros.txt
@@ -181,17 +205,23 @@ fn from_csv_text_with_custom_quotes_to_table(playground: Playground) -> Result {
         | get first_name
     "#;
 
-    test().cwd(playground.path()).run(code).expect_value_eq("And'rés")
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq("And'rés")
 }
 
 #[test]
 fn from_csv_text_with_custom_escapes_to_table(playground: Playground) -> Result {
-    playground.file("los_tres_caballeros.txt", indoc::indoc!{r#"
+    playground.file(
+        "los_tres_caballeros.txt",
+        indoc::indoc! {r#"
         first_name,last_name,rusty_luck
         "And\"rés",Robalino,1
         Jonathan,Turner,1
         Yehuda,Katz,1
-    "#})?;
+    "#},
+    )?;
 
     let code = r#"
         open los_tres_caballeros.txt
@@ -208,11 +238,14 @@ fn from_csv_text_with_custom_escapes_to_table(playground: Playground) -> Result 
 
 #[test]
 fn from_csv_text_skipping_headers_to_table(playground: Playground) -> Result {
-    playground.file("los_tres_amigos.txt", indoc::indoc!{"
+    playground.file(
+        "los_tres_amigos.txt",
+        indoc::indoc! {"
         Andrés,Robalino,1
         JT,Turner,1
         Yehuda,Katz,1
-    "})?;
+    "},
+    )?;
 
     let code = "
         open los_tres_amigos.txt
@@ -226,12 +259,15 @@ fn from_csv_text_skipping_headers_to_table(playground: Playground) -> Result {
 
 #[test]
 fn from_csv_text_with_missing_columns_to_table(playground: Playground) -> Result {
-    playground.file("los_tres_caballeros.txt", indoc::indoc!{"
+    playground.file(
+        "los_tres_caballeros.txt",
+        indoc::indoc! {"
         first_name,last_name,rusty_luck
         Andrés,Robalino
         Jonathan,Turner,1
         Yehuda,Katz,1
-    "})?;
+    "},
+    )?;
 
     let code = "
         open los_tres_caballeros.txt
@@ -246,12 +282,15 @@ fn from_csv_text_with_missing_columns_to_table(playground: Playground) -> Result
 
 #[test]
 fn from_csv_text_with_multiple_char_separator(playground: Playground) -> Result {
-    playground.file("los_tres_caballeros.txt", indoc::indoc!{"
+    playground.file(
+        "los_tres_caballeros.txt",
+        indoc::indoc! {"
         first_name,last_name,rusty_luck
         Andrés,Robalino,1
         Jonathan,Turner,1
         Yehuda,Katz,1
-    "})?;
+    "},
+    )?;
 
     let code = r#"
         open los_tres_caballeros.txt
@@ -270,19 +309,25 @@ fn from_csv_text_with_multiple_char_separator(playground: Playground) -> Result 
 
 #[test]
 fn from_csv_text_with_wrong_type_separator(playground: Playground) -> Result {
-    playground.file("los_tres_caballeros.txt", indoc::indoc!{"
+    playground.file(
+        "los_tres_caballeros.txt",
+        indoc::indoc! {"
         first_name,last_name,rusty_luck
         Andrés,Robalino,1
         Jonathan,Turner,1
         Yehuda,Katz,1
-    "})?;
+    "},
+    )?;
 
     let code = "
         open los_tres_caballeros.txt
         | from csv --separator ('123' | into int)
     ";
 
-    let outcome = test().cwd(playground.path()).run(code).expect_parse_error()?;
+    let outcome = test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_parse_error()?;
     match outcome {
         ParseError::TypeMismatch(expected, got, _) => {
             assert_eq!(expected, Type::String);
@@ -349,12 +394,15 @@ fn string_to_csv_error() -> Result {
 
 #[test]
 fn parses_csv_with_unicode_sep(playground: Playground) -> Result {
-    playground.file("los_tres_caballeros.txt", indoc::indoc!{"
+    playground.file(
+        "los_tres_caballeros.txt",
+        indoc::indoc! {"
         first_name;last_name;rusty_luck
         Andrés;Robalino;1
         JT;Turner;1
         Yehuda;Katz;1
-    "})?;
+    "},
+    )?;
 
     let code = r#"
         open los_tres_caballeros.txt
@@ -368,12 +416,15 @@ fn parses_csv_with_unicode_sep(playground: Playground) -> Result {
 
 #[test]
 fn parses_csv_with_unicode_x1f_sep(playground: Playground) -> Result {
-    playground.file("los_tres_caballeros.txt", indoc::indoc!{"
+    playground.file(
+        "los_tres_caballeros.txt",
+        indoc::indoc! {"
         first_namelast_namerusty_luck
         AndrésRobalino1
         JTTurner1
         YehudaKatz1
-    "})?;
+    "},
+    )?;
 
     let code = r#"
         open los_tres_caballeros.txt
@@ -472,4 +523,3 @@ fn empty_stream_with_explicit_columns_still_writes_header() -> Result {
 
     test().run(code).expect_value_eq("[a]")
 }
-

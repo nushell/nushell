@@ -698,17 +698,22 @@ fn percent_dynamic_dispatch_in_wrapped_command_forwards_rest_args() -> Result {
 }
 
 #[test]
-fn percent_dynamic_dispatch_in_wrapped_command_preserves_no_arg_builtin_defaults(playground: Playground) -> Result {
+fn percent_dynamic_dispatch_in_wrapped_command_preserves_no_arg_builtin_defaults(
+    playground: Playground,
+) -> Result {
     playground.empty_file("probe.txt")?;
 
-        let code = "
+    let code = "
             export def --wrapped builtin [arg1, ...args] { %($arg1) ...$args }
             let direct = (ls | where name =~ 'probe.txt' | length)
             let wrapped = (builtin ls | where name =~ 'probe.txt' | length)
             [$direct $wrapped]
         ";
 
-        test().cwd(playground.path()).run(code).expect_value_eq([1, 1])
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq([1, 1])
 }
 
 #[rstest]
@@ -1881,15 +1886,17 @@ fn external_arg_correctness(playground: Playground) -> Result {
         | from nuon
     ";
 
-    test().cwd(playground.path()).run(code).expect_value_eq(test_table![
-        ["label", "value", "type"];
-        ["flag", "false", "glob"],
-        ["flag2", "0001", "glob"],
-        ["flag3", "{fake: null}", "string"],
-        ["arg", "false", "glob"],
-        ["arg2", "0001", "glob"],
-        ["arg3", "{fake: null}", "string"],
-        ["rest", test_value!(["false", "0001", "{fake: null}"]), "list<oneof<glob, string>>"],
-    ])
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq(test_table![
+            ["label", "value", "type"];
+            ["flag", "false", "glob"],
+            ["flag2", "0001", "glob"],
+            ["flag3", "{fake: null}", "string"],
+            ["arg", "false", "glob"],
+            ["arg2", "0001", "glob"],
+            ["arg3", "{fake: null}", "string"],
+            ["rest", test_value!(["false", "0001", "{fake: null}"]), "list<oneof<glob, string>>"],
+        ])
 }
-

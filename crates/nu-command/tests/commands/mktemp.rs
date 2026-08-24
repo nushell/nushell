@@ -39,4 +39,3 @@ fn doesnt_create_temp_file(playground: Playground) -> Result {
     assert!(!loc.exists());
     Ok(())
 }
-

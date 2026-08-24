@@ -79,7 +79,9 @@ fn capture_error_with_too_much_stdout_not_hang_nushell(playground: Playground) -
 
 #[test]
 #[cfg(not(windows))]
-fn capture_error_with_both_stdout_stderr_messages_not_hang_nushell(playground: Playground) -> Result {
+fn capture_error_with_both_stdout_stderr_messages_not_hang_nushell(
+    playground: Playground,
+) -> Result {
     use nu_test_support::fs::Stub::FileWithContent;
     use nu_test_support::playground::Playground;
     let script_body = "
@@ -87,19 +89,19 @@ fn capture_error_with_both_stdout_stderr_messages_not_hang_nushell(playground: P
             echo $x
             echo $x 1>&2
         ";
-        let expect_body = "=".repeat(40960);
+    let expect_body = "=".repeat(40960);
 
-        playground.file("test.sh", script_body)?;
+    playground.file("test.sh", script_body)?;
 
-        let actual: CompleteResult = test()
-            .inherit_path()
-            .cwd(playground.path())
-            .run("sh test.sh | complete")?;
+    let actual: CompleteResult = test()
+        .inherit_path()
+        .cwd(playground.path())
+        .run("sh test.sh | complete")?;
 
-        assert_eq!(actual.stdout.trim(), expect_body);
-        assert_eq!(actual.stderr.trim(), expect_body);
-        assert_eq!(actual.exit_code, 0);
-        Ok(())
+    assert_eq!(actual.stdout.trim(), expect_body);
+    assert_eq!(actual.stderr.trim(), expect_body);
+    assert_eq!(actual.exit_code, 0);
+    Ok(())
 }
 
 #[test]
@@ -155,4 +157,3 @@ fn pipefail_parenthesized_pipeline_let_keeps_scope() -> Result {
     assert!(matches!(err, ParseError::VariableNotFound { .. }));
     Ok(())
 }
-

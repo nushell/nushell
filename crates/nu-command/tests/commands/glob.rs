@@ -195,7 +195,7 @@ fn glob_dc_glob_supports_depth_and_exclude(playground: Playground) -> Result {
         .cwd(playground.path())
         .run("glob '*.txt' --depth 1 --exclude [four.txt] | length")
         .expect_value_eq(1)
-        .expect("glob should support --depth and --exclude with dc-glob enabled");;
+        .expect("glob should support --depth and --exclude with dc-glob enabled");
 
     Ok(())
 }
@@ -356,7 +356,7 @@ fn glob_debug_subcommands_enabled(playground: Playground) -> Result {
         .cwd(playground.path())
         .run("glob --dbg-glob '*.txt' | length")
         .expect_value_eq(1)
-        .expect("--dbg-glob should be available with dc-glob enabled");;
+        .expect("--dbg-glob should be available with dc-glob enabled");
 
     Ok(())
 }
@@ -376,7 +376,7 @@ fn glob_debug_subcommands_disabled(playground: Playground) -> Result {
             || err.contains("unknown flag")
             || err.contains("doesn't have flag"),
         "expected unknown-flag parse error, got: {err}"
-    );;
+    );
 
     Ok(())
 }
@@ -434,7 +434,7 @@ fn glob_debug_subcommands_require_pattern_argument(playground: Playground) -> Re
             || dbg_glob.contains("required positional")
             || dbg_glob.contains("missing_positional"),
         "expected missing-argument parse error, got: {dbg_glob}"
-    );;
+    );
 
     Ok(())
 }
@@ -500,4 +500,3 @@ fn glob_dc_glob_literal_prefix_wildcard_absolute() -> Result {
 
     Ok(())
 }
-

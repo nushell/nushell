@@ -4,28 +4,36 @@ use nu_test_support::{fs::Stub::EmptyFile, prelude::*};
 fn checks_if_existing_file_exists(playground: Playground) -> Result {
     playground.empty_file("spam.txt")?;
 
-    let outcome: bool = test().cwd(playground.path()).run("echo spam.txt | path exists")?;
+    let outcome: bool = test()
+        .cwd(playground.path())
+        .run("echo spam.txt | path exists")?;
     assert!(outcome);
     Ok(())
 }
 
 #[test]
 fn checks_if_missing_file_exists(playground: Playground) -> Result {
-    let outcome: bool = test().cwd(playground.path()).run("echo spam.txt | path exists")?;
+    let outcome: bool = test()
+        .cwd(playground.path())
+        .run("echo spam.txt | path exists")?;
     assert!(!outcome);
     Ok(())
 }
 
 #[test]
 fn checks_if_dot_exists(playground: Playground) -> Result {
-    let outcome: bool = test().cwd(playground.path()).run("echo '.' | path exists")?;
+    let outcome: bool = test()
+        .cwd(playground.path())
+        .run("echo '.' | path exists")?;
     assert!(outcome);
     Ok(())
 }
 
 #[test]
 fn checks_if_double_dot_exists(playground: Playground) -> Result {
-    let outcome: bool = test().cwd(playground.path()).run("echo '..' | path exists")?;
+    let outcome: bool = test()
+        .cwd(playground.path())
+        .run("echo '..' | path exists")?;
     assert!(outcome);
     Ok(())
 }
@@ -58,8 +66,11 @@ fn test_check_symlink_exists(playground: Playground) -> Result {
     let symlink_target = "symlink_target";
     let symlink = "symlink";
     #[cfg(not(windows))]
-    std::os::unix::fs::symlink(playground.path().join(symlink_target), playground.path().join(symlink))
-        .unwrap();
+    std::os::unix::fs::symlink(
+        playground.path().join(symlink_target),
+        playground.path().join(symlink),
+    )
+    .unwrap();
     #[cfg(windows)]
     std::os::windows::fs::symlink_file(
         playground.path().join(symlink_target),
@@ -71,10 +82,13 @@ fn test_check_symlink_exists(playground: Playground) -> Result {
         .cwd(playground.path())
         .run("'symlink_target' | path exists")?;
     assert!(!outcome);
-    let outcome: bool = test().cwd(playground.path()).run("'symlink' | path exists")?;
+    let outcome: bool = test()
+        .cwd(playground.path())
+        .run("'symlink' | path exists")?;
     assert!(!outcome);
-    let outcome: bool = test().cwd(playground.path()).run("'symlink' | path exists -n")?;
+    let outcome: bool = test()
+        .cwd(playground.path())
+        .run("'symlink' | path exists -n")?;
     assert!(outcome);
     Ok(())
 }
-

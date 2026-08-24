@@ -18,4 +18,3 @@ fn semicolon_lhs_error_stops_processing() -> Result {
     test().run("where 1 1; 'done'").expect_parse_error()?;
     Ok(())
 }
-

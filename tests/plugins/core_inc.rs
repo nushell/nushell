@@ -59,7 +59,12 @@ fn by_one_with_no_field_passed(playground: Playground) -> Result {
 #[case::patch("patch", "--patch", "0.1.4")]
 #[nu_test_support::test]
 #[deps(NU_PLUGIN_INC)]
-fn semantic_version_inc(#[ignore] playground: Playground, #[case] topic: &str, #[case] args: &str, #[case] expected: &str) -> Result {
+fn semantic_version_inc(
+    #[ignore] playground: Playground,
+    #[case] topic: &str,
+    #[case] args: &str,
+    #[case] expected: &str,
+) -> Result {
     playground.file(
         "sample.toml",
         r#"
@@ -74,7 +79,10 @@ fn semantic_version_inc(#[ignore] playground: Playground, #[case] topic: &str, #
         | get package.version
     "};
 
-    test().cwd(playground.path()).run(code).expect_value_eq(expected)
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq(expected)
 }
 
 #[test]
@@ -101,4 +109,3 @@ fn explicit_flag() -> Result {
         .run("'0.1.2' | inc --major=false --minor=true --patch=false")
         .expect_value_eq("0.2.0")
 }
-

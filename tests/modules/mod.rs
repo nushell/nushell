@@ -119,20 +119,23 @@ fn module_public_import_alias() -> Result {
 fn module_public_import_decl_with_stored_where_condition(playground: Playground) -> Result {
     playground.file("main.nu", "export use mod.nu helper")?;
 
-        playground.file("mod.nu", indoc::indoc!{r#"
+    playground.file(
+        "mod.nu",
+        indoc::indoc! {r#"
             export def helper [] {
                 let cond = {|x| true }
                 [{a: 1}] | where $cond
             }
             
             export def main [] { "ok" }
-        "#})?;
+        "#},
+    )?;
 
-        let mut tester = test().cwd(playground.path());
-        let () = tester.run("use main.nu helper")?;
-        tester
-            .run("helper | to nuon --raw")
-            .expect_value_eq("[[a];[1]]")
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("use main.nu helper")?;
+    tester
+        .run("helper | to nuon --raw")
+        .expect_value_eq("[[a];[1]]")
 }
 
 #[test]
@@ -772,4 +775,3 @@ fn use_nested_submodules(playground: Playground) -> Result {
         .run("(voice animals cat) == 'woem'")
         .expect_value_eq(true)
 }
-

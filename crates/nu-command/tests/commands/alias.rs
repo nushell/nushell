@@ -52,10 +52,13 @@ fn alias_wont_recurse() -> Result {
 // Issue https://github.com/nushell/nushell/issues/8246
 #[test]
 fn alias_wont_recurse2(playground: Playground) -> Result {
-    playground.file("spam.nu", indoc::indoc!{"
+    playground.file(
+        "spam.nu",
+        indoc::indoc! {"
         def eggs [] { spam 'eggs' }
         alias spam = spam 'spam'
-    "})?;
+    "},
+    )?;
 
     let code = "
         def spam [what: string] { 'spam ' + $what };
@@ -129,4 +132,3 @@ fn export_alias_with_overlay_use_works() -> Result {
 fn alias_flag() -> Result {
     test().run("alias si = stor import").expect_value_eq(())
 }
-

@@ -17,10 +17,10 @@ fn idx_init_sets_initialized_status(playground: Playground) -> Result {
 fn idx_status_reports_initialized_after_init(playground: Playground) -> Result {
     playground.empty_file("beta.txt")?;
 
-        test()
-            .cwd(playground.path())
-            .run("idx init .; idx status | get initialized")
-            .expect_value_eq(true)
+    test()
+        .cwd(playground.path())
+        .run("idx init .; idx status | get initialized")
+        .expect_value_eq(true)
 }
 
 #[test]
@@ -28,10 +28,10 @@ fn idx_status_reports_initialized_after_init(playground: Playground) -> Result {
 fn idx_status_reports_watch_enabled_by_default(playground: Playground) -> Result {
     playground.empty_file("beta.txt")?;
 
-        test()
-            .cwd(playground.path())
-            .run("idx init .; idx status | get watch")
-            .expect_value_eq(true)
+    test()
+        .cwd(playground.path())
+        .run("idx init .; idx status | get watch")
+        .expect_value_eq(true)
 }
 
 #[test]
@@ -39,10 +39,10 @@ fn idx_status_reports_watch_enabled_by_default(playground: Playground) -> Result
 fn idx_status_reports_scan_duration_as_duration(playground: Playground) -> Result {
     playground.empty_file("timed.txt")?;
 
-        test()
-            .cwd(playground.path())
-            .run("idx init . --wait; idx status | get scan_duration | describe")
-            .expect_value_eq("duration")
+    test()
+        .cwd(playground.path())
+        .run("idx init . --wait; idx status | get scan_duration | describe")
+        .expect_value_eq("duration")
 }
 
 #[test]
@@ -50,10 +50,10 @@ fn idx_status_reports_scan_duration_as_duration(playground: Playground) -> Resul
 fn idx_files_returns_records_with_full_path(playground: Playground) -> Result {
     playground.empty_file("gamma.txt")?;
 
-        test()
-            .cwd(playground.path())
-            .run("idx init . --wait; idx files | get 0.full_path | str contains gamma.txt")
-            .expect_value_eq(true)
+    test()
+        .cwd(playground.path())
+        .run("idx init . --wait; idx files | get 0.full_path | str contains gamma.txt")
+        .expect_value_eq(true)
 }
 
 #[test]
@@ -72,10 +72,10 @@ fn idx_files_returns_ext_and_native_types(playground: Playground) -> Result {
 fn idx_init_wait_reports_scanning_as_false(playground: Playground) -> Result {
     playground.empty_file("scan-me.txt")?;
 
-        test()
-            .cwd(playground.path())
-            .run("idx init . --wait | get scanning")
-            .expect_value_eq(false)
+    test()
+        .cwd(playground.path())
+        .run("idx init . --wait | get scanning")
+        .expect_value_eq(false)
 }
 
 #[test]
@@ -91,10 +91,10 @@ fn idx_init_wait_indexes_generated_files_before_returning(playground: Playground
 #[serial]
 fn idx_init_wait_status_reports_indexed_file_count(playground: Playground) -> Result {
     playground.empty_file("alpha.txt")?;
-        playground.empty_file("beta.txt")?;
-        playground.empty_file("gamma.txt")?;
+    playground.empty_file("beta.txt")?;
+    playground.empty_file("gamma.txt")?;
 
-        test()
+    test()
             .cwd(playground.path())
             .run("let status = (idx init . --wait); let counted = (idx files | length); ($status | get files) == $counted")
             .expect_value_eq(true)
@@ -104,23 +104,23 @@ fn idx_init_wait_status_reports_indexed_file_count(playground: Playground) -> Re
 #[serial]
 fn idx_files_optional_query_uses_fuzzy_matching(playground: Playground) -> Result {
     playground.dir("src")?;
-        playground.empty_file("src/main.rs")?;
-        playground.empty_file("src/lib.rs")?;
-        playground.empty_file("README.md")?;
+    playground.empty_file("src/main.rs")?;
+    playground.empty_file("src/lib.rs")?;
+    playground.empty_file("README.md")?;
 
-        test()
-            .cwd(playground.path())
-            .run("idx init . --wait; idx files mai | where file_name == main.rs | length")
-            .expect_value_eq(1)
+    test()
+        .cwd(playground.path())
+        .run("idx init . --wait; idx files mai | where file_name == main.rs | length")
+        .expect_value_eq(1)
 }
 
 #[test]
 #[serial]
 fn idx_dirs_returns_records_with_full_path(playground: Playground) -> Result {
     playground.dir("nested")?;
-        playground.empty_file("nested/delta.txt")?;
+    playground.empty_file("nested/delta.txt")?;
 
-        test()
+    test()
             .cwd(playground.path())
             .run("idx init . --wait; idx dirs | get full_path | any {|path| $path | str contains 'nested' }")
             .expect_value_eq(true)
@@ -130,11 +130,11 @@ fn idx_dirs_returns_records_with_full_path(playground: Playground) -> Result {
 #[serial]
 fn idx_dirs_optional_query_filters_results(playground: Playground) -> Result {
     playground.dir("src/components")?;
-        playground.dir("tests/fixtures")?;
-        playground.empty_file("src/components/widget.nu")?;
-        playground.empty_file("tests/fixtures/spec.nu")?;
+    playground.dir("tests/fixtures")?;
+    playground.empty_file("src/components/widget.nu")?;
+    playground.empty_file("tests/fixtures/spec.nu")?;
 
-        test()
+    test()
         .cwd(playground.path())
         .run("idx init . --wait; idx dirs comp | get relative_path | any {|path| ($path | str contains 'src/components') or ($path | str contains 'src\\components') }")
         .expect_value_eq(true)
@@ -210,12 +210,12 @@ fn idx_live_views_exclude_tombstones(playground: Playground) -> Result {
 fn idx_watched_runtime_uses_one_live_picker(playground: Playground) -> Result {
     playground.empty_file("seed.txt")?;
 
-        let mut tester = test().cwd(playground.path());
+    let mut tester = test().cwd(playground.path());
 
-        let (): () = tester.run("idx init . --wait --no-content-indexing | ignore")?;
+    let (): () = tester.run("idx init . --wait --no-content-indexing | ignore")?;
 
-        // Once content search sees the watcher update, every live view should see the same file and dir.
-        tester
+    // Once content search sees the watcher update, every live view should see the same file and dir.
+    tester
             .run(
                 r#"
                     let before = idx status
@@ -259,60 +259,60 @@ fn idx_search_finds_content(playground: Playground) -> Result {
 #[serial]
 fn idx_search_uses_relative_path_from_current_directory(playground: Playground) -> Result {
     playground.dir("src")?;
-        playground.file("src/main.rs", "pattern found here")?;
+    playground.file("src/main.rs", "pattern found here")?;
 
-        test()
-            .cwd(playground.path())
-            .run("cd src; idx init .. --wait; idx search pattern | get 0.relative_path")
-            .expect_value_eq("main.rs")
+    test()
+        .cwd(playground.path())
+        .run("cd src; idx init .. --wait; idx search pattern | get 0.relative_path")
+        .expect_value_eq("main.rs")
 }
 
 #[test]
 #[serial]
 fn idx_find_uses_relative_path_from_current_directory(playground: Playground) -> Result {
     playground.dir("src")?;
-        playground.empty_file("src/main.rs")?;
+    playground.empty_file("src/main.rs")?;
 
-        test()
-            .cwd(playground.path())
-            .run("cd src; idx init .. --wait; idx find main | where kind == file | get 0.relative_path")
-            .expect_value_eq("main.rs")
+    test()
+        .cwd(playground.path())
+        .run("cd src; idx init .. --wait; idx find main | where kind == file | get 0.relative_path")
+        .expect_value_eq("main.rs")
 }
 
 #[test]
 #[serial]
 fn idx_search_bracket_pattern_finds_content(playground: Playground) -> Result {
     playground.file("test.txt", "Lyrics[")?;
-        playground.file("other.txt", "unrelated")?;
+    playground.file("other.txt", "unrelated")?;
 
-        test()
-            .cwd(playground.path())
-            .run("idx init . --wait; idx search 'Lyrics[' | length")
-            .expect_value_eq(1)
+    test()
+        .cwd(playground.path())
+        .run("idx init . --wait; idx search 'Lyrics[' | length")
+        .expect_value_eq(1)
 }
 
 #[test]
 #[serial]
 fn idx_search_question_mark_as_literal_text(playground: Playground) -> Result {
     playground.file("code.rs", "foo? bar")?;
-        playground.file("other.rs", "just foo")?;
+    playground.file("other.rs", "just foo")?;
 
-        test()
-            .cwd(playground.path())
-            .run("idx init . --wait; idx search 'foo?' | length")
-            .expect_value_eq(1)
+    test()
+        .cwd(playground.path())
+        .run("idx init . --wait; idx search 'foo?' | length")
+        .expect_value_eq(1)
 }
 
 #[test]
 #[serial]
 fn idx_search_bracket_literal_example_finds_content(playground: Playground) -> Result {
     playground.file("example.rs", "arr[0] = value")?;
-        playground.file("other.txt", "unrelated")?;
+    playground.file("other.txt", "unrelated")?;
 
-        test()
-            .cwd(playground.path())
-            .run("idx init . --wait; idx search 'arr[0]' | length")
-            .expect_value_eq(1)
+    test()
+        .cwd(playground.path())
+        .run("idx init . --wait; idx search 'arr[0]' | length")
+        .expect_value_eq(1)
 }
 
 #[test]
@@ -340,12 +340,12 @@ fn idx_search_glob_with_path_separator_example_filters_files() -> Result {
 #[serial]
 fn idx_search_brace_glob_still_filters_files(playground: Playground) -> Result {
     playground.file("alpha.rs", "pattern found here")?;
-        playground.file("beta.js", "pattern found here")?;
+    playground.file("beta.js", "pattern found here")?;
 
-        test()
-            .cwd(playground.path())
-            .run("idx init . --wait; idx search pattern *.{rs,js} | length")
-            .expect_value_eq(2)
+    test()
+        .cwd(playground.path())
+        .run("idx init . --wait; idx search pattern *.{rs,js} | length")
+        .expect_value_eq(2)
 }
 
 #[test]
@@ -363,4 +363,3 @@ fn idx_drop_clears_runtime(playground: Playground) -> Result {
         .run("idx status | get initialized")
         .expect_value_eq(false)
 }
-

@@ -122,10 +122,16 @@ fn double_quote_does_not_expand_path_glob(playground: Playground, prefix: &str) 
 #[apply(run_external_prefixes)]
 #[nu_test_support::test]
 #[deps(TESTBIN_FAIL)]
-fn failed_command_with_semicolon_will_not_execute_following_cmds(playground: Playground, prefix: &str) -> Result {
+fn failed_command_with_semicolon_will_not_execute_following_cmds(
+    playground: Playground,
+    prefix: &str,
+) -> Result {
     let code = format!("try {{ {prefix}fail; echo done }} catch {{ 'stopped' }}");
 
-    test().cwd(playground.path()).run(code).expect_value_eq("stopped")
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq("stopped")
 }
 
 #[apply(run_external_prefixes)]
@@ -143,20 +149,23 @@ fn external_args_with_quoted(playground: Playground, prefix: &str) -> Result {
 #[deps(TESTBIN_COCOCO)]
 fn external_arg_with_option_like_embedded_quotes(playground: Playground, prefix: &str) -> Result {
     test()
-            .cwd(playground.path())
-            .run(format!("{prefix}cococo -- --foo='bar' -foo='bar'"))
-            .expect_value_eq("--foo=bar -foo=bar")
+        .cwd(playground.path())
+        .run(format!("{prefix}cococo -- --foo='bar' -foo='bar'"))
+        .expect_value_eq("--foo=bar -foo=bar")
 }
 
 // FIXME: parser complains about invalid characters after single quote
 #[apply(direct_external_prefixes)]
 #[nu_test_support::test]
 #[deps(TESTBIN_COCOCO)]
-fn external_arg_with_non_option_like_embedded_quotes(playground: Playground, prefix: &str) -> Result {
+fn external_arg_with_non_option_like_embedded_quotes(
+    playground: Playground,
+    prefix: &str,
+) -> Result {
     test()
-            .cwd(playground.path())
-            .run(format!("{prefix}cococo foo='bar' 'foo'=bar"))
-            .expect_value_eq("foo=bar foo=bar")
+        .cwd(playground.path())
+        .run(format!("{prefix}cococo foo='bar' 'foo'=bar"))
+        .expect_value_eq("foo=bar foo=bar")
 }
 
 // FIXME: parser bug prevents expressions from appearing within GlobPattern substrings
@@ -282,18 +291,20 @@ fn external_arg_expand_tilde(playground: Playground, prefix: &str) -> Result {
 #[deps(TESTBIN_NONU)]
 fn external_command_not_expand_tilde_with_quotes(playground: Playground, prefix: &str) -> Result {
     test()
-            .cwd(playground.path())
-            .run(format!(r#"{prefix}nonu "~""#))
-            .expect_value_eq("~")
+        .cwd(playground.path())
+        .run(format!(r#"{prefix}nonu "~""#))
+        .expect_value_eq("~")
 }
 
 #[apply(run_external_prefixes)]
 #[nu_test_support::test]
 #[deps(TESTBIN_NONU)]
 fn external_command_expand_tilde_with_back_quotes(playground: Playground, prefix: &str) -> Result {
-    let actual: String = test().cwd(playground.path()).run(format!("{prefix}nonu `~`"))?;
-        assert_contains_not("~", actual);
-        Ok(())
+    let actual: String = test()
+        .cwd(playground.path())
+        .run(format!("{prefix}nonu `~`"))?;
+    assert_contains_not("~", actual);
+    Ok(())
 }
 
 #[apply(run_external_prefixes)]
@@ -319,7 +330,9 @@ fn can_run_cmd_files(playground: Playground, prefix: &str) -> Result {
         ",
     )?;
 
-    let actual: String = test().cwd(playground.path()).run(format!("{prefix}foo.cmd"))?;
+    let actual: String = test()
+        .cwd(playground.path())
+        .run(format!("{prefix}foo.cmd"))?;
     assert_contains("Hello World", actual);
     Ok(())
 }
@@ -337,7 +350,9 @@ fn can_run_batch_files(playground: Playground, prefix: &str) -> Result {
         ",
     )?;
 
-    let actual: String = test().cwd(playground.path()).run(format!("{prefix}foo.bat"))?;
+    let actual: String = test()
+        .cwd(playground.path())
+        .run(format!("{prefix}foo.bat"))?;
     assert_contains("Hello World", actual);
     Ok(())
 }
@@ -348,16 +363,16 @@ fn can_run_batch_files(playground: Playground, prefix: &str) -> Result {
 fn can_run_batch_files_without_cmd_extension(playground: Playground, prefix: &str) -> Result {
     use nu_test_support::fs::Stub::FileWithContent;
     playground.file(
-            "foo.cmd",
-            "
+        "foo.cmd",
+        "
                 @echo off
                 echo Hello World
             ",
-        )?;
+    )?;
 
-        let actual: String = test().cwd(playground.path()).run(format!("{prefix}foo"))?;
-        assert_contains("Hello World", actual);
-        Ok(())
+    let actual: String = test().cwd(playground.path()).run(format!("{prefix}foo"))?;
+    assert_contains("Hello World", actual);
+    Ok(())
 }
 
 #[cfg(windows)]
@@ -366,16 +381,16 @@ fn can_run_batch_files_without_cmd_extension(playground: Playground, prefix: &st
 fn can_run_batch_files_without_bat_extension(playground: Playground, prefix: &str) -> Result {
     use nu_test_support::fs::Stub::FileWithContent;
     playground.file(
-            "foo.bat",
-            "
+        "foo.bat",
+        "
                 @echo off
                 echo Hello World
             ",
-        )?;
+    )?;
 
-        let actual: String = test().cwd(playground.path()).run(format!("{prefix}foo"))?;
-        assert_contains("Hello World", actual);
-        Ok(())
+    let actual: String = test().cwd(playground.path()).run(format!("{prefix}foo"))?;
+    assert_contains("Hello World", actual);
+    Ok(())
 }
 
 #[apply(run_external_prefixes)]
@@ -455,7 +470,10 @@ fn can_run_ps1_files_with_space_in_path(prefix: &str) -> Result {
 #[case::run_external("run-external ")]
 #[nu_test_support::test]
 #[deps(TESTBIN_COCOCO)]
-fn can_run_external_without_path_env(#[ignore] playground: Playground, #[case] prefix: &str) -> Result {
+fn can_run_external_without_path_env(
+    #[ignore] playground: Playground,
+    #[case] prefix: &str,
+) -> Result {
     let bin = TESTBIN_COCOCO.path().to_string_lossy().into_owned();
     let code = format!(
         "
@@ -501,4 +519,3 @@ fn error_when_command_list_empty(#[ignore] playground: Playground, #[case] prefi
     assert_contains("Missing parameter", err.to_string());
     Ok(())
 }
-

@@ -33,7 +33,10 @@ fn test_du_flag_max_depth() -> Result {
 #[case("a]?c")]
 #[cfg_attr(windows, ignore = "invalid path")]
 #[case("a*.?c")]
-fn du_files_with_glob_metachars(#[ignore] playground: Playground, #[case] src_name: &str) -> Result {
+fn du_files_with_glob_metachars(
+    #[ignore] playground: Playground,
+    #[case] src_name: &str,
+) -> Result {
     playground.empty_file(src_name)?;
 
     let src = playground.path().join(src_name);
@@ -97,4 +100,3 @@ fn du_wildcards(playground: Playground) -> Result {
         .run("du -a * | length")
         .expect_value_eq(1)
 }
-

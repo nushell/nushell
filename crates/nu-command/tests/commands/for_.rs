@@ -85,4 +85,3 @@ fn for_with_non_block_body_errors_without_panic(#[case] src: &str) -> Result {
     assert_matches!(err, CompileError::InvalidKeywordCall { .. });
     Ok(())
 }
-

@@ -148,8 +148,8 @@ fn correct_scope_modules_fields(playground: Playground) -> Result {
 #[test]
 fn scope_modules_ignores_leading_shebang_in_module_description(playground: Playground) -> Result {
     playground.file(
-            "spam.nu",
-            "\
+        "spam.nu",
+        "\
                 #!/usr/bin/env nu
                 
                 # module_line1
@@ -158,13 +158,13 @@ fn scope_modules_ignores_leading_shebang_in_module_description(playground: Playg
                 
                 export def foo [] {}
             ",
-        )?;
+    )?;
 
-        let mut tester = test().cwd(playground.path());
-        let description: String = tester
-            .run("use spam.nu *; scope modules | where name == spam | get 0.description")?;
-        assert_eq!(description, "module_line1");
-        Ok(())
+    let mut tester = test().cwd(playground.path());
+    let description: String =
+        tester.run("use spam.nu *; scope modules | where name == spam | get 0.description")?;
+    assert_eq!(description, "module_line1");
+    Ok(())
 }
 
 #[test]
@@ -567,4 +567,3 @@ fn scope_commands_shows_deprecated_flags() -> Result {
     ";
     test().run(code).expect_value_eq([true, true])
 }
-

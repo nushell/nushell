@@ -225,10 +225,7 @@ mod tests {
     #[test]
     #[deps(NU)]
     fn evaluate_file_arg_with_various_characters_escape_properly(playground: Playground) -> Result {
-        playground.file(
-            "test.nu",
-            "def main [...args: string] { $args | to json }",
-        )?;
+        playground.file("test.nu", "def main [...args: string] { $args | to json }")?;
 
         let args = r#"a "" b "c\nd" "e f" ] "[" "}" "{" "\"" '"'"#;
         let expected = ["a", "", "b", "c\nd", "e f", "]", "[", "}", "{", "\"", "\""];
@@ -239,4 +236,3 @@ mod tests {
             .expect_value_eq(expected)
     }
 }
-

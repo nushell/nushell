@@ -45,7 +45,10 @@ fn find_with_bytestream_search_with_char(
 ) -> Result {
     playground.file("foo.txt", "ABC")?;
     let code = format!("open foo.txt | find {find_args} | get 0");
-    test().cwd(playground.path()).run(code).expect_value_eq(expected)
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq(expected)
 }
 
 #[rstest]
@@ -397,4 +400,3 @@ fn find_and_highlight_in_nested_list() -> Result {
             ],
         ]))
 }
-

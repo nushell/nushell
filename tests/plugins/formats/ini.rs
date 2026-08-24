@@ -48,7 +48,9 @@ fn parses_utf16_ini() -> Result {
 #[test]
 #[deps(NU_PLUGIN_FORMATS)]
 fn read_ini_with_missing_session(playground: Playground) -> Result {
-    playground.file("some_missing.ini", indoc::indoc!{"
+    playground.file(
+        "some_missing.ini",
+        indoc::indoc! {"
         min-width=450
         max-width=820
         [normal]
@@ -57,7 +59,8 @@ fn read_ini_with_missing_session(playground: Playground) -> Result {
         border-color=FAB387ff
         default-timeout=20
         sound-file=/usr/share/sounds/freedesktop/stereo/dialog-warning.oga
-    "})?;
+    "},
+    )?;
     test()
         .cwd(playground.path())
         .run("open some_missing.ini | get ''.min-width")
@@ -114,10 +117,7 @@ fn read_ini_with_no_quote(playground: Playground) -> Result {
 #[test]
 #[deps(NU_PLUGIN_FORMATS)]
 fn read_ini_with_indented_multiline_value(playground: Playground) -> Result {
-    playground.file(
-        "multiline.ini",
-        "[foo]\nbar=line one\n  line two\n",
-    )?;
+    playground.file("multiline.ini", "[foo]\nbar=line one\n  line two\n")?;
 
     let cwd = playground.path();
 
@@ -135,10 +135,7 @@ fn read_ini_with_indented_multiline_value(playground: Playground) -> Result {
 #[test]
 #[deps(NU_PLUGIN_FORMATS)]
 fn read_ini_with_preserve_key_leading_whitespace(playground: Playground) -> Result {
-    playground.file(
-        "key_whitespace.ini",
-        "[foo]\n  key=value\n",
-    )?;
+    playground.file("key_whitespace.ini", "[foo]\n  key=value\n")?;
 
     let cwd = playground.path();
 
@@ -152,4 +149,3 @@ fn read_ini_with_preserve_key_leading_whitespace(playground: Playground) -> Resu
         .run("open key_whitespace.ini --raw | from ini | get foo.key")
         .expect_value_eq("value")
 }
-
