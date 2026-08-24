@@ -35,7 +35,6 @@ use nu_utils::{
     filesystem::{PermissionResult, have_permission},
     perf, stderr_write_all_and_flush, stdout_write_all_and_flush,
 };
-#[cfg(feature = "helix")]
 use reedline::Helix;
 #[cfg(feature = "sqlite")]
 use reedline::SqliteBackedHistory;
@@ -607,11 +606,8 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         vi_insert: map_nucursorshape_to_cursorshape(config.cursor_shape.vi_insert),
         vi_normal: map_nucursorshape_to_cursorshape(config.cursor_shape.vi_normal),
         emacs: map_nucursorshape_to_cursorshape(config.cursor_shape.emacs),
-        #[cfg(feature = "helix")]
         hx_insert: map_nucursorshape_to_cursorshape(config.cursor_shape.helix_insert),
-        #[cfg(feature = "helix")]
         hx_normal: map_nucursorshape_to_cursorshape(config.cursor_shape.helix_normal),
-        #[cfg(feature = "helix")]
         hx_select: map_nucursorshape_to_cursorshape(config.cursor_shape.helix_select),
     };
     perf!("get config/cursor config", start_time, use_color);
@@ -1351,7 +1347,6 @@ fn setup_keybindings(engine_state: &EngineState, line_editor: Reedline) -> Reedl
                 let edit_mode = Box::new(Vi::new(insert_keybindings, normal_keybindings));
                 line_editor.with_edit_mode(edit_mode)
             }
-            #[cfg(feature = "helix")]
             KeybindingsMode::Helix {
                 insert_keybindings,
                 normal_keybindings,
