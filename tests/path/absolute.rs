@@ -312,7 +312,7 @@ fn absolute_tilde_relative_to() {
 
 #[cfg(not(target_arch = "wasm32"))]
 #[test]
-fn absolute_symlink(playground: Playground) {
+fn absolute_symlink(playground: Playground) -> Result {
     playground.empty_file("spam.txt")?;
     playground.symlink("spam.txt", "link_to_spam.txt")?;
 
@@ -325,11 +325,12 @@ fn absolute_symlink(playground: Playground) {
     expected.push("link_to_spam.txt");
 
     assert_eq!(actual, expected);
+    Ok(())
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 #[test]
-fn absolute_symlink_relative_to(playground: Playground) {
+fn absolute_symlink_relative_to(playground: Playground) -> Result {
     playground.empty_file("spam.txt")?;
     playground.symlink("spam.txt", "link_to_spam.txt")?;
 
@@ -339,4 +340,5 @@ fn absolute_symlink_relative_to(playground: Playground) {
     expected.push("link_to_spam.txt");
 
     assert_eq!(actual, expected);
+    Ok(())
 }

@@ -679,7 +679,7 @@ fn builtin_commands_can_be_shadowed_and_extended() -> Result {
 #[cfg(not(target_arch = "wasm32"))]
 #[test]
 #[deps(NU)]
-fn nu_env_pwd_symlink(playground: Playground) {
+fn nu_env_pwd_symlink(playground: Playground) -> Result {
     // Test that the value of PWD in the environment takes precedence
     // over the current working directory when they point to the same directory.
     let pwd = "linked_current_dir";
@@ -712,4 +712,5 @@ fn nu_env_pwd_symlink(playground: Playground) {
         .expect("failed to run nu");
     let output = String::from_utf8(child_output.stdout).unwrap();
     assert_eq!(output.trim_end(), current_dir.to_str().unwrap());
+    Ok(())
 }
