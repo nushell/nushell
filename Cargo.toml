@@ -235,10 +235,7 @@ ratatui = { version = "0.30", default-features = false, features = [
   #"underline-color" # leave out so we don't bring in termwiz
 ] }
 rayon = "1.12.0"
-# default-features = false keeps reedline's default-on `helix` feature keyed to
-# the workspace `helix` feature chain, so nu-cli's cfg-gated glue and reedline's
-# helix types stay in lockstep even when a crate is built standalone.
-reedline = { version = "0.51.0", default-features = false }
+reedline = { version = "0.51.0" }
 regex = "1.13.1"
 rmp = "0.8.15"
 rmp-serde = "1.3.1"
@@ -395,7 +392,6 @@ tempfile = { workspace = true }
 # Enable all features while still avoiding mutually exclusive features.
 # Use this if `--all-features` fails.
 full = [
-  "helix",
   "lsp",
   "mcp",
   "network",
@@ -433,7 +429,6 @@ native-tls = ["nu-command/native-tls"]
 rustls-tls = ["nu-command/rustls-tls"]
 
 default = [
-  "helix",
   "lsp",
   "mcp",
   "network",
@@ -454,14 +449,6 @@ static-link-openssl = ["dep:openssl"]
 system-clipboard = [
   "reedline/system_clipboard",
   "nu-cli/system-clipboard",
-]
-
-# Helix/Kakoune-style edit mode from `reedline` (`$env.config.edit_mode = "helix"`).
-# Enabled by default; opt out for a build without the mode.
-helix = [
-  "nu-cli/helix",
-  "nu-command/helix",
-  "reedline/helix",
 ]
 
 # Stable (Default)
