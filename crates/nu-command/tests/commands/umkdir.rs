@@ -19,9 +19,9 @@ fn accepts_and_creates_directories(playground: Playground) -> Result {
         .cwd(playground.path())
         .run("mkdir dir_1 dir_2 dir_3")?;
 
-    assert!(dirs.test().join("dir_1").is_dir());
-    assert!(dirs.test().join("dir_2").is_dir());
-    assert!(dirs.test().join("dir_3").is_dir());
+    assert!(playground.path().join("dir_1").is_dir());
+    assert!(playground.path().join("dir_2").is_dir());
+    assert!(playground.path().join("dir_3").is_dir());
     Ok(())
 }
 
@@ -59,9 +59,9 @@ fn print_created_paths(playground: Playground) -> Result {
         .cwd(playground.path())
         .run("mkdir -v dir_1 dir_2 dir_3 | to text")?;
 
-    assert!(dirs.test().join("dir_1").is_dir());
-    assert!(dirs.test().join("dir_2").is_dir());
-    assert!(dirs.test().join("dir_3").is_dir());
+    assert!(playground.path().join("dir_1").is_dir());
+    assert!(playground.path().join("dir_2").is_dir());
+    assert!(playground.path().join("dir_3").is_dir());
 
     assert_contains("dir_1", &actual);
     assert_contains("dir_2", &actual);
@@ -141,13 +141,13 @@ fn mkdir_umask_permission(playground: Playground) -> Result {
 #[test]
 fn mkdir_with_tilde(playground: Playground) -> Result {
     let () = test().cwd(playground.path()).run("mkdir '~tilde'")?;
-    assert!(dirs.test().join("~tilde").is_dir());
+    assert!(playground.path().join("~tilde").is_dir());
 
     // pass variable
     let () = test()
         .cwd(playground.path())
         .run("let f = '~tilde2'; mkdir $f")?;
-    assert!(dirs.test().join("~tilde2").is_dir());
+    assert!(playground.path().join("~tilde2").is_dir());
     Ok(())
 }
 
@@ -158,8 +158,8 @@ fn mkdir_with_interpolation_simple(playground: Playground) -> Result {
         .cwd(playground.path())
         .run("let x = 'test'; mkdir xxx/($x)")?;
 
-    assert!(dirs.test().join("xxx/test").is_dir());
-    assert!(!dirs.test().join("xxx/($x)").is_dir());
+    assert!(playground.path().join("xxx/test").is_dir());
+    assert!(!playground.path().join("xxx/($x)").is_dir());
     Ok(())
 }
 
@@ -170,12 +170,12 @@ fn mkdir_with_interpolation(playground: Playground) -> Result {
         .cwd(playground.path())
         .run("[ a b c ] | each { mkdir xxx/($in) }")?;
 
-    assert!(dirs.test().join("xxx/a").is_dir());
-    assert!(dirs.test().join("xxx/b").is_dir());
-    assert!(dirs.test().join("xxx/c").is_dir());
+    assert!(playground.path().join("xxx/a").is_dir());
+    assert!(playground.path().join("xxx/b").is_dir());
+    assert!(playground.path().join("xxx/c").is_dir());
 
     // Should not create a literal directory named "($in)"
-    assert!(!dirs.test().join("xxx/($in)").is_dir());
+    assert!(!playground.path().join("xxx/($in)").is_dir());
     Ok(())
 }
 
@@ -187,8 +187,8 @@ fn mkdir_continues_creating_directories_after_error(playground: Playground) -> R
         .run("mkdir before /etc/ack after")
         .expect_error()?;
 
-    assert!(dirs.test().join("before").is_dir());
-    assert!(dirs.test().join("after").is_dir());
+    assert!(playground.path().join("before").is_dir());
+    assert!(playground.path().join("after").is_dir());
     Ok(())
 }
 
@@ -199,7 +199,7 @@ fn mkdir_verbose_reports_errors_without_failing(playground: Playground) -> Resul
         .cwd(playground.path())
         .run("mkdir -v before /etc/ack after")?;
 
-    assert!(dirs.test().join("before").is_dir());
-    assert!(dirs.test().join("after").is_dir());
+    assert!(playground.path().join("before").is_dir());
+    assert!(playground.path().join("after").is_dir());
     Ok(())
 }

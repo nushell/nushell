@@ -1,6 +1,5 @@
 use chrono::{DateTime, Days, Local, TimeDelta, Utc};
 use filetime::FileTime;
-use nu_test_support::fs::{Stub, files_exist_at};
 use nu_test_support::prelude::*;
 use rstest::rstest;
 use std::path::Path;
@@ -15,8 +14,8 @@ fn file_times(file: impl AsRef<Path>) -> (FileTime, FileTime) {
     )
 }
 
-fn symlink_times(path: &nu_path::AbsolutePath) -> (filetime::FileTime, filetime::FileTime) {
-    let metadata = path.symlink_metadata().unwrap();
+fn symlink_times(path: impl AsRef<Path>) -> (filetime::FileTime, filetime::FileTime) {
+    let metadata = path.as_ref().symlink_metadata().unwrap();
 
     (
         filetime::FileTime::from_system_time(metadata.accessed().unwrap()),
@@ -25,33 +24,40 @@ fn symlink_times(path: &nu_path::AbsolutePath) -> (filetime::FileTime, filetime:
 }
 
 // From https://github.com/nushell/nushell/pull/14214
-fn setup_symlink_fs(dirs: &deprecated::Dirs, sandbox: &mut deprecated::Playground<'_>) {
-    sandbox.mkdir("d");
-    sandbox.with_files(&[Stub::EmptyFile("f"), Stub::EmptyFile("d/f")]);
-    sandbox.symlink("f", "fs");
-    sandbox.symlink("d", "ds");
-    sandbox.symlink("d/f", "fds");
+fn setup_symlink_fs(playground: &Playground) -> Result {
+    playground.dir("d")?;
+    playground.empty_file("f")?;
+    playground.empty_file("d/f")?;
+    playground.symlink("f", "fs")?;
+    playground.symlink("d", "ds")?;
+    playground.symlink("d/f", "fds")?;
 
     // sandbox.symlink does not handle symlinks to missing files well. It panics
     // But they are useful, and they should be tested.
     #[cfg(unix)]
     {
-        std::os::unix::fs::symlink(dirs.test().join("m"), dirs.test().join("fms")).unwrap();
+        std::os::unix::fs::symlink(playground.path().join("m"), playground.path().join("fms"))
+            .unwrap();
     }
 
     #[cfg(windows)]
     {
-        std::os::windows::fs::symlink_file(dirs.test().join("m"), dirs.test().join("fms")).unwrap();
+        std::os::windows::fs::symlink_file(
+            playground.path().join("m"),
+            playground.path().join("fms"),
+        )
+        .unwrap();
     }
 
     // Change the file times to a known "old" value for comparison
-    filetime::set_symlink_file_times(dirs.test().join("f"), TIME_ONE, TIME_ONE).unwrap();
-    filetime::set_symlink_file_times(dirs.test().join("d"), TIME_ONE, TIME_ONE).unwrap();
-    filetime::set_symlink_file_times(dirs.test().join("d/f"), TIME_ONE, TIME_ONE).unwrap();
-    filetime::set_symlink_file_times(dirs.test().join("ds"), TIME_ONE, TIME_ONE).unwrap();
-    filetime::set_symlink_file_times(dirs.test().join("fs"), TIME_ONE, TIME_ONE).unwrap();
-    filetime::set_symlink_file_times(dirs.test().join("fds"), TIME_ONE, TIME_ONE).unwrap();
-    filetime::set_symlink_file_times(dirs.test().join("fms"), TIME_ONE, TIME_ONE).unwrap();
+    filetime::set_symlink_file_times(playground.path().join("f"), TIME_ONE, TIME_ONE).unwrap();
+    filetime::set_symlink_file_times(playground.path().join("d"), TIME_ONE, TIME_ONE).unwrap();
+    filetime::set_symlink_file_times(playground.path().join("d/f"), TIME_ONE, TIME_ONE).unwrap();
+    filetime::set_symlink_file_times(playground.path().join("ds"), TIME_ONE, TIME_ONE).unwrap();
+    filetime::set_symlink_file_times(playground.path().join("fs"), TIME_ONE, TIME_ONE).unwrap();
+    filetime::set_symlink_file_times(playground.path().join("fds"), TIME_ONE, TIME_ONE).unwrap();
+    filetime::set_symlink_file_times(playground.path().join("fms"), TIME_ONE, TIME_ONE).unwrap();
+    Ok(())
 }
 
 #[test]
@@ -109,7 +115,7 @@ fn touch_glob_matches_when_dc_glob_enabled(
     #[ignore] playground: Playground,
     #[case] with_preexisting_files: bool,
 ) -> Result {
-    let sandbox_name = if with_preexisting_files {
+    let _sandbox_name = if with_preexisting_files {
         "touch_glob_dc_glob_preexisting"
     } else {
         "touch_glob_dc_glob_create_first"
@@ -124,9 +130,9 @@ fn touch_glob_matches_when_dc_glob_enabled(
 
     let () = test().cwd(playground.path()).run("touch *.txt")?;
 
-    assert!(dirs.test().join("one.txt").exists());
-    assert!(dirs.test().join("two.txt").exists());
-    assert!(!dirs.test().join("*.txt").exists());
+    assert!(playground.path().join("one.txt").exists());
+    assert!(playground.path().join("two.txt").exists());
+    assert!(!playground.path().join("*.txt").exists());
     Ok(())
 }
 
@@ -601,13 +607,13 @@ fn change_dir_atime_to_reference(playground: Playground) -> Result {
 #[test]
 fn create_a_file_with_tilde(playground: Playground) -> Result {
     let () = test().cwd(playground.path()).run("touch '~tilde'")?;
-    assert!(files_exist_at(&[Path::new("~tilde")], dirs.test()));
+    assert!(playground.path().join("~tilde").exists());
 
     // pass variable
     let () = test()
         .cwd(playground.path())
         .run("let f = '~tilde2'; touch $f")?;
-    assert!(files_exist_at(&[Path::new("~tilde2")], dirs.test()));
+    assert!(playground.path().join("~tilde2").exists());
     Ok(())
 }
 
@@ -640,13 +646,13 @@ fn recognizes_stdout(playground: Playground) -> Result {
         .cwd(playground.path())
         .run_with_data("let code; nu -n -c $code | complete", "touch -")?;
 
-    assert!(!dirs.test().join("-").exists());
+    assert!(!playground.path().join("-").exists());
     Ok(())
 }
 
 #[test]
 fn follow_symlinks(playground: Playground) -> Result {
-    setup_symlink_fs(&dirs, sandbox);
+    setup_symlink_fs(&playground)?;
 
     let missing = playground.path().join("m");
     assert!(!missing.exists());
@@ -663,9 +669,9 @@ fn follow_symlinks(playground: Playground) -> Result {
     assert!(missing.exists());
 
     // The timestamps for files and directories were changed from TIME_ONE
-    let file_times = symlink_times(&playground.path().join("f"));
-    let dir_times = symlink_times(&playground.path().join("d"));
-    let dir_file_times = symlink_times(&playground.path().join("d/f"));
+    let file_times = symlink_times(playground.path().join("f"));
+    let dir_times = symlink_times(playground.path().join("d"));
+    let dir_file_times = symlink_times(playground.path().join("d/f"));
 
     assert_ne!(file_times, (TIME_ONE, TIME_ONE));
     assert_ne!(dir_times, (TIME_ONE, TIME_ONE));
@@ -673,10 +679,10 @@ fn follow_symlinks(playground: Playground) -> Result {
 
     // For symlinks, they remain (mostly) the same
     // We can't test accessed times, since to reach the target file, the symlink must be accessed!
-    let file_symlink_times = symlink_times(&playground.path().join("fs"));
-    let dir_symlink_times = symlink_times(&playground.path().join("ds"));
-    let dir_file_symlink_times = symlink_times(&playground.path().join("fds"));
-    let file_missing_symlink_times = symlink_times(&playground.path().join("fms"));
+    let file_symlink_times = symlink_times(playground.path().join("fs"));
+    let dir_symlink_times = symlink_times(playground.path().join("ds"));
+    let dir_file_symlink_times = symlink_times(playground.path().join("fds"));
+    let file_missing_symlink_times = symlink_times(playground.path().join("fms"));
 
     assert_eq!(file_symlink_times.1, TIME_ONE);
     assert_eq!(dir_symlink_times.1, TIME_ONE);
@@ -687,7 +693,7 @@ fn follow_symlinks(playground: Playground) -> Result {
 
 #[test]
 fn no_follow_symlinks(playground: Playground) -> Result {
-    setup_symlink_fs(&dirs, sandbox);
+    setup_symlink_fs(&playground)?;
 
     let missing = playground.path().join("m");
     assert!(!missing.exists());
@@ -704,19 +710,19 @@ fn no_follow_symlinks(playground: Playground) -> Result {
     assert!(!missing.exists());
 
     // The timestamps for files and directories remain the same
-    let file_times = symlink_times(&playground.path().join("f"));
-    let dir_times = symlink_times(&playground.path().join("d"));
-    let dir_file_times = symlink_times(&playground.path().join("d/f"));
+    let file_times = symlink_times(playground.path().join("f"));
+    let dir_times = symlink_times(playground.path().join("d"));
+    let dir_file_times = symlink_times(playground.path().join("d/f"));
 
     assert_eq!(file_times, (TIME_ONE, TIME_ONE));
     assert_eq!(dir_times, (TIME_ONE, TIME_ONE));
     assert_eq!(dir_file_times, (TIME_ONE, TIME_ONE));
 
     // For symlinks, everything changed. (except their targets, and paths, and personality)
-    let file_symlink_times = symlink_times(&playground.path().join("fs"));
-    let dir_symlink_times = symlink_times(&playground.path().join("ds"));
-    let dir_file_symlink_times = symlink_times(&playground.path().join("fds"));
-    let file_missing_symlink_times = symlink_times(&playground.path().join("fms"));
+    let file_symlink_times = symlink_times(playground.path().join("fs"));
+    let dir_symlink_times = symlink_times(playground.path().join("ds"));
+    let dir_file_symlink_times = symlink_times(playground.path().join("fds"));
+    let file_missing_symlink_times = symlink_times(playground.path().join("fms"));
 
     assert_ne!(file_symlink_times, (TIME_ONE, TIME_ONE));
     assert_ne!(dir_symlink_times, (TIME_ONE, TIME_ONE));

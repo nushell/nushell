@@ -43,7 +43,7 @@ fn better_empty_redirection(prefix: &str) -> Result {
 #[apply(run_external_prefixes)]
 #[nu_test_support::test]
 #[deps(TESTBIN_COCOCO)]
-fn explicit_glob(playground: Playground, prefix: &str) -> Result {
+fn explicit_glob(#[ignore] playground: Playground, prefix: &str) -> Result {
     playground.empty_file("D&D_volume_1.txt")?;
     playground.empty_file("D&D_volume_2.txt")?;
     playground.empty_file("foo.sh")?;
@@ -60,7 +60,7 @@ fn explicit_glob(playground: Playground, prefix: &str) -> Result {
 #[apply(run_external_prefixes)]
 #[nu_test_support::test]
 #[deps(TESTBIN_COCOCO)]
-fn bare_word_expand_path_glob(playground: Playground, prefix: &str) -> Result {
+fn bare_word_expand_path_glob(#[ignore] playground: Playground, prefix: &str) -> Result {
     playground.empty_file("D&D_volume_1.txt")?;
     playground.empty_file("D&D_volume_2.txt")?;
     playground.empty_file("foo.sh")?;
@@ -77,7 +77,7 @@ fn bare_word_expand_path_glob(playground: Playground, prefix: &str) -> Result {
 #[apply(run_external_prefixes)]
 #[nu_test_support::test]
 #[deps(TESTBIN_COCOCO)]
-fn backtick_expand_path_glob(playground: Playground, prefix: &str) -> Result {
+fn backtick_expand_path_glob(#[ignore] playground: Playground, prefix: &str) -> Result {
     playground.empty_file("D&D_volume_1.txt")?;
     playground.empty_file("D&D_volume_2.txt")?;
     playground.empty_file("foo.sh")?;
@@ -94,7 +94,10 @@ fn backtick_expand_path_glob(playground: Playground, prefix: &str) -> Result {
 #[apply(run_external_prefixes)]
 #[nu_test_support::test]
 #[deps(TESTBIN_COCOCO)]
-fn single_quote_does_not_expand_path_glob(playground: Playground, prefix: &str) -> Result {
+fn single_quote_does_not_expand_path_glob(
+    #[ignore] playground: Playground,
+    prefix: &str,
+) -> Result {
     playground.empty_file("D&D_volume_1.txt")?;
     playground.empty_file("D&D_volume_2.txt")?;
     playground.empty_file("foo.sh")?;
@@ -108,7 +111,10 @@ fn single_quote_does_not_expand_path_glob(playground: Playground, prefix: &str) 
 #[apply(run_external_prefixes)]
 #[nu_test_support::test]
 #[deps(TESTBIN_COCOCO)]
-fn double_quote_does_not_expand_path_glob(playground: Playground, prefix: &str) -> Result {
+fn double_quote_does_not_expand_path_glob(
+    #[ignore] playground: Playground,
+    prefix: &str,
+) -> Result {
     playground.empty_file("D&D_volume_1.txt")?;
     playground.empty_file("D&D_volume_2.txt")?;
     playground.empty_file("foo.sh")?;
@@ -123,7 +129,7 @@ fn double_quote_does_not_expand_path_glob(playground: Playground, prefix: &str) 
 #[nu_test_support::test]
 #[deps(TESTBIN_FAIL)]
 fn failed_command_with_semicolon_will_not_execute_following_cmds(
-    playground: Playground,
+    #[ignore] playground: Playground,
     prefix: &str,
 ) -> Result {
     let code = format!("try {{ {prefix}fail; echo done }} catch {{ 'stopped' }}");
@@ -137,7 +143,7 @@ fn failed_command_with_semicolon_will_not_execute_following_cmds(
 #[apply(run_external_prefixes)]
 #[nu_test_support::test]
 #[deps(TESTBIN_COCOCO)]
-fn external_args_with_quoted(playground: Playground, prefix: &str) -> Result {
+fn external_args_with_quoted(#[ignore] playground: Playground, prefix: &str) -> Result {
     test()
         .cwd(playground.path())
         .run(format!(r#"{prefix}cococo "foo=bar 'hi'""#))
@@ -147,7 +153,10 @@ fn external_args_with_quoted(playground: Playground, prefix: &str) -> Result {
 #[apply(direct_external_prefixes)]
 #[nu_test_support::test]
 #[deps(TESTBIN_COCOCO)]
-fn external_arg_with_option_like_embedded_quotes(playground: Playground, prefix: &str) -> Result {
+fn external_arg_with_option_like_embedded_quotes(
+    #[ignore] playground: Playground,
+    prefix: &str,
+) -> Result {
     test()
         .cwd(playground.path())
         .run(format!("{prefix}cococo -- --foo='bar' -foo='bar'"))
@@ -159,7 +168,7 @@ fn external_arg_with_option_like_embedded_quotes(playground: Playground, prefix:
 #[nu_test_support::test]
 #[deps(TESTBIN_COCOCO)]
 fn external_arg_with_non_option_like_embedded_quotes(
-    playground: Playground,
+    #[ignore] playground: Playground,
     prefix: &str,
 ) -> Result {
     test()
@@ -172,7 +181,10 @@ fn external_arg_with_non_option_like_embedded_quotes(
 #[apply(direct_external_prefixes)]
 #[nu_test_support::test]
 #[deps(TESTBIN_COCOCO)]
-fn external_arg_with_string_interpolation(playground: Playground, prefix: &str) -> Result {
+fn external_arg_with_string_interpolation(
+    #[ignore] playground: Playground,
+    prefix: &str,
+) -> Result {
     let code = format!(r#"{prefix}cococo foo=(2 + 2) $"foo=(2 + 2)" foo=$"(2 + 2)""#);
 
     test()
@@ -184,7 +196,7 @@ fn external_arg_with_string_interpolation(playground: Playground, prefix: &str) 
 #[apply(run_external_prefixes)]
 #[nu_test_support::test]
 #[deps(TESTBIN_NONU)]
-fn external_arg_with_variable_name(playground: Playground, prefix: &str) -> Result {
+fn external_arg_with_variable_name(#[ignore] playground: Playground, prefix: &str) -> Result {
     let code = format!(
         r#"
             let dump_command = "PGPASSWORD='db_secret' pg_dump -Fc -h 'db.host' -p '$db.port' -U postgres -d 'db_name' > '/tmp/dump_name'"
@@ -200,7 +212,7 @@ fn external_arg_with_variable_name(playground: Playground, prefix: &str) -> Resu
 #[apply(run_external_prefixes)]
 #[nu_test_support::test]
 #[deps(TESTBIN_COCOCO)]
-fn external_command_escape_args(playground: Playground, prefix: &str) -> Result {
+fn external_command_escape_args(#[ignore] playground: Playground, prefix: &str) -> Result {
     test()
         .cwd(playground.path())
         .run(format!(r#"{prefix}cococo "\"abcd""#))
@@ -257,7 +269,7 @@ fn external_command_url_args(prefix: &str) -> Result {
 )]
 #[nu_test_support::test]
 #[deps(NU, TESTBIN_COCOCO)]
-fn external_command_expand_tilde(playground: Playground, prefix: &str) -> Result {
+fn external_command_expand_tilde(#[ignore] playground: Playground, prefix: &str) -> Result {
     // Make a copy of the testbin that can be found through tilde expansion.
     let testbin_path = playground.path().join("test_cococo");
     fs::copy(TESTBIN_COCOCO.path(), &testbin_path)?;
@@ -274,7 +286,7 @@ fn external_command_expand_tilde(playground: Playground, prefix: &str) -> Result
 #[apply(direct_external_prefixes)]
 #[nu_test_support::test]
 #[deps(TESTBIN_COCOCO)]
-fn external_arg_expand_tilde(playground: Playground, prefix: &str) -> Result {
+fn external_arg_expand_tilde(#[ignore] playground: Playground, prefix: &str) -> Result {
     let home = dirs::home_dir().expect("failed to find home dir");
     test()
         .cwd(playground.path())
@@ -289,7 +301,10 @@ fn external_arg_expand_tilde(playground: Playground, prefix: &str) -> Result {
 #[apply(run_external_prefixes)]
 #[nu_test_support::test]
 #[deps(TESTBIN_NONU)]
-fn external_command_not_expand_tilde_with_quotes(playground: Playground, prefix: &str) -> Result {
+fn external_command_not_expand_tilde_with_quotes(
+    #[ignore] playground: Playground,
+    prefix: &str,
+) -> Result {
     test()
         .cwd(playground.path())
         .run(format!(r#"{prefix}nonu "~""#))
@@ -299,7 +314,10 @@ fn external_command_not_expand_tilde_with_quotes(playground: Playground, prefix:
 #[apply(run_external_prefixes)]
 #[nu_test_support::test]
 #[deps(TESTBIN_NONU)]
-fn external_command_expand_tilde_with_back_quotes(playground: Playground, prefix: &str) -> Result {
+fn external_command_expand_tilde_with_back_quotes(
+    #[ignore] playground: Playground,
+    prefix: &str,
+) -> Result {
     let actual: String = test()
         .cwd(playground.path())
         .run(format!("{prefix}nonu `~`"))?;
@@ -310,7 +328,10 @@ fn external_command_expand_tilde_with_back_quotes(playground: Playground, prefix
 #[apply(run_external_prefixes)]
 #[nu_test_support::test]
 #[deps(TESTBIN_INPUT_BYTES_LENGTH)]
-fn external_command_receives_raw_binary_data(playground: Playground, prefix: &str) -> Result {
+fn external_command_receives_raw_binary_data(
+    #[ignore] playground: Playground,
+    prefix: &str,
+) -> Result {
     test()
         .cwd(playground.path())
         .run(format!("0x[deadbeef] | {prefix}input_bytes_length"))
@@ -320,7 +341,7 @@ fn external_command_receives_raw_binary_data(playground: Playground, prefix: &st
 #[cfg(windows)]
 #[apply(run_external_prefixes)]
 #[nu_test_support::test]
-fn can_run_cmd_files(playground: Playground, prefix: &str) -> Result {
+fn can_run_cmd_files(#[ignore] playground: Playground, prefix: &str) -> Result {
     use nu_test_support::fs::Stub::FileWithContent;
     playground.file(
         "foo.cmd",
@@ -340,7 +361,7 @@ fn can_run_cmd_files(playground: Playground, prefix: &str) -> Result {
 #[cfg(windows)]
 #[apply(run_external_prefixes)]
 #[nu_test_support::test]
-fn can_run_batch_files(playground: Playground, prefix: &str) -> Result {
+fn can_run_batch_files(#[ignore] playground: Playground, prefix: &str) -> Result {
     use nu_test_support::fs::Stub::FileWithContent;
     playground.file(
         "foo.bat",
@@ -360,7 +381,10 @@ fn can_run_batch_files(playground: Playground, prefix: &str) -> Result {
 #[cfg(windows)]
 #[apply(run_external_prefixes)]
 #[nu_test_support::test]
-fn can_run_batch_files_without_cmd_extension(playground: Playground, prefix: &str) -> Result {
+fn can_run_batch_files_without_cmd_extension(
+    #[ignore] playground: Playground,
+    prefix: &str,
+) -> Result {
     use nu_test_support::fs::Stub::FileWithContent;
     playground.file(
         "foo.cmd",
@@ -378,7 +402,10 @@ fn can_run_batch_files_without_cmd_extension(playground: Playground, prefix: &st
 #[cfg(windows)]
 #[apply(run_external_prefixes)]
 #[nu_test_support::test]
-fn can_run_batch_files_without_bat_extension(playground: Playground, prefix: &str) -> Result {
+fn can_run_batch_files_without_bat_extension(
+    #[ignore] playground: Playground,
+    prefix: &str,
+) -> Result {
     use nu_test_support::fs::Stub::FileWithContent;
     playground.file(
         "foo.bat",
@@ -406,7 +433,7 @@ fn quotes_trimmed_when_shelling_out(prefix: &str) -> Result {
 #[apply(run_external_prefixes)]
 #[nu_test_support::test]
 #[deps(TESTBIN_ECHO_ENV_MIXED)]
-fn redirect_combine(playground: Playground, prefix: &str) -> Result {
+fn redirect_combine(#[ignore] playground: Playground, prefix: &str) -> Result {
     let code = format!("{prefix}echo_env_mixed out-err FOO BAR o+e>| str join ''");
 
     let actual: String = test()
@@ -422,7 +449,7 @@ fn redirect_combine(playground: Playground, prefix: &str) -> Result {
 #[cfg(windows)]
 #[apply(run_external_prefixes)]
 #[nu_test_support::test]
-fn can_run_ps1_files(playground: Playground, prefix: &str) -> Result {
+fn can_run_ps1_files(#[ignore] playground: Playground, prefix: &str) -> Result {
     use nu_test_support::fs::Stub::FileWithContent;
     playground.file(
         "foo.ps1",

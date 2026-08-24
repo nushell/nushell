@@ -13,7 +13,6 @@ fn def_with_trailing_comma() -> Result {
 
 #[rstest]
 #[case::command(
-    "def_with_comment",
     "
         #My echo
         export def e [arg] {echo $arg}
@@ -21,7 +20,6 @@ fn def_with_trailing_comma() -> Result {
     "My echo"
 )]
 #[case::parameter(
-    "def_with_param_comment",
     "
         export def e [
         param:string #My cool attractive param
@@ -31,7 +29,6 @@ fn def_with_trailing_comma() -> Result {
 )]
 fn def_help_includes_comments(
     #[ignore] playground: Playground,
-    #[case] playground: &str,
     #[case] fixture: &str,
     #[case] expected: &str,
 ) -> Result {
@@ -142,7 +139,6 @@ fn non_keyword_command_names_are_still_allowed() -> Result {
 
 #[rstest]
 #[case::typed(
-    "def_with_list",
     "
         def e [
         param: list
@@ -151,7 +147,6 @@ fn non_keyword_command_names_are_still_allowed() -> Result {
     "source def_test; e [one]"
 )]
 #[case::default(
-    "def_with_default_list",
     "
         def f [
         param: list = [one]
@@ -161,7 +156,6 @@ fn non_keyword_command_names_are_still_allowed() -> Result {
 )]
 fn def_with_list(
     #[ignore] playground: Playground,
-    #[case] playground: &str,
     #[case] fixture: &str,
     #[case] code: &str,
 ) -> Result {

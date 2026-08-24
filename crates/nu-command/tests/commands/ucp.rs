@@ -543,7 +543,7 @@ fn copy_file_with_read_permission(
     #[case] progress_flag: &str,
 ) -> Result {
     playground.empty_file("valid.txt")?;
-    playground.readonly_file("invalid_prem.txt")?;
+    playground.readonly_file("invalid_prem.txt", "")?;
 
     let code = format!("cp {progress_flag} valid.txt invalid_prem.txt");
     let result: CompleteResult = test().cwd(playground.path()).run_with_data(RUNNER, code)?;

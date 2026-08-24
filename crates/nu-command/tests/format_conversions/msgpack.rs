@@ -7,8 +7,8 @@ use pretty_assertions::assert_eq;
 static GENERATE: LazyLock<PathBuf> =
     LazyLock::new(|| FIXTURES.join("formats").join("msgpack").join("generate.nu"));
 
-fn msgpack_test<T: FromValue>(fixture_name: impl AsRef<str>) -> Result<T> {
-    msgpack_test_with_opts(fixture_name, "")
+fn msgpack_test<T: FromValue>(playground: Playground, fixture_name: impl AsRef<str>) -> Result<T> {
+    msgpack_test_with_opts(playground, fixture_name, "")
 }
 
 fn msgpack_test_with_opts<T: FromValue>(
@@ -32,8 +32,8 @@ fn msgpack_test_with_opts<T: FromValue>(
 }
 
 #[test]
-fn sample() -> Result {
-    let values: Vec<Value> = msgpack_test("sample")?;
+fn sample(playground: Playground) -> Result {
+    let values: Vec<Value> = msgpack_test(playground, "sample")?;
     let mut values = values.into_iter();
     let values = &mut values;
 
@@ -127,8 +127,9 @@ fn sample_roundtrip() -> Result {
 }
 
 #[test]
-fn objects() -> Result {
-    let value: (HashMap<String, String>, String) = msgpack_test_with_opts("objects", "--objects")?;
+fn objects(playground: Playground) -> Result {
+    let value: (HashMap<String, String>, String) =
+        msgpack_test_with_opts(playground, "objects", "--objects")?;
     assert_eq!(value.0["nushell"], "rocks");
     assert_eq!(value.0.len(), 1);
     assert_eq!(value.1, "seriously");
@@ -136,79 +137,79 @@ fn objects() -> Result {
 }
 
 #[test]
-fn max_depth() -> Result {
-    let shell_error = msgpack_test("max-depth").expect_error()?;
+fn max_depth(playground: Playground) -> Result {
+    let shell_error = msgpack_test::<Value>(playground, "max-depth").expect_error()?;
     let msg = shell_error.generic_msg()?;
     assert_contains("exceeded depth limit", msg);
     Ok(())
 }
 
 #[test]
-fn non_utf8() -> Result {
-    let shell_error = msgpack_test("non-utf8").expect_error()?;
+fn non_utf8(playground: Playground) -> Result {
+    let shell_error = msgpack_test::<Value>(playground, "non-utf8").expect_error()?;
     assert!(matches!(shell_error, ShellError::NonUtf8Custom { .. }));
     Ok(())
 }
 
 #[test]
-fn empty() -> Result {
-    let shell_error = msgpack_test("empty").expect_error()?;
+fn empty(playground: Playground) -> Result {
+    let shell_error = msgpack_test::<Value>(playground, "empty").expect_error()?;
     let msg = shell_error.generic_msg()?;
     assert_eq!(msg, "failed to fill whole buffer");
     Ok(())
 }
 
 #[test]
-fn eof() -> Result {
-    let shell_error = msgpack_test("eof").expect_error()?;
+fn eof(playground: Playground) -> Result {
+    let shell_error = msgpack_test::<Value>(playground, "eof").expect_error()?;
     let msg = shell_error.generic_msg()?;
     assert_eq!(msg, "failed to fill whole buffer");
     Ok(())
 }
 
 #[test]
-fn after_eof() -> Result {
-    let shell_error = msgpack_test("after-eof").expect_error()?;
+fn after_eof(playground: Playground) -> Result {
+    let shell_error = msgpack_test::<Value>(playground, "after-eof").expect_error()?;
     let error = shell_error.generic_error()?;
     assert_eq!(error, "Additional data after end of MessagePack object");
     Ok(())
 }
 
 #[test]
-fn reserved() -> Result {
-    let shell_error = msgpack_test("reserved").expect_error()?;
+fn reserved(playground: Playground) -> Result {
+    let shell_error = msgpack_test::<Value>(playground, "reserved").expect_error()?;
     let msg = shell_error.generic_msg()?;
     assert_contains("Reserved", msg);
     Ok(())
 }
 
 #[test]
-fn u64_too_large() -> Result {
-    let shell_error = msgpack_test("u64-too-large").expect_error()?;
+fn u64_too_large(playground: Playground) -> Result {
+    let shell_error = msgpack_test::<Value>(playground, "u64-too-large").expect_error()?;
     let error = shell_error.generic_error()?;
     assert_eq!(error, "MessagePack integer too big for Nushell");
     Ok(())
 }
 
 #[test]
-fn non_string_map_key() -> Result {
-    let shell_error = msgpack_test("non-string-map-key").expect_error()?;
+fn non_string_map_key(playground: Playground) -> Result {
+    let shell_error = msgpack_test::<Value>(playground, "non-string-map-key").expect_error()?;
     let msg = shell_error.generic_msg()?;
     assert_contains("string key", msg);
     Ok(())
 }
 
 #[test]
-fn timestamp_wrong_length() -> Result {
-    let shell_error = msgpack_test("timestamp-wrong-length").expect_error()?;
+fn timestamp_wrong_length(playground: Playground) -> Result {
+    let shell_error = msgpack_test::<Value>(playground, "timestamp-wrong-length").expect_error()?;
     let error = shell_error.generic_error()?;
     assert_eq!(error, "Unknown MessagePack extension");
     Ok(())
 }
 
 #[test]
-fn other_extension_type() -> Result {
-    let shell_error = msgpack_test("other-extension-type").expect_error()?;
+fn other_extension_type(playground: Playground) -> Result {
+    let shell_error = msgpack_test::<Value>(playground, "other-extension-type").expect_error()?;
     let error = shell_error.generic_error()?;
     assert_eq!(error, "Unknown MessagePack extension");
     Ok(())
