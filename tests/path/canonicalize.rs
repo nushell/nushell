@@ -15,9 +15,13 @@ fn canonicalize_path(playground: Playground) -> Result {
 
     assert!(actual.ends_with("spam.txt"));
 <<<<<<< HEAD
+<<<<<<< HEAD
     Ok(())
 =======
 >>>>>>> 926ed3f27 (fmt)
+=======
+    Ok(())
+>>>>>>> 6eef7d156 (fix some tests by returning a `Result`)
 }
 
 #[test]
@@ -33,9 +37,13 @@ fn canonicalize_unicode_path(playground: Playground) -> Result {
 
     assert!(actual.ends_with("🚒.txt"));
 <<<<<<< HEAD
+<<<<<<< HEAD
     Ok(())
 =======
 >>>>>>> 926ed3f27 (fmt)
+=======
+    Ok(())
+>>>>>>> 6eef7d156 (fix some tests by returning a `Result`)
 }
 
 #[ignore]
@@ -54,9 +62,13 @@ fn canonicalize_path_relative_to(playground: Playground) -> Result {
 
     assert_eq!(actual, expected);
 <<<<<<< HEAD
+<<<<<<< HEAD
     Ok(())
 =======
 >>>>>>> 926ed3f27 (fmt)
+=======
+    Ok(())
+>>>>>>> 6eef7d156 (fix some tests by returning a `Result`)
 }
 
 #[test]
@@ -75,9 +87,13 @@ fn canonicalize_unicode_path_relative_to_unicode_path_with_spaces(
 
     assert_eq!(actual, expected);
 <<<<<<< HEAD
+<<<<<<< HEAD
     Ok(())
 =======
 >>>>>>> 926ed3f27 (fmt)
+=======
+    Ok(())
+>>>>>>> 6eef7d156 (fix some tests by returning a `Result`)
 }
 
 #[ignore]
@@ -99,9 +115,13 @@ fn canonicalize_absolute_path_relative_to(playground: Playground) -> Result {
 
     assert_eq!(actual, expected);
 <<<<<<< HEAD
+<<<<<<< HEAD
     Ok(())
 =======
 >>>>>>> 926ed3f27 (fmt)
+=======
+    Ok(())
+>>>>>>> 6eef7d156 (fix some tests by returning a `Result`)
 }
 
 #[test]
@@ -134,9 +154,13 @@ fn canonicalize_path_with_dot_relative_to(playground: Playground) -> Result {
 
     assert_eq!(actual, expected);
 <<<<<<< HEAD
+<<<<<<< HEAD
     Ok(())
 =======
 >>>>>>> 926ed3f27 (fmt)
+=======
+    Ok(())
+>>>>>>> 6eef7d156 (fix some tests by returning a `Result`)
 }
 
 #[test]
@@ -150,9 +174,13 @@ fn canonicalize_path_with_many_dots_relative_to(playground: Playground) -> Resul
 
     assert_eq!(actual, expected);
 <<<<<<< HEAD
+<<<<<<< HEAD
     Ok(())
 =======
 >>>>>>> 926ed3f27 (fmt)
+=======
+    Ok(())
+>>>>>>> 6eef7d156 (fix some tests by returning a `Result`)
 }
 
 #[test]
@@ -178,9 +206,13 @@ fn canonicalize_path_with_double_dot_relative_to(playground: Playground) -> Resu
 
     assert_eq!(actual, expected);
 <<<<<<< HEAD
+<<<<<<< HEAD
     Ok(())
 =======
 >>>>>>> 926ed3f27 (fmt)
+=======
+    Ok(())
+>>>>>>> 6eef7d156 (fix some tests by returning a `Result`)
 }
 
 #[test]
@@ -195,9 +227,13 @@ fn canonicalize_path_with_many_double_dots_relative_to(playground: Playground) -
 
     assert_eq!(actual, expected);
 <<<<<<< HEAD
+<<<<<<< HEAD
     Ok(())
 =======
 >>>>>>> 926ed3f27 (fmt)
+=======
+    Ok(())
+>>>>>>> 6eef7d156 (fix some tests by returning a `Result`)
 }
 
 #[test]
@@ -229,9 +265,13 @@ fn canonicalize_path_with_3_ndots_relative_to(playground: Playground) -> Result 
 
     assert_eq!(actual, expected);
 <<<<<<< HEAD
+<<<<<<< HEAD
     Ok(())
 =======
 >>>>>>> 926ed3f27 (fmt)
+=======
+    Ok(())
+>>>>>>> 6eef7d156 (fix some tests by returning a `Result`)
 }
 
 #[test]
@@ -249,9 +289,13 @@ fn canonicalize_path_with_many_3_ndots_relative_to(playground: Playground) -> Re
 
     assert_eq!(actual, expected);
 <<<<<<< HEAD
+<<<<<<< HEAD
     Ok(())
 =======
 >>>>>>> 926ed3f27 (fmt)
+=======
+    Ok(())
+>>>>>>> 6eef7d156 (fix some tests by returning a `Result`)
 }
 
 #[test]
@@ -266,9 +310,13 @@ fn canonicalize_path_with_4_ndots_relative_to(playground: Playground) -> Result 
 
     assert_eq!(actual, expected);
 <<<<<<< HEAD
+<<<<<<< HEAD
     Ok(())
 =======
 >>>>>>> 926ed3f27 (fmt)
+=======
+    Ok(())
+>>>>>>> 6eef7d156 (fix some tests by returning a `Result`)
 }
 
 #[test]
@@ -286,9 +334,13 @@ fn canonicalize_path_with_many_4_ndots_relative_to(playground: Playground) -> Re
 
     assert_eq!(actual, expected);
 <<<<<<< HEAD
+<<<<<<< HEAD
     Ok(())
 =======
 >>>>>>> 926ed3f27 (fmt)
+=======
+    Ok(())
+>>>>>>> 6eef7d156 (fix some tests by returning a `Result`)
 }
 
 #[test]
@@ -306,19 +358,27 @@ fn canonicalize_path_with_way_too_many_dots_relative_to(playground: Playground) 
 
     assert_eq!(actual, expected);
 <<<<<<< HEAD
+<<<<<<< HEAD
     Ok(())
 =======
 >>>>>>> 926ed3f27 (fmt)
+=======
+    Ok(())
+>>>>>>> 6eef7d156 (fix some tests by returning a `Result`)
 }
 
 #[test]
 fn canonicalize_unicode_path_with_way_too_many_dots_relative_to_unicode_path_with_spaces(
     playground: Playground,
 <<<<<<< HEAD
+<<<<<<< HEAD
 ) -> Result {
 =======
 ) {
 >>>>>>> 926ed3f27 (fmt)
+=======
+) -> Result {
+>>>>>>> 6eef7d156 (fix some tests by returning a `Result`)
     playground.dir("foo/áčěéí  +šř=é/baz/eggs/e-$ èрт🚒♞中片-j/bacon/öäöä öäöä")?;
     playground.empty_file("🚒.txt")?;
 
@@ -332,9 +392,13 @@ fn canonicalize_unicode_path_with_way_too_many_dots_relative_to_unicode_path_wit
 
     assert_eq!(actual, expected);
 <<<<<<< HEAD
+<<<<<<< HEAD
     Ok(())
 =======
 >>>>>>> 926ed3f27 (fmt)
+=======
+    Ok(())
+>>>>>>> 6eef7d156 (fix some tests by returning a `Result`)
 }
 
 #[test]
@@ -375,9 +439,13 @@ fn canonicalize_symlink(playground: Playground) -> Result {
 
     assert_eq!(actual, expected);
 <<<<<<< HEAD
+<<<<<<< HEAD
     Ok(())
 =======
 >>>>>>> 926ed3f27 (fmt)
+=======
+    Ok(())
+>>>>>>> 6eef7d156 (fix some tests by returning a `Result`)
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -393,9 +461,13 @@ fn canonicalize_symlink_relative_to(playground: Playground) -> Result {
 
     assert_eq!(actual, expected);
 <<<<<<< HEAD
+<<<<<<< HEAD
     Ok(())
 =======
 >>>>>>> 926ed3f27 (fmt)
+=======
+    Ok(())
+>>>>>>> 6eef7d156 (fix some tests by returning a `Result`)
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -410,9 +482,13 @@ fn canonicalize_symlink_loop_relative_to_should_fail(playground: Playground) -> 
 
     assert!(actual.is_err());
 <<<<<<< HEAD
+<<<<<<< HEAD
     Ok(())
 =======
 >>>>>>> 926ed3f27 (fmt)
+=======
+    Ok(())
+>>>>>>> 6eef7d156 (fix some tests by returning a `Result`)
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -429,9 +505,13 @@ fn canonicalize_nested_symlink_relative_to(playground: Playground) -> Result {
 
     assert_eq!(actual, expected);
 <<<<<<< HEAD
+<<<<<<< HEAD
     Ok(())
 =======
 >>>>>>> 926ed3f27 (fmt)
+=======
+    Ok(())
+>>>>>>> 6eef7d156 (fix some tests by returning a `Result`)
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -450,9 +530,13 @@ fn canonicalize_nested_symlink_within_symlink_dir_relative_to(playground: Playgr
 
     assert_eq!(actual, expected);
 <<<<<<< HEAD
+<<<<<<< HEAD
     Ok(())
 =======
 >>>>>>> 926ed3f27 (fmt)
+=======
+    Ok(())
+>>>>>>> 6eef7d156 (fix some tests by returning a `Result`)
 }
 
 #[test]

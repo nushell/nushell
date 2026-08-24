@@ -319,9 +319,13 @@ fn absolute_symlink(playground: Playground) -> Result {
 
     assert_eq!(actual, expected);
 <<<<<<< HEAD
+<<<<<<< HEAD
     Ok(())
 =======
 >>>>>>> 926ed3f27 (fmt)
+=======
+    Ok(())
+>>>>>>> 6eef7d156 (fix some tests by returning a `Result`)
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -337,7 +341,11 @@ fn absolute_symlink_relative_to(playground: Playground) -> Result {
 
     assert_eq!(actual, expected);
 <<<<<<< HEAD
+<<<<<<< HEAD
     Ok(())
 =======
 >>>>>>> 926ed3f27 (fmt)
+=======
+    Ok(())
+>>>>>>> 6eef7d156 (fix some tests by returning a `Result`)
 }

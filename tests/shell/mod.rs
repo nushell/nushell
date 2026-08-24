@@ -1438,8 +1438,12 @@ fn nu_env_pwd_symlink(playground: Playground) -> Result {
     let output = String::from_utf8(child_output.stdout).unwrap();
     assert_eq!(output.trim_end(), current_dir.to_str().unwrap());
 <<<<<<< HEAD
+<<<<<<< HEAD
 
     Ok(())
 =======
 >>>>>>> 926ed3f27 (fmt)
+=======
+    Ok(())
+>>>>>>> 6eef7d156 (fix some tests by returning a `Result`)
 }
