@@ -89,7 +89,7 @@ const EMPTY_ITEM: HistoryItem = HistoryItem {
 
 #[test]
 fn history_import_pipe_string(playground: Playground) -> Result {
-    let config_home = playground.path().join("nushell").to_std_path_buf();
+    let config_home = playground.path().join("nushell");
 
     let () = test()
         .with_history(&config_home, HistoryFileFormat::Plaintext)
@@ -110,7 +110,7 @@ fn history_import_pipe_string(playground: Playground) -> Result {
 
 #[test]
 fn history_import_pipe_record(playground: Playground) -> Result {
-    let config_home = playground.path().join("nushell").to_std_path_buf();
+    let config_home = playground.path().join("nushell");
 
     let () = test()
         .with_history(&config_home, HistoryFileFormat::Sqlite)
@@ -131,7 +131,7 @@ fn history_import_pipe_record(playground: Playground) -> Result {
 
 #[test]
 fn to_empty_plaintext(playground: Playground) -> Result {
-    let config_home = playground.path().join("nushell").to_std_path_buf();
+    let config_home = playground.path().join("nushell");
     save_all(
         &mut *open_backend(&config_home, HistoryFileFormat::Sqlite).unwrap(),
         vec![
@@ -173,7 +173,7 @@ fn to_empty_plaintext(playground: Playground) -> Result {
 
 #[test]
 fn to_empty_sqlite(playground: Playground) -> Result {
-    let config_home = playground.path().join("nushell").to_std_path_buf();
+    let config_home = playground.path().join("nushell");
     save_all(
         &mut *open_backend(&config_home, HistoryFileFormat::Plaintext).unwrap(),
         vec![
@@ -216,7 +216,7 @@ fn to_empty_sqlite(playground: Playground) -> Result {
 #[case::plaintext(HistoryFileFormat::Plaintext)]
 #[case::sqlite(HistoryFileFormat::Sqlite)]
 fn to_existing(#[ignore] playground: Playground, #[case] dst_format: HistoryFileFormat) -> Result {
-    let config_home = playground.path().join("nushell").to_std_path_buf();
+    let config_home = playground.path().join("nushell");
 
     save_all(
         &mut *open_backend(&config_home, dst_format).unwrap(),

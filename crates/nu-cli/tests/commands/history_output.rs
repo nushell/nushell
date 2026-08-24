@@ -31,7 +31,7 @@ impl NuTesterHistoryExt for NuTester {
 
 #[test]
 fn sqlite_history_last_returns_date_for_start_timestamp(playground: Playground) -> Result {
-    let config_home = playground.path().join("nushell").to_std_path_buf();
+    let config_home = playground.path().join("nushell");
     let mut tester = test().with_sqlite_history(config_home);
     let () = tester.run(IMPORT_SINGLE_HISTORY_RECORD)?;
 
@@ -42,7 +42,7 @@ fn sqlite_history_last_returns_date_for_start_timestamp(playground: Playground) 
 
 #[test]
 fn sqlite_history_last_returns_duration_for_duration_column(playground: Playground) -> Result {
-    let config_home = playground.path().join("nushell").to_std_path_buf();
+    let config_home = playground.path().join("nushell");
     let mut tester = test().with_sqlite_history(config_home);
     let () = tester.run(IMPORT_SINGLE_HISTORY_RECORD)?;
 
@@ -53,7 +53,7 @@ fn sqlite_history_last_returns_duration_for_duration_column(playground: Playgrou
 
 #[test]
 fn sqlite_history_select_command_works(playground: Playground) -> Result {
-    let config_home = playground.path().join("nushell").to_std_path_buf();
+    let config_home = playground.path().join("nushell");
     let mut tester = test().with_sqlite_history(config_home);
     let () = tester.run(IMPORT_SINGLE_HISTORY_RECORD)?;
 
@@ -64,7 +64,7 @@ fn sqlite_history_select_command_works(playground: Playground) -> Result {
 
 #[test]
 fn sqlite_history_select_projection_preserves_order(playground: Playground) -> Result {
-    let config_home = playground.path().join("nushell").to_std_path_buf();
+    let config_home = playground.path().join("nushell");
     let mut tester = test().with_sqlite_history(config_home);
     let () = tester.run(IMPORT_THREE_HISTORY_RECORDS)?;
 
