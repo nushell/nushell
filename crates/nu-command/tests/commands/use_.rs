@@ -5,102 +5,88 @@ use nu_test_support::{
 use rstest::rstest;
 
 #[test]
-fn use_module_file_within_block() -> Result {
-    Playground::setup("use_test_1", |dirs, playground| {
-        let file = dirs.test().join("spam.nu");
+fn use_module_file_within_block(playground: Playground) -> Result {
+    let file = playground.path().join("spam.nu");
 
-        playground.with_files(&[FileWithContent(
-            file.as_os_str().to_str().unwrap(),
-            r#"
-                export def foo [] {
-                    echo "hello world"
-                }
-            "#,
-        )]);
-
-        let code = "
-            def bar [] {
-                use spam.nu foo;
-                foo
-            };
-            bar
-        ";
-
-        test()
-            .cwd(dirs.test())
-            .run(code)
-            .expect_value_eq("hello world")
-    })
-}
-
-#[test]
-fn use_keeps_doc_comments() -> Result {
-    Playground::setup("use_doc_comments", |dirs, playground| {
-        let file = dirs.test().join("spam.nu");
-
-        playground.with_files(&[FileWithContent(
-            file.as_os_str().to_str().unwrap(),
-            r#"
-                # this is my foo command
-                export def foo [
-                    x:string # this is an x parameter
-                ] {
-                    echo "hello world"
-                }
-            "#,
-        )]);
-
-        let code = "
-            use spam.nu foo;
-            help foo
-        ";
-
-        let output: String = test().cwd(dirs.test()).run(code)?;
-        assert_contains("this is my foo command", &output);
-        assert_contains("this is an x parameter", &output);
-        Ok(())
-    })
-}
-
-#[test]
-fn use_eval_export_env() -> Result {
-    Playground::setup("use_eval_export_env", |dirs, playground| {
-        playground.with_files(&[FileWithContentToBeTrimmed(
-            "spam.nu",
-            "
-                export-env { $env.FOO = 'foo' }
-            ",
-        )]);
-
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run("use spam.nu")?;
-        tester.run("$env.FOO").expect_value_eq("foo")
-    })
-}
-
-#[test]
-fn use_eval_export_env_hide() -> Result {
-    Playground::setup("use_eval_export_env", |dirs, playground| {
-        playground.with_files(&[FileWithContentToBeTrimmed(
-            "spam.nu",
-            "
-                export-env { hide-env FOO }
-            ",
-        )]);
-
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run("$env.FOO = 'foo'")?;
-        let () = tester.run("use spam.nu")?;
-
-        let err = tester.run("$env.FOO").expect_shell_error()?;
-        match err {
-            ShellError::CantFindColumn { col_name, .. } => {
-                assert_eq!(col_name, "FOO");
-                Ok(())
+    playground.file(
+        file.as_os_str().to_str().unwrap(),
+        r#"
+            export def foo [] {
+                echo "hello world"
             }
-            err => Err(err.into()),
+        "#,
+    )?;
+
+    let code = "
+        def bar [] {
+            use spam.nu foo;
+            foo
+        };
+        bar
+    ";
+
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq("hello world")
+}
+
+#[test]
+fn use_keeps_doc_comments(playground: Playground) -> Result {
+    let file = playground.path().join("spam.nu");
+
+    playground.file(
+        file.as_os_str().to_str().unwrap(),
+        r#"
+            # this is my foo command
+            export def foo [
+                x:string # this is an x parameter
+            ] {
+                echo "hello world"
+            }
+        "#,
+    )?;
+
+    let code = "
+        use spam.nu foo;
+        help foo
+    ";
+
+    let output: String = test().cwd(playground.path()).run(code)?;
+    assert_contains("this is my foo command", &output);
+    assert_contains("this is an x parameter", &output);
+    Ok(())
+}
+
+#[test]
+fn use_eval_export_env(playground: Playground) -> Result {
+    playground.file("spam.nu", indoc::indoc!{"
+        export-env { $env.FOO = 'foo' }
+    "})?;
+
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("use spam.nu")?;
+    tester.run("$env.FOO").expect_value_eq("foo")
+}
+
+#[test]
+fn use_eval_export_env_hide(playground: Playground) -> Result {
+    playground.file("spam.nu", indoc::indoc!{"
+        export-env { hide-env FOO }
+    "})?;
+
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("$env.FOO = 'foo'")?;
+    let () = tester.run("use spam.nu")?;
+
+    let err = tester.run("$env.FOO").expect_shell_error()?;
+    match err {
+        ShellError::CantFindColumn { col_name, .. } => {
+            assert_eq!(col_name, "FOO");
+            Ok(())
         }
-    })
+        err => Err(err.into()),
+    }
 }
 
 #[test]
@@ -168,21 +154,16 @@ fn use_dont_cd_overlay() -> Result {
 }
 
 #[test]
-fn use_export_env_combined() -> Result {
-    Playground::setup("use_is_scoped", |dirs, playground| {
-        playground.with_files(&[FileWithContentToBeTrimmed(
-            "spam.nu",
-            "
-                def foo [] { 'foo' }
-                alias bar = foo
-                export-env { $env.FOO = (bar) }
-            ",
-        )]);
+fn use_export_env_combined(playground: Playground) -> Result {
+    playground.file("spam.nu", indoc::indoc!{"
+        def foo [] { 'foo' }
+        alias bar = foo
+        export-env { $env.FOO = (bar) }
+    "})?;
 
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run("use spam.nu")?;
-        tester.run("$env.FOO").expect_value_eq("foo")
-    })
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("use spam.nu")?;
+    tester.run("$env.FOO").expect_value_eq("foo")
 }
 
 #[test]
@@ -351,43 +332,39 @@ fn can_use_sub_subname_from_submodule() -> Result {
 }
 
 #[test]
-fn test_use_with_printing_file_pwd() -> Result {
-    Playground::setup("use_with_printing_file_pwd", |dirs, playground| {
-        let file = dirs.test().join("mod.nu");
-        playground.with_files(&[FileWithContent(
-            file.as_os_str().to_str().unwrap(),
-            "
-                export-env {
-                    $env.CAPTURED_FILE_PWD = $env.FILE_PWD
-                }
-            ",
-        )]);
+fn test_use_with_printing_file_pwd(playground: Playground) -> Result {
+    let file = playground.path().join("mod.nu");
+    playground.file(
+        file.as_os_str().to_str().unwrap(),
+        "
+            export-env {
+                $env.CAPTURED_FILE_PWD = $env.FILE_PWD
+            }
+        ",
+    )?;
 
-        test()
-            .cwd(dirs.test())
-            .run("use .; $env.CAPTURED_FILE_PWD")
-            .expect_value_eq(dirs.test().to_string_lossy())
-    })
+    test()
+        .cwd(playground.path())
+        .run("use .; $env.CAPTURED_FILE_PWD")
+        .expect_value_eq(playground.path().to_string_lossy())
 }
 
 #[test]
-fn test_use_with_printing_current_file() -> Result {
-    Playground::setup("use_with_printing_current_file", |dirs, playground| {
-        let file = dirs.test().join("mod.nu");
-        playground.with_files(&[FileWithContent(
-            file.as_os_str().to_str().unwrap(),
-            "
-                export-env {
-                    $env.CAPTURED_CURRENT_FILE = $env.CURRENT_FILE
-                }
-            ",
-        )]);
+fn test_use_with_printing_current_file(playground: Playground) -> Result {
+    let file = playground.path().join("mod.nu");
+    playground.file(
+        file.as_os_str().to_str().unwrap(),
+        "
+            export-env {
+                $env.CAPTURED_CURRENT_FILE = $env.CURRENT_FILE
+            }
+        ",
+    )?;
 
-        test()
-            .cwd(dirs.test())
-            .run("use .; $env.CAPTURED_CURRENT_FILE")
-            .expect_value_eq(dirs.test().join("mod.nu").to_string_lossy())
-    })
+    test()
+        .cwd(playground.path())
+        .run("use .; $env.CAPTURED_CURRENT_FILE")
+        .expect_value_eq(playground.path().join("mod.nu").to_string_lossy())
 }
 
 #[test]
@@ -485,43 +462,34 @@ fn overlay_use_keyword_named_module_with_main_errors() -> Result {
 }
 
 #[test]
-fn overlay_use_keyword_named_module_as_different_name_works() -> Result {
-    Playground::setup("use_keyword_as", |dirs, playground| {
-        playground.with_files(&[FileWithContentToBeTrimmed(
-            "run.nu",
-            "
-                export def main [] { 'hello' }
-            ",
-        )]);
+fn overlay_use_keyword_named_module_as_different_name_works(playground: Playground) -> Result {
+    playground.file("run.nu", indoc::indoc!{"
+        export def main [] { 'hello' }
+    "})?;
 
-        test()
-            .cwd(dirs.test())
-            .run("overlay use run.nu as my_run; my_run")
-            .expect_value_eq("hello")
-    })
+    test()
+        .cwd(playground.path())
+        .run("overlay use run.nu as my_run; my_run")
+        .expect_value_eq("hello")
 }
 
 #[test]
-fn use_keyword_named_module_file_with_main_errors() -> Result {
-    Playground::setup("use_keyword_file", |dirs, playground| {
-        playground.with_files(&[FileWithContentToBeTrimmed(
-            "run.nu",
-            "
-                export def main [] { 'hello' }
-            ",
-        )]);
+fn use_keyword_named_module_file_with_main_errors(playground: Playground) -> Result {
+    playground.file("run.nu", indoc::indoc!{"
+        export def main [] { 'hello' }
+    "})?;
 
-        let err = test()
-            .cwd(dirs.test())
-            .run("use run.nu")
-            .expect_parse_error()?;
+    let err = test()
+        .cwd(playground.path())
+        .run("use run.nu")
+        .expect_parse_error()?;
 
-        match err {
-            ParseError::KeywordShadowModuleMain(name, ..) => {
-                assert_eq!(name, "run");
-                Ok(())
-            }
-            err => Err(err.into()),
+    match err {
+        ParseError::KeywordShadowModuleMain(name, ..) => {
+            assert_eq!(name, "run");
+            Ok(())
         }
-    })
+        err => Err(err.into()),
+    }
 }
+

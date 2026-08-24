@@ -21,3 +21,4 @@ fn current_working_directory_back_to_root_from_anywhere() {
         assert_eq!(nu.cwd(), original_cwd);
     })
 }
+

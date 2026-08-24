@@ -76,29 +76,25 @@ mod windows {
     use super::*;
 
     #[test]
-    fn expands_path_with_tilde_backward_slash() -> Result {
-        Playground::setup("path_expand_2", |dirs, _| {
-            let code = r#"
-                echo "~\tmp.txt" | path expand
-            "#;
+    fn expands_path_with_tilde_backward_slash(playground: Playground) -> Result {
+        let code = r#"
+            echo "~\tmp.txt" | path expand
+        "#;
 
-            let outcome: String = test().cwd(dirs.test()).run(code)?;
-            assert!(!Path::new(&outcome).starts_with("~"));
-            Ok(())
-        })
+        let outcome: String = test().cwd(playground.path()).run(code)?;
+        assert!(!Path::new(&outcome).starts_with("~"));
+        Ok(())
     }
 
     #[test]
-    fn win_expands_path_with_tilde_forward_slash() -> Result {
-        Playground::setup("path_expand_2", |dirs, _| {
-            let code = r#"
-                echo "~/tmp.txt" | path expand
-            "#;
+    fn win_expands_path_with_tilde_forward_slash(playground: Playground) -> Result {
+        let code = r#"
+            echo "~/tmp.txt" | path expand
+        "#;
 
-            let outcome: String = test().cwd(dirs.test()).run(code)?;
-            assert!(!Path::new(&outcome).starts_with("~"));
-            Ok(())
-        })
+        let outcome: String = test().cwd(playground.path()).run(code)?;
+        assert!(!Path::new(&outcome).starts_with("~"));
+        Ok(())
     }
 
     #[test]
@@ -125,3 +121,4 @@ mod windows {
         })
     }
 }
+

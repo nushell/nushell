@@ -2,19 +2,17 @@ use nu_test_support::prelude::*;
 use std::fs;
 
 #[test]
-fn ignore_still_causes_stream_to_be_consumed_fully() -> Result {
-    Playground::setup("ignore_consumes_stream", |dirs, _| {
-        let code = "
-            [foo bar]
-            | each {|val| $val | save --append output.txt; $val}
-            | ignore
-        ";
+fn ignore_still_causes_stream_to_be_consumed_fully(playground: Playground) -> Result {
+    let code = "
+        [foo bar]
+        | each {|val| $val | save --append output.txt; $val}
+        | ignore
+    ";
 
-        let () = test().cwd(dirs.test()).run(code)?;
-        let file_content = fs::read_to_string(dirs.test().join("output.txt"))?;
-        assert_eq!(file_content, "foobar");
-        Ok(())
-    })
+    let () = test().cwd(playground.path()).run(code)?;
+    let file_content = fs::read_to_string(playground.path().join("output.txt"))?;
+    assert_eq!(file_content, "foobar");
+    Ok(())
 }
 
 #[test]
@@ -123,3 +121,4 @@ fn ignore_stderr_suppresses_internal_errors() -> Result {
         .run("ls this_path_does_not_exist_12345 | ignore --stderr")
         .expect_value_eq(())
 }
+

@@ -224,20 +224,19 @@ mod tests {
 
     #[test]
     #[deps(NU)]
-    fn evaluate_file_arg_with_various_characters_escape_properly() -> Result {
-        Playground::setup("evaluate_file_various_characters", |dirs, sandbox| {
-            sandbox.with_files(&[FileWithContent(
-                "test.nu",
-                "def main [...args: string] { $args | to json }",
-            )]);
+    fn evaluate_file_arg_with_various_characters_escape_properly(playground: Playground) -> Result {
+        playground.file(
+            "test.nu",
+            "def main [...args: string] { $args | to json }",
+        )?;
 
-            let args = r#"a "" b "c\nd" "e f" ] "[" "}" "{" "\"" '"'"#;
-            let expected = ["a", "", "b", "c\nd", "e f", "]", "[", "}", "{", "\"", "\""];
+        let args = r#"a "" b "c\nd" "e f" ] "[" "}" "{" "\"" '"'"#;
+        let expected = ["a", "", "b", "c\nd", "e f", "]", "[", "}", "{", "\"", "\""];
 
-            test()
-                .cwd(dirs.test())
-                .run(format!("nu test.nu {args} | from json"))
-                .expect_value_eq(expected)
-        })
+        test()
+            .cwd(playground.path())
+            .run(format!("nu test.nu {args} | from json"))
+            .expect_value_eq(expected)
     }
 }
+

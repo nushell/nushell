@@ -122,30 +122,26 @@ fn hides_environment_from_child() -> Result {
 
 #[test]
 #[deps(NU)]
-fn has_file_pwd() -> Result {
-    Playground::setup("has_file_pwd", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent("spam.nu", "$env.FILE_PWD")]);
+fn has_file_pwd(playground: Playground) -> Result {
+    playground.file("spam.nu", "$env.FILE_PWD")?;
 
-        test()
-            .cwd(dirs.test())
-            .run("nu spam.nu | to text | str trim")
-            .expect_value_eq(dirs.test().to_string_lossy())
-    })
+    test()
+        .cwd(playground.path())
+        .run("nu spam.nu | to text | str trim")
+        .expect_value_eq(playground.path().to_string_lossy())
 }
 
 #[test]
 #[deps(NU)]
-fn has_file_loc() -> Result {
-    Playground::setup("has_file_loc", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent("spam.nu", "$env.CURRENT_FILE")]);
+fn has_file_loc(playground: Playground) -> Result {
+    playground.file("spam.nu", "$env.CURRENT_FILE")?;
 
-        let actual: String = test()
-            .cwd(dirs.test())
-            .run("nu spam.nu | to text | str trim")?;
+    let actual: String = test()
+        .cwd(playground.path())
+        .run("nu spam.nu | to text | str trim")?;
 
-        assert!(actual.ends_with("spam.nu"));
-        Ok(())
-    })
+    assert!(actual.ends_with("spam.nu"));
+    Ok(())
 }
 
 #[test]
@@ -294,15 +290,13 @@ fn path_is_a_list() -> Result {
 
 #[test]
 #[deps(NU)]
-fn path_is_a_list_in_script() -> Result {
-    Playground::setup("path_is_a_list_in_script", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent("checkpath.nu", "$env.path | describe")]);
+fn path_is_a_list_in_script(playground: Playground) -> Result {
+    playground.file("checkpath.nu", "$env.path | describe")?;
 
-        test()
-            .cwd(dirs.test())
-            .run("nu checkpath.nu | to text | str trim")
-            .expect_value_eq("list<string>")
-    })
+    test()
+        .cwd(playground.path())
+        .run("nu checkpath.nu | to text | str trim")
+        .expect_value_eq("list<string>")
 }
 
 #[test]
@@ -335,3 +329,4 @@ fn case_insensitive_env_record_access() -> Result {
         .run("$env.test = 'value'; $env.TEST")
         .expect_value_eq("value")
 }
+

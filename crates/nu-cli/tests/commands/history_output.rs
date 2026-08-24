@@ -30,60 +30,53 @@ impl NuTesterHistoryExt for NuTester {
 }
 
 #[test]
-fn sqlite_history_last_returns_date_for_start_timestamp() -> Result {
-    Playground::setup("sqlite_history_last_returns_date", |dirs, _| {
-        let config_home = dirs.test().join("nushell").to_std_path_buf();
-        let mut tester = test().with_sqlite_history(config_home);
-        let () = tester.run(IMPORT_SINGLE_HISTORY_RECORD)?;
+fn sqlite_history_last_returns_date_for_start_timestamp(playground: Playground) -> Result {
+    let config_home = playground.path().join("nushell").to_std_path_buf();
+    let mut tester = test().with_sqlite_history(config_home);
+    let () = tester.run(IMPORT_SINGLE_HISTORY_RECORD)?;
 
-        tester
-            .run("history | last | get start_timestamp | describe")
-            .expect_value_eq("datetime")
-    })
+    tester
+        .run("history | last | get start_timestamp | describe")
+        .expect_value_eq("datetime")
 }
 
 #[test]
-fn sqlite_history_last_returns_duration_for_duration_column() -> Result {
-    Playground::setup("sqlite_history_last_returns_duration", |dirs, _| {
-        let config_home = dirs.test().join("nushell").to_std_path_buf();
-        let mut tester = test().with_sqlite_history(config_home);
-        let () = tester.run(IMPORT_SINGLE_HISTORY_RECORD)?;
+fn sqlite_history_last_returns_duration_for_duration_column(playground: Playground) -> Result {
+    let config_home = playground.path().join("nushell").to_std_path_buf();
+    let mut tester = test().with_sqlite_history(config_home);
+    let () = tester.run(IMPORT_SINGLE_HISTORY_RECORD)?;
 
-        tester
-            .run("history | last | get duration | describe")
-            .expect_value_eq("duration")
-    })
+    tester
+        .run("history | last | get duration | describe")
+        .expect_value_eq("duration")
 }
 
 #[test]
-fn sqlite_history_select_command_works() -> Result {
-    Playground::setup("sqlite_history_select_command_works", |dirs, _| {
-        let config_home = dirs.test().join("nushell").to_std_path_buf();
-        let mut tester = test().with_sqlite_history(config_home);
-        let () = tester.run(IMPORT_SINGLE_HISTORY_RECORD)?;
+fn sqlite_history_select_command_works(playground: Playground) -> Result {
+    let config_home = playground.path().join("nushell").to_std_path_buf();
+    let mut tester = test().with_sqlite_history(config_home);
+    let () = tester.run(IMPORT_SINGLE_HISTORY_RECORD)?;
 
-        tester
-            .run("history | select command | columns | first")
-            .expect_value_eq("command")
-    })
+    tester
+        .run("history | select command | columns | first")
+        .expect_value_eq("command")
 }
 
 #[test]
-fn sqlite_history_select_projection_preserves_order() -> Result {
-    Playground::setup("sqlite_history_select_projection_order", |dirs, _| {
-        let config_home = dirs.test().join("nushell").to_std_path_buf();
-        let mut tester = test().with_sqlite_history(config_home);
-        let () = tester.run(IMPORT_THREE_HISTORY_RECORDS)?;
+fn sqlite_history_select_projection_preserves_order(playground: Playground) -> Result {
+    let config_home = playground.path().join("nushell").to_std_path_buf();
+    let mut tester = test().with_sqlite_history(config_home);
+    let () = tester.run(IMPORT_THREE_HISTORY_RECORDS)?;
 
-        let command_only: Vec<String> = tester.run(
-            "history | where command =~ 'echo (one|two|three)' | select command | get command",
-        )?;
+    let command_only: Vec<String> = tester.run(
+        "history | where command =~ 'echo (one|two|three)' | select command | get command",
+    )?;
 
-        let with_timestamp: Vec<String> = tester.run(
-            "history | where command =~ 'echo (one|two|three)' | select start_timestamp command | get command",
-        )?;
+    let with_timestamp: Vec<String> = tester.run(
+        "history | where command =~ 'echo (one|two|three)' | select start_timestamp command | get command",
+    )?;
 
-        assert_eq!(command_only, with_timestamp);
-        Ok(())
-    })
+    assert_eq!(command_only, with_timestamp);
+    Ok(())
 }
+

@@ -186,34 +186,26 @@ fn add_overlay_from_const_module_name_decl() -> Result {
 }
 
 #[test]
-fn add_overlay_from_file_with_stored_where_condition() -> Result {
-    Playground::setup(
-        "add_overlay_from_file_with_stored_where_condition",
-        |dirs, sandbox| -> Result {
-            sandbox.with_files(&[FileWithContentToBeTrimmed(
-                "mod.nu",
-                r#"
-                export def helper [] {
-                    let cond = {|x| true }
-                    [{a: 1}] | where $cond
-                }
+fn add_overlay_from_file_with_stored_where_condition(playground: Playground) -> Result {
+    playground.file("mod.nu", indoc::indoc!{r#"
+            export def helper [] {
+                let cond = {|x| true }
+                [{a: 1}] | where $cond
+            }
+            
+            export def main [] { "ok" }
+        "#})?;
 
-                export def main [] { "ok" }
-            "#,
-            )]);
+        let commands = ["overlay use mod.nu", "helper | to nuon --raw"];
 
-            let commands = ["overlay use mod.nu", "helper | to nuon --raw"];
-
-            test()
-                .cwd(dirs.test())
-                .run(commands.join("; "))
-                .expect_value_eq("[[a];[1]]")?;
-            test()
-                .cwd(dirs.test())
-                .run_multiple(commands)
-                .expect_value_eq("[[a];[1]]")
-        },
-    )
+        test()
+            .cwd(playground.path())
+            .run(commands.join("; "))
+            .expect_value_eq("[[a];[1]]")?;
+        test()
+            .cwd(playground.path())
+            .run_multiple(commands)
+            .expect_value_eq("[[a];[1]]")
 }
 
 #[test]
@@ -1024,19 +1016,17 @@ fn overlay_use_dont_cd_overlay() -> Result {
 }
 
 #[test]
-fn overlay_use_find_scoped_module() -> Result {
-    Playground::setup("overlay_use_find_module_scoped", |dirs, _| -> Result {
-        let code = "
-                do {
-                    module spam { }
+fn overlay_use_find_scoped_module(playground: Playground) -> Result {
+    let code = "
+        do {
+            module spam { }
+        
+            overlay use spam
+            overlay list | last | get name
+        }
+    ";
 
-                    overlay use spam
-                    overlay list | last | get name
-                }
-            ";
-
-        test().cwd(dirs.test()).run(code).expect_value_eq("spam")
-    })
+    test().cwd(playground.path()).run(code).expect_value_eq("spam")
 }
 
 #[test]
@@ -1490,3 +1480,4 @@ fn report_errors_in_export_env() -> Result {
     assert_contains("reported", format!("{error:?}"));
     Ok(())
 }
+

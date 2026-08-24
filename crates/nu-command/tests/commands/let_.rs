@@ -109,15 +109,15 @@ fn let_glob_type() -> Result {
 }
 
 #[test]
-fn let_typed_glob_expands_in_ls() -> Result {
-    Playground::setup("let_glob_ls", |dirs, sandbox| {
-        sandbox.with_files(&[EmptyFile("a.toml"), EmptyFile("b.toml"), EmptyFile("c.txt")]);
+fn let_typed_glob_expands_in_ls(playground: Playground) -> Result {
+    playground.empty_file("a.toml")?;
+    playground.empty_file("b.toml")?;
+    playground.empty_file("c.txt")?;
 
-        test()
-            .cwd(dirs.test())
-            .run(r#"let x: glob = "*.toml"; ls $x | length"#)
-            .expect_value_eq(2)
-    })
+    test()
+        .cwd(playground.path())
+        .run(r#"let x: glob = "*.toml"; ls $x | length"#)
+        .expect_value_eq(2)
 }
 
 #[test]
@@ -249,3 +249,4 @@ fn let_var_at_beginning_error() -> Result {
     assert!(msg.contains("doesn't support") || msg.contains("invalid `let` keyword call"));
     Ok(())
 }
+

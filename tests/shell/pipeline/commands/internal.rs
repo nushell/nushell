@@ -28,27 +28,22 @@ fn takes_rows_of_nu_value_strings_and_pipes_it_to_stdin_of_external() -> Result 
 }
 
 #[test]
-fn treats_dot_dot_as_path_not_range() -> Result {
-    Playground::setup("dot_dot_dir", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContentToBeTrimmed(
-            "nu_times.csv",
-            "
-                name,rusty_luck,origin
-                Jason,1,Canada
-            ",
-        )]);
+fn treats_dot_dot_as_path_not_range(playground: Playground) -> Result {
+    playground.file("nu_times.csv", indoc::indoc!{"
+        name,rusty_luck,origin
+        Jason,1,Canada
+    "})?;
 
-        let code = "
-            mkdir temp
-            cd temp
-            let name = (open ../nu_times.csv).name.0
-            cd ..
-            rm temp
-            $name
-        ";
+    let code = "
+        mkdir temp
+        cd temp
+        let name = (open ../nu_times.csv).name.0
+        cd ..
+        rm temp
+        $name
+    ";
 
-        test().cwd(dirs.test()).run(code).expect_value_eq("Jason")
-    })
+    test().cwd(playground.path()).run(code).expect_value_eq("Jason")
 }
 
 #[test]
@@ -75,31 +70,26 @@ fn for_loop() -> Result {
 
 #[test]
 #[deps(TESTBIN_CHOP)]
-fn subexpression_handles_dot() -> Result {
-    Playground::setup("subexpression_handles_dot", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContentToBeTrimmed(
-            "nu_times.csv",
-            "
-                name,rusty_luck,origin
-                Jason,1,Canada
-                JT,1,New Zealand
-                Andres,1,Ecuador
-                AndKitKatz,1,Estados Unidos
-            ",
-        )]);
+fn subexpression_handles_dot(playground: Playground) -> Result {
+    playground.file("nu_times.csv", indoc::indoc!{"
+        name,rusty_luck,origin
+        Jason,1,Canada
+        JT,1,New Zealand
+        Andres,1,Ecuador
+        AndKitKatz,1,Estados Unidos
+    "})?;
 
-        let code = "
-            echo (open nu_times.csv)
-            | get name
-            | each { |it| chop $it }
-            | get 3
-        ";
+    let code = "
+        echo (open nu_times.csv)
+        | get name
+        | each { |it| chop $it }
+        | get 3
+    ";
 
-        test()
-            .cwd(dirs.test())
-            .run(code)
-            .expect_value_eq("AndKitKat")
-    })
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq("AndKitKat")
 }
 
 #[test]
@@ -1054,3 +1044,4 @@ fn liststream_error_with_backtrace_single_stream() -> Result {
     assert_eq!(err.into_inner()?.into_labeled()?.msg, "a custom err");
     Ok(())
 }
+

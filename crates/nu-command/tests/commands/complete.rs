@@ -33,82 +33,73 @@ fn error() -> Result {
 
 #[test]
 #[cfg(not(windows))]
-fn capture_error_with_too_much_stderr_not_hang_nushell() -> Result {
+fn capture_error_with_too_much_stderr_not_hang_nushell(playground: Playground) -> Result {
     use nu_test_support::fs::Stub::FileWithContent;
     use nu_test_support::playground::Playground;
-    Playground::setup("external with many stderr message", |dirs, sandbox| {
-        let bytes: usize = 81920;
-        let mut large_file_body = String::with_capacity(bytes);
-        for _ in 0..bytes {
-            large_file_body.push('a');
-        }
-        sandbox.with_files(&[FileWithContent("a_large_file.txt", &large_file_body)]);
+    let bytes: usize = 81920;
+    let mut large_file_body = String::with_capacity(bytes);
+    for _ in 0..bytes {
+        large_file_body.push('a');
+    }
+    playground.file("a_large_file.txt", &large_file_body)?;
 
-        let actual: CompleteResult = test()
-            .inherit_path()
-            .cwd(dirs.test())
-            .run("sh -c 'cat a_large_file.txt 1>&2' | complete")?;
+    let actual: CompleteResult = test()
+        .inherit_path()
+        .cwd(playground.path())
+        .run("sh -c 'cat a_large_file.txt 1>&2' | complete")?;
 
-        assert_eq!(actual.stdout, "");
-        assert_eq!(actual.stderr, large_file_body);
-        assert_eq!(actual.exit_code, 0);
-        Ok(())
-    })
+    assert_eq!(actual.stdout, "");
+    assert_eq!(actual.stderr, large_file_body);
+    assert_eq!(actual.exit_code, 0);
+    Ok(())
 }
 
 #[test]
 #[cfg(not(windows))]
-fn capture_error_with_too_much_stdout_not_hang_nushell() -> Result {
+fn capture_error_with_too_much_stdout_not_hang_nushell(playground: Playground) -> Result {
     use nu_test_support::fs::Stub::FileWithContent;
     use nu_test_support::playground::Playground;
-    Playground::setup("external with many stdout message", |dirs, sandbox| {
-        let bytes: usize = 81920;
-        let mut large_file_body = String::with_capacity(bytes);
-        for _ in 0..bytes {
-            large_file_body.push('a');
-        }
-        sandbox.with_files(&[FileWithContent("a_large_file.txt", &large_file_body)]);
+    let bytes: usize = 81920;
+    let mut large_file_body = String::with_capacity(bytes);
+    for _ in 0..bytes {
+        large_file_body.push('a');
+    }
+    playground.file("a_large_file.txt", &large_file_body)?;
 
-        let actual: CompleteResult = test()
-            .inherit_path()
-            .cwd(dirs.test())
-            .run("sh -c 'cat a_large_file.txt' | complete")?;
+    let actual: CompleteResult = test()
+        .inherit_path()
+        .cwd(playground.path())
+        .run("sh -c 'cat a_large_file.txt' | complete")?;
 
-        assert_eq!(actual.stdout, large_file_body);
-        assert_eq!(actual.stderr, "");
-        assert_eq!(actual.exit_code, 0);
-        Ok(())
-    })
+    assert_eq!(actual.stdout, large_file_body);
+    assert_eq!(actual.stderr, "");
+    assert_eq!(actual.exit_code, 0);
+    Ok(())
 }
 
 #[test]
 #[cfg(not(windows))]
-fn capture_error_with_both_stdout_stderr_messages_not_hang_nushell() -> Result {
+fn capture_error_with_both_stdout_stderr_messages_not_hang_nushell(playground: Playground) -> Result {
     use nu_test_support::fs::Stub::FileWithContent;
     use nu_test_support::playground::Playground;
-    Playground::setup(
-        "external with many stdout and stderr messages",
-        |dirs, sandbox| {
-            let script_body = "
-        x=$(printf '=%.0s' $(seq 40960))
-        echo $x
-        echo $x 1>&2
+    let script_body = "
+            x=$(printf '=%.0s' $(seq 40960))
+            echo $x
+            echo $x 1>&2
         ";
-            let expect_body = "=".repeat(40960);
+        let expect_body = "=".repeat(40960);
 
-            sandbox.with_files(&[FileWithContent("test.sh", script_body)]);
+        playground.file("test.sh", script_body)?;
 
-            let actual: CompleteResult = test()
-                .inherit_path()
-                .cwd(dirs.test())
-                .run("sh test.sh | complete")?;
+        let actual: CompleteResult = test()
+            .inherit_path()
+            .cwd(playground.path())
+            .run("sh test.sh | complete")?;
 
-            assert_eq!(actual.stdout.trim(), expect_body);
-            assert_eq!(actual.stderr.trim(), expect_body);
-            assert_eq!(actual.exit_code, 0);
-            Ok(())
-        },
-    )
+        assert_eq!(actual.stdout.trim(), expect_body);
+        assert_eq!(actual.stderr.trim(), expect_body);
+        assert_eq!(actual.exit_code, 0);
+        Ok(())
 }
 
 #[test]
@@ -164,3 +155,4 @@ fn pipefail_parenthesized_pipeline_let_keeps_scope() -> Result {
     assert!(matches!(err, ParseError::VariableNotFound { .. }));
     Ok(())
 }
+

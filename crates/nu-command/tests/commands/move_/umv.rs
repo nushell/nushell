@@ -29,40 +29,37 @@ fn moves_a_file() -> Result {
 
 #[test]
 #[deps(NU)]
-fn overwrites_if_moving_to_existing_file_and_force_provided() -> Result {
-    Playground::setup("umv_test_2", |dirs, sandbox| {
-        sandbox.with_files(&[EmptyFile("andres.txt"), EmptyFile("jttxt")]);
+fn overwrites_if_moving_to_existing_file_and_force_provided(playground: Playground) -> Result {
+    playground.empty_file("andres.txt")?;
+    playground.empty_file("jttxt")?;
 
-        let original = dirs.test().join("andres.txt");
-        let expected = dirs.test().join("jttxt");
+    let original = playground.path().join("andres.txt");
+    let expected = playground.path().join("jttxt");
 
-        let code = "mv andres.txt -f jttxt";
-        let result: CompleteResult = test().cwd(dirs.test()).run_with_data(RUNNER, code)?;
-        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
+    let code = "mv andres.txt -f jttxt";
+    let result: CompleteResult = test().cwd(playground.path()).run_with_data(RUNNER, code)?;
+    assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
-        assert!(!original.exists());
-        assert!(expected.exists());
-        Ok(())
-    })
+    assert!(!original.exists());
+    assert!(expected.exists());
+    Ok(())
 }
 
 #[test]
 #[deps(NU)]
-fn moves_a_directory() -> Result {
-    Playground::setup("umv_test_3", |dirs, sandbox| {
-        sandbox.mkdir("empty_dir");
+fn moves_a_directory(playground: Playground) -> Result {
+    playground.dir("empty_dir")?;
 
-        let original_dir = dirs.test().join("empty_dir");
-        let expected = dirs.test().join("renamed_dir");
+    let original_dir = playground.path().join("empty_dir");
+    let expected = playground.path().join("renamed_dir");
 
-        let code = "mv empty_dir renamed_dir";
-        let result: CompleteResult = test().cwd(dirs.test()).run_with_data(RUNNER, code)?;
-        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
+    let code = "mv empty_dir renamed_dir";
+    let result: CompleteResult = test().cwd(playground.path()).run_with_data(RUNNER, code)?;
+    assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
-        assert!(!original_dir.exists());
-        assert!(expected.exists());
-        Ok(())
-    })
+    assert!(!original_dir.exists());
+    assert!(expected.exists());
+    Ok(())
 }
 
 #[test]
@@ -213,67 +210,58 @@ fn moves_a_directory_with_files() -> Result {
 
 #[test]
 #[deps(NU)]
-fn errors_if_source_doesnt_exist() -> Result {
-    Playground::setup("umv_test_10", |dirs, sandbox| {
-        sandbox.mkdir("test_folder");
-        let code = "mv non-existing-file test_folder/";
-        let result: CompleteResult = test().cwd(dirs.test()).run_with_data(RUNNER, code)?;
-        assert_ne!(result.exit_code, 0);
-        assert_contains("not_found", result.stderr);
-        Ok(())
-    })
+fn errors_if_source_doesnt_exist(playground: Playground) -> Result {
+    playground.dir("test_folder")?;
+    let code = "mv non-existing-file test_folder/";
+    let result: CompleteResult = test().cwd(playground.path()).run_with_data(RUNNER, code)?;
+    assert_ne!(result.exit_code, 0);
+    assert_contains("not_found", result.stderr);
+    Ok(())
 }
 
 #[test]
 #[ignore = "GNU/uutils overwrites rather than error out"]
 #[deps(NU)]
-fn error_if_moving_to_existing_file_without_force() -> Result {
-    Playground::setup("umv_test_10_0", |dirs, sandbox| {
-        sandbox.with_files(&[EmptyFile("andres.txt"), EmptyFile("jttxt")]);
+fn error_if_moving_to_existing_file_without_force(playground: Playground) -> Result {
+    playground.empty_file("andres.txt")?;
+    playground.empty_file("jttxt")?;
 
-        let code = "mv andres.txt jttxt";
-        let result: CompleteResult = test().cwd(dirs.test()).run_with_data(RUNNER, code)?;
-        assert_contains("file already exists", result.stderr);
-        Ok(())
-    })
+    let code = "mv andres.txt jttxt";
+    let result: CompleteResult = test().cwd(playground.path()).run_with_data(RUNNER, code)?;
+    assert_contains("file already exists", result.stderr);
+    Ok(())
 }
 
 #[test]
 #[deps(NU)]
-fn errors_if_destination_doesnt_exist() -> Result {
-    Playground::setup("umv_test_10_1", |dirs, sandbox| {
-        sandbox.with_files(&[EmptyFile("empty.txt")]);
+fn errors_if_destination_doesnt_exist(playground: Playground) -> Result {
+    playground.empty_file("empty.txt")?;
 
-        let code = "mv empty.txt does/not/exist/";
-        let result: CompleteResult = test().cwd(dirs.test()).run_with_data(RUNNER, code)?;
-        let msg = result.stderr;
+    let code = "mv empty.txt does/not/exist/";
+    let result: CompleteResult = test().cwd(playground.path()).run_with_data(RUNNER, code)?;
+    let msg = result.stderr;
 
-        assert_contains("failed to access", &msg);
-        assert_contains("Not a directory", msg);
-        Ok(())
-    })
+    assert_contains("failed to access", &msg);
+    assert_contains("Not a directory", msg);
+    Ok(())
 }
 
 #[test]
 #[ignore = "GNU/uutils doesnt expand, rather cannot stat 'file?.txt'"]
 #[deps(NU)]
-fn errors_if_multiple_sources_but_destination_not_a_directory() -> Result {
-    Playground::setup("umv_test_10_2", |dirs, sandbox| {
-        sandbox.with_files(&[
-            EmptyFile("file1.txt"),
-            EmptyFile("file2.txt"),
-            EmptyFile("file3.txt"),
-        ]);
+fn errors_if_multiple_sources_but_destination_not_a_directory(playground: Playground) -> Result {
+    playground.empty_file("file1.txt")?;
+    playground.empty_file("file2.txt")?;
+    playground.empty_file("file3.txt")?;
 
-        let code = "mv file?.txt not_a_dir";
-        let result: CompleteResult = test().cwd(dirs.test()).run_with_data(RUNNER, code)?;
+    let code = "mv file?.txt not_a_dir";
+    let result: CompleteResult = test().cwd(playground.path()).run_with_data(RUNNER, code)?;
 
-        assert_contains(
-            "Can only move multiple sources if destination is a directory",
-            result.stderr,
-        );
-        Ok(())
-    })
+    assert_contains(
+        "Can only move multiple sources if destination is a directory",
+        result.stderr,
+    );
+    Ok(())
 }
 
 #[test]
@@ -407,33 +395,29 @@ fn does_not_error_when_some_file_is_moving_into_itself() -> Result {
 
 #[test]
 #[deps(NU)]
-fn mv_ignores_ansi() -> Result {
-    Playground::setup("umv_test_ansi", |_dirs, sandbox| {
-        sandbox.with_files(&[EmptyFile("test.txt")]);
+fn mv_ignores_ansi(playground: Playground) -> Result {
+    playground.empty_file("test.txt")?;
 
-        let code = "ls | find test | mv $in.0.name success.txt; ls | $in.0.name";
-        let result: CompleteResult = test().cwd(sandbox.cwd()).run_with_data(RUNNER, code)?;
-        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
-        assert_eq!(result.stdout.trim(), "success.txt");
-        Ok(())
-    })
+    let code = "ls | find test | mv $in.0.name success.txt; ls | $in.0.name";
+    let result: CompleteResult = test().cwd(playground.path()).run_with_data(RUNNER, code)?;
+    assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
+    assert_eq!(result.stdout.trim(), "success.txt");
+    Ok(())
 }
 
 #[test]
 #[deps(NU)]
-fn mv_directory_with_same_name() -> Result {
-    Playground::setup("umv_test_directory_with_same_name", |_dirs, sandbox| {
-        sandbox.mkdir("testdir");
-        sandbox.mkdir("testdir/testdir");
+fn mv_directory_with_same_name(playground: Playground) -> Result {
+    playground.dir("testdir")?;
+    playground.dir("testdir/testdir")?;
 
-        let cwd = sandbox.cwd().join("testdir");
-        let code = "mv testdir ..";
-        let result: CompleteResult = test().cwd(&cwd).run_with_data(RUNNER, code)?;
-        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
+    let cwd = playground.path().join("testdir");
+    let code = "mv testdir ..";
+    let result: CompleteResult = test().cwd(&cwd).run_with_data(RUNNER, code)?;
+    assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
-        assert!(cwd.join("testdir").exists());
-        Ok(())
-    })
+    assert!(cwd.join("testdir").exists());
+    Ok(())
 }
 
 // Test that changing the case of a file/directory name works;
@@ -491,112 +475,100 @@ fn mv_change_case_of_directory() -> Result {
 #[test]
 #[deps(NU)]
 #[cfg_attr(target_os = "macos", ignore)]
-fn mv_change_case_of_file() -> Result {
-    Playground::setup("mv_change_case_of_file", |dirs, sandbox| {
-        sandbox.with_files(&[EmptyFile("somefile.txt")]);
+fn mv_change_case_of_file(playground: Playground) -> Result {
+    playground.empty_file("somefile.txt")?;
 
-        let original_file_name = String::from("somefile.txt");
-        let new_file_name = String::from("SomeFile.txt");
+    let original_file_name = String::from("somefile.txt");
+    let new_file_name = String::from("SomeFile.txt");
 
-        let code = format!("mv {original_file_name} -f {new_file_name}");
-        let result: CompleteResult = test().cwd(dirs.test()).run_with_data(RUNNER, code)?;
-        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
+    let code = format!("mv {original_file_name} -f {new_file_name}");
+    let result: CompleteResult = test().cwd(playground.path()).run_with_data(RUNNER, code)?;
+    assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
-        #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-        {
-            // Doing this instead of `Path::exists()` because we need to check file existence in
-            // a case-sensitive way. `Path::exists()` is understandably case-insensitive on NTFS
-            let files_in_test_directory: Vec<String> = std::fs::read_dir(dirs.test())
-                .unwrap()
-                .map(|de| de.unwrap().file_name().to_string_lossy().into_owned())
-                .collect();
-            assert!(
-                !files_in_test_directory.contains(&original_file_name)
-                    && files_in_test_directory.contains(&new_file_name)
-            );
-        }
-        #[cfg(not(any(target_os = "linux", target_os = "freebsd")))]
-        {
-            let files_in_test_directory: Vec<String> = std::fs::read_dir(dirs.test())?
-                .map(|de| de.unwrap().file_name().to_string_lossy().into_owned())
-                .collect();
+    #[cfg(any(target_os = "linux", target_os = "freebsd"))]
+    {
+        // Doing this instead of `Path::exists()` because we need to check file existence in
+        // a case-sensitive way. `Path::exists()` is understandably case-insensitive on NTFS
+        let files_in_test_directory: Vec<String> = std::fs::read_dir(playground.path())
+            .unwrap()
+            .map(|de| de.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        assert!(
+            !files_in_test_directory.contains(&original_file_name)
+                && files_in_test_directory.contains(&new_file_name)
+        );
+    }
+    #[cfg(not(any(target_os = "linux", target_os = "freebsd")))]
+    {
+        let files_in_test_directory: Vec<String> = std::fs::read_dir(playground.path())?
+            .map(|de| de.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
 
-            assert!(files_in_test_directory.contains(&new_file_name));
-        }
-        Ok(())
-    })
+        assert!(files_in_test_directory.contains(&new_file_name));
+    }
+    Ok(())
 }
 
 #[test]
 #[ignore = "Update not supported..remove later"]
 #[deps(NU)]
-fn mv_with_update_flag() -> Result {
-    Playground::setup("umv_with_update_flag", |_dirs, sandbox| {
-        sandbox.with_files(&[
-            EmptyFile("valid.txt"),
-            FileWithContent("newer_valid.txt", "body"),
-        ]);
+fn mv_with_update_flag(playground: Playground) -> Result {
+    playground.empty_file("valid.txt")?;
+    playground.file("newer_valid.txt", "body")?;
 
-        let code = "mv -uf valid.txt newer_valid.txt; open newer_valid.txt";
-        let result: CompleteResult = test().cwd(sandbox.cwd()).run_with_data(RUNNER, code)?;
-        assert_eq!(result.stdout.trim(), "body");
+    let code = "mv -uf valid.txt newer_valid.txt; open newer_valid.txt";
+    let result: CompleteResult = test().cwd(playground.path()).run_with_data(RUNNER, code)?;
+    assert_eq!(result.stdout.trim(), "body");
 
-        // create a file after assert to make sure that newest_valid.txt is newest
-        std::thread::sleep(std::time::Duration::from_secs(1));
-        sandbox.with_files(&[FileWithContent("newest_valid.txt", "newest_body")]);
-        let code = "mv -uf newest_valid.txt valid.txt; open valid.txt";
-        let result: CompleteResult = test().cwd(sandbox.cwd()).run_with_data(RUNNER, code)?;
-        assert_eq!(result.stdout.trim(), "newest_body");
+    // create a file after assert to make sure that newest_valid.txt is newest
+    std::thread::sleep(std::time::Duration::from_secs(1));
+    playground.file("newest_valid.txt", "newest_body")?;
+    let code = "mv -uf newest_valid.txt valid.txt; open valid.txt";
+    let result: CompleteResult = test().cwd(playground.path()).run_with_data(RUNNER, code)?;
+    assert_eq!(result.stdout.trim(), "newest_body");
 
-        // when destination doesn't exist
-        sandbox.with_files(&[FileWithContent("newest_valid.txt", "newest_body")]);
-        let code = "mv -uf newest_valid.txt des_missing.txt; open des_missing.txt";
-        let result: CompleteResult = test().cwd(sandbox.cwd()).run_with_data(RUNNER, code)?;
-        assert_eq!(result.stdout.trim(), "newest_body");
-        Ok(())
-    })
+    // when destination doesn't exist
+    playground.file("newest_valid.txt", "newest_body")?;
+    let code = "mv -uf newest_valid.txt des_missing.txt; open des_missing.txt";
+    let result: CompleteResult = test().cwd(playground.path()).run_with_data(RUNNER, code)?;
+    assert_eq!(result.stdout.trim(), "newest_body");
+    Ok(())
 }
 
 #[test]
 #[deps(NU)]
-fn test_mv_no_clobber() -> Result {
-    Playground::setup("umv_test_13", |dirs, sandbox| {
-        let file_a = "test_mv_no_clobber_file_a";
-        let file_b = "test_mv_no_clobber_file_b";
-        sandbox.with_files(&[EmptyFile(file_a)]);
-        sandbox.with_files(&[EmptyFile(file_b)]);
+fn test_mv_no_clobber(playground: Playground) -> Result {
+    let file_a = "test_mv_no_clobber_file_a";
+    let file_b = "test_mv_no_clobber_file_b";
+    playground.empty_file(file_a)?;
+    playground.empty_file(file_b)?;
 
-        let code = format!("mv -n {file_a} {file_b}");
-        let result: CompleteResult = test().cwd(dirs.test()).run_with_data(RUNNER, code)?;
-        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
+    let code = format!("mv -n {file_a} {file_b}");
+    let result: CompleteResult = test().cwd(playground.path()).run_with_data(RUNNER, code)?;
+    assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
-        let code = "ls test_mv* | length";
-        let result: CompleteResult = test().cwd(dirs.test()).run_with_data(RUNNER, code)?;
-        assert_eq!(result.stdout.trim(), "2");
-        Ok(())
-    })
+    let code = "ls test_mv* | length";
+    let result: CompleteResult = test().cwd(playground.path()).run_with_data(RUNNER, code)?;
+    assert_eq!(result.stdout.trim(), "2");
+    Ok(())
 }
 
 #[test]
 #[deps(NU)]
-fn mv_with_no_arguments() -> Result {
-    Playground::setup("umv_test_14", |dirs, _| {
-        let code = "mv";
-        let result: CompleteResult = test().cwd(dirs.test()).run_with_data(RUNNER, code)?;
-        assert_contains("Missing file operand", result.stderr);
-        Ok(())
-    })
+fn mv_with_no_arguments(playground: Playground) -> Result {
+    let code = "mv";
+    let result: CompleteResult = test().cwd(playground.path()).run_with_data(RUNNER, code)?;
+    assert_contains("Missing file operand", result.stderr);
+    Ok(())
 }
 
 #[test]
 #[deps(NU)]
-fn mv_with_no_target() -> Result {
-    Playground::setup("umv_test_15", |dirs, _| {
-        let code = "mv a";
-        let result: CompleteResult = test().cwd(dirs.test()).run_with_data(RUNNER, code)?;
-        assert_contains("Missing destination path", result.stderr);
-        Ok(())
-    })
+fn mv_with_no_target(playground: Playground) -> Result {
+    let code = "mv a";
+    let result: CompleteResult = test().cwd(playground.path()).run_with_data(RUNNER, code)?;
+    assert_contains("Missing destination path", result.stderr);
+    Ok(())
 }
 
 #[rstest]
@@ -610,22 +582,20 @@ fn mv_with_no_target() -> Result {
 #[case("a*.?c")]
 #[nu_test_support::test]
 #[deps(NU)]
-fn mv_files_with_glob_metachars(#[case] src_name: &str) -> Result {
-    Playground::setup("umv_test_16", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent(
-            src_name,
-            "What is the sound of one hand clapping?",
-        )]);
+fn mv_files_with_glob_metachars(#[ignore] playground: Playground, #[case] src_name: &str) -> Result {
+    playground.file(
+        src_name,
+        "What is the sound of one hand clapping?",
+    )?;
 
-        let src = dirs.test().join(src_name);
+    let src = playground.path().join(src_name);
 
-        let code = format!("mv '{}' {}", src.display(), "hello_world_dest");
-        let result: CompleteResult = test().cwd(dirs.test()).run_with_data(RUNNER, code)?;
-        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
+    let code = format!("mv '{}' {}", src.display(), "hello_world_dest");
+    let result: CompleteResult = test().cwd(playground.path()).run_with_data(RUNNER, code)?;
+    assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
-        assert!(dirs.test().join("hello_world_dest").exists());
-        Ok(())
-    })
+    assert!(dirs.test().join("hello_world_dest").exists());
+    Ok(())
 }
 
 #[rstest]
@@ -639,22 +609,20 @@ fn mv_files_with_glob_metachars(#[case] src_name: &str) -> Result {
 #[case("a*.?c")]
 #[nu_test_support::test]
 #[deps(NU)]
-fn mv_files_with_glob_metachars_when_input_are_variables(#[case] src_name: &str) -> Result {
-    Playground::setup("umv_test_18", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent(
-            src_name,
-            "What is the sound of one hand clapping?",
-        )]);
+fn mv_files_with_glob_metachars_when_input_are_variables(#[ignore] playground: Playground, #[case] src_name: &str) -> Result {
+    playground.file(
+        src_name,
+        "What is the sound of one hand clapping?",
+    )?;
 
-        let src = dirs.test().join(src_name);
+    let src = playground.path().join(src_name);
 
-        let code = format!("let f = '{}'; mv $f {}", src.display(), "hello_world_dest");
-        let result: CompleteResult = test().cwd(dirs.test()).run_with_data(RUNNER, code)?;
-        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
+    let code = format!("let f = '{}'; mv $f {}", src.display(), "hello_world_dest");
+    let result: CompleteResult = test().cwd(playground.path()).run_with_data(RUNNER, code)?;
+    assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
-        assert!(dirs.test().join("hello_world_dest").exists());
-        Ok(())
-    })
+    assert!(dirs.test().join("hello_world_dest").exists());
+    Ok(())
 }
 
 #[test]
@@ -758,20 +726,18 @@ fn mv_with_tilde() -> Result {
 #[test]
 #[deps(NU)]
 #[cfg_attr(target_os = "macos", ignore)]
-fn mv_verbose_message_mentions_source_and_destination() -> Result {
-    Playground::setup("umv_verbose_message", |dirs, sandbox| {
-        sandbox.with_files(&[EmptyFile("before.txt")]);
+fn mv_verbose_message_mentions_source_and_destination(playground: Playground) -> Result {
+    playground.empty_file("before.txt")?;
 
-        let code = "mv -v before.txt after.txt | table -w 200";
-        let result: CompleteResult = test().cwd(dirs.test()).run_with_data(RUNNER, code)?;
-        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
+    let code = "mv -v before.txt after.txt | table -w 200";
+    let result: CompleteResult = test().cwd(playground.path()).run_with_data(RUNNER, code)?;
+    assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
-        assert_contains("before.txt", &result.stdout);
-        assert_contains("after.txt", &result.stdout);
-        assert!(dirs.test().join("after.txt").exists());
-        assert!(!dirs.test().join("before.txt").exists());
-        Ok(())
-    })
+    assert_contains("before.txt", &result.stdout);
+    assert_contains("after.txt", &result.stdout);
+    assert!(dirs.test().join("after.txt").exists());
+    assert!(!dirs.test().join("before.txt").exists());
+    Ok(())
 }
 
 #[test]
@@ -793,3 +759,4 @@ fn mv_literal_directory() -> Result {
         Ok(())
     })
 }
+

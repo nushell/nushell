@@ -154,15 +154,15 @@ fn mut_glob_type() -> Result {
 }
 
 #[test]
-fn mut_typed_glob_expands_in_ls() -> Result {
-    Playground::setup("mut_glob_ls", |dirs, sandbox| {
-        sandbox.with_files(&[EmptyFile("a.toml"), EmptyFile("b.toml"), EmptyFile("c.txt")]);
+fn mut_typed_glob_expands_in_ls(playground: Playground) -> Result {
+    playground.empty_file("a.toml")?;
+    playground.empty_file("b.toml")?;
+    playground.empty_file("c.txt")?;
 
-        test()
-            .cwd(dirs.test())
-            .run(r#"mut x: glob = "*.toml"; ls $x | length"#)
-            .expect_value_eq(2)
-    })
+    test()
+        .cwd(playground.path())
+        .run(r#"mut x: glob = "*.toml"; ls $x | length"#)
+        .expect_value_eq(2)
 }
 
 #[rstest]
@@ -198,3 +198,4 @@ fn assign_to_non_variable_raises_parse_error() -> Result {
         .run("mut x = 3; x = 5")
         .expect_error_code_eq("nu::parser::assignment_requires_variable")
 }
+

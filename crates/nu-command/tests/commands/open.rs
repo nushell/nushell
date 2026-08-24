@@ -9,117 +9,101 @@ use nu_test_support::{
 use rstest::rstest;
 
 #[test]
-fn parses_file_with_uppercase_extension() -> Result {
-    Playground::setup("open_test_uppercase_extension", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContentToBeTrimmed(
-            "nu.zion.JSON",
-            r#"
-                {
-                    "glossary": {
-                        "GlossDiv": {
-                            "GlossList": {
-                                "GlossEntry": {
-                                    "ID": "SGML"
-                                }
-                            }
+fn parses_file_with_uppercase_extension(playground: Playground) -> Result {
+    playground.file("nu.zion.JSON", indoc::indoc!{r#"
+        {
+            "glossary": {
+                "GlossDiv": {
+                    "GlossList": {
+                        "GlossEntry": {
+                            "ID": "SGML"
                         }
                     }
                 }
-            "#,
-        )]);
+            }
+        }
+    "#})?;
 
-        let code = "
-            open nu.zion.JSON
-            | get glossary.GlossDiv.GlossList.GlossEntry.ID
-        ";
+    let code = "
+        open nu.zion.JSON
+        | get glossary.GlossDiv.GlossList.GlossEntry.ID
+    ";
 
-        test().cwd(dirs.test()).run(code).expect_value_eq("SGML")
-    })
+    test().cwd(playground.path()).run(code).expect_value_eq("SGML")
 }
 
 #[test]
-fn parses_file_with_tar_gz_extension() -> Result {
-    Playground::setup("open_test_tar_gz_extension", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent("file.tar.gz", "this is a tar.gz file")]);
+fn parses_file_with_tar_gz_extension(playground: Playground) -> Result {
+    playground.file("file.tar.gz", "this is a tar.gz file")?;
 
-        let code = r#"
-            hide "from tar.gz" ;
-            hide "from gz" ;
+    let code = r#"
+        hide "from tar.gz" ;
+        hide "from gz" ;
+        
+        def "from tar.gz" [] { 'opened tar.gz' } ;
+        def "from gz" [] { 'opened gz' } ;
+        open file.tar.gz
+    "#;
 
-            def "from tar.gz" [] { 'opened tar.gz' } ;
-            def "from gz" [] { 'opened gz' } ;
-            open file.tar.gz
-        "#;
-
-        test()
-            .cwd(dirs.test())
-            .run(code)
-            .expect_value_eq("opened tar.gz")
-    })
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq("opened tar.gz")
 }
 
 #[test]
-fn parses_file_with_tar_xz_extension() -> Result {
-    Playground::setup("open_test_tar_xz_extension", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent("file.tar.xz", "this is a tar.xz file")]);
+fn parses_file_with_tar_xz_extension(playground: Playground) -> Result {
+    playground.file("file.tar.xz", "this is a tar.xz file")?;
 
-        let code = r#"
-            hide "from tar.xz" ;
-            hide "from xz" ;
-            hide "from tar" ;
+    let code = r#"
+        hide "from tar.xz" ;
+        hide "from xz" ;
+        hide "from tar" ;
+        
+        def "from tar" [] { 'opened tar' } ;
+        def "from xz" [] { 'opened xz' } ;
+        open file.tar.xz
+    "#;
 
-            def "from tar" [] { 'opened tar' } ;
-            def "from xz" [] { 'opened xz' } ;
-            open file.tar.xz
-        "#;
-
-        test()
-            .cwd(dirs.test())
-            .run(code)
-            .expect_value_eq("opened xz")
-    })
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq("opened xz")
 }
 
 #[test]
-fn parses_dotfile() -> Result {
-    Playground::setup("open_test_dotfile", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent(".gitignore", "/target/")]);
+fn parses_dotfile(playground: Playground) -> Result {
+    playground.file(".gitignore", "/target/")?;
 
-        let code = r#"
-            hide "from gitignore" ;
+    let code = r#"
+        hide "from gitignore" ;
+        
+        def "from gitignore" [] { 'opened gitignore' } ;
+        open .gitignore
+    "#;
 
-            def "from gitignore" [] { 'opened gitignore' } ;
-            open .gitignore
-        "#;
-
-        test()
-            .cwd(dirs.test())
-            .run(code)
-            .expect_value_eq("opened gitignore")
-    })
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq("opened gitignore")
 }
 
 #[test]
-fn parses_csv() -> Result {
-    Playground::setup("open_test_1", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContentToBeTrimmed(
-            "nu.zion.csv",
-            "
-                author,lang,source
-                JT Turner,Rust,New Zealand
-                Andres N. Robalino,Rust,Ecuador
-                Yehuda Katz,Rust,Estados Unidos
-            ",
-        )]);
+fn parses_csv(playground: Playground) -> Result {
+    playground.file("nu.zion.csv", indoc::indoc!{"
+        author,lang,source
+        JT Turner,Rust,New Zealand
+        Andres N. Robalino,Rust,Ecuador
+        Yehuda Katz,Rust,Estados Unidos
+    "})?;
 
-        let code = r#"
-            open nu.zion.csv
-            | where author == "Andres N. Robalino"
-            | get source.0
-        "#;
+    let code = r#"
+        open nu.zion.csv
+        | where author == "Andres N. Robalino"
+        | get source.0
+    "#;
 
-        test().cwd(dirs.test()).run(code).expect_value_eq("Ecuador")
-    })
+    test().cwd(playground.path()).run(code).expect_value_eq("Ecuador")
 }
 
 // sample.db has the following format:
@@ -387,13 +371,11 @@ fn test_open_with_converter_flags() -> Result {
 }
 
 #[test]
-fn open_ignore_ansi() -> Result {
-    Playground::setup("open_test_ansi", |dirs, sandbox| {
-        sandbox.with_files(&[EmptyFile("nu.zion.txt")]);
-        let code = "ls | find nu.zion | get 0 | get name | open $in";
-        let _: Value = test().cwd(dirs.test()).run(code)?;
-        Ok(())
-    })
+fn open_ignore_ansi(playground: Playground) -> Result {
+    playground.empty_file("nu.zion.txt")?;
+    let code = "ls | find nu.zion | get 0 | get name | open $in";
+    let _: Value = test().cwd(playground.path()).run(code)?;
+    Ok(())
 }
 
 #[test]
@@ -409,15 +391,13 @@ fn open_no_parameter() -> Result {
 #[case("a[c")]
 #[case("a[bc]d")]
 #[case("a][c")]
-fn open_literal_file_with_glob_metachars(#[case] src_name: &str) -> Result {
-    Playground::setup("open_test_with_glob_metachars", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent(src_name, "hello")]);
-        let src = dirs.test().join(src_name);
-        test()
-            .cwd(dirs.test())
-            .run(format!("open '{}'", src.display()))
-            .expect_value_eq("hello")
-    })
+fn open_literal_file_with_glob_metachars(#[ignore] playground: Playground, #[case] src_name: &str) -> Result {
+    playground.file(src_name, "hello")?;
+    let src = playground.path().join(src_name);
+    test()
+        .cwd(playground.path())
+        .run(format!("open '{}'", src.display()))
+        .expect_value_eq("hello")
 }
 
 #[track_caller]
@@ -426,15 +406,13 @@ fn open_literal_file_with_glob_metachars(#[case] src_name: &str) -> Result {
 #[case("a[c")]
 #[case("a[bc]d")]
 #[case("a][c")]
-fn open_variable_file_with_glob_metachars(#[case] src_name: &str) -> Result {
-    Playground::setup("open_test_variable_with_glob_metachars", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent(src_name, "hello")]);
-        let src = dirs.test().join(src_name);
-        test()
-            .cwd(dirs.test())
-            .run(format!("let f = '{}'; open $f", src.display()))
-            .expect_value_eq("hello")
-    })
+fn open_variable_file_with_glob_metachars(#[ignore] playground: Playground, #[case] src_name: &str) -> Result {
+    playground.file(src_name, "hello")?;
+    let src = playground.path().join(src_name);
+    test()
+        .cwd(playground.path())
+        .run(format!("let f = '{}'; open $f", src.display()))
+        .expect_value_eq("hello")
 }
 
 #[cfg(not(windows))]
@@ -550,3 +528,4 @@ fn test_metadata_without_raw_has_source_for_files_with_content_type(
     assert_contains(source_contains, source);
     Ok(())
 }
+

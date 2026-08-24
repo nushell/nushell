@@ -26,191 +26,156 @@ fn table_to_json_float_doesnt_become_int() -> Result {
 }
 
 #[test]
-fn from_json_text_to_table() -> Result {
-    Playground::setup("filter_from_json_test_1", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContentToBeTrimmed(
-            "katz.txt",
-            r#"
-                {
-                    "katz": [
-                        {"name":   "Yehuda", "rusty_luck": 1},
-                        {"name": "JT", "rusty_luck": 1},
-                        {"name":   "Andres", "rusty_luck": 1},
-                        {"name":"GorbyPuff", "rusty_luck": 1}
-                    ]
-                }
-            "#,
-        )]);
+fn from_json_text_to_table(playground: Playground) -> Result {
+    playground.file("katz.txt", indoc::indoc!{r#"
+        {
+            "katz": [
+                {"name":   "Yehuda", "rusty_luck": 1},
+                {"name": "JT", "rusty_luck": 1},
+                {"name":   "Andres", "rusty_luck": 1},
+                {"name":"GorbyPuff", "rusty_luck": 1}
+            ]
+        }
+    "#})?;
 
-        let code = "
-            open katz.txt
-            | from json
-            | get katz
-            | get rusty_luck
-            | length
-        ";
+    let code = "
+        open katz.txt
+        | from json
+        | get katz
+        | get rusty_luck
+        | length
+    ";
 
-        test().cwd(dirs.test()).run(code).expect_value_eq(4)
-    })
+    test().cwd(playground.path()).run(code).expect_value_eq(4)
 }
 
 #[test]
-fn from_json_text_to_table_strict() -> Result {
-    Playground::setup("filter_from_json_test_1_strict", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContentToBeTrimmed(
-            "katz.txt",
-            r#"
-                {
-                    "katz": [
-                        {"name":   "Yehuda", "rusty_luck": 1},
-                        {"name": "JT", "rusty_luck": 1},
-                        {"name":   "Andres", "rusty_luck": 1},
-                        {"name":"GorbyPuff", "rusty_luck": 1}
-                    ]
-                }
-            "#,
-        )]);
+fn from_json_text_to_table_strict(playground: Playground) -> Result {
+    playground.file("katz.txt", indoc::indoc!{r#"
+        {
+            "katz": [
+                {"name":   "Yehuda", "rusty_luck": 1},
+                {"name": "JT", "rusty_luck": 1},
+                {"name":   "Andres", "rusty_luck": 1},
+                {"name":"GorbyPuff", "rusty_luck": 1}
+            ]
+        }
+    "#})?;
 
-        let code = "
-            open katz.txt
-            | from json -s
-            | get katz
-            | get rusty_luck
-            | length
-        ";
+    let code = "
+        open katz.txt
+        | from json -s
+        | get katz
+        | get rusty_luck
+        | length
+    ";
 
-        test().cwd(dirs.test()).run(code).expect_value_eq(4)
-    })
+    test().cwd(playground.path()).run(code).expect_value_eq(4)
 }
 
 #[test]
-fn from_json_text_recognizing_objects_independently_to_table() -> Result {
-    Playground::setup("filter_from_json_test_2", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContentToBeTrimmed(
-            "katz.txt",
-            r#"
-                {"name":   "Yehuda", "rusty_luck": 1}
-                {"name": "JT", "rusty_luck": 1}
-                {"name":   "Andres", "rusty_luck": 1}
-                {"name":"GorbyPuff", "rusty_luck": 3}
-            "#,
-        )]);
+fn from_json_text_recognizing_objects_independently_to_table(playground: Playground) -> Result {
+    playground.file("katz.txt", indoc::indoc!{r#"
+        {"name":   "Yehuda", "rusty_luck": 1}
+        {"name": "JT", "rusty_luck": 1}
+        {"name":   "Andres", "rusty_luck": 1}
+        {"name":"GorbyPuff", "rusty_luck": 3}
+    "#})?;
 
-        let code = r#"
-            open katz.txt
-            | from json -o
-            | where name == "GorbyPuff"
-            | get rusty_luck.0
-        "#;
+    let code = r#"
+        open katz.txt
+        | from json -o
+        | where name == "GorbyPuff"
+        | get rusty_luck.0
+    "#;
 
-        test().cwd(dirs.test()).run(code).expect_value_eq(3)
-    })
+    test().cwd(playground.path()).run(code).expect_value_eq(3)
 }
 
 #[test]
-fn from_json_text_objects_is_stream() -> Result {
-    Playground::setup("filter_from_json_test_2_is_stream", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContentToBeTrimmed(
-            "katz.txt",
-            r#"
-                {"name":   "Yehuda", "rusty_luck": 1}
-                {"name": "JT", "rusty_luck": 1}
-                {"name":   "Andres", "rusty_luck": 1}
-                {"name":"GorbyPuff", "rusty_luck": 3}
-            "#,
-        )]);
+fn from_json_text_objects_is_stream(playground: Playground) -> Result {
+    playground.file("katz.txt", indoc::indoc!{r#"
+        {"name":   "Yehuda", "rusty_luck": 1}
+        {"name": "JT", "rusty_luck": 1}
+        {"name":   "Andres", "rusty_luck": 1}
+        {"name":"GorbyPuff", "rusty_luck": 3}
+    "#})?;
 
-        let code = "open katz.txt | from json -o";
-        let nu_protocol::PipelineData::ListStream(_, _) =
-            test().cwd(dirs.test()).run_raw(code)?.body
-        else {
-            panic!("Output must be a stream");
-        };
+    let code = "open katz.txt | from json -o";
+    let nu_protocol::PipelineData::ListStream(_, _) =
+        test().cwd(playground.path()).run_raw(code)?.body
+    else {
+        panic!("Output must be a stream");
+    };
 
-        Ok(())
-    })
+    Ok(())
 }
 
 #[test]
-fn from_json_text_recognizing_objects_independently_to_table_strict() -> Result {
-    Playground::setup("filter_from_json_test_2_strict", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContentToBeTrimmed(
-            "katz.txt",
-            r#"
-                {"name":   "Yehuda", "rusty_luck": 1}
-                {"name": "JT", "rusty_luck": 1}
-                {"name":   "Andres", "rusty_luck": 1}
-                {"name":"GorbyPuff", "rusty_luck": 3}
-            "#,
-        )]);
+fn from_json_text_recognizing_objects_independently_to_table_strict(playground: Playground) -> Result {
+    playground.file("katz.txt", indoc::indoc!{r#"
+        {"name":   "Yehuda", "rusty_luck": 1}
+        {"name": "JT", "rusty_luck": 1}
+        {"name":   "Andres", "rusty_luck": 1}
+        {"name":"GorbyPuff", "rusty_luck": 3}
+    "#})?;
 
-        let code = r#"
-            open katz.txt
-            | from json -o -s
-            | where name == "GorbyPuff"
-            | get rusty_luck.0
-        "#;
+    let code = r#"
+        open katz.txt
+        | from json -o -s
+        | where name == "GorbyPuff"
+        | get rusty_luck.0
+    "#;
 
-        test().cwd(dirs.test()).run(code).expect_value_eq(3)
-    })
+    test().cwd(playground.path()).run(code).expect_value_eq(3)
 }
 
 #[test]
-fn table_to_json_text() -> Result {
-    Playground::setup("filter_to_json_test", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContentToBeTrimmed(
-            "sample.txt",
-            "
-                JonAndrehudaTZ,3
-                GorbyPuff,100
-            ",
-        )]);
+fn table_to_json_text(playground: Playground) -> Result {
+    playground.file("sample.txt", indoc::indoc!{"
+        JonAndrehudaTZ,3
+        GorbyPuff,100
+    "})?;
 
-        let code = r#"
-            open sample.txt
-            | lines
-            | split column "," name luck
-            | select name
-            | to json
-            | from json
-            | get 0
-            | get name
-        "#;
+    let code = r#"
+        open sample.txt
+        | lines
+        | split column "," name luck
+        | select name
+        | to json
+        | from json
+        | get 0
+        | get name
+    "#;
 
-        test()
-            .cwd(dirs.test())
-            .run(code)
-            .expect_value_eq("JonAndrehudaTZ")
-    })
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq("JonAndrehudaTZ")
 }
 
 #[test]
-fn table_to_json_text_strict() -> Result {
-    Playground::setup("filter_to_json_test_strict", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContentToBeTrimmed(
-            "sample.txt",
-            "
-                JonAndrehudaTZ,3
-                GorbyPuff,100
-            ",
-        )]);
+fn table_to_json_text_strict(playground: Playground) -> Result {
+    playground.file("sample.txt", indoc::indoc!{"
+        JonAndrehudaTZ,3
+        GorbyPuff,100
+    "})?;
 
-        let code = r#"
-            open sample.txt
-            | lines
-            | split column "," name luck
-            | select name
-            | to json
-            | from json -s
-            | get 0
-            | get name
-        "#;
+    let code = r#"
+        open sample.txt
+        | lines
+        | split column "," name luck
+        | select name
+        | to json
+        | from json -s
+        | get 0
+        | get name
+    "#;
 
-        test()
-            .cwd(dirs.test())
-            .run(code)
-            .expect_value_eq("JonAndrehudaTZ")
-    })
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq("JonAndrehudaTZ")
 }
 
 #[rstest]
@@ -363,3 +328,4 @@ fn test_to_json_content_type_metadata() -> Result {
 
     test().run(code).expect_value_eq("application/json")
 }
+

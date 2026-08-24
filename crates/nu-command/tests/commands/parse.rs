@@ -220,16 +220,14 @@ mod regex {
     }
 
     #[test]
-    fn parse_handles_external_stream_chunking() -> Result {
-        Playground::setup("parse_test_streaming_1", |dirs, sandbox| {
-            let data: String = "abcdefghijklmnopqrstuvwxyz".repeat(1000);
-            sandbox.with_files(&[Stub::FileWithContent("data.txt", &data)]);
+    fn parse_handles_external_stream_chunking(playground: Playground) -> Result {
+        let data: String = "abcdefghijklmnopqrstuvwxyz".repeat(1000);
+        playground.file("data.txt", &data)?;
 
-            test()
-                .cwd(dirs.test())
-                .run(r#"open data.txt | parse --regex "(abcdefghijklmnopqrstuvwxyz)" | length"#)
-                .expect_value_eq(1000)
-        })
+        test()
+            .cwd(playground.path())
+            .run(r#"open data.txt | parse --regex "(abcdefghijklmnopqrstuvwxyz)" | length"#)
+            .expect_value_eq(1000)
     }
 
     #[test]
@@ -270,3 +268,4 @@ mod regex {
             ])
     }
 }
+

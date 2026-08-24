@@ -116,31 +116,23 @@ fn module_public_import_alias() -> Result {
 }
 
 #[test]
-fn module_public_import_decl_with_stored_where_condition() -> Result {
-    Playground::setup(
-        "module_public_import_decl_with_stored_where_condition",
-        |dirs, sandbox| -> Result {
-            sandbox.with_files(&[FileWithContent("main.nu", "export use mod.nu helper")]);
+fn module_public_import_decl_with_stored_where_condition(playground: Playground) -> Result {
+    playground.file("main.nu", "export use mod.nu helper")?;
 
-            sandbox.with_files(&[FileWithContentToBeTrimmed(
-                "mod.nu",
-                r#"
-                    export def helper [] {
-                        let cond = {|x| true }
-                        [{a: 1}] | where $cond
-                    }
+        playground.file("mod.nu", indoc::indoc!{r#"
+            export def helper [] {
+                let cond = {|x| true }
+                [{a: 1}] | where $cond
+            }
+            
+            export def main [] { "ok" }
+        "#})?;
 
-                    export def main [] { "ok" }
-                "#,
-            )]);
-
-            let mut tester = test().cwd(dirs.test());
-            let () = tester.run("use main.nu helper")?;
-            tester
-                .run("helper | to nuon --raw")
-                .expect_value_eq("[[a];[1]]")
-        },
-    )
+        let mut tester = test().cwd(playground.path());
+        let () = tester.run("use main.nu helper")?;
+        tester
+            .run("helper | to nuon --raw")
+            .expect_value_eq("[[a];[1]]")
 }
 
 #[test]
@@ -313,27 +305,23 @@ fn module_import_env_2() -> Result {
 }
 
 #[test]
-fn module_cyclical_imports_0() -> Result {
-    Playground::setup("module_cyclical_imports_0", |dirs, sandbox| -> Result {
-        sandbox.with_files(&[FileWithContent("spam.nu", "use eggs.nu")]);
+fn module_cyclical_imports_0(playground: Playground) -> Result {
+    playground.file("spam.nu", "use eggs.nu")?;
 
-        test()
-            .cwd(dirs.test())
-            .run("module eggs { use spam.nu }")
-            .expect_error_code_eq("nu::parser::module_not_found")
-    })
+    test()
+        .cwd(playground.path())
+        .run("module eggs { use spam.nu }")
+        .expect_error_code_eq("nu::parser::module_not_found")
 }
 
 #[test]
-fn module_cyclical_imports_1() -> Result {
-    Playground::setup("module_cyclical_imports_1", |dirs, sandbox| -> Result {
-        sandbox.with_files(&[FileWithContent("spam.nu", "use spam.nu")]);
+fn module_cyclical_imports_1(playground: Playground) -> Result {
+    playground.file("spam.nu", "use spam.nu")?;
 
-        test()
-            .cwd(dirs.test())
-            .run("use spam.nu")
-            .expect_error_code_eq("nu::parser::circular_import")
-    })
+    test()
+        .cwd(playground.path())
+        .run("use spam.nu")
+        .expect_error_code_eq("nu::parser::circular_import")
 }
 
 #[test]
@@ -366,28 +354,24 @@ fn module_cyclical_imports_3() -> Result {
 }
 
 #[test]
-fn module_import_const_file() -> Result {
-    Playground::setup("module_import_const_file", |dirs, sandbox| -> Result {
-        sandbox.with_files(&[FileWithContent("spam.nu", r#"export def foo [] { "foo" }"#)]);
+fn module_import_const_file(playground: Playground) -> Result {
+    playground.file("spam.nu", r#"export def foo [] { "foo" }"#)?;
 
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run("const file = 'spam.nu'")?;
-        let () = tester.run("use $file foo")?;
-        tester.run("foo").expect_value_eq("foo")
-    })
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("const file = 'spam.nu'")?;
+    let () = tester.run("use $file foo")?;
+    tester.run("foo").expect_value_eq("foo")
 }
 
 #[test]
-fn module_import_const_module_name() -> Result {
-    Playground::setup("module_import_const_file", |dirs, sandbox| -> Result {
-        sandbox.with_files(&[FileWithContent("spam.nu", r#"export def foo [] { "foo" }"#)]);
+fn module_import_const_module_name(playground: Playground) -> Result {
+    playground.file("spam.nu", r#"export def foo [] { "foo" }"#)?;
 
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run(r#"module spam { export def foo [] { "foo" } }"#)?;
-        let () = tester.run("const mod = 'spam'")?;
-        let () = tester.run("use $mod foo")?;
-        tester.run("foo").expect_value_eq("foo")
-    })
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run(r#"module spam { export def foo [] { "foo" } }"#)?;
+    let () = tester.run("const mod = 'spam'")?;
+    let () = tester.run("use $mod foo")?;
+    tester.run("foo").expect_value_eq("foo")
 }
 
 #[test]
@@ -685,122 +669,107 @@ fn nested_list_export_works() -> Result {
     "woem"
 )]
 fn reload_submodules(
+    #[ignore] playground: Playground,
     #[case] setup: &[&str],
     #[case] code: &str,
     #[case] expected: impl IntoValue,
 ) -> Result {
-    Playground::setup("reload_submodule_changed_file", |dirs, sandbox| {
-        sandbox.with_files(&[
-            FileWithContent("voice.nu", "export module animals.nu; export use animals"),
-            FileWithContent("animals.nu", "export def cat [] { 'meow' }"),
-        ]);
+    playground.file("voice.nu", "export module animals.nu; export use animals")?;
+    playground.file("animals.nu", "export def cat [] { 'meow' }")?;
 
-        let mut tester = test().cwd(dirs.test());
-        for line in setup {
-            let () = tester.run(line)?;
-        }
-        tester.run(code).expect_value_eq(expected)
-    })
+    let mut tester = test().cwd(playground.path());
+    for line in setup {
+        let () = tester.run(line)?;
+    }
+    tester.run(code).expect_value_eq(expected)
 }
 
 #[test]
-fn use_submodules() -> Result {
-    Playground::setup("use_submodules", |dirs, sandbox| -> Result {
-        sandbox.with_files(&[
-            FileWithContent("voice.nu", "export use animals.nu"),
-            FileWithContent("animals.nu", "export def cat [] { 'meow' }"),
-        ]);
+fn use_submodules(playground: Playground) -> Result {
+    playground.file("voice.nu", "export use animals.nu")?;
+    playground.file("animals.nu", "export def cat [] { 'meow' }")?;
 
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run("use voice.nu")?;
-        let () = tester.run(r#""export def cat [] { 'woem' }" | save -f animals.nu"#)?;
-        let () = tester.run("use voice.nu")?;
-        tester
-            .run("(voice animals cat) == 'woem'")
-            .expect_value_eq(true)?;
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("use voice.nu")?;
+    let () = tester.run(r#""export def cat [] { 'woem' }" | save -f animals.nu"#)?;
+    let () = tester.run("use voice.nu")?;
+    tester
+        .run("(voice animals cat) == 'woem'")
+        .expect_value_eq(true)?;
 
-        // should also verify something unchanged if `use voice`.
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run("use voice.nu")?;
-        let () = tester.run(r#""export def cat [] { 'meow' }" | save -f animals.nu"#)?;
-        let () = tester.run("use voice")?;
-        tester
-            .run("(voice animals cat) == 'woem'")
-            .expect_value_eq(true)?;
+    // should also verify something unchanged if `use voice`.
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("use voice.nu")?;
+    let () = tester.run(r#""export def cat [] { 'meow' }" | save -f animals.nu"#)?;
+    let () = tester.run("use voice")?;
+    tester
+        .run("(voice animals cat) == 'woem'")
+        .expect_value_eq(true)?;
 
-        // also verify something is changed when using members.
-        sandbox.with_files(&[
-            FileWithContent("voice.nu", "export use animals.nu cat"),
-            FileWithContent("animals.nu", "export def cat [] { 'meow' }"),
-        ]);
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run("use voice.nu")?;
-        let () = tester.run(r#""export def cat [] { 'woem' }" | save -f animals.nu"#)?;
-        let () = tester.run("use voice.nu")?;
-        tester.run("(voice cat) == 'woem'").expect_value_eq(true)?;
+    // also verify something is changed when using members.
+    playground.file("voice.nu", "export use animals.nu cat")?;
+    playground.file("animals.nu", "export def cat [] { 'meow' }")?;
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("use voice.nu")?;
+    let () = tester.run(r#""export def cat [] { 'woem' }" | save -f animals.nu"#)?;
+    let () = tester.run("use voice.nu")?;
+    tester.run("(voice cat) == 'woem'").expect_value_eq(true)?;
 
-        sandbox.with_files(&[
-            FileWithContent("voice.nu", "export use animals.nu *"),
-            FileWithContent("animals.nu", "export def cat [] { 'meow' }"),
-        ]);
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run("use voice.nu")?;
-        let () = tester.run(r#""export def cat [] { 'woem' }" | save -f animals.nu"#)?;
-        let () = tester.run("use voice.nu")?;
-        tester.run("(voice cat) == 'woem'").expect_value_eq(true)?;
+    playground.file("voice.nu", "export use animals.nu *")?;
 
-        sandbox.with_files(&[
-            FileWithContent("voice.nu", "export use animals.nu [cat]"),
-            FileWithContent("animals.nu", "export def cat [] { 'meow' }"),
-        ]);
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run("use voice.nu")?;
-        let () = tester.run(r#""export def cat [] { 'woem' }" | save -f animals.nu"#)?;
-        let () = tester.run("use voice.nu")?;
-        tester.run("(voice cat) == 'woem'").expect_value_eq(true)
-    })
+    playground.file("animals.nu", "export def cat [] { 'meow' }")?;
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("use voice.nu")?;
+    let () = tester.run(r#""export def cat [] { 'woem' }" | save -f animals.nu"#)?;
+    let () = tester.run("use voice.nu")?;
+    tester.run("(voice cat) == 'woem'").expect_value_eq(true)?;
+
+    playground.file("voice.nu", "export use animals.nu [cat]")?;
+
+    playground.file("animals.nu", "export def cat [] { 'meow' }")?;
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("use voice.nu")?;
+    let () = tester.run(r#""export def cat [] { 'woem' }" | save -f animals.nu"#)?;
+    let () = tester.run("use voice.nu")?;
+    tester.run("(voice cat) == 'woem'").expect_value_eq(true)
 }
 
 #[test]
-fn use_nested_submodules() -> Result {
-    Playground::setup("use_submodules", |dirs, sandbox| -> Result {
-        sandbox.with_files(&[
-            FileWithContent("voice.nu", "export use animals.nu"),
-            FileWithContent("animals.nu", "export use nested_animals.nu"),
-            FileWithContent("nested_animals.nu", "export def cat [] { 'meow' }"),
-        ]);
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run("use voice.nu")?;
-        let () = tester.run(r#""export def cat [] { 'woem' }" | save -f nested_animals.nu"#)?;
-        let () = tester.run("use voice.nu")?;
-        tester
-            .run("(voice animals nested_animals cat) == 'woem'")
-            .expect_value_eq(true)?;
+fn use_nested_submodules(playground: Playground) -> Result {
+    playground.file("voice.nu", "export use animals.nu")?;
+    playground.file("animals.nu", "export use nested_animals.nu")?;
+    playground.file("nested_animals.nu", "export def cat [] { 'meow' }")?;
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("use voice.nu")?;
+    let () = tester.run(r#""export def cat [] { 'woem' }" | save -f nested_animals.nu"#)?;
+    let () = tester.run("use voice.nu")?;
+    tester
+        .run("(voice animals nested_animals cat) == 'woem'")
+        .expect_value_eq(true)?;
 
-        sandbox.with_files(&[
-            FileWithContent("voice.nu", "export use animals.nu"),
-            FileWithContent("animals.nu", "export use nested_animals.nu cat"),
-            FileWithContent("nested_animals.nu", "export def cat [] { 'meow' }"),
-        ]);
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run("use voice.nu")?;
-        let () = tester.run(r#""export def cat [] { 'woem' }" | save -f nested_animals.nu"#)?;
-        let () = tester.run("use voice.nu")?;
-        tester
-            .run("(voice animals cat) == 'woem'")
-            .expect_value_eq(true)?;
+    playground.file("voice.nu", "export use animals.nu")?;
 
-        sandbox.with_files(&[
-            FileWithContent("animals.nu", "export use nested_animals.nu cat"),
-            FileWithContent("nested_animals.nu", "export def cat [] { 'meow' }"),
-        ]);
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run("module voice { export module animals.nu }")?;
-        let () = tester.run("use voice")?;
-        let () = tester.run(r#""export def cat [] { 'woem' }" | save -f nested_animals.nu"#)?;
-        let () = tester.run("use voice.nu")?;
-        tester
-            .run("(voice animals cat) == 'woem'")
-            .expect_value_eq(true)
-    })
+    playground.file("animals.nu", "export use nested_animals.nu cat")?;
+
+    playground.file("nested_animals.nu", "export def cat [] { 'meow' }")?;
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("use voice.nu")?;
+    let () = tester.run(r#""export def cat [] { 'woem' }" | save -f nested_animals.nu"#)?;
+    let () = tester.run("use voice.nu")?;
+    tester
+        .run("(voice animals cat) == 'woem'")
+        .expect_value_eq(true)?;
+
+    playground.file("animals.nu", "export use nested_animals.nu cat")?;
+
+    playground.file("nested_animals.nu", "export def cat [] { 'meow' }")?;
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("module voice { export module animals.nu }")?;
+    let () = tester.run("use voice")?;
+    let () = tester.run(r#""export def cat [] { 'woem' }" | save -f nested_animals.nu"#)?;
+    let () = tester.run("use voice.nu")?;
+    tester
+        .run("(voice animals cat) == 'woem'")
+        .expect_value_eq(true)
 }
+

@@ -12,6 +12,7 @@ fn msgpack_test<T: FromValue>(fixture_name: impl AsRef<str>) -> Result<T> {
 }
 
 fn msgpack_test_with_opts<T: FromValue>(
+    playground: Playground,
     fixture_name: impl AsRef<str>,
     opts: impl AsRef<str>,
 ) -> Result<T> {
@@ -19,17 +20,15 @@ fn msgpack_test_with_opts<T: FromValue>(
     let opts = opts.as_ref();
 
     let topic = format!("msgpack test {fixture_name}");
-    Playground::setup(&topic, |dirs, _| {
-        let mut tester = test().cwd(dirs.test());
+    let mut tester = test().cwd(playground.path());
 
-        let generate = format!("use {}; generate main {fixture_name}", GENERATE.display());
-        let _: Value = tester
-            .run(&generate)
-            .expect("could not generate msgpack fixture");
+    let generate = format!("use {}; generate main {fixture_name}", GENERATE.display());
+    let _: Value = tester
+        .run(&generate)
+        .expect("could not generate msgpack fixture");
 
-        let open = format!("open {fixture_name}.msgpack --raw | from msgpack {opts}");
-        tester.run(&open)
-    })
+    let open = format!("open {fixture_name}.msgpack --raw | from msgpack {opts}");
+    tester.run(&open)
 }
 
 #[test]
@@ -214,3 +213,4 @@ fn other_extension_type() -> Result {
     assert_eq!(error, "Unknown MessagePack extension");
     Ok(())
 }
+

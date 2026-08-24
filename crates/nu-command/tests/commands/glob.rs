@@ -5,38 +5,30 @@ use rstest::rstest;
 use std::path::{Path, PathBuf};
 
 #[test]
-fn empty_glob_pattern_triggers_error() -> Result {
-    Playground::setup("glob_test_1", |dirs, sandbox| {
-        sandbox.with_files(&[
-            EmptyFile("yehuda.txt"),
-            EmptyFile("jttxt"),
-            EmptyFile("andres.txt"),
-        ]);
+fn empty_glob_pattern_triggers_error(playground: Playground) -> Result {
+    playground.empty_file("yehuda.txt")?;
+    playground.empty_file("jttxt")?;
+    playground.empty_file("andres.txt")?;
 
-        let err = test()
-            .cwd(dirs.test())
-            .run("glob ''")
-            .expect_shell_error()?;
+    let err = test()
+        .cwd(playground.path())
+        .run("glob ''")
+        .expect_shell_error()?;
 
-        assert_contains("must not be empty", err.to_string());
-        Ok(())
-    })
+    assert_contains("must not be empty", err.to_string());
+    Ok(())
 }
 
 #[test]
-fn nonempty_glob_lists_matching_paths() -> Result {
-    Playground::setup("glob_sanity_star", |dirs, sandbox| {
-        sandbox.with_files(&[
-            EmptyFile("yehuda.txt"),
-            EmptyFile("jttxt"),
-            EmptyFile("andres.txt"),
-        ]);
+fn nonempty_glob_lists_matching_paths(playground: Playground) -> Result {
+    playground.empty_file("yehuda.txt")?;
+    playground.empty_file("jttxt")?;
+    playground.empty_file("andres.txt")?;
 
-        test()
-            .cwd(dirs.test())
-            .run("glob '*' | length")
-            .expect_value_eq(3)
-    })
+    test()
+        .cwd(playground.path())
+        .run("glob '*' | length")
+        .expect_value_eq(3)
 }
 
 #[test]
@@ -195,16 +187,15 @@ fn glob_follow_symlinks() -> Result {
 
 #[test]
 #[exp(nu_experimental::DC_GLOB)]
-fn glob_dc_glob_supports_depth_and_exclude() -> Result {
-    Playground::setup("glob_dc_depth_exclude", |dirs, sandbox| {
-        sandbox.with_files(&[EmptyFile("three.txt"), EmptyFile("four.txt")]);
+fn glob_dc_glob_supports_depth_and_exclude(playground: Playground) -> Result {
+    playground.empty_file("three.txt")?;
+    playground.empty_file("four.txt")?;
 
-        test()
-            .cwd(dirs.test())
-            .run("glob '*.txt' --depth 1 --exclude [four.txt] | length")
-            .expect_value_eq(1)
-            .expect("glob should support --depth and --exclude with dc-glob enabled");
-    });
+    test()
+        .cwd(playground.path())
+        .run("glob '*.txt' --depth 1 --exclude [four.txt] | length")
+        .expect_value_eq(1)
+        .expect("glob should support --depth and --exclude with dc-glob enabled");;
 
     Ok(())
 }
@@ -340,116 +331,110 @@ fn glob_dc_glob_supports_follow_symlinks() -> Result {
 
 #[test]
 #[exp(nu_experimental::DC_GLOB)]
-fn glob_debug_subcommands_enabled() -> Result {
-    Playground::setup("glob_dc_debug_subcommands", |dirs, sandbox| {
-        sandbox.with_files(&[EmptyFile("file.txt")]);
+fn glob_debug_subcommands_enabled(playground: Playground) -> Result {
+    playground.empty_file("file.txt")?;
 
-        test()
-            .cwd(dirs.test())
-            .run("glob --dbg-parse '*' | str contains 'Wildcard'")
-            .expect_value_eq(true)
-            .expect("--dbg-parse should be available with dc-glob enabled");
+    test()
+        .cwd(playground.path())
+        .run("glob --dbg-parse '*' | str contains 'Wildcard'")
+        .expect_value_eq(true)
+        .expect("--dbg-parse should be available with dc-glob enabled");
 
-        test()
-            .cwd(dirs.test())
-            .run("glob --dbg-compile '**/*' | str contains 'Complete'")
-            .expect_value_eq(true)
-            .expect("--dbg-compile should be available with dc-glob enabled");
+    test()
+        .cwd(playground.path())
+        .run("glob --dbg-compile '**/*' | str contains 'Complete'")
+        .expect_value_eq(true)
+        .expect("--dbg-compile should be available with dc-glob enabled");
 
-        test()
-            .cwd(dirs.test())
-            .run("glob --dbg-matches '.'")
-            .expect_value_eq(true)
-            .expect("--dbg-matches should be available with dc-glob enabled");
+    test()
+        .cwd(playground.path())
+        .run("glob --dbg-matches '.'")
+        .expect_value_eq(true)
+        .expect("--dbg-matches should be available with dc-glob enabled");
 
-        test()
-            .cwd(dirs.test())
-            .run("glob --dbg-glob '*.txt' | length")
-            .expect_value_eq(1)
-            .expect("--dbg-glob should be available with dc-glob enabled");
-    });
+    test()
+        .cwd(playground.path())
+        .run("glob --dbg-glob '*.txt' | length")
+        .expect_value_eq(1)
+        .expect("--dbg-glob should be available with dc-glob enabled");;
 
     Ok(())
 }
 
 #[test]
 #[exp(nu_experimental::DC_GLOB = false)]
-fn glob_debug_subcommands_disabled() -> Result {
-    Playground::setup("glob_dc_debug_subcommands_off", |dirs, _sandbox| {
-        let err = test()
-            .cwd(dirs.test())
-            .run("glob --dbg-parse '*'")
-            .expect_parse_error()
-            .expect("glob should reject dbg flags when dc-glob is disabled");
+fn glob_debug_subcommands_disabled(playground: Playground) -> Result {
+    let err = test()
+        .cwd(playground.path())
+        .run("glob --dbg-parse '*'")
+        .expect_parse_error()
+        .expect("glob should reject dbg flags when dc-glob is disabled");
 
-        let err = err.to_string();
-        assert!(
-            err.contains("unknown_flag")
-                || err.contains("unknown flag")
-                || err.contains("doesn't have flag"),
-            "expected unknown-flag parse error, got: {err}"
-        );
-    });
+    let err = err.to_string();
+    assert!(
+        err.contains("unknown_flag")
+            || err.contains("unknown flag")
+            || err.contains("doesn't have flag"),
+        "expected unknown-flag parse error, got: {err}"
+    );;
 
     Ok(())
 }
 
 #[test]
 #[exp(nu_experimental::DC_GLOB)]
-fn glob_debug_subcommands_require_pattern_argument() -> Result {
-    Playground::setup("glob_dc_debug_missing_pattern", |dirs, _sandbox| {
-        let parse = test()
-            .cwd(dirs.test())
-            .run("glob --dbg-parse")
-            .expect_parse_error()
-            .expect("--dbg-parse should require pattern argument");
-        let parse = parse.to_string();
-        assert!(
-            parse.contains("missing")
-                || parse.contains("required positional")
-                || parse.contains("missing_positional"),
-            "expected missing-argument parse error, got: {parse}"
-        );
+fn glob_debug_subcommands_require_pattern_argument(playground: Playground) -> Result {
+    let parse = test()
+        .cwd(playground.path())
+        .run("glob --dbg-parse")
+        .expect_parse_error()
+        .expect("--dbg-parse should require pattern argument");
+    let parse = parse.to_string();
+    assert!(
+        parse.contains("missing")
+            || parse.contains("required positional")
+            || parse.contains("missing_positional"),
+        "expected missing-argument parse error, got: {parse}"
+    );
 
-        let compile = test()
-            .cwd(dirs.test())
-            .run("glob --dbg-compile")
-            .expect_parse_error()
-            .expect("--dbg-compile should require pattern argument");
-        let compile = compile.to_string();
-        assert!(
-            compile.contains("missing")
-                || compile.contains("required positional")
-                || compile.contains("missing_positional"),
-            "expected missing-argument parse error, got: {compile}"
-        );
+    let compile = test()
+        .cwd(playground.path())
+        .run("glob --dbg-compile")
+        .expect_parse_error()
+        .expect("--dbg-compile should require pattern argument");
+    let compile = compile.to_string();
+    assert!(
+        compile.contains("missing")
+            || compile.contains("required positional")
+            || compile.contains("missing_positional"),
+        "expected missing-argument parse error, got: {compile}"
+    );
 
-        let matches = test()
-            .cwd(dirs.test())
-            .run("glob --dbg-matches")
-            .expect_parse_error()
-            .expect("--dbg-matches should require pattern argument");
-        let matches = matches.to_string();
-        assert!(
-            matches.contains("missing")
-                || matches.contains("required positional")
-                || matches.contains("missing_positional"),
-            "expected missing-argument parse error, got: {matches}"
-        );
+    let matches = test()
+        .cwd(playground.path())
+        .run("glob --dbg-matches")
+        .expect_parse_error()
+        .expect("--dbg-matches should require pattern argument");
+    let matches = matches.to_string();
+    assert!(
+        matches.contains("missing")
+            || matches.contains("required positional")
+            || matches.contains("missing_positional"),
+        "expected missing-argument parse error, got: {matches}"
+    );
 
-        let dbg_glob = test()
-            .cwd(dirs.test())
-            .run("glob --dbg-glob")
-            .expect_parse_error()
-            .expect("--dbg-glob should require pattern argument");
-        let dbg_glob = dbg_glob.to_string();
-        assert!(
-            dbg_glob.contains("missing")
-                || dbg_glob.contains("required positional")
-                || dbg_glob.contains("missing_positional"),
-            "expected missing-argument parse error, got: {dbg_glob}"
-        );
-    });
+    let dbg_glob = test()
+        .cwd(playground.path())
+        .run("glob --dbg-glob")
+        .expect_parse_error()
+        .expect("--dbg-glob should require pattern argument");
+    let dbg_glob = dbg_glob.to_string();
+    assert!(
+        dbg_glob.contains("missing")
+            || dbg_glob.contains("required positional")
+            || dbg_glob.contains("missing_positional"),
+        "expected missing-argument parse error, got: {dbg_glob}"
+    );;
 
     Ok(())
 }
@@ -515,3 +500,4 @@ fn glob_dc_glob_literal_prefix_wildcard_absolute() -> Result {
 
     Ok(())
 }
+
