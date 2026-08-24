@@ -173,10 +173,10 @@ If you create a custom command with this name, that will be used instead."
             executable
         };
 
-        let stdout_captured = matches!(
-            stack.stdout(),
-            OutDest::Pipe | OutDest::PipeSeparate | OutDest::Value
-        );
+        // PipeSeparate is `complete`/`tee`/`save`: they need the raw child
+        // (stdout and stderr together). Decoding NUON calls `into_bytes()`,
+        // which errors if stderr is captured (`stderr should not exist`).
+        let stdout_captured = matches!(stack.stdout(), OutDest::Pipe | OutDest::Value);
 
         // Configure args.
         let args = eval_external_arguments(engine_state, stack, call_args)?;
@@ -188,7 +188,12 @@ If you create a custom command with this name, that will be used instead."
         };
         let structured_io =
             structured_io_for_child(&executable, invoked, stdout_captured, &input, user_mode);
-        let spawn = structured_io_spawn(&executable, structured_io, user_mode.is_none());
+        let spawn = structured_io_spawn(
+            &executable,
+            structured_io,
+            user_mode.is_none(),
+            matches!(stack.stdout(), OutDest::PipeSeparate),
+        );
 
         let mut command = std::process::Command::new(&spawn.program);
 

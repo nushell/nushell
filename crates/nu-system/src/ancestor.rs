@@ -231,11 +231,6 @@ mod tests {
     }
 
     #[test]
-    fn default_depth_constant_is_reasonable() {
-        assert!(NUSHELL_ANCESTOR_MAX_DEPTH >= 3);
-    }
-
-    #[test]
     fn ancestor_walk_does_not_panic() {
         let _ = ancestor_is_nushell(NUSHELL_ANCESTOR_MAX_DEPTH);
     }

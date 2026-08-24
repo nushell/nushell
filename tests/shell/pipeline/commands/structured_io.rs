@@ -2,6 +2,15 @@ use nu_test_support::{fs::Stub::FileWithContent, prelude::*};
 
 #[test]
 #[deps(NU)]
+fn nested_nu_piped_to_complete_keeps_raw_process() -> Result {
+    let result: CompleteResult = test().run("nu -n -c '[1 2 3] | to nuon' | complete")?;
+    assert_eq!(result.exit_code, 0);
+    assert_contains("[1, 2, 3]", result.stdout);
+    Ok(())
+}
+
+#[test]
+#[deps(NU)]
 fn child_flag_false_disables_handshake() -> Result {
     test()
         .run("nu -n --structured-io=false -c '[1 2 3]' | describe")

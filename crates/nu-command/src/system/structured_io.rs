@@ -67,10 +67,15 @@ pub struct StructuredIoSpawn {
 ///
 /// Shebang scripts are spawned as-is. Skip injection when the user already
 /// passed `--structured-io` so that value is the one the child parses.
+///
+/// `inject_off` is for `complete`/`tee`/`save`: stdout is a pipe, so the child
+/// would infer structured output, but the parent must keep the raw process
+/// (stderr is captured separately and cannot be drained as NUON).
 pub fn structured_io_spawn(
     executable: &Path,
     mode: StructuredIoMode,
     inject_flag: bool,
+    inject_off: bool,
 ) -> StructuredIoSpawn {
     let program = executable.to_path_buf();
     if !inject_flag || !is_nu_binary(executable) {
@@ -79,11 +84,15 @@ pub fn structured_io_spawn(
             leading_args: Vec::new(),
         };
     }
-    let Some(flag) = mode.as_flag_str() else {
-        return StructuredIoSpawn {
-            program,
-            leading_args: Vec::new(),
-        };
+    let flag = match mode.as_flag_str() {
+        Some(flag) => flag,
+        None if inject_off => "false",
+        None => {
+            return StructuredIoSpawn {
+                program,
+                leading_args: Vec::new(),
+            };
+        }
     };
     StructuredIoSpawn {
         program,
@@ -381,14 +390,20 @@ mod tests {
 
     #[test]
     fn shebang_script_is_spawned_as_is() {
-        let spawn = structured_io_spawn(Path::new("./foo.nu"), StructuredIoMode::both(), true);
+        let spawn =
+            structured_io_spawn(Path::new("./foo.nu"), StructuredIoMode::both(), true, false);
         assert_eq!(spawn.program, PathBuf::from("./foo.nu"));
         assert!(spawn.leading_args.is_empty());
     }
 
     #[test]
     fn nu_binary_gets_structured_io_flag() {
-        let spawn = structured_io_spawn(Path::new("/usr/bin/nu"), StructuredIoMode::both(), true);
+        let spawn = structured_io_spawn(
+            Path::new("/usr/bin/nu"),
+            StructuredIoMode::both(),
+            true,
+            false,
+        );
         assert_eq!(spawn.program, PathBuf::from("/usr/bin/nu"));
         assert_eq!(
             spawn.leading_args,
@@ -397,8 +412,27 @@ mod tests {
     }
 
     #[test]
+    fn injects_false_when_inference_must_be_suppressed() {
+        let spawn = structured_io_spawn(
+            Path::new("/usr/bin/nu"),
+            StructuredIoMode::default(),
+            true,
+            true,
+        );
+        assert_eq!(
+            spawn.leading_args,
+            vec![OsString::from("--structured-io=false")]
+        );
+    }
+
+    #[test]
     fn does_not_inject_when_user_set_flag() {
-        let spawn = structured_io_spawn(Path::new("/usr/bin/nu"), StructuredIoMode::both(), false);
+        let spawn = structured_io_spawn(
+            Path::new("/usr/bin/nu"),
+            StructuredIoMode::both(),
+            false,
+            false,
+        );
         assert!(spawn.leading_args.is_empty());
     }
 
