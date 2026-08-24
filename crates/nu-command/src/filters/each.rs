@@ -34,7 +34,18 @@ Instead of waiting for the stream to be collected before returning the result as
 a single item, `each --flatten` will return each item as soon as they are received.
 
 This "flattens" the output, turning an output that would otherwise be a
-list of lists like `list<list<string>>` into a flat list like `list<string>`."#
+list of lists like `list<list<string>>` into a flat list like `list<string>`.
+
+
+String or byte streams, empty pipelines, null values,
+ranges, and some custom values can also be used as inputs to 'each'.
+A stream of bytes or strings (usually from external commands)
+will be treated as though it was a list of chunks of the stream,
+where the size of the chunks are determined arbitrarily.
+Empty pipelines and null values are both returned unchanged from
+'each' without calling the provided closure.
+Ranges and custom values which can be iterated will be
+treated as lists of the values they represent."#
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -110,7 +121,8 @@ list of lists like `list<list<string>>` into a flat list like `list<string>`."#
             },
             Example {
                 example: r#"$env.name? | each { $"hello ($in)" } | default "bye""#,
-                description: "Update value if not null, otherwise do nothing.",
+                description: "Return \"hello $name\" for each name in the list of names $env.name, \
+                or return \"bye\" if $env.name does not exist.",
                 result: None,
             },
             Example {
@@ -121,6 +133,15 @@ list of lists like `list<list<string>>` into a flat list like `list<string>`."#
                     | find -i 'note: ' \
                     | str join \"\\n\"\
                     ",
+                result: None,
+            },
+            Example {
+                description: "Print chunks of data from an external command as soon as \
+                they become available.",
+                example: "\
+                ^$nu.current-exe -c 'print hello; sleep 0.5sec; print world' \
+                | each { print $in } | ignore\
+                ",
                 result: None,
             },
         ]
