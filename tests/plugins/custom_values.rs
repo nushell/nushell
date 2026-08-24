@@ -221,6 +221,7 @@ fn save_custom_values(playground: Playground) -> Result {
 
     Ok(())
 }
+<<<<<<< HEAD
 
 #[test]
 #[deps(NU_PLUGIN_CUSTOM_VALUES)]
@@ -346,3 +347,5 @@ fn custom_value_input_left_to_runtime_for_collections() -> Result {
         )
         .expect_value_eq("ran")
 }
+=======
+>>>>>>> 926ed3f27 (fmt)

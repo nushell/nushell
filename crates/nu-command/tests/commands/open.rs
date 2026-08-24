@@ -112,6 +112,7 @@ fn parses_csv(playground: Playground) -> Result {
         .cwd(playground.path())
         .run(code)
         .expect_value_eq("Ecuador")
+<<<<<<< HEAD
 }
 
 /// A `from <ext>` alias is rejected with an error suggesting a `def`, instead of failing with
@@ -158,6 +159,8 @@ fn open_with_a_shadowing_from_alias_suggests_a_pipeline() -> Result {
         assert!(!format!("{err:?}").contains("def 'from json'"));
         Ok(())
     })
+=======
+>>>>>>> 926ed3f27 (fmt)
 }
 
 // sample.db has the following format:

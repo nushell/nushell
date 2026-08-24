@@ -970,11 +970,19 @@ fn percent_dynamic_dispatch_in_wrapped_command_preserves_no_arg_builtin_defaults
     playground.empty_file("probe.txt")?;
 
     let code = "
+<<<<<<< HEAD
                 export def --wrapped builtin [arg1, ...args] { %($arg1) ...$args }
                 let direct = (ls | where name =~ 'probe.txt' | length)
                 let wrapped = (builtin ls | where name =~ 'probe.txt' | length)
                 [$direct $wrapped]
             ";
+=======
+            export def --wrapped builtin [arg1, ...args] { %($arg1) ...$args }
+            let direct = (ls | where name =~ 'probe.txt' | length)
+            let wrapped = (builtin ls | where name =~ 'probe.txt' | length)
+            [$direct $wrapped]
+        ";
+>>>>>>> 926ed3f27 (fmt)
 
     test()
         .cwd(playground.path())

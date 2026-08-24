@@ -691,6 +691,7 @@ fn glob_dc_glob_ignore_case_depth_counts_from_the_same_place(playground: Playgro
 
     Ok(())
 }
+<<<<<<< HEAD
 
 #[test]
 #[exp(nu_experimental::DC_GLOB)]
@@ -793,3 +794,5 @@ fn check_glob_matches_hidden_names(playground: &Playground) -> Result {
     assert_eq!(names("**/y")?, ["y"]);
     Ok(())
 }
+=======
+>>>>>>> 926ed3f27 (fmt)

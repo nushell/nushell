@@ -94,9 +94,15 @@ fn idx_init_wait_status_reports_indexed_file_count(playground: Playground) -> Re
     playground.empty_file("gamma.txt")?;
 
     test()
+<<<<<<< HEAD
                 .cwd(playground.path())
                 .run("let status = (idx init . --wait); let counted = (idx files | length); ($status | get files) == $counted")
                 .expect_value_eq(true)
+=======
+            .cwd(playground.path())
+            .run("let status = (idx init . --wait); let counted = (idx files | length); ($status | get files) == $counted")
+            .expect_value_eq(true)
+>>>>>>> 926ed3f27 (fmt)
 }
 
 #[test]
@@ -120,9 +126,15 @@ fn idx_dirs_returns_records_with_full_path(playground: Playground) -> Result {
     playground.empty_file("nested/delta.txt")?;
 
     test()
+<<<<<<< HEAD
                 .cwd(playground.path())
                 .run("idx init . --wait; idx dirs | get full_path | any {|path| $path | str contains 'nested' }")
                 .expect_value_eq(true)
+=======
+            .cwd(playground.path())
+            .run("idx init . --wait; idx dirs | get full_path | any {|path| $path | str contains 'nested' }")
+            .expect_value_eq(true)
+>>>>>>> 926ed3f27 (fmt)
 }
 
 #[test]
@@ -134,9 +146,15 @@ fn idx_dirs_optional_query_filters_results(playground: Playground) -> Result {
     playground.empty_file("tests/fixtures/spec.nu")?;
 
     test()
+<<<<<<< HEAD
             .cwd(playground.path())
             .run("idx init . --wait; idx dirs comp | get relative_path | any {|path| ($path | str contains 'src/components') or ($path | str contains 'src\\components') }")
             .expect_value_eq(true)
+=======
+        .cwd(playground.path())
+        .run("idx init . --wait; idx dirs comp | get relative_path | any {|path| ($path | str contains 'src/components') or ($path | str contains 'src\\components') }")
+        .expect_value_eq(true)
+>>>>>>> 926ed3f27 (fmt)
 }
 
 #[test]
@@ -215,6 +233,7 @@ fn idx_watched_runtime_uses_one_live_picker(playground: Playground) -> Result {
 
     // Once content search sees the watcher update, every live view should see the same file and dir.
     tester
+<<<<<<< HEAD
                 .run(
                     r#"
                         let before = idx status
@@ -240,6 +259,33 @@ fn idx_watched_runtime_uses_one_live_picker(playground: Playground) -> Result {
                     "#,
                 )
                 .expect_value_eq(true)
+=======
+            .run(
+                r#"
+                    let before = idx status
+                    mkdir watched-dir
+                    "watchprobe" | save watched-dir/watched.txt
+                    mut attempts = 0
+                    loop {
+                        if not (idx search watchprobe | is-empty) { break }
+                        if $attempts >= 100 { error make { msg: "idx watcher did not process creation" } }
+                        $attempts += 1
+                        sleep 20ms
+                    }
+                    
+                    let status = idx status
+                    [
+                        (idx files watched | length)
+                        (idx dirs watched | length)
+                        (idx find watched --files | length)
+                        (idx find watched --dirs | length)
+                        ($status.files - $before.files)
+                        ($status.dirs - $before.dirs)
+                    ] | all {|count| $count > 0 }
+                "#,
+            )
+            .expect_value_eq(true)
+>>>>>>> 926ed3f27 (fmt)
 }
 
 #[test]

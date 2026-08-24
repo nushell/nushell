@@ -825,7 +825,10 @@ fn source_nested_free_variable_visible(playground: Playground) -> Result {
 #[test]
 fn source_env_redeclared_let_variable(playground: Playground) -> Result {
     // Same span-cache / VarId issue as `source` when re-declaring across parse sessions.
+<<<<<<< HEAD
 
+=======
+>>>>>>> 926ed3f27 (fmt)
     playground.file("env.nu", "export-env { $env.FROM_SOURCE = $xxx }")?;
 
     let mut tester = test().cwd(playground.path());
@@ -1434,6 +1437,9 @@ fn nu_env_pwd_symlink(playground: Playground) -> Result {
         .expect("failed to run nu");
     let output = String::from_utf8(child_output.stdout).unwrap();
     assert_eq!(output.trim_end(), current_dir.to_str().unwrap());
+<<<<<<< HEAD
 
     Ok(())
+=======
+>>>>>>> 926ed3f27 (fmt)
 }

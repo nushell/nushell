@@ -79,6 +79,7 @@ fn sqlite_history_select_projection_preserves_order(playground: Playground) -> R
     assert_eq!(command_only, with_timestamp);
     Ok(())
 }
+<<<<<<< HEAD
 
 fn sqlite_history_path(config_home: &Path) -> std::path::PathBuf {
     config_home.join("history.sqlite3")
@@ -124,3 +125,5 @@ fn sqlite_history_clear_keeps_database_usable(playground: Playground) -> Result 
         .run("history | get command")
         .expect_value_eq(["echo after clear", "echo fresh session"])
 }
+=======
+>>>>>>> 926ed3f27 (fmt)

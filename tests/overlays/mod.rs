@@ -189,6 +189,7 @@ fn add_overlay_from_file_with_stored_where_condition(playground: Playground) -> 
     playground.file(
         "mod.nu",
         indoc::indoc! {r#"
+<<<<<<< HEAD
                 export def helper [] {
                     let cond = {|x| true }
                     [{a: 1}] | where $cond
@@ -200,6 +201,19 @@ fn add_overlay_from_file_with_stored_where_condition(playground: Playground) -> 
 
     let commands = ["overlay use mod.nu", "helper | to nuon --raw"];
 
+=======
+            export def helper [] {
+                let cond = {|x| true }
+                [{a: 1}] | where $cond
+            }
+            
+            export def main [] { "ok" }
+        "#},
+    )?;
+
+    let commands = ["overlay use mod.nu", "helper | to nuon --raw"];
+
+>>>>>>> 926ed3f27 (fmt)
     test()
         .cwd(playground.path())
         .run(commands.join("; "))
@@ -1187,11 +1201,14 @@ fn overlay_use_find_scoped_module(playground: Playground) -> Result {
                 do {
                     module spam { }
 
+<<<<<<< HEAD
                     overlay use spam
                     overlay list | last | get name
                 }
             ";
 
+=======
+>>>>>>> 926ed3f27 (fmt)
     test()
         .cwd(playground.path())
         .run(code)
@@ -1659,6 +1676,7 @@ fn report_errors_in_export_env() -> Result {
     assert_contains("reported", format!("{error:?}"));
     Ok(())
 }
+<<<<<<< HEAD
 
 #[test]
 fn overlay_hide_keeps_pwd() -> Result {
@@ -1876,3 +1894,5 @@ fn overlay_reload_keeps_your_own_definitions(
     let () = tester.run("overlay use spam.nu")?;
     tester.run(call).expect_value_eq(expected)
 }
+=======
+>>>>>>> 926ed3f27 (fmt)

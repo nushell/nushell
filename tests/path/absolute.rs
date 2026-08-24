@@ -318,7 +318,10 @@ fn absolute_symlink(playground: Playground) -> Result {
     expected.push("link_to_spam.txt");
 
     assert_eq!(actual, expected);
+<<<<<<< HEAD
     Ok(())
+=======
+>>>>>>> 926ed3f27 (fmt)
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -333,5 +336,8 @@ fn absolute_symlink_relative_to(playground: Playground) -> Result {
     expected.push("link_to_spam.txt");
 
     assert_eq!(actual, expected);
+<<<<<<< HEAD
     Ok(())
+=======
+>>>>>>> 926ed3f27 (fmt)
 }

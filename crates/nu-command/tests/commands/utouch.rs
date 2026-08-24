@@ -116,6 +116,15 @@ fn touch_glob_matches_when_dc_glob_enabled(
     #[ignore] playground: Playground,
     #[case] with_preexisting_files: bool,
 ) -> Result {
+<<<<<<< HEAD
+=======
+    let sandbox_name = if with_preexisting_files {
+        "touch_glob_dc_glob_preexisting"
+    } else {
+        "touch_glob_dc_glob_create_first"
+    };
+
+>>>>>>> 926ed3f27 (fmt)
     if with_preexisting_files {
         playground.empty_file("one.txt")?;
         playground.empty_file("two.txt")?;
@@ -608,7 +617,11 @@ fn create_a_file_with_tilde(playground: Playground) -> Result {
     let () = test()
         .cwd(playground.path())
         .run("let f = '~tilde2'; touch $f")?;
+<<<<<<< HEAD
     assert!(playground.path().join("~tilde2").exists());
+=======
+    assert!(files_exist_at(&[Path::new("~tilde2")], dirs.test()));
+>>>>>>> 926ed3f27 (fmt)
     Ok(())
 }
 

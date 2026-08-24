@@ -273,6 +273,7 @@ mod tests {
             .run(format!("nu test.nu {args} | from json"))
             .expect_value_eq(expected)
     }
+<<<<<<< HEAD
 
     #[rstest]
     #[case::use_file("validate_main", "", Some("main"))]
@@ -331,4 +332,6 @@ mod tests {
                 .expect_value_eq(result.unwrap_or(command))
         })
     }
+=======
+>>>>>>> 926ed3f27 (fmt)
 }

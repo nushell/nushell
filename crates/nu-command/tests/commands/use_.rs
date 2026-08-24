@@ -56,8 +56,13 @@ fn use_eval_export_env(playground: Playground) -> Result {
     playground.file(
         "spam.nu",
         indoc::indoc! {"
+<<<<<<< HEAD
                 export-env { $env.FOO = 'foo' }
             "},
+=======
+        export-env { $env.FOO = 'foo' }
+    "},
+>>>>>>> 926ed3f27 (fmt)
     )?;
 
     let mut tester = test().cwd(playground.path());
@@ -70,8 +75,13 @@ fn use_eval_export_env_hide(playground: Playground) -> Result {
     playground.file(
         "spam.nu",
         indoc::indoc! {"
+<<<<<<< HEAD
                 export-env { hide-env FOO }
             "},
+=======
+        export-env { hide-env FOO }
+    "},
+>>>>>>> 926ed3f27 (fmt)
     )?;
 
     let mut tester = test().cwd(playground.path());
@@ -148,10 +158,17 @@ fn use_export_env_combined(playground: Playground) -> Result {
     playground.file(
         "spam.nu",
         indoc::indoc! {"
+<<<<<<< HEAD
                 def foo [] { 'foo' }
                 alias bar = foo
                 export-env { $env.FOO = (bar) }
             "},
+=======
+        def foo [] { 'foo' }
+        alias bar = foo
+        export-env { $env.FOO = (bar) }
+    "},
+>>>>>>> 926ed3f27 (fmt)
     )?;
 
     let mut tester = test().cwd(playground.path());
@@ -488,8 +505,13 @@ fn overlay_use_keyword_named_module_as_different_name_works(playground: Playgrou
     playground.file(
         "run.nu",
         indoc::indoc! {"
+<<<<<<< HEAD
                 export def main [] { 'hello' }
             "},
+=======
+        export def main [] { 'hello' }
+    "},
+>>>>>>> 926ed3f27 (fmt)
     )?;
 
     test()
@@ -503,8 +525,13 @@ fn use_keyword_named_module_file_with_main_errors(playground: Playground) -> Res
     playground.file(
         "run.nu",
         indoc::indoc! {"
+<<<<<<< HEAD
                 export def main [] { 'hello' }
             "},
+=======
+        export def main [] { 'hello' }
+    "},
+>>>>>>> 926ed3f27 (fmt)
     )?;
 
     let err = test()

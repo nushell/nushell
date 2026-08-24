@@ -67,6 +67,7 @@ fn cd_drive_relative_path_on_current_drive(playground: Playground) -> Result {
 
 #[cfg(windows)]
 #[test]
+<<<<<<< HEAD
 fn cd_missing_drive_reports_input() -> Result {
     let Some(drive) = ('A'..='Z')
         .rev()
@@ -97,6 +98,11 @@ fn filesystem_change_from_current_directory_using_relative_path_with_trailing_sl
     playground: Playground,
 ) -> Result {
     let destination = playground.dir("cd_test_1_slash")?;
+=======
+fn filesystem_change_from_current_directory_using_relative_path_with_trailing_slash(
+    playground: Playground,
+) -> Result {
+>>>>>>> 926ed3f27 (fmt)
     // Intentionally not using correct path sep because this should work on Windows
     test()
         .cwd(playground.path())
@@ -117,8 +123,12 @@ fn filesystem_change_from_current_directory_using_absolute_path(playground: Play
 fn filesystem_change_from_current_directory_using_absolute_path_with_trailing_slash(
     playground: Playground,
 ) -> Result {
+<<<<<<< HEAD
     let destination = playground.dir("destination")?;
     let mut dir = destination.to_string_lossy().into_owned();
+=======
+    let mut dir = dirs.formats().to_string_lossy().into_owned();
+>>>>>>> 926ed3f27 (fmt)
     // Keep this portable: Windows expects `\` while Unix expects `/`.
     if !dir.ends_with(std::path::MAIN_SEPARATOR) {
         dir.push(std::path::MAIN_SEPARATOR);

@@ -34,9 +34,16 @@ fn source_env_resolves_nested_source_relative_to_sourced_file(playground: Playgr
 #[case::unicode_spaced_dir_single_quotes("e-$ èрт🚒♞中片-j", "'")]
 #[case::unicode_spaced_dir_double_quotes("e-$ èрт🚒♞中片-j", "\"")]
 fn sources_unicode_file(
+<<<<<<< HEAD
     #[case] dir: &str,
     #[case] quote: &str,
     #[ignore] playground: Playground,
+=======
+    #[ignore] playground: Playground,
+    #[context] ctx: Context,
+    #[case] dir: &str,
+    #[case] quote: &str,
+>>>>>>> 926ed3f27 (fmt)
 ) -> Result {
     let file = String::from_iter([dir, "/foo.nu"]);
     playground.dir(dir)?;
@@ -97,8 +104,13 @@ fn source_env_eval_export_env(playground: Playground) -> Result {
     playground.file(
         "spam.nu",
         indoc::indoc! {"
+<<<<<<< HEAD
                 export-env { $env.FOO = 'foo' }
             "},
+=======
+        export-env { $env.FOO = 'foo' }
+    "},
+>>>>>>> 926ed3f27 (fmt)
     )?;
 
     test()
@@ -112,8 +124,13 @@ fn source_env_eval_export_env_hide(playground: Playground) -> Result {
     playground.file(
         "spam.nu",
         indoc::indoc! {"
+<<<<<<< HEAD
                 export-env { hide-env FOO }
             "},
+=======
+        export-env { hide-env FOO }
+    "},
+>>>>>>> 926ed3f27 (fmt)
     )?;
 
     test()
@@ -177,9 +194,15 @@ fn source_env_is_scoped(playground: Playground) -> Result {
     playground.file(
         "spam.nu",
         indoc::indoc! {"
+<<<<<<< HEAD
                 def no-name-similar-to-this [] { 'no-name-similar-to-this' }
                 alias nor-similar-to-this = echo 'nor-similar-to-this'
             "},
+=======
+        def no-name-similar-to-this [] { 'no-name-similar-to-this' }
+        alias nor-similar-to-this = echo 'nor-similar-to-this'
+    "},
+>>>>>>> 926ed3f27 (fmt)
     )?;
 
     let err = test()
@@ -210,8 +233,13 @@ fn source_env_const_file(playground: Playground) -> Result {
     playground.file(
         "spam.nu",
         indoc::indoc! {"
+<<<<<<< HEAD
                 $env.FOO = 'foo'
             "},
+=======
+        $env.FOO = 'foo'
+    "},
+>>>>>>> 926ed3f27 (fmt)
     )?;
 
     test()

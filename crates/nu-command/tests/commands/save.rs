@@ -800,10 +800,15 @@ fn force_save_to_dir() -> Result {
 fn save_table_to_csv_with_explicit_columns(playground: Playground) -> Result {
     let test_dir = playground.dir("save_table_csv")?;
 
+<<<<<<< HEAD
     let expected_file = test_dir.as_path().join("test.csv");
 
     let () = test()
         .cwd(playground.path())
+=======
+    let () = test()
+        .cwd(dirs.root())
+>>>>>>> 926ed3f27 (fmt)
         .run("[[a b]; [1 2] [3 4]] | to csv --columns [a b] | save -f save_table_csv/test.csv")?;
 
     let actual = fs::read_to_string(expected_file)?;
@@ -868,11 +873,15 @@ fn save_streaming_list_stream_to_csv(playground: Playground) -> Result {
     // Exercises the streaming path (ListStream -> ByteStream -> save) rather than
     // the materialized table path, ensuring rows are streamed to disk progressively.
 
+<<<<<<< HEAD
     let test_dir = playground.dir("save_streaming_csv")?;
 
     let expected_file = test_dir.as_path().join("test.csv");
 
     let () = test().cwd(playground.path()).run(
+=======
+    let () = test().cwd(dirs.root()).run(
+>>>>>>> 926ed3f27 (fmt)
         "1..5 | each { |i| {a: $i, b: ($i * 10)} } | to csv | save -f save_streaming_csv/test.csv",
     )?;
 

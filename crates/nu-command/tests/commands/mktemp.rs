@@ -38,6 +38,7 @@ fn doesnt_create_temp_file(playground: Playground) -> Result {
     assert!(!loc.exists());
     Ok(())
 }
+<<<<<<< HEAD
 
 #[test]
 fn relative_absolute(playground: Playground) -> Result {
@@ -69,3 +70,5 @@ fn relative_absolute(playground: Playground) -> Result {
 
     Ok(())
 }
+=======
+>>>>>>> 926ed3f27 (fmt)

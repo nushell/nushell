@@ -32,7 +32,11 @@ fn def_help_includes_comments(
     #[case] fixture: &str,
     #[case] expected: &str,
 ) -> Result {
+<<<<<<< HEAD
     playground.file("def_test", fixture)?;
+=======
+    playground.file("def_test", indoc::indoc! {fixture})?;
+>>>>>>> 926ed3f27 (fmt)
 
     let actual: String = test()
         .cwd(playground.path())
@@ -181,11 +185,19 @@ fn non_keyword_command_names_are_still_allowed() -> Result {
 )]
 fn def_with_list(
     #[ignore] playground: Playground,
+<<<<<<< HEAD
     #[case] _topic: &str,
     #[case] fixture: &str,
     #[case] code: &str,
 ) -> Result {
     playground.file("def_test", fixture)?;
+=======
+    #[case] playground: &str,
+    #[case] fixture: &str,
+    #[case] code: &str,
+) -> Result {
+    playground.file("def_test", indoc::indoc! {fixture})?;
+>>>>>>> 926ed3f27 (fmt)
 
     test()
         .cwd(playground.path())
@@ -431,6 +443,7 @@ fn recursive_func_should_compile(#[case] first_code: &str, #[case] recursive_cod
 
     Ok(())
 }
+<<<<<<< HEAD
 
 #[rstest]
 #[case::oneof("oneof<string@baz>", "string@baz")]
@@ -515,3 +528,5 @@ fn completer_after_generic_type_is_attached() -> Result {
     ";
     test().run(code).expect_value_eq("baz")
 }
+=======
+>>>>>>> 926ed3f27 (fmt)

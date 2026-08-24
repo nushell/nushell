@@ -4575,8 +4575,11 @@ fn exact_match_case_insensitive(playground: Playground) -> Result {
         ],
         &completer.complete_blocking(&target, target.len()),
     );
+<<<<<<< HEAD
 
     Ok(())
+=======
+>>>>>>> 926ed3f27 (fmt)
 }
 
 #[rstest]

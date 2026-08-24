@@ -117,7 +117,10 @@ fn mkdir_umask_permission(playground: Playground) -> Result {
 
     // Serial: process umask is global; parallel tests that call get_umask/mkdir
     // (uu_mkdir briefly sets umask to 0) can race this assertion.
+<<<<<<< HEAD
 
+=======
+>>>>>>> 926ed3f27 (fmt)
     let () = test()
         .cwd(playground.path())
         .run("mkdir test_umask_permission")?;
@@ -146,7 +149,11 @@ fn mkdir_with_tilde(playground: Playground) -> Result {
     let () = test()
         .cwd(playground.path())
         .run("let f = '~tilde2'; mkdir $f")?;
+<<<<<<< HEAD
     assert!(playground.path().join("~tilde2").is_dir());
+=======
+    assert!(dirs.test().join("~tilde2").is_dir());
+>>>>>>> 926ed3f27 (fmt)
     Ok(())
 }
 
@@ -202,6 +209,7 @@ fn mkdir_verbose_reports_errors_without_failing(playground: Playground) -> Resul
     assert!(playground.path().join("after").is_dir());
     Ok(())
 }
+<<<<<<< HEAD
 
 #[test]
 fn verbose_does_not_report_existing_directory_as_created(playground: Playground) -> Result {
@@ -280,3 +288,5 @@ fn fail_if_exists_verbose_reports_existing_as_error(playground: Playground) -> R
     );
     Ok(())
 }
+=======
+>>>>>>> 926ed3f27 (fmt)

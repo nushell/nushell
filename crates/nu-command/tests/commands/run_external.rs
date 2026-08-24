@@ -149,8 +149,13 @@ fn double_quote_does_not_expand_path_glob(
 #[nu_test_support::test]
 #[deps(TESTBIN_FAIL)]
 fn failed_command_with_semicolon_will_not_execute_following_cmds(
+<<<<<<< HEAD
     prefix: &str,
     #[ignore] playground: Playground,
+=======
+    playground: Playground,
+    prefix: &str,
+>>>>>>> 926ed3f27 (fmt)
 ) -> Result {
     let code = format!("try {{ {prefix}fail; echo done }} catch {{ 'stopped' }}");
 
@@ -188,8 +193,13 @@ fn external_arg_with_option_like_embedded_quotes(
 #[nu_test_support::test]
 #[deps(TESTBIN_COCOCO)]
 fn external_arg_with_non_option_like_embedded_quotes(
+<<<<<<< HEAD
     prefix: &str,
     #[ignore] playground: Playground,
+=======
+    playground: Playground,
+    prefix: &str,
+>>>>>>> 926ed3f27 (fmt)
 ) -> Result {
     test()
         .cwd(playground.path())
@@ -345,10 +355,14 @@ fn external_command_not_expand_tilde_with_quotes(
 #[apply(run_external_prefixes)]
 #[nu_test_support::test]
 #[deps(TESTBIN_NONU)]
+<<<<<<< HEAD
 fn external_command_expand_tilde_with_back_quotes(
     prefix: &str,
     #[ignore] playground: Playground,
 ) -> Result {
+=======
+fn external_command_expand_tilde_with_back_quotes(playground: Playground, prefix: &str) -> Result {
+>>>>>>> 926ed3f27 (fmt)
     let actual: String = test()
         .cwd(playground.path())
         .run(format!("{prefix}nonu `~`"))?;
@@ -520,8 +534,13 @@ fn can_run_ps1_files_with_space_in_path(prefix: &str, #[ignore] playground: Play
 #[nu_test_support::test]
 #[deps(TESTBIN_COCOCO)]
 fn can_run_external_without_path_env(
+<<<<<<< HEAD
     #[case] prefix: &str,
     #[ignore] playground: Playground,
+=======
+    #[ignore] playground: Playground,
+    #[case] prefix: &str,
+>>>>>>> 926ed3f27 (fmt)
 ) -> Result {
     let bin = TESTBIN_COCOCO.path().to_string_lossy().into_owned();
     let code = format!(
@@ -567,6 +586,7 @@ fn error_when_command_list_empty(#[case] prefix: &str, #[ignore] playground: Pla
     assert_contains("Missing parameter", err.to_string());
     Ok(())
 }
+<<<<<<< HEAD
 
 /// Writes an executable `name` with `content` in the playground and returns its path.
 #[cfg(unix)]
@@ -669,3 +689,5 @@ fn non_executable_shebang_interpreter_error(
         err => Err(err.into()),
     }
 }
+=======
+>>>>>>> 926ed3f27 (fmt)

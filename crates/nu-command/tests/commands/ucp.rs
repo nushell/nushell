@@ -227,7 +227,11 @@ fn copies_using_path_with_wildcard(
 #[deps(NU)]
 fn copies_using_a_glob(#[ignore] playground: Playground, #[case] progress_flag: &str) -> Result {
     // Get the hash of the file content to check integrity after copy.
+<<<<<<< HEAD
     let src_hashes: Vec<String> = test().cwd(FIXTURES.join("formats")).run(
+=======
+    let src_hashes: Vec<String> = test().cwd(dirs.formats()).run(
+>>>>>>> 926ed3f27 (fmt)
         "ls * | where type == file | each { |file| open --raw $file.name | to text | hash md5 }",
     )?;
 

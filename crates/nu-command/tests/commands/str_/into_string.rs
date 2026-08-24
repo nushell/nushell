@@ -116,6 +116,7 @@ fn from_filesize(playground: Playground) -> Result {
     playground.file(
         "sample.toml",
         indoc::indoc! {r#"
+<<<<<<< HEAD
             [dependency]
             name = "nu"
         "#},
@@ -125,6 +126,20 @@ fn from_filesize(playground: Playground) -> Result {
         .cwd(playground.path())
         .run("ls sample.toml | get size | into string | get 0")
         .expect_value_eq("25 B")
+=======
+        [dependency]
+        name = "nu"
+    "#},
+    )?;
+
+    let code = "ls sample.toml | get size | into string | get 0";
+    let expected = if cfg!(windows) { "27 B" } else { "25 B" };
+
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq(expected)
+>>>>>>> 926ed3f27 (fmt)
 }
 
 #[test]
@@ -318,6 +333,7 @@ fn int_into_string_decimals_respects_system_locale_en() -> Result {
 
     test().run(code).expect_value_eq("10.0")
 }
+<<<<<<< HEAD
 
 #[test]
 #[env(NU_TEST_LOCALE_OVERRIDE = "de_DE.UTF-8")]
@@ -559,3 +575,5 @@ fn help_says_binary_needs_decode() -> Result {
 
     test().run(code).expect_value_eq(true)
 }
+=======
+>>>>>>> 926ed3f27 (fmt)

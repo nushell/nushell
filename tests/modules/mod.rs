@@ -101,6 +101,7 @@ fn module_public_import_decl_with_stored_where_condition(playground: Playground)
     playground.file(
         "mod.nu",
         indoc::indoc! {r#"
+<<<<<<< HEAD
                     export def helper [] {
                         let cond = {|x| true }
                         [{a: 1}] | where $cond
@@ -110,6 +111,17 @@ fn module_public_import_decl_with_stored_where_condition(playground: Playground)
                 "#},
     )?;
 
+=======
+            export def helper [] {
+                let cond = {|x| true }
+                [{a: 1}] | where $cond
+            }
+            
+            export def main [] { "ok" }
+        "#},
+    )?;
+
+>>>>>>> 926ed3f27 (fmt)
     let mut tester = test().cwd(playground.path());
     let () = tester.run("use main.nu helper")?;
     tester
@@ -745,6 +757,7 @@ fn use_nested_submodules(playground: Playground) -> Result {
         .run("(voice animals cat) == 'woem'")
         .expect_value_eq(true)
 }
+<<<<<<< HEAD
 
 // `use <name>` reads the module's file again once it has changed, like `use <path>` does.
 #[rstest]
@@ -1444,3 +1457,5 @@ fn hide_after_a_reload_hides_every_command(playground: Playground) -> Result {
         .run("spam bar")
         .expect_error_code_eq("nu::shell::external_command")
 }
+=======
+>>>>>>> 926ed3f27 (fmt)

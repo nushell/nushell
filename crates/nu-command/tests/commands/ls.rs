@@ -12,6 +12,7 @@ fn lists_regular_files(playground: Playground) -> Result {
         .cwd(playground.path())
         .run("(ls).name")
         .expect_value_eq(["andres.txt", "jt.txt", "yehuda.txt"])
+<<<<<<< HEAD
 }
 
 #[cfg(windows)]
@@ -33,6 +34,8 @@ fn lists_drive_relative_path_against_pwd(playground: Playground) -> Result {
         .cwd(playground.path())
         .run(format!("(ls {drive}sub).name"))
         .expect_value_eq([r"sub\jt.txt"])
+=======
+>>>>>>> 926ed3f27 (fmt)
 }
 
 #[test]

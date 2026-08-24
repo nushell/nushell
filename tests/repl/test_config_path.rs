@@ -178,8 +178,19 @@ fn nu_constant_reflects_resolved_config_dirs(playground: Playground) -> Result {
 
 #[test]
 fn nu_constant_config_file_override(playground: Playground) -> Result {
+<<<<<<< HEAD
     let home = playground.path().join("nu-test-cfg-override-home");
     let custom = playground.path().join("nu-test-custom-config.nu");
+=======
+    let home = playground
+        .path()
+        .join("nu-test-cfg-override-home")
+        .to_std_path_buf();
+    let custom = playground
+        .path()
+        .join("nu-test-custom-config.nu")
+        .to_std_path_buf();
+>>>>>>> 926ed3f27 (fmt)
     fs::create_dir_all(&home)?;
     // File need not exist for $nu path reporting (canonicalize falls back).
 
@@ -214,7 +225,14 @@ fn nu_constant_config_file_override(playground: Playground) -> Result {
 
 #[test]
 fn nu_constant_history_follows_config_home(playground: Playground) -> Result {
+<<<<<<< HEAD
     let home = playground.path().join("nu-hist-config-home");
+=======
+    let home = playground
+        .path()
+        .join("nu-hist-config-home")
+        .to_std_path_buf();
+>>>>>>> 926ed3f27 (fmt)
     fs::create_dir_all(&home)?;
 
     let dirs = NushellConfigDirs {
@@ -580,7 +598,14 @@ fn commandstring_populates_config_record() -> Result {
 
 #[test]
 fn history_path_disabled_null(playground: Playground) -> Result {
+<<<<<<< HEAD
     let home = playground.path().join("nu-history-null-home");
+=======
+    let home = playground
+        .path()
+        .join("nu-history-null-home")
+        .to_std_path_buf();
+>>>>>>> 926ed3f27 (fmt)
     fs::create_dir_all(&home)?;
 
     let dirs = NushellConfigDirs {
@@ -620,7 +645,14 @@ fn history_path_disabled_null(playground: Playground) -> Result {
 
 #[test]
 fn history_path_custom_string(playground: Playground) -> Result {
+<<<<<<< HEAD
     let home = playground.path().join("nu-history-custom-home");
+=======
+    let home = playground
+        .path()
+        .join("nu-history-custom-home")
+        .to_std_path_buf();
+>>>>>>> 926ed3f27 (fmt)
     fs::create_dir_all(&home)?;
     let custom_file = home.join("my_history.txt");
 

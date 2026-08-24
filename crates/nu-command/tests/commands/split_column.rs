@@ -110,6 +110,7 @@ fn split_column_number_error() -> Result {
     test().run(code).expect_shell_error()?;
     Ok(())
 }
+<<<<<<< HEAD
 
 #[test]
 fn split_column_duplicate_column_error() -> Result {
@@ -152,3 +153,5 @@ fn split_column_duplicate_column_const_error() -> Result {
     }
     Ok(())
 }
+=======
+>>>>>>> 926ed3f27 (fmt)

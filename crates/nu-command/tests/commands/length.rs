@@ -30,6 +30,7 @@ fn length_byte_stream(playground: Playground) -> Result {
         .run("open data.txt | length")
         .expect_value_eq(4)
 }
+<<<<<<< HEAD
 
 #[test]
 fn length_propagates_error_values_in_stream() -> Result {
@@ -47,3 +48,5 @@ fn length_propagates_explicit_closures_errors_in_stream() -> Result {
     assert_eq!(err.into_inner()?.into_labeled()?.msg, "boom");
     Ok(())
 }
+=======
+>>>>>>> 926ed3f27 (fmt)

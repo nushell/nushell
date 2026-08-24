@@ -63,7 +63,11 @@ fn by_one_with_no_field_passed(playground: Playground) -> Result {
 #[deps(NU_PLUGIN_INC)]
 fn semantic_version_inc(
     #[ignore] playground: Playground,
+<<<<<<< HEAD
     #[case] _topic: &str,
+=======
+    #[case] topic: &str,
+>>>>>>> 926ed3f27 (fmt)
     #[case] args: &str,
     #[case] expected: &str,
 ) -> Result {

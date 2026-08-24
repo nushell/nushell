@@ -95,6 +95,7 @@ fn tee_single_value_non_streamable() -> Result {
 
     Ok(())
 }
+<<<<<<< HEAD
 
 #[test]
 fn tee_closure_error_on_streamable_value_is_returned() -> Result {
@@ -157,3 +158,5 @@ fn tee_closure_error_reaches_commands_that_read_the_stream() -> Result {
     }
     Ok(())
 }
+=======
+>>>>>>> 926ed3f27 (fmt)

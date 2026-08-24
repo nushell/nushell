@@ -108,10 +108,23 @@ fn format_filesize_works_with_nonempty_files(playground: Playground) -> Result {
         "#},
     )?;
 
+<<<<<<< HEAD
     test()
         .cwd(playground.path())
         .run("ls sample.toml | format filesize B size | get size | first")
         .expect_value_eq("25 B")
+=======
+    let code = "ls sample.toml | format filesize B size | get size | first";
+    #[cfg(not(windows))]
+    let expected = "25 B";
+    #[cfg(windows)]
+    let expected = "27 B";
+
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq(expected)
+>>>>>>> 926ed3f27 (fmt)
 }
 
 #[test]
