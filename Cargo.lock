@@ -3296,7 +3296,7 @@ dependencies = [
  "libc",
  "percent-encoding",
  "pin-project-lite",
- "socket2 0.5.10",
+ "socket2 0.6.3",
  "tokio",
  "tower-service",
  "tracing",
@@ -4632,7 +4632,7 @@ dependencies = [
 
 [[package]]
 name = "nu"
-version = "0.115.1"
+version = "0.115.2"
 dependencies = [
  "assert_cmd",
  "crossterm",
@@ -4692,7 +4692,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cli"
-version = "0.115.1"
+version = "0.115.2"
 dependencies = [
  "chrono",
  "crossterm",
@@ -4732,7 +4732,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-base"
-version = "0.115.1"
+version = "0.115.2"
 dependencies = [
  "indexmap 2.14.0",
  "miette 7.6.0",
@@ -4744,7 +4744,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-extra"
-version = "0.115.1"
+version = "0.115.2"
 dependencies = [
  "fancy-regex",
  "heck",
@@ -4772,7 +4772,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-lang"
-version = "0.115.1"
+version = "0.115.2"
 dependencies = [
  "itertools 0.15.0",
  "miette 7.6.0",
@@ -4791,7 +4791,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-plugin"
-version = "0.115.1"
+version = "0.115.2"
 dependencies = [
  "itertools 0.15.0",
  "nu-engine",
@@ -4802,7 +4802,7 @@ dependencies = [
 
 [[package]]
 name = "nu-color-config"
-version = "0.115.1"
+version = "0.115.2"
 dependencies = [
  "nu-ansi-term",
  "nu-engine",
@@ -4814,7 +4814,7 @@ dependencies = [
 
 [[package]]
 name = "nu-command"
-version = "0.115.1"
+version = "0.115.2"
 dependencies = [
  "aegis-password-generator",
  "alphanumeric-sort",
@@ -4949,7 +4949,7 @@ dependencies = [
 
 [[package]]
 name = "nu-config"
-version = "0.115.1"
+version = "0.115.2"
 dependencies = [
  "derive_more 2.1.1",
  "derive_setters",
@@ -4963,7 +4963,7 @@ dependencies = [
 
 [[package]]
 name = "nu-derive-value"
-version = "0.115.1"
+version = "0.115.2"
 dependencies = [
  "heck",
  "proc-macro-error2",
@@ -4974,7 +4974,7 @@ dependencies = [
 
 [[package]]
 name = "nu-engine"
-version = "0.115.1"
+version = "0.115.2"
 dependencies = [
  "fancy-regex",
  "log",
@@ -4988,7 +4988,7 @@ dependencies = [
 
 [[package]]
 name = "nu-experimental"
-version = "0.115.1"
+version = "0.115.2"
 dependencies = [
  "itertools 0.15.0",
  "thiserror 2.0.19",
@@ -4996,7 +4996,7 @@ dependencies = [
 
 [[package]]
 name = "nu-explore"
-version = "0.115.1"
+version = "0.115.2"
 dependencies = [
  "ansi-str",
  "anyhow",
@@ -5026,7 +5026,7 @@ dependencies = [
 
 [[package]]
 name = "nu-glob"
-version = "0.115.1"
+version = "0.115.2"
 dependencies = [
  "anyhow",
  "doc-comment",
@@ -5037,7 +5037,7 @@ dependencies = [
 
 [[package]]
 name = "nu-heavy-utils"
-version = "0.115.1"
+version = "0.115.2"
 dependencies = [
  "base64 0.23.0",
  "better_default",
@@ -5059,7 +5059,7 @@ dependencies = [
 
 [[package]]
 name = "nu-json"
-version = "0.115.1"
+version = "0.115.2"
 dependencies = [
  "fancy-regex",
  "linked-hash-map",
@@ -5076,7 +5076,7 @@ dependencies = [
 
 [[package]]
 name = "nu-lsp"
-version = "0.115.1"
+version = "0.115.2"
 dependencies = [
  "assert-json-diff",
  "crossbeam-channel",
@@ -5106,7 +5106,7 @@ dependencies = [
 
 [[package]]
 name = "nu-mcp"
-version = "0.115.1"
+version = "0.115.2"
 dependencies = [
  "bytes",
  "chrono",
@@ -5133,7 +5133,7 @@ dependencies = [
 
 [[package]]
 name = "nu-parser"
-version = "0.115.1"
+version = "0.115.2"
 dependencies = [
  "bytesize",
  "chrono",
@@ -5152,7 +5152,7 @@ dependencies = [
 
 [[package]]
 name = "nu-path"
-version = "0.115.1"
+version = "0.115.2"
 dependencies = [
  "dirs 6.0.0",
  "omnipath",
@@ -5162,7 +5162,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin"
-version = "0.115.1"
+version = "0.115.2"
 dependencies = [
  "log",
  "nix 0.31.3",
@@ -5178,7 +5178,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin-core"
-version = "0.115.1"
+version = "0.115.2"
 dependencies = [
  "interprocess",
  "log",
@@ -5193,7 +5193,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin-engine"
-version = "0.115.1"
+version = "0.115.2"
 dependencies = [
  "log",
  "nu-engine",
@@ -5209,7 +5209,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin-protocol"
-version = "0.115.1"
+version = "0.115.2"
 dependencies = [
  "nu-protocol",
  "nu-utils",
@@ -5221,7 +5221,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin-test-support"
-version = "0.115.1"
+version = "0.115.2"
 dependencies = [
  "nu-ansi-term",
  "nu-cmd-lang",
@@ -5239,7 +5239,7 @@ dependencies = [
 
 [[package]]
 name = "nu-pretty-hex"
-version = "0.115.1"
+version = "0.115.2"
 dependencies = [
  "heapless",
  "nu-ansi-term",
@@ -5248,7 +5248,7 @@ dependencies = [
 
 [[package]]
 name = "nu-protocol"
-version = "0.115.1"
+version = "0.115.2"
 dependencies = [
  "brotli",
  "bstr",
@@ -5297,7 +5297,7 @@ dependencies = [
 
 [[package]]
 name = "nu-std"
-version = "0.115.1"
+version = "0.115.2"
 dependencies = [
  "log",
  "miette 7.6.0",
@@ -5308,7 +5308,7 @@ dependencies = [
 
 [[package]]
 name = "nu-system"
-version = "0.115.1"
+version = "0.115.2"
 dependencies = [
  "chrono",
  "itertools 0.15.0",
@@ -5328,7 +5328,7 @@ dependencies = [
 
 [[package]]
 name = "nu-table"
-version = "0.115.1"
+version = "0.115.2"
 dependencies = [
  "fancy-regex",
  "nu-ansi-term",
@@ -5341,7 +5341,7 @@ dependencies = [
 
 [[package]]
 name = "nu-term-grid"
-version = "0.115.1"
+version = "0.115.2"
 dependencies = [
  "nu-utils",
  "unicode-width 0.2.2",
@@ -5349,7 +5349,7 @@ dependencies = [
 
 [[package]]
 name = "nu-test-support"
-version = "0.115.1"
+version = "0.115.2"
 dependencies = [
  "bytes",
  "derive_more 2.1.1",
@@ -5390,7 +5390,7 @@ dependencies = [
 
 [[package]]
 name = "nu-test-support-macros"
-version = "0.115.1"
+version = "0.115.2"
 dependencies = [
  "heck",
  "nu-experimental",
@@ -5402,7 +5402,7 @@ dependencies = [
 
 [[package]]
 name = "nu-utils"
-version = "0.115.1"
+version = "0.115.2"
 dependencies = [
  "byteyarn",
  "crossterm",
@@ -5426,7 +5426,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_custom_values"
-version = "0.115.1"
+version = "0.115.2"
 dependencies = [
  "nu-plugin",
  "nu-plugin-test-support",
@@ -5437,7 +5437,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_example"
-version = "0.115.1"
+version = "0.115.2"
 dependencies = [
  "nu-cmd-lang",
  "nu-plugin",
@@ -5447,7 +5447,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_formats"
-version = "0.115.1"
+version = "0.115.2"
 dependencies = [
  "chrono",
  "eml-parser",
@@ -5462,7 +5462,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_gstat"
-version = "0.115.1"
+version = "0.115.2"
 dependencies = [
  "git2",
  "nu-plugin",
@@ -5471,7 +5471,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_inc"
-version = "0.115.1"
+version = "0.115.2"
 dependencies = [
  "nu-plugin",
  "nu-protocol",
@@ -5480,7 +5480,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_polars"
-version = "0.115.1"
+version = "0.115.2"
 dependencies = [
  "aws-config",
  "aws-credential-types",
@@ -5521,7 +5521,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_query"
-version = "0.115.1"
+version = "0.115.2"
 dependencies = [
  "gjson",
  "nu-plugin",
@@ -5536,7 +5536,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_stress_internals"
-version = "0.115.1"
+version = "0.115.2"
 dependencies = [
  "interprocess",
  "serde",
@@ -5675,7 +5675,7 @@ dependencies = [
 
 [[package]]
 name = "nuon"
-version = "0.115.1"
+version = "0.115.2"
 dependencies = [
  "chrono",
  "nu-engine",
@@ -7271,7 +7271,7 @@ dependencies = [
  "quinn-udp",
  "rustc-hash",
  "rustls",
- "socket2 0.5.10",
+ "socket2 0.6.3",
  "thiserror 2.0.19",
  "tokio",
  "tracing",
@@ -7308,7 +7308,7 @@ dependencies = [
  "cfg_aliases",
  "libc",
  "once_cell",
- "socket2 0.5.10",
+ "socket2 0.6.3",
  "tracing",
  "windows-sys 0.60.2",
 ]
@@ -7604,8 +7604,8 @@ dependencies = [
 
 [[package]]
 name = "reedline"
-version = "0.50.0"
-source = "git+https://github.com/nushell/reedline?branch=main#e692224120157b717e377c5606d76c4656e98568"
+version = "0.51.0"
+source = "git+https://github.com/nushell/reedline?branch=main#73b928a4c36c8f3cfe9f55fbf420674205154472"
 dependencies = [
  "arboard",
  "chrono",
@@ -9056,7 +9056,7 @@ checksum = "8f50febec83f5ee1df3015341d8bd429f2d1cc62bcba7ea2076759d315084683"
 
 [[package]]
 name = "testbins"
-version = "0.115.1"
+version = "0.115.2"
 dependencies = [
  "indoc",
  "lexopt",
