@@ -1,4 +1,5 @@
 #!/usr/bin/env nu
+# only works with a structured-io-aware nu
 
 # Nested-nu structured IO demo. Run this file directly:
 #   ./scripts/structured-io/show.nu

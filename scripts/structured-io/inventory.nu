@@ -1,4 +1,5 @@
 #!/usr/bin/env nu
+# only works with a structured-io-aware nu
 
 # Standalone script. Returns a typed table, not text.
 # With structured-io, the parent can `get`, `where`, `math` on this.

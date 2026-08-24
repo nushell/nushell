@@ -1,4 +1,5 @@
 #!/usr/bin/env nu
+# only works with a structured-io-aware nu
 
 # Aggregates a host table from the previous script. Disk stays a filesize.
 
