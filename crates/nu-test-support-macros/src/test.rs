@@ -1,8 +1,8 @@
 use quote::quote;
 use std::mem;
 use syn::{
-    Attribute, Expr, Ident, ItemFn, Lit, LitBool, LitStr, Meta, MetaNameValue, Path, Token,
-    parse::ParseStream, spanned::Spanned,
+    Attribute, Expr, FnArg, Ident, ItemFn, Lit, LitBool, LitStr, Meta, MetaNameValue, Pat, Path,
+    Token, parse::ParseStream, spanned::Spanned,
 };
 
 pub fn test(mut item_fn: ItemFn) -> proc_macro2::TokenStream {
@@ -13,7 +13,34 @@ pub fn test(mut item_fn: ItemFn) -> proc_macro2::TokenStream {
     let attr_rest = attrs.rest;
     let dependencies = attrs.dependencies;
 
+    let args = match TestArgs::try_from_iter(mem::take(&mut item_fn.sig.inputs).into_iter()) {
+        Ok(args) => args,
+        Err(err) => return err.to_compile_error(),
+    };
+
+    let arg_array = [args.playground.as_ref()];
+
+    // reorder arguments of test function to inject arguments in correct order
+    item_fn.sig.inputs = arg_array
+        .into_iter()
+        .flatten()
+        .map(|(arg, _)| arg)
+        .cloned()
+        .collect();
+
+    let playground = args.playground.as_ref().map(|(_, ident)| quote! {
+        let #ident = match ::nu_test_support::playground::Playground::new(
+            MODULE_PATH_WITHOUT_CRATE,
+            ::std::env!("CARGO_PKG_NAME"),
+            ::std::env!("CARGO_CRATE_NAME"),
+        ) {
+            ::std::result::Result::Err(err) => return ::nu_test_support::harness::IntoTestResult::into_test_result(Err(err)),
+            ::std::result::Result::Ok(ok) => ok,
+        };
+    }).into_iter();
+
     let fn_ident = &item_fn.sig.ident;
+    let fn_args = arg_array.into_iter().flatten().map(|(_, ident)| ident);
 
     let run_in_serial = match attrs.run_in_serial {
         Some(true) => true,
@@ -63,7 +90,8 @@ pub fn test(mut item_fn: ItemFn) -> proc_macro2::TokenStream {
             const MODULE_PATH_WITHOUT_CRATE: &str = ::nu_test_support::module_path_without_crate!();
 
             fn wrapper() -> TestResult {
-                ::nu_test_support::harness::IntoTestResult::into_test_result(#fn_ident())
+                #(#playground)*
+                ::nu_test_support::harness::IntoTestResult::into_test_result(#fn_ident(#(#fn_args),*))
             }
 
             #[::nu_test_support::collect_test(::nu_test_support::harness::TESTS)]
@@ -262,5 +290,47 @@ impl TryFrom<Vec<Attribute>> for TestAttributes {
         }
 
         Ok(test_attrs)
+    }
+}
+
+#[derive(Default)]
+pub struct TestArgs {
+    pub playground: Option<(FnArg, Ident)>,
+}
+
+impl TestArgs {
+    pub fn try_from_iter(iter: impl Iterator<Item = FnArg>) -> syn::Result<Self> {
+        let mut args = TestArgs::default();
+
+        for arg in iter {
+            let pat_type = match &arg {
+                FnArg::Receiver(_) => {
+                    return Err(syn::Error::new_spanned(arg, "unexpected self parameter"));
+                }
+                FnArg::Typed(pat_type) => pat_type,
+            };
+
+            let Pat::Ident(pat_ident) = &*pat_type.pat else {
+                return Err(syn::Error::new(
+                    pat_type.pat.span(),
+                    "expected single ident",
+                ));
+            };
+
+            let ident = pat_ident.ident.clone();
+            match ident.to_string().as_str() {
+                "playground" | "play" | "pg" | "_playground" => {
+                    args.playground = Some((arg, ident.clone()))
+                }
+                _ => {
+                    return Err(syn::Error::new_spanned(
+                        ident,
+                        "unknown arg name for injection, expected `playground`",
+                    ));
+                }
+            }
+        }
+
+        Ok(args)
     }
 }
