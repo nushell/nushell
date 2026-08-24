@@ -1,6 +1,6 @@
 use super::structured_io::{
-    decode_structured_pipeline, encode_structured_pipeline, set_child_structured_io_env,
-    structured_io_cli_override, structured_io_for_child,
+    decode_structured_pipeline, encode_structured_pipeline, is_nushell_child,
+    structured_io_cli_override, structured_io_for_child, structured_io_spawn,
 };
 use itertools::Itertools;
 use nu_cmd_base::hook::eval_hook;
@@ -173,8 +173,29 @@ If you create a custom command with this name, that will be used instead."
             executable
         };
 
-        // Create the command.
-        let mut command = std::process::Command::new(&executable);
+        let stdout_captured = matches!(
+            stack.stdout(),
+            OutDest::Pipe | OutDest::PipeSeparate | OutDest::Value
+        );
+
+        // Configure args.
+        let args = eval_external_arguments(engine_state, stack, call_args)?;
+        let child_path = if is_nushell_child(&executable) {
+            executable.as_path()
+        } else {
+            expanded_name.as_path()
+        };
+        let structured_io = structured_io_for_child(
+            child_path,
+            stdout_captured,
+            &input,
+            structured_io_cli_override(&args),
+        );
+        let spawn = structured_io_spawn(&executable, structured_io);
+
+        // Create the command. Handshake uses `--structured-io` on argv, never
+        // `env::set_var` / `remove_var` on this process.
+        let mut command = std::process::Command::new(&spawn.program);
 
         // Configure PWD.
         command.current_dir(cwd);
@@ -183,21 +204,6 @@ If you create a custom command with this name, that will be used instead."
         let envs = env_to_strings(engine_state, stack)?;
         command.env_clear();
         command.envs(envs);
-
-        let stdout_captured = matches!(
-            stack.stdout(),
-            OutDest::Pipe | OutDest::PipeSeparate | OutDest::Value
-        );
-
-        // Configure args.
-        let args = eval_external_arguments(engine_state, stack, call_args)?;
-        let structured_io = structured_io_for_child(
-            &executable,
-            stdout_captured,
-            &input,
-            structured_io_cli_override(&args),
-        );
-        set_child_structured_io_env(&mut command, structured_io);
         #[cfg(windows)]
         if is_cmd_internal_command(&name_str) || pathext_script_in_windows {
             // The /D flag disables execution of AutoRun commands from registry.
@@ -214,10 +220,14 @@ If you create a custom command with this name, that will be used instead."
             ]);
             command.args(args.into_iter().map(|s| s.item));
         } else {
+            command.args(&spawn.leading_args);
             command.args(args.into_iter().map(|s| s.item));
         }
         #[cfg(not(windows))]
-        command.args(args.into_iter().map(|s| s.item));
+        {
+            command.args(&spawn.leading_args);
+            command.args(args.into_iter().map(|s| s.item));
+        }
 
         // Configure stdout and stderr. If both are set to `OutDest::Pipe`,
         // we'll set up a pipe that merges two streams into one.

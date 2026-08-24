@@ -1,34 +1,15 @@
-use nu_experimental::STRUCTURED_IO;
 use nu_test_support::{fs::Stub::FileWithContent, prelude::*};
 
 #[test]
 #[deps(NU)]
-fn child_nu_output_is_raw_without_structured_io() -> Result {
-    test()
-        .run("nu -n -c '[1 2 3]' | describe")
-        .expect_value_eq("byte stream")
-}
-
-#[test]
-#[deps(NU)]
-fn child_flag_true_enables_handshake_without_parent_option() -> Result {
-    test()
-        .run("nu -n --experimental-options structured-io=true -c '[1 2 3]' | describe")
-        .expect_value_eq("list<int>")
-}
-
-#[test]
-#[deps(NU)]
-#[exp(STRUCTURED_IO)]
 fn child_flag_false_disables_handshake() -> Result {
     test()
-        .run("nu -n --experimental-options structured-io=false -c '[1 2 3]' | describe")
+        .run("nu -n --structured-io=false -c '[1 2 3]' | describe")
         .expect_value_eq("byte stream")
 }
 
 #[test]
 #[deps(NU)]
-#[exp(STRUCTURED_IO)]
 fn child_nu_list_stays_structured() -> Result {
     test()
         .run("nu -n -c '[1 2 3]' | describe")
@@ -37,7 +18,6 @@ fn child_nu_list_stays_structured() -> Result {
 
 #[test]
 #[deps(NU)]
-#[exp(STRUCTURED_IO)]
 fn child_nu_list_is_usable() -> Result {
     test()
         .run("nu -n -c '[1 2 3]' | math sum")
@@ -46,7 +26,6 @@ fn child_nu_list_is_usable() -> Result {
 
 #[test]
 #[deps(NU)]
-#[exp(STRUCTURED_IO)]
 fn child_nu_table_columns() -> Result {
     test()
         .run("nu -n -c '[[a b]; [1 2] [3 4]]' | columns")
@@ -55,7 +34,6 @@ fn child_nu_table_columns() -> Result {
 
 #[test]
 #[deps(NU)]
-#[exp(STRUCTURED_IO)]
 fn parent_sends_structured_stdin() -> Result {
     test()
         .run("[1 2 3] | nu -n -c '$in | math sum'")
@@ -64,7 +42,6 @@ fn parent_sends_structured_stdin() -> Result {
 
 #[test]
 #[deps(NU)]
-#[exp(STRUCTURED_IO)]
 fn parent_sends_table_stdin() -> Result {
     test()
         .run("[[name]; [foo] [bar]] | nu -n -c '$in | get name'")
@@ -73,7 +50,6 @@ fn parent_sends_table_stdin() -> Result {
 
 #[test]
 #[deps(NU)]
-#[exp(STRUCTURED_IO)]
 fn print_does_not_corrupt_structured_output() -> Result {
     test()
         .run("nu -n -c 'print hello; [1 2 3]' | describe")
@@ -82,7 +58,6 @@ fn print_does_not_corrupt_structured_output() -> Result {
 
 #[test]
 #[deps(NU)]
-#[exp(STRUCTURED_IO)]
 fn child_script_file_stays_structured() -> Result {
     Playground::setup("structured_io_script_file", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
@@ -103,7 +78,6 @@ fn child_script_file_stays_structured() -> Result {
 
 #[test]
 #[deps(NU)]
-#[exp(STRUCTURED_IO)]
 #[cfg(unix)]
 fn shebang_script_stays_structured() -> Result {
     use std::os::unix::fs::PermissionsExt;
@@ -123,16 +97,66 @@ def main [] {
         permissions.set_mode(0o755);
         std::fs::set_permissions(&script, permissions)?;
 
+        // OS parent of the shebang child must be a real `nu`, not the test harness.
         test()
             .cwd(dirs.test())
-            .run("./foo.nu | math sum")
+            .run("nu -c './foo.nu | math sum'")
             .expect_value_eq(6)
     })
 }
 
 #[test]
 #[deps(NU)]
-#[exp(STRUCTURED_IO)]
+fn child_script_file_reads_structured_stdin() -> Result {
+    Playground::setup("structured_io_script_file_stdin", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent(
+            "foo.nu",
+            r#"
+                def main [] {
+                    $in | math sum
+                }
+            "#,
+        )]);
+
+        test()
+            .cwd(dirs.test())
+            .run("[1 2 3] | nu -n foo.nu")
+            .expect_value_eq(6)
+    })
+}
+
+#[test]
+#[deps(NU)]
+#[cfg(unix)]
+fn shebang_script_reads_structured_stdin() -> Result {
+    use std::os::unix::fs::PermissionsExt;
+
+    Playground::setup("structured_io_shebang_stdin", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent(
+            "foo.nu",
+            r#"#!/usr/bin/env nu
+def main [] {
+    $in | math sum
+}
+"#,
+        )]);
+
+        let script = dirs.test().join("foo.nu");
+        let mut permissions = std::fs::metadata(&script)?.permissions();
+        permissions.set_mode(0o755);
+        std::fs::set_permissions(&script, permissions)?;
+
+        // OS parent of the shebang child must be a real `nu`. Pipe into
+        // `describe` so the parent captures stdout (last-command inherit is TTY).
+        test()
+            .cwd(dirs.test())
+            .run("nu -n -c '[1 2 3] | ./foo.nu | describe'")
+            .expect_value_eq("int")
+    })
+}
+
+#[test]
+#[deps(NU)]
 fn unserializable_closure_errors() -> Result {
     test()
         .run("nu -n -c '{|x| $x}'")

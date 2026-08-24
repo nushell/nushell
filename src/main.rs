@@ -296,16 +296,19 @@ fn main() -> Result<()> {
     let is_lsp = false;
     engine_state.is_lsp = is_lsp;
 
-    let structured_io = nu_experimental::StructuredIoMode::from_os_env();
+    let structured_io = if let Some(value) = &parsed_nu_cli_args.structured_io {
+        nu_experimental::StructuredIoMode::from_flag_str(&value.item)
+    } else if nu_system::ancestor_is_nushell(nu_system::NUSHELL_ANCESTOR_MAX_DEPTH) {
+        use std::io::IsTerminal;
+        nu_experimental::StructuredIoMode {
+            input: !std::io::stdin().is_terminal(),
+            output: !std::io::stdout().is_terminal(),
+        }
+    } else {
+        nu_experimental::StructuredIoMode::default()
+    };
     engine_state.structured_io_input = structured_io.input;
     engine_state.structured_io_output = structured_io.output;
-    if structured_io.any() {
-        // SAFETY: startup, single-threaded. Drop the handshake so grandchild
-        // processes do not inherit NU_STRUCTURED_IO from this child.
-        unsafe {
-            std::env::remove_var(nu_experimental::STRUCTURED_IO_ENV);
-        }
-    }
     // keep this condition in sync with the branches at the end
     engine_state.is_interactive = parsed_nu_cli_args.interactive_shell.is_some()
         || (parsed_nu_cli_args.commands.is_none() && script_name.is_empty() && !is_lsp);

@@ -52,6 +52,7 @@ fn help_lists_all_flags() -> TestResult {
         "--log-include",
         "--log-exclude",
         "--stdin",
+        "--structured-io",
         "--experimental-options",
         "--lsp",
         "--ide-goto-def",
@@ -926,7 +927,7 @@ fn script_file_honors_nu_experimental_options_env() -> TestResult {
         r#"
 def main [] {
     debug experimental-options
-    | where identifier == "structured-io"
+    | where identifier == "pipefail"
     | get enabled.0
 }
 "#,
@@ -964,7 +965,7 @@ fn dash_c_ignores_nu_experimental_options_env() -> TestResult {
         .args([
             "--no-std-lib",
             "-c",
-            r#"debug experimental-options | where identifier == "structured-io" | get enabled.0"#,
+            r#"debug experimental-options | where identifier == "pipefail" | get enabled.0"#,
         ])
         .output()?;
     let stdout = String::from_utf8_lossy(&output.stdout);

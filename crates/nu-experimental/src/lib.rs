@@ -83,7 +83,7 @@ mod util;
 
 pub use options::*;
 pub use parse::*;
-pub use structured_io::{STRUCTURED_IO_ENV, StructuredIoMode};
+pub use structured_io::StructuredIoMode;
 
 /// The status of an experimental option.
 ///

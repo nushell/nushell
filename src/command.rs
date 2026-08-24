@@ -298,6 +298,14 @@ const CLI_FLAGS: &[CliFlag] = &[
         "nu --stdin -c \"print $in\"",
     ),
     CliFlag::value(
+        "structured-io",
+        None,
+        ValueHint::String,
+        "parent/child NUON handshake: in, out, 1 (both), or false. Omitted: enable when a parent process is nu and that stdio is not a TTY.",
+        CliCategory::Startup,
+        "nu --structured-io=out -c \"ls\"",
+    ),
+    CliFlag::value(
         "experimental-options",
         None,
         ValueHint::ListString,
@@ -425,6 +433,7 @@ struct CliValues {
     error_style: Option<Value>,
     no_newline: Option<Spanned<String>>,
     include_path: Option<Spanned<String>>,
+    structured_io: Option<Spanned<String>>,
     #[cfg(feature = "lsp")]
     lsp: bool,
     ide_goto_def: Option<Value>,
@@ -640,6 +649,10 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
                     .extend(parsed.into_iter().map(spanned_value));
             }
             Long("stdin") => cli.redirect_stdin = Some(spanned_true()),
+            Long("structured-io") => {
+                let value = parse_string_value(&mut parser, "structured-io")?;
+                cli.structured_io = Some(spanned_value(value));
+            }
             Long("experimental-options") => {
                 let values = parse_experimental_options(&mut parser)?;
                 cli.experimental_options
@@ -763,6 +776,7 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
             error_style: cli.error_style,
             no_newline: cli.no_newline,
             include_path: cli.include_path,
+            structured_io: cli.structured_io,
             #[cfg(feature = "lsp")]
             lsp: cli.lsp,
             ide_goto_def: cli.ide_goto_def,
@@ -1433,6 +1447,7 @@ pub(crate) struct NushellCliArgs {
     pub(crate) error_style: Option<Value>,
     pub(crate) no_newline: Option<Spanned<String>>,
     pub(crate) include_path: Option<Spanned<String>>,
+    pub(crate) structured_io: Option<Spanned<String>>,
     #[cfg(feature = "lsp")]
     pub(crate) lsp: bool,
     pub(crate) ide_goto_def: Option<Value>,

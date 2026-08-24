@@ -1,11 +1,8 @@
-/// Environment variable used as the parent/child structured IO handshake.
-///
-/// Set by the parent `run-external` when the experimental `structured-io` option is on
-/// and the child is Nushell. Consumed (and unset) by the child at startup so it is not
-/// inherited by grandchildren.
-pub const STRUCTURED_IO_ENV: &str = "NU_STRUCTURED_IO";
-
 /// Which sides of the child pipeline should use NUON instead of raw bytes / tables.
+///
+/// The parent `run-external` passes this as `--structured-io=in|out|1` on the child
+/// `nu` command line. A CLI flag is used instead of an environment variable so the
+/// handshake does not call `set_var` / `remove_var` on the current process.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct StructuredIoMode {
     pub input: bool,
@@ -25,8 +22,9 @@ impl StructuredIoMode {
     }
 
     /// Parse a handshake value: `1`/`true`/`inout`, `in`, `out`, or anything else as off.
-    pub fn from_env_str(value: &str) -> Self {
+    pub fn from_flag_str(value: &str) -> Self {
         match value.trim() {
+            "false" | "off" | "0" => Self::default(),
             "1" | "true" | "TRUE" | "inout" => Self::both(),
             "in" => Self {
                 input: true,
@@ -40,15 +38,8 @@ impl StructuredIoMode {
         }
     }
 
-    pub fn from_os_env() -> Self {
-        std::env::var(STRUCTURED_IO_ENV)
-            .ok()
-            .map(|value| Self::from_env_str(&value))
-            .unwrap_or_default()
-    }
-
-    /// Value to store in [`STRUCTURED_IO_ENV`], or `None` when the protocol is off.
-    pub fn as_env_str(self) -> Option<&'static str> {
+    /// Value for `--structured-io=...`, or `None` when the protocol is off.
+    pub fn as_flag_str(self) -> Option<&'static str> {
         match (self.input, self.output) {
             (true, true) => Some("1"),
             (true, false) => Some("in"),
@@ -65,31 +56,43 @@ mod tests {
     #[test]
     fn parses_handshake_values() {
         assert_eq!(
-            StructuredIoMode::from_env_str("1"),
+            StructuredIoMode::from_flag_str("1"),
             StructuredIoMode::both()
         );
         assert_eq!(
-            StructuredIoMode::from_env_str("in"),
+            StructuredIoMode::from_flag_str("in"),
             StructuredIoMode {
                 input: true,
                 output: false
             }
         );
         assert_eq!(
-            StructuredIoMode::from_env_str("out"),
+            StructuredIoMode::from_flag_str("out"),
             StructuredIoMode {
                 input: false,
                 output: true
             }
         );
         assert_eq!(
-            StructuredIoMode::from_env_str("nope"),
+            StructuredIoMode::from_flag_str("false"),
+            StructuredIoMode::default()
+        );
+        assert_eq!(
+            StructuredIoMode::from_flag_str("off"),
+            StructuredIoMode::default()
+        );
+        assert_eq!(
+            StructuredIoMode::from_flag_str("0"),
+            StructuredIoMode::default()
+        );
+        assert_eq!(
+            StructuredIoMode::from_flag_str("nope"),
             StructuredIoMode::default()
         );
     }
 
     #[test]
-    fn roundtrips_env_str() {
+    fn roundtrips_flag_str() {
         for mode in [
             StructuredIoMode::default(),
             StructuredIoMode {
@@ -102,9 +105,9 @@ mod tests {
             },
             StructuredIoMode::both(),
         ] {
-            match mode.as_env_str() {
+            match mode.as_flag_str() {
                 None => assert!(!mode.any()),
-                Some(value) => assert_eq!(StructuredIoMode::from_env_str(value), mode),
+                Some(value) => assert_eq!(StructuredIoMode::from_flag_str(value), mode),
             }
         }
     }

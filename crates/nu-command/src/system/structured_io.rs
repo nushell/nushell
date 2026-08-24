@@ -1,4 +1,4 @@
-use nu_experimental::{STRUCTURED_IO, STRUCTURED_IO_ENV, StructuredIoMode};
+use nu_experimental::StructuredIoMode;
 use nu_protocol::{
     PipelineData, ShellError, Span, Spanned,
     engine::EngineState,
@@ -8,14 +8,12 @@ use nuon::{ToNuonConfig, ToStyle, from_nuon, to_nuon};
 use std::{
     ffi::OsString,
     io::{BufRead, BufReader, Write},
-    path::Path,
+    path::{Path, PathBuf},
 };
 
 /// Whether this spawn should use the parent/child NUON handshake.
 ///
-/// `cli_override` comes from the child's `--experimental-options` arguments:
-/// `Some(false)` wins even if the parent has structured-io on, `Some(true)`
-/// requests the handshake even if the parent does not.
+/// Always on for Nushell children unless argv has `--structured-io=false`.
 pub fn structured_io_for_child(
     executable: &Path,
     stdout_captured: bool,
@@ -26,9 +24,6 @@ pub fn structured_io_for_child(
         return StructuredIoMode::default();
     }
     if cli_override == Some(false) {
-        return StructuredIoMode::default();
-    }
-    if !STRUCTURED_IO.get() && cli_override != Some(true) {
         return StructuredIoMode::default();
     }
 
@@ -42,55 +37,59 @@ pub fn structured_io_for_child(
     }
 }
 
-/// Last explicit `structured-io` / `all` assignment in `--experimental-options` args.
+/// Last `--structured-io=` on the child argv. `Some(false)` disables the handshake.
 pub fn structured_io_cli_override(args: &[Spanned<OsString>]) -> Option<bool> {
     let mut last = None;
-    for assignment in experimental_option_assignments(args) {
-        for item in assignment
-            .trim()
-            .trim_matches(['[', ']'])
-            .split(',')
-            .map(str::trim)
-            .filter(|item| !item.is_empty())
-        {
-            let (key, value) = item.split_once('=').unwrap_or((item, "true"));
-            match key.trim() {
-                "all" => last = parse_opt_bool(value),
-                "structured-io" => last = parse_opt_bool(value),
-                _ => {}
+    let mut items = args.iter().map(|arg| arg.item.to_string_lossy());
+    while let Some(arg) = items.next() {
+        if arg == "--structured-io" {
+            if let Some(value) = items.next() {
+                last = Some(flag_enables_structured_io(&value));
             }
+        } else if let Some(value) = arg.strip_prefix("--structured-io=") {
+            last = Some(flag_enables_structured_io(value));
         }
     }
     last
 }
 
-fn parse_opt_bool(value: &str) -> Option<bool> {
-    match value.trim() {
-        "true" | "" => Some(true),
-        "false" => Some(false),
-        _ => None,
+fn flag_enables_structured_io(value: &str) -> bool {
+    !matches!(value.trim(), "false" | "off" | "0")
+}
+
+/// How to spawn the child so it receives `--structured-io` on argv, not in the environment.
+pub struct StructuredIoSpawn {
+    pub program: PathBuf,
+    pub leading_args: Vec<OsString>,
+}
+
+/// Prepend `--structured-io=` when the child is the `nu` binary.
+///
+/// Shebang scripts (`./foo.nu`) are spawned as-is. The child infers the parent
+/// process is Nushell and enables structured IO itself.
+pub fn structured_io_spawn(executable: &Path, mode: StructuredIoMode) -> StructuredIoSpawn {
+    let Some(flag) = mode.as_flag_str() else {
+        return StructuredIoSpawn {
+            program: executable.to_path_buf(),
+            leading_args: Vec::new(),
+        };
+    };
+    if is_nu_binary(executable) {
+        return StructuredIoSpawn {
+            program: executable.to_path_buf(),
+            leading_args: vec![OsString::from(format!("--structured-io={flag}"))],
+        };
+    }
+    StructuredIoSpawn {
+        program: executable.to_path_buf(),
+        leading_args: Vec::new(),
     }
 }
 
-fn experimental_option_assignments(args: &[Spanned<OsString>]) -> Vec<String> {
-    let mut out = Vec::new();
-    let mut items = args.iter().map(|arg| arg.item.to_string_lossy());
-    while let Some(arg) = items.next() {
-        if arg == "--experimental-options" {
-            if let Some(value) = items.next() {
-                out.push(value.into_owned());
-            }
-        } else if let Some(value) = arg.strip_prefix("--experimental-options=") {
-            out.push(value.to_string());
-        }
-    }
-    out
-}
-
-pub fn set_child_structured_io_env(command: &mut std::process::Command, mode: StructuredIoMode) {
-    if let Some(value) = mode.as_env_str() {
-        command.env(STRUCTURED_IO_ENV, value);
-    }
+fn is_nu_binary(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(nu_system::is_nushell_basename)
 }
 
 pub fn encode_structured_pipeline(
@@ -201,12 +200,11 @@ pub fn read_structured_stdin() -> Result<PipelineData, ShellError> {
 }
 
 pub fn is_nushell_child(path: &Path) -> bool {
-    let name = path
+    if path
         .file_name()
         .and_then(|name| name.to_str())
-        .unwrap_or("");
-    let name = name.to_ascii_lowercase();
-    if name == "nu" || name == "nu.exe" {
+        .is_some_and(nu_system::is_nushell_basename)
+    {
         return true;
     }
     if path
@@ -230,12 +228,7 @@ fn shebang_invokes_nu(path: &Path) -> bool {
     let Some(rest) = first.strip_prefix("#!") else {
         return false;
     };
-    rest.split_whitespace().any(|word| {
-        Path::new(word)
-            .file_name()
-            .and_then(|name| name.to_str())
-            .is_some_and(|name| name == "nu" || name == "nu.exe")
-    })
+    rest.split_whitespace().any(nu_system::is_nushell_basename)
 }
 
 #[cfg(test)]
@@ -278,26 +271,36 @@ mod tests {
 
     #[test]
     fn cli_override_reads_equals_form() {
-        let args = [
-            arg("--experimental-options"),
-            arg("structured-io=false"),
-            arg("-n"),
-        ];
+        let args = [arg("--structured-io=false"), arg("-n")];
         assert_eq!(structured_io_cli_override(&args), Some(false));
     }
 
     #[test]
-    fn cli_override_reads_all() {
-        let args = [arg("--experimental-options=all")];
+    fn cli_override_reads_out() {
+        let args = [arg("--structured-io=out")];
         assert_eq!(structured_io_cli_override(&args), Some(true));
     }
 
     #[test]
     fn cli_override_last_assignment_wins() {
-        let args = [
-            arg("--experimental-options"),
-            arg("[all=true, structured-io=false]"),
-        ];
+        let args = [arg("--structured-io=out"), arg("--structured-io=false")];
         assert_eq!(structured_io_cli_override(&args), Some(false));
+    }
+
+    #[test]
+    fn shebang_script_is_spawned_as_is() {
+        let spawn = structured_io_spawn(Path::new("./foo.nu"), StructuredIoMode::both());
+        assert_eq!(spawn.program, PathBuf::from("./foo.nu"));
+        assert!(spawn.leading_args.is_empty());
+    }
+
+    #[test]
+    fn nu_binary_gets_structured_io_flag() {
+        let spawn = structured_io_spawn(Path::new("/usr/bin/nu"), StructuredIoMode::both());
+        assert_eq!(spawn.program, PathBuf::from("/usr/bin/nu"));
+        assert_eq!(
+            spawn.leading_args,
+            vec![OsString::from("--structured-io=1")]
+        );
     }
 }
