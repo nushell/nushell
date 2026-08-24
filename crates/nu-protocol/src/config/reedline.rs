@@ -117,7 +117,6 @@ pub struct CursorShapeConfig {
     pub emacs: NuCursorShape,
     pub vi_insert: NuCursorShape,
     pub vi_normal: NuCursorShape,
-    /// Only takes effect in builds with the `helix` feature.
     pub helix_normal: NuCursorShape,
     pub helix_select: NuCursorShape,
     pub helix_insert: NuCursorShape,
@@ -155,8 +154,6 @@ pub enum EditBindings {
     Vi,
     #[default]
     Emacs,
-    /// Only usable in builds with the `helix` feature; selecting it elsewhere
-    /// reports an error when the keybindings are constructed.
     Helix,
 }
 

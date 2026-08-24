@@ -220,10 +220,6 @@ pub fn default_menus() -> Vec<ParsedMenu> {
 }
 
 /// Every edit mode the Nushell-owned keybindings below apply to.
-///
-/// The helix tables are named unconditionally, like `cursor_shape.helix_*`: a
-/// build without the `helix` feature has no table to bind them into and skips
-/// them when the keybindings are applied.
 fn all_modes() -> Value {
     Value::list(
         vec![
