@@ -106,6 +106,59 @@ def main [] {
 }
 
 #[test]
+#[cfg(unix)]
+fn sh_shebang_nu_extension_errors_on_structured_decode() -> Result {
+    use std::os::unix::fs::PermissionsExt;
+
+    Playground::setup("structured_io_liar_nu", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent(
+            "liar.nu",
+            r#"#!/bin/sh
+printf 'hello\n'
+"#,
+        )]);
+
+        let script = dirs.test().join("liar.nu");
+        let mut permissions = std::fs::metadata(&script)?.permissions();
+        permissions.set_mode(0o755);
+        std::fs::set_permissions(&script, permissions)?;
+
+        test()
+            .cwd(dirs.test())
+            .run("./liar.nu | describe")
+            .expect_error_code_eq("nu::shell::error")
+    })
+}
+
+#[test]
+#[deps(NU)]
+#[cfg(unix)]
+fn extensionless_nu_shebang_stays_structured() -> Result {
+    use std::os::unix::fs::PermissionsExt;
+
+    Playground::setup("structured_io_extensionless_shebang", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent(
+            "sum",
+            r#"#!/usr/bin/env nu
+def main [] {
+    [1 2 3]
+}
+"#,
+        )]);
+
+        let script = dirs.test().join("sum");
+        let mut permissions = std::fs::metadata(&script)?.permissions();
+        permissions.set_mode(0o755);
+        std::fs::set_permissions(&script, permissions)?;
+
+        test()
+            .cwd(dirs.test())
+            .run("nu -c './sum | math sum'")
+            .expect_value_eq(6)
+    })
+}
+
+#[test]
 #[deps(NU)]
 fn child_script_file_reads_structured_stdin() -> Result {
     Playground::setup("structured_io_script_file_stdin", |dirs, sandbox| {

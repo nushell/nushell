@@ -331,6 +331,20 @@ mod tests {
         assert!(!is_nushell_child(file.path(), file.path()));
     }
 
+    #[test]
+    fn extensionless_bin_nu_shebang_is_nushell() {
+        let mut file = NamedTempFile::new().expect("tempfile");
+        writeln!(file, "#!/bin/nu").expect("write");
+        assert!(is_nushell_child(file.path(), Path::new("./test")));
+    }
+
+    #[test]
+    fn extensionless_sh_shebang_is_not_nushell() {
+        let mut file = NamedTempFile::new().expect("tempfile");
+        writeln!(file, "#!/bin/sh").expect("write");
+        assert!(!is_nushell_child(file.path(), Path::new("./test")));
+    }
+
     fn arg(s: &str) -> Spanned<OsString> {
         OsString::from(s).into_spanned(Span::test_data())
     }

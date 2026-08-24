@@ -138,7 +138,7 @@ fn main() -> Result<()> {
     let script_name = parsed.script_name;
     let args_to_script = parsed.args_to_script;
 
-    experimental_options::load(&engine_state, &parsed_nu_cli_args);
+    experimental_options::load(&engine_state, &parsed_nu_cli_args, !script_name.is_empty());
 
     let mut engine_state = command_context::add_command_context(engine_state);
 
