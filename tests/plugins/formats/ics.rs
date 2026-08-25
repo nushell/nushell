@@ -1,9 +1,13 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 use indoc::indoc;
 =======
 >>>>>>> 4f4a9394c (fixed some warnings)
 use nu_test_support::prelude::*;
+=======
+>>>>>>> 20da414e3 (fmt)
 use indoc::indoc;
+use nu_test_support::prelude::*;
 
 #[test]
 #[deps(NU_PLUGIN_FORMATS)]
@@ -192,11 +196,15 @@ fn from_ics_text_with_linebreak_to_table(playground: Playground) -> Result {
             END:VEVENT
             END:VCALENDAR
 <<<<<<< HEAD
+<<<<<<< HEAD
         ",
         },
 =======
         "}
 >>>>>>> d1641e166 (fix a handful of tests)
+=======
+        "},
+>>>>>>> 20da414e3 (fmt)
     )?;
 
     let code = r#"

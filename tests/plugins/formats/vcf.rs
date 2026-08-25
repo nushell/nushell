@@ -1,5 +1,5 @@
-use nu_test_support::prelude::*;
 use indoc::indoc;
+use nu_test_support::prelude::*;
 
 #[test]
 #[deps(NU_PLUGIN_FORMATS)]
@@ -96,11 +96,16 @@ fn from_vcf_text_with_linebreak_to_table(playground: Playground) -> Result {
             CATEGORIES:myContacts
             END:VCARD
 <<<<<<< HEAD
+<<<<<<< HEAD
         "},
     )?;
 =======
         "})?;
 >>>>>>> d1641e166 (fix a handful of tests)
+=======
+        "},
+    )?;
+>>>>>>> 20da414e3 (fmt)
 
     let code = r#"
         open contacts.txt
