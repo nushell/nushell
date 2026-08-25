@@ -986,6 +986,15 @@ impl<'engine> CompletionEngine<'engine> {
         let site = self.resolve_completion_site(&block, &working_set, buffer, sliced_line);
 
         self.site_is_interactive(&site, &working_set)
+            || self
+                .with_shorter_head_reading(
+                    &site,
+                    &working_set,
+                    buffer,
+                    sliced_line,
+                    |engine, shorter, shorter_ws| engine.site_is_interactive(shorter, shorter_ws),
+                )
+                .unwrap_or(false)
     }
 
     /// Whether the completer that would run first at `site` is interactive.
@@ -1082,40 +1091,61 @@ impl<'engine> CompletionEngine<'engine> {
         buffer: Buffer,
         contents: &str,
     ) -> Dispatched {
+        self.with_shorter_head_reading(
+            site,
+            working_set,
+            buffer,
+            contents,
+            |engine, shorter, shorter_ws| {
+                let mut dispatched = engine.dispatch_completion_site(shorter, shorter_ws, buffer);
+                // Keep only the argument value; drop command-kind results.
+                dispatched.suggestions.retain(|candidate| {
+                    !matches!(candidate.kind, Some(SuggestionKind::Command(..)))
+                });
+                dispatched
+            },
+        )
+        .unwrap_or_default()
+    }
+
+    /// Run `f` on the shorter command's reading of an ambiguous multi-word head (`foo bar`
+    /// also reading as `foo`'s argument). One re-parse shared by dispatch and interactive
+    /// routing so they cannot drift. `None` when there is no distinct argument site.
+    fn with_shorter_head_reading<T>(
+        &self,
+        site: &CompletionSite,
+        working_set: &StateWorkingSet,
+        buffer: Buffer,
+        contents: &str,
+        f: impl FnOnce(&Self, &CompletionSite, &StateWorkingSet) -> T,
+    ) -> Option<T> {
         if !matches!(site.kind, SiteKind::Command { .. })
             || !working_set
                 .get_span_contents(site.span)
                 .iter()
                 .any(u8::is_ascii_whitespace)
         {
-            return Dispatched::default();
+            return None;
         }
 
-        let mut parse_ws = StateWorkingSet::new(self.engine_state);
-        let _ = parse_ws.add_file("completer", contents.as_bytes());
-        let Some(shorter) = parse_shorter_head_reading(&mut parse_ws, site.span, None) else {
-            return Dispatched::default();
-        };
+        // Owns the spans the resolved site borrows.
+        let mut shorter_ws = StateWorkingSet::new(self.engine_state);
+        let _ = shorter_ws.add_file("completer", contents.as_bytes());
+        let shorter = parse_shorter_head_reading(&mut shorter_ws, site.span, None)?;
 
         let mut shorter_site = self.finalize_site(
-            self.resolve_expression_site(&shorter, site.cursor, &parse_ws),
+            self.resolve_expression_site(&shorter, site.cursor, &shorter_ws),
             buffer,
             contents,
         );
         // A command-head result means no distinct argument; leave it to the primary dispatch.
         if matches!(shorter_site.kind, SiteKind::Command { .. }) {
-            return Dispatched::default();
+            return None;
         }
-
         // A single-expression re-parse has no enclosing chain.
         shorter_site.contexts = vec![shorter_site.own_context()];
 
-        let mut dispatched = self.dispatch_completion_site(&shorter_site, &parse_ws, buffer);
-        // Keep only the argument value; drop command-kind results.
-        dispatched
-            .suggestions
-            .retain(|candidate| !matches!(candidate.kind, Some(SuggestionKind::Command(..))));
-        dispatched
+        Some(f(self, &shorter_site, &shorter_ws))
     }
 
     /// Dispatch the site to the appropriate specialized completer.

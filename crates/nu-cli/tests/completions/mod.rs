@@ -1026,6 +1026,27 @@ fn interactive_completer_runs_inline() {
     match_suggestions(&vec!["alpha"], result.suggestions());
 }
 
+/// Detection resolves the same shorter-head reading dispatch tries, so an `@interactive`
+/// completer reached through it still routes inline.
+#[test]
+fn interactive_completer_on_a_shorter_head_argument_runs_inline() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = "\
+        @interactive
+        def comp [token] { [alpha beta] }
+        def foo [arg: string@comp] {}
+        def \"foo bar\" [] {}";
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let line = "foo bar";
+    let result = completer.complete(line, line.len());
+    assert!(
+        matches!(result, CompletionResult::Fresh { .. }),
+        "an @interactive completer on a shorter-head argument must run inline, got {result:?}"
+    );
+}
+
 /// Detection sees through aliases as execution does: an alias of an `@interactive`
 /// completer routes inline.
 #[test]
