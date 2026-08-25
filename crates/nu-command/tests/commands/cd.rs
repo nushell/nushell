@@ -76,15 +76,16 @@ fn filesystem_switch_back_to_previous_working_directory(playground: Playground) 
 }
 
 #[test]
-fn filesystem_change_from_current_directory_using_relative_path_and_dash() -> Result {
-    Playground::setup("cd_test_4", |dirs, sandbox| {
-        sandbox.within("odin").mkdir("-");
-        let odin_path = dirs.test().join("odin").join("-");
-        test()
-            .cwd(dirs.test())
-            .run("cd odin/-; $env.PWD")
-            .expect_value_eq(odin_path)
-    })
+fn filesystem_change_from_current_directory_using_relative_path_and_dash(
+    playground: Playground,
+) -> Result {
+    playground.dir("odin/-")?;
+    let odin_path = playground.path().join("odin").join("-");
+
+    test()
+        .cwd(playground.path())
+        .run("cd odin/-; $env.PWD")
+        .expect_value_eq(odin_path)
 }
 
 #[test]
@@ -96,14 +97,15 @@ fn filesystem_change_current_directory_to_parent_directory(playground: Playgroun
 }
 
 #[test]
-fn filesystem_change_current_directory_to_two_parents_up_using_multiple_dots() -> Result {
-    Playground::setup("cd_test_6", |dirs, sandbox| {
-        sandbox.within("foo").mkdir("bar");
-        test()
-            .cwd(dirs.test().join("foo").join("bar"))
-            .run("cd ...; $env.PWD")
-            .expect_value_eq(dirs.test())
-    })
+fn filesystem_change_current_directory_to_two_parents_up_using_multiple_dots(
+    playground: Playground,
+) -> Result {
+    playground.dir("foo/bar")?;
+
+    test()
+        .cwd(playground.path().join("foo").join("bar"))
+        .run("cd ...; $env.PWD")
+        .expect_value_eq(playground.path())
 }
 
 #[test]

@@ -38,19 +38,17 @@ fn creates_intermediary_directories(playground: Playground) -> Result {
 }
 
 #[test]
-fn create_directory_two_parents_up_using_multiple_dots() -> Result {
-    Playground::setup("mkdir_test_4", |dirs, sandbox| {
-        sandbox.within("foo").mkdir("bar");
+fn create_directory_two_parents_up_using_multiple_dots(playground: Playground) -> Result {
+    playground.dir("foo/bar")?;
 
-        let () = test()
-            .cwd(dirs.test().join("foo/bar"))
-            .run("mkdir .../boo")?;
+    let () = test()
+        .cwd(playground.path().join("foo/bar"))
+        .run("mkdir .../boo")?;
 
-        let expected = dirs.test().join("boo");
+    let expected = playground.path().join("boo");
 
-        assert!(expected.is_dir());
-        Ok(())
-    })
+    assert!(expected.is_dir());
+    Ok(())
 }
 
 #[test]

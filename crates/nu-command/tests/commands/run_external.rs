@@ -465,26 +465,21 @@ fn can_run_ps1_files(#[ignore] playground: Playground, prefix: &str) -> Result {
 #[cfg(windows)]
 #[apply(run_external_prefixes)]
 #[nu_test_support::test]
-fn can_run_ps1_files_with_space_in_path(prefix: &str) -> Result {
-    use nu_test_support::fs::Stub::FileWithContent;
-    Playground::setup("run_a_windows_ps_file", |dirs, sandbox| {
-        sandbox
-            .within("path with space")
-            .with_files(&[FileWithContent(
-                "foo.ps1",
-                "
-                    Write-Host Hello World
-                ",
-            )]);
+fn can_run_ps1_files_with_space_in_path(#[ignore] playground: Playground, prefix: &str) -> Result {
+    playground.file(
+        "path with space/foo.ps1",
+        "
+            Write-Host Hello World
+        ",
+    )?;
 
-        let actual: String = test()
-            .inherit_path()
-            .inherit_env_if_set("SystemRoot")
-            .cwd(dirs.test().join("path with space"))
-            .run(format!("{prefix}foo.ps1"))?;
-        assert_contains("Hello World", actual);
-        Ok(())
-    })
+    let actual: String = test()
+        .inherit_path()
+        .inherit_env_if_set("SystemRoot")
+        .cwd(playground.path().join("path with space"))
+        .run(format!("{prefix}foo.ps1"))?;
+    assert_contains("Hello World", actual);
+    Ok(())
 }
 
 #[rstest]

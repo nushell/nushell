@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use nu_protocol::shell_error;
-use nu_test_support::{fs::Stub::FileWithContent, playground::Playground, prelude::*};
+use nu_test_support::{playground::Playground, prelude::*};
 use rstest::rstest;
 
 #[test]
@@ -448,18 +448,14 @@ fn open_variable_files_with_glob_metachars_nw(#[case] src_name: &str) -> Result 
 }
 
 #[test]
-fn open_files_inside_glob_metachars_dir() -> Result {
-    Playground::setup("open_files_inside_glob_metachars_dir", |dirs, sandbox| {
-        let sub_dir = "test[]";
-        sandbox
-            .within(sub_dir)
-            .with_files(&[FileWithContent("test_file.txt", "hello")]);
+fn open_files_inside_glob_metachars_dir(playground: Playground) -> Result {
+    let sub_dir = "test[]";
+    playground.file("test[]/test_file.txt", "hello")?;
 
-        test()
-            .cwd(dirs.test().join(sub_dir))
-            .run("open test_file.txt")
-            .expect_value_eq("hello")
-    })
+    test()
+        .cwd(playground.path().join(sub_dir))
+        .run("open test_file.txt")
+        .expect_value_eq("hello")
 }
 
 #[rstest]
