@@ -16,6 +16,8 @@ pub enum Fetched {
     Pure(Vec<SemanticSuggestion>),
     /// Impure source result (filesystem, `PATH`, user/plugin code); worth caching.
     Cacheable(Vec<SemanticSuggestion>),
+    /// Suggestions contributed while allowing the next source to run.
+    Fallthrough(Vec<SemanticSuggestion>),
     /// Impure source declined: fall back, but cache the attempt.
     Declined,
     /// No source ran: fall back cheaply.
@@ -27,19 +29,29 @@ impl Fetched {
     /// The suggestions this outcome carries; declining outcomes carry none.
     pub(crate) fn into_suggestions(self) -> Vec<SemanticSuggestion> {
         match self {
-            Self::Pure(suggestions) | Self::Cacheable(suggestions) => suggestions,
+            Self::Pure(suggestions)
+            | Self::Cacheable(suggestions)
+            | Self::Fallthrough(suggestions) => suggestions,
             Self::Declined | Self::Absent => Vec::new(),
         }
     }
 
     /// Impure source ran; result worth reusing between keystrokes.
     pub(crate) fn is_cacheable(&self) -> bool {
-        matches!(self, Self::Cacheable(_) | Self::Declined)
+        matches!(
+            self,
+            Self::Cacheable(_) | Self::Fallthrough(_) | Self::Declined
+        )
     }
 
-    /// Whether this source declined, so the next one should be tried.
+    /// Whether the next source should still be tried.
     pub(crate) fn needs_fallback(&self) -> bool {
-        matches!(self, Self::Declined | Self::Absent)
+        matches!(self, Self::Fallthrough(_) | Self::Declined | Self::Absent)
+    }
+
+    /// Whether this source contributed suggestions and asked to continue.
+    pub(crate) fn is_fallthrough(&self) -> bool {
+        matches!(self, Self::Fallthrough(_))
     }
 
     /// Mark cheap results cacheable when the caller did expensive work.
@@ -111,6 +123,32 @@ impl IntoValue for SemanticSuggestion {
             record.insert("description", description.into_value(span));
         }
 
+        if let Some(extra) = self.suggestion.extra {
+            record.insert("extra", extra.into_value(span));
+        }
+
+        // Omit default fields to keep the common output compact.
+        if self.suggestion.append_whitespace {
+            record.insert("append_whitespace", Value::bool(true, span));
+        }
+
+        if let Some(match_indices) = self
+            .suggestion
+            .match_indices
+            .filter(|indices| !indices.is_empty())
+        {
+            record.insert(
+                "match_indices",
+                Value::list(
+                    match_indices
+                        .into_iter()
+                        .map(|index| Value::int(index as i64, span))
+                        .collect(),
+                    span,
+                ),
+            );
+        }
+
         if let Some(kind) = self.kind {
             let (kind_str, ty) = match kind {
                 SuggestionKind::Command(ty, _) => ("command", Some(ty.to_string())),
@@ -164,11 +202,19 @@ impl From<Suggestion> for SemanticSuggestion {
 mod tests {
     use super::*;
 
-    /// `complete_argument_value` relies on this to treat `need_fallback`-requesting
-    /// outcomes as always empty (a dead check was removed on that assumption).
+    /// Declined outcomes carry no suggestions.
     #[test]
     fn fallback_variants_carry_no_suggestions() {
         assert!(Fetched::Declined.into_suggestions().is_empty());
         assert!(Fetched::Absent.into_suggestions().is_empty());
+    }
+
+    /// Fallthrough keeps its suggestions while continuing the chain.
+    #[test]
+    fn fallthrough_needs_fallback_but_keeps_its_suggestions() {
+        let fetched = Fetched::Fallthrough(vec![SemanticSuggestion::default()]);
+        assert!(fetched.is_fallthrough());
+        assert!(fetched.needs_fallback());
+        assert_eq!(fetched.into_suggestions().len(), 1);
     }
 }

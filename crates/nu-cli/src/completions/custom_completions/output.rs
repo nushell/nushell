@@ -14,6 +14,8 @@ pub(crate) struct CompleterOutput {
     options: CompletionOptions,
     sort: bool,
     filter: bool,
+    /// Whether the completer requested the next source.
+    fallback: bool,
 }
 
 /// Report something a completer returned that could not be used. Nothing here is fatal —
@@ -139,20 +141,57 @@ returned_record! {
 }
 
 returned_record! {
-    /// One suggestion, as every completer and menu source returns it. Declared rather than
-    /// read key by key, so a mistyped field is reported, not a silent default.
-    struct ReturnedSuggestion is "suggestion", accepting ["kind", "type"] {
-        /// Coerced to a string to insert; its type is reported back as the suggestion's kind.
+    /// A suggestion returned by a custom completer.
+    struct ReturnedSuggestion is "suggestion", accepting ["type"] {
+        /// Value to insert, coerced to a string.
         value: Value,
         display_override: Option<Text>,
         description: Option<Text>,
-        /// A colour name, or a colour record. Read on its own, so an unusable one costs the
-        /// colour rather than the suggestion.
+        /// Optional suggestion kind.
+        kind: Option<Value>,
+        /// A colour name or colour record.
         style: Option<Value>,
         /// Read on its own for the same reason as `style`.
         span: Option<Value>,
         /// Extra columns beside the value, in description menus.
         extra: Option<Vec<Text>>,
+        /// Whether to append a space after the value.
+        append_whitespace: Option<bool>,
+        /// Character indices matching the typed text.
+        match_indices: Option<Vec<usize>>,
+    }
+}
+
+/// Convert a custom suggestion kind, defaulting to the value's type.
+fn suggestion_kind(kind: Option<Value>, value: &Value) -> SuggestionKind {
+    let by_type = || SuggestionKind::Value(value.get_type());
+    let Some(kind) = kind else { return by_type() };
+
+    let Ok(name) = kind.as_str() else {
+        report(format!(
+            "a suggestion's `kind` must be a name like `directory` or `command`; got {}",
+            kind.get_type()
+        ));
+        return by_type();
+    };
+
+    match name {
+        "value" => by_type(),
+        "command" => SuggestionKind::Command(CommandType::Custom, None),
+        "cell-path" => SuggestionKind::CellPath,
+        "directory" => SuggestionKind::Directory,
+        "file" => SuggestionKind::File,
+        "flag" => SuggestionKind::Flag,
+        "module" => SuggestionKind::Module,
+        "operator" => SuggestionKind::Operator,
+        "variable" => SuggestionKind::Variable,
+        other => {
+            report(format!(
+                "a suggestion's `kind` is `{other}`; expected one of value, command, \
+                 cell-path, directory, file, flag, module, operator, variable"
+            ));
+            by_type()
+        }
     }
 }
 
@@ -166,11 +205,16 @@ returned_record! {
     }
 }
 
+/// Keys accepted by the completion envelope.
+const ENVELOPE_KEYS: [&str; 3] = ["completions", "options", "fallback"];
+
 /// What a completer or menu source returned, before any options are applied. See the
 /// [module docs](self) for the shapes accepted.
 pub(crate) struct Returned {
     pub(crate) completions: Vec<Value>,
     options: Option<ReturnedOptions>,
+    /// Whether to continue with the next source.
+    fallback: bool,
 }
 
 impl Returned {
@@ -180,41 +224,40 @@ impl Returned {
             Some(Self {
                 completions,
                 options: None,
+                fallback: false,
             })
         };
 
-        // A record is the envelope only when it names one of the two keys; any other record
-        // is a lone suggestion, which is what a menu source returning one has always meant.
+        // Records without envelope keys are treated as lone suggestions.
         let is_envelope = match &value {
-            Value::Record { val, .. } => val.contains("completions") || val.contains("options"),
+            Value::Record { val, .. } => ENVELOPE_KEYS.iter().any(|key| val.contains(key)),
             _ => false,
         };
 
         if is_envelope {
             let mut record = value.into_record().unwrap_or_default();
 
-            // Check for unknown keys
-            let mut unknown_keys = Vec::new();
-            for col in record.columns() {
-                if col != "completions" && col != "options" {
-                    unknown_keys.push(col.clone());
-                }
-            }
-            if !unknown_keys.is_empty() {
+            if let Some(unknown) = record
+                .columns()
+                .find(|column| !ENVELOPE_KEYS.contains(&column.as_str()))
+            {
                 report(format!(
-                    "a completion envelope has unknown fields: {}; expected `completions` or `options`",
-                    unknown_keys.join(", ")
+                    "a completion envelope has no `{unknown}` field; expected one of {}",
+                    ENVELOPE_KEYS.join(", ")
                 ));
             }
 
-            // Read the halves apart, so a bad `options` costs the settings it names and not
-            // every completion returned beside it.
+            // Read each part independently.
             return Some(Self {
                 completions: record
                     .remove("completions")
                     .and_then(|completions| read_part(completions, "`completions`"))
                     .unwrap_or_default(),
                 options: record.remove("options").and_then(ReturnedOptions::read),
+                fallback: record
+                    .remove("fallback")
+                    .and_then(|fallback| read_part(fallback, "`fallback`"))
+                    .unwrap_or(false),
             });
         }
 
@@ -227,7 +270,8 @@ impl Returned {
             other => {
                 report(format!(
                     "a completer must return a list of completions, a record of \
-                     {{completions, options?}} or one suggestion, or null to decline; got {}",
+                     {{completions?, options?, fallback?}} or one suggestion, or null to \
+                     decline; got {}",
                     other.get_type()
                 ));
                 bare(Vec::new())
@@ -250,6 +294,7 @@ impl CompleterOutput {
             options: ctx.options.clone(),
             sort: true,
             filter: narrowing.filters_by_default(),
+            fallback: returned.fallback,
         };
 
         if let Some(options) = returned.options {
@@ -301,10 +346,19 @@ impl CompleterOutput {
         }
     }
 
-    /// Narrow the suggestions against the typed prefix, unless the completer already did.
+    /// Narrow suggestions and preserve the completer's fallback request.
     pub(crate) fn into_fetched(self, ctx: &Context) -> Fetched {
+        let fallback = self.fallback;
+        let outcome = |suggestions| {
+            if fallback {
+                Fetched::Fallthrough(suggestions)
+            } else {
+                Fetched::Cacheable(suggestions)
+            }
+        };
+
         if !self.filter {
-            return Fetched::Cacheable(self.suggestions);
+            return outcome(self.suggestions);
         }
 
         let prefix = ctx.prefix_str();
@@ -324,7 +378,7 @@ impl CompleterOutput {
             }
         }
 
-        Fetched::Cacheable(matcher.suggestion_results())
+        outcome(matcher.suggestion_results())
     }
 }
 
@@ -352,7 +406,7 @@ impl ReturnedSuggestion {
         default_span: reedline::Span,
         clamp: SpanClamp<'_>,
     ) -> SemanticSuggestion {
-        let kind = nu_protocol::SuggestionKind::Value(self.value.get_type());
+        let kind = suggestion_kind(self.kind, &self.value);
 
         SemanticSuggestion {
             suggestion: Suggestion {
@@ -371,7 +425,8 @@ impl ReturnedSuggestion {
                 extra: self
                     .extra
                     .map(|extra| extra.into_iter().map(Into::into).collect()),
-                ..Suggestion::default()
+                append_whitespace: self.append_whitespace.unwrap_or_default(),
+                match_indices: self.match_indices,
             },
             kind: Some(kind),
         }

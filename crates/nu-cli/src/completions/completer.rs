@@ -815,21 +815,23 @@ impl<'a> CompletionSite<'a> {
     }
 }
 
-/// Dispatch output, plus whether the result is cacheable.
+/// Suggestions gathered from a source and its dispatch state.
 #[derive(Default)]
 struct Dispatched {
     suggestions: Vec<SemanticSuggestion>,
     cacheable: bool,
+    fallback: bool,
 }
 
 impl Dispatched {
-    /// Append another dispatch's suggestions, propagating its cacheability.
+    /// Append another dispatch's suggestions and state.
     fn merge(&mut self, other: Dispatched) {
         self.cacheable |= other.cacheable;
+        self.fallback |= other.fallback;
         self.suggestions.extend(other.suggestions);
     }
 
-    /// Merge one source's outcome; report whether it answered.
+    /// Merge one source's outcome and report whether it answered.
     fn absorb(&mut self, attempt: Fetched) -> bool {
         let answered = !attempt.needs_fallback();
         self.merge(attempt.into());
@@ -841,6 +843,7 @@ impl From<Fetched> for Dispatched {
     fn from(fetched: Fetched) -> Self {
         Self {
             cacheable: fetched.is_cacheable(),
+            fallback: fetched.is_fallthrough(),
             suggestions: fetched.into_suggestions(),
         }
     }
@@ -1262,11 +1265,10 @@ impl<'engine> CompletionEngine<'engine> {
         let subcommands =
             self.subcommand_suggestions(working_set, buffer, external_call.span.start, site.cursor);
 
-        // File completion for paths, only when nothing more specific answered.
-        if !external_answered
-            && dispatched.suggestions.is_empty()
-            && subcommands.suggestions.is_empty()
-        {
+        // Add file completion when the source leaves the slot open.
+        let wants_file = subcommands.suggestions.is_empty()
+            && (dispatched.fallback || (!external_answered && dispatched.suggestions.is_empty()));
+        if wants_file {
             dispatched.merge(self.suggestions_at(&mut FileCompletion, completion_context));
         }
 
@@ -1819,7 +1821,8 @@ impl<'engine> CompletionEngine<'engine> {
             return results;
         }
 
-        arg_value.need_fallback &= results.suggestions.is_empty();
+        // A fallthrough result keeps type-based completion enabled.
+        arg_value.need_fallback &= results.suggestions.is_empty() || results.fallback;
         results.merge(arg_value.fetch(context).into());
         results
     }
