@@ -548,12 +548,6 @@ $env.config.filesize.precision = 1
 # Miscellaneous Display
 # ---------------------
 
-# render_right_prompt_on_last_line (bool): Right prompt position with multi-line left prompt.
-# true: Right prompt appears on the last line of the left prompt.
-# false: Right prompt appears on the first line.
-# Default: false
-$env.config.render_right_prompt_on_last_line = false
-
 # float_precision (int): Decimal places for float values in structured output.
 # Default: 2
 $env.config.float_precision = 2
@@ -577,19 +571,34 @@ $env.config.ls.use_ls_colors = true
 # Default: true
 $env.config.ls.clickable_links = true
 
-# -----------------
-# Prompt Indicators
-# -----------------
-# The indicator is appended to the prompt produced by $env.PROMPT_COMMAND.
-# Which one is shown depends on the line editor's current mode, so unlike
-# $env.PROMPT_COMMAND these cannot be derived inside the prompt closure.
+# ------
+# Prompt
+# ------
+# Everything the interactive prompt is built from. The line reads
+# left prompt, then the indicator for the line editor's current mode, with
+# the right prompt flushed to the other edge.
 #
-# The legacy $env.PROMPT_INDICATOR, $env.PROMPT_INDICATOR_VI_INSERT,
+# prompt.left and prompt.right accept a string, used verbatim, or a closure,
+# evaluated once per prompt. The indicators are plain strings: which one is
+# shown depends on the editor mode, so unlike the prompt itself they cannot be
+# derived inside a closure.
+#
+# The legacy $env.PROMPT_COMMAND, $env.PROMPT_COMMAND_RIGHT,
+# $env.PROMPT_INDICATOR, $env.PROMPT_INDICATOR_VI_INSERT,
 # $env.PROMPT_INDICATOR_VI_NORMAL and $env.PROMPT_MULTILINE_INDICATOR
 # variables still take precedence when set, but are deprecated.
 #
 # Indicators are colored by the line editor. To style one yourself, include
 # the escape codes in the value, e.g. $"(ansi light_red)> ".
+
+# prompt.left (string|closure|null): The main prompt.
+# null falls back to the line editor's built-in prompt.
+# Default: a closure showing the current directory, set in default_env.nu
+# $env.config.prompt.left = {|| $"(pwd) " }
+
+# prompt.right (string|closure|null): The right-aligned prompt.
+# Default: a closure showing the time and last exit code, set in default_env.nu
+# $env.config.prompt.right = {|| date now | format date "%d-%a %r" }
 
 # prompt.indicator (string): Shown in emacs mode and whenever no edit mode applies.
 # Default: "> "
@@ -612,18 +621,41 @@ $env.config.prompt.vi_visual = "v "
 # Default: "::: "
 $env.config.prompt.multiline = "::: "
 
+# prompt.render_right_on_last_line (bool): Right prompt position with a
+# multi-line left prompt.
+# true: Right prompt appears on the last line of the left prompt.
+# false: Right prompt appears on the first line.
+# Renamed from $env.config.render_right_prompt_on_last_line in 0.115.0. The old
+# name now reports as deprecated on assignment; rename it in your config.nu.
+# Default: false
+$env.config.prompt.render_right_on_last_line = false
+
 # The transient prompt replaces the real one in scrollback once a line is
 # submitted, which is useful for condensing a multi-line prompt into something
 # compact. Every key below mirrors one above.
 #
 # Setting a key to null keeps whatever the live prompt showed, so only the
-# segments worth condensing need spelling out.
+# segments worth condensing need spelling out. The two keys defaulting to ""
+# below used to be environment variables seeded at startup, which meant
+# `hide-env TRANSIENT_PROMPT_COMMAND_RIGHT` was how you got the live value
+# back. Nothing is seeded any more, so set the key to null instead.
 #
-# The legacy $env.TRANSIENT_PROMPT_INDICATOR,
+# The legacy $env.TRANSIENT_PROMPT_COMMAND,
+# $env.TRANSIENT_PROMPT_COMMAND_RIGHT, $env.TRANSIENT_PROMPT_INDICATOR,
 # $env.TRANSIENT_PROMPT_INDICATOR_VI_INSERT,
 # $env.TRANSIENT_PROMPT_INDICATOR_VI_NORMAL and
 # $env.TRANSIENT_PROMPT_MULTILINE_INDICATOR variables still take precedence
 # when set, but are deprecated.
+
+# prompt.transient.left (string|closure|null): Replaces prompt.left.
+# Default: null
+$env.config.prompt.transient.left = null
+
+# prompt.transient.right (string|closure|null): Replaces prompt.right.
+# Unlike the others this defaults to empty rather than null: a right prompt is
+# usually a timestamp, which is noise once the line has been submitted.
+# Default: ""
+$env.config.prompt.transient.right = ""
 
 # prompt.transient.indicator (string|null): Replaces prompt.indicator.
 # Default: null
@@ -1359,63 +1391,22 @@ $env.config.explore.try.reactive = false
 # ------
 # PROMPT_ variables accept either a string or a closure that returns a string.
 
+# Every PROMPT_ variable below, transient ones included, is deprecated since
+# 0.115.0. They still take precedence when set, but $env.config.prompt is the
+# supported way to configure the prompt. See the "Prompt" section above.
+#
+# None of them is seeded at startup any more, so they now exist only if you set
+# one yourself. Code that *reads* a PROMPT_ variable to discover the current
+# prompt has to read $env.config.prompt instead; code that *writes* one to
+# install a prompt keeps working unchanged.
+
 # PROMPT_COMMAND: Defines the primary prompt.
-# Note: $env.config.prompt.indicator is appended to this value.
-# Default: A closure that displays the current directory with colors.
-$env.PROMPT_COMMAND = {||
-    let dir = match (do -i { $env.PWD | path relative-to $nu.home-dir }) {
-        null => $env.PWD
-        '' => '~'
-        $relative_pwd => ([~ $relative_pwd] | path join)
-    }
-
-    let colors: record<path: string, separator: string> = match [(config use-colors), (is-admin)] {
-        [false, _] => {path: '', separator: ''}
-        [true, true] => {path: (ansi red_bold), separator: (ansi light_red_bold)}
-        [true, false] => {path: (ansi green_bold), separator: (ansi light_green_bold)}
-    }
-    let path_segment = $"($colors.path)($dir)(ansi reset)"
-
-    $path_segment | str replace --all (char path_sep) $"($colors.separator)(char path_sep)($colors.path)"
-}
-
-# Example: Static string prompt:
-# $env.PROMPT_COMMAND = "Nushell"
-
-# Example: Simple prompt showing just the current directory:
-# $env.PROMPT_COMMAND = {|| pwd }
+# Deprecated: use $env.config.prompt.left
+# $env.PROMPT_COMMAND = {|| $"(pwd) " }
 
 # PROMPT_COMMAND_RIGHT: Defines a right-aligned prompt.
-# Default: A closure that displays the date/time and last exit code.
-$env.PROMPT_COMMAND_RIGHT = {||
-    # create a right prompt in magenta with green separators and am/pm underlined
-    let colors: record<date: string, separator: string, ampm: string, fail: string> = if (config use-colors) {
-        {date: (ansi magenta), separator: (ansi green), ampm: (ansi magenta_underline), fail: (ansi red_bold)}
-    } else {
-        {date: '', separator: '', ampm: '', fail: ''}
-    }
-    let time_segment = ([
-        (ansi reset)
-        $colors.date
-        (date now | format date '%x %X') # try to respect user's locale
-    ] | str join | str replace --regex --all "([/:])" $"($colors.separator)${1}($colors.date)" |
-        str replace --regex --all "([AP]M)" $"($colors.ampm)${1}")
-
-    let last_exit_code = if ($env.LAST_EXIT_CODE != 0) {([
-        $colors.fail
-        $env.LAST_EXIT_CODE
-    ] | str join)
-    } else { "" }
-
-    ([$last_exit_code, (char space), $time_segment] | str join)
-}
-
-# Example: Simple right prompt with just date/time:
+# Deprecated: use $env.config.prompt.right
 # $env.PROMPT_COMMAND_RIGHT = {|| date now | format date "%d-%a %r" }
-
-# The indicator variables below, transient ones included, are deprecated since
-# 0.115.0. They still take precedence when set, but $env.config.prompt is the
-# supported way to configure them. See the "Prompt Indicators" section above.
 
 # PROMPT_INDICATOR: Characters shown after PROMPT_COMMAND in emacs mode.
 # Deprecated: use $env.config.prompt.indicator
@@ -1440,7 +1431,8 @@ $env.PROMPT_COMMAND_RIGHT = {||
 # Useful for condensing multi-line prompts in scrollback history.
 
 # TRANSIENT_PROMPT_COMMAND: Alternative prompt shown after command execution.
-$env.TRANSIENT_PROMPT_COMMAND = "🚀 "
+# Deprecated: use $env.config.prompt.transient.left
+# $env.TRANSIENT_PROMPT_COMMAND = "🚀 "
 
 # TRANSIENT_PROMPT_INDICATOR: Transient version of PROMPT_INDICATOR.
 # Deprecated: use $env.config.prompt.transient.indicator
@@ -1459,7 +1451,8 @@ $env.TRANSIENT_PROMPT_COMMAND = "🚀 "
 # $env.TRANSIENT_PROMPT_MULTILINE_INDICATOR = ""
 
 # TRANSIENT_PROMPT_COMMAND_RIGHT: Transient version of right prompt.
-$env.TRANSIENT_PROMPT_COMMAND_RIGHT = ""
+# Deprecated: use $env.config.prompt.transient.right
+# $env.TRANSIENT_PROMPT_COMMAND_RIGHT = ""
 
 # Tip: Removing transient multiline indicator and right-prompt can simplify copying from terminal.
 
