@@ -90,11 +90,7 @@ fn into_sqlite_values(playground: Playground) -> Result {
 /// table. In the event that a column is null, we can't know what type the row
 /// should be, so we just assume TEXT.
 #[test]
-#[deps(NU)]
 fn into_sqlite_values_first_column_null(playground: Playground) -> Result {
-    let testdir = playground.path();
-    let testdb_path =
-        testdir.join(testdir.file_name().unwrap().to_str().unwrap().to_owned() + ".db");
     let expected = vec![
         TestRow(
             false,
@@ -120,20 +116,14 @@ fn into_sqlite_values_first_column_null(playground: Playground) -> Result {
         ),
     ];
 
-    let testdb = testdb_path.to_string_lossy().into_owned();
-    let child_code = format!(
-        r#"let db = {:?}; [
+    let testdb_path = make_sqlite_db(
+        playground.path(),
+        r#"[
                 [somebool, someint, somefloat, somefilesize, someduration, somedate, somestring, somebinary, somenull];
                 [false, 2, 3.0, 2mb, 4wk, "2020-09-10T12:30:00-00:00", "bar", ("wut" | into binary), null],
                 [true, 1, 2.0, 1kb, 1sec, "2023-09-10T11:30:00-00:00", "foo", ("binary" | into binary), 1],
-            ] | into sqlite $db"#,
-        testdb.as_str()
-    );
-    let result: CompleteResult = test().cwd(testdir).run_with_data(
-        "let child_code = $in; nu -n -c $child_code | complete",
-        child_code,
+            ]"#,
     )?;
-    assert_eq!(0, result.exit_code, "{}", result.stderr);
 
     let conn = rusqlite::Connection::open(testdb_path).unwrap();
     let mut stmt = conn.prepare("SELECT * FROM main;").unwrap();
@@ -244,26 +234,18 @@ fn into_sqlite_values_first_column_null_preexisting_db(playground: Playground) -
 
 /// Opening a preexisting database should append to it
 #[test]
-#[deps(NU)]
 fn into_sqlite_existing_db_append(playground: Playground) -> Result {
     let testdir = playground.path();
-    let testdb_path =
-        testdir.join(testdir.file_name().unwrap().to_str().unwrap().to_owned() + ".db");
-    let testdb = testdb_path.to_string_lossy().into_owned();
+    let testdb_path = testdir.join("test.db");
 
     // create a new DB with only one row
-    let child_code = format!(
-        r#"let db = {:?}; [
+    let () = test().cwd(testdir).run_with_data(
+        r#"let db = $in; [
                 [somebool, someint, somefloat, somefilesize, someduration, somedate, somestring, somebinary, somenull];
                 [true, 1, 2.0, 1kb, 1sec, "2023-09-10T11:30:00-00:00", "foo", ("binary" | into binary), null],
             ] | into sqlite $db"#,
-        testdb.as_str()
-    );
-    let result: CompleteResult = test().cwd(testdir).run_with_data(
-        "let child_code = $in; nu -n -c $child_code | complete",
-        child_code,
+        testdb_path.clone(),
     )?;
-    assert_eq!(0, result.exit_code, "{}", result.stderr);
 
     let expected = vec![TestRow(
         true,
@@ -286,18 +268,13 @@ fn into_sqlite_existing_db_append(playground: Playground) -> Result {
     assert_eq!(expected, actual_rows);
 
     // open the same DB again and write one row
-    let child_code = format!(
-        r#"let db = {:?}; [
+    let () = test().cwd(testdir).run_with_data(
+        r#"let db = $in; [
                 [somebool, someint, somefloat, somefilesize, someduration, somedate, somestring, somebinary, somenull];
                 [false, 2, 3.0, 2mb, 4wk, "2020-09-10T12:30:00-00:00", "bar", ("wut" | into binary), null],
             ] | into sqlite $db"#,
-        testdb.as_str()
-    );
-    let result: CompleteResult = test().cwd(testdir).run_with_data(
-        "let child_code = $in; nu -n -c $child_code | complete",
-        child_code,
+        testdb_path.clone(),
     )?;
-    assert_eq!(0, result.exit_code, "{}", result.stderr);
 
     let expected = vec![
         TestRow(
@@ -338,7 +315,6 @@ fn into_sqlite_existing_db_append(playground: Playground) -> Result {
 /// Test inserting a good number of randomly generated rows to test an actual
 /// streaming pipeline instead of a simple value
 #[test]
-#[deps(NU)]
 fn into_sqlite_big_insert(playground: Playground) -> Result {
     let engine_state = EngineState::new();
     // don't serialize closures
@@ -388,19 +364,11 @@ fn into_sqlite_big_insert(playground: Playground) -> Result {
     }
 
     let testdir = playground.path();
-    let testdb_path =
-        testdir.join(testdir.file_name().unwrap().to_str().unwrap().to_owned() + ".db");
-    let testdb = testdb_path.to_string_lossy().into_owned();
-    let child_code = format!(
-        "let db = {:?}; open --raw {} | lines | each {{ from nuon }} | into sqlite $db",
-        testdb.as_str(),
-        nuon_path.to_string_lossy()
-    );
-    let result: CompleteResult = test().cwd(testdir).run_with_data(
-        "let child_code = $in; nu -n -c $child_code | complete",
-        child_code,
+    let testdb_path = testdir.join("test.db");
+    let () = test().cwd(testdir).run_with_data(
+        "let db = $in; open --raw data.nuon | lines | each { from nuon } | into sqlite $db",
+        testdb_path.clone(),
     )?;
-    assert_eq!(0, result.exit_code, "{}", result.stderr);
 
     let conn = rusqlite::Connection::open(testdb_path).unwrap();
     let mut stmt = conn.prepare("SELECT * FROM main;").unwrap();
@@ -524,8 +492,7 @@ impl Distribution<TestRow> for StandardUniform {
 }
 
 fn make_sqlite_db(testdir: &Path, nu_table: &str) -> Result<std::path::PathBuf> {
-    let testdb_path =
-        testdir.join(testdir.file_name().unwrap().to_str().unwrap().to_owned() + ".db");
+    let testdb_path = testdir.join("test.db");
 
     let () = test().cwd(testdir).run_with_data(
         format!("let db = $in; {nu_table} | into sqlite $db"),
