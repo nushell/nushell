@@ -576,5 +576,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
     let table_decl_id = engine_state.find_decl("table".as_bytes(), &[]);
     engine_state.table_decl_id = table_decl_id;
 
+    engine_state.structured_io_decode = Some(crate::decode_tagged_structured_io);
+
     engine_state
 }

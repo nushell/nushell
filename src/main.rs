@@ -297,11 +297,19 @@ fn main() -> Result<()> {
     let is_lsp = false;
     engine_state.is_lsp = is_lsp;
 
-    let ancestor_nu = parsed_nu_cli_args.structured_io.is_none()
-        && nu_system::ancestor_is_nushell(nu_system::NUSHELL_ANCESTOR_MAX_DEPTH);
-    let mut structured_io = if let Some(value) = &parsed_nu_cli_args.structured_io {
-        StructuredIoMode::from_flag_str(&value.item)
-    } else if ancestor_nu {
+    // Plugin stdio transport is `nu --stdin plugin.nu --stdio`: stdin/stdout stay
+    // open for the protocol. Ancestor inference would slurp stdin to EOF and
+    // wrap stdout as NUON, deadlocking the parent on the handshake.
+    let plugin_stdio = std::env::args().any(|arg| arg == "--stdio");
+    let from_ancestor =
+        !plugin_stdio && nu_system::ancestor_is_nushell(nu_system::NUSHELL_ANCESTOR_MAX_DEPTH);
+    let flag_mode = parsed_nu_cli_args
+        .structured_io
+        .as_ref()
+        .map(|value| StructuredIoMode::from_flag_str(&value.item));
+    let mut structured_io = if let Some(mode) = flag_mode {
+        mode
+    } else if from_ancestor {
         StructuredIoMode {
             input: false,
             output: nu_system::stdio_is_pipe(nu_system::StdioFd::Stdout),
@@ -309,6 +317,9 @@ fn main() -> Result<()> {
     } else {
         StructuredIoMode::default()
     };
+    // `--structured-io=out` still allows a framed stdin from a parent nu.
+    // `--structured-io=false` turns that off.
+    let infer_stdin_frame = from_ancestor && flag_mode != Some(StructuredIoMode::default());
     // keep this condition in sync with the branches at the end
     engine_state.is_interactive = parsed_nu_cli_args.interactive_shell.is_some()
         || (parsed_nu_cli_args.commands.is_none() && script_name.is_empty() && !is_lsp);
@@ -534,7 +545,7 @@ fn main() -> Result<()> {
     let input = if structured_io.input {
         trace!("reading structured stdin");
         nu_command::read_structured_stdin()?
-    } else if ancestor_nu && nu_system::stdio_is_pipe(nu_system::StdioFd::Stdin) {
+    } else if infer_stdin_frame && nu_system::stdio_is_pipe(nu_system::StdioFd::Stdin) {
         match nu_command::read_startup_stdin(false)? {
             nu_command::StartupStdin::Structured(data) => {
                 structured_io.input = true;

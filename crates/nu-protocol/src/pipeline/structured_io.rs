@@ -1,3 +1,6 @@
+/// Pipeline metadata `content_type` for a live child `nu` that will emit framed NUON.
+pub const STRUCTURED_IO_CONTENT_TYPE: &str = "application/x-nushell-structured";
+
 /// Sides of the parent/child NUON handshake, passed as `--structured-io=` on argv.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct StructuredIoMode {

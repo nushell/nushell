@@ -1,7 +1,7 @@
 use crate::{
     BlockId, Config, DeclId, FileId, GetSpan, Handlers, HistoryConfig, JobId, Module, ModuleId,
-    OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type, Value, VarId,
-    VirtualPathId,
+    OverlayId, PipelineData, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type,
+    Value, VarId, VirtualPathId,
     ast::{Block, Expr},
     debugger::{Debugger, NoopDebugger},
     engine::{
@@ -158,6 +158,10 @@ pub struct EngineState {
     pub structured_io_input: bool,
     /// Child should emit the last pipeline value as NUON instead of a table.
     pub structured_io_output: bool,
+    /// Decode a framed NUON byte stream from a child `nu`. Set by `nu-command`.
+    /// Applied to internal commands and value collection, not to `run-external`
+    /// (that would `into_bytes()` a live pipe and serialize `nu | nu`).
+    pub structured_io_decode: Option<fn(PipelineData, Span) -> Result<PipelineData, ShellError>>,
     startup_time: i64,
     is_debugging: IsDebugging,
     pub debugger: Arc<Mutex<Box<dyn Debugger>>>,
@@ -270,6 +274,7 @@ impl EngineState {
             is_mcp: false,
             structured_io_input: false,
             structured_io_output: false,
+            structured_io_decode: None,
             startup_time: -1,
             is_debugging: IsDebugging::new(false),
             debugger: Arc::new(Mutex::new(Box::new(NoopDebugger))),
@@ -287,6 +292,20 @@ impl EngineState {
 
     pub fn signals(&self) -> &Signals {
         &self.signals
+    }
+
+    /// Parse framed NUON from a child `nu` byte stream. No-op for values and when unset.
+    ///
+    /// Skip this for `run-external` so a live child pipe can be `into_stdio`'d.
+    pub fn decode_structured_io(
+        &self,
+        data: PipelineData,
+        span: Span,
+    ) -> Result<PipelineData, ShellError> {
+        match (self.structured_io_decode, &data) {
+            (Some(decode), PipelineData::ByteStream(..)) => decode(data, span),
+            _ => Ok(data),
+        }
     }
 
     /// Return a compiled regex, reusing the process-wide LRU cache when possible.

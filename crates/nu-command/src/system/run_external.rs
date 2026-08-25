@@ -7,7 +7,8 @@ use nu_cmd_base::hook::eval_hook;
 use nu_engine::{command_prelude::*, env_to_strings};
 use nu_path::{AbsolutePath, dots::expand_ndots_safe, expand_tilde};
 use nu_protocol::{
-    ByteStream, NuGlob, OutDest, Signals, UseAnsiColoring, did_you_mean,
+    ByteStream, NuGlob, OutDest, PipelineMetadata, STRUCTURED_IO_CONTENT_TYPE, Signals,
+    UseAnsiColoring, did_you_mean,
     process::{ChildProcess, PostWaitCallback},
     shell_error::io::IoError,
 };
@@ -399,8 +400,12 @@ If you create a custom command with this name, that will be used instead."
             )),
         )?;
 
-        let output = PipelineData::byte_stream(ByteStream::child(child, call.head), None);
-        if structured_io.output {
+        let collect_now = structured_io.output && matches!(stack.stdout(), OutDest::Value);
+        let metadata = (structured_io.output && !collect_now).then(|| {
+            PipelineMetadata::default().with_content_type(Some(STRUCTURED_IO_CONTENT_TYPE.into()))
+        });
+        let output = PipelineData::byte_stream(ByteStream::child(child, call.head), metadata);
+        if collect_now {
             decode_structured_pipeline(output, call.head)
         } else {
             Ok(output)

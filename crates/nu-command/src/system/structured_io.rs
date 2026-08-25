@@ -1,5 +1,6 @@
 use nu_protocol::{
-    ByteStream, ByteStreamType, PipelineData, ShellError, Signals, Span, Spanned, StructuredIoMode,
+    ByteStream, ByteStreamType, PipelineData, STRUCTURED_IO_CONTENT_TYPE, ShellError, Signals,
+    Span, Spanned, StructuredIoMode,
     engine::EngineState,
     shell_error::{generic::GenericError, io::IoError},
 };
@@ -135,6 +136,22 @@ pub fn encode_structured_pipeline(
     Ok(())
 }
 
+/// Decode only streams tagged by `run-external` as a structured child `nu`.
+/// Untagged pipes (`--stdin`, plugin stdio, ordinary externals) stay live.
+pub fn decode_tagged_structured_io(
+    data: PipelineData,
+    span: Span,
+) -> Result<PipelineData, ShellError> {
+    match &data {
+        PipelineData::ByteStream(_, Some(meta))
+            if meta.content_type.as_deref() == Some(STRUCTURED_IO_CONTENT_TYPE) =>
+        {
+            decode_structured_pipeline(data, span)
+        }
+        _ => Ok(data),
+    }
+}
+
 pub fn decode_structured_pipeline(
     data: PipelineData,
     span: Span,
@@ -156,8 +173,11 @@ pub fn decode_structured_pipeline(
     }
 
     // Only parse NUON when the child opted in with the frame. Bare text from
-    // `nu script.nu` (python, `print`, virtualenv, ...) stays a byte stream.
+    // `nu script.nu` (python, `print`, virtualenv, `exec`, ...) stays a byte stream.
+    // Collecting the child into a `Read` cursor drops `is_external`, so trim the
+    // trailing newline here the same way `ByteStream::into_value` does for a child.
     if !bytes.starts_with(STRUCTURED_IO_HEADER) {
+        let bytes = trim_trailing_newline_if_utf8(bytes);
         return Ok(PipelineData::byte_stream(
             ByteStream::read(
                 Cursor::new(bytes),
@@ -269,6 +289,19 @@ pub fn read_startup_stdin(require_nuon: bool) -> Result<StartupStdin, ShellError
 
 fn strip_structured_io_header(bytes: &[u8]) -> &[u8] {
     bytes.strip_prefix(STRUCTURED_IO_HEADER).unwrap_or(bytes)
+}
+
+fn trim_trailing_newline_if_utf8(mut bytes: Vec<u8>) -> Vec<u8> {
+    if std::str::from_utf8(&bytes).is_err() {
+        return bytes;
+    }
+    if bytes.ends_with(b"\n") {
+        bytes.pop();
+        if bytes.ends_with(b"\r") {
+            bytes.pop();
+        }
+    }
+    bytes
 }
 
 pub fn is_nushell_child(resolved: &Path, invoked: &Path) -> bool {

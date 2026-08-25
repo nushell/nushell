@@ -300,7 +300,7 @@ impl PipelineData {
     /// [`OutDest::Print`], the [`PipelineData`] is drained and printed. Otherwise, the
     /// [`PipelineData`] is drained, but only printed if it is the output of an external command.
     pub fn drain_to_out_dests(
-        mut self,
+        self,
         engine_state: &EngineState,
         stack: &mut Stack,
     ) -> Result<Self, ShellError> {
@@ -311,9 +311,10 @@ impl PipelineData {
             }
             OutDest::Pipe | OutDest::PipeSeparate => Ok(self),
             OutDest::Value => {
-                let metadata = self.take_metadata();
                 let span = self.span().unwrap_or(Span::unknown());
-                self.into_value(span).map(|val| Self::Value(val, metadata))
+                let mut this = engine_state.decode_structured_io(self, span)?;
+                let metadata = this.take_metadata();
+                this.into_value(span).map(|val| Self::Value(val, metadata))
             }
             OutDest::File(file) => {
                 self.write_to(file.as_ref())?;
