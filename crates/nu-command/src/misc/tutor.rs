@@ -349,9 +349,11 @@ $x
 ```
 Nushell also comes with built-in variables. The `$nu` variable is a reserved
 variable that contains a lot of information about the currently running
-instance of Nushell. The `$it` variable is the name given to closure parameters
-if you don't specify one. And `$in` is the variable that allows you to work
-with all of the data coming in from the pipeline in one place.
+instance of Nushell. The `$env` variable contains the environment variables
+available to the current Nushell process. The `$it` variable is the name given
+to row-condition closure parameters if you don't specify one. And `$in` is the 
+variable that allows you to work with all of the data coming in from the 
+pipeline in one place.
 
 "
 }
