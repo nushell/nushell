@@ -3,6 +3,7 @@ use indoc::indoc;
 =======
 >>>>>>> 4f4a9394c (fixed some warnings)
 use nu_test_support::prelude::*;
+use indoc::indoc;
 
 #[test]
 #[deps(NU_PLUGIN_FORMATS)]
@@ -10,6 +11,9 @@ fn infers_types(playground: Playground) -> Result {
     playground.file(
         "calendar.ics",
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> d1641e166 (fix a handful of tests)
         indoc! {"
             BEGIN:VCALENDAR
             PRODID:-//Google Inc//Google Calendar 70.9054//EN
@@ -44,6 +48,7 @@ fn infers_types(playground: Playground) -> Result {
             END:VEVENT
             END:VCALENDAR
         "},
+<<<<<<< HEAD
 =======
         indoc::indoc! {"
         BEGIN:VCALENDAR
@@ -80,6 +85,8 @@ fn infers_types(playground: Playground) -> Result {
         END:VCALENDAR
     "},
 >>>>>>> 926ed3f27 (fmt)
+=======
+>>>>>>> d1641e166 (fix a handful of tests)
     )?;
 
     test()
@@ -93,8 +100,12 @@ fn infers_types(playground: Playground) -> Result {
 fn from_ics_text_to_table(playground: Playground) -> Result {
     playground.file(
         "calendar.txt",
+<<<<<<< HEAD
         indoc::indoc! {"
 <<<<<<< HEAD
+=======
+        indoc! {"
+>>>>>>> d1641e166 (fix a handful of tests)
             BEGIN:VCALENDAR
             BEGIN:VEVENT
             DTSTART:20171007T200000Z
@@ -112,6 +123,7 @@ fn from_ics_text_to_table(playground: Playground) -> Result {
             END:VEVENT
             END:VCALENDAR
         "},
+<<<<<<< HEAD
 =======
         BEGIN:VCALENDAR
         BEGIN:VEVENT
@@ -131,6 +143,8 @@ fn from_ics_text_to_table(playground: Playground) -> Result {
         END:VCALENDAR
     "},
 >>>>>>> 926ed3f27 (fmt)
+=======
+>>>>>>> d1641e166 (fix a handful of tests)
     )?;
 
     let code = r#"
@@ -154,7 +168,11 @@ fn from_ics_text_to_table(playground: Playground) -> Result {
 fn from_ics_text_with_linebreak_to_table(playground: Playground) -> Result {
     playground.file(
         "calendar.txt",
+<<<<<<< HEAD
         indoc! { "
+=======
+        indoc! {"
+>>>>>>> d1641e166 (fix a handful of tests)
             BEGIN:VCALENDAR
             BEGIN:VEVENT
             DTSTART:20171007T200000Z
@@ -173,8 +191,12 @@ fn from_ics_text_with_linebreak_to_table(playground: Playground) -> Result {
             TRANSP:TRANSPARENT
             END:VEVENT
             END:VCALENDAR
+<<<<<<< HEAD
         ",
         },
+=======
+        "}
+>>>>>>> d1641e166 (fix a handful of tests)
     )?;
 
     let code = r#"

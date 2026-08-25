@@ -395,7 +395,11 @@ fn test_use_with_printing_file_pwd(playground: Playground) -> Result {
 
 #[test]
 fn test_use_with_printing_current_file(playground: Playground) -> Result {
+<<<<<<< HEAD
     let file = playground.file(
+=======
+    let path = playground.file(
+>>>>>>> d1641e166 (fix a handful of tests)
         "mod.nu",
         "
             export-env {
@@ -407,7 +411,11 @@ fn test_use_with_printing_current_file(playground: Playground) -> Result {
     test()
         .cwd(playground.path())
         .run("use .; $env.CAPTURED_CURRENT_FILE")
+<<<<<<< HEAD
         .expect_value_eq(file)
+=======
+        .expect_value_eq(path)
+>>>>>>> d1641e166 (fix a handful of tests)
 }
 
 #[test]

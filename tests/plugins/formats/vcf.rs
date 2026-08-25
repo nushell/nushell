@@ -1,4 +1,5 @@
 use nu_test_support::prelude::*;
+use indoc::indoc;
 
 #[test]
 #[deps(NU_PLUGIN_FORMATS)]
@@ -75,7 +76,11 @@ fn from_vcf_text_to_table(playground: Playground) -> Result {
 fn from_vcf_text_with_linebreak_to_table(playground: Playground) -> Result {
     playground.file(
         "contacts.txt",
+<<<<<<< HEAD
         indoc::indoc! { r"
+=======
+        indoc! {r"
+>>>>>>> d1641e166 (fix a handful of tests)
             BEGIN:VCARD
             VERSION:3.0
             FN:John Doe
@@ -90,8 +95,12 @@ fn from_vcf_text_with_linebreak_to_table(playground: Playground) -> Result {
             NOTE:Facebook: john.doe.3\nWebsite: \nHometown: Cleveland\, Ohio
             CATEGORIES:myContacts
             END:VCARD
+<<<<<<< HEAD
         "},
     )?;
+=======
+        "})?;
+>>>>>>> d1641e166 (fix a handful of tests)
 
     let code = r#"
         open contacts.txt
