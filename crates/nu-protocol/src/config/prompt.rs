@@ -22,6 +22,9 @@ pub struct PromptConfig {
     pub vi_visual: String,
     /// Shown on continuation lines of a multiline entry.
     pub multiline: String,
+    /// Whether the right prompt sits on the last line of a multi-line left
+    /// prompt. Renamed from `$env.config.render_right_prompt_on_last_line`.
+    pub render_right_on_last_line: bool,
     /// Overrides applied once a line is submitted and the prompt is redrawn.
     pub transient: TransientPromptConfig,
 }
@@ -38,6 +41,7 @@ impl Default for PromptConfig {
             vi_normal: "> ".into(),
             vi_visual: "v ".into(),
             multiline: "::: ".into(),
+            render_right_on_last_line: false,
             transient: TransientPromptConfig::default(),
         }
     }
@@ -167,6 +171,9 @@ impl UpdateFromValue for PromptConfig {
                 "vi_normal" => self.vi_normal.update(val, path, errors),
                 "vi_visual" => self.vi_visual.update(val, path, errors),
                 "multiline" => self.multiline.update(val, path, errors),
+                "render_right_on_last_line" => {
+                    self.render_right_on_last_line.update(val, path, errors)
+                }
                 "transient" => self.transient.update(val, path, errors),
                 _ => errors.unknown_option(path, val),
             }
@@ -191,6 +198,7 @@ mod tests {
                 vi_normal: "n ".into(),
                 vi_visual: "V ".into(),
                 multiline: ".. ".into(),
+                render_right_on_last_line: true,
                 transient: TransientPromptConfig {
                     left: Some(Value::test_string("tleft ")),
                     right: Some(Value::test_string("tright ")),
@@ -210,6 +218,7 @@ mod tests {
                 "vi_normal" => Value::test_string("n "),
                 "vi_visual" => Value::test_string("V "),
                 "multiline" => Value::test_string(".. "),
+                "render_right_on_last_line" => Value::test_bool(true),
                 "transient" => Value::test_record(record! {
                     "left" => Value::test_string("tleft "),
                     "right" => Value::test_string("tright "),

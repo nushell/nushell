@@ -87,7 +87,7 @@ fn build_prompt_contents(
         // Config-only: vi visual used to reuse the vi normal indicator.
         vi_visual: Some(Arc::from(prompt.vi_visual.as_str())),
         multiline: Some(Arc::from(multiline)),
-        render_right_on_last_line: config.render_right_prompt_on_last_line,
+        render_right_on_last_line: prompt.render_right_on_last_line,
     }
 }
 
