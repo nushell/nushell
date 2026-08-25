@@ -78,18 +78,15 @@ fn from_filesize(playground: Playground) -> Result {
     playground.file(
         "sample.toml",
         indoc::indoc! {r#"
-        [dependency]
-        name = "nu"
-    "#},
+            [dependency]
+            name = "nu"
+        "#},
     )?;
-
-    let code = "ls sample.toml | get size | into string | get 0";
-    let expected = if cfg!(windows) { "27 B" } else { "25 B" };
 
     test()
         .cwd(playground.path())
-        .run(code)
-        .expect_value_eq(expected)
+        .run("ls sample.toml | get size | into string | get 0")
+        .expect_value_eq("25 B")
 }
 
 #[test]

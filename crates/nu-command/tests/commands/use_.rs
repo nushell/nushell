@@ -3,10 +3,8 @@ use rstest::rstest;
 
 #[test]
 fn use_module_file_within_block(playground: Playground) -> Result {
-    let file = playground.path().join("spam.nu");
-
     playground.file(
-        file.as_os_str().to_str().unwrap(),
+        "spam.nu",
         r#"
             export def foo [] {
                 echo "hello world"
@@ -30,10 +28,8 @@ fn use_module_file_within_block(playground: Playground) -> Result {
 
 #[test]
 fn use_keeps_doc_comments(playground: Playground) -> Result {
-    let file = playground.path().join("spam.nu");
-
     playground.file(
-        file.as_os_str().to_str().unwrap(),
+        "spam.nu",
         r#"
             # this is my foo command
             export def foo [
@@ -339,9 +335,8 @@ fn can_use_sub_subname_from_submodule() -> Result {
 
 #[test]
 fn test_use_with_printing_file_pwd(playground: Playground) -> Result {
-    let file = playground.path().join("mod.nu");
     playground.file(
-        file.as_os_str().to_str().unwrap(),
+        "mod.nu",
         "
             export-env {
                 $env.CAPTURED_FILE_PWD = $env.FILE_PWD
@@ -352,7 +347,7 @@ fn test_use_with_printing_file_pwd(playground: Playground) -> Result {
     test()
         .cwd(playground.path())
         .run("use .; $env.CAPTURED_FILE_PWD")
-        .expect_value_eq(playground.path().to_string_lossy())
+        .expect_value_eq(playground.path())
 }
 
 #[test]
