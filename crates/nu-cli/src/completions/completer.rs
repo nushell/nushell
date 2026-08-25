@@ -579,7 +579,9 @@ fn isolated_stack(parent: Arc<Stack>, suppress_stdin: bool) -> Arc<Stack> {
 fn site_completer(site: &CompletionSite, working_set: &StateWorkingSet) -> Option<SiteCompleter> {
     let call = match &site.kind {
         SiteKind::ExternalArg { .. } => return Some(SiteCompleter::External),
-        SiteKind::FlagValue { call, .. } | SiteKind::Positional { call, .. } => *call,
+        SiteKind::FlagName { call, .. }
+        | SiteKind::FlagValue { call, .. }
+        | SiteKind::Positional { call, .. } => *call,
         _ => return None,
     };
     let signature = working_set.get_decl(call.decl_id).signature();

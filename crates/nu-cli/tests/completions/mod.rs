@@ -1026,6 +1026,27 @@ fn interactive_completer_runs_inline() {
     match_suggestions(&vec!["alpha"], result.suggestions());
 }
 
+/// Routing also sees the command-wide `@interactive` completer at a flag *name*, where
+/// `complete_flag_names` merges it.
+#[test]
+fn interactive_command_wide_completer_runs_inline_at_a_flag_name() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = "\
+        @interactive
+        def comp [token] { [--alpha --beta] }
+        @complete comp
+        def my-command [--alpha, --beta] {}";
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let line = "my-command --al";
+    let result = completer.complete(line, line.len());
+    assert!(
+        matches!(result, CompletionResult::Fresh { .. }),
+        "an @interactive command-wide completer must run inline at a flag name, got {result:?}"
+    );
+}
+
 /// The external completer is a closure and cannot carry `@interactive`; it opts into the
 /// inline lane through `completions.external.interactive`.
 #[test]
