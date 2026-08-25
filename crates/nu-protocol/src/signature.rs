@@ -1,6 +1,6 @@
 use crate::{
     BlockId, CompareTypes, DeclId, DeprecationEntry, Example, FromValue, IntoValue, PipelineData,
-    ShellError, Span, SyntaxShape, Type, TypeRelation, TypeSet, Value, VarId,
+    ShellError, Span, SyntaxShape, Type, TypeSet, Value, VarId,
     engine::{Call, Command, CommandType, EngineState, Stack},
     shell_error::generic::GenericError,
 };
@@ -377,24 +377,26 @@ impl PartialEq for Signature {
 
 impl Eq for Signature {}
 
-/// Lower is more specific. `None` means the input is not assignable to the declared type.
-///
-/// A declared [`Type::Any`] is a catch-all (often used to disable input checking or cover
-/// flag-only modes). It must lose to every more specific pair. Otherwise an unknown pipeline
-/// input such as `http get | into datetime` picks `(any, table)` over `(string, datetime)`.
-fn io_match_rank(input: &Type, declared: &Type) -> Option<u8> {
-    if !input.is_assignable_to(declared) {
-        return None;
+fn type_involves_custom(ty: &Type) -> bool {
+    match ty {
+        Type::Custom(_) => true,
+        Type::OneOf(types) => types.iter().any(type_involves_custom),
+        Type::List(inner) => type_involves_custom(inner),
+        _ => false,
     }
-    if matches!(declared, Type::Any) {
-        return Some(4);
-    }
-    match input.compare_types(declared) {
-        Some(TypeRelation::Equal) => Some(0),
-        Some(TypeRelation::Subtype) => Some(1),
-        Some(TypeRelation::Supertype) => Some(2),
-        None => Some(3),
-    }
+}
+
+fn is_structured_type(ty: &Type) -> bool {
+    matches!(ty, Type::List(_) | Type::Table(_) | Type::Record(_))
+}
+
+/// Custom values are assignable to list/table/record so `get` / `into record` type-check.
+/// That special case must not steal the output type of a real custom IO pair
+/// (`semver | into string` is a string, not `oneof<list, table, record>`).
+fn is_custom_structured_fallback(input: &Type, declared: &Type) -> bool {
+    type_involves_custom(input)
+        && is_structured_type(declared)
+        && input.compare_types(declared).is_none()
 }
 
 impl Signature {
@@ -438,12 +440,9 @@ impl Signature {
     /// - If `input` is [`None`], it's treated as [`Type::Any`]. i.e. all IO pairs are considered.
     /// - IO pairs where the given `input` is [assignable to](crate::CompareTypes::is_assignable_to)
     ///   the input type are considered valid.
-    /// - When several pairs match, only the most specific rank is kept:
-    ///   [equal](TypeRelation::Equal), then [subtype](TypeRelation::Subtype), then
-    ///   [supertype](TypeRelation::Supertype), then assignability that is not a lattice match
-    ///   (for example `custom` values matching list/table/record), then a declared [`Type::Any`]
-    ///   catch-all.
-    /// - [Union](TypeSet::union) of outputs at that rank is returned.
+    /// - Custom values are assignable to list/table/record. Those fallback pairs are ignored
+    ///   when a lattice match exists (so `semver | into string` is `string`).
+    /// - [Union](TypeSet::union) of remaining outputs is returned.
     /// - If there are no valid IO pairs for the given `input`, [`None`] is returned.
     // XXX: remove?
     pub fn get_output_type(&self, input_type: Option<&Type>) -> Option<Type> {
@@ -451,29 +450,32 @@ impl Signature {
             return Some(Type::Any);
         }
         let input = input_type.unwrap_or(&Type::Any);
-        let mut best_rank = None;
-        let mut outputs: Vec<&Type> = Vec::new();
+        let matches: Vec<&(Type, Type)> = self
+            .input_output_types
+            .iter()
+            .filter(|(in_ty, _)| input.is_assignable_to(in_ty))
+            .collect();
 
-        for (in_ty, out_ty) in &self.input_output_types {
-            let Some(rank) = io_match_rank(input, in_ty) else {
-                continue;
-            };
-            match best_rank {
-                None => {
-                    best_rank = Some(rank);
-                    outputs.push(out_ty);
-                }
-                Some(best) if rank < best => {
-                    best_rank = Some(rank);
-                    outputs.clear();
-                    outputs.push(out_ty);
-                }
-                Some(best) if rank == best => outputs.push(out_ty),
-                Some(_) => {}
-            }
+        if matches.is_empty() {
+            return None;
         }
 
-        outputs.into_iter().cloned().reduce(Type::union)
+        let without_custom_fallback: Vec<&(Type, Type)> = matches
+            .iter()
+            .copied()
+            .filter(|(in_ty, _)| !is_custom_structured_fallback(input, in_ty))
+            .collect();
+
+        let selected = if without_custom_fallback.is_empty() {
+            matches
+        } else {
+            without_custom_fallback
+        };
+
+        selected
+            .into_iter()
+            .map(|(_, out)| out.clone())
+            .reduce(Type::union)
     }
 
     /// Add a default help option to a signature
