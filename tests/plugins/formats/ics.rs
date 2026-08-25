@@ -1,44 +1,45 @@
 use nu_test_support::prelude::*;
+use indoc::indoc;
 
 #[test]
 #[deps(NU_PLUGIN_FORMATS)]
 fn infers_types(playground: Playground) -> Result {
     playground.file(
         "calendar.ics",
-        indoc::indoc! {"
-        BEGIN:VCALENDAR
-        PRODID:-//Google Inc//Google Calendar 70.9054//EN
-        VERSION:2.0
-        BEGIN:VEVENT
-        DTSTART:20171007T200000Z
-        DTEND:20171007T233000Z
-        DTSTAMP:20200319T182138Z
-        UID:4l80f6dcovnriq38g57g07btid@google.com
-        CREATED:20170719T202915Z
-        DESCRIPTION:
-        LAST-MODIFIED:20170930T190808Z
-        LOCATION:
-        SEQUENCE:1
-        STATUS:CONFIRMED
-        SUMMARY:Maryland Game
-        TRANSP:TRANSPARENT
-        END:VEVENT
-        BEGIN:VEVENT
-        DTSTART:20171002T010000Z
-        DTEND:20171002T020000Z
-        DTSTAMP:20200319T182138Z
-        UID:2v61g7mij4s7ieoubm3sjpun5d@google.com
-        CREATED:20171001T180103Z
-        DESCRIPTION:
-        LAST-MODIFIED:20171001T180103Z
-        LOCATION:
-        SEQUENCE:0
-        STATUS:CONFIRMED
-        SUMMARY:Halloween Wars
-        TRANSP:OPAQUE
-        END:VEVENT
-        END:VCALENDAR
-    "},
+        indoc! {"
+            BEGIN:VCALENDAR
+            PRODID:-//Google Inc//Google Calendar 70.9054//EN
+            VERSION:2.0
+            BEGIN:VEVENT
+            DTSTART:20171007T200000Z
+            DTEND:20171007T233000Z
+            DTSTAMP:20200319T182138Z
+            UID:4l80f6dcovnriq38g57g07btid@google.com
+            CREATED:20170719T202915Z
+            DESCRIPTION:
+            LAST-MODIFIED:20170930T190808Z
+            LOCATION:
+            SEQUENCE:1
+            STATUS:CONFIRMED
+            SUMMARY:Maryland Game
+            TRANSP:TRANSPARENT
+            END:VEVENT
+            BEGIN:VEVENT
+            DTSTART:20171002T010000Z
+            DTEND:20171002T020000Z
+            DTSTAMP:20200319T182138Z
+            UID:2v61g7mij4s7ieoubm3sjpun5d@google.com
+            CREATED:20171001T180103Z
+            DESCRIPTION:
+            LAST-MODIFIED:20171001T180103Z
+            LOCATION:
+            SEQUENCE:0
+            STATUS:CONFIRMED
+            SUMMARY:Halloween Wars
+            TRANSP:OPAQUE
+            END:VEVENT
+            END:VCALENDAR
+        "},
     )?;
 
     test()
@@ -52,24 +53,24 @@ fn infers_types(playground: Playground) -> Result {
 fn from_ics_text_to_table(playground: Playground) -> Result {
     playground.file(
         "calendar.txt",
-        indoc::indoc! {"
-        BEGIN:VCALENDAR
-        BEGIN:VEVENT
-        DTSTART:20171007T200000Z
-        DTEND:20171007T233000Z
-        DTSTAMP:20200319T182138Z
-        UID:4l80f6dcovnriq38g57g07btid@google.com
-        CREATED:20170719T202915Z
-        DESCRIPTION:
-        LAST-MODIFIED:20170930T190808Z
-        LOCATION:
-        SEQUENCE:1
-        STATUS:CONFIRMED
-        SUMMARY:Maryland Game
-        TRANSP:TRANSPARENT
-        END:VEVENT
-        END:VCALENDAR
-    "},
+        indoc! {"
+            BEGIN:VCALENDAR
+            BEGIN:VEVENT
+            DTSTART:20171007T200000Z
+            DTEND:20171007T233000Z
+            DTSTAMP:20200319T182138Z
+            UID:4l80f6dcovnriq38g57g07btid@google.com
+            CREATED:20170719T202915Z
+            DESCRIPTION:
+            LAST-MODIFIED:20170930T190808Z
+            LOCATION:
+            SEQUENCE:1
+            STATUS:CONFIRMED
+            SUMMARY:Maryland Game
+            TRANSP:TRANSPARENT
+            END:VEVENT
+            END:VCALENDAR
+        "},
     )?;
 
     let code = r#"
@@ -93,7 +94,8 @@ fn from_ics_text_to_table(playground: Playground) -> Result {
 fn from_ics_text_with_linebreak_to_table(playground: Playground) -> Result {
     playground.file(
         "calendar.txt",
-        "BEGIN:VCALENDAR
+        indoc! {"
+            BEGIN:VCALENDAR
             BEGIN:VEVENT
             DTSTART:20171007T200000Z
             DTEND:20171007T233000Z
@@ -110,7 +112,8 @@ fn from_ics_text_with_linebreak_to_table(playground: Playground) -> Result {
             SUMMARY:Dinner
             TRANSP:TRANSPARENT
             END:VEVENT
-            END:VCALENDAR",
+            END:VCALENDAR
+        "}
     )?;
 
     let code = r#"

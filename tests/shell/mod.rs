@@ -703,7 +703,7 @@ fn nu_env_pwd_symlink(playground: Playground) -> Result {
     playground.symlink("new_current_dir", pwd)?;
 
     let pwd = playground.path().join(pwd);
-    let current_dir = playground.path().canonicalize().unwrap();
+    let current_dir = playground.path();
     let child_output = std::process::Command::new(NU.path())
         .args(["-c", "echo $env.PWD"])
         .current_dir(&current_dir)
