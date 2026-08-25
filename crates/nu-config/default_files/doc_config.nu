@@ -318,13 +318,17 @@ $env.config.completions.external.max_results = 100
 # A completer receives its inputs through the parameters it declares, each bound by name
 # (order does not matter; an unrecognized name receives nothing):
 #   token: record    the token being completed, as {text, kind, span}
-#   place: record    where in the line that is: `cursor` (a byte offset), `target`
-#                    ({start, end}, the range a suggestion replaces), and the resolution
-#                    (`kind`, plus `flag`/`index`). `target` is worth reading rather than
-#                    `token.span`: they differ wherever a completion spans several tokens,
-#                    such as a multiword command head or a cell path.
+#   place: record    where in the line that is: `cursor` and `target` ({start, end}, the range
+#                    a suggestion replaces), plus the resolution (`kind`, plus `flag`/`index`).
+#                    Read `target` rather than `token.span`: they differ wherever a completion
+#                    spans several tokens, such as a multiword command head or a cell path.
+#
+#                    By default (the token view) both are byte offsets into the line; when
+#                    `contexts` is declared (the full view) they are `{path, byte}` walk
+#                    records locating the offset in the nesting tree — what
+#                    `commandline complete --input-full` returns.
 #   contexts: record the closures and subexpressions the cursor is nested in. Declaring this
-#                    parameter is what asks for the larger view; see
+#                    parameter is what asks for the full view (above); see
 #                    `commandline complete --input-full`.
 # A completer never sees text past the cursor.
 #
