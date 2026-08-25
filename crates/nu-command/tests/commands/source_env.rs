@@ -4,14 +4,8 @@ use rstest::rstest;
 
 #[test]
 fn source_env_resolves_nested_source_relative_to_sourced_file(playground: Playground) -> Result {
-    playground.file(
-        "lib/my_library.nu",
-        "source-env my_library/main.nu",
-    )?;
-    playground.file(
-        "lib/my_library/main.nu",
-        r#"$env.hello = "hello nu""#,
-    )?;
+    playground.file("lib/my_library.nu", "source-env my_library/main.nu")?;
+    playground.file("lib/my_library/main.nu", r#"$env.hello = "hello nu""#)?;
 
     let mut tester = test().cwd(playground.path());
     let () = tester.run("source-env lib/my_library.nu")?;
