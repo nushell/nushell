@@ -512,7 +512,8 @@ impl NarrowingCache {
             return Suggestions::default();
         };
 
-        let mut matcher = NuMatcher::new(search_token, options, true);
+        // Keep the producer's ranking: re-sorting a stale list makes the menu flip between keystrokes.
+        let mut matcher = NuMatcher::new(search_token, options, false);
 
         base_suggestions
             .iter()
@@ -2410,6 +2411,55 @@ mod completer_tests {
         assert!(
             next_prompt.complete("ls | c", 6).is_pending(),
             "a disabled cache must not answer a query it could have answered"
+        );
+    }
+
+    /// A narrowed fallback keeps the producer's order rather than re-sorting.
+    #[test]
+    fn a_narrowed_fallback_keeps_the_producers_order() {
+        let mut engine =
+            nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
+        // An unsorted (`sort: false`) command-wide completer seeds the narrowing cache.
+        let src = "
+            def comp [token] { {completions: [zzz-two, zzz-one], options: {sort: false, filter: false}} }
+            @complete comp
+            def --wrapped my-cmd [...rest] {}";
+        let delta = {
+            let mut working_set = StateWorkingSet::new(&engine);
+            parse(&mut working_set, None, src.as_bytes(), false);
+            assert!(
+                working_set.parse_errors.is_empty(),
+                "{:?}",
+                working_set.parse_errors
+            );
+            working_set.render()
+        };
+        engine.merge_delta(delta).expect("merge_delta");
+        let engine = Arc::new(engine);
+
+        let cache = NarrowingCache::default();
+        let mut warming =
+            NuCompleter::with_cache(engine.clone(), Arc::new(Stack::new()), cache.clone());
+        let warmed: Vec<_> = warming
+            .complete_blocking("my-cmd zzz", 10)
+            .iter()
+            .map(|s| s.value.clone())
+            .collect();
+        assert_eq!(warmed, ["zzz-two", "zzz-one"], "producer order, unsorted");
+        drop(warming);
+
+        // Narrowing one more character keeps that order instead of sorting.
+        let mut narrowing = NuCompleter::with_cache(engine, Arc::new(Stack::new()), cache);
+        let values: Vec<_> = narrowing
+            .complete("my-cmd zzz-", 11)
+            .suggestions()
+            .iter()
+            .map(|s| s.value.clone())
+            .collect();
+        assert_eq!(
+            values,
+            ["zzz-two", "zzz-one"],
+            "narrowed fallback must not re-sort"
         );
     }
 }
