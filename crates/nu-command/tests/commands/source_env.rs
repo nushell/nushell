@@ -12,6 +12,7 @@ use rstest::rstest;
 #[test]
 fn source_env_resolves_nested_source_relative_to_sourced_file(playground: Playground) -> Result {
 <<<<<<< HEAD
+<<<<<<< HEAD
     playground.dir("lib")?;
     playground.file(
         "lib/my_library.nu",
@@ -35,6 +36,10 @@ fn source_env_resolves_nested_source_relative_to_sourced_file(playground: Playgr
         r#"$env.hello = "hello nu""#,
 >>>>>>> d7d44ed23 (update `source env` tests with new playground)
     )?;
+=======
+    playground.file("lib/my_library.nu", "source-env my_library/main.nu")?;
+    playground.file("lib/my_library/main.nu", r#"$env.hello = "hello nu""#)?;
+>>>>>>> 5117ac4ee (fmt)
 
     let mut tester = test().cwd(playground.path());
     let () = tester.run("source-env lib/my_library.nu")?;
