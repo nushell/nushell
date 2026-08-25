@@ -1,6 +1,6 @@
 use crate::{
     BlockId, CompareTypes, DeclId, DeprecationEntry, Example, FromValue, IntoValue, PipelineData,
-    ShellError, Span, SyntaxShape, Type, TypeSet, Value, VarId,
+    ShellError, Span, SyntaxShape, Type, TypeRelation, TypeSet, Value, VarId,
     engine::{Call, Command, CommandType, EngineState, Stack},
     shell_error::generic::GenericError,
 };
@@ -377,6 +377,17 @@ impl PartialEq for Signature {
 
 impl Eq for Signature {}
 
+/// Lower is more specific. `None` means the input is not assignable to the declared type.
+fn io_match_rank(input: &Type, declared: &Type) -> Option<u8> {
+    match input.compare_types(declared) {
+        Some(TypeRelation::Equal) => Some(0),
+        Some(TypeRelation::Subtype) => Some(1),
+        Some(TypeRelation::Supertype) => Some(2),
+        None if input.is_assignable_to(declared) => Some(3),
+        None => None,
+    }
+}
+
 impl Signature {
     /// Creates a new signature for a command with `name`
     pub fn new(name: impl Into<String>) -> Signature {
@@ -418,7 +429,11 @@ impl Signature {
     /// - If `input` is [`None`], it's treated as [`Type::Any`]. i.e. all IO pairs are considered.
     /// - IO pairs where the given `input` is [assignable to](crate::CompareTypes::is_assignable_to)
     ///   the input type are considered valid.
-    /// - [Union](TypeSet::union) of all valid outputs are returned.
+    /// - When several pairs match, only the most specific rank is kept:
+    ///   [equal](TypeRelation::Equal), then [subtype](TypeRelation::Subtype), then
+    ///   [supertype](TypeRelation::Supertype), then assignability that is not a lattice match
+    ///   (for example `custom` values matching list/table/record).
+    /// - [Union](TypeSet::union) of outputs at that rank is returned.
     /// - If there are no valid IO pairs for the given `input`, [`None`] is returned.
     // XXX: remove?
     pub fn get_output_type(&self, input_type: Option<&Type>) -> Option<Type> {
@@ -426,15 +441,29 @@ impl Signature {
             return Some(Type::Any);
         }
         let input = input_type.unwrap_or(&Type::Any);
-        let mut it = self
-            .input_output_types
-            .iter()
-            .filter(|(in_ty, _out_ty)| input.is_assignable_to(in_ty))
-            .map(|(_, out)| out)
-            .peekable();
+        let mut best_rank = None;
+        let mut outputs: Vec<&Type> = Vec::new();
 
-        it.peek()?;
-        it.cloned().reduce(Type::union)
+        for (in_ty, out_ty) in &self.input_output_types {
+            let Some(rank) = io_match_rank(input, in_ty) else {
+                continue;
+            };
+            match best_rank {
+                None => {
+                    best_rank = Some(rank);
+                    outputs.push(out_ty);
+                }
+                Some(best) if rank < best => {
+                    best_rank = Some(rank);
+                    outputs.clear();
+                    outputs.push(out_ty);
+                }
+                Some(best) if rank == best => outputs.push(out_ty),
+                Some(_) => {}
+            }
+        }
+
+        outputs.into_iter().cloned().reduce(Type::union)
     }
 
     /// Add a default help option to a signature

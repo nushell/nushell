@@ -1,4 +1,4 @@
-use nu_protocol::{Flag, PositionalArg, Signature, SyntaxShape};
+use nu_protocol::{Flag, PositionalArg, Signature, SyntaxShape, Type, TypeSet};
 
 #[test]
 fn test_signature() {
@@ -189,4 +189,72 @@ fn test_signature_round_trip() {
         .for_each(|(lhs, rhs)| assert_eq!(lhs, rhs));
 
     assert_eq!(signature.rest_positional, returned.rest_positional,);
+}
+
+fn into_string_like_signature() -> Signature {
+    Signature::new("into string").input_output_types(vec![
+        (Type::Int, Type::String),
+        (Type::custom("semver"), Type::String),
+        (Type::Any, Type::String),
+        (
+            Type::List(Box::new(Type::Any)),
+            Type::List(Box::new(Type::String)),
+        ),
+        (Type::table(), Type::table()),
+        (Type::record(), Type::record()),
+    ])
+}
+
+#[test]
+fn get_output_type_prefers_equal_over_any_and_structured() {
+    let sig = into_string_like_signature();
+
+    assert_eq!(
+        sig.get_output_type(Some(&Type::custom("semver"))),
+        Some(Type::String)
+    );
+    assert_eq!(sig.get_output_type(Some(&Type::Int)), Some(Type::String));
+    assert_eq!(
+        sig.get_output_type(Some(&Type::record())),
+        Some(Type::record())
+    );
+}
+
+#[test]
+fn get_output_type_prefers_list_pair_over_structured_when_any_is_absent() {
+    // `any` compared with `any` is a subtype, not equal, so a `list<any>` pair
+    // ties with an `any` pair. Without `any`, list input keeps `list<string>`.
+    let sig = Signature::new("into string").input_output_types(vec![
+        (Type::custom("semver"), Type::String),
+        (
+            Type::List(Box::new(Type::Any)),
+            Type::List(Box::new(Type::String)),
+        ),
+        (Type::table(), Type::table()),
+        (Type::record(), Type::record()),
+    ]);
+
+    assert_eq!(
+        sig.get_output_type(Some(&Type::list(Type::Any))),
+        Some(Type::list(Type::String))
+    );
+    assert_eq!(
+        sig.get_output_type(Some(&Type::list(Type::custom("semver")))),
+        Some(Type::list(Type::String))
+    );
+}
+
+#[test]
+fn get_output_type_prefers_lattice_when_input_is_unioned_with_nothing() {
+    let sig = into_string_like_signature();
+    let input = Type::custom("semver").union(Type::Nothing);
+
+    assert_eq!(sig.get_output_type(Some(&input)), Some(Type::String));
+}
+
+#[test]
+fn get_output_type_returns_none_when_no_pair_matches() {
+    let sig = Signature::new("only-int").input_output_types(vec![(Type::Int, Type::String)]);
+
+    assert_eq!(sig.get_output_type(Some(&Type::Bool)), None);
 }
