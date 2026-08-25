@@ -1,53 +1,49 @@
 use std::path::Path;
 
 use itertools::Itertools;
-use nu_test_support::{fs::Stub, prelude::*};
+use nu_test_support::prelude::*;
 
 #[test]
-fn self_path_const() -> Result {
-    Playground::setup("path_self_const", |dirs, sandbox| {
-        sandbox
-            .within("scripts")
-            .with_files(&[Stub::FileWithContentToBeTrimmed(
-                "foo.nu",
-                "
-                    export const paths = {
-                        self: (path self),
-                        dir: (path self .),
-                        sibling: (path self sibling),
-                        parent_dir: (path self ..),
-                        cousin: (path self ../cousin),
-                    }
-                ",
-            )]);
+fn self_path_const(playground: Playground) -> Result {
+    playground.file(
+        "scripts/foo.nu",
+        indoc::indoc! {"
+            export const paths = {
+                self: (path self),
+                dir: (path self .),
+                sibling: (path self sibling),
+                parent_dir: (path self ..),
+                cousin: (path self ../cousin),
+            }
+        "},
+    )?;
 
-        let code = "use scripts/foo.nu; $foo.paths | values | str join (char nul)";
-        let outcome: String = test().cwd(dirs.test()).run(code)?;
-        let (self_, dir, sibling, parent_dir, cousin) = outcome
-            .split('\0')
-            .collect_tuple()
-            .expect("should have 5 NUL separated paths");
+    let code = "use scripts/foo.nu; $foo.paths | values | str join (char nul)";
+    let outcome: String = test().cwd(playground.path()).run(code)?;
+    let (self_, dir, sibling, parent_dir, cousin) = outcome
+        .split('\0')
+        .collect_tuple()
+        .expect("should have 5 NUL separated paths");
 
-        let mut pathbuf = dirs.test().to_path_buf();
+    let mut pathbuf = playground.path().to_path_buf();
 
-        pathbuf.push("scripts");
-        assert_eq!(pathbuf, Path::new(dir));
+    pathbuf.push("scripts");
+    assert_eq!(pathbuf, Path::new(dir));
 
-        pathbuf.push("foo.nu");
-        assert_eq!(pathbuf, Path::new(self_));
+    pathbuf.push("foo.nu");
+    assert_eq!(pathbuf, Path::new(self_));
 
-        pathbuf.pop();
-        pathbuf.push("sibling");
-        assert_eq!(pathbuf, Path::new(sibling));
+    pathbuf.pop();
+    pathbuf.push("sibling");
+    assert_eq!(pathbuf, Path::new(sibling));
 
-        pathbuf.pop();
-        pathbuf.pop();
-        assert_eq!(pathbuf, Path::new(parent_dir));
+    pathbuf.pop();
+    pathbuf.pop();
+    assert_eq!(pathbuf, Path::new(parent_dir));
 
-        pathbuf.push("cousin");
-        assert_eq!(pathbuf, Path::new(cousin));
-        Ok(())
-    })
+    pathbuf.push("cousin");
+    assert_eq!(pathbuf, Path::new(cousin));
+    Ok(())
 }
 
 #[test]

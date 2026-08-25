@@ -1,5 +1,3 @@
-use nu_test_support::fs::Stub::{EmptyFile, FileWithContent, FileWithContentToBeTrimmed};
-use nu_test_support::playground::Playground;
 use nu_test_support::prelude::*;
 use pretty_assertions::{assert_eq, assert_matches};
 use rstest::rstest;
@@ -23,29 +21,27 @@ fn shows_error_for_command_not_found_in_pipeline() -> Result {
 // piet: auto cd seems to not be available for regular scripts, so we maybe have to add
 //       that to the tester?
 #[test]
-fn automatically_change_directory() -> Result {
-    Playground::setup("cd_test_5_1", |dirs, sandbox| {
-        sandbox.mkdir("autodir");
+fn automatically_change_directory(playground: Playground) -> Result {
+    playground.dir("autodir")?;
 
-        test()
-            .cwd(dirs.test())
-            .run("autodir; echo (pwd)")
-            .expect_value_eq(dirs.test().join("autodir").to_string_lossy())
-    })
+    test()
+        .cwd(playground.path())
+        .run("autodir; echo (pwd)")
+        .expect_value_eq(playground.path().join("autodir"))
 }
 
 // FIXME: jt: we don't currently support autocd in testing
 #[ignore]
 #[test]
-fn automatically_change_directory_with_trailing_slash_and_same_name_as_command() -> Result {
-    Playground::setup("cd_test_5_1", |dirs, sandbox| {
-        sandbox.mkdir("cd");
+fn automatically_change_directory_with_trailing_slash_and_same_name_as_command(
+    playground: Playground,
+) -> Result {
+    playground.dir("cd")?;
 
-        test()
-            .cwd(dirs.test())
-            .run("cd/; pwd")
-            .expect_value_eq(dirs.test().join("cd").to_string_lossy())
-    })
+    test()
+        .cwd(playground.path())
+        .run("cd/; pwd")
+        .expect_value_eq(playground.path().join("cd"))
 }
 
 #[test]
@@ -180,37 +176,29 @@ fn basic_outerr_pipe_works(#[case] redirection: &str) -> Result {
 
 #[test]
 #[deps(TESTBIN_NONU)]
-fn dont_run_glob_if_pass_variable_to_external() -> Result {
-    Playground::setup("dont_run_glob", |dirs, sandbox| {
-        sandbox.with_files(&[
-            EmptyFile("jt_likes_cake.txt"),
-            EmptyFile("andres_likes_arepas.txt"),
-        ]);
+fn dont_run_glob_if_pass_variable_to_external(playground: Playground) -> Result {
+    playground.empty_file("jt_likes_cake.txt")?;
+    playground.empty_file("andres_likes_arepas.txt")?;
 
-        test()
-            .cwd(dirs.test())
-            .run(r#"let f = "*.txt"; nonu $f"#)
-            .expect_value_eq("*.txt")
-    })
+    test()
+        .cwd(playground.path())
+        .run(r#"let f = "*.txt"; nonu $f"#)
+        .expect_value_eq("*.txt")
 }
 
 #[test]
 #[deps(TESTBIN_NONU)]
-fn run_glob_if_pass_variable_to_external() -> Result {
-    Playground::setup("run_glob_on_external", |dirs, sandbox| -> Result {
-        sandbox.with_files(&[
-            EmptyFile("jt_likes_cake.txt"),
-            EmptyFile("andres_likes_arepas.txt"),
-        ]);
+fn run_glob_if_pass_variable_to_external(playground: Playground) -> Result {
+    playground.empty_file("jt_likes_cake.txt")?;
+    playground.empty_file("andres_likes_arepas.txt")?;
 
-        let out: String = test()
-            .cwd(dirs.test())
-            .run(r#"let f = "*.txt"; nonu ...(glob $f)"#)?;
+    let out: String = test()
+        .cwd(playground.path())
+        .run(r#"let f = "*.txt"; nonu ...(glob $f)"#)?;
 
-        assert_contains("jt_likes_cake.txt", &out);
-        assert_contains("andres_likes_arepas.txt", out);
-        Ok(())
-    })
+    assert_contains("jt_likes_cake.txt", &out);
+    assert_contains("andres_likes_arepas.txt", out);
+    Ok(())
 }
 
 #[test]
@@ -227,52 +215,40 @@ mod it_evaluation {
 
     #[test]
     #[deps(TESTBIN_COCOCO)]
-    fn takes_rows_of_nu_value_strings() -> Result {
-        Playground::setup("it_argument_test_1", |dirs, sandbox| {
-            sandbox.with_files(&[
-                EmptyFile("jt_likes_cake.txt"),
-                EmptyFile("andres_likes_arepas.txt"),
-            ]);
+    fn takes_rows_of_nu_value_strings(playground: Playground) -> Result {
+        playground.empty_file("jt_likes_cake.txt")?;
+        playground.empty_file("andres_likes_arepas.txt")?;
 
-            let code = "
-                ls
-                | sort-by name
-                | get name
-                | each {|it| cococo $it }
-                | get 1
-            ";
+        let code = "
+            ls
+            | sort-by name
+            | get name
+            | each {|it| cococo $it }
+            | get 1
+        ";
 
-            test()
-                .cwd(dirs.test())
-                .run(code)
-                .expect_value_eq("jt_likes_cake.txt")
-        })
+        test()
+            .cwd(playground.path())
+            .run(code)
+            .expect_value_eq("jt_likes_cake.txt")
     }
 
     #[test]
     #[deps(TESTBIN_CHOP)]
-    fn takes_rows_of_nu_value_lines() -> Result {
-        Playground::setup("it_argument_test_2", |dirs, sandbox| {
-            sandbox.with_files(&[FileWithContentToBeTrimmed(
-                "nu_candies.txt",
-                "
-                    AndrásWithKitKatzz
-                    AndrásWithKitKatz
-                ",
-            )]);
+    fn takes_rows_of_nu_value_lines(playground: Playground) -> Result {
+        playground.file("nu_candies.txt", "AndrásWithKitKatzz\nAndrásWithKitKatz")?;
 
-            let code = "
-                open nu_candies.txt
-                | lines
-                | each {|it| chop $it }
-                | get 1
-            ";
+        let code = "
+            open nu_candies.txt
+            | lines
+            | each {|it| chop $it }
+            | get 1
+        ";
 
-            test()
-                .cwd(dirs.test())
-                .run(code)
-                .expect_value_eq("AndrásWithKitKat")
-        })
+        test()
+            .cwd(playground.path())
+            .run(code)
+            .expect_value_eq("AndrásWithKitKat")
     }
 
     #[test]
@@ -285,22 +261,23 @@ mod it_evaluation {
 
     #[test]
     #[deps(TESTBIN_COCOCO)]
-    fn supports_fetching_given_a_column_path_to_it() -> Result {
-        Playground::setup("it_argument_test_3", |dirs, sandbox| {
-            sandbox.with_files(&[FileWithContent(
-                "sample.toml",
-                r#"
-                    nu_party_venue = "zion"
-                "#,
-            )]);
+    fn supports_fetching_given_a_column_path_to_it(playground: Playground) -> Result {
+        playground.file(
+            "sample.toml",
+            r#"
+                nu_party_venue = "zion"
+            "#,
+        )?;
 
-            let code = "
-                open sample.toml
-                | cococo $in.nu_party_venue
-            ";
+        let code = "
+            open sample.toml
+            | cococo $in.nu_party_venue
+        ";
 
-            test().cwd(dirs.test()).run(code).expect_value_eq("zion")
-        })
+        test()
+            .cwd(playground.path())
+            .run(code)
+            .expect_value_eq("zion")
     }
 }
 
@@ -370,24 +347,23 @@ mod external_words {
     #[nu_test_support::test]
     #[deps(TESTBIN_MEOW)]
     fn external_arg_with_special_characters(
+        #[ignore] playground: Playground,
         #[case] path: &str,
         #[case] nu_path_argument: &str,
     ) -> Result {
-        Playground::setup("external_arg_with_quotes", |dirs, sandbox| {
-            sandbox.with_files(&[FileWithContent(
-                path,
-                r#"
-                    nu_party_venue = "zion"
-                "#,
-            )]);
+        playground.file(
+            path,
+            r#"
+                nu_party_venue = "zion"
+            "#,
+        )?;
 
-            test()
-                .cwd(dirs.test())
-                .run(format!(
-                    "meow {nu_path_argument} | from toml | get nu_party_venue",
-                ))
-                .expect_value_eq("zion")
-        })
+        test()
+            .cwd(playground.path())
+            .run(format!(
+                "meow {nu_path_argument} | from toml | get nu_party_venue",
+            ))
+            .expect_value_eq("zion")
     }
 }
 
@@ -485,62 +461,40 @@ mod external_command_arguments {
 
     #[test]
     #[deps(TESTBIN_COCOCO)]
-    fn expands_table_of_primitives_to_positional_arguments() -> Result {
-        Playground::setup(
-            "expands_table_of_primitives_to_positional_arguments",
-            |dirs, sandbox| {
-                sandbox.with_files(&[
-                    EmptyFile("jt_likes_cake.txt"),
-                    EmptyFile("andres_likes_arepas.txt"),
-                    EmptyFile("ferris_not_here.txt"),
-                ]);
+    fn expands_table_of_primitives_to_positional_arguments(playground: Playground) -> Result {
+        playground.empty_file("jt_likes_cake.txt")?;
+        playground.empty_file("andres_likes_arepas.txt")?;
+        playground.empty_file("ferris_not_here.txt")?;
 
-                test()
-                    .cwd(dirs.test())
-                    .run("cococo ...(ls | get name)")
-                    .expect_value_eq(
-                        "andres_likes_arepas.txt ferris_not_here.txt jt_likes_cake.txt",
-                    )
-            },
-        )
+        test()
+            .cwd(playground.path())
+            .run("cococo ...(ls | get name)")
+            .expect_value_eq("andres_likes_arepas.txt ferris_not_here.txt jt_likes_cake.txt")
     }
 
     #[test]
     #[deps(TESTBIN_COCOCO)]
-    fn proper_subexpression_paths_in_external_args() -> Result {
-        Playground::setup(
-            "expands_table_of_primitives_to_positional_arguments",
-            |dirs, sandbox| {
-                sandbox.with_files(&[
-                    EmptyFile("jt_likes_cake.txt"),
-                    EmptyFile("andres_likes_arepas.txt"),
-                    EmptyFile("ferris_not_here.txt"),
-                ]);
+    fn proper_subexpression_paths_in_external_args(playground: Playground) -> Result {
+        playground.empty_file("jt_likes_cake.txt")?;
+        playground.empty_file("andres_likes_arepas.txt")?;
+        playground.empty_file("ferris_not_here.txt")?;
 
-                test()
-                    .cwd(dirs.test())
-                    .run("cococo (ls | sort-by name | get name).1")
-                    .expect_value_eq("ferris_not_here.txt")
-            },
-        )
+        test()
+            .cwd(playground.path())
+            .run("cococo (ls | sort-by name | get name).1")
+            .expect_value_eq("ferris_not_here.txt")
     }
 
     #[cfg(not(windows))]
     #[test]
     #[deps(TESTBIN_COCOCO)]
-    fn string_interpolation_with_an_external_command() -> Result {
-        Playground::setup(
-            "string_interpolation_with_an_external_command",
-            |dirs, sandbox| {
-                sandbox.mkdir("cd");
-                sandbox.with_files(&[EmptyFile("cd/jt_likes_cake.txt")]);
+    fn string_interpolation_with_an_external_command(playground: Playground) -> Result {
+        playground.empty_file("cd/jt_likes_cake.txt")?;
 
-                let out: String = test().cwd(dirs.test()).run(r#"cococo $"(pwd)/cd""#)?;
+        let out: String = test().cwd(playground.path()).run(r#"cococo $"(pwd)/cd""#)?;
 
-                assert_contains("cd", out);
-                Ok(())
-            },
-        )
+        assert_contains("cd", out);
+        Ok(())
     }
 
     #[test]
@@ -627,40 +581,30 @@ fn exit_code_stops_execution_for_loop() -> Result {
 
 #[test]
 #[deps(NU)]
-fn display_error_with_exit_code_stops() -> Result {
-    Playground::setup("errexit", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent(
-            "tmp_env.nu",
-            "$env.config.display_errors.exit_code = true",
-        )]);
+fn display_error_with_exit_code_stops(playground: Playground) -> Result {
+    playground.file("tmp_env.nu", "$env.config.display_errors.exit_code = true")?;
 
-        let result: CompleteResult = test().cwd(dirs.test()).run(
-            r#"nu --env-config tmp_env.nu --no-std-lib --error-style plain --commands "def cmd [] { nu -c 'exit 42'; 'ok1' }; cmd; print 'ok2'" | complete"#,
-        )?;
+    let result: CompleteResult = test().cwd(playground.path()).run(
+        r#"nu --env-config tmp_env.nu --no-std-lib --error-style plain --commands "def cmd [] { nu -c 'exit 42'; 'ok1' }; cmd; print 'ok2'" | complete"#,
+    )?;
 
-        assert_contains("exited with code", result.stderr);
-        assert_eq!(result.stdout, "");
-        Ok(())
-    })
+    assert_contains("exited with code", result.stderr);
+    assert_eq!(result.stdout, "");
+    Ok(())
 }
 
 #[test]
 #[deps(NU)]
-fn display_error_exit_code_stops_execution_for_loop() -> Result {
-    Playground::setup("errexit", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent(
-            "tmp_env.nu",
-            "$env.config.display_errors.exit_code = true",
-        )]);
+fn display_error_exit_code_stops_execution_for_loop(playground: Playground) -> Result {
+    playground.file("tmp_env.nu", "$env.config.display_errors.exit_code = true")?;
 
-        let result: CompleteResult = test().cwd(dirs.test()).run(
-            r#"nu --env-config tmp_env.nu --no-std-lib --error-style plain --commands "for x in [0 1] { nu -c 'exit 42'; print $x }" | complete"#,
-        )?;
+    let result: CompleteResult = test().cwd(playground.path()).run(
+        r#"nu --env-config tmp_env.nu --no-std-lib --error-style plain --commands "for x in [0 1] { nu -c 'exit 42'; print $x }" | complete"#,
+    )?;
 
-        assert_contains("exited with code", result.stderr);
-        assert_eq!(result.stdout, "");
-        Ok(())
-    })
+    assert_contains("exited with code", result.stderr);
+    assert_eq!(result.stdout, "");
+    Ok(())
 }
 
 #[test]
@@ -679,37 +623,35 @@ fn arg_dont_run_subcommand_if_surrounded_with_quote() -> Result {
 
 #[test]
 #[deps(NU, TESTBIN_FAIL)]
-fn external_error_with_backtrace() -> Result {
-    Playground::setup("external error with backtrace", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent("tmp_env.nu", "$env.NU_BACKTRACE = 1")]);
+fn external_error_with_backtrace(playground: Playground) -> Result {
+    playground.file("tmp_env.nu", "$env.NU_BACKTRACE = 1")?;
 
-        let result: CompleteResult = test().cwd(dirs.test()).run(
-            r#"nu --env-config tmp_env.nu --no-std-lib --error-style plain --commands "def a [x] { if $x == 3 { fail }}; def b [] { a 1; a 3; a 2 }; b" | complete"#,
-        )?;
+    let result: CompleteResult = test().cwd(playground.path()).run(
+        r#"nu --env-config tmp_env.nu --no-std-lib --error-style plain --commands "def a [x] { if $x == 3 { fail }}; def b [] { a 1; a 3; a 2 }; b" | complete"#,
+    )?;
 
-        assert_eq!(
-            result
-                .stderr
-                .matches("diagnostic code: chained_error")
-                .count(),
-            1
-        );
-        assert_contains("non_zero_exit_code", &result.stderr);
-        assert_eq!(result.stderr.matches("eval_block_with_input").count(), 1);
+    assert_eq!(
+        result
+            .stderr
+            .matches("diagnostic code: chained_error")
+            .count(),
+        1
+    );
+    assert_contains("non_zero_exit_code", &result.stderr);
+    assert_eq!(result.stderr.matches("eval_block_with_input").count(), 1);
 
-        let result: CompleteResult = test().cwd(dirs.test()).run(
-            r#"nu --env-config tmp_env.nu --no-std-lib --error-style plain --commands "fail" | complete"#,
-        )?;
+    let result: CompleteResult = test().cwd(playground.path()).run(
+        r#"nu --env-config tmp_env.nu --no-std-lib --error-style plain --commands "fail" | complete"#,
+    )?;
 
-        assert_eq!(
-            result
-                .stderr
-                .matches("diagnostic code: chained_error")
-                .count(),
-            0
-        );
-        Ok(())
-    })
+    assert_eq!(
+        result
+            .stderr
+            .matches("diagnostic code: chained_error")
+            .count(),
+        0
+    );
+    Ok(())
 }
 
 #[test]
@@ -725,19 +667,16 @@ fn sub_external_expression_with_and_op_should_raise_proper_error() -> Result {
 
 #[test]
 #[deps(NU)]
-fn bad_config_file_restrict_cmd_running_with_commands() -> Result {
-    Playground::setup("bad config file", |dirs, sandbox| -> Result {
-        sandbox.with_files(&[FileWithContent("tmp_env.nu", "errorcmd")]);
+fn bad_config_file_restrict_cmd_running_with_commands(playground: Playground) -> Result {
+    playground.file("tmp_env.nu", "errorcmd")?;
 
-        let result: CompleteResult = test()
-            .cwd(dirs.test())
-            .run(r#"nu --env-config tmp_env.nu --no-std-lib --error-style plain --commands "print bbb" | complete"#)?;
+    let result: CompleteResult = test()
+        .cwd(playground.path())
+        .run(r#"nu --env-config tmp_env.nu --no-std-lib --error-style plain --commands "print bbb" | complete"#)?;
 
-        assert_contains("Command `errorcmd` not found", result.stderr);
-        assert_contains_not("bbb", result.stdout);
-        assert_ne!(result.exit_code, 0);
-        Ok(())
-    })?;
+    assert_contains("Command `errorcmd` not found", result.stderr);
+    assert_contains_not("bbb", result.stdout);
+    assert_ne!(result.exit_code, 0);
 
     let result: CompleteResult = test().run(
         r#"nu --env-config not_exists.nu --no-std-lib --error-style plain --commands "print bbb" | complete"#,

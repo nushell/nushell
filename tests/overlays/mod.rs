@@ -1,5 +1,4 @@
 use itertools::Itertools;
-use nu_test_support::fs::Stub::{FileWithContent, FileWithContentToBeTrimmed};
 use nu_test_support::prelude::*;
 use rstest::rstest;
 
@@ -954,68 +953,60 @@ fn overlay_use_export_env_hide() -> Result {
 }
 
 #[test]
-fn overlay_use_do_cd() -> Result {
-    Playground::setup("overlay_use_do_cd", |dirs, sandbox| -> Result {
-        sandbox.mkdir("test1/test2").with_files(&[FileWithContent(
-            "test1/test2/spam.nu",
-            "export-env { cd test1/test2 }",
-        )]);
+fn overlay_use_do_cd(playground: Playground) -> Result {
+    playground.file("test1/test2/spam.nu", "export-env { cd test1/test2 }")?;
 
-        let code = "
-            overlay use test1/test2/spam.nu
-            $env.PWD | path basename
-        ";
+    let code = "
+        overlay use test1/test2/spam.nu
+        $env.PWD | path basename
+    ";
 
-        test().cwd(dirs.test()).run(code).expect_value_eq("test2")
-    })
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq("test2")
 }
 
 #[test]
-fn overlay_use_do_cd_file_relative() -> Result {
-    Playground::setup(
-        "overlay_use_do_cd_file_relative",
-        |dirs, sandbox| -> Result {
-            sandbox.mkdir("test1/test2").with_files(&[FileWithContent(
-                "test1/test2/spam.nu",
-                "export-env { cd ($env.FILE_PWD | path join '..') }",
-            )]);
+fn overlay_use_do_cd_file_relative(playground: Playground) -> Result {
+    playground.file(
+        "test1/test2/spam.nu",
+        "export-env { cd ($env.FILE_PWD | path join '..') }",
+    )?;
 
-            let code = "
-                overlay use test1/test2/spam.nu
-                $env.PWD | path basename
-            ";
+    let code = "
+        overlay use test1/test2/spam.nu
+        $env.PWD | path basename
+    ";
 
-            test().cwd(dirs.test()).run(code).expect_value_eq("test1")
-        },
-    )
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq("test1")
 }
 
 #[test]
-fn overlay_use_dont_cd_overlay() -> Result {
-    Playground::setup("overlay_use_dont_cd_overlay", |dirs, sandbox| -> Result {
-        sandbox
-            .mkdir("test1/test2")
-            .with_files(&[FileWithContentToBeTrimmed(
-                "test1/test2/spam.nu",
-                "
-                    export-env {
-                        overlay new spam
-                        cd test1/test2
-                        overlay hide spam
-                    }
-                ",
-            )]);
+fn overlay_use_dont_cd_overlay(playground: Playground) -> Result {
+    playground.file(
+        "test1/test2/spam.nu",
+        indoc::indoc! {"
+            export-env {
+                overlay new spam
+                cd test1/test2
+                overlay hide spam
+            }
+        "},
+    )?;
 
-        let code = "
+    let code = "
            source-env test1/test2/spam.nu
            $env.PWD | path basename
         ";
 
-        test()
-            .cwd(dirs.test())
-            .run(code)
-            .expect_value_eq("overlay_use_dont_cd_overlay")
-    })
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq(playground.path().file_name().unwrap().to_string_lossy())
 }
 
 #[test]
@@ -1435,43 +1426,37 @@ fn overlay_help_no_error() -> Result {
 }
 
 #[test]
-fn test_overlay_use_with_printing_file_pwd() -> Result {
-    Playground::setup("use_with_printing_file_pwd", |dirs, nu| -> Result {
-        let file = dirs.test().join("foo").join("mod.nu");
-        nu.mkdir("foo").with_files(&[FileWithContent(
-            file.as_os_str().to_str().unwrap(),
-            "
-                export-env {
-                    $env.OVERLAY_FILE_PWD = $env.FILE_PWD
-                }
-            ",
-        )]);
+fn test_overlay_use_with_printing_file_pwd(playground: Playground) -> Result {
+    playground.file(
+        "foo/mod.nu",
+        indoc::indoc! {"
+            export-env {
+                $env.OVERLAY_FILE_PWD = $env.FILE_PWD
+            }
+        "},
+    )?;
 
-        test()
-            .cwd(dirs.test())
-            .run("overlay use foo; $env.OVERLAY_FILE_PWD")
-            .expect_value_eq(dirs.test().join("foo"))
-    })
+    test()
+        .cwd(playground.path())
+        .run("overlay use foo; $env.OVERLAY_FILE_PWD")
+        .expect_value_eq(playground.path().join("foo"))
 }
 
 #[test]
-fn test_overlay_use_with_printing_current_file() -> Result {
-    Playground::setup("use_with_printing_current_file", |dirs, nu| -> Result {
-        let file = dirs.test().join("foo").join("mod.nu");
-        nu.mkdir("foo").with_files(&[FileWithContent(
-            file.as_os_str().to_str().unwrap(),
-            "
-                export-env {
-                    $env.OVERLAY_CURRENT_FILE = $env.CURRENT_FILE
-                }
-            ",
-        )]);
+fn test_overlay_use_with_printing_current_file(playground: Playground) -> Result {
+    playground.file(
+        "foo/mod.nu",
+        indoc::indoc! {"
+            export-env {
+                $env.OVERLAY_CURRENT_FILE = $env.CURRENT_FILE
+            }
+        "},
+    )?;
 
-        test()
-            .cwd(dirs.test())
-            .run("overlay use foo; $env.OVERLAY_CURRENT_FILE")
-            .expect_value_eq(dirs.test().join("foo").join("mod.nu"))
-    })
+    test()
+        .cwd(playground.path())
+        .run("overlay use foo; $env.OVERLAY_CURRENT_FILE")
+        .expect_value_eq(playground.path().join("foo").join("mod.nu"))
 }
 
 #[test]

@@ -3,7 +3,7 @@ use std::time::Duration;
 use rstest::rstest;
 
 use nu_protocol::test_table;
-use nu_test_support::{fs::Stub, prelude::*};
+use nu_test_support::prelude::*;
 
 const STREAM_TIMEOUT: &str = r#"
     # cut off the input stream after `$duration`
@@ -95,18 +95,16 @@ fn watch_stream(playground: Playground) -> Result {
     ignore = "file operations that involve paths outside the watched directory do not work properly on macos"
 )]
 #[serial]
-fn watch_stream_outside() -> Result {
-    Playground::setup("streaming_watch_fs_outside_watched_dir", |dirs, sandbox| {
-        sandbox
-            .mkdir("watched_dir")
-            .with_files(&[Stub::EmptyFile("foo.txt")]);
+fn watch_stream_outside(playground: Playground) -> Result {
+    playground.dir("watched_dir")?;
+    playground.empty_file("foo.txt")?;
 
-        let mut foo_txt = dirs.test().to_owned();
-        foo_txt.push("watched_dir");
-        foo_txt.push("foo.txt");
-        let foo_txt = &*foo_txt;
+    let mut foo_txt = playground.path().to_owned();
+    foo_txt.push("watched_dir");
+    foo_txt.push("foo.txt");
+    let foo_txt = &*foo_txt;
 
-        let code = "
+    let code = "
             [
                 {|| mv ../foo.txt ./ }
                 {|| mv foo.txt ../ }
@@ -116,22 +114,21 @@ fn watch_stream_outside() -> Result {
             | each { into record }
         ";
 
-        #[cfg(not(windows))]
-        let expected = test_table![
-            ["operation",  "path", "new_path"];
-            [   "Rename",      (),    foo_txt],
-            [   "Rename", foo_txt,         ()],
-        ];
+    #[cfg(not(windows))]
+    let expected = test_table![
+        ["operation",  "path", "new_path"];
+        [   "Rename",      (),    foo_txt],
+        [   "Rename", foo_txt,         ()],
+    ];
 
-        #[cfg(windows)]
-        let expected = test_table![
-            ["operation",  "path", "new_path"];
-            [   "Create", foo_txt,         ()],
-            [   "Remove", foo_txt,         ()],
-        ];
+    #[cfg(windows)]
+    let expected = test_table![
+        ["operation",  "path", "new_path"];
+        [   "Create", foo_txt,         ()],
+        [   "Remove", foo_txt,         ()],
+    ];
 
-        let mut tester = test().cwd(dirs.test().join("watched_dir"));
-        let () = tester.run(STREAM_TIMEOUT)?;
-        tester.run(code).expect_value_eq(expected)
-    })
+    let mut tester = test().cwd(playground.path().join("watched_dir"));
+    let () = tester.run(STREAM_TIMEOUT)?;
+    tester.run(code).expect_value_eq(expected)
 }

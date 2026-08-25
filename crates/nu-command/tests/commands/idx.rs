@@ -1,4 +1,3 @@
-use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::prelude::*;
 
 #[test]
@@ -317,23 +316,14 @@ fn idx_search_bracket_literal_example_finds_content(playground: Playground) -> R
 
 #[test]
 #[serial]
-fn idx_search_glob_with_path_separator_example_filters_files() -> Result {
-    Playground::setup(
-        "idx_search_glob_with_path_separator_example_filters_files",
-        |dirs, sandbox| {
-            sandbox
-                .within("tests")
-                .with_files(&[FileWithContent("search_test.rs", "pattern found here")]);
-            sandbox
-                .within("src")
-                .with_files(&[FileWithContent("main.rs", "pattern found here")]);
+fn idx_search_glob_with_path_separator_example_filters_files(playground: Playground) -> Result {
+    playground.file("tests/search_test.rs", "pattern found here")?;
+    playground.file("src/main.rs", "pattern found here")?;
 
-            test()
-                .cwd(dirs.test())
-                .run("idx init . --wait; idx search pattern tests/* | length")
-                .expect_value_eq(1)
-        },
-    )
+    test()
+        .cwd(playground.path())
+        .run("idx init . --wait; idx search pattern tests/* | length")
+        .expect_value_eq(1)
 }
 
 #[test]

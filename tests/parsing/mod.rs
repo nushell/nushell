@@ -6,7 +6,6 @@ use pretty_assertions::{assert_eq, assert_matches};
 use rstest::rstest;
 
 use nu_protocol::Type;
-use nu_test_support::fs::Stub;
 use nu_test_support::playground::Playground;
 use nu_test_support::prelude::*;
 
@@ -287,21 +286,17 @@ fn run_nu_script_multiline_end_pipe_win() -> Result {
 }
 
 #[test]
-fn parse_file_relative_to_parsed_file_simple() -> Result {
-    Playground::setup("relative_files_simple", |dirs, sandbox| {
-        sandbox.mkdir("lol").mkdir("lol/lol").with_files(&[
-            Stub::FileWithContent(
-                "lol/lol/lol.nu",
-                "use ../lol_shell.nu; $env.LOL = (lol_shell ls)",
-            ),
-            Stub::FileWithContent("lol/lol_shell.nu", r#"export def ls [] { "lol" }"#),
-        ]);
+fn parse_file_relative_to_parsed_file_simple(playground: Playground) -> Result {
+    playground.file(
+        "lol/lol/lol.nu",
+        "use ../lol_shell.nu; $env.LOL = (lol_shell ls)",
+    )?;
+    playground.file("lol/lol_shell.nu", r#"export def ls [] { "lol" }"#)?;
 
-        test()
-            .cwd(dirs.test())
-            .run("source-env lol/lol/lol.nu; $env.LOL")
-            .expect_value_eq("lol")
-    })
+    test()
+        .cwd(playground.path())
+        .run("source-env lol/lol/lol.nu; $env.LOL")
+        .expect_value_eq("lol")
 }
 
 #[test]
@@ -344,94 +339,82 @@ fn predecl_signature_multiple_inp_out_types(playground: Playground) -> Result {
 }
 
 #[test]
-fn parse_file_relative_to_parsed_file() -> Result {
-    Playground::setup("relative_files", |dirs, sandbox| {
-        sandbox.mkdir("lol").mkdir("lol/lol").with_files(&[
-            Stub::FileWithContentToBeTrimmed(
-                "lol/lol/lol.nu",
-                "
-                    source-env ../../foo.nu
-                    use ../lol_shell.nu
-                    overlay use ../../lol/lol_shell.nu
+fn parse_file_relative_to_parsed_file(playground: Playground) -> Result {
+    playground.file(
+        "lol/lol/lol.nu",
+        indoc::indoc! {"
+            source-env ../../foo.nu
+            use ../lol_shell.nu
+            overlay use ../../lol/lol_shell.nu
 
-                    $env.LOL = $'($env.FOO) (lol_shell ls) (ls)'
-                ",
-            ),
-            Stub::FileWithContentToBeTrimmed(
-                "lol/lol_shell.nu",
-                r#"
-                    export def ls [] { "lol" }
-                "#,
-            ),
-            Stub::FileWithContentToBeTrimmed(
-                "foo.nu",
-                "
-                    $env.FOO = 'foo'
-                ",
-            ),
-        ]);
+            $env.LOL = $'($env.FOO) (lol_shell ls) (ls)'
+        "},
+    )?;
+    playground.file(
+        "lol/lol_shell.nu",
+        indoc::indoc! {r#"
+            export def ls [] { "lol" }
+        "#},
+    )?;
+    playground.file(
+        "foo.nu",
+        indoc::indoc! {"
+            $env.FOO = 'foo'
+        "},
+    )?;
 
-        test()
-            .cwd(dirs.test())
-            .run("source-env lol/lol/lol.nu; $env.LOL")
-            .expect_value_eq("foo lol lol")
-    })
+    test()
+        .cwd(playground.path())
+        .run("source-env lol/lol/lol.nu; $env.LOL")
+        .expect_value_eq("foo lol lol")
 }
 
 #[test]
-fn parse_file_relative_to_parsed_file_dont_use_cwd_1() -> Result {
-    Playground::setup("relative_files", |dirs, sandbox| {
-        sandbox
-            .mkdir("lol")
-            .with_files(&[Stub::FileWithContentToBeTrimmed(
-                "lol/lol.nu",
-                "
-                    source-env foo.nu
-                ",
-            )])
-            .with_files(&[Stub::FileWithContentToBeTrimmed(
-                "lol/foo.nu",
-                "
-                    $env.FOO = 'good'
-                ",
-            )])
-            .with_files(&[Stub::FileWithContentToBeTrimmed(
-                "foo.nu",
-                "
-                    $env.FOO = 'bad'
-                ",
-            )]);
+fn parse_file_relative_to_parsed_file_dont_use_cwd_1(playground: Playground) -> Result {
+    playground.file(
+        "lol/lol.nu",
+        indoc::indoc! {"
+            source-env foo.nu
+        "},
+    )?;
+    playground.file(
+        "lol/foo.nu",
+        indoc::indoc! {"
+            $env.FOO = 'good'
+        "},
+    )?;
+    playground.file(
+        "foo.nu",
+        indoc::indoc! {"
+            $env.FOO = 'bad'
+        "},
+    )?;
 
-        test()
-            .cwd(dirs.test())
-            .run("source-env lol/lol.nu; $env.FOO")
-            .expect_value_eq("good")
-    })
+    test()
+        .cwd(playground.path())
+        .run("source-env lol/lol.nu; $env.FOO")
+        .expect_value_eq("good")
 }
 
 #[test]
-fn parse_file_relative_to_parsed_file_dont_use_cwd_2() -> Result {
-    Playground::setup("relative_files", |dirs, sandbox| {
-        sandbox.mkdir("lol").with_files(&[
-            Stub::FileWithContentToBeTrimmed(
-                "lol/lol.nu",
-                "
-                    source-env foo.nu
-             ",
-            ),
-            Stub::FileWithContentToBeTrimmed(
-                "foo.nu",
-                "
-                    $env.FOO = 'bad'
-                ",
-            ),
-        ]);
+fn parse_file_relative_to_parsed_file_dont_use_cwd_2(playground: Playground) -> Result {
+    playground.file(
+        "lol/lol.nu",
+        indoc::indoc! {"
+            source-env foo.nu
+        "},
+    )?;
+    playground.file(
+        "foo.nu",
+        indoc::indoc! {"
+            $env.FOO = 'bad'
+        "},
+    )?;
 
-        test()
-            .cwd(dirs.test())
-            .run("source-env lol/lol.nu")
-            .expect_error_code_eq("nu::parser::sourced_file_not_found")
-    })
+    test()
+        .cwd(playground.path())
+        .run("source-env lol/lol.nu")
+        .expect_error_code_eq("nu::parser::sourced_file_not_found")
 }
 
 #[test]

@@ -1,4 +1,3 @@
-use nu_test_support::fs::Stub::EmptyFile;
 use nu_test_support::playground::Playground;
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_matches;
@@ -30,77 +29,67 @@ fn lists_regular_files_using_asterisk_wildcard(playground: Playground) -> Result
 
 #[cfg(not(target_os = "windows"))]
 #[test]
-fn lists_regular_files_in_special_folder() -> Result {
-    Playground::setup("ls_test_3", |dirs, sandbox| {
-        sandbox
-            .mkdir("[abcd]")
-            .mkdir("[bbcd]")
-            .mkdir("abcd]")
-            .mkdir("abcd")
-            .mkdir("abcd/*")
-            .mkdir("abcd/?")
-            .with_files(&[
-                EmptyFile("[abcd]/test.txt"),
-                EmptyFile("abcd]/test.txt"),
-                EmptyFile("abcd/*/test.txt"),
-                EmptyFile("abcd/?/test.txt"),
-                EmptyFile("abcd/?/test2.txt"),
-            ]);
+fn lists_regular_files_in_special_folder(playground: Playground) -> Result {
+    playground.dir("[bbcd]")?;
+    playground.empty_file("[abcd]/test.txt")?;
+    playground.empty_file("abcd]/test.txt")?;
+    playground.empty_file("abcd/*/test.txt")?;
+    playground.empty_file("abcd/?/test.txt")?;
+    playground.empty_file("abcd/?/test2.txt")?;
 
-        test()
-            .cwd(dirs.test().join("abcd]"))
-            .run("(ls).name")
-            .expect_value_eq(["test.txt"])?;
+    test()
+        .cwd(playground.path().join("abcd]"))
+        .run("(ls).name")
+        .expect_value_eq(["test.txt"])?;
 
-        // Quote the path: `]` is a list closer and cannot appear unquoted inside
-        // a parenthesized subexpression.
-        test()
-            .cwd(dirs.test())
-            .run(r#"(ls "abcd]").name"#)
-            .expect_value_eq(["abcd]/test.txt"])?;
+    // Quote the path: `]` is a list closer and cannot appear unquoted inside
+    // a parenthesized subexpression.
+    test()
+        .cwd(playground.path())
+        .run(r#"(ls "abcd]").name"#)
+        .expect_value_eq(["abcd]/test.txt"])?;
 
-        test()
-            .cwd(dirs.test().join("[abcd]"))
-            .run("(ls).name")
-            .expect_value_eq(["test.txt"])?;
+    test()
+        .cwd(playground.path().join("[abcd]"))
+        .run("(ls).name")
+        .expect_value_eq(["test.txt"])?;
 
-        test()
-            .cwd(dirs.test().join("[bbcd]"))
-            .run("ls")
-            .expect_value_eq([(); 0])?;
+    test()
+        .cwd(playground.path().join("[bbcd]"))
+        .run("ls")
+        .expect_value_eq([(); 0])?;
 
-        test()
-            .cwd(dirs.test().join("abcd/*"))
-            .run("(ls).name")
-            .expect_value_eq(["test.txt"])?;
+    test()
+        .cwd(playground.path().join("abcd/*"))
+        .run("(ls).name")
+        .expect_value_eq(["test.txt"])?;
 
-        test()
-            .cwd(dirs.test().join("abcd/?"))
-            .run("(ls).name")
-            .expect_value_eq(["test.txt", "test2.txt"])?;
+    test()
+        .cwd(playground.path().join("abcd/?"))
+        .run("(ls).name")
+        .expect_value_eq(["test.txt", "test2.txt"])?;
 
-        test()
-            .cwd(dirs.test().join("abcd/*"))
-            .run("ls -D ../* | length")
-            .expect_value_eq(2)?;
+    test()
+        .cwd(playground.path().join("abcd/*"))
+        .run("ls -D ../* | length")
+        .expect_value_eq(2)?;
 
-        test()
-            .cwd(dirs.test().join("abcd/*"))
-            .run("ls ../* | length")
-            .expect_value_eq(2)?;
+    test()
+        .cwd(playground.path().join("abcd/*"))
+        .run("ls ../* | length")
+        .expect_value_eq(2)?;
 
-        test()
-            .cwd(dirs.test().join("abcd/?"))
-            .run("ls -D ../* | length")
-            .expect_value_eq(2)?;
+    test()
+        .cwd(playground.path().join("abcd/?"))
+        .run("ls -D ../* | length")
+        .expect_value_eq(2)?;
 
-        test()
-            .cwd(dirs.test().join("abcd/?"))
-            .run("ls ../* | length")
-            .expect_value_eq(2)?;
+    test()
+        .cwd(playground.path().join("abcd/?"))
+        .run("ls ../* | length")
+        .expect_value_eq(2)?;
 
-        Ok(())
-    })
+    Ok(())
 }
 
 #[rstest::rstest]
@@ -125,26 +114,26 @@ fn lists_regular_files_in_special_folder() -> Result {
 #[case("[[][abcd]bcd[]].txt", 2)]
 #[case("'[abcd].txt'", 1)]
 #[case("'[bbcd].txt'", 1)]
-fn lists_regular_files_using_question_mark(#[case] ls_arg: &str, #[case] expected: i64) -> Result {
-    Playground::setup("ls_test_3", |dirs, sandbox| {
-        sandbox.mkdir("abcd").mkdir("bbcd").with_files(&[
-            EmptyFile("abcd/xy.txt"),
-            EmptyFile("bbcd/yy.txt"),
-            EmptyFile("[abcd].txt"),
-            EmptyFile("[bbcd].txt"),
-            EmptyFile("yehuda.10.txt"),
-            EmptyFile("jt.10.txt"),
-            EmptyFile("jtabc.txt"),
-            EmptyFile("abcde.txt"),
-            EmptyFile("andres.10.txt"),
-            EmptyFile("chicken_not_to_be_picked_up.100.txt"),
-        ]);
+fn lists_regular_files_using_question_mark(
+    #[ignore] playground: Playground,
+    #[case] ls_arg: &str,
+    #[case] expected: i64,
+) -> Result {
+    playground.empty_file("abcd/xy.txt")?;
+    playground.empty_file("bbcd/yy.txt")?;
+    playground.empty_file("[abcd].txt")?;
+    playground.empty_file("[bbcd].txt")?;
+    playground.empty_file("yehuda.10.txt")?;
+    playground.empty_file("jt.10.txt")?;
+    playground.empty_file("jtabc.txt")?;
+    playground.empty_file("abcde.txt")?;
+    playground.empty_file("andres.10.txt")?;
+    playground.empty_file("chicken_not_to_be_picked_up.100.txt")?;
 
-        test()
-            .cwd(dirs.test())
-            .run(format!("ls {ls_arg} | length"))
-            .expect_value_eq(expected)
-    })
+    test()
+        .cwd(playground.path())
+        .run(format!("ls {ls_arg} | length"))
+        .expect_value_eq(expected)
 }
 
 #[test]
@@ -161,38 +150,31 @@ fn lists_regular_files_using_question_mark_wildcard(playground: Playground) -> R
 }
 
 #[test]
-fn lists_all_files_in_directories_from_stream() -> Result {
-    Playground::setup("ls_test_4", |dirs, sandbox| {
-        sandbox
-            .with_files(&[EmptyFile("root1.txt"), EmptyFile("root2.txt")])
-            .within("dir_a")
-            .with_files(&[EmptyFile("yehuda.10.txt"), EmptyFile("jt10.txt")])
-            .within("dir_b")
-            .with_files(&[
-                EmptyFile("andres.10.txt"),
-                EmptyFile("chicken_not_to_be_picked_up.100.txt"),
-            ]);
+fn lists_all_files_in_directories_from_stream(playground: Playground) -> Result {
+    playground.empty_file("root1.txt")?;
+    playground.empty_file("root2.txt")?;
+    playground.empty_file("dir_a/yehuda.10.txt")?;
+    playground.empty_file("dir_a/jt10.txt")?;
+    playground.empty_file("dir_b/andres.10.txt")?;
+    playground.empty_file("dir_b/chicken_not_to_be_picked_up.100.txt")?;
 
-        let code = "
+    let code = "
             echo dir_a dir_b
             | each { |it| ls $it }
             | flatten
             | length
         ";
-        test().cwd(dirs.test()).run(code).expect_value_eq(4)
-    })
+    test().cwd(playground.path()).run(code).expect_value_eq(4)
 }
 
 #[test]
-fn does_not_fail_if_glob_matches_empty_directory() -> Result {
-    Playground::setup("ls_test_5", |dirs, sandbox| {
-        sandbox.within("dir_a");
+fn does_not_fail_if_glob_matches_empty_directory(playground: Playground) -> Result {
+    playground.dir("dir_a")?;
 
-        test()
-            .cwd(dirs.test())
-            .run("ls dir_a | length")
-            .expect_value_eq(0)
-    })
+    test()
+        .cwd(playground.path())
+        .run("ls dir_a | length")
+        .expect_value_eq(0)
 }
 
 #[test]
@@ -211,27 +193,22 @@ fn fails_when_glob_doesnt_match(playground: Playground) -> Result {
 }
 
 #[test]
-fn list_files_from_two_parents_up_using_multiple_dots() -> Result {
-    Playground::setup("ls_test_6", |dirs, sandbox| {
-        sandbox.with_files(&[
-            EmptyFile("yahuda.yaml"),
-            EmptyFile("jtjson"),
-            EmptyFile("andres.xml"),
-            EmptyFile("kevin.txt"),
-        ]);
+fn list_files_from_two_parents_up_using_multiple_dots(playground: Playground) -> Result {
+    playground.empty_file("yahuda.yaml")?;
+    playground.empty_file("jtjson")?;
+    playground.empty_file("andres.xml")?;
+    playground.empty_file("kevin.txt")?;
+    playground.dir("foo/bar")?;
 
-        sandbox.within("foo").mkdir("bar");
+    test()
+        .cwd(playground.path().join("foo/bar"))
+        .run("ls ... | length")
+        .expect_value_eq(5)?;
 
-        test()
-            .cwd(dirs.test().join("foo/bar"))
-            .run("ls ... | length")
-            .expect_value_eq(5)?;
-
-        test()
-            .cwd(dirs.test().join("foo/bar"))
-            .run(r#"ls ... | sort-by name | get name.0 | str replace -a '\' '/'"#)
-            .expect_value_eq("../../andres.xml")
-    })
+    test()
+        .cwd(playground.path().join("foo/bar"))
+        .run(r#"ls ... | sort-by name | get name.0 | str replace -a '\' '/'"#)
+        .expect_value_eq("../../andres.xml")
 }
 
 #[test]
@@ -273,136 +250,107 @@ fn lists_hidden_file_when_explicitly_specified(playground: Playground) -> Result
 }
 
 #[test]
-fn lists_all_hidden_files_when_glob_contains_dot() -> Result {
-    Playground::setup("ls_test_8", |dirs, sandbox| {
-        sandbox
-            .with_files(&[
-                EmptyFile("root1.txt"),
-                EmptyFile("root2.txt"),
-                EmptyFile(".dotfile1"),
-            ])
-            .within("dir_a")
-            .with_files(&[
-                EmptyFile("yehuda.10.txt"),
-                EmptyFile("jt10.txt"),
-                EmptyFile(".dotfile2"),
-            ])
-            .within("dir_b")
-            .with_files(&[
-                EmptyFile("andres.10.txt"),
-                EmptyFile("chicken_not_to_be_picked_up.100.txt"),
-                EmptyFile(".dotfile3"),
-            ]);
+fn lists_all_hidden_files_when_glob_contains_dot(playground: Playground) -> Result {
+    playground.empty_file("root1.txt")?;
+    playground.empty_file("root2.txt")?;
+    playground.empty_file(".dotfile1")?;
+    playground.empty_file("dir_a/yehuda.10.txt")?;
+    playground.empty_file("dir_a/jt10.txt")?;
+    playground.empty_file("dir_a/.dotfile2")?;
+    playground.empty_file("dir_b/andres.10.txt")?;
+    playground.empty_file("dir_b/chicken_not_to_be_picked_up.100.txt")?;
+    playground.empty_file("dir_b/.dotfile3")?;
 
-        test()
-            .cwd(dirs.test())
-            .run("ls **/.* | length")
-            .expect_value_eq(3)
-    })
+    test()
+        .cwd(playground.path())
+        .run("ls **/.* | length")
+        .expect_value_eq(3)
 }
 
 #[test]
 // TODO Remove this cfg value when we have an OS-agnostic way
 // of creating hidden files using the playground.
 #[cfg(unix)]
-fn lists_all_hidden_files_when_glob_does_not_contain_dot() -> Result {
-    Playground::setup("ls_test_8", |dirs, sandbox| {
-        sandbox
-            .with_files(&[
-                EmptyFile("root1.txt"),
-                EmptyFile("root2.txt"),
-                EmptyFile(".dotfile1"),
-            ])
-            .within("dir_a")
-            .with_files(&[
-                EmptyFile("yehuda.10.txt"),
-                EmptyFile("jt10.txt"),
-                EmptyFile(".dotfile2"),
-            ])
-            .within(".dir_b")
-            .with_files(&[
-                EmptyFile("andres.10.txt"),
-                EmptyFile("chicken_not_to_be_picked_up.100.txt"),
-                EmptyFile(".dotfile3"),
-            ]);
+fn lists_all_hidden_files_when_glob_does_not_contain_dot(playground: Playground) -> Result {
+    playground.empty_file("root1.txt")?;
+    playground.empty_file("root2.txt")?;
+    playground.empty_file(".dotfile1")?;
+    playground.empty_file("dir_a/yehuda.10.txt")?;
+    playground.empty_file("dir_a/jt10.txt")?;
+    playground.empty_file("dir_a/.dotfile2")?;
+    playground.empty_file(".dir_b/andres.10.txt")?;
+    playground.empty_file(".dir_b/chicken_not_to_be_picked_up.100.txt")?;
+    playground.empty_file(".dir_b/.dotfile3")?;
 
-        test()
-            .cwd(dirs.test())
-            .run("ls **/* | length")
-            .expect_value_eq(5)
-    })
+    test()
+        .cwd(playground.path())
+        .run("ls **/* | length")
+        .expect_value_eq(5)
 }
 
 #[test]
 // TODO Remove this cfg value when we have an OS-agnostic way
 // of creating hidden files using the playground.
 #[cfg(unix)]
-fn glob_with_hidden_directory() -> Result {
-    Playground::setup("ls_test_8", |dirs, sandbox| {
-        sandbox.within(".dir_b").with_files(&[
-            EmptyFile("andres.10.txt"),
-            EmptyFile("chicken_not_to_be_picked_up.100.txt"),
-            EmptyFile(".dotfile3"),
-        ]);
+fn glob_with_hidden_directory(playground: Playground) -> Result {
+    playground.empty_file(".dir_b/andres.10.txt")?;
+    playground.empty_file(".dir_b/chicken_not_to_be_picked_up.100.txt")?;
+    playground.empty_file(".dir_b/.dotfile3")?;
 
-        let err = test()
-            .cwd(dirs.test())
-            .run("ls **/* | length")
-            .expect_shell_error()?;
-        let err_msg = err.generic_msg()?;
-        assert_contains("file or folder not found", err_msg);
+    let err = test()
+        .cwd(playground.path())
+        .run("ls **/* | length")
+        .expect_shell_error()?;
+    let err_msg = err.generic_msg()?;
+    assert_contains("file or folder not found", err_msg);
 
-        // will list files if provide `-a` flag.
-        test()
-            .cwd(dirs.test())
-            .run("ls -a **/* | length")
-            .expect_value_eq(4)
-    })
+    // will list files if provide `-a` flag.
+    test()
+        .cwd(playground.path())
+        .run("ls -a **/* | length")
+        .expect_value_eq(4)
 }
 
 #[test]
 #[cfg(unix)]
-fn fails_with_permission_denied() -> Result {
+fn fails_with_permission_denied(playground: Playground) -> Result {
     use nu_protocol::shell_error::io::ErrorKind;
     use std::os::unix::fs::PermissionsExt;
 
-    Playground::setup("ls_test_1", |dirs, sandbox| {
-        sandbox
-            .within("dir_a")
-            .with_files(&[EmptyFile("yehuda.11.txt"), EmptyFile("jt10.txt")]);
+    playground.empty_file("dir_a/yehuda.11.txt")?;
+    playground.empty_file("dir_a/jt10.txt")?;
 
-        let is_root = nix::unistd::Uid::effective().is_root();
-        let dir_a = dirs.test().join("dir_a");
-        let original_permissions = std::fs::metadata(&dir_a)?.permissions();
+    let is_root = nix::unistd::Uid::effective().is_root();
+    let dir_a = playground.path().join("dir_a");
+    let original_permissions = std::fs::metadata(&dir_a)?.permissions();
 
-        let mut permissions = original_permissions.clone();
-        permissions.set_mode(0o000);
-        std::fs::set_permissions(&dir_a, permissions)?;
-        let path_arg_result: Result<Value> = test().cwd(dirs.test()).run("ls dir_a");
+    let mut permissions = original_permissions.clone();
+    permissions.set_mode(0o000);
+    std::fs::set_permissions(&dir_a, permissions)?;
+    let path_arg_result: Result<Value> = test().cwd(playground.path()).run("ls dir_a");
 
-        let mut permissions = original_permissions.clone();
-        permissions.set_mode(0o100);
-        std::fs::set_permissions(&dir_a, permissions)?;
-        let cwd_result: Result<Value> = test().cwd(&dir_a).run("ls");
+    let mut permissions = original_permissions.clone();
+    permissions.set_mode(0o100);
+    std::fs::set_permissions(&dir_a, permissions)?;
+    let cwd_result: Result<Value> = test().cwd(&dir_a).run("ls");
 
-        std::fs::set_permissions(&dir_a, original_permissions)?;
+    std::fs::set_permissions(&dir_a, original_permissions)?;
 
-        if !is_root {
-            let path_arg_err = path_arg_result.expect_io_error()?;
-            let cwd_err = cwd_result.expect_io_error()?;
+    if !is_root {
+        let path_arg_err = path_arg_result.expect_io_error()?;
+        let cwd_err = cwd_result.expect_io_error()?;
 
-            assert_matches!(
-                path_arg_err.kind,
-                ErrorKind::Std(std::io::ErrorKind::PermissionDenied, ..)
-            );
-            assert_matches!(
-                cwd_err.kind,
-                ErrorKind::Std(std::io::ErrorKind::PermissionDenied, ..)
-            );
-        }
+        assert_matches!(
+            path_arg_err.kind,
+            ErrorKind::Std(std::io::ErrorKind::PermissionDenied, ..)
+        );
+        assert_matches!(
+            cwd_err.kind,
+            ErrorKind::Std(std::io::ErrorKind::PermissionDenied, ..)
+        );
+    }
 
-        Ok(())
-    })
+    Ok(())
 }
 
 #[test]
@@ -459,52 +407,44 @@ fn list_all_columns(playground: Playground) -> Result {
 }
 
 #[test]
-fn lists_with_directory_flag() -> Result {
-    Playground::setup("ls_test_flag_directory_1", |dirs, sandbox| {
-        sandbox
-            .within("dir_files")
-            .with_files(&[EmptyFile("nushell.json")])
-            .within("dir_empty");
+fn lists_with_directory_flag(playground: Playground) -> Result {
+    playground.empty_file("dir_files/nushell.json")?;
+    playground.dir("dir_empty")?;
 
-        let code = "
+    let code = "
             ['.' '././.' '..' '../dir_files' '../dir_files/*']
             | each { |it| ls --directory ($it | into glob) }
             | flatten
             | get name
         ";
-        let expected = [".", ".", "..", "../dir_files", "../dir_files/nushell.json"];
-        #[cfg(windows)]
-        let expected = expected.map(|e| e.replace('/', "\\"));
+    let expected = [".", ".", "..", "../dir_files", "../dir_files/nushell.json"];
+    #[cfg(windows)]
+    let expected = expected.map(|e| e.replace('/', "\\"));
 
-        test()
-            .cwd(dirs.test().join("dir_empty"))
-            .run(code)
-            .expect_value_eq(expected)
-    })
+    test()
+        .cwd(playground.path().join("dir_empty"))
+        .run(code)
+        .expect_value_eq(expected)
 }
 
 #[test]
-fn lists_with_directory_flag_without_argument() -> Result {
-    Playground::setup("ls_test_flag_directory_2", |dirs, sandbox| {
-        sandbox
-            .within("dir_files")
-            .with_files(&[EmptyFile("nushell.json")])
-            .within("dir_empty");
+fn lists_with_directory_flag_without_argument(playground: Playground) -> Result {
+    playground.empty_file("dir_files/nushell.json")?;
+    playground.dir("dir_empty")?;
 
-        // Test if there are some files in the current directory
-        test()
-            .cwd(dirs.test().join("dir_files"))
-            .run("ls --directory | get name")
-            .expect_value_eq(["."])?;
+    // Test if there are some files in the current directory
+    test()
+        .cwd(playground.path().join("dir_files"))
+        .run("ls --directory | get name")
+        .expect_value_eq(["."])?;
 
-        // Test if there is no file in the current directory
-        test()
-            .cwd(dirs.test().join("dir_empty"))
-            .run("ls -D | get name")
-            .expect_value_eq(["."])?;
+    // Test if there is no file in the current directory
+    test()
+        .cwd(playground.path().join("dir_empty"))
+        .run("ls -D | get name")
+        .expect_value_eq(["."])?;
 
-        Ok(())
-    })
+    Ok(())
 }
 
 /// Rust's fs::metadata function is unable to read info for certain system files on Windows,
@@ -648,36 +588,33 @@ fn list_empty_string(playground: Playground) -> Result {
 }
 
 #[test]
-fn list_with_tilde() -> Result {
-    Playground::setup("ls_tilde", |dirs, sandbox| {
-        sandbox
-            .within("~tilde")
-            .with_files(&[EmptyFile("f1.txt"), EmptyFile("f2.txt")]);
+fn list_with_tilde(playground: Playground) -> Result {
+    playground.empty_file("~tilde/f1.txt")?;
+    playground.empty_file("~tilde/f2.txt")?;
 
-        test()
-            .cwd(dirs.test())
-            .run("(ls '~tilde').name")
-            .expect_value_eq(cfg_select! {
-                unix => ["~tilde/f1.txt", "~tilde/f2.txt"],
-                windows => ["~tilde\\f1.txt", "~tilde\\f2.txt"],
-            })?;
+    test()
+        .cwd(playground.path())
+        .run("(ls '~tilde').name")
+        .expect_value_eq(cfg_select! {
+            unix => ["~tilde/f1.txt", "~tilde/f2.txt"],
+            windows => ["~tilde\\f1.txt", "~tilde\\f2.txt"],
+        })?;
 
-        test()
-            .cwd(dirs.test())
-            .run("ls ~tilde")
-            .expect_error_code_eq("nu::shell::io::not_found")?;
+    test()
+        .cwd(playground.path())
+        .run("ls ~tilde")
+        .expect_error_code_eq("nu::shell::io::not_found")?;
 
-        // pass variable
-        test()
-            .cwd(dirs.test())
-            .run("let f = '~tilde'; (ls $f).name")
-            .expect_value_eq(cfg_select! {
-                unix => ["~tilde/f1.txt", "~tilde/f2.txt"],
-                windows => ["~tilde\\f1.txt", "~tilde\\f2.txt"],
-            })?;
+    // pass variable
+    test()
+        .cwd(playground.path())
+        .run("let f = '~tilde'; (ls $f).name")
+        .expect_value_eq(cfg_select! {
+            unix => ["~tilde/f1.txt", "~tilde/f2.txt"],
+            windows => ["~tilde\\f1.txt", "~tilde\\f2.txt"],
+        })?;
 
-        Ok(())
-    })
+    Ok(())
 }
 
 #[test]
@@ -707,45 +644,34 @@ fn list_with_multiple_path(playground: Playground) -> Result {
 }
 
 #[test]
-fn list_inside_glob_metachars_dir() -> Result {
-    Playground::setup("list_files_inside_glob_metachars_dir", |dirs, sandbox| {
-        let sub_dir = "test[]";
-        sandbox
-            .within(sub_dir)
-            .with_files(&[EmptyFile("test_file.txt")]);
+fn list_inside_glob_metachars_dir(playground: Playground) -> Result {
+    let sub_dir = "test[]";
+    playground.empty_file("test[]/test_file.txt")?;
 
-        test()
-            .cwd(dirs.test().join(sub_dir))
-            .run("(ls test_file.txt).name.0 | path basename")
-            .expect_value_eq("test_file.txt")
-    })
+    test()
+        .cwd(playground.path().join(sub_dir))
+        .run("(ls test_file.txt).name.0 | path basename")
+        .expect_value_eq("test_file.txt")
 }
 
 #[test]
-fn list_inside_tilde_glob_metachars_dir() -> Result {
-    Playground::setup(
-        "list_files_inside_tilde_glob_metachars_dir",
-        |dirs, sandbox| {
-            let sub_dir = "~test[]";
-            sandbox
-                .within(sub_dir)
-                .with_files(&[EmptyFile("test_file.txt")]);
+fn list_inside_tilde_glob_metachars_dir(playground: Playground) -> Result {
+    let sub_dir = "~test[]";
+    playground.empty_file("~test[]/test_file.txt")?;
 
-            // need name.0 | path basename because the output path
-            // might be too long to output as a single line.
-            test()
-                .cwd(dirs.test().join(sub_dir))
-                .run("(ls test_file.txt).name.0 | path basename")
-                .expect_value_eq("test_file.txt")?;
+    // need name.0 | path basename because the output path
+    // might be too long to output as a single line.
+    test()
+        .cwd(playground.path().join(sub_dir))
+        .run("(ls test_file.txt).name.0 | path basename")
+        .expect_value_eq("test_file.txt")?;
 
-            test()
-                .cwd(dirs.test())
-                .run("(ls '~test[]').name.0 | path basename")
-                .expect_value_eq("test_file.txt")?;
+    test()
+        .cwd(playground.path())
+        .run("(ls '~test[]').name.0 | path basename")
+        .expect_value_eq("test_file.txt")?;
 
-            Ok(())
-        },
-    )
+    Ok(())
 }
 
 #[test]
@@ -788,118 +714,94 @@ fn consistent_list_order(playground: Playground) -> Result {
 
 #[test]
 #[exp(nu_experimental::DC_GLOB)]
-fn ls_dc_glob_literal_prefix_wildcard() -> Result {
-    Playground::setup("ls_dc_literal_prefix_wildcard", |dirs, sandbox| {
-        sandbox.mkdir("subdir");
-        sandbox.within("subdir").with_files(&[
-            EmptyFile("nu_test1"),
-            EmptyFile("nu_test2"),
-            EmptyFile("other"),
-        ]);
+fn ls_dc_glob_literal_prefix_wildcard(playground: Playground) -> Result {
+    playground.empty_file("subdir/nu_test1")?;
+    playground.empty_file("subdir/nu_test2")?;
+    playground.empty_file("subdir/other")?;
 
-        // Unquoted glob patterns (bare words) parse as Expand
-        test()
-            .cwd(dirs.test())
-            .run("ls subdir/nu* | length")
-            .expect_value_eq(2)
-            .expect("ls subdir/nu* should list both nu_test files with dc-glob");
-    });
+    // Unquoted glob patterns (bare words) parse as Expand
+    test()
+        .cwd(playground.path())
+        .run("ls subdir/nu* | length")
+        .expect_value_eq(2)
+        .expect("ls subdir/nu* should list both nu_test files with dc-glob");
 
     Ok(())
 }
 
 #[test]
 #[exp(nu_experimental::DC_GLOB)]
-fn ls_dc_glob_literal_prefix_wildcard_metadata_populated() -> Result {
-    Playground::setup("ls_dc_literal_prefix_meta", |dirs, sandbox| {
-        sandbox.mkdir("subdir");
-        sandbox
-            .within("subdir")
-            .with_files(&[EmptyFile("nu_test.txt")]);
+fn ls_dc_glob_literal_prefix_wildcard_metadata_populated(playground: Playground) -> Result {
+    playground.empty_file("subdir/nu_test.txt")?;
 
-        test()
-            .cwd(dirs.test())
-            .run("ls subdir/nu* | get type.0")
-            .expect_value_eq("file")
-            .expect("ls subdir/nu* should populate type column with dc-glob");
+    test()
+        .cwd(playground.path())
+        .run("ls subdir/nu* | get type.0")
+        .expect_value_eq("file")
+        .expect("ls subdir/nu* should populate type column with dc-glob");
 
-        test()
-            .cwd(dirs.test())
-            .run("ls subdir/nu* | get size.0 | into int")
-            .expect_value_eq(0)
-            .expect("ls subdir/nu* should populate size column with dc-glob");
+    test()
+        .cwd(playground.path())
+        .run("ls subdir/nu* | get size.0 | into int")
+        .expect_value_eq(0)
+        .expect("ls subdir/nu* should populate size column with dc-glob");
 
-        // modified column should be "datetime", not "nothing", when metadata is available
-        test()
-            .cwd(dirs.test())
-            .run("ls subdir/nu* | get modified.0 | describe")
-            .expect_value_eq("datetime")
-            .expect("ls subdir/nu* should populate modified column with dc-glob");
-    });
+    // modified column should be "datetime", not "nothing", when metadata is available
+    test()
+        .cwd(playground.path())
+        .run("ls subdir/nu* | get modified.0 | describe")
+        .expect_value_eq("datetime")
+        .expect("ls subdir/nu* should populate modified column with dc-glob");
 
     Ok(())
 }
 
 #[test]
 #[exp(nu_experimental::DC_GLOB)]
-fn ls_dc_glob_wildcard_then_literal() -> Result {
-    Playground::setup("ls_dc_wildcard_literal", |dirs, sandbox| {
-        sandbox.mkdir("subdir");
-        sandbox.within("subdir").with_files(&[
-            EmptyFile("nu_test1"),
-            EmptyFile("nu_test2"),
-            EmptyFile("other"),
-        ]);
+fn ls_dc_glob_wildcard_then_literal(playground: Playground) -> Result {
+    playground.empty_file("subdir/nu_test1")?;
+    playground.empty_file("subdir/nu_test2")?;
+    playground.empty_file("subdir/other")?;
 
-        test()
-            .cwd(dirs.test())
-            .run("ls subdir/*nu* | length")
-            .expect_value_eq(2)
-            .expect("ls subdir/*nu* should list both nu_test files with dc-glob");
-    });
+    test()
+        .cwd(playground.path())
+        .run("ls subdir/*nu* | length")
+        .expect_value_eq(2)
+        .expect("ls subdir/*nu* should list both nu_test files with dc-glob");
 
     Ok(())
 }
 
 #[test]
 #[exp(nu_experimental::DC_GLOB)]
-fn ls_dc_glob_wildcard_then_literal_metadata_populated() -> Result {
-    Playground::setup("ls_dc_wildcard_literal_meta", |dirs, sandbox| {
-        sandbox.mkdir("subdir");
-        sandbox
-            .within("subdir")
-            .with_files(&[EmptyFile("nu_test.txt")]);
+fn ls_dc_glob_wildcard_then_literal_metadata_populated(playground: Playground) -> Result {
+    playground.empty_file("subdir/nu_test.txt")?;
 
-        test()
-            .cwd(dirs.test())
-            .run("ls subdir/*nu* | get type.0")
-            .expect_value_eq("file")
-            .expect("ls subdir/*nu* should populate type column with dc-glob");
+    test()
+        .cwd(playground.path())
+        .run("ls subdir/*nu* | get type.0")
+        .expect_value_eq("file")
+        .expect("ls subdir/*nu* should populate type column with dc-glob");
 
-        test()
-            .cwd(dirs.test())
-            .run("ls subdir/*nu* | get size.0 | into int")
-            .expect_value_eq(0)
-            .expect("ls subdir/*nu* should populate size column with dc-glob");
-    });
+    test()
+        .cwd(playground.path())
+        .run("ls subdir/*nu* | get size.0 | into int")
+        .expect_value_eq(0)
+        .expect("ls subdir/*nu* should populate size column with dc-glob");
 
     Ok(())
 }
 
 #[test]
 #[exp(nu_experimental::DC_GLOB)]
-fn ls_literal_directory() -> Result {
-    Playground::setup("ls_literal_dir_dc", |dirs, sandbox| {
-        sandbox
-            .within("subdir")
-            .with_files(&[EmptyFile("test.txt")]);
+fn ls_literal_directory(playground: Playground) -> Result {
+    playground.empty_file("subdir/test.txt")?;
 
-        test()
-            .cwd(dirs.root())
-            .run("ls ls_literal_dir_dc/subdir | length")
-            .expect_value_eq(1)
-            .expect("ls literal directory should list its contents with dc-glob");
-    });
+    test()
+        .cwd(playground.path())
+        .run("ls subdir | length")
+        .expect_value_eq(1)
+        .expect("ls literal directory should list its contents with dc-glob");
 
     Ok(())
 }
@@ -924,19 +826,14 @@ fn ls_literal_empty_directory(playground: Playground) -> Result {
 /// `{cwd}/**`. Multi-component trailing `**` must expand (directories only).
 #[test]
 #[exp(nu_experimental::DC_GLOB)]
-fn ls_dc_glob_bare_double_star() -> Result {
-    Playground::setup("ls_dc_bare_double_star", |dirs, sandbox| {
-        sandbox.mkdir("1");
-        sandbox.mkdir("1/2");
-        sandbox.mkdir("1/2/3");
-        sandbox.within("1/2/3").with_files(&[EmptyFile("file.txt")]);
-        sandbox.mkdir("foo");
-        sandbox.mkdir("foo/bar");
+fn ls_dc_glob_bare_double_star(playground: Playground) -> Result {
+    playground.empty_file("1/2/3/file.txt")?;
+    playground.dir("foo/bar")?;
 
-        // Nested directories present; file.txt must not appear (trailing ** is dir-only).
-        // Must not error with "No matches found".
-        // Compare expanded paths so relative vs absolute display names both work.
-        let code = "
+    // Nested directories present; file.txt must not appear (trailing ** is dir-only).
+    // Must not error with "No matches found".
+    // Compare expanded paths so relative vs absolute display names both work.
+    let code = "
             let paths = (ls ** | get name | each { path expand } | sort)
             (
                 ($paths | length) >= 5
@@ -948,30 +845,22 @@ fn ls_dc_glob_bare_double_star() -> Result {
                 and not ($paths | any {|p| $p | str ends-with 'file.txt'})
             )
         ";
-        test()
-            .cwd(dirs.test())
-            .run(code)
-            .expect_value_eq(true)
-            .expect("ls ** should list nested dirs and not files with dc-glob");
-    });
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq(true)
+        .expect("ls ** should list nested dirs and not files with dc-glob");
 
     Ok(())
 }
 
 #[test]
 #[exp(nu_experimental::DC_GLOB)]
-fn ls_dc_glob_prefixed_trailing_double_star() -> Result {
-    Playground::setup("ls_dc_prefixed_trailing", |dirs, sandbox| {
-        sandbox.mkdir("foo");
-        sandbox.mkdir("foo/bar");
-        sandbox
-            .within("foo")
-            .with_files(&[EmptyFile("sibling.txt")]);
-        sandbox
-            .within("foo/bar")
-            .with_files(&[EmptyFile("nested.txt")]);
+fn ls_dc_glob_prefixed_trailing_double_star(playground: Playground) -> Result {
+    playground.empty_file("foo/sibling.txt")?;
+    playground.empty_file("foo/bar/nested.txt")?;
 
-        let code = "
+    let code = "
             let paths = (ls foo/** | get name | each { path expand } | sort)
             (
                 ($paths | any {|p| $p | str ends-with $'(char psep)foo'})
@@ -980,12 +869,11 @@ fn ls_dc_glob_prefixed_trailing_double_star() -> Result {
                 and not ($paths | any {|p| $p | str ends-with 'nested.txt'})
             )
         ";
-        test()
-            .cwd(dirs.test())
-            .run(code)
-            .expect_value_eq(true)
-            .expect("ls foo/** should list foo and nested dirs only with dc-glob");
-    });
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq(true)
+        .expect("ls foo/** should list foo and nested dirs only with dc-glob");
 
     Ok(())
 }
@@ -994,32 +882,27 @@ fn ls_dc_glob_prefixed_trailing_double_star() -> Result {
 #[cfg(not(windows))]
 #[test]
 #[exp(nu_experimental::DC_GLOB)]
-fn ls_with_file_named_star_lists_all_entries() -> Result {
+fn ls_with_file_named_star_lists_all_entries(playground: Playground) -> Result {
     // Regression for #18631: with dc-glob, a file named `*` must not hide
     // every other entry when `ls` expands the default `*` pattern.
     // Use distinct names that stay unique on case-insensitive filesystems.
-    Playground::setup("ls_file_named_star_dc", |dirs, sandbox| {
-        sandbox
-            .with_files(&[
-                EmptyFile("file_a"),
-                EmptyFile("file_b"),
-                EmptyFile("file_c"),
-                EmptyFile("*"),
-            ])
-            .mkdir("dir_a")
-            .mkdir("dir_b")
-            .mkdir("dir_c");
+    playground.empty_file("file_a")?;
+    playground.empty_file("file_b")?;
+    playground.empty_file("file_c")?;
+    playground.empty_file("*")?;
+    playground.dir("dir_a")?;
+    playground.dir("dir_b")?;
+    playground.dir("dir_c")?;
 
-        test()
-            .cwd(dirs.test())
-            .run("ls | length")
-            .expect_value_eq(7)?;
+    test()
+        .cwd(playground.path())
+        .run("ls | length")
+        .expect_value_eq(7)?;
 
-        test()
-            .cwd(dirs.test())
-            .run("ls * | length")
-            .expect_value_eq(7)?;
+    test()
+        .cwd(playground.path())
+        .run("ls * | length")
+        .expect_value_eq(7)?;
 
-        Ok(())
-    })
+    Ok(())
 }

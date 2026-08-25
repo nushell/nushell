@@ -1,7 +1,4 @@
-use nu_test_support::{
-    fs::Stub::{FileWithContent, FileWithContentToBeTrimmed},
-    prelude::*,
-};
+use nu_test_support::prelude::*;
 use pretty_assertions::assert_eq;
 use rstest::rstest;
 
@@ -74,117 +71,99 @@ fn exit_failure_if_output_full(
 }
 
 #[test]
-fn nu_lib_dirs_repl() -> Result {
-    Playground::setup("nu_lib_dirs_repl", |dirs, sandbox| -> Result {
-        sandbox
-            .mkdir("scripts")
-            .with_files(&[FileWithContent("scripts/foo.nu", "$env.FOO = 'foo'")]);
+fn nu_lib_dirs_repl(playground: Playground) -> Result {
+    playground.file("scripts/foo.nu", "$env.FOO = 'foo'")?;
 
-        let scripts = dirs.test().join("scripts");
-        let mut tester = test()
-            .cwd(dirs.test())
-            .env("NU_LIB_DIRS", [scripts.to_string_lossy().to_string()]);
-        let () = tester.run("source-env foo.nu")?;
-        tester.run("$env.FOO").expect_value_eq("foo")
-    })
+    let scripts = playground.path().join("scripts");
+    let mut tester = test()
+        .cwd(playground.path())
+        .env("NU_LIB_DIRS", [scripts.to_string_lossy().to_string()]);
+    let () = tester.run("source-env foo.nu")?;
+    tester.run("$env.FOO").expect_value_eq("foo")
 }
 
 #[test]
-fn nu_lib_dirs_script() -> Result {
-    Playground::setup("nu_lib_dirs_script", |dirs, sandbox| -> Result {
-        sandbox
-            .mkdir("scripts")
-            .with_files(&[FileWithContentToBeTrimmed(
-                "scripts/foo.nu",
-                r#"
-                    $env.FOO = "foo"
-                "#,
-            )])
-            .with_files(&[FileWithContentToBeTrimmed(
-                "main.nu",
-                "
-                    source-env foo.nu
-                ",
-            )]);
+fn nu_lib_dirs_script(playground: Playground) -> Result {
+    playground.file(
+        "scripts/foo.nu",
+        indoc::indoc! {r#"
+            $env.FOO = "foo"
+        "#},
+    )?;
+    playground.file(
+        "main.nu",
+        indoc::indoc! {"
+            source-env foo.nu
+        "},
+    )?;
 
-        let scripts = dirs.test().join("scripts");
-        let mut tester = test()
-            .cwd(dirs.test())
-            .env("NU_LIB_DIRS", [scripts.to_string_lossy().to_string()]);
-        let () = tester.run("source-env main.nu")?;
-        tester.run("$env.FOO").expect_value_eq("foo")
-    })
+    let scripts = playground.path().join("scripts");
+    let mut tester = test()
+        .cwd(playground.path())
+        .env("NU_LIB_DIRS", [scripts.to_string_lossy().to_string()]);
+    let () = tester.run("source-env main.nu")?;
+    tester.run("$env.FOO").expect_value_eq("foo")
 }
 
 #[test]
-fn nu_lib_dirs_relative_repl() -> Result {
-    Playground::setup("nu_lib_dirs_relative_repl", |dirs, sandbox| -> Result {
-        sandbox
-            .mkdir("scripts")
-            .with_files(&[FileWithContentToBeTrimmed(
-                "scripts/foo.nu",
-                r#"
-                    $env.FOO = "foo"
-                "#,
-            )]);
+fn nu_lib_dirs_relative_repl(playground: Playground) -> Result {
+    playground.file(
+        "scripts/foo.nu",
+        indoc::indoc! {r#"
+            $env.FOO = "foo"
+        "#},
+    )?;
 
-        let mut tester = test().cwd(dirs.test()).env("NU_LIB_DIRS", ["scripts"]);
-        let () = tester.run("source-env foo.nu")?;
-        tester.run("$env.FOO").expect_value_eq("foo")
-    })
+    let mut tester = test()
+        .cwd(playground.path())
+        .env("NU_LIB_DIRS", ["scripts"]);
+    let () = tester.run("source-env foo.nu")?;
+    tester.run("$env.FOO").expect_value_eq("foo")
 }
 
 // TODO: add absolute path tests after we expand const capabilities (see #8310)
 #[test]
-fn const_nu_lib_dirs_relative() -> Result {
-    Playground::setup("const_nu_lib_dirs_relative", |dirs, sandbox| -> Result {
-        sandbox
-            .mkdir("scripts")
-            .with_files(&[FileWithContentToBeTrimmed(
-                "scripts/foo.nu",
-                r#"
-                    $env.FOO = "foo"
-                "#,
-            )])
-            .with_files(&[FileWithContentToBeTrimmed(
-                "main.nu",
-                "
-                    const NU_LIB_DIRS = [ 'scripts' ]
-                    source-env foo.nu
-                    $env.FOO
-                ",
-            )]);
+fn const_nu_lib_dirs_relative(playground: Playground) -> Result {
+    playground.file(
+        "scripts/foo.nu",
+        indoc::indoc! {r#"
+            $env.FOO = "foo"
+        "#},
+    )?;
+    playground.file(
+        "main.nu",
+        indoc::indoc! {"
+            const NU_LIB_DIRS = [ 'scripts' ]
+            source-env foo.nu
+            $env.FOO
+        "},
+    )?;
 
-        test()
-            .cwd(dirs.test())
-            .run("source main.nu")
-            .expect_value_eq("foo")
-    })
+    test()
+        .cwd(playground.path())
+        .run("source main.nu")
+        .expect_value_eq("foo")
 }
 
 #[test]
-fn nu_lib_dirs_relative_script() -> Result {
-    Playground::setup("nu_lib_dirs_relative_script", |dirs, sandbox| -> Result {
-        sandbox
-            .mkdir("scripts")
-            .with_files(&[FileWithContentToBeTrimmed(
-                "scripts/main.nu",
-                "
-                    source-env ../foo.nu
-                ",
-            )])
-            .with_files(&[FileWithContentToBeTrimmed(
-                "foo.nu",
-                r#"
-                    $env.FOO = "foo"
-                "#,
-            )]);
+fn nu_lib_dirs_relative_script(playground: Playground) -> Result {
+    playground.file(
+        "scripts/main.nu",
+        indoc::indoc! {"
+            source-env ../foo.nu
+        "},
+    )?;
+    playground.file(
+        "foo.nu",
+        indoc::indoc! {r#"
+            $env.FOO = "foo"
+        "#},
+    )?;
 
-        test()
-            .cwd(dirs.test())
-            .run("$env.NU_LIB_DIRS = [ 'scripts' ]; source-env scripts/main.nu; $env.FOO")
-            .expect_value_eq("foo")
-    })
+    test()
+        .cwd(playground.path())
+        .run("$env.NU_LIB_DIRS = [ 'scripts' ]; source-env scripts/main.nu; $env.FOO")
+        .expect_value_eq("foo")
 }
 
 #[test]
