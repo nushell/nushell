@@ -1,11 +1,9 @@
 use crate::util::{eval_parsed_block_source, eval_source, print_pipeline};
 use log::{info, trace};
-use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_path::absolute_with;
 use nu_protocol::{
     PipelineData, ShellError, Span, Value,
-    debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
     report_error::report_compile_error,
     report_parse_error, report_parse_warning,
@@ -172,15 +170,20 @@ pub fn evaluate_file(
     // declaration and added an alias.
     let exit_code = if file_has_main && engine_state.find_decl(&script_name_bytes, &[]).is_some() {
         // Evaluate the file, but don't run main yet.
-        let pipeline =
-            match eval_block::<WithoutDebug>(engine_state, stack, &block, PipelineData::empty()) {
-                Ok(data) if data.early_return => {
-                    // Allow early return before main is run.
-                    return Ok(());
-                }
-                Ok(data) => data.body,
-                Err(err) => return Err(err),
-            };
+        let pipeline = match crate::util::eval_block_for_output(
+            engine_state,
+            stack,
+            &block,
+            PipelineData::empty(),
+            false,
+        ) {
+            Ok(data) if data.early_return => {
+                // Allow early return before main is run.
+                return Ok(());
+            }
+            Ok(data) => data.body,
+            Err(err) => return Err(err),
+        };
 
         // Print the pipeline output of the last command of the file.
         print_pipeline(engine_state, stack, pipeline, true)?;
