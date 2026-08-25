@@ -1,5 +1,5 @@
-use nu_test_support::prelude::*;
 use indoc::indoc;
+use nu_test_support::prelude::*;
 
 #[test]
 #[deps(NU_PLUGIN_FORMATS)]
@@ -113,7 +113,7 @@ fn from_ics_text_with_linebreak_to_table(playground: Playground) -> Result {
             TRANSP:TRANSPARENT
             END:VEVENT
             END:VCALENDAR
-        "}
+        "},
     )?;
 
     let code = r#"

@@ -1,5 +1,5 @@
-use nu_test_support::prelude::*;
 use indoc::indoc;
+use nu_test_support::prelude::*;
 
 #[test]
 #[deps(NU_PLUGIN_FORMATS)]
@@ -91,7 +91,8 @@ fn from_vcf_text_with_linebreak_to_table(playground: Playground) -> Result {
             NOTE:Facebook: john.doe.3\nWebsite: \nHometown: Cleveland\, Ohio
             CATEGORIES:myContacts
             END:VCARD
-        "})?;
+        "},
+    )?;
 
     let code = r#"
         open contacts.txt
