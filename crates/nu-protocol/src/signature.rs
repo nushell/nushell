@@ -378,13 +378,22 @@ impl PartialEq for Signature {
 impl Eq for Signature {}
 
 /// Lower is more specific. `None` means the input is not assignable to the declared type.
+///
+/// A declared [`Type::Any`] is a catch-all (often used to disable input checking or cover
+/// flag-only modes). It must lose to every more specific pair. Otherwise an unknown pipeline
+/// input such as `http get | into datetime` picks `(any, table)` over `(string, datetime)`.
 fn io_match_rank(input: &Type, declared: &Type) -> Option<u8> {
+    if !input.is_assignable_to(declared) {
+        return None;
+    }
+    if matches!(declared, Type::Any) {
+        return Some(4);
+    }
     match input.compare_types(declared) {
         Some(TypeRelation::Equal) => Some(0),
         Some(TypeRelation::Subtype) => Some(1),
         Some(TypeRelation::Supertype) => Some(2),
-        None if input.is_assignable_to(declared) => Some(3),
-        None => None,
+        None => Some(3),
     }
 }
 
@@ -432,7 +441,8 @@ impl Signature {
     /// - When several pairs match, only the most specific rank is kept:
     ///   [equal](TypeRelation::Equal), then [subtype](TypeRelation::Subtype), then
     ///   [supertype](TypeRelation::Supertype), then assignability that is not a lattice match
-    ///   (for example `custom` values matching list/table/record).
+    ///   (for example `custom` values matching list/table/record), then a declared [`Type::Any`]
+    ///   catch-all.
     /// - [Union](TypeSet::union) of outputs at that rank is returned.
     /// - If there are no valid IO pairs for the given `input`, [`None`] is returned.
     // XXX: remove?

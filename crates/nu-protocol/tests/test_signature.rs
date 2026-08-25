@@ -1,4 +1,4 @@
-use nu_protocol::{Flag, PositionalArg, Signature, SyntaxShape, Type, TypeSet};
+use nu_protocol::{CompareTypes, Flag, PositionalArg, Signature, SyntaxShape, Type, TypeSet};
 
 #[test]
 fn test_signature() {
@@ -257,4 +257,23 @@ fn get_output_type_returns_none_when_no_pair_matches() {
     let sig = Signature::new("only-int").input_output_types(vec![(Type::Int, Type::String)]);
 
     assert_eq!(sig.get_output_type(Some(&Type::Bool)), None);
+}
+
+#[test]
+fn get_output_type_does_not_let_any_catchall_win_over_specific_pairs() {
+    // Mirrors `into datetime`: `(any, table)` exists for `--list`, not as the
+    // conversion result when the pipeline input type is unknown (`any`).
+    let sig = Signature::new("into datetime").input_output_types(vec![
+        (Type::Date, Type::Date),
+        (Type::String, Type::Date),
+        (Type::table(), Type::table()),
+        (Type::record(), Type::record()),
+        (Type::Any, Type::table()),
+    ]);
+
+    let from_any = sig.get_output_type(Some(&Type::Any)).unwrap();
+    assert_ne!(from_any, Type::table());
+    assert!(from_any.is_assignable_to(&Type::Date));
+
+    assert_eq!(sig.get_output_type(Some(&Type::String)), Some(Type::Date));
 }
