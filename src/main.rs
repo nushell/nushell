@@ -22,7 +22,8 @@ use nu_config::{CliOverrides, ConfigError, ConfigWarning, SystemEnv, resolve_pat
 use nu_engine::{convert_env_values, exit::cleanup_exit};
 use nu_path::absolute_with;
 use nu_protocol::{
-    ByteStream, Config, IntoValue, PipelineData, ShellError, Span, Spanned, Type, Value,
+    ByteStream, Config, IntoValue, PipelineData, ShellError, Span, Spanned, StructuredIoMode, Type,
+    Value,
     engine::{EngineState, Stack},
     record, report_shell_error,
     shell_error::generic::GenericError,
@@ -299,14 +300,14 @@ fn main() -> Result<()> {
     let ancestor_nu = parsed_nu_cli_args.structured_io.is_none()
         && nu_system::ancestor_is_nushell(nu_system::NUSHELL_ANCESTOR_MAX_DEPTH);
     let mut structured_io = if let Some(value) = &parsed_nu_cli_args.structured_io {
-        nu_experimental::StructuredIoMode::from_flag_str(&value.item)
+        StructuredIoMode::from_flag_str(&value.item)
     } else if ancestor_nu {
-        nu_experimental::StructuredIoMode {
+        StructuredIoMode {
             input: false,
             output: nu_system::stdio_is_pipe(nu_system::StdioFd::Stdout),
         }
     } else {
-        nu_experimental::StructuredIoMode::default()
+        StructuredIoMode::default()
     };
     // keep this condition in sync with the branches at the end
     engine_state.is_interactive = parsed_nu_cli_args.interactive_shell.is_some()

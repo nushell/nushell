@@ -1,6 +1,5 @@
-use nu_experimental::StructuredIoMode;
 use nu_protocol::{
-    ByteStream, ByteStreamType, PipelineData, ShellError, Signals, Span, Spanned,
+    ByteStream, ByteStreamType, PipelineData, ShellError, Signals, Span, Spanned, StructuredIoMode,
     engine::EngineState,
     shell_error::{generic::GenericError, io::IoError},
 };
@@ -156,6 +155,20 @@ pub fn decode_structured_pipeline(
         return Ok(PipelineData::empty());
     }
 
+    // Only parse NUON when the child opted in with the frame. Bare text from
+    // `nu script.nu` (python, `print`, virtualenv, ...) stays a byte stream.
+    if !bytes.starts_with(STRUCTURED_IO_HEADER) {
+        return Ok(PipelineData::byte_stream(
+            ByteStream::read(
+                Cursor::new(bytes),
+                span,
+                Signals::empty(),
+                ByteStreamType::Unknown,
+            ),
+            None,
+        ));
+    }
+
     let nuon = strip_structured_io_header(&bytes);
     let text = std::str::from_utf8(nuon).map_err(|err| {
         ShellError::Generic(GenericError::new(
@@ -165,7 +178,7 @@ pub fn decode_structured_pipeline(
         ))
     })?;
 
-    let value = from_nuon(&text, Some(span)).map_err(|err| {
+    let value = from_nuon(text, Some(span)).map_err(|err| {
         ShellError::Generic(GenericError::new(
             "Failed to parse structured output from child nu",
             err.to_string(),
@@ -301,7 +314,7 @@ fn shebang_invokes_nu(path: &Path) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nu_protocol::IntoSpanned;
+    use nu_protocol::{IntoSpanned, Value};
     use std::io::Write;
     use tempfile::NamedTempFile;
 
@@ -447,5 +460,45 @@ mod tests {
         );
         assert!(auto.output);
         assert!(!auto.input);
+    }
+
+    #[test]
+    fn decode_unframed_bytes_stays_byte_stream() {
+        let data = PipelineData::byte_stream(
+            ByteStream::read(
+                Cursor::new(b"created virtual environment\n"),
+                Span::test_data(),
+                Signals::empty(),
+                ByteStreamType::Unknown,
+            ),
+            None,
+        );
+        let out = decode_structured_pipeline(data, Span::test_data()).expect("decode");
+        assert!(matches!(out, PipelineData::ByteStream(..)));
+    }
+
+    #[test]
+    fn decode_framed_nuon_is_a_value() {
+        let mut raw = STRUCTURED_IO_HEADER.to_vec();
+        raw.extend_from_slice(b"[1, 2, 3]\n");
+        let data = PipelineData::byte_stream(
+            ByteStream::read(
+                Cursor::new(raw),
+                Span::test_data(),
+                Signals::empty(),
+                ByteStreamType::Unknown,
+            ),
+            None,
+        );
+        let out = decode_structured_pipeline(data, Span::test_data()).expect("decode");
+        let value = out.into_value(Span::test_data()).expect("value");
+        assert_eq!(
+            value,
+            Value::test_list(vec![
+                Value::test_int(1),
+                Value::test_int(2),
+                Value::test_int(3),
+            ])
+        );
     }
 }

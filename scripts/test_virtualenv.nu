@@ -47,7 +47,8 @@ def main [] {
     virtualenv $env_name
 
     $test_lines | save script.nu
-    let out = (nu script.nu | lines)
+    # This script's output is printed lines, not a pipeline value.
+    let out = (nu --structured-io=false script.nu | lines)
 
     let o = ($out | str trim | str join (char nl))
     let e = ($expected | str trim | str join (char nl))

@@ -71,11 +71,11 @@ fn child_script_file_stays_structured() -> Result {
     Playground::setup("structured_io_script_file", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
             "foo.nu",
-            r#"
+            "
                 def main [] {
                     [1 2 3]
                 }
-            "#,
+            ",
         )]);
 
         test()
@@ -94,11 +94,11 @@ fn shebang_script_stays_structured() -> Result {
     Playground::setup("structured_io_shebang", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
             "foo.nu",
-            r#"#!/usr/bin/env nu
+            "#!/usr/bin/env nu
 def main [] {
     [1 2 3]
 }
-"#,
+",
         )]);
 
         let script = dirs.test().join("foo.nu");
@@ -148,11 +148,11 @@ fn extensionless_nu_shebang_stays_structured() -> Result {
     Playground::setup("structured_io_extensionless_shebang", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
             "sum",
-            r#"#!/usr/bin/env nu
+            "#!/usr/bin/env nu
 def main [] {
     [1 2 3]
 }
-"#,
+",
         )]);
 
         let script = dirs.test().join("sum");
@@ -173,11 +173,11 @@ fn child_script_file_reads_structured_stdin() -> Result {
     Playground::setup("structured_io_script_file_stdin", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
             "foo.nu",
-            r#"
+            "
                 def main [] {
                     $in | math sum
                 }
-            "#,
+            ",
         )]);
 
         test()
@@ -196,11 +196,11 @@ fn shebang_script_reads_structured_stdin() -> Result {
     Playground::setup("structured_io_shebang_stdin", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
             "foo.nu",
-            r#"#!/usr/bin/env nu
+            "#!/usr/bin/env nu
 def main [] {
     $in | math sum
 }
-"#,
+",
         )]);
 
         let script = dirs.test().join("foo.nu");
@@ -234,11 +234,11 @@ fn shebang_script_arg_false_does_not_disable_parent() -> Result {
     Playground::setup("structured_io_shebang_script_arg", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
             "foo.nu",
-            r#"#!/usr/bin/env nu
+            "#!/usr/bin/env nu
 def main [--structured-io: any] {
     [1 2 3]
 }
-"#,
+",
         )]);
 
         let script = dirs.test().join("foo.nu");

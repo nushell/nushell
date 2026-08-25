@@ -78,12 +78,10 @@ use std::{any::TypeId, fmt::Debug, hash::Hash, sync::atomic::Ordering};
 
 mod options;
 mod parse;
-mod structured_io;
 mod util;
 
 pub use options::*;
 pub use parse::*;
-pub use structured_io::StructuredIoMode;
 
 /// The status of an experimental option.
 ///
