@@ -120,6 +120,7 @@ fn from_filesize(playground: Playground) -> Result {
         "sample.toml",
         indoc::indoc! {r#"
 <<<<<<< HEAD
+<<<<<<< HEAD
             [dependency]
             name = "nu"
         "#},
@@ -133,16 +134,23 @@ fn from_filesize(playground: Playground) -> Result {
         [dependency]
         name = "nu"
     "#},
+=======
+            [dependency]
+            name = "nu"
+        "#},
+>>>>>>> 70a207034 (fixed some more tests in `nu-commad`)
     )?;
-
-    let code = "ls sample.toml | get size | into string | get 0";
-    let expected = if cfg!(windows) { "27 B" } else { "25 B" };
 
     test()
         .cwd(playground.path())
+<<<<<<< HEAD
         .run(code)
         .expect_value_eq(expected)
 >>>>>>> 926ed3f27 (fmt)
+=======
+        .run("ls sample.toml | get size | into string | get 0")
+        .expect_value_eq("25 B")
+>>>>>>> 70a207034 (fixed some more tests in `nu-commad`)
 }
 
 #[test]
