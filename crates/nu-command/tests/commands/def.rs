@@ -1,7 +1,4 @@
-use nu_test_support::{
-    fs::Stub::{EmptyFile, FileWithContentToBeTrimmed},
-    prelude::*,
-};
+use nu_test_support::prelude::*;
 use rstest::rstest;
 
 #[test]
@@ -32,7 +29,7 @@ fn def_help_includes_comments(
     #[case] fixture: &str,
     #[case] expected: &str,
 ) -> Result {
-    playground.file("def_test", indoc::indoc! {fixture})?;
+    playground.file("def_test", fixture)?;
 
     let actual: String = test()
         .cwd(playground.path())
@@ -159,7 +156,7 @@ fn def_with_list(
     #[case] fixture: &str,
     #[case] code: &str,
 ) -> Result {
-    playground.file("def_test", indoc::indoc! {fixture})?;
+    playground.file("def_test", fixture)?;
 
     test()
         .cwd(playground.path())

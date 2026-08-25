@@ -594,7 +594,7 @@ fn mv_files_with_glob_metachars(
     let result: CompleteResult = test().cwd(playground.path()).run_with_data(RUNNER, code)?;
     assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
-    assert!(dirs.test().join("hello_world_dest").exists());
+    assert!(playground.path().join("hello_world_dest").exists());
     Ok(())
 }
 
@@ -621,7 +621,7 @@ fn mv_files_with_glob_metachars_when_input_are_variables(
     let result: CompleteResult = test().cwd(playground.path()).run_with_data(RUNNER, code)?;
     assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
-    assert!(dirs.test().join("hello_world_dest").exists());
+    assert!(playground.path().join("hello_world_dest").exists());
     Ok(())
 }
 
@@ -735,8 +735,8 @@ fn mv_verbose_message_mentions_source_and_destination(playground: Playground) ->
 
     assert_contains("before.txt", &result.stdout);
     assert_contains("after.txt", &result.stdout);
-    assert!(dirs.test().join("after.txt").exists());
-    assert!(!dirs.test().join("before.txt").exists());
+    assert!(playground.path().join("after.txt").exists());
+    assert!(!playground.path().join("before.txt").exists());
     Ok(())
 }
 

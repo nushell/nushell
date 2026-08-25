@@ -6,7 +6,7 @@ use std::{
 };
 
 use nu_test_support::fs::{
-    Stub::{EmptyFile, FileWithContent, FileWithPermission},
+    Stub::{EmptyFile, FileWithContent},
     files_exist_at,
 };
 use nu_test_support::prelude::*;
@@ -27,18 +27,15 @@ const RUNNER: &str = "let commands = $in; nu -n -c $commands | complete";
 #[nu_test_support::test]
 #[deps(NU)]
 fn copies_a_file(#[ignore] playground: Playground, #[case] progress_flag: &str) -> Result {
-    let test_file = dirs.formats().join("sample.ini");
+    let test_file = FIXTURES.join("formats").join("sample.ini");
     // Get the hash of the file content to check integrity after copy.
     let first_hash = file_hash(&test_file)?;
 
-    let code = format!(
-        "cp {progress_flag} `{}` ucp_test_1/sample.ini",
-        test_file.display()
-    );
-    let result: CompleteResult = test().cwd(dirs.root()).run_with_data(RUNNER, code)?;
+    let code = format!("cp {progress_flag} `{}` sample.ini", test_file.display());
+    let result: CompleteResult = test().cwd(playground.path()).run_with_data(RUNNER, code)?;
     assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
-    assert!(dirs.test().join("sample.ini").exists());
+    assert!(playground.path().join("sample.ini").exists());
 
     // Get the hash of the copied file content to check against first_hash.
     let after_cp_hash = file_hash(playground.path().join("sample.ini"))?;
@@ -57,12 +54,13 @@ fn copies_the_file_inside_directory_if_path_to_copy_is_directory(
 ) -> Result {
     let expected_file = playground.path().join("sample.ini");
     // Get the hash of the file content to check integrity after copy.
-    let first_hash = file_hash(dirs.formats().join("../formats/sample.ini"))?;
+    let formats = FIXTURES.join("formats");
+    let first_hash = file_hash(formats.join("sample.ini"))?;
     let code = format!(
-        "cp {progress_flag} ../formats/sample.ini {}",
-        dirs.test().display(),
+        "cp {progress_flag} sample.ini {}",
+        playground.path().display(),
     );
-    let result: CompleteResult = test().cwd(dirs.formats()).run_with_data(RUNNER, code)?;
+    let result: CompleteResult = test().cwd(formats).run_with_data(RUNNER, code)?;
     assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
     assert!(expected_file.exists());
@@ -83,8 +81,9 @@ fn error_if_attempting_to_copy_a_directory_to_another_directory(
     #[ignore] playground: Playground,
     #[case] progress_flag: &str,
 ) -> Result {
-    let code = format!("cp {progress_flag} ../formats {}", dirs.test().display());
-    let result: CompleteResult = test().cwd(dirs.formats()).run_with_data(RUNNER, code)?;
+    let formats = FIXTURES.join("formats");
+    let code = format!("cp {progress_flag} . {}", playground.path().display());
+    let result: CompleteResult = test().cwd(formats).run_with_data(RUNNER, code)?;
 
     assert_ne!(result.exit_code, 0);
     assert_contains("resolves to a directory (not copied)", result.stderr);
@@ -183,30 +182,30 @@ fn copies_using_path_with_wildcard(
 ) -> Result {
     // Get the hash of the file content to check integrity after copy.
     let src_hashes: Vec<String> = test()
-        .cwd(dirs.formats())
+        .cwd(FIXTURES.join("formats"))
         .run("ls ../formats/* | where type == file | each { |file| open --raw $file.name | to text | hash md5 }")?;
 
     let code = format!(
-        "cp {progress_flag} -r ../formats/* {}",
-        dirs.test().display()
+        "cp {progress_flag} -r {}/* {}",
+        FIXTURES.join("formats").display(),
+        playground.path().display()
     );
-    let result: CompleteResult = test().cwd(dirs.formats()).run_with_data(RUNNER, code)?;
+    let result: CompleteResult = test().cwd(playground.path()).run_with_data(RUNNER, code)?;
     assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
-    assert!(files_exist_at(
-        &[
-            "caco3_plastics.csv",
-            "cargo_sample.toml",
-            "jt.xml",
-            "sample.ini",
-            "sgml_description.json",
-            "utf16.ini",
-        ],
-        dirs.test()
-    ));
+    for file in [
+        "caco3_plastics.csv",
+        "cargo_sample.toml",
+        "jt.xml",
+        "sample.ini",
+        "sgml_description.json",
+        "utf16.ini",
+    ] {
+        assert!(playground.path().join(file).exists());
+    }
 
     // Check integrity after the copy is done
-    let dst_hashes: Vec<String> = test().cwd(dirs.formats()).run(format!(
+    let dst_hashes: Vec<String> = test().cwd(playground.path()).run(format!(
         "
             ls {}
             | where type == file
@@ -216,7 +215,7 @@ fn copies_using_path_with_wildcard(
                 | hash md5
             }}
         ",
-        dirs.test().display()
+        playground.path().display()
     ))?;
     assert_eq!(src_hashes, dst_hashes);
     Ok(())
@@ -229,28 +228,29 @@ fn copies_using_path_with_wildcard(
 #[deps(NU)]
 fn copies_using_a_glob(#[ignore] playground: Playground, #[case] progress_flag: &str) -> Result {
     // Get the hash of the file content to check integrity after copy.
-    let src_hashes: Vec<String> = test().cwd(dirs.formats()).run(
+    let src_hashes: Vec<String> = test().cwd(FIXTURES.join("formats")).run(
         "ls * | where type == file | each { |file| open --raw $file.name | to text | hash md5 }",
     )?;
 
-    let code = format!("cp {progress_flag} -r * {}", dirs.test().display());
-    let result: CompleteResult = test().cwd(dirs.formats()).run_with_data(RUNNER, code)?;
+    let code = format!("cp {progress_flag} -r * {}", playground.path().display());
+    let result: CompleteResult = test()
+        .cwd(FIXTURES.join("formats"))
+        .run_with_data(RUNNER, code)?;
     assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
-    assert!(files_exist_at(
-        &[
-            "caco3_plastics.csv",
-            "cargo_sample.toml",
-            "jt.xml",
-            "sample.ini",
-            "sgml_description.json",
-            "utf16.ini",
-        ],
-        dirs.test()
-    ));
+    for file in [
+        "caco3_plastics.csv",
+        "cargo_sample.toml",
+        "jt.xml",
+        "sample.ini",
+        "sgml_description.json",
+        "utf16.ini",
+    ] {
+        assert!(playground.path().join(file).exists());
+    }
 
     // Check integrity after the copy is done
-    let dst_hashes: Vec<String> = test().cwd(dirs.formats()).run(format!(
+    let dst_hashes: Vec<String> = test().cwd(playground.path()).run(format!(
         "
             ls {}
             | where type == file
@@ -260,7 +260,7 @@ fn copies_using_a_glob(#[ignore] playground: Playground, #[case] progress_flag: 
                 | hash md5
             }}
         ",
-        dirs.test().display()
+        playground.path().display()
     ))?;
     assert_eq!(src_hashes, dst_hashes);
     Ok(())
@@ -273,20 +273,20 @@ fn copies_using_a_glob(#[ignore] playground: Playground, #[case] progress_flag: 
 #[deps(NU)]
 fn copies_same_file_twice(#[ignore] playground: Playground, #[case] progress_flag: &str) -> Result {
     let code = format!(
-        "cp {progress_flag} `{}` ucp_test_8/sample.ini",
-        dirs.formats().join("sample.ini").display()
+        "cp {progress_flag} `{}` sample.ini",
+        FIXTURES.join("formats").join("sample.ini").display()
     );
-    let result: CompleteResult = test().cwd(dirs.root()).run_with_data(RUNNER, code)?;
+    let result: CompleteResult = test().cwd(playground.path()).run_with_data(RUNNER, code)?;
     assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
     let code = format!(
-        "cp {progress_flag} `{}` ucp_test_8/sample.ini",
-        dirs.formats().join("sample.ini").display()
+        "cp {progress_flag} `{}` sample.ini",
+        FIXTURES.join("formats").join("sample.ini").display()
     );
-    let result: CompleteResult = test().cwd(dirs.root()).run_with_data(RUNNER, code)?;
+    let result: CompleteResult = test().cwd(playground.path()).run_with_data(RUNNER, code)?;
     assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
-    assert!(dirs.test().join("sample.ini").exists());
+    assert!(playground.path().join("sample.ini").exists());
     Ok(())
 }
 
@@ -475,8 +475,8 @@ fn copy_identical_file(#[ignore] playground: Playground, #[case] progress_flag: 
 
     let msg = format!(
         "'{}' and '{}' are the same file",
-        dirs.test().join("same.txt").display(),
-        dirs.test().join("same.txt").display(),
+        playground.path().join("same.txt").display(),
+        playground.path().join("same.txt").display(),
     );
     // debug messages in CI
     if !result.stderr.contains(&msg) {
@@ -610,17 +610,16 @@ static TEST_COPY_TO_FOLDER_NEW_FILE: &str = "hello_dir_new/hello_world.txt";
 
 #[test]
 fn test_cp_cp(playground: Playground) -> Result {
-    let src = dirs.fixtures.join("cp").join(TEST_HELLO_WORLD_SOURCE);
+    let src = FIXTURES.join("cp").join(TEST_HELLO_WORLD_SOURCE);
 
     // Get the hash of the file content to check integrity after copy.
     let src_hash = file_hash(&src)?;
 
-    let () = test().cwd(dirs.root()).run(format!(
-        "cp {} ucp_test_19/{TEST_HELLO_WORLD_DEST}",
-        src.display(),
-    ))?;
+    let () = test()
+        .cwd(playground.path())
+        .run(format!("cp {} {TEST_HELLO_WORLD_DEST}", src.display(),))?;
 
-    assert!(dirs.test().join(TEST_HELLO_WORLD_DEST).exists());
+    assert!(playground.path().join(TEST_HELLO_WORLD_DEST).exists());
 
     // Get the hash of the copied file content to check against first_hash.
     let after_cp_hash = file_hash(playground.path().join(TEST_HELLO_WORLD_DEST))?;
@@ -631,28 +630,26 @@ fn test_cp_cp(playground: Playground) -> Result {
 #[test]
 #[serial]
 fn test_cp_existing_target(playground: Playground) -> Result {
-    let src = dirs.fixtures.join("cp").join(TEST_HELLO_WORLD_SOURCE);
-    let existing = dirs.fixtures.join("cp").join(TEST_EXISTING_FILE);
+    let src = FIXTURES.join("cp").join(TEST_HELLO_WORLD_SOURCE);
+    let existing = FIXTURES.join("cp").join(TEST_EXISTING_FILE);
 
     // Get the hash of the file content to check integrity after copy.
     let src_hash = file_hash(&src)?;
 
     // Copy existing file to destination, so that it exists for the test
-    let () = test().cwd(dirs.root()).run(format!(
-        "cp {} ucp_test_20/{TEST_EXISTING_FILE}",
-        existing.display(),
-    ))?;
+    let () = test()
+        .cwd(playground.path())
+        .run(format!("cp {} {TEST_EXISTING_FILE}", existing.display(),))?;
 
     // At this point the src and existing files should be different
-    assert!(dirs.test().join(TEST_EXISTING_FILE).exists());
+    assert!(playground.path().join(TEST_EXISTING_FILE).exists());
 
     // Now for the test
-    let () = test().cwd(dirs.root()).run(format!(
-        "cp {} ucp_test_20/{TEST_EXISTING_FILE}",
-        src.display(),
-    ))?;
+    let () = test()
+        .cwd(playground.path())
+        .run(format!("cp {} {TEST_EXISTING_FILE}", src.display(),))?;
 
-    assert!(dirs.test().join(TEST_EXISTING_FILE).exists());
+    assert!(playground.path().join(TEST_EXISTING_FILE).exists());
 
     // Get the hash of the copied file content to check against first_hash.
     let after_cp_hash = file_hash(playground.path().join(TEST_EXISTING_FILE))?;
@@ -662,8 +659,8 @@ fn test_cp_existing_target(playground: Playground) -> Result {
 
 #[test]
 fn test_cp_multiple_files(playground: Playground) -> Result {
-    let src1 = dirs.fixtures.join("cp").join(TEST_HELLO_WORLD_SOURCE);
-    let src2 = dirs.fixtures.join("cp").join(TEST_HOW_ARE_YOU_SOURCE);
+    let src1 = FIXTURES.join("cp").join(TEST_HELLO_WORLD_SOURCE);
+    let src2 = FIXTURES.join("cp").join(TEST_HOW_ARE_YOU_SOURCE);
 
     // Get the hash of the file content to check integrity after copy.
     let src1_hash = file_hash(&src1)?;
@@ -673,13 +670,13 @@ fn test_cp_multiple_files(playground: Playground) -> Result {
     playground.dir(TEST_COPY_TO_FOLDER)?;
 
     // Start test
-    let () = test().cwd(dirs.root()).run(format!(
-        "cp {} {} ucp_test_21/{TEST_COPY_TO_FOLDER}",
+    let () = test().cwd(playground.path()).run(format!(
+        "cp {} {} {TEST_COPY_TO_FOLDER}",
         src1.display(),
         src2.display(),
     ))?;
 
-    assert!(dirs.test().join(TEST_COPY_TO_FOLDER).exists());
+    assert!(playground.path().join(TEST_COPY_TO_FOLDER).exists());
 
     // Get the hash of the copied file content to check against first_hash.
     let after_cp_1_hash = file_hash(playground.path().join(TEST_COPY_TO_FOLDER_FILE))?;
@@ -694,13 +691,13 @@ fn test_cp_recurse(playground: Playground) -> Result {
     // Create the relevant target directories
     playground.dir(TEST_COPY_FROM_FOLDER)?;
     playground.dir(TEST_COPY_TO_FOLDER_NEW)?;
-    let src = dirs.fixtures.join("cp").join(TEST_COPY_FROM_FOLDER_FILE);
+    let src = FIXTURES.join("cp").join(TEST_COPY_FROM_FOLDER_FILE);
 
     let src_hash = file_hash(src)?;
     // Start test
-    let () = test().cwd(dirs.fixtures.join("cp")).run(format!(
+    let () = test().cwd(FIXTURES.join("cp")).run(format!(
         "cp -r {TEST_COPY_FROM_FOLDER}* {}",
-        dirs.test().join(TEST_COPY_TO_FOLDER_NEW).display()
+        playground.path().join(TEST_COPY_TO_FOLDER_NEW).display()
     ))?;
     let after_cp_hash = file_hash(playground.path().join(TEST_COPY_TO_FOLDER_NEW_FILE))?;
     assert_eq!(src_hash, after_cp_hash);
@@ -709,27 +706,25 @@ fn test_cp_recurse(playground: Playground) -> Result {
 
 #[test]
 fn test_cp_with_dirs(playground: Playground) -> Result {
-    let src = dirs.fixtures.join("cp").join(TEST_HELLO_WORLD_SOURCE);
+    let src = FIXTURES.join("cp").join(TEST_HELLO_WORLD_SOURCE);
     let src_hash = file_hash(&src)?;
 
     //Create target directory
     playground.dir(TEST_COPY_TO_FOLDER)?;
     // Start test
-    let () = test().cwd(dirs.root()).run(format!(
-        "cp {} ucp_test_23/{TEST_COPY_TO_FOLDER}",
-        src.display(),
-    ))?;
+    let () = test()
+        .cwd(playground.path())
+        .run(format!("cp {} {TEST_COPY_TO_FOLDER}", src.display(),))?;
     let after_cp_hash = file_hash(playground.path().join(TEST_COPY_TO_FOLDER_FILE))?;
     assert_eq!(src_hash, after_cp_hash);
 
     // Other way around
     playground.dir(TEST_COPY_FROM_FOLDER)?;
-    let src2 = dirs.fixtures.join("cp").join(TEST_COPY_FROM_FOLDER_FILE);
+    let src2 = FIXTURES.join("cp").join(TEST_COPY_FROM_FOLDER_FILE);
     let src2_hash = file_hash(&src2)?;
-    let () = test().cwd(dirs.root()).run(format!(
-        "cp {} ucp_test_23/{TEST_HELLO_WORLD_DEST}",
-        src2.display(),
-    ))?;
+    let () = test()
+        .cwd(playground.path())
+        .run(format!("cp {} {TEST_HELLO_WORLD_DEST}", src2.display(),))?;
     let after_cp_2_hash = file_hash(playground.path().join(TEST_HELLO_WORLD_DEST))?;
     assert_eq!(src2_hash, after_cp_2_hash);
     Ok(())
@@ -737,12 +732,12 @@ fn test_cp_with_dirs(playground: Playground) -> Result {
 #[cfg(not(windows))]
 #[test]
 fn test_cp_arg_force(playground: Playground) -> Result {
-    let src = dirs.fixtures.join("cp").join(TEST_HELLO_WORLD_SOURCE);
+    let src = FIXTURES.join("cp").join(TEST_HELLO_WORLD_SOURCE);
     let src_hash = file_hash(&src)?;
-    playground.readonly_file("invalid_prem.txt")?;
+    playground.readonly_file("invalid_prem.txt", "")?;
 
-    let () = test().cwd(dirs.root()).run(format!(
-        "cp {} --force ucp_test_24/{}",
+    let () = test().cwd(playground.path()).run(format!(
+        "cp {} --force {}",
         src.display(),
         "invalid_prem.txt"
     ))?;
@@ -756,10 +751,9 @@ fn test_cp_arg_force(playground: Playground) -> Result {
 #[deps(NU)]
 fn test_cp_directory_to_itself_disallowed(playground: Playground) -> Result {
     playground.dir("d")?;
-    let result: CompleteResult = test().cwd(dirs.root()).run_with_data(
-        RUNNER,
-        format!("cp -r ucp_test_25/{}  ucp_test_25/{}", "d", "d"),
-    )?;
+    let result: CompleteResult = test()
+        .cwd(playground.path())
+        .run_with_data(RUNNER, format!("cp -r {} {}", "d", "d"))?;
     assert_contains("cannot copy a directory", result.stderr);
     Ok(())
 }
@@ -794,18 +788,18 @@ fn test_cp_same_file_force(playground: Playground) -> Result {
         ),
         result.stderr,
     );
-    assert!(!dirs.test().join("f~").exists());
+    assert!(!playground.path().join("f~").exists());
     Ok(())
 }
 
 #[test]
 #[serial]
 fn test_cp_arg_no_clobber(playground: Playground) -> Result {
-    let src = dirs.fixtures.join("cp").join(TEST_HELLO_WORLD_SOURCE);
-    let target = dirs.fixtures.join("cp").join(TEST_HOW_ARE_YOU_SOURCE);
+    let src = FIXTURES.join("cp").join(TEST_HELLO_WORLD_SOURCE);
+    let target = FIXTURES.join("cp").join(TEST_HOW_ARE_YOU_SOURCE);
     let target_hash = file_hash(&target)?;
 
-    let () = test().cwd(dirs.root()).run(format!(
+    let () = test().cwd(playground.path()).run(format!(
         "cp {} {} --no-clobber",
         src.display(),
         target.display()
@@ -821,19 +815,18 @@ fn test_cp_arg_no_clobber(playground: Playground) -> Result {
 fn test_cp_arg_no_clobber_twice(playground: Playground) -> Result {
     playground.file("source.txt", "fake data")?;
     playground.file("source_with_body.txt", "some-body")?;
-    let () = test().cwd(dirs.root()).run(format!(
-        "cp --no-clobber ucp_test_29/{} ucp_test_29/{}",
-        "source.txt", "dest.txt"
-    ))?;
-    assert!(dirs.test().join("dest.txt").exists());
+    let () = test()
+        .cwd(playground.path())
+        .run(format!("cp --no-clobber {} {}", "source.txt", "dest.txt"))?;
+    assert!(playground.path().join("dest.txt").exists());
 
-    let () = test().cwd(dirs.root()).run(format!(
-        "cp --no-clobber ucp_test_29/{} ucp_test_29/{}",
+    let () = test().cwd(playground.path()).run(format!(
+        "cp --no-clobber {} {}",
         "source_with_body.txt", "dest.txt"
     ))?;
     // Should have same contents of original empty file as --no-clobber should not overwrite dest.txt
     assert_eq!(
-        fs::read_to_string(dirs.test().join("dest.txt"))?,
+        fs::read_to_string(playground.path().join("dest.txt"))?,
         "fake data"
     );
     Ok(())
@@ -842,14 +835,11 @@ fn test_cp_arg_no_clobber_twice(playground: Playground) -> Result {
 #[test]
 #[deps(NU)]
 fn test_cp_debug_default(playground: Playground) -> Result {
-    let src = dirs.fixtures.join("cp").join(TEST_HELLO_WORLD_SOURCE);
+    let src = FIXTURES.join("cp").join(TEST_HELLO_WORLD_SOURCE);
 
-    let actual: CompleteResult = test().cwd(dirs.root()).run_with_data(
+    let actual: CompleteResult = test().cwd(playground.path()).run_with_data(
         RUNNER,
-        format!(
-            "cp --debug `{}` ucp_test_30/{TEST_HELLO_WORLD_DEST}",
-            src.display()
-        ),
+        format!("cp --debug `{}` {TEST_HELLO_WORLD_DEST}", src.display()),
     )?;
 
     #[cfg(target_os = "macos")]
@@ -889,9 +879,9 @@ fn test_cp_debug_default(playground: Playground) -> Result {
 #[test]
 #[deps(NU)]
 fn test_cp_verbose_default(playground: Playground) -> Result {
-    let src = dirs.fixtures.join("cp").join(TEST_HELLO_WORLD_SOURCE);
+    let src = FIXTURES.join("cp").join(TEST_HELLO_WORLD_SOURCE);
 
-    let actual: CompleteResult = test().cwd(dirs.root()).run_with_data(
+    let actual: CompleteResult = test().cwd(playground.path()).run_with_data(
         RUNNER,
         format!("cp --verbose `{}` {TEST_HELLO_WORLD_DEST}", src.display()),
     )?;
@@ -899,7 +889,7 @@ fn test_cp_verbose_default(playground: Playground) -> Result {
         format!(
             "'{}' -> '{}'",
             src.display(),
-            dirs.root().join(TEST_HELLO_WORLD_DEST).display()
+            playground.path().join(TEST_HELLO_WORLD_DEST).display()
         ),
         actual.stdout,
     );
@@ -908,9 +898,9 @@ fn test_cp_verbose_default(playground: Playground) -> Result {
 
 #[test]
 fn test_cp_only_source_no_dest(playground: Playground) -> Result {
-    let src = dirs.fixtures.join("cp").join(TEST_HELLO_WORLD_SOURCE);
+    let src = FIXTURES.join("cp").join(TEST_HELLO_WORLD_SOURCE);
     let err = test()
-        .cwd(dirs.root())
+        .cwd(playground.path())
         .run(format!("cp {}", src.display(),))
         .expect_shell_error()?;
     let msg = err.generic_msg()?;
@@ -925,7 +915,7 @@ fn test_cp_with_vars(playground: Playground) -> Result {
     let () = test()
         .cwd(playground.path())
         .run("let src = 'input'; let dst = 'target'; cp $src $dst")?;
-    assert!(dirs.test().join("target").exists());
+    assert!(playground.path().join("target").exists());
     Ok(())
 }
 
@@ -938,7 +928,7 @@ fn test_cp_destination_after_cd(playground: Playground) -> Result {
         // If argument was not expanded ucp wrapper should do it
         "cd test; let file = 'copy.txt'; cp file.txt $file",
     )?;
-    assert!(dirs.test().join("test").join("copy.txt").exists());
+    assert!(playground.path().join("test").join("copy.txt").exists());
     Ok(())
 }
 
@@ -963,7 +953,7 @@ fn copies_files_with_glob_metachars(
         .cwd(playground.path())
         .run(format!("cp '{}' {TEST_HELLO_WORLD_DEST}", src.display(),))?;
 
-    assert!(dirs.test().join(TEST_HELLO_WORLD_DEST).exists());
+    assert!(playground.path().join(TEST_HELLO_WORLD_DEST).exists());
     Ok(())
 }
 
@@ -989,7 +979,7 @@ fn copies_files_with_glob_metachars_when_input_are_variables(
         src.display(),
     ))?;
 
-    assert!(dirs.test().join(TEST_HELLO_WORLD_DEST).exists());
+    assert!(playground.path().join(TEST_HELLO_WORLD_DEST).exists());
     Ok(())
 }
 
@@ -1098,7 +1088,7 @@ fn test_cp_to_customized_home_directory(playground: Playground) -> Result {
         .run_with_data("nu -n -c $in | complete", code)?;
 
     assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
-    assert!(files_exist_at(&["test_file.txt"], dirs.test().join("test")));
+    assert!(playground.path().join("test/test_file.txt").exists());
     Ok(())
 }
 

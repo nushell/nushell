@@ -1,8 +1,9 @@
 use nu_protocol::shell_error;
-use nu_test_support::{fs::Stub::EmptyFile, prelude::*};
+use nu_test_support::prelude::*;
 
 #[test]
 fn cd_works_with_in_var(playground: Playground) -> Result {
+    playground.dir("cd_test_1")?;
     let code = r#"
         "cd_test_1"
         | cd $in; $env.PWD
@@ -11,43 +12,47 @@ fn cd_works_with_in_var(playground: Playground) -> Result {
     "#;
 
     test()
-        .cwd(dirs.root())
+        .cwd(playground.path())
         .run(code)
         .expect_value_eq("cd_test_1")
 }
 
 #[test]
 fn filesystem_change_from_current_directory_using_relative_path(playground: Playground) -> Result {
+    playground.dir("cd_test_1")?;
     test()
-        .cwd(dirs.root())
+        .cwd(playground.path())
         .run("cd cd_test_1; $env.PWD")
-        .expect_value_eq(playground.path())
+        .expect_value_eq(playground.path().join("cd_test_1"))
 }
 
 #[test]
 fn filesystem_change_from_current_directory_using_relative_path_with_trailing_slash(
     playground: Playground,
 ) -> Result {
+    playground.dir("cd_test_1_slash")?;
     // Intentionally not using correct path sep because this should work on Windows
     test()
-        .cwd(dirs.root())
+        .cwd(playground.path())
         .run("cd cd_test_1_slash/; $env.PWD")
-        .expect_value_eq(playground.path())
+        .expect_value_eq(playground.path().join("cd_test_1_slash"))
 }
 
 #[test]
 fn filesystem_change_from_current_directory_using_absolute_path(playground: Playground) -> Result {
+    let formats = FIXTURES.join("formats");
     test()
         .cwd(playground.path())
-        .run_with_data("cd $in; $env.PWD", dirs.formats())
-        .expect_value_eq(dirs.formats())
+        .run_with_data("cd $in; $env.PWD", formats.clone())
+        .expect_value_eq(formats)
 }
 
 #[test]
 fn filesystem_change_from_current_directory_using_absolute_path_with_trailing_slash(
     playground: Playground,
 ) -> Result {
-    let mut dir = dirs.formats().to_string_lossy().into_owned();
+    let formats = FIXTURES.join("formats");
+    let mut dir = formats.to_string_lossy().into_owned();
     // Keep this portable: Windows expects `\` while Unix expects `/`.
     if !dir.ends_with(std::path::MAIN_SEPARATOR) {
         dir.push(std::path::MAIN_SEPARATOR);
@@ -56,7 +61,7 @@ fn filesystem_change_from_current_directory_using_absolute_path_with_trailing_sl
     test()
         .cwd(playground.path())
         .run_with_data("cd $in; $env.PWD", dir)
-        .expect_value_eq(dirs.formats())
+        .expect_value_eq(formats)
 }
 
 #[test]
@@ -87,7 +92,7 @@ fn filesystem_change_current_directory_to_parent_directory(playground: Playgroun
     test()
         .cwd(playground.path())
         .run("cd ..; $env.PWD")
-        .expect_value_eq(dirs.root())
+        .expect_value_eq(playground.path().parent().unwrap())
 }
 
 #[test]
@@ -127,7 +132,10 @@ fn filesystem_not_a_directory(playground: Playground) -> Result {
         .run("cd ferris_did_it.txt")
         .expect_io_error()?;
 
-    assert_eq!(err.path.unwrap(), dirs.test().join("ferris_did_it.txt"));
+    assert_eq!(
+        err.path.unwrap(),
+        playground.path().join("ferris_did_it.txt")
+    );
     assert!(matches!(
         err.kind,
         shell_error::io::ErrorKind::Std(std::io::ErrorKind::NotADirectory, ..)
@@ -191,7 +199,8 @@ fn test_change_windows_drive(playground: Playground) -> Result {
 
     let _: () = test().cwd(playground.path()).run(code)?;
     assert!(
-        dirs.test()
+        playground
+            .path()
             .join("test_folder")
             .join("test_file.txt")
             .exists()

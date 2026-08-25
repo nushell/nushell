@@ -1,9 +1,6 @@
 use miette::Diagnostic;
 use nu_protocol::test_record;
-use nu_test_support::{
-    fs::Stub::{FileWithContent, FileWithContentToBeTrimmed},
-    prelude::*,
-};
+use nu_test_support::prelude::*;
 
 const TEST_CWD: &str = "tests/fixtures/formats";
 

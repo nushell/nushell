@@ -1,7 +1,7 @@
 use rstest::rstest;
 
 use nu_experimental::ENFORCE_RUNTIME_ANNOTATIONS;
-use nu_test_support::{fs::Stub::EmptyFile, playground::Playground, prelude::*};
+use nu_test_support::{playground::Playground, prelude::*};
 
 #[test]
 fn mut_variable() -> Result {

@@ -1,5 +1,5 @@
 use indoc::indoc;
-use nu_test_support::{fs::Stub::FileWithContent, prelude::*};
+use nu_test_support::prelude::*;
 
 #[test]
 fn table_pagging_row_offset_overlap() -> Result {

@@ -910,8 +910,8 @@ fn ls_literal_empty_directory(playground: Playground) -> Result {
     playground.dir("emptydir")?;
 
     test()
-        .cwd(dirs.root())
-        .run("ls ls_literal_empty_dir_dc/emptydir | length")
+        .cwd(WORKSPACE_ROOT.as_path())
+        .run_with_data("ls $in | length", playground.path().join("emptydir"))
         .expect_value_eq(0)
         .expect("ls literal empty directory should not error with dc-glob");
 

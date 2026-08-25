@@ -3,7 +3,7 @@ use rstest::rstest;
 
 use nu_experimental::{CELL_PATH_TYPES, ENFORCE_RUNTIME_ANNOTATIONS};
 use nu_protocol::{ParseError, Type};
-use nu_test_support::{fs::Stub, prelude::*};
+use nu_test_support::prelude::*;
 
 #[test]
 fn env_shorthand() -> Result {

@@ -1,6 +1,6 @@
 use std::fs;
 
-use nu_test_support::{fs::Stub::EmptyFile, prelude::*};
+use nu_test_support::prelude::*;
 use rstest::rstest;
 use rstest_reuse::{apply, template};
 
@@ -342,7 +342,6 @@ fn external_command_receives_raw_binary_data(
 #[apply(run_external_prefixes)]
 #[nu_test_support::test]
 fn can_run_cmd_files(#[ignore] playground: Playground, prefix: &str) -> Result {
-    use nu_test_support::fs::Stub::FileWithContent;
     playground.file(
         "foo.cmd",
         "
@@ -362,7 +361,6 @@ fn can_run_cmd_files(#[ignore] playground: Playground, prefix: &str) -> Result {
 #[apply(run_external_prefixes)]
 #[nu_test_support::test]
 fn can_run_batch_files(#[ignore] playground: Playground, prefix: &str) -> Result {
-    use nu_test_support::fs::Stub::FileWithContent;
     playground.file(
         "foo.bat",
         "
@@ -385,7 +383,6 @@ fn can_run_batch_files_without_cmd_extension(
     #[ignore] playground: Playground,
     prefix: &str,
 ) -> Result {
-    use nu_test_support::fs::Stub::FileWithContent;
     playground.file(
         "foo.cmd",
         "
@@ -406,7 +403,6 @@ fn can_run_batch_files_without_bat_extension(
     #[ignore] playground: Playground,
     prefix: &str,
 ) -> Result {
-    use nu_test_support::fs::Stub::FileWithContent;
     playground.file(
         "foo.bat",
         "
@@ -450,7 +446,6 @@ fn redirect_combine(#[ignore] playground: Playground, prefix: &str) -> Result {
 #[apply(run_external_prefixes)]
 #[nu_test_support::test]
 fn can_run_ps1_files(#[ignore] playground: Playground, prefix: &str) -> Result {
-    use nu_test_support::fs::Stub::FileWithContent;
     playground.file(
         "foo.ps1",
         "
@@ -523,7 +518,6 @@ fn can_run_external_without_path_env(
 #[nu_test_support::test]
 #[deps(TESTBIN_COCOCO, TESTBIN_MEOW)]
 fn expand_command_if_list(#[ignore] playground: Playground, #[case] prefix: &str) -> Result {
-    use nu_test_support::fs::Stub::FileWithContent;
     playground.file("foo.txt", "Hello World")?;
     let actual: String = test()
         .cwd(playground.path())

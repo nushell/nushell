@@ -218,7 +218,7 @@ pub fn evaluate_file(
 
 #[cfg(test)]
 mod tests {
-    use nu_test_support::fs::Stub::FileWithContent;
+
     use nu_test_support::playground::Playground;
     use nu_test_support::prelude::*;
 

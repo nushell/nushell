@@ -1,7 +1,7 @@
 #![expect(non_snake_case, reason = "rstest generated some non-snake-case names")]
 
 use nu_protocol::ParseError;
-use nu_test_support::{fs::Stub::FileWithContent, prelude::*};
+use nu_test_support::prelude::*;
 use pretty_assertions::assert_matches;
 use rstest::rstest;
 use std::{fmt::Write, fs};
@@ -166,7 +166,10 @@ fn redirection_stderr_with_failed_program(playground: Playground) -> Result {
         .cwd(playground.path())
         .run(code)
         .expect_value_eq("stopped")?;
-    assert_eq!(fs::read_to_string(dirs.test().join("file.txt"))?, "bar\n");
+    assert_eq!(
+        fs::read_to_string(playground.path().join("file.txt"))?,
+        "bar\n"
+    );
     Ok(())
 }
 
@@ -313,7 +316,7 @@ fn redirection_should_have_a_target(
         .expect_parse_error()?;
     assert_matches!(err, ParseError::Expected("redirection target", _));
     assert!(
-        !dirs.test().join("tmp.txt").exists(),
+        !playground.path().join("tmp.txt").exists(),
         "No file should be created on error: {code}",
     );
     Ok(())
@@ -354,11 +357,11 @@ fn no_redirection_with_outerr_pipe(playground: Playground) -> Result {
         .run("echo 3 o> a.txt e> b.txt o+e>| str length")
         .expect_error_code_eq("nu::parser::multiple_redirections")?;
     assert!(
-        !dirs.test().join("a.txt").exists(),
+        !playground.path().join("a.txt").exists(),
         "No file should be created on error",
     );
     assert!(
-        !dirs.test().join("b.txt").exists(),
+        !playground.path().join("b.txt").exists(),
         "No file should be created on error",
     );
     Ok(())
@@ -375,7 +378,7 @@ fn no_redirection_with_outerr_pipe_separate(
         .run(code)
         .expect_error_code_eq("nu::parser::multiple_redirections")?;
     assert!(
-        !dirs.test().join("a.txt").exists(),
+        !playground.path().join("a.txt").exists(),
         "No file should be created on error",
     );
     Ok(())
@@ -391,7 +394,7 @@ fn no_duplicate_redirection(
         .run(format!("echo 3 {redirect} a.txt {redirect} a.txt"))
         .expect_error_code_eq("nu::parser::multiple_redirections")?;
     assert!(
-        !dirs.test().join("a.txt").exists(),
+        !playground.path().join("a.txt").exists(),
         "No file should be created on error",
     );
     Ok(())
@@ -450,7 +453,7 @@ fn pipe_redirection_in_let_and_mut(
         .expect_value_eq(output)?;
     if let Some(expected) = stdout_file_body {
         assert_eq!(
-            fs::read_to_string(dirs.test().join("stdout.txt"))?,
+            fs::read_to_string(playground.path().join("stdout.txt"))?,
             expected
         );
     }
@@ -477,7 +480,7 @@ fn subexpression_redirection(
     let code = format!("$env.BAR = 'bar'; $env.BAZ = 'baz'; ({body}) {redir} result.txt");
     let _: Value = test().cwd(playground.path()).run(code)?;
     assert_eq!(
-        fs::read_to_string(dirs.test().join("result.txt"))?.trim(),
+        fs::read_to_string(playground.path().join("result.txt"))?.trim(),
         stdout_file_body,
     );
     Ok(())
@@ -504,7 +507,7 @@ fn file_redirection_in_if_true(
         format!("$env.BAR = 'bar'; $env.BAZ = 'baz'; if true {{ {body} }} {redir} result.txt");
     let _: Value = test().cwd(playground.path()).run(code)?;
     assert_eq!(
-        fs::read_to_string(dirs.test().join("result.txt"))?.trim(),
+        fs::read_to_string(playground.path().join("result.txt"))?.trim(),
         stdout_file_body,
     );
     Ok(())
@@ -521,7 +524,7 @@ fn file_redirection_in_if_else(
     let code = format!("if {cond} {{ echo 'hey' }} else {{ echo 'ho' }} out> result.txt");
     let () = test().cwd(playground.path()).run(code)?;
     assert_eq!(
-        fs::read_to_string(dirs.test().join("result.txt"))?.trim(),
+        fs::read_to_string(playground.path().join("result.txt"))?.trim(),
         stdout_file_body,
     );
     Ok(())
@@ -549,7 +552,7 @@ fn file_redirection_in_try_catch(
     );
     let _: Value = test().cwd(playground.path()).run(code)?;
     assert_eq!(
-        fs::read_to_string(dirs.test().join("result.txt"))?.trim(),
+        fs::read_to_string(playground.path().join("result.txt"))?.trim(),
         stdout_file_body,
     );
     Ok(())
@@ -561,7 +564,7 @@ fn file_redirection_where_closure(playground: Playground) -> Result {
         .cwd(playground.path())
         .run("echo foo bar | where {|x| $x | str contains 'f'} out> result.txt")?;
     assert_eq!(
-        fs::read_to_string(dirs.test().join("result.txt"))?.trim(),
+        fs::read_to_string(playground.path().join("result.txt"))?.trim(),
         "foo",
     );
     Ok(())
@@ -573,7 +576,7 @@ fn file_redirection_match_block(playground: Playground) -> Result {
         .cwd(playground.path())
         .run("match 3 { 1 => 'foo', 3 => 'bar' } out> result.txt")?;
     assert_eq!(
-        fs::read_to_string(dirs.test().join("result.txt"))?.trim(),
+        fs::read_to_string(playground.path().join("result.txt"))?.trim(),
         "bar",
     );
     Ok(())
@@ -585,7 +588,7 @@ fn file_redirection_pattern_match_block(playground: Playground) -> Result {
         "let foo = { name: 'bar' }; match $foo { { name: 'bar' } => 'baz' } out> result.txt",
     )?;
     assert_eq!(
-        fs::read_to_string(dirs.test().join("result.txt"))?.trim(),
+        fs::read_to_string(playground.path().join("result.txt"))?.trim(),
         "baz",
     );
     Ok(())
@@ -597,7 +600,7 @@ fn file_redirection_each_block(playground: Playground) -> Result {
         .cwd(playground.path())
         .run("[1 2 3] | each { $in + 1 } out> result.txt")?;
     assert_eq!(
-        fs::read_to_string(dirs.test().join("result.txt"))?.trim(),
+        fs::read_to_string(playground.path().join("result.txt"))?.trim(),
         "2\n3\n4",
     );
     Ok(())
@@ -609,7 +612,7 @@ fn file_redirection_do_block_with_return(playground: Playground) -> Result {
         .cwd(playground.path())
         .run("do {|x| return ($x + 1); return $x} 4 out> result.txt")?;
     assert_eq!(
-        fs::read_to_string(dirs.test().join("result.txt"))?.trim(),
+        fs::read_to_string(playground.path().join("result.txt"))?.trim(),
         "5",
     );
     Ok(())
@@ -620,7 +623,10 @@ fn file_redirection_while_block(playground: Playground) -> Result {
     let () = test()
         .cwd(playground.path())
         .run("mut x = 0; while $x < 3 { $x = $x + 1; echo $x } o> result.txt")?;
-    assert_eq!(fs::read_to_string(dirs.test().join("result.txt"))?, "");
+    assert_eq!(
+        fs::read_to_string(playground.path().join("result.txt"))?,
+        ""
+    );
     Ok(())
 }
 
@@ -632,7 +638,7 @@ fn file_redirection_not_allowed_on_for(playground: Playground) -> Result {
         .expect_parse_error()?;
     assert_contains("Redirection can not be used with for", err.to_string());
     assert!(
-        !dirs.test().join("result.txt").exists(),
+        !playground.path().join("result.txt").exists(),
         "No file should be created on error",
     );
     Ok(())

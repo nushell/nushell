@@ -1,5 +1,5 @@
 use nu_protocol::test_record;
-use nu_test_support::{fs::Stub::FileWithContentToBeTrimmed, prelude::*};
+use nu_test_support::prelude::*;
 use rstest::rstest;
 
 #[test]

@@ -1,7 +1,7 @@
 use std::sync::LazyLock;
 
 use nu_protocol::Record;
-use nu_test_support::{fs::Stub::EmptyFile, prelude::*};
+use nu_test_support::prelude::*;
 
 #[derive(Debug, Clone, IntoValue)]
 struct Amigo {

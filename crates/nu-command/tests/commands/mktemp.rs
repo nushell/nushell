@@ -19,7 +19,7 @@ fn creates_temp_file_with_suffix(playground: Playground) -> Result {
     assert!(loc.exists());
     assert!(loc.is_file());
     assert!(output.ends_with(".txt"));
-    assert!(output.starts_with(dirs.test().to_str().unwrap()));
+    assert!(output.starts_with(playground.path().to_str().unwrap()));
     Ok(())
 }
 

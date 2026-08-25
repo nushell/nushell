@@ -1,5 +1,4 @@
 use nu_protocol::test_value;
-use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::playground::Playground;
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_eq;

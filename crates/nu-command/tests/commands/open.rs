@@ -1,11 +1,7 @@
 use std::path::Path;
 
 use nu_protocol::shell_error;
-use nu_test_support::{
-    fs::Stub::{EmptyFile, FileWithContent, FileWithContentToBeTrimmed},
-    playground::Playground,
-    prelude::*,
-};
+use nu_test_support::{fs::Stub::FileWithContent, playground::Playground, prelude::*};
 use rstest::rstest;
 
 #[test]

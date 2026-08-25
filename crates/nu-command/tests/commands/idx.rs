@@ -1,4 +1,4 @@
-use nu_test_support::fs::Stub::{EmptyFile, FileWithContent};
+use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::prelude::*;
 
 #[test]

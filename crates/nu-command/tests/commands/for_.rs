@@ -1,4 +1,3 @@
-use nu_test_support::fs::Stub::EmptyFile;
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_matches;
 use rstest::rstest;

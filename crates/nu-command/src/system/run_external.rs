@@ -792,11 +792,11 @@ mod test {
     use nu_test_support::prelude::*;
 
     #[test]
-    fn test_expand_glob(playground: Playground) -> Result {
+    fn test_expand_glob(playground: Playground) -> nu_test_support::prelude::Result {
         playground.empty_file("a.txt")?;
         playground.empty_file("b.txt")?;
 
-        let cwd = playground.path().as_std_path();
+        let cwd = playground.path();
 
         let actual = expand_glob("*.txt", cwd, Span::test_data(), Signals::empty()).unwrap();
         let expected = &["a.txt", "b.txt"];

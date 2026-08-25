@@ -1,4 +1,4 @@
-use nu_test_support::{fs::Stub::FileWithContent, prelude::*};
+use nu_test_support::prelude::*;
 use rstest::rstest;
 
 #[rstest]
@@ -61,7 +61,7 @@ fn by_one_with_no_field_passed(playground: Playground) -> Result {
 #[deps(NU_PLUGIN_INC)]
 fn semantic_version_inc(
     #[ignore] playground: Playground,
-    #[case] topic: &str,
+    #[case] _topic: &str,
     #[case] args: &str,
     #[case] expected: &str,
 ) -> Result {

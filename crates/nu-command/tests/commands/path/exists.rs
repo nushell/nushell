@@ -1,4 +1,4 @@
-use nu_test_support::{fs::Stub::EmptyFile, prelude::*};
+use nu_test_support::prelude::*;
 
 #[test]
 fn checks_if_existing_file_exists(playground: Playground) -> Result {

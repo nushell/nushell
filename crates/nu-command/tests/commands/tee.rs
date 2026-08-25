@@ -10,7 +10,7 @@ fn tee_save_values_to_file(playground: Playground) -> Result {
         .expect_value_eq([1, 2, 3, 4, 5])?;
     assert_eq!(
         ["1", "2", "3", "4", "5", ""].join(LINE_SEPARATOR_STR),
-        fs::read_to_string(dirs.test().join("copy.txt"))?
+        fs::read_to_string(playground.path().join("copy.txt"))?
     );
 
     Ok(())
@@ -31,7 +31,7 @@ fn tee_save_stdout_to_file(playground: Playground) -> Result {
 
     assert_eq!(
         "teststring\n",
-        fs::read_to_string(dirs.test().join("copy.txt"))?
+        fs::read_to_string(playground.path().join("copy.txt"))?
     );
 
     Ok(())
@@ -55,7 +55,7 @@ fn tee_save_stderr_to_file(playground: Playground) -> Result {
 
     assert_eq!(
         "teststring\n",
-        fs::read_to_string(dirs.test().join("copy.txt"))?
+        fs::read_to_string(playground.path().join("copy.txt"))?
     );
 
     Ok(())

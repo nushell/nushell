@@ -1,4 +1,4 @@
-use nu_test_support::{fs::Stub, prelude::*};
+use nu_test_support::prelude::*;
 use nu_utils::consts::LINE_SEPARATOR_STR;
 use std::{fs, io::Write};
 
@@ -7,8 +7,8 @@ fn writes_out_csv(playground: Playground) -> Result {
     let expected_file = playground.path().join("cargo_sample.csv");
 
     let () = test()
-        .cwd(dirs.root())
-        .run(r#"[[name, version, description, license, edition]; [nu, "0.14", "A new type of shell", "MIT", "2018"]] | save save_test_2/cargo_sample.csv"#)?;
+        .cwd(playground.path())
+        .run(r#"[[name, version, description, license, edition]; [nu, "0.14", "A new type of shell", "MIT", "2018"]] | save cargo_sample.csv"#)?;
 
     let actual = fs::read_to_string(expected_file)?;
     assert!(actual.contains("nu,0.14,A new type of shell,MIT,2018"));
@@ -20,8 +20,8 @@ fn writes_out_list(playground: Playground) -> Result {
     let expected_file = playground.path().join("list_sample.txt");
 
     let () = test()
-        .cwd(dirs.root())
-        .run("[a b c d] | save save_test_3/list_sample.txt")?;
+        .cwd(playground.path())
+        .run("[a b c d] | save list_sample.txt")?;
 
     let actual = fs::read_to_string(expected_file)?;
     assert_eq!(actual, ["a", "b", "c", "d", ""].join(LINE_SEPARATOR_STR));
@@ -85,7 +85,7 @@ fn unknown_extension_does_not_default_to_text(playground: Playground) -> Result 
     // actionable message pointing at the explicit conversions.
     assert_contains("Unsupported input", err.to_string());
     assert_contains("to json", format!("{err:?}"));
-    assert!(!dirs.test().join("structured.unknown").exists());
+    assert!(!playground.path().join("structured.unknown").exists());
     Ok(())
 }
 
@@ -106,8 +106,8 @@ fn save_append_will_create_file_if_not_exists(playground: Playground) -> Result 
     let expected_file = playground.path().join("new-file.txt");
 
     let () = test()
-        .cwd(dirs.root())
-        .run("'hello' | save --raw --append save_test_3/new-file.txt")?;
+        .cwd(playground.path())
+        .run("'hello' | save --raw --append new-file.txt")?;
 
     let actual = fs::read_to_string(expected_file)?;
     assert_eq!(actual, "hello");
@@ -126,8 +126,8 @@ fn save_append_will_not_overwrite_content(playground: Playground) -> Result {
     }
 
     let () = test()
-        .cwd(dirs.root())
-        .run("'world' | save --append save_test_4/new-file.txt")?;
+        .cwd(playground.path())
+        .run("'world' | save --append new-file.txt")?;
 
     let actual = fs::read_to_string(expected_file)?;
     assert_eq!(actual, "hello world");
@@ -140,10 +140,10 @@ fn save_stderr_and_stdout_to_same_file(playground: Playground) -> Result {
     let code = r#"
         $env.FOO = "bar";
         $env.BAZ = "ZZZ";
-        echo_env_mixed out-err FOO BAZ | save -r save_test_5/new-file.txt --stderr save_test_5/new-file.txt
+        echo_env_mixed out-err FOO BAZ | save -r new-file.txt --stderr new-file.txt
     "#;
 
-    let err = test().cwd(dirs.root()).run(code).expect_error()?;
+    let err = test().cwd(playground.path()).run(code).expect_error()?;
     assert_contains("input and stderr input to same file", err.to_string());
     Ok(())
 }
@@ -157,10 +157,10 @@ fn save_stderr_and_stdout_to_diff_file(playground: Playground) -> Result {
     let code = r#"
         $env.FOO = "bar";
         $env.BAZ = "ZZZ";
-        echo_env_mixed out-err FOO BAZ | save -r save_test_6/log.txt --stderr save_test_6/err.txt
+        echo_env_mixed out-err FOO BAZ | save -r log.txt --stderr err.txt
     "#;
 
-    let () = test().cwd(dirs.root()).run(code)?;
+    let () = test().cwd(playground.path()).run(code)?;
 
     let actual = fs::read_to_string(expected_file)?;
     assert!(actual.contains("bar"));
@@ -176,9 +176,9 @@ fn save_stderr_and_stdout_to_diff_file(playground: Playground) -> Result {
 fn save_string_and_stream_as_raw(playground: Playground) -> Result {
     let expected_file = playground.path().join("temp.html");
     let () = test()
-        .cwd(dirs.root())
+        .cwd(playground.path())
         .run(r#"
-            "<!DOCTYPE html><html><body><a href='http://example.org/'>Example</a></body></html>" | save save_test_7/temp.html
+            "<!DOCTYPE html><html><body><a href='http://example.org/'>Example</a></body></html>" | save temp.html
         "#)?;
     let actual = fs::read_to_string(expected_file)?;
     assert_eq!(
@@ -193,8 +193,8 @@ fn save_not_override_file_by_default(playground: Playground) -> Result {
     playground.empty_file("log.txt")?;
 
     let err = test()
-        .cwd(dirs.root())
-        .run(r#""abcd" | save save_test_8/log.txt"#)
+        .cwd(playground.path())
+        .run(r#""abcd" | save log.txt"#)
         .expect_error()?;
     assert_contains("Destination file already exists", err.to_string());
     Ok(())
@@ -206,8 +206,8 @@ fn save_override_works(playground: Playground) -> Result {
 
     let expected_file = playground.path().join("log.txt");
     let () = test()
-        .cwd(dirs.root())
-        .run(r#""abcd" | save save_test_9/log.txt -f"#)?;
+        .cwd(playground.path())
+        .run(r#""abcd" | save log.txt -f"#)?;
     let actual = fs::read_to_string(expected_file)?;
     assert_eq!(actual, "abcd");
     Ok(())
@@ -219,9 +219,9 @@ fn save_failure_not_overrides(playground: Playground) -> Result {
 
     let expected_file = playground.path().join("result.toml");
     let _ = test()
-        .cwd(dirs.root())
+        .cwd(playground.path())
         // Writing number to file as toml fails
-        .run("3 | save save_test_10/result.toml -f")
+        .run("3 | save result.toml -f")
         .expect_error()?;
     let actual = fs::read_to_string(expected_file)?;
     assert_eq!(actual, "Old content");
@@ -315,12 +315,12 @@ fn save_append_works_on_stderr(playground: Playground) -> Result {
     let expected_file = playground.path().join("log.txt");
     let expected_stderr_file = playground.path().join("err.txt");
 
-    let () = test()
-        .cwd(dirs.root())
-        .run(r#"
+    let () = test().cwd(playground.path()).run(
+        r#"
             $env.FOO = " New";
             $env.BAZ = " New Err";
-            echo_env_mixed out-err FOO BAZ | save -a -r save_test_11/log.txt --stderr save_test_11/err.txt"#)?;
+            echo_env_mixed out-err FOO BAZ | save -a -r log.txt --stderr err.txt"#,
+    )?;
 
     let actual = fs::read_to_string(expected_file)?;
     assert_eq!(actual, "Old New\n");
@@ -338,10 +338,10 @@ fn save_not_overrides_err_by_default(playground: Playground) -> Result {
     let code = r#"
         $env.FOO = " New";
         $env.BAZ = " New Err";
-        echo_env_mixed out-err FOO BAZ | save -r save_test_12/log.txt --stderr save_test_12/err.txt
+        echo_env_mixed out-err FOO BAZ | save -r log.txt --stderr err.txt
     "#;
 
-    let err = test().cwd(dirs.root()).run(code).expect_error()?;
+    let err = test().cwd(playground.path()).run(code).expect_error()?;
 
     assert_contains("Destination file already exists", err.to_string());
     Ok(())
@@ -359,10 +359,10 @@ fn save_override_works_stderr(playground: Playground) -> Result {
     let code = r#"
         $env.FOO = "New";
         $env.BAZ = "New Err";
-        echo_env_mixed out-err FOO BAZ | save -f -r save_test_13/log.txt --stderr save_test_13/err.txt
+        echo_env_mixed out-err FOO BAZ | save -f -r log.txt --stderr err.txt
     "#;
 
-    let () = test().cwd(dirs.root()).run(code)?;
+    let () = test().cwd(playground.path()).run(code)?;
 
     let actual = fs::read_to_string(expected_file)?;
     assert_eq!(actual, "New\n");
@@ -377,8 +377,8 @@ fn save_list_stream(playground: Playground) -> Result {
     let expected_file = playground.path().join("list_sample.txt");
 
     let () = test()
-        .cwd(dirs.root())
-        .run("[a b c d] | each {|i| $i} | save -r save_test_13/list_sample.txt")?;
+        .cwd(playground.path())
+        .run("[a b c d] | each {|i| $i} | save -r list_sample.txt")?;
 
     let actual = fs::read_to_string(expected_file)?;
     assert_eq!(actual, "a\nb\nc\nd\n");
@@ -390,8 +390,8 @@ fn writes_out_range(playground: Playground) -> Result {
     let expected_file = playground.path().join("list_sample.json");
 
     let () = test()
-        .cwd(dirs.root())
-        .run("1..3 | save save_test_14/list_sample.json")?;
+        .cwd(playground.path())
+        .run("1..3 | save list_sample.json")?;
 
     let actual = fs::read_to_string(expected_file)?;
     assert_eq!(actual, "[\n  1,\n  2,\n  3\n]");
@@ -561,11 +561,11 @@ fn save_from_child_process_dont_sink_stderr(playground: Playground) -> Result {
     let code = r#"
         $env.FOO = " New";
         $env.BAZ = " New Err";
-        echo_env_mixed out-err FOO BAZ | save -a -r save_test_22/log.txt
+        echo_env_mixed out-err FOO BAZ | save -a -r log.txt
     "#;
 
     let result: CompleteResult = test()
-        .cwd(dirs.root())
+        .cwd(playground.path())
         .run_with_data("let code; nu -n -c $code | complete", code)?;
     assert_eq!(result.stderr.trim_end(), " New Err");
 
@@ -590,13 +590,13 @@ fn parent_redirection_doesnt_affect_save(playground: Playground) -> Result {
         $env.FOO = " New";
         $env.BAZ = " New Err";
         def tttt [] {
-            echo_env_mixed out-err FOO BAZ | save -a -r save_test_23/log.txt
+            echo_env_mixed out-err FOO BAZ | save -a -r log.txt
         };
-        tttt e> ("save_test_23" | path join empty_file)
+        tttt e> empty_file
     "#;
 
     let result: CompleteResult = test()
-        .cwd(dirs.root())
+        .cwd(playground.path())
         .run_with_data("let code; nu -n -c $code | complete", code)?;
     assert_eq!(result.stderr.trim_end(), " New Err");
 
@@ -606,7 +606,7 @@ fn parent_redirection_doesnt_affect_save(playground: Playground) -> Result {
         "Old Err"
     );
     assert_eq!(
-        fs::read_to_string(dirs.test().join("empty_file"))?.trim_end(),
+        fs::read_to_string(playground.path().join("empty_file"))?.trim_end(),
         ""
     );
     Ok(())
@@ -615,8 +615,8 @@ fn parent_redirection_doesnt_affect_save(playground: Playground) -> Result {
 #[test]
 fn save_missing_parent_dir(playground: Playground) -> Result {
     let err = test()
-        .cwd(dirs.root())
-        .run("'hello' | save save_test_24/foobar/hello.txt")
+        .cwd(playground.path())
+        .run("'hello' | save foobar/hello.txt")
         .expect_error()?;
 
     assert_contains("Directory not found", err.to_string());
@@ -629,8 +629,8 @@ fn save_missing_ancestor_dir(playground: Playground) -> Result {
         .expect("should have been able to create subdir for test");
 
     let err = test()
-        .cwd(dirs.root())
-        .run("'hello' | save save_test_24/foo/bar/baz/hello.txt")
+        .cwd(playground.path())
+        .run("'hello' | save foo/bar/baz/hello.txt")
         .expect_error()?;
 
     assert_contains("Directory not found", err.to_string());
@@ -657,8 +657,8 @@ fn save_table_to_csv_with_explicit_columns(playground: Playground) -> Result {
     let expected_file = playground.path().join("test.csv");
 
     let () = test()
-        .cwd(dirs.root())
-        .run("[[a b]; [1 2] [3 4]] | to csv --columns [a b] | save -f save_table_csv/test.csv")?;
+        .cwd(playground.path())
+        .run("[[a b]; [1 2] [3 4]] | to csv --columns [a b] | save -f test.csv")?;
 
     let actual = fs::read_to_string(expected_file)?;
     assert!(actual.contains("a,b"));
@@ -672,8 +672,8 @@ fn save_table_to_csv_without_explicit_columns(playground: Playground) -> Result 
     let expected_file = playground.path().join("test.csv");
 
     let () = test()
-        .cwd(dirs.root())
-        .run("[[a b]; [1 2] [3 4]] | to csv | save -f save_table_csv_auto/test.csv")?;
+        .cwd(playground.path())
+        .run("[[a b]; [1 2] [3 4]] | to csv | save -f test.csv")?;
 
     let actual = fs::read_to_string(expected_file)?;
     assert!(actual.contains("a,b"));
@@ -687,8 +687,8 @@ fn save_record_to_csv(playground: Playground) -> Result {
     let expected_file = playground.path().join("test.csv");
 
     let () = test()
-        .cwd(dirs.root())
-        .run("{a: 1, b: 2} | to csv | save -f save_record_csv/test.csv")?;
+        .cwd(playground.path())
+        .run("{a: 1, b: 2} | to csv | save -f test.csv")?;
 
     let actual = fs::read_to_string(expected_file)?;
     assert!(actual.contains("a,b"));
@@ -701,8 +701,8 @@ fn save_table_to_tsv(playground: Playground) -> Result {
     let expected_file = playground.path().join("test.tsv");
 
     let () = test()
-        .cwd(dirs.root())
-        .run("[[a b]; [1 2] [3 4]] | to tsv | save -f save_table_tsv/test.tsv")?;
+        .cwd(playground.path())
+        .run("[[a b]; [1 2] [3 4]] | to tsv | save -f test.tsv")?;
 
     let actual = fs::read_to_string(expected_file)?;
     assert!(actual.contains("a\tb"));
@@ -717,9 +717,9 @@ fn save_streaming_list_stream_to_csv(playground: Playground) -> Result {
     // the materialized table path, ensuring rows are streamed to disk progressively.
     let expected_file = playground.path().join("test.csv");
 
-    let () = test().cwd(dirs.root()).run(
-        "1..5 | each { |i| {a: $i, b: ($i * 10)} } | to csv | save -f save_streaming_csv/test.csv",
-    )?;
+    let () = test()
+        .cwd(playground.path())
+        .run("1..5 | each { |i| {a: $i, b: ($i * 10)} } | to csv | save -f test.csv")?;
 
     let actual = fs::read_to_string(expected_file)?;
     assert_contains("a,b", &actual);

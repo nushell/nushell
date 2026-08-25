@@ -1,6 +1,6 @@
 use fancy_regex::Regex;
 use nu_protocol::PipelineData;
-use nu_test_support::{fs::Stub::FileWithContent, prelude::*, tester::TestError};
+use nu_test_support::{prelude::*, tester::TestError};
 use rstest::rstest;
 
 #[test]

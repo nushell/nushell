@@ -1,7 +1,4 @@
-use nu_test_support::{
-    fs::Stub::{FileWithContent, FileWithContentToBeTrimmed},
-    prelude::*,
-};
+use nu_test_support::{fs::Stub::FileWithContentToBeTrimmed, prelude::*};
 use rstest::rstest;
 
 #[test]

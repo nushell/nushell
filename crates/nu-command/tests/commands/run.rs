@@ -1,5 +1,5 @@
 use nu_protocol::{ParseError, ShellError, parser_path::MAX_RUN_SCRIPT_BYTES};
-use nu_test_support::{fs::Stub::FileWithContentToBeTrimmed, prelude::*};
+use nu_test_support::prelude::*;
 use std::io::Write;
 
 #[test]

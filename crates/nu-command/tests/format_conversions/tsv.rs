@@ -1,5 +1,5 @@
 use nu_protocol::Type;
-use nu_test_support::{fs::Stub::FileWithContentToBeTrimmed, prelude::*};
+use nu_test_support::prelude::*;
 
 #[test]
 fn table_to_tsv_text_and_from_tsv_text_back_into_table() -> Result {

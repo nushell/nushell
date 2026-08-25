@@ -1,4 +1,4 @@
-use nu_test_support::{fs::Stub::FileWithContent, prelude::*};
+use nu_test_support::prelude::*;
 use rstest::rstest;
 
 #[rstest]

@@ -668,8 +668,6 @@ fn table_expand_top_level_error_list_still_throws() -> Result {
 #[test]
 #[deps(TESTBIN_MEOW)]
 fn external_with_too_much_stdout_should_not_hang_nu(playground: Playground) -> Result {
-    use nu_test_support::fs::Stub::FileWithContent;
-
     let bytes: usize = 81920;
     let mut large_file_body = String::with_capacity(bytes);
     for _ in 0..bytes {

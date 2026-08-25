@@ -1,5 +1,4 @@
 use nu_path::absolute_with;
-use nu_test_support::fs::Stub::EmptyFile;
 use nu_test_support::playground::Playground;
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_eq;
@@ -163,8 +162,8 @@ fn absolute_ndots2(playground: Playground) -> Result {
     // So, let's start in a nested folder before trying to absolute_with "..."
     playground.dir("aaa/bbb/ccc")?;
     let output: String = test()
-        .cwd(dirs.root())
-        .run("cd nu_path_test_1/aaa/bbb/ccc; $env.PWD")?;
+        .cwd(WORKSPACE_ROOT.as_path())
+        .run_with_data("cd $in; $env.PWD", playground.path().join("aaa/bbb/ccc"))?;
     let cwd = Path::new(&output);
 
     let actual = absolute_with("...", cwd).expect("Failed to make absolute");

@@ -1,5 +1,4 @@
 use itertools::Itertools;
-use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
 use nu_test_support::playground::Playground;
 use nu_test_support::prelude::*;
 use pretty_assertions::{assert_eq, assert_matches};

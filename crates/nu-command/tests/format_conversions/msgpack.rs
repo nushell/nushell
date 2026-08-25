@@ -19,7 +19,7 @@ fn msgpack_test_with_opts<T: FromValue>(
     let fixture_name = fixture_name.as_ref();
     let opts = opts.as_ref();
 
-    let topic = format!("msgpack test {fixture_name}");
+    let _topic = format!("msgpack test {fixture_name}");
     let mut tester = test().cwd(playground.path());
 
     let generate = format!("use {}; generate main {fixture_name}", GENERATE.display());

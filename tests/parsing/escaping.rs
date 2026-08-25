@@ -1,8 +1,6 @@
 use nu_test_support::prelude::*;
 use rstest::rstest;
 
-use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
-
 #[rstest]
 #[case::basic(r#""line1\nline2""#, "line1\nline2")]
 #[case::basic(r#""col1\tcol2""#, "col1\tcol2")]
