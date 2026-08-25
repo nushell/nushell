@@ -161,6 +161,7 @@ pub struct EngineState {
     /// Decode a framed NUON byte stream from a child `nu`. Set by `nu-command`.
     /// Applied to internal commands and value collection, not to `run-external`
     /// (that would `into_bytes()` a live pipe and serialize `nu | nu`).
+    #[allow(clippy::type_complexity)]
     pub structured_io_decode: Option<fn(PipelineData, Span) -> Result<PipelineData, ShellError>>,
     startup_time: i64,
     is_debugging: IsDebugging,
