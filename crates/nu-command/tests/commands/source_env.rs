@@ -1,28 +1,21 @@
-use nu_test_support::fs::Stub::{FileWithContent, FileWithContentToBeTrimmed};
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_matches;
 use rstest::rstest;
 
 #[test]
-fn source_env_resolves_nested_source_relative_to_sourced_file() -> Result {
-    Playground::setup("source_test_1", |dirs, nu| {
-        nu.within("lib").with_files(&[FileWithContent(
-            "my_library.nu",
-            "
-                source-env my_library/main.nu
-            ",
-        )]);
-        nu.within("lib/my_library").with_files(&[FileWithContent(
-            "main.nu",
-            r#"
-                $env.hello = "hello nu"
-            "#,
-        )]);
+fn source_env_resolves_nested_source_relative_to_sourced_file(playground: Playground) -> Result {
+    playground.file(
+        "lib/my_library.nu",
+        "source-env my_library/main.nu",
+    )?;
+    playground.file(
+        "lib/my_library/main.nu",
+        r#"$env.hello = "hello nu""#,
+    )?;
 
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run("source-env lib/my_library.nu")?;
-        tester.run("$env.hello").expect_value_eq("hello nu")
-    })
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("source-env lib/my_library.nu")?;
+    tester.run("$env.hello").expect_value_eq("hello nu")
 }
 
 #[rstest]
@@ -124,62 +117,50 @@ fn source_env_eval_export_env_hide(playground: Playground) -> Result {
 }
 
 #[test]
-fn source_env_do_cd() -> Result {
-    Playground::setup("source_env_do_cd", |dirs, sandbox| {
-        sandbox
-            .mkdir("test1/test2")
-            .with_files(&[FileWithContentToBeTrimmed(
-                "test1/test2/spam.nu",
-                "
-                    cd test1/test2
-                ",
-            )]);
+fn source_env_do_cd(playground: Playground) -> Result {
+    playground.file(
+        "test1/test2/spam.nu",
+        indoc::indoc! {"
+            cd test1/test2
+        "},
+    )?;
 
-        test()
-            .cwd(dirs.test())
-            .run("source-env test1/test2/spam.nu; $env.PWD | path basename")
-            .expect_value_eq("test2")
-    })
+    test()
+        .cwd(playground.path())
+        .run("source-env test1/test2/spam.nu; $env.PWD | path basename")
+        .expect_value_eq("test2")
 }
 
 #[test]
-fn source_env_do_cd_file_relative() -> Result {
-    Playground::setup("source_env_do_cd_file_relative", |dirs, sandbox| {
-        sandbox
-            .mkdir("test1/test2")
-            .with_files(&[FileWithContentToBeTrimmed(
-                "test1/test2/spam.nu",
-                "
-                    cd ($env.FILE_PWD | path join '..')
-                ",
-            )]);
+fn source_env_do_cd_file_relative(playground: Playground) -> Result {
+    playground.file(
+        "test1/test2/spam.nu",
+        indoc::indoc! {"
+            cd ($env.FILE_PWD | path join '..')
+        "},
+    )?;
 
-        test()
-            .cwd(dirs.test())
-            .run("source-env test1/test2/spam.nu; $env.PWD | path basename")
-            .expect_value_eq("test1")
-    })
+    test()
+        .cwd(playground.path())
+        .run("source-env test1/test2/spam.nu; $env.PWD | path basename")
+        .expect_value_eq("test1")
 }
 
 #[test]
-fn source_env_dont_cd_overlay() -> Result {
-    Playground::setup("source_env_dont_cd_overlay", |dirs, sandbox| {
-        sandbox
-            .mkdir("test1/test2")
-            .with_files(&[FileWithContentToBeTrimmed(
-                "test1/test2/spam.nu",
-                "
-                    overlay new spam
-                    cd test1/test2
-                    overlay hide spam
-                ",
-            )]);
+fn source_env_dont_cd_overlay(playground: Playground) -> Result {
+    playground.file(
+        "test1/test2/spam.nu",
+        indoc::indoc! {"
+            overlay new spam
+            cd test1/test2
+            overlay hide spam
+        "},
+    )?;
 
-        test()
-            .cwd(dirs.test())
-            .run("source-env test1/test2/spam.nu; $env.PWD | path basename")
-            .expect_value_eq("source_env_dont_cd_overlay")
-    })
+    test()
+        .cwd(playground.path())
+        .run("source-env test1/test2/spam.nu; $env.PWD | path basename")
+        .expect_value_eq(playground.path().file_name().unwrap().to_string_lossy())
 }
 
 #[test]
