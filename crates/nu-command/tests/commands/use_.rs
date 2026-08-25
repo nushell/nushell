@@ -1,4 +1,4 @@
-use nu_test_support::{fs::Stub::FileWithContentToBeTrimmed, prelude::*};
+use nu_test_support::prelude::*;
 use rstest::rstest;
 
 #[test]
@@ -89,67 +89,55 @@ fn use_eval_export_env_hide(playground: Playground) -> Result {
 }
 
 #[test]
-fn use_do_cd() -> Result {
-    Playground::setup("use_do_cd", |dirs, playground| {
-        playground
-            .mkdir("test1/test2")
-            .with_files(&[FileWithContentToBeTrimmed(
-                "test1/test2/spam.nu",
-                "
-                    export-env { cd test1/test2 }
-                ",
-            )]);
+fn use_do_cd(playground: Playground) -> Result {
+    playground.file(
+        "test1/test2/spam.nu",
+        indoc::indoc! {"
+            export-env { cd test1/test2 }
+        "},
+    )?;
 
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run("use test1/test2/spam.nu")?;
-        tester
-            .run("$env.PWD | path basename")
-            .expect_value_eq("test2")
-    })
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("use test1/test2/spam.nu")?;
+    tester
+        .run("$env.PWD | path basename")
+        .expect_value_eq("test2")
 }
 
 #[test]
-fn use_do_cd_file_relative() -> Result {
-    Playground::setup("use_do_cd_file_relative", |dirs, playground| {
-        playground
-            .mkdir("test1/test2")
-            .with_files(&[FileWithContentToBeTrimmed(
-                "test1/test2/spam.nu",
-                "
-                    export-env { cd ($env.FILE_PWD | path join '..') }
-                ",
-            )]);
+fn use_do_cd_file_relative(playground: Playground) -> Result {
+    playground.file(
+        "test1/test2/spam.nu",
+        indoc::indoc! {"
+            export-env { cd ($env.FILE_PWD | path join '..') }
+        "},
+    )?;
 
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run("use test1/test2/spam.nu")?;
-        tester
-            .run("$env.PWD | path basename")
-            .expect_value_eq("test1")
-    })
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("use test1/test2/spam.nu")?;
+    tester
+        .run("$env.PWD | path basename")
+        .expect_value_eq("test1")
 }
 
 #[test]
-fn use_dont_cd_overlay() -> Result {
-    Playground::setup("use_dont_cd_overlay", |dirs, playground| {
-        playground
-            .mkdir("test1/test2")
-            .with_files(&[FileWithContentToBeTrimmed(
-                "test1/test2/spam.nu",
-                "
-                    export-env {
-                        overlay new spam
-                        cd test1/test2
-                        overlay hide spam
-                    }
-                ",
-            )]);
+fn use_dont_cd_overlay(playground: Playground) -> Result {
+    playground.file(
+        "test1/test2/spam.nu",
+        indoc::indoc! {"
+            export-env {
+                overlay new spam
+                cd test1/test2
+                overlay hide spam
+            }
+        "},
+    )?;
 
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run("use test1/test2/spam.nu")?;
-        tester
-            .run("$env.PWD | path basename")
-            .expect_value_eq("use_dont_cd_overlay")
-    })
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("use test1/test2/spam.nu")?;
+    tester
+        .run("$env.PWD | path basename")
+        .expect_value_eq(playground.path().file_name().unwrap().to_string_lossy())
 }
 
 #[test]
