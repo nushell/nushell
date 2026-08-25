@@ -4,12 +4,13 @@ use nu_parser::escape_for_script_arg;
 use nu_protocol::{
     LabeledError, ShellError, Span, Spanned, Value, config::TableMode, did_you_mean,
 };
-use nu_utils::stdout_write_all_and_flush;
+use nu_utils::{stdout_write_all_and_flush, strip_ansi_string_likely};
 #[cfg(feature = "plugin")]
 use std::path::Path;
 use std::{
     ffi::OsString,
     fmt::{self, Write},
+    io::IsTerminal,
 };
 
 const HELP_SECTION_COLOR: &str = "\x1b[32m";
@@ -530,6 +531,11 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
         match arg {
             Short('h') | Long("help") => {
                 let help = cli_help_text();
+                let help = if std::io::stdout().is_terminal() {
+                    help
+                } else {
+                    strip_ansi_string_likely(help)
+                };
                 let _ = std::panic::catch_unwind(move || stdout_write_all_and_flush(help));
                 std::process::exit(0);
             }
