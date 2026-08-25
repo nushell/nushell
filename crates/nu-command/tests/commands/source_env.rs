@@ -1,13 +1,17 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 use nu_test_support::fs::Stub::{FileWithContent, FileWithContentToBeTrimmed};
 >>>>>>> 4f4a9394c (fixed some warnings)
+=======
+>>>>>>> d7d44ed23 (update `source env` tests with new playground)
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_matches;
 use rstest::rstest;
 
 #[test]
 fn source_env_resolves_nested_source_relative_to_sourced_file(playground: Playground) -> Result {
+<<<<<<< HEAD
     playground.dir("lib")?;
     playground.file(
         "lib/my_library.nu",
@@ -21,6 +25,15 @@ fn source_env_resolves_nested_source_relative_to_sourced_file(playground: Playgr
         r#"
                 $env.hello = "hello nu"
             "#,
+=======
+    playground.file(
+        "lib/my_library.nu",
+        "source-env my_library/main.nu",
+    )?;
+    playground.file(
+        "lib/my_library/main.nu",
+        r#"$env.hello = "hello nu""#,
+>>>>>>> d7d44ed23 (update `source env` tests with new playground)
     )?;
 
     let mut tester = test().cwd(playground.path());
@@ -148,12 +161,20 @@ fn source_env_eval_export_env_hide(playground: Playground) -> Result {
 
 #[test]
 fn source_env_do_cd(playground: Playground) -> Result {
+<<<<<<< HEAD
     playground.dir("test1/test2")?;
     playground.file(
         "test1/test2/spam.nu",
         indoc::indoc! {"
                     cd test1/test2
                 "},
+=======
+    playground.file(
+        "test1/test2/spam.nu",
+        indoc::indoc! {"
+            cd test1/test2
+        "},
+>>>>>>> d7d44ed23 (update `source env` tests with new playground)
     )?;
 
     test()
@@ -164,12 +185,20 @@ fn source_env_do_cd(playground: Playground) -> Result {
 
 #[test]
 fn source_env_do_cd_file_relative(playground: Playground) -> Result {
+<<<<<<< HEAD
     playground.dir("test1/test2")?;
     playground.file(
         "test1/test2/spam.nu",
         indoc::indoc! {"
                     cd ($env.FILE_PWD | path join '..')
                 "},
+=======
+    playground.file(
+        "test1/test2/spam.nu",
+        indoc::indoc! {"
+            cd ($env.FILE_PWD | path join '..')
+        "},
+>>>>>>> d7d44ed23 (update `source env` tests with new playground)
     )?;
 
     test()
@@ -179,6 +208,7 @@ fn source_env_do_cd_file_relative(playground: Playground) -> Result {
 }
 
 #[test]
+<<<<<<< HEAD
 fn source_env_overlay_hide_keeps_cd(playground: Playground) -> Result {
     playground.dir("test1/test2")?;
     playground.file(
@@ -188,12 +218,26 @@ fn source_env_overlay_hide_keeps_cd(playground: Playground) -> Result {
                     cd test1/test2
                     overlay hide spam
                 "},
+=======
+fn source_env_dont_cd_overlay(playground: Playground) -> Result {
+    playground.file(
+        "test1/test2/spam.nu",
+        indoc::indoc! {"
+            overlay new spam
+            cd test1/test2
+            overlay hide spam
+        "},
+>>>>>>> d7d44ed23 (update `source env` tests with new playground)
     )?;
 
     test()
         .cwd(playground.path())
         .run("source-env test1/test2/spam.nu; $env.PWD | path basename")
+<<<<<<< HEAD
         .expect_value_eq("test2")
+=======
+        .expect_value_eq(playground.path().file_name().unwrap().to_string_lossy())
+>>>>>>> d7d44ed23 (update `source env` tests with new playground)
 }
 
 #[test]
