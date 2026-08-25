@@ -1,8 +1,12 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 use nu_test_support::prelude::*;
 =======
 use nu_test_support::{fs::Stub::FileWithContentToBeTrimmed, prelude::*};
 >>>>>>> 4f4a9394c (fixed some warnings)
+=======
+use nu_test_support::prelude::*;
+>>>>>>> d11f5c57b (modernized `use` tests)
 use rstest::rstest;
 
 #[test]
@@ -104,12 +108,20 @@ fn use_eval_export_env_hide(playground: Playground) -> Result {
 
 #[test]
 fn use_do_cd(playground: Playground) -> Result {
+<<<<<<< HEAD
     playground.dir("test1/test2")?;
     playground.file(
         "test1/test2/spam.nu",
         indoc::indoc! {"
                     export-env { cd test1/test2 }
                 "},
+=======
+    playground.file(
+        "test1/test2/spam.nu",
+        indoc::indoc! {"
+            export-env { cd test1/test2 }
+        "},
+>>>>>>> d11f5c57b (modernized `use` tests)
     )?;
 
     let mut tester = test().cwd(playground.path());
@@ -121,12 +133,20 @@ fn use_do_cd(playground: Playground) -> Result {
 
 #[test]
 fn use_do_cd_file_relative(playground: Playground) -> Result {
+<<<<<<< HEAD
     playground.dir("test1/test2")?;
     playground.file(
         "test1/test2/spam.nu",
         indoc::indoc! {"
                     export-env { cd ($env.FILE_PWD | path join '..') }
                 "},
+=======
+    playground.file(
+        "test1/test2/spam.nu",
+        indoc::indoc! {"
+            export-env { cd ($env.FILE_PWD | path join '..') }
+        "},
+>>>>>>> d11f5c57b (modernized `use` tests)
     )?;
 
     let mut tester = test().cwd(playground.path());
@@ -137,6 +157,7 @@ fn use_do_cd_file_relative(playground: Playground) -> Result {
 }
 
 #[test]
+<<<<<<< HEAD
 fn use_overlay_hide_keeps_cd(playground: Playground) -> Result {
     playground.dir("test1/test2")?;
     playground.file(
@@ -148,13 +169,29 @@ fn use_overlay_hide_keeps_cd(playground: Playground) -> Result {
                         overlay hide spam
                     }
                 "},
+=======
+fn use_dont_cd_overlay(playground: Playground) -> Result {
+    playground.file(
+        "test1/test2/spam.nu",
+        indoc::indoc! {"
+            export-env {
+                overlay new spam
+                cd test1/test2
+                overlay hide spam
+            }
+        "},
+>>>>>>> d11f5c57b (modernized `use` tests)
     )?;
 
     let mut tester = test().cwd(playground.path());
     let () = tester.run("use test1/test2/spam.nu")?;
     tester
         .run("$env.PWD | path basename")
+<<<<<<< HEAD
         .expect_value_eq("test2")
+=======
+        .expect_value_eq(playground.path().file_name().unwrap().to_string_lossy())
+>>>>>>> d11f5c57b (modernized `use` tests)
 }
 
 #[test]
