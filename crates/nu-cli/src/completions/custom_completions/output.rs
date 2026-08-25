@@ -4,7 +4,10 @@ use crate::completions::{
     to_reedline_span,
 };
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
-use nu_protocol::{FromValue, ShellError, Type, Value, shell_error::generic::GenericError};
+use nu_protocol::{
+    FromValue, ShellError, SuggestionKind, Type, Value, engine::CommandType,
+    shell_error::generic::GenericError,
+};
 use nu_utils::strip_ansi_string_unlikely;
 use reedline::Suggestion;
 

@@ -195,9 +195,10 @@ fn commandline_test_complete_reentrant() -> TestResult {
 }
 
 #[rstest]
+// Detailed output includes suggestion metadata.
 #[case::cmd(
     "test-",
-    r#"{value: test-cmd, span: {start: 0, end: 5}, description: "", kind: command, type: custom}"#
+    r#"{value: test-cmd, span: {start: 0, end: 5}, description: "", append_whitespace: true, match_indices: [0, 1, 2, 3, 4], kind: command, type: custom}"#
 )]
 #[case::int(
     "test-cmd --int ",
@@ -476,5 +477,75 @@ fn commandline_test_complete_input_target_spans_tokens() -> TestResult {
         | {tokens: $in.contexts.tokens.text, target: $in.place.target} | to nuon",
         "{tokens: [get, na, fo], \
 target: {start: {path: [1], byte: 0}, end: {path: [2], byte: 2}}}",
+    )
+}
+
+/// `--type` selects a built-in completion source.
+#[rstest]
+#[case::command(
+    "def my-unique-cmd [] {}",
+    "'my-unique' | commandline complete --type command",
+    "[my-unique-cmd]"
+)]
+#[case::variable(
+    "",
+    "'$n' | commandline complete --type variable | where $it == '$nu'",
+    r#"["$nu"]"#
+)]
+#[case::env_var(
+    "$env.MY_UNIQUE_EV = 1",
+    "'MY_UNIQUE' | commandline complete --type env-var",
+    "[MY_UNIQUE_EV]"
+)]
+fn commandline_test_complete_type_sources(
+    #[case] setup: &str,
+    #[case] complete: &str,
+    #[case] expected: &str,
+) -> TestResult {
+    run_test(&format!("{setup}\n{complete} | to nuon"), expected)
+}
+
+/// `fallback: true` merges custom and command-wide completions.
+#[test]
+fn commandline_test_complete_fallthrough_stacks_completers() -> TestResult {
+    run_test(
+        "def per-arg [token] { {completions: [static-a], fallback: true} }\n\
+        def cmd-wide [token] { [wide-x] }\n\
+        @complete cmd-wide\n\
+        def --wrapped my-cmd [x: string@per-arg, ...rest] {}\n\
+        'my-cmd ' | commandline complete | to nuon",
+        "[static-a, wide-x]",
+    )
+}
+
+/// Without `fallback`, the parameter completer claims the slot.
+#[test]
+fn commandline_test_complete_without_fallthrough_claims_the_slot() -> TestResult {
+    run_test(
+        "def per-arg [token] { [static-a] }\n\
+        def cmd-wide [token] { [wide-x] }\n\
+        @complete cmd-wide\n\
+        def --wrapped my-cmd [x: string@per-arg, ...rest] {}\n\
+        'my-cmd ' | commandline complete | to nuon",
+        "[static-a]",
+    )
+}
+
+/// Custom suggestions preserve detailed metadata.
+#[rstest]
+#[case::kind("kind: directory", "get kind", "directory")]
+#[case::append_whitespace("append_whitespace: true", "get append_whitespace", "true")]
+fn commandline_test_complete_custom_suggestion_fields(
+    #[case] field: &str,
+    #[case] project: &str,
+    #[case] expected: &str,
+) -> TestResult {
+    run_test(
+        &format!(
+            "def comp [token] {{ [{{value: foo, {field}}}] }}\n\
+            def my-cmd [x: string@comp] {{}}\n\
+            'my-cmd f' | commandline complete --detailed | first | {project}"
+        ),
+        expected,
     )
 }
