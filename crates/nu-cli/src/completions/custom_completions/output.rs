@@ -435,32 +435,19 @@ pub(crate) fn map_value_completions(
     .collect()
 }
 
-/// How far a returned span may reach, and against which text. Completers clamp to the
-/// buffer they saw; menu sources to the cursor, with no text to snap to a char boundary.
+/// Clamps returned spans to the text the source saw, snapping offsets to its char boundaries.
 #[derive(Clone, Copy)]
 pub(crate) struct SpanClamp<'a> {
-    pub limit: usize,
-    pub text: Option<&'a str>,
+    seen: &'a str,
 }
 
 impl<'a> SpanClamp<'a> {
-    /// Clamped to `text`, whose length is the bound.
+    /// Clamped to `text`.
     pub(crate) fn within(text: &'a str) -> Self {
-        Self {
-            limit: text.len(),
-            text: Some(text),
-        }
-    }
-
-    /// Bounded by an offset with no text to align against.
-    pub(crate) fn upto(limit: usize) -> Self {
-        Self { limit, text: None }
+        Self { seen: text }
     }
 
     pub(crate) fn apply(&self, value: usize) -> usize {
-        let value = value.min(self.limit);
-        self.text.map_or(value, |text| {
-            text.floor_char_boundary(value.min(text.len()))
-        })
+        self.seen.floor_char_boundary(value.min(self.seen.len()))
     }
 }

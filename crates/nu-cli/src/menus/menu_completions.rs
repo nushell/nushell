@@ -73,7 +73,7 @@ impl Completer for NuMenuCompleter {
             .map(|p| p.body);
 
         let suggestions = match res.and_then(|data| data.into_value(self.span)) {
-            Ok(value) => convert_to_suggestions(value, replacing, pos),
+            Ok(value) => convert_to_suggestions(value, replacing, &padded[..cursor]),
             Err(_) => Vec::new(),
         };
 
@@ -100,11 +100,10 @@ fn default_span(line: &str, pos: usize, input_mode: InputMode) -> reedline::Span
     }
 }
 
-/// Read a menu source's output the same way a completer's is read, so one source can serve
-/// as either: the same accepted shapes, and the same span/style/description handling and
-/// clamping. The `options` a completer may return name engine behaviour a menu has no say
-/// in — reedline filters and sorts its own list — so they are read and dropped here.
-fn convert_to_suggestions(value: Value, default: reedline::Span, cursor: usize) -> Vec<Suggestion> {
+/// Read a menu source's output the way a completer's is read: same accepted shapes and span
+/// handling, clamped against `seen`. The `options` of the record form are dropped — reedline
+/// filters and sorts its own list.
+fn convert_to_suggestions(value: Value, default: reedline::Span, seen: &str) -> Vec<Suggestion> {
     // `null` declines. A menu has no next source to fall through to, so it shows nothing.
     let Some(returned) = Returned::read(value) else {
         return Vec::new();
@@ -113,7 +112,7 @@ fn convert_to_suggestions(value: Value, default: reedline::Span, cursor: usize) 
     map_value_completions(
         returned.completions.into_iter(),
         default,
-        SpanClamp::upto(cursor),
+        SpanClamp::within(seen),
     )
     .into_iter()
     .map(|semantic| semantic.suggestion)
@@ -239,5 +238,17 @@ mod tests {
 
         // Cursor after `tri` in `str tri foo`; the token there is `tri`, not the trailing `foo`.
         assert_eq!(values(completer.complete("str tri foo", 7)), ["tri"]);
+    }
+
+    /// Suggestion spans are clamped against the seen text and floored to a char boundary (#5127).
+    #[test]
+    fn menu_suggestion_span_is_clamped_to_a_char_boundary() {
+        // `é` occupies bytes 4..6 of `str é`, so 5 is mid-character and 99 is past the end.
+        let mut completer = menu("{|place| [{value: v, span: {start: 5, end: 99}}]}");
+        let result = completer.complete("str é", "str é".len());
+        let suggestions = result.suggestions();
+
+        assert_eq!(suggestions.len(), 1);
+        assert_eq!(suggestions[0].span, reedline::Span::new(4, 6));
     }
 }
