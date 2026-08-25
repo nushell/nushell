@@ -14,7 +14,7 @@ use nu_protocol::{
         Argument, AttributeBlock, Block, Call, Expr, Expression, ExternalArgument, FlagRef,
         FullCellPath, PipelineRedirection, RedirectionTarget, Traverse,
     },
-    engine::{ArgType, EngineState, Stack, StateWorkingSet},
+    engine::{ArgType, Command, EngineState, Stack, StateWorkingSet},
 };
 use nu_utils::time::Instant;
 use reedline::{
@@ -615,13 +615,19 @@ enum SiteCompleter {
     External,
 }
 
-/// Whether `decl` carries the `@interactive` attribute (the `attr interactive` command).
+/// Whether `decl` names an `@interactive` command, seeing through aliases as execution does.
 fn decl_is_interactive(working_set: &StateWorkingSet, decl_id: DeclId) -> bool {
-    working_set
-        .get_decl(decl_id)
-        .attributes()
-        .iter()
-        .any(|(name, value)| name == "interactive" && value.as_bool().unwrap_or(false))
+    fn command_is_interactive(command: &dyn Command) -> bool {
+        command
+            .attributes()
+            .iter()
+            .any(|(name, value)| name == "interactive" && value.as_bool().unwrap_or(false))
+            || command
+                .as_alias()
+                .and_then(|alias| alias.command.as_deref())
+                .is_some_and(command_is_interactive)
+    }
+    command_is_interactive(working_set.get_decl(decl_id))
 }
 
 /// What the cursor is completing; each variant carries exactly the AST it needs.

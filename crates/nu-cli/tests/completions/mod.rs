@@ -1026,6 +1026,27 @@ fn interactive_completer_runs_inline() {
     match_suggestions(&vec!["alpha"], result.suggestions());
 }
 
+/// Detection sees through aliases as execution does: an alias of an `@interactive`
+/// completer routes inline.
+#[test]
+fn interactive_completer_through_an_alias_runs_inline() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = "\
+        @interactive
+        def comp [token] { [alpha beta] }
+        alias comp-alias = comp
+        def my-command [arg: string@comp-alias] {}";
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let line = "my-command al";
+    let result = completer.complete(line, line.len());
+    assert!(
+        matches!(result, CompletionResult::Fresh { .. }),
+        "an aliased @interactive completer must run inline, got {result:?}"
+    );
+}
+
 /// Routing also sees the command-wide `@interactive` completer at a flag *name*, where
 /// `complete_flag_names` merges it.
 #[test]
