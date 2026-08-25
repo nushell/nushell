@@ -225,7 +225,7 @@ fn warning_on_invalid_plugin_item(playground: Playground) -> Result {
     });
     registry.upsert_plugin(PluginRegistryItem {
         name: "badtest".into(),
-        filename: playground.path().join("nu_plugin_badtest").into(),
+        filename: playground.path().join("nu_plugin_badtest"),
         shell: None,
         data: PluginRegistryItemData::Invalid,
     });

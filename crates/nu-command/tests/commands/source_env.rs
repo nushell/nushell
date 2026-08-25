@@ -44,7 +44,6 @@ fn sources_unicode_file(
     #[ignore] playground: Playground,
 =======
     #[ignore] playground: Playground,
-    #[context] _ctx: Context,
     #[case] dir: &str,
     #[case] quote: &str,
 >>>>>>> 926ed3f27 (fmt)
@@ -69,6 +68,10 @@ fn sources_unicode_file(
 #[case::colon_spaced_dir_double_quotes("e-$ èрт:fire_engine:♞中片-j", "\"")]
 #[nu_test_support::test]
 fn sources_unicode_file_in_colon_dir(
+<<<<<<< HEAD
+=======
+    #[ignore] playground: Playground,
+>>>>>>> 674035808 (fix clippy warnings)
     #[case] dir: &str,
     #[case] quote: &str,
     #[ignore] playground: Playground,

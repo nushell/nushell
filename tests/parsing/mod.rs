@@ -97,7 +97,7 @@ fn source_path_interpolation_vs_literal(playground: Playground) -> Result {
 #[test]
 fn source_path_with_nested_parens(playground: Playground) -> Result {
     let os_name = std::env::consts::OS;
-    playground.file(&format!("test_{}_nested.nu", os_name), "'nested parens'")?;
+    playground.file(format!("test_{}_nested.nu", os_name), "'nested parens'")?;
 
     // Nested parentheses in interpolation
     test()
@@ -131,7 +131,7 @@ fn source_path_backtick_no_interpolation(playground: Playground) -> Result {
 #[test]
 fn source_path_dollar_interpolation(playground: Playground) -> Result {
     let os_name = std::env::consts::OS;
-    playground.file(&format!("test_{}.nu", os_name), "'dollar interpolation'")?;
+    playground.file(format!("test_{}.nu", os_name), "'dollar interpolation'")?;
 
     // Dollar prefix should enable interpolation in quotes
     test()
@@ -144,7 +144,7 @@ fn source_path_dollar_interpolation(playground: Playground) -> Result {
 fn source_path_mixed_parens_and_quotes(playground: Playground) -> Result {
     playground.file("test(1).nu", "'test 1'")?;
     let os_name = std::env::consts::OS;
-    playground.file(&format!("test_{}.nu", os_name), "'test interpolated'")?;
+    playground.file(format!("test_{}.nu", os_name), "'test interpolated'")?;
 
     // Literal parentheses in quoted string
     test()
@@ -192,7 +192,7 @@ fn source_path_multiple_interpolations(playground: Playground) -> Result {
     let os_name = std::env::consts::OS;
     let arch = std::env::consts::ARCH;
     playground.file(
-        &format!("{}_{}.nu", os_name, arch),
+        format!("{}_{}.nu", os_name, arch),
         "'multiple interpolations'",
     )?;
 
