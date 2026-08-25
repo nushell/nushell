@@ -49,6 +49,18 @@ impl Flag {
         (!self.long.is_empty()).then_some(self.long.as_str())
     }
 
+    /// Whether this flag's value type accepts `nothing`/`null`.
+    ///
+    /// Used so `--flag=$null` can either pass `null` through (when the type allows it) or omit
+    /// the flag (when it does not). Switches (`arg: None`) never accept nothing — null means omit.
+    #[inline]
+    pub fn type_accepts_nothing(&self) -> bool {
+        match &self.arg {
+            Some(shape) => Type::Nothing.is_assignable_to(&shape.to_type()),
+            None => false,
+        }
+    }
+
     #[inline]
     pub fn new(long: impl Into<String>) -> Self {
         Flag {

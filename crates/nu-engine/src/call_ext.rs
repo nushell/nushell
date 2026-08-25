@@ -1,4 +1,5 @@
 use crate::eval_expression;
+use crate::named_flags::flag_type_accepts_nothing;
 use nu_protocol::{
     FromValue, ShellError, Span, Value, ast,
     debugger::WithoutDebug,
@@ -116,6 +117,18 @@ impl CallExt for ast::Call {
         if let Some(expr) = self.get_flag_expr(name) {
             let stack = &mut stack.use_call_arg_out_dest();
             let result = eval_expression::<WithoutDebug>(engine_state, stack, expr)?;
+            // Signature-aware null: omit when the flag type does not accept nothing
+            // (IR path does this in normalize_call_arguments before get_flag runs).
+            if result.is_nothing() {
+                let accepts = engine_state
+                    .get_decl(self.decl_id)
+                    .signature()
+                    .get_long_flag(name)
+                    .is_some_and(|flag| flag_type_accepts_nothing(&flag));
+                if !accepts {
+                    return Ok(None);
+                }
+            }
             FromValue::from_value(result).map(Some)
         } else {
             Ok(None)
@@ -262,6 +275,8 @@ impl CallExt for ir::Call {
         stack: &mut Stack,
         name: &str,
     ) -> Result<Option<T>, ShellError> {
+        // Null flags that are not type-accepted are dropped in normalize_call_arguments.
+        // Remaining null values are intentional (flag type accepts nothing).
         if let Some(val) = self.get_named_arg(stack, name) {
             T::from_value(val.clone()).map(Some)
         } else {

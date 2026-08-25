@@ -269,3 +269,290 @@ fn spread_null() -> Result {
 
     Ok(())
 }
+
+#[test]
+fn named_flag_null_is_omitted() -> Result {
+    // Null named value uses signature default
+    let code = "
+        def f [--x: int = 5] { $x }
+        f --x=(null)
+    ";
+    test().run(code).expect_value_eq(5)?;
+
+    // Null named value without default is same as omitting the flag
+    let code = "
+        def f [--x: int] { $x }
+        f --x=(null)
+    ";
+    test().run(code).expect_value_eq(())?;
+
+    // Forwarding an unbound optional flag (null) into another command
+    let code = "
+        def outer [--preserve: list<string>] {
+            inner --preserve=$preserve
+        }
+        def inner [--preserve: list<string>] {
+            $preserve
+        }
+        outer
+    ";
+    test().run(code).expect_value_eq(())?;
+
+    // Explicit empty list is distinct from null/omit
+    let code = "
+        def outer [--preserve: list<string>] {
+            inner --preserve=$preserve
+        }
+        def inner [--preserve: list<string>] {
+            $preserve
+        }
+        outer --preserve=[]
+    ";
+    test().run(code).expect_value_eq(test_value!([]))?;
+
+    // Null switch value is treated as omitted (false)
+    let code = "
+        def f [--verbose] { $verbose }
+        f --verbose=(null)
+    ";
+    test().run(code).expect_value_eq(false)?;
+
+    Ok(())
+}
+
+#[test]
+fn named_flag_null_passed_when_type_allows_nothing() -> Result {
+    // oneof with nothing: explicit null is bound; omit still uses default
+    let code = "
+        def f [--x: oneof<int, nothing> = 5] { $x }
+        f --x=(null)
+    ";
+    test().run(code).expect_value_eq(())?;
+
+    let code = "
+        def f [--x: oneof<int, nothing> = 5] { $x }
+        f
+    ";
+    test().run(code).expect_value_eq(5)?;
+
+    let code = "
+        def f [--x: oneof<int, nothing> = 5] { $x }
+        f --x=3
+    ";
+    test().run(code).expect_value_eq(3)?;
+
+    // `any` accepts nothing, so null is passed through (not the default)
+    let code = "
+        def f [--x: any = 5] { $x }
+        f --x=(null)
+    ";
+    test().run(code).expect_value_eq(())?;
+
+    // `nothing` type: null is passed through
+    let code = "
+        def f [--x: nothing] { $x }
+        f --x=(null)
+    ";
+    test().run(code).expect_value_eq(())?;
+
+    // Record spread: null passes when type allows nothing
+    let code = "
+        def f [--x: oneof<int, nothing> = 5] { $x }
+        f ...{x: null}
+    ";
+    test().run(code).expect_value_eq(())?;
+
+    // Record spread: null still omits when type does not allow nothing
+    let code = "
+        def f [--x: int = 5] { $x }
+        f ...{x: null}
+    ";
+    test().run(code).expect_value_eq(5)?;
+
+    Ok(())
+}
+
+#[test]
+fn named_flag_record_spread() -> Result {
+    let code = r#"
+        def f [--x: int, --y: string, --verbose] {
+            {x: $x, y: $y, verbose: $verbose}
+        }
+        f ...{x: 1, y: "a", verbose: true}
+    "#;
+    test().run(code).expect_value_eq(test_value!({
+        x: 1,
+        y: "a",
+        verbose: true
+    }))?;
+
+    // Null fields are omitted (defaults / null apply)
+    let code = r#"
+        def f [--x: int = 9, --y: string, --verbose] {
+            {x: $x, y: $y, verbose: $verbose}
+        }
+        f ...{x: null, y: "hi", verbose: false}
+    "#;
+    test().run(code).expect_value_eq(test_value!({
+        x: 9,
+        y: "hi",
+        verbose: false
+    }))?;
+
+    // Dynamic record variable
+    let code = r#"
+        def f [--x: int, --y: string] { [$x $y] }
+        let flags = {x: 3, y: "z"}
+        f ...$flags
+    "#;
+    test().run(code).expect_value_eq(test_value!([3, "z"]))?;
+
+    // Combine named spread with rest positionals
+    let code = "
+        def f [--flag: int, ...rest] { {flag: $flag, rest: $rest} }
+        f ...{flag: 7} a b
+    ";
+    test().run(code).expect_value_eq(test_value!({
+        flag: 7,
+        rest: ["a", "b"]
+    }))?;
+
+    // Shadowing-style call: flags record + rest paths
+    let code = "
+        def wrap [--preserve: list<string>, --recursive, ...rest] {
+            inner ...{
+                preserve: $preserve
+                recursive: $recursive
+            } ...$rest
+        }
+        def inner [--preserve: list<string>, --recursive, ...rest] {
+            {preserve: $preserve, recursive: $recursive, rest: $rest}
+        }
+        wrap src dest
+    ";
+    test().run(code).expect_value_eq(test_value!({
+        preserve: (),
+        recursive: false,
+        rest: ["src", "dest"]
+    }))?;
+
+    let code = "
+        def wrap [--preserve: list<string>, --recursive, ...rest] {
+            inner ...{
+                preserve: $preserve
+                recursive: $recursive
+            } ...$rest
+        }
+        def inner [--preserve: list<string>, --recursive, ...rest] {
+            {preserve: $preserve, recursive: $recursive, rest: $rest}
+        }
+        wrap --preserve=[mode] --recursive src dest
+    ";
+    test().run(code).expect_value_eq(test_value!({
+        preserve: ["mode"],
+        recursive: true,
+        rest: ["src", "dest"]
+    }))?;
+
+    Ok(())
+}
+
+#[test]
+fn named_flag_record_spread_unknown_flag_errors() -> Result {
+    let code = "
+        def f [--x: int] { $x }
+        f ...{x: 1, nope: true}
+    ";
+    let err = test().run(code).expect_shell_error()?;
+    assert_matches!(err, ShellError::Generic(_));
+    Ok(())
+}
+
+#[test]
+fn named_flag_list_spread_before_required_errors() -> Result {
+    // Dual-purpose: dynamic list before required positionals must error (not leave them unbound)
+    let code = "
+        def f [a: string, --x: int, ...rest] { {a: $a, x: $x, rest: $rest} }
+        let list = [1]
+        f ...$list hello
+    ";
+    let err = test().run(code).expect_shell_error()?;
+    assert_matches!(err, ShellError::Generic(_));
+
+    // Null rest-mode before required positionals must also error
+    let code = "
+        def f [a: string, --x: int, ...rest] { {a: $a, x: $x, rest: $rest} }
+        f ...(null) hello
+    ";
+    let err = test().run(code).expect_shell_error()?;
+    assert_matches!(err, ShellError::Generic(_));
+    Ok(())
+}
+
+#[test]
+fn named_flag_record_spread_required_named_deferred() -> Result {
+    // Bare required named still parse-errors
+    let err = test().run("stor create").expect_parse_error()?;
+    assert_matches!(err, ParseError::MissingRequiredFlag(..));
+
+    // With a record spread, required named is deferred to runtime (no MissingRequiredFlag)
+    test()
+        .run(r#"stor create ...{table-name: "t_spread_ok", columns: {id: int}} | describe"#)
+        .expect_value_eq("SQLiteDatabase")?;
+
+    Ok(())
+}
+
+#[test]
+fn named_flag_list_spread_without_rest_errors() -> Result {
+    // Dynamic list on a named-only command must not silently drop the list.
+    let code = "
+        def f [--x: int] { $x }
+        let list = [1]
+        f ...$list
+    ";
+    let err = test().run(code).expect_shell_error()?;
+    assert_matches!(err, ShellError::Generic(_));
+
+    // Explicit list spread is still a parse error (no rest).
+    let err = test()
+        .run("def f [--x: int] { $x }; f ...[1]")
+        .expect_parse_error()?;
+    assert_matches!(err, ParseError::UnexpectedSpreadArg(_, _));
+    Ok(())
+}
+
+#[test]
+fn named_flag_record_spread_type_mismatch_errors() -> Result {
+    let code = r#"
+        def f [--x: int] { $x }
+        f ...{x: "hi"}
+    "#;
+    let err = test().run(code).expect_shell_error()?;
+    assert_matches!(err, ShellError::CantConvert { .. });
+    Ok(())
+}
+
+#[test]
+fn named_flag_dynamic_record_before_required_positional() -> Result {
+    // Dual-purpose commands: flag record before required positionals is allowed.
+    let code = "
+        def f [a: string, --x: int, ...rest] { {a: $a, x: $x, rest: $rest} }
+        let flags = {x: 7}
+        f ...$flags hello more
+    ";
+    test().run(code).expect_value_eq(test_value!({
+        a: "hello",
+        x: 7,
+        rest: ["more"]
+    }))
+}
+
+#[test]
+fn named_flag_record_spread_without_named_params_is_parse_error() -> Result {
+    let err = test()
+        .run("def f [] { 1 }; f ...{x: 1}")
+        .expect_parse_error()?;
+    assert_matches!(err, ParseError::UnexpectedSpreadArg(_, _));
+    Ok(())
+}

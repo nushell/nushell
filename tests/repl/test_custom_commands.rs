@@ -85,7 +85,6 @@ fn custom_switch1() -> Result {
 fn custom_flag_with_type_checking(
     #[values(
         ("int", "\"3\""),
-        ("int", "null"),
         ("record<i: int>", "{i: \"\"}"),
         ("list<int>", "[\"\"]")
     )]
@@ -101,6 +100,19 @@ fn custom_flag_with_type_checking(
     test()
         .run(code)
         .expect_error_code_eq("nu::parser::type_mismatch")
+}
+
+/// `null` is intentionally allowed for optional named flags: it omits the flag
+/// (same as not passing it) rather than type-mismatching.
+#[rstest]
+fn custom_flag_null_is_omitted(#[values("--dry-run", "-d")] flag: &str) -> Result {
+    let code = format! {"
+        def florb [--dry-run (-d): int] {{ $dry_run }}
+        let y = null
+        florb {flag} $y
+    "};
+
+    test().run(code).expect_value_eq(())
 }
 
 #[test]
