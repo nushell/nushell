@@ -1,6 +1,6 @@
 use super::structured_io::{
-    decode_structured_pipeline, encode_structured_pipeline, is_nu_binary, structured_io_cli_mode,
-    structured_io_for_child, structured_io_spawn,
+    decode_structured_pipeline, encode_structured_pipeline, is_nu_binary, is_nushell_child,
+    structured_io_cli_mode, structured_io_for_child, structured_io_spawn,
 };
 use itertools::Itertools;
 use nu_cmd_base::hook::eval_hook;
@@ -11,7 +11,7 @@ use nu_protocol::{
     process::{ChildProcess, PostWaitCallback},
     shell_error::io::IoError,
 };
-use nu_system::{ForegroundChild, kill_by_pid, prepare_background_command};
+use nu_system::{ForegroundChild, StdioFd, kill_by_pid, prepare_background_command, stdio_is_pipe};
 use nu_utils::IgnoreCaseExt;
 use pathdiff::diff_paths;
 #[cfg(windows)]
@@ -290,7 +290,12 @@ If you create a custom command with this name, that will be used instead."
             },
             PipelineData::Empty => {
                 // MCP and background completions must not inherit the live terminal.
-                if engine_state.is_mcp || stack.suppress_stdin {
+                // Nushell children that inherit a still-open stdin *pipe* (cargo test,
+                // CI, `nu | nu`) will block in `read_startup_stdin` waiting for EOF.
+                if engine_state.is_mcp
+                    || stack.suppress_stdin
+                    || (is_nushell_child(&executable, invoked) && stdio_is_pipe(StdioFd::Stdin))
+                {
                     command.stdin(Stdio::null());
                 } else {
                     command.stdin(Stdio::inherit());
