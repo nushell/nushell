@@ -100,6 +100,10 @@ fn tutor(
         (vec!["block", "blocks"], block_tutor()),
         (vec!["closure", "closures"], closure_tutor()),
         (vec!["shorthand", "shorthands"], shorthand_tutor()),
+        (
+            vec!["shortcut", "shortcuts", "bashism", "bashisms"],
+            bashisms_tutor(),
+        ),
     ];
 
     if let Some(find) = find {
@@ -426,6 +430,54 @@ produce the same value using:
 ```
 (ls).4.name
 ```
+"#
+}
+
+fn bashisms_tutor() -> &'static str {
+    r#"
+You can use shortcuts to quickly insert text from command history into the
+input buffer.
+
+You can use `!!` to insert the last command you entered into the input buffer.
+```
+!!
+```
+After pressing Enter, `!!` is expanded into the previous command in the input
+buffer. The expanded command is not executed until you press Enter again.
+
+You can also use `!!` as part of a larger command.
+```
+tutor shortcut
+!! | find "shortcut"
+```
+The above expands `!!` into the previous command while keeping the rest of the
+text in the input buffer.
+
+You can use `!$` to insert the last spatially delimited argument from the 
+previous command into the input buffer.
+```
+echo hello world
+echo !$
+```
+After pressing Enter, `!$` is expanded to `world` in the input buffer. The
+resulting command is not executed until you press Enter again.
+
+You can use `!<idx>` to insert a command from the command history into the input
+buffer. The index corresponds to the command's index in the history.
+```
+history
+!5
+```
+After pressing Enter, `!5` is expanded to the command with history index `5` in
+the input buffer.
+
+You can use `!-<number>` to insert a command from a number of entries back in
+the history into the input buffer.
+```
+!-5
+```
+After pressing Enter, `!-5` is expanded to the command from five entries back in
+the history.
 "#
 }
 
