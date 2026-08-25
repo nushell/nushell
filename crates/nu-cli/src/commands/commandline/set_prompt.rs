@@ -18,12 +18,12 @@ impl Command for CommandlineSetPrompt {
             .optional(
                 "prompt",
                 SyntaxShape::String,
-                "The rendered prompt text to display, i.e. `$env.PROMPT_COMMAND`. If left-out, we read from pipeline input.",
+                "The rendered prompt text to display, i.e. `$env.config.prompt.left`. If left-out, we read from pipeline input.",
             )
             .named(
                 "right",
                 SyntaxShape::String,
-                "Text for the right prompt, i.e. `$env.PROMPT_COMMAND_RIGHT`.",
+                "Text for the right prompt, i.e. `$env.config.prompt.right`.",
                 Some('r'),
             )
             .named(

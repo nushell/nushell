@@ -7,10 +7,10 @@ type Repainter = Arc<dyn Fn() + Send + Sync>;
 /// Which prompt segment an asynchronous [`PromptState::set`] targets.
 #[derive(Debug, Clone, Copy)]
 pub enum PromptSegment {
-    /// The main (left) prompt, `$env.PROMPT_COMMAND`.
+    /// The main (left) prompt, `$env.config.prompt.left`.
     Left,
 
-    /// The right prompt, `$env.PROMPT_COMMAND_RIGHT`.
+    /// The right prompt, `$env.config.prompt.right`.
     Right,
 
     /// The prompt indicator for the default/emacs edit mode, `$env.config.prompt.indicator`.

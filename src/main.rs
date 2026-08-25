@@ -651,14 +651,8 @@ fn main() -> Result<()> {
     } else {
         // Environment variables that apply only when in REPL
         //
-        // The prompt indicators, transient ones included, are no longer seeded
-        // here: they default from `$env.config.prompt`. Seeding them would pin
-        // every session to the environment variable, which still wins when set,
-        // leaving the config keys with no way to take effect.
-        engine_state.add_env_var(
-            "TRANSIENT_PROMPT_COMMAND_RIGHT".to_string(),
-            Value::test_string(""),
-        );
+        // No `PROMPT_*` variable is seeded here any more. Seeding one would pin
+        // every session to the variable, which still wins over the config key.
         let mut shlvl = engine_state
             .get_env_var("SHLVL")
             .map(|x| x.as_str().unwrap_or("0").parse::<i64>().unwrap_or(0))
