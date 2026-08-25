@@ -599,16 +599,16 @@ fn config_home_cli_affects_default_config_dir(playground: Playground) -> Result 
     std::fs::create_dir_all(&alt_home)?;
 
     let dirs = NushellConfigDirs {
-        config_home: alt_home.clone().into(),
-        config_file: ConfigPath::Default(alt_home.join("config.nu").into()),
-        env_file: ConfigPath::Default(alt_home.join("env.nu").into()),
-        data_home: alt_home.join("data").into(),
-        cache_home: alt_home.join("cache").into(),
-        home_dir: alt_home.clone().into(),
+        config_home: alt_home.clone(),
+        config_file: ConfigPath::Default(alt_home.join("config.nu")),
+        env_file: ConfigPath::Default(alt_home.join("env.nu")),
+        data_home: alt_home.join("data"),
+        cache_home: alt_home.join("cache"),
+        home_dir: alt_home.clone(),
         vendor_autoload_dirs: vec![],
         user_autoload_dirs: vec![],
         #[cfg(feature = "plugin")]
-        plugin_file: ConfigPath::Default(alt_home.join("plugin.msgpackz").into()),
+        plugin_file: ConfigPath::Default(alt_home.join("plugin.msgpackz")),
     };
 
     let mut tester = test();
@@ -633,16 +633,16 @@ fn config_home_cli_affects_history_path(playground: Playground) -> Result {
     std::fs::create_dir_all(&alt_home)?;
 
     let dirs = NushellConfigDirs {
-        config_home: alt_home.clone().into(),
-        config_file: ConfigPath::Default(alt_home.join("config.nu").into()),
-        env_file: ConfigPath::Default(alt_home.join("env.nu").into()),
-        data_home: alt_home.join("data").into(),
-        cache_home: alt_home.join("cache").into(),
-        home_dir: alt_home.clone().into(),
+        config_home: alt_home.clone(),
+        config_file: ConfigPath::Default(alt_home.join("config.nu")),
+        env_file: ConfigPath::Default(alt_home.join("env.nu")),
+        data_home: alt_home.join("data"),
+        cache_home: alt_home.join("cache"),
+        home_dir: alt_home.clone(),
         vendor_autoload_dirs: vec![],
         user_autoload_dirs: vec![],
         #[cfg(feature = "plugin")]
-        plugin_file: ConfigPath::Default(alt_home.join("plugin.msgpackz").into()),
+        plugin_file: ConfigPath::Default(alt_home.join("plugin.msgpackz")),
     };
 
     let mut tester = test();

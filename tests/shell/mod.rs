@@ -706,7 +706,7 @@ fn nu_env_pwd_symlink(playground: Playground) -> Result {
     let current_dir = playground.path();
     let child_output = std::process::Command::new(NU.path())
         .args(["-c", "echo $env.PWD"])
-        .current_dir(&current_dir)
+        .current_dir(current_dir)
         .env("PWD", &pwd)
         .output()
         .expect("failed to run nu");

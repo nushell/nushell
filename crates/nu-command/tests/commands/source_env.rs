@@ -1,7 +1,7 @@
 use nu_test_support::fs::Stub::{FileWithContent, FileWithContentToBeTrimmed};
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_matches;
-use rstest::{Context, rstest};
+use rstest::rstest;
 
 #[test]
 fn source_env_resolves_nested_source_relative_to_sourced_file() -> Result {
@@ -36,7 +36,6 @@ fn source_env_resolves_nested_source_relative_to_sourced_file() -> Result {
 #[case::unicode_spaced_dir_double_quotes("e-$ èрт🚒♞中片-j", "\"")]
 fn sources_unicode_file(
     #[ignore] playground: Playground,
-    #[context] _ctx: Context,
     #[case] dir: &str,
     #[case] quote: &str,
 ) -> Result {
@@ -61,7 +60,6 @@ fn sources_unicode_file(
 #[nu_test_support::test]
 fn sources_unicode_file_in_colon_dir(
     #[ignore] playground: Playground,
-    #[context] ctx: Context,
     #[case] dir: &str,
     #[case] quote: &str,
 ) -> Result {

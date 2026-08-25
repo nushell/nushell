@@ -54,14 +54,13 @@ fn by_one_with_no_field_passed(playground: Playground) -> Result {
 }
 
 #[rstest]
-#[case::major("major", "-M", "1.0.0")]
-#[case::minor("minor", "--minor", "0.2.0")]
-#[case::patch("patch", "--patch", "0.1.4")]
+#[case::major("-M", "1.0.0")]
+#[case::minor("--minor", "0.2.0")]
+#[case::patch("--patch", "0.1.4")]
 #[nu_test_support::test]
 #[deps(NU_PLUGIN_INC)]
 fn semantic_version_inc(
     #[ignore] playground: Playground,
-    #[case] _topic: &str,
     #[case] args: &str,
     #[case] expected: &str,
 ) -> Result {
