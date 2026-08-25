@@ -1,4 +1,8 @@
 use nu_path::canonicalize_with;
+<<<<<<< HEAD
+=======
+use nu_test_support::playground::Playground;
+>>>>>>> 4f4a9394c (fixed some warnings)
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_eq;
 use std::path::Path;
@@ -240,7 +244,15 @@ fn canonicalize_path_with_many_double_dots_relative_to(playground: Playground) -
 fn canonicalize_ndots2(playground: Playground) -> Result {
     // This test will fail if you have the nushell repo on the root partition
     // So, let's start in a nested folder before trying to canonicalize_with "..."
+<<<<<<< HEAD
     let cwd = playground.dir("aaa/bbb/ccc")?;
+=======
+    playground.dir("aaa/bbb/ccc")?;
+    let output: String = test()
+        .cwd(WORKSPACE_ROOT.as_path())
+        .run_with_data("cd $in; $env.PWD", playground.path().join("aaa/bbb/ccc"))?;
+    let cwd = Path::new(&output);
+>>>>>>> 4f4a9394c (fixed some warnings)
 
     let actual = canonicalize_with("...", &cwd).expect("Failed to canonicalize");
     let expected = cwd

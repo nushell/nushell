@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 use nu_test_support::prelude::*;
+=======
+use nu_test_support::{fs::Stub::FileWithContentToBeTrimmed, prelude::*};
+>>>>>>> 4f4a9394c (fixed some warnings)
 use rstest::rstest;
 
 #[test]

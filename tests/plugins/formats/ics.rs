@@ -1,4 +1,7 @@
+<<<<<<< HEAD
 use indoc::indoc;
+=======
+>>>>>>> 4f4a9394c (fixed some warnings)
 use nu_test_support::prelude::*;
 
 #[test]

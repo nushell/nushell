@@ -44,10 +44,14 @@ fn def_help_includes_comments(
     #[case] expected: &str,
 ) -> Result {
 <<<<<<< HEAD
+<<<<<<< HEAD
     playground.file("def_test", fixture)?;
 =======
     playground.file("def_test", indoc::indoc! {fixture})?;
 >>>>>>> 926ed3f27 (fmt)
+=======
+    playground.file("def_test", fixture)?;
+>>>>>>> 4f4a9394c (fixed some warnings)
 
     let actual: String = test()
         .cwd(playground.path())
@@ -218,8 +222,12 @@ fn def_with_list(
     #[case] fixture: &str,
     #[case] code: &str,
 ) -> Result {
+<<<<<<< HEAD
     playground.file("def_test", indoc::indoc! {fixture})?;
 >>>>>>> 926ed3f27 (fmt)
+=======
+    playground.file("def_test", fixture)?;
+>>>>>>> 4f4a9394c (fixed some warnings)
 
     test()
         .cwd(playground.path())

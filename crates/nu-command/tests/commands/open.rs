@@ -1,7 +1,11 @@
 use std::path::Path;
 
 use nu_protocol::shell_error;
+<<<<<<< HEAD
 use nu_test_support::{fs::Stub::FileWithContent, prelude::*};
+=======
+use nu_test_support::{fs::Stub::FileWithContent, playground::Playground, prelude::*};
+>>>>>>> 4f4a9394c (fixed some warnings)
 use rstest::rstest;
 
 #[test]

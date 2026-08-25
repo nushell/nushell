@@ -255,7 +255,7 @@ fn main_command_line(engine_state: &EngineState, script_name: &str, args: &[Stri
 
 #[cfg(test)]
 mod tests {
-    use nu_test_support::fs::Stub::FileWithContent;
+
     use nu_test_support::playground::Playground;
     use nu_test_support::prelude::*;
     use rstest::rstest;

@@ -865,7 +865,7 @@ mod test {
 >>>>>>> 681a05652 (import the prelude for some more tests)
 
     #[test]
-    fn test_expand_glob(playground: Playground) -> Result {
+    fn test_expand_glob(playground: Playground) -> nu_test_support::prelude::Result {
         playground.empty_file("a.txt")?;
         playground.empty_file("b.txt")?;
 

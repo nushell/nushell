@@ -1,3 +1,7 @@
+<<<<<<< HEAD
+=======
+use nu_test_support::fs::Stub::{FileWithContent, FileWithContentToBeTrimmed};
+>>>>>>> 4f4a9394c (fixed some warnings)
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_matches;
 use rstest::rstest;
@@ -40,7 +44,7 @@ fn sources_unicode_file(
     #[ignore] playground: Playground,
 =======
     #[ignore] playground: Playground,
-    #[context] ctx: Context,
+    #[context] _ctx: Context,
     #[case] dir: &str,
     #[case] quote: &str,
 >>>>>>> 926ed3f27 (fmt)

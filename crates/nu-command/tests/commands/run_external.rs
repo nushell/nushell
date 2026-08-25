@@ -467,8 +467,11 @@ fn external_command_receives_raw_binary_data(
 fn can_run_cmd_files(prefix: &str, #[ignore] playground: Playground) -> Result {
 =======
 fn can_run_cmd_files(#[ignore] playground: Playground, prefix: &str) -> Result {
+<<<<<<< HEAD
     use nu_test_support::fs::Stub::FileWithContent;
 >>>>>>> 362e2494a (fix some more tests)
+=======
+>>>>>>> 4f4a9394c (fixed some warnings)
     playground.file(
         "foo.cmd",
         "
@@ -491,8 +494,11 @@ fn can_run_cmd_files(#[ignore] playground: Playground, prefix: &str) -> Result {
 fn can_run_batch_files(prefix: &str, #[ignore] playground: Playground) -> Result {
 =======
 fn can_run_batch_files(#[ignore] playground: Playground, prefix: &str) -> Result {
+<<<<<<< HEAD
     use nu_test_support::fs::Stub::FileWithContent;
 >>>>>>> 362e2494a (fix some more tests)
+=======
+>>>>>>> 4f4a9394c (fixed some warnings)
     playground.file(
         "foo.bat",
         "
@@ -520,8 +526,11 @@ fn can_run_batch_files_without_cmd_extension(
     #[ignore] playground: Playground,
     prefix: &str,
 ) -> Result {
+<<<<<<< HEAD
     use nu_test_support::fs::Stub::FileWithContent;
 >>>>>>> 362e2494a (fix some more tests)
+=======
+>>>>>>> 4f4a9394c (fixed some warnings)
     playground.file(
         "foo.cmd",
         "
@@ -547,8 +556,11 @@ fn can_run_batch_files_without_bat_extension(
     #[ignore] playground: Playground,
     prefix: &str,
 ) -> Result {
+<<<<<<< HEAD
     use nu_test_support::fs::Stub::FileWithContent;
 >>>>>>> 362e2494a (fix some more tests)
+=======
+>>>>>>> 4f4a9394c (fixed some warnings)
     playground.file(
         "foo.bat",
         "
@@ -599,8 +611,11 @@ fn redirect_combine(#[ignore] playground: Playground, prefix: &str) -> Result {
 fn can_run_ps1_files(prefix: &str, #[ignore] playground: Playground) -> Result {
 =======
 fn can_run_ps1_files(#[ignore] playground: Playground, prefix: &str) -> Result {
+<<<<<<< HEAD
     use nu_test_support::fs::Stub::FileWithContent;
 >>>>>>> 362e2494a (fix some more tests)
+=======
+>>>>>>> 4f4a9394c (fixed some warnings)
     playground.file(
         "foo.ps1",
         "
@@ -673,7 +688,11 @@ fn can_run_external_without_path_env(
 #[case::run_external("run-external ")]
 #[nu_test_support::test]
 #[deps(TESTBIN_COCOCO, TESTBIN_MEOW)]
+<<<<<<< HEAD
 fn expand_command_if_list(#[case] prefix: &str, #[ignore] playground: Playground) -> Result {
+=======
+fn expand_command_if_list(#[ignore] playground: Playground, #[case] prefix: &str) -> Result {
+>>>>>>> 4f4a9394c (fixed some warnings)
     playground.file("foo.txt", "Hello World")?;
     let actual: String = test()
         .cwd(playground.path())

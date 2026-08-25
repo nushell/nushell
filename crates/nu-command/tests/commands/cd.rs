@@ -86,37 +86,61 @@ fn cd_missing_drive_reports_input() -> Result {
 
 #[test]
 fn filesystem_change_from_current_directory_using_relative_path(playground: Playground) -> Result {
+<<<<<<< HEAD
     let destination = playground.dir("cd_test_1")?;
     test()
         .cwd(playground.path())
         .run("cd cd_test_1; $env.PWD")
         .expect_value_eq(destination)
+=======
+    playground.dir("cd_test_1")?;
+    test()
+        .cwd(playground.path())
+        .run("cd cd_test_1; $env.PWD")
+        .expect_value_eq(playground.path().join("cd_test_1"))
+>>>>>>> 4f4a9394c (fixed some warnings)
 }
 
 #[test]
 fn filesystem_change_from_current_directory_using_relative_path_with_trailing_slash(
     playground: Playground,
 ) -> Result {
+<<<<<<< HEAD
     let destination = playground.dir("cd_test_1_slash")?;
 =======
 fn filesystem_change_from_current_directory_using_relative_path_with_trailing_slash(
     playground: Playground,
 ) -> Result {
 >>>>>>> 926ed3f27 (fmt)
+=======
+    playground.dir("cd_test_1_slash")?;
+>>>>>>> 4f4a9394c (fixed some warnings)
     // Intentionally not using correct path sep because this should work on Windows
     test()
         .cwd(playground.path())
         .run("cd cd_test_1_slash/; $env.PWD")
+<<<<<<< HEAD
         .expect_value_eq(destination)
+=======
+        .expect_value_eq(playground.path().join("cd_test_1_slash"))
+>>>>>>> 4f4a9394c (fixed some warnings)
 }
 
 #[test]
 fn filesystem_change_from_current_directory_using_absolute_path(playground: Playground) -> Result {
+<<<<<<< HEAD
     let destination = playground.dir("destination")?;
     test()
         .cwd(playground.path())
         .run_with_data("cd $in; $env.PWD", destination.as_path())
         .expect_value_eq(destination)
+=======
+    let formats = FIXTURES.join("formats");
+    test()
+        .cwd(playground.path())
+        .run_with_data("cd $in; $env.PWD", formats.clone())
+        .expect_value_eq(formats)
+>>>>>>> 4f4a9394c (fixed some warnings)
 }
 
 #[test]
@@ -124,11 +148,16 @@ fn filesystem_change_from_current_directory_using_absolute_path_with_trailing_sl
     playground: Playground,
 ) -> Result {
 <<<<<<< HEAD
+<<<<<<< HEAD
     let destination = playground.dir("destination")?;
     let mut dir = destination.to_string_lossy().into_owned();
 =======
     let mut dir = dirs.formats().to_string_lossy().into_owned();
 >>>>>>> 926ed3f27 (fmt)
+=======
+    let formats = FIXTURES.join("formats");
+    let mut dir = formats.to_string_lossy().into_owned();
+>>>>>>> 4f4a9394c (fixed some warnings)
     // Keep this portable: Windows expects `\` while Unix expects `/`.
     if !dir.ends_with(std::path::MAIN_SEPARATOR) {
         dir.push(std::path::MAIN_SEPARATOR);
@@ -137,7 +166,11 @@ fn filesystem_change_from_current_directory_using_absolute_path_with_trailing_sl
     test()
         .cwd(playground.path())
         .run_with_data("cd $in; $env.PWD", dir)
+<<<<<<< HEAD
         .expect_value_eq(destination)
+=======
+        .expect_value_eq(formats)
+>>>>>>> 4f4a9394c (fixed some warnings)
 }
 
 #[test]
@@ -169,7 +202,11 @@ fn filesystem_change_current_directory_to_parent_directory(playground: Playgroun
     test()
         .cwd(child)
         .run("cd ..; $env.PWD")
+<<<<<<< HEAD
         .expect_value_eq(playground.path())
+=======
+        .expect_value_eq(playground.path().parent().unwrap())
+>>>>>>> 4f4a9394c (fixed some warnings)
 }
 
 #[test]
