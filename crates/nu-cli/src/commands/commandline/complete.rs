@@ -4,16 +4,34 @@ use nu_engine::command_prelude::*;
 use nu_protocol::FromValue;
 
 use crate::completions::{
-    Buffer, Completer, CompletionEngine, DirectoryCompletion, FileCompletion, InputShape,
-    SemanticSuggestion,
+    Buffer, CommandCompletion, CommandScope, Completer, CompletionEngine, DirectoryCompletion,
+    EnvVarCompletion, FileCompletion, InputShape, SemanticSuggestion, VariableCompletion,
 };
 
 #[derive(Debug, Clone, FromValue)]
-#[nu_value(rename_all = "kebab-case", type_name = "directory | path | glob")]
+#[nu_value(
+    rename_all = "kebab-case",
+    type_name = "directory | path | glob | command | variable | env-var"
+)]
 enum CompletionType {
     Directory,
     Path,
     Glob,
+    Command,
+    Variable,
+    EnvVar,
+}
+
+impl CompletionType {
+    /// The names a `--type` value may take, for the flag's own completions and its error.
+    const NAMES: [&'static str; 6] = [
+        "directory",
+        "path",
+        "glob",
+        "command",
+        "variable",
+        "env-var",
+    ];
 }
 
 #[derive(Clone)]
@@ -66,12 +84,14 @@ impl Command for CommandlineComplete {
             .param(
                 Flag::new("type")
                     .arg(SyntaxShape::String)
-                    .desc("The type of values to allow as completions.")
-                    .completion(Completion::List(nu_utils::NuCow::Borrowed(&[
-                        "directory",
-                        "glob",
-                        "path",
-                    ]))),
+                    .desc(
+                        "Restrict completions to one built-in source (directory, path, glob, \
+                         command, variable, or env-var), so a completer can compose the \
+                         engine's own sources with its results.",
+                    )
+                    .completion(Completion::List(nu_utils::NuCow::Borrowed(
+                        &CompletionType::NAMES,
+                    ))),
             )
             .category(Category::Core)
     }
@@ -139,7 +159,7 @@ completions, which is the supported way to develop and test a completer from ins
 
                 Some(CompletionType::from_value(v.clone()).map_err(|_| {
                     ShellError::InvalidValue {
-                        valid: r#"type "directory", "path", or "glob""#.into(),
+                        valid: format!("one of {}", CompletionType::NAMES.join(", ")),
                         actual: type_str,
                         span: v.span(),
                     }
@@ -202,8 +222,21 @@ completions, which is the supported way to develop and test a completer from ins
                 result: None,
             },
             Example {
-                description: "Inspect what a completer would be handed at the cursor.",
-                example: "'git checkout ma' | commandline complete --input | get place.cursor",
+                description: "Compose a built-in source inside a completer: the engine's \
+                              command names beside your own.",
+                example: "def comp [token] { [my-alias] ++ ($token.text | commandline complete --type command) }",
+                result: None,
+            },
+            Example {
+                description: "Return `fallback: true` to add completions beside the built-in \
+                              ones rather than replacing them.",
+                example: "def comp [token] { {completions: [my-preset], fallback: true} }",
+                result: None,
+            },
+            Example {
+                description: "Inspect what a completer would be handed at the cursor, including \
+                              the argument's declared shape.",
+                example: "'cd ma' | commandline complete --input | get place.shape",
                 result: None,
             },
         ]
@@ -294,5 +327,10 @@ fn generate_typed_suggestions(
         CompletionType::Path | CompletionType::Glob => {
             FileCompletion.fetch(&context).into_suggestions()
         }
+        CompletionType::Command => CommandCompletion::new(CommandScope::All)
+            .fetch(&context)
+            .into_suggestions(),
+        CompletionType::Variable => VariableCompletion.fetch(&context).into_suggestions(),
+        CompletionType::EnvVar => EnvVarCompletion.fetch(&context).into_suggestions(),
     }
 }

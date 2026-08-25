@@ -49,9 +49,10 @@ fn engine_state_for_completion<'a>(
     }
 }
 
-/// Bind each positional the completer declares to the like-named field of the `input`
-/// record (`token`, `place`, or `contexts`). Order is free; an unrecognized name receives
-/// nothing. See [`declared_shape`] and the [`input`] module docs.
+/// Fields available to a custom completer.
+pub(crate) const INPUT_FIELDS: [&str; 3] = ["token", "place", "contexts"];
+
+/// Bind declared positional names to matching fields in the input record.
 pub(crate) fn bind_declared_inputs(stack: &mut Stack, signature: &Signature, input: Value) {
     let span = input.span();
     let Ok(record) = input.into_record() else {
@@ -64,6 +65,15 @@ pub(crate) fn bind_declared_inputs(stack: &mut Stack, signature: &Signature, inp
         .chain(&signature.optional_positional)
     {
         if let Some(var_id) = positional.var_id {
+            if !INPUT_FIELDS.contains(&positional.name.as_str()) {
+                log::warn!(
+                    "a completer declares `{}`, which is not a completion input; expected one \
+                     of {} — it will receive nothing",
+                    positional.name,
+                    INPUT_FIELDS.join(", ")
+                );
+            }
+
             let value = record
                 .get(positional.name.as_str())
                 .cloned()

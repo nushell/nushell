@@ -1,10 +1,10 @@
 use crate::completions::{
     Context,
-    completer::{CompletionContext, is_flag_text},
+    completer::{CompletionContext, ResolvedCursor, is_flag_text},
     to_reedline_span,
 };
 use nu_parser::{FlatShape, flatten_expression};
-use nu_protocol::{Signature, Span, Value, record};
+use nu_protocol::{Signature, Span, SyntaxShape, Value, ast::Expr, record};
 use std::borrow::Cow;
 
 /// A `{start, end}` record of byte offsets into the commandline.
@@ -268,6 +268,30 @@ fn contexts_value(context: &Context, levels: &[Vec<Token<'_>>]) -> Value {
     nested_value.unwrap_or_else(|| Value::record(nu_protocol::Record::new(), span))
 }
 
+/// Return the declared shape for the argument under the cursor.
+fn expected_shape(context: &Context, level: &CompletionContext) -> Option<SyntaxShape> {
+    let Expr::Call(call) = &level.element?.expr else {
+        return None;
+    };
+    let signature = context.working_set.get_decl(call.decl_id).signature();
+
+    match level.cursor {
+        ResolvedCursor::Positional { index } => signature
+            .get_positional(index)
+            .map(|positional| positional.shape.clone()),
+        // `flag` may be either the long name or a short-only flag.
+        ResolvedCursor::FlagValue { flag } => signature
+            .get_long_flag(flag)
+            .or_else(|| {
+                flag.chars()
+                    .next()
+                    .and_then(|c| signature.get_short_flag(c))
+            })
+            .and_then(|flag| flag.arg),
+        _ => None,
+    }
+}
+
 fn place_value(context: &Context, cursor: Value, target: Value) -> Value {
     let span = context.span;
     let mut place = record! {
@@ -277,6 +301,9 @@ fn place_value(context: &Context, cursor: Value, target: Value) -> Value {
 
     if let Some(level) = context.contexts.last() {
         place.extend(level.cursor.into_record(span));
+        if let Some(shape) = expected_shape(context, level) {
+            place.insert("shape", Value::string(shape.to_string(), span));
+        }
     }
 
     Value::record(place, span)

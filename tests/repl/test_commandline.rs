@@ -227,7 +227,7 @@ fn commandline_test_complete_detailed(#[case] cmd: &str, #[case] expected: &str)
 #[case::invalid_input("123 | commandline complete", "command doesn't support int input")]
 #[case::invalid_type(
     "commandline complete --type foo",
-    r#"expected type "directory", "path", or "glob""#
+    "one of directory, path, glob, command, variable, env-var"
 )]
 // `--input` returns the completer input record, not completions; reject flags that shape output.
 #[case::input_with_detailed(
@@ -245,13 +245,18 @@ fn commandline_test_complete_invalid_input(
     fail_test(cmd, expected_err)
 }
 
-/// The resolved cursor at each kind of site, as `--input` reports it.
+/// `--input` reports the resolved cursor and declared shape.
 #[rstest]
 #[case::command("test-", "{kind: command}")]
 #[case::flag_name("test-cmd --", "{kind: flag-name}")]
-#[case::flag_value("test-cmd --string ", "{kind: flag-value, flag: string}")]
-#[case::short_flag_value("test-cmd -s ", "{kind: flag-value, flag: string}")]
-#[case::positional("test-cmd ", "{kind: positional, index: 0}")]
+#[case::flag_value(
+    "test-cmd --string ",
+    "{kind: flag-value, flag: string, shape: string}"
+)]
+#[case::short_flag_value("test-cmd -s ", "{kind: flag-value, flag: string, shape: string}")]
+// Short-only flags still report their declared shape.
+#[case::short_only_flag_value("test-cmd -e ", "{kind: flag-value, flag: e, shape: directory}")]
+#[case::positional("test-cmd ", "{kind: positional, index: 0, shape: string}")]
 #[case::variable("$ni", "{kind: variable}")]
 fn commandline_test_complete_input_cursor(#[case] cmd: &str, #[case] expected: &str) -> TestResult {
     run_test(
@@ -260,6 +265,7 @@ fn commandline_test_complete_input_cursor(#[case] cmd: &str, #[case] expected: &
             def test-cmd [
                 first?: string,
                 --string(-s): string@[a],
+                -e: directory,
             ] {{}}\n\
             \n\
             '{cmd}' | commandline complete --input \
@@ -277,7 +283,7 @@ fn commandline_test_complete_input_record() -> TestResult {
         "def test-cmd [first?: string] {}\n\
         'test-cmd ab' | commandline complete --input | to nuon",
         "{token: {text: ab, kind: value, span: {start: 9, end: 11}}, \
-place: {cursor: 11, target: {start: 9, end: 11}, kind: positional, index: 0}}",
+place: {cursor: 11, target: {start: 9, end: 11}, kind: positional, index: 0, shape: string}}",
     )
 }
 
@@ -295,7 +301,7 @@ fn commandline_test_complete_input_contexts() -> TestResult {
 [test-cmd, head, {start: 17, end: 25}, null], [ab, value, {start: 26, end: 28}, null]]}]]}, \
 place: {cursor: {path: [1, 1], byte: 2}, \
 target: {start: {path: [1, 1], byte: 0}, end: {path: [1, 1], byte: 2}}, \
-kind: positional, index: 0}}",
+kind: positional, index: 0, shape: string}}",
     )
 }
 
@@ -387,7 +393,7 @@ fn commandline_test_complete_input_skips_whitespace_tokens(#[case] line: &str) -
         &format!(
             "{{token: {{text: \"\", kind: value, span: {{start: {cursor}, end: {cursor}}}}}, \
 place: {{cursor: {cursor}, target: {{start: {cursor}, end: {cursor}}}, \
-kind: positional, index: 0}}}}",
+kind: positional, index: 0, shape: \"oneof<glob, string>\"}}}}",
             cursor = line.len()
         ),
     )
