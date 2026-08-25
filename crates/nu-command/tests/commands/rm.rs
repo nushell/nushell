@@ -60,11 +60,10 @@ fn removes_files_with_wildcard(playground: Playground) -> Result {
             .exists()
     );
 
-    assert_eq!(
-        deprecated::Playground::glob_vec(&format!("{}/src/*/*/*.rs", playground.path().display())),
-        Vec::<std::path::PathBuf>::new()
-    );
-    Ok(())
+    test()
+        .cwd(playground.path())
+        .run("glob 'src/*/*/*.rs' | is-empty")
+        .expect_value_eq(true)
 }
 
 #[test]
@@ -175,11 +174,10 @@ fn removes_multiple_directories(playground: Playground) -> Result {
         .cwd(playground.path())
         .run("rm src test --recursive")?;
 
-    assert_eq!(
-        deprecated::Playground::glob_vec(&format!("{}/*", playground.path().display())),
-        Vec::<std::path::PathBuf>::new()
-    );
-    Ok(())
+    test()
+        .cwd(playground.path())
+        .run("ls | is-empty")
+        .expect_value_eq(true)
 }
 
 #[test]
@@ -192,11 +190,10 @@ fn removes_multiple_files(playground: Playground) -> Result {
         .cwd(playground.path())
         .run("rm yehuda.txt jttxt andres.txt")?;
 
-    assert_eq!(
-        deprecated::Playground::glob_vec(&format!("{}/*", playground.path().display())),
-        Vec::<std::path::PathBuf>::new()
-    );
-    Ok(())
+    test()
+        .cwd(playground.path())
+        .run("ls | is-empty")
+        .expect_value_eq(true)
 }
 
 #[test]
@@ -207,11 +204,10 @@ fn removes_multiple_files_with_asterisks(playground: Playground) -> Result {
 
     let () = test().cwd(playground.path()).run("rm *.txt *.toml")?;
 
-    assert_eq!(
-        deprecated::Playground::glob_vec(&format!("{}/*", playground.path().display())),
-        Vec::<std::path::PathBuf>::new()
-    );
-    Ok(())
+    test()
+        .cwd(playground.path())
+        .run("ls | is-empty")
+        .expect_value_eq(true)
 }
 
 #[test]
@@ -223,11 +219,10 @@ fn allows_doubly_specified_file(playground: Playground) -> Result {
         .cwd(playground.path())
         .run("rm *.txt yehuda* *.toml")?;
 
-    assert_eq!(
-        deprecated::Playground::glob_vec(&format!("{}/*", playground.path().display())),
-        Vec::<std::path::PathBuf>::new()
-    );
-    Ok(())
+    test()
+        .cwd(playground.path())
+        .run("ls | is-empty")
+        .expect_value_eq(true)
 }
 
 #[test]
