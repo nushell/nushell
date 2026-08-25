@@ -534,12 +534,29 @@ fn eval_instruction<D: DebugContext>(
             ctx.put_reg(*src, PipelineExecutionData::from(res));
             Ok(Continue)
         }
-        Instruction::LoadVariable { dst, var_id } => {
+        Instruction::LoadVariable {
+            dst,
+            var_id,
+            preserve_origin,
+        } => {
             // Restore pipeline metadata for `$ans` (e.g. ls path_columns / colors on `.last`).
             // Truncation warning is deferred until after print so data is visible first.
             let data = if *var_id == nu_protocol::LAST_VARIABLE_ID {
                 ctx.stack.defer_last_result_truncation_warning();
                 ctx.stack.last_result_pipeline_data(*span)
+            } else if *preserve_origin {
+                // Keep definition span (e.g. `metadata $x`).
+                let value = ctx
+                    .stack
+                    .get_var_with_origin(*var_id, *span)
+                    .or_else(|err| {
+                        if let Some(const_val) = ctx.engine_state.get_constant(*var_id).cloned() {
+                            Ok(const_val)
+                        } else {
+                            Err(err)
+                        }
+                    })?;
+                value.into_pipeline_data()
             } else {
                 let value = get_var(ctx, *var_id, *span)?;
                 value.into_pipeline_data()
@@ -617,7 +634,9 @@ fn eval_instruction<D: DebugContext>(
             }
         }
         Instruction::PushPositional { src } => {
-            let val = ctx.collect_reg(*src, *span)?.with_span(*span);
+            // Keep the value's own span (e.g. definition span from load-variable-origin for
+            // `metadata $var`). Argument::span still records where the arg appears in the call.
+            let val = ctx.collect_reg(*src, *span)?;
             ctx.stack.arguments.push(Argument::Positional {
                 span: *span,
                 val,
@@ -626,7 +645,7 @@ fn eval_instruction<D: DebugContext>(
             Ok(Continue)
         }
         Instruction::AppendRest { src } => {
-            let vals = ctx.collect_reg(*src, *span)?.with_span(*span);
+            let vals = ctx.collect_reg(*src, *span)?;
             ctx.stack.arguments.push(Argument::Spread {
                 span: *span,
                 vals,
@@ -1610,7 +1629,9 @@ fn gather_arguments(
                     }
                     callee_stack.add_var(var_id, val);
                 } else {
-                    rest_span = Some(rest_span.map_or(val.span(), |s| s.append(val.span())));
+                    // Use the argument's call-site span (not val.span()) so rest spans stay in
+                    // source order. Values may keep definition/origin spans (e.g. metadata).
+                    rest_span = Some(rest_span.map_or(span, |s| s.append(span)));
                     let val = if expand_glob_args {
                         expand_external_glob_arg(val)
                     } else {
