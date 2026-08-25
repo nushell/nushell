@@ -29,6 +29,11 @@ pub struct StateWorkingSet<'a> {
     pub files: FileStack,
     /// Whether or not predeclarations are searched when looking up a command (used with aliases)
     pub search_predecls: bool,
+    /// When true, `use` / `export use` / `overlay use` / `module <file>` parse as
+    /// syntax only and do not load modules from disk or the virtual filesystem.
+    /// The REPL highlighter sets this so typing `use std` does not parse-time-load
+    /// the standard library on every keystroke.
+    pub skip_module_load: bool,
     pub parse_errors: Vec<ParseError>,
     pub parse_warnings: Vec<ParseWarning>,
     pub compile_errors: Vec<CompileError>,
@@ -48,6 +53,7 @@ impl<'a> StateWorkingSet<'a> {
             permanent_state,
             files,
             search_predecls: true,
+            skip_module_load: false,
             parse_errors: vec![],
             parse_warnings: vec![],
             compile_errors: vec![],
