@@ -635,6 +635,7 @@ fn can_run_ps1_files(#[ignore] playground: Playground, prefix: &str) -> Result {
 #[cfg(windows)]
 #[apply(run_external_prefixes)]
 #[nu_test_support::test]
+<<<<<<< HEAD
 fn can_run_ps1_files_with_space_in_path(prefix: &str, #[ignore] playground: Playground) -> Result {
     playground.dir("path with space")?;
     playground.file(
@@ -642,6 +643,14 @@ fn can_run_ps1_files_with_space_in_path(prefix: &str, #[ignore] playground: Play
         "
                     Write-Host Hello World
                 ",
+=======
+fn can_run_ps1_files_with_space_in_path(#[ignore] playground: Playground, prefix: &str) -> Result {
+    playground.file(
+        "path with space/foo.ps1",
+        "
+            Write-Host Hello World
+        ",
+>>>>>>> 2c3f367df (update some more tests)
     )?;
 
     let actual: String = test()

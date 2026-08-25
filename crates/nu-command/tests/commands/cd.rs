@@ -190,6 +190,10 @@ fn filesystem_change_from_current_directory_using_relative_path_and_dash(
 ) -> Result {
     playground.dir("odin/-")?;
     let odin_path = playground.path().join("odin").join("-");
+<<<<<<< HEAD
+=======
+
+>>>>>>> 2c3f367df (update some more tests)
     test()
         .cwd(playground.path())
         .run("cd odin/-; $env.PWD")
@@ -214,6 +218,10 @@ fn filesystem_change_current_directory_to_two_parents_up_using_multiple_dots(
     playground: Playground,
 ) -> Result {
     playground.dir("foo/bar")?;
+<<<<<<< HEAD
+=======
+
+>>>>>>> 2c3f367df (update some more tests)
     test()
         .cwd(playground.path().join("foo").join("bar"))
         .run("cd ...; $env.PWD")

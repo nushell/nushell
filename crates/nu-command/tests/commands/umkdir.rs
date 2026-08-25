@@ -38,7 +38,10 @@ fn creates_intermediary_directories(playground: Playground) -> Result {
 
 #[test]
 fn create_directory_two_parents_up_using_multiple_dots(playground: Playground) -> Result {
+<<<<<<< HEAD
     playground.dir("foo")?;
+=======
+>>>>>>> 2c3f367df (update some more tests)
     playground.dir("foo/bar")?;
 
     let () = test()
