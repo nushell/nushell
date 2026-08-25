@@ -632,7 +632,6 @@
 //! ```
 
 pub mod assertions;
-pub mod fs;
 pub mod harness;
 pub mod net;
 pub mod playground;
