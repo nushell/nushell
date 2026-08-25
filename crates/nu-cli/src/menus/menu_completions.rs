@@ -49,6 +49,11 @@ impl Completer for NuMenuCompleter {
         let block = self.engine_state.get_block(self.block_id).clone();
         let replacing = default_span(before, pos, self.input_mode);
 
+        // Pad into the coordinates reedline reads spans in (`before` starts at column
+        // `replacing.start` in Diff mode) and read the input at the real cursor.
+        let padded = format!("{}{before}", " ".repeat(replacing.start));
+        let cursor = padded.floor_char_boundary(pos.min(padded.len()));
+
         // A menu source is a completer like any other: it opts into what it receives through
         // the positionals it declares, each bound by name. Reedline drives menus on every
         // keystroke, so this parses per keystroke — only when a positional is declared, and
@@ -57,17 +62,8 @@ impl Completer for NuMenuCompleter {
             || !block.signature.optional_positional.is_empty();
         if declares_positional {
             let shape = declared_shape(&block.signature);
-            // `replacing.start` is where `before` begins in the line reedline replaces spans
-            // in — non-zero only in `InputMode::Diff`, which hands the source just the text
-            // typed since the menu opened. Padding to that column costs nothing in the parse
-            // (leading whitespace is not a token) and puts every offset in the record in the
-            // coordinates a returned `span` is read in.
-            let line = format!("{}{before}", " ".repeat(replacing.start));
-            let record = CompletionEngine::new(&self.engine_state, &self.stack).completer_input_at(
-                &line,
-                line.len(),
-                shape,
-            );
+            let record = CompletionEngine::new(&self.engine_state, &self.stack)
+                .completer_input_at(&padded, cursor, shape);
             bind_declared_inputs(&mut self.stack, &block.signature, record);
         }
 
@@ -233,5 +229,15 @@ mod tests {
 
         // `tri` typed since the menu opened, at column 4 of `str tri`.
         assert_eq!(values(completer.complete("tri", 7)), ["4"]);
+    }
+
+    /// In `FullBuffer` mode the record describes the site at the cursor, not the buffer tail.
+    #[test]
+    fn full_buffer_input_describes_the_cursor_not_the_tail() {
+        let mut completer = menu("{|token| [$token.text]}");
+        completer.input_mode = InputMode::FullBuffer;
+
+        // Cursor after `tri` in `str tri foo`; the token there is `tri`, not the trailing `foo`.
+        assert_eq!(values(completer.complete("str tri foo", 7)), ["tri"]);
     }
 }
