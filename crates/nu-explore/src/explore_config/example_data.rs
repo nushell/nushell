@@ -702,7 +702,7 @@ pub fn get_example_json() -> Value {
         "col_width": 20,
         "col_padding": 2
       },
-      "source": "{|input|\n        let buffer = $input.text\n        open $nu.history-path | get history.command_line | to text | fzf +s --tac | str trim\n        | where $it =~ $buffer\n        | each {|v| {value: ($v | str trim)} }\n      }"
+      "source": "{|token|\n        let buffer = $token.text\n        open $nu.history-path | get history.command_line | to text | fzf +s --tac | str trim\n        | where $it =~ $buffer\n        | each {|v| {value: ($v | str trim)} }\n      }"
     },
     {
       "name": "fzf_history_menu_nu_ui",
@@ -720,7 +720,7 @@ pub fn get_example_json() -> Value {
         "layout": "list",
         "page_size": 10
       },
-      "source": "{|input|\n        let buffer = $input.text\n        open $nu.history-path | get history.command_line | to text\n        | fzf -f $buffer\n        | lines\n        | each {|v| {value: ($v | str trim)} }\n      }"
+      "source": "{|token|\n        let buffer = $token.text\n        open $nu.history-path | get history.command_line | to text\n        | fzf -f $buffer\n        | lines\n        | each {|v| {value: ($v | str trim)} }\n      }"
     },
     {
       "name": "fzf_dir_menu_nu_ui",
@@ -738,7 +738,7 @@ pub fn get_example_json() -> Value {
         "layout": "list",
         "page_size": 10
       },
-      "source": "{|input|\n        let buffer = $input.text\n        ls $env.PWD | where type == dir\n        | sort-by name | get name | to text\n        | fzf -f $buffer\n        | each {|v| {value: ($v | str trim)} }\n      }"
+      "source": "{|token|\n        let buffer = $token.text\n        ls $env.PWD | where type == dir\n        | sort-by name | get name | to text\n        | fzf -f $buffer\n        | each {|v| {value: ($v | str trim)} }\n      }"
     },
     {
       "name": "commands_menu",
@@ -755,7 +755,7 @@ pub fn get_example_json() -> Value {
         "col_width": 20,
         "col_padding": 2
       },
-      "source": "{|input|\n        let buffer = $input.text\n        scope commands\n        | where name =~ $buffer\n        | each {|it| {value: $it.name description: $it.usage} }\n      }"
+      "source": "{|token|\n        let buffer = $token.text\n        scope commands\n        | where name =~ $buffer\n        | each {|it| {value: $it.name description: $it.usage} }\n      }"
     },
     {
       "name": "vars_menu",
@@ -770,7 +770,7 @@ pub fn get_example_json() -> Value {
         "layout": "list",
         "page_size": 10
       },
-      "source": "{|input|\n        let buffer = $input.text\n        scope variables\n        | where name =~ $buffer\n        | sort-by name\n        | each {|it| {value: $it.name description: $it.type} }\n      }"
+      "source": "{|token|\n        let buffer = $token.text\n        scope variables\n        | where name =~ $buffer\n        | sort-by name\n        | each {|it| {value: $it.name description: $it.type} }\n      }"
     },
     {
       "name": "commands_with_description",
@@ -789,7 +789,7 @@ pub fn get_example_json() -> Value {
         "selection_rows": 4,
         "description_rows": 10
       },
-      "source": "{|input|\n        let buffer = $input.text\n        scope commands\n        | where name =~ $buffer\n        | each {|it| {value: $it.name description: $it.usage} }\n      }"
+      "source": "{|token|\n        let buffer = $token.text\n        scope commands\n        | where name =~ $buffer\n        | each {|it| {value: $it.name description: $it.usage} }\n      }"
     },
     {
       "name": "abbr_menu",
@@ -806,7 +806,7 @@ pub fn get_example_json() -> Value {
         "col_width": 20,
         "col_padding": 2
       },
-      "source": "{|input|\n        let buffer = $input.text\n        scope aliases\n        | where name == $buffer\n        | each {|it| {value: $it.expansion} }\n      }"
+      "source": "{|token|\n        let buffer = $token.text\n        scope aliases\n        | where name == $buffer\n        | each {|it| {value: $it.expansion} }\n      }"
     },
     {
       "name": "history_menu_by_session",
@@ -821,7 +821,7 @@ pub fn get_example_json() -> Value {
         "layout": "list",
         "page_size": 10
       },
-      "source": "{|input|\n        let buffer = $input.text\n        history -l\n        | where session_id == (history session)\n        | select command\n        | where command =~ $buffer\n        | each {|it| {value: $it.command} }\n        | reverse\n        | uniq\n      }"
+      "source": "{|token|\n        let buffer = $token.text\n        history -l\n        | where session_id == (history session)\n        | select command\n        | where command =~ $buffer\n        | each {|it| {value: $it.command} }\n        | reverse\n        | uniq\n      }"
     }
   ],
   "hooks": {
