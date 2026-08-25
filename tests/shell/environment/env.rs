@@ -259,7 +259,7 @@ fn env_shlvl_commandstring_does_not_increment() -> Result {
 fn env_shlvl_in_repl() -> Result {
     let out: String = test()
         .env("SHLVL", 5)
-        .run(r#"nu --no-std-lib -n -e 'print $"SHLVL:($env.SHLVL)"; exit' | to text"#)?;
+        .run(r#"nu --structured-io=false --no-std-lib -n -e 'print $"SHLVL:($env.SHLVL)"; exit' | to text"#)?;
 
     assert!(out.trim_end().ends_with("SHLVL:6"));
     Ok(())
@@ -269,7 +269,7 @@ fn env_shlvl_in_repl() -> Result {
 #[deps(NU)]
 fn env_shlvl_in_exec_repl() -> Result {
     let out: String = test().env("SHLVL", 29).run(
-        r#"nu -c 'exec nu --no-std-lib -n -e `print $"SHLVL:($env.SHLVL)"; exit`' | to text"#,
+        r#"nu --structured-io=false -c 'exec nu --structured-io=false --no-std-lib -n -e `print $"SHLVL:($env.SHLVL)"; exit`' | to text"#,
     )?;
 
     assert!(out.trim_end().ends_with("SHLVL:30"));
@@ -280,7 +280,7 @@ fn env_shlvl_in_exec_repl() -> Result {
 #[deps(NU)]
 fn path_is_a_list_in_repl() -> Result {
     test()
-        .run("nu --no-std-lib -n -c `print $'path:($env.pATh | describe)'; exit`")
+        .run("nu --structured-io=false --no-std-lib -n -c `print $'path:($env.pATh | describe)'; exit`")
         .expect_value_eq("path:list<string>")
 }
 

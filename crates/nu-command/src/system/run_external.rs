@@ -11,7 +11,7 @@ use nu_protocol::{
     process::{ChildProcess, PostWaitCallback},
     shell_error::io::IoError,
 };
-use nu_system::{ForegroundChild, StdioFd, kill_by_pid, prepare_background_command, stdio_is_pipe};
+use nu_system::{ForegroundChild, kill_by_pid, prepare_background_command};
 use nu_utils::IgnoreCaseExt;
 use pathdiff::diff_paths;
 #[cfg(windows)]
@@ -290,11 +290,15 @@ If you create a custom command with this name, that will be used instead."
             },
             PipelineData::Empty => {
                 // MCP and background completions must not inherit the live terminal.
-                // Nushell children that inherit a still-open stdin *pipe* (cargo test,
-                // CI, `nu | nu`) will block in `read_startup_stdin` waiting for EOF.
+                // Captured Nushell children (REPL/`-e`, scripts) would inherit a
+                // still-open stdin and never close stdout, so decode/`to text` hang.
+                let capturing_stdout = matches!(
+                    stack.stdout(),
+                    OutDest::Pipe | OutDest::Value | OutDest::PipeSeparate
+                );
                 if engine_state.is_mcp
                     || stack.suppress_stdin
-                    || (is_nushell_child(&executable, invoked) && stdio_is_pipe(StdioFd::Stdin))
+                    || (is_nushell_child(&executable, invoked) && capturing_stdout)
                 {
                     command.stdin(Stdio::null());
                 } else {

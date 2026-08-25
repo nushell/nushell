@@ -116,7 +116,7 @@ def main [] {
 
 #[test]
 #[cfg(unix)]
-fn sh_shebang_nu_extension_errors_on_structured_decode() -> Result {
+fn sh_shebang_nu_extension_stays_bytes() -> Result {
     use std::os::unix::fs::PermissionsExt;
 
     Playground::setup("structured_io_liar_nu", |dirs, sandbox| {
@@ -135,7 +135,7 @@ printf 'hello\n'
         test()
             .cwd(dirs.test())
             .run("./liar.nu | describe")
-            .expect_error_code_eq("nu::shell::error")
+            .expect_value_eq("byte stream")
     })
 }
 
