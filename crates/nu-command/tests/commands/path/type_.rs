@@ -14,9 +14,15 @@ fn returns_type_of_existing_file(playground: Playground) -> Result {
     playground.empty_file("menu/spam.txt")?;
 
     let code = r#"
+<<<<<<< HEAD
         echo "menu"
         | path type
     "#;
+=======
+            echo "menu"
+            | path type
+        "#;
+>>>>>>> 1832dd598 (modernized more tests)
 
     test()
         .cwd(playground.path())
@@ -29,9 +35,15 @@ fn returns_type_of_existing_directory(playground: Playground) -> Result {
     playground.empty_file("menu/spam.txt")?;
 
     let code = r#"
+<<<<<<< HEAD
         echo "menu/spam.txt"
         | path type
     "#;
+=======
+            echo "menu/spam.txt"
+            | path type
+        "#;
+>>>>>>> 1832dd598 (modernized more tests)
 
     test()
         .cwd(playground.path())
@@ -39,9 +51,15 @@ fn returns_type_of_existing_directory(playground: Playground) -> Result {
         .expect_value_eq("file")?;
 
     let code = r#"
+<<<<<<< HEAD
         echo "~"
         | path type
     "#;
+=======
+            echo "~"
+            | path type
+        "#;
+>>>>>>> 1832dd598 (modernized more tests)
 
     test().run(code).expect_value_eq("dir")
 }
@@ -51,9 +69,15 @@ fn returns_type_of_existing_file_const(playground: Playground) -> Result {
     playground.empty_file("menu/spam.txt")?;
 
     let code = r#"
+<<<<<<< HEAD
         const ty = ("menu" | path type);
         $ty
     "#;
+=======
+            const ty = ("menu" | path type);
+            $ty
+        "#;
+>>>>>>> 1832dd598 (modernized more tests)
 
     test()
         .cwd(playground.path())

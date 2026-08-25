@@ -1,7 +1,10 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 use nu_test_support::fs::Stub::FileWithContent;
 >>>>>>> 4f4a9394c (fixed some warnings)
+=======
+>>>>>>> 1832dd598 (modernized more tests)
 use nu_test_support::prelude::*;
 
 #[test]
@@ -385,9 +388,13 @@ fn idx_search_bracket_literal_example_finds_content(playground: Playground) -> R
 #[test]
 #[serial]
 fn idx_search_glob_with_path_separator_example_filters_files(playground: Playground) -> Result {
+<<<<<<< HEAD
     playground.dir("tests")?;
     playground.file("tests/search_test.rs", "pattern found here")?;
     playground.dir("src")?;
+=======
+    playground.file("tests/search_test.rs", "pattern found here")?;
+>>>>>>> 1832dd598 (modernized more tests)
     playground.file("src/main.rs", "pattern found here")?;
 
     test()

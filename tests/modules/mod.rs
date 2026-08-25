@@ -6,17 +6,30 @@ fn module_private_import_decl(playground: Playground) -> Result {
     playground.file(
         "main.nu",
         indoc::indoc! {"
+<<<<<<< HEAD
                     use spam.nu foo-helper
 
                     export def foo [] { foo-helper }
                 "},
+=======
+            use spam.nu foo-helper
+
+            export def foo [] { foo-helper }
+        "},
+>>>>>>> 1832dd598 (modernized more tests)
     )?;
     playground.file(
         "spam.nu",
         indoc::indoc! {r#"
+<<<<<<< HEAD
                     def get-foo [] { "foo" }
                     export def foo-helper [] { get-foo }
                 "#},
+=======
+            def get-foo [] { "foo" }
+            export def foo-helper [] { get-foo }
+        "#},
+>>>>>>> 1832dd598 (modernized more tests)
     )?;
 
     let mut tester = test().cwd(playground.path());
@@ -29,16 +42,28 @@ fn module_private_import_alias(playground: Playground) -> Result {
     playground.file(
         "main.nu",
         indoc::indoc! {"
+<<<<<<< HEAD
                     use spam.nu foo-helper
 
                     export def foo [] { foo-helper }
                 "},
+=======
+            use spam.nu foo-helper
+
+            export def foo [] { foo-helper }
+        "},
+>>>>>>> 1832dd598 (modernized more tests)
     )?;
     playground.file(
         "spam.nu",
         indoc::indoc! {r#"
+<<<<<<< HEAD
                     export alias foo-helper = echo "foo"
                 "#},
+=======
+            export alias foo-helper = echo "foo"
+        "#},
+>>>>>>> 1832dd598 (modernized more tests)
     )?;
 
     let mut tester = test().cwd(playground.path());
@@ -52,9 +77,15 @@ fn module_private_import_decl_not_public(playground: Playground) -> Result {
     playground.file(
         "spam.nu",
         indoc::indoc! {r#"
+<<<<<<< HEAD
                         def get-foo [] { "foo" }
                         export def foo-helper [] { get-foo }
                     "#},
+=======
+            def get-foo [] { "foo" }
+            export def foo-helper [] { get-foo }
+        "#},
+>>>>>>> 1832dd598 (modernized more tests)
     )?;
 
     test()
@@ -69,9 +100,15 @@ fn module_public_import_decl(playground: Playground) -> Result {
     playground.file(
         "spam.nu",
         indoc::indoc! {r#"
+<<<<<<< HEAD
                     def foo-helper [] { "foo" }
                     export def foo [] { foo-helper }
                 "#},
+=======
+            def foo-helper [] { "foo" }
+            export def foo [] { foo-helper }
+        "#},
+>>>>>>> 1832dd598 (modernized more tests)
     )?;
 
     let mut tester = test().cwd(playground.path());
@@ -85,8 +122,13 @@ fn module_public_import_alias(playground: Playground) -> Result {
     playground.file(
         "spam.nu",
         indoc::indoc! {r#"
+<<<<<<< HEAD
                     export alias foo = echo "foo"
                 "#},
+=======
+            export alias foo = echo "foo"
+        "#},
+>>>>>>> 1832dd598 (modernized more tests)
     )?;
 
     let mut tester = test().cwd(playground.path());
@@ -137,9 +179,15 @@ fn module_nested_imports(playground: Playground) -> Result {
     playground.file(
         "spam3.nu",
         indoc::indoc! {r#"
+<<<<<<< HEAD
                     export def foo [] { "foo" }
                     export alias bar = echo "bar"
                 "#},
+=======
+            export def foo [] { "foo" }
+            export alias bar = echo "bar"
+        "#},
+>>>>>>> 1832dd598 (modernized more tests)
     )?;
 
     let mut tester = test().cwd(playground.path());
@@ -153,6 +201,7 @@ fn module_nested_imports(playground: Playground) -> Result {
 
 #[test]
 fn module_nested_imports_in_dirs(playground: Playground) -> Result {
+<<<<<<< HEAD
     playground.dir("spam")?;
     playground.dir("spam/spam2")?;
     playground.dir("spam/spam3")?;
@@ -169,6 +218,20 @@ fn module_nested_imports_in_dirs(playground: Playground) -> Result {
                     export alias bar = echo "bar"
                 "#},
     )?;
+=======
+    playground.file("main.nu", "export use spam/spam.nu [ foo bar ]")?;
+    playground.at("spam", |spam| {
+        spam.file("spam.nu", "export use spam2/spam2.nu [ foo bar ]")?;
+        spam.file("spam2/spam2.nu", "export use ../spam3/spam3.nu [ foo bar ]")?;
+        spam.file(
+            "spam3/spam3.nu",
+            indoc::indoc! {r#"
+                export def foo [] { "foo" }
+                export alias bar = echo "bar"
+            "#},
+        )
+    })?;
+>>>>>>> 1832dd598 (modernized more tests)
 
     let mut tester = test().cwd(playground.path());
     let () = tester.run("use main.nu foo")?;
@@ -185,9 +248,15 @@ fn module_public_import_decl_prefixed(playground: Playground) -> Result {
     playground.file(
         "spam.nu",
         indoc::indoc! {r#"
+<<<<<<< HEAD
                     def foo-helper [] { "foo" }
                     export def foo [] { foo-helper }
                 "#},
+=======
+            def foo-helper [] { "foo" }
+            export def foo [] { foo-helper }
+        "#},
+>>>>>>> 1832dd598 (modernized more tests)
     )?;
 
     let mut tester = test().cwd(playground.path());
@@ -197,13 +266,17 @@ fn module_public_import_decl_prefixed(playground: Playground) -> Result {
 
 #[test]
 fn module_nested_imports_in_dirs_prefixed(playground: Playground) -> Result {
+<<<<<<< HEAD
     playground.dir("spam")?;
     playground.dir("spam/spam2")?;
     playground.dir("spam/spam3")?;
+=======
+>>>>>>> 1832dd598 (modernized more tests)
     playground.file(
         "main.nu",
         r#"export use spam/spam.nu [ "spam2 foo" "spam2 spam3 bar" ]"#,
     )?;
+<<<<<<< HEAD
     playground.file("spam/spam.nu", "export use spam2/spam2.nu")?;
     playground.file(
         "spam/spam2/spam2.nu",
@@ -219,6 +292,25 @@ fn module_nested_imports_in_dirs_prefixed(playground: Playground) -> Result {
                     export alias bar = echo "bar"
                 "#},
     )?;
+=======
+    playground.at("spam", |spam| {
+        spam.file("spam.nu", "export use spam2/spam2.nu")?;
+        spam.file(
+            "spam2/spam2.nu",
+            indoc::indoc! {"
+                export use ../spam3/spam3.nu
+                export use ../spam3/spam3.nu foo
+            "},
+        )?;
+        spam.file(
+            "spam3/spam3.nu",
+            indoc::indoc! {r#"
+                export def foo [] { "foo" }
+                export alias bar = echo "bar"
+            "#},
+        )
+    })?;
+>>>>>>> 1832dd598 (modernized more tests)
 
     let mut tester = test().cwd(playground.path());
     let () = tester.run("use main.nu")?;
@@ -234,16 +326,28 @@ fn module_import_env_1(playground: Playground) -> Result {
     playground.file(
         "main.nu",
         indoc::indoc! {"
+<<<<<<< HEAD
                     export-env { source-env spam.nu }
 
                     export def foo [] { $env.FOO_HELPER }
                 "},
+=======
+            export-env { source-env spam.nu }
+
+            export def foo [] { $env.FOO_HELPER }
+        "},
+>>>>>>> 1832dd598 (modernized more tests)
     )?;
     playground.file(
         "spam.nu",
         indoc::indoc! {r#"
+<<<<<<< HEAD
                     export-env { $env.FOO_HELPER = "foo" }
                 "#},
+=======
+            export-env { $env.FOO_HELPER = "foo" }
+        "#},
+>>>>>>> 1832dd598 (modernized more tests)
     )?;
 
     let mut tester = test().cwd(playground.path());

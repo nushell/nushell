@@ -73,7 +73,10 @@ fn exit_failure_if_output_full(
 
 #[test]
 fn nu_lib_dirs_repl(playground: Playground) -> Result {
+<<<<<<< HEAD
     playground.dir("scripts")?;
+=======
+>>>>>>> 1832dd598 (modernized more tests)
     playground.file("scripts/foo.nu", "$env.FOO = 'foo'")?;
 
     let scripts = playground.path().join("scripts");
@@ -86,18 +89,31 @@ fn nu_lib_dirs_repl(playground: Playground) -> Result {
 
 #[test]
 fn nu_lib_dirs_script(playground: Playground) -> Result {
+<<<<<<< HEAD
     playground.dir("scripts")?;
     playground.file(
         "scripts/foo.nu",
         indoc::indoc! {r#"
                     $env.FOO = "foo"
                 "#},
+=======
+    playground.file(
+        "scripts/foo.nu",
+        indoc::indoc! {r#"
+            $env.FOO = "foo"
+        "#},
+>>>>>>> 1832dd598 (modernized more tests)
     )?;
     playground.file(
         "main.nu",
         indoc::indoc! {"
+<<<<<<< HEAD
                     source-env foo.nu
                 "},
+=======
+            source-env foo.nu
+        "},
+>>>>>>> 1832dd598 (modernized more tests)
     )?;
 
     let scripts = playground.path().join("scripts");
@@ -110,12 +126,20 @@ fn nu_lib_dirs_script(playground: Playground) -> Result {
 
 #[test]
 fn nu_lib_dirs_relative_repl(playground: Playground) -> Result {
+<<<<<<< HEAD
     playground.dir("scripts")?;
     playground.file(
         "scripts/foo.nu",
         indoc::indoc! {r#"
                     $env.FOO = "foo"
                 "#},
+=======
+    playground.file(
+        "scripts/foo.nu",
+        indoc::indoc! {r#"
+            $env.FOO = "foo"
+        "#},
+>>>>>>> 1832dd598 (modernized more tests)
     )?;
 
     let mut tester = test()
@@ -128,20 +152,35 @@ fn nu_lib_dirs_relative_repl(playground: Playground) -> Result {
 // TODO: add absolute path tests after we expand const capabilities (see #8310)
 #[test]
 fn const_nu_lib_dirs_relative(playground: Playground) -> Result {
+<<<<<<< HEAD
     playground.dir("scripts")?;
     playground.file(
         "scripts/foo.nu",
         indoc::indoc! {r#"
                     $env.FOO = "foo"
                 "#},
+=======
+    playground.file(
+        "scripts/foo.nu",
+        indoc::indoc! {r#"
+            $env.FOO = "foo"
+        "#},
+>>>>>>> 1832dd598 (modernized more tests)
     )?;
     playground.file(
         "main.nu",
         indoc::indoc! {"
+<<<<<<< HEAD
                     const NU_LIB_DIRS = [ 'scripts' ]
                     source-env foo.nu
                     $env.FOO
                 "},
+=======
+            const NU_LIB_DIRS = [ 'scripts' ]
+            source-env foo.nu
+            $env.FOO
+        "},
+>>>>>>> 1832dd598 (modernized more tests)
     )?;
 
     test()
@@ -152,18 +191,31 @@ fn const_nu_lib_dirs_relative(playground: Playground) -> Result {
 
 #[test]
 fn nu_lib_dirs_relative_script(playground: Playground) -> Result {
+<<<<<<< HEAD
     playground.dir("scripts")?;
     playground.file(
         "scripts/main.nu",
         indoc::indoc! {"
                     source-env ../foo.nu
                 "},
+=======
+    playground.file(
+        "scripts/main.nu",
+        indoc::indoc! {"
+            source-env ../foo.nu
+        "},
+>>>>>>> 1832dd598 (modernized more tests)
     )?;
     playground.file(
         "foo.nu",
         indoc::indoc! {r#"
+<<<<<<< HEAD
                     $env.FOO = "foo"
                 "#},
+=======
+            $env.FOO = "foo"
+        "#},
+>>>>>>> 1832dd598 (modernized more tests)
     )?;
 
     test()

@@ -1,3 +1,7 @@
+<<<<<<< HEAD
+=======
+use nu_test_support::playground::Playground;
+>>>>>>> 1832dd598 (modernized more tests)
 use nu_test_support::prelude::*;
 use rstest::rstest;
 use std::path::{Path, PathBuf};
@@ -32,13 +36,19 @@ fn nonempty_glob_lists_matching_paths(playground: Playground) -> Result {
 // wax also lists the start directory for `**/*`; dc-glob doesn't copy that, so this test pins the
 // legacy backend and `glob_subdirs_dc_glob` covers dc-glob.
 #[test]
+<<<<<<< HEAD
 #[exp(nu_experimental::DC_GLOB = false)]
+=======
+>>>>>>> 1832dd598 (modernized more tests)
 fn glob_subdirs(playground: Playground) -> Result {
     playground.empty_file("yehuda.txt")?;
     playground.empty_file("jttxt")?;
     playground.empty_file("andres.txt")?;
+<<<<<<< HEAD
     playground.dir("children")?;
     playground.dir("children")?;
+=======
+>>>>>>> 1832dd598 (modernized more tests)
     playground.empty_file("children/timothy.txt")?;
     playground.empty_file("children/tiffany.txt")?;
     playground.empty_file("children/trish.txt")?;
@@ -47,6 +57,7 @@ fn glob_subdirs(playground: Playground) -> Result {
         .cwd(playground.path())
         .run("glob '**/*' | length")
         .expect_value_eq(8)
+<<<<<<< HEAD
 }
 
 /// `**/*` lists the six files and the `children` directory, but not the start directory.
@@ -97,6 +108,8 @@ fn glob_drive_relative_pattern_dc_glob(playground: Playground) -> Result {
         .cwd(&pwd)
         .run(format!("glob {drive} | path basename"))
         .expect_value_eq(["work [old]"])
+=======
+>>>>>>> 1832dd598 (modernized more tests)
 }
 
 #[test]
@@ -104,8 +117,11 @@ fn glob_subdirs_ignore_dirs(playground: Playground) -> Result {
     playground.empty_file("yehuda.txt")?;
     playground.empty_file("jttxt")?;
     playground.empty_file("andres.txt")?;
+<<<<<<< HEAD
     playground.dir("children")?;
     playground.dir("children")?;
+=======
+>>>>>>> 1832dd598 (modernized more tests)
     playground.empty_file("children/timothy.txt")?;
     playground.empty_file("children/tiffany.txt")?;
     playground.empty_file("children/trish.txt")?;
@@ -121,8 +137,11 @@ fn glob_ignore_files(playground: Playground) -> Result {
     playground.empty_file("yehuda.txt")?;
     playground.empty_file("jttxt")?;
     playground.empty_file("andres.txt")?;
+<<<<<<< HEAD
     playground.dir("children")?;
     playground.dir("children")?;
+=======
+>>>>>>> 1832dd598 (modernized more tests)
     playground.empty_file("children/timothy.txt")?;
     playground.empty_file("children/tiffany.txt")?;
     playground.empty_file("children/trish.txt")?;
@@ -148,11 +167,13 @@ pub fn create_file_at(full_path: impl AsRef<Path>) -> Result<(), std::io::Error>
 #[case("foo/bar", "'../*'", &["foo/able", "foo/bar/baker", "foo/charlie"], &["foo/bar/../able", "foo/bar/../bar", "foo/bar/../charlie"], "glob matches files in parent")]
 #[case("foo", "'./{a,b}*'", &["foo/able", "foo/bar/baker", "foo/charlie"], &["foo/able", "foo/bar"], "glob with leading ./ matches peer files")]
 fn glob_files_in_parent(
+    #[ignore] playground: Playground,
     #[case] wd: &str,
     #[case] glob: &str,
     #[case] ini: &[&str],
     #[case] exp: &[&str],
     #[case] tag: &str,
+<<<<<<< HEAD
     #[ignore] playground: Playground,
 ) -> Result {
     playground.dir("foo")?;
@@ -161,6 +182,14 @@ fn glob_files_in_parent(
 
     for f in ini {
         create_file_at(playground.path().join(f)).expect("couldn't create file");
+=======
+) -> Result {
+    playground.dir("foo/bar")?;
+    let working_directory = playground.path().join(wd);
+
+    for f in ini {
+        create_file_at(playground.path().join(f))?;
+>>>>>>> 1832dd598 (modernized more tests)
     }
 
     let actual: String = test()
@@ -191,6 +220,7 @@ fn glob_files_in_parent(
 
     let expected = expected.join(" ");
     assert_eq!(actual, expected, "\n  test: {tag}");
+<<<<<<< HEAD
 
     Ok(())
 }
@@ -232,10 +262,14 @@ fn glob_dc_glob_class_escape_and_dot_cwd(playground: Playground) -> Result {
         .cwd(playground.path().join("foo/bar/."))
         .run("glob 'b*' | each { str contains $'(char psep).(char psep)' }")
         .expect_value_eq([false])
+=======
+    Ok(())
+>>>>>>> 1832dd598 (modernized more tests)
 }
 
 #[test]
 fn glob_follow_symlinks(playground: Playground) -> Result {
+<<<<<<< HEAD
     // Create a directory with some files
     playground.dir("target_dir")?;
     playground.dir("target_dir")?;
@@ -248,6 +282,11 @@ fn glob_follow_symlinks(playground: Playground) -> Result {
     #[cfg(windows)]
     std::os::windows::fs::symlink_dir(target_dir, &symlink_path).expect("Failed to create symlink");
 
+=======
+    playground.empty_file("target_dir/target_file.txt")?;
+    playground.symlink("target_dir", "symlink_dir")?;
+
+>>>>>>> 1832dd598 (modernized more tests)
     // on some systems/filesystems, symlinks are followed by default
     // on others (like Linux /sys), they aren't
     // Test that with the --follow-symlinks flag, files are found for sure
@@ -255,6 +294,7 @@ fn glob_follow_symlinks(playground: Playground) -> Result {
         .cwd(playground.path())
         .run("glob 'symlink_dir/*.txt' --follow-symlinks | length")
         .expect_value_eq(1)
+<<<<<<< HEAD
 }
 
 #[test]
@@ -308,6 +348,8 @@ fn glob_dc_glob_explicit_relative_paths(playground: Playground) -> Result {
     }
 
     Ok(())
+=======
+>>>>>>> 1832dd598 (modernized more tests)
 }
 
 #[test]
@@ -328,6 +370,7 @@ fn glob_dc_glob_supports_depth_and_exclude(playground: Playground) -> Result {
 /// With dc-glob, `--exclude` takes `{a,b}` alternatives, as the pattern does.
 #[test]
 #[exp(nu_experimental::DC_GLOB)]
+<<<<<<< HEAD
 fn glob_dc_glob_exclude_braces(playground: Playground) -> Result {
     playground.empty_file("a.rs")?;
     playground.dir("src")?;
@@ -385,6 +428,13 @@ fn glob_dc_glob_recursive_depth_semantics(playground: Playground) -> Result {
     playground.dir("foo")?;
     playground.empty_file("foo/sibling.txt")?;
 
+=======
+fn glob_dc_glob_recursive_depth_semantics(playground: Playground) -> Result {
+    playground.empty_file("1/2/3/file.txt")?;
+    playground.empty_file("foo/sibling.txt")?;
+    playground.dir("foo/bar")?;
+
+>>>>>>> 1832dd598 (modernized more tests)
     // **/*: concrete membership — four entries under start, not the start itself
     let code = "
             let root = (pwd | path expand)
@@ -424,7 +474,11 @@ fn glob_dc_glob_recursive_depth_semantics(playground: Playground) -> Result {
         .expect_value_eq(true)
         .expect("**/*/*/* should only match depth >= 3 paths");
 
+<<<<<<< HEAD
     // bare ** → the directories below the start: 1, 1/2, 1/2/3, foo, foo/bar
+=======
+    // bare ** → directories only (start + 1 + 1/2 + 1/2/3 + foo + foo/bar)
+>>>>>>> 1832dd598 (modernized more tests)
     let code = "
             let root = (pwd | path expand)
             let paths = (glob '**' | each { path expand } | sort)
@@ -442,6 +496,7 @@ fn glob_dc_glob_recursive_depth_semantics(playground: Playground) -> Result {
         .cwd(playground.path())
         .run(code)
         .expect_value_eq(true)
+<<<<<<< HEAD
         .expect("bare ** should list the directories below the start");
 
     // foo/** lists the directories below foo, not foo or its files
@@ -463,12 +518,32 @@ fn glob_dc_glob_recursive_depth_semantics(playground: Playground) -> Result {
         ])
         .expect("*/** should list the directories below the top-level ones");
 
+=======
+        .expect("bare ** should list start + nested dirs only, not files");
+
+    // foo/** includes foo itself and foo/bar, not files
+    let code = "
+            let paths = (glob 'foo/**' | each { path expand } | sort)
+            (
+                ($paths | length) == 2
+                and ($paths | any {|p| $p | str ends-with $'(char psep)foo'})
+                and ($paths | any {|p| $p | str ends-with $'(char psep)foo(char psep)bar'})
+                and not ($paths | any {|p| $p | str ends-with 'sibling.txt'})
+            )
+        ";
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq(true)
+        .expect("foo/** should include foo and nested dirs, not files");
+>>>>>>> 1832dd598 (modernized more tests)
     Ok(())
 }
 
 #[test]
 #[exp(nu_experimental::DC_GLOB)]
 fn glob_dc_glob_supports_follow_symlinks(playground: Playground) -> Result {
+<<<<<<< HEAD
     playground.dir("target_dir")?;
     playground.dir("target_dir")?;
     playground.empty_file("target_dir/target_file.txt")?;
@@ -480,6 +555,11 @@ fn glob_dc_glob_supports_follow_symlinks(playground: Playground) -> Result {
     #[cfg(windows)]
     std::os::windows::fs::symlink_dir(target_dir, &symlink_path).expect("Failed to create symlink");
 
+=======
+    playground.empty_file("target_dir/target_file.txt")?;
+    playground.symlink("target_dir", "symlink_dir")?;
+
+>>>>>>> 1832dd598 (modernized more tests)
     test()
         .cwd(playground.path())
         .run("glob 'symlink_dir/*.txt' --follow-symlinks | length")
@@ -602,8 +682,11 @@ fn glob_debug_subcommands_require_pattern_argument(playground: Playground) -> Re
 #[test]
 #[exp(nu_experimental::DC_GLOB)]
 fn glob_dc_glob_literal_prefix_wildcard(playground: Playground) -> Result {
+<<<<<<< HEAD
     playground.dir("subdir")?;
     playground.dir("subdir")?;
+=======
+>>>>>>> 1832dd598 (modernized more tests)
     playground.empty_file("subdir/nu_test1")?;
     playground.empty_file("subdir/nu_test2")?;
     playground.empty_file("subdir/other")?;
@@ -620,8 +703,11 @@ fn glob_dc_glob_literal_prefix_wildcard(playground: Playground) -> Result {
 #[test]
 #[exp(nu_experimental::DC_GLOB)]
 fn glob_dc_glob_wildcard_then_literal(playground: Playground) -> Result {
+<<<<<<< HEAD
     playground.dir("subdir")?;
     playground.dir("subdir")?;
+=======
+>>>>>>> 1832dd598 (modernized more tests)
     playground.empty_file("subdir/nu_test1")?;
     playground.empty_file("subdir/nu_test2")?;
     playground.empty_file("subdir/other")?;
@@ -638,8 +724,11 @@ fn glob_dc_glob_wildcard_then_literal(playground: Playground) -> Result {
 #[test]
 #[exp(nu_experimental::DC_GLOB)]
 fn glob_dc_glob_literal_prefix_wildcard_absolute(playground: Playground) -> Result {
+<<<<<<< HEAD
     playground.dir("subdir")?;
     playground.dir("subdir")?;
+=======
+>>>>>>> 1832dd598 (modernized more tests)
     playground.empty_file("subdir/nu_test.txt")?;
 
     let pattern = format!("{}/subdir/nu*", playground.path().to_string_lossy());
@@ -648,6 +737,7 @@ fn glob_dc_glob_literal_prefix_wildcard_absolute(playground: Playground) -> Resu
         .run(format!("glob '{pattern}' | length"))
         .expect_value_eq(1)
         .expect("absolute glob pattern with literal-then-wildcard should work with dc-glob");
+<<<<<<< HEAD
 
     Ok(())
 }
@@ -688,6 +778,8 @@ fn glob_dc_glob_ignore_case_depth_counts_from_the_same_place(playground: Playgro
             .expect_value_eq(1)
             .unwrap_or_else(|err| panic!("{pattern}: {err:?}"));
     }
+=======
+>>>>>>> 1832dd598 (modernized more tests)
 
     Ok(())
 }

@@ -8,11 +8,14 @@ use std::{
 };
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 use nu_test_support::fs::{
     Stub::{EmptyFile, FileWithContent},
     files_exist_at,
 };
+=======
+>>>>>>> 1832dd598 (modernized more tests)
 use nu_test_support::prelude::*;
 
 use rstest::rstest;
@@ -126,6 +129,7 @@ fn error_if_attempting_to_copy_a_directory_to_another_directory(
 #[nu_test_support::test]
 #[deps(NU)]
 fn copies_the_directory_inside_directory_if_path_to_copy_is_directory_and_with_recursive_flag(
+    #[ignore] playground: Playground,
     #[case] progress_flag: &str,
     #[ignore] playground: Playground,
 ) -> Result {
@@ -154,8 +158,13 @@ fn copies_the_directory_inside_directory_if_path_to_copy_is_directory_and_with_r
 #[nu_test_support::test]
 #[deps(NU)]
 fn deep_copies_with_recursive_flag(
+<<<<<<< HEAD
     #[case] progress_flag: &str,
     #[ignore] playground: Playground,
+=======
+    #[ignore] playground: Playground,
+    #[case] progress_flag: &str,
+>>>>>>> 1832dd598 (modernized more tests)
 ) -> Result {
     playground.at("originals", |originals| {
         originals.empty_file("manifest.txt")?;
@@ -163,6 +172,7 @@ fn deep_copies_with_recursive_flag(
             contributors.empty_file("yehuda.txt")?;
             contributors.empty_file("jttxt")?;
             contributors.empty_file("andres.txt")?;
+<<<<<<< HEAD
             contributors.at("JT", |jt| {
                 jt.empty_file("errors.txt")?;
                 jt.empty_file("multishells.txt")
@@ -171,6 +181,12 @@ fn deep_copies_with_recursive_flag(
                 andres.empty_file("coverage.txt")?;
                 andres.empty_file("commands.txt")
             })?;
+=======
+            contributors.empty_file("JT/errors.txt")?;
+            contributors.empty_file("JT/multishells.txt")?;
+            contributors.empty_file("andres/coverage.txt")?;
+            contributors.empty_file("andres/commands.txt")?;
+>>>>>>> 1832dd598 (modernized more tests)
             contributors.empty_file("yehuda/defer-evaluation.txt")
         })
     })?;
@@ -195,7 +211,10 @@ fn deep_copies_with_recursive_flag(
             .join("defer-evaluation.txt")
             .exists()
     );
+<<<<<<< HEAD
 
+=======
+>>>>>>> 1832dd598 (modernized more tests)
     Ok(())
 }
 
@@ -397,8 +416,13 @@ fn copies_same_file_twice(#[ignore] playground: Playground, #[case] progress_fla
 #[nu_test_support::test]
 #[deps(NU)]
 fn copy_files_using_glob_two_parents_up_using_multiple_dots(
+<<<<<<< HEAD
     #[case] progress_flag: &str,
     #[ignore] playground: Playground,
+=======
+    #[ignore] playground: Playground,
+    #[case] progress_flag: &str,
+>>>>>>> 1832dd598 (modernized more tests)
 ) -> Result {
     playground.at("foo/bar", |bar| {
         bar.empty_file("jtjson")?;
@@ -414,6 +438,7 @@ fn copy_files_using_glob_two_parents_up_using_multiple_dots(
         .run_with_data(RUNNER, code)?;
     assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
+<<<<<<< HEAD
     assert!(
         [
             "yehuda.yaml",
@@ -425,6 +450,17 @@ fn copy_files_using_glob_two_parents_up_using_multiple_dots(
         .iter()
         .all(|file| playground.path().join(file).exists())
     );
+=======
+    for file in [
+        "yehuda.yaml",
+        "jtjson",
+        "andres.xml",
+        "kevin.txt",
+        "many_more.ppl",
+    ] {
+        assert!(playground.path().join(file).exists());
+    }
+>>>>>>> 1832dd598 (modernized more tests)
     Ok(())
 }
 
@@ -434,6 +470,7 @@ fn copy_files_using_glob_two_parents_up_using_multiple_dots(
 #[nu_test_support::test]
 #[deps(NU)]
 fn copy_file_and_dir_from_two_parents_up_using_multiple_dots_to_current_dir_recursive(
+    #[ignore] playground: Playground,
     #[case] progress_flag: &str,
     #[ignore] playground: Playground,
 ) -> Result {
@@ -479,8 +516,13 @@ fn copy_to_non_existing_dir(
 #[nu_test_support::test]
 #[deps(NU)]
 fn copy_dir_contains_symlink_ignored(
+<<<<<<< HEAD
     #[case] progress_flag: &str,
     #[ignore] playground: Playground,
+=======
+    #[ignore] playground: Playground,
+    #[case] progress_flag: &str,
+>>>>>>> 1832dd598 (modernized more tests)
 ) -> Result {
     playground.at("tmp_dir", |tmp_dir| {
         tmp_dir.empty_file("hello_there")?;
@@ -509,8 +551,13 @@ fn copy_dir_contains_symlink_ignored(
 #[nu_test_support::test]
 #[deps(NU)]
 fn copy_dir_contains_symlink(
+<<<<<<< HEAD
     #[case] progress_flag: &str,
     #[ignore] playground: Playground,
+=======
+    #[ignore] playground: Playground,
+    #[case] progress_flag: &str,
+>>>>>>> 1832dd598 (modernized more tests)
 ) -> Result {
     playground.at("tmp_dir", |tmp_dir| {
         tmp_dir.empty_file("hello_there")?;
@@ -537,8 +584,13 @@ fn copy_dir_contains_symlink(
 #[nu_test_support::test]
 #[deps(NU)]
 fn copy_dir_symlink_file_body_not_changed(
+<<<<<<< HEAD
     #[case] progress_flag: &str,
     #[ignore] playground: Playground,
+=======
+    #[ignore] playground: Playground,
+    #[case] progress_flag: &str,
+>>>>>>> 1832dd598 (modernized more tests)
 ) -> Result {
     playground.at("tmp_dir", |tmp_dir| {
         tmp_dir.empty_file("hello_there")?;
@@ -664,8 +716,13 @@ fn copy_file_with_read_permission(
 #[nu_test_support::test]
 #[deps(NU)]
 fn copies_file_symlink_without_dereferencing(
+<<<<<<< HEAD
     #[case] progress_flag: &str,
     #[ignore] playground: Playground,
+=======
+    #[ignore] playground: Playground,
+    #[case] progress_flag: &str,
+>>>>>>> 1832dd598 (modernized more tests)
 ) -> Result {
     playground.empty_file("file")?;
     playground.symlink("file", "link_to_file")?;
@@ -686,8 +743,13 @@ fn copies_file_symlink_without_dereferencing(
 #[nu_test_support::test]
 #[deps(NU)]
 fn copies_directory_symlink_without_dereferencing(
+<<<<<<< HEAD
     #[case] progress_flag: &str,
     #[ignore] playground: Playground,
+=======
+    #[ignore] playground: Playground,
+    #[case] progress_flag: &str,
+>>>>>>> 1832dd598 (modernized more tests)
 ) -> Result {
     playground.dir("dir")?;
     playground.symlink("dir", "link_to_dir")?;
@@ -1283,7 +1345,11 @@ fn cp_with_tilde(playground: Playground) -> Result {
         .cwd(playground.path())
         .run("let f = '~tilde/f2.txt'; cp $f ./")?;
     assert!(playground.path().join("~tilde/f2.txt").exists());
+<<<<<<< HEAD
     assert!(playground.path().join("f2.txt").exists());
+=======
+    assert!(playground.path().join("f1.txt").exists());
+>>>>>>> 1832dd598 (modernized more tests)
     Ok(())
 }
 

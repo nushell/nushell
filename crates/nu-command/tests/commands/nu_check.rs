@@ -1,5 +1,4 @@
 use nu_protocol::{ByteStream, PipelineData, Signals, Span};
-use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
 use nu_test_support::playground::Playground;
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_eq;
@@ -9,12 +8,12 @@ fn parse_script_success(playground: Playground) -> Result {
     playground.file(
         "script.nu",
         indoc::indoc! {r#"
-        greet "world"
-        
-        def greet [name] {
-          echo "hello" $name
-        }
-    "#},
+            greet "world"
+            
+            def greet [name] {
+            echo "hello" $name
+            }
+        "#},
     )?;
 
     test()
@@ -28,12 +27,12 @@ fn parse_script_with_wrong_type(playground: Playground) -> Result {
     playground.file(
         "script.nu",
         indoc::indoc! {r#"
-        greet "world"
-        
-        def greet [name] {
-          echo "hello" $name
-        }
-    "#},
+            greet "world"
+            
+            def greet [name] {
+            echo "hello" $name
+            }
+        "#},
     )?;
 
     let err = test()
@@ -49,12 +48,12 @@ fn parse_script_failure(playground: Playground) -> Result {
     playground.file(
         "script.nu",
         indoc::indoc! {r#"
-        greet "world"
-        
-        def greet [name {
-          echo "hello" $name
-        }
-    "#},
+            greet "world"
+            
+            def greet [name {
+            echo "hello" $name
+            }
+        "#},
     )?;
 
     let err = test()
@@ -75,16 +74,16 @@ fn parse_module_success(playground: Playground) -> Result {
     playground.file(
         "foo.nu",
         indoc::indoc! {r#"
-        # foo.nu
-        
-        export def hello [name: string] {
-            $"hello ($name)!"
-        }
-        
-        export def hi [where: string] {
-            $"hi ($where)!"
-        }
-    "#},
+            # foo.nu
+            
+            export def hello [name: string] {
+                $"hello ($name)!"
+            }
+            
+            export def hi [where: string] {
+                $"hi ($where)!"
+            }
+        "#},
     )?;
 
     test()
@@ -98,16 +97,16 @@ fn parse_module_with_wrong_type(playground: Playground) -> Result {
     playground.file(
         "foo.nu",
         indoc::indoc! {r#"
-        # foo.nu
-        
-        export def hello [name: string {
-            $"hello ($name)!"
-        }
-        
-        export def hi [where: string] {
-            $"hi ($where)!"
-        }
-    "#},
+            # foo.nu
+            
+            export def hello [name: string {
+                $"hello ($name)!"
+            }
+            
+            export def hi [where: string] {
+                $"hi ($where)!"
+            }
+        "#},
     )?;
 
     let err = test()
@@ -123,16 +122,16 @@ fn parse_module_failure(playground: Playground) -> Result {
     playground.file(
         "foo.nu",
         indoc::indoc! {r#"
-        # foo.nu
-        
-        export def hello [name: string {
-            $"hello ($name)!"
-        }
-        
-        export def hi [where: string] {
-            $"hi ($where)!"
-        }
-    "#},
+            # foo.nu
+            
+            export def hello [name: string {
+                $"hello ($name)!"
+            }
+            
+            export def hi [where: string] {
+                $"hi ($where)!"
+            }
+        "#},
     )?;
 
     let err = test()
@@ -166,10 +165,10 @@ fn parse_module_success_2(playground: Playground) -> Result {
     playground.file(
         "foo.nu",
         indoc::indoc! {r#"
-        # foo.nu
-        
-        export-env { $env.MYNAME = "Arthur, King of the Britons" }
-    "#},
+            # foo.nu
+            
+            export-env { $env.MYNAME = "Arthur, King of the Britons" }
+        "#},
     )?;
 
     test()
@@ -390,36 +389,36 @@ fn parse_module_success_with_complex_external_stream(playground: Playground) -> 
     playground.file(
         "grep.nu",
         indoc::indoc! {r#"
-        #grep for nu
-        def grep-nu [
-          search   #search term
-          entrada?  #file or pipe
-          #
-          #Examples
-          #grep-nu search file.txt
-          #ls **/* | some_filter | grep-nu search
-          #open file.txt | grep-nu search
-        ] {
-          if ($entrada | is-empty) {
-            if ($in | column? name) {
-              grep -ihHn $search ($in | get name)
+            #grep for nu
+            def grep-nu [
+            search   #search term
+            entrada?  #file or pipe
+            #
+            #Examples
+            #grep-nu search file.txt
+            #ls **/* | some_filter | grep-nu search
+            #open file.txt | grep-nu search
+            ] {
+            if ($entrada | is-empty) {
+                if ($in | column? name) {
+                grep -ihHn $search ($in | get name)
+                } else {
+                ($in | into string) | grep -ihHn $search
+                }
             } else {
-              ($in | into string) | grep -ihHn $search
+                grep -ihHn $search $entrada
             }
-          } else {
-              grep -ihHn $search $entrada
-          }
-          | lines
-          | parse "{file}:{line}:{match}"
-          | str trim
-          | update match {|f|
-              $f.match
-              | nu-highlight
+            | lines
+            | parse "{file}:{line}:{match}"
+            | str trim
+            | update match {|f|
+                $f.match
+                | nu-highlight
+                }
+            | rename "source file" "line number"
             }
-          | rename "source file" "line number"
-        }
-        
-    "#},
+            
+        "#},
     )?;
 
     test()
@@ -433,36 +432,36 @@ fn parse_with_flag_success_for_complex_external_stream(playground: Playground) -
     playground.file(
         "grep.nu",
         indoc::indoc! {r#"
-        #grep for nu
-        def grep-nu [
-          search   #search term
-          entrada?  #file or pipe
-          #
-          #Examples
-          #grep-nu search file.txt
-          #ls **/* | some_filter | grep-nu search
-          #open file.txt | grep-nu search
-        ] {
-          if ($entrada | is-empty) {
-            if ($in | column? name) {
-              grep -ihHn $search ($in | get name)
+            #grep for nu
+            def grep-nu [
+            search   #search term
+            entrada?  #file or pipe
+            #
+            #Examples
+            #grep-nu search file.txt
+            #ls **/* | some_filter | grep-nu search
+            #open file.txt | grep-nu search
+            ] {
+            if ($entrada | is-empty) {
+                if ($in | column? name) {
+                grep -ihHn $search ($in | get name)
+                } else {
+                ($in | into string) | grep -ihHn $search
+                }
             } else {
-              ($in | into string) | grep -ihHn $search
+                grep -ihHn $search $entrada
             }
-          } else {
-              grep -ihHn $search $entrada
-          }
-          | lines
-          | parse "{file}:{line}:{match}"
-          | str trim
-          | update match {|f|
-              $f.match
-              | nu-highlight
+            | lines
+            | parse "{file}:{line}:{match}"
+            | str trim
+            | update match {|f|
+                $f.match
+                | nu-highlight
+                }
+            | rename "source file" "line number"
             }
-          | rename "source file" "line number"
-        }
-        
-    "#},
+            
+        "#},
     )?;
 
     test()
@@ -476,36 +475,36 @@ fn parse_with_flag_failure_for_complex_external_stream(playground: Playground) -
     playground.file(
         "grep.nu",
         indoc::indoc! {r#"
-        #grep for nu
-        def grep-nu
-          search   #search term
-          entrada?  #file or pipe
-          #
-          #Examples
-          #grep-nu search file.txt
-          #ls **/* | some_filter | grep-nu search
-          #open file.txt | grep-nu search
-        ] {
-          if ($entrada | is-empty) {
-            if ($in | column? name) {
-              grep -ihHn $search ($in | get name)
+            #grep for nu
+            def grep-nu
+            search   #search term
+            entrada?  #file or pipe
+            #
+            #Examples
+            #grep-nu search file.txt
+            #ls **/* | some_filter | grep-nu search
+            #open file.txt | grep-nu search
+            ] {
+            if ($entrada | is-empty) {
+                if ($in | column? name) {
+                grep -ihHn $search ($in | get name)
+                } else {
+                ($in | into string) | grep -ihHn $search
+                }
             } else {
-              ($in | into string) | grep -ihHn $search
+                grep -ihHn $search $entrada
             }
-          } else {
-              grep -ihHn $search $entrada
-          }
-          | lines
-          | parse "{file}:{line}:{match}"
-          | str trim
-          | update match {|f|
-              $f.match
-              | nu-highlight
+            | lines
+            | parse "{file}:{line}:{match}"
+            | str trim
+            | update match {|f|
+                $f.match
+                | nu-highlight
+                }
+            | rename "source file" "line number"
             }
-          | rename "source file" "line number"
-        }
-        
-    "#},
+            
+        "#},
     )?;
 
     let err = test()
@@ -522,36 +521,36 @@ fn parse_with_flag_failure_for_complex_list_stream(playground: Playground) -> Re
     playground.file(
         "grep.nu",
         indoc::indoc! {r#"
-        #grep for nu
-        def grep-nu
-          search   #search term
-          entrada?  #file or pipe
-          #
-          #Examples
-          #grep-nu search file.txt
-          #ls **/* | some_filter | grep-nu search
-          #open file.txt | grep-nu search
-        ] {
-          if ($entrada | is-empty) {
-            if ($in | column? name) {
-              grep -ihHn $search ($in | get name)
+            #grep for nu
+            def grep-nu
+            search   #search term
+            entrada?  #file or pipe
+            #
+            #Examples
+            #grep-nu search file.txt
+            #ls **/* | some_filter | grep-nu search
+            #open file.txt | grep-nu search
+            ] {
+            if ($entrada | is-empty) {
+                if ($in | column? name) {
+                grep -ihHn $search ($in | get name)
+                } else {
+                ($in | into string) | grep -ihHn $search
+                }
             } else {
-              ($in | into string) | grep -ihHn $search
+                grep -ihHn $search $entrada
             }
-          } else {
-              grep -ihHn $search $entrada
-          }
-          | lines
-          | parse "{file}:{line}:{match}"
-          | str trim
-          | update match {|f|
-              $f.match
-              | nu-highlight
+            | lines
+            | parse "{file}:{line}:{match}"
+            | str trim
+            | update match {|f|
+                $f.match
+                | nu-highlight
+                }
+            | rename "source file" "line number"
             }
-          | rename "source file" "line number"
-        }
-        
-    "#},
+            
+        "#},
     )?;
 
     let err = test()
@@ -564,84 +563,72 @@ fn parse_with_flag_failure_for_complex_list_stream(playground: Playground) -> Re
 }
 
 #[test]
-fn parse_script_with_nested_scripts_success() -> Result {
-    Playground::setup("nu_check_test_24", |dirs, sandbox| {
-        sandbox
-            .mkdir("lol")
-            .with_files(&[FileWithContentToBeTrimmed(
-                "lol/lol.nu",
-                "
-                    source-env ../foo.nu
-                    use lol_shell.nu
-                    overlay use ../lol/lol_shell.nu
-                ",
-            )])
-            .with_files(&[FileWithContentToBeTrimmed(
-                "lol/lol_shell.nu",
-                r#"
-                    export def ls [] { "lol" }
-                "#,
-            )])
-            .with_files(&[FileWithContentToBeTrimmed(
-                "foo.nu",
-                "
-                    $env.FOO = 'foo'
-                ",
-            )]);
+fn parse_script_with_nested_scripts_success(playground: Playground) -> Result {
+    playground.file(
+        "lol/lol.nu",
+        indoc::indoc! {"
+            source-env ../foo.nu
+            use lol_shell.nu
+            overlay use ../lol/lol_shell.nu
+        "},
+    )?;
+    playground.file(
+        "lol/lol_shell.nu",
+        indoc::indoc! {r#"
+            export def ls [] { "lol" }
+        "#},
+    )?;
+    playground.file(
+        "foo.nu",
+        indoc::indoc! {"
+            $env.FOO = 'foo'
+        "},
+    )?;
 
-        test()
-            .cwd(dirs.test())
-            .run("nu-check lol/lol.nu")
-            .expect_value_eq(true)
-    })
+    test()
+        .cwd(playground.path())
+        .run("nu-check lol/lol.nu")
+        .expect_value_eq(true)
 }
 
 #[test]
-fn nu_check_respects_file_pwd() -> Result {
-    Playground::setup("nu_check_test_25", |dirs, sandbox| {
-        sandbox
-            .mkdir("lol")
-            .with_files(&[FileWithContentToBeTrimmed(
-                "lol/lol.nu",
-                "
-                    $env.RETURN = (nu-check ../foo.nu)
-                ",
-            )])
-            .with_files(&[FileWithContentToBeTrimmed(
-                "foo.nu",
-                "
-                    echo 'foo'
-                ",
-            )]);
+fn nu_check_respects_file_pwd(playground: Playground) -> Result {
+    playground.file(
+        "lol/lol.nu",
+        indoc::indoc! {"
+            $env.RETURN = (nu-check ../foo.nu)
+        "},
+    )?;
+    playground.file(
+        "foo.nu",
+        indoc::indoc! {"
+            echo 'foo'
+        "},
+    )?;
 
-        test()
-            .cwd(dirs.test())
-            .run("source-env lol/lol.nu; $env.RETURN")
-            .expect_value_eq(true)
-    })
+    test()
+        .cwd(playground.path())
+        .run("source-env lol/lol.nu; $env.RETURN")
+        .expect_value_eq(true)
 }
 #[test]
-fn nu_check_module_dir() -> Result {
-    Playground::setup("nu_check_test_26", |dirs, sandbox| {
-        sandbox
-            .mkdir("lol")
-            .with_files(&[FileWithContentToBeTrimmed(
-                "lol/mod.nu",
-                "
-                    export module foo.nu
-                    export def main [] { 'lol' }
-                ",
-            )])
-            .with_files(&[FileWithContentToBeTrimmed(
-                "lol/foo.nu",
-                "
-                    export def main [] { 'lol foo' }
-                ",
-            )]);
+fn nu_check_module_dir(playground: Playground) -> Result {
+    playground.file(
+        "lol/mod.nu",
+        indoc::indoc! {"
+            export module foo.nu
+            export def main [] { 'lol' }
+        "},
+    )?;
+    playground.file(
+        "lol/foo.nu",
+        indoc::indoc! {"
+            export def main [] { 'lol foo' }
+        "},
+    )?;
 
-        test()
-            .cwd(dirs.test())
-            .run("nu-check lol")
-            .expect_value_eq(true)
-    })
+    test()
+        .cwd(playground.path())
+        .run("nu-check lol")
+        .expect_value_eq(true)
 }

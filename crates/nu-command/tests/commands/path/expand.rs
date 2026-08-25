@@ -20,14 +20,24 @@ fn expands_path_with_dot(playground: Playground) -> Result {
 #[test]
 fn expands_path_without_follow_symlink(playground: Playground) -> Result {
     playground.empty_file("menu/spam.txt")?;
+<<<<<<< HEAD
     playground.symlink("menu/spam.txt", "menu/spam_link.ln")?;
 
     let code = r#"
+=======
+
+    let code = r#"
+        ln -s spam.txt menu/spam_link.ln;
+>>>>>>> 1832dd598 (modernized more tests)
         echo "menu/./spam_link.ln"
         | path expand -n
     "#;
 
+<<<<<<< HEAD
     let outcome: String = test().cwd(playground.path()).run(code)?;
+=======
+    let outcome: String = test().inherit_path().cwd(playground.path()).run(code)?;
+>>>>>>> 1832dd598 (modernized more tests)
     let expected = playground.path().join("menu").join("spam_link.ln");
     assert_eq!(Path::new(&outcome), expected);
     Ok(())
@@ -103,6 +113,7 @@ mod windows {
         let expected = playground.path().join("menu").join("spam_link.ln");
         assert_eq!(Path::new(&outcome), expected);
         Ok(())
+<<<<<<< HEAD
     }
 
     #[test]
@@ -123,5 +134,7 @@ mod windows {
             .run(format!("'{drive}menu' | path expand"))?;
         assert_eq!(Path::new(&outcome), playground.path().join("menu"));
         Ok(())
+=======
+>>>>>>> 1832dd598 (modernized more tests)
     }
 }

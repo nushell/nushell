@@ -1,3 +1,7 @@
+<<<<<<< HEAD
+=======
+use nu_test_support::playground::Playground;
+>>>>>>> 1832dd598 (modernized more tests)
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_matches;
 use rstest::rstest;
@@ -54,12 +58,16 @@ fn lists_regular_files_using_asterisk_wildcard(playground: Playground) -> Result
 #[cfg(not(target_os = "windows"))]
 #[test]
 fn lists_regular_files_in_special_folder(playground: Playground) -> Result {
+<<<<<<< HEAD
     playground.dir("[abcd]")?;
     playground.dir("[bbcd]")?;
     playground.dir("abcd]")?;
     playground.dir("abcd")?;
     playground.dir("abcd/*")?;
     playground.dir("abcd/?")?;
+=======
+    playground.dir("[bbcd]")?;
+>>>>>>> 1832dd598 (modernized more tests)
     playground.empty_file("[abcd]/test.txt")?;
     playground.empty_file("abcd]/test.txt")?;
     playground.empty_file("abcd/*/test.txt")?;
@@ -144,12 +152,19 @@ fn lists_regular_files_in_special_folder(playground: Playground) -> Result {
 #[case("'[abcd].txt'", 1)]
 #[case("'[bbcd].txt'", 1)]
 fn lists_regular_files_using_question_mark(
+<<<<<<< HEAD
     #[case] ls_arg: &str,
     #[case] expected: i64,
     #[ignore] playground: Playground,
 ) -> Result {
     playground.dir("abcd")?;
     playground.dir("bbcd")?;
+=======
+    #[ignore] playground: Playground,
+    #[case] ls_arg: &str,
+    #[case] expected: i64,
+) -> Result {
+>>>>>>> 1832dd598 (modernized more tests)
     playground.empty_file("abcd/xy.txt")?;
     playground.empty_file("bbcd/yy.txt")?;
     playground.empty_file("[abcd].txt")?;
@@ -184,10 +199,15 @@ fn lists_regular_files_using_question_mark_wildcard(playground: Playground) -> R
 fn lists_all_files_in_directories_from_stream(playground: Playground) -> Result {
     playground.empty_file("root1.txt")?;
     playground.empty_file("root2.txt")?;
+<<<<<<< HEAD
     playground.dir("dir_a")?;
     playground.empty_file("dir_a/yehuda.10.txt")?;
     playground.empty_file("dir_a/jt10.txt")?;
     playground.dir("dir_b")?;
+=======
+    playground.empty_file("dir_a/yehuda.10.txt")?;
+    playground.empty_file("dir_a/jt10.txt")?;
+>>>>>>> 1832dd598 (modernized more tests)
     playground.empty_file("dir_b/andres.10.txt")?;
     playground.empty_file("dir_b/chicken_not_to_be_picked_up.100.txt")?;
 
@@ -264,6 +284,7 @@ fn quoted_glob_pattern_explains_that_it_is_not_expanded(
 }
 
 #[test]
+<<<<<<< HEAD
 fn quoted_glob_pattern_with_backtick_only_suggests_into_glob(playground: Playground) -> Result {
     playground.empty_file("a`tick1")?;
 
@@ -318,6 +339,21 @@ fn list_files_from_two_parents_up_using_multiple_dots(playground: Playground) ->
         .expect_value_eq(5)?;
 
     test()
+=======
+fn list_files_from_two_parents_up_using_multiple_dots(playground: Playground) -> Result {
+    playground.empty_file("yahuda.yaml")?;
+    playground.empty_file("jtjson")?;
+    playground.empty_file("andres.xml")?;
+    playground.empty_file("kevin.txt")?;
+    playground.dir("foo/bar")?;
+
+    test()
+        .cwd(playground.path().join("foo/bar"))
+        .run("ls ... | length")
+        .expect_value_eq(5)?;
+
+    test()
+>>>>>>> 1832dd598 (modernized more tests)
         .cwd(playground.path().join("foo/bar"))
         .run(r#"ls ... | sort-by name | get name.0 | str replace -a '\' '/'"#)
         .expect_value_eq("../../andres.xml")
@@ -366,11 +402,17 @@ fn lists_all_hidden_files_when_glob_contains_dot(playground: Playground) -> Resu
     playground.empty_file("root1.txt")?;
     playground.empty_file("root2.txt")?;
     playground.empty_file(".dotfile1")?;
+<<<<<<< HEAD
     playground.dir("dir_a")?;
     playground.empty_file("dir_a/yehuda.10.txt")?;
     playground.empty_file("dir_a/jt10.txt")?;
     playground.empty_file("dir_a/.dotfile2")?;
     playground.dir("dir_b")?;
+=======
+    playground.empty_file("dir_a/yehuda.10.txt")?;
+    playground.empty_file("dir_a/jt10.txt")?;
+    playground.empty_file("dir_a/.dotfile2")?;
+>>>>>>> 1832dd598 (modernized more tests)
     playground.empty_file("dir_b/andres.10.txt")?;
     playground.empty_file("dir_b/chicken_not_to_be_picked_up.100.txt")?;
     playground.empty_file("dir_b/.dotfile3")?;
@@ -389,11 +431,17 @@ fn lists_all_hidden_files_when_glob_does_not_contain_dot(playground: Playground)
     playground.empty_file("root1.txt")?;
     playground.empty_file("root2.txt")?;
     playground.empty_file(".dotfile1")?;
+<<<<<<< HEAD
     playground.dir("dir_a")?;
     playground.empty_file("dir_a/yehuda.10.txt")?;
     playground.empty_file("dir_a/jt10.txt")?;
     playground.empty_file("dir_a/.dotfile2")?;
     playground.dir(".dir_b")?;
+=======
+    playground.empty_file("dir_a/yehuda.10.txt")?;
+    playground.empty_file("dir_a/jt10.txt")?;
+    playground.empty_file("dir_a/.dotfile2")?;
+>>>>>>> 1832dd598 (modernized more tests)
     playground.empty_file(".dir_b/andres.10.txt")?;
     playground.empty_file(".dir_b/chicken_not_to_be_picked_up.100.txt")?;
     playground.empty_file(".dir_b/.dotfile3")?;
@@ -409,7 +457,10 @@ fn lists_all_hidden_files_when_glob_does_not_contain_dot(playground: Playground)
 // of creating hidden files using the playground.
 #[cfg(unix)]
 fn glob_with_hidden_directory(playground: Playground) -> Result {
+<<<<<<< HEAD
     playground.dir(".dir_b")?;
+=======
+>>>>>>> 1832dd598 (modernized more tests)
     playground.empty_file(".dir_b/andres.10.txt")?;
     playground.empty_file(".dir_b/chicken_not_to_be_picked_up.100.txt")?;
     playground.empty_file(".dir_b/.dotfile3")?;
@@ -434,7 +485,10 @@ fn fails_with_permission_denied(playground: Playground) -> Result {
     use nu_protocol::shell_error::io::ErrorKind;
     use std::os::unix::fs::PermissionsExt;
 
+<<<<<<< HEAD
     playground.dir("dir_a")?;
+=======
+>>>>>>> 1832dd598 (modernized more tests)
     playground.empty_file("dir_a/yehuda.11.txt")?;
     playground.empty_file("dir_a/jt10.txt")?;
 
@@ -526,7 +580,10 @@ fn list_all_columns(playground: Playground) -> Result {
 
 #[test]
 fn lists_with_directory_flag(playground: Playground) -> Result {
+<<<<<<< HEAD
     playground.dir("dir_files")?;
+=======
+>>>>>>> 1832dd598 (modernized more tests)
     playground.empty_file("dir_files/nushell.json")?;
     playground.dir("dir_empty")?;
 
@@ -548,7 +605,10 @@ fn lists_with_directory_flag(playground: Playground) -> Result {
 
 #[test]
 fn lists_with_directory_flag_without_argument(playground: Playground) -> Result {
+<<<<<<< HEAD
     playground.dir("dir_files")?;
+=======
+>>>>>>> 1832dd598 (modernized more tests)
     playground.empty_file("dir_files/nushell.json")?;
     playground.dir("dir_empty")?;
 
@@ -710,7 +770,10 @@ fn list_empty_string(playground: Playground) -> Result {
 
 #[test]
 fn list_with_tilde(playground: Playground) -> Result {
+<<<<<<< HEAD
     playground.dir("~tilde")?;
+=======
+>>>>>>> 1832dd598 (modernized more tests)
     playground.empty_file("~tilde/f1.txt")?;
     playground.empty_file("~tilde/f2.txt")?;
 
@@ -768,8 +831,12 @@ fn list_with_multiple_path(playground: Playground) -> Result {
 #[test]
 fn list_inside_glob_metachars_dir(playground: Playground) -> Result {
     let sub_dir = "test[]";
+<<<<<<< HEAD
     playground.dir(sub_dir)?;
     playground.empty_file(std::path::Path::new(sub_dir).join("test_file.txt"))?;
+=======
+    playground.empty_file("test[]/test_file.txt")?;
+>>>>>>> 1832dd598 (modernized more tests)
 
     test()
         .cwd(playground.path().join(sub_dir))
@@ -780,8 +847,12 @@ fn list_inside_glob_metachars_dir(playground: Playground) -> Result {
 #[test]
 fn list_inside_tilde_glob_metachars_dir(playground: Playground) -> Result {
     let sub_dir = "~test[]";
+<<<<<<< HEAD
     playground.dir(sub_dir)?;
     playground.empty_file(std::path::Path::new(sub_dir).join("test_file.txt"))?;
+=======
+    playground.empty_file("~test[]/test_file.txt")?;
+>>>>>>> 1832dd598 (modernized more tests)
 
     // need name.0 | path basename because the output path
     // might be too long to output as a single line.
@@ -839,8 +910,11 @@ fn consistent_list_order(playground: Playground) -> Result {
 #[test]
 #[exp(nu_experimental::DC_GLOB)]
 fn ls_dc_glob_literal_prefix_wildcard(playground: Playground) -> Result {
+<<<<<<< HEAD
     playground.dir("subdir")?;
     playground.dir("subdir")?;
+=======
+>>>>>>> 1832dd598 (modernized more tests)
     playground.empty_file("subdir/nu_test1")?;
     playground.empty_file("subdir/nu_test2")?;
     playground.empty_file("subdir/other")?;
@@ -858,8 +932,11 @@ fn ls_dc_glob_literal_prefix_wildcard(playground: Playground) -> Result {
 #[test]
 #[exp(nu_experimental::DC_GLOB)]
 fn ls_dc_glob_literal_prefix_wildcard_metadata_populated(playground: Playground) -> Result {
+<<<<<<< HEAD
     playground.dir("subdir")?;
     playground.dir("subdir")?;
+=======
+>>>>>>> 1832dd598 (modernized more tests)
     playground.empty_file("subdir/nu_test.txt")?;
 
     test()
@@ -887,8 +964,11 @@ fn ls_dc_glob_literal_prefix_wildcard_metadata_populated(playground: Playground)
 #[test]
 #[exp(nu_experimental::DC_GLOB)]
 fn ls_dc_glob_wildcard_then_literal(playground: Playground) -> Result {
+<<<<<<< HEAD
     playground.dir("subdir")?;
     playground.dir("subdir")?;
+=======
+>>>>>>> 1832dd598 (modernized more tests)
     playground.empty_file("subdir/nu_test1")?;
     playground.empty_file("subdir/nu_test2")?;
     playground.empty_file("subdir/other")?;
@@ -905,8 +985,11 @@ fn ls_dc_glob_wildcard_then_literal(playground: Playground) -> Result {
 #[test]
 #[exp(nu_experimental::DC_GLOB)]
 fn ls_dc_glob_wildcard_then_literal_metadata_populated(playground: Playground) -> Result {
+<<<<<<< HEAD
     playground.dir("subdir")?;
     playground.dir("subdir")?;
+=======
+>>>>>>> 1832dd598 (modernized more tests)
     playground.empty_file("subdir/nu_test.txt")?;
 
     test()
@@ -927,6 +1010,7 @@ fn ls_dc_glob_wildcard_then_literal_metadata_populated(playground: Playground) -
 #[test]
 #[exp(nu_experimental::DC_GLOB)]
 fn ls_literal_directory(playground: Playground) -> Result {
+<<<<<<< HEAD
     playground.dir("ls_literal_dir_dc")?;
 
     playground.dir("ls_literal_dir_dc/subdir")?;
@@ -935,6 +1019,13 @@ fn ls_literal_directory(playground: Playground) -> Result {
     test()
         .cwd(playground.path())
         .run("ls ls_literal_dir_dc/subdir | length")
+=======
+    playground.empty_file("subdir/test.txt")?;
+
+    test()
+        .cwd(playground.path())
+        .run("ls subdir | length")
+>>>>>>> 1832dd598 (modernized more tests)
         .expect_value_eq(1)
         .expect("ls literal directory should list its contents with dc-glob");
 
@@ -969,12 +1060,16 @@ fn ls_literal_empty_directory(playground: Playground) -> Result {
 #[test]
 #[exp(nu_experimental::DC_GLOB)]
 fn ls_dc_glob_bare_double_star(playground: Playground) -> Result {
+<<<<<<< HEAD
     playground.dir("1")?;
     playground.dir("1/2")?;
     playground.dir("1/2/3")?;
     playground.dir("1/2/3")?;
     playground.empty_file("1/2/3/file.txt")?;
     playground.dir("foo")?;
+=======
+    playground.empty_file("1/2/3/file.txt")?;
+>>>>>>> 1832dd598 (modernized more tests)
     playground.dir("foo/bar")?;
 
     // Nested directories present; file.txt must not appear (trailing ** is dir-only).
@@ -1004,6 +1099,7 @@ fn ls_dc_glob_bare_double_star(playground: Playground) -> Result {
 #[test]
 #[exp(nu_experimental::DC_GLOB)]
 fn ls_dc_glob_prefixed_trailing_double_star(playground: Playground) -> Result {
+<<<<<<< HEAD
     playground.dir("foo")?;
     playground.dir("foo/bar")?;
     playground.dir("foo")?;
@@ -1024,6 +1120,25 @@ fn ls_dc_glob_prefixed_trailing_double_star(playground: Playground) -> Result {
         .run("ls */** | get name")
         .expect_value_eq([format!("foo{}bar", std::path::MAIN_SEPARATOR)])
         .expect("ls */** should list only the directories below foo with dc-glob");
+=======
+    playground.empty_file("foo/sibling.txt")?;
+    playground.empty_file("foo/bar/nested.txt")?;
+
+    let code = "
+            let paths = (ls foo/** | get name | each { path expand } | sort)
+            (
+                ($paths | any {|p| $p | str ends-with $'(char psep)foo'})
+                and ($paths | any {|p| $p | str ends-with $'(char psep)foo(char psep)bar'})
+                and not ($paths | any {|p| $p | str ends-with 'sibling.txt'})
+                and not ($paths | any {|p| $p | str ends-with 'nested.txt'})
+            )
+        ";
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq(true)
+        .expect("ls foo/** should list foo and nested dirs only with dc-glob");
+>>>>>>> 1832dd598 (modernized more tests)
 
     Ok(())
 }
@@ -1073,6 +1188,7 @@ fn ls_with_file_named_star_lists_all_entries(playground: Playground) -> Result {
     // Regression for #18631: with dc-glob, a file named `*` must not hide
     // every other entry when `ls` expands the default `*` pattern.
     // Use distinct names that stay unique on case-insensitive filesystems.
+<<<<<<< HEAD
 
     playground.empty_file("file_a")?;
     playground.empty_file("file_b")?;
@@ -1092,5 +1208,25 @@ fn ls_with_file_named_star_lists_all_entries(playground: Playground) -> Result {
         .run("ls * | length")
         .expect_value_eq(7)?;
 
+=======
+    playground.empty_file("file_a")?;
+    playground.empty_file("file_b")?;
+    playground.empty_file("file_c")?;
+    playground.empty_file("*")?;
+    playground.dir("dir_a")?;
+    playground.dir("dir_b")?;
+    playground.dir("dir_c")?;
+
+    test()
+        .cwd(playground.path())
+        .run("ls | length")
+        .expect_value_eq(7)?;
+
+    test()
+        .cwd(playground.path())
+        .run("ls * | length")
+        .expect_value_eq(7)?;
+
+>>>>>>> 1832dd598 (modernized more tests)
     Ok(())
 }

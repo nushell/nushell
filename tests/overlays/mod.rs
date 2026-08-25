@@ -1137,6 +1137,7 @@ fn overlay_use_export_env_hide() -> Result {
 
 #[test]
 fn overlay_use_do_cd(playground: Playground) -> Result {
+<<<<<<< HEAD
     playground.dir("test1/test2")?;
     playground.file("test1/test2/spam.nu", "export-env { cd test1/test2 }")?;
 
@@ -1144,6 +1145,14 @@ fn overlay_use_do_cd(playground: Playground) -> Result {
             overlay use test1/test2/spam.nu
             $env.PWD | path basename
         ";
+=======
+    playground.file("test1/test2/spam.nu", "export-env { cd test1/test2 }")?;
+
+    let code = "
+        overlay use test1/test2/spam.nu
+        $env.PWD | path basename
+    ";
+>>>>>>> 1832dd598 (modernized more tests)
 
     test()
         .cwd(playground.path())
@@ -1153,16 +1162,25 @@ fn overlay_use_do_cd(playground: Playground) -> Result {
 
 #[test]
 fn overlay_use_do_cd_file_relative(playground: Playground) -> Result {
+<<<<<<< HEAD
     playground.dir("test1/test2")?;
+=======
+>>>>>>> 1832dd598 (modernized more tests)
     playground.file(
         "test1/test2/spam.nu",
         "export-env { cd ($env.FILE_PWD | path join '..') }",
     )?;
 
     let code = "
+<<<<<<< HEAD
                 overlay use test1/test2/spam.nu
                 $env.PWD | path basename
             ";
+=======
+        overlay use test1/test2/spam.nu
+        $env.PWD | path basename
+    ";
+>>>>>>> 1832dd598 (modernized more tests)
 
     test()
         .cwd(playground.path())
@@ -1171,6 +1189,7 @@ fn overlay_use_do_cd_file_relative(playground: Playground) -> Result {
 }
 
 #[test]
+<<<<<<< HEAD
 fn overlay_hide_in_export_env_keeps_cd(playground: Playground) -> Result {
     playground.dir("test1/test2")?;
     playground.file(
@@ -1182,6 +1201,18 @@ fn overlay_hide_in_export_env_keeps_cd(playground: Playground) -> Result {
                         overlay hide spam
                     }
                 "},
+=======
+fn overlay_use_dont_cd_overlay(playground: Playground) -> Result {
+    playground.file(
+        "test1/test2/spam.nu",
+        indoc::indoc! {"
+            export-env {
+                overlay new spam
+                cd test1/test2
+                overlay hide spam
+            }
+        "},
+>>>>>>> 1832dd598 (modernized more tests)
     )?;
 
     let code = "
@@ -1192,7 +1223,11 @@ fn overlay_hide_in_export_env_keeps_cd(playground: Playground) -> Result {
     test()
         .cwd(playground.path())
         .run(code)
+<<<<<<< HEAD
         .expect_value_eq("test2")
+=======
+        .expect_value_eq(playground.path().file_name().unwrap().to_string_lossy())
+>>>>>>> 1832dd598 (modernized more tests)
 }
 
 #[test]
@@ -1634,11 +1669,19 @@ fn overlay_help_no_error() -> Result {
 fn test_overlay_use_with_printing_file_pwd(playground: Playground) -> Result {
     playground.file(
         "foo/mod.nu",
+<<<<<<< HEAD
         "
             export-env {
                 $env.OVERLAY_FILE_PWD = $env.FILE_PWD
             }
         ",
+=======
+        indoc::indoc! {"
+            export-env {
+                $env.OVERLAY_FILE_PWD = $env.FILE_PWD
+            }
+        "},
+>>>>>>> 1832dd598 (modernized more tests)
     )?;
 
     test()
@@ -1651,11 +1694,19 @@ fn test_overlay_use_with_printing_file_pwd(playground: Playground) -> Result {
 fn test_overlay_use_with_printing_current_file(playground: Playground) -> Result {
     playground.file(
         "foo/mod.nu",
+<<<<<<< HEAD
         "
             export-env {
                 $env.OVERLAY_CURRENT_FILE = $env.CURRENT_FILE
             }
         ",
+=======
+        indoc::indoc! {"
+            export-env {
+                $env.OVERLAY_CURRENT_FILE = $env.CURRENT_FILE
+            }
+        "},
+>>>>>>> 1832dd598 (modernized more tests)
     )?;
 
     test()
