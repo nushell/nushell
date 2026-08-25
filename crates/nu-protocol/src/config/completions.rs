@@ -59,6 +59,9 @@ pub struct ExternalCompleterConfig {
     pub enable: bool,
     pub max_results: i64,
     pub completer: Option<Closure>,
+    /// Run `completer` inline on the line-editor thread so it can drive a picker like `fzf`;
+    /// the closure's equivalent of the `@interactive` attribute.
+    pub interactive: bool,
 }
 
 impl Default for ExternalCompleterConfig {
@@ -67,6 +70,7 @@ impl Default for ExternalCompleterConfig {
             enable: true,
             max_results: 100,
             completer: None,
+            interactive: false,
         }
     }
 }
@@ -93,6 +97,7 @@ impl UpdateFromValue for ExternalCompleterConfig {
                 },
                 "max_results" => self.max_results.update(val, path, errors),
                 "enable" => self.enable.update(val, path, errors),
+                "interactive" => self.interactive.update(val, path, errors),
                 _ => errors.unknown_option(path, val),
             }
         }

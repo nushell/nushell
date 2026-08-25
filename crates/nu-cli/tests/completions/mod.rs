@@ -1026,6 +1026,36 @@ fn interactive_completer_runs_inline() {
     match_suggestions(&vec!["alpha"], result.suggestions());
 }
 
+/// The external completer is a closure and cannot carry `@interactive`; it opts into the
+/// inline lane through `completions.external.interactive`.
+#[test]
+fn interactive_external_completer_runs_inline() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let config = "\
+        $env.config.completions.external.completer = {|token| [alpha beta] }
+        $env.config.completions.external.interactive = true";
+    assert!(support::merge_input(config.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let line = "some-external al";
+    let result = completer.complete(line, line.len());
+    assert!(
+        matches!(result, CompletionResult::Fresh { .. }),
+        "an interactive external completer must run inline, got {result:?}"
+    );
+
+    // Left on the background worker by default: not routed inline.
+    let (_, _, mut engine, mut stack) = new_engine();
+    let config = "$env.config.completions.external.completer = {|token| [alpha beta] }";
+    assert!(support::merge_input(config.as_bytes(), &mut engine, &mut stack).is_ok());
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let result = completer.complete(line, line.len());
+    assert!(
+        !matches!(result, CompletionResult::Fresh { .. }),
+        "a plain external completer must stay on the worker, got {result:?}"
+    );
+}
+
 /// Suppress completions for invalid values
 #[test]
 fn customcompletions_invalid() {

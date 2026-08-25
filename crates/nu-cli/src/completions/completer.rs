@@ -574,17 +574,17 @@ fn isolated_stack(parent: Arc<Stack>, suppress_stdin: bool) -> Arc<Stack> {
     })
 }
 
-/// The decl of the user completer that would run at `site`, preferring an argument's own
-/// completer over the command-wide one — the order [`CompletionEngine::complete_argument_value`]
-/// tries them in. `None` for non-call sites and for builtin/list/external completers, which
-/// have no decl to carry an attribute (the external completer is a config closure).
-fn completer_decl_for_site(site: &CompletionSite, working_set: &StateWorkingSet) -> Option<DeclId> {
+/// The user completer that would run first at `site`, mirroring dispatch order. `None` when
+/// no user completer runs there.
+fn site_completer(site: &CompletionSite, working_set: &StateWorkingSet) -> Option<SiteCompleter> {
     let call = match &site.kind {
+        SiteKind::ExternalArg { .. } => return Some(SiteCompleter::External),
         SiteKind::FlagValue { call, .. } | SiteKind::Positional { call, .. } => *call,
         _ => return None,
     };
     let signature = working_set.get_decl(call.decl_id).signature();
 
+    // An argument's own completer runs before the command-wide one.
     let argument_completer = match &site.kind {
         SiteKind::FlagValue { flag, .. } => {
             find_flag(&signature, *flag).and_then(|flag| flag.completion)
@@ -595,13 +595,22 @@ fn completer_decl_for_site(site: &CompletionSite, working_set: &StateWorkingSet)
         _ => None,
     };
     if let Some(Completion::Command(decl_id)) = argument_completer {
-        return Some(decl_id);
+        return Some(SiteCompleter::Decl(decl_id));
     }
 
     match signature.complete {
-        Some(CommandWideCompleter::Command(decl_id)) => Some(decl_id),
-        _ => None,
+        Some(CommandWideCompleter::Command(decl_id)) => Some(SiteCompleter::Decl(decl_id)),
+        Some(CommandWideCompleter::External) => Some(SiteCompleter::External),
+        None => None,
     }
+}
+
+/// The user completer a site would run.
+enum SiteCompleter {
+    /// A named declaration carrying `@interactive` directly.
+    Decl(DeclId),
+    /// The configured external closure; a closure cannot carry attributes, so its config does.
+    External,
 }
 
 /// Whether `decl` carries the `@interactive` attribute (the `attr interactive` command).
@@ -947,9 +956,8 @@ impl<'engine> CompletionEngine<'engine> {
         )
     }
 
-    /// Whether the completer that would run at `position` is declared `@interactive`, and so
-    /// must run on the line-editor thread with the terminal to itself rather than on the
-    /// stdin-suppressed background worker. Parses and resolves the site but runs no completer.
+    /// Whether the completer that would run at `position` must run inline (`@interactive`)
+    /// rather than on the background worker. Parses and resolves the site; runs no completer.
     pub(crate) fn interactive_completer_at(&self, line: &str, position: usize) -> bool {
         let safe_position = line.floor_char_boundary(position);
         let sliced_line = &line[..safe_position];
@@ -969,8 +977,19 @@ impl<'engine> CompletionEngine<'engine> {
         };
         let site = self.resolve_completion_site(&block, &working_set, buffer, sliced_line);
 
-        completer_decl_for_site(&site, &working_set)
-            .is_some_and(|decl_id| decl_is_interactive(&working_set, decl_id))
+        self.site_is_interactive(&site, &working_set)
+    }
+
+    /// Whether the completer that would run first at `site` is interactive.
+    fn site_is_interactive(&self, site: &CompletionSite, working_set: &StateWorkingSet) -> bool {
+        match site_completer(site, working_set) {
+            Some(SiteCompleter::Decl(decl_id)) => decl_is_interactive(working_set, decl_id),
+            Some(SiteCompleter::External) => {
+                let external = &self.engine_state.get_config().completions.external;
+                external.interactive && external.completer.is_some()
+            }
+            None => false,
+        }
     }
 
     fn dispatch_completions_at(&self, line: &str, position: usize) -> Dispatched {
