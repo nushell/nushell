@@ -277,6 +277,7 @@ impl TryFrom<Vec<Attribute>> for TestAttributes {
 #[derive(Default)]
 pub struct TestArgs(Vec<(TestArg, Ident)>);
 
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum TestArg {
     Playground,
 }
@@ -303,6 +304,20 @@ impl TestArgs {
             let ident = pat_ident.ident.clone();
             match ident.to_string().as_str() {
                 "playground" | "play" | "pg" | "_playground" => {
+                    if let Some((_, first)) =
+                        args.0.iter().find(|(arg, _)| *arg == TestArg::Playground)
+                    {
+                        let mut err = syn::Error::new_spanned(
+                            ident,
+                            "duplicate `playground` injection",
+                        );
+                        err.combine(syn::Error::new_spanned(
+                            first,
+                            "first `playground` injection is here",
+                        ));
+                        return Err(err);
+                    }
+
                     args.0.push((TestArg::Playground, ident));
                 }
                 _ => {
