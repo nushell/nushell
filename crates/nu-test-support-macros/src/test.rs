@@ -70,6 +70,7 @@ pub fn test(mut item_fn: ItemFn) -> proc_macro2::TokenStream {
 
             const MODULE_PATH_WITHOUT_CRATE: &str = ::nu_test_support::module_path_without_crate!();
 
+            #[allow(clippy::used_underscore_binding, reason = "renaming idents is tedious here")]
             fn wrapper() -> TestResult {
                 #(#pre_test)*
                 ::nu_test_support::harness::IntoTestResult::into_test_result(#fn_ident(#(#fn_args),*))
