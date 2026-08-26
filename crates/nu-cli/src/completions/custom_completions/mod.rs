@@ -3,6 +3,7 @@ mod output;
 
 pub use input::InputShape;
 pub(crate) use input::declared_shape;
+use output::report;
 pub(crate) use output::{Returned, SpanClamp, map_value_completions};
 
 use crate::completions::{Completer, Context, Fetched};
@@ -12,7 +13,6 @@ use nu_protocol::{
     BlockId, DeclId, PipelineData, ShellError, Signature, Value, VarId,
     debugger::WithoutDebug,
     engine::{Closure, Command, EngineState, Stack, StateWorkingSet},
-    shell_error::generic::GenericError,
 };
 pub(crate) use output::CompleterOutput;
 use std::{borrow::Cow, sync::Arc};
@@ -186,16 +186,7 @@ impl Completer for UserCompletion {
         let value = match self.eval(ctx) {
             Ok(value) => value,
             Err(err) => {
-                log::error!(
-                    "{}",
-                    ShellError::Generic(
-                        GenericError::new_internal(
-                            "nu::shell::completion",
-                            "failed to eval completer block",
-                        )
-                        .with_inner([err]),
-                    )
-                );
+                report(format!("failed to eval completer block: {err}"));
                 // Not an empty success: an external completer failing still lets file
                 // completion answer; a parameter completer failing must not dump the
                 // whole directory in place of its argument.

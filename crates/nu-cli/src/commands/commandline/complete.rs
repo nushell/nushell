@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use nu_engine::command_prelude::*;
-use nu_protocol::FromValue;
+use nu_protocol::{FromValue, shell_error::generic::GenericError};
 
 use crate::completions::{
     Buffer, CommandCompletion, CommandScope, Completer, CompletionEngine, DirectoryCompletion,
@@ -168,6 +168,29 @@ completions, which is the supported way to develop and test a completer from ins
             None => None,
         };
 
+        // Interactive completers require the line editor's terminal.
+        if completion_type.is_none()
+            && !engine_state.is_interactive
+            && CompletionEngine::new(engine_state, stack)
+                .interactive_completer_at(&buffer, cursor_position)
+        {
+            return Err(ShellError::Generic(
+                GenericError::new(
+                    "An `@interactive` completer cannot run here",
+                    "this position completes with a terminal picker, which needs the terminal",
+                    call_span,
+                )
+                .with_help(
+                    "`@interactive` completers are run by the line editor, which is the only \
+                     thing that can hand one the terminal. \
+                     To inspect this completer from a script instead, \
+                     `commandline complete --input` returns the record it would receive \
+                     without running it.",
+                )
+                .with_code("nu::shell::interactive_completer_needs_a_terminal"),
+            ));
+        }
+
         let completions = fetch_completions(
             engine_state,
             stack,
@@ -224,13 +247,13 @@ completions, which is the supported way to develop and test a completer from ins
             Example {
                 description: "Compose a built-in source inside a completer: the engine's \
                               command names beside your own.",
-                example: "def comp [token] { [my-alias] ++ ($token.text | commandline complete --type command) }",
+                example: "def comp [token: record] { [my-alias] ++ ($token.text | commandline complete --type command) }",
                 result: None,
             },
             Example {
                 description: "Return `fallback: true` to add completions beside the built-in \
                               ones rather than replacing them.",
-                example: "def comp [token] { {completions: [my-preset], fallback: true} }",
+                example: "def comp [token: record] { {completions: [my-preset], fallback: true} }",
                 result: None,
             },
             Example {

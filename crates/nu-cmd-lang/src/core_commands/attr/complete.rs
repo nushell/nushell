@@ -55,7 +55,7 @@ impl Command for AttrComplete {
         vec![Example {
             description: "Use another command as completion source.",
             example: "\
-                def complete-foo [token] {\n    \
+                def complete-foo [token: record] {\n    \
                     [bar baz qux spam eggs] | where $it != $token.text\n\
                 }\n\n\
                 @complete 'complete-foo'\n\

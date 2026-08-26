@@ -366,7 +366,7 @@ $env.config.completions.external.completer = null
 # the `@interactive` attribute to run on the line-editor thread with the terminal to itself,
 # so it can drive a picker like `fzf` or `input list`:
 # @interactive
-# def pick-file [token] { ls | get name | to text | ^fzf --query $token.text }
+# def pick-file [token: record] { ls | get name | to text | ^fzf --query $token.text | lines }
 # Every other completer runs on a background worker instead: non-blocking, and cached. The
 # external completer above is a closure, which cannot carry an attribute, so it opts into the
 # same lane through `external.interactive` below.

@@ -4,10 +4,7 @@ use crate::completions::{
     to_reedline_span,
 };
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
-use nu_protocol::{
-    FromValue, ShellError, SuggestionKind, Type, Value, engine::CommandType,
-    shell_error::generic::GenericError,
-};
+use nu_protocol::{FromValue, ShellError, SuggestionKind, Type, Value, engine::CommandType};
 use nu_utils::strip_ansi_string_unlikely;
 use reedline::Suggestion;
 
@@ -21,36 +18,15 @@ pub(crate) struct CompleterOutput {
     fallback: bool,
 }
 
-/// Report something a completer returned that could not be used. Nothing here is fatal —
-/// the rest of the return still stands — so the message is the only way a completer author
-/// learns of it.
-fn report(message: impl Into<String>) {
-    log::error!(
-        "{}",
-        ShellError::Generic(GenericError::new_internal(
-            "nu::shell::completion",
-            message.into(),
-        ))
-    );
+/// Log a non-fatal completer error without disrupting line editing.
+pub(super) fn report(message: impl AsRef<str>) {
+    log::error!("nu::shell::completion: {}", message.as_ref());
 }
 
-/// Read one part of what a completer returned, naming it when it does not fit. A part that
-/// fails costs that part alone: a bad `options` keeps the completions returned beside it, a
-/// bad `span` keeps the suggestion around it.
+/// Convert a completer result field, logging conversion failures.
 fn read_part<T: FromValue>(value: Value, what: &str) -> Option<T> {
     T::from_value(value)
-        .map_err(|err| {
-            log::error!(
-                "{}",
-                ShellError::Generic(
-                    GenericError::new_internal(
-                        "nu::shell::completion",
-                        format!("a completer's {what} is not usable"),
-                    )
-                    .with_inner([err]),
-                )
-            );
-        })
+        .map_err(|err| report(format!("a completer's {what} is not usable: {err}")))
         .ok()
 }
 
