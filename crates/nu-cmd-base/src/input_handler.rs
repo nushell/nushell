@@ -13,6 +13,12 @@ pub struct CellPathOnlyArgs {
     cell_paths: Option<Vec<CellPath>>,
 }
 
+impl CellPathOnlyArgs {
+    pub const fn empty() -> Self {
+        CellPathOnlyArgs { cell_paths: None }
+    }
+}
+
 impl CmdArgument for CellPathOnlyArgs {
     fn take_cell_paths(&mut self) -> Option<Vec<CellPath>> {
         self.cell_paths.take()
