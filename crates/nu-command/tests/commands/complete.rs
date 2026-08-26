@@ -34,8 +34,6 @@ fn error() -> Result {
 #[test]
 #[cfg(not(windows))]
 fn capture_error_with_too_much_stderr_not_hang_nushell(playground: Playground) -> Result {
-    use nu_test_support::fs::Stub::FileWithContent;
-    use nu_test_support::playground::Playground;
     let bytes: usize = 81920;
     let mut large_file_body = String::with_capacity(bytes);
     for _ in 0..bytes {
@@ -57,8 +55,6 @@ fn capture_error_with_too_much_stderr_not_hang_nushell(playground: Playground) -
 #[test]
 #[cfg(not(windows))]
 fn capture_error_with_too_much_stdout_not_hang_nushell(playground: Playground) -> Result {
-    use nu_test_support::fs::Stub::FileWithContent;
-    use nu_test_support::playground::Playground;
     let bytes: usize = 81920;
     let mut large_file_body = String::with_capacity(bytes);
     for _ in 0..bytes {
@@ -82,8 +78,6 @@ fn capture_error_with_too_much_stdout_not_hang_nushell(playground: Playground) -
 fn capture_error_with_both_stdout_stderr_messages_not_hang_nushell(
     playground: Playground,
 ) -> Result {
-    use nu_test_support::fs::Stub::FileWithContent;
-    use nu_test_support::playground::Playground;
     let script_body = "
             x=$(printf '=%.0s' $(seq 40960))
             echo $x

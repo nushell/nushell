@@ -3428,15 +3428,14 @@ fn exact_match() {
 
 #[cfg(all(not(windows), not(target_os = "macos")))]
 #[test]
-fn exact_match_case_insensitive(playground: Playground) {
-    use nu_test_support::playground::Playground;
+fn exact_match_case_insensitive(playground: Playground) -> Result {
     use support::completions_helpers::new_engine_helper;
 
     playground.dir("AA/foo")?;
     playground.dir("aa/foo")?;
     playground.dir("aaa/foo")?;
 
-    let (dir, _, engine, stack) = new_engine_helper(playground.path().into());
+    let (dir, _, engine, stack) = new_engine_helper(playground.path().try_into().unwrap());
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
     let target = format!("open {}", folder(dir.join("aa")));
@@ -3448,6 +3447,8 @@ fn exact_match_case_insensitive(playground: Playground) {
         ],
         &completer.complete_blocking(&target, target.len()),
     );
+
+    Ok(())
 }
 
 #[rstest]

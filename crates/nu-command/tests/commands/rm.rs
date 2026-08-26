@@ -471,7 +471,7 @@ fn rm_files_with_glob_metachars_nw(
     #[ignore] playground: Playground,
     #[case] src_name: &str,
 ) -> Result {
-    rm_files_with_glob_metachars(&playground, src_name)
+    rm_files_with_glob_metachars(playground, src_name)
 }
 
 #[test]

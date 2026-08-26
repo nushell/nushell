@@ -1,6 +1,5 @@
-use std::os::unix::fs::MetadataExt;
+use std::{os::unix::fs::MetadataExt, path::Path};
 
-use nu_path::AbsolutePath;
 use nu_protocol::ShellError;
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_matches;
@@ -17,8 +16,8 @@ fn mask_get() -> Result {
     Ok(())
 }
 
-fn get_perms(path: &AbsolutePath) -> u32 {
-    path.metadata().unwrap().mode() & 0o777
+fn get_perms(path: impl AsRef<Path>) -> u32 {
+    path.as_ref().metadata().unwrap().mode() & 0o777
 }
 
 #[test]
@@ -48,7 +47,7 @@ fn mask_set(playground: Playground) -> Result {
 }
 
 #[test]
-fn mask_set_invalid1(playground: Playground) -> Result {
+fn mask_set_invalid1() -> Result {
     let err = test().run("umask invalid").expect_shell_error()?;
 
     assert_matches!(
@@ -59,7 +58,7 @@ fn mask_set_invalid1(playground: Playground) -> Result {
 }
 
 #[test]
-fn mask_set_invalid2(playground: Playground) -> Result {
+fn mask_set_invalid2() -> Result {
     let err = test().run("umask r-x").expect_shell_error()?;
 
     assert_matches!(
@@ -70,7 +69,7 @@ fn mask_set_invalid2(playground: Playground) -> Result {
 }
 
 #[test]
-fn mask_set_invalid3(playground: Playground) -> Result {
+fn mask_set_invalid3_() -> Result {
     let err = test()
         .run("umask rwxrwxrwxrwx---rwx")
         .expect_shell_error()?;

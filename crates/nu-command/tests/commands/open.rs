@@ -434,8 +434,11 @@ fn open_variable_file_with_glob_metachars(
 #[case("a]?c")]
 #[case("a*.?c")]
 // windows doesn't allow filename with `*`.
-fn open_literal_files_with_glob_metachars_nw(#[case] src_name: &str) -> Result {
-    open_literal_file_with_glob_metachars(src_name)
+fn open_literal_files_with_glob_metachars_nw(
+    #[ignore] playground: Playground,
+    #[case] src_name: &str,
+) -> Result {
+    open_literal_file_with_glob_metachars(playground, src_name)
 }
 
 #[cfg(not(windows))]
@@ -443,8 +446,11 @@ fn open_literal_files_with_glob_metachars_nw(#[case] src_name: &str) -> Result {
 #[case("a]?c")]
 #[case("a*.?c")]
 // windows doesn't allow filename with `*`.
-fn open_variable_files_with_glob_metachars_nw(#[case] src_name: &str) -> Result {
-    open_variable_file_with_glob_metachars(src_name)
+fn open_variable_files_with_glob_metachars_nw(
+    #[ignore] playground: Playground,
+    #[case] src_name: &str,
+) -> Result {
+    open_variable_file_with_glob_metachars(playground, src_name)
 }
 
 #[test]
