@@ -1,149 +1,147 @@
 use std::collections::HashMap;
 
-use crate::repl::tests::{TestResult, fail_test, run_test, run_test_contains};
 use miette::Diagnostic;
 use nu_experimental::ENFORCE_RUNTIME_ANNOTATIONS;
 use nu_test_support::prelude::*;
+use pretty_assertions::assert_matches;
 use rstest::rstest;
 
-#[test]
-fn chained_operator_typecheck() -> TestResult {
-    run_test("1 != 2 and 3 != 4 and 5 != 6", "true")
+#[rstest]
+#[case::chained_operator_typecheck("1 != 2 and 3 != 4 and 5 != 6", true)]
+#[case::type_in_list_of_this_type("42 in [41 42 43]", true)]
+#[case::number_int("def foo [x:number] { $x }; foo 1", 1)]
+#[case::number_float("def foo [x:number] { $x }; foo 1.4", 1.4)]
+#[case::date_minus_duration("2023-04-22 - 2day | format date %Y-%m-%d", "2023-04-20")]
+#[case::date_plus_duration("2023-04-18 + 2day | format date %Y-%m-%d", "2023-04-20")]
+#[case::duration_plus_date(
+    "2024-11-10T00:00:00-00:00 + 4hr | format date",
+    "Sun, 10 Nov 2024 04:00:00 +0000"
+)]
+#[case::record_subtyping(
+    "def test [rec: record<name: string, age: int>] { $rec | describe };
+    test { age: 4, name: 'John' }",
+    "record<age: int, name: string>"
+)]
+#[case::record_subtyping_2(
+    "def test [rec: record<name: string, age: int>] { $rec | describe };
+    test { age: 4, name: 'John', height: '5-9' }",
+    "record<age: int, name: string, height: string>"
+)]
+#[case::record_subtyping_allows_general_record(
+    "def test []: record<name: string, age: int> -> string { $in; 'success' };
+    def underspecified []: nothing -> record {{name:'Douglas', age:42}};
+    underspecified | test",
+    "success"
+)]
+#[case::record_subtyping_allows_record_after_general_command(
+    "def test []: record<name: string, age: int> -> string { $in; 'success' };
+    {name:'Douglas', surname:'Adams', age:42} | select name age | test",
+    "success"
+)]
+fn successful_typecheck_cases(#[case] input: &str, #[case] expected: impl IntoValue) -> Result {
+    test().run(input).expect_value_eq(expected)
+}
+
+#[rstest]
+#[case::record_subtyping_allows_general_inner(
+    "def merge_records [other: record<bar: int>]: record<foo: string> -> record<foo: string, bar: int> { merge $other }"
+)]
+#[case::record_subtyping_works(
+    r#"def merge_records [other: record<bar: int>] { "" }; merge_records {"bar": 3, "foo": 4}"#
+)]
+#[case::in_variable_expression_correct_output_type(
+    r#"def foo []: nothing -> string { 'foo' | $"($in)" }"#
+)]
+fn successful_typecheck_without_output(#[case] input: &str) -> Result {
+    let _: Value = test().run(input)?;
+    Ok(())
+}
+
+#[rstest]
+#[case::type_in_list_of_non_this_type(
+    "'hello' in [41 42 43]",
+    "nu::parser::operator_incompatible_types"
+)]
+#[case::duration_minus_date_not_supported(
+    "2day - 2023-04-22",
+    "nu::parser::operator_incompatible_types"
+)]
+#[case::pipeline_input_on_rhs_is_type_checked(
+    r#"def test []: int -> any { "x" + $in }; 3 | test"#,
+    "nu::parser::operator_incompatible_types"
+)]
+#[case::array_of_wrong_types(
+    "0..128 | each {} | into string | bytes collect",
+    "nu::shell::only_supports_this_input_type"
+)]
+fn failing_typecheck_error_code_cases(#[case] input: &str, #[case] expected: &str) -> Result {
+    test().run(input).expect_error_code_eq(expected)
+}
+
+#[rstest]
+#[case::int_record_mismatch("def foo [x:int] { $x }; foo {}", "int", "record")]
+#[case::record_subtyping_3(
+    "def test [rec: record<name: string, age: int>] { $rec | describe };
+    test { name: 'Nu' }",
+    "record<name: string, age: int>",
+    "record<name: string>"
+)]
+fn failing_typecheck_type_mismatch_cases(
+    #[case] input: &str,
+    #[case] expected_type: &str,
+    #[case] found_type: &str,
+) -> Result {
+    let err = test().run(input).expect_parse_error()?;
+
+    assert_matches!(
+        err,
+        ParseError::TypeMismatch(expected, found, _)
+            if expected.to_string() == expected_type && found.to_string() == found_type
+    );
+    Ok(())
+}
+
+#[rstest]
+#[case::block_not_first_class_def(
+    "def foo [x: block] { do $x }",
+    "Blocks are not support as first-class values"
+)]
+#[case::block_not_first_class_let(
+    "let x: block = { 3 }",
+    "Blocks are not support as first-class values"
+)]
+fn block_types_are_not_first_class(#[case] input: &str, #[case] expected_error: &str) -> Result {
+    let err = test().run(input).expect_parse_error()?;
+
+    assert_matches!(
+        err,
+        ParseError::LabeledErrorWithHelp { error, .. } if error == expected_error
+    );
+    Ok(())
 }
 
 #[test]
-fn type_in_list_of_this_type() -> TestResult {
-    run_test("42 in [41 42 43]", "true")
+fn in_variable_expression_wrong_output_type() -> Result {
+    let err = test()
+        .run(r#"def foo []: nothing -> int { 'foo' | $"($in)" }"#)
+        .expect_parse_error()?;
+
+    assert_matches!(
+        err,
+        ParseError::OutputMismatch(expected, actual, _)
+            if expected.to_string() == "int" && actual == "string"
+    );
+    Ok(())
 }
 
 #[test]
-fn type_in_list_of_non_this_type() -> TestResult {
-    fail_test(
-        "'hello' in [41 42 43]",
-        "nu::parser::operator_incompatible_types",
-    )
-}
+fn in_oneof_block_expected_block() -> Result {
+    let err = test()
+        .run("match 1 { 0 => { try 3 } }")
+        .expect_parse_error()?;
 
-#[test]
-fn number_int() -> TestResult {
-    run_test("def foo [x:number] { $x }; foo 1", "1")
-}
-
-#[test]
-fn int_record_mismatch() -> TestResult {
-    fail_test("def foo [x:int] { $x }; foo {}", "expected int")
-}
-
-#[test]
-fn number_float() -> TestResult {
-    run_test("def foo [x:number] { $x }; foo 1.4", "1.4")
-}
-
-#[test]
-fn date_minus_duration() -> TestResult {
-    let input = "2023-04-22 - 2day | format date %Y-%m-%d";
-    let expected = "2023-04-20";
-    run_test(input, expected)
-}
-
-#[test]
-fn duration_minus_date_not_supported() -> TestResult {
-    fail_test(
-        "2day - 2023-04-22",
-        "nu::parser::operator_incompatible_types",
-    )
-}
-
-#[test]
-fn date_plus_duration() -> TestResult {
-    let input = "2023-04-18 + 2day | format date %Y-%m-%d";
-    let expected = "2023-04-20";
-    run_test(input, expected)
-}
-
-#[test]
-fn duration_plus_date() -> TestResult {
-    let input = "2024-11-10T00:00:00-00:00 + 4hr | format date";
-    let expected = "Sun, 10 Nov 2024 04:00:00 +0000";
-    run_test(input, expected)
-}
-
-#[test]
-fn block_not_first_class_def() -> TestResult {
-    fail_test(
-        "def foo [x: block] { do $x }",
-        "Blocks are not support as first-class values",
-    )
-}
-
-#[test]
-fn block_not_first_class_let() -> TestResult {
-    fail_test(
-        "let x: block = { 3 }",
-        "Blocks are not support as first-class values",
-    )
-}
-
-#[test]
-fn record_subtyping() -> TestResult {
-    run_test(
-        "def test [rec: record<name: string, age: int>] { $rec | describe };
-        test { age: 4, name: 'John' }",
-        "record<age: int, name: string>",
-    )
-}
-
-#[test]
-fn record_subtyping_2() -> TestResult {
-    run_test(
-        "def test [rec: record<name: string, age: int>] { $rec | describe };
-        test { age: 4, name: 'John', height: '5-9' }",
-        "record<age: int, name: string, height: string>",
-    )
-}
-
-#[test]
-fn record_subtyping_3() -> TestResult {
-    fail_test(
-        "def test [rec: record<name: string, age: int>] { $rec | describe };
-        test { name: 'Nu' }",
-        "expected",
-    )
-}
-
-#[test]
-fn record_subtyping_allows_general_record() -> TestResult {
-    run_test(
-        "def test []: record<name: string, age: int> -> string { $in; echo 'success' };
-        def underspecified []: nothing -> record {{name:'Douglas', age:42}};
-        underspecified | test",
-        "success",
-    )
-}
-
-#[test]
-fn record_subtyping_allows_record_after_general_command() -> TestResult {
-    run_test(
-        "def test []: record<name: string, age: int> -> string { $in; echo 'success' };
-        {name:'Douglas', surname:'Adams', age:42} | select name age | test",
-        "success",
-    )
-}
-
-#[test]
-fn record_subtyping_allows_general_inner() -> TestResult {
-    run_test(
-        "def merge_records [other: record<bar: int>]: record<foo: string> -> record<foo: string, bar: int> { merge $other }",
-        "",
-    )
-}
-
-#[test]
-fn record_subtyping_works() -> TestResult {
-    run_test(
-        r#"def merge_records [other: record<bar: int>] { "" }; merge_records {"bar": 3, "foo": 4}"#,
-        "",
-    )
+    assert_matches!(err, ParseError::Expected("block, closure or record", _));
+    Ok(())
 }
 
 #[rstest]
@@ -182,67 +180,62 @@ fn record_subtyping_works() -> TestResult {
     "let a: any = 1; let b: int = 2; let foo = [ [bar]; [$a], [$b] ];",
     "table<bar: any>"
 )]
-#[test]
-fn collection_supertype_inference(
-    #[case] assignment: &str,
-    #[case] expected_type: &str,
-) -> TestResult {
-    run_test(
-        &format!(r#"{assignment} scope variables | where name == "$foo" | first | get type"#),
-        expected_type,
-    )
+fn collection_supertype_inference(#[case] assignment: &str, #[case] expected_type: &str) -> Result {
+    test()
+        .run(format!(
+            r#"{assignment} scope variables | where name == "$foo" | first | get type"#
+        ))
+        .expect_value_eq(expected_type)
 }
 
-#[test]
-fn pipeline_oneof() -> TestResult {
-    // Empty is compatible with oneof<nothing, ..>
-    run_test(
-        "def f []: [oneof<int, nothing> -> nothing] { describe }; f",
-        "nothing",
-    )?;
-    // ByteStream is compatible with oneof<binary, ..>
-    run_test(
-        "def f []: [oneof<int, binary> -> nothing] { describe }; [0x[01]] | bytes collect | f",
-        "binary (stream)",
-    )?;
-    // ListStream is compatible with oneof<list, ..>>
-    run_test(
-        "def f []: [oneof<string, list<int>> -> nothing] { describe }; [1] | each {} | f",
-        "list<int> (stream)",
-    )
+#[rstest]
+#[case::empty(
+    "def f []: [oneof<int, nothing> -> nothing] { describe }; f",
+    "nothing"
+)]
+#[case::byte_stream(
+    "def f []: [oneof<int, binary> -> nothing] { describe }; [0x[01]] | bytes collect | f",
+    "binary (stream)"
+)]
+#[case::list_stream(
+    "def f []: [oneof<string, list<int>> -> nothing] { describe }; [1] | each {} | f",
+    "list<int> (stream)"
+)]
+fn pipeline_oneof(#[case] input: &str, #[case] expected: &str) -> Result {
+    test().run(input).expect_value_eq(expected)
 }
 
 #[rstest]
 #[case::filter_output_union(
     "
-    let pending = ([a] | each {} | collect | skip 0)
-    for item in $pending {}
+        let pending = ([a] | each {} | collect | skip 0)
+        for item in $pending {}
     "
 )]
 #[case::union_of_iterables(
     "
-    def choose []: nothing -> oneof<list<list<string>>, list<int>> {
-        [[a]]
-    }
-    for item in (choose) {}
+        def choose []: nothing -> oneof<list<list<string>>, list<int>> {
+            [[a]]
+        }
+        for item in (choose) {}
     "
 )]
 #[case::static_list_source(
     "
-    let pending: oneof<table, binary, list<int>> = [1 2 3]
-    for item in $pending {}
+        let pending: oneof<table, binary, list<int>> = [1 2 3]
+        for item in $pending {}
     "
 )]
 #[case::static_table_source(
     "
-    let pending: oneof<table, binary, list<int>> = [[a b]; [1 2], [3 4]]
-    for item in $pending {}
+        let pending: oneof<table, binary, list<int>> = [[a b]; [1 2], [3 4]]
+        for item in $pending {}
     "
 )]
 #[case::static_binary_source(
     "
-    let pending: oneof<table, binary, list<int>> = 0x[deadbeef]
-    for item in $pending {}
+        let pending: oneof<table, binary, list<int>> = 0x[deadbeef]
+        for item in $pending {}
     "
 )]
 #[test]
@@ -284,32 +277,12 @@ fn for_loop_incorrect_type_raises_error() -> Result {
 }
 
 #[test]
-fn transpose_into_load_env() -> TestResult {
-    run_test(
-        "[[col1, col2]; [a, 10], [b, 20]] | transpose --ignore-titles -r -d | load-env; $env.a",
-        "10",
-    )
-}
-
-#[test]
-fn in_variable_expression_correct_output_type() -> TestResult {
-    run_test(r#"def foo []: nothing -> string { 'foo' | $"($in)" }"#, "")
-}
-
-#[test]
-fn in_variable_expression_wrong_output_type() -> TestResult {
-    fail_test(
-        r#"def foo []: nothing -> int { 'foo' | $"($in)" }"#,
-        "expected int",
-    )
-}
-
-#[test]
-fn pipeline_input_on_rhs_is_type_checked() -> TestResult {
-    fail_test(
-        r#"def test []: int -> any { "x" + $in }; 3 | test"#,
-        "nu::parser::operator_incompatible_types",
-    )
+fn transpose_into_load_env() -> Result {
+    test()
+        .run(
+            "[[col1, col2]; [a, 10], [b, 20]] | transpose --ignore-titles -r -d | load-env; $env.a",
+        )
+        .expect_value_eq(10)
 }
 
 #[rstest]
@@ -318,82 +291,50 @@ fn pipeline_input_on_rhs_is_type_checked() -> TestResult {
 #[case("match 1 { 0 => { foo 1 } }")]
 #[case("try { } catch { foo 1 }")]
 /// type errors should propagate from `OneOf(Block | Closure | Expression, ..)`
-fn in_oneof_block_expected_type(#[case] input: &str) -> TestResult {
+fn in_oneof_block_expected_type(#[case] input: &str) -> Result {
     let def = "def foo [bar: bool] {};";
+    let err = test().run(format!("{def} {input}")).expect_parse_error()?;
 
-    fail_test(&format!("{def} {input}"), "expected bool")
+    assert_matches!(err, ParseError::ExpectedWithStringMsg(expected, _) if expected == "bool");
+    Ok(())
 }
 
 #[test]
-fn in_oneof_block_expected_block() -> TestResult {
-    fail_test("match 1 { 0 => { try 3 } }", "expected block")
-}
-
-#[test]
-fn pipeline_multiple_types() -> TestResult {
+fn pipeline_multiple_types() -> Result {
     // https://github.com/nushell/nushell/issues/15485
-    run_test_contains("{year: 2019} | into datetime | date humanize", "years ago")
+    let actual: String = test().run("{year: 2019} | into datetime | date humanize")?;
+    assert_contains("years ago", actual);
+    Ok(())
 }
 
 const MULTIPLE_TYPES_DEFS: &str = "
-def foo []: [int -> int, int -> string] {
-  if $in > 2 { 'hi' } else 4
-}
-def bar []: [int -> filesize, string -> string] {
-  if $in == 'hi' { 'meow' } else { into filesize }
-}
+    def foo []: [int -> int, int -> string] {
+        if $in > 2 { 'hi' } else 4
+    }
+
+    def bar []: [int -> filesize, string -> string] {
+        if $in == 'hi' { 'meow' } else { into filesize }
+    }
 ";
 
-#[test]
-fn pipeline_multiple_types_custom() -> TestResult {
-    run_test(
-        &format!(
-            "{MULTIPLE_TYPES_DEFS}
-            5 | foo | str trim"
-        ),
-        "hi",
-    )
+#[rstest]
+#[case::custom("5 | foo | str trim", "hi")]
+#[case::propagate_string("5 | foo | bar | str trim", "meow")]
+#[case::propagate_int("2 | foo | bar | format filesize B", "4 B")]
+fn pipeline_multiple_types_propagates(#[case] pipeline: &str, #[case] expected: &str) -> Result {
+    test()
+        .run(format!("{MULTIPLE_TYPES_DEFS}{pipeline}"))
+        .expect_value_eq(expected)
 }
 
 #[test]
-fn pipeline_multiple_types_propagate_string() -> TestResult {
-    run_test(
-        &format!(
-            "{MULTIPLE_TYPES_DEFS}
-            5 | foo | bar | str trim"
-        ),
-        "meow",
-    )
-}
-
-#[test]
-fn pipeline_multiple_types_propagate_int() -> TestResult {
-    run_test(
-        &format!(
-            "{MULTIPLE_TYPES_DEFS}
-            2 | foo | bar | format filesize B"
-        ),
-        "4 B",
-    )
-}
-
-#[test]
-fn pipeline_multiple_types_propagate_error() -> TestResult {
-    fail_test(
-        &format!(
+fn pipeline_multiple_types_propagate_error() -> Result {
+    test()
+        .run(format!(
             "{MULTIPLE_TYPES_DEFS}
             2 | foo | bar | values"
-        ),
-        "parser::input_type_mismatch",
-    )
-}
-
-#[test]
-fn array_of_wrong_types() -> TestResult {
-    fail_test(
-        "0..128 | each {} | into string | bytes collect",
-        "nu::shell::only_supports_this_input_type",
-    )
+        ))
+        .expect_error_code_eq("nu::parser::input_type_mismatch")
 }
 
 #[test]
