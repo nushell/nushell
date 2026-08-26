@@ -1127,6 +1127,33 @@ fn interactive_external_completer_runs_inline() {
     );
 }
 
+/// A tagged external completer carries its own interactivity setting.
+#[rstest]
+#[case::interactive_true(true, true)]
+#[case::interactive_false(false, false)]
+fn tagged_external_completer_carries_its_own_interactivity(
+    #[case] interactive: bool,
+    #[case] runs_inline: bool,
+) {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let config = format!(
+        "$env.config.completions.external.completer = {{
+            closure: {{|contexts| [alpha beta] }}
+            interactive: {interactive}
+        }}"
+    );
+    assert!(support::merge_input(config.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let line = "some-external al";
+    let result = completer.complete(line, line.len());
+    assert_eq!(
+        matches!(result, CompletionResult::Fresh { .. }),
+        runs_inline,
+        "interactive={interactive} should decide inline-vs-worker, got {result:?}"
+    );
+}
+
 /// Suppress completions for invalid values
 #[test]
 fn customcompletions_invalid() {

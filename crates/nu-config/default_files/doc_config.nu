@@ -312,8 +312,8 @@ $env.config.completions.external.enable = true
 # Default: 100
 $env.config.completions.external.max_results = 100
 
-# completions.external.completer (closure|null): Custom closure for argument completions.
-# Usually set to call a third-party completion system like Carapace.
+# completions.external.completer (closure|record|null): Custom closure for argument
+# completions. Usually set to call a third-party completion system like Carapace.
 #
 # A completer receives its inputs through the parameters it declares, each bound by name
 # (order does not matter; an unrecognized name receives nothing):
@@ -367,14 +367,25 @@ $env.config.completions.external.completer = null
 # so it can drive a picker like `fzf` or `input list`:
 # @interactive
 # def pick-file [token: record] { ls | get name | to text | ^fzf --query $token.text | lines }
-# Every other completer runs on a background worker instead: non-blocking, and cached. The
-# external completer above is a closure, which cannot carry an attribute, so it opts into the
-# same lane through `external.interactive` below.
+# Every other completer runs on a background worker instead: non-blocking, and cached.
+#
+# A closure cannot carry an attribute, so `external.completer` accepts a `{closure,
+# interactive}` record instead — interactivity travels with the closure it belongs to,
+# rather than a separate field you have to remember to set alongside it:
+# $env.config.completions.external.completer = {
+#   closure: {|contexts|
+#     ls | get name | to text | ^fzf --query $contexts.tokens.0.text | lines
+#   }
+#   interactive: true
+# }
+# `interactive` may be omitted (defaults to false, same as a bare closure). A bare closure is
+# still accepted for existing configs; it reads the separate `external.interactive` field
+# below instead, since there is nowhere on a bare closure to carry its own answer.
 
 # completions.external.interactive (bool): Run `external.completer` inline on the line-editor
 # thread with the terminal to itself, so it can drive a picker like `fzf` or `input list` —
-# the closure's equivalent of the `@interactive` attribute. Has no effect unless a completer
-# is set.
+# only read when `completer` is a bare closure. A `{closure, interactive}` record carries its
+# own answer and ignores this field entirely.
 # false: Keep the completer on the background worker: non-blocking, and cached.
 # Default: false
 $env.config.completions.external.interactive = false

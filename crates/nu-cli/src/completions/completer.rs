@@ -8,8 +8,8 @@ use crate::completions::{
 use lru::LruCache;
 use nu_parser::{parse, parse_shorter_head_reading};
 use nu_protocol::{
-    BlockId, BuiltinCompletion, CommandWideCompleter, Completion, DeclId, Flag, Record, Signature,
-    Span, SuggestionKind, Value,
+    BlockId, BuiltinCompletion, CommandWideCompleter, Completion, DeclId, ExternalCompleter, Flag,
+    Record, Signature, Span, SuggestionKind, Value,
     ast::{
         Argument, AttributeBlock, Block, Call, Expr, Expression, ExternalArgument, FlagRef,
         FullCellPath, PipelineRedirection, RedirectionTarget, Traverse,
@@ -1006,7 +1006,13 @@ impl<'engine> CompletionEngine<'engine> {
             Some(SiteCompleter::Decl(decl_id)) => decl_is_interactive(working_set, decl_id),
             Some(SiteCompleter::External) => {
                 let external = &self.engine_state.get_config().completions.external;
-                external.interactive && external.completer.is_some()
+                match &external.completer {
+                    // A bare closure defers to the sibling `interactive` field.
+                    Some(ExternalCompleter::Closure(_)) => external.interactive,
+                    // `{closure, interactive}` carries its own answer.
+                    Some(ExternalCompleter::Tagged { interactive, .. }) => *interactive,
+                    None => false,
+                }
             }
             None => false,
         }
@@ -1257,8 +1263,9 @@ impl<'engine> CompletionEngine<'engine> {
             .external
             .completer
             .as_ref()
-            .is_some_and(|closure| {
-                dispatched.absorb(UserCompletion::closure(closure).fetch(completion_context))
+            .is_some_and(|completer| {
+                dispatched
+                    .absorb(UserCompletion::closure(completer.closure()).fetch(completion_context))
             });
 
         // Subcommands extending this call suppress the file fallback.
@@ -1943,7 +1950,7 @@ impl<'engine> CompletionEngine<'engine> {
                 .external
                 .completer
                 .as_ref()
-                .map(UserCompletion::closure),
+                .map(|completer| UserCompletion::closure(completer.closure())),
             None => None,
         };
 

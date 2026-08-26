@@ -54,13 +54,45 @@ impl UpdateFromValue for CompletionSort {
     }
 }
 
+/// Configured external completion closure and its optional interactive setting.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum ExternalCompleter {
+    Closure(Closure),
+    Tagged { closure: Closure, interactive: bool },
+}
+
+impl ExternalCompleter {
+    pub fn closure(&self) -> &Closure {
+        match self {
+            Self::Closure(closure) | Self::Tagged { closure, .. } => closure,
+        }
+    }
+}
+
+impl IntoValue for ExternalCompleter {
+    fn into_value(self, span: Span) -> Value {
+        match self {
+            Self::Closure(closure) => closure.into_value(span),
+            Self::Tagged {
+                closure,
+                interactive,
+            } => Value::record(
+                record! {
+                    "closure" => closure.into_value(span),
+                    "interactive" => interactive.into_value(span),
+                },
+                span,
+            ),
+        }
+    }
+}
+
 #[derive(Clone, Debug, IntoValue, Serialize, Deserialize)]
 pub struct ExternalCompleterConfig {
     pub enable: bool,
     pub max_results: i64,
-    pub completer: Option<Closure>,
-    /// Run `completer` inline on the line-editor thread so it can drive a picker like `fzf`;
-    /// the closure's equivalent of the `@interactive` attribute.
+    pub completer: Option<ExternalCompleter>,
+    /// Run a bare `completer` inline so it can drive a picker like `fzf`.
     pub interactive: bool,
 }
 
@@ -92,8 +124,31 @@ impl UpdateFromValue for ExternalCompleterConfig {
             match col.as_str() {
                 "completer" => match val {
                     Value::Nothing { .. } => self.completer = None,
-                    Value::Closure { val, .. } => self.completer = Some(val.as_ref().clone()),
-                    _ => errors.type_mismatch(path, Type::custom("closure or nothing"), val),
+                    Value::Closure { val, .. } => {
+                        self.completer = Some(ExternalCompleter::Closure(val.as_ref().clone()))
+                    }
+                    Value::Record { val: fields, .. } => {
+                        match (fields.get("closure"), fields.get("interactive")) {
+                            (Some(Value::Closure { val: closure, .. }), interactive) => {
+                                let interactive =
+                                    interactive.and_then(|v| v.as_bool().ok()).unwrap_or(false);
+                                self.completer = Some(ExternalCompleter::Tagged {
+                                    closure: closure.as_ref().clone(),
+                                    interactive,
+                                });
+                            }
+                            _ => errors.type_mismatch(
+                                path,
+                                Type::custom("{closure: closure, interactive?: bool}"),
+                                val,
+                            ),
+                        }
+                    }
+                    _ => errors.type_mismatch(
+                        path,
+                        Type::custom("closure, {closure, interactive}, or nothing"),
+                        val,
+                    ),
                 },
                 "max_results" => self.max_results.update(val, path, errors),
                 "enable" => self.enable.update(val, path, errors),

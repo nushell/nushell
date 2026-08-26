@@ -3,7 +3,7 @@ mod output;
 
 pub use input::InputShape;
 pub(crate) use input::declared_shape;
-use output::report;
+pub(crate) use output::report;
 pub(crate) use output::{Returned, SpanClamp, map_value_completions};
 
 use crate::completions::{Completer, Context, Fetched};
@@ -66,12 +66,12 @@ pub(crate) fn bind_declared_inputs(stack: &mut Stack, signature: &Signature, inp
     {
         if let Some(var_id) = positional.var_id {
             if !INPUT_FIELDS.contains(&positional.name.as_str()) {
-                log::warn!(
+                report(format!(
                     "a completer declares `{}`, which is not a completion input; expected one \
                      of {} — it will receive nothing",
                     positional.name,
                     INPUT_FIELDS.join(", ")
-                );
+                ));
             }
 
             let value = record

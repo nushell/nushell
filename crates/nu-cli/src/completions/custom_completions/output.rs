@@ -19,7 +19,7 @@ pub(crate) struct CompleterOutput {
 }
 
 /// Log a non-fatal completer error without disrupting line editing.
-pub(super) fn report(message: impl AsRef<str>) {
+pub(crate) fn report(message: impl AsRef<str>) {
     log::error!("nu::shell::completion: {}", message.as_ref());
 }
 
