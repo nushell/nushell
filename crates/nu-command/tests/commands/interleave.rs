@@ -7,12 +7,12 @@ fn interleave_external_commands() -> Result {
         (
             interleave
             {
-                nu -n -c 'print hello; print world'
+                nu -n --structured-io=false -c 'print hello; print world'
                 | lines
                 | each { "greeter: " ++ $in }
             }
             {
-                nu -n -c 'print nushell; print rocks'
+                nu -n --structured-io=false -c 'print nushell; print rocks'
                 | lines
                 | each { "evangelist: " ++ $in }
             }

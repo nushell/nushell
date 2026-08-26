@@ -283,8 +283,8 @@ fn external_command_url_args(prefix: &str) -> Result {
 
 #[apply(run_external_prefixes)]
 #[cfg_attr(
-    not(target_os = "linux"),
-    ignore = "only runs on Linux, where controlling the HOME var is reliable"
+    not(any(target_os = "linux", target_os = "macos")),
+    ignore = "only runs on Linux or MacOS, where controlling the HOME var is reliable"
 )]
 #[nu_test_support::test]
 #[deps(NU, TESTBIN_COCOCO)]

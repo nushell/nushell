@@ -40,7 +40,7 @@ impl Command for Print {
 Since this command has no output, there is no point in piping it with other commands.
 
 `print` may be used inside blocks of code (e.g.: hooks) to display text during execution without interfering with the pipeline.
-In protocol modes (`--lsp`, `--mcp`), `print` always writes to stderr to keep stdout reserved for protocol messages."#
+In protocol modes (`--lsp`, `--mcp`, or nested structured IO), `print` always writes to stderr to keep stdout reserved for protocol messages."#
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -58,12 +58,13 @@ In protocol modes (`--lsp`, `--mcp`), `print` always writes to stderr to keep st
         let no_newline = call.has_flag(engine_state, stack, "no-newline")?;
         let raw = call.has_flag(engine_state, stack, "raw")?;
 
-        // In protocol modes (LSP, MCP), reserve stdout for protocol messages.
-        let to_stderr = if engine_state.is_lsp || engine_state.is_mcp {
-            true
-        } else {
-            call.has_flag(engine_state, stack, "stderr")?
-        };
+        // In protocol modes (LSP, MCP, structured IO), reserve stdout for protocol messages.
+        let to_stderr =
+            if engine_state.is_lsp || engine_state.is_mcp || engine_state.structured_io_output {
+                true
+            } else {
+                call.has_flag(engine_state, stack, "stderr")?
+            };
 
         // This will allow for easy printing of pipelines as well
         if !args.is_empty() {

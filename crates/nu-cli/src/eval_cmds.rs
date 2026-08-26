@@ -1,9 +1,7 @@
 use log::info;
-use nu_engine::eval_block;
 use nu_parser::{find_main_block_id_in_script, parse};
 use nu_protocol::{
     PipelineData, ShellError, Spanned, Value,
-    debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
     process::check_exit_status_future,
     report_error::report_compile_error,
@@ -99,7 +97,7 @@ pub fn evaluate_commands(
     engine_state.merge_delta(delta)?;
 
     // Run the block
-    let pipeline = eval_block::<WithoutDebug>(engine_state, stack, &block, input)?;
+    let pipeline = crate::util::eval_block_for_output(engine_state, stack, &block, input, false)?;
 
     let pipeline_data = pipeline.body;
     if let PipelineData::Value(Value::Error { error, .. }, ..) = pipeline_data {

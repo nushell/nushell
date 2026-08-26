@@ -45,6 +45,7 @@ windows = { workspace = true, features = [
   "Win32_Foundation",
   "Win32_Security",
   "Win32_System_Diagnostics_Debug",
+  "Win32_Storage_FileSystem",
   "Win32_System_Diagnostics_ToolHelp",
   "Win32_System_Kernel",
   "Win32_System_Memory",

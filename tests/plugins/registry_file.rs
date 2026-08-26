@@ -57,7 +57,7 @@ fn plugin_add_then_restart_nu() -> Result {
         let configs = EmptyConfigs::new(dirs.test());
         let nu = configs.nu();
         let commands = format!("plugin add {}", NU_PLUGIN_EXAMPLE.path().display());
-        test().run_with_data(&nu, commands).expect_value_eq("")?;
+        test().run_with_data(&nu, commands).expect_value_eq(())?;
         let commands = "plugin list --engine | get name | str join ','";
         test()
             .run_with_data(&nu, commands)
@@ -83,7 +83,7 @@ fn plugin_add_in_nu_plugin_dirs_consts() -> Result {
         );
 
         let mut tester = test();
-        tester.run_with_data(&nu, commands).expect_value_eq("")?;
+        tester.run_with_data(&nu, commands).expect_value_eq(())?;
         tester
             .run_with_data("open $in | get plugins.name ", configs.plugin.as_path())
             .expect_value_eq(["example"])
@@ -107,7 +107,7 @@ fn plugin_add_in_nu_plugin_dirs_env() -> Result {
         );
 
         let mut tester = test();
-        tester.run_with_data(&nu, commands).expect_value_eq("")?;
+        tester.run_with_data(&nu, commands).expect_value_eq(())?;
         tester
             .run_with_data("open $in | get plugins.name ", configs.plugin.as_path())
             .expect_value_eq(["example"])
@@ -158,7 +158,7 @@ fn plugin_rm_then_restart_nu() -> Result {
         // remove the plugin
         tester
             .run_with_data(&nu, "plugin rm example")
-            .expect_value_eq("")?;
+            .expect_value_eq(())?;
 
         // verify plugin got removed
         tester
@@ -325,7 +325,7 @@ fn plugin_add_and_then_use() -> Result {
         let plugin_add = format!("plugin add '{}'", NU_PLUGIN_EXAMPLE.path().display());
         test()
             .run_with_data(configs.nu(), plugin_add)
-            .expect_value_eq("")?;
+            .expect_value_eq(())?;
 
         let plugin_use = "
             plugin use example
@@ -348,7 +348,7 @@ fn plugin_add_and_then_use_by_filename() -> Result {
         let plugin_add = format!("plugin add '{}'", NU_PLUGIN_EXAMPLE.path().display());
         test()
             .run_with_data(configs.nu(), plugin_add)
-            .expect_value_eq("")?;
+            .expect_value_eq(())?;
 
         let plugin_use = format!(
             "
@@ -378,7 +378,7 @@ fn plugin_add_then_use_with_custom_path() -> Result {
         );
         test()
             .run_with_data(configs.nu(), plugin_add)
-            .expect_value_eq("")?;
+            .expect_value_eq(())?;
 
         let plugin_use = format!(
             "

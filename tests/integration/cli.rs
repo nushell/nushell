@@ -52,6 +52,7 @@ fn help_lists_all_flags() -> TestResult {
         "--log-include",
         "--log-exclude",
         "--stdin",
+        "--structured-io",
         "--experimental-options",
         "--lsp",
         "--ide-goto-def",
@@ -913,6 +914,41 @@ fn experimental_options_accepts_all() -> TestResult {
         .output()?;
 
     assert!(output.status.success());
+    Ok(())
+}
+
+#[test]
+fn script_file_ignores_nu_experimental_options_env() -> TestResult {
+    let script = unique_temp_script_path("exp_opt_script");
+    std::fs::write(
+        &script,
+        r#"
+def main [] {
+    debug experimental-options
+    | where identifier == "dc-glob"
+    | get enabled.0
+}
+"#,
+    )?;
+
+    let mut cmd = Command::new(cargo_bin!());
+    let output = cmd
+        .env("NU_EXPERIMENTAL_OPTIONS", "all")
+        .args(["--no-std-lib", script.to_str().expect("utf8 path")])
+        .output()?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    let _ = std::fs::remove_file(&script);
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        stdout.contains("false"),
+        "script should ignore NU_EXPERIMENTAL_OPTIONS, stdout: {stdout}"
+    );
     Ok(())
 }
 

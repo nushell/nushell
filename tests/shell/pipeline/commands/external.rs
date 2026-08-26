@@ -413,13 +413,15 @@ mod nu_commands {
     #[test]
     #[deps(NU)]
     fn better_arg_quoting() -> Result {
-        test().run(r#"nu -n -c "\# '""#).expect_value_eq("")
+        test()
+            .run(r#"nu --structured-io=false -n -c "\# '""#)
+            .expect_value_eq("")
     }
 
     #[test]
     #[deps(NU)]
     fn command_list_arg_test() -> Result {
-        let out: String = test().run("nu ...['-n' '-c' 'version']")?;
+        let out: String = test().run("nu --structured-io=false ...['-n' '-c' 'version']")?;
 
         assert_contains("version", &out);
         assert_contains("rust_version", &out);
@@ -430,7 +432,7 @@ mod nu_commands {
     #[test]
     #[deps(NU)]
     fn command_cell_path_arg_test() -> Result {
-        let out: String = test().run("nu ...([ '-n' '-c' 'version' ])")?;
+        let out: String = test().run("nu --structured-io=false ...([ '-n' '-c' 'version' ])")?;
 
         assert_contains("version", &out);
         assert_contains("rust_version", &out);
@@ -456,7 +458,7 @@ mod nu_script {
     fn run_nu_script_multiline() -> Result {
         test()
             .cwd("tests/fixtures/formats")
-            .run("nu -n script_multiline.nu")
+            .run("nu --structured-io=false -n script_multiline.nu")
             .expect_value_eq("2\n3")
     }
 }

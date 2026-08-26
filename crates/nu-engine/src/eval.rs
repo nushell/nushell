@@ -350,6 +350,12 @@ pub fn eval_call<D: DebugContext>(
     engine_state.signals().check(&call.head)?;
     let decl = engine_state.get_decl(call.decl_id);
 
+    let input = if decl.is_known_external() || decl.name() == "run-external" {
+        input
+    } else {
+        engine_state.decode_structured_io(input, call.head)?
+    };
+
     if !decl.is_known_external() && call.named_iter().any(|(flag, _, _)| flag.item == "help") {
         let help = get_full_help(decl, engine_state, caller_stack, call.head);
         Ok(Value::string(help, call.head).into_pipeline_data())

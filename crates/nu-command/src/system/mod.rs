@@ -17,6 +17,7 @@ mod registry;
 mod registry_query;
 mod run_external;
 mod run_internal;
+mod structured_io;
 mod sys;
 mod uname;
 mod which_;
@@ -40,6 +41,10 @@ pub use registry::Registry;
 pub use registry_query::RegistryQuery;
 pub use run_external::{External, command_not_found, eval_external_arguments, which};
 pub use run_internal::RunInternal;
+pub use structured_io::{
+    StartupStdin, decode_structured_pipeline, decode_tagged_structured_io,
+    emit_structured_pipeline, read_startup_stdin, read_structured_stdin,
+};
 pub use sys::*;
 pub use uname::UName;
 pub use which_::Which;

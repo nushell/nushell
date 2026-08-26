@@ -1493,6 +1493,11 @@ fn eval_call<D: DebugContext>(
             if let PipelineData::Value(v, ..) = &mut input {
                 v.inject_signals(engine_state);
             }
+            let input = if decl.is_known_external() || decl.name() == "run-external" {
+                input
+            } else {
+                engine_state.decode_structured_io(input, head)?
+            };
             // Run the call
             decl.run(engine_state, &mut caller_stack, &(&call).into(), input)
         }

@@ -1,9 +1,14 @@
+use super::structured_io::{
+    decode_structured_pipeline, encode_structured_pipeline, is_nu_binary, is_nushell_child,
+    structured_io_cli_mode, structured_io_for_child, structured_io_spawn,
+};
 use itertools::Itertools;
 use nu_cmd_base::hook::eval_hook;
 use nu_engine::{command_prelude::*, env_to_strings};
 use nu_path::{AbsolutePath, dots::expand_ndots_safe, expand_tilde};
 use nu_protocol::{
-    ByteStream, NuGlob, OutDest, Signals, UseAnsiColoring, did_you_mean,
+    ByteStream, NuGlob, OutDest, PipelineMetadata, STRUCTURED_IO_CONTENT_TYPE, Signals,
+    UseAnsiColoring, did_you_mean,
     process::{ChildProcess, PostWaitCallback},
     shell_error::io::IoError,
 };
@@ -169,8 +174,29 @@ If you create a custom command with this name, that will be used instead."
             executable
         };
 
-        // Create the command.
-        let mut command = std::process::Command::new(&executable);
+        // PipeSeparate is `complete`/`tee`/`save`: they need the raw child
+        // (stdout and stderr together). Decoding NUON calls `into_bytes()`,
+        // which errors if stderr is captured (`stderr should not exist`).
+        let stdout_captured = matches!(stack.stdout(), OutDest::Pipe | OutDest::Value);
+
+        // Configure args.
+        let args = eval_external_arguments(engine_state, stack, call_args)?;
+        let invoked = expanded_name.as_path();
+        let user_mode = if is_nu_binary(&executable) {
+            structured_io_cli_mode(&args)
+        } else {
+            None
+        };
+        let structured_io =
+            structured_io_for_child(&executable, invoked, stdout_captured, &input, user_mode);
+        let spawn = structured_io_spawn(
+            &executable,
+            structured_io,
+            user_mode.is_none(),
+            matches!(stack.stdout(), OutDest::PipeSeparate),
+        );
+
+        let mut command = std::process::Command::new(&spawn.program);
 
         // Configure PWD.
         command.current_dir(cwd);
@@ -179,9 +205,6 @@ If you create a custom command with this name, that will be used instead."
         let envs = env_to_strings(engine_state, stack)?;
         command.env_clear();
         command.envs(envs);
-
-        // Configure args.
-        let args = eval_external_arguments(engine_state, stack, call_args)?;
         #[cfg(windows)]
         if is_cmd_internal_command(&name_str) || pathext_script_in_windows {
             // The /D flag disables execution of AutoRun commands from registry.
@@ -198,10 +221,14 @@ If you create a custom command with this name, that will be used instead."
             ]);
             command.args(args.into_iter().map(|s| s.item));
         } else {
+            command.args(&spawn.leading_args);
             command.args(args.into_iter().map(|s| s.item));
         }
         #[cfg(not(windows))]
-        command.args(args.into_iter().map(|s| s.item));
+        {
+            command.args(&spawn.leading_args);
+            command.args(args.into_iter().map(|s| s.item));
+        }
 
         // Configure stdout and stderr. If both are set to `OutDest::Pipe`,
         // we'll set up a pipe that merges two streams into one.
@@ -264,7 +291,16 @@ If you create a custom command with this name, that will be used instead."
             },
             PipelineData::Empty => {
                 // MCP and background completions must not inherit the live terminal.
-                if engine_state.is_mcp || stack.suppress_stdin {
+                // Captured Nushell children (REPL/`-e`, scripts) would inherit a
+                // still-open stdin and never close stdout, so decode/`to text` hang.
+                let capturing_stdout = matches!(
+                    stack.stdout(),
+                    OutDest::Pipe | OutDest::Value | OutDest::PipeSeparate
+                );
+                if engine_state.is_mcp
+                    || stack.suppress_stdin
+                    || (is_nushell_child(&executable, invoked) && capturing_stdout)
+                {
                     command.stdin(Stdio::null());
                 } else {
                     command.stdin(Stdio::inherit());
@@ -321,10 +357,19 @@ If you create a custom command with this name, that will be used instead."
             let stdin = child.as_mut().stdin.take().expect("stdin is piped");
             let engine_state = engine_state.clone();
             let stack = stack.clone();
+            let stdin_span = call.head;
+            let structured_input = structured_io.input;
             thread::Builder::new()
                 .name("external stdin worker".into())
                 .spawn(move || {
-                    let _ = write_pipeline_data(engine_state, stack, data, stdin);
+                    let _ = write_pipeline_data(
+                        engine_state,
+                        stack,
+                        data,
+                        stdin,
+                        structured_input,
+                        stdin_span,
+                    );
                 })
                 .map_err(|err| {
                     IoError::new_with_additional_context(
@@ -355,10 +400,16 @@ If you create a custom command with this name, that will be used instead."
             )),
         )?;
 
-        Ok(PipelineData::byte_stream(
-            ByteStream::child(child, call.head),
-            None,
-        ))
+        let collect_now = structured_io.output && matches!(stack.stdout(), OutDest::Value);
+        let metadata = (structured_io.output && !collect_now).then(|| {
+            PipelineMetadata::default().with_content_type(Some(STRUCTURED_IO_CONTENT_TYPE.into()))
+        });
+        let output = PipelineData::byte_stream(ByteStream::child(child, call.head), metadata);
+        if collect_now {
+            decode_structured_pipeline(output, call.head)
+        } else {
+            Ok(output)
+        }
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -504,7 +555,13 @@ fn write_pipeline_data(
     mut stack: Stack,
     data: PipelineData,
     mut writer: impl Write,
+    structured: bool,
+    span: Span,
 ) -> Result<(), ShellError> {
+    if structured {
+        return encode_structured_pipeline(&engine_state, data, writer, span);
+    }
+
     if let PipelineData::ByteStream(stream, ..) = data {
         stream.write_to(writer)?;
     } else if let PipelineData::Value(Value::Binary { val, .. }, ..) = data {
@@ -807,17 +864,41 @@ mod test {
 
         let mut buf = vec![];
         let input = PipelineData::empty();
-        write_pipeline_data(engine_state.clone(), stack.clone(), input, &mut buf).unwrap();
+        write_pipeline_data(
+            engine_state.clone(),
+            stack.clone(),
+            input,
+            &mut buf,
+            false,
+            Span::test_data(),
+        )
+        .unwrap();
         assert_eq!(buf, b"");
 
         let mut buf = vec![];
         let input = PipelineData::value(Value::string("foo", Span::test_data()), None);
-        write_pipeline_data(engine_state.clone(), stack.clone(), input, &mut buf).unwrap();
+        write_pipeline_data(
+            engine_state.clone(),
+            stack.clone(),
+            input,
+            &mut buf,
+            false,
+            Span::test_data(),
+        )
+        .unwrap();
         assert_eq!(buf, b"foo");
 
         let mut buf = vec![];
         let input = PipelineData::value(Value::binary(b"foo", Span::test_data()), None);
-        write_pipeline_data(engine_state.clone(), stack.clone(), input, &mut buf).unwrap();
+        write_pipeline_data(
+            engine_state.clone(),
+            stack.clone(),
+            input,
+            &mut buf,
+            false,
+            Span::test_data(),
+        )
+        .unwrap();
         assert_eq!(buf, b"foo");
 
         let mut buf = vec![];
@@ -830,7 +911,15 @@ mod test {
             ),
             None,
         );
-        write_pipeline_data(engine_state.clone(), stack.clone(), input, &mut buf).unwrap();
+        write_pipeline_data(
+            engine_state.clone(),
+            stack.clone(),
+            input,
+            &mut buf,
+            false,
+            Span::test_data(),
+        )
+        .unwrap();
         assert_eq!(buf, b"foo");
     }
 }

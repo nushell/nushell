@@ -22,7 +22,8 @@ use nu_config::{CliOverrides, ConfigError, ConfigWarning, SystemEnv, resolve_pat
 use nu_engine::{convert_env_values, exit::cleanup_exit};
 use nu_path::absolute_with;
 use nu_protocol::{
-    ByteStream, Config, IntoValue, PipelineData, ShellError, Span, Spanned, Type, Value,
+    ByteStream, Config, IntoValue, PipelineData, ShellError, Span, Spanned, StructuredIoMode, Type,
+    Value,
     engine::{EngineState, Stack},
     record, report_shell_error,
     shell_error::generic::GenericError,
@@ -295,6 +296,30 @@ fn main() -> Result<()> {
     #[cfg(not(feature = "lsp"))]
     let is_lsp = false;
     engine_state.is_lsp = is_lsp;
+
+    // Plugin stdio transport is `nu --stdin plugin.nu --stdio`: stdin/stdout stay
+    // open for the protocol. Ancestor inference would slurp stdin to EOF and
+    // wrap stdout as NUON, deadlocking the parent on the handshake.
+    let plugin_stdio = std::env::args().any(|arg| arg == "--stdio");
+    let from_ancestor =
+        !plugin_stdio && nu_system::ancestor_is_nushell(nu_system::NUSHELL_ANCESTOR_MAX_DEPTH);
+    let flag_mode = parsed_nu_cli_args
+        .structured_io
+        .as_ref()
+        .map(|value| StructuredIoMode::from_flag_str(&value.item));
+    let mut structured_io = if let Some(mode) = flag_mode {
+        mode
+    } else if from_ancestor {
+        StructuredIoMode {
+            input: false,
+            output: nu_system::stdio_is_pipe(nu_system::StdioFd::Stdout),
+        }
+    } else {
+        StructuredIoMode::default()
+    };
+    // `--structured-io=out` still allows a framed stdin from a parent nu.
+    // `--structured-io=false` turns that off.
+    let infer_stdin_frame = from_ancestor && flag_mode != Some(StructuredIoMode::default());
     // keep this condition in sync with the branches at the end
     engine_state.is_interactive = parsed_nu_cli_args.interactive_shell.is_some()
         || (parsed_nu_cli_args.commands.is_none() && script_name.is_empty() && !is_lsp);
@@ -517,13 +542,31 @@ fn main() -> Result<()> {
     }
 
     start_time = nu_utils::time::Instant::now();
-    let input = if let Some(redirect_stdin) = &parsed_nu_cli_args.redirect_stdin {
+    let input = if structured_io.input {
+        trace!("reading structured stdin");
+        nu_command::read_structured_stdin()?
+    } else if infer_stdin_frame && nu_system::stdio_is_pipe(nu_system::StdioFd::Stdin) {
+        match nu_command::read_startup_stdin(false)? {
+            nu_command::StartupStdin::Structured(data) => {
+                structured_io.input = true;
+                data
+            }
+            nu_command::StartupStdin::Raw(data) if parsed_nu_cli_args.redirect_stdin.is_some() => {
+                data
+            }
+            nu_command::StartupStdin::Raw(_) | nu_command::StartupStdin::Empty => {
+                PipelineData::empty()
+            }
+        }
+    } else if let Some(redirect_stdin) = &parsed_nu_cli_args.redirect_stdin {
         trace!("redirecting stdin");
         PipelineData::byte_stream(ByteStream::stdin(redirect_stdin.span)?, None)
     } else {
         trace!("not redirecting stdin");
         PipelineData::empty()
     };
+    engine_state.structured_io_input = structured_io.input;
+    engine_state.structured_io_output = structured_io.output;
     perf!("redirect stdin", start_time, use_color);
 
     start_time = nu_utils::time::Instant::now();
