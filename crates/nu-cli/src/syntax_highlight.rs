@@ -4,12 +4,16 @@ use nu_color_config::{get_matching_brackets_style, get_shape_color};
 use nu_engine::env;
 use nu_parser::{FlatShape, flatten_block, parse};
 use nu_protocol::{
-    Span,
+    BlockId, Span,
     ast::{Block, Expr, Expression, PipelineRedirection, RecordItem},
     engine::{EngineState, Stack, StateWorkingSet},
 };
 use reedline::{AbbrExpandContext, Highlighter, StyledText};
-use std::sync::{Arc, Mutex};
+use std::{
+    borrow::Cow,
+    ffi::OsStr,
+    sync::{Arc, Mutex},
+};
 
 /// A highlighter that does nothing
 ///
@@ -24,10 +28,38 @@ impl Highlighter for NoOpHighlighter {
     }
 }
 
+/// Engine bits that change span / block IDs. Overlay or file loads must miss the cache.
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct HighlightEngineKey {
+    span_start: usize,
+    num_blocks: usize,
+    num_decls: usize,
+}
+
+impl HighlightEngineKey {
+    fn of(engine_state: &EngineState) -> Self {
+        Self {
+            span_start: engine_state.next_span_start(),
+            num_blocks: engine_state.num_blocks(),
+            num_decls: engine_state.num_decls(),
+        }
+    }
+}
+
+/// Parse/flatten result reused across paints of the same line.
+#[derive(Clone)]
+struct ParsedHighlight {
+    block: Arc<Block>,
+    /// Blocks added by this parse (`StateWorkingSet::delta.blocks`), in id order.
+    delta_blocks: Vec<Arc<Block>>,
+    shapes: Arc<Vec<(Span, FlatShape)>>,
+    global_span_offset: usize,
+}
+
 struct HighlightCache {
     line: String,
-    global_span_offset: usize,
-    shapes: Arc<Vec<(Span, FlatShape)>>,
+    engine: HighlightEngineKey,
+    parsed: ParsedHighlight,
 }
 
 pub struct NuHighlighter {
@@ -48,37 +80,14 @@ impl NuHighlighter {
 
 impl Highlighter for NuHighlighter {
     fn highlight(&self, line: &str, cursor: usize) -> StyledText {
-        let result = highlight_syntax(&self.engine_state, &self.stack, line, cursor);
-        *self.cache.lock().unwrap_or_else(|e| e.into_inner()) = Some(HighlightCache {
-            line: line.to_string(),
-            global_span_offset: result.global_span_offset,
-            shapes: Arc::new(result.shapes),
-        });
-        result.text
+        let parsed = self.parsed_line(line);
+        style_parsed(&self.engine_state, &self.stack, line, cursor, &parsed).text
     }
 
     fn should_expand_abbr(&self, line: &str, cursor: usize, context: AbbrExpandContext) -> bool {
-        let (global_span_offset, shapes) = match self
-            .cache
-            .lock()
-            .ok()
-            .as_deref()
-            .and_then(|c| c.as_ref())
-            .filter(|c| c.line == line)
-        {
-            Some(c) => (c.global_span_offset, Arc::clone(&c.shapes)),
-            None => {
-                let mut working_set = StateWorkingSet::new(&self.engine_state);
-                let block = parse(&mut working_set, None, line.as_bytes(), false);
-                (
-                    self.engine_state.next_span_start(),
-                    Arc::new(flatten_block(&working_set, &block)),
-                )
-            }
-        };
-
-        let global_cursor = cursor + global_span_offset;
-        !shapes.iter().any(|(span, shape)| {
+        let parsed = self.parsed_line(line);
+        let global_cursor = cursor + parsed.global_span_offset;
+        !parsed.shapes.iter().any(|(span, shape)| {
             span.contains(global_cursor)
                 && match context {
                     AbbrExpandContext::WordAbbreviation => matches!(
@@ -94,13 +103,34 @@ impl Highlighter for NuHighlighter {
     }
 }
 
+impl NuHighlighter {
+    fn parsed_line(&self, line: &str) -> ParsedHighlight {
+        let engine = HighlightEngineKey::of(&self.engine_state);
+        {
+            let guard = self.cache.lock().unwrap_or_else(|e| e.into_inner());
+            if let Some(cache) = guard.as_ref()
+                && cache.line == line
+                && cache.engine == engine
+            {
+                return cache.parsed.clone();
+            }
+        }
+
+        let parsed = parse_highlight_line(&self.engine_state, line);
+        *self.cache.lock().unwrap_or_else(|e| e.into_inner()) = Some(HighlightCache {
+            line: line.to_string(),
+            engine,
+            parsed: parsed.clone(),
+        });
+        parsed
+    }
+}
+
 /// Result of a syntax highlight operation
 #[derive(Default)]
 pub(crate) struct HighlightResult {
     pub(crate) text: StyledText,
     pub(crate) found_garbage: Option<Span>,
-    pub(crate) global_span_offset: usize,
-    pub(crate) shapes: Vec<(Span, FlatShape)>,
 }
 
 pub(crate) fn highlight_syntax(
@@ -109,31 +139,53 @@ pub(crate) fn highlight_syntax(
     line: &str,
     cursor: usize,
 ) -> HighlightResult {
+    let parsed = parse_highlight_line(engine_state, line);
+    style_parsed(engine_state, stack, line, cursor, &parsed)
+}
+
+fn parse_highlight_line(engine_state: &EngineState, line: &str) -> ParsedHighlight {
     trace!("highlighting: {line}");
 
-    let config = stack.get_config(engine_state);
-    let highlight_resolved_externals = config.highlight_resolved_externals;
     let mut working_set = StateWorkingSet::new(engine_state);
+    // Color `use` without parse-time-loading modules (the `d` hitch on `use std`).
+    working_set.skip_module_load = true;
     let block = parse(&mut working_set, None, line.as_bytes(), false);
     // TODO: Traverse::flat_map based highlighting?
     let shapes = flatten_block(&working_set, &block);
-    let global_span_offset = engine_state.next_span_start();
-    let mut result = HighlightResult {
-        global_span_offset,
-        ..Default::default()
-    };
+    ParsedHighlight {
+        block,
+        delta_blocks: working_set.delta.blocks,
+        shapes: Arc::new(shapes),
+        global_span_offset: engine_state.next_span_start(),
+    }
+}
+
+fn style_parsed(
+    engine_state: &EngineState,
+    stack: &Stack,
+    line: &str,
+    cursor: usize,
+    parsed: &ParsedHighlight,
+) -> HighlightResult {
+    let config = stack.get_config(engine_state);
+    let highlight_resolved_externals = config.highlight_resolved_externals;
+    let global_span_offset = parsed.global_span_offset;
+    let shapes = parsed.shapes.as_ref();
+    let mut result = HighlightResult::default();
+    result.text.buffer.reserve(shapes.len().saturating_mul(2));
     let mut last_seen_span_end = global_span_offset;
 
+    let get_block = |id: BlockId| get_highlight_block(engine_state, &parsed.delta_blocks, id);
     let global_cursor_offset = cursor + global_span_offset;
     let matching_brackets_pos = find_matching_brackets(
         line,
-        &working_set,
-        &block,
+        &get_block,
+        &parsed.block,
         global_span_offset,
         global_cursor_offset,
     );
 
-    for (raw_span, flat_shape) in &shapes {
+    for (raw_span, flat_shape) in shapes {
         // NOTE: Currently we expand aliases while flattening for tasks such as completion
         // https://github.com/nushell/nushell/issues/16944
         let span = if let FlatShape::External(alias_span) = flat_shape {
@@ -151,19 +203,17 @@ pub(crate) fn highlight_syntax(
             continue;
         }
         if span.start > last_seen_span_end {
-            let gap = line
-                [(last_seen_span_end - global_span_offset)..(span.start - global_span_offset)]
-                .to_string();
-            result.text.push((Style::new(), gap));
+            push_line_slice(
+                &mut result.text,
+                Style::new(),
+                line,
+                last_seen_span_end - global_span_offset,
+                span.start - global_span_offset,
+            );
         }
-        let next_token =
-            line[(span.start - global_span_offset)..(span.end - global_span_offset)].to_string();
 
-        let mut add_colored_token = |shape: &FlatShape, text: String| {
-            result
-                .text
-                .push((get_shape_color(shape.as_str(), &config), text));
-        };
+        let token_start = span.start - global_span_offset;
+        let token_end = span.end - global_span_offset;
 
         match flat_shape {
             FlatShape::Garbage => {
@@ -173,29 +223,39 @@ pub(crate) fn highlight_syntax(
                         span.end - global_span_offset,
                     )
                 });
-                add_colored_token(flat_shape, next_token)
+                push_shaped_slice(
+                    &mut result.text,
+                    flat_shape,
+                    &config,
+                    line,
+                    token_start,
+                    token_end,
+                );
             }
             FlatShape::External(_) => {
-                let mut true_shape = flat_shape.clone();
                 // Highlighting externals has a config point because of concerns that using which to resolve
                 // externals may slow down things too much.
-                if highlight_resolved_externals {
-                    // use `raw_span` here for aliased external calls
-                    let str_contents = working_set.get_span_contents(*raw_span);
-                    let str_word = String::from_utf8_lossy(str_contents).to_string();
-                    let paths = env::path_str(engine_state, stack, *raw_span).ok();
-                    let res = if let Ok(cwd) = engine_state.cwd(Some(stack)) {
-                        which::which_in(str_word, paths.as_ref(), cwd).ok()
-                    } else {
-                        which::which_in_global(str_word, paths.as_ref())
-                            .ok()
-                            .and_then(|mut i| i.next())
-                    };
-                    if res.is_some() {
-                        true_shape = FlatShape::ExternalResolved;
-                    }
-                }
-                add_colored_token(&true_shape, next_token);
+                let resolved = highlight_resolved_externals
+                    && external_is_resolved(
+                        engine_state,
+                        stack,
+                        line,
+                        global_span_offset,
+                        *raw_span,
+                    );
+                let shape = if resolved {
+                    &FlatShape::ExternalResolved
+                } else {
+                    flat_shape
+                };
+                push_shaped_slice(
+                    &mut result.text,
+                    shape,
+                    &config,
+                    line,
+                    token_start,
+                    token_end,
+                );
             }
             FlatShape::List
             | FlatShape::Table
@@ -209,28 +269,117 @@ pub(crate) fn highlight_syntax(
                     global_span_offset,
                 );
                 for (part, highlight) in spans {
-                    let start = part.start - span.start;
-                    let end = part.end - span.start;
-                    let text = next_token[start..end].to_string();
                     let mut style = get_shape_color(flat_shape.as_str(), &config);
                     if highlight {
                         style = get_matching_brackets_style(style, &config);
                     }
-                    result.text.push((style, text));
+                    push_line_slice(
+                        &mut result.text,
+                        style,
+                        line,
+                        part.start - global_span_offset,
+                        part.end - global_span_offset,
+                    );
                 }
             }
-            _ => add_colored_token(flat_shape, next_token),
+            _ => push_shaped_slice(
+                &mut result.text,
+                flat_shape,
+                &config,
+                line,
+                token_start,
+                token_end,
+            ),
         }
         last_seen_span_end = span.end;
     }
 
-    let remainder = line[(last_seen_span_end - global_span_offset)..].to_string();
-    if !remainder.is_empty() {
-        result.text.push((Style::new(), remainder));
-    }
+    push_line_slice(
+        &mut result.text,
+        Style::new(),
+        line,
+        last_seen_span_end - global_span_offset,
+        line.len(),
+    );
 
-    result.shapes = shapes;
     result
+}
+
+fn push_line_slice(out: &mut StyledText, style: Style, line: &str, start: usize, end: usize) {
+    if start < end && end <= line.len() {
+        out.push((style, line[start..end].to_string()));
+    }
+}
+
+fn push_shaped_slice(
+    out: &mut StyledText,
+    shape: &FlatShape,
+    config: &nu_protocol::Config,
+    line: &str,
+    start: usize,
+    end: usize,
+) {
+    push_line_slice(
+        out,
+        get_shape_color(shape.as_str(), config),
+        line,
+        start,
+        end,
+    );
+}
+
+fn get_highlight_block<'a>(
+    engine_state: &'a EngineState,
+    delta_blocks: &'a [Arc<Block>],
+    id: BlockId,
+) -> &'a Block {
+    let n = engine_state.num_blocks();
+    if id.get() < n {
+        engine_state.get_block(id).as_ref()
+    } else {
+        delta_blocks
+            .get(id.get() - n)
+            .expect("internal error: missing highlight block")
+            .as_ref()
+    }
+}
+
+/// Contents of `span` for `which`: the current line when the span is on it,
+/// otherwise engine-state text (aliased externals).
+fn span_text<'a>(
+    line: &'a str,
+    global_span_offset: usize,
+    engine_state: &'a EngineState,
+    span: Span,
+) -> Cow<'a, str> {
+    let start = span.start.saturating_sub(global_span_offset);
+    let end = span.end.saturating_sub(global_span_offset);
+    if span.start >= global_span_offset && end <= line.len() && start <= end {
+        Cow::Borrowed(&line[start..end])
+    } else {
+        String::from_utf8_lossy(engine_state.get_span_contents(span))
+    }
+}
+
+fn external_is_resolved(
+    engine_state: &EngineState,
+    stack: &Stack,
+    line: &str,
+    global_span_offset: usize,
+    raw_span: Span,
+) -> bool {
+    let word = span_text(line, global_span_offset, engine_state, raw_span);
+    let paths = env::path_str(engine_state, stack, raw_span).ok();
+    let word_os = OsStr::new(word.as_ref());
+    let paths_os = paths.as_deref().map(OsStr::new);
+    if let Ok(cwd) = engine_state.cwd(Some(stack)) {
+        which::which_in(word_os, paths_os, cwd).is_ok()
+    } else {
+        which::which_in_global(word_os, paths_os)
+            .ok()
+            .and_then(|mut i| i.next())
+            .is_some()
+    }
 }
 
 fn split_span_by_highlight_positions(
@@ -262,9 +411,9 @@ fn split_span_by_highlight_positions(
     result
 }
 
-fn find_matching_brackets(
+fn find_matching_brackets<'a>(
     line: &str,
-    working_set: &StateWorkingSet,
+    get_block: &dyn Fn(BlockId) -> &'a Block,
     block: &Block,
     global_span_offset: usize,
     global_cursor_offset: usize,
@@ -297,7 +446,7 @@ fn find_matching_brackets(
     // find matching bracket by finding matching block end
     let matching_block_end = find_matching_block_end_in_block(
         line,
-        working_set,
+        get_block,
         block,
         global_span_offset,
         global_bracket_pos,
@@ -315,9 +464,9 @@ fn find_matching_brackets(
     Vec::new()
 }
 
-fn find_matching_block_end_in_block(
+fn find_matching_block_end_in_block<'a>(
     line: &str,
-    working_set: &StateWorkingSet,
+    get_block: &dyn Fn(BlockId) -> &'a Block,
     block: &Block,
     global_span_offset: usize,
     global_cursor_offset: usize,
@@ -327,7 +476,7 @@ fn find_matching_block_end_in_block(
             if e.expr.span.contains(global_cursor_offset)
                 && let Some(pos) = find_matching_block_end_in_expr(
                     line,
-                    working_set,
+                    get_block,
                     &e.expr,
                     global_span_offset,
                     global_cursor_offset,
@@ -346,7 +495,7 @@ fn find_matching_block_end_in_block(
                         if let Some(pos) = target.expr().and_then(|expr| {
                             find_matching_block_end_in_expr(
                                 line,
-                                working_set,
+                                get_block,
                                 expr,
                                 global_span_offset,
                                 global_cursor_offset,
@@ -363,9 +512,9 @@ fn find_matching_block_end_in_block(
     None
 }
 
-fn find_matching_block_end_in_expr(
+fn find_matching_block_end_in_expr<'a>(
     line: &str,
-    working_set: &StateWorkingSet,
+    get_block: &dyn Fn(BlockId) -> &'a Block,
     expression: &Expression,
     global_span_offset: usize,
     global_cursor_offset: usize,
@@ -415,7 +564,7 @@ fn find_matching_block_end_in_expr(
                 .find_map(|attr| {
                     find_matching_block_end_in_expr(
                         line,
-                        working_set,
+                        get_block,
                         &attr.expr,
                         global_span_offset,
                         global_cursor_offset,
@@ -424,7 +573,7 @@ fn find_matching_block_end_in_expr(
                 .or_else(|| {
                     find_matching_block_end_in_expr(
                         line,
-                        working_set,
+                        get_block,
                         &ab.item,
                         global_span_offset,
                         global_cursor_offset,
@@ -447,7 +596,7 @@ fn find_matching_block_end_in_expr(
                         .find_map(|expr| {
                             find_matching_block_end_in_expr(
                                 line,
-                                working_set,
+                                get_block,
                                 expr,
                                 global_span_offset,
                                 global_cursor_offset,
@@ -468,7 +617,7 @@ fn find_matching_block_end_in_expr(
                     exprs.iter().find_map(|expr| match expr {
                         RecordItem::Pair(k, v) => find_matching_block_end_in_expr(
                             line,
-                            working_set,
+                            get_block,
                             k,
                             global_span_offset,
                             global_cursor_offset,
@@ -476,7 +625,7 @@ fn find_matching_block_end_in_expr(
                         .or_else(|| {
                             find_matching_block_end_in_expr(
                                 line,
-                                working_set,
+                                get_block,
                                 v,
                                 global_span_offset,
                                 global_cursor_offset,
@@ -484,7 +633,7 @@ fn find_matching_block_end_in_expr(
                         }),
                         RecordItem::Spread(_, record) => find_matching_block_end_in_expr(
                             line,
-                            working_set,
+                            get_block,
                             record,
                             global_span_offset,
                             global_cursor_offset,
@@ -497,7 +646,7 @@ fn find_matching_block_end_in_expr(
                 arg.expr().and_then(|expr| {
                     find_matching_block_end_in_expr(
                         line,
-                        working_set,
+                        get_block,
                         expr,
                         global_span_offset,
                         global_cursor_offset,
@@ -507,7 +656,7 @@ fn find_matching_block_end_in_expr(
 
             Expr::FullCellPath(b) => find_matching_block_end_in_expr(
                 line,
-                working_set,
+                get_block,
                 &b.head,
                 global_span_offset,
                 global_cursor_offset,
@@ -516,7 +665,7 @@ fn find_matching_block_end_in_expr(
             Expr::BinaryOp(lhs, op, rhs) => [lhs, op, rhs].into_iter().find_map(|expr| {
                 find_matching_block_end_in_expr(
                     line,
-                    working_set,
+                    get_block,
                     expr,
                     global_span_offset,
                     global_cursor_offset,
@@ -525,7 +674,7 @@ fn find_matching_block_end_in_expr(
 
             Expr::Collect(_, expr) => find_matching_block_end_in_expr(
                 line,
-                working_set,
+                get_block,
                 expr,
                 global_span_offset,
                 global_cursor_offset,
@@ -543,10 +692,10 @@ fn find_matching_block_end_in_expr(
                     Some(expr_last)
                 } else {
                     // cursor is inside block
-                    let nested_block = working_set.get_block(*block_id);
+                    let nested_block = get_block(*block_id);
                     find_matching_block_end_in_block(
                         line,
-                        working_set,
+                        get_block,
                         nested_block,
                         global_span_offset,
                         global_cursor_offset,
@@ -558,7 +707,7 @@ fn find_matching_block_end_in_expr(
                 exprs.iter().find_map(|expr| {
                     find_matching_block_end_in_expr(
                         line,
-                        working_set,
+                        get_block,
                         expr,
                         global_span_offset,
                         global_cursor_offset,
@@ -577,7 +726,7 @@ fn find_matching_block_end_in_expr(
                     list.iter().find_map(|item| {
                         find_matching_block_end_in_expr(
                             line,
-                            working_set,
+                            get_block,
                             item.expr(),
                             global_span_offset,
                             global_cursor_offset,
@@ -595,7 +744,7 @@ fn get_char_at_index(s: &str, index: usize) -> Option<char> {
 }
 
 fn get_char_length(c: char) -> usize {
-    c.to_string().len()
+    c.len_utf8()
 }
 
 #[cfg(test)]
@@ -608,6 +757,42 @@ mod tests {
 
     fn make_highlighter() -> NuHighlighter {
         NuHighlighter::new(Arc::new(EngineState::new()), Arc::new(Stack::new()))
+    }
+
+    #[test]
+    fn highlight_reuses_parse_cache_for_the_same_line() {
+        let h = make_highlighter();
+        let line = "let x = [1, 2]";
+        let first = h.highlight(line, 0);
+        let second = h.highlight(line, 0);
+        assert_eq!(first.render_simple(), second.render_simple());
+        assert_eq!(first.raw_string(), line);
+
+        // Cursor-only change must restyle matching brackets without re-parsing.
+        let on_open = h.highlight(line, 8);
+        let on_open_again = h.highlight(line, 8);
+        assert_eq!(on_open.render_simple(), on_open_again.render_simple());
+        assert_eq!(on_open.raw_string(), line);
+    }
+
+    #[test]
+    fn highlight_slices_cover_the_whole_line() {
+        let h = make_highlighter();
+        for line in [
+            "",
+            "ls",
+            "use std/iter",
+            "1 + 2",
+            "{a: 1}",
+            "def f [] { 1 }",
+        ] {
+            let styled = h.highlight(line, line.len());
+            assert_eq!(
+                styled.raw_string(),
+                line,
+                "lost text while styling {line:?}"
+            );
+        }
     }
 
     #[rstest]

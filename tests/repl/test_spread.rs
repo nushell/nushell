@@ -1,221 +1,558 @@
-use crate::repl::tests::{TestResult, fail_test, run_test};
-use nu_test_support::nu;
+use nu_protocol::{ParseError, ShellError};
+use nu_test_support::prelude::*;
+use pretty_assertions::assert_matches;
 
 #[test]
-fn spread_in_list() -> TestResult {
-    run_test("[...[]] | to nuon", "[]").unwrap();
-    run_test(
-        "[1 2 ...[[3] {x: 1}] 5] | to nuon",
-        "[1, 2, [3], {x: 1}, 5]",
-    )
-    .unwrap();
-    run_test(
-        r#"[...("foo" | split chars) 10] | to nuon"#,
-        "[f, o, o, 10]",
-    )
-    .unwrap();
-    run_test(
-        "let l = [1, 2, [3]]; [...$l $l] | to nuon",
-        "[1, 2, [3], [1, 2, [3]]]",
-    )
-    .unwrap();
-    run_test("[ ...[ ...[ ...[ a ] b ] c ] d ] | to nuon", "[a, b, c, d]")
+fn spread_in_list() -> Result {
+    test().run("[...[]]").expect_value_eq(test_value!([]))?;
+    test()
+        .run("[1 2 ...[[3] {x: 1}] 5]")
+        .expect_value_eq(test_value!([1, 2, [3], { x: 1 }, 5]))?;
+    test()
+        .run(r#"[...("foo" | split chars) 10]"#)
+        .expect_value_eq(test_value!(["f", "o", "o", 10]))?;
+    test()
+        .run("let l = [1, 2, [3]]; [...$l $l]")
+        .expect_value_eq(test_value!([1, 2, [3], [1, 2, [3]]]))?;
+    test()
+        .run("[ ...[ ...[ ...[ a ] b ] c ] d ]")
+        .expect_value_eq(["a", "b", "c", "d"])
 }
 
 #[test]
-fn not_spread() -> TestResult {
-    run_test("def ... [x] { $x }; ... ...", "...").unwrap();
-    run_test(
-        "let a = 4; [... $a ... [1] ... (5) ...bare ...] | to nuon",
-        r#"["...", 4, "...", [1], "...", 5, "...bare", "..."]"#,
-    )
+fn not_spread() -> Result {
+    test()
+        .run("def ... [x] { $x }; ... ...")
+        .expect_value_eq("...")?;
+    test()
+        .run("let a = 4; [... $a ... [1] ... (5) ...bare ...]")
+        .expect_value_eq(test_value!([
+            "...",
+            4,
+            "...",
+            [1],
+            "...",
+            5,
+            "...bare",
+            "..."
+        ]))
 }
 
 #[test]
-fn bad_spread_on_non_list() -> TestResult {
-    fail_test("let x = 5; [...$x]", "cannot spread").unwrap();
-    fail_test("[...({ x: 1 })]", "cannot spread")
+fn bad_spread_on_non_list() -> Result {
+    let err = test().run("let x = 5; [...$x]").expect_shell_error()?;
+    assert_matches!(err, ShellError::CannotSpreadAsList { .. });
+
+    let err = test().run("[...({ x: 1 })]").expect_shell_error()?;
+    assert_matches!(err, ShellError::CannotSpreadAsList { .. });
+    Ok(())
 }
 
 #[test]
-fn spread_type_list() -> TestResult {
-    run_test(
-        "def f [a: list<int>] { $a | describe }; f [1 ...[]]",
-        "list<int>",
-    )
-    .unwrap();
-    run_test(
-        "def f [a: list<int>] { $a | describe }; f [1 ...[2]]",
-        "list<int>",
-    )
-    .unwrap();
-    fail_test(
-        r#"def f [a: list<int>] { }; f ["foo" ...[4 5 6]]"#,
-        "expected int",
-    )
-    .unwrap();
-    fail_test(
-        r#"def f [a: list<int>] { }; f [1 2 ...["misfit"] 4]"#,
-        "expected int",
-    )
+fn spread_type_list() -> Result {
+    test()
+        .run("def f [a: list<int>] { $a | describe }; f [1 ...[]]")
+        .expect_value_eq("list<int>")?;
+    test()
+        .run("def f [a: list<int>] { $a | describe }; f [1 ...[2]]")
+        .expect_value_eq("list<int>")?;
+
+    let err = test()
+        .run(r#"def f [a: list<int>] { }; f ["foo" ...[4 5 6]]"#)
+        .expect_parse_error()?;
+    assert_matches!(err, ParseError::Expected(expected, _) if expected == "int");
+
+    let err = test()
+        .run(r#"def f [a: list<int>] { }; f [1 2 ...["misfit"] 4]"#)
+        .expect_parse_error()?;
+    assert_matches!(err, ParseError::Expected(expected, _) if expected == "int");
+    Ok(())
 }
 
 #[test]
-fn spread_in_record() -> TestResult {
-    run_test("{...{} ...{}, a: 1} | to nuon", "{a: 1}").unwrap();
-    run_test("{...{...{...{}}}} | to nuon", "{}").unwrap();
-    run_test(
-        "{foo: bar ...{a: {x: 1}} b: 3} | to nuon",
-        "{foo: bar, a: {x: 1}, b: 3}",
-    )
+fn spread_in_record() -> Result {
+    test()
+        .run("{...{} ...{}, a: 1}")
+        .expect_value_eq(test_record! { "a" => 1 })?;
+    test()
+        .run("{...{...{...{}}}}")
+        .expect_value_eq(test_record! {})?;
+    test()
+        .run("{foo: bar ...{a: {x: 1}} b: 3}")
+        .expect_value_eq(test_value!({ foo: "bar", a: { x: 1 }, b: 3 }))
 }
 
 #[test]
-fn duplicate_cols() -> TestResult {
-    fail_test("{a: 1, ...{a: 3}}", "column used twice").unwrap();
-    fail_test("{...{a: 4, x: 3}, x: 1}", "column used twice").unwrap();
-    fail_test("{...{a: 0, x: 2}, ...{x: 5}}", "column used twice")
+fn duplicate_cols() -> Result {
+    let err = test().run("{a: 1, ...{a: 3}}").expect_shell_error()?;
+    assert_matches!(err, ShellError::ColumnDefinedTwice { .. });
+
+    let err = test().run("{...{a: 4, x: 3}, x: 1}").expect_shell_error()?;
+    assert_matches!(err, ShellError::ColumnDefinedTwice { .. });
+
+    let err = test()
+        .run("{...{a: 0, x: 2}, ...{x: 5}}")
+        .expect_shell_error()?;
+    assert_matches!(err, ShellError::ColumnDefinedTwice { .. });
+    Ok(())
 }
 
 #[test]
-fn bad_spread_on_non_record() -> TestResult {
-    fail_test("let x = 5; { ...$x }", "cannot spread").unwrap();
-    fail_test("{...([1, 2])}", "cannot spread")
+fn bad_spread_on_non_record() -> Result {
+    let err = test().run("let x = 5; { ...$x }").expect_shell_error()?;
+    assert_matches!(err, ShellError::CannotSpreadAsRecord { .. });
+
+    let err = test().run("{...([1, 2])}").expect_shell_error()?;
+    assert_matches!(err, ShellError::CannotSpreadAsRecord { .. });
+    Ok(())
 }
 
 #[test]
-fn spread_type_record() -> TestResult {
-    run_test("def f [a: record<x: int>] { $a.x }; f { ...{x: 0} }", "0").unwrap();
-    fail_test(
-        r#"def f [a: record<x: int>] {}; f { ...{x: "not an int"} }"#,
-        "type_mismatch",
-    )
+fn spread_type_record() -> Result {
+    test()
+        .run("def f [a: record<x: int>] { $a.x }; f { ...{x: 0} }")
+        .expect_value_eq(0)?;
+
+    let err = test()
+        .run(r#"def f [a: record<x: int>] {}; f { ...{x: "not an int"} }"#)
+        .expect_parse_error()?;
+    assert_matches!(err, ParseError::TypeMismatch(..));
+    Ok(())
 }
 
 #[test]
-fn spread_external_args() {
-    assert_eq!(
-        nu!(r#"nu --testbin cococo ...[1 "foo"] 2 ...[3 "bar"]"#).out,
-        "1 foo 2 3 bar",
-    );
+#[deps(NU, TESTBIN_COCOCO)]
+fn spread_external_args() -> Result {
+    test()
+        .run(r#"cococo ...[1 "foo"] 2 ...[3 "bar"]"#)
+        .expect_value_eq("1 foo 2 3 bar")?;
+
     // exec doesn't have rest parameters but allows unknown arguments
-    assert_eq!(
-        nu!(r#"exec nu --testbin cococo "foo" ...[5 6]"#).out,
-        "foo 5 6"
-    );
+    test()
+        .run(r#"nu -n -c 'exec cococo "foo" ...[5 6]'"#)
+        .expect_value_eq("foo 5 6")
 }
 
 #[test]
-fn spread_internal_args() -> TestResult {
-    run_test(
-        r#"
+fn spread_internal_args() -> Result {
+    let code = r#"
         let list = ["foo" 4]
-        def f [a b c? d? ...x] { [$a $b $c $d $x] | to nuon }
-        f 1 2 ...[5 6] 7 ...$list"#,
-        "[1, 2, null, null, [5, 6, 7, foo, 4]]",
-    )
-    .unwrap();
-    run_test(
-        "
-        def f [a b c? d? ...x] { [$a $b $c $d $x] | to nuon }
-        f 1 2 3 ...[5 6]",
-        "[1, 2, 3, null, [5, 6]]",
-    )
-    .unwrap();
-    run_test(
-        "
-        def f [--flag: int ...x] { [$flag $x] | to nuon }
-        f 2 ...[foo] 4 --flag 5 6 ...[7 8]",
-        "[5, [2, foo, 4, 6, 7, 8]]",
-    )
-    .unwrap();
-    run_test(
-        "
-        def f [a b? --flag: int ...x] { [$a $b $flag $x] | to nuon }
-        f 1 ...[foo] 4 --flag 5 6 ...[7 8]",
-        "[1, null, 5, [foo, 4, 6, 7, 8]]",
-    )
+        def f [a b c? d? ...x] { [$a $b $c $d $x] }
+        f 1 2 ...[5 6] 7 ...$list
+    "#;
+    test()
+        .run(code)
+        .expect_value_eq(test_value!([1, 2, (), (), [5, 6, 7, "foo", 4]]))?;
+
+    let code = "
+        def f [a b c? d? ...x] { [$a $b $c $d $x] }
+        f 1 2 3 ...[5 6]
+    ";
+    test()
+        .run(code)
+        .expect_value_eq(test_value!([1, 2, 3, (), [5, 6]]))?;
+
+    let code = "
+        def f [--flag: int ...x] { [$flag $x] }
+        f 2 ...[foo] 4 --flag 5 6 ...[7 8]
+    ";
+    test()
+        .run(code)
+        .expect_value_eq(test_value!([5, [2, "foo", 4, 6, 7, 8]]))?;
+
+    let code = "
+        def f [a b? --flag: int ...x] { [$a $b $flag $x] }
+        f 1 ...[foo] 4 --flag 5 6 ...[7 8]
+    ";
+    test()
+        .run(code)
+        .expect_value_eq(test_value!([1, (), 5, ["foo", 4, 6, 7, 8]]))
 }
 
 #[test]
-fn bad_spread_internal_args() -> TestResult {
-    fail_test(
-        "
+fn bad_spread_internal_args() -> Result {
+    let code = "
         def f [a b c? d? ...x] { echo $a $b $c $d $x }
-        f 1 ...[5 6]",
-        "Missing required positional argument",
-    )
-    .unwrap();
-    fail_test(
-        "
+        f 1 ...[5 6]
+    ";
+    let err = test().run(code).expect_parse_error()?;
+    assert_matches!(err, ParseError::MissingPositional(name, _, _) if name == "b");
+
+    let code = "
         def f [a b?] { echo a b c d }
-        f ...[5 6]",
-        "unexpected spread argument",
-    )
+        f ...[5 6]
+    ";
+    let err = test().run(code).expect_parse_error()?;
+    assert_matches!(err, ParseError::UnexpectedSpreadArg(_, _));
+    Ok(())
 }
 
 #[test]
-fn spread_non_list_args() {
-    fail_test("echo ...(1)", "cannot spread value").unwrap();
-    assert!(
-        nu!("nu --testbin cococo ...(1)")
-            .err
-            .contains("cannot spread value")
-    );
+#[deps(TESTBIN_COCOCO)]
+fn spread_non_list_args() -> Result {
+    let err = test().run("echo ...(1)").expect_shell_error()?;
+    assert_matches!(err, ShellError::CannotSpreadAsList { .. });
+
+    let err = test().run("cococo ...(1)").expect_shell_error()?;
+    assert_matches!(err, ShellError::CannotSpreadAsList { .. });
+    Ok(())
 }
 
 #[test]
-fn spread_args_type() -> TestResult {
-    fail_test(r#"def f [...x: int] {}; f ...["abc"]"#, "expected int")
+fn spread_args_type() -> Result {
+    let err = test()
+        .run(r#"def f [...x: int] {}; f ...["abc"]"#)
+        .expect_parse_error()?;
+    assert_matches!(err, ParseError::Expected(expected, _) if expected == "int");
+    Ok(())
 }
 
 #[test]
-fn explain_spread_args() -> TestResult {
-    run_test(
-        "(explain { || echo ...[1 2] }).cmd_args.0 | select arg_type name type | to nuon",
-        r#"[[arg_type, name, type]; [spread, "[1 2]", list<int>]]"#,
-    )
+fn explain_spread_args() -> Result {
+    test()
+        .run("(explain { || echo ...[1 2] }).cmd_args.0 | select arg_type name type")
+        .expect_value_eq(test_table![
+            ["arg_type", "name", "type"];
+            ["spread", "[1 2]", "list<int>"],
+        ])
 }
 
 #[test]
-fn disallow_implicit_spread_for_externals() -> TestResult {
-    fail_test("^echo [1 2]", "Lists are not automatically spread")
+#[deps(TESTBIN_MEOW)]
+fn disallow_implicit_spread_for_externals() -> Result {
+    let err = test().run("^meow [1 2]").expect_shell_error()?;
+    assert_matches!(err, ShellError::CannotPassListToExternal { .. });
+    Ok(())
 }
 
 #[test]
-fn respect_shape() -> TestResult {
-    fail_test(
-        "def foo [...rest] { ...$rest }; foo bar baz",
-        "Command `...$rest` not found",
-    )
-    .unwrap();
-    fail_test("module foo { ...$bar }", "expected_keyword").unwrap();
-    run_test(r#"def "...$foo" [] {2}; do { ...$foo }"#, "2").unwrap();
-    run_test(r#"match "...$foo" { ...$foo => 5 }"#, "5")
+fn respect_shape() -> Result {
+    let err = test()
+        .run("def foo [...rest] { ...$rest }; foo bar baz")
+        .expect_shell_error()?;
+    assert_matches!(err, ShellError::ExternalCommand { .. });
+
+    let err = test().run("module foo { ...$bar }").expect_parse_error()?;
+    assert_matches!(err, ParseError::ExpectedKeyword(_, _));
+
+    test()
+        .run(r#"def "...$foo" [] {2}; do { ...$foo }"#)
+        .expect_value_eq(2)?;
+    test()
+        .run(r#"match "...$foo" { ...$foo => 5 }"#)
+        .expect_value_eq(5)
 }
 
 #[test]
-fn spread_null() -> TestResult {
+#[deps(TESTBIN_COCOCO)]
+fn spread_null() -> Result {
     // Spread in list
-    run_test("[1, 2, ...(null)] | to nuon --raw", "[1,2]")?;
+    test().run("[1, 2, ...(null)]").expect_value_eq([1, 2])?;
 
     // Spread in record
-    run_test("{a: 1, b: 2, ...(null)} | to nuon --raw", "{a:1,b:2}")?;
+    test()
+        .run("{a: 1, b: 2, ...(null)}")
+        .expect_value_eq(test_record! { "a" => 1, "b" => 2 })?;
 
     // Spread to built-in command's ...rest
-    run_test("echo 1 2 ...(null) | to nuon --raw", "[1,2]")?;
+    test().run("echo 1 2 ...(null)").expect_value_eq([1, 2])?;
 
     // Spread to custom command's ...rest
-    run_test(
-        "
-            def foo [...rest] { $rest }
-            foo ...(null) 1 2 ...(null) 3 | to nuon --raw
-        ",
-        "[1,2,3]",
-    )?;
+    let code = "
+        def foo [...rest] { $rest }
+        foo ...(null) 1 2 ...(null) 3
+    ";
+    test().run(code).expect_value_eq([1, 2, 3])?;
 
     // Spread to external command's arguments
-    assert_eq!(nu!("nu --testbin cococo 1 ...(null) 2").out, "1 2");
+    test().run("cococo 1 ...(null) 2").expect_value_eq("1 2")?;
 
+    Ok(())
+}
+
+#[test]
+fn named_flag_null_is_omitted() -> Result {
+    // Null named value uses signature default
+    let code = "
+        def f [--x: int = 5] { $x }
+        f --x=(null)
+    ";
+    test().run(code).expect_value_eq(5)?;
+
+    // Null named value without default is same as omitting the flag
+    let code = "
+        def f [--x: int] { $x }
+        f --x=(null)
+    ";
+    test().run(code).expect_value_eq(())?;
+
+    // Forwarding an unbound optional flag (null) into another command
+    let code = "
+        def outer [--preserve: list<string>] {
+            inner --preserve=$preserve
+        }
+        def inner [--preserve: list<string>] {
+            $preserve
+        }
+        outer
+    ";
+    test().run(code).expect_value_eq(())?;
+
+    // Explicit empty list is distinct from null/omit
+    let code = "
+        def outer [--preserve: list<string>] {
+            inner --preserve=$preserve
+        }
+        def inner [--preserve: list<string>] {
+            $preserve
+        }
+        outer --preserve=[]
+    ";
+    test().run(code).expect_value_eq(test_value!([]))?;
+
+    // Null switch value is treated as omitted (false)
+    let code = "
+        def f [--verbose] { $verbose }
+        f --verbose=(null)
+    ";
+    test().run(code).expect_value_eq(false)?;
+
+    Ok(())
+}
+
+#[test]
+fn named_flag_null_passed_when_type_allows_nothing() -> Result {
+    // oneof with nothing: explicit null is bound; omit still uses default
+    let code = "
+        def f [--x: oneof<int, nothing> = 5] { $x }
+        f --x=(null)
+    ";
+    test().run(code).expect_value_eq(())?;
+
+    let code = "
+        def f [--x: oneof<int, nothing> = 5] { $x }
+        f
+    ";
+    test().run(code).expect_value_eq(5)?;
+
+    let code = "
+        def f [--x: oneof<int, nothing> = 5] { $x }
+        f --x=3
+    ";
+    test().run(code).expect_value_eq(3)?;
+
+    // `any` accepts nothing, so null is passed through (not the default)
+    let code = "
+        def f [--x: any = 5] { $x }
+        f --x=(null)
+    ";
+    test().run(code).expect_value_eq(())?;
+
+    // `nothing` type: null is passed through
+    let code = "
+        def f [--x: nothing] { $x }
+        f --x=(null)
+    ";
+    test().run(code).expect_value_eq(())?;
+
+    // Record spread: null passes when type allows nothing
+    let code = "
+        def f [--x: oneof<int, nothing> = 5] { $x }
+        f ...{x: null}
+    ";
+    test().run(code).expect_value_eq(())?;
+
+    // Record spread: null still omits when type does not allow nothing
+    let code = "
+        def f [--x: int = 5] { $x }
+        f ...{x: null}
+    ";
+    test().run(code).expect_value_eq(5)?;
+
+    Ok(())
+}
+
+#[test]
+fn named_flag_record_spread() -> Result {
+    let code = r#"
+        def f [--x: int, --y: string, --verbose] {
+            {x: $x, y: $y, verbose: $verbose}
+        }
+        f ...{x: 1, y: "a", verbose: true}
+    "#;
+    test().run(code).expect_value_eq(test_value!({
+        x: 1,
+        y: "a",
+        verbose: true
+    }))?;
+
+    // Null fields are omitted (defaults / null apply)
+    let code = r#"
+        def f [--x: int = 9, --y: string, --verbose] {
+            {x: $x, y: $y, verbose: $verbose}
+        }
+        f ...{x: null, y: "hi", verbose: false}
+    "#;
+    test().run(code).expect_value_eq(test_value!({
+        x: 9,
+        y: "hi",
+        verbose: false
+    }))?;
+
+    // Dynamic record variable
+    let code = r#"
+        def f [--x: int, --y: string] { [$x $y] }
+        let flags = {x: 3, y: "z"}
+        f ...$flags
+    "#;
+    test().run(code).expect_value_eq(test_value!([3, "z"]))?;
+
+    // Combine named spread with rest positionals
+    let code = "
+        def f [--flag: int, ...rest] { {flag: $flag, rest: $rest} }
+        f ...{flag: 7} a b
+    ";
+    test().run(code).expect_value_eq(test_value!({
+        flag: 7,
+        rest: ["a", "b"]
+    }))?;
+
+    // Shadowing-style call: flags record + rest paths
+    let code = "
+        def wrap [--preserve: list<string>, --recursive, ...rest] {
+            inner ...{
+                preserve: $preserve
+                recursive: $recursive
+            } ...$rest
+        }
+        def inner [--preserve: list<string>, --recursive, ...rest] {
+            {preserve: $preserve, recursive: $recursive, rest: $rest}
+        }
+        wrap src dest
+    ";
+    test().run(code).expect_value_eq(test_value!({
+        preserve: (),
+        recursive: false,
+        rest: ["src", "dest"]
+    }))?;
+
+    let code = "
+        def wrap [--preserve: list<string>, --recursive, ...rest] {
+            inner ...{
+                preserve: $preserve
+                recursive: $recursive
+            } ...$rest
+        }
+        def inner [--preserve: list<string>, --recursive, ...rest] {
+            {preserve: $preserve, recursive: $recursive, rest: $rest}
+        }
+        wrap --preserve=[mode] --recursive src dest
+    ";
+    test().run(code).expect_value_eq(test_value!({
+        preserve: ["mode"],
+        recursive: true,
+        rest: ["src", "dest"]
+    }))?;
+
+    Ok(())
+}
+
+#[test]
+fn named_flag_record_spread_unknown_flag_errors() -> Result {
+    let code = "
+        def f [--x: int] { $x }
+        f ...{x: 1, nope: true}
+    ";
+    let err = test().run(code).expect_shell_error()?;
+    assert_matches!(err, ShellError::Generic(_));
+    Ok(())
+}
+
+#[test]
+fn named_flag_list_spread_before_required_errors() -> Result {
+    // Dual-purpose: dynamic list before required positionals must error (not leave them unbound)
+    let code = "
+        def f [a: string, --x: int, ...rest] { {a: $a, x: $x, rest: $rest} }
+        let list = [1]
+        f ...$list hello
+    ";
+    let err = test().run(code).expect_shell_error()?;
+    assert_matches!(err, ShellError::Generic(_));
+
+    // Null rest-mode before required positionals must also error
+    let code = "
+        def f [a: string, --x: int, ...rest] { {a: $a, x: $x, rest: $rest} }
+        f ...(null) hello
+    ";
+    let err = test().run(code).expect_shell_error()?;
+    assert_matches!(err, ShellError::Generic(_));
+    Ok(())
+}
+
+#[test]
+fn named_flag_record_spread_required_named_deferred() -> Result {
+    // Bare required named still parse-errors
+    let err = test().run("stor create").expect_parse_error()?;
+    assert_matches!(err, ParseError::MissingRequiredFlag(..));
+
+    // With a record spread, required named is deferred to runtime (no MissingRequiredFlag)
+    test()
+        .run(r#"stor create ...{table-name: "t_spread_ok", columns: {id: int}} | describe"#)
+        .expect_value_eq("SQLiteDatabase")?;
+
+    Ok(())
+}
+
+#[test]
+fn named_flag_list_spread_without_rest_errors() -> Result {
+    // Dynamic list on a named-only command must not silently drop the list.
+    let code = "
+        def f [--x: int] { $x }
+        let list = [1]
+        f ...$list
+    ";
+    let err = test().run(code).expect_shell_error()?;
+    assert_matches!(err, ShellError::Generic(_));
+
+    // Explicit list spread is still a parse error (no rest).
+    let err = test()
+        .run("def f [--x: int] { $x }; f ...[1]")
+        .expect_parse_error()?;
+    assert_matches!(err, ParseError::UnexpectedSpreadArg(_, _));
+    Ok(())
+}
+
+#[test]
+fn named_flag_record_spread_type_mismatch_errors() -> Result {
+    let code = r#"
+        def f [--x: int] { $x }
+        f ...{x: "hi"}
+    "#;
+    let err = test().run(code).expect_shell_error()?;
+    assert_matches!(err, ShellError::CantConvert { .. });
+    Ok(())
+}
+
+#[test]
+fn named_flag_dynamic_record_before_required_positional() -> Result {
+    // Dual-purpose commands: flag record before required positionals is allowed.
+    let code = "
+        def f [a: string, --x: int, ...rest] { {a: $a, x: $x, rest: $rest} }
+        let flags = {x: 7}
+        f ...$flags hello more
+    ";
+    test().run(code).expect_value_eq(test_value!({
+        a: "hello",
+        x: 7,
+        rest: ["more"]
+    }))
+}
+
+#[test]
+fn named_flag_record_spread_without_named_params_is_parse_error() -> Result {
+    let err = test()
+        .run("def f [] { 1 }; f ...{x: 1}")
+        .expect_parse_error()?;
+    assert_matches!(err, ParseError::UnexpectedSpreadArg(_, _));
     Ok(())
 }

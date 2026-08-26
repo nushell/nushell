@@ -146,6 +146,7 @@ pub(crate) fn compile_expression(
                     Instruction::LoadVariable {
                         dst: out_reg,
                         var_id: IN_VARIABLE_ID,
+                        preserve_origin: false,
                     }
                     .into_spanned(expr.span),
                 )?;
@@ -155,6 +156,7 @@ pub(crate) fn compile_expression(
                     Instruction::LoadVariable {
                         dst: out_reg,
                         var_id: *var_id,
+                        preserve_origin: false,
                     }
                     .into_spanned(expr.span),
                 )?;
@@ -238,7 +240,15 @@ pub(crate) fn compile_expression(
         }
         Expr::Subexpression(block_id) => {
             let block = working_set.get_block(*block_id);
-            compile_block(working_set, builder, block, redirect_modes, in_reg, out_reg)
+            compile_block(
+                working_set,
+                builder,
+                block,
+                true,
+                redirect_modes,
+                in_reg,
+                out_reg,
+            )
         }
         Expr::Block(block_id) => lit(builder, Literal::Block(*block_id)),
         Expr::Closure(block_id) => lit(builder, Literal::Closure(*block_id)),

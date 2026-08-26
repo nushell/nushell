@@ -1,4 +1,7 @@
-use crate::math::{avg::average, utils::run_with_function};
+use crate::math::{
+    avg::average,
+    utils::{run_with_function_with_cell_paths, run_with_function_with_cell_paths_const},
+};
 use nu_engine::command_prelude::*;
 use std::cmp::Ordering;
 
@@ -21,6 +24,11 @@ impl Command for MathMedian {
                 (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true)
+            .rest(
+                "columns",
+                SyntaxShape::CellPath,
+                "The cell-paths/columns to operate on.",
+            )
             .category(Category::Math)
     }
 
@@ -38,21 +46,21 @@ impl Command for MathMedian {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
-        _stack: &mut Stack,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        run_with_function(call, input, median)
+        run_with_function_with_cell_paths(engine_state, stack, call, input, median)
     }
 
     fn run_const(
         &self,
-        _working_set: &StateWorkingSet,
+        working_set: &StateWorkingSet,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        run_with_function(call, input, median)
+        run_with_function_with_cell_paths_const(working_set, call, input, median)
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -75,6 +83,25 @@ impl Command for MathMedian {
                 example: "[5KB 10MB 200B] | math median",
                 result: Some(Value::test_filesize(5 * 1_000)),
             },
+            Example {
+                description: "Compute the median of list-valued columns in a record.",
+                example: "{alice: [3 1 2], bob: [4 5 6]} | math median",
+                result: Some(Value::test_record(record! {
+                    "alice" => Value::test_int(2),
+                    "bob" => Value::test_int(5),
+                })),
+            },
+            Example {
+                description: "Compute the median of a single column using a cell path.",
+                example: "{alice: [3 1 2], bob: [4 5 6]} | math median alice",
+                result: Some(Value::test_record(record! {
+                    "alice" => Value::test_int(2),
+                    "bob" => Value::list(
+                        vec![Value::test_int(4), Value::test_int(5), Value::test_int(6)],
+                        Span::test_data(),
+                    ),
+                })),
+            },
         ]
     }
 }
@@ -85,10 +112,38 @@ enum Pick {
 }
 
 pub fn median(values: &[Value], span: Span, head: Span) -> Result<Value, ShellError> {
+    // Reject unsupported types up front so record columns error like other reducers.
+    for value in values {
+        match value {
+            Value::Int { .. }
+            | Value::Float { .. }
+            | Value::Duration { .. }
+            | Value::Filesize { .. } => {}
+            Value::Error { error, .. } => return Err(*error.clone()),
+            other => {
+                return Err(ShellError::OnlySupportsThisInputType {
+                    exp_input_type: crate::math::utils::NUMERIC_INPUT_TYPES.into(),
+                    wrong_type: other.get_type().to_string(),
+                    dst_span: head,
+                    src_span: other.span(),
+                });
+            }
+        }
+    }
+
     let mut sorted = values
         .iter()
         .filter(|x| !x.as_float().is_ok_and(f64::is_nan))
         .collect::<Vec<_>>();
+
+    if sorted.is_empty() {
+        return Err(ShellError::UnsupportedInput {
+            msg: "Empty input".to_string(),
+            input: "value originates from here".into(),
+            msg_span: head,
+            input_span: span,
+        });
+    }
 
     sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
 
@@ -101,43 +156,14 @@ pub fn median(values: &[Value], span: Span, head: Span) -> Result<Value, ShellEr
     match take {
         Pick::Median => {
             let idx = sorted.len() / 2;
-            Ok(sorted
-                .get(idx)
-                .ok_or_else(|| ShellError::UnsupportedInput {
-                    msg: "Empty input".to_string(),
-                    input: "value originates from here".into(),
-                    msg_span: head,
-                    input_span: span,
-                })?
-                .to_owned()
-                .to_owned())
+            // Non-empty: middle element always exists.
+            Ok(sorted[idx].to_owned().to_owned())
         }
         Pick::MedianAverage => {
             let idx_end = sorted.len() / 2;
             let idx_start = idx_end - 1;
-
-            let left = sorted
-                .get(idx_start)
-                .ok_or_else(|| ShellError::UnsupportedInput {
-                    msg: "Empty input".to_string(),
-                    input: "value originates from here".into(),
-                    msg_span: head,
-                    input_span: span,
-                })?
-                .to_owned()
-                .to_owned();
-
-            let right = sorted
-                .get(idx_end)
-                .ok_or_else(|| ShellError::UnsupportedInput {
-                    msg: "Empty input".to_string(),
-                    input: "value originates from here".into(),
-                    msg_span: head,
-                    input_span: span,
-                })?
-                .to_owned()
-                .to_owned();
-
+            let left = sorted[idx_start].to_owned().to_owned();
+            let right = sorted[idx_end].to_owned().to_owned();
             average(&[left, right], span, head)
         }
     }

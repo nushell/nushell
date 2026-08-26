@@ -43,6 +43,11 @@ impl Jobs {
         self.jobs.iter().map(|(k, v)| (*k, v))
     }
 
+    /// Whether there are no tracked jobs (running or frozen).
+    pub fn is_empty(&self) -> bool {
+        self.jobs.is_empty()
+    }
+
     pub fn lookup(&self, id: JobId) -> Option<&Job> {
         self.jobs.get(&id)
     }

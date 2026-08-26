@@ -7,7 +7,7 @@ use crate::prompt_update::{
 };
 use crate::{
     NuHighlighter, NuValidator, NushellPrompt,
-    completions::NuCompleter,
+    completions::{NarrowingCache, NuCompleter},
     hints::ExternalHinter,
     prompt_update,
     reedline_config::{KeybindingsMode, add_menus, create_keybindings},
@@ -35,6 +35,7 @@ use nu_utils::{
     filesystem::{PermissionResult, have_permission},
     perf, stderr_write_all_and_flush, stdout_write_all_and_flush,
 };
+use reedline::Helix;
 #[cfg(feature = "sqlite")]
 use reedline::SqliteBackedHistory;
 use reedline::{
@@ -67,6 +68,37 @@ fn semantic_markers_from_config(
     }
 }
 
+type RepaintCallback = Arc<dyn Fn() + Send + Sync>;
+
+/// Prepares the engine's prompt state and constructs the interactive view.
+/// Injects a live repainter only if background jobs are currently active.
+fn build_interactive_prompt(
+    engine_state: &EngineState,
+    line_editor: &mut Reedline,
+) -> NushellPrompt {
+    // Recover from a poisoned jobs lock rather than silently disabling async
+    // prompts: a background job holding the lock across a panic must not leave
+    // `commandline set-prompt` a permanent no-op.
+    let jobs_active = {
+        let active_jobs = engine_state
+            .jobs
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        !active_jobs.is_empty()
+    };
+
+    let background_repainter = jobs_active.then(|| {
+        let repaint_signal = line_editor.repaint_signal();
+        Arc::new(move || repaint_signal.request_repaint()) as RepaintCallback
+    });
+
+    engine_state
+        .prompt_state
+        .set_repainter(background_repainter);
+
+    NushellPrompt::shared(engine_state.prompt_state.clone())
+}
+
 /// The main REPL loop, including spinning up the prompt itself.
 pub fn evaluate_repl(
     engine_state: &mut EngineState,
@@ -92,8 +124,6 @@ pub fn evaluate_repl(
     let shell_integration_osc7 = config.shell_integration.osc7;
     let shell_integration_osc9_9 = config.shell_integration.osc9_9;
     let shell_integration_osc633 = config.shell_integration.osc633;
-
-    let nu_prompt = NushellPrompt::new();
 
     // Seed env vars — no source span exists at REPL startup
     unique_stack.add_env_var(
@@ -186,6 +216,8 @@ pub fn evaluate_repl(
     // Setup initial engine_state and stack state
     let mut previous_engine_state = engine_state.clone();
     let mut previous_stack_arc = Arc::new(unique_stack);
+    // Cache survives the completer being rebuilt each prompt.
+    let completion_cache = NarrowingCache::default();
     loop {
         // clone these values so that they can be moved by AssertUnwindSafe
         // If there is a panic within this iteration the last engine_state and stack
@@ -195,19 +227,19 @@ pub fn evaluate_repl(
         // avoiding an expensive copy
         let current_stack = Stack::with_parent(previous_stack_arc.clone());
         let temp_file_cloned = temp_file.clone();
-        let mut nu_prompt_cloned = nu_prompt.clone();
+        let current_completion_cache = completion_cache.clone();
 
         let iteration_panic_state = catch_unwind(AssertUnwindSafe(|| {
             let (continue_loop, current_stack, line_editor) = loop_iteration(LoopContext {
                 engine_state: &mut current_engine_state,
                 stack: current_stack,
                 line_editor,
-                nu_prompt: &mut nu_prompt_cloned,
                 temp_file: &temp_file_cloned,
                 use_color,
                 entry_num: &mut entry_num,
                 hostname: hostname.as_deref(),
                 is_hostcommand: &mut is_hostcommand,
+                completion_cache: current_completion_cache,
             });
 
             // pass the most recent version of the line_editor back
@@ -317,12 +349,13 @@ struct LoopContext<'a> {
     engine_state: &'a mut EngineState,
     stack: Stack,
     line_editor: Reedline,
-    nu_prompt: &'a mut NushellPrompt,
     temp_file: &'a Path,
     use_color: bool,
     entry_num: &'a mut usize,
     hostname: Option<&'a str>,
     is_hostcommand: &'a mut bool,
+    /// Completion cache carried across prompts (survives the per-prompt completer rebuild).
+    completion_cache: NarrowingCache,
 }
 
 struct RunContext<'a> {
@@ -366,19 +399,7 @@ fn run_command(ctx: RunContext) -> Reedline {
     // Right before we start running the code the user gave us, fire the `pre_execution`
     // hook
     {
-        // Set the REPL buffer to the current command for the "pre_execution" hook
-        let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
-        repl.buffer = command.clone();
-        drop(repl);
-
-        if let Err(err) = hook::eval_hooks(
-            engine_state,
-            // &mut stack,
-            stack,
-            vec![],
-            &engine_state.get_config().hooks.pre_execution.clone(),
-            "pre_execution",
-        ) {
+        if let Err(err) = hook::eval_pre_execution_hooks(engine_state, stack, command.clone()) {
             report_shell_error(None, engine_state, &err);
         }
     }
@@ -431,6 +452,9 @@ fn run_command(ctx: RunContext) -> Reedline {
     // Actual command execution logic starts from here
     let cmd_execution_start_time = Instant::now();
 
+    // Only user-typed commands refresh `$ans` metadata (not empty Enter / auto-cd).
+    let mut snapshot_ans = false;
+
     match parse_operation(command.clone(), engine_state, stack) {
         Ok(ReplOperation::AutoCd { cwd, target, span }) => {
             do_auto_cd(target, cwd, stack, engine_state, span);
@@ -461,6 +485,7 @@ fn run_command(ctx: RunContext) -> Reedline {
                 shell_integration.osc633,
                 shell_integration.osc133,
             );
+            snapshot_ans = true;
         }
         // as the name implies, we do nothing in this case
         Ok(ReplOperation::DoNothing) => {}
@@ -473,6 +498,14 @@ fn run_command(ctx: RunContext) -> Reedline {
         "CMD_DURATION_MS".into(),
         Value::string(format!("{}", cmd_duration.as_millis()), Span::unknown()),
     );
+
+    // Snapshot `$ans.exit_code` / `$ans.duration` / `$ans.command` after duration is
+    // known (and after eval may have stored `$ans.last`). `command` is the same
+    // reedline buffer history stores. Always records metadata for the user line;
+    // when max_last_result_size is 0, also omits `.last`.
+    if snapshot_ans {
+        stack.snapshot_ans_repl_metadata(engine_state, cmd_duration, &command);
+    }
 
     if history_supports_meta
         && let Err(e) = fill_in_result_related_history_metadata(
@@ -518,12 +551,12 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         engine_state,
         mut stack,
         line_editor,
-        nu_prompt,
         temp_file,
         use_color,
         entry_num,
         hostname,
         is_hostcommand,
+        completion_cache,
     } = ctx;
 
     let mut start_time = Instant::now();
@@ -559,13 +592,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
     start_time = Instant::now();
     // Next, right before we start our prompt and take input from the user, fire the "pre_prompt" hook
-    if let Err(err) = hook::eval_hooks(
-        engine_state,
-        &mut stack,
-        vec![],
-        &engine_state.get_config().hooks.pre_prompt.clone(),
-        "pre_prompt",
-    ) {
+    if let Err(err) = hook::eval_pre_prompt_hooks(engine_state, &mut stack) {
         report_shell_error(None, engine_state, &err);
     }
     perf!("pre-prompt hook", start_time, use_color);
@@ -579,6 +606,9 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         vi_insert: map_nucursorshape_to_cursorshape(config.cursor_shape.vi_insert),
         vi_normal: map_nucursorshape_to_cursorshape(config.cursor_shape.vi_normal),
         emacs: map_nucursorshape_to_cursorshape(config.cursor_shape.emacs),
+        hx_insert: map_nucursorshape_to_cursorshape(config.cursor_shape.helix_insert),
+        hx_normal: map_nucursorshape_to_cursorshape(config.cursor_shape.helix_normal),
+        hx_select: map_nucursorshape_to_cursorshape(config.cursor_shape.helix_select),
     };
     perf!("get config/cursor config", start_time, use_color);
 
@@ -604,10 +634,11 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         .with_validator(Box::new(NuValidator {
             engine_state: engine_reference.clone(),
         }))
-        .with_completer(Box::new(NuCompleter::new(
+        .with_completer(Box::new(NuCompleter::for_repl(
             engine_reference.clone(),
             // STACK-REFERENCE 2
             stack_arc.clone(),
+            completion_cache,
         )))
         .with_quick_completions(config.completions.quick)
         .with_partial_completions(config.completions.partial)
@@ -622,10 +653,6 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         ))
         .with_cursor_config(cursor_config)
         .with_abbreviations(config.abbreviations.clone())
-        .with_visual_selection_style(nu_ansi_term::Style {
-            is_reverse: true,
-            ..Default::default()
-        })
         .with_semantic_markers(semantic_markers_from_config(
             &config,
             term_program_is_vscode,
@@ -641,6 +668,14 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     let style_computer = StyleComputer::from_config(engine_state, &stack_arc);
 
     start_time = Instant::now();
+    // `color_config.selection` defaults to `{ attr: r }`, the reverse video
+    // this used to hardcode.
+    line_editor = line_editor.with_visual_selection_style(
+        style_computer.compute("selection", &Value::nothing(Span::unknown())),
+    );
+    line_editor = line_editor.with_visual_selection_cursor_style(
+        style_computer.compute("selection_cursor", &Value::nothing(Span::unknown())),
+    );
     line_editor = if config.use_ansi_coloring.get(engine_state) && config.show_hints {
         // As of Nov 2022, "hints" color_config closures only get `null` passed in.
         // No meaningful span — this is a synthetic null value for style computation.
@@ -712,17 +747,17 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
     start_time = Instant::now();
     let config = &engine_state.get_config().clone();
+    // Re-evaluate the prompt into the shared `prompt_state`; this also resets any
+    // segment a background job pushed during the previous cycle.
     prompt_update::update_prompt(
         config,
         engine_state,
         &mut Stack::with_parent(stack_arc.clone()),
-        nu_prompt,
     );
     let transient_prompt = prompt_update::make_transient_prompt(
         config,
         engine_state,
         &mut Stack::with_parent(stack_arc.clone()),
-        nu_prompt,
     );
 
     perf!("update_prompt", start_time, use_color);
@@ -740,8 +775,10 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
     start_time = Instant::now();
     line_editor = line_editor.with_transient_prompt(transient_prompt);
-    let input = line_editor.read_line(nu_prompt);
-    // we got our inputs, we can now drop our stack references
+
+    let interactive_prompt = build_interactive_prompt(engine_state, &mut line_editor);
+    let input = line_editor.read_line(&interactive_prompt);
+
     // This lists all of the stack references that we have cleaned up
     line_editor = line_editor
         // CLEAR STACK-REFERENCE 1
@@ -1060,14 +1097,19 @@ fn do_run_cmd(
         run_shell_integration_osc2(Some(s), engine_state, stack, use_color);
     }
 
-    match evaluate_source(
+    // Enable `$ans` capture for this user line only (not config/env/banner evals).
+    engine_state.capture_repl_last_result = true;
+    let eval_result = evaluate_source(
         engine_state,
         stack,
         s.as_bytes(),
         &format!("repl_entry #{entry_num}"),
         PipelineData::empty(),
         false,
-    ) {
+    );
+    engine_state.capture_repl_last_result = false;
+
+    match eval_result {
         Err(ShellError::Exit { code, .. }) => {
             return cleanup_exit(line_editor, engine_state, code);
         }
@@ -1305,6 +1347,19 @@ fn setup_keybindings(engine_state: &EngineState, line_editor: Reedline) -> Reedl
                 let edit_mode = Box::new(Vi::new(insert_keybindings, normal_keybindings));
                 line_editor.with_edit_mode(edit_mode)
             }
+            KeybindingsMode::Helix {
+                insert_keybindings,
+                normal_keybindings,
+                select_keybindings,
+            } => {
+                let edit_mode = Box::new(
+                    Helix::default()
+                        .with_insert_keybindings(insert_keybindings)
+                        .with_normal_keybindings(normal_keybindings)
+                        .with_select_keybindings(select_keybindings),
+                );
+                line_editor.with_edit_mode(edit_mode)
+            }
         },
         Err(e) => {
             report_shell_error(None, engine_state, &e);
@@ -1331,6 +1386,23 @@ fn store_history_id_in_engine(engine_state: &mut EngineState, line_editor: &Reed
     engine_state.history_session_id = session_id;
 }
 
+fn warn_history_unavailable(history_path: &std::path::Path, err: &impl std::fmt::Display) {
+    if history_path.is_symlink() && !history_path.exists() {
+        let target = std::fs::read_link(history_path)
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|_| "<unknown>".to_string());
+        eprintln!(
+            "Warning: history file is a broken symlink ({} -> {target}); continuing without history.",
+            history_path.display()
+        );
+    } else {
+        eprintln!(
+            "Warning: could not open history file ({}): {err}; continuing without history.",
+            history_path.display()
+        );
+    }
+}
+
 fn update_line_editor_history(
     engine_state: &mut EngineState,
     history_path: PathBuf,
@@ -1339,11 +1411,18 @@ fn update_line_editor_history(
     history_session_id: Option<HistorySessionId>,
 ) -> Result<Reedline, ErrReport> {
     let ignore_space_prefixed = history.ignore_space_prefixed;
-    let history: Box<dyn reedline::History> = match history.file_format {
-        HistoryFileFormat::Plaintext => Box::new(
-            FileBackedHistory::with_file(history.max_size as usize, history_path)
-                .into_diagnostic()?,
-        ),
+    // History open failures must not abort the REPL (e.g. broken symlink after a
+    // moved dotfiles repo). Prefer starting without history over locking the user out.
+    let history_backend: Option<Box<dyn reedline::History>> = match history.file_format {
+        HistoryFileFormat::Plaintext => {
+            match FileBackedHistory::with_file(history.max_size as usize, history_path.clone()) {
+                Ok(h) => Some(Box::new(h)),
+                Err(err) => {
+                    warn_history_unavailable(&history_path, &err);
+                    None
+                }
+            }
+        }
         // this path should not happen as the config setting is captured by `nu-protocol` already
         #[cfg(not(feature = "sqlite"))]
         HistoryFileFormat::Sqlite => {
@@ -1353,19 +1432,28 @@ fn update_line_editor_history(
             ));
         }
         #[cfg(feature = "sqlite")]
-        HistoryFileFormat::Sqlite => Box::new(
-            SqliteBackedHistory::with_file(
-                history_path.to_path_buf(),
+        HistoryFileFormat::Sqlite => {
+            match SqliteBackedHistory::with_file(
+                history_path.clone(),
                 history_session_id,
                 Some(chrono::Utc::now()),
-            )
-            .into_diagnostic()?,
-        ),
+            ) {
+                Ok(h) => Some(Box::new(h)),
+                Err(err) => {
+                    warn_history_unavailable(&history_path, &err);
+                    None
+                }
+            }
+        }
     };
-    let line_editor = line_editor
+
+    let mut line_editor = line_editor
         .with_history_session_id(history_session_id)
-        .with_history_exclusion_prefix(ignore_space_prefixed.then_some(" ".into()))
-        .with_history(history);
+        .with_history_exclusion_prefix(ignore_space_prefixed.then_some(" ".into()));
+
+    if let Some(history) = history_backend {
+        line_editor = line_editor.with_history(history);
+    }
 
     store_history_id_in_engine(engine_state, &line_editor);
 
@@ -1627,6 +1715,37 @@ fn are_session_ids_in_sync() {
         i64::from(line_editor.unwrap().get_history_session_id().unwrap()),
         engine_state.history_session_id
     );
+}
+
+/// A broken history symlink must not abort history setup (login-lockout risk).
+#[cfg(unix)]
+#[test]
+fn dangling_history_symlink_does_not_fail_setup() {
+    let dir = temp_dir().join(format!("nushell-dangling-history-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let history_path = dir.join("history.txt");
+    std::os::unix::fs::symlink("/nonexistent/history.txt", &history_path).unwrap();
+
+    let engine_state = &mut EngineState::new();
+    engine_state.config_dirs.config_home = dir.clone();
+    let history = engine_state.history_config().unwrap();
+    let line_editor = reedline::Reedline::create();
+    let history_session_id = reedline::Reedline::create_history_session_id();
+    let result = update_line_editor_history(
+        engine_state,
+        history_path.clone(),
+        history,
+        line_editor,
+        history_session_id,
+    );
+    assert!(
+        result.is_ok(),
+        "dangling history symlink must not fail REPL history setup"
+    );
+    // Never remove the user's symlink.
+    assert!(history_path.is_symlink());
+    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[cfg(test)]

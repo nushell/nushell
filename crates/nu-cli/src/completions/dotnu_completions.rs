@@ -1,12 +1,9 @@
 use crate::completions::{
-    Completer, CompletionOptions, SemanticSuggestion, completion_common::FileSuggestion,
-    completion_options::NuMatcher,
+    Completer, Context, Fetched, SemanticSuggestion, completion_common::FileSuggestion,
+    completion_options::NuMatcher, to_reedline_span,
 };
 use nu_path::expand_tilde;
-use nu_protocol::{
-    Span, SuggestionKind,
-    engine::{Stack, StateWorkingSet, VirtualPath},
-};
+use nu_protocol::{SuggestionKind, engine::VirtualPath};
 use reedline::Suggestion;
 use std::collections::{HashMap, HashSet};
 
@@ -18,19 +15,13 @@ pub struct DotNuCompletion {
 }
 
 impl Completer for DotNuCompletion {
-    fn fetch(
-        &mut self,
-        working_set: &StateWorkingSet,
-        stack: &Stack,
-        prefix: impl AsRef<str>,
-        span: Span,
-        offset: usize,
-        options: &CompletionOptions,
-    ) -> Vec<SemanticSuggestion> {
-        let reedline_span = reedline::Span {
-            start: span.start - offset,
-            end: span.end - offset,
-        };
+    fn fetch(&mut self, ctx: &Context) -> Fetched {
+        let working_set = ctx.working_set;
+        let stack = ctx.stack;
+        let span = ctx.span;
+        let options = ctx.options;
+        let prefix = ctx.prefix_str();
+        let reedline_span = to_reedline_span(span, ctx.offset);
         // Modules that are already loaded go first
         let mut matcher = NuMatcher::new(&prefix, options, true);
         let mut modules_map = HashMap::new();
@@ -40,7 +31,7 @@ impl Completer for DotNuCompletion {
         }
 
         for (module_name_bytes, module_id) in modules_map.into_iter() {
-            let value = String::from_utf8_lossy(module_name_bytes).to_string();
+            let value = String::from_utf8_lossy(module_name_bytes).into_owned();
             // TODO: this is a quickfix. just like `help modules`, this constructs the module
             // description from scratch each time. we should construct module descriptions when the
             // module is first parsed and store it for later use (like we do with custom commands)
@@ -64,12 +55,14 @@ impl Completer for DotNuCompletion {
         }
 
         // Add std virtual paths first
+        let mut resolved_virtual_dir = false;
         if self.std_virtual_path {
             // Where we have '/' in the prefix, e.g. use std/l
             if let Some((base_dir, _)) = prefix.as_ref().rsplit_once("/") {
                 let base_dir = surround_remove(base_dir);
                 if let Some(VirtualPath::Dir(sub_paths)) = working_set.find_virtual_path(&base_dir)
                 {
+                    resolved_virtual_dir = true;
                     for sub_vp_id in sub_paths {
                         let (path, sub_vp) = working_set.get_virtual_path(*sub_vp_id);
                         matcher.add_semantic_suggestion(SemanticSuggestion {
@@ -119,7 +112,11 @@ impl Completer for DotNuCompletion {
             })
             .collect::<HashSet<_>>();
 
-        if let Ok(cwd) = working_set.permanent_state.cwd(None) {
+        // A virtual dir (`use std/`) already supplied its children. Walking cwd
+        // is the `/` hitch in large trees and cannot complete extra files under
+        // virtual `std` (find_in_dirs prefers the VFS). Still search NU_LIB_DIRS
+        // so a real `std/` overlay in lib dirs can appear.
+        if !resolved_virtual_dir && let Ok(cwd) = working_set.permanent_state.cwd(None) {
             search_dirs.insert(cwd.into_std_path_buf());
         }
 
@@ -164,6 +161,6 @@ impl Completer for DotNuCompletion {
                 .collect::<Vec<_>>(),
         );
 
-        all_results
+        Fetched::Cacheable(all_results)
     }
 }

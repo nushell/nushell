@@ -341,7 +341,7 @@ impl SQLiteDatabase {
                 AND tbl_name = '{}'
                 AND NOT p.origin = 'c'
             ",
-            &table.name
+            table.name
         ))?;
 
         let mut constraints: Vec<DbConstraint> = Vec::new();
@@ -370,7 +370,7 @@ impl SQLiteDatabase {
     ) -> Result<Vec<DbForeignKey>, SqliteError> {
         let mut column_names = conn.prepare(&format!(
             "SELECT p.`from`, p.`to`, p.`table` FROM pragma_foreign_key_list('{}') p",
-            &table.name
+            table.name
         ))?;
 
         let mut foreign_keys: Vec<DbForeignKey> = Vec::new();
@@ -409,7 +409,7 @@ impl SQLiteDatabase {
                 m.type = 'index'
                 AND m.tbl_name = '{}'
             ",
-            &table.name,
+            table.name,
         ))?;
 
         let mut indexes: Vec<DbIndex> = Vec::new();

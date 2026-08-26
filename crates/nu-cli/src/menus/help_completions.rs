@@ -92,7 +92,7 @@ impl NuHelpCompleter {
                             let _ = write!(
                                 long_desc,
                                 ", default: {}",
-                                &value.to_parsable_string(", ", &self.config),
+                                value.to_parsable_string(", ", &self.config),
                             );
                         }
                         let _ = write!(long_desc, ")\r\n");

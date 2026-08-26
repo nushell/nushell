@@ -13,16 +13,19 @@ license.workspace = true
 nix = { workspace = true, features = ["process"] }
 
 [dependencies]
-futures = "0.3.31"
-miette = { workspace = true }
-nu-protocol = { workspace = true, features = ["plugin"] }
-nu-engine = { workspace = true, features = ["plugin"] }
+nu-engine = { workspace = true, features = ["os"] }
 nu-json = { workspace = true, features = ["nu-protocol", "preserve_order"] }
 nu-parser.workspace = true
+nu-protocol = { workspace = true, features = ["os"] }
 nuon.workspace = true
 
-rmcp = { version = "2.2.0", features = ["server", "transport-io", "schemars", "transport-streamable-http-server"] }
+bytes = { workspace = true }
+chrono = { workspace = true }
+futures = "0.3.31"
 hyper-util = { version = "0.1", features = ["tokio", "server-auto", "service"] }
+indoc = "2.0.7"
+miette = { workspace = true }
+rmcp = { version = "3.1.0", features = ["server", "transport-io", "schemars", "transport-streamable-http-server"] }
 schemars = "1.2.1"
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
@@ -30,9 +33,6 @@ tokio = { workspace = true, features = ["full"] }
 tokio-util = "0.7"
 tracing = { version = "0.1.44", features = ["log"] }
 tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
-bytes = { workspace = true }
-indoc = "2.0.7"
-chrono = { workspace = true }
 
 [features]
 default = []

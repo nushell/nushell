@@ -17,7 +17,8 @@
 
 Counterpart to `default_env.nu`.
 
-* Contains any `$env.config` values that are not set via Rust defaults.
+* All `$env.config` defaults (including `color_config`, menus, and Nushell-owned menu keybindings) live in Rust `Config::default()` so they are visible under `nu -n` / `nu -n --no-std-lib` via `$env.config`.
+* This file is intentionally minimal (`$env.config = {}`) and exists only to preserve load order before the user's `config.nu`.
 * Is loaded *after* the user's `env.nu`.
 * Is loaded *before* the user's `config.nu`.
 * Will be loaded during any startup where the user's `config.nu` is also loaded. For example:
@@ -28,14 +29,8 @@ Counterpart to `default_env.nu`.
   * `nu -c "ls"`
   * `nu <script.nu>`
 * Is not commented - Comments are in `doc_config.nu`.
-* Should be optimized for fastest load times. Whenever possible, values should be set via nu-protocol::config
-  * Exception: `color_config` values are currently set in this file so that user's can introspect the values
-  * TODO: Implement defaults for `color_config` in nu-protocol::config and remove from `default_config.nu`
-* Can be introspected via `config nu --default | nu-highlight`
-* An ideal `default_config.nu` (when all values are set via `nu-protocol::config`) will simply be:
-  ```
-  $env.config = {}
-  ```
+* Should be optimized for fastest load times. Whenever possible, values should be set via nu-protocol::config.
+* Can be introspected via `config nu --default | nu-highlight` (source of this file). Inspect **values** with `$env.config` (including under `nu -n`).
 
 ## `doc_env.nu`
 

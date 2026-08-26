@@ -1,25 +1,17 @@
 use super::{SemanticSuggestion, completion_options::NuMatcher};
-use crate::completions::{Completer, CompletionOptions};
-use nu_protocol::{
-    Span, SuggestionKind,
-    engine::{Stack, StateWorkingSet},
-};
+use crate::completions::{Completer, Context, Fetched, to_reedline_span};
+use nu_protocol::SuggestionKind;
 use reedline::Suggestion;
 
 pub struct AttributeCompletion;
 pub struct AttributableCompletion;
 
 impl Completer for AttributeCompletion {
-    fn fetch(
-        &mut self,
-        working_set: &StateWorkingSet,
-        _stack: &Stack,
-        prefix: impl AsRef<str>,
-        span: Span,
-        offset: usize,
-        options: &CompletionOptions,
-    ) -> Vec<SemanticSuggestion> {
-        let mut matcher = NuMatcher::new(prefix, options, true);
+    fn fetch(&mut self, ctx: &Context) -> Fetched {
+        let working_set = ctx.working_set;
+        let span = ctx.span;
+        let offset = ctx.offset;
+        let mut matcher = NuMatcher::new(ctx.prefix_str(), ctx.options, true);
 
         let attr_commands =
             working_set.find_commands_by_predicate(|s| s.starts_with(b"attr "), true);
@@ -30,10 +22,7 @@ impl Completer for AttributeCompletion {
                 suggestion: Suggestion {
                     value: String::from_utf8_lossy(name).into_owned(),
                     description: desc,
-                    span: reedline::Span {
-                        start: span.start - offset,
-                        end: span.end - offset,
-                    },
+                    span: to_reedline_span(span, offset),
                     append_whitespace: false,
                     ..Default::default()
                 },
@@ -41,21 +30,16 @@ impl Completer for AttributeCompletion {
             });
         }
 
-        matcher.suggestion_results()
+        Fetched::Pure(matcher.suggestion_results())
     }
 }
 
 impl Completer for AttributableCompletion {
-    fn fetch(
-        &mut self,
-        working_set: &StateWorkingSet,
-        _stack: &Stack,
-        prefix: impl AsRef<str>,
-        span: Span,
-        offset: usize,
-        options: &CompletionOptions,
-    ) -> Vec<SemanticSuggestion> {
-        let mut matcher = NuMatcher::new(prefix, options, true);
+    fn fetch(&mut self, ctx: &Context) -> Fetched {
+        let working_set = ctx.working_set;
+        let span = ctx.span;
+        let offset = ctx.offset;
+        let mut matcher = NuMatcher::new(ctx.prefix_str(), ctx.options, true);
 
         for s in ["def", "extern", "export def", "export extern"] {
             let decl_id = working_set
@@ -66,10 +50,7 @@ impl Completer for AttributableCompletion {
                 suggestion: Suggestion {
                     value: cmd.name().into(),
                     description: Some(cmd.description().into()),
-                    span: reedline::Span {
-                        start: span.start - offset,
-                        end: span.end - offset,
-                    },
+                    span: to_reedline_span(span, offset),
                     append_whitespace: true,
                     ..Default::default()
                 },
@@ -81,6 +62,6 @@ impl Completer for AttributableCompletion {
             });
         }
 
-        matcher.suggestion_results()
+        Fetched::Pure(matcher.suggestion_results())
     }
 }

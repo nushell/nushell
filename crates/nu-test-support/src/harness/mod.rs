@@ -57,6 +57,7 @@ pub mod macros {
 pub const SKIP_DEPS_BUILD_ENV: &str = "NU_TEST_SKIP_DEPS_BUILD";
 
 pub const BUILD_PROFILE: &str = env!("BUILD_PROFILE");
+pub const BUILD_TARGET: Option<&str> = option_env!("BUILD_TARGET");
 static TARGET_DIR: OnceLock<PathBuf> = OnceLock::new();
 
 pub const DEFAULT_THREAD_COUNT_MUL: NonZeroUsize = NonZeroUsize::new(4).unwrap();
@@ -87,15 +88,17 @@ pub fn main() -> ExitCode {
         return ExitCode::SUCCESS;
     }
 
-    if args.no_capture {
-        kitest::capture::CAPTURE_OUTPUT_MACROS.store(false, Ordering::Relaxed);
-    }
-
     #[cfg(all(feature = "rustls-tls", feature = "network"))]
     nu_command::tls::CRYPTO_PROVIDER.default();
 
+    // suppress direct output if `--no-capture` is *not* used
     #[cfg(feature = "plugin")]
     nu_plugin_core::SUPPRESS_STDERR.store(!args.no_capture, Ordering::Relaxed);
+    nu_protocol::report_error::SUPPRESS_REPORTING.store(!args.no_capture, Ordering::Relaxed);
+    kitest::capture::CAPTURE_OUTPUT_MACROS.store(!args.no_capture, Ordering::Relaxed);
+
+    // do not allow updating the cwd via `EngineState::merge_env`
+    nu_protocol::engine::UPDATE_CWD.store(false, Ordering::Relaxed);
 
     let filter = DefaultFilter::default()
         .with_exact(args.exact)

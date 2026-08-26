@@ -3,7 +3,7 @@ use crate::{
 };
 use log::trace;
 use nu_protocol::{
-    BlockId, ENV_VARIABLE_ID, IN_VARIABLE_ID, ParseError, Span, Type, VarId, ast::*,
+    BlockId, IN_VARIABLE_ID, LAST_VARIABLE_ID, ParseError, Span, Type, VarId, ast::*,
     engine::StateWorkingSet,
 };
 use std::{collections::HashMap, sync::Arc};
@@ -437,7 +437,11 @@ pub fn discover_captures_in_expr(
             discover_captures_in_expr(working_set, &value.expr, seen, seen_blocks, output)?;
         }
         Expr::Var(var_id) => {
-            if (*var_id > ENV_VARIABLE_ID || *var_id == IN_VARIABLE_ID) && !seen.contains(var_id) {
+            // Capture user locals only. Specials `$nu` / `$env` / `$ans` resolve from
+            // engine/stack state (not stack vars); `$in` is the exception and is captured.
+            // Threshold is the last special id (`LAST_VARIABLE_ID`); keep in sync with
+            // engine_state specials when adding more.
+            if (*var_id > LAST_VARIABLE_ID || *var_id == IN_VARIABLE_ID) && !seen.contains(var_id) {
                 output.push((*var_id, expr.span));
             }
         }
@@ -517,6 +521,30 @@ pub fn parse(
     contents: &[u8],
     scoped: bool,
 ) -> Arc<Block> {
+    parse_with_block_cache(working_set, fname, contents, scoped, true)
+}
+
+/// Like [`parse`], but never returns a span-matched cached block.
+///
+/// Required for `source` / `source-env`: free variables rebind to new VarIds
+/// when `let`/`mut` are re-declared, so a block cached by span alone is stale.
+/// See https://github.com/nushell/nushell/issues/18515
+pub fn parse_fresh(
+    working_set: &mut StateWorkingSet,
+    fname: Option<&str>,
+    contents: &[u8],
+    scoped: bool,
+) -> Arc<Block> {
+    parse_with_block_cache(working_set, fname, contents, scoped, false)
+}
+
+fn parse_with_block_cache(
+    working_set: &mut StateWorkingSet,
+    fname: Option<&str>,
+    contents: &[u8],
+    scoped: bool,
+    use_block_cache: bool,
+) -> Arc<Block> {
     trace!("parse");
 
     let file_id = {
@@ -528,26 +556,25 @@ pub fn parse(
 
     let new_span = working_set.get_span_for_file(file_id);
 
-    let previously_parsed_block = working_set.find_block_by_span(new_span);
-
+    // Reuse a previously-parsed block with the same span when safe (e.g. LSP).
+    // Callers that need fresh free-variable bindings use `parse_fresh`.
+    if use_block_cache && let Some(block) = working_set.find_block_by_span(new_span) {
+        return block;
+    }
     let mut output = {
-        if let Some(block) = previously_parsed_block {
-            return block;
-        } else {
-            let (output, err) = lex(contents, new_span.start, &[], &[], false);
-            if let Some(err) = err {
-                working_set.error(err)
-            }
-
-            Arc::new(parse_block(
-                working_set,
-                &output,
-                new_span,
-                scoped,
-                false,
-                None,
-            ))
+        let (output, err) = lex(contents, new_span.start, &[], &[], false);
+        if let Some(err) = err {
+            working_set.error(err)
         }
+
+        Arc::new(parse_block(
+            working_set,
+            &output,
+            new_span,
+            scoped,
+            false,
+            None,
+        ))
     };
 
     // Top level `Block`s are compiled eagerly, as they don't have a parent which would cause them

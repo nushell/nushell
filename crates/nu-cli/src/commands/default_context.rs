@@ -19,6 +19,7 @@ pub fn add_cli_context(mut engine_state: EngineState) -> EngineState {
             CommandlineEdit,
             CommandlineGetCursor,
             CommandlineSetCursor,
+            CommandlineSetPrompt,
             History,
             Keybindings,
             KeybindingsDefault,

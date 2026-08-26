@@ -1,8 +1,5 @@
-use crate::completions::{Completer, CompletionOptions, SemanticSuggestion};
-use nu_protocol::{
-    Span, SuggestionKind,
-    engine::{Stack, StateWorkingSet},
-};
+use crate::completions::{Completer, Context, Fetched, SemanticSuggestion, to_reedline_span};
+use nu_protocol::SuggestionKind;
 use nu_utils::NuCow;
 use reedline::Suggestion;
 
@@ -19,20 +16,9 @@ impl StaticCompletion {
 }
 
 impl Completer for StaticCompletion {
-    fn fetch(
-        &mut self,
-        _working_set: &StateWorkingSet,
-        _stack: &Stack,
-        prefix: impl AsRef<str>,
-        span: Span,
-        offset: usize,
-        options: &CompletionOptions,
-    ) -> Vec<SemanticSuggestion> {
-        let mut matcher = NuMatcher::new(prefix, options, true);
-        let current_span = reedline::Span {
-            start: span.start - offset,
-            end: span.end - offset,
-        };
+    fn fetch(&mut self, ctx: &Context) -> Fetched {
+        let mut matcher = NuMatcher::new(ctx.prefix_str(), ctx.options, true);
+        let current_span = to_reedline_span(ctx.span, ctx.offset);
 
         let mut add_suggestion = |option: &str| {
             matcher.add_semantic_suggestion(SemanticSuggestion {
@@ -59,6 +45,6 @@ impl Completer for StaticCompletion {
             }
         }
 
-        matcher.suggestion_results()
+        Fetched::Pure(matcher.suggestion_results())
     }
 }

@@ -2,7 +2,7 @@
 
 use crate::{
     Token, TokenContents,
-    lex::lex,
+    lex::{interp_subexpr_step, lex},
     parse_helpers::{
         SPREAD_OPERATOR_STR, extract_spread_record, garbage, is_variable, trim_quotes,
     },
@@ -448,21 +448,23 @@ pub fn parse_raw_string(working_set: &mut StateWorkingSet, span: Span) -> Expres
     // the whole raw string should contains at least
     // 1(r) + prefix_sharp_cnt + 1(') + 1(') + postfix_sharp characters
     if bytes.len() < prefix_sharp_cnt + expect_postfix_sharp_cnt + 3 {
-        working_set.error(ParseError::Unclosed("'", span));
+        let open = ParseError::opener_span(span, 1);
+        working_set.error(ParseError::unclosed("'", open, span));
         return garbage(working_set, span);
     }
 
     // check for unbalanced # and single quotes.
     let postfix_bytes = &bytes[bytes.len() - expect_postfix_sharp_cnt..bytes.len()];
     if postfix_bytes.iter().any(|b| *b != b'#') {
-        working_set.error(ParseError::Unbalanced("prefix #", "postfix #", span));
+        working_set.error(ParseError::unbalanced("prefix #", "postfix #", span));
         return garbage(working_set, span);
     }
     // check for unblanaced single quotes.
     if bytes[1 + prefix_sharp_cnt] != b'\''
         || bytes[bytes.len() - expect_postfix_sharp_cnt - 1] != b'\''
     {
-        working_set.error(ParseError::Unclosed("'", span));
+        let open = ParseError::opener_span(span, 1);
+        working_set.error(ParseError::unclosed("'", open, span));
         return garbage(working_set, span);
     }
 
@@ -503,8 +505,8 @@ pub fn parse_paren_expr(
         let malformed_subexpr = working_set.parse_errors[starting_error_count..]
             .first()
             .is_some_and(|e| match e {
-                ParseError::Unclosed(right, _) if (*right == ")") => true,
-                ParseError::Unbalanced(left, right, _) if *left == "(" && *right == ")" => true,
+                ParseError::Unclosed(right, ..) if (*right == ")") => true,
+                ParseError::Unbalanced(left, right, ..) if *left == "(" && *right == ")" => true,
                 _ => false,
             });
         if malformed_subexpr {
@@ -648,39 +650,10 @@ pub fn parse_string_interpolation(working_set: &mut StateWorkingSet, span: Span)
     let mut mode = InterpolationMode::String;
     let mut token_start = start;
 
-    #[repr(u8)]
-    #[derive(Clone, Copy, PartialEq, Eq)]
-    enum Delimiter {
-        SingleQuote = b'\'',
-        DoubleQuote = b'"',
-        Backtick = b'`',
-        ParenLeft = b'(',
-        ParenRight = b')',
-    }
-
-    impl Delimiter {
-        const fn from_u8(b: u8) -> Option<Self> {
-            Some(match b {
-                b'\'' => Self::SingleQuote,
-                b'"' => Self::DoubleQuote,
-                b'`' => Self::Backtick,
-                b'(' => Self::ParenLeft,
-                b')' => Self::ParenRight,
-                _ => return None,
-            })
-        }
-        const fn is_paren(self) -> bool {
-            matches!(self, Self::ParenLeft | Self::ParenRight)
-        }
-        const fn pair(self) -> Self {
-            match self {
-                Self::ParenLeft => Self::ParenRight,
-                Self::ParenRight => Self::ParenLeft,
-                _ => self,
-            }
-        }
-    }
-    let mut delimiter_stack: Vec<Delimiter> = vec![];
+    // Expected closers inside a subexpression, matched by the same shared step
+    // the lexer uses (`interp_subexpr_step`), so both scans agree on where the
+    // string ends.
+    let mut delimiter_stack: Vec<(u8, ())> = vec![];
 
     let mut consecutive_backslashes: usize = 0;
 
@@ -728,35 +701,24 @@ pub fn parse_string_interpolation(working_set: &mut StateWorkingSet, span: Span)
         }
 
         if mode == InterpolationMode::Expression {
-            let byte = Delimiter::from_u8(current_byte);
-            match (delimiter_stack.last().copied(), byte) {
-                (Some(d), Some(byte)) if !d.is_paren() => {
-                    if byte == d {
-                        delimiter_stack.pop();
-                    }
-                }
-                (_, Some(byte)) if byte != Delimiter::ParenRight => {
-                    delimiter_stack.push(byte.pair())
-                }
-                (d, Some(Delimiter::ParenRight)) => {
-                    if let Some(Delimiter::ParenRight) = d {
-                        delimiter_stack.pop();
-                    }
-                    if delimiter_stack.is_empty() {
-                        mode = InterpolationMode::String;
+            if interp_subexpr_step(&mut delimiter_stack, current_byte, ()) && b + 1 < end {
+                // Escape inside a nested double-quoted string: skip the
+                // escaped byte too, so `\"` does not close the string.
+                b += 2;
+                continue;
+            }
+            if current_byte == b')' && delimiter_stack.is_empty() {
+                mode = InterpolationMode::String;
 
-                        if token_start < b {
-                            let span = Span::new(token_start, b + 1);
+                if token_start < b {
+                    let span = Span::new(token_start, b + 1);
 
-                            let expr = parse_full_cell_path(working_set, None, span, None);
-                            output.push(expr);
-                        }
-
-                        token_start = b + 1;
-                        continue;
-                    }
+                    let expr = parse_full_cell_path(working_set, None, span, None);
+                    output.push(expr);
                 }
-                _ => (),
+
+                token_start = b + 1;
+                continue;
             }
         }
         b += 1;
@@ -830,6 +792,15 @@ pub fn parse_variable_expr(
             span,
             Type::Any,
         );
+    } else if contents.strip_prefix(b"$") == Some(nu_protocol::LAST_RESULT_VAR_NAME.as_bytes()) {
+        // Interactive last-result special (`LAST_VARIABLE_ID`). The name is reserved
+        // (see `RESERVED_VARIABLE_NAMES`); rename site-wide via `LAST_RESULT_VAR_NAME`.
+        return Expression::new(
+            working_set,
+            Expr::Var(nu_protocol::LAST_VARIABLE_ID),
+            span,
+            Type::Any,
+        );
     }
 
     let name = if contents.starts_with(b"$") {
@@ -845,6 +816,20 @@ pub fn parse_variable_expr(
             working_set.get_span_contents(span),
         )
     };
+
+    // Bare `$` (often from `$ env` with a space) is a very common config typo.
+    if bytes == b"$" {
+        working_set.error(ParseError::LabeledErrorWithHelp {
+            error: "Incomplete variable".into(),
+            label: "expected a variable name after `$`".into(),
+            help: "Variable names must be attached to `$` with no space (e.g. `$env`, `$in`). \
+                   Did you mean `$env`?"
+                .into(),
+            span,
+        });
+        return garbage(working_set, span);
+    }
+
     if !is_variable(bytes) {
         working_set.error(ParseError::ExpectedWithDidYouMean(
             "valid variable name",
@@ -1080,7 +1065,11 @@ pub fn parse_full_cell_path(
             if bytes.ends_with(b")") {
                 end -= 1;
             } else {
-                working_set.error(ParseError::Unclosed(")", Span::new(end, end)));
+                let open = Span::new(
+                    head_span.start,
+                    head_span.start.saturating_add(1).min(head_span.end),
+                );
+                working_set.error(ParseError::unclosed(")", open, Span::new(end, end)));
                 is_closed = false;
             }
 
@@ -1966,15 +1955,18 @@ pub fn parse_string_strict(working_set: &mut StateWorkingSet, span: Span) -> Exp
             bytes
         };
         if bytes.starts_with(b"\"") && (bytes.len() == 1 || !bytes.ends_with(b"\"")) {
-            working_set.error(ParseError::Unclosed("\"", span));
+            let open = ParseError::opener_span(span, 1);
+            working_set.error(ParseError::unclosed("\"", open, span));
             return garbage(working_set, span);
         }
         if bytes.starts_with(b"\'") && (bytes.len() == 1 || !bytes.ends_with(b"\'")) {
-            working_set.error(ParseError::Unclosed("\'", span));
+            let open = ParseError::opener_span(span, 1);
+            working_set.error(ParseError::unclosed("\'", open, span));
             return garbage(working_set, span);
         }
         if bytes.starts_with(b"r#") && (bytes.len() == 1 || !bytes.ends_with(b"#")) {
-            working_set.error(ParseError::Unclosed("r#", span));
+            let open = ParseError::opener_span(span, 2);
+            working_set.error(ParseError::unclosed("r#", open, span));
             return garbage(working_set, span);
         }
     }

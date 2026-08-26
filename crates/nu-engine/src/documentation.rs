@@ -147,7 +147,7 @@ fn nu_highlight_string(
 
 /// Apply code highlighting to code in a capture group
 fn highlight_capture_group(
-    captures: &Captures,
+    captures: &Captures<'_, str>,
     engine_state: &EngineState,
     stack: &mut Stack,
     head: Span,
@@ -230,7 +230,7 @@ fn highlight_code<'a>(
     static RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(PATTERN).expect("valid regex"));
 
     let do_try_highlight =
-        |captures: &Captures| highlight_capture_group(captures, engine_state, stack, head);
+        |captures: &Captures<'_, str>| highlight_capture_group(captures, engine_state, stack, head);
     RE.replace_all(text, do_try_highlight)
 }
 
@@ -773,7 +773,7 @@ fn write_positional(
             write!(
                 long_desc,
                 "{help_subcolor_one}{}{RESET} <{help_subcolor_two}{}{RESET}>",
-                positional.name, &positional.shape,
+                positional.name, positional.shape,
             )
             .expect("writing to a String is infallible");
         }
@@ -833,13 +833,13 @@ fn write_flag_to_long_desc<F>(
     if let Some(short) = flag.short {
         write!(long_desc, "{help_subcolor_one}-{short}{RESET}")
             .expect("writing to a String is infallible");
-        if !flag.long.is_empty() {
+        if flag.long_name().is_some() {
             write!(long_desc, "{DEFAULT_COLOR},{RESET} ")
                 .expect("writing to a String is infallible");
         }
     }
-    if !flag.long.is_empty() {
-        write!(long_desc, "{help_subcolor_one}--{}{RESET}", flag.long)
+    if let Some(long) = flag.long_name() {
+        write!(long_desc, "{help_subcolor_one}--{long}{RESET}")
             .expect("writing to a String is infallible");
     }
     if flag.required {
@@ -854,7 +854,7 @@ fn write_flag_to_long_desc<F>(
         write!(
             long_desc,
             ": {}",
-            &formatter(FormatterValue::CodeString(&flag.desc))
+            formatter(FormatterValue::CodeString(&flag.desc))
         )
         .expect("writing to a String is infallible");
     }
@@ -862,7 +862,7 @@ fn write_flag_to_long_desc<F>(
         write!(
             long_desc,
             " (default: {})",
-            &formatter(FormatterValue::DefaultValue(value))
+            formatter(FormatterValue::DefaultValue(value))
         )
         .expect("writing to a String is infallible");
     }

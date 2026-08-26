@@ -1,15 +1,18 @@
 use super::{MatchAlgorithm, completion_options::NuMatcher};
-use crate::completions::CompletionOptions;
+use crate::completions::{
+    CompletionOptions, Context, Fetched, SemanticSuggestion, to_reedline_span,
+};
 use nu_ansi_term::Style;
 use nu_engine::env_to_string;
 use nu_path::dots::expand_ndots;
 use nu_path::{expand_to_real_path, home_dir};
 use nu_protocol::{
-    Span,
+    Span, SuggestionKind,
     engine::{EngineState, Stack, StateWorkingSet},
 };
 use nu_utils::IgnoreCaseExt;
 use nu_utils::get_ls_colors;
+use reedline::Suggestion;
 use std::fmt::Write;
 use std::path::{Component, MAIN_SEPARATOR as SEP, Path, PathBuf, is_separator};
 use unicode_segmentation::UnicodeSegmentation;
@@ -91,33 +94,40 @@ fn complete_rec(
         for entry in result.filter_map(|e| e.ok()) {
             let entry_name = entry.file_name().to_string_lossy().into_owned();
             let entry_isdir = entry.path().is_dir();
+            if want_directory && !entry_isdir {
+                continue;
+            }
+            // Match before cloning: the clone copies the whole accumulated path per entry,
+            // but only the few matches survive, and an exact match is also a prefix match.
+            if matcher.check_match(&entry_name).is_none() {
+                continue;
+            }
+
             let mut built = built.clone();
             built.isdir = entry_isdir;
 
-            if !want_directory || entry_isdir {
-                if enable_exact_match && !multiple_exact_matches && has_more {
-                    let matches = if options.case_sensitive {
-                        entry_name.eq(prefix)
+            if enable_exact_match && !multiple_exact_matches && has_more {
+                let matches = if options.case_sensitive {
+                    entry_name.eq(prefix)
+                } else {
+                    entry_name.eq_ignore_case(prefix)
+                };
+                if matches {
+                    if exact_match.is_none() {
+                        let mut built_exact = built.clone();
+                        let match_indices = (0..entry_name.graphemes(true).count()).collect();
+                        built_exact.parts.push(MatchedPart {
+                            text: entry_name.clone(),
+                            match_indices,
+                        });
+                        exact_match = Some(built_exact);
                     } else {
-                        entry_name.eq_ignore_case(prefix)
-                    };
-                    if matches {
-                        if exact_match.is_none() {
-                            let mut built_exact = built.clone();
-                            let match_indices = (0..entry_name.graphemes(true).count()).collect();
-                            built_exact.parts.push(MatchedPart {
-                                text: entry_name.clone(),
-                                match_indices,
-                            });
-                            exact_match = Some(built_exact);
-                        } else {
-                            multiple_exact_matches = true;
-                        }
+                        multiple_exact_matches = true;
                     }
                 }
-
-                matcher.add(entry_name.clone(), (built, entry_name));
             }
+
+            matcher.add(entry_name.clone(), (built, entry_name));
         }
     }
 
@@ -193,6 +203,61 @@ pub struct FileSuggestion {
     pub match_indices: Vec<usize>,
 }
 
+/// Sort hidden entries (file names starting with `.`) after visible ones; stable, so
+/// order within each group is preserved.
+fn hidden_files_last(items: &mut [SemanticSuggestion]) {
+    items.sort_by_key(|item| {
+        Path::new(&item.suggestion.value)
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name.starts_with('.'))
+    });
+}
+
+/// Path completion shared by [`FileCompletion`](crate::completions::FileCompletion) and
+/// [`DirectoryCompletion`](crate::completions::DirectoryCompletion).
+///
+/// `directories_only` restricts results to directories; file completion also restricts
+/// when the view was readjusted mid-path.
+pub(crate) fn complete_paths(ctx: &Context, directories_only: bool) -> Fetched {
+    let AdjustView {
+        prefix,
+        span,
+        readjusted,
+    } = adjust_if_intermediate(ctx.prefix_str().as_ref(), ctx.working_set, ctx.span);
+
+    #[allow(deprecated)]
+    let mut items: Vec<_> = complete_item(
+        directories_only || readjusted,
+        span,
+        &prefix,
+        &[&ctx.working_set.permanent_state.current_work_dir()],
+        ctx.options,
+        ctx.working_set.permanent_state,
+        ctx.stack,
+    )
+    .into_iter()
+    .map(|x| SemanticSuggestion {
+        suggestion: Suggestion {
+            value: x.path,
+            style: x.style,
+            span: to_reedline_span(x.span, ctx.offset),
+            display_override: x.display_override,
+            match_indices: Some(x.match_indices),
+            ..Suggestion::default()
+        },
+        kind: Some(if x.is_dir {
+            SuggestionKind::Directory
+        } else {
+            SuggestionKind::File
+        }),
+    })
+    .collect();
+
+    hidden_files_last(&mut items);
+    Fetched::Cacheable(items)
+}
+
 /// # Parameters
 /// * `cwds` - A list of directories in which to search. The only reason this isn't a single string
 ///   is because dotnu_completions searches in multiple directories at once
@@ -211,17 +276,19 @@ pub fn complete_item(
     let should_collapse_dots = expanded_partial != Path::new(&cleaned_partial);
     let mut partial = expanded_partial.to_string_lossy().to_string();
 
-    #[cfg(unix)]
-    let path_separator = SEP;
-    #[cfg(windows)]
-    let path_separator = cleaned_partial
-        .chars()
-        .rfind(|c: &char| is_separator(*c))
-        .unwrap_or(SEP);
+    // Echo back whichever separator the user last typed; Windows accepts both.
+    let path_separator = if cfg!(windows) {
+        cleaned_partial
+            .chars()
+            .rfind(|c: &char| is_separator(*c))
+            .unwrap_or(SEP)
+    } else {
+        SEP
+    };
 
     // Handle the trailing dot case
     if cleaned_partial.ends_with(&format!("{path_separator}.")) {
-        write!(partial, "{path_separator}.").expect("writing to a String is infallible");
+        let _ = write!(partial, "{path_separator}.");
     }
 
     let cwd_pathbufs: Vec<_> = cwds
@@ -266,7 +333,9 @@ pub fn complete_item(
         _ => {}
     };
 
-    let after_prefix = &partial[prefix_len..];
+    // `prefix_len` is a byte length from a `Component` that may not land on a char
+    // boundary of `partial`, so slice fallibly to avoid a panic on user input.
+    let after_prefix = partial.get(prefix_len..).unwrap_or_default();
     let partial: Vec<_> = after_prefix
         .strip_prefix(is_separator)
         .unwrap_or(after_prefix)
@@ -311,7 +380,8 @@ pub fn complete_item(
             match_index_offset += part.text.graphemes(true).count();
             if i != p.parts.len() - 1 {
                 path.push(path_separator);
-                match_index_offset += path_separator.len_utf8();
+                // One grapheme, not `len_utf8()`: this offset counts graphemes.
+                match_index_offset += 1;
             }
         }
         if p.isdir {
@@ -382,7 +452,7 @@ pub fn adjust_if_intermediate(
     working_set: &StateWorkingSet,
     mut span: nu_protocol::Span,
 ) -> AdjustView {
-    let span_contents = String::from_utf8_lossy(working_set.get_span_contents(span)).to_string();
+    let span_contents = String::from_utf8_lossy(working_set.get_span_contents(span)).into_owned();
     let mut prefix = prefix.to_string();
 
     // A difference of 1 because of the cursor's unicode code point in between.

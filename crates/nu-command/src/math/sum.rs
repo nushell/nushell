@@ -1,6 +1,6 @@
 use crate::math::{
     reducers::{Reduce, reducer_for},
-    utils::run_with_function,
+    utils::{run_with_function_with_cell_paths, run_with_function_with_cell_paths_const},
 };
 use nu_engine::command_prelude::*;
 
@@ -23,6 +23,11 @@ impl Command for MathSum {
                 (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true)
+            .rest(
+                "columns",
+                SyntaxShape::CellPath,
+                "The cell-paths/columns to operate on.",
+            )
             .category(Category::Math)
     }
 
@@ -40,21 +45,21 @@ impl Command for MathSum {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
-        _stack: &mut Stack,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        run_with_function(call, input, summation)
+        run_with_function_with_cell_paths(engine_state, stack, call, input, summation)
     }
 
     fn run_const(
         &self,
-        _working_set: &StateWorkingSet,
+        working_set: &StateWorkingSet,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        run_with_function(call, input, summation)
+        run_with_function_with_cell_paths_const(working_set, call, input, summation)
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -75,6 +80,25 @@ impl Command for MathSum {
                 result: Some(Value::test_record(record! {
                     "a" => Value::test_int(4),
                     "b" => Value::test_int(6),
+                })),
+            },
+            Example {
+                description: "Sum the values of list-valued columns in a record.",
+                example: "{alice: [1 2 3], bob: [4 5 6]} | math sum",
+                result: Some(Value::test_record(record! {
+                    "alice" => Value::test_int(6),
+                    "bob" => Value::test_int(15),
+                })),
+            },
+            Example {
+                description: "Sum a single column using a cell path.",
+                example: "{alice: [1 2 3], bob: [4 5 6]} | math sum alice",
+                result: Some(Value::test_record(record! {
+                    "alice" => Value::test_int(6),
+                    "bob" => Value::list(
+                        vec![Value::test_int(4), Value::test_int(5), Value::test_int(6)],
+                        Span::test_data(),
+                    ),
                 })),
             },
         ]

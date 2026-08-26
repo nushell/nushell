@@ -19,6 +19,12 @@ export def dark-theme [] {
         string: default
         nothing: default
         binary: default
+        # binary hex viewer styles (table / explore)
+        binary_null_char: grey42
+        binary_printable: cyan_bold
+        binary_whitespace: green_bold
+        binary_ascii_other: purple_bold
+        binary_non_ascii: yellow_bold
         cell-path: default
         row_index: green_bold
         record: default
@@ -26,6 +32,7 @@ export def dark-theme [] {
         block: default
         hints: dark_gray
         search_result: { bg: red fg: white }
+        
         shape_binary: purple_bold
         shape_block: blue_bold
         shape_bool: light_cyan
@@ -87,6 +94,12 @@ export def light-theme [] {
         string: dark_gray
         nothing: dark_gray
         binary: dark_gray
+        # binary hex viewer styles (table / explore)
+        binary_null_char: grey42
+        binary_printable: cyan_bold
+        binary_whitespace: green_bold
+        binary_ascii_other: purple_bold
+        binary_non_ascii: yellow_bold
         cell-path: dark_gray
         row_index: green_bold
         record: dark_gray
@@ -94,6 +107,7 @@ export def light-theme [] {
         block: dark_gray
         hints: dark_gray
         search_result: { fg: white bg: red }
+
         shape_binary: purple_bold
         shape_block: blue_bold
         shape_bool: light_cyan

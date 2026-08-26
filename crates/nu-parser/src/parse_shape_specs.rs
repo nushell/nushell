@@ -237,7 +237,8 @@ fn split_generic_params<'a>(
 
         (bytes, None)
     } else {
-        working_set.error(ParseError::Unclosed(">", span));
+        let open = ParseError::opener_span(span, 1);
+        working_set.error(ParseError::unclosed(">", open, span));
         (bytes, None)
     }
 }
@@ -324,7 +325,7 @@ fn parse_named_type_params(
         idx += 1;
     }
 
-    CollectionColumns::new(sig.into_boxed_slice())
+    sig.into()
 }
 
 fn parse_type_params(

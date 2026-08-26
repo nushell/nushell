@@ -1,8 +1,5 @@
-use crate::completions::{Completer, CompletionOptions, SemanticSuggestion};
-use nu_protocol::{
-    Span, SuggestionKind,
-    engine::{Stack, StateWorkingSet},
-};
+use crate::completions::{Completer, Context, Fetched, SemanticSuggestion, to_reedline_span};
+use nu_protocol::SuggestionKind;
 use reedline::Suggestion;
 
 use super::completion_options::NuMatcher;
@@ -10,20 +7,11 @@ use super::completion_options::NuMatcher;
 pub struct EnvVarCompletion;
 
 impl Completer for EnvVarCompletion {
-    fn fetch(
-        &mut self,
-        working_set: &StateWorkingSet,
-        stack: &Stack,
-        prefix: impl AsRef<str>,
-        span: Span,
-        offset: usize,
-        options: &CompletionOptions,
-    ) -> Vec<SemanticSuggestion> {
-        let mut matcher = NuMatcher::new(prefix, options, true);
-        let current_span = reedline::Span {
-            start: span.start - offset,
-            end: span.end - offset,
-        };
+    fn fetch(&mut self, ctx: &Context) -> Fetched {
+        let working_set = ctx.working_set;
+        let stack = ctx.stack;
+        let mut matcher = NuMatcher::new(ctx.prefix_str(), ctx.options, true);
+        let current_span = to_reedline_span(ctx.span, ctx.offset);
 
         for name in stack.get_env_var_names(working_set.permanent_state) {
             matcher.add_semantic_suggestion(SemanticSuggestion {
@@ -37,6 +25,6 @@ impl Completer for EnvVarCompletion {
             });
         }
 
-        matcher.suggestion_results()
+        Fetched::Pure(matcher.suggestion_results())
     }
 }

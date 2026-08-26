@@ -20,4 +20,4 @@ bench = false
 nu-plugin.workspace = true
 nu-protocol.workspace = true
 
-git2 = "0.20.4"
+git2 = "0.21.0"

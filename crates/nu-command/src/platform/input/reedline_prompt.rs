@@ -1,3 +1,4 @@
+use reedline::PromptHelixMode;
 use reedline::{
     Prompt, PromptEditMode, PromptHistorySearch, PromptHistorySearchStatus, PromptViMode,
 };
@@ -36,6 +37,12 @@ impl Prompt for ReedlinePrompt {
                 PromptViMode::Normal => DEFAULT_VI_NORMAL_PROMPT_INDICATOR.into(),
                 PromptViMode::Insert => DEFAULT_VI_INSERT_PROMPT_INDICATOR.into(),
                 PromptViMode::Visual => DEFAULT_VI_NORMAL_PROMPT_INDICATOR.into(),
+            },
+            PromptEditMode::Helix(helix_mode) => match helix_mode {
+                PromptHelixMode::Normal | PromptHelixMode::Select => {
+                    DEFAULT_VI_NORMAL_PROMPT_INDICATOR.into()
+                }
+                PromptHelixMode::Insert => DEFAULT_VI_INSERT_PROMPT_INDICATOR.into(),
             },
             PromptEditMode::Custom(str) => format!("({str})").into(),
         }

@@ -1,23 +1,65 @@
-use crate::completions::CompletionOptions;
+use crate::completions::completer::Context;
 use nu_color_config::NuStyle;
-use nu_protocol::{
-    DynamicSuggestion, IntoValue, Record, Span, SuggestionKind, Value,
-    engine::{Stack, StateWorkingSet},
-};
+use nu_protocol::{DynamicSuggestion, IntoValue, Record, Span, SuggestionKind, Value};
 use reedline::Suggestion;
 
 pub trait Completer {
-    /// Fetch, filter, and sort completions
-    #[allow(clippy::too_many_arguments)]
-    fn fetch(
-        &mut self,
-        working_set: &StateWorkingSet,
-        stack: &Stack,
-        prefix: impl AsRef<str>,
-        span: Span,
-        offset: usize,
-        options: &CompletionOptions,
-    ) -> Vec<SemanticSuggestion>;
+    /// Fetch, filter, and sort completions for the token described by `ctx`.
+    fn fetch(&mut self, ctx: &Context) -> Fetched;
+}
+
+/// The outcome of one source's [`Completer::fetch`]. Caching and fallback are encoded in
+/// the variant, so a declining result cannot carry suggestions.
+#[derive(Debug, Default)]
+pub enum Fetched {
+    /// Cheap engine-state result: never cached, never falls back.
+    Pure(Vec<SemanticSuggestion>),
+    /// Impure source result (filesystem, `PATH`, user/plugin code); worth caching.
+    Cacheable(Vec<SemanticSuggestion>),
+    /// Impure source declined: fall back, but cache the attempt.
+    Declined,
+    /// No source ran: fall back cheaply.
+    #[default]
+    Absent,
+}
+
+impl Fetched {
+    /// The suggestions this outcome carries; declining outcomes carry none.
+    pub(crate) fn into_suggestions(self) -> Vec<SemanticSuggestion> {
+        match self {
+            Self::Pure(suggestions) | Self::Cacheable(suggestions) => suggestions,
+            Self::Declined | Self::Absent => Vec::new(),
+        }
+    }
+
+    /// Impure source ran; result worth reusing between keystrokes.
+    pub(crate) fn is_cacheable(&self) -> bool {
+        matches!(self, Self::Cacheable(_) | Self::Declined)
+    }
+
+    /// Whether this source declined, so the next one should be tried.
+    pub(crate) fn needs_fallback(&self) -> bool {
+        matches!(self, Self::Declined | Self::Absent)
+    }
+
+    /// Mark cheap results cacheable when the caller did expensive work.
+    pub(crate) fn caching(self) -> Self {
+        match self {
+            Self::Pure(suggestions) => Self::Cacheable(suggestions),
+            Self::Absent => Self::Declined,
+            already => already,
+        }
+    }
+}
+
+/// An engine [`Span`] in reedline coordinates: subtract `offset`, saturating so spans
+/// before it can't underflow into an index that would panic (`is_char_boundary`); callers
+/// may pass untrusted spans.
+pub(crate) fn to_reedline_span(span: Span, offset: usize) -> reedline::Span {
+    reedline::Span::new(
+        span.start.saturating_sub(offset),
+        span.end.saturating_sub(offset),
+    )
 }
 
 #[derive(Debug, Default, PartialEq)]
@@ -83,9 +125,11 @@ impl IntoValue for SemanticSuggestion {
             };
             record.insert("kind", kind_str.into_value(span));
 
-            if let Some(ty) = ty {
-                record.insert("type", ty.into_value(span));
-            }
+            // Always a column: kinds without a type report `null`.
+            record.insert(
+                "type",
+                ty.map_or_else(|| Value::nothing(span), |ty| ty.into_value(span)),
+            );
         }
 
         Value::record(record, span)
@@ -113,5 +157,18 @@ impl From<Suggestion> for SemanticSuggestion {
             suggestion,
             ..Default::default()
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// `complete_argument_value` relies on this to treat `need_fallback`-requesting
+    /// outcomes as always empty (a dead check was removed on that assumption).
+    #[test]
+    fn fallback_variants_carry_no_suggestions() {
+        assert!(Fetched::Declined.into_suggestions().is_empty());
+        assert!(Fetched::Absent.into_suggestions().is_empty());
     }
 }
