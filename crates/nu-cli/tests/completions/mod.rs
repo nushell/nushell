@@ -4563,7 +4563,7 @@ fn exact_match_case_insensitive(playground: Playground) -> Result {
     playground.dir("aa/foo")?;
     playground.dir("aaa/foo")?;
 
-    let (dir, _, engine, stack) = new_engine_helper(playground.path().into());
+    let (dir, _, engine, stack) = new_engine_helper(playground.path().try_into().unwrap());
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
     let target = format!("open {}", folder(dir.join("aa")));
@@ -4576,10 +4576,15 @@ fn exact_match_case_insensitive(playground: Playground) -> Result {
         &completer.complete_blocking(&target, target.len()),
     );
 <<<<<<< HEAD
+<<<<<<< HEAD
 
     Ok(())
 =======
 >>>>>>> 926ed3f27 (fmt)
+=======
+
+    Ok(())
+>>>>>>> 951e9973a (fix linux only tests)
 }
 
 #[rstest]
