@@ -389,6 +389,28 @@ impl PartialEq for Signature {
 
 impl Eq for Signature {}
 
+fn type_involves_custom(ty: &Type) -> bool {
+    match ty {
+        Type::Custom(_) => true,
+        Type::OneOf(types) => types.iter().any(type_involves_custom),
+        Type::List(inner) => type_involves_custom(inner),
+        _ => false,
+    }
+}
+
+fn is_structured_type(ty: &Type) -> bool {
+    matches!(ty, Type::List(_) | Type::Table(_) | Type::Record(_))
+}
+
+/// Custom values are assignable to list/table/record so `get` / `into record` type-check.
+/// That special case must not steal the output type of a real custom IO pair
+/// (`semver | into string` is a string, not `oneof<list, table, record>`).
+fn is_custom_structured_fallback(input: &Type, declared: &Type) -> bool {
+    type_involves_custom(input)
+        && is_structured_type(declared)
+        && input.compare_types(declared).is_none()
+}
+
 impl Signature {
     /// Creates a new signature for a command with `name`
     pub fn new(name: impl Into<String>) -> Signature {
@@ -430,7 +452,9 @@ impl Signature {
     /// - If `input` is [`None`], it's treated as [`Type::Any`]. i.e. all IO pairs are considered.
     /// - IO pairs where the given `input` is [assignable to](crate::CompareTypes::is_assignable_to)
     ///   the input type are considered valid.
-    /// - [Union](TypeSet::union) of all valid outputs are returned.
+    /// - Custom values are assignable to list/table/record. Those fallback pairs are ignored
+    ///   when a lattice match exists (so `semver | into string` is `string`).
+    /// - [Union](TypeSet::union) of remaining outputs is returned.
     /// - If there are no valid IO pairs for the given `input`, [`None`] is returned.
     // XXX: remove?
     pub fn get_output_type(&self, input_type: Option<&Type>) -> Option<Type> {
@@ -438,15 +462,32 @@ impl Signature {
             return Some(Type::Any);
         }
         let input = input_type.unwrap_or(&Type::Any);
-        let mut it = self
+        let matches: Vec<&(Type, Type)> = self
             .input_output_types
             .iter()
-            .filter(|(in_ty, _out_ty)| input.is_assignable_to(in_ty))
-            .map(|(_, out)| out)
-            .peekable();
+            .filter(|(in_ty, _)| input.is_assignable_to(in_ty))
+            .collect();
 
-        it.peek()?;
-        it.cloned().reduce(Type::union)
+        if matches.is_empty() {
+            return None;
+        }
+
+        let without_custom_fallback: Vec<&(Type, Type)> = matches
+            .iter()
+            .copied()
+            .filter(|(in_ty, _)| !is_custom_structured_fallback(input, in_ty))
+            .collect();
+
+        let selected = if without_custom_fallback.is_empty() {
+            matches
+        } else {
+            without_custom_fallback
+        };
+
+        selected
+            .into_iter()
+            .map(|(_, out)| out.clone())
+            .reduce(Type::union)
     }
 
     /// Add a default help option to a signature

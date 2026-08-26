@@ -157,6 +157,43 @@ fn from_nothing() -> Result {
 }
 
 #[test]
+fn from_semver() -> Result {
+    test()
+        .run("'1.2.3' | into semver | into string")
+        .expect_value_eq("1.2.3")
+}
+
+#[test]
+fn from_semver_let_binding() -> Result {
+    test()
+        .run(r#"let s = "1.0.0" | into semver | into string; $s"#)
+        .expect_value_eq("1.0.0")
+}
+
+#[test]
+fn from_semver_let_binding_is_string() -> Result {
+    test()
+        .run(r#"let s = "1.0.0" | into semver | into string; $s | describe"#)
+        .expect_value_eq("string")
+}
+
+#[test]
+fn from_semver_path_join() -> Result {
+    test()
+        .run(
+            r#""versions" | path join ("1.115.0" | into semver | into string) | path split | last"#,
+        )
+        .expect_value_eq("1.115.0")
+}
+
+#[test]
+fn from_semver_range_let_binding() -> Result {
+    test()
+        .run(r#"let s = ">=1.0.0" | into semver-range | into string; $s"#)
+        .expect_value_eq(">=1.0.0")
+}
+
+#[test]
 fn int_into_string() -> Result {
     let code = "
         10 | into string
