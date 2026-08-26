@@ -2,6 +2,7 @@ use crate::{generate_strftime_list, parse_date_from_string};
 use chrono::{DateTime, Datelike, Locale, TimeZone};
 use nu_engine::command_prelude::*;
 use nu_protocol::shell_error::generic::GenericError;
+use pure_rust_locales::locale_match;
 
 use std::fmt::{Display, Write};
 
@@ -186,6 +187,95 @@ fn run(
     )
 }
 
+/// Expand the locale-dependent specifiers ourselves, with `%E`/`%O` removed.
+///
+/// chrono expands `%x`, `%X`, `%c` and `%r` from the locale's own format
+/// strings while rendering, so a modifier the user never typed can appear at
+/// that point. `%E` and `%O` select an "alternative representation" that POSIX
+/// says to ignore when the implementation has none, but chrono implements
+/// neither and reports a format error instead. `th_TH` and `lo_LA` both carry
+/// `%Ey` (Buddhist era) in their `d_fmt`, so every `format date` under those
+/// locales failed, including the one in `default_env.nu` that greets you at
+/// startup (#15266).
+///
+/// Doing the expansion here keeps the locale's own field order — `th_TH` still
+/// renders `27/08/26` rather than the `08/27/26` a fallback locale would give —
+/// and only drops the era representation chrono cannot produce.
+fn resolve_locale_specifiers(formatter: &str, locale: Locale) -> String {
+    // Expand first, then strip: the expansion is what introduces `%Ey`.
+    // Strip before as well, so `%Ex` still reaches the expansion as `%x`.
+    let stripped = strip_alternative_modifiers(formatter);
+    let expanded = expand_locale_specifiers(&stripped, locale);
+    strip_alternative_modifiers(&expanded)
+}
+
+fn expand_locale_specifiers(formatter: &str, locale: Locale) -> String {
+    let mut out = String::with_capacity(formatter.len());
+    let mut chars = formatter.chars().peekable();
+
+    while let Some(c) = chars.next() {
+        if c != '%' {
+            out.push(c);
+            continue;
+        }
+        // `%%` is a literal percent, not the start of a specifier.
+        if chars.peek() == Some(&'%') {
+            chars.next();
+            out.push_str("%%");
+            continue;
+        }
+
+        let expansion = match chars.peek() {
+            Some('x') => Some(locale_match!(locale => LC_TIME::D_FMT)),
+            Some('X') => Some(locale_match!(locale => LC_TIME::T_FMT)),
+            Some('c') => Some(locale_match!(locale => LC_TIME::D_T_FMT)),
+            Some('r') => Some(locale_match!(locale => LC_TIME::T_FMT_AMPM)),
+            _ => None,
+        };
+
+        // A locale can leave one of these empty — `de_DE`, `fr_FR` and `nl_NL`
+        // all have no am/pm form, so `t_fmt_ampm` is "". Substituting that would
+        // erase the output, where chrono falls back to the plain time format.
+        // Leave the specifier alone and let chrono do what it already does.
+        match expansion {
+            Some(fmt) if !fmt.is_empty() => {
+                chars.next();
+                out.push_str(fmt);
+            }
+            _ => out.push('%'),
+        }
+    }
+
+    out
+}
+
+fn strip_alternative_modifiers(formatter: &str) -> String {
+    let mut out = String::with_capacity(formatter.len());
+    let mut chars = formatter.chars().peekable();
+
+    while let Some(c) = chars.next() {
+        if c != '%' {
+            out.push(c);
+            continue;
+        }
+        match chars.peek() {
+            Some('%') => {
+                chars.next();
+                out.push_str("%%");
+            }
+            // `%Ey` becomes `%y`, `%Od` becomes `%d`: the specifier stays, the
+            // alternative representation is what goes.
+            Some('E') | Some('O') => {
+                chars.next();
+                out.push('%');
+            }
+            _ => out.push('%'),
+        }
+    }
+
+    out
+}
+
 fn format_from<Tz: TimeZone>(
     date_time: DateTime<Tz>,
     formatter: &str,
@@ -200,6 +290,7 @@ where
     let processed_formatter = formatter
         .replace("%J", "%Y%m%d") // %J for joined date (YYYYMMDD)
         .replace("%Q", "%H%M%S"); // %Q for sequential time (HHMMSS)
+    let processed_formatter = resolve_locale_specifiers(&processed_formatter, locale);
     let format = date_time.format_localized(&processed_formatter, locale);
 
     match formatter_buf.write_fmt(format_args!("{format}")) {
@@ -307,9 +398,103 @@ fn format_helper_rfc2822(value: Value, span: Span) -> Value {
 #[cfg(test)]
 mod test {
     use super::*;
+    use chrono::Utc;
 
     #[test]
     fn test_examples() -> nu_test_support::Result {
         nu_test_support::test().examples(FormatDate)
+    }
+
+    /// #15266: `th_TH` carries `%Ey` in its `d_fmt`, so chrono failed to render
+    /// `%x` under it and `nu` greeted the user with a type mismatch on startup.
+    #[test]
+    fn resolves_locale_specifiers_that_carry_an_alternative_modifier() {
+        assert_eq!(
+            resolve_locale_specifiers("%x %X", Locale::th_TH),
+            "%d/%m/%y %H:%M:%S"
+        );
+        assert_eq!(
+            resolve_locale_specifiers("%x %X", Locale::lo_LA),
+            "%d/%m/%y %H:%M:%S"
+        );
+    }
+
+    #[test]
+    fn keeps_the_locale_field_order() {
+        // The point of expanding rather than falling back to another locale:
+        // day/month order survives. `en_US` would read `08/27/26` here.
+        assert_eq!(resolve_locale_specifiers("%x", Locale::th_TH), "%d/%m/%y");
+        assert_eq!(resolve_locale_specifiers("%x", Locale::en_US), "%m/%d/%Y");
+        assert_eq!(
+            resolve_locale_specifiers("%c", Locale::ja_JP),
+            "%Y年%m月%d日 %H時%M分%S秒"
+        );
+    }
+
+    #[test]
+    fn strips_a_modifier_the_user_typed() {
+        // POSIX: with no alternative representation available, behave as if the
+        // modifier were absent. chrono has none, and used to error instead.
+        assert_eq!(resolve_locale_specifiers("%Ey", Locale::en_US), "%y");
+        assert_eq!(resolve_locale_specifiers("%Od", Locale::en_US), "%d");
+    }
+
+    /// The regression this nearly shipped with: `de_DE`, `fr_FR` and `nl_NL`
+    /// have no am/pm time format, and substituting the empty string for `%r`
+    /// erased the output instead of leaving chrono its own fallback.
+    #[test]
+    fn leaves_a_specifier_alone_when_the_locale_has_no_string_for_it() {
+        assert_eq!(resolve_locale_specifiers("%r", Locale::de_DE), "%r");
+        assert_eq!(resolve_locale_specifiers("%r", Locale::fr_FR), "%r");
+        assert_eq!(
+            resolve_locale_specifiers("%r", Locale::en_US),
+            "%I:%M:%S %p"
+        );
+
+        let dt = Utc
+            .with_ymd_and_hms(2026, 8, 27, 13, 45, 0)
+            .single()
+            .expect("valid date");
+        let span = Span::test_data();
+        assert_eq!(
+            format_from(dt, "%r", span, Locale::de_DE),
+            Value::string("13:45:00", span),
+            "an empty am/pm format must fall through to chrono, not blank the output"
+        );
+    }
+
+    #[test]
+    fn leaves_literal_percent_and_unknown_specifiers_alone() {
+        assert_eq!(resolve_locale_specifiers("%%x", Locale::th_TH), "%%x");
+        assert_eq!(resolve_locale_specifiers("100%%", Locale::th_TH), "100%%");
+        assert_eq!(
+            resolve_locale_specifiers("%Y-%m-%d", Locale::th_TH),
+            "%Y-%m-%d"
+        );
+        assert_eq!(resolve_locale_specifiers("", Locale::th_TH), "");
+        assert_eq!(resolve_locale_specifiers("%", Locale::th_TH), "%");
+    }
+
+    /// The bug as the reporter met it: a real date, rendered under `th_TH`.
+    #[test]
+    fn renders_a_date_under_a_locale_that_used_to_fail() {
+        let dt = Utc
+            .with_ymd_and_hms(2026, 8, 27, 1, 45, 0)
+            .single()
+            .expect("valid date");
+        let span = Span::test_data();
+
+        let formatted = format_from(dt, "%x %X", span, Locale::th_TH);
+        assert_eq!(
+            formatted,
+            Value::string("27/08/26 01:45:00", span),
+            "th_TH must render, and must keep its own day/month order"
+        );
+
+        // A locale that never had the problem must be untouched.
+        assert_eq!(
+            format_from(dt, "%x %X", span, Locale::en_US),
+            Value::string("08/27/2026 01:45:00 AM", span)
+        );
     }
 }

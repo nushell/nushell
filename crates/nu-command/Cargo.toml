@@ -97,6 +97,7 @@ open = { workspace = true, optional = true }
 os_pipe = { workspace = true, optional = true }
 pathdiff = { workspace = true }
 percent-encoding = { workspace = true }
+pure-rust-locales = { workspace = true }
 print-positions = { workspace = true }
 quick-xml = { workspace = true }
 aegis-password-generator = { workspace = true, optional = true }
