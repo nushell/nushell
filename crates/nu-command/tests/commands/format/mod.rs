@@ -1,7 +1,4 @@
-use nu_test_support::{
-    fs::Stub::{EmptyFile, FileWithContentToBeTrimmed},
-    prelude::*,
-};
+use nu_test_support::prelude::*;
 use rstest::rstest;
 
 mod duration;
