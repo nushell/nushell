@@ -8,13 +8,13 @@ use crate::completions::{
 use lru::LruCache;
 use nu_parser::{parse, parse_shorter_head_reading};
 use nu_protocol::{
-    BlockId, BuiltinCompletion, CommandWideCompleter, Completion, DeclId, ExternalCompleter, Flag,
-    Record, Signature, Span, SuggestionKind, Value,
+    BlockId, BuiltinCompletion, CommandWideCompleter, Completion, DeclId, Flag, Record, Signature,
+    Span, SuggestionKind, Value,
     ast::{
         Argument, AttributeBlock, Block, Call, Expr, Expression, ExternalArgument, FlagRef,
         FullCellPath, PipelineRedirection, RedirectionTarget, Traverse,
     },
-    engine::{ArgType, Command, EngineState, Stack, StateWorkingSet},
+    engine::{ArgType, Closure, Command, EngineState, Stack, StateWorkingSet},
 };
 use nu_utils::time::Instant;
 use reedline::{
@@ -32,7 +32,7 @@ const DEFAULT_CACHE_SIZE: usize = 100;
 
 use super::{
     StaticCompletion,
-    custom_completions::{InputShape, UserCompletion, completer_input},
+    custom_completions::{DeclaredInputs, UserCompletion, completer_input},
 };
 
 fn find_pipeline_element_by_position<'a>(
@@ -611,7 +611,7 @@ fn site_completer(site: &CompletionSite, working_set: &StateWorkingSet) -> Optio
 enum SiteCompleter {
     /// A named declaration carrying `@interactive` directly.
     Decl(DeclId),
-    /// The configured external closure; a closure cannot carry attributes, so its config does.
+    /// The configured external closure; interactivity is read from the command it dispatches to.
     External,
 }
 
@@ -628,6 +628,21 @@ fn decl_is_interactive(working_set: &StateWorkingSet, decl_id: DeclId) -> bool {
                 .is_some_and(command_is_interactive)
     }
     command_is_interactive(working_set.get_decl(decl_id))
+}
+
+/// Whether the configured external completer closure runs an `@interactive` command. A closure
+/// cannot carry the attribute itself, so we see through it to the command producing its result
+/// — the terminal call of its block — exactly as a named completer carries the attribute.
+fn closure_is_interactive(working_set: &StateWorkingSet, closure: &Closure) -> bool {
+    let block = working_set.get_block(closure.block_id);
+    matches!(
+        block
+            .pipelines
+            .last()
+            .and_then(|pipeline| pipeline.elements.last())
+            .map(|element| &element.expr.expr),
+        Some(Expr::Call(call)) if decl_is_interactive(working_set, call.decl_id)
+    )
 }
 
 /// What the cursor is completing; each variant carries exactly the AST it needs.
@@ -934,8 +949,8 @@ impl<'engine> CompletionEngine<'engine> {
         self.dispatch_completions_at(line, position).suggestions
     }
 
-    /// The record a user completer would receive, without running one.
-    pub fn completer_input_at(&self, line: &str, position: usize, shape: InputShape) -> Value {
+    /// The record a user completer declaring `wanted` would receive, without running one.
+    pub fn completer_input_at(&self, line: &str, position: usize, wanted: DeclaredInputs) -> Value {
         let cursor = line.floor_char_boundary(position.min(line.len()));
         let sliced_line = &line[..cursor];
 
@@ -963,7 +978,7 @@ impl<'engine> CompletionEngine<'engine> {
                     site.typed_prefix.as_bytes(),
                 )
                 .at_site(&site),
-            shape,
+            wanted,
         )
     }
 
@@ -1004,16 +1019,14 @@ impl<'engine> CompletionEngine<'engine> {
     fn site_is_interactive(&self, site: &CompletionSite, working_set: &StateWorkingSet) -> bool {
         match site_completer(site, working_set) {
             Some(SiteCompleter::Decl(decl_id)) => decl_is_interactive(working_set, decl_id),
-            Some(SiteCompleter::External) => {
-                let external = &self.engine_state.get_config().completions.external;
-                match &external.completer {
-                    // A bare closure defers to the sibling `interactive` field.
-                    Some(ExternalCompleter::Closure(_)) => external.interactive,
-                    // `{closure, interactive}` carries its own answer.
-                    Some(ExternalCompleter::Tagged { interactive, .. }) => *interactive,
-                    None => false,
-                }
-            }
+            Some(SiteCompleter::External) => self
+                .engine_state
+                .get_config()
+                .completions
+                .external
+                .completer
+                .as_ref()
+                .is_some_and(|closure| closure_is_interactive(working_set, closure)),
             None => false,
         }
     }
@@ -1264,8 +1277,7 @@ impl<'engine> CompletionEngine<'engine> {
             .completer
             .as_ref()
             .is_some_and(|completer| {
-                dispatched
-                    .absorb(UserCompletion::closure(completer.closure()).fetch(completion_context))
+                dispatched.absorb(UserCompletion::closure(completer).fetch(completion_context))
             });
 
         // Subcommands extending this call suppress the file fallback.
@@ -1950,7 +1962,7 @@ impl<'engine> CompletionEngine<'engine> {
                 .external
                 .completer
                 .as_ref()
-                .map(|completer| UserCompletion::closure(completer.closure())),
+                .map(UserCompletion::closure),
             None => None,
         };
 

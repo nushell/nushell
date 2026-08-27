@@ -1,12 +1,11 @@
 mod input;
 mod output;
 
-pub use input::InputShape;
-pub(crate) use input::declared_shape;
 pub(crate) use output::report;
 pub(crate) use output::{Returned, SpanClamp, map_value_completions};
 
 use crate::completions::{Completer, Context, Fetched};
+pub use input::DeclaredInputs;
 pub(crate) use input::completer_input;
 use nu_engine::compile;
 use nu_protocol::{
@@ -50,7 +49,7 @@ fn engine_state_for_completion<'a>(
 }
 
 /// Fields available to a custom completer.
-pub(crate) const INPUT_FIELDS: [&str; 3] = ["token", "place", "contexts"];
+pub(crate) const INPUT_FIELDS: [&str; 3] = ["token", "place", "buffer"];
 
 /// Bind declared positional names to matching fields in the input record.
 pub(crate) fn bind_declared_inputs(stack: &mut Stack, signature: &Signature, input: Value) {
@@ -156,14 +155,14 @@ impl UserCompletion {
             .captures_to_stack_preserve_out_dest(self.captures.clone());
 
         // A completer opts into what it receives through the positional parameters it
-        // declares: each is bound by name to the like-named field of the input record
-        // (`token`, `place`, or `contexts`). Order is free and an unrecognized name simply
-        // receives nothing. Declaring a `contexts` parameter selects the larger record.
-        let shape = declared_shape(&block.signature);
+        // declares: the input record is overloaded on them, carrying exactly the recognized
+        // fields (`token`, `place`, `buffer`) it names, bound by name. Order is free and an
+        // unrecognized name simply receives nothing.
+        let wanted = DeclaredInputs::from_signature(&block.signature);
         bind_declared_inputs(
             &mut callee_stack,
             &block.signature,
-            completer_input(ctx, shape),
+            completer_input(ctx, wanted),
         );
 
         let engine_state = engine_state_for_completion(

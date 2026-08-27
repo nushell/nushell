@@ -4,7 +4,7 @@ use crate::completions::{
     to_reedline_span,
 };
 use nu_parser::{FlatShape, flatten_expression};
-use nu_protocol::{Signature, Span, SyntaxShape, Value, ast::Expr, record};
+use nu_protocol::{Record, Signature, Span, SyntaxShape, Value, ast::Expr, record};
 use std::borrow::Cow;
 
 /// A `{start, end}` record of byte offsets into the commandline.
@@ -73,26 +73,13 @@ impl<'a> Token<'a> {
         }
     }
 
-    /// A row of the default `tokens` table.
+    /// A row of the `token` view: what the cursor is on.
     fn to_value(&self, span: Span) -> Value {
         Value::record(
             record! {
                 "text" => self.text.as_ref().map(|text| Value::string(text.as_ref(), span)).unwrap_or_else(|| Value::nothing(span)),
                 "kind" => Value::string(self.kind, span),
                 "span" => self.at.map(|(start, end)| span_record(start, end, span)).unwrap_or_else(|| Value::nothing(span)),
-            },
-            span,
-        )
-    }
-
-    /// A row of the full form's table, including nested context.
-    fn to_nested_value(&self, span: Span, nested: Option<Value>) -> Value {
-        Value::record(
-            record! {
-                "text" => self.text.as_ref().map(|text| Value::string(text.as_ref(), span)).unwrap_or_else(|| Value::nothing(span)),
-                "kind" => Value::string(self.kind, span),
-                "span" => self.at.map(|(start, end)| span_record(start, end, span)).unwrap_or_else(|| Value::nothing(span)),
-                "nested" => nested.unwrap_or_else(|| Value::nothing(span)),
             },
             span,
         )
@@ -167,7 +154,7 @@ fn context_tokens<'a>(context: &'a Context, level: &CompletionContext) -> Vec<To
         return tokens;
     }
 
-    if locate(&tokens, cursor, Side::Trailing).is_none() {
+    if locate(&tokens, cursor).is_none() {
         // Clever: We can safely grab the last known end point because tokens are appended sequentially.
         let last_end = tokens
             .iter()
@@ -189,83 +176,19 @@ fn context_tokens<'a>(context: &'a Context, level: &CompletionContext) -> Vec<To
     tokens
 }
 
-#[derive(Clone, Copy)]
-enum Side {
-    Leading,
-    Trailing,
-}
-
 /// The token `offset` falls in, and its byte offset within that token.
-fn locate(tokens: &[Token], offset: usize, side: Side) -> Option<(usize, usize)> {
-    let predicate = |(_, token): &(usize, &Token)| {
+fn locate(tokens: &[Token], offset: usize) -> Option<(usize, usize)> {
+    let (index, token) = tokens.iter().enumerate().find(|(_, token)| {
         token
             .at
             .is_some_and(|(start, end)| start <= offset && offset <= end)
-    };
-
-    let mut iterator = tokens.iter().enumerate();
-    let (index, token) = match side {
-        Side::Leading => iterator.rev().find(predicate)?,
-        Side::Trailing => iterator.find(predicate)?,
-    };
+    })?;
 
     let start = token
         .at
         .expect("Predicate guarantees token position is valid")
         .0;
     Some((index, offset - start))
-}
-
-fn walk_value(descents: &[usize], at: Option<(usize, usize)>, span: Span) -> Value {
-    let Some((token_index, byte)) = at else {
-        return Value::nothing(span);
-    };
-
-    let path = descents
-        .iter()
-        .copied()
-        .chain(std::iter::once(token_index))
-        .map(|index| Value::int(index as i64, span))
-        .collect();
-
-    Value::record(
-        record! {
-            "path" => Value::list(path, span),
-            "byte" => Value::int(byte as i64, span),
-        },
-        span,
-    )
-}
-
-fn contexts_value(context: &Context, levels: &[Vec<Token<'_>>]) -> Value {
-    let span = context.span;
-    let mut nested_value: Option<Value> = None;
-
-    for (level_index, tokens) in levels.iter().enumerate().rev() {
-        let last_token_index = tokens.len().saturating_sub(1);
-        let mut current_inner = nested_value.take();
-
-        let rows = tokens
-            .iter()
-            .enumerate()
-            .map(|(token_index, token)| {
-                let inner_payload = (token_index == last_token_index)
-                    .then(|| current_inner.take())
-                    .flatten();
-                token.to_nested_value(span, inner_payload)
-            })
-            .collect();
-
-        let mut record = level_index
-            .checked_sub(1)
-            .map(|parent_index| context.contexts[parent_index].cursor.into_record(span))
-            .unwrap_or_default();
-
-        record.insert("tokens", Value::list(rows, span));
-        nested_value = Some(Value::record(record, span));
-    }
-
-    nested_value.unwrap_or_else(|| Value::record(nu_protocol::Record::new(), span))
 }
 
 /// Return the declared shape for the argument under the cursor.
@@ -309,97 +232,86 @@ fn place_value(context: &Context, cursor: Value, target: Value) -> Value {
     Value::record(place, span)
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum InputShape {
-    Token,
-    Full,
+/// Which of `token`, `place`, and `buffer` a completer asked for. The input record is
+/// overloaded on this: each field is computed and handed over only when it is declared, so a
+/// completer is never given -- and never pays for -- a field it did not ask for.
+#[derive(Debug, Clone, Copy)]
+pub struct DeclaredInputs {
+    pub token: bool,
+    pub place: bool,
+    pub buffer: bool,
 }
 
-impl InputShape {
-    pub fn from_full(is_full: bool) -> Self {
-        if is_full { Self::Full } else { Self::Token }
+impl DeclaredInputs {
+    /// Every field; what `commandline complete --input` reports for inspection.
+    pub fn all() -> Self {
+        Self {
+            token: true,
+            place: true,
+            buffer: true,
+        }
+    }
+
+    /// The recognized input fields a completer's signature declares as positionals.
+    pub(crate) fn from_signature(signature: &Signature) -> Self {
+        let declares = |name: &str| {
+            signature
+                .required_positional
+                .iter()
+                .chain(&signature.optional_positional)
+                .any(|positional| positional.name == name)
+        };
+        Self {
+            token: declares("token"),
+            place: declares("place"),
+            buffer: declares("buffer"),
+        }
     }
 }
 
-pub(crate) fn completer_input(context: &Context, shape: InputShape) -> Value {
-    match shape {
-        InputShape::Token => token_input(context),
-        InputShape::Full => full_input(context),
-    }
-}
-
-fn token_input(context: &Context) -> Value {
+/// The token the cursor is on, as `{text, kind, span}`.
+fn token_value(context: &Context) -> Value {
     let span = context.span;
-    let replacing = to_reedline_span(context.span, context.offset);
     let tokens = context
         .contexts
         .last()
         .map(|level| context_tokens(context, level))
         .unwrap_or_default();
 
-    let token_value = locate(&tokens, context.buffer.len(), Side::Trailing)
+    locate(&tokens, context.buffer.len())
         .map(|(index, _)| index)
         .or_else(|| tokens.len().checked_sub(1))
         .and_then(|index| tokens.get(index))
         .map(|token| token.to_value(span))
-        .unwrap_or_else(|| Value::nothing(span));
-
-    Value::record(
-        record! {
-            "token" => token_value,
-            "place" => place_value(
-                context,
-                Value::int(context.buffer.len() as i64, span),
-                span_record(replacing.start, replacing.end, span),
-            ),
-        },
-        span,
-    )
+        .unwrap_or_else(|| Value::nothing(span))
 }
 
-fn full_input(context: &Context) -> Value {
+/// Where the cursor is: `cursor`, `target`, and the resolved site.
+fn place_of(context: &Context) -> Value {
     let span = context.span;
-    let levels: Vec<Vec<Token<'_>>> = context
-        .contexts
-        .iter()
-        .map(|level| context_tokens(context, level))
-        .collect();
-
-    let descents: Vec<usize> = levels
-        .iter()
-        .rev()
-        .skip(1)
-        .rev()
-        .map(|tokens| tokens.len().saturating_sub(1))
-        .collect();
-
-    let innermost = levels.last().map_or(&[][..], Vec::as_slice);
     let replacing = to_reedline_span(context.span, context.offset);
-    let walk = |offset, side| walk_value(&descents, locate(innermost, offset, side), span);
-
-    let target = Value::record(
-        record! {
-            "start" => walk(replacing.start, Side::Leading),
-            "end" => walk(replacing.end, Side::Trailing),
-        },
-        span,
-    );
-
-    Value::record(
-        record! {
-            "contexts" => contexts_value(context, &levels),
-            "place" => place_value(context, walk(context.buffer.len(), Side::Trailing), target),
-        },
-        span,
+    place_value(
+        context,
+        Value::int(context.buffer.len() as i64, span),
+        span_record(replacing.start, replacing.end, span),
     )
 }
 
-pub(crate) fn declared_shape(signature: &Signature) -> InputShape {
-    let declares_contexts = signature
-        .required_positional
-        .iter()
-        .chain(&signature.optional_positional)
-        .any(|positional| positional.name == "contexts");
+/// The record a completer receives, carrying exactly the fields it declared (see
+/// [`DeclaredInputs`]). Each is bound to the like-named parameter.
+pub(crate) fn completer_input(context: &Context, wanted: DeclaredInputs) -> Value {
+    let span = context.span;
+    let mut record = Record::new();
 
-    InputShape::from_full(declares_contexts)
+    if wanted.token {
+        record.insert("token", token_value(context));
+    }
+    if wanted.place {
+        record.insert("place", place_of(context));
+    }
+    if wanted.buffer {
+        record.insert("buffer", Value::string(context.buffer, span));
+    }
+
+    Value::record(record, span)
 }

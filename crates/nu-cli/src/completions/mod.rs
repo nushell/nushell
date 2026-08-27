@@ -26,9 +26,9 @@ pub use command_completions::{CommandCompletion, CommandScope};
 pub(crate) use completer::{Buffer, Context, NarrowingCache};
 pub use completer::{CompletionEngine, NuCompleter};
 pub use completion_options::{CompletionOptions, MatchAlgorithm, NuMatcher};
-pub use custom_completions::InputShape;
+pub use custom_completions::DeclaredInputs;
 pub(crate) use custom_completions::{
-    Returned, SpanClamp, bind_declared_inputs, declared_shape, map_value_completions,
+    Returned, SpanClamp, bind_declared_inputs, map_value_completions,
 };
 pub use directory_completions::DirectoryCompletion;
 pub use dotnu_completions::DotNuCompletion;

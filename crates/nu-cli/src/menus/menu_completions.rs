@@ -1,5 +1,5 @@
 use crate::completions::{
-    CompletionEngine, Returned, SpanClamp, bind_declared_inputs, declared_shape,
+    CompletionEngine, DeclaredInputs, Returned, SpanClamp, bind_declared_inputs,
     map_value_completions,
 };
 use nu_engine::eval_block;
@@ -61,9 +61,9 @@ impl Completer for NuMenuCompleter {
         let declares_positional = !block.signature.required_positional.is_empty()
             || !block.signature.optional_positional.is_empty();
         if declares_positional {
-            let shape = declared_shape(&block.signature);
+            let wanted = DeclaredInputs::from_signature(&block.signature);
             let record = CompletionEngine::new(&self.engine_state, &self.stack)
-                .completer_input_at(&padded, cursor, shape);
+                .completer_input_at(&padded, cursor, wanted);
             bind_declared_inputs(&mut self.stack, &block.signature, record);
         }
 
@@ -185,19 +185,15 @@ mod tests {
         );
     }
 
-    /// Declaring a `contexts` parameter opts a source into the nesting tree, exactly as a
-    /// completer does. The cursor is inside the closure, so `each`'s command hangs off the
-    /// nesting token.
+    /// Declaring a `buffer` parameter opts a source into the whole line up to the cursor,
+    /// exactly as a completer does.
     #[test]
-    fn menu_source_can_declare_contexts() {
-        let source = r#"{|contexts| [
-            ($contexts.tokens.text | to nuon)
-            ($contexts.tokens.1.nested.tokens.text | str join "+")
-        ]}"#;
+    fn menu_source_can_declare_buffer() {
+        let source = r#"{|buffer| [$buffer]}"#;
 
         assert_eq!(
             values(menu(source).complete("each { str tri", 14)),
-            ["[each, null]", "str+tri"],
+            ["each { str tri"],
         );
     }
 
