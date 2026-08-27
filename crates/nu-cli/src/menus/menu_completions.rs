@@ -189,7 +189,7 @@ mod tests {
     /// exactly as a completer does.
     #[test]
     fn menu_source_can_declare_buffer() {
-        let source = r#"{|buffer| [$buffer]}"#;
+        let source = "{|buffer| [$buffer]}";
 
         assert_eq!(
             values(menu(source).complete("each { str tri", 14)),

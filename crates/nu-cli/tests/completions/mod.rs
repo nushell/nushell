@@ -3548,7 +3548,7 @@ fn a_returned_span_is_clamped_to_the_buffer() {
 /// Text past the cursor never reaches a completer, so one cache entry serves every tail.
 #[test]
 fn the_text_after_the_cursor_never_reaches_the_completer() {
-    let block = r#"{|buffer| [$buffer]}"#;
+    let block = "{|buffer| [$buffer]}";
     let cursor = "ext ".len();
 
     // Same prefix, different tails: the completer sees the same buffer either way.
