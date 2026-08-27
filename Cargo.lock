@@ -4892,6 +4892,7 @@ dependencies = [
  "pretty_assertions",
  "print-positions",
  "procfs",
+ "pure-rust-locales",
  "quick-xml 0.41.0",
  "rand 0.10.1",
  "rand_chacha 0.10.0",
