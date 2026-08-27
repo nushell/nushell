@@ -295,7 +295,7 @@ impl ForegroundGuard {
 
                 return Ok(guard);
             } else if pcnt
-                .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |count| {
+                .try_update(Ordering::SeqCst, Ordering::SeqCst, |count| {
                     // Avoid a race condition: only increment if count is > 0
                     if count > 0 { Some(count + 1) } else { None }
                 })
