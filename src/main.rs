@@ -20,6 +20,7 @@ use miette::Result;
 use nu_cli::gather_parent_env_vars;
 use nu_config::{CliOverrides, ConfigError, ConfigWarning, SystemEnv, resolve_paths};
 use nu_engine::{convert_env_values, exit::cleanup_exit};
+#[cfg(feature = "plugin")]
 use nu_path::absolute_with;
 use nu_protocol::{
     ByteStream, Config, IntoValue, PipelineData, ShellError, Span, Spanned, Type, Value,

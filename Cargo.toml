@@ -468,6 +468,14 @@ opt-level = "s"     # Optimize for size
 strip = "debuginfo"
 lto = "thin"
 
+[profile.slim]
+inherits = "release"
+opt-level = "z" # Optimize for size, but also turn off loop vectorization
+strip = true
+lto = true
+panic = "abort"
+codegen-units = 1
+
 # build with `cargo build --profile profiling`
 # to analyze performance with tooling like linux perf
 [profile.profiling]
