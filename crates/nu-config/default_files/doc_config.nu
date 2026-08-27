@@ -315,21 +315,23 @@ $env.config.completions.external.max_results = 100
 # completions.external.completer (closure|record|null): Custom closure for argument
 # completions. Usually set to call a third-party completion system like Carapace.
 #
-# A completer receives its inputs through the parameters it declares, each bound by name
-# (order does not matter; an unrecognized name receives nothing):
+# A completer's input is overloaded on the parameters it declares: it is handed exactly the
+# fields it names, and nothing it did not ask for (order does not matter; an unrecognized name
+# receives nothing). The three it can ask for:
 #   token: record    the token being completed, as {text, kind, span}
-#   place: record    where in the line that is: `cursor` and `target` ({start, end}, the range
-#                    a suggestion replaces), plus the resolution (`kind`, plus `flag`/`index`).
-#                    Read `target` rather than `token.span`: they differ wherever a completion
-#                    spans several tokens, such as a multiword command head or a cell path.
-#
-#                    By default (the token view) both are byte offsets into the line; when
-#                    `contexts` is declared (the full view) they are `{path, byte}` walk
-#                    records locating the offset in the nesting tree — what
-#                    `commandline complete --input-full` returns.
-#   contexts: record the closures and subexpressions the cursor is nested in. Declaring this
-#                    parameter is what asks for the full view (above); see
-#                    `commandline complete --input-full`.
+#   place: record    where in the line that is: `cursor` (a byte offset) and `target`
+#                    ({start, end}, the range a suggestion replaces), plus the resolution
+#                    (`kind`, plus `flag`/`index`). Read `target` rather than `token.span`:
+#                    they differ wherever a completion spans several tokens, such as a
+#                    multiword command head or a cell path.
+#   buffer: string   the whole command line up to the cursor, across pipes and closures, for
+#                    completers that need more than the current token -- an external completer
+#                    like Carapace reads this. `std/util structure` turns it into a
+#                    {text, kind, span} table. Prefer it over calling `commandline` from inside
+#                    a completer: `buffer` is always the line being completed, whereas
+#                    `commandline` reads editor state and can come back empty depending on how
+#                    completion was triggered (e.g. after a `;`).
+# `commandline complete --input` returns all three at once, for inspecting a completer.
 # A completer never sees text past the cursor.
 #
 # Returns a list of suggestions (a string, or a record of {value, description?, style?,
@@ -339,13 +341,13 @@ $env.config.completions.external.max_results = 100
 $env.config.completions.external.completer = null
 
 # Example: A simplified Carapace completer (use the official one from Carapace docs).
-# Every token of the command is wanted, so it declares `contexts`:
-# $env.config.completions.external.completer = {|contexts|
-#   let words = $contexts.tokens.text
+# The whole line is wanted, so it declares `buffer` and splits it into words:
+# $env.config.completions.external.completer = {|buffer|
+#   let words = $buffer | split row " "
 #   carapace ($words | first) nushell ...$words | from json
 # }
 #
-# Example: branch off the resolved cursor instead of re-parsing the tokens, by declaring
+# Example: branch off the resolved cursor instead of re-parsing the line, by declaring
 # only the `place` it needs:
 # $env.config.completions.external.completer = {|place|
 #   if $place.kind == "flag-value" and $place.flag == "base" {
@@ -353,13 +355,10 @@ $env.config.completions.external.completer = null
 #   }
 # }
 #
-# Example: walk to the context the cursor is actually in, however deeply nested:
-# def cursor-context [contexts, place] {
-#   mut context = $contexts
-#   for token in ($place.cursor.path | drop 1) {
-#     $context = $context.tokens | get $token | get nested
-#   }
-#   $context
+# Example: inspect the parsed tokens of the line the cursor is on:
+# use std/util
+# def line-tokens [buffer] {
+#   util structure $buffer  # -> [{text, kind, span}, ...]
 # }
 #
 # A `def`-based completer (attached with `@complete` or to a parameter with `@`) can carry
@@ -369,26 +368,18 @@ $env.config.completions.external.completer = null
 # def pick-file [token: record] { ls | get name | to text | ^fzf --query $token.text | lines }
 # Every other completer runs on a background worker instead: non-blocking, and cached.
 #
-# A closure cannot carry an attribute, so `external.completer` accepts a `{closure,
-# interactive}` record instead — interactivity travels with the closure it belongs to,
-# rather than a separate field you have to remember to set alongside it:
-# $env.config.completions.external.completer = {
-#   closure: {|contexts|
-#     ls | get name | to text | ^fzf --query $contexts.tokens.0.text | lines
-#   }
-#   interactive: true
+# `external.completer` is a plain closure, which cannot carry an attribute. To make it run
+# inline (the picker-driving case), have it call an `@interactive` command: interactivity is
+# seen through the closure to that command, so there is no separate switch. The command
+# usually declares `buffer` to feed the whole line to its picker:
+# @interactive
+# def carapace-fzf [buffer] {
+#   let words = $buffer | split row ' '
+#   carapace ($words | first) nushell ...$words | from json | ^fzf | lines
 # }
-# `interactive` may be omitted (defaults to false, same as a bare closure). A bare closure is
-# still accepted for existing configs; it reads the separate `external.interactive` field
-# below instead, since there is nowhere on a bare closure to carry its own answer.
-
-# completions.external.interactive (bool): Run `external.completer` inline on the line-editor
-# thread with the terminal to itself, so it can drive a picker like `fzf` or `input list` —
-# only read when `completer` is a bare closure. A `{closure, interactive}` record carries its
-# own answer and ignores this field entirely.
-# false: Keep the completer on the background worker: non-blocking, and cached.
-# Default: false
-$env.config.completions.external.interactive = false
+# $env.config.completions.external.completer = {|buffer| carapace-fzf $buffer }
+# A closure that does not reach an `@interactive` command stays on the background worker:
+# non-blocking, and cached.
 
 # --------------------
 # Terminal Integration
@@ -777,7 +768,7 @@ $env.config.abbreviations = {}
 # declares, in place of the old `{|buffer, position|}` pair -- see
 # completions.external.completer above. A source that used to write
 # `$buffer | split row ' ' | last` now declares `{|token|}` and reads `$token.text`, and one
-# that needs the surrounding closures declares `{|contexts|}` the same way a completer does.
+# that needs the whole line declares `{|buffer|}` the same way a completer does.
 # It returns what a completer returns, so one source can serve as either; the `options` of a
 # {completions, options} record name engine behaviour a menu has no say in and are ignored.
 #
