@@ -135,7 +135,7 @@ fn only_an_interactive_completer_is_refused_without_a_terminal(
 /// Input inspection still works for interactive completers.
 #[rstest]
 #[case::input_record("--input | get token.text", "a")]
-#[case::input_full_record("--input-full | get place.target.end.byte | into string", "1")]
+#[case::input_buffer("--input | get buffer", "use-it a")]
 fn a_refused_completer_can_still_be_inspected(
     #[case] tail: &str,
     #[case] expected: &str,

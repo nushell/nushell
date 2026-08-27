@@ -284,25 +284,33 @@ fn commandline_test_complete_input_record() -> TestResult {
         "def test-cmd [first?: string] {}\n\
         'test-cmd ab' | commandline complete --input | to nuon",
         "{token: {text: ab, kind: value, span: {start: 9, end: 11}}, \
-place: {cursor: 11, target: {start: 9, end: 11}, kind: positional, index: 0, shape: string}}",
+place: {cursor: 11, target: {start: 9, end: 11}, kind: positional, index: 0, shape: string}, \
+buffer: \"test-cmd ab\"}",
     )
 }
 
-/// A cursor inside a closure hangs its command off the nesting token, tagged with the slot
-/// it fills. `ignored` is beside the cursor, not around it, so it is nowhere in the tree.
+/// `buffer` is the whole line up to the cursor, with `place` resolving against the command
+/// the cursor is actually in — here `test-cmd`'s positional, even though the cursor is nested
+/// in a closure.
 #[test]
-fn commandline_test_complete_input_contexts() -> TestResult {
+fn commandline_test_complete_input_buffer() -> TestResult {
     run_test(
         "def test-cmd [first?: string] {}\n\
-        'ignored | each { test-cmd ab' | commandline complete --input-full | to nuon",
-        "{contexts: {tokens: [[text, kind, span, nested]; \
-[each, head, {start: 10, end: 14}, null], \
-[null, block, {start: 15, end: 28}, \
-{kind: positional, index: 0, tokens: [[text, kind, span, nested]; \
-[test-cmd, head, {start: 17, end: 25}, null], [ab, value, {start: 26, end: 28}, null]]}]]}, \
-place: {cursor: {path: [1, 1], byte: 2}, \
-target: {start: {path: [1, 1], byte: 0}, end: {path: [1, 1], byte: 2}}, \
-kind: positional, index: 0, shape: string}}",
+        'ignored | each { test-cmd ab' | commandline complete --input | reject token | to nuon",
+        "{place: {cursor: 28, target: {start: 26, end: 28}, kind: positional, index: 0, shape: string}, \
+buffer: \"ignored | each { test-cmd ab\"}",
+    )
+}
+
+/// `buffer` is the line being completed, so it carries the whole line up to the cursor even
+/// where the `commandline` command comes back empty -- e.g. the fresh command after a `;`.
+/// This is why an external completer reads `buffer` instead of calling `commandline`.
+#[test]
+fn commandline_test_complete_input_buffer_survives_a_semicolon() -> TestResult {
+    run_test(
+        "'foo; ' | commandline complete --input\n\
+        | {buffer: $in.buffer, kind: $in.place.kind} | to nuon",
+        "{buffer: \"foo; \", kind: command}",
     )
 }
 
@@ -371,16 +379,6 @@ fn commandline_test_complete_input_last_token(
     )
 }
 
-/// Alias-expanded tokens are not on the line; a span would point at the definition.
-#[test]
-fn commandline_test_complete_input_alias_tokens_have_no_span() -> TestResult {
-    run_test(
-        "'alias ea = ext aa; ea b' | commandline complete --input-full\n\
-        | get contexts.tokens | each {|t| $t.span == null } | to nuon",
-        "[true, true, false]",
-    )
-}
-
 /// A closure flattens to its delimiters and the padding around them, so the cursor in a
 /// trailing gap must not land on whitespace: `each { ls ⌶` is completing `ls`'s first
 /// argument, an empty slot, and never the space before it.
@@ -394,89 +392,66 @@ fn commandline_test_complete_input_skips_whitespace_tokens(#[case] line: &str) -
         &format!(
             "{{token: {{text: \"\", kind: value, span: {{start: {cursor}, end: {cursor}}}}}, \
 place: {{cursor: {cursor}, target: {{start: {cursor}, end: {cursor}}}, \
-kind: positional, index: 0, shape: \"oneof<glob, string>\"}}}}",
+kind: positional, index: 0, shape: \"oneof<glob, string>\"}}, buffer: \"{line}\"}}",
             cursor = line.len()
         ),
     )
 }
 
 /// The gap inside a closure belongs to the command the gap is in, not the one enclosing it:
-/// `each { ls ⌶` completes `ls`'s argument, and a suggestion replaces the empty slot rather
-/// than the whole closure.
+/// the buffer spans the whole closure, but `place` resolves to `ls`'s argument (its shape),
+/// never `each`'s block.
 #[test]
 fn commandline_test_complete_input_gap_resolves_inside_the_closure() -> TestResult {
     run_test(
-        "'each { ls ' | commandline complete --input-full\n\
-        | {head: $in.contexts.tokens.1.nested.tokens.0.text, kind: $in.place.kind} | to nuon",
-        "{head: ls, kind: positional}",
+        "'each { ls ' | commandline complete --input\n\
+        | {buffer: $in.buffer, kind: $in.place.kind, shape: $in.place.shape} | to nuon",
+        "{buffer: \"each { ls \", kind: positional, shape: \"oneof<glob, string>\"}",
     )
 }
 
-/// Nesting is as deep as the cursor goes. A row condition holds a subexpression holding an
-/// external call, and each level is tagged with the slot the next one fills — so an external
-/// completer three levels down still resolves to the argument it is really completing.
+/// Resolution is as deep as the cursor goes: an external call inside a subexpression inside a
+/// pipeline still resolves to the argument it is really completing, while `buffer` keeps the
+/// whole line up to the cursor.
 #[test]
-fn commandline_test_complete_input_nests_as_deep_as_the_cursor() -> TestResult {
+fn commandline_test_complete_input_resolves_deep_in_subexpressions() -> TestResult {
     run_test(
-        "'ls | where a == (^ext ' | commandline complete --input-full | {\n\
-            heads: [$in.contexts.tokens.0.text\n\
-                    $in.contexts.tokens.1.nested.tokens.0.text\n\
-                    $in.contexts.tokens.1.nested.tokens.2.nested.tokens.0.text]\n\
-            slots: [$in.contexts.tokens.1.nested.kind\n\
-                    $in.contexts.tokens.1.nested.tokens.2.nested.kind]\n\
-            place: $in.place\n\
-        } | to nuon",
-        "{heads: [where, a, ext], slots: [positional, operator], \
-place: {cursor: {path: [1, 2, 1], byte: 0}, \
-target: {start: {path: [1, 2, 1], byte: 0}, end: {path: [1, 2, 1], byte: 0}}, \
-kind: external-arg, index: 0}}",
+        "'ls | where a == (^ext ' | commandline complete --input\n\
+        | {buffer: $in.buffer, place: ($in.place | reject cursor target)} | to nuon",
+        "{buffer: \"ls | where a == (^ext \", place: {kind: external-arg, index: 0}}",
     )
 }
 
-/// Every offset is a byte offset, in walks as in spans: `é` is two bytes, so the cursor
-/// after `héllo` is six into the token and not five.
+/// Every offset is a byte offset: `é` is two bytes, so the `héllo` token — and the target
+/// that replaces it — is six bytes wide, not five.
 #[test]
 fn commandline_test_complete_input_offsets_are_bytes() -> TestResult {
     run_test(
-        "'str replace héllo' | commandline complete --input-full\n\
-        | {token: $in.contexts.tokens.1.text, byte: $in.place.cursor.byte} | to nuon",
-        "{token: héllo, byte: 6}",
+        "'str replace héllo' | commandline complete --input\n\
+        | {token: $in.token.text, width: ($in.place.target.end - $in.place.target.start)} | to nuon",
+        "{token: héllo, width: 6}",
     )
 }
 
 /// An empty line still resolves: a completer reads the head it is about to complete rather
-/// than a null it has to guard against.
-#[rstest]
-#[case::token(
-    "--input",
-    "{token: {text: \"\", kind: head, span: {start: 0, end: 0}}, \
-place: {cursor: 0, target: {start: 0, end: 0}, kind: command}}"
-)]
-#[case::full(
-    "--input-full",
-    "{contexts: {tokens: [[text, kind, span, nested]; [\"\", head, {start: 0, end: 0}, null]]}, \
-place: {cursor: {path: [0], byte: 0}, \
-target: {start: {path: [0], byte: 0}, end: {path: [0], byte: 0}}, kind: command}}"
-)]
-fn commandline_test_complete_input_empty_line(
-    #[case] flag: &str,
-    #[case] expected: &str,
-) -> TestResult {
+/// than a null it has to guard against, and the buffer is just empty.
+#[test]
+fn commandline_test_complete_input_empty_line() -> TestResult {
     run_test(
-        &format!("'' | commandline complete {flag} | to nuon"),
-        expected,
+        "'' | commandline complete --input | to nuon",
+        "{token: {text: \"\", kind: head, span: {start: 0, end: 0}}, \
+place: {cursor: 0, target: {start: 0, end: 0}, kind: command}, buffer: \"\"}",
     )
 }
 
-/// A target may run across tokens: completing a cell path replaces the whole path, so its
-/// walks land on different tokens while the cursor stays on the last.
+/// A target may run across tokens: completing a cell path replaces the whole path, so the
+/// target is wider than the single `token` the cursor sits on.
 #[test]
 fn commandline_test_complete_input_target_spans_tokens() -> TestResult {
     run_test(
-        "'ls | get na.fo' | commandline complete --input-full\n\
-        | {tokens: $in.contexts.tokens.text, target: $in.place.target} | to nuon",
-        "{tokens: [get, na, fo], \
-target: {start: {path: [1], byte: 0}, end: {path: [2], byte: 2}}}",
+        "'ls | get na.fo' | commandline complete --input\n\
+        | {token: $in.token.text, target: $in.place.target} | to nuon",
+        "{token: fo, target: {start: 9, end: 14}}",
     )
 }
 
