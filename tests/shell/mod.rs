@@ -583,6 +583,68 @@ fn source_env_redeclared_let_variable() -> Result {
 }
 
 #[test]
+fn source_redeclared_let_visible_inside_sourced_def() -> Result {
+    // Nested `def` bodies capture outer vars. File-level captures must include
+    // those (or the span cache would reuse a stale `foo` after `let` redeclare).
+    // See https://github.com/nushell/nushell/issues/18515
+    Playground::setup("source_redeclared_let_in_def", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent("foo.nu", "def foo [] { $xxx }")]);
+
+        let mut tester = test().cwd(dirs.test());
+
+        let out1: String = tester.run("let xxx = 'first'; source foo.nu; foo")?;
+        assert_eq!(out1, "first");
+
+        let out2: String = tester.run("let xxx = 'second'; source foo.nu; foo")?;
+        assert_eq!(out2, "second");
+
+        Ok(())
+    })
+}
+
+#[test]
+#[deps(NU)]
+fn source_script_def_sees_outer_let() -> Result {
+    Playground::setup("source_script_def_outer_let", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[
+            FileWithContent("foo.nu", "def foo [] { $xxx }"),
+            FileWithContent("app.nu", "let xxx = 'from-script'\nsource foo.nu\nfoo"),
+        ]);
+
+        let out: String = test().cwd(dirs.test()).run("nu app.nu | to text")?;
+        assert_eq!(out, "from-script");
+        Ok(())
+    })
+}
+
+#[test]
+fn source_same_file_does_not_multiply_decls() -> Result {
+    // Capture-free sourced files must reuse the cached block so repeated
+    // `source` does not add another `def` for the same name each time.
+    Playground::setup("source_same_file_no_multiply", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent(
+            "lib.nu",
+            "def shared_a [] { 0 }\ndef shared_b [] { 0 }\ndef shared_c [] { 0 }",
+        )]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("source lib.nu")?;
+        let after_first: i64 = tester.run("scope engine-stats | get num_decls")?;
+
+        let () = tester.run("source lib.nu")?;
+        let () = tester.run("source lib.nu")?;
+        let after_more: i64 = tester.run("scope engine-stats | get num_decls")?;
+
+        assert_eq!(
+            after_first, after_more,
+            "re-sourcing a capture-free file should reuse decls, not add new ones"
+        );
+        tester.run("shared_a").expect_value_eq(0)?;
+        Ok(())
+    })
+}
+
+#[test]
 fn source_use_file_named_null() -> Result {
     Playground::setup("source_file_named_null", |dirs, sandbox| -> Result {
         sandbox.with_files(&[FileWithContent(

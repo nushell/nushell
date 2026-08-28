@@ -526,9 +526,9 @@ pub fn parse(
 
 /// Like [`parse`], but never returns a span-matched cached block.
 ///
-/// Required for `source` / `source-env`: free variables rebind to new VarIds
-/// when `let`/`mut` are re-declared, so a block cached by span alone is stale.
-/// See https://github.com/nushell/nushell/issues/18515
+/// `source` / `source-env` use [`parse`], which reuses a cached block only when
+/// every free-variable capture still resolves to the current `VarId`. Use this
+/// when a caller must re-lex and re-bind regardless.
 pub fn parse_fresh(
     working_set: &mut StateWorkingSet,
     fname: Option<&str>,
@@ -536,6 +536,38 @@ pub fn parse_fresh(
     scoped: bool,
 ) -> Arc<Block> {
     parse_with_block_cache(working_set, fname, contents, scoped, false)
+}
+
+/// Whether every free-variable capture on `block` still names the same `VarId`.
+///
+/// File-level `block.captures` includes vars used inside nested `def` bodies
+/// (`discover_captures_in_expr` bubbles those up). That is the #18515 set:
+/// outer `let`/`mut` re-declarations change the `VarId` and must not reuse.
+/// Files with no free vars (libraries of `def`s) return true immediately.
+fn cached_block_captures_still_valid(working_set: &StateWorkingSet, block: &Block) -> bool {
+    block
+        .captures
+        .iter()
+        .all(|(var_id, span)| capture_binding_is_current(working_set, *var_id, *span))
+}
+
+fn capture_binding_is_current(working_set: &StateWorkingSet, var_id: VarId, span: Span) -> bool {
+    // Specials (`$nu`, `$env`, `$in`, …) are not rebound by `let`/`mut`.
+    if var_id <= LAST_VARIABLE_ID {
+        return true;
+    }
+
+    let from_var = working_set
+        .get_variable_if_possible(var_id)
+        .and_then(|variable| variable.name.as_deref());
+    let name = match from_var {
+        Some(name) if !name.is_empty() => name,
+        _ => working_set.get_span_contents(span),
+    };
+    if name.is_empty() {
+        return false;
+    }
+    working_set.find_variable(name) == Some(var_id)
 }
 
 fn parse_with_block_cache(
@@ -556,11 +588,22 @@ fn parse_with_block_cache(
 
     let new_span = working_set.get_span_for_file(file_id);
 
-    // Reuse a previously-parsed block with the same span when safe (e.g. LSP).
-    // Callers that need fresh free-variable bindings use `parse_fresh`.
-    if use_block_cache && let Some(block) = working_set.find_block_by_span(new_span) {
-        return block;
+    // Reuse a previously-parsed block with the same span when its free
+    // variables still bind to the current VarIds. Stale captures (REPL
+    // `let`/`mut` re-declaration, #18515) fall through and re-parse.
+    if use_block_cache {
+        for cached in working_set.blocks_with_span_newest_first(new_span) {
+            if cached_block_captures_still_valid(working_set, &cached) {
+                return cached;
+            }
+        }
     }
+
+    // Capture discovery below should only consider blocks created by this parse.
+    // Walking the whole delta is O(historical blocks) per source and made
+    // repeated `source` of the same file quadratic after parse_fresh.
+    let first_new_delta_block = working_set.delta.blocks.len();
+
     let mut output = {
         let (output, err) = lex(contents, new_span.start, &[], &[], false);
         if let Some(err) = err {
@@ -600,18 +643,19 @@ fn parse_with_block_cache(
         Err(err) => working_set.error(err),
     }
 
-    // Also check other blocks that might have been imported
+    // Also check other blocks that might have been imported during this parse
     let mut errors = vec![];
-    for (block_idx, block) in working_set.delta.blocks.iter().enumerate() {
-        let block_id = block_idx + working_set.permanent_state.num_blocks();
-        let block_id = BlockId::new(block_id);
+    let permanent_blocks = working_set.permanent_state.num_blocks();
+    for block_idx in first_new_delta_block..working_set.delta.blocks.len() {
+        let block_id = BlockId::new(permanent_blocks + block_idx);
 
         if !seen_blocks.contains_key(&block_id) {
             let mut captures = vec![];
+            let block = working_set.delta.blocks[block_idx].clone();
 
             match discover_captures_in_closure(
                 working_set,
-                block,
+                &block,
                 &mut seen,
                 &mut seen_blocks,
                 &mut captures,
