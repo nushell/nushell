@@ -206,13 +206,25 @@
             "[r'a']" | from nuon | to json -r                                    # => ["r'a'"]
             ```
 
-- escapes valid inside `"..."`:
+- escapes valid inside `"..."`, twenty-one single-character forms plus two with arguments:
     - `\"` `\'` `\\` `\/` - the literal character
-    - `\n` `\t` `\r` `\b` `\f` - control characters
+    - `\(` `\)` `\{` `\}` `\$` `\^` `\#` `\|` `\~` - also the literal character. these exist
+       because nushell gives those bytes meaning elsewhere, and escaping them is harmless here.
+    - `\n` `\t` `\r` `\b` `\f` `\a` `\e` - control characters. `\a` is U+0007, `\e` is U+001B.
     - `\0` - U+0000
-    - `\xHH` - a **byte** escape restricted to ascii. `\x41` is `A`; `\xff` is rejected.
+    - `\xHH` - a **byte**, not a character. the bytes an escape run produces must together form
+       valid utf-8, so `\xC3\xA9` is `é` while `\x80` and `\xff` alone are errors.
+        ```nushell
+        "[\"\\xC3\\xA9\", \"\\x41\"]" | from nuon | to json -r                   # => ["é","A"]
+        "[\"\\xff\"]" | from nuon                                                # => error
+        ```
     - `\u{H...}` - one to six hex digits, max `0x10FFFF`. surrogates `D800`-`DFFF` rejected. the
        digit count is capped at six even for small values, so `\u{0000041}` is an error.
+    - an implementation that stops at the json set will reject valid nuon. the nine bracket and
+       sigil escapes are the ones most likely to be missed.
+        ```nushell
+        "[\"a\\(b\", \"a\\#b\", \"a\\~b\", \"a\\ab\"]" | from nuon | to json -r  # => ["a(b","a#b","a~b","a\u0007b"]
+        ```
 
 - escapes that are **not** nuon, despite being json or json5:
     - `\uXXXX` - nuon requires the braces, and consequently has no utf-16 surrogate pairing.
