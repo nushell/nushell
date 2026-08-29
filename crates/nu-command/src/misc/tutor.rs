@@ -566,7 +566,7 @@ def double [] {
 
 You can use it as part of a pipeline:
 ```
-echo 1 2 3 | double
+[1 2 3] | double
 ```
 
 Custom commands can also access all of their pipeline input through `$in`:
