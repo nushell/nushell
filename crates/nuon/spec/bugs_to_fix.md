@@ -15,6 +15,8 @@ the list is empty, this file goes away and so does the todo at the top of the sp
 1. [ ] bug 8 - duration overflow saturates or wraps instead of erroring. `1e30sec` is a
    **negative** duration.
 1. [ ] bug 9 - filesizes may be negative, and an oversized one saturates instead of erroring.
+1. [ ] bug 10 - a raw NUL is written verbatim and unquoted, producing a document the reader is
+   specified to reject.
 
 each entry below shows what 0.115.1 actually does. an implementation that has to match nushell
 byte for byte still has to reproduce these until they are fixed.
@@ -146,3 +148,13 @@ byte for byte still has to reproduce these until they are fixed.
        failing, while a large suffix errors, so the same magnitude behaves differently depending
        on how it is spelled.
     - **do not reproduce.** refuse negatives, and error on overflow rather than saturating.
+
+- bug 10 - a raw NUL is written verbatim, and does not force quoting.
+    - the writer escapes only `"` and `\`, so a NUL inside a string is emitted as a raw byte. the
+       string is not quoted either, since NUL is not in the quote-forcing set, so `"a\u{0}b"`
+       comes out as a bare word with a NUL in the middle of it.
+    - the spec requires the reader to reject a raw NUL, so the writer is producing a document its
+       own reader must refuse. today the reader accepts it, and the two are wrong together in a
+       way that cancels out. an implementation that follows the spec's reader rule and the spec's
+       old writer rule at the same time cannot round-trip.
+    - **do not reproduce.** escape NUL as `\0`, and add it to the set that forces quoting.

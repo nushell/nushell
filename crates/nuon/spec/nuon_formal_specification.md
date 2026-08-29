@@ -80,9 +80,10 @@
     value      := null | bool | number | duration | filesize | datetime
                 | binary | cell_path | range
                 | string | list | record | table
-    list       := "[" (value (sep value)* sep?)? "]"
-    record     := "{" (key ":" value (sep key ":" value)* sep?)? "}"
-    table      := "[" list ";" (list (sep list)* sep?)? "]"
+    list       := "[" ws* (value (sep value)* sep?)? ws* "]"
+    record     := "{" ws* (pair (sep pair)* sep?)? ws* "}"
+    pair       := key ws* ":" ws* value
+    table      := "[" ws* list ws* ";" ws* (list (sep list)* sep?)? ws* "]"
     binary     := "0x[" (hex | sep)* "]" | "0b[" (bit | sep)* "]"
     cell_path  := "$" ("." member)*
     member     := (bare | '"' esc* '"' | "'" any* "'" | int) "?"?
@@ -91,11 +92,15 @@
     key        := string
     string     := bare | '"' esc* '"' | "'" any* "'" | "`" any* "`" | raw
     raw        := "r" "#"{n>=1} "'" any* "'" "#"{n}
-    sep        := "," | ws+
+    sep        := ws* "," ws* | ws+
     ws         := " " | "\t" | "\r" | "\n" | comment
     comment    := "#" (not "\n")*        -- only at a token boundary
     bare       := (not ws and not one of ", : [ ] { } ;")+
     ```
+    - `sep` allows whitespace on either side of the comma, so `[1, 2]` and `[1 ,2]` and `[1,2]`
+       all derive. a production of `"," | ws+` would accept none of the spaced forms, including
+       the ones the writer itself emits.
+    - whitespace is likewise permitted just inside `[`, `{`, `]`, `}` and around `:` and `;`.
     - a datetime must be matched before `bare`, because it is the one literal containing `:`.
     - `doc_value` exists because a bare word is the one value that is not a valid document on its
        own. see [bare words](#bare-words).
@@ -253,8 +258,8 @@
     '["a\u0041b"]' | from nuon                                                  # => error: Invalid literal
     ```
 
-- the writer escapes exactly two characters, `"` and `\`. control characters, tabs and newlines
-   included, are written inside the quotes verbatim.
+- the writer escapes `"`, `\` and NUL. control characters, tabs and newlines other than NUL are
+   written inside the quotes verbatim.
     ```nushell
     ["a\nb"] | to nuon
     # => ["a
@@ -262,6 +267,10 @@
     ```
     - legal - the reader accepts a literal newline inside `"..."` - which means a nuon document
        is not line-oriented, and anything that splits it on newlines will get it wrong.
+    - NUL is the exception because the reader is required to reject a raw one. a writer that
+       emits it verbatim produces a document its own reader must refuse, so the round trip
+       promised below would not hold. nushell emits a raw NUL today, and does not even quote the
+       string containing it: see bug 10 in [bugs_to_fix](./bugs_to_fix.md).
 
 ## numbers
 
@@ -754,6 +763,7 @@
        past it.
     - whether a `\r\n` inside a `"..."` string is preserved verbatim or normalised.
     - what, if anything, `to nuon --serialize` guarantees. it is documented as one sentence and
-       its output is explicitly not required to read back. it renders `closure` and `block` as
-       strings, which do not read back as the original type. it does **not** affect `binary`,
-       `cell-path` or `range`, which have literal syntax and round-trip with or without it.
+       its output is explicitly not required to read back. the flag gates `closure` and `block`
+       only. `binary`, `cell-path` and `range` are written natively with or without it, and
+       `glob` becomes a plain string with or without it, so the flag is narrower than its
+       description suggests.
