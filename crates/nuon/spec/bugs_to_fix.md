@@ -7,18 +7,18 @@ what nushell 0.115.1 does today where it differs from
 [nuon_formal_specification](./nuon_formal_specification.md). tick one off when it is fixed. when
 the list is empty, this file goes away and so does the todo at the top of the spec.
 
-1. [ ] bug 1 - a leading utf-8 bom is rejected. strip one instead.
-1. [ ] bug 2 - the empty document decodes to `null`. error instead.
-1. [ ] bug 3 - `[[a b];]` is a list containing the header, not an empty table. error instead.
-1. [ ] bug 4 - an empty container under indentation emits a blank line. do not emit it.
-1. [ ] bug 5 - `--raw --no-commas` emits no separator and loses data. make the two exclusive.
-1. [ ] bug 6 - table width is measured in bytes but padded in runes. use one measure for both.
-1. [ ] bug 7 - `inf` and `NaN` become `null` through `to json`. not a nuon bug, and not fixable
+- [ ] bug 1 - a leading utf-8 bom is rejected. strip one instead.
+- [ ] bug 2 - the empty document decodes to `null`. error instead.
+- [ ] bug 3 - `[[a b];]` is a list containing the header, not an empty table. error instead.
+- [ ] bug 4 - an empty container under indentation emits a blank line. do not emit it.
+- [ ] bug 5 - `--raw --no-commas` emits no separator and loses data. make the two exclusive.
+- [ ] bug 6 - table width is measured in bytes but padded in runes. use one measure for both.
+- [ ] bug 7 - `inf` and `NaN` become `null` through `to json`. not a nuon bug, and not fixable
    in this crate, since json cannot spell them.
-1. [ ] bug 8 - duration overflow saturates or wraps instead of erroring. `1e30sec` is a
+- [ ] bug 8 - duration overflow saturates or wraps instead of erroring. `1e30sec` is a
    **negative** duration.
-1. [ ] bug 9 - filesizes may be negative, and an oversized one saturates instead of erroring.
-1. [ ] bug 10 - a raw NUL is written verbatim and unquoted, producing a document the reader is
+- [ ] bug 9 - filesizes may be negative, and an oversized one saturates instead of erroring.
+- [ ] bug 10 - a raw NUL is written verbatim and unquoted, producing a document the reader is
    specified to reject.
 
 each entry below shows what 0.115.1 actually does. an implementation that has to match nushell
