@@ -13,6 +13,8 @@
     - [numbers](#numbers) - integers, radix, floats, non-finite, overflow
     - [durations and filesizes](#durations-and-filesizes) - unit suffixes
     - [datetimes](#datetimes) - the only literal containing `:`
+    - [binary, cell-paths and ranges](#binary-cell-paths-and-ranges) - the three types json has
+       no equivalent for
     - [lists and records](#lists-and-records) - separators, duplicate keys, key order
     - [table form](#table-form) - the one thing json does not have
     - [output](#output) - the four styles, and column alignment
@@ -41,16 +43,23 @@
     - duplicate record keys are an error, not last-write-wins
     - record key order is part of the value
     - no `\uXXXX` - nuon spells it `\u{41}`
-    - `closure`, `block`, `binary`, `glob`, `cell-path`, `range` and `error` have no nuon syntax
+    - `binary` (`0x[be ef]`), `cell-path` (`$.a.b`) and `range` (`1..5`) have literal syntax
+    - `closure`, `block`, `glob` and `error` have no nuon syntax
 
 ## value model
 
 - value model:
     - `nothing` `null`; `bool` `true`/`false`; `int` signed 64-bit; `float` ieee-754 binary64
     - `string`; `duration` (nanoseconds); `filesize` (bytes); `datetime` (instant + utc offset)
+    - `binary` a byte sequence; `cell-path` a path into a value; `range` a bounded sequence
     - `list`; `record` - an **ordered** sequence of key/value pairs. an implementation whose
        record type is a hash map cannot encode nuon correctly.
     - `table` is not a distinct type; it is a surface form denoting a list of records.
+    - all three of `binary`, `cell-path` and `range` round-trip through the writer and reader,
+       so an implementation that cannot represent them cannot read everything `to nuon` emits.
+        ```nushell
+        "[0x[be ef], $.a.b, 1..5]" | from nuon | to nuon                         # => [0x[BEEF], $.a.b, 1..5]
+        ```
 
 ## text
 
@@ -66,12 +75,19 @@
 
 - grammar:
     ```
-    document   := ws* value ws*
+    document   := ws* doc_value ws*
+    doc_value  := value except a top-level bare word
     value      := null | bool | number | duration | filesize | datetime
+                | binary | cell_path | range
                 | string | list | record | table
     list       := "[" (value (sep value)* sep?)? "]"
     record     := "{" (key ":" value (sep key ":" value)* sep?)? "}"
     table      := "[" list ";" (list (sep list)* sep?)? "]"
+    binary     := "0x[" (hex | sep)* "]" | "0b[" (bit | sep)* "]"
+    cell_path  := "$" ("." member)*
+    member     := (bare | '"' esc* '"' | "'" any* "'" | int) "?"?
+    range      := bound? ".." "<"? bound? | bound ".." bound ".." bound
+    bound      := number
     key        := string
     string     := bare | '"' esc* '"' | "'" any* "'" | "`" any* "`" | raw
     raw        := "r" "#"{n>=1} "'" any* "'" "#"{n}
@@ -81,6 +97,8 @@
     bare       := (not ws and not one of ", : [ ] { } ;")+
     ```
     - a datetime must be matched before `bare`, because it is the one literal containing `:`.
+    - `doc_value` exists because a bare word is the one value that is not a valid document on its
+       own. see [bare words](#bare-words).
     - the empty document is an error. an empty byte sequence is not a value, and a reader that
        returns `null` for it leaves the caller unable to tell an empty file from a file
        containing `null`.
@@ -363,6 +381,37 @@
         {date: 2000-01-01} | to nuon                                             # => {date: 2000-01-01T00:00:00+00:00}
         ```
 
+## binary, cell-paths and ranges
+
+- these three have literal syntax and round-trip through the writer, so a reader that skips them
+   cannot read everything `to nuon` produces. `--serialize` does not affect them; they are
+   written natively whether or not it is given.
+
+- binary: `0x[` hex digits `]`. whitespace and commas between digits are ignored, an odd digit
+   count is left-padded, and `0b[` bits `]` is also accepted. there is no octal form.
+    ```nushell
+    "[0x[be ef], 0x[beef], 0x[BE, EF], 0x[b], 0b[1010], 0x[]]" | from nuon | to nuon
+    # => [0x[BEEF], 0x[BEEF], 0x[BEEF], 0x[0B], 0x[0A], 0x[]]
+    "[0o[777]]" | from nuon                                                     # => error
+    ```
+    - the writer always emits `0x[`, uppercase hex, no separators.
+
+- cell-path: `$` followed by `.` and a member, repeated. a member is a bare word, a quoted
+   string, or an integer index, and a trailing `?` marks it optional.
+    ```nushell
+    "[$.a.b, $.0, $.a.0.b, $.'a b', $.a?, $.]" | from nuon | to nuon
+    # => [$.a.b, $.0, $.a.0.b, $."a b", $.a?, $.]
+    ```
+    - the writer double-quotes a member that would not survive as a bare word.
+
+- range: `start..end` inclusive, or `start..<end` exclusive. either bound may be omitted. a
+   middle value gives the **second element**, not the step, so `1..3..9` counts by two.
+    ```nushell
+    "[1..5, 1..<5, 1.., ..5, 1..3..9, -5..5, 1.5..2.5]" | from nuon | to nuon
+    # => [1..5, 1..<5, 1.., 0..5, 1..3..9, -5..5, 1.5..2.5]
+    ```
+    - an omitted start is written back as `0`, so `..5` and `0..5` are the same value.
+
 ## lists and records
 
 - lists: `[` value* `]`. items are separated by `,` **or** by whitespace; a trailing comma is
@@ -637,6 +686,8 @@
     - duplicate record keys and duplicate table columns are refused.
     - a table is not a table row.
     - record key order is part of the value.
+    - `binary`, `cell-path` and `range` have literal syntax and round-trip; a reader that skips
+       them cannot read everything the writer emits.
     - table width and padding use the same measure, so cjk columns line up.
     - a leading bom is stripped, exactly one, and only at the start.
 
@@ -659,6 +710,6 @@
        past it.
     - whether a `\r\n` inside a `"..."` string is preserved verbatim or normalised.
     - what, if anything, `to nuon --serialize` guarantees. it is documented as one sentence and
-       its output is explicitly not required to read back. `--serialize` renders `closure`,
-       `binary`, `glob`, `cell-path` and `range` as strings; the result does not read back as the
-       original type.
+       its output is explicitly not required to read back. it renders `closure` and `block` as
+       strings, which do not read back as the original type. it does **not** affect `binary`,
+       `cell-path` or `range`, which have literal syntax and round-trip with or without it.
