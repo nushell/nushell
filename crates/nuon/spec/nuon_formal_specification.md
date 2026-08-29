@@ -194,12 +194,20 @@
         "['a\\tb', `a b`]" | from nuon | to json -r                              # => ["a\\tb","a b"]
         ```
     - `r#'...'#` raw string. the hash run may be any length >= 1; the terminator is `'` followed
-       by the same number of hashes. the writer grows the run until the terminator does not occur
-       in the body, so any content is representable.
+       by the same number of hashes. the writer grows the run for **two** reasons: until the
+       terminator does not occur in the body, and until the run is longer than any hash run the
+       body starts with. so any content is representable.
         ```nushell
         'hello "world"' | to nuon --raw-strings                                  # => r#'hello "world"'#
         "[r##'it'#s'##]" | from nuon | to json -r                                # => ["it'#s"]
         ```
+        - the second reason is easy to miss, because the body's leading hashes are nowhere near
+           the terminator. a writer that only checks for the terminator emits `r#'#"foo'#`, which
+           does not read back as intended.
+            ```nushell
+            '#"foo'  | to nuon --raw-strings                                     # => r##'#"foo'##
+            '##"foo' | to nuon --raw-strings                                     # => r###'##"foo'###
+            ```
         - at least one hash is required. `r'a'` is not a raw string and is not an error either -
            `'` is not a bare-word terminator, so it is the single bare word `r'a'`.
             ```nushell
