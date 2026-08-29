@@ -12,6 +12,9 @@ the list is empty, this file goes away and so does the todo at the top of the sp
 1. [ ] bug 6 - table width is measured in bytes but padded in runes. use one measure for both.
 1. [ ] bug 7 - `inf` and `NaN` become `null` through `to json`. not a nuon bug, and not fixable
    in this crate, since json cannot spell them.
+1. [ ] bug 8 - duration overflow saturates or wraps instead of erroring. `1e30sec` is a
+   **negative** duration.
+1. [ ] bug 9 - filesizes may be negative, and an oversized one saturates instead of erroring.
 
 each entry below shows what 0.115.1 actually does. an implementation that has to match nushell
 byte for byte still has to reproduce these until they are fixed.
@@ -117,3 +120,29 @@ byte for byte still has to reproduce these until they are fixed.
 - bug 7 - `inf`, `-inf` and `NaN` survive a nuon round trip but come out as `null` from
    `to json`. that is a json limitation rather than a nuon one. it matters because it means you
    cannot use json to check how nuon handles floats.
+
+- bug 8 - duration overflow does not error. it does one of three things depending on the unit.
+    ```nushell
+    "[1e30ns]"  | from nuon | to json -r                                         # => [9223372036854775807]
+    "[1e30sec]" | from nuon | to json -r                                         # => [-1000000]
+    "[1e30wk]"  | from nuon                                                      # => error
+    ```
+    - `ns` and `us` saturate to `int` max. `ms`, `sec`, `min`, `hr` and `day` **wrap**, so a
+       positive literal reads back as a negative duration. only `wk` errors.
+    - the wrapping cases are the serious ones: nothing about `1e30sec` suggests the answer should
+       be negative, and the result is a valid duration that no downstream check will question.
+    - **do not reproduce.** error on overflow. the spec already says overflow must not wrap; this
+       is the implementation not matching it yet.
+
+- bug 9 - filesizes may be negative, and oversized ones saturate rather than erroring.
+    ```nushell
+    "[-1kb]" | from nuon | to json -r                                            # => [-1000]
+    "[1e30b]" | from nuon | to json -r                                           # => [9223372036854775807]
+    "[1e30eb]" | from nuon                                                       # => error
+    ```
+    - `Filesize` is a signed `i64`, so `-1kb` is accepted and decodes to `-1000`. a negative
+       count of bytes is not a meaningful value.
+    - an out-of-range literal with a small suffix is cast through `f64` and saturates instead of
+       failing, while a large suffix errors, so the same magnitude behaves differently depending
+       on how it is spelled.
+    - **do not reproduce.** refuse negatives, and error on overflow rather than saturating.

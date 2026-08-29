@@ -353,9 +353,9 @@
         ```nushell
         "[1.5min, -1_000ns]" | from nuon | to json -r                            # => [90000000000,-1000]
         ```
-    - overflow is an **error**; it must not wrap. `9999999999999wk` wraps to a negative duration
-       in a naive implementation - a positive literal producing a negative value, with no
-       diagnostic.
+    - overflow is an **error**; it must not wrap or saturate. a positive literal must never
+       read back as a negative duration. nushell does not do this yet: see bug 8 in
+       [bugs_to_fix](./bugs_to_fix.md).
     - the writer emits durations in `ns`, always.
         ```nushell
         [1sec] | to nuon                                                         # => [1000000000ns]
@@ -379,8 +379,9 @@
         ```
         - `0eb` is the test that separates the two explanations. if `zb` were a known unit that
            overflowed, zero zettabytes would be zero. it is an error, so `zb` is not a unit.
-    - a leading `+` is not accepted. overflow is an error, never a wrap: a negative filesize is
-       not a thing and inventing one is worse than refusing.
+    - a leading `+` is not accepted. a filesize is never negative, and overflow is an error
+       rather than a saturation. nushell does neither yet: see bug 9 in
+       [bugs_to_fix](./bugs_to_fix.md).
     - the writer emits filesizes in `b`, always.
         ```nushell
         [1kb] | to nuon                                                          # => [1000b]
