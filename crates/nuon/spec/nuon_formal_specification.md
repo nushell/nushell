@@ -577,10 +577,15 @@
     # => ]
     ```
 
-- `--raw-strings` emits string values as raw strings. values only, not keys.
+- `--raw-strings` emits a string value as a raw string **only when it contains a `"` or a `\`**.
+   every other string is written as it would be without the flag. values only, not keys.
     ```nushell
     'hello "world"' | to nuon --raw-strings                                      # => r#'hello "world"'#
+    'hello world'   | to nuon --raw-strings                                      # => "hello world"
+    "has 'single'"  | to nuon --raw-strings                                      # => "has 'single'"
     ```
+    - the name suggests "write every string raw", which is what an implementation copying the
+       flag will do. single quotes, backticks and newlines do not trigger the raw form.
 
 - a lone string at the top level is always quoted, because a bare word there would be ambiguous.
     ```nushell
