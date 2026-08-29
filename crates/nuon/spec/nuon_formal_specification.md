@@ -143,11 +143,21 @@
 
 - when the writer must quote: a string is emitted bare only if all of
     - it is non-empty, and
-    - it contains no byte from the quote-forcing set, and
+    - it contains no character from the quote-forcing set, and
+    - it contains no unicode whitespace, and
     - it contains no unicode decimal digit (general category `Nd`), and
     - it would not read back as some other type.
-    - the quote-forcing set is `space tab cr lf ! " # $ ' ( ) , . : ; = ? ` [ ] { | }` and
-       nothing else. `-`, `/`, `\`, `_` and every non-ascii byte are absent from it. full set in
+    - the quote-forcing set is `! " # $ ' ( ) , . : ; = ? ` [ ] { | }` plus **any** character
+       with the unicode `White_Space` property, which is wider than `space tab cr lf`. vertical
+       tab, form feed, U+0085, U+00A0, U+1680, U+2000..U+200A, U+2028, U+2029, U+202F, U+205F and
+       U+3000 all force quoting.
+        ```nushell
+        ["a\u{a0}b" "a\u{3000}b" "a\u{200b}b" "ab"] | each {|s| [$s] | to nuon | str contains (char dq)} | to json -r
+        # => [true,true,false,false]
+        ```
+        - U+200B zero width space is **not** `White_Space`, so it stays bare even though it looks
+           like a gap. testing for ascii whitespace only is the easy mistake here.
+    - `-`, `/`, `\`, `_` and every other non-ascii character are absent from the set. full list in
        [reference tables](#reference-tables).
 
 - one decimal digit anywhere in a string, in any position, means it cannot be written bare. that
@@ -688,14 +698,19 @@
     - `zb`, `yb`, `zib`, `yib` are spellings nushell **knows** and then overflows on, so they are
        hard errors rather than strings.
 
-- the quote-forcing set - exactly these bytes, and no others:
+- the quote-forcing set - these characters, plus all unicode whitespace:
     ```
-    space  tab  cr  lf  !  "  #  $  '  (  )  ,  .  :  ;  =  ?  `  [  ]  {  |  }
+    !  "  #  $  '  (  )  ,  .  :  ;  =  ?  `  [  ]  {  |  }
     ```
+    - and any character with the unicode `White_Space` property. that is space, tab, cr and lf,
+       but also vertical tab, form feed, U+0085, U+00A0, U+1680, U+2000..U+200A, U+2028, U+2029,
+       U+202F, U+205F and U+3000. an ascii-only whitespace test writes those bare and the result
+       does not read back as one string.
     - `.` and `$` are there because nushell gives them meaning (cell paths, variables), not
        because they are punctuation.
     - **not** in the set: `-`, `/`, `\`, `%`, `&`, `*`, `+`, `<`, `>`, `@`, `^`, `_`, `~`, and
-       every non-ascii byte.
+       every non-ascii character that is not whitespace. U+200B zero width space is the trap: it
+       looks like a gap, is not `White_Space`, and stays bare.
 
 ## conformance
 
