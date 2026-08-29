@@ -32,10 +32,22 @@ pub struct ArgValueCompletion<'a> {
 
 impl<'a> Completer for ArgValueCompletion<'a> {
     fn fetch(&mut self, context: &Context) -> Fetched {
-        if let Some(fetched_completion) = self.try_fetch_dynamic_completion(context) {
-            return fetched_completion;
+        let dynamic = self.fetch_dynamic_completion(context);
+        if !dynamic.needs_fallback() {
+            return dynamic;
         }
 
+        self.fetch_fallback(context)
+    }
+}
+
+impl<'a> ArgValueCompletion<'a> {
+    pub(crate) fn fetch_dynamic_completion(&self, context: &Context) -> Fetched {
+        self.try_fetch_dynamic_completion(context)
+            .unwrap_or(Fetched::Absent)
+    }
+
+    pub(crate) fn fetch_fallback(&self, context: &Context) -> Fetched {
         let working_set = context.working_set;
         let prefix_string = context.prefix_str();
 
@@ -47,12 +59,10 @@ impl<'a> Completer for ArgValueCompletion<'a> {
         );
 
         // Command-specific completions are dispatched earlier via `BuiltinCompletion`;
-        // here we handle only the generic argument-value fallbacks.
+        // this is the final generic argument-value fallback.
         self.fetch_fallback_completion(self.arg_expr(), &completion_context)
     }
-}
 
-impl<'a> ArgValueCompletion<'a> {
     fn try_fetch_dynamic_completion(&self, context: &Context) -> Option<Fetched> {
         let working_set = context.working_set;
         let declaration = working_set.get_decl(self.call.decl_id);

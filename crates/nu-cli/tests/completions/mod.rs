@@ -1283,6 +1283,49 @@ fn external_completer_pass_flags() {
     assert_eq!("--", suggestions.get(2).unwrap().value);
 }
 
+#[test]
+fn internal_command_falls_back_to_external_completer() {
+    let block = "{|spans| ['external-completer']}";
+    let input = "cd **";
+
+    let suggestions = run_external_completion(block, input);
+
+    match_suggestions(&vec!["external-completer"], &suggestions);
+}
+
+#[test]
+fn internal_command_external_completer_can_decline() {
+    let block = "{|spans| null}";
+    let input = "cd test";
+
+    let suggestions = run_external_completion(block, input);
+    let expected = [folder("test_a"), folder("test_a_symlink"), folder("test_b")];
+
+    match_suggestions_by_string(&expected, &suggestions);
+}
+
+#[test]
+fn internal_custom_completion_precedes_external_completer() {
+    let (_, _, mut engine, mut stack) = new_engine();
+
+    let setup = "
+        def native-completer [] { ['native-completer'] }
+        def my-internal [arg: string@native-completer] {}
+
+        $env.config.completions.external.completer = {|spans|
+            ['external-completer']
+        }
+    ";
+
+    assert!(support::merge_input(setup.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let input = "my-internal n";
+    let suggestions = completer.complete_blocking(input, input.len());
+
+    match_suggestions(&vec!["native-completer"], &suggestions);
+}
+
 /// Fallback to file completions when external completer returns null
 #[test]
 fn external_completer_fallback() {
