@@ -1,5 +1,7 @@
 # Nuon Formal Specification
 
+- version: **0.0.0+2026-08-29** - see [revisions](#revisions).
+
 - TODO: this documents the desired behavior. delete this comment, and bugs_to_fix.md, when all the
   bugs are fixed. [bugs_to_fix](./bugs_to_fix.md)
 
@@ -22,6 +24,7 @@
     - [reference tables](#reference-tables) - every duration and filesize suffix, and the
        quote-forcing set
     - [conformance](#conformance) - checklist, and the questions this could not answer
+    - [revisions](#revisions) - what changed, and when
 
 - conventions in this file:
     - `nushell` blocks are commands with their real output.
@@ -767,3 +770,9 @@
        only. `binary`, `cell-path` and `range` are written natively with or without it, and
        `glob` becomes a plain string with or without it, so the flag is narrower than its
        description suggests.
+
+## revisions
+
+| version | changes |
+| --- | --- |
+| 0.0.0+2026-08-29 | initial revision |

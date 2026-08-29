@@ -1,5 +1,8 @@
 # NUON bugs to fix, as of nushell 0.115.1
 
+- version: **0.0.0+2026-08-29** - the revision of
+  [nuon_formal_specification](./nuon_formal_specification.md) this list is measured against.
+
 what nushell 0.115.1 does today where it differs from
 [nuon_formal_specification](./nuon_formal_specification.md). tick one off when it is fixed. when
 the list is empty, this file goes away and so does the todo at the top of the spec.
