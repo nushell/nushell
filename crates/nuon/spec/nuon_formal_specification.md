@@ -189,10 +189,10 @@
     ```nushell
     "[0o8]" | from nuon                                                         # => error: Invalid literal
     ```
-    - the same goes for unit spellings nushell knows but whose value overflows, or whose form is
-       just close enough: `1zb`, `1yb`, `1zib`, `1yib`, `1mins`, `1ab` and `9999999999999wk` are
-       hard errors, while `1foo` is the string `"1foo"`. the digit rule already covers all of
-       them, which is why it is easier to implement than a list of special cases.
+    - the same goes for tokens that get far enough into a unit to commit and then fail:
+       `1zb`, `1yb`, `1zib`, `1yib`, `1mins`, `1ab` and `9999999999999wk` are hard errors, while
+       `1foo` is the string `"1foo"`. the digit rule already covers all of them, which is why it
+       is easier to implement than a list of special cases.
 
 ## strings
 
@@ -369,8 +369,16 @@
         ```nushell
         "[1KB, 1kB, 1kiB, 1B, 1_000_000b]" | from nuon | to json -r              # => [1000,1000,1024,1,1000000]
         ```
-    - `zb`, `yb`, `zib`, `yib` are spellings nushell **knows** and then overflows on, so they are
-       hard errors rather than strings.
+    - the table **ends at `eb`/`eib`**. `zb`, `yb`, `zib` and `yib` are not units. what happens
+       is that the trailing `b` matches, leaving `1z` as the numeric head, which is not a number,
+       so the whole token is an error rather than a string.
+        ```nushell
+        "[0eb]" | from nuon | to json -r                                         # => [0]
+        "[0zb]" | from nuon                                                      # => error
+        "[1z]"  | from nuon | to json -r                                         # => ["1z"]
+        ```
+        - `0eb` is the test that separates the two explanations. if `zb` were a known unit that
+           overflowed, zero zettabytes would be zero. it is an error, so `zb` is not a unit.
     - a leading `+` is not accepted. overflow is an error, never a wrap: a negative filesize is
        not a thing and inventing one is worse than refusing.
     - the writer emits filesizes in `b`, always.
@@ -695,8 +703,8 @@
         ```nushell
         "[1KB, 1kB, 1kiB, 1B, 1_000_000b]" | from nuon | to json -r              # => [1000,1000,1024,1,1000000]
         ```
-    - `zb`, `yb`, `zib`, `yib` are spellings nushell **knows** and then overflows on, so they are
-       hard errors rather than strings.
+    - the table ends at `eb`/`eib`. `zb`, `yb`, `zib` and `yib` are not units; the trailing `b`
+       matches and the leftover `1z` is not a number, so the token errors.
 
 - the quote-forcing set - these characters, plus all unicode whitespace:
     ```
@@ -735,11 +743,6 @@
     - is there any stability commitment for nuon across nushell releases? nothing in the book,
        the crate readme or the changelog states one. the unit tables, the quote-forcing set and
        the float format have all moved between releases and nothing marks them as stable.
-    - the exact upper bound of the duration and filesize suffix tables. `zb`, `yb`, `zib` and
-       `yib` are recognised well enough to produce an overflow error rather than a string, but
-       whether there are further spellings, and whether any can decode successfully at small
-       magnitudes, was not established. the safe implementation quotes any number followed by two
-       or more ascii letters and does not try to track the table.
     - whether the digit rule is exactly general category `Nd` or a nearby predicate. roughly 45
        probes were consistent with `Nd` - `¹`, `²`, `③` and `½` (category `No`) stay bare - but
        the space was not exhausted.
