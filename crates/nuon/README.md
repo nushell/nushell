@@ -8,6 +8,7 @@ Some of its extra features are
 - comments are allowed, though not preserved when using [`from_nuon`]
 - numbers may be hexadecimal, octal or binary, carry `_` separators, or lead with `+` or a bare `.`
 - durations, filesizes and datetimes are literals: `2min`, `1kb`, `2000-01-01T00:00:00+00:00`
+- so are binary, cell-paths and ranges: `0x[be ef]`, `$.a.b`, `1..5`
 - a list of uniform records may be written as a table, which names its columns once rather than
   once per row
 
@@ -85,20 +86,26 @@ quoted because they contain a space and a digit. The writer decides that per str
 
 ## Everything at once
 
-Every bit of syntax NUON adds, in one document:
+Every bit of syntax NUON adds, in one kitchen sink example:
 
 ```nuon
 {
     # comments
     unquoted: bare_strings_need_no_quotes,
     single_quotes: 'I can use "double quotes" here',
+    backticks: `also literal, no escapes`,
     raw_strings: r#'no escapes in here, so \n stays two characters'#,
-    hexadecimal: 0xdecaf,
+    hexadecimal: 0xdecaf, octal: 0o755, binary: 0b1011,
     leading_decimal_point: .8675309, and_trailing: 8675309.,
     positive_sign: +1,
     digit_separators: 1_000_000,
+    not_finite: [inf, -infinity, nan],
     duration: 2min, filesize: 1kb,
     datetime: 2000-01-01T00:00:00+00:00,
+    binary_literal: 0x[be ef],
+    cell_path: $.a.b,
+    range: 1..5,
+    no_commas_needed: [these are separated by spaces],
     trailing_comma: [in, lists, too,],
     "backwards_compatible": "with JSON",
     table: [[name, age]; [Alice, 30], [Bob, 25]],
