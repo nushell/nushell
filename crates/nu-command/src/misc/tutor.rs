@@ -579,7 +579,7 @@ def total [] {
 This allows the custom command to work with the entire value coming through
 the pipeline:
 ```
-echo 1 2 3 4 | total
+[1 2 3 4] | total
 ```
 
 You can learn more about closures, which are commonly used when processing
