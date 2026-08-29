@@ -549,6 +549,12 @@ You can learn more about using pipeline input with custom commands by running:
 ```
 tutor pipeline-input
 ```
+
+You can learn more about custom commands and see additional examples by
+running:
+```
+help def
+```
 "#
 }
 
