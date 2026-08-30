@@ -50,6 +50,14 @@ pub fn root() -> AbsolutePathBuf {
         AbsolutePathBuf::try_from(env!("CARGO_MANIFEST_DIR"))
             .expect("CARGO_MANIFEST_DIR is not an absolute path")
     };
+    // `CARGO_MANIFEST_DIR` isn't guaranteed to be a fully normalized path (some CI
+    // environments report it with literal ".." components), which would otherwise
+    // leak into every path built from `root()`/`fixtures()` and break completion
+    // tests that compare path strings exactly.
+    let manifest_dir = manifest_dir
+        .canonicalize()
+        .map(AbsolutePathBuf::from)
+        .unwrap_or(manifest_dir);
 
     let test_path = manifest_dir.join("Cargo.lock");
     if test_path.exists() {
