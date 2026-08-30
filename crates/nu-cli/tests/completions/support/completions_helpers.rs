@@ -7,7 +7,7 @@ use nu_protocol::{
     debugger::WithoutDebug,
     engine::{ArgType, Command, EngineState, Stack, StateWorkingSet},
 };
-use nu_test_support::prelude::*;
+use nu_test_support::fs;
 use reedline::Suggestion;
 use std::path::MAIN_SEPARATOR;
 
@@ -175,18 +175,13 @@ pub fn new_engine_helper(pwd: AbsolutePathBuf) -> (AbsolutePathBuf, String, Engi
 
 /// creates a new engine with the current path in the completions fixtures folder
 pub fn new_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
-    new_engine_helper(
-        FIXTURES
-            .join("completions")
-            .try_into()
-            .expect("fixtures is absolute"),
-    )
+    new_engine_helper(fs::fixtures().join("completions"))
 }
 
 /// Adds pseudo PATH env for external completion tests
 pub fn new_external_engine() -> EngineState {
     let mut engine = create_default_context();
-    let dir = FIXTURES.join("external_completions").join("path");
+    let dir = fs::fixtures().join("external_completions").join("path");
     let dir_str = dir.to_string_lossy().to_string();
     let span = nu_protocol::Span::new(0, dir_str.len());
     engine.add_env_var(
@@ -199,10 +194,7 @@ pub fn new_external_engine() -> EngineState {
 /// creates a new engine with the current path in the dotnu_completions fixtures folder
 pub fn new_dotnu_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
     // Target folder inside assets
-    let dir = FIXTURES
-        .join("dotnu_completions")
-        .try_into()
-        .expect("fixtures is absolute");
+    let dir = fs::fixtures().join("dotnu_completions");
     let (dir, dir_str, mut engine_state, mut stack) = new_engine_helper(dir);
     let dir_span = nu_protocol::Span::new(0, dir_str.len());
 
@@ -239,21 +231,11 @@ pub fn new_dotnu_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
 }
 
 pub fn new_quote_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
-    new_engine_helper(
-        FIXTURES
-            .join("quoted_completions")
-            .try_into()
-            .expect("fixtures is absolute"),
-    )
+    new_engine_helper(fs::fixtures().join("quoted_completions"))
 }
 
 pub fn new_partial_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
-    new_engine_helper(
-        FIXTURES
-            .join("partial_completions")
-            .try_into()
-            .expect("fixtures is absolute"),
-    )
+    new_engine_helper(fs::fixtures().join("partial_completions"))
 }
 
 /// match a list of suggestions with the expected values
