@@ -14,7 +14,12 @@ use winnow::Parser;
 mod int_range {
     use crate::{FromValue, ShellError, Signals, Span, Value, ast::RangeInclusion};
     use serde::{Deserialize, Serialize};
-    use std::{cmp::Ordering, fmt::Display, hash::{Hash, Hasher}, ops::Bound};
+    use std::{
+        cmp::Ordering,
+        fmt::Display,
+        hash::{Hash, Hasher},
+        ops::Bound,
+    };
 
     use super::Range;
 

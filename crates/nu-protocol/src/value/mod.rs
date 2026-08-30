@@ -5873,8 +5873,8 @@ mod tests {
     mod hash {
         use super::*;
         use crate::ast::{CellPath, PathMember};
-        use crate::{BlockId, Filesize, Range, ShellError, Span, VarId, casing::Casing};
         use crate::engine::Closure;
+        use crate::{BlockId, Filesize, Range, ShellError, Span, VarId, casing::Casing};
         use std::collections::hash_map::DefaultHasher;
         use std::hash::{Hash, Hasher};
         use std::ops::Bound;
@@ -5887,7 +5887,10 @@ mod tests {
 
         #[test]
         fn same_value_same_hash() {
-            assert_eq!(hash_value(&Value::test_int(1)), hash_value(&Value::test_int(1)));
+            assert_eq!(
+                hash_value(&Value::test_int(1)),
+                hash_value(&Value::test_int(1))
+            );
             assert_eq!(
                 hash_value(&Value::test_string("hello")),
                 hash_value(&Value::test_string("hello"))
@@ -5900,7 +5903,10 @@ mod tests {
 
         #[test]
         fn different_values_different_hash() {
-            assert_ne!(hash_value(&Value::test_int(1)), hash_value(&Value::test_int(2)));
+            assert_ne!(
+                hash_value(&Value::test_int(1)),
+                hash_value(&Value::test_int(2))
+            );
             assert_ne!(
                 hash_value(&Value::test_string("a")),
                 hash_value(&Value::test_string("b"))
@@ -5966,22 +5972,40 @@ mod tests {
 
         #[test]
         fn range_int_same_hash() {
-            let a = Value::range(Range::new_int(1, Some(2), Some(Bound::Included(5))), Span::test_data());
-            let b = Value::range(Range::new_int(1, Some(2), Some(Bound::Included(5))), Span::test_data());
+            let a = Value::range(
+                Range::new_int(1, Some(2), Some(Bound::Included(5))),
+                Span::test_data(),
+            );
+            let b = Value::range(
+                Range::new_int(1, Some(2), Some(Bound::Included(5))),
+                Span::test_data(),
+            );
             assert_eq!(hash_value(&a), hash_value(&b));
         }
 
         #[test]
         fn range_int_different_hash() {
-            let a = Value::range(Range::new_int(1, Some(2), Some(Bound::Included(5))), Span::test_data());
-            let b = Value::range(Range::new_int(1, Some(3), Some(Bound::Included(5))), Span::test_data());
+            let a = Value::range(
+                Range::new_int(1, Some(2), Some(Bound::Included(5))),
+                Span::test_data(),
+            );
+            let b = Value::range(
+                Range::new_int(1, Some(3), Some(Bound::Included(5))),
+                Span::test_data(),
+            );
             assert_ne!(hash_value(&a), hash_value(&b));
         }
 
         #[test]
         fn range_int_and_float_different_hash() {
-            let a = Value::range(Range::new_int(1, Some(2), Some(Bound::Included(3))), Span::test_data());
-            let b = Value::range(Range::new_float(1.0, Some(2.0), Some(Bound::Included(3.0))), Span::test_data());
+            let a = Value::range(
+                Range::new_int(1, Some(2), Some(Bound::Included(3))),
+                Span::test_data(),
+            );
+            let b = Value::range(
+                Range::new_float(1.0, Some(2.0), Some(Bound::Included(3.0))),
+                Span::test_data(),
+            );
             assert_ne!(hash_value(&a), hash_value(&b));
         }
 
