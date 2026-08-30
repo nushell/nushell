@@ -190,14 +190,13 @@ impl PartialOrd for PathMember {
 
 impl Hash for PathMember {
     fn hash<H: Hasher>(&self, state: &mut H) {
+        std::mem::discriminant(self).hash(state);
         match self {
             PathMember::String { val, optional, .. } => {
-                0u8.hash(state);
                 val.hash(state);
                 optional.hash(state);
             }
             PathMember::Int { val, optional, .. } => {
-                1u8.hash(state);
                 val.hash(state);
                 optional.hash(state);
             }
