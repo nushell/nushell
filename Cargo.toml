@@ -384,6 +384,7 @@ assert_cmd = "2.2.1"
 dirs = { workspace = true }
 fancy-regex = { workspace = true }
 itertools = { workspace = true }
+indoc = { workspace = true }
 pretty_assertions = { workspace = true }
 rstest = { workspace = true, default-features = false }
 tango-bench = "0.7.2"

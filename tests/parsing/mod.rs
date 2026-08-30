@@ -6,7 +6,6 @@ use pretty_assertions::{assert_eq, assert_matches};
 use rstest::rstest;
 
 use nu_protocol::Type;
-use nu_test_support::fs::Stub;
 use nu_test_support::playground::Playground;
 use nu_test_support::prelude::*;
 
@@ -49,234 +48,178 @@ fn source_const_file() -> Result {
 // Regression test for https://github.com/nushell/nushell/issues/17091
 // Bare-word string interpolation with constants should work in `source`
 #[test]
-fn source_const_in_bareword_interpolation() -> Result {
-    Playground::setup("source_const_in_bareword_test", |dirs, sandbox| {
-        sandbox.with_files(&[
-            Stub::FileWithContent("test_macos.nu", "'macos'"),
-            Stub::FileWithContent("test_linux.nu", "'linux'"),
-            Stub::FileWithContent("test_windows.nu", "'windows'"),
-        ]);
+fn source_const_in_bareword_interpolation(playground: Playground) -> Result {
+    playground.file("test_macos.nu", "'macos'")?;
+    playground.file("test_linux.nu", "'linux'")?;
+    playground.file("test_windows.nu", "'windows'")?;
 
-        test()
-            .cwd(dirs.test())
-            .run("source test_($nu.os-info.name).nu")
-            .expect_value_eq(std::env::consts::OS)
-    })
+    test()
+        .cwd(playground.path())
+        .run("source test_($nu.os-info.name).nu")
+        .expect_value_eq(std::env::consts::OS)
 }
 
 // Test edge cases for paths with parentheses
 #[test]
-fn source_path_with_literal_parens() -> Result {
-    Playground::setup("source_literal_parens_test", |dirs, sandbox| {
-        sandbox.with_files(&[Stub::FileWithContent(
-            "file(with)parens.nu",
-            "'literal parens'",
-        )]);
+fn source_path_with_literal_parens(playground: Playground) -> Result {
+    playground.file("file(with)parens.nu", "'literal parens'")?;
 
-        // Quoted path with literal parentheses should work
-        test()
-            .cwd(dirs.test())
-            .run(r#"source "file(with)parens.nu""#)
-            .expect_value_eq("literal parens")
-    })
+    // Quoted path with literal parentheses should work
+    test()
+        .cwd(playground.path())
+        .run(r#"source "file(with)parens.nu""#)
+        .expect_value_eq("literal parens")
 }
 
 #[test]
-fn source_path_interpolation_vs_literal() -> Result {
-    Playground::setup("source_interp_vs_literal_test", |dirs, sandbox| {
-        sandbox.with_files(&[
-            Stub::FileWithContent("file(name).nu", "'literal file'"),
-            Stub::FileWithContent("file_macos.nu", "'interpolated file'"),
-            Stub::FileWithContent("file_linux.nu", "'interpolated file'"),
-            Stub::FileWithContent("file_windows.nu", "'interpolated file'"),
-        ]);
+fn source_path_interpolation_vs_literal(playground: Playground) -> Result {
+    playground.file("file(name).nu", "'literal file'")?;
+    playground.file("file_macos.nu", "'interpolated file'")?;
+    playground.file("file_linux.nu", "'interpolated file'")?;
+    playground.file("file_windows.nu", "'interpolated file'")?;
 
-        // Quoted path should treat parens as literal
-        test()
-            .cwd(dirs.test())
-            .run(r#"source "file(name).nu""#)
-            .expect_value_eq("literal file")?;
+    // Quoted path should treat parens as literal
+    test()
+        .cwd(playground.path())
+        .run(r#"source "file(name).nu""#)
+        .expect_value_eq("literal file")?;
 
-        // Bare word with parens containing variable should interpolate
-        test()
-            .cwd(dirs.test())
-            .run("source file_($nu.os-info.name).nu")
-            .expect_value_eq("interpolated file")
-    })
+    // Bare word with parens containing variable should interpolate
+    test()
+        .cwd(playground.path())
+        .run("source file_($nu.os-info.name).nu")
+        .expect_value_eq("interpolated file")
 }
 
 #[test]
-fn source_path_with_nested_parens() -> Result {
-    Playground::setup("source_nested_parens_test", |dirs, sandbox| {
-        let os_name = std::env::consts::OS;
-        sandbox.with_files(&[Stub::FileWithContent(
-            &format!("test_{}_nested.nu", os_name),
-            "'nested parens'",
-        )]);
+fn source_path_with_nested_parens(playground: Playground) -> Result {
+    let os_name = std::env::consts::OS;
+    playground.file(format!("test_{}_nested.nu", os_name), "'nested parens'")?;
 
-        // Nested parentheses in interpolation
-        test()
-            .cwd(dirs.test())
-            .run("source test_($nu.os-info | get name)_nested.nu")
-            .expect_value_eq("nested parens")
-    })
+    // Nested parentheses in interpolation
+    test()
+        .cwd(playground.path())
+        .run("source test_($nu.os-info | get name)_nested.nu")
+        .expect_value_eq("nested parens")
 }
 
 #[test]
-fn source_path_single_quote_no_interpolation() -> Result {
-    Playground::setup("source_single_quote_test", |dirs, sandbox| {
-        sandbox.with_files(&[Stub::FileWithContent(
-            "file($nu.os-info.name).nu",
-            "'no interpolation'",
-        )]);
+fn source_path_single_quote_no_interpolation(playground: Playground) -> Result {
+    playground.file("file($nu.os-info.name).nu", "'no interpolation'")?;
 
-        // Single quotes should prevent interpolation
-        test()
-            .cwd(dirs.test())
-            .run("source 'file($nu.os-info.name).nu'")
-            .expect_value_eq("no interpolation")
-    })
+    // Single quotes should prevent interpolation
+    test()
+        .cwd(playground.path())
+        .run("source 'file($nu.os-info.name).nu'")
+        .expect_value_eq("no interpolation")
 }
 
 #[test]
-fn source_path_backtick_no_interpolation() -> Result {
-    Playground::setup("source_backtick_test", |dirs, sandbox| {
-        sandbox.with_files(&[Stub::FileWithContent(
-            "file($nu.os-info.name).nu",
-            "'backtick no interp'",
-        )]);
+fn source_path_backtick_no_interpolation(playground: Playground) -> Result {
+    playground.file("file($nu.os-info.name).nu", "'backtick no interp'")?;
 
-        // Backticks should also prevent interpolation
-        test()
-            .cwd(dirs.test())
-            .run("source `file($nu.os-info.name).nu`")
-            .expect_value_eq("backtick no interp")
-    })
+    // Backticks should also prevent interpolation
+    test()
+        .cwd(playground.path())
+        .run("source `file($nu.os-info.name).nu`")
+        .expect_value_eq("backtick no interp")
 }
 
 #[test]
-fn source_path_dollar_interpolation() -> Result {
-    Playground::setup("source_dollar_interp_test", |dirs, sandbox| {
-        let os_name = std::env::consts::OS;
-        sandbox.with_files(&[Stub::FileWithContent(
-            &format!("test_{}.nu", os_name),
-            "'dollar interpolation'",
-        )]);
+fn source_path_dollar_interpolation(playground: Playground) -> Result {
+    let os_name = std::env::consts::OS;
+    playground.file(format!("test_{}.nu", os_name), "'dollar interpolation'")?;
 
-        // Dollar prefix should enable interpolation in quotes
-        test()
-            .cwd(dirs.test())
-            .run(r#"source $"test_($nu.os-info.name).nu""#)
-            .expect_value_eq("dollar interpolation")
-    })
+    // Dollar prefix should enable interpolation in quotes
+    test()
+        .cwd(playground.path())
+        .run(r#"source $"test_($nu.os-info.name).nu""#)
+        .expect_value_eq("dollar interpolation")
 }
 
 #[test]
-fn source_path_mixed_parens_and_quotes() -> Result {
-    Playground::setup("source_mixed_parens_test", |dirs, sandbox| {
-        sandbox.with_files(&[Stub::FileWithContent("test(1).nu", "'test 1'")]);
-        let os_name = std::env::consts::OS;
-        sandbox.with_files(&[Stub::FileWithContent(
-            &format!("test_{}.nu", os_name),
-            "'test interpolated'",
-        )]);
+fn source_path_mixed_parens_and_quotes(playground: Playground) -> Result {
+    playground.file("test(1).nu", "'test 1'")?;
+    let os_name = std::env::consts::OS;
+    playground.file(format!("test_{}.nu", os_name), "'test interpolated'")?;
 
-        // Literal parentheses in quoted string
-        test()
-            .cwd(dirs.test())
-            .run(r#"source "test(1).nu""#)
-            .expect_value_eq("test 1")?;
+    // Literal parentheses in quoted string
+    test()
+        .cwd(playground.path())
+        .run(r#"source "test(1).nu""#)
+        .expect_value_eq("test 1")?;
 
-        // Interpolation in bare word with constant
-        test()
-            .cwd(dirs.test())
-            .run("source test_($nu.os-info.name).nu")
-            .expect_value_eq("test interpolated")
-    })
+    // Interpolation in bare word with constant
+    test()
+        .cwd(playground.path())
+        .run("source test_($nu.os-info.name).nu")
+        .expect_value_eq("test interpolated")
 }
 
 #[test]
-fn source_path_empty_parens() -> Result {
-    Playground::setup("source_empty_parens_test", |dirs, sandbox| {
-        sandbox.with_files(&[Stub::FileWithContent("file().nu", "'empty parens'")]);
+fn source_path_empty_parens(playground: Playground) -> Result {
+    playground.file("file().nu", "'empty parens'")?;
 
-        // Empty parentheses should be treated as literal when quoted
-        test()
-            .cwd(dirs.test())
-            .run(r#"source "file().nu""#)
-            .expect_value_eq("empty parens")
-    })
+    // Empty parentheses should be treated as literal when quoted
+    test()
+        .cwd(playground.path())
+        .run(r#"source "file().nu""#)
+        .expect_value_eq("empty parens")
 }
 
 #[test]
-fn source_path_unbalanced_parens_quoted() -> Result {
-    Playground::setup("source_unbalanced_parens_test", |dirs, sandbox| {
-        sandbox.with_files(&[
-            Stub::FileWithContent("file(.nu", "'unbalanced open'"),
-            Stub::FileWithContent("file).nu", "'unbalanced close'"),
-        ]);
+fn source_path_unbalanced_parens_quoted(playground: Playground) -> Result {
+    playground.file("file(.nu", "'unbalanced open'")?;
+    playground.file("file).nu", "'unbalanced close'")?;
 
-        // Unbalanced parentheses should work when quoted
-        test()
-            .cwd(dirs.test())
-            .run(r#"source "file(.nu""#)
-            .expect_value_eq("unbalanced open")?;
+    // Unbalanced parentheses should work when quoted
+    test()
+        .cwd(playground.path())
+        .run(r#"source "file(.nu""#)
+        .expect_value_eq("unbalanced open")?;
 
-        test()
-            .cwd(dirs.test())
-            .run(r#"source "file).nu""#)
-            .expect_value_eq("unbalanced close")
-    })
+    test()
+        .cwd(playground.path())
+        .run(r#"source "file).nu""#)
+        .expect_value_eq("unbalanced close")
 }
 
 #[test]
-fn source_path_multiple_interpolations() -> Result {
-    Playground::setup("source_multiple_interp_test", |dirs, sandbox| {
-        let os_name = std::env::consts::OS;
-        let arch = std::env::consts::ARCH;
-        sandbox.with_files(&[Stub::FileWithContent(
-            &format!("{}_{}.nu", os_name, arch),
-            "'multiple interpolations'",
-        )]);
+fn source_path_multiple_interpolations(playground: Playground) -> Result {
+    let os_name = std::env::consts::OS;
+    let arch = std::env::consts::ARCH;
+    playground.file(
+        format!("{}_{}.nu", os_name, arch),
+        "'multiple interpolations'",
+    )?;
 
-        // Multiple interpolations in one path using constants
-        test()
-            .cwd(dirs.test())
-            .run("source ($nu.os-info.name)_($nu.os-info.arch).nu")
-            .expect_value_eq("multiple interpolations")
-    })
+    // Multiple interpolations in one path using constants
+    test()
+        .cwd(playground.path())
+        .run("source ($nu.os-info.name)_($nu.os-info.arch).nu")
+        .expect_value_eq("multiple interpolations")
 }
 
 #[test]
-fn source_path_interpolation_with_spaces() -> Result {
-    Playground::setup("source_interp_spaces_test", |dirs, sandbox| {
-        sandbox.with_files(&[Stub::FileWithContent(
-            "file with spaces.nu",
-            "'spaces in name'",
-        )]);
+fn source_path_interpolation_with_spaces(playground: Playground) -> Result {
+    playground.file("file with spaces.nu", "'spaces in name'")?;
 
-        // Spaces in filename require quotes
-        test()
-            .cwd(dirs.test())
-            .run(r#"const name = "file with spaces"; source $"($name).nu""#)
-            .expect_value_eq("spaces in name")
-    })
+    // Spaces in filename require quotes
+    test()
+        .cwd(playground.path())
+        .run(r#"const name = "file with spaces"; source $"($name).nu""#)
+        .expect_value_eq("spaces in name")
 }
 
 #[test]
-fn source_path_raw_string_no_interpolation() -> Result {
-    Playground::setup("source_raw_string_test", |dirs, sandbox| {
-        sandbox.with_files(&[Stub::FileWithContent(
-            "file($nu.os-info.name).nu",
-            "'raw string'",
-        )]);
+fn source_path_raw_string_no_interpolation(playground: Playground) -> Result {
+    playground.file("file($nu.os-info.name).nu", "'raw string'")?;
 
-        // Raw strings should not interpolate
-        test()
-            .cwd(dirs.test())
-            .run("source r#'file($nu.os-info.name).nu'#")
-            .expect_value_eq("raw string")
-    })
+    // Raw strings should not interpolate
+    test()
+        .cwd(playground.path())
+        .run("source r#'file($nu.os-info.name).nu'#")
+        .expect_value_eq("raw string")
 }
 
 #[test]
@@ -343,154 +286,135 @@ fn run_nu_script_multiline_end_pipe_win() -> Result {
 }
 
 #[test]
-fn parse_file_relative_to_parsed_file_simple() -> Result {
-    Playground::setup("relative_files_simple", |dirs, sandbox| {
-        sandbox.mkdir("lol").mkdir("lol/lol").with_files(&[
-            Stub::FileWithContent(
-                "lol/lol/lol.nu",
-                "use ../lol_shell.nu; $env.LOL = (lol_shell ls)",
-            ),
-            Stub::FileWithContent("lol/lol_shell.nu", r#"export def ls [] { "lol" }"#),
-        ]);
+fn parse_file_relative_to_parsed_file_simple(playground: Playground) -> Result {
+    playground.file(
+        "lol/lol/lol.nu",
+        "use ../lol_shell.nu; $env.LOL = (lol_shell ls)",
+    )?;
+    playground.file("lol/lol_shell.nu", r#"export def ls [] { "lol" }"#)?;
 
-        test()
-            .cwd(dirs.test())
-            .run("source-env lol/lol/lol.nu; $env.LOL")
-            .expect_value_eq("lol")
-    })
+    test()
+        .cwd(playground.path())
+        .run("source-env lol/lol/lol.nu; $env.LOL")
+        .expect_value_eq("lol")
 }
 
 #[test]
 #[deps(NU)]
-fn predecl_signature_single_inp_out_type() -> Result {
-    Playground::setup("predecl_signature_single_inp_out_type", |dirs, sandbox| {
-        sandbox.with_files(&[Stub::FileWithContent(
-            "spam1.nu",
-            "
-                def main [] { foo }
+fn predecl_signature_single_inp_out_type(playground: Playground) -> Result {
+    playground.file(
+        "spam1.nu",
+        "
+            def main [] { foo }
+            
+            def foo []: nothing -> nothing { print 'foo' }
+        ",
+    )?;
 
-                def foo []: nothing -> nothing { print 'foo' }
-            ",
-        )]);
-
-        let result: CompleteResult = test().cwd(dirs.test()).run("nu spam1.nu | complete")?;
-        assert_eq!(result.stdout.trim(), "foo");
-        Ok(())
-    })
+    let result: CompleteResult = test()
+        .cwd(playground.path())
+        .run("nu spam1.nu | complete")?;
+    assert_eq!(result.stdout.trim(), "foo");
+    Ok(())
 }
 
 #[test]
 #[deps(NU)]
-fn predecl_signature_multiple_inp_out_types() -> Result {
-    Playground::setup(
-        "predecl_signature_multiple_inp_out_types",
-        |dirs, sandbox| {
-            sandbox.with_files(&[Stub::FileWithContent(
-                "spam2.nu",
-                "
+fn predecl_signature_multiple_inp_out_types(playground: Playground) -> Result {
+    playground.file(
+        "spam2.nu",
+        "
                 def main [] { foo }
-
+                
                 def foo []: [nothing -> string, string -> string] { 'foo' }
             ",
-            )]);
+    )?;
 
-            let result: CompleteResult = test().cwd(dirs.test()).run("nu spam2.nu | complete")?;
-            assert_eq!(result.stdout.trim(), "foo");
+    let result: CompleteResult = test()
+        .cwd(playground.path())
+        .run("nu spam2.nu | complete")?;
+    assert_eq!(result.stdout.trim(), "foo");
 
-            Ok(())
-        },
-    )
+    Ok(())
 }
 
 #[test]
-fn parse_file_relative_to_parsed_file() -> Result {
-    Playground::setup("relative_files", |dirs, sandbox| {
-        sandbox.mkdir("lol").mkdir("lol/lol").with_files(&[
-            Stub::FileWithContentToBeTrimmed(
-                "lol/lol/lol.nu",
-                "
-                    source-env ../../foo.nu
-                    use ../lol_shell.nu
-                    overlay use ../../lol/lol_shell.nu
+fn parse_file_relative_to_parsed_file(playground: Playground) -> Result {
+    playground.file(
+        "lol/lol/lol.nu",
+        indoc::indoc! {"
+            source-env ../../foo.nu
+            use ../lol_shell.nu
+            overlay use ../../lol/lol_shell.nu
 
-                    $env.LOL = $'($env.FOO) (lol_shell ls) (ls)'
-                ",
-            ),
-            Stub::FileWithContentToBeTrimmed(
-                "lol/lol_shell.nu",
-                r#"
-                    export def ls [] { "lol" }
-                "#,
-            ),
-            Stub::FileWithContentToBeTrimmed(
-                "foo.nu",
-                "
-                    $env.FOO = 'foo'
-                ",
-            ),
-        ]);
+            $env.LOL = $'($env.FOO) (lol_shell ls) (ls)'
+        "},
+    )?;
+    playground.file(
+        "lol/lol_shell.nu",
+        indoc::indoc! {r#"
+            export def ls [] { "lol" }
+        "#},
+    )?;
+    playground.file(
+        "foo.nu",
+        indoc::indoc! {"
+            $env.FOO = 'foo'
+        "},
+    )?;
 
-        test()
-            .cwd(dirs.test())
-            .run("source-env lol/lol/lol.nu; $env.LOL")
-            .expect_value_eq("foo lol lol")
-    })
+    test()
+        .cwd(playground.path())
+        .run("source-env lol/lol/lol.nu; $env.LOL")
+        .expect_value_eq("foo lol lol")
 }
 
 #[test]
-fn parse_file_relative_to_parsed_file_dont_use_cwd_1() -> Result {
-    Playground::setup("relative_files", |dirs, sandbox| {
-        sandbox
-            .mkdir("lol")
-            .with_files(&[Stub::FileWithContentToBeTrimmed(
-                "lol/lol.nu",
-                "
-                    source-env foo.nu
-                ",
-            )])
-            .with_files(&[Stub::FileWithContentToBeTrimmed(
-                "lol/foo.nu",
-                "
-                    $env.FOO = 'good'
-                ",
-            )])
-            .with_files(&[Stub::FileWithContentToBeTrimmed(
-                "foo.nu",
-                "
-                    $env.FOO = 'bad'
-                ",
-            )]);
+fn parse_file_relative_to_parsed_file_dont_use_cwd_1(playground: Playground) -> Result {
+    playground.file(
+        "lol/lol.nu",
+        indoc::indoc! {"
+            source-env foo.nu
+        "},
+    )?;
+    playground.file(
+        "lol/foo.nu",
+        indoc::indoc! {"
+            $env.FOO = 'good'
+        "},
+    )?;
+    playground.file(
+        "foo.nu",
+        indoc::indoc! {"
+            $env.FOO = 'bad'
+        "},
+    )?;
 
-        test()
-            .cwd(dirs.test())
-            .run("source-env lol/lol.nu; $env.FOO")
-            .expect_value_eq("good")
-    })
+    test()
+        .cwd(playground.path())
+        .run("source-env lol/lol.nu; $env.FOO")
+        .expect_value_eq("good")
 }
 
 #[test]
-fn parse_file_relative_to_parsed_file_dont_use_cwd_2() -> Result {
-    Playground::setup("relative_files", |dirs, sandbox| {
-        sandbox.mkdir("lol").with_files(&[
-            Stub::FileWithContentToBeTrimmed(
-                "lol/lol.nu",
-                "
-                    source-env foo.nu
-             ",
-            ),
-            Stub::FileWithContentToBeTrimmed(
-                "foo.nu",
-                "
-                    $env.FOO = 'bad'
-                ",
-            ),
-        ]);
+fn parse_file_relative_to_parsed_file_dont_use_cwd_2(playground: Playground) -> Result {
+    playground.file(
+        "lol/lol.nu",
+        indoc::indoc! {"
+            source-env foo.nu
+        "},
+    )?;
+    playground.file(
+        "foo.nu",
+        indoc::indoc! {"
+            $env.FOO = 'bad'
+        "},
+    )?;
 
-        test()
-            .cwd(dirs.test())
-            .run("source-env lol/lol.nu")
-            .expect_error_code_eq("nu::parser::sourced_file_not_found")
-    })
+    test()
+        .cwd(playground.path())
+        .run("source-env lol/lol.nu")
+        .expect_error_code_eq("nu::parser::sourced_file_not_found")
 }
 
 #[test]
@@ -619,94 +543,73 @@ fn wacky_range_unmatched_paren() -> Result {
 
 #[test]
 #[deps(NU)]
-fn issue_16769_recursive_module_command_variable_in_block() -> Result {
-    Playground::setup(
-        "issue_16769_recursive_module_command_variable_in_block",
-        |dirs, sandbox| {
-            sandbox.with_files(&[
-                Stub::FileWithContentToBeTrimmed(
-                    "b.nu",
-                    "
-                        export def f [] { each {f} }
-                    ",
-                ),
-                Stub::FileWithContentToBeTrimmed(
-                    "a.nu",
-                    "
-                        use b.nu *
-                        let i = [];
-                        if true { $i | f }
-                    ",
-                ),
-            ]);
+fn issue_16769_recursive_module_command_variable_in_block(playground: Playground) -> Result {
+    playground.file(
+        "b.nu",
+        indoc::indoc! {"
+            export def f [] { each {f} }
+        "},
+    )?;
+    playground.file(
+        "a.nu",
+        indoc::indoc! {"
+            use b.nu *
+            let i = [];
+            if true { $i | f }
+        "},
+    )?;
 
-            let result: CompleteResult = test().cwd(dirs.test()).run("nu a.nu | complete")?;
-            assert_eq!(result.exit_code, 0);
-            assert_eq!(result.stderr, "");
+    let result: CompleteResult = test().cwd(playground.path()).run("nu a.nu | complete")?;
+    assert_eq!(result.exit_code, 0);
+    assert_eq!(result.stderr, "");
 
-            Ok(())
-        },
-    )
+    Ok(())
 }
 
 #[test]
 #[deps(NU)]
-fn issue_16769_recursive_module_command_direct_recursion_closure() -> Result {
-    Playground::setup(
-        "issue_16769_recursive_module_command_direct_recursion_closure",
-        |dirs, sandbox| {
-            sandbox.with_files(&[
-                Stub::FileWithContentToBeTrimmed(
-                    "b.nu",
-                    "
-                        export def f [] { f }
-                    ",
-                ),
-                Stub::FileWithContentToBeTrimmed(
-                    "a.nu",
-                    "
-                        use b.nu f
-                        { $in | f }
-                    ",
-                ),
-            ]);
+fn issue_16769_recursive_module_command_direct_recursion_closure(playground: Playground) -> Result {
+    playground.file(
+        "b.nu",
+        indoc::indoc! {"
+            export def f [] { f }
+        "},
+    )?;
+    playground.file(
+        "a.nu",
+        indoc::indoc! {"
+            use b.nu f
+            { $in | f }
+        "},
+    )?;
 
-            let result: CompleteResult = test().cwd(dirs.test()).run("nu a.nu | complete")?;
-            assert_eq!(result.exit_code, 0);
-            assert_eq!(result.stderr, "");
+    let result: CompleteResult = test().cwd(playground.path()).run("nu a.nu | complete")?;
+    assert_eq!(result.exit_code, 0);
+    assert_eq!(result.stderr, "");
 
-            Ok(())
-        },
-    )
+    Ok(())
 }
 
 #[test]
-fn issue_16769_recursive_module_command_source_def() -> Result {
-    Playground::setup(
-        "issue_16769_recursive_module_command_source_def",
-        |dirs, sandbox| {
-            sandbox.with_files(&[
-                Stub::FileWithContentToBeTrimmed(
-                    "b.nu",
-                    "
-                    export def f [] { each {f} }
-                ",
-                ),
-                Stub::FileWithContentToBeTrimmed(
-                    "a.nu",
-                    "
-                    use b.nu f
-                    def a [] { $in | f }
-                ",
-                ),
-            ]);
+fn issue_16769_recursive_module_command_source_def(playground: Playground) -> Result {
+    playground.file(
+        "b.nu",
+        indoc::indoc! {"
+            export def f [] { each {f} }
+        "},
+    )?;
+    playground.file(
+        "a.nu",
+        indoc::indoc! {"
+            use b.nu f
+            def a [] { $in | f }
+        "},
+    )?;
 
-            test()
-                .cwd(dirs.test())
-                .run("source a.nu; [] | f")
-                .expect_value_eq([(); 0])
-        },
-    )
+    test()
+        .cwd(playground.path())
+        .run("source a.nu; [] | f")
+        .expect_value_eq([(); 0])
 }
 
 #[test]

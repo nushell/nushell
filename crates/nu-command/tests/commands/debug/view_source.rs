@@ -1,4 +1,4 @@
-use nu_test_support::{fs::Stub::FileWithContentToBeTrimmed, prelude::*};
+use nu_test_support::prelude::*;
 
 #[test]
 fn view_source_returns_string() -> Result {
@@ -8,23 +8,21 @@ fn view_source_returns_string() -> Result {
 }
 
 #[test]
-fn datasource_filepath_metadata() -> Result {
-    Playground::setup("cd_ds_filepath_1", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContentToBeTrimmed(
-            "mdata.nu",
-            "
-                def foo [] { echo hi }
-            ",
-        )]);
+fn datasource_filepath_metadata(playground: Playground) -> Result {
+    playground.file(
+        "mdata.nu",
+        indoc::indoc! {"
+        def foo [] { echo hi }
+    "},
+    )?;
 
-        let code = "
-            source mdata.nu
-            view source foo | metadata | get source
-        ";
+    let code = "
+        source mdata.nu
+        view source foo | metadata | get source
+    ";
 
-        let outcome: String = test().cwd(dirs.test()).run(code)?;
-        // expect path printed somehow
-        assert_contains("mdata.nu", outcome);
-        Ok(())
-    })
+    let outcome: String = test().cwd(playground.path()).run(code)?;
+    // expect path printed somehow
+    assert_contains("mdata.nu", outcome);
+    Ok(())
 }

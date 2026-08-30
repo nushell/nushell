@@ -1,4 +1,4 @@
-use nu_test_support::{fs::Stub::EmptyFile, prelude::*};
+use nu_test_support::prelude::*;
 
 #[test]
 fn regular_columns() -> Result {
@@ -108,22 +108,21 @@ fn ignores_duplicate_columns_selected() -> Result {
 }
 
 #[test]
-fn selects_a_row() -> Result {
-    Playground::setup("selects_a_row", |dirs, sandbox| {
-        sandbox.with_files(&[EmptyFile("notes.txt"), EmptyFile("arepas.txt")]);
+fn selects_a_row(playground: Playground) -> Result {
+    playground.empty_file("notes.txt")?;
+    playground.empty_file("arepas.txt")?;
 
-        let code = "
-            ls
-            | sort-by name
-            | select 0
-            | get name.0
-        ";
+    let code = "
+        ls
+        | sort-by name
+        | select 0
+        | get name.0
+    ";
 
-        test()
-            .cwd(dirs.test())
-            .run(code)
-            .expect_value_eq("arepas.txt")
-    })
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq("arepas.txt")
 }
 
 #[test]
@@ -134,19 +133,18 @@ fn selects_large_row_number() -> Result {
 }
 
 #[test]
-fn selects_many_rows() -> Result {
-    Playground::setup("select_test_2", |dirs, sandbox| {
-        sandbox.with_files(&[EmptyFile("notes.txt"), EmptyFile("arepas.txt")]);
+fn selects_many_rows(playground: Playground) -> Result {
+    playground.empty_file("notes.txt")?;
+    playground.empty_file("arepas.txt")?;
 
-        let code = "
-            ls
-            | get name
-            | select 1 0
-            | length
-        ";
+    let code = "
+        ls
+        | get name
+        | select 1 0
+        | length
+    ";
 
-        test().cwd(dirs.test()).run(code).expect_value_eq(2)
-    })
+    test().cwd(playground.path()).run(code).expect_value_eq(2)
 }
 
 #[test]

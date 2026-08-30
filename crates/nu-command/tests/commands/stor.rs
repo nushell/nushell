@@ -38,31 +38,27 @@ fn stor_update_with_quote() -> Result {
 // working directory. The test harness does not keep that in sync with `$env.PWD`, so these
 // tests use an absolute path inside the playground rather than setting `cwd`.
 #[test]
-fn stor_import_missing_file_errors() -> Result {
-    Playground::setup("stor_import_missing_file", |dirs, _| {
-        let missing = dirs.test().join("missing.sqlite");
+fn stor_import_missing_file_errors(playground: Playground) -> Result {
+    let missing = playground.path().join("missing.sqlite");
 
-        test()
-            .env("MISSING_DB", missing.to_string_lossy().into_owned())
-            .run::<Value>("stor import --file-name $env.MISSING_DB")
-            .expect_error_code_eq("nu::shell::io::file_not_found")
-    })
+    test()
+        .env("MISSING_DB", missing.to_string_lossy().into_owned())
+        .run::<Value>("stor import --file-name $env.MISSING_DB")
+        .expect_error_code_eq("nu::shell::io::file_not_found")
 }
 
 #[test]
-fn stor_import_missing_file_keeps_existing_data() -> Result {
-    Playground::setup("stor_import_keeps_existing_data", |dirs, _| {
-        let missing = dirs.test().join("missing.sqlite");
-        let code = "
-            stor create --table-name stor_import_table --columns { id: int };
-            stor insert -t stor_import_table --data-record { id: 1 };
-            try { stor import --file-name $env.MISSING_DB };
-            stor open | query db 'select id from stor_import_table' | get 0.id
-        ";
+fn stor_import_missing_file_keeps_existing_data(playground: Playground) -> Result {
+    let missing = playground.path().join("missing.sqlite");
+    let code = "
+        stor create --table-name stor_import_table --columns { id: int };
+        stor insert -t stor_import_table --data-record { id: 1 };
+        try { stor import --file-name $env.MISSING_DB };
+        stor open | query db 'select id from stor_import_table' | get 0.id
+    ";
 
-        test()
-            .env("MISSING_DB", missing.to_string_lossy().into_owned())
-            .run(code)
-            .expect_value_eq(1i64)
-    })
+    test()
+        .env("MISSING_DB", missing.to_string_lossy().into_owned())
+        .run(code)
+        .expect_value_eq(1i64)
 }

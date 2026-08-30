@@ -205,20 +205,18 @@ fn custom_value_into_string() -> Result {
 
 #[test]
 #[deps(NU_PLUGIN_CUSTOM_VALUES)]
-fn save_custom_values() -> Result {
-    Playground::setup("save custom values", |dirs, _| {
-        let unimplemented = test()
-            .cwd(dirs.test())
-            .run("custom-value generate | save file")
-            .expect_shell_error()?;
-        assert_contains("Cannot save custom value", unimplemented.to_string());
+fn save_custom_values(playground: Playground) -> Result {
+    let unimplemented = test()
+        .cwd(playground.path())
+        .run("custom-value generate | save file")
+        .expect_shell_error()?;
+    assert_contains("Cannot save custom value", unimplemented.to_string());
 
-        let () = test()
-            .cwd(dirs.test())
-            .run("custom-value generate2 | save file")?;
-        let content = std::fs::read_to_string(dirs.test().join("file")).unwrap();
-        assert_eq!(content, "xyz"); // "xyz" is the content when using generate2
+    let () = test()
+        .cwd(playground.path())
+        .run("custom-value generate2 | save file")?;
+    let content = std::fs::read_to_string(playground.path().join("file")).unwrap();
+    assert_eq!(content, "xyz"); // "xyz" is the content when using generate2
 
-        Ok(())
-    })
+    Ok(())
 }

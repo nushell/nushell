@@ -21,14 +21,12 @@ fn get_envs() -> Result {
 
 #[test]
 #[deps(NU_PLUGIN_EXAMPLE)]
-fn get_current_dir() -> Result {
-    Playground::setup(&module_path!().replace("::", "_"), |_, playground| {
-        playground.mkdir("tests");
-        test()
-            .cwd(playground.cwd())
-            .run("cd tests; example env --cwd")
-            .expect_value_eq(playground.cwd().join("tests"))
-    })
+fn get_current_dir(playground: Playground) -> Result {
+    playground.dir("tests")?;
+    test()
+        .cwd(playground.path())
+        .run("cd tests; example env --cwd")
+        .expect_value_eq(playground.path().join("tests"))
 }
 
 #[test]

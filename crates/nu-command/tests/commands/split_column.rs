@@ -1,76 +1,71 @@
 use nu_protocol::record;
-use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
 use nu_test_support::playground::Playground;
 use nu_test_support::prelude::*;
 
 #[test]
-fn split_column() -> Result {
-    Playground::setup("split_column_test_1", |dirs, sandbox| {
-        sandbox.with_files(&[
-            FileWithContentToBeTrimmed(
-                "sample.txt",
-                "
-                    importer,shipper,tariff_item,name,origin
-                ",
-            ),
-            FileWithContentToBeTrimmed(
-                "sample2.txt",
-                "
-                    importer , shipper  , tariff_item  ,   name  ,  origin
-                ",
-            ),
-        ]);
+fn split_column(playground: Playground) -> Result {
+    playground.file(
+        "sample.txt",
+        indoc::indoc! {"
+        importer,shipper,tariff_item,name,origin
+    "},
+    )?;
+    playground.file(
+        "sample2.txt",
+        indoc::indoc! {"
+        importer , shipper  , tariff_item  ,   name  ,  origin
+    "},
+    )?;
 
-        let code = r#"
-            open sample.txt
-            | lines
-            | str trim
-            | split column ","
-            | get column1
-        "#;
-        test()
-            .cwd(dirs.test())
-            .run(code)
-            .expect_value_eq(["shipper"])?;
+    let code = r#"
+        open sample.txt
+        | lines
+        | str trim
+        | split column ","
+        | get column1
+    "#;
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq(["shipper"])?;
 
-        let code = r#"
-            open sample.txt
-            | lines
-            | str trim
-            | split column -n 3 ","
-            | get column2
-        "#;
-        test()
-            .cwd(dirs.test())
-            .run(code)
-            .expect_value_eq(["tariff_item,name,origin"])?;
+    let code = r#"
+        open sample.txt
+        | lines
+        | str trim
+        | split column -n 3 ","
+        | get column2
+    "#;
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq(["tariff_item,name,origin"])?;
 
-        let code = r#"
-            open sample.txt
-            | lines
-            | str trim
-            | split column -n 3 --right ","
-            | get column0
-        "#;
-        test()
-            .cwd(dirs.test())
-            .run(code)
-            .expect_value_eq(["importer,shipper,tariff_item"])?;
+    let code = r#"
+        open sample.txt
+        | lines
+        | str trim
+        | split column -n 3 --right ","
+        | get column0
+    "#;
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq(["importer,shipper,tariff_item"])?;
 
-        let code = r"
-            open sample2.txt
-            | lines
-            | str trim
-            | split column --regex '\s*,\s*'
-            | get column1
-        ";
-        test()
-            .cwd(dirs.test())
-            .run(code)
-            .expect_value_eq(["shipper"])?;
+    let code = r"
+        open sample2.txt
+        | lines
+        | str trim
+        | split column --regex '\s*,\s*'
+        | get column1
+    ";
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq(["shipper"])?;
 
-        Ok(())
-    })
+    Ok(())
 }
 
 #[test]

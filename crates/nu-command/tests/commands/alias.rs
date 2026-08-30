@@ -1,4 +1,4 @@
-use nu_test_support::{fs::Stub::FileWithContentToBeTrimmed, prelude::*};
+use nu_test_support::prelude::*;
 use rstest::rstest;
 
 #[rstest]
@@ -51,27 +51,25 @@ fn alias_wont_recurse() -> Result {
 
 // Issue https://github.com/nushell/nushell/issues/8246
 #[test]
-fn alias_wont_recurse2() -> Result {
-    Playground::setup("alias_wont_recurse2", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContentToBeTrimmed(
-            "spam.nu",
-            "
-                def eggs [] { spam 'eggs' }
-                alias spam = spam 'spam'
-            ",
-        )]);
+fn alias_wont_recurse2(playground: Playground) -> Result {
+    playground.file(
+        "spam.nu",
+        indoc::indoc! {"
+        def eggs [] { spam 'eggs' }
+        alias spam = spam 'spam'
+    "},
+    )?;
 
-        let code = "
-            def spam [what: string] { 'spam ' + $what };
-            source spam.nu;
-            spam
-        ";
+    let code = "
+        def spam [what: string] { 'spam ' + $what };
+        source spam.nu;
+        spam
+    ";
 
-        test()
-            .cwd(dirs.test())
-            .run(code)
-            .expect_value_eq("spam spam")
-    })
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq("spam spam")
 }
 
 #[rstest]

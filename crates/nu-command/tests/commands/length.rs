@@ -1,4 +1,3 @@
-use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::playground::Playground;
 use nu_test_support::prelude::*;
 
@@ -22,14 +21,12 @@ fn length_fails_on_echo_record() -> Result {
 }
 
 #[test]
-fn length_byte_stream() -> Result {
-    Playground::setup("length_bytes", |dirs, sandbox| {
-        sandbox.mkdir("length_bytes");
-        sandbox.with_files(&[FileWithContent("data.txt", "😀")]);
+fn length_byte_stream(playground: Playground) -> Result {
+    playground.dir("length_bytes")?;
+    playground.file("data.txt", "😀")?;
 
-        test()
-            .cwd(dirs.test())
-            .run("open data.txt | length")
-            .expect_value_eq(4)
-    })
+    test()
+        .cwd(playground.path())
+        .run("open data.txt | length")
+        .expect_value_eq(4)
 }

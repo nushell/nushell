@@ -1,35 +1,30 @@
 use nu_path::absolute_with;
-use nu_test_support::fs::Stub::EmptyFile;
 use nu_test_support::playground::Playground;
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_eq;
 use std::path::Path;
 
 #[test]
-fn absolute_path() {
-    Playground::setup("nu_path_test_1", |dirs, _| {
-        let mut spam = dirs.test().to_owned();
-        spam.push("spam.txt");
+fn absolute_path(playground: Playground) {
+    let mut spam = playground.path().to_owned();
+    spam.push("spam.txt");
 
-        let cwd = std::env::current_dir().expect("Could not get current directory");
-        let actual = absolute_with(spam, cwd).expect("Failed to make absolute");
+    let cwd = std::env::current_dir().expect("Could not get current directory");
+    let actual = absolute_with(spam, cwd).expect("Failed to make absolute");
 
-        assert!(actual.ends_with("spam.txt"));
-    });
+    assert!(actual.ends_with("spam.txt"));
 }
 
 #[test]
-fn absolute_unicode_path() {
-    Playground::setup("nu_path_test_1", |dirs, _| {
-        let mut spam = dirs.test().to_owned();
-        spam.push("🚒.txt");
+fn absolute_unicode_path(playground: Playground) {
+    let mut spam = playground.path().to_owned();
+    spam.push("🚒.txt");
 
-        let cwd = std::env::current_dir().expect("Could not get current directory");
+    let cwd = std::env::current_dir().expect("Could not get current directory");
 
-        let actual = absolute_with(spam, cwd).expect("Failed to make absolute");
+    let actual = absolute_with(spam, cwd).expect("Failed to make absolute");
 
-        assert!(actual.ends_with("🚒.txt"));
-    });
+    assert!(actual.ends_with("🚒.txt"));
 }
 
 #[ignore]
@@ -39,28 +34,24 @@ fn absolute_non_utf8_path() {
 }
 
 #[test]
-fn absolute_path_relative_to() {
-    Playground::setup("nu_path_test_1", |dirs, _| {
-        let actual = absolute_with("spam.txt", dirs.test()).expect("Failed to make absolute");
-        let mut expected = dirs.test().to_owned();
-        expected.push("spam.txt");
+fn absolute_path_relative_to(playground: Playground) {
+    let actual = absolute_with("spam.txt", playground.path()).expect("Failed to make absolute");
+    let mut expected = playground.path().to_owned();
+    expected.push("spam.txt");
 
-        assert_eq!(actual, expected);
-    });
+    assert_eq!(actual, expected);
 }
 
 #[test]
-fn absolute_unicode_path_relative_to_unicode_path_with_spaces() {
-    Playground::setup("nu_path_test_1", |dirs, _| {
-        let mut relative_to = dirs.test().to_owned();
-        relative_to.push("e-$ èрт🚒♞中片-j");
+fn absolute_unicode_path_relative_to_unicode_path_with_spaces(playground: Playground) {
+    let mut relative_to = playground.path().to_owned();
+    relative_to.push("e-$ èрт🚒♞中片-j");
 
-        let actual = absolute_with("🚒.txt", relative_to).expect("Failed to make absolute");
-        let mut expected = dirs.test().to_owned();
-        expected.push("e-$ èрт🚒♞中片-j/🚒.txt");
+    let actual = absolute_with("🚒.txt", relative_to).expect("Failed to make absolute");
+    let mut expected = playground.path().to_owned();
+    expected.push("e-$ èрт🚒♞中片-j/🚒.txt");
 
-        assert_eq!(actual, expected);
-    });
+    assert_eq!(actual, expected);
 }
 
 #[ignore]
@@ -70,17 +61,15 @@ fn absolute_non_utf8_path_relative_to_non_utf8_path_with_spaces() {
 }
 
 #[test]
-fn absolute_absolute_path_relative_to() {
-    Playground::setup("nu_path_test_1", |dirs, _| {
-        let mut absolute_path = dirs.test().to_owned();
-        absolute_path.push("spam.txt");
+fn absolute_absolute_path_relative_to(playground: Playground) {
+    let mut absolute_path = playground.path().to_owned();
+    absolute_path.push("spam.txt");
 
-        let actual = absolute_with(&absolute_path, "non/existent/directory")
-            .expect("Failed to make absolute");
-        let expected = absolute_path;
+    let actual =
+        absolute_with(&absolute_path, "non/existent/directory").expect("Failed to make absolute");
+    let expected = absolute_path;
 
-        assert_eq!(actual, expected);
-    });
+    assert_eq!(actual, expected);
 }
 
 #[test]
@@ -103,26 +92,22 @@ fn absolute_many_dots() {
 }
 
 #[test]
-fn absolute_path_with_dot_relative_to() {
-    Playground::setup("nu_path_test_1", |dirs, _| {
-        let actual = absolute_with("./spam.txt", dirs.test()).expect("Failed to make absolute");
-        let mut expected = dirs.test().to_owned();
-        expected.push("spam.txt");
+fn absolute_path_with_dot_relative_to(playground: Playground) {
+    let actual = absolute_with("./spam.txt", playground.path()).expect("Failed to make absolute");
+    let mut expected = playground.path().to_owned();
+    expected.push("spam.txt");
 
-        assert_eq!(actual, expected);
-    });
+    assert_eq!(actual, expected);
 }
 
 #[test]
-fn absolute_path_with_many_dots_relative_to() {
-    Playground::setup("nu_path_test_1", |dirs, _| {
-        let actual = absolute_with("././/.//////./././//.////spam.txt", dirs.test())
-            .expect("Failed to make absolute");
-        let mut expected = dirs.test().to_owned();
-        expected.push("spam.txt");
+fn absolute_path_with_many_dots_relative_to(playground: Playground) {
+    let actual = absolute_with("././/.//////./././//.////spam.txt", playground.path())
+        .expect("Failed to make absolute");
+    let mut expected = playground.path().to_owned();
+    expected.push("spam.txt");
 
-        assert_eq!(actual, expected);
-    });
+    assert_eq!(actual, expected);
 }
 
 #[test]
@@ -142,179 +127,165 @@ fn absolute_double_dot() {
 }
 
 #[test]
-fn absolute_path_with_double_dot_relative_to() {
-    Playground::setup("nu_path_test_1", |dirs, _| {
-        let actual =
-            absolute_with("foo/../spam.txt", dirs.test()).expect("Failed to make absolute");
-        let mut expected = dirs.test().to_owned();
+fn absolute_path_with_double_dot_relative_to(playground: Playground) {
+    let actual =
+        absolute_with("foo/../spam.txt", playground.path()).expect("Failed to make absolute");
+    let mut expected = playground.path().to_owned();
 
-        // On Windows .. components are resolved. On Unix they are not.
-        #[cfg(windows)]
-        expected.push("spam.txt");
-        #[cfg(not(windows))]
-        expected.push("foo/../spam.txt");
+    // On Windows .. components are resolved. On Unix they are not.
+    #[cfg(windows)]
+    expected.push("spam.txt");
+    #[cfg(not(windows))]
+    expected.push("foo/../spam.txt");
 
-        assert_eq!(actual, expected);
-    });
+    assert_eq!(actual, expected);
 }
 
 #[test]
-fn absolute_path_with_many_double_dots_relative_to() {
-    Playground::setup("nu_path_test_1", |dirs, _| {
-        let actual = absolute_with("foo/bar/baz/../../../spam.txt", dirs.test())
-            .expect("Failed to make absolute");
-        let mut expected = dirs.test().to_owned();
+fn absolute_path_with_many_double_dots_relative_to(playground: Playground) {
+    let actual = absolute_with("foo/bar/baz/../../../spam.txt", playground.path())
+        .expect("Failed to make absolute");
+    let mut expected = playground.path().to_owned();
 
-        // On Windows .. components are resolved. On Unix they are not.
-        #[cfg(windows)]
-        expected.push("spam.txt");
-        #[cfg(not(windows))]
-        expected.push("foo/bar/baz/../../../spam.txt");
+    // On Windows .. components are resolved. On Unix they are not.
+    #[cfg(windows)]
+    expected.push("spam.txt");
+    #[cfg(not(windows))]
+    expected.push("foo/bar/baz/../../../spam.txt");
 
-        assert_eq!(actual, expected);
-    });
+    assert_eq!(actual, expected);
 }
 
 #[test]
-fn absolute_ndots2() -> Result {
+fn absolute_ndots2(playground: Playground) -> Result {
     // This test will fail if you have the nushell repo on the root partition
     // So, let's start in a nested folder before trying to absolute_with "..."
-    Playground::setup("nu_path_test_1", |dirs, sandbox| {
-        sandbox.mkdir("aaa/bbb/ccc");
-        let output: String = test()
-            .cwd(dirs.root())
-            .run("cd nu_path_test_1/aaa/bbb/ccc; $env.PWD")?;
-        let cwd = Path::new(&output);
+    playground.dir("aaa/bbb/ccc")?;
+    let output: String = test()
+        .cwd(WORKSPACE_ROOT.as_path())
+        .run_with_data("cd $in; $env.PWD", playground.path().join("aaa/bbb/ccc"))?;
+    let cwd = Path::new(&output);
 
-        let actual = absolute_with("...", cwd).expect("Failed to make absolute");
-        // On Windows .. components are resolved. On Unix they are not.
-        #[cfg(windows)]
-        let expected = cwd
-            .parent()
-            .expect("Could not get parent of current directory")
-            .parent()
-            .expect("Could not get parent of a parent of current directory");
-        #[cfg(not(windows))]
-        let expected = cwd.join("../..");
+    let actual = absolute_with("...", cwd).expect("Failed to make absolute");
+    // On Windows .. components are resolved. On Unix they are not.
+    #[cfg(windows)]
+    let expected = cwd
+        .parent()
+        .expect("Could not get parent of current directory")
+        .parent()
+        .expect("Could not get parent of a parent of current directory");
+    #[cfg(not(windows))]
+    let expected = cwd.join("../..");
 
-        assert_eq!(actual, expected);
+    assert_eq!(actual, expected);
 
-        Ok(())
-    })
+    Ok(())
 }
 
 #[test]
-fn absolute_path_with_3_ndots_relative_to() {
-    Playground::setup("nu_path_test_1", |dirs, _| {
-        let actual =
-            absolute_with("foo/bar/.../spam.txt", dirs.test()).expect("Failed to make absolute");
-        let mut expected = dirs.test().to_owned();
+fn absolute_path_with_3_ndots_relative_to(playground: Playground) {
+    let actual =
+        absolute_with("foo/bar/.../spam.txt", playground.path()).expect("Failed to make absolute");
+    let mut expected = playground.path().to_owned();
 
-        // On Windows .. components are resolved. On Unix they are not.
-        #[cfg(windows)]
-        expected.push("spam.txt");
-        #[cfg(not(windows))]
-        expected.push("foo/bar/../../spam.txt");
+    // On Windows .. components are resolved. On Unix they are not.
+    #[cfg(windows)]
+    expected.push("spam.txt");
+    #[cfg(not(windows))]
+    expected.push("foo/bar/../../spam.txt");
 
-        assert_eq!(actual, expected);
-    });
+    assert_eq!(actual, expected);
 }
 
 #[test]
-fn absolute_path_with_many_3_ndots_relative_to() {
-    Playground::setup("nu_path_test_1", |dirs, _| {
-        let actual = absolute_with(
-            "foo/bar/baz/eggs/sausage/bacon/.../.../.../spam.txt",
-            dirs.test(),
-        )
+fn absolute_path_with_many_3_ndots_relative_to(playground: Playground) {
+    let actual = absolute_with(
+        "foo/bar/baz/eggs/sausage/bacon/.../.../.../spam.txt",
+        playground.path(),
+    )
+    .expect("Failed to make absolute");
+    let mut expected = playground.path().to_owned();
+
+    // On Windows .. components are resolved. On Unix they are not.
+    #[cfg(windows)]
+    expected.push("spam.txt");
+    #[cfg(not(windows))]
+    expected.push("foo/bar/baz/eggs/sausage/bacon/../../../../../../spam.txt");
+
+    assert_eq!(actual, expected);
+}
+
+#[test]
+fn absolute_path_with_4_ndots_relative_to(playground: Playground) {
+    let actual = absolute_with("foo/bar/baz/..../spam.txt", playground.path())
         .expect("Failed to make absolute");
-        let mut expected = dirs.test().to_owned();
+    let mut expected = playground.path().to_owned();
 
-        // On Windows .. components are resolved. On Unix they are not.
-        #[cfg(windows)]
-        expected.push("spam.txt");
-        #[cfg(not(windows))]
-        expected.push("foo/bar/baz/eggs/sausage/bacon/../../../../../../spam.txt");
+    // On Windows .. components are resolved. On Unix they are not.
+    #[cfg(windows)]
+    expected.push("spam.txt");
+    #[cfg(not(windows))]
+    expected.push("foo/bar/baz/../../../spam.txt");
 
-        assert_eq!(actual, expected);
-    });
+    assert_eq!(actual, expected);
 }
 
 #[test]
-fn absolute_path_with_4_ndots_relative_to() {
-    Playground::setup("nu_path_test_1", |dirs, _| {
-        let actual = absolute_with("foo/bar/baz/..../spam.txt", dirs.test())
-            .expect("Failed to make absolute");
-        let mut expected = dirs.test().to_owned();
+fn absolute_path_with_many_4_ndots_relative_to(playground: Playground) {
+    let actual = absolute_with(
+        "foo/bar/baz/eggs/sausage/bacon/..../..../spam.txt",
+        playground.path(),
+    )
+    .expect("Failed to make absolute");
+    let mut expected = playground.path().to_owned();
 
-        // On Windows .. components are resolved. On Unix they are not.
-        #[cfg(windows)]
-        expected.push("spam.txt");
-        #[cfg(not(windows))]
-        expected.push("foo/bar/baz/../../../spam.txt");
+    // On Windows .. components are resolved. On Unix they are not.
+    #[cfg(windows)]
+    expected.push("spam.txt");
+    #[cfg(not(windows))]
+    expected.push("foo/bar/baz/eggs/sausage/bacon/../../../../../../spam.txt");
 
-        assert_eq!(actual, expected);
-    });
+    assert_eq!(actual, expected);
 }
 
 #[test]
-fn absolute_path_with_many_4_ndots_relative_to() {
-    Playground::setup("nu_path_test_1", |dirs, _| {
-        let actual = absolute_with(
-            "foo/bar/baz/eggs/sausage/bacon/..../..../spam.txt",
-            dirs.test(),
-        )
+fn absolute_path_with_way_too_many_dots_relative_to(playground: Playground) {
+    let mut relative_to = playground.path().to_owned();
+    relative_to.push("foo/bar/baz/eggs/sausage/bacon/vikings");
+
+    let actual = absolute_with("././..////././...///././.....///spam.txt", relative_to)
         .expect("Failed to make absolute");
-        let mut expected = dirs.test().to_owned();
+    let mut expected = playground.path().to_owned();
 
-        // On Windows .. components are resolved. On Unix they are not.
-        #[cfg(windows)]
-        expected.push("spam.txt");
-        #[cfg(not(windows))]
-        expected.push("foo/bar/baz/eggs/sausage/bacon/../../../../../../spam.txt");
+    // On Windows .. components are resolved. On Unix they are not.
+    #[cfg(windows)]
+    expected.push("spam.txt");
+    #[cfg(not(windows))]
+    expected.push("foo/bar/baz/eggs/sausage/bacon/vikings/../../../../../../../spam.txt");
 
-        assert_eq!(actual, expected);
-    });
+    assert_eq!(actual, expected);
 }
 
 #[test]
-fn absolute_path_with_way_too_many_dots_relative_to() {
-    Playground::setup("nu_path_test_1", |dirs, _| {
-        let mut relative_to = dirs.test().to_owned();
-        relative_to.push("foo/bar/baz/eggs/sausage/bacon/vikings");
+fn absolute_unicode_path_with_way_too_many_dots_relative_to_unicode_path_with_spaces(
+    playground: Playground,
+) {
+    let mut relative_to = playground.path().to_owned();
+    relative_to.push("foo/áčěéí  +šř=é/baz/eggs/e-$ èрт🚒♞中片-j/bacon/öäöä öäöä");
 
-        let actual = absolute_with("././..////././...///././.....///spam.txt", relative_to)
-            .expect("Failed to make absolute");
-        let mut expected = dirs.test().to_owned();
+    let actual = absolute_with("././..////././...///././.....///🚒.txt", relative_to)
+        .expect("Failed to make absolute");
+    let mut expected = playground.path().to_owned();
 
-        // On Windows .. components are resolved. On Unix they are not.
-        #[cfg(windows)]
-        expected.push("spam.txt");
-        #[cfg(not(windows))]
-        expected.push("foo/bar/baz/eggs/sausage/bacon/vikings/../../../../../../../spam.txt");
+    // On Windows .. components are resolved. On Unix they are not.
+    #[cfg(windows)]
+    expected.push("🚒.txt");
+    #[cfg(not(windows))]
+    expected.push(
+        "foo/áčěéí  +šř=é/baz/eggs/e-$ èрт🚒♞中片-j/bacon/öäöä öäöä/../../../../../../../🚒.txt",
+    );
 
-        assert_eq!(actual, expected);
-    });
-}
-
-#[test]
-fn absolute_unicode_path_with_way_too_many_dots_relative_to_unicode_path_with_spaces() {
-    Playground::setup("nu_path_test_1", |dirs, _| {
-        let mut relative_to = dirs.test().to_owned();
-        relative_to.push("foo/áčěéí  +šř=é/baz/eggs/e-$ èрт🚒♞中片-j/bacon/öäöä öäöä");
-
-        let actual = absolute_with("././..////././...///././.....///🚒.txt", relative_to)
-            .expect("Failed to make absolute");
-        let mut expected = dirs.test().to_owned();
-
-        // On Windows .. components are resolved. On Unix they are not.
-        #[cfg(windows)]
-        expected.push("🚒.txt");
-        #[cfg(not(windows))]
-        expected.push("foo/áčěéí  +šř=é/baz/eggs/e-$ èрт🚒♞中片-j/bacon/öäöä öäöä/../../../../../../../🚒.txt");
-
-        assert_eq!(actual, expected);
-    });
+    assert_eq!(actual, expected);
 }
 
 #[test]
@@ -340,35 +311,33 @@ fn absolute_tilde_relative_to() {
 
 #[cfg(not(target_arch = "wasm32"))]
 #[test]
-fn absolute_symlink() {
-    Playground::setup("nu_path_test_1", |dirs, sandbox| {
-        sandbox.with_files(&[EmptyFile("spam.txt")]);
-        sandbox.symlink("spam.txt", "link_to_spam.txt");
+fn absolute_symlink(playground: Playground) -> Result {
+    playground.empty_file("spam.txt")?;
+    playground.symlink("spam.txt", "link_to_spam.txt")?;
 
-        let mut symlink_path = dirs.test().to_owned();
-        symlink_path.push("link_to_spam.txt");
+    let mut symlink_path = playground.path().to_owned();
+    symlink_path.push("link_to_spam.txt");
 
-        let cwd = std::env::current_dir().expect("Could not get current directory");
-        let actual = absolute_with(symlink_path, cwd).expect("Failed to make absolute");
-        let mut expected = dirs.test().to_owned();
-        expected.push("link_to_spam.txt");
+    let cwd = std::env::current_dir().expect("Could not get current directory");
+    let actual = absolute_with(symlink_path, cwd).expect("Failed to make absolute");
+    let mut expected = playground.path().to_owned();
+    expected.push("link_to_spam.txt");
 
-        assert_eq!(actual, expected);
-    });
+    assert_eq!(actual, expected);
+    Ok(())
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 #[test]
-fn absolute_symlink_relative_to() {
-    Playground::setup("nu_path_test_1", |dirs, sandbox| {
-        sandbox.with_files(&[EmptyFile("spam.txt")]);
-        sandbox.symlink("spam.txt", "link_to_spam.txt");
+fn absolute_symlink_relative_to(playground: Playground) -> Result {
+    playground.empty_file("spam.txt")?;
+    playground.symlink("spam.txt", "link_to_spam.txt")?;
 
-        let actual =
-            absolute_with("link_to_spam.txt", dirs.test()).expect("Failed to make absolute");
-        let mut expected = dirs.test().to_owned();
-        expected.push("link_to_spam.txt");
+    let actual =
+        absolute_with("link_to_spam.txt", playground.path()).expect("Failed to make absolute");
+    let mut expected = playground.path().to_owned();
+    expected.push("link_to_spam.txt");
 
-        assert_eq!(actual, expected);
-    });
+    assert_eq!(actual, expected);
+    Ok(())
 }

@@ -1,7 +1,7 @@
 use std::sync::LazyLock;
 
 use nu_protocol::Record;
-use nu_test_support::{fs::Stub::EmptyFile, prelude::*};
+use nu_test_support::prelude::*;
 
 #[derive(Debug, Clone, IntoValue)]
 struct Amigo {
@@ -100,37 +100,29 @@ fn do_not_replace_empty_record() -> Result {
 }
 
 #[test]
-fn replace_empty_list_stream() -> Result {
+fn replace_empty_list_stream(playground: Playground) -> Result {
     // This is specific for testing ListStreams when empty behave like other empty values
-    Playground::setup("glob_empty_list", |dirs, sandbox| {
-        sandbox.with_files(&[
-            EmptyFile("yehuda.txt"),
-            EmptyFile("jttxt"),
-            EmptyFile("andres.txt"),
-        ]);
+    playground.empty_file("yehuda.txt")?;
+    playground.empty_file("jttxt")?;
+    playground.empty_file("andres.txt")?;
 
-        test()
-            .cwd(dirs.test())
-            .run("glob ? | default -e void")
-            .expect_value_eq("void")
-    })
+    test()
+        .cwd(playground.path())
+        .run("glob ? | default -e void")
+        .expect_value_eq("void")
 }
 
 #[test]
-fn do_not_replace_non_empty_list_stream() -> Result {
+fn do_not_replace_non_empty_list_stream(playground: Playground) -> Result {
     // This is specific for testing ListStreams when empty behave like other empty values
-    Playground::setup("glob_non_empty_list", |dirs, sandbox| {
-        sandbox.with_files(&[
-            EmptyFile("yehuda.txt"),
-            EmptyFile("jt.rs"),
-            EmptyFile("andres.txt"),
-        ]);
+    playground.empty_file("yehuda.txt")?;
+    playground.empty_file("jt.rs")?;
+    playground.empty_file("andres.txt")?;
 
-        test()
-            .cwd(dirs.test())
-            .run("glob '*.txt' | default -e void | length")
-            .expect_value_eq(2)
-    })
+    test()
+        .cwd(playground.path())
+        .run("glob '*.txt' | default -e void | length")
+        .expect_value_eq(2)
 }
 
 #[test]

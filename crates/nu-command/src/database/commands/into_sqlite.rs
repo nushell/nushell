@@ -113,11 +113,7 @@ impl Table {
         let span = db_path.span;
         let db_path: Cow<'_, Path> = match db_path.item.as_str() {
             MEMORY_DB => Cow::Borrowed(Path::new(&db_path.item)),
-            item => engine_state
-                .cwd(Some(stack))?
-                .join(item)
-                .to_std_path_buf()
-                .into(),
+            item => engine_state.cwd(Some(stack))?.join(item).into(),
         };
 
         // create the sqlite database table

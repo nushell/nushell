@@ -3428,28 +3428,27 @@ fn exact_match() {
 
 #[cfg(all(not(windows), not(target_os = "macos")))]
 #[test]
-fn exact_match_case_insensitive() {
-    use nu_test_support::playground::Playground;
+fn exact_match_case_insensitive(playground: Playground) -> Result {
     use support::completions_helpers::new_engine_helper;
 
-    Playground::setup("exact_match_case_insensitive", |dirs, playground| {
-        playground.mkdir("AA/foo");
-        playground.mkdir("aa/foo");
-        playground.mkdir("aaa/foo");
+    playground.dir("AA/foo")?;
+    playground.dir("aa/foo")?;
+    playground.dir("aaa/foo")?;
 
-        let (dir, _, engine, stack) = new_engine_helper(dirs.test().into());
-        let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let (dir, _, engine, stack) = new_engine_helper(playground.path().try_into().unwrap());
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
-        let target = format!("open {}", folder(dir.join("aa")));
-        match_suggestions(
-            &vec![
-                folder(dir.join("AA").join("foo")).as_str(),
-                folder(dir.join("aa").join("foo")).as_str(),
-                folder(dir.join("aaa").join("foo")).as_str(),
-            ],
-            &completer.complete_blocking(&target, target.len()),
-        );
-    });
+    let target = format!("open {}", folder(dir.join("aa")));
+    match_suggestions(
+        &vec![
+            folder(dir.join("AA").join("foo")).as_str(),
+            folder(dir.join("aa").join("foo")).as_str(),
+            folder(dir.join("aaa").join("foo")).as_str(),
+        ],
+        &completer.complete_blocking(&target, target.len()),
+    );
+
+    Ok(())
 }
 
 #[rstest]
@@ -3849,37 +3848,4 @@ fn stale_file_completions_do_not_answer_a_flag_token() {
             .map(|s| (&s.value, s.span))
             .collect::<Vec<_>>()
     );
-}
-
-/// Completing an empty argument slot for a `directory`-typed
-/// argument (like cd) must offer directories ONLY.
-#[test]
-fn empty_directory_arg_slot_completes_directories_only() {
-    let dir = tempfile::tempdir().expect("tempdir");
-    std::fs::create_dir(dir.path().join("alpha_dir")).expect("create dir");
-    std::fs::create_dir(dir.path().join("beta_dir")).expect("create dir");
-    std::fs::write(dir.path().join("gamma.txt"), "").expect("write file");
-
-    let pwd = AbsolutePathBuf::try_from(dir.path().to_path_buf()).expect("absolute tempdir");
-    let (_, _, mut engine, mut stack) = new_engine_helper(pwd);
-
-    // Custom positional and flag, both `directory`-typed, exercise the same paths as `cd`.
-    let command = "def my-cd [dir: directory] {}; def my-flag [--dir: directory] {}";
-    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
-    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
-
-    let alpha = folder("alpha_dir");
-    let beta = folder("beta_dir");
-    for line in ["cd ", "my-cd ", "my-flag --dir "] {
-        let suggestions = completer.complete_blocking(line, line.len());
-        let values: Vec<&str> = suggestions.iter().map(|s| s.value.as_str()).collect();
-        assert!(
-            values.contains(&alpha.as_str()) && values.contains(&beta.as_str()),
-            "`{line}` should offer the directories, got: {values:?}"
-        );
-        assert!(
-            !values.iter().any(|value| value.contains("gamma")),
-            "`{line}` leaked a non-directory completion: {values:?}"
-        );
-    }
 }

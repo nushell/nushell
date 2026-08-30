@@ -1,4 +1,3 @@
-use nu_test_support::fs::Stub::EmptyFile;
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_matches;
 use rstest::rstest;
@@ -56,23 +55,21 @@ fn failed_for_should_break_running() -> Result {
 }
 
 #[test]
-fn for_loops_dont_collect_source() -> Result {
-    Playground::setup("for_loops_dont_collect_source", |dirs, sandbox| {
-        sandbox.with_files(&[EmptyFile("out.txt")]);
+fn for_loops_dont_collect_source(playground: Playground) -> Result {
+    playground.empty_file("out.txt")?;
 
-        let code = "
-            for i in (seq 1 10 | each { $in | save --append out.txt; $in }) {
-                $i | save --append out.txt
-                if $i >= 5 { break }
-            }
-            open --raw out.txt
-        ";
+    let code = "
+        for i in (seq 1 10 | each { $in | save --append out.txt; $in }) {
+            $i | save --append out.txt
+            if $i >= 5 { break }
+        }
+        open --raw out.txt
+    ";
 
-        test()
-            .cwd(dirs.test())
-            .run(code)
-            .expect_value_eq("1122334455")
-    })
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq("1122334455")
 }
 
 // Regression test for https://github.com/nushell/nushell/issues/13746

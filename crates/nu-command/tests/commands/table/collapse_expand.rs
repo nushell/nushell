@@ -667,26 +667,22 @@ fn table_expand_top_level_error_list_still_throws() -> Result {
 
 #[test]
 #[deps(TESTBIN_MEOW)]
-fn external_with_too_much_stdout_should_not_hang_nu() -> Result {
-    use nu_test_support::fs::Stub::FileWithContent;
-
-    Playground::setup("external with too much stdout", |dirs, sandbox| {
-        let bytes: usize = 81920;
-        let mut large_file_body = String::with_capacity(bytes);
-        for _ in 0..bytes {
-            large_file_body.push('a');
-        }
-        sandbox.with_files(&[FileWithContent("a_large_file.txt", &large_file_body)]);
-        let actual: String = test().cwd(dirs.test()).run(
-            "
+fn external_with_too_much_stdout_should_not_hang_nu(playground: Playground) -> Result {
+    let bytes: usize = 81920;
+    let mut large_file_body = String::with_capacity(bytes);
+    for _ in 0..bytes {
+        large_file_body.push('a');
+    }
+    playground.file("a_large_file.txt", &large_file_body)?;
+    let actual: String = test().cwd(playground.path()).run(
+        "
             meow a_large_file.txt | table --width=80
         ",
-        )?;
-        assert_eq!(actual, large_file_body);
-        let actual: String = test()
-            .cwd(dirs.test())
-            .run("let x = meow a_large_file.txt; $x")?;
-        assert_eq!(actual, large_file_body);
-        Ok(())
-    })
+    )?;
+    assert_eq!(actual, large_file_body);
+    let actual: String = test()
+        .cwd(playground.path())
+        .run("let x = meow a_large_file.txt; $x")?;
+    assert_eq!(actual, large_file_body);
+    Ok(())
 }

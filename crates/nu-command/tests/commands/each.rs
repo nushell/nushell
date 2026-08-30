@@ -87,35 +87,33 @@ fn each_noop_on_single_null() -> Result {
 }
 
 #[test]
-fn each_flatten_dont_collect() -> Result {
-    Playground::setup("each_flatten_dont_collect", |dirs, _sandbox| {
-        let collected = r##"
-            '' | save order.txt
-            [0 3]
-            | each {|e| $e..<($e + 3) | each {|e| $"\(($e)\)" | save --append order.txt; $e } }
-            | flatten
-            | each {|e| $"[($e)]" | save --append order.txt; $e }
-            | ignore
-            open order.txt
-        "##;
+fn each_flatten_dont_collect(playground: Playground) -> Result {
+    let collected = r##"
+        '' | save order.txt
+        [0 3]
+        | each {|e| $e..<($e + 3) | each {|e| $"\(($e)\)" | save --append order.txt; $e } }
+        | flatten
+        | each {|e| $"[($e)]" | save --append order.txt; $e }
+        | ignore
+        open order.txt
+    "##;
 
-        test()
-            .cwd(dirs.test())
-            .run(collected)
-            .expect_value_eq("(0)(1)(2)[0][1][2](3)(4)(5)[3][4][5]")?;
+    test()
+        .cwd(playground.path())
+        .run(collected)
+        .expect_value_eq("(0)(1)(2)[0][1][2](3)(4)(5)[3][4][5]")?;
 
-        let streamed = r##"
-            '' | save --force order.txt
-            [0 3]
-            | each --flatten {|e| $e..<($e + 3) | each {|e| $"\(($e)\)" | save --append order.txt; $e } }
-            | each {|e| $"[($e)]" | save --append order.txt; $e }
-            | ignore
-            open order.txt
-        "##;
+    let streamed = r##"
+        '' | save --force order.txt
+        [0 3]
+        | each --flatten {|e| $e..<($e + 3) | each {|e| $"\(($e)\)" | save --append order.txt; $e } }
+        | each {|e| $"[($e)]" | save --append order.txt; $e }
+        | ignore
+        open order.txt
+    "##;
 
-        test()
-            .cwd(dirs.test())
-            .run(streamed)
-            .expect_value_eq("(0)[0](1)[1](2)[2](3)[3](4)[4](5)[5]")
-    })
+    test()
+        .cwd(playground.path())
+        .run(streamed)
+        .expect_value_eq("(0)[0](1)[1](2)[2](3)[3](4)[4](5)[5]")
 }

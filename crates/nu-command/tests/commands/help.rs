@@ -1,5 +1,4 @@
 use nu_experimental::NATIVE_CLIP;
-use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::playground::Playground;
 use nu_test_support::prelude::*;
 
@@ -36,22 +35,20 @@ fn help_aliases() -> Result {
 }
 
 #[test]
-fn help_alias_description_1() -> Result {
-    Playground::setup("help_alias_description_1", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent(
-            "spam.nu",
-            "
-                # line1
-                alias SPAM = print 'spam'
-            ",
-        )]);
+fn help_alias_description_1(playground: Playground) -> Result {
+    playground.file(
+        "spam.nu",
+        "
+            # line1
+            alias SPAM = print 'spam'
+        ",
+    )?;
 
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run("source spam.nu")?;
-        tester
-            .run("help aliases | where name == SPAM | get 0.description")
-            .expect_value_eq("line1")
-    })
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("source spam.nu")?;
+    tester
+        .run("help aliases | where name == SPAM | get 0.description")
+        .expect_value_eq("line1")
 }
 
 #[test]
@@ -64,372 +61,329 @@ fn help_alias_description_2() -> Result {
 }
 
 #[test]
-fn help_alias_description_3() -> Result {
-    Playground::setup("help_alias_description_3", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent(
-            "spam.nu",
-            "
-                # line1
-                alias SPAM = print 'spam' # line2
-            ",
-        )]);
+fn help_alias_description_3(playground: Playground) -> Result {
+    playground.file(
+        "spam.nu",
+        "
+            # line1
+            alias SPAM = print 'spam' # line2
+        ",
+    )?;
 
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run("source spam.nu")?;
-        let outcome: String =
-            tester.run("help aliases | where name == SPAM | get 0.description")?;
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("source spam.nu")?;
+    let outcome: String = tester.run("help aliases | where name == SPAM | get 0.description")?;
 
-        assert_contains("line1", &outcome);
-        assert_contains("line2", &outcome);
-        Ok(())
-    })
+    assert_contains("line1", &outcome);
+    assert_contains("line2", &outcome);
+    Ok(())
 }
 
 #[test]
-fn help_alias_name() -> Result {
+fn help_alias_name(playground: Playground) -> Result {
     // Regression test for #18351 — ensure the alias name "SPAM" appears in
     // `help aliases SPAM` output, not the target command name "print"
-    Playground::setup("help_alias_name", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent(
-            "spam.nu",
-            "
-                # line1
-                alias SPAM = print 'spam' # line2
-            ",
-        )]);
+    playground.file(
+        "spam.nu",
+        "
+            # line1
+            alias SPAM = print 'spam' # line2
+        ",
+    )?;
 
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run("source spam.nu")?;
-        let outcome: String = tester.run("help aliases SPAM")?;
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("source spam.nu")?;
+    let outcome: String = tester.run("help aliases SPAM")?;
 
-        assert_contains("line1", &outcome);
-        assert_contains("line2", &outcome);
-        assert_contains("SPAM", &outcome);
-        assert_contains("print 'spam'", &outcome);
-        Ok(())
-    })
+    assert_contains("line1", &outcome);
+    assert_contains("line2", &outcome);
+    assert_contains("SPAM", &outcome);
+    assert_contains("print 'spam'", &outcome);
+    Ok(())
 }
 
 #[test]
-fn help_alias_name_f() -> Result {
-    Playground::setup("help_alias_name_f", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent(
-            "spam.nu",
-            "
-                # line1
-                alias SPAM = print 'spam' # line2
-            ",
-        )]);
+fn help_alias_name_f(playground: Playground) -> Result {
+    playground.file(
+        "spam.nu",
+        "
+            # line1
+            alias SPAM = print 'spam' # line2
+        ",
+    )?;
 
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run("source spam.nu")?;
-        let outcome: String = tester.run("help aliases -f SPAM | get 0.description")?;
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("source spam.nu")?;
+    let outcome: String = tester.run("help aliases -f SPAM | get 0.description")?;
 
-        assert_contains("line1", &outcome);
-        assert_contains("line2", &outcome);
-        Ok(())
-    })
+    assert_contains("line1", &outcome);
+    assert_contains("line2", &outcome);
+    Ok(())
 }
 
 #[test]
-fn help_export_alias_name_single_word() -> Result {
+fn help_export_alias_name_single_word(playground: Playground) -> Result {
     // #18351: same as help_alias_name but for export alias
-    Playground::setup("help_export_alias_name_single_word", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent(
-            "spam.nu",
-            "
-                # line1
-                export alias SPAM = print 'spam' # line2
-            ",
-        )]);
+    playground.file(
+        "spam.nu",
+        "
+            # line1
+            export alias SPAM = print 'spam' # line2
+        ",
+    )?;
 
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run("use spam.nu SPAM")?;
-        let outcome: String = tester.run("help aliases SPAM")?;
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("use spam.nu SPAM")?;
+    let outcome: String = tester.run("help aliases SPAM")?;
 
-        assert_contains("line1", &outcome);
-        assert_contains("line2", &outcome);
-        assert_contains("SPAM", &outcome);
-        assert_contains("print 'spam'", &outcome);
-        Ok(())
-    })
+    assert_contains("line1", &outcome);
+    assert_contains("line2", &outcome);
+    assert_contains("SPAM", &outcome);
+    assert_contains("print 'spam'", &outcome);
+    Ok(())
 }
 
 #[test]
-fn help_export_alias_name_multi_word() -> Result {
+fn help_export_alias_name_multi_word(playground: Playground) -> Result {
     // #18351: same as help_alias_name but for multi-word export alias
-    Playground::setup("help_export_alias_name_multi_word", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent(
-            "spam.nu",
-            "
-                # line1
-                export alias SPAM = print 'spam' # line2
-            ",
-        )]);
+    playground.file(
+        "spam.nu",
+        "
+            # line1
+            export alias SPAM = print 'spam' # line2
+        ",
+    )?;
 
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run("use spam.nu")?;
-        let outcome: String = tester.run("help aliases spam SPAM")?;
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("use spam.nu")?;
+    let outcome: String = tester.run("help aliases spam SPAM")?;
 
-        assert_contains("line1", &outcome);
-        assert_contains("line2", &outcome);
-        assert_contains("SPAM", &outcome);
-        assert_contains("print 'spam'", &outcome);
-        Ok(())
-    })
+    assert_contains("line1", &outcome);
+    assert_contains("line2", &outcome);
+    assert_contains("SPAM", &outcome);
+    assert_contains("print 'spam'", &outcome);
+    Ok(())
 }
 
 #[test]
-fn help_alias_name_external() -> Result {
-    Playground::setup("help_alias_name_external", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent(
-            "spam.nu",
-            "
-                # line1
-                alias SPAM = ^echo 'spam' # line2
-            ",
-        )]);
+fn help_alias_name_external(playground: Playground) -> Result {
+    playground.file(
+        "spam.nu",
+        "
+            # line1
+            alias SPAM = ^echo 'spam' # line2
+        ",
+    )?;
 
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run("source spam.nu")?;
-        let outcome: String = tester.run("help aliases SPAM")?;
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("source spam.nu")?;
+    let outcome: String = tester.run("help aliases SPAM")?;
 
-        assert_contains("line1", &outcome);
-        assert_contains("line2", &outcome);
-        assert_contains("SPAM", &outcome);
-        assert_contains("^echo 'spam'", &outcome);
-        Ok(())
-    })
+    assert_contains("line1", &outcome);
+    assert_contains("line2", &outcome);
+    assert_contains("SPAM", &outcome);
+    assert_contains("^echo 'spam'", &outcome);
+    Ok(())
 }
 
 #[test]
-fn help_export_alias_name_external() -> Result {
-    Playground::setup("help_export_alias_name_external", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent(
-            "spam.nu",
-            "
-                # line1
-                export alias SPAM = ^echo 'spam' # line2
-            ",
-        )]);
+fn help_export_alias_name_external(playground: Playground) -> Result {
+    playground.file(
+        "spam.nu",
+        "
+            # line1
+            export alias SPAM = ^echo 'spam' # line2
+        ",
+    )?;
 
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run("use spam.nu SPAM")?;
-        let outcome: String = tester.run("help aliases SPAM")?;
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("use spam.nu SPAM")?;
+    let outcome: String = tester.run("help aliases SPAM")?;
 
-        assert_contains("line1", &outcome);
-        assert_contains("line2", &outcome);
-        assert_contains("SPAM", &outcome);
-        assert_contains("^echo 'spam'", &outcome);
-        Ok(())
-    })
+    assert_contains("line1", &outcome);
+    assert_contains("line2", &outcome);
+    assert_contains("SPAM", &outcome);
+    assert_contains("^echo 'spam'", &outcome);
+    Ok(())
 }
 
 #[test]
-fn help_module_description_1() -> Result {
-    Playground::setup("help_module_description", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent(
-            "spam.nu",
-            "
-                # line1
-                module SPAM {
-                    # line2
-                } #line3
-            ",
-        )]);
+fn help_module_description_1(playground: Playground) -> Result {
+    playground.file(
+        "spam.nu",
+        "
+            # line1
+            module SPAM {
+                # line2
+            } #line3
+        ",
+    )?;
 
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run("source spam.nu")?;
-        let outcome: String =
-            tester.run("help modules | where name == SPAM | get 0.description")?;
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("source spam.nu")?;
+    let outcome: String = tester.run("help modules | where name == SPAM | get 0.description")?;
 
-        assert_contains("line1", &outcome);
-        assert_contains("line2", &outcome);
-        assert_contains("line3", &outcome);
-        Ok(())
-    })
+    assert_contains("line1", &outcome);
+    assert_contains("line2", &outcome);
+    assert_contains("line3", &outcome);
+    Ok(())
 }
 
 #[test]
-fn help_module_description_ignores_leading_shebang() -> Result {
-    Playground::setup(
-        "help_module_description_ignores_leading_shebang",
-        |dirs, sandbox| {
-            sandbox.with_files(&[FileWithContent(
-                "spam.nu",
-                "\
-#!/usr/bin/env nu
-
-# module_line1
-#
-# module_line2
-
-export def foo [] {}
-",
-            )]);
-
-            let mut tester = test().cwd(dirs.test());
-            let description: String = tester
-                .run("use spam.nu *; help modules | where name == spam | get 0.description")?;
-            assert_eq!(description, "module_line1");
-            Ok(())
-        },
-    )
-}
-
-#[test]
-fn help_module_name() -> Result {
-    Playground::setup("help_module_name", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent(
-            "spam.nu",
-            "
-                # line1
-                module SPAM {
-                    # line2
-                } #line3
-            ",
-        )]);
-
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run("source spam.nu")?;
-        let outcome: String = tester.run("help modules SPAM")?;
-
-        assert_contains("line1", &outcome);
-        assert_contains("line2", &outcome);
-        assert_contains("line3", &outcome);
-        assert_contains("SPAM", &outcome);
-        Ok(())
-    })
-}
-
-#[test]
-fn help_module_sorted_decls() -> Result {
-    Playground::setup("help_module_sorted_decls", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent(
-            "spam.nu",
-            "
-                module SPAM {
-                    export def z [] {}
-                    export def a [] {}
-                }
-            ",
-        )]);
-
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run("source spam.nu")?;
-        let outcome: String = tester.run("help modules SPAM")?;
-
-        assert_contains("a, z", &outcome);
-        Ok(())
-    })
-}
-
-#[test]
-fn help_module_sorted_aliases() -> Result {
-    Playground::setup("help_module_sorted_aliases", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent(
-            "spam.nu",
-            "
-                module SPAM {
-                    export alias z = echo 'z'
-                    export alias a = echo 'a'
-                }
-            ",
-        )]);
-
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run("source spam.nu")?;
-        let outcome: String = tester.run("help modules SPAM")?;
-
-        assert_contains("a, z", &outcome);
-        Ok(())
-    })
-}
-
-#[test]
-fn help_description_extra_description_command() -> Result {
-    Playground::setup(
-        "help_description_extra_description_command",
-        |dirs, sandbox| {
-            sandbox.with_files(&[FileWithContent(
-                "spam.nu",
-                "
+fn help_module_description_ignores_leading_shebang(playground: Playground) -> Result {
+    playground.file(
+        "spam.nu",
+        "\
+                #!/usr/bin/env nu
+                
                 # module_line1
                 #
                 # module_line2
+                
+                export def foo [] {}
+            ",
+    )?;
 
+    let mut tester = test().cwd(playground.path());
+    let description: String =
+        tester.run("use spam.nu *; help modules | where name == spam | get 0.description")?;
+    assert_eq!(description, "module_line1");
+    Ok(())
+}
+
+#[test]
+fn help_module_name(playground: Playground) -> Result {
+    playground.file(
+        "spam.nu",
+        "
+            # line1
+            module SPAM {
+                # line2
+            } #line3
+        ",
+    )?;
+
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("source spam.nu")?;
+    let outcome: String = tester.run("help modules SPAM")?;
+
+    assert_contains("line1", &outcome);
+    assert_contains("line2", &outcome);
+    assert_contains("line3", &outcome);
+    assert_contains("SPAM", &outcome);
+    Ok(())
+}
+
+#[test]
+fn help_module_sorted_decls(playground: Playground) -> Result {
+    playground.file(
+        "spam.nu",
+        "
+            module SPAM {
+                export def z [] {}
+                export def a [] {}
+            }
+        ",
+    )?;
+
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("source spam.nu")?;
+    let outcome: String = tester.run("help modules SPAM")?;
+
+    assert_contains("a, z", &outcome);
+    Ok(())
+}
+
+#[test]
+fn help_module_sorted_aliases(playground: Playground) -> Result {
+    playground.file(
+        "spam.nu",
+        "
+            module SPAM {
+                export alias z = echo 'z'
+                export alias a = echo 'a'
+            }
+        ",
+    )?;
+
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("source spam.nu")?;
+    let outcome: String = tester.run("help modules SPAM")?;
+
+    assert_contains("a, z", &outcome);
+    Ok(())
+}
+
+#[test]
+fn help_description_extra_description_command(playground: Playground) -> Result {
+    playground.file(
+        "spam.nu",
+        "
+                # module_line1
+                #
+                # module_line2
+                
                 # def_line1
                 #
                 # def_line2
                 export def foo [] {}
             ",
-            )]);
-            let mut tester = test().cwd(dirs.test());
-            let () = tester.run("use spam.nu *")?;
+    )?;
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("use spam.nu *")?;
 
-            let outcome: String = tester.run("help modules spam")?;
-            assert_contains("module_line1", &outcome);
-            assert_contains("module_line2", &outcome);
+    let outcome: String = tester.run("help modules spam")?;
+    assert_contains("module_line1", &outcome);
+    assert_contains("module_line2", &outcome);
 
-            let outcome: String =
-                tester.run("help modules | where name == spam | get 0.description")?;
-            assert_contains("module_line1", &outcome);
-            assert!(!outcome.contains("module_line2"));
+    let outcome: String = tester.run("help modules | where name == spam | get 0.description")?;
+    assert_contains("module_line1", &outcome);
+    assert!(!outcome.contains("module_line2"));
 
-            let outcome: String = tester.run("help commands foo")?;
-            assert_contains("def_line1", &outcome);
-            assert_contains("def_line2", &outcome);
+    let outcome: String = tester.run("help commands foo")?;
+    assert_contains("def_line1", &outcome);
+    assert_contains("def_line2", &outcome);
 
-            let outcome: String =
-                tester.run("help commands | where name == foo | get 0.description")?;
-            assert_contains("def_line1", &outcome);
-            assert!(!outcome.contains("def_line2"));
-            Ok(())
-        },
-    )
+    let outcome: String = tester.run("help commands | where name == foo | get 0.description")?;
+    assert_contains("def_line1", &outcome);
+    assert!(!outcome.contains("def_line2"));
+    Ok(())
 }
 
 #[test]
-fn help_description_extra_description_alias() -> Result {
-    Playground::setup(
-        "help_description_extra_description_alias",
-        |dirs, sandbox| {
-            sandbox.with_files(&[FileWithContent(
-                "spam.nu",
-                "
+fn help_description_extra_description_alias(playground: Playground) -> Result {
+    playground.file(
+        "spam.nu",
+        "
                 # module_line1
                 #
                 # module_line2
-
+                
                 # alias_line1
                 #
                 # alias_line2
                 export alias bar = echo 'bar'
             ",
-            )]);
-            let mut tester = test().cwd(dirs.test());
-            let () = tester.run("use spam.nu *")?;
+    )?;
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("use spam.nu *")?;
 
-            let outcome: String = tester.run("help modules spam")?;
-            assert_contains("module_line1", &outcome);
-            assert_contains("module_line2", &outcome);
+    let outcome: String = tester.run("help modules spam")?;
+    assert_contains("module_line1", &outcome);
+    assert_contains("module_line2", &outcome);
 
-            let outcome: String =
-                tester.run("help modules | where name == spam | get 0.description")?;
-            assert_contains("module_line1", &outcome);
-            assert!(!outcome.contains("module_line2"));
+    let outcome: String = tester.run("help modules | where name == spam | get 0.description")?;
+    assert_contains("module_line1", &outcome);
+    assert!(!outcome.contains("module_line2"));
 
-            let outcome: String = tester.run("help aliases bar")?;
-            assert_contains("alias_line1", &outcome);
-            assert_contains("alias_line2", &outcome);
+    let outcome: String = tester.run("help aliases bar")?;
+    assert_contains("alias_line1", &outcome);
+    assert_contains("alias_line2", &outcome);
 
-            let outcome: String =
-                tester.run("help aliases | where name == bar | get 0.description")?;
-            assert_contains("alias_line1", &outcome);
-            assert!(!outcome.contains("alias_line2"));
-            Ok(())
-        },
-    )
+    let outcome: String = tester.run("help aliases | where name == bar | get 0.description")?;
+    assert_contains("alias_line1", &outcome);
+    assert!(!outcome.contains("alias_line2"));
+    Ok(())
 }
 
 #[test]
@@ -471,22 +425,20 @@ fn help_shows_module_qualified_usage() -> Result {
 }
 
 #[test]
-fn help_commands_shows_overlay_name_for_module_decls() -> Result {
-    Playground::setup("help_overlay_name", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent(
-            "spam.nu",
-            "
-                # exported function
-                export def prefix [prefix: string] { $prefix }
-            ",
-        )]);
+fn help_commands_shows_overlay_name_for_module_decls(playground: Playground) -> Result {
+    playground.file(
+        "spam.nu",
+        "
+            # exported function
+            export def prefix [prefix: string] { $prefix }
+        ",
+    )?;
 
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run("use spam.nu")?;
-        tester
-            .run(r#"help commands | where name == "spam prefix" | length"#)
-            .expect_value_eq(1)
-    })
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("use spam.nu")?;
+    tester
+        .run(r#"help commands | where name == "spam prefix" | length"#)
+        .expect_value_eq(1)
 }
 
 #[test]

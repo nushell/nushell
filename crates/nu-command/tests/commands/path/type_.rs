@@ -1,4 +1,4 @@
-use nu_test_support::{fs::Stub::EmptyFile, prelude::*};
+use nu_test_support::prelude::*;
 
 #[test]
 fn returns_type_of_missing_file() -> Result {
@@ -10,62 +10,63 @@ fn returns_type_of_missing_file() -> Result {
 }
 
 #[test]
-fn returns_type_of_existing_file() -> Result {
-    Playground::setup("path_expand_1", |dirs, sandbox| {
-        sandbox.within("menu").with_files(&[EmptyFile("spam.txt")]);
+fn returns_type_of_existing_file(playground: Playground) -> Result {
+    playground.empty_file("menu/spam.txt")?;
 
-        let code = r#"
+    let code = r#"
             echo "menu"
             | path type
         "#;
 
-        test().cwd(dirs.test()).run(code).expect_value_eq("dir")
-    })
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq("dir")
 }
 
 #[test]
-fn returns_type_of_existing_directory() -> Result {
-    Playground::setup("path_expand_1", |dirs, sandbox| {
-        sandbox.within("menu").with_files(&[EmptyFile("spam.txt")]);
+fn returns_type_of_existing_directory(playground: Playground) -> Result {
+    playground.empty_file("menu/spam.txt")?;
 
-        let code = r#"
+    let code = r#"
             echo "menu/spam.txt"
             | path type
         "#;
 
-        test().cwd(dirs.test()).run(code).expect_value_eq("file")?;
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq("file")?;
 
-        let code = r#"
+    let code = r#"
             echo "~"
             | path type
         "#;
 
-        test().run(code).expect_value_eq("dir")
-    })
+    test().run(code).expect_value_eq("dir")
 }
 
 #[test]
-fn returns_type_of_existing_file_const() -> Result {
-    Playground::setup("path_type_const", |dirs, sandbox| {
-        sandbox.within("menu").with_files(&[EmptyFile("spam.txt")]);
+fn returns_type_of_existing_file_const(playground: Playground) -> Result {
+    playground.empty_file("menu/spam.txt")?;
 
-        let code = r#"
+    let code = r#"
             const ty = ("menu" | path type);
             $ty
         "#;
 
-        test().cwd(dirs.test()).run(code).expect_value_eq("dir")
-    })
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq("dir")
 }
 
 #[test]
-fn respects_cwd() -> Result {
-    Playground::setup("path_type_respects_cwd", |dirs, sandbox| {
-        sandbox.within("foo").with_files(&[EmptyFile("bar.txt")]);
+fn respects_cwd(playground: Playground) -> Result {
+    playground.empty_file("foo/bar.txt")?;
 
-        test()
-            .cwd(dirs.test())
-            .run("cd foo; 'bar.txt' | path type")
-            .expect_value_eq("file")
-    })
+    test()
+        .cwd(playground.path())
+        .run("cd foo; 'bar.txt' | path type")
+        .expect_value_eq("file")
 }

@@ -1,7 +1,7 @@
 use rstest::rstest;
 
 use nu_experimental::ENFORCE_RUNTIME_ANNOTATIONS;
-use nu_test_support::{fs::Stub::EmptyFile, playground::Playground, prelude::*};
+use nu_test_support::{playground::Playground, prelude::*};
 
 #[test]
 fn mut_variable() -> Result {
@@ -154,15 +154,15 @@ fn mut_glob_type() -> Result {
 }
 
 #[test]
-fn mut_typed_glob_expands_in_ls() -> Result {
-    Playground::setup("mut_glob_ls", |dirs, sandbox| {
-        sandbox.with_files(&[EmptyFile("a.toml"), EmptyFile("b.toml"), EmptyFile("c.txt")]);
+fn mut_typed_glob_expands_in_ls(playground: Playground) -> Result {
+    playground.empty_file("a.toml")?;
+    playground.empty_file("b.toml")?;
+    playground.empty_file("c.txt")?;
 
-        test()
-            .cwd(dirs.test())
-            .run(r#"mut x: glob = "*.toml"; ls $x | length"#)
-            .expect_value_eq(2)
-    })
+    test()
+        .cwd(playground.path())
+        .run(r#"mut x: glob = "*.toml"; ls $x | length"#)
+        .expect_value_eq(2)
 }
 
 #[rstest]

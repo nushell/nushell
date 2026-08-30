@@ -1,6 +1,6 @@
 use fancy_regex::Regex;
 use nu_protocol::PipelineData;
-use nu_test_support::{fs::Stub::FileWithContent, prelude::*, tester::TestError};
+use nu_test_support::{prelude::*, tester::TestError};
 use rstest::rstest;
 
 #[test]
@@ -187,13 +187,13 @@ fn external_call_redirect_capture() -> Result {
 
 #[test]
 #[deps(TESTBIN_COCOCO)]
-fn external_call_redirect_file() -> Result {
-    Playground::setup("external_call_redirect_file", |dirs, _sandbox| {
-        let () = test().cwd(dirs.test()).run("cococo hello out> hello.txt")?;
-        let read_contents = std::fs::read_to_string(dirs.test().join("hello.txt"))?;
-        assert_eq!(read_contents.trim(), "hello");
-        Ok(())
-    })
+fn external_call_redirect_file(playground: Playground) -> Result {
+    let () = test()
+        .cwd(playground.path())
+        .run("cococo hello out> hello.txt")?;
+    let read_contents = std::fs::read_to_string(playground.path().join("hello.txt"))?;
+    assert_eq!(read_contents.trim(), "hello");
+    Ok(())
 }
 
 #[test]
@@ -304,41 +304,29 @@ fn early_return_in_export_env_guard_skips_rest_of_env_block() -> Result {
 
 #[test]
 #[deps(NU)]
-fn early_return_inside_command_does_not_skip_main() -> Result {
+fn early_return_inside_command_does_not_skip_main(playground: Playground) -> Result {
     // A `return` inside a command called at the top level of a script is consumed where the
     // command is called; only a top-level `return` should prevent `main` from running. This runs
     // the `nu` binary because that "skip main" decision lives in file evaluation, not in the
     // in-process engine.
-    Playground::setup(
-        "early_return_inside_command_does_not_skip_main",
-        |dirs, sandbox| -> Result {
-            sandbox.with_files(&[FileWithContent(
-                "script.nu",
-                "def helper [] { return 1 }\nhelper\ndef main [] { print 'main ran' }",
-            )]);
+    playground.file(
+        "script.nu",
+        "def helper [] { return 1 }\nhelper\ndef main [] { print 'main ran' }",
+    )?;
 
-            let result: CompleteResult =
-                test().cwd(dirs.test()).run("nu -n script.nu | complete")?;
-            assert_eq!(result.exit_code, 0);
-            assert_contains("main ran", result.stdout);
-            Ok(())
-        },
-    )
+    let result: CompleteResult = test()
+        .cwd(playground.path())
+        .run("nu -n script.nu | complete")?;
+    assert_eq!(result.exit_code, 0);
+    assert_contains("main ran", result.stdout);
+    Ok(())
 }
 
 #[test]
-fn early_return_in_module_export_env_does_not_abort_caller() -> Result {
-    Playground::setup(
-        "early_return_in_module_export_env_does_not_abort_caller",
-        |dirs, sandbox| -> Result {
-            sandbox.with_files(&[FileWithContent(
-                "mod.nu",
-                "export-env { return }\nexport def hi [] { 'hi' }",
-            )]);
-            test()
-                .cwd(dirs.test())
-                .run("def foo [] { use mod.nu *; hi }; foo")
-                .expect_value_eq("hi")
-        },
-    )
+fn early_return_in_module_export_env_does_not_abort_caller(playground: Playground) -> Result {
+    playground.file("mod.nu", "export-env { return }\nexport def hi [] { 'hi' }")?;
+    test()
+        .cwd(playground.path())
+        .run("def foo [] { use mod.nu *; hi }; foo")
+        .expect_value_eq("hi")
 }

@@ -1,5 +1,4 @@
 use nu_protocol::test_value;
-use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::playground::Playground;
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_eq;
@@ -84,7 +83,7 @@ fn correctly_report_of_shadowed_alias() -> Result {
 }
 
 #[test]
-fn correct_scope_modules_fields() -> Result {
+fn correct_scope_modules_fields(playground: Playground) -> Result {
     let module_setup = "
         # nice spam
         #
@@ -103,108 +102,99 @@ fn correct_scope_modules_fields() -> Result {
 
         export-env { $env.SPAM = 'spam' }
     ";
-    Playground::setup("correct_scope_modules_fields", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent("spam.nu", module_setup)]);
+    playground.file("spam.nu", module_setup)?;
 
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run("use spam.nu")?;
-        #[rustfmt::skip]
-        let () = tester.run("
-            let module = scope modules
-            | where name == 'spam'
-            | first -s
-        ")?;
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("use spam.nu")?;
+    #[rustfmt::skip]
+    let () = tester.run("
+        let module = scope modules
+        | where name == 'spam'
+        | first -s
+    ")?;
 
-        tester
-            .run("$module | select name description extra_description has_env_block")
-            .expect_value_eq(test_value!({
-                name: "spam",
-                description: "nice spam",
-                extra_description: "and some extra description for spam",
-                has_env_block: true,
-            }))?;
+    tester
+        .run("$module | select name description extra_description has_env_block")
+        .expect_value_eq(test_value!({
+            name: "spam",
+            description: "nice spam",
+            extra_description: "and some extra description for spam",
+            has_env_block: true,
+        }))?;
 
-        tester
-            .run("$module.commands.0.name")
-            .expect_value_eq("spam")?;
-        tester
-            .run("$module.aliases.0.name")
-            .expect_value_eq("xaz")?;
-        tester
-            .run("$module.externs.0.name")
-            .expect_value_eq("git")?;
-        tester
-            .run("$module.constants.0.name")
-            .expect_value_eq("X")?;
-        tester
-            .run("$module.submodules.0.submodules.0.name")
-            .expect_value_eq("bacon")?;
-        tester
-            .run("$module.submodules.0.submodules.0.commands.0.name")
-            .expect_value_eq("sausage")?;
+    tester
+        .run("$module.commands.0.name")
+        .expect_value_eq("spam")?;
+    tester
+        .run("$module.aliases.0.name")
+        .expect_value_eq("xaz")?;
+    tester
+        .run("$module.externs.0.name")
+        .expect_value_eq("git")?;
+    tester
+        .run("$module.constants.0.name")
+        .expect_value_eq("X")?;
+    tester
+        .run("$module.submodules.0.submodules.0.name")
+        .expect_value_eq("bacon")?;
+    tester
+        .run("$module.submodules.0.submodules.0.commands.0.name")
+        .expect_value_eq("sausage")?;
 
-        Ok(())
-    })
+    Ok(())
 }
 
 #[test]
-fn scope_modules_ignores_leading_shebang_in_module_description() -> Result {
-    Playground::setup(
-        "scope_modules_ignores_leading_shebang_in_module_description",
-        |dirs, sandbox| {
-            sandbox.with_files(&[FileWithContent(
-                "spam.nu",
-                "\
-#!/usr/bin/env nu
+fn scope_modules_ignores_leading_shebang_in_module_description(playground: Playground) -> Result {
+    playground.file(
+        "spam.nu",
+        "\
+                #!/usr/bin/env nu
+                
+                # module_line1
+                #
+                # module_line2
+                
+                export def foo [] {}
+            ",
+    )?;
 
-# module_line1
-#
-# module_line2
-
-export def foo [] {}
-",
-            )]);
-
-            let mut tester = test().cwd(dirs.test());
-            let description: String = tester
-                .run("use spam.nu *; scope modules | where name == spam | get 0.description")?;
-            assert_eq!(description, "module_line1");
-            Ok(())
-        },
-    )
+    let mut tester = test().cwd(playground.path());
+    let description: String =
+        tester.run("use spam.nu *; scope modules | where name == spam | get 0.description")?;
+    assert_eq!(description, "module_line1");
+    Ok(())
 }
 
 #[test]
-fn correct_scope_aliases_fields() -> Result {
-    Playground::setup("correct_scope_aliases_fields", |dirs, sandbox| {
-        let module_setup = "
-            # nice alias
-            export alias xaz = print
-        ";
-        sandbox.with_files(&[FileWithContent("spam.nu", module_setup)]);
+fn correct_scope_aliases_fields(playground: Playground) -> Result {
+    let module_setup = "
+        # nice alias
+        export alias xaz = print
+    ";
+    playground.file("spam.nu", module_setup)?;
 
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run("use spam.nu")?;
-        #[rustfmt::skip]
-        let () = tester.run("
-            let alias = scope aliases
-            | where name == 'spam xaz'
-            | first -s
-        ")?;
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("use spam.nu")?;
+    #[rustfmt::skip]
+    let () = tester.run("
+        let alias = scope aliases
+        | where name == 'spam xaz'
+        | first -s
+    ")?;
 
-        tester
-            .run("$alias | select name expansion description")
-            .expect_value_eq(test_value!({
-                name: "spam xaz",
-                expansion: "print",
-                description: "nice alias",
-            }))?;
+    tester
+        .run("$alias | select name expansion description")
+        .expect_value_eq(test_value!({
+            name: "spam xaz",
+            expansion: "print",
+            description: "nice alias",
+        }))?;
 
-        let _: i64 = tester.run("$alias.decl_id")?;
-        let _: i64 = tester.run("$alias.aliased_decl_id")?;
+    let _: i64 = tester.run("$alias.decl_id")?;
+    let _: i64 = tester.run("$alias.aliased_decl_id")?;
 
-        Ok(())
-    })
+    Ok(())
 }
 
 #[test]
@@ -217,34 +207,32 @@ fn scope_alias_aliased_decl_id_external() -> Result {
 }
 
 #[test]
-fn correct_scope_externs_fields() -> Result {
-    Playground::setup("correct_scope_aliases_fields", |dirs, sandbox| {
-        let module_setup = "
-            # nice extern
-            export extern git []
-        ";
-        sandbox.with_files(&[FileWithContent("spam.nu", module_setup)]);
+fn correct_scope_externs_fields(playground: Playground) -> Result {
+    let module_setup = "
+        # nice extern
+        export extern git []
+    ";
+    playground.file("spam.nu", module_setup)?;
 
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run("use spam.nu")?;
-        #[rustfmt::skip]
-        let () = tester.run("
-            let extern = scope externs
-            | where name == 'spam git'
-            | first -s
-        ")?;
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run("use spam.nu")?;
+    #[rustfmt::skip]
+    let () = tester.run("
+        let extern = scope externs
+        | where name == 'spam git'
+        | first -s
+    ")?;
 
-        tester
-            .run("$extern | select name description")
-            .expect_value_eq(test_value!({
-                name: "spam git",
-                description: "nice extern",
-            }))?;
+    tester
+        .run("$extern | select name description")
+        .expect_value_eq(test_value!({
+            name: "spam git",
+            description: "nice extern",
+        }))?;
 
-        let _: i64 = tester.run("$extern.decl_id")?;
+    let _: i64 = tester.run("$extern.decl_id")?;
 
-        Ok(())
-    })
+    Ok(())
 }
 
 #[test]
@@ -444,19 +432,17 @@ fn scope_aliases_shows_local_alias_in_closure() -> Result {
 }
 
 #[test]
-fn scope_modules_shows_local_use_in_closure() -> Result {
-    Playground::setup("scope_modules_local_use", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent("spam.nu", "export def foo [] { 'foo' }")]);
+fn scope_modules_shows_local_use_in_closure(playground: Playground) -> Result {
+    playground.file("spam.nu", "export def foo [] { 'foo' }")?;
 
-        let code = "
-            do {
-                use spam.nu
-                scope modules | where name == 'spam' | length
-            }
-        ";
+    let code = "
+        do {
+            use spam.nu
+            scope modules | where name == 'spam' | length
+        }
+    ";
 
-        test().cwd(dirs.test()).run(code).expect_value_eq(1)
-    })
+    test().cwd(playground.path()).run(code).expect_value_eq(1)
 }
 
 #[test]
@@ -524,19 +510,17 @@ fn scope_externs_shows_local_extern_in_closure() -> Result {
 }
 
 #[test]
-fn scope_modules_shows_local_use_in_if_block() -> Result {
-    Playground::setup("scope_modules_local_use_if", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent("spam.nu", "export def foo [] { 'foo' }")]);
+fn scope_modules_shows_local_use_in_if_block(playground: Playground) -> Result {
+    playground.file("spam.nu", "export def foo [] { 'foo' }")?;
 
-        let code = "
-            if true {
-                use spam.nu
-                scope modules | where name == 'spam' | length
-            }
-        ";
+    let code = "
+        if true {
+            use spam.nu
+            scope modules | where name == 'spam' | length
+        }
+    ";
 
-        test().cwd(dirs.test()).run(code).expect_value_eq(1)
-    })
+    test().cwd(playground.path()).run(code).expect_value_eq(1)
 }
 
 #[test]
