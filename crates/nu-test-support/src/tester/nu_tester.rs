@@ -94,13 +94,11 @@ pub static PLUGIN_AUTO_LOAD: RwLock<Vec<PluginAutoLoader>> = const_rwlock(Vec::n
 
 /// Create a [`NuTester`] for running Nushell snippets in tests.
 ///
-/// Prefer this helper over the `nu!` macro for most tests.
+/// Prefer this helper for most tests.
 /// It runs snippets in-process instead of shelling out to a subprocess, which makes tests faster
 /// and lets you pass and read values directly without inferring from stdout or stderr.
-/// The `nu!` macro executes the `nu` binary, and changes in a single crate might not trigger a
-/// rebuild of that binary, so tests can run against stale behavior unless you run `cargo build`
-/// first.
-/// Using this helper avoids that by executing against the in-process engine components.
+/// This also avoids stale binary behavior when changes in a single crate do not trigger a `nu`
+/// binary rebuild before running tests.
 ///
 /// The tester starts from a default [`EngineState`] with the standard library loaded, and a fresh
 /// [`Stack`].

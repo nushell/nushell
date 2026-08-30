@@ -600,10 +600,6 @@ pub mod net;
 pub mod playground;
 pub mod value_types;
 
-pub mod deprecated;
-#[doc(no_inline)]
-pub use deprecated::*;
-
 pub mod tester;
 pub use tester::{Result, ShellErrorExt, TestError as Error, TestResultExt, test};
 
@@ -630,9 +626,6 @@ pub mod prelude {
 
 // Expose macros to be used for the test harness.
 pub use harness::macros::*;
-
-// Needs to be reexported for `nu!` macro
-pub use nu_path;
 
 // Export json macro to allow writing json values easily.
 #[doc(no_inline)]
