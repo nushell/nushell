@@ -353,7 +353,6 @@ fn canonicalize_symlink_relative_to(playground: Playground) -> Result {
 #[cfg(not(windows))] // seems like Windows symlink requires existing file or dir
 #[test]
 fn canonicalize_symlink_loop_relative_to_should_fail(playground: Playground) -> Result {
-    // sandbox.with_files(vec![EmptyFile("spam.txt")]);
     playground.symlink("spam.txt", "link_to_spam.txt")?;
     playground.symlink("link_to_spam.txt", "spam.txt")?;
 

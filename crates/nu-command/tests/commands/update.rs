@@ -380,19 +380,17 @@ fn update_literal_on_sqlite_query_builder() -> Result {
 
 #[cfg(feature = "sqlite")]
 #[test]
-fn update_into_datetime_on_sqlite_query_builder() -> Result {
-    Playground::setup("update_sqlite_datetime", |dirs, _| {
-        let code = "
-            [{ key: test, created: 1787132290545485211, expiry: 1787139010545500670, value: [7, 2, 128] }]
-            | into sqlite --table-name std_cache_store test.db
-            open test.db | get std_cache_store | update expiry { into datetime } | get expiry.0 | describe
-        ";
+fn update_into_datetime_on_sqlite_query_builder(playground: Playground) -> Result {
+    let code = "
+        [{ key: test, created: 1787132290545485211, expiry: 1787139010545500670, value: [7, 2, 128] }]
+        | into sqlite --table-name std_cache_store test.db
+        open test.db | get std_cache_store | update expiry { into datetime } | get expiry.0 | describe
+    ";
 
-        test()
-            .cwd(dirs.test())
-            .run(code)
-            .expect_value_eq("datetime")
-    })
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq("datetime")
 }
 
 #[test]
