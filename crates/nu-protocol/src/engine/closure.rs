@@ -1,6 +1,7 @@
 use std::{
     borrow::Cow,
     fmt::{self, Debug},
+    hash::{Hash, Hasher},
 };
 
 use crate::{BlockId, ShellError, Span, Value, VarId, engine::EngineState};
@@ -26,6 +27,14 @@ impl Debug for Closure {
                 }),
             )
             .finish()
+    }
+}
+
+impl Hash for Closure {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        // Only hash block_id to match PartialOrd which compares closures by
+        // block_id alone. Including captures would violate the hash contract.
+        self.block_id.hash(state);
     }
 }
 
