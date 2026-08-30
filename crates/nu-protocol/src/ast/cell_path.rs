@@ -2,7 +2,12 @@ use super::Expression;
 use crate::{Span, casing::Casing};
 use nu_utils::{escape_quote_string, needs_quoting};
 use serde::{Deserialize, Serialize};
-use std::{cmp::Ordering, fmt::Display, hash::{Hash, Hasher}, str::FromStr};
+use std::{
+    cmp::Ordering,
+    fmt::Display,
+    hash::{Hash, Hasher},
+    str::FromStr,
+};
 use winnow::Parser;
 
 /// One level of access of a [`CellPath`]
