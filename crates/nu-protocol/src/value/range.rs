@@ -556,16 +556,9 @@ mod float_range {
         fn hash<H: Hasher>(&self, state: &mut H) {
             self.start.to_bits().hash(state);
             self.step.to_bits().hash(state);
-            match self.end {
-                Bound::Unbounded => 0u8.hash(state),
-                Bound::Included(v) => {
-                    1u8.hash(state);
-                    v.to_bits().hash(state);
-                }
-                Bound::Excluded(v) => {
-                    2u8.hash(state);
-                    v.to_bits().hash(state);
-                }
+            std::mem::discriminant(&self.end).hash(state);
+            if let Bound::Included(v) | Bound::Excluded(v) = self.end {
+                v.to_bits().hash(state);
             }
         }
     }
@@ -786,15 +779,14 @@ impl Eq for Range {}
 
 impl Hash for Range {
     fn hash<H: Hasher>(&self, state: &mut H) {
+        std::mem::discriminant(self).hash(state);
         match self {
             Range::IntRange(r) => {
-                0u8.hash(state);
                 r.start().hash(state);
                 r.step().hash(state);
                 r.end().hash(state);
             }
             Range::FloatRange(r) => {
-                1u8.hash(state);
                 r.hash(state);
             }
         }
