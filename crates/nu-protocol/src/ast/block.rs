@@ -24,6 +24,12 @@ pub struct Block {
     /// Not serialized: only meaningful within the process that parsed the block.
     #[serde(skip)]
     pub scope_bindings: Option<Arc<ScopeBindings>>,
+    /// Whether `parse_block` ran with `scoped = true` (`enter_scope`).
+    ///
+    /// Distinct from `scope_bindings`: a scoped parse of a let-only file still
+    /// snapshots as `None`. Needed so `source` does not reuse a `source-env` parse.
+    #[serde(skip)]
+    pub parsed_scoped: bool,
 }
 
 impl Block {
@@ -63,6 +69,7 @@ impl Block {
             ir_block: None,
             span: None,
             scope_bindings: None,
+            parsed_scoped: false,
         }
     }
 
@@ -75,6 +82,7 @@ impl Block {
             ir_block: None,
             span: None,
             scope_bindings: None,
+            parsed_scoped: false,
         }
     }
 
@@ -113,6 +121,7 @@ where
             ir_block: None,
             span: None,
             scope_bindings: None,
+            parsed_scoped: false,
         }
     }
 }

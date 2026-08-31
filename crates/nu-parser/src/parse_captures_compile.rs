@@ -6,7 +6,10 @@ use nu_protocol::{
     BlockId, IN_VARIABLE_ID, LAST_VARIABLE_ID, ParseError, Span, Type, VarId, ast::*,
     engine::StateWorkingSet,
 };
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 pub fn compile_block(working_set: &mut StateWorkingSet<'_>, block: &mut Block) {
     if !working_set.parse_errors.is_empty() {
@@ -78,6 +81,66 @@ pub fn discover_captures_in_closure(
     }
 
     Ok(())
+}
+
+fn parser_info_block_id(call: &Call) -> Option<BlockId> {
+    match &call.get_parser_info("block_id")?.expr {
+        Expr::Int(id) if *id >= 0 => Some(BlockId::new(*id as usize)),
+        _ => None,
+    }
+}
+
+fn bubble_captures_from_block_id(
+    working_set: &StateWorkingSet,
+    block_id: BlockId,
+    seen: &mut [VarId],
+    seen_blocks: &mut HashMap<BlockId, Vec<(VarId, Span)>>,
+    output: &mut Vec<(VarId, Span)>,
+) -> Result<(), ParseError> {
+    match seen_blocks.get(&block_id) {
+        Some(capture_list) => {
+            for capture in capture_list {
+                if !seen.contains(&capture.0) {
+                    output.push(*capture);
+                }
+            }
+            Ok(())
+        }
+        None => {
+            let block = working_set.get_block(block_id);
+            if !block.captures.is_empty() {
+                for (capture, span) in &block.captures {
+                    if !seen.contains(capture) {
+                        output.push((*capture, *span));
+                    }
+                }
+                Ok(())
+            } else {
+                let result = {
+                    let mut inner_seen = vec![];
+                    seen_blocks.insert(block_id, vec![]);
+
+                    let mut result = vec![];
+                    discover_captures_in_closure(
+                        working_set,
+                        block,
+                        &mut inner_seen,
+                        seen_blocks,
+                        &mut result,
+                    )?;
+
+                    result
+                };
+                for capture in &result {
+                    if !seen.contains(&capture.0) {
+                        output.push(*capture);
+                    }
+                }
+                seen_blocks.insert(block_id, result);
+                Ok(())
+            }
+        }
+    }
 }
 
 fn discover_captures_in_pipeline(
@@ -232,50 +295,24 @@ pub fn discover_captures_in_expr(
             } else {
                 let decl = working_set.get_decl(call.decl_id);
                 if let Some(block_id) = decl.block_id() {
-                    match seen_blocks.get(&block_id) {
-                        Some(capture_list) => {
-                            // Push captures onto the outer closure that aren't created by that outer closure
-                            for capture in capture_list {
-                                if !seen.contains(&capture.0) {
-                                    output.push(*capture);
-                                }
-                            }
-                        }
-                        None => {
-                            let block = working_set.get_block(block_id);
-                            if !block.captures.is_empty() {
-                                for (capture, span) in &block.captures {
-                                    if !seen.contains(capture) {
-                                        output.push((*capture, *span));
-                                    }
-                                }
-                            } else {
-                                let result = {
-                                    let mut seen = vec![];
-                                    seen_blocks.insert(block_id, vec![]);
-
-                                    let mut result = vec![];
-                                    discover_captures_in_closure(
-                                        working_set,
-                                        block,
-                                        &mut seen,
-                                        seen_blocks,
-                                        &mut result,
-                                    )?;
-
-                                    result
-                                };
-                                // Push captures onto the outer closure that aren't created by that outer closure
-                                for capture in &result {
-                                    if !seen.contains(&capture.0) {
-                                        output.push(*capture);
-                                    }
-                                }
-
-                                seen_blocks.insert(block_id, result);
-                            }
-                        }
-                    }
+                    bubble_captures_from_block_id(
+                        working_set,
+                        block_id,
+                        seen,
+                        seen_blocks,
+                        output,
+                    )?;
+                }
+                // `source` / `source-env` store the sourced file as parser_info
+                // `block_id` (Expr::Int), not as decl.block_id() or a call argument.
+                if let Some(block_id) = parser_info_block_id(call) {
+                    bubble_captures_from_block_id(
+                        working_set,
+                        block_id,
+                        seen,
+                        seen_blocks,
+                        output,
+                    )?;
                 }
             }
 
@@ -538,17 +575,96 @@ pub fn parse_fresh(
     parse_with_block_cache(working_set, fname, contents, scoped, false)
 }
 
-/// Whether every free-variable capture on `block` still names the same `VarId`.
-///
-/// File-level `block.captures` includes vars used inside nested `def` bodies
-/// (`discover_captures_in_expr` bubbles those up). That is the #18515 set:
-/// outer `let`/`mut` re-declarations change the `VarId` and must not reuse.
-/// Files with no free vars (libraries of `def`s) return true immediately.
+fn cached_block_reusable(working_set: &StateWorkingSet, block: &Block, scoped: bool) -> bool {
+    block.parsed_scoped == scoped && cached_block_captures_still_valid(working_set, block)
+}
+
+/// Child sourced blocks can hold captures that are not on this block yet.
 fn cached_block_captures_still_valid(working_set: &StateWorkingSet, block: &Block) -> bool {
-    block
+    if !block
         .captures
         .iter()
         .all(|(var_id, span)| capture_binding_is_current(working_set, *var_id, *span))
+    {
+        return false;
+    }
+    nested_source_blocks_still_valid(working_set, block, &mut HashSet::new())
+}
+
+fn nested_source_blocks_still_valid(
+    working_set: &StateWorkingSet,
+    block: &Block,
+    visited: &mut HashSet<BlockId>,
+) -> bool {
+    for pipeline in &block.pipelines {
+        for element in &pipeline.elements {
+            if !expr_nested_source_blocks_still_valid(working_set, &element.expr, visited) {
+                return false;
+            }
+        }
+    }
+    true
+}
+
+fn expr_nested_source_blocks_still_valid(
+    working_set: &StateWorkingSet,
+    expr: &Expression,
+    visited: &mut HashSet<BlockId>,
+) -> bool {
+    match &expr.expr {
+        Expr::Call(call) => {
+            if let Some(block_id) = parser_info_block_id(call)
+                && visited.insert(block_id)
+            {
+                let nested = working_set.get_block(block_id);
+                if !nested
+                    .captures
+                    .iter()
+                    .all(|(var_id, span)| capture_binding_is_current(working_set, *var_id, *span))
+                {
+                    return false;
+                }
+                if !nested_source_blocks_still_valid(working_set, nested, visited) {
+                    return false;
+                }
+            }
+            for arg in &call.arguments {
+                let inner = match arg {
+                    Argument::Named(named) => named.2.as_ref(),
+                    Argument::Positional(expr)
+                    | Argument::Unknown(expr)
+                    | Argument::Spread(expr) => Some(expr),
+                };
+                if let Some(inner) = inner
+                    && !expr_nested_source_blocks_still_valid(working_set, inner, visited)
+                {
+                    return false;
+                }
+            }
+            true
+        }
+        Expr::Closure(block_id)
+        | Expr::Block(block_id)
+        | Expr::Subexpression(block_id)
+        | Expr::RowCondition(block_id) => {
+            if visited.insert(*block_id) {
+                nested_source_blocks_still_valid(
+                    working_set,
+                    working_set.get_block(*block_id),
+                    visited,
+                )
+            } else {
+                true
+            }
+        }
+        Expr::AttributeBlock(ab) => {
+            expr_nested_source_blocks_still_valid(working_set, &ab.item, visited)
+        }
+        Expr::Collect(_, inner) => {
+            expr_nested_source_blocks_still_valid(working_set, inner, visited)
+        }
+        _ => true,
+    }
 }
 
 fn capture_binding_is_current(working_set: &StateWorkingSet, var_id: VarId, span: Span) -> bool {
@@ -588,20 +704,16 @@ fn parse_with_block_cache(
 
     let new_span = working_set.get_span_for_file(file_id);
 
-    // Reuse a previously-parsed block with the same span when its free
-    // variables still bind to the current VarIds. Stale captures (REPL
-    // `let`/`mut` re-declaration, #18515) fall through and re-parse.
+    // Reuse when scoped-ness matches and free vars still bind to these VarIds.
     if use_block_cache {
         for cached in working_set.blocks_with_span_newest_first(new_span) {
-            if cached_block_captures_still_valid(working_set, &cached) {
+            if cached_block_reusable(working_set, &cached, scoped) {
                 return cached;
             }
         }
     }
 
-    // Capture discovery below should only consider blocks created by this parse.
-    // Walking the whole delta is O(historical blocks) per source and made
-    // repeated `source` of the same file quadratic after parse_fresh.
+    // Only blocks created by this parse. Older delta entries already have captures.
     let first_new_delta_block = working_set.delta.blocks.len();
 
     let mut output = {
@@ -651,11 +763,11 @@ fn parse_with_block_cache(
 
         if !seen_blocks.contains_key(&block_id) {
             let mut captures = vec![];
-            let block = working_set.delta.blocks[block_idx].clone();
+            let block = &working_set.delta.blocks[block_idx];
 
             match discover_captures_in_closure(
                 working_set,
-                &block,
+                block,
                 &mut seen,
                 &mut seen_blocks,
                 &mut captures,

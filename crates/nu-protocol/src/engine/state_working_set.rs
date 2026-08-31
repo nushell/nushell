@@ -1070,10 +1070,6 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     /// Blocks covering `span`, newest first (delta before permanent).
-    ///
-    /// The parser uses this to reuse a sourced file when free-variable captures
-    /// still resolve to the current `VarId`s. Newest first so a re-parsed block
-    /// (same span, new bindings) is preferred over a stale one.
     pub fn blocks_with_span_newest_first(&self, span: Span) -> Vec<Arc<Block>> {
         let mut blocks = Vec::new();
         for block in self.delta.blocks.iter().rev() {
@@ -1087,6 +1083,21 @@ impl<'a> StateWorkingSet<'a> {
             }
         }
         blocks
+    }
+
+    /// Identity lookup so a cache hit can keep the existing `BlockId`.
+    pub fn find_block_id_of(&self, block: &Arc<Block>) -> Option<BlockId> {
+        for (idx, existing) in self.delta.blocks.iter().enumerate() {
+            if Arc::ptr_eq(existing, block) {
+                return Some(BlockId::new(self.permanent_state.num_blocks() + idx));
+            }
+        }
+        for (idx, existing) in self.permanent_state.blocks.iter().enumerate() {
+            if Arc::ptr_eq(existing, block) {
+                return Some(BlockId::new(idx));
+            }
+        }
+        None
     }
 
     pub fn find_module_by_span(&self, span: Span) -> Option<ModuleId> {

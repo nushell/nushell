@@ -645,6 +645,102 @@ fn source_same_file_does_not_multiply_decls() -> Result {
 }
 
 #[test]
+fn source_redeclared_let_visible_through_nested_source() -> Result {
+    // Wrapper files that only `source` a child with free vars must not reuse a
+    // stale child block after `let` is redeclared.
+    Playground::setup(
+        "source_redeclared_nested_source",
+        |dirs, sandbox| -> Result {
+            sandbox.with_files(&[
+                FileWithContent("b.nu", "$xxx"),
+                FileWithContent("a.nu", "source b.nu"),
+            ]);
+
+            let mut tester = test().cwd(dirs.test());
+
+            let out1: String = tester.run("let xxx = 'first'; source a.nu")?;
+            assert_eq!(out1, "first");
+
+            let out2: String = tester.run("let xxx = 'second'; source a.nu")?;
+            assert_eq!(out2, "second");
+
+            Ok(())
+        },
+    )
+}
+
+#[test]
+fn source_redeclared_let_visible_through_def_wrapping_source() -> Result {
+    Playground::setup(
+        "source_redeclared_def_wraps_source",
+        |dirs, sandbox| -> Result {
+            sandbox.with_files(&[
+                FileWithContent("b.nu", "$xxx"),
+                FileWithContent("a.nu", "def foo [] { source b.nu }"),
+            ]);
+
+            let mut tester = test().cwd(dirs.test());
+
+            let out1: String = tester.run("let xxx = 'first'; source a.nu; foo")?;
+            assert_eq!(out1, "first");
+
+            let out2: String = tester.run("let xxx = 'second'; source a.nu; foo")?;
+            assert_eq!(out2, "second");
+
+            Ok(())
+        },
+    )
+}
+
+#[test]
+fn source_after_source_env_still_registers_defs() -> Result {
+    // `source` is unscoped; `source-env` is scoped. Reuse must not share those
+    // parses, or `source` after `source-env` would skip overlay registration.
+    Playground::setup("source_after_source_env_defs", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent("lib.nu", "def from_lib [] { 7 }")]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("source-env lib.nu")?;
+        tester
+            .run("from_lib")
+            .expect_error_code_eq("nu::shell::external_command")?;
+
+        let () = tester.run("source lib.nu")?;
+        tester.run("from_lib").expect_value_eq(7)?;
+        Ok(())
+    })
+}
+
+#[test]
+fn source_after_source_env_still_registers_lets() -> Result {
+    // Scoped let-only files snapshot `scope_bindings` as None. Reuse must still
+    // distinguish `source` from `source-env` so overlay vars get registered.
+    Playground::setup("source_after_source_env_lets", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[
+            FileWithContent("lets.nu", "let foo = 1"),
+            FileWithContent("consts.nu", "const bar = 2"),
+        ]);
+
+        let mut tester = test().cwd(dirs.test());
+
+        let () = tester.run("source-env lets.nu")?;
+        tester
+            .run("$foo")
+            .expect_error_code_eq("nu::parser::variable_not_found")?;
+        let () = tester.run("source lets.nu")?;
+        tester.run("$foo").expect_value_eq(1)?;
+
+        let () = tester.run("source-env consts.nu")?;
+        tester
+            .run("$bar")
+            .expect_error_code_eq("nu::parser::variable_not_found")?;
+        let () = tester.run("source consts.nu")?;
+        tester.run("$bar").expect_value_eq(2)?;
+        Ok(())
+    })
+}
+
+#[test]
 fn source_use_file_named_null() -> Result {
     Playground::setup("source_file_named_null", |dirs, sandbox| -> Result {
         sandbox.with_files(&[FileWithContent(

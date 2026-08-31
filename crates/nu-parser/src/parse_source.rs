@@ -150,10 +150,7 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
                             return garbage_pipeline(working_set, spans);
                         }
 
-                        // Parse with capture-valid span reuse. Files with no
-                        // free vars reuse the cached block (0.114 behavior).
-                        // Redeclared outer `let`/`mut` invalidates the cache so
-                        // sourced files see the new VarIds (#18515 / #18538).
+                        // Reuse the cached parse only when VarIds still match.
                         let mut block = parse(
                             working_set,
                             Some(&path.path().to_string_lossy()),
@@ -167,7 +164,9 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
 
                         working_set.files.pop();
 
-                        let block_id = working_set.add_block(block);
+                        let block_id = working_set
+                            .find_block_id_of(&block)
+                            .unwrap_or_else(|| working_set.add_block(block));
 
                         let mut call_with_block = call;
 
