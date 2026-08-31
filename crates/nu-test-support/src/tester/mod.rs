@@ -32,8 +32,12 @@ use nu_protocol::{PluginIdentity, PluginSignature, RegisteredPlugin};
 ///
 /// Default starting cwd for [`test()`].
 pub static WORKSPACE_ROOT: LazyLock<PathBuf> = LazyLock::new(|| {
-    path::absolute(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."))
-        .expect("could not absolutize root")
+    // `path::absolute` doesn't resolve ".." lexically, so the "../.." here would
+    // otherwise leak into every path derived from `WORKSPACE_ROOT`.
+    nu_path::dots::expand_dots(
+        path::absolute(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."))
+            .expect("could not absolutize root"),
+    )
 });
 
 /// Test fixtures.
