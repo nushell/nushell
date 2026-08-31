@@ -229,14 +229,25 @@ fn expand_locale_specifiers(formatter: &str, locale: Locale) -> String {
             Some('x') => Some(locale_match!(locale => LC_TIME::D_FMT)),
             Some('X') => Some(locale_match!(locale => LC_TIME::T_FMT)),
             Some('c') => Some(locale_match!(locale => LC_TIME::D_T_FMT)),
-            Some('r') => Some(locale_match!(locale => LC_TIME::T_FMT_AMPM)),
+            Some('r') => {
+                // A locale can have no am/pm form at all — `t_fmt_ampm` is ""
+                // for `de_DE`, `fr_FR`, `nl_NL`, `az_IR` and `fa_IR`. chrono
+                // falls back to the plain time format there, so do that same
+                // substitution here: handing `%r` back to chrono would let its
+                // fallback reintroduce the modifier we are removing, which is
+                // what left `az_IR`/`fa_IR` (`t_fmt` = `%OH:%OM:%OS`) failing.
+                let ampm = locale_match!(locale => LC_TIME::T_FMT_AMPM);
+                Some(if ampm.is_empty() {
+                    locale_match!(locale => LC_TIME::T_FMT)
+                } else {
+                    ampm
+                })
+            }
             _ => None,
         };
 
-        // A locale can leave one of these empty — `de_DE`, `fr_FR` and `nl_NL`
-        // all have no am/pm form, so `t_fmt_ampm` is "". Substituting that would
-        // erase the output, where chrono falls back to the plain time format.
-        // Leave the specifier alone and let chrono do what it already does.
+        // An empty expansion would erase the output, so leave the specifier
+        // alone and let chrono resolve it.
         match expansion {
             Some(fmt) if !fmt.is_empty() => {
                 chars.next();
@@ -439,13 +450,13 @@ mod test {
         assert_eq!(resolve_locale_specifiers("%Od", Locale::en_US), "%d");
     }
 
-    /// The regression this nearly shipped with: `de_DE`, `fr_FR` and `nl_NL`
-    /// have no am/pm time format, and substituting the empty string for `%r`
-    /// erased the output instead of leaving chrono its own fallback.
+    /// `de_DE`, `fr_FR` and `nl_NL` have no am/pm time format, so `t_fmt_ampm`
+    /// is "". Substituting the empty string for `%r` would erase the output;
+    /// the plain time format is what chrono itself falls back to.
     #[test]
-    fn leaves_a_specifier_alone_when_the_locale_has_no_string_for_it() {
-        assert_eq!(resolve_locale_specifiers("%r", Locale::de_DE), "%r");
-        assert_eq!(resolve_locale_specifiers("%r", Locale::fr_FR), "%r");
+    fn falls_back_to_the_plain_time_format_when_the_locale_has_no_am_pm() {
+        assert_eq!(resolve_locale_specifiers("%r", Locale::de_DE), "%T");
+        assert_eq!(resolve_locale_specifiers("%r", Locale::fr_FR), "%T");
         assert_eq!(
             resolve_locale_specifiers("%r", Locale::en_US),
             "%I:%M:%S %p"
@@ -459,8 +470,57 @@ mod test {
         assert_eq!(
             format_from(dt, "%r", span, Locale::de_DE),
             Value::string("13:45:00", span),
-            "an empty am/pm format must fall through to chrono, not blank the output"
+            "an empty am/pm format must not blank the output"
         );
+    }
+
+    /// `az_IR` and `fa_IR` have both an empty `t_fmt_ampm` *and* a `t_fmt` that
+    /// carries `%O`. Handing `%r` back to chrono let its own fallback pull that
+    /// modifier in again, so those two still failed after #18918.
+    #[test]
+    fn resolves_the_am_pm_fallback_when_it_also_carries_a_modifier() {
+        assert_eq!(resolve_locale_specifiers("%r", Locale::az_IR), "%H:%M:%S");
+        assert_eq!(resolve_locale_specifiers("%r", Locale::fa_IR), "%H:%M:%S");
+
+        let dt = Utc
+            .with_ymd_and_hms(2026, 8, 27, 13, 45, 0)
+            .single()
+            .expect("valid date");
+        let span = Span::test_data();
+        assert_eq!(
+            format_from(dt, "%r", span, Locale::az_IR),
+            Value::string("13:45:00", span)
+        );
+    }
+
+    /// Every locale whose `LC_TIME` strings carry `%E` or `%O` must render.
+    #[test]
+    fn renders_every_locale_that_carries_an_alternative_modifier() {
+        let dt = Utc
+            .with_ymd_and_hms(2026, 8, 27, 13, 45, 0)
+            .single()
+            .expect("valid date");
+        let span = Span::test_data();
+
+        for locale in [
+            Locale::az_IR,
+            Locale::fa_IR,
+            Locale::lo_LA,
+            Locale::lzh_TW,
+            Locale::mnw_MM,
+            Locale::my_MM,
+            Locale::or_IN,
+            Locale::shn_MM,
+            Locale::th_TH,
+        ] {
+            for formatter in ["%x", "%X", "%c", "%r"] {
+                let value = format_from(dt, formatter, span, locale);
+                assert!(
+                    matches!(value, Value::String { .. }),
+                    "{locale:?} {formatter} did not render: {value:?}"
+                );
+            }
+        }
     }
 
     #[test]

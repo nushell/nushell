@@ -98,8 +98,26 @@ fn tutor(
             variable_tutor(),
         ),
         (vec!["block", "blocks"], block_tutor()),
+        (
+            vec![
+                "custom-command",
+                "custom-commands",
+                "function",
+                "functions",
+                "def",
+            ],
+            custom_command_tutor(),
+        ),
         (vec!["closure", "closures"], closure_tutor()),
+        (
+            vec!["pipeline-input", "pipeline-inputs", "pipeline", "pipelines"],
+            pipeline_input_tutor(),
+        ),
         (vec!["shorthand", "shorthands"], shorthand_tutor()),
+        (
+            vec!["shortcut", "shortcuts", "bashism", "bashisms"],
+            bashisms_tutor(),
+        ),
     ];
 
     if let Some(find) = find {
@@ -345,9 +363,11 @@ $x
 ```
 Nushell also comes with built-in variables. The `$nu` variable is a reserved
 variable that contains a lot of information about the currently running
-instance of Nushell. The `$it` variable is the name given to closure parameters
-if you don't specify one. And `$in` is the variable that allows you to work
-with all of the data coming in from the pipeline in one place.
+instance of Nushell. The `$env` variable contains the environment variables
+available to the current Nushell process. The `$it` variable is the name given
+to row-condition closure parameters if you don't specify one. And `$in` is the 
+variable that allows you to work with all of the data coming in from the 
+pipeline in one place.
 
 "
 }
@@ -399,6 +419,10 @@ let multiplier = 3
 
 Many commands also make the incoming pipeline value available as `$in` inside the closure.
 
+You can continue to learn about working with pipeline input by running:
+```
+tutor pipeline-input
+```
 "
 }
 
@@ -427,6 +451,149 @@ produce the same value using:
 (ls).4.name
 ```
 "#
+}
+
+fn bashisms_tutor() -> &'static str {
+    r#"
+You can use shortcuts to quickly insert text from command history into the
+input buffer.
+
+You can use `!!` to insert the last command you entered into the input buffer.
+```
+!!
+```
+After pressing Enter, `!!` is expanded into the previous command in the input
+buffer. The expanded command is not executed until you press Enter again.
+
+You can also use `!!` as part of a larger command.
+```
+tutor shortcut
+!! | find "shortcut"
+```
+The above expands `!!` into the previous command while keeping the rest of the
+text in the input buffer.
+
+You can use `!$` to insert the last spatially delimited argument from the 
+previous command into the input buffer.
+```
+echo hello world
+echo !$
+```
+After pressing Enter, `!$` is expanded to `world` in the input buffer. The
+resulting command is not executed until you press Enter again.
+
+You can use `!<idx>` to insert a command from the command history into the input
+buffer. The index corresponds to the command's index in the history.
+```
+history
+!5
+```
+After pressing Enter, `!5` is expanded to the command with history index `5` in
+the input buffer.
+
+You can use `!-<number>` to insert a command from a number of entries back in
+the history into the input buffer.
+```
+!-5
+```
+After pressing Enter, `!-5` is expanded to the command from five entries back in
+the history.
+"#
+}
+
+fn custom_command_tutor() -> &'static str {
+    r#"
+Custom commands allow you to create your own commands in Nushell. You can
+define a custom command using the `def` keyword.
+
+For example, this defines a command called `greet`:
+```
+def greet [] {
+    print "Hello!"
+}
+```
+
+You can then run it just like any other command:
+```
+greet
+```
+
+Custom commands can also accept arguments. You define the arguments between
+the square brackets:
+```
+def greet [name] {
+    print $"Hello, ($name)!"
+}
+```
+
+Now you can pass a name to the command:
+```
+greet "Nushell"
+```
+
+You can give arguments a type to make the expected input clearer:
+```
+def add [a: int, b: int] {
+    $a + $b
+}
+```
+
+You can also provide default values for arguments:
+```
+def greet [name = "world"] {
+    print $"Hello, ($name)!"
+}
+```
+
+You can learn more about using pipeline input with custom commands by running:
+```
+tutor pipeline-input
+```
+
+You can learn more about custom commands and see additional examples by
+running:
+```
+help def
+```
+"#
+}
+
+fn pipeline_input_tutor() -> &'static str {
+    "
+Custom commands can receive values from the pipeline. This allows you to
+create commands that work naturally with other Nushell commands.
+
+For example, this custom command takes pipeline input and doubles each value:
+```
+def double [] {
+    each { |x| $x * 2 }
+}
+```
+
+You can use it as part of a pipeline:
+```
+[1 2 3] | double
+```
+
+Custom commands can also access all of their pipeline input through `$in`:
+```
+def total [] {
+    $in | math sum
+}
+```
+
+This allows the custom command to work with the entire value coming through
+the pipeline:
+```
+[1 2 3 4] | total
+```
+
+You can learn more about closures, which are commonly used when processing
+pipeline data, by running:
+```
+tutor closures
+```
+"
 }
 
 fn display(help: &str, engine_state: &EngineState, stack: &mut Stack, span: Span) -> PipelineData {

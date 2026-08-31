@@ -33,6 +33,8 @@ styl = "styl"
 [default.extend-identifiers]
 ratatui = "ratatui"
 enabled_indented_mutiline_value = "enabled_indented_mutiline_value"
+# unicode general category, "number, decimal digit"
+Nd = "Nd"
 
 [default.extend-words]
 ratatui = "ratatui"

@@ -236,7 +236,7 @@ mod hover_tests {
         },
     };
     use assert_json_diff::assert_json_eq;
-    use nu_test_support::fs::fixtures;
+    use nu_test_support::prelude::*;
     use rstest::rstest;
 
     #[rstest]
@@ -266,7 +266,7 @@ mod hover_tests {
     ) {
         let (client_connection, _recv) = initialize_language_server(None, None);
 
-        let mut script = fixtures();
+        let mut script = FIXTURES.clone();
         script.push("lsp/hover");
         script.push(filename);
         let script = path_to_uri(&script);
@@ -286,7 +286,7 @@ mod hover_tests {
     fn hover_on_external_command() {
         let (client_connection, _recv) = initialize_language_server(None, None);
 
-        let mut script = fixtures();
+        let mut script = FIXTURES.clone();
         script.push("lsp/hover/command.nu");
         let script = path_to_uri(&script);
 
@@ -314,7 +314,7 @@ mod hover_tests {
         #[case] expected_prefix: &str,
         #[case] use_config: bool,
     ) {
-        let mut script = fixtures();
+        let mut script = FIXTURES.clone();
         script.push("lsp");
         script.push(filename);
         let script_uri = path_to_uri(&script);

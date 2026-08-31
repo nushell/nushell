@@ -116,7 +116,7 @@ mod tests {
         TextDocumentPositionParams, Uri, WorkDoneProgressParams,
         request::{GotoDefinition, Request},
     };
-    use nu_test_support::fs::{fixtures, root};
+    use nu_test_support::prelude::*;
     use rstest::rstest;
 
     fn send_goto_definition_request(
@@ -152,7 +152,7 @@ mod tests {
     fn goto_definition_for_none_existing_file() {
         let (client_connection, _recv) = initialize_language_server(None, None);
 
-        let mut none_existent_path = root();
+        let mut none_existent_path = WORKSPACE_ROOT.clone();
         none_existent_path.push("none-existent.nu");
         let script = path_to_uri(&none_existent_path);
         let resp = send_goto_definition_request(&client_connection, script, 0, 0);
@@ -185,7 +185,7 @@ mod tests {
     ) {
         let (client_connection, _recv) = initialize_language_server(None, None);
 
-        let mut script = fixtures();
+        let mut script = FIXTURES.clone();
         script.push("lsp");
         script.push(filename);
         let script = path_to_uri(&script);
@@ -219,7 +219,7 @@ mod tests {
     fn goto_definition_in_new_file() {
         let (client_connection, _recv) = initialize_language_server(None, None);
 
-        let mut script = fixtures();
+        let mut script = FIXTURES.clone();
         script.push("lsp/no_such_file.nu");
         let script = path_to_uri(&script);
 
@@ -253,7 +253,7 @@ mod tests {
     fn goto_definition_on_stdlib_should_not_panic() {
         let (client_connection, _recv) = initialize_language_server(None, None);
 
-        let mut script = fixtures();
+        let mut script = FIXTURES.clone();
         script.push("lsp/goto/use_module.nu");
         let script = path_to_uri(&script);
 
