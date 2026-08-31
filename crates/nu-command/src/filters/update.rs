@@ -98,6 +98,14 @@ When updating a specific index, the closure will instead be run once. The first 
                     Value::test_int(3),
                 ])),
             },
+            Example {
+                description: "Use a closure to update a value at a nested path. The row is passed as the closure argument.",
+                example: "[{a: 1, b: 2}] | update 0.a {|row| $row.b }",
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "a" => Value::test_int(2),
+                    "b" => Value::test_int(2),
+                })])),
+            },
         ]
     }
 }

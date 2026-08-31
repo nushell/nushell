@@ -161,6 +161,14 @@ If the command is inserting at the end of a list or table, then both of these va
                     )),
                 ])),
             },
+            Example {
+                description: "Use a closure to upsert a value at a nested path. The row is passed as the closure argument.",
+                example: "[{a: 1}] | upsert 0.b {|row| $row.a + 1 }",
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "a" => Value::test_int(1),
+                    "b" => Value::test_int(2),
+                })])),
+            },
         ]
     }
 }

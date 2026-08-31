@@ -131,6 +131,14 @@ When inserting into a specific index, the closure will instead get the current v
                     )),
                 ])),
             },
+            Example {
+                description: "Use a closure to insert a value at a nested path. The row is passed as the closure argument.",
+                example: "[{a: 1}] | insert 0.b {|row| $row.a + 1 }",
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "a" => Value::test_int(1),
+                    "b" => Value::test_int(2),
+                })])),
+            },
         ]
     }
 }
