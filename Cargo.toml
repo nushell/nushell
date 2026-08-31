@@ -474,7 +474,6 @@ inherits = "release"
 opt-level = "z" # Optimize for size, but also turn off loop vectorization
 strip = true
 lto = true
-panic = "abort"
 codegen-units = 1
 
 # build with `cargo build --profile profiling`
