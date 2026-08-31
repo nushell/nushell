@@ -11,6 +11,12 @@ use std::{
 };
 use winnow::Parser;
 
+/// Hash an `f64` consistently with `f64 ==` by collapsing `-0.0` to `0.0`.
+pub(crate) fn hash_f64_eq<H: Hasher>(val: f64, state: &mut H) {
+    let val = if val == 0.0 { 0.0 } else { val };
+    val.to_bits().hash(state);
+}
+
 mod int_range {
     use crate::{FromValue, ShellError, Signals, Span, Value, ast::RangeInclusion};
     use serde::{Deserialize, Serialize};
@@ -554,11 +560,11 @@ mod float_range {
 
     impl Hash for FloatRange {
         fn hash<H: Hasher>(&self, state: &mut H) {
-            self.start.to_bits().hash(state);
-            self.step.to_bits().hash(state);
+            super::hash_f64_eq(self.start, state);
+            super::hash_f64_eq(self.step, state);
             std::mem::discriminant(&self.end).hash(state);
             if let Bound::Included(v) | Bound::Excluded(v) = self.end {
-                v.to_bits().hash(state);
+                super::hash_f64_eq(v, state);
             }
         }
     }
@@ -779,17 +785,13 @@ impl Eq for Range {}
 
 impl Hash for Range {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        std::mem::discriminant(self).hash(state);
-        match self {
-            Range::IntRange(r) => {
-                r.start().hash(state);
-                r.step().hash(state);
-                r.end().hash(state);
-            }
-            Range::FloatRange(r) => {
-                r.hash(state);
-            }
-        }
+        // Always hash as FloatRange to stay consistent with PartialEq, which
+        // promotes IntRange to FloatRange for cross-type comparisons.
+        // This avoids a hash/equality contract violation where
+        // `Range::IntRange(0..5) == Range::FloatRange(0.0..5.0)` would be
+        // true but produce different hashes due to the discriminant.
+        let float_range: FloatRange = (*self).into();
+        float_range.hash(state);
     }
 }
 

@@ -33,7 +33,7 @@ impl Hash for Record {
         // columns before comparing, ensuring records with the same content but
         // different insertion orders hash identically.
         let mut pairs: Vec<_> = self.inner.iter().collect();
-        pairs.sort_by_key(|(k, _)| k.clone());
+        pairs.sort_by(|(a, _), (b, _)| a.cmp(b));
         pairs.len().hash(state);
         for (key, value) in pairs {
             key.hash(state);
