@@ -28,6 +28,29 @@ use crate::dap::protocol::DapWriter;
 
 const MARKER: &[u8] = b"\x01<NU-DAP-FLUSH>\x01";
 
+enum PipeType {
+    StdOut,
+    StdErr,
+}
+
+impl std::fmt::Display for PipeType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PipeType::StdOut => write!(f, "stdout"),
+            PipeType::StdErr => write!(f, "stderr"),
+        }
+    }
+}
+
+impl PipeType {
+    fn as_str(&self) -> &str {
+        match self {
+            PipeType::StdOut => "stdout",
+            PipeType::StdErr => "stderr",
+        }
+    }
+}
+
 /// Set once the forwarders own process stdout/stderr. Until then the marker
 /// bytes would land on the host's real stdio, so `flush_output` is a no-op.
 static CAPTURING: AtomicBool = AtomicBool::new(false);
@@ -47,23 +70,26 @@ fn recent_state() -> &'static Mutex<(String, String)> {
     RECENT.get_or_init(|| Mutex::new((String::new(), String::new())))
 }
 
-fn record_recent(category: &str, text: &str) {
+fn record_recent(pipe_type: &PipeType, text: &str) {
     let mut guard = recent_state()
         .lock()
         .expect("recent output buffer poisoned");
-    let buf = if category == "stderr" {
-        &mut guard.1
-    } else {
-        &mut guard.0
+
+    let buffer = match pipe_type {
+        PipeType::StdErr => &mut guard.1,
+        PipeType::StdOut => &mut guard.0,
     };
-    buf.push_str(text);
-    if buf.len() > RECENT_CAP {
+
+    buffer.push_str(text);
+
+    if buffer.len() > RECENT_CAP {
         // Keep the tail, on a char boundary.
-        let mut cut = buf.len() - RECENT_CAP;
-        while !buf.is_char_boundary(cut) {
+        let mut cut = buffer.len() - RECENT_CAP;
+        while !buffer.is_char_boundary(cut) {
             cut += 1;
         }
-        buf.drain(..cut);
+
+        buffer.drain(..cut);
     }
 }
 
@@ -177,16 +203,17 @@ pub(crate) fn install_output_capture() -> OutputCapture {
 /// Start the forwarder threads translating captured process output into DAP
 /// `output` events.
 pub(crate) fn spawn_forwarders(capture: OutputCapture, writer: &DapWriter) {
-    forward(capture.stdout_rx, "stdout", writer.clone());
-    forward(capture.stderr_rx, "stderr", writer.clone());
+    forward(capture.stdout_rx, PipeType::StdOut, writer.clone());
+    forward(capture.stderr_rx, PipeType::StdErr, writer.clone());
+
     // Only now is it safe for `flush_output` to push markers through the
     // process handles: they lead to the pipes, and someone is draining them.
     CAPTURING.store(true, Ordering::Release);
 }
 
-fn forward(mut rx: PipeReader, category: &'static str, writer: DapWriter) {
+fn forward(mut rx: PipeReader, pipe_type: PipeType, writer: DapWriter) {
     std::thread::Builder::new()
-        .name(format!("nu-{category}-fwd"))
+        .name(format!("nu-{pipe_type}-fwd"))
         .spawn(move || {
             use std::io::Read;
             let mut buf = [0u8; 8192];
@@ -211,8 +238,8 @@ fn forward(mut rx: PipeReader, category: &'static str, writer: DapWriter) {
                 let emit = pending.len() - keep;
                 if emit > 0 {
                     let text = String::from_utf8_lossy(&pending[..emit]).to_string();
-                    record_recent(category, &text);
-                    writer.output(category, text);
+                    record_recent(&pipe_type, &text);
+                    writer.output(pipe_type.as_str(), text);
                     pending.drain(..emit);
                 }
 
