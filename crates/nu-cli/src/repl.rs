@@ -409,6 +409,7 @@ fn run_command(ctx: RunContext) -> Reedline {
     let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
     repl.cursor_pos = line_editor.current_insertion_point();
     repl.buffer = line_editor.current_buffer_contents().to_string();
+    repl.selection = line_editor.current_selection();
     drop(repl);
 
     if shell_integration.osc633 {
@@ -577,6 +578,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
     repl.cursor_pos = line_editor.current_insertion_point();
     repl.buffer = line_editor.current_buffer_contents().to_string();
+    repl.selection = line_editor.current_selection();
     drop(repl);
 
     // Check all the environment variables they ask for
@@ -1300,6 +1302,7 @@ fn flush_engine_state_repl_buffer(
     repl.accept = false;
     repl.buffer = "".to_string();
     repl.cursor_pos = 0;
+    repl.selection = None;
     line_editor
 }
 
