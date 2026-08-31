@@ -149,6 +149,10 @@ pub struct EngineState {
     pub is_login: bool,
     pub is_lsp: bool,
     pub is_mcp: bool,
+    /// Running as the Debug Adapter Protocol server (`nu --dap`). Like
+    /// `is_lsp`/`is_mcp`, this means stdout is a protocol stream, so anything
+    /// that would print to it must go to stderr instead.
+    pub is_dap: bool,
     startup_time: i64,
     is_debugging: IsDebugging,
     pub debugger: Arc<Mutex<Box<dyn Debugger>>>,
@@ -241,6 +245,7 @@ impl EngineState {
             is_login: false,
             is_lsp: false,
             is_mcp: false,
+            is_dap: false,
             startup_time: -1,
             is_debugging: IsDebugging::new(false),
             debugger: Arc::new(Mutex::new(Box::new(NoopDebugger))),

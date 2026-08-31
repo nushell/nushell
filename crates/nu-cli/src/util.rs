@@ -219,7 +219,7 @@ pub fn print_pipeline(
     pipeline: PipelineData,
     no_newline: bool,
 ) -> Result<(), ShellError> {
-    let to_stderr = engine_state.is_mcp || engine_state.is_lsp;
+    let to_stderr = engine_state.is_mcp || engine_state.is_lsp || engine_state.is_dap;
 
     if let Some(hook) = stack.get_config(engine_state).hooks.display_output.clone() {
         let pipeline = eval_hook(

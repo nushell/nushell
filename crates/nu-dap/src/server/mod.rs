@@ -33,9 +33,17 @@ pub(crate) const THREAD_ID: i64 = 1;
 /// seam an alternative transport (socket, pipe) plugs into — see
 /// [`crate::serve`]. Process-stdio capture is a separate concern owned by
 /// [`crate::run_stdio`].
-pub(crate) fn run_loop<R: BufRead>(mut reader: R, writer: DapWriter) {
+///
+/// `engine_state` is the host's engine, kept as the template each run is
+/// cloned from (see [`crate::engine::spawn_eval_thread`]).
+pub(crate) fn run_loop<R: BufRead>(
+    mut reader: R,
+    writer: DapWriter,
+    engine_state: nu_protocol::engine::EngineState,
+) {
     let mut session = Session {
         writer: writer.clone(),
+        engine_state,
         state: None,
         pending_launch: None,
         launch_args: None,
@@ -61,6 +69,9 @@ pub(crate) fn run_loop<R: BufRead>(mut reader: R, writer: DapWriter) {
 
 struct Session {
     writer: DapWriter,
+    /// The host's engine, untouched: every run gets its own clone, so parsing
+    /// a target (or restarting) never mutates what the next run starts from.
+    engine_state: nu_protocol::engine::EngineState,
     state: Option<Arc<DebugState>>,
     pending_launch: Option<LaunchArgs>,
     /// Retained past configurationDone so `restart` can respawn the run.

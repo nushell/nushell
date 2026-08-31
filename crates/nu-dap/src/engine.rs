@@ -5,16 +5,20 @@ use crate::dap::protocol::DapWriter;
 use crate::dap::types::LaunchArgs;
 use crate::debugger::DapDebugger;
 use crate::state::DebugState;
+use nu_protocol::ast::Block;
 use nu_protocol::debugger::WithDebug;
-use nu_protocol::engine::{Stack, StateWorkingSet};
-use nu_protocol::{PipelineData, Span, Value};
+use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
+use nu_protocol::{PipelineData, Signals, Span, Value};
 use serde_json::json;
 use std::sync::Arc;
 
+/// Start one run of the target script. `engine_state` is the host's engine,
+/// already cloned by the caller for this run (see [`prepare_engine`]).
 pub(crate) fn spawn_eval_thread(
     launch: LaunchArgs,
     state: Arc<DebugState>,
     writer: DapWriter,
+    engine_state: EngineState,
 ) -> std::thread::JoinHandle<()> {
     std::thread::Builder::new()
         .name("nu-eval".into())
@@ -25,7 +29,7 @@ pub(crate) fn spawn_eval_thread(
             // A panic anywhere in evaluation must not leave the session hung
             // with no terminated event — catch it and report.
             let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                run(launch, state, &writer)
+                run(launch, state, &writer, engine_state)
             }));
             let mut exit_code = 0;
             match outcome {
@@ -60,11 +64,16 @@ pub(crate) fn spawn_eval_thread(
 /// One debug session, start to finish. Each step is a phase of the session
 /// lifecycle; the order matters and is the reason they read as a list here
 /// rather than being folded together.
-fn run(launch: LaunchArgs, state: Arc<DebugState>, writer: &DapWriter) -> Result<(), String> {
+fn run(
+    launch: LaunchArgs,
+    state: Arc<DebugState>,
+    writer: &DapWriter,
+    engine_state: EngineState,
+) -> Result<(), String> {
     let target = Target::resolve(&launch)?;
     target.enter_cwd();
 
-    let mut engine_state = build_engine(&target, &state, writer)?;
+    let mut engine_state = prepare_engine(engine_state, &target, &state, writer)?;
     let block = parse_script(&mut engine_state, &target)?;
 
     cache_render_facts(&engine_state, &state);
@@ -132,97 +141,85 @@ impl Target {
     }
 }
 
-/// A full nushell engine: core language, the builtin command set, our command
-/// shims, an interrupt flag, and the inherited environment.
-fn build_engine(
+/// Make one run's engine out of the host's.
+///
+/// The host (`nu --dap`) hands us its fully built `EngineState` — core
+/// language, builtin commands, plugins, the gathered parent environment, the
+/// `$nu` constant. We take a clone of it per run and adjust only what a debug
+/// session needs differently, so the debugged script sees the same nushell the
+/// user would get from `nu script.nu`.
+///
+/// Cloning matters: parsing the target merges its decls into the engine, and a
+/// `restart` must not inherit them, so every run starts from the pristine
+/// template.
+fn prepare_engine(
+    mut engine_state: EngineState,
     target: &Target,
     state: &Arc<DebugState>,
     writer: &DapWriter,
-) -> Result<nu_protocol::engine::EngineState, String> {
-    let mut engine_state = nu_cmd_lang::create_default_context();
-    engine_state = nu_command::add_shell_command_context(engine_state);
-
-    // `print` renders records via the `table` command only if this id is set
-    // (nu-cli sets it at startup; without it, printing a record fails).
-    engine_state.table_decl_id = engine_state.find_decl(b"table", &[]);
-
-    // Populate the `$nu` constant (paths, pid, os-info, …); else it's empty.
-    engine_state.generate_nu_constant();
+) -> Result<EngineState, String> {
+    // Several fields survive a clone as shared `Arc`s — the debugger slot most
+    // of all. Without this, a `restart` would activate the new run's debugger
+    // in the same slot the outgoing run then deactivates (or reports its
+    // interrupt through), so the fresh run silently loses its breakpoints.
+    engine_state.make_session_state_unique();
 
     register_dap_commands(&mut engine_state, state, writer)?;
 
-    // A fresh EngineState carries Signals::empty(), on which trigger() is a
-    // NO-OP. Install a real interrupt flag or terminate/stop will not work.
-    engine_state.set_signals(nu_protocol::Signals::new(std::sync::Arc::new(
-        std::sync::atomic::AtomicBool::new(false),
-    )));
+    // A per-run interrupt flag, not the host's: `terminate`/`stop` trigger it
+    // (debugger/mod.rs), and a flag left raised by one run would abort the next
+    // one instantly on `restart`.
+    engine_state.set_signals(Signals::new(Arc::new(std::sync::atomic::AtomicBool::new(
+        false,
+    ))));
 
-    seed_env(&mut engine_state, &target.cwd);
+    engine_state.add_env_var(
+        String::from("PWD"),
+        Value::string(&target.cwd, Span::unknown()),
+    );
 
     Ok(engine_state)
 }
 
-/// `print`/`input` live in nu-cli, which we don't embed, so the parser would
-/// treat them as externals. Register our own DAP-aware shims (print_cmd.rs).
+/// `print` lives in nu-cli and `input`/`input list`/`input listen` in
+/// nu-command, but neither flavour works here: their output and prompts belong
+/// to a terminal, and our stdout is the DAP wire. Registering last means these
+/// shims (print_cmd.rs) shadow the host's for everything parsed afterwards.
 fn register_dap_commands(
-    engine_state: &mut nu_protocol::engine::EngineState,
+    engine_state: &mut EngineState,
     state: &Arc<DebugState>,
     writer: &DapWriter,
 ) -> Result<(), String> {
     let mut working_set = StateWorkingSet::new(engine_state);
+
     working_set.add_decl(Box::new(crate::print_cmd::DapPrint {
         writer: writer.clone(),
     }));
+
     working_set.add_decl(Box::new(crate::print_cmd::DapInput {
         state: state.clone(),
         writer: writer.clone(),
     }));
+
     working_set.add_decl(Box::new(crate::print_cmd::DapInputList {
         state: state.clone(),
         writer: writer.clone(),
     }));
+
     working_set.add_decl(Box::new(crate::print_cmd::DapInputUnsupported {
         name: "input listen",
     }));
+
     let delta = working_set.render();
+
     engine_state
         .merge_delta(delta)
         .map_err(|e| format!("register print/input: {e:?}"))
 }
 
-/// Inherit the parent process environment. Minimal: a fuller implementation
-/// should mirror what nu-cli's `gather_parent_env_vars` does.
-fn seed_env(engine_state: &mut nu_protocol::engine::EngineState, cwd: &str) {
-    for (k, v) in std::env::vars() {
-        // Never inherit PWD: shells export it in a format nu rejects as
-        // non-absolute (Git Bash `/e/...`), breaking source/use. Set ours below.
-        if k.eq_ignore_ascii_case("pwd") {
-            continue;
-        }
-
-        // nu convention: PATH is a list, not a delimited string.
-        let value = if k.eq_ignore_ascii_case("path") {
-            Value::list(
-                std::env::split_paths(&v)
-                    .map(|p| Value::string(p.to_string_lossy(), Span::unknown()))
-                    .collect(),
-                Span::unknown(),
-            )
-        } else {
-            Value::string(v, Span::unknown())
-        };
-        engine_state.add_env_var(k, value);
-    }
-
-    engine_state.add_env_var("PWD".to_string(), Value::string(cwd, Span::unknown()));
-}
-
 /// Parse the target script and merge it into the engine. A parse error here is
 /// fatal: nothing downstream can run, so the session never starts.
-fn parse_script(
-    engine_state: &mut nu_protocol::engine::EngineState,
-    target: &Target,
-) -> Result<Arc<nu_protocol::ast::Block>, String> {
+fn parse_script(engine_state: &mut EngineState, target: &Target) -> Result<Arc<Block>, String> {
     let mut working_set = StateWorkingSet::new(engine_state);
 
     let block = nu_parser::parse(
@@ -247,7 +244,7 @@ fn parse_script(
 /// Closure source text and capture names, resolved once now that every block
 /// exists. The server thread can't reach `engine_state` to do this later (see
 /// the concurrency rule in state.rs), so it has to be cached up front.
-fn cache_render_facts(engine_state: &nu_protocol::engine::EngineState, state: &DebugState) {
+fn cache_render_facts(engine_state: &EngineState, state: &DebugState) {
     *state.cache.lock().expect("render cache poisoned") =
         Arc::new(crate::variables::collect_render_cache(engine_state));
 }
@@ -255,7 +252,7 @@ fn cache_render_facts(engine_state: &nu_protocol::engine::EngineState, state: &D
 /// Run the script: top-level code first, then an entry point if there is one.
 /// The entry point's output supersedes the top-level result when it runs.
 fn eval_program(
-    engine_state: &mut nu_protocol::engine::EngineState,
+    engine_state: &mut EngineState,
     stack: &mut Stack,
     block: &nu_protocol::ast::Block,
     launch: &LaunchArgs,
@@ -289,7 +286,7 @@ fn entry_point(launch: &LaunchArgs) -> (String, bool) {
 /// itself raise (error in a closure), so its failure folds into the result.
 fn drain_final_value(
     result: Result<nu_protocol::PipelineExecutionData, nu_protocol::ShellError>,
-    engine_state: &nu_protocol::engine::EngineState,
+    engine_state: &EngineState,
     writer: &DapWriter,
 ) -> Result<(), nu_protocol::ShellError> {
     let value = result?.body.into_value(Span::unknown())?;
@@ -319,7 +316,7 @@ fn into_exit(outcome: Result<(), nu_protocol::ShellError>) -> Result<(), String>
 /// user-chosen entry point (missing → error) from the implicit `main` default
 /// (missing → just run top-level).
 fn call_entry(
-    engine_state: &mut nu_protocol::engine::EngineState,
+    engine_state: &mut EngineState,
     stack: &mut Stack,
     name: &str,
     args: &[String],
@@ -385,7 +382,7 @@ fn call_entry(
 /// breakpoint verification, and reconcile breakpoints set before parsing —
 /// snapping to the next valid line (`breakpoint` changed events) or unverifying.
 fn publish_valid_lines(
-    engine_state: &nu_protocol::engine::EngineState,
+    engine_state: &EngineState,
     top_block: &nu_protocol::ast::Block,
     state: &Arc<DebugState>,
     writer: &DapWriter,

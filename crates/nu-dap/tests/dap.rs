@@ -1,5 +1,6 @@
-//! End-to-end integration tests: spawn the built `nu-dap` binary and drive it
-//! over the Debug Adapter Protocol against the scripts in `tests/fixtures/`.
+//! End-to-end integration tests: spawn the built `nu` binary in adapter mode
+//! (`nu --dap`) and drive it over the Debug Adapter Protocol against the
+//! scripts in `tests/fixtures/`.
 //!
 //! The fixtures are test inputs, not documentation: assertions below pin exact
 //! line numbers in them, so they live here rather than in `example/` (which is
@@ -47,12 +48,36 @@ struct Dap {
 }
 
 impl Dap {
+    /// `nu --dap`: the adapter is embedded in the main binary, so there is no
+    /// separate `nu-dap` executable to spawn. Tests that use this must declare
+    /// `#[deps(NU)]` so the harness builds `nu` first.
+    ///
+    /// `--no-config-file` keeps runs hermetic: the adapter evaluates the user's
+    /// startup files like any other `nu`, and a dev machine's config.nu must not
+    /// leak into assertions. `spawn_with_args` opts back in.
+    fn command() -> Command {
+        let mut command = Command::new(NU.path());
+        command.args(["--dap", "--no-config-file"]);
+        command
+    }
+
     fn spawn() -> Dap {
-        Self::spawn_command(Command::new(env!("CARGO_BIN_EXE_nu-dap")))
+        Self::spawn_command(Self::command())
+    }
+
+    /// Spawn `nu --dap <args>` without the hermetic `--no-config-file`.
+    fn spawn_with_args<I, S>(args: I) -> Dap
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<OsStr>,
+    {
+        let mut command = Command::new(NU.path());
+        command.arg("--dap").args(args);
+        Self::spawn_command(command)
     }
 
     fn spawn_with_env(key: &str, value: impl AsRef<OsStr>) -> Dap {
-        let mut command = Command::new(env!("CARGO_BIN_EXE_nu-dap"));
+        let mut command = Self::command();
         command.env(key, value);
         Self::spawn_command(command)
     }
@@ -63,7 +88,7 @@ impl Dap {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
-            .expect("spawn nu-dap");
+            .expect("spawn nu --dap");
         let stdin = child.stdin.take().unwrap();
         let out = BufReader::new(child.stdout.take().unwrap());
         let child = Arc::new(Mutex::new(child));
@@ -253,6 +278,7 @@ fn merge(a: &mut Value, b: Value) {
 // --------------------------------------------------------------------------
 
 #[test]
+#[deps(NU)]
 fn initialize_advertises_capabilities() {
     let mut d = Dap::spawn();
     let resp = d.initialize();
@@ -265,6 +291,7 @@ fn initialize_advertises_capabilities() {
 }
 
 #[test]
+#[deps(NU)]
 fn breakpoints_scopes_variables_and_visualize() {
     let demo = example("demo.nu");
     let mut d = Dap::spawn();
@@ -351,6 +378,7 @@ fn breakpoints_scopes_variables_and_visualize() {
 }
 
 #[test]
+#[deps(NU)]
 fn custom_command_frame_and_parameters() {
     let demo = example("demo.nu");
     let mut d = Dap::spawn();
@@ -374,6 +402,7 @@ fn custom_command_frame_and_parameters() {
 }
 
 #[test]
+#[deps(NU)]
 fn closure_params_and_in_are_visible() {
     // Reading the real Stack (nushell #18708) exposes a closure's own
     // parameter — impossible under the old IR shadow reconstruction, which
@@ -403,6 +432,7 @@ fn closure_params_and_in_are_visible() {
 }
 
 #[test]
+#[deps(NU)]
 fn closure_rows_show_source_and_captures() {
     // A closure-valued local reads as the literal the user wrote, not
     // `<closure>`. The source text comes from the block's span, which only the
@@ -456,6 +486,7 @@ fn closure_rows_show_source_and_captures() {
 }
 
 #[test]
+#[deps(NU)]
 fn stepping_never_lands_on_line_one() {
     let demo = example("demo.nu");
     let mut d = Dap::spawn();
@@ -482,6 +513,7 @@ fn stepping_never_lands_on_line_one() {
 }
 
 #[test]
+#[deps(NU)]
 fn exception_breakpoint_pauses_at_the_raising_line() {
     let err = example("err.nu");
     let mut d = Dap::spawn();
@@ -509,6 +541,7 @@ fn exception_breakpoint_pauses_at_the_raising_line() {
 }
 
 #[test]
+#[deps(NU)]
 fn breakpoint_in_sourced_file_hits() {
     let multi = example("multi.nu");
     let helper = example("helper.nu");
@@ -530,6 +563,7 @@ fn breakpoint_in_sourced_file_hits() {
 }
 
 #[test]
+#[deps(NU)]
 fn breakpoint_verification_snaps_to_next_line() {
     let demo = example("demo.nu");
     let mut d = Dap::spawn();
@@ -545,6 +579,7 @@ fn breakpoint_verification_snaps_to_next_line() {
 }
 
 #[test]
+#[deps(NU)]
 fn conditional_breakpoint_and_logpoint() {
     let demo = example("demo.nu");
 
@@ -669,6 +704,7 @@ fn conditional_breakpoint_and_logpoint() {
 }
 
 #[test]
+#[deps(NU)]
 fn step_into_pipeline_stage_shows_input() {
     let pipeline = example("pipeline.nu");
     let mut d = Dap::spawn();
@@ -700,6 +736,7 @@ fn step_into_pipeline_stage_shows_input() {
 }
 
 #[test]
+#[deps(NU)]
 fn globals_scope_exposes_nu_and_env() {
     let demo = example("demo.nu");
     let mut d = Dap::spawn();
@@ -727,6 +764,7 @@ fn globals_scope_exposes_nu_and_env() {
 }
 
 #[test]
+#[deps(NU)]
 fn time_travel_step_back_through_history() {
     let demo = example("demo.nu");
     let mut d = Dap::spawn();
@@ -779,6 +817,7 @@ fn time_travel_step_back_through_history() {
 }
 
 #[test]
+#[deps(NU)]
 fn lazy_top_level_pipeline_breakpoints_hit() {
     let script = example("lazy_iter.nu");
     let mut d = Dap::spawn();
@@ -798,7 +837,7 @@ fn lazy_top_level_pipeline_breakpoints_hit() {
 }
 
 #[test]
-#[deps(TESTBIN_ECHO_ENV_STDERR_FAIL)]
+#[deps(NU, TESTBIN_ECHO_ENV_STDERR_FAIL)]
 fn failing_external_attaches_stderr() -> nu_test_support::Result {
     Playground::setup("nu_dap_extfail", |dirs, _| {
         let script = dirs.test().join("nu_dap_extfail.nu");
@@ -842,6 +881,7 @@ fn failing_external_attaches_stderr() -> nu_test_support::Result {
 }
 
 #[test]
+#[deps(NU)]
 fn entry_point_runs_a_chosen_function() {
     let lib = example("lib.nu");
 
@@ -897,6 +937,7 @@ fn entry_point_runs_a_chosen_function() {
 }
 
 #[test]
+#[deps(NU)]
 fn main_receives_args_and_flags() {
     let script = example("main_args.nu");
     let mut d = Dap::spawn();
@@ -934,6 +975,7 @@ fn main_receives_args_and_flags() {
 }
 
 #[test]
+#[deps(NU)]
 fn deep_variables_hydrate_on_demand() {
     let deep = example("deep.nu");
     let mut d = Dap::spawn();
@@ -975,7 +1017,7 @@ fn deep_variables_hydrate_on_demand() {
 }
 
 #[test]
-#[deps(TESTBIN_INPUT_BYTES_LENGTH)]
+#[deps(NU, TESTBIN_INPUT_BYTES_LENGTH)]
 fn external_command_gets_empty_stdin() -> nu_test_support::Result {
     let script = example("external_stdin.nu");
     let mut d = Dap::spawn_with_env(
@@ -1006,6 +1048,47 @@ fn external_command_gets_empty_stdin() -> nu_test_support::Result {
 }
 
 #[test]
+#[deps(NU)]
+fn startup_config_reaches_the_debuggee() -> nu_test_support::Result {
+    // The adapter evaluates the user's startup files before serving, so a
+    // debugged script sees the same shell the user has: custom commands and
+    // `$env` from config.nu, not a bare engine.
+    Playground::setup("nu_dap_config", |dirs, _| {
+        let config = dirs.test().join("config.nu");
+        std::fs::write(
+            &config,
+            "def dap-config-helper [] { \"helper-ran\" }\n$env.DAP_FROM_CONFIG = \"env-ok\"\n",
+        )?;
+
+        let script = dirs.test().join("uses_config.nu");
+        std::fs::write(
+            &script,
+            "print (dap-config-helper)\nprint $env.DAP_FROM_CONFIG\n",
+        )?;
+
+        let mut d = Dap::spawn_with_args(["--config", &config.to_string_lossy()]);
+        d.start(&script.to_string_lossy(), json!({}), &[]);
+
+        let mut out = String::new();
+        loop {
+            let ev = d
+                .recv_until(|m| {
+                    m["type"] == "event" && (m["event"] == "output" || m["event"] == "terminated")
+                })
+                .expect("output or terminated");
+            if ev["event"] == "terminated" {
+                break;
+            }
+            out.push_str(ev["body"]["output"].as_str().unwrap_or(""));
+        }
+        assert!(out.contains("helper-ran"), "config.nu command: {out}");
+        assert!(out.contains("env-ok"), "config.nu env var: {out}");
+        Ok(())
+    })
+}
+
+#[test]
+#[deps(NU)]
 fn hot_restart_reruns_in_the_same_session() {
     let demo = example("demo.nu");
     let mut d = Dap::spawn();
@@ -1032,6 +1115,7 @@ fn hot_restart_reruns_in_the_same_session() {
 }
 
 #[test]
+#[deps(NU)]
 fn last_line_breakpoint_does_not_refire() {
     let demo = example("demo.nu");
     let mut d = Dap::spawn();
@@ -1045,6 +1129,7 @@ fn last_line_breakpoint_does_not_refire() {
 }
 
 #[test]
+#[deps(NU)]
 fn builtin_pipe_stage_walk_and_env_mutation() {
     let pipeline = example("pipeline.nu");
     let mut d = Dap::spawn();
@@ -1097,6 +1182,7 @@ fn builtin_pipe_stage_walk_and_env_mutation() {
 }
 
 #[test]
+#[deps(NU)]
 fn leaf_values_visualize_by_container_and_name() {
     let demo = example("demo.nu");
     let mut d = Dap::spawn();
@@ -1132,6 +1218,7 @@ fn leaf_values_visualize_by_container_and_name() {
 }
 
 #[test]
+#[deps(NU)]
 fn time_travel_reaches_pipe_stages_and_survives_a_tiny_buffer() {
     let demo = example("demo.nu");
 
@@ -1185,6 +1272,7 @@ fn time_travel_reaches_pipe_stages_and_survives_a_tiny_buffer() {
 }
 
 #[test]
+#[deps(NU)]
 fn interactive_input_becomes_a_prompt() {
     let dir = std::env::temp_dir();
     let script = dir.join("nu_dap_input.nu");
@@ -1219,6 +1307,7 @@ fn interactive_input_becomes_a_prompt() {
 }
 
 #[test]
+#[deps(NU)]
 fn input_box_returns_typed_text_and_listen_is_unsupported() {
     let dir = std::env::temp_dir();
 
@@ -1278,6 +1367,7 @@ fn input_box_returns_typed_text_and_listen_is_unsupported() {
 /// wins, the second is reported unverified (never silently dropped, and never
 /// overwriting the winner).
 #[test]
+#[deps(NU)]
 fn breakpoints_colliding_on_one_line_report_the_loser() {
     let demo = example("demo.nu");
     let mut d = Dap::spawn();

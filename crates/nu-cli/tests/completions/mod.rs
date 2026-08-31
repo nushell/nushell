@@ -2737,6 +2737,7 @@ fn variables_completions() {
         "home-dir",
         "is-interactive",
         "is-login",
+        "is-dap",
         "is-lsp",
         "is-mcp",
         "loginshell-path",

@@ -67,7 +67,12 @@ impl Session {
     pub(super) fn on_configuration_done(&mut self, seq: i64, cmd: &str) {
         self.writer.respond(seq, cmd, Json::Null);
         if let (Some(launch), Some(state)) = (self.pending_launch.take(), self.state.clone()) {
-            self.eval_handle = Some(spawn_eval_thread(launch, state, self.writer.clone()));
+            self.eval_handle = Some(spawn_eval_thread(
+                launch,
+                state,
+                self.writer.clone(),
+                self.engine_state.clone(),
+            ));
         }
     }
 
@@ -94,7 +99,14 @@ impl Session {
                 }
                 self.state = Some(new_state.clone());
                 self.writer.respond(seq, cmd, Json::Null);
-                self.eval_handle = Some(spawn_eval_thread(args, new_state, self.writer.clone()));
+                // From the pristine template again, so decls parsed out of the
+                // previous run don't leak into this one.
+                self.eval_handle = Some(spawn_eval_thread(
+                    args,
+                    new_state,
+                    self.writer.clone(),
+                    self.engine_state.clone(),
+                ));
             }
             (args, state) => {
                 // Restore whatever we had; nothing to restart yet.

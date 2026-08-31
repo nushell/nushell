@@ -15,8 +15,8 @@
 //!   and does the process-level setup a standalone adapter needs (installs the
 //!   rustls provider so `http` works; detaches child stdin to `NUL`; captures
 //!   the script's stdout/stderr and forwards it as DAP `output` events so it
-//!   can't corrupt the protocol stream). This is what the `nu-dap` binary — and
-//!   a hypothetical `nu --dap` — call.
+//!   can't corrupt the protocol stream). This is what `nu --dap` calls, handing
+//!   over the engine it has already built.
 //!
 //! - [`serve`] — the transport-agnostic core: run the DAP dispatch loop over
 //!   any [`BufRead`](std::io::BufRead) + [`Write`](std::io::Write). Use this to
@@ -68,9 +68,15 @@ pub mod dap;
 /// Performs the full standalone setup (see the crate docs): rustls provider,
 /// child-stdin detach, and script-output capture. Blocks until the DAP client
 /// disconnects.
-pub fn run_stdio() {
-    // Same as nu's own main: install the rustls crypto provider once, or every
-    // `http` command fails with "tls crypto provider not found".
+///
+/// `engine_state` is the host's fully built engine (commands, plugins,
+/// environment, `$nu`). The adapter never mutates it: each debug run clones it
+/// and adjusts only what a debug session needs (engine.rs), so debugged
+/// scripts see the same nushell the host would run them with.
+pub fn run_stdio(engine_state: nu_protocol::engine::EngineState) {
+    // Install the rustls crypto provider, or every `http` command fails with
+    // "tls crypto provider not found". A no-op if the host already did it
+    // (it's a `OnceLock`), which matters for hosts built without rustls-tls.
     nu_command::tls::CRYPTO_PROVIDER.default();
 
     // Keep the DAP stream for ourselves: externals get NUL stdin, and process
@@ -89,7 +95,7 @@ pub fn run_stdio() {
     ));
     stdio::spawn_forwarders(capture, &writer);
 
-    server::run_loop(std::io::BufReader::new(dap_stdin), writer);
+    server::run_loop(std::io::BufReader::new(dap_stdin), writer, engine_state);
 }
 
 /// Run the DAP server over a caller-supplied transport.
@@ -98,14 +104,15 @@ pub fn run_stdio() {
 /// `output`, on the calling thread, until the client disconnects. Unlike
 /// [`run_stdio`], this touches no process-level stdio and installs no rustls
 /// provider — the host owns that. Ideal for embedding behind a socket/pipe or
-/// inside a larger process.
-pub fn serve<R, W>(input: R, output: W)
+/// inside a larger process. `engine_state` is the template each run clones,
+/// exactly as for [`run_stdio`].
+pub fn serve<R, W>(input: R, output: W, engine_state: nu_protocol::engine::EngineState)
 where
     R: std::io::BufRead,
     W: std::io::Write + Send + 'static,
 {
     let writer = dap::protocol::DapWriter::new(Box::new(output));
-    server::run_loop(input, writer);
+    server::run_loop(input, writer, engine_state);
 }
 
 #[cfg(test)]

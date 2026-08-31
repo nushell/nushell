@@ -154,7 +154,7 @@ pub(crate) fn read_config_file(
         }
 
         let config_name = config_kind.name();
-        if engine_state.is_mcp {
+        if engine_state.is_mcp || engine_state.is_dap {
             eprintln!(
                 "{} file created at: {}",
                 config_name,
