@@ -2040,14 +2040,14 @@ dependencies = [
 
 [[package]]
 name = "dns-lookup"
-version = "3.0.1"
+version = "4.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6e39034cee21a2f5bbb66ba0e3689819c4bb5d00382a282006e802a7ffa6c41d"
+checksum = "6120e7e5dcd1c90098e349def389e2797377cdbe6b465ad8fdd115c0c99d5cf2"
 dependencies = [
  "cfg-if",
  "libc",
  "socket2 0.6.3",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
