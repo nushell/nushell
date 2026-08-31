@@ -2791,45 +2791,95 @@ impl PartialEq for Value {
 
 impl Hash for Value {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        std::mem::discriminant(self).hash(state);
+        // Family tags (not enum discriminants) so Int/Float and String/Glob
+        // share a hash when PartialEq treats them as equal.
+        //
+        // Epsilon-tolerant float comparison cannot have a useful canonical
+        // hash: consecutive finite floats compare equal, so the relation
+        // connects the whole finite line. Hash uses IEEE equality after
+        // collapsing -0.0. Value does not implement Eq.
+        #[derive(Hash)]
+        enum Family {
+            Bool,
+            Number,
+            Text,
+            Filesize,
+            Duration,
+            Date,
+            Range,
+            Record,
+            List,
+            Closure,
+            Error,
+            Binary,
+            CellPath,
+            Custom,
+            Nothing,
+        }
+
         match self {
-            Value::Bool { val, .. } => val.hash(state),
-            Value::Int { val, .. } => val.hash(state),
-            Value::Float { val, .. } => val.to_bits().hash(state),
-            Value::String { val, .. } => val.hash(state),
-            Value::Glob { val, no_expand, .. } => {
+            Value::Bool { val, .. } => {
+                Family::Bool.hash(state);
                 val.hash(state);
-                no_expand.hash(state);
             }
-            Value::Filesize { val, .. } => val.hash(state),
-            Value::Duration { val, .. } => val.hash(state),
+            Value::Int { val, .. } => {
+                Family::Number.hash(state);
+                range::hash_f64_eq(*val as f64, state);
+            }
+            Value::Float { val, .. } => {
+                Family::Number.hash(state);
+                range::hash_f64_eq(*val, state);
+            }
+            Value::String { val, .. } | Value::Glob { val, .. } => {
+                Family::Text.hash(state);
+                val.hash(state);
+            }
+            Value::Filesize { val, .. } => {
+                Family::Filesize.hash(state);
+                val.hash(state);
+            }
+            Value::Duration { val, .. } => {
+                Family::Duration.hash(state);
+                val.hash(state);
+            }
             Value::Date { val, .. } => {
-                val.timestamp().hash(state);
-                val.offset().local_minus_utc().hash(state);
+                Family::Date.hash(state);
+                val.hash(state);
             }
-            Value::Range { val, .. } => val.hash(state),
-            Value::Record { val, .. } => val.hash(state),
+            Value::Range { val, .. } => {
+                Family::Range.hash(state);
+                val.hash(state);
+            }
+            Value::Record { val, .. } => {
+                Family::Record.hash(state);
+                val.hash(state);
+            }
             Value::List { vals, .. } => {
-                vals.len().hash(state);
-                for child in vals.iter() {
-                    child.hash(state);
-                }
+                Family::List.hash(state);
+                vals.hash(state);
             }
-            Value::Closure { val, .. } => val.hash(state),
+            Value::Closure { val, .. } => {
+                Family::Closure.hash(state);
+                val.hash(state);
+            }
             Value::Error { .. } => {
-                // PartialOrd considers all errors equal, so use a constant
-                // hash to satisfy the hash/equality contract.
-                0u8.hash(state);
+                Family::Error.hash(state);
             }
-            Value::Binary { val, .. } => val.hash(state),
-            Value::CellPath { val, .. } => val.hash(state),
+            Value::Binary { val, .. } => {
+                Family::Binary.hash(state);
+                val.hash(state);
+            }
+            Value::CellPath { val, .. } => {
+                Family::CellPath.hash(state);
+                val.hash(state);
+            }
             Value::Custom { val, .. } => {
-                val.type_name().hash(state);
-                if let Ok(base) = val.to_base_value(self.span()) {
-                    base.hash(state);
-                }
+                Family::Custom.hash(state);
+                val.hash_value(state);
             }
-            Value::Nothing { .. } => {}
+            Value::Nothing { .. } => {
+                Family::Nothing.hash(state);
+            }
         }
     }
 }
@@ -5874,7 +5924,13 @@ mod tests {
         use super::*;
         use crate::ast::{CellPath, PathMember};
         use crate::engine::Closure;
-        use crate::{BlockId, Filesize, Range, ShellError, Span, VarId, casing::Casing};
+        use crate::{
+            BlockId, CustomValue, Filesize, Range, ShellError, Span, VarId, casing::Casing,
+        };
+        use chrono::FixedOffset;
+        use serde::{Deserialize, Serialize};
+        use std::any::Any;
+        use std::cmp::Ordering;
         use std::collections::hash_map::DefaultHasher;
         use std::hash::{Hash, Hasher};
         use std::ops::Bound;
@@ -5883,6 +5939,57 @@ mod tests {
             let mut hasher = DefaultHasher::new();
             val.hash(&mut hasher);
             hasher.finish()
+        }
+
+        fn assert_eq_implies_same_hash(a: &Value, b: &Value) {
+            assert_eq!(a, b);
+            assert_eq!(hash_value(a), hash_value(b));
+        }
+
+        #[derive(Debug, Clone, Serialize, Deserialize)]
+        struct PrefixedCustom {
+            version: u64,
+            prefix: String,
+        }
+
+        #[typetag::serde]
+        impl CustomValue for PrefixedCustom {
+            fn clone_value(&self, span: Span) -> Value {
+                Value::custom(Box::new(self.clone()), span)
+            }
+
+            fn type_name(&self) -> String {
+                "prefixed".into()
+            }
+
+            fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
+                Ok(Value::string(
+                    format!("{}{}", self.prefix, self.version),
+                    span,
+                ))
+            }
+
+            fn as_any(&self) -> &dyn Any {
+                self
+            }
+
+            fn as_mut_any(&mut self) -> &mut dyn Any {
+                self
+            }
+
+            fn partial_cmp(&self, other: &Value) -> Option<Ordering> {
+                other
+                    .as_custom_value()
+                    .ok()?
+                    .as_any()
+                    .downcast_ref::<Self>()
+                    .and_then(|other| self.version.partial_cmp(&other.version))
+            }
+
+            fn hash_value(&self, mut state: &mut dyn Hasher) {
+                self.type_name().hash(&mut state);
+                self.version.hash(&mut state);
+            }
         }
 
         #[test]
@@ -5930,11 +6037,75 @@ mod tests {
         }
 
         #[test]
-        fn int_and_float_with_same_value_are_different() {
+        fn int_and_float_with_same_value_hash_equal() {
+            assert_eq_implies_same_hash(&Value::test_int(1), &Value::test_float(1.0));
+        }
+
+        #[test]
+        fn string_and_glob_with_same_text_hash_equal() {
+            let string = Value::test_string("*.txt");
+            let glob = Value::glob("*.txt", false, Span::test_data());
+            assert_eq_implies_same_hash(&string, &glob);
+        }
+
+        #[test]
+        fn glob_no_expand_does_not_affect_hash() {
+            let expand = Value::glob("*.txt", false, Span::test_data());
+            let no_expand = Value::glob("*.txt", true, Span::test_data());
+            assert_eq_implies_same_hash(&expand, &no_expand);
+        }
+
+        #[test]
+        fn float_zero_and_negative_zero_hash_equal() {
+            assert_eq_implies_same_hash(&Value::test_float(0.0), &Value::test_float(-0.0));
+        }
+
+        #[test]
+        fn float_infinities_hash_by_sign() {
+            let pos = Value::test_float(f64::INFINITY);
+            let neg = Value::test_float(f64::NEG_INFINITY);
+            assert_eq_implies_same_hash(&pos, &pos);
+            assert_ne!(hash_value(&pos), hash_value(&neg));
+        }
+
+        #[test]
+        fn date_offset_does_not_affect_hash() {
+            let utc = chrono::DateTime::parse_from_rfc3339("2020-01-01T00:00:00.123456789Z")
+                .expect("rfc3339");
+            let east = utc.with_timezone(&FixedOffset::east_opt(3600).expect("offset"));
+            assert_eq_implies_same_hash(&Value::test_date(utc), &Value::test_date(east));
+        }
+
+        #[test]
+        fn date_subseconds_affect_hash() {
+            let a = chrono::DateTime::parse_from_rfc3339("2020-01-01T00:00:00.000000000Z")
+                .expect("rfc3339");
+            let b = chrono::DateTime::parse_from_rfc3339("2020-01-01T00:00:00.000000001Z")
+                .expect("rfc3339");
+            assert_ne!(a, b);
             assert_ne!(
-                hash_value(&Value::test_int(1)),
-                hash_value(&Value::test_float(1.0))
+                hash_value(&Value::test_date(a)),
+                hash_value(&Value::test_date(b))
             );
+        }
+
+        #[test]
+        fn custom_hash_matches_partial_cmp_not_base_value() {
+            let a = Value::custom(
+                Box::new(PrefixedCustom {
+                    version: 1,
+                    prefix: "v".into(),
+                }),
+                Span::test_data(),
+            );
+            let b = Value::custom(
+                Box::new(PrefixedCustom {
+                    version: 1,
+                    prefix: String::new(),
+                }),
+                Span::test_data(),
+            );
+            assert_eq_implies_same_hash(&a, &b);
         }
 
         #[test]
@@ -5997,7 +6168,11 @@ mod tests {
         }
 
         #[test]
-        fn range_int_and_float_different_hash() {
+        fn range_int_and_float_same_hash() {
+            // IntRange and FloatRange that represent the same range must hash
+            // identically, because Range::PartialEq promotes IntRange to
+            // FloatRange for cross-type comparisons. Hashing them differently
+            // would violate the hash/equality contract.
             let a = Value::range(
                 Range::new_int(1, Some(2), Some(Bound::Included(3))),
                 Span::test_data(),
@@ -6006,7 +6181,20 @@ mod tests {
                 Range::new_float(1.0, Some(2.0), Some(Bound::Included(3.0))),
                 Span::test_data(),
             );
-            assert_ne!(hash_value(&a), hash_value(&b));
+            assert_eq!(hash_value(&a), hash_value(&b));
+        }
+
+        #[test]
+        fn range_negative_zero_hashes_equal() {
+            let a = Value::range(
+                Range::new_float(0.0, None, Some(Bound::Included(1.0))),
+                Span::test_data(),
+            );
+            let b = Value::range(
+                Range::new_float(-0.0, None, Some(Bound::Included(1.0))),
+                Span::test_data(),
+            );
+            assert_eq_implies_same_hash(&a, &b);
         }
 
         #[test]

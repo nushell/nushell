@@ -1,4 +1,8 @@
-use std::{cmp::Ordering, path::Path};
+use std::{
+    cmp::Ordering,
+    hash::{Hash, Hasher},
+    path::Path,
+};
 
 use nu_protocol::{CustomValue, ShellError, Span, Spanned, Value, ast::Operator, casing::Casing};
 use nu_utils::SharedCow;
@@ -77,6 +81,11 @@ impl CustomValue for PluginCustomValue {
         _casing: Casing,
     ) -> Result<Value, ShellError> {
         panic!("follow_path_string() not available on plugin custom value without source");
+    }
+
+    fn hash_value(&self, mut state: &mut dyn Hasher) {
+        self.name().hash(&mut state);
+        self.data().hash(&mut state);
     }
 
     fn partial_cmp(&self, _other: &Value) -> Option<Ordering> {

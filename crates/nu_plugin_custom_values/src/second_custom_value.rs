@@ -1,7 +1,11 @@
 #![allow(clippy::result_large_err)]
 use nu_protocol::{CustomValue, ShellError, Span, Spanned, Value, shell_error::io::IoError};
 use serde::{Deserialize, Serialize};
-use std::{cmp::Ordering, path::Path};
+use std::{
+    cmp::Ordering,
+    hash::{Hash, Hasher},
+    path::Path,
+};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SecondCustomValue {
@@ -59,6 +63,11 @@ impl CustomValue for SecondCustomValue {
             ),
             span,
         ))
+    }
+
+    fn hash_value(&self, mut state: &mut dyn Hasher) {
+        self.type_name().hash(&mut state);
+        self.something.hash(&mut state);
     }
 
     fn partial_cmp(&self, other: &Value) -> Option<Ordering> {
