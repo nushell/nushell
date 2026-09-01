@@ -36,10 +36,13 @@ impl Default for PromptConfig {
             // `default_env.nu` fills them in.
             left: None,
             right: None,
+            // These mirror reedline's `DEFAULT_*_PROMPT_INDICATOR`, which this
+            // crate cannot name without depending on the line editor. Keep the
+            // two in step by hand until a bump lets `nu-cli` assert it.
             indicator: "> ".into(),
-            vi_insert: ": ".into(),
-            vi_normal: "> ".into(),
-            vi_visual: "v ".into(),
+            vi_insert: "> ".into(),
+            vi_normal: ": ".into(),
+            vi_visual: "+ ".into(),
             multiline: "::: ".into(),
             render_right_on_last_line: false,
             transient: TransientPromptConfig::default(),

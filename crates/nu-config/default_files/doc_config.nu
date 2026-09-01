@@ -605,17 +605,17 @@ $env.config.ls.clickable_links = true
 $env.config.prompt.indicator = "> "
 
 # prompt.vi_insert (string): Shown in vi insert mode.
-# Default: ": "
-$env.config.prompt.vi_insert = ": "
+# Default: "> "
+$env.config.prompt.vi_insert = "> "
 
 # prompt.vi_normal (string): Shown in vi normal mode.
-# Default: "> "
-$env.config.prompt.vi_normal = "> "
+# Default: ": "
+$env.config.prompt.vi_normal = ": "
 
 # prompt.vi_visual (string): Shown in vi visual mode.
 # Note: This key has no environment variable equivalent.
-# Default: "v "
-$env.config.prompt.vi_visual = "v "
+# Default: "+ "
+$env.config.prompt.vi_visual = "+ "
 
 # prompt.multiline (string): Shown on continuation lines of a multiline entry.
 # Default: "::: "

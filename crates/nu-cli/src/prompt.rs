@@ -136,21 +136,25 @@ fn indicator_for(contents: &PromptContents, edit_mode: PromptEditMode) -> String
             contents.indicator.as_deref().unwrap_or("> ").to_string()
         }
         PromptEditMode::Vi(PromptViMode::Normal) => {
-            contents.vi_normal.as_deref().unwrap_or("> ").to_string()
+            contents.vi_normal.as_deref().unwrap_or(": ").to_string()
         }
         PromptEditMode::Vi(PromptViMode::Insert) => {
-            contents.vi_insert.as_deref().unwrap_or(": ").to_string()
+            contents.vi_insert.as_deref().unwrap_or("> ").to_string()
         }
         PromptEditMode::Vi(PromptViMode::Visual) => {
-            contents.vi_visual.as_deref().unwrap_or("v ").to_string()
+            contents.vi_visual.as_deref().unwrap_or("+ ").to_string()
         }
-        // Helix reuses the vi indicators; normal and select share one, as they
-        // share a keybinding table.
-        PromptEditMode::Helix(PromptHelixMode::Normal | PromptHelixMode::Select) => {
-            contents.vi_normal.as_deref().unwrap_or("> ").to_string()
+        // Helix reuses the vi indicators: the keys are named for the dialect
+        // but the values describe the state, and select is the state whose
+        // motions grow a span, thus it takes the visual one.
+        PromptEditMode::Helix(PromptHelixMode::Normal) => {
+            contents.vi_normal.as_deref().unwrap_or(": ").to_string()
+        }
+        PromptEditMode::Helix(PromptHelixMode::Select) => {
+            contents.vi_visual.as_deref().unwrap_or("+ ").to_string()
         }
         PromptEditMode::Helix(PromptHelixMode::Insert) => {
-            contents.vi_insert.as_deref().unwrap_or(": ").to_string()
+            contents.vi_insert.as_deref().unwrap_or("> ").to_string()
         }
         PromptEditMode::Custom(str) => format!("({str})"),
     }

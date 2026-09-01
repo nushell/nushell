@@ -78,11 +78,13 @@ impl Prompt for ReedlinePrompt {
                 PromptViMode::Insert => self.indicators.vi_insert.as_str().into(),
                 PromptViMode::Visual => self.indicators.vi_visual.as_str().into(),
             },
+            // The config keys are named for vi but the state is what they
+            // describe, so helix reads the same three. Select takes the visual
+            // key rather than normal's, matching reedline's own default.
             PromptEditMode::Helix(helix_mode) => match helix_mode {
-                PromptHelixMode::Normal | PromptHelixMode::Select => {
-                    DEFAULT_VI_NORMAL_PROMPT_INDICATOR.into()
-                }
-                PromptHelixMode::Insert => DEFAULT_VI_INSERT_PROMPT_INDICATOR.into(),
+                PromptHelixMode::Normal => self.indicators.vi_normal.as_str().into(),
+                PromptHelixMode::Select => self.indicators.vi_visual.as_str().into(),
+                PromptHelixMode::Insert => self.indicators.vi_insert.as_str().into(),
             },
             PromptEditMode::Custom(str) => format!("({str})").into(),
         }
