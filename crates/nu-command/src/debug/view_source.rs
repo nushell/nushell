@@ -1,9 +1,10 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::{
-    Config, DeclId, PipelineMetadata, Span,
+    Config, DeclId, PipelineMetadata, Span, VarId,
     ast::{Expr, Expression, Traverse},
     shell_error::generic::GenericError,
 };
+use nuon::{ToNuonConfig, to_nuon};
 
 use std::collections::HashSet;
 use std::fmt::Write;
@@ -26,7 +27,7 @@ impl Command for ViewSource {
             .required("item", SyntaxShape::Any, "Name or block to view.")
             .switch(
                 "dependencies",
-                "Also show the source of every custom command the item calls, transitively.",
+                "Also show every custom command the item calls, transitively, and every constant those bodies read.",
                 Some('d'),
             )
             .category(Category::Debug)
@@ -41,7 +42,13 @@ the source, so `export` and attributes are lost. That holds with or without
 closure or a block id it does nothing. It follows only the calls the parser
 can see, so a closure written inside the body is followed even when it is run
 through a variable, but one that arrives as an argument is not. And a command
-built on a large module can pull in a lot of output."
+built on a large module can pull in a lot of output.
+
+A constant is rebuilt the same way, as `const <name> = <value>`, because only
+the name is recorded with a source span. So the value is the one the command
+actually reads: an expression such as `path self` shows up already resolved,
+and an explicit type annotation is lost. `$nu` and the record bound by `use
+<module>` are left out — neither is written as a `const` anywhere."
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -168,12 +175,11 @@ built on a large module can pull in a lot of output."
                             let mut sources = vec![src];
 
                             if call.has_flag(engine_state, stack, "dependencies")? {
+                                let (decls, consts) = decls_with_deps(engine_state, decl_id);
                                 let mut emitted = vec![block_span];
                                 // Why: the root is already rendered above, under the name the user
                                 // typed — which for an imported command is the qualified one.
-                                for dep in
-                                    decls_with_deps(engine_state, decl_id).into_iter().skip(1)
-                                {
+                                for dep in decls.into_iter().skip(1) {
                                     // Why: the defining name, not the name the caller imported it
                                     // under. Bodies are quoted verbatim, so a renamed header would
                                     // disagree with its own call sites.
@@ -191,6 +197,20 @@ built on a large module can pull in a lot of output."
                                     emitted.push(dep_span);
                                     sources.push(dep_src);
                                 }
+                                // Why: a `const` written inside a body is already printed with that
+                                // body, so only one declared elsewhere is worth a line of its own.
+                                // Every body is rendered by now, so `emitted` is complete.
+                                let const_sources: Vec<String> = consts
+                                    .into_iter()
+                                    .filter(|var_id| {
+                                        let span = engine_state.get_var(*var_id).declaration_span;
+                                        !emitted.iter().any(|s| s.contains_span(span))
+                                    })
+                                    .filter_map(|var_id| render_const(engine_state, var_id))
+                                    .collect();
+                                // Why: constants come first, the way a module writes them — a body
+                                // reading `$FOO` is easier to follow when `$FOO` is already read.
+                                sources.splice(0..0, const_sources);
                             }
 
                             Ok(make_output(
@@ -373,15 +393,26 @@ fn render_def(engine_state: &EngineState, name: &str, decl_id: DeclId) -> Option
     Some((final_contents, block_span))
 }
 
+// A reference found in a command body, before it is known to be worth showing.
+enum Dep {
+    Decl(DeclId),
+    Const(VarId),
+}
+
 // Helper function to collect a command and every custom command it calls, transitively, in
-// breadth-first order.
+// breadth-first order, together with every constant those bodies read.
 // Why: every `Expr::Call` carries a `decl_id` bound at parse time, so a command private to a module
-// is reachable here even though `find_decl` in the caller's scope cannot see it by name.
-fn decls_with_deps(engine_state: &EngineState, root: DeclId) -> Vec<DeclId> {
+// is reachable here even though `find_decl` in the caller's scope cannot see it by name. The same
+// holds for `Expr::Var` and a module-private constant.
+fn decls_with_deps(engine_state: &EngineState, root: DeclId) -> (Vec<DeclId>, Vec<VarId>) {
     let working_set = StateWorkingSet::new(engine_state);
     // Why: commands may call each other in a cycle, so the walk needs a visited set to stop.
     let mut seen = HashSet::from([root]);
     let mut order = vec![root];
+    // Why: a constant is a leaf — its value is already evaluated, so it cannot reach a further
+    // command or constant — and so it never joins the queue the loop below walks.
+    let mut seen_consts = HashSet::new();
+    let mut consts = Vec::new();
     let mut next = 0;
 
     while next < order.len() {
@@ -391,27 +422,72 @@ fn decls_with_deps(engine_state: &EngineState, root: DeclId) -> Vec<DeclId> {
         let Some(block_id) = engine_state.get_decl(decl_id).block_id() else {
             continue;
         };
-        // `flat_map` takes `Fn`, not `FnMut`, so the closure cannot touch the visited set — it is
-        // updated after the traversal returns.
+        // `flat_map` takes `Fn`, not `FnMut`, so the closure cannot touch the visited sets — they
+        // are updated after the traversal returns.
         let leaf = |expr: &Expression| match &expr.expr {
-            Expr::Call(call) => vec![call.decl_id],
+            Expr::Call(call) => vec![Dep::Decl(call.decl_id)],
+            Expr::Var(var_id) => vec![Dep::Const(*var_id)],
             _ => Vec::new(),
         };
-        let mut called = Vec::new();
+        let mut found = Vec::new();
         engine_state
             .get_block(block_id)
-            .flat_map(&working_set, &leaf, &mut called);
+            .flat_map(&working_set, &leaf, &mut found);
 
-        for dep in called {
-            // Why: having a block is the single filter that drops builtins, keywords, known
-            // externals and plugins — none of them have a body to show.
-            if engine_state.get_decl(dep).block_id().is_some() && seen.insert(dep) {
-                order.push(dep);
+        for dep in found {
+            match dep {
+                // Why: having a block is the single filter that drops builtins, keywords, known
+                // externals and plugins — none of them have a body to show.
+                Dep::Decl(dep) => {
+                    if engine_state.get_decl(dep).block_id().is_some() && seen.insert(dep) {
+                        order.push(dep);
+                    }
+                }
+                Dep::Const(dep) => {
+                    if engine_state.get_var(dep).const_val.is_some() && seen_consts.insert(dep) {
+                        consts.push(dep);
+                    }
+                }
             }
         }
     }
 
-    order
+    (order, consts)
+}
+
+// Helper function to render a constant as a `const` line, carrying the value the engine holds.
+// Why: only the span of the name is recorded, not the span of the whole statement, so the
+// right-hand side cannot be quoted from the source. The value is what the command actually reads,
+// which is the point of showing it — but an expression like `path self` shows up already resolved,
+// and an explicit type annotation is lost.
+fn render_const(engine_state: &EngineState, var_id: VarId) -> Option<String> {
+    let var = engine_state.get_var(var_id);
+    let value = to_nuon(
+        engine_state,
+        var.const_val.as_ref()?,
+        ToNuonConfig::default(),
+    )
+    .ok()?;
+    let name = const_name(engine_state, var_id)?;
+
+    Some(format!("const {name} = {value}"))
+}
+
+// Helper function to read the name of a variable, but only when a `const` statement is what
+// declared it.
+// Why: not every constant was written as one. `$nu` is a constant, and `use <module>` binds a
+// record of the module's exported constants under the module's own name. The name has to be read
+// from the declaration span, since that is the only name the engine keeps a source location for —
+// and for these two that span is not their name: the record carries the span of the `use` call,
+// `$nu` carries no span at all. So a constant is one worth showing exactly when the span it was
+// declared at spells the name it is bound under.
+fn const_name(engine_state: &EngineState, var_id: VarId) -> Option<String> {
+    let var = engine_state.get_var(var_id);
+    let bound = String::from_utf8_lossy(var.name.as_ref()?).to_string();
+    let declared =
+        String::from_utf8_lossy(engine_state.get_span_contents(var.declaration_span)).to_string();
+
+    (bound.trim_start_matches('$') == declared.trim_start_matches('$')).then_some(declared)
 }
 
 // Helper function to find the file path associated with a given span, if any.

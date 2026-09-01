@@ -144,3 +144,83 @@ fn datasource_filepath_metadata() -> Result {
         Ok(())
     })
 }
+
+#[test]
+fn prepends_constants_the_body_reads() -> Result {
+    // Why: constants come first so a body reading `$G` is read after `$G` itself.
+    let code = "const G = 42; def caller [] { $G }; view source caller --dependencies";
+    test()
+        .run(code)
+        .expect_value_eq("const G = 42\n\ndef caller [] { $G }")
+}
+
+#[test]
+fn reaches_module_private_constants() -> Result {
+    // A private constant cannot be named to `view source` at all, same as a private command.
+    let code = r#"
+        module m4 { const P = 7; export def bar [] { $P } }
+        use m4
+        view source "m4 bar" --dependencies
+    "#;
+    test()
+        .run(code)
+        .expect_value_eq("const P = 7\n\ndef \"m4 bar\" [] { $P }")
+}
+
+#[test]
+fn skips_constants_nobody_wrote_as_one() -> Result {
+    // `$nu` is a constant holding the whole record, and printing it would bury the output. The
+    // custom dependency is here so that removing the feature fails this test instead of passing it.
+    let code = "def helper [] { 42 }; def m [] { $env.PWD; $nu.home-path; helper }; view source m --dependencies";
+    test()
+        .run(code)
+        .expect_value_eq("def m [] { $env.PWD; $nu.home-path; helper }\n\ndef helper [] { 42 }")
+}
+
+#[test]
+fn skips_the_record_bound_by_use() -> Result {
+    // `use m5` binds a record of the module's exported constants under the module's own name. It is
+    // a constant, but it is declared at the span of the `use` call, not at a name of its own.
+    let code = "
+        module m5 { export const E = 1 }
+        use m5
+        def caller [] { $m5.E }
+        view source caller --dependencies
+    ";
+    test().run(code).expect_value_eq("def caller [] { $m5.E }")
+}
+
+#[test]
+fn does_not_repeat_a_constant_declared_in_the_body() -> Result {
+    // The text of `X` is already inside the printed body. `G` is here so that removing the feature
+    // fails this test instead of satisfying it.
+    let code = "const G = 1; def foo [] { const X = 2; $X + $G }; view source foo --dependencies";
+    test()
+        .run(code)
+        .expect_value_eq("const G = 1\n\ndef foo [] { const X = 2; $X + $G }")
+}
+
+#[test]
+fn skips_ordinary_variables() -> Result {
+    // Only a constant has a value to show; a parameter and a `let` binding have none until the
+    // command runs.
+    let code = "def loc [a] { let b = 2; $a + $b }; view source loc --dependencies";
+    test()
+        .run(code)
+        .expect_value_eq("def loc [ a: any ] { let b = 2; $a + $b }")
+}
+
+#[test]
+fn follows_a_constant_imported_by_name() -> Result {
+    // Importing a constant by name reuses the variable the module declared, so it keeps the span of
+    // its own `const` -- unlike the record `use m6` alone would bind.
+    let code = "
+        module m6 { export const E = 5 }
+        use m6 E
+        def c [] { $E }
+        view source c --dependencies
+    ";
+    test()
+        .run(code)
+        .expect_value_eq("const E = 5\n\ndef c [] { $E }")
+}
