@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use nu_protocol::{ParseError, ShellError, Type};
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_matches;
@@ -254,8 +252,9 @@ fn override_table_eval_file() -> Result {
 #[test]
 fn infinite_recursion_does_not_panic() -> Result {
     let mut tester = test();
-    let config = Arc::make_mut(&mut tester.engine_state.config);
+    let mut config = tester.engine_state.get_config().as_ref().clone();
     config.recursion_limit = 5;
+    tester.engine_state.set_config(config);
     let err = tester
         .run("def bang [] { bang }; bang")
         .expect_shell_error()?;
@@ -272,8 +271,9 @@ fn infinite_recursion_does_not_panic() -> Result {
 #[test]
 fn infinite_mutual_recursion_does_not_panic() -> Result {
     let mut tester = test();
-    let config = Arc::make_mut(&mut tester.engine_state.config);
+    let mut config = tester.engine_state.get_config().as_ref().clone();
     config.recursion_limit = 5;
+    tester.engine_state.set_config(config);
     let err = tester
         .run("def bang [] { def boom [] { bang }; boom }; bang")
         .expect_shell_error()?;

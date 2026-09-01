@@ -110,7 +110,10 @@ pub struct EngineState {
     pub signal_handlers: Option<Handlers>,
     pub env_vars: Arc<EnvVars>,
     pub previous_env_vars: Arc<HashMap<EnvName, Value>>,
+    /// Live config. Replace it with [`Self::set_config`] so [`Self::config_epoch`] stays in sync.
     pub config: Arc<Config>,
+    /// Incremented when [`Self::config`] is replaced (`set_config`, `merge_env`).
+    config_epoch: u64,
     pub pipeline_externals_state: Arc<(AtomicU32, AtomicU32)>,
     pub repl_state: Arc<Mutex<ReplState>>,
     /// Shared source of truth for the interactive prompt's rendered content. The
@@ -239,6 +242,7 @@ impl EngineState {
             ),
             previous_env_vars: Arc::new(HashMap::new()),
             config: Arc::new(Config::default()),
+            config_epoch: 0,
             pipeline_externals_state: Arc::new((AtomicU32::new(0), AtomicU32::new(0))),
             repl_state: Arc::new(Mutex::new(ReplState {
                 buffer: "".to_string(),
@@ -445,7 +449,7 @@ impl EngineState {
 
         if let Some(config) = stack.config.take() {
             // If config was updated in the stack, replace it.
-            self.config = config;
+            self.replace_config(config);
 
             // Make plugin GC config changes take effect immediately.
             #[cfg(feature = "plugin")]
@@ -881,6 +885,16 @@ impl EngineState {
         &self.config
     }
 
+    /// Identity of the current config object. Changes when `$env.config` is rewritten.
+    pub fn config_epoch(&self) -> u64 {
+        self.config_epoch
+    }
+
+    fn replace_config(&mut self, conf: Arc<Config>) {
+        self.config_epoch = self.config_epoch.wrapping_add(1);
+        self.config = conf;
+    }
+
     pub fn set_config(&mut self, conf: impl Into<Arc<Config>>) {
         let conf = conf.into();
 
@@ -890,7 +904,7 @@ impl EngineState {
             self.update_plugin_gc_configs(&conf.plugin_gc);
         }
 
-        self.config = conf;
+        self.replace_config(conf);
     }
 
     /// Fetch the configuration for a plugin
