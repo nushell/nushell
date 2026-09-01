@@ -17,7 +17,7 @@ use nu_protocol::{
 use nu_std::load_standard_library;
 
 use nu_test_support::prelude::*;
-use reedline::{Span, Suggestion, Suggestions};
+use reedline::{Completer, CompletionResult, Span, Suggestion, Suggestions};
 use rstest::{fixture, rstest};
 use support::{
     completions_helpers::{
