@@ -396,6 +396,15 @@ const CLI_FLAGS: &[CliFlag] = &[
         CliCategory::Startup,
         "nu --mcp --mcp-transport http --mcp-port 3000",
     ),
+    #[cfg(feature = "mcp")]
+    CliFlag::value(
+        "mcp-host",
+        None,
+        ValueHint::String,
+        "host for MCP HTTP transhost (default 127.0.0.1)",
+        CliCategory::Startup,
+        "nu --mcp --mcp-transhost http --mcp-host 0.0.0.0",
+    ),
 ];
 
 // Container for parsed CLI values before conversion to NushellCliArgs.
@@ -439,6 +448,8 @@ struct CliValues {
     mcp_transport: Option<Spanned<String>>,
     #[cfg(feature = "mcp")]
     mcp_port: Option<u16>,
+    #[cfg(feature = "mcp")]
+    mcp_host: Option<String>,
 }
 
 // Error type for CLI parsing with optional help text.
@@ -777,6 +788,8 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
             mcp_transport: cli.mcp_transport,
             #[cfg(feature = "mcp")]
             mcp_port: cli.mcp_port,
+            #[cfg(feature = "mcp")]
+            mcp_host: cli.mcp_host,
         },
         script_name,
         args_to_script,
@@ -1447,6 +1460,8 @@ pub(crate) struct NushellCliArgs {
     pub(crate) mcp_transport: Option<Spanned<String>>,
     #[cfg(feature = "mcp")]
     pub(crate) mcp_port: Option<u16>,
+    #[cfg(feature = "mcp")]
+    pub(crate) mcp_host: Option<String>,
 }
 
 #[cfg(test)]
