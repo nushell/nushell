@@ -293,8 +293,9 @@ fn is_completion_boundary(c: char) -> bool {
 
 /// The environment a cached completion was computed against.
 ///
-/// Results depend on cwd, `PATH`, and known declarations, which change between prompts
-/// while the query text does not — so the query alone is not a sound cache key.
+/// Results depend on cwd, `PATH`, known declarations, and `$env.config`, which
+/// change between prompts while the query text does not — so the query alone is
+/// not a sound cache key.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct CacheEnv(u64);
 
@@ -316,6 +317,8 @@ impl CacheEnv {
             .and_then(|cwd| std::fs::metadata(cwd).ok()?.modified().ok())
             .hash(&mut hasher);
         cwd.hash(&mut hasher);
+
+        engine_state.config_epoch().hash(&mut hasher);
 
         Self(hasher.finish())
     }
@@ -2124,26 +2127,33 @@ mod completer_tests {
         assert!(!engine.should_complete_on_repl_thread(&q("ls | c")));
     }
 
-    fn engine_with_external_completer() -> Arc<EngineState> {
+    fn apply_source(engine: &mut EngineState, stack: &mut Stack, source: &[u8]) {
         use nu_engine::eval_block;
         use nu_protocol::{PipelineData, debugger::WithoutDebug};
 
-        let mut engine = (*test_engine()).clone();
-        let mut stack = Stack::new();
-        let mut working_set = StateWorkingSet::new(&engine);
-        let block = parse(
-            &mut working_set,
-            None,
-            b"$env.config.completions.external.completer = {|spans| $spans}",
-            false,
+        let mut working_set = StateWorkingSet::new(engine);
+        let block = parse(&mut working_set, None, source, false);
+        assert!(
+            working_set.parse_errors.is_empty(),
+            "{:?}",
+            working_set.parse_errors
         );
-        assert!(working_set.parse_errors.is_empty());
         engine
             .merge_delta(working_set.render())
             .expect("merge_delta");
-        eval_block::<WithoutDebug>(&engine, &mut stack, &block, PipelineData::empty())
-            .expect("eval completer config");
-        engine.merge_env(&mut stack).expect("merge_env");
+        eval_block::<WithoutDebug>(engine, stack, &block, PipelineData::empty())
+            .expect("eval source");
+        engine.merge_env(stack).expect("merge_env");
+    }
+
+    fn engine_with_external_completer() -> Arc<EngineState> {
+        let mut engine = (*test_engine()).clone();
+        let mut stack = Stack::new();
+        apply_source(
+            &mut engine,
+            &mut stack,
+            b"$env.config.completions.external.completer = {|spans| $spans}",
+        );
         Arc::new(engine)
     }
 
@@ -2321,14 +2331,68 @@ mod completer_tests {
         );
     }
 
+    /// Any `$env.config` assignment, including ones that are not completion
+    /// settings, must not keep serving the previous prompt's suggestions.
+    #[rstest::rstest]
+    #[case::external_completer(
+        b"$env.config.completions.external.completer = {|spans| [from-second]}",
+        Some("from-second")
+    )]
+    #[case::unrelated_config(b"$env.config.float_precision = 5", None)]
+    fn cache_is_not_reused_after_config_changes(
+        #[case] later: &[u8],
+        #[case] expected_external: Option<&str>,
+    ) {
+        let mut engine = (*test_engine()).clone();
+        let mut stack = Stack::new();
+        apply_source(
+            &mut engine,
+            &mut stack,
+            b"$env.config.completions.external.completer = {|spans| [from-first]}",
+        );
+        let first_env = CacheEnv::of(&engine, &stack);
+        let engine = Arc::new(engine);
+        let stack = Arc::new(stack);
+        let cache = NarrowingCache::default();
+
+        let mut filling_prompt =
+            NuCompleter::with_cache(engine.clone(), stack.clone(), cache.clone());
+        assert!(!filling_prompt.complete_blocking("ls | c", 6).is_empty());
+        drop(filling_prompt);
+
+        let mut engine = (*engine).clone();
+        let mut stack = (*stack).clone();
+        apply_source(&mut engine, &mut stack, later);
+        let second_env = CacheEnv::of(&engine, &stack);
+        assert_ne!(
+            first_env, second_env,
+            "a config assignment must change the cache fingerprint"
+        );
+
+        let mut next_prompt = NuCompleter::with_cache(Arc::new(engine), Arc::new(stack), cache);
+        assert!(
+            next_prompt.complete("ls | c", 6).is_pending(),
+            "entries computed under a previous config must not answer"
+        );
+
+        if let Some(expected) = expected_external {
+            let values: Vec<_> = next_prompt
+                .complete_blocking("extcommand x", 12)
+                .iter()
+                .map(|s| s.value.clone())
+                .collect();
+            assert_eq!(values, [expected], "the newly assigned completer must run");
+        }
+    }
+
     /// `cache_size = 0` must disable the cache entirely, even a carried-over one.
     #[test]
     fn cache_size_zero_disables_the_cache() {
-        let mut engine = test_engine();
-        {
-            let state = Arc::make_mut(&mut engine);
-            Arc::make_mut(&mut state.config).completions.cache_size = 0;
-        }
+        let mut engine = (*test_engine()).clone();
+        let mut config = engine.get_config().as_ref().clone();
+        config.completions.cache_size = 0;
+        engine.set_config(config);
+        let engine = Arc::new(engine);
         let cache = NarrowingCache::default();
 
         let mut filling_prompt =

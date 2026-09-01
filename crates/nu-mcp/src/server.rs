@@ -9,7 +9,6 @@ use rmcp::{
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 
 pub struct NushellMcpServer {
     #[allow(dead_code)]
@@ -21,10 +20,10 @@ pub struct NushellMcpServer {
 impl NushellMcpServer {
     pub fn new(mut engine_state: EngineState) -> Self {
         // Configure the engine state for MCP
-        if let Some(config) = Arc::get_mut(&mut engine_state.config) {
-            config.use_ansi_coloring = UseAnsiColoring::False;
-            config.color_config.clear();
-        }
+        let mut config = engine_state.get_config().as_ref().clone();
+        config.use_ansi_coloring = UseAnsiColoring::False;
+        config.color_config.clear();
+        engine_state.set_config(config);
         NushellMcpServer {
             tool_router: Self::tool_router(),
             evaluator: Evaluator::new(engine_state),
