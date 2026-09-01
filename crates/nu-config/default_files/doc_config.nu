@@ -287,7 +287,7 @@ $env.config.completions.use_ls_colors = true
 # reused on the next Tab of that same prefix so Nushell does not re-scan
 # files or command names. Least-recently-used entries are dropped when the
 # limit is reached. The cache is shared across prompts and is discarded when
-# PATH, the working directory, or the set of commands changes.
+# PATH, the working directory, the set of commands, or `$env.config` changes.
 # 0: Disable the cache; every Tab recomputes.
 # A larger value remembers more prefixes (uses more memory).
 # A smaller value forgets sooner.
