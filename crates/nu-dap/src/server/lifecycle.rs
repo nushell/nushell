@@ -3,13 +3,22 @@
 
 use super::Session;
 use crate::dap::protocol::Request;
-use crate::dap::types::{Capabilities, DapEvent, ExceptionBreakpointFilter, LaunchArgs};
+use crate::dap::types::{
+    Capabilities, DapEvent, ExceptionBreakpointFilter, InitializeArgs, LaunchArgs,
+};
 use crate::engine::spawn_eval_thread;
+use crate::state::ClientCoords;
 use crate::state::DebugState;
 use std::sync::Arc;
 
 impl Session {
-    pub(super) fn on_initialize(&mut self, seq: i64, cmd: &str) {
+    pub(super) fn on_initialize(&mut self, seq: i64, cmd: &str, req: Request) {
+        // The client states how it numbers lines and columns here. Malformed
+        // arguments fall back to the spec's default (1-based) rather than
+        // failing the handshake over a field almost nobody sends.
+        let args: InitializeArgs = serde_json::from_value(req.arguments).unwrap_or_default();
+        self.coords = ClientCoords::new(args.lines_start_at1, args.columns_start_at1);
+
         // Version stamp in the debug console, so a user can tell which
         // adapter build they are running.
         self.writer.output(
@@ -49,6 +58,7 @@ impl Session {
                     args.time_travel.unwrap_or(true),
                     args.time_travel_max_steps.unwrap_or(10000),
                     self.files.clone(),
+                    self.coords,
                 )));
                 self.launch_args = Some(args.clone());
                 self.pending_launch = Some(args);
@@ -90,6 +100,7 @@ impl Session {
                     args.time_travel.unwrap_or(true),
                     args.time_travel_max_steps.unwrap_or(10000),
                     self.files.clone(),
+                    self.coords,
                 ));
                 {
                     let old = old_state.session_state.lock();

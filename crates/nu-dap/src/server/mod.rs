@@ -44,6 +44,7 @@ pub(crate) fn run_loop<R: BufRead>(
         engine_state,
         state: None,
         files: crate::file_table::FileTable::default(),
+        coords: crate::state::ClientCoords::default(),
         pending_launch: None,
         launch_args: None,
         eval_handle: None,
@@ -76,6 +77,9 @@ struct Session {
     /// Lives here so ids survive a `restart` and carried-over breakpoints stay
     /// pointed at their files.
     files: crate::file_table::FileTable,
+    /// How the client numbers lines and columns, from `initialize`. The
+    /// adapter is 1-based throughout and converts at the wire boundary only.
+    coords: crate::state::ClientCoords,
     pending_launch: Option<LaunchArgs>,
     /// Retained past configurationDone so `restart` can respawn the run.
     launch_args: Option<LaunchArgs>,
@@ -88,7 +92,7 @@ impl Session {
         let seq = req.seq;
         let cmd = req.command.clone();
         match cmd.as_str() {
-            "initialize" => self.on_initialize(seq, &cmd),
+            "initialize" => self.on_initialize(seq, &cmd, req),
             "launch" => self.on_launch(seq, &cmd, req),
             "setBreakpoints" => self.on_set_breakpoints(seq, &cmd, req),
             "breakpointLocations" => self.on_breakpoint_locations(seq, &cmd, req),

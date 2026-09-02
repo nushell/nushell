@@ -739,6 +739,80 @@ fn conditional_breakpoint_and_logpoint() {
     assert_eq!(nu_logs[2], "file c.log total 4216");
 }
 
+/// The `initialize` request carries the client's coordinate bases. The
+/// adapter is 1-based inside, so a client that declares 0-based numbering must
+/// have every line and column it sends *and* receives shifted — and since
+/// columns now decide whether an inline breakpoint fires, getting this wrong
+/// would misplace breakpoints, not just markers.
+#[test]
+#[deps(NU)]
+fn a_zero_based_client_gets_zero_based_coordinates() {
+    let pipeline = example("pipeline.nu");
+    let mut d = Dap::spawn();
+
+    d.send(
+        "initialize",
+        json!({
+            "adapterID": "nushell",
+            "linesStartAt1": false,
+            "columnsStartAt1": false,
+        }),
+    );
+    d.response("initialize");
+    d.event("initialized");
+
+    d.send(
+        "launch",
+        json!({ "program": pipeline, "stopOnEntry": true }),
+    );
+    d.response("launch");
+    d.send("configurationDone", json!({}));
+    d.response("configurationDone");
+    d.event("stopped");
+
+    // Line 4 of the file is line 3 to this client, and the statement in
+    // column 1 is column 0.
+    d.send(
+        "breakpointLocations",
+        json!({ "source": { "path": pipeline }, "line": 3 }),
+    );
+    let body = d.response("breakpointLocations");
+    let locs = body["body"]["breakpoints"].as_array().unwrap();
+    assert!(!locs.is_empty(), "line 3 (0-based) is line 4 of the file");
+    assert_eq!(locs[0]["line"], 3, "lines come back 0-based");
+    assert_eq!(locs[0]["column"], 0, "columns come back 0-based");
+
+    // The closure body, as this client numbers it.
+    let column = locs
+        .last()
+        .and_then(|b| b["column"].as_i64())
+        .expect("a position");
+
+    d.send(
+        "setBreakpoints",
+        json!({
+            "source": { "path": pipeline },
+            "breakpoints": [{ "line": 3, "column": column }],
+        }),
+    );
+    let set = d.response("setBreakpoints");
+    let bp = &set["body"]["breakpoints"][0];
+    assert_eq!(bp["verified"], true);
+    assert_eq!(bp["line"], 3, "echoed back in the client's numbering");
+    assert_eq!(bp["column"], column);
+
+    // It binds where the 1-based client's equivalent breakpoint binds: inside
+    // the closure, so two frames deep.
+    d.cont();
+    assert_eq!(d.stop_or_term()["event"], "stopped");
+    d.send("stackTrace", json!({ "threadId": 1 }));
+    let f = d.response("stackTrace");
+    let frames = f["body"]["stackFrames"].as_array().unwrap();
+    assert_eq!(frames.len(), 2, "inside the closure");
+    assert_eq!(frames[0]["line"], 3, "stack frames are 0-based too");
+    assert_eq!(frames[0]["column"], column);
+}
+
 /// `breakpointLocations` reports every position on a line that can carry a
 /// breakpoint, so the client can snap an inline breakpoint onto a real
 /// instruction instead of guessing a column.

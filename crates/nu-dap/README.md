@@ -69,6 +69,7 @@ client only surfaces working UI. This adapter is **launch-only** (there is no `a
 | Stack trace / scopes / variables | `stackTrace` · `scopes` · `variables`                | lazy hydration; 5 scopes; innermost frame only        |
 | Evaluate (watch / repl / hover)  | `supportsEvaluateForHovers`, `evaluate`              | scratch engine                                       |
 | Configuration done               | `supportsConfigurationDoneRequest`                   | run deferred until breakpoints are set               |
+| Client coordinate bases          | `linesStartAt1`, `columnsStartAt1`                   | honoured; the adapter is 1-based internally          |
 | Restart                          | `supportsRestartRequest`                             | hot restart; breakpoints kept                        |
 | Terminate / disconnect           | `supportsTerminateRequest`, `disconnect`             |                                                      |
 
@@ -122,6 +123,15 @@ lands where an instruction actually is.
 One breakpoint per *position*, not per line: two breakpoints bound to the same
 position collide, and the loser comes back unverified with a message saying so,
 rather than being dropped silently.
+
+Columns are only meaningful against a known base, so the `initialize` request's
+`linesStartAt1` / `columnsStartAt1` are honoured. Everything inside the adapter
+is 1-based, matching nushell's own source positions, and `state::ClientCoords`
+converts at the wire boundary — on the way in for `setBreakpoints` and
+`breakpointLocations`, on the way out for stack frames, breakpoints and
+breakpoint locations. Stack frames are stored 1-based and converted when
+served, so the time-travel tape holds one consistent numbering whatever the
+client asked for.
 
 One more limitation worth knowing before you use the Call Stack pane: `scopes`, `variables` and `evaluate` ignore the
 `frameId` the client sends and always answer for the **innermost** frame. `stackTrace` reports the whole chain and

@@ -418,8 +418,75 @@ pub(crate) struct UiBridge {
     pub next_id: std::sync::atomic::AtomicU64,
 }
 
+/// How the client numbers lines and columns, from the `initialize` request.
+///
+/// Everything inside the adapter is 1-based, matching nushell's own source
+/// positions ([`crate::source_map::SourcePos`]), so this converts only at the
+/// wire boundary — and every crossing of that boundary goes through one of the
+/// four methods below, so a missed conversion is a missing call rather than a
+/// silent off-by-one.
+///
+/// Both flags default to true, which is the spec's default when the field is
+/// absent and what every mainstream client sends.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct ClientCoords {
+    lines_start_at1: bool,
+    columns_start_at1: bool,
+}
+
+impl Default for ClientCoords {
+    fn default() -> Self {
+        Self {
+            lines_start_at1: true,
+            columns_start_at1: true,
+        }
+    }
+}
+
+impl ClientCoords {
+    pub(crate) fn new(lines_start_at1: Option<bool>, columns_start_at1: Option<bool>) -> Self {
+        Self {
+            lines_start_at1: lines_start_at1.unwrap_or(true),
+            columns_start_at1: columns_start_at1.unwrap_or(true),
+        }
+    }
+
+    /// A line as the client numbered it, as a 1-based line.
+    pub(crate) fn line_from_client(&self, line: i64) -> i64 {
+        if self.lines_start_at1 { line } else { line + 1 }
+    }
+
+    /// A 1-based line, numbered the way the client expects to read it.
+    pub(crate) fn line_to_client(&self, line: i64) -> i64 {
+        if self.lines_start_at1 { line } else { line - 1 }
+    }
+
+    /// A column as the client numbered it, as a 1-based column.
+    pub(crate) fn column_from_client(&self, column: i64) -> i64 {
+        if self.columns_start_at1 {
+            column
+        } else {
+            column + 1
+        }
+    }
+
+    /// A 1-based column, numbered the way the client expects to read it.
+    pub(crate) fn column_to_client(&self, column: i64) -> i64 {
+        if self.columns_start_at1 {
+            column
+        } else {
+            column - 1
+        }
+    }
+}
+
 pub(crate) struct DebugState {
     pub session_state: Mutex<SessionState>,
+    /// Copy of the `Session`'s [`ClientCoords`], handed over at launch: the
+    /// eval thread announces reconciled breakpoints itself and so has to
+    /// speak the client's numbering too. `initialize` always precedes
+    /// `launch`, so this is never a default standing in for a real answer.
+    pub coords: ClientCoords,
     /// The session's path <-> [`FileId`] table, shared with the `Session`
     /// rather than owned so a `restart`, which builds a fresh `DebugState` and
     /// copies the breakpoints across, keeps their ids valid.
@@ -453,9 +520,11 @@ impl DebugState {
         time_travel: bool,
         tt_max: usize,
         files: FileTable,
+        coords: ClientCoords,
     ) -> Self {
         Self {
             files,
+            coords,
             session_state: Mutex::new(SessionState {
                 breakpoints: HashMap::new(),
                 valid_positions: HashMap::new(),
@@ -538,7 +607,7 @@ impl DebugState {
 mod tests {
     //! Unit tests for [`crate::state`].
 
-    use super::{BpPos, DebugState};
+    use super::{BpPos, ClientCoords, DebugState};
     use crate::file_table::{FileId, FileTable};
     use pretty_assertions::assert_eq;
     use rstest::rstest;
@@ -551,7 +620,7 @@ mod tests {
     fn parsed(positions: &[(i64, i64)]) -> (DebugState, FileId) {
         let files = FileTable::default();
         let file = files.intern("script.nu");
-        let state = DebugState::new(false, false, 10, files);
+        let state = DebugState::new(false, false, 10, files, ClientCoords::default());
         {
             let mut session = state.session_state.lock();
             session.parse_done = true;
@@ -636,13 +705,59 @@ mod tests {
     fn before_the_parse_a_request_is_kept_as_asked(#[case] column: Option<i64>) {
         let files = FileTable::default();
         let file = files.intern("script.nu");
-        let state = DebugState::new(false, false, 10, files);
+        let state = DebugState::new(false, false, 10, files, ClientCoords::default());
         let session = state.session_state.lock();
 
         assert_eq!(
             session.snap(file, 4, column),
             (BpPos { line: 4, column }, true)
         );
+    }
+
+    /// The adapter is 1-based inside; a 1-based client is the identity, and a
+    /// 0-based one round-trips without drift in either direction.
+    #[rstest]
+    #[case::one_based(Some(true), Some(true), 4, 4)]
+    #[case::zero_based(Some(false), Some(false), 4, 3)]
+    // Absent means 1-based, per the spec.
+    #[case::absent_defaults_to_one_based(None, None, 4, 4)]
+    // The two axes are independent.
+    #[case::zero_based_lines_only(Some(false), Some(true), 4, 3)]
+    fn client_coordinates_convert_both_ways(
+        #[case] lines_start_at1: Option<bool>,
+        #[case] columns_start_at1: Option<bool>,
+        #[case] internal: i64,
+        #[case] on_the_wire: i64,
+    ) {
+        let coords = ClientCoords::new(lines_start_at1, columns_start_at1);
+
+        assert_eq!(coords.line_to_client(internal), on_the_wire);
+        assert_eq!(coords.line_from_client(on_the_wire), internal);
+        // Round trip, the property that actually matters.
+        assert_eq!(
+            coords.line_from_client(coords.line_to_client(internal)),
+            internal
+        );
+    }
+
+    /// Columns follow `columnsStartAt1`, not `linesStartAt1`: a client may set
+    /// them differently, and mixing the two axes is exactly how an off-by-one
+    /// slips in.
+    #[rstest]
+    #[case::both_one_based(Some(true), Some(true), 34, 34)]
+    #[case::both_zero_based(Some(false), Some(false), 34, 33)]
+    #[case::zero_based_columns_only(Some(true), Some(false), 34, 33)]
+    #[case::zero_based_lines_only(Some(false), Some(true), 34, 34)]
+    fn client_columns_follow_their_own_flag(
+        #[case] lines_start_at1: Option<bool>,
+        #[case] columns_start_at1: Option<bool>,
+        #[case] internal: i64,
+        #[case] on_the_wire: i64,
+    ) {
+        let coords = ClientCoords::new(lines_start_at1, columns_start_at1);
+
+        assert_eq!(coords.column_to_client(internal), on_the_wire);
+        assert_eq!(coords.column_from_client(on_the_wire), internal);
     }
 
     /// `breakpointLocations` is served from the same set, over a line range.

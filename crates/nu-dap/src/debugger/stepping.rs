@@ -270,6 +270,7 @@ mod tests {
             false,
             1,
             crate::file_table::FileTable::default(),
+            crate::state::ClientCoords::default(),
         ));
         let writer = DapWriter::new(Box::new(std::io::sink()));
         (DapDebugger::new(Arc::clone(&state), writer), state)

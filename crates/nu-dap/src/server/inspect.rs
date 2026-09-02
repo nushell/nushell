@@ -30,9 +30,19 @@ impl Session {
                 start_frame: None,
                 levels: None,
             });
+        // Frames are stored 1-based (and reused by the time-travel tape), so
+        // the client's numbering is applied here, on the way out, rather than
+        // baked into what is recorded.
         let frames: Vec<StackFrame> = self
             .with_state(|session| session.active_snapshot().frames.clone())
-            .unwrap_or_default();
+            .unwrap_or_default()
+            .into_iter()
+            .map(|mut frame| {
+                frame.line = self.coords.line_to_client(frame.line);
+                frame.column = self.coords.column_to_client(frame.column);
+                frame
+            })
+            .collect();
         let total = frames.len();
         self.writer.respond(
             seq,

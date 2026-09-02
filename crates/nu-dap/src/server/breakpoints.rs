@@ -29,11 +29,15 @@ impl Session {
             for bp in &args.breakpoints {
                 let id = session.next_bp_id;
                 session.next_bp_id += 1;
+                // Into the adapter's 1-based coordinates for the rest of this
+                // loop; back to the client's on the way out.
+                let asked_line = self.coords.line_from_client(bp.line);
+                let asked_column = bp.column.map(|c| self.coords.column_from_client(c));
                 // Snap onto a real instruction position: forward to the next
                 // line with instructions for a gutter breakpoint, onto one
                 // column of the line for an inline one (optimistic before
                 // parsing; the eval thread reconciles and re-announces then).
-                let (pos, ok) = session.snap(file, bp.line, bp.column);
+                let (pos, ok) = session.snap(file, asked_line, asked_column);
                 // One breakpoint per position: a second one snapping onto a
                 // taken position could never fire, so report it unverified at
                 // the requested spot instead of dropping it silently.
@@ -41,6 +45,8 @@ impl Session {
                     verified.push(Breakpoint {
                         id: Some(id),
                         verified: false,
+                        // Echoed back exactly as asked, so the client's marker
+                        // stays where the user put it.
                         line: bp.line,
                         column: bp.column,
                         source: Some(args.source.clone()),
@@ -60,8 +66,8 @@ impl Session {
                 verified.push(Breakpoint {
                     id: Some(id),
                     verified: ok,
-                    line: pos.line,
-                    column: pos.column,
+                    line: self.coords.line_to_client(pos.line),
+                    column: pos.column.map(|c| self.coords.column_to_client(c)),
                     source: Some(args.source.clone()),
                     message: None,
                 });
@@ -96,15 +102,19 @@ impl Session {
 
         // Interned before the session lock, as in `on_set_breakpoints`.
         let file = args.source.path.as_deref().map(|p| self.files.intern(p));
-        let end_line = args.end_line.unwrap_or(args.line);
+        let line = self.coords.line_from_client(args.line);
+        let end_line = self
+            .coords
+            .line_from_client(args.end_line.unwrap_or(args.line));
 
         let breakpoints = file
-            .and_then(|file| {
-                self.with_state(|session| session.positions_in(file, args.line, end_line))
-            })
+            .and_then(|file| self.with_state(|session| session.positions_in(file, line, end_line)))
             .unwrap_or_default()
             .into_iter()
-            .map(|(line, column)| BreakpointLocation { line, column })
+            .map(|(line, column)| BreakpointLocation {
+                line: self.coords.line_to_client(line),
+                column: self.coords.column_to_client(column),
+            })
             .collect();
 
         self.writer

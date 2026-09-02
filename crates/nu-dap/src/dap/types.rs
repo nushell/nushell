@@ -28,6 +28,20 @@ pub struct LaunchArgs {
     pub entry_point: Option<String>,
 }
 
+/// `initialize` arguments. Only the coordinate bases are read: the client
+/// states how it numbers lines and columns, and everything inside the adapter
+/// is 1-based. See [`crate::state::ClientCoords`].
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InitializeArgs {
+    /// Absent means true, per the spec.
+    #[serde(default)]
+    pub lines_start_at1: Option<bool>,
+    /// Absent means true, per the spec.
+    #[serde(default)]
+    pub columns_start_at1: Option<bool>,
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SetBreakpointsArgs {

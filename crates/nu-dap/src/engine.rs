@@ -458,8 +458,10 @@ fn publish_valid_positions(
         let breakpoint = Breakpoint {
             id: Some(id),
             verified,
-            line: pos.line,
-            column: pos.column,
+            // The eval thread announces these itself, so it converts to the
+            // client's numbering too (state.coords).
+            line: state.coords.line_to_client(pos.line),
+            column: pos.column.map(|c| state.coords.column_to_client(c)),
             source: Some(Source {
                 name: None,
                 // The client needs a path to place the marker; the id is ours.
