@@ -15,7 +15,7 @@ use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub(crate) struct DapPrint {
-    pub(crate) writer: DapWriter,
+    pub writer: DapWriter,
 }
 
 impl std::fmt::Debug for DapPrint {
@@ -139,8 +139,8 @@ fn ui_label(value: &Value, ctx: crate::variables::RenderCtx<'_>) -> String {
 /// `input [prompt]` → VS Code input box.
 #[derive(Clone)]
 pub(crate) struct DapInput {
-    pub(crate) state: Arc<DebugState>,
-    pub(crate) writer: DapWriter,
+    pub state: Arc<DebugState>,
+    pub writer: DapWriter,
 }
 
 impl std::fmt::Debug for DapInput {
@@ -209,8 +209,8 @@ impl Command for DapInput {
 /// `input list [prompt] --multi --index --fuzzy` → VS Code quick pick.
 #[derive(Clone)]
 pub(crate) struct DapInputList {
-    pub(crate) state: Arc<DebugState>,
-    pub(crate) writer: DapWriter,
+    pub state: Arc<DebugState>,
+    pub writer: DapWriter,
 }
 
 impl std::fmt::Debug for DapInputList {
@@ -343,7 +343,7 @@ impl Command for DapInputList {
 /// Commands that genuinely can't work without a terminal.
 #[derive(Clone, Debug)]
 pub(crate) struct DapInputUnsupported {
-    pub(crate) name: &'static str,
+    pub name: &'static str,
 }
 
 impl Command for DapInputUnsupported {

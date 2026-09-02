@@ -25,8 +25,8 @@ const MAX_CLOSURE_CHARS: usize = 60;
 /// arrive pre-computed.
 #[derive(Clone, Copy)]
 pub(crate) struct RenderCtx<'a> {
-    pub(crate) config: &'a Config,
-    pub(crate) cache: &'a RenderCache,
+    pub config: &'a Config,
+    pub cache: &'a RenderCache,
 }
 
 /// Resolve what rendering will need from the engine: each block's source text

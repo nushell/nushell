@@ -11,9 +11,9 @@ use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 pub(crate) struct SourcePos {
-    pub(crate) path: String,
-    pub(crate) line: u64,   // 1-based
-    pub(crate) column: u64, // 1-based
+    pub path: String,
+    pub line: u64,   // 1-based
+    pub column: u64, // 1-based
 }
 
 pub(crate) struct FileIndex {
@@ -25,7 +25,7 @@ pub(crate) struct FileIndex {
 
 #[derive(Default)]
 pub(crate) struct SourceMap {
-    pub(crate) files: HashMap<String, FileIndex>,
+    pub files: HashMap<String, FileIndex>,
 }
 
 impl SourceMap {

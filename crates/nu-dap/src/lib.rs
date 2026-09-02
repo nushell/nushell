@@ -40,6 +40,7 @@
 // `clippy::result_large_err`. Nushell allows this workspace-wide for the same
 // reason (its command trait returns exactly that); mirror it here.
 #![allow(clippy::result_large_err)]
+#![warn(unreachable_pub)]
 // Allow `unwrap()` in tests (idiomatic, matches nushell); production code
 // stays `unwrap`-free under `clippy::unwrap_used`.
 #![cfg_attr(test, allow(clippy::unwrap_used))]

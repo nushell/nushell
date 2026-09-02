@@ -108,7 +108,7 @@ pub(crate) fn recent_output(category: &str) -> String {
 
 pub(crate) struct OutputCapture {
     /// The real stdout, for the DAP protocol.
-    pub(crate) dap_out: File,
+    pub dap_out: File,
     stdout_rx: PipeReader,
     stderr_rx: PipeReader,
 }
