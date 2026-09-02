@@ -29,11 +29,12 @@ pub enum MatchAlgorithm {
     /// Example:
     /// "git checkout" is matched by "gco"
     Fuzzy,
-    /// Shows prefix matches when any exist; otherwise falls back to fuzzy matches.
+
+    /// Shows prefix matches when any exist; otherwise falls back to fuzzy matches
     ///
     /// Examples:
-    /// - "git sw" matches "git switch" by prefix.
-    /// - "gco" matches "git checkout" by fuzzy matching when no prefix matches exist.
+    /// - "git sw" matches "git switch" by prefix
+    /// - "gco" matches "git checkout" by fuzzy matching when no prefix matches exist
     Fallback,
 }
 
@@ -240,17 +241,9 @@ impl<T> NuMatcher<'_, T> {
                 } else {
                     Cow::Owned(haystack.to_folded_case())
                 };
-                let match_start = match self.options.match_algorithm {
-                    MatchAlgorithm::Prefix => {
-                        if haystack_folded.starts_with(self.needle.as_str()) {
-                            Some(0)
-                        } else {
-                            None
-                        }
-                    }
-                    MatchAlgorithm::Substring => haystack_folded.find(self.needle.as_str()),
-                    _ => unreachable!("Only prefix and substring algorithms don't use score"),
-                };
+                let match_start = haystack_folded
+                    .starts_with(self.needle.as_str())
+                    .then_some(0);
                 if let Some(byte_start) = match_start {
                     let grapheme_start = haystack_folded[0..byte_start].graphemes(true).count();
                     // TODO this doesn't account for lowercasing changing the length of the haystack
