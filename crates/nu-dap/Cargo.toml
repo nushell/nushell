@@ -46,7 +46,7 @@ nu-test-support = { path = "../nu-test-support" }
 
 rstest = { workspace = true, default-features = false }
 pretty_assertions = { workspace = true }
-# Only for the rendering matrix in `src/tests/variables.rs`: constructing a
+# Only for the rendering matrix in `src/variables.rs`: constructing a
 # `Value::Date` needs a `chrono` type, and a `Value::Custom` case needs a local
 # `CustomValue` stub, whose trait carries `#[typetag::serde]`.
 chrono = { workspace = true, features = ["std"] }

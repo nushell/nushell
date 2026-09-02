@@ -1,7 +1,7 @@
 //! DAP base protocol: message framing (Content-Length headers over stdio)
 //! and the three message envelopes (request / response / event).
 //!
-//! Spec: https://microsoft.github.io/debug-adapter-protocol/specification
+//! Spec: <https://microsoft.github.io/debug-adapter-protocol/specification>
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value as Json;

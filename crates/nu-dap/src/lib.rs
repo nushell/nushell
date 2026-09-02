@@ -11,12 +11,12 @@
 //!
 //! There are two entry points, in order of increasing control:
 //!
-//! - [`run_stdio`] — the default. Speaks DAP over this process's stdin/stdout,
-//!   and does the process-level setup a standalone adapter needs (installs the
-//!   rustls provider so `http` works; detaches child stdin to `NUL`; captures
-//!   the script's stdout/stderr and forwards it as DAP `output` events so it
-//!   can't corrupt the protocol stream). This is what `nu --dap` calls, handing
-//!   over the engine it has already built.
+//! - [`run_stdio`] — the default, and what `nu --dap` calls, handing over the
+//!   engine it has already built. Speaks DAP over this process's
+//!   stdin/stdout and does the process-level setup an adapter that owns its
+//!   stdio needs: installs the rustls provider so `http` works, detaches child
+//!   stdin to `NUL`, and captures the script's stdout/stderr to forward as DAP
+//!   `output` events so it can't corrupt the protocol stream.
 //!
 //! - [`serve`] — the transport-agnostic core: run the DAP dispatch loop over
 //!   any [`BufRead`](std::io::BufRead) + [`Write`](std::io::Write). Use this to
@@ -63,9 +63,9 @@ pub mod dap;
 
 /// Run the adapter over this process's stdin/stdout — the default entry point.
 ///
-/// Performs the full standalone setup (see the crate docs): rustls provider,
-/// child-stdin detach, and script-output capture. Blocks until the DAP client
-/// disconnects.
+/// Performs the full process-stdio setup (see the crate docs): rustls
+/// provider, child-stdin detach, and script-output capture. Blocks until the
+/// DAP client disconnects.
 ///
 /// `engine_state` is the host's fully built engine (commands, plugins,
 /// environment, `$nu`). The adapter never mutates it: each debug run clones it

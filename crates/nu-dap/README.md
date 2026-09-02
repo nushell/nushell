@@ -300,12 +300,12 @@ The crate is a thin facade; everything else is `pub(crate)`.
 
 ```rust
 // Default: speak DAP over this process's stdin/stdout, with full stdio setup.
-// This is what `nu --dap` calls.
-nu_dap::run_stdio();
+// This is what `nu --dap` calls, handing over the engine it already built.
+nu_dap::run_stdio(engine_state);
 
 // Transport-agnostic core: run the DAP loop over any BufRead + Write, for
 // embedding behind a socket or pipe. Does no process-level stdio setup.
-nu_dap::serve(reader, writer);
+nu_dap::serve(reader, writer, engine_state);
 ```
 
 The `dap` module exposes the wire types (framing + request/response/event payloads) for integrators that build atop
@@ -318,7 +318,6 @@ The `dap` module exposes the wire types (framing + request/response/event payloa
 ```
 src/
   lib.rs          public API (run_stdio / serve) + the dap module
-  main.rs         the `nu-dap` binary: fn main() { nu_dap::run_stdio() }
   server/         DAP dispatch — run_loop + a thin router; never locks the debugger
     mod.rs          run_loop, Session, the dispatch router
     lifecycle.rs    initialize, launch, configurationDone, restart, terminate/disconnect
@@ -341,7 +340,6 @@ src/
   stdio.rs        stdin detach + stdout/stderr capture pipes
   paths.rs        canonicalize + strip Windows \\?\ verbatim prefix
   dap/            protocol framing + typed payloads
-  tests/          unit tests for the internal modules (paths, source_map, variables)
 ```
 
 ## Testing
@@ -350,9 +348,9 @@ src/
 cargo test -p nu-dap
 ```
 
-Two layers: **unit tests** in `src/tests/` are compiled with the crate, so they exercise the internal (`pub(crate)`)
-helpers directly; the **integration tests**
-in the top-level `tests/dap.rs` drive the built binary over the real protocol (playing the editor side) against
+Two layers: **unit tests** live in a `mod tests` beside the code they cover, so they exercise the internal
+(`pub(crate)`) helpers directly; the **integration tests**
+in the top-level `tests/dap.rs` spawn `nu --dap` and drive it over the real protocol (playing the editor side) against
 `tests/fixtures/*.nu`. Some integration tests spawn `^python` as an external, so Python must be on `PATH`.
 
 The fixtures are deliberately kept out of `example/`: assertions pin exact line numbers in them, so editing a fixture
