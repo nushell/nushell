@@ -3,7 +3,7 @@
 //! thread — they move the cursor and re-serve rebuilt history.
 
 use super::{Session, THREAD_ID};
-use serde_json::{Value as Json, json};
+use crate::dap::types::{ContinueResponse, DapEvent};
 
 impl Session {
     pub(super) fn on_step_back(&mut self, seq: i64, cmd: &str) {
@@ -16,7 +16,7 @@ impl Session {
         if let Some(Some(t)) = target {
             self.tt_goto(Some(t), "step");
         }
-        self.writer.respond(seq, cmd, Json::Null);
+        self.writer.respond(seq, cmd, ());
     }
 
     pub(super) fn on_reverse_continue(&mut self, seq: i64, cmd: &str) {
@@ -39,8 +39,13 @@ impl Session {
                 .unwrap_or(false);
             self.tt_goto(Some(t), if reason { "breakpoint" } else { "step" });
         }
-        self.writer
-            .respond(seq, cmd, json!({ "allThreadsContinued": true }));
+        self.writer.respond(
+            seq,
+            cmd,
+            ContinueResponse {
+                all_threads_continued: true,
+            },
+        );
     }
 
     /// Move the time-travel cursor and emit `stopped`. `target = Some(i)`
@@ -72,13 +77,12 @@ impl Session {
             }
         }
 
-        self.writer.event(
-            "stopped",
-            json!({
-                "reason": reason,
-                "threadId": THREAD_ID,
-                "allThreadsStopped": true,
-            }),
-        );
+        self.writer.event(DapEvent::Stopped {
+            reason,
+            thread_id: THREAD_ID,
+            all_threads_stopped: true,
+            description: None,
+            text: None,
+        });
     }
 }

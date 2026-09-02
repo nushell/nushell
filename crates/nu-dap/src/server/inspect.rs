@@ -3,16 +3,23 @@
 
 use super::{Session, THREAD_ID};
 use crate::dap::protocol::Request;
-use crate::dap::types::{EvaluateArgs, Scope, StackFrame, StackTraceArgs, Variable, VariablesArgs};
+use crate::dap::types::{
+    EvaluateArgs, EvaluateResponse, Scope, ScopesResponse, StackFrame, StackTraceArgs,
+    StackTraceResponse, Thread, ThreadsResponse, Variable, VariablesArgs, VariablesResponse,
+};
 use crate::state::PauseSnapshot;
-use serde_json::json;
 
 impl Session {
     pub(super) fn on_threads(&mut self, seq: i64, cmd: &str) {
         self.writer.respond(
             seq,
             cmd,
-            json!({ "threads": [{ "id": THREAD_ID, "name": "nu script" }] }),
+            ThreadsResponse {
+                threads: vec![Thread {
+                    id: THREAD_ID,
+                    name: "nu script",
+                }],
+            },
         );
     }
 
@@ -30,7 +37,10 @@ impl Session {
         self.writer.respond(
             seq,
             cmd,
-            json!({ "stackFrames": frames, "totalFrames": total }),
+            StackTraceResponse {
+                stack_frames: frames,
+                total_frames: total,
+            },
         );
     }
 
@@ -85,7 +95,7 @@ impl Session {
             });
         }
 
-        self.writer.respond(seq, cmd, json!({ "scopes": scopes }));
+        self.writer.respond(seq, cmd, ScopesResponse { scopes });
     }
 
     pub(super) fn on_variables(&mut self, seq: i64, cmd: &str, req: Request) {
@@ -114,7 +124,8 @@ impl Session {
                     .unwrap_or_default()
             })
             .unwrap_or_default();
-        self.writer.respond(seq, cmd, json!({ "variables": vars }));
+        self.writer
+            .respond(seq, cmd, VariablesResponse { variables: vars });
     }
 
     pub(super) fn on_evaluate(&mut self, seq: i64, cmd: &str, req: Request) {
@@ -202,11 +213,11 @@ impl Session {
                 self.writer.respond(
                     seq,
                     cmd,
-                    json!({
-                        "result": result,
-                        "variablesReference": var_ref,
-                        "type": type_,
-                    }),
+                    EvaluateResponse {
+                        result,
+                        variables_reference: var_ref,
+                        type_,
+                    },
                 );
             }
             Err(e) => self.writer.respond_error(seq, cmd, e),

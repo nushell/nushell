@@ -3,8 +3,7 @@
 
 use super::Session;
 use crate::dap::protocol::Request;
-use crate::dap::types::VisualizeArgs;
-use serde_json::{Value as Json, json};
+use crate::dap::types::{VisualizeArgs, VisualizeResponse};
 
 impl Session {
     // "Visualize" action: return the full value as JSON (unlike the bounded
@@ -54,7 +53,11 @@ impl Session {
             Some((value, type_, truncated)) => self.writer.respond(
                 seq,
                 cmd,
-                json!({ "value": value, "type": type_, "truncated": truncated }),
+                VisualizeResponse {
+                    value,
+                    type_,
+                    truncated,
+                },
             ),
             None => self.writer.respond_error(
                 seq,
@@ -104,6 +107,6 @@ impl Session {
                 .insert(id, reply);
             state.ui.cv.notify_all();
         }
-        self.writer.respond(seq, cmd, Json::Null);
+        self.writer.respond(seq, cmd, ());
     }
 }

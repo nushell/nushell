@@ -11,6 +11,7 @@
 //! protocol stream.
 
 use crate::dap::protocol::DapWriter;
+use crate::dap::types::DapEvent;
 use crate::state::DebugState;
 use nu_engine::command_prelude::*;
 use nu_protocol::shell_error::generic::GenericError;
@@ -188,15 +189,15 @@ impl Command for DapInput {
             .next_id
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
 
-        self.writer.event(
-            "nuDapUi",
-            serde_json::json!({
-                "id": id,
-                "kind": "text",
-                "prompt": prompt.unwrap_or_else(|| "Input".into()),
-                "default": default,
-            }),
-        );
+        self.writer.event(DapEvent::NuDapUi {
+            id,
+            kind: "text",
+            prompt: prompt.unwrap_or_else(|| "Input".into()),
+            default,
+            items: None,
+            multi: None,
+            truncated: None,
+        });
 
         let reply = wait_ui_reply(&self.state, id, call.head)?;
         if reply.cancelled {
@@ -290,17 +291,15 @@ impl Command for DapInputList {
             .next_id
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
 
-        self.writer.event(
-            "nuDapUi",
-            serde_json::json!({
-                "id": id,
-                "kind": "list",
-                "prompt": prompt.unwrap_or_else(|| "Select an item".into()),
-                "items": labels,
-                "multi": multi,
-                "truncated": items.len() > MAX_ITEMS,
-            }),
-        );
+        self.writer.event(DapEvent::NuDapUi {
+            id,
+            kind: "list",
+            prompt: prompt.unwrap_or_else(|| "Select an item".into()),
+            default: None,
+            items: Some(labels),
+            multi: Some(multi),
+            truncated: Some(items.len() > MAX_ITEMS),
+        });
 
         let reply = wait_ui_reply(&self.state, id, call.head)?;
         if reply.cancelled {

@@ -2,8 +2,9 @@
 
 use super::Session;
 use crate::dap::protocol::Request;
-use crate::dap::types::{Breakpoint, SetBreakpointsArgs};
-use serde_json::json;
+use crate::dap::types::{
+    Breakpoint, ExceptionInfoResponse, SetBreakpointsArgs, SetBreakpointsResponse,
+};
 
 impl Session {
     pub(super) fn on_set_breakpoints(&mut self, seq: i64, cmd: &str, req: Request) {
@@ -61,8 +62,13 @@ impl Session {
             }
             session.breakpoints.insert(path.clone(), map);
         }
-        self.writer
-            .respond(seq, cmd, json!({ "breakpoints": verified }));
+        self.writer.respond(
+            seq,
+            cmd,
+            SetBreakpointsResponse {
+                breakpoints: verified,
+            },
+        );
     }
 
     pub(super) fn on_set_exception_breakpoints(&mut self, seq: i64, cmd: &str, req: Request) {
@@ -75,7 +81,13 @@ impl Session {
             let mut session = state.session_state.lock().expect("session poisoned");
             session.break_on_error = filters.iter().any(|f| f == "error");
         }
-        self.writer.respond(seq, cmd, json!({ "breakpoints": [] }));
+        self.writer.respond(
+            seq,
+            cmd,
+            SetBreakpointsResponse {
+                breakpoints: Vec::new(),
+            },
+        );
     }
 
     pub(super) fn on_exception_info(&mut self, seq: i64, cmd: &str) {
@@ -86,11 +98,11 @@ impl Session {
             Some((id, description)) => self.writer.respond(
                 seq,
                 cmd,
-                json!({
-                    "exceptionId": id,
-                    "description": description,
-                    "breakMode": "always",
-                }),
+                ExceptionInfoResponse {
+                    exception_id: id,
+                    description,
+                    break_mode: "always",
+                },
             ),
             None => self
                 .writer

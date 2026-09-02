@@ -20,7 +20,6 @@ mod timetravel;
 use crate::dap::protocol::{DapWriter, Request, read_message};
 use crate::dap::types::LaunchArgs;
 use crate::state::{DebugState, RunMode};
-use serde_json::Value as Json;
 use std::io::BufRead;
 use std::sync::Arc;
 
@@ -108,7 +107,7 @@ impl Session {
             "terminate" | "disconnect" => return self.on_terminate_or_disconnect(seq, &cmd),
             // Politely acknowledge anything we don't implement.
             other => {
-                self.writer.respond(seq, other, Json::Null);
+                self.writer.respond(seq, other, ());
             }
         }
         false

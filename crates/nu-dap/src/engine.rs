@@ -2,7 +2,7 @@
 //! runs it on a dedicated thread with the DapDebugger activated.
 
 use crate::dap::protocol::DapWriter;
-use crate::dap::types::LaunchArgs;
+use crate::dap::types::{Breakpoint, DapEvent, LaunchArgs, Source};
 use crate::debugger::DapDebugger;
 use crate::state::DebugState;
 use nu_protocol::ast::Block;
@@ -10,7 +10,6 @@ use nu_protocol::debugger::WithDebug;
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
 use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{PipelineData, Signals, Span, Value};
-use serde_json::json;
 use std::collections::{BTreeSet, HashMap};
 use std::sync::Arc;
 
@@ -60,8 +59,8 @@ pub(crate) fn spawn_eval_thread(
                 // Late output (an external's last lines, a final drain) must
                 // reach the client before we announce termination.
                 crate::stdio::flush_output(std::time::Duration::from_secs(2));
-                writer.event("terminated", json!({}));
-                writer.event("exited", json!({ "exitCode": exit_code }));
+                writer.event(DapEvent::Terminated);
+                writer.event(DapEvent::Exited { exit_code });
             }
         })
         .expect("spawn eval thread")
@@ -457,22 +456,22 @@ fn publish_valid_lines(
         }
     }
     for (id, verified, line, path, collided_with) in events {
-        let mut breakpoint = json!({
-            "id": id,
-            "verified": verified,
-            "line": line,
-            "source": { "path": path },
+        let breakpoint = Breakpoint {
+            id: Some(id),
+            verified,
+            line,
+            source: Some(Source {
+                name: None,
+                path: Some(path),
+            }),
+            // Only set for the loser of a collision: the client greys the
+            // marker out and shows this as the reason.
+            message: collided_with.map(|at| format!("another breakpoint already covers line {at}")),
+        };
+        writer.event(DapEvent::Breakpoint {
+            reason: "changed",
+            breakpoint,
         });
-        if let (Some(at), Some(obj)) = (collided_with, breakpoint.as_object_mut()) {
-            obj.insert(
-                "message".into(),
-                json!(format!("another breakpoint already covers line {at}")),
-            );
-        }
-        writer.event(
-            "breakpoint",
-            json!({ "reason": "changed", "breakpoint": breakpoint }),
-        );
     }
 }
 

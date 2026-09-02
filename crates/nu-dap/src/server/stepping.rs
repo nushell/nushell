@@ -3,8 +3,8 @@
 //! frontier do they resume the eval thread.
 
 use super::Session;
+use crate::dap::types::ContinueResponse;
 use crate::state::RunMode;
-use serde_json::{Value as Json, json};
 
 impl Session {
     pub(super) fn on_continue(&mut self, seq: i64, cmd: &str) {
@@ -30,8 +30,13 @@ impl Session {
         } else {
             self.resume(RunMode::Continue);
         }
-        self.writer
-            .respond(seq, cmd, json!({ "allThreadsContinued": true }));
+        self.writer.respond(
+            seq,
+            cmd,
+            ContinueResponse {
+                all_threads_continued: true,
+            },
+        );
     }
 
     pub(super) fn on_next_or_step_in(&mut self, seq: i64, cmd: &str) {
@@ -58,7 +63,7 @@ impl Session {
             .unwrap_or(RunMode::Continue);
             self.resume(mode);
         }
-        self.writer.respond(seq, cmd, Json::Null);
+        self.writer.respond(seq, cmd, ());
     }
 
     pub(super) fn on_step_out(&mut self, seq: i64, cmd: &str) {
@@ -87,7 +92,7 @@ impl Session {
                 .unwrap_or(RunMode::Continue);
             self.resume(mode);
         }
-        self.writer.respond(seq, cmd, Json::Null);
+        self.writer.respond(seq, cmd, ());
     }
 
     pub(super) fn on_pause(&mut self, seq: i64, cmd: &str) {
@@ -95,6 +100,6 @@ impl Session {
             let mut session = state.session_state.lock().expect("session poisoned");
             session.run_mode = RunMode::PauseNow;
         }
-        self.writer.respond(seq, cmd, Json::Null);
+        self.writer.respond(seq, cmd, ());
     }
 }

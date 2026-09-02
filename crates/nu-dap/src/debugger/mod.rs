@@ -19,6 +19,7 @@ mod snapshot;
 pub(crate) mod stepping;
 
 use crate::dap::protocol::DapWriter;
+use crate::dap::types::DapEvent;
 use crate::source_map::{SourceMap, SourcePos};
 use crate::state::{BpKind, Breakpoint, DebugState, RunMode, SessionState};
 use miette::Diagnostic;
@@ -27,7 +28,6 @@ use nu_protocol::debugger::Debugger;
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
 use nu_protocol::ir::{Instruction, IrBlock};
 use nu_protocol::{PipelineData, PipelineExecutionData, ShellError, Span, Value, format_cli_error};
-use serde_json::json;
 use std::sync::{Arc, MutexGuard};
 
 #[derive(Debug)]
@@ -227,14 +227,11 @@ impl DapDebugger {
     /// IR listing for the extension's "Show IR" panel. Custom DAP event, so
     /// clients that don't know it simply ignore it.
     fn announce_ir(&self, engine_state: &EngineState, site: &Site<'_>) {
-        self.writer.event(
-            "nuDapIr",
-            json!({
-                "text": format!("{}", site.ir_block.display(engine_state)),
-                "instructionIndex": site.instruction_index,
-                "instructionCount": site.ir_block.instructions.len(),
-            }),
-        );
+        self.writer.event(DapEvent::NuDapIr {
+            text: format!("{}", site.ir_block.display(engine_state)),
+            instruction_index: site.instruction_index,
+            instruction_count: site.ir_block.instructions.len(),
+        });
     }
 
     /// Record the stop in shared state — the snapshot and position the server
@@ -272,18 +269,13 @@ impl DapDebugger {
     /// The DAP `stopped` event. Emitted only after `publish_stop`, so whatever
     /// the client fires back finds the snapshot already in place.
     fn emit_stopped(&self, reason: &'static str, description: Option<&str>) {
-        let mut body = json!({
-            "reason": reason,
-            "threadId": crate::server::THREAD_ID,
-            "allThreadsStopped": true,
+        self.writer.event(DapEvent::Stopped {
+            reason,
+            thread_id: crate::server::THREAD_ID,
+            all_threads_stopped: true,
+            description: description.map(String::from),
+            text: description.map(String::from),
         });
-
-        if let Some(text) = description {
-            body["description"] = json!(text);
-            body["text"] = json!(text);
-        }
-
-        self.writer.event("stopped", body);
     }
 
     /// First instruction of a fresh block: register 0 is `$in` (per element

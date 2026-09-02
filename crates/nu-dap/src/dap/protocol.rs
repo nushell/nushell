@@ -3,6 +3,7 @@
 //!
 //! Spec: <https://microsoft.github.io/debug-adapter-protocol/specification>
 
+use crate::dap::types::{DapEvent, ResponseBody};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as Json;
 use std::io::{BufRead, Write};
@@ -31,14 +32,15 @@ pub struct Response {
     pub body: Json,
 }
 
+/// `event` and `body` come from the flattened [`DapEvent`]: adjacent tagging
+/// writes the variant's name into `event` and its fields into `body`.
 #[derive(Debug, Serialize)]
 pub struct Event {
     pub seq: i64,
     #[serde(rename = "type")]
     pub type_: &'static str, // "event"
-    pub event: &'static str,
-    #[serde(skip_serializing_if = "Json::is_null")]
-    pub body: Json,
+    #[serde(flatten)]
+    pub event: DapEvent,
 }
 
 /// Reads one DAP message from the reader. Returns None on EOF.
@@ -102,7 +104,7 @@ impl DapWriter {
         let _ = w.flush();
     }
 
-    pub fn respond(&self, req_seq: i64, command: &str, body: Json) {
+    pub fn respond(&self, req_seq: i64, command: &str, body: impl ResponseBody) {
         self.write_json(&Response {
             seq: self.next_seq(),
             type_: "response",
@@ -110,7 +112,7 @@ impl DapWriter {
             success: true,
             command: command.to_string(),
             message: None,
-            body,
+            body: to_body(&body),
         });
     }
 
@@ -126,19 +128,24 @@ impl DapWriter {
         });
     }
 
-    pub fn event(&self, event: &'static str, body: Json) {
+    pub fn event(&self, event: DapEvent) {
         self.write_json(&Event {
             seq: self.next_seq(),
             type_: "event",
             event,
-            body,
         });
     }
 
     pub fn output(&self, category: &str, text: impl Into<String>) {
-        self.event(
-            "output",
-            serde_json::json!({ "category": category, "output": text.into() }),
-        );
+        self.event(DapEvent::Output {
+            category: category.to_string(),
+            output: text.into(),
+        });
     }
+}
+
+/// Response bodies are plain structs of owned data, so serialization cannot
+/// fail; a bodyless response serializes to null and is skipped by the envelope.
+fn to_body(body: &impl Serialize) -> Json {
+    serde_json::to_value(body).expect("serialize DAP body")
 }

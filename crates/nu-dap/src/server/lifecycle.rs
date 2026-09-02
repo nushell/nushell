@@ -3,10 +3,9 @@
 
 use super::Session;
 use crate::dap::protocol::Request;
-use crate::dap::types::LaunchArgs;
+use crate::dap::types::{Capabilities, DapEvent, ExceptionBreakpointFilter, LaunchArgs};
 use crate::engine::spawn_eval_thread;
 use crate::state::DebugState;
-use serde_json::{Value as Json, json};
 use std::sync::Arc;
 
 impl Session {
@@ -20,30 +19,25 @@ impl Session {
         self.writer.respond(
             seq,
             cmd,
-            json!({
-                "supportsConfigurationDoneRequest": true,
-                "supportsTerminateRequest": true,
-                // Hot restart: re-run the (possibly edited) script from
-                // disk in the same session, keeping breakpoints.
-                "supportsRestartRequest": true,
-                "supportsConditionalBreakpoints": true,
-                "supportsLogPoints": true,
-                "supportsExceptionInfoRequest": true,
-                // Time travel: VS Code shows Step Back / Reverse
-                // Continue buttons and sends stepBack/reverseContinue.
-                "supportsStepBack": true,
-                "exceptionBreakpointFilters": [{
-                    "filter": "error",
-                    "label": "Runtime errors",
-                    "description": "Pause when a command raises an error (including errors later caught by try/catch).",
-                    "default": true,
+            Capabilities {
+                supports_configuration_done_request: true,
+                supports_terminate_request: true,
+                supports_restart_request: true,
+                supports_conditional_breakpoints: true,
+                supports_log_points: true,
+                supports_exception_info_request: true,
+                supports_step_back: true,
+                supports_evaluate_for_hovers: true,
+                supports_function_breakpoints: false,
+                exception_breakpoint_filters: vec![ExceptionBreakpointFilter {
+                    filter: "error",
+                    label: "Runtime errors",
+                    description: "Pause when a command raises an error (including errors later caught by try/catch).",
+                    default: true,
                 }],
-                // Explicitly unsupported for v1:
-                "supportsFunctionBreakpoints": false,
-                "supportsEvaluateForHovers": true,
-            }),
+            },
         );
-        self.writer.event("initialized", json!({}));
+        self.writer.event(DapEvent::Initialized);
     }
 
     pub(super) fn on_launch(&mut self, seq: i64, cmd: &str, req: Request) {
@@ -56,7 +50,7 @@ impl Session {
                 )));
                 self.launch_args = Some(args.clone());
                 self.pending_launch = Some(args);
-                self.writer.respond(seq, cmd, Json::Null);
+                self.writer.respond(seq, cmd, ());
             }
             Err(e) => self
                 .writer
@@ -65,7 +59,7 @@ impl Session {
     }
 
     pub(super) fn on_configuration_done(&mut self, seq: i64, cmd: &str) {
-        self.writer.respond(seq, cmd, Json::Null);
+        self.writer.respond(seq, cmd, ());
         if let (Some(launch), Some(state)) = (self.pending_launch.take(), self.state.clone()) {
             self.eval_handle = Some(spawn_eval_thread(
                 launch,
@@ -98,7 +92,7 @@ impl Session {
                     new.breakpoints = old.breakpoints.clone();
                 }
                 self.state = Some(new_state.clone());
-                self.writer.respond(seq, cmd, Json::Null);
+                self.writer.respond(seq, cmd, ());
                 // From the pristine template again, so decls parsed out of the
                 // previous run don't leak into this one.
                 self.eval_handle = Some(spawn_eval_thread(
@@ -122,7 +116,7 @@ impl Session {
         if let Some(state) = &self.state {
             state.request_terminate();
         }
-        self.writer.respond(seq, cmd, Json::Null);
+        self.writer.respond(seq, cmd, ());
         cmd == "disconnect"
     }
 }
