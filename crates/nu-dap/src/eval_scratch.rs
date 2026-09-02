@@ -159,15 +159,21 @@ impl Scratch {
 
         let mut working_set = StateWorkingSet::new(&self.engine);
         let block = nu_parser::parse(&mut working_set, None, expr.as_bytes(), false);
+
         // Bail before merging, so a broken condition re-evaluated on every hit
         // leaves nothing behind.
         if let Some(err) = working_set.parse_errors.first() {
             return Err(err.to_string());
         }
 
+        if let Some(err) = working_set.compile_errors.first() {
+            return Err(err.to_string());
+        }
+
         let delta = working_set.render();
         self.engine.merge_delta(delta).map_err(|e| e.to_string())?;
         self.blocks.insert(expr.to_string(), Arc::clone(&block));
+
         Ok(block)
     }
 

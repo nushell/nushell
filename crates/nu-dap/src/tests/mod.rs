@@ -5,6 +5,7 @@
 //! see only the public API.
 
 mod debugger;
+mod engine;
 mod eval_scratch;
 mod paths;
 mod source_map;

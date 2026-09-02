@@ -52,6 +52,22 @@ fn parse_errors_are_displayed_not_debugged() {
     );
 }
 
+/// A watch expression can parse and still fail to compile. The message has to
+/// be nushell's own, not the "missing compiled representation" that
+/// `eval_block` reports for a block whose IR never got built.
+#[test]
+fn compile_errors_reach_the_watch_pane() {
+    let mut scratch = Scratch::new();
+    let err = scratch
+        .eval("$env.PWD = \"/tmp\"", &[])
+        .expect_err("cannot set PWD");
+
+    assert!(
+        err.contains("PWD cannot be set manually"),
+        "unexpected message: {err}"
+    );
+}
+
 /// The point of the `var_ids` / `blocks` caches: a logpoint on a hot line calls
 /// `eval` once per hit, and every declaration or parse merges a delta into the
 /// engine permanently. Re-evaluating the same expression must add nothing.

@@ -26,12 +26,15 @@ pub(crate) fn spawn_eval_thread(
         .stack_size(32 * 1024 * 1024)
         .spawn(move || {
             let state_for_exit = state.clone();
+
             // A panic anywhere in evaluation must not leave the session hung
             // with no terminated event — catch it and report.
             let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 run(launch, state, &writer, engine_state)
             }));
+
             let mut exit_code = 0;
+
             match outcome {
                 Ok(Ok(())) => {}
                 Ok(Err(msg)) => {
@@ -48,6 +51,7 @@ pub(crate) fn spawn_eval_thread(
                     writer.output("stderr", format!("nu-dap: internal error (panic): {msg}\n"));
                 }
             }
+
             // A restart replaces this thread with a fresh run in the same DAP
             // session; announcing termination here would end the session.
             if !state_for_exit.is_restarting() {
@@ -105,10 +109,10 @@ fn run(
 }
 
 /// The script to debug, resolved from the launch arguments.
-struct Target {
-    program: std::path::PathBuf,
-    contents: Vec<u8>,
-    cwd: String,
+pub(crate) struct Target {
+    pub(crate) program: std::path::PathBuf,
+    pub(crate) contents: Vec<u8>,
+    pub(crate) cwd: String,
 }
 
 impl Target {
@@ -217,9 +221,13 @@ fn register_dap_commands(
         .map_err(|e| format!("register print/input: {e:?}"))
 }
 
-/// Parse the target script and merge it into the engine. A parse error here is
-/// fatal: nothing downstream can run, so the session never starts.
-fn parse_script(engine_state: &mut EngineState, target: &Target) -> Result<Arc<Block>, String> {
+/// Parse the target script and merge it into the engine. A parse or compile
+/// error here is fatal: nothing downstream can run, so the session never
+/// starts.
+pub(crate) fn parse_script(
+    engine_state: &mut EngineState,
+    target: &Target,
+) -> Result<Arc<Block>, String> {
     let mut working_set = StateWorkingSet::new(engine_state);
 
     let block = nu_parser::parse(
@@ -231,6 +239,10 @@ fn parse_script(engine_state: &mut EngineState, target: &Target) -> Result<Arc<B
 
     if let Some(err) = working_set.parse_errors.first() {
         return Err(format!("parse error: {err:?}"));
+    }
+
+    if let Some(err) = working_set.compile_errors.first() {
+        return Err(format!("compile error: {err}"));
     }
 
     let delta = working_set.render();
