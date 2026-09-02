@@ -288,6 +288,11 @@ fn initialize_advertises_capabilities() {
     assert_eq!(caps["supportsExceptionInfoRequest"], true);
     assert_eq!(caps["supportsStepBack"], true, "time travel advertised");
     assert_eq!(caps["supportsRestartRequest"], true);
+    // What makes inline breakpoints usable: the client asks
+    // `breakpointLocations` which columns a line offers. There is no
+    // capability for column breakpoints themselves -- `column` is just an
+    // optional field on `SourceBreakpoint` that an adapter may honour.
+    assert_eq!(caps["supportsBreakpointLocationsRequest"], true);
 }
 
 #[test]
