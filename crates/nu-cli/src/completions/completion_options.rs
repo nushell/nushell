@@ -483,6 +483,12 @@ mod test {
     #[case(MatchAlgorithm::Fuzzy, "example text", "ext", true)]
     #[case(MatchAlgorithm::Fuzzy, "example text", "mplxt", true)]
     #[case(MatchAlgorithm::Fuzzy, "example text", "mpp", false)]
+    #[case(MatchAlgorithm::Fallback, "example text", "", true)]
+    #[case(MatchAlgorithm::Fallback, "example text", "examp", true)]
+    #[case(MatchAlgorithm::Fallback, "example text", "text", true)]
+    #[case(MatchAlgorithm::Fallback, "example text", "ext", true)]
+    #[case(MatchAlgorithm::Fallback, "example text", "mplxt", true)]
+    #[case(MatchAlgorithm::Fallback, "example text", "mpp", false)]
     fn match_algorithm_simple(
         #[case] match_algorithm: MatchAlgorithm,
         #[case] haystack: &str,
