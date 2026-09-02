@@ -20,7 +20,6 @@ debian/nu/
 .idea/*
 
 # VSCode's IDE items
-.vscode/*
 
 # JetBrains' Fleet IDE
 .fleet/*
@@ -69,3 +68,7 @@ tarpaulin-report.html
 
 # Splashboard
 .splashboard.toml
+branch_structure.json
+temp_auto_push.bat
+temp_interactive_push.bat
+.gitignore
