@@ -168,7 +168,7 @@ fn prepare_engine(
     // interrupt through), so the fresh run silently loses its breakpoints.
     engine_state.make_session_state_unique();
 
-    register_dap_commands(&mut engine_state, state, writer)?;
+    engine_state = register_dap_commands(engine_state, state, writer)?;
 
     // A per-run interrupt flag, not the host's: `terminate`/`stop` trigger it
     // (debugger/mod.rs), and a flag left raised by one run would abort the next
@@ -190,11 +190,11 @@ fn prepare_engine(
 /// to a terminal, and our stdout is the DAP wire. Registering last means these
 /// shims (print_cmd.rs) shadow the host's for everything parsed afterwards.
 fn register_dap_commands(
-    engine_state: &mut EngineState,
+    mut engine_state: EngineState,
     state: &Arc<DebugState>,
     writer: &DapWriter,
-) -> Result<(), String> {
-    let mut working_set = StateWorkingSet::new(engine_state);
+) -> Result<EngineState, String> {
+    let mut working_set = StateWorkingSet::new(&engine_state);
 
     working_set.add_decl(Box::new(crate::print_cmd::DapPrint {
         writer: writer.clone(),
@@ -218,7 +218,9 @@ fn register_dap_commands(
 
     engine_state
         .merge_delta(delta)
-        .map_err(|e| format!("register print/input: {e:?}"))
+        .map_err(|e| format!("register print/input: {e:?}"))?;
+
+    Ok(engine_state)
 }
 
 /// Parse the target script and merge it into the engine. A parse or compile
