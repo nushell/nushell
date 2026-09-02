@@ -22,12 +22,6 @@ pub(crate) struct DapPrint {
     pub writer: DapWriter,
 }
 
-impl std::fmt::Debug for DapPrint {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("DapPrint")
-    }
-}
-
 impl Command for DapPrint {
     fn name(&self) -> &str {
         "print"
