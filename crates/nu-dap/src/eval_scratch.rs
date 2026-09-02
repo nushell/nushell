@@ -16,9 +16,7 @@ use nu_protocol::{PipelineData, Span, Type, Value, VarId};
 use std::collections::HashMap;
 use std::sync::Arc;
 
-#[derive(derive_more::Debug)]
 pub(crate) struct Scratch {
-    #[debug(skip)]
     engine: EngineState,
     /// Shadow variables already declared in `engine`. Names are only ever
     /// added, so a `VarId` once handed out stays valid for the rest of the
