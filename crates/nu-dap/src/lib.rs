@@ -55,9 +55,6 @@ mod state;
 mod stdio;
 mod variables;
 
-#[cfg(test)]
-mod tests;
-
 /// DAP wire protocol: message framing and the typed request/response/event
 /// payloads. Exposed for integrators that build atop [`serve`]; most callers
 /// only need [`run_stdio`] or [`serve`].

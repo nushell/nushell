@@ -52,7 +52,7 @@ pub(crate) struct PauseSnapshot {
     /// reference 2 for the "Pipeline" scope root.
     pub(crate) var_refs: HashMap<i64, Vec<usize>>,
     pub(crate) var_arena: Vec<VarNode>,
-    pub(crate) next_ref: i64,
+    next_ref: i64,
     /// Config as of this pause, so rendering (`variables::short_render`) can
     /// use nushell's own value formatting. Cloned from `engine_state` by the
     /// eval thread; the server thread only ever reads this `Arc`.
@@ -182,7 +182,7 @@ pub(crate) struct SessionState {
     /// Set on `restart`: this state's eval thread is being torn down to be
     /// replaced. Suppresses its terminated/exited events so the DAP session
     /// survives the swap.
-    pub(crate) restarting: bool,
+    restarting: bool,
     pub(crate) snapshot: PauseSnapshot,
     /// Source line and block depth at the most recent pause; the server
     /// thread needs these to construct StepOver/StepOut run modes.
@@ -208,7 +208,7 @@ pub(crate) struct SessionState {
     /// Record every steppable line (true) vs. only pause points (false).
     pub(crate) time_travel: bool,
     /// Ring-buffer cap.
-    pub(crate) tt_max: usize,
+    tt_max: usize,
     /// `$nu` constant and baseline env, cached once by the eval thread so the
     /// server can rebuild historical Globals without `engine_state`.
     pub(crate) nu_constant: Option<nu_protocol::Value>,
