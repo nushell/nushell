@@ -162,6 +162,37 @@ impl<T> NuMatcher<'_, T> {
         }
     }
 
+    fn unscored_matches(
+        haystack: &str,
+        needle: &str,
+        match_algorithm: MatchAlgorithm,
+        offset: usize,
+        case_sensitive: bool,
+    ) -> Option<Vec<usize>> {
+        let haystack_folded = if case_sensitive {
+            Cow::Borrowed(haystack)
+        } else {
+            Cow::Owned(haystack.to_folded_case())
+        };
+        let match_start = match match_algorithm {
+            MatchAlgorithm::Prefix => {
+                if haystack_folded.starts_with(needle) {
+                    Some(0)
+                } else {
+                    None
+                }
+            }
+            MatchAlgorithm::Substring => haystack_folded.find(needle),
+            MatchAlgorithm::Fuzzy | MatchAlgorithm::Fallback => None,
+        };
+        match_start.map(|byte_start| {
+            let grapheme_start = haystack_folded[0..byte_start].graphemes(true).count();
+            // TODO this doesn't account for lowercasing changing the length of the haystack
+            let grapheme_len = needle.graphemes(true).count();
+            (offset + grapheme_start..offset + grapheme_start + grapheme_len).collect()
+        })
+    }
+
     /// Returns whether or not the haystack matches the needle. If it does, `item` is added
     /// to the list of matches (if given).
     ///
@@ -172,37 +203,21 @@ impl<T> NuMatcher<'_, T> {
         let haystack = haystack.trim_end_matches(QUOTES);
         match &mut self.state {
             State::Unscored(matches) => {
-                let haystack_folded = if self.options.case_sensitive {
-                    Cow::Borrowed(haystack)
-                } else {
-                    Cow::Owned(haystack.to_folded_case())
-                };
-                let match_start = match self.options.match_algorithm {
-                    MatchAlgorithm::Prefix => {
-                        if haystack_folded.starts_with(self.needle.as_str()) {
-                            Some(0)
-                        } else {
-                            None
-                        }
-                    }
-                    MatchAlgorithm::Substring => haystack_folded.find(self.needle.as_str()),
-                    _ => unreachable!("Only prefix and substring algorithms don't use score"),
-                };
-                match_start.map(|byte_start| {
-                    let grapheme_start = haystack_folded[0..byte_start].graphemes(true).count();
-                    // TODO this doesn't account for lowercasing changing the length of the haystack
-                    let grapheme_len = self.needle.graphemes(true).count();
-                    let match_indices: Vec<usize> =
-                        (offset + grapheme_start..offset + grapheme_start + grapheme_len).collect();
-                    if let Some(item) = item {
-                        matches.push(UnscoredMatch {
-                            item,
-                            haystack: haystack.to_string(),
-                            match_indices: match_indices.clone(),
-                        });
-                    }
-                    match_indices
-                })
+                let match_indices = Self::unscored_matches(
+                    haystack,
+                    self.needle.as_str(),
+                    self.options.match_algorithm,
+                    offset,
+                    self.options.case_sensitive,
+                )?;
+                if let Some(item) = item {
+                    matches.push(UnscoredMatch {
+                        item,
+                        haystack: haystack.to_string(),
+                        match_indices: match_indices.clone(),
+                    });
+                }
+                Some(match_indices)
             }
             State::Fuzzy {
                 matcher,
@@ -236,20 +251,13 @@ impl<T> NuMatcher<'_, T> {
                 fuzzy_matches,
             } => {
                 // prefix
-                let haystack_folded = if self.options.case_sensitive {
-                    Cow::Borrowed(haystack)
-                } else {
-                    Cow::Owned(haystack.to_folded_case())
-                };
-                let match_start = haystack_folded
-                    .starts_with(self.needle.as_str())
-                    .then_some(0);
-                if let Some(byte_start) = match_start {
-                    let grapheme_start = haystack_folded[0..byte_start].graphemes(true).count();
-                    // TODO this doesn't account for lowercasing changing the length of the haystack
-                    let grapheme_len = self.needle.graphemes(true).count();
-                    let match_indices: Vec<usize> =
-                        (offset + grapheme_start..offset + grapheme_start + grapheme_len).collect();
+                if let Some(match_indices) = Self::unscored_matches(
+                    haystack,
+                    self.needle.as_str(),
+                    MatchAlgorithm::Prefix,
+                    offset,
+                    self.options.case_sensitive,
+                ) {
                     if let Some(item) = item {
                         prefix_matches.push(UnscoredMatch {
                             item,
