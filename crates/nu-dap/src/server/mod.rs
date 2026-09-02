@@ -91,6 +91,7 @@ impl Session {
             "initialize" => self.on_initialize(seq, &cmd),
             "launch" => self.on_launch(seq, &cmd, req),
             "setBreakpoints" => self.on_set_breakpoints(seq, &cmd, req),
+            "breakpointLocations" => self.on_breakpoint_locations(seq, &cmd, req),
             "setExceptionBreakpoints" => self.on_set_exception_breakpoints(seq, &cmd, req),
             "exceptionInfo" => self.on_exception_info(seq, &cmd),
             "configurationDone" => self.on_configuration_done(seq, &cmd),

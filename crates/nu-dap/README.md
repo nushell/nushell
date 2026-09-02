@@ -58,6 +58,8 @@ client only surfaces working UI. This adapter is **launch-only** (there is no `a
 | Feature                          | Request / capability                                 | Notes                                                |
 |----------------------------------|------------------------------------------------------|------------------------------------------------------|
 | Breakpoints                      | `setBreakpoints`                                     | verified; snapped forward to the next runnable line  |
+| Inline breakpoints               | `setBreakpoints` with a `column`                     | bind to one position on a line (see below)           |
+| Breakpoint locations             | `supportsBreakpointLocationsRequest`                 | which columns on a line can carry a breakpoint       |
 | Conditional breakpoints          | `supportsConditionalBreakpoints`                     | nu expression, evaluated in the scratch engine       |
 | Logpoints                        | `supportsLogPoints`                                  | `{expr}` interpolation, emitted to the Debug Console |
 | Exception breakpoints            | `exceptionBreakpointFilters` (`error`)               | pause on any raised error (incl. ones later caught)  |
@@ -87,12 +89,39 @@ client only surfaces working UI. This adapter is **launch-only** (there is no `a
 | Frame-scoped variables         | `scopes`/`variables`/`evaluate` honouring `frameId`         | locals come from the live `Stack`, which is not partitioned per frame |
 | Memory read/write, disassemble | `supportsReadMemoryRequest`, …                              | not applicable                                                  |
 | Cancel                         | `supportsCancelRequest`                                     | not implemented                                                 |
-| breakpoint locations           | `supportsBreakpointLocationsRequest`                        | not implemented                                                 |
 | Attach                         | `attach`                                                    | launch-only                                                     |
 
 The two upstream-blocked rows — **set variable** and **jump to cursor** — are the notable "not yet": both need small
 nushell core changes (a mutable `Stack`
 in the debugger callbacks, and a control-flow return from `enter_instruction`).
+
+### Breaking inside a single-line closure
+
+A nushell line often compiles to several steppable positions. In
+
+```nu
+let doubled = ($nums | each {|n| $n * 2 })
+```
+
+the `let`, `$nums`, `each`, the closure literal and the closure *body* all sit
+on one line, so which one a breakpoint means is ambiguous.
+
+An ordinary **gutter breakpoint** (F9) covers the whole line: it fires at the
+first position reached, and then again inside the closure body, once per
+element — the closure runs in its own frame, so each iteration is a fresh
+arrival. That is usually what you want, and it is why the Call Stack shows two
+frames when you land in the body.
+
+An **inline breakpoint** (Shift+F9 in VS Code) carries a column and binds to a
+single position, so a breakpoint on the closure body fires *only* there,
+skipping the pipeline stage. The column is snapped onto a real instruction: the
+first at or after the one requested, else the last on the line. Clients ask
+`breakpointLocations` for the positions available on a line, so the marker
+lands where an instruction actually is.
+
+One breakpoint per *position*, not per line: two breakpoints bound to the same
+position collide, and the loser comes back unverified with a message saying so,
+rather than being dropped silently.
 
 One more limitation worth knowing before you use the Call Stack pane: `scopes`, `variables` and `evaluate` ignore the
 `frameId` the client sends and always answer for the **innermost** frame. `stackTrace` reports the whole chain and
@@ -190,7 +219,8 @@ sequenceDiagram
 
 2. **Per-instruction callbacks.** As the IR evaluator runs, it calls
    `enter_instruction` before each instruction. There we:
-    - map the instruction's span to a source line (`source_map.rs`; only single-line spans are valid stop locations);
+    - map the instruction's span to a source line and column (`source_map.rs`; only single-line spans are valid stop
+      locations);
     - decide whether the current run mode or a breakpoint wants to pause here;
     - snapshot this frame's variables (see below) when we might pause, evaluate a condition/logpoint, or record for
       time-travel.
@@ -342,7 +372,7 @@ src/
   state.rs        Arc<DebugState>: breakpoints, run mode, snapshot, time-travel tape
   variables.rs    nu Value → DAP variable tree (lazy) + stream describe
                   (per-variant output: docs/value-rendering.md)
-  source_map.rs   span → file/line; single-line-span stop locations
+  source_map.rs   span → file/line/column; single-line-span stop locations
   print_cmd.rs    print / input / input list command shims
   eval_scratch.rs separate engine for watch / condition / logpoint expressions
   stdio.rs        stdin detach + stdout/stderr capture pipes

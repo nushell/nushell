@@ -102,7 +102,47 @@ impl PauseSnapshot {
     }
 }
 
-/// Keyed in `SessionState::breakpoints` by its (possibly snapped) line.
+/// Where a breakpoint sits: a line, and for an inline breakpoint the column
+/// of the one instruction on it that should fire.
+///
+/// `column: None` is an ordinary gutter breakpoint (F9). It covers the whole
+/// line: the first instruction reached on that line fires it, whatever column
+/// that is — including a closure body sharing the line, which arrives in its
+/// own frame and so counts as a fresh arrival.
+///
+/// `column: Some(_)` is an inline breakpoint (Shift+F9), bound to a single
+/// instruction position. That is what lets one line carrying several steppable
+/// positions — `$nums | each {|n| $n * 2 }`, where the pipeline stage and the
+/// closure body are both on it — be broken on separately.
+///
+/// Ordering is line-then-column with `None` first, so a line's gutter
+/// breakpoint sorts ahead of the inline ones on it and a `BTreeMap` keyed by
+/// this can be ranged over per line.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) struct BpPos {
+    pub line: i64,
+    pub column: Option<i64>,
+}
+
+impl BpPos {
+    /// A whole-line (gutter) breakpoint position.
+    pub(crate) fn line(line: i64) -> Self {
+        Self { line, column: None }
+    }
+}
+
+impl std::fmt::Display for BpPos {
+    /// For the "already covered" message a client shows beside a breakpoint
+    /// it had to grey out.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.column {
+            Some(column) => write!(f, "line {}, column {column}", self.line),
+            None => write!(f, "line {}", self.line),
+        }
+    }
+}
+
+/// Keyed in `SessionState::breakpoints` by its (possibly snapped) [`BpPos`].
 #[derive(Debug, Clone, Default)]
 pub(crate) struct Breakpoint {
     pub id: i64,
@@ -153,11 +193,13 @@ impl Breakpoint {
 pub(crate) struct SessionState {
     /// file -> line -> properties, keyed by [`FileId`] so the client's
     /// spelling and nu's cannot disagree (see [`FileTable`]).
-    pub breakpoints: HashMap<FileId, BTreeMap<i64, Breakpoint>>,
-    /// file -> lines with at least one steppable instruction, populated by the
-    /// eval thread after parsing.
-    pub valid_lines: HashMap<FileId, BTreeSet<i64>>,
-    /// True once `valid_lines` is populated (breakpoints can be verified).
+    pub breakpoints: HashMap<FileId, BTreeMap<BpPos, Breakpoint>>,
+    /// file -> `(line, column)` of every steppable instruction, populated by
+    /// the eval thread after parsing. Sorted, so one set answers both
+    /// questions asked of it: whether a line carries any instruction, and
+    /// which column on it an inline breakpoint should bind to.
+    pub valid_positions: HashMap<FileId, BTreeSet<(i64, i64)>>,
+    /// True once `valid_positions` is populated (breakpoints can be verified).
     pub parse_done: bool,
     /// Monotonic id source for breakpoints.
     pub next_bp_id: i64,
@@ -215,20 +257,73 @@ pub(crate) struct SessionState {
 }
 
 impl SessionState {
-    /// Where a breakpoint at `line` lands, as (line, verified): the line
-    /// itself if steppable, else the next one that is, else unverified. Before
-    /// parsing, optimistically verified in place.
-    pub(crate) fn snap_line(&self, file: FileId, line: i64) -> (i64, bool) {
+    /// Where a breakpoint request lands, as (position, verified).
+    ///
+    /// A request with no column snaps forward to the next line carrying
+    /// instructions, as it always has. A request with one binds to a real
+    /// instruction on the requested line: the first at or after the requested
+    /// column, else the last on the line (the cursor sat past every statement
+    /// on it), else — the line has nothing at all — it degrades to a
+    /// whole-line breakpoint and snaps forward like one.
+    ///
+    /// Before the parse there are no positions to bind to, so the request is
+    /// kept as asked and optimistically verified; the eval thread reconciles
+    /// every breakpoint once the parse has produced the real positions (see
+    /// `engine::publish_valid_positions`).
+    pub(crate) fn snap(&self, file: FileId, line: i64, column: Option<i64>) -> (BpPos, bool) {
         if !self.parse_done {
-            return (line, true);
+            return (BpPos { line, column }, true);
         }
-        match self.valid_lines.get(&file) {
-            Some(lines) => match lines.range(line..).next() {
-                Some(&l) => (l, true),
-                None => (line, false),
-            },
-            None => (line, false),
+
+        let Some(positions) = self.valid_positions.get(&file) else {
+            return (BpPos { line, column }, false);
+        };
+
+        let Some(column) = column else {
+            return match positions.range((line, i64::MIN)..).next() {
+                Some(&(line, _)) => (BpPos::line(line), true),
+                None => (BpPos::line(line), false),
+            };
+        };
+
+        // Positions on the requested line, in column order.
+        let on_line = || positions.range((line, i64::MIN)..(line + 1, i64::MIN));
+
+        if let Some(&(line, column)) = on_line().find(|(_, c)| *c >= column) {
+            return (
+                BpPos {
+                    line,
+                    column: Some(column),
+                },
+                true,
+            );
         }
+
+        if let Some(&(line, column)) = on_line().next_back() {
+            return (
+                BpPos {
+                    line,
+                    column: Some(column),
+                },
+                true,
+            );
+        }
+
+        self.snap(file, line, None)
+    }
+
+    /// Every position on `line..=end_line` that can carry a breakpoint, for
+    /// the client's `breakpointLocations` request. Empty before the parse.
+    pub(crate) fn positions_in(&self, file: FileId, line: i64, end_line: i64) -> Vec<(i64, i64)> {
+        self.valid_positions
+            .get(&file)
+            .map(|positions| {
+                positions
+                    .range((line, i64::MIN)..(end_line.saturating_add(1), i64::MIN))
+                    .copied()
+                    .collect()
+            })
+            .unwrap_or_default()
     }
 
     /// Snapshot the client should be served right now: the rebuilt history
@@ -363,7 +458,7 @@ impl DebugState {
             files,
             session_state: Mutex::new(SessionState {
                 breakpoints: HashMap::new(),
-                valid_lines: HashMap::new(),
+                valid_positions: HashMap::new(),
                 parse_done: false,
                 next_bp_id: 1,
                 break_on_error: true, // matches the filter's default:true
@@ -436,5 +531,130 @@ impl DebugState {
 
     pub(crate) fn is_restarting(&self) -> bool {
         self.session_state.lock().restarting
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    //! Unit tests for [`crate::state`].
+
+    use super::{BpPos, DebugState};
+    use crate::file_table::{FileId, FileTable};
+    use pretty_assertions::assert_eq;
+    use rstest::rstest;
+
+    /// Columns of `let doubled = ($nums | each {|n| $n * 2 })`: the statement,
+    /// `$nums`, `each`, the closure literal, and `$n` inside its body.
+    const LINE4: [(i64, i64); 5] = [(4, 1), (4, 16), (4, 24), (4, 29), (4, 34)];
+
+    /// A post-parse session whose one file carries `positions`.
+    fn parsed(positions: &[(i64, i64)]) -> (DebugState, FileId) {
+        let files = FileTable::default();
+        let file = files.intern("script.nu");
+        let state = DebugState::new(false, false, 10, files);
+        {
+            let mut session = state.session_state.lock();
+            session.parse_done = true;
+            session
+                .valid_positions
+                .insert(file, positions.iter().copied().collect());
+        }
+        (state, file)
+    }
+
+    /// A gutter breakpoint (no column) keeps its long-standing behaviour: the
+    /// line if it carries instructions, else the next line that does, else
+    /// unverified where it was asked for.
+    #[rstest]
+    #[case::on_a_live_line(4, Some(BpPos::line(4)))]
+    #[case::snaps_forward_over_a_blank_line(5, Some(BpPos::line(6)))]
+    #[case::past_the_end_stays_put_unverified(9, None)]
+    fn a_gutter_breakpoint_snaps_by_line(#[case] line: i64, #[case] expected: Option<BpPos>) {
+        let mut positions = LINE4.to_vec();
+        positions.push((6, 1));
+        let (state, file) = parsed(&positions);
+        let session = state.session_state.lock();
+
+        let (pos, verified) = session.snap(file, line, None);
+        match expected {
+            Some(want) => {
+                assert_eq!((pos, verified), (want, true));
+            }
+            None => {
+                assert_eq!((pos, verified), (BpPos::line(line), false));
+            }
+        }
+    }
+
+    /// An inline breakpoint binds to one real instruction on the line: the
+    /// first at or after the requested column, else the last on the line when
+    /// the cursor sat past every statement.
+    #[rstest]
+    #[case::exactly_on_a_position(1, 1)]
+    #[case::between_positions_takes_the_next(30, 34)]
+    #[case::on_the_closure_body(34, 34)]
+    #[case::past_every_statement_takes_the_last(99, 34)]
+    fn an_inline_breakpoint_binds_to_a_position(#[case] asked: i64, #[case] bound: i64) {
+        let (state, file) = parsed(&LINE4);
+        let session = state.session_state.lock();
+
+        assert_eq!(
+            session.snap(file, 4, Some(asked)),
+            (
+                BpPos {
+                    line: 4,
+                    column: Some(bound)
+                },
+                true
+            )
+        );
+    }
+
+    /// A column on a line with no instructions at all has nothing to bind to,
+    /// so it degrades to a gutter breakpoint and snaps forward like one —
+    /// better than reporting it unverified where the user clicked.
+    #[test]
+    fn an_inline_breakpoint_on_a_dead_line_degrades_to_the_whole_line() {
+        let mut positions = LINE4.to_vec();
+        positions.push((6, 1));
+        let (state, file) = parsed(&positions);
+        let session = state.session_state.lock();
+
+        assert_eq!(
+            session.snap(file, 5, Some(12)),
+            (BpPos::line(6), true),
+            "should land on line 6 as a line breakpoint, column dropped"
+        );
+    }
+
+    /// Before the parse there are no positions to bind to, so a request is
+    /// kept exactly as asked and optimistically verified; the eval thread
+    /// reconciles it once the real positions exist.
+    #[rstest]
+    #[case::gutter(None)]
+    #[case::inline(Some(34))]
+    fn before_the_parse_a_request_is_kept_as_asked(#[case] column: Option<i64>) {
+        let files = FileTable::default();
+        let file = files.intern("script.nu");
+        let state = DebugState::new(false, false, 10, files);
+        let session = state.session_state.lock();
+
+        assert_eq!(
+            session.snap(file, 4, column),
+            (BpPos { line: 4, column }, true)
+        );
+    }
+
+    /// `breakpointLocations` is served from the same set, over a line range.
+    #[test]
+    fn positions_in_covers_the_requested_line_range() {
+        let mut positions = LINE4.to_vec();
+        positions.push((6, 1));
+        let (state, file) = parsed(&positions);
+        let session = state.session_state.lock();
+
+        assert_eq!(session.positions_in(file, 4, 4), LINE4.to_vec());
+        assert_eq!(session.positions_in(file, 5, 6), vec![(6, 1)]);
+        assert_eq!(session.positions_in(file, 7, 9), Vec::new());
     }
 }

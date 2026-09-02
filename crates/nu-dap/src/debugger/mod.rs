@@ -20,7 +20,7 @@ pub(crate) mod stepping;
 use crate::dap::protocol::DapWriter;
 use crate::dap::types::DapEvent;
 use crate::source_map::{SourceMap, SourcePos};
-use crate::state::{BpKind, Breakpoint, DebugState, RunMode, SessionState};
+use crate::state::{BpKind, BpPos, Breakpoint, DebugState, RunMode, SessionState};
 use miette::Diagnostic;
 use nu_protocol::ast::Block;
 use nu_protocol::debugger::Debugger;
@@ -90,8 +90,12 @@ pub(crate) struct DapDebugger {
     /// can't mislabel a later block.
     pending_frame_name: Option<String>,
     /// Mirrors `frames.last().last_line`. A line compiles to several IR
-    /// instructions, so breakpoints fire only when the line *changes*.
+    /// instructions, so gutter breakpoints fire only when the line *changes*.
     last_line: Option<u64>,
+    /// `(line, column)` of the previous steppable instruction, for the same
+    /// job at position granularity: an inline breakpoint fires on arrival at
+    /// its position, but not twice for one arrival.
+    last_pos: Option<(u64, u64)>,
     /// True while an error unwinds through nested frames: every frame's call
     /// instruction re-reports it, but only the innermost one should pause.
     in_error_unwind: bool,
@@ -119,6 +123,7 @@ impl DapDebugger {
             current_span: None,
             pending_frame_name: None,
             last_line: None,
+            last_pos: None,
             in_error_unwind: false,
             just_entered_block: false,
             last_result: None,
@@ -290,16 +295,29 @@ impl DapDebugger {
         }
 
         let bp_props = pos.and_then(|p| {
-            // Only on first arrival at the line, not per instruction.
+            let file_bps = session.breakpoints.get(&p.file)?;
+            let (line, column) = (p.line as i64, p.column as i64);
+
+            // An inline breakpoint is bound to one instruction, so it is
+            // matched per position rather than per line -- that is what lets a
+            // pipeline stage and the closure body beside it on the same line
+            // be broken on separately. Suppressed only on an immediate repeat
+            // of the identical position, the per-position analogue of the
+            // line gate below.
+            if let Some(props) = file_bps.get(&BpPos {
+                line,
+                column: Some(column),
+            }) {
+                return (self.last_pos != Some((p.line, p.column))).then(|| props.clone());
+            }
+
+            // A gutter breakpoint covers the whole line: only the first
+            // arrival fires, or every instruction the line compiled to would.
             if self.last_line == Some(p.line) {
                 return None;
             }
 
-            session
-                .breakpoints
-                .get(&p.file)
-                .and_then(|m| m.get(&(p.line as i64)))
-                .cloned()
+            file_bps.get(&BpPos::line(line)).cloned()
         });
 
         Some(PauseGate {
@@ -477,6 +495,7 @@ impl DapDebugger {
     /// never touches line tracking.
     fn track_line(&mut self, pos: &SourcePos) {
         self.last_line = Some(pos.line);
+        self.last_pos = Some((pos.line, pos.column));
         self.last_depth = Some(self.depth());
         if let Some(frame) = self.frames.last_mut() {
             frame.last_line = Some(pos.line);
@@ -718,6 +737,7 @@ impl Debugger for DapDebugger {
             in_value: None,
         });
         self.last_line = None; // fresh frame: no line executed yet
+        self.last_pos = None;
 
         // Locals/params are read from the real Stack at each pause.
         self.just_entered_block = true;
@@ -727,6 +747,10 @@ impl Debugger for DapDebugger {
         self.frames.pop();
         // So returning onto the call line doesn't refire.
         self.last_line = self.frames.last().and_then(|f| f.last_line);
+        // The caller's column isn't tracked per frame; clearing it means the
+        // first instruction after a return can fire an inline breakpoint,
+        // which is what returning *onto* a bound position should do.
+        self.last_pos = None;
     }
 
     fn enter_instruction(

@@ -734,6 +734,145 @@ fn conditional_breakpoint_and_logpoint() {
     assert_eq!(nu_logs[2], "file c.log total 4216");
 }
 
+/// `breakpointLocations` reports every position on a line that can carry a
+/// breakpoint, so the client can snap an inline breakpoint onto a real
+/// instruction instead of guessing a column.
+#[test]
+#[deps(NU)]
+fn breakpoint_locations_lists_every_position_on_a_line() {
+    let pipeline = example("pipeline.nu");
+    let mut d = Dap::spawn();
+    // stopOnEntry, so the parse is done and the positions are known.
+    d.initialize();
+    d.send(
+        "launch",
+        json!({ "program": pipeline, "stopOnEntry": true }),
+    );
+    d.response("launch");
+    d.send("configurationDone", json!({}));
+    d.response("configurationDone");
+    d.event("stopped");
+
+    d.send(
+        "breakpointLocations",
+        json!({ "source": { "path": pipeline }, "line": 4 }),
+    );
+    let body = d.response("breakpointLocations");
+    let locs = body["body"]["breakpoints"].as_array().unwrap();
+
+    let cols: Vec<i64> = locs
+        .iter()
+        .map(|b| {
+            assert_eq!(b["line"], 4);
+            b["column"].as_i64().expect("column")
+        })
+        .collect();
+
+    // `let doubled = ($nums | each {|n| $n * 2 })` compiles to several
+    // positions: the statement itself through to the closure body.
+    assert!(
+        cols.len() > 2,
+        "a line with a pipeline and a closure should offer several positions: {cols:?}"
+    );
+    assert_eq!(cols.first(), Some(&1), "the statement itself: {cols:?}");
+    assert!(
+        cols.windows(2).all(|w| w[0] < w[1]),
+        "positions should be sorted and deduped: {cols:?}"
+    );
+
+    // A line with nothing on it offers nothing.
+    d.send(
+        "breakpointLocations",
+        json!({ "source": { "path": pipeline }, "line": 1 }),
+    );
+    let body = d.response("breakpointLocations");
+    assert_eq!(body["body"]["breakpoints"].as_array().unwrap().len(), 0);
+}
+
+/// The point of inline breakpoints: one line holding both a pipeline stage
+/// and a closure body can be broken on separately.
+///
+/// A gutter breakpoint covers the whole line, so it fires at the stage *and*
+/// once per element inside the closure. An inline breakpoint bound to the
+/// closure's own column fires only there.
+#[test]
+#[deps(NU)]
+fn inline_breakpoint_targets_one_position_on_a_shared_line() {
+    let pipeline = example("pipeline.nu");
+
+    /// Depth of every stop until termination, at most `cap` of them.
+    fn stop_depths(d: &mut Dap, cap: usize) -> Vec<usize> {
+        let mut depths = Vec::new();
+        for _ in 0..cap {
+            if d.stop_or_term()["event"] != "stopped" {
+                break;
+            }
+            d.send("stackTrace", json!({ "threadId": 1 }));
+            let f = d.response("stackTrace");
+            depths.push(f["body"]["stackFrames"].as_array().unwrap().len());
+            d.cont();
+        }
+        depths
+    }
+
+    // A gutter breakpoint on line 4: the pipeline stage (one frame) then the
+    // closure body once per element (two frames).
+    let mut d = Dap::spawn();
+    d.start(&pipeline, json!({}), &[4]);
+    assert_eq!(
+        stop_depths(&mut d, 6),
+        vec![1, 2, 2, 2],
+        "a gutter breakpoint should cover the stage and every iteration"
+    );
+    drop(d);
+
+    // The same line, bound to the closure body's column: iterations only.
+    let mut d = Dap::spawn();
+    d.initialize();
+    d.send(
+        "launch",
+        json!({ "program": pipeline, "stopOnEntry": true }),
+    );
+    d.response("launch");
+    d.send("configurationDone", json!({}));
+    d.response("configurationDone");
+    d.event("stopped");
+
+    d.send(
+        "breakpointLocations",
+        json!({ "source": { "path": pipeline }, "line": 4 }),
+    );
+    let body = d.response("breakpointLocations");
+    // The last position on the line is inside the closure body.
+    let column = body["body"]["breakpoints"]
+        .as_array()
+        .unwrap()
+        .last()
+        .and_then(|b| b["column"].as_i64())
+        .expect("a position on line 4");
+
+    d.send(
+        "setBreakpoints",
+        json!({
+            "source": { "path": pipeline },
+            "breakpoints": [{ "line": 4, "column": column }],
+        }),
+    );
+    let set = d.response("setBreakpoints");
+    let bp = &set["body"]["breakpoints"][0];
+    assert_eq!(bp["verified"], true);
+    assert_eq!(bp["line"], 4);
+    // The bound column comes back, so the client can place the marker.
+    assert_eq!(bp["column"], column);
+
+    d.cont();
+    assert_eq!(
+        stop_depths(&mut d, 6),
+        vec![2, 2, 2],
+        "an inline breakpoint in the closure should skip the pipeline stage"
+    );
+}
+
 #[test]
 #[deps(NU)]
 fn step_into_pipeline_stage_shows_input() {

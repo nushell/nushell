@@ -80,7 +80,7 @@ fn run(
     let block = parse_script(&mut engine_state, &target)?;
 
     cache_render_facts(&engine_state, &state);
-    publish_valid_lines(&engine_state, &block, &state, writer);
+    publish_valid_positions(&engine_state, &block, &state, writer);
 
     // After the parse, so the script's own `def`s are in scope, and before
     // `activate_debugger`, so the clone starts out undebugged.
@@ -389,10 +389,10 @@ fn call_entry(
     nu_engine::eval_block::<WithDebug>(engine_state, stack, &block, PipelineData::empty()).map(Some)
 }
 
-/// Collect every line carrying a steppable instruction, per file, and
-/// reconcile breakpoints set before parsing: snapped to the next valid line or
-/// unverified, either way announced as a `breakpoint` changed event.
-fn publish_valid_lines(
+/// Collect the `(line, column)` of every steppable instruction, per file, and
+/// reconcile breakpoints set before parsing: snapped onto a real position or
+/// left unverified, either way announced as a `breakpoint` changed event.
+fn publish_valid_positions(
     engine_state: &EngineState,
     top_block: &nu_protocol::ast::Block,
     state: &Arc<DebugState>,
@@ -403,11 +403,14 @@ fn publish_valid_lines(
     let mut source_map = crate::source_map::SourceMap::new(state.files.clone());
     source_map.refresh(engine_state);
 
-    let mut valid: HashMap<crate::file_table::FileId, BTreeSet<i64>> = HashMap::new();
+    let mut valid: HashMap<crate::file_table::FileId, BTreeSet<(i64, i64)>> = HashMap::new();
     let mut collect = |ir: &nu_protocol::ir::IrBlock| {
         for span in &ir.spans {
             if let Some(pos) = source_map.resolve_steppable(*span) {
-                valid.entry(pos.file).or_default().insert(pos.line as i64);
+                valid
+                    .entry(pos.file)
+                    .or_default()
+                    .insert((pos.line as i64, pos.column as i64));
             }
         }
     };
@@ -428,22 +431,22 @@ fn publish_valid_lines(
     let mut events = Vec::new();
     {
         let mut session = state.session_state.lock();
-        session.valid_lines = valid;
+        session.valid_positions = valid;
         session.parse_done = true;
 
         for (file, bps) in session.breakpoints.clone() {
             let mut changed = std::collections::BTreeMap::new();
-            for (line, mut props) in bps {
-                let (snapped, verified) = { session.snap_line(file, line) };
+            for (requested, mut props) in bps {
+                let (snapped, verified) = session.snap(file, requested.line, requested.column);
                 props.verified = verified;
-                // One breakpoint per line: on collision the first wins and
+                // One breakpoint per position: on collision the first wins and
                 // the loser is dropped, announced unverified so the client
                 // greys it out rather than showing a marker that can't hit.
                 if changed.contains_key(&snapped) {
-                    events.push((props.id, false, line, file, Some(snapped)));
+                    events.push((props.id, false, requested, file, Some(snapped)));
                     continue;
                 }
-                if snapped != line || !verified {
+                if snapped != requested || !verified {
                     events.push((props.id, verified, snapped, file, None));
                 }
                 changed.insert(snapped, props);
@@ -451,18 +454,19 @@ fn publish_valid_lines(
             session.breakpoints.insert(file, changed);
         }
     }
-    for (id, verified, line, file, collided_with) in events {
+    for (id, verified, pos, file, collided_with) in events {
         let breakpoint = Breakpoint {
             id: Some(id),
             verified,
-            line,
+            line: pos.line,
+            column: pos.column,
             source: Some(Source {
                 name: None,
                 // The client needs a path to place the marker; the id is ours.
                 path: Some(source_map.path(file)),
             }),
             // Only set for the loser of a collision, as the greying reason.
-            message: collided_with.map(|at| format!("another breakpoint already covers line {at}")),
+            message: collided_with.map(|at| format!("another breakpoint already covers {at}")),
         };
         writer.event(DapEvent::Breakpoint {
             reason: "changed",

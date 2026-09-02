@@ -49,6 +49,11 @@ pub struct Source {
 #[serde(rename_all = "camelCase")]
 pub struct SourceBreakpoint {
     pub line: i64,
+    /// Set by an *inline* breakpoint (VS Code's Shift+F9), which binds to one
+    /// instruction on the line rather than the whole line. Absent for an
+    /// ordinary gutter breakpoint. See [`crate::state::BpPos`].
+    #[serde(default)]
+    pub column: Option<i64>,
     #[serde(default)]
     pub condition: Option<String>,
     #[serde(default)]
@@ -62,6 +67,10 @@ pub struct Breakpoint {
     pub id: Option<i64>,
     pub verified: bool,
     pub line: i64,
+    /// The column the breakpoint actually bound to, for an inline breakpoint;
+    /// the client needs it to draw the marker on the right statement.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub column: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source: Option<Source>,
     /// Why a breakpoint could not be verified — shown by the client next to
@@ -183,6 +192,9 @@ pub struct Capabilities {
     pub supports_evaluate_for_hovers: bool,
     /// Explicitly unsupported for v1.
     pub supports_function_breakpoints: bool,
+    /// Lets the client ask which columns on a line can carry an inline
+    /// breakpoint, so Shift+F9 snaps to a real instruction.
+    pub supports_breakpoint_locations_request: bool,
     pub exception_breakpoint_filters: Vec<ExceptionBreakpointFilter>,
 }
 
@@ -195,6 +207,32 @@ pub struct ExceptionBreakpointFilter {
     pub label: &'static str,
     pub description: &'static str,
     pub default: bool,
+}
+
+/// `breakpointLocations` arguments: which positions on a line (or across a
+/// line range) can carry a breakpoint.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BreakpointLocationsArgs {
+    pub source: Source,
+    pub line: i64,
+    /// Inclusive end of the range; defaults to `line`.
+    #[serde(default)]
+    pub end_line: Option<i64>,
+}
+
+/// One position a breakpoint can bind to.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BreakpointLocation {
+    pub line: i64,
+    pub column: i64,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BreakpointLocationsResponse {
+    pub breakpoints: Vec<BreakpointLocation>,
 }
 
 /// `setBreakpoints` / `setExceptionBreakpoints` response.
@@ -364,6 +402,7 @@ pub enum DapEvent {
 
 impl ResponseBody for Capabilities {}
 impl ResponseBody for SetBreakpointsResponse {}
+impl ResponseBody for BreakpointLocationsResponse {}
 impl ResponseBody for ExceptionInfoResponse {}
 impl ResponseBody for ThreadsResponse {}
 impl ResponseBody for StackTraceResponse {}

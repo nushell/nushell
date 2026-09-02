@@ -29,6 +29,7 @@ impl Session {
                 supports_step_back: true,
                 supports_evaluate_for_hovers: true,
                 supports_function_breakpoints: false,
+                supports_breakpoint_locations_request: true,
                 exception_breakpoint_filters: vec![ExceptionBreakpointFilter {
                     filter: "error",
                     label: "Runtime errors",
