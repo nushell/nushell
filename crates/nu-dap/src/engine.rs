@@ -84,6 +84,12 @@ fn run(
     cache_render_facts(&engine_state, &state);
     publish_valid_lines(&engine_state, &block, &state, writer);
 
+    // Must happen here: after the parse, so the script's own `def`s are in
+    // scope, and before `activate_debugger`, so the clone starts out
+    // undebugged. A `restart` replaces the previous run's scratch.
+    *state.scratch.lock().expect("scratch poisoned") =
+        Some(crate::eval_scratch::Scratch::from_run_engine(&engine_state));
+
     // Everything below runs with the debugger attached, so it must be paired
     // with the `deactivate_debugger` further down.
     let dap_debugger = DapDebugger::new(state, writer.clone());

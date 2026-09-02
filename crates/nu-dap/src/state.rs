@@ -325,9 +325,10 @@ pub(crate) struct DebugState {
     /// UI wait loop polls it so the stop button interrupts a pending dialog.
     pub terminate_flag: std::sync::atomic::AtomicBool,
     /// Scratch engine for watch/hover/console expressions, breakpoint
-    /// conditions, and logpoint interpolation. Lazily initialized (building
-    /// a full command context isn't free). Lock discipline: never taken
-    /// while holding `inner`.
+    /// conditions, and logpoint interpolation. Cloned off the run engine by the
+    /// eval thread right after the parse (`engine::run`), so it is `None` only
+    /// before the first run starts. Lock discipline: never taken while holding
+    /// `inner`.
     pub scratch: Mutex<Option<crate::eval_scratch::Scratch>>,
     /// Eval thread waits on this while paused; server thread notifies
     /// after setting `resume_requested` + new `run_mode`.

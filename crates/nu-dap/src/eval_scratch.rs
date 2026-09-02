@@ -1,20 +1,30 @@
 //! Expression evaluation while paused — without re-entering the paused engine.
 //!
-//! The real `EngineState` can't be used to evaluate while the eval thread sits
-//! inside a Debugger callback, so watch/hover/console expressions (and
-//! breakpoint conditions / logpoint interpolation) run against a *separate*
-//! scratch engine: the expression is parsed with the snapshotted shadow
-//! variables pre-declared, their values bound on a fresh stack, run undebugged.
+//! The run engine itself can't be used while the eval thread sits inside a
+//! Debugger callback: the callback holds that engine's debugger lock, and
+//! parsing needs `&mut EngineState`, which a callback never has (the server
+//! thread answering `evaluate` has no engine at all). So watch/hover/console
+//! expressions — and breakpoint conditions / logpoint interpolation — run
+//! against a *clone* of the run engine, detached from the running session: the
+//! expression is parsed with the snapshotted shadow variables pre-declared,
+//! their values bound on a fresh stack, run undebugged.
 //!
-//! Limitations: the script's own commands aren't visible here, mutations don't
-//! affect the real program, and stream-valued variables show their placeholder.
+//! The clone is taken right after the script is parsed, so the script's own
+//! `def`s, modules and blocks are in scope here, as are the host's config,
+//! plugins and `$nu`.
+//!
+//! Limitations: being a snapshot, it doesn't see commands defined at runtime,
+//! and `$env`/`cd` changes made by the program live on its `Stack` rather than
+//! its engine, so they aren't reflected either. Mutations here don't affect the
+//! real program, and stream-valued variables show their placeholder.
 
 use nu_protocol::ast::Block;
 use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
-use nu_protocol::{PipelineData, Span, Type, Value, VarId};
+use nu_protocol::{PipelineData, Signals, Span, Type, Value, VarId};
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 
 pub(crate) struct Scratch {
     engine: EngineState,
@@ -35,59 +45,31 @@ pub(crate) struct Scratch {
 // --- Construction ---------------------------------------------------------
 
 impl Scratch {
-    pub(crate) fn new() -> Self {
-        let mut engine = nu_cmd_lang::create_default_context();
+    /// Clone the run engine for scratch evaluation.
+    ///
+    /// Called from `engine::run` once the script is parsed — so every `def`,
+    /// module and block it declared is in scope — and *before* the debugger is
+    /// activated, so the clone is undebugged from the start.
+    pub(crate) fn from_run_engine(engine: &EngineState) -> Self {
+        let mut engine = engine.clone();
 
-        engine = nu_command::add_shell_command_context(engine);
+        // A clone shares the session's `Arc`s, the debugger slot above all:
+        // evaluating through a shared slot would re-enter the very mutex the
+        // Debugger callback is holding, and std mutexes are not reentrant. This
+        // also clears `is_debugging` and detaches the run's jobs, repl state and
+        // regex cache, so a watch expression can't disturb them.
+        engine.make_session_state_unique();
 
-        engine.set_signals(nu_protocol::Signals::new(Arc::new(
-            std::sync::atomic::AtomicBool::new(false),
-        )));
-
-        Self::seed_env(&mut engine);
+        // Not the run's interrupt flag: `terminate`/`stop` raise it, and being
+        // paused is exactly when it is likely to be set — sharing it would abort
+        // every scratch eval as `Interrupted`.
+        engine.set_signals(Signals::new(Arc::new(AtomicBool::new(false))));
 
         Self {
             engine,
             var_ids: HashMap::new(),
             blocks: HashMap::new(),
         }
-    }
-
-    /// Seed the environment from our own process so console expressions can run
-    /// externals and path-dependent commands (e.g. re-run a pipeline stage by
-    /// hand). `PWD` is skipped and then set from the real cwd, because nu
-    /// requires it to be absolute and canonical.
-    fn seed_env(engine: &mut EngineState) {
-        for (key, raw) in std::env::vars() {
-            if key.eq_ignore_ascii_case("pwd") {
-                continue;
-            }
-
-            let value = env_value(&key, raw);
-            engine.add_env_var(key, value);
-        }
-
-        if let Ok(cwd) = std::env::current_dir() {
-            engine.add_env_var(
-                "PWD".into(),
-                Value::string(cwd.to_string_lossy(), Span::unknown()),
-            );
-        }
-    }
-}
-
-/// One environment variable's nu value. `PATH` becomes a list, the way nu's own
-/// startup presents it, so `$env.PATH | each { … }` works here too.
-fn env_value(key: &str, raw: String) -> Value {
-    if key.eq_ignore_ascii_case("path") {
-        Value::list(
-            std::env::split_paths(&raw)
-                .map(|p| Value::string(p.to_string_lossy(), Span::unknown()))
-                .collect(),
-            Span::unknown(),
-        )
-    } else {
-        Value::string(raw, Span::unknown())
     }
 }
 
@@ -267,7 +249,7 @@ fn is_nu_interpolation(trimmed: &str) -> bool {
 mod tests {
     //! Unit tests for [`crate::eval_scratch`].
 
-    use super::{Scratch, env_value, is_nu_interpolation};
+    use super::{Scratch, is_nu_interpolation};
     use nu_protocol::{Span, Value};
     use pretty_assertions::assert_eq;
     use rstest::rstest;
@@ -276,29 +258,22 @@ mod tests {
         Span::unknown()
     }
 
+    /// A scratch over a minimal engine, standing in for the run engine that
+    /// [`Scratch::from_run_engine`] is handed in production.
+    fn scratch() -> Scratch {
+        Scratch::from_run_engine(&nu_command::add_shell_command_context(
+            nu_cmd_lang::create_default_context(),
+        ))
+    }
+
     /// One shadow variable, the shape `eval`/`interpolate` take.
     fn vars(name: &str, value: Value) -> Vec<(String, Value)> {
         vec![(name.to_string(), value)]
     }
 
     #[test]
-    fn path_becomes_a_list_other_vars_stay_strings() {
-        let joined = std::env::join_paths(["/one", "/two"].iter().map(std::path::Path::new))
-            .expect("joinable");
-        let value = env_value("PATH", joined.to_string_lossy().to_string());
-        let list = value.as_list().expect("PATH is a list");
-        assert_eq!(list.len(), 2);
-
-        // Case-insensitive: Windows spells it `Path`.
-        assert!(env_value("Path", "/one".to_string()).as_list().is_ok());
-
-        let other = env_value("EDITOR", "hx".to_string());
-        assert_eq!(other, Value::string("hx", sp()));
-    }
-
-    #[test]
     fn eval_binds_shadow_variables() {
-        let mut scratch = Scratch::new();
+        let mut scratch = scratch();
         let result = scratch
             .eval("$x + 1", &vars("x", Value::int(1, sp())))
             .expect("evaluates");
@@ -309,7 +284,7 @@ mod tests {
     /// leaks the internal shape (`Span { start: .., end: .. }`) into the message.
     #[test]
     fn parse_errors_are_displayed_not_debugged() {
-        let mut scratch = Scratch::new();
+        let mut scratch = scratch();
         let err = scratch
             .eval("$x +", &vars("x", Value::int(1, sp())))
             .expect_err("incomplete");
@@ -324,7 +299,7 @@ mod tests {
     /// `eval_block` reports for a block whose IR never got built.
     #[test]
     fn compile_errors_reach_the_watch_pane() {
-        let mut scratch = Scratch::new();
+        let mut scratch = scratch();
         let err = scratch
             .eval("$env.PWD = \"/tmp\"", &[])
             .expect_err("cannot set PWD");
@@ -340,7 +315,7 @@ mod tests {
     /// engine permanently. Re-evaluating the same expression must add nothing.
     #[test]
     fn repeat_evaluation_does_not_grow_the_engine() {
-        let mut scratch = Scratch::new();
+        let mut scratch = scratch();
         let v = vars("x", Value::int(1, sp()));
 
         scratch.eval("$x + 1", &v).expect("evaluates");
@@ -357,7 +332,7 @@ mod tests {
     /// breakpoint condition is re-evaluated on every hit.
     #[test]
     fn repeat_failure_does_not_grow_the_engine() {
-        let mut scratch = Scratch::new();
+        let mut scratch = scratch();
         let v = vars("x", Value::int(1, sp()));
 
         scratch.eval("$x +", &v).expect_err("incomplete");
@@ -386,14 +361,14 @@ mod tests {
 
     #[test]
     fn interpolate_evaluates_a_whole_nu_literal() {
-        let mut scratch = Scratch::new();
+        let mut scratch = scratch();
         let out = scratch.interpolate("$\"i is ($x)\"", &vars("x", Value::int(7, sp())));
         assert_eq!(out, "i is 7");
     }
 
     #[test]
     fn interpolate_substitutes_dap_brace_segments() {
-        let mut scratch = Scratch::new();
+        let mut scratch = scratch();
         let out = scratch.interpolate("i is {$x} now", &vars("x", Value::int(7, sp())));
         assert_eq!(out, "i is 7 now");
     }
@@ -402,7 +377,7 @@ mod tests {
     /// still logs.
     #[test]
     fn interpolate_passes_unmatched_braces_through() {
-        let mut scratch = Scratch::new();
+        let mut scratch = scratch();
         let out = scratch.interpolate("a { b", &[]);
         assert_eq!(out, "a { b");
     }
@@ -411,7 +386,7 @@ mod tests {
     /// message — swallowing it would leave no sign anything went wrong.
     #[test]
     fn interpolate_shows_a_placeholder_for_a_failed_segment() {
-        let mut scratch = Scratch::new();
+        let mut scratch = scratch();
         let out = scratch.interpolate("value {$nope}", &[]);
         assert!(
             out.starts_with("value {error: "),

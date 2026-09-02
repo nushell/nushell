@@ -170,7 +170,8 @@ impl DapDebugger {
         let mut guard = self.state.scratch.lock().expect("scratch poisoned");
 
         guard
-            .get_or_insert_with(crate::eval_scratch::Scratch::new)
+            .as_mut()
+            .ok_or("no scratch engine: the run has not started")?
             .eval(expr, &vars)
     }
 
@@ -178,9 +179,12 @@ impl DapDebugger {
         let vars = self.shadow_vars_for_eval();
         let mut guard = self.state.scratch.lock().expect("scratch poisoned");
 
-        guard
-            .get_or_insert_with(crate::eval_scratch::Scratch::new)
-            .interpolate(template, &vars)
+        // Before the run starts there is nothing to interpolate against; log
+        // the template as written rather than dropping the message.
+        match guard.as_mut() {
+            Some(scratch) => scratch.interpolate(template, &vars),
+            None => template.to_string(),
+        }
     }
 
     /// The pause loop: publish snapshot, emit `stopped`, block until resumed.

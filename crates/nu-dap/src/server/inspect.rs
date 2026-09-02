@@ -171,9 +171,10 @@ impl Session {
                             .collect::<Vec<_>>()
                     };
                     let mut guard = state.scratch.lock().expect("scratch poisoned");
-                    guard
-                        .get_or_insert_with(crate::eval_scratch::Scratch::new)
-                        .eval(&expr, &vars)
+                    match guard.as_mut() {
+                        Some(scratch) => scratch.eval(&expr, &vars),
+                        None => Err("no scratch engine: the run has not started".into()),
+                    }
                 }
                 (None, None) => Err("no active session".into()),
             }

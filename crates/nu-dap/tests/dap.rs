@@ -403,6 +403,31 @@ fn custom_command_frame_and_parameters() {
 
 #[test]
 #[deps(NU)]
+fn watch_expressions_can_call_the_scripts_own_commands() {
+    // The scratch engine is cloned off the run engine *after* the parse, so the
+    // script's own `def`s are in scope. A freshly built engine had only the
+    // builtins, and this was "command not found".
+    let demo = example("demo.nu");
+    let mut d = Dap::spawn();
+    d.start(&demo, json!({}), &[17]); // inside the loop, `$f` bound
+
+    assert_eq!(d.event("stopped")["body"]["reason"], "breakpoint");
+    d.send(
+        "evaluate",
+        json!({ "expression": "classify 4096", "context": "watch" }),
+    );
+    assert_eq!(d.response("evaluate")["body"]["result"], "\"big\"");
+
+    // And with a value taken from the paused frame.
+    d.send(
+        "evaluate",
+        json!({ "expression": "classify $f.size", "context": "watch" }),
+    );
+    assert_eq!(d.response("evaluate")["body"]["result"], "\"small\"");
+}
+
+#[test]
+#[deps(NU)]
 fn closure_params_and_in_are_visible() {
     // Reading the real Stack (nushell #18708) exposes a closure's own
     // parameter — impossible under the old IR shadow reconstruction, which
