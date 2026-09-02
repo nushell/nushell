@@ -1150,6 +1150,13 @@ fn edit_from_record(
             let value = extract_value("value", record, span)?;
             EditCommand::InsertString(value.to_expanded_string("", config))
         }
+        Ok(ECD::InsertPair) => {
+            let value = extract_value("open", record, span)?;
+            let open = extract_char(value)?;
+            let value = extract_value("close", record, span)?;
+            let close = extract_char(value)?;
+            EditCommand::InsertPair { open, close }
+        }
         Ok(ECD::InsertNewline) => EditCommand::InsertNewline,
         Ok(ECD::InsertNewlineAbove) => EditCommand::InsertNewlineAbove,
         Ok(ECD::InsertNewlineBelow) => EditCommand::InsertNewlineBelow,
@@ -1159,6 +1166,13 @@ fn edit_from_record(
             EditCommand::ReplaceChar(char)
         }
         Ok(ECD::Backspace) => EditCommand::Backspace,
+        Ok(ECD::BackspacePair) => {
+            let value = extract_value("open", record, span)?;
+            let open = extract_char(value)?;
+            let value = extract_value("close", record, span)?;
+            let close = extract_char(value)?;
+            EditCommand::BackspacePair { open, close }
+        }
         Ok(ECD::Delete) => EditCommand::Delete,
         Ok(ECD::CutCharLeft) => EditCommand::CutCharLeft,
         Ok(ECD::CutChar) => EditCommand::CutChar,
@@ -1406,11 +1420,13 @@ pub(crate) fn display_edit_command(edit: EditCommandDiscriminants) -> Option<&'s
         ECD::MoveLeftBefore => "MoveLeftBefore value: <char>, select?: <bool>",
         ECD::InsertChar => "InsertChar value: <char>",
         ECD::InsertString => "InsertString value: <string>",
+        ECD::InsertPair => "InsertPair open: <char>, close: <char>",
         ECD::InsertNewline => "InsertNewline",
         ECD::InsertNewlineAbove => "InsertNewlineAbove",
         ECD::InsertNewlineBelow => "InsertNewlineBelow",
         ECD::ReplaceChar => "ReplaceChar value: <char>",
         ECD::Backspace => "Backspace",
+        ECD::BackspacePair => "BackspacePair open: <char>, close: <char>",
         ECD::Delete => "Delete",
         ECD::CutCharLeft => "CutCharLeft",
         ECD::CutChar => "CutChar",
