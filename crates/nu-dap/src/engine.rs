@@ -340,6 +340,7 @@ fn call_entry(
         .find_decl(name.as_bytes(), &[])
         .filter(|id| engine_state.get_decl(*id).block_id().is_some())
         .is_some();
+
     if !decl_ok {
         if explicit {
             return Err(nu_protocol::ShellError::Generic(
@@ -359,6 +360,7 @@ fn call_entry(
         source.push(' ');
         source.push_str(&nu_parser::escape_for_script_arg(a));
     }
+
     let block = {
         let mut working_set = StateWorkingSet::new(engine_state);
         let block = nu_parser::parse(
@@ -367,6 +369,7 @@ fn call_entry(
             source.as_bytes(),
             false,
         );
+
         if let Some(err) = working_set.parse_errors.first() {
             // The most common failure is launching without required args —
             // make that actionable instead of dumping a parse error.
@@ -378,14 +381,17 @@ fn call_entry(
                 ),
                 other => format!("cannot call `{name}` with these args: {other}"),
             };
+
             return Err(nu_protocol::ShellError::Generic(
                 GenericError::new_internal(detail, String::new()),
             ));
         }
+
         let delta = working_set.render();
         engine_state.merge_delta(delta)?;
         block
     };
+
     nu_engine::eval_block::<WithDebug>(engine_state, stack, &block, PipelineData::empty()).map(Some)
 }
 

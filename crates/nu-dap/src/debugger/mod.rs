@@ -23,9 +23,9 @@ use crate::source_map::{SourceMap, SourcePos};
 use crate::state::{BpKind, Breakpoint, DebugState, RunMode, SessionState};
 use nu_protocol::ast::Block;
 use nu_protocol::debugger::Debugger;
-use nu_protocol::engine::{EngineState, Stack};
+use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
 use nu_protocol::ir::{Instruction, IrBlock};
-use nu_protocol::{PipelineData, PipelineExecutionData, ShellError, Span, Value};
+use nu_protocol::{PipelineData, PipelineExecutionData, ShellError, Span, Value, format_cli_error};
 use serde_json::json;
 use std::sync::{Arc, MutexGuard};
 
@@ -536,21 +536,29 @@ impl DapDebugger {
         }
     }
 
-    /// Dialog text for an error. External commands get their stderr tail
-    /// appended: "External command had a non-zero exit code" says nothing on its
-    /// own — the command's actual complaint went to stderr. Matched on the
-    /// variant, not the diagnostic code, so a rename fails to compile instead of
-    /// quietly dropping the tail.
-    fn error_description(err: &ShellError) -> String {
-        let mut description = format!("{err}");
+    /// Full diagnostic text for the `exceptionInfo` dialog: the same report
+    /// nushell prints to stderr, labels, help and source snippet included.
+    /// `{err}` alone gives only the top-level Display line, and most
+    /// `ShellError` variants put the substance in a `#[label]` — "Can't convert
+    /// to int." versus "can't convert string to int". ANSI is stripped because
+    /// colouring follows user config and DAP clients render escapes literally.
+    fn error_report(engine_state: &EngineState, stack: &Stack, err: &ShellError) -> String {
+        let working_set = StateWorkingSet::new(engine_state);
+        nu_utils::strip_ansi_string_likely(format_cli_error(
+            Some(stack),
+            &working_set,
+            err,
+            Some("nu::shell::error"), // same default code as report_shell_error
+        ))
+    }
 
-        if matches!(err, ShellError::NonZeroExitCode { .. })
-            && let Some(tail) = Self::get_message_from_external_command()
-        {
-            description = format!("{description}\n\n{tail}");
+    /// Appends an external command's stderr tail to either error text, so the
+    /// dialog and the `stopped` event can't drift apart on it.
+    fn with_external_stderr(text: String, tail: Option<&str>) -> String {
+        match tail {
+            Some(tail) => format!("{text}\n\n{tail}"),
+            None => text,
         }
-
-        description
     }
 
     /// Recent stderr tail from an external command, trimmed and capped so the
@@ -609,7 +617,19 @@ impl DapDebugger {
             self.current_span = Some(span);
         }
 
-        let description = Self::error_description(err);
+        // Fetched once — it flushes the output capture — and appended to both
+        // texts below: "External command had a non-zero exit code" says nothing
+        // on its own, the command's actual complaint went to stderr. Matched on
+        // the variant, not the diagnostic code, so a rename fails to compile
+        // instead of quietly dropping the tail.
+        let tail = match err {
+            ShellError::NonZeroExitCode { .. } => Self::get_message_from_external_command(),
+            _ => None,
+        };
+        let description = Self::with_external_stderr(
+            Self::error_report(engine_state, stack, err),
+            tail.as_deref(),
+        );
 
         // This path skips the enter_instruction sync, so refresh from the Stack.
         self.sync_locals_from_stack(engine_state, stack);
@@ -618,9 +638,13 @@ impl DapDebugger {
         // and the stop may take this lock again.
         let exception_id = exception_id(err);
         let mut session = self.state.session_state.lock().expect("session poisoned");
-        session.exception_info = Some((exception_id, description.clone()));
+        session.exception_info = Some((exception_id, description));
 
-        self.pause(session, engine_state, "exception", site, Some(&description));
+        // The `stopped` event's text/description land in narrow client UI (the
+        // pause reason beside the thread), so they get the short message rather
+        // than the whole report the `exceptionInfo` request serves above.
+        let summary = Self::with_external_stderr(format!("{err}"), tail.as_deref());
+        self.pause(session, engine_state, "exception", site, Some(&summary));
     }
 }
 

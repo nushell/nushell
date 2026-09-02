@@ -1090,19 +1090,25 @@ mod tests {
                 Span::unknown(),
             ),
         );
+
         let block = {
             let mut working_set = StateWorkingSet::new(&engine_state);
             let block =
                 nu_parser::parse(&mut working_set, Some("test.nu"), script.as_bytes(), false);
+
             assert!(
                 working_set.parse_errors.is_empty(),
                 "parse: {:?}",
                 working_set.parse_errors
             );
+
             let delta = working_set.render();
+
             engine_state.merge_delta(delta).expect("merge");
+
             block
         };
+
         let mut stack = Stack::new();
         let data = nu_engine::eval_block::<WithoutDebug>(
             &engine_state,
@@ -1111,6 +1117,7 @@ mod tests {
             nu_protocol::PipelineData::empty(),
         )
         .expect("eval");
+
         (engine_state, data.body)
     }
 

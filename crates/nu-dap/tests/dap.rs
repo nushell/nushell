@@ -521,16 +521,22 @@ fn exception_breakpoint_pauses_at_the_raising_line() {
 
     let ev = d.event("stopped");
     assert_eq!(ev["body"]["reason"], "exception");
-    assert!(ev["body"]["text"].as_str().unwrap().contains("boom"));
+    // The event text shows up in narrow client UI, so it stays the one-line
+    // message — the full report is fetched with `exceptionInfo` below.
+    let text = ev["body"]["text"].as_str().unwrap();
+    assert_eq!(text, "boom");
     assert_eq!(d.top_line(), 4);
 
     d.send("exceptionInfo", json!({ "threadId": 1 }));
     let info = d.response("exceptionInfo");
+    // The dialog gets nushell's whole diagnostic — message, source snippet and
+    // label spans — not just the error's Display line.
+    let description = info["body"]["description"].as_str().unwrap();
+    assert!(description.contains("boom"), "description: {description}");
+    assert!(description.contains("err.nu"), "description: {description}");
     assert!(
-        info["body"]["description"]
-            .as_str()
-            .unwrap()
-            .contains("boom")
+        description.contains(r#"error make {msg: "boom"}"#),
+        "description: {description}"
     );
     // The id is nushell's diagnostic code, not a scraped variant name.
     let id = info["body"]["exceptionId"].as_str().unwrap();
