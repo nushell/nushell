@@ -1960,6 +1960,24 @@ fn collect(
     if nu_experimental::PIPE_FAIL.get() && !ignore_error {
         check_exit_status_future(pipe.exit)?;
     }
+    // A child stream without captured stdout carries no data: the external already wrote
+    // its output to the inherited stdout or a redirection target. Collecting it into a
+    // value would fabricate an empty string, which prints as a stray blank line when the
+    // collected output is displayed (#18765). Wait for the child instead, so a failure
+    // still surfaces as an error, and collect to Empty like a drained stream.
+    #[cfg(feature = "os")]
+    {
+        use nu_protocol::ByteStreamSource;
+        let stdout_uncaptured = matches!(
+            &data,
+            PipelineData::ByteStream(stream, ..)
+                if matches!(stream.source(), ByteStreamSource::Child(child) if child.stdout.is_none())
+        );
+        if stdout_uncaptured {
+            data.drain()?;
+            return Ok(PipelineData::empty());
+        }
+    }
     let value = data.into_value(span)?;
     Ok(PipelineData::value(value, metadata))
 }

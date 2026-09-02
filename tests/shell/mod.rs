@@ -258,6 +258,45 @@ fn run_in_noninteractive_mode() {
     assert!(child_output.stderr.is_empty());
 }
 
+// A `try` with a `catch` or `finally` block collects the block's output to know whether
+// it failed. When the tried external's stdout is inherited, its output already went to
+// the terminal; collecting used to turn the data-less stream into an empty string, which
+// printed as a stray blank line after the external's own output. The `try` must be the
+// final statement: only the final statement's value is printed, so that is where the
+// fabricated empty string became visible.
+// https://github.com/nushell/nushell/issues/18765
+#[rstest]
+#[case::catch("try { ^$env.TEST_NU_BIN -n -c 'print hi' } catch {}", "hi\n")]
+#[case::finally("try { ^$env.TEST_NU_BIN -n -c 'print hi' } finally {}", "hi\n")]
+#[case::catch_and_finally(
+    "try { ^$env.TEST_NU_BIN -n -c 'print hi' } catch {} finally {}",
+    "hi\n"
+)]
+// The collected stream still reports the external's failure, so `catch` runs.
+#[case::catch_on_failure(
+    "try { ^$env.TEST_NU_BIN -n -c 'exit 1' } catch { print caught }",
+    "caught\n"
+)]
+#[nu_test_support::test]
+#[deps(NU)]
+fn try_catch_inherited_external_output_has_no_extra_blank_line(
+    #[case] script: &str,
+    #[case] expected: &str,
+) {
+    let child_output = std::process::Command::new(NU.path())
+        .args(["-n", "-c", script])
+        .env("TEST_NU_BIN", NU.path())
+        .output()
+        .expect("failed to run nu");
+
+    assert_eq!(expected, String::from_utf8_lossy(&child_output.stdout));
+    assert!(
+        child_output.stderr.is_empty(),
+        "unexpected stderr: {}",
+        String::from_utf8_lossy(&child_output.stderr),
+    );
+}
+
 #[test]
 #[deps(NU)]
 fn run_with_no_newline() {
