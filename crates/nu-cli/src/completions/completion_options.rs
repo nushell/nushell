@@ -152,7 +152,11 @@ impl<T> NuMatcher<'_, T> {
                     should_sort,
                     needle,
                     state: State::Fallback {
-                        matcher: Matcher::new(Config::DEFAULT),
+                        matcher: Matcher::new({
+                            let mut cfg = Config::DEFAULT;
+                            cfg.prefer_prefix = true;
+                            cfg
+                        }),
                         atom,
                         prefix_matches: Vec::new(),
                         fuzzy_matches: Vec::new(),
@@ -437,6 +441,7 @@ impl TryFrom<String> for MatchAlgorithm {
             "prefix" => Ok(Self::Prefix),
             "substring" => Ok(Self::Substring),
             "fuzzy" => Ok(Self::Fuzzy),
+            "fallback" => Ok(Self::Fallback),
             _ => Err(InvalidMatchAlgorithm::Unknown),
         }
     }
