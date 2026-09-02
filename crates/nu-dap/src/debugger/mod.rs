@@ -21,6 +21,7 @@ pub(crate) mod stepping;
 use crate::dap::protocol::DapWriter;
 use crate::source_map::{SourceMap, SourcePos};
 use crate::state::{BpKind, Breakpoint, DebugState, RunMode, SessionState};
+use miette::Diagnostic;
 use nu_protocol::ast::Block;
 use nu_protocol::debugger::Debugger;
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
@@ -673,7 +674,6 @@ impl PauseGate {
 /// Deliberately not scraped from `{err:?}`: `Debug` is not a stable interface,
 /// and this is the same code nushell prints for the error elsewhere.
 fn exception_id(err: &ShellError) -> String {
-    use miette::Diagnostic;
     err.code()
         .map(|code| code.to_string())
         // No variant should be missing a code, but an id is required.

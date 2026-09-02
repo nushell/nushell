@@ -5,7 +5,9 @@
 use crate::dap::types::Variable;
 use crate::state::{PauseSnapshot, RenderCache, VarNode};
 use nu_protocol::engine::EngineState;
-use nu_protocol::{Config, Type, Value};
+use nu_protocol::{ByteStreamSource, Config, PipelineData, Type, Value};
+use serde_json::{Value as J, json};
+use std::fmt::Write;
 
 /// Max children materialized per list/record level to keep responses bounded.
 const MAX_CHILDREN: usize = 200;
@@ -154,7 +156,6 @@ pub(crate) fn short_render(value: &Value, ctx: RenderCtx<'_>) -> String {
         }
         Value::Closure { val, .. } => closure_label(val, ctx.cache),
         Value::Binary { val, .. } => {
-            use std::fmt::Write;
             // First bytes as hex, nu-literal style: 0x[de ad be ef …] (N bytes).
             // `to nuon` writes the same `0x[…]` form (unspaced, uppercase, and
             // unbounded); the spacing and byte count are what a row needs.
@@ -232,11 +233,7 @@ fn cap(s: &str, max: usize) -> String {
 /// here: it takes `PipelineData` by value (it drains, or calls
 /// `into_debug_value`), while a paused debugger only ever borrows the register
 /// it is looking at.
-pub(crate) fn describe_stream(
-    data: &nu_protocol::PipelineData,
-    engine_state: &EngineState,
-) -> String {
-    use nu_protocol::{ByteStreamSource, PipelineData};
+pub(crate) fn describe_stream(data: &PipelineData, engine_state: &EngineState) -> String {
     let (kind, origin, size, span, meta) = match data {
         PipelineData::ByteStream(bs, meta) => {
             // Same call `describe` makes: "binary (stream)" / "string (stream)"
@@ -454,8 +451,7 @@ pub(crate) fn build_history_snapshot(
     nu_constant: Option<&Value>,
     config: std::sync::Arc<Config>,
     cache: std::sync::Arc<RenderCache>,
-) -> crate::state::PauseSnapshot {
-    use crate::state::PauseSnapshot;
+) -> PauseSnapshot {
     let mut snap = PauseSnapshot::new();
     snap.frames = entry.frames.clone();
     // Both were cached by the eval thread; rendering needs them, and
@@ -549,7 +545,6 @@ pub(crate) fn to_preview_json(
     ctx: RenderCtx<'_>,
 ) -> serde_json::Value {
     let config = ctx.config;
-    use serde_json::{Value as J, json};
     if depth >= JSON_MAX_DEPTH {
         *truncated = true;
         return J::String("…".into());
@@ -631,8 +626,11 @@ mod tests {
     use chrono::{DateTime, FixedOffset};
     use nu_protocol::ast::{CellPath, PathMember, RangeInclusion};
     use nu_protocol::casing::Casing;
-    use nu_protocol::engine::Closure;
-    use nu_protocol::{BlockId, Config, CustomValue, ShellError, Span, Value, record};
+    use nu_protocol::debugger::WithoutDebug;
+    use nu_protocol::engine::{Closure, EngineState, Stack, StateWorkingSet};
+    use nu_protocol::{
+        BlockId, Config, CustomValue, PipelineData, ShellError, Span, Value, record,
+    };
     use pretty_assertions::assert_eq;
     use rstest::rstest;
     use serde::{Deserialize, Serialize};
@@ -1075,12 +1073,7 @@ mod tests {
     }
 
     /// Run `script` far enough to get its pipeline data, without draining it.
-    fn eval_to_stream(
-        script: &str,
-    ) -> (nu_protocol::engine::EngineState, nu_protocol::PipelineData) {
-        use nu_protocol::debugger::WithoutDebug;
-        use nu_protocol::engine::{Stack, StateWorkingSet};
-
+    fn eval_to_stream(script: &str) -> (EngineState, PipelineData) {
         let mut engine_state = nu_cmd_lang::create_default_context();
         engine_state = nu_command::add_shell_command_context(engine_state);
         engine_state.add_env_var(

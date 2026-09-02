@@ -8,8 +8,10 @@ use crate::state::DebugState;
 use nu_protocol::ast::Block;
 use nu_protocol::debugger::WithDebug;
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{PipelineData, Signals, Span, Value};
 use serde_json::json;
+use std::collections::{BTreeSet, HashMap};
 use std::sync::Arc;
 
 /// Start one run of the target script. `engine_state` is the host's engine,
@@ -333,8 +335,6 @@ fn call_entry(
     args: &[String],
     explicit: bool,
 ) -> Result<Option<nu_protocol::PipelineExecutionData>, nu_protocol::ShellError> {
-    use nu_protocol::shell_error::generic::GenericError;
-
     // Only a command the script itself defined (block-backed decl) counts.
     let decl_ok = engine_state
         .find_decl(name.as_bytes(), &[])
@@ -404,8 +404,6 @@ fn publish_valid_lines(
     state: &Arc<DebugState>,
     writer: &DapWriter,
 ) {
-    use std::collections::{BTreeSet, HashMap};
-
     let mut source_map = crate::source_map::SourceMap::default();
     source_map.refresh(engine_state);
 

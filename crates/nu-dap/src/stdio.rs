@@ -19,10 +19,18 @@
 //! call it before emitting `terminated` so late output isn't lost.
 
 use std::fs::File;
-use std::io::PipeReader;
+use std::io::{PipeReader, Read, Write};
+#[cfg(unix)]
+use std::os::fd::{AsFd, AsRawFd, OwnedFd};
+#[cfg(windows)]
+use std::os::windows::io::{AsHandle, AsRawHandle, IntoRawHandle, OwnedHandle};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Condvar, Mutex, OnceLock};
 use std::time::Duration;
+#[cfg(windows)]
+use windows_sys::Win32::System::Console::{
+    STD_ERROR_HANDLE, STD_INPUT_HANDLE, STD_OUTPUT_HANDLE, SetStdHandle,
+};
 
 use crate::dap::protocol::DapWriter;
 
@@ -116,7 +124,6 @@ pub(crate) struct OutputCapture {
 pub(crate) fn detach_stdin() -> File {
     #[cfg(windows)]
     {
-        use std::os::windows::io::{AsHandle, AsRawHandle, OwnedHandle};
         let stdin = std::io::stdin();
         let dup: OwnedHandle = stdin
             .as_handle()
@@ -124,10 +131,7 @@ pub(crate) fn detach_stdin() -> File {
             .expect("duplicate stdin handle");
         if let Ok(nul) = File::open("NUL") {
             unsafe {
-                windows_sys::Win32::System::Console::SetStdHandle(
-                    windows_sys::Win32::System::Console::STD_INPUT_HANDLE,
-                    nul.as_raw_handle() as _,
-                );
+                SetStdHandle(STD_INPUT_HANDLE, nul.as_raw_handle() as _);
             }
             // The handle installed via SetStdHandle must live forever.
             std::mem::forget(nul);
@@ -136,7 +140,6 @@ pub(crate) fn detach_stdin() -> File {
     }
     #[cfg(unix)]
     {
-        use std::os::fd::{AsFd, AsRawFd, OwnedFd};
         let stdin = std::io::stdin();
         let dup: OwnedFd = stdin.as_fd().try_clone_to_owned().expect("dup stdin fd");
         if let Ok(null) = File::open("/dev/null") {
@@ -161,16 +164,12 @@ pub(crate) fn install_output_capture() -> OutputCapture {
 
     #[cfg(windows)]
     let dap_out = {
-        use std::os::windows::io::{AsHandle, IntoRawHandle, OwnedHandle};
         let stdout = std::io::stdout();
         let dup: OwnedHandle = stdout
             .as_handle()
             .try_clone_to_owned()
             .expect("duplicate stdout handle");
         unsafe {
-            use windows_sys::Win32::System::Console::{
-                STD_ERROR_HANDLE, STD_OUTPUT_HANDLE, SetStdHandle,
-            };
             // into_raw_handle: the pipe write ends must live forever — they
             // are the process's std handles now.
             SetStdHandle(STD_OUTPUT_HANDLE, stdout_tx.into_raw_handle() as _);
@@ -180,7 +179,6 @@ pub(crate) fn install_output_capture() -> OutputCapture {
     };
     #[cfg(unix)]
     let dap_out = {
-        use std::os::fd::{AsFd, AsRawFd, OwnedFd};
         let stdout = std::io::stdout();
         let dup: OwnedFd = stdout.as_fd().try_clone_to_owned().expect("dup stdout fd");
         unsafe {
@@ -215,7 +213,6 @@ fn forward(mut rx: PipeReader, pipe_type: PipeType, writer: DapWriter) {
     std::thread::Builder::new()
         .name(format!("nu-{pipe_type}-fwd"))
         .spawn(move || {
-            use std::io::Read;
             let mut buf = [0u8; 8192];
             // Carry-over so a MARKER split across reads is still found.
             let mut pending: Vec<u8> = Vec::new();
@@ -274,7 +271,6 @@ fn marker_prefix_len(data: &[u8]) -> usize {
 /// marker bytes would go to the host's real stdout/stderr (see [`crate::serve`],
 /// which leaves process stdio untouched) and nothing would ever count them.
 pub(crate) fn flush_output(timeout: Duration) {
-    use std::io::Write;
     if !CAPTURING.load(Ordering::Acquire) {
         return;
     }

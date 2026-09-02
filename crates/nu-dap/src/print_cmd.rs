@@ -11,7 +11,10 @@
 //! protocol stream.
 
 use crate::dap::protocol::DapWriter;
+use crate::state::DebugState;
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::generic::GenericError;
+use std::sync::Arc;
 
 #[derive(Clone)]
 pub(crate) struct DapPrint {
@@ -82,11 +85,9 @@ impl Command for DapPrint {
     }
 }
 
-/// Interactive prompts have no terminal under the debugger (stdin is NUL), but
-/// there's a UI on the wire: `input`/`input list` emit a `nuDapUi` event, the
-/// extension answers via `nuDapUiReply`, and the eval thread blocks in between.
-use crate::state::DebugState;
-use std::sync::Arc;
+// Interactive prompts have no terminal under the debugger (stdin is NUL), but
+// there's a UI on the wire: `input`/`input list` emit a `nuDapUi` event, the
+// extension answers via `nuDapUiReply`, and the eval thread blocks in between.
 
 const UI_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(600);
 
@@ -96,7 +97,6 @@ fn wait_ui_reply(
     id: u64,
     span: nu_protocol::Span,
 ) -> Result<crate::state::UiReply, ShellError> {
-    use nu_protocol::shell_error::generic::GenericError;
     let deadline = nu_utils::time::Instant::now() + UI_TIMEOUT;
     let mut replies = state.ui.replies.lock().expect("ui bridge poisoned");
     loop {
@@ -250,8 +250,6 @@ impl Command for DapInputList {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        use nu_protocol::shell_error::generic::GenericError;
-
         let prompt: Option<String> = call.opt(engine_state, stack, 0)?;
         let multi = call.has_flag(engine_state, stack, "multi")?;
         let as_index = call.has_flag(engine_state, stack, "index")?;
@@ -371,7 +369,7 @@ impl Command for DapInputUnsupported {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         Err(ShellError::Generic(
-            nu_protocol::shell_error::generic::GenericError::new(
+            GenericError::new(
                 format!("`{}` is not supported under nu-dap", self.name),
                 "raw key events need a real terminal".to_string(),
                 call.head,
