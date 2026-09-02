@@ -1,5 +1,5 @@
 use super::EnvironmentVariable;
-use crate::harness::deps::NU;
+use crate::fs::{binaries as test_bins_path, executable_path};
 use std::{
     ffi::{OsStr, OsString},
     fmt,
@@ -69,7 +69,7 @@ impl NuProcess {
     }
 
     pub fn construct(&self) -> Command {
-        let mut command = Command::new(NU.path());
+        let mut command = Command::new(executable_path());
 
         if let Some(cwd) = &self.cwd {
             command.current_dir(cwd);
@@ -77,7 +77,7 @@ impl NuProcess {
 
         command.env_clear();
 
-        let paths = [NU.bin_dir()];
+        let paths = [test_bins_path()];
 
         let paths_joined = match std::env::join_paths(paths) {
             Ok(all) => all,
