@@ -97,7 +97,7 @@ impl Session {
 
     pub(super) fn on_pause(&mut self, seq: i64, cmd: &str) {
         if let Some(state) = &self.state {
-            let mut session = state.session_state.lock().expect("session poisoned");
+            let mut session = state.session_state.lock();
             session.run_mode = RunMode::PauseNow;
         }
         self.writer.respond(seq, cmd, ());

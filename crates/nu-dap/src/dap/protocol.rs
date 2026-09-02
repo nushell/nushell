@@ -4,11 +4,12 @@
 //! Spec: <https://microsoft.github.io/debug-adapter-protocol/specification>
 
 use crate::dap::types::{DapEvent, ResponseBody};
+use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value as Json;
 use std::io::{BufRead, Write};
+use std::sync::Arc;
 use std::sync::atomic::{AtomicI64, Ordering};
-use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Deserialize)]
 pub struct Request {
@@ -97,7 +98,7 @@ impl DapWriter {
 
     fn write_json(&self, json: &impl Serialize) {
         let payload = serde_json::to_vec(json).expect("serialize DAP message");
-        let mut w = self.inner.lock().expect("DAP writer poisoned");
+        let mut w = self.inner.lock();
         // Ignore write errors: if the client is gone we are shutting down anyway.
         let _ = write!(w, "Content-Length: {}\r\n\r\n", payload.len());
         let _ = w.write_all(&payload);

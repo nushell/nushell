@@ -18,14 +18,15 @@
 //! marker through the pipes and waits until the forwarders have seen it —
 //! call it before emitting `terminated` so late output isn't lost.
 
+use parking_lot::{Condvar, Mutex};
 use std::fs::File;
 use std::io::{PipeReader, Read, Write};
 #[cfg(unix)]
 use std::os::fd::{AsFd, AsRawFd, OwnedFd};
 #[cfg(windows)]
 use std::os::windows::io::{AsHandle, AsRawHandle, IntoRawHandle, OwnedHandle};
+use std::sync::OnceLock;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Condvar, Mutex, OnceLock};
 use std::time::Duration;
 #[cfg(windows)]
 use windows_sys::Win32::System::Console::{
@@ -79,9 +80,7 @@ fn recent_state() -> &'static Mutex<(String, String)> {
 }
 
 fn record_recent(pipe_type: &PipeType, text: &str) {
-    let mut guard = recent_state()
-        .lock()
-        .expect("recent output buffer poisoned");
+    let mut guard = recent_state().lock();
 
     let buffer = match pipe_type {
         PipeType::StdErr => &mut guard.1,
@@ -104,9 +103,7 @@ fn record_recent(pipe_type: &PipeType, text: &str) {
 /// Tail of everything the process (externals, drains) recently wrote to the
 /// given stream ("stdout"/"stderr").
 pub(crate) fn recent_output(category: &str) -> String {
-    let guard = recent_state()
-        .lock()
-        .expect("recent output buffer poisoned");
+    let guard = recent_state().lock();
     if category == "stderr" {
         guard.1.clone()
     } else {
@@ -242,7 +239,7 @@ fn forward(mut rx: PipeReader, pipe_type: PipeType, writer: DapWriter) {
 
                 if seen > 0 {
                     let (count, cv) = flush_state();
-                    *count.lock().expect("flush state") += seen;
+                    *count.lock() += seen;
                     cv.notify_all();
                 }
             }
@@ -275,7 +272,7 @@ pub(crate) fn flush_output(timeout: Duration) {
         return;
     }
     let (count, cv) = flush_state();
-    let target = { *count.lock().expect("flush state") + 2 };
+    let target = { *count.lock() + 2 };
     {
         // These go to the swapped process handles — i.e. the capture pipes.
         let _ = std::io::stdout().write_all(MARKER);
@@ -285,13 +282,12 @@ pub(crate) fn flush_output(timeout: Duration) {
     }
 
     let deadline = nu_utils::time::Instant::now() + timeout;
-    let mut guard = count.lock().expect("flush state");
+    let mut guard = count.lock();
     while *guard < target {
         let left = deadline.saturating_duration_since(nu_utils::time::Instant::now());
         if left.is_zero() {
             break;
         }
-        let (g, _) = cv.wait_timeout(guard, left).expect("flush state");
-        guard = g;
+        cv.wait_for(&mut guard, left);
     }
 }

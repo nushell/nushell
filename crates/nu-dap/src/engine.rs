@@ -87,8 +87,7 @@ fn run(
     // Must happen here: after the parse, so the script's own `def`s are in
     // scope, and before `activate_debugger`, so the clone starts out
     // undebugged. A `restart` replaces the previous run's scratch.
-    *state.scratch.lock().expect("scratch poisoned") =
-        Some(crate::eval_scratch::Scratch::from_run_engine(&engine_state));
+    *state.scratch.lock() = Some(crate::eval_scratch::Scratch::from_run_engine(&engine_state));
 
     // Everything below runs with the debugger attached, so it must be paired
     // with the `deactivate_debugger` further down.
@@ -263,8 +262,7 @@ fn parse_script(engine_state: &mut EngineState, target: &Target) -> Result<Arc<B
 /// exists. The server thread can't reach `engine_state` to do this later (see
 /// the concurrency rule in state.rs), so it has to be cached up front.
 fn cache_render_facts(engine_state: &EngineState, state: &DebugState) {
-    *state.cache.lock().expect("render cache poisoned") =
-        Arc::new(crate::variables::collect_render_cache(engine_state));
+    *state.cache.lock() = Arc::new(crate::variables::collect_render_cache(engine_state));
 }
 
 /// Run the script: top-level code first, then an entry point if there is one.
@@ -438,7 +436,7 @@ fn publish_valid_lines(
 
     let mut events = Vec::new();
     {
-        let mut session = state.session_state.lock().expect("session poisoned");
+        let mut session = state.session_state.lock();
         session.valid_lines = valid;
         session.parse_done = true;
 

@@ -53,12 +53,7 @@ impl DapDebugger {
         snap.frames = self.build_frames();
         // Values render with nushell's own formatting, which is config-driven.
         snap.config = engine_state.get_config().clone();
-        snap.cache = self
-            .state
-            .cache
-            .lock()
-            .expect("render cache poisoned")
-            .clone();
+        snap.cache = self.state.cache.lock().clone();
         session.config = snap.config.clone();
 
         // Cache $nu + baseline env once, so the server can rebuild historical

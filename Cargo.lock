@@ -4978,6 +4978,7 @@ dependencies = [
  "nu-protocol",
  "nu-test-support",
  "nu-utils",
+ "parking_lot",
  "pretty_assertions",
  "rstest",
  "serde",

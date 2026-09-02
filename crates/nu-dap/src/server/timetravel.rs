@@ -54,7 +54,7 @@ impl Session {
     pub(super) fn tt_goto(&self, target: Option<usize>, reason: &'static str) {
         let Some(state) = &self.state else { return };
         {
-            let mut session = state.session_state.lock().expect("session poisoned");
+            let mut session = state.session_state.lock();
 
             session.view_index = target;
 
@@ -63,7 +63,7 @@ impl Session {
                 let baseline = session.baseline_env.clone();
                 let nu = session.nu_constant.clone();
                 let config = session.config.clone();
-                let cache = state.cache.lock().expect("render cache poisoned").clone();
+                let cache = state.cache.lock().clone();
 
                 if let Some(entry) = entry {
                     session.history_snapshot = crate::variables::build_history_snapshot(

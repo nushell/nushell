@@ -23,7 +23,7 @@ impl Session {
 
         let mut verified = Vec::new();
         if let (Some(state), Some(file)) = (&self.state, file) {
-            let mut session = state.session_state.lock().expect("session poisoned");
+            let mut session = state.session_state.lock();
             let mut map = std::collections::BTreeMap::new();
             for bp in &args.breakpoints {
                 let id = session.next_bp_id;
@@ -81,7 +81,7 @@ impl Session {
             .and_then(|f| serde_json::from_value(f.clone()).ok())
             .unwrap_or_default();
         if let Some(state) = &self.state {
-            let mut session = state.session_state.lock().expect("session poisoned");
+            let mut session = state.session_state.lock();
             session.break_on_error = filters.iter().any(|f| f == "error");
         }
         self.writer.respond(

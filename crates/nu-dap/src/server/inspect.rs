@@ -163,14 +163,14 @@ impl Session {
                 (Some(v), _) => Ok(v),
                 (None, Some(state)) => {
                     let vars = {
-                        let session = state.session_state.lock().expect("session poisoned");
+                        let session = state.session_state.lock();
                         session
                             .shadow_vars
                             .values()
                             .map(|sv| (sv.name.clone(), sv.value.clone()))
                             .collect::<Vec<_>>()
                     };
-                    let mut guard = state.scratch.lock().expect("scratch poisoned");
+                    let mut guard = state.scratch.lock();
                     match guard.as_mut() {
                         Some(scratch) => scratch.eval(&expr, &vars),
                         None => Err("no scratch engine: the run has not started".into()),

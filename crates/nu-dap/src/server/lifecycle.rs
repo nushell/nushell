@@ -91,8 +91,8 @@ impl Session {
                     self.files.clone(),
                 ));
                 {
-                    let old = old_state.session_state.lock().expect("session poisoned");
-                    let mut new = new_state.session_state.lock().expect("session poisoned");
+                    let old = old_state.session_state.lock();
+                    let mut new = new_state.session_state.lock();
                     new.breakpoints = old.breakpoints.clone();
                 }
                 self.state = Some(new_state.clone());

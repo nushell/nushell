@@ -99,12 +99,7 @@ impl Session {
                     .and_then(|v| v.as_str())
                     .map(str::to_string),
             };
-            state
-                .ui
-                .replies
-                .lock()
-                .expect("ui bridge poisoned")
-                .insert(id, reply);
+            state.ui.replies.lock().insert(id, reply);
             state.ui.cv.notify_all();
         }
         self.writer.respond(seq, cmd, ());

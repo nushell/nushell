@@ -93,7 +93,7 @@ fn wait_ui_reply(
     span: nu_protocol::Span,
 ) -> Result<crate::state::UiReply, ShellError> {
     let deadline = nu_utils::time::Instant::now() + UI_TIMEOUT;
-    let mut replies = state.ui.replies.lock().expect("ui bridge poisoned");
+    let mut replies = state.ui.replies.lock();
     loop {
         if let Some(reply) = replies.remove(&id) {
             return Ok(reply);
@@ -115,12 +115,10 @@ fn wait_ui_reply(
                 span,
             )));
         }
-        let (guard, _) = state
+        state
             .ui
             .cv
-            .wait_timeout(replies, std::time::Duration::from_millis(500))
-            .expect("ui bridge poisoned");
-        replies = guard;
+            .wait_for(&mut replies, std::time::Duration::from_millis(500));
     }
 }
 
@@ -263,12 +261,7 @@ impl Command for DapInputList {
         }
         const MAX_ITEMS: usize = 1000;
         let config = engine_state.get_config();
-        let cache = self
-            .state
-            .cache
-            .lock()
-            .expect("render cache poisoned")
-            .clone();
+        let cache = self.state.cache.lock().clone();
         let ctx = crate::variables::RenderCtx {
             config,
             cache: &cache,

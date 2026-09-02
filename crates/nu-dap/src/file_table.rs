@@ -11,9 +11,10 @@
 //! (breakpoints, valid lines, [`crate::source_map`]) is keyed by the id. There
 //! is no second canonicalization anywhere to drift from this one.
 
+use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::path::Path;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 /// A file's identity for the length of a debug session.
 ///
@@ -50,7 +51,7 @@ impl FileTable {
             .map(|c| c.to_string_lossy().into_owned())
             .unwrap_or_else(|_| path.as_ref().to_string_lossy().into_owned());
 
-        let mut inner = self.0.lock().expect("file table poisoned");
+        let mut inner = self.0.lock();
         if let Some(&id) = inner.ids.get(&key) {
             return id;
         }
@@ -64,7 +65,7 @@ impl FileTable {
     /// as a DAP `Source` and must be able to open. Ids only ever come from
     /// [`Self::intern`], so the fallback is unreachable in practice.
     pub(crate) fn path(&self, id: FileId) -> String {
-        let inner = self.0.lock().expect("file table poisoned");
+        let inner = self.0.lock();
         inner.paths.get(id.0 as usize).cloned().unwrap_or_default()
     }
 }

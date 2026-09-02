@@ -28,7 +28,8 @@ use nu_protocol::debugger::Debugger;
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
 use nu_protocol::ir::{Instruction, IrBlock};
 use nu_protocol::{PipelineData, PipelineExecutionData, ShellError, Span, Value, format_cli_error};
-use std::sync::{Arc, MutexGuard};
+use parking_lot::MutexGuard;
+use std::sync::Arc;
 
 #[derive(Debug)]
 struct Frame {
@@ -147,17 +148,13 @@ impl DapDebugger {
     ) -> (Arc<nu_protocol::Config>, Arc<crate::state::RenderCache>) {
         (
             engine_state.get_config().clone(),
-            self.state
-                .cache
-                .lock()
-                .expect("render cache poisoned")
-                .clone(),
+            self.state.cache.lock().clone(),
         )
     }
 
     /// Current shadow variables as (name, value) pairs for scratch eval.
     fn shadow_vars_for_eval(&self) -> Vec<(String, Value)> {
-        let session = self.state.session_state.lock().expect("session poisoned");
+        let session = self.state.session_state.lock();
         session
             .shadow_vars
             .values()
@@ -167,7 +164,7 @@ impl DapDebugger {
 
     fn scratch_eval(&self, expr: &str) -> Result<Value, String> {
         let vars = self.shadow_vars_for_eval();
-        let mut guard = self.state.scratch.lock().expect("scratch poisoned");
+        let mut guard = self.state.scratch.lock();
 
         guard
             .as_mut()
@@ -177,7 +174,7 @@ impl DapDebugger {
 
     fn scratch_interpolate(&self, template: &str) -> String {
         let vars = self.shadow_vars_for_eval();
-        let mut guard = self.state.scratch.lock().expect("scratch poisoned");
+        let mut guard = self.state.scratch.lock();
 
         // Before the run starts there is nothing to interpolate against; log
         // the template as written rather than dropping the message.
@@ -189,12 +186,13 @@ impl DapDebugger {
 
     /// The pause loop: publish snapshot, emit `stopped`, block until resumed.
     ///
-    /// Takes the locked state by value because the condvar wait below consumes
-    /// the guard — a `&mut SessionState` could not be handed to `wait`. Callers
-    /// must therefore lock immediately before calling: everything that takes
-    /// this lock (`read_pause_gate`, `sync_locals_from_stack`, `record_timeline`,
-    /// `shadow_vars_for_eval` via breakpoint conditions/logpoints) has to run
-    /// first. std mutexes are not reentrant, so a second lock here deadlocks.
+    /// Takes the locked state by value because the condvar wait below needs the
+    /// guard itself — a `&mut SessionState` could not be handed to `wait`.
+    /// Callers must therefore lock immediately before calling: everything that
+    /// takes this lock (`read_pause_gate`, `sync_locals_from_stack`,
+    /// `record_timeline`, `shadow_vars_for_eval` via breakpoint
+    /// conditions/logpoints) has to run first. The mutex is not reentrant, so a
+    /// second lock here deadlocks.
     fn pause(
         &self,
         mut session: MutexGuard<'_, SessionState>,
@@ -211,11 +209,7 @@ impl DapDebugger {
         self.emit_stopped(reason, description);
 
         while !session.resume_requested {
-            session = self
-                .state
-                .resume_cv
-                .wait(session)
-                .expect("session poisoned");
+            self.state.resume_cv.wait(&mut session);
         }
 
         session.paused = false;
@@ -309,7 +303,7 @@ impl DapDebugger {
         engine_state: &EngineState,
         pos: Option<&SourcePos>,
     ) -> Option<PauseGate> {
-        let session = self.state.session_state.lock().expect("session poisoned");
+        let session = self.state.session_state.lock();
         if session.terminate_requested {
             engine_state.signals().trigger();
             return None;
@@ -378,7 +372,7 @@ impl DapDebugger {
             self.writer.output("console", format!("nu-dap: {n}\n"));
         }
 
-        let session = self.state.session_state.lock().expect("session poisoned");
+        let session = self.state.session_state.lock();
         self.pause(session, engine_state, reason, site, None);
     }
 
@@ -483,7 +477,7 @@ impl DapDebugger {
 
         let frames = self.build_frames();
         let last_result = self.last_result.clone();
-        let mut session = self.state.session_state.lock().expect("session poisoned");
+        let mut session = self.state.session_state.lock();
         let granular = line_changed || depth_changed || is_call;
 
         if (session.time_travel && granular) || reason.is_some() {
@@ -597,7 +591,7 @@ impl DapDebugger {
         // Scoped: `sync_locals_from_stack` below takes this same lock, so this
         // read must not outlive the check.
         let wanted = {
-            let session = self.state.session_state.lock().expect("session poisoned");
+            let session = self.state.session_state.lock();
             session.break_on_error && !session.terminate_requested
         };
 
@@ -634,7 +628,7 @@ impl DapDebugger {
         // Locked last, and passed straight into `pause` — nothing between here
         // and the stop may take this lock again.
         let exception_id = exception_id(err);
-        let mut session = self.state.session_state.lock().expect("session poisoned");
+        let mut session = self.state.session_state.lock();
         session.exception_info = Some((exception_id, description));
 
         // The `stopped` event's text/description land in narrow client UI (the

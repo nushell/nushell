@@ -78,7 +78,7 @@ impl DapDebugger {
         // Full runtime env (engine baseline + this stack's overlays/mutations).
         let env = stack.get_env_vars(engine_state);
 
-        let mut session = self.state.session_state.lock().expect("session poisoned");
+        let mut session = self.state.session_state.lock();
         session.shadow_vars = vars;
         session.env_shadow = env;
     }
@@ -346,7 +346,7 @@ mod tests {
         let (debugger, state) = debugger();
         debugger.sync_locals_from_stack(&engine_state, &stack);
 
-        let session = state.session_state.lock().expect("session poisoned");
+        let session = state.session_state.lock();
         let names: Vec<&str> = session
             .shadow_vars
             .values()

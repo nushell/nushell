@@ -9,8 +9,9 @@
 
 use crate::dap::types::{StackFrame, Variable};
 use crate::file_table::{FileId, FileTable};
+use parking_lot::{Condvar, Mutex};
 use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
-use std::sync::{Arc, Condvar, Mutex};
+use std::sync::Arc;
 
 /// What the eval thread should do when it reaches the next instruction.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -405,7 +406,7 @@ impl DebugState {
 
     /// Called by the server thread to resume with a new run mode.
     pub(crate) fn resume(&self, mode: RunMode) {
-        let mut session = self.session_state.lock().expect("session poisoned");
+        let mut session = self.session_state.lock();
         session.run_mode = mode;
         session.resume_requested = true;
         drop(session);
@@ -413,7 +414,7 @@ impl DebugState {
     }
 
     pub(crate) fn request_terminate(&self) {
-        let mut session = self.session_state.lock().expect("session poisoned");
+        let mut session = self.session_state.lock();
         session.terminate_requested = true;
         session.resume_requested = true;
         drop(session);
@@ -426,7 +427,7 @@ impl DebugState {
     /// Like `request_terminate`, but marks this state as being replaced by a
     /// restart so the dying eval thread keeps quiet about it.
     pub(crate) fn request_restart_teardown(&self) {
-        let mut session = self.session_state.lock().expect("session poisoned");
+        let mut session = self.session_state.lock();
         session.restarting = true;
         session.terminate_requested = true;
         session.resume_requested = true;
@@ -438,9 +439,6 @@ impl DebugState {
     }
 
     pub(crate) fn is_restarting(&self) -> bool {
-        self.session_state
-            .lock()
-            .expect("session poisoned")
-            .restarting
+        self.session_state.lock().restarting
     }
 }
