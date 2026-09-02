@@ -338,7 +338,8 @@ src/
   print_cmd.rs    print / input / input list command shims
   eval_scratch.rs separate engine for watch / condition / logpoint expressions
   stdio.rs        stdin detach + stdout/stderr capture pipes
-  paths.rs        canonicalize + strip Windows \\?\ verbatim prefix
+  file_table.rs   one FileId per file, however the path was spelled
+                  (canonicalize + strip Windows \\?\ verbatim prefix)
   dap/            protocol framing + typed payloads
 ```
 

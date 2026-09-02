@@ -47,6 +47,7 @@ impl Session {
                     args.stop_on_entry,
                     args.time_travel.unwrap_or(true),
                     args.time_travel_max_steps.unwrap_or(10000),
+                    self.files.clone(),
                 )));
                 self.launch_args = Some(args.clone());
                 self.pending_launch = Some(args);
@@ -81,10 +82,13 @@ impl Session {
                 // signal; joining could block the DAP loop behind a native call.
                 let _ = self.eval_handle.take();
 
+                // Same `FileTable` as the outgoing run, so the breakpoints
+                // copied below stay keyed to the files they were set in.
                 let new_state = Arc::new(DebugState::new(
                     args.stop_on_entry,
                     args.time_travel.unwrap_or(true),
                     args.time_travel_max_steps.unwrap_or(10000),
+                    self.files.clone(),
                 ));
                 {
                     let old = old_state.session_state.lock().expect("session poisoned");

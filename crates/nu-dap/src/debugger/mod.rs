@@ -120,9 +120,9 @@ pub(crate) struct DapDebugger {
 impl DapDebugger {
     pub(crate) fn new(state: Arc<DebugState>, writer: DapWriter) -> Self {
         Self {
+            source_map: SourceMap::new(state.files.clone()),
             state,
             writer,
-            source_map: SourceMap::default(),
             frames: Vec::new(),
             current_span: None,
             pending_frame_name: None,
@@ -323,7 +323,7 @@ impl DapDebugger {
 
             session
                 .breakpoints
-                .get(&p.path)
+                .get(&p.file)
                 .and_then(|m| m.get(&(p.line as i64)))
                 .cloned()
         });
@@ -730,10 +730,13 @@ impl Debugger for DapDebugger {
                 .map(|p| {
                     format!(
                         "{}:{}",
-                        std::path::Path::new(&p.path)
-                            .file_name()
-                            .map(|n| n.to_string_lossy().to_string())
-                            .unwrap_or_else(|| p.path.clone()),
+                        {
+                            let path = self.source_map.path(p.file);
+                            std::path::Path::new(&path)
+                                .file_name()
+                                .map(|n| n.to_string_lossy().to_string())
+                                .unwrap_or(path)
+                        },
                         p.line
                     )
                 })

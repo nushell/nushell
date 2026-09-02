@@ -124,9 +124,9 @@ struct Target {
 
 impl Target {
     fn resolve(launch: &LaunchArgs) -> Result<Self, String> {
-        // Canonical but NOT verbatim (\\?\): verbatim paths break nu's path
-        // joining when the script `source`s siblings. See paths.rs.
-        let program = std::path::PathBuf::from(crate::paths::canonical(&launch.program));
+        let base = std::env::current_dir().unwrap_or_else(|_| ".".into());
+        let program = nu_path::canonicalize_with(&launch.program, base)
+            .map_err(|e| format!("cannot read {}: {e}", launch.program))?;
         let contents = std::fs::read(&program)
             .map_err(|e| format!("cannot read {}: {e}", program.display()))?;
 
@@ -409,14 +409,16 @@ fn publish_valid_lines(
     state: &Arc<DebugState>,
     writer: &DapWriter,
 ) {
-    let mut source_map = crate::source_map::SourceMap::default();
+    // The session's table, so the ids here are the same ones `setBreakpoints`
+    // interned the client's paths under.
+    let mut source_map = crate::source_map::SourceMap::new(state.files.clone());
     source_map.refresh(engine_state);
 
-    let mut valid: HashMap<String, BTreeSet<i64>> = HashMap::new();
+    let mut valid: HashMap<crate::file_table::FileId, BTreeSet<i64>> = HashMap::new();
     let mut collect = |ir: &nu_protocol::ir::IrBlock| {
         for span in &ir.spans {
             if let Some(pos) = source_map.resolve_steppable(*span) {
-                valid.entry(pos.path).or_default().insert(pos.line as i64);
+                valid.entry(pos.file).or_default().insert(pos.line as i64);
             }
         }
     };
@@ -440,35 +442,36 @@ fn publish_valid_lines(
         session.valid_lines = valid;
         session.parse_done = true;
 
-        for (path, bps) in session.breakpoints.clone() {
+        for (file, bps) in session.breakpoints.clone() {
             let mut changed = std::collections::BTreeMap::new();
             for (line, mut props) in bps {
-                let (snapped, verified) = { session.snap_line(&path, line) };
+                let (snapped, verified) = { session.snap_line(file, line) };
                 props.verified = verified;
                 // At most one breakpoint per line: on collision (two bps
                 // snapping onto one line) the first wins and the loser is
                 // dropped — announced as unverified so the client greys it
                 // out instead of showing a marker that can never hit.
                 if changed.contains_key(&snapped) {
-                    events.push((props.id, false, line, path.clone(), Some(snapped)));
+                    events.push((props.id, false, line, file, Some(snapped)));
                     continue;
                 }
                 if snapped != line || !verified {
-                    events.push((props.id, verified, snapped, path.clone(), None));
+                    events.push((props.id, verified, snapped, file, None));
                 }
                 changed.insert(snapped, props);
             }
-            session.breakpoints.insert(path, changed);
+            session.breakpoints.insert(file, changed);
         }
     }
-    for (id, verified, line, path, collided_with) in events {
+    for (id, verified, line, file, collided_with) in events {
         let breakpoint = Breakpoint {
             id: Some(id),
             verified,
             line,
             source: Some(Source {
                 name: None,
-                path: Some(path),
+                // The client needs a path to place the marker; the id is ours.
+                path: Some(source_map.path(file)),
             }),
             // Only set for the loser of a collision: the client greys the
             // marker out and shows this as the reason.

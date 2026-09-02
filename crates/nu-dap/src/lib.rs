@@ -48,7 +48,7 @@
 mod debugger;
 mod engine;
 mod eval_scratch;
-mod paths;
+mod file_table;
 mod print_cmd;
 mod server;
 mod source_map;

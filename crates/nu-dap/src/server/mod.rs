@@ -44,6 +44,7 @@ pub(crate) fn run_loop<R: BufRead>(
         writer: writer.clone(),
         engine_state,
         state: None,
+        files: crate::file_table::FileTable::default(),
         pending_launch: None,
         launch_args: None,
         eval_handle: None,
@@ -72,6 +73,11 @@ struct Session {
     /// a target (or restarting) never mutates what the next run starts from.
     engine_state: nu_protocol::engine::EngineState,
     state: Option<Arc<DebugState>>,
+    /// Path <-> `FileId` interning for the whole session, handed to every
+    /// `DebugState`. Lives here, not in `DebugState`, so ids survive a
+    /// `restart` and the breakpoints carried across stay pointed at their
+    /// files.
+    files: crate::file_table::FileTable,
     pending_launch: Option<LaunchArgs>,
     /// Retained past configurationDone so `restart` can respawn the run.
     launch_args: Option<LaunchArgs>,

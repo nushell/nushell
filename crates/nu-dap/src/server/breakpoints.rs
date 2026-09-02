@@ -16,10 +16,13 @@ impl Session {
                 return;
             }
         };
-        let path = args.source.path.as_deref().map(crate::paths::canonical);
+
+        // Intern before taking the session lock: the table has its own lock
+        // and must never be entered while holding this one.
+        let file = args.source.path.as_deref().map(|p| self.files.intern(p));
 
         let mut verified = Vec::new();
-        if let (Some(state), Some(path)) = (&self.state, path) {
+        if let (Some(state), Some(file)) = (&self.state, file) {
             let mut session = state.session_state.lock().expect("session poisoned");
             let mut map = std::collections::BTreeMap::new();
             for bp in &args.breakpoints {
@@ -27,7 +30,7 @@ impl Session {
                 session.next_bp_id += 1;
                 // Snap to the next line with instructions (optimistic before
                 // parsing; the eval thread reconciles + re-announces then).
-                let (snapped, ok) = session.snap_line(&path, bp.line);
+                let (snapped, ok) = session.snap_line(file, bp.line);
                 // At most one breakpoint per steppable line: a second request
                 // snapping onto a taken line cannot ever fire, so report it
                 // unverified at the requested line rather than silently
@@ -60,7 +63,7 @@ impl Session {
                     message: None,
                 });
             }
-            session.breakpoints.insert(path.clone(), map);
+            session.breakpoints.insert(file, map);
         }
         self.writer.respond(
             seq,

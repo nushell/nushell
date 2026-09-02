@@ -8,6 +8,7 @@
 //! which lives in its own `Arc` and has its own locks.
 
 use crate::dap::types::{StackFrame, Variable};
+use crate::file_table::{FileId, FileTable};
 use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
 use std::sync::{Arc, Condvar, Mutex};
 
@@ -159,11 +160,13 @@ impl Breakpoint {
 /// (`scratch` has its own lock) or block on a condvar while one is alive.
 #[derive(Debug)]
 pub(crate) struct SessionState {
-    /// file path (canonicalized) -> line -> breakpoint properties.
-    pub breakpoints: HashMap<String, BTreeMap<i64, Breakpoint>>,
-    /// file path -> set of lines that have at least one steppable
-    /// instruction. Populated by the eval thread after parsing.
-    pub valid_lines: HashMap<String, BTreeSet<i64>>,
+    /// file -> line -> breakpoint properties. Keyed by [`FileId`] rather
+    /// than by path so the client's spelling and nu's cannot disagree; see
+    /// [`FileTable`].
+    pub breakpoints: HashMap<FileId, BTreeMap<i64, Breakpoint>>,
+    /// file -> set of lines that have at least one steppable instruction.
+    /// Populated by the eval thread after parsing.
+    pub valid_lines: HashMap<FileId, BTreeSet<i64>>,
     /// True once `valid_lines` is populated (breakpoints can be verified).
     pub parse_done: bool,
     /// Monotonic id source for breakpoints.
@@ -222,11 +225,11 @@ impl SessionState {
     /// Where a breakpoint at `line` actually lands. Returns (line, verified):
     /// the line itself if steppable, else the next line that is (snap forward),
     /// else unverified. Optimistically verified in place before parsing.
-    pub(crate) fn snap_line(&self, path: &str, line: i64) -> (i64, bool) {
+    pub(crate) fn snap_line(&self, file: FileId, line: i64) -> (i64, bool) {
         if !self.parse_done {
             return (line, true);
         }
-        match self.valid_lines.get(path) {
+        match self.valid_lines.get(&file) {
             Some(lines) => match lines.range(line..).next() {
                 Some(&l) => (l, true),
                 None => (line, false),
@@ -320,6 +323,11 @@ pub(crate) struct UiBridge {
 
 pub(crate) struct DebugState {
     pub session_state: Mutex<SessionState>,
+    /// The session's path <-> [`FileId`] table, shared with the `Session` that
+    /// created this state. Shared rather than owned so a `restart` — which
+    /// builds a fresh `DebugState` and copies the breakpoints across — keeps
+    /// the ids those breakpoints are keyed by valid.
+    pub files: FileTable,
     pub ui: UiBridge,
     /// Mirror of SessionState::terminate_requested readable without the lock — the
     /// UI wait loop polls it so the stop button interrupts a pending dialog.
@@ -348,8 +356,14 @@ pub(crate) struct DebugState {
 }
 
 impl DebugState {
-    pub(crate) fn new(stop_on_entry: bool, time_travel: bool, tt_max: usize) -> Self {
+    pub(crate) fn new(
+        stop_on_entry: bool,
+        time_travel: bool,
+        tt_max: usize,
+        files: FileTable,
+    ) -> Self {
         Self {
+            files,
             session_state: Mutex::new(SessionState {
                 breakpoints: HashMap::new(),
                 valid_lines: HashMap::new(),

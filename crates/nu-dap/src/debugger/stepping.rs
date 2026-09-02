@@ -268,14 +268,19 @@ mod tests {
     /// A debugger with an empty frame stack (depth 0) writing its DAP output to a
     /// sink, alongside the shared state it snapshots into.
     fn debugger() -> (DapDebugger, Arc<DebugState>) {
-        let state = Arc::new(DebugState::new(false, false, 1));
+        let state = Arc::new(DebugState::new(
+            false,
+            false,
+            1,
+            crate::file_table::FileTable::default(),
+        ));
         let writer = DapWriter::new(Box::new(std::io::sink()));
         (DapDebugger::new(Arc::clone(&state), writer), state)
     }
 
     fn pos(line: u64) -> SourcePos {
         SourcePos {
-            path: "test.nu".to_string(),
+            file: crate::file_table::FileTable::default().intern("test.nu"),
             line,
             column: 1,
         }

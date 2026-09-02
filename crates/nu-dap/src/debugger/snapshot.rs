@@ -26,11 +26,14 @@ impl DapDebugger {
             frames.push(StackFrame {
                 id: i as i64,
                 name: frame.name.clone(),
-                source: pos.as_ref().map(|p| Source {
-                    name: std::path::Path::new(&p.path)
-                        .file_name()
-                        .map(|n| n.to_string_lossy().to_string()),
-                    path: Some(p.path.clone()),
+                source: pos.as_ref().map(|p| {
+                    let path = self.source_map.path(p.file);
+                    Source {
+                        name: std::path::Path::new(&path)
+                            .file_name()
+                            .map(|n| n.to_string_lossy().to_string()),
+                        path: Some(path),
+                    }
                 }),
                 line: pos.as_ref().map(|p| p.line as i64).unwrap_or(0),
                 column: pos.as_ref().map(|p| p.column as i64).unwrap_or(0),
