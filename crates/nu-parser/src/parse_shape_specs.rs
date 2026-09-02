@@ -17,7 +17,23 @@ pub fn parse_type(working_set: &mut StateWorkingSet, bytes: &[u8], span: Span) -
 /// Parse the literals of [`Type`]-like [`SyntaxShape`]s including inner types.
 ///
 /// NOTE: Does not provide a mapping to every [`SyntaxShape`]
+///
+/// Depth-guards the shape recursion inner types of `list<...>` never reach `parse_block`s guard
 pub fn parse_shape_name(
+    working_set: &mut StateWorkingSet,
+    bytes: &[u8],
+    span: Span,
+) -> SyntaxShape {
+    if !working_set.enter_nesting(span) {
+        return SyntaxShape::Any;
+    }
+
+    let shape = parse_shape_name_inner(working_set, bytes, span);
+    working_set.exit_nesting();
+    shape
+}
+
+fn parse_shape_name_inner(
     working_set: &mut StateWorkingSet,
     bytes: &[u8],
     span: Span,

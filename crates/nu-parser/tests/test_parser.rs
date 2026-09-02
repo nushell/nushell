@@ -3792,3 +3792,90 @@ fn empty_and_complete_lines_error_kinds() {
         unclosed.parse_errors
     );
 }
+
+/// Parsing at the nesting limit needs more stack than a default test thread has because parsing
+/// is followed by recursive compilation and capture discovery over the same syntax tree
+fn on_parser_thread<T: Send + 'static>(f: impl FnOnce() -> T + Send + 'static) -> T {
+    std::thread::Builder::new()
+        .stack_size(8 * 1024 * 1024)
+        .spawn(f)
+        .expect("spawn parser thread")
+        .join()
+        .expect("parser thread finished")
+}
+
+fn nesting_error_spans(working_set: &StateWorkingSet) -> Vec<Span> {
+    working_set
+        .parse_errors
+        .iter()
+        .filter_map(|err| match err {
+            ParseError::NestingTooDeep(span) => Some(*span),
+            _ => None,
+        })
+        .collect()
+}
+
+/// The LSP workspace scan parses every file in a folder through one working set
+#[test]
+fn nesting_diagnostic_is_reported_for_each_source() {
+    let (first, shallow_added, spans) = on_parser_thread(|| {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        let deep = format!("{}{}", "[".repeat(200), "]".repeat(200));
+
+        parse(&mut working_set, Some("first.nu"), deep.as_bytes(), false);
+        let first = nesting_error_spans(&working_set).len();
+
+        // A shallow source in between must still parse This also shows the depth counter
+        // unwound a leaked depth would make even this trivial source hit the limit
+        let before = working_set.parse_errors.len();
+        parse(
+            &mut working_set,
+            Some("shallow.nu"),
+            b"[1 2 3] | length",
+            false,
+        );
+        let shallow_added = working_set.parse_errors.len() - before;
+
+        parse(&mut working_set, Some("second.nu"), deep.as_bytes(), false);
+        (first, shallow_added, nesting_error_spans(&working_set))
+    });
+
+    assert_eq!(first, 1, "first source reports one nesting error");
+    assert_eq!(shallow_added, 0, "shallow source parses cleanly");
+    assert_eq!(spans.len(), 2, "second source reports its own diagnostic");
+    assert!(spans[1].start > spans[0].start, "spans track their source");
+}
+
+#[test]
+fn one_nesting_diagnostic_per_source_with_several_deep_branches() {
+    let count = on_parser_thread(|| {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        let deep = format!("{}{}", "[".repeat(200), "]".repeat(200));
+        parse(
+            &mut working_set,
+            Some("two_branches.nu"),
+            format!("{deep}\n{deep}").as_bytes(),
+            false,
+        );
+        nesting_error_spans(&working_set).len()
+    });
+
+    assert_eq!(count, 1);
+}
+
+/// `parse_paren_expr` speculatively parses and truncates `parse_errors` on failure so a nesting
+/// diagnostic discarded by that rollback must not silence the retry
+#[test]
+fn nesting_diagnostic_survives_speculative_rollback() {
+    let count = on_parser_thread(|| {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        let deep = format!("$\"{}1{}\"", "(1 + ".repeat(200), ")".repeat(200));
+        parse(&mut working_set, Some("interp.nu"), deep.as_bytes(), false);
+        nesting_error_spans(&working_set).len()
+    });
+
+    assert_eq!(count, 1);
+}

@@ -483,6 +483,10 @@ struct Completed {
     cacheable: bool,
 }
 
+/// Stack for threads whose work is parsing The `MAX_PARSE_NESTING_DEPTH` limit alone is not
+/// enough compilation and capture discovery recurse over the same tree afterwards
+const PARSER_WORKER_STACK_SIZE: usize = 8 * 1024 * 1024;
+
 struct CompletionWorker {
     request_tx: mpsc::Sender<CompletionQuery>,
     result_rx: mpsc::Receiver<Completed>,
@@ -1862,12 +1866,12 @@ impl NuCompleter {
             .narrowed_fallback(query, self.cache_env, self.engine.options())
     }
 
-    fn spawn_worker(engine: &CompletionEngine) -> CompletionWorker {
+    fn spawn_worker(engine: &CompletionEngine) -> Option<CompletionWorker> {
         let (request_tx, request_rx) = mpsc::channel::<CompletionQuery>();
         let (result_tx, result_rx) = mpsc::channel::<Completed>();
 
         let engine = engine.to_background();
-        thread::spawn(move || {
+        let complete = move || {
             while let Ok(mut query) = request_rx.recv() {
                 while let Ok(newer) = request_rx.try_recv() {
                     query = newer;
@@ -1883,14 +1887,18 @@ impl NuCompleter {
                     return;
                 }
             }
-        });
+        };
+        thread::Builder::new()
+            .stack_size(PARSER_WORKER_STACK_SIZE)
+            .spawn(complete)
+            .ok()?;
 
-        CompletionWorker {
+        Some(CompletionWorker {
             request_tx,
             result_rx,
             pending: None,
             latest: None,
-        }
+        })
     }
 
     fn fold_completed(&mut self, done: Completed) -> bool {
@@ -2020,11 +2028,13 @@ impl ReedlineCompleter for NuCompleter {
         let fallback = self.stale_fallback(&query);
         let partial = partial_of(line, &fallback);
 
-        let worker = self
-            .worker
-            .get_or_insert_with(|| Self::spawn_worker(&self.engine));
+        if self.worker.is_none() {
+            self.worker = Self::spawn_worker(&self.engine);
+        }
 
-        if worker.pending.as_ref() != Some(&query) {
+        if let Some(worker) = self.worker.as_mut()
+            && worker.pending.as_ref() != Some(&query)
+        {
             if worker.request_tx.send(query.clone()).is_ok() {
                 worker.pending = Some(query);
             } else {

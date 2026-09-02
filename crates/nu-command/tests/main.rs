@@ -2,6 +2,7 @@
 
 mod commands;
 mod format_conversions;
+mod parser_nesting_lifecycle;
 mod requires_ast_for_arguments;
 
 #[macro_use]

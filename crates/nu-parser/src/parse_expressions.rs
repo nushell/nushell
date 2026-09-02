@@ -825,7 +825,23 @@ pub fn parse_closure_expression(
     Expression::new(working_set, Expr::Closure(block_id), span, Type::Closure)
 }
 
+/// Depth-guards the value recursion nested lists and records never reach [`parse_block`]s guard
 pub fn parse_value(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+    shape: &SyntaxShape,
+    input_type: Option<&Type>,
+) -> Expression {
+    if !working_set.enter_nesting(span) {
+        return garbage(working_set, span);
+    }
+
+    let expression = parse_value_inner(working_set, span, shape, input_type);
+    working_set.exit_nesting();
+    expression
+}
+
+fn parse_value_inner(
     working_set: &mut StateWorkingSet,
     span: Span,
     shape: &SyntaxShape,
