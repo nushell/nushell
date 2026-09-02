@@ -73,7 +73,8 @@ pub struct Breakpoint {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StackTraceArgs {
-    #[allow(dead_code)]
+    /// Required by the spec, ignored here: one script runs on one eval
+    /// thread, so there is nothing to select.
     pub thread_id: i64,
     #[serde(default)]
     pub start_frame: Option<i64>,
@@ -141,7 +142,8 @@ pub struct VisualizeArgs {
 #[serde(rename_all = "camelCase")]
 pub struct EvaluateArgs {
     pub expression: String,
+    /// `"hover"`, `"watch"` or `"repl"`. Accepted but not acted on: all three
+    /// take the same path in `on_evaluate`.
     #[serde(default)]
-    #[allow(dead_code)]
     pub context: Option<String>,
 }
