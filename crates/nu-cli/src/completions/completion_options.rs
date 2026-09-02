@@ -193,6 +193,27 @@ impl<T> NuMatcher<'_, T> {
         })
     }
 
+    fn fuzzy_matches(
+        haystack: &str,
+        atom: &Atom,
+        matcher: &mut Matcher,
+        offset: usize,
+    ) -> Option<(Vec<usize>, u16)> {
+        let mut haystack_buf = Vec::new();
+        let haystack_utf32 = Utf32Str::new(haystack, &mut haystack_buf);
+        let mut indices = Vec::new();
+        let score = atom.indices(haystack_utf32, matcher, &mut indices)?;
+        Some((
+            indices
+                .iter()
+                .map(|i| {
+                    offset + usize::try_from(*i).expect("should be on at least a 32-bit system")
+                })
+                .collect(),
+            score,
+        ))
+    }
+
     /// Returns whether or not the haystack matches the needle. If it does, `item` is added
     /// to the list of matches (if given).
     ///
@@ -224,25 +245,16 @@ impl<T> NuMatcher<'_, T> {
                 atom,
                 matches,
             } => {
-                let mut haystack_buf = Vec::new();
-                let haystack_utf32 = Utf32Str::new(haystack, &mut haystack_buf);
-                let mut indices = Vec::new();
-                let score = atom.indices(haystack_utf32, matcher, &mut indices)?;
-                let indices: Vec<usize> = indices
-                    .iter()
-                    .map(|i| {
-                        offset + usize::try_from(*i).expect("should be on at least a 32-bit system")
-                    })
-                    .collect();
+                let (match_indices, score) = Self::fuzzy_matches(haystack, atom, matcher, offset)?;
                 if let Some(item) = item {
                     matches.push(FuzzyMatch {
                         item,
                         haystack: haystack.to_string(),
                         score,
-                        match_indices: indices.clone(),
+                        match_indices: match_indices.clone(),
                     });
                 }
-                Some(indices)
+                Some(match_indices)
             }
             State::Fallback {
                 matcher,
@@ -268,26 +280,17 @@ impl<T> NuMatcher<'_, T> {
                     return Some(match_indices);
                 }
 
-                // fuzzy
-                let mut haystack_buf = Vec::new();
-                let haystack_utf32 = Utf32Str::new(haystack, &mut haystack_buf);
-                let mut indices = Vec::new();
-                let score = atom.indices(haystack_utf32, matcher, &mut indices)?;
-                let indices: Vec<usize> = indices
-                    .iter()
-                    .map(|i| {
-                        offset + usize::try_from(*i).expect("should be on at least a 32-bit system")
-                    })
-                    .collect();
+                // fallback to fuzzy
+                let (match_indices, score) = Self::fuzzy_matches(haystack, atom, matcher, offset)?;
                 if let Some(item) = item {
                     fuzzy_matches.push(FuzzyMatch {
                         item,
                         haystack: haystack.to_string(),
                         score,
-                        match_indices: indices.clone(),
+                        match_indices: match_indices.clone(),
                     });
                 }
-                Some(indices)
+                Some(match_indices)
             }
         }
     }
