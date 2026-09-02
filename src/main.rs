@@ -603,10 +603,10 @@ fn main() -> Result<()> {
             );
         }
         let transport = match mcp_transport_kind {
-            Some("http") => {
-                let port = parsed_nu_cli_args.mcp_port.unwrap_or(8080);
-                nu_mcp::McpTransport::Http { port }
-            }
+            Some("http") => nu_mcp::McpTransport::http(
+                parsed_nu_cli_args.mcp_host.clone(),
+                parsed_nu_cli_args.mcp_port,
+            ),
             _ => nu_mcp::McpTransport::Stdio,
         };
         nu_mcp::initialize_mcp_server(engine_state, transport)?;
