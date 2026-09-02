@@ -122,7 +122,15 @@ fn wait_ui_reply(
     }
 }
 
-fn ui_label(value: &Value, ctx: crate::variables::RenderCtx<'_>) -> String {
+/// Render one `input list` choice as the line the user reads in the client's
+/// picker.
+///
+/// Strings pass through bare — upstream `input list` labels them with
+/// `to_expanded_string`, so `[apple banana] | input list` must read `apple`
+/// here too, not the Variables row's quoted `"apple"`. Everything else borrows
+/// [`crate::variables::short_render`], which is the only renderer that keeps a
+/// container to one bounded line. See `docs/value-rendering.md`.
+fn pick_label(value: &Value, ctx: crate::variables::RenderCtx<'_>) -> String {
     match value {
         Value::String { val, .. } => val.clone(),
         other => crate::variables::short_render(other, ctx),
@@ -269,7 +277,7 @@ impl Command for DapInputList {
         let labels: Vec<String> = items
             .iter()
             .take(MAX_ITEMS)
-            .map(|v| ui_label(v, ctx))
+            .map(|v| pick_label(v, ctx))
             .collect();
 
         let id = self
