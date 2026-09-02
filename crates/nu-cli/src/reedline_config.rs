@@ -15,6 +15,10 @@ use reedline::{
     TraversalDirection, WordEdge, WordKind, default_emacs_keybindings,
     default_vi_insert_keybindings, default_vi_normal_keybindings,
 };
+use reedline::{
+    default_helix_insert_keybindings, default_helix_normal_keybindings,
+    default_helix_select_keybindings,
+};
 use std::{str::FromStr, sync::Arc};
 
 // Adds all menus from `$env.config.menus` (defaults live on `Config::default()`).
@@ -597,6 +601,22 @@ pub enum KeybindingsMode {
         insert_keybindings: Keybindings,
         normal_keybindings: Keybindings,
     },
+    Helix {
+        insert_keybindings: Keybindings,
+        normal_keybindings: Keybindings,
+        select_keybindings: Keybindings,
+    },
+}
+
+/// The per-mode keybinding tables a parsed `$env.config.keybindings` entry can
+/// target, seeded with reedline's defaults.
+struct KeybindingTables {
+    emacs: Keybindings,
+    vi_insert: Keybindings,
+    vi_normal: Keybindings,
+    helix_insert: Keybindings,
+    helix_normal: Keybindings,
+    helix_select: Keybindings,
 }
 
 pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, ShellError> {
@@ -604,62 +624,68 @@ pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, She
 
     // Reedline base maps stay library-owned; Nushell menu bindings live on
     // `config.keybindings` (including defaults from `Config::default()`).
-    let mut emacs_keybindings = default_emacs_keybindings();
-    let mut insert_keybindings = default_vi_insert_keybindings();
-    let mut normal_keybindings = default_vi_normal_keybindings();
+    let mut tables = KeybindingTables {
+        emacs: default_emacs_keybindings(),
+        vi_insert: default_vi_insert_keybindings(),
+        vi_normal: default_vi_normal_keybindings(),
+        helix_insert: default_helix_insert_keybindings(),
+        helix_normal: default_helix_normal_keybindings(),
+        helix_select: default_helix_select_keybindings(),
+    };
 
     for keybinding in parsed_keybindings {
-        add_keybinding(
-            &keybinding.mode,
-            keybinding,
-            config,
-            &mut emacs_keybindings,
-            &mut insert_keybindings,
-            &mut normal_keybindings,
-        )?
+        add_keybinding(&keybinding.mode, keybinding, config, &mut tables)?
     }
 
     match config.edit_mode {
-        EditBindings::Emacs => Ok(KeybindingsMode::Emacs(emacs_keybindings)),
+        EditBindings::Emacs => Ok(KeybindingsMode::Emacs(tables.emacs)),
         EditBindings::Vi => Ok(KeybindingsMode::Vi {
-            insert_keybindings,
-            normal_keybindings,
+            insert_keybindings: tables.vi_insert,
+            normal_keybindings: tables.vi_normal,
+        }),
+        EditBindings::Helix => Ok(KeybindingsMode::Helix {
+            insert_keybindings: tables.helix_insert,
+            normal_keybindings: tables.helix_normal,
+            select_keybindings: tables.helix_select,
         }),
     }
 }
+
+const VALID_KEYBINDING_MODES: &str =
+    "'emacs', 'vi_insert', 'vi_normal', 'helix_insert', 'helix_normal', or 'helix_select'";
 
 fn add_keybinding(
     mode: &Value,
     keybinding: &ParsedKeybinding,
     config: &Config,
-    emacs_keybindings: &mut Keybindings,
-    insert_keybindings: &mut Keybindings,
-    normal_keybindings: &mut Keybindings,
+    tables: &mut KeybindingTables,
 ) -> Result<(), ShellError> {
     use PromptEditModeDiscriminants as PEMD;
     let span = mode.span();
     match &mode {
         // When updating this implementation, also update `display_edit_mode` function
         Value::String { val, .. } => match PEMD::from_str(val) {
-            Ok(PEMD::Emacs) => add_parsed_keybinding(emacs_keybindings, keybinding, config),
-            Ok(PEMD::ViInsert) => add_parsed_keybinding(insert_keybindings, keybinding, config),
-            Ok(PEMD::ViNormal) => add_parsed_keybinding(normal_keybindings, keybinding, config),
+            Ok(PEMD::Emacs) => add_parsed_keybinding(&mut tables.emacs, keybinding, config),
+            Ok(PEMD::ViInsert) => add_parsed_keybinding(&mut tables.vi_insert, keybinding, config),
+            Ok(PEMD::ViNormal) => add_parsed_keybinding(&mut tables.vi_normal, keybinding, config),
+            Ok(PEMD::HelixInsert) => {
+                add_parsed_keybinding(&mut tables.helix_insert, keybinding, config)
+            }
+            Ok(PEMD::HelixNormal) => {
+                add_parsed_keybinding(&mut tables.helix_normal, keybinding, config)
+            }
+            Ok(PEMD::HelixSelect) => {
+                add_parsed_keybinding(&mut tables.helix_select, keybinding, config)
+            }
             Ok(PEMD::Default | PEMD::Custom) | Err(_) => Err(ShellError::InvalidValue {
-                valid: "'emacs', 'vi_insert', or 'vi_normal'".into(),
+                valid: VALID_KEYBINDING_MODES.into(),
                 actual: format!("'{val}'"),
                 span,
             }),
         },
         Value::List { vals, .. } => {
             for inner_mode in vals {
-                add_keybinding(
-                    inner_mode,
-                    keybinding,
-                    config,
-                    emacs_keybindings,
-                    insert_keybindings,
-                    normal_keybindings,
-                )?
+                add_keybinding(inner_mode, keybinding, config, tables)?
             }
 
             Ok(())
@@ -678,6 +704,9 @@ pub(crate) fn display_edit_mode(mode: PromptEditModeDiscriminants) -> Option<Str
         PromptEditModeDiscriminants::Emacs => Some("emacs".into()),
         PromptEditModeDiscriminants::ViNormal => Some("vi_normal".into()),
         PromptEditModeDiscriminants::ViInsert => Some("vi_insert".into()),
+        PromptEditModeDiscriminants::HelixNormal => Some("helix_normal".into()),
+        PromptEditModeDiscriminants::HelixInsert => Some("helix_insert".into()),
+        PromptEditModeDiscriminants::HelixSelect => Some("helix_select".into()),
         PromptEditModeDiscriminants::Default | PromptEditModeDiscriminants::Custom => None,
     }
 }
@@ -940,6 +969,10 @@ fn event_from_record(
             let mode = extract_value("mode", record, span)?;
             ReedlineEvent::ViChangeMode(mode.as_str()?.to_owned())
         }
+        Ok(RED::HelixChangeMode) => {
+            let mode = extract_value("mode", record, span)?;
+            ReedlineEvent::HelixChangeMode(mode.as_str()?.to_owned())
+        }
         // Non-sensical for user configuration:
         //
         // `ReedlineEvent::Mouse` - itself a no-op
@@ -1002,6 +1035,7 @@ pub(crate) fn display_reedline_event(event: ReedlineEventDiscriminants) -> Optio
         RED::ExecuteHostCommand => "ExecuteHostCommand cmd: <string>",
         RED::OpenEditor => "OpenEditor",
         RED::ViChangeMode => "ViChangeMode mode: <string>",
+        RED::HelixChangeMode => "HelixChangeMode mode: <string>",
         // Non-sensical for user configuration
         RED::Mouse | RED::Resize => return None,
     })
@@ -1217,6 +1251,8 @@ fn edit_from_record(
             EditCommand::MoveLeftBefore { c: char, select }
         }
         Ok(ECD::SelectAll) => EditCommand::SelectAll,
+        Ok(ECD::SelectLine) => EditCommand::SelectLine,
+        Ok(ECD::EraseSelection) => EditCommand::EraseSelection,
         Ok(ECD::CutSelection) => EditCommand::CutSelection {
             granularity: parse_granularity(record, config, span)?,
         },
@@ -1306,6 +1342,7 @@ fn edit_from_record(
         // `Granularity`) parsed from the same record. See `parse_motion_target`.
         Ok(ECD::Move) => EditCommand::Move(parse_motion_target(record, config, span)?),
         Ok(ECD::Extend) => EditCommand::Extend(parse_motion_target(record, config, span)?),
+        Ok(ECD::Select) => EditCommand::Select(parse_motion_target(record, config, span)?),
         Ok(ECD::Erase) => EditCommand::Erase(parse_motion_target(record, config, span)?),
         Ok(ECD::Cut) => EditCommand::Cut {
             target: parse_motion_target(record, config, span)?,
@@ -1318,6 +1355,17 @@ fn edit_from_record(
         Ok(ECD::Change) => EditCommand::Change {
             target: parse_motion_target(record, config, span)?,
             granularity: parse_granularity(record, config, span)?,
+        },
+        Ok(ECD::CollapseSelection) => {
+            EditCommand::CollapseSelection(parse_direction(record, config, span)?)
+        }
+        Ok(ECD::PasteAtSelectionEdge) => EditCommand::PasteAtSelectionEdge {
+            direction: parse_direction(record, config, span)?,
+            count: extract_value("count", record, span)
+                .and_then(|value| value.as_int())
+                .ok()
+                .and_then(|count| usize::try_from(count).ok())
+                .unwrap_or(1),
         },
         // `EditCommand::ReplaceChars` - Internal hack not sanely implementable as a
         // standalone binding
@@ -1403,6 +1451,8 @@ pub(crate) fn display_edit_command(edit: EditCommandDiscriminants) -> Option<&'s
         ECD::CutLeftUntil => "CutLeftUntil value: <char>",
         ECD::CutLeftBefore => "CutLeftBefore value: <char>",
         ECD::SelectAll => "SelectAll",
+        ECD::SelectLine => "SelectLine",
+        ECD::EraseSelection => "EraseSelection",
         ECD::CutSelection => "CutSelection granularity?: <string>",
         ECD::CopySelection => "CopySelection",
         ECD::LowercaseSelection => "LowercaseSelection",
@@ -1448,6 +1498,9 @@ pub(crate) fn display_edit_command(edit: EditCommandDiscriminants) -> Option<&'s
         ECD::Extend => {
             "Extend motion: <string>, direction: <string>, word_kind?: <string>, edge?: <string>, char?: <char>, stop?: <string>"
         }
+        ECD::Select => {
+            "Select motion: <string>, direction: <string>, word_kind?: <string>, edge?: <string>, char?: <char>, stop?: <string>"
+        }
         ECD::Erase => {
             "Erase motion: <string>, direction: <string>, word_kind?: <string>, edge?: <string>, char?: <char>, stop?: <string>"
         }
@@ -1460,6 +1513,8 @@ pub(crate) fn display_edit_command(edit: EditCommandDiscriminants) -> Option<&'s
         ECD::Change => {
             "Change motion: <string>, direction: <string>, word_kind?: <string>, edge?: <string>, char?: <char>, stop?: <string>, granularity?: <string>"
         }
+        ECD::CollapseSelection => "CollapseSelection direction: <string>",
+        ECD::PasteAtSelectionEdge => "PasteAtSelectionEdge direction: <string>, count?: <int>",
         ECD::ReplaceChars => return None,
     })
 }
@@ -2007,5 +2062,91 @@ mod test {
         assert!(!config.keybindings.is_empty());
         assert!(!config.menus.is_empty());
         create_keybindings(&config).expect("default keybindings should apply cleanly");
+    }
+
+    #[test]
+    fn default_config_binds_menu_keys_in_helix_mode() {
+        // The Nushell menu keybindings are mode-scoped; helix missing from that
+        // list left Tab and the other menu keys unbound in both helix tables.
+        let config = Config {
+            edit_mode: EditBindings::Helix,
+            ..Default::default()
+        };
+        let KeybindingsMode::Helix {
+            insert_keybindings,
+            normal_keybindings,
+            select_keybindings,
+        } = create_keybindings(&config).expect("default keybindings should apply cleanly")
+        else {
+            panic!("`edit_mode: helix` should produce helix keybindings");
+        };
+
+        for (table, keybindings) in [
+            ("insert", insert_keybindings),
+            ("normal", normal_keybindings),
+            ("select", select_keybindings),
+        ] {
+            for (name, modifier, keycode) in [
+                ("completion_menu", KeyModifiers::NONE, KeyCode::Tab),
+                ("completion_previous", KeyModifiers::SHIFT, KeyCode::BackTab),
+                ("history_menu", KeyModifiers::CONTROL, KeyCode::Char('r')),
+                ("help_menu", KeyModifiers::NONE, KeyCode::F(1)),
+            ] {
+                assert!(
+                    keybindings.find_binding(modifier, keycode).is_some(),
+                    "`{name}` should be bound in the helix {table} table"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn helix_select_keybindings_land_in_their_own_table() {
+        use nu_protocol::ParsedKeybinding;
+
+        // `mode: helix_select` targets the select table, not the normal one it
+        // used to alias onto, and the select table keeps reedline's extending
+        // arrow defaults underneath.
+        let keybinding = ParsedKeybinding {
+            name: Some(Value::test_string("select_only")),
+            modifier: Value::test_string("control"),
+            keycode: Value::test_string("char_t"),
+            event: Value::test_record(record! {
+                "send" => Value::test_string("clearscreen"),
+            }),
+            mode: Value::test_string("helix_select"),
+        };
+        let mut config = Config {
+            edit_mode: EditBindings::Helix,
+            ..Default::default()
+        };
+        config.keybindings.push(keybinding);
+
+        let KeybindingsMode::Helix {
+            normal_keybindings,
+            select_keybindings,
+            ..
+        } = create_keybindings(&config).expect("keybindings should apply cleanly")
+        else {
+            panic!("`edit_mode: helix` should produce helix keybindings");
+        };
+
+        assert_eq!(
+            select_keybindings.find_binding(KeyModifiers::CONTROL, KeyCode::Char('t')),
+            Some(ReedlineEvent::ClearScreen),
+        );
+        assert_eq!(
+            normal_keybindings.find_binding(KeyModifiers::CONTROL, KeyCode::Char('t')),
+            None,
+            "a `helix_select` binding must not leak into the normal table"
+        );
+        // Spot-check the reedline select default underneath: Right extends.
+        assert!(
+            matches!(
+                select_keybindings.find_binding(KeyModifiers::NONE, KeyCode::Right),
+                Some(ReedlineEvent::Edit(_))
+            ),
+            "the select table should keep reedline's extending arrow defaults"
+        );
     }
 }

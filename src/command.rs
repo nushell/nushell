@@ -4,12 +4,13 @@ use nu_parser::escape_for_script_arg;
 use nu_protocol::{
     LabeledError, ShellError, Span, Spanned, Value, config::TableMode, did_you_mean,
 };
-use nu_utils::stdout_write_all_and_flush;
+use nu_utils::{stdout_write_all_and_flush, strip_ansi_string_likely};
 #[cfg(feature = "plugin")]
 use std::path::Path;
 use std::{
     ffi::OsString,
     fmt::{self, Write},
+    io::IsTerminal,
 };
 
 const HELP_SECTION_COLOR: &str = "\x1b[32m";
@@ -404,6 +405,15 @@ const CLI_FLAGS: &[CliFlag] = &[
         CliCategory::Startup,
         "nu --mcp --mcp-transport http --mcp-port 3000",
     ),
+    #[cfg(feature = "mcp")]
+    CliFlag::value(
+        "mcp-host",
+        None,
+        ValueHint::String,
+        "host for MCP HTTP transhost (default 127.0.0.1)",
+        CliCategory::Startup,
+        "nu --mcp --mcp-transhost http --mcp-host 0.0.0.0",
+    ),
 ];
 
 // Container for parsed CLI values before conversion to NushellCliArgs.
@@ -449,6 +459,8 @@ struct CliValues {
     mcp_transport: Option<Spanned<String>>,
     #[cfg(feature = "mcp")]
     mcp_port: Option<u16>,
+    #[cfg(feature = "mcp")]
+    mcp_host: Option<String>,
 }
 
 // Error type for CLI parsing with optional help text.
@@ -540,6 +552,11 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
         match arg {
             Short('h') | Long("help") => {
                 let help = cli_help_text();
+                let help = if std::io::stdout().is_terminal() {
+                    help
+                } else {
+                    strip_ansi_string_likely(help)
+                };
                 let _ = std::panic::catch_unwind(move || stdout_write_all_and_flush(help));
                 std::process::exit(0);
             }
@@ -791,6 +808,8 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
             mcp_transport: cli.mcp_transport,
             #[cfg(feature = "mcp")]
             mcp_port: cli.mcp_port,
+            #[cfg(feature = "mcp")]
+            mcp_host: cli.mcp_host,
         },
         script_name,
         args_to_script,
@@ -1463,6 +1482,8 @@ pub(crate) struct NushellCliArgs {
     pub(crate) mcp_transport: Option<Spanned<String>>,
     #[cfg(feature = "mcp")]
     pub(crate) mcp_port: Option<u16>,
+    #[cfg(feature = "mcp")]
+    pub(crate) mcp_host: Option<String>,
 }
 
 #[cfg(test)]

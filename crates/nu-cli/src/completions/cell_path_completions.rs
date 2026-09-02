@@ -74,7 +74,7 @@ impl Completer for CellPathCompletion<'_> {
             }
         }
 
-        Fetched::pure(matcher.suggestion_results())
+        Fetched::Pure(matcher.suggestion_results())
     }
 }
 
@@ -96,7 +96,16 @@ pub(crate) fn eval_cell_path(
             .const_val
             .to_owned()
             .map_or_else(
-                || eval_variable(working_set.permanent_state, stack, var_id, span),
+                // Handles `$env` / `$nu` / `$ans` specials as well as stack vars.
+                // Read `$ans` without deferring truncation warnings (completions are not
+                // a user-facing display of the value).
+                || {
+                    if var_id == nu_protocol::LAST_VARIABLE_ID {
+                        stack.get_var(var_id, span)
+                    } else {
+                        eval_variable(working_set.permanent_state, stack, var_id, span)
+                    }
+                },
                 Ok,
             )
     } else {
@@ -148,7 +157,7 @@ fn get_suggestions_by_value(
             })
             .collect(),
         Value::Custom { val, .. } => match val.type_name().as_str() {
-            "semver" => ["major", "minor", "patch", "pre", "build"]
+            "semver" => ["major", "minor", "patch", "pre", "build", "prefix"]
                 .into_iter()
                 .map(|s| to_suggestion(s.to_string(), None))
                 .collect(),

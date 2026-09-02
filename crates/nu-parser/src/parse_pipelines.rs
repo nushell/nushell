@@ -155,6 +155,7 @@ pub fn parse_block(
 
     let mut block = Block::new_with_capacity(lite_block.block.len());
     block.span = Some(span);
+    block.parsed_scoped = scoped;
 
     if let [first, rest @ ..] = lite_block.block.as_slice() {
         // only the first pipeline receives the block's pipeline input
@@ -179,6 +180,7 @@ pub fn parse_block(
         // Move the block out to prepare it to become a subexpression
         let inner_block = std::mem::take(&mut block);
         block.span = inner_block.span;
+        block.parsed_scoped = scoped;
         let ty = inner_block.output_type();
         let block_id = working_set.add_block(Arc::new(inner_block));
 

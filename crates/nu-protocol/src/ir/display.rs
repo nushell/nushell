@@ -98,9 +98,17 @@ impl fmt::Display for FmtInstruction<'_> {
             Instruction::DrainIfEnd { src } => {
                 write!(f, "{:WIDTH$} {src}", "drain-if-end")
             }
-            Instruction::LoadVariable { dst, var_id } => {
+            Instruction::LoadVariable {
+                dst,
+                var_id,
+                preserve_origin,
+            } => {
                 let var = FmtVar::new(self.engine_state, *var_id);
-                write!(f, "{:WIDTH$} {dst}, {var}", "load-variable")
+                if *preserve_origin {
+                    write!(f, "{:WIDTH$} {dst}, {var}", "load-variable-origin")
+                } else {
+                    write!(f, "{:WIDTH$} {dst}, {var}", "load-variable")
+                }
             }
             Instruction::StoreVariable { var_id, src } => {
                 let var = FmtVar::new(self.engine_state, *var_id);

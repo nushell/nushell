@@ -17,7 +17,6 @@ use std::{
     io::{Result, Write},
     panic::{AssertUnwindSafe, catch_unwind},
     path::Path,
-    sync::Arc,
 };
 
 const LOGINSHELL_FILE: &str = "login.nu";
@@ -353,6 +352,6 @@ pub(crate) fn setup_config(
         eprintln!(
             "A panic occurred while reading configuration files, using default configuration."
         );
-        engine_state.config = Arc::new(Config::default())
+        engine_state.set_config(Config::default())
     }
 }

@@ -212,7 +212,11 @@ impl BlockBuilder {
             Instruction::Drop { src } => allocate(&[*src], &[]),
             Instruction::Drain { src } => allocate(&[*src], &[]),
             Instruction::DrainIfEnd { src } => allocate(&[*src], &[]),
-            Instruction::LoadVariable { dst, var_id: _ } => allocate(&[], &[*dst]),
+            Instruction::LoadVariable {
+                dst,
+                var_id: _,
+                preserve_origin: _,
+            } => allocate(&[], &[*dst]),
             Instruction::StoreVariable { var_id: _, src } => allocate(&[*src], &[*src]),
             Instruction::DropVariable { var_id: _ } => Ok(()),
             Instruction::LoadEnv { dst, key: _ } => allocate(&[], &[*dst]),

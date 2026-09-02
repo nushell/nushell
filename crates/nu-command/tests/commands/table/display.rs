@@ -184,6 +184,40 @@ fn table_colors() -> Result {
             ╰───┴───╯"})
 }
 
+/// Primitive custom values (e.g. semver) keep their type-specific color when listed.
+/// Structured custom values are still expanded for table layout.
+#[test]
+fn table_semver_list_colors() -> Result {
+    let mut tester = test();
+    // cyan_bold = bold cyan (1;36)
+    let colored = indoc! {"
+        \u{1b}[39m╭───┬───────╮\u{1b}[0m
+        \u{1b}[39m│\u{1b}[0m \u{1b}[1;32m0\u{1b}[0m \u{1b}[39m│\u{1b}[0m \u{1b}[1;36m1.0.0\u{1b}[0m \u{1b}[39m│\u{1b}[0m
+        \u{1b}[39m│\u{1b}[0m \u{1b}[1;32m1\u{1b}[0m \u{1b}[39m│\u{1b}[0m \u{1b}[1;36m2.0.0\u{1b}[0m \u{1b}[39m│\u{1b}[0m
+        \u{1b}[39m╰───┴───────╯\u{1b}[0m
+    "};
+    tester
+        .run(
+            "
+                $env.config.use_ansi_coloring = true
+                ['1.0.0' '2.0.0'] | into semver | table
+            ",
+        )
+        .expect_value_eq(colored)
+}
+
+/// A lone primitive custom (semver) prints as a scalar, not a one-row table.
+#[test]
+fn table_semver_single_is_scalar() -> Result {
+    let mut tester = test();
+    tester
+        .run("'1.0.0' | into semver | table")
+        .expect_value_eq("1.0.0")?;
+    tester
+        .run("'1.0.0' | into semver | describe")
+        .expect_value_eq("semver")
+}
+
 #[test]
 fn table_empty_colors() -> Result {
     let mut tester = test();

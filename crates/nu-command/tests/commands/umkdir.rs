@@ -125,9 +125,12 @@ fn respects_cwd() -> Result {
 
 #[cfg(not(windows))]
 #[test]
+#[serial]
 fn mkdir_umask_permission() -> Result {
     use std::{fs, os::unix::fs::PermissionsExt};
 
+    // Serial: process umask is global; parallel tests that call get_umask/mkdir
+    // (uu_mkdir briefly sets umask to 0) can race this assertion.
     Playground::setup("mkdir_umask_permission", |dirs, _| {
         let () = test().cwd(dirs.test()).run("mkdir test_umask_permission")?;
         let actual = fs::metadata(dirs.test().join("test_umask_permission"))

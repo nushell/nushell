@@ -35,6 +35,7 @@ use nu_utils::{
     filesystem::{PermissionResult, have_permission},
     perf, stderr_write_all_and_flush, stdout_write_all_and_flush,
 };
+use reedline::Helix;
 #[cfg(feature = "sqlite")]
 use reedline::SqliteBackedHistory;
 use reedline::{
@@ -451,6 +452,9 @@ fn run_command(ctx: RunContext) -> Reedline {
     // Actual command execution logic starts from here
     let cmd_execution_start_time = Instant::now();
 
+    // Only user-typed commands refresh `$ans` metadata (not empty Enter / auto-cd).
+    let mut snapshot_ans = false;
+
     match parse_operation(command.clone(), engine_state, stack) {
         Ok(ReplOperation::AutoCd { cwd, target, span }) => {
             do_auto_cd(target, cwd, stack, engine_state, span);
@@ -481,6 +485,7 @@ fn run_command(ctx: RunContext) -> Reedline {
                 shell_integration.osc633,
                 shell_integration.osc133,
             );
+            snapshot_ans = true;
         }
         // as the name implies, we do nothing in this case
         Ok(ReplOperation::DoNothing) => {}
@@ -493,6 +498,14 @@ fn run_command(ctx: RunContext) -> Reedline {
         "CMD_DURATION_MS".into(),
         Value::string(format!("{}", cmd_duration.as_millis()), Span::unknown()),
     );
+
+    // Snapshot `$ans.exit_code` / `$ans.duration` / `$ans.command` after duration is
+    // known (and after eval may have stored `$ans.last`). `command` is the same
+    // reedline buffer history stores. Always records metadata for the user line;
+    // when max_last_result_size is 0, also omits `.last`.
+    if snapshot_ans {
+        stack.snapshot_ans_repl_metadata(engine_state, cmd_duration, &command);
+    }
 
     if history_supports_meta
         && let Err(e) = fill_in_result_related_history_metadata(
@@ -593,6 +606,9 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         vi_insert: map_nucursorshape_to_cursorshape(config.cursor_shape.vi_insert),
         vi_normal: map_nucursorshape_to_cursorshape(config.cursor_shape.vi_normal),
         emacs: map_nucursorshape_to_cursorshape(config.cursor_shape.emacs),
+        hx_insert: map_nucursorshape_to_cursorshape(config.cursor_shape.helix_insert),
+        hx_normal: map_nucursorshape_to_cursorshape(config.cursor_shape.helix_normal),
+        hx_select: map_nucursorshape_to_cursorshape(config.cursor_shape.helix_select),
     };
     perf!("get config/cursor config", start_time, use_color);
 
@@ -618,7 +634,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         .with_validator(Box::new(NuValidator {
             engine_state: engine_reference.clone(),
         }))
-        .with_completer(Box::new(NuCompleter::with_cache(
+        .with_completer(Box::new(NuCompleter::for_repl(
             engine_reference.clone(),
             // STACK-REFERENCE 2
             stack_arc.clone(),
@@ -626,6 +642,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         )))
         .with_quick_completions(config.completions.quick)
         .with_partial_completions(config.completions.partial)
+        .with_persistent_menus(config.completions.persistent_menus)
         .with_ansi_colors(config.use_ansi_coloring.get(engine_state))
         .with_cwd(Some(
             engine_state
@@ -637,10 +654,6 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         ))
         .with_cursor_config(cursor_config)
         .with_abbreviations(config.abbreviations.clone())
-        .with_visual_selection_style(nu_ansi_term::Style {
-            is_reverse: true,
-            ..Default::default()
-        })
         .with_semantic_markers(semantic_markers_from_config(
             &config,
             term_program_is_vscode,
@@ -656,6 +669,14 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     let style_computer = StyleComputer::from_config(engine_state, &stack_arc);
 
     start_time = Instant::now();
+    // `color_config.selection` defaults to `{ attr: r }`, the reverse video
+    // this used to hardcode.
+    line_editor = line_editor.with_visual_selection_style(
+        style_computer.compute("selection", &Value::nothing(Span::unknown())),
+    );
+    line_editor = line_editor.with_visual_selection_cursor_style(
+        style_computer.compute("selection_cursor", &Value::nothing(Span::unknown())),
+    );
     line_editor = if config.use_ansi_coloring.get(engine_state) && config.show_hints {
         // As of Nov 2022, "hints" color_config closures only get `null` passed in.
         // No meaningful span — this is a synthetic null value for style computation.
@@ -1077,14 +1098,19 @@ fn do_run_cmd(
         run_shell_integration_osc2(Some(s), engine_state, stack, use_color);
     }
 
-    match evaluate_source(
+    // Enable `$ans` capture for this user line only (not config/env/banner evals).
+    engine_state.capture_repl_last_result = true;
+    let eval_result = evaluate_source(
         engine_state,
         stack,
         s.as_bytes(),
         &format!("repl_entry #{entry_num}"),
         PipelineData::empty(),
         false,
-    ) {
+    );
+    engine_state.capture_repl_last_result = false;
+
+    match eval_result {
         Err(ShellError::Exit { code, .. }) => {
             return cleanup_exit(line_editor, engine_state, code);
         }
@@ -1320,6 +1346,19 @@ fn setup_keybindings(engine_state: &EngineState, line_editor: Reedline) -> Reedl
                 normal_keybindings,
             } => {
                 let edit_mode = Box::new(Vi::new(insert_keybindings, normal_keybindings));
+                line_editor.with_edit_mode(edit_mode)
+            }
+            KeybindingsMode::Helix {
+                insert_keybindings,
+                normal_keybindings,
+                select_keybindings,
+            } => {
+                let edit_mode = Box::new(
+                    Helix::default()
+                        .with_insert_keybindings(insert_keybindings)
+                        .with_normal_keybindings(normal_keybindings)
+                        .with_select_keybindings(select_keybindings),
+                );
                 line_editor.with_edit_mode(edit_mode)
             }
         },

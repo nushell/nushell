@@ -58,9 +58,9 @@ For details about which platforms the Nushell team actively supports, see [our p
 ## Configuration
 
 The default configurations can be found at [sample_config](crates/nu-config/default_files)
-which are the configuration files one gets when they startup Nushell for the first time.
+which are the configuration files one gets when they start up Nushell for the first time.
 
-It sets all of the default configuration to run Nushell.  From here one can
+It sets all of the default configuration to run Nushell. From here one can
 then customize this file for their specific needs.
 
 To see where *config.nu* is located on your system simply type this command.
@@ -69,7 +69,7 @@ To see where *config.nu* is located on your system simply type this command.
 $nu.config-path
 ```
 
-Please see our [book](https://www.nushell.sh) for all of the Nushell documentation.
+Please see our [book](https://www.nushell.sh/book/configuration.html) for all of the Nushell documentation.
 
 
 ## Philosophy

@@ -550,3 +550,35 @@ fn scope_aliases_shows_local_alias_in_if_block() -> Result {
 
     test().run(code).expect_value_eq(1)
 }
+
+#[test]
+fn scope_commands_shows_deprecated_command() -> Result {
+    let code = "
+        if true {
+            @deprecated --since '0.114.2'
+            def depr [] {}
+            scope commands | where name == 'depr' | get 0?.deprecation_info.type?
+        }
+    ";
+
+    test().run(code).expect_value_eq(["Command"])
+}
+
+#[test]
+fn scope_commands_shows_deprecated_flags() -> Result {
+    let code = "
+        if true {
+            @deprecated --flag foo
+            @deprecated --flag bar
+            def depr [--foo, --bar, --baz] {}
+
+            scope commands
+            | where name == 'depr'
+            | get 0?.deprecation_info
+            | each {|entry|
+                $entry.type == 'Flag' and $entry.flag != null
+            }
+        }
+    ";
+    test().run(code).expect_value_eq([true, true])
+}

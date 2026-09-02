@@ -482,6 +482,10 @@ fn handle_table_command(mut input: CmdInput<'_>) -> ShellResult<PipelineData> {
             Err(*error)
         }
         PipelineData::Value(Value::Custom { val, .. }, metadata) => {
+            // Always collapse a top-level custom so primitive customs (semver,
+            // etc.) print as scalars, matching filesize/duration. Structured
+            // customs become native records/lists. Cell coloring for customs
+            // inside lists/tables is handled in build_table_batch.
             let base_pipeline = val
                 .to_base_value(span)?
                 .into_pipeline_data_with_metadata(metadata);
@@ -716,16 +720,18 @@ fn build_table_batch(
     opts: TableOpts<'_>,
     span: Span,
 ) -> StringResult {
-    // convert each custom value to its base value so it can be properly
-    // displayed in a table
+    // Expand structured custom values (records/lists) so they render as native
+    // table rows/columns. Leave primitive custom values as Custom so type-specific
+    // color_config keys (e.g. "semver") still apply via style_primitive.
     for val in &mut vals {
-        let span = val.span();
+        let val_span = val.span();
 
         if let Value::Custom { val: custom, .. } = val {
-            *val = custom
-                .to_base_value(span)
-                .or_else(|err| Result::<_, ShellError>::Ok(Value::error(err, span)))
-                .expect("error converting custom value to base value")
+            match custom.to_base_value(val_span) {
+                Ok(base @ (Value::Record { .. } | Value::List { .. })) => *val = base,
+                Ok(_) => {}
+                Err(err) => *val = Value::error(err, val_span),
+            }
         }
     }
 

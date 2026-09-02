@@ -211,13 +211,16 @@ pub(crate) fn compile_call(
         }
     }
 
-    // Special handling for builtin commands that have direct IR equivalents
+    // Special handling for builtin commands that have direct IR equivalents.
+    // `unlet` never goes through `Command::run`; see `compile_unlet`.
     if decl.name() == "unlet" {
         return compile_unlet(working_set, builder, call, io_reg);
     }
 
     // Keep AST if the decl needs it.
     let requires_ast = decl.requires_ast_for_arguments();
+    // `metadata $var` needs the variable's definition span, not the use-site span.
+    let preserve_var_origin = decl.name() == "metadata";
 
     // It's important that we evaluate the args first before trying to set up the argument
     // state for the call.
@@ -238,6 +241,19 @@ pub(crate) fn compile_call(
             .expr()
             .map(|expr| {
                 let arg_reg = builder.next_register()?;
+
+                // Bare variables for `metadata` load with origin span preserved.
+                if preserve_var_origin && let Some(var_id) = bare_var_id(expr) {
+                    builder.push(
+                        Instruction::LoadVariable {
+                            dst: arg_reg,
+                            var_id,
+                            preserve_origin: true,
+                        }
+                        .into_spanned(expr.span),
+                    )?;
+                    return Ok(arg_reg);
+                }
 
                 compile_expression(
                     working_set,
@@ -447,6 +463,18 @@ pub(crate) fn compile_external_call(
     )
 }
 
+/// Extract a bare variable id from `$var` or a FullCellPath with empty tail.
+fn bare_var_id(expr: &Expression) -> Option<nu_protocol::VarId> {
+    match &expr.expr {
+        Expr::Var(var_id) => Some(*var_id),
+        Expr::FullCellPath(cell_path) if cell_path.tail.is_empty() => match &cell_path.head.expr {
+            Expr::Var(var_id) => Some(*var_id),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
 pub(crate) fn compile_unlet(
     _working_set: &StateWorkingSet,
     builder: &mut BlockBuilder,
@@ -460,35 +488,26 @@ pub(crate) fn compile_unlet(
     for arg in call.positional_iter() {
         iter_empty = false;
 
-        // Extract variable ID from the expression
         // Handle both direct variable references (Expr::Var) and full cell paths (Expr::FullCellPath)
         // that represent simple variables (e.g., $var parsed as FullCellPath with empty tail).
-        // This allows unlet to work with variables parsed in different contexts.
-        let var_id = match &arg.expr {
-            nu_protocol::ast::Expr::Var(var_id) => Some(*var_id),
-            nu_protocol::ast::Expr::FullCellPath(cell_path) => {
-                if cell_path.tail.is_empty() {
-                    match &cell_path.head.expr {
-                        nu_protocol::ast::Expr::Var(var_id) => Some(*var_id),
-                        _ => None,
-                    }
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        };
+        let var_id = bare_var_id(arg);
 
         match var_id {
             Some(var_id) => {
                 // Prevent deletion of built-in variables that are essential for nushell operation
-                if var_id == NU_VARIABLE_ID || var_id == ENV_VARIABLE_ID || var_id == IN_VARIABLE_ID
+                if var_id == NU_VARIABLE_ID
+                    || var_id == ENV_VARIABLE_ID
+                    || var_id == IN_VARIABLE_ID
+                    || var_id == nu_protocol::LAST_VARIABLE_ID
                 {
                     // Determine the variable name for the error message
                     let var_name = match var_id {
                         NU_VARIABLE_ID => "nu",
                         ENV_VARIABLE_ID => "env",
                         IN_VARIABLE_ID => "in",
+                        _ if var_id == nu_protocol::LAST_VARIABLE_ID => {
+                            nu_protocol::LAST_RESULT_VAR_NAME
+                        }
                         _ => "unknown", // This should never happen due to the check above
                     };
 

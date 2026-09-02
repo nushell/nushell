@@ -15,8 +15,9 @@ use nu_protocol::{
     Config, ParseError, PipelineData, Value, debugger::WithoutDebug, engine::StateWorkingSet,
 };
 use nu_std::load_standard_library;
-use nu_test_support::fs;
-use reedline::{Span, Suggestion, Suggestions};
+
+use nu_test_support::prelude::*;
+use reedline::{Completer, CompletionResult, Span, Suggestion, Suggestions};
 use rstest::{fixture, rstest};
 use support::{
     completions_helpers::{
@@ -912,6 +913,49 @@ fn hide_env_completions() {
     match_suggestions(&expected, &suggestions);
 }
 
+/// A custom completer that errors (unlike an explicit `null` decline) must still fall
+/// back to file completion.
+#[test]
+fn customcompletions_error_falls_back_to_file_completion() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = "def comp [] { error make {msg: 'boom'} }; def my-command [arg: string@comp] {}";
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let line = "my-command custom_completion.";
+    match_suggestions(
+        &vec!["custom_completion.nu"],
+        &completer.complete_blocking(line, line.len()),
+    );
+}
+
+/// A completer that calls an interactive command (`input`, `input list`, `input listen`,
+/// `term query`) runs on the REPL thread so it can take the TTY. With no console the
+/// command errors and the completer falls back to file completion. Windows test
+/// processes have a console, so detach stdin there: the command declines via
+/// `require_stdin` instead of blocking on keys, and we still assert file fallback.
+#[rstest]
+#[case::input("input")]
+#[case::input_reedline("input --reedline")]
+#[case::input_list("['a' 'b'] | input list")]
+#[case::input_listen("input listen")]
+#[case::term_query("term query 'x'")]
+fn interactive_command_in_completer_falls_back_to_file_completion(#[case] body: &str) {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = format!("def comp [] {{ {body} }}; def my-command [arg: string@comp] {{}}");
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    #[cfg(windows)]
+    let stack = stack.suppress_stdin();
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let line = "my-command custom_completion.";
+    match_suggestions(
+        &vec!["custom_completion.nu"],
+        &completer.complete_blocking(line, line.len()),
+    );
+}
+
 /// Suppress completions for invalid values
 #[test]
 fn customcompletions_invalid() {
@@ -1100,6 +1144,15 @@ fn dotnu_stdlib_completions() {
     let completion_str = "use \"std";
     let suggestions = completer.complete_blocking(completion_str, completion_str.len());
     match_suggestions(&vec!["std", "std-rfc"], &suggestions);
+
+    // Trailing `/` lists virtual children without walking cwd (the `/` hitch).
+    let completion_str = "use std/";
+    let suggestions = completer.complete_blocking(completion_str, completion_str.len());
+    let values: Vec<&str> = suggestions.iter().map(|s| s.value.as_str()).collect();
+    assert!(
+        values.contains(&"std/iter") && values.contains(&"std/assert"),
+        "expected virtual std/ children, got {values:?}"
+    );
 }
 
 #[test]
@@ -1133,6 +1186,16 @@ fn exportable_completions() {
     let completion_str = "use std/math [E, `TAU";
     let suggestions = completer.complete_blocking(completion_str, completion_str.len());
     match_suggestions(&vec!["TAU"], &suggestions);
+
+    // without providing any prefix to match items against
+    let completion_str = "use std/math ";
+    let suggestions = completer.complete_blocking(completion_str, completion_str.len());
+    match_suggestions(&vec!["GAMMA", "E", "PI", "TAU", "PHI"], &suggestions);
+
+    // without a prefix within the list style importy
+    let completion_str = "use std/math [";
+    let suggestions = completer.complete_blocking(completion_str, completion_str.len());
+    match_suggestions(&vec!["GAMMA", "E", "PI", "TAU", "PHI"], &suggestions);
 
     let completion_str = "use 🤔🐘 'foo";
     let suggestions = completer.complete_blocking(completion_str, completion_str.len());
@@ -1174,6 +1237,18 @@ fn dotnu_completions_const_nu_lib_dirs() {
     let completion_str = "use ./asdf";
     let suggestions = completer.complete_blocking(completion_str, completion_str.len());
     match_suggestions(&vec!["./asdf.nu"], &suggestions);
+}
+
+/// Interactive pickers in the external completer need the TTY, so that closure
+/// must not go through the background worker (`complete()` returns Fresh).
+#[test]
+fn external_completer_runs_on_the_repl_thread() {
+    let mut completer = custom_completer();
+    let result = completer.complete("foo test", 8);
+    assert!(
+        matches!(result, CompletionResult::Fresh { .. }),
+        "external completer must run on the REPL thread, got {result:?}"
+    );
 }
 
 #[test]
@@ -1225,7 +1300,10 @@ fn external_completer_fallback() {
     let suggestions = run_external_completion_within_pwd(
         block,
         input,
-        fs::fixtures().join("external_completions"),
+        FIXTURES
+            .join("external_completions")
+            .try_into()
+            .expect("fixtures is absolute"),
     );
     match_suggestions(&expected, &suggestions);
 
@@ -1235,7 +1313,10 @@ fn external_completer_fallback() {
     let suggestions = run_external_completion_within_pwd(
         block,
         input,
-        fs::fixtures().join("external_completions"),
+        FIXTURES
+            .join("external_completions")
+            .try_into()
+            .expect("fixtures is absolute"),
     );
     match_suggestions(&expected, &suggestions);
 }
@@ -1390,7 +1471,7 @@ fn command_wide_completion_wrapped_untyped_equals_flag_value() {
 )]
 fn command_wide_completion_fallback(#[case] code: &str) {
     // Create a new engine with PWD
-    let pwd = fs::fixtures();
+    let pwd = AbsolutePathBuf::try_from(FIXTURES.as_path()).expect("fixtures is absolute");
     let (_, _, mut engine, mut stack) = new_engine_helper(pwd.clone());
 
     let config_code = format!(
@@ -2817,7 +2898,7 @@ fn variables_completions() {
     match_suggestions(&expected, &suggestions);
 
     let suggestions = completer.complete_blocking("$", 1);
-    let expected: Vec<_> = vec!["$actor", "$env", "$in", "$nu"];
+    let expected: Vec<_> = vec!["$actor", "$ans", "$env", "$in", "$nu"];
 
     match_suggestions(&expected, &suggestions);
 }
@@ -2999,7 +3080,7 @@ fn custom_value_cell_path_completions() {
 
     let completion_str = "$v.";
     let suggestions = completer.complete_blocking(completion_str, completion_str.len());
-    let expected = ["major", "minor", "patch", "pre", "build"];
+    let expected = ["major", "minor", "patch", "pre", "build", "prefix"];
     let received: Vec<_> = suggestions.iter().map(|s| s.value.as_str()).collect();
     assert!(
         expected
@@ -3139,7 +3220,14 @@ fn run_external_completion_within_pwd(
 }
 
 fn run_external_completion(completer: &str, input: &str) -> Suggestions {
-    run_external_completion_within_pwd(completer, input, fs::fixtures().join("completions"))
+    run_external_completion_within_pwd(
+        completer,
+        input,
+        FIXTURES
+            .join("completions")
+            .try_into()
+            .expect("fixtures is absolute"),
+    )
 }
 
 #[test]
@@ -3217,7 +3305,12 @@ fn filecompletions_triggers_after_cursor() {
 
 #[test]
 fn filecompletions_for_redirection_target() {
-    let (_, _, engine, stack) = new_engine_helper(fs::fixtures().join("external_completions"));
+    let (_, _, engine, stack) = new_engine_helper(
+        FIXTURES
+            .join("external_completions")
+            .try_into()
+            .expect("fixtures is absolute"),
+    );
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
     let expected = vec!["`dir with space/bar baz`", "`dir with space/foo`"];
@@ -3757,4 +3850,37 @@ fn stale_file_completions_do_not_answer_a_flag_token() {
             .map(|s| (&s.value, s.span))
             .collect::<Vec<_>>()
     );
+}
+
+/// Completing an empty argument slot for a `directory`-typed
+/// argument (like cd) must offer directories ONLY.
+#[test]
+fn empty_directory_arg_slot_completes_directories_only() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    std::fs::create_dir(dir.path().join("alpha_dir")).expect("create dir");
+    std::fs::create_dir(dir.path().join("beta_dir")).expect("create dir");
+    std::fs::write(dir.path().join("gamma.txt"), "").expect("write file");
+
+    let pwd = AbsolutePathBuf::try_from(dir.path().to_path_buf()).expect("absolute tempdir");
+    let (_, _, mut engine, mut stack) = new_engine_helper(pwd);
+
+    // Custom positional and flag, both `directory`-typed, exercise the same paths as `cd`.
+    let command = "def my-cd [dir: directory] {}; def my-flag [--dir: directory] {}";
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    let alpha = folder("alpha_dir");
+    let beta = folder("beta_dir");
+    for line in ["cd ", "my-cd ", "my-flag --dir "] {
+        let suggestions = completer.complete_blocking(line, line.len());
+        let values: Vec<&str> = suggestions.iter().map(|s| s.value.as_str()).collect();
+        assert!(
+            values.contains(&alpha.as_str()) && values.contains(&beta.as_str()),
+            "`{line}` should offer the directories, got: {values:?}"
+        );
+        assert!(
+            !values.iter().any(|value| value.contains("gamma")),
+            "`{line}` leaked a non-directory completion: {values:?}"
+        );
+    }
 }

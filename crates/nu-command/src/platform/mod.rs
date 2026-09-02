@@ -6,6 +6,7 @@ mod input;
 mod is_redirected;
 mod is_terminal;
 mod kill;
+mod raw_mode;
 mod sleep;
 mod term;
 #[cfg(unix)]
@@ -24,6 +25,7 @@ pub use input::InputListen;
 pub use is_redirected::IsRedirected;
 pub use is_terminal::IsTerminal;
 pub use kill::Kill;
+pub(crate) use raw_mode::RawModeGuard;
 pub use sleep::Sleep;
 pub use term::{Term, TermQuery, TermSize};
 #[cfg(unix)]

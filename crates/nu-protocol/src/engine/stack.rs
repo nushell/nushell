@@ -1,5 +1,6 @@
 use crate::{
-    Config, ENV_VARIABLE_ID, IntoValue, NU_VARIABLE_ID, OutDest, ShellError, Span, Value, VarId,
+    Config, ENV_VARIABLE_ID, IntoValue, LAST_VARIABLE_ID, NU_VARIABLE_ID, OutDest, PipelineData,
+    PipelineMetadata, ShellError, Span, Value, VarId,
     ast::PathMember,
     engine::{
         ArgumentStack, DEFAULT_OVERLAY_NAME, EngineState, EnvName, ErrorHandlerStack, Redirection,
@@ -7,15 +8,46 @@ use crate::{
         StackWithInvocation,
     },
     ir::ScopeRegion,
-    report_shell_warning,
+    record, report_shell_warning,
     shell_error::generic::GenericError,
+    truncate_value_to_budget,
 };
 use std::{
     collections::{HashMap, HashSet},
     fs::File,
     path::{Component, MAIN_SEPARATOR},
-    sync::Arc,
+    sync::{Arc, Mutex},
 };
+
+/// Shared interactive last-result (`$ans`) storage.
+///
+/// Held in an [`Arc`] so REPL child stacks from [`Stack::with_parent`] see the same
+/// payload and can clear `warn_pending` without mutating an immutable parent frame.
+///
+/// When [`Self::present`] is true, reading `$ans` yields a record with
+/// `exit_code`, `duration`, and `command`. The `last` field is included only when a
+/// payload is stored. When false (never snapshotted after a user command), `$ans`
+/// is `nothing`.
+#[derive(Debug, Default)]
+struct LastResultSlot {
+    /// Whether `$ans` should resolve to a record (vs `nothing`).
+    present: bool,
+    /// Pipeline payload for the `last` field (`None` when payload capture is off).
+    last: Option<Value>,
+    /// Pipeline metadata for replaying `last` (e.g. `ls` path_columns / colors).
+    metadata: Option<PipelineMetadata>,
+    truncated: bool,
+    /// Exit code of the last REPL line (mirrors `$env.LAST_EXIT_CODE`).
+    exit_code: i64,
+    /// Duration of the last REPL line in nanoseconds (Nushell `Duration` value).
+    duration_ns: i64,
+    /// Exact REPL source of the last user line (same buffer reedline stores in history).
+    command: String,
+    /// Set when a store was truncated; moved to `warn_deferred` on first access.
+    warn_pending: bool,
+    /// Set when `$ans` was accessed after a truncated store; reported after output prints.
+    warn_deferred: bool,
+}
 
 /// Environment variables per overlay
 pub type EnvVars = HashMap<String, HashMap<EnvName, Value>>;
@@ -67,8 +99,9 @@ pub struct Stack {
     /// Locally updated config. Use [`.get_config()`](Self::get_config) to access correctly.
     pub config: Option<Arc<Config>>,
     pub(crate) out_dest: StackOutDest,
-    /// When `true`, external processes spawned with `PipelineData::Empty` input
-    /// receive `/dev/null` for stdin instead of inheriting the terminal.
+    /// When `true`, external processes spawned from this stack are detached from
+    /// the controlling terminal, and empty stdin is `/dev/null` instead of inheriting
+    /// the TTY. Used on completion threads so children cannot race reedline.
     pub suppress_stdin: bool,
     /// Active block-local scope bindings (commands/modules), outer → inner.
     ///
@@ -79,6 +112,11 @@ pub struct Stack {
     pub ir_scope_regions: Vec<ScopeRegion>,
     /// Current program counter while evaluating IR (for matching [`Self::ir_scope_regions`]).
     pub ir_instruction_index: Option<usize>,
+    /// Interactive last-result payload for [`LAST_VARIABLE_ID`] (e.g. `$ans`).
+    ///
+    /// Shared across parent/child stacks so REPL iterations (which use
+    /// [`Stack::with_parent`]) can store and clear truncation warnings correctly.
+    last_result: Arc<Mutex<LastResultSlot>>,
 }
 
 impl Default for Stack {
@@ -115,6 +153,7 @@ impl Stack {
             active_scope_bindings: vec![],
             ir_scope_regions: vec![],
             ir_instruction_index: None,
+            last_result: Arc::new(Mutex::new(LastResultSlot::default())),
         }
     }
 
@@ -144,6 +183,8 @@ impl Stack {
             // Nested IR evaluation installs its own regions/pc.
             ir_scope_regions: vec![],
             ir_instruction_index: None,
+            // Share last-result with the parent (REPL uses with_parent every iteration).
+            last_result: parent.last_result.clone(),
             parent_stack: Some(parent),
         }
     }
@@ -185,6 +226,7 @@ impl Stack {
         unique_stack.env_hide_history = child.env_hide_history;
         unique_stack.active_overlays = child.active_overlays;
         unique_stack.config = child.config;
+        // last_result is Arc-shared with the child; no merge needed.
         unique_stack
     }
 
@@ -205,6 +247,10 @@ impl Stack {
 
     /// Lookup a variable, returning None if it is not present
     fn lookup_var(&self, var_id: VarId) -> Option<Value> {
+        if var_id == LAST_VARIABLE_ID {
+            return self.assemble_ans_record(Span::unknown());
+        }
+
         for (id, val) in &self.vars {
             if var_id == *id {
                 return Some(val.clone());
@@ -219,12 +265,256 @@ impl Stack {
         None
     }
 
+    fn with_last_result_slot<R>(&self, f: impl FnOnce(&LastResultSlot) -> R) -> R {
+        match self.last_result.lock() {
+            Ok(slot) => f(&slot),
+            // Poison is rare; recover so `$ans` / capture do not hard-panic the REPL.
+            Err(poisoned) => f(&poisoned.into_inner()),
+        }
+    }
+
+    fn with_last_result_slot_mut<R>(&self, f: impl FnOnce(&mut LastResultSlot) -> R) -> R {
+        match self.last_result.lock() {
+            Ok(mut slot) => f(&mut slot),
+            Err(poisoned) => {
+                let mut slot = poisoned.into_inner();
+                // Drop potentially inconsistent state after a panic while locked.
+                *slot = LastResultSlot::default();
+                f(&mut slot)
+            }
+        }
+    }
+
+    /// Build the `$ans` record when the slot is present; otherwise `None` (→ `nothing`).
+    ///
+    /// Omits the `last` field entirely when no payload is stored (e.g. budget is `0`),
+    /// so `$ans` is `{ exit_code, duration, command }` only. `command` is always included
+    /// once the slot is present.
+    fn assemble_ans_record(&self, span: Span) -> Option<Value> {
+        self.with_last_result_slot(|slot| {
+            if !slot.present {
+                return None;
+            }
+            Some(match &slot.last {
+                Some(last) => Value::record(
+                    record! {
+                        "last" => last.clone().with_span(span),
+                        "exit_code" => Value::int(slot.exit_code, span),
+                        "duration" => Value::duration(slot.duration_ns, span),
+                        "command" => Value::string(slot.command.clone(), span),
+                    },
+                    span,
+                ),
+                None => Value::record(
+                    record! {
+                        "exit_code" => Value::int(slot.exit_code, span),
+                        "duration" => Value::duration(slot.duration_ns, span),
+                        "command" => Value::string(slot.command.clone(), span),
+                    },
+                    span,
+                ),
+            })
+        })
+    }
+
+    /// Drop the entire `$ans` slot (full clear).
+    pub fn clear_last_result(&mut self) {
+        self.with_last_result_slot_mut(|slot| {
+            if let Some(old) = slot.last.take() {
+                drop(old);
+            }
+            *slot = LastResultSlot::default();
+        });
+    }
+
+    /// Drop only `$ans.last` and its metadata/truncation flags, freeing payload memory.
+    ///
+    /// Leaves `present`, `exit_code`, `duration`, and `command` unchanged so a budget of
+    /// `0` can still expose timing/exit status/source without retaining the pipeline value.
+    pub fn clear_last_result_payload(&mut self) {
+        self.with_last_result_slot_mut(|slot| {
+            if let Some(old) = slot.last.take() {
+                drop(old);
+            }
+            slot.metadata = None;
+            slot.truncated = false;
+            slot.warn_pending = false;
+            slot.warn_deferred = false;
+        });
+    }
+
+    /// Store `value` as `$ans.last`, enforcing `budget` via truncation.
+    ///
+    /// When `budget == 0`, payload capture is disabled (clears `.last` only; exit code,
+    /// duration, and `command` stay). Preserves pipeline `metadata` (e.g. `path_columns` used for
+    /// `ls` coloring) so replaying `$ans.last` can match the original display.
+    pub fn set_last_result(
+        &mut self,
+        value: Value,
+        metadata: Option<PipelineMetadata>,
+        budget: usize,
+    ) {
+        if budget == 0 {
+            self.clear_last_result_payload();
+            return;
+        }
+
+        let (stored, truncated) = truncate_value_to_budget(value, budget);
+        self.store_last_result_raw(stored, metadata, truncated);
+    }
+
+    /// Install an already-budgeted `$ans.last` value (caller handled truncation).
+    ///
+    /// Marks `$ans` present. Does not reset `exit_code` / `duration` / `command` (those are
+    /// updated by [`Self::snapshot_ans_repl_metadata`] at end of each REPL line).
+    pub fn store_last_result_raw(
+        &mut self,
+        value: Value,
+        metadata: Option<PipelineMetadata>,
+        truncated: bool,
+    ) {
+        self.with_last_result_slot_mut(|slot| {
+            if let Some(old) = slot.last.replace(value) {
+                drop(old);
+            }
+            slot.metadata = metadata;
+            slot.truncated = truncated;
+            slot.warn_pending = truncated;
+            // Fresh store replaces any not-yet-shown deferred warning.
+            slot.warn_deferred = false;
+            slot.present = true;
+        });
+    }
+
+    /// After a REPL user command finishes: refresh `$ans.exit_code`, `$ans.duration`,
+    /// and `$ans.command`.
+    ///
+    /// `command` is the exact reedline buffer for this line (same text history stores).
+    /// Always marks `$ans` present so every user-typed line gets exit code, duration,
+    /// and source (empty Enter / auto-cd do not call this). When `budget == 0`, also
+    /// drops `$ans.last` (and its memory) so the record is `{ exit_code, duration, command }`
+    /// without a `last` field. When budget is positive, any `.last` already stored this
+    /// line (or earlier) is kept.
+    pub fn snapshot_ans_repl_metadata(
+        &mut self,
+        engine_state: &EngineState,
+        duration: std::time::Duration,
+        command: impl Into<String>,
+    ) {
+        let budget = self.get_config(engine_state).max_last_result_size_bytes();
+        let exit_code = self
+            .get_env_var(engine_state, "LAST_EXIT_CODE")
+            .and_then(|v| v.as_int().ok())
+            .unwrap_or(0);
+        let duration_ns = i64::try_from(duration.as_nanos()).unwrap_or(i64::MAX);
+        let command = command.into();
+
+        if budget == 0 {
+            // Payload off: free `.last` memory before refreshing metadata.
+            self.clear_last_result_payload();
+        }
+
+        self.with_last_result_slot_mut(|slot| {
+            slot.exit_code = exit_code;
+            slot.duration_ns = duration_ns;
+            slot.command = command;
+            slot.present = true;
+        });
+    }
+
+    /// Pipeline metadata associated with the stored `$ans.last`, if any.
+    pub fn last_result_metadata(&self) -> Option<PipelineMetadata> {
+        self.with_last_result_slot(|slot| slot.metadata.clone())
+    }
+
+    /// Estimated memory size of the stored `$ans.last` payload (`0` if unset).
+    pub fn last_result_memory_size(&self) -> usize {
+        self.with_last_result_slot(|slot| slot.last.as_ref().map(|v| v.memory_size()).unwrap_or(0))
+    }
+
+    /// Marker key in [`PipelineMetadata::custom`] identifying pipeline data loaded from `$ans`.
+    ///
+    /// Used so IR cell-path follow only reattaches last-result metadata for `$ans.last`,
+    /// not every unrelated record field named `last`.
+    pub const ANS_LAST_RESULT_METADATA_KEY: &str = "ans_last_result";
+
+    /// Build [`PipelineData`] for `$ans`, restoring stored pipeline metadata on the record
+    /// so `$ans.last` cell-path access can reattach it (see IR `FollowCellPath`).
+    pub fn last_result_pipeline_data(&self, span: Span) -> PipelineData {
+        let mut metadata = self.last_result_metadata().unwrap_or_default();
+        // Mark so FollowCellPath can reattach payload metadata only for `$ans.*`.
+        metadata
+            .custom
+            .insert(Self::ANS_LAST_RESULT_METADATA_KEY, Value::bool(true, span));
+        let value = self
+            .assemble_ans_record(span)
+            .unwrap_or_else(|| Value::nothing(span));
+        PipelineData::value(value, Some(metadata))
+    }
+
+    /// Whether the currently stored `$ans.last` was truncated.
+    pub fn last_result_was_truncated(&self) -> bool {
+        self.with_last_result_slot(|slot| slot.truncated)
+    }
+
+    /// On `$ans` access after a truncated store: schedule a warning for after output prints.
+    ///
+    /// Does not print anything. Call [`Self::take_last_result_warn_deferred`] after display
+    /// so the truncated value is shown first, then the warning.
+    pub fn defer_last_result_truncation_warning(&self) {
+        self.with_last_result_slot_mut(|slot| {
+            if slot.warn_pending {
+                slot.warn_pending = false;
+                slot.warn_deferred = true;
+            }
+        });
+    }
+
+    /// Whether a truncation warning is waiting to be shown after print (does not clear).
+    pub fn last_result_warn_pending(&self) -> bool {
+        self.with_last_result_slot(|slot| slot.warn_pending)
+    }
+
+    /// Take the deferred truncation warning flag (clears it).
+    ///
+    /// Returns `true` once after a truncated `$ans` was accessed; intended to be called
+    /// after the pipeline has been printed so the warning appears below the data.
+    pub fn take_last_result_warn_deferred(&self) -> bool {
+        self.with_last_result_slot_mut(|slot| std::mem::take(&mut slot.warn_deferred))
+    }
+
+    /// Report a deferred last-result truncation warning, if any.
+    ///
+    /// Prefer calling this after printing so output is not scrolled away by the warning.
+    pub fn flush_last_result_truncation_warning(&self, engine_state: &EngineState, span: Span) {
+        if !self.take_last_result_warn_deferred() {
+            return;
+        }
+        let limit_bytes = self.get_config(engine_state).max_last_result_size_bytes();
+        report_shell_warning(
+            Some(self),
+            engine_state,
+            &crate::ShellWarning::LastResultTruncated {
+                span,
+                limit_bytes,
+                help: Some(format!(
+                    "Increase $env.config.max_last_result_size or use a smaller command result. Variable name is `${}`.",
+                    crate::LAST_RESULT_VAR_NAME
+                )),
+                // EveryUse: once-per-access is handled by warn_pending/warn_deferred flags.
+                report_mode: crate::ReportMode::EveryUse,
+            },
+        );
+    }
+
     /// Lookup a variable, erroring if it is not found
     ///
     /// The passed-in span will be used to tag the value
     pub fn get_var(&self, var_id: VarId, span: Span) -> Result<Value, ShellError> {
         match self.lookup_var(var_id) {
             Some(v) => Ok(v.with_span(span)),
+            // Unset last-result behaves like `nothing` rather than a missing variable.
+            None if var_id == LAST_VARIABLE_ID => Ok(Value::nothing(span)),
             None => Err(ShellError::VariableNotFoundAtRuntime { span }),
         }
     }
@@ -442,6 +732,8 @@ impl Stack {
             active_scope_bindings: self.active_scope_bindings.clone(),
             ir_scope_regions: vec![],
             ir_instruction_index: None,
+            // Share last-result so closures can still read `$ans`.
+            last_result: self.last_result.clone(),
         }
     }
 
@@ -483,6 +775,8 @@ impl Stack {
             active_scope_bindings: self.active_scope_bindings.clone(),
             ir_scope_regions: vec![],
             ir_instruction_index: None,
+            // Share last-result so closures can still read `$ans`.
+            last_result: self.last_result.clone(),
         }
     }
 
@@ -986,17 +1280,43 @@ impl Stack {
         self
     }
 
-    /// Causes external processes spawned with empty input to receive
-    /// `/dev/null` for stdin instead of inheriting the terminal.
+    /// Causes external processes spawned from this stack to detach from the
+    /// controlling terminal. Empty input also receives `/dev/null` for stdin
+    /// instead of inheriting the terminal.
     ///
     /// Use this together with [`suppress_output`](Self::suppress_output) for
     /// background tasks (e.g. completion threads).  Without it, subprocesses
     /// spawned by closure-based completers (carapace, fish_complete, etc.)
     /// inherit the live terminal fd and can race with reedline's reads,
-    /// causing `Input/output error` (EIO).
+    /// causing `Input/output error` (EIO). Piped stdin (candidate lists for
+    /// `fzf`) is still detached so the child cannot open `/dev/tty`.
     pub fn suppress_stdin(mut self) -> Self {
         self.suppress_stdin = true;
         self
+    }
+
+    /// Error if this stack is detached from the controlling terminal (see
+    /// [`suppress_stdin`](Self::suppress_stdin), set on completion threads). Commands that grab
+    /// the terminal (`input`, `input list`, `input listen`, `term query`) call this first so
+    /// they decline instead of racing reedline for it; completers turn the error into a
+    /// fallback. `span` points at the offending call.
+    pub fn require_stdin(&self, span: Span) -> Result<(), ShellError> {
+        if self.suppress_stdin {
+            Err(ShellError::Generic(
+                GenericError::new(
+                    "Interactive input is unavailable in this context",
+                    "this command reads from the terminal",
+                    span,
+                )
+                .with_help(
+                    "this stack is detached from the terminal (completion worker or MCP), so \
+                     interactive commands like `input`, `input list`, `input listen`, and \
+                     `term query` cannot run here",
+                ),
+            ))
+        } else {
+            Ok(())
+        }
     }
 
     /// Clears any pipe redirections, keeping the current stdout and stderr.

@@ -293,8 +293,9 @@ fn is_completion_boundary(c: char) -> bool {
 
 /// The environment a cached completion was computed against.
 ///
-/// Results depend on cwd, `PATH`, and known declarations, which change between prompts
-/// while the query text does not — so the query alone is not a sound cache key.
+/// Results depend on cwd, `PATH`, known declarations, and `$env.config`, which
+/// change between prompts while the query text does not — so the query alone is
+/// not a sound cache key.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct CacheEnv(u64);
 
@@ -316,6 +317,8 @@ impl CacheEnv {
             .and_then(|cwd| std::fs::metadata(cwd).ok()?.modified().ok())
             .hash(&mut hasher);
         cwd.hash(&mut hasher);
+
+        engine_state.config_epoch().hash(&mut hasher);
 
         Self(hasher.finish())
     }
@@ -446,7 +449,10 @@ impl NarrowingCache {
             return Suggestions::default();
         };
 
-        let mut matcher = NuMatcher::new(search_token, options, true);
+        // Don't re-sort: the producing completer ranks a directory by its bare name and
+        // appends the separator afterwards, so sorting here would rank it `config/` and
+        // land it after `config.nu`. Filtering alone preserves the order it chose.
+        let mut matcher = NuMatcher::new(search_token, options, false);
 
         base_suggestions
             .iter()
@@ -590,8 +596,9 @@ impl Dispatched {
 impl From<Fetched> for Dispatched {
     fn from(fetched: Fetched) -> Self {
         Self {
-            suggestions: fetched.suggestions,
-            cacheable: fetched.cacheable,
+            // Read the cacheable flag before `into_suggestions` consumes the outcome.
+            cacheable: fetched.is_cacheable(),
+            suggestions: fetched.into_suggestions(),
         }
     }
 }
@@ -655,6 +662,149 @@ impl CompletionEngine {
             .collect();
 
         (suggestions, dispatched.cacheable)
+    }
+
+    /// Parse `query` once and run `f` with the resolved completion site.
+    ///
+    /// `CompletionQuery` is already the prefix up to the floored cursor, so this
+    /// does not slice or floor again.
+    fn with_completion_site<R>(
+        &self,
+        query: &CompletionQuery,
+        f: impl FnOnce(&StateWorkingSet, &Arc<Block>, &CompletionSite, &str, usize) -> R,
+    ) -> R {
+        let line = query.typed();
+        let position = query.cursor();
+        let mut working_set = StateWorkingSet::new(&self.engine_state);
+        let offset = working_set.next_span_start();
+        let block = parse(&mut working_set, Some("completer"), line.as_bytes(), false);
+        let site = self.resolve_completion_site(&block, &working_set, position, offset, line);
+        f(&working_set, &block, &site, line, offset)
+    }
+
+    fn query_runs_user_closure(
+        &self,
+        working_set: &StateWorkingSet,
+        site: &CompletionSite,
+        line: &str,
+        offset: usize,
+    ) -> bool {
+        self.site_runs_user_closure(site, working_set)
+            || self.multiword_argument_runs_user_closure(site, working_set, line, offset)
+    }
+
+    /// User-closure completers (external completer, `@complete`, custom commands)
+    /// take the TTY. They must run on the REPL thread with reedline blocked, not
+    /// on the background worker.
+    #[cfg(test)]
+    fn should_complete_on_repl_thread(&self, query: &CompletionQuery) -> bool {
+        self.with_completion_site(query, |working_set, _, site, line, offset| {
+            self.query_runs_user_closure(working_set, site, line, offset)
+        })
+    }
+
+    /// Parse once; if this site needs a user closure, dispatch on this thread.
+    ///
+    /// Results are not cached: a picker (`fzf`, `input list`, `carapace`) is not a function
+    /// of the line, so a stored pick would skip the UI on the next Tab.
+    fn complete_user_closure_on_repl_thread(&self, query: &CompletionQuery) -> Option<Suggestions> {
+        self.with_completion_site(query, |working_set, block, site, line, offset| {
+            if !self.query_runs_user_closure(working_set, site, line, offset) {
+                return None;
+            }
+            let _tty = crate::util::ReplTerminalGuard::capture();
+            let dispatched = self.fetch_completions_by_block(
+                Arc::clone(block),
+                working_set,
+                query.cursor(),
+                offset,
+                line,
+            );
+            Some(
+                dispatched
+                    .suggestions
+                    .into_iter()
+                    .map(|semantic_suggestion| semantic_suggestion.suggestion)
+                    .collect(),
+            )
+        })
+    }
+
+    fn has_external_completer(&self) -> bool {
+        self.engine_state
+            .get_config()
+            .completions
+            .external
+            .completer
+            .is_some()
+    }
+
+    fn signature_runs_user_closure(&self, signature: &Signature) -> bool {
+        match signature.complete {
+            Some(CommandWideCompleter::Command(_)) => true,
+            Some(CommandWideCompleter::External) => self.has_external_completer(),
+            None => false,
+        }
+    }
+
+    fn site_runs_user_closure(&self, site: &CompletionSite, working_set: &StateWorkingSet) -> bool {
+        match &site.kind {
+            SiteKind::ExternalArg { .. } => self.has_external_completer(),
+            SiteKind::FlagName { call, .. } => {
+                self.signature_runs_user_closure(&working_set.get_decl(call.decl_id).signature())
+            }
+            SiteKind::FlagValue { call, flag, .. } => {
+                let signature = working_set.get_decl(call.decl_id).signature();
+                let resolved = find_flag(&signature, *flag);
+                let custom = resolved.as_ref().and_then(|flag| flag.completion.as_ref());
+                matches!(custom, Some(Completion::Command(_)))
+                    || self.signature_runs_user_closure(&signature)
+            }
+            SiteKind::Positional {
+                call,
+                sig_positional,
+                ..
+            } => {
+                let signature = working_set.get_decl(call.decl_id).signature();
+                let custom = signature
+                    .get_positional(*sig_positional)
+                    .and_then(|positional| positional.completion.as_ref());
+                matches!(custom, Some(Completion::Command(_)))
+                    || self.signature_runs_user_closure(&signature)
+            }
+            _ => false,
+        }
+    }
+
+    fn multiword_argument_runs_user_closure(
+        &self,
+        site: &CompletionSite,
+        working_set: &StateWorkingSet,
+        contents: &str,
+        offset: usize,
+    ) -> bool {
+        if !matches!(site.kind, SiteKind::Command { .. })
+            || !working_set
+                .get_span_contents(site.span)
+                .iter()
+                .any(u8::is_ascii_whitespace)
+        {
+            return false;
+        }
+
+        let mut parse_ws = StateWorkingSet::new(&self.engine_state);
+        let _ = parse_ws.add_file("completer", contents.as_bytes());
+        let Some(shorter) = parse_shorter_head_reading(&mut parse_ws, site.span, None) else {
+            return false;
+        };
+        let position = site.cursor.saturating_sub(offset);
+        let shorter_site = self.finalize_site(
+            self.resolve_expression_site(&shorter, site.cursor, &parse_ws),
+            contents,
+            position,
+            offset,
+        );
+        self.site_runs_user_closure(&shorter_site, &parse_ws)
     }
 
     pub fn fetch_completions_at(&self, line: &str, position: usize) -> Vec<SemanticSuggestion> {
@@ -888,7 +1038,7 @@ impl CompletionEngine {
         {
             let mut completion = CommandWideCompletion::closure(closure, external_call);
             let fetched = completion.fetch(completion_context);
-            external_answered = !fetched.need_fallback;
+            external_answered = !fetched.needs_fallback();
             dispatched.merge(fetched.into());
         }
 
@@ -937,8 +1087,9 @@ impl CompletionEngine {
         let subcommands =
             self.subcommand_suggestions(working_set, call.head.start, site.cursor, offset);
 
-        // The value kinds share one shape; only the `ArgType` and custom-completer lookup differ.
-        let argument_value = |engine: &Self, arg_type, custom, arg_slot| {
+        // The value kinds share one shape; only the `ArgType`, custom-completer, and declared
+        // shape lookups differ.
+        let argument_value = |engine: &Self, arg_type, custom, arg_slot, declared_shape| {
             engine.complete_argument_value(
                 custom,
                 ArgValueCompletion {
@@ -947,6 +1098,7 @@ impl CompletionEngine {
                     need_fallback: subcommands.suggestions.is_empty(),
                     completer: engine,
                     arg_idx: arg_slot,
+                    declared_shape,
                     cursor: site.cursor,
                 },
                 completion_context,
@@ -960,24 +1112,30 @@ impl CompletionEngine {
             SiteKind::FlagName { .. } => {
                 self.complete_flag_names(call.decl_id, completion_context, &signature, element)
             }
-            SiteKind::FlagValue { flag, arg_slot, .. } => argument_value(
-                self,
-                ArgType::Flag(Cow::Borrowed(flag.name())),
-                find_flag(&signature, *flag).and_then(|flag| flag.completion),
-                *arg_slot,
-            ),
+            SiteKind::FlagValue { flag, arg_slot, .. } => {
+                let resolved = find_flag(&signature, *flag);
+                argument_value(
+                    self,
+                    ArgType::Flag(Cow::Borrowed(flag.name())),
+                    resolved.as_ref().and_then(|flag| flag.completion.clone()),
+                    *arg_slot,
+                    resolved.and_then(|flag| flag.arg),
+                )
+            }
             SiteKind::Positional {
                 sig_positional,
                 arg_slot,
                 ..
-            } => argument_value(
-                self,
-                ArgType::Positional(*sig_positional),
-                signature
-                    .get_positional(*sig_positional)
-                    .and_then(|positional| positional.completion.clone()),
-                *arg_slot,
-            ),
+            } => {
+                let positional = signature.get_positional(*sig_positional);
+                argument_value(
+                    self,
+                    ArgType::Positional(*sig_positional),
+                    positional.and_then(|positional| positional.completion.clone()),
+                    *arg_slot,
+                    positional.map(|positional| positional.shape.clone()),
+                )
+            }
             _ => Dispatched::default(),
         };
 
@@ -1412,7 +1570,7 @@ impl CompletionEngine {
                     self.custom_completion_helper(other, element_line.as_ref(), context, cursor)
                 }
             };
-            let need_fallback = attempt.need_fallback;
+            let need_fallback = attempt.needs_fallback();
             results.merge(attempt.into());
             if !need_fallback {
                 return results;
@@ -1420,13 +1578,12 @@ impl CompletionEngine {
         }
 
         let attempt = self.command_wide_completion_helper(signature, element_expression, context);
-        let need_fallback = attempt.need_fallback;
+        let need_fallback = attempt.needs_fallback();
         results.merge(attempt.into());
         if !need_fallback {
             return results;
         }
 
-        arg_value.need_fallback &= results.suggestions.is_empty();
         results.merge(arg_value.fetch(context).into());
         results
     }
@@ -1575,7 +1732,7 @@ impl CompletionEngine {
             }
             // Engine-provided completions are handled in `complete_argument_value`; decline
             // if one arrives by another path.
-            Completion::Builtin(_) => Fetched::absent(),
+            Completion::Builtin(_) => Fetched::Absent,
         }
     }
 
@@ -1608,7 +1765,7 @@ impl CompletionEngine {
                 };
                 completion.fetch(&context)
             }
-            None => Fetched::absent(),
+            None => Fetched::Absent,
         }
     }
 
@@ -1641,11 +1798,26 @@ pub struct NuCompleter {
     /// completer, not on [`CompletionEngine`] (which non-caching callers also build).
     cache_env: CacheEnv,
     worker: Option<CompletionWorker>,
+    /// Whether [`complete`](ReedlineCompleter::complete) offloads to a worker.
+    /// False only on the REPL path with `background-completions` disabled.
+    background: bool,
 }
 
 impl NuCompleter {
     pub fn new(engine_state: Arc<EngineState>, stack: Arc<Stack>) -> Self {
         Self::with_cache(engine_state, stack, NarrowingCache::default())
+    }
+
+    /// The reedline completer; the only constructor that consults the
+    /// `background-completions` experimental option.
+    pub(crate) fn for_repl(
+        engine_state: Arc<EngineState>,
+        stack: Arc<Stack>,
+        cache: NarrowingCache,
+    ) -> Self {
+        let mut completer = Self::with_cache(engine_state, stack, cache);
+        completer.background = nu_experimental::BACKGROUND_COMPLETIONS.get();
+        completer
     }
 
     pub(crate) fn with_cache(
@@ -1663,6 +1835,7 @@ impl NuCompleter {
             cache,
             cache_env,
             worker: None,
+            background: true,
         }
     }
 
@@ -1815,10 +1988,30 @@ fn partial_of(line: &str, suggestions: &[Suggestion]) -> Option<Partial> {
 
 impl ReedlineCompleter for NuCompleter {
     fn complete(&mut self, line: &str, pos: usize) -> CompletionResult {
+        if !self.background {
+            // Inline on this thread, skipping worker and cache: the pre-#18334
+            // blocking behavior, which had neither. Blocking is the point, so
+            // an interactive completer can own the terminal.
+            let suggestions: Suggestions = self
+                .engine
+                .fetch_completions_at(line, pos)
+                .into_iter()
+                .map(|s| s.suggestion)
+                .collect();
+            let partial = partial_of(line, &suggestions);
+            return CompletionResult::fresh(suggestions).with_partial(partial);
+        }
+
         let query = CompletionQuery::new(line, pos);
         self.drain_completed();
 
         if let Some(suggestions) = self.fresh_for(&query) {
+            self.settle_pending(&query);
+            let partial = partial_of(line, &suggestions);
+            return CompletionResult::fresh(suggestions).with_partial(partial);
+        }
+
+        if let Some(suggestions) = self.engine.complete_user_closure_on_repl_thread(&query) {
             self.settle_pending(&query);
             let partial = partial_of(line, &suggestions);
             return CompletionResult::fresh(suggestions).with_partial(partial);
@@ -1918,6 +2111,148 @@ mod completer_tests {
         assert!(q("from csv --sep").narrows(&q("from csv --s"), token(9)));
     }
 
+    #[test]
+    fn background_engine_suppresses_stdin() {
+        let engine = test_engine();
+        let stack = Arc::new(Stack::new());
+        let foreground = CompletionEngine::new(engine, stack);
+        assert!(!foreground.stack.suppress_stdin);
+        let background = foreground.to_background();
+        assert!(background.stack.suppress_stdin);
+    }
+
+    #[test]
+    fn internal_command_completion_stays_on_the_worker() {
+        let engine = CompletionEngine::new(test_engine(), Arc::new(Stack::new()));
+        assert!(!engine.should_complete_on_repl_thread(&q("ls | c")));
+    }
+
+    fn apply_source(engine: &mut EngineState, stack: &mut Stack, source: &[u8]) {
+        use nu_engine::eval_block;
+        use nu_protocol::{PipelineData, debugger::WithoutDebug};
+
+        let mut working_set = StateWorkingSet::new(engine);
+        let block = parse(&mut working_set, None, source, false);
+        assert!(
+            working_set.parse_errors.is_empty(),
+            "{:?}",
+            working_set.parse_errors
+        );
+        engine
+            .merge_delta(working_set.render())
+            .expect("merge_delta");
+        eval_block::<WithoutDebug>(engine, stack, &block, PipelineData::empty())
+            .expect("eval source");
+        engine.merge_env(stack).expect("merge_env");
+    }
+
+    fn engine_with_external_completer() -> Arc<EngineState> {
+        let mut engine = (*test_engine()).clone();
+        let mut stack = Stack::new();
+        apply_source(
+            &mut engine,
+            &mut stack,
+            b"$env.config.completions.external.completer = {|spans| $spans}",
+        );
+        Arc::new(engine)
+    }
+
+    #[test]
+    fn external_arg_with_completer_runs_on_the_repl_thread() {
+        let engine =
+            CompletionEngine::new(engine_with_external_completer(), Arc::new(Stack::new()));
+        assert!(engine.should_complete_on_repl_thread(&q("nvim foo")));
+        assert!(!engine.should_complete_on_repl_thread(&q("ls | c")));
+    }
+
+    /// Opted out: settles inline, spawns no worker, leaves the cache alone.
+    #[test]
+    fn opted_out_completer_settles_inline() {
+        let mut completer = NuCompleter::new(test_engine(), Arc::new(Stack::new()));
+        completer.background = false;
+
+        let result = completer.complete("ls | c", 6);
+        assert!(
+            matches!(result, CompletionResult::Fresh { .. }),
+            "expected a settled result, got {result:?}"
+        );
+        assert!(result.suggestions().iter().any(|s| s.value == "cd"));
+        assert!(completer.worker.is_none(), "a worker was spawned anyway");
+        assert_eq!(completer.poll_completion(), CompletionStatus::Idle);
+    }
+
+    /// Engine whose external completer reports what its evaluation environment
+    /// allowed: `piped-N` if a piped external's stdout reached `lines`,
+    /// `direct-S` if a final external's stdout was captured.
+    fn probe_engine() -> (Arc<EngineState>, Arc<Stack>) {
+        let mut engine =
+            nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
+        let mut stack = Stack::new();
+        let cwd = std::env::temp_dir()
+            .to_string_lossy()
+            .trim_end_matches(['/', '\\'])
+            .replace('\\', "/");
+        stack.add_env_var(
+            "PWD".to_string(),
+            nu_protocol::Value::string(&cwd, Span::unknown()),
+        );
+        // External lookup needs a PATH; `Stack::new` starts with no env at all.
+        stack.add_env_var(
+            "PATH".to_string(),
+            nu_protocol::Value::string(std::env::var("PATH").unwrap_or_default(), Span::unknown()),
+        );
+
+        let setup = r#"$env.config.completions.external = {
+                enable: true
+                completer: {|spans|
+                    let piped = ("alpha\nbeta\n" | lines | length)
+                    let direct = ('gamma' | str trim)
+                    [$"piped-($piped)" $"direct-($direct)"]
+                }
+            }"#;
+        let mut working_set = StateWorkingSet::new(&engine);
+        let block = nu_parser::parse(&mut working_set, None, setup.as_bytes(), false);
+        assert!(working_set.parse_errors.is_empty(), "setup failed to parse");
+        engine.merge_delta(working_set.render()).expect("merge");
+        nu_engine::eval_block::<nu_protocol::debugger::WithoutDebug>(
+            &engine,
+            &mut stack,
+            &block,
+            nu_protocol::PipelineData::empty(),
+        )
+        .expect("eval setup");
+        engine.merge_env(&mut stack).expect("merge env");
+
+        (Arc::new(engine), Arc::new(stack))
+    }
+
+    /// Externals inside a completer keep their stdout on both stacks:
+    /// `suppress_output` only sets `out_dest.stdout` (final command), while
+    /// `collect_value` sets `pipe_stdout` (piped stages). Thus the opt-out only
+    /// has to stop offloading; the stack needs no changes.
+    #[rstest::rstest]
+    #[case::foreground(false)]
+    #[case::background(true)]
+    fn externals_in_a_completer_keep_their_stdout(#[case] suppress_stdin: bool) {
+        let (engine, stack) = probe_engine();
+        let engine = CompletionEngine::new(engine, isolated_stack(stack, suppress_stdin));
+
+        let values: Vec<String> = engine
+            .fetch_completions_at("somecmd x", 9)
+            .into_iter()
+            .map(|s| s.suggestion.value)
+            .collect();
+
+        assert!(
+            values.iter().any(|v| v == "piped-2"),
+            "a piped external lost its stdout: {values:?}"
+        );
+        assert!(
+            values.iter().any(|v| v == "direct-gamma"),
+            "a final external lost its stdout: {values:?}"
+        );
+    }
+
     /// The worker runs on an isolated stack and must still produce identical results.
     #[test]
     fn background_result_matches_the_synchronous_engine() {
@@ -1996,14 +2331,68 @@ mod completer_tests {
         );
     }
 
+    /// Any `$env.config` assignment, including ones that are not completion
+    /// settings, must not keep serving the previous prompt's suggestions.
+    #[rstest::rstest]
+    #[case::external_completer(
+        b"$env.config.completions.external.completer = {|spans| [from-second]}",
+        Some("from-second")
+    )]
+    #[case::unrelated_config(b"$env.config.float_precision = 5", None)]
+    fn cache_is_not_reused_after_config_changes(
+        #[case] later: &[u8],
+        #[case] expected_external: Option<&str>,
+    ) {
+        let mut engine = (*test_engine()).clone();
+        let mut stack = Stack::new();
+        apply_source(
+            &mut engine,
+            &mut stack,
+            b"$env.config.completions.external.completer = {|spans| [from-first]}",
+        );
+        let first_env = CacheEnv::of(&engine, &stack);
+        let engine = Arc::new(engine);
+        let stack = Arc::new(stack);
+        let cache = NarrowingCache::default();
+
+        let mut filling_prompt =
+            NuCompleter::with_cache(engine.clone(), stack.clone(), cache.clone());
+        assert!(!filling_prompt.complete_blocking("ls | c", 6).is_empty());
+        drop(filling_prompt);
+
+        let mut engine = (*engine).clone();
+        let mut stack = (*stack).clone();
+        apply_source(&mut engine, &mut stack, later);
+        let second_env = CacheEnv::of(&engine, &stack);
+        assert_ne!(
+            first_env, second_env,
+            "a config assignment must change the cache fingerprint"
+        );
+
+        let mut next_prompt = NuCompleter::with_cache(Arc::new(engine), Arc::new(stack), cache);
+        assert!(
+            next_prompt.complete("ls | c", 6).is_pending(),
+            "entries computed under a previous config must not answer"
+        );
+
+        if let Some(expected) = expected_external {
+            let values: Vec<_> = next_prompt
+                .complete_blocking("extcommand x", 12)
+                .iter()
+                .map(|s| s.value.clone())
+                .collect();
+            assert_eq!(values, [expected], "the newly assigned completer must run");
+        }
+    }
+
     /// `cache_size = 0` must disable the cache entirely, even a carried-over one.
     #[test]
     fn cache_size_zero_disables_the_cache() {
-        let mut engine = test_engine();
-        {
-            let state = Arc::make_mut(&mut engine);
-            Arc::make_mut(&mut state.config).completions.cache_size = 0;
-        }
+        let mut engine = (*test_engine()).clone();
+        let mut config = engine.get_config().as_ref().clone();
+        config.completions.cache_size = 0;
+        engine.set_config(config);
+        let engine = Arc::new(engine);
         let cache = NarrowingCache::default();
 
         let mut filling_prompt =
@@ -2015,6 +2404,41 @@ mod completer_tests {
         assert!(
             next_prompt.complete("ls | c", 6).is_pending(),
             "a disabled cache must not answer a query it could have answered"
+        );
+    }
+
+    /// A cached answer stands in for the computed one, so the two must agree on order.
+    /// Re-sorting the cache put `config/` after `config.nu`, inverting every keystroke.
+    #[test]
+    fn a_narrowed_cache_answer_keeps_the_order_it_was_given() {
+        let cache = NarrowingCache::default();
+        let env = CacheEnv::of(&test_engine(), &Stack::new());
+        let span = reedline::Span::new(3, 5);
+
+        // The order file completion produces: the directory first, ranked as `config`.
+        let cached: Suggestions = ["config/", "config.nu"]
+            .iter()
+            .map(|value| Suggestion {
+                value: (*value).to_string(),
+                span,
+                ..Default::default()
+            })
+            .collect::<Vec<_>>()
+            .into();
+
+        cache.store(CompletionQuery::new("ls co", 5), env, cached);
+
+        let narrowed = cache.narrowed_fallback(
+            &CompletionQuery::new("ls con", 6),
+            env,
+            &CompletionOptions::default(),
+        );
+
+        let values: Vec<&str> = narrowed.iter().map(|s| s.value.as_str()).collect();
+        assert_eq!(
+            values,
+            ["config/", "config.nu"],
+            "the cached answer must not reorder what it stands in for"
         );
     }
 }

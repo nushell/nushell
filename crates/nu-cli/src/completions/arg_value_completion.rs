@@ -8,7 +8,7 @@ use crate::{
 };
 use nu_parser::parse_module_file_or_dir;
 use nu_protocol::{
-    DynamicCompletionCallRef, Span,
+    DynamicCompletionCallRef, Span, SyntaxShape,
     ast::{Argument, Call, Expr, Expression, ListItem},
     engine::{ArgType, StateWorkingSet},
 };
@@ -22,6 +22,10 @@ pub struct ArgValueCompletion<'a> {
     /// Index into `call.arguments`, or `call.arguments.len()` for a synthesized
     /// trailing slot the parser produced no argument for (e.g. `open <tab>`).
     pub arg_idx: usize,
+    /// The `SyntaxShape` this argument is declared with in the command's signature, if
+    /// known. Used to pick a type-specific fallback (e.g. directories for `cd <tab>`) when
+    /// the slot is still empty and so has no parsed expression to read the shape from.
+    pub declared_shape: Option<SyntaxShape>,
     /// Cursor, in absolute working-set (span) coordinates.
     pub cursor: usize,
 }
@@ -90,7 +94,7 @@ impl<'a> ArgValueCompletion<'a> {
                     matcher.add_semantic_suggestion(suggestion);
                 }
 
-                Some(Fetched::cacheable(matcher.suggestion_results()))
+                Some(Fetched::Cacheable(matcher.suggestion_results()))
             }
             Ok(None) => None, // fallback to type based completion, file completion, etc.
             Err(error) => {
@@ -120,13 +124,13 @@ impl<'a> ArgValueCompletion<'a> {
     ) -> Fetched {
         let expression = self.arg_expr();
         let Some((module_name, span)) = self.find_module_name_and_span() else {
-            return Fetched::pure(vec![]);
+            return Fetched::Pure(vec![]);
         };
 
         let Some((module_id, temp_working_set)) =
             self.resolve_module(working_set, module_name, span)
         else {
-            return Fetched::pure(vec![]);
+            return Fetched::Pure(vec![]);
         };
 
         let mut exportable_completion = ExportableCompletion {
@@ -143,12 +147,10 @@ impl<'a> ArgValueCompletion<'a> {
                     completion_context,
                     &mut exportable_completion,
                 ),
-                _ => Fetched::pure(vec![]),
+                _ => Fetched::Pure(vec![]),
             },
-            // No expression at all (e.g. a missing/undefined argument).
-            None => Fetched::pure(vec![]),
-            // Any other scalar shape (`Expr::String`, plus `Expr::Nothing` for the
-            // `null` keyword): search exports by the raw prefix text.
+            // No expression at all or any other scalar shape (`Expr::String`, plus `Expr::Nothing`
+            // for the `null` keyword): search exports by the raw prefix text.
             _ => exportable_completion.fetch(completion_context),
         };
 
@@ -201,39 +203,35 @@ impl<'a> ArgValueCompletion<'a> {
     ) -> Fetched {
         let cursor_position = self.cursor;
 
-        for item in items {
-            let item_span = item.expr().span;
+        let item_span = items
+            .iter()
+            .map(|item| item.expr().span)
+            .find(|item_span| touches(*item_span, cursor_position))
+            .unwrap_or(Span::point(cursor_position));
 
-            if !touches(item_span, cursor_position) {
-                continue;
-            }
+        // The member's typed text is the tail of `completion_context.prefix`, from
+        // the member's start onward; the cursor-sliced buffer already ends it.
+        let relative_offset = item_span
+            .start
+            .saturating_sub(completion_context.span.start);
+        let sliced_prefix = completion_context
+            .prefix
+            .get(relative_offset..)
+            .unwrap_or_default();
 
-            // The member's typed text is the tail of `completion_context.prefix`, from
-            // the member's start onward; the cursor-sliced buffer already ends it.
-            let relative_offset = item_span
-                .start
-                .saturating_sub(completion_context.span.start);
-            let sliced_prefix = completion_context
-                .prefix
-                .get(relative_offset..)
-                .unwrap_or_default();
+        let new_span = Span::new(
+            item_span.start,
+            completion_context.span.end.min(item_span.end),
+        );
 
-            let new_span = Span::new(
-                item_span.start,
-                completion_context.span.end.min(item_span.end),
-            );
+        let item_context = self.completer.context(
+            completion_context.working_set,
+            new_span,
+            sliced_prefix,
+            completion_context.offset,
+        );
 
-            let item_context = self.completer.context(
-                completion_context.working_set,
-                new_span,
-                sliced_prefix,
-                completion_context.offset,
-            );
-
-            return exportable_completion.fetch(&item_context);
-        }
-
-        Fetched::pure(vec![])
+        exportable_completion.fetch(&item_context)
     }
 
     fn fetch_fallback_completion(
@@ -243,12 +241,24 @@ impl<'a> ArgValueCompletion<'a> {
     ) -> Fetched {
         let complete_file = || FileCompletion.fetch(completion_context);
 
-        match expression {
-            Some(Expr::Directory(_, _)) => DirectoryCompletion.fetch(completion_context),
-            Some(Expr::Filepath(_, _)) | Some(Expr::GlobPattern(_, _)) => complete_file(),
+        // Prefer the parsed argument's shape. When the slot is still empty (`cd <tab>`)
+        // there is no parsed expression, so fall back to the shape the signature declares
+        // for this argument; otherwise a typed positional/flag would lose its type-specific
+        // completion and dump every path instead (issue #18862).
+        let shape = match expression {
+            Some(Expr::Directory(_, _)) => Some(&SyntaxShape::Directory),
+            Some(Expr::Filepath(_, _)) => Some(&SyntaxShape::Filepath),
+            Some(Expr::GlobPattern(_, _)) => Some(&SyntaxShape::GlobPattern),
+            Some(_) => None,
+            None => self.declared_shape.as_ref(),
+        };
+
+        match shape {
+            Some(SyntaxShape::Directory) => DirectoryCompletion.fetch(completion_context),
+            Some(SyntaxShape::Filepath | SyntaxShape::GlobPattern) => complete_file(),
             // fallback to file completion if necessary
             _ if self.need_fallback => complete_file(),
-            _ => Fetched::pure(vec![]),
+            _ => Fetched::Pure(vec![]),
         }
     }
 }

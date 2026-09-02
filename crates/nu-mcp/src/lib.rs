@@ -33,9 +33,21 @@ pub enum McpTransport {
     Stdio,
     /// HTTP transport with SSE streaming
     Http {
+        /// Address to bind to (default: 127.0.0.1)
+        bind_host: String,
         /// Port to listen on
-        port: u16,
+        bind_port: u16,
     },
+}
+
+impl McpTransport {
+    /// Create a new MCP transport configuration for HTTP
+    pub fn http(bind_address: Option<String>, port: Option<u16>) -> Self {
+        McpTransport::Http {
+            bind_host: bind_address.unwrap_or("127.0.0.1".into()),
+            bind_port: port.unwrap_or(8080),
+        }
+    }
 }
 
 pub fn initialize_mcp_server(
@@ -84,7 +96,13 @@ pub fn initialize_mcp_server(
     runtime.block_on(async {
         let result = match transport {
             McpTransport::Stdio => run_stdio_server(engine_state).await,
-            McpTransport::Http { port } => run_http_server(engine_state, port).await,
+            McpTransport::Http {
+                bind_host,
+                bind_port,
+            } => {
+                let addr = format!("{bind_host}:{bind_port}");
+                run_http_server(engine_state, &addr).await
+            }
         };
         if let Err(e) = result {
             tracing::error!("Error running MCP server: {:?}", e);
@@ -113,7 +131,7 @@ const SESSION_CHANNEL_CAPACITY: usize = 16;
 
 async fn run_http_server(
     engine_state: EngineState,
-    port: u16,
+    bind_address: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let engine_state = Arc::new(engine_state);
 
@@ -137,10 +155,9 @@ async fn run_http_server(
         StreamableHttpServerConfig::default(),
     ));
 
-    let addr = format!("0.0.0.0:{port}");
-    let listener = tokio::net::TcpListener::bind(&addr).await?;
-    tracing::info!("MCP HTTP server listening on http://{addr}");
-    eprintln!("MCP HTTP server listening on http://{addr}");
+    let listener = tokio::net::TcpListener::bind(bind_address).await?;
+    tracing::info!("MCP HTTP server listening on http://{bind_address}");
+    eprintln!("MCP HTTP server listening on http://{bind_address}");
 
     loop {
         let io = tokio::select! {

@@ -34,6 +34,17 @@ fn table_to_yml_text_and_from_yml_text_back_into_table() -> Result {
 }
 
 #[test]
+fn embedded_yaml_float_tokens_remain_strings() -> Result {
+    test()
+        .run(r#""key: a.infra" | from yaml | get key"#)
+        .expect_value_eq("a.infra")?;
+
+    test()
+        .run(r#""key: a.nanotube" | from yaml | get key"#)
+        .expect_value_eq("a.nanotube")
+}
+
+#[test]
 fn convert_dict_to_yaml_with_boolean_key() -> Result {
     let code = r#""true: BooleanKey " | from yaml --key-resolution verbatim"#;
 
@@ -202,4 +213,14 @@ fn convert_keys_are_quoted_only_when_required(#[case] input: &str, #[case] quote
         false => assert_eq!(output, format!("{input}: null\n"), "expected no quotes"),
     };
     Ok(())
+}
+
+#[rstest]
+#[case::raw_null("null")]
+#[case::string_null("'null'")]
+#[nu_test_support::test]
+fn null_as_non_roundtrip_value(#[case] null: &str) -> Result {
+    test()
+        .run(format!("{{|| version}} | to yaml --non-roundtrip {null}"))
+        .expect_value_eq("null\n")
 }

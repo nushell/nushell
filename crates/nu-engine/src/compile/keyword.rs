@@ -413,6 +413,7 @@ pub(crate) fn compile_let(
             Instruction::LoadVariable {
                 dst: io_reg,
                 var_id,
+                preserve_origin: false,
             }
             .into_spanned(call.head),
         )?;

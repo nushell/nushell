@@ -26,6 +26,20 @@ fn help_shows_usage() -> TestResult {
 }
 
 #[test]
+fn help_has_no_ansi_when_stdout_is_not_terminal() -> TestResult {
+    let mut cmd = Command::new(cargo_bin!());
+    let output = cmd.arg("--help").output()?;
+
+    assert!(output.status.success());
+    assert!(
+        !output.stdout.contains(&0x1b),
+        "redirected help output should not contain ANSI escape sequences"
+    );
+
+    Ok(())
+}
+
+#[test]
 fn help_lists_all_flags() -> TestResult {
     let mut cmd = Command::new(cargo_bin!());
     let output = cmd.arg("--help").output()?;

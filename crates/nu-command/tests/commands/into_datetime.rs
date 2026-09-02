@@ -347,3 +347,15 @@ fn into_datetime_list_of_dates_is_noop_keeps_length() -> Result {
     assert_eq!(actual, 2);
     Ok(())
 }
+
+#[test]
+fn into_datetime_from_any_typed_pipeline_is_datetime() -> Result {
+    // `http get` is typed `any`. A catch-all `(any, table)` pair on `into datetime`
+    // (used for `--list`) must not make this infer as `table`.
+    let code = r#"
+        def f []: nothing -> any { "2020-01-01" }
+        let d: datetime = (f | into datetime)
+        $d | describe
+    "#;
+    test().run(code).expect_value_eq("datetime")
+}

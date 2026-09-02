@@ -780,6 +780,10 @@ pub fn parse_module_file_or_dir(
         return None;
     }
 
+    if working_set.skip_module_load {
+        return None;
+    }
+
     #[allow(deprecated)]
     let cwd = working_set.get_cwd();
 
@@ -963,6 +967,10 @@ pub fn parse_module(
             call_span,
             Type::Any,
         )]);
+
+        if working_set.skip_module_load {
+            return (pipeline, None);
+        }
 
         if let Some(module_id) = parse_module_file_or_dir(
             working_set,
@@ -1201,6 +1209,16 @@ pub fn parse_use(
             module,
             module_id,
         )
+    } else if working_set.skip_module_load {
+        return (
+            Pipeline::from_vec(vec![Expression::new(
+                working_set,
+                Expr::Call(call),
+                call_span,
+                Type::Any,
+            )]),
+            vec![],
+        );
     } else if let Some(module_id) = parse_module_file_or_dir(
         working_set,
         &import_pattern.head.name,
@@ -1690,6 +1708,8 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
                     module_id,
                     true,
                 )
+            } else if working_set.skip_module_load {
+                return pipeline;
             } else if let Some(module_id) = parse_module_file_or_dir(
                 working_set,
                 overlay_name.as_bytes(),

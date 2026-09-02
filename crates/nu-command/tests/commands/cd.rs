@@ -1,6 +1,4 @@
 use nu_protocol::shell_error;
-#[cfg(unix)]
-use nu_protocol::test_record;
 use nu_test_support::{fs::Stub::EmptyFile, prelude::*};
 
 #[test]
@@ -269,9 +267,10 @@ fn cd_permission_denied_folder() -> Result {
 }
 
 #[test]
+#[deps(NU)]
 #[cfg(unix)]
 fn pwd_recovery() -> Result {
-    let nu = nu_test_support::fs::executable_path().display().to_string();
+    let nu = NU.path().display().to_string();
     let unique = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|duration| duration.as_nanos())

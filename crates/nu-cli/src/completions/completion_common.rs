@@ -255,7 +255,7 @@ pub(crate) fn complete_paths(ctx: &Context, directories_only: bool) -> Fetched {
     .collect();
 
     hidden_files_last(&mut items);
-    Fetched::cacheable(items)
+    Fetched::Cacheable(items)
 }
 
 /// # Parameters

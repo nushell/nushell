@@ -112,6 +112,38 @@ fn continues_onto_next_line(c: u8) -> bool {
     )
 }
 
+/// Advance the delimiter matching for one byte inside a subexpression of an
+/// interpolated string. Shared by `lex_item` and `parse_string_interpolation`
+/// so both scan the same bytes the same way. The stack holds expected closers;
+/// `open` is stored alongside a pushed closer (a span for error reporting, or
+/// `()` when the caller does not need one).
+///
+/// While the innermost open delimiter is a quote, only that quote closes it;
+/// otherwise quotes open nested strings and parens nest. Escapes exist only in
+/// double-quoted strings: returns true when `byte` is a backslash inside a
+/// nested `"` string, in which case the caller must also skip the next byte.
+pub(crate) fn interp_subexpr_step<T>(stack: &mut Vec<(u8, T)>, byte: u8, open: T) -> bool {
+    match stack.last() {
+        Some(&(expected, _)) if expected != b')' => {
+            if expected == b'"' && byte == b'\\' {
+                return true;
+            }
+            if byte == expected {
+                stack.pop();
+            }
+        }
+        _ => match byte {
+            b'\'' | b'"' | b'`' => stack.push((byte, open)),
+            b'(' => stack.push((b')', open)),
+            b')' => {
+                stack.pop();
+            }
+            _ => {}
+        },
+    }
+    false
+}
+
 pub fn lex_item(
     input: &[u8],
     curr_offset: &mut usize,
@@ -122,6 +154,18 @@ pub fn lex_item(
 ) -> (Token, Option<ParseError>) {
     // Tracks the opening quote character and its span while inside a string.
     let mut quote_start: Option<(u8, Span)> = None;
+
+    // True while the current string is an interpolated one (its opening quote
+    // directly follows `$`). Inside such a string an unescaped `(` starts a
+    // subexpression, where quotes and parens nest.
+    let mut quote_is_interp = false;
+
+    // Expected closers (with opener spans) while inside a subexpression of an
+    // interpolated string. Non-empty means the string's own closing quote does
+    // not end it yet. Mirrors the delimiter matching that
+    // `parse_string_interpolation` later applies to the same bytes, so the
+    // token ends exactly where the parser will end the string.
+    let mut interp_expr_level: Vec<(u8, Span)> = vec![];
 
     let mut in_comment = false;
 
@@ -161,6 +205,28 @@ pub fn lex_item(
         let c = *c;
 
         if let Some((start, open_span)) = quote_start {
+            if !interp_expr_level.is_empty() {
+                // Inside a subexpression of an interpolated string; the shared
+                // step keeps this scan and `parse_string_interpolation` on the
+                // same rules, so the token ends where the parser ends the
+                // string.
+                let open = Span::new(span_offset + *curr_offset, span_offset + *curr_offset + 1);
+                if interp_subexpr_step(&mut interp_expr_level, c, open)
+                    && input.get(*curr_offset + 1).is_some()
+                {
+                    // Escape inside a nested double-quoted string: consume the
+                    // escaped byte too, so `\"` does not close the string.
+                    *curr_offset += 2;
+                    previous_char = Some(c);
+                    at_line_start = false;
+                    continue;
+                }
+                last_sig_char = Some(c);
+                at_line_start = false;
+                *curr_offset += 1;
+                previous_char = Some(c);
+                continue;
+            }
             // Check if we're in an escape sequence
             if c == b'\\' && start == b'"' {
                 // Go ahead and consume the escape character if possible
@@ -198,6 +264,15 @@ pub fn lex_item(
             if c == start {
                 // Also need to check to make sure we aren't escaped
                 quote_start = None;
+            } else if quote_is_interp && c == b'(' {
+                // An unescaped `(` in an interpolated string starts a
+                // subexpression (an escaped one was already consumed by the
+                // escape handling above). The string's closing quote cannot
+                // end it until the matching `)` is found.
+                interp_expr_level.push((
+                    b')',
+                    Span::new(span_offset + *curr_offset, span_offset + *curr_offset + 1),
+                ));
             }
             last_sig_char = Some(c);
             at_line_start = false;
@@ -230,6 +305,9 @@ pub fn lex_item(
         } else if c == b'\'' || c == b'"' || c == b'`' {
             let open_span = Span::new(span_offset + *curr_offset, span_offset + *curr_offset + 1);
             quote_start = Some((c, open_span));
+            // `$"` and `$'` open interpolated strings, where `(` starts a
+            // subexpression. Backtick strings never interpolate.
+            quote_is_interp = c != b'`' && previous_char == Some(b'$');
             last_sig_char = Some(c);
             at_line_start = false;
         } else if c == b'[' {
@@ -419,6 +497,30 @@ pub fn lex_item(
     } else {
         span
     };
+
+    // An open delimiter inside an interpolated string's subexpression is more
+    // precise than the enclosing quote. Report the oldest one: in the common
+    // `$"foo (2 + 3"` typo the trailing quote was meant to close the string,
+    // and the actual mistake is the unclosed `(`.
+    if let Some((closer, open_span)) = interp_expr_level.first() {
+        let closer_str = match closer {
+            b')' => ")",
+            delim => quote_delimiter_str(*delim),
+        };
+        return (
+            Token {
+                contents: TokenContents::Item,
+                span,
+            },
+            Some(unclosed_from_open(
+                input,
+                span_offset,
+                closer_str,
+                *open_span,
+                end_span,
+            )),
+        );
+    }
 
     if let Some((delim, open_span)) = quote_start {
         // The non-lite parse trims quotes on both sides, so we add the expected quote so that
