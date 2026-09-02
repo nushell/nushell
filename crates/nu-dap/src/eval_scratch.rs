@@ -217,7 +217,9 @@ impl Scratch {
     fn eval_to_string(&mut self, expr: &str, vars: &[(String, Value)]) -> String {
         match self.eval(expr, vars) {
             Ok(Value::String { val, .. }) => val,
-            Ok(v) => v.to_expanded_string(", ", &nu_protocol::Config::default()),
+            // The session's config, not a default one: a logpoint has to
+            // format a value the same way the Variables row beside it does.
+            Ok(v) => v.to_expanded_string(", ", self.engine.get_config()),
             Err(e) => format!("{{error: {e}}}"),
         }
     }

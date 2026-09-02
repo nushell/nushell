@@ -94,6 +94,14 @@ impl Session {
                     let old = old_state.session_state.lock();
                     let mut new = new_state.session_state.lock();
                     new.breakpoints = old.breakpoints.clone();
+                    // A restart stays inside one DAP session, so the client is
+                    // never asked to replay its configuration. The id counter
+                    // has to come along or the next `setBreakpoints` reissues
+                    // ids the breakpoints copied above still hold, and the
+                    // exception filter has to come along or a restart quietly
+                    // switches pausing-on-errors back on.
+                    new.next_bp_id = old.next_bp_id;
+                    new.break_on_error = old.break_on_error;
                 }
                 self.state = Some(new_state.clone());
                 self.writer.respond(seq, cmd, ());

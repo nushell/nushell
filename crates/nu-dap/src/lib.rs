@@ -11,16 +11,18 @@
 //!
 //! - [`run_stdio`] — what `nu --dap` calls, handing over the engine it has
 //!   already built. Speaks DAP over this process's stdin/stdout and does the
-//!   process-level setup an adapter that owns its stdio needs: rustls provider
-//!   (so `http` works), child stdin detached to `NUL`, and the script's
-//!   stdout/stderr captured and forwarded as DAP `output` events so they
-//!   can't corrupt the protocol stream.
+//!   process-level setup an adapter that owns its stdio needs: child stdin
+//!   detached to `NUL`, and the script's stdout/stderr captured and forwarded
+//!   as DAP `output` events so they can't corrupt the protocol stream.
 //!
 //! - [`serve`] — the same dispatch loop over any
 //!   [`BufRead`](std::io::BufRead) + [`Write`](std::io::Write), for embedding
 //!   behind another transport (socket, named pipe) or when the host wants to
 //!   own its stdio. Touches no process-level stdio, so the host routes the
 //!   debugged script's output itself (see `run_stdio` for reference).
+//!
+//! Neither entry point installs a TLS provider: that is the host's job, done
+//! once at startup before either is reached.
 //!
 //! The two are independent: a host that would rather own the loop can drop to
 //! `server::run_loop` with a pre-built [`dap::protocol::DapWriter`], with no
@@ -81,9 +83,8 @@ pub fn run_stdio(engine_state: nu_protocol::engine::EngineState) {
 ///
 /// Reads framed DAP requests from `input` and writes responses/events to
 /// `output`, on the calling thread, until the client disconnects. Unlike
-/// [`run_stdio`], it touches no process-level stdio and installs no rustls
-/// provider — the host owns that. `engine_state` is the template each run
-/// clones, as for [`run_stdio`].
+/// [`run_stdio`], it touches no process-level stdio. `engine_state` is the
+/// template each run clones, as for [`run_stdio`].
 pub fn serve<R, W>(input: R, output: W, engine_state: nu_protocol::engine::EngineState)
 where
     R: std::io::BufRead,

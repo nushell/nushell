@@ -149,7 +149,7 @@ impl Session {
             let fast = if is_bare_name {
                 self.with_state(|session| {
                     session
-                        .shadow_vars
+                        .active_shadow_vars()
                         .values()
                         .find(|sv| sv.name == bare)
                         .map(|sv| sv.value.clone())
@@ -164,7 +164,7 @@ impl Session {
                     let vars = {
                         let session = state.session_state.lock();
                         session
-                            .shadow_vars
+                            .active_shadow_vars()
                             .values()
                             .map(|sv| (sv.name.clone(), sv.value.clone()))
                             .collect::<Vec<_>>()

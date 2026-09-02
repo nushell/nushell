@@ -39,6 +39,15 @@ struct FileTableInner {
 
 impl FileTable {
     /// Intern a path: the one place a spelling becomes an identity.
+    ///
+    /// Relative spellings resolve against the *live* process cwd, which
+    /// `engine::Target::enter_cwd` moves to the script's directory before a
+    /// run. That is deliberate: the relative names nu records for `source`d
+    /// files are relative to exactly that directory, so interning them there
+    /// is what lets them meet the client's absolute path on one id. The
+    /// consequence to keep in mind is that the same *relative* spelling
+    /// interned before the run and during it can land on different ids;
+    /// clients send absolute paths, so it does not bite in practice.
     pub(crate) fn intern(&self, path: impl AsRef<Path>) -> FileId {
         let cwd = std::env::current_dir().unwrap_or_else(|_| ".".into());
         let key = nu_path::canonicalize_with(path.as_ref(), cwd)

@@ -554,10 +554,8 @@ impl DapDebugger {
         engine_state: &EngineState,
         stack: &Stack,
         site: &Site<'_>,
-        error: Option<&ShellError>,
+        err: &ShellError,
     ) {
-        let err = error.expect("error present");
-
         // Pause only at the innermost (first) report of the unwind.
         if self.in_error_unwind {
             return;
@@ -803,8 +801,8 @@ impl Debugger for DapDebugger {
             registers,
         };
 
-        if error.is_some() {
-            self.handle_error(engine_state, stack, &site, error);
+        if let Some(err) = error {
+            self.handle_error(engine_state, stack, &site, err);
             return;
         }
 

@@ -185,7 +185,12 @@ pub(crate) struct SessionState {
     pub shadow_vars: HashMap<usize, ShadowVar>,
     /// Full runtime env (`stack.get_env_vars`), snapshotted alongside
     /// `shadow_vars` and rendered as `$env` in Globals.
-    pub env_shadow: HashMap<String, nu_protocol::Value>,
+    ///
+    /// Behind an `Arc` so the time-travel tape can point at it instead of
+    /// copying it: `$env` is large and changes rarely, so with time travel on
+    /// (the default) every recorded line would otherwise carry its own clone
+    /// of the whole environment.
+    pub env_shadow: Arc<HashMap<String, nu_protocol::Value>>,
 
     // --- Time-travel ("recorded tape") ---
     /// Recorded history, a bounded ring buffer whose last entry is the
@@ -236,6 +241,17 @@ impl SessionState {
         }
     }
 
+    /// Shadow variables the client should be served right now: the ones
+    /// recorded at the entry being viewed when scrubbing the past, else the
+    /// live ones. Mirrors [`Self::active_snapshot`] so that hover, watch and
+    /// the Variables pane cannot disagree about which moment they describe.
+    pub(crate) fn active_shadow_vars(&self) -> &HashMap<usize, ShadowVar> {
+        self.view_index
+            .and_then(|i| self.timeline.get(i))
+            .map(|entry| &entry.shadow_vars)
+            .unwrap_or(&self.shadow_vars)
+    }
+
     pub(crate) fn active_snapshot_mut(&mut self) -> &mut PauseSnapshot {
         if self.view_index.is_some() {
             &mut self.history_snapshot
@@ -276,7 +292,9 @@ pub(crate) struct TimelineEntry {
     /// Pre-resolved to file/line: the `SourceMap` lives on the eval thread.
     pub frames: Vec<StackFrame>,
     pub shadow_vars: HashMap<usize, ShadowVar>,
-    pub env_shadow: HashMap<String, nu_protocol::Value>,
+    /// Shared with the live snapshot and with every other entry recorded while
+    /// the environment did not change — see [`SessionState::env_shadow`].
+    pub env_shadow: Arc<HashMap<String, nu_protocol::Value>>,
     pub last_result: Option<nu_protocol::Value>,
     /// At a pipe-stage boundary: (command name, value flowing in), shown as
     /// `in → cmd` in the past view's Pipeline scope.
@@ -363,7 +381,7 @@ impl DebugState {
                 paused_line: 0,
                 paused_depth: 0,
                 shadow_vars: HashMap::new(),
-                env_shadow: HashMap::new(),
+                env_shadow: Arc::default(),
                 timeline: VecDeque::new(),
                 view_index: None,
                 history_snapshot: PauseSnapshot::new(),

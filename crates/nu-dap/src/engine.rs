@@ -232,7 +232,9 @@ fn parse_script(engine_state: &mut EngineState, target: &Target) -> Result<Arc<B
     );
 
     if let Some(err) = working_set.parse_errors.first() {
-        return Err(format!("parse error: {err:?}"));
+        // Display, not Debug, and matching the compile-error arm below: the
+        // Debug form dumps spans into the message the user actually reads.
+        return Err(format!("parse error: {err}"));
     }
 
     if let Some(err) = working_set.compile_errors.first() {
@@ -306,8 +308,11 @@ fn drain_final_value(
 fn into_exit(outcome: Result<(), nu_protocol::ShellError>) -> Result<(), String> {
     match outcome {
         Ok(()) => Ok(()),
-        // Interrupted == user hit stop.
-        Err(e) if format!("{e:?}").contains("Interrupted") => Ok(()),
+        // Interrupted == user hit stop. Matched on the variant rather than
+        // scraped out of a `Debug` dump: `Debug` is not a stable interface,
+        // and matching its text swallowed any error merely mentioning the
+        // word, reporting a failed run as a clean exit.
+        Err(nu_protocol::ShellError::Interrupted { .. }) => Ok(()),
         // Display, not Debug: users get the message, not the enum.
         Err(e) => Err(format!("{e}")),
     }

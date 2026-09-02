@@ -1047,6 +1047,40 @@ fn deep_variables_hydrate_on_demand() {
     assert_eq!(leaf.as_deref(), Some("\"bottom\""), "hydrated to depth 6");
 }
 
+/// The debugger shadows `print` with its own shim, so the shim's flags have to
+/// match upstream's: a missing one turns a script that runs fine under `nu`
+/// into a parse error under `nu --dap`. `--raw` was the one that got away.
+#[test]
+#[deps(NU)]
+fn print_accepts_the_same_flags_as_upstream() -> nu_test_support::Result {
+    let script = example("print_flags.nu");
+    let mut d = Dap::spawn();
+    d.start(&script, json!({}), &[]);
+
+    let mut out = String::new();
+    loop {
+        let ev = d
+            .recv_until(|m| {
+                m["type"] == "event" && (m["event"] == "output" || m["event"] == "terminated")
+            })
+            .expect("output or terminated");
+        if ev["event"] == "terminated" {
+            break;
+        }
+        out.push_str(ev["body"]["output"].as_str().unwrap_or(""));
+    }
+
+    // A missing flag would surface as a parse error instead of the text.
+    assert!(!out.contains("parse error"), "out: {out}");
+    for expected in ["plain", "raw text", "short raw", "no newline"] {
+        assert!(out.contains(expected), "missing {expected:?} in: {out}");
+    }
+    // `--raw` on binary writes the bytes themselves, not a hex row.
+    assert!(out.contains("hi"), "raw binary not written through: {out}");
+    assert!(!out.contains("0x[68 69]"), "binary was formatted: {out}");
+    Ok(())
+}
+
 #[test]
 #[deps(NU, TESTBIN_INPUT_BYTES_LENGTH)]
 fn external_command_gets_empty_stdin() -> nu_test_support::Result {
@@ -1135,6 +1169,65 @@ fn hot_restart_reruns_in_the_same_session() {
     assert_eq!(ev["event"], "stopped");
     assert_eq!(ev["body"]["reason"], "breakpoint");
     assert_eq!(d.top_line(), 14);
+
+    d.send(
+        "setBreakpoints",
+        json!({ "source": { "path": demo }, "breakpoints": [] }),
+    );
+    d.response("setBreakpoints");
+    d.cont();
+    assert_eq!(d.stop_or_term()["event"], "terminated");
+}
+
+/// A restart is one DAP session, so the client never replays its
+/// configuration: the id counter and the exception filter have to survive it.
+/// They used to reset, which reissued ids the carried-over breakpoints still
+/// held and silently switched pausing-on-errors back on.
+#[test]
+#[deps(NU)]
+fn restart_keeps_breakpoint_ids_unique_and_the_exception_filter() {
+    let demo = example("demo.nu");
+    let mut d = Dap::spawn();
+    d.start(&demo, json!({}), &[14]);
+
+    // Turn pausing on errors off before restarting.
+    d.send("setExceptionBreakpoints", json!({ "filters": [] }));
+    d.response("setExceptionBreakpoints");
+
+    let first_id = {
+        d.send(
+            "setBreakpoints",
+            json!({
+                "source": { "path": demo },
+                "breakpoints": [{ "line": 14 }],
+            }),
+        );
+        let resp = d.response("setBreakpoints");
+        resp["body"]["breakpoints"][0]["id"].as_i64().expect("id")
+    };
+
+    assert_eq!(d.event("stopped")["body"]["reason"], "breakpoint");
+
+    d.send("restart", json!({}));
+    d.response("restart");
+    let ev = d.stop_or_term();
+    assert_eq!(ev["event"], "stopped");
+
+    // A breakpoint set after the restart must not reuse an id that the
+    // carried-over breakpoints are still using.
+    d.send(
+        "setBreakpoints",
+        json!({
+            "source": { "path": example("multi.nu") },
+            "breakpoints": [{ "line": 1 }],
+        }),
+    );
+    let resp = d.response("setBreakpoints");
+    let new_id = resp["body"]["breakpoints"][0]["id"].as_i64().expect("id");
+    assert!(
+        new_id > first_id,
+        "id {new_id} was already issued before the restart (first was {first_id})"
+    );
 
     d.send(
         "setBreakpoints",

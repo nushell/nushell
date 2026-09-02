@@ -4,6 +4,7 @@
 use super::DapDebugger;
 use crate::state::{RunMode, ShadowVar};
 use nu_protocol::engine::{EngineState, Stack};
+use std::sync::Arc;
 
 impl DapDebugger {
     /// Whether the run mode wants to pause here (breakpoints are handled in
@@ -80,7 +81,11 @@ impl DapDebugger {
 
         let mut session = self.state.session_state.lock();
         session.shadow_vars = vars;
-        session.env_shadow = env;
+        // Only swap the `Arc` when the environment actually changed, so the
+        // tape entries recorded in between all share one copy of it.
+        if *session.env_shadow != env {
+            session.env_shadow = Arc::new(env);
+        }
     }
 }
 

@@ -19,6 +19,16 @@ pub(crate) struct DapPrint {
     pub writer: DapWriter,
 }
 
+/// How one `print` invocation renders: its flags plus the DAP `output`
+/// category they resolved to.
+#[derive(Clone, Copy)]
+struct PrintOpts<'a> {
+    no_newline: bool,
+    /// `--raw`: no table pass, and binary goes out as its own bytes.
+    raw: bool,
+    category: &'a str,
+}
+
 impl Command for DapPrint {
     fn name(&self) -> &str {
         "print"
@@ -42,6 +52,11 @@ impl Command for DapPrint {
                 Some('n'),
             )
             .switch("stderr", "print to stderr instead of stdout", Some('e'))
+            .switch(
+                "raw",
+                "print without formatting (including binary data)",
+                Some('r'),
+            )
             .category(Category::Strings)
     }
 
@@ -55,22 +70,19 @@ impl Command for DapPrint {
         let args: Vec<Value> = call.rest(engine_state, stack, 0)?;
         let no_newline = call.has_flag(engine_state, stack, "no-newline")?;
         let to_stderr = call.has_flag(engine_state, stack, "stderr")?;
-        let category = if to_stderr { "stderr" } else { "stdout" };
+        let opts = PrintOpts {
+            no_newline,
+            raw: call.has_flag(engine_state, stack, "raw")?,
+            category: if to_stderr { "stderr" } else { "stdout" },
+        };
 
         if args.is_empty() {
             if !matches!(input, PipelineData::Empty) {
-                self.emit(engine_state, stack, call, input, no_newline, category)?;
+                self.emit(engine_state, stack, call, input, opts)?;
             }
         } else {
             for arg in args {
-                self.emit(
-                    engine_state,
-                    stack,
-                    call,
-                    arg.into_pipeline_data(),
-                    no_newline,
-                    category,
-                )?;
+                self.emit(engine_state, stack, call, arg.into_pipeline_data(), opts)?;
             }
         }
         Ok(PipelineData::empty())
@@ -378,9 +390,20 @@ impl DapPrint {
         stack: &mut Stack,
         call: &Call,
         data: PipelineData,
-        no_newline: bool,
-        category: &str,
+        opts: PrintOpts<'_>,
     ) -> Result<(), ShellError> {
+        // `--raw`, as upstream: no table pass, and binary is its own bytes
+        // rather than a hex dump. The DAP wire carries text, so the bytes are
+        // decoded lossily on the way out.
+        if opts.raw {
+            if let PipelineData::Value(Value::Binary { val: bytes, .. }, _) = &data {
+                self.writer
+                    .output(opts.category, String::from_utf8_lossy(bytes).into_owned());
+                return Ok(());
+            }
+            return self.emit_values(engine_state, data, opts);
+        }
+
         let data = match engine_state.table_decl_id {
             Some(decl_id) => {
                 let table_call = nu_protocol::ast::Call::new(call.head);
@@ -394,16 +417,26 @@ impl DapPrint {
             None => data,
         };
 
+        self.emit_values(engine_state, data, opts)
+    }
+
+    /// Render each value in `data` and send it as an `output` event.
+    fn emit_values(
+        &self,
+        engine_state: &EngineState,
+        data: PipelineData,
+        opts: PrintOpts<'_>,
+    ) -> Result<(), ShellError> {
         let config = engine_state.get_config();
         for value in data {
             let mut out = match value {
                 Value::Error { error, .. } => return Err(*error),
                 v => v.to_expanded_string("\n", config),
             };
-            if !no_newline {
+            if !opts.no_newline {
                 out.push('\n');
             }
-            self.writer.output(category, out);
+            self.writer.output(opts.category, out);
         }
         Ok(())
     }

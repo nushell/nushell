@@ -192,7 +192,7 @@ fn cap(s: &str, max: usize) -> String {
     if s.chars().count() <= max {
         return s.to_string();
     }
-    let head: String = s.chars().take(max - 1).collect();
+    let head: String = s.chars().take(max.saturating_sub(1)).collect();
     format!("{head}…")
 }
 
@@ -450,7 +450,7 @@ pub(crate) fn build_history_snapshot(
         let mut env_map: std::collections::BTreeMap<String, Value> = baseline_env
             .map(|b| b.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
             .unwrap_or_default();
-        for (k, v) in &entry.env_shadow {
+        for (k, v) in entry.env_shadow.iter() {
             env_map.insert(k.clone(), v.clone());
         }
         let mut rec = nu_protocol::Record::new();

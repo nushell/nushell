@@ -25,8 +25,6 @@ workspace = true
 nu-protocol = { workspace = true, features = ["os"] }
 nu-parser = { workspace = true }
 nu-engine = { workspace = true, features = ["os"] }
-nu-cmd-lang = { workspace = true, features = ["os"] }
-nu-command = { workspace = true, features = ["os", "network", "rustls-tls", "sqlite"] }
 nu-path = { workspace = true }
 nu-utils = { workspace = true }
 
@@ -43,6 +41,10 @@ windows-sys = { workspace = true, features = ["Win32_System_Console", "Win32_Fou
 libc = { workspace = true }
 
 [dev-dependencies]
+# Only the unit tests build a command context to render values against; the
+# adapter itself is handed the host's fully built engine.
+nu-cmd-lang = { workspace = true, features = ["os"] }
+nu-command = { workspace = true, features = ["os"] }
 nu-test-support = { path = "../nu-test-support" }
 
 rstest = { workspace = true, default-features = false }

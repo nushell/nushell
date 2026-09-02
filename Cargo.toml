@@ -98,6 +98,7 @@ nu-cmd-plugin = { path = "crates/nu-cmd-plugin", version = "0.115.2", default-fe
 nu-color-config = { path = "crates/nu-color-config", version = "0.115.2", default-features = false }
 nu-command = { path = "crates/nu-command", version = "0.115.2", default-features = false }
 nu-config = { path = "crates/nu-config", version = "0.115.2", default-features = false }
+nu-dap = { path = "crates/nu-dap", version = "0.115.2", default-features = false }
 nu-derive-value = { path = "crates/nu-derive-value", version = "0.115.2", default-features = false }
 nu-engine = { path = "crates/nu-engine", version = "0.115.2", default-features = false }
 nu-experimental = { path = "crates/nu-experimental", version = "0.115.2", default-features = false }
@@ -105,7 +106,6 @@ nu-explore = { path = "crates/nu-explore", version = "0.115.2", default-features
 nu-glob = { path = "crates/nu-glob", version = "0.115.2", default-features = false }
 nu-heavy-utils = { path = "crates/nu-heavy-utils", version = "0.115.2", default-features = false }
 nu-json = { path = "crates/nu-json", version = "0.115.2", default-features = false }
-nu-dap = { path = "crates/nu-dap", version = "0.115.2", default-features = false }
 nu-lsp = { path = "crates/nu-lsp", version = "0.115.2", default-features = false }
 nu-mcp = { path = "crates/nu-mcp", version = "0.115.2", default-features = false }
 nu-parser = { path = "crates/nu-parser", version = "0.115.2", default-features = false }

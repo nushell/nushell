@@ -109,9 +109,14 @@ impl Session {
             "nuDapUiReply" => self.on_ui_reply(seq, &cmd, req),
             "restart" => self.on_restart(seq, &cmd),
             "terminate" | "disconnect" => return self.on_terminate_or_disconnect(seq, &cmd),
-            // Politely acknowledge anything we don't implement.
+            // Unimplemented requests get an error response, not a cheerful
+            // `success: true` that a client would read as "it worked".
             other => {
-                self.writer.respond(seq, other, ());
+                self.writer.respond_error(
+                    seq,
+                    other,
+                    format!("`{other}` is not supported by nu-dap"),
+                );
             }
         }
         false

@@ -175,9 +175,15 @@ pub(crate) fn install_output_capture() -> OutputCapture {
     let dap_out = {
         let stdout = std::io::stdout();
         let dup: OwnedFd = stdout.as_fd().try_clone_to_owned().expect("dup stdout fd");
-        unsafe {
-            libc::dup2(stdout_tx.as_raw_fd(), 1);
-            libc::dup2(stderr_tx.as_raw_fd(), 2);
+        // Checked, like `detach_stdin`: a silent failure here would leave the
+        // script writing straight onto the DAP wire and corrupt the protocol.
+        for (from, to) in [(stdout_tx.as_raw_fd(), 1), (stderr_tx.as_raw_fd(), 2)] {
+            if unsafe { libc::dup2(from, to) } == -1 {
+                panic!(
+                    "dup2(capture pipe, {to}) failed: {}",
+                    std::io::Error::last_os_error()
+                );
+            }
         }
         // fds 1/2 are dups; the originals may drop.
         drop(stdout_tx);
@@ -224,9 +230,13 @@ fn forward(mut rx: PipeReader, pipe_type: PipeType, writer: DapWriter) {
                     seen += 1;
                 }
 
-                // Hold back a potential marker prefix at the tail.
+                // Hold back a potential marker prefix at the tail, and any
+                // incomplete UTF-8 sequence behind it: a read boundary can
+                // land mid-codepoint, and emitting that half would decode to
+                // a replacement character that never resolves.
                 let keep = marker_prefix_len(&pending);
-                let emit = pending.len() - keep;
+                let body = pending.len() - keep;
+                let emit = body - utf8_tail_len(&pending[..body]);
                 if emit > 0 {
                     let text = String::from_utf8_lossy(&pending[..emit]).to_string();
                     record_recent(&pipe_type, &text);
@@ -246,6 +256,32 @@ fn forward(mut rx: PipeReader, pipe_type: PipeType, writer: DapWriter) {
 
 fn find(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     haystack.windows(needle.len()).position(|w| w == needle)
+}
+
+/// Length of the trailing bytes of `data` that form an incomplete UTF-8
+/// sequence, and so must wait for the next read. Zero when `data` ends on a
+/// character boundary (the common case) or ends in bytes that can never start
+/// a valid sequence, which are better decoded lossily now than held forever.
+fn utf8_tail_len(data: &[u8]) -> usize {
+    // A sequence is at most 4 bytes, so at most 3 can be pending.
+    for back in 1..=3.min(data.len()) {
+        let byte = data[data.len() - back];
+        // Continuation byte (10xxxxxx): keep walking to the lead byte.
+        if byte & 0b1100_0000 == 0b1000_0000 {
+            continue;
+        }
+        // Lead byte: `back` bytes are present, `needed` are required.
+        let needed = match byte {
+            0x00..=0x7F => 1,
+            0xC0..=0xDF => 2,
+            0xE0..=0xEF => 3,
+            0xF0..=0xF7 => 4,
+            // Not a lead byte at all: nothing to wait for.
+            _ => return 0,
+        };
+        return if needed > back { back } else { 0 };
+    }
+    0
 }
 
 /// Length of the longest strict MARKER prefix at the end of `data`.
@@ -286,5 +322,64 @@ pub(crate) fn flush_output(timeout: Duration) {
             break;
         }
         cv.wait_for(&mut guard, left);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    //! Unit tests for [`crate::stdio`].
+
+    use super::{MARKER, marker_prefix_len, utf8_tail_len};
+    use pretty_assertions::assert_eq;
+    use rstest::rstest;
+
+    /// The forwarder reads fixed-size chunks, so a multi-byte character can
+    /// straddle two reads. Whatever is held back must be exactly the
+    /// incomplete tail.
+    #[rstest]
+    #[case::empty(&[], 0)]
+    #[case::ascii(b"hello", 0)]
+    #[case::complete_two_byte("é".as_bytes(), 0)]
+    #[case::complete_four_byte("🦀".as_bytes(), 0)]
+    #[case::split_two_byte(&[0xC3], 1)]
+    #[case::split_three_byte(&[0xE2, 0x82], 2)]
+    #[case::split_four_byte(&[0xF0, 0x9F, 0xA6], 3)]
+    #[case::text_then_split_char(&[b'o', b'k', b' ', 0xF0, 0x9F], 2)]
+    // A stray continuation byte with no lead in reach can never complete.
+    #[case::orphan_continuation(&[0x80, 0x80, 0x80], 0)]
+    fn incomplete_utf8_tails_are_held_back(#[case] data: &[u8], #[case] expected: usize) {
+        assert_eq!(utf8_tail_len(data), expected);
+    }
+
+    /// Reassembling across a boundary must lose nothing: the held-back tail
+    /// plus the next read decodes to the original text.
+    #[test]
+    fn a_character_split_across_reads_survives() {
+        let text = "héllo 🦀!";
+        let bytes = text.as_bytes();
+        let mut out = String::new();
+        // Every possible split point, to catch an off-by-one in either half.
+        for at in 0..=bytes.len() {
+            let (head, tail) = bytes.split_at(at);
+            let keep = utf8_tail_len(head);
+            let emit = head.len() - keep;
+            out.clear();
+            out.push_str(&String::from_utf8_lossy(&head[..emit]));
+            out.push_str(&String::from_utf8_lossy(&[&head[emit..], tail].concat()));
+            assert_eq!(out, text, "split at {at}");
+        }
+    }
+
+    /// The marker holdback this mirrors: a marker split across reads is still
+    /// recognised, so its bytes never reach the client as output.
+    #[rstest]
+    #[case::none(b"plain text", 0)]
+    #[case::one_byte(&[b'o', b'u', b't', 0x01], 1)]
+    #[case::partial(&[b'o', b'u', b't', 0x01, b'<', b'N', b'U'], 4)]
+    // MARKER opens and closes with the same byte, so its own last byte is a
+    // 1-byte prefix. Harmless: `find` strips whole markers before this runs.
+    #[case::whole_marker_keeps_its_trailing_byte(MARKER, 1)]
+    fn marker_prefixes_at_the_tail_are_held_back(#[case] data: &[u8], #[case] expected: usize) {
+        assert_eq!(marker_prefix_len(data), expected);
     }
 }

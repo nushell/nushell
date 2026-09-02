@@ -44,6 +44,12 @@ pub struct Event {
     pub event: DapEvent,
 }
 
+/// Largest DAP message body we will allocate for. Real requests are a few KB
+/// at most; the cap is what stops a malformed or hostile `Content-Length` from
+/// turning into a multi-gigabyte allocation (and an OOM abort) before a single
+/// byte of the body has arrived.
+const MAX_CONTENT_LENGTH: usize = 64 * 1024 * 1024;
+
 /// Reads one DAP message from the reader. Returns None on EOF.
 pub fn read_message<R: BufRead>(reader: &mut R) -> std::io::Result<Option<Request>> {
     let mut content_length: Option<usize> = None;
@@ -67,6 +73,13 @@ pub fn read_message<R: BufRead>(reader: &mut R) -> std::io::Result<Option<Reques
     let len = content_length.ok_or_else(|| {
         std::io::Error::new(std::io::ErrorKind::InvalidData, "missing Content-Length")
     })?;
+
+    if len > MAX_CONTENT_LENGTH {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!("Content-Length {len} exceeds the {MAX_CONTENT_LENGTH} byte limit"),
+        ));
+    }
 
     let mut buf = vec![0u8; len];
     reader.read_exact(&mut buf)?;

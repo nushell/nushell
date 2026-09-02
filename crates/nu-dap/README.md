@@ -64,7 +64,7 @@ client only surfaces working UI. This adapter is **launch-only** (there is no `a
 | Exception info                   | `supportsExceptionInfoRequest`                       | error id + message (+ external stderr tail)          |
 | Stepping                         | `continue` · `next` · `stepIn` · `stepOut` · `pause` | step-into walks pipe stages                          |
 | Step back / reverse continue     | `supportsStepBack`                                   | recorded time-travel                                 |
-| Stack trace / scopes / variables | `stackTrace` · `scopes` · `variables`                | lazy hydration; 5 scopes                             |
+| Stack trace / scopes / variables | `stackTrace` · `scopes` · `variables`                | lazy hydration; 5 scopes; innermost frame only        |
 | Evaluate (watch / repl / hover)  | `supportsEvaluateForHovers`, `evaluate`              | scratch engine                                       |
 | Configuration done               | `supportsConfigurationDoneRequest`                   | run deferred until breakpoints are set               |
 | Restart                          | `supportsRestartRequest`                             | hot restart; breakpoints kept                        |
@@ -84,6 +84,7 @@ client only surfaces working UI. This adapter is **launch-only** (there is no `a
 | Completions                    | `supportsCompletionsRequest`                                | not implemented                                                 |
 | Modules / loaded sources       | `supportsModulesRequest`, `supportsLoadedSourcesRequest`    | not applicable to nu                                            |
 | Restart frame                  | `supportsRestartFrame`                                      | not implemented                                                 |
+| Frame-scoped variables         | `scopes`/`variables`/`evaluate` honouring `frameId`         | locals come from the live `Stack`, which is not partitioned per frame |
 | Memory read/write, disassemble | `supportsReadMemoryRequest`, …                              | not applicable                                                  |
 | Cancel                         | `supportsCancelRequest`                                     | not implemented                                                 |
 | breakpoint locations           | `supportsBreakpointLocationsRequest`                        | not implemented                                                 |
@@ -92,6 +93,13 @@ client only surfaces working UI. This adapter is **launch-only** (there is no `a
 The two upstream-blocked rows — **set variable** and **jump to cursor** — are the notable "not yet": both need small
 nushell core changes (a mutable `Stack`
 in the debugger callbacks, and a control-flow return from `enter_instruction`).
+
+One more limitation worth knowing before you use the Call Stack pane: `scopes`, `variables` and `evaluate` ignore the
+`frameId` the client sends and always answer for the **innermost** frame. `stackTrace` reports the whole chain and
+clicking a caller navigates the editor to its call site correctly, but the Variables pane keeps showing the innermost
+frame's locals. Locals are snapshotted from the real evaluation `Stack`, which holds one flat `VarId -> Value` map
+rather than a per-frame partition, so answering per frame needs the frames to be reconstructed from the IR — the same
+information the "set variable" row is waiting on.
 
 [caps]: https://microsoft.github.io/debug-adapter-protocol/specification#Types_Capabilities
 
