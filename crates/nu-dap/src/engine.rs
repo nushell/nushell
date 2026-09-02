@@ -28,8 +28,8 @@ pub(crate) fn spawn_eval_thread(
         .spawn(move || {
             let state_for_exit = state.clone();
 
-            // A panic anywhere in evaluation must not leave the session hung
-            // with no terminated event — catch it and report.
+            // A panic in evaluation must not leave the session hung with no
+            // terminated event.
             let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 run(launch, state, &writer, engine_state)
             }));
@@ -53,11 +53,10 @@ pub(crate) fn spawn_eval_thread(
                 }
             }
 
-            // A restart replaces this thread with a fresh run in the same DAP
-            // session; announcing termination here would end the session.
+            // A restart replaces this thread within the same DAP session, so
+            // announcing termination here would end that session.
             if !state_for_exit.is_restarting() {
-                // Late output (an external's last lines, a final drain) must
-                // reach the client before we announce termination.
+                // Late output must reach the client before termination.
                 crate::stdio::flush_output(std::time::Duration::from_secs(2));
                 writer.event(DapEvent::Terminated);
                 writer.event(DapEvent::Exited { exit_code });
@@ -66,9 +65,8 @@ pub(crate) fn spawn_eval_thread(
         .expect("spawn eval thread")
 }
 
-/// One debug session, start to finish. Each step is a phase of the session
-/// lifecycle; the order matters and is the reason they read as a list here
-/// rather than being folded together.
+/// One debug session, start to finish. The steps are ordered phases, hence
+/// the flat reading order rather than fewer, fatter functions.
 fn run(
     launch: LaunchArgs,
     state: Arc<DebugState>,
@@ -84,13 +82,11 @@ fn run(
     cache_render_facts(&engine_state, &state);
     publish_valid_lines(&engine_state, &block, &state, writer);
 
-    // Must happen here: after the parse, so the script's own `def`s are in
-    // scope, and before `activate_debugger`, so the clone starts out
-    // undebugged. A `restart` replaces the previous run's scratch.
+    // After the parse, so the script's own `def`s are in scope, and before
+    // `activate_debugger`, so the clone starts out undebugged.
     *state.scratch.lock() = Some(crate::eval_scratch::Scratch::from_run_engine(&engine_state));
 
-    // Everything below runs with the debugger attached, so it must be paired
-    // with the `deactivate_debugger` further down.
+    // Paired with the `deactivate_debugger` further down.
     let dap_debugger = DapDebugger::new(state, writer.clone());
     engine_state
         .activate_debugger(Box::new(dap_debugger))
@@ -103,7 +99,7 @@ fn run(
     );
     // Process stdout/stderr were swapped for capture pipes at startup
     // (stdio.rs), so the default Inherit destination already reaches the DAP
-    // forwarders — no stack redirection needed.
+    // forwarders.
 
     let result = eval_program(&mut engine_state, &mut stack, &block, &launch);
     let outcome = drain_final_value(result, &engine_state, writer);
@@ -142,24 +138,20 @@ impl Target {
         })
     }
 
-    /// Move the *process* into the target's directory. Separate from `resolve`
-    /// because it mutates global state: the cwd matters beyond `$env.PWD`, as
+    /// Move the *process* into the target's directory — kept out of `resolve`
+    /// because it mutates global state. The cwd matters beyond `$env.PWD`: the
     /// relative paths nu records for `source`/`use` files are canonicalized
-    /// against it (source_map.rs).
+    /// against it.
     fn enter_cwd(&self) {
         let _ = std::env::set_current_dir(&self.cwd);
     }
 }
 
-/// Make one run's engine out of the host's.
+/// Make one run's engine out of the host's fully built one, adjusting only
+/// what a debug session needs differently, so the debugged script sees the
+/// same nushell as `nu script.nu` would give.
 ///
-/// The host (`nu --dap`) hands us its fully built `EngineState` — core
-/// language, builtin commands, plugins, the gathered parent environment, the
-/// `$nu` constant. We take a clone of it per run and adjust only what a debug
-/// session needs differently, so the debugged script sees the same nushell the
-/// user would get from `nu script.nu`.
-///
-/// Cloning matters: parsing the target merges its decls into the engine, and a
+/// Cloning matters: parsing the target merges its decls into the engine and a
 /// `restart` must not inherit them, so every run starts from the pristine
 /// template.
 fn prepare_engine(
@@ -168,17 +160,16 @@ fn prepare_engine(
     state: &Arc<DebugState>,
     writer: &DapWriter,
 ) -> Result<EngineState, String> {
-    // Several fields survive a clone as shared `Arc`s — the debugger slot most
-    // of all. Without this, a `restart` would activate the new run's debugger
-    // in the same slot the outgoing run then deactivates (or reports its
-    // interrupt through), so the fresh run silently loses its breakpoints.
+    // Several fields survive a clone as shared `Arc`s, the debugger slot most
+    // of all: without this a `restart` would activate the new run's debugger
+    // in the slot the outgoing run then deactivates, and the fresh run would
+    // silently lose its breakpoints.
     engine_state.make_session_state_unique();
 
     engine_state = register_dap_commands(engine_state, state, writer)?;
 
-    // A per-run interrupt flag, not the host's: `terminate`/`stop` trigger it
-    // (debugger/mod.rs), and a flag left raised by one run would abort the next
-    // one instantly on `restart`.
+    // A per-run interrupt flag, not the host's: a flag left raised by one run
+    // would abort the next one instantly on `restart`.
     engine_state.set_signals(Signals::new(Arc::new(std::sync::atomic::AtomicBool::new(
         false,
     ))));
@@ -191,10 +182,9 @@ fn prepare_engine(
     Ok(engine_state)
 }
 
-/// `print` lives in nu-cli and `input`/`input list`/`input listen` in
-/// nu-command, but neither flavour works here: their output and prompts belong
-/// to a terminal, and our stdout is the DAP wire. Registering last means these
-/// shims (print_cmd.rs) shadow the host's for everything parsed afterwards.
+/// The host's `print` and `input` family write to a terminal, but our stdout
+/// is the DAP wire. Registering last means these shims (print_cmd.rs) shadow
+/// them for everything parsed afterwards.
 fn register_dap_commands(
     mut engine_state: EngineState,
     state: &Arc<DebugState>,
@@ -230,8 +220,7 @@ fn register_dap_commands(
 }
 
 /// Parse the target script and merge it into the engine. A parse or compile
-/// error here is fatal: nothing downstream can run, so the session never
-/// starts.
+/// error is fatal: nothing downstream can run.
 fn parse_script(engine_state: &mut EngineState, target: &Target) -> Result<Arc<Block>, String> {
     let mut working_set = StateWorkingSet::new(engine_state);
 
@@ -259,8 +248,8 @@ fn parse_script(engine_state: &mut EngineState, target: &Target) -> Result<Arc<B
 }
 
 /// Closure source text and capture names, resolved once now that every block
-/// exists. The server thread can't reach `engine_state` to do this later (see
-/// the concurrency rule in state.rs), so it has to be cached up front.
+/// exists — the server thread can't reach `engine_state` to do it later (see
+/// the concurrency rule in state.rs).
 fn cache_render_facts(engine_state: &EngineState, state: &DebugState) {
     *state.cache.lock() = Arc::new(crate::variables::collect_render_cache(engine_state));
 }
@@ -284,9 +273,8 @@ fn eval_program(
 }
 
 /// Which command to call after the top-level code: an explicit `entry_point`
-/// (for no-`main` libraries), else `main` if defined. The flag distinguishes
-/// the two, because a missing explicit entry is an error while a missing
-/// `main` just means top-level only.
+/// (for no-`main` libraries), else `main`. The flag distinguishes them because
+/// a missing explicit entry is an error, a missing `main` is not.
 fn entry_point(launch: &LaunchArgs) -> (String, bool) {
     match &launch.entry_point {
         Some(name) if !name.trim().is_empty() => (name.trim().to_string(), true),
@@ -296,10 +284,9 @@ fn entry_point(launch: &LaunchArgs) -> (String, bool) {
 
 /// Consume the final pipeline and echo any value it produced.
 ///
-/// Must run *while the debugger is still active*: a bare lazy pipeline
-/// (`ls | each { … }`) only runs its closures when consumed here, so draining
-/// after deactivate would fire no breakpoints inside them. `into_value` can
-/// itself raise (error in a closure), so its failure folds into the result.
+/// Must run *while the debugger is still active*: a lazy pipeline
+/// (`ls | each { … }`) runs its closures only when consumed here, so
+/// draining after deactivate would fire no breakpoints inside them.
 fn drain_final_value(
     result: Result<nu_protocol::PipelineExecutionData, nu_protocol::ShellError>,
     engine_state: &EngineState,
@@ -319,18 +306,17 @@ fn drain_final_value(
 fn into_exit(outcome: Result<(), nu_protocol::ShellError>) -> Result<(), String> {
     match outcome {
         Ok(()) => Ok(()),
-        // Interrupted == user hit stop; not an error worth shouting about.
+        // Interrupted == user hit stop.
         Err(e) if format!("{e:?}").contains("Interrupted") => Ok(()),
         // Display, not Debug: users get the message, not the enum.
         Err(e) => Err(format!("{e}")),
     }
 }
 
-/// Call an entry-point command (`main`, or an explicitly chosen function) with
-/// the launch args — the same contract `nu script.nu args...` provides.
-/// Returns Ok(None) when there is nothing to call. `explicit` distinguishes a
-/// user-chosen entry point (missing → error) from the implicit `main` default
-/// (missing → just run top-level).
+/// Call an entry-point command with the launch args, the same contract
+/// `nu script.nu args...` provides. `Ok(None)` when there is nothing to call:
+/// an `explicit` entry point that is missing is an error, a missing `main` is
+/// not.
 fn call_entry(
     engine_state: &mut EngineState,
     stack: &mut Stack,
@@ -356,8 +342,8 @@ fn call_entry(
         return Ok(None); // no `main`: top-level only
     }
 
-    // Synthesize `<name> <args...>` with nu's own arg escaping
-    // (escape_for_script_arg keeps `3` an int literal, quotes what must be).
+    // Synthesized with nu's own arg escaping, which keeps `3` an int literal
+    // and quotes what must be quoted.
     let mut source = String::from(name);
     for a in args {
         source.push(' ');
@@ -374,8 +360,8 @@ fn call_entry(
         );
 
         if let Some(err) = working_set.parse_errors.first() {
-            // The most common failure is launching without required args —
-            // make that actionable instead of dumping a parse error.
+            // The common failure is launching without required args; make that
+            // actionable instead of dumping a parse error.
             let detail = match err {
                 nu_protocol::ParseError::MissingPositional(arg, _, usage) => format!(
                     "`{name}` requires the argument `{arg}` (usage: {}). \
@@ -398,16 +384,16 @@ fn call_entry(
     nu_engine::eval_block::<WithDebug>(engine_state, stack, &block, PipelineData::empty()).map(Some)
 }
 
-/// Collect every line carrying a steppable instruction (per file) for
-/// breakpoint verification, and reconcile breakpoints set before parsing —
-/// snapping to the next valid line (`breakpoint` changed events) or unverifying.
+/// Collect every line carrying a steppable instruction, per file, and
+/// reconcile breakpoints set before parsing: snapped to the next valid line or
+/// unverified, either way announced as a `breakpoint` changed event.
 fn publish_valid_lines(
     engine_state: &EngineState,
     top_block: &nu_protocol::ast::Block,
     state: &Arc<DebugState>,
     writer: &DapWriter,
 ) {
-    // The session's table, so the ids here are the same ones `setBreakpoints`
+    // The session's table, so these ids are the ones `setBreakpoints`
     // interned the client's paths under.
     let mut source_map = crate::source_map::SourceMap::new(state.files.clone());
     source_map.refresh(engine_state);
@@ -420,8 +406,8 @@ fn publish_valid_lines(
             }
         }
     };
-    // The parsed script's own block is returned by parse() but never
-    // registered in the engine, so walk it explicitly...
+    // parse() returns the script's own block without registering it in the
+    // engine, so walk it explicitly...
     if let Some(ir) = &top_block.ir_block {
         collect(ir);
     }
@@ -445,10 +431,9 @@ fn publish_valid_lines(
             for (line, mut props) in bps {
                 let (snapped, verified) = { session.snap_line(file, line) };
                 props.verified = verified;
-                // At most one breakpoint per line: on collision (two bps
-                // snapping onto one line) the first wins and the loser is
-                // dropped — announced as unverified so the client greys it
-                // out instead of showing a marker that can never hit.
+                // One breakpoint per line: on collision the first wins and
+                // the loser is dropped, announced unverified so the client
+                // greys it out rather than showing a marker that can't hit.
                 if changed.contains_key(&snapped) {
                     events.push((props.id, false, line, file, Some(snapped)));
                     continue;
@@ -471,8 +456,7 @@ fn publish_valid_lines(
                 // The client needs a path to place the marker; the id is ours.
                 path: Some(source_map.path(file)),
             }),
-            // Only set for the loser of a collision: the client greys the
-            // marker out and shows this as the reason.
+            // Only set for the loser of a collision, as the greying reason.
             message: collided_with.map(|at| format!("another breakpoint already covers line {at}")),
         };
         writer.event(DapEvent::Breakpoint {
@@ -489,8 +473,7 @@ mod tests {
     use super::{Target, parse_script};
     use nu_protocol::engine::EngineState;
 
-    /// A target that never touches the filesystem: `Target::resolve` reads the
-    /// script from disk, but parsing only needs its bytes.
+    /// A target that never touches the filesystem: parsing only needs bytes.
     fn target(contents: &str) -> Target {
         Target {
             program: std::path::PathBuf::from("script.nu"),
@@ -499,20 +482,18 @@ mod tests {
         }
     }
 
-    /// The baseline for the test below: a script with neither kind of error.
-    /// Plain arithmetic, because a bare `EngineState` carries no declarations —
-    /// not even `let`, which comes from nu-cmd-lang.
+    /// Baseline for the test below. Plain arithmetic, because a bare
+    /// `EngineState` carries no declarations — not even `let`.
     #[test]
     fn valid_script_parses() {
         let mut engine_state = EngineState::new();
         parse_script(&mut engine_state, &target("1 + 1\n")).expect("parses");
     }
 
-    /// Parse errors and compile errors are separate channels, and only the parse
-    /// side is obvious. `$env.PWD = ...` parses fine and fails to compile; if the
-    /// compile error were not reported here the block would reach `eval_block`
-    /// with no `ir_block`, and the user would see nushell's internal "block is
-    /// missing compiled representation" instead of the real problem.
+    /// Parse and compile errors are separate channels, and only the parse side
+    /// is obvious. `$env.PWD = ...` parses fine and fails to compile; unreported,
+    /// it would reach `eval_block` with no `ir_block` and the user would see
+    /// nushell's "block is missing compiled representation" instead.
     #[test]
     fn compile_error_is_reported_as_a_launch_failure() {
         let mut engine_state = EngineState::new();

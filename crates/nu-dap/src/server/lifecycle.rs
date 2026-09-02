@@ -10,8 +10,8 @@ use std::sync::Arc;
 
 impl Session {
     pub(super) fn on_initialize(&mut self, seq: i64, cmd: &str) {
-        // Version stamp in the debug console: lets a user verify
-        // which adapter build their session is actually running.
+        // Version stamp in the debug console, so a user can tell which
+        // adapter build they are running.
         self.writer.output(
             "console",
             format!("nu-dap {} (nushell in-tree)\n", env!("CARGO_PKG_VERSION")),
@@ -72,18 +72,18 @@ impl Session {
     }
 
     pub(super) fn on_restart(&mut self, seq: i64, cmd: &str) {
-        // Hot restart: tear down the run quietly and respawn from the stored
-        // launch args. The script is re-read from disk (edits take effect);
-        // breakpoints carry over.
+        // Hot restart: tear down quietly and respawn from the stored launch
+        // args. The script is re-read from disk; breakpoints carry over.
         match (self.launch_args.clone(), self.state.take()) {
             (Some(args), Some(old_state)) => {
                 old_state.request_restart_teardown();
-                // Not joined: the old thread unwinds itself via the interrupt
-                // signal; joining could block the DAP loop behind a native call.
+                // Not joined: the old thread unwinds itself on the interrupt
+                // signal, and joining could block the DAP loop behind a
+                // native call.
                 let _ = self.eval_handle.take();
 
                 // Same `FileTable` as the outgoing run, so the breakpoints
-                // copied below stay keyed to the files they were set in.
+                // copied below stay keyed to their files.
                 let new_state = Arc::new(DebugState::new(
                     args.stop_on_entry,
                     args.time_travel.unwrap_or(true),
@@ -97,8 +97,8 @@ impl Session {
                 }
                 self.state = Some(new_state.clone());
                 self.writer.respond(seq, cmd, ());
-                // From the pristine template again, so decls parsed out of the
-                // previous run don't leak into this one.
+                // From the pristine template, so decls parsed in the previous
+                // run don't leak into this one.
                 self.eval_handle = Some(spawn_eval_thread(
                     args,
                     new_state,

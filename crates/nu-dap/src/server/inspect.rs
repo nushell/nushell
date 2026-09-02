@@ -45,9 +45,9 @@ impl Session {
     }
 
     pub(super) fn on_scopes(&mut self, seq: i64, cmd: &str) {
-        // Locals and Globals always show; the situational scopes (Pipeline,
-        // Registers, Process) appear only when they have content, so the panel
-        // isn't cluttered with empty sections at most stops.
+        // Locals and Globals always show; Pipeline, Registers and Process
+        // only when they have content, to keep the panel free of empty
+        // sections.
         let (pipeline, registers, process) = self
             .with_state(|session| {
                 let snap = session.active_snapshot();
@@ -110,8 +110,7 @@ impl Session {
         let vars: Vec<Variable> = self
             .with_state_mut(|session| {
                 let snap = session.active_snapshot_mut();
-                // Lazy hydration: materialize this node's children on
-                // first expansion.
+                // Lazy hydration: children appear on first expansion.
                 crate::variables::materialize_children(snap, args.variables_reference);
                 snap.var_refs
                     .get(&args.variables_reference)
@@ -129,9 +128,9 @@ impl Session {
     }
 
     pub(super) fn on_evaluate(&mut self, seq: i64, cmd: &str, req: Request) {
-        // Fast path: a bare `$name` serves straight from the snapshot (cheap
-        // hover); anything else runs in the scratch engine with the shadow vars
-        // in scope. Limitation: the script's own commands aren't visible there.
+        // A bare `$name` is served straight from the snapshot (cheap hover);
+        // anything else runs in the scratch engine with the shadow vars in
+        // scope, where the script's own commands aren't visible.
         let args: EvaluateArgs = match serde_json::from_value(req.arguments) {
             Ok(a) => a,
             Err(e) => {
@@ -182,8 +181,8 @@ impl Session {
 
         match value {
             Ok(v) => {
-                // Park the result in the snapshot arena so structured
-                // results are expandable in the client.
+                // Park it in the snapshot arena so structured results are
+                // expandable in the client.
                 let parts = self.with_state_mut(|session| {
                     let snap = session.active_snapshot_mut();
                     let idx = crate::variables::add_value(
@@ -199,9 +198,9 @@ impl Session {
                         node.var.type_.clone(),
                     )
                 });
-                // No state means nothing was cached by the eval thread;
-                // defaults will do for a value we are only rendering once, and
-                // an empty label map just leaves a closure as `<closure>`.
+                // No state means the eval thread cached nothing; defaults do
+                // for a one-off render, and an empty label map just leaves a
+                // closure as `<closure>`.
                 let (result, var_ref, type_) = parts.unwrap_or_else(|| {
                     let config = nu_protocol::Config::default();
                     let cache = crate::state::RenderCache::default();

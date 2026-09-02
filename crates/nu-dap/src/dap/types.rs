@@ -151,26 +151,21 @@ pub struct EvaluateArgs {
 // ---------------------------------------------------------------------------
 // Message bodies
 //
-// One type per request we answer and per event we emit, so no handler
-// hand-rolls a JSON object and nothing reaches the wire that isn't declared
-// here.
-//
-// The two halves are shaped differently because the wire is: an event names
-// itself in an `event` field, so [`DapEvent`] is one enum whose variant *is*
-// that name. A response carries no such tag — the client matches it to the
-// request by `request_seq` — so there is nothing for the type to declare, and
-// each body is a plain struct marked with [`ResponseBody`].
+// One type per request we answer and event we emit, so nothing reaches the
+// wire undeclared. Events are one enum because an event names itself on the
+// wire; responses are plain structs because the client matches them to the
+// request by `request_seq`.
 // ---------------------------------------------------------------------------
 
-/// Body of a successful response. A marker trait: the command is dictated by
-/// the request being answered, so the body only has to be a declared type.
+/// Body of a successful response. A marker trait: the command comes from the
+/// request being answered, so the body only has to be a declared type.
 pub trait ResponseBody: Serialize {}
 
 /// Requests that are acknowledged with no body (`nuDapUiReply`, `stepBack`).
 impl ResponseBody for () {}
 
-/// `initialize` response: what this adapter supports. Anything omitted is
-/// false by default, so only the flags we actually honour are listed.
+/// `initialize` response. Omitted flags default to false, so only the ones we
+/// honour are listed.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Capabilities {
@@ -286,11 +281,9 @@ pub struct VisualizeResponse {
 
 /// Every event this adapter emits, with its body.
 ///
-/// Adjacent tagging is exactly the DAP event envelope: the variant name
-/// serializes into `event` and its fields into `body`, so the name cannot
-/// drift from the shape. `rename_all` maps the variant to its wire spelling
-/// (`Stopped` → `"stopped"`, `NuDapIr` → `"nuDapIr"`), and a unit variant
-/// omits `body` entirely — which is what a bodyless event should look like.
+/// Adjacent tagging is exactly the DAP envelope: the variant name serializes
+/// into `event` (renamed to its wire spelling) and its fields into `body`, so
+/// the two cannot drift. A unit variant omits `body` entirely.
 #[derive(Debug, Serialize)]
 #[serde(tag = "event", content = "body", rename_all = "camelCase")]
 pub enum DapEvent {
@@ -309,8 +302,8 @@ pub enum DapEvent {
         /// Shown in the callstack view next to the stopped frame.
         #[serde(skip_serializing_if = "Option::is_none")]
         description: Option<String>,
-        /// Same text as `description`, repeated because VS Code renders this
-        /// one in the notification popup and the other in the callstack.
+        /// Same text as `description`: VS Code renders this one in the
+        /// notification popup and that one in the callstack.
         #[serde(skip_serializing_if = "Option::is_none")]
         text: Option<String>,
     },
@@ -345,9 +338,9 @@ pub enum DapEvent {
     },
 
     /// Custom: an `input` / `input list` prompt for the extension to show,
-    /// answered by a `nuDapUiReply` request carrying the same `id`. This is
-    /// the whole wire contract for the UI bridge — `kind` picks the shape and
-    /// the fields it doesn't use are omitted.
+    /// answered by a `nuDapUiReply` carrying the same `id`. The whole wire
+    /// contract for the UI bridge: `kind` picks the shape, unused fields are
+    /// omitted.
     NuDapUi {
         /// Correlates the reply; the eval thread blocks on it.
         id: u64,

@@ -22,29 +22,29 @@ const MAX_CLOSURE_CHARS: usize = 60;
 /// Everything a render needs that does not live in the `Value` itself.
 ///
 /// Both fields are resolved on the eval thread and carried in the snapshot:
-/// the server thread answers `variables` requests without an `EngineState`
-/// (see the concurrency rule in `state.rs`), so anything engine-derived has to
-/// arrive pre-computed.
+/// the server thread answers `variables` without an `EngineState` (see the
+/// concurrency rule in `state.rs`), so engine-derived facts arrive
+/// pre-computed.
 #[derive(Clone, Copy)]
 pub(crate) struct RenderCtx<'a> {
     pub config: &'a Config,
     pub cache: &'a RenderCache,
 }
 
-/// Resolve what rendering will need from the engine: each block's source text
-/// (for closure rows) and the name of every variable some block captures (for
-/// the rows under an expanded closure).
+/// Resolve what rendering needs from the engine: each block's source text
+/// (for closure rows) and the names of the variables blocks capture (for the
+/// rows under an expanded closure).
 ///
-/// Called once after the script is parsed. Blocks are fixed from then on
-/// (`source` is a parse-time keyword), and anything missing degrades: an
-/// unknown block falls back to `<closure>`, an unknown var to `var{id}`.
+/// Called once after the parse, after which blocks are fixed (`source` is a
+/// parse-time keyword). Anything missing degrades: an unknown block to
+/// `<closure>`, an unknown var to `var{id}`.
 pub(crate) fn collect_render_cache(engine_state: &EngineState) -> RenderCache {
     let mut cache = RenderCache::default();
     for id in 0..engine_state.num_blocks() {
         let block = engine_state.get_block(nu_protocol::BlockId::new(id));
 
-        // Names for this block's captures. Taken from the block rather than
-        // from every variable in the program, so the map stays small.
+        // From the block's captures, not every variable in the program, so
+        // the map stays small.
         for (var_id, _) in &block.captures {
             cache
                 .var_names
@@ -54,8 +54,7 @@ pub(crate) fn collect_render_cache(engine_state: &EngineState) -> RenderCache {
 
         let Some(span) = block.span else { continue };
         let text = String::from_utf8_lossy(engine_state.get_span_contents(span));
-        // Collapse the body onto one line: a row is one line, and a multi-line
-        // closure would otherwise break the pane.
+        // A row is one line, so a multi-line closure body is flattened.
         let flat = text.split_whitespace().collect::<Vec<_>>().join(" ");
         if flat.is_empty() {
             continue;
@@ -68,36 +67,18 @@ pub(crate) fn collect_render_cache(engine_state: &EngineState) -> RenderCache {
 /// Render `value` as the single line shown in the Variables pane.
 ///
 /// Container shapes and every type not special-cased below come from
-/// [`Value::to_abbreviated_string`] — the same rendering `table` applies per
-/// cell (see `nu-table::common`) — so the debugger names values the way the
-/// rest of nushell does. What stays local is what a debugger needs and a
-/// pipeline does not:
-///
-/// - **Bounded.** Variables responses are JSON over a pipe: a multi-megabyte
-///   string, or a `Debug`-formatted `ShellError`, must not land in one row.
-/// - **Previews, not just shapes.** A container row is expandable, so the
-///   collapsed line shows its first entries; `to_abbreviated_string` always
-///   collapses to `{record N fields}`.
-/// - **Literal, not humanized.** Dates render rfc3339, where the shell shows
-///   `human_time_from_now`'s "5 hours ago" — relative to the wall clock, which
-///   is both wrong information here and untestable.
-/// - **`null` stays visible.** Nothing renders as `""` upstream: a blank row.
-/// - **Binary as a nu literal.** `0x[de ad be ef]`, not `[222, 173, 190, 239]`.
-///
-/// Those last three are not house style: they are what `to nuon` writes, which
-/// is the same instinct — a debugger row, like a nuon literal, should say what
-/// a value *is* rather than read nicely. `to_nuon` itself is not usable here
-/// (it hard-errors on `Value::Error`, `Custom` and `Closure`, and propagates
-/// that through containers, so one bad field loses the whole structure — and
-/// it is unbounded), but where we depart from `to_abbreviated_string` we
-/// mostly land where nuon already is. See [`to_preview_json`] for the same
-/// argument applied to the visualizer payload.
+/// [`Value::to_abbreviated_string`], the same rendering `table` applies per
+/// cell, so values read as they do elsewhere in nushell. What stays local is
+/// what a debugger needs and a pipeline does not: bounded rows, previews
+/// rather than bare shapes, literal dates, a visible `null`, and binary as a
+/// nu literal. `docs/value-rendering.md` compares every candidate renderer
+/// variant by variant and records why none of them is used wholesale.
 pub(crate) fn short_render(value: &Value, ctx: RenderCtx<'_>) -> String {
     let config = ctx.config;
     match value {
         Value::String { val, .. } => {
             // chars(), not byte slicing: a byte index can land mid-codepoint
-            // and panic, which inside a debugger callback hangs the session.
+            // and panic, and a panic in a callback hangs the session.
             let n_chars = val.chars().count();
             if n_chars > MAX_ROW_CHARS {
                 let head: String = val.chars().take(MAX_ROW_CHARS - 3).collect();
@@ -156,9 +137,9 @@ pub(crate) fn short_render(value: &Value, ctx: RenderCtx<'_>) -> String {
         }
         Value::Closure { val, .. } => closure_label(val, ctx.cache),
         Value::Binary { val, .. } => {
-            // First bytes as hex, nu-literal style: 0x[de ad be ef …] (N bytes).
-            // `to nuon` writes the same `0x[…]` form (unspaced, uppercase, and
-            // unbounded); the spacing and byte count are what a row needs.
+            // First bytes as hex, nu-literal style: 0x[de ad be ef …] (N
+            // bytes). `to nuon` writes the same form unspaced and unbounded;
+            // the spacing and byte count are what a row needs.
             let mut s = String::from("0x[");
             for (i, b) in val.iter().take(8).enumerate() {
                 if i > 0 {
@@ -172,8 +153,8 @@ pub(crate) fn short_render(value: &Value, ctx: RenderCtx<'_>) -> String {
             let _ = write!(s, "] ({} bytes)", val.len());
             s
         }
-        // Upstream renders errors as `{error:?}` — the whole `ShellError`
-        // Debug, multi-line. One line of the message is what fits a row.
+        // Upstream renders errors as the whole multi-line `ShellError` Debug;
+        // one line of the message is what fits a row.
         Value::Error { error, .. } => cap_row(&format!("<error: {error}>")),
         // Everything else (int, float, bool, filesize, duration, range, glob,
         // cell-path, custom) renders the way the shell renders it. Capped
@@ -182,13 +163,11 @@ pub(crate) fn short_render(value: &Value, ctx: RenderCtx<'_>) -> String {
     }
 }
 
-/// A closure as `{|x| $x * 2}`, plus the number of variables it captured from
-/// the enclosing scope — which is usually what you want to know about a
-/// closure you are stopped inside.
+/// A closure as `{|x| $x * 2}` plus the number of variables it captured, which
+/// is usually what you want to know about a closure you are stopped inside.
 ///
-/// The literal comes from [`collect_closure_labels`]; a block id that isn't in
-/// the map (nothing adds blocks after the parse today, but a stale snapshot
-/// could) degrades to the bare `<closure>` this used to always show.
+/// The literal comes from the render cache; a block id missing from it (a
+/// stale snapshot) degrades to a bare `<closure>`.
 fn closure_label(val: &nu_protocol::engine::Closure, cache: &RenderCache) -> String {
     let body = cache
         .closure_src
@@ -207,9 +186,8 @@ fn cap_row(s: &str) -> String {
     cap(s, MAX_ROW_CHARS)
 }
 
-/// Truncate to `max` chars on a char boundary — a byte index can land
-/// mid-codepoint and panic, and a panic inside a debugger callback hangs the
-/// session.
+/// Truncate to `max` chars on a char boundary: a byte index can land
+/// mid-codepoint and panic, and a panic in a callback hangs the session.
 fn cap(s: &str, max: usize) -> String {
     if s.chars().count() <= max {
         return s.to_string();
@@ -218,21 +196,15 @@ fn cap(s: &str, max: usize) -> String {
     format!("{head}…")
 }
 
-/// Describe a stream without consuming it — draining would eat the program's
-/// own data, and pulling even one element would run upstream closures from
-/// inside a debugger callback, re-entering the evaluator while it holds the
-/// `EngineState.debugger` mutex. So everything here is *static*: kind, origin,
-/// size, the command that produced it, and whatever the pipeline metadata
-/// already carries.
+/// Describe a stream without consuming it. Draining would eat the program's
+/// own data, and pulling even one element would re-enter the evaluator while
+/// it holds the `EngineState.debugger` mutex, so everything here is *static*:
+/// kind, origin, size, the producing command, and the pipeline metadata. The
+/// element type is therefore absent — nothing short of pulling can know it.
 ///
-/// The element type of a list stream is deliberately absent: nothing short of
-/// pulling an element can know it.
-///
-/// Base wording follows `describe --no-collect`, so the debugger and the shell
-/// name the same stream the same way. `describe`'s own code can't be called
-/// here: it takes `PipelineData` by value (it drains, or calls
-/// `into_debug_value`), while a paused debugger only ever borrows the register
-/// it is looking at.
+/// Wording follows `describe --no-collect`, so both name a stream alike.
+/// `describe`'s own code takes `PipelineData` by value, while a paused
+/// debugger only borrows the register it is looking at.
 pub(crate) fn describe_stream(data: &PipelineData, engine_state: &EngineState) -> String {
     let (kind, origin, size, span, meta) = match data {
         PipelineData::ByteStream(bs, meta) => {
@@ -255,10 +227,9 @@ pub(crate) fn describe_stream(data: &PipelineData, engine_state: &EngineState) -
         _ => ("stream".to_string(), None, None, None, &None),
     };
 
-    // The stream's span is the command that produced it (`each`, `where`,
-    // `open`) — the difference between "a list stream" and *which* list stream
-    // when several are in flight. It subsumes the origin: `open` means a file,
-    // `^cmd` means an external, so only fall back to the origin without it.
+    // The stream's span is the producing command — which list stream, not
+    // just "a list stream". It subsumes the origin (`open` means a file,
+    // `^cmd` an external), so the origin is only a fallback.
     let producer = span.and_then(|s| command_word(engine_state, s));
     let mut parts = match (&producer, origin) {
         (Some(p), _) => vec![format!("{kind} from `{p}`")],
@@ -288,14 +259,12 @@ pub(crate) fn describe_stream(data: &PipelineData, engine_state: &EngineState) -
     format!("<{}>", parts.join(", "))
 }
 
-/// The producing command's name from a span, when the span actually points at
-/// one.
+/// The producing command's name, when the span actually points at one.
 ///
 /// A stream's span is not always a command: `"a-b" | split row "-" | get 0`
-/// leaves the list stream pointing at the *literal* `"a-b"`, and `from `"a-b"``
-/// is worse than saying nothing. So this accepts only what reads as a command
-/// — an identifier, optionally `^`-prefixed for an external — and gives up
-/// otherwise.
+/// leaves it pointing at the *literal* `"a-b"`, and `from `"a-b"`` is worse
+/// than silence. So only an identifier, optionally `^`-prefixed for an
+/// external, is accepted.
 fn command_word(engine_state: &EngineState, span: nu_protocol::Span) -> Option<String> {
     let raw = String::from_utf8_lossy(engine_state.get_span_contents(span));
     let word = raw.split_whitespace().next()?;
@@ -308,12 +277,12 @@ fn command_word(engine_state: &EngineState, span: nu_protocol::Span) -> Option<S
 }
 
 /// One-token rendering used inside list/record previews. Lossier than a full
-/// row — several of these share one 60-char line — but never *blank*: a field
-/// that renders to nothing reads as a missing value rather than an empty one.
+/// row, since several share one 60-char line, but never *blank*: a field that
+/// rendered to nothing would read as missing rather than empty.
 fn scalar_preview(value: &Value) -> String {
     match value {
-        // Bare, unlike a row: quotes on every element would eat the line. The
-        // empty string is the exception, or `{name: , size: 120}`.
+        // Bare, unlike a row: quotes on every element would eat the line.
+        // Except the empty string, which would read `{name: , size: 120}`.
         Value::String { val, .. } if val.is_empty() => "\"\"".into(),
         Value::String { val, .. } => {
             let mut s: String = val.chars().take(12).collect();
@@ -345,9 +314,9 @@ pub(crate) fn add_value(
     value: &Value,
     depth: usize,
 ) -> usize {
-    // Containers are always expandable — children materialize lazily. So is a
-    // closure that captured something: its captures are its children, which is
-    // the only way to see the values it closed over.
+    // Containers are always expandable, children materializing lazily. So is
+    // a closure that captured something: its captures are its children, the
+    // only way to see what it closed over.
     let expandable = match value {
         Value::List { .. } | Value::Record { .. } => true,
         Value::Closure { val, .. } => !val.captures.is_empty(),
@@ -374,8 +343,8 @@ pub(crate) fn add_value(
             variables_reference: var_ref,
         },
         children: Vec::new(),
-        // Full value for the visualizer (nuDapVisualize). Clones the subtree
-        // once per ancestor — bounded by MAX_DEPTH/MAX_CHILDREN.
+        // Full value for `nuDapVisualize`. Clones the subtree once per
+        // ancestor, bounded by the eager depth and `MAX_CHILDREN`.
         value: value.clone(),
     });
 
@@ -406,8 +375,8 @@ fn materialize_at(snapshot: &mut PauseSnapshot, node_idx: usize, depth: usize) {
                 children.push(add_value(snapshot, format!("[{i}]"), v, depth + 1));
             }
         }
-        // A closure's children are the variables it closed over, shown under
-        // their source names so the row reads like the enclosing scope did.
+        // A closure's children are the variables it closed over, under their
+        // source names so they read like the enclosing scope.
         Value::Closure { val, .. } => {
             for (var_id, v) in val.captures.iter().take(MAX_CHILDREN) {
                 let name = cache
@@ -424,9 +393,8 @@ fn materialize_at(snapshot: &mut PauseSnapshot, node_idx: usize, depth: usize) {
     snapshot.var_arena[node_idx].children = children;
 }
 
-/// On-demand hydration: called by the server thread when the client expands
-/// a node whose children were never materialized. No effect on refs that are
-/// already populated or unknown.
+/// On-demand hydration, called when the client expands a node whose children
+/// were never materialized. A no-op for refs already populated or unknown.
 pub(crate) fn materialize_children(snapshot: &mut PauseSnapshot, var_ref: i64) {
     if var_ref == 0 || snapshot.var_refs.contains_key(&var_ref) {
         return;
@@ -442,9 +410,9 @@ pub(crate) fn materialize_children(snapshot: &mut PauseSnapshot, var_ref: i64) {
     }
 }
 
-/// Rebuild a Locals+Globals snapshot for a past timeline entry — pure, no
-/// `engine_state` (the server thread must never touch it). Pipeline /
-/// Registers / Process are live-only and intentionally omitted.
+/// Rebuild a Locals+Globals snapshot for a past timeline entry, without
+/// `engine_state` (the server thread must never touch it). Pipeline,
+/// Registers and Process are live-only.
 pub(crate) fn build_history_snapshot(
     entry: &crate::state::TimelineEntry,
     baseline_env: Option<&std::collections::HashMap<String, Value>>,
@@ -454,8 +422,7 @@ pub(crate) fn build_history_snapshot(
 ) -> PauseSnapshot {
     let mut snap = PauseSnapshot::new();
     snap.frames = entry.frames.clone();
-    // Both were cached by the eval thread; rendering needs them, and
-    // `engine_state` is still off-limits here.
+    // Cached by the eval thread, since `engine_state` is off-limits here.
     snap.config = config;
     snap.cache = cache;
 
@@ -515,29 +482,18 @@ pub(crate) fn build_history_snapshot(
 const JSON_MAX_ITEMS: usize = 1000;
 const JSON_MAX_DEPTH: usize = 8;
 
-/// Converts a nu Value to JSON for the visualizer webview. Sets `truncated`
+/// Convert a nu Value to JSON for the visualizer webview, setting `truncated`
 /// when any bound was hit.
 ///
-/// This is a *display projection*, not a serialization, which is why it does
-/// not reuse nu-json's `FromValue for nu_json::Value` (the conversion behind
-/// `to json`). A debugger inspects hostile values — huge, deeply nested, or
-/// broken — and must always render something:
+/// A *display projection*, not a serialization, hence not nu-json's `FromValue`
+/// (the path behind `to json`): a debugger inspects hostile values — huge,
+/// deeply nested, broken — and must always render something. So this one is
+/// bounded, renders `Value::Error` inline instead of failing the whole payload,
+/// emits binary as a `$nuBinary` hex marker rather than a number array, and
+/// needs no engine for closures. See `docs/value-rendering.md`.
 ///
-/// - **Bounded.** The shared path recurses without limit; a 10M-row table or a
-///   deeply nested record would stall the webview. We cap depth and item count
-///   and report `truncated` so the UI can say so.
-/// - **Error-tolerant.** The shared path returns `Err` for `Value::Error`,
-///   which would yield *no* payload for a structure containing an error — the
-///   very thing you are usually inspecting. We render `<error: …>` inline.
-/// - **Binary as hex.** The shared path expands binary to an array of numbers
-///   (1 MiB becomes ~4 MB of JSON over stdio). We emit the `$nuBinary` marker
-///   the webview turns into a hex view, capped at 64 KiB.
-/// - **Closures need no engine.** The shared path either errors on closures or
-///   requires an `&EngineState` to coerce them; here `<closure>` is enough.
-///
-/// Types with no arm of their own fall through to `to_abbreviated_string`, the
-/// same source [`short_render`] uses, so a value reads identically whether you
-/// glance at its row or open it in the visualizer.
+/// Types with no arm of their own fall through to `to_abbreviated_string`, as
+/// in [`short_render`], so a value reads the same in its row and here.
 pub(crate) fn to_preview_json(
     value: &Value,
     depth: usize,
@@ -556,8 +512,7 @@ pub(crate) fn to_preview_json(
         Value::Bool { val, .. } => json!(val),
         Value::Nothing { .. } => J::Null,
         // Config-driven, like the row: `Filesize`'s own `Display` ignores the
-        // user's `filesize` settings and reads `1 kB` where the row says
-        // `1.0 kB`.
+        // user's `filesize` settings and would read `1 kB`, not `1.0 kB`.
         Value::Filesize { val, .. } => json!(config.filesize.format(*val).to_string()),
         Value::Duration { val, .. } => json!(format!("{val}ns")),
         Value::Date { val, .. } => json!(val.to_rfc3339()),
@@ -585,7 +540,7 @@ pub(crate) fn to_preview_json(
         Value::Closure { val, .. } => json!(closure_label(val, ctx.cache)),
         Value::Binary { val, .. } => {
             // Marker object the webview turns into a hex view. Hex keeps the
-            // adapter dependency-free; 64 KiB is plenty for a debugger UI.
+            // adapter dependency-free.
             const MAX_BYTES: usize = 65536;
             if val.len() > MAX_BYTES {
                 *truncated = true;
@@ -598,28 +553,22 @@ pub(crate) fn to_preview_json(
             json!({ "$nuBinary": hex, "length": val.len() })
         }
         Value::Error { error, .. } => json!(format!("<error: {error}>")),
-        // Ranges, globs, cell-paths, custom values: the shell's own rendering,
-        // matching the Variables row. Was `format!("{other:?}")`, which sent
-        // `Value`'s Rust `Debug` (`Range(1..10)`) to the webview.
+        // Ranges, globs, cell-paths, custom values: the shell's own
+        // rendering, matching the Variables row.
         other => json!(cap_row(&other.to_abbreviated_string(config))),
     }
 }
 
 #[cfg(test)]
 mod tests {
-    //! Unit tests for [`crate::variables`].
-    //!
     //! The three `*_renders_every_variant` tables below are the rendering
     //! contract: one case per `Value` variant, for each of the three functions
-    //! that turn a value into something a DAP client displays. They exist because
-    //! nushell has several general-purpose renderers and none of them fits a
-    //! debugger row — see the rationale on [`crate::variables::short_render`] and
-    //! [`crate::variables::to_preview_json`]. Read as a table, they show what each
-    //! variant looks like in the pane and where we deliberately differ from the
-    //! shell.
+    //! that turn a value into something a client displays. Read as tables,
+    //! they show what each variant looks like and where the debugger differs
+    //! from the shell on purpose (`docs/value-rendering.md` says why).
     //!
-    //! Everything else in this file tests behaviour that is not per-variant:
-    //! truncation, container previews, and the truncated-flag plumbing.
+    //! The rest covers what is not per-variant: truncation, container
+    //! previews, and the truncated-flag plumbing.
 
     use super::{JSON_MAX_ITEMS, RenderCtx, scalar_preview, short_render, to_preview_json};
     use crate::state::RenderCache;
@@ -636,10 +585,9 @@ mod tests {
     use serde::{Deserialize, Serialize};
     use serde_json::json;
 
-    /// Rendering is config-driven (it defers to `Value::to_abbreviated_string`);
-    /// defaults keep these assertions independent of the user's `$env.config`.
-    /// No closure labels, so a closure falls back to `<closure>` — the cases that
-    /// care supply their own map.
+    /// Rendering is config-driven, so defaults keep these assertions
+    /// independent of the user's `$env.config`. No closure labels either — the
+    /// cases that care supply their own map.
     fn render(value: &Value) -> String {
         let config = Config::default();
         let cache = RenderCache::default();
@@ -703,8 +651,7 @@ mod tests {
     // --- one constructor per awkward variant -------------------------------
     // The rest come straight from `Value::test_*`.
 
-    /// Minimal `CustomValue`; nu-protocol ships no public test double
-    /// (`Value::test_values` skips the variant for exactly this reason).
+    /// Minimal `CustomValue`: nu-protocol ships no public test double.
     #[derive(Debug, Clone, Serialize, Deserialize)]
     struct StubCustom(i64);
 
@@ -794,11 +741,8 @@ mod tests {
 
     // --- the contract: every variant, every renderer -----------------------
 
-    /// The Variables-pane row for each `Value` variant.
-    ///
-    /// Most types read as nushell writes them, via `to_abbreviated_string`. The
-    /// six deliberate departures are marked: they are what a debugger needs and a
-    /// pipeline does not.
+    /// The Variables-pane row for each `Value` variant. Most read as nushell
+    /// writes them; the six deliberate departures are marked.
     #[rstest]
     #[case::bool(Value::test_bool(true), "true")]
     #[case::int(Value::test_int(42), "42")]
@@ -845,13 +789,12 @@ mod tests {
         assert_eq!(render(&value), expected);
     }
 
-    /// The one-token form used *inside* a container preview — deliberately
-    /// lossier than a full row, and unquoted, because several of these share a
-    /// single 60-char line.
+    /// The one-token form used *inside* a container preview: lossier than a
+    /// full row and unquoted, because several share one 60-char line.
     ///
-    /// Everything without a cheap scalar form collapses to `…`. That is most
-    /// variants; a record of dates previews as `{when: …}`. Pinned as the current
-    /// contract, not as an endorsement.
+    /// Anything without a cheap scalar form collapses to `…`, which is most
+    /// variants — a record of dates previews as `{when: …}`. Pinned as the
+    /// current contract, not as an endorsement.
     #[rstest]
     #[case::bool(Value::test_bool(true), "true")]
     #[case::int(Value::test_int(42), "42")]
@@ -881,14 +824,11 @@ mod tests {
         assert_eq!(scalar_preview(&value), expected);
     }
 
-    /// The `nuDapVisualize` payload for each variant — a display projection, not a
-    /// serialization, which is why it does not reuse nu-json's `FromValue` (that
-    /// path errors on `Value::Error` and expands binary to an integer array).
+    /// The `nuDapVisualize` payload for each variant.
     ///
-    /// Every variant reads the same here as in its Variables row (compare with
-    /// `short_render_renders_every_variant`), because the fall-through arm shares
-    /// `to_abbreviated_string` with it. The four `matches_the_row` cases below are
-    /// the ones that used to emit Rust `Debug` — `Range(1..10)` and friends.
+    /// Every variant reads the same here as in its Variables row (compare
+    /// `short_render_renders_every_variant`), because the fall-through arm
+    /// shares `to_abbreviated_string` with it.
     #[rstest]
     #[case::bool(Value::test_bool(true), json!(true))]
     #[case::int(Value::test_int(42), json!(42))]
@@ -929,11 +869,10 @@ mod tests {
         assert_eq!(preview_json(&value), expected);
     }
 
-    /// Tripwire for a variant added upstream: `Value::test_values` yields one of
-    /// each, so a new one shows up here without anyone remembering to extend the
-    /// tables above. It omits `Custom` and `Glob`, and every value it builds is
-    /// empty or zero, so it proves only "renders, doesn't panic" — the tables
-    /// above carry the actual expectations.
+    /// Tripwire for a variant added upstream: `Value::test_values` yields one
+    /// of each, so a new one shows up here on its own. It omits `Custom` and
+    /// `Glob` and builds only empty or zero values, so it proves just
+    /// "renders, doesn't panic".
     #[test]
     fn every_variant_renders_without_panicking() {
         for value in Value::test_values() {
@@ -949,12 +888,11 @@ mod tests {
 
     // --- closures ----------------------------------------------------------
 
-    /// A closure row shows the literal the user wrote plus how many variables it
-    /// closed over — `<closure>` alone said nothing about *which* closure.
+    /// A closure row shows the literal the user wrote plus how many variables
+    /// it closed over; `<closure>` alone said nothing about *which* closure.
     ///
-    /// The source text can't be derived from the `Value`: it comes from the
-    /// block's span, resolved on the eval thread by `collect_closure_labels` and
-    /// carried in the snapshot, because the server thread has no `EngineState`.
+    /// The source text is not in the `Value`: it comes from the block's span,
+    /// resolved on the eval thread and carried in the snapshot.
     #[rstest]
     #[case::no_captures(closure(), "{|x| $x * 2}")]
     #[case::one_capture(closure_with_captures(1), "{|x| $x * 2} +1 capture")]
@@ -974,8 +912,8 @@ mod tests {
         assert_eq!(render_with_labels(&unknown), "<closure>");
     }
 
-    /// The capture count still shows when the body doesn't resolve — it comes off
-    /// the `Value`, not the engine.
+    /// The capture count shows even when the body doesn't resolve: it comes
+    /// off the `Value`, not the engine.
     #[test]
     fn closure_captures_show_without_a_label() {
         let unknown = Value::test_closure(Closure {
@@ -985,8 +923,8 @@ mod tests {
         assert_eq!(render_with_labels(&unknown), "<closure> +1 capture");
     }
 
-    /// The count in the row is a summary; the values themselves are the closure's
-    /// children, so expanding it shows what it closed over under the source names.
+    /// The row's count is a summary; expanding shows the captured values
+    /// themselves, under their source names.
     #[test]
     fn closure_captures_are_children() {
         let mut snap = crate::state::PauseSnapshot::new();
@@ -1039,19 +977,17 @@ mod tests {
 
     // --- streams -----------------------------------------------------------
 
-    /// A stream is `PipelineData`, not a `Value`, so it has no row in the tables
-    /// above — but the Pipeline scope shows one whenever a stage hands one on.
-    ///
-    /// Everything reported is static. Draining would eat the program's data, and
-    /// pulling even one element would re-enter the evaluator from inside a
-    /// debugger callback, so the element type is knowingly absent.
+    /// A stream is `PipelineData`, not a `Value`, so it has no row in the
+    /// tables above, but the Pipeline scope shows one whenever a stage hands
+    /// one on. Everything reported is static, the element type knowingly
+    /// absent: pulling an element would re-enter the evaluator.
     #[rstest]
     // The span names the producing command, which is what tells two live streams
     // apart.
     #[case::command("[1 2 3] | each {|x| $x * 2}", "<list stream from `each`>")]
     #[case::another_command("[1 2 3] | where {|x| $x > 2}", "<list stream from `where`>")]
     // A stream's span is not always a command: here it lands on the *literal*
-    // feeding the pipeline, and `from `"a-b"`` would be worse than saying nothing.
+    // feeding the pipeline, and `from `"a-b"`` would be worse than silence.
     #[case::span_is_a_literal("\"a-b\" | split row \"-\"", "<list stream>")]
     fn describe_stream_names_the_producer(#[case] script: &str, #[case] expected: &str) {
         let (engine_state, data) = eval_to_stream(script);
@@ -1061,8 +997,8 @@ mod tests {
         );
     }
 
-    /// `open` records the file and sniffs a content type, so a byte stream can say
-    /// what it is without a single byte being read.
+    /// `open` records the file and sniffs a content type, so a byte stream can
+    /// say what it is unread.
     #[test]
     fn describe_stream_reports_file_and_content_type() {
         let (engine_state, data) = eval_to_stream("open --raw Cargo.toml");
@@ -1132,9 +1068,9 @@ mod tests {
             "[table 1 row]"
         );
 
-        // Lists and records wider than one row collapse to the shape. (Elements
-        // are capped at 12 chars by `scalar_preview`, so it takes very long
-        // numbers to push a list preview past the limit.)
+        // Lists and records wider than one row collapse to the shape.
+        // Elements are capped at 12 chars, so it takes very long numbers to
+        // push a list preview past the limit.
         let wide = Value::test_list(
             (0..9)
                 .map(|n| Value::test_int(100_000_000_000_000_000 + n))
@@ -1150,9 +1086,9 @@ mod tests {
         assert_eq!(render(&row), "{a: 1}");
     }
 
-    /// Where `scalar_preview`'s rules actually reach the user: nested in a row.
-    /// A float reads `1.0` rather than `1`, and an empty string is visible instead
-    /// of leaving `note: ` dangling.
+    /// Where `scalar_preview`'s rules reach the user: nested in a row. A float
+    /// reads `1.0`, and an empty string shows instead of leaving `note: `
+    /// dangling.
     #[test]
     fn record_preview_shows_floats_and_empty_strings() {
         let v = Value::test_record(record! {

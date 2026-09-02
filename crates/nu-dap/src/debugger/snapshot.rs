@@ -12,11 +12,12 @@ use nu_protocol::{PipelineData, Span};
 impl DapDebugger {
     /// Stack frames, innermost first (DAP order), resolved to file/line.
     /// Shared by the live snapshot and time-travel recording.
+    ///
+    /// The innermost frame reports the current instruction position; callers
+    /// report their call site.
     pub(super) fn build_frames(&self) -> Vec<StackFrame> {
         let mut frames = Vec::new();
         for (i, frame) in self.frames.iter().rev().enumerate() {
-            // Innermost frame reports the current instruction position;
-            // callers report their call site.
             let span = if i == 0 {
                 self.current_span.or(frame.at).or(frame.span)
             } else {
@@ -56,8 +57,8 @@ impl DapDebugger {
         snap.cache = self.state.cache.lock().clone();
         session.config = snap.config.clone();
 
-        // Cache $nu + baseline env once, so the server can rebuild historical
-        // Globals for time-travel without touching engine_state.
+        // Cached once so the server can rebuild historical Globals for
+        // time-travel without touching engine_state.
         if session.nu_constant.is_none() {
             session.nu_constant = engine_state
                 .get_constant(nu_protocol::NU_VARIABLE_ID)
@@ -71,8 +72,8 @@ impl DapDebugger {
             );
         }
 
-        // Locals scope. `return` (the most recent expression/command result)
-        // first, then shadow vars sorted by name for a stable UI.
+        // Locals: `return` (the latest expression/command result) first, then
+        // shadow vars sorted by name for a stable UI.
         let mut locals_children = Vec::new();
         if let Some(v) = &self.last_result {
             locals_children.push(add_value(&mut snap, "return".to_string(), v, 0));
@@ -85,8 +86,8 @@ impl DapDebugger {
         snap.var_refs
             .insert(PauseSnapshot::LOCALS_REF, locals_children);
 
-        // Pipeline scope: at a call (pipe-stage boundary), the value flowing
-        // INTO that command — nu's `$in` for the next stage. Raw registers below.
+        // Pipeline: at a call, the value flowing into that command — nu's
+        // `$in` for the stage.
         let mut pipeline_children = Vec::new();
         if let Instruction::Call {
             decl_id, src_dst, ..
@@ -99,8 +100,8 @@ impl DapDebugger {
                     pipeline_children.push(add_value(&mut snap, name, v, 0));
                 }
                 other @ (PipelineData::ListStream(..) | PipelineData::ByteStream(..)) => {
-                    // Streams can't be inspected without draining them,
-                    // but kind/origin/size are known without reading.
+                    // Streams can't be inspected without draining, but
+                    // kind/origin/size are known without reading.
                     let v = nu_protocol::Value::string(
                         crate::variables::describe_stream(other, engine_state),
                         Span::unknown(),
@@ -113,8 +114,8 @@ impl DapDebugger {
         snap.var_refs
             .insert(PauseSnapshot::PIPELINE_REF, pipeline_children);
 
-        // Registers scope: the evaluator's raw working slots, for reading
-        // alongside the IR panel.
+        // Registers: the evaluator's raw working slots, to read alongside the
+        // IR panel.
         let mut register_children = Vec::new();
         for (i, reg) in site.registers.iter().enumerate() {
             if let PipelineData::Value(v, _) = &reg.body
@@ -126,8 +127,8 @@ impl DapDebugger {
         snap.var_refs
             .insert(PauseSnapshot::REGISTERS_REF, register_children);
 
-        // Process scope: rolling tails of what externals/drains wrote to the
-        // captured process stdout/stderr.
+        // Process: rolling tails of what externals wrote to the captured
+        // process stdout/stderr.
         let mut process_children = Vec::new();
         for (label, category) in [("last output", "stdout"), ("last error output", "stderr")] {
             let tail = crate::stdio::recent_output(category);
@@ -139,8 +140,8 @@ impl DapDebugger {
         snap.var_refs
             .insert(PauseSnapshot::PROCESS_REF, process_children);
 
-        // Globals scope: `$nu` (config/paths/pid/os-info) and `$env` (the full
-        // runtime env snapshotted from the Stack as `env_shadow`).
+        // Globals: `$nu` and `$env`, the latter snapshotted from the Stack as
+        // `env_shadow`.
         let mut globals_children = Vec::new();
         if let Some(nu) = engine_state.get_constant(nu_protocol::NU_VARIABLE_ID) {
             let v = nu.clone();

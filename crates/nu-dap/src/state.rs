@@ -1,11 +1,9 @@
 //! State shared between the DAP server thread and the nushell eval thread.
 //!
-//! CONCURRENCY RULE (important, deadlock hazard):
-//! The eval thread runs our `Debugger` impl *while holding* the
-//! `EngineState.debugger` mutex (that lock is taken by `WithDebug` before
-//! every callback). Therefore the DAP server thread must NEVER touch
-//! `EngineState.debugger`. All communication goes through this struct,
-//! which lives in its own `Arc` and has its own locks.
+//! CONCURRENCY RULE (deadlock hazard): the eval thread runs our `Debugger`
+//! impl *while holding* the `EngineState.debugger` mutex, so the server thread
+//! must NEVER touch `EngineState.debugger`. All communication goes through
+//! this struct, which has its own `Arc` and its own locks.
 
 use crate::dap::types::{StackFrame, Variable};
 use crate::file_table::{FileId, FileTable};
@@ -31,55 +29,50 @@ pub(crate) enum RunMode {
     PauseNow,
 }
 
-/// A snapshot of one variable at pause time. Children are pre-flattened
-/// into the arena (see `PauseSnapshot::var_arena`).
+/// One variable at pause time; children are flattened into
+/// `PauseSnapshot::var_arena`.
 #[derive(Debug, Clone)]
 pub(crate) struct VarNode {
     pub var: Variable,
     /// Indices into the arena for this node's children (empty for leaves).
     pub children: Vec<usize>,
-    /// Full value, kept so `nuDapVisualize` can serve complete data even for
-    /// leaves (strings, binaries) that have no variablesReference of their own.
+    /// Kept so `nuDapVisualize` can serve complete data even for leaves
+    /// (strings, binaries) with no variablesReference of their own.
     pub value: nu_protocol::Value,
 }
 
-/// Everything the DAP client may ask about while we are paused.
-/// Built by the eval thread inside the Debugger callback, read by the
-/// server thread. Replaced wholesale on every pause.
+/// Everything the client may ask about while paused. Built by the eval thread
+/// inside the Debugger callback, read by the server thread, replaced wholesale
+/// on every pause.
 #[derive(Debug, Default)]
 pub(crate) struct PauseSnapshot {
     pub frames: Vec<StackFrame>,
-    /// variablesReference -> children indices in `var_arena`.
-    /// Reference 1 is reserved for the "Locals" scope root,
-    /// reference 2 for the "Pipeline" scope root.
+    /// variablesReference -> children indices in `var_arena`. Low references
+    /// are reserved for the scope roots (see the consts below).
     pub var_refs: HashMap<i64, Vec<usize>>,
     pub var_arena: Vec<VarNode>,
     next_ref: i64,
-    /// Config as of this pause, so rendering (`variables::short_render`) can
-    /// use nushell's own value formatting. Cloned from `engine_state` by the
-    /// eval thread; the server thread only ever reads this `Arc`.
+    /// Config as of this pause, so rendering uses nushell's own value
+    /// formatting. Cloned from `engine_state` by the eval thread; the server
+    /// thread only reads the `Arc`.
     pub config: Arc<nu_protocol::Config>,
-    /// Engine-derived rendering facts — same deal as `config`: resolving a
-    /// `BlockId` or `VarId` needs `engine_state`, which the server can't reach.
+    /// Engine-derived rendering facts, for the same reason as `config`.
     pub cache: Arc<RenderCache>,
 }
 
-/// The engine-derived facts rendering needs, resolved once after the script is
-/// parsed and shared by both threads. The server thread can't reach
-/// `EngineState` (see the concurrency rule above), so anything that needs a
-/// `BlockId` or `VarId` looked up has to arrive pre-computed.
+/// Rendering facts that need `EngineState` to resolve, computed once after
+/// the parse and shared by both threads because the server thread can't reach
+/// `EngineState` (see the concurrency rule above).
 ///
 /// Sized by the program, not the data: registering commands adds *decls*, not
 /// blocks, so a small script yields a handful of entries.
 #[derive(Debug, Default)]
 pub(crate) struct RenderCache {
-    /// Closure source text by block id, so a closure row can read as the
-    /// literal the user wrote. Each entry is capped, so a long closure body
-    /// can't bloat the map.
+    /// Closure source text by block id, so a closure row reads as the literal
+    /// the user wrote. Entries are capped, so a long body can't bloat the map.
     pub closure_src: HashMap<usize, String>,
-    /// Names of variables that some closure captures, by var id — the labels
-    /// for the capture rows under an expanded closure. Only captured vars are
-    /// stored, not every variable in the program.
+    /// Labels for the capture rows under an expanded closure, by var id. Only
+    /// captured vars, not every variable in the program.
     pub var_names: HashMap<usize, String>,
 }
 
@@ -109,8 +102,7 @@ impl PauseSnapshot {
     }
 }
 
-/// One breakpoint's properties, keyed in `SessionState::breakpoints` by its
-/// (possibly snapped) line.
+/// Keyed in `SessionState::breakpoints` by its (possibly snapped) line.
 #[derive(Debug, Clone, Default)]
 pub(crate) struct Breakpoint {
     pub id: i64,
@@ -154,19 +146,16 @@ impl Breakpoint {
 /// The debug session's mutable state: breakpoints, run control, pause status,
 /// the current variable snapshot, and the time-travel tape.
 ///
-/// This is the portion of `DebugState` that lives behind its mutex, so both
-/// threads reach it the same way — the eval thread via `DebugState::inner`,
-/// the server thread via `Server::with_state`/`with_state_mut`. Holding a
-/// `&`/`&mut` to it means the lock is held: do not evaluate nu expressions
-/// (`scratch` has its own lock) or block on a condvar while one is alive.
+/// Holding a `&`/`&mut` to it means the lock is held: do not evaluate nu
+/// expressions (`scratch` has its own lock) or block on a condvar while one is
+/// alive.
 #[derive(Debug)]
 pub(crate) struct SessionState {
-    /// file -> line -> breakpoint properties. Keyed by [`FileId`] rather
-    /// than by path so the client's spelling and nu's cannot disagree; see
-    /// [`FileTable`].
+    /// file -> line -> properties, keyed by [`FileId`] so the client's
+    /// spelling and nu's cannot disagree (see [`FileTable`]).
     pub breakpoints: HashMap<FileId, BTreeMap<i64, Breakpoint>>,
-    /// file -> set of lines that have at least one steppable instruction.
-    /// Populated by the eval thread after parsing.
+    /// file -> lines with at least one steppable instruction, populated by the
+    /// eval thread after parsing.
     pub valid_lines: HashMap<FileId, BTreeSet<i64>>,
     /// True once `valid_lines` is populated (breakpoints can be verified).
     pub parse_done: bool,
@@ -183,26 +172,24 @@ pub(crate) struct SessionState {
     pub resume_requested: bool,
     /// Set on `disconnect`/`terminate`: the eval thread should bail out.
     pub terminate_requested: bool,
-    /// Set on `restart`: this state's eval thread is being torn down to be
-    /// replaced. Suppresses its terminated/exited events so the DAP session
-    /// survives the swap.
+    /// Set on `restart`: this state's eval thread is being replaced, so its
+    /// terminated/exited events are suppressed and the session survives.
     restarting: bool,
     pub snapshot: PauseSnapshot,
     /// Source line and block depth at the most recent pause; the server
     /// thread needs these to construct StepOver/StepOut run modes.
     pub paused_line: u64,
     pub paused_depth: usize,
-    /// Current frame's locals (keyed by VarId), snapshotted from the real
-    /// `Stack` (#18708) by `debugger::sync_locals_from_stack` and read here by
-    /// the server thread, which must never touch the Stack directly.
+    /// Current frame's locals by `VarId`, snapshotted from the real `Stack`
+    /// (#18708), which the server thread must never touch itself.
     pub shadow_vars: HashMap<usize, ShadowVar>,
-    /// The current frame's full runtime environment (`stack.get_env_vars`),
-    /// snapshotted alongside `shadow_vars`. Rendered as `$env` in Globals.
+    /// Full runtime env (`stack.get_env_vars`), snapshotted alongside
+    /// `shadow_vars` and rendered as `$env` in Globals.
     pub env_shadow: HashMap<String, nu_protocol::Value>,
 
     // --- Time-travel ("recorded tape") ---
-    /// Recorded execution history. Bounded ring buffer: the frontier (live
-    /// position) is the last entry.
+    /// Recorded history, a bounded ring buffer whose last entry is the
+    /// frontier (the live position).
     pub timeline: VecDeque<TimelineEntry>,
     /// Navigation cursor. `None` = at the live frontier (serve `snapshot`);
     /// `Some(i)` = viewing `timeline[i]` (serve `history_snapshot`).
@@ -213,8 +200,8 @@ pub(crate) struct SessionState {
     pub time_travel: bool,
     /// Ring-buffer cap.
     tt_max: usize,
-    /// `$nu` constant and baseline env, cached once by the eval thread so the
-    /// server can rebuild historical Globals without `engine_state`.
+    /// Cached once by the eval thread so the server can rebuild historical
+    /// Globals without `engine_state`.
     pub nu_constant: Option<nu_protocol::Value>,
     pub baseline_env: Option<HashMap<String, nu_protocol::Value>>,
     /// Cached alongside them, for the same reason: rebuilding a historical
@@ -223,9 +210,9 @@ pub(crate) struct SessionState {
 }
 
 impl SessionState {
-    /// Where a breakpoint at `line` actually lands. Returns (line, verified):
-    /// the line itself if steppable, else the next line that is (snap forward),
-    /// else unverified. Optimistically verified in place before parsing.
+    /// Where a breakpoint at `line` lands, as (line, verified): the line
+    /// itself if steppable, else the next one that is, else unverified. Before
+    /// parsing, optimistically verified in place.
     pub(crate) fn snap_line(&self, file: FileId, line: i64) -> (i64, bool) {
         if !self.parse_done {
             return (line, true);
@@ -257,9 +244,8 @@ impl SessionState {
         }
     }
 
-    /// Append a recorded moment, evicting the oldest when over the cap. On
-    /// eviction the cursor shifts with the buffer so it keeps pointing at the
-    /// same logical entry (saturating at 0).
+    /// Append a recorded moment, evicting the oldest when over the cap. The
+    /// cursor shifts with the buffer so it keeps pointing at the same entry.
     pub(crate) fn push_timeline(&mut self, entry: TimelineEntry) {
         self.timeline.push_back(entry);
         while self.timeline.len() > self.tt_max {
@@ -282,24 +268,21 @@ pub(crate) struct ShadowVar {
     pub value: nu_protocol::Value,
 }
 
-/// One recorded moment on the time-travel tape: everything needed to rebuild
-/// the Locals + Globals view of a past line WITHOUT touching `engine_state`
-/// (which the server thread must never do). Recorded on the eval thread at
-/// every steppable line; navigated by the server thread.
+/// One recorded moment on the time-travel tape: enough to rebuild the Locals
+/// and Globals view of a past line without `engine_state`. Recorded by the
+/// eval thread at every steppable line, navigated by the server thread.
 #[derive(Debug, Clone)]
 pub(crate) struct TimelineEntry {
-    /// Stack frames already resolved to file/line (the server can't resolve
-    /// spans — the SourceMap lives on the eval thread).
+    /// Pre-resolved to file/line: the `SourceMap` lives on the eval thread.
     pub frames: Vec<StackFrame>,
     pub shadow_vars: HashMap<usize, ShadowVar>,
     pub env_shadow: HashMap<String, nu_protocol::Value>,
     pub last_result: Option<nu_protocol::Value>,
-    /// At a call/pipe-stage boundary: (command name, value flowing in) — shown
-    /// as `in → cmd` in the past view's Pipeline scope.
+    /// At a pipe-stage boundary: (command name, value flowing in), shown as
+    /// `in → cmd` in the past view's Pipeline scope.
     pub pipe_input: Option<(String, nu_protocol::Value)>,
     pub depth: usize,
-    /// True if execution actually paused here on a breakpoint (used by
-    /// reverse-continue to find prior stops).
+    /// Whether execution actually paused here, for reverse-continue.
     pub is_breakpoint: bool,
 }
 
@@ -312,9 +295,9 @@ pub(crate) struct UiReply {
     pub value: Option<String>,
 }
 
-/// Bridge for interactive prompts: the eval thread (inside an `input`-family
-/// shim) blocks here until the client answers a `nuDapUi` event via the
-/// `nuDapUiReply` request handled on the server thread.
+/// Bridge for interactive prompts: the eval thread, inside an `input`-family
+/// shim, blocks here until the client answers a `nuDapUi` event with a
+/// `nuDapUiReply` request.
 #[derive(Debug, Default)]
 pub(crate) struct UiBridge {
     pub replies: Mutex<HashMap<u64, UiReply>>,
@@ -324,35 +307,30 @@ pub(crate) struct UiBridge {
 
 pub(crate) struct DebugState {
     pub session_state: Mutex<SessionState>,
-    /// The session's path <-> [`FileId`] table, shared with the `Session` that
-    /// created this state. Shared rather than owned so a `restart` — which
-    /// builds a fresh `DebugState` and copies the breakpoints across — keeps
-    /// the ids those breakpoints are keyed by valid.
+    /// The session's path <-> [`FileId`] table, shared with the `Session`
+    /// rather than owned so a `restart`, which builds a fresh `DebugState` and
+    /// copies the breakpoints across, keeps their ids valid.
     pub files: FileTable,
     pub ui: UiBridge,
-    /// Mirror of SessionState::terminate_requested readable without the lock — the
-    /// UI wait loop polls it so the stop button interrupts a pending dialog.
+    /// Lock-free mirror of `SessionState::terminate_requested`, polled by the
+    /// UI wait loop so the stop button interrupts a pending dialog.
     pub terminate_flag: std::sync::atomic::AtomicBool,
     /// Scratch engine for watch/hover/console expressions, breakpoint
-    /// conditions, and logpoint interpolation. Cloned off the run engine by the
-    /// eval thread right after the parse (`engine::run`), so it is `None` only
-    /// before the first run starts. Lock discipline: never taken while holding
-    /// `inner`.
+    /// conditions and logpoint interpolation. Cloned off the run engine right
+    /// after the parse, so `None` only before the first run starts. Lock
+    /// discipline: never taken while holding `session_state`.
     pub scratch: Mutex<Option<crate::eval_scratch::Scratch>>,
     /// Eval thread waits on this while paused; server thread notifies
     /// after setting `resume_requested` + new `run_mode`.
     pub resume_cv: Condvar,
-    /// Server thread can wait on this for "the eval thread has paused and
-    /// the snapshot is ready" if it ever needs to (not required for v1:
-    /// the `stopped` event is only sent after the snapshot is built).
+    /// Signals "paused, snapshot ready". Unused so far: the `stopped` event
+    /// is only sent once the snapshot is built.
     pub paused_cv: Condvar,
     /// Rendering facts, built once by the eval thread right after the parse
-    /// (`engine::run`) and read by both.
+    /// and read by both.
     ///
-    /// Lock discipline: innermost. It is taken under `session_state`
-    /// (`build_snapshot`, `timetravel`) but never the other way round, and
-    /// every use is a clone-and-release of the `Arc` — nothing is called while
-    /// holding it, so it cannot be half of a cycle.
+    /// Lock discipline: innermost. Taken under `session_state` but never the
+    /// other way round, and every use is a clone-and-release of the `Arc`.
     pub cache: Mutex<Arc<RenderCache>>,
 }
 

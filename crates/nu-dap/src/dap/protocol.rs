@@ -145,8 +145,8 @@ impl DapWriter {
     }
 }
 
-/// Response bodies are plain structs of owned data, so serialization cannot
-/// fail; a bodyless response serializes to null and is skipped by the envelope.
+/// Bodies are plain owned structs, so serialization cannot fail; a bodyless
+/// response serializes to null and the envelope skips it.
 fn to_body(body: &impl Serialize) -> Json {
     serde_json::to_value(body).expect("serialize DAP body")
 }

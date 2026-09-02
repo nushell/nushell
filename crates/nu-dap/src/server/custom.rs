@@ -6,8 +6,8 @@ use crate::dap::protocol::Request;
 use crate::dap::types::{VisualizeArgs, VisualizeResponse};
 
 impl Session {
-    // "Visualize" action: return the full value as JSON (unlike the bounded
-    // Variables tree). Expandable nodes are keyed by variablesReference;
+    // "Visualize" action: the full value as JSON, unlike the bounded
+    // Variables tree. Expandable nodes are keyed by variablesReference,
     // leaves (strings, binaries) by containerReference + name.
     pub(super) fn on_visualize(&mut self, seq: i64, cmd: &str, req: Request) {
         let args: VisualizeArgs = match serde_json::from_value(req.arguments) {
@@ -18,6 +18,7 @@ impl Session {
                 return;
             }
         };
+
         let found = self
             .with_state(|session| {
                 let snap = session.active_snapshot();
@@ -34,8 +35,8 @@ impl Session {
                     }),
                     _ => None,
                 };
-                // Cheap `Arc` bumps, as in `add_value`: the payload renders the
-                // same way as the Variables row it was opened from.
+                // Cheap `Arc` bumps, as in `add_value`: renders the same way
+                // as the Variables row it was opened from.
                 let config = snap.config.clone();
                 let cache = snap.cache.clone();
                 let ctx = crate::variables::RenderCtx {
@@ -49,6 +50,7 @@ impl Session {
                 })
             })
             .flatten();
+
         match found {
             Some((value, type_, truncated)) => self.writer.respond(
                 seq,
@@ -67,8 +69,8 @@ impl Session {
         }
     }
 
-    // Answer to a `nuDapUi` prompt event: hand it to the eval
-    // thread blocked inside the input shim.
+    // Answer to a `nuDapUi` prompt: hand it to the eval thread blocked inside
+    // the input shim.
     pub(super) fn on_ui_reply(&mut self, seq: i64, cmd: &str, req: Request) {
         let id = req.arguments.get("id").and_then(|v| v.as_u64());
         if let (Some(id), Some(state)) = (id, &self.state) {

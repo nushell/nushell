@@ -10,10 +10,9 @@
 //!   3. on pause: build a snapshot, emit `stopped`, and block this thread
 //!      on a condvar until the DAP server thread resumes us.
 //!
-//! Termination: there is no API to abort evaluation from a Debugger, but
-//! `engine_state.signals().trigger()` raises the interrupt signal, which
-//! makes the evaluator bail out with `ShellError::Interrupted` at the next
-//! check — that is our terminate path.
+//! Termination: a Debugger cannot abort evaluation, but
+//! `engine_state.signals().trigger()` raises the interrupt signal and the
+//! evaluator bails out with `ShellError::Interrupted` at its next check.
 
 mod snapshot;
 pub(crate) mod stepping;
@@ -35,23 +34,19 @@ use std::sync::Arc;
 struct Frame {
     name: String,
     span: Option<Span>,
-    /// Span of the instruction this frame is currently executing — for
-    /// caller frames that's the call site, which is what the stack trace
-    /// should show (not the callee block's first line).
+    /// Span of the instruction this frame is executing. For caller frames
+    /// that is the call site, which is what a stack trace should show.
     at: Option<Span>,
-    /// Last source line executed *within this frame*. Per-frame (not
-    /// global) so returning from a callee back onto the same line doesn't
-    /// count as a fresh arrival and re-fire breakpoints/logpoints.
+    /// Last line executed *within this frame*, so returning from a callee
+    /// onto the same line isn't a fresh arrival that re-fires breakpoints.
     last_line: Option<u64>,
-    /// `$in` for this frame: register 0 at block entry. `$in` is
-    /// register-based, not stored on the Stack, so it's the one local we
-    /// still capture from IR rather than read from `stack.vars`.
+    /// `$in` for this frame: register 0 at block entry. Register-based
+    /// rather than on the Stack, so it is the one local read from IR.
     in_value: Option<Value>,
 }
 
-/// Where execution currently is: the IR block, which instruction in it, and the
-/// register file. The evaluator hands these to every hook as three separate
-/// arguments and they are never used apart, so internally they travel as one.
+/// Where execution is: IR block, instruction index, register file. The
+/// evaluator passes these three to every hook and they are never used apart.
 struct Site<'a> {
     ir_block: &'a IrBlock,
     instruction_index: usize,
@@ -64,7 +59,7 @@ impl<'a> Site<'a> {
         &self.ir_block.instructions[self.instruction_index]
     }
 
-    /// Its source span — may be multi-line or synthetic, so callers that need a
+    /// Its source span, possibly multi-line or synthetic: callers needing a
     /// stop location go through `SourceMap::resolve_steppable`.
     fn span(&self) -> Span {
         self.ir_block.spans[self.instruction_index]
@@ -72,10 +67,9 @@ impl<'a> Site<'a> {
 }
 
 /// `Debug` is required by the `Debugger` trait. The three collaborators below
-/// are skipped because they are not `Debug` themselves (and dumping the shared
-/// state would print every breakpoint, the whole timeline, and the snapshot
-/// arena); the rest print, so a field added later shows up without anyone
-/// having to remember this impl.
+/// are skipped: they are not `Debug`, and dumping the shared state would print
+/// every breakpoint, the timeline and the snapshot arena. Everything else
+/// prints, so a field added later shows up on its own.
 #[derive(derive_more::Debug)]
 pub(crate) struct DapDebugger {
     #[debug(skip)]
@@ -91,30 +85,27 @@ pub(crate) struct DapDebugger {
     /// Span of the instruction we are currently paused/last stopped on,
     /// so frames[top] can report an accurate line.
     current_span: Option<Span>,
-    /// Name for the next block, set at a `Call` to a named decl. Consumed by
-    /// `enter_block`; cleared each `enter_instruction` so a builtin call can't
-    /// mislabel a later block.
+    /// Name for the next block, set at a `Call` to a named decl and consumed
+    /// by `enter_block`. Cleared each `enter_instruction` so a builtin call
+    /// can't mislabel a later block.
     pending_frame_name: Option<String>,
-    /// Previously executed source line in the current frame (mirrors
-    /// frames.last().last_line). A line compiles to several IR instructions,
-    /// so breakpoints fire only when the line *changes*.
+    /// Mirrors `frames.last().last_line`. A line compiles to several IR
+    /// instructions, so breakpoints fire only when the line *changes*.
     last_line: Option<u64>,
-    /// True while an error is unwinding through nested frames. Each frame's
-    /// call instruction re-reports the same error via `leave_instruction`;
-    /// pause only on the innermost one. Cleared when a new instruction runs.
+    /// True while an error unwinds through nested frames: every frame's call
+    /// instruction re-reports it, but only the innermost one should pause.
     in_error_unwind: bool,
-    /// True between enter_block and its first instruction: register 0 holds
-    /// the block's pipeline input there, which is `$in` — capture it.
+    /// True between `enter_block` and its first instruction, where register 0
+    /// still holds the block's pipeline input, i.e. `$in`.
     just_entered_block: bool,
-    /// Result of the most recently completed command/return — surfaced as the
-    /// `return` entry at the top of Locals ("latest expression result").
-    /// Captured in `leave_instruction`; streams are described, not drained.
+    /// Most recent command/return result, shown as the `return` entry at the
+    /// top of Locals. Captured in `leave_instruction`; streams are described,
+    /// not drained.
     // Type only: the value itself can be a whole table.
     #[debug("{:?}", last_result.as_ref().map(|v| v.get_type()))]
     last_result: Option<Value>,
-    /// Block depth at the previous steppable instruction — lets time-travel
-    /// recording fire on depth changes (entering/leaving closures), matching
-    /// forward step-into granularity.
+    /// Block depth at the previous steppable instruction, so time-travel
+    /// records on depth changes too and matches step-into granularity.
     last_depth: Option<usize>,
 }
 
@@ -139,9 +130,8 @@ impl DapDebugger {
         self.frames.len()
     }
 
-    /// The two `Arc`s a one-off render needs, for callers that then build a
-    /// `RenderCtx` borrowing them. Returned rather than the context itself so
-    /// the borrows outlive the call.
+    /// The two `Arc`s a one-off render needs. Returned instead of a
+    /// `RenderCtx` so the borrows outlive the call.
     fn render_parts(
         &self,
         engine_state: &EngineState,
@@ -176,8 +166,8 @@ impl DapDebugger {
         let vars = self.shadow_vars_for_eval();
         let mut guard = self.state.scratch.lock();
 
-        // Before the run starts there is nothing to interpolate against; log
-        // the template as written rather than dropping the message.
+        // Nothing to interpolate against before the run starts: log the
+        // template as written rather than dropping the message.
         match guard.as_mut() {
             Some(scratch) => scratch.interpolate(template, &vars),
             None => template.to_string(),
@@ -186,13 +176,9 @@ impl DapDebugger {
 
     /// The pause loop: publish snapshot, emit `stopped`, block until resumed.
     ///
-    /// Takes the locked state by value because the condvar wait below needs the
-    /// guard itself — a `&mut SessionState` could not be handed to `wait`.
-    /// Callers must therefore lock immediately before calling: everything that
-    /// takes this lock (`read_pause_gate`, `sync_locals_from_stack`,
-    /// `record_timeline`, `shadow_vars_for_eval` via breakpoint
-    /// conditions/logpoints) has to run first. The mutex is not reentrant, so a
-    /// second lock here deadlocks.
+    /// Takes the guard by value because the condvar wait needs it. Callers must
+    /// therefore lock immediately before calling, once everything else that
+    /// takes this lock has run — the mutex is not reentrant.
     fn pause(
         &self,
         mut session: MutexGuard<'_, SessionState>,
@@ -201,7 +187,7 @@ impl DapDebugger {
         site: &Site<'_>,
         description: Option<&str>,
     ) {
-        // Sync the output capture so the Process scope tails are current.
+        // So the Process scope tails are current.
         crate::stdio::flush_output(std::time::Duration::from_millis(300));
 
         self.announce_ir(engine_state, site);
@@ -216,14 +202,13 @@ impl DapDebugger {
         session.resume_requested = false;
 
         if session.terminate_requested {
-            // Raise nu's interrupt signal: evaluation unwinds with
-            // ShellError::Interrupted at the next signal check.
+            // Evaluation unwinds with `Interrupted` at the next check.
             engine_state.signals().trigger();
         }
     }
 
-    /// IR listing for the extension's "Show IR" panel. Custom DAP event, so
-    /// clients that don't know it simply ignore it.
+    /// IR listing for the extension's "Show IR" panel. A custom event, so
+    /// clients that don't know it ignore it.
     fn announce_ir(&self, engine_state: &EngineState, site: &Site<'_>) {
         self.writer.event(DapEvent::NuDapIr {
             text: format!("{}", site.ir_block.display(engine_state)),
@@ -233,11 +218,7 @@ impl DapDebugger {
     }
 
     /// Record the stop in shared state — the snapshot and position the server
-    /// thread serves `stackTrace`/`scopes`/`variables` from — then wake anyone
-    /// waiting on `paused_cv`.
-    ///
-    /// Takes the locked state by reference; `pause` keeps the guard because the
-    /// wait that follows consumes it.
+    /// serves `stackTrace`/`scopes`/`variables` from — then wake `paused_cv`.
     fn publish_stop(
         &self,
         session: &mut SessionState,
@@ -277,8 +258,8 @@ impl DapDebugger {
     }
 
     /// First instruction of a fresh block: register 0 is `$in` (per element
-    /// for each/where closures). It's register-based, not on the Stack, so
-    /// stash it on the frame; `sync_locals_from_stack` injects it later.
+    /// for each/where closures). Stashed on the frame for
+    /// `sync_locals_from_stack` to inject, since it is not on the Stack.
     fn capture_block_input(&mut self, registers: &[PipelineExecutionData]) {
         if !self.just_entered_block {
             return;
@@ -294,10 +275,9 @@ impl DapDebugger {
         }
     }
 
-    /// Everything one instruction needs from the shared state, read under a
-    /// single lock — condition and logpoint evaluation happen after it is
-    /// released (`scratch` has its own). `None` means terminate was requested
-    /// and this instruction must not proceed.
+    /// Everything one instruction needs from shared state, under a single
+    /// lock; conditions and logpoints are evaluated after it is released.
+    /// `None` means terminate was requested and this instruction must stop.
     fn read_pause_gate(
         &self,
         engine_state: &EngineState,
@@ -329,9 +309,9 @@ impl DapDebugger {
         })
     }
 
-    /// Whether to stop at this instruction and why: a breakpoint's verdict wins,
-    /// otherwise the active run mode decides. The second element is a console
-    /// note from a breakpoint condition that could not be used.
+    /// Whether to stop here and why: a breakpoint's verdict wins, else the run
+    /// mode decides. The second element is a console note for a breakpoint
+    /// condition that could not be used.
     fn pause_reason(
         &mut self,
         engine_state: &EngineState,
@@ -357,10 +337,8 @@ impl DapDebugger {
 
     /// Stop at this instruction: surface any breakpoint note, then pause.
     ///
-    /// The only place `enter_instruction` takes the session lock. Everything
-    /// that also takes it — `read_pause_gate`, `sync_locals_from_stack`,
-    /// `check_breakpoint` (scratch eval), `record_timeline` — must have run
-    /// already; std mutexes are not reentrant.
+    /// The only place `enter_instruction` takes the session lock, so everything
+    /// else that takes it must have run already — the mutex is not reentrant.
     fn pause_at(
         &mut self,
         engine_state: &EngineState,
@@ -422,8 +400,8 @@ impl DapDebugger {
     }
 
     /// A logpoint's condition gates whether it emits. An unusable condition
-    /// logs anyway (and says why): a logpoint never pauses, so swallowing the
-    /// output would leave nothing to show that anything went wrong.
+    /// logs anyway, and says why: a logpoint never pauses, so a swallowed
+    /// message would leave no sign of the failure.
     fn should_log(&mut self, engine_state: &EngineState, condition: Option<&str>) -> bool {
         let Some(cond) = condition else { return true };
         match self.scratch_eval(cond) {
@@ -455,12 +433,11 @@ impl DapDebugger {
         }
     }
 
-    /// Record on the tape at the same granularity forward stepping stops
-    /// (line/depth change or a call boundary), so Step Back reaches every
-    /// point F11 would — pipe stages and same-line closure bodies included.
+    /// Record on the tape at the granularity forward stepping stops at
+    /// (line/depth change or a call boundary), so Step Back reaches every point
+    /// F11 would, pipe stages and same-line closure bodies included.
     ///
-    /// Must run after `current_span` is set: `build_frames` reads it for the
-    /// top frame's line.
+    /// Must run after `current_span` is set: `build_frames` reads it.
     fn record_timeline(
         &mut self,
         engine_state: &EngineState,
@@ -496,8 +473,8 @@ impl DapDebugger {
     }
 
     /// Remember this line so later instructions on it don't refire the
-    /// breakpoint. Only reached for steppable instructions, so line tracking
-    /// stays untouched by compiler glue.
+    /// breakpoint. Only reached for steppable instructions, so compiler glue
+    /// never touches line tracking.
     fn track_line(&mut self, pos: &SourcePos) {
         self.last_line = Some(pos.line);
         self.last_depth = Some(self.depth());
@@ -527,12 +504,11 @@ impl DapDebugger {
         }
     }
 
-    /// Full diagnostic text for the `exceptionInfo` dialog: the same report
-    /// nushell prints to stderr, labels, help and source snippet included.
-    /// `{err}` alone gives only the top-level Display line, and most
-    /// `ShellError` variants put the substance in a `#[label]` — "Can't convert
-    /// to int." versus "can't convert string to int". ANSI is stripped because
-    /// colouring follows user config and DAP clients render escapes literally.
+    /// Full diagnostic text for the `exceptionInfo` dialog: the report nushell
+    /// prints to stderr, labels, help and source snippet included. `{err}`
+    /// alone gives the top-level Display line only, while most `ShellError`
+    /// variants put the substance in a `#[label]`. ANSI is stripped because DAP
+    /// clients render escapes literally.
     fn error_report(engine_state: &EngineState, stack: &Stack, err: &ShellError) -> String {
         let working_set = StateWorkingSet::new(engine_state);
         nu_utils::strip_ansi_string_likely(format_cli_error(
@@ -543,8 +519,8 @@ impl DapDebugger {
         ))
     }
 
-    /// Appends an external command's stderr tail to either error text, so the
-    /// dialog and the `stopped` event can't drift apart on it.
+    /// Appends an external's stderr tail to either error text, so the dialog
+    /// and the `stopped` event can't drift apart.
     fn with_external_stderr(text: String, tail: Option<&str>) -> String {
         match tail {
             Some(tail) => format!("{text}\n\n{tail}"),
@@ -552,8 +528,8 @@ impl DapDebugger {
         }
     }
 
-    /// Recent stderr tail from an external command, trimmed and capped so the
-    /// exception dialog stays readable. `None` when the child said nothing.
+    /// Trimmed and capped so the exception dialog stays readable. `None` when
+    /// the child said nothing.
     fn get_message_from_external_command() -> Option<String> {
         crate::stdio::flush_output(std::time::Duration::from_millis(500));
 
@@ -582,14 +558,12 @@ impl DapDebugger {
     ) {
         let err = error.expect("error present");
 
-        // An error unwinds through every enclosing call instruction; pause
-        // only at the innermost (first) report.
+        // Pause only at the innermost (first) report of the unwind.
         if self.in_error_unwind {
             return;
         }
 
-        // Scoped: `sync_locals_from_stack` below takes this same lock, so this
-        // read must not outlive the check.
+        // Scoped: `sync_locals_from_stack` below takes this same lock.
         let wanted = {
             let session = self.state.session_state.lock();
             session.break_on_error && !session.terminate_requested
@@ -601,18 +575,17 @@ impl DapDebugger {
 
         self.in_error_unwind = true;
 
-        // Point the top frame at the failing instruction, even when its span
-        // is multi-line (better an approximate position than none).
+        // Point the top frame at the failing instruction, multi-line span and
+        // all: an approximate position beats none.
         let span = site.span();
         if self.source_map.resolve(span).is_some() {
             self.current_span = Some(span);
         }
 
-        // Fetched once — it flushes the output capture — and appended to both
-        // texts below: "External command had a non-zero exit code" says nothing
-        // on its own, the command's actual complaint went to stderr. Matched on
-        // the variant, not the diagnostic code, so a rename fails to compile
-        // instead of quietly dropping the tail.
+        // Fetched once (it flushes the output capture) and appended to both
+        // texts below: "External command had a non-zero exit code" says
+        // nothing on its own, the real complaint went to stderr. Matched on the
+        // variant, not the code, so a rename fails to compile.
         let tail = match err {
             ShellError::NonZeroExitCode { .. } => Self::get_message_from_external_command(),
             _ => None,
@@ -622,25 +595,24 @@ impl DapDebugger {
             tail.as_deref(),
         );
 
-        // This path skips the enter_instruction sync, so refresh from the Stack.
+        // This path skips the `enter_instruction` sync.
         self.sync_locals_from_stack(engine_state, stack);
 
-        // Locked last, and passed straight into `pause` — nothing between here
-        // and the stop may take this lock again.
+        // Locked last and passed straight into `pause`: nothing in between
+        // may take this lock again.
         let exception_id = exception_id(err);
         let mut session = self.state.session_state.lock();
         session.exception_info = Some((exception_id, description));
 
-        // The `stopped` event's text/description land in narrow client UI (the
-        // pause reason beside the thread), so they get the short message rather
-        // than the whole report the `exceptionInfo` request serves above.
+        // The `stopped` event's text lands in narrow client UI, so it gets the
+        // short message; `exceptionInfo` serves the whole report above.
         let summary = Self::with_external_stderr(format!("{err}"), tail.as_deref());
         self.pause(session, engine_state, "exception", site, Some(&summary));
     }
 }
 
-/// The shared-state reads one instruction needs, taken together so the lock is
-/// acquired once (see the concurrency rule in state.rs).
+/// The shared-state reads one instruction needs, taken together so the lock
+/// is acquired once (see the concurrency rule in state.rs).
 struct PauseGate {
     breakpoint: Option<Breakpoint>,
     run_mode: RunMode,
@@ -648,21 +620,19 @@ struct PauseGate {
 }
 
 impl PauseGate {
-    /// Locals+env are snapshotted from the Stack only when we might pause, eval
-    /// a condition/logpoint, or record — not on the plain-`continue` fast path,
-    /// so hot loops don't clone per line.
+    /// Locals+env are snapshotted from the Stack only when we might pause,
+    /// evaluate a condition/logpoint, or record — never on the plain-`continue`
+    /// path, so hot loops don't clone per line.
     fn wants_locals(&self) -> bool {
         self.breakpoint.is_some() || !matches!(self.run_mode, RunMode::Continue) || self.time_travel
     }
 }
 
 /// DAP `exceptionId` for an error: nushell's own diagnostic code, e.g.
-/// `nu::shell::non_zero_exit_code`. `ShellError` derives `Diagnostic` and
-/// nearly every variant declares a `code(..)`; the `transparent` ones forward
-/// to their inner error (`GenericError` defaults to `nu::shell::error`).
+/// `nu::shell::non_zero_exit_code`. Nearly every `ShellError` variant declares
+/// a `code(..)`; `transparent` ones forward to their inner error.
 ///
-/// Deliberately not scraped from `{err:?}`: `Debug` is not a stable interface,
-/// and this is the same code nushell prints for the error elsewhere.
+/// Not scraped from `{err:?}`, because `Debug` is not a stable interface.
 fn exception_id(err: &ShellError) -> String {
     err.code()
         .map(|code| code.to_string())
@@ -671,8 +641,8 @@ fn exception_id(err: &ShellError) -> String {
 }
 
 /// Frame naming only: a `Call` to a named decl labels the block its
-/// `enter_block` will push; anything else yields `None` so a builtin call (no
-/// block follows) can't mislabel a later block.
+/// `enter_block` pushes. Anything else yields `None`, so a builtin call (which
+/// pushes no block) can't mislabel a later one.
 fn called_decl_name(engine_state: &EngineState, instruction: &Instruction) -> Option<String> {
     match instruction {
         Instruction::Call { decl_id, .. } => {
@@ -682,8 +652,8 @@ fn called_decl_name(engine_state: &EngineState, instruction: &Instruction) -> Op
     }
 }
 
-/// At a call boundary, the value flowing in — so the past view can show
-/// `in → cmd`. Streams are described, never drained.
+/// At a call boundary, the value flowing in, for the past view's `in → cmd`
+/// row. Streams are described, never drained.
 fn pipe_input_at(
     engine_state: &EngineState,
     instruction: &Instruction,
@@ -751,13 +721,13 @@ impl Debugger for DapDebugger {
         });
         self.last_line = None; // fresh frame: no line executed yet
 
-        // Locals/params come from the real Stack at each pause, not pre-binding.
+        // Locals/params are read from the real Stack at each pause.
         self.just_entered_block = true;
     }
 
     fn leave_block(&mut self, _engine_state: &EngineState, _block: &Block) {
         self.frames.pop();
-        // Restore the caller's line so returning onto the call line doesn't refire.
+        // So returning onto the call line doesn't refire.
         self.last_line = self.frames.last().and_then(|f| f.last_line);
     }
 
@@ -776,35 +746,35 @@ impl Debugger for DapDebugger {
         };
 
         self.source_map.refresh(engine_state);
-        // New instruction running, so a prior error was caught — future ones pause.
+        // A new instruction means a prior error was caught; future ones pause.
         self.in_error_unwind = false;
         self.capture_block_input(registers);
         self.pending_frame_name = called_decl_name(engine_state, site.instruction());
 
-        // Only single-line spans are valid stop locations; block-wide glue spans
+        // Only single-line spans are valid stop locations: block-wide glue
         // would make the UI jump to line 1.
         let span = site.span();
         let position = self.source_map.resolve_steppable(span);
 
         let gate = match self.read_pause_gate(engine_state, position.as_ref()) {
             Some(gate) => gate,
-            // Terminate requested: this instruction must not proceed. Read first
-            // because that check runs on every instruction, steppable or not.
+            // Terminate requested. Read before the position check below,
+            // because it applies to every instruction, steppable or not.
             None => return,
         };
 
-        // Nothing below applies without a stop location: `read_pause_gate` only
-        // matches breakpoints against a position, stepping only stops where
-        // there is a line to show, and the tape only records real lines.
+        // Nothing below applies without a stop location: breakpoints match
+        // against a position, stepping needs a line to show, and the tape
+        // records only real lines.
         let Some(position) = position else { return };
 
         if gate.wants_locals() {
             self.sync_locals_from_stack(engine_state, stack);
         }
 
-        // Order is load-bearing from here: locals are synced before a condition
-        // or logpoint is evaluated, `current_span` is set before the tape entry
-        // is built, and line tracking is updated only once any pause returns.
+        // Order is load-bearing from here: locals synced before a condition or
+        // logpoint runs, `current_span` set before the tape entry is built,
+        // line tracking updated only once any pause has returned.
         let (reason, note) = self.pause_reason(engine_state, &gate, &site, &position);
 
         self.current_span = Some(span);
@@ -852,9 +822,9 @@ mod tests {
     use pretty_assertions::assert_eq;
     use rstest::rstest;
 
-    /// The DAP `exceptionId` is nushell's diagnostic code, not anything scraped out
-    /// of `Debug`. Covers a variant with an explicit `code(..)` and a `transparent`
-    /// one that has to forward to its inner error.
+    /// The `exceptionId` is nushell's diagnostic code, not anything scraped
+    /// out of `Debug`. Covers an explicit `code(..)` and a `transparent`
+    /// variant that must forward to its inner error.
     #[rstest]
     #[case::non_zero_exit_code(
         ShellError::NonZeroExitCode {
@@ -875,8 +845,8 @@ mod tests {
         assert_eq!(exception_id(&err), expected);
     }
 
-    /// A custom code on a `GenericError` reaches the client as-is — the id is the
-    /// error's own identity, not a name we invent for it.
+    /// A custom code on a `GenericError` reaches the client as-is: the id is
+    /// the error's own identity, not one we invent.
     #[test]
     fn exception_id_honours_a_custom_code() {
         let err = ShellError::Generic(
@@ -885,8 +855,8 @@ mod tests {
         assert_eq!(exception_id(&err), "nu::dap::made_up");
     }
 
-    /// `exceptionId` is a required DAP field, so it must never come back empty even
-    /// if a variant ever ships without a `code(..)`.
+    /// A required DAP field, so it must never come back empty, even if some
+    /// variant ships without a `code(..)`.
     #[test]
     fn exception_id_is_never_empty() {
         let err = ShellError::Generic(GenericError::new(

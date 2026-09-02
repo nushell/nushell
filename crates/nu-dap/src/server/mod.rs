@@ -27,14 +27,13 @@ use std::sync::Arc;
 pub(crate) const THREAD_ID: i64 = 1;
 
 /// The transport-agnostic DAP dispatch loop: read framed requests from
-/// `reader`, dispatch them, and write responses/events through `writer`.
-/// Runs on the calling thread until the client disconnects. This is the
-/// seam an alternative transport (socket, pipe) plugs into — see
-/// [`crate::serve`]. Process-stdio capture is a separate concern owned by
-/// [`crate::run_stdio`].
+/// `reader`, dispatch them, write responses/events through `writer`, on the
+/// calling thread until the client disconnects. The seam an alternative
+/// transport plugs into (see [`crate::serve`]); process-stdio capture belongs
+/// to [`crate::run_stdio`].
 ///
-/// `engine_state` is the host's engine, kept as the template each run is
-/// cloned from (see [`crate::engine::spawn_eval_thread`]).
+/// `engine_state` is the template each run is cloned from (see
+/// [`crate::engine::spawn_eval_thread`]).
 pub(crate) fn run_loop<R: BufRead>(
     mut reader: R,
     writer: DapWriter,
@@ -70,13 +69,12 @@ pub(crate) fn run_loop<R: BufRead>(
 struct Session {
     writer: DapWriter,
     /// The host's engine, untouched: every run gets its own clone, so parsing
-    /// a target (or restarting) never mutates what the next run starts from.
+    /// or restarting never mutates what the next run starts from.
     engine_state: nu_protocol::engine::EngineState,
     state: Option<Arc<DebugState>>,
-    /// Path <-> `FileId` interning for the whole session, handed to every
-    /// `DebugState`. Lives here, not in `DebugState`, so ids survive a
-    /// `restart` and the breakpoints carried across stay pointed at their
-    /// files.
+    /// Session-wide path <-> `FileId` interning, handed to every `DebugState`.
+    /// Lives here so ids survive a `restart` and carried-over breakpoints stay
+    /// pointed at their files.
     files: crate::file_table::FileTable,
     pending_launch: Option<LaunchArgs>,
     /// Retained past configurationDone so `restart` can respawn the run.

@@ -1,14 +1,11 @@
 //! A `print` command for the embedded engine.
 //!
-//! Nushell's real `print` lives in the nu-cli crate (not in nu-cmd-lang or
-//! nu-command), so an engine built from the library crates alone parses
-//! `print foo` as an *external* command — which fails to spawn, and cannot
-//! even coerce record/table arguments to argv strings (CantConvert).
+//! Nushell's real `print` lives in nu-cli, so an engine built from the
+//! library crates alone parses `print foo` as an *external* command, which
+//! fails to spawn and can't even coerce a record argument to argv.
 //!
-//! Ours does what nu's does — renders values through the `table` command so
-//! records and tables come out formatted — but writes to the DAP client as
-//! `output` events instead of process stdout, which belongs to the DAP
-//! protocol stream.
+//! Ours renders through the `table` command as nu's does, but writes to the
+//! DAP client as `output` events: process stdout belongs to the protocol.
 
 use crate::dap::protocol::DapWriter;
 use crate::dap::types::DapEvent;
@@ -80,9 +77,9 @@ impl Command for DapPrint {
     }
 }
 
-// Interactive prompts have no terminal under the debugger (stdin is NUL), but
-// there's a UI on the wire: `input`/`input list` emit a `nuDapUi` event, the
-// extension answers via `nuDapUiReply`, and the eval thread blocks in between.
+// Prompts have no terminal under the debugger (stdin is NUL), but there is a
+// UI on the wire: `input`/`input list` emit a `nuDapUi` event, the extension
+// answers with `nuDapUiReply`, and the eval thread blocks in between.
 
 const UI_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(600);
 
@@ -122,14 +119,13 @@ fn wait_ui_reply(
     }
 }
 
-/// Render one `input list` choice as the line the user reads in the client's
-/// picker.
+/// Render one `input list` choice as the line the user reads in the picker.
 ///
-/// Strings pass through bare — upstream `input list` labels them with
-/// `to_expanded_string`, so `[apple banana] | input list` must read `apple`
-/// here too, not the Variables row's quoted `"apple"`. Everything else borrows
-/// [`crate::variables::short_render`], which is the only renderer that keeps a
-/// container to one bounded line. See `docs/value-rendering.md`.
+/// Strings pass through bare, matching upstream `input list`: `[apple banana]
+/// | input list` must read `apple`, not the Variables row's quoted `"apple"`.
+/// Everything else borrows [`crate::variables::short_render`], the only
+/// renderer that keeps a container to one bounded line. See
+/// `docs/value-rendering.md`.
 fn pick_label(value: &Value, ctx: crate::variables::RenderCtx<'_>) -> String {
     match value {
         Value::String { val, .. } => val.clone(),

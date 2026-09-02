@@ -1,39 +1,33 @@
 //! File identity: one [`FileId`] per file, however the path was spelled.
 //!
-//! The same file reaches the adapter spelled differently — absolute from the
-//! client's `setBreakpoints`, and relative or tilde'd from the engine, which
-//! records `source helper.nu` under exactly that bare name. Breakpoints are
-//! set through the first spelling and hit through the second, so the two must
-//! compare equal or a breakpoint silently never fires.
-//!
-//! [`FileTable`] settles that once, on the way in: every spelling is
-//! canonicalized and interned to a `FileId`, and everything downstream
-//! (breakpoints, valid lines, [`crate::source_map`]) is keyed by the id. There
-//! is no second canonicalization anywhere to drift from this one.
+//! The same file arrives spelled differently — absolute from the client's
+//! `setBreakpoints`, bare from the engine, which records `source helper.nu`
+//! under exactly that name. A breakpoint set through one spelling and hit
+//! through the other must still match, so [`FileTable`] canonicalizes and
+//! interns every spelling on the way in, and everything downstream
+//! (breakpoints, valid lines, [`crate::source_map`]) is keyed by the id.
+//! Canonicalization happens here and nowhere else, so nothing can drift.
 
 use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 
-/// A file's identity for the length of a debug session.
-///
-/// Comparing these instead of path strings is what makes a lookup unable to
-/// miss because one side spelled the path differently — and it keeps the
+/// A file's identity for the length of a debug session. Comparing ids instead
+/// of path strings is what makes lookups spelling-proof, and keeps the
 /// per-instruction breakpoint probe off string hashing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub(crate) struct FileId(u32);
 
 /// The session's path <-> [`FileId`] table.
 ///
-/// Shared, because the two sides of the join run on different threads: the
-/// server thread interns the `setBreakpoints` path, the eval thread interns
-/// the names in `EngineState::files()`. It is owned by the `Session` and
-/// outlives a `restart`, so ids stay valid and carried-over breakpoints keep
-/// pointing at the files they were set in.
+/// Shared because the two sides of the join run on different threads: the
+/// server thread interns the `setBreakpoints` path, the eval thread the names
+/// in `EngineState::files()`. Owned by the `Session` and outliving `restart`,
+/// so carried-over breakpoints keep pointing at the files they were set in.
 ///
-/// Lock discipline: the table's lock is innermost and short-lived — never
-/// taken while holding `SessionState`.
+/// Lock discipline: innermost and short-lived — never taken while holding
+/// `SessionState`.
 #[derive(Clone, Default)]
 pub(crate) struct FileTable(Arc<Mutex<FileTableInner>>);
 
@@ -62,8 +56,8 @@ impl FileTable {
     }
 
     /// The canonical path `id` was interned from — what the client is handed
-    /// as a DAP `Source` and must be able to open. Ids only ever come from
-    /// [`Self::intern`], so the fallback is unreachable in practice.
+    /// as a DAP `Source` and must be able to open. Ids only come from
+    /// [`Self::intern`], so the fallback is unreachable.
     pub(crate) fn path(&self, id: FileId) -> String {
         let inner = self.0.lock();
         inner.paths.get(id.0 as usize).cloned().unwrap_or_default()
@@ -72,17 +66,15 @@ impl FileTable {
 
 #[cfg(test)]
 mod tests {
-    //! The rules are exercised through `intern`/`path` rather than against
-    //! `canonical` directly: the identity it produces is the thing callers
-    //! depend on.
+    //! Exercised through `intern`/`path` rather than `canonical` directly:
+    //! the identity is what callers depend on.
 
     use super::FileTable;
     use pretty_assertions::assert_eq;
     use rstest::rstest;
 
-    /// The reason the table exists: spellings that differ on the wire are one
-    /// identity, so a breakpoint set on an absolute path matches the bare name
-    /// nu records for a `source`d file.
+    /// The reason the table exists: a breakpoint set on an absolute path must
+    /// match the bare name nu records for a `source`d file.
     #[rstest]
     #[case::bare("Cargo.toml")]
     #[case::dot_prefixed("./Cargo.toml")]
@@ -100,9 +92,8 @@ mod tests {
         assert_ne!(files.intern("Cargo.toml"), files.intern("src/lib.rs"));
     }
 
-    /// Not every name in `engine_state.files()` is a real path — `<entry-call>`
-    /// is synthetic. Such a name still needs a stable identity, and must not be
-    /// joined onto the cwd, which would invent a file that never existed.
+    /// Synthetic names like `<entry-call>` still need a stable identity, and
+    /// must not be joined onto the cwd — that would invent a file.
     #[rstest]
     #[case::synthetic("<entry-call>")]
     #[case::missing_file("does-not-exist-9d1f.nu")]
@@ -113,9 +104,9 @@ mod tests {
         assert_eq!(files.path(id), name);
     }
 
-    /// A path round-trips canonicalized but NOT verbatim: `\\?\` paths are what
-    /// `std::fs::canonicalize` returns, and they break nu's `source` joining —
-    /// which is why `canonical` goes through `nu_path`.
+    /// Paths round-trip canonicalized but not verbatim: the `\\?\` prefix
+    /// `std::fs::canonicalize` returns breaks nu's `source` joining, which is
+    /// why interning goes through `nu_path`.
     #[test]
     fn interned_paths_are_absolute_and_not_verbatim() {
         let files = FileTable::default();

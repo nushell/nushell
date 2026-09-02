@@ -1,10 +1,9 @@
 //! Maps nu `Span`s to (file, 1-based line, column).
 //!
-//! `EngineState` keeps every parsed source in `files()` as `CachedFile`
-//! entries, each with a `covered_span` giving its offset range in nu's global
-//! span space. We index line starts per file once, lazily, and report
-//! positions against the [`FileId`] the path interned to — see
-//! [`crate::file_table`] for why identity is an id and not a path string.
+//! `EngineState::files()` holds every parsed source with a `covered_span`
+//! locating it in nu's global span space. Line starts are indexed per file
+//! once, lazily; positions are reported against the [`FileId`] the path
+//! interned to (see [`crate::file_table`]).
 
 use crate::file_table::{FileId, FileTable};
 use nu_protocol::Span;
@@ -21,21 +20,20 @@ struct FileIndex {
     file: FileId,
     span_start: usize,
     span_end: usize,
-    /// Byte offsets (relative to file start) where each line begins.
+    /// Byte offsets, relative to file start, where each line begins.
     line_starts: Vec<usize>,
 }
 
 pub(crate) struct SourceMap {
     files: FileTable,
     indexed: Vec<FileIndex>,
-    /// How many `EngineState::files()` entries are already indexed. That list
-    /// only grows within a run, so `refresh` skips straight to the new ones
-    /// instead of re-examining — and re-canonicalizing — every file.
+    /// Number of `EngineState::files()` entries already indexed. That list only
+    /// grows within a run, so `refresh` skips straight to the new ones.
     seen: usize,
 }
 
 impl SourceMap {
-    /// Index against `files` — the session's table, so ids agree with the ones
+    /// `files` must be the session's table, so ids agree with the ones
     /// breakpoints were interned under.
     pub(crate) fn new(files: FileTable) -> Self {
         Self {
@@ -45,8 +43,8 @@ impl SourceMap {
         }
     }
 
-    /// Refresh from the engine state. Cheap to call repeatedly — it runs per
-    /// instruction — because it looks only at files it has not seen.
+    /// Index any files added since the last call. Runs per instruction, so it
+    /// must stay cheap.
     pub(crate) fn refresh(&mut self, engine_state: &EngineState) {
         for cached in engine_state.files().skip(self.seen) {
             self.seen += 1;
@@ -67,8 +65,8 @@ impl SourceMap {
         }
     }
 
-    /// The canonical path of `id`, for display and for the DAP `Source` a
-    /// client needs in order to open the file.
+    /// Canonical path of `id`, for display and for the DAP `Source` a client
+    /// needs in order to open the file.
     pub(crate) fn path(&self, id: FileId) -> String {
         self.files.path(id)
     }
@@ -85,9 +83,8 @@ impl SourceMap {
     }
 
     /// Like `resolve`, but only for valid *stop locations*: non-empty spans
-    /// confined to a single source line. Structural glue (drain/load-empty/
-    /// return) carries the whole block's span, which would resolve to line 1
-    /// and make stepping jump around — such spans return None here.
+    /// confined to one line. Structural glue (drain/load-empty/return) carries
+    /// the whole block's span, which would make stepping jump around.
     pub(crate) fn resolve_steppable(&self, span: Span) -> Option<SourcePos> {
         if span.end <= span.start {
             return None; // empty / synthetic (Span::unknown is 0..0)
@@ -98,7 +95,7 @@ impl SourceMap {
         let rel_end = (span.end - 1).min(fi.span_end - 1) - fi.span_start;
         let start_idx = Self::line_index(&fi.line_starts, rel_start);
         if start_idx != Self::line_index(&fi.line_starts, rel_end) {
-            return None; // spans multiple lines: structural, not steppable
+            return None; // multi-line: structural, not steppable
         }
         Some(SourcePos {
             file: fi.file,
@@ -114,7 +111,7 @@ impl SourceMap {
             .find(|fi| span.start >= fi.span_start && span.start < fi.span_end)
     }
 
-    /// Index of the last line start <= rel.
+    /// Index of the last line start <= `rel`.
     fn line_index(line_starts: &[usize], rel: usize) -> usize {
         match line_starts.binary_search(&rel) {
             Ok(i) => i,

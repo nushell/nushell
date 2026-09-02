@@ -29,13 +29,11 @@ impl Session {
                 let id = session.next_bp_id;
                 session.next_bp_id += 1;
                 // Snap to the next line with instructions (optimistic before
-                // parsing; the eval thread reconciles + re-announces then).
-                let (snapped, ok) = session.snap_line(file, bp.line);
-                // At most one breakpoint per steppable line: a second request
-                // snapping onto a taken line cannot ever fire, so report it
-                // unverified at the requested line rather than silently
-                // dropping it or overwriting the winner.
-                let line = snapped;
+                // parsing; the eval thread reconciles and re-announces then).
+                let (line, ok) = session.snap_line(file, bp.line);
+                // One breakpoint per steppable line: a second one snapping
+                // onto a taken line could never fire, so report it unverified
+                // at the requested line instead of dropping it silently.
                 if map.contains_key(&line) {
                     verified.push(Breakpoint {
                         id: Some(id),

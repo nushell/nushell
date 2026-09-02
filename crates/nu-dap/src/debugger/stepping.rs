@@ -43,15 +43,15 @@ impl DapDebugger {
     }
 
     /// Snapshot this frame's locals + env from the real `Stack` (#18708) into
-    /// shared state, so the pause snapshot, scratch eval, and time-travel tape
-    /// read genuine values (params, closure captures, mutations). `$in` is the
-    /// exception: register-based, injected from the frame's captured value.
+    /// shared state, so the pause snapshot, scratch eval and time-travel tape
+    /// read genuine values. `$in` is register-based, so it is injected from
+    /// the frame's captured value instead.
     pub(crate) fn sync_locals_from_stack(&self, engine_state: &EngineState, stack: &Stack) {
         let mut vars: std::collections::HashMap<usize, ShadowVar> =
             std::collections::HashMap::new();
         for (var_id, value) in &stack.vars {
-            // Nushell's reserved specials: $nu/$env live in Globals, $in is
-            // injected below from register 0.
+            // Reserved specials: $nu/$env live in Globals, $in is injected
+            // below.
             if *var_id == nu_protocol::NU_VARIABLE_ID
                 || *var_id == nu_protocol::ENV_VARIABLE_ID
                 || *var_id == nu_protocol::IN_VARIABLE_ID
@@ -85,17 +85,15 @@ impl DapDebugger {
 }
 
 /// Resolve a variable's source name. Nushell stores no name on the `Variable`
-/// itself, so this asks two sources in order of authority:
+/// itself, so two sources are asked in order of authority:
 ///
-/// 1. **The scope.** Overlays map `$name` → `VarId`, which is nushell's own
-///    answer and needs no guessing. It covers the script's top-level bindings
-///    plus anything a `use`d module brought in.
-/// 2. **The declaration span.** Parameters, closure params, and block locals
-///    never reach `engine_state.scope`: the parser declares them inside a
-///    scope frame it pops again, and `merge_delta` keeps only the outermost
-///    frame. Their span does point at the identifier in source, so trim the
-///    sigil, type annotation, and flag dashes off it (`--tag: string = "dev"`
-///    → `tag`). This is a heuristic, hence second.
+/// 1. **The scope.** Overlays map `$name` → `VarId` — nushell's own answer,
+///    covering top-level bindings and anything a `use`d module brought in.
+/// 2. **The declaration span.** Parameters, closure params and block locals
+///    never reach `engine_state.scope` (the parser pops their scope frame
+///    before `merge_delta`), but their span points at the identifier in
+///    source, so the sigil, type annotation and flag dashes are trimmed off
+///    (`--tag: string = "dev"` → `tag`). A heuristic, hence second.
 pub(crate) fn var_name(engine_state: &EngineState, var_id: nu_protocol::VarId) -> String {
     if let Some(name) = scope_var_name(engine_state, var_id) {
         return name;
@@ -118,9 +116,9 @@ pub(crate) fn var_name(engine_state: &EngineState, var_id: nu_protocol::VarId) -
 }
 
 /// Reverse `name` → `VarId` lookup over the active overlays, newest first —
-/// the same order `ScopeFrame::get_var` resolves a name in, so when two
-/// overlays bind the same id we report the one nushell itself would pick.
-/// Scope keys carry the `$` sigil (`insert_variable_into_scope` prepends it).
+/// the order `ScopeFrame::get_var` itself resolves in, so when two overlays
+/// bind the same id we report the one nushell would pick. Scope keys carry
+/// the `$` sigil.
 fn scope_var_name(engine_state: &EngineState, var_id: nu_protocol::VarId) -> Option<String> {
     let scope = &engine_state.scope;
     scope
@@ -144,11 +142,9 @@ fn scope_var_name(engine_state: &EngineState, var_id: nu_protocol::VarId) -> Opt
 
 #[cfg(test)]
 mod tests {
-    //! Unit tests for [`crate::debugger::stepping`].
-    //!
-    //! These run *in process*, unlike the end-to-end suite in `tests/dap.rs`, which
-    //! spawns the `nu-dap` binary as a child — so a breakpoint set here is actually
-    //! hit by the test runner.
+    //! In-process, unlike the end-to-end suite in `tests/dap.rs`, which
+    //! spawns the binary as a child — so a breakpoint set here is really hit
+    //! by the test runner.
 
     use super::var_name;
     use crate::dap::protocol::DapWriter;
@@ -162,10 +158,9 @@ mod tests {
     use std::sync::Arc;
 
     /// An `EngineState` holding `source` as a file, plus a variable whose
-    /// declaration span covers the whole of it but which is registered in **no**
-    /// overlay — the shape of a parameter or block local, whose scope frame the
-    /// parser pops before the delta is merged. Forces `var_name` down its
-    /// span-parsing fallback and pins the exact bytes that path sees.
+    /// declaration span covers all of it but is in **no** overlay — the shape
+    /// of a parameter or block local. Forces `var_name` down its span-parsing
+    /// fallback and pins the exact bytes that path sees.
     fn engine_with_unscoped_declaration(source: &str) -> (EngineState, VarId) {
         let mut engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);
@@ -178,10 +173,9 @@ mod tests {
         (engine_state, var_id)
     }
 
-    /// A variable registered in the active overlay under `name`, the way a
-    /// top-level `let` is. Its declaration span deliberately points at misleading
-    /// source text, so a passing assertion proves the name came from the scope
-    /// rather than from parsing that text.
+    /// A variable in the active overlay under `name`, the way a top-level
+    /// `let` is. Its declaration span points at misleading source text, so a
+    /// pass proves the name came from the scope and not from that text.
     fn engine_with_scoped_variable(name: &str) -> (EngineState, VarId) {
         let mut engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);
@@ -194,9 +188,8 @@ mod tests {
         (engine_state, var_id)
     }
 
-    /// The scope is the authoritative source: when an overlay maps a name to this
-    /// id, that name wins outright and the declaration span is never consulted.
-    /// Overlay keys carry the `$` sigil, which is not part of the displayed name.
+    /// The scope is authoritative: when an overlay maps a name to this id,
+    /// that name wins outright and the declaration span is never consulted.
     #[rstest]
     #[case::plain("files")]
     #[case::underscored("my_total")]
@@ -206,18 +199,17 @@ mod tests {
         assert_eq!(var_name(&engine_state, var_id), name);
     }
 
-    /// The sigil is stripped whether or not the caller supplied it — the scope
-    /// normalises keys to `$name`, and Locals shows the bare identifier.
+    /// The sigil is stripped whether or not the caller supplied it: the scope
+    /// normalises keys to `$name`, Locals shows the bare identifier.
     #[test]
     fn var_name_strips_the_sigil_from_a_scope_entry() {
         let (engine_state, var_id) = engine_with_scoped_variable("$files");
         assert_eq!(var_name(&engine_state, var_id), "files");
     }
 
-    /// Parameters and block locals never reach the scope, so their name still
-    /// comes from the declaration span — which is source text, not an identifier:
-    /// it can carry the `$` sigil, a type annotation, a flag's dashes, or a
-    /// default value. All of that is trimmed to the bare name shown in Locals.
+    /// Parameters and block locals are named from the declaration span, which
+    /// is source text rather than an identifier: sigil, type annotation, flag
+    /// dashes and default value all get trimmed away.
     #[rstest]
     #[case::sigil("$x", "x")]
     #[case::bare("x", "x")]
@@ -237,7 +229,7 @@ mod tests {
     }
 
     /// Locals entries need *some* label, so a declaration that trims away to
-    /// nothing falls back to the id rather than rendering a nameless variable.
+    /// nothing falls back to the id.
     #[rstest]
     #[case::sigil_only("$")]
     #[case::dashes_only("--")]
@@ -265,8 +257,8 @@ mod tests {
         );
     }
 
-    /// A debugger with an empty frame stack (depth 0) writing its DAP output to a
-    /// sink, alongside the shared state it snapshots into.
+    /// A debugger at depth 0 writing DAP output to a sink, plus the shared
+    /// state it snapshots into.
     fn debugger() -> (DapDebugger, Arc<DebugState>) {
         let state = Arc::new(DebugState::new(
             false,
@@ -286,9 +278,9 @@ mod tests {
         }
     }
 
-    /// The stepping decision, at frame depth 0. `is_call` marks a pipe-stage
-    /// boundary: step-into stops there even on the same line, so F11 walks a
-    /// pipeline stage by stage, while step-over and step-out ignore it.
+    /// The stepping decision at frame depth 0. `is_call` marks a pipe-stage
+    /// boundary: step-into stops there even on the same line, step-over and
+    /// step-out ignore it.
     #[rstest]
     // Continue never pauses, whatever the position.
     #[case::continue_ignores_everything(RunMode::Continue, 7, false, None)]
@@ -323,9 +315,8 @@ mod tests {
         );
     }
 
-    /// The pause snapshot mirrors the real `Stack`, named from source. `$nu` and
-    /// `$env` are skipped: they are reserved specials rendered in the Globals
-    /// scope, so repeating them in Locals would be noise.
+    /// The pause snapshot mirrors the real `Stack`, named from source. `$nu`
+    /// and `$env` are skipped — Globals renders those.
     #[test]
     fn sync_locals_from_stack_names_vars_and_skips_reserved_specials() {
         let mut engine_state = EngineState::new();

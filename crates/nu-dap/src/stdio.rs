@@ -1,22 +1,21 @@
 //! Process stdio plumbing.
 //!
 //! This process's stdin/stdout carry the DAP protocol, but an embedded nu
-//! evaluation writes to process stdout from several places that no stack
-//! redirection reaches (statement drains print byte streams directly,
-//! externals inherit process handles, stray eprintln!s...). And an external
-//! that *reads* inherited stdin would steal DAP frames or block forever.
+//! evaluation writes to process stdout from places no stack redirection
+//! reaches (drains print byte streams directly, externals inherit process
+//! handles, stray `eprintln!`s), and an external *reading* inherited stdin
+//! would steal DAP frames or block forever.
 //!
 //! Fix, applied once at startup:
-//! - stdin: duplicate the real handle for DAP reading, then point the
+//! - stdin: duplicate the real handle for DAP reading, then point
 //!   process-level stdin at the null device — children see immediate EOF.
 //! - stdout/stderr: duplicate the real stdout for DAP writing, then point
-//!   the process-level stdout/stderr at capture pipes whose forwarder
-//!   threads re-emit everything as DAP `output` events.
+//!   process-level stdout/stderr at capture pipes whose forwarder threads
+//!   re-emit everything as DAP `output` events.
 //!
-//! Because this process keeps the pipe write ends alive forever (they ARE
-//! its std handles), forwarders can't rely on EOF. `flush_output` writes a
-//! marker through the pipes and waits until the forwarders have seen it —
-//! call it before emitting `terminated` so late output isn't lost.
+//! The pipe write ends live forever (they *are* the std handles now), so the
+//! forwarders never see EOF. `flush_output` instead pushes a marker through
+//! and waits for it — call it before `terminated` so late output isn't lost.
 
 use parking_lot::{Condvar, Mutex};
 use std::fs::File;
@@ -42,21 +41,19 @@ enum PipeType {
     StdErr,
 }
 
-impl std::fmt::Display for PipeType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            PipeType::StdOut => write!(f, "stdout"),
-            PipeType::StdErr => write!(f, "stderr"),
-        }
-    }
-}
-
 impl PipeType {
-    fn as_str(&self) -> &str {
+    /// Also the DAP `output` event category for this stream.
+    fn as_str(&self) -> &'static str {
         match self {
             PipeType::StdOut => "stdout",
             PipeType::StdErr => "stderr",
         }
+    }
+}
+
+impl std::fmt::Display for PipeType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
     }
 }
 
@@ -211,7 +208,7 @@ fn forward(mut rx: PipeReader, pipe_type: PipeType, writer: DapWriter) {
         .name(format!("nu-{pipe_type}-fwd"))
         .spawn(move || {
             let mut buf = [0u8; 8192];
-            // Carry-over so a MARKER split across reads is still found.
+            // Carry-over, so a MARKER split across reads is still found.
             let mut pending: Vec<u8> = Vec::new();
             loop {
                 let n = match rx.read(&mut buf) {
@@ -260,13 +257,13 @@ fn marker_prefix_len(data: &[u8]) -> usize {
         .unwrap_or(0)
 }
 
-/// Push a marker through both captured streams and wait until the
-/// forwarders processed it — everything written before the marker has been
-/// emitted as output events. Bounded by `timeout`.
+/// Push a marker through both captured streams and wait, up to `timeout`,
+/// until the forwarders process it — by then everything written before it has
+/// been emitted as output events.
 ///
-/// No-op unless [`spawn_forwarders`] installed the capture: without it the
-/// marker bytes would go to the host's real stdout/stderr (see [`crate::serve`],
-/// which leaves process stdio untouched) and nothing would ever count them.
+/// No-op unless [`spawn_forwarders`] installed the capture; without it the
+/// markers would land on the host's real stdout/stderr uncounted (see
+/// [`crate::serve`], which leaves process stdio untouched).
 pub(crate) fn flush_output(timeout: Duration) {
     if !CAPTURING.load(Ordering::Acquire) {
         return;
@@ -274,7 +271,7 @@ pub(crate) fn flush_output(timeout: Duration) {
     let (count, cv) = flush_state();
     let target = { *count.lock() + 2 };
     {
-        // These go to the swapped process handles — i.e. the capture pipes.
+        // These go to the swapped handles — i.e. the capture pipes.
         let _ = std::io::stdout().write_all(MARKER);
         let _ = std::io::stdout().flush();
         let _ = std::io::stderr().write_all(MARKER);
