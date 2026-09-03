@@ -1208,6 +1208,29 @@ fn exportable_completions() {
 }
 
 #[test]
+fn exportable_completions_use_fallback_matching() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let code = r#"
+        $env.config.completions.algorithm = "fallback"
+        export module hybrid {
+            export def foobar [] {}
+            export def barfoo [] {}
+        }
+    "#;
+    assert!(support::merge_input(code.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    let input = "use hybrid foo";
+    let suggestions = completer.complete_blocking(input, input.len());
+    match_suggestions(&vec!["foobar"], &suggestions);
+
+    let input = "use hybrid rfo";
+    let suggestions = completer.complete_blocking(input, input.len());
+    match_suggestions(&vec!["barfoo"], &suggestions);
+}
+
+#[test]
 fn dotnu_completions_const_nu_lib_dirs() {
     let (_, _, engine, stack) = new_dotnu_engine();
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
