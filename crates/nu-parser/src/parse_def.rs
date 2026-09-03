@@ -84,11 +84,14 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
         return;
     };
 
+    // A call is looked up by its words joined with single spaces, so a name
+    // with any other whitespace could never be called (#15539).
     if name.contains('#')
         || name.contains('^')
         || name.contains('%')
         || name.parse::<bytesize::ByteSize>().is_ok()
         || name.parse::<f64>().is_ok()
+        || name.split_ascii_whitespace().collect::<Vec<_>>().join(" ") != name
     {
         working_set.error(ParseError::CommandDefNotValid(spans[name_pos]));
         return;
