@@ -744,12 +744,14 @@ def scope-commands [
 def external-commands [
     ...command: string@"nu-complete list-commands",
 ] {
-    let target_command = $command | str join " " | str replace "^" "" | str replace "%" ""
-    print $"(ansi default_italic)Help pages from external command ($target_command | pretty-cmd):(ansi reset)"
+    # `^` (external) and `%` (built-in) are sigils only at the start of a command
+    # name, so strip at most one leading sigil instead of every occurrence
+    let target_command = $command | update 0 { str replace --regex '^[\^%]' "" }
+    print $"(ansi default_italic)Help pages from external command ($target_command | str join ' ' | pretty-cmd):(ansi reset)"
     if $env.NU_HELPER? == "--help" {
-        run-external ($target_command | split row " ") "--help" | if $nu.os-info.name == "windows" { collect } else {}
+        run-external ...$target_command "--help" | if $nu.os-info.name == "windows" { collect } else {}
     } else {
-        ^($env.NU_HELPER? | default "man") $target_command
+        ^($env.NU_HELPER? | default "man") ...$target_command
     }
 }
 
@@ -774,7 +776,8 @@ def pretty-cmd [] {
 #
 # `help word` searches for "word" in commands, aliases and modules, in that order.
 # If not found as internal to nushell, you can set `$env.NU_HELPER` to a program
-# (default: man) and "word" will be passed as the first argument.
+# (default: man) and the words you asked help for will be passed to it as separate
+# arguments.
 # Alternatively, you can set `$env.NU_HELPER` to `--help` and it will run "word" as
 # an external and pass `--help` as the last argument (this could cause unintended
 # behaviour if it doesn't support the flag, use it carefully).
@@ -819,5 +822,5 @@ export def main [
     }
     # use external tool (e.g: `man`) to search help for $target_item
     # the stdout and stderr of external tool will follow `main` call.
-    external-commands $target_item
+    external-commands ...$item
 }
