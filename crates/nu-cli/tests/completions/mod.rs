@@ -800,6 +800,21 @@ fn external_commands() {
 }
 
 #[test]
+fn fallback_command_completion_prefers_prefix_matches() {
+    let mut engine = new_external_engine();
+    let mut stack = nu_protocol::engine::Stack::new();
+    let setup = r#"
+        $env.config.completions.algorithm = "fallback"
+        def slping [] {}
+    "#;
+    assert!(support::merge_input(setup.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let suggestions = completer.complete_blocking("slp", 3);
+    match_suggestions(&vec!["slping"], &suggestions);
+}
+
+#[test]
 fn percent_completion_only_shows_builtins() {
     let (_, _, mut engine, mut stack) = new_engine();
     let setup = "

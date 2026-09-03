@@ -108,9 +108,10 @@ impl CommandCompletion {
         context: &Context,
         suggestion_span: reedline::Span,
         matcher: &mut NuMatcher<SemanticSuggestion>,
-    ) -> HashSet<String> {
+    ) -> (HashSet<String>, Vec<SemanticSuggestion>) {
         let working_set = context.working_set;
         let mut internal_names = HashSet::new();
+        let mut internal_suggestions = Vec::new();
         let mut seen_names: HashSet<&str> = HashSet::new();
 
         (0..working_set.num_decls())
@@ -142,12 +143,13 @@ impl CommandCompletion {
                     )),
                 };
 
-                if matcher.add_semantic_suggestion(suggestion) {
+                if matcher.add_semantic_suggestion(suggestion.clone()) {
                     internal_names.insert(name);
+                    internal_suggestions.push(suggestion);
                 }
             });
 
-        internal_names
+        (internal_names, internal_suggestions)
     }
 
     /// Scans internal commands using the engine's built-in traversal
@@ -156,9 +158,10 @@ impl CommandCompletion {
         context: &Context,
         suggestion_span: reedline::Span,
         matcher: &mut NuMatcher<SemanticSuggestion>,
-    ) -> HashSet<String> {
+    ) -> (HashSet<String>, Vec<SemanticSuggestion>) {
         let working_set = context.working_set;
         let mut internal_names = HashSet::new();
+        let mut internal_suggestions = Vec::new();
 
         working_set.traverse_commands(|name_bytes, declaration_id| {
             let command = working_set.get_decl(declaration_id);
@@ -191,12 +194,13 @@ impl CommandCompletion {
                 )),
             };
 
-            if matcher.add_semantic_suggestion(suggestion) {
+            if matcher.add_semantic_suggestion(suggestion.clone()) {
                 internal_names.insert(name);
+                internal_suggestions.push(suggestion);
             }
         });
 
-        internal_names
+        (internal_names, internal_suggestions)
     }
 
     /// Walks `PATH` once, offering collisions `^`-prefixed and collecting external matches.
@@ -204,7 +208,7 @@ impl CommandCompletion {
         &self,
         context: &Context,
         suggestion_span: reedline::Span,
-        internal_suggestions: &mut Vec<SemanticSuggestion>,
+        internal_suggestions: &[SemanticSuggestion],
         internal_names: &HashSet<String>,
         matcher: &mut NuMatcher<SemanticSuggestion>,
     ) {
@@ -234,6 +238,17 @@ impl CommandCompletion {
 
             if is_collision {
                 collisions.insert(file_name.clone());
+
+                // Match against the original name: `%` selects the built-in command scope; it is not part of the name.
+                // Add it before the external alternative to preserve their existing relative order.
+                for suggestion in internal_suggestions
+                    .iter()
+                    .filter(|suggestion| suggestion.suggestion.value == file_name)
+                {
+                    let mut percent_prefixed = suggestion.clone();
+                    percent_prefixed.suggestion.value = format!("%{}", suggestion.suggestion.value);
+                    matcher.add(&suggestion.suggestion.value, percent_prefixed);
+                }
             }
 
             if wants_suggestion {
@@ -258,22 +273,6 @@ impl CommandCompletion {
                 }
             }
         }
-
-        // Add `%`-prefixed copies of collided internal suggestions.
-        let percent_prefixed_suggestions: Vec<SemanticSuggestion> = internal_suggestions
-            .iter()
-            .filter(|suggestion| collisions.contains(&suggestion.suggestion.value))
-            .map(|suggestion| {
-                let mut prefixed = suggestion.suggestion.clone();
-                prefixed.value = format!("%{}", suggestion.suggestion.value);
-                SemanticSuggestion {
-                    suggestion: prefixed,
-                    kind: suggestion.kind.clone(),
-                }
-            })
-            .collect();
-
-        internal_suggestions.extend(percent_prefixed_suggestions);
     }
 }
 
@@ -282,9 +281,11 @@ impl Completer for CommandCompletion {
         let suggestion_span = to_reedline_span(context.span, context.offset);
         let scope = self.scope.enabled_in(context);
         let mut matcher = NuMatcher::new(context.prefix_str(), context.options, true);
-        let internal_names = match scope {
-            CommandScope::ExternalsOnly => HashSet::new(),
-            CommandScope::BuiltinsOnly => self.collect_builtins(context, suggestion_span, &mut matcher),
+        let (internal_names, internal_suggestions) = match scope {
+            CommandScope::ExternalsOnly => (HashSet::new(), Vec::new()),
+            CommandScope::BuiltinsOnly => {
+                self.collect_builtins(context, suggestion_span, &mut matcher)
+            }
             CommandScope::All | CommandScope::InternalsOnly => {
                 self.collect_visible_internals(context, suggestion_span, &mut matcher)
             }
@@ -293,16 +294,16 @@ impl Completer for CommandCompletion {
         // Only a `PATH` scan is expensive enough to be worth caching.
         let externals = scope.externals();
         if externals {
-            let external_suggestions = self.process_external_commands(
+            self.process_external_commands(
                 context,
                 suggestion_span,
-                &mut suggestions,
+                &internal_suggestions,
                 &internal_names,
                 &mut matcher,
             );
-            suggestions.extend(external_suggestions);
         }
 
+        let suggestions = matcher.suggestion_results();
         match externals {
             true => Fetched::Cacheable(suggestions),
             false => Fetched::Pure(suggestions),
