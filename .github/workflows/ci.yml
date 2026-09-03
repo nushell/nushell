@@ -64,12 +64,12 @@ jobs:
           # builds to link against a too-new-for-many-Linux-installs glibc version. Consider
           # revisiting this when 22.04 is closer to EOL (June 2027)
           - name: Ubuntu
-            host: incredibuild-runner
+            host: incredibuild-ubuntu-2204
             target: x86_64-unknown-linux-gnu
             options: MAIN_OPTIONS
             steps: [fmt, clippy, build, test, doctest]
           - name: Windows
-            host: windows-latest
+            host: windows-2022
             target: x86_64-pc-windows-msvc
             options: MAIN_OPTIONS
             steps: [fmt, clippy, build, test, doctest]
@@ -79,7 +79,7 @@ jobs:
             options: MAIN_OPTIONS
             steps: [fmt, clippy, build, test, doctest]
           - name: WASM
-            host: incredibuild-runner
+            host: incredibuild-ubuntu-2204
             target: wasm32-unknown-unknown
             options: WASM_OPTIONS
             steps: [build, check]
@@ -170,7 +170,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        platform: [incredibuild-runner, macos-latest, windows-latest]
+        platform: [incredibuild-ubuntu-2204, macos-latest, windows-2022]
         py:
           - py
 
