@@ -593,6 +593,24 @@ fn ide_flags_accept_values() -> TestResult {
 }
 
 #[test]
+fn ide_check_missing_file_reports_error() -> TestResult {
+    let script_path = unique_temp_script_path("ide_check_missing");
+    let mut cmd = Command::new(cargo_bin!());
+    let output = cmd
+        .args(["--no-config-file", "--no-std-lib", "--ide-check", "5"])
+        .arg(&script_path)
+        .output()?;
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(!output.status.success());
+    assert!(stderr.contains("Could not read file"));
+    assert!(stderr.contains("File not found"));
+    assert!(stderr.contains("does not exist"));
+
+    Ok(())
+}
+
+#[test]
 fn ide_ast_flag_runs() -> TestResult {
     let mut cmd = Command::new(cargo_bin!());
     let output = cmd
