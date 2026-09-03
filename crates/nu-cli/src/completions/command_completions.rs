@@ -107,9 +107,9 @@ impl CommandCompletion {
         &self,
         context: &Context,
         suggestion_span: reedline::Span,
-    ) -> (Vec<SemanticSuggestion>, HashSet<String>) {
+        matcher: &mut NuMatcher<SemanticSuggestion>,
+    ) -> HashSet<String> {
         let working_set = context.working_set;
-        let mut matcher = NuMatcher::new(context.prefix_str(), context.options, true);
         let mut internal_names = HashSet::new();
         let mut seen_names: HashSet<&str> = HashSet::new();
 
@@ -147,7 +147,7 @@ impl CommandCompletion {
                 }
             });
 
-        (matcher.suggestion_results(), internal_names)
+        internal_names
     }
 
     /// Scans internal commands using the engine's built-in traversal
@@ -155,9 +155,9 @@ impl CommandCompletion {
         &self,
         context: &Context,
         suggestion_span: reedline::Span,
-    ) -> (Vec<SemanticSuggestion>, HashSet<String>) {
+        matcher: &mut NuMatcher<SemanticSuggestion>,
+    ) -> HashSet<String> {
         let working_set = context.working_set;
-        let mut matcher = NuMatcher::new(context.prefix_str(), context.options, true);
         let mut internal_names = HashSet::new();
 
         working_set.traverse_commands(|name_bytes, declaration_id| {
@@ -196,7 +196,7 @@ impl CommandCompletion {
             }
         });
 
-        (matcher.suggestion_results(), internal_names)
+        internal_names
     }
 
     /// Walks `PATH` once, offering collisions `^`-prefixed and collecting external matches.
@@ -206,7 +206,8 @@ impl CommandCompletion {
         suggestion_span: reedline::Span,
         internal_suggestions: &mut Vec<SemanticSuggestion>,
         internal_names: &HashSet<String>,
-    ) -> Vec<SemanticSuggestion> {
+        matcher: &mut NuMatcher<SemanticSuggestion>,
+    ) {
         let working_set = context.working_set;
         let maximum_results = working_set
             .permanent_state
@@ -214,7 +215,6 @@ impl CommandCompletion {
             .completions
             .external
             .max_results as usize;
-        let mut matcher = NuMatcher::new(context.prefix_str(), context.options, true);
 
         let mut external_commands: HashSet<String> = HashSet::new();
         let mut collisions: HashSet<String> = HashSet::new();
@@ -274,7 +274,6 @@ impl CommandCompletion {
             .collect();
 
         internal_suggestions.extend(percent_prefixed_suggestions);
-        matcher.suggestion_results()
     }
 }
 
@@ -282,12 +281,12 @@ impl Completer for CommandCompletion {
     fn fetch(&mut self, context: &Context) -> Fetched {
         let suggestion_span = to_reedline_span(context.span, context.offset);
         let scope = self.scope.enabled_in(context);
-
-        let (mut suggestions, internal_names) = match scope {
-            CommandScope::ExternalsOnly => (Vec::new(), HashSet::new()),
-            CommandScope::BuiltinsOnly => self.collect_builtins(context, suggestion_span),
+        let mut matcher = NuMatcher::new(context.prefix_str(), context.options, true);
+        let internal_names = match scope {
+            CommandScope::ExternalsOnly => HashSet::new(),
+            CommandScope::BuiltinsOnly => self.collect_builtins(context, suggestion_span, &mut matcher),
             CommandScope::All | CommandScope::InternalsOnly => {
-                self.collect_visible_internals(context, suggestion_span)
+                self.collect_visible_internals(context, suggestion_span, &mut matcher)
             }
         };
 
@@ -299,6 +298,7 @@ impl Completer for CommandCompletion {
                 suggestion_span,
                 &mut suggestions,
                 &internal_names,
+                &mut matcher,
             );
             suggestions.extend(external_suggestions);
         }
