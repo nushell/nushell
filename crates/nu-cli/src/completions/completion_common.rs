@@ -37,8 +37,8 @@ pub struct MatchedPart {
 ///   like `ls` can be run on regular files as well.
 /// * `isdir`: whether the current partial path has a trailing slash.
 ///   Parsing a path string into a pathbuf loses that bit of information.
-/// * `enable_exact_match`: Whether match algorithm is Prefix and all previous components
-///   of the path matched a directory exactly.
+/// * `enable_exact_match`: Whether exact directory matches should take priority.
+///   Enabled for prefix matching and its fuzzy-fallback variant.
 fn complete_rec(
     partial: &[&str],
     built_paths: &[PathBuiltFromString],
@@ -356,7 +356,10 @@ pub fn complete_item(
         options,
         want_directory,
         isdir,
-        options.match_algorithm == MatchAlgorithm::Prefix,
+        matches!(
+            options.match_algorithm,
+            MatchAlgorithm::Prefix | MatchAlgorithm::Fallback
+        ),
     )
     .into_iter()
     .map(|mut p| {
