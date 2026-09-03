@@ -1,6 +1,8 @@
 use crate::{
     lite_parser::LiteCommand,
-    parse_helpers::{PERCENT_FORCED_BUILTIN_PARSER_INFO, extract_spread_list, garbage},
+    parse_helpers::{
+        PERCENT_FORCED_BUILTIN_PARSER_INFO, extract_spread_list, extract_spread_record, garbage,
+    },
     parse_source::find_dirs_var,
     type_check::type_compatible,
 };
@@ -34,9 +36,27 @@ pub(crate) fn check_call(
         return CallKind::Help;
     }
 
-    if call.positional_iter().count() < sig.required_positional.len() {
-        let end_offset = call
-            .positional_iter()
+    // `positional_iter` stops at the first `...` spread (historically rest-only). Flag-record
+    // spreads (`...{…}` / dual-purpose `...$flags`) do not consume positionals, so arguments
+    // after them must still count toward required positionals.
+    let has_spread = call
+        .arguments
+        .iter()
+        .any(|arg| matches!(arg, Argument::Spread(_)));
+    let positional_exprs: Vec<_> = if has_spread {
+        call.arguments
+            .iter()
+            .filter_map(|arg| match arg {
+                Argument::Positional(e) | Argument::Unknown(e) => Some(e),
+                _ => None,
+            })
+            .collect()
+    } else {
+        call.positional_iter().collect()
+    };
+
+    if positional_exprs.len() < sig.required_positional.len() {
+        let end_offset = positional_exprs
             .last()
             .map(|last| last.span.end)
             .unwrap_or(command.end);
@@ -44,7 +64,7 @@ pub(crate) fn check_call(
         // expressions found in the call. If one type is not found then it could be assumed
         // that positional argument is missing from the parsed call
         for argument in &sig.required_positional {
-            let found = call.positional_iter().fold(false, |ac, expr| {
+            let found = positional_exprs.iter().fold(false, |ac, expr| {
                 if argument.shape.to_type() == expr.ty || argument.shape == SyntaxShape::Any {
                     true
                 } else {
@@ -61,7 +81,7 @@ pub(crate) fn check_call(
             }
         }
 
-        let missing = &sig.required_positional[call.positional_iter().count()];
+        let missing = &sig.required_positional[positional_exprs.len()];
         working_set.error(ParseError::MissingPositional(
             missing.name.clone(),
             Span::new(end_offset, end_offset),
@@ -69,13 +89,19 @@ pub(crate) fn check_call(
         ));
         return CallKind::Invalid;
     } else {
-        for req_flag in sig.named.iter().filter(|x| x.required) {
-            if call.named_iter().all(|(n, _, _)| n.item != req_flag.long) {
-                working_set.error(ParseError::MissingRequiredFlag(
-                    req_flag.long.clone(),
-                    command,
-                ));
-                return CallKind::Invalid;
+        // Spreads may supply required named flags at runtime (`...{flag: val}` / `...$flags`).
+        // When any spread is present, skip parse-time MissingRequiredFlag and let runtime /
+        // the command fail if a required flag is still missing. This also defers for pure
+        // list rest spreads (slightly weaker diagnostics; acceptable for dual-purpose `...$x`).
+        if !has_spread {
+            for req_flag in sig.named.iter().filter(|x| x.required) {
+                if call.named_iter().all(|(n, _, _)| n.item != req_flag.long) {
+                    working_set.error(ParseError::MissingRequiredFlag(
+                        req_flag.long.clone(),
+                        command,
+                    ));
+                    return CallKind::Invalid;
+                }
             }
         }
     }
@@ -341,6 +367,7 @@ pub(crate) fn parse_regular_external_arg(
         [b'$', ..] => crate::parser::parse_dollar_expr(working_set, span, &SyntaxShape::Any, None),
         [b'(', ..] => crate::parser::parse_paren_expr(working_set, span, &SyntaxShape::Any),
         [b'[', ..] => crate::parser::parse_list_expression(working_set, span, &SyntaxShape::Any),
+        [b'{', ..] => crate::parser::parse_brace_expr(working_set, span, &SyntaxShape::Any, None),
         _ => parse_external_string(working_set, span),
     }
 }
@@ -384,7 +411,10 @@ fn ensure_flag_arg_type(
     arg_shape: &SyntaxShape,
     long_name_span: Span,
 ) -> (Spanned<String>, Expression) {
-    if !type_compatible(&arg_shape.to_type(), &arg.ty) {
+    // `nothing` is allowed so optional named flags can be forwarded with
+    // `--flag=$maybe_null`. At runtime: omit if the flag type does not accept
+    // nothing; pass through if it does (`any`, `nothing`, `oneof<…, nothing>`).
+    if arg.ty != Type::Nothing && !type_compatible(&arg_shape.to_type(), &arg.ty) {
         working_set.error(ParseError::TypeMismatch(
             arg_shape.to_type(),
             arg.ty,
@@ -1184,46 +1214,126 @@ pub fn parse_internal_call(
 
         {
             let contents = working_set.get_span_contents(spans[spans_idx]);
+            let can_rest_spread =
+                signature.rest_positional.is_some() || signature.allows_unknown_args;
+            // Named flag spreads (`...{flag: value}`) need at least one real named param.
+            let can_named_spread = signature.named.iter().any(|n| n.long != "help");
+
+            // Explicit record spread: `...{ preserve: $p, recursive: true }`
+            // (must be checked before list extract, which also accepts `$`/`(` forms)
+            if let Some(Spanned {
+                span: spread_arg_span,
+                ..
+            }) = extract_spread_record(contents.into_spanned(spans[spans_idx]))
+            {
+                let after_dots = working_set.get_span_contents(spread_arg_span);
+                if after_dots.first() == Some(&b'{') {
+                    if !can_named_spread {
+                        working_set.error(ParseError::UnexpectedSpreadArg(
+                            signature.call_signature(),
+                            arg_span,
+                        ));
+                        call.add_positional(Expression::garbage(working_set, arg_span));
+                    } else {
+                        // Field types / unknown keys are validated at runtime against the signature.
+                        let args = crate::parser::parse_value(
+                            working_set,
+                            spread_arg_span,
+                            &SyntaxShape::Record(std::iter::empty().collect()),
+                            None,
+                        );
+                        call.add_spread(args);
+                    }
+                    spans_idx += 1;
+                    continue;
+                }
+            }
 
             if let Some(Spanned {
                 span: spread_arg_span,
                 ..
             }) = extract_spread_list(contents.into_spanned(spans[spans_idx]))
             {
-                if signature.rest_positional.is_none() && !signature.allows_unknown_args {
+                let after_dots = working_set.get_span_contents(spread_arg_span);
+                let is_explicit_list = after_dots.first() == Some(&b'[');
+                // `...$var` / `...(expr)` may be a rest list or a named-flag record at runtime.
+                let is_dynamic = matches!(after_dots.first(), Some(b'$' | b'('));
+
+                if is_explicit_list {
+                    if !can_rest_spread {
+                        working_set.error(ParseError::UnexpectedSpreadArg(
+                            signature.call_signature(),
+                            arg_span,
+                        ));
+                        call.add_positional(Expression::garbage(working_set, arg_span));
+                    } else if positional_idx < signature.required_positional.len() {
+                        working_set.error(ParseError::MissingPositional(
+                            signature.required_positional[positional_idx].name.clone(),
+                            Span::new(spans[spans_idx].start, spans[spans_idx].start),
+                            signature.call_signature(),
+                        ));
+                        call.add_positional(Expression::garbage(working_set, arg_span));
+                    } else {
+                        let rest_shape = match &signature.rest_positional {
+                            Some(arg) if matches!(arg.shape, SyntaxShape::ExternalArgument) => {
+                                // External args aren't parsed inside lists in spread position.
+                                SyntaxShape::Any
+                            }
+                            Some(arg) => arg.shape.clone(),
+                            None => SyntaxShape::Any,
+                        };
+                        let args = crate::parser::parse_value(
+                            working_set,
+                            spread_arg_span,
+                            &SyntaxShape::List(Box::new(rest_shape)),
+                            None,
+                        );
+                        call.add_spread(args);
+                        positional_idx = signature.required_positional.len()
+                            + signature.optional_positional.len();
+                    }
+                } else if is_dynamic {
+                    if !can_rest_spread && !can_named_spread {
+                        working_set.error(ParseError::UnexpectedSpreadArg(
+                            signature.call_signature(),
+                            arg_span,
+                        ));
+                        call.add_positional(Expression::garbage(working_set, arg_span));
+                    } else if can_rest_spread
+                        && !can_named_spread
+                        && positional_idx < signature.required_positional.len()
+                    {
+                        // Pure rest spreads cannot fill required positionals.
+                        working_set.error(ParseError::MissingPositional(
+                            signature.required_positional[positional_idx].name.clone(),
+                            Span::new(spans[spans_idx].start, spans[spans_idx].start),
+                            signature.call_signature(),
+                        ));
+                        call.add_positional(Expression::garbage(working_set, arg_span));
+                    } else {
+                        // Parse as Any so both lists (rest) and records (named flags) work.
+                        // Do not advance positional_idx when named spreads are possible: a
+                        // flag record does not consume positionals, so `f ...$flags a` must
+                        // still bind `a`. Pure rest-only commands still advance below.
+                        let args = crate::parser::parse_value(
+                            working_set,
+                            spread_arg_span,
+                            &SyntaxShape::Any,
+                            None,
+                        );
+                        call.add_spread(args);
+                        if can_rest_spread && !can_named_spread {
+                            positional_idx = signature.required_positional.len()
+                                + signature.optional_positional.len();
+                        }
+                    }
+                } else {
+                    // Unreachable for extract_spread_list, but keep a safe fallback.
                     working_set.error(ParseError::UnexpectedSpreadArg(
                         signature.call_signature(),
                         arg_span,
                     ));
                     call.add_positional(Expression::garbage(working_set, arg_span));
-                } else if positional_idx < signature.required_positional.len() {
-                    working_set.error(ParseError::MissingPositional(
-                        signature.required_positional[positional_idx].name.clone(),
-                        Span::new(spans[spans_idx].start, spans[spans_idx].start),
-                        signature.call_signature(),
-                    ));
-                    call.add_positional(Expression::garbage(working_set, arg_span));
-                } else {
-                    let rest_shape = match &signature.rest_positional {
-                        Some(arg) if matches!(arg.shape, SyntaxShape::ExternalArgument) => {
-                            // External args aren't parsed inside lists in spread position.
-                            SyntaxShape::Any
-                        }
-                        Some(arg) => arg.shape.clone(),
-                        None => SyntaxShape::Any,
-                    };
-                    // Parse list of arguments to be spread
-                    let args = crate::parser::parse_value(
-                        working_set,
-                        spread_arg_span,
-                        &SyntaxShape::List(Box::new(rest_shape)),
-                        None,
-                    );
-
-                    call.add_spread(args);
-                    // Let the parser know that it's parsing rest arguments now
-                    positional_idx =
-                        signature.required_positional.len() + signature.optional_positional.len();
                 }
 
                 spans_idx += 1;

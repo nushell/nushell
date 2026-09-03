@@ -919,9 +919,9 @@ mod tests {
         let mut stack = Stack::new();
 
         // force coloring on for test
-        let mut config = (*engine_state.config).clone();
+        let mut config = engine_state.get_config().as_ref().clone();
         config.use_ansi_coloring = UseAnsiColoring::True;
-        engine_state.config = Arc::new(config);
+        engine_state.set_config(config);
 
         // using Cow::Owned here to mean a match, since the content changed,
         // and borrowed to mean not a match, since the content didn't change

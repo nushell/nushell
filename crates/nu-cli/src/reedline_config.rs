@@ -15,7 +15,6 @@ use reedline::{
     TraversalDirection, WordEdge, WordKind, default_emacs_keybindings,
     default_vi_insert_keybindings, default_vi_normal_keybindings,
 };
-#[cfg(feature = "helix")]
 use reedline::{
     default_helix_insert_keybindings, default_helix_normal_keybindings,
     default_helix_select_keybindings,
@@ -602,7 +601,6 @@ pub enum KeybindingsMode {
         insert_keybindings: Keybindings,
         normal_keybindings: Keybindings,
     },
-    #[cfg(feature = "helix")]
     Helix {
         insert_keybindings: Keybindings,
         normal_keybindings: Keybindings,
@@ -616,11 +614,8 @@ struct KeybindingTables {
     emacs: Keybindings,
     vi_insert: Keybindings,
     vi_normal: Keybindings,
-    #[cfg(feature = "helix")]
     helix_insert: Keybindings,
-    #[cfg(feature = "helix")]
     helix_normal: Keybindings,
-    #[cfg(feature = "helix")]
     helix_select: Keybindings,
 }
 
@@ -633,11 +628,8 @@ pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, She
         emacs: default_emacs_keybindings(),
         vi_insert: default_vi_insert_keybindings(),
         vi_normal: default_vi_normal_keybindings(),
-        #[cfg(feature = "helix")]
         helix_insert: default_helix_insert_keybindings(),
-        #[cfg(feature = "helix")]
         helix_normal: default_helix_normal_keybindings(),
-        #[cfg(feature = "helix")]
         helix_select: default_helix_select_keybindings(),
     };
 
@@ -651,28 +643,16 @@ pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, She
             insert_keybindings: tables.vi_insert,
             normal_keybindings: tables.vi_normal,
         }),
-        #[cfg(feature = "helix")]
         EditBindings::Helix => Ok(KeybindingsMode::Helix {
             insert_keybindings: tables.helix_insert,
             normal_keybindings: tables.helix_normal,
             select_keybindings: tables.helix_select,
         }),
-        #[cfg(not(feature = "helix"))]
-        EditBindings::Helix => Err(ShellError::Generic(
-            nu_protocol::shell_error::generic::GenericError::new_internal(
-                "helix mode is not available in this build of nushell",
-                "`$env.config.edit_mode = \"helix\"` requires a build with the `helix` feature",
-            )
-            .with_help("rebuild nushell with `--features helix`"),
-        )),
     }
 }
 
-#[cfg(feature = "helix")]
 const VALID_KEYBINDING_MODES: &str =
     "'emacs', 'vi_insert', 'vi_normal', 'helix_insert', 'helix_normal', or 'helix_select'";
-#[cfg(not(feature = "helix"))]
-const VALID_KEYBINDING_MODES: &str = "'emacs', 'vi_insert', or 'vi_normal'";
 
 fn add_keybinding(
     mode: &Value,
@@ -688,28 +668,14 @@ fn add_keybinding(
             Ok(PEMD::Emacs) => add_parsed_keybinding(&mut tables.emacs, keybinding, config),
             Ok(PEMD::ViInsert) => add_parsed_keybinding(&mut tables.vi_insert, keybinding, config),
             Ok(PEMD::ViNormal) => add_parsed_keybinding(&mut tables.vi_normal, keybinding, config),
-            #[cfg(feature = "helix")]
             Ok(PEMD::HelixInsert) => {
                 add_parsed_keybinding(&mut tables.helix_insert, keybinding, config)
             }
-            #[cfg(feature = "helix")]
             Ok(PEMD::HelixNormal) => {
                 add_parsed_keybinding(&mut tables.helix_normal, keybinding, config)
             }
-            #[cfg(feature = "helix")]
             Ok(PEMD::HelixSelect) => {
                 add_parsed_keybinding(&mut tables.helix_select, keybinding, config)
-            }
-            // The default keybindings name the helix tables unconditionally, so
-            // a build without the `helix` feature skips them rather than
-            // rejecting a mode it has no table to bind into.
-            #[cfg(not(feature = "helix"))]
-            _ if matches!(
-                val.as_str(),
-                "helix_normal" | "helix_insert" | "helix_select"
-            ) =>
-            {
-                Ok(())
             }
             Ok(PEMD::Default | PEMD::Custom) | Err(_) => Err(ShellError::InvalidValue {
                 valid: VALID_KEYBINDING_MODES.into(),
@@ -738,11 +704,8 @@ pub(crate) fn display_edit_mode(mode: PromptEditModeDiscriminants) -> Option<Str
         PromptEditModeDiscriminants::Emacs => Some("emacs".into()),
         PromptEditModeDiscriminants::ViNormal => Some("vi_normal".into()),
         PromptEditModeDiscriminants::ViInsert => Some("vi_insert".into()),
-        #[cfg(feature = "helix")]
         PromptEditModeDiscriminants::HelixNormal => Some("helix_normal".into()),
-        #[cfg(feature = "helix")]
         PromptEditModeDiscriminants::HelixInsert => Some("helix_insert".into()),
-        #[cfg(feature = "helix")]
         PromptEditModeDiscriminants::HelixSelect => Some("helix_select".into()),
         PromptEditModeDiscriminants::Default | PromptEditModeDiscriminants::Custom => None,
     }
@@ -1006,6 +969,10 @@ fn event_from_record(
             let mode = extract_value("mode", record, span)?;
             ReedlineEvent::ViChangeMode(mode.as_str()?.to_owned())
         }
+        Ok(RED::HelixChangeMode) => {
+            let mode = extract_value("mode", record, span)?;
+            ReedlineEvent::HelixChangeMode(mode.as_str()?.to_owned())
+        }
         // Non-sensical for user configuration:
         //
         // `ReedlineEvent::Mouse` - itself a no-op
@@ -1068,6 +1035,7 @@ pub(crate) fn display_reedline_event(event: ReedlineEventDiscriminants) -> Optio
         RED::ExecuteHostCommand => "ExecuteHostCommand cmd: <string>",
         RED::OpenEditor => "OpenEditor",
         RED::ViChangeMode => "ViChangeMode mode: <string>",
+        RED::HelixChangeMode => "HelixChangeMode mode: <string>",
         // Non-sensical for user configuration
         RED::Mouse | RED::Resize => return None,
     })
@@ -1182,6 +1150,13 @@ fn edit_from_record(
             let value = extract_value("value", record, span)?;
             EditCommand::InsertString(value.to_expanded_string("", config))
         }
+        Ok(ECD::InsertPair) => {
+            let value = extract_value("open", record, span)?;
+            let open = extract_char(value)?;
+            let value = extract_value("close", record, span)?;
+            let close = extract_char(value)?;
+            EditCommand::InsertPair { open, close }
+        }
         Ok(ECD::InsertNewline) => EditCommand::InsertNewline,
         Ok(ECD::InsertNewlineAbove) => EditCommand::InsertNewlineAbove,
         Ok(ECD::InsertNewlineBelow) => EditCommand::InsertNewlineBelow,
@@ -1191,6 +1166,13 @@ fn edit_from_record(
             EditCommand::ReplaceChar(char)
         }
         Ok(ECD::Backspace) => EditCommand::Backspace,
+        Ok(ECD::BackspacePair) => {
+            let value = extract_value("open", record, span)?;
+            let open = extract_char(value)?;
+            let value = extract_value("close", record, span)?;
+            let close = extract_char(value)?;
+            EditCommand::BackspacePair { open, close }
+        }
         Ok(ECD::Delete) => EditCommand::Delete,
         Ok(ECD::CutCharLeft) => EditCommand::CutCharLeft,
         Ok(ECD::CutChar) => EditCommand::CutChar,
@@ -1283,9 +1265,7 @@ fn edit_from_record(
             EditCommand::MoveLeftBefore { c: char, select }
         }
         Ok(ECD::SelectAll) => EditCommand::SelectAll,
-        #[cfg(feature = "helix")]
         Ok(ECD::SelectLine) => EditCommand::SelectLine,
-        #[cfg(feature = "helix")]
         Ok(ECD::EraseSelection) => EditCommand::EraseSelection,
         Ok(ECD::CutSelection) => EditCommand::CutSelection {
             granularity: parse_granularity(record, config, span)?,
@@ -1440,11 +1420,13 @@ pub(crate) fn display_edit_command(edit: EditCommandDiscriminants) -> Option<&'s
         ECD::MoveLeftBefore => "MoveLeftBefore value: <char>, select?: <bool>",
         ECD::InsertChar => "InsertChar value: <char>",
         ECD::InsertString => "InsertString value: <string>",
+        ECD::InsertPair => "InsertPair open: <char>, close: <char>",
         ECD::InsertNewline => "InsertNewline",
         ECD::InsertNewlineAbove => "InsertNewlineAbove",
         ECD::InsertNewlineBelow => "InsertNewlineBelow",
         ECD::ReplaceChar => "ReplaceChar value: <char>",
         ECD::Backspace => "Backspace",
+        ECD::BackspacePair => "BackspacePair open: <char>, close: <char>",
         ECD::Delete => "Delete",
         ECD::CutCharLeft => "CutCharLeft",
         ECD::CutChar => "CutChar",
@@ -1485,9 +1467,7 @@ pub(crate) fn display_edit_command(edit: EditCommandDiscriminants) -> Option<&'s
         ECD::CutLeftUntil => "CutLeftUntil value: <char>",
         ECD::CutLeftBefore => "CutLeftBefore value: <char>",
         ECD::SelectAll => "SelectAll",
-        #[cfg(feature = "helix")]
         ECD::SelectLine => "SelectLine",
-        #[cfg(feature = "helix")]
         ECD::EraseSelection => "EraseSelection",
         ECD::CutSelection => "CutSelection granularity?: <string>",
         ECD::CopySelection => "CopySelection",
@@ -2094,8 +2074,6 @@ mod test {
     #[test]
     fn default_config_keybindings_apply() {
         // Nushell menu keybindings on Config::default must parse as valid reedline events.
-        // Without the `helix` feature this also covers the helix modes the defaults
-        // name but this build has no table for.
         let config = Config::default();
         assert!(!config.keybindings.is_empty());
         assert!(!config.menus.is_empty());
@@ -2103,7 +2081,6 @@ mod test {
     }
 
     #[test]
-    #[cfg(feature = "helix")]
     fn default_config_binds_menu_keys_in_helix_mode() {
         // The Nushell menu keybindings are mode-scoped; helix missing from that
         // list left Tab and the other menu keys unbound in both helix tables.
@@ -2140,7 +2117,6 @@ mod test {
     }
 
     #[test]
-    #[cfg(feature = "helix")]
     fn helix_select_keybindings_land_in_their_own_table() {
         use nu_protocol::ParsedKeybinding;
 

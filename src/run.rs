@@ -14,7 +14,6 @@ use nu_protocol::{
 };
 use nu_utils::perf;
 use nu_utils::time::Instant;
-use std::sync::Arc;
 
 pub(crate) fn run_commands(
     engine_state: &mut EngineState,
@@ -190,7 +189,9 @@ pub(crate) fn run_file(
         && let Ok(s) = t_mode.coerce_str()
         && let Ok(mode) = s.parse()
     {
-        Arc::make_mut(&mut engine_state.config).table.mode = mode;
+        let mut config = engine_state.get_config().as_ref().clone();
+        config.table.mode = mode;
+        engine_state.set_config(config);
     }
 
     let start_time = Instant::now();
@@ -241,7 +242,9 @@ pub(crate) fn run_repl(
         && let Ok(s) = t_mode.coerce_str()
         && let Ok(mode) = s.parse()
     {
-        Arc::make_mut(&mut engine_state.config).table.mode = mode;
+        let mut config = engine_state.get_config().as_ref().clone();
+        config.table.mode = mode;
+        engine_state.set_config(config);
     }
 
     let start_time = Instant::now();

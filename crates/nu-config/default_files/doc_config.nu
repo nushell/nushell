@@ -3,7 +3,7 @@
 # Warning: This file is intended for documentation purposes only and
 # is not intended to be used as an actual configuration file as-is.
 #
-# version = "0.115.1"
+# version = "0.115.2"
 #
 # A `config.nu` file is used to override default Nushell settings,
 # define (or import) custom commands, or run any other startup tasks.
@@ -160,7 +160,7 @@ $env.config.clip.default_raw = false
 # "emacs": Use Emacs-style keybindings (default).
 # "vi": Use Vi-style keybindings with normal and insert modes.
 # "helix": Use Helix-style selection-first keybindings with normal, select, and
-#          insert modes. Requires the `helix` feature (enabled by default).
+#          insert modes.
 # Default: "emacs"
 $env.config.edit_mode = "emacs"
 
@@ -191,8 +191,6 @@ $env.config.cursor_shape.vi_insert = "inherit"
 $env.config.cursor_shape.vi_normal = "inherit"
 
 # cursor_shape.helix_normal (string): Cursor shape when in helix normal mode.
-# Requires the `helix` feature (enabled by default); likewise for
-# helix_select and helix_insert below.
 # One of: "block", "underscore", "line", "blink_block", "blink_underscore", "blink_line", or "inherit".
 # Default: "inherit"
 $env.config.cursor_shape.helix_normal = "inherit"
@@ -278,13 +276,33 @@ $env.config.completions.partial = true
 # typing "ls " and pressing Tab will partially complete the first matching letters.
 # If the directory also includes "faster", only "f" would be partially completed.
 
+# completions.persistent_menus (bool): Controls whether active menus stay open while editing.
+# true: Erasing characters (or emptying the commandline) refilters the menu instead of
+# closing it; the menu closes on Esc, Ctrl-C, or when a value is accepted.
+# Applies to all menus, including the history menu.
+# false: A backspace closes the menu when completions.quick is enabled, and any edit
+# that empties the commandline closes it.
+# Default: false
+$env.config.completions.persistent_menus = false
+
 # completions.use_ls_colors (bool): Apply LS_COLORS to file/path completions.
 # true: Use LS_COLORS for styling file completions.
 # false: Don't use LS_COLORS.
 # Default: true
 $env.config.completions.use_ls_colors = true
 
-# completions.cache_size (int): Completion cache size (0 disables the cache).
+# completions.cache_size (int): How many Tab-completion prefixes to remember.
+# Results are stored by the text up to the cursor (for example `ls fo`) and
+# reused on the next Tab of that same prefix so Nushell does not re-scan
+# files or command names. Least-recently-used entries are dropped when the
+# limit is reached. The cache is shared across prompts and is discarded when
+# PATH, the working directory, the set of commands, or `$env.config` changes.
+# 0: Disable the cache; every Tab recomputes.
+# A larger value remembers more prefixes (uses more memory).
+# A smaller value forgets sooner.
+# Closures on `$env.config.completions.external.completer` and custom
+# `@comp` / `@complete` completers are not stored, so an interactive picker
+# (fzf, `input list`) runs again on the next Tab.
 # Default: 100
 $env.config.completions.cache_size = 100
 
@@ -307,6 +325,10 @@ $env.config.completions.external.max_results = 100
 # The closure receives a |spans| parameter - a list of strings representing
 # tokens on the current commandline. Usually set to call a third-party
 # completion system like Carapace.
+# Evaluating this closure blocks the line editor and may take the TTY, which
+# interactive pickers (fzf, `input list`) need. Completers that only print a
+# list should return quickly. Custom menu `source` closures already run on
+# the REPL thread the same way.
 # Default: null
 $env.config.completions.external.completer = null
 
@@ -612,10 +634,13 @@ $env.config.hooks.command_not_found = null
 # etc.). Inspect with `$env.config.keybindings`. Reedline's base emacs/vi maps are
 # still applied underneath and are listed by `keybindings default`.
 #
-# Assigning this list merges into the defaults rather than replacing them, so
-# `=` never clears the Nushell menu bindings. Entries are matched by `name`,
-# or by modifier/keycode/mode when unnamed; a match is overwritten, anything
-# else appended. Set `event: null` on a matching binding to unbind a key.
+# Assigning this list merges into the current bindings rather than replacing
+# them (an emptied list stays empty; defaults are not reintroduced).
+# An entry replaces the existing binding with the same name (updating its key
+# or event in place); when several bindings share a name, the key
+# (modifier/keycode/mode) decides which one it is, and a name reused for a
+# genuinely new key appends with a one-time warning. Set `event: null` on a
+# matching binding to unbind a key, or assign `[]` to clear the whole list.
 
 # Example: Add Alt+. keybinding to insert the last token from previous command:
 # $env.config.keybindings ++= [
@@ -630,6 +655,27 @@ $env.config.hooks.command_not_found = null
 #     ]
 #   }
 # ]
+
+# Example: Bind Ctrl+g to leave insert mode. A mode event only applies to its own
+# state machine and reports itself inapplicable elsewhere, so `until` hands the
+# key on and one binding covers both editors:
+# $env.config.keybindings ++= [
+#   {
+#     name: leave_insert_mode
+#     modifier: control
+#     keycode: char_g
+#     mode: [vi_insert helix_insert]
+#     event: {
+#       until: [
+#         { send: ViChangeMode, mode: normal }
+#         { send: HelixChangeMode, mode: normal }
+#       ]
+#     }
+#   }
+# ]
+# `ViChangeMode` takes "normal", "insert" or "visual"; `HelixChangeMode` takes
+# "normal", "insert" or "select". An unknown
+# mode name leaves the mode alone rather than erroring.
 
 # -------------
 # Abbreviations

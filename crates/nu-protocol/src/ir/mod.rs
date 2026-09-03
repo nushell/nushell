@@ -155,8 +155,17 @@ pub enum Instruction {
     /// Drain the value/stream in a register and discard only if this is the last pipeline element.
     // TODO: see if it's possible to remove this
     DrainIfEnd { src: RegId },
-    /// Load the value of a variable into the `dst` register
-    LoadVariable { dst: RegId, var_id: VarId },
+    /// Load the value of a variable into the `dst` register.
+    ///
+    /// When `preserve_origin` is false (the default), the value is re-spanned to this
+    /// instruction's span so error labels point at the use site. When true, the value keeps
+    /// the span from where it was defined (used by `metadata $var`).
+    LoadVariable {
+        dst: RegId,
+        var_id: VarId,
+        #[serde(default)]
+        preserve_origin: bool,
+    },
     /// Store the value of a variable from the `src` register
     StoreVariable { var_id: VarId, src: RegId },
     /// Remove a variable from the stack, freeing up whatever resources were associated with it

@@ -270,23 +270,25 @@ impl Completer for CustomCompletion {
                     self.line_pos - self.line.len(),
                     offset,
                 ),
-                Value::Nothing { .. } => return Fetched::fallback(),
+                Value::Nothing { .. } => return Fetched::Declined,
                 _ => {
                     log::error!(
                         "Custom completer returned invalid value of type {}",
                         value.get_type()
                     );
-                    return Fetched::cacheable(vec![]);
+                    return Fetched::Cacheable(vec![]);
                 }
             },
             Err(e) => {
                 log::error!("Error getting custom completions: {e}");
-                return Fetched::cacheable(vec![]);
+                // Error does not equal empty success (matches `CommandWideCompletion`):
+                // fall back so file completion still runs when a custom completer errors.
+                return Fetched::Declined;
             }
         };
 
         if !should_filter {
-            return Fetched::cacheable(suggestions);
+            return Fetched::Cacheable(suggestions);
         }
 
         let mut matcher = NuMatcher::new(prefix.as_ref(), &completion_options, should_sort);
@@ -303,7 +305,7 @@ impl Completer for CustomCompletion {
                 matcher.add(description, sugg);
             }
         }
-        Fetched::cacheable(matcher.suggestion_results())
+        Fetched::Cacheable(matcher.suggestion_results())
     }
 }
 
@@ -414,9 +416,9 @@ impl<'a> Completer for CommandWideCompletion<'a> {
         if let Some(results) =
             convert_whole_command_completion_results(offset, span, result, command_span)
         {
-            Fetched::cacheable(results)
+            Fetched::Cacheable(results)
         } else {
-            Fetched::fallback()
+            Fetched::Declined
         }
     }
 }

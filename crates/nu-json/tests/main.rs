@@ -1,4 +1,5 @@
 use nu_json::Value;
+use nu_test_support::prelude::*;
 use pretty_assertions::assert_eq;
 use rstest::rstest;
 use std::fs;
@@ -38,7 +39,7 @@ fn assert_rstest_finds_assets(#[files("../../tests/assets/nu_json/*")] rstest_su
 
     assert_eq!(
         fs::canonicalize(supplied_dir).unwrap(),
-        fs::canonicalize(nu_test_support::fs::assets().join("nu_json")).unwrap()
+        fs::canonicalize(ASSETS.join("nu_json")).unwrap()
     );
 }
 

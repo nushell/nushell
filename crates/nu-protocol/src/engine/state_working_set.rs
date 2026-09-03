@@ -29,6 +29,11 @@ pub struct StateWorkingSet<'a> {
     pub files: FileStack,
     /// Whether or not predeclarations are searched when looking up a command (used with aliases)
     pub search_predecls: bool,
+    /// When true, `use` / `export use` / `overlay use` / `module <file>` parse as
+    /// syntax only and do not load modules from disk or the virtual filesystem.
+    /// The REPL highlighter sets this so typing `use std` does not parse-time-load
+    /// the standard library on every keystroke.
+    pub skip_module_load: bool,
     pub parse_errors: Vec<ParseError>,
     pub parse_warnings: Vec<ParseWarning>,
     pub compile_errors: Vec<CompileError>,
@@ -48,6 +53,7 @@ impl<'a> StateWorkingSet<'a> {
             permanent_state,
             files,
             search_predecls: true,
+            skip_module_load: false,
             parse_errors: vec![],
             parse_warnings: vec![],
             compile_errors: vec![],
@@ -1060,6 +1066,37 @@ impl<'a> StateWorkingSet<'a> {
             }
         }
 
+        None
+    }
+
+    /// Blocks covering `span`, newest first (delta before permanent).
+    pub fn blocks_with_span_newest_first(&self, span: Span) -> Vec<Arc<Block>> {
+        let mut blocks = Vec::new();
+        for block in self.delta.blocks.iter().rev() {
+            if block.span == Some(span) {
+                blocks.push(block.clone());
+            }
+        }
+        for block in self.permanent_state.blocks.iter().rev() {
+            if block.span == Some(span) {
+                blocks.push(block.clone());
+            }
+        }
+        blocks
+    }
+
+    /// Identity lookup so a cache hit can keep the existing `BlockId`.
+    pub fn find_block_id_of(&self, block: &Arc<Block>) -> Option<BlockId> {
+        for (idx, existing) in self.delta.blocks.iter().enumerate() {
+            if Arc::ptr_eq(existing, block) {
+                return Some(BlockId::new(self.permanent_state.num_blocks() + idx));
+            }
+        }
+        for (idx, existing) in self.permanent_state.blocks.iter().enumerate() {
+            if Arc::ptr_eq(existing, block) {
+                return Some(BlockId::new(idx));
+            }
+        }
         None
     }
 

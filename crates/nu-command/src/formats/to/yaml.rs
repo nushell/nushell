@@ -21,7 +21,10 @@ impl Command for ToYamlLike {
             )
             .param(
                 Flag::new("non-roundtrip")
-                    .arg(SyntaxShape::String)
+                    .arg(SyntaxShape::OneOf(vec![
+                        SyntaxShape::String,
+                        SyntaxShape::Nothing,
+                    ]))
                     .desc("How to handle values that are non-roundtrippable.")
                     .completion(Completion::new_list(&["error", "null", "lossy"])),
             )
@@ -104,17 +107,19 @@ impl Command for ToYamlLike {
         let compact_list_indent = call.get_flag(engine_state, stack, "compact-list-indent")?;
         let quote_style = call.get_flag(engine_state, stack, "quote")?;
         let non_roundtrip =
-            call.get_flag::<Spanned<String>>(engine_state, stack, "non-roundtrip")?;
+            call.get_flag::<Spanned<Option<String>>>(engine_state, stack, "non-roundtrip")?;
         let non_roundtrip = match (
             call.has_flag(engine_state, stack, "serialize")?,
-            non_roundtrip.as_ref().map(|nr| nr.item.as_ref()),
+            non_roundtrip
+                .as_ref()
+                .map(|nr| nr.item.as_ref().map(|nr| nr.as_ref())),
         ) {
             // matching the spanned is way less comprehendible here, so we expect spans instead
-            (false, None | Some("error")) => NonRoundtrip::Error,
-            (true, None | Some("lossy")) => NonRoundtrip::Lossy {
+            (false, None | Some(Some("error"))) => NonRoundtrip::Error,
+            (true, None | Some(Some("lossy"))) => NonRoundtrip::Lossy {
                 engine_state: Box::new(engine_state.clone()),
             },
-            (false, Some("null")) => NonRoundtrip::Null,
+            (false, Some(Some("null") | None)) => NonRoundtrip::Null,
             (false, Some(_)) => {
                 return Err(ShellError::IncompatibleParametersSingle {
                     msg: "expected `error`, `null` or `lossy`".into(),

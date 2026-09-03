@@ -304,8 +304,8 @@ impl Completer for CommandCompletion {
         }
 
         match externals {
-            true => Fetched::cacheable(suggestions),
-            false => Fetched::pure(suggestions),
+            true => Fetched::Cacheable(suggestions),
+            false => Fetched::Pure(suggestions),
         }
     }
 }

@@ -1,11 +1,7 @@
 use std::{borrow::Cow, ops::Deref};
 
 use nu_engine::{ClosureEval, command_prelude::*};
-use nu_protocol::{
-    ListStream, ReportMode, ShellWarning, Signals,
-    ast::{Expr, Expression},
-    report_shell_warning,
-};
+use nu_protocol::{ListStream, ReportMode, ShellWarning, Signals, report_shell_warning};
 
 #[derive(Clone)]
 pub struct Default;
@@ -38,11 +34,6 @@ impl Command for Default {
             .category(Category::Filters)
     }
 
-    // FIXME remove once deprecation warning is no longer needed
-    fn requires_ast_for_arguments(&self) -> bool {
-        true
-    }
-
     fn description(&self) -> &str {
         "Sets a default value if a row's column is missing or null."
     }
@@ -58,10 +49,7 @@ impl Command for Default {
         let columns: Vec<String> = call.rest(engine_state, stack, 1)?;
         let empty = call.has_flag(engine_state, stack, "empty")?;
 
-        // FIXME for deprecation of closure passed via variable
-        let default_value_expr = call.positional_nth(stack, 0);
-        let default_value =
-            DefaultValue::new(engine_state, stack, default_value, default_value_expr);
+        let default_value = DefaultValue::new(engine_state, stack, default_value);
 
         default(
             engine_state,
@@ -249,16 +237,13 @@ enum DefaultValue {
 }
 
 impl DefaultValue {
-    fn new(
-        engine_state: &EngineState,
-        stack: &Stack,
-        value: Value,
-        expr: Option<&Expression>,
-    ) -> Self {
+    fn new(engine_state: &EngineState, stack: &Stack, value: Value) -> Self {
         let span = value.span();
 
-        // FIXME temporary workaround to warn people of breaking change from #15654
-        let value = match closure_variable_warning(stack, engine_state, value, expr) {
+        // FIXME temporary workaround to warn people of breaking change from #15654.
+        // Detects closures passed via `$var` by checking whether the value span's source starts
+        // with `$` (no AST required under IR).
+        let value = match closure_variable_warning(stack, engine_state, value) {
             Ok(val) => val,
             Err(default_value) => return default_value,
         };
@@ -321,50 +306,41 @@ fn closure_variable_warning(
     stack: &Stack,
     engine_state: &EngineState,
     value: Value,
-    value_expr: Option<&Expression>,
 ) -> Result<Value, DefaultValue> {
-    // only warn if we are passed a closure inside a variable
-    let from_variable = matches!(
-        value_expr,
-        Some(Expression {
-            expr: Expr::FullCellPath(_),
-            ..
-        })
-    );
-
     let span = value.span();
-    match (&value, from_variable) {
-        // this is a closure from inside a variable
-        (Value::Closure { .. }, true) => {
-            let span_contents = String::from_utf8_lossy(engine_state.get_span_contents(span));
-            let carapace_suggestion = "re-run carapace init with version v1.3.3 or later\nor, change this to `{ $carapace_completer }`";
-            let label = match span_contents {
-                Cow::Borrowed("$carapace_completer") => carapace_suggestion.to_string(),
-                Cow::Owned(s) if s.deref() == "$carapace_completer" => {
-                    carapace_suggestion.to_string()
-                }
-                _ => format!("change this to {{ {span_contents} }}").to_string(),
-            };
+    // Closures passed as `$var` keep a use-site span whose source starts with `$`.
+    // Closure literals use the block span (starts with `{`).
+    let from_variable = matches!(value, Value::Closure { .. })
+        && engine_state.get_span_contents(span).starts_with(b"$");
 
-            report_shell_warning(
-                Some(stack),
-                engine_state,
-                &ShellWarning::Deprecated {
-                    dep_type: "Behavior".to_string(),
-                    label,
-                    span,
-                    help: Some(
-                        "Since 0.105.0, closure literals passed to default are lazily evaluated, rather than returned as a value.
+    if from_variable {
+        let span_contents = String::from_utf8_lossy(engine_state.get_span_contents(span));
+        let carapace_suggestion = "re-run carapace init with version v1.3.3 or later\nor, change this to `{ $carapace_completer }`";
+        let label = match span_contents {
+            Cow::Borrowed("$carapace_completer") => carapace_suggestion.to_string(),
+            Cow::Owned(s) if s.deref() == "$carapace_completer" => carapace_suggestion.to_string(),
+            _ => format!("change this to {{ {span_contents} }}").to_string(),
+        };
+
+        report_shell_warning(
+            Some(stack),
+            engine_state,
+            &ShellWarning::Deprecated {
+                dep_type: "Behavior".to_string(),
+                label,
+                span,
+                help: Some(
+                    "Since 0.105.0, closure literals passed to default are lazily evaluated, rather than returned as a value.
 In a future release, closures passed by variable will also be lazily evaluated.".to_string(),
-                    ),
-                    report_mode: ReportMode::FirstUse,
-                },
-            );
+                ),
+                report_mode: ReportMode::FirstUse,
+            },
+        );
 
-            // bypass the normal DefaultValue::new logic
-            Err(DefaultValue::Calculated(value))
-        }
-        _ => Ok(value),
+        // bypass the normal DefaultValue::new logic
+        Err(DefaultValue::Calculated(value))
+    } else {
+        Ok(value)
     }
 }
 

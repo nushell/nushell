@@ -25,6 +25,6 @@ impl Completer for EnvVarCompletion {
             });
         }
 
-        Fetched::pure(matcher.suggestion_results())
+        Fetched::Pure(matcher.suggestion_results())
     }
 }

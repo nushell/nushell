@@ -55,12 +55,14 @@ impl Completer for DotNuCompletion {
         }
 
         // Add std virtual paths first
+        let mut resolved_virtual_dir = false;
         if self.std_virtual_path {
             // Where we have '/' in the prefix, e.g. use std/l
             if let Some((base_dir, _)) = prefix.as_ref().rsplit_once("/") {
                 let base_dir = surround_remove(base_dir);
                 if let Some(VirtualPath::Dir(sub_paths)) = working_set.find_virtual_path(&base_dir)
                 {
+                    resolved_virtual_dir = true;
                     for sub_vp_id in sub_paths {
                         let (path, sub_vp) = working_set.get_virtual_path(*sub_vp_id);
                         matcher.add_semantic_suggestion(SemanticSuggestion {
@@ -110,7 +112,11 @@ impl Completer for DotNuCompletion {
             })
             .collect::<HashSet<_>>();
 
-        if let Ok(cwd) = working_set.permanent_state.cwd(None) {
+        // A virtual dir (`use std/`) already supplied its children. Walking cwd
+        // is the `/` hitch in large trees and cannot complete extra files under
+        // virtual `std` (find_in_dirs prefers the VFS). Still search NU_LIB_DIRS
+        // so a real `std/` overlay in lib dirs can appear.
+        if !resolved_virtual_dir && let Ok(cwd) = working_set.permanent_state.cwd(None) {
             search_dirs.insert(cwd.into_std_path_buf());
         }
 
@@ -155,6 +161,6 @@ impl Completer for DotNuCompletion {
                 .collect::<Vec<_>>(),
         );
 
-        Fetched::cacheable(all_results)
+        Fetched::Cacheable(all_results)
     }
 }

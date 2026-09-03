@@ -15,6 +15,10 @@ workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = ["local-socket"]
+local-socket = ["nu-plugin/local-socket", "nu-plugin-engine/local-socket"]
+
 [dependencies]
 nu-engine = { workspace = true, features = ["plugin"] }
 nu-protocol = { workspace = true, features = ["plugin"] }

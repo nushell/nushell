@@ -3,7 +3,7 @@ use nu_cmd_base::hook::eval_hook;
 use nu_engine::{command_prelude::*, env_to_strings};
 use nu_path::{AbsolutePath, dots::expand_ndots_safe, expand_tilde};
 use nu_protocol::{
-    ByteStream, NuGlob, OutDest, Signals, UseAnsiColoring, did_you_mean,
+    ByteStream, DeclId, NuGlob, OutDest, Signals, UseAnsiColoring, did_you_mean,
     process::{ChildProcess, PostWaitCallback},
     shell_error::io::IoError,
 };
@@ -18,7 +18,6 @@ use std::{
     io::Write,
     path::{Path, PathBuf},
     process::Stdio,
-    sync::Arc,
     thread,
 };
 
@@ -266,7 +265,6 @@ If you create a custom command with this name, that will be used instead."
                 // MCP and background completions must not inherit the live terminal.
                 if engine_state.is_mcp || stack.suppress_stdin {
                     command.stdin(Stdio::null());
-                    prepare_background_command(&mut command);
                 } else {
                     command.stdin(Stdio::inherit());
                 }
@@ -277,6 +275,12 @@ If you create a custom command with this name, that will be used instead."
                 Some(value)
             }
         };
+
+        // Detach even when stdin is a pipe of candidates (`ls | fzf`). Otherwise
+        // the child keeps `/dev/tty` and races reedline from a completion thread.
+        if engine_state.is_mcp || stack.suppress_stdin {
+            prepare_background_command(&mut command);
+        }
 
         // Log the command we're about to run in case it's useful for debugging purposes.
         log::trace!("run-external spawning: {command:?}");
@@ -510,7 +514,9 @@ fn write_pipeline_data(
         stack.start_collect_value();
 
         // Turn off color as we pass data through
-        Arc::make_mut(&mut engine_state.config).use_ansi_coloring = UseAnsiColoring::False;
+        let mut config = engine_state.get_config().as_ref().clone();
+        config.use_ansi_coloring = UseAnsiColoring::False;
+        engine_state.set_config(config);
 
         // Invoke the `table` command.
         let output =
@@ -610,8 +616,8 @@ pub fn command_not_found(
             );
         }
 
-        // Try to match the name with the search terms of existing commands.
-        let signatures = engine_state.get_signatures_and_declids(false);
+        let signatures = suggestion_signatures(engine_state, span);
+
         if let Some((last, others)) = signatures
             .iter()
             .map(|(sig, _)| sig)
@@ -668,6 +674,43 @@ pub fn command_not_found(
         help,
         span,
     }
+}
+
+fn suggestion_signatures(
+    engine_state: &EngineState,
+    command_span: Span,
+) -> Vec<(Signature, DeclId)> {
+    fn suggestion_span(engine_state: &EngineState, decl_id: DeclId) -> Option<Span> {
+        let decl = engine_state.get_decl(decl_id);
+
+        decl.decl_span().or_else(|| {
+            let block_id = decl.block_id()?;
+            engine_state.get_block(block_id).span
+        })
+    }
+
+    engine_state
+        .get_signatures_and_declids(false)
+        .into_iter()
+        .filter(|(_, decl_id)| {
+            if let Some(sugg_span) = suggestion_span(engine_state, *decl_id) {
+                // avoid suggesting commands declared after this command
+                sugg_span.start < command_span.start
+            } else {
+                // we can't determine declaration order,
+                // so default to keeping this suggestion
+                true
+            }
+        })
+        .map(|(mut sig, decl_id)| {
+            sig.name = engine_state
+                .find_decl_name(decl_id, &[])
+                .map(String::from_utf8_lossy)
+                .map(Cow::into_owned)
+                .unwrap_or(sig.name);
+            (sig, decl_id)
+        })
+        .collect()
 }
 
 /// Searches for the absolute path of an executable by name. `.bat` and `.cmd`
@@ -838,15 +881,14 @@ mod background_isolation_tests {
     use std::process::{Command, Stdio};
 
     #[cfg(unix)]
-    #[test]
-    fn setsid_removes_controlling_terminal() {
+    fn assert_child_has_no_tty(stdin: Stdio) {
         let mut cmd = Command::new("sh");
         // Subshell so a failed redirect does not exit before the `||` branch.
         cmd.args([
             "-c",
             "(exec 3>/dev/tty) 2>/dev/null && echo has_tty || echo no_tty",
         ])
-        .stdin(Stdio::null())
+        .stdin(stdin)
         .stdout(Stdio::piped())
         .stderr(Stdio::null());
         prepare_background_command(&mut cmd);
@@ -857,6 +899,18 @@ mod background_isolation_tests {
             "no_tty",
             "child must not retain a controlling terminal after setsid"
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn setsid_removes_controlling_terminal() {
+        assert_child_has_no_tty(Stdio::null());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn setsid_removes_controlling_terminal_with_piped_stdin() {
+        assert_child_has_no_tty(Stdio::piped());
     }
 
     #[cfg(windows)]

@@ -1345,21 +1345,6 @@ pub fn test_external_call_head_interpolated_string(
 )]
 #[case("^foo --flag='value'", "--flag=value", "flag value with single quote")]
 #[case(
-    "^foo {a:1,b:'c',c:'d'}",
-    "{a:1,b:c,c:d}",
-    "value with many inner single quotes"
-)]
-#[case(
-    r#"^foo {a:1,b:"c",c:"d"}"#,
-    "{a:1,b:c,c:d}",
-    "value with many double quotes"
-)]
-#[case(
-    r#"^foo {a:1,b:'c',c:"d"}"#,
-    "{a:1,b:c,c:d}",
-    "value with single quote and double quote"
-)]
-#[case(
     "^foo `hello world`",
     "hello world",
     "value is surrounded by backtick quote"
@@ -1468,6 +1453,7 @@ pub fn test_external_call_arg_raw_string(
     r#"foo\external call"#,
     "double quote with backslash"
 )]
+#[case("^foo '{a:1}'", "{a:1}", "quoted record-like string")]
 pub fn test_external_call_arg_string(
     #[case] input: &str,
     #[case] expected: &str,
@@ -1530,6 +1516,50 @@ pub fn test_external_call_arg_interpolated_string(
                 panic!("Unexpected external spread argument in command arg position: {other:?}")
             }
         }
+    })
+}
+
+#[rstest]
+#[case(r#"^foo {|my_var| $"($my_var)" }"#)]
+#[case(r#"^foo { |my_var| $"($my_var)" }"#)]
+#[case("^foo { 42 }")]
+fn test_external_call_arg_closure(#[case] input: &str) {
+    test_external_call(input, "closure argument", |_, args| {
+        assert_eq!(1, args.len());
+        assert!(matches!(
+            &args[0],
+            ExternalArgument::Regular(Expression {
+                expr: Expr::Closure(_),
+                ..
+            })
+        ));
+    })
+}
+
+#[rstest]
+#[case("^foo {a: 1}")]
+#[case("^foo {}")]
+#[case("^foo {a:1,b:'c',c:'d'}")]
+#[case(r#"^foo {a:1,b:"c",c:"d"}"#)]
+#[case(r#"^foo {a:1,b:'c',c:"d"}"#)]
+#[case("^foo {a: 1, b: 'c', c: 'd'}")]
+#[case(r#"^foo {a: 1, b: "c", c: "d"}"#)]
+#[case(r#"^foo {a: 1, b: 'c', c: "d"}"#)]
+#[case(r#"^foo {"key with spaces": "value"}"#)]
+#[case(r#"^foo {outer: {inner: "value"}}"#)]
+#[case(r#"^foo {items: [1 "two" true]}"#)]
+fn test_external_call_arg_record(#[case] input: &str) {
+    test_external_call(input, "record argument", |_, args| {
+        assert_eq!(1, args.len());
+        let ExternalArgument::Regular(expr) = &args[0] else {
+            panic!("Expected a regular external argument")
+        };
+        let is_record = match &expr.expr {
+            Expr::Record(_) => true,
+            Expr::FullCellPath(path) => matches!(path.head.expr, Expr::Record(_)),
+            _ => false,
+        };
+        assert!(is_record, "Expected a record expression, found {expr:?}");
     })
 }
 
@@ -2390,6 +2420,38 @@ mod range {
             &working_set.parse_errors[..],
             [ParseError::OperatorUnsupportedType { .. }]
         ),);
+    }
+
+    #[rstest]
+    #[case("true or ((to-custom) < (to-custom))")]
+    #[case("true and ((to-custom) == (to-custom))")]
+    #[case("true or ((to-custom) in (to-custom))")]
+    fn custom_comparison_is_usable_as_bool(#[case] code: &str) {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        working_set.add_decl(Box::new(ToCustom));
+
+        let _ = parse(&mut working_set, None, code.as_bytes(), true);
+
+        assert!(
+            working_set.parse_errors.is_empty(),
+            "Errors: {:?}",
+            working_set.parse_errors
+        );
+    }
+
+    #[test]
+    fn raw_custom_is_not_a_bool_for_or() {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        working_set.add_decl(Box::new(ToCustom));
+
+        let _ = parse(&mut working_set, None, b"true or (to-custom)", true);
+
+        assert!(matches!(
+            &working_set.parse_errors[..],
+            [ParseError::OperatorIncompatibleTypes { .. }]
+        ));
     }
 
     #[test]

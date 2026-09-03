@@ -14,13 +14,42 @@ use nu_protocol::{
     report_error::report_compile_error,
     report_parse_error, report_parse_warning, report_shell_error,
     shell_error::{generic::GenericError, io::IoError},
-    truncate_value_to_budget, value_from_bytes,
+    truncate_value_to_budget, value_from_bytes, value_is_error_only,
 };
 #[cfg(windows)]
 use nu_utils::enable_vt_processing;
 use nu_utils::time::Instant;
 use nu_utils::{escape_quote_string, perf};
 use std::path::Path;
+
+/// Captures whether the process was already in raw mode, then restores that
+/// on drop after a Tab completer closure that may have taken the TTY (`fzf`).
+///
+/// Tests and other cooked-mode callers stay cooked: we only re-enable raw
+/// mode when it was on before the closure ran. Menu sources must not use this;
+/// bouncing raw mode on every refresh flickers the prompt.
+#[must_use = "captures raw-mode state that is restored on drop"]
+pub(crate) struct ReplTerminalGuard {
+    was_raw: bool,
+}
+
+impl ReplTerminalGuard {
+    pub(crate) fn capture() -> Self {
+        let was_raw = crossterm::terminal::is_raw_mode_enabled().unwrap_or(false);
+        Self { was_raw }
+    }
+}
+
+impl Drop for ReplTerminalGuard {
+    fn drop(&mut self) {
+        if self.was_raw {
+            // Crossterm's Unix `enable_raw_mode` is a no-op when it already
+            // recorded raw mode, so it will not `tcsetattr` after fzf.
+            let _ = crossterm::terminal::disable_raw_mode();
+            let _ = crossterm::terminal::enable_raw_mode();
+        }
+    }
+}
 
 // This will collect environment variables from std::env and adds them to a stack.
 //
@@ -445,7 +474,9 @@ fn maybe_store_last_result(
             PipelineData::Empty
         }
         PipelineData::Value(value, metadata) => {
-            stack.set_last_result(value.clone(), metadata.clone(), budget);
+            if !value_is_error_only(&value) {
+                stack.set_last_result(value.clone(), metadata.clone(), budget);
+            }
             PipelineData::Value(value, metadata)
         }
         PipelineData::ListStream(stream, metadata) => {
@@ -515,7 +546,9 @@ fn store_list_stream_prefix(
     } else {
         (stored, false)
     };
-    stack.store_last_result_raw(stored, metadata.clone(), truncated || more_trunc);
+    if !value_is_error_only(&stored) {
+        stack.store_last_result_raw(stored, metadata.clone(), truncated || more_trunc);
+    }
 
     // Print stream: under-budget full drain reuses `kept` without a second buffer of clones.
     let print_iter: Box<dyn Iterator<Item = Value> + Send> = match overflow_item {

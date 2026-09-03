@@ -93,6 +93,6 @@ impl Completer for ExportableCompletion<'_> {
                 );
             }
         }
-        Fetched::pure(results)
+        Fetched::Pure(results)
     }
 }

@@ -1,7 +1,7 @@
 use super::PathSubcommandArguments;
 use nu_engine::command_prelude::*;
 use nu_path::expand_to_real_path;
-use nu_protocol::engine::StateWorkingSet;
+use nu_protocol::{engine::StateWorkingSet, shell_error::generic::GenericError};
 use std::path::Path;
 
 struct Arguments {
@@ -92,17 +92,24 @@ path."
         )
     }
 
-    #[cfg(windows)]
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Find a relative path from two absolute paths.",
-                example: r"'C:\Users\viking' | path relative-to 'C:\Users'",
+                example: if cfg!(windows) {
+                    r"'C:\Users\viking' | path relative-to 'C:\Users'"
+                } else {
+                    "'/home/viking' | path relative-to '/home'"
+                },
                 result: Some(Value::test_string("viking")),
             },
             Example {
                 description: "Find a relative path from absolute paths in list.",
-                example: r"[ C:\Users\viking, C:\Users\spam ] | path relative-to C:\Users",
+                example: if cfg!(windows) {
+                    r"[ C:\Users\viking, C:\Users\spam ] | path relative-to C:\Users"
+                } else {
+                    "[ /home/viking, /home/spam ] | path relative-to '/home'"
+                },
                 result: Some(Value::test_list(vec![
                     Value::test_string("viking"),
                     Value::test_string("spam"),
@@ -110,31 +117,11 @@ path."
             },
             Example {
                 description: "Find a relative path from two relative paths.",
-                example: r"'eggs\bacon\sausage\spam' | path relative-to 'eggs\bacon\sausage'",
-                result: Some(Value::test_string("spam")),
-            },
-        ]
-    }
-
-    #[cfg(not(windows))]
-    fn examples(&self) -> Vec<Example<'_>> {
-        vec![
-            Example {
-                description: "Find a relative path from two absolute paths.",
-                example: "'/home/viking' | path relative-to '/home'",
-                result: Some(Value::test_string("viking")),
-            },
-            Example {
-                description: "Find a relative path from absolute paths in list.",
-                example: "[ /home/viking, /home/spam ] | path relative-to '/home'",
-                result: Some(Value::test_list(vec![
-                    Value::test_string("viking"),
-                    Value::test_string("spam"),
-                ])),
-            },
-            Example {
-                description: "Find a relative path from two relative paths.",
-                example: "'eggs/bacon/sausage/spam' | path relative-to 'eggs/bacon/sausage'",
+                example: if cfg!(windows) {
+                    r"'eggs\bacon\sausage\spam' | path relative-to 'eggs\bacon\sausage'"
+                } else {
+                    "'eggs/bacon/sausage/spam' | path relative-to 'eggs/bacon/sausage'"
+                },
                 result: Some(Value::test_string("spam")),
             },
         ]
@@ -156,12 +143,12 @@ fn relative_to(path: &Path, span: Span, args: &Arguments) -> Value {
             }
 
             Value::error(
-                ShellError::CantConvert {
-                    to_type: e.to_string(),
-                    from_type: "string".into(),
+                GenericError::new(
+                    String::from("The argument path is not a parent of the input path."),
+                    e.to_string(),
                     span,
-                    help: None,
-                },
+                )
+                .into(),
                 span,
             )
         }
