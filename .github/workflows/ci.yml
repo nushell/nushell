@@ -69,7 +69,7 @@ jobs:
             options: MAIN_OPTIONS
             steps: [fmt, clippy, build, test, doctest]
           - name: Windows
-            host: windows-2022
+            host: incredibuild-windows-2022
             target: x86_64-pc-windows-msvc
             options: MAIN_OPTIONS
             steps: [fmt, clippy, build, test, doctest]
@@ -170,7 +170,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        platform: [incredibuild-ubuntu-2204, macos-latest, windows-2022]
+        platform: [incredibuild-ubuntu-2204, macos-latest, incredibuild-windows-2022]
         py:
           - py
 
