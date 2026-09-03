@@ -507,7 +507,7 @@ fn main() -> Result<()> {
 
         return Ok(());
     } else if let Some(max_errors) = parsed_nu_cli_args.ide_check {
-        ide::check(&mut engine_state, &script_name, &max_errors);
+        ide::check(&mut engine_state, &script_name, &max_errors)?;
 
         return Ok(());
     } else if parsed_nu_cli_args.ide_ast.is_some() {
