@@ -31,6 +31,16 @@ fn reports_emptiness_by_columns() -> Result {
 }
 
 #[test]
+fn is_empty_propagates_error_stream() -> Result {
+    let err = test()
+        .run(r#"1..3 | each {|n| error make {msg: "x"} } | is-empty"#)
+        .expect_shell_error()?;
+
+    assert_contains("x", format!("{err:?}"));
+    Ok(())
+}
+
+#[test]
 fn reports_nonemptiness_by_columns() -> Result {
     let code = "
         [{a:1 b:null c:3} {a:null b:5 c:2}]
