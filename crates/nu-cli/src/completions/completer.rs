@@ -1,9 +1,5 @@
 use crate::completions::{
-    ArgValueCompletion, AttributableCompletion, AttributeCompletion, CellPathCompletion,
-    CommandCompletion, CommandScope, Completer, CompletionOptions, CustomCompletion,
-    DotNuCompletion, EnvVarCompletion, FileCompletion, FlagCompletion, NuMatcher,
-    OperatorCompletion, VariableCompletion,
-    base::{Fetched, SemanticSuggestion},
+    ArgValueCompletion, AttributableCompletion, AttributeCompletion, CellPathCompletion, CommandCompletion, CommandScope, Completer, CompletionOptions, CustomCompletion, DotNuCompletion, EnvVarCompletion, FileCompletion, FlagCompletion, MatchAlgorithm, NuMatcher, OperatorCompletion, VariableCompletion, base::{Fetched, SemanticSuggestion},
 };
 use lru::LruCache;
 use nu_parser::{parse, parse_shorter_head_reading};
@@ -427,6 +423,11 @@ impl NarrowingCache {
         environment: CacheEnv,
         options: &CompletionOptions,
     ) -> Suggestions {
+        // Fallback may discard fuzzy results that a longer query needs, so cached suggestions
+        // cannot safely answer a narrowed query.
+        if options.match_algorithm == MatchAlgorithm::Fallback {
+            return Suggestions::default();
+        }
         let Some((base_suggestions, ref_span, search_token)) =
             self.entries.lock().ok().and_then(|guard| {
                 let (_, entry, span) = guard
