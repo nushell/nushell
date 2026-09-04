@@ -485,6 +485,8 @@ impl Default for CompletionOptions {
 mod test {
     use rstest::rstest;
 
+    use nu_protocol::CompletionSort;
+
     use super::{CompletionOptions, MatchAlgorithm, NuMatcher};
 
     #[rstest]
@@ -523,6 +525,84 @@ mod test {
         } else {
             assert_ne!(vec![haystack], results);
         }
+    }
+
+    #[test]
+    fn fallback_prefers_and_sorts_prefix_matches() {
+        let options = CompletionOptions {
+            match_algorithm: MatchAlgorithm::Fallback,
+            sort: CompletionSort::Smart,
+            ..Default::default()
+        };
+        let mut matcher = NuMatcher::new("foo", &options, true);
+        matcher.add("barfoo", "barfoo");
+        matcher.add("fooz", "fooz");
+        matcher.add("fooa", "fooa");
+
+        assert_eq!(
+            vec![("fooa", vec![0, 1, 2]), ("fooz", vec![0, 1, 2])],
+            matcher.results()
+        );
+    }
+
+    #[test]
+    fn fallback_uses_fuzzy_matches_without_prefix_matches() {
+        let options = CompletionOptions {
+            match_algorithm: MatchAlgorithm::Fallback,
+            ..Default::default()
+        };
+        let mut matcher = NuMatcher::new("fob", &options, true);
+        matcher.add("foo/bar", "foo/bar");
+        matcher.add("foo bar", "foo bar");
+
+        assert_eq!(
+            vec![("foo bar", vec![0, 1, 4]), ("foo/bar", vec![0, 1, 4]),],
+            matcher.results()
+        );
+    }
+
+    #[test]
+    fn fallback_matches_prefixes_case_insensitively() {
+        let options = CompletionOptions {
+            case_sensitive: false,
+            match_algorithm: MatchAlgorithm::Fallback,
+            ..Default::default()
+        };
+        let mut matcher = NuMatcher::new("FOO", &options, true);
+        matcher.add("barfoo", "barfoo");
+        matcher.add("FooBar", "FooBar");
+
+        assert_eq!(vec![("FooBar", vec![0, 1, 2])], matcher.results());
+    }
+
+    #[rstest]
+    #[case::smart(
+        CompletionSort::Smart,
+        vec!["z fob", "foo bar", "foo/bar"]
+    )]
+    #[case::alphabetical(
+        CompletionSort::Alphabetical,
+        vec!["foo bar", "foo/bar", "z fob"]
+    )]
+    fn fallback_sorts_fuzzy_matches(#[case] sort: CompletionSort, #[case] expected: Vec<&str>) {
+        let options = CompletionOptions {
+            match_algorithm: MatchAlgorithm::Fallback,
+            sort,
+            ..Default::default()
+        };
+        let mut matcher = NuMatcher::new("fob", &options, true);
+        for candidate in ["foo/bar", "z fob", "foo bar"] {
+            matcher.add(candidate, candidate);
+        }
+
+        assert_eq!(
+            expected,
+            matcher
+                .results()
+                .into_iter()
+                .map(|(candidate, _)| candidate)
+                .collect::<Vec<_>>()
+        );
     }
 
     #[test]

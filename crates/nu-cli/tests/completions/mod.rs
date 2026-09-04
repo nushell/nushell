@@ -305,6 +305,21 @@ fn customcompletions_inherit_options() {
 }
 
 #[test]
+fn customcompletions_use_fallback_algorithm() {
+    let mut completer = custom_completer_with_options(
+        r#"$env.config.completions.algorithm = "prefix""#,
+        r#"completion_algorithm: "fallback""#,
+        &["barfoo", "foobar"],
+    );
+
+    let suggestions = completer.complete_blocking("my-command foo", 14);
+    match_suggestions(&vec!["foobar"], &suggestions);
+
+    let suggestions = completer.complete_blocking("my-command rfo", 14);
+    match_suggestions(&vec!["barfoo"], &suggestions);
+}
+
+#[test]
 fn customcompletions_no_sort() {
     let mut completer = custom_completer_with_options(
         "",
@@ -812,6 +827,52 @@ fn fallback_command_completion_prefers_prefix_matches() {
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
     let suggestions = completer.complete_blocking("slp", 3);
     match_suggestions(&vec!["slping"], &suggestions);
+}
+
+#[test]
+fn fallback_path_completion_prefers_prefix_paths() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    std::fs::create_dir_all(dir.path().join("parent-one/child")).expect("create directory");
+    std::fs::create_dir_all(dir.path().join("parent-two/fuzzy-child")).expect("create directory");
+
+    let pwd = AbsolutePathBuf::try_from(dir.path().to_path_buf()).expect("absolute tempdir");
+    let (_, _, mut engine, mut stack) = new_engine_helper(pwd);
+    assert!(
+        support::merge_input(
+            br#"$env.config.completions.algorithm = "fallback""#,
+            &mut engine,
+            &mut stack,
+        )
+        .is_ok()
+    );
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let input = "cd parent/child";
+    let suggestions = completer.complete_blocking(input, input.len());
+    match_suggestions_by_string(&[folder("parent-one/child")], &suggestions);
+}
+
+#[test]
+fn fallback_path_completion_uses_fuzzy_paths_without_prefix_paths() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    std::fs::create_dir_all(dir.path().join("parent-one/nope")).expect("create directory");
+    std::fs::create_dir_all(dir.path().join("xparent/child")).expect("create directory");
+
+    let pwd = AbsolutePathBuf::try_from(dir.path().to_path_buf()).expect("absolute tempdir");
+    let (_, _, mut engine, mut stack) = new_engine_helper(pwd);
+    assert!(
+        support::merge_input(
+            br#"$env.config.completions.algorithm = "fallback""#,
+            &mut engine,
+            &mut stack,
+        )
+        .is_ok()
+    );
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let input = "cd parent/child";
+    let suggestions = completer.complete_blocking(input, input.len());
+    match_suggestions_by_string(&[folder("xparent/child")], &suggestions);
 }
 
 #[test]
