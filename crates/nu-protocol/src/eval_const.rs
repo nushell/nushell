@@ -251,6 +251,11 @@ fn eval_const_call(
         return eval_const_if(working_set, call, input);
     }
 
+    // Keyword const: parse_const already set const_val; AST args include VarDecl (not a Value).
+    if decl.command_type() == CommandType::Keyword && decl.name() == "const" {
+        return Ok(PipelineData::empty());
+    }
+
     let mut stack = Stack::new();
     let ir_call = build_const_ir_call(working_set, call, &decl.signature(), &mut stack)?;
     let result = decl.run_const(working_set, &mut stack, &(&ir_call).into(), input);
