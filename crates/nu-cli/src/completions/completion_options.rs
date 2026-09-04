@@ -89,6 +89,26 @@ impl<T> NuMatcher<'_, T> {
         // NOTE: Should match `'bar baz'` when completing `foo "b<tab>`
         // https://github.com/nushell/nushell/issues/16860#issuecomment-3402016955
         let needle = needle.as_ref().trim_matches(QUOTES);
+        let make_atom = || {
+            Atom::new(
+                needle,
+                if options.case_sensitive {
+                    CaseMatching::Respect
+                } else {
+                    CaseMatching::Ignore
+                },
+                Normalization::Smart,
+                AtomKind::Fuzzy,
+                false,
+            )
+        };
+        let make_matcher = || {
+            Matcher::new({
+                let mut cfg = Config::DEFAULT;
+                cfg.prefer_prefix = true;
+                cfg
+            })
+        };
         match options.match_algorithm {
             MatchAlgorithm::Prefix | MatchAlgorithm::Substring => {
                 let needle = if options.case_sensitive {
@@ -103,45 +123,17 @@ impl<T> NuMatcher<'_, T> {
                     state: State::Unscored(Vec::new()),
                 }
             }
-            MatchAlgorithm::Fuzzy => {
-                let atom = Atom::new(
-                    needle,
-                    if options.case_sensitive {
-                        CaseMatching::Respect
-                    } else {
-                        CaseMatching::Ignore
-                    },
-                    Normalization::Smart,
-                    AtomKind::Fuzzy,
-                    false,
-                );
-                NuMatcher {
-                    options,
-                    should_sort,
-                    needle: needle.to_owned(),
-                    state: State::Fuzzy {
-                        matcher: Matcher::new({
-                            let mut cfg = Config::DEFAULT;
-                            cfg.prefer_prefix = true;
-                            cfg
-                        }),
-                        atom,
-                        matches: Vec::new(),
-                    },
-                }
-            }
+            MatchAlgorithm::Fuzzy => NuMatcher {
+                options,
+                should_sort,
+                needle: needle.to_owned(),
+                state: State::Fuzzy {
+                    matcher: make_matcher(),
+                    atom: make_atom(),
+                    matches: Vec::new(),
+                },
+            },
             MatchAlgorithm::Fallback => {
-                let atom = Atom::new(
-                    needle,
-                    if options.case_sensitive {
-                        CaseMatching::Respect
-                    } else {
-                        CaseMatching::Ignore
-                    },
-                    Normalization::Smart,
-                    AtomKind::Fuzzy,
-                    false,
-                );
                 let needle = if options.case_sensitive {
                     needle.to_owned()
                 } else {
@@ -152,12 +144,8 @@ impl<T> NuMatcher<'_, T> {
                     should_sort,
                     needle,
                     state: State::Fallback {
-                        matcher: Matcher::new({
-                            let mut cfg = Config::DEFAULT;
-                            cfg.prefer_prefix = true;
-                            cfg
-                        }),
-                        atom,
+                        matcher: make_matcher(),
+                        atom: make_atom(),
                         prefix_matches: Vec::new(),
                         fuzzy_matches: Vec::new(),
                     },
