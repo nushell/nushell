@@ -1255,6 +1255,25 @@ fn module_name_completions() {
 }
 
 #[test]
+fn dotnu_fallback_prefers_prefix_across_sources() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    std::fs::write(dir.path().join("barfoo.nu"), "").expect("write module file");
+
+    let pwd = AbsolutePathBuf::try_from(dir.path().to_path_buf()).expect("absolute tempdir");
+    let (_, _, mut engine, mut stack) = new_engine_helper(pwd);
+    let code = r#"
+        $env.config.completions.algorithm = "fallback"
+        module foobar {}
+    "#;
+    assert!(support::merge_input(code.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let input = "use foo";
+    let suggestions = completer.complete_blocking(input, input.len());
+    match_suggestions(&vec!["foobar"], &suggestions);
+}
+
+#[test]
 fn dotnu_stdlib_completions() {
     let (_, _, mut engine, stack) = new_dotnu_engine();
     assert!(load_standard_library(&mut engine).is_ok());
