@@ -315,3 +315,47 @@ pub(crate) fn completer_input(context: &Context, wanted: DeclaredInputs) -> Valu
 
     Value::record(record, span)
 }
+
+/// our legacy compat shim!
+pub(crate) fn legacy_context(context: &Context) -> Value {
+    let cursor = context.offset + context.buffer.len();
+    let start = context
+        .contexts
+        .last()
+        .and_then(|level| level.element)
+        .map(|element| element.span.start)
+        .unwrap_or(cursor)
+        .clamp(context.offset, cursor);
+    let text = String::from_utf8_lossy(
+        context
+            .working_set
+            .get_span_contents(Span::new(start, cursor)),
+    )
+    .into_owned();
+    Value::string(text, context.span)
+}
+
+/// Buffer-relative cursor, i.e. the old second positional (`pos`/`position`).
+pub(crate) fn legacy_pos(context: &Context) -> Value {
+    Value::int(context.buffer.len() as i64, context.span)
+}
+
+/// Flattened element tokens, plus `""` for a trailing empty slot: the old `spans`.
+pub(crate) fn legacy_spans(context: &Context) -> Value {
+    let Some(element) = context.contexts.last().and_then(|level| level.element) else {
+        return Value::list(vec![], context.span);
+    };
+    let mut spans: Vec<Value> = flatten_expression(context.working_set, element)
+        .iter()
+        .map(|(span, _)| {
+            Value::string(
+                String::from_utf8_lossy(context.working_set.get_span_contents(*span)).into_owned(),
+                *span,
+            )
+        })
+        .collect();
+    if context.span.is_empty() {
+        spans.push(Value::string("", context.span));
+    }
+    Value::list(spans, context.span)
+}

@@ -1,12 +1,12 @@
 mod input;
 mod output;
 
-pub(crate) use output::report;
 pub(crate) use output::{Returned, SpanClamp, map_value_completions};
+pub(crate) use output::{report, warn};
 
 use crate::completions::{Completer, Context, Fetched};
 pub use input::DeclaredInputs;
-pub(crate) use input::completer_input;
+pub(crate) use input::{completer_input, legacy_context, legacy_pos, legacy_spans};
 use nu_engine::compile;
 use nu_protocol::{
     BlockId, DeclId, PipelineData, ShellError, Signature, Value, VarId,
@@ -14,7 +14,11 @@ use nu_protocol::{
     engine::{Closure, Command, EngineState, Stack, StateWorkingSet},
 };
 pub(crate) use output::CompleterOutput;
-use std::{borrow::Cow, sync::Arc};
+use std::{
+    borrow::Cow,
+    collections::HashSet,
+    sync::{Arc, Mutex, OnceLock},
+};
 
 /// Who filters the candidates against the typed prefix; overridable via `options.filter`.
 #[derive(Debug, Clone, Copy)]
@@ -51,34 +55,183 @@ fn engine_state_for_completion<'a>(
 /// Fields available to a custom completer.
 pub(crate) const INPUT_FIELDS: [&str; 3] = ["token", "place", "buffer"];
 
+/// A legacy positional interface which predates named completion inputs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(crate) enum LegacyInputKind {
+    /// A custom completer attached to one parameter.
+    Parameter,
+    /// A command-wide or configured external completer.
+    Command,
+    /// A menu source.
+    Menu,
+}
+
+impl LegacyInputKind {
+    fn migration(self) -> &'static str {
+        match self {
+            Self::Parameter => {
+                "use `[buffer, place]`; `$buffer` replaces the old context and \
+                 `$place.cursor` replaces its position"
+            }
+            Self::Command => {
+                "use `[buffer]`; split or parse `$buffer` if the old token list is needed"
+            }
+            Self::Menu => "use `[buffer, place]`; `$place.cursor` replaces the old position",
+        }
+    }
+
+    fn name(self) -> &'static str {
+        match self {
+            Self::Parameter => "parameter",
+            Self::Command => "command or external",
+            Self::Menu => "menu",
+        }
+    }
+}
+
+/// Values supplied to an old positional completer interface.
+///
+/// New-style inputs are always selected by name. Only the first two unrecognised positionals
+/// can opt into this bridge, mirroring the two values the old interfaces accepted.
+pub(crate) struct LegacyInputs {
+    kind: LegacyInputKind,
+    values: [Option<Value>; 2],
+    warning_key: usize,
+}
+
+impl LegacyInputs {
+    /// Construct a bridge only when the signature actually needs it, avoiding legacy parsing
+    /// and allocations for completers that already use named inputs.
+    fn when_needed(
+        kind: LegacyInputKind,
+        signature: &Signature,
+        warning_key: usize,
+        values: impl FnOnce() -> [Value; 2],
+    ) -> Self {
+        let needs_legacy = signature
+            .required_positional
+            .iter()
+            .chain(&signature.optional_positional)
+            .take(2)
+            .any(|positional| !INPUT_FIELDS.contains(&positional.name.as_str()));
+
+        let values = needs_legacy
+            .then(values)
+            .map(|[first, second]| [Some(first), Some(second)])
+            .unwrap_or([None, None]);
+        Self {
+            kind,
+            values,
+            warning_key,
+        }
+    }
+
+    pub(crate) fn parameter(ctx: &Context, signature: &Signature, block_id: BlockId) -> Self {
+        Self::when_needed(
+            LegacyInputKind::Parameter,
+            signature,
+            block_id.get(),
+            || [legacy_context(ctx), legacy_pos(ctx)],
+        )
+    }
+
+    pub(crate) fn command(ctx: &Context, signature: &Signature, block_id: BlockId) -> Self {
+        Self::when_needed(LegacyInputKind::Command, signature, block_id.get(), || {
+            // Command-wide and external completers historically received only `$spans`.
+            [legacy_spans(ctx), Value::nothing(ctx.span)]
+        })
+    }
+
+    pub(crate) fn menu(
+        signature: &Signature,
+        block_id: BlockId,
+        buffer: &str,
+        position: usize,
+        span: nu_protocol::Span,
+    ) -> Self {
+        Self::when_needed(LegacyInputKind::Menu, signature, block_id.get(), || {
+            [
+                Value::string(buffer, span),
+                Value::int(position as i64, span),
+            ]
+        })
+    }
+
+    fn value(&self, index: usize) -> Option<Value> {
+        self.values.get(index).and_then(Clone::clone)
+    }
+
+    fn warn_once(&self, names: &[String]) {
+        static WARNED: OnceLock<Mutex<HashSet<(LegacyInputKind, usize)>>> = OnceLock::new();
+
+        let warned = WARNED.get_or_init(|| Mutex::new(HashSet::new()));
+        let Ok(mut warned) = warned.lock() else {
+            // A poisoned diagnostics lock must never interfere with completion.
+            return;
+        };
+        if !warned.insert((self.kind, self.warning_key)) {
+            return;
+        }
+
+        warn(format!(
+            "a {} completer uses deprecated positional input{} `{}`; it still receives the \
+             legacy value for compatibility, but {}",
+            self.kind.name(),
+            if names.len() == 1 { "" } else { "s" },
+            names.join("`, `"),
+            self.kind.migration(),
+        ));
+    }
+}
+
 /// Bind declared positional names to matching fields in the input record.
-pub(crate) fn bind_declared_inputs(stack: &mut Stack, signature: &Signature, input: Value) {
+///
+/// A non-`token`/`place`/`buffer` name in either of the first two slots receives its old
+/// positional value through [`LegacyInputs`] instead of `nothing`. This keeps scripts such as
+/// fzf's `{|spans|}` and zoxide's `[context, pos]` working while they migrate. Other unknown
+/// inputs still receive `nothing` with a diagnostic.
+pub(crate) fn bind_declared_inputs(
+    stack: &mut Stack,
+    signature: &Signature,
+    input: Value,
+    legacy: LegacyInputs,
+) {
     let span = input.span();
     let Ok(record) = input.into_record() else {
         return;
     };
 
-    for positional in signature
+    let mut legacy_names = Vec::new();
+    for (index, positional) in signature
         .required_positional
         .iter()
         .chain(&signature.optional_positional)
+        .enumerate()
     {
         if let Some(var_id) = positional.var_id {
-            if !INPUT_FIELDS.contains(&positional.name.as_str()) {
+            if INPUT_FIELDS.contains(&positional.name.as_str()) {
+                let value = record
+                    .get(positional.name.as_str())
+                    .cloned()
+                    .unwrap_or_else(|| Value::nothing(span));
+                stack.add_var(var_id, value);
+            } else if let Some(old) = legacy.value(index) {
+                legacy_names.push(positional.name.clone());
+                stack.add_var(var_id, old);
+            } else {
                 report(format!(
                     "a completer declares `{}`, which is not a completion input; expected one \
                      of {} — it will receive nothing",
                     positional.name,
                     INPUT_FIELDS.join(", ")
                 ));
+                stack.add_var(var_id, Value::nothing(span));
             }
-
-            let value = record
-                .get(positional.name.as_str())
-                .cloned()
-                .unwrap_or_else(|| Value::nothing(span));
-            stack.add_var(var_id, value);
         }
+    }
+
+    if !legacy_names.is_empty() {
+        legacy.warn_once(&legacy_names);
     }
 }
 
@@ -156,13 +309,18 @@ impl UserCompletion {
 
         // A completer opts into what it receives through the positional parameters it
         // declares: the input record is overloaded on them, carrying exactly the recognized
-        // fields (`token`, `place`, `buffer`) it names, bound by name. Order is free and an
-        // unrecognized name simply receives nothing.
+        // fields (`token`, `place`, `buffer`) it names, bound by name. Order is free. The
+        // compatibility bridge retains old positional inputs for one migration cycle.
         let wanted = DeclaredInputs::from_signature(&block.signature);
+        let legacy = match self.narrowing {
+            Narrowing::Engine => LegacyInputs::parameter(ctx, &block.signature, self.block_id),
+            Narrowing::Completer => LegacyInputs::command(ctx, &block.signature, self.block_id),
+        };
         bind_declared_inputs(
             &mut callee_stack,
             &block.signature,
             completer_input(ctx, wanted),
+            legacy,
         );
 
         let engine_state = engine_state_for_completion(

@@ -1,5 +1,5 @@
 use crate::completions::{
-    CompletionEngine, DeclaredInputs, Returned, SpanClamp, bind_declared_inputs,
+    CompletionEngine, DeclaredInputs, LegacyInputs, Returned, SpanClamp, bind_declared_inputs,
     map_value_completions,
 };
 use nu_engine::eval_block;
@@ -57,14 +57,20 @@ impl Completer for NuMenuCompleter {
         // A menu source is a completer like any other: it opts into what it receives through
         // the positionals it declares, each bound by name. Reedline drives menus on every
         // keystroke, so this parses per keystroke — only when a positional is declared, and
-        // then for the cost of one input record.
+        // then for the cost of one input record. Old `{|buffer, position|}` sources are bridged
+        // for compatibility and receive one logged migration warning.
         let declares_positional = !block.signature.required_positional.is_empty()
             || !block.signature.optional_positional.is_empty();
         if declares_positional {
             let wanted = DeclaredInputs::from_signature(&block.signature);
             let record = CompletionEngine::new(&self.engine_state, &self.stack)
                 .completer_input_at(&padded, cursor, wanted);
-            bind_declared_inputs(&mut self.stack, &block.signature, record);
+            bind_declared_inputs(
+                &mut self.stack,
+                &block.signature,
+                record,
+                LegacyInputs::menu(&block.signature, self.block_id, before, pos, self.span),
+            );
         }
 
         let input = Value::nothing(self.span).into_pipeline_data();
@@ -246,5 +252,16 @@ mod tests {
 
         assert_eq!(suggestions.len(), 1);
         assert_eq!(suggestions[0].span, reedline::Span::new(4, 6));
+    }
+
+    /// Legacy compat: a source declaring the old `{|buffer, position|}` positionals
+    /// receives the line text and the cursor, exactly as before.
+    #[test]
+    fn menu_source_receives_legacy_buffer_and_position() {
+        let source = "{|buffer, position| [$buffer, $\"pos=($position)\"]}";
+        assert_eq!(
+            values(menu(source).complete("str tri", 7)),
+            ["str tri", "pos=7"],
+        );
     }
 }

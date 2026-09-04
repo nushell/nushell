@@ -23,6 +23,11 @@ pub(crate) fn report(message: impl AsRef<str>) {
     log::error!("nu::shell::completion: {}", message.as_ref());
 }
 
+/// Log a non-fatal compatibility warning without disrupting line editing.
+pub(crate) fn warn(message: impl AsRef<str>) {
+    log::warn!("nu::shell::completion: {}", message.as_ref());
+}
+
 /// Convert a completer result field, logging conversion failures.
 fn read_part<T: FromValue>(value: Value, what: &str) -> Option<T> {
     T::from_value(value)

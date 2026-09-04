@@ -4196,3 +4196,71 @@ fn empty_directory_arg_slot_completes_directories_only() {
         );
     }
 }
+
+/// Legacy compat: the `[context, pos]` shape used by older zoxide integrations receives the
+/// element text and buffer-relative cursor.
+#[test]
+fn legacy_zoxide_style_parameter_completer_receives_context_and_pos() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = r#"
+        def comp [context: string, pos: int] {
+            { options: { filter: false }, completions: [$context, $"pos=($pos)"] }
+        }
+        def my-command [arg: string@comp] {}
+    "#;
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let input = "my-command foo";
+    let suggestions = completer.complete_blocking(input, input.len());
+    match_suggestions(&vec!["my-command foo", "pos=14"], &suggestions);
+}
+
+/// Legacy compat: a command-wide completer declaring `[spans]` receives the flattened
+/// tokens, plus `""` for a trailing empty slot.
+#[test]
+fn legacy_command_wide_completer_receives_spans() {
+    let mut completer = custom_completer();
+    let sample = r#"
+        def "nu-complete foo" [spans] {
+            [($spans | str join ",")]
+        }
+
+        @complete "nu-complete foo"
+        def --wrapped "foo" [...rest] {}
+
+        foo bar baz"#;
+
+    let suggestions = completer.complete_blocking(sample, sample.len());
+    match_suggestions(&vec!["foo,bar,baz"], &suggestions);
+}
+
+/// Legacy compat: fzf's `completion.nu` registers `{|spans|}` and reads the last token for its
+/// `**` trigger. It continues to receive the token list and can decline with `null`.
+#[test]
+fn legacy_fzf_style_external_completer_receives_spans() {
+    // Trigger present: the completer answers.
+    let block = r#"{|spans|
+        let trigger = "**"
+        if ($spans | last | str ends-with $trigger) {
+            let prefix = $spans | last | str substring 0..(-1 * ($trigger | str length) - 1)
+            [$"picked=($prefix)"]
+        } else {
+            null
+        }
+    }"#;
+    let suggestions = run_external_completion(block, "vim file**");
+    match_suggestions(&vec!["picked=file"], &suggestions);
+
+    // Trigger absent: `null` declines to file completion.
+    let suggestions = run_external_completion(block, "vim file");
+    assert!(
+        !suggestions.iter().any(|s| s.value.starts_with("picked=")),
+        "a declining legacy external completer must not answer, got: {:?}",
+        suggestions.iter().map(|s| &s.value).collect::<Vec<_>>()
+    );
+
+    // Trailing empty slot is visible, exactly as before.
+    let suggestions = run_external_completion("{|spans| $spans}", "gh alias ");
+    match_suggestions(&vec!["gh", "alias", ""], &suggestions);
+}

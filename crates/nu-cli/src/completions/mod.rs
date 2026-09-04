@@ -28,7 +28,7 @@ pub use completer::{CompletionEngine, NuCompleter};
 pub use completion_options::{CompletionOptions, MatchAlgorithm, NuMatcher};
 pub use custom_completions::DeclaredInputs;
 pub(crate) use custom_completions::{
-    Returned, SpanClamp, bind_declared_inputs, map_value_completions,
+    LegacyInputs, Returned, SpanClamp, bind_declared_inputs, map_value_completions,
 };
 pub use directory_completions::DirectoryCompletion;
 pub use dotnu_completions::DotNuCompletion;
