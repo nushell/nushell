@@ -30,22 +30,20 @@ impl Completer for ExportableCompletion<'_> {
         );
         let span = to_reedline_span(ctx.span, ctx.offset);
         // TODO: use matcher.add_lazy to lazy evaluate an item if it matches the prefix
-        let mut maybe_add_suggestion =
+        let make_suggestion =
             |value: String,
              description: Option<String>,
              extra: Option<Vec<String>>,
-             kind: SuggestionKind| {
-                matcher.add_semantic_suggestion(SemanticSuggestion {
-                    suggestion: Suggestion {
-                        value,
-                        span,
-                        description,
-                        extra,
-                        match_indices: None,
-                        ..Suggestion::default()
-                    },
-                    kind: Some(kind),
-                });
+             kind: SuggestionKind| SemanticSuggestion {
+                suggestion: Suggestion {
+                    value,
+                    span,
+                    description,
+                    extra,
+                    match_indices: None,
+                    ..Suggestion::default()
+                },
+                kind: Some(kind),
             };
 
         let working_set = self.temp_working_set.as_ref().unwrap_or(working_set);
@@ -53,39 +51,51 @@ impl Completer for ExportableCompletion<'_> {
 
         for (name, decl_id) in &module.decls {
             let name = String::from_utf8_lossy(name).into_owned();
+            if matcher.check_match(&name).is_none() {
+                continue;
+            }
+
             let cmd = working_set.get_decl(*decl_id);
-            maybe_add_suggestion(
+            matcher.add_semantic_suggestion(make_suggestion(
                 wrapped_name(name),
                 Some(cmd.description().to_string()),
                 None,
                 // `None` here avoids arguments being expanded by snippet edit style for lsp
                 SuggestionKind::Command(cmd.command_type(), None),
-            );
+            ));
         }
         for (name, module_id) in &module.submodules {
             let name = String::from_utf8_lossy(name).into_owned();
+            if matcher.check_match(&name).is_none() {
+                continue;
+            }
+
             let (desc, extra) = working_set
                 .get_module_comments(*module_id)
                 .map(|spans| working_set.build_desc(spans))
                 .unzip();
-            maybe_add_suggestion(
+            matcher.add_semantic_suggestion(make_suggestion(
                 wrapped_name(name),
                 desc.or_else(|| Some("Submodule".into())),
                 extra.map(|s| vec![s]),
                 SuggestionKind::Module,
-            );
+            ));
         }
         for (name, var_id) in &module.constants {
             let name = String::from_utf8_lossy(name).into_owned();
+            if matcher.check_match(&name).is_none() {
+                continue;
+            }
+
             let var = working_set.get_variable(*var_id);
-            maybe_add_suggestion(
+            matcher.add_semantic_suggestion(make_suggestion(
                 wrapped_name(name),
                 var.const_val
                     .as_ref()
                     .and_then(|v| v.clone().coerce_into_string().ok()),
                 None,
                 SuggestionKind::Variable,
-            );
+            ));
         }
         Fetched::Pure(matcher.suggestion_results())
     }
