@@ -143,6 +143,60 @@ fn into_duration_from_record_fails_with_wrong_type() -> Result {
 }
 
 #[test]
+fn into_duration_string_unit_overflow_errors() -> Result {
+    // `9999999999wk` overflows i64 nanoseconds; must error, not panic (debug)
+    // or silently wrap (release).
+    let err = test()
+        .run("'9999999999wk' | into duration")
+        .expect_shell_error()?;
+
+    assert!(
+        matches!(err, ShellError::OperatorOverflow { .. }),
+        "got {err:?}"
+    );
+    Ok(())
+}
+
+#[test]
+fn into_duration_int_unit_overflow_errors() -> Result {
+    let err = test()
+        .run("9223372036854775807 | into duration --unit wk")
+        .expect_shell_error()?;
+
+    assert!(
+        matches!(err, ShellError::OperatorOverflow { .. }),
+        "got {err:?}"
+    );
+    Ok(())
+}
+
+#[test]
+fn into_duration_clock_overflow_errors() -> Result {
+    let err = test()
+        .run("'2562047788015216:00:00' | into duration")
+        .expect_shell_error()?;
+
+    assert!(
+        matches!(err, ShellError::OperatorOverflow { .. }),
+        "got {err:?}"
+    );
+    Ok(())
+}
+
+#[test]
+fn into_duration_record_field_overflow_errors() -> Result {
+    let err = test()
+        .run("{week: 9999999999} | into duration")
+        .expect_shell_error()?;
+
+    assert!(
+        matches!(err, ShellError::OperatorOverflow { .. }),
+        "got {err:?}"
+    );
+    Ok(())
+}
+
+#[test]
 fn into_duration_from_record_fails_with_invalid_date_time_values() -> Result {
     let err = test()
         .run("{week: -10} | into duration")
