@@ -94,7 +94,8 @@ impl Command for FormatFilesize {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let unit = parse_filesize_unit(call.req_const::<Spanned<String>>(working_set, stack, 0)?)?;
+        let unit =
+            parse_filesize_unit(call.req_const::<Spanned<String>>(working_set, stack, 0)?)?;
         let cell_paths: Vec<CellPath> = call.rest_const(working_set, stack, 1)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
         let float_precision = working_set.permanent().get_config().float_precision.max(0) as usize;

@@ -126,7 +126,8 @@ impl Command for SplitWords {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let word_length: Option<usize> = call.get_flag_const(working_set, stack, "min-word-length")?;
+        let word_length: Option<usize> =
+            call.get_flag_const(working_set, stack, "min-word-length")?;
         let has_grapheme = call.has_flag_const(working_set, stack, "grapheme-clusters")?;
         let has_utf8 = call.has_flag_const(working_set, stack, "utf-8-bytes")?;
         let graphemes = grapheme_flags_const(working_set, stack, call)?;

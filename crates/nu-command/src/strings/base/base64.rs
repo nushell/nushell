@@ -27,7 +27,11 @@ fn get_encoding(
     Ok(get_encoding_from_flags(url, nopad))
 }
 
-fn get_encoding_const(working_set: &StateWorkingSet, stack: &Stack, call: &Call) -> Result<Encoding, ShellError> {
+fn get_encoding_const(
+    working_set: &StateWorkingSet,
+    stack: &Stack,
+    call: &Call,
+) -> Result<Encoding, ShellError> {
     let url = call.has_flag_const(working_set, stack, "url")?;
     let nopad = call.has_flag_const(working_set, stack, "nopad")?;
 

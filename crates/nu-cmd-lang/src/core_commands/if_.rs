@@ -56,8 +56,7 @@ impl Command for If {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        // Const `if` is handled in `eval_const::eval_const_call` via a dedicated AST path
-        // before IR-shaped const calls are built. This should not be reached.
+        // Unreachable: const `if` is dispatched through `eval_const_if`, not `run_const`.
         Err(ShellError::NushellFailedSpanned {
             msg: "const `if` must be evaluated via eval_const_if".into(),
             label: "internal error: unexpected const if run_const".into(),

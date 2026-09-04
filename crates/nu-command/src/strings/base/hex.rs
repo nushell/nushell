@@ -49,8 +49,8 @@ impl Command for DecodeHex {
 
     fn run_const(
         &self,
-        working_set: &StateWorkingSet,
-        stack: &mut Stack,
+        _working_set: &StateWorkingSet,
+        _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {

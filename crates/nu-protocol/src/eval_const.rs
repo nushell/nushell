@@ -6,10 +6,12 @@ use crate::{
     BlockId, Config, HistoryPath, PipelineData, Record, ShellError, Span, Value, VarId,
     ast::{self, Assignment, Block, Call, Expr, Expression, ExternalArgument},
     debugger::{DebugContext, WithoutDebug},
-    engine::{Argument, Closure, EngineState, Stack, StateWorkingSet},
+    engine::{
+        Argument, Closure, CommandType, EngineState, Stack, StateWorkingSet,
+        named_flags::normalize_engine_arguments,
+    },
     eval_base::Eval,
-    ir,
-    record,
+    ir, record,
     shell_error::generic::GenericError,
 };
 use nu_system::os_info::{get_kernel_version, get_os_arch, get_os_family, get_os_name};
@@ -244,15 +246,13 @@ fn eval_const_call(
         return Err(ShellError::NotAConstHelp { span: call.head });
     }
 
-    // `if` needs AST control-flow structure (cond / then block / else). Keep a dedicated AST path
-    // rather than forcing IR-shaped values for keyword branches. See ir_call_migration.md phase 2.
-    if decl.name() == "if" {
+    // Keyword `if` needs AST branch structure; IR-shaped flat Values are not enough.
+    if decl.command_type() == CommandType::Keyword && decl.name() == "if" {
         return eval_const_if(working_set, call, input);
     }
 
-    // Evaluate AST args to Values and invoke run_const with an IR-shaped Call.
     let mut stack = Stack::new();
-    let ir_call = build_const_ir_call(working_set, call, &mut stack)?;
+    let ir_call = build_const_ir_call(working_set, call, &decl.signature(), &mut stack)?;
     let result = decl.run_const(working_set, &mut stack, &(&ir_call).into(), input);
     ir_call.leave(&mut stack);
     result
@@ -260,15 +260,29 @@ fn eval_const_call(
 
 /// Evaluate a single const-call argument expression to a [`Value`].
 ///
-/// Blocks/closures used as call arguments (e.g. `attr example` snippets) become
-/// capture-free [`Closure`] values so commands can read block source without AST.
-fn eval_const_call_arg(working_set: &StateWorkingSet, expr: &Expression) -> Result<Value, ShellError> {
+/// Blocks/closures used as call arguments become [`Closure`] values with captures
+/// filled from const variables (same idea as runtime `Literal::Closure` loading).
+fn eval_const_call_arg(
+    working_set: &StateWorkingSet,
+    expr: &Expression,
+) -> Result<Value, ShellError> {
     match &expr.expr {
         Expr::Block(block_id) | Expr::Closure(block_id) | Expr::RowCondition(block_id) => {
+            let block = working_set.get_block(*block_id);
+            let captures = block
+                .captures
+                .iter()
+                .map(|(var_id, span)| {
+                    match working_set.get_variable(*var_id).const_val.as_ref() {
+                        Some(val) => Ok((*var_id, val.clone())),
+                        None => Err(ShellError::NotAConstant { span: *span }),
+                    }
+                })
+                .collect::<Result<Vec<_>, ShellError>>()?;
             Ok(Value::closure(
                 Closure {
                     block_id: *block_id,
-                    captures: vec![],
+                    captures,
                 },
                 expr.span,
             ))
@@ -280,6 +294,7 @@ fn eval_const_call_arg(working_set: &StateWorkingSet, expr: &Expression) -> Resu
 fn build_const_ir_call(
     working_set: &StateWorkingSet,
     call: &Call,
+    signature: &crate::Signature,
     stack: &mut Stack,
 ) -> Result<ir::Call, ShellError> {
     let mut builder = ir::Call::build(call.decl_id, call.head);
@@ -322,7 +337,20 @@ fn build_const_ir_call(
         );
     }
 
-    Ok(builder.finish())
+    let mut ir_call = builder.finish();
+    // Match runtime IR: expand record flag spreads and omit null named args that
+    // do not accept `nothing`.
+    let raw: Vec<Argument> = stack
+        .arguments
+        .drain_args(ir_call.args_base, ir_call.args_len)
+        .collect();
+    let expanded = normalize_engine_arguments(signature, raw)?;
+    ir_call.args_len = expanded.len();
+    for arg in expanded {
+        stack.arguments.push(arg);
+    }
+
+    Ok(ir_call)
 }
 
 /// Const evaluation of `if` using AST structure (not IR-shaped call args).
@@ -350,12 +378,7 @@ fn eval_const_if(
         if let Some(else_expr) = else_case.as_keyword() {
             if let Some(block_id) = else_expr.as_block() {
                 let block = working_set.get_block(block_id);
-                eval_const_subexpression(
-                    working_set,
-                    block,
-                    input,
-                    block.span.unwrap_or(call.head),
-                )
+                eval_const_subexpression(working_set, block, input, block.span.unwrap_or(call.head))
             } else {
                 eval_constant_with_input(working_set, else_expr, input)
             }
