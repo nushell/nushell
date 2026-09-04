@@ -7,10 +7,8 @@
 use std::sync::Arc;
 
 use crate::{
-    CompareTypes, Flag, Record, ShellError, Signature, Span, Value,
-    engine::Argument,
-    ir::DataSlice,
-    shell_error::generic::GenericError,
+    CompareTypes, Flag, Record, ShellError, Signature, Span, Value, engine::Argument,
+    ir::DataSlice, shell_error::generic::GenericError,
 };
 
 /// Whether a named flag's value type accepts `nothing`/`null`.

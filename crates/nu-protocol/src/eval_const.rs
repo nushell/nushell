@@ -272,12 +272,12 @@ fn eval_const_call_arg(
             let captures = block
                 .captures
                 .iter()
-                .map(|(var_id, span)| {
-                    match working_set.get_variable(*var_id).const_val.as_ref() {
+                .map(
+                    |(var_id, span)| match working_set.get_variable(*var_id).const_val.as_ref() {
                         Some(val) => Ok((*var_id, val.clone())),
                         None => Err(ShellError::NotAConstant { span: *span }),
-                    }
-                })
+                    },
+                )
                 .collect::<Result<Vec<_>, ShellError>>()?;
             Ok(Value::closure(
                 Closure {
