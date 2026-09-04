@@ -302,56 +302,39 @@ impl<T> NuMatcher<'_, T> {
     }
 
     fn sort(&mut self) {
-        match &mut self.state {
-            State::Unscored(matches) => {
-                matches.sort_by(|a, b| {
-                    let cmp_sensitive = a.haystack.cmp(&b.haystack);
-                    if self.options.case_sensitive {
-                        cmp_sensitive
-                    } else {
-                        a.haystack
-                            .to_folded_case()
-                            .cmp(&b.haystack.to_folded_case())
-                            .then(cmp_sensitive)
-                    }
-                });
+        let sort_unscored = |matches: &mut [UnscoredMatch<T>]| {
+            matches.sort_by(|a, b| {
+                let cmp_sensitive = a.haystack.cmp(&b.haystack);
+                if self.options.case_sensitive {
+                    cmp_sensitive
+                } else {
+                    a.haystack
+                        .to_folded_case()
+                        .cmp(&b.haystack.to_folded_case())
+                        .then(cmp_sensitive)
+                }
+            });
+        };
+        let sort_fuzzy = |matches: &mut [FuzzyMatch<T>]| match self.options.sort {
+            CompletionSort::Alphabetical => {
+                matches.sort_by(|a, b| a.haystack.cmp(&b.haystack));
             }
-            State::Fuzzy { matches, .. } => match self.options.sort {
-                CompletionSort::Alphabetical => {
-                    matches.sort_by(|a, b| a.haystack.cmp(&b.haystack));
-                }
-                CompletionSort::Smart => {
-                    matches.sort_by(|a, b| b.score.cmp(&a.score).then(a.haystack.cmp(&b.haystack)));
-                }
-            },
+            CompletionSort::Smart => {
+                matches.sort_by(|a, b| b.score.cmp(&a.score).then(a.haystack.cmp(&b.haystack)));
+            }
+        };
+        match &mut self.state {
+            State::Unscored(matches) => sort_unscored(matches),
+            State::Fuzzy { matches, .. } => sort_fuzzy(matches),
             State::Fallback {
                 prefix_matches,
                 fuzzy_matches,
                 ..
             } => {
                 if prefix_matches.is_empty() {
-                    match self.options.sort {
-                        CompletionSort::Alphabetical => {
-                            fuzzy_matches.sort_by(|a, b| a.haystack.cmp(&b.haystack));
-                        }
-                        CompletionSort::Smart => {
-                            fuzzy_matches.sort_by(|a, b| {
-                                b.score.cmp(&a.score).then(a.haystack.cmp(&b.haystack))
-                            });
-                        }
-                    }
+                    sort_fuzzy(fuzzy_matches);
                 } else {
-                    prefix_matches.sort_by(|a, b| {
-                        let cmp_sensitive = a.haystack.cmp(&b.haystack);
-                        if self.options.case_sensitive {
-                            cmp_sensitive
-                        } else {
-                            a.haystack
-                                .to_folded_case()
-                                .cmp(&b.haystack.to_folded_case())
-                                .then(cmp_sensitive)
-                        }
-                    });
+                    sort_unscored(prefix_matches);
                 }
             }
         }
