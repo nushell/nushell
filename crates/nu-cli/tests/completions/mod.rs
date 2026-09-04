@@ -12,7 +12,8 @@ use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_path::{AbsolutePathBuf, expand_tilde};
 use nu_protocol::{
-    Config, ParseError, PipelineData, Value, debugger::WithoutDebug, engine::StateWorkingSet,
+    CompletionAlgorithm, Config, ParseError, PipelineData, Value, debugger::WithoutDebug,
+    engine::StateWorkingSet,
 };
 use nu_std::load_standard_library;
 
@@ -827,6 +828,53 @@ fn fallback_command_completion_prefers_prefix_matches() {
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
     let suggestions = completer.complete_blocking("slp", 3);
     match_suggestions(&vec!["slping"], &suggestions);
+}
+
+#[test]
+fn fallback_external_limit_preserves_prefix_matches() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let fuzzy_dir = dir.path().join("fuzzy");
+    let prefix_dir = dir.path().join("prefix");
+    std::fs::create_dir(&fuzzy_dir).expect("create fuzzy directory");
+    std::fs::create_dir(&prefix_dir).expect("create prefix directory");
+
+    let (fuzzy_name, prefix_name) = if cfg!(windows) {
+        ("sleep.exe", "slping.exe")
+    } else {
+        ("sleep", "slping")
+    };
+    let fuzzy_path = fuzzy_dir.join(fuzzy_name);
+    let prefix_path = prefix_dir.join(prefix_name);
+    std::fs::write(&fuzzy_path, "").expect("write fuzzy command");
+    std::fs::write(&prefix_path, "").expect("write prefix command");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+
+        std::fs::set_permissions(&fuzzy_path, std::fs::Permissions::from_mode(0o755))
+            .expect("make fuzzy command executable");
+        std::fs::set_permissions(&prefix_path, std::fs::Permissions::from_mode(0o755))
+            .expect("make prefix command executable");
+    }
+
+    let pwd = AbsolutePathBuf::try_from(dir.path().to_path_buf()).expect("absolute tempdir");
+    let (_, _, mut engine, stack) = new_engine_helper(pwd);
+    engine.add_env_var(
+        "PATH".to_string(),
+        Value::test_list(vec![
+            Value::test_string(fuzzy_dir.to_string_lossy()),
+            Value::test_string(prefix_dir.to_string_lossy()),
+        ]),
+    );
+    let mut config = engine.get_config().as_ref().clone();
+    config.completions.algorithm = CompletionAlgorithm::Fallback;
+    config.completions.external.max_results = 1;
+    engine.set_config(config);
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let input = "^slp";
+    let suggestions = completer.complete_blocking(input, input.len());
+    match_suggestions(&vec![prefix_name], &suggestions);
 }
 
 #[test]
