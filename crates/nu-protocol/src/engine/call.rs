@@ -47,58 +47,64 @@ impl Call<'_> {
         }
     }
 
-    /// Assert that the call is `ast::Call`, and fail with an error if it isn't.
-    ///
-    /// Provided as a stop-gap for commands that can't work with `ir::Call`, or just haven't been
-    /// implemented yet. Eventually these issues should be resolved and then this can be removed.
-    pub fn assert_ast_call(&self) -> Result<&ast::Call, ShellError> {
-        match &self.inner {
-            CallImpl::AstRef(call) => Ok(call),
-            CallImpl::AstBox(call) => Ok(call),
-            _ => Err(ShellError::NushellFailedSpanned {
-                msg: "Can't be used in IR context".into(),
-                label: "this command is not yet supported by IR evaluation".into(),
-                span: self.head,
-            }),
-        }
-    }
-
-    /// FIXME: implementation asserts `ast::Call` and proxies to that
+    /// Check if a boolean flag is set at const-eval time.
     pub fn has_flag_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &Stack,
         flag_name: &str,
     ) -> Result<bool, ShellError> {
-        self.assert_ast_call()?
-            .has_flag_const(working_set, flag_name)
+        match &self.inner {
+            CallImpl::AstRef(call) => call.has_flag_const(working_set, flag_name),
+            CallImpl::AstBox(call) => call.has_flag_const(working_set, flag_name),
+            CallImpl::IrRef(call) => ir_has_flag_const(call, stack, flag_name),
+            CallImpl::IrBox(call) => ir_has_flag_const(call, stack, flag_name),
+        }
     }
 
-    /// FIXME: implementation asserts `ast::Call` and proxies to that
+    /// Get a typed named argument at const-eval time.
     pub fn get_flag_const<T: FromValue>(
         &self,
         working_set: &StateWorkingSet,
+        stack: &Stack,
         name: &str,
     ) -> Result<Option<T>, ShellError> {
-        self.assert_ast_call()?.get_flag_const(working_set, name)
+        match &self.inner {
+            CallImpl::AstRef(call) => call.get_flag_const(working_set, name),
+            CallImpl::AstBox(call) => call.get_flag_const(working_set, name),
+            CallImpl::IrRef(call) => ir_get_flag_const(call, stack, name),
+            CallImpl::IrBox(call) => ir_get_flag_const(call, stack, name),
+        }
     }
 
-    /// FIXME: implementation asserts `ast::Call` and proxies to that
+    /// Get a required positional argument at const-eval time.
     pub fn req_const<T: FromValue>(
         &self,
         working_set: &StateWorkingSet,
+        stack: &Stack,
         pos: usize,
     ) -> Result<T, ShellError> {
-        self.assert_ast_call()?.req_const(working_set, pos)
+        match &self.inner {
+            CallImpl::AstRef(call) => call.req_const(working_set, pos),
+            CallImpl::AstBox(call) => call.req_const(working_set, pos),
+            CallImpl::IrRef(call) => ir_req_const(call, stack, self.head, pos),
+            CallImpl::IrBox(call) => ir_req_const(call, stack, self.head, pos),
+        }
     }
 
-    /// FIXME: implementation asserts `ast::Call` and proxies to that
+    /// Get the rest of the positional arguments at const-eval time.
     pub fn rest_const<T: FromValue>(
         &self,
         working_set: &StateWorkingSet,
+        stack: &Stack,
         starting_pos: usize,
     ) -> Result<Vec<T>, ShellError> {
-        self.assert_ast_call()?
-            .rest_const(working_set, starting_pos)
+        match &self.inner {
+            CallImpl::AstRef(call) => call.rest_const(working_set, starting_pos),
+            CallImpl::AstBox(call) => call.rest_const(working_set, starting_pos),
+            CallImpl::IrRef(call) => ir_rest_const(call, stack, starting_pos),
+            CallImpl::IrBox(call) => ir_rest_const(call, stack, starting_pos),
+        }
     }
 
     /// Returns a span covering the call's arguments.
@@ -201,6 +207,56 @@ impl CallImpl<'_> {
             CallImpl::IrBox(call) => CallImpl::IrBox(call.clone()),
         }
     }
+}
+
+fn ir_has_flag_const(call: &ir::Call, stack: &Stack, flag_name: &str) -> Result<bool, ShellError> {
+    Ok(call
+        .named_iter(stack)
+        .find(|(name, _)| name.item == flag_name)
+        .is_some_and(|(_, value)| !matches!(value, Some(Value::Bool { val: false, .. }))))
+}
+
+fn ir_get_flag_const<T: FromValue>(
+    call: &ir::Call,
+    stack: &Stack,
+    name: &str,
+) -> Result<Option<T>, ShellError> {
+    if let Some(val) = call.get_named_arg(stack, name) {
+        T::from_value(val.clone()).map(Some)
+    } else {
+        Ok(None)
+    }
+}
+
+fn ir_req_const<T: FromValue>(
+    call: &ir::Call,
+    stack: &Stack,
+    head: Span,
+    pos: usize,
+) -> Result<T, ShellError> {
+    let maybe_val = call.positional_nth(stack, pos).cloned();
+    let val = maybe_val.ok_or_else(|| {
+        let max_idx = call.positional_len(stack).checked_sub(1);
+        match max_idx {
+            None => ShellError::AccessEmptyContent { span: head },
+            Some(max_idx) => ShellError::AccessBeyondEnd {
+                max_idx,
+                span: head,
+            },
+        }
+    })?;
+    T::from_value(val)
+}
+
+fn ir_rest_const<T: FromValue>(
+    call: &ir::Call,
+    stack: &Stack,
+    starting_pos: usize,
+) -> Result<Vec<T>, ShellError> {
+    call.rest_iter_flattened(stack, starting_pos)?
+        .into_iter()
+        .map(T::from_value)
+        .collect()
 }
 
 impl<'a> From<&'a ast::Call> for Call<'a> {

@@ -4,10 +4,11 @@
 //! e.g. `source $my_const`
 use crate::{
     BlockId, Config, HistoryPath, PipelineData, Record, ShellError, Span, Value, VarId,
-    ast::{Assignment, Block, Call, Expr, Expression, ExternalArgument},
+    ast::{self, Assignment, Block, Call, Expr, Expression, ExternalArgument},
     debugger::{DebugContext, WithoutDebug},
-    engine::{EngineState, StateWorkingSet},
+    engine::{Argument, Closure, EngineState, Stack, StateWorkingSet},
     eval_base::Eval,
+    ir,
     record,
     shell_error::generic::GenericError,
 };
@@ -243,7 +244,127 @@ fn eval_const_call(
         return Err(ShellError::NotAConstHelp { span: call.head });
     }
 
-    decl.run_const(working_set, &call.into(), input)
+    // `if` needs AST control-flow structure (cond / then block / else). Keep a dedicated AST path
+    // rather than forcing IR-shaped values for keyword branches. See ir_call_migration.md phase 2.
+    if decl.name() == "if" {
+        return eval_const_if(working_set, call, input);
+    }
+
+    // Evaluate AST args to Values and invoke run_const with an IR-shaped Call.
+    let mut stack = Stack::new();
+    let ir_call = build_const_ir_call(working_set, call, &mut stack)?;
+    let result = decl.run_const(working_set, &mut stack, &(&ir_call).into(), input);
+    ir_call.leave(&mut stack);
+    result
+}
+
+/// Evaluate a single const-call argument expression to a [`Value`].
+///
+/// Blocks/closures used as call arguments (e.g. `attr example` snippets) become
+/// capture-free [`Closure`] values so commands can read block source without AST.
+fn eval_const_call_arg(working_set: &StateWorkingSet, expr: &Expression) -> Result<Value, ShellError> {
+    match &expr.expr {
+        Expr::Block(block_id) | Expr::Closure(block_id) | Expr::RowCondition(block_id) => {
+            Ok(Value::closure(
+                Closure {
+                    block_id: *block_id,
+                    captures: vec![],
+                },
+                expr.span,
+            ))
+        }
+        _ => eval_constant(working_set, expr),
+    }
+}
+
+fn build_const_ir_call(
+    working_set: &StateWorkingSet,
+    call: &Call,
+    stack: &mut Stack,
+) -> Result<ir::Call, ShellError> {
+    let mut builder = ir::Call::build(call.decl_id, call.head);
+
+    for arg in &call.arguments {
+        match arg {
+            ast::Argument::Positional(expr) | ast::Argument::Unknown(expr) => {
+                let val = eval_const_call_arg(working_set, expr)?;
+                builder.add_positional(stack, expr.span, val);
+            }
+            ast::Argument::Spread(expr) => {
+                let val = eval_const_call_arg(working_set, expr)?;
+                builder.add_spread(stack, expr.span, val);
+            }
+            ast::Argument::Named((long, short, maybe_expr)) => {
+                let short_name = short.as_ref().map(|s| s.item.as_str()).unwrap_or("");
+                if let Some(expr) = maybe_expr {
+                    let val = eval_const_call_arg(working_set, expr)?;
+                    builder.add_named(stack, &long.item, short_name, arg.span(), val);
+                } else {
+                    builder.add_flag(stack, &long.item, short_name, arg.span());
+                }
+            }
+        }
+    }
+
+    for (name, expr) in &call.parser_info {
+        let data: std::sync::Arc<[u8]> = name.as_bytes().into();
+        let name_slice = ir::DataSlice {
+            start: 0,
+            len: name.len().try_into().expect("parser info name too big"),
+        };
+        builder.add_argument(
+            stack,
+            Argument::ParserInfo {
+                data,
+                name: name_slice,
+                info: Box::new(expr.clone()),
+            },
+        );
+    }
+
+    Ok(builder.finish())
+}
+
+/// Const evaluation of `if` using AST structure (not IR-shaped call args).
+fn eval_const_if(
+    working_set: &StateWorkingSet,
+    call: &Call,
+    input: PipelineData,
+) -> Result<PipelineData, ShellError> {
+    let mut iter = call.positional_iter();
+    let cond = iter.next().expect("checked through parser");
+    let then_expr = iter.next().expect("checked through parser");
+    let else_case = iter.next();
+
+    let then_block = then_expr
+        .as_block()
+        .ok_or_else(|| ShellError::TypeMismatch {
+            err_message: "expected block".into(),
+            span: then_expr.span,
+        })?;
+
+    if eval_constant(working_set, cond)?.as_bool()? {
+        let block = working_set.get_block(then_block);
+        eval_const_subexpression(working_set, block, input, block.span.unwrap_or(call.head))
+    } else if let Some(else_case) = else_case {
+        if let Some(else_expr) = else_case.as_keyword() {
+            if let Some(block_id) = else_expr.as_block() {
+                let block = working_set.get_block(block_id);
+                eval_const_subexpression(
+                    working_set,
+                    block,
+                    input,
+                    block.span.unwrap_or(call.head),
+                )
+            } else {
+                eval_constant_with_input(working_set, else_expr, input)
+            }
+        } else {
+            eval_constant_with_input(working_set, else_case, input)
+        }
+    } else {
+        Ok(PipelineData::empty())
+    }
 }
 
 pub fn eval_const_subexpression(
