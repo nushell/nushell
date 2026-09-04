@@ -294,6 +294,21 @@ impl<T> NuMatcher<'_, T> {
         self.matches_aux(haystack.as_ref(), Some(item)).is_some()
     }
 
+    /// Returns whether the haystack matches the needle using prefix matching.
+    pub(crate) fn has_prefix_match(&self, orig_haystack: &str) -> bool {
+        let haystack = orig_haystack.trim_start_matches(QUOTES);
+        let offset = orig_haystack.len() - haystack.len();
+        let haystack = haystack.trim_end_matches(QUOTES);
+        Self::unscored_matches(
+            haystack,
+            self.needle.as_str(),
+            MatchAlgorithm::Prefix,
+            offset,
+            self.options.case_sensitive,
+        )
+        .is_some()
+    }
+
     /// Check if the given haystack matches the needle without adding it as a result.
     ///
     /// Returns match indices if it matched, None if it didn't.

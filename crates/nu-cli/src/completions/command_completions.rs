@@ -7,7 +7,7 @@ use nu_protocol::{
 };
 use reedline::Suggestion;
 
-use super::{SemanticSuggestion, completion_options::NuMatcher};
+use super::{MatchAlgorithm, SemanticSuggestion, completion_options::NuMatcher};
 
 /// Which command declarations a [`CommandCompletion`] offers.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -222,12 +222,25 @@ impl CommandCompletion {
 
         let mut external_commands: HashSet<String> = HashSet::new();
         let mut collisions: HashSet<String> = HashSet::new();
+        // Track match classes separately so fuzzy matches cannot hide later prefix matches.
+        let mut prefix_count = 0;
+        let mut fuzzy_count = 0;
+        let uses_fallback = context.options.match_algorithm == MatchAlgorithm::Fallback;
 
         for (file_name, file_path) in self.get_executable_files(working_set) {
             let is_collision =
                 internal_names.contains(&file_name) && !collisions.contains(&file_name);
-            let wants_suggestion = external_commands.len() < maximum_results
-                && matcher.check_match(&file_name).is_some();
+            let is_prefix_match = uses_fallback && matcher.has_prefix_match(&file_name);
+            let has_capacity = if uses_fallback {
+                if is_prefix_match {
+                    prefix_count < maximum_results
+                } else {
+                    fuzzy_count < maximum_results
+                }
+            } else {
+                external_commands.len() < maximum_results
+            };
+            let wants_suggestion = has_capacity && matcher.check_match(&file_name).is_some();
 
             // `is_executable_command` stats the file, which dominates the scan on slow
             // filesystems (e.g. WSL's 9P mounts to Windows `PATH` directories), so only
@@ -258,7 +271,7 @@ impl CommandCompletion {
                 };
 
                 if external_commands.insert(command_value.clone()) {
-                    matcher.add(
+                    let added = matcher.add(
                         file_name,
                         SemanticSuggestion {
                             suggestion: Suggestion {
@@ -270,6 +283,14 @@ impl CommandCompletion {
                             kind: Some(SuggestionKind::Command(CommandType::External, None)),
                         },
                     );
+
+                    if added && uses_fallback {
+                        if is_prefix_match {
+                            prefix_count += 1;
+                        } else {
+                            fuzzy_count += 1;
+                        }
+                    }
                 }
             }
         }
