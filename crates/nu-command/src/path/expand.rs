@@ -73,15 +73,16 @@ impl Command for PathExpand {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         #[allow(deprecated)]
         let args = Arguments {
-            strict: call.has_flag_const(working_set, "strict")?,
+            strict: call.has_flag_const(working_set, stack, "strict")?,
             cwd: working_set.permanent_state.cwd_as_string(None)?,
-            not_follow_symlink: call.has_flag_const(working_set, "no-symlink")?,
+            not_follow_symlink: call.has_flag_const(working_set, stack, "no-symlink")?,
         };
         // This doesn't match explicit nulls
         if let PipelineData::Empty = input {

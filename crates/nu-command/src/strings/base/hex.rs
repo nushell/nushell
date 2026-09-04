@@ -50,6 +50,7 @@ impl Command for DecodeHex {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
@@ -122,10 +123,11 @@ impl Command for EncodeHex {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let encoding = if call.has_flag_const(working_set, "lower")? {
+        let encoding = if call.has_flag_const(working_set, stack, "lower")? {
             data_encoding::HEXLOWER
         } else {
             data_encoding::HEXUPPER

@@ -27,9 +27,9 @@ fn get_encoding(
     Ok(get_encoding_from_flags(url, nopad))
 }
 
-fn get_encoding_const(working_set: &StateWorkingSet, call: &Call) -> Result<Encoding, ShellError> {
-    let url = call.has_flag_const(working_set, "url")?;
-    let nopad = call.has_flag_const(working_set, "nopad")?;
+fn get_encoding_const(working_set: &StateWorkingSet, stack: &Stack, call: &Call) -> Result<Encoding, ShellError> {
+    let url = call.has_flag_const(working_set, stack, "url")?;
+    let nopad = call.has_flag_const(working_set, stack, "nopad")?;
 
     Ok(get_encoding_from_flags(url, nopad))
 }
@@ -97,10 +97,11 @@ impl Command for DecodeBase64 {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let encoding = get_encoding_const(working_set, call)?;
+        let encoding = get_encoding_const(working_set, stack, call)?;
         super::decode(encoding, call.head, input)
     }
 }
@@ -170,10 +171,11 @@ impl Command for EncodeBase64 {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let encoding = get_encoding_const(working_set, call)?;
+        let encoding = get_encoding_const(working_set, stack, call)?;
         super::encode(encoding, call.head, input)
     }
 }

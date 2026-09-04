@@ -143,14 +143,15 @@ If multiple cell paths are given, this will produce a list of values."
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let cell_path: CellPath = call.req_const(working_set, 0)?;
-        let rest: Vec<CellPath> = call.rest_const(working_set, 1)?;
-        let optional = call.has_flag_const(working_set, "optional")?
-            || call.has_flag_const(working_set, "ignore-errors")?;
-        let ignore_case = call.has_flag_const(working_set, "ignore-case")?;
+        let cell_path: CellPath = call.req_const(working_set, stack, 0)?;
+        let rest: Vec<CellPath> = call.rest_const(working_set, stack, 1)?;
+        let optional = call.has_flag_const(working_set, stack, "optional")?
+            || call.has_flag_const(working_set, stack, "ignore-errors")?;
+        let ignore_case = call.has_flag_const(working_set, stack, "ignore-case")?;
         action(
             input,
             cell_path,
