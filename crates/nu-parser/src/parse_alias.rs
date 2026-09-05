@@ -139,6 +139,7 @@ pub fn parse_alias(
                 || name.contains('%')
                 || name.parse::<bytesize::ByteSize>().is_ok()
                 || name.parse::<f64>().is_ok()
+                || name.split_ascii_whitespace().collect::<Vec<_>>().join(" ") != name
             {
                 working_set.error(ParseError::AliasNotValid(alias_name_expr.span));
                 return garbage_pipeline(working_set, spans);
