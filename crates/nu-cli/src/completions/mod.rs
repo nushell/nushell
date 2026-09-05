@@ -23,10 +23,13 @@ pub(crate) use base::to_reedline_span;
 pub use base::{Completer, Fetched, SemanticSuggestion};
 pub use cell_path_completions::CellPathCompletion;
 pub use command_completions::{CommandCompletion, CommandScope};
+pub(crate) use completer::{Buffer, Context, NarrowingCache};
 pub use completer::{CompletionEngine, NuCompleter};
-pub(crate) use completer::{Context, NarrowingCache};
 pub use completion_options::{CompletionOptions, MatchAlgorithm, NuMatcher};
-pub use custom_completions::CustomCompletion;
+pub use custom_completions::DeclaredInputs;
+pub(crate) use custom_completions::{
+    LegacyInputs, Returned, SpanClamp, bind_declared_inputs, map_value_completions,
+};
 pub use directory_completions::DirectoryCompletion;
 pub use dotnu_completions::DotNuCompletion;
 pub use env_var_completions::EnvVarCompletion;

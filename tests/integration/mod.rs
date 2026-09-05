@@ -1,6 +1,7 @@
 use nu_test_support::prelude::*;
 
 mod cli;
+mod completions;
 mod posix_end_of_options;
 mod shell_integration;
 

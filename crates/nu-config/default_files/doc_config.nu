@@ -321,21 +321,74 @@ $env.config.completions.external.enable = true
 # Default: 100
 $env.config.completions.external.max_results = 100
 
-# completions.external.completer (closure|null): Custom closure for argument completions.
-# The closure receives a |spans| parameter - a list of strings representing
-# tokens on the current commandline. Usually set to call a third-party
-# completion system like Carapace.
-# Evaluating this closure blocks the line editor and may take the TTY, which
-# interactive pickers (fzf, `input list`) need. Completers that only print a
-# list should return quickly. Custom menu `source` closures already run on
-# the REPL thread the same way.
+# completions.external.completer (closure|record|null): Custom closure for argument
+# completions. Usually set to call a third-party completion system like Carapace.
+#
+# A completer's input is overloaded on the parameters it declares: it is handed exactly the
+# fields it names, and nothing it did not ask for (order does not matter; an unrecognized name
+# receives nothing). The three it can ask for:
+#   token: record    the token being completed, as {text, kind, span}
+#   place: record    where in the line that is: `cursor` (a byte offset) and `target`
+#                    ({start, end}, the range a suggestion replaces), plus the resolution
+#                    (`kind`, plus `flag`/`index`). Read `target` rather than `token.span`:
+#                    they differ wherever a completion spans several tokens, such as a
+#                    multiword command head or a cell path.
+#   buffer: string   the whole command line up to the cursor, across pipes and closures, for
+#                    completers that need more than the current token -- an external completer
+#                    like Carapace reads this. `std/util structure` turns it into a
+#                    {text, kind, span} table. Prefer it over calling `commandline` from inside
+#                    a completer: `buffer` is always the line being completed, whereas
+#                    `commandline` reads editor state and can come back empty depending on how
+#                    completion was triggered (e.g. after a `;`).
+# `commandline complete --input` returns all three at once, for inspecting a completer.
+# A completer never sees text past the cursor.
+#
+# Returns a list of suggestions (a string, or a record of {value, description?, style?,
+# span?, extra?}) or a record of {options, completions}. External/command-wide completers
+# are not filtered by default; parameter completers are. See `options.filter`.
 # Default: null
 $env.config.completions.external.completer = null
 
-# Example: A simplified Carapace completer (use the official one from Carapace docs):
-# $env.config.completions.external.completer = {|spans|
-#   carapace $spans.0 nushell ...$spans | from json
+# Example: A simplified Carapace completer (use the official one from Carapace docs).
+# The whole line is wanted, so it declares `buffer` and splits it into words:
+# $env.config.completions.external.completer = {|buffer|
+#   let words = $buffer | split row " "
+#   carapace ($words | first) nushell ...$words | from json
 # }
+#
+# Example: branch off the resolved cursor instead of re-parsing the line, by declaring
+# only the `place` it needs:
+# $env.config.completions.external.completer = {|place|
+#   if $place.kind == "flag-value" and $place.flag == "base" {
+#     git branch | lines | str trim
+#   }
+# }
+#
+# Example: inspect the parsed tokens of the line the cursor is on:
+# use std/util
+# def line-tokens [buffer] {
+#   util structure $buffer  # -> [{text, kind, span}, ...]
+# }
+#
+# A `def`-based completer (attached with `@complete` or to a parameter with `@`) can carry
+# the `@interactive` attribute to run on the line-editor thread with the terminal to itself,
+# so it can drive a picker like `fzf` or `input list`:
+# @interactive
+# def pick-file [token: record] { ls | get name | to text | ^fzf --query $token.text | lines }
+# Every other completer runs on a background worker instead: non-blocking, and cached.
+#
+# `external.completer` is a plain closure, which cannot carry an attribute. To make it run
+# inline (the picker-driving case), have it call an `@interactive` command: interactivity is
+# seen through the closure to that command, so there is no separate switch. The command
+# usually declares `buffer` to feed the whole line to its picker:
+# @interactive
+# def carapace-fzf [buffer] {
+#   let words = $buffer | split row ' '
+#   carapace ($words | first) nushell ...$words | from json | ^fzf | lines
+# }
+# $env.config.completions.external.completer = {|buffer| carapace-fzf $buffer }
+# A closure that does not reach an `@interactive` command stays on the background worker:
+# non-blocking, and cached.
 
 # --------------------
 # Terminal Integration
@@ -719,6 +772,14 @@ $env.config.abbreviations = {}
 # List-layout menus accept description_position: "before" or "after" in their
 # `type` record, controlling whether an entry's description is shown before or
 # after its value. Unset keeps reedline's default.
+#
+# A menu's `source` receives the same inputs as every completer, bound by the parameters it
+# declares, in place of the old `{|buffer, position|}` pair -- see
+# completions.external.completer above. A source that used to write
+# `$buffer | split row ' ' | last` now declares `{|token|}` and reads `$token.text`, and one
+# that needs the whole line declares `{|buffer|}` the same way a completer does.
+# It returns what a completer returns, so one source can serve as either; the `options` of a
+# {completions, options} record name engine behaviour a menu has no say in and are ignored.
 #
 # Default: completion_menu, ide_completion_menu, history_menu, help_menu.
 # Inspect with `$env.config.menus`. Assigning this list merges into the

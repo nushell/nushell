@@ -1,18 +1,37 @@
-use std::{borrow::Cow, sync::Arc};
+use std::borrow::Cow;
 
 use nu_engine::command_prelude::*;
-use nu_protocol::FromValue;
+use nu_protocol::{FromValue, shell_error::generic::GenericError};
 
 use crate::completions::{
-    Completer, CompletionEngine, DirectoryCompletion, FileCompletion, SemanticSuggestion,
+    Buffer, CommandCompletion, CommandScope, Completer, CompletionEngine, DeclaredInputs,
+    DirectoryCompletion, EnvVarCompletion, FileCompletion, SemanticSuggestion, VariableCompletion,
 };
 
 #[derive(Debug, Clone, FromValue)]
-#[nu_value(rename_all = "kebab-case", type_name = "directory | path | glob")]
+#[nu_value(
+    rename_all = "kebab-case",
+    type_name = "directory | path | glob | command | variable | env-var"
+)]
 enum CompletionType {
     Directory,
     Path,
     Glob,
+    Command,
+    Variable,
+    EnvVar,
+}
+
+impl CompletionType {
+    /// The names a `--type` value may take, for the flag's own completions and its error.
+    const NAMES: [&'static str; 6] = [
+        "directory",
+        "path",
+        "glob",
+        "command",
+        "variable",
+        "env-var",
+    ];
 }
 
 #[derive(Clone)]
@@ -31,26 +50,42 @@ impl Command for CommandlineComplete {
         Signature::build("commandline complete")
             .input_output_type(
                 Type::Nothing,
-                Type::one_of([Type::list(Type::String), Type::list(Type::record())]),
+                Type::one_of([
+                    Type::list(Type::String),
+                    Type::list(Type::record()),
+                    Type::record(),
+                ]),
             )
             .input_output_type(
                 Type::String,
-                Type::one_of([Type::list(Type::String), Type::list(Type::record())]),
+                Type::one_of([
+                    Type::list(Type::String),
+                    Type::list(Type::record()),
+                    Type::record(),
+                ]),
             )
             .switch(
                 "detailed",
                 "Output completions as records, in the format expected from custom completers.",
                 Some('d'),
             )
+            .switch(
+                "input",
+                "Output the record a completer would receive here (`{token, place, buffer}`), \
+                 instead of completions.",
+                Some('i'),
+            )
             .param(
                 Flag::new("type")
                     .arg(SyntaxShape::String)
-                    .desc("The type of values to allow as completions.")
-                    .completion(Completion::List(nu_utils::NuCow::Borrowed(&[
-                        "directory",
-                        "glob",
-                        "path",
-                    ]))),
+                    .desc(
+                        "Restrict completions to one built-in source (directory, path, glob, \
+                         command, variable, or env-var), so a completer can compose the \
+                         engine's own sources with its results.",
+                    )
+                    .completion(Completion::List(nu_utils::NuCow::Borrowed(
+                        &CompletionType::NAMES,
+                    ))),
             )
             .category(Category::Core)
     }
@@ -59,7 +94,10 @@ impl Command for CommandlineComplete {
         "This command can be used to obtain the completions that Nushell would normally provide for the given commandline contents.
 Completions will be provided as if the cursor is placed at the end of the given string.
 
-If no input is provided, the current commandline contents will be used instead."
+If no input is provided, the current commandline contents will be used instead.
+
+With --input, the record a completer would receive at that position is returned instead of
+completions, which is the supported way to develop and test a completer from inside Nushell."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -81,6 +119,26 @@ If no input is provided, the current commandline contents will be used instead."
             extract_input_buffer(&input, engine_state, head_span, source_span)?;
 
         let is_detailed = call.has_flag(engine_state, stack, "detailed")?;
+
+        // --input returns the completer's input record, not completions; reject the flags that
+        // shape output.
+        if call.has_flag(engine_state, stack, "input")? {
+            for conflicting in ["detailed", "type"] {
+                if let Some(span) = call.get_flag_span(stack, conflicting) {
+                    return Err(ShellError::IncompatibleParameters {
+                        left_message: "cannot be used with --input".into(),
+                        left_span: span,
+                        right_message: "--input returns the completer's input record".into(),
+                        right_span: call.get_flag_span(stack, "input").unwrap_or(head_span),
+                    });
+                }
+            }
+
+            return Ok(CompletionEngine::new(engine_state, stack)
+                .completer_input_at(&buffer, cursor_position, DeclaredInputs::all())
+                .into_pipeline_data());
+        }
+
         let completion_type = match call.get_flag::<Value>(engine_state, stack, "type")? {
             Some(v) => {
                 let type_str = v
@@ -90,7 +148,7 @@ If no input is provided, the current commandline contents will be used instead."
 
                 Some(CompletionType::from_value(v.clone()).map_err(|_| {
                     ShellError::InvalidValue {
-                        valid: r#"type "directory", "path", or "glob""#.into(),
+                        valid: format!("one of {}", CompletionType::NAMES.join(", ")),
                         actual: type_str,
                         span: v.span(),
                     }
@@ -98,6 +156,29 @@ If no input is provided, the current commandline contents will be used instead."
             }
             None => None,
         };
+
+        // Interactive completers require the line editor's terminal.
+        if completion_type.is_none()
+            && !engine_state.is_interactive
+            && CompletionEngine::new(engine_state, stack)
+                .interactive_completer_at(&buffer, cursor_position)
+        {
+            return Err(ShellError::Generic(
+                GenericError::new(
+                    "An `@interactive` completer cannot run here",
+                    "this position completes with a terminal picker, which needs the terminal",
+                    call_span,
+                )
+                .with_help(
+                    "`@interactive` completers are run by the line editor, which is the only \
+                     thing that can hand one the terminal. \
+                     To inspect this completer from a script instead, \
+                     `commandline complete --input` returns the record it would receive \
+                     without running it.",
+                )
+                .with_code("nu::shell::interactive_completer_needs_a_terminal"),
+            ));
+        }
 
         let completions = fetch_completions(
             engine_state,
@@ -152,6 +233,24 @@ If no input is provided, the current commandline contents will be used instead."
                 example: "commandline complete | append 'foo'",
                 result: None,
             },
+            Example {
+                description: "Compose a built-in source inside a completer: the engine's \
+                              command names beside your own.",
+                example: "def comp [token: record] { [my-alias] ++ ($token.text | commandline complete --type command) }",
+                result: None,
+            },
+            Example {
+                description: "Return `fallback: true` to add completions beside the built-in \
+                              ones rather than replacing them.",
+                example: "def comp [token: record] { {completions: [my-preset], fallback: true} }",
+                result: None,
+            },
+            Example {
+                description: "Inspect what a completer would be handed at the cursor, including \
+                              the argument's declared shape.",
+                example: "'cd ma' | commandline complete --input | get place.shape",
+                result: None,
+            },
         ]
     }
 }
@@ -192,9 +291,7 @@ fn fetch_completions(
     buffer: &str,
     cursor_position: usize,
 ) -> Vec<SemanticSuggestion> {
-    // TODO: it should be possible to add something like a `NuCompleter::borrowed()`
-    // to avoid cloning the entire stack + engine state here, as a future optimization.
-    let completer = CompletionEngine::new(Arc::new(engine_state.clone()), Arc::new(stack.clone()));
+    let completer = CompletionEngine::new(engine_state, stack);
 
     completion_type
         .map(|parsed_type| {
@@ -228,9 +325,12 @@ fn generate_typed_suggestions(
 
     let context = completer.context(
         &working_set,
+        Buffer {
+            text: &buffer[..cursor_position],
+            offset: file_span.start,
+        },
         file_span,
         &buffer_bytes[..cursor_position],
-        file_span.start,
     );
 
     // Explicit matching avoids boxing the source into a `dyn` trait object.
@@ -239,5 +339,10 @@ fn generate_typed_suggestions(
         CompletionType::Path | CompletionType::Glob => {
             FileCompletion.fetch(&context).into_suggestions()
         }
+        CompletionType::Command => CommandCompletion::new(CommandScope::All)
+            .fetch(&context)
+            .into_suggestions(),
+        CompletionType::Variable => VariableCompletion.fetch(&context).into_suggestions(),
+        CompletionType::EnvVar => EnvVarCompletion.fetch(&context).into_suggestions(),
     }
 }

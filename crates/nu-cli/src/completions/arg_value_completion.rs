@@ -1,6 +1,6 @@
 use super::completer::touches;
 use crate::{
-    CompletionEngine, FileCompletion,
+    FileCompletion,
     completions::{
         Completer, Context, DirectoryCompletion, ExportableCompletion, Fetched, SemanticSuggestion,
         completion_options::NuMatcher, to_reedline_span,
@@ -18,9 +18,7 @@ pub struct ArgValueCompletion<'a> {
     pub arg_type: ArgType<'a>,
     /// Whether to fall back to file completion when no source matches.
     pub need_fallback: bool,
-    pub completer: &'a CompletionEngine,
-    /// Index into `call.arguments`, or `call.arguments.len()` for a synthesized
-    /// trailing slot the parser produced no argument for (e.g. `open <tab>`).
+    /// Index into `call.arguments`, or `.len()` for a trailing slot with no argument.
     pub arg_idx: usize,
     /// The `SyntaxShape` this argument is declared with in the command's signature, if
     /// known. Used to pick a type-specific fallback (e.g. directories for `cd <tab>`) when
@@ -36,15 +34,12 @@ impl<'a> Completer for ArgValueCompletion<'a> {
             return fetched_completion;
         }
 
-        let working_set = context.working_set;
         let prefix_string = context.prefix_str();
 
-        let completion_context = self.completer.context(
-            working_set,
-            context.span,
-            prefix_string.as_ref().as_bytes(),
-            context.offset,
-        );
+        let completion_context = Context {
+            prefix: prefix_string.as_ref().as_bytes(),
+            ..*context
+        };
 
         // Command-specific completions are dispatched earlier via `BuiltinCompletion`;
         // here we handle only the generic argument-value fallbacks.
@@ -224,12 +219,11 @@ impl<'a> ArgValueCompletion<'a> {
             completion_context.span.end.min(item_span.end),
         );
 
-        let item_context = self.completer.context(
-            completion_context.working_set,
-            new_span,
-            sliced_prefix,
-            completion_context.offset,
-        );
+        let item_context = Context {
+            span: new_span,
+            prefix: sliced_prefix,
+            ..*completion_context
+        };
 
         exportable_completion.fetch(&item_context)
     }
