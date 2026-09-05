@@ -80,10 +80,17 @@ fn getcol(head: Span, input: PipelineData) -> Result<PipelineData, ShellError> {
             let cols = match v {
                 Value::List {
                     vals: input_vals, ..
-                } => get_columns(&input_vals)
-                    .into_iter()
-                    .map(move |x| Value::string(x, span))
-                    .collect(),
+                } => {
+                    for val in &input_vals {
+                        if let Value::Error { error, .. } = val {
+                            return Err(*error.clone());
+                        }
+                    }
+                    get_columns(&input_vals)
+                        .into_iter()
+                        .map(move |x| Value::string(x, span))
+                        .collect()
+                }
                 Value::Custom { val, .. } => {
                     // TODO: should we get CustomValue to expose columns in a more efficient way?
                     // Would be nice to be able to get columns without generating the whole value
@@ -115,7 +122,7 @@ fn getcol(head: Span, input: PipelineData) -> Result<PipelineData, ShellError> {
                 .set_metadata(metadata))
         }
         PipelineData::ListStream(stream, metadata) => {
-            let values = stream.into_iter().collect::<Vec<_>>();
+            let values = stream.into_value()?.into_list()?;
             let cols = get_columns(&values)
                 .into_iter()
                 .map(|s| Value::string(s, head))

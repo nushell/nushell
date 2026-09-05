@@ -223,7 +223,7 @@ fn sqlite_database_operations(#[case] operation: &str, #[case] expected: impl In
 #[case::shuffle("shuffle | length", 5)]
 #[case::split_list("split list 2 | flatten | length", 5)]
 #[case::each_while("each while {|row| $row } | length", 5)]
-#[case::tee("tee {|x| $x | ignore } | flatten | length", 6)]
+#[case::tee("tee { ignore } | length", 5)]
 #[case::filter("filter {|row| $row.z > 100 } | length", 2)]
 fn sqlite_int_table_operations(
     #[case] operation: &str,
