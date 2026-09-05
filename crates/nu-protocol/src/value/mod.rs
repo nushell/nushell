@@ -37,6 +37,7 @@ use std::{
     borrow::Cow,
     cmp::Ordering,
     fmt::{self, Debug, Display, Write},
+    hash::{Hash, Hasher},
     ops::{Bound, ControlFlow},
     path::PathBuf,
 };
@@ -2785,6 +2786,101 @@ impl PartialOrd for Value {
 impl PartialEq for Value {
     fn eq(&self, other: &Self) -> bool {
         self.partial_cmp(other).is_some_and(Ordering::is_eq)
+    }
+}
+
+impl Hash for Value {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        // Family tags (not enum discriminants) so Int/Float and String/Glob
+        // share a hash when PartialEq treats them as equal.
+        //
+        // Epsilon-tolerant float comparison cannot have a useful canonical
+        // hash: consecutive finite floats compare equal, so the relation
+        // connects the whole finite line. Hash uses IEEE equality after
+        // collapsing -0.0. Value does not implement Eq.
+        #[derive(Hash)]
+        enum Family {
+            Bool,
+            Number,
+            Text,
+            Filesize,
+            Duration,
+            Date,
+            Range,
+            Record,
+            List,
+            Closure,
+            Error,
+            Binary,
+            CellPath,
+            Custom,
+            Nothing,
+        }
+
+        match self {
+            Value::Bool { val, .. } => {
+                Family::Bool.hash(state);
+                val.hash(state);
+            }
+            Value::Int { val, .. } => {
+                Family::Number.hash(state);
+                range::hash_f64_eq(*val as f64, state);
+            }
+            Value::Float { val, .. } => {
+                Family::Number.hash(state);
+                range::hash_f64_eq(*val, state);
+            }
+            Value::String { val, .. } | Value::Glob { val, .. } => {
+                Family::Text.hash(state);
+                val.hash(state);
+            }
+            Value::Filesize { val, .. } => {
+                Family::Filesize.hash(state);
+                val.hash(state);
+            }
+            Value::Duration { val, .. } => {
+                Family::Duration.hash(state);
+                val.hash(state);
+            }
+            Value::Date { val, .. } => {
+                Family::Date.hash(state);
+                val.hash(state);
+            }
+            Value::Range { val, .. } => {
+                Family::Range.hash(state);
+                val.hash(state);
+            }
+            Value::Record { val, .. } => {
+                Family::Record.hash(state);
+                val.hash(state);
+            }
+            Value::List { vals, .. } => {
+                Family::List.hash(state);
+                vals.hash(state);
+            }
+            Value::Closure { val, .. } => {
+                Family::Closure.hash(state);
+                val.hash(state);
+            }
+            Value::Error { .. } => {
+                Family::Error.hash(state);
+            }
+            Value::Binary { val, .. } => {
+                Family::Binary.hash(state);
+                val.hash(state);
+            }
+            Value::CellPath { val, .. } => {
+                Family::CellPath.hash(state);
+                val.hash(state);
+            }
+            Value::Custom { val, .. } => {
+                Family::Custom.hash(state);
+                val.hash_value(state);
+            }
+            Value::Nothing { .. } => {
+                Family::Nothing.hash(state);
+            }
+        }
     }
 }
 
@@ -5821,6 +5917,463 @@ mod tests {
             // Verify it's larger than a simple list
             let simple_list = Value::test_list(vec![Value::test_int(1)]);
             assert!(record_size > simple_list.memory_size());
+        }
+    }
+
+    mod hash {
+        use super::*;
+        use crate::ast::{CellPath, PathMember};
+        use crate::engine::Closure;
+        use crate::{
+            BlockId, CustomValue, Filesize, Range, ShellError, Span, VarId, casing::Casing,
+        };
+        use chrono::FixedOffset;
+        use serde::{Deserialize, Serialize};
+        use std::any::Any;
+        use std::cmp::Ordering;
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+        use std::ops::Bound;
+
+        fn hash_value(val: &Value) -> u64 {
+            let mut hasher = DefaultHasher::new();
+            val.hash(&mut hasher);
+            hasher.finish()
+        }
+
+        fn assert_eq_implies_same_hash(a: &Value, b: &Value) {
+            assert_eq!(a, b);
+            assert_eq!(hash_value(a), hash_value(b));
+        }
+
+        #[derive(Debug, Clone, Serialize, Deserialize)]
+        struct PrefixedCustom {
+            version: u64,
+            prefix: String,
+        }
+
+        #[typetag::serde]
+        impl CustomValue for PrefixedCustom {
+            fn clone_value(&self, span: Span) -> Value {
+                Value::custom(Box::new(self.clone()), span)
+            }
+
+            fn type_name(&self) -> String {
+                "prefixed".into()
+            }
+
+            fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
+                Ok(Value::string(
+                    format!("{}{}", self.prefix, self.version),
+                    span,
+                ))
+            }
+
+            fn as_any(&self) -> &dyn Any {
+                self
+            }
+
+            fn as_mut_any(&mut self) -> &mut dyn Any {
+                self
+            }
+
+            fn partial_cmp(&self, other: &Value) -> Option<Ordering> {
+                other
+                    .as_custom_value()
+                    .ok()?
+                    .as_any()
+                    .downcast_ref::<Self>()
+                    .and_then(|other| self.version.partial_cmp(&other.version))
+            }
+
+            fn hash_value(&self, mut state: &mut dyn Hasher) {
+                self.type_name().hash(&mut state);
+                self.version.hash(&mut state);
+            }
+        }
+
+        #[test]
+        fn same_value_same_hash() {
+            assert_eq!(
+                hash_value(&Value::test_int(1)),
+                hash_value(&Value::test_int(1))
+            );
+            assert_eq!(
+                hash_value(&Value::test_string("hello")),
+                hash_value(&Value::test_string("hello"))
+            );
+            assert_eq!(
+                hash_value(&Value::test_bool(true)),
+                hash_value(&Value::test_bool(true))
+            );
+        }
+
+        #[test]
+        fn different_values_different_hash() {
+            assert_ne!(
+                hash_value(&Value::test_int(1)),
+                hash_value(&Value::test_int(2))
+            );
+            assert_ne!(
+                hash_value(&Value::test_string("a")),
+                hash_value(&Value::test_string("b"))
+            );
+        }
+
+        #[test]
+        fn bool_and_string_true_are_different() {
+            assert_ne!(
+                hash_value(&Value::test_bool(true)),
+                hash_value(&Value::test_string("true"))
+            );
+        }
+
+        #[test]
+        fn nothing_and_empty_string_are_different() {
+            assert_ne!(
+                hash_value(&Value::nothing(Span::test_data())),
+                hash_value(&Value::test_string(""))
+            );
+        }
+
+        #[test]
+        fn int_and_float_with_same_value_hash_equal() {
+            assert_eq_implies_same_hash(&Value::test_int(1), &Value::test_float(1.0));
+        }
+
+        #[test]
+        fn string_and_glob_with_same_text_hash_equal() {
+            let string = Value::test_string("*.txt");
+            let glob = Value::glob("*.txt", false, Span::test_data());
+            assert_eq_implies_same_hash(&string, &glob);
+        }
+
+        #[test]
+        fn glob_no_expand_does_not_affect_hash() {
+            let expand = Value::glob("*.txt", false, Span::test_data());
+            let no_expand = Value::glob("*.txt", true, Span::test_data());
+            assert_eq_implies_same_hash(&expand, &no_expand);
+        }
+
+        #[test]
+        fn float_zero_and_negative_zero_hash_equal() {
+            assert_eq_implies_same_hash(&Value::test_float(0.0), &Value::test_float(-0.0));
+        }
+
+        #[test]
+        fn float_infinities_hash_by_sign() {
+            let pos = Value::test_float(f64::INFINITY);
+            let neg = Value::test_float(f64::NEG_INFINITY);
+            assert_eq_implies_same_hash(&pos, &pos);
+            assert_ne!(hash_value(&pos), hash_value(&neg));
+        }
+
+        #[test]
+        fn date_offset_does_not_affect_hash() {
+            let utc = chrono::DateTime::parse_from_rfc3339("2020-01-01T00:00:00.123456789Z")
+                .expect("rfc3339");
+            let east = utc.with_timezone(&FixedOffset::east_opt(3600).expect("offset"));
+            assert_eq_implies_same_hash(&Value::test_date(utc), &Value::test_date(east));
+        }
+
+        #[test]
+        fn date_subseconds_affect_hash() {
+            let a = chrono::DateTime::parse_from_rfc3339("2020-01-01T00:00:00.000000000Z")
+                .expect("rfc3339");
+            let b = chrono::DateTime::parse_from_rfc3339("2020-01-01T00:00:00.000000001Z")
+                .expect("rfc3339");
+            assert_ne!(a, b);
+            assert_ne!(
+                hash_value(&Value::test_date(a)),
+                hash_value(&Value::test_date(b))
+            );
+        }
+
+        #[test]
+        fn custom_hash_matches_partial_cmp_not_base_value() {
+            let a = Value::custom(
+                Box::new(PrefixedCustom {
+                    version: 1,
+                    prefix: "v".into(),
+                }),
+                Span::test_data(),
+            );
+            let b = Value::custom(
+                Box::new(PrefixedCustom {
+                    version: 1,
+                    prefix: String::new(),
+                }),
+                Span::test_data(),
+            );
+            assert_eq_implies_same_hash(&a, &b);
+        }
+
+        #[test]
+        fn float_hash_uses_bits() {
+            assert_eq!(
+                hash_value(&Value::test_float(1.0)),
+                hash_value(&Value::test_float(1.0))
+            );
+            assert_ne!(
+                hash_value(&Value::test_float(1.0)),
+                hash_value(&Value::test_float(2.0))
+            );
+        }
+
+        #[test]
+        fn filesize_same_hash() {
+            let a = Value::filesize(Filesize::new(1000), Span::test_data());
+            let b = Value::filesize(Filesize::new(1000), Span::test_data());
+            assert_eq!(hash_value(&a), hash_value(&b));
+        }
+
+        #[test]
+        fn filesize_different_hash() {
+            let a = Value::filesize(Filesize::new(1000), Span::test_data());
+            let b = Value::filesize(Filesize::new(2000), Span::test_data());
+            assert_ne!(hash_value(&a), hash_value(&b));
+        }
+
+        #[test]
+        fn duration_same_hash() {
+            let a = Value::duration(1_000_000, Span::test_data());
+            let b = Value::duration(1_000_000, Span::test_data());
+            assert_eq!(hash_value(&a), hash_value(&b));
+        }
+
+        #[test]
+        fn range_int_same_hash() {
+            let a = Value::range(
+                Range::new_int(1, Some(2), Some(Bound::Included(5))),
+                Span::test_data(),
+            );
+            let b = Value::range(
+                Range::new_int(1, Some(2), Some(Bound::Included(5))),
+                Span::test_data(),
+            );
+            assert_eq!(hash_value(&a), hash_value(&b));
+        }
+
+        #[test]
+        fn range_int_different_hash() {
+            let a = Value::range(
+                Range::new_int(1, Some(2), Some(Bound::Included(5))),
+                Span::test_data(),
+            );
+            let b = Value::range(
+                Range::new_int(1, Some(3), Some(Bound::Included(5))),
+                Span::test_data(),
+            );
+            assert_ne!(hash_value(&a), hash_value(&b));
+        }
+
+        #[test]
+        fn range_int_and_float_same_hash() {
+            // IntRange and FloatRange that represent the same range must hash
+            // identically, because Range::PartialEq promotes IntRange to
+            // FloatRange for cross-type comparisons. Hashing them differently
+            // would violate the hash/equality contract.
+            let a = Value::range(
+                Range::new_int(1, Some(2), Some(Bound::Included(3))),
+                Span::test_data(),
+            );
+            let b = Value::range(
+                Range::new_float(1.0, Some(2.0), Some(Bound::Included(3.0))),
+                Span::test_data(),
+            );
+            assert_eq!(hash_value(&a), hash_value(&b));
+        }
+
+        #[test]
+        fn range_negative_zero_hashes_equal() {
+            let a = Value::range(
+                Range::new_float(0.0, None, Some(Bound::Included(1.0))),
+                Span::test_data(),
+            );
+            let b = Value::range(
+                Range::new_float(-0.0, None, Some(Bound::Included(1.0))),
+                Span::test_data(),
+            );
+            assert_eq_implies_same_hash(&a, &b);
+        }
+
+        #[test]
+        fn record_same_hash() {
+            let a = Value::test_record(record! {
+                "x" => Value::test_int(1),
+                "y" => Value::test_int(2),
+            });
+            let b = Value::test_record(record! {
+                "x" => Value::test_int(1),
+                "y" => Value::test_int(2),
+            });
+            assert_eq!(hash_value(&a), hash_value(&b));
+        }
+
+        #[test]
+        fn record_different_keys_different_hash() {
+            let a = Value::test_record(record! {
+                "a" => Value::test_int(1),
+            });
+            let b = Value::test_record(record! {
+                "b" => Value::test_int(1),
+            });
+            assert_ne!(hash_value(&a), hash_value(&b));
+        }
+
+        #[test]
+        fn record_key_order_does_not_affect_hash() {
+            let a = Value::test_record(record! {
+                "a" => Value::test_int(1),
+                "b" => Value::test_int(2),
+            });
+            let b = Value::test_record(record! {
+                "b" => Value::test_int(2),
+                "a" => Value::test_int(1),
+            });
+            // Record PartialOrd sorts columns before comparing, so these are
+            // equal. Hash must match.
+            assert_eq!(hash_value(&a), hash_value(&b));
+        }
+
+        #[test]
+        fn list_same_hash() {
+            let a = Value::test_list(vec![Value::test_int(1), Value::test_int(2)]);
+            let b = Value::test_list(vec![Value::test_int(1), Value::test_int(2)]);
+            assert_eq!(hash_value(&a), hash_value(&b));
+        }
+
+        #[test]
+        fn list_different_hash() {
+            let a = Value::test_list(vec![Value::test_int(1), Value::test_int(2)]);
+            let b = Value::test_list(vec![Value::test_int(1), Value::test_int(3)]);
+            assert_ne!(hash_value(&a), hash_value(&b));
+        }
+
+        #[test]
+        fn cell_path_same_hash() {
+            let a = Value::cell_path(
+                CellPath {
+                    members: vec![PathMember::test_string("a", false, Casing::Sensitive)],
+                },
+                Span::test_data(),
+            );
+            let b = Value::cell_path(
+                CellPath {
+                    members: vec![PathMember::test_string("a", false, Casing::Sensitive)],
+                },
+                Span::test_data(),
+            );
+            assert_eq!(hash_value(&a), hash_value(&b));
+        }
+
+        #[test]
+        fn cell_path_ignores_casing_in_hash() {
+            let a = Value::cell_path(
+                CellPath {
+                    members: vec![PathMember::test_string("a", false, Casing::Sensitive)],
+                },
+                Span::test_data(),
+            );
+            let b = Value::cell_path(
+                CellPath {
+                    members: vec![PathMember::test_string("a", false, Casing::Insensitive)],
+                },
+                Span::test_data(),
+            );
+            assert_eq!(hash_value(&a), hash_value(&b));
+        }
+
+        #[test]
+        fn glob_same_hash() {
+            let a = Value::glob("*.txt", false, Span::test_data());
+            let b = Value::glob("*.txt", false, Span::test_data());
+            assert_eq!(hash_value(&a), hash_value(&b));
+        }
+
+        #[test]
+        fn glob_different_hash() {
+            let a = Value::glob("*.txt", false, Span::test_data());
+            let b = Value::glob("*.rs", false, Span::test_data());
+            assert_ne!(hash_value(&a), hash_value(&b));
+        }
+
+        #[test]
+        fn closures_different_block_ids_different_hash() {
+            let a = Value::closure(
+                Closure {
+                    block_id: BlockId::new(0),
+                    captures: vec![],
+                },
+                Span::test_data(),
+            );
+            let b = Value::closure(
+                Closure {
+                    block_id: BlockId::new(1),
+                    captures: vec![],
+                },
+                Span::test_data(),
+            );
+            assert_ne!(hash_value(&a), hash_value(&b));
+        }
+
+        #[test]
+        fn errors_all_have_same_hash() {
+            let a = Value::error(
+                ShellError::CantConvert {
+                    to_type: "int".into(),
+                    from_type: "string".into(),
+                    span: Span::test_data(),
+                    help: None,
+                },
+                Span::test_data(),
+            );
+            let b = Value::error(
+                ShellError::CantConvert {
+                    to_type: "float".into(),
+                    from_type: "bool".into(),
+                    span: Span::test_data(),
+                    help: Some("different error".into()),
+                },
+                Span::test_data(),
+            );
+            // PartialOrd considers all errors equal, so hash must match.
+            assert_eq!(hash_value(&a), hash_value(&b));
+        }
+
+        #[test]
+        fn closures_same_block_id_same_hash_regardless_of_captures() {
+            let a = Value::closure(
+                Closure {
+                    block_id: BlockId::new(0),
+                    captures: vec![(VarId::new(0), Value::test_int(1))],
+                },
+                Span::test_data(),
+            );
+            let b = Value::closure(
+                Closure {
+                    block_id: BlockId::new(0),
+                    captures: vec![(VarId::new(0), Value::test_int(2))],
+                },
+                Span::test_data(),
+            );
+            // PartialOrd compares closures by block_id only, so these are
+            // equal. Hash must match.
+            assert_eq!(hash_value(&a), hash_value(&b));
+        }
+
+        #[test]
+        fn binary_same_hash() {
+            let a = Value::binary(vec![1, 2, 3], Span::test_data());
+            let b = Value::binary(vec![1, 2, 3], Span::test_data());
+            assert_eq!(hash_value(&a), hash_value(&b));
+        }
+
+        #[test]
+        fn binary_different_hash() {
+            let a = Value::binary(vec![1, 2, 3], Span::test_data());
+            let b = Value::binary(vec![1, 2, 4], Span::test_data());
+            assert_ne!(hash_value(&a), hash_value(&b));
         }
     }
 

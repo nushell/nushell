@@ -2,7 +2,12 @@ use super::Expression;
 use crate::{Span, casing::Casing};
 use nu_utils::{escape_quote_string, needs_quoting};
 use serde::{Deserialize, Serialize};
-use std::{cmp::Ordering, fmt::Display, str::FromStr};
+use std::{
+    cmp::Ordering,
+    fmt::Display,
+    hash::{Hash, Hasher},
+    str::FromStr,
+};
 use winnow::Parser;
 
 /// One level of access of a [`CellPath`]
@@ -183,6 +188,22 @@ impl PartialOrd for PathMember {
     }
 }
 
+impl Hash for PathMember {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        std::mem::discriminant(self).hash(state);
+        match self {
+            PathMember::String { val, optional, .. } => {
+                val.hash(state);
+                optional.hash(state);
+            }
+            PathMember::Int { val, optional, .. } => {
+                val.hash(state);
+                optional.hash(state);
+            }
+        }
+    }
+}
+
 impl Display for PathMember {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -296,6 +317,15 @@ impl TestPathMember<usize> {
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct CellPath {
     pub members: Vec<PathMember>,
+}
+
+impl Hash for CellPath {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.members.len().hash(state);
+        for member in &self.members {
+            member.hash(state);
+        }
+    }
 }
 
 impl CellPath {

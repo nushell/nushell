@@ -6,6 +6,7 @@ use nu_protocol::{
 };
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
+use std::hash::{Hash, Hasher};
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct CoolCustomValue {
@@ -104,6 +105,11 @@ impl CustomValue for CoolCustomValue {
                 src_span: self_span,
             }),
         }
+    }
+
+    fn hash_value(&self, mut state: &mut dyn Hasher) {
+        self.type_name().hash(&mut state);
+        self.cool.hash(&mut state);
     }
 
     fn partial_cmp(&self, other: &Value) -> Option<Ordering> {

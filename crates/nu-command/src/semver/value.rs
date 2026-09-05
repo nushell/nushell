@@ -7,6 +7,7 @@ use nu_protocol::{
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::cmp::Ordering;
+use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 
 /// A semantic version value, optionally carrying a display prefix from loose parsing.
@@ -65,6 +66,11 @@ impl nu_protocol::CustomValue for SemverValue {
 
     fn as_mut_any(&mut self) -> &mut dyn Any {
         self
+    }
+
+    fn hash_value(&self, mut state: &mut dyn Hasher) {
+        self.type_name().hash(&mut state);
+        self.version.hash(&mut state);
     }
 
     fn partial_cmp(&self, other: &Value) -> Option<Ordering> {
@@ -418,6 +424,31 @@ mod tests {
 
         assert_eq!(expected.partial_cmp(&got), Some(Ordering::Equal));
         assert_eq!(expected, got);
+    }
+
+    #[test]
+    fn semver_hash_ignores_display_prefix() {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+
+        let with_prefix = Value::custom(
+            Box::new(SemverValue::with_prefix(
+                semver::Version::parse("1.0.0").unwrap(),
+                "v",
+            )),
+            Span::test_data(),
+        );
+        let without_prefix = Value::custom(
+            Box::new(SemverValue::new(semver::Version::parse("1.0.0").unwrap())),
+            Span::test_data(),
+        );
+
+        assert_eq!(with_prefix, without_prefix);
+        let mut a = DefaultHasher::new();
+        let mut b = DefaultHasher::new();
+        with_prefix.hash(&mut a);
+        without_prefix.hash(&mut b);
+        assert_eq!(a.finish(), b.finish());
     }
 
     #[test]

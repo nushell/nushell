@@ -1,6 +1,7 @@
 //! Our insertion ordered map-type [`Record`]
 use std::{
     fmt::Debug,
+    hash::{Hash, Hasher},
     iter::FusedIterator,
     marker::PhantomData,
     ops::{Deref, DerefMut, Index, RangeBounds},
@@ -23,6 +24,21 @@ impl Debug for Record {
         f.debug_map()
             .entries(self.inner.iter().map(|(k, v)| (k, v)))
             .finish()
+    }
+}
+
+impl Hash for Record {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        // Sort by key before hashing to match PartialOrd semantics which sorts
+        // columns before comparing, ensuring records with the same content but
+        // different insertion orders hash identically.
+        let mut pairs: Vec<_> = self.inner.iter().collect();
+        pairs.sort_by(|(a, _), (b, _)| a.cmp(b));
+        pairs.len().hash(state);
+        for (key, value) in pairs {
+            key.hash(state);
+            value.hash(state);
+        }
     }
 }
 
