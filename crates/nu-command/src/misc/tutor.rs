@@ -441,15 +441,15 @@ if $score >= 90 {
 }
 ```
 
-The `if` command is an expression, so it can produce a value that you can
-store in a variable or use in a pipeline:
+The `if` command returns a nushell value, so it can be store in a variable or
+use in a pipeline:
 ```
 let result = if 10 > 5 { "yes" } else { "no" }
 $result
 ```
 
-When you have several possible values to match, `match` can be more convenient.
-It checks a value against several patterns:
+When you have several possible values to match, the `match` command can be more
+convenient. It checks a value against several patterns:
 ```
 let number = 2
 
@@ -463,7 +463,7 @@ match $number {
 The `_` pattern acts as a catch-all for anything that did not match an earlier
 branch.
 
-`match` can also be used to unpack structured values:
+The `match` command can also be used to unpack structured values:
 ```
 let user = { name: "Alice", admin: true }
 
@@ -474,7 +474,8 @@ match $user {
 }
 ```
 
-Conditions can also be used to filter values in a pipeline with `where`:
+Conditions can also be used to filter values in a pipeline with the `where`
+command:
 ```
 [1 2 3 4 5] | where $it > 2
 ```
@@ -487,7 +488,7 @@ This keeps only the values for which the condition is true:
 ╰───┴───╯
 ```
 
-For tables, `where` is particularly useful for selecting rows:
+For tables, the `where` command is particularly useful for selecting rows:
 ```
 ls | where size > 1kb
 ```
@@ -497,13 +498,13 @@ You can learn more about filtering pipelines with:
 help where
 ```
 
-You can learn more about blocks, which are used by `if` and other control flow
-commands, by running:
+You can learn more about blocks, which are used by the `if` command and other
+control flow commands, by running:
 ```
 tutor blocks
 ```
 
-You can also see more details about `if` and `match` with:
+You can also see more details about the `if` and `match` commands with:
 ```
 help if
 help match
