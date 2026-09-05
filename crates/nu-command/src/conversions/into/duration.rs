@@ -208,15 +208,63 @@ fn split_whitespace_indices(s: &str, span: Span) -> impl Iterator<Item = (&str, 
     })
 }
 
+/// Multiply a floating-point quantity by its nanosecond factor, returning an
+/// overflow error instead of silently saturating.
+///
+/// Casting an out-of-range (or non-finite) `f64` to `i64` clamps it to
+/// `i64::MIN`/`i64::MAX`, which would produce a bogus duration. The bound is
+/// exact: `i64::MAX as f64` rounds up to `2^63`, and every `f64` below it is
+/// representable as `i64`, as is `i64::MIN` itself.
+fn checked_ns_mul_f64(value: f64, factor: i64, span: Span) -> Result<i64, ShellError> {
+    let product = value * factor as f64;
+    if !product.is_finite() || product < i64::MIN as f64 || product >= i64::MAX as f64 {
+        return Err(ShellError::OperatorOverflow {
+            msg: "duration multiplication overflowed".into(),
+            span,
+            help: Some(format!(
+                "multiplying {value} by {factor} nanoseconds overflows the 64-bit duration range"
+            )),
+        });
+    }
+    Ok(product as i64)
+}
+
 fn compound_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
     let mut duration_ns: i64 = 0;
 
     for (substring, substring_span) in split_whitespace_indices(s, span) {
         let sub_ns = string_to_duration(substring, substring_span)?;
-        duration_ns += sub_ns;
+        duration_ns = checked_ns_add(duration_ns, sub_ns, span)?;
     }
 
     Ok(duration_ns)
+}
+
+/// Multiply a value by its nanosecond factor, returning an overflow error
+/// instead of overflowing (which panics in debug builds and silently wraps in
+/// release builds).
+fn checked_ns_mul(value: i64, factor: i64, span: Span) -> Result<i64, ShellError> {
+    value
+        .checked_mul(factor)
+        .ok_or_else(|| ShellError::OperatorOverflow {
+            msg: "duration multiplication overflowed".into(),
+            span,
+            help: Some(format!(
+                "multiplying {value} by {factor} nanoseconds overflows the 64-bit duration range"
+            )),
+        })
+}
+
+/// Add two nanosecond durations, returning an overflow error instead of
+/// overflowing (which panics in debug builds and silently wraps in release
+/// builds).
+fn checked_ns_add(a: i64, b: i64, span: Span) -> Result<i64, ShellError> {
+    a.checked_add(b)
+        .ok_or_else(|| ShellError::OperatorOverflow {
+            msg: "duration addition overflowed".into(),
+            span,
+            help: Some("the combined duration overflows the 64-bit duration range".into()),
+        })
 }
 
 // Try to parse a string formatted as `hh:mm:ss` with an optional fractional
@@ -287,9 +335,10 @@ fn parse_clock_duration(s: &str, span: Span) -> Result<Option<i64>, ShellError> 
         return Err(clock_range_error(span));
     }
 
-    Ok(Some(
-        hours * NS_PER_HOUR + minutes * NS_PER_MINUTE + seconds * NS_PER_SEC + fractional_ns,
-    ))
+    let ns = checked_ns_mul(hours, NS_PER_HOUR, span)?;
+    let ns = checked_ns_add(ns, checked_ns_mul(minutes, NS_PER_MINUTE, span)?, span)?;
+    let ns = checked_ns_add(ns, checked_ns_mul(seconds, NS_PER_SEC, span)?, span)?;
+    checked_ns_add(ns, fractional_ns, span).map(Some)
 }
 
 fn string_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
@@ -307,16 +356,11 @@ fn string_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
     ) && let Expr::ValueWithUnit(value) = expression.expr
         && let Expr::Int(x) = value.expr.expr
     {
-        match value.unit.item {
-            Unit::Nanosecond => return Ok(x),
-            Unit::Microsecond => return Ok(x * 1000),
-            Unit::Millisecond => return Ok(x * 1000 * 1000),
-            Unit::Second => return Ok(x * NS_PER_SEC),
-            Unit::Minute => return Ok(x * 60 * NS_PER_SEC),
-            Unit::Hour => return Ok(x * 60 * 60 * NS_PER_SEC),
-            Unit::Day => return Ok(x * 24 * 60 * 60 * NS_PER_SEC),
-            Unit::Week => return Ok(x * 7 * 24 * 60 * 60 * NS_PER_SEC),
-            _ => {}
+        // `unit_to_ns_factor` is 0 for non-duration units; every duration unit
+        // (including nanosecond) has a non-zero factor.
+        let factor = unit_to_ns_factor(&value.unit.item);
+        if factor != 0 {
+            return checked_ns_mul(x, factor, span);
         }
     }
 
@@ -357,7 +401,10 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         Value::String { val, .. } => {
             if let Ok(num) = val.parse::<f64>() {
                 let ns = unit_to_ns_factor(unit);
-                return Value::duration((num * (ns as f64)) as i64, head);
+                return match checked_ns_mul_f64(num, ns, value_span) {
+                    Ok(duration) => Value::duration(duration, head),
+                    Err(err) => Value::error(err, value_span),
+                };
             }
             match compound_to_duration(val, value_span) {
                 Ok(val) => Value::duration(val, head),
@@ -366,11 +413,19 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         }
         Value::Float { val, .. } => {
             let ns = unit_to_ns_factor(unit);
-            Value::duration((*val * (ns as f64)) as i64, head)
+            match checked_ns_mul_f64(*val, ns, value_span) {
+                Ok(duration) => Value::duration(duration, head),
+                Err(err) => Value::error(err, value_span),
+            }
         }
         Value::Int { val, .. } => {
             let ns = unit_to_ns_factor(unit);
-            Value::duration(*val * ns, head)
+            // Report the overflow at the input value's span (not the call span)
+            // so the error highlights the offending input.
+            match checked_ns_mul(*val, ns, value_span) {
+                Ok(duration) => Value::duration(duration, head),
+                Err(err) => Value::error(err, value_span),
+            }
         }
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => input.clone(),
@@ -406,35 +461,43 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<Value, ShellE
 
     if let Some(col_val) = record.get("week") {
         let week = parse_number_from_record(col_val, &head)?;
-        duration += week * NS_PER_WEEK;
+        duration = checked_ns_add(duration, checked_ns_mul(week, NS_PER_WEEK, span)?, span)?;
     };
     if let Some(col_val) = record.get("day") {
         let day = parse_number_from_record(col_val, &head)?;
-        duration += day * NS_PER_DAY;
+        duration = checked_ns_add(duration, checked_ns_mul(day, NS_PER_DAY, span)?, span)?;
     };
     if let Some(col_val) = record.get("hour") {
         let hour = parse_number_from_record(col_val, &head)?;
-        duration += hour * NS_PER_HOUR;
+        duration = checked_ns_add(duration, checked_ns_mul(hour, NS_PER_HOUR, span)?, span)?;
     };
     if let Some(col_val) = record.get("minute") {
         let minute = parse_number_from_record(col_val, &head)?;
-        duration += minute * NS_PER_MINUTE;
+        duration = checked_ns_add(duration, checked_ns_mul(minute, NS_PER_MINUTE, span)?, span)?;
     };
     if let Some(col_val) = record.get("second") {
         let second = parse_number_from_record(col_val, &head)?;
-        duration += second * NS_PER_SEC;
+        duration = checked_ns_add(duration, checked_ns_mul(second, NS_PER_SEC, span)?, span)?;
     };
     if let Some(col_val) = record.get("millisecond") {
         let millisecond = parse_number_from_record(col_val, &head)?;
-        duration += millisecond * NS_PER_MS;
+        duration = checked_ns_add(
+            duration,
+            checked_ns_mul(millisecond, NS_PER_MS, span)?,
+            span,
+        )?;
     };
     if let Some(col_val) = record.get("microsecond") {
         let microsecond = parse_number_from_record(col_val, &head)?;
-        duration += microsecond * NS_PER_US;
+        duration = checked_ns_add(
+            duration,
+            checked_ns_mul(microsecond, NS_PER_US, span)?,
+            span,
+        )?;
     };
     if let Some(col_val) = record.get("nanosecond") {
         let nanosecond = parse_number_from_record(col_val, &head)?;
-        duration += nanosecond;
+        duration = checked_ns_add(duration, nanosecond, span)?;
     };
 
     if let Some(sign) = record.get("sign") {
