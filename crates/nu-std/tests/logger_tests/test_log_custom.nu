@@ -8,18 +8,27 @@ def run-command [
     format: string,
     log_level: int,
     --level-prefix: string,
+    --context: record
     --ansi: string
 ] {
-    if ($level_prefix | is-empty) {
-        if ($ansi | is-empty) {
-            ^$nu.current-exe --no-config-file --commands $'use std/log; NU_LOG_LEVEL=($system_level) log custom "($message)" "($format)" ($log_level)'
-        } else {
-            ^$nu.current-exe --no-config-file --commands $'use std/log; NU_LOG_LEVEL=($system_level) log custom "($message)" "($format)" ($log_level) --ansi "($ansi)"'
-        }
-    } else {
-        ^$nu.current-exe --no-config-file --commands $'use std/log; NU_LOG_LEVEL=($system_level) log custom "($message)" "($format)" ($log_level) --level-prefix "($level_prefix)" --ansi "($ansi)"'
-    }
-    | complete | get --optional stderr
+  mut args = []
+
+  if ($level_prefix | is-not-empty) {
+    $args = $args | append ["--level-prefix" $level_prefix]
+  }
+
+  if ($ansi | is-not-empty) {
+    $args = $args | append ["--ansi" $ansi]
+  }
+
+  if ($context | is-not-empty) {
+    $args = $args | append ["--context" ($context | to nuon)]
+  }
+
+  let args = $args | str join ' '
+
+  ^$nu.current-exe --no-config-file --commands $'use std; use std/log; NU_LOG_LEVEL=($system_level) log custom ($args) "($message)" "($format)" ($log_level)'
+  | complete | get --optional stderr
 }
 
 @test
@@ -35,7 +44,8 @@ def valid_calls [] {
     assert equal (run-command "DEBUG" "msg" "%MSG%" 25 --level-prefix "abc" --ansi (ansi default) | str trim --right) "msg"
     assert equal (run-command "DEBUG" "msg" "%LEVEL% %MSG%" 20 | str trim --right) $"((log-prefix).INFO) msg"
     assert equal (run-command "DEBUG" "msg" "%LEVEL% %MSG%" --level-prefix "abc" 20 | str trim --right) "abc msg"
-    assert equal (run-command "INFO" "msg" "%ANSI_START%%LEVEL% %MSG%%ANSI_STOP%" ((log-level).CRITICAL) | str trim --right) $"((log-ansi).CRITICAL)CRT msg(ansi reset)"
+    assert equal (run-command "DEBUG" "msg" "%LEVEL% %CONTEXT%" --level-prefix "abc" 20 | str trim --right) 'abc var="value"'
+    assert equal (run-command "INFO" "msg" "%ANSI_START%%LEVEL% %MSG% %CONTEXT%%ANSI_STOP%" ((log-level).CRITICAL) --context {var: value} | str trim --right) $'((log-ansi).CRITICAL)CRT msg var="value"(ansi reset)'
 }
 
 @test

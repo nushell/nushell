@@ -41,5 +41,5 @@ def env_log-short-prefix [] {
 
 @test
 def env_log_format [] {
-    assert equal $env.NU_LOG_FORMAT $"%ANSI_START%%DATE%|%LEVEL%|%MSG%%ANSI_STOP%"
+    assert equal $env.NU_LOG_FORMAT $"%ANSI_START%%DATE%|%LEVEL%|%MSG%|%CONTEXT%ANSI_STOP%"
 }

@@ -39,7 +39,7 @@ const LOG_SHORT_PREFIX = {
 export def log-short-prefix [] {$LOG_SHORT_PREFIX}
 
 const LOG_FORMATS = {
-    log: "%ANSI_START%%DATE%|%LEVEL%|%MSG%%ANSI_STOP%"
+    log: "%ANSI_START%%DATE%|%LEVEL%|%MSG%|%CONTEXT%%ANSI_STOP%"
     date: "%Y-%m-%dT%H:%M:%S%.3f"
 }
 
@@ -155,6 +155,7 @@ def handle-log [
     formatting: record,
     format_string: string,
     short: bool
+    context: record
 ] {
     let log_format = $format_string | default -e $env.NU_LOG_FORMAT? | default $LOG_FORMATS.log
 
@@ -164,7 +165,7 @@ def handle-log [
         $formatting.prefix
     }
 
-    custom $message $log_format $formatting.level --level-prefix $prefix --ansi $formatting.ansi
+    custom $message $log_format $formatting.level --context $context --level-prefix $prefix --ansi $formatting.ansi
 }
 
 # Logging module
@@ -174,6 +175,7 @@ def handle-log [
 # - %DATE%: date of log
 # - %LEVEL%: string prefix for the log level
 # - %ANSI_START%: ansi formatting
+# - %CONTEXT%: log context
 # - %ANSI_STOP%: literally (ansi reset)
 #
 # Note: All placeholders are optional, so "" is still a valid format
@@ -186,9 +188,11 @@ export def critical [
     message: string, # A message
     --short (-s) # Whether to use a short prefix
     --format (-f): string # A format (for further reference: help std log)
+    --context (-c): record # A record to add contextual information
 ] {
     let format = $format | default ""
-    handle-log $message ($LOG_TYPES.CRITICAL)  $format $short
+    let context = $context | default {}
+    handle-log $message ($LOG_TYPES.CRITICAL)  $format $short $context
 }
 
 # Log an error message
@@ -196,9 +200,11 @@ export def error [
     message: string, # A message
     --short (-s) # Whether to use a short prefix
     --format (-f): string # A format (for further reference: help std log)
+    --context (-c): record # A record to add contextual information
 ] {
     let format = $format | default ""
-    handle-log $message ($LOG_TYPES.ERROR) $format $short
+    let context = $context | default {}
+    handle-log $message ($LOG_TYPES.ERROR) $format $short $context
 }
 
 # Log a warning message
@@ -206,9 +212,11 @@ export def warning [
     message: string, # A message
     --short (-s) # Whether to use a short prefix
     --format (-f): string # A format (for further reference: help std log)
+    --context (-c): record # A record to add contextual information
 ] {
     let format = $format | default ""
-    handle-log $message ($LOG_TYPES.WARNING) $format $short
+    let context = $context | default {}
+    handle-log $message ($LOG_TYPES.WARNING) $format $short $context
 }
 
 # Log an info message
@@ -216,9 +224,11 @@ export def info [
     message: string, # A message
     --short (-s) # Whether to use a short prefix
     --format (-f): string # A format (for further reference: help std log)
+    --context (-c): record # A record to add contextual information
 ] {
     let format = $format | default ""
-    handle-log $message ($LOG_TYPES.INFO) $format $short
+    let context = $context | default {}
+    handle-log $message ($LOG_TYPES.INFO) $format $short $context
 }
 
 # Log a debug message
@@ -226,9 +236,11 @@ export def debug [
     message: string, # A message
     --short (-s) # Whether to use a short prefix
     --format (-f): string # A format (for further reference: help std log)
+    --context (-c): record # A record to add contextual information
 ] {
     let format = $format | default ""
-    handle-log $message ($LOG_TYPES.DEBUG) $format $short
+    let context = $context | default {}
+    handle-log $message ($LOG_TYPES.DEBUG) $format $short $context
 }
 
 def log-level-deduction-error [
@@ -256,6 +268,7 @@ export def custom [
     log_level: int # A log level (has to be one of the log-level values for correct ansi/prefix deduction)
     --level-prefix (-p): string # %LEVEL% placeholder extension
     --ansi (-a): string # %ANSI_START% placeholder extension
+    --context: record # A context record
 ] {
     if (current-log-level) > ($log_level) {
         return
@@ -279,6 +292,12 @@ export def custom [
     } else {
         $level_prefix
     }
+
+    let context = $context
+        | default {}
+        | transpose k v
+        | each {|e| $'($e.k)="($e.v)"'}
+        | str join ' '
 
     let use_color = ($env.config?.use_ansi_coloring? | $in != false)
     let ansi = if not $use_color {
@@ -306,6 +325,7 @@ export def custom [
             | str replace --all "%MSG%" $message
             | str replace --all "%DATE%" (now)
             | str replace --all "%LEVEL%" $prefix
+            | str replace --all "%CONTEXT%" $context
             | str replace --all "%ANSI_START%" $ansi
             | str replace --all "%ANSI_STOP%" (ansi reset)
 
