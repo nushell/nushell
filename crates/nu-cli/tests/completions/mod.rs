@@ -12,7 +12,8 @@ use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_path::{AbsolutePathBuf, expand_tilde};
 use nu_protocol::{
-    Config, ParseError, PipelineData, Value, debugger::WithoutDebug, engine::StateWorkingSet,
+    CompletionAlgorithm, Config, ParseError, PipelineData, Value, debugger::WithoutDebug,
+    engine::StateWorkingSet,
 };
 use nu_std::load_standard_library;
 
@@ -302,6 +303,21 @@ fn customcompletions_inherit_options() {
     // Custom options should make matching case insensitive
     let suggestions = completer.complete_blocking("my-command acd", 14);
     match_suggestions(&expected, &suggestions);
+}
+
+#[test]
+fn customcompletions_use_fallback_algorithm() {
+    let mut completer = custom_completer_with_options(
+        r#"$env.config.completions.algorithm = "prefix""#,
+        r#"completion_algorithm: "fallback""#,
+        &["barfoo", "foobar"],
+    );
+
+    let suggestions = completer.complete_blocking("my-command foo", 14);
+    match_suggestions(&vec!["foobar"], &suggestions);
+
+    let suggestions = completer.complete_blocking("my-command rfo", 14);
+    match_suggestions(&vec!["barfoo"], &suggestions);
 }
 
 #[test]
@@ -800,6 +816,114 @@ fn external_commands() {
 }
 
 #[test]
+fn fallback_command_completion_prefers_prefix_matches() {
+    let mut engine = new_external_engine();
+    let mut stack = nu_protocol::engine::Stack::new();
+    let setup = r#"
+        $env.config.completions.algorithm = "fallback"
+        def slping [] {}
+    "#;
+    assert!(support::merge_input(setup.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let suggestions = completer.complete_blocking("slp", 3);
+    match_suggestions(&vec!["slping"], &suggestions);
+}
+
+#[test]
+fn fallback_external_limit_preserves_prefix_matches() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let fuzzy_dir = dir.path().join("fuzzy");
+    let prefix_dir = dir.path().join("prefix");
+    std::fs::create_dir(&fuzzy_dir).expect("create fuzzy directory");
+    std::fs::create_dir(&prefix_dir).expect("create prefix directory");
+
+    let (fuzzy_name, prefix_name) = if cfg!(windows) {
+        ("sleep.exe", "slping.exe")
+    } else {
+        ("sleep", "slping")
+    };
+    let fuzzy_path = fuzzy_dir.join(fuzzy_name);
+    let prefix_path = prefix_dir.join(prefix_name);
+    std::fs::write(&fuzzy_path, "").expect("write fuzzy command");
+    std::fs::write(&prefix_path, "").expect("write prefix command");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+
+        std::fs::set_permissions(&fuzzy_path, std::fs::Permissions::from_mode(0o755))
+            .expect("make fuzzy command executable");
+        std::fs::set_permissions(&prefix_path, std::fs::Permissions::from_mode(0o755))
+            .expect("make prefix command executable");
+    }
+
+    let pwd = AbsolutePathBuf::try_from(dir.path().to_path_buf()).expect("absolute tempdir");
+    let (_, _, mut engine, stack) = new_engine_helper(pwd);
+    engine.add_env_var(
+        "PATH".to_string(),
+        Value::test_list(vec![
+            Value::test_string(fuzzy_dir.to_string_lossy()),
+            Value::test_string(prefix_dir.to_string_lossy()),
+        ]),
+    );
+    let mut config = engine.get_config().as_ref().clone();
+    config.completions.algorithm = CompletionAlgorithm::Fallback;
+    config.completions.external.max_results = 1;
+    engine.set_config(config);
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let input = "^slp";
+    let suggestions = completer.complete_blocking(input, input.len());
+    match_suggestions(&vec![prefix_name], &suggestions);
+}
+
+#[test]
+fn fallback_path_completion_prefers_prefix_paths() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    std::fs::create_dir_all(dir.path().join("parent-one/child")).expect("create directory");
+    std::fs::create_dir_all(dir.path().join("parent-two/fuzzy-child")).expect("create directory");
+
+    let pwd = AbsolutePathBuf::try_from(dir.path().to_path_buf()).expect("absolute tempdir");
+    let (_, _, mut engine, mut stack) = new_engine_helper(pwd);
+    assert!(
+        support::merge_input(
+            br#"$env.config.completions.algorithm = "fallback""#,
+            &mut engine,
+            &mut stack,
+        )
+        .is_ok()
+    );
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let input = "cd parent/child";
+    let suggestions = completer.complete_blocking(input, input.len());
+    match_suggestions_by_string(&[folder("parent-one/child")], &suggestions);
+}
+
+#[test]
+fn fallback_path_completion_uses_fuzzy_paths_without_prefix_paths() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    std::fs::create_dir_all(dir.path().join("parent-one/nope")).expect("create directory");
+    std::fs::create_dir_all(dir.path().join("xparent/child")).expect("create directory");
+
+    let pwd = AbsolutePathBuf::try_from(dir.path().to_path_buf()).expect("absolute tempdir");
+    let (_, _, mut engine, mut stack) = new_engine_helper(pwd);
+    assert!(
+        support::merge_input(
+            br#"$env.config.completions.algorithm = "fallback""#,
+            &mut engine,
+            &mut stack,
+        )
+        .is_ok()
+    );
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let input = "cd parent/child";
+    let suggestions = completer.complete_blocking(input, input.len());
+    match_suggestions_by_string(&[folder("xparent/child")], &suggestions);
+}
+
+#[test]
 fn percent_completion_only_shows_builtins() {
     let (_, _, mut engine, mut stack) = new_engine();
     let setup = "
@@ -1131,6 +1255,25 @@ fn module_name_completions() {
 }
 
 #[test]
+fn dotnu_fallback_prefers_prefix_across_sources() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    std::fs::write(dir.path().join("barfoo.nu"), "").expect("write module file");
+
+    let pwd = AbsolutePathBuf::try_from(dir.path().to_path_buf()).expect("absolute tempdir");
+    let (_, _, mut engine, mut stack) = new_engine_helper(pwd);
+    let code = r#"
+        $env.config.completions.algorithm = "fallback"
+        module foobar {}
+    "#;
+    assert!(support::merge_input(code.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let input = "use foo";
+    let suggestions = completer.complete_blocking(input, input.len());
+    match_suggestions(&vec!["foobar"], &suggestions);
+}
+
+#[test]
 fn dotnu_stdlib_completions() {
     let (_, _, mut engine, stack) = new_dotnu_engine();
     assert!(load_standard_library(&mut engine).is_ok());
@@ -1205,6 +1348,29 @@ fn exportable_completions() {
     let suggestions = completer.complete_blocking(completion_str, completion_str.len());
     match_suggestions(&vec!["bar"], &suggestions);
     assert_eq!(suggestions[0].description, Some("meow\nmeow".into()));
+}
+
+#[test]
+fn exportable_completions_use_fallback_matching() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let code = r#"
+        $env.config.completions.algorithm = "fallback"
+        export module hybrid {
+            export def foobar [] {}
+            export def barfoo [] {}
+        }
+    "#;
+    assert!(support::merge_input(code.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    let input = "use hybrid foo";
+    let suggestions = completer.complete_blocking(input, input.len());
+    match_suggestions(&vec!["foobar"], &suggestions);
+
+    let input = "use hybrid rfo";
+    let suggestions = completer.complete_blocking(input, input.len());
+    match_suggestions(&vec!["barfoo"], &suggestions);
 }
 
 #[test]
