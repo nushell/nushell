@@ -126,7 +126,33 @@ pub fn parse_pipeline(
     }
 }
 
+/// A root of the parsers mutual recursion so blocks closures and subexpressions are held to
+/// `MAX_PARSE_NESTING_DEPTH` here rather than at each recursive construct
 pub fn parse_block(
+    working_set: &mut StateWorkingSet,
+    tokens: &[Token],
+    span: Span,
+    scoped: bool,
+    is_subexpression: bool,
+    input_type: Option<&Type>,
+) -> Block {
+    if !working_set.enter_nesting(span) {
+        return Block::new();
+    }
+
+    let block = parse_block_inner(
+        working_set,
+        tokens,
+        span,
+        scoped,
+        is_subexpression,
+        input_type,
+    );
+    working_set.exit_nesting();
+    block
+}
+
+fn parse_block_inner(
     working_set: &mut StateWorkingSet,
     tokens: &[Token],
     span: Span,

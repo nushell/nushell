@@ -18,6 +18,12 @@ use std::{
 #[cfg(feature = "plugin")]
 use crate::{PluginIdentity, PluginRegistryItem, RegisteredPlugin};
 
+/// How deep the recursive-descent parser may nest before rejecting input
+///
+/// Without this bound deep enough input would exhaust the native stack instead of producing a
+/// diagnostic Parser threads size their stacks for it `PARSER_WORKER_STACK_SIZE`
+const MAX_PARSE_NESTING_DEPTH: usize = 64;
+
 /// A temporary extension to the global state. This handles bridging between the global state and the
 /// additional declarations and scope changes that are not yet part of the global scope.
 ///
@@ -37,6 +43,9 @@ pub struct StateWorkingSet<'a> {
     pub parse_errors: Vec<ParseError>,
     pub parse_warnings: Vec<ParseWarning>,
     pub compile_errors: Vec<CompileError>,
+    nesting_depth: usize,
+    /// Whether [`MAX_PARSE_NESTING_DEPTH`] has already been reported for this source
+    reported_nesting_limit: bool,
 }
 
 impl<'a> StateWorkingSet<'a> {
@@ -57,6 +66,8 @@ impl<'a> StateWorkingSet<'a> {
             parse_errors: vec![],
             parse_warnings: vec![],
             compile_errors: vec![],
+            nesting_depth: 0,
+            reported_nesting_limit: false,
         }
     }
 
@@ -70,6 +81,43 @@ impl<'a> StateWorkingSet<'a> {
 
     pub fn warning(&mut self, parse_warning: ParseWarning) {
         self.parse_warnings.push(parse_warning)
+    }
+
+    /// Descend one level of structural nesting
+    ///
+    /// Returns `false` once [`MAX_PARSE_NESTING_DEPTH`] is reached in which case the caller must
+    /// yield a placeholder rather than recurse and must not call [`Self::exit_nesting`] The
+    /// nesting error is recorded only once per source so that a single over-deep expression cannot
+    /// emit a diagnostic per remaining level
+    pub fn enter_nesting(&mut self, span: Span) -> bool {
+        if self.nesting_depth >= MAX_PARSE_NESTING_DEPTH {
+            if !self.reported_nesting_limit {
+                self.reported_nesting_limit = true;
+                // The full expression can run to the end of the input which makes for an
+                // unreadable label and does not survive being re-based into nuon text
+                let start = Span::new(span.start, span.end.min(span.start + 1));
+                self.error(ParseError::NestingTooDeep(start));
+            }
+            return false;
+        }
+
+        self.nesting_depth += 1;
+        true
+    }
+
+    pub fn exit_nesting(&mut self) {
+        self.nesting_depth = self.nesting_depth.saturating_sub(1);
+    }
+
+    /// Run `parse` with its own nesting report-once state restoring the callers afterwards
+    ///
+    /// One working set spans many parses the LSP scans a whole workspace through one and
+    /// `source` parses a nested file while its parent parse is still running
+    pub fn with_source_nesting_report<T>(&mut self, parse: impl FnOnce(&mut Self) -> T) -> T {
+        let enclosing = std::mem::replace(&mut self.reported_nesting_limit, false);
+        let parsed = parse(self);
+        self.reported_nesting_limit = enclosing;
+        parsed
     }
 
     pub fn num_files(&self) -> usize {

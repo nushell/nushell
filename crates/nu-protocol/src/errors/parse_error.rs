@@ -76,6 +76,15 @@ pub enum ParseError {
         String,
     ),
 
+    #[error("Nesting level too deep.")]
+    #[diagnostic(
+        code(nu::parser::nesting_too_deep),
+        help(
+            "Deeply nested code has to be broken up into smaller pieces, such as separate commands or variables."
+        )
+    )]
+    NestingTooDeep(#[label("nested too deeply")] Span),
+
     #[error("Parse mismatch: expected {0}.")]
     #[diagnostic(
         code(nu::parser::parse_mismatch),
@@ -711,6 +720,7 @@ impl ParseError {
             // Jump-to-error: prefer where the closer was expected (mid-file or EOF).
             ParseError::Unclosed(_, _open, end, _) => *end,
             ParseError::Unbalanced(_, _, close, _) => *close,
+            ParseError::NestingTooDeep(s) => *s,
             ParseError::Expected(_, s) => *s,
             ParseError::ExpectedWithStringMsg(_, s) => *s,
             ParseError::ExpectedWithDidYouMean(_, _, s) => *s,

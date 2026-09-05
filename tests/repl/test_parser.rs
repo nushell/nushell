@@ -968,6 +968,119 @@ fn performance_nested_modules() -> Result {
     Ok(())
 }
 
+// Parser nesting depth https://github.com/nushell/nushell/issues/15241
+//
+// The parser is recursive descent so structural nesting costs native stack frames The cases
+// below run `nu` as a child process on purpose An unguarded parser aborts the process outright
+// instead of reporting an error and reaching the limit still descends that far which is more
+// than the stack of a test worker thread can hold in a debug build
+
+/// The reproduction from the issue
+#[test]
+#[deps(NU)]
+fn deeply_nested_blocks_do_not_overflow_the_stack() -> Result {
+    Playground::setup("deeply_nested_blocks", |dirs, sandbox| -> Result {
+        let source = "{".repeat(2000);
+        sandbox.with_files(&[Stub::FileWithContent("deep.nu", &source)]);
+
+        let result: CompleteResult = test().cwd(dirs.test()).run("nu deep.nu | complete")?;
+
+        assert_eq!(result.exit_code, 1);
+        assert_contains("nu::parser::unclosed_delimiter", result.stderr);
+        Ok(())
+    })
+}
+
+/// Every recursive route through the parser is held to the same limit and each of these inputs
+/// overflowed the stack before that limit existed
+#[test]
+#[deps(NU)]
+fn excessive_nesting_is_rejected_on_every_recursion_route() -> Result {
+    let deep = |part: &str| part.repeat(200);
+    let routes = [
+        ("block.nu", format!("{}{}", deep("{"), deep("}"))),
+        ("list.nu", format!("{}{}", deep("["), deep("]"))),
+        ("record.nu", format!("{}1{}", deep("{a:"), deep("}"))),
+        ("table.nu", format!("[[c]; [{}{}]]", deep("["), deep("]"))),
+        ("parentheses.nu", format!("{}1{}", deep("("), deep(")"))),
+        ("closure.nu", format!("{}{}", deep("{||"), deep("}"))),
+        (
+            "interpolation.nu",
+            format!(r#"$"{}1{}""#, deep("(1 + "), deep(")")),
+        ),
+        (
+            "external.nu",
+            format!("^foo {}1{}", deep("(^foo "), deep(")")),
+        ),
+        (
+            "nuon.nu",
+            format!("'{}{}' | from nuon", deep("["), deep("]")),
+        ),
+    ];
+
+    Playground::setup("excessive_nesting_routes", |dirs, sandbox| -> Result {
+        let stubs: Vec<_> = routes
+            .iter()
+            .map(|(name, source)| Stub::FileWithContent(name, source))
+            .collect();
+        sandbox.with_files(&stubs);
+
+        let mut tester = test().cwd(dirs.test());
+        for (name, _) in &routes {
+            let result: CompleteResult = tester.run(format!("nu {name} | complete"))?;
+
+            assert_eq!(result.exit_code, 1, "{name} should have been rejected");
+            // `from nuon` reports through its own diagnostic so match the message rather than
+            // the error code which the boundary test below covers
+            assert_contains("Nesting level too deep", result.stderr);
+        }
+        Ok(())
+    })
+}
+
+/// Nesting a real program might use keeps working excessive nesting is refused rather than
+/// crashing The exact boundary is pinned by nu-lsps parser-worker test
+#[test]
+#[deps(NU)]
+fn ordinary_nesting_accepted_and_excessive_refused() -> Result {
+    let nested = |depth: usize| format!("{}{}", "[".repeat(depth), "]".repeat(depth));
+    let below = nested(32);
+    let at = nested(200);
+
+    Playground::setup("nesting_boundary", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[
+            Stub::FileWithContent("below.nu", &below),
+            Stub::FileWithContent("at.nu", &at),
+        ]);
+
+        let mut tester = test().cwd(dirs.test());
+
+        let below: CompleteResult = tester.run("nu below.nu | complete")?;
+        assert_eq!(below.exit_code, 0);
+        assert_contains_not("nesting_too_deep", below.stderr);
+
+        let at: CompleteResult = tester.run("nu at.nu | complete")?;
+        assert_eq!(at.exit_code, 1);
+        assert_contains("nu::parser::nesting_too_deep", at.stderr);
+        Ok(())
+    })
+}
+
+/// Shallow malformed input keeps its own diagnostic instead of being blamed on nesting
+#[test]
+fn shallow_unclosed_delimiter_keeps_its_diagnostic() -> Result {
+    let err = test().run("[1 2").expect_parse_error()?;
+    assert_matches!(err, ParseError::Unclosed(delimiter, ..) if delimiter == "]");
+    Ok(())
+}
+
+#[test]
+fn ordinary_nesting_still_parses() -> Result {
+    test()
+        .run("[[a b]; [1 2] [3 4]] | each {|row| {sum: ($row.a + $row.b)} } | get sum | math sum")
+        .expect_value_eq(10)
+}
+
 #[test]
 fn unary_not_1() -> Result {
     test().run("not false").expect_value_eq(true)
