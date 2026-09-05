@@ -76,16 +76,17 @@ impl Command for StrStartsWith {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let substring: Spanned<String> = call.req_const(working_set, 0)?;
-        let cell_paths: Vec<CellPath> = call.rest_const(working_set, 1)?;
+        let substring: Spanned<String> = call.req_const(working_set, stack, 0)?;
+        let cell_paths: Vec<CellPath> = call.rest_const(working_set, stack, 1)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
         let args = Arguments {
             substring: substring.item,
             cell_paths,
-            case_insensitive: call.has_flag_const(working_set, "ignore-case")?,
+            case_insensitive: call.has_flag_const(working_set, stack, "ignore-case")?,
         };
         operate(
             action,

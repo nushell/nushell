@@ -136,13 +136,14 @@ impl Command for Parse {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let pattern: Spanned<String> = call.req_const(working_set, 0)?;
-        let regex: bool = call.has_flag_const(working_set, "regex")?;
+        let pattern: Spanned<String> = call.req_const(working_set, stack, 0)?;
+        let regex: bool = call.has_flag_const(working_set, stack, "regex")?;
         let backtrack_limit: usize = call
-            .get_flag_const(working_set, "backtrack")?
+            .get_flag_const(working_set, stack, "backtrack")?
             .unwrap_or(1_000_000);
         operate(
             working_set.permanent(),

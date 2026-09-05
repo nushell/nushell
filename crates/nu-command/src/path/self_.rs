@@ -53,10 +53,11 @@ impl Command for PathSelf {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let path: Option<String> = call.opt_const(working_set, 0)?;
+        let path: Option<String> = call.opt_const(working_set, stack, 0)?;
         let cwd = working_set.permanent_state.cwd(None)?;
         let current_file = working_set.files.top().ok_or_else(|| {
             IoError::new_with_additional_context(

@@ -191,13 +191,14 @@ none             8150224         4   8150220   1% /mnt/c' | detect columns --gue
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let num_rows_to_skip: Option<usize> = call.get_flag_const(working_set, "skip")?;
-        let noheader = call.has_flag_const(working_set, "no-headers")?;
-        let range: Option<Range> = call.get_flag_const(working_set, "combine-columns")?;
-        let ignore_box_chars = call.has_flag_const(working_set, "ignore-box-chars")?;
+        let num_rows_to_skip: Option<usize> = call.get_flag_const(working_set, stack, "skip")?;
+        let noheader = call.has_flag_const(working_set, stack, "no-headers")?;
+        let range: Option<Range> = call.get_flag_const(working_set, stack, "combine-columns")?;
+        let ignore_box_chars = call.has_flag_const(working_set, stack, "ignore-box-chars")?;
         let config = working_set.get_config().clone();
 
         let args = Arguments {
@@ -208,7 +209,7 @@ none             8150224         4   8150220   1% /mnt/c' | detect columns --gue
             ignore_box_chars,
         };
 
-        if call.has_flag_const(working_set, "guess")? {
+        if call.has_flag_const(working_set, stack, "guess")? {
             guess_width(working_set.permanent(), call, input, args)
         } else {
             detect_columns(working_set.permanent(), call, input, args)

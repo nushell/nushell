@@ -76,11 +76,12 @@ impl Command for MathStddev {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let cell_paths: Vec<CellPath> = call.rest_const(working_set, 0)?;
-        let sample = call.has_flag_const(working_set, "sample")?;
+        let cell_paths: Vec<CellPath> = call.rest_const(working_set, stack, 0)?;
+        let sample = call.has_flag_const(working_set, stack, "sample")?;
         let mf = compute_stddev(sample);
         if cell_paths.is_empty() {
             let input = expand_range_input(input, call.head)?;

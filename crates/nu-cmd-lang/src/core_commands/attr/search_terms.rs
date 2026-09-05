@@ -34,10 +34,11 @@ impl Command for AttrSearchTerms {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let args = call.rest_const(working_set, 0)?;
+        let args = call.rest_const(working_set, stack, 0)?;
         Ok(Value::list(args, call.head).into_pipeline_data())
     }
 

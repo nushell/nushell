@@ -163,19 +163,20 @@ groups as its argument. It must return a string that will be used as a replaceme
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let find: Spanned<String> = call.req_const(working_set, 0)?;
-        let replace: Spanned<String> = call.req_const(working_set, 1)?;
-        let cell_paths: Vec<CellPath> = call.rest_const(working_set, 2)?;
+        let find: Spanned<String> = call.req_const(working_set, stack, 0)?;
+        let replace: Spanned<String> = call.req_const(working_set, stack, 1)?;
+        let cell_paths: Vec<CellPath> = call.rest_const(working_set, stack, 2)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
-        let multiline = call.has_flag_const(working_set, "multiline")?;
-        let regex = call.has_flag_const(working_set, "regex")?;
-        let literal_replace = call.has_flag_const(working_set, "no-expand")?;
+        let multiline = call.has_flag_const(working_set, stack, "multiline")?;
+        let regex = call.has_flag_const(working_set, stack, "regex")?;
+        let literal_replace = call.has_flag_const(working_set, stack, "no-expand")?;
 
         let args = Arguments {
-            all: call.has_flag_const(working_set, "all")?,
+            all: call.has_flag_const(working_set, stack, "all")?,
             matcher: Matcher::new(working_set.permanent(), find, regex, multiline)?,
             replace: ReplacementValue::String(Arc::new(replace)),
             cell_paths,

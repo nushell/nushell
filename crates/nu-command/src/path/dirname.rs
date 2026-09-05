@@ -76,13 +76,14 @@ impl Command for PathDirname {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let args = Arguments {
-            replace: call.get_flag_const(working_set, "replace")?,
-            num_levels: call.get_flag_const(working_set, "num-levels")?,
+            replace: call.get_flag_const(working_set, stack, "replace")?,
+            num_levels: call.get_flag_const(working_set, stack, "num-levels")?,
         };
 
         // This doesn't match explicit nulls

@@ -55,6 +55,7 @@ impl Command for UName {
     fn run_const(
         &self,
         _working_set: &StateWorkingSet,
+        _stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {

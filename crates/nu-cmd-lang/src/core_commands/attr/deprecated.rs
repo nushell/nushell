@@ -74,10 +74,11 @@ impl Command for AttrDeprecated {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let call = WrapCall::ConstEval(working_set, call);
+        let call = WrapCall::ConstEval(working_set, stack, call);
         Ok(deprecated_record(call)?.into_pipeline_data())
     }
 

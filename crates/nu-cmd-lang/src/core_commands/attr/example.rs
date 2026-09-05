@@ -10,8 +10,7 @@ impl Command for AttrExample {
     }
 
     // Example blocks are accepted so their source text can be extracted for help output.
-    // Runtime uses evaluated string/closure values; const still uses the AST call for blocks
-    // (const closures are not implemented yet — see devdocs/ir_call_migration.md phase 2).
+    // Const eval materializes blocks as capture-free closures (see eval_const bridge).
     fn signature(&self) -> Signature {
         Signature::build("attr example")
             .input_output_types(vec![(
@@ -75,32 +74,16 @@ impl Command for AttrExample {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let description: Spanned<String> = call.req_const(working_set, 0)?;
-        let result: Option<Value> = call.get_flag_const(working_set, "result")?;
+        let description: Spanned<String> = call.req_const(working_set, stack, 0)?;
+        let result: Option<Value> = call.get_flag_const(working_set, stack, "result")?;
+        let example_arg: Value = call.req_const(working_set, stack, 1)?;
 
-        // Const evaluation still passes an AST call; blocks are not constant-evaluable as values.
-        // Read the example expression shape for block source text, or evaluate string examples.
-        let call_ast = call.assert_ast_call()?;
-        let example_expr =
-            call_ast
-                .positional_iter()
-                .nth(1)
-                .ok_or(ShellError::MissingParameter {
-                    param_name: "example".into(),
-                    span: call.head,
-                })?;
-
-        let (example_content, example_span) = if let Some(block_id) = example_expr.as_block() {
-            let block = working_set.get_block(block_id);
-            let span = block.span.expect("a block must have a span");
-            (block_source_string(working_set, span), example_expr.span)
-        } else {
-            let example_string: String = call.req_const(working_set, 1)?;
-            (example_string, example_expr.span)
-        };
+        let (example_content, example_span) =
+            example_content_from_value(working_set, &example_arg)?;
 
         attr_example_record(
             call.head,

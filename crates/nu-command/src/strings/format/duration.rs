@@ -94,16 +94,17 @@ impl Command for FormatDuration {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let format_value = call.req_const::<Value>(working_set, 0)?;
+        let format_value = call.req_const::<Value>(working_set, stack, 0)?;
         let format_value_span = format_value.span();
         let format_value = Spanned {
             item: format_value.coerce_into_string()?.to_ascii_lowercase(),
             span: format_value_span,
         };
-        let cell_paths: Vec<CellPath> = call.rest_const(working_set, 1)?;
+        let cell_paths: Vec<CellPath> = call.rest_const(working_set, stack, 1)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
         let float_precision = working_set.permanent().config.float_precision as usize;
         let arg = Arguments {
