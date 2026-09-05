@@ -60,6 +60,7 @@ members = [
   "crates/nu-color-config",
   "crates/nu-config",
   "crates/nu-command",
+  "crates/nu-dap",
   "crates/nu-derive-value",
   "crates/nu-engine",
   "crates/nu-experimental",
@@ -97,6 +98,7 @@ nu-cmd-plugin = { path = "crates/nu-cmd-plugin", version = "0.115.2", default-fe
 nu-color-config = { path = "crates/nu-color-config", version = "0.115.2", default-features = false }
 nu-command = { path = "crates/nu-command", version = "0.115.2", default-features = false }
 nu-config = { path = "crates/nu-config", version = "0.115.2", default-features = false }
+nu-dap = { path = "crates/nu-dap", version = "0.115.2", default-features = false }
 nu-derive-value = { path = "crates/nu-derive-value", version = "0.115.2", default-features = false }
 nu-engine = { path = "crates/nu-engine", version = "0.115.2", default-features = false }
 nu-experimental = { path = "crates/nu-experimental", version = "0.115.2", default-features = false }
@@ -334,6 +336,7 @@ nu-cmd-plugin = { workspace = true, optional = true }
 nu-command = { workspace = true, features = ["os"] }
 nu-config = { workspace = true }
 nu-engine = { workspace = true, features = ["os"] }
+nu-dap = { workspace = true, optional = true }
 nu-experimental = { workspace = true }
 nu-explore = { workspace = true }
 nu-lsp = { workspace = true, optional = true }
@@ -393,6 +396,7 @@ tempfile = { workspace = true }
 # Enable all features while still avoiding mutually exclusive features.
 # Use this if `--all-features` fails.
 full = [
+  "dap",
   "lsp",
   "mcp",
   "network",
@@ -418,6 +422,8 @@ plugin = [
   "nu-protocol/plugin",
 ]
 
+dap = ["dep:nu-dap"]
+
 lsp = ["dep:nu-lsp"]
 
 mcp = [
@@ -430,6 +436,7 @@ native-tls = ["nu-command/native-tls"]
 rustls-tls = ["nu-command/rustls-tls"]
 
 default = [
+  "dap",
   "lsp",
   "mcp",
   "network",

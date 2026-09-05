@@ -4660,6 +4660,7 @@ dependencies = [
  "nu-cmd-plugin",
  "nu-command",
  "nu-config",
+ "nu-dap",
  "nu-engine",
  "nu-experimental",
  "nu-explore",
@@ -4967,6 +4968,31 @@ dependencies = [
  "nu-test-support",
  "tempfile",
  "thiserror 2.0.20",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "nu-dap"
+version = "0.115.2"
+dependencies = [
+ "chrono",
+ "derive_more 2.1.1",
+ "libc",
+ "miette 7.6.0",
+ "nu-cmd-lang",
+ "nu-command",
+ "nu-engine",
+ "nu-parser",
+ "nu-path",
+ "nu-protocol",
+ "nu-test-support",
+ "nu-utils",
+ "parking_lot",
+ "pretty_assertions",
+ "rstest",
+ "serde",
+ "serde_json",
+ "typetag",
  "windows-sys 0.61.2",
 ]
 
