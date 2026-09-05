@@ -750,15 +750,11 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     let config = &engine_state.get_config().clone();
     // Re-evaluate the prompt into the shared `prompt_state`; this also resets any
     // segment a background job pushed during the previous cycle.
-    prompt_update::update_prompt(
-        config,
-        engine_state,
-        &mut Stack::with_parent(stack_arc.clone()),
-    );
+    prompt_update::update_prompt(config, engine_state, &Stack::with_parent(stack_arc.clone()));
     let transient_prompt = prompt_update::make_transient_prompt(
         config,
         engine_state,
-        &mut Stack::with_parent(stack_arc.clone()),
+        &Stack::with_parent(stack_arc.clone()),
     );
 
     perf!("update_prompt", start_time, use_color);

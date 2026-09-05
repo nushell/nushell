@@ -650,27 +650,9 @@ fn main() -> Result<()> {
         cleanup_exit(0, &engine_state, 0);
     } else {
         // Environment variables that apply only when in REPL
-        engine_state.add_env_var("PROMPT_INDICATOR".to_string(), Value::test_string("> "));
-        engine_state.add_env_var(
-            "PROMPT_INDICATOR_VI_NORMAL".to_string(),
-            Value::test_string("> "),
-        );
-        engine_state.add_env_var(
-            "PROMPT_INDICATOR_VI_INSERT".to_string(),
-            Value::test_string(": "),
-        );
-        engine_state.add_env_var(
-            "PROMPT_MULTILINE_INDICATOR".to_string(),
-            Value::test_string("::: "),
-        );
-        engine_state.add_env_var(
-            "TRANSIENT_PROMPT_MULTILINE_INDICATOR".to_string(),
-            Value::test_string(""),
-        );
-        engine_state.add_env_var(
-            "TRANSIENT_PROMPT_COMMAND_RIGHT".to_string(),
-            Value::test_string(""),
-        );
+        //
+        // No `PROMPT_*` variable is seeded here any more. Seeding one would pin
+        // every session to the variable, which still wins over the config key.
         let mut shlvl = engine_state
             .get_env_var("SHLVL")
             .map(|x| x.as_str().unwrap_or("0").parse::<i64>().unwrap_or(0))
