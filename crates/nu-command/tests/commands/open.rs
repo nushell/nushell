@@ -223,7 +223,11 @@ fn sqlite_database_operations(#[case] operation: &str, #[case] expected: impl In
 #[case::shuffle("shuffle | length", 5)]
 #[case::split_list("split list 2 | flatten | length", 5)]
 #[case::each_while("each while {|row| $row } | length", 5)]
-#[case::tee("tee {|x| $x | ignore } | flatten | length", 6)]
+// note: `tee`'s closure sees its input as `$in`; positional params are not bound for stream
+// inputs, which used to surface a `variable not found` error row that `length` swallowed and
+// counted (6 = 5 rows + 1 masked error). Since `length` now propagates stream errors, use
+// the `$in` idiom so the closure runs cleanly and the true row count (5) is reported.
+#[case::tee("tee { $in | ignore } | flatten | length", 5)]
 #[case::filter("filter {|row| $row.z > 100 } | length", 2)]
 fn sqlite_int_table_operations(
     #[case] operation: &str,
