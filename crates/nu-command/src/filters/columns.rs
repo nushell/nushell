@@ -80,10 +80,18 @@ fn getcol(head: Span, input: PipelineData) -> Result<PipelineData, ShellError> {
             let cols = match v {
                 Value::List {
                     vals: input_vals, ..
-                } => get_columns(&input_vals)
-                    .into_iter()
-                    .map(move |x| Value::string(x, span))
-                    .collect(),
+                } => {
+                    for val in &input_vals {
+                        // Propagate error values instead of returning an empty column list (see #18928).
+                        if let Value::Error { error, .. } = val {
+                            return Err(*error.clone());
+                        }
+                    }
+                    get_columns(&input_vals)
+                        .into_iter()
+                        .map(move |x| Value::string(x, span))
+                        .collect()
+                }
                 Value::Custom { val, .. } => {
                     // TODO: should we get CustomValue to expose columns in a more efficient way?
                     // Would be nice to be able to get columns without generating the whole value
@@ -116,6 +124,12 @@ fn getcol(head: Span, input: PipelineData) -> Result<PipelineData, ShellError> {
         }
         PipelineData::ListStream(stream, metadata) => {
             let values = stream.into_iter().collect::<Vec<_>>();
+            for val in &values {
+                // Propagate error values instead of returning an empty column list (see #18928).
+                if let Value::Error { error, .. } = val {
+                    return Err(*error.clone());
+                }
+            }
             let cols = get_columns(&values)
                 .into_iter()
                 .map(|s| Value::string(s, head))
