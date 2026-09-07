@@ -86,6 +86,523 @@ fn table_general_header_on_separator_trim_algorithm() -> Result {
         "})
 }
 
+fn issue_18966_table() -> Value {
+    test_value!([{
+        name: "whatever",
+        type: "symlink",
+        target: "/some/path",
+        readonly: false,
+        mode: "rwxrwxrwx",
+        num_links: 1,
+        inode: 12653657,
+        user: "gibbert",
+        group: "gibbert",
+        size: 10,
+        created: "2026-04-03T22:09:22.526691315+07:00",
+        accessed: "2026-09-04T18:28:33.313157179+07:00",
+        modified: "2026-04-03T22:09:22.526691315+07:00",
+    }])
+}
+
+#[test]
+fn table_trim_wrapping_wraps_squeezed_column() -> Result {
+    test()
+        .run_with_data(
+            "
+                let data = $in
+                $env.config.table.trim = { methodology: 'wrapping', wrapping_try_keep_words: true }
+                $data | table --width 110 --theme basic
+            ",
+            issue_18966_table(),
+        )
+        .expect_value_eq(indoc! {"
+            +---+----------+---------+------------+----------+-----------+-----------+----------+---------+--------+-----+
+            | # |   name   |  type   |   target   | readonly |   mode    | num_links |  inode   |  user   | group  | ... |
+            +---+----------+---------+------------+----------+-----------+-----------+----------+---------+--------+-----+
+            | 0 | whatever | symlink | /some/path | false    | rwxrwxrwx |         1 | 12653657 | gibbert | gibber | ... |
+            |   |          |         |            |          |           |           |          |         | t      |     |
+            +---+----------+---------+------------+----------+-----------+-----------+----------+---------+--------+-----+
+        "})
+}
+
+#[test]
+fn table_trim_truncating_keeps_squeezed_column_on_one_line() -> Result {
+    test()
+        .run_with_data(
+            "
+                let data = $in
+                $env.config.table.trim = { methodology: 'truncating', truncating_suffix: '...' }
+                $data | table --width 110 --theme basic
+            ",
+            issue_18966_table(),
+        )
+        .expect_value_eq(indoc! {"
+            +---+----------+---------+------------+----------+-----------+-----------+----------+---------+--------+-----+
+            | # |   name   |  type   |   target   | readonly |   mode    | num_links |  inode   |  user   | group  | ... |
+            +---+----------+---------+------------+----------+-----------+-----------+----------+---------+--------+-----+
+            | 0 | whatever | symlink | /some/path | false    | rwxrwxrwx |         1 | 12653657 | gibbert | gib... | ... |
+            +---+----------+---------+------------+----------+-----------+-----------+----------+---------+--------+-----+
+        "})
+}
+
+#[test]
+fn table_trim_overflow_without_squeezed_column_matches_for_wrap_and_truncate() -> Result {
+    let expected = indoc! {"
+        +---+----------+---------+------------+----------+-----------+-----+
+        | # |   name   |  type   |   target   | readonly |   mode    | ... |
+        +---+----------+---------+------------+----------+-----------+-----+
+        | 0 | whatever | symlink | /some/path | false    | rwxrwxrwx | ... |
+        +---+----------+---------+------------+----------+-----------+-----+
+    "};
+
+    test()
+        .run_with_data(
+            "
+                let data = $in
+                $env.config.table.trim = { methodology: 'wrapping', wrapping_try_keep_words: true }
+                $data | table --width 70 --theme basic
+            ",
+            issue_18966_table(),
+        )
+        .expect_value_eq(expected)?;
+
+    test()
+        .run_with_data(
+            "
+                let data = $in
+                $env.config.table.trim = { methodology: 'truncating', truncating_suffix: '...' }
+                $data | table --width 70 --theme basic
+            ",
+            issue_18966_table(),
+        )
+        .expect_value_eq(expected)
+}
+
+#[test]
+fn table_trim_truncating_stays_one_line_above_width_threshold() -> Result {
+    test()
+        .run_with_data(
+            "
+                let data = $in
+                $env.config.table.trim = { methodology: 'truncating', truncating_suffix: '...' }
+                $data | table --width 160 --theme basic
+            ",
+            issue_18966_table(),
+        )
+        .expect_value_eq(indoc! {"
+            +---+----------+---------+------------+----------+-----------+-----------+----------+---------+---------+------+-------------------------------------+-----+
+            | # |   name   |  type   |   target   | readonly |   mode    | num_links |  inode   |  user   |  group  | size |               created               | ... |
+            +---+----------+---------+------------+----------+-----------+-----------+----------+---------+---------+------+-------------------------------------+-----+
+            | 0 | whatever | symlink | /some/path | false    | rwxrwxrwx |         1 | 12653657 | gibbert | gibbert |   10 | 2026-04-03T22:09:22.526691315+07:00 | ... |
+            +---+----------+---------+------------+----------+-----------+-----------+----------+---------+---------+------+-------------------------------------+-----+
+        "})
+}
+
+/// Interior width of each column from a basic-theme top border (`+---+----+`).
+fn basic_column_inner_widths(table: &str) -> Vec<usize> {
+    let Some(border) = table.lines().find(|line| line.starts_with('+')) else {
+        return Vec::new();
+    };
+    border
+        .split('+')
+        .filter(|seg| !seg.is_empty())
+        .map(|seg| seg.chars().count())
+        .collect()
+}
+
+/// Inner widths from a body row (`│ ... │ ... │`). Works for rounded theme
+/// and `header_on_separator`, where the top border is mixed with header text.
+fn data_row_inner_widths(table: &str) -> Vec<usize> {
+    let Some(row) = table.lines().find(|line| {
+        line.contains('│')
+            && (line.contains(" file ") || line.contains(" dir ") || line.contains(" symlink "))
+    }) else {
+        return Vec::new();
+    };
+    row.split('│')
+        .skip(1)
+        .filter(|seg| !seg.is_empty())
+        .map(|seg| seg.chars().count())
+        .collect()
+}
+
+fn overflow_ls_like_table() -> Value {
+    test_value!([{
+        name: "grok-continue-115-caching-regression.txt",
+        type: "file",
+        target: "",
+        readonly: false,
+        mode: "rw-r--r--",
+        num_links: 1,
+        inode: 12345678,
+        user: "fdncred",
+        group: "staff",
+        size: 128,
+        created: "2026-01-01T00:00:00",
+        accessed: "2026-01-01T00:00:00",
+        modified: "2026-01-01T00:00:00",
+    }])
+}
+
+const LS_LIKE_ROWS: &str = r#"
+    [
+        {
+            name: "tango"
+            type: "dir"
+            target: ""
+            readonly: false
+            mode: "rwxr-xr-x"
+            num_links: 4
+            inode: 216175737
+            user: "fdncred"
+            group: "staff"
+            size: 128b
+            created: "2026-04-03T22:09:22"
+            accessed: "2026-09-04T18:28:33"
+            modified: "2026-04-03T22:09:22"
+        }
+        {
+            name: "crates/nu-command/tests/commands/table/display.rs"
+            type: "file"
+            target: ""
+            readonly: false
+            mode: "rw-r--r--"
+            num_links: 1
+            inode: 235854364
+            user: "fdncred"
+            group: "staff"
+            size: 256b
+            created: "2026-04-03T22:09:22"
+            accessed: "2026-09-04T18:28:33"
+            modified: "2026-04-03T22:09:22"
+        }
+    ]
+"#;
+
+#[rstest]
+fn table_trim_scenario_grid(
+    #[values("wrapping", "truncating")] methodology: &str,
+    #[values(false, true)] header_on_separator: bool,
+    #[values(40, 50, 60, 70, 80, 90, 100, 110, 120, 140, 160)] width: usize,
+) -> Result {
+    const PAD: usize = 2;
+    const MIN_CONTENT: usize = 4;
+    let code = format!(
+        r#"
+            $env.config.footer_mode = 'always'
+            $env.config.table.header_on_separator = {header_on_separator}
+            $env.config.table.trim = {{
+                methodology: '{methodology}'
+                wrapping_try_keep_words: true
+                truncating_suffix: '...'
+            }}
+            {LS_LIKE_ROWS} | table --width {width} --theme basic
+        "#
+    );
+    let rendered: String = test().run(code)?;
+    let maxline = rendered
+        .lines()
+        .map(|line| line.chars().count())
+        .max()
+        .unwrap_or(0);
+    let nlines = rendered.lines().count();
+    let inners = basic_column_inner_widths(&rendered);
+
+    // Skip index (first) and trailing `...` (last, inner width 5 with pad 2 + 3 dots).
+    let data_inners: Vec<usize> = if inners.len() >= 2 {
+        let last = *inners.last().unwrap_or(&0);
+        let end = if last <= 5 {
+            inners.len() - 1
+        } else {
+            inners.len()
+        };
+        inners[1..end].to_vec()
+    } else {
+        Vec::new()
+    };
+    let min_inner = data_inners.iter().copied().min().unwrap_or(0);
+    let min_content = min_inner.saturating_sub(PAD);
+
+    assert!(
+        maxline <= width,
+        "line {maxline} > width {width}\n{rendered}"
+    );
+    if !data_inners.is_empty() {
+        assert!(
+            min_content >= MIN_CONTENT,
+            "data col content {min_content} < {MIN_CONTENT}\n{rendered}"
+        );
+    }
+    if methodology == "truncating" {
+        // 2 borders + header + sep + 2 records + footer + sep = 8 lines
+        // when header_on_separator, header/footer sit on borders: 2+2 records+seps
+        let max_ok = if header_on_separator { 8 } else { 10 };
+        assert!(
+            nlines <= max_ok,
+            "truncating wrapped: {nlines} lines\n{rendered}"
+        );
+    }
+    Ok(())
+}
+
+/// Default display at >= 100 columns is `table -e`.
+#[rstest]
+fn expand_ls_like_table_stays_readable(
+    #[values("wrapping", "truncating")] methodology: &str,
+    #[values(false, true)] header_on_separator: bool,
+    #[values(60, 70, 80, 90, 100, 110, 120, 140, 146)] width: usize,
+) -> Result {
+    let code = format!(
+        r#"
+            let data = $in
+            $env.config.footer_mode = 'always'
+            $env.config.table.header_on_separator = {header_on_separator}
+            $env.config.table.trim = {{
+                methodology: '{methodology}'
+                wrapping_try_keep_words: true
+                truncating_suffix: '>>'
+            }}
+            $data | table --expand --width {width}
+        "#
+    );
+    let rendered: String = test().run_with_data(code, overflow_ls_like_table())?;
+    let maxline = rendered
+        .lines()
+        .map(|line| line.chars().count())
+        .max()
+        .unwrap_or(0);
+    let nlines = rendered.lines().count();
+    let inners = data_row_inner_widths(&rendered);
+    let data_inners: Vec<usize> = if inners.len() >= 2 {
+        let last = *inners.last().unwrap_or(&0);
+        let end = if last <= 5 {
+            inners.len() - 1
+        } else {
+            inners.len()
+        };
+        inners[1..end].to_vec()
+    } else {
+        Vec::new()
+    };
+
+    assert!(
+        maxline <= width,
+        "line {maxline} > width {width}\n{rendered}"
+    );
+    assert!(
+        !data_inners.iter().any(|&w| w == 1),
+        "1-character data column\n{rendered}"
+    );
+    assert_contains_not("│ s │", &rendered);
+    assert_contains_not("│ i │", &rendered);
+    assert_contains_not("│ z │", &rendered);
+    assert_contains_not("│ e │", &rendered);
+    if methodology == "truncating" && width >= 140 {
+        let data_rows = rendered
+            .lines()
+            .filter(|line| line.contains('│') && (line.contains("dir") || line.contains("file")))
+            .count();
+        assert!(
+            nlines <= data_rows * 3 + 10,
+            "truncating looks wrapped: {nlines} lines\n{rendered}"
+        );
+    }
+    Ok(())
+}
+
+/// Default display at >= 100 columns is `table -e`. Leftover after a long
+/// `name` used to become a 1-character wrapping `size` column.
+#[test]
+fn expand_truncating_leftover_is_not_a_one_char_size_column() -> Result {
+    let code = r#"
+        $env.config.footer_mode = 'always'
+        $env.config.table.trim = {
+            methodology: 'truncating'
+            truncating_suffix: '...'
+        }
+        [
+            {
+                name: "grok-continue-115-caching-regression.txt"
+                type: "file"
+                target: ""
+                readonly: false
+                mode: "rw-r--r--"
+                num_links: 1
+                inode: 12345678
+                user: "fdncred"
+                group: "staff"
+                size: 128b
+                created: 2026-01-01
+                accessed: 2026-01-01
+                modified: 2026-01-01
+            }
+        ] | table --expand --width 146
+    "#;
+    let rendered: String = test().run(code)?;
+    let inners = data_row_inner_widths(&rendered);
+    let data_inners: Vec<usize> = if inners.len() >= 2 {
+        let last = *inners.last().unwrap_or(&0);
+        let end = if last <= 5 {
+            inners.len() - 1
+        } else {
+            inners.len()
+        };
+        inners[1..end].to_vec()
+    } else {
+        Vec::new()
+    };
+    assert!(
+        !data_inners.iter().any(|&w| w == 1),
+        "1-character data column\n{rendered}"
+    );
+    assert_contains_not("│ s │", &rendered);
+    assert_contains_not("│ i │", &rendered);
+    assert_contains_not("│ z │", &rendered);
+    assert_contains_not("│ e │", &rendered);
+    Ok(())
+}
+
+/// Wrapping vs truncating must differ for every layout that `table` uses
+/// when columns overflow: expand on/off, header on separator, footer,
+/// keep-words, and typical terminal widths. Default display at >= 100
+/// columns is `table -e`.
+#[rstest]
+fn wrap_and_truncate_differ_for_each_table_layout(
+    #[values(false, true)] expand: bool,
+    #[values(false, true)] header_on_separator: bool,
+    #[values("never", "always")] footer_mode: &str,
+    #[values(true, false)] keep_words: bool,
+    #[values(80, 110, 146)] width: usize,
+) -> Result {
+    let expand_flag = if expand { "--expand" } else { "" };
+    let wrapping: String = test().run_with_data(
+        format!(
+            r#"
+                let data = $in
+                $env.config.footer_mode = '{footer_mode}'
+                $env.config.table.header_on_separator = {header_on_separator}
+                $env.config.table.trim = {{
+                    methodology: 'wrapping'
+                    wrapping_try_keep_words: {keep_words}
+                    truncating_suffix: '>>'
+                }}
+                $data | table {expand_flag} --width {width}
+            "#
+        ),
+        overflow_ls_like_table(),
+    )?;
+    let truncating: String = test().run_with_data(
+        format!(
+            r#"
+                let data = $in
+                $env.config.footer_mode = '{footer_mode}'
+                $env.config.table.header_on_separator = {header_on_separator}
+                $env.config.table.trim = {{
+                    methodology: 'truncating'
+                    wrapping_try_keep_words: {keep_words}
+                    truncating_suffix: '>>'
+                }}
+                $data | table {expand_flag} --width {width}
+            "#
+        ),
+        overflow_ls_like_table(),
+    )?;
+
+    for rendered in [&wrapping, &truncating] {
+        assert_contains_not("│ s │", rendered);
+        assert_contains_not("│ i │", rendered);
+        assert_contains_not("│ z │", rendered);
+        assert_contains_not("│ e │", rendered);
+        assert!(
+            !data_row_inner_widths(rendered).iter().any(|&w| w == 1),
+            "1-character data column\n{rendered}"
+        );
+    }
+    // Below 120 columns without header-on-separator both methodologies use
+    // last-column squeeze, so they can match when no cell is actually cut.
+    // They must differ when wrapping uses the many-column path: header on
+    // separator, or a wide terminal.
+    if header_on_separator || width > 120 {
+        pretty_assertions::assert_ne!(
+            wrapping,
+            truncating,
+            "wrapping and truncating matched for expand={expand} hos={header_on_separator} footer={footer_mode} keep_words={keep_words} width={width}\n{wrapping}"
+        );
+    }
+    Ok(())
+}
+
+#[rstest]
+fn wrap_and_truncate_differ_for_kv_tables(
+    #[values(false, true)] expand: bool,
+    #[values(false, true)] header_on_separator: bool,
+    #[values(40, 60)] width: usize,
+) -> Result {
+    let data = test_record! {
+        "key1" => "111111111111111111111111111111111111111111111111111111111111",
+    };
+    let expand_flag = if expand { "--expand" } else { "" };
+    let wrapping: String = test().run_with_data(
+        format!(
+            r#"
+                let data = $in
+                $env.config.table.header_on_separator = {header_on_separator}
+                $env.config.table.trim = {{
+                    methodology: 'wrapping'
+                    wrapping_try_keep_words: true
+                    truncating_suffix: '>>'
+                }}
+                $data | table {expand_flag} --width {width}
+            "#
+        ),
+        data.clone(),
+    )?;
+    let truncating: String = test().run_with_data(
+        format!(
+            r#"
+                let data = $in
+                $env.config.table.header_on_separator = {header_on_separator}
+                $env.config.table.trim = {{
+                    methodology: 'truncating'
+                    wrapping_try_keep_words: true
+                    truncating_suffix: '>>'
+                }}
+                $data | table {expand_flag} --width {width}
+            "#
+        ),
+        data,
+    )?;
+    pretty_assertions::assert_ne!(
+        wrapping,
+        truncating,
+        "KV wrapping and truncating matched for expand={expand} hos={header_on_separator} width={width}\n{wrapping}"
+    );
+    assert!(
+        wrapping.lines().count() > truncating.lines().count(),
+        "KV wrapping should wrap onto extra lines\nwrapping:\n{wrapping}\ntruncating:\n{truncating}"
+    );
+    Ok(())
+}
+
+#[test]
+fn table_trim_header_on_separator_keeps_header_text() -> Result {
+    test()
+        .run_with_data(
+            "
+                let data = $in
+                $env.config.table.header_on_separator = true
+                $env.config.table.trim = { methodology: 'truncating', truncating_suffix: '...' }
+                $data | table --width 110 --theme basic
+            ",
+            issue_18966_table(),
+        )
+        .expect_value_eq(indoc! {"
+            +-#-+---name---+--type---+---target---+-readonly-+---mode----+-num_links-+--inode---+--user---+-group--+-...-+
+            | 0 | whatever | symlink | /some/path | false    | rwxrwxrwx |         1 | 12653657 | gibbert | gib... | ... |
+            +---+----------+---------+------------+----------+-----------+-----------+----------+---------+--------+-----+
+        "})
+}
+
 #[test]
 fn table_general_header_on_separator_issue1() -> Result {
     test()
@@ -271,6 +788,23 @@ fn table_expand_big_header() -> Result {
             ╰───┴──────────────────────────────────────────────────────────────────────────╯
         "}
     );
+    Ok(())
+}
+
+#[test]
+fn expand_truncate_keeps_each_line_of_a_multiline_cell() -> Result {
+    let rendered: String = test().run(
+        r#"
+            $env.config.table.trim = {
+                methodology: 'truncating'
+                truncating_suffix: '>>'
+            }
+            [{ note: "hello\nworld-is-a-very-long-line" }] | table --expand --width 24
+        "#,
+    )?;
+    assert_contains("hello", &rendered);
+    assert_contains("world", &rendered);
+    assert_contains(">>", &rendered);
     Ok(())
 }
 

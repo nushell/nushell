@@ -472,14 +472,17 @@ $env.config.table.padding.left = 1
 # Default: 1
 $env.config.table.padding.right = 1
 
-# table.trim (record): Rules for handling content when table exceeds terminal width.
-# methodology (string): "wrapping" or "truncating".
-# truncating_suffix (string): Suffix for truncated text (only for truncating).
-# wrapping_try_keep_words (bool): Avoid breaking words when wrapping.
+# table.trim (record): How overflow cells are fitted after extra columns are dropped
+# (dropped columns become a trailing `...`, which is not truncating_suffix).
+# wrapping: show as many columns as will fit (wide terminals, or header_on_separator)
+#   and wrap undersized cells onto extra lines.
+# truncating: keep one line per row; squeeze leftover into the last visible column
+#   and cut it with truncating_suffix.
+# wrapping_try_keep_words (bool): Prefer wrapping on word boundaries.
+# truncating_suffix (string): Marker appended to a cut cell (truncating only).
 # Default: { methodology: "wrapping", wrapping_try_keep_words: true }
 $env.config.table.trim = {methodology: "wrapping", wrapping_try_keep_words: true}
 
-# Example: Using truncating mode instead:
 # $env.config.table.trim = { methodology: "truncating", truncating_suffix: "..." }
 
 # table.header_on_separator (bool): Display column headers on table border.
