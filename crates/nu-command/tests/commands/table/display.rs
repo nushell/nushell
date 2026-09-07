@@ -288,7 +288,7 @@ fn table_trim_scenario_grid(
     const PAD: usize = 2;
     const MIN_CONTENT: usize = 4;
     let code = format!(
-        r#"
+        "
             $env.config.footer_mode = 'always'
             $env.config.table.header_on_separator = {header_on_separator}
             $env.config.table.trim = {{
@@ -297,7 +297,7 @@ fn table_trim_scenario_grid(
                 truncating_suffix: '...'
             }}
             {LS_LIKE_ROWS} | table --width {width} --theme basic
-        "#
+        "
     );
     let rendered: String = test().run(code)?;
     let maxline = rendered
@@ -353,7 +353,7 @@ fn expand_ls_like_table_stays_readable(
     #[values(60, 70, 80, 90, 100, 110, 120, 140, 146)] width: usize,
 ) -> Result {
     let code = format!(
-        r#"
+        "
             let data = $in
             $env.config.footer_mode = 'always'
             $env.config.table.header_on_separator = {header_on_separator}
@@ -363,7 +363,7 @@ fn expand_ls_like_table_stays_readable(
                 truncating_suffix: '>>'
             }}
             $data | table --expand --width {width}
-        "#
+        "
     );
     let rendered: String = test().run_with_data(code, overflow_ls_like_table())?;
     let maxline = rendered
@@ -390,7 +390,7 @@ fn expand_ls_like_table_stays_readable(
         "line {maxline} > width {width}\n{rendered}"
     );
     assert!(
-        !data_inners.iter().any(|&w| w == 1),
+        !data_inners.contains(&1),
         "1-character data column\n{rendered}"
     );
     assert_contains_not("│ s │", &rendered);
@@ -452,7 +452,7 @@ fn expand_truncating_leftover_is_not_a_one_char_size_column() -> Result {
         Vec::new()
     };
     assert!(
-        !data_inners.iter().any(|&w| w == 1),
+        !data_inners.contains(&1),
         "1-character data column\n{rendered}"
     );
     assert_contains_not("│ s │", &rendered);
@@ -477,7 +477,7 @@ fn wrap_and_truncate_differ_for_each_table_layout(
     let expand_flag = if expand { "--expand" } else { "" };
     let wrapping: String = test().run_with_data(
         format!(
-            r#"
+            "
                 let data = $in
                 $env.config.footer_mode = '{footer_mode}'
                 $env.config.table.header_on_separator = {header_on_separator}
@@ -487,13 +487,13 @@ fn wrap_and_truncate_differ_for_each_table_layout(
                     truncating_suffix: '>>'
                 }}
                 $data | table {expand_flag} --width {width}
-            "#
+            "
         ),
         overflow_ls_like_table(),
     )?;
     let truncating: String = test().run_with_data(
         format!(
-            r#"
+            "
                 let data = $in
                 $env.config.footer_mode = '{footer_mode}'
                 $env.config.table.header_on_separator = {header_on_separator}
@@ -503,7 +503,7 @@ fn wrap_and_truncate_differ_for_each_table_layout(
                     truncating_suffix: '>>'
                 }}
                 $data | table {expand_flag} --width {width}
-            "#
+            "
         ),
         overflow_ls_like_table(),
     )?;
@@ -514,7 +514,7 @@ fn wrap_and_truncate_differ_for_each_table_layout(
         assert_contains_not("│ z │", rendered);
         assert_contains_not("│ e │", rendered);
         assert!(
-            !data_row_inner_widths(rendered).iter().any(|&w| w == 1),
+            !data_row_inner_widths(rendered).contains(&1),
             "1-character data column\n{rendered}"
         );
     }
@@ -544,7 +544,7 @@ fn wrap_and_truncate_differ_for_kv_tables(
     let expand_flag = if expand { "--expand" } else { "" };
     let wrapping: String = test().run_with_data(
         format!(
-            r#"
+            "
                 let data = $in
                 $env.config.table.header_on_separator = {header_on_separator}
                 $env.config.table.trim = {{
@@ -553,13 +553,13 @@ fn wrap_and_truncate_differ_for_kv_tables(
                     truncating_suffix: '>>'
                 }}
                 $data | table {expand_flag} --width {width}
-            "#
+            "
         ),
         data.clone(),
     )?;
     let truncating: String = test().run_with_data(
         format!(
-            r#"
+            "
                 let data = $in
                 $env.config.table.header_on_separator = {header_on_separator}
                 $env.config.table.trim = {{
@@ -568,7 +568,7 @@ fn wrap_and_truncate_differ_for_kv_tables(
                     truncating_suffix: '>>'
                 }}
                 $data | table {expand_flag} --width {width}
-            "#
+            "
         ),
         data,
     )?;

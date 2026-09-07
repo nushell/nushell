@@ -59,7 +59,7 @@ fn assert_readable_overflow(rendered: &str, padding_zero: bool) {
         widths
     };
     assert!(
-        !data_widths.iter().any(|&w| w == 1),
+        !data_widths.contains(&1),
         "1-character data column\n{rendered}"
     );
 }
@@ -95,7 +95,7 @@ fn trim_stays_readable_for_every_theme(
 ) -> Result {
     let expand_flag = if expand { "--expand" } else { "" };
     let code = format!(
-        r#"
+        "
             let data = $in
             $env.config.footer_mode = 'never'
             $env.config.table.mode = '{theme}'
@@ -106,7 +106,7 @@ fn trim_stays_readable_for_every_theme(
                 truncating_suffix: '>>'
             }}
             $data | table {expand_flag} --width 110
-        "#
+        "
     );
     let rendered: String = test().run_with_data(code, overflow_row())?;
     assert_readable_overflow(&rendered, false);
@@ -142,7 +142,7 @@ fn wrap_and_truncate_differ_for_every_theme_with_header_on_separator(
     let expand_flag = if expand { "--expand" } else { "" };
     let wrapping: String = test().run_with_data(
         format!(
-            r#"
+            "
                 let data = $in
                 $env.config.footer_mode = 'never'
                 $env.config.table.mode = '{theme}'
@@ -153,13 +153,13 @@ fn wrap_and_truncate_differ_for_every_theme_with_header_on_separator(
                     truncating_suffix: '>>'
                 }}
                 $data | table {expand_flag} --width 110
-            "#
+            "
         ),
         overflow_row(),
     )?;
     let truncating: String = test().run_with_data(
         format!(
-            r#"
+            "
                 let data = $in
                 $env.config.footer_mode = 'never'
                 $env.config.table.mode = '{theme}'
@@ -170,7 +170,7 @@ fn wrap_and_truncate_differ_for_every_theme_with_header_on_separator(
                     truncating_suffix: '>>'
                 }}
                 $data | table {expand_flag} --width 110
-            "#
+            "
         ),
         overflow_row(),
     )?;
@@ -193,7 +193,7 @@ fn trim_stays_readable_for_padding(
 ) -> Result {
     let expand_flag = if expand { "--expand" } else { "" };
     let code = format!(
-        r#"
+        "
             let data = $in
             $env.config.footer_mode = 'never'
             $env.config.table.padding = {{left: {pad}, right: {pad}}}
@@ -204,7 +204,7 @@ fn trim_stays_readable_for_padding(
                 truncating_suffix: '>>'
             }}
             $data | table {expand_flag} --width 110
-        "#
+        "
     );
     let rendered: String = test().run_with_data(code, overflow_row())?;
     assert_readable_overflow(&rendered, pad == 0);
@@ -219,7 +219,7 @@ fn trim_stays_readable_for_index_mode(
 ) -> Result {
     let expand_flag = if expand { "--expand" } else { "" };
     let code = format!(
-        r#"
+        "
             let data = $in
             $env.config.footer_mode = 'never'
             $env.config.table.index_mode = '{index_mode}'
@@ -229,7 +229,7 @@ fn trim_stays_readable_for_index_mode(
                 truncating_suffix: '>>'
             }}
             $data | table {expand_flag} --width 110
-        "#
+        "
     );
     let rendered: String = test().run_with_data(code, overflow_row())?;
     assert_readable_overflow(&rendered, false);
@@ -259,7 +259,7 @@ fn missing_value_symbol_survives_overflow_trim(
         type: "file",
     }]);
     let code = format!(
-        r#"
+        "
             let data = $in
             $env.config.footer_mode = 'never'
             $env.config.table.missing_value_symbol = 'NULL'
@@ -269,7 +269,7 @@ fn missing_value_symbol_survives_overflow_trim(
                 truncating_suffix: '>>'
             }}
             $data | table {expand_flag} --width 80
-        "#
+        "
     );
     let rendered: String = test().run_with_data(code, data)?;
     assert_contains("NULL", rendered);
@@ -293,7 +293,7 @@ fn abbreviated_row_count_survives_overflow_trim(
         { name: "file-07-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.txt", type: "file", size: 7 },
     ]);
     let code = format!(
-        r#"
+        "
             let data = $in
             $env.config.footer_mode = 'never'
             $env.config.table.abbreviated_row_count = 2
@@ -303,7 +303,7 @@ fn abbreviated_row_count_survives_overflow_trim(
                 truncating_suffix: '>>'
             }}
             $data | table {expand_flag} --width 80
-        "#
+        "
     );
     let rendered: String = test().run_with_data(code, rows)?;
     assert_contains("...", rendered);
@@ -316,12 +316,12 @@ fn show_empty_is_independent_of_trim(
     #[values(false, true)] show_empty: bool,
 ) -> Result {
     let code = format!(
-        r#"
+        "
             $env.config.table.trim = {{ methodology: '{methodology}', wrapping_try_keep_words: true, truncating_suffix: '>>' }}
             $env.config.table.show_empty = {show_empty}
             $env.config.use_ansi_coloring = false
             [] | table
-        "#
+        "
     );
     let rendered: String = test().run(code)?;
     if show_empty {
@@ -344,7 +344,7 @@ fn footer_inheritance_survives_expand_trim(#[case] methodology: &str) -> Result 
         ]
     });
     let code = format!(
-        r#"
+        "
             let data = $in
             $env.config.table.footer_inheritance = true
             $env.config.footer_mode = 'always'
@@ -354,7 +354,7 @@ fn footer_inheritance_survives_expand_trim(#[case] methodology: &str) -> Result 
                 truncating_suffix: '>>'
             }}
             $data | table --expand --width 80
-        "#
+        "
     );
     let rendered: String = test().run_with_data(code, data)?;
     assert_readable_overflow(&rendered, false);

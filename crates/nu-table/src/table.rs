@@ -1193,6 +1193,7 @@ fn truncate_columns_by_content(
 //
 //       Point being of the column needs more space we do can give it a little more based on it's distance from the start.
 //       Percentage wise.
+#[allow(clippy::too_many_arguments)]
 fn truncate_columns_by_columns(
     data: &mut Vec<Vec<NuRecordsValue>>,
     widths: Vec<usize>,
