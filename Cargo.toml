@@ -108,7 +108,7 @@ nu-lsp = { path = "crates/nu-lsp", version = "0.115.2", default-features = false
 nu-mcp = { path = "crates/nu-mcp", version = "0.115.2", default-features = false }
 nu-parser = { path = "crates/nu-parser", version = "0.115.2", default-features = false }
 nu-path = { path = "crates/nu-path", version = "0.115.2", default-features = false }
-nu-plugin = { path = "crates/nu-plugin", version = "0.115.2", default-features = false }
+nu-plugin = { path = "crates/nu-plugin", version = "0.115.2", default-features = false, features = ["local-socket"] }
 nu-plugin-core = { path = "crates/nu-plugin-core", version = "0.115.2", default-features = false }
 nu-plugin-engine = { path = "crates/nu-plugin-engine", version = "0.115.2", default-features = false }
 nu-plugin-protocol = { path = "crates/nu-plugin-protocol", version = "0.115.2", default-features = false }
