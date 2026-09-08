@@ -182,6 +182,15 @@ fn commandline_test_complete_flags() -> TestResult {
 }
 
 #[test]
+fn commandline_test_complete_uses_runtime_external_completer() -> TestResult {
+    run_test(
+        "$env.config.completions.external.completer = {|spans| [{value: 'checkout '}]}\n\
+        'git chec' | commandline complete | to nuon",
+        r#"["checkout "]"#,
+    )
+}
+
+#[test]
 fn commandline_test_complete_reentrant() -> TestResult {
     run_test(
         "def recurse [a: string@[a, b, c]] {\n\
