@@ -194,7 +194,12 @@ fn fetch_completions(
 ) -> Vec<SemanticSuggestion> {
     // TODO: it should be possible to add something like a `NuCompleter::borrowed()`
     // to avoid cloning the entire stack + engine state here, as a future optimization.
-    let completer = CompletionEngine::new(Arc::new(engine_state.clone()), Arc::new(stack.clone()));
+    let mut completion_engine_state = engine_state.clone();
+    completion_engine_state.set_config(stack.get_config(engine_state));
+    let completer = CompletionEngine::new(
+        Arc::new(completion_engine_state),
+        Arc::new(stack.clone()),
+    );
 
     completion_type
         .map(|parsed_type| {
