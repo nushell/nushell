@@ -1,8 +1,9 @@
 use nu_engine::eval_block;
 use nu_protocol::{
-    BlockId, IntoPipelineData, Span, Value,
+    BlockId, IntoPipelineData, ShellError, Span, Value,
     debugger::WithoutDebug,
     engine::{EngineState, Stack},
+    shell_error::generic::GenericError,
 };
 use reedline::{
     Completer, CompletionResult, InputMode, Suggestion, menu_functions::parse_selection_char,
@@ -65,10 +66,21 @@ impl Completer for NuMenuCompleter {
         let res = eval_block::<WithoutDebug>(&self.engine_state, &mut self.stack, block, input)
             .map(|p| p.body);
 
-        let suggestions = if let Ok(values) = res.and_then(|data| data.into_value(self.span)) {
-            convert_to_suggestions(values, line, pos, self.input_mode)
-        } else {
-            Vec::new()
+        let suggestions = match res.and_then(|data| data.into_value(self.span)) {
+            Ok(values) => convert_to_suggestions(values, line, pos, self.input_mode),
+            Err(err) => {
+                log::error!(
+                    "{}",
+                    ShellError::Generic(
+                        GenericError::new_internal(
+                            "nu::shell::completion",
+                            "failed to eval menu source closure",
+                        )
+                        .with_inner([err]),
+                    )
+                );
+                Vec::new()
+            }
         };
 
         // Menu sources are evaluated synchronously, so results are always final.
@@ -162,5 +174,75 @@ fn convert_to_suggestions(
             span: default_span(line, pos, input_mode),
             ..Suggestion::default()
         }],
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nu_protocol::engine::StateWorkingSet;
+
+    #[test]
+    fn menu_completer_handles_closure_evaluation_error() {
+        let mut engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+
+        let block = nu_parser::parse(
+            &mut working_set,
+            None,
+            b"error make {msg: 'menu error'}",
+            false,
+        );
+        let block_id = working_set.add_block(block);
+        let delta = working_set.render();
+        engine_state.merge_delta(delta).unwrap();
+
+        let mut completer = NuMenuCompleter::new(
+            block_id,
+            Span::test_data(),
+            Stack::new(),
+            Arc::new(engine_state),
+            InputMode::Diff,
+        );
+
+        let result = completer.complete("test", 4);
+        match result {
+            CompletionResult::Fresh { suggestions, .. } => assert!(suggestions.is_empty()),
+            _ => panic!("expected Fresh completion result"),
+        }
+    }
+
+    #[test]
+    fn menu_completer_returns_suggestions_on_success() {
+        let mut engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+
+        let block = nu_parser::parse(
+            &mut working_set,
+            None,
+            b"[{value: 'foo', description: 'bar'}]",
+            false,
+        );
+        let block_id = working_set.add_block(block);
+        let delta = working_set.render();
+        engine_state.merge_delta(delta).unwrap();
+
+        let mut completer = NuMenuCompleter::new(
+            block_id,
+            Span::test_data(),
+            Stack::new(),
+            Arc::new(engine_state),
+            InputMode::Diff,
+        );
+
+        let result = completer.complete("f", 1);
+        match result {
+            CompletionResult::Fresh { suggestions, .. } => {
+                assert_eq!(suggestions.len(), 1);
+                assert_eq!(suggestions[0].value, "foo");
+                assert_eq!(suggestions[0].description, Some("bar".to_string()));
+            }
+            _ => panic!("expected Fresh completion result"),
+        }
     }
 }
