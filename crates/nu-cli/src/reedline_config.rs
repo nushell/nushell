@@ -952,6 +952,7 @@ fn event_from_record(
             let menu = extract_value("name", record, span)?;
             ReedlineEvent::Menu(menu.to_expanded_string("", config))
         }
+        Ok(RED::MenuAccept) => ReedlineEvent::MenuAccept,
         Ok(RED::MenuNext) => ReedlineEvent::MenuNext,
         Ok(RED::MenuPrevious) => ReedlineEvent::MenuPrevious,
         Ok(RED::MenuUp) => ReedlineEvent::MenuUp,
@@ -1024,6 +1025,7 @@ pub(crate) fn display_reedline_event(event: ReedlineEventDiscriminants) -> Optio
         RED::Multiple => "event: { send: list<event> }",
         RED::UntilFound => "event: { until: list<event> }",
         RED::Menu => "Menu name: <string>",
+        RED::MenuAccept => "MenuAccept",
         RED::MenuNext => "MenuNext",
         RED::MenuPrevious => "MenuPrevious",
         RED::MenuUp => "MenuUp",
