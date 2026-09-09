@@ -1,6 +1,6 @@
 use crate::completions::{
-    Completer, Context, Fetched, SemanticSuggestion, completion_common::FileSuggestion,
-    completion_options::NuMatcher, to_reedline_span,
+    Completer, CompletionOptions, Context, Fetched, MatchAlgorithm, SemanticSuggestion,
+    completion_common::FileSuggestion, completion_options::NuMatcher, to_reedline_span,
 };
 use nu_path::expand_tilde;
 use nu_protocol::{SuggestionKind, engine::VirtualPath};
@@ -14,12 +14,15 @@ pub struct DotNuCompletion {
     pub std_virtual_path: bool,
 }
 
-impl Completer for DotNuCompletion {
-    fn fetch(&mut self, ctx: &Context) -> Fetched {
+impl DotNuCompletion {
+    fn complete_with_options(
+        &self,
+        ctx: &Context,
+        options: &CompletionOptions,
+    ) -> Vec<SemanticSuggestion> {
         let working_set = ctx.working_set;
         let stack = ctx.stack;
         let span = ctx.span;
-        let options = ctx.options;
         let prefix = ctx.prefix_str();
         let reedline_span = to_reedline_span(span, ctx.offset);
         // Modules that are already loaded go first
@@ -161,6 +164,27 @@ impl Completer for DotNuCompletion {
                 .collect::<Vec<_>>(),
         );
 
-        Fetched::Cacheable(all_results)
+        all_results
+    }
+}
+
+impl Completer for DotNuCompletion {
+    fn fetch(&mut self, ctx: &Context) -> Fetched {
+        let suggestions = if ctx.options.match_algorithm == MatchAlgorithm::Fallback {
+            let mut options = ctx.options.clone();
+            options.match_algorithm = MatchAlgorithm::Prefix;
+
+            let prefix_matches = self.complete_with_options(ctx, &options);
+            if prefix_matches.is_empty() {
+                options.match_algorithm = MatchAlgorithm::Fuzzy;
+                self.complete_with_options(ctx, &options)
+            } else {
+                prefix_matches
+            }
+        } else {
+            self.complete_with_options(ctx, ctx.options)
+        };
+
+        Fetched::Cacheable(suggestions)
     }
 }

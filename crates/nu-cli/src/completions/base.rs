@@ -62,7 +62,7 @@ pub(crate) fn to_reedline_span(span: Span, offset: usize) -> reedline::Span {
     )
 }
 
-#[derive(Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct SemanticSuggestion {
     pub suggestion: Suggestion,
     pub kind: Option<SuggestionKind>,

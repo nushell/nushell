@@ -1,7 +1,7 @@
 use crate::completions::{
     ArgValueCompletion, AttributableCompletion, AttributeCompletion, CellPathCompletion,
     CommandCompletion, CommandScope, Completer, CompletionOptions, CustomCompletion,
-    DotNuCompletion, EnvVarCompletion, FileCompletion, FlagCompletion, NuMatcher,
+    DotNuCompletion, EnvVarCompletion, FileCompletion, FlagCompletion, MatchAlgorithm, NuMatcher,
     OperatorCompletion, VariableCompletion,
     base::{Fetched, SemanticSuggestion},
 };
@@ -427,6 +427,11 @@ impl NarrowingCache {
         environment: CacheEnv,
         options: &CompletionOptions,
     ) -> Suggestions {
+        // Fallback may discard fuzzy results that a longer query needs, so cached suggestions
+        // cannot safely answer a narrowed query.
+        if options.match_algorithm == MatchAlgorithm::Fallback {
+            return Suggestions::default();
+        }
         let Some((base_suggestions, ref_span, search_token)) =
             self.entries.lock().ok().and_then(|guard| {
                 let (_, entry, span) = guard
@@ -2409,6 +2414,29 @@ mod completer_tests {
 
     /// A cached answer stands in for the computed one, so the two must agree on order.
     /// Re-sorting the cache put `config/` after `config.nu`, inverting every keystroke.
+    #[test]
+    fn narrowing_cache_skips_fallback_matches() {
+        let cache = NarrowingCache::default();
+        let env = CacheEnv::of(&test_engine(), &Stack::new());
+        let span = reedline::Span::new(3, 6);
+        let cached = vec![Suggestion {
+            value: "foobar".to_string(),
+            span,
+            ..Suggestion::default()
+        }]
+        .into();
+        let options = CompletionOptions {
+            match_algorithm: MatchAlgorithm::Fallback,
+            ..Default::default()
+        };
+
+        cache.store(CompletionQuery::new("ls foo", 6), env, cached);
+
+        let narrowed = cache.narrowed_fallback(&CompletionQuery::new("ls fooz", 7), env, &options);
+
+        assert!(narrowed.is_empty());
+    }
+
     #[test]
     fn a_narrowed_cache_answer_keeps_the_order_it_was_given() {
         let cache = NarrowingCache::default();
