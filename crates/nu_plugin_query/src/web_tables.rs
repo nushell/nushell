@@ -69,7 +69,7 @@ impl WebTable {
                 table.select(&sel_tr).next().is_some_and(|tr| {
                     let cells = select_cells(tr, &sel_th, true);
                     if inspect_mode {
-                        eprintln!("Potential HTML Headers = {:?}\n", &cells);
+                        eprintln!("Potential HTML Headers = {:?}\n", cells);
                     }
                     headers.iter().all(|h| contains_str(&cells, h.as_ref()))
                 })

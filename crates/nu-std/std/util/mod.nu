@@ -111,3 +111,31 @@ export const null_device = if $nu.os-info.name == "windows" {
 export def null-device []: nothing -> path {
     $null_device
 }
+
+# Structure a command-line string into its tokens, for custom completers.
+#
+# A completer that declares a `buffer` parameter receives the whole command line up to the
+# cursor as a string. This turns it into a clean `{text, kind, span}` table: the parser's
+# duplicate spans are collapsed and the `shape_` prefix is dropped from each `kind`. It is
+# steadier than a bare `ast --flatten` for this, though the parser is still lossy — reach for
+# the raw `buffer` when you need the text exactly as it was typed.
+@example "structure a command line" {
+    std structure "ls -a | where name == foo"
+} --result [
+    [text, kind, span];
+    [ls, internalcall, {start: 0, end: 2}]
+    [-a, flag, {start: 3, end: 5}]
+    ["|", pipe, {start: 6, end: 7}]
+    [where, internalcall, {start: 8, end: 13}]
+    [name, string, {start: 14, end: 18}]
+    ["==", operator, {start: 19, end: 21}]
+    [foo, string, {start: 22, end: 25}]
+]
+export def structure [
+    buffer: string  # the command line to structure, e.g. a completer's `buffer` input
+]: nothing -> table<text: string, kind: string, span: record<start: int, end: int>> {
+    ast --flatten $buffer
+    | rename text kind span
+    | update kind { str replace "shape_" "" }
+    | uniq-by span
+}
