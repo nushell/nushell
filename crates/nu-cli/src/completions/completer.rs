@@ -747,6 +747,16 @@ impl CompletionEngine {
         }
     }
 
+    fn argument_site_runs_user_closure(
+        &self,
+        signature: &Signature,
+        custom: Option<&Completion>,
+    ) -> bool {
+        matches!(custom, Some(Completion::Command(_)))
+            || self.signature_runs_user_closure(signature)
+            || (custom.is_none() && signature.complete.is_none() && self.has_external_completer())
+    }
+
     fn site_runs_user_closure(&self, site: &CompletionSite, working_set: &StateWorkingSet) -> bool {
         match &site.kind {
             SiteKind::ExternalArg { .. } => self.has_external_completer(),
@@ -757,8 +767,7 @@ impl CompletionEngine {
                 let signature = working_set.get_decl(call.decl_id).signature();
                 let resolved = find_flag(&signature, *flag);
                 let custom = resolved.as_ref().and_then(|flag| flag.completion.as_ref());
-                matches!(custom, Some(Completion::Command(_)))
-                    || self.signature_runs_user_closure(&signature)
+                self.argument_site_runs_user_closure(&signature, custom)
             }
             SiteKind::Positional {
                 call,
@@ -769,8 +778,7 @@ impl CompletionEngine {
                 let custom = signature
                     .get_positional(*sig_positional)
                     .and_then(|positional| positional.completion.as_ref());
-                matches!(custom, Some(Completion::Command(_)))
-                    || self.signature_runs_user_closure(&signature)
+                self.argument_site_runs_user_closure(&signature, custom)
             }
             _ => false,
         }
@@ -1547,7 +1555,7 @@ impl CompletionEngine {
     fn complete_argument_value(
         &self,
         custom: Option<Completion>,
-        mut arg_value: ArgValueCompletion,
+        arg_value: ArgValueCompletion,
         context: &Context,
         signature: &Signature,
         element_expression: &Expression,
@@ -1584,7 +1592,35 @@ impl CompletionEngine {
             return results;
         }
 
-        results.merge(arg_value.fetch(context).into());
+        let attempt = arg_value.fetch_dynamic_completion(context);
+        let need_fallback = attempt.needs_fallback();
+        results.merge(attempt.into());
+        if !need_fallback {
+            return results;
+        }
+
+        // Preserve the pre-0.103 behavior: when an internal command has no
+        // command-specific completion, let the configured external completer
+        // answer before falling back to filesystem completion.
+        if !matches!(signature.complete, Some(CommandWideCompleter::External))
+            && let Some(closure) = self
+                .engine_state
+                .get_config()
+                .completions
+                .external
+                .completer
+                .as_ref()
+        {
+            let mut completion = CommandWideCompletion::closure(closure, element_expression);
+            let attempt = completion.fetch(context);
+            let need_fallback = attempt.needs_fallback();
+            results.merge(attempt.into());
+            if !need_fallback {
+                return results;
+            }
+        }
+
+        results.merge(arg_value.fetch_fallback(context).into());
         results
     }
 
@@ -2163,6 +2199,13 @@ mod completer_tests {
             CompletionEngine::new(engine_with_external_completer(), Arc::new(Stack::new()));
         assert!(engine.should_complete_on_repl_thread(&q("nvim foo")));
         assert!(!engine.should_complete_on_repl_thread(&q("ls | c")));
+    }
+
+    #[test]
+    fn internal_arg_with_external_completer_runs_on_the_repl_thread() {
+        let engine =
+            CompletionEngine::new(engine_with_external_completer(), Arc::new(Stack::new()));
+        assert!(engine.should_complete_on_repl_thread(&q("cd **")));
     }
 
     /// Opted out: settles inline, spawns no worker, leaves the cache alone.
