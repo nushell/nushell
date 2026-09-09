@@ -78,6 +78,7 @@ fn run_uname(call: &Call) -> Result<PipelineData, ShellError> {
     // Simulate `uname -all` is called every time
     let opts = uu_uname::Options {
         all: true,
+        all_labeled: true,
         kernel_name: false,
         nodename: false,
         kernel_release: false,
