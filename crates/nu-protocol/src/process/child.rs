@@ -93,11 +93,13 @@ pub fn check_ok(status: ExitStatus, ignore_error: bool, span: Span) -> Result<()
 ///
 /// It's useful for `pipefail` feature, which tracks exit status code with potentially
 /// ignore the error.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ExitStatusGuard {
     pub exit_status_future: Arc<Mutex<ExitStatusFuture>>,
     pub ignore_error: Arc<Mutex<bool>>,
     pub span: Option<Span>,
+    /// When true, draining/collecting copies this child's status onto `$env.LAST_EXIT_CODE`.
+    record_last_exit: bool,
 }
 
 impl ExitStatusGuard {
@@ -109,15 +111,29 @@ impl ExitStatusGuard {
             exit_status_future,
             ignore_error,
             span: None,
+            record_last_exit: false,
         }
     }
 
     pub fn with_span(self, span: Span) -> Self {
         Self {
-            exit_status_future: self.exit_status_future,
-            ignore_error: self.ignore_error,
             span: Some(span),
+            ..self
         }
+    }
+
+    pub fn with_record_last_exit(mut self) -> Self {
+        self.record_last_exit = true;
+        self
+    }
+
+    pub fn records_last_exit(&self) -> bool {
+        self.record_last_exit
+    }
+
+    /// True when both guards wait on the same child exit-status future.
+    pub fn tracks_same_child(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.exit_status_future, &other.exit_status_future)
     }
 }
 

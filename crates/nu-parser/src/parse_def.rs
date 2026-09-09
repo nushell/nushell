@@ -642,11 +642,17 @@ rest.name
             let (attribute_vals, examples) =
                 handle_special_attributes(attributes, working_set, &mut signature);
 
+            let pipe_redirection = working_set
+                .get_block(block_id)
+                .pipe_redirection(working_set);
             let declaration = working_set.get_decl_mut(decl_id);
 
-            *declaration = signature
-                .clone()
-                .into_block_command(block_id, attribute_vals, examples);
+            *declaration = signature.clone().into_block_command(
+                block_id,
+                attribute_vals,
+                examples,
+                pipe_redirection,
+            );
 
             let block = working_set.get_block_mut(block_id);
             block.signature = signature;
@@ -795,8 +801,6 @@ fn parse_extern_inner(
                 let (attribute_vals, examples) =
                     handle_special_attributes(attributes, working_set, &mut signature);
 
-                let declaration = working_set.get_decl_mut(decl_id);
-
                 if let Some(block_id) = body_expr.and_then(|x| x.as_block()) {
                     if signature.rest_positional.is_none() {
                         working_set.error(ParseError::InternalError(
@@ -804,10 +808,15 @@ fn parse_extern_inner(
                             name_expr.span,
                         ));
                     } else {
+                        let pipe_redirection = working_set
+                            .get_block(block_id)
+                            .pipe_redirection(working_set);
+                        let declaration = working_set.get_decl_mut(decl_id);
                         *declaration = signature.clone().into_block_command(
                             block_id,
                             attribute_vals,
                             examples,
+                            pipe_redirection,
                         );
 
                         working_set.get_block_mut(block_id).signature = signature;
@@ -828,7 +837,7 @@ fn parse_extern_inner(
                         span: call_span,
                     };
 
-                    *declaration = Box::new(decl);
+                    *working_set.get_decl_mut(decl_id) = Box::new(decl);
                 }
             } else {
                 working_set.error(ParseError::InternalError(

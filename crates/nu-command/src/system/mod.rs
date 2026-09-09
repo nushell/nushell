@@ -1,4 +1,5 @@
 mod complete;
+mod complete_stream;
 mod exec;
 mod nu_check;
 #[cfg(any(
@@ -22,6 +23,7 @@ mod uname;
 mod which_;
 
 pub use complete::Complete;
+pub use complete_stream::CompleteStream;
 pub use exec::Exec;
 pub use nu_check::NuCheck;
 #[cfg(any(

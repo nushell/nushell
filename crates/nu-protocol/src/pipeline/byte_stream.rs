@@ -736,7 +736,7 @@ impl ByteStream {
             #[cfg(feature = "os")]
             ByteStreamSource::Child(mut child) => {
                 // All `OutDest`s except `OutDest::PipeSeparate` will cause `stderr` to be `None`.
-                // Only `save`, `tee`, and `complete` set the stderr `OutDest` to `OutDest::PipeSeparate`,
+                // Only `save`, `tee`, `complete`, and `complete stream` set the stderr `OutDest` to `OutDest::PipeSeparate`,
                 // and those commands have proper simultaneous handling of stdout and stderr.
                 debug_assert!(child.stderr.is_none(), "stderr should not exist");
 

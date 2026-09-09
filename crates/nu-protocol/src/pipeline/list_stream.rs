@@ -2,6 +2,8 @@
 //! elements
 //!
 //! For more general infos regarding our pipelining model refer to [`PipelineData`]
+#[cfg(feature = "os")]
+use crate::process::ExitStatusGuard;
 use crate::{Config, PipelineData, ShellError, Signals, Span, Value};
 
 pub type ValueIterator = Box<dyn Iterator<Item = Value> + Send + 'static>;
@@ -17,6 +19,9 @@ pub struct ListStream {
     stream: ValueIterator,
     span: Span,
     caller_spans: Vec<Span>,
+    /// Child whose stdout/stderr were converted into this stream, if any.
+    #[cfg(feature = "os")]
+    exit: Option<ExitStatusGuard>,
 }
 
 impl ListStream {
@@ -30,7 +35,22 @@ impl ListStream {
             stream: Box::new(InterruptIter::new(iter, signals)),
             span,
             caller_spans: vec![],
+            #[cfg(feature = "os")]
+            exit: None,
         }
+    }
+
+    /// Attach a child-process exit guard so consumers can wait for the status after draining.
+    #[cfg(feature = "os")]
+    pub fn with_exit_status(mut self, exit: ExitStatusGuard) -> Self {
+        self.exit = Some(exit);
+        self
+    }
+
+    /// Exit guard attached with [`ListStream::with_exit_status`], if any.
+    #[cfg(feature = "os")]
+    pub fn exit_status_guard(&self) -> Option<ExitStatusGuard> {
+        self.exit.clone()
     }
 
     /// Returns the [`Span`] associated with this [`ListStream`].
@@ -123,6 +143,8 @@ impl ListStream {
             stream: Box::new(f(self.stream)),
             span: self.span,
             caller_spans: self.caller_spans,
+            #[cfg(feature = "os")]
+            exit: self.exit,
         }
     }
 
@@ -148,6 +170,28 @@ impl IntoIterator for ListStream {
 impl From<ListStream> for PipelineData {
     fn from(stream: ListStream) -> Self {
         Self::list_stream(stream, None)
+    }
+}
+
+#[cfg(all(test, feature = "os"))]
+mod tests {
+    use super::*;
+    use crate::Span;
+
+    #[test]
+    fn new_list_stream_has_no_exit_status() {
+        let stream = ListStream::new(std::iter::empty(), Span::test_data(), Signals::empty());
+        assert!(stream.exit_status_guard().is_none());
+
+        let mapped = stream.modify(|iter| iter);
+        assert!(mapped.exit_status_guard().is_none());
+    }
+
+    #[test]
+    fn new_list_stream_clone_exit_status_future_is_none() {
+        let stream = ListStream::new(std::iter::empty(), Span::test_data(), Signals::empty());
+        let data = PipelineData::from(stream);
+        assert!(data.clone_exit_status_future().is_none());
     }
 }
 

@@ -129,6 +129,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         #[cfg(feature = "os")]
         bind_command! {
             Complete,
+            CompleteStream,
             External,
             Exec,
             NuCheck,

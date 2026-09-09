@@ -1,6 +1,6 @@
 use crate::{
-    BlockId, CompareTypes, DeclId, DeprecationEntry, Example, FromValue, IntoValue, PipelineData,
-    ShellError, Span, SyntaxShape, Type, TypeSet, Value, VarId,
+    BlockId, CompareTypes, DeclId, DeprecationEntry, Example, FromValue, IntoValue, OutDest,
+    PipelineData, ShellError, Span, SyntaxShape, Type, TypeSet, Value, VarId,
     engine::{Call, Command, CommandType, EngineState, Stack},
     shell_error::generic::GenericError,
 };
@@ -934,12 +934,14 @@ impl Signature {
         block_id: BlockId,
         attributes: Vec<(String, Value)>,
         examples: Vec<CustomExample>,
+        pipe_redirection: (Option<OutDest>, Option<OutDest>),
     ) -> Box<dyn Command> {
         Box::new(BlockCommand {
             signature: self,
             block_id,
             attributes,
             examples,
+            pipe_redirection,
         })
     }
 }
@@ -1024,6 +1026,7 @@ struct BlockCommand {
     block_id: BlockId,
     attributes: Vec<(String, Value)>,
     examples: Vec<CustomExample>,
+    pipe_redirection: (Option<OutDest>, Option<OutDest>),
 }
 
 impl Command for BlockCommand {
@@ -1081,6 +1084,10 @@ impl Command for BlockCommand {
             .iter()
             .map(String::as_str)
             .collect()
+    }
+
+    fn pipe_redirection(&self) -> (Option<OutDest>, Option<OutDest>) {
+        self.pipe_redirection.clone()
     }
 
     fn deprecation_info(&self) -> Vec<DeprecationEntry> {

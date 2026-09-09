@@ -872,7 +872,8 @@ impl PipelineData {
     #[cfg(feature = "os")]
     pub fn clone_exit_status_future(&self) -> Option<ExitStatusGuard> {
         match self {
-            PipelineData::Empty | PipelineData::Value(..) | PipelineData::ListStream(..) => None,
+            PipelineData::Empty | PipelineData::Value(..) => None,
+            PipelineData::ListStream(stream, ..) => stream.exit_status_guard(),
             PipelineData::ByteStream(stream, ..) => match stream.source() {
                 ByteStreamSource::Read(..) | ByteStreamSource::File(..) => None,
                 ByteStreamSource::Child(c) => {
