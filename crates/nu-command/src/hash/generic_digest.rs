@@ -1,6 +1,10 @@
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
-use std::{fmt::Write, marker::PhantomData};
+use std::{
+    fmt::Write as _,
+    io::{self, Write},
+    marker::PhantomData,
+};
 
 pub trait HashDigest: digest::Digest + Clone {
     fn name() -> &'static str;
@@ -32,6 +36,24 @@ pub(super) struct Arguments {
 impl CmdArgument for Arguments {
     fn take_cell_paths(&mut self) -> Option<Vec<CellPath>> {
         self.cell_paths.take()
+    }
+}
+
+/// Feeds a byte stream into a digest one chunk at a time.
+///
+/// `digest` 0.11 dropped the `io::Write` impl on hash types, so hashing a
+/// [`ByteStream`](nu_protocol::ByteStream) needs this bridge onto `update` to
+/// stay within a fixed amount of memory.
+struct DigestWriter<'a, D: HashDigest>(&'a mut D);
+
+impl<D: HashDigest> Write for DigestWriter<'_, D> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.0.update(buf);
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
     }
 }
 
@@ -102,8 +124,9 @@ where
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
 
         if let PipelineData::ByteStream(stream, ..) = input {
-            let bytes = stream.into_bytes()?;
-            let digest = D::digest(&bytes);
+            let mut hasher = D::new();
+            stream.write_to(DigestWriter(&mut hasher))?;
+            let digest = hasher.finalize();
             if binary {
                 Ok(
                     Value::binary(<[u8]>::to_vec(AsRef::<[u8]>::as_ref(&digest)), head)
@@ -150,5 +173,24 @@ where
         Value::binary(<[u8]>::to_vec(AsRef::<[u8]>::as_ref(&digest)), span)
     } else {
         Value::string(hex_encode(AsRef::<[u8]>::as_ref(&digest)), span)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use digest::Digest;
+    use sha2::Sha256;
+
+    /// A stream must hash the same as the bytes it carries, whatever the
+    /// chunking — the digest is fed incrementally, never collected.
+    #[test]
+    fn chunked_writes_match_one_shot() {
+        let data: Vec<u8> = (0..=u8::MAX).cycle().take(300 * 1024).collect();
+
+        let mut hasher = Sha256::new();
+        io::copy(&mut data.as_slice(), &mut DigestWriter(&mut hasher)).unwrap();
+
+        assert_eq!(hasher.finalize(), Sha256::digest(&data));
     }
 }
