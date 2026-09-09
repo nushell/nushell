@@ -683,6 +683,90 @@ mod test {
     }
 
     #[test]
+    fn parser_saturated_boundary_reports_overflow() {
+        // #18592 follow-up (review): '9223372036854775808ns' used to slip
+        // through `parse_unit_value`'s `<= i64::MAX as f64` bound (2^63
+        // compares equal to the rounded-up bound) and saturate to i64::MAX.
+        // The parser now rejects it, and `into duration` must surface an
+        // error instead of silently returning i64::MAX.
+        let args = Arguments {
+            unit: Some(Spanned {
+                item: Unit::Nanosecond,
+                span: Span::test_data(),
+            }),
+            cell_paths: None,
+        };
+
+        let actual = action(
+            &Value::test_string("9223372036854775808ns"),
+            &args,
+            Span::test_data(),
+        );
+        match actual {
+            Value::Error { .. } => {
+                // The parser now rejects the saturated magnitude before any
+                // downstream checked-multiply can trust it; the exact variant
+                // surfaced by action() is a parser-detail.
+            }
+            other => panic!("expected an error for the saturated boundary, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn float_path_overflow_reports_error() {
+        // Review: the f64 overflow path (checked_ns_mul_f64) had no
+        // regression coverage. An out-of-range finite product must error,
+        // not saturate.
+        let args = Arguments {
+            unit: Some(Spanned {
+                item: Unit::Nanosecond,
+                span: Span::test_data(),
+            }),
+            cell_paths: None,
+        };
+
+        let actual = action(
+            &Value::test_float(1e19), // 1e19 ns > i64::MAX: out of range
+            &args,
+            Span::test_data(),
+        );
+        assert!(
+            matches!(actual, Value::Error { .. }),
+            "expected overflow error, got {actual:?}"
+        );
+    }
+
+    #[test]
+    fn float_path_non_finite_reports_error() {
+        let args = Arguments {
+            unit: Some(Spanned {
+                item: Unit::Nanosecond,
+                span: Span::test_data(),
+            }),
+            cell_paths: None,
+        };
+
+        let actual = action(&Value::test_float(f64::INFINITY), &args, Span::test_data());
+        assert!(
+            matches!(actual, Value::Error { .. }),
+            "expected overflow error for non-finite input, got {actual:?}"
+        );
+    }
+
+    #[test]
+    fn checked_ns_add_reports_overflow() {
+        // Review: checked_ns_add had no coverage. The compound-string path
+        // ('9223372036854775807ns 1ns') is now rejected earlier by the parser
+        // (saturated-boundary fix), so exercise the accumulation guard
+        // directly.
+        let span = Span::test_data();
+        let err = checked_ns_add(i64::MAX, 1, span).unwrap_err();
+        assert!(format!("{err:?}").contains("addition"), "got {err:?}");
+        // Sanity: an in-range addition still succeeds.
+        assert_eq!(checked_ns_add(i64::MAX - 1, 1, span).unwrap(), i64::MAX);
+    }
+
+    #[test]
     fn invalid_clock_string_with_bad_fraction_precision() {
         let args = Arguments {
             unit: Some(Spanned {
