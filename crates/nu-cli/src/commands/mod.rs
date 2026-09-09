@@ -13,8 +13,8 @@ mod print;
 pub use abbr::Abbreviations;
 pub use abbr_list::AbbreviationsList;
 pub use commandline::{
-    Commandline, CommandlineComplete, CommandlineEdit, CommandlineGetCursor, CommandlineSetCursor,
-    CommandlineSetPrompt,
+    Commandline, CommandlineComplete, CommandlineEdit, CommandlineGetCursor,
+    CommandlineGetSelection, CommandlineSetCursor, CommandlineSetPrompt,
 };
 pub use history::*;
 pub use keybindings::Keybindings;

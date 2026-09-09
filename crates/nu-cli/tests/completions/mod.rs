@@ -3210,6 +3210,7 @@ fn run_external_completion_within_pwd(
         let mut repl = engine_state.repl_state.lock().expect("repl state");
         repl.buffer = input.to_string();
         repl.cursor_pos = input.len();
+        repl.selection = None;
     }
 
     // Instantiate a new completer
