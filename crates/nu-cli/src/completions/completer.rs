@@ -9,7 +9,7 @@ use lru::LruCache;
 use nu_parser::{parse, parse_shorter_head_reading};
 use nu_protocol::{
     BlockId, BuiltinCompletion, CommandWideCompleter, Completion, DeclId, Flag, Record, Signature,
-    Span, SuggestionKind, Value,
+    Span, SuggestionKind, SyntaxShape, Value,
     ast::{
         Argument, AttributeBlock, Block, Call, Expr, Expression, ExternalArgument, FlagRef,
         FullCellPath, PipelineRedirection, RedirectionTarget, Traverse,
@@ -286,6 +286,132 @@ fn count_positionals(call: &Call, before_index: usize) -> usize {
         .count()
 }
 
+/// A call and the pipeline element it lives in: the shared payload of every
+/// call-bound [`SiteKind`]. Carrying them as one value keeps an element from
+/// being paired with another call's arguments.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct CallSite<'a> {
+    pub call: &'a Call,
+    pub element: &'a Expression,
+}
+
+/// A call's `Expr::RowCondition` argument. Values of this type prove the
+/// condition exists, so operator/value-gap reads share one lookup and one
+/// signature-slot rule instead of re-searching the arguments each time.
+#[derive(Debug, Clone, Copy)]
+struct RowCondition<'a> {
+    site: CallSite<'a>,
+    arg_slot: usize,
+    block_id: BlockId,
+    arg_span: Span,
+}
+
+impl<'a> RowCondition<'a> {
+    fn find(site: CallSite<'a>, want: Option<Span>) -> Option<Self> {
+        site.call
+            .arguments
+            .iter()
+            .enumerate()
+            .rev()
+            .find_map(|(arg_slot, arg)| match arg {
+                Argument::Positional(Expression {
+                    expr: Expr::RowCondition(block_id),
+                    span,
+                    ..
+                }) if want.is_none_or(|wanted| wanted == *span) => Some(Self {
+                    site,
+                    arg_slot,
+                    block_id: *block_id,
+                    arg_span: *span,
+                }),
+                _ => None,
+            })
+    }
+
+    /// The trailing condition of `site`, if any.
+    fn trailing(site: CallSite<'a>) -> Option<Self> {
+        Self::find(site, None)
+    }
+
+    /// The condition whose span is `descent_span` (a File leaf promoting outward), if any.
+    fn matching(site: CallSite<'a>, descent_span: Span) -> Option<Self> {
+        Self::find(site, Some(descent_span))
+    }
+
+    /// Declared slot of the condition (e.g. 0 for `where`), not raw arg position, so a
+    /// leading path arg cannot steal the condition's index.
+    fn index(&self, working_set: &StateWorkingSet) -> usize {
+        fn is_cond(shape: &SyntaxShape) -> bool {
+            matches!(shape, SyntaxShape::RowCondition)
+                || matches!(shape, SyntaxShape::OneOf(shapes) if shapes.iter().any(is_cond))
+        }
+        let signature = working_set.get_decl(self.site.call.decl_id).signature();
+        signature
+            .required_positional
+            .iter()
+            .chain(signature.optional_positional.iter())
+            .enumerate()
+            .find(|(_, p)| is_cond(&p.shape))
+            .map(|(i, _)| i)
+            .unwrap_or_else(|| count_positionals(self.site.call, self.arg_slot))
+    }
+
+    /// Positional site for this condition.
+    fn site_at(
+        &self,
+        working_set: &StateWorkingSet,
+        cursor: usize,
+        span: Span,
+    ) -> CompletionSite<'a> {
+        CompletionSite::at(
+            cursor,
+            SiteKind::Positional {
+                site: self.site,
+                sig_positional: self.index(working_set),
+                arg_slot: self.arg_slot,
+            },
+            span,
+        )
+    }
+
+    /// Last term of the condition body.
+    fn last_term(&self, working_set: &'a StateWorkingSet) -> Option<&'a Expression> {
+        Some(
+            &working_set
+                .get_block(self.block_id)
+                .pipelines
+                .last()?
+                .elements
+                .last()?
+                .expr,
+        )
+    }
+}
+
+/// A File leaf inside a row condition is really the enclosing condition positional.
+fn promote_row_condition_file<'a>(
+    site: CompletionSite<'a>,
+    chain: &[(&'a Expression, Option<Span>)],
+    working_set: &StateWorkingSet,
+    cursor: usize,
+) -> CompletionSite<'a> {
+    if !matches!(site.kind, SiteKind::File) {
+        return site;
+    }
+    for &(element, descent) in chain {
+        let Some(descent_span) = descent else {
+            continue;
+        };
+        let Expr::Call(call) = &element.expr else {
+            continue;
+        };
+        if let Some(cond) = RowCondition::matching(CallSite { call, element }, descent_span) {
+            return cond.site_at(working_set, cursor, site.span);
+        }
+    }
+    site
+}
+
 /// A redirection target the cursor touches, as a file path.
 fn check_redirection_target(target: &RedirectionTarget, pos: usize) -> Option<&Expression> {
     let expr = target.expr();
@@ -400,27 +526,36 @@ impl CacheEnv {
     }
 }
 
-struct CacheEntry {
-    suggestions: Suggestions,
-    env: CacheEnv,
+/// One generation of cached completions. Entries are only valid for the
+/// environment they were computed in, so the whole map carries a single env:
+/// a mismatch clears it in O(1) instead of purging entry by entry.
+struct CacheState {
+    /// `None` disables the cache; the map is then never consulted.
+    capacity: Option<NonZeroUsize>,
+    /// The generation `entries` were computed in.
+    env: Option<CacheEnv>,
+    entries: LruCache<CompletionQuery, Suggestions>,
 }
 
-impl CacheEntry {
-    /// Whether this entry is usable in `env`.
-    fn is_usable(&self, env: CacheEnv) -> bool {
-        self.env == env
-    }
-
-    /// The span the last suggestion replaces; the one the cursor extends.
-    fn reference_span(&self) -> Option<reedline::Span> {
-        self.suggestions.last().map(|suggestion| suggestion.span)
+impl CacheState {
+    /// The live map for `env`, clearing a stale generation; `None` when disabled.
+    fn live(
+        state: &mut Self,
+        env: CacheEnv,
+    ) -> Option<&mut LruCache<CompletionQuery, Suggestions>> {
+        state.capacity?;
+        if state.env != Some(env) {
+            state.env = Some(env);
+            state.entries.clear();
+        }
+        Some(&mut state.entries)
     }
 }
 
 /// Cross-prompt completion cache, LRU by entry count; capacity `0` disables it.
 #[derive(Clone)]
 pub(crate) struct NarrowingCache {
-    entries: Arc<Mutex<Option<LruCache<CompletionQuery, CacheEntry>>>>,
+    state: Arc<Mutex<CacheState>>,
 }
 
 impl Default for NarrowingCache {
@@ -433,20 +568,26 @@ impl NarrowingCache {
     /// `0` isn't a valid `LruCache` capacity; it means the cache is disabled.
     pub(crate) fn new(capacity: usize) -> Self {
         Self {
-            entries: Arc::new(Mutex::new(NonZeroUsize::new(capacity).map(LruCache::new))),
+            state: Arc::new(Mutex::new(CacheState {
+                capacity: NonZeroUsize::new(capacity),
+                env: None,
+                // Never consulted while disabled; resized on enable.
+                entries: LruCache::new(NonZeroUsize::new(capacity).unwrap_or(NonZeroUsize::MIN)),
+            })),
         }
     }
 
     /// Resize in place; `0` disables the cache. Reapplied each prompt.
     pub(crate) fn set_capacity(&self, capacity: usize) {
-        if let Ok(mut cache_guard) = self.entries.lock() {
-            *cache_guard = NonZeroUsize::new(capacity).map(|new_capacity| {
-                let mut cache = cache_guard
-                    .take()
-                    .unwrap_or_else(|| LruCache::new(new_capacity));
-                cache.resize(new_capacity);
-                cache
-            });
+        if let Ok(mut state) = self.state.lock() {
+            state.capacity = NonZeroUsize::new(capacity);
+            match state.capacity {
+                Some(capacity) => state.entries.resize(capacity),
+                None => {
+                    state.entries.clear();
+                    state.env = None;
+                }
+            }
         }
     }
 
@@ -455,12 +596,10 @@ impl NarrowingCache {
         query: &CompletionQuery,
         environment: CacheEnv,
     ) -> Option<Suggestions> {
-        let mut cache_guard = self.entries.lock().ok()?;
-        let entry = cache_guard.as_mut()?.get(query)?;
-
-        entry
-            .is_usable(environment)
-            .then(|| entry.suggestions.clone())
+        let mut state = self.state.lock().ok()?;
+        CacheState::live(&mut state, environment)?
+            .get(query)
+            .cloned()
     }
 
     pub(crate) fn store(
@@ -469,26 +608,10 @@ impl NarrowingCache {
         environment: CacheEnv,
         suggestions: Suggestions,
     ) {
-        if let Ok(mut cache_guard) = self.entries.lock()
-            && let Some(cache) = cache_guard.as_mut()
+        if let Ok(mut state) = self.state.lock()
+            && let Some(cache) = CacheState::live(&mut state, environment)
         {
-            let stale_keys: Vec<_> = cache
-                .iter()
-                .filter(|(_, entry)| !entry.is_usable(environment))
-                .map(|(key, _)| key.clone())
-                .collect();
-
-            for key in stale_keys {
-                cache.pop(&key);
-            }
-
-            cache.put(
-                query,
-                CacheEntry {
-                    suggestions,
-                    env: environment,
-                },
-            );
+            cache.put(query, suggestions);
         }
     }
 
@@ -499,22 +622,21 @@ impl NarrowingCache {
         options: &CompletionOptions,
     ) -> Suggestions {
         let Some((base_suggestions, ref_span, search_token)) =
-            self.entries.lock().ok().and_then(|guard| {
-                let (_, entry, span) = guard
-                    .as_ref()?
+            self.state.lock().ok().and_then(|mut state| {
+                let cache = CacheState::live(&mut state, environment)?;
+                let (_, suggestions, span) = cache
                     .iter()
-                    .filter_map(|(bq, e)| {
-                        let s = e.reference_span()?;
-                        (e.is_usable(environment) && query.narrows(bq, s)).then_some((
-                            bq.cursor(),
-                            e,
-                            s,
-                        ))
+                    .filter_map(|(base, suggestions)| {
+                        // The span the last suggestion replaces; the one the cursor extends.
+                        let span = suggestions.last().map(|suggestion| suggestion.span)?;
+                        query
+                            .narrows(base, span)
+                            .then_some((base.cursor(), suggestions, span))
                     })
-                    .max_by_key(|&(c, ..)| c)?;
+                    .max_by_key(|&(cursor, ..)| cursor)?;
 
                 let token = query.typed().get(span.start..)?;
-                Some((Arc::clone(&entry.suggestions), span, token))
+                Some((Arc::clone(suggestions), span, token))
             })
         else {
             return Suggestions::default();
@@ -586,10 +708,7 @@ fn isolated_stack(parent: Arc<Stack>, suppress_stdin: bool) -> Arc<Stack> {
 fn site_completer(site: &CompletionSite, working_set: &StateWorkingSet) -> Option<SiteCompleter> {
     let call = match &site.kind {
         SiteKind::ExternalArg { .. } => return Some(SiteCompleter::External),
-        SiteKind::FlagName { call, .. }
-        | SiteKind::FlagValue { call, .. }
-        | SiteKind::Positional { call, .. } => *call,
-        _ => return None,
+        kind => kind.call_site()?.call,
     };
     let signature = working_set.get_decl(call.decl_id).signature();
 
@@ -658,21 +777,16 @@ pub(crate) enum SiteKind<'a> {
     /// A command head; `node` is the whole call (for `^`/`%` sigils).
     Command { node: Option<&'a Expression> },
     /// A flag name being typed (`--`, `-x`).
-    FlagName {
-        call: &'a Call,
-        element: &'a Expression,
-    },
+    FlagName(CallSite<'a>),
     /// The value of a flag; `flag` keeps long/short identity.
     FlagValue {
-        call: &'a Call,
-        element: &'a Expression,
+        site: CallSite<'a>,
         flag: FlagRef<'a>,
         arg_slot: usize,
     },
     /// A positional argument; `sig_positional` indexes the signature.
     Positional {
-        call: &'a Call,
-        element: &'a Expression,
+        site: CallSite<'a>,
         sig_positional: usize,
         arg_slot: usize,
     },
@@ -721,10 +835,20 @@ impl<'a> SiteKind<'a> {
     fn element(&self) -> Option<&'a Expression> {
         match *self {
             Self::Command { node } => node,
-            Self::FlagName { element, .. }
-            | Self::FlagValue { element, .. }
-            | Self::Positional { element, .. } => Some(element),
+            Self::FlagName(site) | Self::FlagValue { site, .. } | Self::Positional { site, .. } => {
+                Some(site.element)
+            }
             Self::ExternalArg { call, .. } => Some(call),
+            _ => None,
+        }
+    }
+
+    /// The call this kind completes arguments for, if any.
+    fn call_site(&self) -> Option<CallSite<'a>> {
+        match *self {
+            Self::FlagName(site) | Self::FlagValue { site, .. } | Self::Positional { site, .. } => {
+                Some(site)
+            }
             _ => None,
         }
     }
@@ -844,40 +968,6 @@ impl<'a> CompletionSite<'a> {
     }
 }
 
-/// Suggestions gathered from a source and its dispatch state.
-#[derive(Default)]
-struct Dispatched {
-    suggestions: Vec<SemanticSuggestion>,
-    cacheable: bool,
-    fallback: bool,
-}
-
-impl Dispatched {
-    /// Append another dispatch's suggestions and state.
-    fn merge(&mut self, other: Dispatched) {
-        self.cacheable |= other.cacheable;
-        self.fallback |= other.fallback;
-        self.suggestions.extend(other.suggestions);
-    }
-
-    /// Merge one source's outcome and report whether it answered.
-    fn absorb(&mut self, attempt: Fetched) -> bool {
-        let answered = attempt.answered();
-        self.merge(attempt.into());
-        answered
-    }
-}
-
-impl From<Fetched> for Dispatched {
-    fn from(fetched: Fetched) -> Self {
-        Self {
-            cacheable: fetched.is_reusable(),
-            fallback: !fetched.answered(),
-            suggestions: fetched.into_suggestions(),
-        }
-    }
-}
-
 /// Completions for one commandline against borrowed state.
 pub struct CompletionEngine<'a> {
     engine_state: &'a EngineState,
@@ -899,6 +989,17 @@ impl Buffer<'_> {
     /// The cursor as a byte offset into [`Self::text`].
     fn cursor(&self) -> usize {
         self.text.len()
+    }
+
+    /// The cursor in working-set (span) coordinates.
+    fn absolute_cursor(&self) -> usize {
+        self.offset + self.text.len()
+    }
+
+    /// A working-set offset as a byte index into [`Self::text`], saturating so
+    /// spans before the buffer can't underflow.
+    fn relative(&self, absolute: usize) -> usize {
+        absolute.saturating_sub(self.offset)
     }
 }
 
@@ -950,42 +1051,29 @@ impl<'engine> CompletionEngine<'engine> {
     /// Answer one request, returning suggestions and whether the result is cacheable.
     fn suggestions_for(&self, query: &CompletionQuery) -> (Suggestions, bool) {
         let dispatched = self.dispatch_completions_at(query.typed(), query.cursor());
+        let reusable = dispatched.is_reusable();
         let suggestions = dispatched
-            .suggestions
+            .into_suggestions()
             .into_iter()
             .map(|semantic_suggestion| semantic_suggestion.suggestion)
             .collect();
 
-        (suggestions, dispatched.cacheable)
+        (suggestions, reusable)
     }
 
     pub fn fetch_completions_at(&self, line: &str, position: usize) -> Vec<SemanticSuggestion> {
-        self.dispatch_completions_at(line, position).suggestions
+        self.dispatch_completions_at(line, position)
+            .into_suggestions()
     }
 
-    /// Input record for completer; replacement is parsed site.
+    /// Input record for a completer, menu source, or `commandline complete --input`.
+    /// Site identity (`$token`/`$place`) is always the parsed site; reedline's
+    /// replacement range never enters here.
     pub fn completer_input_at(&self, line: &str, position: usize, wanted: DeclaredInputs) -> Value {
-        self.input_at(line, position, wanted, None)
+        self.input_at(line, position, wanted)
     }
 
-    /// Input record for menu; replacement comes from editor.
-    pub fn menu_input_at(
-        &self,
-        line: &str,
-        position: usize,
-        wanted: DeclaredInputs,
-        replacing: reedline::Span,
-    ) -> Value {
-        self.input_at(line, position, wanted, Some(replacing))
-    }
-
-    fn input_at(
-        &self,
-        line: &str,
-        position: usize,
-        wanted: DeclaredInputs,
-        replacing: Option<reedline::Span>,
-    ) -> Value {
+    fn input_at(&self, line: &str, position: usize, wanted: DeclaredInputs) -> Value {
         let cursor = line.floor_char_boundary(position.min(line.len()));
         let sliced_line = &line[..cursor];
 
@@ -1002,12 +1090,7 @@ impl<'engine> CompletionEngine<'engine> {
             text: sliced_line,
             offset,
         };
-        let mut site = self.resolve_completion_site(&block, &working_set, buffer, sliced_line);
-
-        if let Some(replacing) = replacing {
-            site.span = Span::new(offset + replacing.start, offset + replacing.end);
-            site = self.finalize_site(site, buffer, sliced_line);
-        }
+        let site = Self::resolve_completion_site(&block, &working_set, buffer, sliced_line);
 
         completer_input(
             &self
@@ -1041,7 +1124,7 @@ impl<'engine> CompletionEngine<'engine> {
             text: sliced_line,
             offset,
         };
-        let site = self.resolve_completion_site(&block, &working_set, buffer, sliced_line);
+        let site = Self::resolve_completion_site(&block, &working_set, buffer, sliced_line);
 
         self.site_is_interactive(&site, &working_set)
             || self
@@ -1071,7 +1154,7 @@ impl<'engine> CompletionEngine<'engine> {
         }
     }
 
-    fn dispatch_completions_at(&self, line: &str, position: usize) -> Dispatched {
+    fn dispatch_completions_at(&self, line: &str, position: usize) -> Fetched {
         let safe_position = line.floor_char_boundary(position);
         // Parse only up to the cursor.
         let sliced_line = &line[..safe_position];
@@ -1121,7 +1204,7 @@ impl<'engine> CompletionEngine<'engine> {
             },
             contents,
         )
-        .suggestions
+        .into_suggestions()
     }
 
     /// `buffer` is the commandline; `contents` is the text the block was parsed from.
@@ -1131,17 +1214,17 @@ impl<'engine> CompletionEngine<'engine> {
         working_set: &StateWorkingSet,
         buffer: Buffer,
         contents: &str,
-    ) -> Dispatched {
-        let site = self.resolve_completion_site(&block, working_set, buffer, contents);
+    ) -> Fetched {
+        let site = Self::resolve_completion_site(&block, working_set, buffer, contents);
         let mut dispatched = self.dispatch_completion_site(&site, working_set, buffer);
 
         // A multi-word head is ambiguous: offer the shorter command's argument reading too.
-        let argument_reading =
-            self.complete_multiword_head_as_argument(&site, working_set, buffer, contents);
-        dispatched.cacheable |= argument_reading.cacheable;
-        dispatched
-            .suggestions
-            .splice(..0, argument_reading.suggestions);
+        dispatched.prepend_from(self.complete_multiword_head_as_argument(
+            &site,
+            working_set,
+            buffer,
+            contents,
+        ));
         dispatched
     }
 
@@ -1152,7 +1235,7 @@ impl<'engine> CompletionEngine<'engine> {
         working_set: &StateWorkingSet,
         buffer: Buffer,
         contents: &str,
-    ) -> Dispatched {
+    ) -> Fetched {
         self.with_shorter_head_reading(
             site,
             working_set,
@@ -1161,7 +1244,7 @@ impl<'engine> CompletionEngine<'engine> {
             |engine, shorter, shorter_ws| {
                 let mut dispatched = engine.dispatch_completion_site(shorter, shorter_ws, buffer);
                 // Keep only the argument value; drop command-kind results.
-                dispatched.suggestions.retain(|candidate| {
+                dispatched.retain(|candidate| {
                     !matches!(candidate.kind, Some(SuggestionKind::Command(..)))
                 });
                 dispatched
@@ -1195,8 +1278,8 @@ impl<'engine> CompletionEngine<'engine> {
         let _ = shorter_ws.add_file("completer", contents.as_bytes());
         let shorter = parse_shorter_head_reading(&mut shorter_ws, site.span, None)?;
 
-        let mut shorter_site = self.finalize_site(
-            self.resolve_expression_site(&shorter, site.cursor, &shorter_ws),
+        let mut shorter_site = Self::finalize_site(
+            Self::resolve_expression_site(&shorter, site.cursor, &shorter_ws),
             buffer,
             contents,
         );
@@ -1216,7 +1299,7 @@ impl<'engine> CompletionEngine<'engine> {
         site: &'a CompletionSite<'a>,
         working_set: &'a StateWorkingSet,
         buffer: Buffer<'a>,
-    ) -> Dispatched {
+    ) -> Fetched {
         let completion_context = self
             .context(working_set, buffer, site.span, site.typed_prefix.as_bytes())
             .at_site(site);
@@ -1230,37 +1313,33 @@ impl<'engine> CompletionEngine<'engine> {
                     self.command_completion_for_head(*node, site.span, working_set),
                 );
 
-                if completions.suggestions.is_empty() {
+                if completions.is_empty() {
                     self.suggestions_at(&mut FileCompletion, &completion_context)
                 } else {
                     completions
                 }
             }
 
-            SiteKind::FlagName { .. }
-            | SiteKind::FlagValue { .. }
-            | SiteKind::Positional { .. } => {
+            SiteKind::FlagName(_) | SiteKind::FlagValue { .. } | SiteKind::Positional { .. } => {
                 self.dispatch_call_completion_site(site, working_set, buffer, &completion_context)
             }
 
             SiteKind::Operator { lhs } => OperatorCompletion {
                 left_hand_side: lhs,
             }
-            .fetch(&completion_context)
-            .into(),
+            .fetch(&completion_context),
 
             SiteKind::CellPath { path } => CellPathCompletion {
                 full_cell_path: path,
                 cursor: site.cursor,
             }
-            .fetch(&completion_context)
-            .into(),
+            .fetch(&completion_context),
 
             SiteKind::Variable => self.variable_names_completion_helper(&completion_context),
 
-            SiteKind::AttributeName => AttributeCompletion.fetch(&completion_context).into(),
+            SiteKind::AttributeName => AttributeCompletion.fetch(&completion_context),
 
-            SiteKind::AttributableItem => AttributableCompletion.fetch(&completion_context).into(),
+            SiteKind::AttributableItem => AttributableCompletion.fetch(&completion_context),
 
             SiteKind::ExternalArg { .. } => {
                 self.dispatch_external_arg(site, working_set, buffer, &completion_context)
@@ -1277,17 +1356,17 @@ impl<'engine> CompletionEngine<'engine> {
         working_set: &StateWorkingSet,
         buffer: Buffer,
         completion_context: &Context,
-    ) -> Dispatched {
+    ) -> Fetched {
         let SiteKind::ExternalArg {
             call: external_call,
             index,
         } = &site.kind
         else {
-            return Dispatched::default();
+            return Fetched::default();
         };
         let external_call = *external_call;
         let Expr::ExternalCall(head, _) = &external_call.expr else {
-            return Dispatched::default();
+            return Fetched::default();
         };
 
         // The first argument of `sudo`/`doas` is a command run under the wrapper.
@@ -1300,13 +1379,14 @@ impl<'engine> CompletionEngine<'engine> {
                     site.span,
                     CommandCompletion::new(CommandScope::All),
                 );
-                if !commands.suggestions.is_empty() {
+                if !commands.is_empty() {
                     return commands;
                 }
             }
         }
 
-        let mut dispatched = Dispatched::default();
+        // Neutral seed: answered until a source declines, unreusable until one keeps.
+        let mut dispatched = Fetched::default();
 
         // The user's configured external completer.
         let external_answered = self
@@ -1327,8 +1407,8 @@ impl<'engine> CompletionEngine<'engine> {
             self.subcommand_suggestions(working_set, buffer, external_call.span.start, site.cursor);
 
         // Add file completion when the source leaves the slot open.
-        let wants_file = subcommands.suggestions.is_empty()
-            && (dispatched.fallback || (!external_answered && dispatched.suggestions.is_empty()));
+        let wants_file = subcommands.is_empty()
+            && (!dispatched.answered() || (!external_answered && dispatched.is_empty()));
         if wants_file {
             dispatched.merge(self.suggestions_at(&mut FileCompletion, completion_context));
         }
@@ -1344,13 +1424,13 @@ impl<'engine> CompletionEngine<'engine> {
         working_set: &StateWorkingSet,
         buffer: Buffer,
         completion_context: &Context,
-    ) -> Dispatched {
+    ) -> Fetched {
         // Only call-bound kinds carry a call; anything else is an error here.
         let call = match &site.kind {
-            SiteKind::FlagName { call, .. }
-            | SiteKind::FlagValue { call, .. }
-            | SiteKind::Positional { call, .. } => *call,
-            _ => return Dispatched::default(),
+            SiteKind::FlagName(site)
+            | SiteKind::FlagValue { site, .. }
+            | SiteKind::Positional { site, .. } => site.call,
+            _ => return Fetched::default(),
         };
 
         let signature = working_set.get_decl(call.decl_id).signature();
@@ -1367,7 +1447,7 @@ impl<'engine> CompletionEngine<'engine> {
                 ArgValueCompletion {
                     call,
                     arg_type,
-                    need_fallback: subcommands.suggestions.is_empty(),
+                    need_fallback: subcommands.is_empty(),
                     arg_idx: arg_slot,
                     declared_shape,
                     cursor: site.cursor,
@@ -1378,7 +1458,7 @@ impl<'engine> CompletionEngine<'engine> {
         };
 
         let mut results = match &site.kind {
-            SiteKind::FlagName { .. } => {
+            SiteKind::FlagName(_) => {
                 self.complete_flag_names(call.decl_id, completion_context, &signature)
             }
             SiteKind::FlagValue { flag, arg_slot, .. } => {
@@ -1405,7 +1485,7 @@ impl<'engine> CompletionEngine<'engine> {
                     positional.map(|positional| positional.shape.clone()),
                 )
             }
-            _ => Dispatched::default(),
+            _ => Fetched::default(),
         };
 
         results.merge(subcommands);
@@ -1414,13 +1494,12 @@ impl<'engine> CompletionEngine<'engine> {
 
     /// Resolve the contextual state and constraints at the cursor's location.
     pub(crate) fn resolve_completion_site<'a>(
-        &self,
         block: &'a Block,
         working_set: &'a StateWorkingSet,
         buffer: Buffer,
         contents: &'a str,
     ) -> CompletionSite<'a> {
-        let absolute_position = buffer.cursor() + buffer.offset;
+        let absolute_position = buffer.absolute_cursor();
 
         // The closures and subexpressions the cursor is nested in, outermost first.
         let chain = enclosing_elements(block, working_set, absolute_position);
@@ -1434,20 +1513,21 @@ impl<'engine> CompletionEngine<'engine> {
 
         let mut site = match innermost_expression(touched_expression, &chain) {
             Some(expression) => {
-                self.resolve_expression_site(expression, absolute_position, working_set)
+                Self::resolve_expression_site(expression, absolute_position, working_set)
             }
-            None => self.resolve_fallback_site(block, working_set, absolute_position),
+            None => Self::resolve_fallback_site(block, working_set, absolute_position),
         };
 
-        site.contexts = self.contexts_of(&chain, working_set, absolute_position, &site);
-        self.finalize_site(site, buffer, contents)
+        site = promote_row_condition_file(site, &chain, working_set, absolute_position);
+
+        site.contexts = Self::contexts_of(&chain, working_set, absolute_position, &site);
+        Self::finalize_site(site, buffer, contents)
     }
 
     /// The chain of contexts the cursor lives in, outermost first. `site` supplies the
     /// innermost one, so it stays the resolution the dispatcher itself acts on rather than
     /// a second, possibly disagreeing, reading of the same position.
     fn contexts_of<'a>(
-        &self,
         chain: &[(&'a Expression, Option<Span>)],
         working_set: &'a StateWorkingSet,
         absolute_position: usize,
@@ -1467,8 +1547,7 @@ impl<'engine> CompletionEngine<'engine> {
         chain[..innermost_index]
             .iter()
             .map(|&(expression, descent)| CompletionContext {
-                cursor: self
-                    .resolve_expression_site(expression, absolute_position, working_set)
+                cursor: Self::resolve_expression_site(expression, absolute_position, working_set)
                     .kind
                     .resolved(),
                 element: Some(expression),
@@ -1487,22 +1566,20 @@ impl<'engine> CompletionEngine<'engine> {
 
     /// Fill `typed_prefix`/`cursor` from the final span so they never disagree.
     fn finalize_site<'a>(
-        &self,
         mut site: CompletionSite<'a>,
         buffer: Buffer,
         contents: &'a str,
     ) -> CompletionSite<'a> {
-        let token_start = site.span.start.saturating_sub(buffer.offset);
+        let token_start = buffer.relative(site.span.start);
         site.typed_prefix = contents
             .get(token_start..buffer.cursor())
             .map(Cow::Borrowed)
             .unwrap_or(Cow::Borrowed(""));
-        site.cursor = buffer.cursor() + buffer.offset;
+        site.cursor = buffer.absolute_cursor();
         site
     }
 
     fn resolve_expression_site<'a>(
-        &self,
         expression: &'a Expression,
         absolute_position: usize,
         working_set: &'a StateWorkingSet,
@@ -1519,14 +1596,19 @@ impl<'engine> CompletionEngine<'engine> {
 
         // Default to file completion; overridden below where the expression warrants it.
         match &expression.expr {
-            Expr::Call(call) => {
-                self.resolve_call_site(call, expression, absolute_position, working_set)
-            }
+            Expr::Call(call) => Self::resolve_call_site(
+                CallSite {
+                    call,
+                    element: expression,
+                },
+                absolute_position,
+                working_set,
+            ),
             Expr::ExternalCall(head, arguments) => {
-                self.resolve_external_call_site(expression, head, arguments, absolute_position)
+                Self::resolve_external_call_site(expression, head, arguments, absolute_position)
             }
             Expr::AttributeBlock(attribute_block) => {
-                self.resolve_attribute_site(attribute_block, absolute_position)
+                Self::resolve_attribute_site(attribute_block, absolute_position)
             }
             Expr::Var(_) => {
                 CompletionSite::at(absolute_position, SiteKind::Variable, expression.span)
@@ -1557,7 +1639,7 @@ impl<'engine> CompletionEngine<'engine> {
 
                 match value_side {
                     Some(side) => {
-                        self.resolve_expression_site(side, absolute_position, working_set)
+                        Self::resolve_expression_site(side, absolute_position, working_set)
                     }
                     None => CompletionSite::at(
                         absolute_position,
@@ -1575,7 +1657,6 @@ impl<'engine> CompletionEngine<'engine> {
     /// Resolve a bare external call; the head completes as a command, else
     /// [`SiteKind::ExternalArg`].
     fn resolve_external_call_site<'a>(
-        &self,
         expression: &'a Expression,
         head: &'a Expression,
         arguments: &'a [ExternalArgument],
@@ -1609,54 +1690,55 @@ impl<'engine> CompletionEngine<'engine> {
         )
     }
 
+    /// Classify the cursor in a call, most specific first: head, existing argument,
+    /// row-condition operator/value gaps, then the trailing slot.
     fn resolve_call_site<'a>(
-        &self,
-        call: &'a Call,
-        expression: &'a Expression,
+        site: CallSite<'a>,
         absolute_position: usize,
         working_set: &'a StateWorkingSet,
     ) -> CompletionSite<'a> {
-        // Cursor in (or right after) the command head: complete the command name.
-        if absolute_position <= call.head.end {
+        if absolute_position <= site.call.head.end {
             return CompletionSite::at(
                 absolute_position,
-                SiteKind::command(expression),
-                command_name_span(call.head, expression.span),
+                SiteKind::command(site.element),
+                command_name_span(site.call.head, site.element.span),
             );
         }
+        Self::argument_touching(site, absolute_position, working_set)
+            .or_else(|| Self::row_condition_operator(site, working_set, absolute_position))
+            .or_else(|| Self::row_condition_value_gap(site, working_set, absolute_position))
+            .unwrap_or_else(|| Self::trailing_slot(site, working_set, absolute_position))
+    }
 
-        // Cursor on an existing argument.
-        if let Some((argument_index, argument)) = call
+    /// The existing argument the cursor touches, if any.
+    fn argument_touching<'a>(
+        site: CallSite<'a>,
+        absolute_position: usize,
+        working_set: &StateWorkingSet,
+    ) -> Option<CompletionSite<'a>> {
+        let (argument_index, argument) = site
+            .call
             .arguments
             .iter()
             .enumerate()
-            .find(|(_, argument)| touches(argument.span(), absolute_position))
-        {
-            return self.resolve_argument_site(
-                call,
-                expression,
-                argument,
-                argument_index,
-                absolute_position,
-                working_set,
-            );
-        }
+            .find(|(_, argument)| touches(argument.span(), absolute_position))?;
+        Some(Self::resolve_argument_site(
+            site,
+            argument,
+            argument_index,
+            absolute_position,
+            working_set,
+        ))
+    }
 
-        // A trailing gap after a row condition (`where name ⌶`) is an operator position.
-        if let Some(operator_left_hand_side) =
-            self.row_condition_operator_lhs(call, working_set, absolute_position)
-        {
-            return CompletionSite::at(
-                absolute_position,
-                SiteKind::Operator {
-                    lhs: operator_left_hand_side,
-                },
-                Span::point(absolute_position),
-            );
-        }
-
-        // Classify the trailing slot (flag value, flag name, or positional) by the
-        // trailing non-whitespace token.
+    /// Classify the trailing slot (flag value, flag name, or positional) by the
+    /// trailing non-whitespace token.
+    fn trailing_slot<'a>(
+        site: CallSite<'a>,
+        working_set: &StateWorkingSet,
+        absolute_position: usize,
+    ) -> CompletionSite<'a> {
+        let CallSite { call, .. } = site;
         let gap_start = call
             .arguments
             .last()
@@ -1675,33 +1757,24 @@ impl<'engine> CompletionEngine<'engine> {
 
         let point = Span::point(absolute_position);
 
-        if let Some(flag_ref) = self.pending_flag_value(call, working_set) {
+        if let Some(flag_ref) = Self::pending_flag_value(call, working_set) {
             // `arg_slot` past the last argument: no node exists yet; `ArgValueCompletion` reads `None`.
             CompletionSite::at(
                 absolute_position,
                 SiteKind::FlagValue {
-                    call,
-                    element: expression,
+                    site,
                     flag: flag_ref,
                     arg_slot: call.arguments.len(),
                 },
                 point,
             )
         } else if token_is_flag {
-            CompletionSite::at(
-                absolute_position,
-                SiteKind::FlagName {
-                    call,
-                    element: expression,
-                },
-                trailing_token,
-            )
+            CompletionSite::at(absolute_position, SiteKind::FlagName(site), trailing_token)
         } else {
             CompletionSite::at(
                 absolute_position,
                 SiteKind::Positional {
-                    call,
-                    element: expression,
+                    site,
                     sig_positional: count_positionals(call, call.arguments.len()),
                     arg_slot: call.arguments.len(),
                 },
@@ -1710,44 +1783,56 @@ impl<'engine> CompletionEngine<'engine> {
         }
     }
 
-    /// The last row-condition term when the cursor trails it: an operator's LHS.
-    fn row_condition_operator_lhs<'a>(
-        &self,
-        call: &'a Call,
+    /// Trailing `where name ⌶` is an operator position.
+    fn row_condition_operator<'a>(
+        site: CallSite<'a>,
         working_set: &'a StateWorkingSet,
         absolute_position: usize,
-    ) -> Option<&'a Expression> {
-        let block_id = call
-            .arguments
-            .iter()
-            .rev()
-            .find_map(|argument| match argument {
-                Argument::Positional(Expression {
-                    expr: Expr::RowCondition(block_id),
-                    ..
-                }) => Some(*block_id),
-                _ => None,
-            })?;
+    ) -> Option<CompletionSite<'a>> {
+        let last_term = RowCondition::trailing(site)?.last_term(working_set)?;
+        (absolute_position > last_term.span.end
+            && is_operator_lhs(&last_term.expr)
+            && working_set
+                .get_span_contents(Span::new(last_term.span.end, absolute_position))
+                .iter()
+                .all(u8::is_ascii_whitespace))
+        .then(|| {
+            CompletionSite::at(
+                absolute_position,
+                SiteKind::Operator { lhs: last_term },
+                Span::point(absolute_position),
+            )
+        })
+    }
 
-        let last_term = &working_set
-            .get_block(block_id)
-            .pipelines
-            .last()?
-            .elements
-            .last()?
-            .expr;
-
-        if absolute_position <= last_term.span.end || !is_operator_lhs(&last_term.expr) {
+    /// `where size > ⌶` / `where size > 1 ⌶` is still the condition, not a new positional.
+    fn row_condition_value_gap<'a>(
+        site: CallSite<'a>,
+        working_set: &'a StateWorkingSet,
+        absolute_position: usize,
+    ) -> Option<CompletionSite<'a>> {
+        let cond = RowCondition::trailing(site)?;
+        let last_term = cond.last_term(working_set)?;
+        let Expr::BinaryOp(_, operator, _) = &last_term.expr else {
             return None;
-        }
-
-        let gap = working_set.get_span_contents(Span::new(last_term.span.end, absolute_position));
-        gap.iter().all(u8::is_ascii_whitespace).then_some(last_term)
+        };
+        (absolute_position >= cond.arg_span.end
+            && absolute_position > operator.span.end
+            && working_set
+                .get_span_contents(Span::new(cond.arg_span.end, absolute_position))
+                .iter()
+                .all(u8::is_ascii_whitespace))
+        .then(|| {
+            cond.site_at(
+                working_set,
+                absolute_position,
+                Span::point(absolute_position),
+            )
+        })
     }
 
     /// The [`FlagRef`] of a last-argument flag still awaiting its value.
     fn pending_flag_value<'a>(
-        &self,
         call: &'a Call,
         working_set: &StateWorkingSet,
     ) -> Option<FlagRef<'a>> {
@@ -1765,18 +1850,13 @@ impl<'engine> CompletionEngine<'engine> {
     }
 
     fn resolve_argument_site<'a>(
-        &self,
-        call: &'a Call,
-        expression: &'a Expression,
+        site: CallSite<'a>,
         argument: &'a Argument,
         argument_index: usize,
         absolute_position: usize,
         working_set: &StateWorkingSet,
     ) -> CompletionSite<'a> {
-        let flag_name = SiteKind::FlagName {
-            call,
-            element: expression,
-        };
+        let flag_name = SiteKind::FlagName(site);
 
         let (kind, span) = match argument {
             Argument::Named((name, short, optional_value)) => {
@@ -1786,8 +1866,7 @@ impl<'engine> CompletionEngine<'engine> {
                 {
                     (
                         SiteKind::FlagValue {
-                            call,
-                            element: expression,
+                            site,
                             flag: FlagRef::from_named(name, short.as_ref()),
                             arg_slot: argument_index,
                         },
@@ -1804,9 +1883,8 @@ impl<'engine> CompletionEngine<'engine> {
                     flag_name
                 } else {
                     SiteKind::Positional {
-                        call,
-                        element: expression,
-                        sig_positional: count_positionals(call, argument_index),
+                        site,
+                        sig_positional: count_positionals(site.call, argument_index),
                         arg_slot: argument_index,
                     }
                 };
@@ -1819,7 +1897,6 @@ impl<'engine> CompletionEngine<'engine> {
     }
 
     fn resolve_attribute_site<'a>(
-        &self,
         attribute_block: &'a AttributeBlock,
         absolute_position: usize,
     ) -> CompletionSite<'a> {
@@ -1853,7 +1930,6 @@ impl<'engine> CompletionEngine<'engine> {
     }
 
     fn resolve_fallback_site<'a>(
-        &self,
         block: &'a Block,
         working_set: &'a StateWorkingSet,
         absolute_position: usize,
@@ -1884,8 +1960,9 @@ impl<'engine> CompletionEngine<'engine> {
         mut arg_value: ArgValueCompletion,
         context: &Context,
         signature: &Signature,
-    ) -> Dispatched {
-        let mut results = Dispatched::default();
+    ) -> Fetched {
+        // Neutral seed: answered until a source declines, unreusable until one keeps.
+        let mut results = Fetched::default();
 
         if let Some(custom) = custom {
             let attempt = match custom {
@@ -1917,8 +1994,8 @@ impl<'engine> CompletionEngine<'engine> {
         }
 
         // A fallthrough result keeps type-based completion enabled.
-        arg_value.need_fallback &= results.suggestions.is_empty() || results.fallback;
-        results.merge(arg_value.fetch(context).into());
+        arg_value.need_fallback &= results.is_empty() || !results.answered();
+        results.merge(arg_value.fetch(context));
         results
     }
 
@@ -1953,24 +2030,21 @@ impl<'engine> CompletionEngine<'engine> {
         decl_id: DeclId,
         context: &Context,
         signature: &Signature,
-    ) -> Dispatched {
-        let mut results: Dispatched = FlagCompletion { decl_id }.fetch(context).into();
-        results.merge(
-            self.command_wide_completion_helper(signature, context)
-                .into(),
-        );
+    ) -> Fetched {
+        let mut results = FlagCompletion { decl_id }.fetch(context);
+        results.merge(self.command_wide_completion_helper(signature, context));
         results
     }
 
-    fn suggestions_at<C: Completer>(&self, completer: &mut C, context: &Context) -> Dispatched {
-        completer.fetch(context).into()
+    fn suggestions_at<C: Completer>(&self, completer: &mut C, context: &Context) -> Fetched {
+        completer.fetch(context)
     }
 
-    fn variable_names_completion_helper(&self, context: &Context) -> Dispatched {
+    fn variable_names_completion_helper(&self, context: &Context) -> Fetched {
         if !context.prefix.starts_with(b"$") {
-            return Dispatched::default();
+            return Fetched::default();
         }
-        VariableCompletion.fetch(context).into()
+        VariableCompletion.fetch(context)
     }
 
     fn command_completion_helper(
@@ -1979,10 +2053,10 @@ impl<'engine> CompletionEngine<'engine> {
         buffer: Buffer,
         span: Span,
         mut command_completion: CommandCompletion,
-    ) -> Dispatched {
+    ) -> Fetched {
         let prefix = working_set.get_span_contents(span);
         let ctx = self.context(working_set, buffer, span, prefix);
-        command_completion.fetch(&ctx).into()
+        command_completion.fetch(&ctx)
     }
 
     /// Command scope for a head, honouring a leading sigil: `^` → externals only, `%` →
@@ -2014,9 +2088,9 @@ impl<'engine> CompletionEngine<'engine> {
         buffer: Buffer,
         command_start: usize,
         cursor: usize,
-    ) -> Dispatched {
+    ) -> Fetched {
         if cursor <= command_start {
-            return Dispatched::default();
+            return Fetched::default();
         }
         self.command_completion_helper(
             working_set,
@@ -2364,7 +2438,6 @@ mod completer_tests {
     #[test]
     fn every_site_holds_the_cursor() {
         let engine_state = test_engine();
-        let engine = CompletionEngine::new(&engine_state, &Stack::new());
 
         for line in CORPUS {
             for cursor in (0..=line.len()).filter(|at| line.is_char_boundary(*at)) {
@@ -2377,7 +2450,12 @@ mod completer_tests {
                     offset,
                 };
 
-                let site = engine.resolve_completion_site(&block, &working_set, buffer, contents);
+                let site = CompletionEngine::resolve_completion_site(
+                    &block,
+                    &working_set,
+                    buffer,
+                    contents,
+                );
                 assert!(
                     touches(site.span, cursor + offset),
                     "{line:?} at {cursor}: a {} site spans {}..{}, off the cursor at {}",
@@ -2388,6 +2466,98 @@ mod completer_tests {
                 );
             }
         }
+    }
+
+    /// `commandline complete --input` place.kind/index for the HackMD where-size cases.
+    fn place_of(engine: &CompletionEngine, line: &str) -> (String, Option<i64>) {
+        let input = engine.completer_input_at(line, line.len(), DeclaredInputs::all());
+        let place = input.get_data_by_key("place").expect("place field");
+        let kind = place
+            .get_data_by_key("kind")
+            .expect("kind")
+            .as_str()
+            .expect("kind string")
+            .to_string();
+        let index = place.get_data_by_key("index").and_then(|v| v.as_int().ok());
+        (kind, index)
+    }
+
+    /// HackMD issue 6: operator vs value vs trailing positional index of `where`.
+    #[test]
+    fn where_size_place_kind_matches_hackmd() {
+        let engine_state = test_engine();
+        let engine = CompletionEngine::new(&engine_state, &Stack::new());
+
+        assert_eq!(
+            place_of(&engine, "ls | where size >"),
+            ("operator".into(), None),
+            "cursor on `>` is an operator site"
+        );
+        assert_eq!(
+            place_of(&engine, "ls | where size > 1"),
+            ("positional".into(), Some(0)),
+            "cursor on the comparison value is where's condition, not a file"
+        );
+        assert_eq!(
+            place_of(&engine, "ls | where size > "),
+            ("positional".into(), Some(0)),
+            "trailing space after `>` is still where's only positional (index 0)"
+        );
+    }
+
+    /// Mid-token and mid-flag adversarial cases for place/token agreement.
+    #[test]
+    fn token_span_matches_place_target_for_flags_and_values() {
+        let engine_state = test_engine();
+        let engine = CompletionEngine::new(&engine_state, &Stack::new());
+
+        let check = |line: &str, cursor: usize, text: &str, start: usize| {
+            let input = engine.completer_input_at(line, cursor, DeclaredInputs::all());
+            let token = input.get_data_by_key("token").expect("token");
+            assert_eq!(
+                token.get_data_by_key("text").unwrap().as_str().unwrap(),
+                text,
+                "token.text for {line:?}@{cursor}"
+            );
+            assert_eq!(
+                token
+                    .get_data_by_key("span")
+                    .unwrap()
+                    .get_data_by_key("start")
+                    .unwrap()
+                    .as_int()
+                    .unwrap(),
+                start as i64,
+                "token.span.start for {line:?}@{cursor}"
+            );
+            let place = input.get_data_by_key("place").expect("place");
+            assert_eq!(
+                place
+                    .get_data_by_key("target")
+                    .unwrap()
+                    .get_data_by_key("start")
+                    .unwrap()
+                    .as_int()
+                    .unwrap(),
+                start as i64,
+                "place.target.start for {line:?}@{cursor}"
+            );
+        };
+
+        check("ls -al", 6, "-al", 3);
+        // Cursor mid-flag: only text up to the cursor is parsed, so the token is the prefix.
+        check("ls -al", 4, "-", 3);
+        check("ls -al", 5, "-a", 3);
+        check("str tri", 7, "tri", 4);
+        check("str tri", 5, "t", 4); // mid-token prefix
+        check("str tri", 6, "tr", 4);
+
+        // Mid-cursor where-size: prefix-parsed site matches place.target.
+        check("ls | where size > 1", 13, "si", 11); // mid-`size`
+        check("ls | where size > 1", 15, "size", 11);
+        check("ls | where size > 1", 17, ">", 16); // on operator
+        check("ls | where size > 1", 19, "1", 18); // on value
+        check("ls | where size > ", 18, "", 18); // trailing space after `>`
     }
 
     /// Token text/span equals target shown to completer.
@@ -2441,6 +2611,124 @@ mod completer_tests {
     /// The token being extended starts at `start`; suggestions replace from there.
     fn token(start: usize) -> reedline::Span {
         reedline::Span::new(start, start)
+    }
+
+    /// Adversarial: bare `where` must stay a Call (not Garbage→File). `ls | where` is
+    /// command; `ls | where ` is positional 0 — same shape as `get`.
+    #[test]
+    fn pipeline_head_where_is_command_not_file() {
+        let engine_state = test_engine();
+        let engine = CompletionEngine::new(&engine_state, &Stack::new());
+        for line in ["ls | where", "ls | get", "ls | each", "ls | filter"] {
+            let (kind, _) = place_of(&engine, line);
+            assert_eq!(
+                kind, "command",
+                "{line:?} at EOL should be command head, got {kind}"
+            );
+        }
+        // Trailing space after where: first positional (condition), not bare File.
+        let (kind, index) = place_of(&engine, "ls | where ");
+        assert_eq!(kind, "positional", "ls | where  trailing: got {kind}");
+        assert_eq!(index, Some(0), "where condition is positional 0");
+    }
+
+    /// RowConditionSlot prefers the signature's condition index, not raw arg counting —
+    /// a leading path arg must not steal index 0 from the condition.
+    #[test]
+    fn row_condition_index_follows_signature_slot_not_arg_order() {
+        use nu_protocol::engine::{Call as EngineCall, Command, CommandType};
+        use nu_protocol::{Category, PipelineData, ShellError, Signature, SyntaxShape};
+
+        #[derive(Clone)]
+        struct MyWhere;
+        impl Command for MyWhere {
+            fn name(&self) -> &str {
+                "mywhere"
+            }
+            fn description(&self) -> &str {
+                "test: path then row condition"
+            }
+            fn signature(&self) -> Signature {
+                Signature::build(self.name())
+                    .required("path", SyntaxShape::Filepath, "path")
+                    .required("cond", SyntaxShape::RowCondition, "condition")
+                    .category(Category::Custom("test".into()))
+            }
+            fn run(
+                &self,
+                _engine_state: &EngineState,
+                _stack: &mut Stack,
+                _call: &EngineCall,
+                _input: PipelineData,
+            ) -> Result<PipelineData, ShellError> {
+                Ok(PipelineData::empty())
+            }
+            fn command_type(&self) -> CommandType {
+                CommandType::Builtin
+            }
+        }
+
+        let mut engine_state =
+            nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
+        {
+            let mut working_set = StateWorkingSet::new(&engine_state);
+            working_set.add_decl(Box::new(MyWhere));
+            engine_state
+                .merge_delta(working_set.render())
+                .expect("merge mywhere");
+        }
+        let engine_state = Arc::new(engine_state);
+        let engine = CompletionEngine::new(&engine_state, &Stack::new());
+
+        assert_eq!(
+            place_of(&engine, "mywhere ./data size > 1"),
+            ("positional".into(), Some(1)),
+            "condition after a path arg is signature index 1"
+        );
+        assert_eq!(
+            place_of(&engine, "mywhere ./data size > "),
+            ("positional".into(), Some(1)),
+            "trailing gap after operator stays condition index 1"
+        );
+        assert_eq!(
+            place_of(&engine, "mywhere ./da"),
+            ("positional".into(), Some(0)),
+            "path arg stays index 0"
+        );
+    }
+
+    /// Adversarial operators/units/nested pipeline places.
+    #[test]
+    fn where_operator_variants_and_downstream_get() {
+        let engine_state = test_engine();
+        let engine = CompletionEngine::new(&engine_state, &Stack::new());
+        assert_eq!(
+            place_of(&engine, "ls | where size >= 1"),
+            ("positional".into(), Some(0))
+        );
+        assert_eq!(
+            place_of(&engine, "ls | where size =="),
+            ("operator".into(), None)
+        );
+        assert_eq!(
+            place_of(&engine, "ls | where size == "),
+            ("positional".into(), Some(0))
+        );
+        assert_eq!(
+            place_of(&engine, "ls | where size > 1kb"),
+            ("positional".into(), Some(0))
+        );
+        assert_eq!(
+            place_of(&engine, "ls | where size > 1 | get name"),
+            ("positional".into(), Some(0))
+        );
+        assert_eq!(
+            place_of(&engine, "ls | where size > 1 | get "),
+            ("positional".into(), Some(0))
+        );
+        // Incomplete pipe is a command head.
+        assert_eq!(place_of(&engine, "ls |"), ("command".into(), None));
+        assert_eq!(place_of(&engine, "ls | "), ("command".into(), None));
     }
 
     #[test]

@@ -479,13 +479,10 @@ pub fn parse_where_expr(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
         return garbage(working_set, Span::concat(spans));
     }
 
-    if spans.len() < 2 {
-        working_set.error(ParseError::MissingPositional(
-            "row condition".into(),
-            Span::concat(spans),
-            "where <row_condition>".into(),
-        ));
-        return garbage(working_set, Span::concat(spans));
+    // Bare `where` stays a Call so completion sees command/positional, not Garbage;
+    // `parse_internal_call` reports the missing condition via `check_call`.
+    if spans.is_empty() {
+        return garbage(working_set, Span::unknown());
     }
 
     let call = match working_set.find_decl(b"where") {

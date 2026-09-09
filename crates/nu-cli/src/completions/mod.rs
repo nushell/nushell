@@ -30,6 +30,7 @@ pub use custom_completions::DeclaredInputs;
 pub use custom_completions::flush_completion_warnings;
 pub(crate) use custom_completions::{
     LegacyInputs, Returned, SpanClamp, bind_declared_inputs, map_value_completions,
+    panic_to_shell_error, report,
 };
 pub use directory_completions::DirectoryCompletion;
 pub use dotnu_completions::DotNuCompletion;

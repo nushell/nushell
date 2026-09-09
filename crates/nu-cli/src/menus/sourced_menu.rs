@@ -19,15 +19,45 @@ impl MenuLine {
     }
 }
 
-/// Menu wrapper carrying line to source.
+/// Menu wrapper carrying the editor line to its source, and abandoning the menu on a
+/// fresh empty answer so a cancelled picker (fzf Esc / `input list` Esc) cannot leave
+/// an empty menu that relaunches on type.
 pub struct SourcedMenu<M> {
     menu: M,
-    line: MenuLine,
+    line: Option<MenuLine>,
 }
 
 impl<M> SourcedMenu<M> {
     pub fn new(menu: M, line: MenuLine) -> Self {
-        Self { menu, line }
+        Self {
+            menu,
+            line: Some(line),
+        }
+    }
+
+    /// Engine-completer menus have no source line to carry, only abandon-on-empty.
+    pub fn abandoning(menu: M) -> Self {
+        Self { menu, line: None }
+    }
+
+    fn record(&self, editor: &Editor) {
+        if let Some(line) = &self.line {
+            line.record(editor.get_buffer());
+        }
+    }
+
+    /// Close on a fresh empty answer; provisional/awaiting emptiness is still computing.
+    fn abandon_if_empty(&mut self)
+    where
+        M: Menu,
+    {
+        if self.menu.is_active()
+            && self.menu.get_values().is_empty()
+            && !self.menu.results_are_provisional()
+            && !self.menu.is_awaiting_first_answer()
+        {
+            self.menu.menu_event(MenuEvent::Deactivate);
+        }
     }
 }
 
@@ -74,14 +104,18 @@ impl<M: Menu> Menu for SourcedMenu<M> {
         editor: &mut Editor,
         completer: &mut dyn Completer,
     ) -> bool {
-        self.line.record(editor.get_buffer());
-        self.menu
-            .can_partially_complete(values_updated, editor, completer)
+        self.record(editor);
+        let done = self
+            .menu
+            .can_partially_complete(values_updated, editor, completer);
+        self.abandon_if_empty();
+        done
     }
 
     fn update_values(&mut self, editor: &mut Editor, completer: &mut dyn Completer) {
-        self.line.record(editor.get_buffer());
+        self.record(editor);
         self.menu.update_values(editor, completer);
+        self.abandon_if_empty();
     }
 
     fn reset_position(&mut self) {
@@ -89,8 +123,9 @@ impl<M: Menu> Menu for SourcedMenu<M> {
     }
 
     fn reload(&mut self, updated: bool, editor: &mut Editor, completer: &mut dyn Completer) {
-        self.line.record(editor.get_buffer());
+        self.record(editor);
         self.menu.reload(updated, editor, completer);
+        self.abandon_if_empty();
     }
 
     fn update_working_details(
@@ -99,8 +134,9 @@ impl<M: Menu> Menu for SourcedMenu<M> {
         completer: &mut dyn Completer,
         painter: &Painter,
     ) {
-        self.line.record(editor.get_buffer());
+        self.record(editor);
         self.menu.update_working_details(editor, completer, painter);
+        self.abandon_if_empty();
     }
 
     fn replace_in_buffer(&self, editor: &mut Editor) {
@@ -139,7 +175,9 @@ impl<M: Menu> Menu for SourcedMenu<M> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use reedline::{ColumnarMenu, CompletionResult, InputMode, MenuBuilder, UndoBehavior};
+    use reedline::{
+        ColumnarMenu, CompletionResult, InputMode, MenuBuilder, MenuEvent, UndoBehavior,
+    };
 
     struct Recorder(Arc<Mutex<Vec<(String, usize)>>>);
 
@@ -153,6 +191,21 @@ mod tests {
                 ..Suggestion::default()
             }])
         }
+    }
+
+    struct Empty;
+    impl Completer for Empty {
+        fn complete(&mut self, _line: &str, _pos: usize) -> CompletionResult {
+            CompletionResult::fresh(Vec::<Suggestion>::new())
+        }
+    }
+
+    fn active_menu() -> (Editor, SourcedMenu<ColumnarMenu>) {
+        let editor = Editor::default();
+        let mut menu = SourcedMenu::abandoning(ColumnarMenu::default());
+        menu.menu_event(MenuEvent::Activate(false));
+        assert!(menu.is_active());
+        (editor, menu)
     }
 
     #[test]
@@ -180,5 +233,38 @@ mod tests {
             seen.lock().expect("what the menu handed over").as_slice(),
             [(String::new(), 3)]
         );
+    }
+
+    #[test]
+    fn empty_fresh_abandons_but_pending_does_not() {
+        let (mut editor, mut menu) = active_menu();
+        menu.update_values(&mut editor, &mut Empty);
+        assert!(!menu.is_active(), "empty fresh must abandon");
+
+        // Edit must not relaunch an abandoned menu, even with later values.
+        menu.menu_event(MenuEvent::Edit(false));
+        menu.update_values(&mut editor, &mut Empty);
+        assert!(!menu.is_active());
+        menu.menu_event(MenuEvent::Edit(false));
+        menu.update_values(&mut editor, &mut Recorder(Arc::new(Mutex::new(Vec::new()))));
+        assert!(!menu.is_active(), "only Activate may reopen");
+
+        // Provisional emptiness is still computing, not cancel.
+        struct Pending;
+        impl Completer for Pending {
+            fn complete(&mut self, _line: &str, _pos: usize) -> CompletionResult {
+                CompletionResult::Pending
+            }
+        }
+        let (mut editor, mut menu) = active_menu();
+        menu.update_values(&mut editor, &mut Pending);
+        assert!(menu.is_active());
+        assert!(menu.get_values().is_empty());
+
+        // Non-empty keeps it open.
+        let (mut editor, mut menu) = active_menu();
+        menu.update_values(&mut editor, &mut Recorder(Arc::new(Mutex::new(Vec::new()))));
+        assert!(menu.is_active());
+        assert_eq!(menu.get_values().len(), 1);
     }
 }

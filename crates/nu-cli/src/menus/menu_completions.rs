@@ -1,7 +1,7 @@
 use crate::{
     completions::{
         CompletionEngine, DeclaredInputs, LegacyInputs, Returned, SpanClamp, bind_declared_inputs,
-        map_value_completions,
+        map_value_completions, panic_to_shell_error, report,
     },
     menus::MenuLine,
 };
@@ -14,6 +14,7 @@ use nu_protocol::{
 use reedline::{
     Completer, CompletionResult, InputMode, Suggestion, menu_functions::parse_selection_char,
 };
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::Arc;
 
 const SELECTION_CHAR: char = '!';
@@ -54,7 +55,7 @@ impl Completer for NuMenuCompleter {
         let handed = parsed.remainder;
 
         let block = self.engine_state.get_block(self.block_id).clone();
-        // What a suggestion replaces when the source names no span of its own.
+        // Reedline replacement range — never fed into `$token`/`$place`.
         let replacing = default_span(handed, pos, self.input_mode);
 
         // Menu buffer from recorded line or padded handed text.
@@ -70,7 +71,7 @@ impl Completer for NuMenuCompleter {
         if declares_positional {
             let wanted = DeclaredInputs::from_signature(&block.signature);
             let record = CompletionEngine::new(&self.engine_state, &self.stack)
-                .menu_input_at(&buffer, cursor, wanted, replacing);
+                .completer_input_at(&buffer, cursor, wanted);
             bind_declared_inputs(
                 &mut self.stack,
                 &block.signature,
@@ -81,12 +82,19 @@ impl Completer for NuMenuCompleter {
 
         let input = Value::nothing(self.span).into_pipeline_data();
 
-        let res = eval_block::<WithoutDebug>(&self.engine_state, &mut self.stack, &block, input)
-            .map(|p| p.body);
+        let res = catch_unwind(AssertUnwindSafe(|| {
+            eval_block::<WithoutDebug>(&self.engine_state, &mut self.stack, &block, input)
+                .map(|p| p.body)
+        }))
+        .map_err(|payload| panic_to_shell_error(&payload, self.span))
+        .and_then(|result| result);
 
         let suggestions = match res.and_then(|data| data.into_value(self.span)) {
             Ok(value) => convert_to_suggestions(value, replacing, &buffer[..cursor]),
-            Err(_) => Vec::new(),
+            Err(err) => {
+                report(format!("failed to eval menu source: {err}"));
+                Vec::new()
+            }
         };
 
         // Menu sources run synchronously, so results are always final.
@@ -94,17 +102,15 @@ impl Completer for NuMenuCompleter {
     }
 }
 
-/// Replacement span when the menu source provides none, matching what reedline feeds the
-/// completer in each input mode.
+/// Replacement span when the source names none: what reedline feeds the completer.
 fn default_span(line: &str, pos: usize, input_mode: InputMode) -> reedline::Span {
     match input_mode {
-        // `line` is only the text typed since the menu opened; replace it in place.
+        // `line` is only text typed since the menu opened; replace it in place.
         InputMode::Diff => reedline::Span {
             start: pos.saturating_sub(line.len()),
             end: pos,
         },
-        // Other modes (`InputMode` is non_exhaustive): the suggestion replaces all the
-        // text the completer received.
+        // Other (non_exhaustive) modes replace all handed text.
         _ => reedline::Span {
             start: 0,
             end: line.len(),
@@ -190,9 +196,9 @@ mod tests {
             .collect()
     }
 
-    /// A source reads the same inputs a completer does, bound by parameter name: `place`
-    /// describes the cursor, and `token` names what the menu replaces -- here the whole
-    /// line, which is what reedline hands a source outside `Diff` mode.
+    /// A source reads the same inputs a completer / `commandline complete --input` does:
+    /// `token` is the completion site at the cursor (not the whole buffer), even when the
+    /// menu's reedline replacement range is the whole handed line.
     #[test]
     fn menu_source_receives_the_unified_input() {
         let source = r#"{|token, place| [
@@ -203,7 +209,7 @@ mod tests {
 
         assert_eq!(
             values(menu(source).complete("str tri", 7)),
-            ["token=str tri", "kind=positional", "target=0..7"],
+            ["token=tri", "kind=positional", "target=4..7"],
         );
     }
 
@@ -262,6 +268,18 @@ mod tests {
         assert!(values(menu("{|input| null}").complete("a", 1)).is_empty());
     }
 
+    #[test]
+    fn panicking_menu_source_returns_no_values() {
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            values(menu("{|input| panic 'boom'}").complete("a", 1))
+        }));
+
+        assert_eq!(
+            result.expect("menu source panic must be contained"),
+            Vec::<String>::new()
+        );
+    }
+
     /// In `Diff` mode reedline hands the source only the text typed since the menu opened,
     /// while still replacing spans in the whole line. The record's offsets must be in that
     /// same coordinate system, or a source reading `place.target` to build its own `span`
@@ -313,5 +331,119 @@ mod tests {
             values(menu(source).complete("str tri", 7)),
             ["str tri", "pos=7"],
         );
+    }
+    /// Discord: `ls -al` at the final `l` must hand the flag token, not the whole buffer.
+    #[test]
+    fn menu_token_for_a_flag_matches_commandline_complete() {
+        let source = r#"{|token| [
+            $"text=($token.text)"
+            $"start=($token.span.start)"
+            $"kind=($token.kind)"
+        ]}"#;
+        assert_eq!(
+            values(menu_on(source, "ls -al").complete("ls -al", 6)),
+            ["text=-al", "start=3", "kind=flag"],
+        );
+    }
+
+    /// Discord: inside `each {|r|` the token is the block, not the whole pipeline.
+    #[test]
+    fn menu_token_inside_a_block_is_not_the_whole_buffer() {
+        let line = "ls | each {|r|";
+        let source = r#"{|token, buffer| [
+            $"text=($token.text)"
+            $"start=($token.span.start)"
+            $"buffer=($buffer)"
+        ]}"#;
+        assert_eq!(
+            values(menu_on(source, line).complete(line, line.len())),
+            vec![
+                "text={|r|".into(),
+                "start=10".into(),
+                format!("buffer={line}"),
+            ],
+        );
+    }
+
+    /// Discord: at the end of `… | str uppercase` the site token is the multi-word
+    /// command head, not the whole buffer / pipeline.
+    #[test]
+    fn menu_token_for_str_uppercase_pipeline_is_the_site() {
+        let line = "ls | each {|r| $r.name | str uppercase";
+        let source = r#"{|token, buffer| [
+            $"text=($token.text)"
+            $"start=($token.span.start)"
+            $"kind=($token.kind)"
+            $"buffer=($buffer)"
+        ]}"#;
+        assert_eq!(
+            values(menu_on(source, line).complete(line, line.len())),
+            vec![
+                "text=str uppercase".into(),
+                "start=25".into(),
+                "kind=head".into(),
+                format!("buffer={line}"),
+            ],
+        );
+    }
+
+    /// Menu `$token` / `$place` match `commandline complete --input` / `completer_input_at`
+    /// for the Discord + HackMD adversarial lines (parity across the two surfaces).
+    #[test]
+    fn menu_token_matches_completer_input_at_for_adversarial_lines() {
+        let source = r#"{|token, place| [
+            $"text=($token.text)"
+            $"start=($token.span.start)"
+            $"kind=($place.kind)"
+            $"index=($place.index? | default 'none')"
+        ]}"#;
+
+        let cases = [
+            (
+                "ls -al",
+                ["text=-al", "start=3", "kind=flag-name", "index=none"],
+            ),
+            (
+                "ls | where size >",
+                ["text=>", "start=16", "kind=operator", "index=none"],
+            ),
+            (
+                "ls | where size > 1",
+                ["text=1", "start=18", "kind=positional", "index=0"],
+            ),
+            (
+                "ls | where size > ",
+                ["text=", "start=18", "kind=positional", "index=0"],
+            ),
+            (
+                "ls | each {|r|",
+                ["text={|r|", "start=10", "kind=positional", "index=0"],
+            ),
+            (
+                "ls | each {|r| $r.name | str uppercase",
+                [
+                    "text=str uppercase",
+                    "start=25",
+                    "kind=command",
+                    "index=none",
+                ],
+            ),
+        ];
+
+        for (line, expected) in cases {
+            assert_eq!(
+                values(menu_on(source, line).complete(line, line.len())),
+                expected,
+                "menu token/place for {line:?}"
+            );
+        }
+    }
+
+    /// `only_buffer_difference: false` (CursorPrefix) still resolves the site token.
+    #[test]
+    fn cursor_prefix_menu_token_is_the_site_not_the_line() {
+        let mut completer = menu_on("{|token| [$token.text]}", "ls -al");
+        completer.input_mode = InputMode::CursorPrefix;
+        assert_eq!(values(completer.complete("ls -al", 6)), ["-al"]);
     }
 }

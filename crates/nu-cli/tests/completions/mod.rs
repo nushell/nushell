@@ -1204,6 +1204,101 @@ fn a_cancelled_interactive_external_completer_offers_nothing() {
     );
 }
 
+/// A panicking completer must surface a ShellError-shaped empty answer, not unwind the
+/// worker/REPL. `panic` inside the completer block is caught.
+#[test]
+fn a_panicking_completer_does_not_unwind_the_engine() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = r#"
+        def c-panic [token: record] { panic "boom" }
+        def f7-panic [x: string@c-panic] { $x }
+        def c-ok [token: record] { [alive] }
+        def f7-ok [x: string@c-ok] { $x }
+    "#;
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    let line = "f7-panic ";
+    // Must not unwind; empty answered list (failed interactive/non-interactive → answering []).
+    let suggestions = completer.complete_blocking(line, line.len());
+    assert!(
+        suggestions.is_empty(),
+        "panicking completer must not yield suggestions, got {suggestions:?}"
+    );
+
+    // Prompt-equivalent: a second completion attempt still works (worker/engine alive).
+    let again = completer.complete_blocking(line, line.len());
+    assert!(
+        again.is_empty(),
+        "second panicking completion must stay empty, got {again:?}"
+    );
+
+    // A different, healthy completer still answers after the panic was caught.
+    let ok_line = "f7-ok ";
+    let ok = completer.complete_blocking(ok_line, ok_line.len());
+    match_suggestions(&vec!["alive"], &ok);
+}
+
+/// Interactive cancel caches an empty answer for the exact query so reedline's menu refresh
+/// does not relaunch the picker for the same line.
+#[test]
+fn a_cancelled_interactive_answer_is_sticky_for_the_same_query() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = "
+        @interactive
+        def comp [token] { null }
+        def my-command [arg: string@comp] {}
+    ";
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    let line = "my-command ";
+    assert!(completer.complete_blocking(line, line.len()).is_empty());
+    // Same query again hits latest cache — still empty, still no panic/relaunch side effects.
+    assert!(completer.complete_blocking(line, line.len()).is_empty());
+}
+
+/// fzf Esc (exit 130, empty stdout) through an `@interactive` completer must answer with
+/// empty suggestions — the same cancel path as `input list` Esc / returning null.
+#[cfg(unix)]
+#[test]
+fn fzf_esc_exit_130_interactive_completer_offers_nothing() {
+    use std::fs;
+    use std::os::unix::fs::PermissionsExt;
+
+    let dir = tempfile::tempdir().expect("tempdir for fzf stub");
+    let stub = dir.path().join("fzf");
+    fs::write(
+        &stub,
+        "#!/bin/sh\n# simulate fzf Esc: no selection, exit 130\nexit 130\n",
+    )
+    .expect("write fzf stub");
+    let mut perms = fs::metadata(&stub).expect("stub meta").permissions();
+    perms.set_mode(0o755);
+    fs::set_permissions(&stub, perms).expect("chmod fzf stub");
+
+    let (_, _, mut engine, mut stack) = new_engine();
+    // new_engine's PATH is a colon string; prepend the stub dir so `^fzf` hits exit 130.
+    let path_prefix = dir.path().display().to_string();
+    let command = format!(
+        r#"
+        $env.PATH = $"{path_prefix}:($env.PATH)"
+        @interactive
+        def comp [token] {{ ^fzf }}
+        def my-command [arg: string@comp] {{}}
+        "#
+    );
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    let line = "my-command ";
+    let suggestions = completer.complete_blocking(line, line.len());
+    assert!(
+        suggestions.is_empty(),
+        "fzf Esc (exit 130) must yield empty suggestions, got {suggestions:?}"
+    );
+}
+
 /// Bare value is one completion.
 #[rstest]
 #[case::string("'123'")]

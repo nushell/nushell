@@ -71,6 +71,41 @@ impl Fetched {
     pub(crate) fn is_reusable(&self) -> bool {
         self.reusable
     }
+
+    /// Any suggestions yet, without consuming them.
+    pub(crate) fn is_empty(&self) -> bool {
+        self.suggestions.is_empty()
+    }
+
+    /// Keep only matching suggestions (the shorter-head reading drops commands).
+    pub(crate) fn retain(&mut self, f: impl FnMut(&SemanticSuggestion) -> bool) {
+        self.suggestions.retain(f);
+    }
+
+    /// Append another outcome's suggestions and state: answered only if both
+    /// answered, reusable if either is.
+    pub(crate) fn merge(&mut self, other: Fetched) {
+        self.answered |= other.answered;
+        self.reusable |= other.reusable;
+        self.suggestions.extend(other.suggestions);
+    }
+
+    /// Merge one source's outcome and report whether it answered.
+    pub(crate) fn absorb(&mut self, attempt: Fetched) -> bool {
+        let answered = attempt.answered();
+        self.merge(attempt);
+        answered
+    }
+
+    /// Prepend another outcome's suggestions, sharing reusability but leaving
+    /// answeredness untouched (for the shorter-head argument reading, whose
+    /// ranking comes first but which never settles the site).
+    pub(crate) fn prepend_from(&mut self, other: Fetched) {
+        self.reusable |= other.reusable;
+        let mut combined = other.suggestions;
+        combined.append(&mut self.suggestions);
+        self.suggestions = combined;
+    }
 }
 
 /// An engine [`Span`] in reedline coordinates: subtract `offset`, saturating so spans

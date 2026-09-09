@@ -23,6 +23,7 @@ pub(crate) use output::CompleterOutput;
 use std::{
     borrow::Cow,
     hash::{DefaultHasher, Hash, Hasher},
+    panic::{AssertUnwindSafe, catch_unwind},
     sync::{Arc, Mutex},
 };
 
@@ -334,8 +335,9 @@ impl UserCompletion {
         })
     }
 
-    /// Call the completer with the record it asked for.
-    pub(crate) fn eval(&self, ctx: &Context) -> Result<Value, ShellError> {
+    /// Call the completer with the record it asked for; panics become `Err`
+    /// so the prompt can recover instead of unwinding the worker/REPL.
+    fn eval(&self, ctx: &Context) -> Result<Value, ShellError> {
         let working_set = ctx.working_set;
         let mut block = working_set.get_block(self.block_id).clone();
 
@@ -373,29 +375,46 @@ impl UserCompletion {
             self.block_id.get() < working_set.permanent_state.num_blocks(),
         );
 
-        nu_engine::eval_block_with_early_return::<WithoutDebug>(
-            engine_state.as_ref(),
-            &mut callee_stack,
-            &block,
-            PipelineData::empty(),
-        )
-        .and_then(|data| data.body.into_value(ctx.span))
+        let span = ctx.span;
+        match catch_unwind(AssertUnwindSafe(|| {
+            nu_engine::eval_block_with_early_return::<WithoutDebug>(
+                engine_state.as_ref(),
+                &mut callee_stack,
+                &block,
+                PipelineData::empty(),
+            )
+            .and_then(|data| data.body.into_value(span))
+        })) {
+            Ok(result) => result,
+            Err(payload) => Err(panic_to_shell_error(&payload, span)),
+        }
     }
 }
 
-impl UserCompletion {
-    /// Null return: delegate unless interactive picker was dismissed.
-    fn declined(&self) -> Fetched {
-        if self.interactive {
-            Fetched::answering(vec![])
-        } else {
-            Fetched::declining()
-        }
-    }
+/// Convert a `catch_unwind` payload into a recoverable [`ShellError`].
+pub(crate) fn panic_to_shell_error(payload: &(dyn std::any::Any + Send), span: Span) -> ShellError {
+    let message = if let Some(s) = payload.downcast_ref::<&str>() {
+        (*s).to_string()
+    } else if let Some(s) = payload.downcast_ref::<String>() {
+        s.clone()
+    } else {
+        "Box<dyn Any>".into()
+    };
+    ShellError::Generic(
+        nu_protocol::shell_error::generic::GenericError::new("Completer panicked", message, span)
+            .with_help(
+                "A custom completer panicked; the panic was caught so the prompt can recover.",
+            ),
+    )
+}
 
-    /// Block failed: answer empty unless external fallback is sane.
-    fn failed(&self) -> Fetched {
-        if self.interactive || matches!(self.narrowing, Narrowing::Engine) {
+impl UserCompletion {
+    /// Empty answer when the block declines (`failed: false`) or errors (`failed: true`):
+    /// interactive pickers answer empty on dismiss, and engine-narrowed (parameter)
+    /// completers answer empty on error since no fallback can serve their slot —
+    /// anything else declines so the next source runs.
+    fn empty(&self, failed: bool) -> Fetched {
+        if self.interactive || (failed && matches!(self.narrowing, Narrowing::Engine)) {
             Fetched::answering(vec![])
         } else {
             Fetched::declining()
@@ -405,17 +424,15 @@ impl UserCompletion {
 
 impl Completer for UserCompletion {
     fn fetch(&mut self, ctx: &Context) -> Fetched {
-        let value = match self.eval(ctx) {
-            Ok(value) => value,
+        match self.eval(ctx) {
             Err(err) => {
                 report(format!("failed to eval completer block: {err}"));
-                return self.failed().worth_keeping();
+                self.empty(true).worth_keeping()
             }
-        };
-
-        match CompleterOutput::read(value, ctx, self.narrowing) {
-            None => self.declined(),
-            Some(output) => output.into_fetched(ctx),
+            Ok(value) => match CompleterOutput::read(value, ctx, self.narrowing) {
+                None => self.empty(false),
+                Some(output) => output.into_fetched(ctx),
+            },
         }
     }
 }

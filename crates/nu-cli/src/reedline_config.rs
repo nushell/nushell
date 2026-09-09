@@ -296,7 +296,7 @@ pub(crate) fn add_columnar_menu(
             input_mode,
         )
     } else {
-        ReedlineMenu::EngineCompleter(Box::new(columnar_menu))
+        ReedlineMenu::EngineCompleter(Box::new(SourcedMenu::abandoning(columnar_menu)))
     };
 
     Ok(line_editor.with_menu(completer))
@@ -508,7 +508,7 @@ pub(crate) fn add_ide_menu(
     let completer = if let Some(closure) = &menu.source {
         menu_with_source(ide_menu, closure, span, stack, engine_state, input_mode)
     } else {
-        ReedlineMenu::EngineCompleter(Box::new(ide_menu))
+        ReedlineMenu::EngineCompleter(Box::new(SourcedMenu::abandoning(ide_menu)))
     };
 
     Ok(line_editor.with_menu(completer))
