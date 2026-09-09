@@ -24,7 +24,7 @@ pub use completions::{
 pub use config_files::{eval_config_contents, eval_config_contents_with_kind};
 pub use eval_cmds::{EvaluateCommandsOpts, evaluate_commands};
 pub use eval_file::evaluate_file;
-pub use menus::NuHelpCompleter;
+pub use menus::{NuHelpCompleter, NuMenuCompleter};
 pub use prompt::NushellPrompt;
 pub use prompt_update::update_prompt;
 pub use repl::evaluate_repl;
