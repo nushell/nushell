@@ -105,11 +105,11 @@ impl<M: Menu> Menu for SourcedMenu<M> {
         completer: &mut dyn Completer,
     ) -> bool {
         self.record(editor);
-        let done = self
-            .menu
-            .can_partially_complete(values_updated, editor, completer);
-        self.abandon_if_empty();
-        done
+        // No abandon check here!!! reedline probes partial completion when a menu
+        // opens, even before the source has ever run, so the values are legitimately
+        // empty.
+        self.menu
+            .can_partially_complete(values_updated, editor, completer)
     }
 
     fn update_values(&mut self, editor: &mut Editor, completer: &mut dyn Completer) {
@@ -266,5 +266,22 @@ mod tests {
         menu.update_values(&mut editor, &mut Recorder(Arc::new(Mutex::new(Vec::new()))));
         assert!(menu.is_active());
         assert_eq!(menu.get_values().len(), 1);
+    }
+
+    #[test]
+    fn opening_probe_does_not_abandon_before_the_first_fetch() {
+        // Reedline probes partial completion right after Activate, while the
+        // source has not run yet and the values are still empty. That probe
+        // must not close the menu; the first real fetch decides.
+        let (mut editor, mut menu) = active_menu();
+        menu.can_partially_complete(false, &mut editor, &mut Empty);
+        assert!(
+            menu.is_active(),
+            "a just-opened menu with no values yet must survive the opening probe"
+        );
+
+        // The subsequent fetch is what may abandon it.
+        menu.update_values(&mut editor, &mut Empty);
+        assert!(!menu.is_active());
     }
 }
