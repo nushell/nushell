@@ -22,6 +22,10 @@ use std::{
     sync::Arc,
 };
 
+/// Stack for threads whose work is parsing The `MAX_PARSE_NESTING_DEPTH` limit alone is not
+/// enough compilation and capture discovery recurse over the same tree afterwards
+const PARSER_WORKER_STACK_SIZE: usize = 8 * 1024 * 1024;
+
 /// Message type indicating ranges of interest in each doc
 #[derive(Debug)]
 pub(crate) struct RangePerDoc {
@@ -449,7 +453,7 @@ impl LanguageServer {
         let text_documents = self.docs.clone();
         self.send_progress_begin(token.clone(), message)?;
 
-        std::thread::spawn(move || -> Result<()> {
+        let scan_workspace = move || -> Result<()> {
             let mut working_set = StateWorkingSet::new(&engine_state);
             let mut scripts: HashSet<_> = match find_nu_scripts_in_folder(&workspace_uri) {
                 Ok(it) => it,
@@ -544,7 +548,11 @@ impl LanguageServer {
             data_sender
                 .send(InternalMessage::Finished(token))
                 .into_diagnostic()
-        });
+        };
+        std::thread::Builder::new()
+            .stack_size(PARSER_WORKER_STACK_SIZE)
+            .spawn(scan_workspace)
+            .into_diagnostic()?;
         Ok((cancel_sender, Arc::new(data_receiver)))
     }
 
@@ -572,6 +580,40 @@ mod tests {
     };
     use nu_test_support::prelude::*;
     use rstest::rstest;
+
+    #[test]
+    fn parser_worker_stack_fits_the_nesting_limit() {
+        use nu_protocol::ParseError;
+        use nu_protocol::engine::{EngineState, StateWorkingSet};
+
+        fn parse_nested_on_worker(depth: usize) -> Vec<ParseError> {
+            let source = format!("{}{}", "[".repeat(depth), "]".repeat(depth));
+            std::thread::Builder::new()
+                .stack_size(super::PARSER_WORKER_STACK_SIZE)
+                .spawn(move || {
+                    let engine_state = EngineState::new();
+                    let mut working_set = StateWorkingSet::new(&engine_state);
+                    nu_parser::parse(&mut working_set, None, source.as_bytes(), false);
+                    working_set.parse_errors
+                })
+                .expect("spawn parser worker")
+                .join()
+                .expect("parser worker finished")
+        }
+
+        // Find the boundary by behaviour rather than reading the parsers limit
+        let mut refused = 1;
+        while parse_nested_on_worker(refused).is_empty() {
+            refused += 1;
+            assert!(refused < 1024, "parser accepted implausibly deep nesting");
+        }
+
+        assert!(parse_nested_on_worker(refused - 1).is_empty());
+        assert!(matches!(
+            parse_nested_on_worker(refused).as_slice(),
+            [ParseError::NestingTooDeep(_)]
+        ));
+    }
 
     // Helper functions to reduce JSON duplication
     fn make_range(

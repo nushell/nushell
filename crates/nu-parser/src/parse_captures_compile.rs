@@ -713,6 +713,18 @@ fn parse_with_block_cache(
         }
     }
 
+    // `source` re-enters this function while its parent parse is still running
+    working_set.with_source_nesting_report(|working_set| {
+        parse_source_contents(working_set, contents, new_span, scoped)
+    })
+}
+
+fn parse_source_contents(
+    working_set: &mut StateWorkingSet,
+    contents: &[u8],
+    new_span: Span,
+    scoped: bool,
+) -> Arc<Block> {
     // Only blocks created by this parse. Older delta entries already have captures.
     let first_new_delta_block = working_set.delta.blocks.len();
 
