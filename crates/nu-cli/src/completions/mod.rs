@@ -27,10 +27,11 @@ pub(crate) use completer::{Buffer, Context, NarrowingCache};
 pub use completer::{CompletionEngine, NuCompleter};
 pub use completion_options::{CompletionOptions, MatchAlgorithm, NuMatcher};
 pub use custom_completions::DeclaredInputs;
+pub use custom_completions::completion_panic_is_active;
 pub use custom_completions::flush_completion_warnings;
 pub(crate) use custom_completions::{
-    LegacyInputs, Returned, SpanClamp, bind_declared_inputs, map_value_completions,
-    panic_to_shell_error, report,
+    LegacyInputs, Returned, SpanClamp, bind_declared_inputs, catch_completion_panic,
+    map_value_completions, panic_to_shell_error, report,
 };
 pub use directory_completions::DirectoryCompletion;
 pub use dotnu_completions::DotNuCompletion;

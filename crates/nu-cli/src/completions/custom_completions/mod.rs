@@ -27,6 +27,28 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+thread_local! {
+    static COMPLETION_PANIC_ACTIVE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Whether the current thread is evaluating a completion source. The main panic hook uses this
+/// to avoid printing a panic that completion already converted into a `ShellError`.
+pub fn completion_panic_is_active() -> bool {
+    COMPLETION_PANIC_ACTIVE.with(std::cell::Cell::get)
+}
+
+/// Catch a completion-source panic while marking it for the process panic hook.
+pub(crate) fn catch_completion_panic<T>(
+    f: impl FnOnce() -> T,
+) -> Result<T, Box<dyn std::any::Any + Send>> {
+    COMPLETION_PANIC_ACTIVE.with(|active| {
+        let previous = active.replace(true);
+        let result = catch_unwind(AssertUnwindSafe(f));
+        active.set(previous);
+        result
+    })
+}
+
 /// Who filters the candidates against the typed prefix; overridable via `options.filter`.
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum Narrowing {
@@ -376,7 +398,7 @@ impl UserCompletion {
         );
 
         let span = ctx.span;
-        match catch_unwind(AssertUnwindSafe(|| {
+        match catch_completion_panic(|| {
             nu_engine::eval_block_with_early_return::<WithoutDebug>(
                 engine_state.as_ref(),
                 &mut callee_stack,
@@ -384,7 +406,7 @@ impl UserCompletion {
                 PipelineData::empty(),
             )
             .and_then(|data| data.body.into_value(span))
-        })) {
+        }) {
             Ok(result) => result,
             Err(payload) => Err(panic_to_shell_error(&payload, span)),
         }

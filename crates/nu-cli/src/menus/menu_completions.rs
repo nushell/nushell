@@ -1,7 +1,7 @@
 use crate::{
     completions::{
         CompletionEngine, DeclaredInputs, LegacyInputs, Returned, SpanClamp, bind_declared_inputs,
-        map_value_completions, panic_to_shell_error, report,
+        catch_completion_panic, map_value_completions, panic_to_shell_error, report,
     },
     menus::MenuLine,
 };
@@ -14,7 +14,6 @@ use nu_protocol::{
 use reedline::{
     Completer, CompletionResult, InputMode, Suggestion, menu_functions::parse_selection_char,
 };
-use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::Arc;
 
 const SELECTION_CHAR: char = '!';
@@ -82,10 +81,10 @@ impl Completer for NuMenuCompleter {
 
         let input = Value::nothing(self.span).into_pipeline_data();
 
-        let res = catch_unwind(AssertUnwindSafe(|| {
+        let res = catch_completion_panic(|| {
             eval_block::<WithoutDebug>(&self.engine_state, &mut self.stack, &block, input)
                 .map(|p| p.body)
-        }))
+        })
         .map_err(|payload| panic_to_shell_error(&payload, self.span))
         .and_then(|result| result);
 
