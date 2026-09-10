@@ -1,15 +1,9 @@
-// TODO: Stop building `tabled -e` when it's clear we are out of terminal
-// TODO: Stop building `tabled` when it's clear we are out of terminal
-// NOTE: TODO the above we could expose something like [`WidthCtrl`] in which case we could also laverage the width list build right away.
-//       currently it seems like we do recacalculate it for `table -e`?
-// TODO: (not hard) We could properly handle dimension - we already do it for width - just need to do height as well
-// TODO: (need to check) Maybe Vec::with_dimension and insert "Iterators" would be better instead of preallocated Vec<Vec<>> and index.
-
 use crate::{convert_style, is_color_empty, string_width, table_theme::TableTheme};
 use nu_ansi_term::Style;
 use nu_color_config::TextStyle;
 use nu_protocol::{TableIndent, TrimStrategy};
 use std::cmp::{max, min};
+use std::collections::HashSet;
 use tabled::{
     Table,
     builder::Builder,
@@ -51,6 +45,9 @@ pub struct NuTable {
     count_cols: usize,
     styles: Styles,
     config: TableConfig,
+    /// Cells that hold a pre-rendered nested table. Wrap/truncate must not
+    /// run on these strings; the inner table is redrawn instead.
+    nested_cells: HashSet<(usize, usize)>,
 }
 
 impl NuTable {
@@ -81,6 +78,7 @@ impl NuTable {
                 border_color: None,
                 width_priority_columns: vec![],
             },
+            nested_cells: HashSet::new(),
         }
     }
 
@@ -104,6 +102,7 @@ impl NuTable {
         self.widths[pos.1] = max(self.widths[pos.1], width);
         self.heights[pos.0] = max(self.heights[pos.0], height);
         self.data[pos.0][pos.1] = value;
+        self.nested_cells.remove(&pos);
     }
 
     pub fn insert(&mut self, pos: (usize, usize), text: String) {
@@ -114,6 +113,13 @@ impl NuTable {
         self.widths[pos.1] = max(self.widths[pos.1], width);
         self.heights[pos.0] = max(self.heights[pos.0], height);
         self.data[pos.0][pos.1] = text;
+        self.nested_cells.remove(&pos);
+    }
+
+    pub(crate) fn mark_nested_cell(&mut self, pos: (usize, usize)) {
+        if pos.0 < self.count_rows && pos.1 < self.count_cols {
+            self.nested_cells.insert(pos);
+        }
     }
 
     pub fn set_row(&mut self, index: usize, row: Vec<NuRecordsValue>) {
@@ -129,6 +135,7 @@ impl NuTable {
         }
 
         self.data[index] = row;
+        self.nested_cells.retain(|&(row, _)| row != index);
     }
 
     pub fn pop_column(&mut self, count: usize) {
@@ -152,6 +159,8 @@ impl NuTable {
 
             *height = new_height;
         }
+
+        self.nested_cells.retain(|&(_, col)| col < self.count_cols);
 
         // set to default styles of the popped columns
         for i in 0..count {
@@ -318,6 +327,48 @@ impl NuTable {
         let config = create_config(&self.config.theme, false, None);
         get_total_width2(&self.widths, &config)
     }
+
+    /// Column widths `draw` would use, without mutating this table.
+    ///
+    /// `trail` is true when the last planned column is the trailing `...` column.
+    pub(crate) fn plan_column_widths(&self, termwidth: usize) -> Option<(Vec<usize>, bool)> {
+        let mut data = self.data.clone();
+        let widths =
+            maybe_truncate_columns(&mut data, self.widths.clone(), &self.config, termwidth);
+        if widths.needed.is_empty() {
+            None
+        } else {
+            Some((widths.needed, widths.trail))
+        }
+    }
+
+    pub(crate) fn cell_content_width(&self, row: usize, col: usize) -> usize {
+        NuRecordsValue::width(&self.data[row][col])
+    }
+
+    /// Prefer keeping columns that already contain nested tables.
+    pub(crate) fn prefer_nested_table_columns(&mut self) {
+        if self.nested_cells.is_empty() {
+            return;
+        }
+
+        let mut cols = self.config.width_priority_columns.clone();
+        for &(_, col) in &self.nested_cells {
+            if !cols.contains(&col) {
+                cols.push(col);
+            }
+        }
+        self.set_width_priority_columns(&cols);
+    }
+
+    pub(crate) fn recalculate_dimensions(&mut self) {
+        table_recalculate_widths(self);
+        self.heights = self
+            .data
+            .iter()
+            .map(|row| row.iter().map(|cell| cell.count_lines()).max().unwrap_or(0))
+            .collect();
+    }
 }
 
 // NOTE: Must never be called from nu-table - made only for tests
@@ -469,6 +520,16 @@ fn table_insert_footer_if(t: &mut NuTable) {
     if !t.heights.is_empty() {
         t.heights.push(t.heights[0]);
     }
+
+    let last = t.data.len().saturating_sub(1);
+    let header_nested: Vec<usize> = t
+        .nested_cells
+        .iter()
+        .filter_map(|&(row, col)| (row == 0).then_some(col))
+        .collect();
+    for col in header_nested {
+        t.nested_cells.insert((last, col));
+    }
 }
 
 fn table_truncate(t: &mut NuTable, termwidth: usize) -> Option<WidthEstimation> {
@@ -476,6 +537,9 @@ fn table_truncate(t: &mut NuTable, termwidth: usize) -> Option<WidthEstimation> 
     if widths.needed.is_empty() {
         return None;
     }
+
+    let ncols = t.data.first().map(|row| row.len()).unwrap_or(0);
+    t.nested_cells.retain(|&(_, col)| col < ncols);
 
     // reset style for last column which is a trail one
     if widths.trail {
@@ -520,6 +584,12 @@ fn remove_header(t: &mut NuTable) -> HeadInfo {
         .map(|s| s.to_string())
         .collect();
 
+    t.nested_cells = t
+        .nested_cells
+        .iter()
+        .filter_map(|&(row, col)| (row > 0).then_some((row - 1, col)))
+        .collect();
+
     // drop height row
     t.heights.remove(0);
 
@@ -553,12 +623,20 @@ fn draw_table(
     let sep_color = t.config.border_color;
 
     let data = t.data;
+    let nested_cells = t.nested_cells;
     let mut table = Builder::from_vec(data).build();
 
     set_styles(&mut table, t.styles, &structure);
     set_indent(&mut table, t.config.indent);
     load_theme(&mut table, &t.config.theme, &structure, sep_color);
-    truncate_table(&mut table, &t.config, width, termwidth, t.heights);
+    truncate_table(
+        &mut table,
+        &t.config,
+        width,
+        termwidth,
+        t.heights,
+        nested_cells,
+    );
     table_set_border_header(&mut table, head, &t.config);
 
     let string = table.to_string();
@@ -608,10 +686,19 @@ fn truncate_table(
     width: WidthEstimation,
     termwidth: usize,
     heights: Vec<usize>,
+    nested_cells: HashSet<(usize, usize)>,
 ) {
     let trim = cfg.trim.clone();
     let pad = indent_sum(cfg.indent);
-    let ctrl = DimensionCtrl::new(termwidth, width, trim, cfg.expand, pad, heights);
+    let ctrl = DimensionCtrl::new(
+        termwidth,
+        width,
+        trim,
+        cfg.expand,
+        pad,
+        heights,
+        nested_cells,
+    );
     table.with(ctrl);
 }
 
@@ -630,6 +717,7 @@ struct DimensionCtrl {
     expand: bool,
     pad: usize,
     heights: Vec<usize>,
+    nested_cells: HashSet<(usize, usize)>,
 }
 
 impl DimensionCtrl {
@@ -640,6 +728,7 @@ impl DimensionCtrl {
         expand: bool,
         pad: usize,
         heights: Vec<usize>,
+        nested_cells: HashSet<(usize, usize)>,
     ) -> Self {
         Self {
             width,
@@ -648,6 +737,7 @@ impl DimensionCtrl {
             expand,
             pad,
             heights,
+            nested_cells,
         }
     }
 }
@@ -771,11 +861,24 @@ fn width_ctrl_truncate(
                     if width >= EMPTY_COLUMN_TEXT_WIDTH {
                         truncate = truncate.suffix(EMPTY_COLUMN_TEXT).suffix_try_color(true);
                     }
-                    CellOption::<NuRecords, _>::change(truncate, recs, cfg, Entity::Column(col));
+                    apply_width_skipping_nested_tables(
+                        recs,
+                        cfg,
+                        col,
+                        heights.len(),
+                        &ctrl.nested_cells,
+                        truncate,
+                    );
                 } else {
                     let wrap = Width::wrap(width).keep_words(*try_to_keep_words);
-
-                    CellOption::<NuRecords, _>::change(wrap, recs, cfg, Entity::Column(col));
+                    apply_width_skipping_nested_tables(
+                        recs,
+                        cfg,
+                        col,
+                        heights.len(),
+                        &ctrl.nested_cells,
+                        wrap,
+                    );
 
                     // NOTE: An optimization to have proper heights without going over all the data again.
                     // We are going only for all rows in changed columns
@@ -791,7 +894,14 @@ fn width_ctrl_truncate(
                     truncate = truncate.suffix(suffix).suffix_try_color(true);
                 }
 
-                CellOption::<NuRecords, _>::change(truncate, recs, cfg, Entity::Column(col));
+                apply_width_skipping_nested_tables(
+                    recs,
+                    cfg,
+                    col,
+                    heights.len(),
+                    &ctrl.nested_cells,
+                    truncate,
+                );
             }
         }
     }
@@ -808,6 +918,43 @@ fn width_ctrl_truncate(
 
     dims.set_heights(heights);
     dims.set_widths(ctrl.width.needed);
+}
+
+fn apply_width_skipping_nested_tables<O>(
+    recs: &mut NuRecords,
+    cfg: &mut ColoredConfig,
+    col: usize,
+    count_rows: usize,
+    nested_cells: &HashSet<(usize, usize)>,
+    opt: O,
+) where
+    O: CellOption<NuRecords, ColoredConfig> + Clone,
+{
+    let mut has_nested = false;
+    let mut has_plain = false;
+    for row in 0..count_rows {
+        if nested_cells.contains(&(row, col)) {
+            has_nested = true;
+        } else {
+            has_plain = true;
+        }
+    }
+
+    if !has_nested {
+        CellOption::<NuRecords, _>::change(opt, recs, cfg, Entity::Column(col));
+        return;
+    }
+
+    if !has_plain {
+        return;
+    }
+
+    for row in 0..count_rows {
+        if nested_cells.contains(&(row, col)) {
+            continue;
+        }
+        CellOption::<NuRecords, _>::change(opt.clone(), recs, cfg, Entity::Cell(row, col));
+    }
 }
 
 fn align_table(
