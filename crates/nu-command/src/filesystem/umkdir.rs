@@ -6,7 +6,6 @@ use uucore::{localized_help_template, translate};
 #[derive(Clone)]
 pub struct UMkdir;
 
-const IS_RECURSIVE: bool = true;
 const DEFAULT_MODE: u32 = 0o777;
 
 #[cfg(target_family = "unix")]
@@ -102,18 +101,40 @@ impl Command for UMkdir {
             });
         }
 
-        let config = uu_mkdir::Config {
-            recursive: IS_RECURSIVE,
-            mode: Some(get_mode()),
-            verbose: false,
-            set_security_context: false,
-            context: None,
+        let mode = Some(get_mode());
+        let verbose = false;
+        let set_security_context = false;
+        let context = None;
+
+        let config_recursive = uu_mkdir::Config {
+            recursive: true,
+            mode,
+            verbose,
+            set_security_context,
+            context,
+        };
+
+        let config_nonrecursive = uu_mkdir::Config {
+            recursive: false,
+            mode,
+            verbose,
+            set_security_context,
+            context,
         };
 
         let mut verbose_out = Vec::new();
         let mut err = None;
         for (dir, dir_span) in directories {
-            if let Err(error) = mkdir(&dir, &config) {
+            // we create dirs in two steps to detect if the dir already exists.
+            // this is because we run with `recursive`,
+            // which would otherwise swallow this error
+            let result = if let Some(parent) = dir.parent() {
+                mkdir(parent, &config_recursive).and_then(|_| mkdir(&dir, &config_nonrecursive))
+            } else {
+                mkdir(&dir, &config_nonrecursive)
+            };
+
+            if let Err(error) = result {
                 let shell_error = ShellError::Generic(GenericError::new(
                     format!("{error}"),
                     translate!(&error.to_string()),
@@ -125,7 +146,7 @@ impl Command for UMkdir {
                         record! {
                             "path" => Value::string(dir.display().to_string(), call.head),
                             "created" => Value::bool(false, call.head),
-                            "error" => Value::string(format!("{error}"), call.head),
+                            "error" => Value::string(translate!(&error.to_string()), call.head),
                         }
                         .into_value(call.head),
                     )
