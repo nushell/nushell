@@ -1,5 +1,6 @@
 use nu_test_support::playground::Playground;
 use nu_test_support::prelude::*;
+use pretty_assertions::assert_matches;
 
 #[test]
 fn creates_directory() -> Result {
@@ -119,6 +120,44 @@ fn respects_cwd() -> Result {
         let expected = dirs.test().join("some_folder/another/deeper_one");
 
         assert!(expected.is_dir());
+        Ok(())
+    })
+}
+
+#[test]
+fn handles_existing_directory_two_calls() -> Result {
+    Playground::setup("mkdir_test_handles_existing_1", |dirs, _| {
+        let _ = test()
+            .cwd(dirs.test())
+            .run("mkdir foo; mkdir foo")
+            .expect_error()?;
+
+        assert!(dirs.test().join("foo").is_dir());
+
+        Ok(())
+    })
+}
+
+#[test]
+fn handles_existing_directory_verbose() -> Result {
+    Playground::setup("mkdir_test_handles_existing_2", |dirs, _| {
+        let actual: Value = test().cwd(dirs.test()).run("mkdir foo foo --verbose")?;
+
+        assert!(dirs.test().join("foo").is_dir());
+
+        let actual = actual.into_list()?;
+        let [dir1, dir2] = actual.as_slice() else {
+            panic!();
+        };
+
+        let dir1 = dir1.as_record()?;
+        let created = dir1.get("created").map(Value::as_bool).transpose()?;
+        assert_matches!(created, Some(true));
+
+        let dir2 = dir2.as_record()?;
+        let created = dir2.get("created").map(Value::as_bool).transpose()?;
+        assert_matches!(created, Some(false));
+
         Ok(())
     })
 }
