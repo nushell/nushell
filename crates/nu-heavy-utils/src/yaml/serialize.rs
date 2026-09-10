@@ -90,9 +90,8 @@ pub struct SerializeOptions {
     #[default(2)]
     pub indent: usize,
 
-    /// Use compact indentation for nested lists.
-    #[default(true)]
-    pub compact_list_indent: bool,
+    /// List indentation style for nested lists.
+    pub list_indent_style: ListIndentStyle,
 
     /// Configure how strings are quoted.
     pub quote_style: QuoteStyle,
@@ -116,6 +115,17 @@ pub enum NonRoundtrip {
         /// Engine state is required to serialize closures this way.
         engine_state: Box<EngineState>,
     },
+}
+
+/// Configure how nested lists should be indented.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, FromValue)]
+pub enum ListIndentStyle {
+    /// Use the compact list indentation format. No extra indentation for list entries.
+    #[default]
+    Compact,
+
+    /// Indent list entries one level from their root.
+    Indented,
 }
 
 /// Configure how strings are quoted.
@@ -147,7 +157,10 @@ pub fn serialize(
 
     let ser_options = ser_options! {
         indent_step: options.indent,
-        compact_list_indent: options.compact_list_indent,
+        compact_list_indent: match options.list_indent_style {
+            ListIndentStyle::Compact => true,
+            ListIndentStyle::Indented => false,
+        },
         yaml_12: match spec {
             Spec::V1_1 => false,
             Spec::V1_2 => true,
