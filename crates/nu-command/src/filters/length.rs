@@ -99,11 +99,22 @@ fn length_row(call: &Call, input: PipelineData) -> Result<PipelineData, ShellErr
             dst_span: call.head,
             src_span: internal_span,
         }),
+        PipelineData::Value(Value::Error { error, .. }, ..) => Err(*error),
         PipelineData::Value(Value::List { vals, .. }, ..) => {
+            for val in &vals {
+                if let Value::Error { error, .. } = val {
+                    return Err(*error.clone());
+                }
+            }
             Ok(Value::int(vals.len() as i64, call.head).into_pipeline_data())
         }
         PipelineData::ListStream(stream, ..) => {
-            Ok(Value::int(stream.into_iter().count() as i64, call.head).into_pipeline_data())
+            let mut n = 0i64;
+            for val in stream {
+                val.unwrap_error()?;
+                n += 1;
+            }
+            Ok(Value::int(n, call.head).into_pipeline_data())
         }
         PipelineData::ByteStream(stream, ..) if stream.type_().is_binary_coercible() => {
             Ok(Value::int(

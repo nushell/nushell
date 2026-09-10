@@ -22,6 +22,26 @@ fn length_fails_on_echo_record() -> Result {
 }
 
 #[test]
+fn length_propagates_error_stream() -> Result {
+    let err = test()
+        .run(r#"1..3 | each {|n| error make {msg: "x"} } | length"#)
+        .expect_shell_error()?;
+
+    assert_contains("x", format!("{err:?}"));
+    Ok(())
+}
+
+#[test]
+fn length_propagates_where_predicate_type_errors() -> Result {
+    let err = test()
+        .run("[[name size]; [a 100b] [b 200b]] | where size <= 150 | length")
+        .expect_shell_error()?;
+
+    assert_contains("compatible", format!("{err:?}"));
+    Ok(())
+}
+
+#[test]
 fn length_byte_stream() -> Result {
     Playground::setup("length_bytes", |dirs, sandbox| {
         sandbox.mkdir("length_bytes");
