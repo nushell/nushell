@@ -640,12 +640,12 @@ mod tests {
         let compact = serialize(
             &value,
             SPAN,
-            SerializeOptions::default().with_compact_list_indent(true),
+            SerializeOptions::default().with_list_indent_style(ListIndentStyle::Compact),
         )?;
         let expanded = serialize(
             &value,
             SPAN,
-            SerializeOptions::default().with_compact_list_indent(false),
+            SerializeOptions::default().with_list_indent_style(ListIndentStyle::Indented),
         )?;
         assert_ne!(compact, expanded);
         assert_contains("containers:\n- env:\n  - name: METHOD\n", compact);
