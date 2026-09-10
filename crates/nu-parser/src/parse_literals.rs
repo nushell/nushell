@@ -1773,6 +1773,13 @@ pub fn unescape_string(bytes: &[u8], span: Span) -> (Vec<u8>, Option<ParseError>
                     output.push(b'~');
                     idx += 1;
                 }
+                Some(b' ') => {
+                    // Terminals (macOS Terminal, iTerm2, Ghostty) escape spaces in
+                    // dropped paths. A space needs no escaping inside quotes, so
+                    // accept it as itself.
+                    output.push(b' ');
+                    idx += 1;
+                }
                 Some(b'a') => {
                     output.push(0x7);
                     idx += 1;
