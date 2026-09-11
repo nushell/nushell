@@ -18,7 +18,7 @@ def run-command [
   }
 
   if ($ansi | is-not-empty) {
-    $args = $args | append ["--ansi" $ansi]
+    $args = $args | append ["--ansi" $'"($ansi)"']
   }
 
   if ($context | is-not-empty) {
