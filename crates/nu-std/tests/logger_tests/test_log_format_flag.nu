@@ -24,7 +24,7 @@ def run-command [
 
     let args = $args | str join ' '
 
-    ^$nu.current-exe --no-config-file --commands $'use std; use std/log; NU_LOG_LEVEL=($system_level) log ($message_level) ($args) "($message)"'
+    ^$nu.current-exe --no-config-file --commands $'use std; use std/log; NU_LOG_LEVEL=($system_level) log ($message_level) --format "($format)" ($args) "($message)"'
     | complete | get --optional stderr
 }
 
