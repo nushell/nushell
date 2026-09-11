@@ -791,6 +791,167 @@ fn table_expand_big_header() -> Result {
     Ok(())
 }
 
+fn issue_19002_plugin_list_table() -> Value {
+    test_value!([
+        {
+            name: "dns",
+            version: "4.0.13-alpha.1",
+            status: "loaded",
+            pid: (),
+            filename: r"C:\Users\x\.cargo\bin\nu_plugin_dns.exe",
+            shell: (),
+            commands: [{
+                name: "dns query",
+                description: "Perform a DNS query",
+            }],
+        },
+        {
+            name: "file",
+            version: "0.27.0",
+            status: "loaded",
+            pid: (),
+            filename: r"C:\Users\x\.cargo\bin\nu_plugin_file.exe",
+            shell: (),
+            commands: [{
+                name: "file",
+                description: "View file format information",
+            }],
+        },
+    ])
+}
+
+/// Nested tables in an expanded parent must be redrawn at the cell width.
+/// Wrapping the inner box as text shatters borders (issue 19002).
+#[test]
+fn expand_nested_tables_keep_intact_boxes() -> Result {
+    test()
+        .run_with_data(
+            "
+                let data = $in
+                $env.config.table.trim = { methodology: 'wrapping', wrapping_try_keep_words: true }
+                $data | table --expand --width 160 --theme basic | ansi strip
+            ",
+            issue_19002_plugin_list_table(),
+        )
+        .expect_value_eq(indoc! {r#"
+            +------+---------+-------------------+----------+-------+--------------------------------------------+---------+-----------------------------------------------+
+            |    # |  name   |      version      |  status  |  pid  |                  filename                  |  shell  |                   commands                    |
+            +------+---------+-------------------+----------+-------+--------------------------------------------+---------+-----------------------------------------------+
+            |    0 | dns     | 4.0.13-alpha.1    | loaded   |       | C:\Users\x\.cargo\bin\nu_plugin_dns.exe    |         | +---+-----------+---------------------+       |
+            |      |         |                   |          |       |                                            |         | | # |   name    |     description     |       |
+            |      |         |                   |          |       |                                            |         | +---+-----------+---------------------+       |
+            |      |         |                   |          |       |                                            |         | | 0 | dns query | Perform a DNS query |       |
+            |      |         |                   |          |       |                                            |         | +---+-----------+---------------------+       |
+            +------+---------+-------------------+----------+-------+--------------------------------------------+---------+-----------------------------------------------+
+            |    1 | file    | 0.27.0            | loaded   |       | C:\Users\x\.cargo\bin\nu_plugin_file.exe   |         | +---+------+------------------------------+   |
+            |      |         |                   |          |       |                                            |         | | # | name |         description          |   |
+            |      |         |                   |          |       |                                            |         | +---+------+------------------------------+   |
+            |      |         |                   |          |       |                                            |         | | 0 | file | View file format information |   |
+            |      |         |                   |          |       |                                            |         | +---+------+------------------------------+   |
+            +------+---------+-------------------+----------+-------+--------------------------------------------+---------+-----------------------------------------------+
+        "#})
+}
+
+#[test]
+fn expand_nested_tables_double_theme_keeps_intact_boxes() -> Result {
+    let rendered: String = test().run_with_data(
+        "
+            let data = $in
+            $env.config.table.trim = { methodology: 'wrapping', wrapping_try_keep_words: true }
+            $data | table --expand --width 160 --theme double | ansi strip
+        ",
+        issue_19002_plugin_list_table(),
+    )?;
+    let maxline = rendered
+        .lines()
+        .map(|line| line.chars().count())
+        .max()
+        .unwrap_or(0);
+    assert!(maxline <= 160, "line {maxline} > width 160\n{rendered}");
+    assert_contains("Perform a DNS query", &rendered);
+    assert_contains("View file format information", &rendered);
+    for line in rendered.lines() {
+        if line.contains('╔') {
+            assert!(
+                line.contains('╗'),
+                "nested double-theme box wrapped as text:\n{rendered}"
+            );
+        }
+        if line.contains('╚') {
+            assert!(
+                line.contains('╝'),
+                "nested double-theme box wrapped as text:\n{rendered}"
+            );
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn expand_nested_tables_wrapping_squeezes_inner_cells() -> Result {
+    test()
+        .run_with_data(
+            "
+                let data = $in
+                $env.config.table.trim = { methodology: 'wrapping', wrapping_try_keep_words: true }
+                $data | table --expand --width 120 --theme basic | ansi strip
+            ",
+            issue_19002_plugin_list_table(),
+        )
+        .expect_value_eq(indoc! {r#"
+            +---+------+----------------+--------+-----+------------------------------------------+-------+------------------------+
+            | # | name |    version     | status | pid |                 filename                 | shell |        commands        |
+            +---+------+----------------+--------+-----+------------------------------------------+-------+------------------------+
+            | 0 | dns  | 4.0.13-alpha.1 | loaded |     | C:\Users\x\.cargo\bin\nu_plugin_dns.exe  |       | +---+-----------+      |
+            |   |      |                |        |     |                                          |       | | # |   name    |      |
+            |   |      |                |        |     |                                          |       | +---+-----------+      |
+            |   |      |                |        |     |                                          |       | | 0 | dns query |      |
+            |   |      |                |        |     |                                          |       | +---+-----------+      |
+            +---+------+----------------+--------+-----+------------------------------------------+-------+------------------------+
+            | 1 | file | 0.27.0         | loaded |     | C:\Users\x\.cargo\bin\nu_plugin_file.exe |       | +---+------+---------+ |
+            |   |      |                |        |     |                                          |       | | # | name | descrip | |
+            |   |      |                |        |     |                                          |       | |   |      | tion    | |
+            |   |      |                |        |     |                                          |       | +---+------+---------+ |
+            |   |      |                |        |     |                                          |       | | 0 | file | View    | |
+            |   |      |                |        |     |                                          |       | |   |      | file    | |
+            |   |      |                |        |     |                                          |       | |   |      | format  | |
+            |   |      |                |        |     |                                          |       | |   |      | informa | |
+            |   |      |                |        |     |                                          |       | |   |      | tion    | |
+            |   |      |                |        |     |                                          |       | +---+------+---------+ |
+            +---+------+----------------+--------+-----+------------------------------------------+-------+------------------------+
+        "#})
+}
+
+#[test]
+fn expand_nested_tables_truncating_squeezes_inner_cells() -> Result {
+    test()
+        .run_with_data(
+            "
+                let data = $in
+                $env.config.table.trim = { methodology: 'truncating', truncating_suffix: '...' }
+                $data | table --expand --width 120 --theme basic | ansi strip
+            ",
+            issue_19002_plugin_list_table(),
+        )
+        .expect_value_eq(indoc! {r#"
+            +---+------+----------------+--------+-----+------------------------------------------+-------+------------------------+
+            | # | name |    version     | status | pid |                 filename                 | shell |        commands        |
+            +---+------+----------------+--------+-----+------------------------------------------+-------+------------------------+
+            | 0 | dns  | 4.0.13-alpha.1 | loaded |     | C:\Users\x\.cargo\bin\nu_plugin_dns.exe  |       | +---+-----------+      |
+            |   |      |                |        |     |                                          |       | | # |   name    |      |
+            |   |      |                |        |     |                                          |       | +---+-----------+      |
+            |   |      |                |        |     |                                          |       | | 0 | dns query |      |
+            |   |      |                |        |     |                                          |       | +---+-----------+      |
+            +---+------+----------------+--------+-----+------------------------------------------+-------+------------------------+
+            | 1 | file | 0.27.0         | loaded |     | C:\Users\x\.cargo\bin\nu_plugin_file.exe |       | +---+------+---------+ |
+            |   |      |                |        |     |                                          |       | | # | name | desc... | |
+            |   |      |                |        |     |                                          |       | +---+------+---------+ |
+            |   |      |                |        |     |                                          |       | | 0 | file | View... | |
+            |   |      |                |        |     |                                          |       | +---+------+---------+ |
+            +---+------+----------------+--------+-----+------------------------------------------+-------+------------------------+
+        "#})
+}
+
 #[test]
 fn expand_truncate_keeps_each_line_of_a_multiline_cell() -> Result {
     let rendered: String = test().run(
