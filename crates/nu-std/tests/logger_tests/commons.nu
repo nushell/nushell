@@ -16,6 +16,10 @@ export def format-message [
         | each {|e| $'($e.k)="($e.v)"'}
         | str join ' '
 
+    let context = if ($context | is-not-empty) {
+      " " + $context
+    }
+
     [
         ["%MSG%" $message]
         ["%DATE%" (now)]

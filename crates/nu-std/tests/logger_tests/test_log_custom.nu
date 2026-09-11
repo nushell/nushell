@@ -44,8 +44,8 @@ def valid_calls [] {
     assert equal (run-command "DEBUG" "msg" "%MSG%" 25 --level-prefix "abc" --ansi (ansi default) | str trim --right) "msg"
     assert equal (run-command "DEBUG" "msg" "%LEVEL% %MSG%" 20 | str trim --right) $"((log-prefix).INFO) msg"
     assert equal (run-command "DEBUG" "msg" "%LEVEL% %MSG%" --level-prefix "abc" 20 | str trim --right) "abc msg"
-    assert equal (run-command "DEBUG" "msg" "%LEVEL% %CONTEXT%" --level-prefix "abc" 20 | str trim --right) 'abc var="value"'
-    assert equal (run-command "INFO" "msg" "%ANSI_START%%LEVEL% %MSG% %CONTEXT%%ANSI_STOP%" ((log-level).CRITICAL) --context {var: value} | str trim --right) $'((log-ansi).CRITICAL)CRT msg var="value"(ansi reset)'
+    assert equal (run-command "DEBUG" "msg" "%LEVEL%%CONTEXT%" --level-prefix "abc" 20 | str trim --right) 'abc var="value"'
+    assert equal (run-command "INFO" "msg" "%ANSI_START%%LEVEL% %MSG%%CONTEXT%%ANSI_STOP%" ((log-level).CRITICAL) --context {var: value} | str trim --right) $'((log-ansi).CRITICAL)CRT msg var="value"(ansi reset)'
 }
 
 @test

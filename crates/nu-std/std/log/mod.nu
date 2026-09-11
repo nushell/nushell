@@ -39,7 +39,7 @@ const LOG_SHORT_PREFIX = {
 export def log-short-prefix [] {$LOG_SHORT_PREFIX}
 
 const LOG_FORMATS = {
-    log: "%ANSI_START%%DATE%|%LEVEL%|%MSG%|%CONTEXT%%ANSI_STOP%"
+    log: "%ANSI_START%%DATE%|%LEVEL%|%MSG%%CONTEXT%%ANSI_STOP%"
     date: "%Y-%m-%dT%H:%M:%S%.3f"
 }
 
@@ -298,6 +298,10 @@ export def custom [
         | transpose k v
         | each {|e| $'($e.k)="($e.v)"'}
         | str join ' '
+
+    let context = if ($context | is-not-empty) {
+        " " + $context
+    }
 
     let use_color = ($env.config?.use_ansi_coloring? | $in != false)
     let ansi = if not $use_color {
