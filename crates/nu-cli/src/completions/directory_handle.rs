@@ -97,9 +97,17 @@ mod platform {
             file: std::fs::File,
             enumeration_lock: Mutex<()>,
         },
-        // Search-only directories cannot be opened for reading. Keep the O_PATH/O_SEARCH
-        // descriptor so exact known-name traversal still works through them.
+        // Search-only directories cannot be opened for reading. Most Unix targets keep an
+        // O_PATH/O_SEARCH descriptor so exact known-name traversal still works through them.
+        #[cfg(not(target_os = "openbsd"))]
         TraverseOnly(OwnedFd),
+        // OpenBSD exposes neither O_PATH nor O_SEARCH. Retain the last readable anchor and the
+        // exact suffix below it; each known child retries openat() with the growing suffix.
+        #[cfg(target_os = "openbsd")]
+        TraverseOnly {
+            anchor: Arc<std::fs::File>,
+            suffix: std::path::PathBuf,
+        },
     }
 
     fn io_error(error: Errno) -> io::Error {
@@ -136,7 +144,7 @@ mod platform {
 
     #[cfg(all(
         unix,
-        not(any(target_os = "linux", target_os = "android")),
+        not(any(target_os = "linux", target_os = "android", target_os = "openbsd")),
         not(any(
             target_vendor = "apple",
             target_os = "solaris",
@@ -164,14 +172,27 @@ mod platform {
             }))
         }
 
+        #[cfg(not(target_os = "openbsd"))]
         fn traverse_only(fd: OwnedFd) -> Self {
             Self(Arc::new(DirInner::TraverseOnly(fd)))
         }
 
+        #[cfg(target_os = "openbsd")]
+        fn traverse_only(anchor: Arc<std::fs::File>, suffix: std::path::PathBuf) -> Self {
+            Self(Arc::new(DirInner::TraverseOnly { anchor, suffix }))
+        }
+
+        #[cfg(not(target_os = "openbsd"))]
         fn should_try_traverse_only(error: Errno) -> bool {
             traversal_flags() != readable_flags() && matches!(error, Errno::EACCES | Errno::EPERM)
         }
 
+        #[cfg(target_os = "openbsd")]
+        fn should_try_traverse_only(error: Errno) -> bool {
+            matches!(error, Errno::EACCES | Errno::EPERM)
+        }
+
+        #[cfg(not(target_os = "openbsd"))]
         fn open_traverse_only(path: &Path, readable_error: Errno) -> io::Result<Self> {
             if !Self::should_try_traverse_only(readable_error) {
                 return Err(io_error(readable_error));
@@ -181,6 +202,31 @@ mod platform {
                 .map_err(io_error)
         }
 
+        #[cfg(target_os = "openbsd")]
+        fn open_traverse_only(path: &Path, readable_error: Errno) -> io::Result<Self> {
+            if !Self::should_try_traverse_only(readable_error) {
+                return Err(io_error(readable_error));
+            }
+
+            // An unreadable root path has no usable directory descriptor on OpenBSD. Anchor it at
+            // `/` and retain the exact absolute suffix instead. Descendants retry that suffix with
+            // openat(), which is O(depth²) across an execute-only run but needs no helper process.
+            let absolute = if path.is_absolute() {
+                path.to_path_buf()
+            } else {
+                std::env::current_dir()?.join(path)
+            };
+            let suffix = absolute
+                .strip_prefix(Path::new("/"))
+                .unwrap_or(&absolute)
+                .to_path_buf();
+            let anchor = open(Path::new("/"), readable_flags(), Mode::empty()).map_err(io_error)?;
+            Ok(Self::traverse_only(
+                Arc::new(std::fs::File::from(anchor)),
+                suffix,
+            ))
+        }
+
         pub(super) fn open(path: &Path) -> io::Result<Self> {
             match open(path, readable_flags(), Mode::empty()) {
                 Ok(fd) => Ok(Self::readable(fd)),
@@ -188,6 +234,7 @@ mod platform {
             }
         }
 
+        #[cfg(not(target_os = "openbsd"))]
         fn open_dir_from<Fd: std::os::fd::AsFd>(parent: Fd, name: &OsStr) -> io::Result<Self> {
             match openat(&parent, name, readable_flags(), Mode::empty()) {
                 Ok(fd) => Ok(Self::readable(fd)),
@@ -200,10 +247,49 @@ mod platform {
             }
         }
 
+        #[cfg(target_os = "openbsd")]
+        fn open_dir_from_readable(parent: &std::fs::File, name: &OsStr) -> io::Result<Self> {
+            match openat(parent, name, readable_flags(), Mode::empty()) {
+                Ok(fd) => Ok(Self::readable(fd)),
+                Err(error) if Self::should_try_traverse_only(error) => Ok(Self::traverse_only(
+                    Arc::new(parent.try_clone()?),
+                    std::path::PathBuf::from(name),
+                )),
+                Err(error) => Err(io_error(error)),
+            }
+        }
+
+        #[cfg(target_os = "openbsd")]
+        fn open_dir_from_suffix(
+            anchor: &Arc<std::fs::File>,
+            suffix: &Path,
+            name: &OsStr,
+        ) -> io::Result<Self> {
+            let next = suffix.join(name);
+            match openat(anchor.as_ref(), &next, readable_flags(), Mode::empty()) {
+                Ok(fd) => Ok(Self::readable(fd)),
+                Err(error) if Self::should_try_traverse_only(error) => {
+                    Ok(Self::traverse_only(Arc::clone(anchor), next))
+                }
+                Err(error) => Err(io_error(error)),
+            }
+        }
+
+        #[cfg(not(target_os = "openbsd"))]
         pub(super) fn open_dir(&self, name: &OsStr) -> io::Result<Self> {
             match &*self.0 {
                 DirInner::Readable { file, .. } => Self::open_dir_from(file, name),
                 DirInner::TraverseOnly(fd) => Self::open_dir_from(fd, name),
+            }
+        }
+
+        #[cfg(target_os = "openbsd")]
+        pub(super) fn open_dir(&self, name: &OsStr) -> io::Result<Self> {
+            match &*self.0 {
+                DirInner::Readable { file, .. } => Self::open_dir_from_readable(file, name),
+                DirInner::TraverseOnly { anchor, suffix } => {
+                    Self::open_dir_from_suffix(anchor, suffix, name)
+                }
             }
         }
 
@@ -224,11 +310,21 @@ mod platform {
                     let mut dir = NixDir::from_fd(duplicate).map_err(io_error)?;
                     collect_entries(&mut dir)
                 }
+                #[cfg(not(target_os = "openbsd"))]
                 DirInner::TraverseOnly(fd) => {
                     // Permissions may have changed since this handle was opened, so retain the old
                     // behavior of attempting a readable view when enumeration is actually needed.
                     let mut dir = NixDir::openat(fd, ".", readable_flags(), Mode::empty())
                         .map_err(io_error)?;
+                    collect_entries(&mut dir)
+                }
+                #[cfg(target_os = "openbsd")]
+                DirInner::TraverseOnly { anchor, suffix } => {
+                    // Retrying the accumulated suffix also observes permission changes: once the
+                    // final directory becomes readable, enumeration resumes through a normal fd.
+                    let mut dir =
+                        NixDir::openat(anchor.as_ref(), suffix, readable_flags(), Mode::empty())
+                            .map_err(io_error)?;
                     collect_entries(&mut dir)
                 }
             }
@@ -563,6 +659,43 @@ mod tests {
 
         assert_eq!(collect(), ["a", "b", "c"]);
         assert_eq!(collect(), ["a", "b", "c"]);
+    }
+
+    #[cfg(target_os = "openbsd")]
+    #[test]
+    fn openbsd_growing_suffix_traverses_execute_only_chain() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let temp = tempfile::tempdir().expect("create tempdir");
+        let root = temp.path().join("root");
+        let first = root.join("first");
+        let second = first.join("second");
+        let readable = second.join("readable");
+        std::fs::create_dir_all(readable.join("target")).expect("create fixture");
+        std::fs::set_permissions(&first, std::fs::Permissions::from_mode(0o111))
+            .expect("make first execute-only");
+        std::fs::set_permissions(&second, std::fs::Permissions::from_mode(0o111))
+            .expect("make second execute-only");
+
+        let result = (|| -> std::io::Result<()> {
+            let handle = Dir::open(&root)?;
+            let first = handle.open_dir("first".as_ref())?;
+            let second = first.open_dir("second".as_ref())?;
+            let readable = second.open_dir("readable".as_ref())?;
+            assert!(
+                readable
+                    .entries()?
+                    .iter()
+                    .any(|entry| entry.file_name() == "target")
+            );
+            Ok(())
+        })();
+
+        std::fs::set_permissions(&second, std::fs::Permissions::from_mode(0o700))
+            .expect("restore second permissions");
+        std::fs::set_permissions(&first, std::fs::Permissions::from_mode(0o700))
+            .expect("restore first permissions");
+        result.expect("traverse execute-only chain with growing suffix");
     }
 
     #[test]
