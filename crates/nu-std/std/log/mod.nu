@@ -301,6 +301,8 @@ export def custom [
 
     let context = if ($context | is-not-empty) {
         " " + $context
+    } else {
+      ""
     }
 
     let use_color = ($env.config?.use_ansi_coloring? | $in != false)

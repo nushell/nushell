@@ -18,6 +18,8 @@ export def format-message [
 
     let context = if ($context | is-not-empty) {
       " " + $context
+    } else {
+      ""
     }
 
     [
