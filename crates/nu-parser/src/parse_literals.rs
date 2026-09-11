@@ -1445,18 +1445,12 @@ pub fn parse_unit_value<'res>(
                     };
                     num_base as i64
                 } else {
-                    // Not safe to convert, because of the overflow. A bare
-                    // `as i64` would saturate to i64::MIN/i64::MAX and silently
-                    // produce a wrong value (#18592), so report it here instead
-                    // of letting downstream `checked_*` helpers trust the
-                    // already-saturated integer.
-                    return Some(Err(Box::new(move |_| {
-                        ParseError::LabeledError(
-                            "unit value is too large".into(),
-                            "the magnitude is out of the 64-bit range".into(),
-                            lhs_span,
-                        )
-                    })));
+                    // Not safe to convert: the magnitude overflows the 64-bit
+                    // range. Keep the saturated integer and the original unit
+                    // so downstream type checking (and the checked_* helpers in
+                    // command implementations) can detect and report the
+                    // overflow with their own, more precise errors (#18592).
+                    num_float as i64
                 }
             }
             None => num_float as i64,

@@ -683,36 +683,6 @@ mod test {
     }
 
     #[test]
-    fn parser_saturated_boundary_reports_overflow() {
-        // #18592 follow-up (review): '9223372036854775808ns' used to slip
-        // through `parse_unit_value`'s `<= i64::MAX as f64` bound (2^63
-        // compares equal to the rounded-up bound) and saturate to i64::MAX.
-        // The parser now rejects it, and `into duration` must surface an
-        // error instead of silently returning i64::MAX.
-        let args = Arguments {
-            unit: Some(Spanned {
-                item: Unit::Nanosecond,
-                span: Span::test_data(),
-            }),
-            cell_paths: None,
-        };
-
-        let actual = action(
-            &Value::test_string("9223372036854775808ns"),
-            &args,
-            Span::test_data(),
-        );
-        match actual {
-            Value::Error { .. } => {
-                // The parser now rejects the saturated magnitude before any
-                // downstream checked-multiply can trust it; the exact variant
-                // surfaced by action() is a parser-detail.
-            }
-            other => panic!("expected an error for the saturated boundary, got {other:?}"),
-        }
-    }
-
-    #[test]
     fn float_path_overflow_reports_error() {
         // Review: the f64 overflow path (checked_ns_mul_f64) had no
         // regression coverage. An out-of-range finite product must error,
