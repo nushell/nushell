@@ -102,6 +102,17 @@ fn a_suggestion_with_an_unknown_field_is_still_offered() -> Result {
     Ok(())
 }
 
+#[test]
+fn commandline_complete_uses_config_set_in_the_same_script() -> Result {
+    let source = r#"
+        $env.config.completions.external.completer = {|buffer| [{ value: "checkout " }]}
+        "git che" | commandline complete
+    "#;
+
+    assert_eq!(test().run::<Vec<String>>(source)?, ["checkout "]);
+    Ok(())
+}
+
 /// Bare value is one suggestion.
 #[test]
 fn a_bare_value_is_read_as_one_suggestion() -> Result {

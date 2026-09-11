@@ -8,8 +8,8 @@ use crate::completions::{
 use lru::LruCache;
 use nu_parser::{parse, parse_shorter_head_reading};
 use nu_protocol::{
-    BlockId, BuiltinCompletion, CommandWideCompleter, Completion, DeclId, Flag, Record, Signature,
-    Span, SuggestionKind, SyntaxShape, Value,
+    BlockId, BuiltinCompletion, CommandWideCompleter, Completion, Config, DeclId, Flag, Record,
+    Signature, Span, SuggestionKind, SyntaxShape, Value,
     ast::{
         Argument, AttributeBlock, Block, Call, Expr, Expression, ExternalArgument, FlagRef,
         FullCellPath, PipelineRedirection, RedirectionTarget, Traverse,
@@ -510,7 +510,7 @@ impl CacheEnv {
         engine_state.num_decls().hash(&mut hasher);
         stack
             .get_env_var(engine_state, "PATH")
-            .map(|path| path.to_expanded_string(":", engine_state.get_config()))
+            .map(|path| path.to_expanded_string(":", &stack.get_config(engine_state)))
             .hash(&mut hasher);
 
         let cwd = engine_state.cwd(Some(stack)).ok();
@@ -521,6 +521,8 @@ impl CacheEnv {
         cwd.hash(&mut hasher);
 
         engine_state.config_epoch().hash(&mut hasher);
+        // Stack-local config changes do not bump the engine epoch.
+        stack.config.as_ref().map(Arc::as_ptr).hash(&mut hasher);
 
         Self(hasher.finish())
     }
@@ -681,8 +683,7 @@ struct CompletionWorker {
 }
 
 /// The completion behaviour configured in `$env.config.completions`.
-fn configured_options(engine_state: &EngineState) -> CompletionOptions {
-    let config = engine_state.get_config();
+fn configured_options(config: &Config) -> CompletionOptions {
     CompletionOptions {
         case_sensitive: config.completions.case_sensitive,
         match_algorithm: config.completions.algorithm.into(),
@@ -1041,10 +1042,12 @@ impl<'engine> CompletionEngine<'engine> {
         stack: Arc<Stack>,
         suppress_stdin: bool,
     ) -> Self {
+        let stack = isolated_stack(stack, suppress_stdin);
+        let options = configured_options(&stack.get_config(engine_state));
         Self {
             engine_state,
-            stack: isolated_stack(stack, suppress_stdin),
-            options: configured_options(engine_state),
+            stack,
+            options,
         }
     }
 
@@ -1143,8 +1146,8 @@ impl<'engine> CompletionEngine<'engine> {
         match site_completer(site, working_set) {
             Some(SiteCompleter::Decl(decl_id)) => decl_is_interactive(working_set, decl_id),
             Some(SiteCompleter::External) => self
-                .engine_state
-                .get_config()
+                .stack
+                .get_config(self.engine_state)
                 .completions
                 .external
                 .completer
@@ -1390,8 +1393,8 @@ impl<'engine> CompletionEngine<'engine> {
 
         // The user's configured external completer.
         let external_answered = self
-            .engine_state
-            .get_config()
+            .stack
+            .get_config(self.engine_state)
             .completions
             .external
             .completer
@@ -2106,8 +2109,8 @@ impl<'engine> CompletionEngine<'engine> {
                 UserCompletion::command(context.working_set, decl_id)
             }
             Some(CommandWideCompleter::External) => self
-                .engine_state
-                .get_config()
+                .stack
+                .get_config(self.engine_state)
                 .completions
                 .external
                 .completer
@@ -2170,10 +2173,11 @@ impl NuCompleter {
     ) -> Self {
         let cache_env = CacheEnv::of(&engine_state, &stack);
         // Read fresh each prompt so `cache_size` config changes take effect.
-        let cache_size = engine_state.get_config().completions.cache_size;
+        let config = stack.get_config(&engine_state);
+        let cache_size = config.completions.cache_size;
         cache.set_capacity(cache_size.try_into().unwrap_or(0));
         Self {
-            options: configured_options(&engine_state),
+            options: configured_options(&config),
             engine_state,
             stack,
             cache,
