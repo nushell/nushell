@@ -1,7 +1,11 @@
 use indexmap::IndexMap;
 use nu_engine::{ClosureEval, command_prelude::*};
 use nu_protocol::{
-    FromValue, ast::PathMember, engine::Closure, shell_error::generic::GenericError,
+    FromValue, Range, ast::PathMember, engine::Closure, shell_error::generic::GenericError,
+};
+use std::{
+    hash::{Hash, Hasher},
+    ops::Bound,
 };
 
 #[derive(Clone)]
@@ -17,7 +21,7 @@ impl Command for GroupBy {
             .input_output_types(vec![(Type::List(Box::new(Type::Any)), Type::Any)])
             .switch(
                 "to-table",
-                "Return a table with \"groups\" and \"items\" columns.",
+                "Always return a table. Key columns keep their original types (column name \"group\" when no grouper is given).",
                 None,
             )
             .switch(
@@ -38,16 +42,17 @@ impl Command for GroupBy {
     }
 
     fn description(&self) -> &str {
-        "Splits a list or table into groups, and returns a record containing those groups."
+        "Splits a list or table into groups. Returns a record when the group keys are strings, otherwise a table."
     }
 
     fn extra_description(&self) -> &str {
-        r#"the group-by command makes some assumptions:
-    - if the input data is not a string, the grouper will convert the key to string but the values will remain in their original format. e.g. with bools, "true" and true would be in the same group (see example).
-    - datetime is formatted based on your configuration setting. use `format date` to change the format.
-    - filesize is formatted based on your configuration setting. use `format filesize` to change the format.
-    - some nushell values are not supported, such as closures.
-    - null group keys are never mapped to the empty string. The default record output omits null groups (records cannot use null as a key); use --to-table to include them as null values. Optional cell paths (e.g. `foo?`) still ignore rows where access yields null."#
+        r#"Grouping uses typed value identity (same type and payload), not display strings. Distinct filesizes that render the same (for example 1MB and 1.001MB) stay in separate groups. "true" and true are separate groups.
+
+The default output is a record when every group key is a string. Those record keys are the original strings; they are not reformatted. null group keys are omitted (records cannot use null as a key). Optional cell paths (e.g. `foo?`) still ignore rows where access yields null.
+
+If any group key is not a string, the default output is a table with the original key types — the same shape as --to-table. Table output uses the same column-name rules as --to-table: a grouper named `items` is rejected (use `{ get items }` or rename the column), and duplicate grouper names are rejected.
+
+--to-table always returns a table. The group column is named `group` when no grouper is given; otherwise the grouper names. Group columns keep their original types. null group keys are included as null values."#
     }
 
     fn run(
@@ -101,6 +106,25 @@ impl Command for GroupBy {
                 })),
             },
             Example {
+                description: "Group by a non-string column. The result is a table so the keys keep their original type.",
+                example: "[{n: 1} {n: 2} {n: 1}] | group-by n",
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "n" => Value::test_int(1),
+                        "items" => Value::test_list(vec![
+                            Value::test_record(record! { "n" => Value::test_int(1) }),
+                            Value::test_record(record! { "n" => Value::test_int(1) }),
+                        ]),
+                    }),
+                    Value::test_record(record! {
+                        "n" => Value::test_int(2),
+                        "items" => Value::test_list(vec![
+                            Value::test_record(record! { "n" => Value::test_int(2) }),
+                        ]),
+                    }),
+                ])),
+            },
+            Example {
                 description: "You can also output a table instead of a record.",
                 example: "['1' '3' '1' '3' '2' '1' '1'] | group-by --to-table",
                 result: Some(Value::test_list(vec![
@@ -127,18 +151,26 @@ impl Command for GroupBy {
                 ])),
             },
             Example {
-                description: "Group bools, whether they are strings or actual bools.",
+                description: "Bools and strings are different keys, so the result is a table.",
                 example: r#"[true "true" false "false"] | group-by"#,
-                result: Some(Value::test_record(record! {
-                    "true" => Value::test_list(vec![
-                        Value::test_bool(true),
-                        Value::test_string("true"),
-                    ]),
-                    "false" => Value::test_list(vec![
-                        Value::test_bool(false),
-                        Value::test_string("false"),
-                    ]),
-                })),
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "group" => Value::test_bool(true),
+                        "items" => Value::test_list(vec![Value::test_bool(true)]),
+                    }),
+                    Value::test_record(record! {
+                        "group" => Value::test_string("true"),
+                        "items" => Value::test_list(vec![Value::test_string("true")]),
+                    }),
+                    Value::test_record(record! {
+                        "group" => Value::test_bool(false),
+                        "items" => Value::test_list(vec![Value::test_bool(false)]),
+                    }),
+                    Value::test_record(record! {
+                        "group" => Value::test_string("false"),
+                        "items" => Value::test_list(vec![Value::test_string("false")]),
+                    }),
+                ])),
             },
             Example {
                 description: "Group items by multiple columns' values.",
@@ -267,7 +299,6 @@ pub fn group_by(
     let groupers: Vec<Spanned<Grouper>> = call.rest(engine_state, stack, 0)?;
     let to_table = call.has_flag(engine_state, stack, "to-table")?;
     let prune = call.has_flag(engine_state, stack, "prune")?;
-    let config = &stack.get_config(engine_state);
 
     let values: Vec<Value> = input.into_iter().collect();
     if values.is_empty() {
@@ -281,17 +312,18 @@ pub fn group_by(
 
     let grouped = match &groupers[..] {
         [first, rest @ ..] => {
-            let mut grouped =
-                Grouped::new(first.as_ref(), prune, values, config, engine_state, stack)?;
+            let mut grouped = Grouped::new(first.as_ref(), prune, values, engine_state, stack)?;
             for grouper in rest {
-                grouped.subgroup(grouper.as_ref(), prune, config, engine_state, stack)?;
+                grouped.subgroup(grouper.as_ref(), prune, engine_state, stack)?;
             }
             grouped
         }
-        [] => Grouped::empty(values, config),
+        [] => Grouped::empty(values),
     };
 
-    let value = if to_table {
+    // Records can only use string keys. Non-string group keys keep their type
+    // by emitting the same table --to-table would.
+    let value = if to_table || grouped.has_non_string_key() {
         let column_names = groupers_to_column_names(&groupers)?;
         grouped.into_table(&column_names, head)
     } else {
@@ -362,27 +394,237 @@ fn groupers_to_column_names(groupers: &[Spanned<Grouper>]) -> Result<Vec<String>
 }
 
 /// Internal group key. `Nothing` is distinct from the empty string so null and `""`
-/// do not collapse. Record output omits `Nothing` keys; `--to-table` emits them as null.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+/// do not collapse. Record output omits `Nothing` keys; table output emits them as null.
+#[derive(Debug, Clone)]
 enum GroupKey {
     Nothing,
-    String(String),
+    Preserved(Value),
 }
 
 impl GroupKey {
-    fn from_value(value: &Value, config: &nu_protocol::Config) -> Self {
+    fn from_value(value: &Value) -> Self {
         if value.is_nothing() {
             Self::Nothing
         } else {
-            Self::String(value.to_expanded_string(", ", config))
+            Self::Preserved(value.clone())
         }
     }
 
     fn into_value(self, span: Span) -> Value {
         match self {
             Self::Nothing => Value::nothing(span),
-            Self::String(s) => Value::string(s, span),
+            Self::Preserved(v) => v,
         }
+    }
+
+    fn as_record_key(&self) -> Option<&str> {
+        match self {
+            Self::Preserved(Value::String { val, .. }) => Some(val.as_str()),
+            Self::Nothing | Self::Preserved(_) => None,
+        }
+    }
+
+    fn is_non_string(&self) -> bool {
+        !matches!(self, Self::Nothing | Self::Preserved(Value::String { .. }))
+    }
+}
+
+impl PartialEq for GroupKey {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Nothing, Self::Nothing) => true,
+            (Self::Preserved(a), Self::Preserved(b)) => group_values_eq(a, b),
+            _ => false,
+        }
+    }
+}
+
+impl Eq for GroupKey {}
+
+impl Hash for GroupKey {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        std::mem::discriminant(self).hash(state);
+        match self {
+            Self::Nothing => {}
+            Self::Preserved(v) => hash_group_value(v, state),
+        }
+    }
+}
+
+fn hash_group_value<H: Hasher>(value: &Value, state: &mut H) {
+    std::mem::discriminant(value).hash(state);
+    match value {
+        Value::Bool { val, .. } => val.hash(state),
+        Value::Int { val, .. } => val.hash(state),
+        Value::Float { val, .. } => val.to_bits().hash(state),
+        Value::String { val, .. } => val.hash(state),
+        Value::Glob { val, no_expand, .. } => {
+            val.hash(state);
+            no_expand.hash(state);
+        }
+        Value::Filesize { val, .. } => val.hash(state),
+        Value::Duration { val, .. } => val.hash(state),
+        Value::Date { val, .. } => val.hash(state),
+        Value::Range { val, .. } => hash_range(val, state),
+        Value::Record { val, .. } => {
+            let mut pairs: Vec<_> = val.iter().collect();
+            pairs.sort_unstable_by_key(|(a, _)| *a);
+            pairs.len().hash(state);
+            for (key, child) in pairs {
+                key.hash(state);
+                hash_group_value(child, state);
+            }
+        }
+        Value::List { vals, .. } => {
+            vals.len().hash(state);
+            for child in vals.iter() {
+                hash_group_value(child, state);
+            }
+        }
+        Value::Closure { val, .. } => {
+            val.block_id.hash(state);
+            val.captures.len().hash(state);
+            for (var_id, captured) in &val.captures {
+                var_id.hash(state);
+                hash_group_value(captured, state);
+            }
+        }
+        Value::Error { error, .. } => format!("{error:?}").hash(state),
+        Value::Binary { val, .. } => val.hash(state),
+        Value::CellPath { val, .. } => {
+            val.members.len().hash(state);
+            for member in &val.members {
+                match member {
+                    PathMember::String { val, optional, .. } => {
+                        0u8.hash(state);
+                        val.hash(state);
+                        optional.hash(state);
+                    }
+                    PathMember::Int { val, optional, .. } => {
+                        1u8.hash(state);
+                        val.hash(state);
+                        optional.hash(state);
+                    }
+                }
+            }
+        }
+        Value::Custom { val, .. } => {
+            val.type_name().hash(state);
+            if let Ok(base) = val.to_base_value(value.span()) {
+                hash_group_value(&base, state);
+            }
+        }
+        Value::Nothing { .. } => {}
+    }
+}
+
+fn hash_range<H: Hasher>(range: &Range, state: &mut H) {
+    match range {
+        Range::IntRange(r) => {
+            0u8.hash(state);
+            r.start().hash(state);
+            r.step().hash(state);
+            r.end().hash(state);
+        }
+        Range::FloatRange(r) => {
+            1u8.hash(state);
+            r.start().to_bits().hash(state);
+            r.step().to_bits().hash(state);
+            match r.end() {
+                Bound::Unbounded => 0u8.hash(state),
+                Bound::Included(v) => {
+                    1u8.hash(state);
+                    v.to_bits().hash(state);
+                }
+                Bound::Excluded(v) => {
+                    2u8.hash(state);
+                    v.to_bits().hash(state);
+                }
+            }
+        }
+    }
+}
+
+fn ranges_eq(left: &Range, right: &Range) -> bool {
+    match (left, right) {
+        (Range::IntRange(a), Range::IntRange(b)) => a == b,
+        (Range::FloatRange(a), Range::FloatRange(b)) => {
+            a.start().to_bits() == b.start().to_bits()
+                && a.step().to_bits() == b.step().to_bits()
+                && match (a.end(), b.end()) {
+                    (Bound::Unbounded, Bound::Unbounded) => true,
+                    (Bound::Included(x), Bound::Included(y))
+                    | (Bound::Excluded(x), Bound::Excluded(y)) => x.to_bits() == y.to_bits(),
+                    _ => false,
+                }
+        }
+        _ => false,
+    }
+}
+
+fn group_values_eq(left: &Value, right: &Value) -> bool {
+    match (left, right) {
+        (Value::Bool { val: a, .. }, Value::Bool { val: b, .. }) => a == b,
+        (Value::Int { val: a, .. }, Value::Int { val: b, .. }) => a == b,
+        (Value::Float { val: a, .. }, Value::Float { val: b, .. }) => a.to_bits() == b.to_bits(),
+        (Value::String { val: a, .. }, Value::String { val: b, .. }) => a == b,
+        (
+            Value::Glob {
+                val: a,
+                no_expand: a_no_expand,
+                ..
+            },
+            Value::Glob {
+                val: b,
+                no_expand: b_no_expand,
+                ..
+            },
+        ) => a == b && a_no_expand == b_no_expand,
+        (Value::Filesize { val: a, .. }, Value::Filesize { val: b, .. }) => a == b,
+        (Value::Duration { val: a, .. }, Value::Duration { val: b, .. }) => a == b,
+        (Value::Date { val: a, .. }, Value::Date { val: b, .. }) => a == b,
+        (Value::Range { val: a, .. }, Value::Range { val: b, .. }) => ranges_eq(a, b),
+        (Value::Record { val: a, .. }, Value::Record { val: b, .. }) => {
+            if a.len() != b.len() {
+                return false;
+            }
+            let mut left_pairs: Vec<_> = a.iter().collect();
+            let mut right_pairs: Vec<_> = b.iter().collect();
+            left_pairs.sort_unstable_by_key(|(x, _)| *x);
+            right_pairs.sort_unstable_by_key(|(x, _)| *x);
+            left_pairs
+                .iter()
+                .zip(right_pairs)
+                .all(|((ak, av), (bk, bv))| *ak == bk && group_values_eq(av, bv))
+        }
+        (Value::List { vals: a, .. }, Value::List { vals: b, .. }) => {
+            a.len() == b.len() && a.iter().zip(b.iter()).all(|(x, y)| group_values_eq(x, y))
+        }
+        (Value::Closure { val: a, .. }, Value::Closure { val: b, .. }) => {
+            a.block_id == b.block_id
+                && a.captures.len() == b.captures.len()
+                && a.captures
+                    .iter()
+                    .zip(&b.captures)
+                    .all(|((id_a, val_a), (id_b, val_b))| {
+                        *id_a == *id_b && group_values_eq(val_a, val_b)
+                    })
+        }
+        (Value::Error { error: a, .. }, Value::Error { error: b, .. }) => a == b,
+        (Value::Binary { val: a, .. }, Value::Binary { val: b, .. }) => a == b,
+        (Value::CellPath { val: a, .. }, Value::CellPath { val: b, .. }) => a == b,
+        (Value::Custom { val: a, .. }, Value::Custom { val: b, .. }) => {
+            if a.type_name() != b.type_name() {
+                return false;
+            }
+            match (a.to_base_value(left.span()), b.to_base_value(right.span())) {
+                (Ok(a_base), Ok(b_base)) => group_values_eq(&a_base, &b_base),
+                (Err(_), Err(_)) => true,
+                _ => false,
+            }
+        }
+        (Value::Nothing { .. }, Value::Nothing { .. }) => true,
+        _ => false,
     }
 }
 
@@ -397,7 +639,6 @@ fn group_cell_path(
     column_name: &CellPath,
     prune: bool,
     values: Vec<Value>,
-    config: &nu_protocol::Config,
 ) -> Result<IndexMap<GroupKey, Vec<Value>>, ShellError> {
     let mut groups = IndexMap::<_, Vec<_>>::new();
     let optional_path = path_has_optional_member(column_name);
@@ -411,7 +652,7 @@ fn group_cell_path(
             continue;
         }
 
-        let key = GroupKey::from_value(key_val.as_ref(), config);
+        let key = GroupKey::from_value(key_val.as_ref());
 
         if prune {
             // it's okay if this fails since pruning is best-effort
@@ -443,11 +684,10 @@ fn group_closure(
 ) -> Result<IndexMap<GroupKey, Vec<Value>>, ShellError> {
     let mut groups = IndexMap::<_, Vec<_>>::new();
     let mut closure = ClosureEval::new(engine_state, stack, closure);
-    let config = &stack.get_config(engine_state);
 
     for value in values {
         let key_val = closure.run_with_value(value.clone())?.into_value(span)?;
-        let key = GroupKey::from_value(&key_val, config);
+        let key = GroupKey::from_value(&key_val);
 
         groups.entry(key).or_default().push(value);
     }
@@ -483,11 +723,11 @@ enum Tree {
 }
 
 impl Grouped {
-    fn empty(values: Vec<Value>, config: &nu_protocol::Config) -> Self {
+    fn empty(values: Vec<Value>) -> Self {
         let mut groups = IndexMap::<_, Vec<_>>::new();
 
         for value in values.into_iter() {
-            let key = GroupKey::from_value(&value, config);
+            let key = GroupKey::from_value(&value);
             groups.entry(key).or_default().push(value);
         }
 
@@ -500,12 +740,11 @@ impl Grouped {
         grouper: Spanned<&Grouper>,
         prune: bool,
         values: Vec<Value>,
-        config: &nu_protocol::Config,
         engine_state: &EngineState,
         stack: &mut Stack,
     ) -> Result<Self, ShellError> {
         let groups = match grouper.item {
-            Grouper::CellPath { val } => group_cell_path(val, prune, values, config)?,
+            Grouper::CellPath { val } => group_cell_path(val, prune, values)?,
             Grouper::Closure { val } => group_closure(
                 values,
                 grouper.span,
@@ -523,7 +762,6 @@ impl Grouped {
         &mut self,
         grouper: Spanned<&Grouper>,
         prune: bool,
-        config: &nu_protocol::Config,
         engine_state: &EngineState,
         stack: &mut Stack,
     ) -> Result<(), ShellError> {
@@ -531,20 +769,30 @@ impl Grouped {
             Tree::Leaf(groups) => std::mem::take(groups)
                 .into_iter()
                 .map(|(key, values)| -> Result<_, ShellError> {
-                    let leaf = Self::new(grouper, prune, values, config, engine_state, stack)?;
+                    let leaf = Self::new(grouper, prune, values, engine_state, stack)?;
                     Ok((key, leaf))
                 })
                 .collect::<Result<IndexMap<_, _>, ShellError>>()?,
             Tree::Branch(nested_groups) => {
                 let mut nested_groups = std::mem::take(nested_groups);
                 for v in nested_groups.values_mut() {
-                    v.subgroup(grouper, prune, config, engine_state, stack)?;
+                    v.subgroup(grouper, prune, engine_state, stack)?;
                 }
                 nested_groups
             }
         };
         self.groups = Tree::Branch(groups);
         Ok(())
+    }
+
+    fn has_non_string_key(&self) -> bool {
+        match &self.groups {
+            Tree::Leaf(leaf) => leaf.keys().any(GroupKey::is_non_string),
+            Tree::Branch(branch) => {
+                branch.keys().any(GroupKey::is_non_string)
+                    || branch.values().any(Self::has_non_string_key)
+            }
+        }
     }
 
     fn into_table(self, column_names: &[String], head: Span) -> Value {
@@ -588,9 +836,9 @@ impl Grouped {
                 leaf.into_iter()
                     // Records cannot use null as a key; omit null groups rather than
                     // mapping them to the empty string (which collides with "").
-                    .filter_map(|(k, v)| match k {
-                        GroupKey::String(key) => Some((key, v.into_value(head))),
-                        GroupKey::Nothing => None,
+                    .filter_map(|(k, v)| {
+                        k.as_record_key()
+                            .map(|key| (key.to_string(), v.into_value(head)))
                     })
                     .collect(),
                 head,
@@ -598,9 +846,9 @@ impl Grouped {
             Tree::Branch(branch) => {
                 let values = branch
                     .into_iter()
-                    .filter_map(|(k, v)| match k {
-                        GroupKey::String(key) => Some((key, v.into_record(head))),
-                        GroupKey::Nothing => None,
+                    .filter_map(|(k, v)| {
+                        k.as_record_key()
+                            .map(|key| (key.to_string(), v.into_record(head)))
                     })
                     .collect();
                 Value::record(values, head)
@@ -612,9 +860,54 @@ impl Grouped {
 #[cfg(test)]
 mod test {
     use super::*;
+    use nu_protocol::{BlockId, ShellError, Span, VarId};
+    use std::hash::Hasher;
 
     #[test]
     fn test_examples() -> nu_test_support::Result {
         nu_test_support::test().examples(GroupBy)
+    }
+
+    fn hash_of(value: &Value) -> u64 {
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        hash_group_value(value, &mut hasher);
+        hasher.finish()
+    }
+
+    #[test]
+    fn group_identity_includes_error_payload_and_closure_captures() {
+        let block = BlockId::new(1);
+        let var = VarId::new(0);
+        let c1 = Value::test_closure(Closure {
+            block_id: block,
+            captures: vec![(var, Value::test_int(1))],
+        });
+        let c1_again = Value::test_closure(Closure {
+            block_id: block,
+            captures: vec![(var, Value::test_int(1))],
+        });
+        let c2 = Value::test_closure(Closure {
+            block_id: block,
+            captures: vec![(var, Value::test_int(2))],
+        });
+        assert!(group_values_eq(&c1, &c1_again));
+        assert_eq!(hash_of(&c1), hash_of(&c1_again));
+        assert!(!group_values_eq(&c1, &c2));
+
+        let e1 = Value::error(
+            ShellError::Generic(GenericError::new("a", "here", Span::test_data())),
+            Span::test_data(),
+        );
+        let e1_again = Value::error(
+            ShellError::Generic(GenericError::new("a", "here", Span::test_data())),
+            Span::test_data(),
+        );
+        let e2 = Value::error(
+            ShellError::Generic(GenericError::new("b", "here", Span::test_data())),
+            Span::test_data(),
+        );
+        assert!(group_values_eq(&e1, &e1_again));
+        assert_eq!(hash_of(&e1), hash_of(&e1_again));
+        assert!(!group_values_eq(&e1, &e2));
     }
 }
