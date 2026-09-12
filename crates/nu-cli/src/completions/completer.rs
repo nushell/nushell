@@ -8,8 +8,8 @@ use crate::completions::{
 use lru::LruCache;
 use nu_parser::{parse, parse_shorter_head_reading};
 use nu_protocol::{
-    BlockId, BuiltinCompletion, CommandWideCompleter, Completion, DeclId, Flag, Record, Signature,
-    Span, SuggestionKind, SyntaxShape, Value,
+    BlockId, BuiltinCompletion, CommandWideCompleter, Completion, Config, DeclId, Flag, Record,
+    Signature, Span, SuggestionKind, SyntaxShape, Value,
     ast::{
         Argument, AttributeBlock, Block, Call, Expr, Expression, ExternalArgument, FlagRef,
         FullCellPath, PipelineRedirection, RedirectionTarget, Traverse,
@@ -510,7 +510,7 @@ impl CacheEnv {
         engine_state.num_decls().hash(&mut hasher);
         stack
             .get_env_var(engine_state, "PATH")
-            .map(|path| path.to_expanded_string(":", engine_state.get_config()))
+            .map(|path| path.to_expanded_string(":", &stack.get_config(engine_state)))
             .hash(&mut hasher);
 
         let cwd = engine_state.cwd(Some(stack)).ok();
@@ -521,6 +521,11 @@ impl CacheEnv {
         cwd.hash(&mut hasher);
 
         engine_state.config_epoch().hash(&mut hasher);
+        // Stack-local config changes do not bump the engine epoch.
+        stack.config.is_some().hash(&mut hasher);
+        if let Some(config) = &stack.config {
+            format!("{config:?}").hash(&mut hasher);
+        }
 
         Self(hasher.finish())
     }
@@ -681,8 +686,7 @@ struct CompletionWorker {
 }
 
 /// The completion behaviour configured in `$env.config.completions`.
-fn configured_options(engine_state: &EngineState) -> CompletionOptions {
-    let config = engine_state.get_config();
+fn configured_options(config: &Config) -> CompletionOptions {
     CompletionOptions {
         case_sensitive: config.completions.case_sensitive,
         match_algorithm: config.completions.algorithm.into(),
@@ -1041,10 +1045,12 @@ impl<'engine> CompletionEngine<'engine> {
         stack: Arc<Stack>,
         suppress_stdin: bool,
     ) -> Self {
+        let stack = isolated_stack(stack, suppress_stdin);
+        let options = configured_options(&stack.get_config(engine_state));
         Self {
             engine_state,
-            stack: isolated_stack(stack, suppress_stdin),
-            options: configured_options(engine_state),
+            stack,
+            options,
         }
     }
 
@@ -1143,8 +1149,8 @@ impl<'engine> CompletionEngine<'engine> {
         match site_completer(site, working_set) {
             Some(SiteCompleter::Decl(decl_id)) => decl_is_interactive(working_set, decl_id),
             Some(SiteCompleter::External) => self
-                .engine_state
-                .get_config()
+                .stack
+                .get_config(self.engine_state)
                 .completions
                 .external
                 .completer
@@ -1390,8 +1396,8 @@ impl<'engine> CompletionEngine<'engine> {
 
         // The user's configured external completer.
         let external_answered = self
-            .engine_state
-            .get_config()
+            .stack
+            .get_config(self.engine_state)
             .completions
             .external
             .completer
@@ -2106,8 +2112,8 @@ impl<'engine> CompletionEngine<'engine> {
                 UserCompletion::command(context.working_set, decl_id)
             }
             Some(CommandWideCompleter::External) => self
-                .engine_state
-                .get_config()
+                .stack
+                .get_config(self.engine_state)
                 .completions
                 .external
                 .completer
@@ -2170,10 +2176,11 @@ impl NuCompleter {
     ) -> Self {
         let cache_env = CacheEnv::of(&engine_state, &stack);
         // Read fresh each prompt so `cache_size` config changes take effect.
-        let cache_size = engine_state.get_config().completions.cache_size;
+        let config = stack.get_config(&engine_state);
+        let cache_size = config.completions.cache_size;
         cache.set_capacity(cache_size.try_into().unwrap_or(0));
         Self {
-            options: configured_options(&engine_state),
+            options: configured_options(&config),
             engine_state,
             stack,
             cache,
@@ -2800,6 +2807,24 @@ mod completer_tests {
         engine.merge_env(stack).expect("merge_env");
     }
 
+    fn apply_stack_local_source(engine: &mut EngineState, stack: &mut Stack, source: &[u8]) {
+        use nu_engine::eval_block;
+        use nu_protocol::{PipelineData, debugger::WithoutDebug};
+
+        let mut working_set = StateWorkingSet::new(engine);
+        let block = parse(&mut working_set, None, source, false);
+        assert!(
+            working_set.parse_errors.is_empty(),
+            "{:?}",
+            working_set.parse_errors
+        );
+        engine
+            .merge_delta(working_set.render())
+            .expect("merge_delta");
+        eval_block::<WithoutDebug>(engine, stack, &block, PipelineData::empty())
+            .expect("eval source");
+    }
+
     /// The worker runs on an isolated stack and must still produce identical results.
     #[test]
     fn background_result_matches_the_synchronous_engine() {
@@ -2932,6 +2957,83 @@ mod completer_tests {
         }
     }
 
+    /// Stack-local config updates have not reached `engine_state.config_epoch()` yet, but
+    /// they still shape completion behavior and must invalidate shared cache entries.
+    #[test]
+    fn cache_is_not_reused_after_stack_local_config_changes() {
+        let engine = test_engine();
+        let cache = NarrowingCache::default();
+
+        let mut first_stack = Stack::new();
+        first_stack.config = Some({
+            let mut config = engine.get_config().as_ref().clone();
+            config.float_precision = 5;
+            Arc::new(config)
+        });
+
+        let mut filling_prompt =
+            NuCompleter::with_cache(engine.clone(), Arc::new(first_stack), cache.clone());
+        assert!(!filling_prompt.complete_blocking("ls | c", 6).is_empty());
+        drop(filling_prompt);
+
+        let mut second_stack = Stack::new();
+        second_stack.config = Some({
+            let mut config = engine.get_config().as_ref().clone();
+            config.float_precision = 6;
+            Arc::new(config)
+        });
+
+        let mut next_prompt = NuCompleter::with_cache(engine, Arc::new(second_stack), cache);
+        assert!(
+            next_prompt.complete("ls | c", 6).is_pending(),
+            "entries from another stack-local config must not answer"
+        );
+    }
+
+    /// A stack-local external completer change must not keep serving the previous
+    /// completer's cached suggestions.
+    #[test]
+    fn cache_is_not_reused_after_stack_local_external_completer_changes() {
+        let mut engine = (*test_engine()).clone();
+        let mut first_stack = Stack::new();
+        apply_stack_local_source(
+            &mut engine,
+            &mut first_stack,
+            b"$env.config.completions.external.completer = {|buffer| [from-first]}",
+        );
+        let mut second_stack = Stack::new();
+        apply_stack_local_source(
+            &mut engine,
+            &mut second_stack,
+            b"$env.config.completions.external.completer = {|buffer| [from-second]}",
+        );
+        let engine = Arc::new(engine);
+        let cache = NarrowingCache::default();
+
+        let mut filling_prompt =
+            NuCompleter::with_cache(engine.clone(), Arc::new(first_stack), cache.clone());
+        let first_values: Vec<_> = filling_prompt
+            .complete_blocking("extcommand x", 12)
+            .iter()
+            .map(|s| s.value.clone())
+            .collect();
+        assert_eq!(first_values, ["from-first"]);
+        drop(filling_prompt);
+
+        let mut next_prompt = NuCompleter::with_cache(engine, Arc::new(second_stack), cache);
+        assert!(
+            next_prompt.complete("extcommand x", 12).is_pending(),
+            "the cached result from the first stack-local completer must not answer"
+        );
+
+        let second_values: Vec<_> = next_prompt
+            .complete_blocking("extcommand x", 12)
+            .iter()
+            .map(|s| s.value.clone())
+            .collect();
+        assert_eq!(second_values, ["from-second"]);
+    }
+
     /// `cache_size = 0` must disable the cache entirely, even a carried-over one.
     #[test]
     fn cache_size_zero_disables_the_cache() {
@@ -2951,6 +3053,31 @@ mod completer_tests {
         assert!(
             next_prompt.complete("ls | c", 6).is_pending(),
             "a disabled cache must not answer a query it could have answered"
+        );
+    }
+
+    /// Stack-local `cache_size` changes should take effect before the config is merged
+    /// into `EngineState`.
+    #[test]
+    fn stack_local_cache_size_zero_disables_the_cache() {
+        let engine = test_engine();
+        let mut stack = Stack::new();
+        stack.config = Some({
+            let mut config = engine.get_config().as_ref().clone();
+            config.completions.cache_size = 0;
+            Arc::new(config)
+        });
+        let cache = NarrowingCache::default();
+
+        let mut disabled_prompt =
+            NuCompleter::with_cache(engine.clone(), Arc::new(stack), cache.clone());
+        assert!(!disabled_prompt.complete_blocking("ls | c", 6).is_empty());
+        drop(disabled_prompt);
+
+        let mut next_prompt = NuCompleter::with_cache(engine, Arc::new(Stack::new()), cache);
+        assert!(
+            next_prompt.complete("ls | c", 6).is_pending(),
+            "a stack-local cache_size of zero must prevent storing carried-over entries"
         );
     }
 
