@@ -1432,7 +1432,12 @@ pub fn parse_unit_value<'res>(
         let num = match factor {
             Some(factor) => {
                 let num_base = num_float * factor;
-                if i64::MIN as f64 <= num_base && num_base <= i64::MAX as f64 {
+                // `i64::MAX as f64` rounds up to 2^63, which itself saturates
+                // to `i64::MAX - 1` .. `i64::MAX` when cast, silently producing
+                // a wrong value (see #18592). Only magnitudes strictly below
+                // that bound are representable without loss; the lower bound
+                // is exact (i64::MIN is representable as f64), so `>=` is safe.
+                if i64::MIN as f64 <= num_base && num_base < i64::MAX as f64 {
                     unit = if ty == Type::Filesize {
                         Unit::Filesize(FilesizeUnit::B)
                     } else {
@@ -1440,7 +1445,11 @@ pub fn parse_unit_value<'res>(
                     };
                     num_base as i64
                 } else {
-                    // not safe to convert, because of the overflow
+                    // Not safe to convert: the magnitude overflows the 64-bit
+                    // range. Keep the saturated integer and the original unit
+                    // so downstream type checking (and the checked_* helpers in
+                    // command implementations) can detect and report the
+                    // overflow with their own, more precise errors (#18592).
                     num_float as i64
                 }
             }
