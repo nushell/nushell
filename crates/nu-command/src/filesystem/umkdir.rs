@@ -68,6 +68,11 @@ impl Command for UMkdir {
                 "Print a message for each created directory.",
                 Some('v'),
             )
+            .switch(
+                "fail-if-exists",
+                "Error if a target path already exists instead of treating it as success.",
+                None,
+            )
             .category(Category::FileSystem)
     }
 
@@ -94,6 +99,7 @@ impl Command for UMkdir {
             .peekable();
 
         let is_verbose = call.has_flag(engine_state, stack, "verbose")?;
+        let fail_if_exists = call.has_flag(engine_state, stack, "fail-if-exists")?;
 
         if directories.peek().is_none() {
             return Err(ShellError::MissingParameter {
@@ -115,8 +121,34 @@ impl Command for UMkdir {
         for (dir, dir_span) in directories {
             // `mkdir` is called with `recursive` set, so it succeeds silently
             // when the path is already there. Record that before the call, so
-            // --verbose does not report an existing directory as created.
+            // --verbose does not report an existing directory as created and so
+            // `--fail-if-exists` can report the existing path as an error.
             let already_existed = dir.exists();
+
+            // With `--fail-if-exists`, mimic non-`-p` mkdir: an already-present
+            // target is an error. `mkdir` itself won't report this in recursive
+            // mode, so surface it here using the same message coreutils uses.
+            if fail_if_exists && already_existed {
+                let message = format!("{}: File exists", dir.display());
+                if is_verbose {
+                    verbose_out.push(
+                        record! {
+                            "path" => Value::string(dir.display().to_string(), call.head),
+                            "created" => Value::bool(false, call.head),
+                            "error" => Value::string(message, call.head),
+                        }
+                        .into_value(call.head),
+                    );
+                } else {
+                    err = Some(ShellError::Generic(GenericError::new(
+                        message.clone(),
+                        message,
+                        dir_span,
+                    )));
+                }
+                continue;
+            }
+
             if let Err(error) = mkdir(&dir, &config) {
                 let shell_error = ShellError::Generic(GenericError::new(
                     format!("{error}"),
@@ -165,6 +197,11 @@ impl Command for UMkdir {
             Example {
                 description: "Make a directory named foo.",
                 example: "mkdir foo",
+                result: None,
+            },
+            Example {
+                description: "Make a directory, erroring if it already exists.",
+                example: "mkdir --fail-if-exists foo",
                 result: None,
             },
             Example {

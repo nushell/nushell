@@ -265,3 +265,42 @@ fn verbose_reports_the_expanded_path() -> Result {
         Ok(())
     })
 }
+
+#[test]
+fn fail_if_exists_errors_on_existing_directory() -> Result {
+    Playground::setup("mkdir_fail_if_exists", |dirs, _| {
+        let () = test().cwd(dirs.test()).run("mkdir already_there")?;
+
+        let _ = test()
+            .cwd(dirs.test())
+            .run("mkdir --fail-if-exists already_there")
+            .expect_error()?;
+        Ok(())
+    })
+}
+
+#[test]
+fn fail_if_exists_creates_new_directory() -> Result {
+    Playground::setup("mkdir_fail_if_exists_new", |dirs, _| {
+        let () = test()
+            .cwd(dirs.test())
+            .run("mkdir --fail-if-exists brand_new")?;
+
+        assert!(dirs.test().join("brand_new").is_dir());
+        Ok(())
+    })
+}
+
+#[test]
+fn fail_if_exists_verbose_reports_existing_as_error() -> Result {
+    Playground::setup("mkdir_fail_if_exists_verbose", |dirs, _| {
+        let () = test().cwd(dirs.test()).run("mkdir already_there")?;
+
+        let actual: String = test()
+            .cwd(dirs.test())
+            .run("mkdir -v --fail-if-exists already_there | get 0.created | to text")?;
+
+        assert_eq!("false", actual.trim());
+        Ok(())
+    })
+}
