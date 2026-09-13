@@ -677,6 +677,55 @@ fn run_script_binds_switch_by_name_without_shifting_positional() -> Result {
     )
 }
 
+/// `--help` forwarded to a script's `main` must show its help page, not panic on the help
+/// flag's missing variable (#18940).
+#[test]
+fn run_script_main_help_flag_shows_help() -> Result {
+    Playground::setup("run_script_main_help_flag_shows_help", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
+            "flags.nu",
+            "
+                # Does nothing, but documents its flags.
+                export def main [--alpha --beta] {}
+            ",
+        )]);
+
+        let mut tester = test().cwd(dirs.test());
+        let long: String = tester.run("run flags.nu -- --help")?;
+        assert_contains("Does nothing, but documents its flags.", &long);
+        assert_contains("--alpha", &long);
+        assert_contains("--beta", &long);
+
+        let short: String = tester.run("run flags.nu -- -h")?;
+        assert_contains("--alpha", &short);
+        Ok(())
+    })
+}
+
+/// The same with `--full-reparse`, which resolves `main` at runtime rather than parse time.
+#[test]
+fn run_full_reparse_main_help_flag_shows_help() -> Result {
+    Playground::setup(
+        "run_full_reparse_main_help_flag_shows_help",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
+                "flags.nu",
+                "
+                # Does nothing, but documents its flags.
+                export def main [--alpha --beta] {}
+            ",
+            )]);
+
+            let actual: String = test()
+                .cwd(dirs.test())
+                .run("run --full-reparse flags.nu -- --help")?;
+            assert_contains("Does nothing, but documents its flags.", &actual);
+            assert_contains("--alpha", &actual);
+            Ok(())
+        },
+    )
+}
+
 /// Oversized paths must not be loaded by `run` (REPL hang / multi-GiB RAM; #18597).
 #[test]
 fn run_oversized_file_errors_without_loading() -> Result {

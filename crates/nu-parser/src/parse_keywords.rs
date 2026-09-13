@@ -193,8 +193,9 @@ pub use crate::parse_module::{
     parse_overlay_use, parse_use,
 };
 pub use crate::parse_source::{
-    LIB_DIRS_VAR, find_dirs_var, find_in_dirs, find_main_block_id_in_script, parse_run,
-    parse_run_expr, parse_source, parse_where, parse_where_expr,
+    LIB_DIRS_VAR, find_dirs_var, find_in_dirs, find_main_block_id_in_script,
+    find_main_decl_id_in_script, parse_run, parse_run_expr, parse_source, parse_where,
+    parse_where_expr,
 };
 #[cfg(feature = "plugin")]
 pub use crate::parse_source::{PLUGIN_DIRS_VAR, parse_plugin_use};

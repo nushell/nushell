@@ -15,7 +15,7 @@ use nu_path::{absolute_with, is_windows_device_path};
 #[cfg(feature = "plugin")]
 use nu_protocol::ast::Call;
 use nu_protocol::{
-    BlockId, ParseError, Span, Type, VarId,
+    BlockId, DeclId, ParseError, Span, Type, VarId,
     ast::{Block, Expr, Expression, Pipeline, PipelineElement},
     engine::StateWorkingSet,
     eval_const::eval_constant,
@@ -369,6 +369,9 @@ fn parse_run_expr_internal(
                     working_set.files.pop();
 
                     let script_main_block_id = find_main_block_id_in_script(working_set, &block);
+                    let script_main_decl_id = script_main_block_id.and_then(|main_block_id| {
+                        find_main_decl_id_in_script(working_set, main_block_id)
+                    });
 
                     let block_id = working_set.add_block(block);
 
@@ -404,6 +407,17 @@ fn parse_run_expr_internal(
                             ),
                         );
                     }
+                    if let Some(main_decl_id) = script_main_decl_id {
+                        call_with_block.set_parser_info(
+                            "main_decl_id".to_string(),
+                            Expression::new(
+                                working_set,
+                                Expr::Int(main_decl_id.get() as i64),
+                                spans[1],
+                                Type::Any,
+                            ),
+                        );
+                    }
                     return Expression::new(
                         working_set,
                         Expr::Call(call_with_block),
@@ -427,6 +441,18 @@ fn parse_run_expr_internal(
         Span::concat(spans),
     ));
     garbage(working_set, Span::concat(spans))
+}
+
+/// Find the declaration registered for the `def main` whose block
+/// [`find_main_block_id_in_script`] found, so its help page can be rendered like any other
+/// command's. `None` if the `main` in scope is not the one that owns that block.
+pub fn find_main_decl_id_in_script(
+    working_set: &StateWorkingSet<'_>,
+    main_block_id: BlockId,
+) -> Option<DeclId> {
+    working_set
+        .find_decl(b"main")
+        .filter(|&decl_id| working_set.get_decl(decl_id).block_id() == Some(main_block_id))
 }
 
 pub fn find_main_block_id_in_script(

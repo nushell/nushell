@@ -1,10 +1,11 @@
 use nu_engine::{
     CallEval, command_prelude::*, get_eval_block_with_early_return, get_eval_expression,
+    get_full_help,
 };
-use nu_parser::{find_main_block_id_in_script, parse};
+use nu_parser::{find_main_block_id_in_script, find_main_decl_id_in_script, parse};
 use nu_path::{absolute_with, is_windows_device_path};
 use nu_protocol::{
-    BlockId, Value,
+    BlockId, DeclId, Value,
     ast::Block,
     engine::{CommandType, StateWorkingSet},
     parser_path::{MAX_RUN_SCRIPT_BYTES, ScriptLoadError, read_run_script_file},
@@ -95,31 +96,37 @@ impl Command for Run {
             path
         };
 
+        // `main`, when the script has one, as its block and the declaration behind it. The
+        // declaration is what renders its help page; the block is what gets evaluated.
         let mut full_reparse_engine_state = None;
-        let (block, main_block) = if full_reparse {
-            let (reparsed_engine_state, reparsed_block, reparsed_main_block_id) =
+        let (block, main) = if full_reparse {
+            let (reparsed_engine_state, reparsed_block, reparsed_main) =
                 parse_run_script_fresh(engine_state, &file_path, call.head)?;
-            let reparsed_main_block =
-                reparsed_main_block_id.map(|id| reparsed_engine_state.get_block(id).clone());
+            let reparsed_main = reparsed_main.map(|(decl_id, block_id)| {
+                (decl_id, reparsed_engine_state.get_block(block_id).clone())
+            });
             full_reparse_engine_state = Some(reparsed_engine_state);
-            (reparsed_block, reparsed_main_block)
+            (reparsed_block, reparsed_main)
         } else {
             // - `block_id`: block compiled from the resolved script file
             let block_id: i64 = call.req_parser_info(engine_state, stack, "block_id")?;
             let block_id = BlockId::new(block_id as usize);
             let block = engine_state.get_block(block_id).clone();
-            let main_block = if call.get_parser_info(stack, "main_block_id").is_some() {
+            let main = if call.get_parser_info(stack, "main_block_id").is_some() {
                 let main_block_id: i64 =
                     call.req_parser_info(engine_state, stack, "main_block_id")?;
-                Some(
+                let main_decl_id: i64 =
+                    call.req_parser_info(engine_state, stack, "main_decl_id")?;
+                Some((
+                    DeclId::new(main_decl_id as usize),
                     engine_state
                         .get_block(BlockId::new(main_block_id as usize))
                         .clone(),
-                )
+                ))
             } else {
                 None
             };
-            (block, main_block)
+            (block, main)
         };
         let eval_engine_state = full_reparse_engine_state.as_ref().unwrap_or(engine_state);
 
@@ -142,8 +149,26 @@ impl Command for Run {
         let return_result = (|| {
             // If parser metadata includes a `main` entrypoint, invoke that specific declaration.
             // Otherwise evaluate the full script block as a pipeline transform.
-            if let Some(main_block) = main_block.clone() {
+            if let Some((main_decl_id, main_block)) = main.clone() {
                 let signature = (*main_block.signature).clone();
+                let arguments = collect_explicit_run_arguments(eval_engine_state, stack, call)?;
+
+                // `--help` (or `-h`) forwarded to `main` shows its help page, as a direct call
+                // does. It cannot be bound like the other flags below: the help flag every
+                // signature carries has no variable behind it.
+                let wants_help = arguments.iter().any(|argument| {
+                    parse_flag_token(eval_engine_state, argument)
+                        .and_then(|(long, short)| {
+                            resolve_named_flag(&signature, &long, short.as_deref())
+                        })
+                        .is_some_and(|flag| flag.long == "help")
+                });
+                if wants_help {
+                    let main_decl = eval_engine_state.get_decl(main_decl_id);
+                    let help = get_full_help(main_decl, eval_engine_state, stack, call.head);
+                    return Ok(Value::string(help, call.head).into_pipeline_data());
+                }
+
                 let callee_stack = stack.gather_captures(eval_engine_state, &main_block.captures);
                 let mut call_eval = CallEval::new(
                     callee_stack,
@@ -155,7 +180,7 @@ impl Command for Run {
                 // Forward remaining run arguments (`run file.nu ...args`) to `main`.
                 // This helper normalizes long/short flags and supports AST+IR call representations
                 // while delegating actual binding/type validation to CallEval.
-                bind_main_arguments(eval_engine_state, stack, call, &signature, &mut call_eval)?;
+                bind_main_arguments(eval_engine_state, &arguments, &signature, &mut call_eval)?;
                 call_eval.finalize_for_signature(&signature)?;
 
                 // Execute a signature-stripped copy of `main` after manually binding all
@@ -221,6 +246,10 @@ impl Command for Run {
     }
 }
 
+/// The engine state a script was parsed against, its top-level block, and `main`'s declaration
+/// and block ids, when the script defines one. Returned by [`parse_run_script_fresh`].
+type ParsedRunScript = (EngineState, Arc<Block>, Option<(DeclId, BlockId)>);
+
 /// Reload, reparse, and compile a script file against a cloned engine state.
 ///
 /// This is used by `run --full-reparse` to bypass parser-time script caching while keeping
@@ -232,7 +261,7 @@ fn parse_run_script_fresh(
     engine_state: &EngineState,
     file_path: &std::path::Path,
     call_head: Span,
-) -> Result<(EngineState, Arc<Block>, Option<BlockId>), ShellError> {
+) -> Result<ParsedRunScript, ShellError> {
     let display_path = file_path.display().to_string();
     let contents = match read_run_script_file(file_path, MAX_RUN_SCRIPT_BYTES) {
         Ok(contents) => contents,
@@ -275,7 +304,10 @@ fn parse_run_script_fresh(
 
     let filename = file_path.to_string_lossy();
     let script_block = parse(&mut working_set, Some(filename.as_ref()), &contents, false);
-    let script_main_block_id = find_main_block_id_in_script(&working_set, &script_block);
+    let script_main =
+        find_main_block_id_in_script(&working_set, &script_block).and_then(|block_id| {
+            find_main_decl_id_in_script(&working_set, block_id).map(|decl_id| (decl_id, block_id))
+        });
     working_set.files.pop();
 
     if let Some(parse_error) = working_set.parse_errors.first() {
@@ -290,11 +322,7 @@ fn parse_run_script_fresh(
     let delta = working_set.render();
     full_reparse_engine_state.merge_delta(delta)?;
 
-    Ok((
-        full_reparse_engine_state,
-        script_block,
-        script_main_block_id,
-    ))
+    Ok((full_reparse_engine_state, script_block, script_main))
 }
 
 /// Parse a source token that looks like a long or short named flag.
@@ -379,13 +407,10 @@ fn resolve_named_flag<'a>(
 /// Bind explicit `run file.nu ...args` arguments onto a script `def main` call evaluator.
 fn bind_main_arguments(
     engine_state: &EngineState,
-    caller_stack: &mut Stack,
-    call: &Call,
+    rest_values: &[Value],
     signature: &Signature,
     call_eval: &mut CallEval,
 ) -> Result<(), ShellError> {
-    let rest_values = collect_explicit_run_arguments(engine_state, caller_stack, call)?;
-
     let mut index = 0;
     while index < rest_values.len() {
         if let Some((long, short)) = parse_flag_token(engine_state, &rest_values[index]) {
