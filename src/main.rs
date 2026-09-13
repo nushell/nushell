@@ -18,6 +18,7 @@ use crate::{
 use log::{Level, trace};
 use miette::Result;
 use nu_cli::gather_parent_env_vars;
+use nu_cmd_base::prompt::PROMPT_VARIABLES;
 use nu_config::{CliOverrides, ConfigError, ConfigWarning, SystemEnv, resolve_paths};
 use nu_engine::{convert_env_values, exit::cleanup_exit};
 use nu_path::absolute_with;
@@ -653,6 +654,12 @@ fn main() -> Result<()> {
         //
         // No `PROMPT_*` variable is seeded here any more. Seeding one would pin
         // every session to the variable, which still wins over the config key.
+        // Inherited ones are hidden too: a parent nushell exports its string
+        // indicators, and seeding used to overwrite them, so without this a
+        // nested session would take the parent's over its own config.
+        for name in PROMPT_VARIABLES {
+            stack.hide_env_var(&engine_state, name);
+        }
         let mut shlvl = engine_state
             .get_env_var("SHLVL")
             .map(|x| x.as_str().unwrap_or("0").parse::<i64>().unwrap_or(0))

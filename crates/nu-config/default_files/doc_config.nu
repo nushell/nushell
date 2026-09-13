@@ -586,7 +586,8 @@ $env.config.ls.clickable_links = true
 # The legacy $env.PROMPT_COMMAND, $env.PROMPT_COMMAND_RIGHT,
 # $env.PROMPT_INDICATOR, $env.PROMPT_INDICATOR_VI_INSERT,
 # $env.PROMPT_INDICATOR_VI_NORMAL and $env.PROMPT_MULTILINE_INDICATOR
-# variables still take precedence when set, but are deprecated.
+# variables still take precedence when set, but are deprecated. Copies
+# inherited from a parent shell are ignored.
 #
 # Indicators are colored by the line editor. To style one yourself, include
 # the escape codes in the value, e.g. $"(ansi light_red)> ".
@@ -645,7 +646,8 @@ $env.config.prompt.render_right_on_last_line = false
 # $env.TRANSIENT_PROMPT_INDICATOR_VI_INSERT,
 # $env.TRANSIENT_PROMPT_INDICATOR_VI_NORMAL and
 # $env.TRANSIENT_PROMPT_MULTILINE_INDICATOR variables still take precedence
-# when set, but are deprecated.
+# when set, but are deprecated. Copies inherited from a parent shell are
+# ignored.
 
 # prompt.transient.left (string|closure|null): Replaces prompt.left.
 # Default: null
