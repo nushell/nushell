@@ -13,6 +13,7 @@ use rayon::prelude::*;
 use std::os::unix::fs::PermissionsExt;
 use std::{
     cmp::Ordering,
+    collections::HashSet,
     fs::{DirEntry, Metadata},
     path::PathBuf,
     sync::{Arc, Mutex, mpsc},
@@ -832,8 +833,13 @@ pub(crate) fn dir_entry_dict(
 
             if md.is_dir() {
                 if du {
-                    let params = DirBuilder::new(Span::new(0, 2), None, false, None, false);
-                    let dir_size = DirInfo::new(filename, &params, None, span, signals)?.get_size();
+                    let params = DirBuilder::new(Span::new(0, 2), None, false, None, false, false);
+                    // `ls` reports one directory per row and each row is an
+                    // independent answer, so this set covers a single directory
+                    // and is discarded along with it.
+                    let dir_size =
+                        DirInfo::new(filename, &params, None, span, signals, &mut HashSet::new())?
+                            .get_size();
 
                     Value::filesize(dir_size as i64, span)
                 } else {
