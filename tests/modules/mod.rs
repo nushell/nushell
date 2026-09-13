@@ -570,6 +570,22 @@ fn module_dir_missing_mod_nu() -> Result {
 }
 
 #[test]
+fn module_dir_circular_import_through_parent_dir() -> Result {
+    Playground::setup("module_dir_circular_import", |dirs, sandbox| -> Result {
+        sandbox
+            .mkdir("spam")
+            .mkdir("spam/spam2")
+            .with_files(&[FileWithContent("spam/mod.nu", "export module spam2")])
+            .with_files(&[FileWithContent("spam/spam2/mod.nu", "use ../mod.nu")]);
+
+        test()
+            .cwd(dirs.test())
+            .run("use spam")
+            .expect_error_code_eq("nu::parser::circular_import")
+    })
+}
+
+#[test]
 fn allowed_local_module() -> Result {
     test()
         .run("module spam { module spam {} }")
