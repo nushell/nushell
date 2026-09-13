@@ -68,16 +68,17 @@ pub fn grapheme_flags(
 // Const version of grapheme_flags
 pub fn grapheme_flags_const(
     working_set: &StateWorkingSet,
+    stack: &Stack,
     call: &Call,
 ) -> Result<bool, ShellError> {
-    let g_flag = call.has_flag_const(working_set, "grapheme-clusters")?;
-    if g_flag && call.has_flag_const(working_set, "utf-8-bytes")? {
+    let g_flag = call.has_flag_const(working_set, stack, "grapheme-clusters")?;
+    if g_flag && call.has_flag_const(working_set, stack, "utf-8-bytes")? {
         Err(ShellError::IncompatibleParametersSingle {
             msg: "Incompatible flags: --grapheme-clusters (-g) and --utf-8-bytes (-b)".to_string(),
             span: call.head,
         })?
     }
-    if g_flag && call.has_flag_const(working_set, "code-points")? {
+    if g_flag && call.has_flag_const(working_set, stack, "code-points")? {
         Err(ShellError::IncompatibleParametersSingle {
             msg: "Incompatible flags: --grapheme-clusters (-g) and --utf-8-bytes (-b)".to_string(),
             span: call.head,

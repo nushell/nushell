@@ -246,13 +246,14 @@ impl Command for Char {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let call_span = call.head;
-        let list = call.has_flag_const(working_set, "list")?;
-        let integer = call.has_flag_const(working_set, "integer")?;
-        let unicode = call.has_flag_const(working_set, "unicode")?;
+        let list = call.has_flag_const(working_set, stack, "list")?;
+        let integer = call.has_flag_const(working_set, stack, "integer")?;
+        let unicode = call.has_flag_const(working_set, stack, "unicode")?;
 
         // handle -l flag
         if list {
@@ -264,17 +265,17 @@ impl Command for Char {
 
         // handle -i flag
         if integer {
-            let int_args = call.rest_const(working_set, 0)?;
+            let int_args = call.rest_const(working_set, stack, 0)?;
             handle_integer_flag(int_args, call_span)
         }
         // handle -u flag
         else if unicode {
-            let string_args = call.rest_const(working_set, 0)?;
+            let string_args = call.rest_const(working_set, stack, 0)?;
             handle_unicode_flag(string_args, call_span)
         }
         // handle the rest
         else {
-            let string_args = call.rest_const(working_set, 0)?;
+            let string_args = call.rest_const(working_set, stack, 0)?;
             handle_the_rest(string_args, call_span)
         }
     }

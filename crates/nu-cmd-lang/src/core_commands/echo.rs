@@ -41,10 +41,11 @@ little reason to use this over just writing the values as-is."
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let args = call.rest_const(working_set, 0)?;
+        let args = call.rest_const(working_set, stack, 0)?;
         echo_impl(args, call.head)
     }
 

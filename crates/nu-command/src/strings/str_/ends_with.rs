@@ -74,15 +74,16 @@ impl Command for StrEndswith {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let cell_paths: Vec<CellPath> = call.rest_const(working_set, 1)?;
+        let cell_paths: Vec<CellPath> = call.rest_const(working_set, stack, 1)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
         let args = Arguments {
-            substring: call.req_const::<String>(working_set, 0)?,
+            substring: call.req_const::<String>(working_set, stack, 0)?,
             cell_paths,
-            case_insensitive: call.has_flag_const(working_set, "ignore-case")?,
+            case_insensitive: call.has_flag_const(working_set, stack, "ignore-case")?,
         };
         operate(
             action,

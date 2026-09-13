@@ -163,11 +163,12 @@ impl Command for Ignore {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let consume_stderr = call.has_flag_const(working_set, "stderr")?;
-        let consume_stdout = call.has_flag_const(working_set, "stdout")? || !consume_stderr;
+        let consume_stderr = call.has_flag_const(working_set, stack, "stderr")?;
+        let consume_stdout = call.has_flag_const(working_set, stack, "stdout")? || !consume_stderr;
 
         if consume_stderr && matches!(&input, PipelineData::Value(Value::Error { .. }, _)) {
             return Ok(PipelineData::empty());

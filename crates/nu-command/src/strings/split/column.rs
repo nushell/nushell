@@ -170,15 +170,16 @@ impl Command for SplitColumn {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let separator: Spanned<String> = call.req_const(working_set, 0)?;
-        let rest: Vec<Spanned<String>> = call.rest_const(working_set, 1)?;
-        let collapse_empty = call.has_flag_const(working_set, "collapse-empty")?;
-        let max_split: Option<usize> = call.get_flag_const(working_set, "number")?;
-        let split_from_right = call.has_flag_const(working_set, "right")?;
-        let has_regex = call.has_flag_const(working_set, "regex")?;
+        let separator: Spanned<String> = call.req_const(working_set, stack, 0)?;
+        let rest: Vec<Spanned<String>> = call.rest_const(working_set, stack, 1)?;
+        let collapse_empty = call.has_flag_const(working_set, stack, "collapse-empty")?;
+        let max_split: Option<usize> = call.get_flag_const(working_set, stack, "number")?;
+        let split_from_right = call.has_flag_const(working_set, stack, "right")?;
+        let has_regex = call.has_flag_const(working_set, stack, "regex")?;
 
         let args = Arguments {
             separator,

@@ -40,10 +40,11 @@ impl Command for AttrComplete {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let arg: Spanned<String> = call.req_const(working_set, 0)?;
+        let arg: Spanned<String> = call.req_const(working_set, stack, 0)?;
         run_impl(arg)
     }
 
@@ -102,6 +103,7 @@ impl Command for AttrCompleteExternal {
     fn run_const(
         &self,
         _: &StateWorkingSet,
+        _: &mut Stack,
         _: &Call,
         _: PipelineData,
     ) -> Result<PipelineData, ShellError> {

@@ -85,6 +85,7 @@ pub trait Command: Send + Sync + CommandClone + Any {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {

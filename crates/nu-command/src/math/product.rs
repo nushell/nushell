@@ -54,10 +54,11 @@ impl Command for MathProduct {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        run_with_function_with_cell_paths_const(working_set, call, input, product)
+        run_with_function_with_cell_paths_const(working_set, stack, call, input, product)
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
