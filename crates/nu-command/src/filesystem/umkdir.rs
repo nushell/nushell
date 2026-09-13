@@ -113,6 +113,10 @@ impl Command for UMkdir {
         let mut verbose_out = Vec::new();
         let mut err = None;
         for (dir, dir_span) in directories {
+            // `mkdir` is called with `recursive` set, so it succeeds silently
+            // when the path is already there. Record that before the call, so
+            // --verbose does not report an existing directory as created.
+            let already_existed = dir.exists();
             if let Err(error) = mkdir(&dir, &config) {
                 let shell_error = ShellError::Generic(GenericError::new(
                     format!("{error}"),
@@ -136,7 +140,7 @@ impl Command for UMkdir {
                 verbose_out.push(
                     record! {
                         "path" => Value::string(dir.display().to_string(), call.head),
-                        "created" => Value::bool(true, call.head),
+                        "created" => Value::bool(!already_existed, call.head),
                         "error" => Value::nothing(call.head),
                     }
                     .into_value(call.head),
