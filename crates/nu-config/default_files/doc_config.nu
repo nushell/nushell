@@ -587,7 +587,8 @@ $env.config.ls.clickable_links = true
 # $env.PROMPT_INDICATOR, $env.PROMPT_INDICATOR_VI_INSERT,
 # $env.PROMPT_INDICATOR_VI_NORMAL and $env.PROMPT_MULTILINE_INDICATOR
 # variables still take precedence when set, but are deprecated. Copies
-# inherited from a parent shell are ignored.
+# inherited from a parent shell are ignored, and input --reedline reads only
+# $env.config.prompt.
 #
 # Indicators are colored by the line editor. To style one yourself, include
 # the escape codes in the value, e.g. $"(ansi light_red)> ".

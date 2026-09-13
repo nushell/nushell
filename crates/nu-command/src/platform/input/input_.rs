@@ -166,7 +166,7 @@ impl Command for Input {
         };
 
         let config = stack.get_config(engine_state);
-        let indicators = ModeIndicators::resolve(&config, engine_state, stack);
+        let indicators = ModeIndicators::from_config(&config);
 
         let prompt = ReedlinePrompt {
             indicator: default_str,

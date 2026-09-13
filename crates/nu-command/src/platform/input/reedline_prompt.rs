@@ -1,11 +1,4 @@
-use nu_cmd_base::prompt::{
-    PROMPT_INDICATOR_VI_INSERT, PROMPT_INDICATOR_VI_NORMAL, PROMPT_MULTILINE_INDICATOR,
-    resolve_indicator,
-};
-use nu_protocol::{
-    Config,
-    engine::{EngineState, Stack},
-};
+use nu_protocol::Config;
 use reedline::PromptHelixMode;
 use reedline::{
     Prompt, PromptEditMode, PromptHistorySearch, PromptHistorySearchStatus, PromptViMode,
@@ -24,22 +17,16 @@ pub struct ModeIndicators {
 }
 
 impl ModeIndicators {
-    /// Resolved the way the REPL does, so a user still on the environment
-    /// variables sees the same indicators in both places.
-    ///
-    /// TODO: drop the variable lookups once the `$env.PROMPT_*` deprecation
-    /// closes; this can then read `config.prompt` directly.
-    pub fn resolve(config: &Config, engine_state: &EngineState, stack: &Stack) -> Self {
-        let indicator = |env_var, configured: &str| {
-            resolve_indicator(env_var, configured, config, engine_state, stack).into_owned()
-        };
-
+    /// Read from `$env.config.prompt` alone. `input` never honored the
+    /// deprecated `$env.PROMPT_*` variables, and outside the REPL the only
+    /// copies it could find are the ones a parent shell exported.
+    pub fn from_config(config: &Config) -> Self {
+        let prompt = &config.prompt;
         Self {
-            vi_normal: indicator(PROMPT_INDICATOR_VI_NORMAL, &config.prompt.vi_normal),
-            vi_insert: indicator(PROMPT_INDICATOR_VI_INSERT, &config.prompt.vi_insert),
-            // Config-only: vi visual mode never had a variable of its own.
-            vi_visual: config.prompt.vi_visual.clone(),
-            multiline: indicator(PROMPT_MULTILINE_INDICATOR, &config.prompt.multiline),
+            vi_normal: prompt.vi_normal.clone(),
+            vi_insert: prompt.vi_insert.clone(),
+            vi_visual: prompt.vi_visual.clone(),
+            multiline: prompt.multiline.clone(),
         }
     }
 }
@@ -114,37 +101,24 @@ impl Prompt for ReedlinePrompt {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nu_protocol::{Span, Value};
-
-    /// Resolves the indicators from `config`, with `env` applied first.
-    fn resolved(config: &Config, env: &[(&str, &str)]) -> ModeIndicators {
-        let engine_state = EngineState::new();
-        let mut stack = Stack::new();
-        for (name, val) in env {
-            stack.add_env_var((*name).into(), Value::string(*val, Span::test_data()));
-        }
-
-        ModeIndicators::resolve(config, &engine_state, &stack)
-    }
 
     #[test]
-    fn indicators_come_from_config_without_env_var() {
+    fn indicators_come_from_their_own_config_keys() {
         let mut config = Config::default();
-        config.prompt.vi_normal = "config> ".into();
+        config.prompt.vi_normal = "normal> ".into();
+        config.prompt.vi_insert = "insert> ".into();
+        config.prompt.vi_visual = "visual> ".into();
+        config.prompt.multiline = "... ".into();
 
-        assert_eq!(resolved(&config, &[]).vi_normal, "config> ");
-    }
-
-    #[test]
-    fn legacy_env_var_takes_precedence_over_config() {
-        // Matches the REPL, so a user still on the variables does not get one
-        // indicator at the prompt and a different one inside `input`.
-        let mut config = Config::default();
-        config.prompt.vi_normal = "config> ".into();
-
+        let indicators = ModeIndicators::from_config(&config);
         assert_eq!(
-            resolved(&config, &[(PROMPT_INDICATOR_VI_NORMAL, "env> ")]).vi_normal,
-            "env> "
+            [
+                indicators.vi_normal,
+                indicators.vi_insert,
+                indicators.vi_visual,
+                indicators.multiline,
+            ],
+            ["normal> ", "insert> ", "visual> ", "... "],
         );
     }
 }
