@@ -3,13 +3,29 @@
 use crate::{ShellError, Signals, Span, Value, ast::RangeInclusion};
 use core::ops::Bound;
 use serde::{Deserialize, Serialize};
-use std::{cmp::Ordering, fmt::Display, str::FromStr};
+use std::{
+    cmp::Ordering,
+    fmt::Display,
+    hash::{Hash, Hasher},
+    str::FromStr,
+};
 use winnow::Parser;
+
+/// Hash an `f64` consistently with `f64 ==` by collapsing `-0.0` to `0.0`.
+pub(crate) fn hash_f64_eq<H: Hasher>(val: f64, state: &mut H) {
+    let val = if val == 0.0 { 0.0 } else { val };
+    val.to_bits().hash(state);
+}
 
 mod int_range {
     use crate::{FromValue, ShellError, Signals, Span, Value, ast::RangeInclusion};
     use serde::{Deserialize, Serialize};
-    use std::{cmp::Ordering, fmt::Display, ops::Bound};
+    use std::{
+        cmp::Ordering,
+        fmt::Display,
+        hash::{Hash, Hasher},
+        ops::Bound,
+    };
 
     use super::Range;
 
@@ -245,6 +261,14 @@ mod int_range {
 
     impl Eq for IntRange {}
 
+    impl Hash for IntRange {
+        fn hash<H: Hasher>(&self, state: &mut H) {
+            self.start.hash(state);
+            self.step.hash(state);
+            self.end.hash(state);
+        }
+    }
+
     impl Display for IntRange {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             write!(f, "{}..", self.start)?;
@@ -311,7 +335,12 @@ mod float_range {
     use crate::{IntRange, Range, ShellError, Signals, Span, Value, ast::RangeInclusion};
     use nu_utils::ObviousFloat;
     use serde::{Deserialize, Serialize};
-    use std::{cmp::Ordering, fmt::Display, ops::Bound};
+    use std::{
+        cmp::Ordering,
+        fmt::Display,
+        hash::{Hash, Hasher},
+        ops::Bound,
+    };
 
     #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
     pub struct FloatRange {
@@ -529,6 +558,17 @@ mod float_range {
 
     impl Eq for FloatRange {}
 
+    impl Hash for FloatRange {
+        fn hash<H: Hasher>(&self, state: &mut H) {
+            super::hash_f64_eq(self.start, state);
+            super::hash_f64_eq(self.step, state);
+            std::mem::discriminant(&self.end).hash(state);
+            if let Bound::Included(v) | Bound::Excluded(v) = self.end {
+                super::hash_f64_eq(v, state);
+            }
+        }
+    }
+
     impl Display for FloatRange {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             write!(f, "{}..", ObviousFloat(self.start))?;
@@ -742,6 +782,18 @@ impl PartialEq for Range {
 }
 
 impl Eq for Range {}
+
+impl Hash for Range {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        // Always hash as FloatRange to stay consistent with PartialEq, which
+        // promotes IntRange to FloatRange for cross-type comparisons.
+        // This avoids a hash/equality contract violation where
+        // `Range::IntRange(0..5) == Range::FloatRange(0.0..5.0)` would be
+        // true but produce different hashes due to the discriminant.
+        let float_range: FloatRange = (*self).into();
+        float_range.hash(state);
+    }
+}
 
 impl Display for Range {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

@@ -1,4 +1,5 @@
 use std::cmp::Ordering;
+use std::hash::{Hash, Hasher};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, Plugin, SimplePluginCommand};
 use nu_plugin_test_support::PluginTest;
@@ -37,6 +38,11 @@ impl CustomValue for CustomU32 {
 
     fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
         self
+    }
+
+    fn hash_value(&self, mut state: &mut dyn Hasher) {
+        self.type_name().hash(&mut state);
+        self.0.hash(&mut state);
     }
 
     fn partial_cmp(&self, other: &Value) -> Option<Ordering> {

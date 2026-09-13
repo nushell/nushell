@@ -1,4 +1,9 @@
-use std::{cmp::Ordering, path::Path, sync::Arc};
+use std::{
+    cmp::Ordering,
+    hash::{Hash, Hasher},
+    path::Path,
+    sync::Arc,
+};
 
 use nu_plugin_core::util::with_custom_values_in;
 use nu_plugin_protocol::PluginCustomValue;
@@ -214,6 +219,11 @@ impl CustomValue for PluginCustomValueWithSource {
                 optional,
                 casing,
             )
+    }
+
+    fn hash_value(&self, mut state: &mut dyn Hasher) {
+        self.name().hash(&mut state);
+        self.data().hash(&mut state);
     }
 
     fn partial_cmp(&self, other: &Value) -> Option<Ordering> {
