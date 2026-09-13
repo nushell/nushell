@@ -1,9 +1,13 @@
 # Default Nushell Environment Config File
 # These "sensible defaults" are set before the user's `env.nu` is loaded
 #
+# The prompts are set here rather than in Rust because a closure needs a parsed
+# block, and from the earliest startup file so `env.nu` and `config.nu` can both
+# override them.
+#
 # version = "0.115.2"
 
-$env.PROMPT_COMMAND = {||
+$env.config.prompt.left = {||
     let dir = match (do -i { $env.PWD | path relative-to $nu.home-dir }) {
         null => $env.PWD
         '' => '~'
@@ -20,7 +24,7 @@ $env.PROMPT_COMMAND = {||
     $path_segment | str replace --all (char path_sep) $"($colors.separator)(char path_sep)($colors.path)"
 }
 
-$env.PROMPT_COMMAND_RIGHT = {||
+$env.config.prompt.right = {||
     # create a right prompt in magenta with green separators and am/pm underlined
     let colors: record<date: string, separator: string, ampm: string, fail: string> = if (config use-colors) {
         {date: (ansi magenta), separator: (ansi green), ampm: (ansi magenta_underline), fail: (ansi red_bold)}

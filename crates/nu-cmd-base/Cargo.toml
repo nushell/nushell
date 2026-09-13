@@ -20,4 +20,5 @@ nu-path.workspace = true
 nu-protocol.workspace = true
 
 indexmap = { workspace = true }
+log = { workspace = true }
 miette = { workspace = true }
