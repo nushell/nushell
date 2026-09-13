@@ -342,3 +342,160 @@ fn early_return_in_module_export_env_does_not_abort_caller() -> Result {
         },
     )
 }
+
+// Regression tests for issue #18951
+
+#[rstest]
+#[case::mutable_record_existing_field(
+    "
+        mut r = {a: 1}
+        $r.a = 2
+        $r.a
+    ",
+    2
+)]
+#[case::mutable_record_new_field(
+    "
+        mut r = {a: 1}
+        $r.b = 1
+        $r.b = 2
+        $r.b
+    ",
+    2
+)]
+#[case::mutable_nested_record_existing_field(
+    "
+        mut r = {a: {b: 1}}
+        $r.a.b = 2
+        $r.a.b
+    ",
+    2
+)]
+#[case::mutable_nested_record_new_field(
+    "
+        mut r = {a: {b: 1}}
+        $r.a.c = 1
+        $r.a.c = 2
+        $r.a.c
+    ",
+    2
+)]
+#[case::mutable_table_existing_column(
+    "
+        mut t = [[a]; [1]]
+        $t.0.a = 2
+        $t.0.a
+    ",
+    2
+)]
+#[case::mutable_table_new_column(
+    "
+        mut t = [[a]; [1]]
+        $t.0.b = 1
+        $t.0.b = 2
+        $t.0.b
+    ",
+    2
+)]
+#[case::mutable_heterogeneous_list_cell_path_assignment(
+    r#"
+        mut l = [1 "a"]
+        $l.0 = "hello"
+        $l.0
+    "#,
+    "hello"
+)]
+#[case::mutable_list_of_records_existing_field(
+    "
+        mut l = [{a: 1}]
+        $l.0.a = 2
+        $l.0.a
+    ",
+    2
+)]
+#[case::mutable_list_of_records_new_field(
+    "
+        mut l = [{a: 1}]
+        $l.0.b = 1
+        $l.0.b = 2
+        $l.0.b
+    ",
+    2
+)]
+fn mutable_aggregate_cell_path_assignment(
+    #[case] code: &str,
+    #[case] expected: impl IntoValue,
+) -> Result {
+    test().run(code).expect_value_eq(expected)
+}
+
+#[rstest]
+#[case::mutable_record_existing_field(
+    r#"
+        mut r = {a: 1}
+        $r.a = "hello"
+    "#
+)]
+#[case::mutable_record_new_field(
+    r#"
+        mut r = {a: 1}
+        $r.b = 1
+        $r.b = "hello"
+    "#
+)]
+#[case::mutable_list_existing_element(
+    r#"
+        mut l = [1 2 3]
+        $l.0 = "hello"
+    "#
+)]
+#[case::mutable_list_out_of_bounds_element(
+    r#"
+        mut l = [1 2 3]
+        $l.3 = "hello"
+    "#
+)]
+#[case::mutable_nested_record_existing_field(
+    r#"
+        mut r = {a: {b: 1}}
+        $r.a.b = "hello"
+    "#
+)]
+#[case::mutable_nested_record_new_field(
+    r#"
+        mut r = {a: {b: 1}}
+        $r.a.c = 1
+        $r.a.c = "hello"
+    "#
+)]
+#[case::mutable_table_existing_column(
+    r#"
+        mut t = [[a]; [1]]
+        $t.0.a = "hello"
+    "#
+)]
+#[case::mutable_table_new_column(
+    r#"
+        mut t = [[a]; [1]]
+        $t.0.b = 1
+        $t.0.b = "hello"
+    "#
+)]
+#[case::mutable_list_of_records_existing_field(
+    r#"
+        mut l = [{a: 1}]
+        $l.0.a = "hello"
+    "#
+)]
+#[case::mutable_list_of_records_new_field(
+    r#"
+        mut l = [{a: 1}]
+        $l.0.b = 1
+        $l.0.b = "hello"
+    "#
+)]
+fn mutable_aggregate_cell_path_type_mismatch(#[case] code: &str) -> Result {
+    test()
+        .run(code)
+        .expect_error_code_eq("nu::shell::type_mismatch")
+}
