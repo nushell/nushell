@@ -1395,6 +1395,16 @@ pub fn parse_unit_value<'res>(
             return None;
         }
 
+        // Whole-number literals are parsed as an integer as well, so that large exact
+        // values can be preserved. The `f64` used below for fractional literals would
+        // silently round them, e.g. `6504534684301572998b` became
+        // `6504534684301573120b` (issue #10612).
+        let lhs_int = if lhs.contains(['.', 'e', 'E']) {
+            None
+        } else {
+            lhs.parse::<i64>().ok()
+        };
+
         let (decimal_part, number_part) = modf(match lhs.parse::<f64>() {
             Ok(it) => it,
             Err(_) => {
@@ -1431,20 +1441,46 @@ pub fn parse_unit_value<'res>(
 
         let num = match factor {
             Some(factor) => {
-                let num_base = num_float * factor;
-                if i64::MIN as f64 <= num_base && num_base <= i64::MAX as f64 {
+                // Integer fast-path: keep full precision when the literal is a whole
+                // number and the conversion to the base unit (bytes/nanoseconds) is
+                // exact. All the factors in the tables above are whole numbers, so
+                // `factor as i64` is lossless when `factor.fract() == 0.0`. On overflow
+                // we fall back to the (lossy) `f64` computation below.
+                let convert_factor = match convert {
+                    Some(convert_to) => convert_to.1,
+                    None => 1,
+                };
+                let exact = if factor.fract() == 0.0 {
+                    lhs_int
+                        .and_then(|n| n.checked_mul(convert_factor))
+                        .and_then(|n| n.checked_mul(factor as i64))
+                } else {
+                    None
+                };
+
+                if let Some(num_base) = exact {
                     unit = if ty == Type::Filesize {
                         Unit::Filesize(FilesizeUnit::B)
                     } else {
                         Unit::Nanosecond
                     };
-                    num_base as i64
+                    num_base
                 } else {
-                    // not safe to convert, because of the overflow
-                    num_float as i64
+                    let num_base = num_float * factor;
+                    if i64::MIN as f64 <= num_base && num_base <= i64::MAX as f64 {
+                        unit = if ty == Type::Filesize {
+                            Unit::Filesize(FilesizeUnit::B)
+                        } else {
+                            Unit::Nanosecond
+                        };
+                        num_base as i64
+                    } else {
+                        // not safe to convert, because of the overflow
+                        num_float as i64
+                    }
                 }
             }
-            None => num_float as i64,
+            None => lhs_int.unwrap_or(num_float as i64),
         };
 
         trace!("-- found {num} {unit:?}");

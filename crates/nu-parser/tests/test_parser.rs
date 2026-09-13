@@ -295,6 +295,56 @@ pub fn parse_filesize() {
 }
 
 #[test]
+pub fn parse_filesize_integer_is_exact() {
+    // A whole number of bytes must round-trip exactly (see issue #10612).
+    // `Filesize` is backed by an `i64`, but the literal used to be parsed through an
+    // `f64`, which silently rounded large values (e.g. this one became
+    // `6504534684301573120`).
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let block = parse(&mut working_set, None, b"6504534684301572998b", true);
+
+    assert!(working_set.parse_errors.is_empty());
+    assert_eq!(block.len(), 1);
+    let pipeline = &block.pipelines[0];
+    assert_eq!(pipeline.len(), 1);
+    let element = &pipeline.elements[0];
+    assert!(element.redirection.is_none());
+
+    let Expr::ValueWithUnit(value) = &element.expr.expr else {
+        panic!("should be a ValueWithUnit");
+    };
+
+    assert_eq!(value.expr.expr, Expr::Int(6504534684301572998));
+    assert_eq!(value.unit.item, Unit::Filesize(FilesizeUnit::B));
+}
+
+#[test]
+pub fn parse_duration_integer_is_exact() {
+    // Duration literals use the same unit parser as filesize literals and must
+    // preserve whole nanosecond values without an `f64` round-trip.
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let block = parse(&mut working_set, None, b"6504534684301572998ns", true);
+
+    assert!(working_set.parse_errors.is_empty());
+    assert_eq!(block.len(), 1);
+    let pipeline = &block.pipelines[0];
+    assert_eq!(pipeline.len(), 1);
+    let element = &pipeline.elements[0];
+    assert!(element.redirection.is_none());
+
+    let Expr::ValueWithUnit(value) = &element.expr.expr else {
+        panic!("should be a ValueWithUnit");
+    };
+
+    assert_eq!(value.expr.expr, Expr::Int(6504534684301572998));
+    assert_eq!(value.unit.item, Unit::Nanosecond);
+}
+
+#[test]
 pub fn parse_non_utf8_fails() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
