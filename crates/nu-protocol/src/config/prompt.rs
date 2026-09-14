@@ -33,7 +33,7 @@ impl Default for PromptConfig {
     fn default() -> Self {
         Self {
             // A closure needs a parsed block, so these cannot default here.
-            // `default_env.nu` fills them in.
+            // `nu-cli` evaluates its `DEFAULT_PROMPTS` into them at startup.
             left: None,
             right: None,
             // These mirror reedline's `DEFAULT_*_PROMPT_INDICATOR`, which this

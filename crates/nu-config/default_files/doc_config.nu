@@ -595,11 +595,15 @@ $env.config.ls.clickable_links = true
 
 # prompt.left (string|closure|null): The main prompt.
 # null falls back to the line editor's built-in prompt.
-# Default: a closure showing the current directory, set in default_env.nu
+# Default: a closure showing the current directory. Read it with
+# view source $env.config.prompt.left
+# and build on it by keeping a reference:
+# let default_left = $env.config.prompt.left
+# $env.config.prompt.left = {|| $"[(do $default_left)] " }
 # $env.config.prompt.left = {|| $"(pwd) " }
 
 # prompt.right (string|closure|null): The right-aligned prompt.
-# Default: a closure showing the time and last exit code, set in default_env.nu
+# Default: a closure showing the time and last exit code.
 # $env.config.prompt.right = {|| date now | format date "%d-%a %r" }
 
 # prompt.indicator (string): Shown in emacs mode and whenever no edit mode applies.

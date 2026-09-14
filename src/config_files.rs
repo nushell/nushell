@@ -2,8 +2,8 @@ use log::info;
 #[cfg(feature = "plugin")]
 use nu_cli::read_plugin_file;
 use nu_cli::{
-    StartupFileKind, StartupLoadContext, eval_config_contents_with_kind, eval_source,
-    report_startup_file_not_found,
+    StartupFileKind, StartupLoadContext, eval_config_contents_with_kind, eval_default_prompts,
+    eval_source, report_startup_file_not_found,
 };
 use nu_config::ConfigFileKind;
 use nu_protocol::{
@@ -325,6 +325,7 @@ pub(crate) fn setup_config(
         #[cfg(feature = "plugin")]
         read_plugin_file(engine_state, None);
 
+        eval_default_prompts(engine_state, stack);
         read_config_file(
             engine_state,
             stack,
