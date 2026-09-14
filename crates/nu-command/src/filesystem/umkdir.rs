@@ -168,26 +168,11 @@ impl Command for UMkdir {
                 result: None,
             },
             Example {
-                description: "Make multiple directories and show the paths created.",
+                description: "Make multiple directories and show the paths created, as absolute paths.",
                 example: "mkdir -v foo/bar foo2",
-                result: Some(Value::test_list(vec![
-                    Value::record(
-                        record! {
-                            "path" => Value::string("foo/bar".to_string(), Span::test_data()),
-                            "created" => Value::bool(true, Span::test_data()),
-                            "error" => Value::nothing(Span::test_data()),
-                        },
-                        Span::test_data(),
-                    ),
-                    Value::record(
-                        record! {
-                            "path" => Value::string("foo2".to_string(), Span::test_data()),
-                            "created" => Value::bool(true, Span::test_data()),
-                            "error" => Value::nothing(Span::test_data()),
-                        },
-                        Span::test_data(),
-                    ),
-                ])),
+                // The reported paths are expanded against the working
+                // directory, so the output cannot be written down as a literal.
+                result: None,
             },
         ]
     }
