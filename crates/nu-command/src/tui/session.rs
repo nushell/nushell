@@ -771,6 +771,8 @@ impl Session {
                 self.menu_item
                     .insert(id, (row + 1).min(sub.len().saturating_sub(1)));
             }
+            // Slide along the bar: the neighbour's dropdown opens if it has
+            // one; otherwise the neighbour is selected and the dropdown closes.
             "left" | "h" | "right" | "l" => {
                 let next = if matches!(chord, "left" | "h") {
                     top.saturating_sub(1)
@@ -778,8 +780,15 @@ impl Session {
                     (top + 1).min(top_len.saturating_sub(1))
                 };
                 self.selected.insert(id.clone(), next);
-                self.menu_open = None;
-                self.menu_open_or_activate(&id);
+                let has_items = self
+                    .menu_items(&id)
+                    .and_then(|items| items.get(next))
+                    .is_some_and(|item| !item.items.is_empty());
+                if has_items {
+                    self.menu_item.insert(id, 0);
+                } else {
+                    self.menu_open = None;
+                }
             }
             "enter" => self.activate_menu_item(&id, top, Some(row)),
             _ => {
@@ -2940,6 +2949,16 @@ mod tests {
         let rec = selected.as_record().expect("record");
         assert_eq!(rec.get("menu").and_then(|v| v.as_str().ok()), Some("File"));
         assert_eq!(rec.get("item").and_then(|v| v.as_str().ok()), Some("Quit"));
+    }
+
+    #[test]
+    fn sliding_to_a_bar_item_without_dropdown_does_not_activate_it() {
+        let mut session = Session::new(menu_app());
+        press(&mut session, KeyCode::Char('f'), KeyModifiers::ALT);
+        press(&mut session, KeyCode::Right, KeyModifiers::NONE);
+        assert_eq!(session.selected.get("menu-0").copied(), Some(1));
+        assert!(session.menu_open.is_none());
+        assert!(session.outcome.is_none());
     }
 
     #[test]
