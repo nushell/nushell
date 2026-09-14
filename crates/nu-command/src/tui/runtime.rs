@@ -14,12 +14,12 @@ use nu_protocol::{
     engine::{Closure, EngineState, Stack},
     shell_error::generic::GenericError,
 };
+use nu_utils::time::Instant;
 use ratatui::layout::Rect;
 use ratatui::{Terminal, backend::CrosstermBackend};
 use std::io::stdout;
 use std::path::PathBuf;
 use std::sync::mpsc::Receiver;
-use nu_utils::time::Instant;
 use std::time::Duration;
 
 pub struct RunOptions {
@@ -288,9 +288,7 @@ impl TerminalGuard {
                 .map_err(|e| io_error("failed to enter alternate screen", e.to_string(), span))?;
         }
         let _ = execute!(out, Hide);
-        if mouse
-            && let Err(e) = execute!(out, EnableMouseCapture)
-        {
+        if mouse && let Err(e) = execute!(out, EnableMouseCapture) {
             if alt_screen {
                 let _ = execute!(out, LeaveAlternateScreen);
             }

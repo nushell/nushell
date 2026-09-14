@@ -62,8 +62,7 @@ fn textbox_typing_does_not_quit_on_q() -> Result {
 
 #[test]
 fn q_quits_table_without_submit() -> Result {
-    let action: String =
-        test().run("[{name: a}] | tui table | tui run --keys q | get action")?;
+    let action: String = test().run("[{name: a}] | tui table | tui run --keys q | get action")?;
     assert_eq!(action, "quit");
     Ok(())
 }

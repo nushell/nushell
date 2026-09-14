@@ -407,10 +407,7 @@ fn render_textbox(
 ) {
     let editable = matches!(
         session.app.widget_kind(id),
-        Some(WidgetKind::TextBox {
-            editable: true,
-            ..
-        })
+        Some(WidgetKind::TextBox { editable: true, .. })
     );
     let value = session.text_values.get(id).cloned().unwrap_or_default();
     let cursor = session

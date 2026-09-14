@@ -122,9 +122,7 @@ fn layout_page(session: &mut Session, page: &Page, area: Rect) {
             .is_some_and(|w| w.place.is_some())
     });
 
-    if has_place
-        && let Some(node) = build_place_tree(&session.app.widgets, &content)
-    {
+    if has_place && let Some(node) = build_place_tree(&session.app.widgets, &content) {
         assign_node(session, &node, area);
         return;
     }
