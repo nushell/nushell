@@ -85,7 +85,9 @@ and an explicit type annotation is lost. `$nu` and the record bound by `use
             Example {
                 description: "View the source of a module.",
                 example: "module mod-foo { export-env { $env.FOO_ENV = 'BAZ' } }; view source mod-foo",
-                result: Some(Value::test_string(" export-env { $env.FOO_ENV = 'BAZ' }")),
+                // Verbatim source between the module's braces, so the spaces
+                // on both sides are part of it.
+                result: Some(Value::test_string(" export-env { $env.FOO_ENV = 'BAZ' } ")),
             },
             Example {
                 description: "View the source of an alias.",
@@ -370,7 +372,7 @@ fn render_def(engine_state: &EngineState, name: &str, decl_id: DeclId) -> Option
     if let Some(rest_arg) = rest {
         let _ = write!(
             &mut final_contents,
-            "...{}:{}",
+            "...{}: {}",
             rest_arg.name, rest_arg.shape
         );
     }
@@ -519,4 +521,14 @@ fn make_output(
     }
 
     pd.set_metadata(Some(metadata))
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(ViewSource)
+    }
 }
