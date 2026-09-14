@@ -63,6 +63,7 @@ chrono = { workspace = true, features = [
 chrono-humanize = { workspace = true }
 chrono-tz = { workspace = true }
 crossterm = { workspace = true, optional = true, features = ["use-dev-tty"] }
+ratatui = { workspace = true, optional = true }
 csv = { workspace = true }
 devicons = { workspace = true }
 digest = { workspace = true, default-features = false }
@@ -210,6 +211,7 @@ os = [
 
 	# os-dependant dependencies
 	"crossterm",
+	"ratatui",
 	"notify-debouncer-full",
 	"open",
 	"os_pipe",

@@ -33,6 +33,8 @@ mod stor;
 mod strings;
 #[cfg(feature = "os")]
 mod system;
+#[cfg(feature = "os")]
+mod tui;
 mod viewers;
 
 pub(crate) mod formats;
@@ -70,6 +72,8 @@ pub use stor::*;
 pub use strings::*;
 #[cfg(feature = "os")]
 pub use system::*;
+#[cfg(feature = "os")]
+pub use tui::*;
 pub use viewers::*;
 
 #[cfg(feature = "sqlite")]
