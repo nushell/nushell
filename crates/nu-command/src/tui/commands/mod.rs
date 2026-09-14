@@ -232,7 +232,7 @@ impl Command for Tui {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["ratatui", "interactive", "popup", "ui", "terminal"]
+        vec!["ratatui", "interactive", "popup", "terminal"]
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
