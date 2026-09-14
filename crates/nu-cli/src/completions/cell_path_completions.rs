@@ -74,7 +74,7 @@ impl Completer for CellPathCompletion<'_> {
             }
         }
 
-        Fetched::Pure(matcher.suggestion_results())
+        Fetched::answering(matcher.suggestion_results())
     }
 }
 

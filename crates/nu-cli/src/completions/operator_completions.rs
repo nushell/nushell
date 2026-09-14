@@ -235,7 +235,7 @@ impl Completer for OperatorCompletion<'_> {
                 Expr::FullCellPath(path) => {
                     // for `$ <tab>`
                     if let Expr::Garbage = path.head.expr {
-                        return Fetched::Pure(vec![]);
+                        return Fetched::answering(vec![]);
                     }
                     let value =
                         eval_cell_path(working_set, stack, &path.head, &path.tail, path.head.span)
@@ -279,6 +279,6 @@ impl Completer for OperatorCompletion<'_> {
                 kind: Some(SuggestionKind::Operator),
             });
         }
-        Fetched::Pure(matcher.suggestion_results())
+        Fetched::answering(matcher.suggestion_results())
     }
 }

@@ -30,7 +30,7 @@ impl Completer for AttributeCompletion {
             });
         }
 
-        Fetched::Pure(matcher.suggestion_results())
+        Fetched::answering(matcher.suggestion_results())
     }
 }
 
@@ -62,6 +62,6 @@ impl Completer for AttributableCompletion {
             });
         }
 
-        Fetched::Pure(matcher.suggestion_results())
+        Fetched::answering(matcher.suggestion_results())
     }
 }

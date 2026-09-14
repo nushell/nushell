@@ -16,8 +16,10 @@ const CTRL_C_CHECK_INTERVAL: Duration = Duration::from_millis(100);
 
 /// Cache of thread pools keyed by thread count.
 ///
-/// Reuses an existing pool instead of spawning OS threads on every top-level `par-each`.
-/// Nested calls intentionally bypass this cache (see [`create_pool`]).
+/// The cache owns one `Arc` for each reusable pool. A pool is idle only while that is
+/// its sole strong reference; active calls hold another `Arc`. Streaming producers keep
+/// their reference until producer work finishes, so overlapping pipeline stages cannot
+/// reuse a pool that is still needed for upstream progress.
 ///
 /// Key `0` means "default size" (`ThreadPoolBuilder::num_threads(0)` → logical CPUs).
 /// Distinct `-t` sizes are rare in practice, so the map is not bounded.
@@ -57,8 +59,8 @@ fn build_pool(num_threads: usize, head: Span) -> Result<Arc<rayon::ThreadPool>, 
 
 /// Get or create a thread pool for this `par-each` invocation.
 ///
-/// - Top-level: reuse a process-wide cached pool. `num_threads == 0` is the default
-///   size pool (still private to `par-each`, not Rayon's global pool).
+/// - Top-level: reuse a cached pool only when it is idle. Overlapping calls with the
+///   same thread count use separate pools so streaming stages cannot starve each other.
 /// - **Nested** calls (already running on a Rayon worker): always build a **private,
 ///   uncached** pool. Sharing the outer pool deadlocks because the streaming path
 ///   blocks the caller on a channel while holding a worker of that same pool.
@@ -76,15 +78,27 @@ fn create_pool(num_threads: usize, head: Span) -> Result<Arc<rayon::ThreadPool>,
     {
         let pools = lock_pool_cache(head)?;
         if let Some(pool) = pools.get(&num_threads) {
-            return Ok(pool.clone());
+            // The cache owns one Arc. Any additional strong reference means this pool is
+            // still active, possibly as an upstream streaming producer.
+            if Arc::strong_count(pool) == 1 {
+                return Ok(pool.clone());
+            }
         }
     }
 
     let built = build_pool(num_threads, head)?;
 
     let mut pools = lock_pool_cache(head)?;
-    // Another caller may have inserted the same key while we were building.
-    Ok(pools.entry(num_threads).or_insert(built).clone())
+    match pools.get(&num_threads) {
+        Some(pool) if Arc::strong_count(pool) == 1 => Ok(pool.clone()),
+        // Another active invocation owns the cached pool. Keep this newly built pool
+        // private to the current call instead of sharing the active one.
+        Some(_) => Ok(built),
+        None => {
+            pools.insert(num_threads, built.clone());
+            Ok(built)
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -100,7 +114,7 @@ impl Command for ParEach {
     }
 
     fn extra_description(&self) -> &str {
-        " Uses a dedicated thread pool (reused across top-level calls; sized by --threads when set). Nested par-each calls use a private pool so they cannot deadlock on the outer pool."
+        " Uses a dedicated thread pool (idle top-level pools are reused; nested or overlapping calls use separate pools)."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -351,9 +365,9 @@ fn stream_parallel_values(
     let worker_stack = stack.captures_to_stack(closure.captures.clone());
     let worker_signals = signals.clone();
 
-    // Spawn on the dedicated pool (not `rayon::spawn`, which always uses the global
-    // pool). ParallelIterator work then also runs on this pool because the task
-    // executes on one of its workers.
+    // Keep an Arc for the lifetime of the spawned producer. For cached pools this keeps
+    // `strong_count > 1`, marking the pool active until all producer work has finished.
+    let pool_keepalive = pool.clone();
     pool.spawn(move || {
         let map_signals = worker_signals.clone();
         let send_signals = worker_signals.clone();
@@ -385,6 +399,8 @@ fn stream_parallel_values(
                 }
                 Err(()) => Err(()),
             });
+
+        drop(pool_keepalive);
     });
 
     ReceiverIter::new(rx, signals).into_pipeline_data(span, Signals::empty())
