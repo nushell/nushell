@@ -16,6 +16,7 @@ use nu_protocol::{Config, DataSource, IntoPipelineData, PipelineMetadata, Record
 use nu_utils::get_ls_colors;
 use ratatui::layout::Rect;
 use std::collections::{HashMap, HashSet};
+use std::fmt::Write;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -463,9 +464,7 @@ impl Session {
 
         match self.focused_kind() {
             Some(WidgetKind::Tree { .. }) => {
-                if self.handle_tree_nav(&chord) {
-                    return;
-                }
+                self.handle_tree_nav(&chord);
             }
             Some(
                 WidgetKind::Table { .. } | WidgetKind::List { .. } | WidgetKind::Keybindings { .. },
@@ -771,13 +770,16 @@ impl Session {
                             self.refresh_previews();
                         }
                     }
-                    if let Some(WidgetKind::Menu { items }) = self.app.widget_kind(&id) {
-                        if !items.is_empty() && area.width > 0 {
-                            let rel = mouse.column.saturating_sub(area.x) as usize;
-                            let slot = area.width as usize / items.len().max(1);
-                            if slot > 0 {
-                                self.selected.insert(id, (rel / slot).min(items.len() - 1));
-                            }
+                    if let Some(WidgetKind::Menu { items }) = self.app.widget_kind(&id)
+                        && !items.is_empty()
+                        && area.width > 0
+                    {
+                        let rel = mouse.column.saturating_sub(area.x) as usize;
+                        if let Some(idx) = (area.width as usize)
+                            .checked_div(items.len())
+                            .and_then(|slot| rel.checked_div(slot))
+                        {
+                            self.selected.insert(id, idx.min(items.len() - 1));
                         }
                     }
                 }
@@ -1081,7 +1083,14 @@ impl Session {
     }
 
     pub fn refresh_previews(&mut self) {
-        let previews: Vec<(String, String, usize, Option<Closure>, Option<String>)> = self
+        struct PreviewSpec {
+            id: String,
+            column: String,
+            max_bytes: usize,
+            transform: Option<Closure>,
+            from: Option<String>,
+        }
+        let previews: Vec<PreviewSpec> = self
             .app
             .widgets
             .iter()
@@ -1091,19 +1100,26 @@ impl Session {
                     max_bytes,
                     transform,
                     from,
-                } => Some((
-                    w.id.clone(),
-                    column.clone(),
-                    *max_bytes,
-                    transform.clone(),
-                    from.clone(),
-                )),
+                } => Some(PreviewSpec {
+                    id: w.id.clone(),
+                    column: column.clone(),
+                    max_bytes: *max_bytes,
+                    transform: transform.clone(),
+                    from: from.clone(),
+                }),
                 _ => None,
             })
             .collect();
 
         let engine = self.preview_engine.take();
-        for (id, column, max_bytes, transform, from) in previews {
+        for PreviewSpec {
+            id,
+            column,
+            max_bytes,
+            transform,
+            from,
+        } in previews
+        {
             let table_id = from.or_else(|| self.preview_source_id());
             let row = table_id.as_ref().and_then(|tid| {
                 let idx = self.selected.get(tid).copied().unwrap_or(0);
@@ -2015,7 +2031,7 @@ fn read_file_preview(path: &Path, max_bytes: usize, file_len: u64) -> (String, b
     }
     let mut text = String::from_utf8_lossy(&buf).into_owned();
     if file_len as usize > n {
-        text.push_str(&format!("\n\n… truncated, showing {n} of {file_len} bytes"));
+        let _ = write!(text, "\n\n… truncated, showing {n} of {file_len} bytes");
     }
     (text, true)
 }

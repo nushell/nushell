@@ -130,20 +130,9 @@ fn render_widget(frame: &mut Frame, session: &Session, id: &str, area: Rect, the
         WidgetKind::Label { text } => {
             frame.render_widget(Paragraph::new(text.as_str()).style(theme.text()), area);
         }
-        WidgetKind::TextBox {
-            placeholder,
-            editable,
-            ..
-        } => render_textbox(
-            frame,
-            session,
-            id,
-            placeholder,
-            *editable,
-            area,
-            theme,
-            focused,
-        ),
+        WidgetKind::TextBox { placeholder, .. } => {
+            render_textbox(frame, session, id, placeholder, area, theme, focused)
+        }
         WidgetKind::Table { .. } => render_table(frame, session, id, area, theme, focused, "table"),
         WidgetKind::List { .. } => render_table(frame, session, id, area, theme, focused, "list"),
         WidgetKind::Log { .. } => render_log(frame, session, id, area, theme, focused),
@@ -412,11 +401,17 @@ fn render_textbox(
     session: &Session,
     id: &str,
     placeholder: &str,
-    editable: bool,
     area: Rect,
     theme: &Theme,
     focused: bool,
 ) {
+    let editable = matches!(
+        session.app.widget_kind(id),
+        Some(WidgetKind::TextBox {
+            editable: true,
+            ..
+        })
+    );
     let value = session.text_values.get(id).cloned().unwrap_or_default();
     let cursor = session
         .text_cursors

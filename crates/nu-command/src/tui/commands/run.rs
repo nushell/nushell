@@ -95,7 +95,7 @@ impl Command for TuiRun {
             },
             Example {
                 description: "Refresh a file list every second",
-                example: r#"ls | tui table | tui run --refresh 1sec { ls }"#,
+                example: "ls | tui table | tui run --refresh 1sec { ls }",
                 result: None,
             },
         ]

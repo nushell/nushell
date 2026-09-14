@@ -30,7 +30,7 @@ impl Command for TuiList {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Stream numbers into a live list",
-            example: r#"1..5 | each {|n| sleep 10ms; $n} | tui list | tui run --headless"#,
+            example: "1..5 | each {|n| sleep 10ms; $n} | tui list | tui run --headless",
             result: None,
         }]
     }

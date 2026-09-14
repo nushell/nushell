@@ -45,7 +45,7 @@ impl Command for TuiSplitter {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Table on the left, preview on the right via placement flags",
-            example: r#"ls | tui table --id files | tui preview --from files --right-of files --ratio 55 | tui run"#,
+            example: "ls | tui table --id files | tui preview --from files --right-of files --ratio 55 | tui run",
             result: None,
         }]
     }

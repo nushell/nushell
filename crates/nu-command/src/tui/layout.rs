@@ -85,36 +85,10 @@ pub fn assign_areas(session: &mut Session, frame: Rect) {
     for (i, id) in top_ids.iter().enumerate() {
         if let Some(id) = id {
             if id == "__tabs__" {
-                let n = pages.len().max(1) as u16;
-                let width = if n == 0 {
-                    chunks[i].width
-                } else {
-                    chunks[i].width / n
-                };
-                for p in 0..pages.len() {
-                    session.tab_areas.push(Rect {
-                        x: chunks[i].x + p as u16 * width,
-                        y: chunks[i].y,
-                        width,
-                        height: 1,
-                    });
-                }
+                assign_tab_areas(session, chunks[i], pages.len());
             } else if Some(id) == tabs_id.as_ref() {
                 session.areas.insert(id.clone(), chunks[i]);
-                let n = pages.len().max(1) as u16;
-                let width = if n == 0 {
-                    chunks[i].width
-                } else {
-                    chunks[i].width / n
-                };
-                for p in 0..pages.len() {
-                    session.tab_areas.push(Rect {
-                        x: chunks[i].x + p as u16 * width,
-                        y: chunks[i].y,
-                        width,
-                        height: 1,
-                    });
-                }
+                assign_tab_areas(session, chunks[i], pages.len());
             } else {
                 session.areas.insert(id.clone(), chunks[i]);
             }
@@ -148,11 +122,11 @@ fn layout_page(session: &mut Session, page: &Page, area: Rect) {
             .is_some_and(|w| w.place.is_some())
     });
 
-    if has_place {
-        if let Some(node) = build_place_tree(&session.app.widgets, &content) {
-            assign_node(session, &node, area);
-            return;
-        }
+    if has_place
+        && let Some(node) = build_place_tree(&session.app.widgets, &content)
+    {
+        assign_node(session, &node, area);
+        return;
     }
 
     if let Some(split_idx) = page.splitter {
@@ -161,6 +135,19 @@ fn layout_page(session: &mut Session, page: &Page, area: Rect) {
     }
 
     stack_vertical(session, &content, area);
+}
+
+fn assign_tab_areas(session: &mut Session, bar: Rect, n_pages: usize) {
+    let n = n_pages.max(1) as u16;
+    let width = bar.width.checked_div(n).unwrap_or(bar.width);
+    for p in 0..n_pages {
+        session.tab_areas.push(Rect {
+            x: bar.x + p as u16 * width,
+            y: bar.y,
+            width,
+            height: 1,
+        });
+    }
 }
 
 fn layout_splitter(session: &mut Session, split_idx: usize, content: &[usize], area: Rect) {
@@ -276,7 +263,7 @@ fn build_place_tree(widgets: &[Widget], content: &[usize]) -> Option<LayoutNode>
             continue;
         };
         order.retain(|id| id != &w.id);
-        let ratio = (place.ratio as u16).clamp(10, 90) * 10;
+        let ratio = place.ratio.clamp(10, 90) * 10;
         let handle_id = format!("split-{}-{}", place.of, w.id);
         let node = match place.rel {
             Rel::RightOf => LayoutNode::Split {
@@ -444,9 +431,9 @@ mod tests {
         }
         let (first, handle) = split_lengths(4, 500);
         assert!(!handle);
-        assert!(first >= 1 && first < 4);
+        assert!((1..4).contains(&first));
         let (first, handle) = split_lengths(20, 500);
         assert!(handle);
-        assert!(first >= 3 && first <= 16);
+        assert!((3..=16).contains(&first));
     }
 }

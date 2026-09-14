@@ -1,8 +1,9 @@
 //! Live pipeline streams into a running TUI.
 use nu_protocol::{PipelineData, Value};
+use nu_utils::time::Instant;
 use std::sync::mpsc::{self, Receiver, TryRecvError};
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 pub enum StreamMsg {
     Value(Value),

@@ -48,12 +48,12 @@ impl Command for TuiTree {
         vec![
             Example {
                 description: "Nested record as a tree",
-                example: r#"{a: {b: 1, c: 2}, d: [3, 4]} | tui tree | tui run --headless"#,
+                example: "{a: {b: 1, c: 2}, d: [3, 4]} | tui tree | tui run --headless",
                 result: None,
             },
             Example {
                 description: "Directory walk next to a preview",
-                example: r#"ls | tui tree --id files --walk | tui preview --from files --right-of files | tui run"#,
+                example: "ls | tui tree --id files --walk | tui preview --from files --right-of files | tui run",
                 result: None,
             },
         ]

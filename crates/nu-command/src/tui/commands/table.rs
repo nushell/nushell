@@ -41,7 +41,7 @@ impl Command for TuiTable {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Show a small table and pick a row",
-            example: r#"[{name: foo, size: 1}, {name: bar, size: 2}] | tui table --columns [name size] | tui run --keys down,enter"#,
+            example: "[{name: foo, size: 1}, {name: bar, size: 2}] | tui table --columns [name size] | tui run --keys down,enter",
             result: None,
         }]
     }

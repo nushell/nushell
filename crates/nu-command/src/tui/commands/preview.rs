@@ -57,7 +57,7 @@ impl Command for TuiPreview {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "File list on the left, contents on the right",
-            example: r#"ls | tui table --id files | tui preview --from files --right-of files | tui run"#,
+            example: "ls | tui table --id files | tui preview --from files --right-of files | tui run",
             result: None,
         }]
     }

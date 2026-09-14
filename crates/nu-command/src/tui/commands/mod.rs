@@ -102,12 +102,12 @@ pub(super) fn consume_text_arg(
     if let Some(text) = call.opt::<String>(engine_state, stack, 0)? {
         return Ok(text);
     }
-    if app.widgets.is_empty() {
-        if let Value::String { val, .. } = &app.data {
-            let text = val.clone();
-            app.data = Value::nothing(call.head);
-            return Ok(text);
-        }
+    if app.widgets.is_empty()
+        && let Value::String { val, .. } = &app.data
+    {
+        let text = val.clone();
+        app.data = Value::nothing(call.head);
+        return Ok(text);
     }
     if required {
         Err(ShellError::MissingParameter {

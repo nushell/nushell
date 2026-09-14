@@ -19,7 +19,8 @@ use ratatui::{Terminal, backend::CrosstermBackend};
 use std::io::stdout;
 use std::path::PathBuf;
 use std::sync::mpsc::Receiver;
-use std::time::{Duration, Instant};
+use nu_utils::time::Instant;
+use std::time::Duration;
 
 pub struct RunOptions {
     pub headless: bool,
@@ -287,17 +288,17 @@ impl TerminalGuard {
                 .map_err(|e| io_error("failed to enter alternate screen", e.to_string(), span))?;
         }
         let _ = execute!(out, Hide);
-        if mouse {
-            if let Err(e) = execute!(out, EnableMouseCapture) {
-                if alt_screen {
-                    let _ = execute!(out, LeaveAlternateScreen);
-                }
-                return Err(io_error(
-                    "failed to enable mouse capture",
-                    e.to_string(),
-                    span,
-                ));
+        if mouse
+            && let Err(e) = execute!(out, EnableMouseCapture)
+        {
+            if alt_screen {
+                let _ = execute!(out, LeaveAlternateScreen);
             }
+            return Err(io_error(
+                "failed to enable mouse capture",
+                e.to_string(),
+                span,
+            ));
         }
         Ok(Self { mouse, alt_screen })
     }

@@ -22,14 +22,14 @@ fn headless_renders_title_and_status() -> Result {
 
 #[test]
 fn table_keys_submit_selected_row() -> Result {
-    let code = r#"
+    let code = "
         [{name: alpha, n: 1}, {name: beta, n: 2}, {name: gamma, n: 3}]
         | tui table --columns [name n]
         | tui run --keys down,enter
-    "#;
-    let action: String = test().run(&format!("{code} | get action"))?;
+    ";
+    let action: String = test().run(format!("{code} | get action"))?;
     assert_eq!(action, "submit");
-    let name: String = test().run(&format!("{code} | get selected.name"))?;
+    let name: String = test().run(format!("{code} | get selected.name"))?;
     assert_eq!(name, "beta");
     Ok(())
 }
@@ -42,7 +42,7 @@ fn search_filters_table_before_submit() -> Result {
         | tui table --columns [name]
         | tui run --keys "/,type:ga,tab,enter"
     "#;
-    let name: String = test().run(&format!("{code} | get selected.name"))?;
+    let name: String = test().run(format!("{code} | get selected.name"))?;
     assert_eq!(name, "gamma");
     Ok(())
 }
@@ -53,9 +53,9 @@ fn textbox_typing_does_not_quit_on_q() -> Result {
         tui textbox --placeholder "name"
         | tui run --keys "type:q,enter"
     "#;
-    let action: String = test().run(&format!("{code} | get action"))?;
+    let action: String = test().run(format!("{code} | get action"))?;
     assert_eq!(action, "submit");
-    let selected: String = test().run(&format!("{code} | get selected"))?;
+    let selected: String = test().run(format!("{code} | get selected"))?;
     assert_eq!(selected, "q");
     Ok(())
 }
@@ -63,7 +63,7 @@ fn textbox_typing_does_not_quit_on_q() -> Result {
 #[test]
 fn q_quits_table_without_submit() -> Result {
     let action: String =
-        test().run(r#"[{name: a}] | tui table | tui run --keys q | get action"#)?;
+        test().run("[{name: a}] | tui table | tui run --keys q | get action")?;
     assert_eq!(action, "quit");
     Ok(())
 }
@@ -130,19 +130,19 @@ fn preview_shows_file_contents_on_selection() -> Result {
         ]);
 
         let screen: String = test().cwd(dirs.test()).run(
-            r#"
+            "
                 ls
                 | sort-by name
                 | tui splitter --direction horizontal --ratio 50
                 | tui table --columns [name type]
                 | tui preview
                 | tui run --headless --width 80 --height 16
-            "#,
+            ",
         )?;
         assert_contains("ONE-FILE-BODY", &screen);
 
         let screen: String = test().cwd(dirs.test()).run(
-            r#"
+            "
                 ls
                 | sort-by name
                 | tui splitter --direction horizontal --ratio 50
@@ -150,7 +150,7 @@ fn preview_shows_file_contents_on_selection() -> Result {
                 | tui preview
                 | tui run --keys down --headless --width 80 --height 16
                 | get screen
-            "#,
+            ",
         )?;
         assert_contains("TWO-FILE-BODY", &screen);
         Ok(())
@@ -211,7 +211,7 @@ fn dialog_headless_draws_close_control() -> Result {
 #[test]
 fn menu_items_reject_non_strings() -> Result {
     test()
-        .run(r#"tui menu --items {a: 1} | tui run --headless"#)
+        .run("tui menu --items {a: 1} | tui run --headless")
         .expect_parse_error()?;
     Ok(())
 }
@@ -287,11 +287,11 @@ fn placement_right_of_renders_both() -> Result {
 #[test]
 fn refresh_closure_replaces_rows() -> Result {
     let screen: String = test().run(
-        r#"
+        "
             [{name: old}]
             | tui table --columns [name]
             | tui run --headless --refresh 1sec { [{name: NEWMARKER}] }
-        "#,
+        ",
     )?;
     assert_contains("NEWMARKER", &screen);
     Ok(())
