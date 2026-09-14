@@ -121,6 +121,8 @@ mod terminal;
 mod to_text;
 mod transpose;
 mod try_;
+#[cfg(feature = "os")]
+mod tui;
 mod ucp;
 #[cfg(unix)]
 mod ulimit;

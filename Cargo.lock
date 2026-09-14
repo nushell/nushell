@@ -4907,6 +4907,7 @@ dependencies = [
  "quick-xml 0.41.0",
  "rand 0.10.2",
  "rand_chacha 0.10.0",
+ "ratatui",
  "rayon",
  "reedline",
  "rmp",
