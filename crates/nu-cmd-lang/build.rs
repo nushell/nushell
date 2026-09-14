@@ -1,4 +1,8 @@
+use std::path::Path;
 use std::process::Command;
+
+#[path = "build_stabilize.rs"]
+mod build_stabilize;
 
 fn main() {
     // Look up the current Git commit ourselves instead of relying on shadow_rs,
@@ -10,9 +14,16 @@ fn main() {
             .to_string(),
     );
     println!("cargo:rustc-env=NU_COMMIT_HASH={hash}");
+
+    let out_dir = std::env::var("OUT_DIR").expect("OUT_DIR is set by cargo for build scripts");
+    let shadow_path = Path::new(&out_dir).join(build_stabilize::SHADOW_RS_OUTPUT);
+    let previous = std::fs::read(&shadow_path).ok();
+
     shadow_rs::ShadowBuilder::builder()
         .build()
         .expect("shadow builder build should success");
+
+    build_stabilize::stabilize_shadow_rs_output(&shadow_path, previous.as_deref());
 }
 
 fn get_git_hash() -> Option<String> {
