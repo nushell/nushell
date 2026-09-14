@@ -1,5 +1,4 @@
-use super::WidgetKind;
-use super::{empty_tui, placement_flags, push_widget, with_app};
+use super::{WidgetKind, builder_io_types, push_widget, with_app};
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -15,34 +14,27 @@ impl Command for TuiTextBox {
     }
 
     fn extra_description(&self) -> &str {
-        "Editable by default. Use --readonly for display-only. While focused, q is a character, Esc leaves the field, Enter submits the TUI with the text as `selected`."
+        "While focused, q is a character, Esc leaves the field, Enter submits the TUI with the text as `selected`. The text is also returned under `values` keyed by widget id."
     }
 
     fn signature(&self) -> Signature {
-        placement_flags(
-            Signature::build("tui textbox")
-                .category(Category::Viewers)
-                .named(
-                    "placeholder",
-                    SyntaxShape::String,
-                    "Shown when empty.",
-                    None,
-                )
-                .named("value", SyntaxShape::String, "Initial text.", None)
-                .switch("readonly", "Do not accept typing.", None)
-                .named("id", SyntaxShape::String, "Widget id.", None)
-                .input_output_types(vec![
-                    (Type::Nothing, empty_tui()),
-                    (empty_tui(), empty_tui()),
-                    (Type::Any, empty_tui()),
-                ]),
-        )
+        Signature::build("tui textbox")
+            .category(Category::Viewers)
+            .named(
+                "placeholder",
+                SyntaxShape::String,
+                "Shown when empty.",
+                None,
+            )
+            .named("value", SyntaxShape::String, "Initial text.", None)
+            .named("id", SyntaxShape::String, "Widget id.", None)
+            .input_output_types(builder_io_types())
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Type into a text box and submit (headless)",
-            example: r#"tui textbox --placeholder "name" | tui run --keys "type:Ada,enter""#,
+            example: r#"tui textbox --placeholder "name" | tui debug --keys "type:Ada,enter" | get selected"#,
             result: None,
         }]
     }
@@ -61,18 +53,14 @@ impl Command for TuiTextBox {
             let value = call
                 .get_flag(engine_state, stack, "value")?
                 .unwrap_or_default();
-            let editable = !call.has_flag(engine_state, stack, "readonly")?;
             push_widget(
                 engine_state,
                 stack,
                 call,
                 app,
                 "textbox",
-                WidgetKind::TextBox {
-                    placeholder,
-                    editable,
-                    value,
-                },
+                WidgetKind::TextBox { placeholder, value },
+                Vec::new(),
             )
         })
     }

@@ -1,30 +1,43 @@
 //! Widget kinds that make up a [`TuiApp`](super::app::TuiApp).
+//!
+//! Widgets form a tree: `tui split` and `tui tab` are containers whose
+//! `children` are laid out inside them. Everything else is a leaf.
 
-use nu_protocol::Value;
 use nu_protocol::engine::Closure;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Widget {
     pub id: String,
+    /// `true` when the id was generated (`table-0`) rather than passed with
+    /// `--id`. Generated ids are renumbered when a child is adopted by a
+    /// container whose tree already uses that id; explicit ids never are.
+    #[serde(default)]
+    pub auto_id: bool,
     pub kind: WidgetKind,
-    pub place: Option<Place>,
+    /// Nested widgets. Only containers (`Split`, `Tab`) have any.
+    #[serde(default)]
+    pub children: Vec<Widget>,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-pub enum Rel {
-    RightOf,
-    LeftOf,
-    Above,
-    Below,
-}
+impl Widget {
+    #[cfg(test)]
+    pub fn leaf(id: impl Into<String>, kind: WidgetKind) -> Self {
+        Self {
+            id: id.into(),
+            auto_id: false,
+            kind,
+            children: Vec::new(),
+        }
+    }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Place {
-    pub rel: Rel,
-    pub of: String,
-    /// Percent of the split given to the anchor widget (`of`), 10-90.
-    pub ratio: u16,
+    /// Visit this widget and its descendants, preorder.
+    pub fn for_each_mut(&mut self, f: &mut impl FnMut(&mut Widget)) {
+        f(self);
+        for c in &mut self.children {
+            c.for_each_mut(f);
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -42,159 +55,203 @@ impl SplitDir {
             SplitDir::Vertical => "vertical",
         }
     }
+}
 
-    pub fn parse(s: &str) -> Option<Self> {
-        match s.to_ascii_lowercase().as_str() {
-            "horizontal" | "h" | "row" => Some(SplitDir::Horizontal),
-            "vertical" | "v" | "column" => Some(SplitDir::Vertical),
-            _ => None,
+/// Where a `Label` is drawn.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub enum Slot {
+    /// One-line title bar at the top.
+    Title,
+    /// Inline text inside the page.
+    Content,
+    /// One-line status bar at the bottom. Live hints are appended.
+    Status,
+}
+
+impl Slot {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Slot::Title => "title",
+            Slot::Content => "content",
+            Slot::Status => "status",
         }
+    }
+}
+
+/// One entry on a menu bar or in a dropdown.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MenuItem {
+    pub label: String,
+    /// Key that selects this item: `alt+<key>` on the bar, `<key>` inside an
+    /// open dropdown. `&` before a letter in the label picks it; otherwise
+    /// the first letter.
+    pub mnemonic: Option<char>,
+    /// Dropdown entries. Empty for a plain item.
+    pub items: Vec<MenuItem>,
+    /// Runs when the item is activated. A returned value replaces the data
+    /// list; `nothing` leaves it alone. Without an action, activating the
+    /// item submits it.
+    pub action: Option<Closure>,
+}
+
+impl MenuItem {
+    /// Parse `&` mnemonics: `"&File"` → label `File`, mnemonic `f`.
+    pub fn new(raw: &str, items: Vec<MenuItem>, action: Option<Closure>) -> Self {
+        let mut label = String::with_capacity(raw.len());
+        let mut mnemonic = None;
+        let mut chars = raw.chars().peekable();
+        while let Some(c) = chars.next() {
+            if c == '&' && mnemonic.is_none() {
+                if let Some(next) = chars.next() {
+                    mnemonic = Some(next.to_ascii_lowercase());
+                    label.push(next);
+                }
+            } else {
+                label.push(c);
+            }
+        }
+        let mnemonic = mnemonic.or_else(|| {
+            label
+                .chars()
+                .find(|c| c.is_alphanumeric())
+                .map(|c| c.to_ascii_lowercase())
+        });
+        Self {
+            label,
+            mnemonic,
+            items,
+            action,
+        }
+    }
+
+    /// Byte offset of the mnemonic letter in `label`, for underlining.
+    pub fn mnemonic_index(&self) -> Option<usize> {
+        let m = self.mnemonic?;
+        self.label
+            .char_indices()
+            .find(|(_, c)| c.to_ascii_lowercase() == m)
+            .map(|(i, _)| i)
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum WidgetKind {
-    Title {
-        text: String,
-    },
-    Menu {
-        items: Vec<String>,
-    },
+    /// Static text. `slot` picks the title bar, page content, or status bar.
     Label {
         text: String,
+        slot: Slot,
+    },
+    /// Horizontal menu bar. Items with sub-items open a dropdown.
+    Menu {
+        items: Vec<MenuItem>,
     },
     TextBox {
         placeholder: String,
-        editable: bool,
         value: String,
     },
+    /// Navigable rows from the shared data list. Scalars show as one `item`
+    /// column. `capture_keys` turns a pressed chord into the filter query.
     Table {
         columns: Vec<String>,
-        data: Option<Value>,
+        capture_keys: bool,
     },
-    /// Starts a page/window. Widgets after this body until the next body
-    /// (or status) belong to that page.
-    Body {
-        title: String,
-    },
-    Status {
-        text: String,
-    },
-    Keybindings {
-        data: Option<Value>,
-    },
+    /// Search box. At the top level it filters everything; nested inside a
+    /// container it filters only that container's descendants.
     Search {
         placeholder: String,
         bind: Option<String>,
-        /// If set, only this widget id is filtered.
-        target: Option<String>,
     },
-    Splitter {
-        direction: SplitDir,
-        ratio: u16,
-    },
-    /// Follows the selected table row and shows that path's contents.
-    /// Not focusable, so arrow keys keep moving the table.
+    /// Follows the selected table/tree row and shows text for it.
+    /// Not focusable, so arrow keys keep moving the source.
     Preview {
-        column: String,
         max_bytes: usize,
-        /// Receives file contents as `$in` (with `content_type` metadata).
-        /// If the closure takes an argument, that argument is the selected row.
+        /// Zero parameters: receives file contents as `$in`. One parameter:
+        /// receives the selected row and its output is the pane text.
         transform: Option<Closure>,
-        /// Table/list id to follow. Defaults to the focused or first table/list.
+        /// Table/tree id to follow. Defaults to the nearest one.
         from: Option<String>,
-    },
-    /// Selectable list. Pipeline values become items.
-    List {
-        data: Option<Value>,
     },
     /// Append-only log. New stream rows appear at the bottom.
     Log {
         max_lines: usize,
     },
-    /// Directory / nested-record tree. Shares `app.data` unless `data` is set.
+    /// Directory / nested-record tree over the shared data list.
     Tree {
-        data: Option<Value>,
         /// Expand directories on disk when a node is opened.
         walk: bool,
         column: String,
     },
-    /// Page marker, like Body, shown in the tab bar.
+    /// Container. At the top level it is a page shown in the tab bar; nested
+    /// inside another container it is a titled group box.
     Tab {
         title: String,
     },
-    /// Explicit tab-bar chrome. Optional; multiple Tab/Body pages already show a bar.
-    Tabs,
+    /// Container that divides its area between its children.
+    Split {
+        direction: SplitDir,
+        /// Percent of the area given to the first child, 10-90.
+        ratio: u16,
+    },
 }
 
 impl WidgetKind {
     pub fn type_name(&self) -> &'static str {
         match self {
-            WidgetKind::Title { .. } => "title",
-            WidgetKind::Menu { .. } => "menu",
             WidgetKind::Label { .. } => "label",
+            WidgetKind::Menu { .. } => "menu",
             WidgetKind::TextBox { .. } => "textbox",
             WidgetKind::Table { .. } => "table",
-            WidgetKind::Body { .. } => "body",
-            WidgetKind::Status { .. } => "status",
-            WidgetKind::Keybindings { .. } => "keybindings",
             WidgetKind::Search { .. } => "search",
-            WidgetKind::Splitter { .. } => "splitter",
             WidgetKind::Preview { .. } => "preview",
-            WidgetKind::List { .. } => "list",
             WidgetKind::Log { .. } => "log",
             WidgetKind::Tree { .. } => "tree",
             WidgetKind::Tab { .. } => "tab",
-            WidgetKind::Tabs => "tabs",
+            WidgetKind::Split { .. } => "split",
         }
     }
 
+    /// Fixed-slot widgets that only make sense at the top level.
     pub fn is_chrome(&self) -> bool {
         matches!(
             self,
-            WidgetKind::Title { .. }
-                | WidgetKind::Menu { .. }
+            WidgetKind::Label {
+                slot: Slot::Title | Slot::Status,
+                ..
+            } | WidgetKind::Menu { .. }
                 | WidgetKind::Search { .. }
-                | WidgetKind::Status { .. }
-                | WidgetKind::Tabs
         )
     }
 
-    pub fn is_page_marker(&self) -> bool {
-        matches!(self, WidgetKind::Body { .. } | WidgetKind::Tab { .. })
+    pub fn is_container(&self) -> bool {
+        matches!(self, WidgetKind::Tab { .. } | WidgetKind::Split { .. })
     }
 
     pub fn is_focusable(&self) -> bool {
-        match self {
+        matches!(
+            self,
             WidgetKind::Menu { .. }
-            | WidgetKind::Table { .. }
-            | WidgetKind::List { .. }
-            | WidgetKind::Log { .. }
-            | WidgetKind::Tree { .. }
-            | WidgetKind::Keybindings { .. }
-            | WidgetKind::Search { .. }
-            | WidgetKind::Splitter { .. } => true,
-            WidgetKind::TextBox { editable, .. } => *editable,
-            _ => false,
-        }
+                | WidgetKind::Table { .. }
+                | WidgetKind::Log { .. }
+                | WidgetKind::Tree { .. }
+                | WidgetKind::Search { .. }
+                | WidgetKind::TextBox { .. }
+                | WidgetKind::Split { .. }
+        )
     }
 
     pub fn is_text_input(&self) -> bool {
-        match self {
-            WidgetKind::Search { .. } => true,
-            WidgetKind::TextBox { editable, .. } => *editable,
-            _ => false,
-        }
+        matches!(self, WidgetKind::Search { .. } | WidgetKind::TextBox { .. })
     }
 
     pub fn is_scrollable(&self) -> bool {
         matches!(
             self,
-            WidgetKind::Table { .. }
-                | WidgetKind::List { .. }
-                | WidgetKind::Log { .. }
-                | WidgetKind::Tree { .. }
-                | WidgetKind::Keybindings { .. }
+            WidgetKind::Table { .. } | WidgetKind::Log { .. } | WidgetKind::Tree { .. }
         )
+    }
+
+    /// Widgets a preview can follow.
+    pub fn is_row_source(&self) -> bool {
+        matches!(self, WidgetKind::Table { .. } | WidgetKind::Tree { .. })
     }
 }

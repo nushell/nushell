@@ -1,4 +1,4 @@
-//! Interactive event loop and headless render/replay.
+//! Interactive event loop (`tui run`) and headless render/replay (`tui debug`).
 use super::app::TuiApp;
 use super::keys::parse_scripted_keys;
 use super::render::{render, render_to_string};
@@ -10,7 +10,7 @@ use crossterm::event::{self, DisableMouseCapture, EnableMouseCapture, Event, Mou
 use crossterm::execute;
 use crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen};
 use nu_protocol::{
-    IntoPipelineData, PipelineData, ShellError, Span, Value,
+    IntoPipelineData, ListStream, PipelineData, ShellError, Span, Value,
     engine::{Closure, EngineState, Stack},
     shell_error::generic::GenericError,
 };
@@ -22,13 +22,16 @@ use std::path::PathBuf;
 use std::sync::mpsc::Receiver;
 use std::time::Duration;
 
+/// Options shared by `tui run` and `tui debug`.
 pub struct RunOptions {
-    pub headless: bool,
+    /// Scripted key tokens (`tui debug --keys`).
     pub keys: Option<String>,
+    /// Headless canvas size (`tui debug --size`).
     pub width: u16,
     pub height: u16,
     pub mouse: bool,
     pub dialog: bool,
+    /// Popup size (`tui run --dialog --size`). `None` picks 3/4 of the screen.
     pub popup_width: Option<u16>,
     pub popup_height: Option<u16>,
     pub refresh: Option<Duration>,
@@ -39,7 +42,6 @@ pub struct RunOptions {
 impl Default for RunOptions {
     fn default() -> Self {
         Self {
-            headless: false,
             keys: None,
             width: 80,
             height: 24,
@@ -54,27 +56,13 @@ impl Default for RunOptions {
     }
 }
 
-pub fn run(
-    app: TuiApp,
-    data: PipelineData,
-    engine_state: &EngineState,
-    stack: &Stack,
-    opts: RunOptions,
-    cwd: PathBuf,
-) -> Result<PipelineData, ShellError> {
-    if opts.headless || opts.keys.is_some() {
-        run_headless(app, data, engine_state, stack, opts, cwd)
-    } else {
-        run_interactive(app, data, engine_state, stack, opts, cwd)
-    }
-}
-
 fn prepare_session(
     mut app: TuiApp,
     data: PipelineData,
     engine_state: &EngineState,
     stack: &Stack,
     cwd: PathBuf,
+    span: Span,
 ) -> (Session, Option<Receiver<StreamMsg>>) {
     if app.path_columns.is_empty()
         && let Some(meta) = data.metadata_ref()
@@ -82,6 +70,19 @@ fn prepare_session(
     {
         app.path_columns = meta.path_columns.clone();
     }
+    // A range is a lazy sequence, so read it like a stream: finite ranges are
+    // drained, infinite ones keep producing rows while the TUI runs.
+    let data = match data {
+        PipelineData::Value(Value::Range { val, .. }, meta) => PipelineData::ListStream(
+            ListStream::new(
+                val.into_range_iter(span, engine_state.signals().clone()),
+                span,
+                engine_state.signals().clone(),
+            ),
+            meta,
+        ),
+        other => other,
+    };
     let is_stream = matches!(
         data,
         PipelineData::ListStream(_, _) | PipelineData::ByteStream(_, _)
@@ -101,7 +102,9 @@ fn prepare_session(
     (session, rx)
 }
 
-fn run_headless(
+/// Render without a TTY. Replays `--keys` if given, then returns the result
+/// record with the painted `screen` and the resolved widget tree.
+pub fn debug(
     app: TuiApp,
     data: PipelineData,
     engine_state: &EngineState,
@@ -109,7 +112,7 @@ fn run_headless(
     opts: RunOptions,
     cwd: PathBuf,
 ) -> Result<PipelineData, ShellError> {
-    let (mut session, rx) = prepare_session(app, data, engine_state, stack, cwd);
+    let (mut session, rx) = prepare_session(app, data, engine_state, stack, cwd, opts.span);
     if let Some(rx) = rx {
         let (items, done) = stream::drain_until_idle(&rx, Duration::from_secs(5));
         session.append_values(items);
@@ -118,47 +121,36 @@ fn run_headless(
     if let Some(closure) = opts.using.clone() {
         session.apply_refresh(engine_state, stack, closure, opts.span);
     }
-    if opts.dialog {
-        session.enable_dialog(
-            Rect {
-                x: 0,
-                y: 0,
-                width: opts.width,
-                height: opts.height,
-            },
-            opts.popup_width,
-            opts.popup_height,
-        );
-    }
     let frame = Rect {
         x: 0,
         y: 0,
         width: opts.width,
         height: opts.height,
     };
-    session.layout(frame);
+    if opts.dialog {
+        session.enable_dialog(frame, opts.popup_width, opts.popup_height);
+    }
+    session.layout(session.dialog_content_area(frame));
     if let Some(script) = &opts.keys {
-        let events = parse_scripted_keys(script, opts.span)?;
-        for event in events {
+        for event in parse_scripted_keys(script, opts.span)? {
             session.handle_event(&event);
-            session.layout(frame);
+            session.layout(session.dialog_content_area(frame));
             if session.outcome.is_some() {
                 break;
             }
         }
-        let screen = render_to_string(&mut session, opts.width, opts.height)
-            .map_err(|e| io_error("failed to render headless TUI", e, opts.span))?;
-        Ok(session
-            .result_record(opts.span, Some(screen))
-            .into_pipeline_data())
-    } else {
-        let screen = render_to_string(&mut session, opts.width, opts.height)
-            .map_err(|e| io_error("failed to render headless TUI", e, opts.span))?;
-        Ok(Value::string(screen, opts.span).into_pipeline_data())
     }
+    let screen = render_to_string(&mut session, opts.width, opts.height)
+        .map_err(|e| io_error("failed to render headless TUI", e, opts.span))?;
+    let mut rec = session.result_fields(opts.span, Some(screen));
+    for (k, v) in session.debug_record(opts.span) {
+        rec.insert(k, v);
+    }
+    Ok(Value::record(rec, opts.span).into_pipeline_data())
 }
 
-fn run_interactive(
+/// Own the terminal until the user submits or quits.
+pub fn run(
     app: TuiApp,
     data: PipelineData,
     engine_state: &EngineState,
@@ -166,7 +158,7 @@ fn run_interactive(
     opts: RunOptions,
     cwd: PathBuf,
 ) -> Result<PipelineData, ShellError> {
-    let (mut session, rx) = prepare_session(app, data, engine_state, stack, cwd);
+    let (mut session, rx) = prepare_session(app, data, engine_state, stack, cwd, opts.span);
     let _raw = RawModeGuard::acquire(stack, opts.span)?;
     let (term_w, term_h) = crossterm::terminal::size()
         .map_err(|e| io_error("failed to read terminal size", e.to_string(), opts.span))?;

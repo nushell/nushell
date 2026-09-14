@@ -1,5 +1,5 @@
 use super::WidgetKind;
-use super::{empty_tui, placement_flags, push_widget, with_app};
+use super::{builder_io_types, push_widget, with_app};
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -19,29 +19,22 @@ impl Command for TuiLog {
     }
 
     fn signature(&self) -> Signature {
-        placement_flags(
-            Signature::build("tui log")
-                .category(Category::Viewers)
-                .named(
-                    "max-lines",
-                    SyntaxShape::Int,
-                    "Keep only the last N lines (default 10000).",
-                    None,
-                )
-                .named("id", SyntaxShape::String, "Widget id.", None)
-                .input_output_types(vec![
-                    (Type::list(Type::Any), empty_tui()),
-                    (Type::String, empty_tui()),
-                    (empty_tui(), empty_tui()),
-                    (Type::Any, empty_tui()),
-                ]),
-        )
+        Signature::build("tui log")
+            .category(Category::Viewers)
+            .named(
+                "max-lines",
+                SyntaxShape::Int,
+                "Keep only the last N lines (default 10000).",
+                None,
+            )
+            .named("id", SyntaxShape::String, "Widget id.", None)
+            .input_output_types(builder_io_types())
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Live log of a slow stream",
-            example: r#"1.. | each {|n| sleep 100ms; $"tick ($n)"} | tui title "ticks" | tui log | tui run"#,
+            example: r#"1.. | each {|n| sleep 100ms; $"tick ($n)"} | tui label --title "ticks" | tui log | tui run"#,
             result: None,
         }]
     }
@@ -65,6 +58,7 @@ impl Command for TuiLog {
                 app,
                 "log",
                 WidgetKind::Log { max_lines },
+                Vec::new(),
             )
         })
     }

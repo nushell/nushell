@@ -234,7 +234,8 @@ fn parse_key_token(token: &str, span: Span) -> Result<KeyEvent, ShellError> {
         "delete" | "del" => KeyCode::Delete,
         "insert" | "ins" => KeyCode::Insert,
         "space" => KeyCode::Char(' '),
-        other if other.starts_with('f') && other.len() <= 3 => {
+        // `f1`..`f12`; a bare `f` is the letter.
+        other if other.len() > 1 && other.len() <= 3 && other.starts_with('f') => {
             let n = other[1..]
                 .parse::<u8>()
                 .map_err(|_| script_error(span, token))?;

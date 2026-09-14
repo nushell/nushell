@@ -1,10 +1,10 @@
 //! Mutable interactive state: focus, typing, scrolling, filtering, pages.
-use super::app::TuiApp;
+use super::app::{TuiApp, widget_to_record};
 use super::keys::{key_event_to_string, normalize_bind};
-use super::layout::{SplitterHandle, assign_areas};
+use super::layout::{SplitterHandle, assign_areas, percent_to_permille, subtree_ids};
 use super::theme::{self, Theme};
 use super::tree::{self, TreeRow};
-use super::widget::{SplitDir, WidgetKind};
+use super::widget::{MenuItem, Slot, SplitDir, Widget, WidgetKind};
 use crossterm::event::{
     Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
 };
@@ -31,24 +31,30 @@ pub struct Outcome {
     pub selected: Value,
 }
 
+/// One entry in the tab bar: a top-level `Tab` widget.
 #[derive(Debug, Clone)]
 pub struct Page {
     pub title: String,
-    pub body_id: Option<String>,
-    pub splitter: Option<usize>,
-    pub content: Vec<usize>,
+    /// Widget id of the tab, or `None` for the implicit page when there are
+    /// no top-level tabs.
+    pub id: Option<String>,
 }
 
 #[derive(Debug, Clone)]
 pub struct Session {
     pub app: TuiApp,
+    /// Child-index path of every widget id (see [`TuiApp::paths`]).
+    pub paths: HashMap<String, Vec<usize>>,
     pub page: usize,
     pub focused: Option<String>,
-    pub search: String,
-    pub search_cursor: usize,
+    /// Text of every text box and search box, plus the captured chord of a
+    /// `capture_keys` table that has no search box in scope.
     pub text_values: HashMap<String, String>,
     pub text_cursors: HashMap<String, usize>,
     pub selected: HashMap<String, usize>,
+    /// Menu whose dropdown is open, and the highlighted row in each dropdown.
+    pub menu_open: Option<String>,
+    pub menu_item: HashMap<String, usize>,
     pub scroll: HashMap<String, usize>,
     /// Splitter position in permille (50–950). Keyboard steps 10 (1%).
     pub splitter_ratio: HashMap<String, u16>,
@@ -71,6 +77,7 @@ pub struct Session {
     pub tree_expanded: HashMap<String, HashSet<String>>,
     /// Directory listings keyed by widget id then node path.
     pub tree_cache: HashMap<String, HashMap<String, Vec<Value>>>,
+    /// Last failure from a refresh or menu-action closure; shown on the status bar.
     pub refresh_error: Option<String>,
 }
 
@@ -159,25 +166,26 @@ impl Session {
         let mut splitter_ratio = HashMap::new();
         let mut selected = HashMap::new();
 
-        for w in &app.widgets {
+        for w in app.iter() {
             match &w.kind {
                 WidgetKind::TextBox { value, .. } => {
                     text_cursors.insert(w.id.clone(), value.chars().count());
                     text_values.insert(w.id.clone(), value.clone());
                 }
-                WidgetKind::Splitter { ratio, .. } => {
+                WidgetKind::Search { .. } => {
+                    text_cursors.insert(w.id.clone(), 0);
+                    text_values.insert(w.id.clone(), String::new());
+                }
+                WidgetKind::Split { ratio, .. } => {
                     splitter_ratio.insert(w.id.clone(), percent_to_permille(*ratio));
                 }
-                WidgetKind::Menu { .. }
-                | WidgetKind::Table { .. }
-                | WidgetKind::List { .. }
-                | WidgetKind::Tree { .. }
-                | WidgetKind::Keybindings { .. } => {
+                WidgetKind::Menu { .. } | WidgetKind::Table { .. } | WidgetKind::Tree { .. } => {
                     selected.insert(w.id.clone(), 0);
                 }
                 _ => {}
             }
         }
+        let paths = app.paths();
 
         let theme = match &preview_engine {
             Some((engine_state, stack)) => Theme::from_config(engine_state, stack),
@@ -198,13 +206,14 @@ impl Session {
 
         let mut session = Self {
             app,
+            paths,
             page: 0,
             focused: None,
-            search: String::new(),
-            search_cursor: 0,
             text_values,
             text_cursors,
             selected,
+            menu_open: None,
+            menu_item: HashMap::new(),
             scroll: HashMap::new(),
             splitter_ratio,
             dragging: None,
@@ -231,93 +240,115 @@ impl Session {
         session
     }
 
+    /// Tab-bar entries: top-level `Tab` widgets in order, or one implicit
+    /// page when there are none.
     pub fn pages(&self) -> Vec<Page> {
-        let mut pages: Vec<Page> = Vec::new();
-        let mut current: Option<Page> = None;
+        let pages: Vec<Page> = self
+            .app
+            .widgets
+            .iter()
+            .filter_map(|w| match &w.kind {
+                WidgetKind::Tab { title } => Some(Page {
+                    title: title.clone(),
+                    id: Some(w.id.clone()),
+                }),
+                _ => None,
+            })
+            .collect();
+        if pages.is_empty() {
+            vec![Page {
+                title: "main".into(),
+                id: None,
+            }]
+        } else {
+            pages
+        }
+    }
 
+    /// The tab bar shows whenever any top-level tab exists.
+    pub fn has_tabs(&self) -> bool {
+        self.app
+            .widgets
+            .iter()
+            .any(|w| matches!(w.kind, WidgetKind::Tab { .. }))
+    }
+
+    pub fn is_root(&self, id: &str) -> bool {
+        self.paths.get(id).is_some_and(|p| p.len() == 1)
+    }
+
+    /// Ids of the widgets on screen right now, preorder: bare content roots
+    /// and the active tab's subtree. Chrome and hidden tabs are excluded.
+    /// Computed from the tree, not from `areas`, so it is valid before the
+    /// first layout pass.
+    pub fn visible_ids(&self) -> Vec<String> {
+        let active = self.pages().get(self.page).and_then(|p| p.id.clone());
+        let mut out = Vec::new();
         for (i, w) in self.app.widgets.iter().enumerate() {
             match &w.kind {
-                k if k.is_page_marker() => {
-                    let title = match k {
-                        WidgetKind::Body { title } | WidgetKind::Tab { title } => title.clone(),
-                        _ => "page".into(),
-                    };
-                    if let Some(page) = current.take() {
-                        pages.push(page);
+                WidgetKind::Tab { .. } => {
+                    if Some(&w.id) == active.as_ref() {
+                        out.extend(subtree_ids(&self.app, &[i]));
                     }
-                    current = Some(Page {
-                        title,
-                        body_id: Some(w.id.clone()),
-                        splitter: None,
-                        content: Vec::new(),
-                    });
-                }
-                WidgetKind::Splitter { .. } => {
-                    let page = current.get_or_insert_with(implicit_page);
-                    page.splitter = Some(i);
                 }
                 k if k.is_chrome() => {}
-                _ => {
-                    let page = current.get_or_insert_with(implicit_page);
-                    page.content.push(i);
-                }
+                _ => out.extend(subtree_ids(&self.app, &[i])),
             }
         }
-        if let Some(page) = current {
-            pages.push(page);
-        }
-        if pages.is_empty() {
-            pages.push(implicit_page());
-        }
-        pages
+        out
+    }
+
+    fn visible_widgets(&self) -> impl Iterator<Item = &Widget> {
+        self.visible_ids()
+            .into_iter()
+            .filter_map(|id| self.app.widget(&id))
     }
 
     fn default_focus(&self) -> Option<String> {
         let ids = self.focusable_ids();
-        let preferred = [
-            "table",
-            "list",
-            "tree",
-            "log",
-            "keybindings",
-            "textbox",
-            "search",
-            "menu",
-            "splitter",
+        let preferred: [fn(&WidgetKind) -> bool; 7] = [
+            |k| matches!(k, WidgetKind::Table { .. }),
+            |k| matches!(k, WidgetKind::Tree { .. }),
+            |k| matches!(k, WidgetKind::Log { .. }),
+            |k| matches!(k, WidgetKind::TextBox { .. }),
+            |k| matches!(k, WidgetKind::Search { .. }),
+            |k| matches!(k, WidgetKind::Menu { .. }),
+            |k| matches!(k, WidgetKind::Split { .. }),
         ];
-        for prefix in preferred {
-            if let Some(id) = ids.iter().find(|id| id.starts_with(prefix)) {
+        for wanted in preferred {
+            if let Some(id) = ids
+                .iter()
+                .find(|id| self.app.widget_kind(id).is_some_and(wanted))
+            {
                 return Some(id.clone());
             }
         }
         ids.into_iter().next()
     }
 
+    /// Tab order: top-level menu/search first, then visible leaves, then
+    /// visible split handles last.
     pub fn focusable_ids(&self) -> Vec<String> {
-        let pages = self.pages();
-        let page = pages.get(self.page);
-        let mut ids = Vec::new();
-        for w in &self.app.widgets {
-            if matches!(w.kind, WidgetKind::Menu { .. } | WidgetKind::Search { .. })
-                && w.kind.is_focusable()
-            {
-                ids.push(w.id.clone());
-            }
-        }
-        if let Some(page) = page {
-            for idx in &page.content {
-                if let Some(w) = self.app.widgets.get(*idx)
-                    && w.kind.is_focusable()
-                {
-                    ids.push(w.id.clone());
-                }
-            }
-            if let Some(si) = page.splitter
-                && let Some(w) = self.app.widgets.get(si)
-            {
-                ids.push(w.id.clone());
-            }
-        }
+        let mut ids: Vec<String> = self
+            .app
+            .widgets
+            .iter()
+            .filter(|w| matches!(w.kind, WidgetKind::Menu { .. } | WidgetKind::Search { .. }))
+            .map(|w| w.id.clone())
+            .collect();
+        let visible: Vec<&Widget> = self.visible_widgets().collect();
+        ids.extend(
+            visible
+                .iter()
+                .filter(|w| w.kind.is_focusable() && !w.kind.is_container())
+                .map(|w| w.id.clone()),
+        );
+        ids.extend(
+            visible
+                .iter()
+                .filter(|w| matches!(w.kind, WidgetKind::Split { .. }))
+                .map(|w| w.id.clone()),
+        );
         ids
     }
 
@@ -414,13 +445,30 @@ impl Session {
             return;
         }
 
-        if !self.is_editing() && self.match_search_bind(&chord) {
-            self.focus_search();
+        if !self.is_editing()
+            && let Some(id) = self.search_bound_to(&chord)
+        {
+            self.focused = Some(id);
             return;
         }
 
         if self.is_editing() {
             self.handle_text_key(key, &chord);
+            return;
+        }
+
+        // Alt+mnemonic opens a menu-bar item from anywhere.
+        if let Some(letter) = chord.strip_prefix("alt+").and_then(single_char)
+            && let Some((id, idx)) = self.menu_bar_item_with_mnemonic(letter)
+        {
+            self.focused = Some(id.clone());
+            self.selected.insert(id.clone(), idx);
+            self.menu_open_or_activate(&id);
+            return;
+        }
+
+        if self.menu_open.is_some() {
+            self.handle_dropdown_key(&chord);
             return;
         }
 
@@ -446,7 +494,12 @@ impl Session {
                 return;
             }
             "enter" => {
-                self.submit();
+                match self.focused.clone() {
+                    Some(id) if matches!(self.focused_kind(), Some(WidgetKind::Menu { .. })) => {
+                        self.menu_open_or_activate(&id)
+                    }
+                    _ => self.submit(),
+                }
                 return;
             }
             _ => {}
@@ -466,17 +519,16 @@ impl Session {
             Some(WidgetKind::Tree { .. }) => {
                 self.handle_tree_nav(&chord);
             }
-            Some(
-                WidgetKind::Table { .. } | WidgetKind::List { .. } | WidgetKind::Keybindings { .. },
-            ) => {
+            Some(WidgetKind::Table { capture_keys, .. }) => {
+                let capture = *capture_keys;
                 if self.handle_list_nav(&chord) {
                     return;
                 }
-                if matches!(self.focused_kind(), Some(WidgetKind::Keybindings { .. }))
+                if capture
                     && !is_nav_chord(&chord)
+                    && let Some(id) = self.focused.clone()
                 {
-                    self.search = chord;
-                    self.search_cursor = self.search.chars().count();
+                    self.capture_chord(&id, chord);
                 }
             }
             Some(WidgetKind::Log { .. }) => {
@@ -497,7 +549,7 @@ impl Session {
             Some(WidgetKind::Menu { .. }) => {
                 self.handle_menu_nav(&chord);
             }
-            Some(WidgetKind::Splitter { .. }) => {
+            Some(WidgetKind::Split { .. }) => {
                 self.handle_splitter_nav(&chord);
             }
             _ => {
@@ -515,31 +567,44 @@ impl Session {
         }
     }
 
-    fn match_search_bind(&self, chord: &str) -> bool {
-        self.app.widgets.iter().any(|w| {
-            if let WidgetKind::Search {
-                bind: Some(bind), ..
-            } = &w.kind
-            {
-                normalize_bind(bind) == normalize_bind(chord)
-            } else {
-                false
-            }
-        })
+    /// The search box (visible or top-level) whose `--bind` matches `chord`.
+    fn search_bound_to(&self, chord: &str) -> Option<String> {
+        let wanted = normalize_bind(chord);
+        self.app
+            .iter()
+            .find(|w| match &w.kind {
+                WidgetKind::Search {
+                    bind: Some(bind), ..
+                } => normalize_bind(bind) == wanted,
+                _ => false,
+            })
+            .map(|w| w.id.clone())
     }
 
-    fn focus_search(&mut self) {
-        if let Some(w) = self
-            .app
-            .widgets
-            .iter()
-            .find(|w| matches!(w.kind, WidgetKind::Search { .. }))
-        {
-            self.focused = Some(w.id.clone());
-        }
+    /// Text of a search box, or the captured chord of a table.
+    pub fn query_text(&self, id: &str) -> &str {
+        self.text_values.get(id).map(String::as_str).unwrap_or("")
+    }
+
+    /// Store a chord pressed on a `capture_keys` table as the filter query:
+    /// in the search box that scopes the table if there is one, otherwise on
+    /// the table itself.
+    fn capture_chord(&mut self, table_id: &str, chord: String) {
+        let target = self
+            .scoping_search(table_id)
+            .unwrap_or_else(|| table_id.to_string());
+        self.text_cursors
+            .insert(target.clone(), chord.chars().count());
+        self.text_values.insert(target, chord);
+        self.clamp_all_lists();
+        self.refresh_previews();
     }
 
     fn handle_text_key(&mut self, key: KeyEvent, chord: &str) {
+        let Some(id) = self.focused.clone() else {
+            return;
+        };
+        let is_search = self.search_is_focused();
         match chord {
             "tab" => {
                 self.focus_next();
@@ -550,9 +615,11 @@ impl Session {
                 return;
             }
             "esc" => {
-                if self.search_is_focused() && !self.search.is_empty() {
-                    self.search.clear();
-                    self.search_cursor = 0;
+                if is_search && !self.query_text(&id).is_empty() {
+                    self.text_values.insert(id.clone(), String::new());
+                    self.text_cursors.insert(id, 0);
+                    self.clamp_all_lists();
+                    self.refresh_previews();
                 } else {
                     self.focused = self
                         .focusable_ids()
@@ -563,39 +630,24 @@ impl Session {
                 return;
             }
             "enter" => {
-                if self.search_is_focused() {
-                    return;
-                }
                 self.submit();
                 return;
             }
             _ => {}
         }
 
-        if self.search_is_focused() {
-            let mut text = self.search.clone();
-            let mut cursor = self.search_cursor;
-            if apply_edit(key, &mut text, &mut cursor) {
-                self.search = text;
-                self.search_cursor = cursor;
+        let mut text = self.text_values.get(&id).cloned().unwrap_or_default();
+        let mut cursor = self
+            .text_cursors
+            .get(&id)
+            .copied()
+            .unwrap_or(text.chars().count());
+        if apply_edit(key, &mut text, &mut cursor) {
+            self.text_values.insert(id.clone(), text);
+            self.text_cursors.insert(id, cursor);
+            if is_search {
                 self.clamp_all_lists();
                 self.refresh_previews();
-            }
-            return;
-        }
-
-        if let Some(id) = self.focused.clone()
-            && let Some(WidgetKind::TextBox { .. }) = self.app.widget_kind(&id)
-        {
-            let mut text = self.text_values.get(&id).cloned().unwrap_or_default();
-            let mut cursor = self
-                .text_cursors
-                .get(&id)
-                .copied()
-                .unwrap_or(text.chars().count());
-            if apply_edit(key, &mut text, &mut cursor) {
-                self.text_values.insert(id.clone(), text);
-                self.text_cursors.insert(id, cursor);
             }
         }
     }
@@ -635,10 +687,7 @@ impl Session {
         let Some(id) = self.focused.clone() else {
             return;
         };
-        let len = match self.app.widget_kind(&id) {
-            Some(WidgetKind::Menu { items }) => items.len(),
-            _ => 0,
-        };
+        let len = self.menu_items(&id).map(|i| i.len()).unwrap_or(0);
         if len == 0 {
             return;
         }
@@ -648,9 +697,198 @@ impl Session {
             "right" | "l" => (selected + 1).min(len.saturating_sub(1)),
             "home" => 0,
             "end" => len.saturating_sub(1),
+            "down" | "j" => {
+                self.menu_open_or_activate(&id);
+                return;
+            }
             _ => return,
         };
         self.selected.insert(id, next);
+    }
+
+    fn menu_items(&self, id: &str) -> Option<&[MenuItem]> {
+        match self.app.widget_kind(id) {
+            Some(WidgetKind::Menu { items }) => Some(items),
+            _ => None,
+        }
+    }
+
+    /// The bar item (menu id, index) whose mnemonic is `letter`.
+    fn menu_bar_item_with_mnemonic(&self, letter: char) -> Option<(String, usize)> {
+        let letter = letter.to_ascii_lowercase();
+        self.app.iter().find_map(|w| match &w.kind {
+            WidgetKind::Menu { items } => items
+                .iter()
+                .position(|item| item.mnemonic == Some(letter))
+                .map(|idx| (w.id.clone(), idx)),
+            _ => None,
+        })
+    }
+
+    /// Enter/Down on a bar item: open its dropdown, or activate it if it
+    /// has none.
+    fn menu_open_or_activate(&mut self, id: &str) {
+        let sel = self.selected.get(id).copied().unwrap_or(0);
+        let has_items = self
+            .menu_items(id)
+            .and_then(|items| items.get(sel))
+            .is_some_and(|item| !item.items.is_empty());
+        if has_items {
+            self.menu_open = Some(id.to_string());
+            self.menu_item.insert(id.to_string(), 0);
+        } else {
+            self.activate_menu_item(id, sel, None);
+        }
+    }
+
+    /// Keys while a dropdown is open. Letters pick by mnemonic.
+    fn handle_dropdown_key(&mut self, chord: &str) {
+        let Some(id) = self.menu_open.clone() else {
+            return;
+        };
+        let top = self.selected.get(&id).copied().unwrap_or(0);
+        let top_len = self.menu_items(&id).map(|i| i.len()).unwrap_or(0);
+        let sub: Vec<Option<char>> = self
+            .menu_items(&id)
+            .and_then(|items| items.get(top))
+            .map(|item| item.items.iter().map(|i| i.mnemonic).collect())
+            .unwrap_or_default();
+        let row = self.menu_item.get(&id).copied().unwrap_or(0);
+        match chord {
+            "esc" => self.menu_open = None,
+            "tab" => {
+                self.menu_open = None;
+                self.focus_next();
+            }
+            "shift+tab" => {
+                self.menu_open = None;
+                self.focus_prev();
+            }
+            "up" | "k" => {
+                self.menu_item.insert(id, row.saturating_sub(1));
+            }
+            "down" | "j" => {
+                self.menu_item
+                    .insert(id, (row + 1).min(sub.len().saturating_sub(1)));
+            }
+            "left" | "h" | "right" | "l" => {
+                let next = if matches!(chord, "left" | "h") {
+                    top.saturating_sub(1)
+                } else {
+                    (top + 1).min(top_len.saturating_sub(1))
+                };
+                self.selected.insert(id.clone(), next);
+                self.menu_open = None;
+                self.menu_open_or_activate(&id);
+            }
+            "enter" => self.activate_menu_item(&id, top, Some(row)),
+            _ => {
+                if let Some(letter) = single_char(chord)
+                    && let Some(idx) = sub
+                        .iter()
+                        .position(|m| *m == Some(letter.to_ascii_lowercase()))
+                {
+                    self.activate_menu_item(&id, top, Some(idx));
+                }
+            }
+        }
+    }
+
+    /// Run the item's action, or submit it when it has none.
+    fn activate_menu_item(&mut self, id: &str, top: usize, sub: Option<usize>) {
+        let Some(bar) = self.menu_items(id).and_then(|items| items.get(top)) else {
+            return;
+        };
+        let (item, selected) = match sub {
+            Some(i) => {
+                let Some(item) = bar.items.get(i) else {
+                    return;
+                };
+                let mut rec = Record::new();
+                rec.insert("menu", Value::string(bar.label.clone(), Span::unknown()));
+                rec.insert("item", Value::string(item.label.clone(), Span::unknown()));
+                // The row highlighted in the first visible table/tree, so a
+                // menu entry can act on it.
+                rec.insert("row", self.current_row());
+                (item.clone(), Value::record(rec, Span::unknown()))
+            }
+            None => (
+                bar.clone(),
+                Value::string(bar.label.clone(), Span::unknown()),
+            ),
+        };
+        self.menu_open = None;
+        match item.action {
+            Some(closure) => self.run_menu_action(closure),
+            None => {
+                self.outcome = Some(Outcome {
+                    action: Action::Submit,
+                    selected,
+                });
+            }
+        }
+    }
+
+    /// A returned value replaces the data list; `nothing` changes nothing.
+    fn run_menu_action(&mut self, closure: Closure) {
+        let Some((engine_state, stack)) = self.preview_engine.take() else {
+            return;
+        };
+        let eval = ClosureEvalOnce::new(&engine_state, &stack, closure);
+        match eval
+            .run_with_input(nu_protocol::PipelineData::empty())
+            .and_then(|data| data.into_value(Span::unknown()))
+        {
+            Ok(value) if value.is_nothing() => self.refresh_error = None,
+            Ok(value) => {
+                self.refresh_error = None;
+                self.preview_engine = Some((engine_state, stack));
+                self.replace_data(value);
+                return;
+            }
+            Err(err) => self.refresh_error = Some(truncate_chars(&err.to_string(), 80)),
+        }
+        self.preview_engine = Some((engine_state, stack));
+    }
+
+    /// Horizontal offset and width of each bar item, as drawn.
+    pub fn menu_item_ranges(items: &[MenuItem]) -> Vec<(u16, u16)> {
+        let mut x = 0u16;
+        items
+            .iter()
+            .map(|item| {
+                let width = item.label.chars().count() as u16 + 2;
+                let range = (x, width);
+                x = x.saturating_add(width);
+                range
+            })
+            .collect()
+    }
+
+    /// Where the open dropdown is drawn, below its bar item.
+    pub fn menu_dropdown_rect(&self) -> Option<Rect> {
+        let id = self.menu_open.as_deref()?;
+        let bar = *self.areas.get(id)?;
+        let items = self.menu_items(id)?;
+        let top = self.selected.get(id).copied().unwrap_or(0);
+        let entries = &items.get(top)?.items;
+        if entries.is_empty() {
+            return None;
+        }
+        let (offset, _) = Self::menu_item_ranges(items).get(top).copied()?;
+        let width = entries
+            .iter()
+            .map(|i| i.label.chars().count())
+            .max()
+            .unwrap_or(0) as u16
+            + 4;
+        let max_x = bar.x.saturating_add(bar.width.saturating_sub(width));
+        Some(Rect {
+            x: bar.x.saturating_add(offset).min(max_x),
+            y: bar.y.saturating_add(bar.height),
+            width: width.min(bar.width),
+            height: entries.len() as u16 + 2,
+        })
     }
 
     fn handle_splitter_nav(&mut self, chord: &str) {
@@ -658,7 +896,7 @@ impl Session {
             return;
         };
         let dir = match self.app.widget_kind(&id) {
-            Some(WidgetKind::Splitter { direction, .. }) => *direction,
+            Some(WidgetKind::Split { direction, .. }) => *direction,
             _ => return,
         };
         let ratio = self.splitter_ratio.get(&id).copied().unwrap_or(500);
@@ -693,7 +931,7 @@ impl Session {
             return;
         };
         let (walk, column) = match self.app.widget_kind(&id) {
-            Some(WidgetKind::Tree { walk, column, .. }) => (*walk, column.clone()),
+            Some(WidgetKind::Tree { walk, column }) => (*walk, column.clone()),
             _ => return,
         };
         let rows = self.tree_rows(&id);
@@ -717,10 +955,10 @@ impl Session {
     }
 
     pub fn tree_rows(&self, id: &str) -> Vec<TreeRow> {
-        let Some(WidgetKind::Tree { data, walk, column }) = self.app.widget_kind(id) else {
+        let Some(WidgetKind::Tree { walk, column }) = self.app.widget_kind(id) else {
             return Vec::new();
         };
-        let source = data.as_ref().unwrap_or(&self.app.data);
+        let source = &self.app.data;
         let expanded = self.tree_expanded.get(id).cloned().unwrap_or_default();
         let cache = self.tree_cache.get(id).cloned().unwrap_or_default();
         let mut rows = tree::flatten(source, &expanded, *walk, column, &self.cwd, &cache);
@@ -741,6 +979,18 @@ impl Session {
         match mouse.kind {
             MouseEventKind::Down(MouseButton::Left) => {
                 self.dragging = None;
+                if let Some(id) = self.menu_open.clone() {
+                    let rect = self.menu_dropdown_rect();
+                    self.menu_open = None;
+                    if let Some(rect) = rect
+                        && contains(rect, mouse.column, mouse.row)
+                    {
+                        let row = mouse.row.saturating_sub(rect.y).saturating_sub(1) as usize;
+                        let top = self.selected.get(&id).copied().unwrap_or(0);
+                        self.activate_menu_item(&id, top, Some(row));
+                        return;
+                    }
+                }
                 for (i, area) in self.tab_areas.iter().enumerate() {
                     if contains(*area, mouse.column, mouse.row) {
                         self.page = i;
@@ -770,16 +1020,14 @@ impl Session {
                             self.refresh_previews();
                         }
                     }
-                    if let Some(WidgetKind::Menu { items }) = self.app.widget_kind(&id)
-                        && !items.is_empty()
-                        && area.width > 0
-                    {
-                        let rel = mouse.column.saturating_sub(area.x) as usize;
-                        if let Some(idx) = (area.width as usize)
-                            .checked_div(items.len())
-                            .and_then(|slot| rel.checked_div(slot))
+                    if let Some(items) = self.menu_items(&id) {
+                        let rel = mouse.column.saturating_sub(area.x);
+                        if let Some(idx) = Self::menu_item_ranges(items)
+                            .iter()
+                            .position(|(x, w)| rel >= *x && rel < x + w)
                         {
-                            self.selected.insert(id, idx.min(items.len() - 1));
+                            self.selected.insert(id.clone(), idx);
+                            self.menu_open_or_activate(&id);
                         }
                     }
                 }
@@ -1001,7 +1249,7 @@ impl Session {
             if !contains(*area, x, y) {
                 continue;
             }
-            if matches!(self.app.widget_kind(id), Some(WidgetKind::Body { .. })) {
+            if self.app.widget_kind(id).is_some_and(|k| k.is_container()) {
                 continue;
             }
             let size = area.width as u32 * area.height as u32;
@@ -1017,12 +1265,9 @@ impl Session {
     }
 
     fn first_scrollable_id(&self) -> Option<String> {
-        let pages = self.pages();
-        let page = pages.get(self.page)?;
-        page.content.iter().find_map(|i| {
-            let w = self.app.widgets.get(*i)?;
-            w.kind.is_scrollable().then(|| w.id.clone())
-        })
+        self.visible_widgets()
+            .find(|w| w.kind.is_scrollable())
+            .map(|w| w.id.clone())
     }
 
     fn ensure_visible(&mut self, id: &str, selected: usize) {
@@ -1041,7 +1286,7 @@ impl Session {
     }
 
     fn clamp_all_lists(&mut self) {
-        let ids: Vec<String> = self.app.widgets.iter().map(|w| w.id.clone()).collect();
+        let ids: Vec<String> = self.app.iter().map(|w| w.id.clone()).collect();
         for id in ids {
             let len = self.filtered_len(&id);
             if let Some(sel) = self.selected.get_mut(&id) {
@@ -1085,27 +1330,21 @@ impl Session {
     pub fn refresh_previews(&mut self) {
         struct PreviewSpec {
             id: String,
-            column: String,
             max_bytes: usize,
             transform: Option<Closure>,
-            from: Option<String>,
         }
         let previews: Vec<PreviewSpec> = self
             .app
-            .widgets
             .iter()
             .filter_map(|w| match &w.kind {
                 WidgetKind::Preview {
-                    column,
                     max_bytes,
                     transform,
-                    from,
+                    ..
                 } => Some(PreviewSpec {
                     id: w.id.clone(),
-                    column: column.clone(),
                     max_bytes: *max_bytes,
                     transform: transform.clone(),
-                    from: from.clone(),
                 }),
                 _ => None,
             })
@@ -1114,43 +1353,46 @@ impl Session {
         let engine = self.preview_engine.take();
         for PreviewSpec {
             id,
-            column,
             max_bytes,
             transform,
-            from,
         } in previews
         {
-            let table_id = from.or_else(|| self.preview_source_id());
-            let row = table_id.as_ref().and_then(|tid| {
-                let idx = self.selected.get(tid).copied().unwrap_or(0);
-                self.filtered_rows(tid).into_iter().nth(idx)
+            let row = self.preview_source_id(&id).and_then(|tid| {
+                let idx = self.selected.get(&tid).copied().unwrap_or(0);
+                self.filtered_rows(&tid).into_iter().nth(idx)
             });
-            let file = match &row {
-                Some(row) => preview_for_row(row, &column, max_bytes, &self.cwd),
-                None => FilePreview {
+            let closure = transform.zip(engine.as_ref());
+            let wants_row = closure
+                .as_ref()
+                .is_some_and(|(c, (engine_state, _))| closure_wants_row(engine_state, c));
+            let file = match (&row, wants_row) {
+                // One-parameter closure: it is the source, no file is read.
+                (Some(row), true) => FilePreview {
+                    title: row_path_name(row).unwrap_or("preview").to_string(),
+                    text: String::new(),
+                    path: None,
+                    transformable: true,
+                },
+                (Some(row), false) => preview_for_row(row, max_bytes, &self.cwd),
+                (None, _) => FilePreview {
                     title: "preview".into(),
                     text: String::new(),
                     path: None,
                     transformable: false,
                 },
             };
-            let text = if file.transformable {
-                if let (Some(closure), Some((engine_state, stack)), Some(row)) =
-                    (transform, engine.as_ref(), row.as_ref())
-                {
+            let text = match (file.transformable, closure, row.as_ref()) {
+                (true, Some((closure, (engine_state, stack))), Some(row)) => {
                     apply_preview_transform(
                         engine_state,
                         stack,
                         closure,
-                        row,
+                        wants_row.then_some(row),
                         &file.text,
                         file.path.as_deref(),
                     )
-                } else {
-                    file.text
                 }
-            } else {
-                file.text
+                _ => file.text,
             };
             let changed = self.preview_title.get(&id) != Some(&file.title);
             self.preview_title.insert(id.clone(), file.title);
@@ -1162,25 +1404,35 @@ impl Session {
         self.preview_engine = engine;
     }
 
-    fn preview_source_id(&self) -> Option<String> {
+    /// Which table/tree a preview follows: `--from` if given, else the
+    /// focused row source, else the nearest one in an enclosing container,
+    /// else the first visible one.
+    pub fn preview_source_id(&self, preview_id: &str) -> Option<String> {
+        if let Some(WidgetKind::Preview {
+            from: Some(from), ..
+        }) = self.app.widget_kind(preview_id)
+        {
+            return Some(from.clone());
+        }
         if let Some(id) = &self.focused
-            && matches!(
-                self.app.widget_kind(id),
-                Some(WidgetKind::Table { .. } | WidgetKind::List { .. } | WidgetKind::Tree { .. })
-            )
+            && self.app.widget_kind(id).is_some_and(|k| k.is_row_source())
         {
             return Some(id.clone());
         }
-        let pages = self.pages();
-        let page = pages.get(self.page)?;
-        page.content.iter().find_map(|i| {
-            let w = self.app.widgets.get(*i)?;
-            matches!(
-                w.kind,
-                WidgetKind::Table { .. } | WidgetKind::List { .. } | WidgetKind::Tree { .. }
-            )
-            .then(|| w.id.clone())
-        })
+        let is_source = |id: &String| {
+            id != preview_id && self.app.widget_kind(id).is_some_and(|k| k.is_row_source())
+        };
+        if let Some(path) = self.paths.get(preview_id) {
+            for depth in (1..path.len()).rev() {
+                if let Some(id) = subtree_ids(&self.app, &path[..depth])
+                    .into_iter()
+                    .find(is_source)
+                {
+                    return Some(id);
+                }
+            }
+        }
+        self.visible_ids().into_iter().find(is_source)
     }
 
     pub fn filtered_len(&self, id: &str) -> usize {
@@ -1192,59 +1444,54 @@ impl Session {
             return Vec::new();
         };
         match kind {
-            WidgetKind::Table { data, .. }
-            | WidgetKind::List { data }
-            | WidgetKind::Keybindings { data } => {
-                let source = data.as_ref().unwrap_or(&self.app.data);
-                filter_values(source, self.query_for(id))
+            WidgetKind::Table { .. } | WidgetKind::Log { .. } => {
+                filter_values(&self.app.data, self.query_for(id))
             }
-            WidgetKind::Log { .. } => filter_values(&self.app.data, self.query_for(id)),
             WidgetKind::Tree { .. } => self.tree_rows(id).into_iter().map(|r| r.value).collect(),
             _ => Vec::new(),
         }
     }
 
-    fn query_for(&self, id: &str) -> &str {
-        if self.search.is_empty() {
-            return "";
-        }
-        let mut saw_search = false;
-        let mut applies = false;
-        for w in &self.app.widgets {
-            if let WidgetKind::Search { target, .. } = &w.kind {
-                saw_search = true;
-                match target.as_deref() {
-                    None => applies = true,
-                    Some(t) if t == id => applies = true,
-                    _ => {}
-                }
+    /// The search box that filters widget `id`: the deepest search whose
+    /// parent container encloses `id`. A top-level search encloses everything.
+    pub fn scoping_search(&self, id: &str) -> Option<String> {
+        let path = self.paths.get(id)?;
+        let mut best: Option<(usize, String)> = None;
+        for w in self.app.iter() {
+            if !matches!(w.kind, WidgetKind::Search { .. }) {
+                continue;
+            }
+            let Some(spath) = self.paths.get(&w.id) else {
+                continue;
+            };
+            let parent = &spath[..spath.len().saturating_sub(1)];
+            if path.starts_with(parent) && best.as_ref().is_none_or(|(d, _)| parent.len() > *d) {
+                best = Some((parent.len(), w.id.clone()));
             }
         }
-        if !saw_search || applies {
-            self.search.as_str()
-        } else {
-            ""
+        best.map(|(_, id)| id)
+    }
+
+    /// Active filter text for widget `id`: its own captured chord, else the
+    /// text of the search box that scopes it.
+    fn query_for(&self, id: &str) -> &str {
+        let own = self.query_text(id);
+        if !own.is_empty() {
+            return own;
+        }
+        match self.scoping_search(id) {
+            Some(search) => self.query_text(&search),
+            None => "",
         }
     }
 
     pub fn table_columns(&self, id: &str) -> Vec<String> {
         match self.app.widget_kind(id) {
-            Some(WidgetKind::Table { columns, data }) => {
+            Some(WidgetKind::Table { columns, .. }) => {
                 if !columns.is_empty() {
-                    columns.clone()
-                } else {
-                    let source = data.as_ref().unwrap_or(&self.app.data);
-                    let rows = as_list(source);
-                    get_columns(rows)
+                    return columns.clone();
                 }
-            }
-            Some(WidgetKind::Keybindings { .. }) => {
-                vec!["name".into(), "key".into(), "mode".into(), "event".into()]
-            }
-            Some(WidgetKind::List { data }) => {
-                let source = data.as_ref().unwrap_or(&self.app.data);
-                let rows = as_list(source);
-                let cols = get_columns(rows);
+                let cols = get_columns(as_list(&self.app.data));
                 if cols.is_empty() {
                     vec!["item".into()]
                 } else {
@@ -1261,17 +1508,8 @@ impl Session {
         }
         let follow: Vec<(String, bool)> = self
             .app
-            .widgets
             .iter()
-            .filter(|w| {
-                matches!(
-                    w.kind,
-                    WidgetKind::Table { .. }
-                        | WidgetKind::List { .. }
-                        | WidgetKind::Log { .. }
-                        | WidgetKind::Tree { .. }
-                )
-            })
+            .filter(|w| w.kind.is_scrollable())
             .map(|w| {
                 let len = self.filtered_len(&w.id);
                 let sel = self.selected.get(&w.id).copied().unwrap_or(0);
@@ -1327,7 +1565,6 @@ impl Session {
         const DEFAULT: usize = 10_000;
         let log_cap = self
             .app
-            .widgets
             .iter()
             .filter_map(|w| match &w.kind {
                 WidgetKind::Log { max_lines } => Some(*max_lines),
@@ -1339,8 +1576,14 @@ impl Session {
     }
 
     pub fn replace_data(&mut self, value: Value) {
+        let value_span = value.span();
         self.app.data = match value {
             Value::List { .. } => value,
+            Value::Range { val, .. } if val.is_bounded() => Value::list(
+                val.into_range_iter(value_span, nu_protocol::Signals::empty())
+                    .collect(),
+                value_span,
+            ),
             other if other.is_nothing() => Value::list(Vec::new(), other.span()),
             other => {
                 let span = other.span();
@@ -1480,10 +1723,10 @@ impl Session {
                     Span::unknown(),
                 );
             }
-            if let Some(WidgetKind::Menu { items }) = self.app.widget_kind(id) {
+            if let Some(items) = self.menu_items(id) {
                 let idx = self.selected.get(id).copied().unwrap_or(0);
                 if let Some(item) = items.get(idx) {
-                    return Value::string(item.clone(), Span::unknown());
+                    return Value::string(item.label.clone(), Span::unknown());
                 }
             }
             let rows = self.filtered_rows(id);
@@ -1492,8 +1735,12 @@ impl Session {
                 return row.clone();
             }
         }
-        // Prefer a selected table/keybindings row even if focus is elsewhere.
-        for w in &self.app.widgets {
+        self.current_row()
+    }
+
+    /// The highlighted row of the first visible table, log, or tree.
+    fn current_row(&self) -> Value {
+        for w in self.visible_widgets() {
             if w.kind.is_scrollable() {
                 let rows = self.filtered_rows(&w.id);
                 let idx = self.selected.get(&w.id).copied().unwrap_or(0);
@@ -1503,6 +1750,19 @@ impl Session {
             }
         }
         Value::nothing(Span::unknown())
+    }
+
+    /// Text of the focused search box, or of the first one.
+    fn search_text(&self) -> &str {
+        let id = match &self.focused {
+            Some(id) if self.search_is_focused() => Some(id.clone()),
+            _ => self
+                .app
+                .iter()
+                .find(|w| matches!(w.kind, WidgetKind::Search { .. }))
+                .map(|w| w.id.clone()),
+        };
+        id.map(|id| self.query_text(&id)).unwrap_or("")
     }
 
     fn submit(&mut self) {
@@ -1520,6 +1780,12 @@ impl Session {
     }
 
     pub fn result_record(&self, span: Span, screen: Option<String>) -> Value {
+        Value::record(self.result_fields(span, screen), span)
+    }
+
+    /// Fields of the result record: action, focused, selected, search, page,
+    /// values, rows, live, and `screen` when rendered headless.
+    pub fn result_fields(&self, span: Span, screen: Option<String>) -> Record {
         let mut rec = Record::new();
         let action = match self.outcome.as_ref().map(|o| o.action) {
             Some(Action::Submit) => "submit",
@@ -1531,7 +1797,7 @@ impl Session {
             "focused",
             Value::string(self.focused.clone().unwrap_or_default(), span),
         );
-        rec.insert("search", Value::string(self.search.clone(), span));
+        rec.insert("search", Value::string(self.search_text(), span));
         rec.insert("page", Value::int(self.page as i64, span));
         let selected = self
             .outcome
@@ -1541,8 +1807,10 @@ impl Session {
         rec.insert("selected", selected);
 
         let mut values = Record::new();
-        for (id, text) in &self.text_values {
-            values.insert(id.clone(), Value::string(text.clone(), span));
+        for w in self.app.iter() {
+            if let WidgetKind::TextBox { .. } = w.kind {
+                values.insert(w.id.clone(), Value::string(self.query_text(&w.id), span));
+            }
         }
         rec.insert("values", Value::record(values, span));
         rec.insert(
@@ -1554,13 +1822,16 @@ impl Session {
         if let Some(screen) = screen {
             rec.insert("screen", Value::string(screen, span));
         }
-        Value::record(rec, span)
+        rec
     }
 
     pub fn status_text(&self) -> String {
         let extra = self.live_status_bits();
         if let Some(text) = self.app.widgets.iter().find_map(|w| match &w.kind {
-            WidgetKind::Status { text } => Some(text.clone()),
+            WidgetKind::Label {
+                text,
+                slot: Slot::Status,
+            } => Some(text.clone()),
             _ => None,
         }) {
             if extra.is_empty() {
@@ -1576,13 +1847,14 @@ impl Session {
     fn live_status_bits(&self) -> String {
         let mut bits = Vec::new();
         if let Some(err) = &self.refresh_error {
-            bits.push(format!("refresh error:{err}"));
+            bits.push(format!("error:{err}"));
         }
         if let Some(id) = &self.focused {
             bits.push(format!("focus:{id}"));
         }
-        if !self.search.is_empty() {
-            bits.push(format!("filter:{}", self.search));
+        let search = self.search_text();
+        if !search.is_empty() {
+            bits.push(format!("filter:{search}"));
         }
         let n = as_list(&self.app.data).len();
         if n > 0 || self.stream_live {
@@ -1603,19 +1875,121 @@ impl Session {
         bits.push("tab:focus  [:page  q:quit".into());
         bits.join("  ")
     }
-}
 
-fn implicit_page() -> Page {
-    Page {
-        title: "main".into(),
-        body_id: None,
-        splitter: None,
-        content: Vec::new(),
+    /// Resolved state for `tui debug`: the widget tree with layout rects,
+    /// focusability, resolved columns, search scope and preview source;
+    /// the focus order; and the pages. Run `layout` first so rects exist.
+    pub fn debug_record(&self, span: Span) -> Record {
+        let extend = |w: &Widget, rec: &mut Record| {
+            if let Some(area) = self.areas.get(&w.id) {
+                let mut r = Record::new();
+                r.insert("x", Value::int(area.x as i64, span));
+                r.insert("y", Value::int(area.y as i64, span));
+                r.insert("width", Value::int(area.width as i64, span));
+                r.insert("height", Value::int(area.height as i64, span));
+                rec.insert("rect", Value::record(r, span));
+            }
+            rec.insert("focusable", Value::bool(w.kind.is_focusable(), span));
+            match &w.kind {
+                WidgetKind::Table { .. } => {
+                    let cols = self.table_columns(&w.id);
+                    rec.insert(
+                        "resolved_columns",
+                        Value::list(
+                            cols.into_iter().map(|c| Value::string(c, span)).collect(),
+                            span,
+                        ),
+                    );
+                    rec.insert("rows", Value::int(self.filtered_len(&w.id) as i64, span));
+                }
+                WidgetKind::Log { .. } | WidgetKind::Tree { .. } => {
+                    rec.insert("rows", Value::int(self.filtered_len(&w.id) as i64, span));
+                }
+                WidgetKind::Search { .. } => {
+                    rec.insert("query", Value::string(self.query_text(&w.id), span));
+                }
+                WidgetKind::Preview { .. } => {
+                    rec.insert(
+                        "source",
+                        match self.preview_source_id(&w.id) {
+                            Some(id) => Value::string(id, span),
+                            None => Value::nothing(span),
+                        },
+                    );
+                }
+                _ => {}
+            }
+            if w.kind.is_scrollable() {
+                rec.insert(
+                    "search_scope",
+                    match self.scoping_search(&w.id) {
+                        Some(id) => Value::string(id, span),
+                        None => Value::nothing(span),
+                    },
+                );
+            }
+        };
+        let mut rec = Record::new();
+        rec.insert(
+            "widgets",
+            Value::list(
+                self.app
+                    .widgets
+                    .iter()
+                    .map(|w| widget_to_record(w, span, &extend))
+                    .collect(),
+                span,
+            ),
+        );
+        let mut focus = Record::new();
+        focus.insert(
+            "order",
+            Value::list(
+                self.focusable_ids()
+                    .into_iter()
+                    .map(|id| Value::string(id, span))
+                    .collect(),
+                span,
+            ),
+        );
+        focus.insert(
+            "default",
+            match self.default_focus() {
+                Some(id) => Value::string(id, span),
+                None => Value::nothing(span),
+            },
+        );
+        rec.insert("focus", Value::record(focus, span));
+        rec.insert(
+            "pages",
+            Value::list(
+                self.pages()
+                    .into_iter()
+                    .map(|p| {
+                        let mut r = Record::new();
+                        r.insert("title", Value::string(p.title, span));
+                        r.insert(
+                            "id",
+                            match p.id {
+                                Some(id) => Value::string(id, span),
+                                None => Value::nothing(span),
+                            },
+                        );
+                        Value::record(r, span)
+                    })
+                    .collect(),
+                span,
+            ),
+        );
+        rec
     }
 }
 
-fn percent_to_permille(percent: u16) -> u16 {
-    (percent.clamp(10, 90) as u32 * 10) as u16
+/// The chord's only character, for mnemonic matching.
+fn single_char(chord: &str) -> Option<char> {
+    let mut chars = chord.chars();
+    let c = chars.next()?;
+    chars.next().is_none().then_some(c)
 }
 
 fn digit_page(chord: &str) -> Option<usize> {
@@ -1832,37 +2206,18 @@ pub fn normalize_binding(modifier: &str, keycode: &str) -> String {
     parts.join("+")
 }
 
-pub fn format_event_value(value: &Value) -> String {
-    match value {
-        Value::Record { val, .. } => {
-            if let Some(send) = val.get("send").and_then(|v| v.as_str().ok()) {
-                send.to_string()
-            } else if let Some(cmd) = val.get("cmd").and_then(|v| v.as_str().ok()) {
-                format!("cmd:{cmd}")
-            } else {
-                compact_value(value)
-            }
-        }
-        Value::String { val, .. } => val.clone(),
-        Value::List { .. } => compact_value(value),
-        other => compact_value(other),
-    }
-}
-
-fn compact_value(value: &Value) -> String {
-    let s = value.to_expanded_string(", ", &nu_protocol::Config::default());
-    truncate_chars(&s, 37)
-}
-
 struct FilePreview {
     title: String,
     text: String,
     path: Option<PathBuf>,
+    /// Whether a transform closure should run on `text`.
     transformable: bool,
 }
 
-fn preview_for_row(row: &Value, column: &str, max_bytes: usize, cwd: &Path) -> FilePreview {
-    let Some(name) = row_path(row, column) else {
+/// Read the file named by the row's `name` column (or the row itself when it
+/// is a string).
+fn preview_for_row(row: &Value, max_bytes: usize, cwd: &Path) -> FilePreview {
+    let Some(name) = row_path(row) else {
         return FilePreview {
             title: "preview".into(),
             text: "(no path on this row)".into(),
@@ -1929,32 +2284,40 @@ fn preview_for_row(row: &Value, column: &str, max_bytes: usize, cwd: &Path) -> F
     }
 }
 
+/// A preview closure that declares a parameter receives the selected row and
+/// produces the pane text itself; one without parameters transforms file text.
+fn closure_wants_row(engine_state: &EngineState, closure: &Closure) -> bool {
+    let block = engine_state.get_block(closure.block_id);
+    !block.signature.required_positional.is_empty()
+        || !block.signature.optional_positional.is_empty()
+}
+
+/// Run the preview closure. With `row`, the closure is the source and `$in`
+/// is empty; otherwise `$in` is `text` with the file's `content_type`.
 fn apply_preview_transform(
     engine_state: &EngineState,
     stack: &Stack,
     closure: Closure,
-    row: &Value,
+    row: Option<&Value>,
     text: &str,
     path: Option<&Path>,
 ) -> String {
-    let wants_row = {
-        let block = engine_state.get_block(closure.block_id);
-        !block.signature.required_positional.is_empty()
-            || !block.signature.optional_positional.is_empty()
+    let input = match row {
+        Some(_) => nu_protocol::PipelineData::empty(),
+        None => {
+            let metadata = PipelineMetadata {
+                data_source: path
+                    .map(|p| DataSource::FilePath(p.to_path_buf()))
+                    .unwrap_or_default(),
+                content_type: path.and_then(preview_content_type),
+                ..Default::default()
+            };
+            Value::string(text, Span::unknown()).into_pipeline_data_with_metadata(Some(metadata))
+        }
     };
-
-    let metadata = PipelineMetadata {
-        data_source: path
-            .map(|p| DataSource::FilePath(p.to_path_buf()))
-            .unwrap_or_default(),
-        content_type: path.and_then(preview_content_type),
-        ..Default::default()
-    };
-    let input =
-        Value::string(text, Span::unknown()).into_pipeline_data_with_metadata(Some(metadata));
 
     let mut eval = ClosureEvalOnce::new(engine_state, stack, closure);
-    if wants_row {
+    if let Some(row) = row {
         eval = match eval.add_arg(row.clone()) {
             Ok(eval) => eval,
             Err(err) => return format!("preview error: {err}"),
@@ -1988,12 +2351,9 @@ fn preview_content_type(path: &Path) -> Option<String> {
     }
 }
 
-fn row_path(row: &Value, column: &str) -> Option<String> {
+fn row_path(row: &Value) -> Option<String> {
     match row {
-        Value::Record { val, .. } => val
-            .get(column)
-            .and_then(value_as_path)
-            .or_else(|| val.get("name").and_then(value_as_path)),
+        Value::Record { val, .. } => val.get("name").and_then(value_as_path),
         Value::String { val, .. } => Some(val.clone()),
         _ => None,
     }
@@ -2052,6 +2412,59 @@ mod tests {
     use crate::tui::widget::Widget;
     use crossterm::event::KeyEvent;
 
+    fn label(id: &str, text: &str) -> Widget {
+        Widget::leaf(
+            id,
+            WidgetKind::Label {
+                text: text.into(),
+                slot: Slot::Content,
+            },
+        )
+    }
+
+    fn table(id: &str, columns: &[&str]) -> Widget {
+        Widget::leaf(
+            id,
+            WidgetKind::Table {
+                columns: columns.iter().map(|c| (*c).into()).collect(),
+                capture_keys: false,
+            },
+        )
+    }
+
+    fn search(id: &str, bind: Option<&str>) -> Widget {
+        Widget::leaf(
+            id,
+            WidgetKind::Search {
+                placeholder: "filter".into(),
+                bind: bind.map(Into::into),
+            },
+        )
+    }
+
+    fn split(id: &str, direction: SplitDir, children: Vec<Widget>) -> Widget {
+        Widget {
+            id: id.into(),
+            auto_id: false,
+            kind: WidgetKind::Split {
+                direction,
+                ratio: 50,
+            },
+            children,
+        }
+    }
+
+    fn tab(id: &str, title: &str, children: Vec<Widget>) -> Widget {
+        Widget {
+            id: id.into(),
+            auto_id: false,
+            kind: WidgetKind::Tab {
+                title: title.into(),
+            },
+            children,
+        }
+    }
+
     fn table_app() -> TuiApp {
         let rows = vec![
             Value::test_record(record_from(&[("name", "alpha"), ("size", "1")])),
@@ -2060,23 +2473,8 @@ mod tests {
         ];
         let mut app = TuiApp::new();
         app.data = Value::test_list(rows);
-        app.push(Widget {
-            id: "table-0".into(),
-            kind: WidgetKind::Table {
-                columns: vec!["name".into(), "size".into()],
-                data: None,
-            },
-            place: None,
-        });
-        app.push(Widget {
-            id: "search-0".into(),
-            kind: WidgetKind::Search {
-                placeholder: "filter".into(),
-                bind: Some("ctrl+r".into()),
-                target: None,
-            },
-            place: None,
-        });
+        app.push(table("table-0", &["name", "size"]));
+        app.push(search("search-0", Some("ctrl+r")));
         app
     }
 
@@ -2116,7 +2514,7 @@ mod tests {
         press(&mut session, KeyCode::Char('r'), KeyModifiers::CONTROL);
         assert_eq!(session.focused.as_deref(), Some("search-0"));
         press(&mut session, KeyCode::Char('q'), KeyModifiers::NONE);
-        assert_eq!(session.search, "q");
+        assert_eq!(session.query_text("search-0"), "q");
         assert!(session.outcome.is_none());
     }
 
@@ -2160,7 +2558,7 @@ mod tests {
         let mut session = Session::new(table_app());
         press(&mut session, KeyCode::Char('r'), KeyModifiers::CONTROL);
         press(&mut session, KeyCode::Char('/'), KeyModifiers::NONE);
-        assert_eq!(session.search, "/");
+        assert_eq!(session.query_text("search-0"), "/");
     }
 
     fn keybindings_app() -> TuiApp {
@@ -2180,20 +2578,22 @@ mod tests {
         ];
         let mut app = TuiApp::new();
         app.data = Value::test_list(rows);
-        app.push(Widget {
-            id: "keybindings-0".into(),
-            kind: WidgetKind::Keybindings { data: None },
-            place: None,
-        });
+        app.push(Widget::leaf(
+            "table-0",
+            WidgetKind::Table {
+                columns: vec![],
+                capture_keys: true,
+            },
+        ));
         app
     }
 
     #[test]
-    fn keybinding_chord_filters_config_rows() {
+    fn captured_chord_filters_rows_without_a_search_box() {
         let mut session = Session::new(keybindings_app());
-        assert_eq!(session.focused.as_deref(), Some("keybindings-0"));
+        assert_eq!(session.focused.as_deref(), Some("table-0"));
         press(&mut session, KeyCode::Char('r'), KeyModifiers::CONTROL);
-        let rows = session.filtered_rows("keybindings-0");
+        let rows = session.filtered_rows("table-0");
         assert_eq!(rows.len(), 1);
         let name = rows[0]
             .as_record()
@@ -2203,6 +2603,16 @@ mod tests {
             .as_str()
             .expect("str");
         assert_eq!(name, "history");
+    }
+
+    #[test]
+    fn captured_chord_goes_to_the_scoping_search_box() {
+        let mut app = keybindings_app();
+        app.widgets.insert(0, search("search-0", None));
+        let mut session = Session::new(app);
+        press(&mut session, KeyCode::Char('l'), KeyModifiers::CONTROL);
+        assert_eq!(session.query_text("search-0"), "ctrl+l");
+        assert_eq!(session.filtered_len("table-0"), 1);
     }
 
     #[test]
@@ -2231,24 +2641,15 @@ mod tests {
         ];
         let mut app = TuiApp::new();
         app.data = Value::test_list(rows);
-        app.push(Widget {
-            id: "table-0".into(),
-            kind: WidgetKind::Table {
-                columns: vec!["name".into()],
-                data: None,
-            },
-            place: None,
-        });
-        app.push(Widget {
-            id: "preview-0".into(),
-            kind: WidgetKind::Preview {
-                column: "name".into(),
+        app.push(table("table-0", &["name"]));
+        app.push(Widget::leaf(
+            "preview-0",
+            WidgetKind::Preview {
                 max_bytes: 4096,
                 transform: None,
                 from: None,
             },
-            place: None,
-        });
+        ));
 
         let mut session = Session::with_cwd(app, dir);
         assert_eq!(session.focused.as_deref(), Some("table-0"));
@@ -2266,6 +2667,39 @@ mod tests {
                 .preview_text
                 .get("preview-0")
                 .is_some_and(|t| t.contains("beta-contents"))
+        );
+    }
+
+    #[test]
+    fn preview_follows_the_nearest_table_in_its_split() {
+        let mut app = TuiApp::new();
+        app.data = Value::test_list(vec![Value::test_string("a")]);
+        app.push(split(
+            "split-0",
+            SplitDir::Horizontal,
+            vec![table("far", &["item"]), label("label-0", "x")],
+        ));
+        app.push(split(
+            "split-1",
+            SplitDir::Horizontal,
+            vec![
+                table("near", &["item"]),
+                Widget::leaf(
+                    "preview-0",
+                    WidgetKind::Preview {
+                        max_bytes: 4096,
+                        transform: None,
+                        from: None,
+                    },
+                ),
+            ],
+        ));
+        let mut session = Session::new(app);
+        // Focus is on the first table; move it to chrome-less nothing.
+        session.focused = None;
+        assert_eq!(
+            session.preview_source_id("preview-0").as_deref(),
+            Some("near")
         );
     }
 
@@ -2340,15 +2774,13 @@ mod tests {
         rec.insert("a", Value::test_record(rec_b));
         let mut app = TuiApp::new();
         app.data = Value::test_record(rec);
-        app.push(Widget {
-            id: "tree-0".into(),
-            kind: WidgetKind::Tree {
-                data: None,
+        app.push(Widget::leaf(
+            "tree-0",
+            WidgetKind::Tree {
                 walk: false,
                 column: "name".into(),
             },
-            place: None,
-        });
+        ));
         let mut session = Session::new(app);
         assert_eq!(session.tree_rows("tree-0").len(), 1);
         press(&mut session, KeyCode::Right, KeyModifiers::NONE);
@@ -2365,61 +2797,45 @@ mod tests {
     #[test]
     fn tab_digit_jumps_page() {
         let mut app = TuiApp::new();
-        app.push(Widget {
-            id: "tab-0".into(),
-            kind: WidgetKind::Tab {
-                title: "one".into(),
-            },
-            place: None,
-        });
-        app.push(Widget {
-            id: "label-0".into(),
-            kind: WidgetKind::Label {
-                text: "PAGE-ONE".into(),
-            },
-            place: None,
-        });
-        app.push(Widget {
-            id: "tab-1".into(),
-            kind: WidgetKind::Tab {
-                title: "two".into(),
-            },
-            place: None,
-        });
-        app.push(Widget {
-            id: "label-1".into(),
-            kind: WidgetKind::Label {
-                text: "PAGE-TWO".into(),
-            },
-            place: None,
-        });
+        app.push(tab("tab-0", "one", vec![label("label-0", "PAGE-ONE")]));
+        app.push(tab("tab-1", "two", vec![label("label-1", "PAGE-TWO")]));
         let mut session = Session::new(app);
         assert_eq!(session.page, 0);
+        assert_eq!(session.visible_ids(), vec!["tab-0", "label-0"]);
         press(&mut session, KeyCode::Char('2'), KeyModifiers::NONE);
         assert_eq!(session.page, 1);
+        assert_eq!(session.visible_ids(), vec!["tab-1", "label-1"]);
+    }
+
+    #[test]
+    fn nested_tab_is_a_group_box_not_a_page() {
+        let mut app = TuiApp::new();
+        app.push(split(
+            "split-0",
+            SplitDir::Horizontal,
+            vec![
+                tab("tab-0", "left", vec![label("label-0", "A")]),
+                label("label-1", "B"),
+            ],
+        ));
+        let mut session = Session::new(app);
+        assert!(!session.has_tabs());
+        assert_eq!(session.pages().len(), 1);
+        session.layout(Rect::new(0, 0, 80, 24));
+        let outer = session.areas["tab-0"];
+        let inner = session.areas["label-0"];
+        assert!(inner.x > outer.x && inner.y > outer.y);
+        assert!(session.tab_areas.is_empty());
     }
 
     #[test]
     fn splitter_drag_tracks_mouse_in_permille() {
         let mut app = TuiApp::new();
-        app.push(Widget {
-            id: "split-0".into(),
-            kind: WidgetKind::Splitter {
-                direction: SplitDir::Horizontal,
-                ratio: 50,
-            },
-            place: None,
-        });
-        app.push(Widget {
-            id: "label-a".into(),
-            kind: WidgetKind::Label { text: "A".into() },
-            place: None,
-        });
-        app.push(Widget {
-            id: "label-b".into(),
-            kind: WidgetKind::Label { text: "B".into() },
-            place: None,
-        });
+        app.push(split(
+            "split-0",
+            SplitDir::Horizontal,
+            vec![label("label-a", "A"), label("label-b", "B")],
+        ));
         let mut session = Session::new(app);
         session.layout(Rect::new(0, 0, 80, 24));
         assert_eq!(session.splitter_ratio.get("split-0").copied(), Some(500));
@@ -2440,14 +2856,32 @@ mod tests {
     }
 
     #[test]
+    fn split_with_three_children_shares_the_remainder() {
+        let mut app = TuiApp::new();
+        app.push(split(
+            "split-0",
+            SplitDir::Horizontal,
+            vec![
+                label("label-a", "A"),
+                label("label-b", "B"),
+                label("label-c", "C"),
+            ],
+        ));
+        let mut session = Session::new(app);
+        session.layout(Rect::new(0, 0, 80, 24));
+        let a = session.areas["label-a"];
+        let b = session.areas["label-b"];
+        let c = session.areas["label-c"];
+        assert!(a.x < b.x && b.x < c.x);
+        assert!(b.width > 0 && c.width > 0);
+        assert_eq!(session.splitter_handles.len(), 1);
+    }
+
+    #[test]
     fn log_pageup_scrolls_more_than_one_line() {
         let mut app = TuiApp::new();
         app.data = Value::test_list((0..40).map(Value::test_int).collect());
-        app.push(Widget {
-            id: "log-0".into(),
-            kind: WidgetKind::Log { max_lines: 10_000 },
-            place: None,
-        });
+        app.push(Widget::leaf("log-0", WidgetKind::Log { max_lines: 10_000 }));
         let mut session = Session::new(app);
         session.layout(Rect::new(0, 0, 40, 12));
         session.scroll.insert("log-0".into(), 20);
@@ -2457,38 +2891,133 @@ mod tests {
         assert_eq!(session.follow_tail.get("log-0").copied(), Some(false));
     }
 
+    fn menu_app() -> TuiApp {
+        let mut app = TuiApp::new();
+        app.data = Value::test_list(vec![Value::test_string("a")]);
+        app.push(Widget::leaf(
+            "menu-0",
+            WidgetKind::Menu {
+                items: vec![
+                    MenuItem::new(
+                        "&File",
+                        vec![
+                            MenuItem::new("&Open", vec![], None),
+                            MenuItem::new("&Quit", vec![], None),
+                        ],
+                        None,
+                    ),
+                    MenuItem::new("&Edit", vec![], None),
+                ],
+            },
+        ));
+        app.push(table("table-0", &["item"]));
+        app
+    }
+
     #[test]
-    fn search_target_does_not_filter_other_widgets() {
+    fn mnemonic_marker_is_stripped_and_defaults_to_first_letter() {
+        let item = MenuItem::new("F&ile", vec![], None);
+        assert_eq!(item.label, "File");
+        assert_eq!(item.mnemonic, Some('i'));
+        assert_eq!(item.mnemonic_index(), Some(1));
+        let plain = MenuItem::new("View", vec![], None);
+        assert_eq!(plain.mnemonic, Some('v'));
+    }
+
+    #[test]
+    fn alt_mnemonic_opens_dropdown_and_letter_submits_item() {
+        let mut session = Session::new(menu_app());
+        assert_eq!(session.focused.as_deref(), Some("table-0"));
+        press(&mut session, KeyCode::Char('f'), KeyModifiers::ALT);
+        assert_eq!(session.focused.as_deref(), Some("menu-0"));
+        assert_eq!(session.menu_open.as_deref(), Some("menu-0"));
+        session.layout(Rect::new(0, 0, 40, 12));
+        let rect = session.menu_dropdown_rect().expect("dropdown rect");
+        assert_eq!(rect.y, 1);
+        assert_eq!(rect.height, 4);
+        press(&mut session, KeyCode::Char('q'), KeyModifiers::NONE);
+        let selected = session.outcome.expect("submitted").selected;
+        let rec = selected.as_record().expect("record");
+        assert_eq!(rec.get("menu").and_then(|v| v.as_str().ok()), Some("File"));
+        assert_eq!(rec.get("item").and_then(|v| v.as_str().ok()), Some("Quit"));
+    }
+
+    #[test]
+    fn esc_closes_dropdown_without_quitting() {
+        let mut session = Session::new(menu_app());
+        press(&mut session, KeyCode::Char('f'), KeyModifiers::ALT);
+        press(&mut session, KeyCode::Esc, KeyModifiers::NONE);
+        assert!(session.menu_open.is_none());
+        assert!(session.outcome.is_none());
+    }
+
+    #[test]
+    fn bar_item_without_dropdown_submits_its_name() {
+        let mut session = Session::new(menu_app());
+        press(&mut session, KeyCode::Char('e'), KeyModifiers::ALT);
+        let selected = session.outcome.expect("submitted").selected;
+        assert_eq!(selected.as_str().ok(), Some("Edit"));
+    }
+
+    #[test]
+    fn enter_in_search_submits_filtered_row() {
+        let mut session = Session::new(table_app());
+        press(&mut session, KeyCode::Char('r'), KeyModifiers::CONTROL);
+        press(&mut session, KeyCode::Char('b'), KeyModifiers::NONE);
+        press(&mut session, KeyCode::Enter, KeyModifiers::NONE);
+        let selected = session.outcome.expect("submitted").selected;
+        let name = selected
+            .as_record()
+            .expect("record")
+            .get("name")
+            .and_then(|v| v.as_str().ok());
+        assert_eq!(name, Some("beta"));
+    }
+
+    #[test]
+    fn nested_search_filters_only_its_container() {
         let mut app = TuiApp::new();
         app.data = Value::test_list(vec![
             Value::test_string("alpha"),
             Value::test_string("beta"),
         ]);
-        app.push(Widget {
-            id: "search-0".into(),
-            kind: WidgetKind::Search {
-                placeholder: "filter".into(),
-                bind: None,
-                target: Some("table-0".into()),
-            },
-            place: None,
-        });
-        app.push(Widget {
-            id: "table-0".into(),
-            kind: WidgetKind::Table {
-                columns: vec!["item".into()],
-                data: None,
-            },
-            place: None,
-        });
-        app.push(Widget {
-            id: "list-0".into(),
-            kind: WidgetKind::List { data: None },
-            place: None,
-        });
+        app.push(split(
+            "split-0",
+            SplitDir::Vertical,
+            vec![search("search-0", Some("/")), table("table-0", &["item"])],
+        ));
+        app.push(table("table-1", &["item"]));
         let mut session = Session::new(app);
-        session.search = "al".into();
+        assert_eq!(
+            session.scoping_search("table-0").as_deref(),
+            Some("search-0")
+        );
+        assert_eq!(session.scoping_search("table-1"), None);
+        press(&mut session, KeyCode::Char('/'), KeyModifiers::NONE);
+        assert_eq!(session.focused.as_deref(), Some("search-0"));
+        press(&mut session, KeyCode::Char('a'), KeyModifiers::NONE);
+        press(&mut session, KeyCode::Char('l'), KeyModifiers::NONE);
         assert_eq!(session.filtered_len("table-0"), 1);
-        assert_eq!(session.filtered_len("list-0"), 2);
+        assert_eq!(session.filtered_len("table-1"), 2);
+    }
+
+    #[test]
+    fn top_level_search_filters_everything() {
+        let mut app = TuiApp::new();
+        app.data = Value::test_list(vec![
+            Value::test_string("alpha"),
+            Value::test_string("beta"),
+        ]);
+        app.push(search("search-0", None));
+        app.push(split(
+            "split-0",
+            SplitDir::Horizontal,
+            vec![table("table-0", &["item"]), table("table-1", &["item"])],
+        ));
+        let mut session = Session::new(app);
+        session.focused = Some("search-0".into());
+        press(&mut session, KeyCode::Char('b'), KeyModifiers::NONE);
+        assert_eq!(session.filtered_len("table-0"), 1);
+        assert_eq!(session.filtered_len("table-1"), 1);
     }
 }

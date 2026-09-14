@@ -1,5 +1,5 @@
 use super::WidgetKind;
-use super::{empty_tui, placement_flags, push_widget, with_app};
+use super::{builder_io_types, push_widget, with_app};
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -15,45 +15,37 @@ impl Command for TuiTree {
     }
 
     fn extra_description(&self) -> &str {
-        "Up/Down move. Right or l expands, Left or h collapses. Enter submits the selected node. `--walk` treats `type == dir` rows as folders and lists them on expand. `--from` on `tui preview` can follow this tree."
+        "Up/Down move. Right or l expands, Left or h collapses. Enter submits the selected node. `--walk` treats `type == dir` rows as folders and lists them on expand; `--column` names the path column for that walk. A `tui preview` next to this tree follows the selected node."
     }
 
     fn signature(&self) -> Signature {
-        placement_flags(
-            Signature::build("tui tree")
-                .category(Category::Viewers)
-                .switch(
-                    "walk",
-                    "Expand directories on disk when a node is opened.",
-                    None,
-                )
-                .named(
-                    "column",
-                    SyntaxShape::String,
-                    "Path/name column (default name).",
-                    None,
-                )
-                .named("id", SyntaxShape::String, "Widget id.", None)
-                .input_output_types(vec![
-                    (Type::table(), empty_tui()),
-                    (Type::record(), empty_tui()),
-                    (Type::list(Type::Any), empty_tui()),
-                    (empty_tui(), empty_tui()),
-                    (Type::Any, empty_tui()),
-                ]),
-        )
+        Signature::build("tui tree")
+            .category(Category::Viewers)
+            .switch(
+                "walk",
+                "Expand directories on disk when a node is opened.",
+                None,
+            )
+            .named(
+                "column",
+                SyntaxShape::String,
+                "Path/name column (default name).",
+                None,
+            )
+            .named("id", SyntaxShape::String, "Widget id.", None)
+            .input_output_types(builder_io_types())
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Nested record as a tree",
-                example: "{a: {b: 1, c: 2}, d: [3, 4]} | tui tree | tui run --headless",
+                example: "{a: {b: 1, c: 2}, d: [3, 4]} | tui tree | tui debug | get screen",
                 result: None,
             },
             Example {
                 description: "Directory walk next to a preview",
-                example: "ls | tui tree --id files --walk | tui preview --from files --right-of files | tui run",
+                example: "ls | tui split [(tui tree --walk) (tui preview)] | tui run",
                 result: None,
             },
         ]
@@ -77,11 +69,8 @@ impl Command for TuiTree {
                 call,
                 app,
                 "tree",
-                WidgetKind::Tree {
-                    data: None,
-                    walk,
-                    column,
-                },
+                WidgetKind::Tree { walk, column },
+                Vec::new(),
             )
         })
     }

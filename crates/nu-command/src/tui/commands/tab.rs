@@ -1,5 +1,4 @@
-use super::WidgetKind;
-use super::{consume_text_arg, empty_tui, push_widget, with_app};
+use super::{WidgetKind, builder_io_types, children_from_values, push_widget, with_app};
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -11,31 +10,43 @@ impl Command for TuiTab {
     }
 
     fn description(&self) -> &str {
-        "Start a named tab. Later content widgets belong to this tab until the next `tui tab` or `tui body`."
+        "Group widgets under a name: a page in the tab bar, or a titled box when nested."
     }
 
     fn extra_description(&self) -> &str {
-        "Click a tab, press 1-9, or use `[` `]` / Ctrl+Tab to switch. Same page model as `tui body`, with a title meant for the tab bar."
+        "In the outer pipeline each `tui tab` is a page and the tab bar shows whenever any exists. Click a tab, press 1-9, or use `[` `]` / Ctrl+Tab to switch. Chrome (title, menu, search, status) stays visible on every page.\n\
+         \n\
+         Inside `tui split [...]` a tab is not a page: it draws a bordered box with the title around its children.\n\
+         \n\
+         Children are `tui` values built with no pipeline input, in parentheses: `tui tab \"files\" [(tui table) (tui preview)]`."
     }
 
     fn signature(&self) -> Signature {
         Signature::build("tui tab")
             .category(Category::Viewers)
-            .optional("title", SyntaxShape::String, "Tab title.")
+            .required("title", SyntaxShape::String, "Tab title.")
+            .required(
+                "children",
+                SyntaxShape::List(Box::new(SyntaxShape::Any)),
+                "Widgets on this tab, e.g. [(tui table) (tui preview)].",
+            )
             .named("id", SyntaxShape::String, "Widget id.", None)
-            .input_output_types(vec![
-                (Type::Nothing, empty_tui()),
-                (empty_tui(), empty_tui()),
-                (Type::Any, empty_tui()),
-            ])
+            .input_output_types(builder_io_types())
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
-        vec![Example {
-            description: "Files tab and a keys tab",
-            example: r#"ls | tui tab "files" | tui table | tui tab "keys" | tui keybindings --bindings $env.config.keybindings | tui run"#,
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "The same rows as a table and as a tree, on two tabs",
+                example: r#"ls | tui tab "table" [(tui table)] | tui tab "tree" [(tui tree --walk)] | tui run"#,
+                result: None,
+            },
+            Example {
+                description: "A titled box inside a split",
+                example: r#"ls | tui split [(tui tab "list" [(tui table)]) (tui preview)] | tui run"#,
+                result: None,
+            },
+        ]
     }
 
     fn run(
@@ -45,13 +56,9 @@ impl Command for TuiTab {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let title: String = call.req(engine_state, stack, 0)?;
+        let children = children_from_values(call.req(engine_state, stack, 1)?)?;
         with_app(call, input, |app| {
-            let title = consume_text_arg(engine_state, stack, call, app, false, "title")?;
-            let title = if title.is_empty() {
-                "tab".into()
-            } else {
-                title
-            };
             push_widget(
                 engine_state,
                 stack,
@@ -59,6 +66,7 @@ impl Command for TuiTab {
                 app,
                 "tab",
                 WidgetKind::Tab { title },
+                children,
             )
         })
     }

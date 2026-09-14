@@ -1,14 +1,14 @@
 //! Draw a [`Session`](super::session::Session) onto a ratatui frame.
-use super::session::{Session, format_event_value, formatted_key};
+use super::session::Session;
 use super::theme::Theme;
-use super::widget::WidgetKind;
+use super::widget::{MenuItem, Slot, SplitDir, WidgetKind};
 use ansi_str::get_blocks;
 use nu_protocol::Value;
 use ratatui::Frame;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span, Text};
-use ratatui::widgets::{Block, Borders, Cell, Paragraph, Row, Table, TableState, Wrap};
+use ratatui::widgets::{Block, Borders, Cell, Clear, Paragraph, Row, Table, TableState, Wrap};
 
 pub fn render(frame: &mut Frame, session: &mut Session) {
     let theme = session.theme.clone();
@@ -19,7 +19,7 @@ pub fn render(frame: &mut Frame, session: &mut Session) {
     let content = session.dialog_content_area(frame.area());
     session.layout(content);
 
-    let ids: Vec<String> = session.app.widgets.iter().map(|w| w.id.clone()).collect();
+    let ids: Vec<String> = session.app.iter().map(|w| w.id.clone()).collect();
     for id in ids {
         let Some(area) = session.areas.get(&id).copied() else {
             continue;
@@ -32,6 +32,7 @@ pub fn render(frame: &mut Frame, session: &mut Session) {
 
     render_tabs(frame, session, &theme);
     render_splitter_handles(frame, session, &theme);
+    render_menu_dropdown(frame, session, &theme);
 }
 
 fn render_dialog_frame(frame: &mut Frame, session: &Session, theme: &Theme) {
@@ -43,7 +44,10 @@ fn render_dialog_frame(frame: &mut Frame, session: &Session, theme: &Theme) {
         .widgets
         .iter()
         .find_map(|w| match &w.kind {
-            WidgetKind::Title { text } => Some(text.as_str()),
+            WidgetKind::Label {
+                text,
+                slot: Slot::Title,
+            } => Some(text.as_str()),
             _ => None,
         })
         .unwrap_or("tui");
@@ -86,8 +90,8 @@ fn render_splitter_handles(frame: &mut Frame, session: &Session, theme: &Theme) 
         }
         let focused = session.is_focused(&handle.id);
         let ch = match handle.direction {
-            super::widget::SplitDir::Horizontal => "│",
-            super::widget::SplitDir::Vertical => "─",
+            SplitDir::Horizontal => "│",
+            SplitDir::Vertical => "─",
         };
         frame.render_widget(Paragraph::new(ch).style(theme.border(focused)), handle.area);
     }
@@ -122,52 +126,44 @@ fn render_widget(frame: &mut Frame, session: &Session, id: &str, area: Rect, the
     };
     let focused = session.is_focused(id);
     match kind {
-        WidgetKind::Title { text } => {
-            let para = Paragraph::new(format!(" {text} ")).style(theme.title());
-            frame.render_widget(para, area);
-        }
+        WidgetKind::Label { text, slot } => match slot {
+            Slot::Title => {
+                let para = Paragraph::new(format!(" {text} ")).style(theme.title());
+                frame.render_widget(para, area);
+            }
+            Slot::Content => {
+                frame.render_widget(Paragraph::new(text.as_str()).style(theme.text()), area);
+            }
+            Slot::Status => {
+                let text = session.status_text();
+                frame.render_widget(
+                    Paragraph::new(format!(" {text} ")).style(theme.status()),
+                    area,
+                );
+            }
+        },
         WidgetKind::Menu { items } => render_menu(frame, session, id, items, area, theme, focused),
-        WidgetKind::Label { text } => {
-            frame.render_widget(Paragraph::new(text.as_str()).style(theme.text()), area);
-        }
         WidgetKind::TextBox { placeholder, .. } => {
             render_textbox(frame, session, id, placeholder, area, theme, focused)
         }
-        WidgetKind::Table { .. } => render_table(frame, session, id, area, theme, focused, "table"),
-        WidgetKind::List { .. } => render_table(frame, session, id, area, theme, focused, "list"),
+        WidgetKind::Table { .. } => render_table(frame, session, id, area, theme, focused),
         WidgetKind::Log { .. } => render_log(frame, session, id, area, theme, focused),
         WidgetKind::Tree { .. } => render_tree(frame, session, id, area, theme, focused),
-        WidgetKind::Body { title } | WidgetKind::Tab { title } => {
+        // A top-level tab is a page and draws nothing itself; a nested one
+        // is a titled group box around its children.
+        WidgetKind::Tab { title } if !session.is_root(id) => {
             let block = Block::default()
                 .borders(Borders::ALL)
                 .style(theme.surface())
-                .border_style(theme.border(focused))
+                .border_style(theme.border(false))
                 .title(format!(" {title} "));
             frame.render_widget(block, area);
         }
-        WidgetKind::Status { .. } => {
-            let text = session.status_text();
-            frame.render_widget(
-                Paragraph::new(format!(" {text} ")).style(theme.status()),
-                area,
-            );
-        }
-        WidgetKind::Keybindings { .. } => {
-            render_table(frame, session, id, area, theme, focused, "keybindings")
-        }
+        WidgetKind::Tab { .. } | WidgetKind::Split { .. } => {}
         WidgetKind::Search { placeholder, .. } => {
-            render_search(frame, session, placeholder, area, theme, focused)
-        }
-        WidgetKind::Splitter { direction, .. } => {
-            let ch = match direction {
-                super::widget::SplitDir::Horizontal => "│",
-                super::widget::SplitDir::Vertical => "─",
-            };
-            let style = theme.border(focused);
-            frame.render_widget(Paragraph::new(ch).style(style), area);
+            render_search(frame, session, id, placeholder, area, theme, focused)
         }
         WidgetKind::Preview { .. } => render_preview(frame, session, id, area, theme),
-        WidgetKind::Tabs => {}
     }
 }
 
@@ -373,20 +369,23 @@ fn render_menu(
     frame: &mut Frame,
     session: &Session,
     id: &str,
-    items: &[String],
+    items: &[MenuItem],
     area: Rect,
     theme: &Theme,
     focused: bool,
 ) {
     let selected = session.selected.get(id).copied().unwrap_or(0);
+    let highlight = focused || session.menu_open.as_deref() == Some(id);
     let mut spans = Vec::new();
     for (i, item) in items.iter().enumerate() {
-        let style = if i == selected {
+        let style = if i == selected && highlight {
             theme.selected()
         } else {
             theme.text()
         };
-        spans.push(Span::styled(format!(" {item} "), style));
+        spans.push(Span::styled(" ", style));
+        spans.extend(mnemonic_spans(item, style));
+        spans.push(Span::styled(" ", style));
     }
     let bg = if focused {
         theme.surface().fg(theme.border_focused)
@@ -394,6 +393,64 @@ fn render_menu(
         theme.surface()
     };
     frame.render_widget(Paragraph::new(Line::from(spans)).style(bg), area);
+}
+
+/// The label with its mnemonic letter underlined.
+fn mnemonic_spans(item: &MenuItem, style: Style) -> Vec<Span<'static>> {
+    let Some(idx) = item.mnemonic_index() else {
+        return vec![Span::styled(item.label.clone(), style)];
+    };
+    let (before, rest) = item.label.split_at(idx);
+    let mut chars = rest.chars();
+    let letter = chars.next().map(|c| c.to_string()).unwrap_or_default();
+    let after: String = chars.collect();
+    vec![
+        Span::styled(before.to_string(), style),
+        Span::styled(letter, style.add_modifier(Modifier::UNDERLINED)),
+        Span::styled(after, style),
+    ]
+}
+
+/// The open dropdown, drawn last so it sits on top of the page.
+fn render_menu_dropdown(frame: &mut Frame, session: &Session, theme: &Theme) {
+    let Some(rect) = session.menu_dropdown_rect() else {
+        return;
+    };
+    let Some(id) = session.menu_open.as_deref() else {
+        return;
+    };
+    let top = session.selected.get(id).copied().unwrap_or(0);
+    let entries = match session.app.widget_kind(id) {
+        Some(WidgetKind::Menu { items }) => items.get(top).map(|i| i.items.as_slice()),
+        _ => None,
+    };
+    let Some(entries) = entries else {
+        return;
+    };
+    let row = session.menu_item.get(id).copied().unwrap_or(0);
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .style(theme.surface())
+        .border_style(theme.border(true));
+    let inner = block.inner(rect);
+    frame.render_widget(Clear, rect);
+    frame.render_widget(block, rect);
+    let lines: Vec<Line> = entries
+        .iter()
+        .enumerate()
+        .map(|(i, item)| {
+            let style = if i == row {
+                theme.selected()
+            } else {
+                theme.text()
+            };
+            let mut spans = vec![Span::styled(" ", style)];
+            spans.extend(mnemonic_spans(item, style));
+            spans.push(Span::styled(" ", style));
+            Line::from(spans)
+        })
+        .collect();
+    frame.render_widget(Paragraph::new(Text::from(lines)).style(theme.text()), inner);
 }
 
 fn render_textbox(
@@ -405,10 +462,6 @@ fn render_textbox(
     theme: &Theme,
     focused: bool,
 ) {
-    let editable = matches!(
-        session.app.widget_kind(id),
-        Some(WidgetKind::TextBox { editable: true, .. })
-    );
     let value = session.text_values.get(id).cloned().unwrap_or_default();
     let cursor = session
         .text_cursors
@@ -418,14 +471,14 @@ fn render_textbox(
     let block = Block::default()
         .borders(Borders::ALL)
         .style(theme.surface())
-        .border_style(theme.border(focused && editable))
+        .border_style(theme.border(focused))
         .title(" input ");
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
     let display = if value.is_empty() {
         Paragraph::new(placeholder).style(theme.muted())
-    } else if focused && editable {
+    } else if focused {
         Paragraph::new(with_cursor(&value, cursor, theme)).style(theme.text())
     } else {
         Paragraph::new(value).style(theme.text())
@@ -436,11 +489,18 @@ fn render_textbox(
 fn render_search(
     frame: &mut Frame,
     session: &Session,
+    id: &str,
     placeholder: &str,
     area: Rect,
     theme: &Theme,
     focused: bool,
 ) {
+    let query = session.query_text(id);
+    let cursor = session
+        .text_cursors
+        .get(id)
+        .copied()
+        .unwrap_or(query.chars().count());
     let block = Block::default()
         .borders(Borders::ALL)
         .style(theme.surface())
@@ -448,13 +508,12 @@ fn render_search(
         .title(" search ");
     let inner = block.inner(area);
     frame.render_widget(block, area);
-    let display = if session.search.is_empty() {
+    let display = if query.is_empty() {
         Paragraph::new(placeholder).style(theme.muted())
     } else if focused {
-        Paragraph::new(with_cursor(&session.search, session.search_cursor, theme))
-            .style(theme.highlight())
+        Paragraph::new(with_cursor(query, cursor, theme)).style(theme.highlight())
     } else {
-        Paragraph::new(session.search.as_str()).style(theme.highlight())
+        Paragraph::new(query).style(theme.highlight())
     };
     frame.render_widget(display, inner);
 }
@@ -466,7 +525,6 @@ fn render_table(
     area: Rect,
     theme: &Theme,
     focused: bool,
-    title: &str,
 ) {
     let columns = session.table_columns(id);
     let computer = session.style_computer();
@@ -498,7 +556,7 @@ fn render_table(
         .collect();
 
     let count = rows.len();
-    let title = format!(" {title} ({count}) ");
+    let title = format!(" table ({count}) ");
     let table = Table::new(rows, widths)
         .header(header)
         .style(theme.table_body())
@@ -525,61 +583,16 @@ fn display_rows(
     columns: &[String],
     computer: Option<&nu_color_config::StyleComputer>,
 ) -> Vec<Vec<(String, Style)>> {
-    let is_keys = matches!(
-        session.app.widget_kind(id),
-        Some(WidgetKind::Keybindings { .. })
-    );
     session
         .filtered_rows(id)
         .into_iter()
         .map(|row| {
-            if is_keys {
-                keybinding_cells(&row)
-                    .into_iter()
-                    .map(|text| (text, session.theme.text()))
-                    .collect()
-            } else {
-                columns
-                    .iter()
-                    .map(|col| session.styled_cell(&row, col, computer))
-                    .collect()
-            }
+            columns
+                .iter()
+                .map(|col| session.styled_cell(&row, col, computer))
+                .collect()
         })
         .collect()
-}
-
-fn keybinding_cells(row: &Value) -> Vec<String> {
-    let Ok(record) = row.as_record() else {
-        return vec![compact(row), String::new(), String::new(), String::new()];
-    };
-    let name = record.get("name").map(compact).unwrap_or_default();
-    let key = formatted_key(record);
-    let mode = record.get("mode").map(format_mode).unwrap_or_default();
-    let event = record
-        .get("event")
-        .map(format_event_value)
-        .unwrap_or_default();
-    vec![name, key, mode, event]
-}
-
-fn format_mode(value: &Value) -> String {
-    match value {
-        Value::List { vals, .. } => vals
-            .iter()
-            .filter_map(|v| v.as_str().ok())
-            .collect::<Vec<_>>()
-            .join(","),
-        Value::String { val, .. } => val.clone(),
-        other => compact(other),
-    }
-}
-
-fn compact(value: &Value) -> String {
-    match value {
-        Value::Nothing { .. } => String::new(),
-        Value::String { val, .. } => val.clone(),
-        other => other.to_expanded_string(", ", &nu_protocol::Config::default()),
-    }
 }
 
 fn with_cursor(text: &str, cursor: usize, theme: &Theme) -> Line<'static> {

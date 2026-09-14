@@ -370,22 +370,17 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         bind_command! {
             Tui,
             TuiRun,
-            TuiTitle,
-            TuiMenu,
+            TuiDebug,
             TuiLabel,
+            TuiMenu,
             TuiTextBox,
             TuiTable,
-            TuiBody,
-            TuiStatus,
-            TuiKeybindings,
-            TuiSearch,
-            TuiSplitter,
-            TuiPreview,
-            TuiList,
             TuiLog,
-            TuiTab,
-            TuiTabs,
             TuiTree,
+            TuiTab,
+            TuiSplit,
+            TuiSearch,
+            TuiPreview,
         };
 
         // Conversions

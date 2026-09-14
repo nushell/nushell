@@ -1,5 +1,4 @@
-use super::WidgetKind;
-use super::{empty_tui, placement_flags, push_widget, with_app};
+use super::{WidgetKind, builder_io_types, push_widget, with_app};
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -11,55 +10,56 @@ impl Command for TuiPreview {
     }
 
     fn description(&self) -> &str {
-        "Preview the file at the selected table, list, or tree row. Arrow keys stay on the source."
+        "Show text for the selected table or tree row. Arrow keys stay on the source."
     }
 
     fn extra_description(&self) -> &str {
-        "An optional closure receives the file contents as `$in`, with pipeline metadata `content_type`. If the closure takes a parameter, that parameter is the selected row. `--from` picks the source widget."
+        "Without a closure, the row's `name` (or the row itself when it is a string) is read as a file path, up to `--max-bytes`. Directories and binary files show a short note.\n\
+         \n\
+         A closure with no parameters transforms that file text: it receives the contents as `$in`, with `content_type` in pipeline metadata, so `{ nu-highlight }` colors source files.\n\
+         \n\
+         A closure with one parameter is the source: it receives the selected row and whatever it returns is shown. Nothing is read from disk, so any column or computed value can be previewed: `{|row| $row.event | to nuon }` or `{|row| open --raw $row.path }`.\n\
+         \n\
+         The preview follows the focused table or tree, else the nearest one in the same container. `--from` names one explicitly."
     }
 
     fn signature(&self) -> Signature {
-        placement_flags(
-            Signature::build("tui preview")
-                .category(Category::Viewers)
-                .optional(
-                    "transform",
-                    SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
-                    "Closure run on file contents (`$in`). Optional argument is the selected row.",
-                )
-                .named(
-                    "column",
-                    SyntaxShape::String,
-                    "Column that holds the path. Default: name.",
-                    Some('c'),
-                )
-                .named(
-                    "max-bytes",
-                    SyntaxShape::Int,
-                    "Maximum bytes to read from a file (default 65536).",
-                    None,
-                )
-                .named(
-                    "from",
-                    SyntaxShape::String,
-                    "Table, list, or tree id to follow.",
-                    None,
-                )
-                .named("id", SyntaxShape::String, "Widget id.", None)
-                .input_output_types(vec![
-                    (Type::Nothing, empty_tui()),
-                    (empty_tui(), empty_tui()),
-                    (Type::Any, empty_tui()),
-                ]),
-        )
+        Signature::build("tui preview")
+            .category(Category::Viewers)
+            .optional(
+                "transform",
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
+                "No parameters: transform file text (`$in`). One parameter: produce text from the row.",
+            )
+            .named(
+                "from",
+                SyntaxShape::String,
+                "Table or tree id to follow.",
+                None,
+            )
+            .named(
+                "max-bytes",
+                SyntaxShape::Int,
+                "Maximum bytes to read from a file (default 65536).",
+                None,
+            )
+            .named("id", SyntaxShape::String, "Widget id.", None)
+            .input_output_types(builder_io_types())
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
-        vec![Example {
-            description: "File list on the left, contents on the right",
-            example: "ls | tui table --id files | tui preview --from files --right-of files | tui run",
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "File list on the left, highlighted contents on the right",
+                example: "ls | tui split [(tui table) (tui preview { nu-highlight })] | tui run",
+                result: None,
+            },
+            Example {
+                description: "Preview a value from the row instead of a file",
+                example: "$env.config.keybindings | tui split [(tui table) (tui preview {|row| $row.event | to nuon })] | tui run",
+                result: None,
+            },
+        ]
     }
 
     fn run(
@@ -71,9 +71,6 @@ impl Command for TuiPreview {
     ) -> Result<PipelineData, ShellError> {
         with_app(call, input, |app| {
             let transform = call.opt(engine_state, stack, 0)?;
-            let column = call
-                .get_flag(engine_state, stack, "column")?
-                .unwrap_or_else(|| "name".into());
             let max_bytes = call
                 .get_flag::<i64>(engine_state, stack, "max-bytes")?
                 .unwrap_or(65536)
@@ -86,11 +83,11 @@ impl Command for TuiPreview {
                 app,
                 "preview",
                 WidgetKind::Preview {
-                    column,
                     max_bytes,
                     transform,
                     from,
                 },
+                Vec::new(),
             )
         })
     }
