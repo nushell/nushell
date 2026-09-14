@@ -250,3 +250,18 @@ fn verbose_reports_newly_created_directory_as_created() -> Result {
         Ok(())
     })
 }
+
+#[test]
+fn verbose_reports_the_expanded_path() -> Result {
+    Playground::setup("mkdir_verbose_absolute", |dirs, _| {
+        let actual: String = test()
+            .cwd(dirs.test())
+            .run("mkdir -v foo/bar | get 0.path | to text")?;
+
+        // The path is expanded against the working directory before it is
+        // reported, so it is the absolute path and not the argument as typed.
+        let expected = dirs.test().join("foo").join("bar");
+        assert_eq!(expected.display().to_string(), actual.trim());
+        Ok(())
+    })
+}
