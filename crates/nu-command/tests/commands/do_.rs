@@ -67,6 +67,25 @@ fn ignore_error_works_with_list_stream() -> Result {
     Ok(())
 }
 
+// Regression test for #18732: `do -i` must suppress a non-zero exit code even
+// when the external command's output is piped downstream (the exit code is only
+// checked once the byte stream is drained, which happens inside `collect` here).
+#[test]
+#[deps(TESTBIN_FAIL)]
+fn ignore_error_works_for_external_piped_downstream() -> Result {
+    test().run("do -i { fail 1 } | collect").expect_value_eq("")
+}
+
+// Regression test for #18732: the same must hold when the external command's
+// output is collected into a value (`let` puts the pipeline in value position).
+#[test]
+#[deps(TESTBIN_FAIL)]
+fn ignore_error_works_for_external_collected_into_value() -> Result {
+    test()
+        .run("let x = do -i { fail 1 }; $x")
+        .expect_value_eq("")
+}
+
 #[test]
 fn run_closure_with_do_using() -> Result {
     test()
