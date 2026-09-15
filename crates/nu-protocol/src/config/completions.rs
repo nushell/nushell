@@ -58,6 +58,9 @@ impl UpdateFromValue for CompletionSort {
 pub struct ExternalCompleterConfig {
     pub enable: bool,
     pub max_results: i64,
+    /// A closure completing external-command arguments. To drive a picker like `fzf`, have it
+    /// call a command carrying the `@interactive` attribute; interactivity is seen through the
+    /// closure to that command, so there is no separate switch to set.
     pub completer: Option<Closure>,
 }
 

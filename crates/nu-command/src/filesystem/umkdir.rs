@@ -113,6 +113,10 @@ impl Command for UMkdir {
         let mut verbose_out = Vec::new();
         let mut err = None;
         for (dir, dir_span) in directories {
+            // `mkdir` is called with `recursive` set, so it succeeds silently
+            // when the path is already there. Record that before the call, so
+            // --verbose does not report an existing directory as created.
+            let already_existed = dir.exists();
             if let Err(error) = mkdir(&dir, &config) {
                 let shell_error = ShellError::Generic(GenericError::new(
                     format!("{error}"),
@@ -136,7 +140,7 @@ impl Command for UMkdir {
                 verbose_out.push(
                     record! {
                         "path" => Value::string(dir.display().to_string(), call.head),
-                        "created" => Value::bool(true, call.head),
+                        "created" => Value::bool(!already_existed, call.head),
                         "error" => Value::nothing(call.head),
                     }
                     .into_value(call.head),
@@ -164,26 +168,11 @@ impl Command for UMkdir {
                 result: None,
             },
             Example {
-                description: "Make multiple directories and show the paths created.",
+                description: "Make multiple directories and show the paths created, as absolute paths.",
                 example: "mkdir -v foo/bar foo2",
-                result: Some(Value::test_list(vec![
-                    Value::record(
-                        record! {
-                            "path" => Value::string("foo/bar".to_string(), Span::test_data()),
-                            "created" => Value::bool(true, Span::test_data()),
-                            "error" => Value::nothing(Span::test_data()),
-                        },
-                        Span::test_data(),
-                    ),
-                    Value::record(
-                        record! {
-                            "path" => Value::string("foo2".to_string(), Span::test_data()),
-                            "created" => Value::bool(true, Span::test_data()),
-                            "error" => Value::nothing(Span::test_data()),
-                        },
-                        Span::test_data(),
-                    ),
-                ])),
+                // The reported paths are expanded against the working
+                // directory, so the output cannot be written down as a literal.
+                result: None,
             },
         ]
     }

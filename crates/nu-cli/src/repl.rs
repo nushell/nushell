@@ -7,7 +7,7 @@ use crate::prompt_update::{
 };
 use crate::{
     NuHighlighter, NuValidator, NushellPrompt,
-    completions::{NarrowingCache, NuCompleter},
+    completions::{NarrowingCache, NuCompleter, flush_completion_warnings},
     hints::ExternalHinter,
     prompt_update,
     reedline_config::{KeybindingsMode, add_menus, create_keybindings},
@@ -113,17 +113,8 @@ pub fn evaluate_repl(
     // can't modify the stack, but at the end of the loop we take back ownership
     // from the Arc. This lets us avoid copying stack variables needlessly
     let mut unique_stack = stack.clone();
-    let config = engine_state.get_config();
-    let use_color = config.use_ansi_coloring.get(engine_state);
-
     let mut entry_num = 0;
     let mut is_hostcommand = false;
-
-    // Let's grab the shell_integration configs
-    let shell_integration_osc2 = config.shell_integration.osc2;
-    let shell_integration_osc7 = config.shell_integration.osc7;
-    let shell_integration_osc9_9 = config.shell_integration.osc9_9;
-    let shell_integration_osc633 = config.shell_integration.osc633;
 
     // Seed env vars — no source span exists at REPL startup
     unique_stack.add_env_var(
@@ -133,7 +124,6 @@ pub fn evaluate_repl(
 
     unique_stack.set_last_exit_code(0, Span::unknown());
 
-    let mut line_editor = get_line_editor(engine_state, use_color)?;
     let temp_file = temp_dir().join(format!("{}.nu", uuid::Uuid::new_v4()));
 
     if let Some(s) = prerun_command {
@@ -147,6 +137,21 @@ pub fn evaluate_repl(
         );
         engine_state.merge_env(&mut unique_stack)?;
     }
+
+    let config = engine_state.get_config();
+    let use_color = config.use_ansi_coloring.get(engine_state);
+
+    // Read the shell integration toggles after the optional prerun command too, so a
+    // config sourced by `--execute` governs this session's OSC emissions.
+    let shell_integration_osc2 = config.shell_integration.osc2;
+    let shell_integration_osc7 = config.shell_integration.osc7;
+    let shell_integration_osc9_9 = config.shell_integration.osc9_9;
+    let shell_integration_osc633 = config.shell_integration.osc633;
+
+    // Build reedline after the optional prerun command so ANSI coloring and the other
+    // editor settings a `--execute`-sourced config changes are picked up for the
+    // session. Menus and keybindings additionally refresh every prompt iteration.
+    let mut line_editor = get_line_editor(engine_state, use_color)?;
 
     confirm_stdin_is_terminal()?;
 
@@ -634,7 +639,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         .with_validator(Box::new(NuValidator {
             engine_state: engine_reference.clone(),
         }))
-        .with_completer(Box::new(NuCompleter::for_repl(
+        .with_completer(Box::new(NuCompleter::with_cache(
             engine_reference.clone(),
             // STACK-REFERENCE 2
             stack_arc.clone(),
@@ -796,6 +801,9 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     let mut stack = Arc::unwrap_or_clone(stack_arc);
 
     perf!("line_editor setup", start_time, use_color);
+
+    // Flush queued deprecation warnings.
+    flush_completion_warnings(engine_state, &stack);
 
     let line_editor_input_time = Instant::now();
     match input {

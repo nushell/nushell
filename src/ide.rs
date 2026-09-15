@@ -77,13 +77,23 @@ fn read_in_file<'a>(
     (file, working_set)
 }
 
-pub fn check(engine_state: &mut EngineState, file_path: &str, max_errors: &Value) {
+pub fn check(
+    engine_state: &mut EngineState,
+    file_path: &str,
+    max_errors: &Value,
+) -> Result<(), ShellError> {
     let cwd = std::env::current_dir().expect("Could not get current working directory.");
     engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
     engine_state.generate_nu_constant();
 
     let mut working_set = StateWorkingSet::new(engine_state);
-    let file = std::fs::read(file_path);
+    let contents = std::fs::read(file_path).map_err(|err| {
+        ShellError::Io(IoError::new_internal_with_path(
+            err.not_found_as(NotFound::File),
+            "Could not read file",
+            PathBuf::from(file_path),
+        ))
+    })?;
 
     let max_errors = if let Ok(max_errors) = max_errors.as_int() {
         max_errors as usize
@@ -91,56 +101,56 @@ pub fn check(engine_state: &mut EngineState, file_path: &str, max_errors: &Value
         100
     };
 
-    if let Ok(contents) = file {
-        let offset = working_set.next_span_start();
-        // Top-level IDE check — no source location triggered this file load
-        let _ = working_set.files.push(file_path.into(), Span::unknown());
-        let block = parse(&mut working_set, Some(file_path), &contents, false);
+    let offset = working_set.next_span_start();
+    // Top-level IDE check — no source location triggered this file load
+    let _ = working_set.files.push(file_path.into(), Span::unknown());
+    let block = parse(&mut working_set, Some(file_path), &contents, false);
 
-        for (idx, err) in working_set.parse_errors.iter().enumerate() {
-            if idx >= max_errors {
-                // eprintln!("Too many errors, stopping here. idx: {idx} max_errors: {max_errors}");
-                break;
-            }
-            let mut span = err.span();
-            span.start -= offset;
-            span.end -= offset;
+    for (idx, err) in working_set.parse_errors.iter().enumerate() {
+        if idx >= max_errors {
+            // eprintln!("Too many errors, stopping here. idx: {idx} max_errors: {max_errors}");
+            break;
+        }
+        let mut span = err.span();
+        span.start -= offset;
+        span.end -= offset;
 
-            let msg = err.to_string();
+        let msg = err.to_string();
 
+        println!(
+            "{}",
+            json!({
+                "type": "diagnostic",
+                "severity": "Error",
+                "message": msg,
+                "span": {
+                    "start": span.start,
+                    "end": span.end
+                }
+            })
+        );
+    }
+
+    let flattened = flatten_block(&working_set, &block);
+
+    for flat in flattened {
+        if let FlatShape::VarDecl(var_id) = flat.1 {
+            let var = working_set.get_variable(var_id);
             println!(
                 "{}",
                 json!({
-                    "type": "diagnostic",
-                    "severity": "Error",
-                    "message": msg,
-                    "span": {
-                        "start": span.start,
-                        "end": span.end
+                    "type": "hint",
+                    "typename": var.ty.to_string(),
+                    "position": {
+                        "start": flat.0.start - offset,
+                        "end": flat.0.end - offset
                     }
                 })
             );
         }
-
-        let flattened = flatten_block(&working_set, &block);
-
-        for flat in flattened {
-            if let FlatShape::VarDecl(var_id) = flat.1 {
-                let var = working_set.get_variable(var_id);
-                println!(
-                    "{}",
-                    json!({
-                        "type": "hint",
-                        "typename": var.ty.to_string(),
-                        "position": {
-                            "start": flat.0.start - offset,
-                            "end": flat.0.end - offset
-                        }
-                    })
-                );
-            }
-        }
     }
+
+    Ok(())
 }
 
 pub fn goto_def(engine_state: &mut EngineState, file_path: &str, location: &Value) {

@@ -33,3 +33,17 @@ fn length_byte_stream() -> Result {
             .expect_value_eq(4)
     })
 }
+
+#[test]
+fn length_propagates_error_values_in_stream() -> Result {
+    test()
+        .run("[[name size]; [a 100b] [b 200b]] | where size <= 150 | length")
+        .expect_error_code_eq("nu::shell::operator_incompatible_types")
+}
+
+#[test]
+fn length_propagates_explicit_closures_errors_in_stream() -> Result {
+    test()
+        .run("1..10 | each {|n| error make { msg: 'boom' } } | length")
+        .expect_error_code_eq("nu::shell::eval_block_with_input")
+}

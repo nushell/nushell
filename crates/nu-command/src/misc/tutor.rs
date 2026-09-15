@@ -99,6 +99,10 @@ fn tutor(
         ),
         (vec!["block", "blocks"], block_tutor()),
         (
+            vec!["conditional", "conditionals", "if", "match", "where"],
+            conditional_tutorial(),
+        ),
+        (
             vec![
                 "custom-command",
                 "custom-commands",
@@ -396,6 +400,115 @@ while $x < 5 {
 One special feature of blocks is that they can modify mutable variables
 from the parent scope. For example, the `while` loop above mutates `$x`
 even though it was declared outside the block.
+"#
+}
+
+fn conditional_tutorial() -> &'static str {
+    r#"
+Conditional commands allow you to choose which code to run based on a value or
+condition.
+
+The `if` command runs a block when its condition is true:
+```
+if 5 > 3 {
+    print "5 is greater than 3"
+}
+```
+
+You can use `else` to run a different block when the condition is false:
+```
+let age = 20
+
+if $age >= 18 {
+    "adult"
+} else {
+    "minor"
+}
+```
+
+You can also chain multiple conditions with `else if`:
+```
+let score = 75
+
+if $score >= 90 {
+    "A"
+} else if $score >= 80 {
+    "B"
+} else if $score >= 70 {
+    "C"
+} else {
+    "F"
+}
+```
+
+The `if` command returns a nushell value, so it can be store in a variable or
+use in a pipeline:
+```
+let result = if 10 > 5 { "yes" } else { "no" }
+$result
+```
+
+When you have several possible values to match, the `match` command can be more
+convenient. It checks a value against several patterns:
+```
+let number = 2
+
+match $number {
+    1 => "one",
+    2 => "two",
+    3 => "three",
+    _ => "something else"
+}
+```
+The `_` pattern acts as a catch-all for anything that did not match an earlier
+branch.
+
+The `match` command can also be used to unpack structured values:
+```
+let user = { name: "Alice", admin: true }
+
+match $user {
+    { admin: true } => "administrator",
+    { admin: false } => "regular user",
+    _ => "unknown"
+}
+```
+
+Conditions can also be used to filter values in a pipeline with the `where`
+command:
+```
+[1 2 3 4 5] | where $it > 2
+```
+This keeps only the values for which the condition is true:
+```
+╭───┬───╮
+│ 0 │ 3 │
+│ 1 │ 4 │
+│ 2 │ 5 │
+╰───┴───╯
+```
+
+For tables, the `where` command is particularly useful for selecting rows:
+```
+ls | where size > 1kb
+```
+
+You can learn more about filtering pipelines with:
+```
+help where
+```
+
+You can learn more about blocks, which are used by the `if` command and other
+control flow commands, by running:
+```
+tutor blocks
+```
+
+You can also see more details about the `if` and `match` commands with:
+```
+help if
+help match
+```
 "#
 }
 

@@ -223,3 +223,45 @@ fn mkdir_verbose_reports_errors_without_failing() -> Result {
         Ok(())
     })
 }
+
+#[test]
+fn verbose_does_not_report_existing_directory_as_created() -> Result {
+    Playground::setup("mkdir_verbose_existing", |dirs, _| {
+        let () = test().cwd(dirs.test()).run("mkdir already_there")?;
+
+        let actual: String = test()
+            .cwd(dirs.test())
+            .run("mkdir -v already_there | get 0.created | to text")?;
+
+        assert_eq!("false", actual.trim());
+        Ok(())
+    })
+}
+
+#[test]
+fn verbose_reports_newly_created_directory_as_created() -> Result {
+    Playground::setup("mkdir_verbose_new", |dirs, _| {
+        let actual: String = test()
+            .cwd(dirs.test())
+            .run("mkdir -v brand_new | get 0.created | to text")?;
+
+        assert!(dirs.test().join("brand_new").is_dir());
+        assert_eq!("true", actual.trim());
+        Ok(())
+    })
+}
+
+#[test]
+fn verbose_reports_the_expanded_path() -> Result {
+    Playground::setup("mkdir_verbose_absolute", |dirs, _| {
+        let actual: String = test()
+            .cwd(dirs.test())
+            .run("mkdir -v foo/bar | get 0.path | to text")?;
+
+        // The path is expanded against the working directory before it is
+        // reported, so it is the absolute path and not the argument as typed.
+        let expected = dirs.test().join("foo").join("bar");
+        assert_eq!(expected.display().to_string(), actual.trim());
+        Ok(())
+    })
+}

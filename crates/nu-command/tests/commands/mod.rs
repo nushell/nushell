@@ -10,6 +10,7 @@ mod cal;
 mod cd;
 mod chunk_by;
 mod chunks;
+mod columns;
 mod compact;
 mod complete;
 mod config_env_default;

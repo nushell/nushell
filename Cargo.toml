@@ -1,7 +1,7 @@
 [workspace.package]
 authors = ["The Nushell Project Developers"]
 edition = "2024"
-rust-version = "1.95.0"
+rust-version = "1.96.1"
 license = "MIT"
 version = "0.115.2"
 
@@ -108,7 +108,7 @@ nu-lsp = { path = "crates/nu-lsp", version = "0.115.2", default-features = false
 nu-mcp = { path = "crates/nu-mcp", version = "0.115.2", default-features = false }
 nu-parser = { path = "crates/nu-parser", version = "0.115.2", default-features = false }
 nu-path = { path = "crates/nu-path", version = "0.115.2", default-features = false }
-nu-plugin = { path = "crates/nu-plugin", version = "0.115.2", default-features = false }
+nu-plugin = { path = "crates/nu-plugin", version = "0.115.2", default-features = false, features = ["local-socket"] }
 nu-plugin-core = { path = "crates/nu-plugin-core", version = "0.115.2", default-features = false }
 nu-plugin-engine = { path = "crates/nu-plugin-engine", version = "0.115.2", default-features = false }
 nu-plugin-protocol = { path = "crates/nu-plugin-protocol", version = "0.115.2", default-features = false }
@@ -248,7 +248,7 @@ rusqlite = "0.40.2"
 # because we use unversioned api to allow users set up their own
 # crypto providers (grep for "unversioned").
 # Patch updates are allowed though.
-rustls = { version = "~0.23.38", default-features = false, features = ["std", "tls12"] }
+rustls = { version = "~0.23.45", default-features = false, features = ["std", "tls12"] }
 rustls-native-certs = "0.8.4"
 serde-saphyr = "1.2.0"
 scopeguard = { version = "1.2.0" }
@@ -278,14 +278,14 @@ unicode-segmentation = "1.13"
 unicode-width = "0.2"
 ureq = { version = "~3.4.0", default-features = false, features = ["socks-proxy"] }
 url = "2.5"
-uu_cp = "0.10.0"
-uu_mkdir = "0.10.0"
-uu_mktemp = "0.10.0"
-uu_mv = "0.10.0"
-uu_touch = "0.10.0"
-uu_whoami = "0.10.0"
-uu_uname = "0.10.0"
-uucore = "0.10.0"
+uu_cp = "0.11.0"
+uu_mkdir = "0.11.0"
+uu_mktemp = "0.11.0"
+uu_mv = "0.11.0"
+uu_touch = "0.11.0"
+uu_whoami = "0.11.0"
+uu_uname = "0.11.0"
+uucore = "0.11.0"
 uuid = "1.26.0"
 v_htmlescape = "0.17.0"
 memchr = "2.8.0"
