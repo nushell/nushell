@@ -1,7 +1,10 @@
 mod into_string;
 mod join;
 
-use nu_test_support::{fs::Stub::FileWithContent, prelude::*};
+use nu_test_support::{
+    fs::{Stub::FileWithContent, fixtures},
+    prelude::*,
+};
 
 #[test]
 fn trims() -> Result {
@@ -438,7 +441,7 @@ fn substring_drops_content_type() -> Result {
         | metadata
         | $in.content_type?
     ";
-    test().cwd(FIXTURES.as_path()).run(code).expect_value_eq(())
+    test().cwd(fixtures()).run(code).expect_value_eq(())
 }
 
 #[test]
