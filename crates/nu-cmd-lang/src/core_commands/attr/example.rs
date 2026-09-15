@@ -10,7 +10,8 @@ impl Command for AttrExample {
     }
 
     // Example blocks are accepted so their source text can be extracted for help output.
-    // Const eval materializes blocks as capture-free closures (see eval_const bridge).
+    // Const eval materializes `Block` args as capture-free closures whose block id is used
+    // only for source-text extraction (see `eval_const_call_arg`).
     fn signature(&self) -> Signature {
         Signature::build("attr example")
             .input_output_types(vec![(

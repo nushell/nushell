@@ -265,33 +265,25 @@ fn eval_const_call(
 
 /// Evaluate a single const-call argument expression to a [`Value`].
 ///
-/// Blocks/closures used as call arguments become [`Closure`] values with captures
-/// filled from const variables (same idea as runtime `Literal::Closure` loading).
+/// A positional declared as [`SyntaxShape::Block`](crate::SyntaxShape::Block) parses to
+/// [`Expr::Block`] and is materialized as a capture-free [`Closure`] so const commands can
+/// read its source text (e.g. `attr example`). Captures are not known during const
+/// evaluation (`block.captures` is filled at the end of parsing), so the closure must not be
+/// executed. Closures and row conditions are deliberately left to [`eval_constant`], which
+/// rejects them with `NotAConstant`; materializing them here would let e.g.
+/// `const c = (echo {|| $v })` parse and then fail at runtime with a missing capture.
 fn eval_const_call_arg(
     working_set: &StateWorkingSet,
     expr: &Expression,
 ) -> Result<Value, ShellError> {
     match &expr.expr {
-        Expr::Block(block_id) | Expr::Closure(block_id) | Expr::RowCondition(block_id) => {
-            let block = working_set.get_block(*block_id);
-            let captures = block
-                .captures
-                .iter()
-                .map(
-                    |(var_id, span)| match working_set.get_variable(*var_id).const_val.as_ref() {
-                        Some(val) => Ok((*var_id, val.clone())),
-                        None => Err(ShellError::NotAConstant { span: *span }),
-                    },
-                )
-                .collect::<Result<Vec<_>, ShellError>>()?;
-            Ok(Value::closure(
-                Closure {
-                    block_id: *block_id,
-                    captures,
-                },
-                expr.span,
-            ))
-        }
+        Expr::Block(block_id) => Ok(Value::closure(
+            Closure {
+                block_id: *block_id,
+                captures: vec![],
+            },
+            expr.span,
+        )),
         _ => eval_constant(working_set, expr),
     }
 }
