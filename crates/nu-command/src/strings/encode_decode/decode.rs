@@ -95,10 +95,11 @@ documentation link at https://docs.rs/encoding_rs/latest/encoding_rs/#statics"
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let encoding: Option<Spanned<String>> = call.opt_const(working_set, 0)?;
+        let encoding: Option<Spanned<String>> = call.opt_const(working_set, stack, 0)?;
         run(call, input, encoding)
     }
 }

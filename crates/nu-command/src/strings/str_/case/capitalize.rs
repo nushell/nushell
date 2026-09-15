@@ -54,10 +54,11 @@ impl Command for StrCapitalize {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let column_paths: Vec<CellPath> = call.rest_const(working_set, 0)?;
+        let column_paths: Vec<CellPath> = call.rest_const(working_set, stack, 0)?;
         operate(working_set.permanent(), call, input, column_paths)
     }
 

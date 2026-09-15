@@ -190,11 +190,12 @@ pub fn run_with_function_with_cell_paths(
 
 pub fn run_with_function_with_cell_paths_const(
     working_set: &StateWorkingSet,
+    stack: &mut Stack,
     call: &Call,
     input: PipelineData,
     mf: impl Fn(&[Value], Span, Span) -> Result<Value, ShellError> + Send + Sync + 'static,
 ) -> Result<PipelineData, ShellError> {
-    let cell_paths: Vec<CellPath> = call.rest_const(working_set, 0)?;
+    let cell_paths: Vec<CellPath> = call.rest_const(working_set, stack, 0)?;
     run_with_function_and_cell_paths(
         call,
         input,
