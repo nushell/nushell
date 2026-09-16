@@ -74,7 +74,14 @@ impl Command for Mktemp {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        // setup the uutils error translation
+        // uucore initializes its translation bundles once per thread for the
+        // first util that asks (`setup_localization` early-returns once
+        // `LOCALIZER_IS_SET`). Nushell runs many utils per thread, so after
+        // `uname` (or any other uutils-backed command) the localizer stays
+        // bound to that util's bundles and mktemp error ids below come back
+        // untranslated. Re-select mktemp's own bundles on every invocation
+        // so `translate!` resolves correctly no matter what ran before on
+        // this thread. See issue #19004.
         let _ = localized_help_template("mktemp");
 
         let span = call.head;
