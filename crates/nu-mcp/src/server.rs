@@ -3,7 +3,7 @@ use nu_protocol::{UseAnsiColoring, engine::EngineState};
 use rmcp::{
     RoleServer, ServerHandler,
     handler::server::{tool::ToolRouter, wrapper::Parameters},
-    model::{CallToolResult, Implementation, ServerCapabilities, ServerInfo},
+    model::{CallToolResult, Implementation, ServerCapabilities, ServerConfig},
     service::RequestContext,
     tool, tool_handler, tool_router,
 };
@@ -82,8 +82,8 @@ struct NuSourceRequest {
 
 #[tool_handler]
 impl ServerHandler for NushellMcpServer {
-    fn get_info(&self) -> ServerInfo {
-        ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
+    fn get_info(&self) -> ServerConfig {
+        ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
             .with_server_info(
                 Implementation::new("nushell-mcp-server", env!("CARGO_PKG_VERSION"))
                     .with_title("Nushell MCP Server")
