@@ -56,10 +56,11 @@ impl Command for StrReverse {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let cell_paths: Vec<CellPath> = call.rest_const(working_set, 0)?;
+        let cell_paths: Vec<CellPath> = call.rest_const(working_set, stack, 0)?;
         let args = CellPathOnlyArgs::from(cell_paths);
         operate(
             action,

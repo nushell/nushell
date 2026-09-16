@@ -90,17 +90,18 @@ impl Command for StrLength {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let cell_paths: Vec<CellPath> = call.rest_const(working_set, 0)?;
-        let chars = call.has_flag_const(working_set, "chars")?;
+        let cell_paths: Vec<CellPath> = call.rest_const(working_set, stack, 0)?;
+        let chars = call.has_flag_const(working_set, stack, "chars")?;
         run(
             cell_paths,
             working_set.permanent(),
             call,
             input,
-            grapheme_flags_const(working_set, call)?,
+            grapheme_flags_const(working_set, stack, call)?,
             chars,
         )
     }
