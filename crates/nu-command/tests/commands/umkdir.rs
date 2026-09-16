@@ -265,3 +265,51 @@ fn verbose_reports_the_expanded_path() -> Result {
         Ok(())
     })
 }
+
+#[test]
+fn fail_if_exists_errors_on_existing_directory() -> Result {
+    Playground::setup("mkdir_fail_if_exists", |dirs, _| {
+        let () = test().cwd(dirs.test()).run("mkdir already_there")?;
+
+        let _ = test()
+            .cwd(dirs.test())
+            .run("mkdir --fail-if-exists already_there")
+            .expect_error()?;
+        Ok(())
+    })
+}
+
+#[test]
+fn fail_if_exists_creates_new_directory() -> Result {
+    Playground::setup("mkdir_fail_if_exists_new", |dirs, _| {
+        let () = test()
+            .cwd(dirs.test())
+            .run("mkdir --fail-if-exists brand_new")?;
+
+        assert!(dirs.test().join("brand_new").is_dir());
+        Ok(())
+    })
+}
+
+#[test]
+fn fail_if_exists_verbose_reports_existing_as_error() -> Result {
+    Playground::setup("mkdir_fail_if_exists_verbose", |dirs, _| {
+        let () = test().cwd(dirs.test()).run("mkdir already_there")?;
+
+        let created: String = test()
+            .cwd(dirs.test())
+            .run("mkdir -v --fail-if-exists already_there | get 0.created | to text")?;
+        assert_eq!("false", created.trim());
+
+        // Assert the verbose `error` field so the new `--fail-if-exists` branch
+        // is actually exercised (a plain existing dir reports created=false too).
+        let error: String = test()
+            .cwd(dirs.test())
+            .run("mkdir -v --fail-if-exists already_there | get 0.error | to text")?;
+        assert!(
+            error.contains("File exists"),
+            "expected `File exists` error, got: {error:?}"
+        );
+        Ok(())
+    })
+}
