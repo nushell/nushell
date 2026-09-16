@@ -728,6 +728,49 @@ fn save_missing_parent_dir() -> Result {
 }
 
 #[test]
+fn save_parents_creates_missing_parent_directories() -> Result {
+    Playground::setup("save_test_parents", |dirs, sandbox| {
+        sandbox.with_files(&[]);
+
+        let expected_file = dirs.test().join("a/b/c/hello.txt");
+
+        let () = test()
+            .cwd(dirs.root())
+            .run("'hello' | save --parents save_test_parents/a/b/c/hello.txt")?;
+
+        let actual = fs::read_to_string(expected_file)?;
+        assert_eq!(actual, "hello");
+        Ok(())
+    })
+}
+
+#[test]
+#[deps(TESTBIN_ECHO_ENV_MIXED)]
+fn save_parents_creates_missing_stderr_parent_directories() -> Result {
+    Playground::setup("save_test_parents_stderr", |dirs, sandbox| {
+        sandbox.with_files(&[]);
+
+        let expected_file = dirs.test().join("log.txt");
+        let expected_stderr_file = dirs.test().join("logs/err.txt");
+
+        let code = r#"
+            $env.FOO = "bar";
+            $env.BAZ = "ZZZ";
+            echo_env_mixed out-err FOO BAZ | save -r --parents save_test_parents_stderr/log.txt --stderr save_test_parents_stderr/logs/err.txt
+        "#;
+
+        let () = test().cwd(dirs.root()).run(code)?;
+
+        let actual = fs::read_to_string(expected_file)?;
+        assert!(actual.contains("bar"));
+
+        let actual = fs::read_to_string(expected_stderr_file)?;
+        assert!(actual.contains("ZZZ"));
+        Ok(())
+    })
+}
+
+#[test]
 fn save_missing_ancestor_dir() -> Result {
     Playground::setup("save_test_24", |dirs, sandbox| {
         sandbox.with_files(&[]);

@@ -57,6 +57,7 @@ impl Command for Save {
             .switch("append", "Append input to the end of the file.", Some('a'))
             .switch("force", "Overwrite the destination.", Some('f'))
             .switch("progress", "Enable progress bar.", Some('p'))
+            .switch("parents", "Create missing parent directories.", None)
             .category(Category::FileSystem)
     }
 
@@ -71,6 +72,7 @@ impl Command for Save {
         let append = call.has_flag(engine_state, stack, "append")?;
         let force = call.has_flag(engine_state, stack, "force")?;
         let progress = call.has_flag(engine_state, stack, "progress")?;
+        let parents = call.has_flag(engine_state, stack, "parents")?;
 
         let span = call.head;
         let cwd = engine_state.cwd(Some(stack))?.into_std_path_buf();
@@ -94,6 +96,7 @@ impl Command for Save {
                     engine_state,
                     append,
                     force,
+                    parents,
                     span,
                     progress,
                 },
@@ -113,8 +116,14 @@ impl Command for Save {
                     stderr_path.as_ref(),
                 )?;
 
-                let (mut file, _) =
-                    get_files(engine_state, &path, stderr_path.as_ref(), append, force)?;
+                let (mut file, _) = get_files(
+                    engine_state,
+                    &path,
+                    stderr_path.as_ref(),
+                    append,
+                    force,
+                    parents,
+                )?;
                 for val in ls {
                     file.write_all(&value_to_bytes(val, span)?)
                         .map_err(&from_io_error)?;
@@ -134,8 +143,14 @@ impl Command for Save {
                 if let Some(bytes) =
                     preserve_toml_output(engine_state, &input, &path.item, raw, append, span)?
                 {
-                    let (mut file, _) =
-                        get_files(engine_state, &path, stderr_path.as_ref(), append, force)?;
+                    let (mut file, _) = get_files(
+                        engine_state,
+                        &path,
+                        stderr_path.as_ref(),
+                        append,
+                        force,
+                        parents,
+                    )?;
 
                     file.write_all(&bytes).map_err(&from_io_error)?;
                     file.flush().map_err(&from_io_error)?;
@@ -168,8 +183,14 @@ impl Command for Save {
                 let bytes = value_to_bytes(converted.into_value(span)?, span)?;
 
                 // Only open file after successful conversion
-                let (mut file, _) =
-                    get_files(engine_state, &path, stderr_path.as_ref(), append, force)?;
+                let (mut file, _) = get_files(
+                    engine_state,
+                    &path,
+                    stderr_path.as_ref(),
+                    append,
+                    force,
+                    parents,
+                )?;
 
                 file.write_all(&bytes).map_err(&from_io_error)?;
                 file.flush().map_err(&from_io_error)?;
@@ -478,6 +499,7 @@ fn get_files(
     stderr_path: Option<&Spanned<PathBuf>>,
     append: bool,
     force: bool,
+    parents: bool,
 ) -> Result<(File, Option<File>), ShellError> {
     // First check both paths
     let (path, path_span) = prepare_path(path, append, force)?;
@@ -485,6 +507,19 @@ fn get_files(
         .as_ref()
         .map(|stderr_path| prepare_path(stderr_path, append, force))
         .transpose()?;
+
+    if parents {
+        let mut destinations = vec![(path, path_span)];
+        if let Some((stderr_path, stderr_path_span)) = &stderr_path_and_span {
+            destinations.push((stderr_path, *stderr_path_span));
+        }
+        for (destination, span) in destinations {
+            if let Some(parent) = destination.parent() {
+                std::fs::create_dir_all(parent)
+                    .map_err(|err| ShellError::Io(IoError::new(err, span, parent.to_path_buf())))?;
+            }
+        }
+    }
 
     // Only if both files can be used open and possibly truncate them
     let file = open_file(engine_state, path, path_span, append)?;
@@ -538,6 +573,7 @@ struct ByteStreamSaveContext<'a> {
     engine_state: &'a EngineState,
     append: bool,
     force: bool,
+    parents: bool,
     span: Span,
     progress: bool,
 }
@@ -558,6 +594,7 @@ fn stream_byte_stream_to_file(
         context.stderr_path,
         context.append,
         context.force,
+        context.parents,
     )?;
 
     let size = stream.known_size();
