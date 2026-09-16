@@ -156,7 +156,7 @@
               ]
               ++ (lib.optionals stdenv.hostPlatform.isLinux [
                 python3
-                xorg.libX11
+                libX11
               ])
               ++ (lib.optionals stdenv.hostPlatform.isDarwin [
                 zlib
