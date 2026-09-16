@@ -296,11 +296,20 @@ fn fail_if_exists_verbose_reports_existing_as_error() -> Result {
     Playground::setup("mkdir_fail_if_exists_verbose", |dirs, _| {
         let () = test().cwd(dirs.test()).run("mkdir already_there")?;
 
-        let actual: String = test()
+        let created: String = test()
             .cwd(dirs.test())
             .run("mkdir -v --fail-if-exists already_there | get 0.created | to text")?;
+        assert_eq!("false", created.trim());
 
-        assert_eq!("false", actual.trim());
+        // Assert the verbose `error` field so the new `--fail-if-exists` branch
+        // is actually exercised (a plain existing dir reports created=false too).
+        let error: String = test()
+            .cwd(dirs.test())
+            .run("mkdir -v --fail-if-exists already_there | get 0.error | to text")?;
+        assert!(
+            error.contains("File exists"),
+            "expected `File exists` error, got: {error:?}"
+        );
         Ok(())
     })
 }
