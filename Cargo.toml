@@ -158,7 +158,7 @@ derive_more = "2.1.1"
 derive_setters = "0.1.9"
 devicons = "0.6.13"
 digest = { default-features = false, version = "0.11.3" }
-dirs = "6.0"
+dirs = "7.0"
 dirs-sys = "0.5"
 dns-lookup = "4.0.1"
 dtparse = "2.0"
