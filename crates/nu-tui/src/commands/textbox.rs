@@ -1,4 +1,5 @@
-use super::{WidgetKind, builder_io_types, push_widget, with_app};
+use super::{WidgetKind, builder_io_types, common_flags, push_widget, with_app};
+use crate::widgets::textbox::TextBoxWidget;
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -18,17 +19,18 @@ impl Command for TuiTextBox {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("tui textbox")
-            .category(Category::Viewers)
-            .named(
-                "placeholder",
-                SyntaxShape::String,
-                "Shown when empty.",
-                None,
-            )
-            .named("value", SyntaxShape::String, "Initial text.", None)
-            .named("id", SyntaxShape::String, "Widget id.", None)
-            .input_output_types(builder_io_types())
+        common_flags(
+            Signature::build("tui textbox")
+                .category(Category::Viewers)
+                .named(
+                    "placeholder",
+                    SyntaxShape::String,
+                    "Shown when empty.",
+                    None,
+                )
+                .named("value", SyntaxShape::String, "Initial text.", None),
+        )
+        .input_output_types(builder_io_types())
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -47,20 +49,22 @@ impl Command for TuiTextBox {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         with_app(call, input, |app| {
-            let placeholder = call
-                .get_flag(engine_state, stack, "placeholder")?
-                .unwrap_or_default();
-            let value = call
-                .get_flag(engine_state, stack, "value")?
-                .unwrap_or_default();
+            let widget = TextBoxWidget {
+                placeholder: call
+                    .get_flag(engine_state, stack, "placeholder")?
+                    .unwrap_or_default(),
+                value: call
+                    .get_flag(engine_state, stack, "value")?
+                    .unwrap_or_default(),
+            };
             push_widget(
                 engine_state,
                 stack,
                 call,
                 app,
-                "textbox",
-                WidgetKind::TextBox { placeholder, value },
+                WidgetKind::TextBox(widget),
                 Vec::new(),
+                None,
             )
         })
     }

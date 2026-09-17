@@ -1,14 +1,14 @@
 //! Interactive event loop (`tui run`) and headless render/replay (`tui debug`).
-use super::app::TuiApp;
-use super::keys::parse_scripted_keys;
-use super::render::{render, render_to_string};
-use super::session::Session;
-use super::stream::{self, StreamMsg};
-use crate::platform::RawModeGuard;
+use crate::app::TuiApp;
+use crate::hooks::call_closure;
+use crate::render::{render, render_to_string};
+use crate::session::Session;
+use crate::stream::{self, StreamMsg};
 use crossterm::cursor::{Hide, Show};
 use crossterm::event::{self, DisableMouseCapture, EnableMouseCapture, Event, MouseEventKind};
 use crossterm::execute;
 use crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen};
+use nu_command::RawModeGuard;
 use nu_protocol::{
     IntoPipelineData, ListStream, PipelineData, ShellError, Span, Value,
     engine::{Closure, EngineState, Stack},
@@ -24,8 +24,10 @@ use std::time::Duration;
 
 /// Options shared by `tui run` and `tui debug`.
 pub struct RunOptions {
-    /// Scripted key tokens (`tui debug --keys`).
-    pub keys: Option<String>,
+    /// Scripted events (`tui debug --keys`).
+    pub keys: Vec<Event>,
+    /// Stop replaying when this closure returns true (`tui debug --until`).
+    pub until: Option<Closure>,
     /// Headless canvas size (`tui debug --size`).
     pub width: u16,
     pub height: u16,
@@ -42,7 +44,8 @@ pub struct RunOptions {
 impl Default for RunOptions {
     fn default() -> Self {
         Self {
-            keys: None,
+            keys: Vec::new(),
+            until: None,
             width: 80,
             height: 24,
             mouse: true,
@@ -63,7 +66,18 @@ fn prepare_session(
     stack: &Stack,
     cwd: PathBuf,
     span: Span,
-) -> (Session, Option<Receiver<StreamMsg>>) {
+) -> Result<(Session, Option<Receiver<StreamMsg>>), ShellError> {
+    if let Some((id, from)) = Session::unknown_sources(&app).into_iter().next() {
+        let ids: Vec<String> = app.iter().map(|w| w.id.clone()).collect();
+        return Err(ShellError::Generic(GenericError::new(
+            "unknown --from id",
+            format!(
+                "`{id}` follows '{from}', but no widget has that id. Widgets: {}",
+                ids.join(", ")
+            ),
+            span,
+        )));
+    }
     if app.path_columns.is_empty()
         && let Some(meta) = data.metadata_ref()
         && !meta.path_columns.is_empty()
@@ -83,6 +97,17 @@ fn prepare_session(
         ),
         other => other,
     };
+    if let Value::Range { val, .. } = &app.data
+        && val.is_bounded()
+    {
+        let range_span = app.data.span();
+        app.data = Value::list(
+            val.clone()
+                .into_range_iter(range_span, engine_state.signals().clone())
+                .collect(),
+            range_span,
+        );
+    }
     let is_stream = matches!(
         data,
         PipelineData::ListStream(_, _) | PipelineData::ByteStream(_, _)
@@ -99,7 +124,7 @@ fn prepare_session(
     };
     let mut session = Session::with_engine(app, cwd, Some((engine_state.clone(), stack.clone())));
     session.stream_live = rx.is_some();
-    (session, rx)
+    Ok((session, rx))
 }
 
 /// Render without a TTY. Replays `--keys` if given, then returns the result
@@ -112,14 +137,14 @@ pub fn debug(
     opts: RunOptions,
     cwd: PathBuf,
 ) -> Result<PipelineData, ShellError> {
-    let (mut session, rx) = prepare_session(app, data, engine_state, stack, cwd, opts.span);
+    let (mut session, rx) = prepare_session(app, data, engine_state, stack, cwd, opts.span)?;
     if let Some(rx) = rx {
-        let (items, done) = stream::drain_until_idle(&rx, Duration::from_secs(5));
+        let (items, done) = stream::drain_until_idle(&rx, Duration::from_secs(5), usize::MAX);
         session.append_values(items);
         session.stream_live = !done;
     }
     if let Some(closure) = opts.using.clone() {
-        session.apply_refresh(engine_state, stack, closure, opts.span);
+        session.run_hook(closure);
     }
     let frame = Rect {
         x: 0,
@@ -131,13 +156,16 @@ pub fn debug(
         session.enable_dialog(frame, opts.popup_width, opts.popup_height);
     }
     session.layout(session.dialog_content_area(frame));
-    if let Some(script) = &opts.keys {
-        for event in parse_scripted_keys(script, opts.span)? {
-            session.handle_event(&event);
-            session.layout(session.dialog_content_area(frame));
-            if session.outcome.is_some() {
-                break;
-            }
+    for event in &opts.keys {
+        session.handle_event(event);
+        session.layout(session.dialog_content_area(frame));
+        if session.outcome.is_some() {
+            break;
+        }
+        if let Some(until) = &opts.until
+            && until_holds(&session, engine_state, stack, until.clone(), opts.span)?
+        {
+            break;
         }
     }
     let screen = render_to_string(&mut session, opts.width, opts.height)
@@ -149,6 +177,18 @@ pub fn debug(
     Ok(Value::record(rec, opts.span).into_pipeline_data())
 }
 
+fn until_holds(
+    session: &Session,
+    engine_state: &EngineState,
+    stack: &Stack,
+    closure: Closure,
+    span: Span,
+) -> Result<bool, ShellError> {
+    let state = session.state_record(span);
+    let value = call_closure(engine_state, stack, closure, state)?.into_value(span)?;
+    value.as_bool()
+}
+
 /// Own the terminal until the user submits or quits.
 pub fn run(
     app: TuiApp,
@@ -158,7 +198,7 @@ pub fn run(
     opts: RunOptions,
     cwd: PathBuf,
 ) -> Result<PipelineData, ShellError> {
-    let (mut session, rx) = prepare_session(app, data, engine_state, stack, cwd, opts.span);
+    let (mut session, rx) = prepare_session(app, data, engine_state, stack, cwd, opts.span)?;
     let _raw = RawModeGuard::acquire(stack, opts.span)?;
     let (term_w, term_h) = crossterm::terminal::size()
         .map_err(|e| io_error("failed to read terminal size", e.to_string(), opts.span))?;
@@ -179,10 +219,10 @@ pub fn run(
     let mut terminal = Terminal::new(backend)
         .map_err(|e| io_error("failed to create terminal", e.to_string(), opts.span))?;
 
-    if let Some(closure) = opts.using.clone()
-        && opts.refresh.is_none()
-    {
-        session.apply_refresh(engine_state, stack, closure, opts.span);
+    // The hook runs once before the first frame; with --refresh it then
+    // repeats on the interval.
+    if let Some(closure) = opts.using.clone() {
+        session.run_hook(closure);
     }
     let mut last_refresh = Instant::now();
 
@@ -201,7 +241,7 @@ pub fn run(
             && last_refresh.elapsed() >= interval
         {
             last_refresh = Instant::now();
-            session.apply_refresh(engine_state, stack, closure, opts.span);
+            session.run_hook(closure);
         }
 
         terminal
@@ -236,7 +276,7 @@ pub fn run(
     }
 
     drop(terminal);
-    Ok(session.result_record(opts.span, None).into_pipeline_data())
+    Ok(Value::record(session.result_fields(opts.span, None), opts.span).into_pipeline_data())
 }
 
 fn drain_events(span: Span) -> Result<Vec<Event>, ShellError> {

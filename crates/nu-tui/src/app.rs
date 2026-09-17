@@ -1,9 +1,10 @@
 //! Pipeline value that carries a TUI definition between `tui` commands.
-use super::widget::{MenuItem, Widget, WidgetKind};
+use crate::widget::{TYPE_NAME, Widget, WidgetKind};
+use nu_protocol::engine::Closure;
 use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{
-    CustomValue, IntoPipelineData, PipelineData, PipelineMetadata, Record, ShellError, Span, Type,
-    Value,
+    CustomValue, IntoPipelineData, ListStream, PipelineData, PipelineMetadata, Record, ShellError,
+    Signals, Span, Type, Value,
 };
 use serde::{Deserialize, Serialize};
 use std::any::Any;
@@ -12,16 +13,31 @@ use std::collections::{HashMap, HashSet};
 /// Metadata key used to ride a [`TuiApp`] on a live stream without collecting it.
 pub const TUI_APP_META: &str = "tui_app";
 
+/// A `tui bind` entry: a normalized chord and the hook it runs.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Bind {
+    pub chord: String,
+    pub closure: Closure,
+}
+
 /// Composable TUI definition passed through the pipeline as a custom value.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TuiApp {
     /// Root widgets: chrome, top-level tabs/splits, and bare content.
     pub widgets: Vec<Widget>,
-    /// Data captured from a non-TUI pipeline input (tables, lists, records).
+    /// Data collected from the outer pipeline. Widgets without their own
+    /// `data` show this.
     pub data: Value,
     /// Path columns from pipeline metadata (`ls` sets `name`). Used for LS_COLORS.
     #[serde(default)]
     pub path_columns: Vec<String>,
+    /// Global key bindings from `tui bind`.
+    #[serde(default)]
+    pub binds: Vec<Bind>,
+    /// The outer pipeline is a stream that outlived the collect budget, so
+    /// later builders pass it through untouched.
+    #[serde(default)]
+    pub live: bool,
 }
 
 impl TuiApp {
@@ -30,39 +46,72 @@ impl TuiApp {
             widgets: Vec::new(),
             data: Value::nothing(Span::unknown()),
             path_columns: Vec::new(),
+            binds: Vec::new(),
+            live: false,
         }
     }
 
-    /// Split widgets from payload. List/byte streams are not collected.
-    pub fn split_input(
-        input: PipelineData,
-        _span: Span,
-    ) -> Result<(Self, PipelineData), ShellError> {
+    /// Split the app from the payload. A collected value becomes the app's
+    /// data. A stream is read for [`crate::stream::COLLECT_BUDGET`]: one that
+    /// finishes in time is collected too (so `(ls | tui table)` works inside
+    /// a child list), one that keeps producing stays live and flows on with
+    /// the app riding in its metadata.
+    pub fn split_input(input: PipelineData) -> Result<(Self, PipelineData), ShellError> {
         match input {
             PipelineData::Empty => Ok((Self::new(), PipelineData::Empty)),
             PipelineData::Value(value, meta) => {
                 if let Some(app) = Self::from_value(&value) {
                     return Ok((app.clone(), PipelineData::Empty));
                 }
-                let app = app_from_meta(meta.as_ref());
-                if value.is_nothing() {
-                    Ok((app, PipelineData::Empty))
-                } else if is_scalar_payload(&value) && app.widgets.is_empty() {
-                    let mut app = app;
-                    app.data = value;
-                    Ok((app, PipelineData::Empty))
-                } else {
-                    Ok((app, PipelineData::Value(value, strip_app_meta(meta))))
+                let mut app = app_from_meta(meta.as_ref());
+                // A range is lazy (`1..` never ends), so it is read like a
+                // stream.
+                if let Value::Range { val, .. } = &value {
+                    let span = value.span();
+                    let stream = ListStream::new(
+                        val.clone().into_range_iter(span, Signals::empty()),
+                        span,
+                        Signals::empty(),
+                    );
+                    return Self::absorb_stream(app, PipelineData::ListStream(stream, meta), span);
                 }
+                if !value.is_nothing() {
+                    app.data = value;
+                }
+                Ok((app, PipelineData::Empty))
             }
             PipelineData::ListStream(stream, meta) => {
                 let app = app_from_meta(meta.as_ref());
-                Ok((app, PipelineData::ListStream(stream, strip_app_meta(meta))))
+                let span = stream.span();
+                Self::absorb_stream(app, PipelineData::ListStream(stream, meta), span)
             }
             PipelineData::ByteStream(stream, meta) => {
                 let app = app_from_meta(meta.as_ref());
-                Ok((app, PipelineData::ByteStream(stream, strip_app_meta(meta))))
+                let span = stream.span();
+                Self::absorb_stream(app, PipelineData::ByteStream(stream, meta), span)
             }
+        }
+    }
+
+    fn absorb_stream(
+        mut app: Self,
+        data: PipelineData,
+        span: Span,
+    ) -> Result<(Self, PipelineData), ShellError> {
+        let meta = data.metadata_ref().cloned();
+        if app.live {
+            return Ok((app, data.set_metadata(strip_app_meta(meta))));
+        }
+        match crate::stream::collect_briefly(data, span) {
+            Some(crate::stream::Collected::Done(items)) => {
+                app.data = Value::list(items, span);
+                Ok((app, PipelineData::Empty))
+            }
+            Some(crate::stream::Collected::Live(stream)) => {
+                app.live = true;
+                Ok((app, PipelineData::ListStream(stream, strip_app_meta(meta))))
+            }
+            None => Ok((app, PipelineData::Empty)),
         }
     }
 
@@ -74,12 +123,11 @@ impl TuiApp {
             .and_then(|custom| custom.as_any().downcast_ref::<TuiApp>())
     }
 
-    /// Emit a custom value when there is no payload; otherwise attach the app
-    /// to pipeline metadata so streams keep flowing.
+    /// Emit a custom value when there is no stream; otherwise attach the app
+    /// to the stream's metadata so it keeps flowing.
     pub fn emit(self, data: PipelineData, span: Span) -> PipelineData {
         match data {
             PipelineData::Empty => self.into_pipeline_data(span),
-            PipelineData::Value(value, _) if value.is_nothing() => self.into_pipeline_data(span),
             mut other => {
                 let mut meta = other.take_metadata().unwrap_or_default();
                 meta.custom
@@ -142,6 +190,9 @@ impl TuiApp {
     /// that collide with anything already in this tree (or in an earlier
     /// child) are renumbered, and `--from` references inside that child are
     /// rewritten to match. An explicit `--id` that collides is an error.
+    ///
+    /// Data piped into a child (`(ls | tui table)`) is bound to that child's
+    /// root widgets, so each child can show its own rows.
     pub fn adopt_children(
         &self,
         children: Vec<TuiApp>,
@@ -180,9 +231,8 @@ impl TuiApp {
             if !renamed.is_empty() {
                 for w in &mut widgets {
                     w.for_each_mut(&mut |w| {
-                        if let WidgetKind::Preview {
-                            from: Some(from), ..
-                        } = &mut w.kind
+                        if let Some(source) = &mut w.source
+                            && let Some(from) = &mut source.from
                             && let Some(new) = renamed.get(from)
                         {
                             *from = new.clone();
@@ -190,12 +240,22 @@ impl TuiApp {
                     });
                 }
             }
+            if !child.data.is_nothing() {
+                let mut roots: Vec<&mut Widget> =
+                    widgets.iter_mut().filter(|w| w.data.is_none()).collect();
+                if let Some(last) = roots.pop() {
+                    for root in roots {
+                        root.data = Some(child.data.clone());
+                    }
+                    last.data = Some(child.data);
+                }
+            }
             out.extend(widgets);
         }
         Ok(out)
     }
 
-    pub fn into_pipeline_data(self, span: Span) -> nu_protocol::PipelineData {
+    pub fn into_pipeline_data(self, span: Span) -> PipelineData {
         Value::custom(Box::new(self), span).into_pipeline_data()
     }
 
@@ -274,45 +334,11 @@ fn strip_app_meta(mut meta: Option<PipelineMetadata>) -> Option<PipelineMetadata
     meta
 }
 
-fn is_scalar_payload(value: &Value) -> bool {
-    matches!(
-        value,
-        Value::String { .. }
-            | Value::Int { .. }
-            | Value::Float { .. }
-            | Value::Bool { .. }
-            | Value::Duration { .. }
-            | Value::Date { .. }
-            | Value::Filesize { .. }
-    )
-}
-
-fn string_list(items: &[String], span: Span) -> Value {
+pub fn string_list(items: &[String], span: Span) -> Value {
     Value::list(
         items
             .iter()
             .map(|s| Value::string(s.clone(), span))
-            .collect(),
-        span,
-    )
-}
-
-fn menu_items_to_value(items: &[MenuItem], span: Span) -> Value {
-    Value::list(
-        items
-            .iter()
-            .map(|item| {
-                let mut rec = Record::new();
-                rec.insert("name", Value::string(item.label.clone(), span));
-                if let Some(m) = item.mnemonic {
-                    rec.insert("mnemonic", Value::string(m.to_string(), span));
-                }
-                if !item.items.is_empty() {
-                    rec.insert("items", menu_items_to_value(&item.items, span));
-                }
-                rec.insert("has_action", Value::bool(item.action.is_some(), span));
-                Value::record(rec, span)
-            })
             .collect(),
         span,
     )
@@ -328,60 +354,22 @@ pub fn widget_to_record(
 ) -> Value {
     let mut rec = Record::new();
     rec.insert("id", Value::string(widget.id.clone(), span));
-    rec.insert(
-        "type",
-        Value::string(widget.kind.type_name().to_string(), span),
-    );
-    match &widget.kind {
-        WidgetKind::Label { text, slot } => {
-            rec.insert("text", Value::string(text.clone(), span));
-            rec.insert("slot", Value::string(slot.as_str(), span));
+    rec.insert("type", Value::string(widget.kind.type_name(), span));
+    widget.kind.describe(&mut rec, span);
+    if let Some(source) = &widget.source {
+        if let Some(from) = &source.from {
+            rec.insert("from", Value::string(from.clone(), span));
         }
-        WidgetKind::Menu { items } => {
-            rec.insert("items", menu_items_to_value(items, span));
-        }
-        WidgetKind::TextBox { placeholder, value } => {
-            rec.insert("placeholder", Value::string(placeholder.clone(), span));
-            rec.insert("value", Value::string(value.clone(), span));
-        }
-        WidgetKind::Table {
-            columns,
-            capture_keys,
-        } => {
-            rec.insert("columns", string_list(columns, span));
-            rec.insert("capture_keys", Value::bool(*capture_keys, span));
-        }
-        WidgetKind::Search { placeholder, bind } => {
-            rec.insert("placeholder", Value::string(placeholder.clone(), span));
-            if let Some(bind) = bind {
-                rec.insert("bind", Value::string(bind.clone(), span));
-            }
-        }
-        WidgetKind::Split { direction, ratio } => {
-            rec.insert("direction", Value::string(direction.as_str(), span));
-            rec.insert("ratio", Value::int(*ratio as i64, span));
-        }
-        WidgetKind::Preview {
-            max_bytes,
-            transform,
-            from,
-        } => {
-            rec.insert("max_bytes", Value::int(*max_bytes as i64, span));
-            rec.insert("has_transform", Value::bool(transform.is_some(), span));
-            if let Some(from) = from {
-                rec.insert("from", Value::string(from.clone(), span));
-            }
-        }
-        WidgetKind::Log { max_lines } => {
-            rec.insert("max_lines", Value::int(*max_lines as i64, span));
-        }
-        WidgetKind::Tree { walk, column } => {
-            rec.insert("walk", Value::bool(*walk, span));
-            rec.insert("column", Value::string(column.clone(), span));
-        }
-        WidgetKind::Tab { title } => {
-            rec.insert("title", Value::string(title.clone(), span));
-        }
+        rec.insert(
+            "has_source_closure",
+            Value::bool(source.closure.is_some(), span),
+        );
+    }
+    if widget.data.is_some() {
+        rec.insert("has_data", Value::bool(true, span));
+    }
+    if widget.on_select.is_some() {
+        rec.insert("has_on_select", Value::bool(true, span));
     }
     extend(widget, &mut rec);
     if !widget.children.is_empty() {
@@ -407,7 +395,7 @@ impl CustomValue for TuiApp {
     }
 
     fn type_name(&self) -> String {
-        "tui".to_string()
+        TYPE_NAME.to_string()
     }
 
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
@@ -425,6 +413,18 @@ impl CustomValue for TuiApp {
         rec.insert("data", self.data.clone());
         if !self.path_columns.is_empty() {
             rec.insert("path_columns", string_list(&self.path_columns, span));
+        }
+        if !self.binds.is_empty() {
+            rec.insert(
+                "binds",
+                Value::list(
+                    self.binds
+                        .iter()
+                        .map(|b| Value::string(b.chord.clone(), span))
+                        .collect(),
+                    span,
+                ),
+            );
         }
         Ok(Value::record(rec, span))
     }
@@ -465,5 +465,5 @@ impl CustomValue for TuiApp {
 
 /// Shared input/output type for component commands.
 pub fn tui_type() -> Type {
-    Type::custom("tui")
+    Type::custom(TYPE_NAME)
 }

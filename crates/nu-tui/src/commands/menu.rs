@@ -1,5 +1,5 @@
-use super::{WidgetKind, builder_io_types, push_widget, with_app};
-use crate::tui::widget::MenuItem;
+use super::{WidgetKind, builder_io_types, common_flags, push_widget, with_app};
+use crate::widgets::menu::{MenuItem, MenuWidget};
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -15,25 +15,26 @@ impl Command for TuiMenu {
     }
 
     fn extra_description(&self) -> &str {
-        "Each entry is a string, or a record `{name, items?, action?}`. `items` is a list of the same shape and opens as a dropdown; `action` is a closure.\n\
+        "Each entry is a string, or a record `{name, items?, action?}`. `items` is a list of the same shape and opens as a dropdown; `action` is a hook closure.\n\
          \n\
          Mnemonics: `&` before a letter in a name picks it (`\"&File\"` shows as File with F underlined); otherwise the first letter is used. Alt+letter opens that bar item from anywhere except a text field. Inside an open dropdown, the letter alone picks the item. Left/Right (or h/l) move along the bar, Down/Enter open a dropdown, Up/Down move inside it, Esc closes it.\n\
          \n\
-         Activating an item with an `action` runs the closure: a returned value replaces the data list (every table, log, and tree redraws); `nothing` leaves the data alone; an error goes to the status bar. Activating an item without an action submits it: `selected` is `{menu: \"File\", item: \"Open\", row: <highlighted table row>}` for a dropdown entry, or the bar item's name.\n\
+         Activating an item with an `action` runs it as a hook: it receives the state record, a returned value replaces the data list, `{action: submit|quit}` ends the TUI, and an error goes to the status bar. Activating an item without an action submits it: `selected` is `{menu: \"File\", item: \"Open\", row: <highlighted row>}` for a dropdown entry, or the bar item's name.\n\
          \n\
-         The menu is top-level chrome and cannot be nested in `tui split` or `tui tab`."
+         The menu is top-level chrome and cannot be nested in `tui split` or `tui box`."
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("tui menu")
-            .category(Category::Viewers)
-            .required(
-                "items",
-                SyntaxShape::List(Box::new(SyntaxShape::Any)),
-                "Bar entries: strings or {name, items?, action?} records.",
-            )
-            .named("id", SyntaxShape::String, "Widget id.", None)
-            .input_output_types(builder_io_types())
+        common_flags(
+            Signature::build("tui menu")
+                .category(Category::Viewers)
+                .required(
+                    "items",
+                    SyntaxShape::List(Box::new(SyntaxShape::Any)),
+                    "Bar entries: strings or {name, items?, action?} records.",
+                ),
+        )
+        .input_output_types(builder_io_types())
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -65,9 +66,9 @@ impl Command for TuiMenu {
                 stack,
                 call,
                 app,
-                "menu",
-                WidgetKind::Menu { items },
+                WidgetKind::Menu(MenuWidget { items }),
                 Vec::new(),
+                None,
             )
         })
     }

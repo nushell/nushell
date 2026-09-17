@@ -365,24 +365,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Table,
         };
 
-        // TUI
-        #[cfg(feature = "os")]
-        bind_command! {
-            Tui,
-            TuiRun,
-            TuiDebug,
-            TuiLabel,
-            TuiMenu,
-            TuiTextBox,
-            TuiTable,
-            TuiLog,
-            TuiTree,
-            TuiTab,
-            TuiSplit,
-            TuiSearch,
-            TuiPreview,
-        };
-
         // Conversions
         bind_command! {
             Fill,

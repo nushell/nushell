@@ -1,30 +1,41 @@
 //! `tui` parent command and each `tui *` subcommand.
 
+mod bind;
+mod r#box;
+mod button;
 mod debug;
 mod label;
 mod log;
 mod menu;
 mod preview;
+mod progress;
 mod run;
 mod search;
+mod select;
 mod split;
 mod tab;
 mod table;
 mod textbox;
 mod tree;
 
-use super::app::{TuiApp, tui_type};
-use super::widget::{Widget, WidgetKind};
+use crate::app::{TuiApp, tui_type};
+use crate::widget::{Source, Widget, WidgetKind};
 use nu_engine::{command_prelude::*, get_full_help};
+use nu_protocol::engine::Closure;
 use nu_protocol::{PipelineData, Type};
 
+pub use bind::TuiBind;
+pub use r#box::TuiBox;
+pub use button::TuiButton;
 pub use debug::TuiDebug;
 pub use label::TuiLabel;
 pub use log::TuiLog;
 pub use menu::TuiMenu;
 pub use preview::TuiPreview;
+pub use progress::TuiProgress;
 pub use run::TuiRun;
 pub use search::TuiSearch;
+pub use select::TuiSelect;
 pub use split::TuiSplit;
 pub use tab::TuiTab;
 pub use table::TuiTable;
@@ -45,12 +56,50 @@ pub(super) fn builder_io_types() -> Vec<(Type, Type)> {
     ]
 }
 
+/// Flags every builder takes.
+pub(super) fn common_flags(sig: Signature) -> Signature {
+    sig.named("id", SyntaxShape::String, "Widget id.", None)
+}
+
+/// Flags for widgets that show data and can follow another widget.
+pub(super) fn data_flags(sig: Signature) -> Signature {
+    common_flags(sig)
+        .named(
+            "data",
+            SyntaxShape::Any,
+            "Data for this widget alone, instead of the outer pipeline's.",
+            None,
+        )
+        .named(
+            "from",
+            SyntaxShape::String,
+            "Id of the table, tree, or select whose highlighted row drives this widget.",
+            None,
+        )
+}
+
+/// Flags for widgets with a highlighted row.
+pub(super) fn selectable_flags(sig: Signature) -> Signature {
+    data_flags(sig)
+        .named(
+            "on-select",
+            SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
+            "Hook run when the highlighted row changes; receives the state record.",
+            None,
+        )
+        .switch(
+            "multi",
+            "Space toggles rows; the selection is the checked rows.",
+            Some('m'),
+        )
+}
+
 pub(super) fn with_app(
     call: &Call,
     input: PipelineData,
     f: impl FnOnce(&mut TuiApp) -> Result<(), ShellError>,
 ) -> Result<PipelineData, ShellError> {
-    let (mut app, data) = TuiApp::split_input(input, call.head)?;
+    let (mut app, data) = TuiApp::split_input(input)?;
     f(&mut app)?;
     Ok(app.emit(data, call.head))
 }
@@ -120,39 +169,44 @@ pub(super) fn consume_text_arg(
     }
 }
 
-/// The children list of `tui split` / `tui tab`: `tui` values built with no
-/// pipeline input, e.g. `[(tui table) (tui preview)]`. Validated here;
-/// merged into the tree by [`TuiApp::adopt_children`].
+/// The children list of `tui split` / `tui box` / `tui tab`: `tui` values
+/// built in parentheses, e.g. `[(tui table) (tui preview)]`. A child may
+/// carry its own data (`(ls | tui table)`); chrome and pages may not nest.
 pub(super) fn children_from_values(values: Vec<Value>) -> Result<Vec<TuiApp>, ShellError> {
     let mut out = Vec::new();
     for value in values {
         let Some(child) = TuiApp::from_value(&value) else {
             return Err(ShellError::TypeMismatch {
                 err_message: format!(
-                    "expected a tui value, found {}. Build children with no pipeline input, \
-                     inside parentheses: [(tui table) (tui preview)]",
+                    "expected a tui value, found {}. Build children inside parentheses: \
+                     [(tui table) (tui preview)]. To give a child its own rows, pipe a \
+                     collected value into it or pass --data",
                     value.get_type()
                 ),
                 span: value.span(),
             });
         };
-        if !child.data.is_nothing() {
+        if let Some(bad) = child.iter().find(|w| {
+            (w.kind.is_chrome() && !matches!(w.kind, WidgetKind::Search(_)))
+                || matches!(w.kind, WidgetKind::Tab(_))
+        }) {
+            let what = if matches!(bad.kind, WidgetKind::Tab(_)) {
+                "`tui tab` is a page and cannot be nested; use `tui box` for a titled group"
+                    .to_string()
+            } else {
+                format!(
+                    "`{}` is top-level chrome and cannot be nested; add it to the outer pipeline",
+                    bad.kind.type_name()
+                )
+            };
             return Err(ShellError::IncompatibleParametersSingle {
-                msg: "children must not carry data; pipe data into the outer pipeline instead"
-                    .into(),
+                msg: what,
                 span: value.span(),
             });
         }
-        if let Some(chrome) = child
-            .widgets
-            .iter()
-            .find(|w| w.kind.is_chrome() && !matches!(w.kind, WidgetKind::Search { .. }))
-        {
+        if !child.binds.is_empty() {
             return Err(ShellError::IncompatibleParametersSingle {
-                msg: format!(
-                    "`{}` is top-level chrome and cannot be nested; add it to the outer pipeline",
-                    chrome.kind.type_name()
-                ),
+                msg: "`tui bind` applies to the whole TUI; add it to the outer pipeline".into(),
                 span: value.span(),
             });
         }
@@ -193,23 +247,34 @@ pub(super) fn session_cwd(engine_state: &EngineState, stack: &Stack) -> std::pat
         .unwrap_or_else(|_| std::path::PathBuf::from("."))
 }
 
+/// Append a widget, reading the flags common to builders: `--id`, and for
+/// data widgets `--data`, `--from`, `--on-select`. `source_closure` is the
+/// positional closure that turns the source row into this widget's data.
 pub(super) fn push_widget(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
     app: &mut TuiApp,
-    prefix: &str,
     kind: WidgetKind,
     children: Vec<TuiApp>,
+    source_closure: Option<Closure>,
 ) -> Result<(), ShellError> {
     let requested: Option<String> = call.get_flag(engine_state, stack, "id")?;
-    let (id, auto_id) = app.next_id(prefix, requested, call.head)?;
+    let (id, auto_id) = app.next_id(kind.type_name(), requested, call.head)?;
     let children = app.adopt_children(children, &id, call.head)?;
+    let from: Option<String> = call.get_flag(engine_state, stack, "from")?;
+    let source = (from.is_some() || source_closure.is_some()).then_some(Source {
+        from,
+        closure: source_closure,
+    });
     app.push(Widget {
         id,
         auto_id,
         kind,
         children,
+        data: call.get_flag(engine_state, stack, "data")?,
+        source,
+        on_select: call.get_flag(engine_state, stack, "on-select")?,
     });
     Ok(())
 }
@@ -229,9 +294,13 @@ impl Command for Tui {
     fn extra_description(&self) -> &str {
         "You must use one of the following subcommands. Using this command as-is will only produce this help message.\n\
          \n\
-         Pipeline data (including lazy streams) flows through `tui *` builders without being collected. `tui run` reads the stream while the UI is open, so rows appear as they are produced.\n\
+         Builders (`tui table`, `tui split`, ...) append widgets to a `tui` value. `tui run` shows it and returns one record: `{action, focused, selected, page, values, rows, live}`, where `values` holds every widget's state by id. `tui debug` returns the same record plus the painted `screen` and the resolved layout, for scripts and tests.\n\
          \n\
-         Layout is nested: `tui split [(tui table) (tui preview)]` puts two widgets side by side, and `tui tab \"name\" [...]` makes a page. Children are built without pipeline input; data enters once through the outer pipeline."
+         Data: a collected value piped into a builder is the shared data list; lazy streams keep flowing and rows appear as they are produced. A widget can have its own rows with `--data`, or by piping into it inside a container's child list: `tui split [(ls | tui table) (ps | tui table)]`. `--from <id>` (with an optional closure) makes a widget follow another's highlighted row.\n\
+         \n\
+         Hooks: `tui bind`, menu actions, `tui button`, `--on-select`, and the `tui run` refresh closure all receive the state record and may return nothing, a new data list, or `{action: submit|quit, selected: ...}`.\n\
+         \n\
+         Layout: `tui split --sizes [30% 1fr]` arranges children; `tui box` groups them with a border; `tui tab` makes a page. Colors come from `$env.config.tui`."
     }
 
     fn signature(&self) -> Signature {

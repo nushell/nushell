@@ -1350,6 +1350,62 @@ $env.config.explore.try.reactive = false
 #     try: { reactive: false }
 # }
 
+# --------------------
+# TUI Command Settings
+# --------------------
+# `$env.config.tui` styles the `tui` command family (`tui table`, `tui split`, `tui run`, ...).
+# It is read by `Theme::from_config` in `crates/nu-tui/src/theme.rs`. Every key is a color
+# value in the same forms as `color_config`: a color name, `#RRGGBB`, or `{ fg?, bg?, attr? }`.
+# When `use_ansi_coloring` is off the TUI draws without colors.
+
+# tui.title_bar (color): The one-line title bar from `tui label --title`.
+# Default: { fg: white, bg: blue, attr: b }
+$env.config.tui.title_bar = { fg: white, bg: blue, attr: b }
+
+# tui.status_bar (color): The bottom status bar from `tui label --status`.
+# Default: { fg: white, bg: dark_gray }
+$env.config.tui.status_bar = { fg: white, bg: dark_gray }
+
+# tui.border / tui.border_focused (color): Widget borders, and the border of the focused widget.
+# Defaults: { fg: dark_gray } / { fg: cyan }
+$env.config.tui.border = { fg: dark_gray }
+$env.config.tui.border_focused = { fg: cyan }
+
+# tui.selected (color): The highlighted row in tables, trees, selects, and menus.
+# Default: { attr: r }
+$env.config.tui.selected = { attr: r }
+
+# tui.header (color): Table column headers.
+# Default: { fg: green, attr: b }
+$env.config.tui.header = { fg: green, attr: b }
+
+# tui.muted (color): Placeholders and empty-state text.
+# Default: { fg: dark_gray }
+$env.config.tui.muted = { fg: dark_gray }
+
+# tui.highlight (color): Search query text and check marks.
+# Default: { fg: yellow, attr: b }
+$env.config.tui.highlight = { fg: yellow, attr: b }
+
+# tui.tab_active / tui.tab_inactive (color): Entries in the tab bar.
+# Defaults: { fg: cyan, attr: bu } / { fg: dark_gray }
+$env.config.tui.tab_active = { fg: cyan, attr: bu }
+$env.config.tui.tab_inactive = { fg: dark_gray }
+
+# tui.progress (color): The filled part of `tui progress`.
+# Default: { fg: green }
+$env.config.tui.progress = { fg: green }
+
+# tui.button (color): `tui button` labels.
+# Default: { fg: white, bg: blue }
+$env.config.tui.button = { fg: white, bg: blue }
+
+# tui.surface / tui.backdrop (color): Background fill behind widgets, and behind a `--dialog`.
+# Only the `bg` of the value is used.
+# Defaults: unset (a near-black fill)
+# $env.config.tui.surface = { bg: "#121216" }
+# $env.config.tui.backdrop = { bg: "#08080c" }
+
 # ---------------------------------------------------------------------------------------
 # Environment Variables
 # ---------------------------------------------------------------------------------------

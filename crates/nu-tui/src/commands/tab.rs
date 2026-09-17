@@ -1,4 +1,7 @@
-use super::{WidgetKind, builder_io_types, children_from_values, push_widget, with_app};
+use super::{
+    WidgetKind, builder_io_types, children_from_values, common_flags, push_widget, with_app,
+};
+use crate::widgets::tab::TabWidget;
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -10,43 +13,37 @@ impl Command for TuiTab {
     }
 
     fn description(&self) -> &str {
-        "Group widgets under a name: a page in the tab bar, or a titled box when nested."
+        "Group widgets as a page in the tab bar."
     }
 
     fn extra_description(&self) -> &str {
-        "In the outer pipeline each `tui tab` is a page and the tab bar shows whenever any exists. Click a tab, press 1-9, or use `[` `]` / Ctrl+Tab to switch. Chrome (title, menu, search, status) stays visible on every page.\n\
+        "Each `tui tab` in the outer pipeline is a page and the tab bar shows whenever any exists. Click a tab, press 1-9, or use `[` `]` / Ctrl+Tab to switch. Chrome (title, menu, search, status) stays visible on every page.\n\
          \n\
-         Inside `tui split [...]` a tab is not a page: it draws a bordered box with the title around its children.\n\
+         Tabs cannot be nested; for a titled box inside a split use `tui box`.\n\
          \n\
-         Children are `tui` values built with no pipeline input, in parentheses: `tui tab \"files\" [(tui table) (tui preview)]`."
+         Children are `tui` values built in parentheses: `tui tab \"files\" [(tui table) (tui preview)]`."
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("tui tab")
-            .category(Category::Viewers)
-            .required("title", SyntaxShape::String, "Tab title.")
-            .required(
-                "children",
-                SyntaxShape::List(Box::new(SyntaxShape::Any)),
-                "Widgets on this tab, e.g. [(tui table) (tui preview)].",
-            )
-            .named("id", SyntaxShape::String, "Widget id.", None)
-            .input_output_types(builder_io_types())
+        common_flags(
+            Signature::build("tui tab")
+                .category(Category::Viewers)
+                .required("title", SyntaxShape::String, "Tab title.")
+                .required(
+                    "children",
+                    SyntaxShape::List(Box::new(SyntaxShape::Any)),
+                    "Widgets on this tab, e.g. [(tui table) (tui preview)].",
+                ),
+        )
+        .input_output_types(builder_io_types())
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
-        vec![
-            Example {
-                description: "The same rows as a table and as a tree, on two tabs",
-                example: r#"ls | tui tab "table" [(tui table)] | tui tab "tree" [(tui tree --walk)] | tui run"#,
-                result: None,
-            },
-            Example {
-                description: "A titled box inside a split",
-                example: r#"ls | tui split [(tui tab "list" [(tui table)]) (tui preview)] | tui run"#,
-                result: None,
-            },
-        ]
+        vec![Example {
+            description: "The same rows as a table and as a tree, on two tabs",
+            example: r#"ls | tui tab "table" [(tui table)] | tui tab "tree" [(tui tree --walk)] | tui run"#,
+            result: None,
+        }]
     }
 
     fn run(
@@ -64,9 +61,9 @@ impl Command for TuiTab {
                 stack,
                 call,
                 app,
-                "tab",
-                WidgetKind::Tab { title },
+                WidgetKind::Tab(TabWidget { title }),
                 children,
+                None,
             )
         })
     }

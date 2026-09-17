@@ -1,6 +1,6 @@
 use super::{empty_tui, session_cwd, size_flag};
-use crate::tui::app::TuiApp;
-use crate::tui::runtime::{RunOptions, run};
+use crate::app::TuiApp;
+use crate::runtime::{RunOptions, run};
 use nu_engine::command_prelude::*;
 use nu_protocol::engine::Closure;
 use std::time::Duration;
@@ -20,15 +20,17 @@ impl Command for TuiRun {
     fn extra_description(&self) -> &str {
         "Interactive keys:\n\
          - Tab / Shift+Tab: move focus between widgets\n\
-         - [ / ] or Ctrl+Tab: switch tabs\n\
-         - 1-9: jump to a tab\n\
-         - Arrows, hjkl, PageUp/PageDown, Home/End: move in tables and trees; scroll logs\n\
+         - [ / ] or Ctrl+Tab: switch tabs; 1-9: jump to a tab\n\
+         - Arrows, hjkl, PageUp/PageDown, Home/End: move in lists; scroll logs\n\
+         - Space: check a row in a --multi list\n\
          - Type in a focused search box or text box; q is a character there\n\
          - Mouse: click to focus/select, scroll, drag split handles and dialog chrome\n\
-         - Enter: submit the current selection and return a record\n\
+         - Enter: submit the focused widget's selection and return a record\n\
          - q / Esc (when not typing) or Ctrl+C: quit\n\
          \n\
-         `--refresh 1sec { ls }` re-runs the closure on that interval and replaces the shared data list. A closure without `--refresh` runs once at start.\n\
+         The result is `{action, focused, selected, page, values, rows, live}`. `action` is `submit` or `quit`; `selected` is the focused widget's selection (a table row, checked rows with --multi, a text box's text, ...); `values` holds every widget's state by id, e.g. `values.table-0.index`.\n\
+         \n\
+         A closure runs as a hook with the state record as `$in`: its output replaces the data list, `{action: submit, selected: ...}` ends the TUI, `null` does nothing. `--refresh 1sec { ls }` re-runs it on that interval; without `--refresh` it runs once at start.\n\
          `--dialog` opens a floating popup on the alternate screen; `--size [70 20]` sets its size.\n\
          \n\
          To render without a terminal, or to replay keys in a test, use `tui debug`."
@@ -38,9 +40,9 @@ impl Command for TuiRun {
         Signature::build("tui run")
             .category(Category::Viewers)
             .optional(
-                "using",
-                SyntaxShape::Closure(None),
-                "Closure whose output replaces the TUI data list. Used with --refresh.",
+                "hook",
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
+                "Hook whose output replaces the data list. Used with --refresh.",
             )
             .switch(
                 "dialog",
@@ -56,11 +58,14 @@ impl Command for TuiRun {
             .named(
                 "refresh",
                 SyntaxShape::Duration,
-                "How often to re-run the using closure (e.g. 1sec).",
+                "How often to re-run the hook (e.g. 1sec).",
                 Some('r'),
             )
             .switch("no-mouse", "Disable mouse capture.", None)
-            .input_output_types(vec![(empty_tui(), Type::Any), (Type::Any, Type::Any)])
+            .input_output_types(vec![
+                (empty_tui(), Type::record()),
+                (Type::Any, Type::record()),
+            ])
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -79,6 +84,11 @@ impl Command for TuiRun {
                 example: "ls | tui table | tui run --dialog --refresh 1sec { ls }",
                 result: None,
             },
+            Example {
+                description: "Read a text box by id after submit",
+                example: "tui textbox --id name | tui run | get values.name",
+                result: None,
+            },
         ]
     }
 
@@ -89,7 +99,7 @@ impl Command for TuiRun {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let (app, data) = TuiApp::split_input(input, call.head)?;
+        let (app, data) = TuiApp::split_input(input)?;
         let dialog = call.has_flag(engine_state, stack, "dialog")?;
         let size = size_flag(engine_state, stack, call)?;
         let refresh = call

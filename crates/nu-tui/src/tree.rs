@@ -99,20 +99,19 @@ fn flatten_node(
     }
 }
 
+/// A node's children. A record expands into its fields, except that with
+/// `--walk` a directory row expands into its listing instead.
 fn children(value: &Value, path: &str, ctx: &Ctx<'_>) -> Vec<(String, Value)> {
     match value {
         Value::Record { val, .. } => {
-            if is_ls_style_row(val) {
-                if ctx.walk && is_dir_row(val) {
-                    return ctx
-                        .cache
-                        .get(path)
-                        .into_iter()
-                        .flatten()
-                        .map(|v| (node_label(v, ctx.column), v.clone()))
-                        .collect();
-                }
-                return Vec::new();
+            if ctx.walk && is_ls_style_row(val) && is_dir_row(val) {
+                return ctx
+                    .cache
+                    .get(path)
+                    .into_iter()
+                    .flatten()
+                    .map(|v| (node_label(v, ctx.column), v.clone()))
+                    .collect();
             }
             val.iter().map(|(k, v)| (k.clone(), v.clone())).collect()
         }
@@ -304,6 +303,74 @@ mod tests {
         let rows = flatten_with(&["a", "a/b", "a/c", "d", "d/0", "d/1"]);
         assert_eq!(rows.len(), 6);
         assert!(rows.iter().all(|r| r.label != "value"));
+    }
+
+    fn ls_rows() -> Value {
+        let row = |name: &str, kind: &str| {
+            let mut r = Record::new();
+            r.insert("name", Value::test_string(name));
+            r.insert("type", Value::test_string(kind));
+            r.insert("size", Value::test_int(3));
+            Value::test_record(r)
+        };
+        Value::test_list(vec![row("notes.txt", "file"), row("src", "dir")])
+    }
+
+    #[test]
+    fn ls_rows_expand_into_fields_without_walk() {
+        let set: HashSet<String> = ["0".to_string()].into_iter().collect();
+        let rows = flatten(
+            &ls_rows(),
+            &set,
+            false,
+            "name",
+            Path::new("."),
+            &HashMap::new(),
+        );
+        let labels: Vec<_> = rows.iter().map(|r| r.label.as_str()).collect();
+        assert_eq!(
+            labels,
+            [
+                "notes.txt",
+                "name: notes.txt",
+                "type: file",
+                "size: 3",
+                "src"
+            ]
+        );
+        assert!(
+            rows.iter().filter(|r| r.depth == 0).all(|r| r.expandable),
+            "every ls row can open"
+        );
+    }
+
+    #[test]
+    fn walk_expands_dirs_into_listings_and_files_into_fields() {
+        let dir = std::env::temp_dir().join("nu-tui-tree-walk-fields");
+        let _ = std::fs::create_dir_all(dir.join("src"));
+        let _ = std::fs::write(dir.join("src").join("main.nu"), "");
+        let _ = std::fs::write(dir.join("notes.txt"), "");
+        let mut cache = HashMap::new();
+        cache.insert(
+            "1".to_string(),
+            read_dir_listing(&dir.join("src"), Span::test_data()),
+        );
+        let set: HashSet<String> = ["0".to_string(), "1".to_string()].into_iter().collect();
+        let rows = flatten(&ls_rows(), &set, true, "name", &dir, &cache);
+        let labels: Vec<_> = rows.iter().map(|r| r.label.as_str()).collect();
+        assert!(
+            labels.contains(&"type: file"),
+            "file rows show fields: {labels:?}"
+        );
+        assert!(
+            labels.iter().any(|l| l.ends_with("main.nu")),
+            "dir rows show their listing: {labels:?}"
+        );
+        assert!(
+            !labels.contains(&"type: dir"),
+            "dir rows hide fields: {labels:?}"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

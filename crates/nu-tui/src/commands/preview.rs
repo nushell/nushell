@@ -1,4 +1,5 @@
-use super::{WidgetKind, builder_io_types, push_widget, with_app};
+use super::{WidgetKind, builder_io_types, common_flags, push_widget, with_app};
+use crate::widgets::preview::PreviewWidget;
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -10,7 +11,7 @@ impl Command for TuiPreview {
     }
 
     fn description(&self) -> &str {
-        "Show text for the selected table or tree row. Arrow keys stay on the source."
+        "Show text for the selected table, tree, or select row. Arrow keys stay on the source."
     }
 
     fn extra_description(&self) -> &str {
@@ -20,31 +21,32 @@ impl Command for TuiPreview {
          \n\
          A closure with one parameter is the source: it receives the selected row and whatever it returns is shown. Nothing is read from disk, so any column or computed value can be previewed: `{|row| $row.event | to nuon }` or `{|row| open --raw $row.path }`.\n\
          \n\
-         The preview follows the focused table or tree, else the nearest one in the same container. `--from` names one explicitly."
+         The preview follows the focused list, else the nearest one in the same container. `--from` names one explicitly."
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("tui preview")
-            .category(Category::Viewers)
-            .optional(
-                "transform",
-                SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
-                "No parameters: transform file text (`$in`). One parameter: produce text from the row.",
-            )
-            .named(
-                "from",
-                SyntaxShape::String,
-                "Table or tree id to follow.",
-                None,
-            )
-            .named(
-                "max-bytes",
-                SyntaxShape::Int,
-                "Maximum bytes to read from a file (default 65536).",
-                None,
-            )
-            .named("id", SyntaxShape::String, "Widget id.", None)
-            .input_output_types(builder_io_types())
+        common_flags(
+            Signature::build("tui preview")
+                .category(Category::Viewers)
+                .optional(
+                    "transform",
+                    SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
+                    "No parameters: transform file text (`$in`). One parameter: produce text from the row.",
+                )
+                .named(
+                    "from",
+                    SyntaxShape::String,
+                    "Table, tree, or select id to follow.",
+                    None,
+                )
+                .named(
+                    "max-bytes",
+                    SyntaxShape::Int,
+                    "Maximum bytes to read from a file (default 65536).",
+                    None,
+                ),
+        )
+        .input_output_types(builder_io_types())
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -75,19 +77,17 @@ impl Command for TuiPreview {
                 .get_flag::<i64>(engine_state, stack, "max-bytes")?
                 .unwrap_or(65536)
                 .clamp(1, 8 * 1024 * 1024) as usize;
-            let from = call.get_flag(engine_state, stack, "from")?;
             push_widget(
                 engine_state,
                 stack,
                 call,
                 app,
-                "preview",
-                WidgetKind::Preview {
+                WidgetKind::Preview(PreviewWidget {
                     max_bytes,
                     transform,
-                    from,
-                },
+                }),
                 Vec::new(),
+                None,
             )
         })
     }

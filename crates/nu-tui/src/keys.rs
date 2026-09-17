@@ -1,8 +1,34 @@
-//! Key event parsing and scripted-key replay for headless tests.
+//! Key chords: normalizing crossterm events, parsing `--bind`/`tui bind`
+//! keys, and the scripted-key replay used by `tui debug`.
 use crossterm::event::{
     Event, KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
 };
-use nu_protocol::{ShellError, Span, shell_error::generic::GenericError};
+use nu_protocol::{ShellError, Span, Value, shell_error::generic::GenericError};
+
+/// A key press as widgets see it: the raw event plus its normalized chord
+/// (`ctrl+r`, `shift+tab`, `a`).
+#[derive(Debug, Clone)]
+pub struct KeyPress {
+    pub chord: String,
+    pub event: KeyEvent,
+}
+
+impl KeyPress {
+    pub fn new(event: KeyEvent) -> Self {
+        Self {
+            chord: key_event_to_string(event),
+            event,
+        }
+    }
+
+    /// Whether any of ctrl/alt/super is held. Plain-letter binds are
+    /// suppressed while typing; modified ones still fire.
+    pub fn has_modifier(&self) -> bool {
+        self.event
+            .modifiers
+            .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT | KeyModifiers::SUPER)
+    }
+}
 
 /// Normalize a key event into a stable string like `ctrl+r` or `shift+tab`.
 pub fn key_event_to_string(key: KeyEvent) -> String {
@@ -62,6 +88,64 @@ pub fn normalize_bind(s: &str) -> String {
     s.trim().to_ascii_lowercase().replace(' ', "")
 }
 
+/// A chord from a bind value: a string like `ctrl+s`, or a reedline-style
+/// record `{modifier: control, keycode: char_s}` as used in
+/// `$env.config.keybindings`.
+pub fn chord_from_value(value: &Value) -> Result<String, ShellError> {
+    match value {
+        Value::String { val, .. } => Ok(normalize_bind(val)),
+        Value::Record { val, .. } => {
+            let modifier = val
+                .get("modifier")
+                .and_then(|v| v.as_str().ok())
+                .unwrap_or("none");
+            let keycode = val
+                .get("keycode")
+                .and_then(|v| v.as_str().ok())
+                .ok_or_else(|| ShellError::MissingParameter {
+                    param_name: "keycode".into(),
+                    span: value.span(),
+                })?;
+            Ok(normalize_binding(modifier, keycode))
+        }
+        other => Err(ShellError::TypeMismatch {
+            err_message: format!(
+                "expected a key string like 'ctrl+s' or a {{modifier, keycode}} record, found {}",
+                other.get_type()
+            ),
+            span: other.span(),
+        }),
+    }
+}
+
+/// Map reedline config keys (`control` + `char_r`) onto
+/// [`key_event_to_string`] chords (`ctrl+r`).
+pub fn normalize_binding(modifier: &str, keycode: &str) -> String {
+    let mut parts: Vec<String> = Vec::new();
+    let modifier = modifier.to_ascii_lowercase().replace('-', "_");
+    if modifier != "none" && !modifier.is_empty() {
+        if modifier.contains("ctrl") || modifier.contains("control") {
+            parts.push("ctrl".into());
+        }
+        if modifier.contains("alt") {
+            parts.push("alt".into());
+        }
+        if modifier.contains("super") || modifier.contains("meta") {
+            parts.push("super".into());
+        }
+        if modifier.contains("shift") {
+            parts.push("shift".into());
+        }
+    }
+
+    let key = keycode.to_ascii_lowercase();
+    let key = key.strip_prefix("char_").map(str::to_string).unwrap_or(key);
+    if !key.is_empty() {
+        parts.push(key);
+    }
+    parts.join("+")
+}
+
 /// Parse a comma-separated script of keys/mouse events.
 ///
 /// Tokens: `enter`, `esc`, `tab`, `shift+tab`, `up`, `down`, `left`, `right`,
@@ -69,11 +153,40 @@ pub fn normalize_bind(s: &str) -> String {
 /// `ctrl+c`, `ctrl+r`, `alt+a`, `f1`, a single character, `type:hello`,
 /// `click:COL,ROW`, `scroll-up`, `scroll-down`, `drag:COL,ROW`.
 pub fn parse_scripted_keys(script: &str, span: Span) -> Result<Vec<Event>, ShellError> {
+    parse_key_tokens(split_script(script), span)
+}
+
+/// Parse tokens given one per list element (`--keys [down enter "click:3,4"]`).
+pub fn parse_key_tokens(
+    tokens: impl IntoIterator<Item = String>,
+    span: Span,
+) -> Result<Vec<Event>, ShellError> {
     let mut events = Vec::new();
-    for token in split_script(script) {
-        events.extend(parse_token(&token, span)?);
+    for token in tokens {
+        events.extend(parse_token(token.trim(), span)?);
     }
     Ok(events)
+}
+
+/// `--keys` as either a comma-separated string or a list of tokens.
+pub fn key_script_from_value(value: &Value, span: Span) -> Result<Vec<Event>, ShellError> {
+    match value {
+        Value::String { val, .. } => parse_scripted_keys(val, span),
+        Value::List { vals, .. } => {
+            let mut tokens = Vec::with_capacity(vals.len());
+            for v in vals {
+                tokens.push(v.as_str()?.to_string());
+            }
+            parse_key_tokens(tokens, span)
+        }
+        other => Err(ShellError::TypeMismatch {
+            err_message: format!(
+                "expected a key script string or list, found {}",
+                other.get_type()
+            ),
+            span: other.span(),
+        }),
+    }
 }
 
 fn split_script(script: &str) -> Vec<String> {
@@ -265,6 +378,86 @@ fn script_error(span: Span, token: &str) -> ShellError {
     ))
 }
 
+/// Editing keys shared by text boxes and search boxes. Returns `true` when
+/// the key changed the text or cursor.
+pub fn apply_edit(key: KeyEvent, text: &mut String, cursor: &mut usize) -> bool {
+    let len = text.chars().count();
+    *cursor = (*cursor).min(len);
+    match (key.code, key.modifiers) {
+        (KeyCode::Char(c), m)
+            if !m.contains(KeyModifiers::CONTROL) && !m.contains(KeyModifiers::ALT) =>
+        {
+            let byte = byte_index(text, *cursor);
+            text.insert(byte, c);
+            *cursor += 1;
+            true
+        }
+        (KeyCode::Backspace, _) => {
+            if *cursor > 0 {
+                remove_char(text, *cursor - 1);
+                *cursor -= 1;
+            }
+            true
+        }
+        (KeyCode::Delete, _) => {
+            if *cursor < text.chars().count() {
+                remove_char(text, *cursor);
+            }
+            true
+        }
+        (KeyCode::Left, _) => {
+            *cursor = cursor.saturating_sub(1);
+            true
+        }
+        (KeyCode::Right, _) => {
+            *cursor = (*cursor + 1).min(text.chars().count());
+            true
+        }
+        (KeyCode::Home, _) => {
+            *cursor = 0;
+            true
+        }
+        (KeyCode::Char('a'), m) if m.contains(KeyModifiers::CONTROL) => {
+            *cursor = 0;
+            true
+        }
+        (KeyCode::End, _) => {
+            *cursor = text.chars().count();
+            true
+        }
+        (KeyCode::Char('e'), m) if m.contains(KeyModifiers::CONTROL) => {
+            *cursor = text.chars().count();
+            true
+        }
+        (KeyCode::Char('u'), m) if m.contains(KeyModifiers::CONTROL) => {
+            text.clear();
+            *cursor = 0;
+            true
+        }
+        _ => false,
+    }
+}
+
+fn remove_char(text: &mut String, char_idx: usize) {
+    let start = byte_index(text, char_idx);
+    let end = byte_index(text, char_idx + 1);
+    text.replace_range(start..end, "");
+}
+
+fn byte_index(text: &str, char_idx: usize) -> usize {
+    text.char_indices()
+        .nth(char_idx)
+        .map(|(i, _)| i)
+        .unwrap_or(text.len())
+}
+
+/// The chord's only character, for mnemonic matching.
+pub fn single_char(chord: &str) -> Option<char> {
+    let mut chars = chord.chars();
+    let c = chars.next()?;
+    chars.next().is_none().then_some(c)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -298,5 +491,31 @@ mod tests {
             }
             other => panic!("expected mouse, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn list_tokens_parse_one_each() {
+        let value = Value::test_list(vec![
+            Value::test_string("down"),
+            Value::test_string("click:3,4"),
+            Value::test_string("type:hi"),
+        ]);
+        let events = key_script_from_value(&value, Span::test_data()).expect("parse");
+        assert_eq!(events.len(), 4);
+    }
+
+    #[test]
+    fn reedline_record_maps_to_chord() {
+        let mut rec = nu_protocol::Record::new();
+        rec.insert("modifier", Value::test_string("control"));
+        rec.insert("keycode", Value::test_string("char_s"));
+        let chord = chord_from_value(&Value::test_record(rec)).expect("chord");
+        assert_eq!(chord, "ctrl+s");
+    }
+
+    #[test]
+    fn normalize_control_char_r() {
+        assert_eq!(normalize_binding("control", "char_r"), "ctrl+r");
+        assert_eq!(normalize_binding("none", "tab"), "tab");
     }
 }

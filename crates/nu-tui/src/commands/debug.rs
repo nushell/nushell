@@ -1,6 +1,7 @@
 use super::{empty_tui, session_cwd, size_flag};
-use crate::tui::app::TuiApp;
-use crate::tui::runtime::{RunOptions, debug};
+use crate::app::TuiApp;
+use crate::keys::key_script_from_value;
+use crate::runtime::{RunOptions, debug};
 use nu_engine::command_prelude::*;
 use nu_protocol::engine::Closure;
 
@@ -17,30 +18,39 @@ impl Command for TuiDebug {
     }
 
     fn extra_description(&self) -> &str {
-        "Use this to test a TUI in a script or CI, or to see why it looks the way it does. The result record has the same fields as `tui run` (action, focused, selected, search, page, values, rows, live) plus:\n\
+        "Use this to test a TUI in a script or CI, or to see why it looks the way it does. The result record has the same fields as `tui run` (action, focused, selected, page, values, rows, live) plus:\n\
          - `screen`: the painted buffer as a string\n\
-         - `widgets`: the widget tree with each widget's layout `rect`, `focusable`, and for tables the `resolved_columns` and filtered `rows`; searches show their `query`; previews show the `source` they follow; scrollable widgets show the `search_scope` that filters them\n\
+         - `widgets`: the widget tree with each widget's layout `rect`, `focusable`, and per-kind fields: tables show `resolved_columns` and filtered `rows`; searches show their `query`; previews and `--from` widgets show the `source` they follow; lists show the `search_scope` that filters them\n\
          - `focus`: the tab order and the default focus\n\
          - `pages`: the tab bar entries\n\
          \n\
-         `--keys` replays comma-separated tokens before painting: enter, esc, tab, shift+tab, up, down, left, right, home, end, pageup, pagedown, backspace, delete, space, insert, ctrl+c, alt+a, f1, a single character, `type:hello`, `click:COL,ROW`, `drag:COL,ROW`, `scroll-up`, `scroll-down`. `action` is `render` when the keys finished without Enter or quit.\n\
+         `--keys` replays tokens before painting, as a comma-separated string or a list: enter, esc, tab, shift+tab, up, down, left, right, home, end, pageup, pagedown, backspace, delete, space, insert, ctrl+c, alt+a, f1, a single character, `type:hello`, `click:COL,ROW`, `drag:COL,ROW`, `scroll-up`, `scroll-down`. `action` is `render` when the keys finished without Enter or quit. `--until {|state| ...}` stops the replay early once the closure returns true.\n\
          \n\
-         A finite stream is drained (5 second cap) before painting. A closure runs once and replaces the data list, as `tui run --refresh` would."
+         A finite stream is drained (5 second cap) before painting. A hook closure runs once with the state record, as `tui run` would."
     }
 
     fn signature(&self) -> Signature {
         Signature::build("tui debug")
             .category(Category::Viewers)
             .optional(
-                "using",
-                SyntaxShape::Closure(None),
-                "Closure whose output replaces the TUI data list, run once.",
+                "hook",
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
+                "Hook whose output replaces the data list, run once.",
             )
             .named(
                 "keys",
-                SyntaxShape::String,
-                "Comma-separated key tokens to replay before painting.",
+                SyntaxShape::OneOf(vec![
+                    SyntaxShape::List(Box::new(SyntaxShape::String)),
+                    SyntaxShape::String,
+                ]),
+                "Key tokens to replay before painting.",
                 Some('k'),
+            )
+            .named(
+                "until",
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
+                "Stop replaying keys once this returns true for the state record.",
+                Some('u'),
             )
             .named(
                 "size",
@@ -68,12 +78,17 @@ impl Command for TuiDebug {
             },
             Example {
                 description: "Replay keys and read the selection",
-                example: "[{name: a}, {name: b}] | tui table | tui debug --keys down,enter | get selected.name",
+                example: "[{name: a}, {name: b}] | tui table | tui debug --keys [down enter] | get selected.name",
                 result: None,
             },
             Example {
                 description: "See where each widget landed",
                 example: "ls | tui split [(tui table) (tui preview)] | tui debug | get widgets.0.children | select id rect",
+                result: None,
+            },
+            Example {
+                description: "Stop replaying once a condition holds",
+                example: "[a b c] | tui table | tui debug --keys [down down down] --until {|s| $s.values.table-0.index == 1 } | get values.table-0.index",
                 result: None,
             },
         ]
@@ -86,11 +101,16 @@ impl Command for TuiDebug {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let (app, data) = TuiApp::split_input(input, call.head)?;
+        let (app, data) = TuiApp::split_input(input)?;
         let (width, height) = size_flag(engine_state, stack, call)?.unwrap_or((80, 24));
         let using: Option<Closure> = call.opt(engine_state, stack, 0)?;
+        let keys = match call.get_flag::<Value>(engine_state, stack, "keys")? {
+            Some(value) => key_script_from_value(&value, call.head)?,
+            None => Vec::new(),
+        };
         let opts = RunOptions {
-            keys: call.get_flag(engine_state, stack, "keys")?,
+            keys,
+            until: call.get_flag(engine_state, stack, "until")?,
             width: width.clamp(16, 400) as u16,
             height: height.clamp(4, 200) as u16,
             dialog: call.has_flag(engine_state, stack, "dialog")?,
