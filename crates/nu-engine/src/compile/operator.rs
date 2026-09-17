@@ -200,7 +200,7 @@ pub(crate) fn compile_binary_op(
 /// The equivalent plain operator to use for an assignment, if any
 pub(crate) fn decompose_assignment(assignment: Assignment) -> Option<Operator> {
     match assignment {
-        Assignment::Assign => None,
+        Assignment::Assign | Assignment::PipeAssign => None,
         Assignment::AddAssign => Some(Operator::Math(Math::Add)),
         Assignment::SubtractAssign => Some(Operator::Math(Math::Subtract)),
         Assignment::MultiplyAssign => Some(Operator::Math(Math::Multiply)),

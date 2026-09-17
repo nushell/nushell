@@ -1014,6 +1014,7 @@ pub fn parse_assignment_operator(working_set: &mut StateWorkingSet, span: Span) 
         b"*=" => Operator::Assignment(Assignment::MultiplyAssign),
         b"/=" => Operator::Assignment(Assignment::DivideAssign),
         b"++=" => Operator::Assignment(Assignment::ConcatenateAssign),
+        b"|=" => Operator::Assignment(Assignment::PipeAssign),
         _ => {
             working_set.error(ParseError::Expected("assignment operator", span));
             return garbage(working_set, span);
