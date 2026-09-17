@@ -23,16 +23,24 @@ pub struct PreviewWidget {
 impl PreviewWidget {
     /// Compute the pane for `row` and store it, resetting scroll when the
     /// title changed.
-    pub fn refresh(&self, state: &mut WidgetState, row: Option<&Value>, session: &Session) {
+    /// `stack` carries `TUI_WIDTH` / `TUI_HEIGHT` for the closure (see
+    /// [`Session::closure_stack`]).
+    pub fn refresh(
+        &self,
+        state: &mut WidgetState,
+        row: Option<&Value>,
+        session: &Session,
+        stack: Option<&nu_protocol::engine::Stack>,
+    ) {
         let Some(preview) = state.as_preview_mut() else {
             return;
         };
-        let engine = session.engine.as_ref();
+        let engine = session.engine.as_ref().zip(stack);
         let wants_row = self
             .transform
             .as_ref()
             .zip(engine)
-            .is_some_and(|(c, (engine_state, _))| closure_arity(engine_state, c) > 0);
+            .is_some_and(|(c, ((engine_state, _), _))| closure_arity(engine_state, c) > 0);
         let file = match (row, wants_row) {
             // One-parameter closure: it is the source, no file is read.
             (Some(row), true) => FilePreview {
@@ -50,7 +58,7 @@ impl PreviewWidget {
             },
         };
         let text = match (file.transformable, &self.transform, engine, row) {
-            (true, Some(closure), Some((engine_state, stack)), Some(row)) => apply_transform(
+            (true, Some(closure), Some(((engine_state, _), stack)), Some(row)) => apply_transform(
                 engine_state,
                 stack,
                 closure.clone(),

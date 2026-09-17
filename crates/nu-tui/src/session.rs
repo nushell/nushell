@@ -121,9 +121,10 @@ pub struct Session {
     /// Data produced for widgets that follow a source (`--from`, a source
     /// closure).
     derived: HashMap<String, Value>,
-    /// The (source id, source row) each derived value was computed from, so
-    /// unchanged selections do not re-run closures.
-    derived_key: HashMap<String, (String, Value)>,
+    /// The (source id, source row, pane size) each derived value was
+    /// computed from, so unchanged selections do not re-run closures and a
+    /// resize does.
+    derived_key: HashMap<String, (String, Value, (u16, u16))>,
     pub page: usize,
     pub focused: Option<String>,
     pub areas: HashMap<String, Rect>,
@@ -562,6 +563,33 @@ impl Session {
         }
     }
 
+    /// The size a widget's closures see as `$env.TUI_WIDTH` and
+    /// `$env.TUI_HEIGHT`: the area inside its border, or the terminal size
+    /// before the first layout.
+    pub fn inner_size(&self, id: &str) -> (u16, u16) {
+        match self.areas.get(id) {
+            Some(area) => (area.width.saturating_sub(2), area.height.saturating_sub(2)),
+            None => nu_utils::terminal_size().unwrap_or((80, 24)),
+        }
+    }
+
+    /// The stack closures run on: the session's, with the widget's pane size
+    /// in `TUI_WIDTH` / `TUI_HEIGHT` so `table -w $env.TUI_WIDTH` fits.
+    pub fn closure_stack(&self, id: &str) -> Option<Stack> {
+        let (_, stack) = self.engine.as_ref()?;
+        let (width, height) = self.inner_size(id);
+        let mut stack = stack.clone();
+        stack.add_env_var(
+            "TUI_WIDTH".into(),
+            Value::int(width as i64, Span::unknown()),
+        );
+        stack.add_env_var(
+            "TUI_HEIGHT".into(),
+            Value::int(height as i64, Span::unknown()),
+        );
+        Some(stack)
+    }
+
     fn refresh_one(&mut self, id: &str) -> bool {
         let source = self.source_id(id);
         let row = source.as_ref().and_then(|src| self.row_of(src));
@@ -569,6 +597,7 @@ impl Session {
             source.unwrap_or_default(),
             row.clone()
                 .unwrap_or_else(|| Value::nothing(Span::unknown())),
+            self.inner_size(id),
         );
         if self.derived_key.get(id) == Some(&key) {
             return false;
@@ -577,18 +606,19 @@ impl Session {
         let Some(widget) = self.widget(id).cloned() else {
             return false;
         };
+        let stack = self.closure_stack(id);
         if let WidgetKind::Preview(preview) = &widget.kind {
             let Some(mut state) = self.states.remove(id) else {
                 return false;
             };
-            preview.refresh(&mut state, row.as_ref(), self);
+            preview.refresh(&mut state, row.as_ref(), self, stack.as_ref());
             self.states.insert(id.to_string(), state);
             return true;
         }
         let closure = widget.source.as_ref().and_then(|s| s.closure.clone());
-        let value = match (closure, &self.engine, row) {
-            (Some(closure), Some((engine_state, stack)), Some(row)) => {
-                match call_closure(engine_state, stack, closure, row)
+        let value = match (closure, &self.engine, stack, row) {
+            (Some(closure), Some((engine_state, _)), Some(stack), Some(row)) => {
+                match call_closure(engine_state, &stack, closure, row)
                     .and_then(|d| d.into_value(Span::unknown()))
                 {
                     Ok(value) => value,
@@ -598,10 +628,10 @@ impl Session {
                     }
                 }
             }
-            (_, _, Some(row)) => row,
+            (_, _, _, Some(row)) => row,
             _ => Value::nothing(Span::unknown()),
         };
-        self.derived.insert(id.to_string(), value);
+        self.derived.insert(id.to_string(), expand_range(value));
         self.invalidate_rows();
         self.clamp_list(id);
         true
@@ -662,20 +692,7 @@ impl Session {
 
     /// Replace the shared data list (from a hook or the refresh closure).
     pub fn replace_data(&mut self, value: Value) {
-        let value_span = value.span();
-        self.app.data = match value {
-            Value::List { .. } => value,
-            Value::Range { val, .. } if val.is_bounded() => Value::list(
-                val.into_range_iter(value_span, nu_protocol::Signals::empty())
-                    .collect(),
-                value_span,
-            ),
-            other if other.is_nothing() => Value::list(Vec::new(), other.span()),
-            other => {
-                let span = other.span();
-                Value::list(vec![other], span)
-            }
-        };
+        self.app.data = as_rows(value);
         for state in self.states.values_mut() {
             if let Some(tree) = state.as_tree_mut() {
                 tree.expanded.clear();
@@ -768,6 +785,10 @@ impl Session {
                     };
                     dialog.rect = clamp_dialog(dialog.rect, dialog.screen);
                 }
+                // Pane sizes changed: closures that read them run again once
+                // the next layout pass has assigned areas.
+                self.areas.clear();
+                self.refresh_derived();
             }
             _ => {}
         }
@@ -1478,6 +1499,32 @@ impl Session {
             ),
         );
         rec
+    }
+}
+
+/// A bounded range becomes the list it stands for; anything else is kept.
+fn expand_range(value: Value) -> Value {
+    let span = value.span();
+    match value {
+        Value::Range { val, .. } if val.is_bounded() => Value::list(
+            val.into_range_iter(span, nu_protocol::Signals::empty())
+                .collect(),
+            span,
+        ),
+        other => other,
+    }
+}
+
+/// A hook's output as a data list: lists as they are, bounded ranges
+/// expanded, `null` as no rows, and any other value as one row.
+fn as_rows(value: Value) -> Value {
+    match expand_range(value) {
+        list @ Value::List { .. } => list,
+        other if other.is_nothing() => Value::list(Vec::new(), other.span()),
+        other => {
+            let span = other.span();
+            Value::list(vec![other], span)
+        }
     }
 }
 

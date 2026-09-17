@@ -780,3 +780,17 @@ fn focus_flag_sets_the_initial_focus() -> Result {
     assert_eq!(focused, "b");
     Ok(())
 }
+
+#[test]
+fn closures_see_their_pane_size() -> Result {
+    let text: String = test().run(
+        "[{name: a}] | tui split --sizes [40 1fr] [(tui table) (tui preview {|r| $\"($env.TUI_WIDTH)x($env.TUI_HEIGHT)\" })] | tui debug --size [80 24] | get values.preview-0.text",
+    )?;
+    // 80 wide: 40 for the table, 1 divider, 39 for the preview, minus its border.
+    assert_eq!(text, "37x22");
+    let rows: i64 = test().run(
+        "[{name: a}] | tui split [(tui table --id src) (tui table --from src {|r| 1..$env.TUI_HEIGHT })] | tui debug --size [80 24] | get widgets.0.children.1.rows",
+    )?;
+    assert_eq!(rows, 22);
+    Ok(())
+}

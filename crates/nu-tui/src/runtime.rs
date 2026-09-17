@@ -156,6 +156,7 @@ pub fn debug(
         session.enable_dialog(frame, opts.popup_width, opts.popup_height);
     }
     session.layout(session.dialog_content_area(frame));
+    session.refresh_derived();
     for event in &opts.keys {
         session.handle_event(event);
         session.layout(session.dialog_content_area(frame));
@@ -218,6 +219,15 @@ pub fn run(
     let backend = CrosstermBackend::new(stdout());
     let mut terminal = Terminal::new(backend)
         .map_err(|e| io_error("failed to create terminal", e.to_string(), opts.span))?;
+    // Lay out once before the first frame so closures see their pane size.
+    let screen = Rect {
+        x: 0,
+        y: 0,
+        width: term_w,
+        height: term_h,
+    };
+    session.layout(session.dialog_content_area(screen));
+    session.refresh_derived();
 
     // The hook runs once before the first frame; with --refresh it then
     // repeats on the interval.
