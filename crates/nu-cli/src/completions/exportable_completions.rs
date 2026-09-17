@@ -29,7 +29,7 @@ impl Completer for ExportableCompletion<'_> {
             false,
         );
         let span = to_reedline_span(ctx.span, ctx.offset);
-        // TODO: use matcher.add_lazy to lazy evaluate an item if it matches the prefix
+        // TODO: avoid matching accepted candidates twice with a lazy matcher insertion API.
         let make_suggestion =
             |value: String,
              description: Option<String>,
