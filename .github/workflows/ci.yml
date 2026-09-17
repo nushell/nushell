@@ -1,11 +1,14 @@
 on:
   pull_request:
+    # Draft PRs are skipped below, so CI has to run once a draft is marked ready.
+    # Setting `types` replaces the defaults, thus the first three are listed too.
+    # Do not use `pull_request_target` for this: it checks out the base branch,
+    # so the run tests `main` and reports the result on the PR.
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches:
       - main
       - 'patch-release-*'
-  pull_request_target:
-    types: [ready_for_review]
 
 name: continuous-integration
 
