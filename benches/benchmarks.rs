@@ -23,7 +23,7 @@ use std::{
     rc::Rc,
     sync::{Arc, OnceLock, atomic::AtomicBool},
 };
-use tango_bench::{IntoBenchmarks, benchmark_fn, tango_benchmarks, tango_main};
+use tango_bench::{IntoBenchmarks, benchmark_fn, tango_benchmarks};
 use tempfile::{Builder as TempDirBuilder, TempDir};
 
 fn load_bench_commands() -> EngineState {
@@ -1653,5 +1653,3 @@ tango_benchmarks!(
     bench_table_render_wide(20),
     bench_table_render_wide(50)
 );
-
-tango_main!();

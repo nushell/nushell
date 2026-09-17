@@ -74,12 +74,13 @@ path."
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let args = Arguments {
-            path: call.req_const(working_set, 0)?,
+            path: call.req_const(working_set, stack, 0)?,
         };
 
         // This doesn't match explicit nulls

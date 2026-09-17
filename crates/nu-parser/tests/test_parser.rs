@@ -2522,6 +2522,7 @@ mod mock {
         fn run_const(
             &self,
             _working_set: &StateWorkingSet,
+            _stack: &mut Stack,
             _call: &Call,
             _input: PipelineData,
         ) -> Result<PipelineData, ShellError> {
@@ -2761,10 +2762,11 @@ mod mock {
         fn run_const(
             &self,
             working_set: &StateWorkingSet,
+            stack: &mut Stack,
             call: &Call,
             _input: PipelineData,
         ) -> Result<PipelineData, ShellError> {
-            let value: Value = call.req_const(working_set, 0)?;
+            let value: Value = call.req_const(working_set, stack, 0)?;
             Ok(value.into_pipeline_data())
         }
     }
@@ -3029,6 +3031,7 @@ mod mock {
         fn run_const(
             &self,
             _working_set: &StateWorkingSet,
+            _stack: &mut Stack,
             _call: &Call,
             _input: PipelineData,
         ) -> Result<PipelineData, ShellError> {

@@ -68,6 +68,11 @@ impl Command for UMkdir {
                 "Print a message for each created directory.",
                 Some('v'),
             )
+            .switch(
+                "fail-if-exists",
+                "Error if a target path already exists instead of treating it as success.",
+                None,
+            )
             .category(Category::FileSystem)
     }
 
@@ -94,6 +99,7 @@ impl Command for UMkdir {
             .peekable();
 
         let is_verbose = call.has_flag(engine_state, stack, "verbose")?;
+        let fail_if_exists = call.has_flag(engine_state, stack, "fail-if-exists")?;
 
         if directories.peek().is_none() {
             return Err(ShellError::MissingParameter {
@@ -115,8 +121,64 @@ impl Command for UMkdir {
         for (dir, dir_span) in directories {
             // `mkdir` is called with `recursive` set, so it succeeds silently
             // when the path is already there. Record that before the call, so
-            // --verbose does not report an existing directory as created.
+            // --verbose does not report an existing directory as created. This
+            // is only used for the `created` display field, not for enforcing
+            // `--fail-if-exists` (see below).
             let already_existed = dir.exists();
+
+            // With `--fail-if-exists`, mimic non-`-p` mkdir: an already-present
+            // target is an error. Recursive `mkdir` swallows that case, so
+            // determine it atomically from the OS instead of a racy preflight:
+            // create any missing parents recursively, then create the leaf
+            // non-recursively so the kernel reports `AlreadyExists` for us.
+            if fail_if_exists {
+                let parent_err = dir
+                    .parent()
+                    .filter(|p| !p.as_os_str().is_empty())
+                    .and_then(|parent| mkdir(parent, &config).err());
+
+                // On an existing target `create_dir` reports `File exists`; keep
+                // the same wording coreutils uses for a parent-creation failure.
+                let error_message = match parent_err {
+                    Some(error) => Some(format!("{}: {error}", dir.display())),
+                    None => match std::fs::create_dir(&dir) {
+                        Ok(()) => None,
+                        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+                            Some(format!("{}: File exists", dir.display()))
+                        }
+                        Err(error) => Some(format!("{}: {error}", dir.display())),
+                    },
+                };
+
+                match (error_message, is_verbose) {
+                    (Some(message), true) => verbose_out.push(
+                        record! {
+                            "path" => Value::string(dir.display().to_string(), call.head),
+                            "created" => Value::bool(false, call.head),
+                            "error" => Value::string(message, call.head),
+                        }
+                        .into_value(call.head),
+                    ),
+                    (Some(message), false) => {
+                        err = Some(ShellError::Generic(GenericError::new(
+                            message.clone(),
+                            message,
+                            dir_span,
+                        )));
+                    }
+                    (None, true) => verbose_out.push(
+                        record! {
+                            "path" => Value::string(dir.display().to_string(), call.head),
+                            "created" => Value::bool(true, call.head),
+                            "error" => Value::nothing(call.head),
+                        }
+                        .into_value(call.head),
+                    ),
+                    (None, false) => {}
+                }
+                continue;
+            }
+
             if let Err(error) = mkdir(&dir, &config) {
                 let shell_error = ShellError::Generic(GenericError::new(
                     format!("{error}"),
@@ -165,6 +227,11 @@ impl Command for UMkdir {
             Example {
                 description: "Make a directory named foo.",
                 example: "mkdir foo",
+                result: None,
+            },
+            Example {
+                description: "Make a directory, erroring if it already exists.",
+                example: "mkdir --fail-if-exists foo",
                 result: None,
             },
             Example {
