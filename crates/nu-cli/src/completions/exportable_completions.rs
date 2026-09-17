@@ -97,6 +97,6 @@ impl Completer for ExportableCompletion<'_> {
                 SuggestionKind::Variable,
             ));
         }
-        Fetched::Pure(matcher.suggestion_results())
+        Fetched::answering(matcher.suggestion_results())
     }
 }

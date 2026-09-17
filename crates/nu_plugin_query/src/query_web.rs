@@ -213,14 +213,14 @@ pub fn retrieve_tables(
     }
 
     if inspect_mode {
-        eprintln!("Passed in Column Headers = {:?}\n", &cols);
+        eprintln!("Passed in Column Headers = {:?}\n", cols);
         eprintln!("First 2048 HTML chars = {}\n", &html[0..2047]);
     }
 
     let tables = match WebTable::find_by_headers(html, &cols, inspect_mode) {
         Some(t) => {
             if inspect_mode {
-                eprintln!("Table Found = {:#?}", &t);
+                eprintln!("Table Found = {:#?}", t);
             }
             t
         }
@@ -300,10 +300,10 @@ fn retrieve_table(mut table: WebTable, columns: &Value, span: Span) -> Value {
                 .map(|col| {
                     let val = row
                         .get(col)
-                        .unwrap_or(&format!("Missing column: '{}'", &col))
+                        .unwrap_or(&format!("Missing column: '{}'", col))
                         .to_string();
 
-                    if !at_least_one_row_filled && val != format!("Missing column: '{}'", &col) {
+                    if !at_least_one_row_filled && val != format!("Missing column: '{}'", col) {
                         at_least_one_row_filled = true;
                     }
                     (col.clone(), Value::string(val, span))

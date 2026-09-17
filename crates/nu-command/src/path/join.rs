@@ -63,11 +63,12 @@ the output of 'path parse' and 'path split' subcommands."
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let args = Arguments {
-            append: call.rest_const(working_set, 0)?,
+            append: call.rest_const(working_set, stack, 0)?,
         };
 
         run(call, &args, input)

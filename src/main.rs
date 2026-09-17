@@ -103,6 +103,11 @@ fn main() -> Result<()> {
     // handler — and Rust escalates the double-panic to `abort()`, producing a crash
     // report for what should be a clean shutdown.
     std::panic::set_hook(Box::new(|info| {
+        // Completion sources are isolated and convert their panics into ShellErrors. The hook
+        // runs before catch_unwind, so do not print a second, misleading prompt-level panic.
+        if nu_cli::completion_panic_is_active() {
+            return;
+        }
         use miette::Context;
 
         // Best-effort terminal restore; never panic from inside the hook.
@@ -507,7 +512,7 @@ fn main() -> Result<()> {
 
         return Ok(());
     } else if let Some(max_errors) = parsed_nu_cli_args.ide_check {
-        ide::check(&mut engine_state, &script_name, &max_errors);
+        ide::check(&mut engine_state, &script_name, &max_errors)?;
 
         return Ok(());
     } else if parsed_nu_cli_args.ide_ast.is_some() {
@@ -603,10 +608,10 @@ fn main() -> Result<()> {
             );
         }
         let transport = match mcp_transport_kind {
-            Some("http") => {
-                let port = parsed_nu_cli_args.mcp_port.unwrap_or(8080);
-                nu_mcp::McpTransport::Http { port }
-            }
+            Some("http") => nu_mcp::McpTransport::http(
+                parsed_nu_cli_args.mcp_host.clone(),
+                parsed_nu_cli_args.mcp_port,
+            ),
             _ => nu_mcp::McpTransport::Stdio,
         };
         nu_mcp::initialize_mcp_server(engine_state, transport)?;

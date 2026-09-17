@@ -21,7 +21,16 @@ extend-ignore-re = [
     "fo�.txt",
     # Intentional shortened prefix in completion narrowing tests
     "ls fo",
+    "\\*\\.caf=0;38;5;208",
+    "\\*\\.hda=0;38;5;208",
     "ue",
+    # Intentional partial token and misspelled/unknown keys in completer tests
+    "na\\.fo",
+    "\\{token: fo",
+    "na, fo",
+    "strat: 3",
+    "discription: hi",
+    "fiter: false",
 ]
 
 [type.rust.extend-words]

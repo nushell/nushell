@@ -87,11 +87,12 @@ impl Command for MathRound {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let precision_param: Option<i64> = call.get_flag_const(working_set, "precision")?;
-        let cell_paths: Vec<CellPath> = call.rest_const(working_set, 0)?;
+        let precision_param: Option<i64> = call.get_flag_const(working_set, stack, "precision")?;
+        let cell_paths: Vec<CellPath> = call.rest_const(working_set, stack, 0)?;
         let head = call.head;
         run_with_elementwise(
             input,

@@ -10,6 +10,7 @@ mod engine_state;
 mod env_name;
 mod error_handler;
 mod jobs;
+pub mod named_flags;
 mod overlay;
 mod pattern_match;
 mod prompt_state;

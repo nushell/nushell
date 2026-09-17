@@ -356,6 +356,35 @@ fn load_env_variable_arg() -> Result {
 }
 
 #[test]
+fn refreshing_env_conversions_converts_loaded_variables() -> Result {
+    let code = r#"
+        $env.ENV_CONVERSIONS = { TESTENVVAR: { from_string: { split row ":" } } }
+        load-env { TESTENVVAR: "hello:world" }
+        let before = $env.TESTENVVAR
+        $env.ENV_CONVERSIONS = $env.ENV_CONVERSIONS
+        [$before, $env.TESTENVVAR]
+    "#;
+
+    test().run(code).expect_value_eq(Value::test_list(vec![
+        Value::test_string("hello:world"),
+        Value::test_list(vec![
+            Value::test_string("hello"),
+            Value::test_string("world"),
+        ]),
+    ]))
+}
+
+#[test]
+fn refreshing_env_conversions_normalizes_loaded_path() -> Result {
+    let separator = if cfg!(windows) { ";" } else { ":" };
+    let code = format!(
+        "$env.ENV_CONVERSIONS = {{}}; load-env {{ pAtH: 'first{separator}second' }}; $env.ENV_CONVERSIONS = $env.ENV_CONVERSIONS; $env.PATH"
+    );
+
+    test().run(code).expect_value_eq(["first", "second"])
+}
+
+#[test]
 fn load_env_doesnt_leak() -> Result {
     let err = test()
         .run(r#"do { echo { name: xyz, value: "my message" } | load-env }; $env.xyz"#)

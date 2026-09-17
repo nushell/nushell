@@ -69,11 +69,12 @@ impl Command for MathLog {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let base = require_positive_base(call.req_const(working_set, 0)?, call.head)?;
-        let cell_paths: Vec<CellPath> = call.rest_const(working_set, 1)?;
+        let base = require_positive_base(call.req_const(working_set, stack, 0)?, call.head)?;
+        let cell_paths: Vec<CellPath> = call.rest_const(working_set, stack, 1)?;
         let head = call.head;
         run_with_elementwise(
             input,

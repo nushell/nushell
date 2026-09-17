@@ -1,6 +1,6 @@
-# custom completion should be called with correct position
-def comp_with_span [context, pos] {
-  let end = $context | str length
+# a completer never sees text past the cursor, so the last token it gets ends there
+def comp_with_span [token] {
+  let end = $token.span.end
   [{
       value: "foo",
       span: {

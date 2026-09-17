@@ -326,8 +326,8 @@ impl Completer for CommandCompletion {
 
         let suggestions = matcher.suggestion_results();
         match externals {
-            true => Fetched::Cacheable(suggestions),
-            false => Fetched::Pure(suggestions),
+            true => Fetched::answering(suggestions).worth_keeping(),
+            false => Fetched::answering(suggestions),
         }
     }
 }

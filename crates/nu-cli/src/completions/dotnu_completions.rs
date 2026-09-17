@@ -185,6 +185,6 @@ impl Completer for DotNuCompletion {
             self.complete_with_options(ctx, ctx.options)
         };
 
-        Fetched::Cacheable(suggestions)
+        Fetched::answering(suggestions).worth_keeping()
     }
 }
