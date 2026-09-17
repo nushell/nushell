@@ -35,10 +35,7 @@ impl TreeWidget {
         let filter = session.filter_for(id);
         if !filter.is_empty() {
             let mut matcher = filter.matcher();
-            rows.retain(|r| {
-                filter.matches_text(&mut matcher, &r.label)
-                    || filter.matches(&mut matcher, &r.value)
-            });
+            rows.retain(|r| matcher.matches_text(&r.label) || matcher.matches(&r.value));
         }
         rows
     }

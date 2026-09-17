@@ -12,6 +12,7 @@ use ratatui::layout::{Constraint, Rect};
 use ratatui::text::{Line, Span as TSpan, Text};
 use ratatui::widgets::Paragraph;
 use serde::{Deserialize, Serialize};
+use std::rc::Rc;
 
 /// How an item is shown: a record column, or a closure over the item.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -31,14 +32,18 @@ pub struct SelectWidget {
 
 impl SelectWidget {
     /// The rows this select offers: its items, else the widget's data,
-    /// filtered like a table.
-    pub fn rows(&self, id: &str, session: &Session) -> Vec<Value> {
+    /// filtered like a table. Called by the session's row cache.
+    pub fn compute_rows(&self, id: &str, session: &Session) -> Vec<Value> {
         let items = if self.items.is_empty() {
-            crate::session::as_list(session.data_for(id)).to_vec()
+            crate::session::as_list(session.data_for(id))
         } else {
-            self.items.clone()
+            &self.items
         };
         session.filter_for(id).apply(items)
+    }
+
+    fn rows(&self, id: &str, session: &Session) -> Rc<Vec<Value>> {
+        session.rows(id)
     }
 
     fn label(&self, item: &Value, session: &Session) -> String {
@@ -205,7 +210,7 @@ impl TuiWidget for SelectWidget {
 
     fn current_row(&self, id: &str, state: &WidgetState, session: &Session) -> Option<Value> {
         let list = state.as_list()?;
-        self.rows(id, session).into_iter().nth(list.selected)
+        self.rows(id, session).get(list.selected).cloned()
     }
 
     fn debug(&self, id: &str, _state: &WidgetState, session: &Session, rec: &mut Record) {

@@ -23,85 +23,112 @@ impl Filter {
         self.query.is_empty()
     }
 
-    /// Rows that match, in their original order.
-    pub fn apply(&self, rows: Vec<Value>) -> Vec<Value> {
+    /// The rows that match, cloned, in their original order.
+    pub fn apply(&self, rows: &[Value]) -> Vec<Value> {
         if self.is_empty() {
-            return rows;
+            return rows.to_vec();
         }
         let mut matcher = self.matcher();
-        rows.into_iter()
-            .filter(|row| self.matches(&mut matcher, row))
+        rows.iter()
+            .filter(|row| matcher.matches(row))
+            .cloned()
             .collect()
     }
 
-    pub fn matcher(&self) -> Matcher {
-        Matcher::new({
-            let mut config = NucleoConfig::DEFAULT;
-            config.prefer_prefix = true;
-            config
-        })
-    }
-
-    /// Whether `value` matches. `matcher` comes from [`Filter::matcher`].
-    pub fn matches(&self, matcher: &mut Matcher, value: &Value) -> bool {
-        if self.is_empty() {
-            return true;
-        }
-        self.texts(value)
-            .into_iter()
-            .any(|text| self.matches_text(matcher, &text))
-    }
-
-    /// Whether one piece of text matches the query.
-    pub fn matches_text(&self, matcher: &mut Matcher, text: &str) -> bool {
-        if self.fuzzy {
+    /// A matcher with the pattern parsed once, for a whole pass over the rows.
+    pub fn matcher(&self) -> Prepared<'_> {
+        let atom = self.fuzzy.then(|| {
             let case = if self.case_sensitive {
                 CaseMatching::Respect
             } else {
                 CaseMatching::Smart
             };
-            let atom = Atom::new(
+            Atom::new(
                 &self.query,
                 case,
                 Normalization::Smart,
                 AtomKind::Fuzzy,
                 false,
-            );
-            let mut buf = Vec::new();
-            atom.score(Utf32Str::new(text, &mut buf), matcher).is_some()
-        } else if self.case_sensitive {
-            text.contains(&self.query)
-        } else {
-            text.to_lowercase().contains(&self.query.to_lowercase())
+            )
+        });
+        Prepared {
+            filter: self,
+            matcher: Matcher::new({
+                let mut config = NucleoConfig::DEFAULT;
+                config.prefer_prefix = true;
+                config
+            }),
+            atom,
+            needle: if self.case_sensitive {
+                self.query.clone()
+            } else {
+                self.query.to_lowercase()
+            },
+            buf: Vec::new(),
         }
     }
 
-    /// The strings a value is matched on: the chosen columns of a record, or
-    /// every field, or the value's text.
-    fn texts(&self, value: &Value) -> Vec<String> {
+    /// Visit the strings a value is matched on: the chosen columns of a
+    /// record, or every key and field, or the value's text. Stops at the
+    /// first visit that returns `true`. String fields are borrowed, so a
+    /// pass over a long list allocates only for non-string values.
+    fn any_text(&self, value: &Value, f: &mut dyn FnMut(&str) -> bool) -> bool {
+        fn hit(v: &Value, f: &mut dyn FnMut(&str) -> bool) -> bool {
+            match v {
+                Value::String { val, .. } => f(val),
+                Value::Nothing { .. } => f(""),
+                other => f(&value_text(other)),
+            }
+        }
         match value {
             Value::Record { val, .. } => {
-                let mut out = Vec::new();
                 if !self.columns.is_empty() {
-                    for col in &self.columns {
-                        if let Some(v) = val.get(col) {
-                            out.push(value_text(v));
-                        }
-                    }
-                    return out;
+                    return self
+                        .columns
+                        .iter()
+                        .filter_map(|col| val.get(col))
+                        .any(|v| hit(v, f));
                 }
                 let key = formatted_key(val);
-                if !key.is_empty() {
-                    out.push(key);
+                if !key.is_empty() && f(&key) {
+                    return true;
                 }
-                for (k, v) in val.iter() {
-                    out.push(k.clone());
-                    out.push(value_text(v));
-                }
-                out
+                val.iter().any(|(k, v)| f(k) || hit(v, f))
             }
-            Value::List { vals, .. } => vals.iter().map(value_text).collect(),
-            other => vec![value_text(other)],
+            Value::List { vals, .. } => vals.iter().any(|v| hit(v, f)),
+            other => hit(other, f),
+        }
+    }
+}
+
+/// A [`Filter`] ready to test many values: the fuzzy pattern is parsed once
+/// and the scratch buffer is reused.
+pub struct Prepared<'a> {
+    filter: &'a Filter,
+    matcher: Matcher,
+    atom: Option<Atom>,
+    needle: String,
+    buf: Vec<char>,
+}
+
+impl Prepared<'_> {
+    /// Whether `value` matches.
+    pub fn matches(&mut self, value: &Value) -> bool {
+        if self.filter.is_empty() {
+            return true;
+        }
+        let filter = self.filter;
+        filter.any_text(value, &mut |text| self.matches_text(text))
+    }
+
+    /// Whether one piece of text matches the query.
+    pub fn matches_text(&mut self, text: &str) -> bool {
+        match &self.atom {
+            Some(atom) => atom
+                .score(Utf32Str::new(text, &mut self.buf), &mut self.matcher)
+                .is_some(),
+            None if self.filter.case_sensitive => text.contains(&self.needle),
+            None => text.to_lowercase().contains(&self.needle),
         }
     }
 }
@@ -153,13 +180,13 @@ mod tests {
             query: "ALP".into(),
             ..Default::default()
         };
-        assert_eq!(f.apply(rows()).len(), 1);
+        assert_eq!(f.apply(&rows()).len(), 1);
         let f = Filter {
             query: "ALP".into(),
             case_sensitive: true,
             ..Default::default()
         };
-        assert!(f.apply(rows()).is_empty());
+        assert!(f.apply(&rows()).is_empty());
     }
 
     #[test]
@@ -169,12 +196,12 @@ mod tests {
             fuzzy: true,
             ..Default::default()
         };
-        assert_eq!(f.apply(rows()).len(), 1);
+        assert_eq!(f.apply(&rows()).len(), 1);
         let f = Filter {
             query: "gma".into(),
             ..Default::default()
         };
-        assert!(f.apply(rows()).is_empty());
+        assert!(f.apply(&rows()).is_empty());
     }
 
     #[test]
@@ -185,7 +212,7 @@ mod tests {
             ..Default::default()
         };
         assert!(
-            f.apply(rows()).is_empty(),
+            f.apply(&rows()).is_empty(),
             "keys are not matched when columns are set"
         );
     }
@@ -199,6 +226,6 @@ mod tests {
             query: "ctrl+r".into(),
             ..Default::default()
         };
-        assert_eq!(f.apply(vec![Value::test_record(r)]).len(), 1);
+        assert_eq!(f.apply(&[Value::test_record(r)]).len(), 1);
     }
 }

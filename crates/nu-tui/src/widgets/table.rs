@@ -245,6 +245,18 @@ impl TuiWidget for TableWidget {
         let columns = session.columns_for(id);
         let computer = session.style_computer();
         let rows_data = session.rows(id);
+        let count = rows_data.len();
+        // Only the rows on screen are built and styled; a list of a hundred
+        // thousand rows must not cost a hundred thousand cells a frame.
+        let height = area.height.saturating_sub(3).max(1) as usize;
+        let selected = list.selected.min(count.saturating_sub(1));
+        let scroll = if selected < list.scroll {
+            selected
+        } else if selected >= list.scroll + height {
+            selected + 1 - height
+        } else {
+            list.scroll
+        };
         let mut header_cells: Vec<Cell> = Vec::new();
         let mut widths: Vec<Constraint> = Vec::new();
         if self.multi {
@@ -259,6 +271,8 @@ impl TuiWidget for TableWidget {
         let rows: Vec<Row> = rows_data
             .iter()
             .enumerate()
+            .skip(scroll)
+            .take(height)
             .map(|(i, row)| {
                 let mut cells: Vec<Cell> = Vec::new();
                 if self.multi {
@@ -276,7 +290,6 @@ impl TuiWidget for TableWidget {
                 Row::new(cells).height(1)
             })
             .collect();
-        let count = rows.len();
         let title = if self.multi && !list.checked.is_empty() {
             format!("table ({count}, {} checked)", list.checked.len())
         } else {
@@ -288,9 +301,9 @@ impl TuiWidget for TableWidget {
             .block(super::framed(&title, focused, theme))
             .row_highlight_style(theme.selected())
             .highlight_symbol("▶ ");
-        let mut table_state = TableState::default().with_offset(list.scroll);
+        let mut table_state = TableState::default();
         if count > 0 {
-            table_state.select(Some(list.selected.min(count - 1)));
+            table_state.select(Some(selected - scroll));
         }
         frame.render_stateful_widget(table, area, &mut table_state);
     }
@@ -311,7 +324,7 @@ impl TuiWidget for TableWidget {
 
     fn current_row(&self, id: &str, state: &WidgetState, session: &Session) -> Option<Value> {
         let list = state.as_list()?;
-        session.rows(id).into_iter().nth(list.selected)
+        session.rows(id).get(list.selected).cloned()
     }
 
     fn debug(&self, id: &str, _state: &WidgetState, session: &Session, rec: &mut Record) {

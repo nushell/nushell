@@ -134,13 +134,16 @@ impl TuiWidget for LogWidget {
         let theme = &session.theme;
         let log = state.as_log().cloned().unwrap_or_default();
         let rows = session.rows(id);
-        let start = rows.len().saturating_sub(self.max_lines);
+        let height = area.height.saturating_sub(2) as usize;
+        let scroll = self.scroll_offset(&log, rows.len(), height);
+        // Only the lines on screen are built.
+        let start = rows.len().saturating_sub(self.max_lines) + scroll;
         let lines: Vec<_> = rows
             .iter()
             .skip(start)
+            .take(height)
             .map(|v| super::ansi_line(&value_text(v), theme))
             .collect();
-        let scroll = self.scroll_offset(&log, rows.len(), area.height.saturating_sub(2) as usize);
         let title = if session.stream_live {
             "log (live)"
         } else if log.follow {
@@ -152,7 +155,6 @@ impl TuiWidget for LogWidget {
             Paragraph::new(Text::from(lines))
                 .style(theme.text())
                 .wrap(Wrap { trim: false })
-                .scroll((scroll.min(u16::MAX as usize) as u16, 0))
                 .block(super::framed(title, focused, theme)),
             area,
         );

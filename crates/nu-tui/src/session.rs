@@ -20,8 +20,10 @@ use nu_protocol::{Config, Record, Span, Value};
 use nu_utils::get_ls_colors;
 use ratatui::layout::Rect;
 use ratatui::style::Style;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::rc::Rc;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Action {
@@ -141,6 +143,10 @@ pub struct Session {
     pub use_ls_colors: bool,
     /// Last failure from a hook or source closure; shown on the status bar.
     pub error: Option<String>,
+    /// Filtered rows per widget, kept until data, a filter, or a selection
+    /// changes. A frame asks for rows several times; a 100k-row list must
+    /// not be filtered and cloned each time.
+    rows_cache: RefCell<HashMap<String, Rc<Vec<Value>>>>,
 }
 
 impl Session {
@@ -202,6 +208,7 @@ impl Session {
             ls_colors,
             use_ls_colors,
             error: None,
+            rows_cache: RefCell::new(HashMap::new()),
         };
         session.focused = session.default_focus();
         session.refresh_derived();
@@ -379,19 +386,32 @@ impl Session {
         self.derived.get(id)
     }
 
-    /// Rows of a list widget after filtering. Trees and selects compute
-    /// their own rows; everything else lists its data.
-    pub fn rows(&self, id: &str) -> Vec<Value> {
-        match self.kind(id) {
+    /// Rows of a list widget after filtering, shared until something
+    /// changes them (see [`Session::invalidate_rows`]). Trees and selects
+    /// compute their own rows; everything else lists its data.
+    pub fn rows(&self, id: &str) -> Rc<Vec<Value>> {
+        if let Some(rows) = self.rows_cache.borrow().get(id) {
+            return Rc::clone(rows);
+        }
+        let rows = match self.kind(id) {
             Some(WidgetKind::Tree(tree)) => {
                 tree.rows(id, self).into_iter().map(|r| r.value).collect()
             }
-            Some(WidgetKind::Select(select)) => select.rows(id, self),
-            Some(_) => self
-                .filter_for(id)
-                .apply(as_list(self.data_for(id)).to_vec()),
+            Some(WidgetKind::Select(select)) => select.compute_rows(id, self),
+            Some(_) => self.filter_for(id).apply(as_list(self.data_for(id))),
             None => Vec::new(),
-        }
+        };
+        let rows = Rc::new(rows);
+        self.rows_cache
+            .borrow_mut()
+            .insert(id.to_string(), Rc::clone(&rows));
+        rows
+    }
+
+    /// Forget cached rows. Called whenever data, a filter, a selection, or
+    /// an expansion may have changed.
+    fn invalidate_rows(&self) {
+        self.rows_cache.borrow_mut().clear();
     }
 
     /// Resolved columns of a table: `--columns`, else the data's columns,
@@ -402,7 +422,10 @@ impl Session {
         {
             return table.columns.clone();
         }
-        let cols = get_columns(as_list(self.data_for(id)));
+        // Read the columns from the first rows only, so a long list is not
+        // walked every frame.
+        let rows = as_list(self.data_for(id));
+        let cols = get_columns(&rows[..rows.len().min(200)]);
         if cols.is_empty() {
             vec!["item".into()]
         } else {
@@ -579,6 +602,7 @@ impl Session {
             _ => Value::nothing(Span::unknown()),
         };
         self.derived.insert(id.to_string(), value);
+        self.invalidate_rows();
         self.clamp_list(id);
         true
     }
@@ -591,7 +615,12 @@ impl Session {
     }
 
     fn clamp_all_lists(&mut self) {
-        let ids: Vec<String> = self.states.keys().cloned().collect();
+        let ids: Vec<String> = self
+            .states
+            .iter()
+            .filter(|(_, state)| state.as_list().is_some())
+            .map(|(id, _)| id.clone())
+            .collect();
         for id in ids {
             self.clamp_list(&id);
         }
@@ -613,6 +642,7 @@ impl Session {
         }
         let span = rows.first().map(|v| v.span()).unwrap_or_else(Span::unknown);
         self.app.data = Value::list(rows, span);
+        self.invalidate_rows();
         self.clamp_all_lists();
         self.refresh_derived();
     }
@@ -653,6 +683,7 @@ impl Session {
             }
         }
         self.derived_key.clear();
+        self.invalidate_rows();
         self.clamp_all_lists();
         self.refresh_derived();
     }
@@ -719,6 +750,7 @@ impl Session {
     }
 
     pub fn handle_event(&mut self, event: &Event) {
+        self.invalidate_rows();
         match event {
             Event::Key(key)
                 if key.kind == KeyEventKind::Press || key.kind == KeyEventKind::Repeat =>
@@ -803,6 +835,9 @@ impl Session {
         let mut state = self.states.remove(id)?;
         let result = kind.handle_key(id, &mut state, key, self);
         self.states.insert(id.to_string(), state);
+        // Rows computed while the state was out may have missed it (a
+        // captured chord, an expansion); recompute on the next ask.
+        self.invalidate_rows();
         result
     }
 
@@ -869,6 +904,9 @@ impl Session {
             if self.outcome.is_some() {
                 return;
             }
+            // Any effect may have changed a filter, a selection, or an
+            // expansion behind the row cache.
+            self.invalidate_rows();
             match effect {
                 Effect::Focus(id) => {
                     if self.kind(&id).is_some_and(|k| k.is_focusable()) {
@@ -1011,6 +1049,7 @@ impl Session {
                 {
                     let effects = kind.click(&id, &mut state, area, mouse.column, mouse.row, self);
                     self.states.insert(id, state);
+                    self.invalidate_rows();
                     self.apply(effects);
                 }
             }
@@ -1161,6 +1200,7 @@ impl Session {
         {
             let effects = kind.scroll(&id, &mut state, delta, self);
             self.states.insert(id, state);
+            self.invalidate_rows();
             self.apply(effects);
         }
     }
