@@ -46,7 +46,7 @@ pub fn flatten(
                     val,
                     &i.to_string(),
                     0,
-                    item_label(val, column, i),
+                    item_label(val, column),
                     &ctx,
                     &mut out,
                 );
@@ -65,16 +65,16 @@ pub fn flatten(
     out
 }
 
-fn flatten_node(
-    value: &Value,
+fn flatten_node<'a>(
+    value: &'a Value,
     path: &str,
     depth: usize,
     label: String,
-    ctx: &Ctx<'_>,
+    ctx: &Ctx<'a>,
     out: &mut Vec<TreeRow>,
 ) {
-    let kids = children(value, path, ctx);
-    let expandable = !kids.is_empty() || (ctx.walk && is_dir_value(value, ctx.column, ctx.cwd));
+    let expandable =
+        has_children(value, path, ctx) || (ctx.walk && is_dir_value(value, ctx.column, ctx.cwd));
     let is_open = ctx.expanded.contains(path);
     out.push(TreeRow {
         path: path.to_string(),
@@ -85,23 +85,36 @@ fn flatten_node(
         value: value.clone(),
     });
     if expandable && is_open {
-        for (key, child) in kids {
+        // Children are only walked for open nodes; a collapsed record
+        // costs one row, not a copy of every field.
+        for (key, child) in children(value, path, ctx) {
             let child_path = child_path(path, &key);
             let child_label = match value {
-                Value::List { .. } => {
-                    let index = key.parse().unwrap_or(0);
-                    item_label(&child, ctx.column, index)
-                }
-                _ => field_label(&key, &child),
+                Value::List { .. } => item_label(child, ctx.column),
+                _ => field_label(&key, child),
             };
-            flatten_node(&child, &child_path, depth + 1, child_label, ctx, out);
+            flatten_node(child, &child_path, depth + 1, child_label, ctx, out);
         }
     }
 }
 
-/// A node's children. A record expands into its fields, except that with
-/// `--walk` a directory row expands into its listing instead.
-fn children(value: &Value, path: &str, ctx: &Ctx<'_>) -> Vec<(String, Value)> {
+/// Whether a node has children to show (see [`children`]).
+fn has_children(value: &Value, path: &str, ctx: &Ctx<'_>) -> bool {
+    match value {
+        Value::Record { val, .. } => {
+            if ctx.walk && is_ls_style_row(val) && is_dir_row(val) {
+                return ctx.cache.get(path).is_some_and(|kids| !kids.is_empty());
+            }
+            !val.is_empty()
+        }
+        Value::List { vals, .. } => !vals.is_empty(),
+        _ => false,
+    }
+}
+
+/// A node's children, borrowed. A record expands into its fields, except
+/// that with `--walk` a directory row expands into its listing instead.
+fn children<'a>(value: &'a Value, path: &str, ctx: &Ctx<'a>) -> Vec<(String, &'a Value)> {
     match value {
         Value::Record { val, .. } => {
             if ctx.walk && is_ls_style_row(val) && is_dir_row(val) {
@@ -110,15 +123,15 @@ fn children(value: &Value, path: &str, ctx: &Ctx<'_>) -> Vec<(String, Value)> {
                     .get(path)
                     .into_iter()
                     .flatten()
-                    .map(|v| (node_label(v, ctx.column), v.clone()))
+                    .map(|v| (node_label(v, ctx.column), v))
                     .collect();
             }
-            val.iter().map(|(k, v)| (k.clone(), v.clone())).collect()
+            val.iter().map(|(k, v)| (k.clone(), v)).collect()
         }
         Value::List { vals, .. } => vals
             .iter()
             .enumerate()
-            .map(|(i, v)| (i.to_string(), v.clone()))
+            .map(|(i, v)| (i.to_string(), v))
             .collect(),
         _ => Vec::new(),
     }
@@ -139,14 +152,11 @@ fn field_label(key: &str, value: &Value) -> String {
     }
 }
 
-fn item_label(value: &Value, column: &str, index: usize) -> String {
+fn item_label(value: &Value, column: &str) -> String {
     match value {
         Value::Record { .. } => node_label(value, column),
         Value::List { vals, .. } => format!("[{}]", vals.len()),
-        other => {
-            let _ = index;
-            primitive_text(other)
-        }
+        other => primitive_text(other),
     }
 }
 

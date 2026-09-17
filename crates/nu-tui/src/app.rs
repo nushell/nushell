@@ -34,10 +34,15 @@ pub struct TuiApp {
     /// Global key bindings from `tui bind`.
     #[serde(default)]
     pub binds: Vec<Bind>,
-    /// The outer pipeline is a stream that outlived the collect budget, so
-    /// later builders pass it through untouched.
+    /// The outer pipeline is a live stream, so later builders pass it
+    /// through untouched.
     #[serde(default)]
     pub live: bool,
+    /// The external command feeding the live stream. `tui run` kills it when
+    /// the TUI closes while the stream is still open, so the pipeline does
+    /// not hang waiting for its exit status.
+    #[serde(default)]
+    pub live_pid: Option<u32>,
 }
 
 impl TuiApp {
@@ -48,14 +53,15 @@ impl TuiApp {
             path_columns: Vec::new(),
             binds: Vec::new(),
             live: false,
+            live_pid: None,
         }
     }
 
     /// Split the app from the payload. A collected value becomes the app's
-    /// data. A stream is read for [`crate::stream::COLLECT_BUDGET`]: one that
-    /// finishes in time is collected too (so `(ls | tui table)` works inside
-    /// a child list), one that keeps producing stays live and flows on with
-    /// the app riding in its metadata.
+    /// data. A stream is collected or kept live by its kind (see
+    /// [`crate::stream::collect_input`]): a collected one becomes the data
+    /// too (so `(ls | tui table)` works inside a child list), a live one
+    /// flows on with the app riding in its metadata.
     pub fn split_input(input: PipelineData) -> Result<(Self, PipelineData), ShellError> {
         match input {
             PipelineData::Empty => Ok((Self::new(), PipelineData::Empty)),
@@ -102,13 +108,14 @@ impl TuiApp {
         if app.live {
             return Ok((app, data.set_metadata(strip_app_meta(meta))));
         }
-        match crate::stream::collect_briefly(data, span) {
+        match crate::stream::collect_input(data, span) {
             Some(crate::stream::Collected::Done(items)) => {
                 app.data = Value::list(items, span);
                 Ok((app, PipelineData::Empty))
             }
-            Some(crate::stream::Collected::Live(stream)) => {
+            Some(crate::stream::Collected::Live { stream, child_pid }) => {
                 app.live = true;
+                app.live_pid = child_pid;
                 Ok((app, PipelineData::ListStream(stream, strip_app_meta(meta))))
             }
             None => Ok((app, PipelineData::Empty)),

@@ -26,7 +26,7 @@ impl Command for TuiDebug {
          \n\
          `--keys` replays tokens before painting, as a comma-separated string or a list: enter, esc, tab, shift+tab, up, down, left, right, home, end, pageup, pagedown, backspace, delete, space, insert, ctrl+c, alt+a, f1, a single character, `type:hello`, `click:COL,ROW`, `drag:COL,ROW`, `scroll-up`, `scroll-down`. `action` is `render` when the keys finished without Enter or quit. `--until {|state| ...}` stops the replay early once the closure returns true.\n\
          \n\
-         A finite stream is drained (5 second cap) before painting. A hook closure runs once with the state record, as `tui run` would."
+         A live stream is read for up to 5 seconds (and no more rows than the widgets keep) before painting. A hook closure runs once with the state record, as `tui run` would."
     }
 
     fn signature(&self) -> Signature {

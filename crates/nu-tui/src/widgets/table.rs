@@ -126,9 +126,19 @@ pub(crate) fn list_key(
     })
 }
 
-pub(crate) fn list_click(id: &str, list: &mut ListState, row: usize, len: usize) -> Vec<Effect> {
+/// A click on visible row `row` (counted from the top of the list area).
+/// `page` is the rows of room, so the click maps through the offset the
+/// list is actually drawn with.
+pub(crate) fn list_click(
+    id: &str,
+    list: &mut ListState,
+    row: usize,
+    len: usize,
+    page: usize,
+) -> Vec<Effect> {
     let mut effects = vec![Effect::Focus(id.to_string())];
     if len > 0 {
+        list.scroll = list.scroll_for(page);
         let next = (list.scroll + row).min(len - 1);
         if next != list.selected {
             list.selected = next;
@@ -209,9 +219,10 @@ impl TuiWidget for TableWidget {
         session: &Session,
     ) -> Vec<Effect> {
         let len = session.rows(id).len();
+        let page = super::inner_rows(Some(&area), 3);
         let row = y.saturating_sub(area.y).saturating_sub(2) as usize;
         match state.as_list_mut() {
-            Some(list) => list_click(id, list, row, len),
+            Some(list) => list_click(id, list, row, len, page),
             None => Vec::new(),
         }
     }
@@ -250,13 +261,7 @@ impl TuiWidget for TableWidget {
         // thousand rows must not cost a hundred thousand cells a frame.
         let height = area.height.saturating_sub(3).max(1) as usize;
         let selected = list.selected.min(count.saturating_sub(1));
-        let scroll = if selected < list.scroll {
-            selected
-        } else if selected >= list.scroll + height {
-            selected + 1 - height
-        } else {
-            list.scroll
-        };
+        let scroll = list.scroll_for(height);
         let mut header_cells: Vec<Cell> = Vec::new();
         let mut widths: Vec<Constraint> = Vec::new();
         if self.multi {

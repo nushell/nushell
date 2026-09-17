@@ -5,7 +5,7 @@ use crate::widget::{Caps, Effect, MenuState, TuiWidget, WidgetState};
 use nu_protocol::engine::Closure;
 use nu_protocol::{Record, Span, Value};
 use ratatui::Frame;
-use ratatui::layout::{Constraint, Rect};
+use ratatui::layout::{Constraint, Position, Rect};
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span as TSpan, Text};
 use ratatui::widgets::{Clear, Paragraph};
@@ -243,11 +243,7 @@ impl MenuWidget {
         y: u16,
         session: &Session,
     ) -> Vec<Effect> {
-        let inside = x >= rect.x
-            && x < rect.x.saturating_add(rect.width)
-            && y >= rect.y
-            && y < rect.y.saturating_add(rect.height);
-        if inside {
+        if rect.contains(Position::new(x, y)) {
             let row = y.saturating_sub(rect.y).saturating_sub(1) as usize;
             return self.activate(state, Some(row), session);
         }

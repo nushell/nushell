@@ -66,6 +66,13 @@ impl Widget {
         }
     }
 
+    /// Whether this widget shows something derived from another widget's
+    /// highlighted row: it has `--from` or a source closure, or it is a
+    /// preview (which always follows the nearest row source).
+    pub fn follows_source(&self) -> bool {
+        self.source.is_some() || matches!(self.kind, WidgetKind::Preview(_))
+    }
+
     /// Visit this widget and its descendants, preorder.
     pub fn for_each_mut(&mut self, f: &mut impl FnMut(&mut Widget)) {
         f(self);
@@ -362,21 +369,46 @@ impl ListState {
 
     /// Keep `selected` on screen given `visible` rows of room.
     pub fn ensure_visible(&mut self, visible: usize) {
+        self.scroll = self.scroll_for(visible);
+    }
+
+    /// The scroll offset that shows `selected` given `visible` rows of
+    /// room: the stored one when it already does, else the nearest that
+    /// does. Renderers use it so a highlight is never drawn off screen.
+    pub fn scroll_for(&self, visible: usize) -> usize {
         let visible = visible.max(1);
         if self.selected < self.scroll {
-            self.scroll = self.selected;
+            self.selected
         } else if self.selected >= self.scroll + visible {
-            self.scroll = self.selected + 1 - visible;
+            self.selected + 1 - visible
+        } else {
+            self.scroll
         }
     }
 
+    /// Keep every index inside `len` rows. The scroll offset follows the
+    /// highlight down, so a filter that shrinks the rows cannot leave the
+    /// viewport past the end of them.
     pub fn clamp(&mut self, len: usize) {
         self.selected = if len == 0 {
             0
         } else {
             self.selected.min(len - 1)
         };
+        self.scroll = self.scroll.min(self.selected);
         self.checked.retain(|i| *i < len);
+    }
+
+    /// The first `n` rows were dropped: move every index so it still names
+    /// the same row. Checked rows that were dropped are forgotten.
+    pub fn drop_front(&mut self, n: usize) {
+        self.selected = self.selected.saturating_sub(n);
+        self.scroll = self.scroll.saturating_sub(n);
+        self.checked = self
+            .checked
+            .iter()
+            .filter_map(|i| i.checked_sub(n))
+            .collect();
     }
 
     pub fn toggle(&mut self, index: usize) {

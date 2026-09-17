@@ -3,7 +3,7 @@ use super::table::{list_click, list_key, list_scroll, list_selection, list_value
 use crate::filter::value_text;
 use crate::hooks::call_closure;
 use crate::keys::KeyPress;
-use crate::session::Session;
+use crate::session::{Rows, Session};
 use crate::widget::{Caps, Effect, ListState, TuiWidget, WidgetState};
 use nu_protocol::engine::Closure;
 use nu_protocol::{Record, Span, Value};
@@ -12,7 +12,6 @@ use ratatui::layout::{Constraint, Rect};
 use ratatui::text::{Line, Span as TSpan, Text};
 use ratatui::widgets::Paragraph;
 use serde::{Deserialize, Serialize};
-use std::rc::Rc;
 
 /// How an item is shown: a record column, or a closure over the item.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -31,18 +30,17 @@ pub struct SelectWidget {
 }
 
 impl SelectWidget {
-    /// The rows this select offers: its items, else the widget's data,
-    /// filtered like a table. Called by the session's row cache.
-    pub fn compute_rows(&self, id: &str, session: &Session) -> Vec<Value> {
-        let items = if self.items.is_empty() {
+    /// What this select offers before filtering: its items, else the
+    /// widget's data rows. The session filters them like a table's.
+    pub fn items_or_data<'a>(&'a self, id: &str, session: &'a Session) -> &'a [Value] {
+        if self.items.is_empty() {
             crate::session::as_list(session.data_for(id))
         } else {
             &self.items
-        };
-        session.filter_for(id).apply(items)
+        }
     }
 
-    fn rows(&self, id: &str, session: &Session) -> Rc<Vec<Value>> {
+    fn rows<'a>(&self, id: &str, session: &'a Session) -> Rows<'a> {
         session.rows(id)
     }
 
@@ -119,10 +117,11 @@ impl TuiWidget for SelectWidget {
         session: &Session,
     ) -> Vec<Effect> {
         let len = self.rows(id, session).len();
+        let page = super::inner_rows(Some(&area), 2);
         let row = y.saturating_sub(area.y).saturating_sub(1) as usize;
         match state.as_list_mut() {
             Some(list) => {
-                let mut effects = list_click(id, list, row, len);
+                let mut effects = list_click(id, list, row, len, page);
                 if self.multi && len > 0 {
                     list.toggle(list.selected);
                     effects.push(Effect::Selected(id.to_string()));
@@ -171,7 +170,7 @@ impl TuiWidget for SelectWidget {
         let lines: Vec<Line> = rows
             .iter()
             .enumerate()
-            .skip(list.scroll)
+            .skip(list.scroll_for(inner.height as usize))
             .take(inner.height as usize)
             .map(|(i, item)| {
                 let mark = match (self.multi, list.checked.contains(&i), i == list.selected) {

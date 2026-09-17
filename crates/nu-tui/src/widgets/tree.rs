@@ -10,6 +10,7 @@ use ratatui::layout::{Constraint, Rect};
 use ratatui::text::{Line, Span as TSpan, Text};
 use ratatui::widgets::Paragraph;
 use serde::{Deserialize, Serialize};
+use std::rc::Rc;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TreeWidget {
@@ -21,8 +22,9 @@ pub struct TreeWidget {
 }
 
 impl TreeWidget {
-    /// Visible rows given an explicit state (used while the state is checked
-    /// out of the session during key handling).
+    /// Visible rows for an explicit state: the flatten behind
+    /// [`Session::tree_rows`], and what a key handler asks after changing
+    /// an expansion in its copy of the state.
     pub fn rows_with(&self, id: &str, state: &TreeState, session: &Session) -> Vec<TreeRow> {
         let mut rows = tree::flatten(
             session.data_for(id),
@@ -40,13 +42,9 @@ impl TreeWidget {
         rows
     }
 
-    pub fn rows(&self, id: &str, session: &Session) -> Vec<TreeRow> {
-        let default = TreeState::default();
-        let state = session
-            .state(id)
-            .and_then(WidgetState::as_tree)
-            .unwrap_or(&default);
-        self.rows_with(id, state, session)
+    /// The visible rows, flattened once per change by the session.
+    fn rows(&self, id: &str, session: &Session) -> Rc<Vec<TreeRow>> {
+        session.tree_rows(id)
     }
 
     fn set_expanded(&self, id: &str, state: &mut TreeState, expand: bool, session: &Session) {
@@ -104,6 +102,7 @@ impl TuiWidget for TreeWidget {
         session: &Session,
     ) -> Option<Vec<Effect>> {
         let page = super::inner_rows(session.areas.get(id), 2);
+        let len = self.rows(id, session).len();
         let tree_state = state.as_tree_mut()?;
         match key.chord.as_str() {
             "right" | "l" => {
@@ -114,10 +113,7 @@ impl TuiWidget for TreeWidget {
                 self.set_expanded(id, tree_state, false, session);
                 Some(vec![Effect::Selected(id.to_string())])
             }
-            chord => {
-                let len = self.rows_with(id, tree_state, session).len();
-                super::table::list_key(id, &mut tree_state.list, chord, len, page, self.multi)
-            }
+            chord => super::table::list_key(id, &mut tree_state.list, chord, len, page, self.multi),
         }
     }
 
@@ -131,9 +127,10 @@ impl TuiWidget for TreeWidget {
         session: &Session,
     ) -> Vec<Effect> {
         let len = self.rows(id, session).len();
+        let page = super::inner_rows(Some(&area), 2);
         let row = y.saturating_sub(area.y).saturating_sub(1) as usize;
         match state.as_list_mut() {
-            Some(list) => list_click(id, list, row, len),
+            Some(list) => list_click(id, list, row, len, page),
             None => Vec::new(),
         }
     }
@@ -165,13 +162,14 @@ impl TuiWidget for TreeWidget {
         let theme = &session.theme;
         let list = state.as_list().cloned().unwrap_or_default();
         let rows = self.rows(id, session);
+        let computer = session.style_computer();
         let block = super::framed(&format!("tree ({})", rows.len()), focused, theme);
         let inner = block.inner(area);
         frame.render_widget(block, area);
         let lines: Vec<Line> = rows
             .iter()
             .enumerate()
-            .skip(list.scroll)
+            .skip(list.scroll_for(inner.height as usize))
             .take(inner.height as usize)
             .map(|(i, row)| {
                 let marker = if !row.expandable {
@@ -191,7 +189,7 @@ impl TuiWidget for TreeWidget {
                     ""
                 };
                 let indent = "  ".repeat(row.depth);
-                let mut style = session.row_style(&row.value);
+                let mut style = session.row_style(&row.value, computer.as_ref());
                 if i == list.selected {
                     style = style.patch(theme.selected());
                 }
@@ -242,17 +240,14 @@ impl TuiWidget for TreeWidget {
         let Some(list) = state.as_list() else {
             return Value::nothing(span);
         };
-        let rows = self.rows(id, session);
-        let values: Vec<Value> = rows.into_iter().map(|r| r.value).collect();
-        super::table::list_selection(list, &values, self.multi, false)
+        super::table::list_selection(list, &session.rows(id), self.multi, false)
     }
 
     fn current_row(&self, id: &str, state: &WidgetState, session: &Session) -> Option<Value> {
         let list: &ListState = state.as_list()?;
         self.rows(id, session)
-            .into_iter()
-            .nth(list.selected)
-            .map(|r| r.value)
+            .get(list.selected)
+            .map(|r| r.value.clone())
     }
 
     fn debug(&self, id: &str, _state: &WidgetState, session: &Session, rec: &mut Record) {

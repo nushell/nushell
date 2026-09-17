@@ -84,8 +84,15 @@ pub fn key_event_to_string(key: KeyEvent) -> String {
     parts.join("+")
 }
 
+/// A bind string in the form [`key_event_to_string`] produces, so
+/// `shift+ctrl+s` and `Ctrl+Shift+S` both match the chord `ctrl+shift+s`.
+/// Text that is not a chord is only lowercased and stripped of spaces.
 pub fn normalize_bind(s: &str) -> String {
-    s.trim().to_ascii_lowercase().replace(' ', "")
+    let flat = s.trim().to_ascii_lowercase().replace(' ', "");
+    match parse_key_token(&flat, Span::unknown()) {
+        Ok(event) => key_event_to_string(event),
+        Err(_) => flat,
+    }
 }
 
 /// A chord from a bind value: a string like `ctrl+s`, or a reedline-style
@@ -517,5 +524,18 @@ mod tests {
     fn normalize_control_char_r() {
         assert_eq!(normalize_binding("control", "char_r"), "ctrl+r");
         assert_eq!(normalize_binding("none", "tab"), "tab");
+    }
+
+    #[test]
+    fn bind_strings_canonicalize_modifier_order() {
+        assert_eq!(normalize_bind("shift+ctrl+s"), "ctrl+shift+s");
+        assert_eq!(normalize_bind("Alt + Ctrl + f"), "ctrl+alt+f");
+        assert_eq!(normalize_bind("shift+tab"), "shift+tab");
+        assert_eq!(normalize_bind("/"), "/");
+        let event = KeyEvent::new(
+            KeyCode::Char('S'),
+            KeyModifiers::CONTROL | KeyModifiers::SHIFT,
+        );
+        assert_eq!(key_event_to_string(event), normalize_bind("shift+ctrl+s"));
     }
 }

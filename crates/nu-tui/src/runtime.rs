@@ -138,14 +138,6 @@ pub fn debug(
     cwd: PathBuf,
 ) -> Result<PipelineData, ShellError> {
     let (mut session, rx) = prepare_session(app, data, engine_state, stack, cwd, opts.span)?;
-    if let Some(rx) = rx {
-        let (items, done) = stream::drain_until_idle(&rx, Duration::from_secs(5), usize::MAX);
-        session.append_values(items);
-        session.stream_live = !done;
-    }
-    if let Some(closure) = opts.using.clone() {
-        session.run_hook(closure);
-    }
     let frame = Rect {
         x: 0,
         y: 0,
@@ -155,8 +147,21 @@ pub fn debug(
     if opts.dialog {
         session.enable_dialog(frame, opts.popup_width, opts.popup_height);
     }
+    // Lay out before anything runs a closure, so each runs once at its
+    // pane size rather than once at the terminal size and again after.
     session.layout(session.dialog_content_area(frame));
-    session.refresh_derived();
+    if let Some(rx) = rx {
+        // A live stream is read for a while, but never past what the
+        // widgets can hold: `1.. | tui table | tui debug` must not buffer
+        // millions of rows to keep ten thousand.
+        let cap = session.stream_row_cap();
+        let (items, done) = stream::drain_until_idle(&rx, Duration::from_secs(5), cap);
+        session.append_values(items);
+        session.stream_live = !done;
+    }
+    if let Some(closure) = opts.using.clone() {
+        session.run_hook(closure);
+    }
     for event in &opts.keys {
         session.handle_event(event);
         session.layout(session.dialog_content_area(frame));
@@ -171,6 +176,7 @@ pub fn debug(
     }
     let screen = render_to_string(&mut session, opts.width, opts.height)
         .map_err(|e| io_error("failed to render headless TUI", e, opts.span))?;
+    stop_producer(&session);
     let mut rec = session.result_fields(opts.span, Some(screen));
     for (k, v) in session.debug_record(opts.span) {
         rec.insert(k, v);
@@ -227,7 +233,6 @@ pub fn run(
         height: term_h,
     };
     session.layout(session.dialog_content_area(screen));
-    session.refresh_derived();
 
     // The hook runs once before the first frame; with --refresh it then
     // repeats on the interval.
@@ -286,29 +291,39 @@ pub fn run(
     }
 
     drop(terminal);
+    stop_producer(&session);
     Ok(Value::record(session.result_fields(opts.span, None), opts.span).into_pipeline_data())
 }
 
+/// Kill the external command behind a stream that is still open when the
+/// TUI closes; otherwise the pipeline waits for it to exit on its own.
+fn stop_producer(session: &Session) {
+    if session.stream_live
+        && let Some(pid) = session.app.live_pid
+    {
+        stream::kill_child(pid);
+    }
+}
+
+/// Read every pending event. A run of drag events collapses to its last
+/// position (only the final one matters), in place, so a `Down, Drag, Up`
+/// sequence keeps its order.
 fn drain_events(span: Span) -> Result<Vec<Event>, ShellError> {
-    let mut events = Vec::new();
-    let mut last_drag = None;
+    let mut events: Vec<Event> = Vec::new();
     loop {
         let event = event::read()
             .map_err(|e| io_error("failed to read terminal event", e.to_string(), span))?;
-        match event {
-            Event::Mouse(mouse) if matches!(mouse.kind, MouseEventKind::Drag(_)) => {
-                last_drag = Some(Event::Mouse(mouse));
-            }
-            other => events.push(other),
+        let is_drag =
+            |e: &Event| matches!(e, Event::Mouse(m) if matches!(m.kind, MouseEventKind::Drag(_)));
+        match events.last_mut() {
+            Some(last) if is_drag(last) && is_drag(&event) => *last = event,
+            _ => events.push(event),
         }
         let more = event::poll(Duration::ZERO)
             .map_err(|e| io_error("failed to poll terminal events", e.to_string(), span))?;
         if !more {
             break;
         }
-    }
-    if let Some(drag) = last_drag {
-        events.push(drag);
     }
     Ok(events)
 }
@@ -329,7 +344,6 @@ impl TerminalGuard {
             execute!(out, EnterAlternateScreen)
                 .map_err(|e| io_error("failed to enter alternate screen", e.to_string(), span))?;
         }
-        let _ = execute!(out, Hide);
         if mouse && let Err(e) = execute!(out, EnableMouseCapture) {
             if alt_screen {
                 let _ = execute!(out, LeaveAlternateScreen);
@@ -340,6 +354,8 @@ impl TerminalGuard {
                 span,
             ));
         }
+        // Last, so nothing above can fail with the cursor hidden.
+        let _ = execute!(out, Hide);
         Ok(Self { mouse, alt_screen })
     }
 }

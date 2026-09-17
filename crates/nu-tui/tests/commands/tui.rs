@@ -322,6 +322,25 @@ fn builders_do_not_collect_an_infinite_stream() -> Result {
 }
 
 #[test]
+fn slow_child_lists_are_collected_regardless_of_timing() -> Result {
+    let rows: i64 = test().run(
+        "tui split [(1..3 | each { sleep 150ms; {name: $in} } | tui table)] | tui debug | get widgets.0.children.0.rows",
+    )?;
+    assert_eq!(rows, 3);
+    Ok(())
+}
+
+#[cfg(unix)]
+#[test]
+fn closing_the_tui_stops_an_external_producer() -> Result {
+    // `tail -f` never exits on its own; `tui debug` must still return.
+    // The test shell has no PATH; `tail` lives here on macOS and Linux.
+    let live: bool = test().run("^/usr/bin/tail -f /dev/null | tui log | tui debug | get live")?;
+    assert!(live);
+    Ok(())
+}
+
+#[test]
 fn streamed_rows_reach_the_tui() -> Result {
     let screen: String = test().run(
         r#"

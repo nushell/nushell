@@ -23,6 +23,7 @@ use nu_explore::style::ansi_style_to_tui;
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Block, Borders};
+use unicode_width::UnicodeWidthChar;
 
 /// A bordered block with a title, colored for focus.
 pub(crate) fn framed(title: &str, focused: bool, theme: &Theme) -> Block<'static> {
@@ -82,4 +83,59 @@ pub(crate) fn inner_rows(area: Option<&ratatui::layout::Rect>, chrome_lines: u16
     area.map(|a| a.height.saturating_sub(chrome_lines) as usize)
         .unwrap_or(10)
         .max(1)
+}
+
+/// Columns of room inside a bordered widget.
+pub(crate) fn inner_width(area: Option<&ratatui::layout::Rect>) -> usize {
+    area.map(|a| a.width.saturating_sub(2) as usize)
+        .unwrap_or(80)
+        .max(1)
+}
+
+/// Split a styled line into rows of at most `width` columns, breaking
+/// between characters. An empty line is one row. Widgets that must know
+/// exactly how many rows a line takes (a log following its tail) wrap with
+/// this instead of ratatui's word wrap.
+pub(crate) fn wrap_line(line: &Line<'static>, width: usize) -> Vec<Line<'static>> {
+    let width = width.max(1);
+    let mut rows = Vec::new();
+    let mut current: Vec<Span<'static>> = Vec::new();
+    let mut used = 0;
+    for span in &line.spans {
+        let mut text = String::new();
+        for c in span.content.chars() {
+            let w = c.width().unwrap_or(0);
+            if used + w > width && used > 0 {
+                if !text.is_empty() {
+                    current.push(Span::styled(std::mem::take(&mut text), span.style));
+                }
+                rows.push(Line::from(std::mem::take(&mut current)));
+                used = 0;
+            }
+            text.push(c);
+            used += w;
+        }
+        if !text.is_empty() {
+            current.push(Span::styled(text, span.style));
+        }
+    }
+    if rows.is_empty() || !current.is_empty() {
+        rows.push(Line::from(current));
+    }
+    rows
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn wrap_line_breaks_between_characters() {
+        let line = Line::from("abcdefgh");
+        let rows = wrap_line(&line, 3);
+        let texts: Vec<String> = rows.iter().map(|l| l.to_string()).collect();
+        assert_eq!(texts, ["abc", "def", "gh"]);
+        assert_eq!(wrap_line(&Line::from(""), 3).len(), 1);
+        assert_eq!(wrap_line(&Line::from("abc"), 3).len(), 1);
+    }
 }

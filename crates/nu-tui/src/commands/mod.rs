@@ -298,7 +298,7 @@ impl Command for Tui {
          \n\
          Builders (`tui table`, `tui split`, ...) append widgets to a `tui` value. `tui run` shows it and returns one record: `{action, focused, selected, page, values, rows, live}`, where `values` holds every widget's state by id. `tui debug` returns the same record plus the painted `screen` and the resolved layout, for scripts and tests.\n\
          \n\
-         Data: a collected value piped into a builder is the shared data list; lazy streams keep flowing and rows appear as they are produced. A widget can have its own rows with `--data`, or by piping into it inside a container's child list: `tui split [(ls | tui table) (ps | tui table)]`. `--from <id>` (with an optional closure) makes a widget follow another's highlighted row.\n\
+         Data: a value piped into a builder is the shared data list. Lists and streams are collected in full (up to 100k rows); an external command's output (`tail -f log | tui log`) and an unbounded range (`1..`) stay live, and their rows appear as they are produced. When the TUI closes while an external command is still running, it is stopped. A widget can have its own rows with `--data`, or by piping into it inside a container's child list: `tui split [(ls | tui table) (ps | tui table)]`. `--from <id>` (with an optional closure) makes a widget follow another's highlighted row.\n\
          \n\
          Hooks: `tui bind`, menu actions, `tui button`, `--on-select`, and the `tui run` refresh closure all receive the state record and may return nothing, a new data list, or `{action: submit|quit, selected: ...}`.\n\
          \n\

@@ -10,6 +10,7 @@ use ratatui::layout::{Constraint, Rect};
 use ratatui::widgets::{Paragraph, Wrap};
 use serde::{Deserialize, Serialize};
 use std::fmt::Write;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -157,17 +158,6 @@ impl TuiWidget for PreviewWidget {
         rec.insert("title", Value::string(preview.title, span));
         rec.insert("text", Value::string(preview.text, span));
         Value::record(rec, span)
-    }
-
-    fn debug(&self, id: &str, _state: &WidgetState, session: &Session, rec: &mut Record) {
-        let span = Span::unknown();
-        rec.insert(
-            "source",
-            match session.source_id(id) {
-                Some(src) => Value::string(src, span),
-                None => Value::nothing(span),
-            },
-        );
     }
 }
 
@@ -326,16 +316,17 @@ fn row_type(row: &Value) -> Option<String> {
 }
 
 fn read_file_preview(path: &Path, max_bytes: usize, file_len: u64) -> (String, bool) {
-    let mut file = match std::fs::File::open(path) {
+    let file = match std::fs::File::open(path) {
         Ok(f) => f,
         Err(err) => return (format!("cannot open: {err}"), false),
     };
-    let mut buf = vec![0u8; max_bytes];
-    let n = match std::io::Read::read(&mut file, &mut buf) {
-        Ok(n) => n,
-        Err(err) => return (format!("cannot read: {err}"), false),
-    };
-    buf.truncate(n);
+    // Read until the cap or the end of the file: one `read` may return
+    // less than asked (a pipe, a network file system).
+    let mut buf = Vec::with_capacity(max_bytes.min(file_len as usize));
+    if let Err(err) = file.take(max_bytes as u64).read_to_end(&mut buf) {
+        return (format!("cannot read: {err}"), false);
+    }
+    let n = buf.len();
     if buf.contains(&0) {
         return (format!("(binary file, {file_len} bytes)"), false);
     }

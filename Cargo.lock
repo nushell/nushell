@@ -5427,12 +5427,14 @@ dependencies = [
  "nu-engine",
  "nu-explore",
  "nu-protocol",
+ "nu-system",
  "nu-test-support",
  "nu-utils",
  "nucleo-matcher",
  "ratatui",
  "serde",
  "typetag",
+ "unicode-width 0.2.2",
 ]
 
 [[package]]

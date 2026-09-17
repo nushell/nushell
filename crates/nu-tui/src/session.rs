@@ -7,6 +7,7 @@ use crate::hooks::{self, HookOutcome, call_closure};
 use crate::keys::{KeyPress, normalize_bind, single_char};
 use crate::layout::{SplitterHandle, assign_areas, subtree_ids};
 use crate::theme::Theme;
+use crate::tree::TreeRow;
 use crate::widget::{Effect, Widget, WidgetKind, WidgetState};
 use crate::widgets::label::Slot;
 use crate::widgets::split::{SplitDir, SplitWidget};
@@ -18,10 +19,11 @@ use nu_explore::style::create_lscolors;
 use nu_protocol::engine::{Closure, EngineState, Stack};
 use nu_protocol::{Config, Record, Span, Value};
 use nu_utils::get_ls_colors;
-use ratatui::layout::Rect;
+use ratatui::layout::{Position, Rect};
 use ratatui::style::Style;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::ops::Deref;
 use std::path::PathBuf;
 use std::rc::Rc;
 
@@ -35,6 +37,25 @@ pub enum Action {
 pub struct Outcome {
     pub action: Action,
     pub selected: Value,
+}
+
+/// The rows a list widget shows. Unfiltered rows are borrowed straight
+/// from the data, so asking for them costs nothing; filtered rows are a
+/// copy shared through the session's cache.
+pub enum Rows<'a> {
+    Borrowed(&'a [Value]),
+    Shared(Rc<Vec<Value>>),
+}
+
+impl Deref for Rows<'_> {
+    type Target = [Value];
+
+    fn deref(&self) -> &[Value] {
+        match self {
+            Rows::Borrowed(rows) => rows,
+            Rows::Shared(rows) => rows,
+        }
+    }
 }
 
 /// One entry in the tab bar: a top-level `Tab` widget.
@@ -148,6 +169,8 @@ pub struct Session {
     /// changes. A frame asks for rows several times; a 100k-row list must
     /// not be filtered and cloned each time.
     rows_cache: RefCell<HashMap<String, Rc<Vec<Value>>>>,
+    /// Flattened tree rows per tree widget, kept on the same terms.
+    tree_cache: RefCell<HashMap<String, Rc<Vec<TreeRow>>>>,
 }
 
 impl Session {
@@ -210,9 +233,11 @@ impl Session {
             use_ls_colors,
             error: None,
             rows_cache: RefCell::new(HashMap::new()),
+            tree_cache: RefCell::new(HashMap::new()),
         };
+        // Derived values wait for the first layout pass, which knows the
+        // pane sizes their closures see.
         session.focused = session.default_focus();
-        session.refresh_derived();
         session
     }
 
@@ -387,23 +412,56 @@ impl Session {
         self.derived.get(id)
     }
 
-    /// Rows of a list widget after filtering, shared until something
-    /// changes them (see [`Session::invalidate_rows`]). Trees and selects
-    /// compute their own rows; everything else lists its data.
-    pub fn rows(&self, id: &str) -> Rc<Vec<Value>> {
+    /// Rows of a list widget after filtering. Unfiltered rows are borrowed
+    /// from the data; filtered rows are computed once and shared until
+    /// something changes them (see [`Session::invalidate_rows`]). A tree
+    /// lists the values of its visible nodes; a select its items.
+    pub fn rows(&self, id: &str) -> Rows<'_> {
         if let Some(rows) = self.rows_cache.borrow().get(id) {
-            return Rc::clone(rows);
+            return Rows::Shared(Rc::clone(rows));
         }
         let rows = match self.kind(id) {
-            Some(WidgetKind::Tree(tree)) => {
-                tree.rows(id, self).into_iter().map(|r| r.value).collect()
+            Some(WidgetKind::Tree(_)) => {
+                self.tree_rows(id).iter().map(|r| r.value.clone()).collect()
             }
-            Some(WidgetKind::Select(select)) => select.compute_rows(id, self),
-            Some(_) => self.filter_for(id).apply(as_list(self.data_for(id))),
+            Some(WidgetKind::Select(select)) => {
+                return self.filtered(id, select.items_or_data(id, self));
+            }
+            Some(_) => return self.filtered(id, as_list(self.data_for(id))),
             None => Vec::new(),
         };
+        self.share_rows(id, rows)
+    }
+
+    /// `rows` through the filter on widget `id`: borrowed as they are when
+    /// nothing filters them, else filtered once and cached.
+    fn filtered<'a>(&'a self, id: &str, rows: &'a [Value]) -> Rows<'a> {
+        let filter = self.filter_for(id);
+        if filter.is_empty() {
+            return Rows::Borrowed(rows);
+        }
+        self.share_rows(id, filter.apply(rows))
+    }
+
+    fn share_rows(&self, id: &str, rows: Vec<Value>) -> Rows<'_> {
         let rows = Rc::new(rows);
         self.rows_cache
+            .borrow_mut()
+            .insert(id.to_string(), Rc::clone(&rows));
+        Rows::Shared(rows)
+    }
+
+    /// The visible rows of a tree widget, flattened once per change.
+    pub fn tree_rows(&self, id: &str) -> Rc<Vec<TreeRow>> {
+        if let Some(rows) = self.tree_cache.borrow().get(id) {
+            return Rc::clone(rows);
+        }
+        let rows = match (self.kind(id), self.state(id).and_then(WidgetState::as_tree)) {
+            (Some(WidgetKind::Tree(tree)), Some(state)) => tree.rows_with(id, state, self),
+            _ => Vec::new(),
+        };
+        let rows = Rc::new(rows);
+        self.tree_cache
             .borrow_mut()
             .insert(id.to_string(), Rc::clone(&rows));
         rows
@@ -413,6 +471,7 @@ impl Session {
     /// an expansion may have changed.
     fn invalidate_rows(&self) {
         self.rows_cache.borrow_mut().clear();
+        self.tree_cache.borrow_mut().clear();
     }
 
     /// Resolved columns of a table: `--columns`, else the data's columns,
@@ -481,8 +540,7 @@ impl Session {
     /// visible one. `None` for widgets that do not follow anything.
     pub fn source_id(&self, id: &str) -> Option<String> {
         let widget = self.widget(id)?;
-        let follows = widget.source.is_some() || matches!(widget.kind, WidgetKind::Preview(_));
-        if !follows {
+        if !widget.follows_source() {
             return None;
         }
         if let Some(from) = widget.source.as_ref().and_then(|s| s.from.clone()) {
@@ -549,7 +607,7 @@ impl Session {
         let ids: Vec<String> = self
             .app
             .iter()
-            .filter(|w| w.source.is_some() || matches!(w.kind, WidgetKind::Preview(_)))
+            .filter(|w| w.follows_source())
             .map(|w| w.id.clone())
             .collect();
         for _ in 0..3 {
@@ -565,7 +623,7 @@ impl Session {
 
     /// The size a widget's closures see as `$env.TUI_WIDTH` and
     /// `$env.TUI_HEIGHT`: the area inside its border, or the terminal size
-    /// before the first layout.
+    /// for a widget that is not laid out (on a hidden page).
     pub fn inner_size(&self, id: &str) -> (u16, u16) {
         match self.areas.get(id) {
             Some(area) => (area.width.saturating_sub(2), area.height.saturating_sub(2)),
@@ -657,27 +715,62 @@ impl Session {
     }
 
     /// Append streamed rows to the shared data. Tables keep their highlight
-    /// (a stream that lands while you read should not move it); logs follow
-    /// the tail unless scrolled up, resolved when they draw.
+    /// (a stream that lands while you read should not move it), even when
+    /// the oldest rows are dropped to stay under the cap; logs follow the
+    /// tail unless scrolled up, resolved when they draw.
     pub fn append_values(&mut self, values: Vec<Value>) {
         if values.is_empty() {
             return;
         }
-        let mut rows = as_list(&self.app.data).to_vec();
+        // Take the list out rather than clone it: this runs on every poll
+        // tick of a live stream.
+        let span = self.app.data.span();
+        let mut rows = match std::mem::replace(&mut self.app.data, Value::nothing(span)) {
+            Value::List { vals, .. } => vals.into_owned(),
+            Value::Nothing { .. } => Vec::new(),
+            other => vec![other],
+        };
         rows.extend(values);
         let cap = self.stream_row_cap();
-        if rows.len() > cap {
-            let drop_n = rows.len() - cap;
+        let drop_n = rows.len().saturating_sub(cap);
+        if drop_n > 0 {
             rows.drain(0..drop_n);
         }
-        let span = rows.first().map(|v| v.span()).unwrap_or_else(Span::unknown);
+        let span = rows.first().map(|v| v.span()).unwrap_or(span);
         self.app.data = Value::list(rows, span);
+        if drop_n > 0 {
+            // Highlights and check marks are row indexes; shift them so
+            // they stay on the same rows.
+            let shared: Vec<String> = self
+                .states
+                .keys()
+                .filter(|id| self.shows_shared_list(id))
+                .cloned()
+                .collect();
+            for id in shared {
+                if let Some(list) = self.states.get_mut(&id).and_then(WidgetState::as_list_mut) {
+                    list.drop_front(drop_n);
+                }
+            }
+        }
         self.invalidate_rows();
         self.clamp_all_lists();
         self.refresh_derived();
     }
 
-    fn stream_row_cap(&self) -> usize {
+    /// Whether widget `id` is a table or select whose rows are the shared
+    /// data list, so trimming that list moves its rows.
+    fn shows_shared_list(&self, id: &str) -> bool {
+        match self.kind(id) {
+            Some(WidgetKind::Table(_)) => {}
+            Some(WidgetKind::Select(select)) if select.items.is_empty() => {}
+            _ => return false,
+        }
+        std::ptr::eq(self.data_for(id), &self.app.data)
+    }
+
+    /// Rows a live stream may accumulate before the oldest are dropped.
+    pub fn stream_row_cap(&self) -> usize {
         const DEFAULT: usize = 10_000;
         self.app
             .iter()
@@ -730,8 +823,12 @@ impl Session {
 
     // ----- events -------------------------------------------------------
 
+    /// Assign areas, then bring derived values up to date: closures read
+    /// their pane size, so they run after layout, and again after a resize
+    /// changes it.
     pub fn layout(&mut self, area: Rect) {
         assign_areas(self, area);
+        self.refresh_derived();
     }
 
     pub fn enable_dialog(&mut self, screen: Rect, width: Option<u16>, height: Option<u16>) {
@@ -767,7 +864,6 @@ impl Session {
     }
 
     pub fn handle_event(&mut self, event: &Event) {
-        self.invalidate_rows();
         match event {
             Event::Key(key)
                 if key.kind == KeyEventKind::Press || key.kind == KeyEventKind::Repeat =>
@@ -785,10 +881,8 @@ impl Session {
                     };
                     dialog.rect = clamp_dialog(dialog.rect, dialog.screen);
                 }
-                // Pane sizes changed: closures that read them run again once
-                // the next layout pass has assigned areas.
-                self.areas.clear();
-                self.refresh_derived();
+                // Pane sizes changed: the next layout pass re-runs the
+                // closures that read them.
             }
             _ => {}
         }
@@ -850,16 +944,22 @@ impl Session {
             .map(|w| w.id.clone())
     }
 
-    /// Hand a key to widget `id` with its state checked out of the map.
+    /// Hand a key to widget `id`. The handler gets a copy of the state to
+    /// change while the original stays in the map, so anything it asks the
+    /// session (its rows, its filter, its expansion) still sees the state.
     fn dispatch_key(&mut self, id: &str, key: &KeyPress) -> Option<Vec<Effect>> {
         let kind = self.kind(id)?.clone();
-        let mut state = self.states.remove(id)?;
+        let mut state = self.states.get(id)?.clone();
         let result = kind.handle_key(id, &mut state, key, self);
-        self.states.insert(id.to_string(), state);
-        // Rows computed while the state was out may have missed it (a
-        // captured chord, an expansion); recompute on the next ask.
-        self.invalidate_rows();
+        self.store_state(id, state);
         result
+    }
+
+    /// Put a handler's copy of the state back. Rows computed before it may
+    /// be stale (a captured chord, an expansion); recompute on the next ask.
+    fn store_state(&mut self, id: &str, state: WidgetState) {
+        self.states.insert(id.to_string(), state);
+        self.invalidate_rows();
     }
 
     fn global_key(&mut self, key: &KeyPress) -> Option<Vec<Effect>> {
@@ -875,13 +975,13 @@ impl Session {
             let WidgetKind::Menu(menu) = kind else {
                 return None;
             };
-            let mut state = self.states.remove(&id)?;
+            let mut state = self.states.get(&id)?.clone();
             let mut effects = vec![Effect::Focus(id.clone())];
             if let Some(m) = state.as_menu_mut() {
                 m.selected = idx;
                 effects.extend(menu.open_or_activate(m, self));
             }
-            self.states.insert(id, state);
+            self.store_state(&id, state);
             return Some(effects);
         }
         match chord {
@@ -925,9 +1025,14 @@ impl Session {
             if self.outcome.is_some() {
                 return;
             }
-            // Any effect may have changed a filter, a selection, or an
-            // expansion behind the row cache.
-            self.invalidate_rows();
+            // Filters and data change rows; the row cache must not outlive
+            // them. Focus and page changes leave every widget's rows alone.
+            if matches!(
+                effect,
+                Effect::Query | Effect::Capture(..) | Effect::Hook(_) | Effect::Selected(_)
+            ) {
+                self.invalidate_rows();
+            }
             match effect {
                 Effect::Focus(id) => {
                     if self.kind(&id).is_some_and(|k| k.is_focusable()) {
@@ -938,11 +1043,7 @@ impl Session {
                 Effect::FocusNext => self.focus_step(1),
                 Effect::FocusPrev => self.focus_step(-1),
                 Effect::LeaveText => {
-                    self.focused = self
-                        .focusable_ids()
-                        .into_iter()
-                        .find(|id| self.kind(id).is_some_and(|k| !k.is_text_input()))
-                        .or_else(|| self.focused.clone());
+                    self.focused = self.after_text_input().or_else(|| self.focused.clone());
                     self.refresh_derived();
                 }
                 Effect::Submit(selected) => {
@@ -1001,6 +1102,24 @@ impl Session {
         }
     }
 
+    /// Where Esc from a text input lands: the list the input filters, else
+    /// the first content widget, else any non-text widget (the menu bar).
+    fn after_text_input(&self) -> Option<String> {
+        let candidates: Vec<String> = self
+            .focusable_ids()
+            .into_iter()
+            .filter(|id| self.kind(id).is_some_and(|k| !k.is_text_input()))
+            .collect();
+        let scoped = |id: &String| self.scoping_search(id) == self.focused;
+        let content = |id: &String| self.kind(id).is_some_and(|k| !k.is_chrome());
+        candidates
+            .iter()
+            .find(|id| scoped(id) && content(id))
+            .or_else(|| candidates.iter().find(|id| content(id)))
+            .or_else(|| candidates.first())
+            .cloned()
+    }
+
     fn focus_step(&mut self, step: isize) {
         let ids = self.focusable_ids();
         if ids.is_empty() {
@@ -1051,26 +1170,22 @@ impl Session {
                     self.apply(effects);
                     return;
                 }
-                for (i, area) in self.tab_areas.clone().iter().enumerate() {
-                    if contains(*area, mouse.column, mouse.row) {
-                        self.apply(vec![Effect::Page(i)]);
-                        return;
-                    }
+                let at = Position::new(mouse.column, mouse.row);
+                if let Some(i) = self.tab_areas.iter().position(|area| area.contains(at)) {
+                    self.apply(vec![Effect::Page(i)]);
+                    return;
                 }
-                for handle in self.handles.clone() {
-                    if contains(handle.area, mouse.column, mouse.row) {
-                        self.dragging = Some((handle.id.clone(), handle.index));
-                        self.focused = Some(handle.id);
-                        return;
-                    }
+                if let Some(handle) = self.handles.iter().find(|h| h.area.contains(at)) {
+                    self.dragging = Some((handle.id.clone(), handle.index));
+                    self.focused = Some(handle.id.clone());
+                    return;
                 }
-                if let Some((id, area)) = self.hit_test(mouse.column, mouse.row)
+                if let Some((id, area)) = self.hit_test(at)
                     && let Some(kind) = self.kind(&id).cloned()
-                    && let Some(mut state) = self.states.remove(&id)
+                    && let Some(mut state) = self.states.get(&id).cloned()
                 {
                     let effects = kind.click(&id, &mut state, area, mouse.column, mouse.row, self);
-                    self.states.insert(id, state);
-                    self.invalidate_rows();
+                    self.store_state(&id, state);
                     self.apply(effects);
                 }
             }
@@ -1100,20 +1215,20 @@ impl Session {
             _ => None,
         })?;
         let bar = *self.areas.get(&id)?;
-        let mut state = self.states.remove(&id)?;
+        let mut state = self.states.get(&id)?.clone();
         let effects = match state
             .as_menu()
             .and_then(|m| menu.dropdown_rect(m, bar))
             .zip(state.as_menu_mut())
         {
             Some((rect, m)) => {
-                let inside = contains(rect, x, y);
+                let inside = rect.contains(Position::new(x, y));
                 let effects = menu.click_dropdown(m, rect, x, y, self);
                 inside.then_some(effects)
             }
             None => None,
         };
-        self.states.insert(id, state);
+        self.store_state(&id, state);
         effects
     }
 
@@ -1127,20 +1242,21 @@ impl Session {
         let rect = dialog.rect;
         let screen = dialog.screen;
         let drag = dialog.drag;
+        let at = Position::new(mouse.column, mouse.row);
 
         match mouse.kind {
             MouseEventKind::Down(MouseButton::Left) => {
-                if contains(close, mouse.column, mouse.row) {
+                if close.contains(at) {
                     self.quit();
                     return true;
                 }
-                if contains(resize, mouse.column, mouse.row) {
+                if resize.contains(at) {
                     if let Some(dialog) = self.dialog.as_mut() {
                         dialog.drag = Some(DialogDrag::Resize);
                     }
                     return true;
                 }
-                if contains(title, mouse.column, mouse.row) {
+                if title.contains(at) {
                     if let Some(dialog) = self.dialog.as_mut() {
                         dialog.drag = Some(DialogDrag::Move {
                             grab_x: mouse.column.saturating_sub(rect.x),
@@ -1149,7 +1265,7 @@ impl Session {
                     }
                     return true;
                 }
-                !contains(rect, mouse.column, mouse.row)
+                !rect.contains(at)
             }
             MouseEventKind::Drag(MouseButton::Left) => {
                 let Some(drag) = drag else {
@@ -1210,28 +1326,27 @@ impl Session {
 
     fn scroll_at(&mut self, x: u16, y: u16, delta: i32) {
         let id = self
-            .hit_test(x, y)
+            .hit_test(Position::new(x, y))
             .map(|(id, _)| id)
             .or_else(|| self.focused.clone());
         let Some(id) = id else {
             return;
         };
         if let Some(kind) = self.kind(&id).cloned()
-            && let Some(mut state) = self.states.remove(&id)
+            && let Some(mut state) = self.states.get(&id).cloned()
         {
             let effects = kind.scroll(&id, &mut state, delta, self);
-            self.states.insert(id, state);
-            self.invalidate_rows();
+            self.store_state(&id, state);
             self.apply(effects);
         }
     }
 
     /// The smallest non-container widget under the point.
-    fn hit_test(&self, x: u16, y: u16) -> Option<(String, Rect)> {
+    fn hit_test(&self, at: Position) -> Option<(String, Rect)> {
         self.areas
             .iter()
             .filter(|(id, area)| {
-                contains(**area, x, y) && !self.kind(id).is_some_and(|k| k.is_container())
+                area.contains(at) && !self.kind(id).is_some_and(|k| k.is_container())
             })
             .min_by_key(|(_, area)| area.width as u32 * area.height as u32)
             .map(|(id, area)| (id.clone(), *area))
@@ -1294,16 +1409,17 @@ impl Session {
     }
 
     /// Style of a tree node or list item: `LS_COLORS` for paths, else the
-    /// value's type color.
-    pub fn row_style(&self, row: &Value) -> Style {
+    /// value's type color. `computer` comes from [`Session::style_computer`],
+    /// built once per frame rather than per row.
+    pub fn row_style(&self, row: &Value, computer: Option<&StyleComputer>) -> Style {
         if self.use_ls_colors
             && self.is_path_column("name", row)
             && let Some(path) = crate::widgets::preview::row_path(row)
         {
             return self.theme.path_cell(&path, &self.cwd, &self.ls_colors);
         }
-        match self.style_computer() {
-            Some(computer) => self.theme.value_cell(row, &computer),
+        match computer {
+            Some(computer) => self.theme.value_cell(row, computer),
             None => self.theme.text(),
         }
     }
@@ -1436,7 +1552,7 @@ impl Session {
                     },
                 );
             }
-            if w.source.is_some() {
+            if w.follows_source() {
                 rec.insert(
                     "source",
                     match self.source_id(&w.id) {
@@ -1541,13 +1657,6 @@ pub fn as_list(value: &Value) -> &[Value] {
 fn digit_page(chord: &str) -> Option<usize> {
     let c = single_char(chord)?;
     (c.is_ascii_digit() && c != '0').then(|| (c as u8 - b'1') as usize)
-}
-
-pub(crate) fn contains(area: Rect, x: u16, y: u16) -> bool {
-    x >= area.x
-        && x < area.x.saturating_add(area.width)
-        && y >= area.y
-        && y < area.y.saturating_add(area.height)
 }
 
 pub(crate) fn truncate_chars(s: &str, max_chars: usize) -> String {
@@ -2341,6 +2450,215 @@ mod tests {
             Some("search-0")
         );
         assert_eq!(session.scoping_search("table-b"), None);
+    }
+
+    fn scroll_wheel(session: &mut Session, x: u16, y: u16, down: bool) {
+        session.handle_event(&Event::Mouse(MouseEvent {
+            kind: if down {
+                MouseEventKind::ScrollDown
+            } else {
+                MouseEventKind::ScrollUp
+            },
+            column: x,
+            row: y,
+            modifiers: KeyModifiers::NONE,
+        }));
+    }
+
+    #[test]
+    fn capturing_table_navigates_the_filtered_rows() {
+        let mut session = Session::new(keybindings_app(false));
+        press(&mut session, KeyCode::Char('r'), KeyModifiers::CONTROL);
+        assert_eq!(session.rows("table-0").len(), 1);
+        // Only one row matches: Down must not move past it.
+        press(&mut session, KeyCode::Down, KeyModifiers::NONE);
+        assert_eq!(selected_index(&session, "table-0"), 0);
+        press(&mut session, KeyCode::Enter, KeyModifiers::NONE);
+        let name = session
+            .outcome
+            .clone()
+            .expect("outcome")
+            .selected
+            .as_record()
+            .ok()
+            .and_then(|r| r.get("name"))
+            .and_then(|v| v.as_str().ok())
+            .map(str::to_string);
+        assert_eq!(name.as_deref(), Some("history"));
+    }
+
+    fn nested_tree_app() -> TuiApp {
+        let mut inner = Record::new();
+        inner.insert("b", Value::test_int(1));
+        inner.insert("c", Value::test_int(2));
+        let mut rec = Record::new();
+        rec.insert("a", Value::test_record(inner));
+        rec.insert(
+            "d",
+            Value::test_list(vec![Value::test_int(3), Value::test_int(4)]),
+        );
+        app(
+            vec![Widget::new(
+                "tree-0",
+                WidgetKind::Tree(TreeWidget {
+                    walk: false,
+                    column: "name".into(),
+                    multi: false,
+                }),
+            )],
+            Value::test_record(rec),
+        )
+    }
+
+    #[test]
+    fn tree_mouse_sees_expanded_rows() {
+        let mut session = Session::new(nested_tree_app());
+        session.layout(frame());
+        press(&mut session, KeyCode::Right, KeyModifiers::NONE);
+        assert_eq!(session.rows("tree-0").len(), 4);
+        // Row 2 inside the border is `c` (a, b, c, d).
+        click(&mut session, 3, 3);
+        assert_eq!(selected_index(&session, "tree-0"), 2);
+        for _ in 0..3 {
+            scroll_wheel(&mut session, 3, 3, true);
+        }
+        assert_eq!(selected_index(&session, "tree-0"), 3);
+    }
+
+    #[test]
+    fn shrinking_filter_pulls_the_viewport_back() {
+        let mut session = Session::new(app(
+            vec![
+                search("search-0", Some("/")),
+                Widget::new(
+                    "select-0",
+                    WidgetKind::Select(SelectWidget {
+                        items: (0..30)
+                            .map(|i| Value::test_string(format!("item-{i}")))
+                            .collect(),
+                        multi: false,
+                        index: false,
+                        display: None,
+                    }),
+                ),
+            ],
+            Value::test_nothing(),
+        ));
+        session.layout(Rect::new(0, 0, 30, 12));
+        press(&mut session, KeyCode::End, KeyModifiers::NONE);
+        let list = |s: &Session| s.state("select-0").and_then(WidgetState::as_list).cloned();
+        assert!(
+            list(&session).is_some_and(|l| l.scroll > 0),
+            "scrolled down"
+        );
+        key(&mut session, '/');
+        for c in "item-0".chars() {
+            key(&mut session, c);
+        }
+        assert_eq!(session.rows("select-0").len(), 1);
+        let after = list(&session).expect("list");
+        assert_eq!((after.selected, after.scroll), (0, 0));
+    }
+
+    #[test]
+    fn trimming_a_live_stream_keeps_the_highlight_on_its_row() {
+        let mut session = Session::new(app(
+            vec![Widget::new(
+                "table-0",
+                WidgetKind::Table(TableWidget {
+                    columns: vec!["item".into()],
+                    capture_keys: false,
+                    multi: true,
+                    index: false,
+                }),
+            )],
+            Value::test_nothing(),
+        ));
+        let cap = session.stream_row_cap();
+        let rows = |from: usize, to: usize| -> Vec<Value> {
+            (from..to).map(|i| Value::test_int(i as i64)).collect()
+        };
+        session.append_values(rows(0, cap));
+        key(&mut session, ' ');
+        for _ in 0..5 {
+            press(&mut session, KeyCode::Down, KeyModifiers::NONE);
+        }
+        key(&mut session, ' ');
+        assert_eq!(session.row_of("table-0"), Some(Value::test_int(5)));
+        // Three more rows: the first three are dropped, the highlight and
+        // the checks stay on the same values.
+        session.append_values(rows(cap, cap + 3));
+        assert_eq!(session.rows("table-0").len(), cap);
+        assert_eq!(session.row_of("table-0"), Some(Value::test_int(5)));
+        let checked = session
+            .state("table-0")
+            .and_then(WidgetState::as_list)
+            .map(|l| l.checked.iter().copied().collect::<Vec<_>>())
+            .unwrap_or_default();
+        assert_eq!(checked, vec![2], "row 0 was dropped, row 5 is now index 2");
+    }
+
+    #[test]
+    fn esc_from_search_lands_on_the_list_it_filters_not_the_menu() {
+        let mut widgets = menu_app().widgets;
+        widgets.insert(1, search("search-0", Some("/")));
+        let mut session = Session::new(app(widgets, rows(&["a", "b"])));
+        key(&mut session, '/');
+        assert_eq!(session.focused.as_deref(), Some("search-0"));
+        press(&mut session, KeyCode::Esc, KeyModifiers::NONE);
+        assert_eq!(session.focused.as_deref(), Some("table-0"));
+    }
+
+    #[test]
+    fn log_follow_keeps_the_newest_line_visible_when_lines_wrap() {
+        let mut session = Session::new(app(
+            vec![Widget::new(
+                "log-0",
+                WidgetKind::Log(crate::widgets::log::LogWidget { max_lines: 100 }),
+            )],
+            Value::test_list(
+                (1..=20)
+                    .map(|i| Value::test_string(format!("line-{i:02} {}", "x".repeat(60))))
+                    .collect(),
+            ),
+        ));
+        let screen = crate::render::render_to_string(&mut session, 40, 8).expect("render");
+        assert!(screen.contains("line-20"), "newest line shown:\n{screen}");
+        assert!(
+            !screen.contains("line-15"),
+            "old lines scrolled off:\n{screen}"
+        );
+    }
+
+    #[test]
+    fn source_closures_run_once_per_layout() {
+        // A follower without an engine copies the source row; the derived
+        // key records when that happened.
+        let mut follower = table("table-1", &["name"]);
+        follower.source = Some(Source {
+            from: Some("table-0".into()),
+            closure: None,
+        });
+        let mut session = Session::new(app(
+            vec![split(
+                "split-0",
+                SplitDir::Horizontal,
+                vec![table("table-0", &["name"]), follower],
+            )],
+            rows(&["first", "second"]),
+        ));
+        assert!(
+            session.derived("table-1").is_none(),
+            "nothing before layout"
+        );
+        session.layout(frame());
+        assert!(session.derived("table-1").is_some());
+        let key_before = session.derived_key.get("table-1").cloned();
+        session.layout(frame());
+        assert_eq!(session.derived_key.get("table-1").cloned(), key_before);
+        // A narrower frame is a new pane size, so the closure would re-run.
+        session.layout(Rect::new(0, 0, 60, 24));
+        assert_ne!(session.derived_key.get("table-1").cloned(), key_before);
     }
 
     #[test]
