@@ -310,10 +310,17 @@ impl Session {
         ids
     }
 
-    /// Focus the most useful widget on the page: a list before an input,
-    /// an input before chrome.
+    /// Focus the widget marked `--focus` if one is reachable, else the most
+    /// useful widget on the page: a list before an input, an input before
+    /// chrome.
     pub fn default_focus(&self) -> Option<String> {
         let ids = self.focusable_ids();
+        if let Some(id) = ids
+            .iter()
+            .find(|id| self.widget(id).is_some_and(|w| w.focus))
+        {
+            return Some(id.clone());
+        }
         let rank = |k: &WidgetKind| match k {
             WidgetKind::Table(_) => 0,
             WidgetKind::Select(_) => 1,
@@ -2104,6 +2111,19 @@ mod tests {
         assert_eq!(session.areas["button-1"].y, 1, "stacked, no handle gap");
         assert!(session.handles.is_empty(), "fixed splits are not resizable");
         assert_eq!(session.areas["table-0"].y, 2);
+    }
+
+    #[test]
+    fn focus_flag_wins_over_the_default_order() {
+        let mut boxed = search("search-0", None);
+        boxed.focus = true;
+        let mut session = Session::new(app(
+            vec![boxed, table("table-0", &["name"])],
+            rows(&["alpha", "beta"]),
+        ));
+        assert_eq!(session.focused.as_deref(), Some("search-0"));
+        key(&mut session, 'b');
+        assert_eq!(session.rows("table-0").len(), 1, "typing filters at once");
     }
 
     #[test]

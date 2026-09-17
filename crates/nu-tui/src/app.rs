@@ -371,6 +371,9 @@ pub fn widget_to_record(
     if widget.on_select.is_some() {
         rec.insert("has_on_select", Value::bool(true, span));
     }
+    if widget.focus {
+        rec.insert("focus", Value::bool(true, span));
+    }
     extend(widget, &mut rec);
     if !widget.children.is_empty() {
         rec.insert(

@@ -46,6 +46,9 @@ pub struct Widget {
     /// Hook run when this widget's selection changes.
     #[serde(default)]
     pub on_select: Option<Closure>,
+    /// `--focus`: start with this widget focused.
+    #[serde(default)]
+    pub focus: bool,
 }
 
 impl Widget {
@@ -59,6 +62,7 @@ impl Widget {
             data: None,
             source: None,
             on_select: None,
+            focus: false,
         }
     }
 

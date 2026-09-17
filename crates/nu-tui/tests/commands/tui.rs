@@ -768,3 +768,15 @@ fn buttons_flow_onto_one_row_and_split_vertical_stacks_them() -> Result {
     assert_eq!(selected, "No");
     Ok(())
 }
+
+#[test]
+fn focus_flag_sets_the_initial_focus() -> Result {
+    let name: String = test().run(
+        r#"[{name: alpha}, {name: beta}] | tui search --focus --columns [name] | tui table | tui debug --keys "type:be,enter" | get selected.name"#,
+    )?;
+    assert_eq!(name, "beta");
+    let focused: String =
+        test().run("tui textbox --id a | tui textbox --id b --focus | tui debug | get focused")?;
+    assert_eq!(focused, "b");
+    Ok(())
+}

@@ -59,6 +59,7 @@ pub(super) fn builder_io_types() -> Vec<(Type, Type)> {
 /// Flags every builder takes.
 pub(super) fn common_flags(sig: Signature) -> Signature {
     sig.named("id", SyntaxShape::String, "Widget id.", None)
+        .switch("focus", "Start with this widget focused.", None)
 }
 
 /// Flags for widgets that show data and can follow another widget.
@@ -275,6 +276,7 @@ pub(super) fn push_widget(
         data: call.get_flag(engine_state, stack, "data")?,
         source,
         on_select: call.get_flag(engine_state, stack, "on-select")?,
+        focus: call.has_flag(engine_state, stack, "focus")?,
     });
     Ok(())
 }
