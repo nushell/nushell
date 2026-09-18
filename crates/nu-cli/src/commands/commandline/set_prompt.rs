@@ -164,8 +164,8 @@ meant for REPL sessions only"#
                 result: None,
             },
             Example {
-                example: r#"job spawn { sleep 1sec; commandline set-prompt --vi-insert ": " --vi-normal "n " }"#,
-                description: "Replace the vi insert and normal mode indicators independently.",
+                example: r#"job spawn { sleep 1sec; commandline set-prompt --vi-insert "i " --vi-normal "n " --vi-visual "v " }"#,
+                description: "Replace the vi insert, normal and visual mode indicators independently.",
                 result: None,
             },
             Example {

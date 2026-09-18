@@ -1,7 +1,8 @@
 //! Resolving prompt segments from `$env.config.prompt` and the deprecated
 //! `$env.PROMPT_*` variables that still override it.
 //!
-//! Shared so the REPL and `input --reedline` cannot drift on precedence.
+//! Only the REPL resolves through here. `input --reedline` reads the config
+//! alone, as it did before the variables had config keys to override.
 
 use log::{info, trace};
 use nu_engine::ClosureEvalOnce;
