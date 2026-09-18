@@ -211,10 +211,11 @@ impl UpdateFromValue for Config {
                 // init scripts set it for every one of their users. Reads of
                 // the old name do fail: `$env.config` is rebuilt from `Config`
                 // after every update, which drops the key.
-                "render_right_prompt_on_last_line" => self
-                    .prompt
-                    .render_right_on_last_line
-                    .update(val, current_path, errors),
+                "render_right_prompt_on_last_line" => {
+                    self.prompt
+                        .render_right_on_last_line
+                        .update(val, current_path, errors)
+                }
                 "bracketed_paste" => self.bracketed_paste.update(val, current_path, errors),
                 "use_kitty_protocol" => self.use_kitty_protocol.update(val, current_path, errors),
                 "highlight_resolved_externals" => {
