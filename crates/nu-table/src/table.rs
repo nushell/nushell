@@ -1230,7 +1230,7 @@ fn truncate_columns_by_content(
         return WidthEstimation::new(widths_original, widths, width, false, false);
     }
 
-    let available = termwidth - width;
+    let available = termwidth.saturating_sub(width);
 
     let can_fit_last_column = available >= col_floor(truncate_pos) + vertical;
     if is_last_column && can_fit_last_column {
@@ -1286,7 +1286,9 @@ fn truncate_columns_by_content(
         return WidthEstimation::new(widths_original, widths, width, false, true);
     }
 
-    let last_width = widths.last().cloned().expect("ok");
+    let Some(&last_width) = widths.last() else {
+        return WidthEstimation::new(widths_original, vec![], width, false, false);
+    };
     let last_floor = col_floor(truncate_pos.saturating_sub(1));
     let can_truncate_last = last_width > last_floor;
 

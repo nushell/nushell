@@ -1254,7 +1254,7 @@ fn create_empty_placeholder(
 
     out.table
         .draw(termwidth)
-        .expect("Could not create empty table placeholder")
+        .unwrap_or_default()
 }
 
 fn convert_table_to_output(
