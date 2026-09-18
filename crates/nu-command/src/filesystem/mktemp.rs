@@ -94,7 +94,11 @@ impl Command for Mktemp {
 
         let tmpdir = if tmpdir_path.is_some() {
             tmpdir_path
-        } else if directory || tmpdir {
+        } else if tmpdir {
+            // `--tmpdir`/`-t`, or no template at all: use the system temp dir.
+            // Notably, `--directory` on its own does NOT imply the temp dir:
+            // with a template, `mktemp -d foo.XXX` creates relative to the
+            // current directory, just like GNU mktemp.
             Some(std::env::temp_dir())
         } else {
             Some(engine_state.cwd(Some(stack))?.into_std_path_buf())
