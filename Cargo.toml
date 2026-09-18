@@ -64,6 +64,7 @@ members = [
   "crates/nu-engine",
   "crates/nu-experimental",
   "crates/nu-explore",
+  "crates/nu-tui",
   "crates/nu-json",
   "crates/nu-lsp",
   "crates/nu-parser",
@@ -119,6 +120,7 @@ nu-std = { path = "crates/nu-std", version = "0.115.2", default-features = false
 nu-system = { path = "crates/nu-system", version = "0.115.2", default-features = false }
 nu-table = { path = "crates/nu-table", version = "0.115.2", default-features = false }
 nu-term-grid = { path = "crates/nu-term-grid", version = "0.115.2", default-features = false }
+nu-tui = { path = "crates/nu-tui", version = "0.115.2", default-features = false }
 nu-test-support = { path = "crates/nu-test-support", version = "0.115.2", default-features = false }
 nu-test-support-macros = { path = "crates/nu-test-support-macros", version = "0.115.2", default-features = false }
 nu-utils = { path = "crates/nu-utils", version = "0.115.2", default-features = false }
@@ -272,6 +274,7 @@ toml = "1.1.4"
 toml_edit = "0.25.13"
 kdl = { version = "6.7.1", features = ["v1"] }
 trash = "=5.2.9"
+typetag = "0.2.21"
 update-informer = { version = "1.3.0", default-features = false, features = ["github", "ureq"] }
 umask = "2.1"
 unicode-segmentation = "1.13"
@@ -336,6 +339,7 @@ nu-config = { workspace = true }
 nu-engine = { workspace = true, features = ["os"] }
 nu-experimental = { workspace = true }
 nu-explore = { workspace = true }
+nu-tui = { workspace = true }
 nu-lsp = { workspace = true, optional = true }
 nu-mcp = { workspace = true, optional = true }
 nu-parser = { workspace = true }

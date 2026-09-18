@@ -4756,6 +4756,7 @@ dependencies = [
  "nu-system",
  "nu-table",
  "nu-test-support",
+ "nu-tui",
  "nu-utils",
  "openssl",
  "pretty_assertions",
@@ -5467,6 +5468,7 @@ dependencies = [
  "nu-protocol",
  "nu-std",
  "nu-test-support-macros",
+ "nu-tui",
  "nu-utils",
  "num-format",
  "parking_lot",
@@ -5488,6 +5490,31 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 3.0.4",
+]
+
+[[package]]
+name = "nu-tui"
+version = "0.115.2"
+dependencies = [
+ "ansi-str",
+ "crossterm",
+ "lscolors",
+ "mime_guess",
+ "nu-ansi-term",
+ "nu-cmd-lang",
+ "nu-color-config",
+ "nu-command",
+ "nu-engine",
+ "nu-explore",
+ "nu-protocol",
+ "nu-system",
+ "nu-test-support",
+ "nu-utils",
+ "nucleo-matcher",
+ "ratatui",
+ "serde",
+ "typetag",
+ "unicode-width 0.2.2",
 ]
 
 [[package]]
