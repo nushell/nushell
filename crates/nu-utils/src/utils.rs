@@ -778,7 +778,13 @@ pub fn get_ls_colors(lscolors_env_string: Option<String>) -> LsColors {
 // can filter these logs via the simplelog target filter.
 #[macro_export]
 macro_rules! perf {
+    // `perf!(msg, start_instant, use_color)`: logs the time elapsed since `start_instant`.
     ($msg:expr, $dur:expr, $use_color:expr) => {{
+        $crate::perf!($msg, elapsed: $dur.elapsed(), $use_color)
+    }};
+    // `perf!(msg, elapsed: duration, use_color)`: logs an already measured duration, for phases
+    // that ran before the logger existed.
+    ($msg:expr, elapsed: $elapsed:expr, $use_color:expr) => {{
         let target = concat!("nu::perf::", module_path!());
         if $use_color {
             log::info!(
@@ -788,7 +794,7 @@ macro_rules! perf {
                 line!(),
                 column!(),
                 $msg,
-                $dur.elapsed(),
+                $elapsed,
             );
         } else {
             log::info!(
@@ -798,7 +804,7 @@ macro_rules! perf {
                 line!(),
                 column!(),
                 $msg,
-                $dur.elapsed(),
+                $elapsed,
             );
         }
     }};
@@ -809,11 +815,37 @@ macro_rules! perf {
 /// This utility variant allows getting a fallback value when compiling for wasm32 without having
 /// to rearrange other bits of the codebase.
 ///
-/// See [`crossterm::terminal::size`].
+/// Queries the terminal attached to the process. Without one, the `COLUMNS` and `LINES`
+/// environment variables are used, and failing that the 80x24 that terminfo assumes.
+/// `crossterm::terminal::size` would spawn `tput cols` and `tput lines` at that point (which
+/// report those same values), two process spawns per call, which made every `table` and
+/// `term size` in a non-interactive script cost several milliseconds.
 pub fn terminal_size() -> io::Result<(u16, u16)> {
-    #[cfg(feature = "os")]
+    #[cfg(all(feature = "os", unix))]
+    return Ok(crossterm::terminal::window_size()
+        .map(|size| (size.columns, size.rows))
+        .ok()
+        .or_else(terminal_size_from_env)
+        .unwrap_or((80, 24)));
+
+    // The Windows query does not spawn anything.
+    #[cfg(all(feature = "os", not(unix)))]
     return crossterm::terminal::size();
 
     #[cfg(not(feature = "os"))]
     return Err(io::Error::from(io::ErrorKind::Unsupported));
+}
+
+/// Terminal size from the `COLUMNS` and `LINES` environment variables, when both are set.
+#[cfg(all(feature = "os", unix))]
+fn terminal_size_from_env() -> Option<(u16, u16)> {
+    let dimension = |name: &str| {
+        std::env::var(name)
+            .ok()?
+            .trim()
+            .parse::<u16>()
+            .ok()
+            .filter(|value| *value > 0)
+    };
+    Some((dimension("COLUMNS")?, dimension("LINES")?))
 }

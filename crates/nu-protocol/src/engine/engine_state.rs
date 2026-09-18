@@ -6,7 +6,7 @@ use crate::{
     debugger::{Debugger, NoopDebugger},
     engine::{
         CachedFile, Command, DEFAULT_OVERLAY_NAME, EnvName, EnvVars, OverlayFrame, PromptState,
-        ScopeFrame, Stack, StateDelta, Variable, Visibility,
+        ScopeFrame, Stack, StateDelta, Variable, VisibilityStack,
         description::{Doccomments, build_desc},
     },
     eval_const::create_nu_constant,
@@ -725,10 +725,10 @@ impl EngineState {
     ///
     /// Searches within active overlays, and filtering out overlays in `removed_overlays`.
     pub fn find_decl(&self, name: &[u8], removed_overlays: &[Vec<u8>]) -> Option<DeclId> {
-        let mut visibility: Visibility = Visibility::new();
+        let mut visibility = VisibilityStack::default();
 
         for overlay_frame in self.active_overlays(removed_overlays).rev() {
-            visibility.append(&overlay_frame.visibility);
+            visibility.push(&overlay_frame.visibility);
 
             if let Some(decl_id) = overlay_frame.get_decl(name)
                 && visibility.is_decl_id_visible(&decl_id)
@@ -744,10 +744,10 @@ impl EngineState {
     ///
     /// Searches within active overlays, and filtering out overlays in `removed_overlays`.
     pub fn find_decl_name(&self, decl_id: DeclId, removed_overlays: &[Vec<u8>]) -> Option<&[u8]> {
-        let mut visibility: Visibility = Visibility::new();
+        let mut visibility = VisibilityStack::default();
 
         for overlay_frame in self.active_overlays(removed_overlays).rev() {
-            visibility.append(&overlay_frame.visibility);
+            visibility.push(&overlay_frame.visibility);
 
             if visibility.is_decl_id_visible(&decl_id) {
                 for (name, id) in overlay_frame.decls.iter() {

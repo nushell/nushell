@@ -88,6 +88,35 @@ impl Visibility {
     }
 }
 
+/// Decl visibility resolved across the overlay frames walked so far, innermost frame first.
+///
+/// Name lookups walk the active overlays from the innermost one outwards. A decl is visible
+/// unless one of the frames walked so far has an explicit entry hiding it, and the innermost
+/// frame with an entry for the decl wins. This borrows each frame's [`Visibility`] instead of
+/// merging the maps: merging copied every entry of every frame on every lookup, which made
+/// `find_decl` (called for every command word the parser sees) cost as much as the maps were
+/// large.
+#[derive(Debug, Default)]
+pub struct VisibilityStack<'a> {
+    layers: Vec<&'a Visibility>,
+}
+
+impl<'a> VisibilityStack<'a> {
+    /// Add the visibility of the next (outer) frame. Frames pushed earlier take precedence.
+    pub fn push(&mut self, visibility: &'a Visibility) {
+        self.layers.push(visibility);
+    }
+
+    /// Whether `decl_id` is visible given the frames pushed so far.
+    pub fn is_decl_id_visible(&self, decl_id: &DeclId) -> bool {
+        self.layers
+            .iter()
+            .find_map(|visibility| visibility.decl_ids.get(decl_id))
+            .copied()
+            .unwrap_or(true) // by default it's visible
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ScopeFrame {
     /// List of both active and inactive overlays in this ScopeFrame.
