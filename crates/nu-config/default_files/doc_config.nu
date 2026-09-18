@@ -631,8 +631,8 @@ $env.config.prompt.multiline = "::: "
 # multi-line left prompt.
 # true: Right prompt appears on the last line of the left prompt.
 # false: Right prompt appears on the first line.
-# Renamed from $env.config.render_right_prompt_on_last_line in 0.115.0. The old
-# name now reports as deprecated on assignment; rename it in your config.nu.
+# Renamed from $env.config.render_right_prompt_on_last_line. Assigning the old
+# name still sets this key, but it can no longer be read back.
 # Default: false
 $env.config.prompt.render_right_on_last_line = false
 
