@@ -95,9 +95,9 @@ impl miette::Diagnostic for Panic {
 
 fn main() -> Result<()> {
     // `$nu.startup-time` runs from process creation to the moment the shell is ready: the first
-    // prompt in the REPL, or the start of evaluation for `-c` and script runs. The OS reports
-    // the creation time on some platforms (see `nu_system::time_since_process_start`); elsewhere
-    // the clock starts here and misses the loader and runtime setup that ran before `main`.
+    // prompt in the REPL, or the start of evaluation for `-c` and script runs. The time spent
+    // before `main` (loader, runtime setup) comes from `nu_system::time_since_process_start`,
+    // which documents what each platform can measure; without it the clock starts here.
     let main_entry_time = nu_utils::time::Instant::now();
     let entire_start_time = nu_system::time_since_process_start()
         .and_then(|before_main| main_entry_time.checked_sub(before_main))
