@@ -94,8 +94,15 @@ impl miette::Diagnostic for Panic {
 }
 
 fn main() -> Result<()> {
-    let entire_start_time = nu_utils::time::Instant::now();
-    let mut start_time = nu_utils::time::Instant::now();
+    // `$nu.startup-time` runs from process creation to the moment the shell is ready: the first
+    // prompt in the REPL, or the start of evaluation for `-c` and script runs. The OS reports
+    // the creation time on some platforms (see `nu_system::time_since_process_start`); elsewhere
+    // the clock starts here and misses the loader and runtime setup that ran before `main`.
+    let main_entry_time = nu_utils::time::Instant::now();
+    let entire_start_time = nu_system::time_since_process_start()
+        .and_then(|before_main| main_entry_time.checked_sub(before_main))
+        .unwrap_or(main_entry_time);
+    let mut start_time = main_entry_time;
     // Replicated from `miette::set_panic_hook`, but writes via `writeln!(io::stderr(), …)`
     // instead of `eprintln!`. `eprintln!`/`println!` panic on a broken stderr/stdout
     // (parent terminal/pty closed), so when our parent (Codex, Ghostty, an MCP host, …)
@@ -146,6 +153,8 @@ fn main() -> Result<()> {
     experimental_options::load(&engine_state, &parsed_nu_cli_args, !script_name.is_empty());
 
     let mut engine_state = command_context::add_command_context(engine_state);
+    // Logged once the logger exists, below.
+    let engine_setup_elapsed = start_time.elapsed();
 
     // Provide `version` with data of this nu binary
     let version = env!("CARGO_PKG_VERSION")
@@ -313,6 +322,7 @@ fn main() -> Result<()> {
         .get(&engine_state);
 
     // Set up logger
+    start_time = nu_utils::time::Instant::now();
     let level_opt = parsed_nu_cli_args
         .log_level
         .as_ref()
@@ -369,6 +379,17 @@ fn main() -> Result<()> {
         logger(|builder| configure(&level, &target, file_opt.as_deref(), filters, builder))?;
         // info!("start logging {}:{}:{}", file!(), line!(), column!());
         perf!("start logging", start_time, use_color);
+        // Phases that ran before the logger existed.
+        perf!(
+            "before main (exec, loader, runtime init)",
+            elapsed: main_entry_time.duration_since(entire_start_time),
+            use_color
+        );
+        perf!(
+            "create engine state, parse args, register commands",
+            elapsed: engine_setup_elapsed,
+            use_color
+        );
     }
 
     // Config paths are now resolved by `resolve_paths()` above.
@@ -492,7 +513,9 @@ fn main() -> Result<()> {
     );
 
     if parsed_nu_cli_args.no_std_lib.is_none() {
+        start_time = nu_utils::time::Instant::now();
         load_standard_library(&mut engine_state)?;
+        perf!("load standard library", start_time, use_color);
     }
 
     // IDE commands
@@ -645,11 +668,14 @@ fn main() -> Result<()> {
         run_file(
             &mut engine_state,
             stack,
-            parsed_nu_cli_args,
+            ParsedCli {
+                nu: parsed_nu_cli_args,
+                script_name,
+                args_to_script,
+            },
             use_color,
-            script_name,
-            args_to_script,
             input,
+            entire_start_time,
         );
 
         cleanup_exit(0, &engine_state, 0);
