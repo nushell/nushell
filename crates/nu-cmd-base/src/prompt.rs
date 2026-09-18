@@ -26,19 +26,17 @@ pub const TRANSIENT_PROMPT_INDICATOR_VI_INSERT: &str = "TRANSIENT_PROMPT_INDICAT
 pub const TRANSIENT_PROMPT_INDICATOR_VI_NORMAL: &str = "TRANSIENT_PROMPT_INDICATOR_VI_NORMAL";
 pub const TRANSIENT_PROMPT_MULTILINE_INDICATOR: &str = "TRANSIENT_PROMPT_MULTILINE_INDICATOR";
 
-/// All of the above, for code that handles the deprecated variables as a set.
-pub const PROMPT_VARIABLES: [&str; 12] = [
+/// The variables every REPL used to overwrite at startup: six seeded from
+/// Rust, the two prompt commands set by `default_env.nu`. An inherited value
+/// never survived in these, unlike in the four transient ones left out here.
+pub const FORMERLY_SEEDED_PROMPT_VARIABLES: [&str; 8] = [
     PROMPT_COMMAND,
     PROMPT_COMMAND_RIGHT,
     PROMPT_INDICATOR,
     PROMPT_INDICATOR_VI_INSERT,
     PROMPT_INDICATOR_VI_NORMAL,
     PROMPT_MULTILINE_INDICATOR,
-    TRANSIENT_PROMPT_COMMAND,
     TRANSIENT_PROMPT_COMMAND_RIGHT,
-    TRANSIENT_PROMPT_INDICATOR,
-    TRANSIENT_PROMPT_INDICATOR_VI_INSERT,
-    TRANSIENT_PROMPT_INDICATOR_VI_NORMAL,
     TRANSIENT_PROMPT_MULTILINE_INDICATOR,
 ];
 

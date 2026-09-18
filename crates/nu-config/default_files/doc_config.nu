@@ -651,8 +651,10 @@ $env.config.prompt.render_right_on_last_line = false
 # $env.TRANSIENT_PROMPT_INDICATOR_VI_INSERT,
 # $env.TRANSIENT_PROMPT_INDICATOR_VI_NORMAL and
 # $env.TRANSIENT_PROMPT_MULTILINE_INDICATOR variables still take precedence
-# when set, but are deprecated. Copies inherited from a parent shell are
-# ignored.
+# when set, but are deprecated. Copies of
+# $env.TRANSIENT_PROMPT_COMMAND_RIGHT and
+# $env.TRANSIENT_PROMPT_MULTILINE_INDICATOR inherited from a parent shell are
+# ignored, as they always were. The other four are inherited.
 
 # prompt.transient.left (string|closure|null): Replaces prompt.left.
 # Default: null
