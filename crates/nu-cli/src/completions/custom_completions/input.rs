@@ -214,6 +214,9 @@ fn place_value(context: &Context, cursor: Value, target: Value) -> Value {
         }
     }
 
+    // The command the cursor is in, so completers need not re-parse `buffer`.
+    place.insert("command", command_tokens(context));
+
     Value::record(place, span)
 }
 
@@ -336,8 +339,10 @@ pub(crate) fn legacy_pos(context: &Context) -> Value {
     Value::int(context.buffer.len() as i64, context.span)
 }
 
-/// Flattened element tokens, plus `""` for a trailing empty slot: the old `spans`.
-pub(crate) fn legacy_spans(context: &Context) -> Value {
+/// Tokens of the command the cursor is in, plus `""` for a trailing empty slot.
+///
+/// Backs `place.command`; also the legacy `spans` value.
+pub(crate) fn command_tokens(context: &Context) -> Value {
     let Some(element) = context.contexts.last().and_then(|level| level.element) else {
         return Value::list(vec![], context.span);
     };
