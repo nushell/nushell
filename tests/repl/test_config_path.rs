@@ -277,31 +277,37 @@ fn test_default_config_path() -> Result {
     }
     tester.engine_state.generate_nu_constant();
 
+    // This test reads the real home directory. `$nu` reports each path canonicalized
+    // when it exists and as given otherwise, so a symlinked config (home-manager, a
+    // dotfiles repo) shows up as its target rather than the path it was resolved at.
+    let canonical =
+        |path: PathBuf| nu_path::canonicalize_with(&path, WORKSPACE_ROOT.as_path()).unwrap_or(path);
+
     tester
         .run("$nu.default-config-dir")
-        .expect_value_eq(dirs.config_home.clone())?;
+        .expect_value_eq(canonical(dirs.config_home.clone()))?;
 
     tester
         .run("$nu.config-path")
-        .expect_value_eq(dirs.config_file.to_path_buf())?;
+        .expect_value_eq(canonical(dirs.config_file.to_path_buf()))?;
 
     tester
         .run("$nu.env-path")
-        .expect_value_eq(dirs.env_file.to_path_buf())?;
+        .expect_value_eq(canonical(dirs.env_file.to_path_buf()))?;
 
     tester
         .run("$nu.history-path")
-        .expect_value_eq(dirs.config_home.join("history.txt"))?;
+        .expect_value_eq(canonical(dirs.config_home.join("history.txt")))?;
 
     tester
         .run("$nu.loginshell-path")
-        .expect_value_eq(dirs.config_home.join("login.nu"))?;
+        .expect_value_eq(canonical(dirs.config_home.join("login.nu")))?;
 
     #[cfg(feature = "plugin")]
     {
         tester
             .run("$nu.plugin-path")
-            .expect_value_eq(dirs.plugin_file.to_path_buf())?;
+            .expect_value_eq(canonical(dirs.plugin_file.to_path_buf()))?;
     }
 
     Ok(())
