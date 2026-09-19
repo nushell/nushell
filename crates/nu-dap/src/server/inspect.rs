@@ -2,12 +2,16 @@
 //! threads, stackTrace, scopes, variables, evaluate.
 
 use super::{Session, THREAD_ID};
-use crate::dap::protocol::Request;
+use crate::dap::protocol::{DapWriter, Request};
 use crate::dap::types::{
     EvaluateArgs, EvaluateResponse, Scope, ScopesResponse, StackFrame, StackTraceArgs,
     StackTraceResponse, Thread, ThreadsResponse, Variable, VariablesArgs, VariablesResponse,
 };
-use crate::state::PauseSnapshot;
+use crate::state::{DebugState, PauseSnapshot};
+use nu_protocol::Value;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::RecvTimeoutError;
 
 impl Session {
     pub(super) fn on_threads(&mut self, seq: i64, cmd: &str) {
@@ -139,8 +143,7 @@ impl Session {
 
     pub(super) fn on_evaluate(&mut self, seq: i64, cmd: &str, req: Request) {
         // A bare `$name` is served straight from the snapshot (cheap hover);
-        // anything else runs in the scratch engine with the shadow vars in
-        // scope, where the script's own commands aren't visible.
+        // anything else goes to the scratch engine, off this thread.
         let args: EvaluateArgs = match serde_json::from_value(req.arguments) {
             Ok(a) => a,
             Err(e) => {
@@ -155,82 +158,105 @@ impl Session {
         let is_bare_name =
             !bare.is_empty() && bare.chars().all(|c| c.is_alphanumeric() || c == '_');
 
-        let value: Result<nu_protocol::Value, String> = {
-            let fast = if is_bare_name {
-                self.with_state(|session| {
-                    session
-                        .active_shadow_vars()
-                        .values()
-                        .find(|sv| sv.name == bare)
-                        .map(|sv| sv.value.clone())
-                })
-                .flatten()
-            } else {
-                None
-            };
-            match (fast, &self.state) {
-                (Some(v), _) => Ok(v),
-                (None, Some(state)) => {
-                    let vars = {
-                        let session = state.session_state.lock();
-                        session
-                            .active_shadow_vars()
-                            .values()
-                            .map(|sv| (sv.name.clone(), sv.value.clone()))
-                            .collect::<Vec<_>>()
-                    };
-                    let mut guard = state.scratch.lock();
-                    match guard.as_mut() {
-                        Some(scratch) => scratch.eval(&expr, &vars),
-                        None => Err("no scratch engine: the run has not started".into()),
-                    }
-                }
-                (None, None) => Err("no active session".into()),
-            }
-        };
+        if is_bare_name
+            && let Some(state) = &self.state
+            && let Some(v) = state
+                .session_state
+                .lock()
+                .active_shadow_vars()
+                .values()
+                .find(|sv| sv.name == bare)
+                .map(|sv| sv.value.clone())
+        {
+            respond_with_value(&self.writer, state, seq, cmd, v);
+            return;
+        }
 
-        match value {
-            Ok(v) => {
-                // Park it in the snapshot arena so structured results are
-                // expandable in the client.
-                let parts = self.with_state_mut(|session| {
-                    let snap = session.active_snapshot_mut();
-                    let idx = crate::variables::add_value(
-                        snap,
-                        "result".into(),
-                        &v,
-                        usize::MAX, // beyond eager horizon: lazy children
-                    );
-                    let node = &snap.var_arena[idx];
-                    (
-                        node.var.value.clone(),
-                        node.var.variables_reference,
-                        node.var.type_.clone(),
-                    )
-                });
-                // No state means the eval thread cached nothing; defaults do
-                // for a one-off render, and an empty label map just leaves a
-                // closure as `<closure>`.
-                let (result, var_ref, type_) = parts.unwrap_or_else(|| {
-                    let config = nu_protocol::Config::default();
-                    let cache = crate::state::RenderCache::default();
-                    let ctx = crate::variables::RenderCtx {
-                        config: &config,
-                        cache: &cache,
-                    };
-                    (crate::variables::short_render(&v, ctx), 0, None)
-                });
-                self.writer.respond(
-                    seq,
-                    cmd,
-                    EvaluateResponse {
-                        result,
-                        variables_reference: var_ref,
-                        type_,
-                    },
-                );
-            }
-            Err(e) => self.writer.respond_error(seq, cmd, e),
+        match self.state.clone() {
+            Some(state) => spawn_evaluate(seq, cmd.to_string(), expr, state, self.writer.clone()),
+            None => self.writer.respond_error(seq, cmd, "no active session"),
         }
     }
+}
+
+/// How long an `evaluate` waits before giving up on its expression and
+/// unwinding it.
+const EVALUATE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
+
+/// Evaluate `expr` in the scratch engine and answer from there.
+///
+/// Off the server thread, which reads stdin: a slow expression must not stop
+/// the adapter from seeing `continue` or `disconnect`. Responding out of order
+/// is fine — DAP matches a response to its request by `request_seq`.
+fn spawn_evaluate(seq: i64, cmd: String, expr: String, state: Arc<DebugState>, writer: DapWriter) {
+    std::thread::spawn(move || {
+        let vars = {
+            let session = state.session_state.lock();
+            session
+                .active_shadow_vars()
+                .values()
+                .map(|sv| (sv.name.clone(), sv.value.clone()))
+                .collect::<Vec<_>>()
+        };
+
+        // The expression's own flag: raised on timeout, it aborts this
+        // evaluation and only this one, even if it is still queued behind a
+        // logpoint for the engine.
+        let interrupt = Arc::new(AtomicBool::new(false));
+        let (tx, rx) = std::sync::mpsc::channel();
+        let worker = std::thread::Builder::new()
+            .stack_size(crate::engine::EVAL_STACK_SIZE)
+            .spawn({
+                let (state, interrupt) = (state.clone(), interrupt.clone());
+                move || {
+                    let _ = tx.send(state.scratch_eval(&expr, &vars, &interrupt));
+                }
+            });
+        if worker.is_err() {
+            writer.respond_error(seq, &cmd, "could not start the evaluation thread");
+            return;
+        }
+
+        match rx.recv_timeout(EVALUATE_TIMEOUT) {
+            Ok(Ok(v)) => respond_with_value(&writer, &state, seq, &cmd, v),
+            Ok(Err(e)) => writer.respond_error(seq, &cmd, e),
+            Err(RecvTimeoutError::Timeout) => {
+                interrupt.store(true, Ordering::SeqCst);
+                writer.respond_error(
+                    seq,
+                    &cmd,
+                    format!(
+                        "expression did not finish within {}s and was cancelled",
+                        EVALUATE_TIMEOUT.as_secs()
+                    ),
+                );
+            }
+            Err(RecvTimeoutError::Disconnected) => {
+                writer.respond_error(seq, &cmd, "evaluation failed: the engine panicked")
+            }
+        }
+    });
+}
+
+/// Park the value in the pause snapshot's arena, so a structured result is
+/// expandable in the client, and respond.
+fn respond_with_value(writer: &DapWriter, state: &DebugState, seq: i64, cmd: &str, v: Value) {
+    let mut session = state.session_state.lock();
+    let snap = session.active_snapshot_mut();
+    let idx = crate::variables::add_value(
+        snap,
+        "result".into(),
+        &v,
+        usize::MAX, // beyond eager horizon: lazy children
+    );
+    let node = &snap.var_arena[idx];
+    writer.respond(
+        seq,
+        cmd,
+        EvaluateResponse {
+            result: node.var.value.clone(),
+            variables_reference: node.var.variables_reference,
+            type_: node.var.type_.clone(),
+        },
+    );
 }

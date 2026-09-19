@@ -340,10 +340,13 @@ impl Command for DapInputList {
     }
 }
 
-/// Commands that genuinely can't work without a terminal.
+/// A prompt command replaced by an error: it either needs a terminal, or has
+/// no UI to prompt with (the scratch engine — see [`crate::eval_scratch`]).
 #[derive(Clone, Debug)]
 pub(crate) struct DapInputUnsupported {
     pub name: &'static str,
+    pub reason: &'static str,
+    pub help: &'static str,
 }
 
 impl Command for DapInputUnsupported {
@@ -372,11 +375,11 @@ impl Command for DapInputUnsupported {
     ) -> Result<PipelineData, ShellError> {
         Err(ShellError::Generic(
             GenericError::new(
-                format!("`{}` is not supported under nu-dap", self.name),
-                "raw key events need a real terminal".to_string(),
+                format!("`{}` is not supported here", self.name),
+                self.reason.to_string(),
                 call.head,
             )
-            .with_help("run the script with `nu` directly"),
+            .with_help(self.help),
         ))
     }
 }

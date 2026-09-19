@@ -159,24 +159,19 @@ impl DapDebugger {
 
     fn scratch_eval(&self, expr: &str) -> Result<Value, String> {
         let vars = self.shadow_vars_for_eval();
-        let mut guard = self.state.scratch.lock();
-
-        guard
-            .as_mut()
-            .ok_or("no scratch engine: the run has not started")?
-            .eval(expr, &vars)
+        self.state
+            .scratch_eval(expr, &vars, &self.state.scratch_interrupt)
     }
 
     fn scratch_interpolate(&self, template: &str) -> String {
         let vars = self.shadow_vars_for_eval();
-        let mut guard = self.state.scratch.lock();
-
         // Nothing to interpolate against before the run starts: log the
         // template as written rather than dropping the message.
-        match guard.as_mut() {
-            Some(scratch) => scratch.interpolate(template, &vars),
-            None => template.to_string(),
-        }
+        self.state
+            .with_scratch(&self.state.scratch_interrupt, |scratch| {
+                scratch.interpolate(template, &vars)
+            })
+            .unwrap_or_else(|| template.to_string())
     }
 
     /// The pause loop: publish snapshot, emit `stopped`, block until resumed.

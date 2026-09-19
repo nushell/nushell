@@ -1917,3 +1917,50 @@ fn restart_before_the_run_starts_is_refused() {
     // One run, so one terminated event, and no second `stopped`.
     assert_eq!(d.stop_or_term()["event"], "terminated");
 }
+
+/// The scratch engine inherited the DAP prompt shims, which block until the
+/// client's reply is dispatched — by the thread `evaluate` ran on.
+#[test]
+#[deps(NU)]
+fn evaluating_a_prompt_errors_instead_of_hanging() {
+    let demo = example("demo.nu");
+    let mut d = Dap::spawn();
+    d.start(&demo, json!({}), &[14]);
+    d.event("stopped");
+
+    d.send(
+        "evaluate",
+        json!({ "expression": "input \"name\"", "context": "repl" }),
+    );
+    let resp = d.response("evaluate");
+    assert_eq!(resp["success"], false, "{resp}");
+    let msg = resp["message"].as_str().unwrap_or("");
+    assert!(msg.contains("`input` is not supported here"), "{msg}");
+}
+
+/// `evaluate` runs off the thread that reads stdin, and is bounded.
+#[test]
+#[deps(NU)]
+fn a_slow_evaluate_neither_blocks_the_loop_nor_hangs() {
+    let demo = example("demo.nu");
+    let mut d = Dap::spawn();
+    d.start(&demo, json!({}), &[14]);
+    d.event("stopped");
+
+    d.send("evaluate", json!({ "expression": "sleep 30sec" }));
+    d.send("threads", json!({}));
+
+    // Must come back while the expression is still running.
+    let first = d
+        .recv_until(|m| m["type"] == "response")
+        .expect("a response");
+    assert_eq!(
+        first["command"], "threads",
+        "the dispatch loop blocked on evaluate: {first}"
+    );
+
+    let resp = d.response("evaluate");
+    assert_eq!(resp["success"], false, "{resp}");
+    let msg = resp["message"].as_str().unwrap_or("");
+    assert!(msg.contains("did not finish within"), "{msg}");
+}

@@ -510,6 +510,9 @@ pub(crate) struct DebugState {
     /// after the parse, so `None` only before the first run starts. Lock
     /// discipline: never taken while holding `session_state`.
     pub scratch: Mutex<Option<crate::eval_scratch::Scratch>>,
+    /// Interrupt flag for the eval thread's own scratch evaluations
+    /// (conditions, logpoints); raised by terminate and restart.
+    pub scratch_interrupt: Arc<std::sync::atomic::AtomicBool>,
     /// Eval thread waits on this while paused; server thread notifies
     /// after setting `resume_requested` + new `run_mode`.
     pub resume_cv: Condvar,
@@ -560,6 +563,7 @@ impl DebugState {
             ui: UiBridge::default(),
             terminate_flag: std::sync::atomic::AtomicBool::new(false),
             scratch: Mutex::new(None),
+            scratch_interrupt: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             resume_cv: Condvar::new(),
             paused_cv: Condvar::new(),
             cache: Mutex::new(Arc::default()),
@@ -595,6 +599,7 @@ impl DebugState {
         drop(session);
         self.terminate_flag
             .store(true, std::sync::atomic::Ordering::SeqCst);
+        self.interrupt_scratch();
         self.resume_cv.notify_all();
         self.ui.cv.notify_all();
     }
@@ -609,8 +614,37 @@ impl DebugState {
         drop(session);
         self.terminate_flag
             .store(true, std::sync::atomic::Ordering::SeqCst);
+        self.interrupt_scratch();
         self.resume_cv.notify_all();
         self.ui.cv.notify_all();
+    }
+
+    pub(crate) fn interrupt_scratch(&self) {
+        self.scratch_interrupt
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+    }
+
+    /// Run `f` on the scratch engine with `interrupt` installed, or `None`
+    /// before the run has started.
+    pub(crate) fn with_scratch<T>(
+        &self,
+        interrupt: &Arc<std::sync::atomic::AtomicBool>,
+        f: impl FnOnce(&mut crate::eval_scratch::Scratch) -> T,
+    ) -> Option<T> {
+        let mut guard = self.scratch.lock();
+        let scratch = guard.as_mut()?;
+        scratch.set_interrupt(interrupt);
+        Some(f(scratch))
+    }
+
+    pub(crate) fn scratch_eval(
+        &self,
+        expr: &str,
+        vars: &[(String, nu_protocol::Value)],
+        interrupt: &Arc<std::sync::atomic::AtomicBool>,
+    ) -> Result<nu_protocol::Value, String> {
+        self.with_scratch(interrupt, |scratch| scratch.eval(expr, vars))
+            .unwrap_or_else(|| Err("no scratch engine: the run has not started".into()))
     }
 
     pub(crate) fn is_restarting(&self) -> bool {

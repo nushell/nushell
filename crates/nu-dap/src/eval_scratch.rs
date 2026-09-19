@@ -14,7 +14,8 @@
 //! Limitations of a snapshot: commands defined at runtime are invisible, and
 //! `$env`/`cd` changes live on the program's `Stack` rather than its engine,
 //! so they aren't reflected. Mutations here don't affect the real program, and
-//! stream-valued variables show their placeholder.
+//! stream-valued variables show their placeholder, and the prompt commands are
+//! stubbed out (see [`stub_prompts`]).
 
 use nu_protocol::ast::Block;
 use nu_protocol::debugger::WithoutDebug;
@@ -46,7 +47,7 @@ impl Scratch {
     /// Clone the run engine for scratch evaluation. Called from `engine::run`
     /// after the parse, so the script's declarations are in scope, and before
     /// `activate_debugger`, so the clone is undebugged from the start.
-    pub(crate) fn from_run_engine(engine: &EngineState) -> Self {
+    pub(crate) fn from_run_engine(engine: &EngineState) -> Result<Self, String> {
         let mut engine = engine.clone();
 
         // A clone shares the session's `Arc`s, the debugger slot above all:
@@ -57,15 +58,44 @@ impl Scratch {
 
         // Not the run's interrupt flag: being paused is exactly when that one
         // is likely to be raised, which would abort every scratch eval as
-        // `Interrupted`.
+        // `Interrupted`. Callers install their own via `set_interrupt`.
         engine.set_signals(Signals::new(Arc::new(AtomicBool::new(false))));
 
-        Self {
-            engine,
+        Ok(Self {
+            engine: stub_prompts(engine)?,
             var_ids: HashMap::new(),
             blocks: HashMap::new(),
-        }
+        })
     }
+
+    /// The flag that aborts the next evaluation. Per caller, so a watch that is
+    /// given up on cannot unwind a logpoint that happens to hold the engine.
+    pub(crate) fn set_interrupt(&mut self, interrupt: &Arc<AtomicBool>) {
+        self.engine.set_signals(Signals::new(interrupt.clone()));
+    }
+}
+
+/// Replace the DAP prompt shims inherited from the run engine with errors.
+/// They block until the client answers a `nuDapUi` event, which a watch, a
+/// hover, a breakpoint condition or a logpoint has no business waiting for.
+fn stub_prompts(mut engine: EngineState) -> Result<EngineState, String> {
+    const REASON: &str = "scratch expressions are evaluated without a UI to prompt with";
+    const HELP: &str = "prompt from the script itself, not from a watch or the debug console";
+
+    let mut working_set = StateWorkingSet::new(&engine);
+    for name in ["input", "input list", "input listen"] {
+        working_set.add_decl(Box::new(crate::print_cmd::DapInputUnsupported {
+            name,
+            reason: REASON,
+            help: HELP,
+        }));
+    }
+    let delta = working_set.render();
+
+    engine
+        .merge_delta(delta)
+        .map_err(|e| format!("stub prompts in the scratch engine: {e:?}"))?;
+    Ok(engine)
 }
 
 // --- Evaluation -----------------------------------------------------------
@@ -245,6 +275,8 @@ mod tests {
     use nu_protocol::{Span, Value};
     use pretty_assertions::assert_eq;
     use rstest::rstest;
+    use std::sync::Arc;
+    use std::sync::atomic::AtomicBool;
 
     fn sp() -> Span {
         Span::unknown()
@@ -255,11 +287,27 @@ mod tests {
         Scratch::from_run_engine(&nu_command::add_shell_command_context(
             nu_cmd_lang::create_default_context(),
         ))
+        .expect("build a scratch engine")
     }
 
     /// One shadow variable, the shape `eval`/`interpolate` take.
     fn vars(name: &str, value: Value) -> Vec<(String, Value)> {
         vec![(name.to_string(), value)]
+    }
+
+    /// A flag raised before the evaluation starts must still abort it: an
+    /// `evaluate` that timed out while waiting for the engine raises it early.
+    #[test]
+    fn a_raised_interrupt_aborts_the_evaluation() {
+        let mut scratch = scratch();
+        scratch.set_interrupt(&Arc::new(AtomicBool::new(true)));
+        let err = scratch
+            .eval("1..1000 | each { $in }", &[])
+            .expect_err("interrupted");
+        assert!(err.to_lowercase().contains("interrupt"), "{err}");
+
+        scratch.set_interrupt(&Arc::new(AtomicBool::new(false)));
+        assert!(scratch.eval("1 + 1", &[]).is_ok());
     }
 
     #[test]

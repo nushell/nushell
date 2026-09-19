@@ -13,6 +13,9 @@ use nu_protocol::{PipelineData, Signals, Span, Value};
 use std::collections::{BTreeSet, HashMap};
 use std::sync::Arc;
 
+/// nu programs can recurse; every thread that evaluates nu gets this much.
+pub(crate) const EVAL_STACK_SIZE: usize = 32 * 1024 * 1024;
+
 /// Start one run of the target script. `engine_state` is the host's engine,
 /// already cloned by the caller for this run (see [`prepare_engine`]).
 ///
@@ -28,8 +31,7 @@ pub(crate) fn spawn_eval_thread(
 ) -> std::thread::JoinHandle<()> {
     std::thread::Builder::new()
         .name("nu-eval".into())
-        // nu programs can recurse; give the eval thread a generous stack.
-        .stack_size(32 * 1024 * 1024)
+        .stack_size(EVAL_STACK_SIZE)
         .spawn(move || {
             // Here rather than on the server thread, so the DAP loop keeps
             // reading requests while the old run unwinds.
@@ -96,7 +98,9 @@ fn run(
 
     // After the parse, so the script's own `def`s are in scope, and before
     // `activate_debugger`, so the clone starts out undebugged.
-    *state.scratch.lock() = Some(crate::eval_scratch::Scratch::from_run_engine(&engine_state));
+    *state.scratch.lock() = Some(crate::eval_scratch::Scratch::from_run_engine(
+        &engine_state,
+    )?);
 
     // Paired with the `deactivate_debugger` further down.
     let dap_debugger = DapDebugger::new(state, writer.clone());
@@ -220,6 +224,8 @@ fn register_dap_commands(
 
     working_set.add_decl(Box::new(crate::print_cmd::DapInputUnsupported {
         name: "input listen",
+        reason: "raw key events need a real terminal",
+        help: "run the script with `nu` directly",
     }));
 
     let delta = working_set.render();
