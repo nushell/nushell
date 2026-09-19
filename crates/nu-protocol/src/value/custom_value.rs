@@ -3,6 +3,7 @@ use crate::shell_error::generic::GenericError;
 use crate::value::CellPathMutation;
 use crate::{ShellError, Span, Spanned, Type, Value, ast::Operator, casing::Casing};
 use std::any::Any;
+use std::hash::{Hash, Hasher};
 use std::{cmp::Ordering, fmt, path::Path};
 
 /// Trait definition for a custom [`Value`](crate::Value) type
@@ -105,6 +106,16 @@ pub trait CustomValue: fmt::Debug + Send + Sync + Any {
     /// ordering with other value (see [`std::cmp::PartialOrd`])
     fn partial_cmp(&self, _other: &Value) -> Option<Ordering> {
         None
+    }
+
+    /// Hash this custom value.
+    ///
+    /// Must use the same fields as [`partial_cmp`]: if two custom values compare equal, they must
+    /// hash equally. The default hashes [`type_name`] only. Override this rather than hashing
+    /// [`to_base_value`], which is not an equality proxy (and panics or does IPC for plugin
+    /// values).
+    fn hash_value(&self, mut state: &mut dyn Hasher) {
+        self.type_name().hash(&mut state);
     }
 
     /// Definition of an operation between the object that implements the trait
