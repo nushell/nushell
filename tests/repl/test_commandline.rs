@@ -293,8 +293,8 @@ command: [test-cmd, ab]}, buffer: \"test-cmd ab\"}",
 #[test]
 fn commandline_test_complete_input_place_command() -> TestResult {
     run_test(
-        "'ls | cargo bui' | commandline complete --input | get place.command | to nuon",
-        "[cargo, bui]",
+        "'ls | cargo bld' | commandline complete --input | get place.command | to nuon",
+        "[cargo, bld]",
     )
 }
 

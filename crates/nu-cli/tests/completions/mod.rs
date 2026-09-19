@@ -4439,11 +4439,11 @@ fn legacy_fzf_style_external_completer_receives_spans() {
 
 /// `place.command` names the call the cursor is in, after pipes, closures, and `;` (#19016).
 #[rstest]
-#[case::after_a_pipe("ls | cargo bui")]
-#[case::in_a_subexpression("echo (cargo bui")]
-#[case::in_a_closure("do { cargo bui")]
-#[case::after_a_semicolon("ls; cargo bui")]
+#[case::after_a_pipe("ls | cargo bld")]
+#[case::in_a_subexpression("echo (cargo bld")]
+#[case::in_a_closure("do { cargo bld")]
+#[case::after_a_semicolon("ls; cargo bld")]
 fn external_completer_place_command_is_the_command_being_completed(#[case] input: &str) {
     let suggestions = run_external_completion("{|place| $place.command}", input);
-    match_suggestions(&vec!["cargo", "bui"], &suggestions);
+    match_suggestions(&vec!["cargo", "bld"], &suggestions);
 }
