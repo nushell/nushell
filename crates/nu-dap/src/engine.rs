@@ -15,17 +15,29 @@ use std::sync::Arc;
 
 /// Start one run of the target script. `engine_state` is the host's engine,
 /// already cloned by the caller for this run (see [`prepare_engine`]).
+///
+/// `replaces` is the outgoing run's handle on a `restart`; the new run joins it
+/// first, because the two would otherwise share the cwd, the captured stdio and
+/// the writer.
 pub(crate) fn spawn_eval_thread(
     launch: LaunchArgs,
     state: Arc<DebugState>,
     writer: DapWriter,
     engine_state: EngineState,
+    replaces: Option<std::thread::JoinHandle<()>>,
 ) -> std::thread::JoinHandle<()> {
     std::thread::Builder::new()
         .name("nu-eval".into())
         // nu programs can recurse; give the eval thread a generous stack.
         .stack_size(32 * 1024 * 1024)
         .spawn(move || {
+            // Here rather than on the server thread, so the DAP loop keeps
+            // reading requests while the old run unwinds.
+            if let Some(previous) = replaces {
+                writer.output("console", "nu-dap: waiting for the previous run to stop\n");
+                let _ = previous.join();
+            }
+
             let state_for_exit = state.clone();
 
             // A panic in evaluation must not leave the session hung with no

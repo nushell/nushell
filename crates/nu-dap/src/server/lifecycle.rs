@@ -92,6 +92,7 @@ impl Session {
                 state,
                 self.writer.clone(),
                 self.engine_state.clone(),
+                None,
             ));
         }
     }
@@ -99,8 +100,12 @@ impl Session {
     pub(super) fn on_restart(&mut self, seq: i64, cmd: &str) {
         // Hot restart: tear down quietly and respawn from the stored launch
         // args. The script is re-read from disk; breakpoints carry over.
-        match (self.launch_args.clone(), self.state.take()) {
-            (Some(args), Some(old_state)) => {
+        match (
+            self.launch_args.clone(),
+            self.state.take(),
+            self.eval_handle.take(),
+        ) {
+            (Some(args), Some(old_state), Some(previous)) => {
                 old_state.request_restart_teardown();
 
                 // Same `FileTable` as the outgoing run, so the breakpoints
@@ -129,12 +134,13 @@ impl Session {
                     new_state,
                     self.writer.clone(),
                     self.engine_state.clone(),
+                    Some(previous),
                 ));
             }
-            (args, state) => {
+            (_, state, handle) => {
                 // Restore whatever we had; nothing to restart yet.
                 self.state = state;
-                let _ = args;
+                self.eval_handle = handle;
                 self.writer
                     .respond_error(seq, cmd, "nothing to restart: no active launch");
             }

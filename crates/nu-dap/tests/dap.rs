@@ -1850,3 +1850,70 @@ fn breakpoints_survive_a_launch_that_arrives_last() {
     assert_eq!(d.event("stopped")["body"]["reason"], "breakpoint");
     assert_eq!(d.top_line(), 14);
 }
+
+/// Restarting a *running* script; the other restart tests only cover one
+/// parked at a breakpoint, where the outgoing run exits immediately.
+#[test]
+#[deps(NU)]
+fn restarting_mid_run_leaves_exactly_one_run() {
+    let script = example("long_loop.nu");
+    let mut d = Dap::spawn();
+    d.start(&script, json!({}), &[]);
+
+    // Past the adapter's banner and into the script's own output.
+    d.recv_until(|m| {
+        m["event"] == "output"
+            && m["body"]["output"]
+                .as_str()
+                .is_some_and(|o| o.contains("tick"))
+    })
+    .expect("the script started");
+    d.send("restart", json!({}));
+    d.response("restart");
+
+    let out = d.output_until_terminated();
+    let ticks: Vec<i64> = out
+        .lines()
+        .filter_map(|l| l.trim().strip_prefix("tick "))
+        .filter_map(|n| n.parse().ok())
+        .collect();
+
+    // From the replacement's first tick on, the numbers climb 1..=20 with no
+    // second run cutting in.
+    let restarted = ticks
+        .iter()
+        .rposition(|&n| n == 1)
+        .expect("the replacement run started from the top");
+    assert_eq!(
+        ticks[restarted..],
+        (1..=20).collect::<Vec<_>>()[..],
+        "interleaved runs: {ticks:?}"
+    );
+    assert!(
+        out.contains("done"),
+        "the replacement ran to the end: {out}"
+    );
+}
+
+/// A `restart` between `launch` and `configurationDone` used to spawn a run,
+/// and then `configurationDone` spawned a second one on the same state.
+#[test]
+#[deps(NU)]
+fn restart_before_the_run_starts_is_refused() {
+    let demo = example("demo.nu");
+    let mut d = Dap::spawn();
+    d.initialize();
+    d.send("launch", json!({ "program": demo, "stopOnEntry": true }));
+    d.response("launch");
+
+    d.send("restart", json!({}));
+    let resp = d.response("restart");
+    assert_eq!(resp["success"], false, "{resp}");
+
+    d.send("configurationDone", json!({}));
+    d.response("configurationDone");
+    assert_eq!(d.event("stopped")["body"]["reason"], "entry");
+    d.cont();
+    // One run, so one terminated event, and no second `stopped`.
+    assert_eq!(d.stop_or_term()["event"], "terminated");
+}
