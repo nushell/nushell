@@ -257,6 +257,22 @@ impl Dap {
         self.send("continue", json!({ "threadId": 1 }));
         self.response("continue");
     }
+
+    /// Everything the program writes until it terminates, both categories.
+    fn output_until_terminated(&mut self) -> String {
+        let mut out = String::new();
+        loop {
+            let ev = self
+                .recv_until(|m| {
+                    m["type"] == "event" && (m["event"] == "output" || m["event"] == "terminated")
+                })
+                .expect("output or terminated");
+            if ev["event"] == "terminated" {
+                return out;
+            }
+            out.push_str(ev["body"]["output"].as_str().unwrap_or(""));
+        }
+    }
 }
 
 impl Drop for Dap {
@@ -1746,4 +1762,23 @@ fn breakpoints_colliding_on_one_line_report_the_loser() {
     d.response("setBreakpoints");
     d.cont();
     assert_eq!(d.stop_or_term()["event"], "terminated");
+}
+
+// --------------------------------------------------------------------------
+// Review follow-ups (PR #18738)
+// --------------------------------------------------------------------------
+
+/// `generate_nu_constant()` runs long before the `--dap` branch, so setting
+/// the flag there left `$nu.is-dap` false.
+#[test]
+#[deps(NU)]
+fn dap_mode_is_visible_to_the_debuggee_and_is_not_interactive() {
+    let script = example("nu_flags.nu");
+    let mut d = Dap::spawn();
+    d.start(&script, json!({}), &[]);
+    let out = d.output_until_terminated();
+    assert!(
+        out.contains("is-dap=true is-interactive=false"),
+        "unexpected flags: {out}"
+    );
 }

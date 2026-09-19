@@ -295,9 +295,16 @@ fn main() -> Result<()> {
     #[cfg(not(feature = "lsp"))]
     let is_lsp = false;
     engine_state.is_lsp = is_lsp;
+    // Here, not in the `--dap` branch at the end: `generate_nu_constant()`
+    // below bakes `$nu.is-dap`, and that branch's startup files must see it.
+    #[cfg(feature = "dap")]
+    let is_dap = parsed_nu_cli_args.dap;
+    #[cfg(not(feature = "dap"))]
+    let is_dap = false;
+    engine_state.is_dap = is_dap;
     // keep this condition in sync with the branches at the end
     engine_state.is_interactive = parsed_nu_cli_args.interactive_shell.is_some()
-        || (parsed_nu_cli_args.commands.is_none() && script_name.is_empty() && !is_lsp);
+        || (parsed_nu_cli_args.commands.is_none() && script_name.is_empty() && !is_lsp && !is_dap);
 
     engine_state.is_login = parsed_nu_cli_args.login_shell.is_some();
     engine_state.history_enabled = parsed_nu_cli_args.no_history.is_none();
@@ -625,11 +632,8 @@ fn main() -> Result<()> {
     // clones this engine for each debug run, so nothing else in `main`
     // applies — return as soon as the DAP client disconnects.
     #[cfg(feature = "dap")]
-    if parsed_nu_cli_args.dap {
+    if is_dap {
         start_time = nu_utils::time::Instant::now();
-        // Mark DAP mode before evaluating config: stdout is the protocol wire,
-        // so `print` from a startup file has to go to stderr instead.
-        engine_state.is_dap = true;
 
         // Debugged scripts should see the same shell the user has: aliases and
         // custom commands from config.nu, `$env` from env.nu, and `$env.config`
