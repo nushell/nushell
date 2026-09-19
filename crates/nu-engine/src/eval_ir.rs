@@ -1055,6 +1055,22 @@ fn eval_instruction<D: DebugContext>(
                 let new_val = if nu_experimental::ENFORCE_RUNTIME_ANNOTATIONS.get() {
                     let variable = ctx.engine_state.get_var(*var_id);
                     let expected_ty = variable.ty.follow_cell_path(&path.members);
+
+                    // Mutable aggregates can gain new members at runtime, which are not present in
+                    // the variable's static type. For example, `mut x = []` starts as `list<any>`
+                    // but `$x.0 = "hello"` changes its runtime type to `list<string>`, and further
+                    // assignments can widen it to `list<oneof<string, int, nothing>>`. The same
+                    // applies to fields added to mutable records; see #18951.
+                    let expected_ty = match expected_ty {
+                        Some(expected_ty) => Some(expected_ty),
+                        None => ctx
+                            .stack
+                            .get_var(*var_id, *span)?
+                            .follow_cell_path(&path.members)
+                            .ok()
+                            .map(|value| Cow::Owned(value.get_type())),
+                    };
+
                     if let Some(expected_ty) = expected_ty {
                         check_assignment_type(new_val, &expected_ty, *span)?
                     } else {
