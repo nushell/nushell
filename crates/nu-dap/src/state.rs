@@ -25,8 +25,10 @@ pub(crate) enum RunMode {
     StepIn { depth: usize, line: u64 },
     /// Pause at the next instruction at block depth < the recorded depth.
     StepOut { depth: usize },
-    /// Pause at the very next instruction (used for stopOnEntry and pause).
-    PauseNow,
+    /// Pause at the very next instruction. Split only so the `stopped` event
+    /// can name the reason clients label the UI from.
+    PauseOnEntry,
+    PauseRequested,
 }
 
 /// One variable at pause time; children are flattened into
@@ -533,7 +535,7 @@ impl DebugState {
                 break_on_error: true, // matches the filter's default:true
                 exception_info: None,
                 run_mode: if stop_on_entry {
-                    RunMode::PauseNow
+                    RunMode::PauseOnEntry
                 } else {
                     RunMode::Continue
                 },

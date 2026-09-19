@@ -18,7 +18,8 @@ impl DapDebugger {
     ) -> Option<&'static str> {
         match run_mode {
             RunMode::Continue => None,
-            RunMode::PauseNow => Some("entry"),
+            RunMode::PauseOnEntry => Some("entry"),
+            RunMode::PauseRequested => Some("pause"),
             RunMode::StepIn { depth, line } => {
                 if pos.line != line || self.depth() != depth || is_call {
                     Some("step")
@@ -292,7 +293,8 @@ mod tests {
     #[case::continue_ignores_everything(RunMode::Continue, 7, false, None)]
     #[case::continue_ignores_a_call(RunMode::Continue, 7, true, None)]
     // An explicit pause request stops at the very next instruction.
-    #[case::pause_now(RunMode::PauseNow, 7, false, Some("entry"))]
+    #[case::pause_on_entry(RunMode::PauseOnEntry, 7, false, Some("entry"))]
+    #[case::pause_requested(RunMode::PauseRequested, 7, false, Some("pause"))]
     // Step-in: a new line, a depth change, or a call boundary all stop it.
     #[case::step_in_same_line(RunMode::StepIn { depth: 0, line: 7 }, 7, false, None)]
     #[case::step_in_new_line(RunMode::StepIn { depth: 0, line: 7 }, 8, false, Some("step"))]

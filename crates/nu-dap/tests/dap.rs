@@ -1782,3 +1782,27 @@ fn dap_mode_is_visible_to_the_debuggee_and_is_not_interactive() {
         "unexpected flags: {out}"
     );
 }
+
+/// `pause` and `stopOnEntry` shared a run mode, so a user pause was announced
+/// as `"entry"`.
+#[test]
+#[deps(NU)]
+fn a_user_pause_is_reported_as_a_pause() {
+    let script = example("long_loop.nu");
+    let mut d = Dap::spawn();
+    d.start(&script, json!({}), &[]);
+
+    d.send("pause", json!({ "threadId": 1 }));
+    d.response("pause");
+    assert_eq!(d.event("stopped")["body"]["reason"], "pause");
+}
+
+/// `stopOnEntry` keeps its own reason.
+#[test]
+#[deps(NU)]
+fn stop_on_entry_is_still_reported_as_entry() {
+    let demo = example("demo.nu");
+    let mut d = Dap::spawn();
+    d.start(&demo, json!({ "stopOnEntry": true }), &[]);
+    assert_eq!(d.event("stopped")["body"]["reason"], "entry");
+}
