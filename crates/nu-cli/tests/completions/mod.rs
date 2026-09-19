@@ -3157,6 +3157,7 @@ fn variables_completions() {
         "history-enabled",
         "history-path",
         "home-dir",
+        "is-dap",
         "is-interactive",
         "is-login",
         "is-lsp",
