@@ -1,6 +1,6 @@
 #![allow(clippy::unwrap_used)]
 
-use nu_cli::{eval_source, evaluate_commands};
+use nu_cli::{DEFAULT_PROMPTS, eval_source, evaluate_commands};
 use nu_config::ConfigFileKind;
 use nu_experimental::DC_GLOB;
 use nu_parser::{lex, lite_parse, parse, parse_block};
@@ -699,14 +699,11 @@ fn bench_eval_default_config() -> impl IntoBenchmarks {
     )
 }
 
-fn bench_eval_default_env() -> impl IntoBenchmarks {
-    let kind = ConfigFileKind::Env;
-    let default_env = kind.default().as_bytes().to_vec();
-    let fname = kind.default_path().to_string();
+fn bench_eval_default_prompts() -> impl IntoBenchmarks {
     bench_eval_source(
-        "eval_default_env",
-        fname,
-        default_env,
+        "eval_default_prompts",
+        "default_prompt.nu".to_string(),
+        DEFAULT_PROMPTS.as_bytes().to_vec(),
         Stack::new(),
         setup_engine(),
     )
@@ -1573,8 +1570,8 @@ tango_benchmarks!(
     bench_par_each_many_calls_threads(100),
     // Config
     bench_eval_default_config(),
-    // Env
-    bench_eval_default_env(),
+    // Prompt
+    bench_eval_default_prompts(),
     // Mut field assign (IR UpdateVarCellPath) — compare vs mut_record_update_* baseline
     bench_mut_record_assign(1_000),
     bench_mut_record_assign(10_000),

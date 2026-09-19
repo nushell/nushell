@@ -7,22 +7,25 @@ type Repainter = Arc<dyn Fn() + Send + Sync>;
 /// Which prompt segment an asynchronous [`PromptState::set`] targets.
 #[derive(Debug, Clone, Copy)]
 pub enum PromptSegment {
-    /// The main (left) prompt, `$env.PROMPT_COMMAND`.
+    /// The main (left) prompt, `$env.config.prompt.left`.
     Left,
 
-    /// The right prompt, `$env.PROMPT_COMMAND_RIGHT`.
+    /// The right prompt, `$env.config.prompt.right`.
     Right,
 
-    /// The prompt indicator for the default/emacs edit mode, `$env.PROMPT_INDICATOR`.
+    /// The prompt indicator for the default/emacs edit mode, `$env.config.prompt.indicator`.
     Indicator,
 
-    /// The vi insert-mode indicator, `$env.PROMPT_INDICATOR_VI_INSERT`.
+    /// The vi insert-mode indicator, `$env.config.prompt.vi_insert`.
     ViInsert,
 
-    /// The vi normal-mode indicator, `$env.PROMPT_INDICATOR_VI_NORMAL`.
+    /// The vi normal-mode indicator, `$env.config.prompt.vi_normal`.
     ViNormal,
 
-    /// The multiline continuation indicator, `$env.PROMPT_MULTILINE_INDICATOR`.
+    /// The vi visual-mode indicator, `$env.config.prompt.vi_visual`.
+    ViVisual,
+
+    /// The multiline continuation indicator, `$env.config.prompt.multiline`.
     Multiline,
 }
 
@@ -34,6 +37,7 @@ pub struct PromptContents {
     pub indicator: Option<Arc<str>>,
     pub vi_insert: Option<Arc<str>>,
     pub vi_normal: Option<Arc<str>>,
+    pub vi_visual: Option<Arc<str>>,
     pub multiline: Option<Arc<str>>,
     pub render_right_on_last_line: bool,
 }
@@ -48,6 +52,7 @@ impl PromptContents {
             PromptSegment::Indicator => self.indicator = Some(content),
             PromptSegment::ViInsert => self.vi_insert = Some(content),
             PromptSegment::ViNormal => self.vi_normal = Some(content),
+            PromptSegment::ViVisual => self.vi_visual = Some(content),
             PromptSegment::Multiline => self.multiline = Some(content),
         }
     }
@@ -74,6 +79,10 @@ impl PromptContents {
                 .vi_normal
                 .clone()
                 .or_else(|| self.vi_normal.clone()),
+            vi_visual: overrides
+                .vi_visual
+                .clone()
+                .or_else(|| self.vi_visual.clone()),
             multiline: overrides
                 .multiline
                 .clone()
