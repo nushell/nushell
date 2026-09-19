@@ -32,6 +32,7 @@ serde_json = { workspace = true }
 
 [dev-dependencies]
 rstest = { workspace = true, default-features = false }
+nu-test-support.workspace = true
 
 [features]
 plugin = ["nu-plugin-engine", "nu-engine/plugin"]

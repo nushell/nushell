@@ -5235,6 +5235,7 @@ dependencies = [
  "nu-path",
  "nu-plugin-engine",
  "nu-protocol",
+ "nu-test-support",
  "nu-utils",
  "rstest",
  "semver",
