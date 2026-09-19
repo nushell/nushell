@@ -65,8 +65,11 @@ pub fn read_message<R: BufRead>(reader: &mut R) -> std::io::Result<Option<Reques
             break; // end of headers
         }
 
-        if let Some(rest) = line.strip_prefix("Content-Length:") {
-            content_length = rest.trim().parse().ok();
+        // Header names are case-insensitive, as in HTTP.
+        if let Some((name, value)) = line.split_once(':')
+            && name.trim().eq_ignore_ascii_case("Content-Length")
+        {
+            content_length = value.trim().parse().ok();
         }
     }
 
@@ -162,4 +165,66 @@ impl DapWriter {
 /// response serializes to null and the envelope skips it.
 fn to_body(body: &impl Serialize) -> Json {
     serde_json::to_value(body).expect("serialize DAP body")
+}
+
+#[cfg(test)]
+mod tests {
+    //! Unit tests for [`crate::dap::protocol`].
+
+    use super::{MAX_CONTENT_LENGTH, read_message};
+    use pretty_assertions::assert_eq;
+    use rstest::rstest;
+
+    /// One framed message, ready for [`read_message`].
+    fn framed(header: &str, body: &str) -> std::io::Cursor<Vec<u8>> {
+        std::io::Cursor::new(format!("{header}: {}\r\n\r\n{body}", body.len()).into_bytes())
+    }
+
+    #[rstest]
+    #[case::canonical("Content-Length")]
+    #[case::lowercase("content-length")]
+    #[case::shouting("CONTENT-LENGTH")]
+    fn header_name_is_case_insensitive(#[case] header: &str) {
+        let mut reader = framed(header, r#"{"seq":1,"command":"initialize"}"#);
+        let req = read_message(&mut reader)
+            .expect("reads")
+            .expect("not at EOF");
+        assert_eq!(req.seq, 1);
+        assert_eq!(req.command, "initialize");
+    }
+
+    #[test]
+    fn unrelated_headers_are_ignored() {
+        let body = r#"{"seq":2,"command":"threads"}"#;
+        let raw = format!(
+            "Content-Type: application/vscode-jsonrpc\r\nContent-Length: {}\r\n\r\n{body}",
+            body.len()
+        );
+        let mut reader = std::io::Cursor::new(raw.into_bytes());
+        let req = read_message(&mut reader)
+            .expect("reads")
+            .expect("not at EOF");
+        assert_eq!(req.command, "threads");
+    }
+
+    #[test]
+    fn eof_before_any_header_is_not_an_error() {
+        let mut reader = std::io::Cursor::new(Vec::new());
+        assert!(read_message(&mut reader).expect("reads").is_none());
+    }
+
+    #[test]
+    fn a_missing_length_ends_the_session() {
+        let mut reader = std::io::Cursor::new(b"Content-Type: nonsense\r\n\r\n".to_vec());
+        let err = read_message(&mut reader).expect_err("no length to read a body by");
+        assert!(err.to_string().contains("missing Content-Length"));
+    }
+
+    #[test]
+    fn an_oversized_length_is_refused_without_allocating() {
+        let raw = format!("Content-Length: {}\r\n\r\n", MAX_CONTENT_LENGTH + 1);
+        let mut reader = std::io::Cursor::new(raw.into_bytes());
+        let err = read_message(&mut reader).expect_err("over the cap");
+        assert!(err.to_string().contains("exceeds"));
+    }
 }
