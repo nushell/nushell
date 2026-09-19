@@ -244,13 +244,15 @@ $env.config.hinter.closure = null
 # "prefix": Match from the beginning of the text.
 # "substring": Match anywhere in the text.
 # "fuzzy": Match using fuzzy matching algorithm.
+# "fallback": Use prefix matches when any exist; otherwise use fuzzy matches.
 # Default: "prefix"
 $env.config.completions.algorithm = "prefix"
 
 # completions.sort (string): How completion results are sorted.
 # "smart": Sort order depends on the algorithm setting.
 # "alphabetical": Always sort alphabetically.
-# In "smart",  mode: prefix/substring use alphabetical; fuzzy uses match score.
+# In "smart" mode: prefix/substring use alphabetical order; fuzzy uses match score.
+# Fallback uses alphabetical order for prefix results and fuzzy match score otherwise.
 # Default: "smart"
 $env.config.completions.sort = "smart"
 
