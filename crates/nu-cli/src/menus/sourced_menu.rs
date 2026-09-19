@@ -112,8 +112,15 @@ impl<M: Menu> Menu for SourcedMenu<M> {
         // No abandon check here!!! reedline probes partial completion when a menu
         // opens, even before the source has ever run, so the values are legitimately
         // empty.
-        self.menu
-            .can_partially_complete(values_updated, editor, completer)
+        let spliced = self
+            .menu
+            .can_partially_complete(values_updated, editor, completer);
+        if spliced {
+            // The splice refreshed past this wrapper, so re-record and refresh or the
+            // source answers with spans for the pre-splice buffer (#19053).
+            self.update_values(editor, completer);
+        }
+        spliced
     }
 
     fn update_values(&mut self, editor: &mut Editor, completer: &mut dyn Completer) {
