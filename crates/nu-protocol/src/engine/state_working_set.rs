@@ -5,7 +5,7 @@ use crate::{
     ast::Block,
     engine::{
         CachedFile, Command, CommandType, EngineState, OverlayFrame, ScopeBindings, StateDelta,
-        Variable, VirtualPath, Visibility, description::build_desc,
+        Variable, VirtualPath, Visibility, VisibilityStack, description::build_desc,
     },
 };
 use core::panic;
@@ -444,7 +444,7 @@ impl<'a> StateWorkingSet<'a> {
     pub fn find_decl(&self, name: &[u8]) -> Option<DeclId> {
         let mut removed_overlays = vec![];
 
-        let mut visibility: Visibility = Visibility::new();
+        let mut visibility = VisibilityStack::default();
 
         for scope_frame in self.delta.scope.iter().rev() {
             if self.search_predecls
@@ -456,7 +456,7 @@ impl<'a> StateWorkingSet<'a> {
 
             // check overlay in delta
             for overlay_frame in scope_frame.active_overlays(&mut removed_overlays).rev() {
-                visibility.append(&overlay_frame.visibility);
+                visibility.push(&overlay_frame.visibility);
 
                 if self.search_predecls
                     && let Some(decl_id) = overlay_frame.predecls.get(name)
@@ -484,7 +484,7 @@ impl<'a> StateWorkingSet<'a> {
     pub fn find_decl_name(&self, decl_id: DeclId) -> Option<&[u8]> {
         let mut removed_overlays = vec![];
 
-        let mut visibility: Visibility = Visibility::new();
+        let mut visibility = VisibilityStack::default();
 
         for scope_frame in self.delta.scope.iter().rev() {
             if self.search_predecls {
@@ -497,7 +497,7 @@ impl<'a> StateWorkingSet<'a> {
 
             // check overlay in delta
             for overlay_frame in scope_frame.active_overlays(&mut removed_overlays).rev() {
-                visibility.append(&overlay_frame.visibility);
+                visibility.push(&overlay_frame.visibility);
 
                 if self.search_predecls {
                     for (name, id) in overlay_frame.predecls.iter() {

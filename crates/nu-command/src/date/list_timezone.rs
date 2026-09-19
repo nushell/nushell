@@ -11,12 +11,21 @@ impl Command for DateListTimezones {
 
     fn signature(&self) -> Signature {
         Signature::build("date list-timezone")
-            .input_output_types(vec![(Type::Nothing, Type::table())])
+            .input_output_types(vec![(
+                Type::Nothing,
+                Type::Table(
+                    vec![
+                        ("timezone".to_string(), Type::String),
+                        ("offset".to_string(), Type::String),
+                    ]
+                    .into(),
+                ),
+            )])
             .category(Category::Date)
     }
 
     fn description(&self) -> &str {
-        "List supported time zones."
+        "List supported time zones and their current offsets."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -35,8 +44,15 @@ impl Command for DateListTimezones {
         Ok(TZ_VARIANTS
             .iter()
             .map(move |x| {
+                let offset = chrono::Utc::now()
+                    .with_timezone(x)
+                    .format("%:z")
+                    .to_string();
                 Value::record(
-                    record! { "timezone" => Value::string(x.name(), head) },
+                    record! {
+                        "timezone" => Value::string(x.name(), head),
+                        "offset" => Value::string(offset, head),
+                    },
                     head,
                 )
             })
@@ -49,6 +65,7 @@ impl Command for DateListTimezones {
             description: "Show time zone(s) that contains 'Shanghai'.",
             result: Some(Value::test_list(vec![Value::test_record(record! {
                 "timezone" => Value::test_string("Asia/Shanghai"),
+                "offset" => Value::test_string("+08:00"),
             })])),
         }]
     }

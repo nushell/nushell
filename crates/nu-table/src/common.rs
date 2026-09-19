@@ -1,4 +1,7 @@
-use crate::{TableOutput, TableTheme, clean_charset, colorize_space_str, string_wrap};
+use crate::{
+    TableOutput, TableTheme, clean_charset, colorize_space_str, string_truncate, string_width,
+    string_wrap,
+};
 use nu_color_config::{Alignment, StyleComputer, TextStyle};
 use nu_protocol::{
     Config, FooterMode, ShellError, Span, TableMode, TrimStrategy, Value,
@@ -82,8 +85,32 @@ pub fn error_sign(text: String, style_computer: &StyleComputer) -> (String, Text
 }
 
 pub fn wrap_text(text: &str, width: usize, config: &Config) -> String {
-    let keep_words = config.table.trim == TrimStrategy::wrap(true);
-    string_wrap(text, width, keep_words)
+    if width == 0 {
+        return String::new();
+    }
+
+    match &config.table.trim {
+        TrimStrategy::Wrap { try_to_keep_words } => string_wrap(text, width, *try_to_keep_words),
+        TrimStrategy::Truncate { suffix } => {
+            if string_width(text) <= width {
+                return text.to_owned();
+            }
+            let suffix = suffix.as_deref().unwrap_or("");
+            let suffix_width = string_width(suffix);
+            text.lines()
+                .map(|line| {
+                    if string_width(line) <= width {
+                        line.to_owned()
+                    } else if suffix_width >= width {
+                        string_truncate(line, width)
+                    } else {
+                        format!("{}{}", string_truncate(line, width - suffix_width), suffix)
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join("\n")
+        }
+    }
 }
 
 pub fn get_header_style(style_computer: &StyleComputer) -> TextStyle {

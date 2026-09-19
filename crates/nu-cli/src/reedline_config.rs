@@ -1,18 +1,21 @@
-use crate::{NuHelpCompleter, menus::NuMenuCompleter};
+use crate::{
+    NuHelpCompleter,
+    menus::{MenuLine, NuMenuCompleter, SourcedMenu},
+};
 use crossterm::event::{KeyCode, KeyModifiers};
 use nu_ansi_term::Style;
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_protocol::{
     Config, EditBindings, ParsedKeybinding, ParsedMenu, Record, ShellError, Span, Type, Value,
-    engine::{EngineState, Stack},
+    engine::{Closure, EngineState, Stack},
     extract_value,
 };
 use reedline::{
     ColumnarMenu, DescriptionMenu, DescriptionMode, DescriptionPosition, Direction, EditCommand,
     EditCommandDiscriminants, FindStop, Granularity, IdeMenu, InputMode, Keybindings, ListMenu,
-    MenuBuilder, MotionTarget, OutputMode, PromptEditModeDiscriminants, Reedline, ReedlineEvent,
-    ReedlineEventDiscriminants, ReedlineMenu, TextObject, TextObjectScope, TextObjectType,
-    TraversalDirection, WordEdge, WordKind, default_emacs_keybindings,
+    Menu, MenuBuilder, MotionTarget, OutputMode, PromptEditModeDiscriminants, Reedline,
+    ReedlineEvent, ReedlineEventDiscriminants, ReedlineMenu, TextObject, TextObjectScope,
+    TextObjectType, TraversalDirection, WordEdge, WordKind, default_emacs_keybindings,
     default_vi_insert_keybindings, default_vi_normal_keybindings,
 };
 use reedline::{
@@ -160,6 +163,31 @@ fn parse_description_position(
     }
 }
 
+/// Menu with nushell source carrying editor line.
+fn menu_with_source<M: Menu + 'static>(
+    menu: M,
+    source: &Closure,
+    span: Span,
+    stack: &Stack,
+    engine_state: Arc<EngineState>,
+    input_mode: InputMode,
+) -> ReedlineMenu {
+    let line = MenuLine::default();
+    let completer = NuMenuCompleter::new(
+        source.block_id,
+        span,
+        stack.captures_to_stack(source.captures.clone()),
+        engine_state,
+        input_mode,
+        line.clone(),
+    );
+
+    ReedlineMenu::WithCompleter {
+        menu: Box::new(SourcedMenu::new(menu, line)),
+        completer: Box::new(completer),
+    }
+}
+
 /// Resolve the menu's effective reedline `InputMode` from the optional
 /// `input_mode` and legacy `only_buffer_difference` fields. The result drives
 /// both the reedline menu and `NuMenuCompleter`'s span math, so it must be
@@ -259,19 +287,16 @@ pub(crate) fn add_columnar_menu(
     columnar_menu = apply_output_mode(columnar_menu, menu, config)?;
 
     let completer = if let Some(closure) = &menu.source {
-        let menu_completer = NuMenuCompleter::new(
-            closure.block_id,
+        menu_with_source(
+            columnar_menu,
+            closure,
             span,
-            stack.captures_to_stack(closure.captures.clone()),
+            stack,
             engine_state,
             input_mode,
-        );
-        ReedlineMenu::WithCompleter {
-            menu: Box::new(columnar_menu),
-            completer: Box::new(menu_completer),
-        }
+        )
     } else {
-        ReedlineMenu::EngineCompleter(Box::new(columnar_menu))
+        ReedlineMenu::EngineCompleter(Box::new(SourcedMenu::abandoning(columnar_menu)))
     };
 
     Ok(line_editor.with_menu(completer))
@@ -316,17 +341,7 @@ pub(crate) fn add_list_menu(
     list_menu = apply_output_mode(list_menu, menu, &config)?;
 
     let completer = if let Some(closure) = &menu.source {
-        let menu_completer = NuMenuCompleter::new(
-            closure.block_id,
-            span,
-            stack.captures_to_stack(closure.captures.clone()),
-            engine_state,
-            input_mode,
-        );
-        ReedlineMenu::WithCompleter {
-            menu: Box::new(list_menu),
-            completer: Box::new(menu_completer),
-        }
+        menu_with_source(list_menu, closure, span, stack, engine_state, input_mode)
     } else {
         ReedlineMenu::HistoryMenu(Box::new(list_menu))
     };
@@ -491,19 +506,9 @@ pub(crate) fn add_ide_menu(
     ide_menu = apply_output_mode(ide_menu, menu, &config)?;
 
     let completer = if let Some(closure) = &menu.source {
-        let menu_completer = NuMenuCompleter::new(
-            closure.block_id,
-            span,
-            stack.captures_to_stack(closure.captures.clone()),
-            engine_state,
-            input_mode,
-        );
-        ReedlineMenu::WithCompleter {
-            menu: Box::new(ide_menu),
-            completer: Box::new(menu_completer),
-        }
+        menu_with_source(ide_menu, closure, span, stack, engine_state, input_mode)
     } else {
-        ReedlineMenu::EngineCompleter(Box::new(ide_menu))
+        ReedlineMenu::EngineCompleter(Box::new(SourcedMenu::abandoning(ide_menu)))
     };
 
     Ok(line_editor.with_menu(completer))
@@ -573,17 +578,14 @@ pub(crate) fn add_description_menu(
     description_menu = apply_output_mode(description_menu, menu, &config)?;
 
     let completer = if let Some(closure) = &menu.source {
-        let menu_completer = NuMenuCompleter::new(
-            closure.block_id,
+        menu_with_source(
+            description_menu,
+            closure,
             span,
-            stack.captures_to_stack(closure.captures.clone()),
+            stack,
             engine_state,
             input_mode,
-        );
-        ReedlineMenu::WithCompleter {
-            menu: Box::new(description_menu),
-            completer: Box::new(menu_completer),
-        }
+        )
     } else {
         let menu_completer = NuHelpCompleter::new(engine_state, config);
         ReedlineMenu::WithCompleter {
@@ -952,6 +954,7 @@ fn event_from_record(
             let menu = extract_value("name", record, span)?;
             ReedlineEvent::Menu(menu.to_expanded_string("", config))
         }
+        Ok(RED::MenuAccept) => ReedlineEvent::MenuAccept,
         Ok(RED::MenuNext) => ReedlineEvent::MenuNext,
         Ok(RED::MenuPrevious) => ReedlineEvent::MenuPrevious,
         Ok(RED::MenuUp) => ReedlineEvent::MenuUp,
@@ -1024,6 +1027,7 @@ pub(crate) fn display_reedline_event(event: ReedlineEventDiscriminants) -> Optio
         RED::Multiple => "event: { send: list<event> }",
         RED::UntilFound => "event: { until: list<event> }",
         RED::Menu => "Menu name: <string>",
+        RED::MenuAccept => "MenuAccept",
         RED::MenuNext => "MenuNext",
         RED::MenuPrevious => "MenuPrevious",
         RED::MenuUp => "MenuUp",
@@ -1150,6 +1154,13 @@ fn edit_from_record(
             let value = extract_value("value", record, span)?;
             EditCommand::InsertString(value.to_expanded_string("", config))
         }
+        Ok(ECD::InsertPair) => {
+            let value = extract_value("open", record, span)?;
+            let open = extract_char(value)?;
+            let value = extract_value("close", record, span)?;
+            let close = extract_char(value)?;
+            EditCommand::InsertPair { open, close }
+        }
         Ok(ECD::InsertNewline) => EditCommand::InsertNewline,
         Ok(ECD::InsertNewlineAbove) => EditCommand::InsertNewlineAbove,
         Ok(ECD::InsertNewlineBelow) => EditCommand::InsertNewlineBelow,
@@ -1159,6 +1170,13 @@ fn edit_from_record(
             EditCommand::ReplaceChar(char)
         }
         Ok(ECD::Backspace) => EditCommand::Backspace,
+        Ok(ECD::BackspacePair) => {
+            let value = extract_value("open", record, span)?;
+            let open = extract_char(value)?;
+            let value = extract_value("close", record, span)?;
+            let close = extract_char(value)?;
+            EditCommand::BackspacePair { open, close }
+        }
         Ok(ECD::Delete) => EditCommand::Delete,
         Ok(ECD::CutCharLeft) => EditCommand::CutCharLeft,
         Ok(ECD::CutChar) => EditCommand::CutChar,
@@ -1406,11 +1424,13 @@ pub(crate) fn display_edit_command(edit: EditCommandDiscriminants) -> Option<&'s
         ECD::MoveLeftBefore => "MoveLeftBefore value: <char>, select?: <bool>",
         ECD::InsertChar => "InsertChar value: <char>",
         ECD::InsertString => "InsertString value: <string>",
+        ECD::InsertPair => "InsertPair open: <char>, close: <char>",
         ECD::InsertNewline => "InsertNewline",
         ECD::InsertNewlineAbove => "InsertNewlineAbove",
         ECD::InsertNewlineBelow => "InsertNewlineBelow",
         ECD::ReplaceChar => "ReplaceChar value: <char>",
         ECD::Backspace => "Backspace",
+        ECD::BackspacePair => "BackspacePair open: <char>, close: <char>",
         ECD::Delete => "Delete",
         ECD::CutCharLeft => "CutCharLeft",
         ECD::CutChar => "CutChar",

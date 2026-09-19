@@ -78,6 +78,8 @@ pub struct Config {
     pub bracketed_paste: bool,
     pub render_right_prompt_on_last_line: bool,
     pub explore: HashMap<String, Value>,
+    /// Styles for the `tui` command family (`$env.config.tui`).
+    pub tui: HashMap<String, Value>,
     pub cursor_shape: CursorShapeConfig,
     pub datetime_format: DatetimeFormatConfig,
     pub error_style: ErrorStyle,
@@ -117,6 +119,7 @@ impl Default for Config {
             datetime_format: DatetimeFormatConfig::default(),
 
             explore: defaults::default_explore(),
+            tui: defaults::default_tui(),
 
             history: HistoryConfig::default(),
 
@@ -194,6 +197,7 @@ impl UpdateFromValue for Config {
                 "table" => self.table.update(val, current_path, errors),
                 "filesize" => self.filesize.update(val, current_path, errors),
                 "explore" => self.explore.update(val, current_path, errors),
+                "tui" => self.tui.update(val, current_path, errors),
                 "color_config" => self.color_config.update(val, current_path, errors),
                 "clip" => self.clip.update(val, current_path, errors),
                 "footer_mode" => self.footer_mode.update(val, current_path, errors),
