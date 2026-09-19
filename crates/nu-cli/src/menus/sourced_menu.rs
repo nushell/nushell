@@ -279,6 +279,71 @@ mod tests {
         assert_eq!(menu.get_values().len(), 1);
     }
 
+    /// A partial splice must refresh the source against the spliced line (#19053).
+    #[test]
+    fn partial_completion_refreshes_the_source_against_the_spliced_line() {
+        /// Answers from the recorded line, like `NuMenuCompleter`.
+        struct RecordedLineSpans {
+            line: MenuLine,
+        }
+        impl Completer for RecordedLineSpans {
+            fn complete(&mut self, _line: &str, _pos: usize) -> CompletionResult {
+                let buffer = self.line.read().unwrap_or_default();
+                let start = buffer.rfind(' ').map(|i| i + 1).unwrap_or(0);
+                CompletionResult::fresh(vec![
+                    Suggestion {
+                        value: "rol".into(),
+                        span: reedline::Span::new(start, buffer.len()),
+                        ..Suggestion::default()
+                    },
+                    Suggestion {
+                        value: "ror".into(),
+                        span: reedline::Span::new(start, buffer.len()),
+                        ..Suggestion::default()
+                    },
+                ])
+            }
+        }
+
+        let mut editor = Editor::default();
+        editor.edit_buffer(
+            |buffer| {
+                buffer.set_buffer("bits r".into());
+                buffer.set_insertion_point(6);
+            },
+            UndoBehavior::CreateUndoPoint,
+        );
+
+        let line = MenuLine::default();
+        let mut menu = SourcedMenu::new(ColumnarMenu::default(), line.clone());
+        menu.menu_event(MenuEvent::Activate(false));
+        let mut completer = RecordedLineSpans { line: line.clone() };
+
+        menu.update_values(&mut editor, &mut completer);
+        assert_eq!(line.read().as_deref(), Some("bits r"));
+
+        assert!(
+            menu.can_partially_complete(false, &mut editor, &mut completer),
+            "the common prefix `o` should splice"
+        );
+        assert_eq!(editor.get_buffer(), "bits ro");
+        assert_eq!(
+            line.read().as_deref(),
+            Some("bits ro"),
+            "the source must see the spliced line, not the pre-splice one"
+        );
+        assert!(
+            menu.get_values()
+                .iter()
+                .all(|s| s.span == reedline::Span::new(5, 7)),
+            "values refreshed after the splice must span the spliced buffer, got {:?}",
+            menu.get_values()
+                .iter()
+                .map(|s| (s.value.clone(), s.span))
+                .collect::<Vec<_>>()
+        );
+    }
+
     #[test]
     fn opening_probe_does_not_abandon_before_the_first_fetch() {
         // Reedline probes partial completion right after Activate, while the
