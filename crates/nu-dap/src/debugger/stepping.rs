@@ -267,9 +267,6 @@ mod tests {
     /// state it snapshots into.
     fn debugger() -> (DapDebugger, Arc<DebugState>) {
         let state = Arc::new(DebugState::new(
-            false,
-            false,
-            1,
             crate::file_table::FileTable::default(),
             crate::state::ClientCoords::default(),
         ));

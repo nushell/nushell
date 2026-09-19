@@ -45,6 +45,8 @@ struct Dap {
     seq: i64,
     pending: Vec<Value>,
     alive: Arc<AtomicBool>,
+    /// The `setBreakpoints` response [`Dap::start_configure_first`] swallowed.
+    last_set_breakpoints: Value,
 }
 
 impl Dap {
@@ -118,6 +120,7 @@ impl Dap {
             seq: 0,
             pending: Vec::new(),
             alive,
+            last_set_breakpoints: Value::Null,
         }
     }
 
@@ -251,6 +254,25 @@ impl Dap {
                     .collect()
             })
             .unwrap_or_default()
+    }
+
+    /// Configure first, `launch` last: the order the README documents.
+    /// [`Dap::start`] covers VS Code's.
+    fn start_configure_first(&mut self, script: &str, bps: &[i64]) {
+        self.initialize();
+        self.send(
+            "setBreakpoints",
+            json!({
+                "source": { "path": script },
+                "breakpoints": bps.iter().map(|l| json!({ "line": l })).collect::<Vec<_>>(),
+            }),
+        );
+        let resp = self.response("setBreakpoints");
+        self.send("configurationDone", json!({}));
+        self.response("configurationDone");
+        self.send("launch", json!({ "program": script, "stopOnEntry": false }));
+        self.response("launch");
+        self.last_set_breakpoints = resp;
     }
 
     fn cont(&mut self) {
@@ -1805,4 +1827,26 @@ fn stop_on_entry_is_still_reported_as_entry() {
     let mut d = Dap::spawn();
     d.start(&demo, json!({ "stopOnEntry": true }), &[]);
     assert_eq!(d.event("stopped")["body"]["reason"], "entry");
+}
+
+/// Breakpoints set before `launch` used to be dropped silently, and the run
+/// never started: state was created by `launch`, the eval thread only by
+/// `configurationDone`.
+#[test]
+#[deps(NU)]
+fn breakpoints_survive_a_launch_that_arrives_last() {
+    let demo = example("demo.nu");
+    let mut d = Dap::spawn();
+    d.start_configure_first(&demo, &[14]);
+
+    let bps = d.last_set_breakpoints["body"]["breakpoints"]
+        .as_array()
+        .expect("a breakpoint per request")
+        .clone();
+    assert_eq!(bps.len(), 1, "breakpoint accepted before launch: {bps:?}");
+    assert_eq!(bps[0]["verified"], true);
+    assert_eq!(bps[0]["line"], 14);
+
+    assert_eq!(d.event("stopped")["body"]["reason"], "breakpoint");
+    assert_eq!(d.top_line(), 14);
 }

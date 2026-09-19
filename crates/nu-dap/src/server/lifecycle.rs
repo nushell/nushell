@@ -19,6 +19,10 @@ impl Session {
         let args: InitializeArgs = serde_json::from_value(req.arguments).unwrap_or_default();
         self.coords = ClientCoords::new(args.lines_start_at1, args.columns_start_at1);
 
+        // From here, not from `launch`: `setBreakpoints` writes into this
+        // state and the spec lets it arrive before `launch`.
+        self.state = Some(Arc::new(DebugState::new(self.files.clone(), self.coords)));
+
         // Version stamp in the debug console, so a user can tell which
         // adapter build they are running.
         self.writer.output(
@@ -53,16 +57,16 @@ impl Session {
     pub(super) fn on_launch(&mut self, seq: i64, cmd: &str, req: Request) {
         match serde_json::from_value::<LaunchArgs>(req.arguments) {
             Ok(args) => {
-                self.state = Some(Arc::new(DebugState::new(
-                    args.stop_on_entry,
-                    args.time_travel.unwrap_or(true),
-                    args.time_travel_max_steps.unwrap_or(10000),
-                    self.files.clone(),
-                    self.coords,
-                )));
+                // Updated, not replaced: breakpoints may already be on it.
+                let (files, coords) = (self.files.clone(), self.coords);
+                let state = self
+                    .state
+                    .get_or_insert_with(|| Arc::new(DebugState::new(files, coords)));
+                state.apply_launch_args(&args);
                 self.launch_args = Some(args.clone());
                 self.pending_launch = Some(args);
                 self.writer.respond(seq, cmd, ());
+                self.start_eval_if_ready();
             }
             Err(e) => self
                 .writer
@@ -72,6 +76,16 @@ impl Session {
 
     pub(super) fn on_configuration_done(&mut self, seq: i64, cmd: &str) {
         self.writer.respond(seq, cmd, ());
+        self.configuration_done = true;
+        self.start_eval_if_ready();
+    }
+
+    /// Start the run once `launch` and `configurationDone` have both arrived,
+    /// in whichever order. Taking `pending_launch` keeps it idempotent.
+    fn start_eval_if_ready(&mut self) {
+        if !self.configuration_done {
+            return;
+        }
         if let (Some(launch), Some(state)) = (self.pending_launch.take(), self.state.clone()) {
             self.eval_handle = Some(spawn_eval_thread(
                 launch,
@@ -88,20 +102,11 @@ impl Session {
         match (self.launch_args.clone(), self.state.take()) {
             (Some(args), Some(old_state)) => {
                 old_state.request_restart_teardown();
-                // Not joined: the old thread unwinds itself on the interrupt
-                // signal, and joining could block the DAP loop behind a
-                // native call.
-                let _ = self.eval_handle.take();
 
                 // Same `FileTable` as the outgoing run, so the breakpoints
                 // copied below stay keyed to their files.
-                let new_state = Arc::new(DebugState::new(
-                    args.stop_on_entry,
-                    args.time_travel.unwrap_or(true),
-                    args.time_travel_max_steps.unwrap_or(10000),
-                    self.files.clone(),
-                    self.coords,
-                ));
+                let new_state = Arc::new(DebugState::new(self.files.clone(), self.coords));
+                new_state.apply_launch_args(&args);
                 {
                     let old = old_state.session_state.lock();
                     let mut new = new_state.session_state.lock();

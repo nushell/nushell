@@ -18,13 +18,21 @@ pub(crate) enum RunMode {
     Continue,
     /// Pause at the next instruction on a *different source line*, at
     /// block depth <= the recorded depth (i.e. don't stop inside callees).
-    StepOver { depth: usize, line: u64 },
+    StepOver {
+        depth: usize,
+        line: u64,
+    },
     /// Pause at the next instruction on a different line — or at any block
     /// depth change, so stepping INTO a closure/command whose body sits on
     /// the *same* source line still stops (`… | each {|n| $n * 2}`).
-    StepIn { depth: usize, line: u64 },
+    StepIn {
+        depth: usize,
+        line: u64,
+    },
     /// Pause at the next instruction at block depth < the recorded depth.
-    StepOut { depth: usize },
+    StepOut {
+        depth: usize,
+    },
     /// Pause at the very next instruction. Split only so the `stopped` event
     /// can name the reason clients label the UI from.
     PauseOnEntry,
@@ -517,13 +525,9 @@ pub(crate) struct DebugState {
 }
 
 impl DebugState {
-    pub(crate) fn new(
-        stop_on_entry: bool,
-        time_travel: bool,
-        tt_max: usize,
-        files: FileTable,
-        coords: ClientCoords,
-    ) -> Self {
+    /// A state for a session that has not been launched yet: the run settings
+    /// are placeholders until [`Self::apply_launch_args`].
+    pub(crate) fn new(files: FileTable, coords: ClientCoords) -> Self {
         Self {
             files,
             coords,
@@ -534,11 +538,7 @@ impl DebugState {
                 next_bp_id: 1,
                 break_on_error: true, // matches the filter's default:true
                 exception_info: None,
-                run_mode: if stop_on_entry {
-                    RunMode::PauseOnEntry
-                } else {
-                    RunMode::Continue
-                },
+                run_mode: RunMode::Continue,
                 paused: false,
                 resume_requested: false,
                 terminate_requested: false,
@@ -551,8 +551,8 @@ impl DebugState {
                 timeline: VecDeque::new(),
                 view_index: None,
                 history_snapshot: PauseSnapshot::new(),
-                time_travel,
-                tt_max: tt_max.max(1),
+                time_travel: false,
+                tt_max: 1,
                 nu_constant: None,
                 baseline_env: None,
                 config: Arc::default(),
@@ -564,6 +564,19 @@ impl DebugState {
             paused_cv: Condvar::new(),
             cache: Mutex::new(Arc::default()),
         }
+    }
+
+    /// Fold the `launch` arguments in. An update rather than a fresh state,
+    /// because breakpoints may already have been set on this one.
+    pub(crate) fn apply_launch_args(&self, args: &crate::dap::types::LaunchArgs) {
+        let mut session = self.session_state.lock();
+        session.run_mode = if args.stop_on_entry {
+            RunMode::PauseOnEntry
+        } else {
+            RunMode::Continue
+        };
+        session.time_travel = args.time_travel();
+        session.tt_max = args.time_travel_max_steps().max(1);
     }
 
     /// Called by the server thread to resume with a new run mode.
@@ -622,7 +635,7 @@ mod tests {
     fn parsed(positions: &[(i64, i64)]) -> (DebugState, FileId) {
         let files = FileTable::default();
         let file = files.intern("script.nu");
-        let state = DebugState::new(false, false, 10, files, ClientCoords::default());
+        let state = DebugState::new(files, ClientCoords::default());
         {
             let mut session = state.session_state.lock();
             session.parse_done = true;
@@ -707,7 +720,7 @@ mod tests {
     fn before_the_parse_a_request_is_kept_as_asked(#[case] column: Option<i64>) {
         let files = FileTable::default();
         let file = files.intern("script.nu");
-        let state = DebugState::new(false, false, 10, files, ClientCoords::default());
+        let state = DebugState::new(files, ClientCoords::default());
         let session = state.session_state.lock();
 
         assert_eq!(

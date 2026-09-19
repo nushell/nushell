@@ -46,6 +46,7 @@ pub(crate) fn run_loop<R: BufRead>(
         files: crate::file_table::FileTable::default(),
         coords: crate::state::ClientCoords::default(),
         pending_launch: None,
+        configuration_done: false,
         launch_args: None,
         eval_handle: None,
     };
@@ -81,6 +82,7 @@ struct Session {
     /// adapter is 1-based throughout and converts at the wire boundary only.
     coords: crate::state::ClientCoords,
     pending_launch: Option<LaunchArgs>,
+    configuration_done: bool,
     /// Retained past configurationDone so `restart` can respawn the run.
     launch_args: Option<LaunchArgs>,
     eval_handle: Option<std::thread::JoinHandle<()>>,

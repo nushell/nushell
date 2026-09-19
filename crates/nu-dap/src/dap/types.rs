@@ -28,6 +28,18 @@ pub struct LaunchArgs {
     pub entry_point: Option<String>,
 }
 
+impl LaunchArgs {
+    /// Whether to record every executed line, with the documented default.
+    pub fn time_travel(&self) -> bool {
+        self.time_travel.unwrap_or(true)
+    }
+
+    /// Ring-buffer cap for recorded steps, with the documented default.
+    pub fn time_travel_max_steps(&self) -> usize {
+        self.time_travel_max_steps.unwrap_or(10_000)
+    }
+}
+
 /// `initialize` arguments. Only the coordinate bases are read: the client
 /// states how it numbers lines and columns, and everything inside the adapter
 /// is 1-based. See [`crate::state::ClientCoords`].
