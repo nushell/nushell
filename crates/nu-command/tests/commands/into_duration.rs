@@ -197,6 +197,22 @@ fn into_duration_record_field_overflow_errors() -> Result {
 }
 
 #[test]
+fn into_duration_compound_string_addition_overflow_errors() -> Result {
+    // Both terms are individually representable (`i64::MAX` ns and 1 ns), so
+    // this can only fail in the accumulation: it is the case that reaches
+    // `checked_ns_add` rather than `checked_ns_mul`.
+    let err = test()
+        .run("'9223372036854775807ns 1ns' | into duration")
+        .expect_shell_error()?;
+
+    assert!(
+        matches!(err, ShellError::OperatorOverflow { .. }),
+        "got {err:?}"
+    );
+    Ok(())
+}
+
+#[test]
 fn into_duration_from_record_fails_with_invalid_date_time_values() -> Result {
     let err = test()
         .run("{week: -10} | into duration")

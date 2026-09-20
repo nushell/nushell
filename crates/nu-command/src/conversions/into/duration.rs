@@ -725,10 +725,6 @@ mod test {
 
     #[test]
     fn checked_ns_add_reports_overflow() {
-        // Review: checked_ns_add had no coverage. The compound-string path
-        // ('9223372036854775807ns 1ns') is now rejected earlier by the parser
-        // (saturated-boundary fix), so exercise the accumulation guard
-        // directly.
         let span = Span::test_data();
         let err = checked_ns_add(i64::MAX, 1, span).unwrap_err();
         assert!(format!("{err:?}").contains("addition"), "got {err:?}");
