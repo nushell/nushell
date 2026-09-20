@@ -59,6 +59,7 @@ pub(crate) struct OpenFrame {
 // A baseline token is terminated if it's not nested inside of a paired
 // delimiter and the next character is one of: `|`, `;` or any
 // whitespace.
+#[inline]
 fn is_item_terminator(
     block_level: &[OpenFrame],
     c: u8,
@@ -86,6 +87,7 @@ pub fn is_assignment_operator(bytes: &[u8]) -> bool {
 // when parsing a signature you may want to have `:` be able to separate tokens and also
 // to be handled as its own token to notify you you're about to parse a type in the example
 // `foo:bar`
+#[inline]
 fn is_special_item(block_level: &[OpenFrame], c: u8, special_tokens: &[u8]) -> bool {
     block_level.is_empty() && special_tokens.contains(&c)
 }
@@ -143,6 +145,39 @@ pub(crate) fn interp_subexpr_step<T>(stack: &mut Vec<(u8, T)>, byte: u8, open: T
     }
     false
 }
+
+/// Byte classes for the fast path in [`lex_item`] (see `NESTED_FAST_CLASS`).
+const CLASS_SLOW: u8 = 0;
+const CLASS_ORDINARY: u8 = 1;
+const CLASS_SPACE_TAB: u8 = 2;
+const CLASS_R: u8 = 3;
+const CLASS_NEWLINE: u8 = 4;
+
+/// Classifies bytes for the nested-content fast path of [`lex_item`].
+///
+/// While the lexer is inside a paired delimiter (and not inside a quote or comment), the only
+/// bytes that change its state machine are quotes, `#`, the delimiters themselves, `<`/`>`
+/// (signatures), `|` (closer hints) and `r` (possible raw string). Every other non-whitespace
+/// byte only records itself as the last significant byte; space and tab do nothing once real
+/// content has been seen; a newline only resets the line tracking. The table lets [`lex_item`]
+/// skip runs of such bytes with one lookup per byte instead of the full branch chain. Other
+/// ASCII whitespace (form feed) is left on the slow path because it clears `at_line_start`
+/// without being significant.
+const NESTED_FAST_CLASS: [u8; 256] = {
+    let mut table = [CLASS_ORDINARY; 256];
+    let slow: &[u8] = b"\'\"`#[]{}()<>|\x0c";
+    let mut i = 0;
+    while i < slow.len() {
+        table[slow[i] as usize] = CLASS_SLOW;
+        i += 1;
+    }
+    table[b' ' as usize] = CLASS_SPACE_TAB;
+    table[b'\t' as usize] = CLASS_SPACE_TAB;
+    table[b'r' as usize] = CLASS_R;
+    table[b'\n' as usize] = CLASS_NEWLINE;
+    table[b'\r' as usize] = CLASS_NEWLINE;
+    table
+};
 
 pub fn lex_item(
     input: &[u8],
@@ -203,6 +238,121 @@ pub fn lex_item(
     let mut previous_char = None;
     while let Some(c) = input.get(*curr_offset) {
         let c = *c;
+
+        // Fast paths: consume a run of bytes that cannot start or end anything in the current
+        // state, then fall through to the full state machine below for the byte that stopped
+        // the run. Each run mirrors the "plain byte" arms of that machine: non-whitespace bytes
+        // become `last_sig_char` and clear `at_line_start`, space/tab inside a paired delimiter
+        // leave the state alone, and `previous_char` tracks the last byte consumed. The bytes
+        // that open or close a string or comment still go through the slow path; only the
+        // bodies are skipped here.
+        if let Some((start, _)) = quote_start {
+            // Inside a plain (non-subexpression) part of a string only the closing quote, an
+            // escape in a double-quoted string, and `(` in an interpolated string matter; every
+            // other byte is significant content.
+            if interp_expr_level.is_empty() {
+                let run_start = *curr_offset;
+                let rest = &input[run_start..];
+                let stop = match (start, quote_is_interp) {
+                    (b'"', true) => memchr::memchr3(b'"', b'\\', b'(', rest),
+                    (b'"', false) => memchr::memchr2(b'"', b'\\', rest),
+                    (_, true) => memchr::memchr2(start, b'(', rest),
+                    (_, false) => memchr::memchr(start, rest),
+                };
+                let idx = run_start + stop.unwrap_or(rest.len());
+                if idx > run_start {
+                    last_sig_char = Some(input[idx - 1]);
+                    at_line_start = false;
+                    previous_char = Some(input[idx - 1]);
+                    *curr_offset = idx;
+                    continue;
+                }
+            }
+        } else if in_comment {
+            // A comment runs to the end of the line; its bytes change nothing but
+            // `previous_char`. At the top level of the token the item terminators still apply
+            // (checked by the slow path), so the run stops at them too.
+            let run_start = *curr_offset;
+            let mut idx = run_start;
+            if block_level.is_empty() {
+                while let Some(&b) = input.get(idx) {
+                    if b == b'\n'
+                        || b == b'\r'
+                        || is_item_terminator(
+                            &block_level,
+                            b,
+                            additional_whitespace,
+                            special_tokens,
+                        )
+                    {
+                        break;
+                    }
+                    idx += 1;
+                }
+            } else {
+                let rest = &input[run_start..];
+                idx += memchr::memchr2(b'\n', b'\r', rest).unwrap_or(rest.len());
+            }
+            if idx > run_start {
+                previous_char = Some(input[idx - 1]);
+                *curr_offset = idx;
+                continue;
+            }
+        } else {
+            let run_start = *curr_offset;
+            let mut idx = run_start;
+            let mut last_ordinary = None;
+            if block_level.is_empty() {
+                // Top level of the token: whitespace, `;` and the caller's extra whitespace or
+                // special bytes end the token, so a run stops at any of them (the slow path then
+                // decides how). `|` and `#` are already in the slow class.
+                while let Some(&b) = input.get(idx) {
+                    let ordinary = match NESTED_FAST_CLASS[b as usize] {
+                        CLASS_ORDINARY => true,
+                        CLASS_R => input.get(idx + 1) != Some(&b'#'),
+                        _ => false,
+                    };
+                    if !ordinary
+                        || b == b';'
+                        || additional_whitespace.contains(&b)
+                        || special_tokens.contains(&b)
+                    {
+                        break;
+                    }
+                    last_ordinary = Some(b);
+                    idx += 1;
+                }
+            } else {
+                while let Some(&b) = input.get(idx) {
+                    match NESTED_FAST_CLASS[b as usize] {
+                        CLASS_ORDINARY => last_ordinary = Some(b),
+                        CLASS_SPACE_TAB => {}
+                        CLASS_R if input.get(idx + 1) != Some(&b'#') => last_ordinary = Some(b),
+                        // Same line bookkeeping as the newline arm below; inside a delimiter a
+                        // newline never ends the token. `\r\n` is committed once, on the `\n`.
+                        CLASS_NEWLINE if b == b'\n' || input.get(idx + 1) != Some(&b'\n') => {
+                            let last_sig = last_ordinary.or(last_sig_char);
+                            prev_line_continue = last_sig.is_some_and(continues_onto_next_line);
+                            at_line_start = true;
+                            last_sig_char = None;
+                            last_ordinary = None;
+                        }
+                        CLASS_NEWLINE => {}
+                        _ => break,
+                    }
+                    idx += 1;
+                }
+            }
+            if idx > run_start {
+                if let Some(b) = last_ordinary {
+                    last_sig_char = Some(b);
+                    at_line_start = false;
+                }
+                previous_char = Some(input[idx - 1]);
+                *curr_offset = idx;
+                continue;
+            }
+        }
 
         if let Some((start, open_span)) = quote_start {
             if !interp_expr_level.is_empty() {
@@ -793,7 +943,9 @@ pub fn lex(
 ) -> (Vec<Token>, Option<ParseError>) {
     let mut state = LexState {
         input,
-        output: Vec::new(),
+        // Rough token density of Nushell source; avoids most regrowth of the output while
+        // keeping the small inputs the parser re-lexes constantly at a single allocation.
+        output: Vec::with_capacity((input.len() / 8).max(4)),
         error: None,
         span_offset,
     };
@@ -925,20 +1077,19 @@ fn lex_internal(
             // comment. The comment continues until the next newline.
             let mut start = curr_offset;
 
-            while let Some(input) = state.input.get(curr_offset) {
-                if *input == b'\n' {
-                    if !skip_comment {
-                        state.output.push(Token::new(
-                            TokenContents::Comment,
-                            Span::new(state.span_offset + start, state.span_offset + curr_offset),
-                        ));
-                    }
-                    start = curr_offset;
-
-                    break;
-                } else {
-                    curr_offset += 1;
+            // The comment ends at the newline, which is left for the main loop to turn into
+            // an `Eol` token.
+            if let Some(newline) = memchr::memchr(b'\n', &state.input[curr_offset..]) {
+                curr_offset += newline;
+                if !skip_comment {
+                    state.output.push(Token::new(
+                        TokenContents::Comment,
+                        Span::new(state.span_offset + start, state.span_offset + curr_offset),
+                    ));
                 }
+                start = curr_offset;
+            } else {
+                curr_offset = state.input.len();
             }
             if start != curr_offset && !skip_comment {
                 state.output.push(Token::new(

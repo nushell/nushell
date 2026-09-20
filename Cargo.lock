@@ -5230,6 +5230,7 @@ dependencies = [
  "chrono",
  "itertools 0.15.0",
  "log",
+ "memchr",
  "nu-engine",
  "nu-experimental",
  "nu-path",
