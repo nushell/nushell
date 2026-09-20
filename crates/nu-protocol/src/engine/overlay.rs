@@ -1,5 +1,91 @@
 use crate::{DeclId, ModuleId, OverlayId, VarId};
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::Deref};
+
+/// Name → id map for declarations that remembers the longest name it has ever held.
+///
+/// Command resolution tries the longest possible command name first (`find_longest_decl`), so
+/// for a call like `each {|x| ... }` the first candidate is the whole call text, and every
+/// non-empty map on the scope chain would hash all of it just to say "no". Knowing the longest
+/// name lets [`DeclNameMap::get`] reject such candidates by length before hashing. The bound only
+/// grows (removals leave it alone), so it is always an upper bound on the keys present.
+///
+/// Reads go through `Deref` to the underlying `HashMap`; all mutation goes through the inherent
+/// methods so the bound stays valid.
+#[derive(Debug, Clone, Default)]
+pub struct DeclNameMap {
+    map: HashMap<Vec<u8>, DeclId>,
+    longest_name: usize,
+}
+
+impl DeclNameMap {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Look up a declaration by name; names longer than any key ever inserted are rejected
+    /// without hashing.
+    pub fn get(&self, name: &[u8]) -> Option<&DeclId> {
+        if name.len() > self.longest_name {
+            return None;
+        }
+        self.map.get(name)
+    }
+
+    pub fn insert(&mut self, name: Vec<u8>, decl_id: DeclId) -> Option<DeclId> {
+        self.longest_name = self.longest_name.max(name.len());
+        self.map.insert(name, decl_id)
+    }
+
+    pub fn remove(&mut self, name: &[u8]) -> Option<DeclId> {
+        self.map.remove(name)
+    }
+
+    pub fn remove_entry(&mut self, name: &[u8]) -> Option<(Vec<u8>, DeclId)> {
+        self.map.remove_entry(name)
+    }
+}
+
+impl Deref for DeclNameMap {
+    type Target = HashMap<Vec<u8>, DeclId>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.map
+    }
+}
+
+impl<'a> IntoIterator for &'a DeclNameMap {
+    type Item = (&'a Vec<u8>, &'a DeclId);
+    type IntoIter = std::collections::hash_map::Iter<'a, Vec<u8>, DeclId>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.map.iter()
+    }
+}
+
+impl IntoIterator for DeclNameMap {
+    type Item = (Vec<u8>, DeclId);
+    type IntoIter = std::collections::hash_map::IntoIter<Vec<u8>, DeclId>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.map.into_iter()
+    }
+}
+
+impl Extend<(Vec<u8>, DeclId)> for DeclNameMap {
+    fn extend<I: IntoIterator<Item = (Vec<u8>, DeclId)>>(&mut self, iter: I) {
+        for (name, decl_id) in iter {
+            self.insert(name, decl_id);
+        }
+    }
+}
+
+impl FromIterator<(Vec<u8>, DeclId)> for DeclNameMap {
+    fn from_iter<I: IntoIterator<Item = (Vec<u8>, DeclId)>>(iter: I) -> Self {
+        let mut map = Self::default();
+        map.extend(iter);
+        map
+    }
+}
 
 pub static DEFAULT_OVERLAY_NAME: &str = "zero";
 
@@ -103,8 +189,13 @@ pub struct VisibilityStack<'a> {
 
 impl<'a> VisibilityStack<'a> {
     /// Add the visibility of the next (outer) frame. Frames pushed earlier take precedence.
+    ///
+    /// A frame that hides nothing can never answer a lookup, so it is not recorded; this keeps
+    /// the common lookup (no hidden declarations anywhere) free of allocation.
     pub fn push(&mut self, visibility: &'a Visibility) {
-        self.layers.push(visibility);
+        if !visibility.decl_ids.is_empty() {
+            self.layers.push(visibility);
+        }
     }
 
     /// Whether `decl_id` is visible given the frames pushed so far.
@@ -134,7 +225,7 @@ pub struct ScopeFrame {
     pub removed_overlays: Vec<Vec<u8>>,
 
     /// temporary storage for predeclarations
-    pub predecls: HashMap<Vec<u8>, DeclId>,
+    pub predecls: DeclNameMap,
 }
 
 impl ScopeFrame {
@@ -143,7 +234,7 @@ impl ScopeFrame {
             overlays: vec![],
             active_overlays: vec![],
             removed_overlays: vec![],
-            predecls: HashMap::new(),
+            predecls: DeclNameMap::new(),
         }
     }
 
@@ -152,7 +243,7 @@ impl ScopeFrame {
             overlays: vec![(name, OverlayFrame::from_origin(origin, prefixed))],
             active_overlays: vec![OverlayId::new(0)],
             removed_overlays: vec![],
-            predecls: HashMap::new(),
+            predecls: DeclNameMap::new(),
         }
     }
 
@@ -198,9 +289,23 @@ impl ScopeFrame {
     where
         'b: 'a,
     {
-        self.active_overlay_ids(removed_overlays)
-            .into_iter()
-            .map(|id| self.get_overlay(id))
+        // Same filtering as `active_overlay_ids`, but iterated lazily: this runs for every scope
+        // frame on every declaration or variable lookup, so it must not allocate.
+        for name in &self.removed_overlays {
+            if !removed_overlays.contains(name) {
+                removed_overlays.push(name.clone());
+            }
+        }
+        let removed_overlays: &'a Vec<Vec<u8>> = removed_overlays;
+
+        self.active_overlays
+            .iter()
+            .filter(move |id| {
+                !removed_overlays
+                    .iter()
+                    .any(|name| name == self.get_overlay_name(**id))
+            })
+            .map(|id| self.get_overlay(*id))
     }
 
     pub fn active_overlay_names(&self, removed_overlays: &mut Vec<Vec<u8>>) -> Vec<&[u8]> {
@@ -253,8 +358,8 @@ impl ScopeFrame {
 #[derive(Debug, Clone)]
 pub struct OverlayFrame {
     pub vars: HashMap<Vec<u8>, VarId>,
-    pub predecls: HashMap<Vec<u8>, DeclId>, // temporary storage for predeclarations
-    pub decls: HashMap<Vec<u8>, DeclId>,
+    pub predecls: DeclNameMap, // temporary storage for predeclarations
+    pub decls: DeclNameMap,
     pub modules: HashMap<Vec<u8>, ModuleId>,
     pub shadowed_vars: Vec<VarId>,
     pub visibility: Visibility,
@@ -266,8 +371,8 @@ impl OverlayFrame {
     pub fn from_origin(origin: ModuleId, prefixed: bool) -> Self {
         Self {
             vars: HashMap::new(),
-            predecls: HashMap::new(),
-            decls: HashMap::new(),
+            predecls: DeclNameMap::new(),
+            decls: DeclNameMap::new(),
             modules: HashMap::new(),
             shadowed_vars: Vec::new(),
             visibility: Visibility::new(),
