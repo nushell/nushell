@@ -27,11 +27,21 @@ impl Command for UpdateCells {
                 "List of columns to update.",
                 Some('c'),
             )
+            .switch(
+                "recursive",
+                "Descend into nested records and lists, running the closure on every leaf value.",
+                Some('r'),
+            )
             .category(Category::Filters)
     }
 
     fn description(&self) -> &str {
         "Update the table cells."
+    }
+
+    fn extra_description(&self) -> &str {
+        "By default the closure runs once per cell, so a cell holding a record or list is passed to the closure whole.
+With `--recursive`, nested records and lists are descended into instead and the closure runs on each leaf value inside them."
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -89,6 +99,17 @@ impl Command for UpdateCells {
                     "c" => Value::test_int(13),
                 })),
             },
+            Example {
+                example: "{a: 1, b: {c: 2, d: [3, 4]}} | update cells --recursive { $in * 10 }",
+                description: "Update every leaf value in a nested record.",
+                result: Some(Value::test_record(record! {
+                    "a" => Value::test_int(10),
+                    "b" => Value::test_record(record! {
+                        "c" => Value::test_int(20),
+                        "d" => Value::test_list(vec![Value::test_int(30), Value::test_int(40)]),
+                    }),
+                })),
+            },
         ]
     }
 
@@ -101,6 +122,7 @@ impl Command for UpdateCells {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let closure: Closure = call.req(engine_state, stack, 0)?;
+        let recursive = call.has_flag(engine_state, stack, "recursive")?;
         let columns: Option<Value> = call.get_flag(engine_state, stack, "columns")?;
         let columns: Option<HashSet<String>> = match columns {
             Some(val) => Some(
@@ -123,6 +145,7 @@ impl Command for UpdateCells {
                     &mut ClosureEval::new(engine_state, stack, closure),
                     span,
                     columns.as_ref(),
+                    recursive,
                 );
                 Ok(input)
             }
@@ -132,6 +155,7 @@ impl Command for UpdateCells {
                     iter: input.into_iter(),
                     closure: ClosureEval::new(engine_state, stack, closure),
                     columns,
+                    recursive,
                     span: head,
                 }
                 .into_pipeline_data(head, engine_state.signals().clone())
@@ -141,22 +165,42 @@ impl Command for UpdateCells {
     }
 }
 
+/// Run the closure on the cells of `record`, optionally restricted to `cols`.
+///
+/// The `--columns` filter only applies to the top level; with `recursive`
+/// every leaf below a selected column is visited.
 fn update_record(
     record: &mut Record,
     closure: &mut ClosureEval,
     span: Span,
     cols: Option<&HashSet<String>>,
+    recursive: bool,
 ) {
-    if let Some(columns) = cols {
-        for (col, val) in record.iter_mut() {
-            if columns.contains(col) {
-                *val = eval_value(closure, span, std::mem::take(val));
+    for (col, val) in record.iter_mut() {
+        if cols.is_none_or(|columns| columns.contains(col)) {
+            *val = update_cell(closure, span, std::mem::take(val), recursive);
+        }
+    }
+}
+
+/// Update a single cell: either run the closure on it directly, or (when `recursive`)
+/// descend through nested records and lists and run the closure on each leaf.
+fn update_cell(closure: &mut ClosureEval, span: Span, value: Value, recursive: bool) -> Value {
+    if !recursive {
+        return eval_value(closure, span, value);
+    }
+    match value {
+        Value::Record { mut val, .. } => {
+            update_record(val.to_mut(), closure, span, None, true);
+            Value::record(val.into_owned(), span)
+        }
+        Value::List { mut vals, .. } => {
+            for item in vals.to_mut() {
+                *item = update_cell(closure, span, std::mem::take(item), true);
             }
+            Value::list(vals.into_owned(), span)
         }
-    } else {
-        for (_, val) in record.iter_mut() {
-            *val = eval_value(closure, span, std::mem::take(val))
-        }
+        leaf => eval_value(closure, span, leaf),
     }
 }
 
@@ -164,6 +208,7 @@ struct UpdateCellIterator {
     iter: PipelineIterator,
     closure: ClosureEval,
     columns: Option<HashSet<String>>,
+    recursive: bool,
     span: Span,
 }
 
@@ -175,10 +220,16 @@ impl Iterator for UpdateCellIterator {
 
         let value = if let Value::Record { val, .. } = &mut value {
             let val = val.to_mut();
-            update_record(val, &mut self.closure, self.span, self.columns.as_ref());
+            update_record(
+                val,
+                &mut self.closure,
+                self.span,
+                self.columns.as_ref(),
+                self.recursive,
+            );
             value
         } else {
-            eval_value(&mut self.closure, self.span, value)
+            update_cell(&mut self.closure, self.span, value, self.recursive)
         };
 
         Some(value)
