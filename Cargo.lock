@@ -2454,9 +2454,9 @@ dependencies = [
 
 [[package]]
 name = "fff-grep"
-version = "0.10.6"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bca0bd4b73cde171bf11165944fe7104af88fb5fc761fb355a469f7e0b18f7aa"
+checksum = "d75a741baa9142c1cbe7df7948d93a809296cd3a28f5c117964a0048b4711258"
 dependencies = [
  "bstr",
  "memchr",
@@ -2478,15 +2478,15 @@ dependencies = [
 
 [[package]]
 name = "fff-query-parser"
-version = "0.10.6"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e7e476806b7e5999639b68970054c42d38d7fa430ea60118f67a05c0dd635fbd"
+checksum = "cc1aa71c8268c77b2b7d9982eeaa6aa42abb22eaaaa3b72b1b636946c72a8982"
 
 [[package]]
 name = "fff-search"
-version = "0.10.6"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4fbb4c71c1d716fa1ddf7efbb7f62f5ef5a439110a4029c7dc743e54fe1e0417"
+checksum = "a80ed5bdfa89cc81cb314374a4460da880d68e4c81d9574a587f28757a9c943e"
 dependencies = [
  "ahash",
  "aho-corasick",
@@ -4568,9 +4568,12 @@ dependencies = [
 
 [[package]]
 name = "neo_frizbee"
-version = "0.11.0"
+version = "0.13.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a2f6120a8da26bea3587731072111062c5d8c51ca3a3a75a716bd8b735d5882"
+checksum = "fb0dd0e69b342eaddb657120a21a56f3e887ddc505fac780cf430dbbbb3aed26"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "new_debug_unreachable"
