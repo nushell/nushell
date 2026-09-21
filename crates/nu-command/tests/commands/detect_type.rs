@@ -11,8 +11,11 @@ enum ExpectTo {
 #[case("1", ExpectTo::Drop)]
 #[case("01/02/2026", ExpectTo::Drop)]
 #[case("true", ExpectTo::Drop)]
+#[case("4hr 3min", ExpectTo::Drop)]
 #[case("truee", ExpectTo::Keep)]
 #[case("test", ExpectTo::Keep)]
+#[case("", ExpectTo::Keep)]
+#[case(" ", ExpectTo::Keep)]
 fn content_type_metadata(#[case] input: &str, #[case] expect_to: ExpectTo) -> Result {
     let in_meta = Some(
         PipelineMetadata::default()

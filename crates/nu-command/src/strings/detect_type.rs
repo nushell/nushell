@@ -1,3 +1,4 @@
+use crate::conversions::into::compound_to_duration;
 use chrono::{Local, TimeZone, Utc};
 use fancy_regex::{Regex, RegexBuilder};
 use nu_engine::command_prelude::*;
@@ -117,6 +118,11 @@ impl Command for DetectType {
                 result: Some(Value::test_date(
                     Local.with_ymd_and_hms(2025, 2, 1, 0, 0, 0).unwrap().into(),
                 )),
+            },
+            Example {
+                description: "Composite durations",
+                example: "'5ns' | detect type",
+                result: Some(Value::test_duration(5)),
             },
             Example {
                 description: "Unknown stays a string",
@@ -341,6 +347,8 @@ fn process(
         })?;
 
         Ok(Value::date(dt, span))
+    } else if let Ok(duration) = compound_to_duration(&val_str, span) {
+        Ok(duration)
     } else {
         // If we don't know what it is, just return whatever it was passed in as
         return Ok(val.into_pipeline_data_with_metadata(metadata));
