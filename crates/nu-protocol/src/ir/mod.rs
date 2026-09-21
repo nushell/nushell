@@ -293,21 +293,28 @@ pub enum Instruction {
         stream: RegId,
         end_index: usize,
     },
-    /// Push an error handler, without capturing the error value
+    /// Jump to an offset in this block, unwinding through `handlers` entries of the `try`
+    /// handler stack first. This is how `break` and `continue` leave `try` expressions: any
+    /// `finally` block among those handlers runs before the jump completes.
+    UnwindJump { index: usize, handlers: usize },
+    /// Push a `catch` handler, without capturing the error value
     OnError { index: usize },
-    /// Push an error handler, capturing the error value into `dst`. If the error handler is not
+    /// Push a `catch` handler, capturing the error value into `dst`. If the error handler is not
     /// called, the register should be freed manually.
     OnErrorInto { index: usize, dst: RegId },
-    /// Push an finally handler, without capturing the error value
-    Finally { index: usize },
-    /// Push an finally handler, capturing the error value into `dst`. If the finally handler is not
-    /// called, the register should be freed manually.
+    /// Push a `finally` handler, capturing the error value into `dst`. If the handler is entered
+    /// for any other reason than an error, `dst` is set to empty instead.
     FinallyInto { index: usize, dst: RegId },
-    /// Pop an error handler. This is not necessary when control flow is directed to the error
+    /// Pop a `catch` handler. This is not necessary when control flow is directed to the error
     /// handler due to an error.
     PopErrorHandler,
-    /// Pop an finally handler.
-    PopFinallyRun,
+    /// Mark the `finally` handler on top of the handler stack as running, on the way into its
+    /// block from the `try`/`catch` fall-through path. The unwinder does this itself when it
+    /// enters a `finally` block, so `index` of `finally` points just past this instruction.
+    BeginFinally,
+    /// Leave a `finally` block: pops its running marker and, if the block was entered by
+    /// unwinding (an error, `return`, `exit`, `break`, or `continue`), resumes that unwinding.
+    EndFinally,
     /// Return early from the block with the value in the register.
     ///
     /// Unlike `return`, this runs pending `finally` handlers first (collecting the value in that
@@ -381,17 +388,18 @@ impl Instruction {
             Instruction::UpsertCellPath { src_dst, .. } => Some(src_dst),
             Instruction::UpdateVarCellPath { .. } => None,
             Instruction::Jump { .. } => None,
+            Instruction::UnwindJump { .. } => None,
             Instruction::BranchIf { .. } => None,
             Instruction::BranchIfEmpty { .. } => None,
             Instruction::Match { .. } => None,
             Instruction::CheckMatchGuard { .. } => None,
             Instruction::Iterate { dst, .. } => Some(dst),
             Instruction::OnError { .. } => None,
-            Instruction::Finally { .. } => None,
             Instruction::OnErrorInto { .. } => None,
             Instruction::FinallyInto { .. } => None,
             Instruction::PopErrorHandler => None,
-            Instruction::PopFinallyRun => None,
+            Instruction::BeginFinally => None,
+            Instruction::EndFinally => None,
             Instruction::ReturnEarly { .. } => None,
             Instruction::Return { .. } => None,
         }
@@ -401,6 +409,7 @@ impl Instruction {
     pub fn branch_target(&self) -> Option<usize> {
         match self {
             Instruction::Jump { index } => Some(*index),
+            Instruction::UnwindJump { index, handlers: _ } => Some(*index),
             Instruction::BranchIf { cond: _, index } => Some(*index),
             Instruction::BranchIfEmpty { src: _, index } => Some(*index),
             Instruction::Match {
@@ -416,7 +425,6 @@ impl Instruction {
             } => Some(*end_index),
             Instruction::OnError { index } => Some(*index),
             Instruction::OnErrorInto { index, dst: _ } => Some(*index),
-            Instruction::Finally { index } => Some(*index),
             Instruction::FinallyInto { index, dst: _ } => Some(*index),
             _ => None,
         }
@@ -428,6 +436,7 @@ impl Instruction {
     pub fn set_branch_target(&mut self, target_index: usize) -> Result<(), usize> {
         match self {
             Instruction::Jump { index } => *index = target_index,
+            Instruction::UnwindJump { index, handlers: _ } => *index = target_index,
             Instruction::BranchIf { cond: _, index } => *index = target_index,
             Instruction::BranchIfEmpty { src: _, index } => *index = target_index,
             Instruction::Match {
@@ -443,7 +452,6 @@ impl Instruction {
             } => *end_index = target_index,
             Instruction::OnError { index } => *index = target_index,
             Instruction::OnErrorInto { index, dst: _ } => *index = target_index,
-            Instruction::Finally { index } => *index = target_index,
             Instruction::FinallyInto { index, dst: _ } => *index = target_index,
             _ => return Err(target_index),
         }
@@ -457,9 +465,9 @@ impl Instruction {
         span: &Span,
     ) -> Result<(), ShellError> {
         match self {
-            Instruction::Jump { .. } | Instruction::Return { .. } => {
-                engine_state.signals().check(span)
-            }
+            Instruction::Jump { .. }
+            | Instruction::UnwindJump { .. }
+            | Instruction::Return { .. } => engine_state.signals().check(span),
             _ => Ok(()),
         }
     }
