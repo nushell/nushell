@@ -3751,6 +3751,63 @@ fn conditional_branch_types(#[case] code: &str, #[case] expected_tys: &[Type]) {
     assert_eq!(out_ty, expected_ty);
 }
 
+#[rstest]
+#[case::malformed_table("[a b c; [1 2 3]]")]
+#[case::between_items("[1; 2]")]
+#[case::before_newline("[1;\n2]")]
+#[case::before_variable("[1; $undefined]")]
+#[case::leading("[;1]")]
+#[case::trailing("[1;]")]
+#[case::empty("[;]")]
+#[case::repeated("[1;; 2]")]
+#[case::nested_list("[[1; 2]]")]
+#[case::external_argument("^foo [1; 2]")]
+#[case::table_header("[[a; b]; [1]]")]
+#[case::table_row("[[a b]; [1 2; 3 4]]")]
+#[case::table_without_rows("[[a b];]")]
+fn reject_invalid_list_semicolons(#[case] source: &str) {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let _ = parse(&mut working_set, None, source.as_bytes(), false);
+
+    let error = working_set
+        .parse_errors
+        .first()
+        .expect("a semicolon in a list must produce a parse error");
+    assert!(
+        matches!(error, ParseError::LabeledErrorWithHelp { error, .. }
+            if error == "Unexpected semicolon in list"),
+        "unexpected diagnostic: {error:?}"
+    );
+    assert_eq!(working_set.get_span_contents(error.span()), b";");
+}
+
+#[rstest]
+#[case::double_quoted(r#"["a;b" 2]"#)]
+#[case::single_quoted("['a;b' 2]")]
+#[case::backtick_quoted("[`a;b` 2]")]
+#[case::raw_string("[r#'a;b'# 2]")]
+#[case::interpolation(r#"[$"(1; 2)" 3]"#)]
+#[case::comment("[1 # ; ignored\n 2]")]
+#[case::subexpression("[(1; 2) 3]")]
+#[case::closure("[{1; 2} 3]")]
+#[case::nested_table("[[[a]; [1]] 2]")]
+#[case::table_separator("[[a]; [1]]")]
+#[case::table_quoted_header(r#"[["a;b"]; [1]]"#)]
+#[case::table_subexpression_cell("[[a]; [(1; 2)]]")]
+#[case::table_nested_table_cell("[[a]; [[[b]; [1]]]]")]
+fn accept_valid_list_semicolons(#[case] source: &str) {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let _ = parse(&mut working_set, None, source.as_bytes(), false);
+
+    assert!(
+        working_set.parse_errors.is_empty(),
+        "{:?}",
+        working_set.parse_errors
+    );
+}
+
 #[test]
 fn record_semicolon_gives_separator_help() {
     let engine_state = EngineState::new();
