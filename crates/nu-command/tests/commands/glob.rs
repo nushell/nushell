@@ -203,8 +203,8 @@ fn glob_relative_paths() -> Result {
             EmptyFile("file2"),
         ]);
 
-        let pattern = "subdir/nu*";
-        let abs_pattern = format!("{}/subdir/nu*", dirs.test().to_string_lossy());
+        let pattern = "subdir/*";
+        let abs_pattern = format!("{}/subdir/*", dirs.test().to_string_lossy());
 
         test()
             .cwd(dirs.test())
@@ -400,8 +400,8 @@ fn glob_dc_glob_relative_paths() -> Result {
             EmptyFile("file2"),
         ]);
 
-        let pattern = "subdir/nu*";
-        let abs_pattern = format!("{}/subdir/nu*", dirs.test().to_string_lossy());
+        let pattern = "subdir/*";
+        let abs_pattern = format!("{}/subdir/*", dirs.test().to_string_lossy());
 
         test()
             .cwd(dirs.test())
