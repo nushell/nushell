@@ -265,9 +265,14 @@ pub(crate) fn read_vendor_autoload_files(engine_state: &mut EngineState, stack: 
     vendor_dirs
         .iter()
         .chain(user_dirs.iter())
-        .for_each(|autoload_dir| {
+        .inspect(|autoload_dir| {
             info!("read_vendor_autoload_files: {}", autoload_dir.display());
-
+        })
+        // Autoload files are executable startup configuration. Keep this
+        // boundary defensive even if an upstream resolver regresses or a new
+        // source of autoload paths is added.
+        .filter(|autoload_dir| autoload_dir.is_absolute())
+        .for_each(|autoload_dir| {
             if autoload_dir.exists() {
                 // on a second levels files are lexicographically sorted by the string of the filename
                 let entries = read_and_sort_directory(autoload_dir);

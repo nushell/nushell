@@ -213,24 +213,33 @@ fn resolve_vendor_autoload_dirs(env: &impl EnvAccess) -> Vec<PathBuf> {
     {
         use std::os::unix::ffi::OsStrExt;
 
-        let data_dirs: OsString = env.var_os("XDG_DATA_DIRS").unwrap_or_else(|| {
-            option_env!("PREFIX").map_or_else(
-                || OsString::from("/usr/local/share/:/usr/share/"),
-                |prefix| {
-                    if prefix.ends_with("local") {
-                        OsString::from(format!("{prefix}/share"))
-                    } else {
-                        OsString::from(format!("{prefix}/local/share:{prefix}/share"))
-                    }
-                },
-            )
-        });
+        let data_dirs: OsString = env
+            .var_os("XDG_DATA_DIRS")
+            .filter(|v| !v.is_empty())
+            .unwrap_or_else(|| {
+                option_env!("PREFIX").map_or_else(
+                    || OsString::from("/usr/local/share/:/usr/share/"),
+                    |prefix| {
+                        if prefix.ends_with("local") {
+                            OsString::from(format!("{prefix}/share"))
+                        } else {
+                            OsString::from(format!("{prefix}/local/share:{prefix}/share"))
+                        }
+                    },
+                )
+            });
 
+        // The XDG Base Directory Specification requires every entry to be
+        // absolute. Ignore invalid entries rather than interpreting them
+        // relative to the current working directory.
+        //
         // Reverse so earlier XDG_DATA_DIRS entries load later and win.
         data_dirs
             .as_encoded_bytes()
             .split(|b| *b == b':')
-            .map(|split| into_autoload_path(PathBuf::from(std::ffi::OsStr::from_bytes(split))))
+            .map(|split| PathBuf::from(std::ffi::OsStr::from_bytes(split)))
+            .filter(|path| path.is_absolute())
+            .map(&into_autoload_path)
             .rev()
             .for_each(&mut append);
     }
@@ -245,8 +254,10 @@ fn resolve_vendor_autoload_dirs(env: &impl EnvAccess) -> Vec<PathBuf> {
     // Compile-time NU_VENDOR_AUTOLOAD_DIR: baked into the binary when `nu` is
     // built (e.g. distro packaging). Inserted before the data-home path so
     // packaged vendor scripts load early in the autoload order.
-    if let Some(path) = option_env!("NU_VENDOR_AUTOLOAD_DIR") {
-        append(PathBuf::from(path));
+    if let Some(path) = option_env!("NU_VENDOR_AUTOLOAD_DIR").map(PathBuf::from)
+        && path.is_absolute()
+    {
+        append(path);
     }
 
     if let Some(data_dir) = resolve_xdg_base(env, "XDG_DATA_HOME", |e| e.data_dir()) {
@@ -257,12 +268,15 @@ fn resolve_vendor_autoload_dirs(env: &impl EnvAccess) -> Vec<PathBuf> {
     // Inserted last so a user/admin can override compile-time and data-home
     // vendor dirs without rebuilding. Same path as compile-time is deduped by
     // `append`. Not the same source as `option_env!` above.
-    if let Some(path) = env.var_os("NU_VENDOR_AUTOLOAD_DIR")
-        && !path.is_empty()
+    if let Some(path) = env.var_os("NU_VENDOR_AUTOLOAD_DIR").map(PathBuf::from)
+        && path.is_absolute()
     {
-        append(PathBuf::from(path));
+        append(path);
     }
 
+    // Cover platform fallbacks (including Windows ProgramData), compile-time
+    // PREFIX defaults, and any future source before exposing these paths via $nu.
+    dirs.retain(|path| path.is_absolute());
     dirs
 }
 
@@ -495,6 +509,103 @@ mod tests {
             second_idx < first_idx,
             "expected reverse order, got: {:?}",
             dirs.vendor_autoload_dirs
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_vendor_autoload_ignores_invalid_xdg_data_dirs() {
+        let first = abs_path(&["first", "share"]);
+        let second = abs_path(&["second", "share"]);
+        let mut vars = HashMap::new();
+        vars.insert(
+            "XDG_DATA_DIRS".into(),
+            format!(
+                "relative:{}::./also-relative:{}:",
+                first.display(),
+                second.display()
+            ),
+        );
+        let env = test_env_with_platform(vars);
+        let (dirs, _) = resolve_paths(&env, &CliOverrides::default()).unwrap();
+
+        let first = first.join("nushell/vendor/autoload");
+        let second = second.join("nushell/vendor/autoload");
+        let mut expected = Vec::new();
+        #[cfg(target_os = "macos")]
+        expected.push(PathBuf::from(
+            "/Library/Application Support/nushell/vendor/autoload",
+        ));
+        expected.extend([second, first]);
+        if let Some(path) = option_env!("NU_VENDOR_AUTOLOAD_DIR").map(PathBuf::from)
+            && path.is_absolute()
+            && !expected.contains(&path)
+        {
+            expected.push(path);
+        }
+        let data_home_autoload =
+            abs_path(&["nu-config-test-data", "nushell", "vendor", "autoload"]);
+        if !expected.contains(&data_home_autoload) {
+            expected.push(data_home_autoload);
+        }
+        assert_eq!(dirs.vendor_autoload_dirs, expected);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_empty_xdg_data_dirs_uses_default() {
+        let unset = test_env_with_platform(HashMap::new());
+        let mut vars = HashMap::new();
+        vars.insert("XDG_DATA_DIRS".into(), String::new());
+        let empty = test_env_with_platform(vars);
+
+        let (unset_dirs, _) = resolve_paths(&unset, &CliOverrides::default()).unwrap();
+        let (empty_dirs, _) = resolve_paths(&empty, &CliOverrides::default()).unwrap();
+        assert_eq!(
+            empty_dirs.vendor_autoload_dirs,
+            unset_dirs.vendor_autoload_dirs
+        );
+    }
+
+    #[test]
+    fn test_vendor_autoload_requires_absolute_runtime_override() {
+        let mut vars = HashMap::new();
+        vars.insert("NU_VENDOR_AUTOLOAD_DIR".into(), "relative/autoload".into());
+        let env = test_env_with_platform(vars);
+        let (dirs, _) = resolve_paths(&env, &CliOverrides::default()).unwrap();
+        assert!(
+            !dirs
+                .vendor_autoload_dirs
+                .contains(&PathBuf::from("relative/autoload"))
+        );
+
+        let absolute = abs_path(&["vendor-autoload"]);
+        let mut vars = HashMap::new();
+        vars.insert(
+            "NU_VENDOR_AUTOLOAD_DIR".into(),
+            absolute.to_string_lossy().into_owned(),
+        );
+        let env = test_env_with_platform(vars);
+        let (dirs, _) = resolve_paths(&env, &CliOverrides::default()).unwrap();
+        assert!(dirs.vendor_autoload_dirs.contains(&absolute));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn test_relative_program_data_is_not_advertised() {
+        let mut vars = HashMap::new();
+        vars.insert("ProgramData".into(), ".".into());
+        let env = test_env_with_platform(vars);
+        let (dirs, _) = resolve_paths(&env, &CliOverrides::default()).unwrap();
+        assert!(
+            dirs.vendor_autoload_dirs
+                .iter()
+                .all(|path| path.is_absolute())
+        );
+        assert!(
+            !dirs
+                .vendor_autoload_dirs
+                .contains(&PathBuf::from("./nushell/vendor/autoload"))
         );
     }
 
