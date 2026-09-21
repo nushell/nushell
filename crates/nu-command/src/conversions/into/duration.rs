@@ -229,7 +229,7 @@ fn parse_string_duration(s: &str, span: Span) -> Result<Value, ShellError> {
     }
 }
 
-fn compound_to_duration(s: &str, span: Span) -> Result<Value, ShellError> {
+pub(crate) fn compound_to_duration(s: &str, span: Span) -> Result<Value, ShellError> {
     let mut parts = split_whitespace_indices(s, span)
         .map(|(substring, substring_span)| string_to_duration(substring, substring_span))
         .peekable();
