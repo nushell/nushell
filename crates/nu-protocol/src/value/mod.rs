@@ -2789,97 +2789,133 @@ impl PartialEq for Value {
     }
 }
 
+/// How many items of a list, and how many keys of a record, `Hash` covers.
+///
+/// Hashing a bounded prefix keeps hashing large values cheap. Values that differ only past the
+/// limit collide, and the equality check of the map they are stored in tells them apart.
+pub(crate) const HASH_ITEM_LIMIT: usize = 5;
+
+/// Hash an `f64` consistently with `f64 ==`, with `NaN` equal to itself.
+///
+/// `-0.0` is collapsed to `0.0`, and every `NaN` payload hashes as the canonical `f64::NAN`.
+pub(crate) fn hash_f64<H: Hasher>(val: f64, state: &mut H) {
+    let val = if val == 0.0 {
+        0.0
+    } else if val.is_nan() {
+        f64::NAN
+    } else {
+        val
+    };
+    val.to_bits().hash(state);
+}
+
+/// `Hash` follows [`Value::strict_eq`], not `==`.
+///
+/// `Value`'s [`PartialEq`] is Nushell's `==`: `1 == 1.0`, `"a" == glob "a"`, and floats compare
+/// with an epsilon. That relation is not an equivalence (`NaN != NaN`, epsilon equality is not
+/// transitive), so `Value` must never implement [`Eq`], and no hash can be consistent with it.
+/// Hashing instead follows the strict, per-variant identity that [`Value::strict_eq`] defines,
+/// which is what `uniq` and `group-by` need: an `int` and a `float` are different keys.
+///
+/// Spans are never hashed.
 impl Hash for Value {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        // Family tags (not enum discriminants) so Int/Float and String/Glob
-        // share a hash when PartialEq treats them as equal.
-        //
-        // Epsilon-tolerant float comparison cannot have a useful canonical
-        // hash: consecutive finite floats compare equal, so the relation
-        // connects the whole finite line. Hash uses IEEE equality after
-        // collapsing -0.0. Value does not implement Eq.
-        #[derive(Hash)]
-        enum Family {
-            Bool,
-            Number,
-            Text,
-            Filesize,
-            Duration,
-            Date,
-            Range,
-            Record,
-            List,
-            Closure,
-            Error,
-            Binary,
-            CellPath,
-            Custom,
-            Nothing,
-        }
-
+        std::mem::discriminant(self).hash(state);
         match self {
-            Value::Bool { val, .. } => {
-                Family::Bool.hash(state);
+            Value::Bool { val, .. } => val.hash(state),
+            Value::Int { val, .. } => val.hash(state),
+            Value::Float { val, .. } => hash_f64(*val, state),
+            Value::String { val, .. } => val.hash(state),
+            Value::Glob { val, no_expand, .. } => {
                 val.hash(state);
+                no_expand.hash(state);
             }
-            Value::Int { val, .. } => {
-                Family::Number.hash(state);
-                range::hash_f64_eq(*val as f64, state);
-            }
-            Value::Float { val, .. } => {
-                Family::Number.hash(state);
-                range::hash_f64_eq(*val, state);
-            }
-            Value::String { val, .. } | Value::Glob { val, .. } => {
-                Family::Text.hash(state);
-                val.hash(state);
-            }
-            Value::Filesize { val, .. } => {
-                Family::Filesize.hash(state);
-                val.hash(state);
-            }
-            Value::Duration { val, .. } => {
-                Family::Duration.hash(state);
-                val.hash(state);
-            }
-            Value::Date { val, .. } => {
-                Family::Date.hash(state);
-                val.hash(state);
-            }
-            Value::Range { val, .. } => {
-                Family::Range.hash(state);
-                val.hash(state);
-            }
-            Value::Record { val, .. } => {
-                Family::Record.hash(state);
-                val.hash(state);
-            }
+            Value::Filesize { val, .. } => val.hash(state),
+            Value::Duration { val, .. } => val.hash(state),
+            // chrono hashes the UTC instant, so the offset does not matter, matching its `==`.
+            Value::Date { val, .. } => val.hash(state),
+            Value::Range { val, .. } => val.hash(state),
+            Value::Record { val, .. } => val.hash(state),
             Value::List { vals, .. } => {
-                Family::List.hash(state);
-                vals.hash(state);
+                vals.len().hash(state);
+                for val in vals.iter().take(HASH_ITEM_LIMIT) {
+                    val.hash(state);
+                }
             }
-            Value::Closure { val, .. } => {
-                Family::Closure.hash(state);
-                val.hash(state);
+            Value::Closure { val, .. } => val.hash(state),
+            // `ShellError` has no `Hash`; all errors share one bucket.
+            Value::Error { .. } => {}
+            Value::Binary { val, .. } => val.hash(state),
+            Value::CellPath { val, .. } => val.hash(state),
+            Value::Custom { val, .. } => val.hash_value(state),
+            Value::Nothing { .. } => {}
+        }
+    }
+}
+
+impl Value {
+    /// Strict equality: the same variant with the same payload, ignoring spans.
+    ///
+    /// This is the relation that [`Hash`] is consistent with, so a newtype around `Value` can
+    /// implement [`Eq`] with it and serve as a map key. It is narrower than `==`, which is
+    /// Nushell's operator: `1 == 1.0` and `"a" == glob "a"` hold there but not here, the same way
+    /// `uniq` keeps an `int` and a `float` apart. Floats compare with IEEE `==` except that `NaN`
+    /// equals `NaN`, which keeps the relation reflexive. Records ignore key order. Closures
+    /// compare `block_id` and captures. Custom values defer to their own `partial_cmp`.
+    pub fn strict_eq(&self, other: &Value) -> bool {
+        match (self, other) {
+            (Value::Bool { val: lhs, .. }, Value::Bool { val: rhs, .. }) => lhs == rhs,
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => lhs == rhs,
+            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                lhs == rhs || (lhs.is_nan() && rhs.is_nan())
             }
-            Value::Error { .. } => {
-                Family::Error.hash(state);
+            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => lhs == rhs,
+            (
+                Value::Glob {
+                    val: lhs,
+                    no_expand: lhs_no_expand,
+                    ..
+                },
+                Value::Glob {
+                    val: rhs,
+                    no_expand: rhs_no_expand,
+                    ..
+                },
+            ) => lhs == rhs && lhs_no_expand == rhs_no_expand,
+            (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => lhs == rhs,
+            (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => lhs == rhs,
+            (Value::Date { val: lhs, .. }, Value::Date { val: rhs, .. }) => lhs == rhs,
+            (Value::Range { val: lhs, .. }, Value::Range { val: rhs, .. }) => {
+                match (**lhs, **rhs) {
+                    (Range::IntRange(lhs), Range::IntRange(rhs)) => lhs == rhs,
+                    (Range::FloatRange(lhs), Range::FloatRange(rhs)) => lhs == rhs,
+                    _ => false,
+                }
             }
-            Value::Binary { val, .. } => {
-                Family::Binary.hash(state);
-                val.hash(state);
+            (Value::Record { val: lhs, .. }, Value::Record { val: rhs, .. }) => {
+                lhs.len() == rhs.len()
+                    && lhs
+                        .iter()
+                        .all(|(key, lhs)| rhs.get(key).is_some_and(|rhs| lhs.strict_eq(rhs)))
             }
-            Value::CellPath { val, .. } => {
-                Family::CellPath.hash(state);
-                val.hash(state);
+            (Value::List { vals: lhs, .. }, Value::List { vals: rhs, .. }) => {
+                lhs.len() == rhs.len() && lhs.iter().zip(rhs).all(|(lhs, rhs)| lhs.strict_eq(rhs))
             }
-            Value::Custom { val, .. } => {
-                Family::Custom.hash(state);
-                val.hash_value(state);
+            (Value::Closure { val: lhs, .. }, Value::Closure { val: rhs, .. }) => {
+                lhs.block_id == rhs.block_id
+                    && lhs.captures.len() == rhs.captures.len()
+                    && lhs.captures.iter().zip(&rhs.captures).all(
+                        |((lhs_var, lhs), (rhs_var, rhs))| lhs_var == rhs_var && lhs.strict_eq(rhs),
+                    )
             }
-            Value::Nothing { .. } => {
-                Family::Nothing.hash(state);
+            (Value::Error { error: lhs, .. }, Value::Error { error: rhs, .. }) => lhs == rhs,
+            (Value::Binary { val: lhs, .. }, Value::Binary { val: rhs, .. }) => lhs == rhs,
+            (Value::CellPath { val: lhs, .. }, Value::CellPath { val: rhs, .. }) => lhs == rhs,
+            (Value::Custom { val: lhs, .. }, Value::Custom { .. }) => {
+                lhs.partial_cmp(other).is_some_and(Ordering::is_eq)
             }
+            (Value::Nothing { .. }, Value::Nothing { .. }) => true,
+            _ => false,
         }
     }
 }
@@ -5924,6 +5960,7 @@ mod tests {
         use super::*;
         use crate::ast::{CellPath, PathMember};
         use crate::engine::Closure;
+        use crate::value::HASH_ITEM_LIMIT;
         use crate::{
             BlockId, CustomValue, Filesize, Range, ShellError, Span, VarId, casing::Casing,
         };
@@ -5941,9 +5978,24 @@ mod tests {
             hasher.finish()
         }
 
-        fn assert_eq_implies_same_hash(a: &Value, b: &Value) {
-            assert_eq!(a, b);
+        /// The contract `Hash` must uphold: strictly equal values hash equally.
+        fn assert_strict_eq_same_hash(a: &Value, b: &Value) {
+            assert!(a.strict_eq(b), "{a:?} should strict_eq {b:?}");
+            assert!(b.strict_eq(a), "{b:?} should strict_eq {a:?}");
             assert_eq!(hash_value(a), hash_value(b));
+        }
+
+        fn assert_strict_ne(a: &Value, b: &Value) {
+            assert!(!a.strict_eq(b), "{a:?} should not strict_eq {b:?}");
+            assert!(!b.strict_eq(a), "{b:?} should not strict_eq {a:?}");
+        }
+
+        fn wide_record(keys: impl IntoIterator<Item = &'static str>) -> Value {
+            Value::test_record(
+                keys.into_iter()
+                    .map(|key| (key.to_string(), Value::test_string(key)))
+                    .collect(),
+            )
         }
 
         #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5994,26 +6046,20 @@ mod tests {
 
         #[test]
         fn same_value_same_hash() {
-            assert_eq!(
-                hash_value(&Value::test_int(1)),
-                hash_value(&Value::test_int(1))
-            );
-            assert_eq!(
-                hash_value(&Value::test_string("hello")),
-                hash_value(&Value::test_string("hello"))
-            );
-            assert_eq!(
-                hash_value(&Value::test_bool(true)),
-                hash_value(&Value::test_bool(true))
-            );
+            assert_strict_eq_same_hash(&Value::test_int(1), &Value::test_int(1));
+            assert_strict_eq_same_hash(&Value::test_string("hello"), &Value::test_string("hello"));
+            assert_strict_eq_same_hash(&Value::test_bool(true), &Value::test_bool(true));
+            assert_strict_eq_same_hash(&Value::test_nothing(), &Value::test_nothing());
         }
 
         #[test]
         fn different_values_different_hash() {
+            assert_strict_ne(&Value::test_int(1), &Value::test_int(2));
             assert_ne!(
                 hash_value(&Value::test_int(1)),
                 hash_value(&Value::test_int(2))
             );
+            assert_strict_ne(&Value::test_string("a"), &Value::test_string("b"));
             assert_ne!(
                 hash_value(&Value::test_string("a")),
                 hash_value(&Value::test_string("b"))
@@ -6021,7 +6067,8 @@ mod tests {
         }
 
         #[test]
-        fn bool_and_string_true_are_different() {
+        fn bool_and_string_true_are_distinct() {
+            assert_strict_ne(&Value::test_bool(true), &Value::test_string("true"));
             assert_ne!(
                 hash_value(&Value::test_bool(true)),
                 hash_value(&Value::test_string("true"))
@@ -6029,60 +6076,91 @@ mod tests {
         }
 
         #[test]
-        fn nothing_and_empty_string_are_different() {
+        fn nothing_and_empty_string_are_distinct() {
+            assert_strict_ne(&Value::test_nothing(), &Value::test_string(""));
             assert_ne!(
-                hash_value(&Value::nothing(Span::test_data())),
+                hash_value(&Value::test_nothing()),
                 hash_value(&Value::test_string(""))
             );
         }
 
         #[test]
-        fn int_and_float_with_same_value_hash_equal() {
-            assert_eq_implies_same_hash(&Value::test_int(1), &Value::test_float(1.0));
+        fn int_and_float_are_distinct() {
+            let int = Value::test_int(1);
+            let float = Value::test_float(1.0);
+            // `==` is Nushell's loose comparison; strict identity keeps the types apart.
+            assert_eq!(int, float);
+            assert_strict_ne(&int, &float);
+            assert_ne!(hash_value(&int), hash_value(&float));
         }
 
         #[test]
-        fn string_and_glob_with_same_text_hash_equal() {
+        fn string_and_glob_are_distinct() {
             let string = Value::test_string("*.txt");
             let glob = Value::glob("*.txt", false, Span::test_data());
-            assert_eq_implies_same_hash(&string, &glob);
+            assert_eq!(string, glob);
+            assert_strict_ne(&string, &glob);
+            assert_ne!(hash_value(&string), hash_value(&glob));
         }
 
         #[test]
-        fn glob_no_expand_does_not_affect_hash() {
+        fn glob_no_expand_is_part_of_identity() {
             let expand = Value::glob("*.txt", false, Span::test_data());
             let no_expand = Value::glob("*.txt", true, Span::test_data());
-            assert_eq_implies_same_hash(&expand, &no_expand);
+            assert_eq!(expand, no_expand);
+            assert_strict_ne(&expand, &no_expand);
+            assert_strict_eq_same_hash(&expand, &expand.clone());
         }
 
         #[test]
-        fn float_zero_and_negative_zero_hash_equal() {
-            assert_eq_implies_same_hash(&Value::test_float(0.0), &Value::test_float(-0.0));
+        fn float_zero_and_negative_zero_are_equal() {
+            assert_strict_eq_same_hash(&Value::test_float(0.0), &Value::test_float(-0.0));
+        }
+
+        #[test]
+        fn float_nan_equals_nan() {
+            let nan = Value::test_float(f64::NAN);
+            let same_nan = nan.clone();
+            let other_payload = Value::test_float(f64::from_bits(f64::NAN.to_bits() | 1));
+            assert_ne!(nan, same_nan, "Nushell `==` keeps IEEE NaN semantics");
+            assert_strict_eq_same_hash(&nan, &same_nan);
+            assert_strict_eq_same_hash(&nan, &other_payload);
+            assert_strict_ne(&nan, &Value::test_float(1.0));
         }
 
         #[test]
         fn float_infinities_hash_by_sign() {
             let pos = Value::test_float(f64::INFINITY);
             let neg = Value::test_float(f64::NEG_INFINITY);
-            assert_eq_implies_same_hash(&pos, &pos);
+            assert_strict_eq_same_hash(&pos, &pos);
+            assert_strict_ne(&pos, &neg);
             assert_ne!(hash_value(&pos), hash_value(&neg));
         }
 
         #[test]
-        fn date_offset_does_not_affect_hash() {
-            let utc = chrono::DateTime::parse_from_rfc3339("2020-01-01T00:00:00.123456789Z")
-                .expect("rfc3339");
-            let east = utc.with_timezone(&FixedOffset::east_opt(3600).expect("offset"));
-            assert_eq_implies_same_hash(&Value::test_date(utc), &Value::test_date(east));
+        fn nearby_floats_are_distinct() {
+            // `==` uses an epsilon, strict identity does not.
+            let a = Value::test_float(1.0);
+            let b = Value::test_float(1.0 + f64::EPSILON);
+            assert_eq!(a, b);
+            assert_strict_ne(&a, &b);
         }
 
         #[test]
-        fn date_subseconds_affect_hash() {
+        fn date_offset_does_not_affect_identity() {
+            let utc = chrono::DateTime::parse_from_rfc3339("2020-01-01T00:00:00.123456789Z")
+                .expect("rfc3339");
+            let east = utc.with_timezone(&FixedOffset::east_opt(3600).expect("offset"));
+            assert_strict_eq_same_hash(&Value::test_date(utc), &Value::test_date(east));
+        }
+
+        #[test]
+        fn date_subseconds_affect_identity() {
             let a = chrono::DateTime::parse_from_rfc3339("2020-01-01T00:00:00.000000000Z")
                 .expect("rfc3339");
             let b = chrono::DateTime::parse_from_rfc3339("2020-01-01T00:00:00.000000001Z")
                 .expect("rfc3339");
-            assert_ne!(a, b);
+            assert_strict_ne(&Value::test_date(a), &Value::test_date(b));
             assert_ne!(
                 hash_value(&Value::test_date(a)),
                 hash_value(&Value::test_date(b))
@@ -6105,44 +6183,38 @@ mod tests {
                 }),
                 Span::test_data(),
             );
-            assert_eq_implies_same_hash(&a, &b);
+            let c = Value::custom(
+                Box::new(PrefixedCustom {
+                    version: 2,
+                    prefix: String::new(),
+                }),
+                Span::test_data(),
+            );
+            assert_eq!(a, b);
+            assert_strict_eq_same_hash(&a, &b);
+            assert_strict_ne(&a, &c);
         }
 
         #[test]
-        fn float_hash_uses_bits() {
-            assert_eq!(
-                hash_value(&Value::test_float(1.0)),
-                hash_value(&Value::test_float(1.0))
-            );
-            assert_ne!(
-                hash_value(&Value::test_float(1.0)),
-                hash_value(&Value::test_float(2.0))
-            );
-        }
-
-        #[test]
-        fn filesize_same_hash() {
+        fn filesize_identity() {
             let a = Value::filesize(Filesize::new(1000), Span::test_data());
             let b = Value::filesize(Filesize::new(1000), Span::test_data());
-            assert_eq!(hash_value(&a), hash_value(&b));
+            let c = Value::filesize(Filesize::new(2000), Span::test_data());
+            assert_strict_eq_same_hash(&a, &b);
+            assert_strict_ne(&a, &c);
+            assert_ne!(hash_value(&a), hash_value(&c));
         }
 
         #[test]
-        fn filesize_different_hash() {
-            let a = Value::filesize(Filesize::new(1000), Span::test_data());
-            let b = Value::filesize(Filesize::new(2000), Span::test_data());
-            assert_ne!(hash_value(&a), hash_value(&b));
-        }
-
-        #[test]
-        fn duration_same_hash() {
+        fn duration_identity() {
             let a = Value::duration(1_000_000, Span::test_data());
             let b = Value::duration(1_000_000, Span::test_data());
-            assert_eq!(hash_value(&a), hash_value(&b));
+            assert_strict_eq_same_hash(&a, &b);
+            assert_strict_ne(&a, &Value::duration(1, Span::test_data()));
         }
 
         #[test]
-        fn range_int_same_hash() {
+        fn range_int_identity() {
             let a = Value::range(
                 Range::new_int(1, Some(2), Some(Bound::Included(5))),
                 Span::test_data(),
@@ -6151,41 +6223,34 @@ mod tests {
                 Range::new_int(1, Some(2), Some(Bound::Included(5))),
                 Span::test_data(),
             );
-            assert_eq!(hash_value(&a), hash_value(&b));
-        }
-
-        #[test]
-        fn range_int_different_hash() {
-            let a = Value::range(
-                Range::new_int(1, Some(2), Some(Bound::Included(5))),
-                Span::test_data(),
-            );
-            let b = Value::range(
+            let c = Value::range(
                 Range::new_int(1, Some(3), Some(Bound::Included(5))),
                 Span::test_data(),
             );
-            assert_ne!(hash_value(&a), hash_value(&b));
+            assert_strict_eq_same_hash(&a, &b);
+            assert_strict_ne(&a, &c);
+            assert_ne!(hash_value(&a), hash_value(&c));
         }
 
         #[test]
-        fn range_int_and_float_same_hash() {
-            // IntRange and FloatRange that represent the same range must hash
-            // identically, because Range::PartialEq promotes IntRange to
-            // FloatRange for cross-type comparisons. Hashing them differently
-            // would violate the hash/equality contract.
-            let a = Value::range(
+        fn range_int_and_float_are_distinct() {
+            let int = Value::range(
                 Range::new_int(1, Some(2), Some(Bound::Included(3))),
                 Span::test_data(),
             );
-            let b = Value::range(
+            let float = Value::range(
                 Range::new_float(1.0, Some(2.0), Some(Bound::Included(3.0))),
                 Span::test_data(),
             );
-            assert_eq!(hash_value(&a), hash_value(&b));
+            // `Range::eq` promotes the int range, so `==` holds and `Hash` (which must agree
+            // with `Range: Eq`) collides. Strict identity still keeps the variants apart.
+            assert_eq!(int, float);
+            assert_eq!(hash_value(&int), hash_value(&float));
+            assert_strict_ne(&int, &float);
         }
 
         #[test]
-        fn range_negative_zero_hashes_equal() {
+        fn range_negative_zero_is_equal() {
             let a = Value::range(
                 Range::new_float(0.0, None, Some(Bound::Included(1.0))),
                 Span::test_data(),
@@ -6194,11 +6259,11 @@ mod tests {
                 Range::new_float(-0.0, None, Some(Bound::Included(1.0))),
                 Span::test_data(),
             );
-            assert_eq_implies_same_hash(&a, &b);
+            assert_strict_eq_same_hash(&a, &b);
         }
 
         #[test]
-        fn record_same_hash() {
+        fn record_identity() {
             let a = Value::test_record(record! {
                 "x" => Value::test_int(1),
                 "y" => Value::test_int(2),
@@ -6207,22 +6272,26 @@ mod tests {
                 "x" => Value::test_int(1),
                 "y" => Value::test_int(2),
             });
-            assert_eq!(hash_value(&a), hash_value(&b));
+            let other_key = Value::test_record(record! {
+                "x" => Value::test_int(1),
+                "z" => Value::test_int(2),
+            });
+            let other_value = Value::test_record(record! {
+                "x" => Value::test_int(1),
+                "y" => Value::test_float(2.0),
+            });
+            assert_strict_eq_same_hash(&a, &b);
+            assert_strict_ne(&a, &other_key);
+            assert_ne!(hash_value(&a), hash_value(&other_key));
+            assert_strict_ne(&a, &other_value);
+            assert_strict_ne(
+                &a,
+                &Value::test_record(record! { "x" => Value::test_int(1) }),
+            );
         }
 
         #[test]
-        fn record_different_keys_different_hash() {
-            let a = Value::test_record(record! {
-                "a" => Value::test_int(1),
-            });
-            let b = Value::test_record(record! {
-                "b" => Value::test_int(1),
-            });
-            assert_ne!(hash_value(&a), hash_value(&b));
-        }
-
-        #[test]
-        fn record_key_order_does_not_affect_hash() {
+        fn record_key_order_does_not_affect_identity() {
             let a = Value::test_record(record! {
                 "a" => Value::test_int(1),
                 "b" => Value::test_int(2),
@@ -6231,149 +6300,133 @@ mod tests {
                 "b" => Value::test_int(2),
                 "a" => Value::test_int(1),
             });
-            // Record PartialOrd sorts columns before comparing, so these are
-            // equal. Hash must match.
-            assert_eq!(hash_value(&a), hash_value(&b));
+            assert_strict_eq_same_hash(&a, &b);
         }
 
         #[test]
-        fn list_same_hash() {
+        fn wide_record_key_order_does_not_affect_identity() {
+            let keys = ["g", "f", "e", "d", "c", "b", "a"];
+            assert!(keys.len() > HASH_ITEM_LIMIT);
+            let a = wide_record(keys);
+            let b = wide_record(keys.into_iter().rev());
+            assert_strict_eq_same_hash(&a, &b);
+        }
+
+        #[test]
+        fn wide_records_differing_past_hash_limit_are_distinct() {
+            // Only the smallest `HASH_ITEM_LIMIT` keys are hashed; equality still sees the rest.
+            let a = wide_record(["a", "b", "c", "d", "e", "f", "g"]);
+            let b = wide_record(["a", "b", "c", "d", "e", "f", "h"]);
+            assert_strict_ne(&a, &b);
+        }
+
+        #[test]
+        fn list_identity() {
             let a = Value::test_list(vec![Value::test_int(1), Value::test_int(2)]);
             let b = Value::test_list(vec![Value::test_int(1), Value::test_int(2)]);
-            assert_eq!(hash_value(&a), hash_value(&b));
+            let c = Value::test_list(vec![Value::test_int(1), Value::test_int(3)]);
+            let d = Value::test_list(vec![Value::test_int(1), Value::test_float(2.0)]);
+            assert_strict_eq_same_hash(&a, &b);
+            assert_strict_ne(&a, &c);
+            assert_ne!(hash_value(&a), hash_value(&c));
+            assert_strict_ne(&a, &d);
+            assert_strict_ne(&a, &Value::test_list(vec![Value::test_int(1)]));
         }
 
         #[test]
-        fn list_different_hash() {
-            let a = Value::test_list(vec![Value::test_int(1), Value::test_int(2)]);
-            let b = Value::test_list(vec![Value::test_int(1), Value::test_int(3)]);
-            assert_ne!(hash_value(&a), hash_value(&b));
+        fn long_lists_differing_past_hash_limit_are_distinct() {
+            let list = |changed: i64| {
+                Value::test_list(
+                    (0..10)
+                        .map(|i| {
+                            Value::test_int(if i == HASH_ITEM_LIMIT as i64 + 1 {
+                                changed
+                            } else {
+                                i
+                            })
+                        })
+                        .collect(),
+                )
+            };
+            assert_strict_eq_same_hash(&list(6), &list(6));
+            assert_strict_ne(&list(6), &list(-1));
         }
 
         #[test]
-        fn cell_path_same_hash() {
-            let a = Value::cell_path(
-                CellPath {
-                    members: vec![PathMember::test_string("a", false, Casing::Sensitive)],
-                },
-                Span::test_data(),
+        fn cell_path_identity() {
+            let path = |optional: bool, casing: Casing| {
+                Value::cell_path(
+                    CellPath {
+                        members: vec![PathMember::test_string("a", optional, casing)],
+                    },
+                    Span::test_data(),
+                )
+            };
+            assert_strict_eq_same_hash(
+                &path(false, Casing::Sensitive),
+                &path(false, Casing::Sensitive),
             );
-            let b = Value::cell_path(
-                CellPath {
-                    members: vec![PathMember::test_string("a", false, Casing::Sensitive)],
-                },
-                Span::test_data(),
+            assert_strict_ne(
+                &path(false, Casing::Sensitive),
+                &path(true, Casing::Sensitive),
             );
-            assert_eq!(hash_value(&a), hash_value(&b));
+            // `a` and `a!` are different paths.
+            assert_strict_ne(
+                &path(false, Casing::Sensitive),
+                &path(false, Casing::Insensitive),
+            );
+            assert_ne!(
+                path(false, Casing::Sensitive),
+                path(false, Casing::Insensitive)
+            );
         }
 
         #[test]
-        fn cell_path_ignores_casing_in_hash() {
-            let a = Value::cell_path(
-                CellPath {
-                    members: vec![PathMember::test_string("a", false, Casing::Sensitive)],
-                },
-                Span::test_data(),
-            );
-            let b = Value::cell_path(
-                CellPath {
-                    members: vec![PathMember::test_string("a", false, Casing::Insensitive)],
-                },
-                Span::test_data(),
-            );
-            assert_eq!(hash_value(&a), hash_value(&b));
+        fn closure_identity() {
+            let closure = |block: usize, captured: i64| {
+                Value::closure(
+                    Closure {
+                        block_id: BlockId::new(block),
+                        captures: vec![(VarId::new(0), Value::test_int(captured))],
+                    },
+                    Span::test_data(),
+                )
+            };
+            assert_strict_eq_same_hash(&closure(0, 1), &closure(0, 1));
+            assert_strict_ne(&closure(0, 1), &closure(1, 1));
+            assert_ne!(hash_value(&closure(0, 1)), hash_value(&closure(1, 1)));
+            // `==` compares closures by block only; strict identity also compares captures.
+            assert_eq!(closure(0, 1), closure(0, 2));
+            assert_strict_ne(&closure(0, 1), &closure(0, 2));
         }
 
         #[test]
-        fn glob_same_hash() {
-            let a = Value::glob("*.txt", false, Span::test_data());
-            let b = Value::glob("*.txt", false, Span::test_data());
-            assert_eq!(hash_value(&a), hash_value(&b));
+        fn error_identity() {
+            let error = |to_type: &str| {
+                Value::error(
+                    ShellError::CantConvert {
+                        to_type: to_type.into(),
+                        from_type: "string".into(),
+                        span: Span::test_data(),
+                        help: None,
+                    },
+                    Span::test_data(),
+                )
+            };
+            assert_strict_eq_same_hash(&error("int"), &error("int"));
+            // `==` treats all errors as equal; strict identity compares the errors.
+            assert_eq!(error("int"), error("float"));
+            assert_strict_ne(&error("int"), &error("float"));
         }
 
         #[test]
-        fn glob_different_hash() {
-            let a = Value::glob("*.txt", false, Span::test_data());
-            let b = Value::glob("*.rs", false, Span::test_data());
-            assert_ne!(hash_value(&a), hash_value(&b));
-        }
-
-        #[test]
-        fn closures_different_block_ids_different_hash() {
-            let a = Value::closure(
-                Closure {
-                    block_id: BlockId::new(0),
-                    captures: vec![],
-                },
-                Span::test_data(),
-            );
-            let b = Value::closure(
-                Closure {
-                    block_id: BlockId::new(1),
-                    captures: vec![],
-                },
-                Span::test_data(),
-            );
-            assert_ne!(hash_value(&a), hash_value(&b));
-        }
-
-        #[test]
-        fn errors_all_have_same_hash() {
-            let a = Value::error(
-                ShellError::CantConvert {
-                    to_type: "int".into(),
-                    from_type: "string".into(),
-                    span: Span::test_data(),
-                    help: None,
-                },
-                Span::test_data(),
-            );
-            let b = Value::error(
-                ShellError::CantConvert {
-                    to_type: "float".into(),
-                    from_type: "bool".into(),
-                    span: Span::test_data(),
-                    help: Some("different error".into()),
-                },
-                Span::test_data(),
-            );
-            // PartialOrd considers all errors equal, so hash must match.
-            assert_eq!(hash_value(&a), hash_value(&b));
-        }
-
-        #[test]
-        fn closures_same_block_id_same_hash_regardless_of_captures() {
-            let a = Value::closure(
-                Closure {
-                    block_id: BlockId::new(0),
-                    captures: vec![(VarId::new(0), Value::test_int(1))],
-                },
-                Span::test_data(),
-            );
-            let b = Value::closure(
-                Closure {
-                    block_id: BlockId::new(0),
-                    captures: vec![(VarId::new(0), Value::test_int(2))],
-                },
-                Span::test_data(),
-            );
-            // PartialOrd compares closures by block_id only, so these are
-            // equal. Hash must match.
-            assert_eq!(hash_value(&a), hash_value(&b));
-        }
-
-        #[test]
-        fn binary_same_hash() {
+        fn binary_identity() {
             let a = Value::binary(vec![1, 2, 3], Span::test_data());
             let b = Value::binary(vec![1, 2, 3], Span::test_data());
-            assert_eq!(hash_value(&a), hash_value(&b));
-        }
-
-        #[test]
-        fn binary_different_hash() {
-            let a = Value::binary(vec![1, 2, 3], Span::test_data());
-            let b = Value::binary(vec![1, 2, 4], Span::test_data());
-            assert_ne!(hash_value(&a), hash_value(&b));
+            let c = Value::binary(vec![1, 2, 4], Span::test_data());
+            assert_strict_eq_same_hash(&a, &b);
+            assert_strict_ne(&a, &c);
+            assert_ne!(hash_value(&a), hash_value(&c));
         }
     }
 

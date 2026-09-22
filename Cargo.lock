@@ -5384,6 +5384,7 @@ dependencies = [
  "humantime",
  "indexmap 2.14.1",
  "indoc",
+ "itertools 0.15.0",
  "log",
  "lru",
  "memchr",

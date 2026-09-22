@@ -1,12 +1,10 @@
+use crate::{BlockId, ShellError, Span, Value, VarId, engine::EngineState};
+use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
     fmt::{self, Debug},
     hash::{Hash, Hasher},
 };
-
-use crate::{BlockId, ShellError, Span, Value, VarId, engine::EngineState};
-
-use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Closure {
@@ -31,9 +29,9 @@ impl Debug for Closure {
 }
 
 impl Hash for Closure {
+    /// Hashes `block_id` only. `Value::partial_cmp` compares closures by `block_id` alone, while
+    /// [`Value::strict_eq`] also compares captures; a hash that ignores captures agrees with both.
     fn hash<H: Hasher>(&self, state: &mut H) {
-        // Only hash block_id to match PartialOrd which compares closures by
-        // block_id alone. Including captures would violate the hash contract.
         self.block_id.hash(state);
     }
 }
