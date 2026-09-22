@@ -304,6 +304,25 @@ fn rm_wildcard_leading_dot_deletes_dotfiles() -> Result {
 }
 
 #[test]
+fn rm_leading_dot_glob_skips_current_and_parent_dirs() -> Result {
+    Playground::setup("rm_test_leading_dot_glob", |dirs, sandbox| {
+        sandbox
+            .within("parent")
+            .with_files(&[EmptyFile("keep.txt")])
+            .within("parent/child")
+            .with_files(&[EmptyFile(".hidden"), EmptyFile("visible.txt")]);
+
+        let () = test().cwd(dirs.test()).run("rm -r parent/child/.*")?;
+
+        let child = dirs.test().join("parent/child");
+        assert!(files_exist_at(&["keep.txt"], dirs.test().join("parent")));
+        assert!(files_exist_at(&["visible.txt"], &child));
+        assert!(!files_exist_at(&[".hidden"], &child));
+        Ok(())
+    })
+}
+
+#[test]
 fn removes_files_with_case_sensitive_glob_matches_by_default() -> Result {
     Playground::setup("glob_test", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("A0"), EmptyFile("a1")]);
