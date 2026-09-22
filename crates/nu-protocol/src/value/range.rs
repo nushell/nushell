@@ -11,12 +11,6 @@ use std::{
 };
 use winnow::Parser;
 
-/// Hash an `f64` consistently with `f64 ==` by collapsing `-0.0` to `0.0`.
-pub(crate) fn hash_f64_eq<H: Hasher>(val: f64, state: &mut H) {
-    let val = if val == 0.0 { 0.0 } else { val };
-    val.to_bits().hash(state);
-}
-
 mod int_range {
     use crate::{FromValue, ShellError, Signals, Span, Value, ast::RangeInclusion};
     use serde::{Deserialize, Serialize};
@@ -332,7 +326,9 @@ mod int_range {
 }
 
 mod float_range {
-    use crate::{IntRange, Range, ShellError, Signals, Span, Value, ast::RangeInclusion};
+    use crate::{
+        IntRange, Range, ShellError, Signals, Span, Value, ast::RangeInclusion, value::hash_f64,
+    };
     use nu_utils::ObviousFloat;
     use serde::{Deserialize, Serialize};
     use std::{
@@ -559,12 +555,13 @@ mod float_range {
     impl Eq for FloatRange {}
 
     impl Hash for FloatRange {
+        /// Consistent with [`PartialEq`], which compares the fields with `f64 ==`.
         fn hash<H: Hasher>(&self, state: &mut H) {
-            super::hash_f64_eq(self.start, state);
-            super::hash_f64_eq(self.step, state);
+            hash_f64(self.start, state);
+            hash_f64(self.step, state);
             std::mem::discriminant(&self.end).hash(state);
             if let Bound::Included(v) | Bound::Excluded(v) = self.end {
-                super::hash_f64_eq(v, state);
+                hash_f64(v, state);
             }
         }
     }
@@ -784,14 +781,10 @@ impl PartialEq for Range {
 impl Eq for Range {}
 
 impl Hash for Range {
+    /// Hashes every range as a [`FloatRange`], because [`PartialEq`] promotes an [`IntRange`] to a
+    /// [`FloatRange`] for mixed comparisons: `0..5 == 0.0..5.0`, so both must hash the same.
     fn hash<H: Hasher>(&self, state: &mut H) {
-        // Always hash as FloatRange to stay consistent with PartialEq, which
-        // promotes IntRange to FloatRange for cross-type comparisons.
-        // This avoids a hash/equality contract violation where
-        // `Range::IntRange(0..5) == Range::FloatRange(0.0..5.0)` would be
-        // true but produce different hashes due to the discriminant.
-        let float_range: FloatRange = (*self).into();
-        float_range.hash(state);
+        FloatRange::from(*self).hash(state);
     }
 }
 

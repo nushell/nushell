@@ -1,10 +1,4 @@
-use std::{
-    cmp::Ordering,
-    hash::{Hash, Hasher},
-    path::Path,
-    sync::Arc,
-};
-
+use crate::{PluginInterface, PluginSource};
 use nu_plugin_core::util::with_custom_values_in;
 use nu_plugin_protocol::PluginCustomValue;
 use nu_protocol::{
@@ -12,8 +6,7 @@ use nu_protocol::{
     shell_error::generic::GenericError,
 };
 use serde::Serialize;
-
-use crate::{PluginInterface, PluginSource};
+use std::{cmp::Ordering, path::Path, sync::Arc};
 
 #[cfg(test)]
 mod tests;
@@ -219,11 +212,6 @@ impl CustomValue for PluginCustomValueWithSource {
                 optional,
                 casing,
             )
-    }
-
-    fn hash_value(&self, mut state: &mut dyn Hasher) {
-        self.name().hash(&mut state);
-        self.data().hash(&mut state);
     }
 
     fn partial_cmp(&self, other: &Value) -> Option<Ordering> {

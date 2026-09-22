@@ -1,4 +1,11 @@
 //! Our insertion ordered map-type [`Record`]
+use crate::{
+    CollectionColumns, CompareTypes, ShellError, Span, Type, TypeRelation, Value,
+    casing::{CaseInsensitive, CaseSensitive, CaseSensitivity, Casing, WrapCased},
+    value::HASH_ITEM_LIMIT,
+};
+use itertools::Itertools;
+use serde::{Deserialize, Serialize, de::Visitor, ser::SerializeMap};
 use std::{
     fmt::Debug,
     hash::{Hash, Hasher},
@@ -6,13 +13,6 @@ use std::{
     marker::PhantomData,
     ops::{Deref, DerefMut, Index, RangeBounds},
 };
-
-use crate::{
-    CollectionColumns, CompareTypes, ShellError, Span, Type, TypeRelation, Value,
-    casing::{CaseInsensitive, CaseSensitive, CaseSensitivity, Casing, WrapCased},
-};
-
-use serde::{Deserialize, Serialize, de::Visitor, ser::SerializeMap};
 
 #[derive(Clone, Default, PartialEq)]
 pub struct Record {
@@ -28,14 +28,19 @@ impl Debug for Record {
 }
 
 impl Hash for Record {
+    /// Hashes the length, then the [`HASH_ITEM_LIMIT`] smallest keys with their values.
+    ///
+    /// Selecting keys by order rather than by position makes the hash independent of insertion
+    /// order, which matches `Value` record equality. The limit keeps hashing wide records cheap;
+    /// records that differ only in later keys collide, and the map's equality check separates
+    /// them.
     fn hash<H: Hasher>(&self, state: &mut H) {
-        // Sort by key before hashing to match PartialOrd semantics which sorts
-        // columns before comparing, ensuring records with the same content but
-        // different insertion orders hash identically.
-        let mut pairs: Vec<_> = self.inner.iter().collect();
-        pairs.sort_by(|(a, _), (b, _)| a.cmp(b));
-        pairs.len().hash(state);
-        for (key, value) in pairs {
+        self.len().hash(state);
+        for (key, value) in self
+            .inner
+            .iter()
+            .k_smallest_by_key(HASH_ITEM_LIMIT, |(key, _)| key)
+        {
             key.hash(state);
             value.hash(state);
         }
