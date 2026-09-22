@@ -309,9 +309,16 @@ fn main() -> Result<()> {
     #[cfg(not(feature = "lsp"))]
     let is_lsp = false;
     engine_state.is_lsp = is_lsp;
+    // Here, not in the `--dap` branch at the end: `generate_nu_constant()`
+    // below bakes `$nu.is-dap`, and that branch's startup files must see it.
+    #[cfg(feature = "dap")]
+    let is_dap = parsed_nu_cli_args.dap;
+    #[cfg(not(feature = "dap"))]
+    let is_dap = false;
+    engine_state.is_dap = is_dap;
     // keep this condition in sync with the branches at the end
     engine_state.is_interactive = parsed_nu_cli_args.interactive_shell.is_some()
-        || (parsed_nu_cli_args.commands.is_none() && script_name.is_empty() && !is_lsp);
+        || (parsed_nu_cli_args.commands.is_none() && script_name.is_empty() && !is_lsp && !is_dap);
 
     engine_state.is_login = parsed_nu_cli_args.login_shell.is_some();
     engine_state.history_enabled = parsed_nu_cli_args.no_history.is_none();
@@ -646,6 +653,38 @@ fn main() -> Result<()> {
     if is_lsp {
         start_time = nu_utils::time::Instant::now();
         return run_lsp(engine_state, parsed_nu_cli_args, use_color, start_time);
+    }
+
+    // `nu --dap`: hand the fully built engine to the Debug Adapter Protocol
+    // server. It owns process stdio from here (the DAP wire is stdout), and
+    // clones this engine for each debug run, so nothing else in `main`
+    // applies — return as soon as the DAP client disconnects.
+    #[cfg(feature = "dap")]
+    if is_dap {
+        start_time = nu_utils::time::Instant::now();
+
+        // Debugged scripts should see the same shell the user has: aliases and
+        // custom commands from config.nu, `$env` from env.nu, and `$env.config`
+        // — which also drives how the adapter renders values in the variables
+        // pane.
+        if parsed_nu_cli_args.no_config_file.is_none() {
+            let mut config_stack = Stack::new();
+            config_files::setup_config(
+                &mut engine_state,
+                &mut config_stack,
+                parsed_nu_cli_args.login_shell.is_some(),
+            );
+            // Each debug run starts from a fresh `Stack`, so whatever the
+            // startup files left on this one has to be folded into the engine
+            // or the debuggee would never see it.
+            if let Err(err) = engine_state.merge_env(&mut config_stack) {
+                report_shell_error(Some(&config_stack), &engine_state, &err);
+            }
+        }
+        perf!("dap setup_config", start_time, use_color);
+
+        nu_dap::run_stdio(engine_state);
+        return Ok(());
     }
 
     if let Some(commands) = parsed_nu_cli_args.commands.clone() {
