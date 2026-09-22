@@ -273,18 +273,26 @@ pub(crate) fn parse_table_expression(
     let [first, second, rest @ ..] = &tokens[..] else {
         return parse_list_expression(working_set, span, list_element_shape);
     };
+
     if !working_set.get_span_contents(first.span).starts_with(b"[")
         || second.contents != TokenContents::Semicolon
-        || rest.is_empty()
     {
         return parse_list_expression(working_set, span, list_element_shape);
-    };
+    }
+
     let head = parse_table_row(working_set, first.span);
 
     let errors = working_set.parse_errors.len();
 
     let (head, rows) = match head {
         Ok((head, _)) => {
+            if rest.is_empty() {
+                working_set.error(ParseError::Expected(
+                    "table row",
+                    Span::new(second.span.end, second.span.end),
+                ));
+            }
+
             let rows = rest
                 .iter()
                 .filter_map(|it| {

@@ -51,7 +51,7 @@ byte for byte still has to reproduce these until they are fixed.
     ```
     - not an empty table - a list containing the header list. an empty table is not expressible
        in the table form; `[]` must be used.
-    - **fixed**: the parser now rejects this syntax instead of silently discarding the semicolon.
+    - **fixed**: the parser now recognizes this as an incomplete table and reports the missing row.
 
 - bug 4 - an empty container under indentation emits a blank line.
     ```nushell

@@ -3764,7 +3764,6 @@ fn conditional_branch_types(#[case] code: &str, #[case] expected_tys: &[Type]) {
 #[case::external_argument("^foo [1; 2]")]
 #[case::table_header("[[a; b]; [1]]")]
 #[case::table_row("[[a b]; [1 2; 3 4]]")]
-#[case::table_without_rows("[[a b];]")]
 fn reject_invalid_list_semicolons(#[case] source: &str) {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
@@ -3780,6 +3779,34 @@ fn reject_invalid_list_semicolons(#[case] source: &str) {
         "unexpected diagnostic: {error:?}"
     );
     assert_eq!(working_set.get_span_contents(error.span()), b";");
+}
+
+#[rstest]
+#[case::plain("[[a b];]")]
+#[case::whitespace("[[a b]; \n]")]
+#[case::comment("[[a b]; # no rows\n]")]
+#[case::empty_header("[[];]")]
+fn table_without_rows_reports_missing_row(#[case] source: &str) {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let _ = parse(&mut working_set, None, source.as_bytes(), false);
+
+    assert!(
+        matches!(
+            working_set.parse_errors.as_slice(),
+            [ParseError::Expected("table row", _)]
+        ),
+        "unexpected diagnostics: {:?}",
+        working_set.parse_errors
+    );
+
+    let span = working_set.parse_errors[0].span();
+    assert_eq!(span.start, span.end);
+    assert!(span.start > 0);
+    assert_eq!(
+        working_set.get_span_contents(Span::new(span.start - 1, span.start)),
+        b";"
+    );
 }
 
 #[rstest]
