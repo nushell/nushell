@@ -63,7 +63,7 @@ impl Interactive {
     fn with_max_last_result_size(mut self, size: Filesize) -> Self {
         let mut cfg = self.engine_state.get_config().as_ref().clone();
         cfg.max_last_result_size = size;
-        self.engine_state.config = Arc::new(cfg);
+        self.engine_state.set_config(cfg);
         self
     }
 
@@ -650,7 +650,7 @@ fn snapshot_with_zero_budget_drops_last_keeps_metadata() -> Result {
 
     let mut cfg = session.engine_state.get_config().as_ref().clone();
     cfg.max_last_result_size = Filesize::ZERO;
-    session.engine_state.config = Arc::new(cfg);
+    session.engine_state.set_config(cfg);
 
     session.stack.set_last_exit_code(3, Span::test_data());
     session.snapshot_metadata(Duration::from_millis(5));

@@ -520,6 +520,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Hash,
             HashMd5::default(),
             HashSha256::default(),
+            HashSha512::default(),
         };
 
         // Experimental

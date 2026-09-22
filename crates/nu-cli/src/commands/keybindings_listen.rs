@@ -98,7 +98,14 @@ pub fn print_events(config: &Config, span: Span) -> Result<Value, ShellError> {
     loop {
         let event = crossterm::event::read()
             .map_err(|err| IoError::new_internal(err, "Could not read event"))?;
-        if event == Event::Key(KeyCode::Esc.into()) {
+        // match Esc with no modifiers, but ignoring KeyEventState (e.g. NumLock/CapsLock)
+        if let Event::Key(KeyEvent {
+            code: KeyCode::Esc,
+            modifiers: crossterm::event::KeyModifiers::NONE,
+            kind: crossterm::event::KeyEventKind::Press,
+            ..
+        }) = event
+        {
             break;
         }
         // stdout.queue(crossterm::style::Print(format!("event: {:?}", &event)))?;

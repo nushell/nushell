@@ -4,8 +4,9 @@
 
 use chrono::{Local, TimeZone, Utc};
 use fff_search::{
-    FFFMode, FilePicker, FilePickerOptions, FuzzySearchOptions, GrepConfig, GrepMode,
-    GrepSearchOptions, MixedItemRef, PaginationArgs, QueryParser, SharedFilePicker, SharedFrecency,
+    FFFMode, FilePicker, FilePickerOptions, FuzzySearchOptions, GitRecencyConfig, GrepConfig,
+    GrepMode, GrepSearchOptions, MixedItemRef, PaginationArgs, QueryParser, SharedFilePicker,
+    SharedFrecency,
     watch::{WatchEvent, WatchId, WatchOptions},
 };
 use nu_engine::command_prelude::*;
@@ -314,6 +315,8 @@ pub fn init_runtime(
             enable_home_dir_scanning: true,
             enable_mmap_cache: false,
             follow_symlinks,
+            // Boost files touched by recent commits on the current branch (fff-search defaults).
+            git_recency: GitRecencyConfig::default(),
             mode: FFFMode::Ai,
             watch,
         },

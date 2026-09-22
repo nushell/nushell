@@ -915,11 +915,11 @@ mod v1_x {
     use super::*;
 
     pub static INFINITY: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"[-+]?\.(inf|Inf|INF)").expect("valid infinity regex for spec v1.x")
+        Regex::new(r"^[-+]?\.(inf|Inf|INF)$").expect("valid infinity regex for spec v1.x")
     });
 
     pub static NAN: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"\.(nan|NaN|NAN)").expect("valid NaN regex for spec v1.x"));
+        LazyLock::new(|| Regex::new(r"^\.(nan|NaN|NAN)$").expect("valid NaN regex for spec v1.x"));
 
     pub fn maybe_parse_null<'i>(_: &mut ParseCtx<'i>, input: &str) -> Option<()> {
         match input {

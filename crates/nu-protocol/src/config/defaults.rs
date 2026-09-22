@@ -306,6 +306,46 @@ pub fn default_explore() -> HashMap<String, Value> {
     .collect()
 }
 
+/// Default `$env.config.tui` values. Keys are the theme slots read by
+/// `Theme::from_config` in `nu-tui`; unset slots fall back to `color_config`.
+pub fn default_tui() -> HashMap<String, Value> {
+    [
+        (
+            "title_bar",
+            rec(record! { "fg" => str("white"), "bg" => str("blue"), "attr" => str("b") }),
+        ),
+        (
+            "status_bar",
+            rec(record! { "fg" => str("white"), "bg" => str("dark_gray") }),
+        ),
+        ("border", rec(record! { "fg" => str("dark_gray") })),
+        ("border_focused", rec(record! { "fg" => str("cyan") })),
+        ("selected", rec(record! { "attr" => str("r") })),
+        (
+            "header",
+            rec(record! { "fg" => str("green"), "attr" => str("b") }),
+        ),
+        ("muted", rec(record! { "fg" => str("dark_gray") })),
+        (
+            "highlight",
+            rec(record! { "fg" => str("yellow"), "attr" => str("b") }),
+        ),
+        (
+            "tab_active",
+            rec(record! { "fg" => str("cyan"), "attr" => str("bu") }),
+        ),
+        ("tab_inactive", rec(record! { "fg" => str("dark_gray") })),
+        ("progress", rec(record! { "fg" => str("green") })),
+        (
+            "button",
+            rec(record! { "fg" => str("white"), "bg" => str("blue") }),
+        ),
+    ]
+    .into_iter()
+    .map(|(k, v)| (k.to_string(), v))
+    .collect()
+}
+
 /// Nushell-owned menu keybindings (Tab completion, history menu, help, etc.).
 ///
 /// Reedline's base emacs/vi maps are **not** included; those remain library

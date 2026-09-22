@@ -34,6 +34,17 @@ fn table_to_yml_text_and_from_yml_text_back_into_table() -> Result {
 }
 
 #[test]
+fn embedded_yaml_float_tokens_remain_strings() -> Result {
+    test()
+        .run(r#""key: a.infra" | from yaml | get key"#)
+        .expect_value_eq("a.infra")?;
+
+    test()
+        .run(r#""key: a.nanotube" | from yaml | get key"#)
+        .expect_value_eq("a.nanotube")
+}
+
+#[test]
 fn convert_dict_to_yaml_with_boolean_key() -> Result {
     let code = r#""true: BooleanKey " | from yaml --key-resolution verbatim"#;
 

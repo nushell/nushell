@@ -18,7 +18,6 @@ use std::{
     io::Write,
     path::{Path, PathBuf},
     process::Stdio,
-    sync::Arc,
     thread,
 };
 
@@ -515,7 +514,9 @@ fn write_pipeline_data(
         stack.start_collect_value();
 
         // Turn off color as we pass data through
-        Arc::make_mut(&mut engine_state.config).use_ansi_coloring = UseAnsiColoring::False;
+        let mut config = engine_state.get_config().as_ref().clone();
+        config.use_ansi_coloring = UseAnsiColoring::False;
+        engine_state.set_config(config);
 
         // Invoke the `table` command.
         let output =

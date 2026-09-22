@@ -6,7 +6,7 @@ use crate::{
     debugger::{Debugger, NoopDebugger},
     engine::{
         CachedFile, Command, DEFAULT_OVERLAY_NAME, EnvName, EnvVars, OverlayFrame, PromptState,
-        ScopeFrame, Stack, StateDelta, Variable, Visibility,
+        ScopeFrame, Stack, StateDelta, Variable, VisibilityStack,
         description::{Doccomments, build_desc},
     },
     eval_const::create_nu_constant,
@@ -110,7 +110,10 @@ pub struct EngineState {
     pub signal_handlers: Option<Handlers>,
     pub env_vars: Arc<EnvVars>,
     pub previous_env_vars: Arc<HashMap<EnvName, Value>>,
+    /// Live config. Replace it with [`Self::set_config`] so [`Self::config_epoch`] stays in sync.
     pub config: Arc<Config>,
+    /// Incremented when [`Self::config`] is replaced (`set_config`, `merge_env`).
+    config_epoch: u64,
     pub pipeline_externals_state: Arc<(AtomicU32, AtomicU32)>,
     pub repl_state: Arc<Mutex<ReplState>>,
     /// Shared source of truth for the interactive prompt's rendered content. The
@@ -154,6 +157,10 @@ pub struct EngineState {
     pub is_login: bool,
     pub is_lsp: bool,
     pub is_mcp: bool,
+    /// Running as the Debug Adapter Protocol server (`nu --dap`). Like
+    /// `is_lsp`/`is_mcp`, this means stdout is a protocol stream, so anything
+    /// that would print to it must go to stderr instead.
+    pub is_dap: bool,
     startup_time: i64,
     is_debugging: IsDebugging,
     pub debugger: Arc<Mutex<Box<dyn Debugger>>>,
@@ -239,6 +246,7 @@ impl EngineState {
             ),
             previous_env_vars: Arc::new(HashMap::new()),
             config: Arc::new(Config::default()),
+            config_epoch: 0,
             pipeline_externals_state: Arc::new((AtomicU32::new(0), AtomicU32::new(0))),
             repl_state: Arc::new(Mutex::new(ReplState {
                 buffer: "".to_string(),
@@ -264,6 +272,7 @@ impl EngineState {
             is_login: false,
             is_lsp: false,
             is_mcp: false,
+            is_dap: false,
             startup_time: -1,
             is_debugging: IsDebugging::new(false),
             debugger: Arc::new(Mutex::new(Box::new(NoopDebugger))),
@@ -445,7 +454,7 @@ impl EngineState {
 
         if let Some(config) = stack.config.take() {
             // If config was updated in the stack, replace it.
-            self.config = config;
+            self.replace_config(config);
 
             // Make plugin GC config changes take effect immediately.
             #[cfg(feature = "plugin")]
@@ -721,10 +730,10 @@ impl EngineState {
     ///
     /// Searches within active overlays, and filtering out overlays in `removed_overlays`.
     pub fn find_decl(&self, name: &[u8], removed_overlays: &[Vec<u8>]) -> Option<DeclId> {
-        let mut visibility: Visibility = Visibility::new();
+        let mut visibility = VisibilityStack::default();
 
         for overlay_frame in self.active_overlays(removed_overlays).rev() {
-            visibility.append(&overlay_frame.visibility);
+            visibility.push(&overlay_frame.visibility);
 
             if let Some(decl_id) = overlay_frame.get_decl(name)
                 && visibility.is_decl_id_visible(&decl_id)
@@ -740,10 +749,10 @@ impl EngineState {
     ///
     /// Searches within active overlays, and filtering out overlays in `removed_overlays`.
     pub fn find_decl_name(&self, decl_id: DeclId, removed_overlays: &[Vec<u8>]) -> Option<&[u8]> {
-        let mut visibility: Visibility = Visibility::new();
+        let mut visibility = VisibilityStack::default();
 
         for overlay_frame in self.active_overlays(removed_overlays).rev() {
-            visibility.append(&overlay_frame.visibility);
+            visibility.push(&overlay_frame.visibility);
 
             if visibility.is_decl_id_visible(&decl_id) {
                 for (name, id) in overlay_frame.decls.iter() {
@@ -881,6 +890,16 @@ impl EngineState {
         &self.config
     }
 
+    /// Identity of the current config object. Changes when `$env.config` is rewritten.
+    pub fn config_epoch(&self) -> u64 {
+        self.config_epoch
+    }
+
+    fn replace_config(&mut self, conf: Arc<Config>) {
+        self.config_epoch = self.config_epoch.wrapping_add(1);
+        self.config = conf;
+    }
+
     pub fn set_config(&mut self, conf: impl Into<Arc<Config>>) {
         let conf = conf.into();
 
@@ -890,7 +909,7 @@ impl EngineState {
             self.update_plugin_gc_configs(&conf.plugin_gc);
         }
 
-        self.config = conf;
+        self.replace_config(conf);
     }
 
     /// Fetch the configuration for a plugin

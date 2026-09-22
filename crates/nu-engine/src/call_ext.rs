@@ -56,6 +56,7 @@ pub trait CallExt {
     fn opt_const<T: FromValue>(
         &self,
         working_set: &StateWorkingSet,
+        stack: &Stack,
         pos: usize,
     ) -> Result<Option<T>, ShellError>;
 
@@ -191,6 +192,7 @@ impl CallExt for ast::Call {
     fn opt_const<T: FromValue>(
         &self,
         working_set: &StateWorkingSet,
+        _stack: &Stack,
         pos: usize,
     ) -> Result<Option<T>, ShellError> {
         if let Some(expr) = self.positional_iter().nth(pos) {
@@ -329,12 +331,15 @@ impl CallExt for ir::Call {
     fn opt_const<T: FromValue>(
         &self,
         _working_set: &StateWorkingSet,
-        _pos: usize,
+        stack: &Stack,
+        pos: usize,
     ) -> Result<Option<T>, ShellError> {
-        Err(ShellError::IrEvalError {
-            msg: "const evaluation is not yet implemented on ir::Call".into(),
-            span: Some(self.head),
-        })
+        self.positional_iter(stack)
+            .nth(pos)
+            .filter(|v| !v.is_nothing())
+            .cloned()
+            .map(T::from_value)
+            .transpose()
     }
 
     fn req<T: FromValue>(
@@ -448,9 +453,10 @@ impl CallExt for engine::Call<'_> {
     fn opt_const<T: FromValue>(
         &self,
         working_set: &StateWorkingSet,
+        stack: &Stack,
         pos: usize,
     ) -> Result<Option<T>, ShellError> {
-        proxy!(self.opt_const(working_set, pos))
+        proxy!(self.opt_const(working_set, stack, pos))
     }
 
     fn req<T: FromValue>(

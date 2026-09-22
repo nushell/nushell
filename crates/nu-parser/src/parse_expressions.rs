@@ -1496,6 +1496,18 @@ pub fn parse_math_expression(
         .expect("internal error: expression stack empty")
 }
 
+/// Command heads that `parse_expression` treats specially when they appear in a pipeline.
+enum HeadKind {
+    Builtin,
+    Assign,
+    Overlay,
+    Where,
+    Run,
+    #[cfg(feature = "plugin")]
+    Plugin,
+    Other,
+}
+
 pub fn parse_expression(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
@@ -1510,17 +1522,22 @@ pub fn parse_expression(
         // Check if there is any environment shorthand
         let name = working_set.get_span_contents(spans[pos]);
 
-        let split: Vec<_> = name.splitn(2, |x| *x == b'=').collect();
-        if split.len() != 2 || !is_env_variable_name(split[0]) {
+        // `NAME=value` shorthand: split at the first `=` (same as `splitn(2, ..)`, without the
+        // temporary `Vec`).
+        let Some(equals) = name.iter().position(|x| *x == b'=') else {
+            break;
+        };
+        if !is_env_variable_name(&name[..equals]) {
             break;
         }
 
-        let point = split[0].len() + 1;
+        let point = equals + 1;
+        let rhs_starts_with_dollar = name[point..].starts_with(b"$");
         let starting_error_count = working_set.parse_errors.len();
 
         let rhs = if spans[pos].start + point < spans[pos].end {
             let rhs_span = Span::new(spans[pos].start + point, spans[pos].end);
-            if split[1].starts_with(b"$") {
+            if rhs_starts_with_dollar {
                 parse_dollar_expr(working_set, rhs_span, &SyntaxShape::Any, None)
             } else {
                 parse_string_strict(working_set, rhs_span)
@@ -1559,23 +1576,35 @@ pub fn parse_expression(
     } else if is_math_expression_like(working_set, spans[pos]) {
         parse_math_expression(working_set, &spans[pos..], None, input_type)
     } else {
-        let bytes = working_set.get_span_contents(spans[pos]).to_vec();
+        // Classify the head first so the span bytes are only copied on the (error) paths that
+        // need an owned name.
+        let head = working_set.get_span_contents(spans[pos]);
+        let head_kind = match head {
+            b"def" | b"extern" | b"for" | b"module" | b"use" | b"source" | b"alias" | b"export"
+            | b"export-env" | b"hide" => HeadKind::Builtin,
+            b"const" | b"mut" => HeadKind::Assign,
+            b"overlay" => HeadKind::Overlay,
+            b"where" => HeadKind::Where,
+            b"run" => HeadKind::Run,
+            #[cfg(feature = "plugin")]
+            b"plugin" => HeadKind::Plugin,
+            _ => HeadKind::Other,
+        };
 
         // For now, check for special parses of certain keywords
-        match bytes.as_slice() {
-            b"def" | b"extern" | b"for" | b"module" | b"use" | b"source" | b"alias" | b"export"
-            | b"export-env" | b"hide" => {
+        match head_kind {
+            HeadKind::Builtin => {
                 working_set.error(ParseError::BuiltinCommandInPipeline(
-                    String::from_utf8(bytes)
+                    String::from_utf8(working_set.get_span_contents(spans[pos]).to_vec())
                         .expect("builtin commands bytes should be able to convert to string"),
                     spans[0],
                 ));
 
                 parse_call(working_set, &spans[pos..], spans[0], input_type)
             }
-            b"const" | b"mut" => {
+            HeadKind::Assign => {
                 working_set.error(ParseError::AssignInPipeline(
-                    String::from_utf8(bytes)
+                    String::from_utf8(working_set.get_span_contents(spans[pos]).to_vec())
                         .expect("builtin commands bytes should be able to convert to string"),
                     String::from_utf8_lossy(match spans.len() {
                         1..=3 => b"value",
@@ -1591,7 +1620,7 @@ pub fn parse_expression(
                 ));
                 parse_call(working_set, &spans[pos..], spans[0], input_type)
             }
-            b"overlay" => {
+            HeadKind::Overlay => {
                 if spans.len() > 1 && working_set.get_span_contents(spans[1]) == b"list" {
                     // whitelist 'overlay list'
                     parse_call(working_set, &spans[pos..], spans[0], input_type)
@@ -1604,10 +1633,10 @@ pub fn parse_expression(
                     parse_call(working_set, &spans[pos..], spans[0], input_type)
                 }
             }
-            b"where" => parse_where_expr(working_set, &spans[pos..]),
-            b"run" => parse_run_expr(working_set, &spans[pos..]),
+            HeadKind::Where => parse_where_expr(working_set, &spans[pos..]),
+            HeadKind::Run => parse_run_expr(working_set, &spans[pos..]),
             #[cfg(feature = "plugin")]
-            b"plugin" => {
+            HeadKind::Plugin => {
                 if spans.len() > 1 && working_set.get_span_contents(spans[1]) == b"use" {
                     // only 'plugin use' is banned
                     working_set.error(ParseError::BuiltinCommandInPipeline(
@@ -1619,7 +1648,7 @@ pub fn parse_expression(
                 parse_call(working_set, &spans[pos..], spans[0], input_type)
             }
 
-            _ => parse_call(working_set, &spans[pos..], spans[0], input_type),
+            HeadKind::Other => parse_call(working_set, &spans[pos..], spans[0], input_type),
         }
     };
 

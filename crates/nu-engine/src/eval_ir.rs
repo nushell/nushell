@@ -12,7 +12,7 @@ use nu_protocol::{
     debugger::DebugContext,
     engine::{
         Argument, Closure, EngineState, EnvName, ErrorHandler, Matcher, Redirection, Stack,
-        StateWorkingSet,
+        StateWorkingSet, TryHandler,
     },
     ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
     shell_error::{generic::GenericError, io::IoError},
@@ -100,7 +100,6 @@ fn eval_ir_block_inner<D: DebugContext>(
 
         let args_base = stack.arguments.get_base();
         let error_handler_base = stack.error_handlers.get_base();
-        let finally_handler_base = stack.finally_run_handlers.get_base();
 
         // Allocate and initialize registers. I've found that it's not really worth trying to avoid
         // the heap allocation here by reusing buffers - our allocator is fast enough
@@ -120,7 +119,7 @@ fn eval_ir_block_inner<D: DebugContext>(
                 block_span: &block.span,
                 args_base,
                 error_handler_base,
-                finally_handler_base,
+                finally_resumes: vec![],
                 redirect_out: None,
                 redirect_err: None,
                 matches: vec![],
@@ -132,7 +131,6 @@ fn eval_ir_block_inner<D: DebugContext>(
         );
 
         stack.error_handlers.leave_frame(error_handler_base);
-        stack.finally_run_handlers.leave_frame(finally_handler_base);
         stack.arguments.leave_frame(args_base);
         stack.ir_instruction_index = None;
 
@@ -174,8 +172,11 @@ struct EvalContext<'a> {
     args_base: usize,
     /// Base index on the error handler stack to reset to after a call
     error_handler_base: usize,
-    /// Base index on the finally handler stack to reset to after a call
-    finally_handler_base: usize,
+    /// One entry per `finally` block that is currently running in this frame (innermost last):
+    /// the control flow it interrupted and has to resume at `end-finally`, or `None` if it was
+    /// entered by falling through from `try`/`catch`. Mirrors the [`TryHandler::RunningFinally`]
+    /// markers on the handler stack.
+    finally_resumes: Vec<Option<Unwind>>,
     /// State set by redirect-out
     redirect_out: Option<Redirection>,
     /// State set by redirect-err
@@ -276,10 +277,6 @@ fn eval_ir_block_impl<D: DebugContext>(
     // Program counter, starts at zero.
     let mut pc = 0;
     let need_backtrace = ctx.engine_state.get_env_var("NU_BACKTRACE").is_some();
-    // The result of an early exit (`return` or an error) that must still run pending `finally`
-    // handlers before it can leave the block. It takes precedence over the register contents at
-    // the terminal `Return` instruction.
-    let mut ret_val: Option<Result<PipelineExecutionData, ShellError>> = None;
 
     while pc < ir_block.instructions.len() {
         let instruction = &ir_block.instructions[pc];
@@ -302,102 +299,66 @@ fn eval_ir_block_impl<D: DebugContext>(
             result.as_ref().err(),
         );
 
-        match result {
+        // Control flow that leaves the current `try` body goes through `unwind`, which runs the
+        // handlers in order and either lands on one of them or leaves the block.
+        let unwind = match result {
             Ok(InstructionResult::Continue) => {
                 pc += 1;
+                continue;
             }
             Ok(InstructionResult::Branch(next_pc)) => {
                 pc = next_pc;
+                continue;
             }
-            Ok(InstructionResult::Return(reg_id)) => {
-                // need to check if the return value was stashed by an early `return` or an error
-                // that ran a `finally` handler first. If so, we need to respect that value.
-                match ret_val {
-                    Some(res) => return res,
-                    None => return Ok(ctx.take_reg(reg_id)),
-                }
-            }
+            Ok(InstructionResult::Return(reg_id)) => return Ok(ctx.take_reg(reg_id)),
             Ok(InstructionResult::ReturnEarly(reg_id)) => {
-                if let Some(always_run_handler) =
-                    ctx.stack.finally_run_handlers.pop(ctx.finally_handler_base)
-                {
-                    // A `finally` block is pending: collect the value first (mirroring the
-                    // `try-collect` the compiler emits on the fall-through path, which also
-                    // preserves metadata), stash it, and run the `finally` block. The stashed
-                    // value is returned at the terminal `Return` instruction.
-                    let data = ctx.take_reg(reg_id);
-                    #[cfg(feature = "os")]
-                    let collected = collect(data, *span, false);
-                    #[cfg(not(feature = "os"))]
-                    let collected = collect(data, *span);
-                    ret_val = Some(
-                        collected.map(|body| PipelineExecutionData::from(body).with_early_return()),
-                    );
-                    prepare_error_handler(ctx, always_run_handler, None);
-                    pc = always_run_handler.handler_index;
-                } else {
-                    // No `finally` pending: this is the same as a tail return, keeping streams
-                    // and metadata intact, except the data is flagged as an early return. The
-                    // nearest custom command or closure call clears that flag; top-level file
-                    // evaluation reads it to skip `main`.
-                    return Ok(ctx.take_reg(reg_id).with_early_return());
+                // The data is flagged as an early return. The nearest custom command or closure
+                // call clears that flag; top-level file evaluation reads it to skip `main`.
+                Unwind::Return(ctx.take_reg(reg_id).with_early_return())
+            }
+            Ok(InstructionResult::UnwindJump { index, handlers }) => {
+                Unwind::Jump { index, handlers }
+            }
+            Ok(InstructionResult::EndFinally) => {
+                match ctx.stack.error_handlers.pop(ctx.error_handler_base) {
+                    Some(TryHandler::RunningFinally) => {}
+                    handler => {
+                        return Err(ShellError::IrEvalError {
+                            msg: format!(
+                                "end-finally expected a running finally handler, found {handler:?}"
+                            ),
+                            span: Some(*span),
+                        });
+                    }
+                }
+                match ctx.finally_resumes.pop() {
+                    // Entered from `try`/`catch` normally: carry on after the block.
+                    Some(None) => {
+                        pc += 1;
+                        continue;
+                    }
+                    // Entered by unwinding: pick up where that left off.
+                    Some(Some(unwind)) => unwind,
+                    None => {
+                        return Err(ShellError::IrEvalError {
+                            msg: "end-finally without a matching begin-finally".into(),
+                            span: Some(*span),
+                        });
+                    }
                 }
             }
+            // These block control related errors should be passed through
             Err(err @ (ShellError::Continue { .. } | ShellError::Break { .. })) => {
                 return Err(err);
             }
-            Err(err @ ShellError::Exit { abort: false, .. }) => {
-                if let Some(always_run_handler) =
-                    ctx.stack.finally_run_handlers.pop(ctx.finally_handler_base)
-                {
-                    // need to run finally block before exiting.
-                    // and record the exit error firstly.
-                    prepare_error_handler(ctx, always_run_handler, None);
-                    pc = always_run_handler.handler_index;
-                    ret_val = Some(Err(err));
-                } else {
-                    // These block control related errors should be passed through
-                    return Err(err);
-                }
-            }
-            Err(err @ ShellError::Exit { abort: true, .. }) => {
-                return Err(err);
-            }
-            Err(err) => {
-                #[cfg(unix)]
-                let is_terminated_by_signal = matches!(&err, ShellError::TerminatedBySignal { .. });
-                #[cfg(not(unix))]
-                let is_terminated_by_signal = false;
+            // `exit --abort` leaves immediately, without running `finally` blocks
+            Err(err @ ShellError::Exit { abort: true, .. }) => return Err(err),
+            Err(err) => Unwind::Error(err.into_spanned(*span)),
+        };
 
-                let is_interrupted =
-                    matches!(err, ShellError::Interrupted { .. }) || is_terminated_by_signal;
-                if let Some(error_handler) = ctx.stack.error_handlers.pop(ctx.error_handler_base) {
-                    if is_interrupted {
-                        ctx.engine_state.signals().reset();
-                    }
-                    // If an error handler is set, branch there
-                    prepare_error_handler(ctx, error_handler, Some(err.into_spanned(*span)));
-                    pc = error_handler.handler_index;
-                } else if let Some(always_run_handler) =
-                    ctx.stack.finally_run_handlers.pop(ctx.finally_handler_base)
-                {
-                    if is_interrupted {
-                        ctx.engine_state.signals().reset();
-                    }
-                    prepare_error_handler(
-                        ctx,
-                        always_run_handler,
-                        Some(err.clone().into_spanned(*span)),
-                    );
-                    pc = always_run_handler.handler_index;
-                    ret_val = Some(Err(err));
-                } else if need_backtrace {
-                    let err = ShellError::into_chained(err, *span);
-                    return Err(err);
-                } else {
-                    return Err(err);
-                }
-            }
+        match unwind_through_handlers(ctx, unwind, *span, need_backtrace) {
+            Unwound::Branch(next_pc) => pc = next_pc,
+            Unwound::Return(result) => return *result,
         }
     }
 
@@ -409,6 +370,125 @@ fn eval_ir_block_impl<D: DebugContext>(
         ),
         span: *ctx.block_span,
     })
+}
+
+/// Control flow that is leaving a `try` body and has to pass through its handlers first.
+#[derive(Debug)]
+enum Unwind {
+    /// An error propagating outward, with the span of the instruction that raised it. This
+    /// includes `exit`, which only `finally` handlers get to see.
+    Error(Spanned<ShellError>),
+    /// A `return`, carrying its (early-return flagged) value.
+    Return(PipelineExecutionData),
+    /// A `break` or `continue`: jump to `index` once `handlers` more entries have been unwound.
+    Jump { index: usize, handlers: usize },
+}
+
+/// Where evaluation continues after [`unwind_through_handlers`].
+enum Unwound {
+    /// Continue at this instruction: a handler took over, or a jump reached its target.
+    Branch(usize),
+    /// No handler is left in this frame: leave the block with this result.
+    Return(Box<Result<PipelineExecutionData, ShellError>>),
+}
+
+/// Pop handlers off the `try` handler stack until one takes over the unwinding control flow,
+/// or until there are none left in this frame.
+///
+/// A `catch` handler takes over errors (but not `exit`). A `finally` handler takes over
+/// everything: the pending control flow is stashed in `finally_resumes` and picked up again
+/// by `end-finally`. Unwinding out of a `finally` block that is itself running abandons what
+/// that block was going to resume, so e.g. `return` inside `finally` wins over the error that
+/// led there.
+fn unwind_through_handlers(
+    ctx: &mut EvalContext<'_>,
+    mut unwind: Unwind,
+    span: Span,
+    need_backtrace: bool,
+) -> Unwound {
+    loop {
+        if let Unwind::Jump { index, handlers: 0 } = unwind {
+            return Unwound::Branch(index);
+        }
+
+        let Some(handler) = ctx.stack.error_handlers.pop(ctx.error_handler_base) else {
+            return Unwound::Return(Box::new(match unwind {
+                Unwind::Error(err) if need_backtrace => {
+                    Err(ShellError::into_chained(err.item, err.span))
+                }
+                Unwind::Error(err) => Err(err.item),
+                Unwind::Return(data) => Ok(data),
+                Unwind::Jump { .. } => Err(ShellError::IrEvalError {
+                    msg: "unwind-jump ran out of handlers before reaching its target".into(),
+                    span: Some(span),
+                }),
+            }));
+        };
+
+        if let Unwind::Jump { handlers, .. } = &mut unwind {
+            *handlers -= 1;
+        }
+
+        match handler {
+            TryHandler::Catch(handler) => match unwind {
+                // `exit` is not something `catch` can handle; only `finally` runs for it.
+                Unwind::Error(err) if !matches!(err.item, ShellError::Exit { .. }) => {
+                    reset_signals_if_interrupted(ctx, &err.item);
+                    prepare_error_handler(ctx, handler, Some(err));
+                    return Unwound::Branch(handler.handler_index);
+                }
+                // Anything else just discards the `catch` handler on its way out.
+                _ => {}
+            },
+            TryHandler::Finally(handler) => {
+                // `finally` must not start until the value being returned has been fully
+                // produced: collect it first, like `try-collect` does on the fall-through path.
+                if let Unwind::Return(data) = unwind {
+                    #[cfg(feature = "os")]
+                    let collected = collect(data, span, false);
+                    #[cfg(not(feature = "os"))]
+                    let collected = collect(data, span);
+                    unwind = match collected {
+                        Ok(body) => {
+                            Unwind::Return(PipelineExecutionData::from(body).with_early_return())
+                        }
+                        Err(err) => Unwind::Error(err.into_spanned(span)),
+                    };
+                }
+                // The block gets to see the error that led to it (but not `exit`), otherwise
+                // its register is set to empty.
+                let error = match &unwind {
+                    Unwind::Error(err) if !matches!(err.item, ShellError::Exit { .. }) => {
+                        reset_signals_if_interrupted(ctx, &err.item);
+                        Some(err.clone())
+                    }
+                    _ => None,
+                };
+                prepare_error_handler(ctx, handler, error);
+                ctx.stack.error_handlers.push(TryHandler::RunningFinally);
+                ctx.finally_resumes.push(Some(unwind));
+                return Unwound::Branch(handler.handler_index);
+            }
+            TryHandler::RunningFinally => {
+                // Leaving a running `finally` block: whatever it was going to resume is replaced
+                // by this unwinding.
+                ctx.finally_resumes.pop();
+            }
+        }
+    }
+}
+
+/// An interrupt (ctrl-c) that is about to be handled by `catch` or `finally` must not keep
+/// interrupting the handler block itself.
+fn reset_signals_if_interrupted(ctx: &EvalContext<'_>, err: &ShellError) {
+    #[cfg(unix)]
+    let is_terminated_by_signal = matches!(err, ShellError::TerminatedBySignal { .. });
+    #[cfg(not(unix))]
+    let is_terminated_by_signal = false;
+
+    if matches!(err, ShellError::Interrupted { .. }) || is_terminated_by_signal {
+        ctx.engine_state.signals().reset();
+    }
 }
 
 /// Prepare the context for an error handler
@@ -456,9 +536,16 @@ enum InstructionResult {
     /// invocations clear the flag instead, so a `return` in a nested call can't leak out and be
     /// mistaken for a `return` at the current level.
     ReturnEarly(RegId),
+    /// Jump to `index` after unwinding `handlers` entries of the `try` handler stack, running
+    /// any `finally` blocks among them.
+    UnwindJump {
+        index: usize,
+        handlers: usize,
+    },
+    /// Leave a `finally` block, resuming whatever control flow led into it.
+    EndFinally,
 }
 
-/// Perform an instruction
 fn eval_instruction<D: DebugContext>(
     ctx: &mut EvalContext<'_>,
     instruction: &Instruction,
@@ -1143,42 +1230,62 @@ fn eval_instruction<D: DebugContext>(
             stream,
             end_index,
         } => eval_iterate(ctx, *dst, *stream, *end_index, *span),
+        Instruction::UnwindJump { index, handlers } => Ok(InstructionResult::UnwindJump {
+            index: *index,
+            handlers: *handlers,
+        }),
         Instruction::OnError { index } => {
-            ctx.stack.error_handlers.push(ErrorHandler {
-                handler_index: *index,
-                error_register: None,
-            });
+            ctx.stack
+                .error_handlers
+                .push(TryHandler::Catch(ErrorHandler {
+                    handler_index: *index,
+                    error_register: None,
+                }));
             Ok(Continue)
         }
         Instruction::OnErrorInto { index, dst } => {
-            ctx.stack.error_handlers.push(ErrorHandler {
-                handler_index: *index,
-                error_register: Some(*dst),
-            });
-            Ok(Continue)
-        }
-        Instruction::Finally { index } => {
-            ctx.stack.finally_run_handlers.push(ErrorHandler {
-                handler_index: *index,
-                error_register: None,
-            });
+            ctx.stack
+                .error_handlers
+                .push(TryHandler::Catch(ErrorHandler {
+                    handler_index: *index,
+                    error_register: Some(*dst),
+                }));
             Ok(Continue)
         }
         Instruction::FinallyInto { index, dst } => {
-            ctx.stack.finally_run_handlers.push(ErrorHandler {
-                handler_index: *index,
-                error_register: Some(*dst),
-            });
+            ctx.stack
+                .error_handlers
+                .push(TryHandler::Finally(ErrorHandler {
+                    handler_index: *index,
+                    error_register: Some(*dst),
+                }));
             Ok(Continue)
         }
         Instruction::PopErrorHandler => {
-            ctx.stack.error_handlers.pop(ctx.error_handler_base);
-            Ok(Continue)
+            match ctx.stack.error_handlers.pop(ctx.error_handler_base) {
+                Some(TryHandler::Catch(_)) => Ok(Continue),
+                handler => Err(ShellError::IrEvalError {
+                    msg: format!("pop-error-handler expected a catch handler, found {handler:?}"),
+                    span: Some(*span),
+                }),
+            }
         }
-        Instruction::PopFinallyRun => {
-            ctx.stack.finally_run_handlers.pop(ctx.finally_handler_base);
-            Ok(Continue)
+        Instruction::BeginFinally => {
+            // Fall-through entry into a `finally` block: swap the handler for a running marker
+            // with nothing to resume afterwards. Unwinding entries do this swap themselves.
+            match ctx.stack.error_handlers.pop(ctx.error_handler_base) {
+                Some(TryHandler::Finally(_)) => {
+                    ctx.stack.error_handlers.push(TryHandler::RunningFinally);
+                    ctx.finally_resumes.push(None);
+                    Ok(Continue)
+                }
+                handler => Err(ShellError::IrEvalError {
+                    msg: format!("begin-finally expected a finally handler, found {handler:?}"),
+                    span: Some(*span),
+                }),
+            }
         }
+        Instruction::EndFinally => Ok(InstructionResult::EndFinally),
         Instruction::ReturnEarly { src } => Ok(InstructionResult::ReturnEarly(*src)),
         Instruction::Return { src } => Ok(Return(*src)),
     }
@@ -1959,6 +2066,24 @@ fn collect(
     #[cfg(feature = "os")]
     if nu_experimental::PIPE_FAIL.get() && !ignore_error {
         check_exit_status_future(pipe.exit)?;
+    }
+    // A child stream without captured stdout carries no data: the external already wrote
+    // its output to the inherited stdout or a redirection target. Collecting it into a
+    // value would fabricate an empty string, which prints as a stray blank line when the
+    // collected output is displayed (#18765). Wait for the child instead, so a failure
+    // still surfaces as an error, and collect to Empty like a drained stream.
+    #[cfg(feature = "os")]
+    {
+        use nu_protocol::ByteStreamSource;
+        let stdout_uncaptured = matches!(
+            &data,
+            PipelineData::ByteStream(stream, ..)
+                if matches!(stream.source(), ByteStreamSource::Child(child) if child.stdout.is_none())
+        );
+        if stdout_uncaptured {
+            data.drain()?;
+            return Ok(PipelineData::empty());
+        }
     }
     let value = data.into_value(span)?;
     Ok(PipelineData::value(value, metadata))

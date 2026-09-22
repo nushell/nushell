@@ -2,7 +2,7 @@
 
 use crate::{
     Token, TokenContents,
-    lex::{interp_subexpr_step, lex},
+    lex::{LexState, interp_subexpr_step, lex, lex_n_tokens},
     parse_helpers::{
         SPREAD_OPERATOR_STR, extract_spread_record, garbage, is_variable, trim_quotes,
     },
@@ -15,7 +15,7 @@ use nu_protocol::{
     DidYouMean, FilesizeUnit, IntoSpanned, ParseError, Span, Spanned, SyntaxShape, Type, Unit,
     VarId, ast::*, casing::Casing, engine::StateWorkingSet,
 };
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
 
 use crate::parse_expressions::{
     parse_block_expression, parse_closure_expression, parse_match_block_expression, parse_record,
@@ -131,63 +131,74 @@ fn decode_with_base(s: &str, base: u32, digits_per_byte: usize) -> Result<Vec<u8
         .collect()
 }
 
-fn strip_underscores(token: &[u8]) -> String {
-    String::from_utf8_lossy(token)
-        .chars()
-        .filter(|c| *c != '_')
-        .collect()
+/// Lossily decodes `token` with all `_` digit separators removed. Borrows the input when it is
+/// valid UTF-8 without underscores, which is the common case for the many bare words that are
+/// speculatively tried as numbers.
+fn strip_underscores(token: &[u8]) -> Cow<'_, str> {
+    let text = String::from_utf8_lossy(token);
+    if text.contains('_') {
+        Cow::Owned(text.chars().filter(|c| *c != '_').collect())
+    } else {
+        text
+    }
+}
+
+/// Outcome of reading an integer literal, decided before touching the working set so the
+/// token bytes can stay borrowed from it.
+enum IntLiteral {
+    Value(i64),
+    Empty,
+    InvalidDigits { radix: u32 },
+    NotInt,
 }
 
 pub fn parse_int(working_set: &mut StateWorkingSet, span: Span) -> Expression {
-    let token = working_set.get_span_contents(span);
+    let literal = {
+        let token = strip_underscores(working_set.get_span_contents(span));
 
-    fn extract_int(
-        working_set: &mut StateWorkingSet,
-        token: &str,
-        span: Span,
-        radix: u32,
-    ) -> Expression {
         // Parse as a u64, then cast to i64, otherwise, for numbers like "0xffffffffffffffef",
         // you'll get `Error parsing hex string: number too large to fit in target type`.
-        if let Ok(num) = u64::from_str_radix(token, radix).map(|val| val as i64) {
-            Expression::new(working_set, Expr::Int(num), span, Type::Int)
+        let extract_int = |digits: &str, radix: u32| match u64::from_str_radix(digits, radix) {
+            Ok(num) => IntLiteral::Value(num as i64),
+            Err(_) => IntLiteral::InvalidDigits { radix },
+        };
+
+        if token.is_empty() {
+            IntLiteral::Empty
+        } else if let Some(num) = token.strip_prefix("0b") {
+            extract_int(num, 2)
+        } else if let Some(num) = token.strip_prefix("0o") {
+            extract_int(num, 8)
+        } else if let Some(num) = token.strip_prefix("0x") {
+            extract_int(num, 16)
+        } else if let Ok(num) = token.parse::<i64>() {
+            IntLiteral::Value(num)
         } else {
+            IntLiteral::NotInt
+        }
+    };
+
+    match literal {
+        IntLiteral::Value(num) => Expression::new(working_set, Expr::Int(num), span, Type::Int),
+        IntLiteral::Empty | IntLiteral::NotInt => {
+            working_set.error(ParseError::Expected("int", span));
+            garbage(working_set, span)
+        }
+        IntLiteral::InvalidDigits { radix } => {
             working_set.error(ParseError::InvalidLiteral(
                 format!("invalid digits for radix {radix}"),
                 "int".into(),
                 span,
             ));
-
             garbage(working_set, span)
         }
-    }
-
-    let token = strip_underscores(token);
-
-    if token.is_empty() {
-        working_set.error(ParseError::Expected("int", span));
-        return garbage(working_set, span);
-    }
-
-    if let Some(num) = token.strip_prefix("0b") {
-        extract_int(working_set, num, span, 2)
-    } else if let Some(num) = token.strip_prefix("0o") {
-        extract_int(working_set, num, span, 8)
-    } else if let Some(num) = token.strip_prefix("0x") {
-        extract_int(working_set, num, span, 16)
-    } else if let Ok(num) = token.parse::<i64>() {
-        Expression::new(working_set, Expr::Int(num), span, Type::Int)
-    } else {
-        working_set.error(ParseError::Expected("int", span));
-        garbage(working_set, span)
     }
 }
 
 pub fn parse_float(working_set: &mut StateWorkingSet, span: Span) -> Expression {
-    let token = working_set.get_span_contents(span);
-    let token = strip_underscores(token);
+    let parsed = strip_underscores(working_set.get_span_contents(span)).parse::<f64>();
 
-    if let Ok(x) = token.parse::<f64>() {
+    if let Ok(x) = parsed {
         Expression::new(working_set, Expr::Float(x), span, Type::Float)
     } else {
         working_set.error(ParseError::Expected("float", span));
@@ -230,7 +241,10 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Option<Expr
 
     let contents = working_set.get_span_contents(span);
 
-    let Ok(token) = String::from_utf8(contents.into()) else {
+    // Everything about the operators is decided on the borrowed token, then errors are
+    // reported and the bounds parsed once the borrow is released. Most tokens reaching here are
+    // bare words tried speculatively, so this must not copy the token.
+    let Ok(token) = std::str::from_utf8(contents) else {
         working_set.error(ParseError::NonUtf8(span));
         return None;
     };
@@ -316,10 +330,13 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Option<Expr
         (RangeInclusion::Inclusive, op_str, op_span)
     };
 
+    let has_from = !token.starts_with("..");
+    let has_to = !token.ends_with(range_op_str);
+
     // Now, based on the operator positions, figure out where the bounds & next are located and
     // parse them
     // TODO: Actually parse the next number in the range
-    let from = if token.starts_with("..") {
+    let from = if !has_from {
         // token starts with either next operator, or range operator -- we don't care which one
         None
     } else {
@@ -332,7 +349,7 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Option<Expr
         ))
     };
 
-    let to = if token.ends_with(range_op_str) {
+    let to = if !has_to {
         None
     } else {
         let to_span = Span::new(range_op_span.end, span.end);
@@ -549,7 +566,19 @@ pub fn parse_brace_expr(
         return Expression::garbage(working_set, span);
     }
     let bytes = working_set.get_span_contents(Span::new(span.start + 1, span.end - 1));
-    let (tokens, _) = lex(bytes, span.start + 1, &[b'\r', b'\n', b'\t'], &[b':'], true);
+    // Only the first two tokens decide the kind of value, so lex just those instead of the
+    // whole body: the body is lexed again by whichever parser is chosen below, and for nested
+    // closures that repeated full scan dominated parse time. Newlines are additional whitespace
+    // and comments are skipped here, so no token depends on a later one and the first two
+    // tokens are the same as a full lex would produce. Lex errors are ignored as before.
+    let mut lex_state = LexState {
+        input: bytes,
+        output: Vec::new(),
+        error: None,
+        span_offset: span.start + 1,
+    };
+    lex_n_tokens(&mut lex_state, &[b'\r', b'\n', b'\t'], &[b':'], true, 2);
+    let tokens = lex_state.output;
 
     match tokens.as_slice() {
         // If we're empty, that means an empty record or closure
@@ -1771,6 +1800,13 @@ pub fn unescape_string(bytes: &[u8], span: Span) -> (Vec<u8>, Option<ParseError>
                 }
                 Some(b'~') => {
                     output.push(b'~');
+                    idx += 1;
+                }
+                Some(b' ') => {
+                    // Terminals (macOS Terminal, iTerm2, Ghostty) escape spaces in
+                    // dropped paths. A space needs no escaping inside quotes, so
+                    // accept it as itself.
+                    output.push(b' ');
                     idx += 1;
                 }
                 Some(b'a') => {

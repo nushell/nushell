@@ -38,10 +38,11 @@ impl Command for AttrCategory {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let arg: String = call.req_const(working_set, 0)?;
+        let arg: String = call.req_const(working_set, stack, 0)?;
         Ok(Value::string(arg, call.head).into_pipeline_data())
     }
 
