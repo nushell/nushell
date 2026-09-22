@@ -86,7 +86,7 @@
     list       := "[" ws* (value (sep value)* sep?)? ws* "]"
     record     := "{" ws* (pair (sep pair)* sep?)? ws* "}"
     pair       := key ws* ":" ws* value
-    table      := "[" ws* list ws* ";" ws* (list (sep list)* sep?)? ws* "]"
+    table      := "[" ws* list ws* ";" ws* list (sep list)* sep? ws* "]"
     binary     := "0x[" (hex | sep)* "]" | "0b[" (bit | sep)* "]"
     cell_path  := "$" ("." member)*
     member     := (bare | '"' esc* '"' | "'" any* "'" | int) "?"?
