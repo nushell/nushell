@@ -19,26 +19,22 @@ def leap-year-days [year] {
 
 def borrow-month [from: record, current: record] {
     mut current = $current
-    if $from.month in [1, 3, 5, 7, 8, 10, 12] {
+    # When a day is borrowed, the days gained are those of the month that is
+    # actually crossed, i.e. the month *before* `from` (the later date), not
+    # `from`'s own month.
+    let prev_month = if $from.month == 1 { 12 } else { $from.month - 1 }
+    let prev_year = if $from.month == 1 { $from.year - 1 } else { $from.year }
+    if $prev_month in [1, 3, 5, 7, 8, 10, 12] {
         $current.day = $current.day + 31
-        $current.month = $current.month - 1
-        if $current.month < 0 {
-            $current = (borrow-year $from $current)
-        }
-    } else if $from.month in [4, 6, 9, 11] {
+    } else if $prev_month in [4, 6, 9, 11] {
         $current.day = $current.day + 30
-        $current.month = $current.month - 1
-        if $current.month < 0 {
-            $current = (borrow-year $from $current)
-        }
     } else {
-        # oh February
-        let num_days_feb = (leap-year-days $current.year)
-        $current.day = $current.day + $num_days_feb
-        $current.month = $current.month - 1
-        if $current.month < 0 {
-            $current = (borrow-year $from $current)
-        }
+        # oh February: use the real calendar year of the month being crossed
+        $current.day = $current.day + (leap-year-days $prev_year)
+    }
+    $current.month = $current.month - 1
+    if $current.month < 0 {
+        $current = (borrow-year $from $current)
     }
 
     $current
@@ -116,7 +112,7 @@ def borrow-microsecond [from: record, current: record] {
 } --result {
     year: 3,
     month: 11,
-    day: 26,
+    day: 25,
     hour: 23,
     minute: 9,
     second: 32,
@@ -192,7 +188,7 @@ export def datetime-diff [
 # Convert record from datetime-diff into humanized string
 @example "Format the difference between two dates into a human readable string" {
     dt pretty-print-duration (dt datetime-diff 2023-05-07T04:08:45+12:00 2019-05-10T09:59:12+12:00)
-} --result "3yrs 11months 27days 18hrs 9mins 33secs"
+} --result "3yrs 11months 26days 18hrs 9mins 33secs"
 export def pretty-print-duration [dur: record]: [nothing -> string] {
     mut result = ""
     if $dur.year != 0 {
