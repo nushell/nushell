@@ -3808,6 +3808,61 @@ fn accept_valid_list_semicolons(#[case] source: &str) {
     );
 }
 
+#[rstest]
+#[case::between_items("[1; 2]")]
+#[case::before_newline("[1;\n2]")]
+#[case::leading("[;1]")]
+#[case::trailing("[1;]")]
+#[case::empty("[;]")]
+#[case::repeated("[1;; 2]")]
+#[case::nested_list("[[1; 2]]")]
+#[case::nested_record("[{a: [1; 2]}]")]
+#[case::ignore_rest("[1 ..; 2]")]
+#[case::capture_rest("[1 ..$rest; 2]")]
+fn reject_invalid_list_pattern_semicolons(#[case] pattern: &str) {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    working_set.add_decl(Box::new(MatchMocked));
+    let source = format!("match [] {{ {pattern} => true, _ => false }}");
+    let _ = parse(&mut working_set, None, source.as_bytes(), false);
+
+    let error = working_set
+        .parse_errors
+        .first()
+        .expect("a semicolon in a list pattern must produce a parse error");
+    assert!(
+        matches!(error, ParseError::LabeledErrorWithHelp { error, .. }
+            if error == "Unexpected semicolon in list pattern"),
+        "unexpected diagnostic: {error:?}"
+    );
+    assert_eq!(working_set.get_span_contents(error.span()), b";");
+}
+
+#[rstest]
+#[case::double_quoted(r#"["a;b" 2]"#)]
+#[case::single_quoted("['a;b' 2]")]
+#[case::backtick_quoted("[`a;b` 2]")]
+#[case::raw_string("[r#'a;b'# 2]")]
+#[case::comment("[1 # ; ignored\n 2]")]
+#[case::constant_subexpression("[(1; 2)]")]
+#[case::nested_list(r#"[["a;b"]]"#)]
+#[case::nested_record(r#"[{a: "b;c"}]"#)]
+#[case::ignore_rest("[1 ..]")]
+#[case::capture_rest("[1 ..$rest]")]
+fn accept_valid_list_pattern_semicolons(#[case] pattern: &str) {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    working_set.add_decl(Box::new(MatchMocked));
+    let source = format!("match [] {{ {pattern} => true, _ => false }}");
+    let _ = parse(&mut working_set, None, source.as_bytes(), false);
+
+    assert!(
+        working_set.parse_errors.is_empty(),
+        "{:?}",
+        working_set.parse_errors
+    );
+}
+
 #[test]
 fn record_semicolon_gives_separator_help() {
     let engine_state = EngineState::new();
