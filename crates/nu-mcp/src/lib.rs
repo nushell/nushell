@@ -37,9 +37,11 @@ pub enum McpTransport {
         bind_host: String,
         /// Port to listen on
         bind_port: u16,
-        /// Optional list of allowed hosts for CORS (default: none)
+        /// Optional list of allowed `Host` header values, guarding against DNS-rebinding
+        /// attacks (default: rmcp's built-in loopback-only list)
         allowed_hosts: Option<Vec<String>>,
-        /// Optional list of allowed origins for CORS (default: none)
+        /// Optional list of allowed CORS origins (default: none, which disables Origin
+        /// validation for backward compatibility)
         allowed_origins: Option<Vec<String>>,
     },
 }
@@ -97,21 +99,6 @@ pub fn initialize_mcp_server(
     engine_state.is_mcp = true;
 
     tracing::info!(?transport, "Starting MCP server");
-    if let McpTransport::Http {
-        bind_host,
-        bind_port,
-        allowed_hosts,
-        allowed_origins,
-    } = &transport
-    {
-        tracing::info!("MCP HTTP server listening on http://{bind_host}:{bind_port}");
-        if let Some(hosts) = allowed_hosts {
-            tracing::info!("Allowed hosts: {:?}", hosts);
-        }
-        if let Some(origins) = allowed_origins {
-            tracing::info!("Allowed origins: {:?}", origins);
-        }
-    }
     let runtime = Runtime::new().map_err(|e| {
         ShellError::Generic(GenericError::new_internal(
             format!("Could not instantiate tokio: {e}"),
@@ -176,19 +163,30 @@ async fn run_http_server(
     session_manager.session_config = session_config;
     let session_manager = Arc::new(session_manager);
 
+    // Only override rmcp's defaults when the user explicitly configured a list: rmcp's
+    // default `allowed_hosts` (loopback only) guards against DNS-rebinding attacks, and
+    // passing an empty Vec here would disable that protection by allowing any Host header.
+    let mut http_config = StreamableHttpServerConfig::default();
+    if let Some(hosts) = bind_hosts {
+        http_config = http_config.with_allowed_hosts(hosts);
+    }
+    if let Some(origins) = bind_origins {
+        http_config = http_config.with_allowed_origins(origins);
+    }
+
     let service = TowerToHyperService::new(StreamableHttpService::new(
         {
             let engine_state = engine_state.clone();
             move || Ok(NushellMcpServer::new((*engine_state).clone()))
         },
         session_manager,
-        StreamableHttpServerConfig::default()
-            .with_allowed_hosts(bind_hosts.unwrap_or_default())
-            .with_allowed_origins(bind_origins.unwrap_or_default()),
+        http_config.clone(),
     ));
 
     let listener = tokio::net::TcpListener::bind(bind_address).await?;
     tracing::info!("MCP HTTP server listening on http://{bind_address}");
+    tracing::info!("Allowed hosts: {:?}", http_config.allowed_hosts);
+    tracing::info!("Allowed origins: {:?}", http_config.allowed_origins);
     eprintln!("MCP HTTP server listening on http://{bind_address}");
 
     loop {

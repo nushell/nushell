@@ -777,16 +777,18 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
             #[cfg(feature = "mcp")]
             Long("mcp-allowed-hosts") => {
                 let values = parse_list_values(&mut parser, "mcp-allowed-hosts")?;
+                let parsed = split_list_values(values);
                 cli.mcp_allowed_hosts
                     .get_or_insert_with(Vec::new)
-                    .extend(values.into_iter().map(spanned_value));
+                    .extend(parsed.into_iter().map(spanned_value));
             }
             #[cfg(feature = "mcp")]
             Long("mcp-allowed-origins") => {
                 let values = parse_list_values(&mut parser, "mcp-allowed-origins")?;
+                let parsed = split_list_values(values);
                 cli.mcp_allowed_origins
                     .get_or_insert_with(Vec::new)
-                    .extend(values.into_iter().map(spanned_value));
+                    .extend(parsed.into_iter().map(spanned_value));
             }
             Value(value) => {
                 let value = value.string().map_err(|_| {
@@ -1110,32 +1112,31 @@ fn parse_experimental_options(parser: &mut lexopt::Parser) -> Result<Vec<String>
     Ok(parsed)
 }
 
-// Parse log filters and ensure they match known log levels.
-// Supports multiple formats: [error,warn], [error, warn], error warn, etc.
-fn parse_log_filters(values: Vec<String>) -> Vec<String> {
+// Split list-flag values on commas and strip surrounding brackets, so
+// `--flag="a,b"`, `--flag="[a, b]"`, and `--flag a --flag b` all parse the same way.
+fn split_list_values(values: Vec<String>) -> Vec<String> {
     let mut parsed = Vec::new();
-
-    // Process each value, handling brackets and comma-delimited forms
     for value in values {
         let trimmed = value.trim();
         let trimmed = trimmed.strip_prefix('[').unwrap_or(trimmed);
         let trimmed = trimmed.strip_suffix(']').unwrap_or(trimmed);
-
-        // Split on commas if present, otherwise treat as single value
-        if trimmed.contains(',') {
-            for item in trimmed.split(',') {
-                let item = item.trim();
-                if !item.is_empty() {
-                    let normalized = item.to_ascii_lowercase();
-                    parsed.push(normalized);
-                }
+        for item in trimmed.split(',') {
+            let item = item.trim();
+            if !item.is_empty() {
+                parsed.push(item.to_string());
             }
-        } else if !trimmed.is_empty() {
-            let normalized = trimmed.to_ascii_lowercase();
-            parsed.push(normalized);
         }
     }
     parsed
+}
+
+// Parse log filters and ensure they match known log levels.
+// Supports multiple formats: [error,warn], [error, warn], error warn, etc.
+fn parse_log_filters(values: Vec<String>) -> Vec<String> {
+    split_list_values(values)
+        .into_iter()
+        .map(|value| value.to_ascii_lowercase())
+        .collect()
 }
 
 // Validate an experimental option name against the known list.
