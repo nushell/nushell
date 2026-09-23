@@ -167,7 +167,7 @@ async fn run_http_server(
     // default `allowed_hosts` (loopback only) guards against DNS-rebinding attacks, and
     // passing an empty Vec here would disable that protection by allowing any Host header.
     let mut http_config = StreamableHttpServerConfig::default();
-if let Some(hosts) = bind_hosts.filter(|hosts| !hosts.is_empty()) {
+    if let Some(hosts) = bind_hosts.filter(|hosts| !hosts.is_empty()) {
         http_config = http_config.with_allowed_hosts(hosts);
     }
     if let Some(origins) = bind_origins {
