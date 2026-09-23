@@ -226,6 +226,7 @@ fn all_modes() -> Value {
             str("emacs"),
             str("vi_normal"),
             str("vi_insert"),
+            str("vi_visual"),
             str("helix_normal"),
             str("helix_select"),
             str("helix_insert"),
