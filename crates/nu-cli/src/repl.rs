@@ -660,6 +660,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     let cursor_config = CursorConfig {
         vi_insert: map_nucursorshape_to_cursorshape(config.cursor_shape.vi_insert),
         vi_normal: map_nucursorshape_to_cursorshape(config.cursor_shape.vi_normal),
+        vi_visual: map_nucursorshape_to_cursorshape(config.cursor_shape.vi_visual),
         emacs: map_nucursorshape_to_cursorshape(config.cursor_shape.emacs),
         hx_insert: map_nucursorshape_to_cursorshape(config.cursor_shape.helix_insert),
         hx_normal: map_nucursorshape_to_cursorshape(config.cursor_shape.helix_normal),
@@ -1406,8 +1407,13 @@ fn setup_keybindings(engine_state: &EngineState, line_editor: Reedline) -> Reedl
             KeybindingsMode::Vi {
                 insert_keybindings,
                 normal_keybindings,
+                visual_keybindings,
             } => {
-                let edit_mode = Box::new(Vi::new(insert_keybindings, normal_keybindings));
+                let edit_mode = Box::new(Vi::new(
+                    insert_keybindings,
+                    normal_keybindings,
+                    visual_keybindings,
+                ));
                 line_editor.with_edit_mode(edit_mode)
             }
             KeybindingsMode::Helix {

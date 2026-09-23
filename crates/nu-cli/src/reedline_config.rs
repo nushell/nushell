@@ -13,10 +13,11 @@ use nu_protocol::{
 use reedline::{
     ColumnarMenu, DescriptionMenu, DescriptionMode, DescriptionPosition, Direction, EditCommand,
     EditCommandDiscriminants, FindStop, Granularity, IdeMenu, InputMode, Keybindings, ListMenu,
-    Menu, MenuBuilder, MotionTarget, OutputMode, PromptEditModeDiscriminants, Reedline,
-    ReedlineEvent, ReedlineEventDiscriminants, ReedlineMenu, TextObject, TextObjectScope,
-    TextObjectType, TraversalDirection, WordEdge, WordKind, default_emacs_keybindings,
-    default_vi_insert_keybindings, default_vi_normal_keybindings,
+    Menu, MenuBuilder, MotionTarget, OutputMode, PromptEditMode, PromptEditModeDiscriminants,
+    PromptHelixMode, PromptViMode, Reedline, ReedlineEvent, ReedlineEventDiscriminants,
+    ReedlineMenu, TextObject, TextObjectScope, TextObjectType, TraversalDirection, WordEdge,
+    WordKind, default_emacs_keybindings, default_vi_insert_keybindings,
+    default_vi_normal_keybindings, default_vi_visual_keybindings,
 };
 use reedline::{
     default_helix_insert_keybindings, default_helix_normal_keybindings,
@@ -602,6 +603,7 @@ pub enum KeybindingsMode {
     Vi {
         insert_keybindings: Keybindings,
         normal_keybindings: Keybindings,
+        visual_keybindings: Keybindings,
     },
     Helix {
         insert_keybindings: Keybindings,
@@ -616,6 +618,7 @@ struct KeybindingTables {
     emacs: Keybindings,
     vi_insert: Keybindings,
     vi_normal: Keybindings,
+    vi_visual: Keybindings,
     helix_insert: Keybindings,
     helix_normal: Keybindings,
     helix_select: Keybindings,
@@ -630,6 +633,7 @@ pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, She
         emacs: default_emacs_keybindings(),
         vi_insert: default_vi_insert_keybindings(),
         vi_normal: default_vi_normal_keybindings(),
+        vi_visual: default_vi_visual_keybindings(),
         helix_insert: default_helix_insert_keybindings(),
         helix_normal: default_helix_normal_keybindings(),
         helix_select: default_helix_select_keybindings(),
@@ -644,6 +648,7 @@ pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, She
         EditBindings::Vi => Ok(KeybindingsMode::Vi {
             insert_keybindings: tables.vi_insert,
             normal_keybindings: tables.vi_normal,
+            visual_keybindings: tables.vi_visual,
         }),
         EditBindings::Helix => Ok(KeybindingsMode::Helix {
             insert_keybindings: tables.helix_insert,
@@ -653,8 +658,7 @@ pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, She
     }
 }
 
-const VALID_KEYBINDING_MODES: &str =
-    "'emacs', 'vi_insert', 'vi_normal', 'helix_insert', 'helix_normal', or 'helix_select'";
+const VALID_KEYBINDING_MODES: &str = "'emacs', 'vi_insert', 'vi_normal', 'vi_visual', 'helix_insert', 'helix_normal', or 'helix_select'";
 
 fn add_keybinding(
     mode: &Value,
@@ -670,6 +674,7 @@ fn add_keybinding(
             Ok(PEMD::Emacs) => add_parsed_keybinding(&mut tables.emacs, keybinding, config),
             Ok(PEMD::ViInsert) => add_parsed_keybinding(&mut tables.vi_insert, keybinding, config),
             Ok(PEMD::ViNormal) => add_parsed_keybinding(&mut tables.vi_normal, keybinding, config),
+            Ok(PEMD::ViVisual) => add_parsed_keybinding(&mut tables.vi_visual, keybinding, config),
             Ok(PEMD::HelixInsert) => {
                 add_parsed_keybinding(&mut tables.helix_insert, keybinding, config)
             }
@@ -706,6 +711,7 @@ pub(crate) fn display_edit_mode(mode: PromptEditModeDiscriminants) -> Option<Str
         PromptEditModeDiscriminants::Emacs => Some("emacs".into()),
         PromptEditModeDiscriminants::ViNormal => Some("vi_normal".into()),
         PromptEditModeDiscriminants::ViInsert => Some("vi_insert".into()),
+        PromptEditModeDiscriminants::ViVisual => Some("vi_visual".into()),
         PromptEditModeDiscriminants::HelixNormal => Some("helix_normal".into()),
         PromptEditModeDiscriminants::HelixInsert => Some("helix_insert".into()),
         PromptEditModeDiscriminants::HelixSelect => Some("helix_select".into()),
@@ -968,13 +974,20 @@ fn event_from_record(
             ReedlineEvent::ExecuteHostCommand(cmd.to_expanded_string("", config))
         }
         Ok(RED::OpenEditor) => ReedlineEvent::OpenEditor,
-        Ok(RED::ViChangeMode) => {
+        Ok(RED::SwitchMode) => {
             let mode = extract_value("mode", record, span)?;
-            ReedlineEvent::ViChangeMode(mode.as_str()?.to_owned())
+            ReedlineEvent::SwitchMode(switch_mode_target(mode)?)
         }
-        Ok(RED::HelixChangeMode) => {
+        // Gone from reedline, lowered onto `SwitchMode` so existing configs
+        // keep working. Each names a state of its own editor, so under the
+        // other editor it stays inapplicable, as it always did.
+        Err(_) if name.eq_ignore_ascii_case("ViChangeMode") => {
             let mode = extract_value("mode", record, span)?;
-            ReedlineEvent::HelixChangeMode(mode.as_str()?.to_owned())
+            ReedlineEvent::SwitchMode(PromptEditMode::Vi(vi_change_mode_target(mode)?))
+        }
+        Err(_) if name.eq_ignore_ascii_case("HelixChangeMode") => {
+            let mode = extract_value("mode", record, span)?;
+            ReedlineEvent::SwitchMode(PromptEditMode::Helix(helix_change_mode_target(mode)?))
         }
         // Non-sensical for user configuration:
         //
@@ -996,6 +1009,61 @@ fn event_from_record(
     };
 
     Ok(event)
+}
+
+/// The target of a `SwitchMode` event: the same names `mode` takes on a
+/// keybinding, one editor state each.
+fn switch_mode_target(mode: &Value) -> Result<PromptEditMode, ShellError> {
+    use PromptEditModeDiscriminants as PEMD;
+    let name = mode.as_str()?;
+    let target = match PEMD::from_str(name) {
+        Ok(PEMD::Emacs) => PromptEditMode::Emacs,
+        Ok(PEMD::ViInsert) => PromptEditMode::Vi(PromptViMode::Insert),
+        Ok(PEMD::ViNormal) => PromptEditMode::Vi(PromptViMode::Normal),
+        Ok(PEMD::ViVisual) => PromptEditMode::Vi(PromptViMode::Visual),
+        Ok(PEMD::HelixInsert) => PromptEditMode::Helix(PromptHelixMode::Insert),
+        Ok(PEMD::HelixNormal) => PromptEditMode::Helix(PromptHelixMode::Normal),
+        Ok(PEMD::HelixSelect) => PromptEditMode::Helix(PromptHelixMode::Select),
+        Ok(PEMD::Default | PEMD::Custom) | Err(_) => {
+            return Err(ShellError::InvalidValue {
+                valid: VALID_KEYBINDING_MODES.into(),
+                actual: format!("'{name}'"),
+                span: mode.span(),
+            });
+        }
+    };
+    Ok(target)
+}
+
+/// `ViChangeMode mode: <string>` named the vi state without its `vi_` prefix.
+fn vi_change_mode_target(mode: &Value) -> Result<PromptViMode, ShellError> {
+    let name = mode.as_str()?;
+    match name.to_ascii_lowercase().as_str() {
+        "insert" => Ok(PromptViMode::Insert),
+        "normal" => Ok(PromptViMode::Normal),
+        "visual" => Ok(PromptViMode::Visual),
+        _ => Err(ShellError::InvalidValue {
+            valid: "'insert', 'normal', or 'visual'".into(),
+            actual: format!("'{name}'"),
+            span: mode.span(),
+        }),
+    }
+}
+
+/// `HelixChangeMode mode: <string>` named the helix state without its
+/// `helix_` prefix.
+fn helix_change_mode_target(mode: &Value) -> Result<PromptHelixMode, ShellError> {
+    let name = mode.as_str()?;
+    match name.to_ascii_lowercase().as_str() {
+        "insert" => Ok(PromptHelixMode::Insert),
+        "normal" => Ok(PromptHelixMode::Normal),
+        "select" => Ok(PromptHelixMode::Select),
+        _ => Err(ShellError::InvalidValue {
+            valid: "'insert', 'normal', or 'select'".into(),
+            actual: format!("'{name}'"),
+            span: mode.span(),
+        }),
+    }
 }
 
 // This is displayed in `keybindings list` command
@@ -1038,8 +1106,7 @@ pub(crate) fn display_reedline_event(event: ReedlineEventDiscriminants) -> Optio
         RED::MenuPagePrevious => "MenuPagePrevious",
         RED::ExecuteHostCommand => "ExecuteHostCommand cmd: <string>",
         RED::OpenEditor => "OpenEditor",
-        RED::ViChangeMode => "ViChangeMode mode: <string>",
-        RED::HelixChangeMode => "HelixChangeMode mode: <string>",
+        RED::SwitchMode => "SwitchMode mode: <string>",
         // Non-sensical for user configuration
         RED::Mouse | RED::Resize => return None,
     })
@@ -2167,6 +2234,155 @@ mod test {
                 Some(ReedlineEvent::Edit(_))
             ),
             "the select table should keep reedline's extending arrow defaults"
+        );
+    }
+
+    #[test]
+    fn test_switch_mode_event() {
+        let config = Config::default();
+        for (name, target) in [
+            ("emacs", PromptEditMode::Emacs),
+            ("vi_insert", PromptEditMode::Vi(PromptViMode::Insert)),
+            ("vi_normal", PromptEditMode::Vi(PromptViMode::Normal)),
+            ("vi_visual", PromptEditMode::Vi(PromptViMode::Visual)),
+            (
+                "helix_insert",
+                PromptEditMode::Helix(PromptHelixMode::Insert),
+            ),
+            (
+                "helix_normal",
+                PromptEditMode::Helix(PromptHelixMode::Normal),
+            ),
+            (
+                "helix_select",
+                PromptEditMode::Helix(PromptHelixMode::Select),
+            ),
+        ] {
+            let event = Value::test_record(record! {
+                "send" => Value::test_string("SwitchMode"),
+                "mode" => Value::test_string(name),
+            });
+            assert_eq!(
+                parse_event(&event, &config).unwrap(),
+                Some(ReedlineEvent::SwitchMode(target)),
+                "`mode: {name}`"
+            );
+        }
+    }
+
+    #[test]
+    fn test_change_mode_events_lower_onto_switch_mode() {
+        // The names reedline dropped still parse, and keep their own
+        // vocabulary: the state without the editor prefix.
+        let config = Config::default();
+        for (send, mode, target) in [
+            (
+                "ViChangeMode",
+                "normal",
+                PromptEditMode::Vi(PromptViMode::Normal),
+            ),
+            (
+                "ViChangeMode",
+                "insert",
+                PromptEditMode::Vi(PromptViMode::Insert),
+            ),
+            (
+                "vichangemode",
+                "visual",
+                PromptEditMode::Vi(PromptViMode::Visual),
+            ),
+            (
+                "HelixChangeMode",
+                "normal",
+                PromptEditMode::Helix(PromptHelixMode::Normal),
+            ),
+            (
+                "HelixChangeMode",
+                "select",
+                PromptEditMode::Helix(PromptHelixMode::Select),
+            ),
+        ] {
+            let event = Value::test_record(record! {
+                "send" => Value::test_string(send),
+                "mode" => Value::test_string(mode),
+            });
+            assert_eq!(
+                parse_event(&event, &config).unwrap(),
+                Some(ReedlineEvent::SwitchMode(target)),
+                "`send: {send}, mode: {mode}`"
+            );
+        }
+    }
+
+    #[test]
+    fn test_switch_mode_rejects_an_unknown_mode() {
+        let config = Config::default();
+        for (send, mode) in [
+            ("SwitchMode", "normal"),
+            ("SwitchMode", "vi_nrmal"),
+            ("ViChangeMode", "select"),
+            ("HelixChangeMode", "visual"),
+        ] {
+            let event = Value::test_record(record! {
+                "send" => Value::test_string(send),
+                "mode" => Value::test_string(mode),
+            });
+            assert!(
+                matches!(
+                    parse_event(&event, &config),
+                    Err(ShellError::InvalidValue { .. })
+                ),
+                "`send: {send}, mode: {mode}` should be rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn vi_visual_keybindings_land_in_their_own_table() {
+        use nu_protocol::ParsedKeybinding;
+
+        // `mode: vi_visual` targets the visual table, which used to be the
+        // normal table itself, and the visual table keeps reedline's
+        // extending arrow defaults underneath.
+        let keybinding = ParsedKeybinding {
+            name: Some(Value::test_string("visual_only")),
+            modifier: Value::test_string("control"),
+            keycode: Value::test_string("char_t"),
+            event: Value::test_record(record! {
+                "send" => Value::test_string("clearscreen"),
+            }),
+            mode: Value::test_string("vi_visual"),
+        };
+        let mut config = Config {
+            edit_mode: EditBindings::Vi,
+            ..Default::default()
+        };
+        config.keybindings.push(keybinding);
+
+        let KeybindingsMode::Vi {
+            normal_keybindings,
+            visual_keybindings,
+            ..
+        } = create_keybindings(&config).expect("keybindings should apply cleanly")
+        else {
+            panic!("`edit_mode: vi` should produce vi keybindings");
+        };
+
+        assert_eq!(
+            visual_keybindings.find_binding(KeyModifiers::CONTROL, KeyCode::Char('t')),
+            Some(ReedlineEvent::ClearScreen),
+        );
+        assert_eq!(
+            normal_keybindings.find_binding(KeyModifiers::CONTROL, KeyCode::Char('t')),
+            None,
+            "a `vi_visual` binding must not leak into the normal table"
+        );
+        assert!(
+            matches!(
+                visual_keybindings.find_binding(KeyModifiers::NONE, KeyCode::Right),
+                Some(ReedlineEvent::Edit(_))
+            ),
+            "the visual table should keep reedline's extending arrow defaults"
         );
     }
 }

@@ -190,6 +190,12 @@ $env.config.cursor_shape.vi_insert = "inherit"
 # Default: "inherit"
 $env.config.cursor_shape.vi_normal = "inherit"
 
+# cursor_shape.vi_visual (string): Cursor shape when in vi visual mode.
+# One of: "block", "underscore", "line", "blink_block", "blink_underscore", "blink_line", or "inherit".
+# "inherit" follows `cursor_shape.vi_normal`, so a config that only sets that one keeps its shape in visual mode.
+# Default: "inherit"
+$env.config.cursor_shape.vi_visual = "inherit"
+
 # cursor_shape.helix_normal (string): Cursor shape when in helix normal mode.
 # One of: "block", "underscore", "line", "blink_block", "blink_underscore", "blink_line", or "inherit".
 # Default: "inherit"
@@ -712,9 +718,10 @@ $env.config.hooks.command_not_found = null
 #   }
 # ]
 
-# Example: Bind Ctrl+g to leave insert mode. A mode event only applies to its own
-# state machine and reports itself inapplicable elsewhere, so `until` hands the
-# key on and one binding covers both editors:
+# Example: Bind Ctrl+g to leave insert mode. `SwitchMode` names the mode to land
+# in, with the same names `mode` takes above. It only reaches the modes of the
+# editor `edit_mode` selects and reports itself inapplicable elsewhere, so
+# `until` hands the key on and one binding covers both editors:
 # $env.config.keybindings ++= [
 #   {
 #     name: leave_insert_mode
@@ -723,15 +730,18 @@ $env.config.hooks.command_not_found = null
 #     mode: [vi_insert helix_insert]
 #     event: {
 #       until: [
-#         { send: ViChangeMode, mode: normal }
-#         { send: HelixChangeMode, mode: normal }
+#         { send: SwitchMode, mode: vi_normal }
+#         { send: SwitchMode, mode: helix_normal }
 #       ]
 #     }
 #   }
 # ]
-# `ViChangeMode` takes "normal", "insert" or "visual"; `HelixChangeMode` takes
-# "normal", "insert" or "select". An unknown
-# mode name leaves the mode alone rather than erroring.
+# A `SwitchMode` into the mode already active does nothing and reports itself
+# inapplicable, so an `until` list of `vi_normal` then `vi_insert` toggles
+# between the two.
+# The older `ViChangeMode` (mode: "normal", "insert" or "visual") and
+# `HelixChangeMode` (mode: "normal", "insert" or "select") still parse and mean
+# the same as the `SwitchMode` above. An unknown mode name is a config error.
 
 # -------------
 # Abbreviations
