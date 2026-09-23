@@ -450,7 +450,7 @@ fn commandline_test_complete_input_empty_line() -> TestResult {
     run_test(
         "'' | commandline complete --input | to nuon",
         "{token: {text: \"\", kind: head, span: {start: 0, end: 0}}, \
-place: {cursor: 0, target: {start: 0, end: 0}, kind: command, command: []}, buffer: \"\"}",
+place: {cursor: 0, target: {start: 0, end: 0}, kind: command, command: [\"\"]}, buffer: \"\"}",
     )
 }
 
