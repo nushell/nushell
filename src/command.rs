@@ -419,7 +419,8 @@ const CLI_FLAGS: &[CliFlag] = &[
         "mcp-allowed-hosts",
         None,
         ValueHint::ListString,
-        "list of allowed hosts for MCP HTTP transport (default none)",
+        "list of allowed `Host` header values, guarding against DNS-rebinding attacks (default: rmcp's built-in loopback-only list)
+",
         CliCategory::Startup,
         r#"nu --mcp --mcp-transport http --mcp-allowed-hosts="example.com,localhost""#,
     ),
@@ -428,7 +429,8 @@ const CLI_FLAGS: &[CliFlag] = &[
         "mcp-allowed-origins",
         None,
         ValueHint::ListString,
-        "list of allowed origins for MCP HTTP transport (default none)",
+        "list of allowed CORS origins (default: none, which disables Origin validation for backward compatibility)
+",
         CliCategory::Startup,
         r#"nu --mcp --mcp-transport http --mcp-allowed-origins="https://example.com,https://localhost""#,
     ),
