@@ -1,6 +1,6 @@
 use crate::{
     NuHelpCompleter,
-    menus::{MenuLine, NuMenuCompleter, SourcedMenu},
+    menus::{MenuLine, NuMenuCompleter, SourceMode, SourcedMenu},
 };
 use crossterm::event::{KeyCode, KeyModifiers};
 use nu_ansi_term::Style;
@@ -172,18 +172,19 @@ fn menu_with_source<M: Menu + 'static>(
     engine_state: Arc<EngineState>,
     input_mode: InputMode,
 ) -> ReedlineMenu {
+    let mode = SourceMode::of(&input_mode);
     let line = MenuLine::default();
     let completer = NuMenuCompleter::new(
         source.block_id,
         span,
         stack.captures_to_stack(source.captures.clone()),
         engine_state,
-        input_mode,
+        mode,
         line.clone(),
     );
 
     ReedlineMenu::WithCompleter {
-        menu: Box::new(SourcedMenu::new(menu, line)),
+        menu: Box::new(SourcedMenu::new(menu, line, mode)),
         completer: Box::new(completer),
     }
 }
