@@ -2102,7 +2102,8 @@ fn drain(
             let callback_spans = stream.get_caller_spans().clone();
             if let Err(mut err) = stream.drain() {
                 ctx.stack.set_last_error(&err);
-                if callback_spans.is_empty() {
+                // `exit` must reach the top level as is, so it keeps its exit code.
+                if callback_spans.is_empty() || matches!(err, ShellError::Exit { .. }) {
                     return Err(err);
                 } else {
                     for s in callback_spans {
@@ -2120,7 +2121,8 @@ fn drain(
         PipelineData::ListStream(stream, ..) => {
             let callback_spans = stream.get_caller_spans().clone();
             if let Err(mut err) = stream.drain() {
-                if callback_spans.is_empty() {
+                // `exit` must reach the top level as is, so it keeps its exit code.
+                if callback_spans.is_empty() || matches!(err, ShellError::Exit { .. }) {
                     return Err(err);
                 } else {
                     for s in callback_spans {
