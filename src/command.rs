@@ -414,6 +414,24 @@ const CLI_FLAGS: &[CliFlag] = &[
         CliCategory::Startup,
         "nu --mcp --mcp-transhost http --mcp-host 0.0.0.0",
     ),
+    #[cfg(feature = "mcp")]
+    CliFlag::value(
+        "mcp-allowed-hosts",
+        None,
+        ValueHint::ListString,
+        "list of allowed hosts for MCP HTTP transport (default none)",
+        CliCategory::Startup,
+        r#"nu --mcp --mcp-transport http --mcp-allowed-hosts="example.com,localhost""#,
+    ),
+    #[cfg(feature = "mcp")]
+    CliFlag::value(
+        "mcp-allowed-origins",
+        None,
+        ValueHint::ListString,
+        "list of allowed origins for MCP HTTP transport (default none)",
+        CliCategory::Startup,
+        r#"nu --mcp --mcp-transport http --mcp-allowed-origins="https://example.com,https://localhost""#,
+    ),
 ];
 
 // Container for parsed CLI values before conversion to NushellCliArgs.
@@ -461,6 +479,10 @@ struct CliValues {
     mcp_port: Option<u16>,
     #[cfg(feature = "mcp")]
     mcp_host: Option<String>,
+    #[cfg(feature = "mcp")]
+    mcp_allowed_hosts: Option<Vec<Spanned<String>>>,
+    #[cfg(feature = "mcp")]
+    mcp_allowed_origins: Option<Vec<Spanned<String>>>,
 }
 
 // Error type for CLI parsing with optional help text.
@@ -747,6 +769,25 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
                 let value = parse_port_value(&mut parser, "mcp-port")?;
                 cli.mcp_port = Some(value);
             }
+            #[cfg(feature = "mcp")]
+            Long("mcp-host") => {
+                let value = parse_string_value(&mut parser, "mcp-host")?;
+                cli.mcp_host = Some(value);
+            }
+            #[cfg(feature = "mcp")]
+            Long("mcp-allowed-hosts") => {
+                let values = parse_list_values(&mut parser, "mcp-allowed-hosts")?;
+                cli.mcp_allowed_hosts
+                    .get_or_insert_with(Vec::new)
+                    .extend(values.into_iter().map(spanned_value));
+            }
+            #[cfg(feature = "mcp")]
+            Long("mcp-allowed-origins") => {
+                let values = parse_list_values(&mut parser, "mcp-allowed-origins")?;
+                cli.mcp_allowed_origins
+                    .get_or_insert_with(Vec::new)
+                    .extend(values.into_iter().map(spanned_value));
+            }
             Value(value) => {
                 let value = value.string().map_err(|_| {
                     CliError::new("Invalid argument", "argument is not valid unicode")
@@ -810,6 +851,10 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
             mcp_port: cli.mcp_port,
             #[cfg(feature = "mcp")]
             mcp_host: cli.mcp_host,
+            #[cfg(feature = "mcp")]
+            mcp_allowed_hosts: cli.mcp_allowed_hosts,
+            #[cfg(feature = "mcp")]
+            mcp_allowed_origins: cli.mcp_allowed_origins,
         },
         script_name,
         args_to_script,
@@ -1484,6 +1529,10 @@ pub(crate) struct NushellCliArgs {
     pub(crate) mcp_port: Option<u16>,
     #[cfg(feature = "mcp")]
     pub(crate) mcp_host: Option<String>,
+    #[cfg(feature = "mcp")]
+    pub(crate) mcp_allowed_hosts: Option<Vec<Spanned<String>>>,
+    #[cfg(feature = "mcp")]
+    pub(crate) mcp_allowed_origins: Option<Vec<Spanned<String>>>,
 }
 
 #[cfg(test)]

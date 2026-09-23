@@ -37,15 +37,26 @@ pub enum McpTransport {
         bind_host: String,
         /// Port to listen on
         bind_port: u16,
+        /// Optional list of allowed hosts for CORS (default: none)
+        allowed_hosts: Option<Vec<String>>,
+        /// Optional list of allowed origins for CORS (default: none)
+        allowed_origins: Option<Vec<String>>,
     },
 }
 
 impl McpTransport {
     /// Create a new MCP transport configuration for HTTP
-    pub fn http(bind_address: Option<String>, port: Option<u16>) -> Self {
+    pub fn http(
+        bind_address: Option<String>,
+        port: Option<u16>,
+        allowed_hosts: Option<Vec<String>>,
+        allowed_origins: Option<Vec<String>>,
+    ) -> Self {
         McpTransport::Http {
             bind_host: bind_address.unwrap_or("127.0.0.1".into()),
             bind_port: port.unwrap_or(8080),
+            allowed_hosts,
+            allowed_origins,
         }
     }
 }
@@ -86,6 +97,21 @@ pub fn initialize_mcp_server(
     engine_state.is_mcp = true;
 
     tracing::info!(?transport, "Starting MCP server");
+    if let McpTransport::Http {
+        bind_host,
+        bind_port,
+        allowed_hosts,
+        allowed_origins,
+    } = &transport
+    {
+        tracing::info!("MCP HTTP server listening on http://{bind_host}:{bind_port}");
+        if let Some(hosts) = allowed_hosts {
+            tracing::info!("Allowed hosts: {:?}", hosts);
+        }
+        if let Some(origins) = allowed_origins {
+            tracing::info!("Allowed origins: {:?}", origins);
+        }
+    }
     let runtime = Runtime::new().map_err(|e| {
         ShellError::Generic(GenericError::new_internal(
             format!("Could not instantiate tokio: {e}"),
@@ -99,9 +125,11 @@ pub fn initialize_mcp_server(
             McpTransport::Http {
                 bind_host,
                 bind_port,
+                allowed_hosts,
+                allowed_origins,
             } => {
                 let addr = format!("{bind_host}:{bind_port}");
-                run_http_server(engine_state, &addr).await
+                run_http_server(engine_state, &addr, allowed_hosts, allowed_origins).await
             }
         };
         if let Err(e) = result {
@@ -132,6 +160,8 @@ const SESSION_CHANNEL_CAPACITY: usize = 16;
 async fn run_http_server(
     engine_state: EngineState,
     bind_address: &str,
+    bind_hosts: Option<Vec<String>>,
+    bind_origins: Option<Vec<String>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let engine_state = Arc::new(engine_state);
 
@@ -152,7 +182,9 @@ async fn run_http_server(
             move || Ok(NushellMcpServer::new((*engine_state).clone()))
         },
         session_manager,
-        StreamableHttpServerConfig::default(),
+        StreamableHttpServerConfig::default()
+            .with_allowed_hosts(bind_hosts.unwrap_or_default())
+            .with_allowed_origins(bind_origins.unwrap_or_default()),
     ));
 
     let listener = tokio::net::TcpListener::bind(bind_address).await?;
