@@ -120,12 +120,24 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
         );
     }
 
+    let home_dir = &engine_state.config_dirs.home_dir;
     record.push(
         "home-dir",
-        Value::string(
-            canonicalize_path(engine_state, &engine_state.config_dirs.home_dir).to_string_lossy(),
-            span,
-        ),
+        if home_dir.as_os_str().is_empty() {
+            Value::error(
+                ShellError::Generic(GenericError::new(
+                    "setting $nu.home-dir failed",
+                    "Could not get home directory",
+                    span,
+                )),
+                span,
+            )
+        } else {
+            Value::string(
+                canonicalize_path(engine_state, home_dir).to_string_lossy(),
+                span,
+            )
+        },
     );
 
     record.push(
