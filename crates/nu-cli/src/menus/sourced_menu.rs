@@ -1,4 +1,4 @@
-use reedline::{Completer, Editor, Menu, MenuEvent, Painter, Suggestion};
+use reedline::{Completer, Editor, Menu, MenuEvent, MenuSettings, Painter, Suggestion};
 use std::sync::{Arc, Mutex};
 
 /// Shared command line for menu source.
@@ -62,6 +62,10 @@ impl<M> SourcedMenu<M> {
 }
 
 impl<M: Menu> Menu for SourcedMenu<M> {
+    fn settings(&self) -> &MenuSettings {
+        self.menu.settings()
+    }
+
     fn name(&self) -> &str {
         self.menu.name()
     }

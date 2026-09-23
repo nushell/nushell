@@ -23,13 +23,16 @@ pub fn configure_table(
 ) {
     let with_footer = is_footer_needed(config, out);
     let theme = load_theme(mode);
+    // Markup themes must keep the header in its own row to stay valid
+    // Markdown/reStructuredText, so never move it onto the separator.
+    let is_markup = matches!(mode, TableMode::Markdown | TableMode::Restructured);
 
     out.table.set_theme(theme);
     out.table
         .set_structure(out.with_index, out.with_header, with_footer);
     out.table.set_trim(config.table.trim.clone());
     out.table
-        .set_border_header(config.table.header_on_separator);
+        .set_border_header(config.table.header_on_separator && !is_markup);
     out.table.set_border_color(lookup_separator_color(comp));
 }
 

@@ -320,9 +320,13 @@ fn rm(
                         Ok(f) => {
                             // It is not appropriate to try and remove the
                             // current directory or its parent when using
-                            // glob patterns.
+                            // glob patterns. Split on every platform separator,
+                            // since glob results use `\` on Windows.
                             let name = f.display().to_string();
-                            if name.ends_with("/.") || name.ends_with("/..") {
+                            if matches!(
+                                name.rsplit(std::path::is_separator).next(),
+                                Some("." | "..")
+                            ) {
                                 continue;
                             }
 

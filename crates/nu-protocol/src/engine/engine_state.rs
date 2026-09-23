@@ -6,7 +6,7 @@ use crate::{
     debugger::{Debugger, NoopDebugger},
     engine::{
         CachedFile, Command, DEFAULT_OVERLAY_NAME, EnvName, EnvVars, OverlayFrame, PromptState,
-        ScopeFrame, Stack, StateDelta, Variable, Visibility,
+        ScopeFrame, Stack, StateDelta, Variable, VisibilityStack,
         description::{Doccomments, build_desc},
     },
     eval_const::create_nu_constant,
@@ -157,6 +157,10 @@ pub struct EngineState {
     pub is_login: bool,
     pub is_lsp: bool,
     pub is_mcp: bool,
+    /// Running as the Debug Adapter Protocol server (`nu --dap`). Like
+    /// `is_lsp`/`is_mcp`, this means stdout is a protocol stream, so anything
+    /// that would print to it must go to stderr instead.
+    pub is_dap: bool,
     startup_time: i64,
     is_debugging: IsDebugging,
     pub debugger: Arc<Mutex<Box<dyn Debugger>>>,
@@ -268,6 +272,7 @@ impl EngineState {
             is_login: false,
             is_lsp: false,
             is_mcp: false,
+            is_dap: false,
             startup_time: -1,
             is_debugging: IsDebugging::new(false),
             debugger: Arc::new(Mutex::new(Box::new(NoopDebugger))),
@@ -725,10 +730,10 @@ impl EngineState {
     ///
     /// Searches within active overlays, and filtering out overlays in `removed_overlays`.
     pub fn find_decl(&self, name: &[u8], removed_overlays: &[Vec<u8>]) -> Option<DeclId> {
-        let mut visibility: Visibility = Visibility::new();
+        let mut visibility = VisibilityStack::default();
 
         for overlay_frame in self.active_overlays(removed_overlays).rev() {
-            visibility.append(&overlay_frame.visibility);
+            visibility.push(&overlay_frame.visibility);
 
             if let Some(decl_id) = overlay_frame.get_decl(name)
                 && visibility.is_decl_id_visible(&decl_id)
@@ -744,10 +749,10 @@ impl EngineState {
     ///
     /// Searches within active overlays, and filtering out overlays in `removed_overlays`.
     pub fn find_decl_name(&self, decl_id: DeclId, removed_overlays: &[Vec<u8>]) -> Option<&[u8]> {
-        let mut visibility: Visibility = Visibility::new();
+        let mut visibility = VisibilityStack::default();
 
         for overlay_frame in self.active_overlays(removed_overlays).rev() {
-            visibility.append(&overlay_frame.visibility);
+            visibility.push(&overlay_frame.visibility);
 
             if visibility.is_decl_id_visible(&decl_id) {
                 for (name, id) in overlay_frame.decls.iter() {

@@ -73,6 +73,42 @@ fn termwidth_too_small() {
 }
 
 #[test]
+fn termwidth_too_small_single_column() {
+    let tests = [
+        TrimStrategy::truncate(None),
+        TrimStrategy::truncate(Some(String::from("**"))),
+        TrimStrategy::wrap(false),
+        TrimStrategy::wrap(true),
+    ];
+
+    let data = vec![
+        vec![cell("abcdefghijklmnop")],
+        vec![cell("qrstuvwxyzabcdef")],
+        vec![cell("1234567890123456")],
+    ];
+
+    for case in tests {
+        // the table cannot fit anything but the borders below width 8,
+        // so it must report that it cannot be drawn rather than panic
+        for i in 0..8 {
+            let mut table = NuTable::from(data.clone());
+            table.set_theme(theme::heavy());
+            table.set_structure(false, true, false);
+            table.set_trim(case.clone());
+
+            assert!(table.draw(i).is_none(), "termwidth={i}");
+        }
+
+        let mut table = NuTable::from(data.clone());
+        table.set_theme(theme::heavy());
+        table.set_structure(false, true, false);
+        table.set_trim(case.clone());
+
+        assert!(table.draw(8).is_some());
+    }
+}
+
+#[test]
 fn wrap_test() {
     for test in 0..15 {
         test_trim(&[(test, None)], TrimStrategy::wrap(false));

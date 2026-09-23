@@ -1062,3 +1062,12 @@ fn table_missing_value_custom() -> Result {
             ╰───┴──────╯
         "})
 }
+
+#[rstest]
+#[case::empty_list("[] | table --width=0", "empty list\n")]
+#[case::empty_record("{} | table --width=0", "empty record")]
+fn table_empty_placeholder_too_narrow(#[case] command: &str, #[case] expected: &str) -> Result {
+    // a terminal too narrow for the bordered placeholder falls back to the bare
+    // text instead of panicking (#15328)
+    test().run(command).expect_value_eq(expected)
+}

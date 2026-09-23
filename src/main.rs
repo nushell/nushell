@@ -94,8 +94,15 @@ impl miette::Diagnostic for Panic {
 }
 
 fn main() -> Result<()> {
-    let entire_start_time = nu_utils::time::Instant::now();
-    let mut start_time = nu_utils::time::Instant::now();
+    // `$nu.startup-time` runs from process creation to the moment the shell is ready: the first
+    // prompt in the REPL, or the start of evaluation for `-c` and script runs. The time spent
+    // before `main` (loader, runtime setup) comes from `nu_system::time_since_process_start`,
+    // which documents what each platform can measure; without it the clock starts here.
+    let main_entry_time = nu_utils::time::Instant::now();
+    let entire_start_time = nu_system::time_since_process_start()
+        .and_then(|before_main| main_entry_time.checked_sub(before_main))
+        .unwrap_or(main_entry_time);
+    let mut start_time = main_entry_time;
     // Replicated from `miette::set_panic_hook`, but writes via `writeln!(io::stderr(), …)`
     // instead of `eprintln!`. `eprintln!`/`println!` panic on a broken stderr/stdout
     // (parent terminal/pty closed), so when our parent (Codex, Ghostty, an MCP host, …)
@@ -146,6 +153,8 @@ fn main() -> Result<()> {
     experimental_options::load(&engine_state, &parsed_nu_cli_args, !script_name.is_empty());
 
     let mut engine_state = command_context::add_command_context(engine_state);
+    // Logged once the logger exists, below.
+    let engine_setup_elapsed = start_time.elapsed();
 
     // Provide `version` with data of this nu binary
     let version = env!("CARGO_PKG_VERSION")
@@ -300,9 +309,16 @@ fn main() -> Result<()> {
     #[cfg(not(feature = "lsp"))]
     let is_lsp = false;
     engine_state.is_lsp = is_lsp;
+    // Here, not in the `--dap` branch at the end: `generate_nu_constant()`
+    // below bakes `$nu.is-dap`, and that branch's startup files must see it.
+    #[cfg(feature = "dap")]
+    let is_dap = parsed_nu_cli_args.dap;
+    #[cfg(not(feature = "dap"))]
+    let is_dap = false;
+    engine_state.is_dap = is_dap;
     // keep this condition in sync with the branches at the end
     engine_state.is_interactive = parsed_nu_cli_args.interactive_shell.is_some()
-        || (parsed_nu_cli_args.commands.is_none() && script_name.is_empty() && !is_lsp);
+        || (parsed_nu_cli_args.commands.is_none() && script_name.is_empty() && !is_lsp && !is_dap);
 
     engine_state.is_login = parsed_nu_cli_args.login_shell.is_some();
     engine_state.history_enabled = parsed_nu_cli_args.no_history.is_none();
@@ -313,6 +329,7 @@ fn main() -> Result<()> {
         .get(&engine_state);
 
     // Set up logger
+    start_time = nu_utils::time::Instant::now();
     let level_opt = parsed_nu_cli_args
         .log_level
         .as_ref()
@@ -369,6 +386,17 @@ fn main() -> Result<()> {
         logger(|builder| configure(&level, &target, file_opt.as_deref(), filters, builder))?;
         // info!("start logging {}:{}:{}", file!(), line!(), column!());
         perf!("start logging", start_time, use_color);
+        // Phases that ran before the logger existed.
+        perf!(
+            "before main (exec, loader, runtime init)",
+            elapsed: main_entry_time.duration_since(entire_start_time),
+            use_color
+        );
+        perf!(
+            "create engine state, parse args, register commands",
+            elapsed: engine_setup_elapsed,
+            use_color
+        );
     }
 
     // Config paths are now resolved by `resolve_paths()` above.
@@ -492,7 +520,9 @@ fn main() -> Result<()> {
     );
 
     if parsed_nu_cli_args.no_std_lib.is_none() {
+        start_time = nu_utils::time::Instant::now();
         load_standard_library(&mut engine_state)?;
+        perf!("load standard library", start_time, use_color);
     }
 
     // IDE commands
@@ -625,6 +655,38 @@ fn main() -> Result<()> {
         return run_lsp(engine_state, parsed_nu_cli_args, use_color, start_time);
     }
 
+    // `nu --dap`: hand the fully built engine to the Debug Adapter Protocol
+    // server. It owns process stdio from here (the DAP wire is stdout), and
+    // clones this engine for each debug run, so nothing else in `main`
+    // applies — return as soon as the DAP client disconnects.
+    #[cfg(feature = "dap")]
+    if is_dap {
+        start_time = nu_utils::time::Instant::now();
+
+        // Debugged scripts should see the same shell the user has: aliases and
+        // custom commands from config.nu, `$env` from env.nu, and `$env.config`
+        // — which also drives how the adapter renders values in the variables
+        // pane.
+        if parsed_nu_cli_args.no_config_file.is_none() {
+            let mut config_stack = Stack::new();
+            config_files::setup_config(
+                &mut engine_state,
+                &mut config_stack,
+                parsed_nu_cli_args.login_shell.is_some(),
+            );
+            // Each debug run starts from a fresh `Stack`, so whatever the
+            // startup files left on this one has to be folded into the engine
+            // or the debuggee would never see it.
+            if let Err(err) = engine_state.merge_env(&mut config_stack) {
+                report_shell_error(Some(&config_stack), &engine_state, &err);
+            }
+        }
+        perf!("dap setup_config", start_time, use_color);
+
+        nu_dap::run_stdio(engine_state);
+        return Ok(());
+    }
+
     if let Some(commands) = parsed_nu_cli_args.commands.clone() {
         run_commands(
             &mut engine_state,
@@ -645,11 +707,14 @@ fn main() -> Result<()> {
         run_file(
             &mut engine_state,
             stack,
-            parsed_nu_cli_args,
+            ParsedCli {
+                nu: parsed_nu_cli_args,
+                script_name,
+                args_to_script,
+            },
             use_color,
-            script_name,
-            args_to_script,
             input,
+            entire_start_time,
         );
 
         cleanup_exit(0, &engine_state, 0);

@@ -55,7 +55,11 @@ impl Command for Save {
             )
             .switch("raw", "Save file as raw binary.", Some('r'))
             .switch("append", "Append input to the end of the file.", Some('a'))
-            .switch("force", "Overwrite the destination.", Some('f'))
+            .switch(
+                "force",
+                "Overwrite the destination, creating missing parent directories.",
+                Some('f'),
+            )
             .switch("progress", "Enable progress bar.", Some('p'))
             .category(Category::FileSystem)
     }
@@ -485,6 +489,20 @@ fn get_files(
         .as_ref()
         .map(|stderr_path| prepare_path(stderr_path, append, force))
         .transpose()?;
+
+    // With --force, create missing parent directories for both destinations
+    if force {
+        let mut destinations = vec![(path, path_span)];
+        if let Some((stderr_path, stderr_path_span)) = &stderr_path_and_span {
+            destinations.push((stderr_path, *stderr_path_span));
+        }
+        for (destination, span) in destinations {
+            if let Some(parent) = destination.parent() {
+                std::fs::create_dir_all(parent)
+                    .map_err(|err| ShellError::Io(IoError::new(err, span, parent.to_path_buf())))?;
+            }
+        }
+    }
 
     // Only if both files can be used open and possibly truncate them
     let file = open_file(engine_state, path, path_span, append)?;

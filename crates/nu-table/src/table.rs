@@ -1230,6 +1230,12 @@ fn truncate_columns_by_content(
         return WidthEstimation::new(widths_original, widths, width, false, false);
     }
 
+    // `width` only accounts for the outer borders when no column could be
+    // fitted above, so it may already exceed the terminal width on its own
+    if termwidth < width {
+        return WidthEstimation::new(widths_original, vec![], width, false, false);
+    }
+
     let available = termwidth - width;
 
     let can_fit_last_column = available >= col_floor(truncate_pos) + vertical;
@@ -1286,7 +1292,10 @@ fn truncate_columns_by_content(
         return WidthEstimation::new(widths_original, widths, width, false, true);
     }
 
-    let last_width = widths.last().cloned().expect("ok");
+    let Some(&last_width) = widths.last() else {
+        // no column was fitted and there is no room for a trailing column
+        return WidthEstimation::new(widths_original, vec![], width, false, false);
+    };
     let last_floor = col_floor(truncate_pos.saturating_sub(1));
     let can_truncate_last = last_width > last_floor;
 

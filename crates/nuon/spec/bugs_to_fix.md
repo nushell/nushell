@@ -9,7 +9,7 @@ the list is empty, this file goes away and so does the todo at the top of the sp
 
 - [ ] bug 1 - a leading utf-8 bom is rejected. strip one instead.
 - [ ] bug 2 - the empty document decodes to `null`. error instead.
-- [ ] bug 3 - `[[a b];]` is a list containing the header, not an empty table. error instead.
+- [x] bug 3 - `[[a b];]` is a list containing the header, not an empty table. error instead.
 - [ ] bug 4 - an empty container under indentation emits a blank line. do not emit it.
 - [ ] bug 5 - `--raw --no-commas` emits no separator and loses data. make the two exclusive.
 - [ ] bug 6 - table width is measured in bytes but padded in runes. use one measure for both.
@@ -51,7 +51,7 @@ byte for byte still has to reproduce these until they are fixed.
     ```
     - not an empty table - a list containing the header list. an empty table is not expressible
        in the table form; `[]` must be used.
-    - **reproduce**, for compatibility. documenting it as an intended feature would be dishonest.
+    - **fixed**: the parser now recognizes this as an incomplete table and reports the missing row.
 
 - bug 4 - an empty container under indentation emits a blank line.
     ```nushell

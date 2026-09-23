@@ -32,6 +32,13 @@ impl Command for Flatten {
         "Flatten a table by extracting nested values."
     }
 
+    fn extra_description(&self) -> &str {
+        "A record is treated as a one-row table, so the output is always a table.
+Fields of a nested record are lifted to the top level and the parent key is dropped.
+If a lifted field would collide with a top-level column, it is renamed to `<parent>_<field>`.
+A nested list is expanded into one row per element."
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -71,6 +78,15 @@ impl Command for Flatten {
                 description: "restrict the flattening by passing column names.",
                 example: "[[origin, crate, versions]; [World, ([[name]; ['nu-cli']]), ['0.21', '0.22']]] | flatten versions --all | last | get versions",
                 result: None, //Some(Value::test_string("0.22")),
+            },
+            Example {
+                description: "Flatten a record: nested record fields are lifted, and a lifted field that collides with a top-level column is prefixed with its parent key.",
+                example: "{ a: { b: 1, c: 2 }, c: 3 } | flatten",
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "b" => Value::test_int(1),
+                    "a_c" => Value::test_int(2),
+                    "c" => Value::test_int(3),
+                })])),
             },
             Example {
                 description: "Flatten inner table.",
@@ -153,35 +169,34 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
     match item {
         Value::Record { val, .. } => {
             let val = val.into_owned();
-            let retained_outer_columns: Vec<String> = if columns.is_empty() {
-                vec![]
-            } else {
-                val.iter()
-                    .filter_map(|(column, value)| {
-                        let column_requested =
-                            columns.iter().find(|c| c.to_column_name() == *column);
-                        let need_flatten = column_requested.is_some();
+            // Top-level columns that keep their name in the output. A lifted inner field
+            // that collides with one of these is renamed to `<parent>_<field>` instead of
+            // silently being overwritten (or overwriting it), regardless of field order.
+            let retained_outer_columns: Vec<String> = val
+                .iter()
+                .filter_map(|(column, value)| {
+                    let column_requested = columns.iter().find(|c| c.to_column_name() == *column);
+                    let need_flatten = columns.is_empty() || column_requested.is_some();
 
-                        let will_flatten = match value {
-                            Value::Record { .. } => need_flatten,
-                            Value::List { vals, .. } => {
-                                if all && vals.iter().all(|value| value.as_record().is_ok()) {
-                                    need_flatten
-                                } else {
-                                    matches!(
-                                        column_requested
-                                            .and_then(|cell_path| cell_path.members.first()),
-                                        Some(PathMember::String { .. })
-                                    )
-                                }
+                    let will_flatten = match value {
+                        Value::Record { .. } => need_flatten,
+                        Value::List { vals, .. } => {
+                            if all && vals.iter().all(|value| value.as_record().is_ok()) {
+                                need_flatten
+                            } else {
+                                matches!(
+                                    column_requested
+                                        .and_then(|cell_path| cell_path.members.first()),
+                                    Some(PathMember::String { .. })
+                                )
                             }
-                            _ => false,
-                        };
+                        }
+                        _ => false,
+                    };
 
-                        (!will_flatten).then_some(column.clone())
-                    })
-                    .collect()
-            };
+                    (!will_flatten).then_some(column.clone())
+                })
+                .collect();
             let mut out = IndexMap::<String, Value>::new();
             let mut inner_table = None;
 
