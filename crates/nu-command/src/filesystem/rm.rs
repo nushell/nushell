@@ -322,7 +322,7 @@ fn rm(
                             // current directory or its parent when using
                             // glob patterns. Split on every platform separator,
                             // since glob results use `\` on Windows.
-                            let name = f.to_string_lossy();
+                            let name = f.display().to_string();
                             if matches!(
                                 name.rsplit(std::path::is_separator).next(),
                                 Some("." | "..")
