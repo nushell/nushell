@@ -725,6 +725,8 @@ pub fn stream_grep(context: GrepSearchContext<'_>) -> Result<PipelineData, Shell
     let options = GrepSearchOptions {
         mode: context.mode,
         page_limit: context.page_limit,
+        // A single file may hold all requested matches. FFF otherwise stops at 200 matches per file.
+        max_matches_per_file: context.page_limit,
         before_context: context.before_context,
         after_context: context.after_context,
         ..Default::default()
@@ -757,7 +759,9 @@ pub fn stream_grep(context: GrepSearchContext<'_>) -> Result<PipelineData, Shell
         .iter()
         .map(|file| file_path_for_cwd(file, picker, &runtime.base_path, context.cwd))
         .collect::<Vec<_>>();
-    let matches = result.matches;
+    // FFF stops after the file that reaches the page limit, so trim the matches to the limit.
+    let mut matches = result.matches;
+    matches.truncate(context.page_limit);
 
     drop(guard);
 
