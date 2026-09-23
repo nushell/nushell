@@ -413,7 +413,10 @@ fn unwind_through_handlers(
 
         let Some(handler) = ctx.stack.error_handlers.pop(ctx.error_handler_base) else {
             return Unwound::Return(Box::new(match unwind {
-                Unwind::Error(err) if need_backtrace => {
+                // `exit` is not an error to report, so it must not be chained.
+                Unwind::Error(err)
+                    if need_backtrace && !matches!(err.item, ShellError::Exit { .. }) =>
+                {
                     Err(ShellError::into_chained(err.item, err.span))
                 }
                 Unwind::Error(err) => Err(err.item),
