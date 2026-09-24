@@ -6,6 +6,7 @@ use nu_protocol::{
     engine::{Call, EngineState, EnvName, Stack},
     shell_error::generic::GenericError,
 };
+use nu_utils::IgnoreCaseExt;
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
@@ -17,6 +18,22 @@ pub const DIR_VAR_PARSER_INFO: &str = "dirs_var";
 // Parser info key used when `<cmd> --help` is rewritten to `help <name>` so `help`
 // can render documentation for the already-resolved declaration.
 pub const HELP_DECL_ID_PARSER_INFO: &str = "help_decl_id";
+
+/// Returns whether a string, when used as the name of an environment variable,
+/// is considered an automatic environment variable.
+///
+/// An automatic environment variable cannot be assigned to by user code.
+/// Current there are three of them: $env.PWD, $env.FILE_PWD, $env.CURRENT_FILE
+pub fn is_automatic_env_var(var: &str) -> bool {
+    let names = ["PWD", "FILE_PWD", "CURRENT_FILE"];
+    names.iter().any(|&name| {
+        if cfg!(windows) {
+            name.eq_ignore_case(var)
+        } else {
+            name.eq(var)
+        }
+    })
+}
 
 enum ConversionError {
     ShellError(ShellError),

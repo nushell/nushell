@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_engine::env::is_automatic_env_var;
 
 #[derive(Clone)]
 pub struct LoadEnv;

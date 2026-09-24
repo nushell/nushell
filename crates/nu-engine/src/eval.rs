@@ -1,3 +1,4 @@
+use crate::env::is_automatic_env_var;
 #[allow(deprecated)]
 use crate::get_full_help;
 use crate::named_flags::{
@@ -987,20 +988,4 @@ impl Eval for EvalRuntime {
     fn unreachable(engine_state: &EngineState, expr: &Expression) -> Result<Value, ShellError> {
         Ok(Value::nothing(expr.span(&engine_state)))
     }
-}
-
-/// Returns whether a string, when used as the name of an environment variable,
-/// is considered an automatic environment variable.
-///
-/// An automatic environment variable cannot be assigned to by user code.
-/// Current there are three of them: $env.PWD, $env.FILE_PWD, $env.CURRENT_FILE
-pub(crate) fn is_automatic_env_var(var: &str) -> bool {
-    let names = ["PWD", "FILE_PWD", "CURRENT_FILE"];
-    names.iter().any(|&name| {
-        if cfg!(windows) {
-            name.eq_ignore_case(var)
-        } else {
-            name.eq(var)
-        }
-    })
 }
