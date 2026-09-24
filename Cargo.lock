@@ -4802,6 +4802,7 @@ dependencies = [
  "nu-test-support",
  "nu-utils",
  "nucleo-matcher",
+ "parking_lot",
  "percent-encoding",
  "reedline",
  "rstest",

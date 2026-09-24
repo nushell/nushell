@@ -214,6 +214,11 @@ fn place_value(context: &Context, cursor: Value, target: Value) -> Value {
         }
     }
 
+    // The command the cursor is in, so completers need not re-parse `buffer`.
+    // One syntactic token per argument (no flatten), so `token`'s filtered walk
+    // is never paid for when only `place` is asked for.
+    place.insert("command", command_tokens(context));
+
     Value::record(place, span)
 }
 
@@ -336,22 +341,156 @@ pub(crate) fn legacy_pos(context: &Context) -> Value {
     Value::int(context.buffer.len() as i64, context.span)
 }
 
-/// Flattened element tokens, plus `""` for a trailing empty slot: the old `spans`.
-pub(crate) fn legacy_spans(context: &Context) -> Value {
-    let Some(element) = context.contexts.last().and_then(|level| level.element) else {
-        return Value::list(vec![], context.span);
-    };
-    let mut spans: Vec<Value> = flatten_expression(context.working_set, element)
-        .iter()
-        .map(|(span, _)| {
-            Value::string(
-                String::from_utf8_lossy(context.working_set.get_span_contents(*span)).into_owned(),
-                *span,
-            )
-        })
-        .collect();
-    if context.span.is_empty() {
-        spans.push(Value::string("", context.span));
+/// Tokens of the command the cursor is in, plus `""` for a trailing empty slot.
+///
+/// Backs `place.command`; also the legacy `spans` value. One shell word per
+/// argument (`foo {|x| $x } fil` is `[foo, "{|x| $x }", fil]`, never empty.
+pub(crate) fn command_tokens(context: &Context) -> Value {
+    PlaceCommand::of(context).into_value(context.span)
+}
+
+/// argv of the command the cursor is in. Always non-empty, with a trailing `""`
+/// iff the cursor sits on an empty slot, so `$place.command.0` never index-errors.
+struct PlaceCommand(Vec<String>);
+
+impl PlaceCommand {
+    fn of(context: &Context) -> Self {
+        let line = Line::of(context);
+        let mut words: Vec<String> = match context.contexts.last().and_then(|level| level.element) {
+            Some(element) => match &element.expr {
+                Expr::Call(call) => line
+                    .word(call.head)
+                    .into_iter()
+                    .chain(
+                        call.arguments
+                            .iter()
+                            .flat_map(|arg| arg_pair(&line, arg).into_iter().flatten()),
+                    )
+                    .collect(),
+                Expr::ExternalCall(head, args) => line
+                    .word(head.span)
+                    .into_iter()
+                    .chain(args.iter().filter_map(|arg| match arg {
+                        nu_protocol::ast::ExternalArgument::Regular(e) => line.word(e.span),
+                        nu_protocol::ast::ExternalArgument::Spread(e) => line.spread(e.span),
+                    }))
+                    .collect(),
+                // A bare word, variable, or cell path is its own command.
+                _ => line.word(element.span).into_iter().collect(),
+            },
+            None => Vec::new(),
+        };
+        if context.span.is_empty() && !matches!(words.last(), Some(w) if w.is_empty()) {
+            words.push(String::new());
+        }
+        if words.is_empty() {
+            words.push(String::new());
+        }
+        Self(words)
     }
-    Value::list(spans, context.span)
+
+    fn into_value(self, span: Span) -> Value {
+        Value::list(
+            self.0
+                .into_iter()
+                .map(|word| Value::string(word, span))
+                .collect(),
+            span,
+        )
+    }
+}
+
+/// One argument as zero to two shell words: flags stay whole (`--flag=value`) or
+/// split (`--flag value`); everything else is one word or skipped when empty.
+fn arg_pair(line: &Line, arg: &nu_protocol::ast::Argument) -> [Option<String>; 2] {
+    use nu_protocol::ast::Argument;
+    match arg {
+        Argument::Positional(e) | Argument::Unknown(e) => [line.word(e.span), None],
+        Argument::Spread(e) => [line.spread(e.span), None],
+        Argument::Named((long, short, value)) => {
+            // Long and short cover the same source text; reading both would double it.
+            let long_word = line.word(long.span);
+            let (flag_span, flag) = match (long_word, short) {
+                (Some(flag), _) => (long.span, flag),
+                (None, Some(short)) => match line.word(short.span) {
+                    Some(flag) => (short.span, flag),
+                    None => return [None, value.as_ref().and_then(|v| line.word(v.span))],
+                },
+                (None, None) => return [None, value.as_ref().and_then(|v| line.word(v.span))],
+            };
+            let Some(value) = value else {
+                return [Some(flag), None];
+            };
+            // Joined (`--flag=value`, gap `=`) is one word; spaced gaps are two,
+            // so `--flag foo=bar` never collapses even though the value holds `=`.
+            if line.spaced(flag_span.end, value.span.start) {
+                [Some(flag), line.word(value.span)]
+            } else {
+                [line.word(arg.span()), None]
+            }
+        }
+    }
+}
+
+/// The line being completed: clips working-set spans to it. `None` means empty
+/// or off-line (whitespace, synthetic, alias-expanded), so empties never leak.
+struct Line<'a> {
+    working_set: &'a nu_protocol::engine::StateWorkingSet<'a>,
+    offset: usize,
+    end: usize,
+}
+
+impl<'a> Line<'a> {
+    fn of(context: &'a Context) -> Self {
+        Self {
+            working_set: context.working_set,
+            offset: context.offset,
+            end: context.offset + context.buffer.len(),
+        }
+    }
+
+    fn word(&self, span: Span) -> Option<String> {
+        if span.start >= span.end {
+            return None;
+        }
+        let end = span.end.min(self.end);
+        let start = span.start.max(self.offset).min(end);
+        if start >= end {
+            return None;
+        }
+        let text =
+            String::from_utf8_lossy(self.working_set.get_span_contents(Span::new(start, end)))
+                .into_owned();
+        (!text.is_empty()).then_some(text)
+    }
+
+    /// Whether the gap between a flag and its value holds whitespace: the
+    /// shell-word boundary (`=`-joined gaps hold only `=`).
+    fn spaced(&self, flag_end: usize, value_start: usize) -> bool {
+        if flag_end >= value_start {
+            return false;
+        }
+        let (start, end) = (flag_end.max(self.offset), value_start.min(self.end));
+        start < end
+            && self
+                .working_set
+                .get_span_contents(Span::new(start, end))
+                .iter()
+                .any(u8::is_ascii_whitespace)
+    }
+
+    /// A spread as one word, keeping the `...` prefix that lives outside the
+    /// inner span (`...$args`, not `$args`).
+    fn spread(&self, inner: Span) -> Option<String> {
+        let mut word = self.word(inner)?;
+        if inner.start >= self.offset + 3
+            && self
+                .working_set
+                .get_span_contents(Span::new(inner.start - 3, inner.start))
+                == b"..."
+        {
+            word.insert_str(0, "...");
+        }
+        Some(word)
+    }
 }

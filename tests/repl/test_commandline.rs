@@ -270,7 +270,7 @@ fn commandline_test_complete_input_cursor(#[case] cmd: &str, #[case] expected: &
             ] {{}}\n\
             \n\
             '{cmd}' | commandline complete --input \
-            | get place | reject cursor target | to nuon"
+            | get place | reject cursor target command | to nuon"
         ),
         expected,
     )
@@ -284,8 +284,17 @@ fn commandline_test_complete_input_record() -> TestResult {
         "def test-cmd [first?: string] {}\n\
         'test-cmd ab' | commandline complete --input | to nuon",
         "{token: {text: ab, kind: value, span: {start: 9, end: 11}}, \
-place: {cursor: 11, target: {start: 9, end: 11}, kind: positional, index: 0, shape: string}, \
-buffer: \"test-cmd ab\"}",
+place: {cursor: 11, target: {start: 9, end: 11}, kind: positional, index: 0, shape: string, \
+command: [test-cmd, ab]}, buffer: \"test-cmd ab\"}",
+    )
+}
+
+/// `place.command` is the command the cursor is in, not the whole line (#19016).
+#[test]
+fn commandline_test_complete_input_place_command() -> TestResult {
+    run_test(
+        "'ls | cargo bld' | commandline complete --input | get place.command | to nuon",
+        "[cargo, bld]",
     )
 }
 
@@ -296,7 +305,7 @@ buffer: \"test-cmd ab\"}",
 fn commandline_test_complete_input_buffer() -> TestResult {
     run_test(
         "def test-cmd [first?: string] {}\n\
-        'ignored | each { test-cmd ab' | commandline complete --input | reject token | to nuon",
+        'ignored | each { test-cmd ab' | commandline complete --input | reject token place.command | to nuon",
         "{place: {cursor: 28, target: {start: 26, end: 28}, kind: positional, index: 0, shape: string}, \
 buffer: \"ignored | each { test-cmd ab\"}",
     )
@@ -392,7 +401,8 @@ fn commandline_test_complete_input_skips_whitespace_tokens(#[case] line: &str) -
         &format!(
             "{{token: {{text: \"\", kind: value, span: {{start: {cursor}, end: {cursor}}}}}, \
 place: {{cursor: {cursor}, target: {{start: {cursor}, end: {cursor}}}, \
-kind: positional, index: 0, shape: \"oneof<glob, string>\"}}, buffer: \"{line}\"}}",
+kind: positional, index: 0, shape: \"oneof<glob, string>\", command: [ls, \"\"]}}, \
+buffer: \"{line}\"}}",
             cursor = line.len()
         ),
     )
@@ -417,7 +427,7 @@ fn commandline_test_complete_input_gap_resolves_inside_the_closure() -> TestResu
 fn commandline_test_complete_input_resolves_deep_in_subexpressions() -> TestResult {
     run_test(
         "'ls | where a == (^ext ' | commandline complete --input\n\
-        | {buffer: $in.buffer, place: ($in.place | reject cursor target)} | to nuon",
+        | {buffer: $in.buffer, place: ($in.place | reject cursor target command)} | to nuon",
         "{buffer: \"ls | where a == (^ext \", place: {kind: external-arg, index: 0}}",
     )
 }
@@ -440,7 +450,7 @@ fn commandline_test_complete_input_empty_line() -> TestResult {
     run_test(
         "'' | commandline complete --input | to nuon",
         "{token: {text: \"\", kind: head, span: {start: 0, end: 0}}, \
-place: {cursor: 0, target: {start: 0, end: 0}, kind: command}, buffer: \"\"}",
+place: {cursor: 0, target: {start: 0, end: 0}, kind: command, command: [\"\"]}, buffer: \"\"}",
     )
 }
 

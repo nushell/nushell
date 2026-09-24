@@ -338,14 +338,17 @@ $env.config.completions.external.max_results = 100
 #                    ({start, end}, the range a suggestion replaces), plus the resolution
 #                    (`kind`, plus `flag`/`index`). Read `target` rather than `token.span`:
 #                    they differ wherever a completion spans several tokens, such as a
-#                    multiword command head or a cell path.
+#                    multiword command head or a cell path. `command` is the token list of the
+#                    command being completed -- the element the cursor is in, plus `""` for a
+#                    fresh empty argument slot. Unlike `buffer`, it is the command after a
+#                    pipe, inside a closure, or after a `;`, so `$place.command.0` is the
+#                    command name a completer like Carapace needs.
 #   buffer: string   the whole command line up to the cursor, across pipes and closures, for
-#                    completers that need more than the current token -- an external completer
-#                    like Carapace reads this. `std/util structure` turns it into a
-#                    {text, kind, span} table. Prefer it over calling `commandline` from inside
-#                    a completer: `buffer` is always the line being completed, whereas
-#                    `commandline` reads editor state and can come back empty depending on how
-#                    completion was triggered (e.g. after a `;`).
+#                    completers that need more than the current token. `std/util structure`
+#                    turns it into a {text, kind, span} table. Prefer it over calling
+#                    `commandline` from inside a completer: `buffer` is always the line being
+#                    completed, whereas `commandline` reads editor state and can come back
+#                    empty depending on how completion was triggered (e.g. after a `;`).
 # `commandline complete --input` returns all three at once, for inspecting a completer.
 # A completer never sees text past the cursor.
 #
@@ -356,10 +359,10 @@ $env.config.completions.external.max_results = 100
 $env.config.completions.external.completer = null
 
 # Example: A simplified Carapace completer (use the official one from Carapace docs).
-# The whole line is wanted, so it declares `buffer` and splits it into words:
-# $env.config.completions.external.completer = {|buffer|
-#   let words = $buffer | split row " "
-#   carapace ($words | first) nushell ...$words | from json
+# It reads `$place.command`, so the command being completed is the first token even after a
+# pipe, inside a closure, or after a `;`:
+# $env.config.completions.external.completer = {|place|
+#   carapace $place.command.0 nushell ...$place.command | from json
 # }
 #
 # Example: branch off the resolved cursor instead of re-parsing the line, by declaring
@@ -386,13 +389,12 @@ $env.config.completions.external.completer = null
 # `external.completer` is a plain closure, which cannot carry an attribute. To make it run
 # inline (the picker-driving case), have it call an `@interactive` command: interactivity is
 # seen through the closure to that command, so there is no separate switch. The command
-# usually declares `buffer` to feed the whole line to its picker:
+# usually reads `$place.command` to feed the command being completed to its picker:
 # @interactive
-# def carapace-fzf [buffer] {
-#   let words = $buffer | split row ' '
-#   carapace ($words | first) nushell ...$words | from json | ^fzf | lines
+# def carapace-fzf [place] {
+#   carapace $place.command.0 nushell ...$place.command | from json | get value | to text | ^fzf | lines
 # }
-# $env.config.completions.external.completer = {|buffer| carapace-fzf $buffer }
+# $env.config.completions.external.completer = {|place| carapace-fzf $place }
 # A closure that does not reach an `@interactive` command stays on the background worker:
 # non-blocking, and cached.
 
