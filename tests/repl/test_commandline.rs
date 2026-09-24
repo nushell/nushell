@@ -298,6 +298,65 @@ fn commandline_test_complete_input_place_command() -> TestResult {
     )
 }
 
+/// `place.command` is one shell word per argument: a joined flag stays whole, a spaced
+/// one splits, and a quoted string, list, closure, cell path, or spread is one word.
+#[rstest]
+#[case::joined_flag("test-cmd --flag=val x", "[test-cmd, \"--flag=val\", x]")]
+#[case::spaced_flag("test-cmd --flag val x", "[test-cmd, --flag, val, x]")]
+#[case::spaced_flag_with_equals("test-cmd --flag foo=bar x", "[test-cmd, --flag, \"foo=bar\", x]")]
+#[case::short_flag("test-cmd -f val x", "[test-cmd, -f, val, x]")]
+#[case::switch("test-cmd --on x", "[test-cmd, --on, x]")]
+#[case::quoted("test-cmd \"a b\" x", "[test-cmd, \"\\\"a b\\\"\", x]")]
+#[case::list("test-cmd [a b", "[test-cmd, \"[a b\"]")]
+#[case::closure("test-cmd {|x| $x } fil", "[test-cmd, \"{|x| $x }\", fil]")]
+#[case::cell_path("test-cmd $env.HOME x", "[test-cmd, \"$env.HOME\", x]")]
+#[case::spread("test-cmd ...$args x", "[test-cmd, \"...$args\", x]")]
+fn commandline_test_complete_input_place_command_words(
+    #[case] line: &str,
+    #[case] expected: &str,
+) -> TestResult {
+    run_test(
+        &format!(
+            "def test-cmd [--flag (-f): string, --on, ...rest] {{}}\n\
+            let args = [a]\n\
+            '{line}' | commandline complete --input | get place.command | to nuon"
+        ),
+        expected,
+    )
+}
+
+/// An alias head stands for its expansion, so a completer sees the real command the way
+/// it did before 0.116. `^` bypasses the alias and stays a plain word.
+#[rstest]
+#[case::external_alias("gco ma", "[git, checkout, ma]")]
+#[case::external_alias_empty_slot("gco ", "[git, checkout, \"\"]")]
+#[case::internal_alias("ll --a", "[ls, -l, --a]")]
+#[case::caret_bypasses_alias("^gco ma", "[gco, ma]")]
+fn commandline_test_complete_input_place_command_expands_aliases(
+    #[case] line: &str,
+    #[case] expected: &str,
+) -> TestResult {
+    run_test(
+        &format!(
+            "alias gco = git checkout\n\
+            alias ll = ls -l\n\
+            '{line}' | commandline complete --input | get place.command | to nuon"
+        ),
+        expected,
+    )
+}
+
+/// An alias shadowing its own target expands once: the parser resolved the definition
+/// when it was declared, so its head is read as a plain word rather than looked up again.
+#[test]
+fn commandline_test_complete_input_place_command_self_shadowing_alias() -> TestResult {
+    run_test(
+        "alias ls = ls -l\n\
+        'ls x' | commandline complete --input | get place.command | to nuon",
+        "[ls, -l, x]",
+    )
+}
+
 /// `buffer` is the whole line up to the cursor, with `place` resolving against the command
 /// the cursor is actually in — here `test-cmd`'s positional, even though the cursor is nested
 /// in a closure.

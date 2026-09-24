@@ -358,23 +358,8 @@ impl PlaceCommand {
         let line = Line::of(context);
         let mut words: Vec<String> = match context.contexts.last().and_then(|level| level.element) {
             Some(element) => match &element.expr {
-                Expr::Call(call) => line
-                    .word(call.head)
-                    .into_iter()
-                    .chain(
-                        call.arguments
-                            .iter()
-                            .flat_map(|arg| arg_pair(&line, arg).into_iter().flatten()),
-                    )
-                    .collect(),
-                Expr::ExternalCall(head, args) => line
-                    .word(head.span)
-                    .into_iter()
-                    .chain(args.iter().filter_map(|arg| match arg {
-                        nu_protocol::ast::ExternalArgument::Regular(e) => line.word(e.span),
-                        nu_protocol::ast::ExternalArgument::Spread(e) => line.spread(e.span),
-                    }))
-                    .collect(),
+                Expr::Call(call) => line.call_words(call),
+                Expr::ExternalCall(head, args) => line.external_words(head, args),
                 // A bare word, variable, or cell path is its own command.
                 _ => line.word(element.span).into_iter().collect(),
             },
@@ -433,11 +418,15 @@ fn arg_pair(line: &Line, arg: &nu_protocol::ast::Argument) -> [Option<String>; 2
 }
 
 /// The line being completed: clips working-set spans to it. `None` means empty
-/// or off-line (whitespace, synthetic, alias-expanded), so empties never leak.
+/// or off-line (whitespace, synthetic), so empties never leak. Alias expansions are
+/// off-line too; `head` reads those from the alias definition instead.
 struct Line<'a> {
     working_set: &'a nu_protocol::engine::StateWorkingSet<'a>,
     offset: usize,
     end: usize,
+    /// Whether `head` expands aliases. Off inside an alias definition: the parser
+    /// resolved nested aliases there already, and `alias ls = ls -l` names itself.
+    aliases: bool,
 }
 
 impl<'a> Line<'a> {
@@ -446,7 +435,71 @@ impl<'a> Line<'a> {
             working_set: context.working_set,
             offset: context.offset,
             end: context.offset + context.buffer.len(),
+            aliases: true,
         }
+    }
+
+    fn call_words(&self, call: &nu_protocol::ast::Call) -> Vec<String> {
+        self.head(call.head)
+            .into_iter()
+            .chain(
+                call.arguments
+                    .iter()
+                    .flat_map(|arg| arg_pair(self, arg).into_iter().flatten()),
+            )
+            .collect()
+    }
+
+    fn external_words(
+        &self,
+        head: &nu_protocol::ast::Expression,
+        args: &[nu_protocol::ast::ExternalArgument],
+    ) -> Vec<String> {
+        use nu_protocol::ast::ExternalArgument;
+        self.head(head.span)
+            .into_iter()
+            .chain(args.iter().filter_map(|arg| match arg {
+                ExternalArgument::Regular(e) => self.word(e.span),
+                ExternalArgument::Spread(e) => self.spread(e.span),
+            }))
+            .collect()
+    }
+
+    /// The head as argv. An alias stands for its expansion (`gco ma` is `git checkout ma`
+    /// to a completer): the parser keeps the alias name on the line and the expanded
+    /// words in the alias definition, off it, so `word` alone would hand over `gco`.
+    /// `^name` bypasses aliases and stays a plain word.
+    fn head(&self, span: Span) -> Vec<String> {
+        let Some(word) = self.word(span) else {
+            return Vec::new();
+        };
+        let alias = (self.aliases && !self.caret_before(span))
+            .then(|| self.working_set.find_decl(word.as_bytes()))
+            .flatten()
+            .and_then(|id| self.working_set.get_decl(id).as_alias());
+        if let Some(alias) = alias {
+            // The expansion lives in the alias definition, so read it unclipped.
+            let definition = Line {
+                working_set: self.working_set,
+                offset: 0,
+                end: usize::MAX,
+                aliases: false,
+            };
+            match &alias.wrapped_call.expr {
+                Expr::Call(call) => return definition.call_words(call),
+                Expr::ExternalCall(head, args) => return definition.external_words(head, args),
+                _ => {}
+            }
+        }
+        vec![word]
+    }
+
+    fn caret_before(&self, span: Span) -> bool {
+        span.start > self.offset
+            && self
+                .working_set
+                .get_span_contents(Span::new(span.start - 1, span.start))
+                == b"^"
     }
 
     fn word(&self, span: Span) -> Option<String> {
