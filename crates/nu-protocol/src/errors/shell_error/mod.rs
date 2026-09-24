@@ -480,8 +480,8 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// This environment variable is set automatically by Nushell and cannot not be set manually.
-    #[error("{envvar_name} cannot be set manually.")]
+    /// This environment variable is set automatically by Nushell and cannot be set manually or hidden.
+    #[error("{envvar_name} cannot be changed manually.")]
     #[diagnostic(
         code(nu::shell::automatic_env_var_set_manually),
         help(
@@ -490,7 +490,7 @@ pub enum ShellError {
     )]
     AutomaticEnvVarSetManually {
         envvar_name: String,
-        #[label("cannot set '{envvar_name}' manually")]
+        #[label("cannot change '{envvar_name}' manually")]
         span: Span,
     },
 
