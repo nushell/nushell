@@ -4,7 +4,8 @@ use nu_protocol::{
     engine::StateWorkingSet,
     ir::{Instruction, Literal},
 };
-use nu_utils::IgnoreCaseExt;
+
+use crate::is_automatic_env_var;
 
 use super::{BlockBuilder, CompileError, RedirectModes, compile_expression};
 
@@ -247,8 +248,7 @@ pub(crate) fn compile_assignment(
                 };
 
                 // Some env vars can't be set by Nushell code.
-                const AUTOMATIC_NAMES: &[&str] = &["PWD", "FILE_PWD", "CURRENT_FILE"];
-                if AUTOMATIC_NAMES.iter().any(|name| key.eq_ignore_case(name)) {
+                if is_automatic_env_var(key) {
                     return Err(CompileError::AutomaticEnvVarSetManually {
                         envvar_name: key.into(),
                         span: lhs.span,

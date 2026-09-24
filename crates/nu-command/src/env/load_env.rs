@@ -60,10 +60,11 @@ impl Command for LoadEnv {
             },
         };
 
-        for prohibited in ["FILE_PWD", "CURRENT_FILE", "PWD"] {
-            if record.contains(prohibited) {
+        for (env_var, _) in &record {
+            if is_automatic_env_var(env_var) {
+                // FIXME: we should use the span of the var, not the command itself
                 return Err(ShellError::AutomaticEnvVarSetManually {
-                    envvar_name: prohibited.to_string(),
+                    envvar_name: env_var.to_owned(),
                     span: call.head,
                 });
             }
