@@ -250,7 +250,7 @@ pub(crate) fn compile_assignment(
                 const AUTOMATIC_NAMES: &[&str] = &["PWD", "FILE_PWD", "CURRENT_FILE"];
                 if AUTOMATIC_NAMES.iter().any(|name| key.eq_ignore_case(name)) {
                     return Err(CompileError::AutomaticEnvVarSetManually {
-                        envvar_name: "PWD".into(),
+                        envvar_name: key.into(),
                         span: lhs.span,
                     });
                 }
