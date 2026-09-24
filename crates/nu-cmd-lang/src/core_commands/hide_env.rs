@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_engine::env::is_automatic_env_var;
 use nu_protocol::did_you_mean;
 
 #[derive(Clone)]
@@ -42,6 +43,15 @@ impl Command for HideEnv {
     ) -> Result<PipelineData, ShellError> {
         let env_var_names: Vec<Spanned<String>> = call.rest(engine_state, stack, 0)?;
         let ignore_errors = call.has_flag(engine_state, stack, "ignore-errors")?;
+
+        for name in &env_var_names {
+            if is_automatic_env_var(&name.item) {
+                return Err(ShellError::AutomaticEnvVarSetManually {
+                    envvar_name: name.item.to_owned(),
+                    span: name.span,
+                });
+            }
+        }
 
         for name in env_var_names {
             if !stack.hide_env_var(engine_state, &name.item) && !ignore_errors {
