@@ -50,6 +50,7 @@ static CHAR_MAP: LazyLock<IndexMap<&'static str, String>> = LazyLock::new(|| {
         "dquote" => '\"'.to_string(),
         "dq" => '\"'.to_string(),
         "forward_slash" => '/'.to_string(),
+        "slash" => '/'.to_string(),
         "fslash" => '/'.to_string(),
         "back_slash" => '\\'.to_string(),
         "bslash" => '\\'.to_string(),
