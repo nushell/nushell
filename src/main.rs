@@ -25,7 +25,6 @@ use nu_protocol::{
     ByteStream, Config, IntoValue, PipelineData, ShellError, Span, Spanned, Type, Value,
     engine::{EngineState, Stack},
     record, report_shell_error,
-    shell_error::generic::GenericError,
 };
 use nu_std::load_standard_library;
 use nu_utils::perf;
@@ -219,17 +218,6 @@ fn main() -> Result<()> {
                 },
             );
             // Minimal fallback so the engine can still start
-            (nu_config::NushellConfigDirs::empty(), vec![])
-        }
-        Err(ConfigError::NoHomeDir) => {
-            report_shell_error(
-                None,
-                &engine_state,
-                &ShellError::Generic(GenericError::new_internal(
-                    "Config path resolution failed",
-                    ConfigError::NoHomeDir.to_string(),
-                )),
-            );
             (nu_config::NushellConfigDirs::empty(), vec![])
         }
     };
