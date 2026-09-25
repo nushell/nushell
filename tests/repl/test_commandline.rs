@@ -326,11 +326,14 @@ fn commandline_test_complete_input_place_command_words(
 }
 
 /// An alias head stands for its expansion, so a completer sees the real command the way
-/// it did before 0.116. `^` bypasses the alias and stays a plain word.
+/// it did before 0.116, through nested aliases too. `^` bypasses the alias and stays a
+/// plain word.
 #[rstest]
 #[case::external_alias("gco ma", "[git, checkout, ma]")]
 #[case::external_alias_empty_slot("gco ", "[git, checkout, \"\"]")]
 #[case::internal_alias("ll --a", "[ls, -l, --a]")]
+#[case::nested_external_alias("gcm x", "[git, checkout, main, x]")]
+#[case::nested_internal_alias("lla x", "[ls, -l, -a, x]")]
 #[case::caret_bypasses_alias("^gco ma", "[gco, ma]")]
 fn commandline_test_complete_input_place_command_expands_aliases(
     #[case] line: &str,
@@ -340,15 +343,16 @@ fn commandline_test_complete_input_place_command_expands_aliases(
         &format!(
             "alias gco = git checkout\n\
             alias ll = ls -l\n\
+            alias gcm = gco main\n\
+            alias lla = ll -a\n\
             '{line}' | commandline complete --input | get place.command | to nuon"
         ),
         expected,
     )
 }
 
-/// An alias declared in the line being completed expands once too. The parser copies the
-/// definition's arguments into the call, and here that copy sits inside the line, so it
-/// has to be skipped rather than clipped away.
+/// An alias declared in the line being completed expands once too: the arguments the
+/// parser splices in from the definition are read wherever they sit, on the line or off it.
 #[rstest]
 #[case::external_alias("alias gco = git checkout; gco ma", "[git, checkout, ma]")]
 #[case::external_alias_newline("alias gco = git checkout\ngco ma", "[git, checkout, ma]")]
@@ -363,8 +367,8 @@ fn commandline_test_complete_input_place_command_alias_declared_in_line(
     )
 }
 
-/// An alias shadowing its own target expands once: the parser resolved the definition
-/// when it was declared, so its head is read as a plain word rather than looked up again.
+/// An alias shadowing its own target expands once: the parser resolved its head to the
+/// real `ls` when the definition was declared.
 #[test]
 fn commandline_test_complete_input_place_command_self_shadowing_alias() -> TestResult {
     run_test(
