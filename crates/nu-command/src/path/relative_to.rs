@@ -6,6 +6,7 @@ use std::path::{Component, Path, PathBuf};
 
 struct Arguments {
     path: Spanned<String>,
+    walk_up: bool,
 }
 
 impl PathSubcommandArguments for Arguments {}
@@ -30,7 +31,12 @@ impl Command for PathRelativeTo {
             .required(
                 "path",
                 SyntaxShape::String,
-                "Parent shared with the input path.",
+                "Path to express the input path relative to.",
+            )
+            .switch(
+                "walk-up",
+                "Allow `..` components when the argument path is not a parent of the input path.",
+                None,
             )
             .category(Category::Path)
     }
@@ -41,8 +47,13 @@ impl Command for PathRelativeTo {
 
     fn extra_description(&self) -> &str {
         "Can be used only when the input and the argument paths are either both
-absolute or both relative. The argument path needs to be a parent of the input
-path."
+absolute or both relative. Without --walk-up, the argument path needs to be a
+parent of the input path.
+
+The paths are compared as text, without touching the filesystem. With --walk-up,
+each `..` in the result stands for the textual parent of the argument path, so
+if the argument path goes through a symbolic link, the result may point
+somewhere else than the textual path suggests."
     }
 
     fn is_const(&self) -> bool {
@@ -59,6 +70,7 @@ path."
         let head = call.head;
         let args = Arguments {
             path: call.req(engine_state, stack, 0)?,
+            walk_up: call.has_flag(engine_state, stack, "walk-up")?,
         };
 
         // This doesn't match explicit nulls
@@ -81,6 +93,7 @@ path."
         let head = call.head;
         let args = Arguments {
             path: call.req_const(working_set, stack, 0)?,
+            walk_up: call.has_flag_const(working_set, stack, "walk-up")?,
         };
 
         // This doesn't match explicit nulls
@@ -125,6 +138,19 @@ path."
                 },
                 result: Some(Value::test_string("spam")),
             },
+            Example {
+                description: "Walk up with `..` when the argument path is not a parent of the input path.",
+                example: if cfg!(windows) {
+                    r"'C:\Users\viking' | path relative-to 'C:\Users\spam\eggs' --walk-up"
+                } else {
+                    "'/home/viking' | path relative-to '/home/spam/eggs' --walk-up"
+                },
+                result: Some(Value::test_string(if cfg!(windows) {
+                    r"..\..\viking"
+                } else {
+                    "../../viking"
+                })),
+            },
         ]
     }
 }
@@ -133,14 +159,24 @@ fn relative_to(path: &Path, span: Span, args: &Arguments) -> Value {
     let lhs = expand_to_real_path(path);
     let rhs = expand_to_real_path(&args.path.item);
 
-    match relative_path(&lhs, &rhs) {
+    match relative_path(&lhs, &rhs, args.walk_up) {
         Some(p) => Value::string(p.to_string_lossy(), span),
+        None if args.walk_up => Value::error(
+            GenericError::new(
+                String::from("Cannot walk up from the argument path to the input path."),
+                "the paths have different roots, or the argument path has `.` or `..` after the shared part",
+                span,
+            )
+            .into(),
+            span,
+        ),
         None => Value::error(
             GenericError::new(
                 String::from("The argument path is not a parent of the input path."),
                 "prefix not found",
                 span,
             )
+            .with_help("Use --walk-up to allow `..` components in the result.")
             .into(),
             span,
         ),
@@ -150,8 +186,14 @@ fn relative_to(path: &Path, span: Span, args: &Arguments) -> Value {
 /// Expresses `path` relative to `base` by comparing their components as text.
 ///
 /// Skips the components both paths share, then returns the rest of `path`.
-/// If `base` has components left, returns `None`.
-fn relative_path(path: &Path, base: &Path) -> Option<PathBuf> {
+/// If `base` has components left, returns `None`, unless `walk_up` is set:
+/// then each of them becomes a `..`. Walking up is refused (`None`) when a
+/// leftover `base` component is not a plain name (a `..` there cannot be undone
+/// without the filesystem) or when the rest of `path` starts at a root, a
+/// Windows prefix or a `.`. A root or prefix pushed onto a `PathBuf` would
+/// replace the `..` chain instead of extending it; a leading `.` is refused
+/// the same way, as if it were a different root.
+fn relative_path(path: &Path, base: &Path, walk_up: bool) -> Option<PathBuf> {
     let mut path_rest = path.components().peekable();
     let mut base_rest = base.components().peekable();
     while let (Some(p), Some(b)) = (path_rest.peek(), base_rest.peek())
@@ -161,11 +203,23 @@ fn relative_path(path: &Path, base: &Path) -> Option<PathBuf> {
         base_rest.next();
     }
 
-    if base_rest.next().is_some() {
+    let mut relative: PathBuf = base_rest
+        .map(|c| match c {
+            Component::Normal(_) if walk_up => Some(Component::ParentDir),
+            _ => None,
+        })
+        .collect::<Option<_>>()?;
+    if !relative.as_os_str().is_empty()
+        && matches!(
+            path_rest.peek(),
+            Some(Component::RootDir | Component::Prefix(_) | Component::CurDir)
+        )
+    {
         return None;
     }
 
-    Some(path_rest.collect())
+    relative.extend(path_rest);
+    Some(relative)
 }
 
 /// Compares two path components, ignoring case of names on case-insensitive filesystems.
@@ -203,6 +257,7 @@ mod tests {
                 item: "/Etc".to_string(),
                 span: Span::test_data(),
             },
+            walk_up: false,
         };
 
         let result = relative_to(Path::new("/etc"), Span::test_data(), &args);
@@ -236,6 +291,7 @@ mod tests {
                 item: "/Home/User".to_string(),
                 span: Span::test_data(),
             },
+            walk_up: false,
         };
 
         let result = relative_to(Path::new("/home/user/documents"), Span::test_data(), &args);
@@ -267,6 +323,7 @@ mod tests {
                 item: "/Different/Path".to_string(),
                 span: Span::test_data(),
             },
+            walk_up: false,
         };
 
         let result = relative_to(Path::new("/home/user"), Span::test_data(), &args);
@@ -276,5 +333,55 @@ mod tests {
             Value::Error { .. } => {}
             _ => panic!("Expected error for truly different paths"),
         }
+    }
+
+    fn walk_up(path: &str, base: &str) -> Option<PathBuf> {
+        relative_path(Path::new(path), Path::new(base), true)
+    }
+
+    #[test]
+    fn walk_up_emits_parent_components() {
+        assert_eq!(
+            walk_up("/a/b/c", "/a/d/e"),
+            Some(PathBuf::from("../../b/c"))
+        );
+        assert_eq!(walk_up("/a", "/a/b/c"), Some(PathBuf::from("../..")));
+        assert_eq!(walk_up("/x", "/a/b/c"), Some(PathBuf::from("../../../x")));
+        assert_eq!(walk_up("a/b", "c"), Some(PathBuf::from("../a/b")));
+        assert_eq!(walk_up("/a/b", "/a/b"), Some(PathBuf::new()));
+    }
+
+    #[test]
+    fn walk_up_refuses_what_text_cannot_answer() {
+        // absolute and relative mixed: a pushed root would silently replace the `..` chain
+        assert_eq!(walk_up("/a/b", "a"), None);
+        assert_eq!(walk_up("a/b", "/a"), None);
+        // a `..` left in the base cannot be undone without the filesystem
+        assert_eq!(walk_up("a/b", "a/../c"), None);
+        assert_eq!(walk_up("./a", "b"), None);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn walk_up_refuses_other_drive() {
+        assert_eq!(walk_up(r"C:\a", r"D:\a"), None);
+    }
+
+    #[test]
+    fn walk_up_with_case_folding() {
+        let expected = if is_case_insensitive_filesystem() {
+            ""
+        } else {
+            "../etc"
+        };
+        assert_eq!(walk_up("/etc", "/Etc"), Some(PathBuf::from(expected)));
+    }
+
+    #[test]
+    fn without_walk_up_argument_must_be_parent() {
+        assert_eq!(
+            relative_path(Path::new("/a/b/c"), Path::new("/a/d"), false),
+            None
+        );
     }
 }
