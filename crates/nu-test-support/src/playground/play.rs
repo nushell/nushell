@@ -1,9 +1,9 @@
 use super::Director;
-use crate::{fs::Stub, tester::FIXTURES};
+use crate::fs::{self, Stub};
 #[cfg(not(target_arch = "wasm32"))]
 use nu_path::Path;
 use nu_path::{AbsolutePath, AbsolutePathBuf};
-use std::{ops::Deref, str};
+use std::str;
 use tempfile::{TempDir, tempdir};
 
 #[derive(Default, Clone, Debug)]
@@ -86,15 +86,14 @@ impl Playground<'_> {
             .canonicalize()
             .expect("Could not canonicalize test path");
 
-        let fixtures = FIXTURES
-            .deref()
-            .try_into()
-            .expect("fixtures is absolute path");
+        let fixtures = fs::fixtures()
+            .canonicalize()
+            .expect("Could not canonicalize fixtures path");
 
         let dirs = Dirs {
             root: root.into(),
             test: test.as_path().into(),
-            fixtures,
+            fixtures: fixtures.into(),
         };
 
         let mut playground = Playground {
