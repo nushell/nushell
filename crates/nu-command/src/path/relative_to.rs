@@ -2,7 +2,7 @@ use super::PathSubcommandArguments;
 use nu_engine::command_prelude::*;
 use nu_path::expand_to_real_path;
 use nu_protocol::{engine::StateWorkingSet, shell_error::generic::GenericError};
-use std::path::Path;
+use std::path::{Component, Path, PathBuf};
 
 struct Arguments {
     path: Spanned<String>,
@@ -133,26 +133,48 @@ fn relative_to(path: &Path, span: Span, args: &Arguments) -> Value {
     let lhs = expand_to_real_path(path);
     let rhs = expand_to_real_path(&args.path.item);
 
-    match lhs.strip_prefix(&rhs) {
-        Ok(p) => Value::string(p.to_string_lossy(), span),
-        Err(e) => {
-            // On case-insensitive filesystems, try case-insensitive comparison
-            if is_case_insensitive_filesystem()
-                && let Some(relative_path) = try_case_insensitive_strip_prefix(&lhs, &rhs)
-            {
-                return Value::string(relative_path.to_string_lossy(), span);
-            }
-
-            Value::error(
-                GenericError::new(
-                    String::from("The argument path is not a parent of the input path."),
-                    e.to_string(),
-                    span,
-                )
-                .into(),
+    match relative_path(&lhs, &rhs) {
+        Some(p) => Value::string(p.to_string_lossy(), span),
+        None => Value::error(
+            GenericError::new(
+                String::from("The argument path is not a parent of the input path."),
+                "prefix not found",
                 span,
             )
+            .into(),
+            span,
+        ),
+    }
+}
+
+/// Expresses `path` relative to `base` by comparing their components as text.
+///
+/// Skips the components both paths share, then returns the rest of `path`.
+/// If `base` has components left, returns `None`.
+fn relative_path(path: &Path, base: &Path) -> Option<PathBuf> {
+    let mut path_rest = path.components().peekable();
+    let mut base_rest = base.components().peekable();
+    while let (Some(p), Some(b)) = (path_rest.peek(), base_rest.peek())
+        && components_eq(p, b)
+    {
+        path_rest.next();
+        base_rest.next();
+    }
+
+    if base_rest.next().is_some() {
+        return None;
+    }
+
+    Some(path_rest.collect())
+}
+
+/// Compares two path components, ignoring case of names on case-insensitive filesystems.
+fn components_eq(a: &Component, b: &Component) -> bool {
+    match (a, b) {
+        (Component::Normal(a), Component::Normal(b)) if is_case_insensitive_filesystem() => {
+            a.to_string_lossy().to_lowercase() == b.to_string_lossy().to_lowercase()
         }
+        _ => a == b,
     }
 }
 
@@ -160,57 +182,6 @@ fn relative_to(path: &Path, span: Span, args: &Arguments) -> Value {
 fn is_case_insensitive_filesystem() -> bool {
     // Windows and macOS typically have case-insensitive filesystems
     cfg!(any(target_os = "windows", target_os = "macos"))
-}
-
-/// Try to strip prefix in a case-insensitive manner
-fn try_case_insensitive_strip_prefix(lhs: &Path, rhs: &Path) -> Option<std::path::PathBuf> {
-    let mut lhs_components = lhs.components();
-    let mut rhs_components = rhs.components();
-
-    // Compare components case-insensitively
-    loop {
-        match (lhs_components.next(), rhs_components.next()) {
-            (Some(lhs_comp), Some(rhs_comp)) => {
-                match (lhs_comp, rhs_comp) {
-                    (
-                        std::path::Component::Normal(lhs_name),
-                        std::path::Component::Normal(rhs_name),
-                    ) => {
-                        if lhs_name.to_string_lossy().to_lowercase()
-                            != rhs_name.to_string_lossy().to_lowercase()
-                        {
-                            return None;
-                        }
-                    }
-                    // Non-Normal components must match exactly
-                    _ if lhs_comp != rhs_comp => {
-                        return None;
-                    }
-                    _ => {}
-                }
-            }
-            (Some(lhs_comp), None) => {
-                // rhs is fully consumed, but lhs has more components
-                // This means rhs is a prefix of lhs, collect remaining lhs components
-                let mut result = std::path::PathBuf::new();
-                // Add the current lhs component that wasn't matched
-                result.push(lhs_comp);
-                // Add all remaining lhs components
-                for component in lhs_components {
-                    result.push(component);
-                }
-                return Some(result);
-            }
-            (None, Some(_)) => {
-                // lhs is shorter than rhs, so rhs cannot be a prefix of lhs
-                return None;
-            }
-            (None, None) => {
-                // Both paths have the same components, relative path is empty
-                return Some(std::path::PathBuf::new());
-            }
-        }
-    }
 }
 
 #[cfg(test)]
