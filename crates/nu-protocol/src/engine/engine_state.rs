@@ -117,7 +117,7 @@ pub struct EngineState {
     pub pipeline_externals_state: Arc<(AtomicU32, AtomicU32)>,
     pub repl_state: Arc<Mutex<ReplState>>,
     /// Shared source of truth for the interactive prompt's rendered content. The
-    /// REPL fills it each cycle from `$env.PROMPT_COMMAND` and friends; a
+    /// REPL fills it each cycle from `$env.config.prompt` and friends; a
     /// background job's `commandline set-prompt` overwrites individual segments
     /// and triggers an in-place repaint. Shared with every job that clones this
     /// engine state.

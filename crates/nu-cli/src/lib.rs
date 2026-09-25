@@ -22,7 +22,9 @@ pub use completions::{
     CompletionEngine, FileCompletion, NuCompleter, SemanticSuggestion, SuggestionKind,
     completion_source_is_active,
 };
-pub use config_files::{eval_config_contents, eval_config_contents_with_kind};
+pub use config_files::{
+    DEFAULT_PROMPTS, eval_config_contents, eval_config_contents_with_kind, eval_default_prompts,
+};
 pub use eval_cmds::{EvaluateCommandsOpts, evaluate_commands};
 pub use eval_file::evaluate_file;
 pub use menus::NuHelpCompleter;

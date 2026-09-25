@@ -18,6 +18,7 @@ use crate::{
 use log::{Level, trace};
 use miette::Result;
 use nu_cli::gather_parent_env_vars;
+use nu_cmd_base::prompt::FORMERLY_SEEDED_PROMPT_VARIABLES;
 use nu_config::{CliOverrides, ConfigError, ConfigWarning, SystemEnv, resolve_paths};
 use nu_engine::{convert_env_values, exit::cleanup_exit};
 use nu_path::absolute_with;
@@ -708,27 +709,16 @@ fn main() -> Result<()> {
         cleanup_exit(0, &engine_state, 0);
     } else {
         // Environment variables that apply only when in REPL
-        engine_state.add_env_var("PROMPT_INDICATOR".to_string(), Value::test_string("> "));
-        engine_state.add_env_var(
-            "PROMPT_INDICATOR_VI_NORMAL".to_string(),
-            Value::test_string("> "),
-        );
-        engine_state.add_env_var(
-            "PROMPT_INDICATOR_VI_INSERT".to_string(),
-            Value::test_string(": "),
-        );
-        engine_state.add_env_var(
-            "PROMPT_MULTILINE_INDICATOR".to_string(),
-            Value::test_string("::: "),
-        );
-        engine_state.add_env_var(
-            "TRANSIENT_PROMPT_MULTILINE_INDICATOR".to_string(),
-            Value::test_string(""),
-        );
-        engine_state.add_env_var(
-            "TRANSIENT_PROMPT_COMMAND_RIGHT".to_string(),
-            Value::test_string(""),
-        );
+        //
+        // No `PROMPT_*` variable is seeded here any more. Seeding one would pin
+        // every session to the variable, which still wins over the config key.
+        // The ones that used to be overwritten here are hidden instead: a
+        // parent nushell exports its string indicators, so without this a
+        // nested session would take the parent's over its own config. The
+        // other transient variables were always inherited and still are.
+        for name in FORMERLY_SEEDED_PROMPT_VARIABLES {
+            stack.hide_env_var(&engine_state, name);
+        }
         let mut shlvl = engine_state
             .get_env_var("SHLVL")
             .map(|x| x.as_str().unwrap_or("0").parse::<i64>().unwrap_or(0))

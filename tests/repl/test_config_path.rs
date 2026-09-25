@@ -519,6 +519,42 @@ fn commandstring_loads_default_env() -> Result {
 
 #[test]
 #[deps(NU)]
+fn commandstring_loads_default_prompts() -> Result {
+    let result: CompleteResult = test().run(
+        r#"nu -c "[$env.config.prompt.left $env.config.prompt.right] | each { describe } | str join ' '" | complete"#,
+    )?;
+    assert_eq!(result.exit_code, 0);
+    assert_eq!(result.stdout.trim(), "closure closure");
+    assert_eq!(result.stderr, "");
+    Ok(())
+}
+
+/// The defaults stay Nu source so users can read and build on them.
+#[test]
+#[deps(NU)]
+fn default_prompt_source_is_viewable() -> Result {
+    let result: CompleteResult = test().run(
+        r#"nu -c "view source $env.config.prompt.left | str contains 'path relative-to'" | complete"#,
+    )?;
+    assert_eq!(result.exit_code, 0);
+    assert_eq!(result.stdout.trim(), "true");
+    assert_eq!(result.stderr, "");
+    Ok(())
+}
+
+#[test]
+#[deps(NU)]
+fn no_config_file_skips_default_prompts() -> Result {
+    let result: CompleteResult =
+        test().run(r#"nu -n -c "$env.config.prompt.left | describe" | complete"#)?;
+    assert_eq!(result.exit_code, 0);
+    assert_eq!(result.stdout.trim(), "nothing");
+    assert_eq!(result.stderr, "");
+    Ok(())
+}
+
+#[test]
+#[deps(NU)]
 fn commandstring_populates_config_record() -> Result {
     let result: CompleteResult =
         test().run("nu --no-std-lib -n -c '$env.config.show_banner' | complete")?;
