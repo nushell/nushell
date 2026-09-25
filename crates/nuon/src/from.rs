@@ -142,6 +142,35 @@ fn make_generic_error(
     }
 }
 
+/// Scale a duration head by its nanosecond factor, rejecting overflow.
+///
+/// The parser clamps an out-of-range literal head to `i64::MAX` and keeps the
+/// unit it folded to, so `size` can already be at the limit. `checked_mul`
+/// rather than `*`: a plain multiply panics in debug builds and wraps to a
+/// negative duration in release ones, and the nuon spec requires an error.
+/// `Unit::Day` and `Unit::Week` already worked this way.
+fn duration_with_scale(
+    size: i64,
+    factor: i64,
+    unit_name: &str,
+    original_text: &str,
+    span: Span,
+) -> Result<Value, ShellError> {
+    match size.checked_mul(factor) {
+        Some(val) => Ok(Value::duration(val, span)),
+        None => {
+            let (src, label_span) =
+                truncated_source_window(original_text, span, DEFAULT_ERROR_CONTEXT);
+            Err(ShellError::OutsideSpannedLabeledError {
+                src,
+                error: format!("{unit_name} duration too large"),
+                msg: format!("{unit_name} duration too large"),
+                span: label_span,
+            })
+        }
+    }
+}
+
 fn convert_to_value(
     expr: Expression,
     span: Span,
@@ -435,11 +464,29 @@ fn convert_to_value(
                 },
 
                 Unit::Nanosecond => Ok(Value::duration(size, span)),
-                Unit::Microsecond => Ok(Value::duration(size * 1000, span)),
-                Unit::Millisecond => Ok(Value::duration(size * 1000 * 1000, span)),
-                Unit::Second => Ok(Value::duration(size * 1000 * 1000 * 1000, span)),
-                Unit::Minute => Ok(Value::duration(size * 1000 * 1000 * 1000 * 60, span)),
-                Unit::Hour => Ok(Value::duration(size * 1000 * 1000 * 1000 * 60 * 60, span)),
+                Unit::Microsecond => {
+                    duration_with_scale(size, 1000, "microsecond", original_text, span)
+                }
+                Unit::Millisecond => {
+                    duration_with_scale(size, 1000 * 1000, "millisecond", original_text, span)
+                }
+                Unit::Second => {
+                    duration_with_scale(size, 1000 * 1000 * 1000, "second", original_text, span)
+                }
+                Unit::Minute => duration_with_scale(
+                    size,
+                    1000 * 1000 * 1000 * 60,
+                    "minute",
+                    original_text,
+                    span,
+                ),
+                Unit::Hour => duration_with_scale(
+                    size,
+                    1000 * 1000 * 1000 * 60 * 60,
+                    "hour",
+                    original_text,
+                    span,
+                ),
                 Unit::Day => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60 * 24) {
                     Some(val) => Ok(Value::duration(val, span)),
                     None => {
@@ -496,6 +543,44 @@ mod tests {
     fn nuon_parse_success() {
         let result = from_nuon("{ a: 1, b: [2, 3] }", Some(Span::test_data()));
         assert!(result.is_ok(), "valid NUON should parse");
+    }
+
+    // Bug 8 in crates/nuon/spec/bugs_to_fix.md. The spec
+    // (crates/nuon/spec/nuon_formal_specification.md, "durations and filesizes")
+    // says: "overflow is an **error**; it must not wrap or saturate. a positive
+    // literal must never read back as a negative duration."
+    //
+    // The parser clamps an out-of-range head to i64::MAX and keeps the unit it
+    // folded to, so `[1e30sec]` reaches this function as Int(i64::MAX) plus
+    // Unit::Millisecond. `size * 1000 * 1000` then overflowed: a panic in debug
+    // builds and -1000000ns in release ones. Unit::Day and Unit::Week already
+    // used checked_mul; the units that real `ms`/`sec`/`min`/`hr`/`day` literals
+    // fold to did not.
+    //
+    // `ns` and `us` fold to Unit::Nanosecond, which multiplies by nothing, so
+    // they are not covered here.
+    #[test]
+    fn duration_overflow_is_rejected() {
+        for unit in ["ms", "sec", "min", "hr", "day", "wk"] {
+            let input = format!("[1e30{unit}]");
+            let result = from_nuon(&input, Some(Span::test_data()));
+            assert!(
+                result.is_err(),
+                "`{input}` should be rejected as an overflow, got {result:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn in_range_durations_still_decode() {
+        // 1000000000ns is 1 second, comfortably inside the 64-bit range.
+        let value = from_nuon("[1000000000ns]", Some(Span::test_data()))
+            .expect("1000000000ns is in range and should decode");
+        assert!(matches!(
+            value,
+            Value::List { vals, .. }
+                if matches!(vals.first(), Some(Value::Duration { val, .. }) if *val == 1_000_000_000)
+        ));
     }
 
     #[test]
