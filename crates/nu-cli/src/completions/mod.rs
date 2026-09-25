@@ -27,7 +27,7 @@ pub(crate) use completer::{Buffer, Context, NarrowingCache};
 pub use completer::{CompletionEngine, NuCompleter};
 pub use completion_options::{CompletionOptions, MatchAlgorithm, NuMatcher};
 pub use custom_completions::DeclaredInputs;
-pub use custom_completions::completion_panic_is_active;
+pub use custom_completions::completion_source_is_active;
 pub use custom_completions::flush_completion_warnings;
 pub(crate) use custom_completions::{
     LegacyInputs, Returned, SpanClamp, bind_declared_inputs, catch_completion_panic,
