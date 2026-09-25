@@ -346,6 +346,23 @@ fn commandline_test_complete_input_place_command_expands_aliases(
     )
 }
 
+/// An alias declared in the line being completed expands once too. The parser copies the
+/// definition's arguments into the call, and here that copy sits inside the line, so it
+/// has to be skipped rather than clipped away.
+#[rstest]
+#[case::external_alias("alias gco = git checkout; gco ma", "[git, checkout, ma]")]
+#[case::external_alias_newline("alias gco = git checkout\ngco ma", "[git, checkout, ma]")]
+#[case::internal_alias("alias ll = ls -l; ll x", "[ls, -l, x]")]
+fn commandline_test_complete_input_place_command_alias_declared_in_line(
+    #[case] line: &str,
+    #[case] expected: &str,
+) -> TestResult {
+    run_test(
+        &format!("'{line}' | commandline complete --input | get place.command | to nuon"),
+        expected,
+    )
+}
+
 /// An alias shadowing its own target expands once: the parser resolved the definition
 /// when it was declared, so its head is read as a plain word rather than looked up again.
 #[test]

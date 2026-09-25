@@ -418,8 +418,9 @@ fn arg_pair(line: &Line, arg: &nu_protocol::ast::Argument) -> [Option<String>; 2
 }
 
 /// The line being completed: clips working-set spans to it. `None` means empty
-/// or off-line (whitespace, synthetic), so empties never leak. Alias expansions are
-/// off-line too; `head` reads those from the alias definition instead.
+/// or off-line (whitespace, synthetic), so empties never leak. An alias expansion is
+/// read from the alias definition by `head`, which also reports how many arguments
+/// the parser copied from there, so the call skips them instead of reading them again.
 struct Line<'a> {
     working_set: &'a nu_protocol::engine::StateWorkingSet<'a>,
     offset: usize,
@@ -440,11 +441,12 @@ impl<'a> Line<'a> {
     }
 
     fn call_words(&self, call: &nu_protocol::ast::Call) -> Vec<String> {
-        self.head(call.head)
-            .into_iter()
+        let (head, inherited) = self.head(call.head);
+        head.into_iter()
             .chain(
                 call.arguments
                     .iter()
+                    .skip(inherited)
                     .flat_map(|arg| arg_pair(self, arg).into_iter().flatten()),
             )
             .collect()
@@ -456,22 +458,26 @@ impl<'a> Line<'a> {
         args: &[nu_protocol::ast::ExternalArgument],
     ) -> Vec<String> {
         use nu_protocol::ast::ExternalArgument;
-        self.head(head.span)
-            .into_iter()
-            .chain(args.iter().filter_map(|arg| match arg {
+        let (head, inherited) = self.head(head.span);
+        head.into_iter()
+            .chain(args.iter().skip(inherited).filter_map(|arg| match arg {
                 ExternalArgument::Regular(e) => self.word(e.span),
                 ExternalArgument::Spread(e) => self.spread(e.span),
             }))
             .collect()
     }
 
-    /// The head as argv. An alias stands for its expansion (`gco ma` is `git checkout ma`
-    /// to a completer): the parser keeps the alias name on the line and the expanded
-    /// words in the alias definition, off it, so `word` alone would hand over `gco`.
-    /// `^name` bypasses aliases and stays a plain word.
-    fn head(&self, span: Span) -> Vec<String> {
+    /// The head as argv, plus how many leading arguments the parser copied in from an
+    /// alias definition. An alias stands for its expansion (`gco ma` is `git checkout ma`
+    /// to a completer): the parser keeps the alias name on the line and splices the
+    /// definition's call in ahead of the arguments typed at the invocation, so `word`
+    /// alone would hand over `gco`. The expansion is read from the definition here, and
+    /// the caller skips the spliced copy by count: clipping would not drop it when the
+    /// alias is declared in the line being completed. `^name` bypasses aliases and
+    /// stays a plain word.
+    fn head(&self, span: Span) -> (Vec<String>, usize) {
         let Some(word) = self.word(span) else {
-            return Vec::new();
+            return (Vec::new(), 0);
         };
         let alias = (self.aliases && !self.caret_before(span))
             .then(|| self.working_set.find_decl(word.as_bytes()))
@@ -486,12 +492,14 @@ impl<'a> Line<'a> {
                 aliases: false,
             };
             match &alias.wrapped_call.expr {
-                Expr::Call(call) => return definition.call_words(call),
-                Expr::ExternalCall(head, args) => return definition.external_words(head, args),
+                Expr::Call(call) => return (definition.call_words(call), call.arguments.len()),
+                Expr::ExternalCall(head, args) => {
+                    return (definition.external_words(head, args), args.len());
+                }
                 _ => {}
             }
         }
-        vec![word]
+        (vec![word], 0)
     }
 
     fn caret_before(&self, span: Span) -> bool {
