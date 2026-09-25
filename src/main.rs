@@ -112,7 +112,7 @@ fn main() -> Result<()> {
     std::panic::set_hook(Box::new(|info| {
         // Completion sources are isolated and convert their panics into ShellErrors. The hook
         // runs before catch_unwind, so do not print a second, misleading prompt-level panic.
-        if nu_cli::completion_panic_is_active() {
+        if nu_cli::completion_source_is_active() {
             return;
         }
         use miette::Context;

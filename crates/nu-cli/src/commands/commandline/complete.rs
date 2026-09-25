@@ -6,7 +6,7 @@ use nu_protocol::{FromValue, shell_error::generic::GenericError};
 use crate::completions::{
     Buffer, CommandCompletion, CommandScope, Completer, CompletionEngine, DeclaredInputs,
     DirectoryCompletion, EnvVarCompletion, FileCompletion, SemanticSuggestion, VariableCompletion,
-    completion_panic_is_active, flush_completion_warnings,
+    flush_completion_warnings,
 };
 
 #[derive(Debug, Clone, FromValue)]
@@ -189,11 +189,7 @@ completions, which is the supported way to develop and test a completer from ins
             cursor_position,
         );
 
-        // Flush warnings now, unless a completion source called us: that would print over
-        // the menu being drawn, and the line editor flushes once it hands the line back.
-        if !completion_panic_is_active() {
-            flush_completion_warnings(engine_state, stack);
-        }
+        flush_completion_warnings(engine_state, stack);
 
         let result_values: Vec<Value> = completions
             .into_iter()

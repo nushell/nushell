@@ -28,20 +28,21 @@ use std::{
 };
 
 thread_local! {
-    static COMPLETION_PANIC_ACTIVE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    static COMPLETION_SOURCE_ACTIVE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
 /// Whether the current thread is evaluating a completion source. The main panic hook uses this
-/// to avoid printing a panic that completion already converted into a `ShellError`.
-pub fn completion_panic_is_active() -> bool {
-    COMPLETION_PANIC_ACTIVE.with(std::cell::Cell::get)
+/// to avoid printing a panic that completion already converted into a `ShellError`, and
+/// [`flush_completion_warnings`] to hold its output while a menu may be drawing.
+pub fn completion_source_is_active() -> bool {
+    COMPLETION_SOURCE_ACTIVE.with(std::cell::Cell::get)
 }
 
 /// Catch a completion-source panic while marking it for the process panic hook.
 pub(crate) fn catch_completion_panic<T>(
     f: impl FnOnce() -> T,
 ) -> Result<T, Box<dyn std::any::Any + Send>> {
-    COMPLETION_PANIC_ACTIVE.with(|active| {
+    COMPLETION_SOURCE_ACTIVE.with(|active| {
         let previous = active.replace(true);
         let result = catch_unwind(AssertUnwindSafe(f));
         active.set(previous);
@@ -236,8 +237,13 @@ fn queue(warning: ShellWarning) {
 
 /// Print the deprecations completion raised, now that printing is safe: the REPL calls this
 /// once the line editor hands back the line, and `commandline complete` when it returns.
-/// Each is still shown only once a session, through [`ReportMode::FirstUse`].
+/// A completion source calling the latter keeps them queued, since printing would land
+/// on the menu being drawn, and the REPL flush picks them up. Each is still shown only
+/// once a session, through [`ReportMode::FirstUse`].
 pub fn flush_completion_warnings(engine_state: &EngineState, stack: &Stack) {
+    if completion_source_is_active() {
+        return;
+    }
     // Taken, not printed under the lock: a background completion may be queueing into it.
     let pending = match PENDING.lock() {
         Ok(mut pending) => std::mem::take(&mut *pending),
