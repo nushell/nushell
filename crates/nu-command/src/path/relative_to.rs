@@ -241,7 +241,12 @@ fn components_eq(a: &Component, b: &Component, fold_case: bool) -> bool {
         (Component::Normal(a), Component::Normal(b))
             if fold_case && is_case_insensitive_filesystem() =>
         {
-            a.to_string_lossy().to_lowercase() == b.to_string_lossy().to_lowercase()
+            // Names that are not valid UTF-8 are compared as they are, so that
+            // two different such names are not both turned into U+FFFD.
+            a == b
+                || a.to_str()
+                    .zip(b.to_str())
+                    .is_some_and(|(a, b)| a.to_lowercase() == b.to_lowercase())
         }
         _ => a == b,
     }
@@ -401,6 +406,17 @@ mod tests {
             walk_up("/v/Foo", "/v/foo/bar"),
             Some(PathBuf::from("../../Foo"))
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn different_non_utf8_names_are_not_equal() {
+        use std::{ffi::OsStr, os::unix::ffi::OsStrExt};
+
+        let a = Component::Normal(OsStr::from_bytes(b"\xff"));
+        let b = Component::Normal(OsStr::from_bytes(b"\xfe"));
+        assert!(!components_eq(&a, &b, true));
+        assert!(components_eq(&a, &a, true));
     }
 
     #[test]
