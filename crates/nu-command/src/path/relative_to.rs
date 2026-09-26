@@ -182,16 +182,18 @@ fn relative_to(path: &Path, span: Span, args: &Arguments) -> Value {
             .into(),
             span,
         ),
-        Err(Refusal::NotParent) => Value::error(
-            GenericError::new(
+        Err(Refusal::NotParent) => {
+            let mut error = GenericError::new(
                 String::from("The argument path is not a parent of the input path."),
                 "prefix not found",
                 span,
-            )
-            .with_help("Use --walk-up to allow `..` components in the result.")
-            .into(),
-            span,
-        ),
+            );
+            // Suggest the flag only when it would give a result.
+            if relative_path(&lhs, &rhs, true).is_ok() {
+                error = error.with_help("Use --walk-up to allow `..` components in the result.");
+            }
+            Value::error(error.into(), span)
+        }
     }
 }
 
@@ -445,6 +447,35 @@ mod tests {
             },
             other => panic!("expected an error, got {other:?}"),
         }
+    }
+
+    /// Returns the help of the error in `value`.
+    fn error_help(value: Value) -> Option<String> {
+        match value {
+            Value::Error { error, .. } => match *error {
+                ShellError::Generic(GenericError { help, .. }) => help.map(|h| h.into_owned()),
+                other => panic!("expected a generic error, got {other:?}"),
+            },
+            other => panic!("expected an error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn walk_up_hint_only_when_it_would_work() {
+        let args = |path: &str| Arguments {
+            path: Spanned {
+                item: path.to_string(),
+                span: Span::test_data(),
+            },
+            walk_up: false,
+        };
+        let help = |path: &str, base: &str| {
+            error_help(relative_to(Path::new(path), Span::test_data(), &args(base)))
+        };
+
+        assert!(help("/a/b", "/a/c").is_some());
+        assert_eq!(help("/a/b", "a"), None);
+        assert_eq!(help("a/b", "a/../c"), None);
     }
 
     #[test]
