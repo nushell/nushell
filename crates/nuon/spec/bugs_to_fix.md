@@ -15,9 +15,10 @@ the list is empty, this file goes away and so does the todo at the top of the sp
 - [ ] bug 6 - table width is measured in bytes but padded in runes. use one measure for both.
 - [ ] bug 7 - `inf` and `NaN` become `null` through `to json`. not a nuon bug, and not fixable
    in this crate, since json cannot spell them.
-- [x] bug 8 - duration overflow saturates or wraps instead of erroring. `1e30sec` is a
-   **negative** duration. the reader now rejects every overflowing unit; the `ns` and
-   `us` saturation is the parser's clamp and is tracked separately.
+- [ ] bug 8 - duration overflow saturates or wraps instead of erroring. `1e30sec` is a
+   **negative** duration. the reader now rejects `ms`, `sec`, `min`, `hr`, `day` and `wk`;
+   `ns` and `us` still saturate because the parser clamps the literal head, so this stays
+   open until that is fixed.
 - [ ] bug 9 - filesizes may be negative, and an oversized one saturates instead of erroring.
 - [ ] bug 10 - a raw NUL is written verbatim and unquoted, producing a document the reader is
    specified to reject.
@@ -127,12 +128,11 @@ byte for byte still has to reproduce these until they are fixed.
    `to json`. that is a json limitation rather than a nuon one. it matters because it means you
    cannot use json to check how nuon handles floats.
 
-- bug 8 - duration overflow does not error. **Fixed in the reader**: `us`, `ms`, `sec`,
-    `min`, `hr`, `day` and `wk` all error now, where `ms` through `day` used to wrap. The
-    `ns`/`us` saturation is the parser clamping the literal head, and is still open, since
-    the reader sees `Int(i64::MAX)` plus `Nanosecond` and cannot tell that apart from an
-    exact `9223372036854775807ns`. What 0.115.1 did, one of three things depending on the
-    unit:
+- bug 8 - duration overflow does not error. **Partly fixed in the reader**: overflowing
+    `ms`, `sec`, `min`, `hr`, `day` and `wk` literals now error; `ns` and `us` can still
+    saturate because the parser clamps the literal head before the reader sees it. Keep bug 8
+    open until the parser preserves that overflow information. What 0.115.1 did, one of three
+    things depending on the unit:
     ```nushell
     "[1e30ns]"  | from nuon | to json -r                                         # => [9223372036854775807]
     "[1e30sec]" | from nuon | to json -r                                         # => [-1000000]
@@ -143,7 +143,10 @@ byte for byte still has to reproduce these until they are fixed.
     - the wrapping cases were the serious ones: nothing about `1e30sec` suggests the answer should
        be negative, and the result is a valid duration that no downstream check will question.
     - **do not reproduce.** error on overflow. the spec already says overflow must not wrap; this
-       is the implementation not matching it yet.
+       is the implementation not matching it yet. the wrapping units are handled in the reader
+       now; the saturating `ns`/`us` pair needs `parse_unit_value` in
+       `crates/nu-parser/src/parse_literals.rs` to return a `ParseError` instead of falling back
+       to the saturating `num_float as i64`.
 
 - bug 9 - filesizes may be negative, and oversized ones saturate rather than erroring.
     ```nushell

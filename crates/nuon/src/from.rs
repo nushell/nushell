@@ -142,35 +142,6 @@ fn make_generic_error(
     }
 }
 
-/// Scale a duration head by its nanosecond factor, rejecting overflow.
-///
-/// The parser clamps an out-of-range literal head to `i64::MAX` and keeps the
-/// unit it folded to, so `size` can already be at the limit. `checked_mul`
-/// rather than `*`: a plain multiply panics in debug builds and wraps to a
-/// negative duration in release ones, and the nuon spec requires an error.
-/// `Unit::Day` and `Unit::Week` already worked this way.
-fn duration_with_scale(
-    size: i64,
-    factor: i64,
-    unit_name: &str,
-    original_text: &str,
-    span: Span,
-) -> Result<Value, ShellError> {
-    match size.checked_mul(factor) {
-        Some(val) => Ok(Value::duration(val, span)),
-        None => {
-            let (src, label_span) =
-                truncated_source_window(original_text, span, DEFAULT_ERROR_CONTEXT);
-            Err(ShellError::OutsideSpannedLabeledError {
-                src,
-                error: format!("{unit_name} duration too large"),
-                msg: format!("{unit_name} duration too large"),
-                span: label_span,
-            })
-        }
-    }
-}
-
 fn convert_to_value(
     expr: Expression,
     span: Span,
@@ -463,63 +434,16 @@ fn convert_to_value(
                     }
                 },
 
-                Unit::Nanosecond => Ok(Value::duration(size, span)),
-                Unit::Microsecond => {
-                    duration_with_scale(size, 1000, "microsecond", original_text, span)
-                }
-                Unit::Millisecond => {
-                    duration_with_scale(size, 1000 * 1000, "millisecond", original_text, span)
-                }
-                Unit::Second => {
-                    duration_with_scale(size, 1000 * 1000 * 1000, "second", original_text, span)
-                }
-                Unit::Minute => duration_with_scale(
-                    size,
-                    1000 * 1000 * 1000 * 60,
-                    "minute",
-                    original_text,
-                    span,
-                ),
-                Unit::Hour => duration_with_scale(
-                    size,
-                    1000 * 1000 * 1000 * 60 * 60,
-                    "hour",
-                    original_text,
-                    span,
-                ),
-                Unit::Day => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60 * 24) {
-                    Some(val) => Ok(Value::duration(val, span)),
-                    None => {
-                        let (src, label_span) = truncated_source_window(
-                            original_text,
-                            expr.span,
-                            DEFAULT_ERROR_CONTEXT,
-                        );
-                        Err(ShellError::OutsideSpannedLabeledError {
-                            src,
-                            error: "day duration too large".into(),
-                            msg: "day duration too large".into(),
-                            span: label_span,
-                        })
-                    }
-                },
-
-                Unit::Week => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60 * 24 * 7) {
-                    Some(val) => Ok(Value::duration(val, span)),
-                    None => {
-                        let (src, label_span) = truncated_source_window(
-                            original_text,
-                            expr.span,
-                            DEFAULT_ERROR_CONTEXT,
-                        );
-                        Err(ShellError::OutsideSpannedLabeledError {
-                            src,
-                            error: "week duration too large".into(),
-                            msg: "week duration too large".into(),
-                            span: label_span,
-                        })
-                    }
-                },
+                // Every duration unit goes through `Unit::build_value`, which
+                // already checks the multiplication against the 64-bit range.
+                // A plain `size * factor` would panic in debug builds and wrap
+                // to a negative duration in release ones, and the nuon spec
+                // requires an error. The unit is not named in the message: the
+                // parser has already folded the one that was written, so
+                // `1e30sec` arrives as a millisecond count.
+                unit => unit.build_value(size, span).map_err(|_| {
+                    truncated_nuon_error(original_text, expr.span, "duration too large")
+                }),
             }
         }
         Expr::Var(..) => Err(truncated_nuon_error(
@@ -538,6 +462,7 @@ fn convert_to_value(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use nu_protocol::{Spanned, ast::ValueWithUnit};
 
     #[test]
     fn nuon_parse_success() {
@@ -563,24 +488,111 @@ mod tests {
     fn duration_overflow_is_rejected() {
         for unit in ["ms", "sec", "min", "hr", "day", "wk"] {
             let input = format!("[1e30{unit}]");
-            let result = from_nuon(&input, Some(Span::test_data()));
+            let err = from_nuon(&input, Some(Span::test_data()))
+                .expect_err("an overflowing duration must not decode");
+            let (error, msg) = match err {
+                ShellError::OutsideSpannedLabeledError { error, msg, .. } => (error, msg),
+                other => {
+                    panic!("`{input}` should report a labeled duration overflow, got {other:?}")
+                }
+            };
+            // The unit is deliberately not named: the parser folds the one that
+            // was written, so `1e30sec` reaches the reader as a millisecond
+            // count and `1e30wk` as a day count.
+            assert_eq!(
+                msg, "duration too large",
+                "unexpected message for `{input}`"
+            );
+            assert_eq!(
+                error, "Error when loading",
+                "unexpected title for `{input}`"
+            );
             assert!(
-                result.is_err(),
-                "`{input}` should be rejected as an overflow, got {result:?}"
+                !msg.contains("millisecond") && !msg.contains("day"),
+                "`{input}` should not name a folded unit, got {msg}"
             );
         }
     }
 
     #[test]
+    fn duration_overflow_error_points_at_the_literal() {
+        // The label has to cover the literal that overflowed, not whatever span
+        // the caller handed in. A short input makes the two indistinguishable in
+        // the rendered text, so assert on the label itself.
+        let input = "[1e30sec]";
+        let err = from_nuon(input, Some(Span::new(0, 4096)))
+            .expect_err("an overflowing duration must not decode");
+        let ShellError::OutsideSpannedLabeledError { src, span, .. } = &err else {
+            panic!("expected a labeled span error, got {err:?}");
+        };
+        assert_eq!(
+            &src[span.start..span.end],
+            "1e30sec",
+            "the label should cover the literal that overflowed"
+        );
+    }
+
+    #[test]
     fn in_range_durations_still_decode() {
-        // 1000000000ns is 1 second, comfortably inside the 64-bit range.
-        let value = from_nuon("[1000000000ns]", Some(Span::test_data()))
-            .expect("1000000000ns is in range and should decode");
-        assert!(matches!(
-            value,
-            Value::List { vals, .. }
-                if matches!(vals.first(), Some(Value::Duration { val, .. }) if *val == 1_000_000_000)
-        ));
+        // The parser folds valid durations into nanoseconds. Keep this check on
+        // the public NUON path so that the parser-to-reader behavior is covered.
+        for (literal, expected_ns) in [
+            ("1ns", 1_i64),
+            ("1us", 1_000),
+            ("1ms", 1_000_000),
+            ("1sec", 1_000_000_000),
+            ("1min", 60_000_000_000),
+            ("1hr", 3_600_000_000_000),
+            ("1day", 86_400_000_000_000),
+            ("1wk", 604_800_000_000_000),
+        ] {
+            let input = format!("[{literal}]");
+            let value = from_nuon(&input, Some(Span::test_data()))
+                .unwrap_or_else(|err| panic!("`{literal}` is in range and should decode: {err:?}"));
+            let Value::List { vals, .. } = value else {
+                panic!("`{literal}` should decode to a list");
+            };
+            let Some(Value::Duration { val, .. }) = vals.first() else {
+                panic!("`{literal}` should decode to a duration");
+            };
+            assert_eq!(*val, expected_ns, "unexpected duration for `{literal}`");
+        }
+    }
+
+    #[test]
+    fn scaled_duration_units_still_decode() {
+        // Valid source literals are folded to nanoseconds by the parser, so build
+        // the AST directly to exercise Unit::build_value's scaled success paths.
+        for (unit, expected_ns) in [
+            (Unit::Microsecond, 1_000_i64),
+            (Unit::Millisecond, 1_000_000),
+            (Unit::Second, 1_000_000_000),
+            (Unit::Minute, 60_000_000_000),
+            (Unit::Hour, 3_600_000_000_000),
+            (Unit::Day, 86_400_000_000_000),
+            (Unit::Week, 604_800_000_000_000),
+        ] {
+            let literal = "1 unit";
+            let literal_span = Span::new(0, literal.len());
+            let value = ValueWithUnit {
+                expr: Expression::new_unknown(Expr::Int(1), Span::new(0, 1), Type::Number),
+                unit: Spanned {
+                    item: unit,
+                    span: Span::new(2, literal.len()),
+                },
+            };
+            let expr = Expression::new_unknown(
+                Expr::ValueWithUnit(Box::new(value)),
+                literal_span,
+                Type::Duration,
+            );
+            let actual = convert_to_value(expr, Span::test_data(), literal)
+                .unwrap_or_else(|err| panic!("{unit:?} should decode in range: {err:?}"));
+            assert!(
+                matches!(actual, Value::Duration { val, .. } if val == expected_ns),
+                "unexpected duration for {unit:?}: {actual:?}"
+            );
+        }
     }
 
     #[test]
