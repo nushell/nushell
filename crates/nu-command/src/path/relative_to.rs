@@ -178,7 +178,7 @@ fn relative_to(path: &Path, span: Span, args: &Arguments) -> Value {
                 "this path has `..` after the part it shares with the input path",
                 args.path.span,
             )
-            .with_help("A `..` cannot be walked back without the filesystem. Try `path expand` on the argument path first.")
+            .with_help("A `..` cannot be walked back without the filesystem. Try `path expand` on both paths first.")
             .into(),
             span,
         ),
