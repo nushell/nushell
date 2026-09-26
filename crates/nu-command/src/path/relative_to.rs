@@ -189,13 +189,18 @@ fn relative_to(path: &Path, span: Span, args: &Arguments) -> Value {
 /// If `base` has components left, returns `None`, unless `walk_up` is set:
 /// then each of them becomes a `..`. Walking up is refused (`None`) when a
 /// leftover `base` component is not a plain name (a `..` there cannot be undone
-/// without the filesystem) or when the rest of `path` starts at a root, a
-/// Windows prefix or a `.`. A root or prefix pushed onto a `PathBuf` would
-/// replace the `..` chain instead of extending it; a leading `.` is refused
-/// the same way, as if it were a different root.
+/// without the filesystem) or when the rest of `path` starts at a root or a
+/// Windows prefix: pushed onto a `PathBuf`, they would replace the `..` chain
+/// instead of extending it.
+///
+/// A leading `.` is skipped on both sides, so `./a` and `a` both mean the same
+/// place relative to the current directory. `components()` yields `.` only as
+/// the first component, so none is left after this.
 fn relative_path(path: &Path, base: &Path, walk_up: bool) -> Option<PathBuf> {
     let mut path_rest = path.components().peekable();
     let mut base_rest = base.components().peekable();
+    path_rest.next_if_eq(&Component::CurDir);
+    base_rest.next_if_eq(&Component::CurDir);
     while let (Some(p), Some(b)) = (path_rest.peek(), base_rest.peek())
         && components_eq(p, b)
     {
@@ -212,7 +217,7 @@ fn relative_path(path: &Path, base: &Path, walk_up: bool) -> Option<PathBuf> {
     if !relative.as_os_str().is_empty()
         && matches!(
             path_rest.peek(),
-            Some(Component::RootDir | Component::Prefix(_) | Component::CurDir)
+            Some(Component::RootDir | Component::Prefix(_))
         )
     {
         return None;
@@ -358,7 +363,18 @@ mod tests {
         assert_eq!(walk_up("a/b", "/a"), None);
         // a `..` left in the base cannot be undone without the filesystem
         assert_eq!(walk_up("a/b", "a/../c"), None);
-        assert_eq!(walk_up("./a", "b"), None);
+    }
+
+    #[test]
+    fn leading_cur_dir_is_ignored() {
+        let expected = Some(PathBuf::from("../a"));
+        assert_eq!(walk_up("./a", "b"), expected);
+        assert_eq!(walk_up("a", "./b"), expected);
+        assert_eq!(walk_up("./a", "./b"), expected);
+        assert_eq!(
+            relative_path(Path::new("./a/b"), Path::new("a"), false),
+            Some(PathBuf::from("b"))
+        );
     }
 
     #[cfg(windows)]
