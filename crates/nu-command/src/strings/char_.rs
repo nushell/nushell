@@ -2,7 +2,6 @@ use indexmap::{IndexMap, indexmap};
 use nu_engine::command_prelude::*;
 use nu_protocol::{Parameter, Signals};
 use nu_utils::consts::{ENV_PATH_SEPARATOR_CHAR, LINE_SEPARATOR_STR};
-use std::collections::HashSet;
 use std::sync::LazyLock;
 
 #[derive(Clone)]
@@ -154,30 +153,6 @@ static CHAR_MAP: LazyLock<IndexMap<&'static str, String>> = LazyLock::new(|| {
 static CHAR_NAMES: LazyLock<Vec<&'static str>> =
     LazyLock::new(|| CHAR_MAP.keys().copied().collect());
 
-static NO_OUTPUT_CHARS: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
-    [
-        // If the character is in the this set, we don't output it to prevent
-        // the broken of `char --list` command table format and alignment.
-        "nul",
-        "null_byte",
-        "zero_byte",
-        "newline",
-        "enter",
-        "nl",
-        "line_feed",
-        "lf",
-        "cr",
-        "crlf",
-        "bel",
-        "backspace",
-        "lsep",
-        "line_sep",
-        "eol",
-    ]
-    .into_iter()
-    .collect()
-});
-
 impl Command for Char {
     fn name(&self) -> &str {
         "char"
@@ -327,7 +302,8 @@ fn generate_character_list(signals: Signals, call_span: Span) -> PipelineData {
     CHAR_MAP
         .iter()
         .map(move |(name, s)| {
-            let character = if NO_OUTPUT_CHARS.contains(name) {
+            // control characters can make the list appear misaligned
+            let character = if s.chars().any(char::is_control) {
                 Value::string("", call_span)
             } else {
                 Value::string(s, call_span)
