@@ -161,17 +161,28 @@ fn relative_to(path: &Path, span: Span, args: &Arguments) -> Value {
     let rhs = expand_to_real_path(&args.path.item);
 
     match relative_path(&lhs, &rhs, args.walk_up) {
-        Some(p) => Value::string(p.to_string_lossy(), span),
-        None if args.walk_up => Value::error(
+        Ok(p) => Value::string(p.to_string_lossy(), span),
+        Err(Refusal::DifferentRoots) => Value::error(
             GenericError::new(
                 String::from("Cannot walk up from the argument path to the input path."),
-                "the paths have different roots, or the argument path has `.` or `..` after the shared part",
+                "the input path and the argument path have different roots",
                 span,
             )
+            .with_help("Both paths need to be absolute, or both relative, and on the same drive.")
             .into(),
             span,
         ),
-        None => Value::error(
+        Err(Refusal::ParentDirInBase) => Value::error(
+            GenericError::new(
+                String::from("Cannot walk up from the argument path to the input path."),
+                "this path has `..` after the part it shares with the input path",
+                args.path.span,
+            )
+            .with_help("A `..` cannot be walked back without the filesystem. Try `path expand` on the argument path first.")
+            .into(),
+            span,
+        ),
+        Err(Refusal::NotParent) => Value::error(
             GenericError::new(
                 String::from("The argument path is not a parent of the input path."),
                 "prefix not found",
@@ -184,15 +195,27 @@ fn relative_to(path: &Path, span: Span, args: &Arguments) -> Value {
     }
 }
 
+/// Why [`relative_path`] could not express one path relative to another.
+#[derive(Debug, PartialEq)]
+enum Refusal {
+    /// Without `walk_up`, the base is not a parent of the path.
+    NotParent,
+    /// One path is absolute and the other relative, or they are on different
+    /// Windows drives.
+    DifferentRoots,
+    /// The base has a `..` after the shared part.
+    ParentDirInBase,
+}
+
 /// Expresses `path` relative to `base` by comparing their components as text.
 ///
 /// Skips the components both paths share, then returns the rest of `path`.
-/// If `base` has components left, returns `None`, unless `walk_up` is set:
-/// then each of them becomes a `..`. Walking up is refused (`None`) when a
-/// leftover `base` component is not a plain name (a `..` there cannot be undone
-/// without the filesystem) or when the rest of `path` starts at a root or a
-/// Windows prefix: pushed onto a `PathBuf`, they would replace the `..` chain
-/// instead of extending it.
+/// If `base` has components left, refuses with [`Refusal::NotParent`], unless
+/// `walk_up` is set: then each of them becomes a `..`. Walking up is refused
+/// when a leftover `base` component is a `..`, which cannot be undone without
+/// the filesystem, or a root or a Windows prefix. It is also refused when the
+/// rest of `path` starts at a root or a prefix: pushed onto a `PathBuf`, they
+/// would replace the `..` chain instead of extending it.
 ///
 /// Names are compared ignoring case on systems whose filesystems are usually
 /// case-insensitive, but only without `walk_up`. The OS is only a guess about
@@ -203,7 +226,7 @@ fn relative_to(path: &Path, span: Span, args: &Arguments) -> Value {
 /// A leading `.` is skipped on both sides, so `./a` and `a` both mean the same
 /// place relative to the current directory. `components()` yields `.` only as
 /// the first component, so none is left after this.
-fn relative_path(path: &Path, base: &Path, walk_up: bool) -> Option<PathBuf> {
+fn relative_path(path: &Path, base: &Path, walk_up: bool) -> Result<PathBuf, Refusal> {
     let mut path_rest = path.components().peekable();
     let mut base_rest = base.components().peekable();
     path_rest.next_if_eq(&Component::CurDir);
@@ -215,23 +238,27 @@ fn relative_path(path: &Path, base: &Path, walk_up: bool) -> Option<PathBuf> {
         base_rest.next();
     }
 
+    if !walk_up && base_rest.peek().is_some() {
+        return Err(Refusal::NotParent);
+    }
     let mut relative: PathBuf = base_rest
         .map(|c| match c {
-            Component::Normal(_) if walk_up => Some(Component::ParentDir),
-            _ => None,
+            Component::Normal(_) => Ok(Component::ParentDir),
+            Component::ParentDir => Err(Refusal::ParentDirInBase),
+            _ => Err(Refusal::DifferentRoots),
         })
-        .collect::<Option<_>>()?;
+        .collect::<Result<_, _>>()?;
     if !relative.as_os_str().is_empty()
         && matches!(
             path_rest.peek(),
             Some(Component::RootDir | Component::Prefix(_))
         )
     {
-        return None;
+        return Err(Refusal::DifferentRoots);
     }
 
     relative.extend(path_rest);
-    Some(relative)
+    Ok(relative)
 }
 
 /// Compares two path components. With `fold_case`, names are compared ignoring
@@ -261,6 +288,7 @@ fn is_case_insensitive_filesystem() -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use nu_protocol::shell_error::ErrorSite;
 
     #[test]
     fn test_examples() -> nu_test_support::Result {
@@ -355,57 +383,87 @@ mod tests {
         }
     }
 
-    fn walk_up(path: &str, base: &str) -> Option<PathBuf> {
+    fn walk_up(path: &str, base: &str) -> Result<PathBuf, Refusal> {
         relative_path(Path::new(path), Path::new(base), true)
     }
 
     #[test]
     fn walk_up_emits_parent_components() {
-        assert_eq!(
-            walk_up("/a/b/c", "/a/d/e"),
-            Some(PathBuf::from("../../b/c"))
-        );
-        assert_eq!(walk_up("/a", "/a/b/c"), Some(PathBuf::from("../..")));
-        assert_eq!(walk_up("/x", "/a/b/c"), Some(PathBuf::from("../../../x")));
-        assert_eq!(walk_up("a/b", "c"), Some(PathBuf::from("../a/b")));
-        assert_eq!(walk_up("/a/b", "/a/b"), Some(PathBuf::new()));
+        assert_eq!(walk_up("/a/b/c", "/a/d/e"), Ok(PathBuf::from("../../b/c")));
+        assert_eq!(walk_up("/a", "/a/b/c"), Ok(PathBuf::from("../..")));
+        assert_eq!(walk_up("/x", "/a/b/c"), Ok(PathBuf::from("../../../x")));
+        assert_eq!(walk_up("a/b", "c"), Ok(PathBuf::from("../a/b")));
+        assert_eq!(walk_up("/a/b", "/a/b"), Ok(PathBuf::new()));
     }
 
     #[test]
     fn walk_up_refuses_what_text_cannot_answer() {
         // absolute and relative mixed: a pushed root would silently replace the `..` chain
-        assert_eq!(walk_up("/a/b", "a"), None);
-        assert_eq!(walk_up("a/b", "/a"), None);
+        assert_eq!(walk_up("/a/b", "a"), Err(Refusal::DifferentRoots));
+        assert_eq!(walk_up("a/b", "/a"), Err(Refusal::DifferentRoots));
         // a `..` left in the base cannot be undone without the filesystem
-        assert_eq!(walk_up("a/b", "a/../c"), None);
+        assert_eq!(walk_up("a/b", "a/../c"), Err(Refusal::ParentDirInBase));
     }
 
     #[test]
     fn leading_cur_dir_is_ignored() {
-        let expected = Some(PathBuf::from("../a"));
+        let expected = Ok(PathBuf::from("../a"));
         assert_eq!(walk_up("./a", "b"), expected);
         assert_eq!(walk_up("a", "./b"), expected);
         assert_eq!(walk_up("./a", "./b"), expected);
         assert_eq!(
             relative_path(Path::new("./a/b"), Path::new("a"), false),
-            Some(PathBuf::from("b"))
+            Ok(PathBuf::from("b"))
         );
     }
 
     #[cfg(windows)]
     #[test]
     fn walk_up_refuses_other_drive() {
-        assert_eq!(walk_up(r"C:\a", r"D:\a"), None);
+        assert_eq!(walk_up(r"C:\a", r"D:\a"), Err(Refusal::DifferentRoots));
     }
 
     #[test]
     fn walk_up_compares_names_exactly() {
         // `Foo` and `foo` may be different directories even on Windows or macOS
-        assert_eq!(walk_up("/etc", "/Etc"), Some(PathBuf::from("../etc")));
+        assert_eq!(walk_up("/etc", "/Etc"), Ok(PathBuf::from("../etc")));
         assert_eq!(
             walk_up("/v/Foo", "/v/foo/bar"),
-            Some(PathBuf::from("../../Foo"))
+            Ok(PathBuf::from("../../Foo"))
         );
+    }
+
+    /// Returns the span that the error label of `value` points at.
+    fn error_label_span(value: Value) -> Span {
+        match value {
+            Value::Error { error, .. } => match *error {
+                ShellError::Generic(GenericError {
+                    site: ErrorSite::Span(span),
+                    ..
+                }) => span,
+                other => panic!("expected a generic error with a span, got {other:?}"),
+            },
+            other => panic!("expected an error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn walk_up_errors_point_at_what_to_change() {
+        let input_span = Span::new(0, 5);
+        let arg_span = Span::new(10, 20);
+        let args = |path: &str| Arguments {
+            path: Spanned {
+                item: path.to_string(),
+                span: arg_span,
+            },
+            walk_up: true,
+        };
+
+        let result = relative_to(Path::new("a/b"), input_span, &args("a/../c"));
+        assert_eq!(error_label_span(result), arg_span);
+
+        let result = relative_to(Path::new("/a/b"), input_span, &args("a"));
+        assert_eq!(error_label_span(result), input_span);
     }
 
     #[cfg(unix)]
@@ -423,7 +481,7 @@ mod tests {
     fn without_walk_up_argument_must_be_parent() {
         assert_eq!(
             relative_path(Path::new("/a/b/c"), Path::new("/a/d"), false),
-            None
+            Err(Refusal::NotParent)
         );
     }
 }
