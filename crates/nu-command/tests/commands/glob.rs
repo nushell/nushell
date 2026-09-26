@@ -194,6 +194,60 @@ fn glob_follow_symlinks() -> Result {
 }
 
 #[test]
+fn glob_relative_paths() -> Result {
+    Playground::setup("glob_relative_paths", |dirs, sandbox| {
+        sandbox.mkdir("subdir");
+        sandbox.within("subdir").with_files(&[
+            EmptyFile("file0"),
+            EmptyFile("file1"),
+            EmptyFile("file2"),
+        ]);
+
+        let pattern = "subdir/*";
+        let abs_pattern = format!(
+            "{}/subdir/*",
+            dirs.test().to_string_lossy().replace('\\', "/")
+        );
+
+        test()
+            .cwd(dirs.test())
+            .run(format!(
+                "(glob '{pattern}' | path relative-to $env.PWD) == (glob --relative-paths '{pattern}')",
+            ))
+            .expect_value_eq(true)
+            .expect(
+                "glob --relative-paths with a relative pattern should return paths relative to cwd",
+            );
+
+        test()
+            .cwd(dirs.test())
+            .run(format!(
+                "(glob '{abs_pattern}') == (glob --relative-paths '{abs_pattern}')",
+            ))
+            .expect_value_eq(true)
+            .expect(
+                "glob --relative-paths with an absolute pattern should still return absolute paths",
+            );
+
+        let code = "
+            (
+                (glob --relative-paths '.' | first) == '.'
+                and (glob --relative-paths '**' | first) == '.'
+            )
+        ";
+        test()
+            .cwd(dirs.test())
+            .run(code)
+            .expect_value_eq(true)
+            .expect(
+                "glob --relative-paths with '.' or '**' as the pattern should return '.' for cwd",
+            );
+    });
+
+    Ok(())
+}
+
+#[test]
 #[exp(nu_experimental::DC_GLOB)]
 fn glob_dc_glob_supports_depth_and_exclude() -> Result {
     Playground::setup("glob_dc_depth_exclude", |dirs, sandbox| {
@@ -333,6 +387,53 @@ fn glob_dc_glob_supports_follow_symlinks() -> Result {
             .run("glob 'symlink_dir/*.txt' --follow-symlinks | length")
             .expect_value_eq(1)
             .expect("glob should follow symlinked dirs when --follow-symlinks is set");
+    });
+
+    Ok(())
+}
+
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn glob_dc_glob_relative_paths() -> Result {
+    Playground::setup("glob_dc_glob_relative_paths", |dirs, sandbox| {
+        sandbox.mkdir("subdir");
+        sandbox.within("subdir").with_files(&[
+            EmptyFile("file0"),
+            EmptyFile("file1"),
+            EmptyFile("file2"),
+        ]);
+
+        let pattern = "subdir/*";
+        let abs_pattern = format!(
+            "{}/subdir/*",
+            dirs.test().to_string_lossy().replace('\\', "/")
+        );
+
+        test()
+            .cwd(dirs.test())
+            .run(format!(
+                "(glob '{pattern}' | path relative-to $env.PWD) == (glob --relative-paths '{pattern}')",
+            ))
+            .expect_value_eq(true)
+            .expect(
+                "glob --relative-paths with a relative pattern should return paths relative to cwd",
+            );
+
+        test()
+            .cwd(dirs.test())
+            .run(format!(
+                "(glob '{abs_pattern}') == (glob --relative-paths '{abs_pattern}')",
+            ))
+            .expect_value_eq(true)
+            .expect(
+                "glob --relative-paths with an absolute pattern should still return absolute paths",
+            );
+
+        test()
+            .cwd(dirs.test())
+            .run("(glob --relative-paths '**' | first) == '.'")
+            .expect_value_eq(true)
+            .expect("glob --relative-paths with '**' as the pattern should return '.' for cwd");
     });
 
     Ok(())
