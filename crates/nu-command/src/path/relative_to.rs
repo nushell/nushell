@@ -164,7 +164,7 @@ fn relative_to(path: &Path, span: Span, args: &Arguments) -> Value {
         Ok(p) => Value::string(p.to_string_lossy(), span),
         Err(Refusal::DifferentRoots) => Value::error(
             GenericError::new(
-                String::from("Cannot walk up from the argument path to the input path."),
+                String::from("Cannot express the input path relative to the argument path."),
                 "the input path and the argument path have different roots",
                 span,
             )
@@ -215,9 +215,11 @@ enum Refusal {
 /// If `base` has components left, refuses with [`Refusal::NotParent`], unless
 /// `walk_up` is set: then each of them becomes a `..`. Walking up is refused
 /// when a leftover `base` component is a `..`, which cannot be undone without
-/// the filesystem, or a root or a Windows prefix. It is also refused when the
-/// rest of `path` starts at a root or a prefix: pushed onto a `PathBuf`, they
-/// would replace the `..` chain instead of extending it.
+/// the filesystem, or a root or a Windows prefix. With or without `walk_up`,
+/// the result is refused when the rest of `path` starts at a root or a prefix:
+/// `base` had none to match it, so the two paths have different roots, and
+/// pushed onto a `PathBuf` it would replace the result instead of extending it.
+/// This covers a `base` of `.`, which has no components once the `.` is skipped.
 ///
 /// Names are compared ignoring case on systems whose filesystems are usually
 /// case-insensitive, but not when walking up. The OS is only a guess about the
@@ -254,12 +256,10 @@ fn relative_path(path: &Path, base: &Path, walk_up: bool) -> Result<PathBuf, Ref
             _ => Err(Refusal::DifferentRoots),
         })
         .collect::<Result<_, _>>()?;
-    if !relative.as_os_str().is_empty()
-        && matches!(
-            path_rest.peek(),
-            Some(Component::RootDir | Component::Prefix(_))
-        )
-    {
+    if matches!(
+        path_rest.peek(),
+        Some(Component::RootDir | Component::Prefix(_))
+    ) {
         return Err(Refusal::DifferentRoots);
     }
 
@@ -407,6 +407,12 @@ mod tests {
         // absolute and relative mixed: a pushed root would silently replace the `..` chain
         assert_eq!(walk_up("/a/b", "a"), Err(Refusal::DifferentRoots));
         assert_eq!(walk_up("a/b", "/a"), Err(Refusal::DifferentRoots));
+        // `.` has no components once skipped, so nothing matches the root
+        assert_eq!(walk_up("/a", "."), Err(Refusal::DifferentRoots));
+        assert_eq!(
+            relative_path(Path::new("/a"), Path::new("."), false),
+            Err(Refusal::DifferentRoots)
+        );
         // a `..` left in the base cannot be undone without the filesystem
         assert_eq!(walk_up("a/b", "a/../c"), Err(Refusal::ParentDirInBase));
     }
