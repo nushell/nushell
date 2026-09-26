@@ -211,15 +211,18 @@ enum Refusal {
 
 /// Expresses `path` relative to `base` by comparing their components as text.
 ///
-/// Skips the components both paths share, then returns the rest of `path`.
-/// If `base` has components left, refuses with [`Refusal::NotParent`], unless
-/// `walk_up` is set: then each of them becomes a `..`. Walking up is refused
-/// when a leftover `base` component is a `..`, which cannot be undone without
-/// the filesystem, or a root or a Windows prefix. With or without `walk_up`,
-/// the result is refused when the rest of `path` starts at a root or a prefix:
-/// `base` had none to match it, so the two paths have different roots, and
-/// pushed onto a `PathBuf` it would replace the result instead of extending it.
-/// This covers a `base` of `.`, which has no components once the `.` is skipped.
+/// Skips the components both paths share. If the rest of either path starts at
+/// a root or a Windows prefix, the other path had none to match it, so the two
+/// have different roots: refused with [`Refusal::DifferentRoots`] before
+/// anything else, with or without `walk_up`. A root pushed onto a `PathBuf`
+/// would also replace the result instead of extending it. This covers a `base`
+/// of `.`, which has no components once the `.` is skipped.
+///
+/// What is left of both paths is then only names and `..`. If `base` has
+/// components left, refuses with [`Refusal::NotParent`], unless `walk_up` is
+/// set: then each of them becomes a `..`. Walking up is refused when a
+/// leftover `base` component is a `..`, which cannot be undone without the
+/// filesystem. The rest of `path` follows.
 ///
 /// Names are compared ignoring case on systems whose filesystems are usually
 /// case-insensitive, but not when walking up. The OS is only a guess about the
@@ -246,22 +249,20 @@ fn relative_path(path: &Path, base: &Path, walk_up: bool) -> Result<PathBuf, Ref
         base_rest.next();
     }
 
+    let is_root =
+        |c: Option<&Component>| matches!(c, Some(Component::RootDir | Component::Prefix(_)));
+    if is_root(path_rest.peek()) || is_root(base_rest.peek()) {
+        return Err(Refusal::DifferentRoots);
+    }
     if !walk_up && base_rest.peek().is_some() {
         return Err(Refusal::NotParent);
     }
     let mut relative: PathBuf = base_rest
         .map(|c| match c {
-            Component::Normal(_) => Ok(Component::ParentDir),
             Component::ParentDir => Err(Refusal::ParentDirInBase),
-            _ => Err(Refusal::DifferentRoots),
+            _ => Ok(Component::ParentDir),
         })
         .collect::<Result<_, _>>()?;
-    if matches!(
-        path_rest.peek(),
-        Some(Component::RootDir | Component::Prefix(_))
-    ) {
-        return Err(Refusal::DifferentRoots);
-    }
 
     relative.extend(path_rest);
     Ok(relative)
@@ -415,6 +416,15 @@ mod tests {
         );
         // a `..` left in the base cannot be undone without the filesystem
         assert_eq!(walk_up("a/b", "a/../c"), Err(Refusal::ParentDirInBase));
+        // different roots are named first, not the `..` after them
+        assert_eq!(walk_up("/a/b", "a/../c"), Err(Refusal::DifferentRoots));
+    }
+
+    #[test]
+    fn different_roots_are_refused_the_same_without_walk_up() {
+        let plain = |path: &str, base: &str| relative_path(Path::new(path), Path::new(base), false);
+        assert_eq!(plain("/a/b", "a"), Err(Refusal::DifferentRoots));
+        assert_eq!(plain("a/b", "/a"), Err(Refusal::DifferentRoots));
     }
 
     #[test]
@@ -433,6 +443,10 @@ mod tests {
     #[test]
     fn walk_up_refuses_other_drive() {
         assert_eq!(walk_up(r"C:\a", r"D:\a"), Err(Refusal::DifferentRoots));
+        assert_eq!(
+            relative_path(Path::new(r"C:\a"), Path::new(r"D:\a"), false),
+            Err(Refusal::DifferentRoots)
+        );
     }
 
     #[test]
@@ -490,7 +504,6 @@ mod tests {
         };
 
         assert!(help("/a/b", "/a/c").is_some());
-        assert_eq!(help("/a/b", "a"), None);
         assert_eq!(help("a/b", "a/../c"), None);
     }
 
