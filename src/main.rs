@@ -629,6 +629,12 @@ fn main() -> Result<()> {
             Some("http") => nu_mcp::McpTransport::http(
                 parsed_nu_cli_args.mcp_host.clone(),
                 parsed_nu_cli_args.mcp_port,
+                parsed_nu_cli_args
+                    .mcp_allowed_hosts
+                    .map(|hosts| hosts.iter().map(|s| s.item.clone()).collect()),
+                parsed_nu_cli_args
+                    .mcp_allowed_origins
+                    .map(|origins| origins.iter().map(|s| s.item.clone()).collect()),
             ),
             _ => nu_mcp::McpTransport::Stdio,
         };

@@ -414,6 +414,26 @@ const CLI_FLAGS: &[CliFlag] = &[
         CliCategory::Startup,
         "nu --mcp --mcp-transhost http --mcp-host 0.0.0.0",
     ),
+    #[cfg(feature = "mcp")]
+    CliFlag::value(
+        "mcp-allowed-hosts",
+        None,
+        ValueHint::ListString,
+        "list of allowed `Host` header values, guarding against DNS-rebinding attacks (default: rmcp's built-in loopback-only list)
+",
+        CliCategory::Startup,
+        r#"nu --mcp --mcp-transport http --mcp-allowed-hosts="example.com,localhost""#,
+    ),
+    #[cfg(feature = "mcp")]
+    CliFlag::value(
+        "mcp-allowed-origins",
+        None,
+        ValueHint::ListString,
+        "list of allowed CORS origins (default: none, which disables Origin validation for backward compatibility)
+",
+        CliCategory::Startup,
+        r#"nu --mcp --mcp-transport http --mcp-allowed-origins="https://example.com,https://localhost""#,
+    ),
 ];
 
 // Container for parsed CLI values before conversion to NushellCliArgs.
@@ -461,6 +481,10 @@ struct CliValues {
     mcp_port: Option<u16>,
     #[cfg(feature = "mcp")]
     mcp_host: Option<String>,
+    #[cfg(feature = "mcp")]
+    mcp_allowed_hosts: Option<Vec<Spanned<String>>>,
+    #[cfg(feature = "mcp")]
+    mcp_allowed_origins: Option<Vec<Spanned<String>>>,
 }
 
 // Error type for CLI parsing with optional help text.
@@ -747,6 +771,27 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
                 let value = parse_port_value(&mut parser, "mcp-port")?;
                 cli.mcp_port = Some(value);
             }
+            #[cfg(feature = "mcp")]
+            Long("mcp-host") => {
+                let value = parse_string_value(&mut parser, "mcp-host")?;
+                cli.mcp_host = Some(value);
+            }
+            #[cfg(feature = "mcp")]
+            Long("mcp-allowed-hosts") => {
+                let values = parse_list_values(&mut parser, "mcp-allowed-hosts")?;
+                let parsed = split_list_values(values);
+                cli.mcp_allowed_hosts
+                    .get_or_insert_with(Vec::new)
+                    .extend(parsed.into_iter().map(spanned_value));
+            }
+            #[cfg(feature = "mcp")]
+            Long("mcp-allowed-origins") => {
+                let values = parse_list_values(&mut parser, "mcp-allowed-origins")?;
+                let parsed = split_list_values(values);
+                cli.mcp_allowed_origins
+                    .get_or_insert_with(Vec::new)
+                    .extend(parsed.into_iter().map(spanned_value));
+            }
             Value(value) => {
                 let value = value.string().map_err(|_| {
                     CliError::new("Invalid argument", "argument is not valid unicode")
@@ -810,6 +855,10 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
             mcp_port: cli.mcp_port,
             #[cfg(feature = "mcp")]
             mcp_host: cli.mcp_host,
+            #[cfg(feature = "mcp")]
+            mcp_allowed_hosts: cli.mcp_allowed_hosts,
+            #[cfg(feature = "mcp")]
+            mcp_allowed_origins: cli.mcp_allowed_origins,
         },
         script_name,
         args_to_script,
@@ -1065,32 +1114,31 @@ fn parse_experimental_options(parser: &mut lexopt::Parser) -> Result<Vec<String>
     Ok(parsed)
 }
 
-// Parse log filters and ensure they match known log levels.
-// Supports multiple formats: [error,warn], [error, warn], error warn, etc.
-fn parse_log_filters(values: Vec<String>) -> Vec<String> {
+// Split list-flag values on commas and strip surrounding brackets, so
+// `--flag="a,b"`, `--flag="[a, b]"`, and `--flag a --flag b` all parse the same way.
+fn split_list_values(values: Vec<String>) -> Vec<String> {
     let mut parsed = Vec::new();
-
-    // Process each value, handling brackets and comma-delimited forms
     for value in values {
         let trimmed = value.trim();
         let trimmed = trimmed.strip_prefix('[').unwrap_or(trimmed);
         let trimmed = trimmed.strip_suffix(']').unwrap_or(trimmed);
-
-        // Split on commas if present, otherwise treat as single value
-        if trimmed.contains(',') {
-            for item in trimmed.split(',') {
-                let item = item.trim();
-                if !item.is_empty() {
-                    let normalized = item.to_ascii_lowercase();
-                    parsed.push(normalized);
-                }
+        for item in trimmed.split(',') {
+            let item = item.trim();
+            if !item.is_empty() {
+                parsed.push(item.to_string());
             }
-        } else if !trimmed.is_empty() {
-            let normalized = trimmed.to_ascii_lowercase();
-            parsed.push(normalized);
         }
     }
     parsed
+}
+
+// Parse log filters and ensure they match known log levels.
+// Supports multiple formats: [error,warn], [error, warn], error warn, etc.
+fn parse_log_filters(values: Vec<String>) -> Vec<String> {
+    split_list_values(values)
+        .into_iter()
+        .map(|value| value.to_ascii_lowercase())
+        .collect()
 }
 
 // Validate an experimental option name against the known list.
@@ -1484,6 +1532,10 @@ pub(crate) struct NushellCliArgs {
     pub(crate) mcp_port: Option<u16>,
     #[cfg(feature = "mcp")]
     pub(crate) mcp_host: Option<String>,
+    #[cfg(feature = "mcp")]
+    pub(crate) mcp_allowed_hosts: Option<Vec<Spanned<String>>>,
+    #[cfg(feature = "mcp")]
+    pub(crate) mcp_allowed_origins: Option<Vec<Spanned<String>>>,
 }
 
 #[cfg(test)]
