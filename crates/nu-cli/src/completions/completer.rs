@@ -1,8 +1,8 @@
 use crate::completions::{
     ArgValueCompletion, AttributableCompletion, AttributeCompletion, CellPathCompletion,
     CommandCompletion, CommandScope, Completer, CompletionOptions, DotNuCompletion,
-    EnvVarCompletion, FileCompletion, FlagCompletion, NuMatcher, OperatorCompletion,
-    VariableCompletion,
+    EnvVarCompletion, FileCompletion, FlagCompletion, MatchAlgorithm, NuMatcher,
+    OperatorCompletion, VariableCompletion,
     base::{Fetched, SemanticSuggestion},
 };
 use lru::LruCache;
@@ -626,6 +626,11 @@ impl NarrowingCache {
         environment: CacheEnv,
         options: &CompletionOptions,
     ) -> Suggestions {
+        // Fallback may discard fuzzy results that a longer query needs, so cached suggestions
+        // cannot safely answer a narrowed query.
+        if options.match_algorithm == MatchAlgorithm::Fallback {
+            return Suggestions::default();
+        }
         let Some((base_suggestions, ref_span, search_token)) =
             self.state.lock().ok().and_then(|mut state| {
                 let cache = CacheState::live(&mut state, environment)?;
@@ -3058,6 +3063,29 @@ mod completer_tests {
 
     /// Stack-local `cache_size` changes should take effect before the config is merged
     /// into `EngineState`.
+    #[test]
+    fn narrowing_cache_skips_fallback_matches() {
+        let cache = NarrowingCache::default();
+        let env = CacheEnv::of(&test_engine(), &Stack::new());
+        let span = reedline::Span::new(3, 6);
+        let cached = vec![Suggestion {
+            value: "foobar".to_string(),
+            span,
+            ..Suggestion::default()
+        }]
+        .into();
+        let options = CompletionOptions {
+            match_algorithm: MatchAlgorithm::Fallback,
+            ..Default::default()
+        };
+
+        cache.store(CompletionQuery::new("ls foo", 6), env, cached);
+
+        let narrowed = cache.narrowed_fallback(&CompletionQuery::new("ls fooz", 7), env, &options);
+
+        assert!(narrowed.is_empty());
+    }
+
     #[test]
     fn stack_local_cache_size_zero_disables_the_cache() {
         let engine = test_engine();
