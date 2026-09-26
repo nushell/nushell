@@ -82,15 +82,21 @@ pub fn evaluate_commands(
         let mut output = parse(&mut working_set, None, commands.item.as_bytes(), false);
         check_errors(&working_set);
 
+        // The CLI parser has already escaped script arguments via `args_to_script`, so we must not
+        // escape them again here or we would double-quote values like `"arg 2"`.
         if find_main_block_id_in_script(&working_set, &output).is_some() {
-            // The CLI parser has already escaped script arguments via `args_to_script`, so we must not
-            // escape them again here or we would double-quote values like `"arg 2"`.
+            // Call main function if available.
             output = parse(
                 &mut working_set,
                 None,
                 format!("main {}", args.join(" ")).as_bytes(),
                 false,
             );
+            check_errors(&working_set);
+        } else if !args.is_empty() {
+            // Parse trailing arguments if provided.
+            let contents = args.join(" ");
+            output = parse(&mut working_set, None, contents.as_bytes(), false);
             check_errors(&working_set);
         }
 
