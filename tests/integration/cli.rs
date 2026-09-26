@@ -1384,23 +1384,23 @@ fn command_can_receive_arguments() -> TestResult {
 }
 
 #[test]
-fn command_ignores_arguments_without_main() -> TestResult {
+fn command_without_main_runs_arguments() -> TestResult {
     let mut cmd = Command::new(cargo_bin!());
     let output = cmd
         .args([
             "--no-config-file",
             "--no-std-lib",
             "-c",
-            "print 'ok'",
-            "--this-is-not-a-nushell-flag",
-            "positional",
+            "print 'command argument'",
+            "print",
+            "trailing argument",
         ])
         .output()?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(output.status.success(), "stderr: {stderr:?}");
-    assert_eq!(stdout.trim(), "ok");
+    assert_eq!(stdout.trim(), "trailing argument");
     Ok(())
 }
 
