@@ -1,153 +1,335 @@
-use indexmap::{IndexMap, indexmap};
+use indexmap::IndexMap;
 use nu_engine::command_prelude::*;
 use nu_protocol::{Parameter, Signals};
 use nu_utils::consts::{ENV_PATH_SEPARATOR_CHAR, LINE_SEPARATOR_STR};
+use std::path::MAIN_SEPARATOR;
 use std::sync::LazyLock;
 
 #[derive(Clone)]
 pub struct Char;
 
-static CHAR_MAP: LazyLock<IndexMap<&'static str, String>> = LazyLock::new(|| {
-    indexmap! {
+/// for each character, a name and an optional list of aliases.
+struct CharGroup {
+    /// the actual character.
+    ch: String,
+    /// a candidate name for the character.
+    name: &'static str,
+    /// optional aliases for the character name.
+    aliases: Vec<&'static str>,
+}
+
+/// some groups may resolve to the same character, because some
+/// of these are platform-dependant.
+static CHAR_GROUPS: LazyLock<Vec<CharGroup>> = LazyLock::new(|| {
+    vec![
         // These are some regular characters that either can't be used or
         // it's just easier to use them like this.
-
-        "nul" => '\x00'.to_string(),                                // nul character, 0x00
-        "null_byte" => '\x00'.to_string(),                          // nul character, 0x00
-        "zero_byte" => '\x00'.to_string(),                          // nul character, 0x00
+        CharGroup {
+            ch: '\x00'.to_string(),
+            name: "nul",
+            aliases: vec!["null_byte", "zero_byte"],
+        },
         // This are the "normal" characters section
-        "newline" => '\n'.to_string(),
-        "enter" => '\n'.to_string(),
-        "nl" => '\n'.to_string(),
-        "line_feed" => '\n'.to_string(),
-        "lf" => '\n'.to_string(),
-        "carriage_return" => '\r'.to_string(),
-        "cr" => '\r'.to_string(),
-        "crlf" => "\r\n".to_string(),
-        "tab" => '\t'.to_string(),
-        "sp" => ' '.to_string(),
-        "space" => ' '.to_string(),
-        "pipe" => '|'.to_string(),
-        "left_brace" => '{'.to_string(),
-        "lbrace" => '{'.to_string(),
-        "right_brace" => '}'.to_string(),
-        "rbrace" => '}'.to_string(),
-        "left_paren" => '('.to_string(),
-        "lp" => '('.to_string(),
-        "lparen" => '('.to_string(),
-        "right_paren" => ')'.to_string(),
-        "rparen" => ')'.to_string(),
-        "rp" => ')'.to_string(),
-        "left_bracket" => '['.to_string(),
-        "lbracket" => '['.to_string(),
-        "right_bracket" => ']'.to_string(),
-        "rbracket" => ']'.to_string(),
-        "single_quote" => '\''.to_string(),
-        "squote" => '\''.to_string(),
-        "sq" => '\''.to_string(),
-        "double_quote" => '\"'.to_string(),
-        "dquote" => '\"'.to_string(),
-        "dq" => '\"'.to_string(),
-        "forward_slash" => '/'.to_string(),
-        "slash" => '/'.to_string(),
-        "fslash" => '/'.to_string(),
-        "back_slash" => '\\'.to_string(),
-        "bslash" => '\\'.to_string(),
-        "path_sep" => std::path::MAIN_SEPARATOR.to_string(),
-        "psep" => std::path::MAIN_SEPARATOR.to_string(),
-        "separator" => std::path::MAIN_SEPARATOR.to_string(),
-        "eol" => LINE_SEPARATOR_STR.to_string(),
-        "lsep" => LINE_SEPARATOR_STR.to_string(),
-        "line_sep" => LINE_SEPARATOR_STR.to_string(),
-        "esep" => ENV_PATH_SEPARATOR_CHAR.to_string(),
-        "env_sep" => ENV_PATH_SEPARATOR_CHAR.to_string(),
-        "tilde" => '~'.to_string(),                                // ~
-        "twiddle" => '~'.to_string(),                              // ~
-        "squiggly" => '~'.to_string(),                             // ~
-        "home" => '~'.to_string(),                                 // ~
-        "hash" => '#'.to_string(),                                 // #
-        "hashtag" => '#'.to_string(),                              // #
-        "pound_sign" => '#'.to_string(),                           // #
-        "sharp" => '#'.to_string(),                                // #
-        "root" => '#'.to_string(),                                 // #
-
+        CharGroup {
+            ch: '\n'.to_string(),
+            name: "newline",
+            aliases: vec!["enter", "nl", "line_feed", "lf"],
+        },
+        CharGroup {
+            ch: '\r'.to_string(),
+            name: "carriage_return",
+            aliases: vec!["cr"],
+        },
+        CharGroup {
+            ch: "\r\n".to_string(),
+            name: "crlf",
+            aliases: vec![],
+        },
+        CharGroup {
+            ch: '\t'.to_string(),
+            name: "tab",
+            aliases: vec![],
+        },
+        CharGroup {
+            ch: ' '.to_string(),
+            name: "sp",
+            aliases: vec!["space"],
+        },
+        CharGroup {
+            ch: '|'.to_string(),
+            name: "pipe",
+            aliases: vec![],
+        },
+        CharGroup {
+            ch: '{'.to_string(),
+            name: "left_brace",
+            aliases: vec!["lbrace"],
+        },
+        CharGroup {
+            ch: '}'.to_string(),
+            name: "right_brace",
+            aliases: vec!["rbrace"],
+        },
+        CharGroup {
+            ch: '('.to_string(),
+            name: "left_paren",
+            aliases: vec!["lp", "lparen"],
+        },
+        CharGroup {
+            ch: ')'.to_string(),
+            name: "right_paren",
+            aliases: vec!["rparen", "rp"],
+        },
+        CharGroup {
+            ch: '['.to_string(),
+            name: "left_bracket",
+            aliases: vec!["lbracket"],
+        },
+        CharGroup {
+            ch: ']'.to_string(),
+            name: "right_bracket",
+            aliases: vec!["rbracket"],
+        },
+        CharGroup {
+            ch: '\''.to_string(),
+            name: "single_quote",
+            aliases: vec!["squote", "sq"],
+        },
+        CharGroup {
+            ch: '\"'.to_string(),
+            name: "double_quote",
+            aliases: vec!["dquote", "dq"],
+        },
+        CharGroup {
+            ch: '/'.to_string(),
+            name: "forward_slash",
+            aliases: vec!["slash", "fslash"],
+        },
+        CharGroup {
+            ch: '\\'.to_string(),
+            name: "back_slash",
+            aliases: vec!["bslash"],
+        },
+        CharGroup {
+            ch: MAIN_SEPARATOR.to_string(),
+            name: "path_sep",
+            aliases: vec!["psep", "separator"],
+        },
+        CharGroup {
+            ch: LINE_SEPARATOR_STR.to_string(),
+            name: "eol",
+            aliases: vec!["lsep", "line_sep"],
+        },
+        CharGroup {
+            ch: ENV_PATH_SEPARATOR_CHAR.to_string(),
+            name: "esep",
+            aliases: vec!["env_sep"],
+        },
+        CharGroup {
+            ch: '~'.to_string(),
+            name: "tilde",
+            aliases: vec!["twiddle", "squiggly", "home"],
+        },
+        CharGroup {
+            ch: '#'.to_string(),
+            name: "hash",
+            aliases: vec!["hashtag", "pound_sign", "sharp", "root"],
+        },
         // This is the unicode section
         // Unicode names came from https://www.compart.com/en/unicode
         // Private Use Area (U+E000-U+F8FF)
         // Unicode can't be mixed with Ansi or it will break width calculation
-        "nf_branch" => '\u{e0a0}'.to_string(),                     // 
-        "nf_segment" => '\u{e0b0}'.to_string(),                    // 
-        "nf_left_segment" => '\u{e0b0}'.to_string(),               // 
-        "nf_left_segment_thin" => '\u{e0b1}'.to_string(),          // 
-        "nf_right_segment" => '\u{e0b2}'.to_string(),              // 
-        "nf_right_segment_thin" => '\u{e0b3}'.to_string(),         // 
-        "nf_git" => '\u{f1d3}'.to_string(),                        // 
-        "nf_git_branch" => "\u{e709}\u{e0a0}".to_string(),         // 
-        "nf_folder1" => '\u{f07c}'.to_string(),                    // 
-        "nf_folder2" => '\u{f115}'.to_string(),                    // 
-        "nf_house1" => '\u{f015}'.to_string(),                     // 
-        "nf_house2" => '\u{f7db}'.to_string(),                     // 
-
-        "identical_to" => '\u{2261}'.to_string(),                  // ≡
-        "hamburger" => '\u{2261}'.to_string(),                     // ≡
-        "not_identical_to" => '\u{2262}'.to_string(),              // ≢
-        "branch_untracked" => '\u{2262}'.to_string(),              // ≢
-        "strictly_equivalent_to" => '\u{2263}'.to_string(),        // ≣
-        "branch_identical" => '\u{2263}'.to_string(),              // ≣
-
-        "upwards_arrow" => '\u{2191}'.to_string(),                 // ↑
-        "branch_ahead" => '\u{2191}'.to_string(),                  // ↑
-        "downwards_arrow" => '\u{2193}'.to_string(),               // ↓
-        "branch_behind" => '\u{2193}'.to_string(),                 // ↓
-        "up_down_arrow" => '\u{2195}'.to_string(),                 // ↕
-        "branch_ahead_behind" => '\u{2195}'.to_string(),           // ↕
-
-        "black_right_pointing_triangle" => '\u{25b6}'.to_string(), // ▶
-        "prompt" => '\u{25b6}'.to_string(),                        // ▶
-        "vector_or_cross_product" => '\u{2a2f}'.to_string(),       // ⨯
-        "failed" => '\u{2a2f}'.to_string(),                        // ⨯
-        "high_voltage_sign" => '\u{26a1}'.to_string(),             // ⚡
-        "elevated" => '\u{26a1}'.to_string(),                      // ⚡
-
+        CharGroup {
+            ch: '\u{e0a0}'.to_string(),
+            name: "nf_branch",
+            aliases: vec![],
+        },
+        CharGroup {
+            ch: '\u{e0b0}'.to_string(),
+            name: "nf_segment",
+            aliases: vec!["nf_left_segment"],
+        },
+        CharGroup {
+            ch: '\u{e0b1}'.to_string(),
+            name: "nf_left_segment_thin",
+            aliases: vec![],
+        },
+        CharGroup {
+            ch: '\u{e0b2}'.to_string(),
+            name: "nf_right_segment",
+            aliases: vec![],
+        },
+        CharGroup {
+            ch: '\u{e0b3}'.to_string(),
+            name: "nf_right_segment_thin",
+            aliases: vec![],
+        },
+        CharGroup {
+            ch: '\u{f1d3}'.to_string(),
+            name: "nf_git",
+            aliases: vec![],
+        },
+        CharGroup {
+            ch: "\u{e709}\u{e0a0}".to_string(),
+            name: "nf_git_branch",
+            aliases: vec![],
+        },
+        CharGroup {
+            ch: '\u{f07c}'.to_string(),
+            name: "nf_folder1",
+            aliases: vec![],
+        },
+        CharGroup {
+            ch: '\u{f115}'.to_string(),
+            name: "nf_folder2",
+            aliases: vec![],
+        },
+        CharGroup {
+            ch: '\u{f015}'.to_string(),
+            name: "nf_house1",
+            aliases: vec![],
+        },
+        CharGroup {
+            ch: '\u{f7db}'.to_string(),
+            name: "nf_house2",
+            aliases: vec![],
+        },
+        CharGroup {
+            ch: '\u{2261}'.to_string(),
+            name: "identical_to",
+            aliases: vec!["hamburger"],
+        },
+        CharGroup {
+            ch: '\u{2262}'.to_string(),
+            name: "not_identical_to",
+            aliases: vec!["branch_untracked"],
+        },
+        CharGroup {
+            ch: '\u{2263}'.to_string(),
+            name: "strictly_equivalent_to",
+            aliases: vec!["branch_identical"],
+        },
+        CharGroup {
+            ch: '\u{2191}'.to_string(),
+            name: "upwards_arrow",
+            aliases: vec!["branch_ahead"],
+        },
+        CharGroup {
+            ch: '\u{2193}'.to_string(),
+            name: "downwards_arrow",
+            aliases: vec!["branch_behind"],
+        },
+        CharGroup {
+            ch: '\u{2195}'.to_string(),
+            name: "up_down_arrow",
+            aliases: vec!["branch_ahead_behind"],
+        },
+        CharGroup {
+            ch: '\u{25b6}'.to_string(),
+            name: "black_right_pointing_triangle",
+            aliases: vec!["prompt"],
+        },
+        CharGroup {
+            ch: '\u{2a2f}'.to_string(),
+            name: "vector_or_cross_product",
+            aliases: vec!["failed"],
+        },
+        CharGroup {
+            ch: '\u{26a1}'.to_string(),
+            name: "high_voltage_sign",
+            aliases: vec!["elevated"],
+        },
         // This is the emoji section
         // Weather symbols
         // https://www.babelstone.co.uk/Unicode/whatisit.html
-        "sun" => "☀️".to_string(),         //2600 + fe0f
-        "sunny" => "☀️".to_string(),       //2600 + fe0f
-        "sunrise" => "☀️".to_string(),     //2600 + fe0f
-        "moon" => "🌛".to_string(),        //1f31b
-        "cloudy" => "☁️".to_string(),      //2601 + fe0f
-        "cloud" => "☁️".to_string(),       //2601 + fe0f
-        "clouds" => "☁️".to_string(),      //2601 + fe0f
-        "rainy" => "🌦️".to_string(),       //1f326 + fe0f
-        "rain" => "🌦️".to_string(),        //1f326 + fe0f
-        "foggy" => "🌫️".to_string(),       //1f32b + fe0f
-        "fog" => "🌫️".to_string(),         //1f32b + fe0f
-        "mist" => '\u{2591}'.to_string(),  //2591
-        "haze" => '\u{2591}'.to_string(),  //2591
-        "snowy" => "❄️".to_string(),       //2744 + fe0f
-        "snow" => "❄️".to_string(),        //2744 + fe0f
-        "thunderstorm" => "🌩️".to_string(),//1f329 + fe0f
-        "thunder" => "🌩️".to_string(),     //1f329 + fe0f
-
+        CharGroup {
+            ch: "☀️".to_string(),
+            name: "sun",
+            aliases: vec!["sunny", "sunrise"],
+        },
+        CharGroup {
+            ch: "🌛".to_string(),
+            name: "moon",
+            aliases: vec![],
+        },
+        CharGroup {
+            ch: "☁️".to_string(),
+            name: "cloudy",
+            aliases: vec!["cloud", "clouds"],
+        },
+        CharGroup {
+            ch: "🌦️".to_string(),
+            name: "rainy",
+            aliases: vec!["rain"],
+        },
+        CharGroup {
+            ch: "🌫️".to_string(),
+            name: "foggy",
+            aliases: vec!["fog"],
+        },
+        CharGroup {
+            ch: '\u{2591}'.to_string(),
+            name: "mist",
+            aliases: vec!["haze"],
+        },
+        CharGroup {
+            ch: "❄️".to_string(),
+            name: "snowy",
+            aliases: vec!["snow"],
+        },
+        CharGroup {
+            ch: "🌩️".to_string(),
+            name: "thunderstorm",
+            aliases: vec!["thunder"],
+        },
         // This is the "other" section
-        "bel" => '\x07'.to_string(),       // Terminal Bell
-        "backspace" => '\x08'.to_string(), // Backspace
-
+        CharGroup {
+            ch: '\x07'.to_string(),
+            name: "bel",
+            aliases: vec![],
+        },
+        CharGroup {
+            ch: '\x08'.to_string(),
+            name: "backspace",
+            aliases: vec![],
+        },
         // separators
-        "file_separator" => '\x1c'.to_string(),
-        "file_sep"  => '\x1c'.to_string(),
-        "fs" => '\x1c'.to_string(),
-        "group_separator" => '\x1d'.to_string(),
-        "group_sep" => '\x1d'.to_string(),
-        "gs" => '\x1d'.to_string(),
-        "record_separator" => '\x1e'.to_string(),
-        "record_sep" => '\x1e'.to_string(),
-        "rs" => '\x1e'.to_string(),
-        "unit_separator" => '\x1f'.to_string(),
-        "unit_sep" => '\x1f'.to_string(),
-        "us" => '\x1f'.to_string(),
+        CharGroup {
+            ch: '\x1c'.to_string(),
+            name: "file_separator",
+            aliases: vec!["file_sep", "fs"],
+        },
+        CharGroup {
+            ch: '\x1d'.to_string(),
+            name: "group_separator",
+            aliases: vec!["group_sep", "gs"],
+        },
+        CharGroup {
+            ch: '\x1e'.to_string(),
+            name: "record_separator",
+            aliases: vec!["record_sep", "rs"],
+        },
+        CharGroup {
+            ch: '\x1f'.to_string(),
+            name: "unit_separator",
+            aliases: vec!["unit_sep", "us"],
+        },
+    ]
+});
+
+/// a lookup table from a name/alias to the character.
+static CHAR_MAP: LazyLock<IndexMap<&'static str, String>> = LazyLock::new(|| {
+    use std::iter::once;
+
+    let mut map = IndexMap::new();
+
+    for group in CHAR_GROUPS.iter() {
+        for name in once(&group.name).chain(&group.aliases) {
+            map.insert(*name, group.ch.to_owned());
+        }
     }
+
+    map
 });
 
 static CHAR_NAMES: LazyLock<Vec<&'static str>> =
@@ -299,26 +481,36 @@ impl Command for Char {
 }
 
 fn generate_character_list(signals: Signals, call_span: Span) -> PipelineData {
-    CHAR_MAP
+    CHAR_GROUPS
         .iter()
-        .map(move |(name, s)| {
+        .map(move |group| {
+            let name = Value::string(group.name, call_span);
+            let aliases = group
+                .aliases
+                .iter()
+                .map(|alias| Value::string(*alias, call_span))
+                .collect();
+            let aliases = Value::list(aliases, call_span);
             // control characters can make the list appear misaligned
-            let character = if s.chars().any(char::is_control) {
+            let character = if group.ch.chars().any(char::is_control) {
                 Value::string("", call_span)
             } else {
-                Value::string(s, call_span)
+                Value::string(&group.ch, call_span)
             };
             let unicode = Value::string(
-                s.chars()
+                group
+                    .ch
+                    .chars()
                     .map(|c| format!("{:x}", c as u32))
                     .collect::<Vec<String>>()
                     .join(" "),
                 call_span,
             );
             let record = record! {
-                "name" => Value::string(*name, call_span),
+                "name" => name,
                 "character" => character,
                 "unicode" => unicode,
+                "aliases" => aliases,
             };
 
             Value::record(record, call_span)
