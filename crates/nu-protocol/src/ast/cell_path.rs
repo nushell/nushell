@@ -2,7 +2,12 @@ use super::Expression;
 use crate::{Span, casing::Casing};
 use nu_utils::{escape_quote_string, needs_quoting};
 use serde::{Deserialize, Serialize};
-use std::{cmp::Ordering, fmt::Display, str::FromStr};
+use std::{
+    cmp::Ordering,
+    fmt::Display,
+    hash::{Hash, Hasher},
+    str::FromStr,
+};
 use winnow::Parser;
 
 /// One level of access of a [`CellPath`]
@@ -104,81 +109,58 @@ impl PathMember {
 
 impl PartialEq for PathMember {
     fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (
-                Self::String {
-                    val: l_val,
-                    optional: l_opt,
-                    ..
-                },
-                Self::String {
-                    val: r_val,
-                    optional: r_opt,
-                    ..
-                },
-            ) => l_val == r_val && l_opt == r_opt,
-            (
-                Self::Int {
-                    val: l_val,
-                    optional: l_opt,
-                    ..
-                },
-                Self::Int {
-                    val: r_val,
-                    optional: r_opt,
-                    ..
-                },
-            ) => l_val == r_val && l_opt == r_opt,
-            _ => false,
-        }
+        self.partial_cmp(other) == Some(Ordering::Equal)
     }
 }
 
 impl PartialOrd for PathMember {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    /// Orders by variant (strings before ints), then `val`, `optional` and `casing`.
+    /// `span` is ignored, so [`PartialEq`] and [`Hash`] ignore it too.
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         match (self, other) {
             (
-                PathMember::String {
+                Self::String {
                     val: l_val,
                     optional: l_opt,
+                    casing: l_casing,
                     ..
                 },
-                PathMember::String {
+                Self::String {
                     val: r_val,
                     optional: r_opt,
+                    casing: r_casing,
                     ..
                 },
-            ) => {
-                let val_ord = Some(l_val.cmp(r_val));
-
-                if let Some(Ordering::Equal) = val_ord {
-                    Some(l_opt.cmp(r_opt))
-                } else {
-                    val_ord
-                }
-            }
+            ) => Some((l_val, l_opt, l_casing).cmp(&(r_val, r_opt, r_casing))),
             (
-                PathMember::Int {
+                Self::Int {
                     val: l_val,
                     optional: l_opt,
                     ..
                 },
-                PathMember::Int {
+                Self::Int {
                     val: r_val,
                     optional: r_opt,
                     ..
                 },
-            ) => {
-                let val_ord = Some(l_val.cmp(r_val));
+            ) => Some((l_val, l_opt).cmp(&(r_val, r_opt))),
+            (Self::Int { .. }, Self::String { .. }) => Some(Ordering::Greater),
+            (Self::String { .. }, Self::Int { .. }) => Some(Ordering::Less),
+        }
+    }
+}
 
-                if let Some(Ordering::Equal) = val_ord {
-                    Some(l_opt.cmp(r_opt))
-                } else {
-                    val_ord
-                }
-            }
-            (PathMember::Int { .. }, PathMember::String { .. }) => Some(Ordering::Greater),
-            (PathMember::String { .. }, PathMember::Int { .. }) => Some(Ordering::Less),
+impl Hash for PathMember {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        std::mem::discriminant(self).hash(state);
+        match self {
+            Self::String {
+                val,
+                optional,
+                casing,
+                ..
+            } => (val, optional, casing).hash(state),
+            Self::Int { val, optional, .. } => (val, optional).hash(state),
         }
     }
 }
@@ -293,7 +275,7 @@ impl TestPathMember<usize> {
 /// col2
 /// 42
 /// ```
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Hash)]
 pub struct CellPath {
     pub members: Vec<PathMember>,
 }
@@ -678,6 +660,17 @@ mod test {
             Some(Greater),
             PathMember::test_string("f", true, Casing::Sensitive)
                 .partial_cmp(&PathMember::test_string("e", true, Casing::Sensitive))
+        );
+
+        // `e!` (case-insensitive) is a different member from `e`.
+        assert_eq!(
+            Some(Greater),
+            PathMember::test_string("e", true, Casing::Insensitive)
+                .partial_cmp(&PathMember::test_string("e", true, Casing::Sensitive))
+        );
+        assert_ne!(
+            PathMember::test_string("e", true, Casing::Insensitive),
+            PathMember::test_string("e", true, Casing::Sensitive)
         );
     }
 }
