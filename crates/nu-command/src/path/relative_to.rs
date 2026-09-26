@@ -53,8 +53,8 @@ parent of the input path.
 The paths are compared as text, without touching the filesystem. With --walk-up,
 each `..` in the result stands for the textual parent of the argument path, so
 if the argument path goes through a symbolic link, the result may point
-somewhere else than the textual path suggests. Also with --walk-up, names are
-compared with exact case, even on Windows and macOS."
+somewhere else than the textual path suggests. When --walk-up has to add `..`,
+names are compared with exact case, even on Windows and macOS."
     }
 
     fn is_const(&self) -> bool {
@@ -220,15 +220,19 @@ enum Refusal {
 /// would replace the `..` chain instead of extending it.
 ///
 /// Names are compared ignoring case on systems whose filesystems are usually
-/// case-insensitive, but only without `walk_up`. The OS is only a guess about
-/// the actual volume, and with `walk_up` a wrong guess would change how many
-/// `..` are emitted and land in another directory. Exact names always give a
-/// correct result, at worst a longer one.
+/// case-insensitive, but not when walking up. The OS is only a guess about the
+/// actual volume, and when walking up a wrong guess would change how many `..`
+/// are emitted and land in another directory. Exact names always give a
+/// correct result, at worst a longer one. A pair that needs no `..` gets the
+/// same answer with or without `walk_up`, so the flag only adds results.
 ///
 /// A leading `.` is skipped on both sides, so `./a` and `a` both mean the same
 /// place relative to the current directory. `components()` yields `.` only as
 /// the first component, so none is left after this.
 fn relative_path(path: &Path, base: &Path, walk_up: bool) -> Result<PathBuf, Refusal> {
+    if walk_up && let Ok(relative) = relative_path(path, base, false) {
+        return Ok(relative);
+    }
     let mut path_rest = path.components().peekable();
     let mut base_rest = base.components().peekable();
     path_rest.next_if_eq(&Component::CurDir);
@@ -426,9 +430,15 @@ mod tests {
     }
 
     #[test]
-    fn walk_up_compares_names_exactly() {
+    fn walk_up_compares_names_exactly_only_when_walking() {
+        // a pair the plain command answers keeps that answer
+        let expected = if is_case_insensitive_filesystem() {
+            ""
+        } else {
+            "../etc"
+        };
+        assert_eq!(walk_up("/etc", "/Etc"), Ok(PathBuf::from(expected)));
         // `Foo` and `foo` may be different directories even on Windows or macOS
-        assert_eq!(walk_up("/etc", "/Etc"), Ok(PathBuf::from("../etc")));
         assert_eq!(
             walk_up("/v/Foo", "/v/foo/bar"),
             Ok(PathBuf::from("../../Foo"))
