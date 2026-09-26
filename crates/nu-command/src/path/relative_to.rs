@@ -53,7 +53,8 @@ parent of the input path.
 The paths are compared as text, without touching the filesystem. With --walk-up,
 each `..` in the result stands for the textual parent of the argument path, so
 if the argument path goes through a symbolic link, the result may point
-somewhere else than the textual path suggests."
+somewhere else than the textual path suggests. Also with --walk-up, names are
+compared with exact case, even on Windows and macOS."
     }
 
     fn is_const(&self) -> bool {
@@ -193,6 +194,12 @@ fn relative_to(path: &Path, span: Span, args: &Arguments) -> Value {
 /// Windows prefix: pushed onto a `PathBuf`, they would replace the `..` chain
 /// instead of extending it.
 ///
+/// Names are compared ignoring case on systems whose filesystems are usually
+/// case-insensitive, but only without `walk_up`. The OS is only a guess about
+/// the actual volume, and with `walk_up` a wrong guess would change how many
+/// `..` are emitted and land in another directory. Exact names always give a
+/// correct result, at worst a longer one.
+///
 /// A leading `.` is skipped on both sides, so `./a` and `a` both mean the same
 /// place relative to the current directory. `components()` yields `.` only as
 /// the first component, so none is left after this.
@@ -202,7 +209,7 @@ fn relative_path(path: &Path, base: &Path, walk_up: bool) -> Option<PathBuf> {
     path_rest.next_if_eq(&Component::CurDir);
     base_rest.next_if_eq(&Component::CurDir);
     while let (Some(p), Some(b)) = (path_rest.peek(), base_rest.peek())
-        && components_eq(p, b)
+        && components_eq(p, b, !walk_up)
     {
         path_rest.next();
         base_rest.next();
@@ -227,10 +234,13 @@ fn relative_path(path: &Path, base: &Path, walk_up: bool) -> Option<PathBuf> {
     Some(relative)
 }
 
-/// Compares two path components, ignoring case of names on case-insensitive filesystems.
-fn components_eq(a: &Component, b: &Component) -> bool {
+/// Compares two path components. With `fold_case`, names are compared ignoring
+/// case on systems whose filesystems are typically case-insensitive.
+fn components_eq(a: &Component, b: &Component, fold_case: bool) -> bool {
     match (a, b) {
-        (Component::Normal(a), Component::Normal(b)) if is_case_insensitive_filesystem() => {
+        (Component::Normal(a), Component::Normal(b))
+            if fold_case && is_case_insensitive_filesystem() =>
+        {
             a.to_string_lossy().to_lowercase() == b.to_string_lossy().to_lowercase()
         }
         _ => a == b,
@@ -384,13 +394,13 @@ mod tests {
     }
 
     #[test]
-    fn walk_up_with_case_folding() {
-        let expected = if is_case_insensitive_filesystem() {
-            ""
-        } else {
-            "../etc"
-        };
-        assert_eq!(walk_up("/etc", "/Etc"), Some(PathBuf::from(expected)));
+    fn walk_up_compares_names_exactly() {
+        // `Foo` and `foo` may be different directories even on Windows or macOS
+        assert_eq!(walk_up("/etc", "/Etc"), Some(PathBuf::from("../etc")));
+        assert_eq!(
+            walk_up("/v/Foo", "/v/foo/bar"),
+            Some(PathBuf::from("../../Foo"))
+        );
     }
 
     #[test]
