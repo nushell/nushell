@@ -1,7 +1,7 @@
 //! Composable TUI commands backed by ratatui.
 //!
 //! Pipeline shape:
-//! `ls | tui label --title "files" | tui split [(tui table) (tui preview)] | tui run`
+//! `ls | tui label --titlebar "files" | tui split [(tui table) (tui preview)] | tui run`
 //!
 //! Builders (`tui table`, `tui split`, …) append widgets to a `tui` custom
 //! value; `tui run` owns the terminal and returns one record; `tui debug`

@@ -55,6 +55,11 @@ pub struct Widget {
     /// `--focus`: start with this widget focused.
     #[serde(default)]
     pub focus: bool,
+    /// `--title`: replaces the widget's name in its border title (see
+    /// `widgets::custom_title`). On `tui preview` it goes in front of the
+    /// previewed file's name. Never empty.
+    #[serde(default)]
+    pub title: Option<String>,
 }
 
 impl Widget {
@@ -70,6 +75,7 @@ impl Widget {
             source: None,
             on_select: None,
             focus: false,
+            title: None,
         }
     }
 
@@ -456,6 +462,7 @@ pub struct MenuState {
 
 #[derive(Debug, Clone, Default)]
 pub struct PreviewState {
+    /// The previewed file's name, or empty when nothing is previewed.
     pub title: String,
     pub text: String,
     pub scroll: usize,

@@ -1,4 +1,4 @@
-use super::{WidgetKind, builder_io_types, data_flags, push_widget, with_app};
+use super::{WidgetKind, builder_io_types, data_flags, push_widget, title_flag, with_app};
 use crate::widgets::log::LogWidget;
 use nu_engine::command_prelude::*;
 
@@ -22,7 +22,7 @@ impl Command for TuiLog {
 
     fn signature(&self) -> Signature {
         data_flags(
-            Signature::build("tui log")
+            title_flag(Signature::build("tui log"))
                 .category(Category::Viewers)
                 .optional(
                     "source",
@@ -42,7 +42,7 @@ impl Command for TuiLog {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Live log of a slow stream",
-            example: r#"1.. | each {|n| sleep 100ms; $"tick ($n)"} | tui label --title "ticks" | tui log | tui run"#,
+            example: r#"1.. | each {|n| sleep 100ms; $"tick ($n)"} | tui label --titlebar "ticks" | tui log | tui run"#,
             result: None,
         }]
     }
