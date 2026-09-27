@@ -20,7 +20,7 @@ impl Command for TuiSplit {
     fn extra_description(&self) -> &str {
         "Children are `tui` values built in parentheses: `tui split [(tui table) (tui preview)]`. A child can carry its own rows: `[(ls | tui table) (ps | tui table)]`. Splits nest.\n\
          \n\
-         `--sizes` gives one size per child: an int is cells (`20`), `\"30%\"` a share of the split, `\"1fr\"` a share of what is left (`\"2fr\"` twice as much), `\"min:10\"` / `\"max:40\"` bounds. Missing entries are `1fr`. `--ratio 60` is shorthand for `--sizes [60% 1fr]`. Drag a divider with the mouse, or Tab to the split and use arrows/hjkl for 1% steps."
+         `--sizes` gives one size per child: an int is cells (`20`), `\"30%\"` a share of the split, `\"1fr\"` a share of what is left (`\"2fr\"` twice as much), `\"min:10\"` / `\"max:40\"` bounds. Missing entries are `1fr`. `--ratio 60` is shorthand for `--sizes [60% 1fr]`. Drag a divider with the mouse, or Tab to the split and use arrows/hjkl to move the first divider: one cell per press, or a few on splits wider than 100 cells."
     }
 
     fn signature(&self) -> Signature {
