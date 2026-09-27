@@ -47,7 +47,8 @@ pub(super) fn empty_tui() -> Type {
 }
 
 /// Input/output types shared by every builder: start a TUI from nothing,
-/// extend one, or attach to pipeline data that keeps flowing.
+/// extend one, or start one from piped data. The output is always a `tui`
+/// value; a piped stream rides in it unread.
 pub(super) fn builder_io_types() -> Vec<(Type, Type)> {
     vec![
         (Type::Nothing, empty_tui()),
@@ -100,9 +101,9 @@ pub(super) fn with_app(
     input: PipelineData,
     f: impl FnOnce(&mut TuiApp) -> Result<(), ShellError>,
 ) -> Result<PipelineData, ShellError> {
-    let (mut app, data) = TuiApp::split_input(input)?;
+    let mut app = TuiApp::from_input(input);
     f(&mut app)?;
-    Ok(app.emit(data, call.head))
+    Ok(app.into_pipeline_data(call.head))
 }
 
 /// A list of strings, or a single string, from a value.
@@ -181,7 +182,7 @@ pub(super) fn children_from_values(values: Vec<Value>) -> Result<Vec<TuiApp>, Sh
                 err_message: format!(
                     "expected a tui value, found {}. Build children inside parentheses: \
                      [(tui table) (tui preview)]. To give a child its own rows, pipe a \
-                     collected value into it or pass --data",
+                     list or stream into it or pass --data",
                     value.get_type()
                 ),
                 span: value.span(),
@@ -274,6 +275,7 @@ pub(super) fn push_widget(
         kind,
         children,
         data: call.get_flag(engine_state, stack, "data")?,
+        stream: None,
         source,
         on_select: call.get_flag(engine_state, stack, "on-select")?,
         focus: call.has_flag(engine_state, stack, "focus")?,
@@ -298,9 +300,9 @@ impl Command for Tui {
          \n\
          Builders (`tui table`, `tui split`, ...) append widgets to a `tui` value. `tui run` shows it and returns one record: `{action, focused, selected, page, values, rows, live}`, where `values` holds every widget's state by id. `tui debug` returns the same record plus the painted `screen` and the resolved layout, for scripts and tests.\n\
          \n\
-         Data: a value piped into a builder is the shared data list. Lists and streams are collected in full (up to 100k rows); an external command's output (`tail -f log | tui log`) and an unbounded range (`1..`) stay live, and their rows appear as they are produced. When the TUI closes while an external command is still running, it is stopped. A widget can have its own rows with `--data`, or by piping into it inside a container's child list: `tui split [(ls | tui table) (ps | tui table)]`. `--from <id>` (with an optional closure) makes a widget follow another's highlighted row.\n\
+         Data: a value piped into a builder is the shared data list. Builders never read a stream: a list stream, a range, or an external command's output is kept in the `tui` value and read while the TUI runs, so its rows appear as they are produced (`1.. | each {|n| sleep 1sec; $n} | tui log`). A stream keeps its newest 100k rows (older rows are dropped in batches, so up to 12.5k more may show). When the TUI closes, a stream still producing is stopped: an external command piped straight into a builder at once, and one behind other commands (`^tail -f app.log | lines | tui log`) at once in an interactive shell, elsewhere the next time it writes. Nushell code in a stream (an `each` closure) finishes the row it is on, and what it prints while the TUI runs lands on the TUI's screen. A `tui` value saved with `let` reads its stream the first time it runs; if that run read it to the end, later runs show the same rows. A widget can have its own rows with `--data`, or by piping into it inside a container's child list: `tui split [(ls | tui table) (ps | tui table)]`. `--from <id>` (with an optional closure) makes a widget follow another's highlighted row.\n\
          \n\
-         Hooks: `tui bind`, menu actions, `tui button`, `--on-select`, and the `tui run` refresh closure all receive the state record and may return nothing, a new data list, or `{action: submit|quit, selected: ...}`.\n\
+         Hooks: `tui bind`, menu actions, `tui button`, `--on-select`, and the `tui run` refresh closure all receive the state record and may return nothing, a new data list, or `{action: submit|quit, selected: ...}`. A new data list replaces the shared data for the rest of the run: a piped stream no longer adds to it.\n\
          \n\
          Layout: `tui split --sizes [30% 1fr]` arranges children; `tui box` groups them with a border; `tui tab` makes a page. Colors come from `$env.config.tui`."
     }

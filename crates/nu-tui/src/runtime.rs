@@ -3,14 +3,14 @@ use crate::app::TuiApp;
 use crate::hooks::call_closure;
 use crate::render::{render, render_to_string};
 use crate::session::Session;
-use crate::stream::{self, StreamMsg};
+use crate::stream::Readers;
 use crossterm::cursor::{Hide, Show};
 use crossterm::event::{self, DisableMouseCapture, EnableMouseCapture, Event, MouseEventKind};
 use crossterm::execute;
 use crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen};
 use nu_command::RawModeGuard;
 use nu_protocol::{
-    IntoPipelineData, ListStream, PipelineData, ShellError, Span, Value,
+    IntoPipelineData, PipelineData, ShellError, Span, Value,
     engine::{Closure, EngineState, Stack},
     shell_error::generic::GenericError,
 };
@@ -19,7 +19,6 @@ use ratatui::layout::Rect;
 use ratatui::{Terminal, backend::CrosstermBackend};
 use std::io::stdout;
 use std::path::PathBuf;
-use std::sync::mpsc::Receiver;
 use std::time::Duration;
 
 /// Options shared by `tui run` and `tui debug`.
@@ -59,14 +58,16 @@ impl Default for RunOptions {
     }
 }
 
+/// Check `app` and build its session. Its streams are not read yet: the
+/// caller opens [`Readers`] once nothing else can fail first, so an early
+/// error leaves a saved `tui` value's stream unread.
 fn prepare_session(
-    mut app: TuiApp,
-    data: PipelineData,
+    app: TuiApp,
     engine_state: &EngineState,
     stack: &Stack,
     cwd: PathBuf,
     span: Span,
-) -> Result<(Session, Option<Receiver<StreamMsg>>), ShellError> {
+) -> Result<Session, ShellError> {
     if let Some((id, from)) = Session::unknown_sources(&app).into_iter().next() {
         let ids: Vec<String> = app.iter().map(|w| w.id.clone()).collect();
         return Err(ShellError::Generic(GenericError::new(
@@ -78,66 +79,23 @@ fn prepare_session(
             span,
         )));
     }
-    if app.path_columns.is_empty()
-        && let Some(meta) = data.metadata_ref()
-        && !meta.path_columns.is_empty()
-    {
-        app.path_columns = meta.path_columns.clone();
-    }
-    // A range is a lazy sequence, so read it like a stream: finite ranges are
-    // drained, infinite ones keep producing rows while the TUI runs.
-    let data = match data {
-        PipelineData::Value(Value::Range { val, .. }, meta) => PipelineData::ListStream(
-            ListStream::new(
-                val.into_range_iter(span, engine_state.signals().clone()),
-                span,
-                engine_state.signals().clone(),
-            ),
-            meta,
-        ),
-        other => other,
-    };
-    if let Value::Range { val, .. } = &app.data
-        && val.is_bounded()
-    {
-        let range_span = app.data.span();
-        app.data = Value::list(
-            val.clone()
-                .into_range_iter(range_span, engine_state.signals().clone())
-                .collect(),
-            range_span,
-        );
-    }
-    let is_stream = matches!(
-        data,
-        PipelineData::ListStream(_, _) | PipelineData::ByteStream(_, _)
-    );
-    let rx = if is_stream {
-        stream::spawn_reader(data)
-    } else {
-        if let Some(value) = stream::collected_value(data)
-            && app.data.is_nothing()
-        {
-            app.data = value;
-        }
-        None
-    };
-    let mut session = Session::with_engine(app, cwd, Some((engine_state.clone(), stack.clone())));
-    session.stream_live = rx.is_some();
-    Ok((session, rx))
+    Ok(Session::with_engine(
+        app,
+        cwd,
+        Some((engine_state.clone(), stack.clone())),
+    ))
 }
 
 /// Render without a TTY. Replays `--keys` if given, then returns the result
 /// record with the painted `screen` and the resolved widget tree.
 pub fn debug(
     app: TuiApp,
-    data: PipelineData,
     engine_state: &EngineState,
     stack: &Stack,
     opts: RunOptions,
     cwd: PathBuf,
 ) -> Result<PipelineData, ShellError> {
-    let (mut session, rx) = prepare_session(app, data, engine_state, stack, cwd, opts.span)?;
+    let mut session = prepare_session(app, engine_state, stack, cwd, opts.span)?;
     let frame = Rect {
         x: 0,
         y: 0,
@@ -150,15 +108,19 @@ pub fn debug(
     // Lay out before anything runs a closure, so each runs once at its
     // pane size rather than once at the terminal size and again after.
     session.layout(session.dialog_content_area(frame));
-    if let Some(rx) = rx {
-        // A live stream is read for a while, but never past what the
-        // widgets can hold: `1.. | tui table | tui debug` must not buffer
-        // millions of rows to keep ten thousand.
-        let cap = session.stream_row_cap();
-        let (items, done) = stream::drain_until_idle(&rx, Duration::from_secs(5), cap);
-        session.append_values(items);
-        session.stream_live = !done;
+    // Streams are read until they end, for at most five seconds. Each
+    // keeps its newest rows, as in `tui run`. They share one channel, so a
+    // child's `ls` is read alongside an endless outer stream.
+    let mut readers = Readers::open(&session.app, engine_state);
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while readers.is_live() {
+        let left = deadline.saturating_duration_since(Instant::now());
+        if left.is_zero() {
+            break;
+        }
+        readers.poll(left, |owners, values| session.append_values(owners, values));
     }
+    session.stream_live = readers.is_live();
     if let Some(closure) = opts.using.clone() {
         session.run_hook(closure);
     }
@@ -176,7 +138,8 @@ pub fn debug(
     }
     let screen = render_to_string(&mut session, opts.width, opts.height)
         .map_err(|e| io_error("failed to render headless TUI", e, opts.span))?;
-    stop_producer(&session);
+    // Stop what is still producing before the caller moves on.
+    drop(readers);
     let mut rec = session.result_fields(opts.span, Some(screen));
     for (k, v) in session.debug_record(opts.span) {
         rec.insert(k, v);
@@ -199,13 +162,12 @@ fn until_holds(
 /// Own the terminal until the user submits or quits.
 pub fn run(
     app: TuiApp,
-    data: PipelineData,
     engine_state: &EngineState,
     stack: &Stack,
     opts: RunOptions,
     cwd: PathBuf,
 ) -> Result<PipelineData, ShellError> {
-    let (mut session, rx) = prepare_session(app, data, engine_state, stack, cwd, opts.span)?;
+    let mut session = prepare_session(app, engine_state, stack, cwd, opts.span)?;
     let _raw = RawModeGuard::acquire(stack, opts.span)?;
     let (term_w, term_h) = crossterm::terminal::size()
         .map_err(|e| io_error("failed to read terminal size", e.to_string(), opts.span))?;
@@ -233,24 +195,23 @@ pub fn run(
         height: term_h,
     };
     session.layout(session.dialog_content_area(screen));
+    // Dropped on every return, which stops the streams still producing.
+    let mut readers = Readers::open(&session.app, engine_state);
+    session.stream_live = readers.is_live();
 
     // The hook runs once before the first frame; with --refresh it then
-    // repeats on the interval.
+    // repeats on the interval. Data it returns replaces the piped data for
+    // good (see `Session::replace_data`), however far a stream has got.
     if let Some(closure) = opts.using.clone() {
         session.run_hook(closure);
     }
     let mut last_refresh = Instant::now();
 
     loop {
-        if let Some(rx) = &rx {
-            let (items, done) = stream::drain_available(rx);
-            if !items.is_empty() {
-                session.append_values(items);
-            }
-            if done {
-                session.stream_live = false;
-            }
-        }
+        readers.poll(Duration::ZERO, |owners, values| {
+            session.append_values(owners, values)
+        });
+        session.stream_live = readers.is_live();
 
         if let (Some(interval), Some(closure)) = (opts.refresh, opts.using.clone())
             && last_refresh.elapsed() >= interval
@@ -290,19 +251,11 @@ pub fn run(
         }
     }
 
+    // Stop the streams while the alternate screen still hides anything a
+    // stopping producer prints.
+    drop(readers);
     drop(terminal);
-    stop_producer(&session);
     Ok(Value::record(session.result_fields(opts.span, None), opts.span).into_pipeline_data())
-}
-
-/// Kill the external command behind a stream that is still open when the
-/// TUI closes; otherwise the pipeline waits for it to exit on its own.
-fn stop_producer(session: &Session) {
-    if session.stream_live
-        && let Some(pid) = session.app.live_pid
-    {
-        stream::kill_child(pid);
-    }
 }
 
 /// Read every pending event. A run of drag events collapses to its last

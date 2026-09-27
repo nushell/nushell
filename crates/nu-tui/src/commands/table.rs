@@ -15,7 +15,7 @@ impl Command for TuiTable {
     }
 
     fn extra_description(&self) -> &str {
-        "Up/Down, j/k, PageUp/PageDown, Home/End, and mouse wheel move the selection. Enter submits the current row (`--index` submits its index). With `--multi`, Space checks rows and the selection is the checked rows. A `tui search` widget filters rows as you type. Streams append while the TUI runs (oldest rows drop after 10,000).\n\
+        "Up/Down, j/k, PageUp/PageDown, Home/End, and mouse wheel move the selection. Enter submits the current row (`--index` submits its index). With `--multi`, Space checks rows and the selection is the checked rows. A `tui search` widget filters rows as you type. Streams append while the TUI runs; a stream keeps its newest 100,000 rows.\n\
          \n\
          `--data` gives this table its own rows; `--from <id>` with a closure makes it a detail view of another widget's highlighted row: `tui table --from tree-0 {|node| ls $node.name }`. `--on-select` runs a hook whenever the highlight moves.\n\
          \n\

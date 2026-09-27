@@ -6,6 +6,7 @@ use crate::filter::Filter;
 use crate::hooks::{self, HookOutcome, call_closure};
 use crate::keys::{KeyPress, normalize_bind, single_char};
 use crate::layout::{SplitterHandle, assign_areas, subtree_ids};
+use crate::stream::trim_front;
 use crate::theme::Theme;
 use crate::tree::TreeRow;
 use crate::widget::{Effect, Widget, WidgetKind, WidgetState};
@@ -159,6 +160,8 @@ pub struct Session {
     /// unit tests.
     pub engine: Option<(EngineState, Stack)>,
     pub stream_live: bool,
+    /// A hook replaced the shared data, so streamed rows no longer go there.
+    data_from_hook: bool,
     pub dialog: Option<DialogFrame>,
     pub theme: Theme,
     pub ls_colors: LsColors,
@@ -227,6 +230,7 @@ impl Session {
             cwd,
             engine,
             stream_live: false,
+            data_from_hook: false,
             dialog: None,
             theme,
             ls_colors,
@@ -714,43 +718,28 @@ impl Session {
         }
     }
 
-    /// Append streamed rows to the shared data. Tables keep their highlight
-    /// (a stream that lands while you read should not move it), even when
-    /// the oldest rows are dropped to stay under the cap; logs follow the
-    /// tail unless scrolled up, resolved when they draw.
-    pub fn append_values(&mut self, values: Vec<Value>) {
-        if values.is_empty() {
+    /// Append streamed rows to the data of `owners` (the widgets a child
+    /// list's stream feeds), or to the shared data when `owners` is empty.
+    /// Tables keep their highlight (a stream that lands while you read
+    /// should not move it), even when the oldest rows are dropped to stay
+    /// under the cap; logs follow the tail unless scrolled up, resolved when
+    /// they draw. Once a hook has replaced the shared data, rows for it are
+    /// ignored: the hook's rows win.
+    pub fn append_values(&mut self, owners: &[String], values: Vec<Value>) {
+        if values.is_empty() || (owners.is_empty() && self.data_from_hook) {
             return;
         }
-        // Take the list out rather than clone it: this runs on every poll
-        // tick of a live stream.
-        let span = self.app.data.span();
-        let mut rows = match std::mem::replace(&mut self.app.data, Value::nothing(span)) {
-            Value::List { vals, .. } => vals.into_owned(),
-            Value::Nothing { .. } => Vec::new(),
-            other => vec![other],
-        };
-        rows.extend(values);
-        let cap = self.stream_row_cap();
-        let drop_n = rows.len().saturating_sub(cap);
-        if drop_n > 0 {
-            rows.drain(0..drop_n);
-        }
-        let span = rows.first().map(|v| v.span()).unwrap_or(span);
-        self.app.data = Value::list(rows, span);
-        if drop_n > 0 {
-            // Highlights and check marks are row indexes; shift them so
-            // they stay on the same rows.
-            let shared: Vec<String> = self
-                .states
-                .keys()
-                .filter(|id| self.shows_shared_list(id))
-                .cloned()
-                .collect();
-            for id in shared {
-                if let Some(list) = self.states.get_mut(&id).and_then(WidgetState::as_list_mut) {
-                    list.drop_front(drop_n);
+        let cap = self.app.stream_row_cap();
+        match owners.split_last() {
+            None => {
+                let dropped = append_capped(&mut self.app.data, values, cap);
+                self.shift_rows(None, dropped);
+            }
+            Some((last, rest)) => {
+                for owner in rest {
+                    self.append_to_widget(owner, values.clone(), cap);
                 }
+                self.append_to_widget(last, values, cap);
             }
         }
         self.invalidate_rows();
@@ -758,34 +747,62 @@ impl Session {
         self.refresh_derived();
     }
 
-    /// Whether widget `id` is a table or select whose rows are the shared
-    /// data list, so trimming that list moves its rows.
-    fn shows_shared_list(&self, id: &str) -> bool {
+    fn append_to_widget(&mut self, id: &str, values: Vec<Value>, cap: usize) {
+        let Some(path) = self.paths.get(id) else {
+            return;
+        };
+        let Some(data) = self.app.at_path_mut(path).and_then(|w| w.data.as_mut()) else {
+            return;
+        };
+        let dropped = append_capped(data, values, cap);
+        self.shift_rows(Some(id), dropped);
+    }
+
+    /// After `dropped` rows left the front of a list (the shared data, or
+    /// widget `owner`'s), move the highlights and check marks of the tables
+    /// and selects showing it, so they stay on the same rows.
+    fn shift_rows(&mut self, owner: Option<&str>, dropped: usize) {
+        if dropped == 0 {
+            return;
+        }
+        let list = match owner {
+            None => Some(&self.app.data),
+            Some(id) => self.widget(id).and_then(|w| w.data.as_ref()),
+        };
+        let Some(list) = list else {
+            return;
+        };
+        let showing: Vec<String> = self
+            .states
+            .keys()
+            .filter(|id| self.shows_list(id, list))
+            .cloned()
+            .collect();
+        for id in showing {
+            if let Some(list) = self.states.get_mut(&id).and_then(WidgetState::as_list_mut) {
+                list.drop_front(dropped);
+            }
+        }
+    }
+
+    /// Whether widget `id` is a table or select whose rows are `list`, so
+    /// trimming that list moves its rows.
+    fn shows_list(&self, id: &str, list: &Value) -> bool {
         match self.kind(id) {
             Some(WidgetKind::Table(_)) => {}
             Some(WidgetKind::Select(select)) if select.items.is_empty() => {}
             _ => return false,
         }
-        std::ptr::eq(self.data_for(id), &self.app.data)
-    }
-
-    /// Rows a live stream may accumulate before the oldest are dropped.
-    pub fn stream_row_cap(&self) -> usize {
-        const DEFAULT: usize = 10_000;
-        self.app
-            .iter()
-            .filter_map(|w| match &w.kind {
-                WidgetKind::Log(log) => Some(log.max_lines),
-                _ => None,
-            })
-            .max()
-            .unwrap_or(DEFAULT)
-            .max(DEFAULT)
+        std::ptr::eq(self.data_for(id), list)
     }
 
     /// Replace the shared data list (from a hook or the refresh closure).
+    /// From then on the hook owns it: a piped stream still producing no
+    /// longer adds to it, or `ls | tui table | tui run --refresh 1sec { ls }`
+    /// would show the listing twice.
     pub fn replace_data(&mut self, value: Value) {
         self.app.data = as_rows(value);
+        self.data_from_hook = true;
         for state in self.states.values_mut() {
             if let Some(tree) = state.as_tree_mut() {
                 tree.expanded.clear();
@@ -1631,6 +1648,24 @@ fn expand_range(value: Value) -> Value {
     }
 }
 
+/// Append `values` to the list in `data`, dropping the oldest rows once it
+/// is over `cap` (see [`trim_front`]). Returns how many rows were dropped.
+fn append_capped(data: &mut Value, values: Vec<Value>, cap: usize) -> usize {
+    // Take the list out rather than clone it: this runs on every poll tick
+    // of a live stream.
+    let span = data.span();
+    let mut rows = match std::mem::replace(data, Value::nothing(span)) {
+        Value::List { vals, .. } => vals.into_owned(),
+        Value::Nothing { .. } => Vec::new(),
+        other => vec![other],
+    };
+    rows.extend(values);
+    let dropped = trim_front(&mut rows, cap);
+    let span = rows.first().map(|v| v.span()).unwrap_or(span);
+    *data = Value::list(rows, span);
+    dropped
+}
+
 /// A hook's output as a data list: lists as they are, bounded ranges
 /// expanded, `null` as no rows, and any other value as one row.
 fn as_rows(value: Value) -> Value {
@@ -1820,6 +1855,11 @@ mod tests {
 
     fn frame() -> Rect {
         Rect::new(0, 0, 80, 24)
+    }
+
+    /// Streamed rows `from..to`, as ints.
+    fn ints(from: usize, to: usize) -> Vec<Value> {
+        (from..to).map(|i| Value::test_int(i as i64)).collect()
     }
 
     #[test]
@@ -2228,7 +2268,7 @@ mod tests {
             Value::test_list((0..50).map(|i| Value::test_string(i.to_string())).collect()),
         ));
         session.layout(frame());
-        session.append_values(vec![Value::test_string("50")]);
+        session.append_values(&[], vec![Value::test_string("50")]);
         let log = |s: &Session| s.state("log-0").and_then(WidgetState::as_log).cloned();
         assert!(log(&session).is_some_and(|l| l.follow), "follows the tail");
         // 51 lines in a 22-row viewport: the tail sits at offset 29.
@@ -2249,8 +2289,8 @@ mod tests {
             vec![table("table-0", &["name"])],
             Value::test_nothing(),
         ));
-        session.append_values(as_list(&rows(&["a"])).to_vec());
-        session.append_values(as_list(&rows(&["b", "c"])).to_vec());
+        session.append_values(&[], as_list(&rows(&["a"])).to_vec());
+        session.append_values(&[], as_list(&rows(&["b", "c"])).to_vec());
         assert_eq!(selected_index(&session, "table-0"), 0);
         assert_eq!(session.rows("table-0").len(), 3);
     }
@@ -2574,28 +2614,70 @@ mod tests {
             )],
             Value::test_nothing(),
         ));
-        let cap = session.stream_row_cap();
-        let rows = |from: usize, to: usize| -> Vec<Value> {
-            (from..to).map(|i| Value::test_int(i as i64)).collect()
-        };
-        session.append_values(rows(0, cap));
+        let cap = session.app.stream_row_cap();
+        let batch = cap / 8;
+        session.append_values(&[], ints(0, cap));
+        // Check the first row, then highlight and check the last.
         key(&mut session, ' ');
-        for _ in 0..5 {
-            press(&mut session, KeyCode::Down, KeyModifiers::NONE);
-        }
+        press(&mut session, KeyCode::End, KeyModifiers::NONE);
         key(&mut session, ' ');
-        assert_eq!(session.row_of("table-0"), Some(Value::test_int(5)));
-        // Three more rows: the first three are dropped, the highlight and
-        // the checks stay on the same values.
-        session.append_values(rows(cap, cap + 3));
-        assert_eq!(session.rows("table-0").len(), cap);
-        assert_eq!(session.row_of("table-0"), Some(Value::test_int(5)));
+        let last = Some(Value::test_int(cap as i64 - 1));
+        assert_eq!(session.row_of("table-0"), last);
+        // Past the cap, rows are dropped a batch at a time, not one by one.
+        session.append_values(&[], ints(cap, cap + 3));
+        assert_eq!(session.rows("table-0").len(), cap + 3);
+        // A batch more drops the oldest batch. The highlight and the check
+        // stay on the same values; the check on row 0 went with it.
+        session.append_values(&[], ints(cap + 3, cap + 3 + batch));
+        assert_eq!(session.rows("table-0").len(), cap + 3);
+        assert_eq!(session.row_of("table-0"), last);
         let checked = session
             .state("table-0")
             .and_then(WidgetState::as_list)
             .map(|l| l.checked.iter().copied().collect::<Vec<_>>())
             .unwrap_or_default();
-        assert_eq!(checked, vec![2], "row 0 was dropped, row 5 is now index 2");
+        assert_eq!(checked, vec![cap - 1 - batch]);
+    }
+
+    #[test]
+    fn a_child_lists_stream_fills_its_own_rows_and_keeps_their_highlight() {
+        // `tui split [(1.. | tui table) (1.. | tui box [(tui table)])]`:
+        // table-0 owns its list; table-1 shows its container's.
+        let mut own = table("table-0", &[]);
+        own.data = Some(Value::test_list(Vec::new()));
+        let mut container = split("split-0", SplitDir::Vertical, vec![table("table-1", &[])]);
+        container.data = Some(Value::test_list(Vec::new()));
+        let mut session = Session::new(app(vec![own, container], rows(&["outer"])));
+        let cap = session.app.stream_row_cap();
+        let owners = ["table-0".to_string(), "split-0".to_string()];
+        session.append_values(&owners, ints(0, cap));
+        for id in ["table-0", "table-1"] {
+            if let Some(list) = session
+                .states
+                .get_mut(id)
+                .and_then(WidgetState::as_list_mut)
+            {
+                list.selected = cap - 1;
+            }
+        }
+        session.append_values(&owners, ints(cap, cap + cap / 8));
+        for id in ["table-0", "table-1"] {
+            assert_eq!(session.rows(id).len(), cap, "{id} dropped a batch");
+            assert_eq!(
+                session.row_of(id),
+                Some(Value::test_int(cap as i64 - 1)),
+                "{id} keeps its highlight"
+            );
+        }
+        assert_eq!(as_list(&session.app.data).len(), 1, "shared data untouched");
+    }
+
+    #[test]
+    fn a_hook_that_replaces_the_data_wins_over_the_stream() {
+        let mut session = Session::new(app(vec![table("table-0", &["name"])], rows(&["a", "b"])));
+        session.replace_data(rows(&["from hook"]));
+        session.append_values(&[], as_list(&rows(&["streamed"])).to_vec());
+        assert_eq!(session.rows("table-0").len(), 1);
     }
 
     #[test]

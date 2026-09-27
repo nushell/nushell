@@ -26,7 +26,7 @@ impl Command for TuiDebug {
          \n\
          `--keys` replays tokens before painting, as a comma-separated string or a list: enter, esc, tab, shift+tab, up, down, left, right, home, end, pageup, pagedown, backspace, delete, space, insert, ctrl+c, alt+a, f1, a single character, `type:hello`, `click:COL,ROW`, `drag:COL,ROW`, `scroll-up`, `scroll-down`. `action` is `render` when the keys finished without Enter or quit. `--until {|state| ...}` stops the replay early once the closure returns true.\n\
          \n\
-         A live stream is read for up to 5 seconds (and no more rows than the widgets keep) before painting. A hook closure runs once with the state record, as `tui run` would."
+         Piped streams are read until they end, for up to 5 seconds, before painting; each keeps its newest rows, as in `tui run`. `live` says whether one was still producing. A hook closure runs once with the state record, as `tui run` would."
     }
 
     fn signature(&self) -> Signature {
@@ -101,7 +101,7 @@ impl Command for TuiDebug {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let (app, data) = TuiApp::split_input(input)?;
+        let app = TuiApp::from_input(input);
         let (width, height) = size_flag(engine_state, stack, call)?.unwrap_or((80, 24));
         let using: Option<Closure> = call.opt(engine_state, stack, 0)?;
         let keys = match call.get_flag::<Value>(engine_state, stack, "keys")? {
@@ -120,7 +120,6 @@ impl Command for TuiDebug {
         };
         debug(
             app,
-            data,
             engine_state,
             stack,
             opts,

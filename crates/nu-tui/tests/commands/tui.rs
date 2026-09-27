@@ -315,18 +315,79 @@ fn preview_closure_with_row_param_is_the_source() -> Result {
 }
 
 #[test]
-fn builders_do_not_collect_an_infinite_stream() -> Result {
-    test()
-        .run("1.. | tui label --title 'x' | tui table | first")
-        .expect_value_eq(1)
+fn builders_do_not_read_their_stream() -> Result {
+    // Reading even one row of this stream takes a second.
+    let fast: bool = test().run(
+        "(timeit { 1.. | each {|n| sleep 1sec; $n } | tui label --title x | tui log | ignore }) < 1sec",
+    )?;
+    assert!(fast, "a builder waited on the stream");
+    Ok(())
 }
 
 #[test]
-fn slow_child_lists_are_collected_regardless_of_timing() -> Result {
+fn slow_streams_are_live_and_child_streams_start_empty() -> Result {
+    // The outer stream feeds the log as it ticks. The table's own stream
+    // has produced nothing yet, so the table must be empty rather than
+    // showing the outer rows.
+    let checks: Vec<bool> = test().run(
+        r#"
+            1.. | each {|n| sleep 50ms; $"tick ($n)" }
+            | tui split [(tui log) (1.. | each {|n| sleep 10sec; $n } | tui table)]
+            | tui debug --size [60 8]
+            | [$in.live ($in.screen | str contains "tick ") ($in.widgets.0.children.1.rows == 0)]
+        "#,
+    )?;
+    assert_eq!(checks, vec![true, true, true]);
+    Ok(())
+}
+
+#[test]
+fn slow_child_lists_are_read_in_full() -> Result {
     let rows: i64 = test().run(
         "tui split [(1..3 | each { sleep 150ms; {name: $in} } | tui table)] | tui debug | get widgets.0.children.0.rows",
     )?;
     assert_eq!(rows, 3);
+    Ok(())
+}
+
+#[test]
+fn a_saved_tui_value_shows_its_stream_on_every_run() -> Result {
+    let rows: Vec<i64> = test().run(
+        "let t = (1..3 | each { $in } | tui table); [($t | tui debug) ($t | tui debug)] | each { $in.widgets.0.rows }",
+    )?;
+    assert_eq!(rows, vec![3, 3]);
+    Ok(())
+}
+
+#[test]
+fn debug_keeps_the_newest_rows_of_a_long_stream() -> Result {
+    // Read to the end, as `tui run` would: the newest 100k rows, starting
+    // at 50001, and no longer live.
+    let checks: Vec<bool> = test().run(
+        r#"
+            1..150000 | tui table | tui debug --size [30 6]
+            | [($in.widgets.0.rows == 100000) ($in.screen | str contains "50001") (not $in.live)]
+        "#,
+    )?;
+    assert_eq!(checks, vec![true, true, true]);
+    Ok(())
+}
+
+#[test]
+fn one_stream_shown_twice_fills_both_widgets() -> Result {
+    let rows: Vec<i64> = test().run(
+        "let t = (1..3 | each { $in } | tui table); $t | tui split [$t] | tui debug | [$in.widgets.0.rows $in.widgets.1.children.0.rows]",
+    )?;
+    assert_eq!(rows, vec![3, 3]);
+    Ok(())
+}
+
+#[test]
+fn piped_data_no_widget_can_show_is_an_error() -> Result {
+    let err = test()
+        .run("tui split [(1..3 | each { $in } | tui table --data [])] | tui debug")
+        .expect_error()?;
+    assert_contains("no widget to show it", &format!("{err:?}"));
     Ok(())
 }
 
