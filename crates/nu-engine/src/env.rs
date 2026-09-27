@@ -26,13 +26,7 @@ pub const HELP_DECL_ID_PARSER_INFO: &str = "help_decl_id";
 /// Current there are three of them: $env.PWD, $env.FILE_PWD, $env.CURRENT_FILE
 pub fn is_automatic_env_var(var: &str) -> bool {
     let names = ["PWD", "FILE_PWD", "CURRENT_FILE"];
-    names.iter().any(|&name| {
-        if cfg!(windows) {
-            name.eq_ignore_case(var)
-        } else {
-            name.eq(var)
-        }
-    })
+    names.iter().any(|name| name.eq_ignore_case(var))
 }
 
 enum ConversionError {
