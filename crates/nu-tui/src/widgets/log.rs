@@ -205,7 +205,7 @@ impl TuiWidget for LogWidget {
         frame.render_widget(
             Paragraph::new(Text::from(visible))
                 .style(theme.text())
-                .block(super::framed(title, focused, theme)),
+                .block(super::framed(title, focused, session, id)),
             area,
         );
     }

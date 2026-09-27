@@ -1,3 +1,4 @@
+use nu_protocol::ConfigError;
 use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::playground::Playground;
 use nu_test_support::prelude::*;
@@ -30,6 +31,107 @@ fn headless_renders_title_and_status() -> Result {
         .run(r#"tui label --title "Demo" | tui label --status "ready" | tui debug | get screen"#)?;
     assert_contains("Demo", &screen);
     assert_contains("ready", &screen);
+    Ok(())
+}
+
+#[test]
+fn border_draws_the_named_table_theme_outline() -> Result {
+    let cases = [
+        ("[a] | tui table --border double", "╔"),
+        ("[a] | tui table --border Rounded", "╭"),
+        ("[a] | tui log --border heavy", "┏"),
+        ("tui textbox --border basic", "+"),
+        ("tui box Group [(tui textbox)] --border ascii_rounded", "'"),
+        (
+            "$env.config.tui.border_type = 'double'; [a] | tui table",
+            "╔",
+        ),
+        (
+            "$env.config.tui.border_type = 'double'; [a] | tui table --border rounded",
+            "╭",
+        ),
+    ];
+    for (code, corner) in cases {
+        let screen: String =
+            test().run(format!("{code} | tui debug --size [30 6] | get screen"))?;
+        assert_contains(corner, &screen);
+    }
+    Ok(())
+}
+
+#[test]
+fn menu_border_draws_its_dropdown() -> Result {
+    let code = r#"
+        tui menu [{name: "&File", items: ["&Open"]}] --border double
+        | tui debug --size [30 6] --keys "alt+f"
+        | get screen
+    "#;
+    let screen: String = test().run(code)?;
+    assert_contains("╔", &screen);
+    Ok(())
+}
+
+#[test]
+fn widget_record_shows_its_border() -> Result {
+    test()
+        .run("[a] | tui table --border with_love | tui debug | get widgets.0.border")
+        .expect_value_eq("with_love")
+}
+
+#[test]
+fn frameless_border_keeps_its_cell_and_title() -> Result {
+    let screen: String = test()
+        .run("[a b] | tui table --border frameless | tui debug --size [20 5] | get screen")?;
+    assert_contains_not("─", &screen);
+    assert_contains_not("│", &screen);
+    // The blank border still takes the first column: every row starts
+    // blank, and the padded title ` table (2) ` starts after the corner.
+    // Screen lines are trimmed, so the blank bottom border is empty.
+    for line in screen.lines().filter(|line| !line.is_empty()) {
+        assert!(line.starts_with(' '), "{line:?} in\n{screen}");
+    }
+    assert!(screen.starts_with("  table (2)"), "{screen}");
+    Ok(())
+}
+
+#[test]
+fn none_default_and_unknown_borders_are_rejected() -> Result {
+    let err = test()
+        .run("[a] | tui table --border none")
+        .expect_shell_error()?;
+    assert_contains("`none` is not a tui border", err.generic_error()?);
+    for name in ["default", "wavy"] {
+        let err = test()
+            .run(format!("[a] | tui table --border {name}"))
+            .expect_shell_error()?;
+        assert!(
+            matches!(&err, ShellError::InvalidValue { actual, valid, .. }
+                if actual == name && valid.contains("frameless") && !valid.contains("none")),
+            "{err:?}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn config_rejects_a_non_border_and_keeps_the_old_one() -> Result {
+    for name in ["none", "default", "wavy"] {
+        let mut tester = test();
+        let () = tester.run("$env.config.tui.border_type = 'double'")?;
+        let err = tester
+            .run(format!("$env.config.tui.border_type = '{name}'"))
+            .expect_shell_error()?;
+        assert!(
+            matches!(&err, ShellError::InvalidConfig { errors } if matches!(
+                errors.as_slice(),
+                [ConfigError::InvalidValue { path, .. }] if path == "$env.config.tui.border_type"
+            )),
+            "{err:?}"
+        );
+        tester
+            .run("$env.config.tui.border_type")
+            .expect_value_eq("double")?;
+    }
     Ok(())
 }
 

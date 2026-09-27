@@ -1,4 +1,4 @@
-use super::{WidgetKind, builder_io_types, common_flags, push_widget, with_app};
+use super::{WidgetKind, border_flag, builder_io_types, common_flags, push_widget, with_app};
 use crate::widgets::menu::{MenuItem, MenuWidget};
 use nu_engine::command_prelude::*;
 
@@ -21,12 +21,12 @@ impl Command for TuiMenu {
          \n\
          Activating an item with an `action` runs it as a hook: it receives the state record, a returned value replaces the data list, `{action: submit|quit}` ends the TUI, and an error goes to the status bar. Activating an item without an action submits it: `selected` is `{menu: \"File\", item: \"Open\", row: <highlighted row>}` for a dropdown entry, or the bar item's name.\n\
          \n\
-         The menu is top-level chrome and cannot be nested in `tui split` or `tui box`."
+         The menu is top-level chrome and cannot be nested in `tui split` or `tui box`. `--border` sets the lines around its dropdowns."
     }
 
     fn signature(&self) -> Signature {
         common_flags(
-            Signature::build("tui menu")
+            border_flag(Signature::build("tui menu"))
                 .category(Category::Viewers)
                 .required(
                     "items",

@@ -164,7 +164,7 @@ impl TuiWidget for SelectWidget {
         } else {
             format!("select ({})", rows.len())
         };
-        let block = super::framed(&title, focused, theme);
+        let block = super::framed(&title, focused, session, id);
         let inner = block.inner(area);
         frame.render_widget(block, area);
         let lines: Vec<Line> = rows

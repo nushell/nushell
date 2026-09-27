@@ -1,4 +1,7 @@
-use super::{WidgetKind, builder_io_types, flag_strings, push_widget, selectable_flags, with_app};
+use super::{
+    WidgetKind, border_flag, builder_io_types, flag_strings, push_widget, selectable_flags,
+    with_app,
+};
 use crate::widgets::table::TableWidget;
 use nu_engine::command_prelude::*;
 
@@ -24,7 +27,7 @@ impl Command for TuiTable {
 
     fn signature(&self) -> Signature {
         selectable_flags(
-            Signature::build("tui table")
+            border_flag(Signature::build("tui table"))
                 .category(Category::Viewers)
                 .optional(
                     "source",

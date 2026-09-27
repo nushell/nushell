@@ -254,6 +254,7 @@ impl MenuWidget {
     /// The open dropdown, drawn last so it sits on top of the page.
     pub fn render_dropdown(
         &self,
+        id: &str,
         state: &MenuState,
         rect: Rect,
         frame: &mut Frame,
@@ -263,7 +264,7 @@ impl MenuWidget {
         let Some(entries) = self.items.get(state.selected).map(|i| &i.items) else {
             return;
         };
-        let block = super::framed("", true, theme);
+        let block = super::framed("", true, session, id);
         let inner = block.inner(rect);
         frame.render_widget(Clear, rect);
         frame.render_widget(block, rect);

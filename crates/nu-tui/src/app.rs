@@ -4,8 +4,8 @@ use crate::widget::{TYPE_NAME, Widget, WidgetKind};
 use nu_protocol::engine::Closure;
 use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{
-    CustomValue, IntoPipelineData, ListStream, PipelineData, Record, ShellError, Signals, Span,
-    Type, Value,
+    CustomValue, IntoPipelineData, IntoValue, ListStream, PipelineData, Record, ShellError,
+    Signals, Span, Type, Value,
 };
 use serde::{Deserialize, Serialize};
 use std::any::Any;
@@ -244,8 +244,10 @@ impl TuiApp {
         Value::custom(Box::new(self), span).into_pipeline_data()
     }
 
+    /// The widget with `id`, searched in preorder without collecting the
+    /// tree: renders look up every widget each frame.
     pub fn widget(&self, id: &str) -> Option<&Widget> {
-        self.iter().find(|w| w.id == id)
+        find_widget(&self.widgets, id)
     }
 
     /// Rows a stream keeps before the oldest are dropped (see
@@ -286,6 +288,16 @@ fn duplicate_id(id: &str, span: Span) -> ShellError {
         format!("a widget with id '{id}' is already in this TUI; pass a different --id"),
         span,
     ))
+}
+
+fn find_widget<'a>(widgets: &'a [Widget], id: &str) -> Option<&'a Widget> {
+    widgets.iter().find_map(|w| {
+        if w.id == id {
+            Some(w)
+        } else {
+            find_widget(&w.children, id)
+        }
+    })
 }
 
 fn collect_preorder<'a>(widgets: &'a [Widget], out: &mut Vec<&'a Widget>) {
@@ -346,6 +358,9 @@ pub fn widget_to_record(
     }
     if widget.focus {
         rec.insert("focus", Value::bool(true, span));
+    }
+    if let Some(border) = widget.border {
+        rec.insert("border", border.into_value(span));
     }
     extend(widget, &mut rec);
     if !widget.children.is_empty() {

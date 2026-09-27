@@ -122,7 +122,7 @@ impl TuiWidget for PreviewWidget {
 
     fn render(
         &self,
-        _id: &str,
+        id: &str,
         state: &WidgetState,
         frame: &mut Frame,
         area: Rect,
@@ -136,7 +136,7 @@ impl TuiWidget for PreviewWidget {
         } else {
             preview.title.as_str()
         };
-        let block = super::framed(title, false, theme);
+        let block = super::framed(title, false, session, id);
         let para = if preview.text.is_empty() {
             Paragraph::new("(nothing to preview)")
                 .style(theme.muted())

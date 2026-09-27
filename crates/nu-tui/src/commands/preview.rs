@@ -1,4 +1,4 @@
-use super::{WidgetKind, builder_io_types, common_flags, push_widget, with_app};
+use super::{WidgetKind, border_flag, builder_io_types, common_flags, push_widget, with_app};
 use crate::widgets::preview::PreviewWidget;
 use nu_engine::command_prelude::*;
 
@@ -26,7 +26,7 @@ impl Command for TuiPreview {
 
     fn signature(&self) -> Signature {
         common_flags(
-            Signature::build("tui preview")
+            border_flag(Signature::build("tui preview"))
                 .category(Category::Viewers)
                 .optional(
                     "transform",

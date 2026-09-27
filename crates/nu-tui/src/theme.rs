@@ -1,7 +1,8 @@
-//! Colors for the `tui` widgets, read from `$env.config.tui`.
+//! Colors and border lines for the `tui` widgets, read from `$env.config.tui`.
 //!
-//! Every slot is a `color_config`-style value (a color name, `#RRGGBB`, or
-//! `{fg, bg, attr}`); see `default_tui` in nu-protocol for the defaults.
+//! Every color slot is a `color_config`-style value (a color name, `#RRGGBB`,
+//! or `{fg, bg, attr}`); see `default_tui` in nu-protocol for the defaults.
+//! `border_type` names the `table --theme` whose outline borders draw.
 //! Table cells follow `color_config` per value type and `LS_COLORS` for path
 //! columns, through the converters shared with `explore`.
 
@@ -9,11 +10,83 @@ use lscolors::LsColors;
 use nu_color_config::{StyleComputer, get_color_map};
 use nu_explore::style::{get_path_style, nu_style_to_tui, text_style_to_tui_style};
 use nu_protocol::{
-    Value,
+    ShellError, TableMode, Value,
     engine::{EngineState, Stack},
+    shell_error::generic::GenericError,
 };
 use ratatui::style::{Color, Modifier, Style};
+use ratatui::symbols::border;
 use std::path::Path;
+
+/// The border of widgets without their own `--border` when
+/// `$env.config.tui.border_type` is unset: the plain ratatui lines.
+const DEFAULT_BORDER: TableMode = TableMode::Single;
+
+/// Read a `--border` flag: one of [`TableMode::tui_border_names`].
+/// `$env.config.tui.border_type` is checked the same way when it is set.
+pub fn parse_border(value: &Value) -> Result<TableMode, ShellError> {
+    let span = value.span();
+    let name = value.as_str()?;
+    if let Some(mode) = TableMode::from_tui_border(name) {
+        return Ok(mode);
+    }
+    if name.eq_ignore_ascii_case("none") {
+        return Err(ShellError::Generic(
+            GenericError::new(
+                "`none` is not a tui border",
+                "a tui border always takes one cell",
+                span,
+            )
+            .with_help("use `frameless` for a border that draws nothing"),
+        ));
+    }
+    Err(ShellError::InvalidValue {
+        valid: TableMode::tui_border_names().collect::<Vec<_>>().join(", "),
+        actual: name.to_string(),
+        span,
+    })
+}
+
+/// The closest outline a `table --theme` draws, as ratatui border glyphs.
+/// A table line with no sides (`compact`, `with_love`) runs through the
+/// corners with blank sides, and a theme whose only lines are inner ones
+/// (`light`, `psql`, `frameless`) is blank. Every glyph is one cell wide.
+fn outline(mode: TableMode) -> border::Set<'static> {
+    let custom = |corners: [&'static str; 4], vertical, horizontal| border::Set {
+        top_left: corners[0],
+        top_right: corners[1],
+        bottom_left: corners[2],
+        bottom_right: corners[3],
+        vertical_left: vertical,
+        vertical_right: vertical,
+        horizontal_top: horizontal,
+        horizontal_bottom: horizontal,
+    };
+    match mode {
+        TableMode::Thin | TableMode::Single => border::PLAIN,
+        TableMode::Rounded => border::ROUNDED,
+        TableMode::Heavy => border::THICK,
+        TableMode::Double => border::DOUBLE,
+        TableMode::Reinforced => border::Set {
+            top_left: "┏",
+            top_right: "┓",
+            bottom_left: "┗",
+            bottom_right: "┛",
+            ..border::PLAIN
+        },
+        TableMode::Basic | TableMode::BasicCompact => custom(["+"; 4], "|", "-"),
+        TableMode::AsciiRounded => custom([".", ".", "'", "'"], "|", "-"),
+        TableMode::Dots => custom([".", ".", ":", ":"], ":", "."),
+        TableMode::WithLove => custom(["❤"; 4], " ", "❤"),
+        TableMode::Markdown => custom(["|"; 4], "|", " "),
+        TableMode::Compact => custom(["─"; 4], " ", "─"),
+        TableMode::CompactDouble => custom(["═"; 4], " ", "═"),
+        TableMode::Restructured => custom(["="; 4], " ", "="),
+        TableMode::Light | TableMode::Psql | TableMode::Frameless | TableMode::None => {
+            custom([" "; 4], " ", " ")
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct Theme {
@@ -37,6 +110,9 @@ pub struct Theme {
     tab_inactive: Style,
     progress: Style,
     button: Style,
+    /// `$env.config.tui.border_type`: the border of widgets without their
+    /// own `--border`.
+    border_type: TableMode,
 }
 
 impl Default for Theme {
@@ -66,6 +142,7 @@ impl Default for Theme {
             tab_inactive: Style::default().fg(Color::DarkGray),
             progress: Style::default().fg(Color::Green),
             button: Style::default().fg(Color::White).bg(Color::Blue),
+            border_type: DEFAULT_BORDER,
         }
     }
 }
@@ -89,18 +166,31 @@ impl Theme {
             tab_inactive: Style::default(),
             progress: Style::default(),
             button: Style::default().add_modifier(Modifier::REVERSED),
+            border_type: DEFAULT_BORDER,
         }
     }
 
-    /// Read `$env.config.tui`. Slots missing from the config keep the
-    /// built-in default.
+    /// Read `$env.config.tui`. Slots missing from the config, or holding a
+    /// value that is not a color or border, keep the built-in default.
     pub fn from_config(engine_state: &EngineState, stack: &Stack) -> Self {
         let config = stack.get_config(engine_state);
+        let border_type = config
+            .tui
+            .get("border_type")
+            .and_then(|value| value.as_str().ok())
+            .and_then(TableMode::from_tui_border)
+            .unwrap_or(DEFAULT_BORDER);
         if !config.use_ansi_coloring.get(engine_state) {
-            return Self::plain();
+            return Self {
+                border_type,
+                ..Self::plain()
+            };
         }
         let colors = get_color_map(&config.tui);
-        let mut theme = Self::default();
+        let mut theme = Self {
+            border_type,
+            ..Self::default()
+        };
         let slot = |name: &str, target: &mut Style| {
             if let Some(style) = colors.get(name) {
                 *target = nu_style_to_tui(*style);
@@ -167,6 +257,12 @@ impl Theme {
         } else {
             self.border
         })
+    }
+
+    /// Border glyphs for a widget: its own `--border`, or the configured
+    /// `border_type`.
+    pub fn border_set(&self, own: Option<TableMode>) -> border::Set<'static> {
+        outline(own.unwrap_or(self.border_type))
     }
 
     pub fn selected(&self) -> Style {
@@ -268,6 +364,51 @@ mod tests {
         let theme = Theme::default();
         let style = theme.path_cell("no-such-file-for-style.txt", Path::new("/tmp"), &ls);
         assert_eq!(style.fg, None);
+    }
+
+    #[test]
+    fn every_border_name_parses_to_one_cell_glyphs() {
+        use unicode_width::UnicodeWidthStr;
+        for name in TableMode::tui_border_names() {
+            let mode =
+                parse_border(&Value::test_string(name)).unwrap_or_else(|e| panic!("{name}: {e:?}"));
+            let set = outline(mode);
+            for glyph in [
+                set.top_left,
+                set.top_right,
+                set.bottom_left,
+                set.bottom_right,
+                set.vertical_left,
+                set.vertical_right,
+                set.horizontal_top,
+                set.horizontal_bottom,
+            ] {
+                assert_eq!(glyph.width(), 1, "{name}: {glyph:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn none_default_and_unknown_borders_are_errors() {
+        assert!(matches!(
+            parse_border(&Value::test_string("none")),
+            Err(ShellError::Generic(_))
+        ));
+        for name in ["default", "wavy"] {
+            assert!(
+                matches!(
+                    parse_border(&Value::test_string(name)),
+                    Err(ShellError::InvalidValue { .. })
+                ),
+                "{name}"
+            );
+        }
+        assert!(parse_border(&Value::test_int(1)).is_err());
+        // Case is ignored, like `table --theme`.
+        assert_eq!(
+            parse_border(&Value::test_string("Double")).ok(),
+            Some(TableMode::Double)
+        );
     }
 
     #[test]

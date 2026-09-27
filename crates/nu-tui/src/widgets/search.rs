@@ -121,7 +121,7 @@ impl TuiWidget for SearchWidget {
 
     fn render(
         &self,
-        _id: &str,
+        id: &str,
         state: &WidgetState,
         frame: &mut Frame,
         area: Rect,
@@ -135,7 +135,7 @@ impl TuiWidget for SearchWidget {
         } else {
             "search"
         };
-        let block = super::framed(title, focused, theme);
+        let block = super::framed(title, focused, session, id);
         let inner = block.inner(area);
         frame.render_widget(block, area);
         let display = if text.text.is_empty() && !focused {

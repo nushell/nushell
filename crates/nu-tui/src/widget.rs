@@ -19,7 +19,7 @@ use crate::widgets::{
     tree::TreeWidget,
 };
 use nu_protocol::engine::Closure;
-use nu_protocol::{Record, Span, Value};
+use nu_protocol::{Record, Span, TableMode, Value};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Rect};
 use serde::{Deserialize, Serialize};
@@ -55,6 +55,10 @@ pub struct Widget {
     /// `--focus`: start with this widget focused.
     #[serde(default)]
     pub focus: bool,
+    /// `--border`: the `table --theme` outline this widget's border draws,
+    /// instead of `$env.config.tui.border_type`.
+    #[serde(default)]
+    pub border: Option<TableMode>,
 }
 
 impl Widget {
@@ -70,6 +74,7 @@ impl Widget {
             source: None,
             on_select: None,
             focus: false,
+            border: None,
         }
     }
 

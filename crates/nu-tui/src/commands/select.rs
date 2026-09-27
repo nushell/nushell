@@ -1,4 +1,4 @@
-use super::{WidgetKind, builder_io_types, push_widget, selectable_flags, with_app};
+use super::{WidgetKind, border_flag, builder_io_types, push_widget, selectable_flags, with_app};
 use crate::widgets::select::{Display, SelectWidget};
 use nu_engine::command_prelude::*;
 
@@ -22,7 +22,7 @@ impl Command for TuiSelect {
 
     fn signature(&self) -> Signature {
         selectable_flags(
-            Signature::build("tui select")
+            border_flag(Signature::build("tui select"))
                 .category(Category::Viewers)
                 .optional(
                     "items",

@@ -1,4 +1,6 @@
-use super::{WidgetKind, builder_io_types, common_flags, flag_strings, push_widget, with_app};
+use super::{
+    WidgetKind, border_flag, builder_io_types, common_flags, flag_strings, push_widget, with_app,
+};
 use crate::widgets::search::SearchWidget;
 use nu_engine::command_prelude::*;
 
@@ -24,7 +26,7 @@ impl Command for TuiSearch {
 
     fn signature(&self) -> Signature {
         common_flags(
-            Signature::build("tui search")
+            border_flag(Signature::build("tui search"))
                 .category(Category::Viewers)
                 .named(
                     "placeholder",
