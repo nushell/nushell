@@ -484,33 +484,41 @@ mod tests {
     //
     // `ns` and `us` fold to Unit::Nanosecond, which multiplies by nothing, so
     // they are not covered here.
+    //
+    // A negative head is specified to be allowed (the spec shows `-1_000ns` as
+    // valid), so `[-1sec]` has to keep decoding — but the clamped negative head
+    // is the same i64::MIN the positive one is, and the raw multiplies it used
+    // to reach turned it into exactly 0ns, which is neither the number written
+    // nor an error. Both signs go through the same arms, so both are pinned.
     #[test]
     fn duration_overflow_is_rejected() {
         for unit in ["ms", "sec", "min", "hr", "day", "wk"] {
-            let input = format!("[1e30{unit}]");
-            let err = from_nuon(&input, Some(Span::test_data()))
-                .expect_err("an overflowing duration must not decode");
-            let (error, msg) = match err {
-                ShellError::OutsideSpannedLabeledError { error, msg, .. } => (error, msg),
-                other => {
-                    panic!("`{input}` should report a labeled duration overflow, got {other:?}")
-                }
-            };
-            // The unit is deliberately not named: the parser folds the one that
-            // was written, so `1e30sec` reaches the reader as a millisecond
-            // count and `1e30wk` as a day count.
-            assert_eq!(
-                msg, "duration too large",
-                "unexpected message for `{input}`"
-            );
-            assert_eq!(
-                error, "Error when loading",
-                "unexpected title for `{input}`"
-            );
-            assert!(
-                !msg.contains("millisecond") && !msg.contains("day"),
-                "`{input}` should not name a folded unit, got {msg}"
-            );
+            for sign in ["", "-"] {
+                let input = format!("[{sign}1e30{unit}]");
+                let err = from_nuon(&input, Some(Span::test_data()))
+                    .expect_err("an overflowing duration must not decode");
+                let (error, msg) = match err {
+                    ShellError::OutsideSpannedLabeledError { error, msg, .. } => (error, msg),
+                    other => {
+                        panic!("`{input}` should report a labeled duration overflow, got {other:?}")
+                    }
+                };
+                // The unit is deliberately not named: the parser folds the one that
+                // was written, so `1e30sec` reaches the reader as a millisecond
+                // count and `1e30wk` as a day count.
+                assert_eq!(
+                    msg, "duration too large",
+                    "unexpected message for `{input}`"
+                );
+                assert_eq!(
+                    error, "Error when loading",
+                    "unexpected title for `{input}`"
+                );
+                assert!(
+                    !msg.contains("millisecond") && !msg.contains("day"),
+                    "`{input}` should not name a folded unit, got {msg}"
+                );
+            }
         }
     }
 
