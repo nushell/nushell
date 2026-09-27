@@ -84,10 +84,21 @@ pub(crate) fn redirecting_builtin_error(
     }
 }
 
+#[allow(dead_code)]
+/// Context for building the RHS pipeline of `$foo |= bar | baz` as `$foo | bar | baz`
+pub(crate) struct PipeAssignContext {
+    /// The parsed assignment target, inserted before the first RHS command.
+    /// Its type is used to parse that command.
+    pub lhs: Expression,
+    /// The span of `|=`, stored as the pipe before the first RHS command.
+    pub op_span: Span,
+}
+
 pub fn parse_pipeline(
     working_set: &mut StateWorkingSet,
     pipeline: &LitePipeline,
     input_type: Option<&Type>,
+    #[allow(unused)] pipe_assign: Option<&PipeAssignContext>,
 ) -> Pipeline {
     match pipeline.commands.as_slice() {
         [] => unreachable!("at this point the pipeline must have at least one element"),
@@ -134,6 +145,28 @@ pub fn parse_block(
     is_subexpression: bool,
     input_type: Option<&Type>,
 ) -> Block {
+    parse_block_with_pipe_assign(
+        working_set,
+        tokens,
+        span,
+        scoped,
+        is_subexpression,
+        input_type,
+        None,
+    )
+}
+
+/// separated from [`parse_block`] since the vast majority
+/// of callers will pass `None`s for the `pipe_assign` parameter
+pub(crate) fn parse_block_with_pipe_assign(
+    working_set: &mut StateWorkingSet,
+    tokens: &[Token],
+    span: Span,
+    scoped: bool,
+    is_subexpression: bool,
+    input_type: Option<&Type>,
+    #[allow(unused)] pipe_assign: Option<PipeAssignContext>,
+) -> Block {
     let (lite_block, err) = lite_parse(tokens, working_set);
     if let Some(err) = err {
         working_set.error(err);
@@ -159,11 +192,11 @@ pub fn parse_block(
 
     if let [first, rest @ ..] = lite_block.block.as_slice() {
         // only the first pipeline receives the block's pipeline input
-        let pipeline = parse_pipeline(working_set, first, input_type);
+        let pipeline = parse_pipeline(working_set, first, input_type, None);
         block.pipelines.push(pipeline);
 
         for lite_pipeline in rest {
-            let pipeline = parse_pipeline(working_set, lite_pipeline, None);
+            let pipeline = parse_pipeline(working_set, lite_pipeline, None, None);
             block.pipelines.push(pipeline);
         }
     }

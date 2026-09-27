@@ -16,7 +16,10 @@ use crate::{
         parse_where_expr,
     },
     parse_patterns::parse_pattern,
-    parse_pipelines::{parse_block, parse_pipeline_element, redirecting_builtin_error},
+    parse_pipelines::{
+        parse_block, parse_block_with_pipe_assign, parse_pipeline_element,
+        redirecting_builtin_error,
+    },
     parser::{
         compile_block, expand_to_cell_path, parse_binary, parse_brace_expr, parse_call,
         parse_datetime, parse_directory, parse_dollar_expr, parse_duration, parse_filepath,
@@ -1103,7 +1106,15 @@ pub fn parse_assignment_expression(
     working_set.parse_errors.extend(rhs_error);
 
     trace!("parsing: assignment right-hand side subexpression");
-    let rhs_block = parse_block(working_set, &rhs_tokens, rhs_span, false, true, input_type);
+    let rhs_block = parse_block_with_pipe_assign(
+        working_set,
+        &rhs_tokens,
+        rhs_span,
+        false,
+        true,
+        input_type,
+        None,
+    );
     let rhs_ty = rhs_block.output_type();
 
     // TEMP: double-check that if the RHS block starts with an external call, it must start with a
