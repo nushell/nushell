@@ -29,6 +29,12 @@ pub fn is_automatic_env_var(var: &str) -> bool {
     names.iter().any(|name| name.eq_ignore_case(var))
 }
 
+/// Returns whether a string, when used as the name of an environment variable,
+/// is the name of the config record.
+pub fn is_config_env_var(var: &str) -> bool {
+    var.eq_ignore_case("config")
+}
+
 enum ConversionError {
     ShellError(ShellError),
     CellPathError,

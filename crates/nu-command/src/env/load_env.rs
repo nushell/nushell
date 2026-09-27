@@ -1,5 +1,6 @@
 use nu_engine::command_prelude::*;
 use nu_engine::env::is_automatic_env_var;
+use nu_engine::is_config_env_var;
 
 #[derive(Clone)]
 pub struct LoadEnv;
@@ -67,6 +68,8 @@ impl Command for LoadEnv {
                     envvar_name: env_var.to_owned(),
                     span: call.head,
                 });
+            } else if is_config_env_var(env_var) {
+                return Err(ShellError::ConfigEnvVarSetManually { span: call.head });
             }
         }
 

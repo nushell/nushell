@@ -495,6 +495,21 @@ pub enum ShellError {
         span: Span,
     },
 
+    /// The config environment variable cannot be changed by an environment command.
+    ///
+    /// ## Resolution
+    ///
+    /// Assign to `$env.config` to update the configuration.
+    #[error("'config' cannot be changed with this command.")]
+    #[diagnostic(
+        code(nu::shell::config_env_var_set_manually),
+        help("Assign to `$env.config` to update the configuration.")
+    )]
+    ConfigEnvVarSetManually {
+        #[label("cannot change 'config' with this command")]
+        span: Span,
+    },
+
     /// It is not possible to replace the entire environment at once
     ///
     /// ## Resolution

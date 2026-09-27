@@ -1,5 +1,6 @@
 use nu_engine::command_prelude::*;
 use nu_engine::env::is_automatic_env_var;
+use nu_engine::is_config_env_var;
 use nu_protocol::did_you_mean;
 
 #[derive(Clone)]
@@ -50,6 +51,8 @@ impl Command for HideEnv {
                     envvar_name: name.item.to_owned(),
                     span: name.span,
                 });
+            } else if is_config_env_var(&name.item) {
+                return Err(ShellError::ConfigEnvVarSetManually { span: name.span });
             }
         }
 
