@@ -17,7 +17,7 @@ use crate::{
     },
     parse_patterns::parse_pattern,
     parse_pipelines::{
-        parse_block, parse_block_with_pipe_assign, parse_pipeline_element,
+        PipeAssignContext, parse_block, parse_block_with_pipe_assign, parse_pipeline_element,
         redirecting_builtin_error,
     },
     parser::{
@@ -1106,6 +1106,19 @@ pub fn parse_assignment_expression(
     working_set.parse_errors.extend(rhs_error);
 
     trace!("parsing: assignment right-hand side subexpression");
+
+    let is_pipe_assign = matches!(
+        operator.expr,
+        Expr::Operator(Operator::Assignment(Assignment::PipeAssign))
+    );
+
+    let pipe_assign_context = if is_pipe_assign {
+        let lhs = lhs.clone();
+        Some(PipeAssignContext { lhs, op_span })
+    } else {
+        None
+    };
+
     let rhs_block = parse_block_with_pipe_assign(
         working_set,
         &rhs_tokens,
@@ -1113,7 +1126,7 @@ pub fn parse_assignment_expression(
         false,
         true,
         input_type,
-        None,
+        pipe_assign_context,
     );
     let rhs_ty = rhs_block.output_type();
 
@@ -1123,7 +1136,10 @@ pub fn parse_assignment_expression(
     if let Some(Expr::ExternalCall(head, ..)) = rhs_block
         .pipelines
         .first()
-        .and_then(|pipeline| pipeline.elements.first())
+        .and_then(|pipeline| {
+            let idx = if is_pipe_assign { 1 } else { 0 };
+            pipeline.elements.get(idx)
+        })
         .map(|element| &element.expr.expr)
     {
         let contents = working_set.get_span_contents(Span {
