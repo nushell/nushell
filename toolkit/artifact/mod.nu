@@ -5,13 +5,13 @@ use unzip.nu
 @category "toolkit"
 @search-terms download pr artifact binary ci gh
 @example "Download the binary from PR #1234" { toolkit download pr 1234 }
-@example "Download for a specific platform" { toolkit download pr 1234 --platform macos-latest }
+@example "Download for a specific platform" { toolkit download pr 1234 --platform macos-aarch64 }
 export def "download pr" [
   # The PR number to download the Nushell binary from
   number: int
   # Use specific commit from branch
   --commit: string
-  # Which platform to download for
+  # OS and architecture to download for (defaults to the current platform)
   --platform: string
   # For internal use only
   --head: oneof<>
@@ -19,7 +19,7 @@ export def "download pr" [
   let span = (metadata $head).span
   let number = { item: $number, span: (metadata $number).span }
 
-  let platform = get-platform $span $platform
+  let platform = $platform | default $"($nu.os-info.name)-($nu.os-info.arch)"
   let artifacts = get-artifacts $number $platform $span --commit=$commit | first
 
   ^gh api $artifacts.archive_download_url | unzip "nu" $span
@@ -46,11 +46,11 @@ export def --wrapped "run pr" [
   let dir = $nu.temp-dir | path join "nushell-run-pr"
   mkdir $dir
 
-  let platform = get-platform $span
+  let platform = $"($nu.os-info.name)-($nu.os-info.arch)"
   let artifact = get-artifacts $number $platform $span --commit=$commit | first
 
   let workflow_id = $artifact.workflow_run.id
-  let binfile = $dir | path join $"nu-($number.item)-($workflow_id)"
+  let binfile = $dir | path join $"nu-($number.item)-($workflow_id)-($platform)"
 
   if ($binfile | path exists) {
     print $"Using previously downloaded binary from workflow run ($workflow_id)"
@@ -66,22 +66,4 @@ export def --wrapped "run pr" [
   }
 
   ^$binfile ...$rest
-}
-
-def get-platform [span: record, platform?: string] {
-  match $nu.os-info.name {
-    _ if $platform != null => $platform
-    "linux" => "ubuntu-22.04"
-    "macos" => "macos-latest"
-    "windows" => "windows-latest"
-    $platform => {
-      error make {
-        msg: "Unsupported platform",
-        label: {
-          text: $"($platform) not supported"
-          span: $span
-        }
-      }
-    }
-  }
 }

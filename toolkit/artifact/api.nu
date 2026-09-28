@@ -12,7 +12,7 @@ export def get-workflow-run [commits: list<string>, span: record]: nothing -> in
       ^gh api $"/repos/nushell/nushell/commits/($commit)/check-runs"
       | from json
       | get check_runs
-      | where name starts-with 'std-lib'
+      | where name starts-with 'std ('
     )
 
     if ($checks | is-empty) {
@@ -54,7 +54,7 @@ export def get-workflow-run [commits: list<string>, span: record]: nothing -> in
 # Uses the latest commit if not specified
 @category "toolkit"
 @search-terms get artifacts pr download ci gh api
-@example "Get artifact metadata for PR #1234" { toolkit get-artifacts {item: 1234, span: {start: 0, end: 10}} "macos-latest" {start: 0, end: 10} }
+@example "Get artifact metadata for PR #1234" { toolkit get-artifacts {item: 1234, span: {start: 0, end: 10}} "macos-aarch64" {start: 0, end: 10} }
 export def get-artifacts [
   number: record<item: int, span: record>
   platform: string
