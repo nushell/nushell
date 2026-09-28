@@ -6,12 +6,15 @@ on:
       - main
       - 'patch-release-*'
 
-name: continuous-integration
+name: Continuous Integration
 
 permissions:
   contents: read
 
 env:
+  OS_NAMES: '{"Windows":"windows","Linux":"linux","macOS":"macos"}'
+  ARCH_NAMES: '{"X86":"x86","X64":"x86_64","ARM":"arm","ARM64":"aarch64"}'
+  EXE_SUFFIXES: '{"Windows":".exe","Linux":"","macOS":""}'
   NU_LOG_LEVEL: DEBUG
   NU_TEST_SKIP_DEPS_BUILD: true
   CLIPPY_OPTIONS: "-D warnings"
@@ -47,7 +50,7 @@ concurrency:
 jobs:
   cargo:
     # Do not run CI on draft PRs or on the lower layers of stacked PRs
-    if: >-
+    if: &run_ci >-
       !github.event.pull_request.draft &&
       (
         github.event.pull_request.stack == null ||
@@ -66,17 +69,17 @@ jobs:
             host: incredibuild-ubuntu-2204
             target: x86_64-unknown-linux-gnu
             options: MAIN_OPTIONS
-            steps: [fmt, clippy, build, test, doctest]
+            steps: [fmt, clippy, build, test, doctest, artifact]
           - name: Windows
             host: incredibuild-windows-2022
             target: x86_64-pc-windows-msvc
             options: MAIN_OPTIONS
-            steps: [fmt, clippy, build, test, doctest]
+            steps: [fmt, clippy, build, test, doctest, artifact]
           - name: MacOS
             host: macos-latest
             target: x86_64-apple-darwin
             options: MAIN_OPTIONS
-            steps: [fmt, clippy, build, test, doctest]
+            steps: [fmt, clippy, build, test, doctest, artifact]
           - name: WASM
             host: incredibuild-ubuntu-2204
             target: wasm32-unknown-unknown
@@ -91,11 +94,11 @@ jobs:
           - name: nu-parser/fuzz
             path: ./crates/nu-parser/fuzz
             profile: dev
-            skip: [build, test, doctest]
+            skip: [build, test, doctest, artifact]
           - name: nu-path/fuzz
             path: ./crates/nu-path/fuzz
             profile: dev
-            skip: [build, test, doctest]
+            skip: [build, test, doctest, artifact]
 
         exclude:
           - target: { name: WASM }
@@ -106,7 +109,8 @@ jobs:
     runs-on: ${{ matrix.target.host }}
 
     steps:
-      - name: Checkout Repo
+      - &checkout_repo
+        name: Checkout Repo
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Rust Toolchain
@@ -154,57 +158,78 @@ jobs:
         working-directory: ${{ matrix.workspace.path }}
         run: cargo --config "${{ github.workspace }}/.cargo/ci.toml" test --workspace --doc --profile ${{ matrix.workspace.profile }}
 
-      - name: Assert Clean Repo
+      - name: Upload Build Artifact
+        if: contains(matrix.target.steps, 'artifact') && !contains(matrix.workspace.skip, 'artifact')
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: &nu_artifact_name "nu-${{ github.event.number || github.ref_name }}-${{ fromJSON(env.OS_NAMES)[runner.os] }}-${{ fromJson(env.ARCH_NAMES)[runner.arch] }}"
+          path: "${{ matrix.workspace.path }}/target/ci/nu${{ fromJSON(env.EXE_SUFFIXES)[runner.os] }}"
+          retention-days: 14
+
+      - &assert_clean_repo
+        name: Assert Clean Repo
         run: git diff --quiet && git diff --cached --quiet
 
-  std-lib-and-python-virtualenv:
-    # Do not run CI on draft PRs or on the lower layers of stacked PRs
-    if: >-
-      !github.event.pull_request.draft &&
-      (
-        github.event.pull_request.stack == null ||
-        github.event.pull_request.stack.position ==
-          github.event.pull_request.stack.size
-      )
+  std:
+    if: *run_ci
+    needs: cargo
+
     strategy:
       fail-fast: true
       matrix:
-        platform: [incredibuild-ubuntu-2204, macos-latest, incredibuild-windows-2022]
-        py:
-          - py
+        platform:
+          - incredibuild-ubuntu-2204
+          - macos-latest
+          - incredibuild-windows-2022
 
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - *checkout_repo
 
-      - name: Setup Rust toolchain and cache
-        uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
+      - &download_nushell_build
+        name: Download Nushell build
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: *nu_artifact_name
+          path: ${{ runner.temp }}/nu-bin
 
-      - name: Install Nushell
-        run: cargo install --path . --locked --force
-
-      - name: Upload Nushell build (Ubuntu and macOS)
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - &make_nushell_executable
+        name: Make Nushell executable
         if: runner.os != 'Windows'
-        with:
-          name: "nu-${{ github.event.number || github.ref_name }}-${{ matrix.platform }}"
-          path: "~/.cargo/bin/nu"
-          retention-days: 14
+        shell: bash
+        run: chmod +x "$RUNNER_TEMP/nu-bin/nu"
 
-      - name: Upload Nushell build (Windows)
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: runner.os == 'Windows'
-        with:
-          name: "nu-${{ github.event.number || github.ref_name }}-${{ matrix.platform }}"
-          path: 'C:\Users\runneradmin\.cargo\bin\nu.exe'
-          retention-days: 14
+      - &add_nushell_to_path
+        name: Add Nushell to PATH
+        shell: bash
+        run: printf '%s\n' "$RUNNER_TEMP/nu-bin" >> "$GITHUB_PATH"
 
-      - name: Standard library tests
+      - name: Run standard library tests
+        shell: bash
         run: nu -c 'use crates/nu-std/testing.nu; testing run-tests --path crates/nu-std'
 
-      - name: Ensure that Cargo.toml MSRV and rust-toolchain.toml use the same version
-        run: nu .github/workflows/check-msrv.nu
+      - *assert_clean_repo
+
+  virtualenv:
+    if: *run_ci
+    needs: cargo
+
+    strategy:
+      fail-fast: true
+      matrix:
+        platform:
+          - incredibuild-ubuntu-2204
+          - macos-latest
+          - incredibuild-windows-2022
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - *checkout_repo
+      - *download_nushell_build
+      - *make_nushell_executable
+      - *add_nushell_to_path
 
       - name: Setup Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -213,19 +238,8 @@ jobs:
 
       - name: Install virtualenv
         run: pip install virtualenv
-        shell: bash
 
       - name: Test Nushell in virtualenv
         run: nu scripts/test_virtualenv.nu
-        shell: bash
 
-      - name: Check for clean repo
-        shell: bash
-        run: |
-          if [ -n "$(git status --porcelain)" ]; then
-            echo "there are changes";
-            git status --porcelain
-            exit 1
-          else
-            echo "no changes in working directory";
-          fi
+      - *assert_clean_repo
