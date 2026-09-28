@@ -65,7 +65,7 @@ jobs:
           # Pinning to Ubuntu 22.04 because building on newer Ubuntu versions causes linux-gnu
           # builds to link against a too-new-for-many-Linux-installs glibc version. Consider
           # revisiting this when 22.04 is closer to EOL (June 2027)
-          - name: Ubuntu
+          - name: Linux
             host: incredibuild-ubuntu-2204
             target: x86_64-unknown-linux-gnu
             options: MAIN_OPTIONS
@@ -165,19 +165,24 @@ jobs:
 
   # Let binary consumers start without waiting for the cargo checks and tests.
   build:
+    name: build (${{ matrix.platform.os }})
     if: *run_ci
 
     strategy:
       fail-fast: true
       matrix:
         platform: &nu_platforms
-          - incredibuild-ubuntu-2204
-          - macos-latest
-          - incredibuild-windows-2022
+          - os: Linux
+            runner: incredibuild-ubuntu-2204
+          - os: MacOS
+            runner: macos-latest
+          - os: Windows
+            runner: incredibuild-windows-2022
         workspace:
           - path: target
 
-    runs-on: ${{ matrix.platform }}
+    runs-on: ${{ matrix.platform.runner }}
+
     env:
       CARGO_TARGET_DIR: ${{ github.workspace }}/target
 
@@ -198,6 +203,7 @@ jobs:
       - *assert_clean_repo
 
   std:
+    name: std (${{ matrix.platform.os }})
     if: *run_ci
     needs: build
 
@@ -206,7 +212,7 @@ jobs:
       matrix:
         platform: *nu_platforms
 
-    runs-on: ${{ matrix.platform }}
+    runs-on: ${{ matrix.platform.runner }}
 
     steps:
       - *checkout_repo
@@ -236,6 +242,7 @@ jobs:
       - *assert_clean_repo
 
   virtualenv:
+    name: virtualenv (${{ matrix.platform.os }})
     if: *run_ci
     needs: build
 
@@ -244,7 +251,7 @@ jobs:
       matrix:
         platform: *nu_platforms
 
-    runs-on: ${{ matrix.platform }}
+    runs-on: ${{ matrix.platform.runner }}
 
     steps:
       - *checkout_repo
