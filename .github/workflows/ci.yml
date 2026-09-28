@@ -186,13 +186,13 @@ jobs:
       - *cache_rust
 
       - name: Build Nushell
-        run: cargo build --release --profile ci
+        run: cargo build --release
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: &nu_artifact_name "nu-${{ github.event.number || github.ref_name }}-${{ fromJSON(env.OS_NAMES)[runner.os] }}-${{ fromJson(env.ARCH_NAMES)[runner.arch] }}"
-          path: "${{ env.CARGO_TARGET_DIR }}/ci/nu${{ fromJSON(env.EXE_SUFFIXES)[runner.os] }}"
+          path: "${{ env.CARGO_TARGET_DIR }}/release/nu${{ fromJSON(env.EXE_SUFFIXES)[runner.os] }}"
           retention-days: 14
 
       - *assert_clean_repo
