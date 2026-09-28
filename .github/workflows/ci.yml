@@ -236,7 +236,6 @@ jobs:
         run: printf '%s\n' "$RUNNER_TEMP/nu-bin" >> "$GITHUB_PATH"
 
       - name: Run standard library tests
-        shell: bash
         run: nu -c 'use crates/nu-std/testing.nu; testing run-tests --path crates/nu-std'
 
       - *assert_clean_repo
