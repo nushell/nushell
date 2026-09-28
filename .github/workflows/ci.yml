@@ -69,17 +69,17 @@ jobs:
             host: incredibuild-ubuntu-2204
             target: x86_64-unknown-linux-gnu
             options: MAIN_OPTIONS
-            steps: [fmt, clippy, build, test, doctest, artifact]
+            steps: [fmt, clippy, build, test, doctest]
           - name: Windows
             host: incredibuild-windows-2022
             target: x86_64-pc-windows-msvc
             options: MAIN_OPTIONS
-            steps: [fmt, clippy, build, test, doctest, artifact]
+            steps: [fmt, clippy, build, test, doctest]
           - name: MacOS
             host: macos-latest
             target: x86_64-apple-darwin
             options: MAIN_OPTIONS
-            steps: [fmt, clippy, build, test, doctest, artifact]
+            steps: [fmt, clippy, build, test, doctest]
           - name: WASM
             host: incredibuild-ubuntu-2204
             target: wasm32-unknown-unknown
@@ -94,11 +94,11 @@ jobs:
           - name: nu-parser/fuzz
             path: ./crates/nu-parser/fuzz
             profile: dev
-            skip: [build, test, doctest, artifact]
+            skip: [build, test, doctest]
           - name: nu-path/fuzz
             path: ./crates/nu-path/fuzz
             profile: dev
-            skip: [build, test, doctest, artifact]
+            skip: [build, test, doctest]
 
         exclude:
           - target: { name: WASM }
@@ -117,7 +117,8 @@ jobs:
         run: rustup target add ${{ matrix.target.target }}
         working-directory: ${{ matrix.workspace.path }}
 
-      - name: Cache Rust
+      - &cache_rust
+        name: Cache Rust
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: ${{ matrix.workspace.path }} -> target
@@ -158,29 +159,52 @@ jobs:
         working-directory: ${{ matrix.workspace.path }}
         run: cargo --config "${{ github.workspace }}/.cargo/ci.toml" test --workspace --doc --profile ${{ matrix.workspace.profile }}
 
-      - name: Upload Build Artifact
-        if: contains(matrix.target.steps, 'artifact') && !contains(matrix.workspace.skip, 'artifact')
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: &nu_artifact_name "nu-${{ github.event.number || github.ref_name }}-${{ fromJSON(env.OS_NAMES)[runner.os] }}-${{ fromJson(env.ARCH_NAMES)[runner.arch] }}"
-          path: "${{ matrix.workspace.path }}/target/ci/nu${{ fromJSON(env.EXE_SUFFIXES)[runner.os] }}"
-          retention-days: 14
-
       - &assert_clean_repo
         name: Assert Clean Repo
         run: git diff --quiet && git diff --cached --quiet
 
-  std:
+  # Let binary consumers start without waiting for the cargo checks and tests.
+  build:
     if: *run_ci
-    needs: cargo
 
     strategy:
       fail-fast: true
       matrix:
-        platform:
+        platform: &nu_platforms
           - incredibuild-ubuntu-2204
           - macos-latest
           - incredibuild-windows-2022
+        workspace:
+          - path: target
+
+    runs-on: ${{ matrix.platform }}
+    env:
+      CARGO_TARGET_DIR: ${{ github.workspace }}/target
+
+    steps:
+      - *checkout_repo
+      - *cache_rust
+
+      - name: Build Nushell
+        run: cargo build --release --profile ci
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: &nu_artifact_name "nu-${{ github.event.number || github.ref_name }}-${{ fromJSON(env.OS_NAMES)[runner.os] }}-${{ fromJson(env.ARCH_NAMES)[runner.arch] }}"
+          path: "${{ env.CARGO_TARGET_DIR }}/ci/nu${{ fromJSON(env.EXE_SUFFIXES)[runner.os] }}"
+          retention-days: 14
+
+      - *assert_clean_repo
+
+  std:
+    if: *run_ci
+    needs: build
+
+    strategy:
+      fail-fast: true
+      matrix:
+        platform: *nu_platforms
 
     runs-on: ${{ matrix.platform }}
 
@@ -213,15 +237,12 @@ jobs:
 
   virtualenv:
     if: *run_ci
-    needs: cargo
+    needs: build
 
     strategy:
       fail-fast: true
       matrix:
-        platform:
-          - incredibuild-ubuntu-2204
-          - macos-latest
-          - incredibuild-windows-2022
+        platform: *nu_platforms
 
     runs-on: ${{ matrix.platform }}
 
