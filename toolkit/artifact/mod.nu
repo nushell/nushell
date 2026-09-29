@@ -21,8 +21,9 @@ export def "download pr" [
 
   let platform = $platform | default $"($nu.os-info.name)-($nu.os-info.arch)"
   let artifacts = get-artifacts $number $platform $span --commit=$commit | first
+  let filename = if ($platform | str starts-with "windows-") { "nu.exe" } else { "nu" }
 
-  ^gh api $artifacts.archive_download_url | unzip "nu" $span
+  ^gh api $artifacts.archive_download_url | unzip $filename $span
 }
 
 # Run Nushell by downloading a CI artifact from a pull request.
@@ -50,14 +51,16 @@ export def --wrapped "run pr" [
   let artifact = get-artifacts $number $platform $span --commit=$commit | first
 
   let workflow_id = $artifact.workflow_run.id
-  let binfile = $dir | path join $"nu-($number.item)-($workflow_id)-($platform)"
+  let extension = if $nu.os-info.name == "windows" { ".exe" } else { "" }
+  let filename = $"nu($extension)"
+  let binfile = $dir | path join $"nu-($number.item)-($workflow_id)-($platform)($extension)"
 
   if ($binfile | path exists) {
     print $"Using previously downloaded binary from workflow run ($workflow_id)"
   } else {
     print $"Downloading binary from workflow run ($workflow_id)..."
     ^gh api $artifact.archive_download_url
-    | unzip "nu" $span
+    | unzip $filename $span
     | save -p $binfile
   }
 

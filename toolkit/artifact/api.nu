@@ -12,7 +12,9 @@ export def get-workflow-run [commits: list<string>, span: record]: nothing -> in
       ^gh api $"/repos/nushell/nushell/commits/($commit)/check-runs"
       | from json
       | get check_runs
-      | where name starts-with 'std ('
+      # Native root jobs upload artifacts; the WASM root job only builds.
+      | where name ends-with ' / root'
+      | where name != 'WASM / root'
     )
 
     if ($checks | is-empty) {
