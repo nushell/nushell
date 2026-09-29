@@ -5,8 +5,8 @@ use crate::{
     parse_shape_specs::parse_shape_name,
 };
 use nu_protocol::{
-    CompareTypes, EnumDef, EnumVariant, ParseError, Span, SyntaxShape, Type, TypeDef, TypeDefKind,
-    Value,
+    CompareTypes, DeclId, EnumDef, EnumVariant, ParseError, Span, SyntaxShape, Type, TypeDef,
+    TypeDefKind, Value,
     ast::{Argument, Call, Expr, Expression, MatchPattern, Pattern, Pipeline},
     engine::StateWorkingSet,
 };
@@ -306,6 +306,21 @@ fn parse_enum_def(working_set: &mut StateWorkingSet, bytes: &[u8], span: Span) -
 /// [payload]`; the command validates the payload again at runtime.
 pub const ENUM_CONSTRUCT_DECL: &[u8] = b"enum-construct";
 
+/// The name of the internal command `Type.from-record` is rewritten to.
+///
+/// `Type.from-record <record>` parses to `enum-from-record <type> <record>`;
+/// the command rebuilds an enum value from its base-record representation.
+pub const ENUM_FROM_RECORD_DECL: &[u8] = b"enum-from-record";
+
+/// Both enum commands are hidden from `help` and completion, so
+/// [`StateWorkingSet::find_decl`] will not resolve them. Scan the decl table
+/// by name instead — visibility only affects name lookups, not `DeclId`s.
+fn find_internal_decl(working_set: &StateWorkingSet, name: &[u8]) -> Option<DeclId> {
+    (0..working_set.num_decls())
+        .map(DeclId::new)
+        .find(|&id| working_set.get_decl(id).name().as_bytes() == name)
+}
+
 fn enum_internal_call(
     working_set: &mut StateWorkingSet,
     decl_name: &[u8],
@@ -316,7 +331,7 @@ fn enum_internal_call(
     args: Vec<Argument>,
 ) -> Option<Expression> {
     let mut call = Call::new(call_span);
-    call.decl_id = working_set.find_decl(decl_name)?;
+    call.decl_id = find_internal_decl(working_set, decl_name)?;
     call.head = head_span;
     call.arguments.push(Argument::Positional(Expression::new(
         working_set,
@@ -365,6 +380,46 @@ pub fn parse_enum_constructor(
     // The name as written is what the runtime command resolves; the
     // canonical `type_def.name` is what values and signature checks report.
     let type_path_str = String::from_utf8_lossy(type_name).to_string();
+
+    // `Type.from-record` rebuilds an enum value from its base-record form —
+    // the inverse of what `to json`/`to nuon` produce.
+    if variant_name == b"from-record" {
+        let arg_expr = match arg_spans {
+            [] => {
+                working_set.error(ParseError::MissingPositional(
+                    format!("record for `{type_path_str}.from-record`"),
+                    Span::new(call_span.end, call_span.end),
+                    format!("{type_path_str}.from-record <record>"),
+                ));
+                return Some(garbage(working_set, call_span));
+            }
+            [arg_span, extra @ ..] => {
+                let expr = crate::parser::parse_value(
+                    working_set,
+                    *arg_span,
+                    &SyntaxShape::Any,
+                    input_type,
+                );
+                if let [first, ..] = extra {
+                    working_set.error(ParseError::ExtraPositional(
+                        format!("{type_path_str}.from-record <record>"),
+                        *first,
+                    ));
+                }
+                expr
+            }
+        };
+
+        return enum_internal_call(
+            working_set,
+            ENUM_FROM_RECORD_DECL,
+            &type_path_str,
+            Type::Custom(type_name_str.into()),
+            head_span,
+            call_span,
+            vec![Argument::Positional(arg_expr)],
+        );
+    }
 
     let Some(variant) = enum_def.get_variant(&variant_name_str) else {
         working_set.error(ParseError::LabeledErrorWithHelp {

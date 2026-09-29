@@ -36,6 +36,7 @@ pub fn add_default_context(mut engine_state: EngineState) -> EngineState {
             Do,
             Echo,
             EnumConstruct,
+            EnumFromRecord,
             Error,
             ErrorMake,
             ExportAlias,
@@ -74,6 +75,12 @@ pub fn add_default_context(mut engine_state: EngineState) -> EngineState {
             Version,
             While,
         };
+
+        // Internal commands the parser emits for enum types. They must stay
+        // registered (the parser resolves them by `DeclId` scan) but hidden
+        // from `help` and completion — users write `Type.variant` and
+        // `Type.from-record`, not these names.
+        working_set.hide_decls(&[b"enum-construct".to_vec(), b"enum-from-record".to_vec()]);
 
         working_set.render()
     };

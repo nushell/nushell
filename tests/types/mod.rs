@@ -325,6 +325,56 @@ fn module_type_not_leaked_by_bare_use() -> Result {
         .expect_error_code_eq("nu::shell::external_command")
 }
 
+// from-record round-trip
+
+#[test]
+fn enum_from_record() -> Result {
+    test()
+        .run(r#"enum S { circle: record<radius: float>, point }; S.from-record {kind: "circle", payload: {radius: 2.5}} | describe"#)
+        .expect_value_eq("S")
+}
+
+#[test]
+fn enum_from_record_roundtrip_json() -> Result {
+    test()
+        .run("enum S { a: int, b }; let c = S.a 5 | to json --raw | from json | S.from-record $in; match $c { S.a $p => $p, S.b => 0 }")
+        .expect_value_eq(5)
+}
+
+#[test]
+fn enum_from_record_unknown_variant() -> Result {
+    test()
+        .run(r#"enum S { a }; S.from-record {kind: "zzz"}"#)
+        .expect_shell_error()
+        .map(drop)
+}
+
+#[test]
+fn enum_from_record_validates_payload() -> Result {
+    test()
+        .run(r#"enum S { a: int, b }; S.from-record {kind: "a", payload: "nope"}"#)
+        .expect_shell_error()
+        .map(drop)
+}
+
+#[test]
+fn enum_reserved_field_roundtrip() -> Result {
+    // A record payload may use the `payload` field name — the encoding
+    // nests it, so serialization and `from-record` round-trip cleanly.
+    test()
+        .run(r#"enum S { a: record<payload: string> }; let c = S.a {payload: "inner"} | to nuon --raw | from nuon | S.from-record $in; match $c { S.a {payload: $p} => $p }"#)
+        .expect_value_eq("inner")
+}
+
+// Internal commands are hidden
+
+#[test]
+fn enum_construct_is_not_user_callable() -> Result {
+    test()
+        .run("enum S { a }; enum-construct S a")
+        .expect_error_code_eq("nu::shell::external_command")
+}
+
 // mut + enforce-runtime-annotations
 
 #[test]
