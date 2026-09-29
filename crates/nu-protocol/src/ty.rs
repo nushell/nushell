@@ -255,6 +255,35 @@ impl Type {
     }
 }
 
+/// Split a `Type::Custom` name into its base name and, when the name
+/// encodes an instantiation (`Option<int>`), the argument spellings.
+/// The comma split is depth-aware, so `Result<any, record<msg: string,
+/// x: int>>` yields exactly two arguments.
+fn split_custom_name(name: &str) -> (&str, Option<Vec<&str>>) {
+    let Some(lt) = name.find('<') else {
+        return (name, None);
+    };
+    let Some(inner) = name[lt + 1..].strip_suffix('>') else {
+        return (name, None);
+    };
+    let mut parts = vec![];
+    let mut depth = 0i32;
+    let mut start = 0;
+    for (i, c) in inner.char_indices() {
+        match c {
+            '<' => depth += 1,
+            '>' => depth -= 1,
+            ',' if depth == 0 => {
+                parts.push(inner[start..i].trim());
+                start = i + 1;
+            }
+            _ => {}
+        }
+    }
+    parts.push(inner[start..].trim());
+    (&name[..lt], Some(parts))
+}
+
 impl CompareTypes for Type {
     fn compare_types(&self, other: &Self) -> Option<TypeRelation> {
         match (self, other) {
@@ -300,6 +329,36 @@ impl CompareTypes for Type {
             (lhs, Type::OneOf(rhs_oneof)) => lhs.compare_types(rhs_oneof),
 
             (t, u) if t == u => Some(TypeRelation::Equal),
+
+            // Declared types: compatible when they share a base name and
+            // either side is bare (`Option` accepts `Option<int>`), or
+            // their instantiations match argument-by-argument, where `any`
+            // is unspecified (`Result<any, string>` accepts
+            // `Result<int, string>` but not `Result<int, int>`). Generic
+            // arguments are erased at runtime, so this only affects
+            // parse-time checking.
+            (Type::Custom(a), Type::Custom(b)) => {
+                let (base_a, args_a) = split_custom_name(a);
+                let (base_b, args_b) = split_custom_name(b);
+                if base_a != base_b {
+                    return None;
+                }
+                match (args_a, args_b) {
+                    (None, _) | (_, None) => Some(TypeRelation::Equal),
+                    (Some(xs), Some(ys)) if xs.len() == ys.len() => {
+                        let compat = xs.iter().zip(ys.iter()).all(|(x, y)| {
+                            x == y
+                                || *x == "any"
+                                || *y == "any"
+                                || Type::Custom((*x).into())
+                                    .compare_types(&Type::Custom((*y).into()))
+                                    .is_some()
+                        });
+                        compat.then_some(TypeRelation::Equal)
+                    }
+                    _ => None,
+                }
+            }
 
             _ => None,
         }

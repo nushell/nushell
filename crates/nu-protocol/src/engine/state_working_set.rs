@@ -34,6 +34,11 @@ pub struct StateWorkingSet<'a> {
     /// The REPL highlighter sets this so typing `use std` does not parse-time-load
     /// the standard library on every keystroke.
     pub skip_module_load: bool,
+    /// Type parameters in scope while parsing the right-hand side of a generic
+    /// `type` declaration (`type Option<T> = ...`). `parse_shape_name` resolves
+    /// names in this list to [`SyntaxShape::TypeVar`] before anything else.
+    /// Empty outside `type` declarations.
+    pub type_params: Vec<String>,
     pub parse_errors: Vec<ParseError>,
     pub parse_warnings: Vec<ParseWarning>,
     pub compile_errors: Vec<CompileError>,
@@ -73,6 +78,7 @@ impl<'a> StateWorkingSet<'a> {
             files,
             search_predecls: true,
             skip_module_load: false,
+            type_params: vec![],
             parse_errors: vec![],
             parse_warnings: vec![],
             compile_errors: vec![],

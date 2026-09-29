@@ -2,7 +2,9 @@
 
 use std::borrow::Cow;
 
-use crate::{TokenContents, lex::lex_signature, parser::parse_value};
+use crate::{
+    TokenContents, lex::lex_signature, parse_type_decl::split_top_level_commas, parser::parse_value,
+};
 use nu_protocol::{
     CollectionColumns, Completion, IntoSpanned, ParseError, ShellError, Span, Spanned, SyntaxShape,
     Type, TypeDefKind, Value, engine::StateWorkingSet, eval_const::eval_constant,
@@ -59,6 +61,22 @@ pub fn parse_shape_name(
             parse_generic_shape(working_set, bytes, span)
         }
         _ => {
+            // Type parameters of the `type` declaration whose right-hand side
+            // is currently being parsed — `type Option<T> = enum<some: T,
+            // none>` resolves `T` to a `TypeVar` substituted at instantiation.
+            if let Ok(name) = std::str::from_utf8(bytes)
+                && working_set.type_params.iter().any(|p| p == name)
+            {
+                return SyntaxShape::TypeVar(name.into());
+            }
+
+            // `Name<arg, ...>` instantiates a generic `type` declaration.
+            if bytes.contains(&b'<')
+                && let Some(shape) = parse_generic_instantiation(working_set, bytes, span)
+            {
+                return shape;
+            }
+
             // Resolve user-declared named types (`type` declarations).
             if let Some(type_def) = working_set.find_type_name(bytes) {
                 return match &type_def.kind {
@@ -68,7 +86,7 @@ pub fn parse_shape_name(
                     }
                     TypeDefKind::Enum(_) => {
                         let name = String::from_utf8_lossy(&type_def.name);
-                        SyntaxShape::Custom(name.into())
+                        SyntaxShape::Custom(name.into(), vec![])
                     }
                 };
             }
@@ -372,4 +390,116 @@ fn parse_type_params(
     }
 
     sig
+}
+
+/// Instantiate a generic named type: `Option<int>`, `Pair<int, string>`.
+///
+/// `Alias` bodies have their `TypeVar`s substituted with the argument shapes
+/// and stay `SyntaxShape::Named`; `Enum` bodies keep the structured arguments
+/// on `SyntaxShape::Custom` so the static type carries the instantiation.
+fn parse_generic_instantiation(
+    working_set: &mut StateWorkingSet,
+    bytes: &[u8],
+    span: Span,
+) -> Option<SyntaxShape> {
+    let lt = bytes.iter().position(|&b| b == b'<')?;
+    let base = &bytes[..lt];
+    let inner = &bytes[lt + 1..];
+    if !inner.ends_with(b">") {
+        return None;
+    }
+    let arg_bytes = split_top_level_commas(&inner[..inner.len() - 1])?;
+
+    let type_def = working_set.find_type_name(base)?;
+    let base_name = String::from_utf8_lossy(&type_def.name).to_string();
+
+    if arg_bytes.len() != type_def.params.len() {
+        working_set.error(ParseError::IncorrectValue(
+            "type arguments".into(),
+            span,
+            format!(
+                "`{base_name}` takes {} type argument(s), but {} were supplied",
+                type_def.params.len(),
+                arg_bytes.len()
+            ),
+        ));
+        return Some(SyntaxShape::Any);
+    }
+
+    let arg_shapes: Vec<SyntaxShape> = arg_bytes
+        .iter()
+        .map(|arg| {
+            // `arg` is a subslice of `bytes` — compute its offset to give
+            // nested shapes (e.g. `record<msg: string>`) a correctly
+            // positioned span for their own sub-token lexing.
+            let arg = arg.trim_ascii();
+            let offset = arg.as_ptr() as usize - bytes.as_ptr() as usize;
+            let arg_span = Span::new(span.start + offset, span.start + offset + arg.len());
+            parse_shape_name(working_set, arg, arg_span)
+        })
+        .collect();
+
+    match &type_def.kind {
+        TypeDefKind::Alias(shape) => {
+            let bindings: std::collections::HashMap<&str, &SyntaxShape> = type_def
+                .params
+                .iter()
+                .map(String::as_str)
+                .zip(arg_shapes.iter())
+                .collect();
+            let substituted = substitute_type_vars(shape, &bindings);
+            let inst_name = format!(
+                "{base_name}<{}>",
+                arg_bytes
+                    .iter()
+                    .map(|a| String::from_utf8_lossy(a))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
+            Some(SyntaxShape::Named(inst_name.into(), Box::new(substituted)))
+        }
+        TypeDefKind::Enum(_) => Some(SyntaxShape::Custom(base_name.into(), arg_shapes)),
+    }
+}
+
+/// Replace [`SyntaxShape::TypeVar`]s with their bound shapes.
+pub(crate) fn substitute_type_vars(
+    shape: &SyntaxShape,
+    bindings: &std::collections::HashMap<&str, &SyntaxShape>,
+) -> SyntaxShape {
+    match shape {
+        SyntaxShape::TypeVar(name) => bindings
+            .get(name.as_ref())
+            .map(|shape| (*shape).clone())
+            .unwrap_or_else(|| shape.clone()),
+        SyntaxShape::Named(name, inner) => SyntaxShape::Named(
+            name.clone(),
+            Box::new(substitute_type_vars(inner, bindings)),
+        ),
+        SyntaxShape::Custom(name, args) => SyntaxShape::Custom(
+            name.clone(),
+            args.iter()
+                .map(|arg| substitute_type_vars(arg, bindings))
+                .collect(),
+        ),
+        SyntaxShape::List(inner) => {
+            SyntaxShape::List(Box::new(substitute_type_vars(inner, bindings)))
+        }
+        SyntaxShape::OneOf(inner) => SyntaxShape::OneOf(
+            inner
+                .iter()
+                .map(|item| substitute_type_vars(item, bindings))
+                .collect(),
+        ),
+        SyntaxShape::Record(rows) => {
+            SyntaxShape::Record(rows.map(|item| substitute_type_vars(item, bindings)))
+        }
+        SyntaxShape::Table(rows) => {
+            SyntaxShape::Table(rows.map(|item| substitute_type_vars(item, bindings)))
+        }
+        SyntaxShape::Keyword(kw, inner) => {
+            SyntaxShape::Keyword(kw.clone(), Box::new(substitute_type_vars(inner, bindings)))
+        }
+        _ => shape.clone(),
+    }
 }

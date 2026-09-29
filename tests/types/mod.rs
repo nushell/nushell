@@ -58,7 +58,7 @@ fn enum_payload_variant() -> Result {
 #[test]
 fn enum_base_record() -> Result {
     test()
-        .run("type Shape = enum<circle: record<radius: float>, point>; (Shape.circle {radius: 2.0}).radius")
+        .run("type Shape = enum<circle: record<radius: float>, point>; (Shape.circle {radius: 2.0}).payload.radius")
         .expect_value_eq(2.0)
 }
 
@@ -66,7 +66,7 @@ fn enum_base_record() -> Result {
 fn enum_serializes_as_base_record() -> Result {
     test()
         .run("type Shape = enum<circle: record<radius: float>, point>; Shape.circle {radius: 2.0} | to json --raw")
-        .expect_value_eq(r#"{"kind":"circle","radius":2.0}"#)
+        .expect_value_eq(r#"{"kind":"circle","payload":{"radius":2.0}}"#)
 }
 
 #[test]
@@ -116,36 +116,6 @@ fn enum_in_signature_accepts_own_values() -> Result {
     test()
         .run("type Shape = enum<point>; def f [s: Shape] { $s | describe }; f Shape.point")
         .expect_value_eq("Shape")
-}
-
-#[test]
-fn enum_base_record() -> Result {
-    test()
-        .run("type Shape = enum<circle: record<radius: float>, point>; (Shape.circle {radius: 2.0}).payload.radius")
-        .expect_value_eq(2.0)
-}
-
-#[test]
-fn enum_serializes_as_base_record() -> Result {
-    test()
-        .run("type Shape = enum<circle: record<radius: float>, point>; Shape.circle {radius: 2.0} | to json --raw")
-        .expect_value_eq(r#"{"kind":"circle","payload":{"radius":2.0}}"#)
-}
-
-#[test]
-fn enum_payload_field_kind_is_allowed() -> Result {
-    // The payload nests under `payload`, so a record payload may use
-    // `kind`/`payload` field names without colliding with the encoding.
-    test()
-        .run(r#"type S = enum<a: record<x: int, kind: string>>; S.a {x: 1, kind: "mine"} | to nuon --raw"#)
-        .expect_value_eq(r#"{kind:a,payload:{x:1,kind:mine}}"#)
-}
-
-#[test]
-fn enum_payload_field_payload_is_allowed() -> Result {
-    test()
-        .run(r#"type S = enum<a: record<payload: string>>; S.a {payload: "inner"} | to nuon --raw"#)
-        .expect_value_eq(r#"{kind:a,payload:{payload:inner}}"#)
 }
 
 // Match destructuring + exhaustiveness
@@ -297,6 +267,32 @@ fn enum_match_exhaustive_output_is_not_union_nothing() -> Result {
         .expect_value_eq(1)
 }
 
+// Payload fields named `kind`/`payload` are fine — the payload nests
+// under `payload` in the base record, so nothing collides.
+
+#[test]
+fn enum_payload_field_kind_is_allowed() -> Result {
+    test()
+        .run(r#"type S = enum<a: record<x: int, kind: string>>; S.a {x: 1, kind: "mine"} | to nuon --raw"#)
+        .expect_value_eq(r#"{kind:a,payload:{x:1,kind:mine}}"#)
+}
+
+#[test]
+fn enum_payload_field_payload_is_allowed() -> Result {
+    test()
+        .run(r#"type S = enum<a: record<payload: string>>; S.a {payload: "inner"} | to nuon --raw"#)
+        .expect_value_eq(r#"{kind:a,payload:{payload:inner}}"#)
+}
+
+#[test]
+fn enum_reserved_field_roundtrip() -> Result {
+    // `kind` inside a payload record survives serialization and
+    // `from-record` intact.
+    test()
+        .run(r#"type S = enum<a: record<kind: string>>; S.from-record (S.a {kind: "mine"} | to nuon --raw | from nuon) | describe"#)
+        .expect_value_eq("S")
+}
+
 // Qualified module names
 
 #[test]
@@ -359,15 +355,6 @@ fn enum_from_record_validates_payload() -> Result {
         .map(drop)
 }
 
-#[test]
-fn enum_reserved_field_roundtrip() -> Result {
-    // A record payload may use the `payload` field name — the encoding
-    // nests it, so serialization and `from-record` round-trip cleanly.
-    test()
-        .run(r#"type S = enum<a: record<payload: string>>; let c = S.a {payload: "inner"} | to nuon --raw | from nuon | S.from-record $in; match $c { S.a {payload: $p} => $p }"#)
-        .expect_value_eq("inner")
-}
-
 // Internal commands are hidden
 
 #[test]
@@ -404,7 +391,7 @@ fn module_export_type() -> Result {
             "
                 export type Shape = enum<circle: record<radius: float>, point>
                 export def area [s: Shape] {
-                    match $s { {kind: 'circle', radius: $r} => { $r * $r }, {kind: 'point'} => 0.0 }
+                    match $s { Shape.circle {radius: $r} => { $r * $r }, Shape.point => 0.0 }
                 }
             ",
         )]);
@@ -431,4 +418,221 @@ fn module_import_named_type() -> Result {
             .run("use shapes.nu Shape; Shape.point | describe")
             .expect_value_eq("Shape")
     })
+}
+
+// Generic type declarations (`type Name<T> = ...`)
+
+#[test]
+fn generic_enum_declares_and_constructs() -> Result {
+    test()
+        .run("type Option<T> = enum<some: T, none>; Option.some 5 | describe")
+        .expect_value_eq("Option")
+}
+
+#[test]
+fn generic_explicit_instantiation_checks_payload() -> Result {
+    test()
+        .run("type Option<T> = enum<some: T, none>; Option<int>.some 5 | describe")
+        .expect_value_eq("Option")
+}
+
+#[test]
+fn generic_explicit_instantiation_rejects_wrong_payload() -> Result {
+    test()
+        .run(r#"type Option<T> = enum<some: T, none>; Option<int>.some "x""#)
+        .expect_parse_error()
+        .map(drop)
+}
+
+#[test]
+fn generic_bare_constructor_infers_from_payload() -> Result {
+    test()
+        .run(
+            "type Option<T> = enum<some: T, none>; def f [x: Option<int>] { $x }; f (Option.some 5) | describe",
+        )
+        .expect_value_eq("Option")
+}
+
+#[test]
+fn generic_inferred_instantiation_is_checked_in_signature() -> Result {
+    test()
+        .run(
+            r#"type Option<T> = enum<some: T, none>; def f [x: Option<int>] { $x }; f (Option.some "x")"#,
+        )
+        .expect_parse_error()
+        .map(drop)
+}
+
+#[test]
+fn generic_wrong_arity_is_error() -> Result {
+    test()
+        .run("type Option<T> = enum<some: T, none>; Option<int, string>.none")
+        .expect_parse_error()
+        .map(drop)
+}
+
+#[test]
+fn generic_unit_variant_keeps_instantiation() -> Result {
+    test()
+        .run("type Option<T> = enum<some: T, none>; def f [x: Option<int>] { $x }; f Option<int>.none | describe")
+        .expect_value_eq("Option")
+}
+
+#[test]
+fn generic_match_is_exhaustive_on_instantiated_type() -> Result {
+    test()
+        .run(
+            "type Option<T> = enum<some: T, none>; def f [x: Option<int>]: nothing -> int { match $x { Option.some $v => $v, Option.none => 0 } }; f (Option.some 7)",
+        )
+        .expect_value_eq(7)
+}
+
+#[test]
+fn generic_match_missing_variant_is_error() -> Result {
+    test()
+        .run(
+            "type Option<T> = enum<some: T, none>; def f [x: Option<int>] { match $x { Option.some $v => $v } }",
+        )
+        .expect_parse_error()
+        .map(drop)
+}
+
+#[test]
+fn generic_multi_param_declaration() -> Result {
+    test()
+        .run(
+            "type Pair<A, B> = enum<pair: record<first: A, second: B>>; def f [x: Pair<int, string>] { $x }; f (Pair<int, string>.pair {first: 1, second: \"a\"}) | describe",
+        )
+        .expect_value_eq("Pair")
+}
+
+#[test]
+fn generic_alias_instantiation() -> Result {
+    test()
+        .run(
+            "type Option<T> = enum<some: T, none>; type Maybe<T> = Option<T>; def f [x: Maybe<int>] { $x }; f (Option.some 3) | describe",
+        )
+        .expect_value_eq("Option")
+}
+
+#[test]
+fn generic_type_param_does_not_leak() -> Result {
+    test()
+        .run("type Option<T> = enum<some: T, none>; def f [x: T] { $x }")
+        .expect_parse_error()
+        .map(drop)
+}
+
+#[test]
+fn generic_nested_instantiation() -> Result {
+    test()
+        .run(
+            "type Option<T> = enum<some: T, none>; def f [x: Option<Option<int>>] { $x }; f (Option.some (Option.some 5)) | describe",
+        )
+        .expect_value_eq("Option")
+}
+
+#[test]
+fn generic_instantiated_from_record() -> Result {
+    test()
+        .run(
+            "type Option<T> = enum<some: T, none>; def f [x: Option<int>] { $x }; f ({kind: \"some\", payload: 4} | Option<int>.from-record $in) | describe",
+        )
+        .expect_value_eq("Option")
+}
+
+#[test]
+fn generic_let_annotation_mismatch_is_error() -> Result {
+    test()
+        .run(r#"type Option<T> = enum<some: T, none>; let x: Option<int> = Option.some "no""#)
+        .expect_parse_error()
+        .map(drop)
+}
+
+#[test]
+fn generic_any_payload_stays_permissive() -> Result {
+    test()
+        .run(
+            "type Option<T> = enum<some: T, none>; let x: any = 5; def f [o: Option<string>] { $o }; f (Option.some $x) | describe",
+        )
+        .expect_value_eq("Option")
+}
+
+#[test]
+fn generic_other_instantiation_accepts_own_payload() -> Result {
+    test()
+        .run(r#"type Option<T> = enum<some: T, none>; Option<string>.some "x" | describe"#)
+        .expect_value_eq("Option")
+}
+
+#[test]
+fn generic_partial_inference_preserves_known_args() -> Result {
+    // `Result.err "x"` infers `Result<any, string>` — the unknown T
+    // stays unspecified without erasing the known E.
+    test()
+        .run(
+            r#"type Result<T, E> = enum<ok: T, err: E>; def f [r: Result<int, string>] { $r }; f (Result.err "x") | describe"#,
+        )
+        .expect_value_eq("Result")
+}
+
+#[test]
+fn generic_partial_inference_checks_known_args() -> Result {
+    // `Result.err 42` infers `Result<any, int>` — E=int is a concrete
+    // mismatch against `Result<int, string>` even though T is unknown.
+    test()
+        .run(
+            r#"type Result<T, E> = enum<ok: T, err: E>; def f [r: Result<int, string>] { $r }; f (Result.err 42)"#,
+        )
+        .expect_parse_error()
+        .map(drop)
+}
+
+#[test]
+fn generic_other_variant_payload_checked_against_own_param() -> Result {
+    test()
+        .run(
+            r#"type Result<T, E> = enum<ok: T, err: E>; def f [r: Result<int, string>] { $r }; f (Result.ok "x")"#,
+        )
+        .expect_parse_error()
+        .map(drop)
+}
+
+#[test]
+fn generic_any_arg_is_a_wildcard() -> Result {
+    // An explicit `any` argument accepts any payload in that position.
+    test()
+        .run(
+            r#"type Result<T, E> = enum<ok: T, err: E>; def f [r: Result<int, any>] { $r }; f (Result.err {code: 3}) | describe"#,
+        )
+        .expect_value_eq("Result")
+}
+
+#[test]
+fn generic_record_payload_instantiation() -> Result {
+    test()
+        .run(
+            r#"type Result<T, E> = enum<ok: T, err: E>; def f [r: Result<int, record<msg: string>>] { $r }; f (Result.err {msg: "x"}) | describe"#,
+        )
+        .expect_value_eq("Result")
+}
+
+#[test]
+fn generic_nested_arg_mismatch_is_error() -> Result {
+    // Instantiated arguments compare recursively.
+    test()
+        .run(
+            r#"type Option<T> = enum<some: T, none>; def f [x: Option<Option<int>>] { $x }; f (Option.some (Option.some "x"))"#,
+        )
+        .expect_parse_error()
+        .map(drop)
+}
+
+#[test]
+fn generic_two_param_match_is_exhaustive() -> Result {
+    test()
+        .run(
+            r#"type Result<T, E> = enum<ok: T, err: E>; def f [r: Result<int, string>]: nothing -> int { match $r { Result.ok $v => $v, Result.err _ => 0 } }; f (Result.ok 7)"#,
+        )
+        .expect_value_eq(7)
 }
