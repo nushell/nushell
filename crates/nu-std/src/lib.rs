@@ -56,6 +56,7 @@ pub fn load_standard_library(
         ("mod.nu", "std/iter", include_str!("../std/iter/mod.nu")),
         ("mod.nu", "std/log", include_str!("../std/log/mod.nu")),
         ("mod.nu", "std/math", include_str!("../std/math/mod.nu")),
+        ("mod.nu", "std/option", include_str!("../std/option/mod.nu")),
         ("mod.nu", "std/util", include_str!("../std/util/mod.nu")),
         ("mod.nu", "std/xml", include_str!("../std/xml/mod.nu")),
         ("mod.nu", "std/config", include_str!("../std/config/mod.nu")),
@@ -66,6 +67,7 @@ pub fn load_standard_library(
         ),
         ("mod.nu", "std/clip", include_str!("../std/clip/mod.nu")),
         ("mod.nu", "std/random", include_str!("../std/random/mod.nu")),
+        ("mod.nu", "std/result", include_str!("../std/result/mod.nu")),
     ];
 
     for (filename, std_subdir_name, content) in std_submodules.drain(..) {

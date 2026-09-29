@@ -4,21 +4,6 @@ This document describes the `type` declaration and `enum<...>` types —
 what they are, how values are represented, and the reasoning behind the
 choices that aren't obvious from reading the parser.
 
-> **Reviewer's roadmap.** This branch lands the feature in stages:
->
-> | Commit | Contents |
-> |---|---|
-> | design notes | this document — read it first |
-> | named types | `TypeDef` storage, the `type` keyword, module plumbing |
-> | enum types | `enum<...>` declarations, `enum-construct`, the base record |
-> | match + patterns | exhaustiveness, expression ctors, qualified variant patterns |
-> | `from-record` | serialization round-trip |
-> | generics | `type Name<T>` parameters and `Option<int>` instantiation |
-> | keyword-named commands | `result try` and friends can share keyword names |
-> | std Option/Result | the prelude types and helper modules |
->
-> *(This table is a review aid and is removed in the last commit.)*
-
 ## Surface syntax
 
 ```nu
