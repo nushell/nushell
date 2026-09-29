@@ -41,6 +41,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Choose steps from here to run, this job will not run
   catalog:
     if: false
     runs-on: *runner_linux
@@ -139,7 +140,6 @@ jobs:
       - &step_assert_clean_repo
         name: Assert Clean Repo
         run: git diff --quiet && git diff --cached --quiet
-
 
   linux_root:
     name: linux/root
