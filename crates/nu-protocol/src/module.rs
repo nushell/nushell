@@ -5,6 +5,8 @@ use crate::{
 
 use crate::parser_path::ParserPath;
 use indexmap::IndexMap;
+use serde::{Deserialize, Serialize};
+use std::path::Path;
 
 pub struct ResolvedImportPattern {
     pub decls: Vec<(Vec<u8>, DeclId)>,
@@ -12,7 +14,9 @@ pub struct ResolvedImportPattern {
     pub constants: Vec<(Vec<u8>, VarId)>,
     /// TODO: for referencing module name as a record, e.g. `$module_name.const_name`
     /// values got multiple duplicates in memory.
-    pub constant_values: Vec<(Vec<u8>, Value)>,
+    ///
+    /// Each record comes from [`Module::constants_record`] of the given module.
+    pub constant_values: Vec<(Vec<u8>, ModuleId, Value)>,
 }
 
 impl ResolvedImportPattern {
@@ -20,7 +24,7 @@ impl ResolvedImportPattern {
         decls: Vec<(Vec<u8>, DeclId)>,
         modules: Vec<(Vec<u8>, ModuleId)>,
         constants: Vec<(Vec<u8>, VarId)>,
-        constant_values: Vec<(Vec<u8>, Value)>,
+        constant_values: Vec<(Vec<u8>, ModuleId, Value)>,
     ) -> Self {
         ResolvedImportPattern {
             decls,
@@ -32,7 +36,7 @@ impl ResolvedImportPattern {
 }
 
 /// Collection of definitions that can be exported from a module
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Module {
     pub name: Vec<u8>,
     pub decls: IndexMap<Vec<u8>, DeclId>,
@@ -46,6 +50,15 @@ pub struct Module {
 }
 
 impl Module {
+    /// The file on disk the module was parsed from; `None` for std library modules and modules
+    /// defined inline.
+    pub fn real_file(&self) -> Option<&Path> {
+        match &self.file {
+            Some((ParserPath::RealPath(path), _)) => Some(path),
+            _ => None,
+        }
+    }
+
     pub fn new(name: Vec<u8>) -> Self {
         Module {
             name,
@@ -128,35 +141,14 @@ impl Module {
         } else {
             // Import pattern was just name without any members
             let mut decls = vec![];
-            let mut const_rows = vec![];
-            let mut errors = vec![];
-
             decls.extend(self.decls_with_head(&final_name));
 
-            for (name, var_id) in self.consts() {
-                match working_set.get_constant(var_id) {
-                    Ok(const_val) => const_rows.push((name, const_val.clone())),
-                    Err(err) => errors.push(err),
-                }
-            }
-
-            let span = self.span.unwrap_or(backup_span);
-
             // only needs to bring `$module` with a record value if it defines any constants.
-            let constant_values = if const_rows.is_empty() {
-                vec![]
-            } else {
-                vec![(
-                    normalize_module_name(&final_name),
-                    Value::record(
-                        const_rows
-                            .into_iter()
-                            .map(|(name, val)| (String::from_utf8_lossy(&name).to_string(), val))
-                            .collect(),
-                        span,
-                    ),
-                )]
-            };
+            let (record, errors) = self.constants_record(working_set, backup_span);
+            let constant_values = record
+                .map(|record| (normalize_module_name(&final_name), self_id, record))
+                .into_iter()
+                .collect();
 
             return (
                 ResolvedImportPattern::new(
@@ -366,6 +358,26 @@ impl Module {
         }
 
         result
+    }
+
+    /// The record `use module` binds to `$module`: the module's constants by name, or `None` if
+    /// it defines none.
+    pub fn constants_record(
+        &self,
+        working_set: &StateWorkingSet,
+        backup_span: Span,
+    ) -> (Option<Value>, Vec<ParseError>) {
+        let mut rows = vec![];
+        let mut errors = vec![];
+        for (name, var_id) in self.consts() {
+            match working_set.get_constant(var_id) {
+                Ok(value) => rows.push((String::from_utf8_lossy(&name).to_string(), value.clone())),
+                Err(err) => errors.push(err),
+            }
+        }
+        let record = (!rows.is_empty())
+            .then(|| Value::record(rows.into_iter().collect(), self.span.unwrap_or(backup_span)));
+        (record, errors)
     }
 
     pub fn consts(&self) -> Vec<(Vec<u8>, VarId)> {

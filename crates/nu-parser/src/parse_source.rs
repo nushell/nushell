@@ -8,6 +8,7 @@ use crate::{
         ArgumentParsingLevel, CallKind, ParsedInternalCall, compile_block, parse,
         parse_internal_call,
     },
+    pickle,
 };
 
 use log::trace;
@@ -145,6 +146,10 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
 
                 if let Some(path) = find_in_dirs(&filename, working_set, &cwd, Some(LIB_DIRS_VAR)) {
                     if let Some(contents) = path.read(working_set) {
+                        if pickle::is_pickle(&contents) {
+                            working_set.error(pickle::sourced_pickle_error(spans[1]));
+                            return garbage_pipeline(working_set, spans);
+                        }
                         if let Err(e) = working_set.files.push(path.clone().path_buf(), spans[1]) {
                             working_set.error(e);
                             return garbage_pipeline(working_set, spans);

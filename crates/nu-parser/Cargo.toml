@@ -27,8 +27,12 @@ bytesize = { workspace = true }
 chrono = { default-features = false, features = ['std'], workspace = true }
 itertools = { workspace = true }
 log = { workspace = true }
+lz4_flex = { workspace = true, features = ["std", "safe-encode", "safe-decode", "checked-decode"] }
 memchr = { workspace = true }
+pathdiff = { workspace = true }
+postcard = { workspace = true, features = ["use-std"] }
 semver = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 
 [dev-dependencies]

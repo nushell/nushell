@@ -2,13 +2,14 @@ use crate::{
     BlockId, Category, CompileError, Config, DeclId, FileId, GetSpan, Module, ModuleId, OverlayId,
     ParseError, ParseWarning, ResolvedImportPattern, ResolvedSpan, Signature, Span, SpanId, Type,
     Value, VarId, VirtualPathId,
-    ast::Block,
+    ast::{Block, Expression},
     engine::{
         CachedFile, Command, CommandType, EngineState, OverlayFrame, ScopeBindings, StateDelta,
         Variable, VirtualPath, Visibility, VisibilityStack, description::build_desc,
     },
 };
 use core::panic;
+use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, HashSet},
     path::{Path, PathBuf},
@@ -17,6 +18,16 @@ use std::{
 
 #[cfg(feature = "plugin")]
 use crate::{PluginIdentity, PluginRegistryItem, RegisteredPlugin};
+
+/// How the parser computed a value it stored, see [`StateWorkingSet::parse_time_values`].
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ParseTimeValue {
+    /// The expression of a parameter's default, or of a `const` value with the type the `const`
+    /// declares, if any.
+    Expression(Expression, Option<Type>),
+    /// The constants of a module, as a record (see [`Module::constants_record`]).
+    ModuleConstants(ModuleId),
+}
 
 /// A temporary extension to the global state. This handles bridging between the global state and the
 /// additional declarations and scope changes that are not yet part of the global scope.
@@ -34,9 +45,25 @@ pub struct StateWorkingSet<'a> {
     /// The REPL highlighter sets this so typing `use std` does not parse-time-load
     /// the standard library on every keystroke.
     pub skip_module_load: bool,
+    /// Parse a program that has to stand on its own, like the one `pickle` saves:
+    ///
+    /// - [`add_file`](Self::add_file) adds every file again instead of handing out an identical
+    ///   file of the engine state, so the blocks and modules parsed from it are created in the
+    ///   working set too, instead of being reused.
+    /// - The parser records how it computed the values it stored, in
+    ///   [`parse_time_values`](Self::parse_time_values).
+    pub standalone: bool,
     pub parse_errors: Vec<ParseError>,
     pub parse_warnings: Vec<ParseWarning>,
     pub compile_errors: Vec<CompileError>,
+    /// How the parser computed the values it stored while parsing a
+    /// [`standalone`](Self::standalone) program, by the variable they belong to, in the order they
+    /// were computed: `const` values, parameter defaults and `$module` records of `use`.
+    ///
+    /// A pickled program computes them again when it's loaded, so values such as
+    /// `$nu.home-path` or `path self` come from the machine it runs on (see
+    /// `nu_parser::pickle`).
+    pub parse_time_values: Vec<(VarId, ParseTimeValue)>,
     /// Signatures of *permanent* declarations, built lazily the first time the parser needs
     /// them and shared for the rest of this working set's life. `Command::signature()` rebuilds
     /// a `Signature` (several heap allocations) on every call, and the parser asks for it at
@@ -73,9 +100,11 @@ impl<'a> StateWorkingSet<'a> {
             files,
             search_predecls: true,
             skip_module_load: false,
+            standalone: false,
             parse_errors: vec![],
             parse_warnings: vec![],
             compile_errors: vec![],
+            parse_time_values: vec![],
             permanent_signatures: Mutex::new(HashMap::new()),
             permanent_decl_signatures: Mutex::new(HashMap::new()),
         }
@@ -359,8 +388,13 @@ impl<'a> StateWorkingSet<'a> {
 
     #[must_use]
     pub fn add_file(&mut self, filename: &str, contents: &[u8]) -> FileId {
-        // First, look for the file to see if we already have it
-        for (idx, cached_file) in self.files().enumerate() {
+        // First, look for the file to see if we already have it (a standalone parse only looks
+        // among its own files, see `standalone`)
+        let first_reusable = match self.standalone {
+            true => self.permanent_state.num_files(),
+            false => 0,
+        };
+        for (idx, cached_file) in self.files().enumerate().skip(first_reusable) {
             if &*cached_file.name == filename && &*cached_file.content == contents {
                 return FileId::new(idx);
             }
@@ -707,6 +741,14 @@ impl<'a> StateWorkingSet<'a> {
             panic!("Internal error: attempted to set into permanent state from working set")
         } else {
             self.delta.vars[var_id.get() - num_permanent_vars].const_val = Some(val);
+        }
+    }
+
+    /// Record how the parser computed the value it stored for `var_id`, if this is a
+    /// [`standalone`](Self::standalone) parse (see [`parse_time_values`](Self::parse_time_values)).
+    pub fn add_parse_time_value(&mut self, var_id: VarId, value: impl FnOnce() -> ParseTimeValue) {
+        if self.standalone {
+            self.parse_time_values.push((var_id, value()));
         }
     }
 
@@ -1060,10 +1102,11 @@ impl<'a> StateWorkingSet<'a> {
             constants.push((name, const_vid));
         }
 
-        for (name, const_val) in definitions.constant_values {
+        for (name, module_id, const_val) in definitions.constant_values {
             let const_var_id =
                 self.add_variable(name.clone(), Span::unknown(), const_val.get_type(), false);
             self.set_variable_const_val(const_var_id, const_val);
+            self.add_parse_time_value(const_var_id, || ParseTimeValue::ModuleConstants(module_id));
             constants.push((name, const_var_id));
         }
         self.use_variables(constants);
