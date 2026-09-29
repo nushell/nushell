@@ -804,3 +804,59 @@ fn use_nested_submodules() -> Result {
             .expect_value_eq(true)
     })
 }
+
+#[test]
+fn keyword_named_command_namespaced() -> Result {
+    // A module may declare a command named after an aliasable parser
+    // keyword. It is reachable namespaced but can never shadow the
+    // keyword in head position.
+    let module = r#"module spam { export def try [n: int] { $n * 2 } }"#;
+
+    test()
+        .run(format!("{module}; use spam; spam try 21"))
+        .expect_value_eq(42)
+}
+
+#[test]
+fn keyword_named_command_does_not_shadow_keyword() -> Result {
+    // `try` in head position keeps parsing as the language keyword even
+    // with a `try` command in scope — named, glob-imported, or top-level.
+    let module = r#"module spam { export def try [x] { "module-try" } }"#;
+    let keyword = r#"try { error make {msg: "kw"} } catch { "caught" }"#;
+
+    test()
+        .run(format!("{module}; use spam try; {keyword}"))
+        .expect_value_eq("caught")?;
+    test()
+        .run(format!("{module}; use spam *; {keyword}"))
+        .expect_value_eq("caught")?;
+    test()
+        .run(format!(r#"def try [] {{ "top-level" }}; {keyword}"#))
+        .expect_value_eq("caught")
+}
+
+#[test]
+fn keyword_named_command_sibling_uses_keyword() -> Result {
+    // Sibling commands inside a module that exports `try` still get the
+    // keyword meaning for their own `try`/`catch` blocks.
+    test()
+        .run(
+            r#"module spam {
+                export def try [] { "module-try" }
+                export def caught [] { try { error make {msg: "x"} } catch { "sibling" } }
+            }
+            use spam caught
+            caught"#,
+        )
+        .expect_value_eq("sibling")
+}
+
+#[test]
+fn unaliasable_keyword_still_banned_as_command_name() -> Result {
+    test()
+        .run(r#"module spam { export def for [] { 1 } }"#)
+        .expect_error_code_eq("nu::parser::name_is_keyword")?;
+    test()
+        .run(r#"def let [] { 1 }"#)
+        .expect_error_code_eq("nu::parser::name_is_keyword")
+}
