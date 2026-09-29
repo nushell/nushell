@@ -56,8 +56,8 @@ def add-months-clamp [year: int, month: int, day: int, n: int] {
     let ny = $year + (floor-div ($total - 1) 12)
     let nm = (($total - 1) mod 12) + 1
     let dim = (days-in-month $nm $ny)
-    let nd = if $day > $dim { $dim } else { $day }
-    { year: $ny, month: $nm, day: $nd }
+    let new_day = if $day > $dim { $dim } else { $day }
+    { year: $ny, month: $nm, day: $new_day }
 }
 
 def borrow-month [from: record, current: record] {
