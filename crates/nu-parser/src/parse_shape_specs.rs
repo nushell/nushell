@@ -5,7 +5,7 @@ use std::borrow::Cow;
 use crate::{TokenContents, lex::lex_signature, parser::parse_value};
 use nu_protocol::{
     CollectionColumns, Completion, IntoSpanned, ParseError, ShellError, Span, Spanned, SyntaxShape,
-    Type, Value, engine::StateWorkingSet, eval_const::eval_constant,
+    Type, TypeDefKind, Value, engine::StateWorkingSet, eval_const::eval_constant,
 };
 use nu_utils::NuCow;
 
@@ -59,6 +59,20 @@ pub fn parse_shape_name(
             parse_generic_shape(working_set, bytes, span)
         }
         _ => {
+            // Resolve user-declared named types (`type` declarations).
+            if let Some(type_def) = working_set.find_type_name(bytes) {
+                return match &type_def.kind {
+                    TypeDefKind::Alias(shape) => {
+                        let name = String::from_utf8_lossy(bytes);
+                        SyntaxShape::Named(name.into(), Box::new(shape.clone()))
+                    }
+                    TypeDefKind::Enum(_) => {
+                        let name = String::from_utf8_lossy(&type_def.name);
+                        SyntaxShape::Custom(name.into())
+                    }
+                };
+            }
+
             if bytes.contains(&b'@') {
                 working_set.error(ParseError::LabeledError(
                     "Unexpected custom completer in type spec".into(),

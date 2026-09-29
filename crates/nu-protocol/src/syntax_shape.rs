@@ -121,6 +121,14 @@ pub enum SyntaxShape {
 
     /// A variable with optional type, `x` or `x: int`
     VarWithOptType,
+
+    /// A nominal user-declared `enum` type (`enum Shape { ... }`).
+    /// Enforces `Type::Custom` with the declared name.
+    Custom(Box<str>),
+
+    /// A user-declared named type alias (`struct Point { ... }`).
+    /// Displays as the declared name but enforces the underlying shape's type.
+    Named(Box<str>, Box<SyntaxShape>),
 }
 
 impl SyntaxShape {
@@ -173,6 +181,8 @@ impl SyntaxShape {
             SyntaxShape::String => Type::String,
             SyntaxShape::Table(columns) => Type::Table(columns.map(SyntaxShape::to_type)),
             SyntaxShape::VarWithOptType => Type::Any,
+            SyntaxShape::Custom(name) => Type::Custom(name.clone()),
+            SyntaxShape::Named(_, inner) => inner.to_type(),
         }
     }
 
@@ -247,6 +257,7 @@ impl Display for SyntaxShape {
                 f.write_str(">")
             }
             SyntaxShape::Nothing => write!(f, "nothing"),
+            SyntaxShape::Custom(name) | SyntaxShape::Named(name, _) => write!(f, "{name}"),
         }
     }
 }

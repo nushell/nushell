@@ -235,12 +235,14 @@ fn value_to_string(
             }
         }
         Value::CellPath { val, .. } => Ok(val.to_string()),
-        Value::Custom { .. } => Err(ShellError::UnsupportedInput {
-            msg: "custom values are currently not nuon-compatible".to_string(),
-            input: "value originates from here".into(),
-            msg_span: span,
-            input_span: v.span(),
-        }),
+        Value::Custom { val, .. } => value_to_string(
+            engine_state,
+            &val.to_base_value(v.span())?,
+            span,
+            depth,
+            indent,
+            options,
+        ),
         Value::Date { val, .. } => Ok(val.to_rfc3339()),
         // FIXME: make durations use the shortest lossless representation.
         Value::Duration { val, .. } => Ok(format!("{}ns", *val)),

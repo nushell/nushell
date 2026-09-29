@@ -1,5 +1,6 @@
 mod custom_value;
 mod duration;
+mod enum_value;
 mod filesize;
 mod from_value;
 mod glob;
@@ -14,6 +15,7 @@ pub mod record;
 use bstr::BStr;
 pub use custom_value::CustomValue;
 pub use duration::*;
+pub use enum_value::EnumValue;
 pub use filesize::*;
 pub use from_value::FromValue;
 pub use glob::*;
