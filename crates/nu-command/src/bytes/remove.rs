@@ -109,6 +109,16 @@ impl Command for BytesRemove {
                 ])),
             },
             Example {
+                description: "Remove find binary from end not found (multi-byte pattern).",
+                example: "0x[10 11 12 13] | bytes remove --end 0x[AA BB]",
+                result: Some(Value::test_binary(vec![0x10, 0x11, 0x12, 0x13])),
+            },
+            Example {
+                description: "Remove find binary from end when the pattern is longer than the input.",
+                example: "0x[10 11] | bytes remove --end 0x[AA BB CC]",
+                result: Some(Value::test_binary(vec![0x10, 0x11])),
+            },
+            Example {
                 description: "Remove all occurrences of find binary in table.",
                 example: "[[ColA ColB ColC]; [0x[11 12 13] 0x[14 15 16] 0x[17 18 19]]] | bytes remove 0x[11] ColA ColC",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
@@ -158,13 +168,16 @@ fn remove_impl(input: &[u8], arg: &Arguments, span: Span) -> Value {
             left -= 1;
             right -= 1;
         }
+        if left < 0 {
+            // Pattern not found: return the input unchanged. (The scan
+            // skipped over the leading bytes without saving them, so the
+            // `result` collected above is incomplete.)
+            return Value::binary(input.to_vec(), span);
+        }
         // append the remaining thing to result, this can be happening when
         // we have something to remove and remove_all is False.
-        // check if the left is positive, if it is not, we don't need to append anything.
-        if left > 0 {
-            let mut remain = input[..left as usize].iter().copied().rev().collect();
-            result.append(&mut remain);
-        }
+        let mut remain = input[..left as usize].iter().copied().rev().collect();
+        result.append(&mut remain);
         result = result.into_iter().rev().collect();
         Value::binary(result, span)
     } else {
