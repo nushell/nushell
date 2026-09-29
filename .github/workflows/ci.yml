@@ -33,7 +33,7 @@ jobs:
           github.event.pull_request.stack.size
       )
     env:
-      target: ${{ matrix.platform.target }}
+      build-target: ${{ matrix.platform.target }}
       working-directory: ${{ github.workspace }}
       cargo-options: --workspace --all-targets
       profile: ci
@@ -57,7 +57,7 @@ jobs:
 
       - &step_setup_rust_toolchain
         name: Setup Rust Toolchain
-        run: rustup target add ${{ env.target }}
+        run: rustup target add ${{ env.build-target }}
         working-directory: ${{ env.working-directory }}
 
       - &step_cache_rust
@@ -174,7 +174,7 @@ jobs:
     runs-on: *runner_linux
     if: *job_if
     env:
-      target: wasm32-unknown-unknown
+      build-target: wasm32-unknown-unknown
       working-directory: ${{ github.workspace }}
       profile: ci
       cargo-options: >-
@@ -212,7 +212,7 @@ jobs:
     runs-on: ${{ matrix.platform.runner }}
     if: *job_if
     env:
-      target: ${{ matrix.platform.target }}
+      build-target: ${{ matrix.platform.target }}
       working-directory: ${{ github.workspace }}/crates/${{ matrix.crate }}/fuzz
       profile: dev
       cargo-options: --all-targets
