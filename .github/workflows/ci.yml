@@ -22,7 +22,7 @@ concurrency:
 
 jobs:
   root:
-    name: ${{ matrix.platform.name }}/root
+    name: ${{ matrix.platform.name }} / root
     runs-on: ${{ matrix.platform.runner }}
     # Do not run CI on draft PRs or on the lower layers of stacked PRs
     if: &job_if >-
@@ -40,16 +40,17 @@ jobs:
     strategy:
       matrix:
         platform: &platforms
-          - name: linux
+          - name: Linux
             runner: &runner_linux incredibuild-ubuntu-2204
             target: &target_linux x86_64-unknown-linux-gnu
-          - name: windows
+          - name: Windows
             runner: &runner_windows incredibuild-windows-2022
             target: &target_windows x86_64-pc-windows-msvc
-          - name: macos
+          - name: MacOS
             runner: &runner_macos macos-latest
             target: &target_macos x86_64-apple-darwin
     steps:
+
       - &step_checkout_repo
         name: Checkout Repo
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -169,7 +170,7 @@ jobs:
         run: test -z "$(git status --porcelain)"
 
   root_wasm:
-    name: wasm/root
+    name: WASM / root
     runs-on: *runner_linux
     if: *job_if
     env:
@@ -207,7 +208,7 @@ jobs:
       - *step_assert_clean_repo
 
   fuzz:
-    name: ${{ matrix.platform.name }}/${{ matrix.crate }}/fuzz
+    name: ${{ matrix.platform.name }} / ${{ matrix.crate }} / fuzz
     runs-on: ${{ matrix.platform.runner }}
     if: *job_if
     env:
