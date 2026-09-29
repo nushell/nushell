@@ -4083,24 +4083,29 @@ fn assignment_operator_completions(mut custom_completer: NuCompleter) {
     // == != > < >= <= in not-in
     // has not-has starts-with not-starts-with ends-with not-ends-with
     // =~ !~ like not-like ++
-    // = ++=
-    assert_eq!(21, suggestions.len());
+    // = ++= |=
+    assert_eq!(22, suggestions.len());
+    assert!(
+        suggestions
+            .iter()
+            .any(|suggestion| suggestion.value == "|=")
+    );
     let suggestions = custom_completer.complete_blocking("mut foo = ''; $foo ++", 21);
     let expected: Vec<_> = vec!["++", "++="];
     match_suggestions(&expected, &suggestions);
 
     // == != > < >= <= in not-in
-    // =
+    // = |=
     let suggestions = custom_completer.complete_blocking("mut foo = date now; $foo ", 25);
-    assert_eq!(9, suggestions.len());
+    assert_eq!(10, suggestions.len());
     let suggestions = custom_completer.complete_blocking("mut foo = date now; $foo =", 26);
     let expected: Vec<_> = vec!["=", "=="];
     match_suggestions(&expected, &suggestions);
 
     let suggestions = custom_completer.complete_blocking("mut foo = date now; $foo ", 25);
     // == != > < >= <= in not-in
-    // =
-    assert_eq!(9, suggestions.len());
+    // = |=
+    assert_eq!(10, suggestions.len());
     let suggestions = custom_completer.complete_blocking("mut foo = date now; $foo =", 26);
     let expected: Vec<_> = vec!["=", "=="];
     match_suggestions(&expected, &suggestions);
@@ -4108,14 +4113,14 @@ fn assignment_operator_completions(mut custom_completer: NuCompleter) {
     let suggestions = custom_completer.complete_blocking("mut foo = 1ms; $foo ", 20);
     // == != > < >= <= in not-in
     // + - * / // mod
-    // = += -= *= /=
-    assert_eq!(19, suggestions.len());
+    // = += -= *= /= |=
+    assert_eq!(20, suggestions.len());
     let suggestions = custom_completer.complete_blocking("mut foo = 1ms; $foo +", 21);
     let expected: Vec<_> = vec!["+", "+="];
     match_suggestions(&expected, &suggestions);
 
     // default operators for all mutables
-    let expected: Vec<_> = vec!["!=", "=", "==", "in", "not-in"];
+    let expected: Vec<_> = vec!["!=", "=", "==", "in", "not-in", "|="];
     let suggestions = custom_completer.complete_blocking("mut foo = null; $foo ", 21);
     match_suggestions(&expected, &suggestions);
 
@@ -4123,8 +4128,8 @@ fn assignment_operator_completions(mut custom_completer: NuCompleter) {
     let suggestions = custom_completer.complete_blocking("$env.config.keybindings ", 24);
     // == != in not-in
     // has not-has ++=
-    // = ++=
-    assert_eq!(9, suggestions.len());
+    // = ++= |=
+    assert_eq!(10, suggestions.len());
     let expected: Vec<_> = vec!["++", "++="];
     let suggestions = custom_completer.complete_blocking("$env.config.keybindings +", 25);
     match_suggestions(&expected, &suggestions);
@@ -4149,8 +4154,8 @@ fn cellpath_assignment_operator_completions() {
     // == != > < >= <= in not-in
     // has not-has starts-with not-starts-with ends-with not-ends-with
     // =~ !~ like not-like ++
-    // = ++=
-    assert_eq!(21, suggestions.len());
+    // = ++= |=
+    assert_eq!(22, suggestions.len());
     let completion_str = "$foo.foo.1 ++";
     let suggestions = completer.complete_blocking(completion_str, completion_str.len());
     let expected: Vec<_> = vec!["++", "++="];
@@ -4164,8 +4169,8 @@ fn cellpath_assignment_operator_completions() {
     let completion_str = "$foo.foo.1 ";
     let suggestions = completer.complete_blocking(completion_str, completion_str.len());
     // == != > < >= <= in not-in
-    // =
-    assert_eq!(9, suggestions.len());
+    // = |=
+    assert_eq!(10, suggestions.len());
     let completion_str = "$foo.foo.1 =";
     let suggestions = completer.complete_blocking(completion_str, completion_str.len());
     let expected: Vec<_> = vec!["=", "=="];
