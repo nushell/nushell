@@ -3,6 +3,7 @@ use crate::{
     parse_helpers::{
         PERCENT_FORCED_BUILTIN_PARSER_INFO, extract_spread_list, extract_spread_record, garbage,
     },
+    parse_keywords::{ALIASABLE_PARSER_KEYWORDS, find_keyword_decl},
     parse_source::find_dirs_var,
     type_check::type_compatible,
 };
@@ -1733,7 +1734,29 @@ pub fn parse_call(
     let (cmd_start, pos, _name, maybe_decl_id) = if call_sigil == Some(b'%') {
         find_longest_decl_with_command_type(working_set, resolution_spans, CommandType::Builtin)
     } else {
-        find_longest_decl(working_set, resolution_spans)
+        let found = find_longest_decl(working_set, resolution_spans);
+        // A parser keyword in head position always resolves to the keyword's
+        // own declaration. Module-scope commands may share a keyword's name
+        // (reachable namespaced, e.g. `result try`), but they cannot shadow
+        // the keyword itself — `try { } catch { }` keeps working wherever a
+        // `try` command happens to be in scope. Multi-word resolutions
+        // (`overlay use`, `overlay list`, ...) already consumed the keyword
+        // prefix intentionally, so only bare-head shadowing is corrected.
+        match resolution_spans
+            .first()
+            .map(|span| working_set.get_span_contents(*span))
+            .filter(|name| ALIASABLE_PARSER_KEYWORDS.contains(name))
+            .filter(|_| found.1 == 1)
+            .and_then(|name| find_keyword_decl(working_set, name))
+        {
+            Some(keyword_decl) => (
+                found.0,
+                1,
+                working_set.get_span_contents(resolution_spans[0]).to_vec(),
+                Some(keyword_decl),
+            ),
+            None => found,
+        }
     };
 
     if let Some(decl_id) = maybe_decl_id {

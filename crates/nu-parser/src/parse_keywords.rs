@@ -103,13 +103,25 @@ pub fn single_word_parser_keywords() -> impl Iterator<Item = &'static str> {
 ///
 /// `kind` is embedded in the error (e.g. `"command"` or `"alias"`). Callers should
 /// abort the definition when this returns `true`.
+///
+/// Command names may reuse aliasable keywords (`if`, `match`, `try`,
+/// `overlay`): a keyword in head position always resolves to the keyword's
+/// own declaration (see [`parse_call`]), so such a command is only reachable
+/// namespaced — e.g. `result try` from a module. Aliases keep the full ban
+/// because an alias expands at head position and would genuinely shadow the
+/// keyword.
 pub fn reject_parser_keyword_name(
     working_set: &mut StateWorkingSet,
     name: &str,
     kind: &str,
     span: Span,
 ) -> bool {
-    if is_parser_keyword(name.as_bytes()) {
+    let banned = if kind == "command" {
+        UNALIASABLE_PARSER_KEYWORDS.contains(&name.as_bytes())
+    } else {
+        is_parser_keyword(name.as_bytes())
+    };
+    if banned {
         working_set.error(ParseError::NameIsKeyword(
             name.to_owned(),
             kind.to_owned(),
