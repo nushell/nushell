@@ -15,6 +15,20 @@ fn with_env_shorthand() -> Result {
 }
 
 #[test]
+#[deps(TESTBIN_ECHO_ENV)]
+fn shorthand_string_config_reaches_external() -> Result {
+    test()
+        .run("CONFIG=Release echo_env CONFIG")
+        .expect_value_eq("Release")
+}
+
+#[test]
+fn shorthand_last_config_value_wins() -> Result {
+    let code = "let cfg = { show_banner: false }; CONFIG=$cfg config=Release do { $env.config }";
+    test().run(code).expect_value_eq("Release")
+}
+
+#[test]
 #[deps(TESTBIN_COCOCO)]
 fn shorthand_doesnt_reorder_arguments() -> Result {
     test()
