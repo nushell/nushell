@@ -69,14 +69,23 @@ impl Command for LoadEnv {
                     envvar_name: env_var.to_owned(),
                     span: call.head,
                 });
-            } else if env_var_eq(env_var, var::CONFIG) {
-                return Err(ShellError::ConfigEnvVarSetManually { span: call.head });
             }
         }
 
+        let mut loaded_config = false;
+
         for (env_var, rhs) in record {
+            if env_var_eq(&env_var, var::CONFIG) {
+                loaded_config = true;
+            }
+
             stack.add_env_var(env_var, rhs);
         }
+
+        if loaded_config {
+            stack.update_config(engine_state)?
+        }
+
         Ok(PipelineData::empty())
     }
 
