@@ -30,7 +30,7 @@ impl Command for TuiRun {
          \n\
          The result is `{action, focused, selected, page, values, rows, live}`. `action` is `submit` or `quit`; `selected` is the focused widget's selection (a table row, checked rows with --multi, a text box's text, ...); `values` holds every widget's state by id, e.g. `values.table-0.index`.\n\
          \n\
-         A closure runs as a hook with the state record as `$in`: its output replaces the data list, `{action: submit, selected: ...}` ends the TUI, `null` does nothing. `--refresh 1sec { ls }` re-runs it on that interval; without `--refresh` it runs once at start.\n\
+         A closure runs as a hook with the state record as `$in`: its output replaces the data list (a piped stream then stops adding to it), `{action: submit, selected: ...}` ends the TUI, `null` does nothing. `--refresh 1sec { ls }` re-runs it on that interval; without `--refresh` it runs once at start.\n\
          `--dialog` opens a floating popup on the alternate screen; `--size [70 20]` sets its size.\n\
          \n\
          To render without a terminal, or to replay keys in a test, use `tui debug`."
@@ -99,7 +99,7 @@ impl Command for TuiRun {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let (app, data) = TuiApp::split_input(input)?;
+        let app = TuiApp::from_input(input);
         let dialog = call.has_flag(engine_state, stack, "dialog")?;
         let size = size_flag(engine_state, stack, call)?;
         let refresh = call
@@ -118,7 +118,6 @@ impl Command for TuiRun {
         };
         run(
             app,
-            data,
             engine_state,
             stack,
             opts,

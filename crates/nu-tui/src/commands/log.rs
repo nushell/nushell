@@ -15,7 +15,7 @@ impl Command for TuiLog {
     }
 
     fn extra_description(&self) -> &str {
-        "Follows the tail as new items arrive. Mouse wheel and Up/Down scroll; scrolling up pauses follow until you hit the bottom again. `--max-lines` keeps that many newest lines in the view. Streamed rows share a global store capped at max(10000, --max-lines).\n\
+        "Follows the tail as new items arrive. Mouse wheel and Up/Down scroll; scrolling up pauses follow until you hit the bottom again. `--max-lines` keeps that many newest lines in the view. A stream keeps its newest 100,000 rows, or `--max-lines` if that is more.\n\
          \n\
          With `--from` and a closure the log shows the closure's output for the highlighted row of another widget, e.g. `tui log --from table-0 {|row| open $row.name | lines }`."
     }

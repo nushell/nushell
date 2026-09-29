@@ -11,6 +11,7 @@
 
 use crate::keys::KeyPress;
 use crate::session::Session;
+use crate::stream::Feed;
 use crate::widgets::{
     r#box::BoxWidget, button::ButtonWidget, label::LabelWidget, log::LogWidget, menu::MenuWidget,
     preview::PreviewWidget, progress::ProgressWidget, search::SearchWidget, select::SelectWidget,
@@ -40,6 +41,11 @@ pub struct Widget {
     /// builder inside a container's child list). Descendants inherit it.
     #[serde(default)]
     pub data: Option<Value>,
+    /// A stream piped into this widget inside a child list, unread until the
+    /// TUI runs; its rows are appended to `data`. Root widgets of one child
+    /// share it.
+    #[serde(skip)]
+    pub stream: Option<Feed>,
     /// Another widget whose highlighted row drives this one.
     #[serde(default)]
     pub source: Option<Source>,
@@ -60,6 +66,7 @@ impl Widget {
             kind,
             children: Vec::new(),
             data: None,
+            stream: None,
             source: None,
             on_select: None,
             focus: false,
