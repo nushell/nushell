@@ -47,7 +47,9 @@ impl Command for HideEnv {
         let ignore_errors = call.has_flag(engine_state, stack, "ignore-errors")?;
 
         for name in &env_var_names {
-            if is_automatic_env_var(&name.item) {
+            if ignore_errors && !stack.has_env_var(engine_state, &name.item) {
+                continue;
+            } else if is_automatic_env_var(&name.item) {
                 return Err(ShellError::AutomaticEnvVarSetManually {
                     envvar_name: name.item.to_owned(),
                     span: name.span,
