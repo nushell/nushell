@@ -39,6 +39,7 @@ pub mod span;
 mod syntax_shape;
 mod ty;
 mod ty_relation;
+mod type_def;
 mod value;
 
 pub use alias::*;
@@ -69,6 +70,7 @@ pub use span::*;
 pub use syntax_shape::*;
 pub use ty::*;
 pub use ty_relation::*;
+pub use type_def::*;
 pub use value::*;
 
 pub use nu_derive_value::*;

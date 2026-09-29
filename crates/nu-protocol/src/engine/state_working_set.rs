@@ -169,6 +169,49 @@ impl<'a> StateWorkingSet<'a> {
         }
     }
 
+    /// Register a named type declared with the `type` keyword in the current overlay.
+    pub fn add_type(&mut self, name: Vec<u8>, type_def: crate::TypeDef) {
+        self.last_overlay_mut()
+            .insert_type(name, Arc::new(type_def));
+    }
+
+    /// Import named types into the current overlay (used by `use`).
+    pub fn use_types(&mut self, types: Vec<(Vec<u8>, Arc<crate::TypeDef>)>) {
+        let overlay_frame = self.last_overlay_mut();
+
+        for (name, type_def) in types {
+            overlay_frame.insert_type(name, type_def);
+        }
+    }
+
+    /// Find the [`TypeDef`](crate::TypeDef) declared as `name`.
+    ///
+    /// Mirrors [`StateWorkingSet::find_module`]: named types are stored per
+    /// overlay and are not subject to per-item visibility tracking.
+    pub fn find_type_name(&self, name: &[u8]) -> Option<Arc<crate::TypeDef>> {
+        let mut removed_overlays = vec![];
+
+        for scope_frame in self.delta.scope.iter().rev() {
+            for overlay_frame in scope_frame.active_overlays(&mut removed_overlays).rev() {
+                if let Some(type_def) = overlay_frame.types.get(name) {
+                    return Some(type_def.clone());
+                }
+            }
+        }
+
+        for overlay_frame in self
+            .permanent_state
+            .active_overlays(&removed_overlays)
+            .rev()
+        {
+            if let Some(type_def) = overlay_frame.types.get(name) {
+                return Some(type_def.clone());
+            }
+        }
+
+        None
+    }
+
     pub fn use_variables(&mut self, variables: Vec<(Vec<u8>, VarId)>) {
         for (name, var_id) in variables {
             self.insert_variable_into_scope(name, var_id);
@@ -987,7 +1030,7 @@ impl<'a> StateWorkingSet<'a> {
             self.add_overlay(
                 name,
                 origin,
-                ResolvedImportPattern::new(vec![], vec![], vec![], vec![]),
+                ResolvedImportPattern::new(vec![], vec![], vec![], vec![], vec![]),
                 prefixed,
             );
         }
@@ -1053,6 +1096,7 @@ impl<'a> StateWorkingSet<'a> {
 
         self.use_decls(definitions.decls);
         self.use_modules(definitions.modules);
+        self.use_types(definitions.types);
 
         let mut constants = vec![];
 

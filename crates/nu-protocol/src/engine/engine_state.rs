@@ -367,6 +367,9 @@ impl EngineState {
                 for item in delta_overlay.modules.into_iter() {
                     existing_overlay.modules.insert(item.0, item.1);
                 }
+                for item in delta_overlay.types.into_iter() {
+                    existing_overlay.types.insert(item.0, item.1);
+                }
 
                 existing_overlay
                     .visibility
@@ -787,6 +790,23 @@ impl EngineState {
         for overlay_frame in self.active_overlays(removed_overlays).rev() {
             if let Some(module_id) = overlay_frame.modules.get(name) {
                 return Some(*module_id);
+            }
+        }
+
+        None
+    }
+
+    /// Find the [`TypeDef`](crate::TypeDef) declared as `name`.
+    ///
+    /// Searches within active overlays, filtering out overlays in `removed_overlays`.
+    pub fn find_type_name(
+        &self,
+        name: &[u8],
+        removed_overlays: &[Vec<u8>],
+    ) -> Option<Arc<crate::TypeDef>> {
+        for overlay_frame in self.active_overlays(removed_overlays).rev() {
+            if let Some(type_def) = overlay_frame.types.get(name) {
+                return Some(type_def.clone());
             }
         }
 

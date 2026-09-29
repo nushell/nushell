@@ -16,6 +16,7 @@ mod plugins;
 mod repl;
 mod scope;
 mod shell;
+mod types;
 
 #[macro_use]
 extern crate nu_test_support;

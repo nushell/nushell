@@ -17,6 +17,7 @@ use crate::parse_bindings::parse_const;
 use crate::parse_def::{
     has_flag_const, parse_attribute_block, parse_def, parse_def_predecl, parse_extern,
 };
+use crate::parse_type_decl::parse_type_decl;
 
 use nu_protocol::{
     BlockId, Module, ModuleId, ParseError, Span, Type,
@@ -79,6 +80,7 @@ pub fn parse_export_in_block(
         match sub {
             b"alias" => "export alias",
             b"def" => "export def",
+            b"type" => "export type",
             b"extern" => "export extern",
             b"use" => "export use",
             b"module" => "export module",
@@ -96,6 +98,18 @@ pub fn parse_export_in_block(
 
     let mut pipeline = match full_name {
         "export def" => parse_def(working_set, lite_command, None).0,
+        // `type` produces no runtime call, so there is nothing to re-point at an
+        // `export type` declaration; the type is registered in the working set.
+        "export type" => {
+            let lite_command = LiteCommand {
+                comments: lite_command.comments.clone(),
+                parts: lite_command.command_parts()[1..].to_vec(),
+                pipe: lite_command.pipe,
+                redirection: lite_command.redirection.clone(),
+                attribute_idx: lite_command.attribute_idx.clone(),
+            };
+            return parse_type_decl(working_set, &lite_command).0;
+        }
         "export extern" => parse_extern(working_set, lite_command, None),
         _ if lite_command.has_attributes() => parse_attribute_block(working_set, lite_command),
         "export alias" => parse_alias(working_set, lite_command, None),
@@ -342,9 +356,29 @@ pub fn parse_export_in_module(
 
                 (pipeline, result)
             }
+            b"type" => {
+                let lite_command = LiteCommand {
+                    comments: lite_command.comments.clone(),
+                    parts: spans[1..].to_vec(),
+                    pipe: lite_command.pipe,
+                    redirection: lite_command.redirection.clone(),
+                    attribute_idx: lite_command.attribute_idx.clone(),
+                };
+                let (pipeline, type_decl) = parse_type_decl(working_set, &lite_command);
+
+                let mut result = vec![];
+                if let Some((name, type_def)) = type_decl {
+                    result.push(Exportable::Type {
+                        name,
+                        def: type_def,
+                    });
+                }
+
+                (pipeline, result)
+            }
             _ => {
                 working_set.error(ParseError::Expected(
-                    "def, alias, use, module, const or extern keyword",
+                    "def, alias, use, module, const, type or extern keyword",
                     spans[1],
                 ));
 
@@ -609,6 +643,9 @@ pub fn parse_module_block(
                             Exportable::VarDecl { name, id } => {
                                 module.add_variable(name, id);
                             }
+                            Exportable::Type { name, def } => {
+                                module.add_type(name, def);
+                            }
                         }
                     }
 
@@ -620,6 +657,9 @@ pub fn parse_module_block(
                 b"const" => block
                     .pipelines
                     .push(parse_const(working_set, &command.parts).0),
+                b"type" => block
+                    .pipelines
+                    .push(parse_type_decl(working_set, command).0),
                 b"alias" => block
                     .pipelines
                     .push(parse_alias(working_set, command, None)),
@@ -1307,6 +1347,15 @@ pub fn parse_use(
                 }),
         )
         .chain(
+            definitions
+                .types
+                .iter()
+                .map(|(name, type_def)| Exportable::Type {
+                    name: name.clone(),
+                    def: type_def.clone(),
+                }),
+        )
+        .chain(
             constants
                 .iter()
                 .map(|(name, variable_id)| Exportable::VarDecl {
@@ -1323,6 +1372,7 @@ pub fn parse_use(
     }
     working_set.use_decls(definitions.decls);
     working_set.use_modules(definitions.modules);
+    working_set.use_types(definitions.types);
     working_set.use_variables(constants);
 
     let import_pattern_expr = Expression::new(
@@ -1562,7 +1612,7 @@ pub fn parse_overlay_new(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
     working_set.add_overlay(
         overlay_name.as_bytes().to_vec(),
         module_id,
-        nu_protocol::ResolvedImportPattern::new(vec![], vec![], vec![], vec![]),
+        nu_protocol::ResolvedImportPattern::new(vec![], vec![], vec![], vec![], vec![]),
         false,
     );
 
@@ -1764,7 +1814,7 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
         }
     } else {
         (
-            nu_protocol::ResolvedImportPattern::new(vec![], vec![], vec![], vec![]),
+            nu_protocol::ResolvedImportPattern::new(vec![], vec![], vec![], vec![], vec![]),
             vec![],
         )
     };

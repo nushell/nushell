@@ -17,6 +17,7 @@ use crate::{
     },
     parse_patterns::parse_pattern,
     parse_pipelines::{parse_block, parse_pipeline_element, redirecting_builtin_error},
+    parse_type_decl::parse_type_decl,
     parser::{
         compile_block, expand_to_cell_path, parse_binary, parse_brace_expr, parse_call,
         parse_datetime, parse_directory, parse_dollar_expr, parse_duration, parse_filepath,
@@ -853,13 +854,6 @@ pub fn parse_value(
 ) -> Expression {
     trace!("parsing: value: {shape}");
 
-    let bytes = working_set.get_span_contents(span);
-
-    if bytes.is_empty() {
-        working_set.error(ParseError::IncompleteParser(span));
-        return garbage(working_set, span);
-    }
-
     if let SyntaxShape::OneOf(possible_shapes) = shape {
         return parse_oneof(
             working_set,
@@ -869,6 +863,18 @@ pub fn parse_value(
             false,
             input_type,
         );
+    }
+
+    // A declared alias parses as its underlying shape.
+    if let SyntaxShape::Named(_, inner) = shape {
+        return parse_value(working_set, span, inner, input_type);
+    }
+
+    let bytes = working_set.get_span_contents(span);
+
+    if bytes.is_empty() {
+        working_set.error(ParseError::IncompleteParser(span));
+        return garbage(working_set, span);
     }
 
     match bytes[0] {
@@ -1774,6 +1780,7 @@ pub fn parse_builtin_commands(
     match name {
         // `parse_def` and `parse_extern` work both with and without attributes
         b"def" => parse_def(working_set, lite_command, None).0,
+        b"type" => parse_type_decl(working_set, lite_command).0,
         b"extern" => parse_extern(working_set, lite_command, None),
         // `parse_export_in_block` also handles attributes by itself
         b"export" => parse_export_in_block(working_set, lite_command),
