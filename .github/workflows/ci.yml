@@ -12,117 +12,142 @@ permissions:
   contents: read
 
 env:
-  # Regular env variables
   NU_LOG_LEVEL: DEBUG
   NU_TEST_SKIP_DEPS_BUILD: true
   NUSHELL_CARGO_PROFILE: ci
-
-  # Records for dynamic selection
-  OS_NAMES: '{"Windows":"windows","Linux":"linux","macOS":"macos"}'
-  ARCH_NAMES: '{"X86":"x86","X64":"x86_64","ARM":"arm","ARM64":"aarch64"}'
-
-  # Job values
-  LINUX_RUNNER: &runner_linux incredibuild-ubuntu-2204
-  MACOS_RUNNER: &runner_macos macos-latest
-  WINDOWS_RUNNER: &runner_windows incredibuild-windows-2022
-  LINUX_TARGET: &target_linux x86_64-unknown-linux-gnu
-  MACOS_TARGET: &target_macos x86_64-apple-darwin
-  WINDOWS_TARGET: &target_windows x86_64-pc-windows-msvc
-  JOB_IF: &job_if >- # Do not run CI on draft PRs or on the lower layers of stacked PRs
-    !github.event.pull_request.draft &&
-    (
-      github.event.pull_request.stack == null ||
-      github.event.pull_request.stack.position ==
-        github.event.pull_request.stack.size
-    )
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref && github.ref || github.run_id }}
   cancel-in-progress: true
 
 jobs:
-  # Choose steps from here to run, this job will not run
-  catalog:
-    if: false
-    runs-on: *runner_linux
+  root:
+    name: ${{ matrix.platform.name }}/root
+    runs-on: ${{ matrix.platform.runner }}
+    # Do not run CI on draft PRs or on the lower layers of stacked PRs
+    if: &job_if >-
+      !github.event.pull_request.draft &&
+      (
+        github.event.pull_request.stack == null ||
+        github.event.pull_request.stack.position ==
+          github.event.pull_request.stack.size
+      )
+    env:
+      target: ${{ matrix.platform.target }}
+      working-directory: ${{ github.workspace }}
+      cargo-options: --workspace --all-targets
+      profile: ci
+    strategy:
+      matrix:
+        platform: &platforms
+          - name: linux
+            runner: &runner_linux incredibuild-ubuntu-2204
+            target: &target_linux x86_64-unknown-linux-gnu
+          - name: windows
+            runner: &runner_windows incredibuild-windows-2022
+            target: &target_windows x86_64-pc-windows-msvc
+          - name: macos
+            runner: &runner_macos macos-latest
+            target: &target_macos x86_64-apple-darwin
     steps:
       - &step_checkout_repo
         name: Checkout Repo
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
       - &step_setup_rust_toolchain
         name: Setup Rust Toolchain
         run: rustup target add ${{ env.target }}
-        working-directory: ${{ env.working-directory || github.workspace }}
+        working-directory: ${{ env.working-directory }}
+
       - &step_cache_rust
         name: Cache Rust
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
-          workspaces: ${{ env.working-directory || github.workspace }} -> target
+          workspaces: ${{ env.working-directory }} -> target
           cache-all-crates: true
           cache-workspace-crates: true
+
       - &step_fmt
         name: Fmt
-        working-directory: ${{ env.working-directory || github.workspace }}
+        working-directory: ${{ env.working-directory }}
         run: |
           rustup component add rustfmt
           cargo fmt --all --check
+
       - &step_check
         name: Check
-        working-directory: ${{ env.working-directory || github.workspace }}
+        working-directory: ${{ env.working-directory }}
         run: >-
           cargo --config "${{ github.workspace }}/.cargo/ci.toml" 
-          check ${{ env.cargo-options || '--workspace --all-targets' }} 
-          --profile ${{ env.profile || 'ci' }}
+          check ${{ env.cargo-options }} 
+          --profile ${{ env.profile }}
+
       - &step_clippy
         name: Clippy
-        working-directory: ${{ env.working-directory || github.workspace }}
+        working-directory: ${{ env.working-directory }}
         run: >-
           rustup component add clippy
 
           cargo --config "${{ github.workspace }}/.cargo/ci.toml" 
-          clippy ${{ env.cargo-options || '--workspace --all-targets' }} 
-          --profile ${{ env.profile || 'ci' }} 
+          clippy ${{ env.cargo-options }} 
+          --profile ${{ env.profile }} 
           -- -D warnings
+
       - &step_build
         name: Build
-        working-directory: ${{ env.working-directory || github.workspace }}
+        working-directory: ${{ env.working-directory }}
         run: >-
           cargo --config "${{ github.workspace }}/.cargo/ci.toml" 
-          build ${{ env.cargo-options || '--workspace --all-targets' }} 
-          --profile ${{ env.profile || 'ci' }}
+          build ${{ env.cargo-options }} 
+          --profile ${{ env.profile }}
+
       - &step_test
         name: Test
-        working-directory: ${{ env.working-directory || github.workspace }}
+        working-directory: ${{ env.working-directory }}
         run: >-
           cargo --config "${{ github.workspace }}/.cargo/ci.toml"
-          test ${{ env.cargo-options || '--workspace --all-targets' }}
-          --profile ${{ env.profile || 'ci' }}
+          test ${{ env.cargo-options }}
+          --profile ${{ env.profile }}
+
       - &step_doctest
         name: Doctest
-        working-directory: ${{ env.working-directory || github.workspace }}
+        working-directory: ${{ env.working-directory }}
         run: >-
           cargo --config "${{ github.workspace }}/.cargo/ci.toml" 
           test --workspace --doc 
-          --profile ${{ env.profile || 'ci' }}
+          --profile ${{ env.profile }}
+
+      - &step_add_nushell_to_path
+        name: Add Nushell to PATH
+        shell: bash
+        env:
+          NU_HOME: ${{ env.working-directory }}/target/${{ env.profile }}
+        run: printf '%s\n' "${NU_HOME}" >> "$GITHUB_PATH"
+
       - &step_test_std
         name: Test Std
-        run: >-
-          cargo run -- -n -c 
-          'use crates/nu-std/testing.nu; testing run-tests --path crates/nu-std'
+        run: nu -n -c 'use crates/nu-std/testing.nu; testing run-tests --path crates/nu-std'
+
       - &step_setup_python
         name: Setup Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.10"
+
       - &step_install_virtualenv
         name: Install virtualenv
         run: pip install virtualenv
+
       - &step_test_virtualenv
         name: Test virtualenv
-        run: cargo run -- scripts/test_virtualenv.nu
+        run: nu scripts/test_virtualenv.nu
+
       - &step_upload_artifacts
         name: Upload Artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        env:
+          OS_NAMES: '{"Windows":"windows","Linux":"linux","macOS":"macos"}'
+          ARCH_NAMES: '{"X86":"x86","X64":"x86_64","ARM":"arm","ARM64":"aarch64"}'
         with:
           name: &artifact_name >-
             ${{ format('nu-{0}-{1}-{2}',
@@ -130,62 +155,27 @@ jobs:
               fromJSON(env.OS_NAMES)[runner.os],
               fromJSON(env.ARCH_NAMES)[runner.arch]) }}
           path: |
-            ${{ format('{0}/{1}/nu',
+            ${{ format('{0}/target/{1}/nu',
               env.working-directory || github.workspace,
               env.profile || 'ci') }}
-            ${{ format('{0}/{1}/nu.exe',
+            ${{ format('{0}/target/{1}/nu.exe',
               env.working-directory || github.workspace,
               env.profile || 'ci') }}
           retention-days: 14
+
       - &step_assert_clean_repo
         name: Assert Clean Repo
-        run: git diff --quiet && git diff --cached --quiet
+        shell: bash
+        run: test -z "$(git status --porcelain)"
 
-  linux_root:
-    name: linux/root
-    runs-on: *runner_linux
-    if: *job_if
-    env:
-      target: *target_linux
-    steps: &steps_root
-      - *step_checkout_repo
-      - *step_setup_rust_toolchain
-      - *step_cache_rust
-      - *step_fmt
-      - *step_check
-      - *step_clippy
-      - *step_build
-      - *step_test
-      - *step_doctest
-      - *step_test_std
-      - *step_setup_python
-      - *step_install_virtualenv
-      - *step_test_virtualenv
-      - *step_upload_artifacts
-      - *step_assert_clean_repo
-
-  windows_root:
-    name: windows/root
-    runs-on: *runner_windows
-    if: *job_if
-    env:
-      target: *target_windows
-    steps: *steps_root
-
-  macos_root:
-    name: macos/root
-    runs-on: *runner_macos
-    if: *job_if
-    env:
-      target: *target_macos
-    steps: *steps_root
-
-  wasm_root:
+  root_wasm:
     name: wasm/root
     runs-on: *runner_linux
     if: *job_if
     env:
       target: wasm32-unknown-unknown
+      working-directory: ${{ github.workspace }}
+      profile: ci
       cargo-options: >-
         --no-default-features
         --target wasm32-unknown-unknown
@@ -216,14 +206,22 @@ jobs:
       - *step_build
       - *step_assert_clean_repo
 
-  linux_nu-parser_fuzz:
-    name: linux/nu-parser/fuzz
-    runs-on: *runner_linux
+  fuzz:
+    name: ${{ matrix.platform.name }}/${{ matrix.crate }}/fuzz
+    runs-on: ${{ matrix.platform.runner }}
     if: *job_if
     env:
-      target: *target_linux
-      working-directory: &wd_nu-parser_fuzz ${{ github.workspace }}/crates/nu-parser/fuzz
-    steps: &steps_fuzz
+      target: ${{ matrix.platform.target }}
+      working-directory: ${{ github.workspace }}/crates/${{ matrix.crate }}/fuzz
+      profile: dev
+      cargo-options: --all-targets
+    strategy:
+      matrix:
+        platform: *platforms
+        crate:
+          - nu-parser
+          - nu-path
+    steps:
       - *step_checkout_repo
       - *step_setup_rust_toolchain
       - *step_cache_rust
@@ -231,48 +229,3 @@ jobs:
       - *step_check
       - *step_clippy
       - *step_assert_clean_repo
-
-  windows_nu-parser_fuzz:
-    name: windows/nu-parser/fuzz
-    runs-on: *runner_windows
-    if: *job_if
-    env:
-      target: *target_windows
-      working-directory: *wd_nu-parser_fuzz
-    steps: *steps_fuzz
-
-  macos_nu-parser_fuzz:
-    name: macos/nu-parser/fuzz
-    runs-on: *runner_macos
-    if: *job_if
-    env:
-      target: *target_macos
-      working-directory: *wd_nu-parser_fuzz
-    steps: *steps_fuzz
-
-  linux_nu-path_fuzz:
-    name: linux/nu-path/fuzz
-    runs-on: *runner_linux
-    if: *job_if
-    env:
-      target: *target_linux
-      working-directory: &wd_nu-path_fuzz ${{ github.workspace }}/crates/nu-path/fuzz
-    steps: *steps_fuzz
-
-  windows_nu-path_fuzz:
-    name: windows/nu-path/fuzz
-    runs-on: *runner_windows
-    if: *job_if
-    env:
-      target: *target_windows
-      working-directory: *wd_nu-path_fuzz
-    steps: *steps_fuzz
-
-  macos_nu-path_fuzz:
-    name: macos/nu-path/fuzz
-    runs-on: *runner_macos
-    if: *job_if
-    env:
-      target: *target_macos
-      working-directory: *wd_nu-path_fuzz
-    steps: *steps_fuzz
