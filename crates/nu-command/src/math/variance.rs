@@ -1,6 +1,6 @@
 use crate::math::utils::{
-    NumericUnit, expand_range_input, run_with_function,
-    run_with_function_and_cell_paths, to_unit_f64, variance_denominator,
+    NumericUnit, expand_range_input, run_with_function, run_with_function_and_cell_paths,
+    to_unit_f64, variance_denominator,
 };
 use nu_engine::command_prelude::*;
 
