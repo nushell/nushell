@@ -1328,16 +1328,12 @@ impl Session {
         else {
             return;
         };
-        let area = handle.split_area;
-        let (len, total) = match handle.direction {
-            SplitDir::Horizontal => (mouse.column.saturating_sub(area.x), area.width),
-            SplitDir::Vertical => (mouse.row.saturating_sub(area.y), area.height),
+        let at = match handle.direction {
+            SplitDir::Horizontal => mouse.column,
+            SplitDir::Vertical => mouse.row,
         };
-        // The handle's own edge is relative to the start of the child it
-        // sizes, which for later children is not the split's origin.
-        let start = handle.child_start;
         if let Some(split) = self.states.get_mut(id).and_then(WidgetState::as_split_mut) {
-            SplitWidget::place_handle(split, index, len.saturating_sub(start), total);
+            SplitWidget::place_handle(split, handle.direction, index, handle.split_area, at);
         }
     }
 
@@ -2235,6 +2231,163 @@ mod tests {
         assert!((18..=22).contains(&left.width), "got {left:?}");
     }
 
+    /// A session holding one split, `split-0`, of two tables.
+    fn two_panes(direction: SplitDir) -> Session {
+        Session::new(app(
+            vec![split(
+                "split-0",
+                direction,
+                vec![table("table-0", &["name"]), table("table-1", &["name"])],
+            )],
+            rows(&["x"]),
+        ))
+    }
+
+    /// First-child lengths after each of `presses` presses of `code` on a
+    /// focused two-pane split drawn in `area`.
+    fn nudge_lengths(direction: SplitDir, area: Rect, code: KeyCode, presses: usize) -> Vec<u16> {
+        let mut session = two_panes(direction);
+        session.layout(area);
+        session.focused = Some("split-0".into());
+        let len = |session: &Session| {
+            let child = session.areas["table-0"];
+            match direction {
+                SplitDir::Horizontal => child.width,
+                SplitDir::Vertical => child.height,
+            }
+        };
+        let mut lengths = vec![len(&session)];
+        for _ in 0..presses {
+            press(&mut session, code, KeyModifiers::NONE);
+            session.layout(area);
+            lengths.push(len(&session));
+        }
+        lengths
+    }
+
+    #[test]
+    fn arrow_keys_move_a_split_handle_one_cell_each_way() {
+        // 81 columns and 40 rows are not multiples of 100: a one-percent
+        // step used to round back to the same cell and stick.
+        let wide = Rect::new(0, 0, 81, 24);
+        let tall = Rect::new(0, 0, 80, 40);
+        let cases = [
+            (SplitDir::Horizontal, wide, KeyCode::Right, 40, 1),
+            (SplitDir::Horizontal, wide, KeyCode::Left, 40, -1),
+            (SplitDir::Vertical, tall, KeyCode::Down, 20, 1),
+            (SplitDir::Vertical, tall, KeyCode::Up, 20, -1),
+        ];
+        for (direction, area, code, start, step) in cases {
+            let lengths = nudge_lengths(direction, area, code, 5);
+            let expected: Vec<u16> = (0..=5).map(|n| (start + step * n) as u16).collect();
+            assert_eq!(lengths, expected, "{direction:?} {code:?}");
+        }
+    }
+
+    #[test]
+    fn arrow_keys_move_a_wide_split_handle_every_press() {
+        // Past 100 cells a percent is more than a cell, so a press may skip
+        // one, but it must always move.
+        let area = Rect::new(0, 0, 250, 24);
+        for code in [KeyCode::Right, KeyCode::Left] {
+            let lengths = nudge_lengths(SplitDir::Horizontal, area, code, 5);
+            for pair in lengths.windows(2) {
+                assert!(pair[0].abs_diff(pair[1]) >= 1, "{code:?}: {lengths:?}");
+                assert!(pair[0].abs_diff(pair[1]) <= 3, "{code:?}: {lengths:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn splitter_drag_lands_on_the_mouse_column() {
+        let area = Rect::new(0, 0, 81, 24);
+        let mut session = two_panes(SplitDir::Horizontal);
+        session.layout(area);
+        let handle = session.handles.first().cloned().expect("handle");
+        click(&mut session, handle.area.x, handle.area.y);
+        for column in [30, 42, 57] {
+            drag(&mut session, column, handle.area.y);
+            session.layout(area);
+            assert_eq!(session.areas["table-0"].width, column);
+        }
+    }
+
+    #[test]
+    fn dragging_a_later_split_handle_lands_on_the_mouse_column() {
+        // Fills before the dragged child shrink as it grows, and a percent
+        // before it can end partway into a cell; both used to leave the
+        // handle short of the pointer.
+        let cases = [
+            (vec![Size::Fill(1), Size::Fill(1), Size::Fill(1)], 60),
+            (vec![Size::Percent(33), Size::Fill(1), Size::Fill(1)], 34),
+        ];
+        for (sizes, column) in cases {
+            let tables = (0..3)
+                .map(|i| table(&format!("table-{i}"), &["name"]))
+                .collect();
+            let mut w = split("split-0", SplitDir::Horizontal, tables);
+            if let WidgetKind::Split(split) = &mut w.kind {
+                split.sizes = sizes.clone();
+            }
+            let mut session = Session::new(app(vec![w], rows(&["x"])));
+            session.layout(frame());
+            let handle = session.handles[1].clone();
+            click(&mut session, handle.area.x, handle.area.y);
+            drag(&mut session, column, handle.area.y);
+            session.layout(frame());
+            assert_eq!(session.handles[1].area.x, column, "{sizes:?}");
+        }
+    }
+
+    #[test]
+    fn a_centred_split_handle_is_fifty_percent() {
+        // 49%, 50% and 51% of 40 rows all end on row 20.
+        let area = Rect::new(0, 0, 80, 40);
+        let mut session = two_panes(SplitDir::Vertical);
+        session.layout(area);
+        let handle = session.handles.first().cloned().expect("handle");
+        click(&mut session, handle.area.x, handle.area.y);
+        drag(&mut session, handle.area.x, 20);
+        let first = session
+            .state("split-0")
+            .and_then(WidgetState::as_split)
+            .and_then(|split| split.sizes.first().copied());
+        assert_eq!(first, Some(Size::Percent(50)));
+    }
+
+    #[test]
+    fn arrow_keys_step_from_the_sizes_not_the_last_frame() {
+        // Keys that arrive together are all handled before the next frame.
+        let area = Rect::new(0, 0, 81, 24);
+        let mut session = two_panes(SplitDir::Horizontal);
+        session.layout(area);
+        session.focused = Some("split-0".into());
+        for _ in 0..3 {
+            press(&mut session, KeyCode::Right, KeyModifiers::NONE);
+        }
+        session.layout(area);
+        assert_eq!(session.areas["table-0"].width, 43);
+    }
+
+    #[test]
+    fn arrow_keys_never_empty_a_pane() {
+        // On short splits 95% plus the one-cell handle used to leave the
+        // far pane no rows at all.
+        for height in [8, 12, 15, 24] {
+            let area = Rect::new(0, 0, 80, height);
+            for (code, far) in [(KeyCode::Down, "table-1"), (KeyCode::Up, "table-0")] {
+                let mut session = two_panes(SplitDir::Vertical);
+                session.layout(area);
+                session.focused = Some("split-0".into());
+                for _ in 0..40 {
+                    press(&mut session, code, KeyModifiers::NONE);
+                    session.layout(area);
+                }
+                assert_eq!(session.areas[far].height, 1, "{height} rows, {code:?}");
+            }
+        }
+    }
+
     #[test]
     fn split_sizes_honour_fixed_lengths() {
         let mut w = Widget::new(
@@ -2347,6 +2500,14 @@ mod tests {
         assert_eq!(session.areas["button-1"].y, 1, "stacked, no handle gap");
         assert!(session.handles.is_empty(), "fixed splits are not resizable");
         assert_eq!(session.areas["table-0"].y, 2);
+        // Not from the keyboard either.
+        session.focused = Some("split-0".into());
+        for code in [KeyCode::Down, KeyCode::Up] {
+            press(&mut session, code, KeyModifiers::NONE);
+            session.layout(frame());
+            assert_eq!(session.areas["button-0"].height, 1, "{code:?}");
+            assert_eq!(session.areas["button-1"].height, 1, "{code:?}");
+        }
     }
 
     #[test]
