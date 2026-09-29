@@ -20,7 +20,6 @@ mod parse_pipelines;
 mod parse_shape_specs;
 mod parse_signatures;
 mod parse_source;
-mod parse_type_decl;
 mod parser;
 mod type_check;
 
