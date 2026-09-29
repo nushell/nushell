@@ -1,4 +1,5 @@
 use crate::env::is_automatic_env_var;
+use crate::env::var;
 #[allow(deprecated)]
 use crate::get_full_help;
 use crate::named_flags::{
@@ -13,11 +14,12 @@ use nu_protocol::{
         PathMember,
     },
     debugger::{DebugContext, WithDebug, WithoutDebug},
-    engine::{Argument as EngineArgument, Closure, EngineState, EnvName, EnvVars, Stack},
+    engine::{
+        Argument as EngineArgument, Closure, EngineState, EnvName, EnvVars, Stack, env_var_eq,
+    },
     eval_base::Eval,
     shell_error::generic::GenericError,
 };
-use nu_utils::IgnoreCaseExt;
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -893,7 +895,7 @@ impl Eval for EvalRuntime {
                                         .iter()
                                         .rev()
                                         .map(|(k, _)| k)
-                                        .find(|x| x.eq_ignore_case(&key))
+                                        .find(|x| env_var_eq(x, &key))
                                         .cloned()
                                         .unwrap_or(key)
                                 } else {
@@ -916,7 +918,7 @@ impl Eval for EvalRuntime {
                                     });
                                 }
 
-                                let is_config = original_key == "config";
+                                let is_config = env_var_eq(&original_key, var::CONFIG);
 
                                 stack.add_env_var(original_key, value.into_owned());
 

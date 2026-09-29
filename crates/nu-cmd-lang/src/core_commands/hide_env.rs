@@ -1,7 +1,8 @@
 use nu_engine::command_prelude::*;
 use nu_engine::env::is_automatic_env_var;
-use nu_engine::is_config_env_var;
+use nu_engine::env::var;
 use nu_protocol::did_you_mean;
+use nu_protocol::engine::env_var_eq;
 
 #[derive(Clone)]
 pub struct HideEnv;
@@ -51,7 +52,7 @@ impl Command for HideEnv {
                     envvar_name: name.item.to_owned(),
                     span: name.span,
                 });
-            } else if is_config_env_var(&name.item) {
+            } else if env_var_eq(&name.item, var::CONFIG) {
                 return Err(ShellError::ConfigEnvVarSetManually { span: name.span });
             }
         }
@@ -63,7 +64,10 @@ impl Command for HideEnv {
                 // Do not produce a suggestion for exact-name misses (for example when an outer
                 // scope still has the same variable name). Those cases should remain a plain
                 // not-found error for this scope.
-                let closest_match = if all_names.contains(&name.item) {
+                let closest_match = if all_names
+                    .iter()
+                    .any(|env_var| env_var_eq(env_var, &name.item))
+                {
                     None
                 } else {
                     did_you_mean(&all_names, &name.item)

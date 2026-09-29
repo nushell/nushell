@@ -3,21 +3,25 @@ use nu_path::absolute_with;
 use nu_protocol::{
     ShellError, Span, Type, Value, VarId,
     ast::Expr,
-    engine::{Call, EngineState, EnvName, Stack},
+    engine::{Call, EngineState, EnvName, Stack, env_var_eq},
     shell_error::generic::GenericError,
 };
-use nu_utils::IgnoreCaseExt;
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
     sync::Arc,
 };
 
-pub const ENV_CONVERSIONS: &str = "ENV_CONVERSIONS";
-pub const DIR_VAR_PARSER_INFO: &str = "dirs_var";
-// Parser info key used when `<cmd> --help` is rewritten to `help <name>` so `help`
-// can render documentation for the already-resolved declaration.
-pub const HELP_DECL_ID_PARSER_INFO: &str = "help_decl_id";
+pub mod var {
+    pub const ENV_CONVERSIONS: &str = "ENV_CONVERSIONS";
+    pub const CONFIG: &str = "config";
+    pub const PATH: &str = "path";
+    pub const AUTOMATIC_VARS: &[&str] = &["PWD", "FILE_PWD", "CURRENT_FILE"];
+    pub const DIR_VAR_PARSER_INFO: &str = "dirs_var";
+    // Parser info key used when `<cmd> --help` is rewritten to `help <name>` so `help`
+    // can render documentation for the already-resolved declaration.
+    pub const HELP_DECL_ID_PARSER_INFO: &str = "help_decl_id";
+}
 
 /// Returns whether a string, when used as the name of an environment variable,
 /// is considered an automatic environment variable.
@@ -25,14 +29,7 @@ pub const HELP_DECL_ID_PARSER_INFO: &str = "help_decl_id";
 /// An automatic environment variable cannot be assigned to by user code.
 /// Current there are three of them: $env.PWD, $env.FILE_PWD, $env.CURRENT_FILE
 pub fn is_automatic_env_var(var: &str) -> bool {
-    let names = ["PWD", "FILE_PWD", "CURRENT_FILE"];
-    names.iter().any(|name| name.eq_ignore_case(var))
-}
-
-/// Returns whether a string, when used as the name of an environment variable,
-/// is the name of the config record.
-pub fn is_config_env_var(var: &str) -> bool {
-    var.eq_ignore_case("config")
+    var::AUTOMATIC_VARS.iter().any(|name| env_var_eq(name, var))
 }
 
 enum ConversionError {
@@ -156,7 +153,7 @@ pub fn env_to_string(
         Err(ConversionError::CellPathError) => match value.coerce_string() {
             Ok(s) => Ok(s),
             Err(_) => {
-                if env_name.to_lowercase() == "path" {
+                if env_var_eq(env_name, var::PATH) {
                     // Try to convert PATH/Path list to a string
                     match value {
                         Value::List { vals, .. } => {
@@ -215,7 +212,7 @@ pub fn path_str(
     stack: &Stack,
     span: Span,
 ) -> Result<String, ShellError> {
-    let pathval = match stack.get_env_var(engine_state, "path") {
+    let pathval = match stack.get_env_var(engine_state, var::PATH) {
         Some(v) => Ok(v),
         None => Err(ShellError::EnvVarNotFoundAtRuntime {
             envvar_name: if cfg!(windows) {
@@ -234,7 +231,7 @@ pub fn path_str(
 }
 
 pub fn get_dirs_var_from_call(stack: &Stack, call: &Call) -> Option<VarId> {
-    call.get_parser_info(stack, DIR_VAR_PARSER_INFO)
+    call.get_parser_info(stack, var::DIR_VAR_PARSER_INFO)
         .and_then(|x| {
             if let Expr::Var(id) = x.expr {
                 Some(id)
@@ -320,7 +317,7 @@ fn get_converted_value(
     direction: &str,
 ) -> Result<Value, ConversionError> {
     let conversion = stack
-        .get_env_var(engine_state, ENV_CONVERSIONS)
+        .get_env_var(engine_state, var::ENV_CONVERSIONS)
         .ok_or(ConversionError::CellPathError)?
         .as_record()?
         .get(name)
