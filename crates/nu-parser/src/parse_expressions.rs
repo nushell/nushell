@@ -1141,6 +1141,16 @@ pub fn parse_assignment_expression(
             pipeline.elements.get(idx)
         })
         .map(|element| &element.expr.expr)
+        .map(|expr| {
+            // when parsing `|=` which uses `$in`,
+            // we collect-wrap the first command. something like:
+            // `$foo |= bar $in | baz` => `$foo = $foo | Collect(bar $in) | baz`
+            // so here we "uncollect" and check `bar`.
+            match expr {
+                Expr::Collect(_, first_command) => &first_command.expr,
+                expr => expr,
+            }
+        })
     {
         let contents = working_set.get_span_contents(Span {
             start: head.span.start - 1,
