@@ -159,10 +159,11 @@ impl TuiWidget for SelectWidget {
         let theme = &session.theme;
         let list = state.as_list().cloned().unwrap_or_default();
         let rows = self.rows(id, session);
+        let name = super::custom_title(session, id, "select");
         let title = if self.multi {
-            format!("select ({}, {} checked)", rows.len(), list.checked.len())
+            format!("{name} ({}, {} checked)", rows.len(), list.checked.len())
         } else {
-            format!("select ({})", rows.len())
+            format!("{name} ({})", rows.len())
         };
         let block = super::framed(&title, focused, session, id);
         let inner = block.inner(area);

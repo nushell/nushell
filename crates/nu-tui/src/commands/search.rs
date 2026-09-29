@@ -1,5 +1,6 @@
 use super::{
-    WidgetKind, border_flag, builder_io_types, common_flags, flag_strings, push_widget, with_app,
+    WidgetKind, border_flag, builder_io_types, common_flags, flag_strings, push_widget, title_flag,
+    with_app,
 };
 use crate::widgets::search::SearchWidget;
 use nu_engine::command_prelude::*;
@@ -26,12 +27,12 @@ impl Command for TuiSearch {
 
     fn signature(&self) -> Signature {
         common_flags(
-            border_flag(Signature::build("tui search"))
+            border_flag(title_flag(Signature::build("tui search")))
                 .category(Category::Viewers)
                 .named(
                     "placeholder",
                     SyntaxShape::String,
-                    "Placeholder text.",
+                    "Placeholder text (default: the --title, else 'search').",
                     None,
                 )
                 .named(
@@ -76,9 +77,13 @@ impl Command for TuiSearch {
     ) -> Result<PipelineData, ShellError> {
         with_app(call, input, |app| {
             let widget = SearchWidget {
-                placeholder: call
-                    .get_flag(engine_state, stack, "placeholder")?
-                    .unwrap_or_else(|| "search".into()),
+                // The placeholder defaults to the border's name.
+                placeholder: match call.get_flag(engine_state, stack, "placeholder")? {
+                    Some(placeholder) => placeholder,
+                    None => call
+                        .get_flag(engine_state, stack, "title")?
+                        .unwrap_or_else(|| "search".into()),
+                },
                 bind: call.get_flag(engine_state, stack, "bind")?,
                 fuzzy: call.has_flag(engine_state, stack, "fuzzy")?,
                 case_sensitive: call.has_flag(engine_state, stack, "case-sensitive")?,

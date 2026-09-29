@@ -359,6 +359,9 @@ pub fn widget_to_record(
     if widget.focus {
         rec.insert("focus", Value::bool(true, span));
     }
+    if let Some(title) = &widget.title {
+        rec.insert("title", Value::string(title.clone(), span));
+    }
     if let Some(border) = widget.border {
         rec.insert("border", border.into_value(span));
     }

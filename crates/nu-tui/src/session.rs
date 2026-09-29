@@ -247,8 +247,11 @@ impl Session {
 
     // ----- tree queries -------------------------------------------------
 
+    /// The widget with `id`, found by its child-index path. The tree does not
+    /// change after [`Session::new`], so `paths` stays valid, and the lookup
+    /// walks one branch instead of every widget.
     pub fn widget(&self, id: &str) -> Option<&Widget> {
-        self.app.widget(id)
+        self.paths.get(id).and_then(|path| self.app.at_path(path))
     }
 
     pub fn kind(&self, id: &str) -> Option<&WidgetKind> {

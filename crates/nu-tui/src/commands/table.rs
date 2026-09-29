@@ -1,6 +1,6 @@
 use super::{
     WidgetKind, border_flag, builder_io_types, flag_strings, push_widget, selectable_flags,
-    with_app,
+    title_flag, with_app,
 };
 use crate::widgets::table::TableWidget;
 use nu_engine::command_prelude::*;
@@ -27,7 +27,7 @@ impl Command for TuiTable {
 
     fn signature(&self) -> Signature {
         selectable_flags(
-            border_flag(Signature::build("tui table"))
+            border_flag(title_flag(Signature::build("tui table")))
                 .category(Category::Viewers)
                 .optional(
                     "source",
@@ -55,6 +55,11 @@ impl Command for TuiTable {
             Example {
                 description: "Show a small table and pick a row",
                 example: "[{name: foo, size: 1}, {name: bar, size: 2}] | tui table --columns [name size] | tui debug --keys down,enter | get selected.name",
+                result: None,
+            },
+            Example {
+                description: "Rename the border title; the row count stays",
+                example: "ls | tui table --title files | tui debug | get screen",
                 result: None,
             },
             Example {

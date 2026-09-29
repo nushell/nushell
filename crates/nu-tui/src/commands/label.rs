@@ -2,6 +2,7 @@ use super::{WidgetKind, builder_io_types, data_flags, push_widget, with_app};
 use crate::widgets::label::{LabelWidget, Slot};
 use nu_engine::command_prelude::*;
 use nu_protocol::engine::Closure;
+use nu_protocol::{DeprecationEntry, DeprecationType, ReportMode};
 
 #[derive(Clone)]
 pub struct TuiLabel;
@@ -12,11 +13,11 @@ impl Command for TuiLabel {
     }
 
     fn description(&self) -> &str {
-        "Add static text: inline, or as the title bar (--title) or status bar (--status)."
+        "Add static text: inline, or as the title bar (--titlebar) or status bar (--status)."
     }
 
     fn extra_description(&self) -> &str {
-        "Without a flag the text is drawn where it appears in the layout. `--title` puts it on the one-line bar at the top (also used as the dialog title). `--status` puts it on the bottom bar, where live focus/filter/row hints are appended.\n\
+        "Without a flag the text is drawn where it appears in the layout. `--titlebar` puts it on the one-line bar at the top (also used as the dialog title). `--status` puts it on the bottom bar, where live focus/filter/row hints are appended.\n\
          \n\
          A closure instead of text makes the label follow a list: it receives the highlighted row of `--from` (or the nearest table/tree/select) and its output is shown."
     }
@@ -33,7 +34,12 @@ impl Command for TuiLabel {
                     ]),
                     "Label text, or a closure over the source row.",
                 )
-                .switch("title", "Show as the title bar at the top.", None)
+                .switch("titlebar", "Show as the title bar at the top.", None)
+                .switch(
+                    "title",
+                    "Show as the title bar at the top (deprecated, use --titlebar).",
+                    None,
+                )
                 .switch("status", "Show as the status bar at the bottom.", None),
         )
         .input_output_types(builder_io_types())
@@ -43,7 +49,7 @@ impl Command for TuiLabel {
         vec![
             Example {
                 description: "Title and status around a table",
-                example: r#"ls | tui label --title "files" | tui table | tui label --status "enter: pick  q: quit" | tui run"#,
+                example: r#"ls | tui label --titlebar "files" | tui table | tui label --status "enter: pick  q: quit" | tui run"#,
                 result: None,
             },
             Example {
@@ -59,6 +65,19 @@ impl Command for TuiLabel {
         ]
     }
 
+    fn deprecation_info(&self) -> Vec<DeprecationEntry> {
+        vec![DeprecationEntry {
+            ty: DeprecationType::Flag("title".into()),
+            report_mode: ReportMode::FirstUse,
+            since: Some("0.117.0".into()),
+            expected_removal: Some("0.118.0".into()),
+            help: Some(
+                "This switch has been renamed to `--titlebar`. Bordered widgets use `--title <text>` to name their border."
+                    .into(),
+            ),
+        }]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -66,12 +85,15 @@ impl Command for TuiLabel {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let title = call.has_flag(engine_state, stack, "title")?;
+        // `--title` is the 0.116.0 name of `--titlebar`, kept for one
+        // release (see `deprecation_info`).
+        let titlebar = call.has_flag(engine_state, stack, "titlebar")?
+            || call.has_flag(engine_state, stack, "title")?;
         let status = call.has_flag(engine_state, stack, "status")?;
-        let slot = match (title, status) {
+        let slot = match (titlebar, status) {
             (true, true) => {
                 return Err(ShellError::IncompatibleParametersSingle {
-                    msg: "use only one of --title, --status".into(),
+                    msg: "use only one of --titlebar, --status".into(),
                     span: call.head,
                 });
             }

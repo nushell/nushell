@@ -26,6 +26,16 @@ use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Block, Borders};
 use unicode_width::UnicodeWidthChar;
 
+/// The name at the start of a widget's border title: its `--title`, else
+/// `default`. `--title` is never empty (see `push_widget`), so an empty
+/// result means the widget has no `--title` and `default` was empty.
+pub(crate) fn custom_title<'a>(session: &'a Session, id: &str, default: &'a str) -> &'a str {
+    session
+        .widget(id)
+        .and_then(|w| w.title.as_deref())
+        .unwrap_or(default)
+}
+
 /// A bordered block with a title, colored for focus. The lines are widget
 /// `id`'s `--border`, or `$env.config.tui.border_type`. The title takes the
 /// border style too, so focus shows even when the lines are blank

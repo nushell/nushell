@@ -76,7 +76,7 @@ impl Command for TuiRun {
         vec![
             Example {
                 description: "Pick a file",
-                example: r#"ls | tui label --title "files" | tui table | tui run | get selected.name"#,
+                example: r#"ls | tui label --titlebar "files" | tui table | tui run | get selected.name"#,
                 result: None,
             },
             Example {
