@@ -20,80 +20,113 @@ impl Matcher for Pattern {
             Pattern::IgnoreValue => true,
             Pattern::IgnoreRest => false, // `..` and `..$foo` only match in specific contexts
             Pattern::Rest(_) => false,    // so we return false here and handle them elsewhere
-            Pattern::Record(field_patterns) => match value {
-                Value::Record { val, .. } => {
-                    'top: for field_pattern in field_patterns {
-                        for (col, val) in &**val {
-                            if col == &field_pattern.0 {
-                                // We have found the field
-                                let result = field_pattern.1.match_value(val, matches);
-                                if !result {
-                                    return false;
-                                } else {
-                                    continue 'top;
+            Pattern::Record(field_patterns) => {
+                // Custom values (e.g. enum values declared with `type`) lower to
+                // their base value for structural matching.
+                let base_value;
+                let value = match value {
+                    Value::Custom { val, .. } => match val.to_base_value(value.span()) {
+                        Ok(v) => {
+                            base_value = v;
+                            &base_value
+                        }
+                        Err(_) => return false,
+                    },
+                    v => v,
+                };
+
+                match value {
+                    Value::Record { val, .. } => {
+                        'top: for field_pattern in field_patterns {
+                            for (col, val) in &**val {
+                                if col == &field_pattern.0 {
+                                    // We have found the field
+                                    let result = field_pattern.1.match_value(val, matches);
+                                    if !result {
+                                        return false;
+                                    } else {
+                                        continue 'top;
+                                    }
                                 }
                             }
+                            return false;
                         }
-                        return false;
+                        true
                     }
-                    true
+                    _ => false,
                 }
-                _ => false,
-            },
+            }
             Pattern::Variable(var_id) => {
                 // TODO: FIXME: This needs the span of this variable
                 matches.push((*var_id, value.clone()));
                 true
             }
-            Pattern::List(items) => match &value {
-                Value::List { vals, .. } => {
-                    if items.len() > vals.len() {
-                        // We only allow this is to have a rest pattern in the n+1 position
-                        if items.len() == (vals.len() + 1) {
-                            match &items[vals.len()].pattern {
-                                Pattern::IgnoreRest => {}
-                                Pattern::Rest(var_id) => matches.push((
-                                    *var_id,
-                                    Value::list(Vec::new(), items[vals.len()].span),
-                                )),
-                                _ => {
-                                    // There is a pattern which can't skip missing values, so we fail
-                                    return false;
-                                }
-                            }
-                        } else {
-                            // There are patterns that can't be matches, so we fail
-                            return false;
+            Pattern::List(items) => {
+                // Custom values (e.g. enum values declared with `type`) lower to
+                // their base value for structural matching.
+                let base_value;
+                let value = match value {
+                    Value::Custom { val, .. } => match val.to_base_value(value.span()) {
+                        Ok(v) => {
+                            base_value = v;
+                            &base_value
                         }
-                    }
-                    for (val_idx, val) in vals.iter().enumerate() {
-                        // We require that the pattern and the value have the same number of items, or the pattern does not match
-                        // The only exception is if the pattern includes a `..` pattern
-                        if let Some(pattern) = items.get(val_idx) {
-                            match &pattern.pattern {
-                                Pattern::IgnoreRest => {
-                                    break;
-                                }
-                                Pattern::Rest(var_id) => {
-                                    let rest_vals = vals[val_idx..].to_vec();
-                                    matches.push((*var_id, Value::list(rest_vals, pattern.span)));
-                                    break;
-                                }
-                                _ => {
-                                    if !pattern.match_value(val, matches) {
+                        Err(_) => return false,
+                    },
+                    v => v,
+                };
+
+                match value {
+                    Value::List { vals, .. } => {
+                        if items.len() > vals.len() {
+                            // We only allow this is to have a rest pattern in the n+1 position
+                            if items.len() == (vals.len() + 1) {
+                                match &items[vals.len()].pattern {
+                                    Pattern::IgnoreRest => {}
+                                    Pattern::Rest(var_id) => matches.push((
+                                        *var_id,
+                                        Value::list(Vec::new(), items[vals.len()].span),
+                                    )),
+                                    _ => {
+                                        // There is a pattern which can't skip missing values, so we fail
                                         return false;
                                     }
                                 }
+                            } else {
+                                // There are patterns that can't be matches, so we fail
+                                return false;
                             }
-                        } else {
-                            return false;
                         }
-                    }
+                        for (val_idx, val) in vals.iter().enumerate() {
+                            // We require that the pattern and the value have the same number of items, or the pattern does not match
+                            // The only exception is if the pattern includes a `..` pattern
+                            if let Some(pattern) = items.get(val_idx) {
+                                match &pattern.pattern {
+                                    Pattern::IgnoreRest => {
+                                        break;
+                                    }
+                                    Pattern::Rest(var_id) => {
+                                        let rest_vals = vals[val_idx..].to_vec();
+                                        matches
+                                            .push((*var_id, Value::list(rest_vals, pattern.span)));
+                                        break;
+                                    }
+                                    _ => {
+                                        if !pattern.match_value(val, matches) {
+                                            return false;
+                                        }
+                                    }
+                                }
+                            } else {
+                                return false;
+                            }
+                        }
 
-                    true
+                        true
+                    }
+                    _ => false,
                 }
-                _ => false,
-            },
+            }
             Pattern::Expression(pattern_value) => {
                 // TODO: Fill this out with the rest of them
                 match &pattern_value.expr {

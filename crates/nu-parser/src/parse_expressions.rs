@@ -870,6 +870,15 @@ pub fn parse_value(
         return parse_value(working_set, span, inner, input_type);
     }
 
+    // A declared enum type — a bare `Type.variant` in value position is a
+    // constructor call (payload-carrying variants need `(Type.variant x)`).
+    if let SyntaxShape::Custom(_) = shape
+        && let Some(expr) =
+            crate::parse_type_decl::parse_enum_constructor(working_set, span, &[], span, input_type)
+    {
+        return expr;
+    }
+
     let bytes = working_set.get_span_contents(span);
 
     if bytes.is_empty() {

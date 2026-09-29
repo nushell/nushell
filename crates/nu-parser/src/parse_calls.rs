@@ -1797,6 +1797,19 @@ pub fn parse_call(
             }
             working_set.parse_errors.truncate(starting_error_count);
         }
+
+        // An enum variant constructor like `Shape.circle 3` — when `Shape`
+        // resolves to an enum `type` declaration — rewrites to `enum-construct`.
+        if let Some(expr) = crate::parse_type_decl::parse_enum_constructor(
+            working_set,
+            spans[0],
+            &spans[1..],
+            call_span,
+            input_type,
+        ) {
+            return expr;
+        }
+
         trace!("parsing: external call");
 
         // Otherwise, try external command

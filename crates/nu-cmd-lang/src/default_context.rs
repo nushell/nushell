@@ -35,6 +35,7 @@ pub fn add_default_context(mut engine_state: EngineState) -> EngineState {
             Describe,
             Do,
             Echo,
+            EnumConstruct,
             Error,
             ErrorMake,
             ExportAlias,

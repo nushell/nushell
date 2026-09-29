@@ -60,11 +60,17 @@ pub fn parse_shape_name(
         }
         _ => {
             // Resolve user-declared named types (`type` declarations).
-            if let Some(type_def) = working_set.find_type_name(bytes)
-                && let TypeDefKind::Alias(shape) = &type_def.kind
-            {
-                let name = String::from_utf8_lossy(bytes);
-                return SyntaxShape::Named(name.into(), Box::new(shape.clone()));
+            if let Some(type_def) = working_set.find_type_name(bytes) {
+                return match &type_def.kind {
+                    TypeDefKind::Alias(shape) => {
+                        let name = String::from_utf8_lossy(bytes);
+                        SyntaxShape::Named(name.into(), Box::new(shape.clone()))
+                    }
+                    TypeDefKind::Enum(_) => {
+                        let name = String::from_utf8_lossy(&type_def.name);
+                        SyntaxShape::Custom(name.into())
+                    }
+                };
             }
 
             if bytes.contains(&b'@') {
