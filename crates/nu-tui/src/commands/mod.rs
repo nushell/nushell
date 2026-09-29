@@ -22,7 +22,8 @@ use crate::app::{TuiApp, tui_type};
 use crate::widget::{Source, Widget, WidgetKind};
 use nu_engine::{command_prelude::*, get_full_help};
 use nu_protocol::engine::Closure;
-use nu_protocol::{PipelineData, Type, shell_error::generic::GenericError};
+use nu_protocol::{PipelineData, TableMode, Type, shell_error::generic::GenericError};
+use nu_utils::NuCow;
 
 pub use bind::TuiBind;
 pub use r#box::TuiBox;
@@ -73,6 +74,19 @@ pub(super) fn title_flag(sig: Signature) -> Signature {
         SyntaxShape::String,
         "Border title, in place of the widget's name. Counts, state, or the previewed file follow in parentheses.",
         None,
+    )
+}
+
+/// `--border` for widgets drawn in a border: the outline of a
+/// `table --theme` (`rounded`, `double`, `heavy`, ...). It completes the
+/// `table --theme` names a tui border accepts.
+pub(super) fn border_flag(sig: Signature) -> Signature {
+    let names = TableMode::tui_border_names().map(String::from).collect();
+    sig.param(
+        Flag::new("border")
+            .arg(SyntaxShape::String)
+            .desc("Border lines, named like `table --theme` (rounded, double, heavy, ...).")
+            .completion(Completion::List(NuCow::Owned(names))),
     )
 }
 
@@ -263,8 +277,8 @@ pub(super) fn session_cwd(engine_state: &EngineState, stack: &Stack) -> std::pat
 }
 
 /// Append a widget, reading the flags common to builders: `--id`, for
-/// bordered widgets `--title` (which must not be empty), and for data
-/// widgets `--data`, `--from`, `--on-select`. `source_closure` is the
+/// bordered widgets `--title` (which must not be empty) and `--border`,
+/// and for data widgets `--data`, `--from`, `--on-select`. `source_closure` is the
 /// positional closure that turns the source row into this widget's data.
 pub(super) fn push_widget(
     engine_state: &EngineState,
@@ -307,6 +321,10 @@ pub(super) fn push_widget(
         on_select: call.get_flag(engine_state, stack, "on-select")?,
         focus: call.has_flag(engine_state, stack, "focus")?,
         title,
+        border: call
+            .get_flag::<Value>(engine_state, stack, "border")?
+            .map(|value| crate::theme::parse_border(&value))
+            .transpose()?,
     });
     Ok(())
 }
@@ -332,7 +350,7 @@ impl Command for Tui {
          \n\
          Hooks: `tui bind`, menu actions, `tui button`, `--on-select`, and the `tui run` refresh closure all receive the state record and may return nothing, a new data list, or `{action: submit|quit, selected: ...}`. A new data list replaces the shared data for the rest of the run: a piped stream no longer adds to it.\n\
          \n\
-         Layout: `tui split --sizes [30% 1fr]` arranges children; `tui box` groups them with a border; `tui tab` makes a page. Bordered widgets take `--title` to rename their border (`tui table --title files` shows `files (12)`); `tui label --titlebar` fills the bar at the top. Colors come from `$env.config.tui`."
+         Layout: `tui split --sizes [30% 1fr]` arranges children; `tui box` groups them with a border; `tui tab` makes a page. Bordered widgets take `--title` to rename their border (`tui table --title files` shows `files (12)`); `tui label --titlebar` fills the bar at the top. Colors come from `$env.config.tui`; `--border` on a widget or `$env.config.tui.border_type` picks its border lines by `table --theme` name (`rounded`, `double`, `heavy`, ...)."
     }
 
     fn signature(&self) -> Signature {

@@ -90,7 +90,7 @@ impl TuiWidget for TextBoxWidget {
         let theme = &session.theme;
         let text = state.as_text().cloned().unwrap_or_default();
         let title = super::custom_title(session, id, "input");
-        let block = super::framed(title, focused, theme);
+        let block = super::framed(title, focused, session, id);
         let inner = block.inner(area);
         frame.render_widget(block, area);
         let display = if text.text.is_empty() && !focused {

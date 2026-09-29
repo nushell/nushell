@@ -304,7 +304,7 @@ impl TuiWidget for TableWidget {
         let table = Table::new(rows, widths)
             .header(Row::new(header_cells).height(1))
             .style(theme.text())
-            .block(super::framed(&title, focused, theme))
+            .block(super::framed(&title, focused, session, id))
             .row_highlight_style(theme.selected())
             .highlight_symbol("▶ ");
         let mut table_state = TableState::default();

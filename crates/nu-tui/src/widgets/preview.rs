@@ -139,7 +139,7 @@ impl TuiWidget for PreviewWidget {
             (name, "") => name.to_string(),
             (name, file) => format!("{name} ({file})"),
         };
-        let block = super::framed(&title, false, theme);
+        let block = super::framed(&title, false, session, id);
         let para = if preview.text.is_empty() {
             Paragraph::new("(nothing to preview)")
                 .style(theme.muted())

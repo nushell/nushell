@@ -136,7 +136,7 @@ impl TuiWidget for SearchWidget {
         } else {
             name.to_string()
         };
-        let block = super::framed(&title, focused, theme);
+        let block = super::framed(&title, focused, session, id);
         let inner = block.inner(area);
         frame.render_widget(block, area);
         let display = if text.text.is_empty() && !focused {

@@ -1,4 +1,6 @@
-use super::{WidgetKind, builder_io_types, data_flags, push_widget, title_flag, with_app};
+use super::{
+    WidgetKind, border_flag, builder_io_types, data_flags, push_widget, title_flag, with_app,
+};
 use crate::widgets::log::LogWidget;
 use nu_engine::command_prelude::*;
 
@@ -22,7 +24,7 @@ impl Command for TuiLog {
 
     fn signature(&self) -> Signature {
         data_flags(
-            title_flag(Signature::build("tui log"))
+            border_flag(title_flag(Signature::build("tui log")))
                 .category(Category::Viewers)
                 .optional(
                     "source",

@@ -164,7 +164,7 @@ impl TuiWidget for TreeWidget {
         let rows = self.rows(id, session);
         let computer = session.style_computer();
         let name = super::custom_title(session, id, "tree");
-        let block = super::framed(&format!("{name} ({})", rows.len()), focused, theme);
+        let block = super::framed(&format!("{name} ({})", rows.len()), focused, session, id);
         let inner = block.inner(area);
         frame.render_widget(block, area);
         let lines: Vec<Line> = rows
