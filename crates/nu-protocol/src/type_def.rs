@@ -9,7 +9,32 @@ use crate::SyntaxShape;
 pub struct TypeDef {
     /// The name the type was declared under.
     pub name: Vec<u8>,
+    /// Type parameters declared in `struct Name<T, U> = ...`. Empty for
+    /// non-generic declarations.
+    pub params: Vec<String>,
     pub kind: TypeDefKind,
+}
+
+impl TypeDef {
+    /// The name used for a [`Type::Custom`](crate::Type::Custom) instantiated
+    /// with `args` — `Name` when `args` is empty or has the wrong arity,
+    /// `Name<t1, t2>` otherwise. `any` arguments stay in the name
+    /// (`Result<any, string>`) — positional comparison treats them as
+    /// unspecified while keeping the other arguments precise.
+    pub fn instantiated_name(&self, args: &[crate::Type]) -> String {
+        let name = String::from_utf8_lossy(&self.name);
+        if args.is_empty() || args.len() != self.params.len() {
+            name.into_owned()
+        } else {
+            format!(
+                "{name}<{}>",
+                args.iter()
+                    .map(|ty| ty.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

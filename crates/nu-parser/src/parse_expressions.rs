@@ -533,13 +533,14 @@ fn parse_match_arm_pattern(
 /// `Some` parse error when a payload pattern can never match the
 /// declared payload shape — e.g. `{x: $f}` against `a: int`. Shapes
 /// that could still hold a matching collection (`any`, `oneof`,
-/// `keyword`, nested named types) are permissive.
+/// `keyword`, type vars, nested named types) are permissive.
 fn payload_pattern_mismatch(shape: &SyntaxShape, pattern: &MatchPattern) -> Option<ParseError> {
     fn could_hold_record(shape: &SyntaxShape) -> bool {
         match shape {
             SyntaxShape::Record(_)
             | SyntaxShape::Any
             | SyntaxShape::OneOf(_)
+            | SyntaxShape::TypeVar(_)
             | SyntaxShape::Custom(..) => true,
             SyntaxShape::Keyword(_, inner) | SyntaxShape::Named(_, inner) => {
                 could_hold_record(inner)
@@ -553,6 +554,7 @@ fn payload_pattern_mismatch(shape: &SyntaxShape, pattern: &MatchPattern) -> Opti
             | SyntaxShape::Table(_)
             | SyntaxShape::Any
             | SyntaxShape::OneOf(_)
+            | SyntaxShape::TypeVar(_)
             | SyntaxShape::Custom(..) => true,
             SyntaxShape::Keyword(_, inner) | SyntaxShape::Named(_, inner) => could_hold_list(inner),
             _ => false,
@@ -974,7 +976,7 @@ pub fn parse_value(
 
     // A declared enum type — a bare `Type.variant` in value position is a
     // constructor call (payload-carrying variants need `(Type.variant x)`).
-    if let SyntaxShape::Custom(_) = shape
+    if let SyntaxShape::Custom(..) = shape
         && let Some(expr) =
             crate::parse_type_decl::parse_enum_constructor(working_set, span, &[], span, input_type)
     {

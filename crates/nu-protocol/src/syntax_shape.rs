@@ -123,12 +123,18 @@ pub enum SyntaxShape {
     VarWithOptType,
 
     /// A nominal user-declared `enum` type (`enum Shape { ... }`).
-    /// Enforces `Type::Custom` with the declared name.
-    Custom(Box<str>),
+    /// Enforces `Type::Custom` with the declared name. The second field is the
+    /// resolved type arguments for generic declarations (`Option<int>`).
+    Custom(Box<str>, Vec<SyntaxShape>),
 
     /// A user-declared named type alias (`struct Point { ... }`).
     /// Displays as the declared name but enforces the underlying shape's type.
     Named(Box<str>, Box<SyntaxShape>),
+
+    /// A type parameter in scope inside a generic `type` declaration
+    /// (`enum Option<T> { some: T, none }`). Outside that scope this
+    /// shape never appears; `to_type` treats an unbound parameter as `any`.
+    TypeVar(Box<str>),
 }
 
 impl SyntaxShape {
@@ -181,8 +187,25 @@ impl SyntaxShape {
             SyntaxShape::String => Type::String,
             SyntaxShape::Table(columns) => Type::Table(columns.map(SyntaxShape::to_type)),
             SyntaxShape::VarWithOptType => Type::Any,
-            SyntaxShape::Custom(name) => Type::Custom(name.clone()),
+            SyntaxShape::Custom(name, args) => {
+                let args: Vec<Type> = args.iter().map(SyntaxShape::to_type).collect();
+                if args.is_empty() {
+                    Type::Custom(name.clone())
+                } else {
+                    Type::Custom(
+                        format!(
+                            "{name}<{}>",
+                            args.iter()
+                                .map(|ty| ty.to_string())
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        )
+                        .into(),
+                    )
+                }
+            }
             SyntaxShape::Named(_, inner) => inner.to_type(),
+            SyntaxShape::TypeVar(_) => Type::Any,
         }
     }
 
@@ -257,7 +280,19 @@ impl Display for SyntaxShape {
                 f.write_str(">")
             }
             SyntaxShape::Nothing => write!(f, "nothing"),
-            SyntaxShape::Custom(name) | SyntaxShape::Named(name, _) => write!(f, "{name}"),
+            SyntaxShape::Named(name, _) | SyntaxShape::TypeVar(name) => write!(f, "{name}"),
+            SyntaxShape::Custom(name, args) => {
+                write!(f, "{name}")?;
+                if let [first, rest @ ..] = &**args {
+                    write!(f, "<{first}")?;
+                    for arg in rest {
+                        write!(f, ", {arg}")?;
+                    }
+                    f.write_str(">")
+                } else {
+                    Ok(())
+                }
+            }
         }
     }
 }
