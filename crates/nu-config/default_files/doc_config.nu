@@ -1370,7 +1370,7 @@ $env.config.explore.try.reactive = false
 # value in the same forms as `color_config`: a color name, `#RRGGBB`, or `{ fg?, bg?, attr? }`.
 # When `use_ansi_coloring` is off the TUI draws without colors.
 
-# tui.title_bar (color): The one-line title bar from `tui label --title`.
+# tui.title_bar (color): The one-line title bar from `tui label --titlebar`.
 # Default: { fg: white, bg: blue, attr: b }
 $env.config.tui.title_bar = { fg: white, bg: blue, attr: b }
 

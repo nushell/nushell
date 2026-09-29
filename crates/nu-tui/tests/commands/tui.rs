@@ -26,10 +26,92 @@ fn parent_command_lists_subcommands() -> Result {
 
 #[test]
 fn headless_renders_title_and_status() -> Result {
-    let screen: String = test()
-        .run(r#"tui label --title "Demo" | tui label --status "ready" | tui debug | get screen"#)?;
+    let screen: String = test().run(
+        r#"tui label --titlebar "Demo" | tui label --status "ready" | tui debug | get screen"#,
+    )?;
     assert_contains("Demo", &screen);
     assert_contains("ready", &screen);
+    Ok(())
+}
+
+#[test]
+fn title_replaces_the_widget_name_and_keeps_its_state() -> Result {
+    // Each widget is the first in its column, so its border starts with `┌`
+    // and the title is followed by the border line. That pins the whole
+    // title: `┌ source ─` fails on `┌ source (preview) ─`.
+    let cases = [
+        ("[a b c] | tui table --title files", "files (3)"),
+        (
+            "[a b c] | tui table --multi --title files | tui debug --keys [space] --size [40 8] | get screen",
+            "files (3, 1 checked)",
+        ),
+        ("[a b] | tui select --title pick", "pick (2)"),
+        ("[a b] | tui tree --title nodes", "nodes (2)"),
+        ("[x] | tui log --title events", "events"),
+        (
+            "[x] | tui search --fuzzy --title find | tui table",
+            "find (fuzzy)",
+        ),
+        ("tui textbox --title name", "name"),
+        ("tui preview --title source", "source"),
+        // A row without a `name` column: nothing to preview.
+        (
+            "[{a: 1}] | tui table | tui preview --title source",
+            "source",
+        ),
+    ];
+    for (code, expected) in cases {
+        let code = if code.contains("tui debug") {
+            code.to_string()
+        } else {
+            format!("{code} | tui debug --size [40 8] | get screen")
+        };
+        let screen: String = test().run(&code)?;
+        assert_contains(format!("┌ {expected} ─"), &screen);
+    }
+    let title: String = test().run("tui table --title files | get widgets.0.title")?;
+    assert_eq!(title, "files");
+    Ok(())
+}
+
+#[test]
+fn title_must_not_be_empty() -> Result {
+    let err = test()
+        .run(r#"[a b] | tui table --title """#)
+        .expect_error()?;
+    assert_contains("empty --title", &format!("{err:?}"));
+    Ok(())
+}
+
+#[test]
+fn search_placeholder_defaults_to_the_title() -> Result {
+    // The table takes focus, so the empty search box shows its placeholder.
+    let screen: String = test()
+        .run("[x] | tui search --title find | tui table | tui debug --size [40 8] | get screen")?;
+    assert_contains("┌ find ─", &screen);
+    assert_contains("│find ", &screen);
+    let placeholder: String =
+        test().run("[x] | tui search --title find --placeholder q | get widgets.0.placeholder")?;
+    assert_eq!(placeholder, "q");
+    Ok(())
+}
+
+#[test]
+fn label_title_bar_switch_is_titlebar() -> Result {
+    let bar: String = test().run(r#"tui label --titlebar "App" | get widgets.0.slot"#)?;
+    assert_eq!(bar, "titlebar");
+    // `--title` is the deprecated 0.116.0 name: it still works, and is
+    // listed as deprecated.
+    let bar: String = test().run(r#"tui label --title "App" | get widgets.0.slot"#)?;
+    assert_eq!(bar, "titlebar");
+    let bar: String = test().run(r#"tui label --title=true "App" | get widgets.0.slot"#)?;
+    assert_eq!(bar, "titlebar");
+    let columns: Vec<String> =
+        test().run(r#"tui label --title "App" | get widgets.0 | columns"#)?;
+    assert!(!columns.iter().any(|c| c == "title"), "got {columns:?}");
+    let deprecated: Vec<String> = test()
+        .run(r#"scope commands | where name == "tui label" | get 0.deprecation_info.flag"#)?;
+    assert_eq!(deprecated, vec!["title".to_string()]);
     Ok(())
 }
 
@@ -169,7 +251,7 @@ fn q_quits_table_without_submit() -> Result {
 
 #[test]
 fn pipeline_app_is_custom_tui_value() -> Result {
-    let desc: String = test().run(r#"tui label --title "x" | describe"#)?;
+    let desc: String = test().run(r#"tui label --titlebar "x" | describe"#)?;
     assert_contains("tui", &desc);
     Ok(())
 }
@@ -318,7 +400,7 @@ fn preview_closure_with_row_param_is_the_source() -> Result {
 fn builders_do_not_read_their_stream() -> Result {
     // Reading even one row of this stream takes a second.
     let fast: bool = test().run(
-        "(timeit { 1.. | each {|n| sleep 1sec; $n } | tui label --title x | tui log | ignore }) < 1sec",
+        "(timeit { 1.. | each {|n| sleep 1sec; $n } | tui label --titlebar x | tui log | ignore }) < 1sec",
     )?;
     assert!(fast, "a builder waited on the stream");
     Ok(())
@@ -407,7 +489,7 @@ fn streamed_rows_reach_the_tui() -> Result {
         r#"
             1..5
             | each {|n| sleep 1ms; $n}
-            | tui label --title "stream"
+            | tui label --titlebar "stream"
             | tui table
             | tui debug --size [40 12]
             | get screen
@@ -421,7 +503,7 @@ fn streamed_rows_reach_the_tui() -> Result {
 #[test]
 fn dialog_headless_draws_close_control() -> Result {
     let screen: String = test().run(
-        r#"tui label --title "popup" | tui label --status "hi" | tui debug --dialog --size [80 24] | get screen"#,
+        r#"tui label --titlebar "popup" | tui label --status "hi" | tui debug --dialog --size [80 24] | get screen"#,
     )?;
     assert_contains("popup", &screen);
     assert_contains("x", &screen);
@@ -439,8 +521,8 @@ fn menu_items_reject_non_strings() -> Result {
 #[test]
 fn widgets_field_is_inspectable() -> Result {
     let slots: Vec<String> =
-        test().run(r#"tui label --title "App" | tui label --status "ok" | get widgets.slot"#)?;
-    assert_eq!(slots, vec!["title".to_string(), "status".to_string()]);
+        test().run(r#"tui label --titlebar "App" | tui label --status "ok" | get widgets.slot"#)?;
+    assert_eq!(slots, vec!["titlebar".to_string(), "status".to_string()]);
     let types: Vec<String> =
         test().run("tui split [(tui table) (tui preview)] | get widgets.0.children.type")?;
     assert_eq!(types, vec!["table".to_string(), "preview".to_string()]);
@@ -598,7 +680,7 @@ fn split_rejects_duplicate_explicit_ids_and_nested_chrome() -> Result {
         .expect_error()?;
     assert_contains("duplicate", &format!("{err:?}"));
     let err = test()
-        .run(r#"tui split [(tui label --title "x")] | tui debug"#)
+        .run(r#"tui split [(tui label --titlebar "x")] | tui debug"#)
         .expect_error()?;
     assert_contains("chrome", &format!("{err:?}"));
     Ok(())
@@ -781,7 +863,7 @@ fn tui_theme_comes_from_config() -> Result {
     let cols: Vec<String> = test().run("$env.config.tui | columns")?;
     assert!(cols.iter().any(|c| c == "title_bar"), "got {cols:?}");
     let screen: String = test().run(
-        r#"$env.config.tui.title_bar = {fg: red}; tui label --title "T" | tui debug | get screen"#,
+        r#"$env.config.tui.title_bar = {fg: red}; tui label --titlebar "T" | tui debug | get screen"#,
     )?;
     assert_contains("T", &screen);
     Ok(())

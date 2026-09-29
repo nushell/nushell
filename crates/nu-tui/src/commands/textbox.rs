@@ -1,4 +1,4 @@
-use super::{WidgetKind, builder_io_types, common_flags, push_widget, with_app};
+use super::{WidgetKind, builder_io_types, common_flags, push_widget, title_flag, with_app};
 use crate::widgets::textbox::TextBoxWidget;
 use nu_engine::command_prelude::*;
 
@@ -20,7 +20,7 @@ impl Command for TuiTextBox {
 
     fn signature(&self) -> Signature {
         common_flags(
-            Signature::build("tui textbox")
+            title_flag(Signature::build("tui textbox"))
                 .category(Category::Viewers)
                 .named(
                     "placeholder",

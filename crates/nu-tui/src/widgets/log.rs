@@ -195,17 +195,18 @@ impl TuiWidget for LogWidget {
         } else {
             wrapped.into_iter().take(pane.height).collect()
         };
+        let name = super::custom_title(session, id, "log");
         let title = if session.stream_live {
-            "log (live)"
+            format!("{name} (live)")
         } else if log.follow {
-            "log"
+            name.to_string()
         } else {
-            "log (paused)"
+            format!("{name} (paused)")
         };
         frame.render_widget(
             Paragraph::new(Text::from(visible))
                 .style(theme.text())
-                .block(super::framed(title, focused, theme)),
+                .block(super::framed(&title, focused, theme)),
             area,
         );
     }

@@ -41,7 +41,7 @@ impl Command for TuiMenu {
         vec![
             Example {
                 description: "A plain bar; Enter submits the item name",
-                example: r#"tui label --title "Editor" | tui menu ["&File" "&Edit" "&View"] | tui table | tui debug --keys "alt+e,enter" | get selected"#,
+                example: r#"tui label --titlebar "Editor" | tui menu ["&File" "&Edit" "&View"] | tui table | tui debug --keys "alt+e,enter" | get selected"#,
                 result: None,
             },
             Example {

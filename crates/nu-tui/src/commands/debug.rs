@@ -73,7 +73,7 @@ impl Command for TuiDebug {
         vec![
             Example {
                 description: "Paint a title and status bar",
-                example: r#"tui label --title "Demo" | tui label --status "ready" | tui debug | get screen"#,
+                example: r#"tui label --titlebar "Demo" | tui label --status "ready" | tui debug | get screen"#,
                 result: None,
             },
             Example {

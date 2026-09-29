@@ -347,6 +347,9 @@ pub fn widget_to_record(
     if widget.focus {
         rec.insert("focus", Value::bool(true, span));
     }
+    if let Some(title) = &widget.title {
+        rec.insert("title", Value::string(title.clone(), span));
+    }
     extend(widget, &mut rec);
     if !widget.children.is_empty() {
         rec.insert(
