@@ -12,6 +12,7 @@ permissions:
   contents: read
 
 env:
+  NU_BUILD_PR: ${{ github.event.pull_request.html_url }}
   NU_LOG_LEVEL: DEBUG
   NU_TEST_SKIP_DEPS_BUILD: true
   NUSHELL_CARGO_PROFILE: ci
