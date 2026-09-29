@@ -38,6 +38,13 @@ pub fn parse_pattern(working_set: &mut StateWorkingSet, span: Span) -> MatchPatt
             span,
         }
     } else {
+        // A qualified enum-variant pattern (`Type.variant`) — lowers to a
+        // record pattern on the variant tag.
+        if let Some((pattern, _)) =
+            crate::parse_type_decl::parse_enum_variant_pattern(working_set, span)
+        {
+            return pattern;
+        }
         // Literal / expression pattern (including parenthesized const expressions).
         // `parse_value` already routes `(` through `parse_paren_expr`.
         parse_value_pattern(working_set, span)

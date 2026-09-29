@@ -209,6 +209,21 @@ impl<'a> StateWorkingSet<'a> {
             }
         }
 
+        // Module-qualified names (`mod.Type`): resolve the module, then look
+        // the type up in its export list. Mirrors `mod cmd` for decls after a
+        // bare `use mod`.
+        if let Some(dot) = name.iter().rposition(|&b| b == b'.') {
+            let (module_name, type_name) = (&name[..dot], &name[dot + 1..]);
+            if !type_name.is_empty()
+                && let Some(module_id) = self.find_module(module_name)
+            {
+                let module = self.get_module(module_id);
+                if let Some(type_def) = module.types.get(type_name) {
+                    return Some(type_def.clone());
+                }
+            }
+        }
+
         None
     }
 
