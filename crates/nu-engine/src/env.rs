@@ -30,8 +30,8 @@ pub mod var {
 /// Returns whether a string, when used as the name of an environment variable,
 /// is considered an automatic environment variable.
 ///
-/// An automatic environment variable cannot be assigned to by user code.
-/// Current there are three of them: $env.PWD, $env.FILE_PWD, $env.CURRENT_FILE
+/// An automatic environment variable cannot be set or hidden by user code.
+/// Currently there are three of them: $env.PWD, $env.FILE_PWD, $env.CURRENT_FILE.
 pub fn is_automatic_env_var(var: &str) -> bool {
     var::AUTOMATIC_VARS.iter().any(|name| env_var_eq(name, var))
 }

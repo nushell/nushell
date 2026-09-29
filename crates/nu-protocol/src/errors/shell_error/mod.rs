@@ -476,12 +476,12 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// This environment variable cannot be set manually.
+    /// This environment variable cannot be changed manually.
     ///
     /// ## Resolution
     ///
     /// This environment variable is set automatically by Nushell and cannot be set manually or hidden.
-    #[error("'{}` cannot be changed manually.", .envvar_name.to_ascii_uppercase())]
+    #[error("'{}' cannot be changed manually.", .envvar_name.to_ascii_uppercase())]
     #[diagnostic(
         code(nu::shell::automatic_env_var_set_manually),
         help(
@@ -495,7 +495,7 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// The config environment variable cannot be changed by an environment command.
+    /// Some commands are not allowed to change the config environment variable.
     ///
     /// ## Resolution
     ///
