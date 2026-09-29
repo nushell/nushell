@@ -470,6 +470,111 @@ pub fn parse_block_expression(
     Expression::new(working_set, Expr::Block(block_id), span, Type::Block)
 }
 
+/// Parse one pattern in a `match` arm, advancing `position` past the tokens
+/// consumed.
+///
+/// Besides the ordinary forms this handles the qualified enum-variant
+/// pattern `Type.variant`, which may be followed by a pattern token to bind
+/// the payload: `S.circle {radius: $r}` merges into
+/// `{kind: "circle", payload: {radius: $r}}` and `Option.some $v` into
+/// `{kind: "some", payload: $v}` — the trailing pattern always matches the
+/// payload itself, so callers never see the base-record encoding.
+fn parse_match_arm_pattern(
+    working_set: &mut StateWorkingSet,
+    output: &[Token],
+    position: &mut usize,
+) -> MatchPattern {
+    let span = output[*position].span;
+    *position += 1;
+
+    let Some((mut pattern, payload_shape)) =
+        crate::parse_type_decl::parse_enum_variant_pattern(working_set, span)
+    else {
+        return parse_pattern(working_set, span);
+    };
+
+    // A pattern token may follow a qualified variant to bind its payload.
+    // `=>` and `|` are arm separators, never payload patterns.
+    if let Some(next) = output.get(*position) {
+        let next_bytes = working_set.get_span_contents(next.span);
+        if next_bytes != b"=>" && next_bytes != b"|" {
+            let next_span = next.span;
+            let payload_pattern = parse_pattern(working_set, next_span);
+            *position += 1;
+            match &payload_shape {
+                None => {
+                    working_set.error(ParseError::LabeledError(
+                        "variant takes no payload".into(),
+                        format!(
+                            "`{}` is a unit variant",
+                            String::from_utf8_lossy(working_set.get_span_contents(span))
+                        ),
+                        next_span,
+                    ));
+                }
+                Some(shape) => {
+                    // A record/list payload pattern can never match a
+                    // concretely non-collection payload — flag it rather
+                    // than letting the arm silently miss.
+                    if let Some(mismatch) = payload_pattern_mismatch(shape, &payload_pattern) {
+                        working_set.error(mismatch);
+                    }
+                    if let Pattern::Record(kind_fields) = &mut pattern.pattern {
+                        kind_fields.push(("payload".into(), payload_pattern));
+                    }
+                }
+            }
+        }
+    }
+
+    pattern
+}
+
+/// `Some` parse error when a payload pattern can never match the
+/// declared payload shape — e.g. `{x: $f}` against `a: int`. Shapes
+/// that could still hold a matching collection (`any`, `oneof`,
+/// `keyword`, nested named types) are permissive.
+fn payload_pattern_mismatch(shape: &SyntaxShape, pattern: &MatchPattern) -> Option<ParseError> {
+    fn could_hold_record(shape: &SyntaxShape) -> bool {
+        match shape {
+            SyntaxShape::Record(_)
+            | SyntaxShape::Any
+            | SyntaxShape::OneOf(_)
+            | SyntaxShape::Custom(..) => true,
+            SyntaxShape::Keyword(_, inner) | SyntaxShape::Named(_, inner) => {
+                could_hold_record(inner)
+            }
+            _ => false,
+        }
+    }
+    fn could_hold_list(shape: &SyntaxShape) -> bool {
+        match shape {
+            SyntaxShape::List(_)
+            | SyntaxShape::Table(_)
+            | SyntaxShape::Any
+            | SyntaxShape::OneOf(_)
+            | SyntaxShape::Custom(..) => true,
+            SyntaxShape::Keyword(_, inner) | SyntaxShape::Named(_, inner) => could_hold_list(inner),
+            _ => false,
+        }
+    }
+    let mismatch = match &pattern.pattern {
+        Pattern::Record(_) if !could_hold_record(shape) => Some("record"),
+        Pattern::List(_) if !could_hold_list(shape) => Some("list"),
+        _ => None,
+    };
+    mismatch.map(|collection| {
+        ParseError::LabeledError(
+            format!("payload pattern cannot match {collection}"),
+            format!(
+                "the variant's payload is `{}`, which is not a {collection}",
+                shape.to_type()
+            ),
+            pattern.span,
+        )
+    })
+}
+
 pub fn parse_match_block_expression(
     working_set: &mut StateWorkingSet,
     span: Span,
@@ -515,9 +620,7 @@ pub fn parse_match_block_expression(
         working_set.enter_scope();
 
         // First parse the pattern
-        let mut pattern = parse_pattern(working_set, output[position].span);
-
-        position += 1;
+        let mut pattern = parse_match_arm_pattern(working_set, &output, &mut position);
 
         if position >= output.len() {
             working_set.error(ParseError::Mismatch(
@@ -550,10 +653,9 @@ pub fn parse_match_block_expression(
                     break;
                 }
 
-                let pattern = parse_pattern(working_set, output[position].span);
+                let pattern = parse_match_arm_pattern(working_set, &output, &mut position);
                 or_pattern.push(pattern);
 
-                position += 1;
                 if position >= output.len() {
                     working_set.error(ParseError::Mismatch(
                         "=>".into(),
@@ -976,6 +1078,15 @@ pub fn parse_value(
                 //parse_value(working_set, span, &SyntaxShape::Table)
                 parse_full_cell_path(working_set, None, span, None)
             } else {
+                // A bare `Type.variant` in expression position is a unit
+                // variant constructor; payload-carrying variants report a
+                // missing-payload error (wrap in `(Type.variant x)` instead).
+                if let Some(expr) = crate::parse_type_decl::parse_enum_constructor(
+                    working_set, span, &[], span, input_type,
+                ) {
+                    return expr;
+                }
+
                 let shapes = [
                     SyntaxShape::Binary,
                     SyntaxShape::Range,

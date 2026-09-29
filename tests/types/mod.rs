@@ -42,11 +42,6 @@ fn type_cannot_redefine_builtin() -> Result {
 // Enum types (`enum Name { ... }`)
 
 #[test]
-fn enum_duplicate_variant_is_error() -> Result {
-    test().run("enum E { a, a }").expect_parse_error().map(drop)
-}
-
-#[test]
 fn enum_unit_variant() -> Result {
     test()
         .run("enum Shape { circle: float, point }; Shape.point | describe")
@@ -61,13 +56,34 @@ fn enum_payload_variant() -> Result {
 }
 
 #[test]
+fn enum_base_record() -> Result {
+    test()
+        .run("enum Shape { circle: record<radius: float>, point }; (Shape.circle {radius: 2.0}).radius")
+        .expect_value_eq(2.0)
+}
 
+#[test]
+fn enum_serializes_as_base_record() -> Result {
+    test()
+        .run("enum Shape { circle: record<radius: float>, point }; Shape.circle {radius: 2.0} | to json --raw")
+        .expect_value_eq(r#"{"kind":"circle","radius":2.0}"#)
+}
+
+#[test]
 fn enum_unknown_variant_is_parse_error() -> Result {
     let err = test()
         .run("enum Shape { circle, point }; Shape.cirle")
         .expect_parse_error()?;
     assert!(format!("{err:?}").contains("unknown variant `cirle`"));
     Ok(())
+}
+
+#[test]
+fn enum_duplicate_variant_is_error() -> Result {
+    test()
+        .run("enum Shape { a, a }")
+        .expect_parse_error()
+        .map(drop)
 }
 
 #[test]
@@ -132,7 +148,7 @@ fn enum_payload_field_payload_is_allowed() -> Result {
         .expect_value_eq(r#"{kind:a,payload:{payload:inner}}"#)
 }
 
-// Match destructuring
+// Match destructuring + exhaustiveness
 
 #[test]
 fn enum_match_destructures_payload() -> Result {
@@ -142,28 +158,210 @@ fn enum_match_destructures_payload() -> Result {
 }
 
 #[test]
+fn enum_match_missing_variant_is_error() -> Result {
+    let err = test()
+        .run("enum Shape { a, b, c }; let s = Shape.a; match $s { {kind: 'a'} => 'a', {kind: 'b'} => 'b' }")
+        .expect_parse_error()?;
+    assert!(format!("{err:?}").contains("missing variants: c"));
+    Ok(())
+}
+
+#[test]
+fn enum_match_wildcard_covers_all() -> Result {
+    test()
+        .run("enum Shape { a, b }; let s = Shape.b; match $s { {kind: 'a'} => 'a', _ => 'other' }")
+        .expect_value_eq("other")
+}
+
+#[test]
+fn enum_match_or_pattern_covers() -> Result {
+    test()
+        .run("enum Shape { a, b }; let s = Shape.b; match $s { {kind: 'a'} | {kind: 'b'} => 'ab' }")
+        .expect_value_eq("ab")
+}
+
+#[test]
 fn match_on_plain_record_unchanged() -> Result {
     test()
-        .run("match {x: 1, y: 2} { {x: $a, y: $b} => { $a + $b }, _ => 0 }")
-        .expect_value_eq(3)
+        .run("match {kind: 'x'} { {kind: 'x'} => 'yes' }")
+        .expect_value_eq("yes")
+}
+
+// Expression-position constructors
+
+#[test]
+fn enum_constructor_in_list() -> Result {
+    test()
+        .run("enum S { a, b }; [S.a, S.b] | describe")
+        .expect_value_eq("list<S>")
+}
+
+#[test]
+fn enum_constructor_in_comparison() -> Result {
+    test()
+        .run("enum S { a }; let s = S.a; $s == S.a")
+        .expect_value_eq(true)
+}
+
+#[test]
+fn enum_constructor_missing_payload_is_error() -> Result {
+    test()
+        .run("enum S { a: int, b }; [S.a]")
+        .expect_parse_error()
+        .map(drop)
+}
+
+// Qualified variant patterns
+
+#[test]
+fn enum_match_qualified_variant() -> Result {
+    test()
+        .run("enum S { circle: record<radius: float>, point }; let c = S.point; match $c { S.circle {radius: $r} => $r, S.point => 99 }")
+        .expect_value_eq(99)
+}
+
+#[test]
+fn enum_match_qualified_variant_binds_payload() -> Result {
+    test()
+        .run("enum S { circle: record<radius: float>, point }; let c = S.circle {radius: 2.0}; match $c { S.circle {radius: $r} => { $r * $r }, S.point => 0.0 }")
+        .expect_value_eq(4.0)
+}
+
+#[test]
+fn enum_match_qualified_variant_binds_scalar_payload() -> Result {
+    // A bare pattern after the variant binds the whole payload —
+    // the trailing pattern always matches the payload, never the
+    // `{kind, payload}` base record.
+    test()
+        .run("enum S { a: int, b }; let s = S.a 41; match $s { S.a $v => { $v + 1 }, S.b => 0 }")
+        .expect_value_eq(42)
+}
+
+#[test]
+fn enum_match_qualified_variant_ignores_payload() -> Result {
+    test()
+        .run("enum S { a: int, b }; let s = S.a 41; match $s { S.a _ => 'a', S.b => 'b' }")
+        .expect_value_eq("a")
+}
+
+#[test]
+fn enum_match_payload_pattern_on_unit_variant_is_error() -> Result {
+    let err = test()
+        .run("enum S { a: int, b }; match (S.a 1) { S.b $v => $v, S.a $v => $v }")
+        .expect_parse_error()?;
+    assert!(format!("{err:?}").contains("unit variant"));
+    Ok(())
+}
+
+#[test]
+fn enum_match_record_payload_pattern_on_scalar_is_error() -> Result {
+    // `a: int` can never satisfy a `{x: ...}` payload pattern —
+    // an error beats a silently-never-matching arm.
+    let err = test()
+        .run("enum S { a: int, b }; match (S.a 1) { S.a {x: $f} => $f, S.b => 0 }")
+        .expect_parse_error()?;
+    assert!(format!("{err:?}").contains("cannot match"));
+    Ok(())
+}
+
+#[test]
+fn enum_match_qualified_or_pattern() -> Result {
+    test()
+        .run("enum S { a, b }; let s = S.b; match $s { S.a | S.b => 'ab', _ => 'x' }")
+        .expect_value_eq("ab")
+}
+
+#[test]
+fn enum_match_qualified_unknown_variant() -> Result {
+    test()
+        .run("enum S { a, b }; let s = S.a; match $s { S.bogus => 1, _ => 2 }")
+        .expect_parse_error()
+        .map(drop)
+}
+
+#[test]
+fn enum_match_qualified_still_checks_exhaustiveness() -> Result {
+    let err = test()
+        .run("enum S { a, b, c }; let s = S.a; match $s { S.a => 1, S.b => 2 }")
+        .expect_parse_error()?;
+    assert!(format!("{err:?}").contains("missing variants: c"));
+    Ok(())
+}
+
+#[test]
+fn enum_match_exhaustive_output_is_not_union_nothing() -> Result {
+    test()
+        .run("enum S { a, b }; def f [s: S]: nothing -> int { match $s { S.a => 1, S.b => 2 } }; f (S.a)")
+        .expect_value_eq(1)
+}
+
+// Qualified module names
+
+#[test]
+fn module_qualified_constructor() -> Result {
+    test()
+        .run("module m { export enum T { x, y }}; use m; m.T.x | describe")
+        .expect_value_eq("T")
+}
+
+#[test]
+fn module_qualified_type_in_signature() -> Result {
+    test()
+        .run("module m { export enum T { x, y }}; use m; def f [s: m.T] { $s | describe }; f (m.T.y)")
+        .expect_value_eq("T")
+}
+
+#[test]
+fn module_qualified_variant_pattern() -> Result {
+    test()
+        .run("module m { export enum T { x, y }}; use m; let s = m.T.y; match $s { m.T.x => 1, m.T.y => 2 }")
+        .expect_value_eq(2)
+}
+
+#[test]
+fn module_type_not_leaked_by_bare_use() -> Result {
+    test()
+        .run("module m { export enum T { x }}; use m; T.x")
+        .expect_error_code_eq("nu::shell::external_command")
+}
+
+// mut + enforce-runtime-annotations
+
+#[test]
+fn enum_mut_reassign_same_enum_ok() -> Result {
+    test()
+        .run("enum S { a, b }; mut s = S.a; $s = S.b; $s | describe")
+        .expect_value_eq("S")
+}
+
+#[test]
+fn enum_mut_reassign_other_type_fails() -> Result {
+    test()
+        .run(r#"enum S { a, b }; mut s = S.a; $s = "str""#)
+        .expect_parse_error()
+        .map(drop)
 }
 
 // Modules
 
 #[test]
 fn module_export_type() -> Result {
-    let lines = [
-        "module shapes {",
-        "    export struct Pt { x: int, y: int }",
-        "    export def origin []: nothing -> Pt { {x: 0, y: 0} }",
-        "}",
-        "use shapes",
-        "shapes origin | describe",
-    ];
-    let script = lines.join("\n");
-    test()
-        .run(&script)
-        .expect_value_eq("record<x: int, y: int>")
+    Playground::setup("module_export_type", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
+            "shapes.nu",
+            "
+                export enum Shape { circle: record<radius: float>, point }
+                export def area [s: Shape] {
+                    match $s { {kind: 'circle', radius: $r} => { $r * $r }, {kind: 'point'} => 0.0 }
+                }
+            ",
+        )]);
+
+        test()
+            .cwd(dirs.test())
+            .run("use shapes.nu *; let c = Shape.circle {radius: 2.0}; area $c")
+            .expect_value_eq(4.0)
+    })
 }
 
 #[test]
@@ -172,14 +370,13 @@ fn module_import_named_type() -> Result {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "shapes.nu",
             "
-                export struct Pt { x: int, y: int }
-                export def make [x: int, y: int]: nothing -> Pt { {x: $x, y: $y} }
+                export enum Shape { circle: float, point }
             ",
         )]);
 
         test()
             .cwd(dirs.test())
-            .run("use shapes.nu [Pt, make]; make 3 4 | describe")
-            .expect_value_eq("record<x: int, y: int>")
+            .run("use shapes.nu Shape; Shape.point | describe")
+            .expect_value_eq("Shape")
     })
 }

@@ -5,8 +5,9 @@ use crate::{
     parse_shape_specs::parse_shape_name,
 };
 use nu_protocol::{
-    CompareTypes, EnumDef, EnumVariant, ParseError, Span, Type, TypeDef, TypeDefKind,
-    ast::{Argument, Call, Expr, Expression, Pipeline},
+    CompareTypes, EnumDef, EnumVariant, ParseError, Span, SyntaxShape, Type, TypeDef, TypeDefKind,
+    Value,
+    ast::{Argument, Call, Expr, Expression, MatchPattern, Pattern, Pipeline},
     engine::StateWorkingSet,
 };
 use std::sync::Arc;
@@ -43,6 +44,13 @@ const BUILTIN_TYPE_NAMES: &[&[u8]] = &[
 ];
 
 fn is_valid_type_name(name: &[u8]) -> bool {
+    !name.is_empty()
+        && name
+            .iter()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-'))
+}
+
+fn is_valid_variant_name(name: &[u8]) -> bool {
     !name.is_empty()
         && name
             .iter()
@@ -212,13 +220,6 @@ pub fn parse_type_decl(
     (pipeline, Some((name, type_def)))
 }
 
-fn is_valid_variant_name(name: &[u8]) -> bool {
-    !name.is_empty()
-        && name
-            .iter()
-            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-'))
-}
-
 /// Parse the `enum<variant: <payload-shape>, ...>` definition body.
 fn parse_enum_def(working_set: &mut StateWorkingSet, bytes: &[u8], span: Span) -> Option<EnumDef> {
     if !bytes.starts_with(b"enum") {
@@ -298,10 +299,39 @@ fn parse_enum_def(working_set: &mut StateWorkingSet, bytes: &[u8], span: Span) -
 
     Some(EnumDef { variants })
 }
+
+/// The name of the internal command enum constructors are rewritten to.
 ///
 /// `Type.variant [payload]` parses to `enum-construct <type> <variant>
 /// [payload]`; the command validates the payload again at runtime.
 pub const ENUM_CONSTRUCT_DECL: &[u8] = b"enum-construct";
+
+fn enum_internal_call(
+    working_set: &mut StateWorkingSet,
+    decl_name: &[u8],
+    type_arg: &str,
+    out_ty: Type,
+    head_span: Span,
+    call_span: Span,
+    args: Vec<Argument>,
+) -> Option<Expression> {
+    let mut call = Call::new(call_span);
+    call.decl_id = working_set.find_decl(decl_name)?;
+    call.head = head_span;
+    call.arguments.push(Argument::Positional(Expression::new(
+        working_set,
+        Expr::String(type_arg.to_string()),
+        head_span,
+        Type::String,
+    )));
+    call.arguments.extend(args);
+    Some(Expression::new(
+        working_set,
+        Expr::Call(Box::new(call)),
+        call_span,
+        out_ty,
+    ))
+}
 
 /// Try to parse `Type.variant [payload]` as an enum constructor call.
 ///
@@ -332,6 +362,9 @@ pub fn parse_enum_constructor(
 
     let variant_name_str = String::from_utf8_lossy(variant_name).to_string();
     let type_name_str = String::from_utf8_lossy(&type_def.name).to_string();
+    // The name as written is what the runtime command resolves; the
+    // canonical `type_def.name` is what values and signature checks report.
+    let type_path_str = String::from_utf8_lossy(type_name).to_string();
 
     let Some(variant) = enum_def.get_variant(&variant_name_str) else {
         working_set.error(ParseError::LabeledErrorWithHelp {
@@ -345,8 +378,6 @@ pub fn parse_enum_constructor(
         });
         return Some(garbage(working_set, call_span));
     };
-
-    let decl_id = working_set.find_decl(ENUM_CONSTRUCT_DECL)?;
 
     // Validate the payload argument statically where possible.
     let payload_expr = match &variant.payload {
@@ -397,29 +428,206 @@ pub fn parse_enum_constructor(
         }
     };
 
-    let mut call = Call::new(call_span);
-    call.decl_id = decl_id;
-    call.head = head_span;
-    call.arguments.push(Argument::Positional(Expression::new(
-        working_set,
-        Expr::String(type_name_str.clone()),
-        head_span,
-        Type::String,
-    )));
-    call.arguments.push(Argument::Positional(Expression::new(
+    let mut args = vec![Argument::Positional(Expression::new(
         working_set,
         Expr::String(variant_name_str),
         head_span,
         Type::String,
-    )));
+    ))];
     if let Some(payload) = payload_expr {
-        call.arguments.push(Argument::Positional(payload));
+        args.push(Argument::Positional(payload));
     }
 
-    Some(Expression::new(
+    enum_internal_call(
         working_set,
-        Expr::Call(Box::new(call)),
-        call_span,
+        ENUM_CONSTRUCT_DECL,
+        &type_path_str,
         Type::Custom(type_name_str.into()),
+        head_span,
+        call_span,
+        args,
+    )
+}
+
+/// Which enum variants a [`Pattern`](nu_protocol::ast::Pattern) covers.
+enum Coverage {
+    /// The pattern matches regardless of the variant (`_`, `$x`,
+    /// `{kind: $k}`, a record pattern without a `kind` constraint, ...).
+    All,
+    /// The pattern selects a fixed set of variant names.
+    Variants(std::collections::HashSet<String>),
+}
+
+fn pattern_coverage(pattern: &nu_protocol::ast::Pattern) -> Coverage {
+    use nu_protocol::ast::Pattern;
+    match pattern {
+        Pattern::Variable(_) | Pattern::IgnoreValue => Coverage::All,
+        Pattern::Or(patterns) => {
+            let mut variants = std::collections::HashSet::new();
+            for pattern in patterns {
+                match pattern_coverage(&pattern.pattern) {
+                    Coverage::All => return Coverage::All,
+                    Coverage::Variants(vs) => variants.extend(vs),
+                }
+            }
+            Coverage::Variants(variants)
+        }
+        Pattern::Record(fields) => {
+            for (field_name, field_pattern) in fields {
+                if field_name == "kind" {
+                    return match &field_pattern.pattern {
+                        // `{kind: "circle"}` selects a single variant.
+                        Pattern::Value(nu_protocol::Value::String { val, .. }) => {
+                            Coverage::Variants(std::collections::HashSet::from([val.clone()]))
+                        }
+                        // `{kind: 5}` can never match an enum value.
+                        Pattern::Value(_) => Coverage::Variants(std::collections::HashSet::new()),
+                        // `{kind: $k}` binds any variant; `{kind: "a" | "b"}`
+                        // unions them.
+                        other => pattern_coverage(other),
+                    };
+                }
+            }
+            // A record pattern with no `kind` field might match several
+            // variants; conservatively treat it as covering all of them.
+            Coverage::All
+        }
+        _ => Coverage::Variants(std::collections::HashSet::new()),
+    }
+}
+
+/// Try to parse `span` as a qualified enum-variant pattern `Type.variant`.
+///
+/// Lowers to a record pattern on the variant tag — `S.circle` matches the
+/// same way `{kind: "circle"}` does, through the enum's base record. Returns
+/// `None` when `span` is not `<known enum type>.<variant>`; an unknown
+/// variant on a known enum type is a parse error.
+pub fn parse_enum_variant_pattern(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+) -> Option<(MatchPattern, Option<SyntaxShape>)> {
+    let bytes = working_set.get_span_contents(span);
+    let dot = bytes.iter().rposition(|&b| b == b'.')?;
+    let type_name = &bytes[..dot];
+    let variant_name = &bytes[dot + 1..];
+    if type_name.is_empty() || !is_valid_variant_name(variant_name) {
+        return None;
+    }
+
+    let type_def = working_set.find_type_name(type_name)?;
+    let TypeDefKind::Enum(enum_def) = &type_def.kind else {
+        return None;
+    };
+
+    let variant_name_str = String::from_utf8_lossy(variant_name).to_string();
+    let Some(variant) = enum_def.get_variant(&variant_name_str) else {
+        let type_name_str = String::from_utf8_lossy(&type_def.name);
+        working_set.error(ParseError::LabeledErrorWithHelp {
+            error: format!("unknown variant `{variant_name_str}`"),
+            label: format!("not a variant of `{type_name_str}`"),
+            help: format!(
+                "variants of `{type_name_str}`: {}",
+                enum_def.variant_names().join(", ")
+            ),
+            span,
+        });
+        return Some((
+            MatchPattern {
+                pattern: Pattern::Garbage,
+                guard: None,
+                span,
+            },
+            None,
+        ));
+    };
+
+    Some((
+        MatchPattern {
+            pattern: Pattern::Record(vec![(
+                "kind".into(),
+                MatchPattern {
+                    pattern: Pattern::Value(Value::string(variant_name_str, span)),
+                    guard: None,
+                    span,
+                },
+            )]),
+            guard: None,
+            span,
+        },
+        variant.payload.clone(),
     ))
+}
+
+/// Which enum variants of a declared-enum scrutinee are not covered by the
+/// match arms. `None` when the scrutinee is not a declared enum type or the
+/// type is out of scope.
+///
+/// Guards make an arm conditional, so guarded arms do not contribute
+/// coverage; wildcards and variable bindings cover all variants.
+pub fn enum_match_uncovered<'a>(
+    working_set: &mut StateWorkingSet,
+    scrutinee_ty: &Type,
+    matches: impl Iterator<Item = &'a MatchPattern>,
+) -> Option<Vec<String>> {
+    let Type::Custom(type_name) = scrutinee_ty else {
+        return None;
+    };
+
+    let type_def = working_set.find_type_name(type_name.as_bytes())?;
+    let TypeDefKind::Enum(enum_def) = &type_def.kind else {
+        return None;
+    };
+
+    let mut uncovered: std::collections::HashSet<&str> =
+        enum_def.variants.iter().map(|v| v.name.as_str()).collect();
+
+    for pattern in matches {
+        if pattern.guard.is_some() {
+            continue;
+        }
+        match pattern_coverage(&pattern.pattern) {
+            Coverage::All => {
+                uncovered.clear();
+                break;
+            }
+            Coverage::Variants(variants) => {
+                for variant in &variants {
+                    uncovered.remove(variant.as_str());
+                }
+            }
+        }
+    }
+
+    let mut uncovered: Vec<_> = uncovered.into_iter().collect();
+    uncovered.sort_unstable();
+    Some(uncovered.iter().map(|v| v.to_string()).collect())
+}
+
+/// Emit a parse error when a `match` on a declared enum type is not
+/// exhaustive.
+///
+/// `match` blocks only get this check when the scrutinee is known to be a
+/// declared `enum` type — anything else is skipped. Guards make an arm
+/// conditional, so guarded arms do not contribute coverage.
+pub fn check_enum_match_exhaustiveness<'a>(
+    working_set: &mut StateWorkingSet,
+    scrutinee_ty: &Type,
+    matches: impl Iterator<Item = &'a MatchPattern>,
+    span: Span,
+) {
+    let Type::Custom(type_name) = scrutinee_ty else {
+        return;
+    };
+    let Some(uncovered) = enum_match_uncovered(working_set, scrutinee_ty, matches) else {
+        return;
+    };
+
+    if !uncovered.is_empty() {
+        working_set.error(ParseError::LabeledErrorWithHelp {
+            error: format!("match is not exhaustive for `{type_name}`"),
+            label: format!("missing variants: {}", uncovered.join(", ")),
+            help: format!("cover all variants of `{type_name}` or add a `_` arm"),
+            span,
+        });
+    }
 }
