@@ -21,6 +21,10 @@ pub mod var {
     // Parser info key used when `<cmd> --help` is rewritten to `help <name>` so `help`
     // can render documentation for the already-resolved declaration.
     pub const HELP_DECL_ID_PARSER_INFO: &str = "help_decl_id";
+    /// Inserted when command uses shorthand syntax e.g. `FOO=bar cmd`.
+    /// when `with_env` is called and this is present, it means the env-modifying
+    /// args were passed via shorthand (and not an explicit `with-env` command).
+    pub const HAS_SHORTHAND_ENV_PARSER_INFO: &str = "has_shorthand_env";
 }
 
 /// Returns whether a string, when used as the name of an environment variable,
