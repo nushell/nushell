@@ -1,5 +1,5 @@
-use crate::{DeclId, ModuleId, OverlayId, VarId};
-use std::{collections::HashMap, ops::Deref};
+use crate::{DeclId, ModuleId, OverlayId, TypeDef, VarId};
+use std::{collections::HashMap, ops::Deref, sync::Arc};
 
 /// Name → id map for declarations that remembers the longest name it has ever held.
 ///
@@ -361,6 +361,8 @@ pub struct OverlayFrame {
     pub predecls: DeclNameMap, // temporary storage for predeclarations
     pub decls: DeclNameMap,
     pub modules: HashMap<Vec<u8>, ModuleId>,
+    /// Named types declared with the `type` keyword.
+    pub types: HashMap<Vec<u8>, Arc<TypeDef>>,
     pub shadowed_vars: Vec<VarId>,
     pub visibility: Visibility,
     pub origin: ModuleId, // The original module the overlay was created from
@@ -374,6 +376,7 @@ impl OverlayFrame {
             predecls: DeclNameMap::new(),
             decls: DeclNameMap::new(),
             modules: HashMap::new(),
+            types: HashMap::new(),
             shadowed_vars: Vec::new(),
             visibility: Visibility::new(),
             origin,
@@ -387,6 +390,10 @@ impl OverlayFrame {
 
     pub fn insert_module(&mut self, name: Vec<u8>, module_id: ModuleId) -> Option<ModuleId> {
         self.modules.insert(name, module_id)
+    }
+
+    pub fn insert_type(&mut self, name: Vec<u8>, type_def: Arc<TypeDef>) -> Option<Arc<TypeDef>> {
+        self.types.insert(name, type_def)
     }
 
     pub fn insert_variable(&mut self, name: Vec<u8>, variable_id: VarId) -> Option<VarId> {

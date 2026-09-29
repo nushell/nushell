@@ -5,10 +5,13 @@ use crate::{
 
 use crate::parser_path::ParserPath;
 use indexmap::IndexMap;
+use std::sync::Arc;
 
 pub struct ResolvedImportPattern {
     pub decls: Vec<(Vec<u8>, DeclId)>,
     pub modules: Vec<(Vec<u8>, ModuleId)>,
+    /// Named types (`type` declarations) to import.
+    pub types: Vec<(Vec<u8>, Arc<crate::TypeDef>)>,
     pub constants: Vec<(Vec<u8>, VarId)>,
     /// TODO: for referencing module name as a record, e.g. `$module_name.const_name`
     /// values got multiple duplicates in memory.
@@ -19,12 +22,14 @@ impl ResolvedImportPattern {
     pub fn new(
         decls: Vec<(Vec<u8>, DeclId)>,
         modules: Vec<(Vec<u8>, ModuleId)>,
+        types: Vec<(Vec<u8>, Arc<crate::TypeDef>)>,
         constants: Vec<(Vec<u8>, VarId)>,
         constant_values: Vec<(Vec<u8>, Value)>,
     ) -> Self {
         ResolvedImportPattern {
             decls,
             modules,
+            types,
             constants,
             constant_values,
         }
@@ -37,6 +42,8 @@ pub struct Module {
     pub name: Vec<u8>,
     pub decls: IndexMap<Vec<u8>, DeclId>,
     pub submodules: IndexMap<Vec<u8>, ModuleId>,
+    /// Named types exported with `export type`.
+    pub types: IndexMap<Vec<u8>, Arc<crate::TypeDef>>,
     pub constants: IndexMap<Vec<u8>, VarId>,
     pub env_block: Option<BlockId>, // `export-env { ... }` block
     pub main: Option<DeclId>,       // `export def main`
@@ -51,6 +58,7 @@ impl Module {
             name,
             decls: IndexMap::new(),
             submodules: IndexMap::new(),
+            types: IndexMap::new(),
             constants: IndexMap::new(),
             env_block: None,
             main: None,
@@ -65,6 +73,7 @@ impl Module {
             name,
             decls: IndexMap::new(),
             submodules: IndexMap::new(),
+            types: IndexMap::new(),
             constants: IndexMap::new(),
             env_block: None,
             main: None,
@@ -80,6 +89,14 @@ impl Module {
 
     pub fn add_decl(&mut self, name: Vec<u8>, decl_id: DeclId) -> Option<DeclId> {
         self.decls.insert(name, decl_id)
+    }
+
+    pub fn add_type(
+        &mut self,
+        name: Vec<u8>,
+        type_def: Arc<crate::TypeDef>,
+    ) -> Option<Arc<crate::TypeDef>> {
+        self.types.insert(name, type_def)
     }
 
     pub fn add_submodule(&mut self, name: Vec<u8>, module_id: ModuleId) -> Option<ModuleId> {
@@ -158,10 +175,14 @@ impl Module {
                 )]
             };
 
+            // NOTE: bare `use mod` does not import named types; there is no
+            // `mod Type` spelling for types yet. Use `use mod [Type]` or
+            // `use mod *`.
             return (
                 ResolvedImportPattern::new(
                     decls,
                     vec![(final_name.clone(), self_id)],
+                    vec![],
                     vec![],
                     constant_values,
                 ),
@@ -193,12 +214,13 @@ impl Module {
                                 vec![],
                                 vec![],
                                 vec![],
+                                vec![],
                             ),
                             errors,
                         )
                     } else {
                         (
-                            ResolvedImportPattern::new(vec![], vec![], vec![], vec![]),
+                            ResolvedImportPattern::new(vec![], vec![], vec![], vec![], vec![]),
                             vec![ParseError::ExportNotFound(*span)],
                         )
                     }
@@ -207,6 +229,18 @@ impl Module {
                         ResolvedImportPattern::new(
                             vec![(name.clone(), *decl_id)],
                             vec![],
+                            vec![],
+                            vec![],
+                            vec![],
+                        ),
+                        errors,
+                    )
+                } else if let Some(type_def) = self.types.get(name) {
+                    (
+                        ResolvedImportPattern::new(
+                            vec![],
+                            vec![],
+                            vec![(name.clone(), type_def.clone())],
                             vec![],
                             vec![],
                         ),
@@ -218,13 +252,14 @@ impl Module {
                             ResolvedImportPattern::new(
                                 vec![],
                                 vec![],
+                                vec![],
                                 vec![(name.clone(), *var_id)],
                                 vec![],
                             ),
                             errors,
                         ),
                         Err(err) => (
-                            ResolvedImportPattern::new(vec![], vec![], vec![], vec![]),
+                            ResolvedImportPattern::new(vec![], vec![], vec![], vec![], vec![]),
                             vec![err],
                         ),
                     }
@@ -240,7 +275,7 @@ impl Module {
                     )
                 } else {
                     (
-                        ResolvedImportPattern::new(vec![], vec![], vec![], vec![]),
+                        ResolvedImportPattern::new(vec![], vec![], vec![], vec![], vec![]),
                         vec![ParseError::ExportNotFound(*span)],
                     )
                 }
@@ -248,6 +283,7 @@ impl Module {
             ImportPatternMember::Glob { .. } => {
                 let mut decls = vec![];
                 let mut submodules = vec![];
+                let mut types = vec![];
                 let mut constants = vec![];
                 let mut constant_values = vec![];
                 let mut errors = vec![];
@@ -265,12 +301,14 @@ impl Module {
                     decls.extend(sub_results.decls);
 
                     submodules.extend(sub_results.modules);
+                    types.extend(sub_results.types);
                     constants.extend(sub_results.constants);
                     constant_values.extend(sub_results.constant_values);
                     errors.extend(sub_errors);
                 }
 
                 decls.extend(self.decls());
+                types.extend(self.types());
                 for (name, var_id) in self.constants.iter() {
                     match working_set.get_constant(*var_id) {
                         Ok(_) => {
@@ -284,13 +322,20 @@ impl Module {
                 submodules.extend(self.submodules());
 
                 (
-                    ResolvedImportPattern::new(decls, submodules, constants, constant_values),
+                    ResolvedImportPattern::new(
+                        decls,
+                        submodules,
+                        types,
+                        constants,
+                        constant_values,
+                    ),
                     errors,
                 )
             }
             ImportPatternMember::List { names } => {
                 let mut decls = vec![];
                 let mut modules = vec![];
+                let mut types = vec![];
                 let mut constants = vec![];
                 let mut constant_values = vec![];
                 let mut errors = vec![];
@@ -304,6 +349,8 @@ impl Module {
                         }
                     } else if let Some(decl_id) = self.decls.get(name) {
                         decls.push((name.clone(), *decl_id));
+                    } else if let Some(type_def) = self.types.get(name) {
+                        types.push((name.clone(), type_def.clone()));
                     } else if let Some(var_id) = self.constants.get(name) {
                         match working_set.get_constant(*var_id) {
                             Ok(_) => constants.push((name.clone(), *var_id)),
@@ -322,6 +369,7 @@ impl Module {
 
                         decls.extend(sub_results.decls);
                         modules.extend(sub_results.modules);
+                        types.extend(sub_results.types);
                         constants.extend(sub_results.constants);
                         constant_values.extend(sub_results.constant_values);
                         errors.extend(sub_errors);
@@ -331,7 +379,7 @@ impl Module {
                 }
 
                 (
-                    ResolvedImportPattern::new(decls, modules, constants, constant_values),
+                    ResolvedImportPattern::new(decls, modules, types, constants, constant_values),
                     errors,
                 )
             }
@@ -406,6 +454,13 @@ impl Module {
         }
 
         result
+    }
+
+    pub fn types(&self) -> Vec<(Vec<u8>, Arc<crate::TypeDef>)> {
+        self.types
+            .iter()
+            .map(|(name, def)| (name.clone(), def.clone()))
+            .collect()
     }
 
     pub fn submodules(&self) -> Vec<(Vec<u8>, ModuleId)> {
