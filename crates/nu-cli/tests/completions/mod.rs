@@ -1914,6 +1914,30 @@ fn command_wide_completion_flag_completion() {
     assert_eq!(span.end, input_for_flag_value.len());
 }
 
+/// A `def --wrapped` rest parameter receives unknown `--x` tokens, so its completer
+/// answers for them next to the declared flags (#19097).
+#[test]
+fn wrapped_rest_completer_completes_flag_tokens() {
+    let mut completer = custom_completer();
+
+    let sample = /* lang=nu */ r#"
+        def "nu-complete what" [] { ["aaa", "--bbb"] }
+        def --wrapped what [--verbose, ...args: string@"nu-complete what"] {}
+        what --"#;
+
+    let suggestions = completer.complete_blocking(sample, sample.len());
+    match_suggestions(&vec!["--verbose", "--bbb"], &suggestions);
+
+    let span = suggestions[1].span;
+    assert_eq!(span.start, sample.len() - 2);
+    assert_eq!(span.end, sample.len());
+
+    // Past a leading positional, and with the flag partly typed.
+    let partial = format!("{} aaa --b", sample.trim_end_matches(" --"));
+    let suggestions = completer.complete_blocking(&partial, partial.len());
+    match_suggestions(&vec!["--bbb"], &suggestions);
+}
+
 #[test]
 fn file_completions() {
     // Create a new engine
