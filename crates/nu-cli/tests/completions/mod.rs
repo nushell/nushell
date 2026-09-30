@@ -1938,6 +1938,32 @@ fn wrapped_rest_completer_completes_flag_tokens() {
     match_suggestions(&vec!["--bbb"], &suggestions);
 }
 
+/// A wrapped `--x` token binds to the rest parameter, so it follows the positional chain:
+/// the rest completer overrides `@complete` unless it declines (`null`) or contributes
+/// (`fallback: true`).
+#[rstest]
+#[case::answers("[aaa --bbb]", vec!["--bbb"])]
+#[case::contributes("{completions: [aaa --bbb], fallback: true}", vec!["--bbb", "--wide"])]
+#[case::declines("null", vec!["--wide"])]
+fn wrapped_rest_completer_chains_to_command_wide_on_flag_tokens(
+    #[case] rest_output: &str,
+    #[case] expected: Vec<&str>,
+) {
+    let mut completer = custom_completer();
+
+    let sample = format!(
+        r#"
+        def "nu-complete rest" [] {{ {rest_output} }}
+        def "nu-complete wide" [] {{ ["--wide"] }}
+        @complete "nu-complete wide"
+        def --wrapped both [...args: string@"nu-complete rest"] {{}}
+        both --"#
+    );
+
+    let suggestions = completer.complete_blocking(&sample, sample.len());
+    match_suggestions(&expected, &suggestions);
+}
+
 #[test]
 fn file_completions() {
     // Create a new engine
