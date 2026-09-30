@@ -3751,6 +3751,70 @@ fn conditional_branch_types(#[case] code: &str, #[case] expected_tys: &[Type]) {
     assert_eq!(out_ty, expected_ty);
 }
 
+fn working_set_with_def() -> StateWorkingSet<'static> {
+    let engine_state = Box::leak(Box::new(EngineState::new()));
+    let mut working_set = StateWorkingSet::new(engine_state);
+    working_set.add_decl(Box::new(Def));
+    let _ = engine_state.merge_delta(working_set.render());
+
+    StateWorkingSet::new(engine_state)
+}
+
+#[rstest]
+#[case::positional("def cmd [arg = 1 = 2] { $arg }", "2")]
+#[case::flag("def cmd [--flag = 1 = 2] { $flag }", "2")]
+#[case::typed("def cmd [arg: int = 1 = 2 = 3] { $arg }", "2")]
+fn rejects_multiple_default_values(#[case] source: &str, #[case] extra_value: &str) {
+    let mut working_set = working_set_with_def();
+    let _ = parse(&mut working_set, None, source.as_bytes(), false);
+
+    let error = working_set
+        .parse_errors
+        .first()
+        .expect("a duplicate default value must produce a parse error");
+    assert!(
+        matches!(error, ParseError::LabeledErrorWithHelp { error, label, .. }
+            if error == "A positional parameter or flag can have at most one default value."
+                && label == "extra default value"),
+        "unexpected diagnostic: {error:?}"
+    );
+    assert_eq!(
+        working_set.get_span_contents(error.span()),
+        extra_value.as_bytes()
+    );
+}
+
+#[rstest]
+#[case::positional("def cmd [arg = 1] { $arg }")]
+#[case::flag("def cmd [--flag = 1] { $flag }")]
+#[case::distinct_params("def cmd [a = 1, b = 2] { $a }")]
+fn accepts_a_single_default_value(#[case] source: &str) {
+    let mut working_set = working_set_with_def();
+    let _ = parse(&mut working_set, None, source.as_bytes(), false);
+
+    assert!(
+        working_set.parse_errors.is_empty(),
+        "{:?}",
+        working_set.parse_errors
+    );
+}
+
+#[test]
+fn rest_positional_default_is_not_reported_as_a_duplicate() {
+    let mut working_set = working_set_with_def();
+    let _ = parse(
+        &mut working_set,
+        None,
+        b"def cmd [...rest = 1] { $rest }",
+        false,
+    );
+
+    assert!(matches!(
+        working_set.parse_errors.first(),
+        Some(ParseError::AssignmentMismatch(..))
+    ));
+}
+
 #[rstest]
 #[case::malformed_table("[a b c; [1 2 3]]")]
 #[case::between_items("[1; 2]")]

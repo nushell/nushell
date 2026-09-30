@@ -1000,7 +1000,6 @@ pub fn parse_signature_helper(
                                         (parse_shape_name(working_set, &contents, span), None)
                                     });
 
-                                //TODO check if we're replacing a custom parameter already
                                 match last {
                                     Arg::Positional {
                                         arg:
@@ -1074,6 +1073,21 @@ pub fn parse_signature_helper(
                         }
                         ParseMode::DefaultValue => {
                             if !is_external && let Some(last) = args.last_mut() {
+                                let already_has_default = match last {
+                                    Arg::Positional { arg, .. } => arg.default_value.is_some(),
+                                    Arg::Flag { flag, .. } => flag.default_value.is_some(),
+                                    Arg::RestPositional(_) => false,
+                                };
+
+                                if already_has_default {
+                                    working_set.error(ParseError::LabeledErrorWithHelp {
+                                        error: "A positional parameter or flag can have at most one default value.".to_string(),
+                                        label: "extra default value".to_string(),
+                                        help: "remove the extra default value".to_string(),
+                                        span,
+                                    });
+                                }
+
                                 let shape = match last {
                                     Arg::Positional { arg, .. } => arg.shape.clone(),
                                     Arg::RestPositional(arg) => arg.shape.clone(),
@@ -1084,7 +1098,6 @@ pub fn parse_signature_helper(
 
                                 let expression = parse_value(working_set, span, &shape, None);
 
-                                //TODO check if we're replacing a custom parameter already
                                 match last {
                                     Arg::Positional {
                                         arg:
