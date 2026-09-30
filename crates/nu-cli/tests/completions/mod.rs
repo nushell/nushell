@@ -1056,6 +1056,36 @@ fn interactive_completer_on_a_shorter_head_argument_runs_inline() {
     );
 }
 
+/// A cancelled picker answers empty; the next Tab on the same line must run it again
+/// rather than reuse that answer. A non-empty answer is still reused for the repeated
+/// asks of one keystroke.
+#[test]
+fn interactive_completer_reruns_after_an_empty_answer() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let dir = tempfile::tempdir().expect("tempdir");
+    let marker = dir.path().join("asked");
+    let command = format!(
+        "@interactive\n\
+         def comp [] {{ if ('{m}' | path exists) {{ [alpha] }} else {{ touch '{m}'; [] }} }}\n\
+         def my-command [arg: string@comp] {{}}",
+        m = marker.display()
+    );
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let line = "my-command ";
+    let first = completer.complete(line, line.len());
+    assert!(first.suggestions().is_empty(), "got {first:?}");
+
+    let second = completer.complete(line, line.len());
+    match_suggestions(&vec!["alpha"], second.suggestions());
+
+    // Without the marker a rerun would answer empty again, so `alpha` is the kept answer.
+    std::fs::remove_file(&marker).expect("remove marker");
+    let third = completer.complete(line, line.len());
+    match_suggestions(&vec!["alpha"], third.suggestions());
+}
+
 /// Detection sees through aliases as execution does: an alias of an `@interactive`
 /// completer routes inline.
 #[test]
