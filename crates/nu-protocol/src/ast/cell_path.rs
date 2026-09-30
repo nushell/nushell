@@ -486,7 +486,7 @@ mod parse {
         Ok(match prefix {
             "0b" => DigitPrefix::Bin,
             "0o" => DigitPrefix::Oct,
-            "Ox" => DigitPrefix::Hex,
+            "0x" => DigitPrefix::Hex,
             _ => return fail(input),
         })
     }
@@ -504,7 +504,7 @@ mod parse {
     }
 
     fn hex_digits(input: &mut &str) -> Result<usize> {
-        any_radix_digits(16, ('_', '0'..='9', 'a'..='f', 'A'..='Z')).parse_next(input)
+        any_radix_digits(16, ('_', '0'..='9', 'a'..='f', 'A'..='F')).parse_next(input)
     }
 
     fn any_radix_digits<'i>(

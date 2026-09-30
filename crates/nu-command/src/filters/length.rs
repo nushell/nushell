@@ -103,7 +103,13 @@ fn length_row(call: &Call, input: PipelineData) -> Result<PipelineData, ShellErr
             Ok(Value::int(vals.len() as i64, call.head).into_pipeline_data())
         }
         PipelineData::ListStream(stream, ..) => {
-            Ok(Value::int(stream.into_iter().count() as i64, call.head).into_pipeline_data())
+            let mut count = 0;
+            for value in stream {
+                // Propagate error values instead of silently counting them (see #18928).
+                value.unwrap_error()?;
+                count += 1;
+            }
+            Ok(Value::int(count, call.head).into_pipeline_data())
         }
         PipelineData::ByteStream(stream, ..) if stream.type_().is_binary_coercible() => {
             Ok(Value::int(

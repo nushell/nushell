@@ -16,6 +16,7 @@ fn default_config_color_menus_keybindings_viewable() -> TestResult {
                 ("completion_menu" in ($env.config.keybindings | get name))
                 (($env.config.explore | columns | length) > 0)
                 ("selected_cell" in ($env.config.explore | columns))
+                ("title_bar" in ($env.config.tui | columns))
             ] | all {|x| $x }
         "#,
         "true",

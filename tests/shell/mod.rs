@@ -258,6 +258,45 @@ fn run_in_noninteractive_mode() {
     assert!(child_output.stderr.is_empty());
 }
 
+// A `try` with a `catch` or `finally` block collects the block's output to know whether
+// it failed. When the tried external's stdout is inherited, its output already went to
+// the terminal; collecting used to turn the data-less stream into an empty string, which
+// printed as a stray blank line after the external's own output. The `try` must be the
+// final statement: only the final statement's value is printed, so that is where the
+// fabricated empty string became visible.
+// https://github.com/nushell/nushell/issues/18765
+#[rstest]
+#[case::catch("try { ^$env.TEST_NU_BIN -n -c 'print hi' } catch {}", "hi\n")]
+#[case::finally("try { ^$env.TEST_NU_BIN -n -c 'print hi' } finally {}", "hi\n")]
+#[case::catch_and_finally(
+    "try { ^$env.TEST_NU_BIN -n -c 'print hi' } catch {} finally {}",
+    "hi\n"
+)]
+// The collected stream still reports the external's failure, so `catch` runs.
+#[case::catch_on_failure(
+    "try { ^$env.TEST_NU_BIN -n -c 'exit 1' } catch { print caught }",
+    "caught\n"
+)]
+#[nu_test_support::test]
+#[deps(NU)]
+fn try_catch_inherited_external_output_has_no_extra_blank_line(
+    #[case] script: &str,
+    #[case] expected: &str,
+) {
+    let child_output = std::process::Command::new(NU.path())
+        .args(["-n", "-c", script])
+        .env("TEST_NU_BIN", NU.path())
+        .output()
+        .expect("failed to run nu");
+
+    assert_eq!(expected, String::from_utf8_lossy(&child_output.stdout));
+    assert!(
+        child_output.stderr.is_empty(),
+        "unexpected stderr: {}",
+        String::from_utf8_lossy(&child_output.stderr),
+    );
+}
+
 #[test]
 #[deps(NU)]
 fn run_with_no_newline() {
@@ -578,6 +617,164 @@ fn source_env_redeclared_let_variable() -> Result {
         let out2: String = tester.run("let xxx = 'second'; source-env env.nu; $env.FROM_SOURCE")?;
         assert_eq!(out2, "second");
 
+        Ok(())
+    })
+}
+
+#[test]
+fn source_redeclared_let_visible_inside_sourced_def() -> Result {
+    // Nested `def` bodies capture outer vars. File-level captures must include
+    // those (or the span cache would reuse a stale `foo` after `let` redeclare).
+    // See https://github.com/nushell/nushell/issues/18515
+    Playground::setup("source_redeclared_let_in_def", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent("foo.nu", "def foo [] { $xxx }")]);
+
+        let mut tester = test().cwd(dirs.test());
+
+        let out1: String = tester.run("let xxx = 'first'; source foo.nu; foo")?;
+        assert_eq!(out1, "first");
+
+        let out2: String = tester.run("let xxx = 'second'; source foo.nu; foo")?;
+        assert_eq!(out2, "second");
+
+        Ok(())
+    })
+}
+
+#[test]
+#[deps(NU)]
+fn source_script_def_sees_outer_let() -> Result {
+    Playground::setup("source_script_def_outer_let", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[
+            FileWithContent("foo.nu", "def foo [] { $xxx }"),
+            FileWithContent("app.nu", "let xxx = 'from-script'\nsource foo.nu\nfoo"),
+        ]);
+
+        let out: String = test().cwd(dirs.test()).run("nu app.nu | to text")?;
+        assert_eq!(out, "from-script");
+        Ok(())
+    })
+}
+
+#[test]
+fn source_same_file_does_not_multiply_decls() -> Result {
+    // Capture-free sourced files must reuse the cached block so repeated
+    // `source` does not add another `def` for the same name each time.
+    Playground::setup("source_same_file_no_multiply", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent(
+            "lib.nu",
+            "def shared_a [] { 0 }\ndef shared_b [] { 0 }\ndef shared_c [] { 0 }",
+        )]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("source lib.nu")?;
+        let after_first: i64 = tester.run("scope engine-stats | get num_decls")?;
+
+        let () = tester.run("source lib.nu")?;
+        let () = tester.run("source lib.nu")?;
+        let after_more: i64 = tester.run("scope engine-stats | get num_decls")?;
+
+        assert_eq!(
+            after_first, after_more,
+            "re-sourcing a capture-free file should reuse decls, not add new ones"
+        );
+        tester.run("shared_a").expect_value_eq(0)?;
+        Ok(())
+    })
+}
+
+#[test]
+fn source_redeclared_let_visible_through_nested_source() -> Result {
+    // Wrapper files that only `source` a child with free vars must not reuse a
+    // stale child block after `let` is redeclared.
+    Playground::setup(
+        "source_redeclared_nested_source",
+        |dirs, sandbox| -> Result {
+            sandbox.with_files(&[
+                FileWithContent("b.nu", "$xxx"),
+                FileWithContent("a.nu", "source b.nu"),
+            ]);
+
+            let mut tester = test().cwd(dirs.test());
+
+            let out1: String = tester.run("let xxx = 'first'; source a.nu")?;
+            assert_eq!(out1, "first");
+
+            let out2: String = tester.run("let xxx = 'second'; source a.nu")?;
+            assert_eq!(out2, "second");
+
+            Ok(())
+        },
+    )
+}
+
+#[test]
+fn source_redeclared_let_visible_through_def_wrapping_source() -> Result {
+    Playground::setup(
+        "source_redeclared_def_wraps_source",
+        |dirs, sandbox| -> Result {
+            sandbox.with_files(&[
+                FileWithContent("b.nu", "$xxx"),
+                FileWithContent("a.nu", "def foo [] { source b.nu }"),
+            ]);
+
+            let mut tester = test().cwd(dirs.test());
+
+            let out1: String = tester.run("let xxx = 'first'; source a.nu; foo")?;
+            assert_eq!(out1, "first");
+
+            let out2: String = tester.run("let xxx = 'second'; source a.nu; foo")?;
+            assert_eq!(out2, "second");
+
+            Ok(())
+        },
+    )
+}
+
+#[test]
+fn source_after_source_env_still_registers_defs() -> Result {
+    // `source` is unscoped; `source-env` is scoped. Reuse must not share those
+    // parses, or `source` after `source-env` would skip overlay registration.
+    Playground::setup("source_after_source_env_defs", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent("lib.nu", "def from_lib [] { 7 }")]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("source-env lib.nu")?;
+        tester
+            .run("from_lib")
+            .expect_error_code_eq("nu::shell::external_command")?;
+
+        let () = tester.run("source lib.nu")?;
+        tester.run("from_lib").expect_value_eq(7)?;
+        Ok(())
+    })
+}
+
+#[test]
+fn source_after_source_env_still_registers_lets() -> Result {
+    // Scoped let-only files snapshot `scope_bindings` as None. Reuse must still
+    // distinguish `source` from `source-env` so overlay vars get registered.
+    Playground::setup("source_after_source_env_lets", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[
+            FileWithContent("lets.nu", "let foo = 1"),
+            FileWithContent("consts.nu", "const bar = 2"),
+        ]);
+
+        let mut tester = test().cwd(dirs.test());
+
+        let () = tester.run("source-env lets.nu")?;
+        tester
+            .run("$foo")
+            .expect_error_code_eq("nu::parser::variable_not_found")?;
+        let () = tester.run("source lets.nu")?;
+        tester.run("$foo").expect_value_eq(1)?;
+
+        let () = tester.run("source-env consts.nu")?;
+        tester
+            .run("$bar")
+            .expect_error_code_eq("nu::parser::variable_not_found")?;
+        let () = tester.run("source consts.nu")?;
+        tester.run("$bar").expect_value_eq(2)?;
         Ok(())
     })
 }

@@ -1,7 +1,7 @@
 #![allow(clippy::byte_char_slices)]
 
 use crate::{
-    lex, lite_parse,
+    TokenContents, lex, lite_parse,
     parse_helpers::is_variable,
     parser::{ensure_not_reserved_variable_name, parse_value},
 };
@@ -123,6 +123,18 @@ pub fn parse_list_pattern(working_set: &mut StateWorkingSet, span: Span) -> Matc
     let (output, err) = lex(source, inner_span.start, &[b'\n', b'\r', b','], &[], true);
     if let Some(err) = err {
         working_set.error(err);
+    }
+
+    if let Some(token) = output
+        .iter()
+        .find(|token| token.contents == TokenContents::Semicolon)
+    {
+        working_set.error(ParseError::LabeledErrorWithHelp {
+            error: "Unexpected semicolon in list pattern".into(),
+            label: "not a valid list separator".into(),
+            help: "Use commas or whitespace to separate list items.".into(),
+            span: token.span,
+        });
     }
 
     let (output, err) = lite_parse(&output, working_set);

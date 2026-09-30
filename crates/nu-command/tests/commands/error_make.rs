@@ -30,12 +30,34 @@ fn error_make_no_label_text() -> Result {
 
     let err = test().run(code).expect_labeled_error()?;
 
-    // the error should be due to the invalid argument given to `error make`, it should not be the
-    // error that the user is trying to raise
+    assert_eq!(err.msg, "no_label_text");
+    assert_eq!(err.labels[0].span, Span::new(1, 1));
+
+    assert_ne!(err.labels[0].text, "missing `text: string` column");
+
+    Ok(())
+}
+
+#[test]
+fn error_make_no_label_span() -> Result {
+    let code = "
+        error make {
+            msg: no_label_span,
+            label: {
+                text: 'testing'
+            }
+        }
+    ";
+
+    let err = test().run(code).expect_labeled_error()?;
+
     assert_ne!(err.msg, "no_label_text");
     assert_ne!(err.labels[0].span, Span::new(1, 1));
 
-    assert_eq!(err.labels[0].text, "missing `text: string` column");
+    assert_eq!(
+        err.labels[0].text,
+        "missing `span: record<start: int, end: int>` column"
+    );
 
     Ok(())
 }
@@ -79,7 +101,7 @@ fn error_labels_list_works() -> Result {
 }
 
 #[test]
-fn no_span_if_unspanned() -> Result {
+fn error_no_span_if_unspanned() -> Result {
     let code = "
         error make -u {
             msg: foo

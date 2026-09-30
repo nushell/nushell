@@ -32,8 +32,13 @@ use nu_protocol::{PluginIdentity, PluginSignature, RegisteredPlugin};
 ///
 /// Default starting cwd for [`test()`].
 pub static WORKSPACE_ROOT: LazyLock<PathBuf> = LazyLock::new(|| {
-    path::absolute(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."))
-        .expect("could not absolutize root")
+    // Some OS implementations of `path::absolute` do not resolve ".."
+    // lexically, so the "../.." here would otherwise leak into every
+    // path derived from `WORKSPACE_ROOT`.
+    nu_path::dots::expand_dots(
+        path::absolute(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."))
+            .expect("could not absolutize root"),
+    )
 });
 
 /// Test fixtures.
@@ -57,6 +62,8 @@ static INITIAL_ENGINE_STATES: KeyedLazyLock<GroupKey, EngineState> = KeyedLazyLo
     #[cfg(feature = "os")]
     let engine_state = nu_cli::add_cli_context(engine_state);
     // let engine_state = nu_explore::add_explore_context(engine_state);
+    #[cfg(feature = "os")]
+    let engine_state = nu_tui::add_tui_context(engine_state);
 
     // Make `engine_state` mutable without fiddling with features
     let mut engine_state = engine_state;

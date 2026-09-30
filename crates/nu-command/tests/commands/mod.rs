@@ -10,6 +10,7 @@ mod cal;
 mod cd;
 mod chunk_by;
 mod chunks;
+mod columns;
 mod compact;
 mod complete;
 mod config_env_default;
@@ -121,6 +122,7 @@ mod terminal;
 mod to_text;
 mod transpose;
 mod try_;
+#[cfg(feature = "os")]
 mod ucp;
 #[cfg(unix)]
 mod ulimit;

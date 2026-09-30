@@ -86,7 +86,7 @@
     list       := "[" ws* (value (sep value)* sep?)? ws* "]"
     record     := "{" ws* (pair (sep pair)* sep?)? ws* "}"
     pair       := key ws* ":" ws* value
-    table      := "[" ws* list ws* ";" ws* (list (sep list)* sep?)? ws* "]"
+    table      := "[" ws* list ws* ";" ws* list (sep list)* sep? ws* "]"
     binary     := "0x[" (hex | sep)* "]" | "0b[" (bit | sep)* "]"
     cell_path  := "$" ("." member)*
     member     := (bare | '"' esc* '"' | "'" any* "'" | int) "?"?
@@ -232,10 +232,12 @@
             "[r'a']" | from nuon | to json -r                                    # => ["r'a'"]
             ```
 
-- escapes valid inside `"..."`, twenty-one single-character forms plus two with arguments:
+- escapes valid inside `"..."`, twenty-two single-character forms plus two with arguments:
     - `\"` `\'` `\\` `\/` - the literal character
     - `\(` `\)` `\{` `\}` `\$` `\^` `\#` `\|` `\~` - also the literal character. these exist
        because nushell gives those bytes meaning elsewhere, and escaping them is harmless here.
+    - `\ ` (backslash, space) - a literal space. exists so a path that a terminal escaped for
+       drag-and-drop can be pasted between double quotes unchanged.
     - `\n` `\t` `\r` `\b` `\f` `\a` `\e` - control characters. `\a` is U+0007, `\e` is U+001B.
     - `\0` - U+0000
     - `\xHH` - a **byte**, not a character. the bytes an escape run produces must together form

@@ -281,6 +281,10 @@ impl BlockBuilder {
                 ..
             } => allocate(&[*cell_path, *new_value], &[]),
             Instruction::Jump { index: _ } => Ok(()),
+            Instruction::UnwindJump {
+                index: _,
+                handlers: _,
+            } => Ok(()),
             Instruction::BranchIf { cond, index: _ } => allocate(&[*cond], &[]),
             Instruction::BranchIfEmpty { src, index: _ } => allocate(&[*src], &[*src]),
             Instruction::Match {
@@ -295,11 +299,11 @@ impl BlockBuilder {
                 end_index: _,
             } => allocate(&[*stream], &[*dst, *stream]),
             Instruction::OnError { index: _ } => Ok(()),
-            Instruction::Finally { index: _ } => Ok(()),
             Instruction::OnErrorInto { index: _, dst } => allocate(&[], &[*dst]),
             Instruction::FinallyInto { index: _, dst } => allocate(&[], &[*dst]),
             Instruction::PopErrorHandler => Ok(()),
-            Instruction::PopFinallyRun => Ok(()),
+            Instruction::BeginFinally => Ok(()),
+            Instruction::EndFinally => Ok(()),
             Instruction::ReturnEarly { src } => allocate(&[*src], &[]),
             Instruction::Return { src } => allocate(&[*src], &[]),
         };
@@ -511,7 +515,7 @@ impl BlockBuilder {
                 msg: "`break` called from outside of a loop".into(),
                 span: Some(span),
             })?;
-        self.jump(loop_.break_label, span)
+        self.jump_out_of_loop(loop_.break_label, span)
     }
 
     /// Add a loop continuing jump instruction.
@@ -523,7 +527,23 @@ impl BlockBuilder {
                 msg: "`continue` called from outside of a loop".into(),
                 span: Some(span),
             })?;
-        self.jump(loop_.continue_label, span)
+        self.jump_out_of_loop(loop_.continue_label, span)
+    }
+
+    /// Jump to a label of the innermost loop. If the jump leaves any `try` expressions, it has
+    /// to unwind their handlers on the way, so that `finally` blocks run and no stale handler
+    /// is left behind for the rest of the loop or block.
+    fn jump_out_of_loop(&mut self, label_id: LabelId, span: Span) -> Result<(), CompileError> {
+        match self.context_stack.handlers_to_unwind_for_loop() {
+            0 => self.jump(label_id, span),
+            handlers => self.push(
+                Instruction::UnwindJump {
+                    index: label_id.0,
+                    handlers,
+                }
+                .into_spanned(span),
+            ),
+        }
     }
 
     /// Pop the loop state. Checks that the loop being ended is the same one that was expected.
@@ -603,13 +623,16 @@ impl BlockBuilder {
         })
     }
 
-    pub(crate) fn begin_try(&mut self) {
-        self.context_stack.push_try();
+    /// Enter a region of a `try` expression (its body, `catch` block, or `finally` block) that
+    /// keeps `handlers` entries on the runtime handler stack while it runs. Must be paired with
+    /// [`end_try()`](Self::end_try).
+    pub(crate) fn begin_try(&mut self, handlers: usize) {
+        self.context_stack.push_try(handlers);
     }
 
     pub(crate) fn end_try(&mut self) -> Result<(), CompileError> {
         match self.context_stack.pop() {
-            Some(ContextBlock::Try) => Ok(()),
+            Some(ContextBlock::Try { .. }) => Ok(()),
             _ => Err(CompileError::NotInATry {
                 msg: "end_try() called outside of a try block".into(),
                 span: None,
@@ -629,7 +652,11 @@ pub(crate) struct Loop {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ContextBlock {
     Loop(Loop),
-    Try,
+    /// A region of a `try` expression, with the number of entries it keeps on the runtime
+    /// handler stack while the region runs.
+    Try {
+        handlers: usize,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -644,8 +671,8 @@ impl ContextStack {
         self.0.push(ContextBlock::Loop(r#loop));
     }
 
-    pub fn push_try(&mut self) {
-        self.0.push(ContextBlock::Try);
+    pub fn push_try(&mut self, handlers: usize) {
+        self.0.push(ContextBlock::Try { handlers });
     }
 
     pub fn pop(&mut self) -> Option<ContextBlock> {
@@ -659,12 +686,17 @@ impl ContextStack {
         })
     }
 
-    pub fn try_block_depth_from_loop(&self) -> usize {
+    /// The number of runtime handler stack entries that a jump to the innermost loop's labels
+    /// has to unwind through, i.e. the handlers of every `try` region between here and the loop.
+    pub fn handlers_to_unwind_for_loop(&self) -> usize {
         self.0
             .iter()
             .rev()
-            .take_while(|&cb| matches!(cb, ContextBlock::Try))
-            .count()
+            .map_while(|cb| match cb {
+                ContextBlock::Try { handlers } => Some(*handlers),
+                ContextBlock::Loop(_) => None,
+            })
+            .sum()
     }
 
     pub fn is_in_loop(&self) -> bool {

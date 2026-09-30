@@ -98,18 +98,19 @@ impl Command for StrIndexOf {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let substring: Spanned<String> = call.req_const(working_set, 0)?;
-        let cell_paths: Vec<CellPath> = call.rest_const(working_set, 1)?;
+        let substring: Spanned<String> = call.req_const(working_set, stack, 0)?;
+        let cell_paths: Vec<CellPath> = call.rest_const(working_set, stack, 1)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
         let args = Arguments {
             substring: substring.item,
-            range: call.get_flag_const(working_set, "range")?,
-            end: call.has_flag_const(working_set, "end")?,
+            range: call.get_flag_const(working_set, stack, "range")?,
+            end: call.has_flag_const(working_set, stack, "end")?,
             cell_paths,
-            graphemes: grapheme_flags_const(working_set, call)?,
+            graphemes: grapheme_flags_const(working_set, stack, call)?,
         };
         operate(
             action,

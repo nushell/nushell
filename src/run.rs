@@ -14,7 +14,6 @@ use nu_protocol::{
 };
 use nu_utils::perf;
 use nu_utils::time::Instant;
-use std::sync::Arc;
 
 pub(crate) fn run_commands(
     engine_state: &mut EngineState,
@@ -96,7 +95,7 @@ pub(crate) fn run_commands(
         perf!("read login.nu", start_time, use_color);
     }
 
-    // Before running commands, set up the startup time
+    // Startup ends when the commands start running.
     engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
 
     // Regenerate the $nu constant to contain the startup time and any other potential updates
@@ -129,13 +128,18 @@ pub(crate) fn run_commands(
 pub(crate) fn run_file(
     engine_state: &mut EngineState,
     mut stack: Stack,
-    parsed_nu_cli_args: command::NushellCliArgs,
+    parsed_cli: command::ParsedCli,
     use_color: bool,
-    script_name: String,
-    args_to_script: Vec<String>,
     input: PipelineData,
+    entire_start_time: nu_utils::time::Instant,
 ) {
     trace!("run_file");
+
+    let command::ParsedCli {
+        nu: parsed_nu_cli_args,
+        script_name,
+        args_to_script,
+    } = parsed_cli;
 
     // if the --no-config-file(-n) option is NOT passed, load the plugin file,
     // load the default env file or custom (depending on whether env was overridden),
@@ -182,6 +186,9 @@ pub(crate) fn run_file(
         perf!("read config.nu", start_time, use_color);
     }
 
+    // Startup ends when the script starts running.
+    engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
+
     // Regenerate the $nu constant to contain the startup time and any other potential updates
     engine_state.generate_nu_constant();
 
@@ -190,7 +197,9 @@ pub(crate) fn run_file(
         && let Ok(s) = t_mode.coerce_str()
         && let Ok(mode) = s.parse()
     {
-        Arc::make_mut(&mut engine_state.config).table.mode = mode;
+        let mut config = engine_state.get_config().as_ref().clone();
+        config.table.mode = mode;
+        engine_state.set_config(config);
     }
 
     let start_time = Instant::now();
@@ -241,7 +250,9 @@ pub(crate) fn run_repl(
         && let Ok(s) = t_mode.coerce_str()
         && let Ok(mode) = s.parse()
     {
-        Arc::make_mut(&mut engine_state.config).table.mode = mode;
+        let mut config = engine_state.get_config().as_ref().clone();
+        config.table.mode = mode;
+        engine_state.set_config(config);
     }
 
     let start_time = Instant::now();

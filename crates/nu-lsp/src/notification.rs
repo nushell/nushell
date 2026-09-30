@@ -192,7 +192,7 @@ hello",
             serde_json::json!({
                 "contents": {
                     "kind": "markdown",
-                    "value": "Renders some updated greeting message\n---\n### Usage \n```nu\n  hello {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n"
+                    "value": "Renders some updated greeting message\n\n---\n### Usage \n```nu\n  hello {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n"
                 }
             })
         );

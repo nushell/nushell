@@ -367,6 +367,7 @@ pub(crate) fn parse_regular_external_arg(
         [b'$', ..] => crate::parser::parse_dollar_expr(working_set, span, &SyntaxShape::Any, None),
         [b'(', ..] => crate::parser::parse_paren_expr(working_set, span, &SyntaxShape::Any),
         [b'[', ..] => crate::parser::parse_list_expression(working_set, span, &SyntaxShape::Any),
+        [b'{', ..] => crate::parser::parse_brace_expr(working_set, span, &SyntaxShape::Any, None),
         _ => parse_external_string(working_set, span),
     }
 }
@@ -959,7 +960,7 @@ pub fn parse_internal_call(
     let _ = working_set.add_span(call.head);
 
     let decl = working_set.get_decl(decl_id);
-    let signature = working_set.get_signature(decl);
+    let signature = working_set.get_signature_shared(decl_id);
 
     enum SpecialCmd {
         Let,
@@ -1898,33 +1899,39 @@ pub fn find_longest_decl_with_prefix(
     Vec<u8>,
     Option<nu_protocol::Id<nu_protocol::marker::Decl>>,
 ) {
-    let mut pos = 0;
-    let cmd_start = pos;
-    let mut name_spans = vec![];
+    let cmd_start = 0;
 
-    for word_span in spans[cmd_start..].iter() {
-        // Find the longest group of words that could form a command
-
-        name_spans.push(*word_span);
-
-        pos += 1;
+    // Find the longest group of words that could form a command. The candidate with all the
+    // words is built once; shorter candidates are its prefixes, so they are obtained by
+    // truncating at the recorded word boundaries instead of rebuilding the name each time.
+    let name_len = prefix.len()
+        + spans
+            .iter()
+            .map(|span| span.end.saturating_sub(span.start) + 1)
+            .sum::<usize>();
+    let mut name = Vec::with_capacity(name_len);
+    name.extend(prefix);
+    let mut word_ends = Vec::with_capacity(spans.len());
+    for word_span in spans {
+        let name_part = working_set.get_span_contents(*word_span);
+        if !name.is_empty() {
+            name.push(b' ');
+        }
+        name.extend(name_part);
+        word_ends.push(name.len());
     }
-
-    let mut name = command_name_from_spans(working_set, &name_spans, prefix);
+    let mut pos = spans.len();
 
     let mut maybe_decl_id = working_set.find_decl(&name);
 
     while maybe_decl_id.is_none() {
-        // Find the longest command match
-        if name_spans.len() <= 1 {
+        if pos <= 1 {
             // Keep the first word even if it does not match -- could be external command
             break;
         }
 
-        name_spans.pop();
         pos -= 1;
-
-        name = command_name_from_spans(working_set, &name_spans, prefix);
+        name.truncate(word_ends[pos - 1]);
         maybe_decl_id = working_set.find_decl(&name);
     }
 

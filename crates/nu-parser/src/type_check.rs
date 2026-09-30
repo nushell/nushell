@@ -716,7 +716,7 @@ pub fn check_pipeline_type(
             continue;
         }
 
-        let signature = working_set.get_decl(call.decl_id).signature();
+        let signature = working_set.get_decl_signature_shared(call.decl_id);
 
         let output_type = signature
             // NOTE[2]: unlike `parse_internal_call`, `Type::Nothing` is not added to input types.

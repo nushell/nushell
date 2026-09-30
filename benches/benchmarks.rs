@@ -23,7 +23,7 @@ use std::{
     rc::Rc,
     sync::{Arc, OnceLock, atomic::AtomicBool},
 };
-use tango_bench::{IntoBenchmarks, benchmark_fn, tango_benchmarks, tango_main};
+use tango_bench::{IntoBenchmarks, benchmark_fn, tango_benchmarks};
 use tempfile::{Builder as TempDirBuilder, TempDir};
 
 fn load_bench_commands() -> EngineState {
@@ -1188,6 +1188,9 @@ fn bench_type_widen_chain() -> impl IntoBenchmarks {
 // for publication in PR descriptions and performance tracking.
 
 const PARSER_REAL_WORLD_TOOLKIT_MOD: &str = include_str!("../toolkit/mod.nu");
+const PARSER_STD_HELP_MOD: &str = include_str!("../crates/nu-std/std/help/mod.nu");
+const PARSER_STD_LOG_MOD: &str = include_str!("../crates/nu-std/std/log/mod.nu");
+const PARSER_DOC_CONFIG: &str = include_str!("../crates/nu-config/default_files/doc_config.nu");
 
 /// Recursively discover all .nu files under a directory.
 fn collect_nu_files_recursive(root: &Path, files: &mut Vec<PathBuf>) {
@@ -1297,13 +1300,14 @@ fn bench_parser_lite(dataset: &str, source: String) -> impl IntoBenchmarks {
 
     [benchmark_fn(bench_name, move |b| {
         let input = input.clone();
+        // Build the engine state once; it is not part of the work being measured.
+        let engine_state = parser_engine_state();
         b.iter(move || {
             let (tokens, lex_error) = lex(&input, 0, &[], &[], false);
             assert!(
                 lex_error.is_none(),
                 "parser benchmark input must lex cleanly"
             );
-            let engine_state = parser_engine_state();
             let working_set = StateWorkingSet::new(&engine_state);
             black_box(lite_parse(&tokens, &working_set));
         })
@@ -1320,6 +1324,8 @@ fn bench_parser_parse_block(dataset: &str, source: String) -> impl IntoBenchmark
 
     [benchmark_fn(bench_name, move |b| {
         let input = input.clone();
+        // Build the engine state once; it is not part of the work being measured.
+        let engine_state = parser_engine_state();
         b.iter(move || {
             let (tokens, lex_error) = lex(&input, 0, &[], &[], false);
             assert!(
@@ -1327,7 +1333,6 @@ fn bench_parser_parse_block(dataset: &str, source: String) -> impl IntoBenchmark
                 "parser benchmark input must lex cleanly"
             );
             let span = Span::new(0, input.len());
-            let engine_state = parser_engine_state();
             let mut working_set = StateWorkingSet::new(&engine_state);
             black_box(parse_block(
                 &mut working_set,
@@ -1351,8 +1356,35 @@ fn bench_parser_full_parse(dataset: &str, source: String) -> impl IntoBenchmarks
 
     [benchmark_fn(bench_name, move |b| {
         let input = input.clone();
+        // Build the engine state once; it is not part of the work being measured.
+        let engine_state = parser_engine_state();
         b.iter(move || {
-            let engine_state = parser_engine_state();
+            let mut working_set = StateWorkingSet::new(&engine_state);
+            black_box(parse(
+                &mut working_set,
+                Some("parser_bench.nu"),
+                &input,
+                true,
+            ));
+        })
+    })]
+}
+
+/// Benchmark the full parse pipeline against the real command context (all shell commands
+/// registered, as in a running `nu`). With the bare `EngineState` used by the other parser
+/// benchmarks, keywords such as `let`/`def` cannot resolve their declarations, so every command
+/// parses as an external call, parse errors are reported, and IR compilation is skipped. This is
+/// the representative workload: internal call resolution, signature-driven argument parsing,
+/// closures, type checking, and compilation all run.
+/// Benchmark name format: parser_parse_ctx_<dataset>_<size>b_<chars>c
+fn bench_parser_full_parse_ctx(dataset: &str, source: String) -> impl IntoBenchmarks {
+    let bench_name = parser_bench_name("parse_ctx", dataset, &source);
+    let input = source.into_bytes();
+
+    [benchmark_fn(bench_name, move |b| {
+        let input = input.clone();
+        let engine_state = setup_engine();
+        b.iter(move || {
             let mut working_set = StateWorkingSet::new(&engine_state);
             black_box(parse(
                 &mut working_set,
@@ -1388,6 +1420,24 @@ fn parser_input_large() -> String {
 /// Provides realistic parsing workload covering procedural and module code.
 fn parser_input_real_world() -> String {
     PARSER_REAL_WORLD_TOOLKIT_MOD.to_string()
+}
+
+/// Real-world parser benchmark input: `std/help/mod.nu`, the largest stdlib module.
+/// Deeply nested closures, many internal calls, string interpolation, and attributes.
+fn parser_input_std_help() -> String {
+    PARSER_STD_HELP_MOD.to_string()
+}
+
+/// Real-world parser benchmark input: `std/log/mod.nu`, a mid-sized module with `def`s,
+/// records and `if`/`match` control flow.
+fn parser_input_std_log() -> String {
+    PARSER_STD_LOG_MOD.to_string()
+}
+
+/// Real-world parser benchmark input: the documented default config, which is dominated by
+/// comments and a large nested record literal.
+fn parser_input_doc_config() -> String {
+    PARSER_DOC_CONFIG.to_string()
 }
 
 // Table rendering benchmarks (nu-table)
@@ -1468,6 +1518,14 @@ tango_benchmarks!(
     bench_parser_full_parse("small", parser_input_small()),
     bench_parser_full_parse("medium", parser_input_medium()),
     bench_parser_full_parse("large", parser_input_large()),
+    // Full parse against the real command context (the representative workload)
+    bench_parser_full_parse_ctx("small", parser_input_small()),
+    bench_parser_full_parse_ctx("medium", parser_input_medium()),
+    bench_parser_full_parse_ctx("real_world", parser_input_real_world()),
+    bench_parser_full_parse_ctx("std_log", parser_input_std_log()),
+    bench_parser_full_parse_ctx("std_help", parser_input_std_help()),
+    bench_parser_full_parse_ctx("doc_config", parser_input_doc_config()),
+    bench_parser_full_parse_ctx("large", parser_input_large()),
     // Data types
     // Binary
     bench_binary_value_clone(2 * 1024 * 1024),
@@ -1653,5 +1711,3 @@ tango_benchmarks!(
     bench_table_render_wide(20),
     bench_table_render_wide(50)
 );
-
-tango_main!();

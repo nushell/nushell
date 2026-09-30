@@ -34,6 +34,17 @@ fn table_to_yml_text_and_from_yml_text_back_into_table() -> Result {
 }
 
 #[test]
+fn embedded_yaml_float_tokens_remain_strings() -> Result {
+    test()
+        .run(r#""key: a.infra" | from yaml | get key"#)
+        .expect_value_eq("a.infra")?;
+
+    test()
+        .run(r#""key: a.nanotube" | from yaml | get key"#)
+        .expect_value_eq("a.nanotube")
+}
+
+#[test]
 fn convert_dict_to_yaml_with_boolean_key() -> Result {
     let code = r#""true: BooleanKey " | from yaml --key-resolution verbatim"#;
 
@@ -192,7 +203,7 @@ fn convert_strings_are_quoted_when_required_for_plain_scalars(#[case] input: &st
 #[case::numeric_like("0", true)]
 #[case::colon("a:b", true)]
 #[case::space("a b", false)]
-#[case::hash_no_space("abc#def", true)] // not really required, our serializer just does that
+#[case::hash_no_space("abc#def", false)]
 #[case::colon_space("a: b", true)]
 #[case::hash_with_space("a #b", true)]
 fn convert_keys_are_quoted_only_when_required(#[case] input: &str, #[case] quoted: bool) -> Result {

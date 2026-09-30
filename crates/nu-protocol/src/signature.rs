@@ -462,30 +462,31 @@ impl Signature {
             return Some(Type::Any);
         }
         let input = input_type.unwrap_or(&Type::Any);
-        let matches: Vec<&(Type, Type)> = self
-            .input_output_types
-            .iter()
-            .filter(|(in_ty, _)| input.is_assignable_to(in_ty))
-            .collect();
-
-        if matches.is_empty() {
+        // Entries whose input type accepts `input` are the candidates; among those, the ones
+        // that are not merely a structured-type fallback for a custom value are preferred. Two
+        // passes without temporary collections: this runs for every call the parser
+        // type-checks.
+        let mut any_match = false;
+        let mut any_strict_match = false;
+        for (in_ty, _) in &self.input_output_types {
+            if input.is_assignable_to(in_ty) {
+                any_match = true;
+                if !is_custom_structured_fallback(input, in_ty) {
+                    any_strict_match = true;
+                    break;
+                }
+            }
+        }
+        if !any_match {
             return None;
         }
 
-        let without_custom_fallback: Vec<&(Type, Type)> = matches
+        self.input_output_types
             .iter()
-            .copied()
-            .filter(|(in_ty, _)| !is_custom_structured_fallback(input, in_ty))
-            .collect();
-
-        let selected = if without_custom_fallback.is_empty() {
-            matches
-        } else {
-            without_custom_fallback
-        };
-
-        selected
-            .into_iter()
+            .filter(|(in_ty, _)| {
+                input.is_assignable_to(in_ty)
+                    && (!any_strict_match || !is_custom_structured_fallback(input, in_ty))
+            })
             .map(|(_, out)| out.clone())
             .reduce(Type::union)
     }
