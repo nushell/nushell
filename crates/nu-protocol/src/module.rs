@@ -6,7 +6,7 @@ use crate::{
 use crate::parser_path::ParserPath;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
-use std::path::Path;
+use std::path::PathBuf;
 
 pub struct ResolvedImportPattern {
     pub decls: Vec<(Vec<u8>, DeclId)>,
@@ -50,11 +50,16 @@ pub struct Module {
 }
 
 impl Module {
-    /// The file on disk the module was parsed from; `None` for std library modules and modules
-    /// defined inline.
-    pub fn real_file(&self) -> Option<&Path> {
+    /// The file on disk the module was parsed from, with platform-native separators; `None` for
+    /// std library modules and modules defined inline.
+    ///
+    /// The parser records a directory module's `mod.nu` with forward slashes, which would leak
+    /// into `$env.FILE_PWD` and `$env.CURRENT_FILE` on Windows.
+    pub fn real_file(&self) -> Option<PathBuf> {
         match &self.file {
-            Some((ParserPath::RealPath(path), _)) => Some(path),
+            Some((path @ ParserPath::RealPath(_), _)) => {
+                Some(path.clone().normalize_slashes_native().path_buf())
+            }
             _ => None,
         }
     }
