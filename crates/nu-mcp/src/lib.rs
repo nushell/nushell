@@ -15,6 +15,7 @@ use rmcp::{
     },
 };
 use server::NushellMcpServer;
+use std::net::Ipv6Addr;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::runtime::Runtime;
@@ -115,7 +116,13 @@ pub fn initialize_mcp_server(
                 allowed_hosts,
                 allowed_origins,
             } => {
-                let addr = format!("{bind_host}:{bind_port}");
+                // Bare IPv6 literals (e.g. `::1`) must be bracketed to form a valid
+                // socket address; hostnames, IPv4, and already-bracketed hosts are used as-is.
+                let addr = if bind_host.parse::<Ipv6Addr>().is_ok() {
+                    format!("[{bind_host}]:{bind_port}")
+                } else {
+                    format!("{bind_host}:{bind_port}")
+                };
                 run_http_server(engine_state, &addr, allowed_hosts, allowed_origins).await
             }
         };
