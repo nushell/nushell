@@ -1,0 +1,1 @@
+///! Logic to render a man page as a string for parsing.

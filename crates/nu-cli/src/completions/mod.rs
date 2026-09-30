@@ -16,6 +16,7 @@ mod flag_completions;
 mod operator_completions;
 mod static_completions;
 mod variable_completions;
+mod man;
 
 pub use arg_value_completion::ArgValueCompletion;
 pub use attribute_completions::{AttributableCompletion, AttributeCompletion};

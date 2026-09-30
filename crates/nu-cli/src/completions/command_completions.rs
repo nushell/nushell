@@ -207,6 +207,7 @@ impl CommandCompletion {
         internal_suggestions: &mut Vec<SemanticSuggestion>,
         internal_names: &HashSet<String>,
     ) -> Vec<SemanticSuggestion> {
+        // TODO: fetch man-extracted descriptions in here probably?
         let working_set = context.working_set;
         let maximum_results = working_set
             .permanent_state
