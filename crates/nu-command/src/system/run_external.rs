@@ -107,8 +107,13 @@ If you create a custom command with this name, that will be used instead."
         // File extensions of .COM, .EXE, .BAT, and .CMD are ignored because Windows
         // can run those files directly. PS1 files are also ignored and that
         // extension is handled in a separate block below.
+        let executable_path = if cfg!(windows) {
+            which(&expanded_name, &paths, cwd.as_ref())
+        } else {
+            None
+        };
         let pathext_script_in_windows = if cfg!(windows) {
-            if let Some(executable) = which(&expanded_name, &paths, cwd.as_ref()) {
+            if let Some(ref executable) = executable_path  {
                 let ext = executable
                     .extension()
                     .unwrap_or_default()
@@ -127,7 +132,7 @@ If you create a custom command with this name, that will be used instead."
 
         // let's make sure it's a .ps1 script, but only on Windows
         let (potential_powershell_script, path_to_ps1_executable) = if cfg!(windows) {
-            if let Some(executable) = which(&expanded_name, &paths, cwd.as_ref()) {
+            if let Some(executable) = executable_path.clone() {
                 let ext = executable
                     .extension()
                     .unwrap_or_default()
@@ -156,7 +161,7 @@ If you create a custom command with this name, that will be used instead."
         } else {
             // Determine the PATH to be used and then use `which` to find it - though this has no
             // effect if it's an absolute path already
-            let Some(executable) = which(&expanded_name, &paths, cwd.as_ref()) else {
+            let Some(executable) = executable_path.clone() else {
                 return Err(command_not_found(
                     &name_str,
                     call.head,
