@@ -46,6 +46,10 @@ pub struct StateWorkingSet<'a> {
     /// on, built by nu-parser's lexer the first time it lexes part of each file. A parse rarely
     /// touches more than a few files, so this is a short list.
     pub bracket_tables: Vec<BracketTable>,
+    /// The span of the body of the `def` being parsed. `parse_def` compiles the body itself once it
+    /// has closed the body's scope, so the closure parser leaves the closure with this span
+    /// uncompiled instead of compiling it a first time.
+    pub def_body_span: Option<Span>,
 }
 
 impl<'a> StateWorkingSet<'a> {
@@ -68,6 +72,7 @@ impl<'a> StateWorkingSet<'a> {
             compile_errors: vec![],
             lex_once: true,
             bracket_tables: vec![],
+            def_body_span: None,
         }
     }
 

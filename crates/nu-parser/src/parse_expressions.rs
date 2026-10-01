@@ -849,7 +849,10 @@ pub fn parse_closure_expression(
     //
     // If the compiler used a mechanism similar to the `EngineState`/`StateWorkingSet` divide, we
     // could defer all compilation and apply the generated delta to `StateWorkingSet` afterwards.
-    if working_set.parse_errors.is_empty() {
+    //
+    // The body of a `def` is the exception: `parse_def` compiles it once its scope is closed, so
+    // compiling it here too would only be thrown away.
+    if working_set.parse_errors.is_empty() && working_set.def_body_span != Some(span) {
         compile_block(working_set, &mut output);
     }
 

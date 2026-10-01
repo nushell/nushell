@@ -480,6 +480,9 @@ fn parse_def_inner(
     }
 
     let starting_error_count = working_set.parse_errors.len();
+    // The body is the last word; this compiles it below, after closing its scope.
+    let outer_def_body_span =
+        std::mem::replace(&mut working_set.def_body_span, rest_spans.last().copied());
     let ParsedInternalCall {
         call,
         output,
@@ -492,6 +495,7 @@ fn parse_def_inner(
         ArgumentParsingLevel::Full,
         None,
     );
+    working_set.def_body_span = outer_def_body_span;
 
     if working_set
         .parse_errors
