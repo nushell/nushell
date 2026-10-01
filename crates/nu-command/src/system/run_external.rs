@@ -121,7 +121,7 @@ If you create a custom command with this name, that will be used instead."
             None
         };
         let pathext_script_in_windows = if cfg!(windows) {
-            if let Some(ref executable) = executable_path  {
+            if let Some(ref executable) = executable_path {
                 let ext = executable
                     .extension()
                     .unwrap_or_default()
