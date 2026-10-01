@@ -534,7 +534,9 @@ pub fn parse_paren_expr(
 ) -> Expression {
     let starting_error_count = working_set.parse_errors.len();
 
-    if let Some(expr) = parse_range(working_set, span) {
+    if has_range_operator(working_set.get_span_contents(span))
+        && let Some(expr) = parse_range(working_set, span)
+    {
         return expr;
     }
 

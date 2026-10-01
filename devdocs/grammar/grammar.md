@@ -188,10 +188,10 @@ to the lexer (`lex.rs::lex`, `lex.rs::lex_signature`):
 | construct | additional whitespace | special tokens | comments | nu |
 | --- | --- | --- | --- | --- |
 | block, file | none | none | kept | parse_block |
-| subexpression `( )`, `(...)` cell-path head | `\n\r` | none | kept | parse_paren_expr, parse_full_cell_path |
-| list `[ ]` | `\n\r,` | none | kept | parse_list_expression |
-| record `{ }` key | `\n\r,` | `:` | kept | parse_record |
-| record `{ }` value | `\n\r,` | none | kept | parse_record |
+| subexpression `( )`, `(...)` cell-path head | `\n\r` | none | skipped | parse_paren_expr, parse_full_cell_path |
+| list `[ ]` | `\n\r,` | none | skipped | parse_list_expression |
+| record `{ }` key | `\n\r,` | `:` | skipped | parse_record |
+| record `{ }` value | `\n\r,` | none | skipped | parse_record |
 | brace probe (first two tokens of `{ }`) | `\r\n\t` | `:` | skipped | parse_brace_expr |
 | signature `[ ]` `( )` `\| \|` | `\n\r` | `:=,` in_signature | kept | parse_signature_helper |
 | input/output types | `\n\r,` | none, in_signature | skipped | parse_input_output_types |
@@ -573,10 +573,12 @@ Each rule describes the text of one item.
 ; nu: parse_expressions.rs::parse_value
 
 <int>             ::= <int-text>                 ; after deleting every "_"
-<int-text>        ::= "0b" 1*<digit-2> | "0o" 1*<digit-8> | "0x" 1*<digit-16>
+<int-text>        ::= "0b" [ "+" ] 1*<digit-2> | "0o" [ "+" ] 1*<digit-8>
+                    | "0x" [ "+" ] 1*<digit-16>
                     | [ "+" | "-" ] 1*<digit-10>
-; radix literals are parsed as u64 and reinterpreted (0xffffffffffffffff = -1); no
-; sign after a radix prefix; decimal must fit in i64 ("+7" is fine). "_" may appear
+; radix literals are parsed as u64 and reinterpreted (0xffffffffffffffff = -1); a
+; "+" after a radix prefix is accepted ("0x+ff" = 255, as u64::from_str_radix takes
+; it), a "-" is not; decimal must fit in i64 ("+7" is fine). "_" may appear
 ; anywhere ("_1", "1_", "0x_f"). A radix prefix followed by anything that is not all
 ; digits of that radix is the hard error "invalid digits for radix N".
 ; nu: parse_literals.rs::parse_int, parse_literals.rs::strip_underscores

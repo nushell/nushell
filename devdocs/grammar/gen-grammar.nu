@@ -20,19 +20,25 @@
 # becomes `’` and a "..." string containing \" becomes '...', so that the
 # comment lexes as balanced quotes.
 
-# The fences of grammar.md with the heading each one sits under.
+# The fences of grammar.md with the heading each one sits under. A `#` line
+# inside any other code block (a nushell example's comment) is not a heading.
 def fences [lines: list<string>]: nothing -> list<record<heading: string, lines: list<string>>> {
     mut out = []
     mut heading = ""
     mut in_fence = false
+    mut in_other_block = false
     mut current: list<string> = []
     for line in $lines {
-        if not $in_fence {
+        if $in_other_block {
+            if $line == "```" { $in_other_block = false }
+        } else if not $in_fence {
             if ($line | str starts-with "#") {
                 $heading = $line | str replace -r '^#+\s*' ''
             } else if $line == "```ebnf" {
                 $in_fence = true
                 $current = []
+            } else if ($line | str starts-with "```") {
+                $in_other_block = true
             }
         } else if $line == "```" {
             $out ++= [{heading: $heading, lines: $current}]
@@ -154,6 +160,11 @@ def tokenize [text: string]: nothing -> record<tokens: list<string>, prose: bool
         } else if $c == "<" {
             let rest = $chars | skip ($i + 1)
             let end = char-index $rest ">"
+            if $end < 0 {
+                # A `<` that no `>` closes is not a nonterminal: the rule is prose.
+                $prose = true
+                break
+            }
             let body = $rest | first $end | str join
             if ($body | str contains " ") {
                 $tokens ++= [$"? ($body) ?"]
@@ -451,7 +462,9 @@ def main [
     ]
     mut stale: list<string> = []
     for o in $outputs {
-        let current = if ($o.path | path exists) { open --raw $o.path } else { "" }
+        # Compare without carriage returns: a checkout with CRLF line endings (git's
+        # `core.autocrlf`) holds the same text.
+        let current = if ($o.path | path exists) { open --raw $o.path | str replace -a "\r" "" } else { "" }
         if $current != $o.text {
             $stale ++= [$o.path]
             if not $check {

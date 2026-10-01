@@ -40,7 +40,9 @@ pub(crate) fn lex_file(
     let is_new_file = working_set.lex_once
         && find_bracket_table(working_set, span).is_none()
         && BRACKET_TABLE_LEN.contains(&span.end.saturating_sub(span.start))
-        && working_set.files().any(|file| file.covered_span == span);
+        && working_set
+            .find_file_by_span(span)
+            .is_some_and(|file| file.covered_span == span);
     if !is_new_file {
         return lex_span(
             working_set,
@@ -51,23 +53,43 @@ pub(crate) fn lex_file(
         );
     }
 
-    let mut close = vec![0; span.len()].into_boxed_slice();
-    let lexed = lex_with(
+    let (lexed, table) = record_bracket_table(
         working_set.get_span_contents(span),
         span.start,
         additional_whitespace,
         special_tokens,
         skip_comment,
+    );
+    working_set.bracket_tables.push(table);
+    lexed
+}
+
+/// Lex `input`, the contents of a file whose covered span starts at `start`, as
+/// [`lex`](crate::lex::lex) does, and record where each of its groups closes.
+fn record_bracket_table(
+    input: &[u8],
+    start: usize,
+    additional_whitespace: &[u8],
+    special_tokens: &[u8],
+    skip_comment: bool,
+) -> ((Vec<Token>, Option<ParseError>), BracketTable) {
+    let mut close = vec![0; input.len()].into_boxed_slice();
+    let lexed = lex_with(
+        input,
+        start,
+        additional_whitespace,
+        special_tokens,
+        skip_comment,
         RecordBrackets {
-            start: span.start,
+            start,
             close: Cell::from_mut(&mut close[..]).as_slice_of_cells(),
         },
     );
-    working_set.bracket_tables.push(BracketTable {
-        covered_span: span,
+    let table = BracketTable {
+        covered_span: Span::new(start, start + input.len()),
         close,
-    });
-    lexed
+    };
+    (lexed, table)
 }
 
 /// Lex part of a file as [`lex`](crate::lex::lex) does, jumping over nested groups with the
@@ -144,7 +166,7 @@ pub(crate) fn find_bracket_table<'a>(
         .bracket_tables
         .iter()
         .rev()
-        .find(|table| table.covered_span.start <= span.start && span.end <= table.covered_span.end)
+        .find(|table| table.covered_span.contains_span(span))
 }
 
 #[cfg(test)]
@@ -275,25 +297,17 @@ mod tests {
         variants
     }
 
-    /// The bracket table [`lex_file`] records for `source` placed at `offset`.
+    /// The bracket table [`lex_file`] records for `source` placed at `offset`. Recording it lexes
+    /// `source` exactly as a plain lex does.
     fn record_table(source: &[u8], offset: usize) -> BracketTable {
-        let mut close = vec![0; source.len()].into_boxed_slice();
-        let cells = Cell::from_mut(&mut close[..]).as_slice_of_cells();
-        lex_with(
-            source,
-            offset,
-            b"",
-            b"",
-            false,
-            RecordBrackets {
-                start: offset,
-                close: cells,
-            },
+        let (lexed, table) = record_bracket_table(source, offset, b"", b"", false);
+        assert_eq!(
+            lexed,
+            lex(source, offset, b"", b"", false),
+            "recording the table of {:?}",
+            String::from_utf8_lossy(source),
         );
-        BracketTable {
-            covered_span: Span::new(offset, offset + source.len()),
-            close,
-        }
+        table
     }
 
     /// Lex `input` with `lex_n_tokens`, `max_tokens` at a time, as records and the brace peek do.

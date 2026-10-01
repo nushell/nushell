@@ -477,10 +477,12 @@ nothing = "null" ;
 (* nu: parse_expressions.rs::parse_value *)
 
 int = int_text ;  (* after deleting every "_" *)
-int_text = "0b", digit_2, { digit_2 } | "0o", digit_8, { digit_8 } | "0x", digit_16, { digit_16 }
+int_text = "0b", [ "+" ], digit_2, { digit_2 } | "0o", [ "+" ], digit_8, { digit_8 }
+           | "0x", [ "+" ], digit_16, { digit_16 }
            | [ "+" | "-" ], digit_10, { digit_10 } ;
-(* radix literals are parsed as u64 and reinterpreted (0xffffffffffffffff = -1); no
-   sign after a radix prefix; decimal must fit in i64 ("+7" is fine). "_" may appear
+(* radix literals are parsed as u64 and reinterpreted (0xffffffffffffffff = -1); a
+   "+" after a radix prefix is accepted ("0x+ff" = 255, as u64::from_str_radix takes
+   it), a "-" is not; decimal must fit in i64 ("+7" is fine). "_" may appear
    anywhere ("_1", "1_", "0x_f"). A radix prefix followed by anything that is not all
    digits of that radix is the hard error "invalid digits for radix N".
    nu: parse_literals.rs::parse_int, parse_literals.rs::strip_underscores *)

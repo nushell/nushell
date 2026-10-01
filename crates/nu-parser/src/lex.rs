@@ -279,7 +279,6 @@ fn lex_item<B: Brackets>(
     brackets: B,
 ) -> (Token, Option<ParseError>) {
     let token_start = *curr_offset;
-    let mut jumped = false;
     let (token, err) = lex_item_scan(
         input,
         curr_offset,
@@ -288,13 +287,13 @@ fn lex_item<B: Brackets>(
         special_tokens,
         in_signature,
         brackets,
-        &mut jumped,
     );
-    if B::JUMPS && jumped && err.is_some() {
+    if B::JUMPS && err.is_some() {
         // A jump leaves the bookkeeping that only chooses where an error is labeled (line
         // continuation and missing-closer hints) as it was before the skipped group. The group
         // itself cannot contain the error, so rescanning the token without jumping reports the
-        // error exactly as the plain scan does.
+        // error exactly as the plain scan does. (A token that jumped over nothing scans the same
+        // way again.)
         *curr_offset = token_start;
         return lex_item_scan(
             input,
@@ -304,14 +303,12 @@ fn lex_item<B: Brackets>(
             special_tokens,
             in_signature,
             Rescan,
-            &mut jumped,
         );
     }
     (token, err)
 }
 
-/// Scan one item (see [`lex_item`]), setting `jumped` if it jumped over a group using `brackets`.
-#[allow(clippy::too_many_arguments)]
+/// Scan one item (see [`lex_item`]), jumping over the groups whose closers `brackets` knows.
 fn lex_item_scan<B: Brackets>(
     input: &[u8],
     curr_offset: &mut usize,
@@ -320,7 +317,6 @@ fn lex_item_scan<B: Brackets>(
     special_tokens: &[u8],
     in_signature: bool,
     brackets: B,
-    jumped: &mut bool,
 ) -> (Token, Option<ParseError>) {
     // Tracks the opening quote character and its span while inside a string.
     let mut quote_start: Option<(u8, Span)> = None;
@@ -563,10 +559,10 @@ fn lex_item_scan<B: Brackets>(
             at_line_start = false;
         } else if c == b'#' && !in_comment {
             // To start a comment, It either need to be the first character of the token or prefixed with whitespace.
+            // Only ASCII whitespace counts: the bytes 0x85 and 0xA0 end UTF-8 characters such as
+            // `à`, and `[voilà#tag]` is not a comment.
             in_comment = previous_char
-                .map(char::from)
-                .map(char::is_whitespace)
-                .unwrap_or(true);
+                .is_none_or(|previous| previous.is_ascii() && char::from(previous).is_whitespace());
         } else if c == b'\n' || c == b'\r' {
             in_comment = false;
             if is_item_terminator(&block_level, c, additional_whitespace, special_tokens) {
@@ -610,7 +606,6 @@ fn lex_item_scan<B: Brackets>(
             previous_char = Some(input[close]);
             last_sig_char = previous_char;
             at_line_start = false;
-            *jumped = true;
             continue;
         } else if c == b'[' {
             let open_span = Span::new(span_offset + *curr_offset, span_offset + *curr_offset + 1);
@@ -640,14 +635,10 @@ fn lex_item_scan<B: Brackets>(
             at_line_start = false;
         } else if c == b']' {
             // Closing `]` — pop matching `[`, else real mismatch if another opener is open.
-            if let Some(OpenFrame {
-                kind: BlockKind::SquareBracket,
-                ..
-            }) = block_level.last()
+            if let Some(frame) =
+                block_level.pop_if(|frame| matches!(frame.kind, BlockKind::SquareBracket))
             {
-                if let Some(frame) = block_level.pop() {
-                    brackets.record(frame.open_span.start, span_offset + *curr_offset);
-                }
+                brackets.record(frame.open_span.start, span_offset + *curr_offset);
             } else if !block_level.is_empty() {
                 *curr_offset += 1;
                 let span = Span::new(span_offset + token_start, span_offset + *curr_offset);
@@ -687,14 +678,10 @@ fn lex_item_scan<B: Brackets>(
             at_line_start = false;
         } else if c == b'}' {
             // Closing `}` — pop matching `{`, else real mismatch against stack top.
-            if let Some(OpenFrame {
-                kind: BlockKind::CurlyBracket,
-                ..
-            }) = block_level.last()
+            if let Some(frame) =
+                block_level.pop_if(|frame| matches!(frame.kind, BlockKind::CurlyBracket))
             {
-                if let Some(frame) = block_level.pop() {
-                    brackets.record(frame.open_span.start, span_offset + *curr_offset);
-                }
+                brackets.record(frame.open_span.start, span_offset + *curr_offset);
             } else {
                 *curr_offset += 1;
                 let span = Span::new(span_offset + token_start, span_offset + *curr_offset);
@@ -719,14 +706,9 @@ fn lex_item_scan<B: Brackets>(
             at_line_start = false;
         } else if c == b')' {
             // Closing `)` — pop matching `(`, else real mismatch against stack top.
-            if let Some(OpenFrame {
-                kind: BlockKind::Paren,
-                ..
-            }) = block_level.last()
+            if let Some(frame) = block_level.pop_if(|frame| matches!(frame.kind, BlockKind::Paren))
             {
-                if let Some(frame) = block_level.pop() {
-                    brackets.record(frame.open_span.start, span_offset + *curr_offset);
-                }
+                brackets.record(frame.open_span.start, span_offset + *curr_offset);
             } else {
                 *curr_offset += 1;
                 let span = Span::new(span_offset + token_start, span_offset + *curr_offset);
@@ -1249,8 +1231,8 @@ fn lex_internal<B: Brackets>(
 
             if !is_complete && state.error.is_none() {
                 state.error = Some(ParseError::ExtraTokens(Span::new(
-                    curr_offset,
-                    curr_offset + 1,
+                    state.span_offset + curr_offset,
+                    state.span_offset + curr_offset + 1,
                 )));
             }
             let idx = curr_offset;

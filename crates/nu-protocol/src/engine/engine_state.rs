@@ -141,9 +141,10 @@ pub struct EngineState {
     /// engine state.
     pub prompt_state: Arc<PromptState>,
     pub table_decl_id: Option<DeclId>,
-    /// Signatures of [`Self::decls`], built on first use by the parser.
+    /// Signatures of [`Self::decls`], built on first use by the parser. Clones share it until one
+    /// of them appends declarations (see [`Self::merge_delta`]), so that cloning stays cheap.
     #[debug(skip)]
-    pub(super) signature_cache: SignatureCache,
+    pub(super) signature_cache: Arc<SignatureCache>,
     #[cfg(feature = "plugin")]
     pub plugin_path: Option<PathBuf>,
     #[cfg(feature = "plugin")]
@@ -281,7 +282,7 @@ impl EngineState {
             })),
             prompt_state: Arc::new(PromptState::new()),
             table_decl_id: None,
-            signature_cache: SignatureCache::default(),
+            signature_cache: Arc::default(),
             #[cfg(feature = "plugin")]
             plugin_path: None,
             #[cfg(feature = "plugin")]
@@ -367,6 +368,9 @@ impl EngineState {
 
         // Avoid potentially cloning the Arcs if we aren't adding anything
         if !delta.decls.is_empty() {
+            // Clones that share the signature cache must agree on every declaration it holds, so
+            // take a copy of it before adding declarations the other clones don't have.
+            Arc::make_mut(&mut self.signature_cache);
             Arc::make_mut(&mut self.decls).extend(delta.decls);
         }
         if !delta.blocks.is_empty() {

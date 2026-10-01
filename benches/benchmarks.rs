@@ -45,7 +45,7 @@ fn setup_shell_engine() -> EngineState {
     let engine_state = nu_cli::add_cli_context(engine_state);
     let engine_state = nu_explore::add_explore_context(engine_state);
     let mut engine_state = finish_engine_setup(nu_tui::add_tui_context(engine_state));
-    load_standard_library(&mut engine_state).unwrap();
+    load_standard_library(&mut engine_state).expect("the standard library loads");
     engine_state
 }
 
@@ -1461,7 +1461,7 @@ fn parse_as_file<'a>(
     working_set
         .files
         .push(path.to_path_buf(), Span::unknown())
-        .unwrap();
+        .expect("a single file cannot be a circular import");
     black_box(parse(&mut working_set, Some(fname), input, false));
     working_set.files.pop();
     working_set

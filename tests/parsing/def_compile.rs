@@ -21,19 +21,51 @@ fn def_body_gets_ir() -> Result {
     Ok(())
 }
 
-#[test]
-fn failing_def_body_reports_its_compile_error_once() -> Result {
+/// The compile errors of parsing `source`, which must parse without errors.
+fn compile_errors(source: &str) -> Vec<CompileError> {
     let engine_state = test().engine_state;
     let mut working_set = StateWorkingSet::new(&engine_state);
-    parse(&mut working_set, None, b"def foo [] { break }", false);
-    assert!(working_set.parse_errors.is_empty());
+    parse(&mut working_set, None, source.as_bytes(), false);
     assert!(
-        matches!(
-            working_set.compile_errors.as_slice(),
-            [CompileError::NotInALoop { .. }]
-        ),
-        "{:?}",
-        working_set.compile_errors
+        working_set.parse_errors.is_empty(),
+        "{source}: {:?}",
+        working_set.parse_errors
     );
+    working_set.compile_errors
+}
+
+#[test]
+fn failing_def_body_reports_its_compile_error_once() -> Result {
+    let errors = compile_errors("def foo [] { break }");
+    assert!(
+        matches!(errors.as_slice(), [CompileError::NotInALoop { .. }]),
+        "{errors:?}"
+    );
+    Ok(())
+}
+
+/// `try` discards the `NotInALoop` error of a `catch` or `finally` closure that uses `break` or
+/// `continue` itself (it runs inline, so inside the enclosing loop), but not the error of a `def`
+/// body or closure nested in it, which is compiled on its own.
+#[test]
+fn try_clause_keeps_the_errors_of_nested_bodies() -> Result {
+    for source in [
+        "try { } catch { def foo [] { break } }",
+        "try { } finally { def foo [] { continue } }",
+        "try { } catch {|e| do { break } }",
+    ] {
+        let errors = compile_errors(source);
+        assert!(
+            matches!(errors.as_slice(), [CompileError::NotInALoop { .. }]),
+            "{source}: {errors:?}"
+        );
+    }
+    for source in [
+        "loop { try { } catch {|e| break } }",
+        "loop { try { } finally { continue } }",
+    ] {
+        let errors = compile_errors(source);
+        assert!(errors.is_empty(), "{source}: {errors:?}");
+    }
     Ok(())
 }
