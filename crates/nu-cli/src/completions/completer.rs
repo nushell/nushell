@@ -724,6 +724,10 @@ fn site_completer(site: &CompletionSite, working_set: &StateWorkingSet) -> Optio
         SiteKind::Positional { sig_positional, .. } => signature
             .get_positional(*sig_positional)
             .and_then(|positional| positional.completion.clone()),
+        // Dispatch also runs the positional completer here for `def --wrapped`.
+        SiteKind::FlagName { sig_positional, .. } if signature.allows_unknown_args => signature
+            .get_positional(*sig_positional)
+            .and_then(|positional| positional.completion.clone()),
         _ => None,
     };
     if let Some(Completion::Command(decl_id)) = argument_completer {
@@ -780,8 +784,13 @@ pub(crate) fn closure_is_interactive(working_set: &StateWorkingSet, closure: &Cl
 pub(crate) enum SiteKind<'a> {
     /// A command head; `node` is the whole call (for `^`/`%` sigils).
     Command { node: Option<&'a Expression> },
-    /// A flag name being typed (`--`, `-x`).
-    FlagName(CallSite<'a>),
+    /// A flag name being typed (`--`, `-x`). `sig_positional` and `arg_slot` are the
+    /// positional the token binds to instead when the command is `def --wrapped`.
+    FlagName {
+        site: CallSite<'a>,
+        sig_positional: usize,
+        arg_slot: usize,
+    },
     /// The value of a flag; `flag` keeps long/short identity.
     FlagValue {
         site: CallSite<'a>,
@@ -839,9 +848,9 @@ impl<'a> SiteKind<'a> {
     fn element(&self) -> Option<&'a Expression> {
         match *self {
             Self::Command { node } => node,
-            Self::FlagName(site) | Self::FlagValue { site, .. } | Self::Positional { site, .. } => {
-                Some(site.element)
-            }
+            Self::FlagName { site, .. }
+            | Self::FlagValue { site, .. }
+            | Self::Positional { site, .. } => Some(site.element),
             Self::ExternalArg { call, .. } => Some(call),
             _ => None,
         }
@@ -850,9 +859,9 @@ impl<'a> SiteKind<'a> {
     /// The call this kind completes arguments for, if any.
     fn call_site(&self) -> Option<CallSite<'a>> {
         match *self {
-            Self::FlagName(site) | Self::FlagValue { site, .. } | Self::Positional { site, .. } => {
-                Some(site)
-            }
+            Self::FlagName { site, .. }
+            | Self::FlagValue { site, .. }
+            | Self::Positional { site, .. } => Some(site),
             _ => None,
         }
     }
@@ -1326,7 +1335,9 @@ impl<'engine> CompletionEngine<'engine> {
                 }
             }
 
-            SiteKind::FlagName(_) | SiteKind::FlagValue { .. } | SiteKind::Positional { .. } => {
+            SiteKind::FlagName { .. }
+            | SiteKind::FlagValue { .. }
+            | SiteKind::Positional { .. } => {
                 self.dispatch_call_completion_site(site, working_set, buffer, &completion_context)
             }
 
@@ -1433,7 +1444,7 @@ impl<'engine> CompletionEngine<'engine> {
     ) -> Fetched {
         // Only call-bound kinds carry a call; anything else is an error here.
         let call = match &site.kind {
-            SiteKind::FlagName(site)
+            SiteKind::FlagName { site, .. }
             | SiteKind::FlagValue { site, .. }
             | SiteKind::Positional { site, .. } => site.call,
             _ => return Fetched::default(),
@@ -1464,9 +1475,34 @@ impl<'engine> CompletionEngine<'engine> {
         };
 
         let mut results = match &site.kind {
-            SiteKind::FlagName(_) => {
-                self.complete_flag_names(call.decl_id, completion_context, &signature)
-            }
+            SiteKind::FlagName {
+                sig_positional,
+                arg_slot,
+                ..
+            } => match signature
+                .get_positional(*sig_positional)
+                .filter(|positional| {
+                    signature.allows_unknown_args && positional.completion.is_some()
+                }) {
+                // `def --wrapped` binds an unknown `--x` to a positional, so its declared
+                // completer answers next to the flags (#19097); it already falls back to
+                // the command-wide one. An undeclared one would only list files.
+                Some(positional) => {
+                    let mut flags = FlagCompletion {
+                        decl_id: call.decl_id,
+                    }
+                    .fetch(completion_context);
+                    flags.merge(argument_value(
+                        self,
+                        ArgType::Positional(*sig_positional),
+                        positional.completion.clone(),
+                        *arg_slot,
+                        Some(positional.shape.clone()),
+                    ));
+                    flags
+                }
+                None => self.complete_flag_names(call.decl_id, completion_context, &signature),
+            },
             SiteKind::FlagValue { flag, arg_slot, .. } => {
                 let resolved = find_flag(&signature, *flag);
                 argument_value(
@@ -1774,18 +1810,30 @@ impl<'engine> CompletionEngine<'engine> {
                 },
                 point,
             )
-        } else if token_is_flag {
-            CompletionSite::at(absolute_position, SiteKind::FlagName(site), trailing_token)
         } else {
-            CompletionSite::at(
-                absolute_position,
-                SiteKind::Positional {
-                    site,
-                    sig_positional: count_positionals(call, call.arguments.len()),
-                    arg_slot: call.arguments.len(),
-                },
-                point,
-            )
+            let sig_positional = count_positionals(call, call.arguments.len());
+            let arg_slot = call.arguments.len();
+            if token_is_flag {
+                CompletionSite::at(
+                    absolute_position,
+                    SiteKind::FlagName {
+                        site,
+                        sig_positional,
+                        arg_slot,
+                    },
+                    trailing_token,
+                )
+            } else {
+                CompletionSite::at(
+                    absolute_position,
+                    SiteKind::Positional {
+                        site,
+                        sig_positional,
+                        arg_slot,
+                    },
+                    point,
+                )
+            }
         }
     }
 
@@ -1862,7 +1910,12 @@ impl<'engine> CompletionEngine<'engine> {
         absolute_position: usize,
         working_set: &StateWorkingSet,
     ) -> CompletionSite<'a> {
-        let flag_name = SiteKind::FlagName(site);
+        let sig_positional = count_positionals(site.call, argument_index);
+        let flag_name = SiteKind::FlagName {
+            site,
+            sig_positional,
+            arg_slot: argument_index,
+        };
 
         let (kind, span) = match argument {
             Argument::Named((name, short, optional_value)) => {
@@ -1890,7 +1943,7 @@ impl<'engine> CompletionEngine<'engine> {
                 } else {
                     SiteKind::Positional {
                         site,
-                        sig_positional: count_positionals(site.call, argument_index),
+                        sig_positional,
                         arg_slot: argument_index,
                     }
                 };
